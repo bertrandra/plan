@@ -664,3 +664,94 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 | Dossier | `export/dossierMairie.ts`, `export/piecesDP.ts`, `export/cerfa13703.ts` ; à créer : la relecture, les textes |
 | Assistant | `app/commandes.ts`, `app/exposition.ts`, `ui/champs/` ; à créer : le catalogue, l'usage `assistant` |
 | Conservation | `regles/facades/observations.ts::RunEnregistre`, `io/analysesAudits.ts`, `export/benchmarkAnalyses.ts`, `export/csvConsommation.ts`, `deploy/analyse.php`, `deploy/analyse-fonctions.php` |
+
+---
+
+## 12. Bilan des lots livrés
+
+### 12.1 L0 — Tout garder (livré le 29 octobre 2026)
+
+**Ce qui est livré.**
+
+- **Une trace pour toute requête.** Chaque batch et chaque appel immédiat écrit sa trace avant l'envoi (`entrant.json` : le
+  texte complet du system, chaque requête et ses blocs, les images par nom) et la complète au retour (`sortant.json` : le texte
+  brut de Claude, la sortie ramenée au schéma, l'erreur, les tokens, le coût, `refusFormat`, les versions du prompt et du schéma,
+  l'empreinte de chaque image et celle de la réponse ; `resume.json` : nature, état, organisation, parcelle, comptes, coût). Une
+  requête qui nomme un audit permis (`depot` de la même organisation, ou l'administrateur) se range dans le dossier de l'audit,
+  comme avant ; **toutes les autres** — l'analyse dont le dépôt a été retiré, « Rappeler Claude », l'aide du relevé, une escalade
+  d'un audit non sauvegardé — sous `claude/analyses/sans-depot/<organisation>/<AAAA-MM>/<trace>/`. La branche « part sans trace »
+  du batch est supprimée. Les escalades d'un audit (D20 des maisons et escalade d'une façade) portent désormais le `depot` de
+  l'analyse : elles se rangent à côté des passes. Natures : `analyse`, `rejeu` (batches), `immediat`, `rejeu-facade`.
+- **L'image exacte, une fois par empreinte.** Les octets reçus par le serveur (le JPEG compressé que Claude voit) sont gardés sous
+  `images/<sha256>.<ext>` du dossier de l'audit, ou du mois de l'organisation sans dépôt : trois passes et une escalade de la même
+  façade = un fichier. Le serveur rend à la page l'empreinte, la taille et le type de chaque image de chaque requête
+  (`empreintes`), et `RunEnregistre.image` devient `{ largeur, hauteur, sha256?, octets? }` ; `EscaladeEnregistree` gagne `sha256?`.
+  Une réponse enregistrée d'avant (dimensions seules) se relit telle quelle.
+- **Le journal** garde, par ligne, `empreintes` (les sha256 des images), `reponse` (le sha256 du texte brut) et `trace` ; toujours ni
+  photo ni réponse.
+- **Le rejeu d'un run de façade depuis son image gardée** : `POST admin/claude/rejouer` (`{ audit | null, trace, requete, passes }`,
+  administrateur seul) relit la requête dans `entrant.json`, ses textes tels quels et son image **octet pour octet**
+  (`contenuRejoue` ; une image manquante refuse, jamais une image refaite), et la renvoie en appel immédiat avec le prompt, le
+  schéma et le modèle d'aujourd'hui ; compté en `rejeu`, sa trace (`rejeu-facade`) se range à côté de la source. Dans Admin ›
+  Audits, une analyse ouverte offre « Rejouer cette façade depuis son image » sur la première passe de chaque run de façade.
+- **L'export « données d'analyse »** : `GET admin/claude/donnees-analyse?du=&au=&modele=&usage=` (administrateur seul) relit toutes
+  les traces de la période (audits et sans dépôt) — une ligne par réponse revenue : trace, nature, audit, parcelle, bâtiment,
+  façade, passe, usage compté et usage du prompt, modèle, versions, statut, tokens, coût, `refusFormat`, empreintes et octets des
+  images, empreinte de la réponse, comptes, sortie, texte brut — et chaque proposition des audits reçus dans la période : objet,
+  cible, effet, source, confiance, réserve, décision (validée, refusée, en attente), **décision du moteur** (les décisions de ses
+  arbitrages) et **accord de Claude** (`accord`, `desaccord`, `claude-seul`, `sans-claude`). Admin › Audits, « Exporter les données
+  d'analyse » : période, usage, modèle, puis JSON (tel quel, `plan-donnees-analyse`) ou CSV (`export/donneesAnalyse.ts`, au format
+  de `csvConsommation.ts`, une colonne par champ simple des sorties, à deux niveaux). Une image se demande une à une,
+  `GET admin/claude/images/<sha256>.<ext>[?audit=]`.
+- **La conclusion d'un audit** (`decisions.json`) passe en version 2 : cible, effet, réserve, `moteur`, `accordClaude` par
+  proposition ; une conclusion d'avant se refait depuis `audit.json` à l'export (et se réécrit).
+- **La garde** : un mois de traces sans dépôt s'efface 24 mois après (`moisPerimes`, `purgerSansDepot`, appelé à chaque nouvelle
+  trace sans dépôt) — la durée de consultation du journal. Les traces d'un audit suivent l'audit : retiré, tout part avec lui.
+
+**Critères d'acceptation.**
+
+| Critère | Preuve |
+|---|---|
+| Une façade rejouée depuis l'image gardée envoie les mêmes octets | `donneesAnalysePhp.test.ts` : le faux Anthropic reçoit le même base64, la nouvelle trace a la même image ; `contenuRejoue` testé seul |
+| Trois passes et une escalade = une image gardée | `donneesAnalysePhp.test.ts` (sans dépôt) et dans le dossier de l'audit |
+| L'export d'une période relit toutes les passes de tous les audits, CSV dans un tableur français | route (audit + sans dépôt + filtre d'usage) ; `donneesAnalyse.test.ts` (BOM, `;`, virgule décimale, formule neutralisée, largeur constante) ; fumée 109 |
+| Aucun secret ni photo hors demande dans l'export | aucune ligne ne contient d'image (route) ; images par empreinte, une à une, à l'administrateur ; `verifier-paquet` vert |
+| Toute requête a sa trace (sans dépôt, escalade, « Rappeler Claude ») | `donneesAnalysePhp.test.ts`, `scenarioDonnees.ts` (l'analyse orpheline a maintenant sa trace sans dépôt) |
+| Le fichier du projet ne change pas ; démo et empreintes golden immobiles | aucun champ du projet touché, schéma 7 inchangé ; `npm test` (empreintes) vert |
+
+**Interprétations.**
+
+1. **L'image n'entre ni dans le fichier du projet, ni dans le fichier de l'audit, ni dans le cas de calibration** : elle est gardée
+   par le serveur, à côté de l'audit (son dossier, même règle de partage et de retrait que ses photos) ou sous l'organisation, et
+   la réponse enregistrée la référence par son empreinte. Pourquoi : le fichier de l'audit ne porte pas les runs (ni
+   `analyse.resultats`) — y mettre l'image sans le run n'apporterait rien ; la capture vit dans le brouillon local, réécrit après
+   chaque geste, qu'une image par façade alourdirait ; et le serveur est le seul à voir les octets **reçus** (son empreinte est celle
+   de ce que Claude a vu, pas d'une image refaite par le navigateur). Le §4.8 disait « dans le fichier de l'audit, dans le cas de la
+   calibration » : c'est le seul écart, à confirmer par le propriétaire.
+2. **Le rejeu se fait par le serveur, depuis la trace** (texte et image gardés), plutôt que par la page depuis `RunEnregistre` : la
+   réponse enregistrée ne garde pas le texte envoyé, et la page n'aurait eu qu'à redemander les octets au serveur. Seul le run d'une
+   façade se rejoue ainsi (une maison passe par le rejeu en batch de 15.5).
+3. **Les cas de calibration** gardent la référence (sha256) dans leurs réponses enregistrées ; leur image est dans la trace sans
+   dépôt de l'organisation `admin`, donc effacée après 24 mois comme les autres. Si le propriétaire veut garder plus longtemps les
+   images de la calibration, il faudra les exempter (question 11).
+4. **La purge** ne touche que les traces sans dépôt ; le journal lui-même n'est pas purgé (il ne l'était pas : « gardé 24 mois »
+   voulait dire consultable 24 mois). Les traces d'un audit vivent autant que l'audit.
+5. **Les propositions** viennent des audits **reçus** dans la période (leur `recuLe`), pas de la date de leurs décisions ; l'export
+   ne relie pas une proposition aux passes qui l'ont nourrie (le fichier de l'audit ne le dit pas) : on les rapproche par audit,
+   bâtiment et façade. Les accords du moteur pour le run d'une façade (`AccordFacadeCapture`) ne sont pas dans le fichier de
+   l'audit et n'entrent donc pas dans l'export.
+6. **Pas d'archive des images** : elles se demandent une à une par empreinte (route admin). Une archive zip demanderait l'extension
+   `zip` de PHP, que l'hébergement n'a pas d'office.
+7. Le rejeu d'une façade, facturé, part **sans confirmation** (comme « Rappeler Claude » de la calibration, quelques millièmes de
+   dollar) ; le bouton dit en infobulle que c'est un appel facturé.
+
+**Volume (risque 12).** Une image de run est un JPEG de 1 024 px au plus, qualité 0,85 : de l'ordre de 100 à 250 Ko pour une
+façade (estimation, pas mesurée sur un corpus réel) ; une par façade et par audit, quel que soit le nombre de passes, d'escalades
+et de rejeux. L'export la mesure désormais (`octets`, colonne « Images (octets) »).
+
+**Supprimé.** La branche « sans trace » du batch (`analyse.php`, l'analyse dont le dépôt a été retiré) ; le `depot: null` forcé de
+l'escalade D20 (`escalade.ts`) ; l'écriture de la trace propre au batch (remplacée par `lieuTrace`, `resumeTrace`, `commencerTrace`,
+`finirTrace`, communes au batch et à l'appel immédiat). `grep "part sans trace\|ne garde pas de trace" src deploy` : vide.
+
+**Fumée.** Point **109** nouveau (l'export CSV et JSON, le rejeu d'une façade depuis son image) ; 57, 85, 86, 101, 103 rejoués
+(compact, moyen, large ; clair ; réseau témoin).

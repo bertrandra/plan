@@ -33,15 +33,22 @@ export interface ResultatResume {
   trouve: Trouve | null;
 }
 
+/**
+ * Ce qu'une trace garde : un batch (`analyse`, `rejeu`), ou, depuis le lot L0, un appel immediat (`immediat` : le run d'une facade,
+ * une escalade) et le rejeu du run d'une facade depuis son image gardee (`rejeu-facade`).
+ */
+export type NatureTrace = 'analyse' | 'rejeu' | 'immediat' | 'rejeu-facade';
+
 /** Le resume d'une analyse ou d'un rejeu (`resume.json`). */
 export interface ResumeAnalyse {
   id: string;
   audit: string;
-  nature: 'analyse' | 'rejeu';
+  nature: NatureTrace;
   etat: 'en_cours' | 'termine';
   creeLe: string;
   finLe: string | null;
-  idBatch: string;
+  /** Null pour un appel immediat (lot L0). */
+  idBatch: string | null;
   organisation: string | null;
   usage: string;
   modele: string;
@@ -87,7 +94,7 @@ export interface ResultatSortant extends ResultatResume {
   tarif: string | null;
 }
 
-export interface Sortant { idBatch: string; finLe: string; resultats: ResultatSortant[] }
+export interface Sortant { idBatch: string | null; finLe: string; resultats: ResultatSortant[] }
 
 export interface AnalyseComplete {
   audit: string;

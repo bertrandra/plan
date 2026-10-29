@@ -89,7 +89,9 @@ Sur l'hebergement, trois choses voisines :
    data/                        toutes les donnees du serveur, HORS de public_html/ :
      demo/                      les demos de l'admin et de la vitrine ?mode=demo (1.json...)
      admin/                     palette.json, controleurs.json, echecs.json
-     claude/                    journal-AAAA-MM.jsonl, tarifs.json, plafonds.json, modeles.json, batches/
+     claude/                    journal-AAAA-MM.jsonl, tarifs.json, plafonds.json, modeles.json, batches/,
+                                analyses/sans-depot/<organisation>/<AAAA-MM>/ (la trace des requetes
+                                qui ne nomment pas d'audit, et leurs images ; gardee 24 mois)
      audits/                    les audits recus, un dossier chacun, classes :
        parcelle/<IDU>/<id>/     audit.json (le fichier tel qu'il est arrive), fiche.json,
                                 decisions.json (propositions et ce qui en a ete fait),
@@ -165,17 +167,23 @@ Sur l'hebergement, trois choses voisines :
    f. Analyse par Claude (facultatif) : dans plan-admin-config.php, remplacer « A-CHANGER » de
       anthropicCle par la cle d'API Anthropic (console.anthropic.com, Settings > API keys). Elle
       ne quitte jamais le serveur. analyse.php range ses donnees dans data/claude/ :
-      journal-AAAA-MM.jsonl (une ligne par appel, tokens et cout, ni photo ni reponse),
-      tarifs.json (pose au premier usage depuis claude-tarifs.json), plafonds.json (1 $ par jour et
-      10 $ par mois tant qu'il n'existe pas), batches/ (les batches en cours). Sans cle,
+      journal-AAAA-MM.jsonl (une ligne par appel, tokens et cout, les empreintes de l'image et de
+      la reponse, ni photo ni reponse), tarifs.json (pose au premier usage depuis
+      claude-tarifs.json), plafonds.json (1 $ par jour et 10 $ par mois tant qu'il n'existe pas),
+      batches/ (les batches en cours), analyses/sans-depot/ (la trace de chaque requete qui ne
+      nomme pas d'audit : calibration, releve, analyse sans depot ; l'image envoyee et la reponse
+      brute ; chaque mois s'efface 24 mois apres, comme le journal se consulte). Tout est sous
+      data/, hors de public_html/ : aucune regle .htaccess de plus. Sans cle,
       admin/claude/... repond 503. Le tableau de bord (menu Admin > Consommation de Claude,
       ?admin&ecran=consommation) relit ce journal ; il y regle aussi les tarifs et les plafonds.
 
    g. Audits (parcelle et promenade ; sauvegardes pendant la capture, partages pour le corpus,
       deposes par l'administrateur) : analyse.php les range dans data/audits/, 48 Mo au plus par
       audit, et garde avec chaque audit, dans data/audits/<id>/, tout ce qui est parti chez Claude
-      et tout ce qu'il a rendu (analyses et rejeux) : rien n'est jete. Le menu Admin > Audits les
-      liste, les montre et les rejoue. Un audit se lit et se decode en memoire : dans la
+      et tout ce qu'il a rendu (analyses, rejeux, escalades, runs des facades) : rien n'est jete.
+      Le menu Admin > Audits les liste, les montre et les rejoue ; « Exporter les donnees
+      d'analyse » y rend, pour une periode, chaque requete de tous les audits et hors audit et
+      chaque proposition avec sa decision (JSON ou CSV ; les images par empreinte seulement). Un audit se lit et se decode en memoire : dans la
       configuration de PHP de l'hebergement (Site Tools > Devs > PHP Manager > PHP Variables, ou un
       fichier .user.ini dans public_html/), porter memory_limit a 256M et post_max_size a 64M
       (128M et 8M par defaut). Sans cela, un gros audit (dix facades de huit photos, environ 32 Mo)

@@ -49,6 +49,8 @@ function requetesRunFacade(prefixe: string, contenu: BlocAnalyse[], passes: 1 | 
  * dans le batch de l'audit (leurs seuls resultats).
  */
 export function runDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' | 'schema' | 'resultats'>, passes: 1 | 2 | 3, image: { largeur: number; hauteur: number }, le: Date): RunEnregistre | null {
+  // L'image que Claude a vue, par l'empreinte que le serveur en garde (lot L0) : les passes recoivent le meme contenu.
+  const vue = lu.resultats.find((r) => r.empreintes?.length)?.empreintes?.[0];
   const sorties = lu.resultats.filter((r) => r.statut === 'reussi' && lireObservationsFacade(r.sortie)).sort((a, b) => (a.passe ?? 0) - (b.passe ?? 0)).map((r) => r.sortie);
   if (!sorties.length) return null;
   const couts = lu.resultats.map((r) => r.cout);
@@ -56,7 +58,7 @@ export function runDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt'
   return {
     le: le.toISOString(), modele: lu.modele, prompt: lu.prompt, schema: lu.schema, passes, sorties,
     cout: couts.every((c) => typeof c === 'number') ? Math.round(couts.reduce((s: number, c) => s + (c as number), 0) * 1e6) / 1e6 : null,
-    tokens: { entree: t('entree') + t('ecritureCache') + t('lectureCache'), sortie: t('sortie') }, image: { largeur: image.largeur, hauteur: image.hauteur }, chaine: VERSION_CHAINE_FACADES,
+    tokens: { entree: t('entree') + t('ecritureCache') + t('lectureCache'), sortie: t('sortie') }, image: { largeur: image.largeur, hauteur: image.hauteur, ...(vue ? { sha256: vue.sha256, octets: vue.octets } : {}) }, chaine: VERSION_CHAINE_FACADES,
   };
 }
 
@@ -110,6 +112,7 @@ function escaladeDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' |
   return {
     le: le.toISOString(), modele: r.modele ?? lu.modele, prompt: r.prompt ?? lu.prompt, schema: r.schema ?? lu.schema, sortie: r.sortie, cout: typeof r.cout === 'number' ? r.cout : null,
     tokens: { entree: (t?.entree ?? 0) + (t?.ecritureCache ?? 0) + (t?.lectureCache ?? 0), sortie: t?.sortie ?? 0 },
+    ...(r.empreintes?.[0] ? { sha256: r.empreintes[0].sha256 } : {}),
   };
 }
 
@@ -148,11 +151,12 @@ export async function appelerEscaladeFacade(ctx: ContexteRun, d: Omit<DemandeRun
 }
 
 /** L'escalade, son contenu deja prepare (l'audit envoie celui de son batch : l'elevation de la facade, son texte). */
-export async function envoyerEscalade(client: ClientAnalyse, identite: { projet: string | null; idu: string | null; adresse: string | null }, origine: 'audit' | 'calibration', contenu: BlocAnalyse[], run: RunEnregistre, le: Date): Promise<{ run: RunEnregistre } | { erreur: string }> {
+export async function envoyerEscalade(client: ClientAnalyse, identite: { projet: string | null; idu: string | null; adresse: string | null; depot?: string | null }, origine: 'audit' | 'calibration', contenu: BlocAnalyse[], run: RunEnregistre, le: Date): Promise<{ run: RunEnregistre } | { erreur: string }> {
   if (run.escalade) return { run };
   const audit = (origine + '-esc-' + le.toISOString().replace(/[^0-9]/g, '').slice(0, 14)).slice(0, 64);
   try {
     const requete: RequeteAnalyse = { id: 'escalade-p1', passe: 1, usage: 'facade', facades: 0, contenu };
+    // Le `depot` de l'audit, quand il en a un : l'escalade se garde a cote des passes, la meme image une seule fois (lot L0).
     const lu = await client.immediat({ ...identite, audit, usage: 'escalade', requetes: [requete] });
     const escalade = escaladeDesResultats(lu, le);
     if (!escalade) {

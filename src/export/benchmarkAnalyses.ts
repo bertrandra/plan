@@ -9,12 +9,12 @@
 
 import { csv } from './csvConsommation.js';
 import { CLES_TROUVAILLES, NOMS_TROUVAILLES, nomModele, type CleTrouvaille } from '../model/consommation.js';
-import type { ResumeAnalyse, ResultatResume } from '../io/analysesAudits.js';
+import type { NatureTrace, ResumeAnalyse, ResultatResume } from '../io/analysesAudits.js';
 import { mediane } from '../util/stats.js';
 
 export interface LigneBenchmark {
   id: string;
-  nature: 'analyse' | 'rejeu';
+  nature: NatureTrace;
   etat: 'en_cours' | 'termine';
   creeLe: string;
   modele: string;
@@ -70,9 +70,12 @@ export function lignesBenchmark(rs: readonly ResumeAnalyse[]): LigneBenchmark[] 
   return rs.map(ligneBenchmark).sort((a, b) => a.creeLe.localeCompare(b.creeLe));
 }
 
+/** Le nom d'une nature de trace, pour l'ecran et le CSV. */
+export const NOMS_NATURES: Record<NatureTrace, string> = { analyse: 'Analyse', rejeu: 'Rejeu', immediat: 'Appel immédiat', 'rejeu-facade': 'Rejeu d’une façade' };
+
 export function csvBenchmark(ls: readonly LigneBenchmark[]): string {
   return csv(['Analyse', 'Nature', 'Envoyée le', 'Modèle', 'Identifiant du modèle', 'Prompt', 'Schéma', 'Effort', 'État', 'Requêtes', 'Réussies', 'Échecs', 'Réponses vides',
     'Images', 'Tokens en entrée', 'Tokens en sortie', 'Coût ($)', 'Durée (s)', ...CLES_TROUVAILLES.map((k) => NOMS_TROUVAILLES[k])],
-  ls.map((l) => [l.id, l.nature === 'rejeu' ? 'Rejeu' : 'Analyse', l.creeLe, nomModele(l.modele), l.modele, l.essai ? 'brouillon ' + l.prompt : l.prompt, l.schema, l.effort, l.etat === 'termine' ? 'Terminée' : 'En cours',
+  ls.map((l) => [l.id, NOMS_NATURES[l.nature] ?? l.nature, l.creeLe, nomModele(l.modele), l.modele, l.essai ? 'brouillon ' + l.prompt : l.prompt, l.schema, l.effort, l.etat === 'termine' ? 'Terminée' : 'En cours',
     l.requetes, l.reussies, l.echouees, l.vides, l.images, l.tokensEntree, l.tokensSortie, l.cout, l.dureeS, ...CLES_TROUVAILLES.map((k) => (l.comptes ? l.comptes[k] : null))]));
 }

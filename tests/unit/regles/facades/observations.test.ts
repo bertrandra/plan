@@ -65,6 +65,11 @@ describe('la reponse enregistree', () => {
     expect(lireRunEnregistre(JSON.parse(JSON.stringify({ ...r, escalade })))?.escalade).toEqual(escalade);
     expect(lireRunEnregistre({ ...r, escalade: { ...escalade, sortie: { forme: 1 } } })).toEqual(r);
     expect(lireRunEnregistre({ ...r, image: null })).toBeNull();
+    // L'empreinte et la taille des octets envoyes (lot L0) se relisent ; une empreinte mal formee est ignoree, jamais inventee.
+    const sha = 'f'.repeat(64);
+    const garde = { ...r, image: { ...r.image, sha256: sha, octets: 1234 }, escalade: { ...escalade, sha256: sha } };
+    expect(lireRunEnregistre(JSON.parse(JSON.stringify(garde)))).toEqual(garde);
+    expect(lireRunEnregistre({ ...r, image: { ...r.image, sha256: 'xyz', octets: -1 } })?.image).toEqual(r.image);
     expect(lireRunEnregistre({ ...r, cout: 'cher' })?.cout).toBeNull();
   });
 

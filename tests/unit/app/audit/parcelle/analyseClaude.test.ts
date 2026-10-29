@@ -209,7 +209,9 @@ describe('l analyse par Claude', () => {
       await t.tour();
       expect(immediat).toHaveBeenCalledTimes(1);
       const d = immediat.mock.calls[0]![0];
-      expect(d).toMatchObject({ usage: 'escalade', depot: null });
+      // L'escalade porte le depot de l'analyse (lot L0) : ici aucun, la capture n'est pas sauvegardee.
+      expect(d).toMatchObject({ usage: 'escalade' });
+      expect(d.depot ?? null).toBe(null);
       expect(d.requetes.map((r) => [r.id, r.facades])).toEqual([['b0-p1', 0]]);
       expect(Object.keys(t.capture.lire().analyse?.resultats?.escalade ?? {})).toEqual(['maison']);
       const p = t.validation.propositions().find((x) => x.id === 'maison:couverture');
