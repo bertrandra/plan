@@ -14,7 +14,7 @@ import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './bois/portees.js';
 import { objetsQuiPercent } from './ouvrages/liens.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
-import { estOuvrage, EQUIPEMENT } from '../model/ouvrages/index.js';
+import { equipementPorte } from '../model/jardin.js';
 
 /**
  * Ce qu'une etude de structure a besoin de connaitre d'une terrasse : son contour et ses parametres.
@@ -142,7 +142,8 @@ export function findSpaZones(margeCm: number | undefined, objets: ObjetPlan[]): 
   const marge = (margeCm||0)/100;
   const zones: ZoneEquipement[] = [];
   objets.forEach(o=>{
-    if(!estOuvrage(o, EQUIPEMENT)) return;
+    // Un regard, un eclairage ou un robinet (model/jardin.ts) ne charge pas la terrasse : seul l'equipement d'avant (un spa) compte.
+    if(!equipementPorte(o)) return;
     const fp = empriseEquipement(o);
     if(!fp) return;
     const poly = offsetZone(fp, marge);

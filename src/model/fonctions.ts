@@ -98,6 +98,12 @@ export function occupeLeSol(o: ObjetPlan): boolean {
  */
 export const estPoseSurLeTerrain = (o: { cadastre?: unknown; bdtopo?: unknown }): boolean => !!o.cadastre || !!o.bdtopo;
 
+/**
+ * Un ouvrage qui existe deja (lot L3 : une piscine, une terrasse, un chemin lus sur la photo aerienne, `existant`) : il situe le projet
+ * et se dessine, mais aucune quantite ne le compte (ni chiffrage, ni dossier, ni zone d'equipement sous une terrasse).
+ */
+export const estExistant = (o: { existant?: unknown }): boolean => o.existant === true;
+
 /** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
 export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);
 

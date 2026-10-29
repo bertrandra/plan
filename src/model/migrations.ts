@@ -90,6 +90,13 @@ export const MIGRATIONS: readonly Migration[] = [
     // releve d'avant garde aussi `calage.contourDecaleM`, que plus rien n'ecrit ni ne lit (l'ecart de largeur est dans
     // `dimensions.ecartPhoto`, ecrit a la validation) : il passe tel quel, sans etre converti.
     migrer: (d) => d
+  },
+  {
+    de: 7,
+    apporte: 'le jardin : les plates-bandes et les massifs plantés (leur végétation en 3D, leur mini-arbre) et les équipements du jardin (regard, éclairage, robinet)',
+    // Des champs facultatifs, qui n'existaient pas avant (lot L3) : un document 7 est un document 8 valide, relu a l'identique. Le 8
+    // les distingue, pour qu'un lecteur 7 refuse le fichier plutot que de les perdre a la premiere ecriture.
+    migrer: (d) => d
   }
 ];
 
@@ -103,6 +110,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   relief: 4,
   piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
   retoucheMain: 6, egoutChoisi: 6, soleil: 6,
+  massif: 8, equipement: 8, existant: 8,
 };
 
 /**

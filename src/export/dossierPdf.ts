@@ -133,7 +133,8 @@ function anglesPolygone(pts: PtBrut[], P: Projeteur, opts?: OptionsAngles): stri
 }
 export function equipementsSurTerrasse(objets: ObjetPlan[], terrasse: ObjetPlan): ObjetPlan[] {
   return objets.filter(o=>{
-    if(o === terrasse || o.hidden) return false;
+    // Un ouvrage deja la (lu sur la photo, lot L3) n'est pas un amenagement du projet : il ne se declare pas.
+    if(o === terrasse || o.hidden || o.existant === true) return false;
     if(FONCTIONS_HORS_EQUIPEMENT.indexOf(o.fonction as string) >= 0) return false;
     const c = o.type === 'circle' ? o.center : centroid(o.pts||[]);
     return pointInPolygon(c, sommetsDe(terrasse));

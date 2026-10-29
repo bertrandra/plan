@@ -13,7 +13,7 @@ import type { Deformation } from '../referencesContour.js';
 export type Forme = ObjetPlan['type'];
 
 /** Les sections propres a une fonction, au-dela de celles que tout objet porte. */
-export type Particularite = 'parasol' | 'pointDeVue' | 'arbre' | 'construction' | 'releve' | 'abri' | 'bassin' | 'ouverture';
+export type Particularite = 'parasol' | 'pointDeVue' | 'arbre' | 'construction' | 'releve' | 'abri' | 'bassin' | 'ouverture' | 'massif' | 'equipement';
 
 /**
  * La famille d'un ouvrage, et donc la nature de ses regles :

@@ -159,3 +159,29 @@ export interface VerifieSurPlace {
   /** Le jour de la validation, AAAA-MM-JJ. */
   date: string;
 }
+
+/** Ce qu'est un massif (lot L3, jardin) : un massif plante, ou une plate-bande au ras du sol. */
+export type NatureMassif = 'massif' | 'plate-bande';
+/** Ce qu'il porte : la vegetation basse dessinee en 3D en suit la forme et les couleurs. */
+export type ContenuMassif = 'fleurs' | 'arbustes' | 'vivaces' | 'mixte' | 'potager';
+
+/**
+ * Un massif ou une plate-bande du jardin (model/jardin.ts) ; absent, le massif reste le bloc d'avant (une haie importee de l'IGN,
+ * un ancien fichier) : rien n'y pousse en 3D.
+ */
+export interface ChampsMassif {
+  nature: NatureMassif;
+  contenu: ContenuMassif;
+  /** Seul son retrait s'ecrit : la vegetation basse se dessine par defaut. */
+  vegetation?: false;
+  /** Un arbre nain plante au centre : une essence de la bibliotheque (petits arbres), et sa hauteur. */
+  miniArbre?: { espece: string; hauteurM: number } | null;
+}
+
+/** Ce qu'est un equipement du jardin (lot L3) : il ne charge pas une terrasse, a la difference d'un spa. */
+export type NatureEquipement = 'regard' | 'eclairage' | 'robinet';
+
+/** Un equipement du jardin ; absent, l'equipement d'avant (un spa, un jacuzzi : la terrasse se renforce sous lui). */
+export interface ChampsEquipement {
+  nature: NatureEquipement;
+}

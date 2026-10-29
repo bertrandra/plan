@@ -107,6 +107,28 @@ describe('la migration 6 -> 7 : la Facade d un releve valide (lot F5)', () => {
   });
 });
 
+const temoin7 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-7.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+
+describe('la migration 7 -> 8 : le jardin (lot L3)', () => {
+  it('lit un document de schema 7 tel quel : un massif d avant et un spa restent ce qu ils etaient, au schema qui les decrit', () => {
+    const d = { objects: temoin7.objects as unknown as ObjetAPlat[], measures: temoin7.measures };
+    expect(migrer(structuredClone(d), 7)).toEqual(d);
+    const reecrit = relu(temoin7.objects, 7);
+    expect(reecrit[1]!.massif).toBeUndefined();
+    expect(reecrit[2]!.equipement).toBeUndefined();
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(1);
+    expect(relu(reecrit, 7)).toEqual(reecrit);
+  });
+
+  it('s ecrit au 8 des qu un objet porte un massif plante, un equipement du jardin ou la marque existant', () => {
+    for (const [champ, v] of [['massif', { nature: 'plate-bande', contenu: 'fleurs' }], ['equipement', { nature: 'regard' }], ['existant', true]] as const) {
+      expect(schemaMinimal([batiment({ [champ]: v } as Partial<ObjetAPlat>)]), champ).toBe(8);
+    }
+  });
+});
+
 describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
   const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
   const ign = (extra: Partial<ObjetAPlat> = {}, bdtopo: Record<string, unknown> = {}) =>
