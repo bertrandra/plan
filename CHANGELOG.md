@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F8 : les carreaux en 3D** (`MD/spec-facade-calage-audit.md` §3.3, §9). Une ouverture d'une façade validée dont
+  la façade objet porte ses **carreaux** (`details.carreaux`, lus par Claude ou dits au doigt) les montre dans la Vue 3D : le
+  **meneau** entre les vantaux, la **traverse de l'imposte** et sa grille sur toute la largeur, les **petits bois** de chaque
+  vantail (colonnes × rangées, fins ou épais), et la vitre selon le vitrage lu (clair, dépoli, teinté, vitrail) quand le mur n'a
+  pas de photo. Le dessin suit le vocabulaire enregistré et lui seul : ce qu'il ne dit pas ne se dessine pas. Une maille par
+  ouverture, deux triangles par barre, dans son groupe `ouverture:<id>` ; en Normale et en Soignée, l'écran les montre en relief
+  (hors export), le `.glb` garde les barres à plat à tous les niveaux. **Un fichier sans carreaux se dessine exactement comme
+  avant** : empreinte `glb-structure.json` inchangée (`three/carreaux3d.ts`, `three/releve3d.ts`).
+- Fumée : point 108 (une façade validée à carreaux, ceux de la fenêtre d'AE 101 sud : ses barres dans la Vue 3D, à plat en
+  Économe, en relief aux autres niveaux).
+
 - **Façades, lot F5 : la Façade et la façade objet** (`MD/spec-facade-calage-audit.md` §3.2 à §3.4, §4 É9, §9). Une façade
   **validée** garde ce que la photo a servi à vérifier : ses **dimensions** (le plan et le LiDAR, et leur source ; l'écart que la
   photo constate, dit en alerte au-delà de 10 %, jamais une correction), sa **forme** (le gabarit du toit calculé, le haut lu, les

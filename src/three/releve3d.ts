@@ -26,6 +26,7 @@ import { textureCouverture, matiereCouverture } from './couverture.js';
 import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
 import { garderLeJpeg } from './chargeurs.js';
 import { sansOmbres } from '../facade/vision/sansOmbres.js';
+import { poserCarreaux, vitreLue } from './carreaux3d.js';
 import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -41,6 +42,8 @@ export interface ContexteReleve3d {
   sansOmbres?: boolean;
   /** Le materiau de toiture des fichiers fonciers et la pente : ils choisissent la texture de la couverture. */
   couverture?: ContexteCouverture | undefined;
+  /** Les carreaux en relief a l'ecran (hors qualite Econome, de pres) ; sinon a plat, comme au .glb (three/carreaux3d.ts). */
+  relief?: boolean | undefined;
 }
 
 const COULEUR_MENUISERIE = 0xf1eee6;
@@ -196,17 +199,22 @@ function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, av
   piece(o.x - s, o.y, s, o.h); // montant gauche
   piece(o.x + o.l, o.y, s, o.h); // montant droit
   if (o.type === 'fenetre') piece(o.x - s, o.y - s, o.l + 2 * s, s); // appui
+  const carreaux = o.details?.carreaux;
   if (!avecPhoto) {
     const plein = o.type === 'porte' || o.type === 'garage';
     const sommets = [...pt(o.x, o.y, DECOLLEMENT * 2), ...pt(o.x + o.l, o.y, DECOLLEMENT * 2), ...pt(o.x + o.l, o.y + o.h, DECOLLEMENT * 2), ...pt(o.x, o.y + o.h, DECOLLEMENT * 2)];
+    // La vitre suit le vitrage lu (lot F8) ; sans carreaux, celle d'avant, aux memes valeurs.
+    const vitre = vitreLue(carreaux?.vitrage, { color: COULEUR_VITRE, roughness: 0.15, metalness: 0.3 });
     const m = maillage(
       sommets,
       [0, 1, 2, 0, 2, 3],
-      new THREE.MeshStandardMaterial({ color: plein ? COULEUR_PORTE : COULEUR_VITRE, roughness: plein ? 0.8 : 0.15, metalness: plein ? 0 : 0.3 }),
+      new THREE.MeshStandardMaterial(plein ? { color: COULEUR_PORTE, roughness: 0.8, metalness: 0 } : vitre),
     );
     poserEnCouche(m.material as THREE_NS.Material, COUCHES_SOL.surMur);
     ctx.scene.add(m);
   }
+  // Les carreaux que la facade validee porte (lot F8) : meneaux, imposte, petits bois, sur la photo comme sur la vitre.
+  if (carreaux) poserCarreaux(ctx.scene, pt, o, carreaux, COULEUR_MENUISERIE, !!ctx.relief);
 }
 
 /** Le retrait de la couverture d'un toit-terrasse : la bande du dessus des murs se lit comme un acrotere. */

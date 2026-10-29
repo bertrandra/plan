@@ -65,7 +65,7 @@ export interface DetailsOuverture {
   garage?: 'sectionnelle' | 'basculante' | 'battants' | 'enroulable';
   /** La couleur des volets ou du tablier, en hexadecimal ; absente : la couleur par defaut du dessin. */
   couleurVolets?: string;
-  /** La division du vitrage lue par Claude (decision 15) : enregistree maintenant, dessinee en 3D plus tard (lot F8). */
+  /** La division du vitrage lue par Claude (decision 15), dessinee dans la fenetre de la 3D (three/carreaux3d.ts, lot F8). */
   carreaux?: CarreauxOuverture;
 }
 
@@ -73,8 +73,8 @@ export interface DetailsOuverture {
 export interface GrilleCarreaux { colonnes: number; rangees: number }
 
 /**
- * La division du vitrage d'une ouverture (MD/spec-facade-calage-audit.md §3.3) : un vocabulaire ferme, sans effet sur ce que la 3D
- * dessine aujourd'hui. Un mot inconnu relu est retire (model/facadeObjet.ts), jamais une erreur.
+ * La division du vitrage d'une ouverture (MD/spec-facade-calage-audit.md §3.3) : un vocabulaire ferme, que la 3D dessine tel quel et
+ * sans rien y ajouter (three/carreaux3d.ts). Un mot inconnu relu est retire (model/facadeObjet.ts), jamais une erreur.
  */
 export interface CarreauxOuverture {
   vantaux?: 1 | 2 | 3;
