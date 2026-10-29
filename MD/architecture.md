@@ -603,7 +603,9 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 | Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `facade/releve/chaine.ts::redresserEtFusionner` | 3 |
 | Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
 | Several views: the assemblage places the wall, the fusion of the same photos composes its image (voting, occlusion by parallax, best view per pixel) | `facade/analyseMur.ts::fondreLesVues`, `facade/fusion.ts::analyserVues` | 3 |
-| Calibration screen computations (no React) | `facade/releve/casCalibration.ts`, `facade/calage/calageSilhouette.ts`, `three/vueFacade3d.ts` | 3 / 3 / 4 |
+| The façade's step-by-step chaining (É0 to É9): each step's state against its objective (`regles/facades/enchainement.json`), its outputs, replay from a step | `facade/releve/enchainement.ts::derouler`, contract `model/etapeFacade.ts` | 3 / 2 |
+| The images of each step (overlays computed, no React) | `facade/releve/imagesEtapes.ts`, `facade/calage/calageSilhouette.ts`, `three/vueFacade3d.ts` | 3 / 3 / 4 |
+| The progress bar of the façade chaining (one component, calibration now, audit from F3) | `zones/composants/BarreProgressionFacade.tsx` | 6 |
 
 Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and
 ends. And the photo's own opinion of the roof, which the audit weighs against the LiDAR, is the band above the eave
@@ -616,8 +618,9 @@ every body facing it, highest wins) and `facade/regles/toits/silhouetteDesCorps.
 carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts.
 
 The whole chain is pure and lives in layer 3: `facade/releve/` holds the series of photos (`serie.ts`, `analyseSerie.ts`,
-`masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration (`chaine.ts`), the calibration screen's
-computations (`casCalibration.ts`) and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
+`masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration of the photos (`chaine.ts`), the orchestrator of
+the façade's steps (`enchainement.ts`, MD/spec-facade-calage-audit.md §4 ter.4, lot F0; the calibration is its first consumer and its
+own chaining, `casCalibration.ts`, was deleted with it) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
 `ui/releve/profondeur.ts` and `zones/releve/capteurs.ts`). The survey screen (`zones/`), the audit (`app/`) and the calibration
 call it; none of them holds a step of it. The orchestration used to live in `zones/releve/`; it moved to
 `facade/releve/chaine.ts` on 24 October 2026 (PR #410, debt AD-9 paid).

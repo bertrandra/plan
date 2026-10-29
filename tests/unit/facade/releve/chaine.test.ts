@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { analyserSansRien, morceauRedresse, priseSansCapteurs, redresserEtFusionner } from '../../../../src/facade/releve/chaine.js';
 import { analyserSerie } from '../../../../src/facade/releve/analyseSerie.js';
 import { rechercher, type Morceau } from '../../../../src/facade/releve/serie.js';
-import { coinsDeSerie } from '../../../../src/facade/releve/casCalibration.js';
-import { FORMAT_CAS_REEL, preparerCas, type CasStocke } from '../../../../src/facade/corpusReel.js';
+import { derouler, entreesDuCas, preparerPourLaMesure } from '../../../../src/facade/releve/enchainement.js';
+import { FORMAT_CAS_REEL, type CasStocke } from '../../../../src/facade/corpusReel.js';
 import type { Facade } from '../../../../src/geometry/cotesVusDeDehors.js';
 import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
 import type { ObjetPolygone } from '../../../../src/model/types.js';
@@ -29,8 +29,9 @@ const morceauDe = (image: Image, coins: P2[], focalePx: number | null, doigt: bo
 describe('les coins d une photo, par la chaine de tous', () => {
   it('trouve les quatre angles du mur d une scene de face (calibration)', async () => {
     const { s, ph, vrais } = scene('02-');
-    const r = await coinsDeSerie(cas(s.verite.largeur, s.verite.hauteur, 'x', [], ph.focalePx), [ph.image], {});
-    const coins = r.cas.photos[0]?.coins ?? [];
+    const c = cas(s.verite.largeur, s.verite.hauteur, 'x', [], ph.focalePx);
+    const r = await derouler(entreesDuCas(c, [ph.image]), { coins: 'chercher', image: 'assemblage', chercherCoins: async (e) => rechercher(e) });
+    const coins = r.sorties.calage?.photos[0]?.coins ?? [];
     expect(coins).toHaveLength(4);
     const px = ph.image.largeur / 40;
     coins.forEach((c, k) => expect(Math.hypot(c.x - (vrais[k] as P2).x, c.y - (vrais[k] as P2).y)).toBeLessThan(px));
@@ -46,11 +47,11 @@ describe('les coins d une photo, par la chaine de tous', () => {
 });
 
 describe('le meme mur partout', () => {
-  it('le releve, l audit et la calibration redressent et cotent une photo calee de meme', () => {
+  it('le releve, l audit et la calibration redressent et cotent une photo calee de meme', async () => {
     const { s, ph, vrais } = scene('02-');
     const L = s.verite.largeur, H = s.verite.hauteur;
     const releve = analyserSerie([morceauDe(ph.image, vrais, ph.focalePx, true)], mur(L, H), H, bat(L));
-    const calibration = preparerCas(cas(L, H, 'x', vrais, ph.focalePx), [ph.image]);
+    const calibration = (await preparerPourLaMesure(cas(L, H, 'x', vrais, ph.focalePx), [ph.image])).prepare;
     expect(releve && calibration).toBeTruthy();
     expect(calibration?.pxParM).toBe(releve?.r.pxParM);
     // La calibration lit l'assemblage des photos redressees entieres (un reechantillonnage de plus) : les memes ouvertures, au cm pres.
@@ -61,10 +62,10 @@ describe('le meme mur partout', () => {
 });
 
 describe('la calibration lit l assemblage', () => {
-  it('redresse la facade complete d un pignon decentre, et son gabarit dit le toit', () => {
+  it('redresse la facade complete d un pignon decentre, et son gabarit dit le toit', async () => {
     const { s, ph, vrais } = scene('22-');
     const L = s.verite.largeur, H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0;
-    const p = preparerCas({ ...cas(L, H, 'x', vrais, null), gabarit: [{ u: 0, v: 1 }, { u: 0.4, v: 1 + pg / H }, { u: 1, v: 1 }] }, [ph.image]);
+    const { prepare: p } = await preparerPourLaMesure({ ...cas(L, H, 'x', vrais, null), gabarit: [{ u: 0, v: 1 }, { u: 0.4, v: 1 + pg / H }, { u: 1, v: 1 }] }, [ph.image]);
     expect(p?.assemblage?.vues).toEqual([{ assemblee: true, motif: null }]);
     expect(p?.fusion).toBeNull();
     expect(p?.toitEstime).toMatchObject({ forme: 'deux-pans', faitage: 'perpendiculaire' });

@@ -6,7 +6,7 @@ import { intersection, ligneParPoints, type Ligne } from '../calage/calageFin.js
 import type { Image, P2 } from '../vision/homographie.js';
 import { detecterSegments } from '../vision/segments.js';
 import { redresserParFuites, type RedressementFuites } from '../vision/redressementFuites.js';
-import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../vision/mosaiqueFuites.js';
+import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
 import type { GabaritMur } from '../gabaritMur.js';
 import type { Similitude } from '../vision/ransac.js';
 
@@ -66,22 +66,36 @@ export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: 
 export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = [], gabarit: GabaritMur | null = null): CoinsDeSerie | null {
   // D'abord redresser (les reperes poses, sinon les points de fuite), puis assembler, et seulement ensuite chercher l'egout et le sol.
   const vues = vuesDeFace(images, reperes);
-  const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-  if (!rangs.length) return null;
-  const m = mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites));
-  if (!m) return null;
+  const m = mosaiqueDeLaSerie(vues);
+  return m ? murDeLaSerie(vues, m, largeurM, hauteurPlanM, gabarit) : null;
+}
+
+/** Les vues redressees assemblees (le deuxieme temps de la serie) ; null quand aucune ne se redresse ou ne s'assemble. */
+export function mosaiqueDeLaSerie(vues: readonly (RedressementFuites | null)[]): ResultatMosaique | null {
+  const rangs = rangsRedresses(vues);
+  return rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites)) : null;
+}
+
+const rangsRedresses = (vues: readonly (RedressementFuites | null)[]): number[] => vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+
+/**
+ * Le mur cherche sur l'assemblage des vues (le troisieme temps), puis reporte dans chaque photo : ce que rend la serie. `vues` : une
+ * par photo (null : elle ne s'est pas redressee), `m` leur assemblage (mosaiqueDeLaSerie).
+ */
+export function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, gabarit: GabaritMur | null = null): CoinsDeSerie {
+  const rangs = rangsRedresses(vues);
   const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, gabarit);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);
-  const coins: (P2[] | null)[] = images.map(() => null);
+  const coins: (P2[] | null)[] = vues.map(() => null);
   rangs.forEach((i, k) => { coins[i] = parVue[k] ?? null; });
   const aPart = [
-    ...images.map((_, i) => i).filter((i) => !vues[i]).map((vue) => ({ vue, motif: 'pas assez de verticales pour redresser la photo' })),
+    ...vues.map((_, i) => i).filter((i) => !vues[i]).map((vue) => ({ vue, motif: 'pas assez de verticales pour redresser la photo' })),
     ...m.groupes.aPart.map((a) => ({ vue: rangs[a.vue] as number, motif: a.motif })),
   ];
   const hauteurM = r.x1 > r.x0 ? Math.round(((largeurM * (r.y1 - r.y0)) / (r.x1 - r.x0)) * 10) / 10 : null;
-  const places: (Similitude | null)[] = images.map(() => null);
+  const places: (Similitude | null)[] = vues.map(() => null);
   rangs.forEach((i, k) => { places[i] = m.places[k] ?? null; });
-  return { coins, hauteurM, aPart, lu: r.egout && r.pied, vues, assemblage: { image: m.image, vu: m.vu, places, mur: r } };
+  return { coins, hauteurM, aPart, lu: r.egout && r.pied, vues: [...vues], assemblage: { image: m.image, vu: m.vu, places, mur: r } };
 }
 
 /**

@@ -71,7 +71,9 @@ export const CONTENEURS_EMPLACEMENTS: Record<Exclude<Emplacement, 'clavier' | 's
   feuilleProjet: ['zoneBarre'], navigation: ['zoneNavigation'], palette: ['zonePalette'], rail: ['zonePalette'], feuilleOutils: ['zonePalette'],
   explorateur: ['zoneExplorateur'], surimpression: ['zoneSurimpression', 'stage'], selection: ['zoneSelection'],
   vue3d: ['zoneVues3d'], visionneuse: ['zoneVues3d'], inspecteur: ['zoneInspecteur'], tiroir: ['zoneResultats'], premierPas: ['zoneDialogues'],
-  parcours: ['zoneDialogues']
+  parcours: ['zoneDialogues'],
+  // La barre de progression de la facade : l'ecran de la calibration aujourd'hui (hors des zones du plan), le parcours de l'audit demain.
+  barreFacade: ['zoneDialogues']
 };
 
 /** Le conteneur de zone (index.html) qui porte l'element, ou `null` hors de toute zone. */

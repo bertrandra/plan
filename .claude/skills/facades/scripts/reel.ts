@@ -2,15 +2,20 @@
 //
 //   npx tsx .claude/skills/facades/scripts/reel.ts extraire <audit.json> [dossier]   # brouillons depuis un fichier d'audit
 //   NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer [dossier] [--json sortie.json]
+//   NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts etalon <cas.json> [etalon.json]
 //
 // `extraire` ecrit, pour chaque facade releveee d'un fichier d'audit, la photo (jpg) et un cas `brouillon` : ses quatre
 // coins sont ceux du calage, ses ouvertures celles du releve. Un brouillon n'est PAS une verite (c'est ce que Plan avait
 // propose, peut-etre retouche) : il faut le relire sur la photo, corriger les ouvertures, puis passer `statut` a `valide`.
 // `mesurer` ne compte que les cas `valide` : precision, rappel, cotes, et fiabilite de la confiance, avec et sans le vote
-// entre vues. Le decodage du JPEG passe par Chromium (Playwright), faute de decodeur dans Node.
+// entre vues. `etalon` rejoue un cas etape par etape (l'orchestrateur, comme « Rejouer » de la calibration) avec la verite d'un
+// etalon (tests/fixtures/facades-reel/etalons/, AE 101 sud par defaut) : le cas vient du serveur de la calibration (ses photos en
+// `images`, data URL) ou du corpus (ses photos a cote du JSON). Le decodage du JPEG passe par Chromium (Playwright), faute de decodeur
+// dans Node.
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { brouillonsDeLAudit, lireCasReel, mesurerCas, tableauReel } from '../../../../tests/banc/facades/reel.ts';
+import { createRequire } from 'node:module';
+import { brouillonsDeLAudit, lireCasReel, lireEtalon, mesurerCas, poserEtalon, rejouerEtapes, tableauReel } from '../../../../tests/banc/facades/reel.ts';
 import type { Image } from '../../../../src/facade/vision/homographie.ts';
 
 const DOSSIER = 'tests/fixtures/facades-reel';
@@ -27,14 +32,18 @@ function extraire(fichier: string, dossier: string): void {
   console.log(`${brouillons.length} brouillon(s) ecrit(s) dans ${dossier} : a relire sur la photo, puis statut -> "valide".`);
 }
 
-async function decoder(fichiers: string[]): Promise<Image[]> {
-  const { chromium } = await import('playwright');
+/** Une photo du cas : son fichier a cote du JSON, ou son data URL (un cas du serveur de la calibration). */
+const base64De = (dossier: string, f: string): string => (f.startsWith('data:') ? f.slice(f.indexOf(',') + 1) : readFileSync(join(dossier, f)).toString('base64'));
+
+async function decoder(fichiers: string[], dossier = '.'): Promise<Image[]> {
+  // `import()` ne lit pas NODE_PATH : `require` le lit (Playwright est installe globalement, comme pour la fumee).
+  const { chromium } = createRequire(import.meta.url)('playwright') as typeof import('playwright');
   const nav = await chromium.launch();
   try {
     const page = await nav.newPage();
     const out: Image[] = [];
     for (const f of fichiers) {
-      const b64 = readFileSync(f).toString('base64');
+      const b64 = base64De(dossier, f);
       const r = await page.evaluate(async (d) => {
         const img = new Image();
         await new Promise<void>((ok, ko) => { img.onload = () => ok(); img.onerror = () => ko(new Error('image illisible')); img.src = 'data:image/jpeg;base64,' + d; });
@@ -55,15 +64,23 @@ async function mesurer(dossier: string, sortie: string | undefined): Promise<voi
   if (!valides.length) return;
   const avec = [], sans = [];
   for (const c of valides) {
-    const images = await decoder(c.photos.map((p) => join(dossier, p.fichier)));
-    avec.push(mesurerCas(c, images, true));
-    sans.push(mesurerCas(c, images, false));
+    const images = await decoder(c.photos.map((p) => p.fichier), dossier);
+    avec.push(await mesurerCas(c, images, true));
+    sans.push(await mesurerCas(c, images, false));
   }
   const l = [...tableauReel(avec, 'Corpus réel — toutes les photos (fusion + vote entre vues)'), ...tableauReel(sans, 'Corpus réel — première photo seule')];
   console.log(l.join('\n'));
   if (sortie) writeFileSync(sortie, JSON.stringify({ avec, sans }, null, 2));
 }
 
+async function etalon(fichierCas: string, fichierEtalon: string): Promise<void> {
+  const brut = JSON.parse(readFileSync(fichierCas, 'utf8')) as { images?: string[] };
+  const cas = poserEtalon(lireCasReel(brut), lireEtalon(JSON.parse(readFileSync(fichierEtalon, 'utf8'))));
+  const images = await decoder(brut.images ?? cas.photos.map((p) => p.fichier), fichierCas.split('/').slice(0, -1).join('/') || '.');
+  console.log((await rejouerEtapes(cas, images)).join('\n'));
+}
+
 if (commande === 'extraire' && a1) extraire(a1, a2 ?? DOSSIER);
+else if (commande === 'etalon' && a1) await etalon(a1, a2 ?? join(DOSSIER, 'etalons', 'ae101-sud.json'));
 else if (commande === 'mesurer') await mesurer(a1 && !a1.startsWith('--') ? a1 : DOSSIER, process.argv.includes('--json') ? process.argv[process.argv.indexOf('--json') + 1] : undefined);
-else { console.error('usage : reel.ts extraire <audit.json> [dossier] | reel.ts mesurer [dossier] [--json sortie.json]'); process.exit(2); }
+else { console.error('usage : reel.ts extraire <audit.json> [dossier] | reel.ts mesurer [dossier] [--json sortie.json] | reel.ts etalon <cas.json> [etalon.json]'); process.exit(2); }
