@@ -3028,6 +3028,69 @@ const POINTS = {
     const dit = forme.match(/Proposition \(à confirmer\) : [^.]*\./)?.[0] ?? forme.slice(0, 110);
     return { ok, mesure: `sous la barre : « ${dit} » ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 150) + ' »' : 'ABSENTE'} ; aperçu ${pendant === avant ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validé : ${souches.length} souche(s) sur le corps 1${s0 ? ' (' + s0.position + ', x ' + s0.x + ', y ' + s0.y + ', ' + s0.source + ')' : ''}, le reste du toit ${reste ? 'inchangé' : 'MODIFIÉ'}, 3D : ${dessinees} souche(s) dessinée(s), propositions ${fermee ? 'fermées' : 'ENCORE OUVERTES'} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  108: async (page, f) => {
+    // Les carreaux d'une facade validee en 3D (lot F8, MD/spec-facade-calage-audit.md §3.3, §9 bis F8). La facade nord de la maison
+    // de la demonstration recoit une Facade validee, sans photo, dont les ouvertures portent `details.carreaux` comme la fenetre
+    // d'AE 101 sud (deux vantaux d'un carreau sur trois, petits bois fins, une imposte a quatre carreaux), plus une baie sans petits
+    // bois et une porte d'un vantail. La Vue 3D pose dans le groupe de chaque ouverture qui dit des barres sa maille de carreaux :
+    // a plat en Econome, en relief (la maille a plat cachee, gardee pour l'export) aux autres niveaux. La porte, d'un seul vantail
+    // sans grille, n'en recoit pas.
+    await page.evaluate(() => {
+      const m = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const [a, b] = m.pts;
+      const L = Math.round(Math.hypot(b.x - a.x, b.y - a.y) * 100) / 100;
+      const ae101 = { vantaux: 2, grille: { colonnes: 1, rangees: 3 }, petitsBois: 'fins', imposte: { hauteurM: 0.35, grille: { colonnes: 4, rangees: 1 } }, vitrage: 'clair', source: 'ia' };
+      const fenetre = (id, x, y, carreaux) => ({ type: 'fenetre', x, y, l: 1.2, h: 1.4, id, verifieeLe: '2026-10-29', source: 'claude', details: { carreaux } });
+      const ouvertures = [
+        fenetre('o1', 1, 1, ae101), fenetre('o2', 3.4, 1, ae101), fenetre('o3', 1, 3.6, ae101), fenetre('o4', 3.4, 3.6, ae101),
+        fenetre('o5', 5.8, 3.6, { vantaux: 2, petitsBois: 'aucun', vitrage: 'teinte', source: 'ia' }),
+        { type: 'porte', x: 6, y: 0, l: 1, h: 2.2, id: 'o6', verifieeLe: '2026-10-29', details: { carreaux: { vantaux: 1, source: 'ia' } } },
+      ];
+      (m.batiment ??= {}).facades = [{ cote: 0, largeur: L, hauteur: 6, texture: null, ouvertures, distance: null, sourceDistance: null, releveLe: '2026-10-29',
+        dimensions: { largeurM: L, egoutM: 6, source: 'saisie' } }];
+      window.__plan.toucher('maison');
+    });
+    const vue = await POINTS[22](page);
+    if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
+    await page.waitForFunction(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (/^releve-carreaux/.test(o.name)) n++; }); return n > 0; }, null, { timeout: 30000 }).catch(() => {});
+    const lu = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const groupes = [];
+      sc?.scene?.traverse((o) => {
+        if (!/^ouverture:/.test(o.name)) return;
+        const m = (nom) => o.children.find((c) => c.name === nom);
+        const tri = (x) => (x?.geometry?.index ? x.geometry.index.count / 3 : 0);
+        const plat = m('releve-carreaux'), relief = m('releve-carreaux-relief');
+        groupes.push({ id: o.userData.ouverture, plat: tri(plat), platVisible: !!plat?.visible, exportSeulement: !!plat?.userData?.exportSeulement, relief: tri(relief), reliefVisible: !!relief?.visible });
+      });
+      // La camera devant la facade nord, a mi-hauteur : la Box3 des carreaux donne le milieu, la normale vient du plan.
+      const boite = new window.THREE.Box3();
+      sc?.scene?.traverse((o) => { if (/^releve-carreaux/.test(o.name)) boite.expandByObject(o); });
+      if (!boite.isEmpty()) {
+        const c = boite.getCenter(new window.THREE.Vector3());
+        const m = window.__plan.etat().objects.find((x) => x.key === 'maison');
+        const [a, b] = m.pts;
+        const aire = m.pts.reduce((s, p, i) => { const q = m.pts[(i + 1) % m.pts.length]; return s + p.x * q.y - q.x * p.y; }, 0);
+        const dx = b.x - a.x, dy = b.y - a.y, n = Math.hypot(dx, dy), sgn = aire > 0 ? 1 : -1;
+        const nx = (sgn * dy) / n, nz = (sgn * dx) / n;
+        sc.camera.position.set(c.x + nx * 7, c.y + 1.5, c.z + nz * 7);
+        sc.controls.target.set(c.x, c.y, c.z);
+        sc.controls.update?.();
+      }
+      return groupes.sort((x, y) => x.id.localeCompare(y.id));
+    });
+    // Le niveau de la Vue 3D est celui de l'appareil (detecte, ou pose par FUMEE_QUALITE_3D) : on le lit, sans le supposer.
+    const qualite = await page.evaluate(() => document.querySelector('[data-controle="vue3d.qualite"]')?.value || (() => { try { return localStorage.getItem('plan.qualite3d'); } catch { return null; } })())
+      || (lu.some((g) => g.relief) ? 'normale ou soignée (détectée)' : 'econome (détectée)');
+    await image3dStable(page, 3000);
+    if (process.env.FUMEE_CAPTURE_F8) await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: `${process.env.FUMEE_CAPTURE_F8}-${qualite}-${f.nom}.png`, timeout: 120000 }).catch((e) => console.error('capture F8 : ' + e.message.split('\n')[0]));
+    const econome = qualite.startsWith('econome');
+    // Neuf barres pour la fenetre d'AE 101 (18 triangles a plat, 90 en relief), une pour la baie a deux vantaux sans petits bois.
+    const attendu = { o1: 9, o2: 9, o3: 9, o4: 9, o5: 1, o6: 0 };
+    const justes = lu.length === 6 && lu.every((g) => g.plat === 2 * attendu[g.id]
+      && (attendu[g.id] === 0 ? g.relief === 0 : econome ? g.platVisible && g.relief === 0 : !g.platVisible && g.exportSeulement && g.relief === 10 * attendu[g.id] && g.reliefVisible));
+    return { ok: justes, mesure: `${qualite} ; ${lu.length} ouverture(s) : ` + lu.map((g) => `${g.id} ${g.plat / 2} barre(s)${g.relief ? ' en relief' : g.plat ? ' à plat' : ''}`).join(', ') };
+  },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -4040,7 +4103,8 @@ function pointsPour(nomClasse) {
   // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
   // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
   // 106 : une cheminee lue sur la photo, proposee decochee, posee par le moteur sur le bon corps une fois cochee (lot F7).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106];
+  // 108 : les carreaux d'une facade validee dessines dans les fenetres de la Vue 3D (lot F8).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -32,6 +32,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se relit comme avant.
 - Fumée : point 106 (une cheminée peinte sur la photo de la façade sud, proposée décochée sur le corps 1, cochée et validée : une
   souche sur son faîtage, dessinée en 3D, rien d'autre ne bouge ; Ctrl+Z).
+- **Spec de la lecture élargie par l'IA** (`MD/spec-lecture-ia-elargie.md`, documentation seule, aucun code). Le périmètre lancé par
+  le propriétaire le 29 octobre 2026 — la façade (menuiseries, garde-corps, bow-window, auvents, décrochés, modénature, perron, store,
+  unité extérieure, boîte aux lettres, état du bâti en signal), le toit (couverture et motif de pose, fenêtres de toit, panneaux solaires,
+  débords, faîtage, gouttières), le jardin (plates-bandes à végétation basse en 3D, arbres et leur essence, regards, haies, allées,
+  existant), les règles de zone du PLU lues dans son règlement, les textes de la déclaration préalable et la relecture avant l'export,
+  l'assistant en langue naturelle — classé contre ce que Plan sait déjà (8 éléments existent, 23 sont à étendre, 17 à créer), avec le
+  modèle cible, le déroulé, les coûts par usage (Haiku par défaut, Sonnet à la demande) et sept lots : L0 (tout garder : l'image exacte
+  envoyée, une trace pour toute requête, l'export « données d'analyse » à travers les audits), L1 façade et L2 toit dans le run d'une
+  façade (après F7), L3 jardin et L4 PLU en parallèle, L5 textes et relecture, L6 assistant. Pointeur dans `MD/roadmap.md` §5.7.
+
+- **Façades, lot F8 : les carreaux en 3D** (`MD/spec-facade-calage-audit.md` §3.3, §9). Une ouverture d'une façade validée dont
+  la façade objet porte ses **carreaux** (`details.carreaux`, lus par Claude ou dits au doigt) les montre dans la Vue 3D : le
+  **meneau** entre les vantaux, la **traverse de l'imposte** et sa grille sur toute la largeur, les **petits bois** de chaque
+  vantail (colonnes × rangées, fins ou épais), et la vitre selon le vitrage lu (clair, dépoli, teinté, vitrail) quand le mur n'a
+  pas de photo. Le dessin suit le vocabulaire enregistré et lui seul : ce qu'il ne dit pas ne se dessine pas. Une maille par
+  ouverture, deux triangles par barre, dans son groupe `ouverture:<id>` ; en Normale et en Soignée, l'écran les montre en relief
+  (hors export), le `.glb` garde les barres à plat à tous les niveaux. **Un fichier sans carreaux se dessine exactement comme
+  avant** : empreinte `glb-structure.json` inchangée (`three/carreaux3d.ts`, `three/releve3d.ts`).
+- Fumée : point 108 (une façade validée à carreaux, ceux de la fenêtre d'AE 101 sud : ses barres dans la Vue 3D, à plat en
+  Économe, en relief aux autres niveaux).
 
 - **Façades, lot F5 : la Façade et la façade objet** (`MD/spec-facade-calage-audit.md` §3.2 à §3.4, §4 É9, §9). Une façade
   **validée** garde ce que la photo a servi à vérifier : ses **dimensions** (le plan et le LiDAR, et leur source ; l'écart que la

@@ -220,8 +220,9 @@ interface OuvertureFacade {
 }
 ```
 
-- `carreaux` est **facultatif** et sans effet sur ce que la 3D dessine aujourd'hui : un fichier sans lui garde son sens, et la façade garde
-  ses fenêtres actuelles (`fenetres3d`). Il est rangé avec l'ouverture pour que le rendu des carreaux (F8) n'ait pas besoin de rappeler l'IA.
+- `carreaux` est **facultatif** : un fichier sans lui garde son sens, et la façade garde ses fenêtres actuelles (`fenetres3d`). Il est
+  rangé avec l'ouverture pour que le rendu des carreaux (F8) n'ait pas besoin de rappeler l'IA. *Depuis F8* (§9 bis) : la 3D dessine ce
+  qu'il dit, et rien de plus ; une ouverture qui ne le porte pas se dessine comme avant.
 - Les valeurs sont un **vocabulaire fermé** (comme `silhouetteFacade.ts`) : l'IA choisit dans la liste, jamais d'un texte libre ; un mot
   inconnu relu devient `indetermine`, jamais une erreur. La liste se complète avec les premiers cas réels (l'imposte de la façade
   d'AE 101 en est le premier exemple).
@@ -901,7 +902,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | **F5 — La Façade et la façade objet** *(livré le 29 octobre 2026, §9 bis)* | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
 | **F7 — Éléments découverts** *(livré le 29 octobre 2026, §9 bis)* | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
-| **F8 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) | le dessin de fenêtre sans carreaux si le nouveau le remplace | Un fichier sans carreaux se dessine comme avant ; empreinte `glb-structure.json` dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
+| **F8 — Carreaux en 3D** *(livré le 29 octobre 2026, §9 bis)* | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) | le dessin de fenêtre sans carreaux si le nouveau le remplace | Un fichier sans carreaux se dessine comme avant ; empreinte `glb-structure.json` dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
 
 Ordre : F0 à F8 dans cet ordre, parce que **chaque lot suppose le précédent** (§8 bis.3). F8 attend que des cas réels aient confirmé le vocabulaire des
 carreaux.
@@ -1703,6 +1704,69 @@ relevé coupé à l'égout) reste pour une mesure relue d'un fichier d'audit, qu
 seul contenu que ce fichier permet. Cliquet des
 orphelins : inchangé (aucun export nouveau sans importeur dans les dossiers de la migration). Grep de « avant le lot F7 » et « posée
 par le lot F7 » dans `src/`, `tests/`, `scripts/` : vide.
+### 9 bis. F8, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **Les carreaux dans les fenêtres de la 3D** (`three/carreaux3d.ts`, appelé par `three/releve3d.ts::poserOuverture`) : une ouverture
+  de la façade objet dont `details.carreaux` dit des barres reçoit, dans son groupe `ouverture:<id>` (F5), une maille de sa
+  menuiserie : la **traverse de l'imposte** (`imposte.hauteurM` sous le haut de la baie) et la grille de l'imposte sur toute la
+  largeur ; dessous, un **meneau** entre deux vantaux (`vantaux`, 5 cm) et la **grille de chaque vantail** (`grille.colonnes` ×
+  `grille.rangees`) en petits bois, **fins** (2,5 cm, ceux des fenêtres anciennes de `fenetresRelief.ts`) ou **épais** (4,5 cm) ;
+  `petitsBois: 'aucun'` ne garde que les meneaux et la traverse ; un mot absent vaut « fins ». Sur un mur sans photo, la vitre suit
+  `vitrage` (clair, celle d'avant ; dépoli, plus claire et mate ; teinté, plus sombre ; vitrail). Les barres se dessinent sur la
+  photo comme sur la vitre : elles ont été lues sur cette photo.
+- **Une géométrie modeste, et les niveaux de qualité** : une maille par ouverture, **deux triangles par barre**, posée un peu devant
+  la vitre et la photo (3 cm), derrière l'encadrement ; c'est elle qui part au `.glb`, **à tous les niveaux** (un niveau ne change
+  pas un export, `three/qualite.ts`). En **Normale** et en **Soignée**, de près (`RELIEF_FENETRES_M`), l'écran la remplace par des
+  barres **en relief** (cinq faces, dix triangles, hors export), comme les baies en creux de R2 ; en **Économe**, l'écran montre la
+  maille à plat (`ContexteReleve3d.relief`, posé par `three/ouvrages/bati.ts`). La fenêtre d'AE 101 sud : neuf barres, 18
+  triangles à plat, 90 en relief.
+- Fumée : point **108** (la façade nord de la maison de la démonstration, validée sans photo, avec quatre fenêtres d'AE 101 sud, une
+  baie à deux vantaux sans petits bois et vitrage teinté, une porte d'un seul vantail : neuf barres par fenêtre, une pour la baie,
+  aucune pour la porte ; à plat en Économe, en relief aux autres niveaux, la maille à plat alors cachée et gardée pour l'export).
+
+**Acceptation.**
+
+- *Un fichier sans carreaux se dessine comme avant* : `poserCarreaux` n'est appelé que pour une ouverture qui porte
+  `details.carreaux`, et la vitre d'une ouverture sans eux garde ses valeurs (même couleur, même rugosité, même métal). La
+  démonstration ne porte aucun relevé : **empreinte `glb-structure.json` inchangée**, point 24 rejoué sans `RECAPTURER_GLB` dans les
+  trois classes d'écran (vert) ; les autres empreintes golden, inchangées (`npm test`). Le test de `releve3d.test.ts` dit qu'une
+  ouverture sans carreaux pose les mêmes mailles, en relief comme à plat.
+- *Une façade avec carreaux les montre* : `tests/unit/three/carreaux3d.test.ts` (comptes de barres de la fenêtre d'AE 101, trois
+  vantaux, « aucun », imposte trop basse ou trop haute, baie vide ; toutes les barres dans la baie) et `releve3d.test.ts` (la maille
+  dans le groupe de l'ouverture : 18 triangles à plat montrés en Économe ; de près, la même cachée pour l'export et 90 triangles en
+  relief hors export). Captures de la façade de synthèse aux trois niveaux (point 108, `FUMEE_CAPTURE_F8`).
+- *Vérifié sur la façade d'AE 101* : les carreaux sont ceux que le run enregistré de la façade sud lit
+  (`tests/fixtures/facades-ia/ae101-sud-synthetique.json` : deux vantaux d'un carreau sur trois, petits bois fins, une imposte du
+  quart de la baie à quatre carreaux), portés sur une façade validée de synthèse. AE 101 : « corps identiques » (`identite.ts`).
+- *La Vue 3D ne ralentit pas* : la démonstration pose les mêmes mailles qu'avant (point 24). `?fps=on` en Normale, au bureau, base F5
+  contre F8 sur la même machine (rendu logiciel) : **2 563 appels de dessin et 199 k triangles des deux côtés**, 24 ms de rendu par
+  image des deux côtés. Une façade à carreaux ajoute une maille par ouverture (deux en Normale et Soignée, dont une cachée).
+
+**Interprétations** (le code l'emporte sur la spec quand ils diffèrent ; les plus petites lectures fidèles) :
+
+1. **F8 avant la confirmation du vocabulaire sur des cas réels** (§9, « F8 attend… » ; §11, question 2 bis) : le propriétaire a choisi
+   d'avancer. Le dessin est donc **piloté strictement par le vocabulaire enregistré** : aucune règle par défaut (ni l'époque du
+   bâtiment, ni `details.vitrage` ou `ouvrant` de `fenetresRelief.ts::carreauxDesDetails`), aucune barre que les mots ne disent pas
+   (un vantail sans `grille` reste un seul verre ; `vantaux` absent vaut un vantail). Un mot complété plus tard se dessinera sans
+   reprendre le rendu. La lecture n'est pas touchée : la production lit en ×3 (mesure de la vraie API : ×1 lisait les carreaux de
+   0 boîte sur 16, ×3 de 10 sur 21).
+2. **Le fichier nommé par le §9 est `three/releve3d.ts`, pas `detailsBatiment.ts`** : une ouverture de la façade objet est dessinée
+   par le relevé (F5, `ouverture:<id>`) ; `detailsBatiment.ts` dessine la disposition automatique et la liste « une par une », qui
+   ne portent pas de carreaux. Rien n'y change.
+3. **Rien n'est supprimé** : le dessin d'une fenêtre sans carreaux reste celui d'avant (encadrement, vitre), puisque le nouveau ne
+   le remplace pas (une ouverture sans carreaux n'en a pas d'autre).
+4. **L'imposte court sur toute la largeur**, au-dessus des vantaux, et sa grille aussi (la fenêtre d'AE 101 : quatre carreaux sur
+   deux vantaux) ; une imposte de moins de 10 cm, ou qui laisserait moins de 10 cm dessous, ne se dessine pas.
+5. **Une baie cintrée ou ronde** (`details.forme`) garde son encadrement en bande (lot G17), sans carreaux : une grille droite
+   déborderait de l'arc. À reprendre quand un cas réel le demandera.
+6. **Une porte ou un garage** reçoit ce que ses carreaux disent (le §8 : « `vantaux` seul » pour une porte pleine ou un garage) :
+   un meneau entre deux vantaux, rien pour un seul.
+7. **Le vitrage** ne change que la vitre d'un mur sans photo ; sur une photo, la vitre est celle de la photo.
+
+**Bilan de suppression** (§8 bis.4) : rien de supprimé (interprétation 3). En tout : `src/` un module nouveau
+(`three/carreaux3d.ts`) et deux appels (`releve3d.ts`, `ouvrages/bati.ts`) ; `tests/` un fichier nouveau et un test de plus.
 
 ---
 
@@ -1742,7 +1806,9 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
    corrélée (les trois passes verraient la même erreur) : le déterministe doit pouvoir dire « non » (verticale absente à l'angle
    annoncé), et l'escalade, un autre modèle, est le recours que la personne demande.
 2 bis. **Carreaux** : le vocabulaire (vantaux, grille, petits bois, imposte) est posé avant le moindre cas réel ; il se complétera. Enregistrer
-   sans dessiner (F8) évite de figer un rendu avant de savoir ce que l'IA lit juste.
+   sans dessiner (F8) évite de figer un rendu avant de savoir ce que l'IA lit juste. *29 octobre 2026* : le propriétaire a fait passer
+   F8 avant cette confirmation ; le dessin suit le vocabulaire enregistré et lui seul (§9 bis F8, interprétation 1), si bien qu'un
+   mot ajouté ou corrigé se dessinera sans reprendre le rendu. La lecture, elle, reste à mesurer sur les cas réels.
 3. **Le coût** d'une passe de plus par façade : plafond serveur et mesure (§8).
 4. **Les photos** sont des données personnelles : ce qui entre dans le dépôt (corpus) et ce qui part vers le serveur d'analyse doit être
    décidé cas par cas. *Question ouverte : y a-t-il un format réduit (recadrage de la façade seule) accepté pour le corpus ?*
