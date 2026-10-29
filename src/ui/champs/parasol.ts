@@ -6,8 +6,10 @@ import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePosit
 import { formatHeureMin } from '../../util/format.js';
 import { soleilDuProjet } from '../../core/soleil.js';
 import { FENETRE_CARTE_OMBRE } from '../../model/soleilProjet.js';
+import { coordonneesDuLieu } from '../../model/lieu.js';
+import { fuseauDuLieu, libelleHeureLegale } from '../../geo/fuseau.js';
 import { enCercle } from '../../model/formes.js';
-import { estTerrasse } from '../../model/fonctions.js';
+import { estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
 import { champsParasol } from '../../model/champsFonction.js';
 import type { Section } from './types.js';
 
@@ -81,7 +83,9 @@ export const sectionParasol: Section = {
     },
     {
       type: 'curseur', cle: 'ombreHeure', libelle: 'Soleil — heure', min: 0, max: 1439, pas: 5, format: formatHeureMin, sale: false, enregistre: true, repli: OMBRE,
-      aide: 'Heure légale française, la même que la Vue 3D et la visionneuse',
+      // L'heure legale du lieu de la parcelle (geo/fuseau.ts) : dite sous le curseur, l'infobulle n'existant pas au doigt.
+      aide: 'L’heure légale du lieu de la parcelle (son fuseau, heure d’été comprise), la même que la Vue 3D et la visionneuse',
+      note: (c) => { const l = coordonneesDuLieu(parcelleDuProjet(c.objets)); return libelleHeureLegale(fuseauDuLieu(l.latitude, l.longitude)); },
       lire: () => soleilDuProjet.lire().minutes, ecrire: (_c, v) => { soleilDuProjet.regler({ minutes: v }); }
     },
     {

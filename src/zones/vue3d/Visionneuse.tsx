@@ -80,7 +80,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
             <div className="hint">Glisser = tourner, molette = zoom, clic droit + glisser = deplacer. Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
           </div>
         </div>
-        <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} />
+        <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} />
         <div id="glbViewerCanvasHost" className="hote3d hoteVisionneuse" ref={(el) => { poserHote3d('glb', el); }}
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
           <div className="commandes3d">
