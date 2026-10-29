@@ -10,6 +10,9 @@
 //
 // La lecture est rangee sur le batiment (`couleurMurs.photo`) ; la source choisie a la main n'est
 // jamais touchee. Un service muet ne bloque rien : la couleur du materiau, ou du plan, reste.
+// Ce qu'elle peut ecrire, model/protections.ts le dit (ecrivain `panoramax`, groupe `photoMurs`) :
+// pas sur une couleur vue sur place. Elle lit les murs de tout le bati (batiment et annexe,
+// model/fonctions.ts::estBati), comme la 3D les colore.
 
 import { centroid, signedArea } from '../geometry/basic.js';
 import { chercherPhotosRue, ecartAngulaire, type PhotoRue } from '../geo/panoramax.js';
@@ -19,7 +22,9 @@ import type { CouleurMurs, PtBrut } from '../model/types.js';
 import { obstacle, vueCachee, type Obstacle } from '../geometry/ligneDeVue.js';
 import { champsBatiment } from '../model/champsFonction.js';
 import { toucher } from '../core/controleurObjets.js';
-import { estOuvrage, BATIMENT, TERRAIN } from '../model/ouvrages/index.js';
+import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
+import { estBati } from '../model/fonctions.js';
+import { ecrivainPeut } from '../model/protections.js';
 
 // La ligne de vue a descendu dans geometry/ (la facade devant soi s'en sert aussi) : on la redonne
 // d'ici pour ses lecteurs d'avant.
@@ -304,9 +309,11 @@ async function lireLesMurs(murs: readonly MurAVoir[], limites: readonly Obstacle
 /** La lecture d'un batiment, telle qu'elle se range dans `couleurMurs.photo`. */
 const photoMur = (l: { couleur: string; photo: PhotoRue }): PhotoMur => ({ couleur: l.couleur, id: l.photo.id, date: l.photo.date, auteur: l.photo.auteur, licence: l.photo.licence });
 
-/** Les batiments du plan dont on peut lire les murs : un contour, une cle. */
+/** Le bati du plan dont on peut lire les murs (batiment, annexe) : un contour, une cle. Ils cachent aussi les murs derriere eux. */
 const batimentsAMurs = (objets: readonly ObjetAMurs[]) =>
-  objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => estOuvrage(o, BATIMENT) && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
+  objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => estBati(o) && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
+/** Ceux dont la lecture peut ecrire la case photo : pas sous une couleur vue sur place (model/protections.ts). */
+export const photoMursEcrivable = (o: ObjetAMurs): boolean => ecrivainPeut(o, 'panoramax', 'photoMurs');
 /** Les limites de parcelle, ou se tiennent les clotures et les haies. */
 export const limitesDesParcelles = (objets: readonly ObjetAMurs[]): Obstacle[] =>
   objets.filter((o) => (o.key === 'parcelle' || estOuvrage(o, TERRAIN)) && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
@@ -315,7 +322,8 @@ const egoutDe = (o: ObjetAMurs) => (o.elevation && o.elevation > 1 ? o.elevation
 /**
  * Lit la couleur des murs des batiments sur les photos de rue autour du projet. Modifie les objets
  * en place : `couleurMurs.photo` prend la lecture concluante (la plus coherente des murs lus), ou
- * devient null quand toutes les photos ont ete lues sans conclure ; la source choisie reste.
+ * devient null quand toutes les photos ont ete lues sans conclure ; la source choisie reste. Un
+ * batiment sous une couleur vue sur place n'est pas lu (`photoMursEcrivable`) ; il cache toujours.
  */
 export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], proj: ProjecteurLocal, options: OptionsCouleursMurs = {}): Promise<BilanCouleursMurs> {
   const bilan: BilanCouleursMurs = { photos: 0, ambigus: 0 };
@@ -326,7 +334,8 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
   if (!batimentsTous.length) return bilan;
   const centre = parcelle?.pts && parcelle.pts.length >= 3 ? centroid(parcelle.pts) : centroid(batimentsTous.flatMap((o) => o.pts));
   const dist = (o: { pts: PtBrut[] }) => { const c = centroid(o.pts); return Math.hypot(c.x - centre.x, c.y - centre.y); };
-  const batiments = [...batimentsTous].sort((a, b) => dist(a) - dist(b)).slice(0, options.maxBatiments ?? MAX_BATIMENTS_PHOTOS);
+  const batiments = batimentsTous.filter(photoMursEcrivable).sort((a, b) => dist(a) - dist(b)).slice(0, options.maxBatiments ?? MAX_BATIMENTS_PHOTOS);
+  if (!batiments.length) return bilan;
   const rayon = Math.min(RAYON_MAX_M, Math.max(...batiments.map(dist)) + DISTANCE_MUR_MAX_M);
   const g = proj.versDegres(centre.x, centre.y);
   let photos: PhotoRue[];
@@ -370,7 +379,7 @@ const LIMITE_RECHERCHE_ZONE = 1000;
  * de recherche muet fait echouer la zone entiere.
  */
 export async function couleursMursDUneZone(cibles: readonly ObjetAMurs[], obstacles: readonly ObjetAMurs[], parcelles: readonly ObjetAMurs[], proj: ProjecteurLocal, options: OptionsCouleursMurs & { enParallele?: number } = {}): Promise<IssueMurs[]> {
-  const batiments = batimentsAMurs(cibles);
+  const batiments = batimentsAMurs(cibles).filter(photoMursEcrivable);
   if (!batiments.length) return [];
   const pts = batiments.flatMap((o) => o.pts);
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);

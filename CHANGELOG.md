@@ -35,6 +35,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La couleur des murs lue sur les photos de rue (Panoramax) passe par `model/protections.ts`, et lit aussi les annexes.** Sa
+  case, `couleurMurs.photo`, a son propre groupe (`photoMurs`), à part de la couleur retenue (groupe `murs`) qu'elle n'écrit
+  jamais ; l'écrivain `panoramax` est de niveau 4, une mesure sur une photo, comme la couleur du toit sur l'orthophoto. La source
+  choisie, « photo » comprise, ne l'arrête pas : la personne qui a choisi la photo reçoit toujours la lecture à jour. Seule une
+  couleur vue sur place (audit validé, `terrain`) occupe la case : sous elle, la photo n'est plus lue ni téléchargée (elle n'était
+  déjà plus montrée, la couleur vue passant avant). La lecture prend le bâti entier (`model/fonctions.ts::estBati`) : une annexe
+  lue prend en 3D (GLB, DP6) la teinte de sa photo plutôt que la couleur du plan, comme un bâtiment, et cache les murs derrière
+  elle sur une photo. Empreintes inchangées (aucune ne porte de couleur des murs).
+
 - **Une écriture ne refait que ce qui lit l'objet écrit, et un déplacement de la vue ne redessine plus le plan** (feuille de
   route, étapes 6.5 et 2.3 ; aucun changement visible, empreintes inchangées). Le plan se dessine dans un repère gardé tant que
   l'échelle et la taille ne changent pas (`render/repere.ts`) : un déplacement de la vue ne change plus que le `viewBox`, et
