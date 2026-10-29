@@ -50,7 +50,11 @@ function reduire(img: Image, max = 1024): Image {
 
 interface Verite { nom: string; image: { largeur: number; hauteur: number }; graine: number; verite: CasIa['verite'] }
 /** Ce que le verificateur ecrit (scripts/verifier-api-claude.mjs --facades) : par mode, les sorties, les tokens et le cout. */
-interface Appel { modele: string; prompt: number; schema: number; sorties: unknown[]; tokens: { entree: number; sortie: number }; cout: number | null; secondes?: number }
+interface Appel {
+  modele: string; prompt: number; schema: number; sorties: unknown[]; tokens: { entree: number; sortie: number }; cout: number | null; secondes?: number;
+  /** Les passes envoyees et celles dont la reponse ne s'est pas lue (absents des reponses simulees : toutes lues). */
+  passes?: number; illisibles?: number;
+}
 interface FichierReponses { source: 'claude' | 'synthetique'; x1: Appel; x3: Appel }
 
 const casDuDossier = (): Verite[] => readdirSync(dossier).filter((f) => f.endsWith('.verite.json')).sort().map((f) => JSON.parse(readFileSync(join(dossier, f), 'utf8')) as Verite);
@@ -97,11 +101,13 @@ if (mode === '--simuler') {
 }
 
 if (mode === '--evaluer') {
+  // Une passe illisible (sortie non JSON, hors du schema) n'est pas une facade mal lue : elle est comptee a part, et une facade dont
+  // aucune passe ne s'est lue sort des totaux de qualite. Les totaux se donnent par mode, puis sur les facades lues dans les deux
+  // modes, la seule comparaison honnete de x1 contre x3.
   const pc = (x: number) => (Math.round(x * 1000) / 10).toFixed(1).replace('.', ',') + ' %';
-  const lignes = ['| Scène | Mode | Pose (pire bord) | Pointes justes | Boîtes VP / vraies / trouvées | Cotes méd. | Carreaux justes / lus | Tokens (entrée / sortie) | Coût |', '|---|---|--:|--:|--:|--:|--:|--:|--:|'];
-  const total: Record<'x1' | 'x3', { vp: number; vraies: number; trouvees: number; pointes: number; attendues: number; carreaux: number; lus: number; cout: number; poses: number[]; n: number }> = {
-    x1: { vp: 0, vraies: 0, trouvees: 0, pointes: 0, attendues: 0, carreaux: 0, lus: 0, cout: 0, poses: [], n: 0 }, x3: { vp: 0, vraies: 0, trouvees: 0, pointes: 0, attendues: 0, carreaux: 0, lus: 0, cout: 0, poses: [], n: 0 },
-  };
+  const lignes = ['| Scène | Mode | Passes lues | Pose (pire bord) | Pointes justes | Boîtes VP / vraies / trouvées | Cotes méd. | Carreaux justes / lus | Tokens (entrée / sortie) | Coût |', '|---|---|--:|--:|--:|--:|--:|--:|--:|--:|'];
+  type Lu = { nom: string; mesure: MesureIa | null; passes: number; illisibles: number; cout: number };
+  const parMode: Record<'x1' | 'x3', Lu[]> = { x1: [], x3: [] };
   let source = '';
   for (const v of casDuDossier()) {
     const f = join(dossier, v.nom + '.reponses.json');
@@ -110,17 +116,29 @@ if (mode === '--evaluer') {
     source = r.source;
     const c: CasIa = { nom: v.nom, photos: [], image: { largeur: v.image.largeur, hauteur: v.image.hauteur, donnees: new Uint8ClampedArray(0) }, verite: v.verite };
     for (const m of ['x1', 'x3'] as const) {
-      const lues = r[m].sorties.map(lireObservationsFacade).filter((x): x is ObservationsFacade => x !== null);
-      const mesure: MesureIa = mesurerReponse(c, voterObservations(lues));
-      const t = total[m];
-      t.n++; t.vp += mesure.boites.vp; t.vraies += mesure.boites.vraies; t.trouvees += mesure.boites.trouvees; t.pointes += mesure.pointes.justes; t.attendues += mesure.pointes.attendues;
-      t.carreaux += mesure.carreaux.justes; t.lus += mesure.carreaux.lus; t.cout += r[m].cout ?? 0; if (mesure.pose !== null) t.poses.push(mesure.pose);
-      lignes.push(`| ${v.nom} | ${m} | ${mesure.pose === null ? '—' : pc(mesure.pose)} | ${mesure.pointes.justes} / ${mesure.pointes.attendues} | ${mesure.boites.vp} / ${mesure.boites.vraies} / ${mesure.boites.trouvees} | ${mesure.boites.cotesCm === null ? '—' : Math.round(mesure.boites.cotesCm) + ' cm'} | ${mesure.carreaux.justes} / ${mesure.carreaux.lus} | ${r[m].tokens.entree} / ${r[m].tokens.sortie} | ${r[m].cout === null ? '—' : r[m].cout.toFixed(5) + ' $'} |`);
+      const a = r[m], lues = a.sorties.map(lireObservationsFacade).filter((x): x is ObservationsFacade => x !== null);
+      const passes = a.passes ?? a.sorties.length, illisibles = passes - lues.length;
+      const mesure = lues.length ? mesurerReponse(c, voterObservations(lues)) : null;
+      parMode[m].push({ nom: v.nom, mesure, passes, illisibles, cout: a.cout ?? 0 });
+      const lu = lues.length + ' / ' + passes;
+      if (!mesure) { lignes.push(`| ${v.nom} | ${m} | ${lu} | illisible | | | | | ${a.tokens.entree} / ${a.tokens.sortie} | ${a.cout === null ? '—' : a.cout.toFixed(5) + ' $'} |`); continue; }
+      lignes.push(`| ${v.nom} | ${m} | ${lu} | ${mesure.pose === null ? '—' : pc(mesure.pose)} | ${mesure.pointes.justes} / ${mesure.pointes.attendues} | ${mesure.boites.vp} / ${mesure.boites.vraies} / ${mesure.boites.trouvees} | ${mesure.boites.cotesCm === null ? '—' : Math.round(mesure.boites.cotesCm) + ' cm'} | ${mesure.carreaux.justes} / ${mesure.carreaux.lus} | ${a.tokens.entree} / ${a.tokens.sortie} | ${a.cout === null ? '—' : a.cout.toFixed(5) + ' $'} |`);
     }
   }
-  for (const m of ['x1', 'x3'] as const) {
-    const t = total[m], med = [...t.poses].sort((a, b) => a - b)[Math.floor(t.poses.length / 2)];
-    lignes.push(`| **Ensemble** | ${m} | méd. ${med === undefined ? '—' : pc(med)} | ${t.pointes} / ${t.attendues} | rappel ${t.vraies ? pc(t.vp / t.vraies) : '—'}, précision ${t.trouvees ? pc(t.vp / t.trouvees) : '—'} | | ${t.carreaux} / ${t.lus} | | ${t.cout.toFixed(4)} $ (${t.n ? (t.cout / t.n).toFixed(5) : '—'} $ par façade) |`);
-  }
-  console.log((source === 'synthetique' ? '**Réponses SYNTHÉTIQUES (pas Claude), coût ESTIMÉ** : la mesure tourne de bout en bout ; les vrais chiffres viennent du workflow « Vérifier l’API Claude ».\n\n' : '**Réponses de Claude**, coût journalisé par le serveur.\n\n') + lignes.join('\n'));
+  const total = (l: Lu[], etiquette: string, m: string) => {
+    const t = { vp: 0, vraies: 0, trouvees: 0, pointes: 0, attendues: 0, carreaux: 0, lus: 0, poses: [] as number[] };
+    for (const x of l) {
+      if (!x.mesure) continue;
+      const k = x.mesure;
+      t.vp += k.boites.vp; t.vraies += k.boites.vraies; t.trouvees += k.boites.trouvees; t.pointes += k.pointes.justes; t.attendues += k.pointes.attendues;
+      t.carreaux += k.carreaux.justes; t.lus += k.carreaux.lus; if (k.pose !== null) t.poses.push(k.pose);
+    }
+    const med = [...t.poses].sort((a, b) => a - b)[Math.floor(t.poses.length / 2)];
+    const lues = l.filter((x) => x.mesure).length, passes = l.reduce((s, x) => s + x.passes, 0), illisibles = l.reduce((s, x) => s + x.illisibles, 0), cout = l.reduce((s, x) => s + x.cout, 0);
+    return `| **${etiquette}** | ${m} | façades ${lues} / ${l.length}, passes illisibles ${illisibles} / ${passes} | méd. ${med === undefined ? '—' : pc(med)} | ${t.pointes} / ${t.attendues} | rappel ${t.vraies ? pc(t.vp / t.vraies) : '—'}, précision ${t.trouvees ? pc(t.vp / t.trouvees) : '—'} | | ${t.carreaux} / ${t.lus} | | ${cout.toFixed(4)} $ (${l.length ? (cout / l.length).toFixed(5) : '—'} $ par façade) |`;
+  };
+  for (const m of ['x1', 'x3'] as const) lignes.push(total(parMode[m], 'Façades lues', m));
+  const communes = new Set(parMode.x1.filter((x) => x.mesure).map((x) => x.nom).filter((n) => parMode.x3.some((y) => y.nom === n && y.mesure)));
+  for (const m of ['x1', 'x3'] as const) lignes.push(total(parMode[m].filter((x) => communes.has(x.nom)), 'Lues dans les deux modes (' + communes.size + ')', m));
+  console.log((source === 'synthetique' ? '**Réponses SYNTHÉTIQUES (pas Claude), coût ESTIMÉ** : la mesure tourne de bout en bout ; les vrais chiffres viennent du workflow « Vérifier l’API Claude ».\n\n' : '**Réponses de Claude**, coût journalisé par le serveur. Une passe illisible est comptée à part, hors de la qualité.\n\n') + lignes.join('\n'));
 }

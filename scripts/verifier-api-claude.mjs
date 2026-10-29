@@ -199,8 +199,9 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     }
     if (x.statut !== 'reussi' || x.erreur || x.sortie === null || typeof x.sortie !== 'object') {
       console.log('REFUSÉ');
-      const e = x.erreur ?? {};
-      arreter('statut « ' + x.statut + ' », arrêt « ' + (x.arret ?? '-') + ' ».\nAnthropic : ' + (e.type ?? '?') + ' : ' + (e.message ?? '(aucun message)'), 1);
+      // La mesure x1 contre x3 (--facades) ne part pas apres un refus : ses 88 requetes partent du meme prompt et du meme schema,
+      // et un refus ici les predit ; ce qui suit suffit a corriger avant de la relancer.
+      arreter(diagnostic(x), 1);
     }
     const ligne = journal(dossierClaude).find((l) => l.requete === id);
     const t = x.tokens ?? {};
@@ -208,13 +209,31 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formeFacade(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie du run d’une façade n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + (g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : '') + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
+    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + (g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : '') + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
   if (options.facades) await mesurerFacades(options.facades, ecrire, options.modele);
   const total = journal(dossierClaude).reduce((s, l) => s + (typeof l.cout === 'number' ? l.cout : 0), 0);
   console.log('Toutes les requêtes ont été acceptées (' + n + '). Coût total journalisé : ' + dollars(total) + '.');
   return 0;
+}
+
+/**
+ * Ce qui dit pourquoi une requete n'a pas ete lue : le statut, l'arret, l'erreur, les tokens de sortie, si la sortie structuree
+ * etait demandee, et le debut du texte que le modele a ecrit (rendu par le serveur pour une sortie illisible ; ni cle ni en-tete).
+ */
+function diagnostic(x) {
+  const e = x.erreur ?? {};
+  return 'statut « ' + x.statut + ' », arrêt « ' + (x.arret ?? '-') + ' », tokens de sortie ' + (x.tokens?.sortie ?? '?')
+    + (typeof x.structuree === 'boolean' ? ', sortie structurée ' + (x.structuree ? 'demandée' : x.refusFormat ? 'refusée par l’API (« ' + x.refusFormat + ' »), repli sans elle' : 'non demandée') : '') + '.\n'
+    + 'Anthropic : ' + (e.type ?? '?') + ' : ' + (e.message ?? '(aucun message)')
+    + (typeof e.apercu === 'string' ? '\nDébut du texte rendu (' + e.apercu.length + ' caractères au plus 400) :\n' + e.apercu : '');
+}
+
+/** Ce que la requete a fait de la sortie structuree, pour la ligne d'une requete acceptee. */
+function structure(x) {
+  if (x.structuree) return ' ; sortie structurée';
+  return x.refusFormat ? ' ; sortie structurée refusée par l’API (« ' + x.refusFormat + ' »), lue sans elle' : '';
 }
 
 /** Ce qui manque a une sortie du run d'une facade pour avoir la forme du schema (deploy/schema-facade.json) ; null si rien. */
@@ -254,10 +273,18 @@ async function mesurerFacades(dossier, ecrire, modele) {
       if (r.statut !== 200) arreter('mesure ' + nom + ' ' + m + ' : HTTP ' + r.statut + ' : ' + (r.corps?.error?.message ?? JSON.stringify(r.corps)) + (r.statut === 429 ? '\n(plafond atteint : relancez avec --plafond <dollars>)' : ''), 1);
       const res = r.corps.resultats ?? [];
       const somme = (k) => res.reduce((s, x) => s + (x.tokens?.[k] ?? 0), 0);
+      // Les passes illisibles sont comptees a part (et leur debut de texte garde) : le tableau mesure la lecture de la facade, pas
+      // celle du JSON.
+      const ratees = res.filter((x) => !(x.statut === 'reussi' && x.sortie));
       sortie[m] = { modele: r.corps.modele, prompt: r.corps.prompt, schema: r.corps.schema, sorties: res.filter((x) => x.statut === 'reussi' && x.sortie).map((x) => x.sortie),
+        passes, illisibles: ratees.length, structurees: res.filter((x) => x.structuree).length,
+        refusFormat: res.find((x) => x.refusFormat)?.refusFormat ?? null,
+        echecs: ratees.map((x) => ({ statut: x.statut, arret: x.arret ?? null, type: x.erreur?.type ?? null, message: x.erreur?.message ?? null, apercu: x.erreur?.apercu ?? null })),
         tokens: { entree: somme('entree') + somme('ecritureCache') + somme('lectureCache'), sortie: somme('sortie') },
         cout: res.every((x) => typeof x.cout === 'number') ? res.reduce((s, x) => s + x.cout, 0) : null, secondes: Math.round((Date.now() - debut) / 100) / 10 };
-      console.log('- ' + nom + ' ' + m + ' : ' + sortie[m].sorties.length + '/' + passes + ' passe(s) lisible(s), ' + dollars(sortie[m].cout) + ', ' + sortie[m].secondes + ' s');
+      console.log('- ' + nom + ' ' + m + ' : ' + sortie[m].sorties.length + '/' + passes + ' passe(s) lisible(s), sortie structurée ' + sortie[m].structurees + '/' + passes + ', ' + dollars(sortie[m].cout) + ', ' + sortie[m].secondes + ' s');
+      const rate = res.find((x) => x.statut !== 'reussi' || !x.sortie);
+      if (rate) console.log('  ' + diagnostic(rate).replace(/\n/g, '\n  '));
     }
     fs.writeFileSync(path.join(dossier, nom + '.reponses.json'), JSON.stringify(sortie));
   }

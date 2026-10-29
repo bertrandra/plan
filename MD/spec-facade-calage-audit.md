@@ -1136,6 +1136,36 @@ clé : `npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/m && 
 --facades /tmp/m --plafond 0.25 && npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/m`. La décision sur le vote (garder
 l'option ×3 ou la retirer en F3 avec `renfort.ts`) se prend sur ce tableau.
 
+**Après la fusion : la requête `facade` refusée par la vraie API, puis corrigée** (29 octobre 2026). Le premier passage du workflow
+sur `main` (run 40887362801) a accepté l'analyse et le renfort, et refusé le run d'une façade : réponse rendue (`end_turn`), « Sortie
+non JSON » ; la mesure ×1 contre ×3 n'est pas partie (le vérificateur s'arrête au premier refus, et le garde : ses 88 requêtes partent
+du même prompt et du même schéma). La cause : comme tous les usages depuis le 15 octobre, la requête partait **sans sortie structurée**
+(le schéma en consigne à la suite du prompt), et le faux Anthropic des tests rendait toujours un JSON propre. Le texte réel n'ayant pas
+été gardé, sa forme exacte reste inconnue ; ce qui est sûr, c'est que rien ne la contraignait. Correction : le run d'une façade demande
+la sortie structurée (`SORTIE_STRUCTUREE`, `output_config.format` avec son schéma, à l'appel immédiat seulement), que son schéma
+permet (ni récursion ni contrainte numérique ; `additionalProperties: false` partout), et repart une fois sans elle si l'API refusait
+de le compiler (`formatRefuse`). La lecture d'une réponse libre ne prend plus « de la première accolade à la dernière » mais le dernier
+bloc de code, le dernier objet équilibré, puis sans virgule finale. Une sortie illisible rend le début de son texte (`erreur.apercu`),
+que le vérificateur imprime avec l'arrêt et les tokens. Le faux Anthropic rend maintenant, sans format, un texte de cette forme
+(`TEXTE_FACADE_SANS_FORMAT`, synthétique) : l'ancien serveur y échoue en « Sortie non JSON », le nouveau le lit. Prompt et schéma
+inchangés (version 1).
+
+**Puis la mesure sur la vraie API** (run 40896695970, 0,145 $) : acceptée, mais **pas valide**. Toutes les requêtes, celle de la
+vérification comprise, sont reparties sans sortie structurée : l'API refusait le schéma, et le message de son refus n'était pas gardé.
+Le repli montrait le schéma en texte, et Haiku le recopiait en logeant ses valeurs dedans (une fois `egout: 258`, des pixels). La
+plupart des lignes « 0 / 6 / 0 » du tableau (×1 : rappel 19,8 % ; ×3 : 64,3 %) sont donc des passes illisibles, pas des baies
+manquées. Corrigé, prompt et schéma en **version 2** :
+- **sortie structurée** : le schéma part seul en `output_config.format`, plus dans le prompt ; refusée, la requête repart une fois sans
+  elle, et le message du refus est gardé (`refusFormat`, au résultat et au journal) et imprimé par le vérificateur ;
+- **sans elle**, le prompt montre un exemple de réponse (une façade inventée, `exemple` du fichier de schéma, généré et vérifié contre
+  le schéma), jamais le schéma ; un schéma recopié n'est plus lu comme une réponse vide (« Sortie hors du schéma ») ;
+- **bornes** : le prompt dit que tous les nombres sont des parts, et les observations (`src/regles/facades/observations.ts`) écartent
+  un nombre hors de son repère, au-delà d'un débord d'arrondi de 0,05 ramené au bord. La sortie structurée ne peut pas porter ces
+  bornes (ni `minimum` ni `maximum`) ;
+- **la mesure** passe par la même requête que la production (la route de l'appel immédiat). Elle garde, par mode, les passes
+  envoyées, les illisibles, celles en sortie structurée et le début de texte des échecs. Le tableau compte les passes illisibles à
+  part, hors de la qualité, et compare ×1 et ×3 sur les façades lues dans les deux modes.
+
 ### 9 bis. F3, livré le 29 octobre 2026
 
 **Ce qui est livré.**

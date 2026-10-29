@@ -89,7 +89,8 @@ export interface ResultatBatch {
   /** L'usage de la requete (absent d'un serveur d'avant le lot L18 : `analyse`). */
   usage?: string;
   sortie: unknown;
-  erreur: { type: string; message: string } | null;
+  /** `apercu` : pour une sortie illisible, le debut du texte que le modele a ecrit (400 caracteres au plus), pour la diagnostiquer. */
+  erreur: { type: string; message: string; apercu?: string } | null;
   /** L'appel immediat dit aussi ce que la requete a coute : ses tokens, et son cout en dollars (null : tarif manquant). */
   tokens?: { entree: number; ecritureCache: number; lectureCache: number; sortie: number };
   cout?: number | null;
@@ -97,6 +98,8 @@ export interface ResultatBatch {
   modele?: string;
   prompt?: number;
   schema?: number;
+  /** L'appel immediat : la sortie structuree (`output_config.format`) a-t-elle servi ? Faux apres un repli sans elle. */
+  structuree?: boolean;
 }
 
 export interface ResultatsBatch {

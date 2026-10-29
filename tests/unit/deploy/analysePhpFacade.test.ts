@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { php as appelPhp } from '../../fixtures/deploy/appelPhp.js';
-import { CLE, TROUVE_FACADE, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, SORTIE_FACADE, TROUVE_FACADE, USAGE_P2, demande, demarrerFauxAnthropic, messageFacade, messageReussi, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 
@@ -16,7 +16,7 @@ import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
 const TARIFS = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/claude-tarifs.json'), 'utf8')) as { lignes: unknown[] };
-const SCHEMA = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-facade.json'), 'utf8')).schema as unknown;
+const EXEMPLE = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-facade.json'), 'utf8')).exemple as unknown;
 
 let base = '';
 let tmp: string;
@@ -87,27 +87,30 @@ describe.skipIf(!php)('analyse.php, le run d une facade', () => {
     fs.rmSync(demos, { recursive: true, force: true });
     faux.batches.length = 0;
     faux.messages.length = 0;
+    faux.reponseMessage = () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_FACADE) });
     faux.finLe = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
     await connecterAdmin(navigateur, 'secret-admin');
   });
 
   it('dit les versions du run, et envoie son prompt et son schema dans le batch de l analyse (l audit, lot F3)', async () => {
     const etat = await (await navigateur('admin/claude/etat')).json();
-    expect(etat).toMatchObject({ facade: { prompt: 1, schema: 1 } });
+    expect(etat).toMatchObject({ facade: { prompt: 2, schema: 2 } });
     expect(etat).not.toHaveProperty('renfort');
     const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteFacade('r1', 1)] };
     expect((await ecrire('admin/claude/batches', d)).status).toBe(201);
     const r1 = faux.batches[0]!.corps.requests[1]!;
-    expect((r1.params.system as { text: string }[])[0]!.text.endsWith('\n\n' + JSON.stringify(SCHEMA))).toBe(true);
+    // Le batch n'a pas de sortie structuree : le prompt montre l'exemple de reponse, pas le schema (lot F2, prompt v2).
+    expect((r1.params.system as { text: string }[])[0]!.text.endsWith('\n\n' + JSON.stringify(EXEMPLE))).toBe(true);
+    expect((r1.params.output_config as { format?: unknown }).format).toBeUndefined();
     expect((r1.params.system as { text: string }[])[0]!.text).toMatch(/lire \*\*une façade\*\*/);
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
     expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'facade']]);
     // Une requete d'un autre usage que le batch garde son modele et ses versions : la page les enregistre avec la reponse.
     const r = lu.resultats.find((x: { id: string }) => x.id === 'r1');
-    expect(r).toMatchObject({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1 });
+    expect(r).toMatchObject({ modele: 'claude-haiku-5-5', prompt: 2, schema: 2 });
     expect(lu.resultats.find((x: { id: string }) => x.id === 'p1')).not.toHaveProperty('prompt');
-    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'facade', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 1, schema: 1, trouve: null });
+    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'facade', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 2, schema: 2, trouve: null });
     expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ usage: 'analyse' });
     // Le renfort (lot L18) n'est plus un usage : refuse dans le batch, et a l'appel immediat.
     expect((await ecrire('admin/claude/batches', { ...d, requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, { ...requeteFacade('r1', 1), usage: 'renfort' }] })).status).toBe(400);
@@ -126,6 +129,29 @@ describe.skipIf(!php)('analyse.php, le run d une facade', () => {
     expect(journal()).toHaveLength(3);
     expect(journal()[0]).toMatchObject({ usage: 'facade', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi', trouve: TROUVE_FACADE });
     expect((await ecrire('admin/claude/messages', d(4))).status).toBe(400);
+  });
+
+  it('demande au run d une facade la sortie structuree, et repart une fois sans elle si l API la refuse', async () => {
+    const d = { ...demande([]), usage: 'facade', requetes: [requeteFacade('f1', 1)] };
+    faux.reponseMessage = (corps) => messageFacade(corps);
+    let r = await (await ecrire('admin/claude/messages', d)).json();
+    expect(faux.messages).toHaveLength(1);
+    expect((faux.messages[0]?.output_config as { format?: { type: string } }).format?.type).toBe('json_schema');
+    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: true, refusFormat: null, erreur: null, sortie: SORTIE_FACADE });
+    expect(journal().at(-1)).toMatchObject({ usage: 'facade', structuree: true, prompt: 2, schema: 2 });
+    // Le schema part en sortie structuree, et plus dans le prompt.
+    const systeme = (m: Record<string, unknown> | undefined) => (m?.system as { text: string }[])[0]!.text;
+    expect(systeme(faux.messages[0])).not.toContain('additionalProperties');
+    // Le schema refuse : la meme requete sans format, lue dans le texte tel qu'une reponse libre l'ecrit.
+    faux.messages.length = 0;
+    faux.reponseMessage = (corps) => messageFacade(corps, true);
+    r = await (await ecrire('admin/claude/messages', d)).json();
+    expect(faux.messages.map((m) => (m.output_config as { format?: unknown }).format === undefined)).toEqual([false, true]);
+    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: false, refusFormat: 'output_config.format: The compiled grammar is too large', erreur: null, sortie: SORTIE_FACADE });
+    expect(journal().at(-1)).toMatchObject({ structuree: false, refusFormat: 'output_config.format: The compiled grammar is too large' });
+    // Le repli montre l'exemple de reponse, pas le schema (que Haiku recopiait).
+    expect(systeme(faux.messages[1])).toMatch(/C’est un EXEMPLE/);
+    expect(systeme(faux.messages[1])).not.toContain('additionalProperties');
   });
 
   it('fait l escalade (D20) : usage escalade, prompt et schema de l analyse, modele demande', async () => {

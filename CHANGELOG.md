@@ -89,6 +89,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   en moyen depuis le lot F2). Le choix tient maintenant dans sa colonne, l'option se coupe.
 - **Le prompt du run d'une façade ne se sert plus en clair** (`deploy/htaccess.template`) : la règle qui garde les prompts lus par
   `analyse.php` nommait encore celui du renfort ; elle nomme maintenant `prompt-facade.md` (lot F2).
+- **Le run d'une façade se lit sur la vraie API** (lot F2). La vérification de l'API Claude du 29 octobre 2026 (run 40887362801) a
+  refusé la requête `facade` : réponse rendue (`end_turn`), mais « Sortie non JSON ». Comme les autres usages, elle partait sans sortie
+  structurée, le schéma en simple consigne du prompt, et le serveur cherchait l'objet « de la première accolade à la dernière ». Le
+  run d'une façade demande maintenant la sortie structurée (`output_config.format`, son schéma, à l'appel immédiat), et repart une fois
+  sans elle si l'API refusait le schéma. Le texte d'une réponse libre se lit mieux : dernier bloc de code, dernier objet équilibré, et
+  sans virgule finale en dernier recours. Pour une sortie illisible, le serveur rend le début du texte (400 caractères), et
+  `verifier-api-claude.mjs` imprime l'arrêt, les tokens de sortie, si la sortie structurée était demandée et ce début de texte. Le faux
+  Anthropic des tests rend désormais cette forme de réponse quand le format manque : la CI aurait pris l'erreur.
+
+- **Le run d'une façade ne montre plus son schéma à Claude en texte** (lot F2, prompt et schéma du run en version 2). La mesure
+  ×1 contre ×3 sur la vraie API (run 40896695970) a montré que l'API avait refusé la sortie structurée à chaque requête, le repli
+  partant avec le schéma en texte ; Haiku le recopiait et logeait ses valeurs dedans (`{"type":"object",…,"gauche":{"x":0.22,…`), une
+  fois `egout: 258` (des pixels). Avec la sortie structurée, le schéma ne part plus dans le prompt ; sans elle, le prompt montre un
+  **exemple** de réponse (une façade inventée, `exemple` de `deploy/schema-facade.json`, généré). Le refus de l'API est gardé avec son
+  message (`refusFormat`, résultat et journal) et imprimé par le vérificateur. Le schéma recopié n'est plus pris pour une réponse vide
+  (« Sortie hors du schéma »). Les observations bornent leurs nombres : une part de l'image ou du mur hors de 0 à 1 (au-delà d'un
+  débord d'arrondi de 0,05, ramené au bord) ou une hauteur hors de 0 à 6 hauteurs d'égout écarte l'objet qui la porte. Le prompt dit
+  que tous les nombres sont des parts. La mesure compte à part les passes illisibles et compare ×1 et ×3 sur les façades lues dans les
+  deux modes.
 
 ### Supprimé
 

@@ -398,7 +398,7 @@ try {
         $requetes = [];
         foreach ($demande['requetes'] as $r) {
             [$pR, $sR] = $prompts[$r['usage']];
-            $requetes[] = ['custom_id' => $r['id'], 'params' => parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu'])];
+            $requetes[] = ['custom_id' => $r['id'], 'params' => parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu'], false, $sR['exemple'] ?? null)];
         }
         $corps = json_encode(['requests' => $requetes], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         [$statut, $texte] = anthropic('POST', '/v1/messages/batches', $corps === false ? '' : $corps);
