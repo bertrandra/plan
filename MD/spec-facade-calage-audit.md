@@ -552,8 +552,9 @@ l'É7 de l'enchaînement et l'aide du relevé appliquent :
 | Les pointes : diagnostic ou alerte, jamais correction | `calage.pointes` | accord, en plus, manquante (diagnostic, F4), hauteur (alerte : le LiDAR est gardé) | `pointeEcartU`, `pointeEcartHauteur` |
 | Une boîte n'est cochée que si la détection la retrouve | `ouvertures` | cochée (retrouvée, ou baie devinée confirmée), seule (décochée), écartée (hors du mur) | `baieRetrouvee`, `devineeConfirmee`, `baieMinM`, `confianceSeule` |
 
-Les observations de toit (silhouette, bout, pointes, appentis, corps, éléments) sont **enregistrées** avec la réponse ; elles n'iront
-au toit que par `corpsSousContrainte` (F4).
+Les observations de toit (silhouette, bout, pointes, appentis, corps, éléments) sont **enregistrées** avec la réponse ; depuis F4,
+les pointes entrent dans le diagnostic de forme (§5 bis, `facade/regles/facades/diagnosticForme.ts`) et ne vont au toit que par
+`corpsSousContrainte`, une fois la proposition cochée par la personne (§9 bis, F4).
 
 **Coordonnées de l'IA** : toujours en **parts du mur** (`u` le long de la largeur, `v` en part de l'égout), jamais en pixels de la
 photo : elles ne dépendent ni de la résolution ni du redressement, et se comparent directement au gabarit. Le calage les ramène en pixels.
@@ -888,7 +889,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | **F1 — Calage par ancres** *(livré le 29 octobre 2026, §9 bis)* | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
 | **F2 — Un run IA par façade** *(livré le 29 octobre 2026, §9 bis)* | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
 | **F3 — L'audit sur l'orchestrateur** *(livré le 29 octobre 2026, §9 bis)* | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
-| **F4 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
+| **F4 — Diagnostic de forme et toit par corps** *(livré le 29 octobre 2026, §9 bis)* | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
 | **F7 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
@@ -1330,6 +1331,125 @@ par la commande, son coût annoncé, gardée dans le cas (`ecranCalibration.test
 `analysePhpFacade.test.ts`. Fumée : point 103 (l'escalade dans la calibration) et 71, 82 (le relevé envoie trois passes au même
 contenu), 100, 101, 102 : 15 passés sur 15, dans les trois classes ; captures `f3-escalade-{compact,moyen,large}.png`. Banc identique
 hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101 « corps identiques » ; empreintes golden inchangées.
+
+### 9 bis. F4, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **Le découpage de la façade en tronçons de corps** : `silhouetteDesCorps.ts::silhouetteDeFace` dit, à chaque point de son haut, quel
+  mur de corps le porte (`porteur`, `murs`) ; `tronconsDeFace` en tire les tronçons (le mur du corps, sa part `x0` à `x1`) ; un joint
+  plus court que le pas de lecture n'en fait pas un. Le gabarit (`gabaritDesCorps`) ne change pas.
+- **Le moteur des toits pose des pignons sur n'importe quel corps** (`facade/regles/toits/pignons.ts`) : `PignonsFait.mur` désigne le
+  corps par son mur (`murDuCorps`) ; `position: 'places'` dit exactement les pignons que ce mur montre (`pignonsAuxPlaces` : un de
+  plus, un de moins, déplacé, élargi ; chacun monte au faîtage du corps ; le pan n'est pas relu, les hauteurs restent celles du
+  LiDAR) ; `ObservationFait.boutsDesMurs` dit le bout que montre un mur de bout (`boutAuMur` : une croupe à la pente des pans,
+  profondeur de la moitié de la largeur, ou un pignon). `corpsSousContrainte` les applique comme tout fait (`avecPignons`, puis
+  `avecBoutsDesMurs`). Le vocabulaire de `regles/toits/faits.json` ne change pas (une observation de l'audit ne s'y écrit jamais).
+- **Le diagnostic de forme** (É5 bis, `facade/regles/facades/diagnosticForme.ts::diagnostiquerForme`, pur) : le haut lu sur la photo,
+  en parts du mur (l'É5 de la calibration, `etapesForme.ts::hautEnPartsDuMur` ; l'analyse le rend aussi, `ResultatAnalyse.hautLu`,
+  lu à la matière du mur avant que le ciel ne soit repeint : l'audit en a un) contre le gabarit, **tronçon par tronçon**, sur 120
+  colonnes, l'écart plafonné à une hauteur d'égout par colonne. Sur un long pan à faîtage, une recherche en trois tours au plus
+  essaie un pignon de moins, chaque pignon déplacé ou élargi (bords au quart de mètre, à ±1 m) et un pignon ajouté sur chaque bosse
+  du haut lu (centre à ±0,5 m, largeurs de `LARGEUR_PIGNON_MIN_M` à `LARGEUR_PIGNON_MAX_M`), **chaque variante faite par le moteur**
+  (`pignonsAuxPlaces`) et redessinée par la même projection (`gabaritDesCorps`) ; sur un mur de bout, la croupe ou le pignon
+  (`boutAuMur`). Une variante n'est proposée que si le tronçon s'écarte du haut lu d'au moins `diagnosticEcartMin` (0,08 hauteur
+  d'égout) et qu'elle réduit cet écart d'au moins `diagnosticGainMin` (25 %) ; un pignon à peine bougé (moins d'un pas et demi)
+  reste celui du calcul. Chaque proposition dit son corps, son mur, sa nature (`ajouter-pignon`, `retirer-pignon`,
+  `deplacer-pignon`, `pignon-vers-croupe`, `croupe-vers-pignon`), sa place, ses pignons dans le repère du corps, l'écart avant et
+  après, son gain, sa provenance, le gabarit modifié et **l'observation** que le moteur relira.
+- **Claude dans le diagnostic** (par la règle des pointes, `avisDesPointes`) : une proposition dont ses pointes confirment la place
+  vient « des deux » ; sans haut lu, ses pointes en plus (un pignon de la largeur d'un pignon voisin du même corps, centré sur sa
+  pointe) ou manquantes font des propositions « de Claude seul », sans gain ; avec un haut lu, une pointe qu'il est seul à voir ne
+  se propose pas, elle est dite en constat (§5 bis, règles 1 et 5).
+- **Les alertes de hauteur** : une pointe du gabarit que le haut lu (ou Claude) voit plus haute ou plus basse de plus de
+  `facades.ia.pointeEcartHauteur` est une alerte, rattachée à son corps ; jamais une proposition (décision 12).
+- **Ce qui ne se propose pas** est dit en constat : une bosse plus étroite qu'un pignon (cheminée ou lucarne, F7), les éléments et les
+  autres volumes que Claude voit, et un haut lu qui passe sous l'égout (il ne lit pas le haut du mur : il ne sert pas).
+- **L'orchestrateur** : `EntreesFacade.toit` (le mur de la façade et les corps du toit), `SortiesFacade.forme` (le haut lu, le
+  diagnostic) ; l'É5 bis (`etapesForme.ts::etapeDiagnostic`) dit les tronçons, l'écart, chaque proposition, chaque alerte et les
+  constats, à confirmer s'il y en a (le point V2, toujours demandé), et sa mesure contre la vraie forme du toit d'un cas ; l'É8
+  (`etapeToit`) dit les propositions à confirmer dans l'avant/après. Seule l'É9 reste « sautée » avec son lot (F5) ; un
+  cas sans corps du toit saute l'É5 bis et l'É8, en le disant. Un segment de la barre s'ouvre sur l'étape qui doute, sinon son point
+  de validation (« Forme » ouvre le diagnostic).
+- **L'audit** : `mesurerFacade` donne les corps du toit à l'orchestrateur ; la mesure garde le haut lu et le diagnostic (dérivés,
+  jamais écrits dans le fichier de l'audit) ; `app/audit/parcelle/formeFacades.ts::propositionsDeForme` fait relire chaque
+  proposition par le moteur des toits (`corpsSousContrainte`, sur la mesure LiDAR du bâtiment, le corps que désigne le mur), la passe
+  à la porte du fait du bâtiment (`corpsProposesSousFait`), et propose le corps rendu (`effet: corpsDuToit`), **décochée** (« Une
+  forme de toit lue sur la photo se confirme toujours … ») ; un toit figé ou saisi le dit (`remplaceChoix`). L'avant/après la montre,
+  le corps concerné en surbrillance.
+- **La calibration** : un cas tiré d'un audit garde les corps qui font son gabarit (`CasReel.toit`, relu et vérifié) ; l'É5 bis de
+  la frise montre sur l'image le gabarit du plan, le haut lu, le gabarit de chaque proposition (tirets) et les tronçons de corps,
+  avec la vraie forme du toit du cas.
+- Fumée : point 104. Points touchés rejoués dans les trois classes (62, 63, 85, 86, 88, 97, 98, 100, 101, 102, 104) : **33 sur 33**.
+
+**Acceptation.**
+
+- *Sur AE 101 sud, la proposition juste est faite sur le bon corps, décochée* (`tests/unit/facade/ae101Forme.test.ts`,
+  `tests/unit/facade/releve/enchainement.test.ts` « E5 bis et E8 ») : le toit est celui du LiDAR du 14 octobre au soir
+  (`vesinet-ae101-lidar-soir.json`), où le calcul seul a perdu le pignon est de la façade sud ; la façade se découpe en un tronçon,
+  le long pan du corps principal (celui que désigne le mur du toit vrai de l'étalon) ; l'assemblage refait en synthèse et la réponse
+  synthétique de Claude du lot F2 font proposer **un pignon de plus, sur le corps principal et lui seul**, à sa place (« Corps
+  principal (corps 1) : proposition juste (2 pignons vrais, …) » contre la vraie forme du toit) ; l'É5 bis et l'É8 sont à confirmer ;
+  dans l'audit, la ligne arrive décochée (`tests/unit/app/audit/parcelle/formeFacades.test.ts`).
+- *Accepter change le toit par le moteur seulement ; hauteurs du LiDAR inchangées* : l'observation relue par `corpsSousContrainte`
+  pose le pignon est sur le corps principal ; ses murs, son faîtage, ses égouts et le pignon ouest lu par le LiDAR ne bougent pas ;
+  les autres corps sont identiques ; `ecartsAuFait` de l'observation est vide. L'accepter dans l'audit (`appliquerPropositions`) ne
+  change que ce corps ; ensuite, plus rien n'est proposé.
+- *AE 101 identique sans proposition acceptée* : sur les corps d'AE 101 d'aujourd'hui (sous leurs faits), le diagnostic ne propose
+  rien et ne lève aucune alerte ; `identite.ts` : « AE 101 : corps identiques » (le fait de ses pignons se pose maintenant sur le
+  côté de corps en façade qui regarde au sud, parmi les corps à faîtage, et c'est toujours le corps principal) ; empreintes golden
+  inchangées.
+- *Le moteur d'image ne bouge pas* : banc des façades identique hors colonnes des temps (toutes les sections) ; `egout-sol.ts`
+  identique (égout **44/44**, sol **43/44**, bouts 86/88, silhouette à 2 % **39/44**, 44/44 expliquées). `hautLu` est une lecture de
+  plus sur l'élévation, avant que le ciel ne soit repeint : aucune image ni aucun nombre de la chaîne ne change.
+
+**Interprétations** (le code l'emporte sur la spec quand ils diffèrent ; les plus petites lectures fidèles) :
+
+1. **Les photos d'AE 101 ne sont toujours pas dans le dépôt** (F0, interprétation 2) : l'acceptation est prouvée sur l'assemblage
+   refait en synthèse (`tests/banc/facades/ae101.ts`), avec la réponse **synthétique** de Claude du lot F2. Sur cet assemblage, le
+   haut lu à la teinte passe sous l'égout (la galerie à l'ombre, l'enduit presque de la teinte du ciel : le défaut que la scène
+   reproduit) : il est écarté et c'est Claude seul qui propose ; la même proposition, faite par le déterministe avec un haut juste
+   (le gabarit de l'étalon), vient « des deux » (gain 0,79). Elle reste à constater sur la vraie mosaïque, le cas tiré de l'audit.
+2. **« Le bon toit » d'AE 101 sud** est celui du LiDAR du 14 octobre au soir, sans ses faits : avec ses faits, le toit d'aujourd'hui
+   tient déjà les deux pignons et rien n'est à proposer (c'est l'acceptation « AE 101 identique »). La largeur d'un pignon que Claude
+   seul propose est celle du pignon voisin du même corps (2,41 m, le pignon ouest du soir), centrée sur sa pointe : la place est juste,
+   la largeur une estimation (la vérité donne 3,7 m) ; la mesure contre la vérité juge la place (recouvrement à moitié au moins) et
+   dit l'écart des bords.
+3. **Les hauteurs ne bougent jamais** : un pignon proposé monte au faîtage du corps, et le pan n'est pas relu sur la mesure (à la
+   différence d'un pignon que pose un fait du dépôt, `pignonsAuxBouts`, ou que disent les silhouettes de l'arbitrage,
+   `pignonTraversant`) : relire le pan changerait le faîtage et les égouts lus sur le LiDAR, ce que la décision 12 interdit à une
+   lecture de photo.
+4. **Le périmètre posé par le moteur** : les pignons d'un long pan (un de plus, de moins, déplacé, élargi) et le bout d'un mur de
+   bout (pignon ou croupe). Les autres lignes de la taxonomie (§5 bis) sont des constats sans proposition : une marche (un second
+   corps) et une rampe (un appentis) ne se fabriquent pas par le moteur, le Mode Toit le fait à la main ; une bosse étroite
+   (cheminée, lucarne) attend F7.
+5. **Le run de l'audit lit l'élévation du mur, sans la bande au-dessus de l'égout** (F3, interprétation 3) : ses pointes ne voient
+   pas le haut, l'audit ne les donne pas au diagnostic. Le diagnostic de l'audit est celui du haut lu ; celui de la calibration y
+   ajoute Claude (le run lit l'assemblage).
+6. **Une mesure relue d'un fichier d'audit n'a pas de haut lu** (il ne s'écrit pas, comme les étapes) : « Rejouer la façade » le
+   recalcule.
+7. **Le fait d'un bâtiment l'emporte sur une proposition de l'audit** (`corpsProposesSousFait`), comme pour les autres propositions
+   de toit : un fait en remplacement fixe le toit, un fait en contrainte refuse ce qui ne le tient plus (« vu sur place » est le
+   niveau de l'audit, sous celui du fait, `spec-flux-batiment.md`).
+8. **Les pignons d'un fait du dépôt** se posent maintenant sur le côté de corps en façade du contour qui regarde vers l'azimut, le
+   plus long, **parmi les corps qui ont un faîtage** (l'appentis de la galerie d'AE 101 a un côté aussi long que le grand pan) : c'est
+   la règle des appentis, sans corps principal supposé. Sur le dépôt, seul AE 101 en porte, identique.
+9. **Un segment de la barre ouvre l'étape qui doute** (sinon son point de validation, sinon la première) : « Forme » ouvrait la
+   silhouette lue, qui a réussi ; il ouvre maintenant le diagnostic qui attend la personne. Le segment « Image » ouvre l'assemblage
+   quand c'est lui qui échoue.
+10. **Les objectifs de l'É5 bis sont dans `regles/facades/enchainement.json`**, à côté de ceux d'F0 et F1 (F0, interprétation 1), posés
+    sans cas réel validé (§5.6) ; toute proposition arrive décochée, le seuil ne décide que de ce qui est montré.
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| L'unique corps principal codé en dur | `facade/regles/toits/pignons.ts`, `facade/regles/toits/faits.ts` | la désignation du plus grand corps dans `avecPignons` (et son `aire`), `pignonsManquants(…, principal)` | 7 retirées | `porteurDesPignons` (le mur désigné, sinon le côté en façade qui regarde vers l'azimut, parmi les corps à faîtage), `pignonsManquants(…, corps)` |
+| Les étapes « sautées » pour F4 | `facade/releve/enchainement.ts`, `model/etapeFacade.ts` | les pas « Le diagnostic de forme vient avec le lot F4 », « Le toit par le moteur vient avec le lot F4 », `lot: 'F4'` | 4 | `etapesForme.ts::etapeDiagnostic`, `etapeToit` |
+| L'ouverture d'un segment sur sa première étape | `zones/composants/BarreProgressionFacade.tsx` | `data-etape={s.etapes[0]}` | 1 | `etapeAOuvrir` |
+
+Cliquet des orphelins : 217 entrées, inchangé (les exports nouveaux ont tous un importeur dans `src/` ; ceux que seuls les tests
+lisaient ont été rendus locaux). Grep des noms supprimés : sans objet (aucun nom public n'est parti ; la désignation interne a changé).
 
 ---
 

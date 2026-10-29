@@ -553,8 +553,7 @@ reconstruction des corps ne la voit jamais. Le fait l'**ajoute** :
 
 ### 5.2 Les pignons traversants d'une façade
 
-Des pignons qui coupent le pan d'une façade du **corps principal** (le pignon d'un corps
-« transversal » qui pénètre le toit) se détectent sur la mesure (`detecterPignons`, §2.3). Quand le
+Des pignons qui coupent le pan d'une façade (le pignon d'un corps « transversal » qui pénètre le toit) se détectent sur la mesure (`detecterPignons`, §2.3). Quand le
 propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
 
 ```json
@@ -565,8 +564,8 @@ propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
 
 | Champ | Valeurs | Ce que le calcul en fait |
 |---|---|---|
-| `facade.azimutDeg` | comme pour un appentis (§5.1) | le mur de **pan** du corps principal dont la normale est à moins de `toleranceDeg` ; un mur de bout ne porte pas de pignon traversant |
-| `position` | `"bouts"` (seule valeur) | un pignon à chaque bout de la façade |
+| `facade.azimutDeg` | comme pour un appentis (§5.1) | le côté de corps en façade du contour dont la normale est à moins de `toleranceDeg`, le plus long s'il y en a plusieurs, **quel que soit le corps** (depuis le lot F4 des façades ; avant, le seul corps principal) ; un mur de bout ne porte pas de pignon traversant |
+| `position` | `"bouts"` (seule valeur dans un fait du dépôt) | un pignon à chaque bout de la façade |
 | `haut` | `"faitage"`, ou absent | `"faitage"` : au point haut du faîtage du corps, jusqu'à lui (profondeur = largeur du pan) ; absent : la hauteur lue sur la mesure |
 | `largeurM` | mètres, facultatif | la largeur de chaque pignon : donnée, elle **l'emporte** sur la mesure |
 
@@ -580,6 +579,12 @@ propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
 - **Ne fabrique rien** : sans mesure qui le délimite, sans autre pignon ni `largeurM`, le pignon
   n'est pas posé et `ecartsAuFait` le dit (« pignons vers 180 : 1 sur 2 »). En `remplacement`, les
   pignons ne sont pas encore posés.
+- **Une observation de l'audit** (lot F4, `MD/spec-facade-calage-audit.md` §5 ter), jamais écrite dans ce fichier : le même
+  vocabulaire, le corps désigné par son **mur** (`mur: { gauche, droite }`, retrouvé par `murDuCorps` quel que soit son rang), et
+  `position: "places"` avec `places: [{ de, a }]` (mètres le long du mur depuis sa gauche vue de dehors) : **exactement** ces
+  pignons sur ce pan (`pignonsAuxPlaces` : un de plus, un de moins, déplacé, élargi ; chacun monte au faîtage du corps, le pan n'est
+  pas relu, les hauteurs restent celles de la mesure). Le bout que montre un mur de bout s'écrit `boutsDesMurs: [{ mur, bout }]`
+  (`boutAuMur` : une croupe à la pente des pans, ou un pignon). `corpsSousContrainte` les relit comme tout fait.
 - Premier cas : AE 101, façade sud, « deux pignons traversants à gauche et à droite, qui montent au
   point haut du faîtage » (le propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour AE
   101 a changé l'après-midi même (0,4 m d'écart moyen par cellule, sans décalage :

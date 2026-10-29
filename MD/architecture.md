@@ -610,6 +610,8 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 | Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
 | Several views: the assemblage places the wall, the fusion of the same photos composes its image (voting, occlusion by parallax, best view per pixel) | `facade/analyseMur.ts::fondreLesVues`, `facade/fusion.ts::analyserVues` | 3 |
 | The façade's step-by-step chaining (É0 to É9): each step's state against its objective (`regles/facades/enchainement.json`), its outputs, replay from a step | `facade/releve/enchainement.ts::derouler`, contract `model/etapeFacade.ts` | 3 / 2 |
+| The shape diagnosis (É5 bis, lot F4): the façade cut into body segments (`silhouetteDesCorps.ts::tronconsDeFace`), the top read on the photo against the template segment by segment, variants of ONE body's roof made by the roof engine (`pignons.ts::pignonsAuxPlaces`, `boutAuMur`), proposals addressed to the body by its wall, height alerts; the step functions of É5 bis and É8 | `facade/regles/facades/diagnosticForme.ts`, `facade/releve/etapesForme.ts` | 3 |
+| The audit's roof proposals from that diagnosis, re-read by the roof engine (`corpsSousContrainte`) and gated by the building's fact, always unchecked | `app/audit/parcelle/formeFacades.ts` | 7 |
 | The images of each step (overlays computed, no React) | `facade/releve/imagesEtapes.ts`, `three/vueFacade3d.ts` | 3 / 4 |
 | The manual option of the wall fit (É4): ends, eave and ground dragged on a front view (a photo straightened by its landmarks, or the assemblage) — the only component of that gesture | `zones/releve/AjusterMur.tsx` | 6 |
 | The progress bar of the façade chaining (one component, calibration now, audit from F3) | `zones/composants/BarreProgressionFacade.tsx` | 6 |
@@ -622,7 +624,9 @@ whenever corners, straightening or fusion change (9 since a single photo is stra
 Two LiDAR top-of-wall readings coexist on purpose: the gabarit (`gabaritMur.ts::gabaritDesCorps`, built since 29 October 2026 on
 `silhouetteDesCorps.ts::silhouetteDeFace`, the same projection as the Mode Toit silhouette: the whole façade seen from outside,
 every body facing it, highest wins) and `facade/regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
-carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts.
+carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts. Since lot F4 `silhouetteDeFace` also says
+which body wall carries each point of the top (`porteur`), and the shape diagnosis compares the photo to the façade silhouette but
+writes every correction on the body silhouette (`murDuCorps`), never on the façade projection.
 
 The whole chain is pure and lives in layer 3: `facade/releve/` holds the series of photos (`serie.ts`, `analyseSerie.ts`,
 `masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration of the photos (`chaine.ts`), the orchestrator of
