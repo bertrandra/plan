@@ -26,7 +26,7 @@ Vous aidez le logiciel Plan à lire **une façade** sur une image, dans ses dét
 
 # Le repère du mur
 
-\`u\` va de 0 (l'angle gauche du mur) à 1 (l'angle droit), le long du mur ; \`v\` va de 0 (le sol, au pied du mur) à 1 (l'égout, là où le toit commence sur les longs pans). Au-dessus de l'égout, \`v\` dépasse 1. Donnez les nombres au centième (0.37), sans chercher le pixel. **Tous les nombres de la réponse sont des parts**, jamais des pixels ni des mètres ; les seuls entiers sont des comptes (\`rangsGenoise\`, \`marches\`). Un nombre que vous ne voyez pas vaut \`-1\` : jamais un nombre deviné.
+\`u\` va de 0 (l'angle gauche du mur) à 1 (l'angle droit), le long du mur ; \`v\` va de 0 (le sol, au pied du mur) à 1 (l'égout, là où le toit commence sur les longs pans). Au-dessus de l'égout, \`v\` dépasse 1. Donnez les nombres au centième (0.37), sans chercher le pixel. **Tous les nombres de la réponse sont des parts**, jamais des pixels ni des mètres ; les seuls entiers sont des comptes (\`rangsGenoise\`, \`marches\`). Un compte ou une hauteur que vous ne voyez pas (\`rangsGenoise\`, \`marches\`, \`hautGardeCorps\`, \`haut\`, \`soubassement\`) valent \`-1\` : jamais un nombre deviné. Une position ne vaut jamais \`-1\` : le bord d'une baie ou d'une boîte caché (une haie, une voiture) se situe là où il serait, en prolongeant ce que vous voyez.
 
 # Comment remplir la réponse
 

@@ -1,6 +1,6 @@
 ---
-version: 1
-note: Partie fixe du prompt de la lecture enrichie d'une façade (lot L1 de la lecture IA élargie), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal et chaque lecture enregistrée. Version 1 (30 octobre 2026) : sur l'image du run d'une façade, une seconde requête lit la menuiserie de chaque baie (matière, couleur), la couleur de ses volets et son garde-corps (type, hauteur, couleur), dans une palette fermée de mots ; les saillies (bow-window, galerie, auvent, appentis) et les décrochés du mur, sans profondeur ; la modénature (égout, génoise, bandeaux, chaînes, encadrements, soubassement, descentes) ; ce qui est posé contre le mur (perron, store, unité extérieure, boîte aux lettres) ; et l'état du mur (fissure, enduit abîmé, humidité, mousses), que Plan signale sans rien en conclure.
+version: 2
+note: Partie fixe du prompt de la lecture enrichie d'une façade (lot L1 de la lecture IA élargie), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal et chaque lecture enregistrée. Version 1 (30 octobre 2026) : sur l'image du run d'une façade, une seconde requête lit la menuiserie de chaque baie (matière, couleur), la couleur de ses volets et son garde-corps (type, hauteur, couleur), dans une palette fermée de mots ; les saillies (bow-window, galerie, auvent, appentis) et les décrochés du mur, sans profondeur ; la modénature (égout, génoise, bandeaux, chaînes, encadrements, soubassement, descentes) ; ce qui est posé contre le mur (perron, store, unité extérieure, boîte aux lettres) ; et l'état du mur (fissure, enduit abîmé, humidité, mousses), que Plan signale sans rien en conclure. Version 2 (30 octobre 2026, après la mesure du banc) : `-1` ne vaut que pour un compte ou une hauteur ; une position cachée se situe en prolongeant ce qui se voit, comme pour le run.
 ---
 # Rôle
 
@@ -13,7 +13,7 @@ Vous aidez le logiciel Plan à lire **une façade** sur une image, dans ses dét
 
 # Le repère du mur
 
-`u` va de 0 (l'angle gauche du mur) à 1 (l'angle droit), le long du mur ; `v` va de 0 (le sol, au pied du mur) à 1 (l'égout, là où le toit commence sur les longs pans). Au-dessus de l'égout, `v` dépasse 1. Donnez les nombres au centième (0.37), sans chercher le pixel. **Tous les nombres de la réponse sont des parts**, jamais des pixels ni des mètres ; les seuls entiers sont des comptes (`rangsGenoise`, `marches`). Un nombre que vous ne voyez pas vaut `-1` : jamais un nombre deviné.
+`u` va de 0 (l'angle gauche du mur) à 1 (l'angle droit), le long du mur ; `v` va de 0 (le sol, au pied du mur) à 1 (l'égout, là où le toit commence sur les longs pans). Au-dessus de l'égout, `v` dépasse 1. Donnez les nombres au centième (0.37), sans chercher le pixel. **Tous les nombres de la réponse sont des parts**, jamais des pixels ni des mètres ; les seuls entiers sont des comptes (`rangsGenoise`, `marches`). Un compte ou une hauteur que vous ne voyez pas (`rangsGenoise`, `marches`, `hautGardeCorps`, `haut`, `soubassement`) valent `-1` : jamais un nombre deviné. Une position ne vaut jamais `-1` : le bord d'une baie ou d'une boîte caché (une haie, une voiture) se situe là où il serait, en prolongeant ce que vous voyez.
 
 # Comment remplir la réponse
 

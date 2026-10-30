@@ -150,14 +150,14 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
-      expect(p.version).toBe(4);
+      expect(p.version).toBe(5);
       expect(p.texte).toMatch(/^# Rôle/);
       const s = lireSchema('schema-facade.json');
       expect(s.version).toBe(4);
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, [])) expect(texte('prompt-facade.md'), t).toContain('`' + t + '`');
       // Le serveur sert ce couple pour l'usage `facade`, et garde celui de l'analyse pour les autres.
-      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([4, 4]);
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([5, 4]);
       // L'exemple du repli a la forme du schema : le serveur le ramene a lui-meme, sans rien ecarter ni completer.
       const exemple = (JSON.parse(texte('schema-facade.json')) as { exemple: object }).exemple;
       expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
@@ -168,12 +168,12 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
     });
     it('versionne le prompt et le schema de la lecture enrichie d une facade (lot L1), generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade-enrichie.md'));
-      expect(p.version).toBe(1);
+      expect(p.version).toBe(2);
       const s = lireSchema('schema-facade-enrichie.json');
       expect(s.version).toBe(1);
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, [])) expect(texte('prompt-facade-enrichie.md'), t).toContain('`' + t + '`');
-      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade-enrichie').map((x) => x.version)).toEqual([1, 1]);
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade-enrichie').map((x) => x.version)).toEqual([2, 1]);
       // L'exemple du repli a la forme du schema ; un nombre manquant prend son -1, une baie sans cote est ecartee.
       const exemple = (JSON.parse(texte('schema-facade-enrichie.json')) as { exemple: object }).exemple;
       expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
