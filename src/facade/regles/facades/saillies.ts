@@ -3,12 +3,12 @@
 // - Une saillie n'est proposee que si son etendue tombe dans un troncon de corps de la facade (le diagnostic de forme, lot F4) : elle
 //   s'adresse au corps par son MUR (l'adresse que murDuCorps retrouve), et le moteur des toits la pose (corpsSousContrainte,
 //   facade/regles/toits/sailliesDesMurs.ts) une fois cochee. Rien n'est ecrit ici ;
-// - sa hauteur vient de la part lue par le calage du mur (decision 4) ; sa profondeur, qu'une vue de face ne montre pas, est celle de
-//   son genre, dite dans la proposition (risque 3) ;
+// - sa hauteur vient de la part lue par le calage du mur (decision 4) ; sa profondeur, qu'une vue de face ne montre pas, est le reglage
+//   de son genre (regles/facades/reglages.json, `saillies`), dite dans la proposition (risque 3) ;
 // - un decroche retouche un contour de l'IGN, que la photo de face ne mesure pas (sa profondeur) : il est dit en constat, a retoucher a la
 //   main, jamais propose a cocher (risque 4). Pur.
 
-import { DEFAUTS_SAILLIE } from '../../modeToit/saillies.js';
+import { profondeurSaillieVue } from '../toits/sailliesDesMurs.js';
 import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { SaillieDeMurFait } from '../../../regles/toits/faits.js';
 import type { ObservationsFacade, SaillieIa } from '../../../regles/facades/observations.js';
@@ -65,7 +65,7 @@ export function sailliesProposees(obs: ObservationsFacade | null, troncons: read
 export function direSaillie(p: Pick<PropositionSaillie, 'saillie' | 'observation'>): string {
   const v = p.observation.sailliesDesMurs[0];
   const largeur = f2(v.a - v.de);
-  return GENRES[p.saillie.genre] + ' de ' + largeur + ' m' + (v.hauteurM ? ', à ' + f2(v.hauteurM) + ' m du sol' : '') + ', ' + f2(DEFAUTS_SAILLIE[p.saillie.genre].profondeurM) + ' m de profondeur par défaut (une vue de face ne la montre pas)';
+  return GENRES[p.saillie.genre] + ' de ' + largeur + ' m' + (v.hauteurM ? ', à ' + f2(v.hauteurM) + ' m du sol' : '') + ', ' + f2(profondeurSaillieVue(p.saillie.genre)) + ' m de profondeur par défaut (une vue de face ne la montre pas)';
 }
 
 /** Les decroches que le run voit : des constats, a retoucher a la main (risque 4 : jamais une retouche du contour proposee seule). */

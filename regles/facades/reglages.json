@@ -31,5 +31,14 @@
       "bois": "#A2774E",
       "noir": "#2E3033"
     }
+  },
+  "saillies": {
+    "pourquoi": "La profondeur d'une saillie que Claude voit sur une facade (lot L1 de MD/spec-lecture-ia-elargie.md §4.2, risque 3) : une vue de face ne la montre pas, le moteur la pose donc a cette valeur, par genre, et la proposition le dit. Les valeurs d'origine sont celles d'une saillie posee a la main au Mode Toit (DEFAUTS_SAILLIE de facade/modeToit/saillies.ts), qui restent le repli d'un genre absent d'ici. Un reglage, pas une constante : l'administrateur le voit avec les autres reglages des facades. Lu par src/regles/facades/saillies.ts.",
+    "profondeursM": {
+      "bow-window": 0.8,
+      "galerie": 1.5,
+      "appentis": 3,
+      "auvent": 0.9
+    }
   }
 }

@@ -168,13 +168,23 @@ function lireEtendue(v: unknown): Etendue | null {
 
 const grille = (o: Record<string, unknown>): Grille => ({ colonnes: entier(o.colonnes), rangees: entier(o.rangees) });
 
+/**
+ * L'imposte : un nombre depuis la version 4 du schema (sa part de la baie, 0 sans imposte, -1 non vue ; ses carreaux a cote), un objet
+ * ou un mot dans une reponse enregistree d'avant, relue telle quelle.
+ */
+function lireImposte(o: Record<string, unknown>): Carreaux['imposte'] {
+  const h = o.imposte;
+  if (fini(h)) return h > 0 && h < 1 ? { hauteur: h, colonnes: entier(o.imposteColonnes), rangees: entier(o.imposteRangees) } : h === 0 ? 'aucune' : null;
+  const imp = objet(h);
+  return imp && fini(imp.hauteur) && imp.hauteur > 0 && imp.hauteur < 1 ? { hauteur: imp.hauteur, ...grille(imp) } : h === 'aucune' ? 'aucune' : null;
+}
+
 function lireCarreaux(v: unknown): Carreaux | null {
   const o = objet(v);
   if (!o) return null;
-  const imp = objet(o.imposte);
   const c: Carreaux = {
     vantaux: entier(o.vantaux), ...grille(o), petitsBois: parmi(o.petitsBois, ['aucun', 'fins', 'epais'] as const),
-    imposte: imp && fini(imp.hauteur) && imp.hauteur > 0 && imp.hauteur < 1 ? { hauteur: imp.hauteur, ...grille(imp) } : o.imposte === 'aucune' ? 'aucune' : null,
+    imposte: lireImposte(o),
     vitrage: parmi(o.vitrage, ['clair', 'depoli', 'teinte', 'vitrail'] as const),
   };
   return Object.values(c).some((x) => x !== null) ? c : null;
@@ -182,14 +192,17 @@ function lireCarreaux(v: unknown): Carreaux | null {
 
 const couleurLue = (v: unknown): CouleurLue | null => parmi(v, MOTS_PALETTE);
 
-/** Les details de la facade enrichie d'une ouverture (lot L1) ; null quand la reponse n'en porte aucun (une reponse d'avant le lot). */
+/**
+ * Les details de la facade enrichie d'une ouverture (lot L1), a plat dans la reponse (`menuiserie`, `couleurMenuiserie`, `gardeCorps`,
+ * `hautGardeCorps`, `couleurGardeCorps` : un objet de moins a compiler pour la sortie structuree) ; null quand la reponse n'en porte
+ * aucun (une reponse d'avant le lot).
+ */
 function lireDetailsLus(d: Record<string, unknown>): DetailsLus | null {
   if (!('menuiserie' in d) && !('couleurVolets' in d) && !('gardeCorps' in d)) return null;
-  const m = objet(d.menuiserie) ?? {}, g = objet(d.gardeCorps) ?? {};
   return {
-    menuiserie: { materiau: parmi(m.materiau, ['bois', 'pvc', 'alu', 'acier'] as const), couleur: couleurLue(m.couleur) },
+    menuiserie: { materiau: parmi(d.menuiserie, ['bois', 'pvc', 'alu', 'acier'] as const), couleur: couleurLue(d.couleurMenuiserie) },
     couleurVolets: d.couleurVolets === 'sans-objet' ? 'sans-objet' : couleurLue(d.couleurVolets),
-    gardeCorps: { type: parmi(g.type, ['barreaux', 'fer-forge', 'verre', 'plein', 'sans-objet'] as const), haut: enHauteur(g.haut), couleur: couleurLue(g.couleur) },
+    gardeCorps: { type: parmi(d.gardeCorps, ['barreaux', 'fer-forge', 'verre', 'plein', 'sans-objet'] as const), haut: enHauteur(d.hautGardeCorps), couleur: couleurLue(d.couleurGardeCorps) },
   };
 }
 
@@ -224,12 +237,13 @@ const nombres = (v: unknown, lire: (x: unknown) => number | null): number[] => g
 function lireModenature(v: unknown): ModenatureIa | null {
   const o = objet(v);
   if (!o) return null;
-  const sb = objet(o.soubassement), haut = enHauteur(sb?.haut);
+  // Le soubassement : son haut en hauteurs d'egout (0 : aucun ; -1 : non vu) et son parement a cote.
+  const haut = enHauteur(o.soubassement);
   return {
     egout: parmi(o.egout, ['aucune', 'corniche', 'genoise'] as const), rangsGenoise: entier(o.rangsGenoise),
     bandeaux: nombres(o.bandeaux, enHauteur),
     chaines: parmi(o.chaines, ['aucune', 'pierre', 'brique'] as const), encadrements: parmi(o.encadrements, ['aucun', 'enduit', 'pierre', 'brique'] as const),
-    soubassement: sb && haut !== null && haut > 0 ? { haut, parement: parmi(sb.parement, PAREMENTS) } : o.soubassement === 'aucun' ? 'aucun' : null,
+    soubassement: haut === null ? null : haut > 0 ? { haut, parement: parmi(o.parementSoubassement, PAREMENTS) } : 'aucun',
     descentes: nombres(o.descentes, enPart),
   };
 }

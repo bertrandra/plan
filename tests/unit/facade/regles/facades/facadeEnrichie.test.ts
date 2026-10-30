@@ -17,8 +17,8 @@ import type { CorpsToit, PtBrut, ToitMesure } from '../../../../../src/model/typ
 
 const baie = (extra: Record<string, unknown> = {}) => ({
   type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte',
-  details: { volets: 'battants', allege: 'indetermine', forme: 'rect', menuiserie: { materiau: 'bois', couleur: 'vert' }, couleurVolets: 'bleu', gardeCorps: { type: 'fer-forge', haut: 0.78, couleur: 'noir' }, ...extra },
-  carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' },
+  details: { volets: 'battants', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'bleu', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir', ...extra },
+  carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' },
 });
 /** Une passe du run, telle que le serveur la rend (ramenee au schema), avec les champs du lot L1. */
 const passe = (d: Record<string, unknown> = {}, reste: Record<string, unknown> = {}): ObservationsFacade => lireObservationsFacade({
@@ -26,8 +26,8 @@ const passe = (d: Record<string, unknown> = {}, reste: Record<string, unknown> =
   surface: { principale: 'enduit', zones: [], confiance: 'forte' }, ouvertures: [baie(d)],
   saillies: [{ genre: 'bow-window', u0: 0.1, u1: 0.3, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.45, couverture: 'sans-objet', confiance: 'moyenne' }],
   decroches: [{ u: 0.7, sens: 'recul', confiance: 'moyenne' }],
-  modenature: { egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'pierre', encadrements: 'enduit', soubassement: { haut: 0.1, parement: 'pierre' }, descentes: [0.98] },
-  appendices: [{ nature: 'store', u0: 0.5, u1: 0.7, v0: 0.4, v1: 0.48, marches: 'indetermine', confiance: 'moyenne' }, { nature: 'perron', u0: 0.45, u1: 0.55, v0: 0, v1: 0.06, marches: 3, confiance: 'forte' }],
+  modenature: { egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'pierre', encadrements: 'enduit', soubassement: 0.1, parementSoubassement: 'pierre', descentes: [0.98] },
+  appendices: [{ nature: 'store', u0: 0.5, u1: 0.7, v0: 0.4, v1: 0.48, marches: -1, confiance: 'moyenne' }, { nature: 'perron', u0: 0.45, u1: 0.55, v0: 0, v1: 0.06, marches: 3, confiance: 'forte' }],
   etat: [{ nature: 'fissure', u0: 0.8, u1: 0.82, v0: 0.2, v1: 0.5, confiance: 'moyenne' }],
   confiance: 'forte', ...reste,
 })!;
@@ -45,16 +45,16 @@ describe('la lecture des champs du lot L1', () => {
   });
 
   it('un mot hors de la palette est indetermine, une hauteur de pixels est ecartee', () => {
-    const o = passe({ menuiserie: { materiau: 'zinc', couleur: 'fuchsia' }, gardeCorps: { type: 'fer-forge', haut: 312, couleur: 'noir' } });
+    const o = passe({ menuiserie: 'zinc', couleurMenuiserie: 'fuchsia', hautGardeCorps: 312 });
     expect(o.ouvertures[0]!.lus).toMatchObject({ menuiserie: { materiau: null, couleur: null }, gardeCorps: { haut: null } });
   });
 });
 
 describe('le vote de trois passes et l escalade', () => {
   it('une couleur dite par deux passes sur trois est retenue ; sans majorite, indeterminee', () => {
-    const v = voterObservations([passe(), passe(), passe({ menuiserie: { materiau: 'pvc', couleur: 'blanc' } })])!;
+    const v = voterObservations([passe(), passe(), passe({ menuiserie: 'pvc', couleurMenuiserie: 'blanc' })])!;
     expect(v.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'bois', couleur: 'vert' });
-    const w = voterObservations([passe(), passe({ menuiserie: { materiau: 'pvc', couleur: 'blanc' } }), passe({ menuiserie: { materiau: 'alu', couleur: 'noir' } })])!;
+    const w = voterObservations([passe(), passe({ menuiserie: 'pvc', couleurMenuiserie: 'blanc' }), passe({ menuiserie: 'alu', couleurMenuiserie: 'noir' })])!;
     expect(w.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: null, couleur: null });
   });
 
@@ -71,7 +71,7 @@ describe('le vote de trois passes et l escalade', () => {
 
   it('l escalade l emporte la ou elle dit autre chose, et le dit', () => {
     const vote = voterObservations([passe(), passe(), passe()])!;
-    const e = escaladerObservations(vote, passe({ menuiserie: { materiau: 'alu', couleur: 'gris-anthracite' } }, { modenature: { egout: 'corniche', rangsGenoise: 'indetermine', bandeaux: [0.5], chaines: 'pierre', encadrements: 'enduit', soubassement: { haut: 0.1, parement: 'pierre' }, descentes: [0.98] } }), 'claude-sonnet-5-5');
+    const e = escaladerObservations(vote, passe({ menuiserie: 'alu', couleurMenuiserie: 'gris-anthracite' }, { modenature: { egout: 'corniche', rangsGenoise: -1, bandeaux: [0.5], chaines: 'pierre', encadrements: 'enduit', soubassement: 0.1, parementSoubassement: 'pierre', descentes: [0.98] } }), 'claude-sonnet-5-5');
     expect(e.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'alu', couleur: 'gris-anthracite' });
     expect(e.modenature!.egout).toBe('corniche');
     // Un mot que l'escalade ne dit pas (indetermine) ne contredit rien : la genoise avait deux rangs, l'escalade ne le dit pas.
@@ -167,7 +167,7 @@ describe('les saillies, posees par le moteur des toits', () => {
   it('un auvent tient sur ses consoles : ouvert, presque plat, sa couverture gardee', () => {
     const f = sud();
     const d = diagnostiquerForme({ facade: f, corps: [maison], hauteurMur: 6, lue: null });
-    const o = passe({}, { saillies: [{ genre: 'auvent', u0: 0.4, u1: 0.6, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 'indetermine', couverture: 'verre', confiance: 'forte' }] });
+    const o = passe({}, { saillies: [{ genre: 'auvent', u0: 0.4, u1: 0.6, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: -1, couverture: 'verre', confiance: 'forte' }] });
     const [prop] = sailliesProposees(o, d.troncons, f, 6, []);
     const relus = corpsSousContrainte({ observation: prop!.observation, application: 'contrainte' }, [maison], mesure, contour)!;
     const a = relus[1]!;

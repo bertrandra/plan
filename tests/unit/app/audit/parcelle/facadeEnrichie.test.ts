@@ -36,15 +36,15 @@ const SORTIE = {
   calage: { angles: {}, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
   surface: { principale: 'enduit', zones: [], confiance: 'forte' },
   ouvertures: [{ type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte',
-    details: { volets: 'battants', allege: 'indetermine', forme: 'rect', menuiserie: { materiau: 'bois', couleur: 'vert' }, couleurVolets: 'bleu', gardeCorps: { type: 'fer-forge', haut: 0.78, couleur: 'noir' } }, carreaux: null }],
+    details: { volets: 'battants', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'bleu', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir' }, carreaux: null }],
   saillies: [{ genre: 'galerie', u0: 0.1, u1: 0.5, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 0.4, couverture: 'sans-objet', confiance: 'moyenne' }],
   decroches: [{ u: 0.7, sens: 'avance', confiance: 'moyenne' }],
-  modenature: { egout: 'corniche', rangsGenoise: 'indetermine', bandeaux: [0.5], chaines: 'aucune', encadrements: 'indetermine', soubassement: 'aucun', descentes: [0.98] },
-  appendices: [{ nature: 'store', u0: 0.6, u1: 0.8, v0: 0.4, v1: 0.47, marches: 'indetermine', confiance: 'moyenne' }, { nature: 'perron', u0: 0.55, u1: 0.65, v0: 0, v1: 0.08, marches: 3, confiance: 'forte' }, { nature: 'unite-exterieure', u0: 0.9, u1: 0.98, v0: 0, v1: 0.12, marches: 'indetermine', confiance: 'moyenne' }],
+  modenature: { egout: 'corniche', rangsGenoise: -1, bandeaux: [0.5], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [0.98] },
+  appendices: [{ nature: 'store', u0: 0.6, u1: 0.8, v0: 0.4, v1: 0.47, marches: -1, confiance: 'moyenne' }, { nature: 'perron', u0: 0.55, u1: 0.65, v0: 0, v1: 0.08, marches: 3, confiance: 'forte' }, { nature: 'unite-exterieure', u0: 0.9, u1: 0.98, v0: 0, v1: 0.12, marches: -1, confiance: 'moyenne' }],
   etat: [{ nature: 'humidite', u0: 0, u1: 0.3, v0: 0, v1: 0.15, confiance: 'moyenne' }],
   confiance: 'forte',
 };
-const RUN: RunEnregistre = { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 3, schema: 3, passes: 3, sorties: [SORTIE, SORTIE, SORTIE], cout: 0.007, tokens: { entree: 9000, sortie: 3000 }, image: { largeur: 1024, hauteur: 700 }, chaine: 1 };
+const RUN: RunEnregistre = { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 4, schema: 4, passes: 3, sorties: [SORTIE, SORTIE, SORTIE], cout: 0.007, tokens: { entree: 9000, sortie: 3000 }, image: { largeur: 1024, hauteur: 700 }, chaine: 1 };
 
 const proposer = (o: ObjetPlan, objets: ObjetPlan[] = [parcelle, o]) => {
   const diagnostic = diagnostiquerForme({ facade: sud, corps: o.batiment!.corpsToit!, hauteurMur: 6, lue: null });

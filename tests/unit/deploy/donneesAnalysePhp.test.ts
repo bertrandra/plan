@@ -106,7 +106,7 @@ describe.skipIf(!php)('analyse.php, tout garder (lot L0)', () => {
     const sortant = lire(path.join(dt, 'sortant.json')) as { resultats: { id: string; texte: string; reponse: string; empreintes: string[]; prompt: number }[] };
     const texte = JSON.stringify(SORTIE_FACADE);
     expect(sortant.resultats.map((x) => x.id)).toEqual(['r1', 'r2', 'r3']);
-    expect(sortant.resultats[0]).toMatchObject({ texte, reponse: crypto.createHash('sha256').update(texte).digest('hex'), empreintes: [SHA], prompt: 3 });
+    expect(sortant.resultats[0]).toMatchObject({ texte, reponse: crypto.createHash('sha256').update(texte).digest('hex'), empreintes: [SHA], prompt: 4 });
     // Le journal ne garde que les empreintes, et la trace qui les porte.
     expect(journal().at(-1)).toMatchObject({ usage: 'facade', requete: 'r3', empreintes: [SHA], reponse: sortant.resultats[0]?.reponse, trace: r.trace });
     expect(JSON.stringify(journal())).not.toContain(IMAGE);
@@ -146,7 +146,7 @@ describe.skipIf(!php)('analyse.php, tout garder (lot L0)', () => {
     faux.messages.length = 0;
     expect((await ecrire('admin/claude/rejouer', { audit: id, trace: r.trace, requete: 'r9' })).status).toBe(404);
     const rj = await json(await ecrire('admin/claude/rejouer', { audit: id, trace: r.trace, requete: 'r2', passes: 1 }));
-    expect(rj).toMatchObject({ source: r.trace, prompt: 3, schema: 3 });
+    expect(rj).toMatchObject({ source: r.trace, prompt: 4, schema: 4 });
     expect(faux.messages).toHaveLength(1);
     const envoye = (faux.messages[0]?.messages as { content: { type: string; source?: { data: string }; text?: string }[] }[])[0]?.content;
     expect(envoye?.[0]?.source?.data).toBe(IMAGE);

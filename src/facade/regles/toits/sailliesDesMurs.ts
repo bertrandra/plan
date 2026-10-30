@@ -4,11 +4,13 @@
 // posee a la main au Mode Toit (facade/modeToit/saillies.ts : le meme corps, la meme forme). Rien n'est ecrit de la main de l'audit.
 //
 // - Le corps est celui que designe le mur (murDuCorps), quelle que soit la renumerotation des corps ;
-// - la profondeur ne se lit pas sur une vue de face (decision 4) : c'est celle du genre (DEFAUTS_SAILLIE), dite dans la proposition ;
+// - la profondeur ne se lit pas sur une vue de face (decision 4) : c'est le reglage de son genre (regles/facades/reglages.json,
+//   `saillies`), a defaut celle d'une saillie posee a la main (DEFAUTS_SAILLIE), dite dans la proposition ;
 // - une saillie deja posee sur ce mur du meme corps, qui recouvre celle-ci, ne se pose pas une seconde fois et ne bouge pas. Pur.
 
 import { murDuCorps as murPorteur } from './murDuCorps.js';
 import { corpsDeSaillie, DEFAUTS_SAILLIE, HAUTEUR_AUVENT_M, murDuCorps } from '../../modeToit/saillies.js';
+import { PROFONDEURS_SAILLIES } from '../../../regles/facades/saillies.js';
 import type { SaillieDeMurFait } from '../../../regles/toits/faits.js';
 import type { CorpsToit, SaillieFacade } from '../../../model/types.js';
 
@@ -16,6 +18,14 @@ import type { CorpsToit, SaillieFacade } from '../../../model/types.js';
 export const LARGEUR_SAILLIE_MIN_M = 0.6;
 
 const cm = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * La profondeur d'une saillie vue, en metres : le reglage de son genre, sinon celle d'une saillie posee a la main au Mode Toit (la valeur
+ * d'avant le reglage). `reglees` : pour les tests.
+ */
+export function profondeurSaillieVue(genre: SaillieDeMurFait['genre'], reglees: Readonly<Partial<Record<SaillieDeMurFait['genre'], number>>> = PROFONDEURS_SAILLIES): number {
+  return reglees[genre] ?? DEFAUTS_SAILLIE[genre].profondeurM;
+}
 
 /** La saillie que le moteur pose pour une saillie vue : son hote (le corps du mur) et le corps neuf ; null quand il ne la pose pas. */
 export function saillieSurLeMur(corps: readonly CorpsToit[], s: SaillieDeMurFait): { hote: number; corps: CorpsToit } | null {
@@ -32,10 +42,9 @@ export function saillieSurLeMur(corps: readonly CorpsToit[], s: SaillieDeMurFait
   const centreM = cm(Math.max(0, d0) + largeurM / 2);
   // Ce qui est deja pose sur ce mur de l'hote (a la main, une observation) et recouvre la saillie vue ne bouge pas : rien de plus.
   if (corps.some((c) => c.saillie && c.saillie.hote === m.corps && c.saillie.mur === m.cote && Math.abs(c.saillie.centreM - centreM) < (c.saillie.largeurM + largeurM) / 2)) return null;
-  const d = DEFAUTS_SAILLIE[s.genre];
   const hauteurM = s.hauteurM ?? (s.genre === 'auvent' ? HAUTEUR_AUVENT_M : undefined);
   const saillie: SaillieFacade = {
-    genre: s.genre, hote: m.corps, mur: m.cote, centreM, largeurM, profondeurM: d.profondeurM,
+    genre: s.genre, hote: m.corps, mur: m.cote, centreM, largeurM, profondeurM: profondeurSaillieVue(s.genre),
     forme: s.genre === 'bow-window' ? s.forme : 'rectangle', niveau: s.niveau, toit: s.genre === 'auvent' ? 'pan' : s.toit,
     ...(hauteurM !== undefined ? { hauteurM: cm(hauteurM) } : {}),
     ...(s.genre === 'auvent' && s.couverture ? { couverture: s.couverture } : {}),

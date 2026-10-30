@@ -325,10 +325,13 @@ function resumePlu(s) {
     + (s.regles.map((r) => r.grandeur + ' ' + valeur(r) + ' [' + r.article + ']').join(', ') || 'aucune');
 }
 
-/** La sortie du run d'une facade en quelques mots : ce qu'elle a vu. */
+/**
+ * La sortie du run d'une facade en quelques mots : ce qu'elle a vu. Depuis la version 4 du schema, un nombre non vu vaut -1 : un angle
+ * dont le `x` n'est pas une part, ou des carreaux sans colonne lue, ne comptent pas (une reponse d'avant disait `indetermine`).
+ */
 function resumeFacade(s) {
-  const angles = ['gauche', 'droite'].filter((k) => s.calage.angles[k] && typeof s.calage.angles[k] === 'object').length;
-  const carreaux = s.ouvertures.filter((o) => typeof o.carreaux.colonnes === 'number').length;
+  const angles = ['gauche', 'droite'].filter((k) => s.calage.angles[k] && typeof s.calage.angles[k] === 'object' && !(s.calage.angles[k].x < 0)).length;
+  const carreaux = s.ouvertures.filter((o) => typeof o.carreaux.colonnes === 'number' && o.carreaux.colonnes >= 1).length;
   return angles + ' angle(s), ' + s.calage.pointes.length + ' pointe(s), parement ' + s.surface.principale + ', ' + s.ouvertures.length + ' ouverture(s) dont ' + carreaux + ' aux carreaux lus';
 }
 

@@ -3235,15 +3235,15 @@ const POINTS = {
     // les met a 0,78 et 3,25 m pour 0,9 et 3,8 m). Les parts du run sont celles du mur que l'audit lui montre, en hauteurs d'egout (6 m).
     const H = 6 / 0.855;
     const SORTIE = {
-      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      calage: { angles: { gauche: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' }, droite: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' } }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
       surface: { principale: 'enduit', zones: [], confiance: 'forte' },
-      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, u0: r3(o.x / L), u1: r3((o.x + o.l) / L), v0: r3(o.y / H), v1: r3((o.y + o.h) / H), niveau: o.y > 2 ? 1 : 0, travee: 'indetermine', confiance: 'forte',
-        details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect', menuiserie: { materiau: 'bois', couleur: 'vert' }, couleurVolets: 'sans-objet',
-          gardeCorps: o.y > 2 ? { type: 'fer-forge', haut: r3((o.y + 1) / H), couleur: 'noir' } : { type: 'sans-objet', haut: 'indetermine', couleur: 'indetermine' } },
-        carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } })),
+      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, u0: r3(o.x / L), u1: r3((o.x + o.l) / L), v0: r3(o.y / H), v1: r3((o.y + o.h) / H), niveau: o.y > 2 ? 1 : 0, travee: -1, confiance: 'forte',
+        details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'sans-objet',
+          ...(o.y > 2 ? { gardeCorps: 'fer-forge', hautGardeCorps: r3((o.y + 1) / H), couleurGardeCorps: 'noir' } : { gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' }) },
+        carreaux: { vantaux: -1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: -1, imposteColonnes: -1, imposteRangees: -1, vitrage: 'indetermine' } })),
       saillies: [], decroches: [],
-      modenature: { egout: 'aucune', rangsGenoise: 'indetermine', bandeaux: [r3(3.3 / H)], chaines: 'aucune', encadrements: 'indetermine', soubassement: 'aucun', descentes: [] },
-      appendices: [{ nature: 'store', u0: 0.1, u1: 0.3, v0: 0.4, v1: 0.45, marches: 'indetermine', confiance: 'moyenne' }],
+      modenature: { egout: 'aucune', rangsGenoise: -1, bandeaux: [r3(3.3 / H)], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [] },
+      appendices: [{ nature: 'store', u0: 0.1, u1: 0.3, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
       etat: [{ nature: 'fissure', u0: 0.62, u1: 0.64, v0: 0.1, v1: 0.4, confiance: 'moyenne' }],
       confiance: 'forte',
     };
@@ -3323,10 +3323,10 @@ const POINTS = {
       window.__plan.etat().measures.length = 0;
     });
     const SORTIE = {
-      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      calage: { angles: { gauche: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' }, droite: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' } }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
       surface: { principale: 'pierre', zones: [], confiance: 'forte' }, ouvertures: [],
       saillies: [{ genre: 'bow-window', u0: 0.3, u1: 0.62, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.5, couverture: 'sans-objet', confiance: 'forte' }],
-      decroches: [], modenature: { egout: 'indetermine', rangsGenoise: 'indetermine', bandeaux: [], chaines: 'indetermine', encadrements: 'indetermine', soubassement: 'indetermine', descentes: [] },
+      decroches: [], modenature: { egout: 'indetermine', rangsGenoise: -1, bandeaux: [], chaines: 'indetermine', encadrements: 'indetermine', soubassement: -1, parementSoubassement: 'indetermine', descentes: [] },
       appendices: [], etat: [], confiance: 'forte',
     };
     const serveur = await simulerAnalyse(page, { facade: SORTIE });

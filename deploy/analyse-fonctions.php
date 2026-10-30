@@ -325,11 +325,14 @@ function schemaResolu($s, $defs) {
  * La valeur d'un champ manquant ou illisible, `[vrai, valeur]` quand il en a une sans rien inventer :
  * `indetermine` si son vocabulaire l'a, une liste vide, un texte vide, un objet ramene a son schema.
  * Un nombre (un numero d'ouverture, une cote, une image) ou un terme sans `indetermine` n'en a pas :
- * l'objet qui le porte est alors ecarte de sa liste plutot que complete.
+ * l'objet qui le porte est alors ecarte de sa liste plutot que complete. Seul un nombre dont le schema
+ * dit la valeur par defaut (`default` : le -1 « non vu » d'un compte du run d'une facade) la prend.
  */
 function valeurParDefaut($s, $defs): array {
     $s = schemaResolu($s, $defs);
     if (!is_object($s)) return [false, null];
+    // La valeur par defaut que le schema dit (`default`, JSON Schema) : le -1 d'un nombre non vu du run d'une facade.
+    if (property_exists($s, 'default')) return [true, $s->default];
     if (isset($s->anyOf) && is_array($s->anyOf)) {
         foreach ($s->anyOf as $b) {
             $b = schemaResolu($b, $defs);
