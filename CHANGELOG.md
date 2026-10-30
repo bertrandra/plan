@@ -5,6 +5,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Workflow « Vérifier l'API Claude » : le plafond conseillé pour la mesure des façades et l'assistant passe de 0,25 à 0,50 $ (une passe coûte environ 0,27 $ depuis la 5.2.0, la relance du garde-fou compte à part).
+
 ## [5.4.0] — 2026-10-30
 
 Version **mineure** au sens de `MD/RELEASE.md` : les textes et la relecture du dossier (lot L5 : pièces écrites rédigées par Claude,
