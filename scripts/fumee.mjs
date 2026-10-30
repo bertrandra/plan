@@ -4308,6 +4308,7 @@ const POINTS = {
       && notice && !deborde && !!porteur && fichier.meta?.schemaVersion === 12;
     return { ok, mesure: `${recues.length} demande(s) usage ${recues[0]?.usage} ; brouillon ${brouillon ? (brouillon.synthetique ? 'synthétique' : 'Claude') : 'ABSENT'}, validé ${valide?.texte === corrige ? 'tel que corrigé' : 'NON'} (« ${etatNotice.slice(0, 40)} ») ; `
       + `relecture : ${points.join(' | ')} ; pages ${avant.getPageCount()} → ${apres.getPageCount()} ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, dossier ${porteur ? 'présent' : 'ABSENT'}` };
+  },
   122: async (page, f) => {
     // L'assistant en langue naturelle (lot L6) : la terrasse selectionnee, le menu Aide › « Demander a l'assistant… », une demande ;
     // `admin/claude/messages` rend une liste SYNTHETIQUE (pas Claude) de trois etapes : le bois des lames (un champ), la grille (une
