@@ -96,5 +96,6 @@ jobs:
             mesure-facades/*.reponses.json
             mesure-facades/*.verite.json
             mesure-relance/*.reponses.json
+            mesure-relance/*.verite.json
             journal-api.txt
             journal-relance.txt

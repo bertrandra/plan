@@ -749,7 +749,8 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   `surfaceDeLIa`, `avisDesPointes`) et échoue, avec la liste des lignes, dès qu'une ligne de qualité descend sous la référence, d'une
   seule baie. **Aucune tolérance dans le code.**
 - **La règle du bruit** : une baie de moins sur une passe peut être le hasard d'un appel. **On relance une fois** les scènes en cause ;
-  si la ligne reste en dessous, c'est une **régression**. Le workflow le fait seul (case « mesure des façades » : premier jugement,
+  si la ligne reste en dessous (sous la référence à la première mesure **et** à la relance), c'est une **régression** ; une
+  ligne qui ne baisse qu'à la relance, sur une scène relancée pour une autre, est dite à part, sans compter. Le workflow le fait seul (case « mesure des façades » : premier jugement,
   relance des scènes en cause, second jugement, job rouge s'il reste une ligne en dessous) et montre les deux tables au résumé. Une
   régression ne se règle pas en baissant la référence ; la référence ne se réécrit (`--referencer`) qu'avec le run qui le justifie
   (une amélioration, ou une décision du propriétaire), cité dans la PR.

@@ -302,7 +302,7 @@ function cellule(r: string, m: string | null, baisse: boolean): string {
  * La table reference / mesure, en Markdown : une ligne par scene et par mode, puis les totaux, l'escalade et la liste des lignes en
  * dessous. Sans mesure, la reference seule (la table que le skill et MD/RELEASE.md citent).
  */
-export function tableauLecture(ref: MesureLecture, mes: MesureLecture | null, regressions: readonly Regression[] = []): string {
+export function tableauLecture(ref: MesureLecture, mes: MesureLecture | null, regressions: readonly Regression[] = [], nouvelles: readonly Regression[] = []): string {
   const bas = (scene: string, mode: string, prefixe: string) => regressions.some((r) => r.scene === scene && r.mode === mode && r.ligne.startsWith(prefixe));
   const sortie = [
     mes ? '**Référence 5.1.0 → mesure** (une cellule « a → b » a changé ; en gras, elle est sous la référence).' : '**Référence 5.1.0** (run 40998593930).',
@@ -344,8 +344,25 @@ export function tableauLecture(ref: MesureLecture, mes: MesureLecture | null, re
     sortie.push('', regressions.length
       ? `**${regressions.length} ligne(s) sous la référence** :\n\n` + regressions.map((r) => { const v = (x: number | string) => (typeof x === 'number' && r.ligne.endsWith('des baies') ? pc(x) : String(x)); return `- ${r.scene} ${r.mode} : ${r.ligne}, ${v(r.reference)} → ${v(r.mesure)}`; }).join('\n')
       : '**Aucune ligne de qualité sous la référence.**');
+    if (nouvelles.length) {
+      sortie.push('', `${nouvelles.length} ligne(s) en dessous à la relance seule, sur une scène relancée pour une autre ligne (le bruit d'un appel : pas sous la référence à la première mesure, donc pas une régression) :\n\n`
+        + nouvelles.map((r) => `- ${r.scene} ${r.mode} : ${r.ligne}, ${r.reference} → ${r.mesure}`).join('\n'));
+    }
   }
   return sortie.join('\n');
+}
+
+/**
+ * La regle du bruit (skill facades §5 quater, MD/RELEASE.md §8.2 bis) : une ligne sous la reference a la premiere mesure est relancee
+ * UNE fois ; elle est une regression si elle reste en dessous a la relance. `restees` : les lignes en dessous aux deux mesures (le job
+ * finit rouge) ; `nouvelles` : celles qui ne baissent qu'a la relance, sur une scene relancee pour une autre ligne. Une ligne qui n'a
+ * pas baisse a la premiere mesure n'a pas a etre relancee, et la relance ne la juge pas : elle est dite, a part, jamais tue.
+ */
+export function regressionsApresRelance(ref: MesureLecture, premiere: MesureLecture, relance: MesureLecture): { restees: Regression[]; nouvelles: Regression[] } {
+  const cle = (r: Regression) => r.scene + '\u0000' + r.mode + '\u0000' + r.ligne;
+  const avant = new Set(comparerLecture(ref, premiere).map(cle));
+  const apres = comparerLecture(ref, remplacerScenes(premiere, relance));
+  return { restees: apres.filter((r) => avant.has(cle(r))), nouvelles: apres.filter((r) => !avant.has(cle(r))) };
 }
 
 /** Les scenes ou une ligne a baisse (a relancer une fois) ; « Total » et l'escalade suivent leurs scenes. */

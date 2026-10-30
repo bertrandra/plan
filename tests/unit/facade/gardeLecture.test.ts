@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { comparerLecture, FICHIER_REFERENCE_510, lireEscalade, remplacerScenes, scenesARelancer, tableauLecture, type LigneLecture, type MesureLecture, type ReferenceLecture } from '../../banc/facades/gardeLecture.js';
+import { comparerLecture, FICHIER_REFERENCE_510, lireEscalade, regressionsApresRelance, remplacerScenes, scenesARelancer, tableauLecture, type LigneLecture, type MesureLecture, type ReferenceLecture } from '../../banc/facades/gardeLecture.js';
 
 const reference = JSON.parse(readFileSync(FICHIER_REFERENCE_510, 'utf8')) as ReferenceLecture;
 const copie = (): MesureLecture => structuredClone({ scenes: reference.scenes, totaux: reference.totaux, escalade: reference.escalade ?? null });
@@ -74,6 +74,24 @@ describe('le comparateur de la lecture des facades', () => {
     const apres = remplacerScenes(premiere, relance);
     expect(apres.totaux.x1.boites).toEqual(reference.totaux.x1.boites);
     expect(comparerLecture(reference, apres)).toEqual([]);
+  });
+
+  it('apres la relance, seule une ligne en dessous aux deux mesures est une regression', () => {
+    // Le run 41012308826 l'a montre : la relance d'une scene pour une ligne (09 x1, une passe vide) a fait baisser une autre ligne de la
+    // meme scene (09 x3, un angle), qui etait juste a la premiere mesure. Elle est dite a part, pas comptee.
+    const premiere = copie();
+    const a = ligne(premiere, '09-focale-inconnue-grand-angle', 'x1');
+    a.boites.vp = 0; a.boites.trouvees = 0;
+    const b = ligne(premiere, '20-details-cintres-persiennes-garde-corps', 'x3');
+    b.genres['porte-fenetre'].justes = 0;
+    const relance: MesureLecture = { scenes: structuredClone({ '09-focale-inconnue-grand-angle': reference.scenes['09-focale-inconnue-grand-angle'], '20-details-cintres-persiennes-garde-corps': reference.scenes['20-details-cintres-persiennes-garde-corps'] }) as MesureLecture['scenes'], totaux: reference.totaux };
+    ligne(relance, '09-focale-inconnue-grand-angle', 'x3').angles.justes = 0;
+    ligne(relance, '20-details-cintres-persiennes-garde-corps', 'x3').genres['porte-fenetre'].justes = 1;
+    // Les totaux de la premiere mesure refaits sur ses scenes (remplacerScenes sans scene a remplacer).
+    const { restees, nouvelles } = regressionsApresRelance(reference, remplacerScenes(premiere, { scenes: {}, totaux: premiere.totaux }), relance);
+    expect(restees.map((r) => r.scene + ' ' + r.mode + ' ' + r.ligne)).toEqual(['20-details-cintres-persiennes-garde-corps x3 genre porte-fenetre retrouvé', 'Total x3 genre porte-fenetre retrouvé']);
+    expect(nouvelles.map((r) => r.scene + ' ' + r.mode + ' ' + r.ligne)).toEqual(['09-focale-inconnue-grand-angle x3 angles justes', 'Total x3 angles justes']);
+    expect(tableauLecture(reference, remplacerScenes(premiere, relance), restees, nouvelles)).toContain('à la relance seule');
   });
 
   it('lit l escalade dans le journal du verificateur et la compare', () => {

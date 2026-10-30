@@ -6,14 +6,14 @@
 //   npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer <dossier> [--journal <f>]          la table reference / mesure ;
 //       [--a-relancer <dossier2>]    si une ligne baisse : copie les scenes en cause dans <dossier2> (pour UNE relance) et sort a 0
 //       [--relance <dossier2> [--journal-relance <f>]]   la mesure ou les scenes relancees remplacent les premieres ; sort a 1
-//                                    si une ligne reste sous la reference
+//                                    si une ligne reste sous la reference, a la premiere mesure ET a la relance
 //   npx tsx .claude/skills/facades/scripts/garde-lecture.ts --referencer <dossier> --journal <f> --ecrire <fichier> --run <id> --commit <sha> --date <iso>
 //                                    ecrire une reference (un changement de reference se voit dans la PR, et se justifie)
 //
 // Sans --a-relancer, une ligne sous la reference fait sortir a 1. Le cout ne fait jamais echouer.
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { comparerLecture, FICHIER_REFERENCE_510, mesurerLecture, remplacerScenes, scenesARelancer, tableauLecture, type MesureLecture, type ReferenceLecture } from '../../../../tests/banc/facades/gardeLecture.ts';
+import { comparerLecture, FICHIER_REFERENCE_510, mesurerLecture, regressionsApresRelance, remplacerScenes, scenesARelancer, tableauLecture, type MesureLecture, type ReferenceLecture, type Regression } from '../../../../tests/banc/facades/gardeLecture.ts';
 
 const args = process.argv.slice(2);
 const opt = (nom: string): string | null => { const i = args.indexOf(nom); return i >= 0 ? (args[i + 1] ?? null) : null; };
@@ -41,14 +41,16 @@ if (args[0] === '--tableau') {
   const reference = referenceLue();
   const premiere = mesurerLecture(dossier, lire(opt('--journal')));
   const relance = opt('--relance');
-  let mesure: MesureLecture = premiere;
+  let mesure: MesureLecture = premiere, regressions = comparerLecture(reference, premiere), nouvelles: Regression[] = [];
   if (relance && existsSync(relance)) {
-    // La relance : les scenes relancees remplacent les premieres. La premiere mesure reste dans le resume, au-dessus.
-    mesure = remplacerScenes(premiere, mesurerLecture(relance, lire(opt('--journal-relance'))));
+    // La relance : les scenes relancees remplacent les premieres dans la table ; une regression est une ligne en dessous aux DEUX
+    // mesures (la regle du bruit). La premiere table reste dans le resume, au-dessus.
+    const second = mesurerLecture(relance, lire(opt('--journal-relance')));
+    mesure = remplacerScenes(premiere, second);
+    ({ restees: regressions, nouvelles } = regressionsApresRelance(reference, premiere, second));
   }
-  const regressions = comparerLecture(reference, mesure);
   const titre = relance ? '### Garde-fou de la lecture : après la relance' : '### Garde-fou de la lecture : référence 5.1.0 contre la mesure';
-  console.log(titre + '\n\n' + tableauLecture(reference, mesure, regressions));
+  console.log(titre + '\n\n' + tableauLecture(reference, mesure, regressions, nouvelles));
   const aRelancer = opt('--a-relancer');
   if (regressions.length && aRelancer && !relance) {
     // Une ligne sous la reference peut etre du bruit d'un appel : on relance UNE fois les scenes en cause (la regle ecrite).

@@ -282,7 +282,8 @@ sans que cela se voie. Quatre pièces, détail au skill `facades` (§5 quater) :
   référence.
 - **La règle du bruit, écrite ici et nulle part en code** : une baie de moins sur une passe peut être
   le hasard d'un appel. Le workflow relance **une fois** les scènes en cause ; si la ligne reste en
-  dessous, c'est une régression. Il n'y a aucune tolérance dans le comparateur. Une régression ne se
+  dessous (à la première mesure et à la relance), c'est une régression. Une ligne qui ne baisse qu'à
+  la relance, sur une scène relancée pour une autre ligne, est dite à part au résumé, sans compter. Il n'y a aucune tolérance dans le comparateur. Une régression ne se
   règle pas en baissant la référence : on la corrige, ou on la porte à la décision du propriétaire,
   et la référence ne se réécrit (`garde-lecture.ts --referencer`) qu'avec le run qui le justifie,
   cité dans la PR.
