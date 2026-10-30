@@ -29,7 +29,9 @@ permissions:
 jobs:
   verifier-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45 minutes depuis le lot L2 : la mesure des facades envoie trois requetes par facade (run, lecture enrichie, toit lu), et sa
+    # relance unique, toutes les scenes quand une ligne du total est sous le plancher, en renvoie autant ; a 30, la relance etait coupee.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
