@@ -49,7 +49,7 @@ Vous aidez le logiciel Plan à lire **une façade** sur une image, dans ses dét
 `;
 
 const nombre = { type: 'number' } as const;
-/** Un compte (rangs, marches) et un nombre qui peut ne pas etre vu (une hauteur) : -1 quand il ne l'est pas (facadesRun.ts). */
+/** Un compte (rangs, marches) et un nombre qui peut ne pas etre vu (une hauteur) : -1 quand il ne l'est pas ; `default` le dit au serveur, qui en remplit un nombre manquant (deploy/analyse-fonctions.php::valeurParDefaut). */
 const compte = { type: 'integer', default: -1 } as const;
 const nonVu = { type: 'number', default: -1 } as const;
 /** Les parements d'un soubassement (les memes mots que le parement du run). */

@@ -49,7 +49,8 @@ const REQUETES_IMMEDIATES = 3;
 // 29 octobre 2026, run 40887362801) ; son schema n'a ni recursion ni contrainte numerique, et l'API le compile. Si elle le
 // refusait un jour, la requete repart sans (formatRefuse).
 // La lecture du PLU (lot L4), celle du jardin (lot L3) et la lecture enrichie d'une facade (lot L1) aussi : des schemas plats, sans
-// recursion ni contrainte numerique. Depuis la version 4 du run (30 octobre 2026), aucun n'a d'union : l'API les compile.
+// recursion ni contrainte numerique. Le run d'une facade la demande encore et l'API la refuse : il repart sans elle, comme en 5.1.0
+// (la lecture d'avant L1 ne change pas, decision du proprietaire du 30 octobre 2026).
 const SORTIE_STRUCTUREE = ['facade', 'facade-enrichie', 'plu', 'jardin'];
 // Les usages qui admettent un document PDF dans leur requete (un bloc `document` en base64), un au plus : la lecture du PLU, et elle
 // seule. L'analyse d'une maison et le run d'une facade n'envoient que du texte et des images ; un PDF ailleurs est refuse.
@@ -330,12 +331,12 @@ function schemaResolu($s, $defs) {
  * `indetermine` si son vocabulaire l'a, une liste vide, un texte vide, un objet ramene a son schema.
  * Un nombre (un numero d'ouverture, une cote, une image) ou un terme sans `indetermine` n'en a pas :
  * l'objet qui le porte est alors ecarte de sa liste plutot que complete. Seul un nombre dont le schema
- * dit la valeur par defaut (`default` : le -1 « non vu » d'un compte du run d'une facade) la prend.
+ * dit la valeur par defaut (`default` : le -1 « non vu » d'un compte de la lecture enrichie d'une facade) la prend.
  */
 function valeurParDefaut($s, $defs): array {
     $s = schemaResolu($s, $defs);
     if (!is_object($s)) return [false, null];
-    // La valeur par defaut que le schema dit (`default`, JSON Schema) : le -1 d'un nombre non vu du run d'une facade.
+    // La valeur par defaut que le schema dit (`default`, JSON Schema) : le -1 d'un nombre non vu de la lecture enrichie (lot L1).
     if (property_exists($s, 'default')) return [true, $s->default];
     if (isset($s->anyOf) && is_array($s->anyOf)) {
         foreach ($s->anyOf as $b) {
@@ -610,8 +611,7 @@ function comptesFacade(array $s): array {
     $forme = objetDe($s['forme'] ?? null);
     return [
         'ouvertures' => count(listeDe($s['ouvertures'] ?? null)),
-        // Un angle introuvable a ses nombres a -1 depuis la version 4 du schema (un mot `indetermine` avant) : il ne compte pas.
-        'coins' => count(array_filter([$angles['gauche'] ?? null, $angles['droite'] ?? null], fn($a) => is_array($a) && is_numeric($a['x'] ?? null) && $a['x'] >= 0)),
+        'coins' => count(array_filter([$angles['gauche'] ?? null, $angles['droite'] ?? null], 'is_array')),
         'bouts' => count(listeDe($calage['pointes'] ?? null)),
         'elements' => count(listeDe($s['elements'] ?? null)),
         'determines' => (determine($forme['silhouette'] ?? null) ? 1 : 0) + (determine($forme['bout'] ?? null) ? 1 : 0),

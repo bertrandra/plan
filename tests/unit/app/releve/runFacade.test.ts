@@ -148,7 +148,7 @@ describe('les deux requetes d une facade (lot L1)', () => {
       recues.push(d);
       if (d.usage === 'facade-enrichie' && enrichieEchoue) throw new EchecAnalyse('serveur', 'x');
       const sortie = d.usage === 'facade-enrichie' ? SORTIE_FACADE_ENRICHIE : SORTIE_FACADE;
-      return { modele: 'claude-haiku-5-5', prompt: d.usage === 'facade-enrichie' ? 1 : 4, schema: d.usage === 'facade-enrichie' ? 1 : 4, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi' as const, passe: q.passe, sortie, erreur: null, tokens: TOKENS, cout: 0.001 })) };
+      return { modele: 'claude-haiku-5-5', prompt: d.usage === 'facade-enrichie' ? 2 : 2, schema: d.usage === 'facade-enrichie' ? 1 : 2, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi' as const, passe: q.passe, sortie, erreur: null, tokens: TOKENS, cout: 0.001 })) };
     },
   } as unknown as ClientAnalyse);
 
@@ -164,7 +164,7 @@ describe('les deux requetes d une facade (lot L1)', () => {
       ['facade-enrichie', [['enrichie-p1', 'facade-enrichie', 0], ['enrichie-p2', 'facade-enrichie', 0], ['enrichie-p3', 'facade-enrichie', 0]]],
     ]);
     expect(recues[1]!.requetes[0]!.contenu).toEqual(recues[0]!.requetes[0]!.contenu);
-    expect(r.run).toMatchObject({ prompt: 4, schema: 4, sorties: [SORTIE_FACADE, SORTIE_FACADE, SORTIE_FACADE], enrichie: { prompt: 1, schema: 1, passes: 3, cout: 0.003 } });
+    expect(r.run).toMatchObject({ prompt: 2, schema: 2, sorties: [SORTIE_FACADE, SORTIE_FACADE, SORTIE_FACADE], enrichie: { prompt: 2, schema: 1, passes: 3, cout: 0.003 } });
     expect(r.run.enrichie!.erreur).toBeUndefined();
     expect(r.reponse.ouvertures[0]?.lus?.menuiserie).toEqual({ materiau: 'bois', couleur: 'blanc' });
     expect(r.reponse.modenature?.egout).toBe('genoise');
@@ -177,7 +177,7 @@ describe('les deux requetes d une facade (lot L1)', () => {
     expect(r.run.enrichie).toMatchObject({ sorties: [], erreur: expect.stringMatching(/n’a pas pu partir/) });
     const run = { ...r.run };
     delete run.enrichie;
-    expect({ ...run, cout: null, tokens: null }).toEqual({ ...seul.run, prompt: 4, schema: 4, cout: null, tokens: null });
+    expect({ ...run, cout: null, tokens: null }).toEqual({ ...seul.run, prompt: 2, schema: 2, cout: null, tokens: null });
     expect(r.reponse.ouvertures.map((o) => { const x = { ...o }; delete x.lus; return x; })).toEqual(seul.reponse.ouvertures);
     expect(r.reponse.saillies).toEqual([]);
   });

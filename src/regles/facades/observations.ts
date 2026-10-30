@@ -171,23 +171,13 @@ function lireEtendue(v: unknown): Etendue | null {
 
 const grille = (o: Record<string, unknown>): Grille => ({ colonnes: entier(o.colonnes), rangees: entier(o.rangees) });
 
-/**
- * L'imposte : un nombre depuis la version 4 du schema (sa part de la baie, 0 sans imposte, -1 non vue ; ses carreaux a cote), un objet
- * ou un mot dans une reponse enregistree d'avant, relue telle quelle.
- */
-function lireImposte(o: Record<string, unknown>): Carreaux['imposte'] {
-  const h = o.imposte;
-  if (fini(h)) return h > 0 && h < 1 ? { hauteur: h, colonnes: entier(o.imposteColonnes), rangees: entier(o.imposteRangees) } : h === 0 ? 'aucune' : null;
-  const imp = objet(h);
-  return imp && fini(imp.hauteur) && imp.hauteur > 0 && imp.hauteur < 1 ? { hauteur: imp.hauteur, ...grille(imp) } : h === 'aucune' ? 'aucune' : null;
-}
-
 function lireCarreaux(v: unknown): Carreaux | null {
   const o = objet(v);
   if (!o) return null;
+  const imp = objet(o.imposte);
   const c: Carreaux = {
     vantaux: entier(o.vantaux), ...grille(o), petitsBois: parmi(o.petitsBois, ['aucun', 'fins', 'epais'] as const),
-    imposte: lireImposte(o),
+    imposte: imp && fini(imp.hauteur) && imp.hauteur > 0 && imp.hauteur < 1 ? { hauteur: imp.hauteur, ...grille(imp) } : o.imposte === 'aucune' ? 'aucune' : null,
     vitrage: parmi(o.vitrage, ['clair', 'depoli', 'teinte', 'vitrail'] as const),
   };
   return Object.values(c).some((x) => x !== null) ? c : null;

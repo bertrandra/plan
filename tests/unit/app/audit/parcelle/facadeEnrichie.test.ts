@@ -48,7 +48,7 @@ const ENRICHIE = {
   etat: [{ nature: 'humidite', u0: 0, u1: 0.3, v0: 0, v1: 0.15, confiance: 'moyenne' }],
 };
 const RUN: RunEnregistre = {
-  le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 4, schema: 4, passes: 3, sorties: [SORTIE, SORTIE, SORTIE], cout: 0.004, tokens: { entree: 9000, sortie: 2000 }, image: { largeur: 1024, hauteur: 700 }, chaine: 1,
+  le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 2, schema: 2, passes: 3, sorties: [SORTIE, SORTIE, SORTIE], cout: 0.004, tokens: { entree: 9000, sortie: 2000 }, image: { largeur: 1024, hauteur: 700 }, chaine: 1,
   enrichie: { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 3, sorties: [ENRICHIE, ENRICHIE, ENRICHIE], cout: 0.003, tokens: { entree: 9000, sortie: 1000 } },
 };
 

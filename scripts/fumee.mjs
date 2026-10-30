@@ -470,7 +470,7 @@ async function simulerAnalyse(page, { jardin = null, facade = null, enrichie = n
       // La lecture du jardin (lot L3) : la sortie que le point donne, SYNTHETIQUE ; sans elle, la reponse d'une maison (illisible).
       if (r.usage === 'jardin' && jardin) return { id: r.id, statut: 'reussi', passe: 1, usage: 'jardin', sortie: jardin, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 };
       // Le run d'une facade et sa lecture enrichie (lot L1) : les sorties que le point donne, SYNTHETIQUES, les memes pour leurs trois passes.
-      if (r.usage === 'facade' && facade) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade', sortie: facade, erreur: null, modele: 'claude-haiku-5-5', prompt: 4, schema: 4, cout: 0.0016, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 2600 } };
+      if (r.usage === 'facade' && facade) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade', sortie: facade, erreur: null, modele: 'claude-haiku-5-5', prompt: 2, schema: 2, cout: 0.0016, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 2600 } };
       if (r.usage === 'facade-enrichie' && enrichie) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade-enrichie', sortie: enrichie, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0012, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 1500 } };
       return { id: r.id, statut: 'reussi', passe: r.passe, sortie: sortie(facades), erreur: null };
     });
@@ -3236,14 +3236,13 @@ const POINTS = {
     // les met a 0,78 et 3,25 m pour 0,9 et 3,8 m). Les parts du run sont celles du mur que l'audit lui montre, en hauteurs d'egout (6 m).
     const H = 6 / 0.855;
     // Le run (la lecture d'avant L1) et la lecture enrichie, deux requetes sur la meme image (decision du 30 octobre 2026).
-    const ANGLE = { x: -1, egout: -1, sol: -1, confiance: 'indetermine' };
     const boite = (o) => ({ u0: r3(o.x / L), u1: r3((o.x + o.l) / L), v0: r3(o.y / H), v1: r3((o.y + o.h) / H) });
     const SORTIE = {
-      calage: { angles: { gauche: ANGLE, droite: ANGLE }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
       surface: { principale: 'enduit', zones: [], confiance: 'forte' },
-      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, ...boite(o), niveau: o.y > 2 ? 1 : 0, travee: -1, confiance: 'forte',
+      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, ...boite(o), niveau: o.y > 2 ? 1 : 0, travee: 'indetermine', confiance: 'forte',
         details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect' },
-        carreaux: { vantaux: -1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: -1, imposteColonnes: -1, imposteRangees: -1, vitrage: 'indetermine' } })),
+        carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } })),
       confiance: 'forte',
     };
     const ENRICHIE = {
@@ -3330,9 +3329,8 @@ const POINTS = {
       window.__plan.toucher('maison');
       window.__plan.etat().measures.length = 0;
     });
-    const ANGLE = { x: -1, egout: -1, sol: -1, confiance: 'indetermine' };
     const SORTIE = {
-      calage: { angles: { gauche: ANGLE, droite: ANGLE }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
       surface: { principale: 'pierre', zones: [], confiance: 'forte' }, ouvertures: [], confiance: 'forte',
     };
     // Le bow-window vient de la lecture enrichie (la seconde requete sur la meme image, lot L1).

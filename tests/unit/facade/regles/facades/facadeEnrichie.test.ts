@@ -23,7 +23,7 @@ const SORTIE_RUN = {
   surface: { principale: 'enduit', zones: [], confiance: 'forte' },
   ouvertures: [{
     type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'indetermine', forme: 'rect' },
-    carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' },
+    carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' },
   }],
   confiance: 'forte',
 };
@@ -44,7 +44,7 @@ const passe = (d: Record<string, unknown> = {}, reste: Record<string, unknown> =
   avecLectureEnrichie(lireObservationsFacade(SORTIE_RUN)!, lue(enrichie(d, reste)), R);
 /** Un run enregistre de trois passes, avec sa lecture enrichie (trois passes aussi) ou ce qui l'a empechee. */
 const run = (lectures: unknown[] | { erreur: string }): RunEnregistre => ({
-  le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 4, schema: 4, passes: 3, sorties: [SORTIE_RUN, SORTIE_RUN, SORTIE_RUN], cout: 0.005, tokens: { entree: 1, sortie: 1 }, image: { largeur: 1, hauteur: 1 }, chaine: 1,
+  le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 2, schema: 2, passes: 3, sorties: [SORTIE_RUN, SORTIE_RUN, SORTIE_RUN], cout: 0.005, tokens: { entree: 1, sortie: 1 }, image: { largeur: 1, hauteur: 1 }, chaine: 1,
   enrichie: { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 3, sorties: Array.isArray(lectures) ? lectures : [], cout: 0.004, tokens: { entree: 1, sortie: 1 }, ...(Array.isArray(lectures) ? {} : lectures) },
 });
 
@@ -112,7 +112,7 @@ describe('le vote de trois passes de la lecture enrichie', () => {
 
   it('l escalade du run ne lit pas la facade enrichie : elle n y touche pas', () => {
     const r = run([enrichie(), enrichie(), enrichie()]);
-    const e = observationsDuRun({ ...r, escalade: { le: r.le, modele: 'claude-sonnet-5-5', prompt: 4, schema: 4, sortie: SORTIE_RUN, cout: 0.03, tokens: { entree: 1, sortie: 1 } } }, R)!;
+    const e = observationsDuRun({ ...r, escalade: { le: r.le, modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, sortie: SORTIE_RUN, cout: 0.03, tokens: { entree: 1, sortie: 1 } } }, R)!;
     expect(e.escalade?.modele).toBe('claude-sonnet-5-5');
     expect(e.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'bois', couleur: 'vert' });
     expect(e.modenature!.egout).toBe('genoise');

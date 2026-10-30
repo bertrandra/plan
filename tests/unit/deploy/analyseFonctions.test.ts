@@ -150,14 +150,14 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
-      expect(p.version).toBe(5);
+      expect(p.version).toBe(2);
       expect(p.texte).toMatch(/^# Rôle/);
       const s = lireSchema('schema-facade.json');
-      expect(s.version).toBe(4);
+      expect(s.version).toBe(2);
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, [])) expect(texte('prompt-facade.md'), t).toContain('`' + t + '`');
       // Le serveur sert ce couple pour l'usage `facade`, et garde celui de l'analyse pour les autres.
-      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([5, 4]);
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([2, 2]);
       // L'exemple du repli a la forme du schema : le serveur le ramene a lui-meme, sans rien ecarter ni completer.
       const exemple = (JSON.parse(texte('schema-facade.json')) as { exemple: object }).exemple;
       expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
@@ -333,17 +333,13 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       const brut = { calage: { angles: { gauche: { x: 0.1, egout: 0.5, sol: 0.9, confiance: 'Forte' } }, pointes: [{ u: 0.5, v: 2 }] },
         ouvertures: [{ type: 'Fenêtre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8 }, { type: 'porte', u0: 0.4, v0: 0, v1: 0.8 }] };
       const s = phpObjets<Sortie>('sortieConforme', 'Voici : ' + JSON.stringify(brut), SCHEMA_FACADE.schema);
-      // Version 4 du schema (aucune union) : l'angle manquant a ses nombres a -1, sa valeur par defaut (`default`), que le lecteur ecarte.
-      expect(s.calage.angles).toEqual({ gauche: { x: 0.1, egout: 0.5, sol: 0.9, confiance: 'forte' }, droite: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' } });
+      expect(s.calage.angles).toEqual({ gauche: { x: 0.1, egout: 0.5, sol: 0.9, confiance: 'forte' }, droite: 'indetermine' });
       // « Fenêtre » est ramene a la graphie du vocabulaire ; la baie sans `u1` (une cote manque) est ecartee, rien n'est invente.
       expect(s.ouvertures.map((o) => o.type)).toEqual(['fenetre']);
       const bon = phpObjets<Sortie>('sortieConforme', JSON.stringify({ ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8 }] }), SCHEMA_FACADE.schema);
-      expect(bon.ouvertures[0]).toEqual({ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: -1, travee: -1, confiance: 'indetermine',
+      expect(bon.ouvertures[0]).toEqual({ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: 'indetermine', travee: 'indetermine', confiance: 'indetermine',
         details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' },
-        carreaux: { vantaux: -1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: -1, imposteColonnes: -1, imposteRangees: -1, vitrage: 'indetermine' } });
-      // Un compte dit `indetermine` (le vocabulaire d'avant la version 4, que le repli peut encore rendre) prend sa valeur par defaut.
-      const ancien = phpObjets<Sortie>('sortieConforme', JSON.stringify({ ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: 'indetermine', carreaux: { colonnes: 'indetermine', rangees: 3 } }] }), SCHEMA_FACADE.schema);
-      expect(ancien.ouvertures[0]).toMatchObject({ niveau: -1, carreaux: { colonnes: -1, rangees: 3 } });
+        carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } });
       expect(bon.confiance).toBe('faible');
     });
 

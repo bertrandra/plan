@@ -97,12 +97,11 @@ export const SORTIE_FACADE = {
   forme: { silhouette: 'plusieurs-sommets', bout: 'pignon' },
   elements: [{ element: 'cheminee', u: 0.45, confiance: 'moyenne' }],
   surface: { principale: 'enduit', zones: [{ type: 'colombage', u0: 0.5, u1: 1, v0: 1.5, v1: 3, confiance: 'moyenne' }], confiance: 'forte' },
-  // La forme de la version 4 du schema (aucune union) : un compte non vu vaut -1, l'imposte est un nombre suivi de ses carreaux.
   ouvertures: [
     { type: 'fenetre', u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect' },
-      carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' } },
+      carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' } },
     { type: 'porte', u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, niveau: 0, travee: 1, confiance: 'moyenne', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect' },
-      carreaux: { vantaux: 1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: 0.2, imposteColonnes: 3, imposteRangees: 1, vitrage: 'indetermine' } },
+      carreaux: { vantaux: 1, colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: { hauteur: 0.2, colonnes: 3, rangees: 1 }, vitrage: 'indetermine' } },
   ],
   confiance: 'moyenne'
 };

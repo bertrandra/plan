@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-facade",
-  "version": 4,
-  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt. Version 3 (lot L1, 30 octobre 2026) : `details.menuiserie`, `details.couleurVolets`, `details.gardeCorps` (couleurs dans la palette de regles/facades/reglages.json), `saillies`, `decroches`, `modenature`, `appendices`, `etat`. La version 3 n'a jamais ete livree (branche du lot L1). Version 4 (lot L1, 30 octobre 2026) : les champs de la version 2 et eux seuls, sans aucune union (`anyOf`), dont l'API refusait la grammaire compilee (« The compiled grammar is too large ») ; un compte ou un nombre non vus valent -1 (`default`, dont le serveur remplit un nombre manquant comme il remplit `indetermine` pour un mot), un angle introuvable a ses nombres a -1, `carreaux.imposte` devient un nombre (0 : aucune) suivi de `imposteColonnes` et `imposteRangees`. Les champs de la facade enrichie ont leur schema (deploy/schema-facade-enrichie.json). Le lecteur relit les reponses enregistrees d'avant telles quelles.",
+  "version": 2,
+  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -279,12 +279,10 @@
               "type": "number"
             },
             "niveau": {
-              "type": "integer",
-              "default": -1
+              "$ref": "#/$defs/compte"
             },
             "travee": {
-              "type": "integer",
-              "default": -1
+              "$ref": "#/$defs/compte"
             },
             "confiance": {
               "$ref": "#/$defs/confiance"
@@ -337,22 +335,17 @@
                 "rangees",
                 "petitsBois",
                 "imposte",
-                "imposteColonnes",
-                "imposteRangees",
                 "vitrage"
               ],
               "properties": {
                 "vantaux": {
-                  "type": "integer",
-                  "default": -1
+                  "$ref": "#/$defs/compte"
                 },
                 "colonnes": {
-                  "type": "integer",
-                  "default": -1
+                  "$ref": "#/$defs/compte"
                 },
                 "rangees": {
-                  "type": "integer",
-                  "default": -1
+                  "$ref": "#/$defs/compte"
                 },
                 "petitsBois": {
                   "type": "string",
@@ -364,16 +357,35 @@
                   ]
                 },
                 "imposte": {
-                  "type": "number",
-                  "default": -1
-                },
-                "imposteColonnes": {
-                  "type": "integer",
-                  "default": -1
-                },
-                "imposteRangees": {
-                  "type": "integer",
-                  "default": -1
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "hauteur",
+                        "colonnes",
+                        "rangees"
+                      ],
+                      "properties": {
+                        "hauteur": {
+                          "type": "number"
+                        },
+                        "colonnes": {
+                          "$ref": "#/$defs/compte"
+                        },
+                        "rangees": {
+                          "$ref": "#/$defs/compte"
+                        }
+                      }
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "aucune",
+                        "indetermine"
+                      ]
+                    }
+                  ]
                 },
                 "vitrage": {
                   "type": "string",
@@ -401,31 +413,38 @@
     },
     "$defs": {
       "angle": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "x",
-          "egout",
-          "sol",
-          "confiance"
-        ],
-        "properties": {
-          "x": {
-            "type": "number",
-            "default": -1
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "egout",
+              "sol",
+              "confiance"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "egout": {
+                "type": "number"
+              },
+              "sol": {
+                "type": "number"
+              },
+              "confiance": {
+                "$ref": "#/$defs/confiance"
+              }
+            }
           },
-          "egout": {
-            "type": "number",
-            "default": -1
-          },
-          "sol": {
-            "type": "number",
-            "default": -1
-          },
-          "confiance": {
-            "$ref": "#/$defs/confiance"
+          {
+            "type": "string",
+            "enum": [
+              "indetermine"
+            ]
           }
-        }
+        ]
       },
       "etendue": {
         "type": "object",
@@ -450,6 +469,19 @@
           "moyenne",
           "faible",
           "indetermine"
+        ]
+      },
+      "compte": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string",
+            "enum": [
+              "indetermine"
+            ]
+          }
         ]
       }
     }
@@ -529,12 +561,10 @@
         },
         "carreaux": {
           "vantaux": 1,
-          "colonnes": -1,
-          "rangees": -1,
+          "colonnes": "indetermine",
+          "rangees": "indetermine",
           "petitsBois": "indetermine",
-          "imposte": 0,
-          "imposteColonnes": -1,
-          "imposteRangees": -1,
+          "imposte": "aucune",
           "vitrage": "indetermine"
         }
       },
@@ -557,9 +587,7 @@
           "colonnes": 1,
           "rangees": 3,
           "petitsBois": "fins",
-          "imposte": 0,
-          "imposteColonnes": -1,
-          "imposteRangees": -1,
+          "imposte": "aucune",
           "vitrage": "clair"
         }
       },
@@ -570,7 +598,7 @@
         "v0": 0.62,
         "v1": 0.88,
         "niveau": 1,
-        "travee": -1,
+        "travee": "indetermine",
         "confiance": "moyenne",
         "details": {
           "volets": "roulant",
@@ -582,9 +610,7 @@
           "colonnes": 1,
           "rangees": 1,
           "petitsBois": "aucun",
-          "imposte": 0,
-          "imposteColonnes": -1,
-          "imposteRangees": -1,
+          "imposte": "aucune",
           "vitrage": "clair"
         }
       }
