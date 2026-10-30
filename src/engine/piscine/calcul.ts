@@ -11,7 +11,7 @@ import { maxEntraxeLameCm, maxPorteeVisM } from '../bois/portees.js';
 import { perce, terrasseDeLaPiscine } from '../ouvrages/liens.js';
 import { estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan, PtBrut, SecuritePiscine } from '../../model/types.js';
-import { LIBELLE_STRUCTURE, plageCalculee, REVANCHE_M, VITESSE_FILTRATION_M_H, DIAMETRES_FILTRE_MM, M2_PAR_SKIMMER, M2_PAR_REFOULEMENT, M2_PAR_PROJECTEUR, M3_PAR_KW_PAC, TAXE_AMENAGEMENT_M2, SEUIL_SANS_FORMALITE_M2, SEUIL_PERMIS_M2, CHARGE_PLAGE_KG_M2, POIDS_PROPRE_PLAGE_KG_M2, PROFILS_STRUCTURE, FOISONNEMENT, EPAISSEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, piscineDe, fr } from './reglages.js';
+import { libellePiscine, plageCalculee, REVANCHE_M, VITESSE_FILTRATION_M_H, DIAMETRES_FILTRE_MM, M2_PAR_SKIMMER, M2_PAR_REFOULEMENT, M2_PAR_PROJECTEUR, M3_PAR_KW_PAC, TAXE_AMENAGEMENT_M2, SEUIL_SANS_FORMALITE_M2, SEUIL_PERMIS_M2, CHARGE_PLAGE_KG_M2, POIDS_PROPRE_PLAGE_KG_M2, PROFILS_STRUCTURE, FOISONNEMENT, EPAISSEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, piscineDe, fr } from './reglages.js';
 import { bordDesMargelles, contourPiscine, elargir, perimetre, type AxeProfondeur, axeProfondeur, type PointProfil, profilFond, volumeEau } from './geometrie.js';
 
 // ---- Calcul ----------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
   const terrassesPercees = objets.filter(t => estTerrasse(t) && t.type === 'polygon' && perce(margelleExt, t.pts)).map(t => t.name);
 
   if (profondeurMax > 2.5) avertissements.push('Profondeur de ' + fr(profondeurMax) + ' m : au-delà de 2,50 m, le bassin sort des gammes courantes (coques, kits) et demande une étude.');
-  if (hauteurHorsSol > ps.horsSolMax + 1e-9) avertissements.push('Hauteur hors-sol de ' + fr(hauteurHorsSol) + ' m : ' + LIBELLE_STRUCTURE[r.structure].toLowerCase() + ' admet ' + fr(ps.horsSolMax) + ' m au plus sans étude de la poussée de l\'eau.');
+  if (hauteurHorsSol > ps.horsSolMax + 1e-9) avertissements.push('Hauteur hors-sol de ' + fr(hauteurHorsSol) + ' m : ' + libellePiscine(o, r, 'structure', (l) => l.toLowerCase()) + ' admet ' + fr(ps.horsSolMax) + ' m au plus sans étude de la poussée de l\'eau.');
   if (r.structure === 'coque' && surface > 60) avertissements.push('Coque de ' + fr(surface, 1) + ' m² : au-delà de 60 m², le transport et le grutage sortent du courant.');
   if (r.structure === 'coque' && r.fond === 'fosse') avertissements.push('Fosse à plonger sur une coque : vérifiez que le modèle existe au catalogue du fabricant.');
   if (o.type === 'circle' && o.piscine?.fond && o.piscine.fond !== 'plat') avertissements.push('Un bassin rond a le fond plat : la pente réglée n\'est pas appliquée.');

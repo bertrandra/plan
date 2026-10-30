@@ -3,8 +3,8 @@
 
 import { shoelace } from '../../geometry/basic.js';
 import { essenceDe } from '../bois/essences.js';
-import type { LigneBom, LocalTechniquePiscine } from '../../model/types.js';
-import { LIBELLE_REVETEMENT, LIBELLE_SECURITE, LIBELLE_LOCAL, PROFILS_STRUCTURE, LONGUEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, fr } from './reglages.js';
+import type { LigneBom, LocalTechniquePiscine, ObjetPlan } from '../../model/types.js';
+import { libellePiscine, type ChampFermePiscine, PROFILS_STRUCTURE, LONGUEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, fr } from './reglages.js';
 import { perimetre } from './geometrie.js';
 import { type PiscineCalculee, arrondi } from './calcul.js';
 
@@ -75,7 +75,9 @@ export const prixSaisi = (r: ReglagesPiscine, poste: string): number | undefined
   return v !== undefined && Number.isFinite(v) && v >= 0 ? v : undefined;
 };
 
-export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
+export function chiffrerPiscine(calc: PiscineCalculee, o?: ObjetPlan | null): ChiffragePiscine {
+  // `o` : la piscine elle-meme, pour qu'un mot hors vocabulaire s'ecrive tel qu'il est lu dans le libelle d'une ligne (libellePiscine).
+  const L = (cle: ChampFermePiscine, forme?: (l: string) => string) => libellePiscine(o, r, cle, forme);
   const r = calc.reglages, ps = PROFILS_STRUCTURE[r.structure];
   const lignes: LigneBom[] = [];
   const ligne = (poste: string, label: string, qte: number, unite: string, prix = PRIX[poste] ?? { bas: 0, haut: 0 }) => {
@@ -91,7 +93,7 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
   if (r.structure === 'maconnerie') {
     ligne('radier', 'Radier béton armé de ' + Math.round(ps.fond * 100) + ' cm', shoelace(calc.parois) * ps.fond, 'm³');
     ligne('murs', 'Parois en blocs à bancher de 27 cm, béton et aciers, ceinture', surfaceParois, 'm²');
-    ligne(r.revetement, 'Revêtement : ' + LIBELLE_REVETEMENT[r.revetement].toLowerCase() + (r.revetement === 'liner' ? ', feutre et profilés' : ''), surfaceInterieure, 'm²');
+    ligne(r.revetement, 'Revêtement : ' + L('revetement', (l) => l.toLowerCase()) + (r.revetement === 'liner' ? ', feutre et profilés' : ''), surfaceInterieure, 'm²');
   } else if (r.structure === 'coque') {
     ligne('coque', 'Coque polyester, livrée (plan d\'eau ' + fr(calc.surface, 1) + ' m²)', calc.surface, 'm²');
     ligne('grutage', 'Grutage et pose de la coque', 1, 'forfait');
@@ -100,14 +102,14 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
   } else {
     ligne('dalle', 'Dalle béton armé de 15 cm sous le bassin', shoelace(calc.parois), 'm²');
     ligne('kit', 'Kit panneaux (structure, jambes de force, margelle de kit)', calc.surface, 'm²');
-    ligne(r.revetement, 'Revêtement : ' + LIBELLE_REVETEMENT[r.revetement].toLowerCase() + ', feutre et profilés', surfaceInterieure, 'm²');
+    ligne(r.revetement, 'Revêtement : ' + L('revetement', (l) => l.toLowerCase()) + ', feutre et profilés', surfaceInterieure, 'm²');
   }
   if (r.margelle) ligne('margelles', 'Margelles de ' + Math.round(r.largeurMargelle * 100) + ' cm (' + Math.ceil(calc.margellesMl / LONGUEUR_MARGELLE_M) + ' pièces)', calc.margellesMl, 'ml');
   const pb = calc.plageBois;
   if (pb) {
     const essence = essenceDe(r.essencePlage);
     // Le prix d'une lame suit l'essence : celui du m² ramene au metre lineaire de lame.
-    ligne('plageLames', 'Plage : lames 27 × 145 (' + essence.label + ')', pb.lamesMl, 'ml', { bas: Math.max(PRIX.plageLames?.bas ?? 0, essence.bas * PLAGE.lameLargeur), haut: Math.max(PRIX.plageLames?.haut ?? 0, essence.haut * PLAGE.lameLargeur) });
+    ligne('plageLames', 'Plage : lames 27 × 145 (' + L('essencePlage') + ')', pb.lamesMl, 'ml', { bas: Math.max(PRIX.plageLames?.bas ?? 0, essence.bas * PLAGE.lameLargeur), haut: Math.max(PRIX.plageLames?.haut ?? 0, essence.haut * PLAGE.lameLargeur) });
     ligne('plageOssature', pb.mode === 'plots' ? 'Plage : lambourdes 45 × 70 (entraxe ' + Math.round(pb.entraxeLambourdes * 100) + ' cm)' : 'Plage : solives 63 × 175 (entraxe 50 cm)', pb.ossatureMl, 'ml');
     if (pb.mode === 'plots') ligne('plageAppuis', 'Plage : plots réglables (portée ' + Math.round(pb.portee * 100) + ' cm)', pb.appuis, 'u');
     else {
@@ -124,7 +126,7 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
   ligne('filtration', 'Groupe de filtration : pompe ' + fr(h.puissancePompeCv, 2) + ' CV, filtre à sable Ø ' + h.diametreFiltre + ' mm (' + fr(h.debit, 1) + ' m³/h)', 1, 'forfait', { bas: PRIX_FILTRATION.bas * (0.7 + h.debit / 30), haut: PRIX_FILTRATION.haut * (0.7 + h.debit / 30) });
   ligne('piecesSceller', 'Pièces à sceller : ' + h.skimmers + ' skimmer(s), ' + h.refoulements + ' refoulements, bonde de fond, prise balai', h.skimmers + h.refoulements + h.bondes + h.prisesBalai, 'u');
   ligne('canalisations', 'Canalisations PVC pression Ø ' + h.diametreTuyau + ', tranchées comprises', h.canalisationsMl, 'ml');
-  ligne('local', LIBELLE_LOCAL[r.local], r.local === 'existant' ? 0 : 1, 'forfait', PRIX_LOCAL[r.local]);
+  ligne('local', L('local'), r.local === 'existant' ? 0 : 1, 'forfait', PRIX_LOCAL[r.local]);
   ligne('electricite', 'Coffret électrique, liaison, différentiel 30 mA, liaison équipotentielle', 1, 'forfait');
   if (calc.equipements.projecteurs) ligne('projecteurs', 'Projecteurs LED immergés', calc.equipements.projecteurs, 'u');
   if (calc.equipements.electrolyseur) ligne('electrolyseur', 'Électrolyseur au sel et régulation pH (' + Math.ceil(calc.volume / 10) * 10 + ' m³)', 1, 'forfait');
@@ -132,7 +134,7 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
   else if (r.chauffage === 'solaire') ligne('solaire', 'Capteurs solaires (la moitié du plan d\'eau)', calc.surface / 2, 'm²');
   else if (r.chauffage === 'echangeur') ligne('echangeur', 'Échangeur sur chaudière, circulateur et régulation', 1, 'forfait');
   const s = calc.securite;
-  ligne(s.dispositif, 'Sécurité : ' + LIBELLE_SECURITE[s.dispositif], s.quantite, s.unite);
+  ligne(s.dispositif, 'Sécurité : ' + L('securite'), s.quantite, s.unite);
   ligne('miseEnEau', 'Mise en eau', calc.volume, 'm³');
 
   let bas = 0, haut = 0, reel = 0, unReel = false;

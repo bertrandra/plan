@@ -4,7 +4,8 @@
 import { chiffreFrGroupe } from '../../util/format.js';
 import { au } from '../../util/tableaux.js';
 import { dist } from '../../geometry/basic.js';
-import { ESSENCE_PRICES } from '../bois/essences.js';
+import { ESSENCE_PRICES, essenceDe } from '../bois/essences.js';
+import { citer, motConnu, signalerMotInconnu } from '../../shell/motsInconnus.js';
 import type { ChauffagePiscine, FondPiscine, ImplantationPiscine, LocalTechniquePiscine, ObjetPlan, Piscine, PlagePiscine, PtBrut, RevetementPiscine, SecuritePiscine, StructurePiscine, TraitementPiscine } from '../../model/types.js';
 
 // Les chiffres du dossier et du plan : sans les donnees de langue du moteur, le meme texte sur toute machine (util/format.ts).
@@ -146,7 +147,7 @@ export function piscineDe(o: ObjetPlan): ReglagesPiscine {
   // Un kit hors-sol porte sa propre margelle : il n'y a pas de margelle a poser.
   const margelle = p.margelle !== undefined ? !!p.margelle : !(horsSol && structure === 'kit');
   const plage = dans(p.plage, Object.keys(LIBELLE_PLAGE) as PlagePiscine[], 'aucune');
-  return {
+  const r: ReglagesPiscine = {
     implantation, structure, revetement, fond, profondeurPetitBain, profondeurGrandBain,
     cotePetitBain: indiceValide(p.cotePetitBain, pts.length) ? p.cotePetitBain : (pts.length ? plusCourtCote(pts) : 0),
     partFosse: positif(p.partFosse, 0.4, 0.2, 0.7),
@@ -155,7 +156,7 @@ export function piscineDe(o: ObjetPlan): ReglagesPiscine {
     largeurMargelle: positif(p.largeurMargelle, 0.33, 0.2, 1),
     plage,
     largeurPlage: positif(p.largeurPlage, 1.5, 0.3, 10),
-    essencePlage: p.essencePlage && p.essencePlage in ESSENCE_PRICES ? p.essencePlage : 'pin-classe4',
+    essencePlage: p.essencePlage && motConnu(ESSENCE_PRICES, p.essencePlage) ? p.essencePlage : 'pin-classe4',
     tempsRecyclage: positif(p.tempsRecyclage, 4, 1, 12),
     traitement: dans(p.traitement, Object.keys(LIBELLE_TRAITEMENT) as TraitementPiscine[], 'chlore'),
     chauffage: dans(p.chauffage, Object.keys(LIBELLE_CHAUFFAGE) as ChauffagePiscine[], 'aucun'),
@@ -168,4 +169,60 @@ export function piscineDe(o: ObjetPlan): ReglagesPiscine {
     couleurPlage: p.couleurPlage || (plage === 'dallage' ? '#cfc8bb' : '#c9a15a'),
     prix: p.prix || {}
   };
+  // Un mot hors vocabulaire se calcule sur la valeur par defaut, comme avant ; desormais Plan le dit (une fois par mot).
+  for (const cle of CHAMPS_FERMES) {
+    const lu = motInconnuPiscine(o, cle, r);
+    if (lu === null) continue;
+    signalerMotInconnu(texteMotInconnuPiscine(cle, lu, r) + '.');
+  }
+  return r;
+}
+
+// ---- Les mots hors vocabulaire -----------------------------------------------------------------
+
+/** Les reglages a vocabulaire ferme : un fichier d'une version plus recente (ou abime) peut y porter un mot inconnu. */
+export type ChampFermePiscine = 'implantation' | 'structure' | 'revetement' | 'fond' | 'plage' | 'essencePlage' | 'traitement' | 'chauffage' | 'securite' | 'local';
+const CHAMPS_FERMES: readonly ChampFermePiscine[] = ['implantation', 'structure', 'revetement', 'fond', 'plage', 'essencePlage', 'traitement', 'chauffage', 'securite', 'local'];
+const libelleDe = (table: Record<string, string>) => (v: string): string => table[v] ?? v;
+/** Pour chaque reglage : les mots connus, leur libelle, et comment le nommer dans un signal. */
+const VOCABULAIRES: Record<ChampFermePiscine, { connus: object; libelle: (v: string) => string; nom: string; feminin: boolean }> = {
+  implantation: { connus: LIBELLE_IMPLANTATION, libelle: libelleDe(LIBELLE_IMPLANTATION), nom: 'Implantation', feminin: true },
+  structure: { connus: LIBELLE_STRUCTURE, libelle: libelleDe(LIBELLE_STRUCTURE), nom: 'Structure', feminin: true },
+  revetement: { connus: LIBELLE_REVETEMENT, libelle: libelleDe(LIBELLE_REVETEMENT), nom: 'Revêtement', feminin: false },
+  fond: { connus: LIBELLE_FOND, libelle: libelleDe(LIBELLE_FOND), nom: 'Fond', feminin: false },
+  plage: { connus: LIBELLE_PLAGE, libelle: libelleDe(LIBELLE_PLAGE), nom: 'Plage', feminin: true },
+  essencePlage: { connus: ESSENCE_PRICES, libelle: (v) => essenceDe(v).label, nom: 'Essence de la plage', feminin: true },
+  traitement: { connus: LIBELLE_TRAITEMENT, libelle: libelleDe(LIBELLE_TRAITEMENT), nom: 'Traitement', feminin: false },
+  chauffage: { connus: LIBELLE_CHAUFFAGE, libelle: libelleDe(LIBELLE_CHAUFFAGE), nom: 'Chauffage', feminin: false },
+  securite: { connus: LIBELLE_SECURITE, libelle: libelleDe(LIBELLE_SECURITE), nom: 'Sécurité', feminin: true },
+  local: { connus: LIBELLE_LOCAL, libelle: libelleDe(LIBELLE_LOCAL), nom: 'Local technique', feminin: false },
+};
+
+/**
+ * Le mot lu pour ce reglage quand il est hors de son vocabulaire, sinon null : un mot absent prend la valeur par defaut, il n'est
+ * pas inconnu ; un mot qui ne sert pas au calcul n'est pas dit (le fond d'un bassin rond, l'essence d'une plage qui n'est pas en
+ * bois). Un revetement connu que la structure n'admet pas suit la regle d'avant, sans signal : il n'est pas inconnu.
+ */
+export function motInconnuPiscine(o: ObjetPlan | null | undefined, cle: ChampFermePiscine, r?: Pick<ReglagesPiscine, 'plage'>): string | null {
+  const v: unknown = o?.piscine?.[cle];
+  if (!o || v === undefined || v === null || v === '') return null;
+  if (cle === 'fond' && o.type === 'circle') return null;
+  if (cle === 'essencePlage' && (r ?? piscineDe(o)).plage !== 'terrasse-bois') return null;
+  return motConnu(VOCABULAIRES[cle].connus, v) ? null : String(v);
+}
+
+/** Ce que Plan dit d'un mot hors vocabulaire : « Structure inconnue (« inox »), calculée en coque polyester » (signal, inspecteur). */
+export function texteMotInconnuPiscine(cle: ChampFermePiscine, lu: string, r: ReglagesPiscine): string {
+  const v = VOCABULAIRES[cle];
+  return v.nom + (v.feminin ? ' inconnue (' : ' inconnu (') + citer(lu) + '), calculé' + (v.feminin ? 'e' : '') + ' en ' + v.libelle(r[cle]).toLowerCase();
+}
+
+/**
+ * Le libelle d'un reglage pour un export : celui de la valeur retenue (mis en forme par `forme`), ou, pour un mot hors vocabulaire,
+ * le mot lu et ce sur quoi les chiffres sont calcules : « inox (inconnu, calculé en coque polyester) ». Jamais le libelle du repli seul.
+ */
+export function libellePiscine(o: ObjetPlan | null | undefined, r: ReglagesPiscine, cle: ChampFermePiscine, forme: (libelle: string) => string = (l) => l): string {
+  const retenu = VOCABULAIRES[cle].libelle(r[cle]);
+  const lu = motInconnuPiscine(o, cle, r);
+  return lu === null ? forme(retenu) : lu + ' (inconnu, calculé en ' + retenu.toLowerCase() + ')';
 }
