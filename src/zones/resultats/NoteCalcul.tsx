@@ -18,7 +18,7 @@ export function NoteCalcul({ resultats, commandes }: { resultats: Resultats; com
   if (estExistant(piscine)) return <div className="hint">Piscine existante : elle situe le projet, elle n’a pas de note de calcul.</div>;
   const calc = calculerPiscine(piscine, etat.objects);
   if (!calc) return <div className="hint">Le bassin doit avoir au moins trois coins et plus d'un demi-mètre carré pour être calculé.</div>;
-  const sections = noteDeCalcul(calc);
+  const sections = noteDeCalcul(calc, piscine);
   return (
     <div id="piscineNoteWrap">
       <div className="controls">

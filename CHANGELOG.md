@@ -23,6 +23,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     plus l'ordre d'écriture des autres ; une ouverture d'un type inconnu reste sans les détails de la façade au lieu de faire planter la
     validation. Les libellés des ouvertures d'un relevé ne disent plus « undefined ».
   Le socle commun est `shell/motsInconnus.ts`, que la couverture de toit utilise désormais aussi.
+- Piscine : un réglage hors catalogue (implantation, structure, revêtement, fond, plage, essence de la plage, traitement, chauffage,
+  sécurité, local technique) se calculait déjà sur sa valeur par défaut, mais en silence, et la note de calcul, le chiffrage et le
+  dossier de mairie écrivaient le libellé de ce défaut. Plan le signale désormais une fois par mot (« Structure inconnue (« … »),
+  calculée en coque polyester »), les exports écrivent « mot (inconnu, calculé en … ») et l'inspecteur montre le mot lu ; la valeur
+  reste dans l'objet et le fichier.
 
 ## [5.4.0] — 2026-10-30
 

@@ -14,13 +14,13 @@
 import {
   calculerPiscine, chiffrerPiscine, fr, LIBELLE_CHAUFFAGE, LIBELLE_FOND, LIBELLE_IMPLANTATION, LIBELLE_LOCAL, LIBELLE_PLAGE,
   LIBELLE_REGIME, LIBELLE_REVETEMENT, LIBELLE_SECURITE, LIBELLE_STRUCTURE, LIBELLE_TRAITEMENT, piscineDe, prixSaisi,
-  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, type ReglagesPiscine
+  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, motInconnuPiscine, texteMotInconnuPiscine, type ChampFermePiscine, type ReglagesPiscine
 } from '../../engine/piscine.js';
 import { ESSENCE_PRICES } from '../../engine/bois/essences.js';
 import { terrasseDeLaPiscine, terrasseHote } from '../../engine/ouvrages/liens.js';
 import { euros } from '../chiffrage.js';
 import type { Piscine, PlagePiscine, StructurePiscine } from '../../model/types.js';
-import type { Champ, ContexteChamps, Effet, Section } from './types.js';
+import type { Champ, ChampChoix, ContexteChamps, Effet, Section } from './types.js';
 
 const EFFETS: Effet[] = ['rendu', 'scene3d', 'inspecteur', 'terrasse'];
 
@@ -39,12 +39,26 @@ const fondPente = (c: ContexteChamps) => reglages(c).fond !== 'plat';
 const horsSol = (c: ContexteChamps) => reglages(c).implantation !== 'enterree';
 const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: c.obj.segmentNames?.[i] || ('Côté ' + (i + 1)) })) : [];
 
-function choix<K extends keyof Piscine & keyof ReglagesPiscine & string>(cle: K, libelle: string, libelles: Record<string, string>, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+/**
+ * Un menu d'un reglage a vocabulaire ferme, quand le fichier y porte un mot inconnu (une version plus recente) : la piscine se
+ * calcule sur la valeur par defaut (piscineDe), et le menu montre le mot lu plutot que ce defaut ; le reprendre n'ecrit rien.
+ */
+function avecMotInconnu(ch: ChampChoix, cle: ChampFermePiscine): ChampChoix {
+  const lu = (c: ContexteChamps) => motInconnuPiscine(c.obj, cle);
   return {
+    ...ch,
+    options: (c) => { const mot = lu(c); return mot === null ? ch.options(c) : [...ch.options(c), { valeur: mot, libelle: texteMotInconnuPiscine(cle, mot, reglages(c)) }]; },
+    lire: (c) => lu(c) ?? ch.lire(c),
+    ecrire: (c, v) => { if (v !== lu(c)) ch.ecrire(c, v); },
+  };
+}
+
+function choix<K extends ChampFermePiscine>(cle: K, libelle: string, libelles: Record<string, string>, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+  return avecMotInconnu({
     type: 'choix', cle, libelle, effets: EFFETS, ...(aide ? { aide } : {}), ...(visible ? { visible } : {}),
     options: () => Object.entries(libelles).map(([valeur, l]) => ({ valeur, libelle: l })),
     lire: (c) => String(reglages(c)[cle]), ecrire: (c, v) => poser(c, cle, v as Piscine[K])
-  };
+  }, cle);
 }
 function nombre<K extends keyof Piscine & keyof ReglagesPiscine & string>(cle: K, libelle: string, unite: string, min: number, max: number, pas: number, decimales: number, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
   const facteur = unite === 'cm' ? 100 : 1;
@@ -63,19 +77,19 @@ const sectionImplantation: Section = {
   champs: [
     choix('implantation', 'Implantation', LIBELLE_IMPLANTATION, 'Enterrée : parois au ras du sol. Semi-enterrée ou hors-sol : les parois dépassent du sol'),
     nombre('hauteurHorsSol', 'Hauteur hors du sol', 'm', 0.1, 2.5, 0.05, 2, 'Du sol fini au haut des parois', horsSol),
-    {
+    avecMotInconnu({
       type: 'choix', cle: 'structure', libelle: 'Structure', effets: EFFETS,
       aide: 'Coque : livrée d\'une pièce et posée à la grue. Maçonnerie : radier et blocs à bancher, toute forme. Kit : panneaux assemblés, surtout hors-sol',
       options: () => Object.entries(LIBELLE_STRUCTURE).map(([valeur, libelle]) => ({ valeur, libelle })),
       lire: (c) => reglages(c).structure,
       // Le revetement suit la structure tant qu'on ne l'a pas choisi : une coque n'a pas de liner.
       ecrire: (c, v) => { const p: Piscine = { ...(c.obj.piscine || {}), structure: v as StructurePiscine }; delete p.revetement; c.obj.piscine = p; }
-    },
-    {
+    }, 'structure'),
+    avecMotInconnu({
       type: 'choix', cle: 'revetement', libelle: 'Revêtement', effets: EFFETS, visible: (c) => reglages(c).structure !== 'coque',
       options: (c) => REVETEMENTS_PAR_STRUCTURE[reglages(c).structure].map(v => ({ valeur: v, libelle: LIBELLE_REVETEMENT[v] })),
       lire: (c) => reglages(c).revetement, ecrire: (c, v) => poser(c, 'revetement', v as Piscine['revetement'])
-    },
+    }, 'revetement'),
     couleur('couleurEau', 'Couleur de l\'eau'),
     {
       type: 'bouton', cle: 'centrerSurTerrasse', libelle: '', nom: 'Centrer la piscine sur sa terrasse',
@@ -121,7 +135,7 @@ const sectionAbords: Section = {
     { type: 'case', cle: 'margelle', libelle: 'Margelles', effets: EFFETS, lire: (c) => reglages(c).margelle, ecrire: (c, v) => poser(c, 'margelle', v) },
     nombre('largeurMargelle', 'Largeur des margelles', 'cm', 20, 100, 1, 0, undefined, (c) => reglages(c).margelle),
     couleur('couleurMargelle', 'Couleur des margelles', (c) => reglages(c).margelle),
-    {
+    avecMotInconnu({
       type: 'choix', cle: 'plage', libelle: 'Plage', aide: 'Ce qui entoure le bassin au-delà des margelles', effets: EFFETS,
       // La plage en bois calculee par la piscine (jusqu'a la 2.2.0) n'est plus proposee : elle reste
       // dans la liste d'un projet qui l'a, pour s'afficher et se chiffrer comme avant.
@@ -134,7 +148,7 @@ const sectionAbords: Section = {
         // Choisir la terrasse la pose aussitot autour du bassin, si elle n'existe pas encore.
         if (v === 'terrasse' && !terrasseDeLaPiscine(c.obj, c.objets)) c.executerCommande('objet.terrassePiscine');
       }
-    },
+    }, 'plage'),
     {
       // Un projet d'avant la terrasse du plan : sa plage en bois est calculee par la piscine, ni
       // selectionnable ni retaillable. Le bouton la remplace par une vraie terrasse, meme largeur et
@@ -160,11 +174,11 @@ const sectionAbords: Section = {
     },
     nombre('largeurPlage', 'Largeur de la plage', 'm', 0.3, 10, 0.1, 1, 'La même tout autour du bassin ; pour une terrasse, celle qu\'elle aura à sa pose',
       (c) => { const r = reglages(c); return plageCalculee(r.plage) || (r.plage === 'terrasse' && !terrasseDeLaPiscine(c.obj, c.objets)); }),
-    {
+    avecMotInconnu({
       type: 'choix', cle: 'essencePlage', libelle: 'Essence des lames', effets: EFFETS, visible: (c) => reglages(c).plage === 'terrasse-bois',
       options: () => Object.entries(ESSENCE_PRICES).filter(([k]) => k !== 'autre').map(([valeur, e]) => ({ valeur, libelle: e.label })),
       lire: (c) => reglages(c).essencePlage, ecrire: (c, v) => poser(c, 'essencePlage', v)
-    },
+    }, 'essencePlage'),
     couleur('couleurPlage', 'Couleur de la plage', (c) => plageCalculee(reglages(c).plage)),
     {
       type: 'lecture', cle: 'structurePlage', libelle: 'Structure de la plage', visible: (c) => reglages(c).plage === 'terrasse-bois',
@@ -248,7 +262,7 @@ export function sectionChiffragePiscine(c: ContexteChamps): Section {
   const calc = calculerPiscine(c.obj, c.objets);
   const champs: Champ[] = [];
   if (calc) {
-    const ch = chiffrerPiscine(calc);
+    const ch = chiffrerPiscine(calc, c.obj);
     ch.lignes.forEach(l => champs.push({
       type: 'lecture', cle: 'chiffrage-' + l.poste, libelle: l.label,
       valeur: () => quantite(l.qte, l.unite) + ' · ' + (l.prixReel !== null && l.prixReel !== undefined ? euros(l.prixReel) + ' (prix saisi)' : euros(l.prixBas * l.qte) + ' – ' + euros(l.prixHaut * l.qte))
@@ -273,7 +287,7 @@ export function sectionPrixPiscine(c: ContexteChamps): Section {
   const calc = calculerPiscine(c.obj, c.objets);
   const champs: Champ[] = [];
   if (calc) {
-    chiffrerPiscine(calc).lignes.forEach(l => champs.push({
+    chiffrerPiscine(calc, c.obj).lignes.forEach(l => champs.push({
       type: 'nombre', cle: 'prix-' + l.poste, libelle: l.label, unite: '€/' + l.unite, pas: 1, min: 0, decimales: 0, effets: ['inspecteur'],
       note: (cx) => prixSaisi(reglages(cx), l.poste) !== undefined ? 'saisi' : 'indicatif ' + euros(l.prixBas) + ' – ' + euros(l.prixHaut),
       lire: (cx) => prixSaisi(reglages(cx), l.poste) ?? Math.round((l.prixBas + l.prixHaut) / 2),
