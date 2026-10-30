@@ -226,6 +226,11 @@ export const EXPOSITION: Record<string, Ligne> = {
   'admin.sauvegarde': menu('menuAdmin'),
   'admin.faitsLocaux': menu('menuAdmin'),
 
+  // ---- Assistant (lot L6) : le menu Aide (feuille du projet au doigt) ouvre son dialogue, qui porte l'envoi et « Appliquer » ---
+  'assistant.demander': menu('menuAide'),
+  'assistant.envoyer': partout('parcours'),
+  'assistant.appliquer': partout('parcours'),
+
   // ---- Visionneuse ----------------------------------------------------------------------------
   'visionneuse.generer': partout('visionneuse'),
   'visionneuse.regenerer': partout('visionneuse'),

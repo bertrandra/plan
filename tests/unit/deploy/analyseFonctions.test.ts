@@ -184,6 +184,12 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       // Le toit lu sur une facade (lot L2) : ses fichiers, et ses comptes (les elements du pan, les mots du toit determines).
       expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade-toit').map((x) => x.version)).toEqual([1, 1]);
       expect(php('comptesSortie', JSON.parse(texte('schema-facade-toit.json')).exemple, 'facade-toit')).toMatchObject({ elements: 1, determines: 5 });
+      // L'assistant (lot L6) : ses fichiers, son exemple a la forme du schema, et ses comptes (les etapes, les questions).
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'assistant').map((x) => x.version)).toEqual([1, 1]);
+      const fa = JSON.parse(texte('schema-assistant.json')) as { schema: object; exemple: object };
+      expect(phpObjets('sortieConforme', JSON.stringify(fa.exemple), fa.schema)).toEqual(fa.exemple);
+      expect(php('comptesSortie', fa.exemple, 'assistant')).toMatchObject({ elements: 2, determines: 0 });
+      expect(php('comptesSortie', { etapes: [], questions: ['Sélectionnez « Spa » puis redemandez.'] }, 'assistant')).toMatchObject({ elements: 0, determines: 1, vide: false });
     });
 
     it('versionne le prompt et le schema de la lecture du jardin (lot L3), generes, et definit chaque terme', () => {
@@ -228,6 +234,17 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(php<Demande>('verifierDemande', sans, P).requetes[0]?.facades).toBe(0);
       const premiere = (demande(['p1']) as { requetes: object[] }).requetes[0];
       expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...premiere, facades: 201 }] }, P)).toThrow(/façades/);
+    });
+
+    it('met en cache le catalogue de l assistant (son premier bloc), et aucun bloc d un autre usage', () => {
+      const blocs = [{ type: 'text', text: 'CATALOGUE' }, { type: 'text', text: 'Demande : la grille.' }];
+      const assistant = php<Demande & { requetes: { contenu: unknown[] }[] }>('verifierDemande', { ...demande(['p1']), usage: 'assistant', requetes: [{ id: 'a1', passe: 1, contenu: blocs }] }, P);
+      expect(assistant.requetes[0]?.contenu).toEqual([{ type: 'text', text: 'CATALOGUE', cache_control: { type: 'ephemeral' } }, { type: 'text', text: 'Demande : la grille.' }]);
+      // Les autres usages gardent leurs blocs tels quels : leurs corps ne changent pas d'un octet.
+      for (const usage of ['analyse', 'facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin']) {
+        const d = php<Demande & { requetes: { contenu: unknown[] }[] }>('verifierDemande', { ...demande(['p1']), usage, requetes: [{ id: 'a1', passe: 1, contenu: blocs }] }, P);
+        expect(d.requetes[0]?.contenu, usage).toEqual(blocs);
+      }
     });
 
     it('fixe le modele, le prompt en cache, l effort et la sortie, sans temperature', () => {
@@ -293,7 +310,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
   describe('le modele de chaque usage', () => {
     // Le modele rapide partout (15 octobre 2026), sauf l'escalade (29 octobre 2026) : elle ne part qu'a la demande, apres trois
     // lectures votees du modele rapide, qu'une quatrieme du meme modele ne departagerait pas.
-    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE, 'facade-enrichie': RAPIDE, 'facade-toit': RAPIDE, plu: RAPIDE, jardin: RAPIDE, texte: RAPIDE };
+    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE, 'facade-enrichie': RAPIDE, 'facade-toit': RAPIDE, plu: RAPIDE, jardin: RAPIDE, texte: RAPIDE, assistant: RAPIDE };
 
     it('prend le modele rapide par defaut pour tous les usages sauf l escalade, au modele fin, parmi deux admis', () => {
       expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
@@ -376,7 +393,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('demande la sortie structuree quand on la veut, et reconnait son refus par l API', () => {
       const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
-      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte']);
+      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte', 'assistant']);
       const p = phpObjets<{ output_config: unknown; system: { text: string }[] }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }], true);
       expect(p.output_config).toEqual({ effort: 'low', format: { type: 'json_schema', schema: SCHEMA_FACADE.schema } });
       // Avec la sortie structuree, le schema ne part plus dans le prompt ; sans elle, l'exemple s'il y en a un, sinon le schema.
@@ -469,7 +486,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       ]);
       expect(php('choixConsommation', lignes, p)).toEqual({
         organisations: ['admin', 'org-1', 'org-2'], modeles: [RAPIDE, FIN],
-        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte', 'assistant'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
       });
     });
   });

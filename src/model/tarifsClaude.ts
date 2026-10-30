@@ -139,7 +139,8 @@ export const USAGES_REGLABLES: { id: string; libelle: string }[] = [
   { id: 'facade-enrichie', libelle: 'Façade enrichie (menuiseries, garde-corps, modénature, saillies)' },
   { id: 'facade-toit', libelle: 'Toit d’une façade (couverture, pose, faîtage, gouttière, fenêtres de toit)' },
   { id: 'plu', libelle: 'Lecture du règlement du PLU' },
-  { id: 'texte', libelle: 'Textes du dossier de déclaration (description, notice, insertion)' }
+  { id: 'texte', libelle: 'Textes du dossier de déclaration (description, notice, insertion)' },
+  { id: 'assistant', libelle: 'Assistant (une demande traduite en étapes)' }
 ];
 
 /** Ce que rend `GET admin/claude/modeles` : le modele de chaque usage, les defauts, les modeles admis. */

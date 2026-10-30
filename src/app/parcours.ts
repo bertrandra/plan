@@ -18,6 +18,8 @@ import type { CatalogueAudits } from './audit/parcelle/catalogue.js';
 import type { Champ, ContexteChamps } from '../ui/champs/types.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { ServiceDossier } from './declaration/serviceDossier.js';
+import type { ServiceAssistant } from './assistant/service.js';
+import type { RegistreCommandes } from './commandes.js';
 
 export type Parcours =
   | { type: 'cadastre'; importe: ImportCadastre }
@@ -43,7 +45,9 @@ export type Parcours =
    * ceux de ui/champs/declaration.ts, ecrits sur la parcelle du projet par le service de l'inspecteur ; `dossier`, ses textes, ses
    * photographies et sa relecture (lot L5, app/declaration/serviceDossier.ts).
    */
-  | { type: 'declaration'; service: ServiceChampsParcours; dossier?: ServiceDossier };
+  | { type: 'declaration'; service: ServiceChampsParcours; dossier?: ServiceDossier }
+  /** L'assistant en langue naturelle (menu Aide, lot L6) : la demande, la liste d'etapes, « Appliquer » (app/assistant/). */
+  | { type: 'assistant'; service: ServiceAssistant; commandes: RegistreCommandes };
 
 /**
  * Ce qu'un parcours qui rend des champs demande au service de l'inspecteur (app/inspecteur.ts) : la

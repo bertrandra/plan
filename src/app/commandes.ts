@@ -15,7 +15,7 @@ import { DESCRIPTIONS } from './descriptions.js';
 
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
-  | '3d' | 'visionneuse' | 'plu' | 'facade' | 'toit' | 'relief' | 'audit' | 'admin';
+  | '3d' | 'visionneuse' | 'plu' | 'facade' | 'toit' | 'relief' | 'audit' | 'admin' | 'assistant';
 
 /**
  * Ce que la plateforme accorde, vu du registre.
@@ -108,6 +108,13 @@ export interface Commande {
    * porte la permission d'ecriture n'a pas besoin de le dire.
    */
   ecrit?: 'projet' | 'affichage';
+  /**
+   * L'assistant en langue naturelle (lot L6, app/assistant/) peut la proposer : un geste synchrone, sans dialogue, sans fichier ni
+   * reseau, que « Appliquer » execute dans une transaction de l'historique. Absente : l'assistant ne la connait pas (son catalogue
+   * se genere de ce drapeau, jamais d'une liste ecrite a part). `bascule` : l'etat actuel d'une bascule d'affichage, que le catalogue
+   * dit ; sans lui, « affichez la grille » la masquerait quand elle l'est deja.
+   */
+  assistant?: { bascule?: () => boolean };
   /**
    * `source` est l'element qui a declenche la commande, pour celles qui changent son etat ; `cible`,
    * ce sur quoi porte une commande parametree.

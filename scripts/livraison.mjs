@@ -28,6 +28,8 @@
 //   schema-facade-toit.json    son schema de sortie versionne
 //   prompt-texte.md            le prompt versionne de la redaction d'un texte du dossier (lot L5, genere par npm run regles:generer)
 //   schema-texte.json          son schema de sortie versionne, son exemple et sa consigne de repli
+//   prompt-assistant.md        le prompt versionne de l'assistant en langue naturelle (lot L6, genere par npm run regles:generer)
+//   schema-assistant.json      son schema de sortie versionne
 //   claude-tarifs.json         la premiere table des tarifs, posee dans data/claude/ au premier usage
 //   data/demo/1.json           la demonstration integree, premiere demo de l'admin (data/ se pose hors racine)
 //   data/demo/2.json…          les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
@@ -59,7 +61,7 @@ cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/donnees.php'), resolve(sortie, 'donnees.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
 // L'analyse par Claude (MD/spec-audit.md 13.2) : le proxy, son prompt, son schema et ses tarifs.
-for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'prompt-plu.md', 'schema-plu.json', 'prompt-jardin.md', 'schema-jardin.json', 'prompt-facade-enrichie.md', 'schema-facade-enrichie.json', 'prompt-facade-toit.md', 'schema-facade-toit.json', 'prompt-texte.md', 'schema-texte.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
+for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'prompt-plu.md', 'schema-plu.json', 'prompt-jardin.md', 'schema-jardin.json', 'prompt-facade-enrichie.md', 'schema-facade-enrichie.json', 'prompt-facade-toit.md', 'schema-facade-toit.json', 'prompt-texte.md', 'schema-texte.json', 'prompt-assistant.md', 'schema-assistant.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 

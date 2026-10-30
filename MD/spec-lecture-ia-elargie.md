@@ -681,6 +681,23 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 23. **Les faits envoyés et l'accord de l'analyse.** (L5) La rédaction envoie l'adresse et les références cadastrales du terrain (rien
     du déclarant, aucune photo) sans l'accord demandé pour les photos d'un audit (`io/accordAnalyse.ts`), comme la lecture du PLU envoie
     un document public. *À confirmer, avec la question 11 (durée de garde des traces).*
+24. **Qui peut demander à l'assistant ?** (L6) Aucune capacité nouvelle (`plan.assistant`, question 10) : une capacité s'inscrit d'abord
+    dans la liste des fonctionnalités de la plateforme (ADR-052), hors de ce dépôt. Le serveur refuse tout appel à Claude sans
+    `projects.write` : un compte en lecture seule n'obtient donc pas de liste, et la règle « en lecture seule, seules les préférences
+    d'affichage s'appliquent » ne joue que si la lecture seule vient d'ailleurs (elle est tenue à l'application, et testée). *Choix
+    prudent retenu : rien de neuf côté droits ; à trancher : ouvrir l'assistant aux lecteurs pour les seules préférences d'affichage ?*
+25. **Quelles commandes l'assistant propose-t-il ?** (L6) Celles dont la déclaration porte le drapeau `assistant` : les ouvrages posés à
+    leur taille par défaut, dupliquer, le trou d'une terrasse, la plage d'une piscine, le recentrage, et trois bascules d'affichage
+    (nord, grille, voisinage). Pas « Supprimer » ni « Réinitialiser » (ils posent une question, qu'une transaction n'attend pas), ni les
+    outils qui attendent un clic sur le plan, ni ce qui part sur le réseau (orthophoto, rues, relief), ni les vues. *Choix prudent
+    retenu ; à élargir commande par commande, chacune avec sa raison.*
+26. **Un objet ajouté puis réglé dans la même liste** (« ajoutez une pergola de 3 m de haut ») : l'objet neuf n'a pas encore de clé
+    quand Claude écrit la liste, et les champs ne s'écrivent que sur l'objet sélectionné. La liste pose l'objet, puis Claude pose la
+    question de le régler une fois sélectionné. *Proposition : une étape « champ » sur `nouveau` (l'objet que l'étape d'avant a créé),
+    si le besoin se confirme.*
+27. **La demande au serveur** (L6, §6 : « journal seulement : ni projet ni photo »). Le journal ne garde que les comptes (étapes,
+    questions) ; mais la trace de L0 (toute requête en a une) garde le texte envoyé : la demande et le catalogue, donc les noms des
+    objets du projet. *Choix retenu : la règle de L0 (24 mois sans dépôt) ; à confirmer pour l'assistant.*
 
 ---
 
@@ -939,13 +956,40 @@ coupé par l'attente du téléchargement).
   DP7 et DP8 (`export.choisirPhoto`, `export.retirerPhoto`) ; la relecture. Chaque écriture est un pas d'annulation sur la parcelle ;
   la frappe ne touche pas au projet. Le service : `app/declaration/serviceDossier.ts`.
 
+
+### 12.5 L6 — Assistant (30 octobre 2026)
+
+**Ce qui est livré.**
+
+- **Le dialogue** (Z8, `zones/parcours/Assistant.tsx`) : menu Aide › « Demander à l'assistant… » (`assistant.demander` ; feuille du
+  projet au doigt), un champ « Demander », « Envoyer la demande » (`assistant.envoyer`), la liste d'étapes et ses questions,
+  « Appliquer » (`assistant.appliquer`). Les trois commandes sont exposées dans les trois classes (`app/exposition.ts`).
+- **Le catalogue généré** (`app/assistant/catalogue.ts`), envoyé en premier bloc de la requête et mis en cache par le serveur : les
+  commandes que leur déclaration ouvre à l'assistant (`Commande.assistant`, un drapeau sur la déclaration ; une bascule y dit son état
+  actuel) et que la classe d'écran expose, avec leur état (`commandes.etat` ; une commande effacée par l'abonnement n'y est pas) ; les
+  objets du projet (le voisinage importé n'en est pas) ; les champs de l'objet sélectionné tels que l'inspecteur les montre
+  (`ui/champs/`), avec leur valeur, leurs bornes, leur unité, leurs options, et s'ils sont grisés ou d'affichage. Aucune liste
+  d'identifiants n'est écrite à la main (`catalogue.test.ts` le vérifie).
+- **La liste** (`app/assistant/etapes.ts`) : la sortie (plate, en sortie structurée) ramenée au contrat du §4.7, puis chaque étape
+  relue contre le catalogue **à chaque affichage** : une étape que le registre refuse, hors catalogue, sur un autre objet que la
+  sélection, hors des bornes ou des options, ou qui écrit le projet en lecture seule est **grisée avec sa raison**, écrite sous elle.
+- **« Appliquer »** (`app/assistant/appliquer.ts`) : les étapes utilisables, les préférences d'affichage d'abord (hors historique,
+  comme à la main), puis celles qui écrivent le projet dans **une transaction de l'historique** (`core/historique.ts`, `transaction`) :
+  une étape d'annulation, et Ctrl+Z rend le projet d'avant la liste. Chaque étape relit son état juste avant ; une étape refusée en
+  route défait tout, préférences comprises. Une commande passe par `commandes.executer`, un champ par `inspecteur.appliquer` :
+  l'assistant n'écrit jamais l'état du projet lui-même.
+- **Le serveur** : l'usage `assistant` (prompt et schéma générés, v1 ; sortie structurée ; le premier bloc mis en cache, pour cet usage
+  seulement) ; le modèle rapide par défaut, réglable ; ses comptes au journal (étapes, questions) ; la ligne « Assistant » du tableau
+  de la consommation. La vérification de l'API joue l'usage (la première demande de référence, `requete-verification.json`, générée) et,
+  case « assistant » du workflow, les dix demandes, chaque liste jugée.
+
 **Critères d'acceptation.**
 
 | Critère | Preuve |
 |---|---|
 | `dossier.pdf` de la démonstration identique | Empreintes golden inchangées (aucun fichier de `tests/fixtures/golden/` touché ; `npm test` vert). Le dossier de déclaration sans texte validé a le même nombre de pages et la même description qu'avant (`dossierTextes.test.ts`) |
 | Un texte validé s'imprime à l'identique à chaque export | `dossierTextes.test.ts` : deux exports, la même page de notice (flux décodé), le texte dedans ; la case C2ZD1 porte le texte validé tel quel |
-| Un brouillon périmé est dit | `relecture.ts` (alerte « périmé ») et l'écran ; `serviceDossier.test.ts`, `dossierTextes.test.ts` ; point de fumée 121 |
+| Un brouillon périmé est dit | `relecture.ts` (alerte « périmé ») et l'écran ; `serviceDossier.test.ts`, `dossierTextes.test.ts` ; point de fumée 122 |
 | La relecture d'un même projet est la même à chaque fois | `dossierTextes.test.ts` (deux relectures égales) ; aucune date, aucun appel |
 | La page de notice n'existe qu'avec un texte validé | `dossierTextes.test.ts` (sans texte, avec un brouillon seul : pas de page ; avec un texte validé : une de plus) |
 | `manques` de `cerfa13703.ts` passe dans la relecture | `RemplissageCerfa.manques` supprimé ; `dossierMairie.test.ts` lit les mêmes phrases dans la relecture ; le message de l'export les cite |
@@ -968,6 +1012,52 @@ acceptées, dont `texte` en sortie structurée (697 caractères, 5 réserves sur
 **Coût mesuré** (même run) : une rédaction, **0,00047 $** (Haiku ; 473 tokens d'entrée, 1 639 écrits au cache, 441 en sortie), sous
 l'estimation du §6 (≈ 0,002 $). La relecture ne coûte rien. Le run complet (vérification et mesure du banc) : 0,264 $.
 
-**Fumée.** Point **121** nouveau (rédiger, corriger, valider, exporter ; la relecture, un brouillon périmé) ; 25 et 37 rejoués : 7 sur 7
+**Fumée.** Point **122** nouveau (rédiger, corriger, valider, exporter ; la relecture, un brouillon périmé) ; 25 et 37 rejoués : 7 sur 7
 (compact, moyen, large ; clair ; réseau témoin).
 
+| Dix demandes de référence traduites en listes justes sur la démonstration | `tests/fixtures/assistant/` (demandes, listes admises) ; la vraie API, run 41050741385 : **10 sur 10** ; rejouées hors ligne par `reference.test.ts` sur ces réponses enregistrées |
+| Une étape refusée par `commandes.etat` est grisée avec sa raison | `etapes.test.ts` (contexte, permission, hors catalogue, bornes, autre objet) ; `assistant.test.ts` (jsdom) ; fumée 122 |
+| « Appliquer » puis Ctrl+Z rend le projet à l'identique | `reference.test.ts` pour chacune des dix ; `etapes.test.ts` (refus en route : rien n'est appliqué) ; `historique.test.ts` (transaction) ; fumée 122 (le projet exporté, avant et après) — hors les préférences d'affichage que la parcelle range (interprétation 3) |
+| En lecture seule, seules les préférences d'affichage s'appliquent | `reference.test.ts` (demande 10 : la grille, pas les lames ; projet et pile intacts) ; `catalogue.test.ts` |
+| Catalogue généré, pas écrit à la main | `catalogue.test.ts` ; `requete-verification.json` comparée à ce que Plan génère |
+| Claude propose, le registre exécute | les étapes ne s'exécutent que par `commandes.executer` et `inspecteur.appliquer` ; rien du projet n'est écrit ailleurs |
+
+**Interprétations.**
+
+1. **Les champs sont ceux de l'objet sélectionné** (§4.7). Une étape sur un autre objet est grisée : « sélectionnez « … », puis
+   redemandez » ; Claude pose la même question (demande 08).
+2. **Un ajout pose l'objet à sa taille par défaut** et le sélectionne ; ses réglages se font ensuite (question 26).
+3. **Les préférences d'affichage d'une liste ne reviennent pas avec Ctrl+Z**, comme à la main (« Filaire », les bascules du menu
+   Affichage) ; elles se posent avant l'instantané. Une liste qui n'en a que ne fait aucune étape d'historique. La grille et le
+   voisinage se rangent sur la parcelle (`affichage`) : après Ctrl+Z, le projet est identique **hors** ce rangement, comme après les
+   mêmes bascules à la main. « À l'identique » se mesure sur le projet tel qu'il s'enregistre : l'état en mémoire porte des champs de
+   travail (`bdtopo.constructionLegere`…) que toute annulation recalcule et que le fichier ne garde pas.
+4. **Les sections des côtés et des coins** (le côté ou le coin que le pointeur désigne) n'entrent pas dans le catalogue : l'étape
+   écrirait celui que la souris montre à l'instant d'« Appliquer ».
+5. **Une bascule déjà dans l'état voulu** quand la personne applique (elle l'a basculée entre-temps) est grisée « Déjà fait » : la
+   refaire la défairait.
+6. **Rien de neuf côté droits** (question 24) ; **commandes ouvertes une à une** (question 25) ; **la trace serveur** garde la demande
+   et le catalogue, comme toute requête depuis L0 (question 27).
+
+**Rien de perdu.** Les corps envoyés à l'API (serveur PHP du dépôt, faux Anthropic local, sortie structurée acceptée puis refusée) :
+l'analyse d'une maison, le run, l'escalade, la lecture enrichie, le toit lu, le PLU, le jardin et le texte du dossier identiques à ceux
+de `main` (300b6ead, après L5) par `cmp`, et ceux qui existaient en 5.1.0 (1ea13701) identiques aux siens ; l'assistant est la seule
+requête en plus (neuf à la vérification de l'API). Aucun champ du fichier, aucun schéma, aucune empreinte golden ne bouge ; aucun test
+retiré (trois tests étendus d'une requête de plus) : 4 668 tests sur la branche.
+
+**Coût mesuré** (run 41050741385) : 0,00027 $ la demande en moyenne (0,00009 à 0,00087 $ selon la longueur de la réponse et l'écriture
+du cache), sous l'estimation de 0,001 $ ; la demande de la vérification, 0,0009 $ (le catalogue et le prompt écrits en cache).
+
+**Garde-fou de la lecture** (workflow « Vérifier l'API Claude », cases façades et assistant, plafond 0,50 $, sur la branche fusionnée
+avec L5, run 41069292979) : **vert du premier coup** (« Aucune ligne jugée sous le plancher ») ; ×3 rappel 99,2 %, précision 100 % ;
+les **neuf** requêtes du serveur acceptées (dont `texte` et `assistant`) ; les dix demandes de référence, **10 listes justes sur 10**,
+0,00035 $ la demande. Avant la fusion, quatre essais du même garde-fou (run 41052579887) avaient chacun une ligne différente sous le
+plancher aux deux mesures (x3 rappel 97,6 %, puis x1 porte-fenêtre 6 → 5, puis x1 parements 21 → 20) alors que les corps du run sont
+ceux de `main` à l'octet : du bruit de l'API, que la mesure témoin de `main` le même jour (run 41059280294) montre aussi (x3 rappel
+97,6 % à sa relance).
+
+**Fumée.** Point **122** nouveau (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z) et point 9 (les
+annulations) rejoués : 6 sur 6 (compact, moyen, large ; clair ; réseau témoin), avant et après la fusion de L5. Le lot `ci` de la CI,
+vert.
+
+**Supprimé.** Rien : le lot ajoute.

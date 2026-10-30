@@ -139,7 +139,9 @@ export const NOMS_USAGES: Record<string, string> = {
   // La troisieme lecture d'une facade : son toit, sa couverture, ses fenetres de toit (lot L2).
   'facade-toit': 'Toit d’une façade',
   // La redaction d'un texte du dossier de declaration prealable (lot L5).
-  texte: 'Textes du dossier'
+  texte: 'Textes du dossier',
+  // Une demande a l'assistant en langue naturelle, traduite en etapes du registre (lot L6).
+  assistant: 'Assistant'
 };
 
 /** Le nom d'un modele, ou d'une serie (`autres`), pour l'ecran et le CSV. */

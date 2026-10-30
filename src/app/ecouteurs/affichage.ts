@@ -32,12 +32,13 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
   // Chaque bascule est une commande qui inverse l'etat ; le menu Affichage de la barre
   // d'application (zones/) l'execute et se coche d'apres l'etat. Les curseurs du fond orthophoto
   // sont des commandes qui lisent leur curseur (`source`).
-  cmd.declarer({ id: 'affichage.nord', libelle: 'Flèche Nord', groupe: 'affichage', executer: () => {
+  // Les trois bascules synchrones sont proposables par l'assistant (lot L6), avec leur etat : le catalogue dit si elles sont affichees.
+  cmd.declarer({ id: 'affichage.nord', libelle: 'Flèche Nord', groupe: 'affichage', assistant: { bascule: () => !!a.etat.showNorth }, executer: () => {
     a.etat.showNorth = !a.etat.showNorth;
     a.render();
   } });
 
-  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', ecrit: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', ecrit: 'affichage', assistant: { bascule: () => !!a.etat.voisinageVisible }, executer: () => {
     a.etat.voisinageVisible = !a.etat.voisinageVisible;
     // Editer un objet qu'on vient de masquer n'aurait pas de sens : la selection revient sur la
     // parcelle, ou a defaut sur le premier objet reste visible.
@@ -71,7 +72,7 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
       if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
     } });
 
-  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', assistant: { bascule: () => !!a.etat.grilleVisible }, executer: () => {
     a.etat.grilleVisible = !a.etat.grilleVisible;
     ctx.enregistrerAffichage();
     a.render();

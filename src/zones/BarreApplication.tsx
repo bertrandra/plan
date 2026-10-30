@@ -256,7 +256,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
   );
 }
 
-function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
+function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes: RegistreCommandes; tiroir: Tiroir }) {
   useCle(magasin, 'menu Aide', () => String(tiroir.onglets().some(o => o.id === 'methode')));
   const methode = tiroir.onglets().some(o => o.id === 'methode');
   return (
@@ -270,6 +270,8 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
         <li role="menuitem">
           <button type="button" data-controle="aide.version" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
         </li>
+        {/* L'assistant en langue naturelle (lot L6) : il ouvre son dialogue (Z8). */}
+        <Entree commandes={commandes} id="assistant.demander" libelle="Demander à l’assistant…" />
       </ul>
     </Deroulant>
   );
@@ -544,7 +546,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <MenuFichier magasin={magasin} commandes={commandes} />
       <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAffichage magasin={magasin} commandes={commandes} />
-      <MenuAide magasin={magasin} tiroir={tiroir} />
+      <MenuAide magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAdmin commandes={commandes} />
     </>
   );

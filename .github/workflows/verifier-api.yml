@@ -22,6 +22,11 @@ on:
         type: boolean
         required: false
         default: false
+      mesure_assistant:
+        description: "Jouer aussi les dix demandes de référence de l'assistant (lot L6) et juger chaque liste (10 requêtes, environ un centime)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -48,17 +53,25 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer mesure-facades
+      # Les dix demandes de reference de l'assistant (lot L6) : chaque requete, catalogue genere sur la demonstration, AVANT la cle.
+      - name: Preparer les demandes de reference de l'assistant (sans la cle)
+        if: ${{ inputs.mesure_assistant }}
+        run: |
+          [ -d node_modules ] || npm ci --no-audit --no-fund
+          npx tsx scripts/assistant-reference.ts --preparer mesure-assistant
       - name: Requetes du serveur contre l'API Claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
           MODELE: ${{ inputs.modele }}
           PLAFOND: ${{ inputs.plafond }}
           MESURE: ${{ inputs.mesure_facades }}
+          ASSISTANT: ${{ inputs.mesure_assistant }}
         run: |
           set -euo pipefail
           args=(--plafond "$PLAFOND")
           if [ -n "$MODELE" ]; then args+=(--modele "$MODELE"); fi
           if [ "$MESURE" = "true" ]; then args+=(--facades mesure-facades); fi
+          if [ "$ASSISTANT" = "true" ]; then args+=(--assistant mesure-assistant); fi
           # Le journal (ni cle ni en-tete) garde la ligne de l'escalade pour le garde-fou de la lecture.
           node scripts/verifier-api-claude.mjs "${args[@]}" | tee journal-api.txt
       - name: Le tableau x1 contre x3 (sans la cle)
@@ -92,6 +105,19 @@ jobs:
         run: |
           set -o pipefail
           npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer mesure-facades --journal journal-api.txt --relance mesure-relance --journal-relance journal-relance.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      # Chaque liste de l'assistant jugee contre les listes admises (tests/fixtures/assistant/demandes.json) : rouge si une est fausse.
+      # Toujours, apres le garde-fou des facades : l'un rouge ne saute pas l'autre.
+      - name: Les demandes de reference de l'assistant, jugees (sans la cle)
+        if: ${{ always() && inputs.mesure_assistant }}
+        run: |
+          set -o pipefail
+          npx tsx scripts/assistant-reference.ts --evaluer mesure-assistant | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Reponses de l'assistant
+        if: ${{ always() && inputs.mesure_assistant }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesure-assistant
+          path: mesure-assistant/*.json
       - name: Reponses de la mesure des facades
         if: ${{ always() && inputs.mesure_facades }}
         uses: actions/upload-artifact@v4

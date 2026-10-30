@@ -2,7 +2,7 @@
 // deploy/prompt-facade.md et deploy/schema-facade.json ; ceux de la lecture du PLU, deploy/prompt-plu.md et deploy/schema-plu.json ;
 // ceux de la lecture enrichie d'une facade, deploy/prompt-facade-enrichie.md et deploy/schema-facade-enrichie.json ; ceux du toit lu
 // sur une facade, deploy/prompt-facade-toit.md et deploy/schema-facade-toit.json ; ceux de la lecture du jardin, deploy/prompt-jardin.md et deploy/schema-jardin.json ; ceux de la redaction d'un texte du dossier,
-// deploy/prompt-texte.md et deploy/schema-texte.json), tels que
+// deploy/prompt-texte.md et deploy/schema-texte.json ; ceux de l'assistant, deploy/prompt-assistant.md et deploy/schema-assistant.json), tels que
 // les descriptions de sujets les donnent : un seul endroit, appele par le script de generation, par les
 // tests et par l'ecran Admin › Regles.
 
@@ -14,6 +14,8 @@ import { RUN_FACADE } from './descriptions/facadesRun.js';
 import { LECTURE_FACADE_ENRICHIE } from './descriptions/facadesEnrichie.js';
 import { LECTURE_FACADE_TOIT } from './descriptions/facadesToit.js';
 import { RUN_JARDIN } from './descriptions/jardinRun.js';
+import { ASSISTANT } from './descriptions/assistant.js';
+import { NOTE_PROMPT_ASSISTANT, NOTE_SCHEMA_ASSISTANT, VERSIONS_PROMPT_ASSISTANT, VERSIONS_SCHEMA_ASSISTANT } from './versions.js';
 import { CONSIGNE_EXEMPLE_PLU, LECTURE_PLU } from '../plu/lecture.js';
 import { NOTE_PROMPT_PLU, NOTE_SCHEMA_PLU, VERSIONS_PROMPT_PLU, VERSIONS_SCHEMA_PLU } from '../plu/versions.js';
 import { CONSIGNE_EXEMPLE_TEXTE, REDACTION_TEXTE } from '../textes/redaction.js';
@@ -83,6 +85,19 @@ export function genererLecturePlu(): FichiersGeneres {
     corpsPrompt: LECTURE_PLU.prompt, versionPrompt, versionSchema,
     prompt: avecEntete(LECTURE_PLU.prompt, { version: versionPrompt, note: NOTE_PROMPT_PLU }),
     schema: textuel({ format: 'plan-schema-plu', version: versionSchema, note: NOTE_SCHEMA_PLU, schema: LECTURE_PLU.schema, exemple: LECTURE_PLU.exemple, consigne: CONSIGNE_EXEMPLE_PLU }),
+  };
+}
+
+/**
+ * Les deux fichiers de l'assistant en langue naturelle (usage `assistant` du serveur, lot L6), sous les versions en vigueur. Le schema
+ * porte aussi l'exemple et la consigne du repli sans sortie structuree.
+ */
+export function genererAssistant(): FichiersGeneres {
+  const versionPrompt = versionCourante(VERSIONS_PROMPT_ASSISTANT).version, versionSchema = versionCourante(VERSIONS_SCHEMA_ASSISTANT).version;
+  return {
+    corpsPrompt: ASSISTANT.prompt, versionPrompt, versionSchema,
+    prompt: avecEntete(ASSISTANT.prompt, { version: versionPrompt, note: NOTE_PROMPT_ASSISTANT }),
+    schema: textuel({ format: 'plan-schema-assistant', version: versionSchema, note: NOTE_SCHEMA_ASSISTANT, schema: ASSISTANT.schema, exemple: ASSISTANT.exemple, consigne: ASSISTANT.consigne }),
   };
 }
 

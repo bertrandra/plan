@@ -7,6 +7,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Assistant en langue naturelle, lot L6** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.7, §5.5, §12.5). Menu Aide › « Demander à
+  l'assistant… » (feuille du projet au téléphone) ouvre un dialogue (Z8) : la personne écrit une demande, Claude la traduit en une
+  **liste d'étapes** prises dans un **catalogue généré** à l'instant par Plan (les commandes que leur déclaration ouvre à
+  l'assistant et que la classe d'écran expose, avec leur état ; les objets du projet ; les champs de l'objet sélectionné, leur valeur,
+  leurs bornes et leurs options). Claude propose, le registre exécute : chaque étape est relue contre `commandes.etat` et grisée avec
+  sa raison (droits, état du plan, valeur hors bornes, autre objet, lecture seule) ; « Appliquer » exécute les étapes utilisables en
+  **une** transaction de l'historique, et un Ctrl+Z rend le projet à l'identique. En lecture seule, seules les préférences
+  d'affichage s'appliquent. Rien ne s'enregistre dans le projet ; le schéma ne change pas.
+- Usage `assistant` du serveur : ses prompt et schéma générés (`npm run regles:generer`), en sortie structurée, le catalogue mis en
+  cache ; au modèle rapide par défaut, réglable dans Réglages › Modèles, compté à part au tableau de la consommation (« Assistant »).
+  Les corps des autres requêtes ne changent pas d'un octet.
+- Les dix demandes de référence (`tests/fixtures/assistant/`), rejouées hors ligne sur les réponses enregistrées de l'API : dix listes
+  justes sur dix (environ 0,0003 $ la demande). Le workflow « Vérifier l'API Claude » sait jouer l'usage `assistant` (neuf requêtes avec le texte du dossier) et,
+  case « assistant », les dix demandes, chaque liste jugée.
+- `historique.transaction` : plusieurs gestes, une seule étape d'annulation, tout défait si un geste est refusé en route.
+- Point de fumée **122** (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z).
 - **Textes et relecture, lot L5** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.6, §5.4, §12.4). La déclaration préalable (Exporter ›
   « Déclaration préalable… ») gagne ses pièces écrites : la description du cerfa, la notice descriptive et le texte d'insertion
   paysagère. « Rédiger avec Claude » envoie les faits du projet (le terrain, les ouvrages déclarés, l'existant, la clôture, la zone du

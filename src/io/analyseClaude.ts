@@ -62,7 +62,8 @@ export interface DemandeAnalyse {
  */
 /** `jardin` : la lecture du jardin d'une parcelle sur son orthophoto (lot L3), une requete dans le batch de l'audit. */
 /** `texte` : la redaction d'une piece ecrite du dossier de declaration (lot L5), un appel immediat sur les faits du projet. */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'facade-enrichie' | 'facade-toit' | 'plu' | 'jardin' | 'texte';
+/** `assistant` : une demande en langue naturelle et le catalogue de la page, traduits en etapes du registre (lot L6), appel immediat. */
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'facade-enrichie' | 'facade-toit' | 'plu' | 'jardin' | 'texte' | 'assistant';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
