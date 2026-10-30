@@ -4249,6 +4249,57 @@ const POINTS = {
     return { ok, mesure: `${recues.length} demande(s) usage ${demande?.usage}, PDF ${document ? Math.round(document.source.data.length * 3 / 4 / 1024) + ' Ko' : 'ABSENT'} ; `
       + `${lu.faits.length} règle(s), ${proposes} proposée(s) décochée(s) ; cochées : « ${bilan} » ; ${verdicts.join(' | ')} ; article « ${article} » ; source « ${source.replace(/\s+/g, ' ').slice(0, 120)} » ; `
       + `Ctrl+Z ×${annulations} → ${apresAnnuler} ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, reglementPlu ${porteur ? 'présent' : 'ABSENT'}` };
+  },
+  121: async (page) => {
+    // L'assistant en langue naturelle (lot L6) : la terrasse selectionnee, le menu Aide › « Demander a l'assistant… », une demande ;
+    // `admin/claude/messages` rend une liste SYNTHETIQUE (pas Claude) de trois etapes : le bois des lames (un champ), la grille (une
+    // bascule d'affichage), et la plage d'une piscine (une commande que le registre refuse : aucune piscine n'est selectionnee).
+    // La liste se montre, l'etape refusee grisee avec sa raison ; « Appliquer » ; un Ctrl+Z rend le projet a l'identique.
+    await selectionner(page, TERRASSE);
+    const recues = [];
+    const SORTIE = { etapes: [
+      { genre: 'champ', commande: '', objet: 'terrasse', champ: 'lames.essenceBois', valeur: 'douglas', pourquoi: 'Les lames passent en douglas.' },
+      { genre: 'commande', commande: 'affichage.grille', objet: '', champ: '', valeur: '', pourquoi: 'La grille est masquée : elle s’affiche.' },
+      { genre: 'commande', commande: 'objet.terrassePiscine', objet: '', champ: '', valeur: '', pourquoi: 'Une plage autour de la piscine.' },
+    ], questions: [] };
+    await page.route(/\/admin\/claude\/messages$/, async (route) => {
+      recues.push(JSON.parse(route.request().postData() || 'null'));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1,
+        resultats: [{ id: 'assistant', statut: 'reussi', passe: 1, usage: 'assistant', sortie: SORTIE, erreur: null, cout: 0.0011, synthetique: true }] }) });
+    });
+    const avant = JSON.stringify((await lireEtat(page)).objects);
+    const grilleAvant = await page.evaluate(() => window.__plan.etat().grilleVisible);
+    await page.evaluate(() => window.__plan.executer('assistant.demander'));
+    const champ = page.locator('[data-controle="assistant.demande"]');
+    await champ.waitFor({ timeout: 10000 });
+    const envoiVide = await page.locator('[data-commande="assistant.envoyer"]').isDisabled();
+    await champ.fill('Passez les lames en douglas, affichez la grille et posez une plage autour de la piscine.');
+    await page.locator('[data-commande="assistant.envoyer"]').click();
+    await page.locator('.etapesAssistant > li').nth(2).waitFor({ timeout: 15000 }).catch(() => {});
+    const lignes = await page.locator('.etapesAssistant > li').evaluateAll((l) => l.map((e) => ({ refusee: e.classList.contains('refusee'), libelle: e.querySelector('.libelleEtape')?.textContent ?? '', raison: e.querySelector('.raisonEtape')?.textContent ?? '' })));
+    const source = await page.locator('.sourceAssistant').innerText().catch(() => '');
+    // Rien ne deborde du dialogue.
+    const deborde = await page.evaluate(() => { const d = document.querySelector('.dialogueAssistant'); return !d ? 'dialogue absent' : d.scrollWidth > d.clientWidth + 1 ? 'oui' : ''; });
+    const pendant = JSON.stringify((await lireEtat(page)).objects);
+    const appliquer = page.locator('[data-commande="assistant.appliquer"]');
+    const actif = await appliquer.isEnabled().catch(() => false);
+    await appliquer.click();
+    await page.locator('.dialogueAssistant').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+    const ferme = !(await page.locator('.dialogueAssistant').count());
+    const apres = await lireEtat(page);
+    const essence = objet(apres, (o) => o.key === 'terrasse')?.construction?.essenceBois;
+    const grille = await page.evaluate(() => window.__plan.etat().grilleVisible);
+    await page.waitForTimeout(200);
+    await annuler(page);
+    const annule = JSON.stringify((await lireEtat(page)).objects);
+    const demande = recues[0];
+    const blocs = demande?.requetes?.[0]?.contenu ?? [];
+    const ok = envoiVide && recues.length === 1 && demande.usage === 'assistant' && blocs.length === 2 && /^# Catalogue de Plan/.test(blocs[0]?.text ?? '') && /^Demande :\n/.test(blocs[1]?.text ?? '')
+      && lignes.length === 3 && !lignes[0].refusee && !lignes[1].refusee && lignes[2].refusee && /Indisponible/.test(lignes[2].raison) && /synthétique/.test(source)
+      && pendant === avant && actif && ferme && essence === 'douglas' && grille === !grilleAvant && annule === avant && !deborde;
+    return { ok, mesure: `envoi ${envoiVide ? 'grisé' : 'ACTIF'} sans demande ; ${recues.length} demande(s) usage ${demande?.usage}, ${blocs.length} bloc(s) (catalogue ${(blocs[0]?.text ?? '').length} caractères) ; `
+      + `liste : ${lignes.map((l) => (l.refusee ? '[grisée] ' : '') + l.libelle + (l.raison ? ' — ' + l.raison : '')).join(' | ')} ; source « ${source} » ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} avant « Appliquer » ; `
+      + `appliqué : dialogue ${ferme ? 'fermé' : 'OUVERT'}, lames ${essence}, grille ${grille ? 'affichée' : 'masquée'} ; Ctrl+Z : projet ${annule === avant ? 'identique' : 'DIFFÉRENT'} ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'}` };
   }
 };
 
@@ -4292,7 +4343,8 @@ function pointsPour(nomClasse) {
   // 116 et 117 : la facade enrichie (lot L1) : menuiseries, garde-corps, modenature, store et signal lus, valides et dessines ; un
   // bow-window lu, propose decoche, pose par le moteur des toits.
   // 118 et 119 : le toit lu sur une facade (lot L2) : une couverture en ecaille lue et dessinee ; une fenetre de toit posee par le moteur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120];
+  // 121 : l'assistant en langue naturelle (lot L6) : une demande, sa liste (une etape grisee avec sa raison), « Appliquer », Ctrl+Z.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -202,7 +202,7 @@ export function texteCatalogue(cat: Catalogue): string {
   for (const c of cat.commandes) {
     const etat = c.etat.utilisable ? 'utilisable' : 'refusée : ' + raisonDeRefus(c.etat);
     l.push('- `' + c.id + '` : ' + c.libelle + (c.description ? ' — ' + c.description : '') + '. '
-      + (c.bascule !== undefined ? 'Bascule d’affichage, actuellement ' + (c.bascule ? 'affichée' : 'masquée') + '. ' : c.ecrit === 'affichage' ? 'Affichage. ' : '')
+      + (c.bascule !== undefined ? 'Bascule d’affichage : ' + (c.bascule ? 'actuellement AFFICHÉ à l’écran ; l’exécuter le masque. ' : 'actuellement MASQUÉ, absent de l’écran ; l’exécuter l’affiche. ') : c.ecrit === 'affichage' ? 'Affichage. ' : '')
       + 'État : ' + etat + (/[.!?]$/.test(etat) ? '' : '.'));
   }
   if (!cat.commandes.length) l.push('(aucune)');

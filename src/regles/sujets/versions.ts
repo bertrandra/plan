@@ -114,7 +114,7 @@ export const NOTE_PROMPT_ASSISTANT = `Partie fixe du prompt de l'assistant en la
 export const NOTE_SCHEMA_ASSISTANT = `Sortie de l'assistant en langue naturelle (lot L6). Une liste d'etapes, chacune une commande du catalogue ou l'ecriture d'un champ de l'objet selectionne (sa valeur en texte, dans l'unite du champ), et des questions. Plat, sans union ni champ facultatif : un champ sans objet vaut la chaine vide. Les identifiants ne s'enumerent pas (le catalogue change avec le plan) : Plan les verifie contre le catalogue. Le fichier porte un \`exemple\` de reponse et sa \`consigne\`, que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).`;
 
 export const VERSIONS_PROMPT_ASSISTANT: readonly VersionTexte[] = [
-  { version: 1, empreinte: '7694cf1d' },
+  { version: 1, empreinte: '6e981c40' },
 ];
 
 export const VERSIONS_SCHEMA_ASSISTANT: readonly VersionTexte[] = [
