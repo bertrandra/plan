@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
 import { casIaDeScene, mesurerReponse, sortieSynthetique, type CasIa, type MesureIa } from '../../../../tests/banc/facades/runIa.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
-import { lireLectureEnrichie, lireObservationsFacade, texteRunFacade, type ObservationsFacade } from '../../../../src/regles/facades/observations.ts';
+import { lireLectureEnrichie, lireLectureToit, lireObservationsFacade, texteRunFacade, type ObservationsFacade } from '../../../../src/regles/facades/observations.ts';
 import { voterObservations } from '../../../../src/facade/regles/facades/ia.ts';
 import { genererRunFacade } from '../../../../src/regles/sujets/generation.ts';
 import type { Image } from '../../../../src/facade/vision/homographie.ts';
@@ -56,7 +56,8 @@ interface Appel {
   passes?: number; illisibles?: number;
 }
 /** `enrichie` : la lecture enrichie (lot L1, usage `facade-enrichie`), trois passes sur la meme image ; absente des reponses d'avant. */
-interface FichierReponses { source: 'claude' | 'synthetique'; x1: Appel; x3: Appel; enrichie?: Appel & { structurees?: number } }
+/** `toit` : le toit lu (lot L2, usage `facade-toit`), trois passes sur la meme image ; absent des reponses d'avant. */
+interface FichierReponses { source: 'claude' | 'synthetique'; x1: Appel; x3: Appel; enrichie?: Appel & { structurees?: number }; toit?: Appel & { structurees?: number } }
 
 const casDuDossier = (): Verite[] => readdirSync(dossier).filter((f) => f.endsWith('.verite.json')).sort().map((f) => JSON.parse(readFileSync(join(dossier, f), 'utf8')) as Verite);
 
@@ -108,7 +109,8 @@ if (mode === '--evaluer') {
   const pc = (x: number) => (Math.round(x * 1000) / 10).toFixed(1).replace('.', ',') + ' %';
   const lignes = ['| Scène | Mode | Passes lues | Pose (pire bord) | Pointes justes | Boîtes VP / vraies / trouvées | Cotes méd. | Carreaux justes / lus | Tokens (entrée / sortie) | Coût |', '|---|---|--:|--:|--:|--:|--:|--:|--:|--:|'];
   type Lu = { nom: string; mesure: MesureIa | null; passes: number; illisibles: number; cout: number };
-  const enrichies: { passes: number; lues: number; structurees: number; cout: number }[] = [];
+  const enrichies: { passes: number; lues: number; structurees: number; cout: number }[] = [], toits: typeof enrichies = [];
+  const couvertures = new Map<string, number>();
   const parMode: Record<'x1' | 'x3', Lu[]> = { x1: [], x3: [] };
   let source = '';
   for (const v of casDuDossier()) {
@@ -117,6 +119,11 @@ if (mode === '--evaluer') {
     const r = JSON.parse(readFileSync(f, 'utf8')) as FichierReponses;
     source = r.source;
     const c: CasIa = { nom: v.nom, photos: [], image: { largeur: v.image.largeur, hauteur: v.image.hauteur, donnees: new Uint8ClampedArray(0) }, verite: v.verite };
+    if (r.toit) {
+      const lus = r.toit.sorties.map(lireLectureToit).filter((x) => x !== null);
+      toits.push({ passes: r.toit.passes ?? r.toit.sorties.length, lues: lus.length, structurees: r.toit.structurees ?? 0, cout: r.toit.cout ?? 0 });
+      for (const x of lus) { const k = (x.toit.couverture ?? 'indetermine') + '/' + (x.toit.pose ?? 'indetermine'); couvertures.set(k, (couvertures.get(k) ?? 0) + 1); }
+    }
     if (r.enrichie) enrichies.push({ passes: r.enrichie.passes ?? r.enrichie.sorties.length, lues: r.enrichie.sorties.filter((x) => lireLectureEnrichie(x)).length, structurees: r.enrichie.structurees ?? 0, cout: r.enrichie.cout ?? 0 });
     for (const m of ['x1', 'x3'] as const) {
       const a = r[m], lues = a.sorties.map(lireObservationsFacade).filter((x): x is ObservationsFacade => x !== null);
@@ -148,6 +155,14 @@ if (mode === '--evaluer') {
     const run = parMode.x3.reduce((t, x) => t + x.cout, 0);
     lignes.push(`| **Lecture enrichie** | x3 | façades ${enrichies.length}, passes lisibles ${e.lues} / ${e.passes}, sortie structurée ${e.structurees} / ${e.passes} | | | | | | | ${e.cout.toFixed(4)} $ (${(e.cout / enrichies.length).toFixed(5)} $ par façade) |`);
     lignes.push(`| **Run x3 + lecture enrichie** | | | | | | | | | ${((run + e.cout) / Math.max(1, parMode.x3.length)).toFixed(5)} $ par façade |`);
+    // Le toit lu (lot L2) : une troisieme requete, trois passes ; le banc n'a pas de verite pour le toit, ses passes lisibles, ce
+    // qu'il lit (couverture / pose, sur toutes les passes) et son cout se disent.
+    if (toits.length) {
+      const t = toits.reduce((a, x) => ({ passes: a.passes + x.passes, lues: a.lues + x.lues, structurees: a.structurees + x.structurees, cout: a.cout + x.cout }), { passes: 0, lues: 0, structurees: 0, cout: 0 });
+      const lus = [...couvertures].sort((a, b) => b[1] - a[1]).map(([k, n]) => k + ' ×' + n).join(', ');
+      lignes.push(`| **Toit lu** | x3 | façades ${toits.length}, passes lisibles ${t.lues} / ${t.passes}, sortie structurée ${t.structurees} / ${t.passes} | ${lus} | | | | | | ${t.cout.toFixed(4)} $ (${(t.cout / toits.length).toFixed(5)} $ par façade) |`);
+      lignes.push(`| **Run x3 + lecture enrichie + toit lu** | | | | | | | | | ${((run + e.cout + t.cout) / Math.max(1, parMode.x3.length)).toFixed(5)} $ par façade |`);
+    }
   }
   const communes = new Set(parMode.x1.filter((x) => x.mesure).map((x) => x.nom).filter((n) => parMode.x3.some((y) => y.nom === n && y.mesure)));
   for (const m of ['x1', 'x3'] as const) lignes.push(total(parMode[m].filter((x) => communes.has(x.nom)), 'Lues dans les deux modes (' + communes.size + ')', m));

@@ -14,6 +14,7 @@ import type { CeQueJeVois } from '../../../../../src/model/ceQueJeVois.js';
 import type { ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 // La grande ardoise posee en losange est une couverture comme les autres : se choisit, se voit, se lit chez Claude, s'arbitre et se dessine.
+// Depuis le schema 11 (lot L2), c'est une ardoise posee en losange (`Toit.pose`) : le mot reste, le projet l'ecrit en deux champs.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 
@@ -34,7 +35,7 @@ describe('la grande ardoise en losange', () => {
   it('est proposee partout ou une couverture se choisit', () => {
     expect(COUVERTURES_VUES.map((c) => c.code)).toContain('ardoise-losange');
     expect(libelleDe(COUVERTURES_VUES, 'ardoise-losange')).toBe('Grande ardoise en losange');
-    expect(LIBELLES_COUVERTURE['ardoise-losange']).toBe('Grande ardoise en losange');
+    expect(LIBELLES_COUVERTURE.ardoise).toBe('Ardoise');
     expect(RECONCILIATION.attributs.couverture.valeurs).toContain('ardoise-losange');
     expect(resumePartie({ couverture: 'ardoise-losange' }, 'materiaux')).toMatch(/Grande ardoise en losange/i);
   });
@@ -47,9 +48,9 @@ describe('la grande ardoise en losange', () => {
   it('la personne l a vue sur place : la ligne arrive cochee et l ecrit sur le toit', () => {
     const t = monter({ couverture: 'ardoise-losange' }, null);
     const p = ligne(t);
-    expect(p).toMatchObject({ source: 'arbitrage', apres: 'Grande ardoise en losange, vue sur place', effet: { type: 'couverture', couverture: 'ardoise-losange' } });
+    expect(p).toMatchObject({ source: 'arbitrage', apres: 'Grande ardoise en losange, vue sur place', effet: { type: 'couverture', couverture: 'ardoise', pose: 'losange' } });
     appliquerPropositions(t.objets, [p!], [], '2026-10-13');
-    expect(t.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBe('ardoise-losange');
+    expect(t.objets.find((o) => o.key === 'maison')?.batiment?.toit).toMatchObject({ couverture: 'ardoise', pose: 'losange' });
   });
 
   it('Claude la voit seul : la ligne attend la personne, comme toute couverture vue par lui seul', () => {

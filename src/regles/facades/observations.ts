@@ -76,6 +76,23 @@ export interface AppendiceIa extends BoiteUV { nature: 'perron' | 'store' | 'uni
 /** Une zone de l'etat du mur (lot L1, decision 8 : un signal). */
 export interface EtatIa extends BoiteUV { nature: 'fissure' | 'enduit-abime' | 'humidite' | 'mousses' | 'autre'; confiance: ConfianceIa }
 
+/** Les mots de la couverture lue sur une facade (lot L2) : ceux de l'analyse d'une maison, la grande ardoise en losange en moins. */
+export type CouvertureLueIa = 'tuile-plate' | 'tuile-canal' | 'tuile-mecanique' | 'ardoise' | 'zinc' | 'bac-acier' | 'membrane' | 'gravillons' | 'vegetale';
+/**
+ * Le toit lu sur une facade (lot L2 de MD/spec-lecture-ia-elargie.md §4.1) : les mots de Claude, que les regles du toit
+ * (facade/regles/facades/toitLu.ts) traduisent ; null : non dit, ou `indetermine`.
+ */
+export interface ToitLuIa {
+  couverture: CouvertureLueIa | null;
+  pose: 'droite' | 'losange' | 'ecaille' | null;
+  debord: 'aucun' | 'faible' | 'fort' | null;
+  faitage: 'tuiles' | 'zinc' | 'crete' | null;
+  gouttiere: 'pendante' | 'nantaise' | 'aucune' | null;
+  confiance: ConfianceIa;
+}
+/** Une fenetre de toit ou un champ de panneaux vu sur le pan (lot L2), de `u0` a `u1` le long du mur, son milieu a `v` (au-dessus de 1). */
+export interface ElementToitIa { element: 'fenetre-toit' | 'solaire'; u0: number; u1: number; v: number; confiance: ConfianceIa }
+
 export interface OuvertureIa {
   type: TypeOuverture;
   /** La boite en part du mur : u le long du mur depuis l'angle gauche, v en hauteurs d'egout depuis le sol. */
@@ -119,6 +136,9 @@ export interface ObservationsFacade {
   modenature: ModenatureIa | null;
   appendices: AppendiceIa[];
   etat: EtatIa[];
+  /** Le toit lu sur la facade (lot L2) : null, et aucun element, sans cette lecture (ou dans une reponse d'avant le lot). */
+  toit: ToitLuIa | null;
+  elementsToit: ElementToitIa[];
   confiance: 'faible' | 'moyenne' | 'forte';
   /**
    * L'escalade a ete lue (facade/regles/facades/ia.ts, `escaladerObservations`) : son modele, et ce qu'elle a tranche contre le vote
@@ -250,6 +270,31 @@ export const garder = <T>(l: (T | null)[]): T[] => l.filter((x): x is T => x !==
 /** Les champs de la facade enrichie d'un run qui n'en a pas lu (ou d'avant le lot L1). */
 export const SANS_ENRICHIE: Pick<ObservationsFacade, 'saillies' | 'decroches' | 'modenature' | 'appendices' | 'etat'> = Object.freeze({ saillies: [], decroches: [], modenature: null, appendices: [], etat: [] });
 
+/** Le toit lu d'un run qui ne l'a pas lu (ou d'avant le lot L2). */
+export const SANS_TOIT: Pick<ObservationsFacade, 'toit' | 'elementsToit'> = Object.freeze({ toit: null, elementsToit: [] });
+
+/** Le toit lu sur une facade (lot L2) : la troisieme requete sur l'image du run, deploy/schema-facade-toit.json. */
+export interface LectureToit { toit: ToitLuIa; elements: ElementToitIa[] }
+
+const COUVERTURES_LUES: readonly CouvertureLueIa[] = ['tuile-plate', 'tuile-canal', 'tuile-mecanique', 'ardoise', 'zinc', 'bac-acier', 'membrane', 'gravillons', 'vegetale'];
+
+/** Une passe du toit lu, ramenee a ce que Plan sait lire ; null quand elle n'en a pas la forme. */
+export function lireLectureToit(v: unknown): LectureToit | null {
+  const r = objet(v), t = objet(r?.toit);
+  if (!r || !t || !Array.isArray(r.elements)) return null;
+  return {
+    toit: {
+      couverture: parmi(t.couverture, COUVERTURES_LUES), pose: parmi(t.pose, ['droite', 'losange', 'ecaille'] as const), debord: parmi(t.debord, ['aucun', 'faible', 'fort'] as const),
+      faitage: parmi(t.faitage, ['tuiles', 'zinc', 'crete'] as const), gouttiere: parmi(t.gouttiere, ['pendante', 'nantaise', 'aucune'] as const), confiance: confiance(t.confiance),
+    },
+    // Un element du pan est au-dessus de l'egout : un milieu sous lui n'est pas sur le toit (une fenetre du mur), il est ecarte.
+    elements: garder(r.elements.map((x) => {
+      const o = objet(x), element = parmi(o?.element, ['fenetre-toit', 'solaire'] as const), u0 = enPart(o?.u0), u1 = enPart(o?.u1), h = enHauteur(o?.v);
+      return o && element && u0 !== null && u1 !== null && u1 > u0 && h !== null && h > 1 ? { element, u0, u1, v: h, confiance: confiance(o.confiance) } : null;
+    })),
+  };
+}
+
 /**
  * Une baie de la lecture enrichie (lot L1) : sa boite en part du mur, et ses details. Elle se rapporte a une ouverture du run par sa
  * boite (facade/regles/facades/voteEnrichi.ts) : les deux requetes ne se lisent pas l'une l'autre.
@@ -296,6 +341,8 @@ export function lireObservationsFacade(v: unknown): ObservationsFacade | null {
     ouvertures: garder(r.ouvertures.map(lireOuverture)),
     // La facade enrichie n'est pas dans le run : sa lecture a part (lireLectureEnrichie) la pose apres le vote (facade/regles/facades/ia.ts).
     ...SANS_ENRICHIE,
+    // Le toit lu non plus (lot L2) : sa lecture a part (lireLectureToit) le pose apres le vote.
+    ...SANS_TOIT,
     confiance: parmi(r.confiance, ['faible', 'moyenne', 'forte'] as const) ?? 'faible',
   };
 }
@@ -367,6 +414,11 @@ export interface RunEnregistre {
    * d'avant le lot ; `erreur` quand elle n'a rien rendu de lisible (le run reste entier, la facade est proposee sans ses champs).
    */
   enrichie?: LectureEnrichieEnregistree;
+  /**
+   * Le toit lu (lot L2) : la troisieme requete, sur la meme image, gardee comme la lecture enrichie (meme forme). Absent d'un run
+   * d'avant le lot ; `erreur` quand il n'a rien rendu de lisible (le run et la lecture enrichie restent entiers).
+   */
+  toit?: LectureEnrichieEnregistree;
 }
 
 /** La lecture enrichie d'un run (lot L1) : ses passes reussies, ses versions, son modele, son cout ; ou ce qui l'a empechee. */
@@ -429,5 +481,6 @@ export function lireRunEnregistre(v: unknown): RunEnregistre | null {
     ...(o.synthetique === true ? { synthetique: true as const } : {}),
     ...(lireEscalade(o.escalade) ? { escalade: lireEscalade(o.escalade) as EscaladeEnregistree } : {}),
     ...(lireEnrichie(o.enrichie) ? { enrichie: lireEnrichie(o.enrichie) as LectureEnrichieEnregistree } : {}),
+    ...(lireEnrichie(o.toit) ? { toit: lireEnrichie(o.toit) as LectureEnrichieEnregistree } : {}),
   };
 }

@@ -111,7 +111,10 @@ export const MATERIAUX_MURS_VUS: readonly { code: MateriauTexture; libelle: stri
   { code: 'beton', libelle: 'Béton' },
   { code: 'bois', libelle: 'Bois' },
 ];
-export type CouvertureVue = CouvertureChoisie | 'terrasse';
+/** Un mot de couverture vu sur place : un materiau, la grande ardoise en losange (une ardoise posee en losange, model/couvertureLue.ts), ou une terrasse. */
+/** Les mots de couverture et leur table (lot L2), au meme endroit que ceux de « Ce que je vois » : l'arbitrage les lit d'ici. */
+export { couvertureDuMot, libelleMotCouverture, motDuToit } from './couvertureLue.js';
+export type CouvertureVue = Exclude<CouvertureChoisie, 'bac-acier' | 'membrane' | 'vegetale'> | 'ardoise-losange' | 'terrasse';
 export const COUVERTURES_VUES: readonly { code: CouvertureVue; libelle: string }[] = [
   { code: 'tuile', libelle: 'Tuiles mécaniques' },
   { code: 'tuile-plate', libelle: 'Tuiles plates' },

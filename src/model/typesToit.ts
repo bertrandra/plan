@@ -239,7 +239,19 @@ export interface BordsToit {
   saillieRiveM?: number;
   coyau?: boolean;
   queueDeVache?: boolean;
+  /**
+   * Ce qui couvre le faitage (lot L2 de MD/spec-lecture-ia-elargie.md) : des tuiles faitieres, une bande de zinc, une crete
+   * decoree. Absent : le dessin d'avant, sans faitage dessine.
+   */
+  faitage?: FaitageToit;
+  /** La gouttiere le long de l'egout (lot L2) : pendante, nantaise (dans la corniche), ou aucune. Absente : le dessin d'avant, sans gouttiere. */
+  gouttiere?: GouttiereToit;
 }
+
+/** Ce qui couvre un faitage (lot L2). */
+export type FaitageToit = 'tuiles' | 'zinc' | 'crete';
+/** La gouttiere d'un egout (lot L2). */
+export type GouttiereToit = 'pendante' | 'nantaise' | 'aucune';
 
 /** Ou sort une souche de cheminee (MD/spec-regles-toits.md §2.6). */
 export type PositionCheminee = 'faitage' | 'pan' | 'pignon' | 'facade';
@@ -297,8 +309,16 @@ export interface VolumeToit {
   hauteursMurs?: number[];
 }
 
-/** Les couvertures d'un toit en pente que l'on peut imposer (model/couleurToit.ts, `MateriauCouverture`). */
-export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'ardoise-losange' | 'zinc';
+/**
+ * Les couvertures que l'on peut imposer (model/couleurToit.ts, `MateriauCouverture`). `tuile` est la tuile mecanique (dite romane
+ * a l'ecran, la plus courante). Depuis le schema 11 (lot L2 de MD/spec-lecture-ia-elargie.md), la grande ardoise en losange n'est
+ * plus un materiau : c'est une `ardoise` posee en `losange` (`Toit.pose`), relue ainsi par la migration 10 -> 11 ; `bac-acier`,
+ * `membrane` et `vegetale` sont les mots de l'analyse d'une maison que la 3D sait maintenant dessiner.
+ */
+export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc' | 'bac-acier' | 'membrane' | 'vegetale';
+
+/** Le motif de pose d'une couverture (lot L2) : en rangs droits, en losange (sur la pointe), en ecaille (bords arrondis). */
+export type PoseCouverture = 'droite' | 'losange' | 'ecaille';
 
 export interface Toit {
   forme: FormeToit;
@@ -319,6 +339,11 @@ export interface Toit {
    * des fichiers fonciers, de la couleur et de la pente (model/couleurToit.ts). Absent : deduit.
    */
   couverture?: CouvertureChoisie;
+  /**
+   * Le motif de pose de la couverture (lot L2), choisi ou lu sur une facade ; absent : en rangs droits, le dessin d'avant. Il suit
+   * la couverture : une pose qui ne va pas avec le materiau (`couvertureAvecPose`) ne se dessine pas.
+   */
+  pose?: PoseCouverture;
   /**
    * D'ou vient la forme : estimee sur une photo, deduite de la BD TOPO, ajustee sur le MNH LiDAR
    * HD de l'IGN (MD/spec-toit-ign.md §10), ou saisie.

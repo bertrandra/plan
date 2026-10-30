@@ -6,8 +6,9 @@
 // (facade/regles/toits/elementsVus.ts, qui les lit ici). Pur.
 
 import { murDuCorps as murPorteur } from './murDuCorps.js';
-import type { ElementDeMurFait } from '../../../regles/toits/faits.js';
-import type { Cheminee, CorpsToit, Lucarne, PtBrut, TypeLucarne } from '../../../model/types.js';
+import type { ElementDeMurFait, ElementToitDeMurFait } from '../../../regles/toits/faits.js';
+import { DIMENSIONS_ELEMENT_TOIT } from '../../toits/toitFormes.js';
+import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PtBrut, TypeLucarne } from '../../../model/types.js';
 
 /** Un corps plat : moins de cela entre le faitage et l'egout le plus haut (spec-regles-toits §2.7). */
 export const MONTEE_PLATE_M = 0.3;
@@ -141,6 +142,53 @@ export function lucarnesDevantLeMur(corps: readonly CorpsToit[], gauche: PtBrut,
       const x0 = le(l.debutM), x1 = le(l.finM);
       out.push({ de: cm(Math.min(x0, x1) - MARGE_LUCARNE_M), a: cm(Math.max(x0, x1) + MARGE_LUCARNE_M), dessusM: cm(c.egouts[l.pan] - SOUS_EGOUT_LUCARNE_M) });
     }
+  }
+  return out;
+}
+
+/** Un element du pan se tient a tant au moins de l'egout, du faitage et des bouts du corps (un chassis ne pend pas au bord). */
+const MARGE_PAN_M = 0.4;
+/** Deux elements du pan du meme genre a moins de cela (le long du faitage et dans la pente) sont le meme : ce qui est pose ne bouge pas. */
+const MEME_ELEMENT_PAN_M = 0.6;
+
+/**
+ * Pose une fenetre de toit ou un champ de panneaux vu au-dessus d'un mur (lot L2 de MD/spec-lecture-ia-elargie.md §3.2) : sur le pan
+ * du corps dont ce mur est l'egout (un long pan en pente ; rien sur un mur de bout, un toit plat, un pan trop etroit). `sM` vient de la
+ * place le long du mur ; `dM`, de la hauteur lue par la geometrie du pan (une regle) : un point du pan a `z` metres du sol est, a plat, a
+ * (z - egout) / (faitage - egout) de la largeur du pan depuis le mur, ramene dans le pan a MARGE_PAN_M de ses bords. La taille vient de
+ * la largeur lue, rapportee a l'element type (0,5 a 2,2, comme le Mode Toit). Rien quand un element du meme genre y est deja : ce qui est
+ * pose (Mode Toit, une observation) ne bouge jamais. Pur.
+ */
+export function elementToitPoseSurLeMur(corps: readonly CorpsToit[], e: ElementToitDeMurFait): { corps: number; element: ElementDeToit } | null {
+  const m = murPorteur(corps, e.mur.gauche, e.mur.droite);
+  const c = m ? corps[m.corps] : undefined;
+  const r = c ? cadreCorps(c) : null;
+  const l = Math.hypot(e.mur.droite.x - e.mur.gauche.x, e.mur.droite.y - e.mur.gauche.y);
+  if (!m || !c || !r || !(l > 0) || (m.cote !== 0 && m.cote !== 2) || estPlat(c)) return null;
+  const pan: 0 | 1 = m.cote === 0 ? 0 : 1;
+  const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage, eg = c.egouts[pan], montee = c.faitage - eg;
+  if (largeurPan < 2 * MARGE_PAN_M + 0.2 || montee < MONTEE_PLATE_M) return null;
+  const point = (a: number) => versCadre(r, { x: e.mur.gauche.x + ((e.mur.droite.x - e.mur.gauche.x) * a) / l, y: e.mur.gauche.y + ((e.mur.droite.y - e.mur.gauche.y) * a) / l });
+  const s0 = point(e.de).s, s1 = point(e.a).s;
+  const largeur = Math.abs(s1 - s0), type = DIMENSIONS_ELEMENT_TOIT[e.element];
+  const echelle = cm(Math.min(2.2, Math.max(0.5, largeur / type.w)));
+  const demi = (type.w * echelle) / 2;
+  if (r.L < 2 * (demi + MARGE_BOUT_M)) return null;
+  const sM = cm(Math.min(Math.max((s0 + s1) / 2, demi + MARGE_BOUT_M), r.L - demi - MARGE_BOUT_M));
+  const part = Math.min(1, Math.max(0, (e.hauteurM - eg) / montee));
+  const dM = cm(Math.min(largeurPan - MARGE_PAN_M, Math.max(MARGE_PAN_M, part * largeurPan)));
+  if ((c.elementsToit ?? []).some((x) => x.type === e.element && x.pan === pan && Math.abs(x.sM - sM) < MEME_ELEMENT_PAN_M + demi && Math.abs(x.dM - dM) < MEME_ELEMENT_PAN_M + type.l / 2)) return null;
+  return { corps: m.corps, element: { type: e.element, pan, sM, dM, ...(Math.abs(echelle - 1) > 0.05 ? { echelle } : {}) } };
+}
+
+/** Les corps avec les fenetres de toit et panneaux que montrent leurs murs (lot L2), chacun pose par elementToitPoseSurLeMur. Pur. */
+export function avecElementsToitDesMurs(elements: readonly ElementToitDeMurFait[] | undefined, corps: CorpsToit[] | null): CorpsToit[] | null {
+  if (!elements?.length || !corps?.length) return corps;
+  const out = [...corps];
+  for (const e of elements) {
+    const p = elementToitPoseSurLeMur(out, e);
+    const c = p ? out[p.corps] : undefined;
+    if (p && c) out[p.corps] = { ...c, elementsToit: [...(c.elementsToit ?? []), p.element] };
   }
   return out;
 }

@@ -252,3 +252,31 @@ describe('le schema qu un document ecrit', () => {
     expect(schemaAEcrire([batiment()], SCHEMA_VERSION + 3)).toBe(SCHEMA_VERSION);
   });
 });
+
+describe('la migration 10 -> 11 : le toit enrichi (lot L2)', () => {
+  const losange = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise-losange', couleur: '#5a6068' };
+  const doc = () => [batiment({ toit: losange, volumesToit: [{ pts: [], toit: { ...losange } }] } as unknown as Partial<ObjetAPlat>), batiment({ key: 'c', toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile-plate' } } as unknown as Partial<ObjetAPlat>)];
+
+  it('relit la grande ardoise en losange comme une ardoise posee en losange, le reste a l identique', () => {
+    const lu = migrer({ objects: structuredClone(doc()) }, 10).objects as unknown as Record<string, Record<string, unknown>>[];
+    expect(lu[0]!.toit).toEqual({ ...losange, couverture: 'ardoise', pose: 'losange' });
+    expect((lu[0]!.volumesToit as unknown as { toit: unknown }[])[0]!.toit).toEqual({ ...losange, couverture: 'ardoise', pose: 'losange' });
+    // Un toit sans grande ardoise en losange est rendu tel quel (le meme objet).
+    expect(lu[1]).toEqual(doc()[1]);
+    // Au schema 11, rien ne se relit : la migration ne s'applique qu'aux documents d'avant.
+    expect(migrer({ objects: structuredClone(doc()) }, 11).objects).toEqual(doc());
+  });
+
+  it('s ecrit au 11 des qu un toit porte une pose, une couverture nouvelle, ou un corps un faitage ou une gouttiere ; et se relit a l identique', () => {
+    const reecrit = relu(doc(), 10);
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(11);
+    expect(relu(reecrit, 11)).toEqual(reecrit);
+    expect(schemaMinimal([batiment({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couverture: 'vegetale' } } as unknown as Partial<ObjetAPlat>)])).toBe(11);
+    expect(schemaMinimal([batiment({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couverture: 'zinc' } } as unknown as Partial<ObjetAPlat>)])).toBe(2);
+    const corps = { pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }], posFaitage: 2, faitage: 8, egouts: [6, 6], pignons: [], ecart: 0, bords: { faitage: 'zinc', gouttiere: 'pendante' } };
+    const avecBords = relu([batiment({ corpsToit: [corps] } as unknown as Partial<ObjetAPlat>)], 11);
+    expect((avecBords[0]!.corpsToit as { bords?: unknown }[])[0]!.bords).toEqual({ faitage: 'zinc', gouttiere: 'pendante' });
+    expect(schemaMinimal(avecBords as unknown as ObjetAPlat[])).toBe(11);
+    expect(schemaMinimal([batiment({ corpsToit: [{ ...corps, bords: { debordEgoutM: 0.4 } }] } as unknown as Partial<ObjetAPlat>)])).toBe(5);
+  });
+});

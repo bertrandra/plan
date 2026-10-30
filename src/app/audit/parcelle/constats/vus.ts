@@ -19,6 +19,8 @@ import type { IndiceProposition } from '../../../../regles/decisions.js';
 import { resumePartie, type SoucheVue } from '../../../../model/ceQueJeVois.js';
 import type { CorpsToit, ObjetPlan } from '../../../../model/types.js';
 import { cleMesure } from '../mesures.js';
+import { observationsDuRun } from '../../../../facade/regles/facades/ia.js';
+import { couvertureLueSurLaFacade, REGLE_COUVERTURE_FACADE } from '../../../../facade/regles/facades/toitLu.js';
 import { releveAvecOuvertures } from '../propositionsClaude.js';
 import { cibleBatiment, cibleFacade, cibleCorps, formeArbitree, formeDesBouts, BOUTS_VUS, PAN_CLAUDE, cm, type EntreesConstats } from './cibles.js';
 
@@ -141,6 +143,23 @@ export function constatsClaude({ b, vote: v }: EntreesConstats): Constat[] {
   const couv = couvertureDuVocabulaire(v.couverture.valeur);
   // Quand les passes ne s'accordaient pas, c'est un modele plus fin qui a tranche : la regle le dit, et le constat pese la part des passes d'accord.
   if (couv) out.push({ cible, attribut: 'couverture', source: 'claude', valeur: couv, confiance: v.couverture.accord, regle: v.couverture.escalade ? 'couverture tranchée par un modèle plus fin (les passes ne s’accordaient pas)' : 'couverture vue par Claude', indices: v.couverture.indices.map((i) => ({ texte: i.vu })) });
+  return out;
+}
+
+/**
+ * La couverture lue sur chaque facade (lot L2 de MD/spec-lecture-ia-elargie.md) : un constat de la photo de facade, que la regle
+ * `couverture lue sur la façade` fait passer devant l'analyse d'une maison et les fichiers fonciers (regles/reconciliation.json,
+ * `prioritaires`) : la plus proche l'emporte (question 8 de la spec). Le mot dit le materiau et sa pose (model/couvertureLue.ts).
+ */
+export function constatsToitLu({ b, runs }: EntreesConstats): Constat[] {
+  const out: Constat[] = [];
+  for (const f of b.facades) {
+    const run = runs?.[cleMesure(b.cle, f.cote)];
+    const lu = run?.toit ? couvertureLueSurLaFacade(observationsDuRun(run)) : null;
+    if (!lu) continue;
+    out.push({ cible: cibleBatiment(b.cle), attribut: 'couverture', source: 'photo', valeur: lu.mot, confiance: lu.confiance, regle: REGLE_COUVERTURE_FACADE,
+      indices: [{ texte: 'Lue par Claude sur la photo de la façade ' + nomFacade(f.facade.orientation, f.cote) + ', vue de près' }] });
+  }
   return out;
 }
 

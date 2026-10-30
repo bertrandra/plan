@@ -45,6 +45,8 @@ export interface DescriptionAttribut {
    * toit, ses bouts et le sens du faitage (decision de l'utilisateur, 18 octobre 2026) ; le LiDAR ne fait que suivre.
    */
   prioritaires?: readonly string[];
+  /** Ce que dit une decision ou une regle prioritaire l'emporte ; absent : « la silhouette des façades décide ». */
+  prioriteDit?: string;
 }
 
 /** Une etape de la lecture du LiDAR : ce qu'elle fait, et les modules dont les seuils (regles/toits/reglages.json) la reglent. */
@@ -101,7 +103,7 @@ export function lireReconciliation(donnees: unknown): ReglesReconciliation {
       poids[src as SourceConstat] = nombre(v, ou + 'poids de ' + src, [0, 100]);
     }
     const valeurs = lireValeurs(a.valeurs, accord, ou);
-    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}), ...(a.seules !== undefined ? { seules: lireSeules(a.seules, ou) } : {}), ...(a.prioritaires !== undefined ? { prioritaires: lirePrioritaires(a.prioritaires, ou) } : {}) }];
+    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}), ...(a.seules !== undefined ? { seules: lireSeules(a.seules, ou) } : {}), ...(a.prioritaires !== undefined ? { prioritaires: lirePrioritaires(a.prioritaires, ou) } : {}), ...(typeof a.prioriteDit === 'string' && a.prioriteDit.trim() ? { prioriteDit: a.prioriteDit } : {}) }];
   })) as Record<IdAttribut, DescriptionAttribut>;
   const lecturesLidar = lireEtapes(f.lecturesLidar);
   return { lecturesLidar, seuils, sources, attributs };

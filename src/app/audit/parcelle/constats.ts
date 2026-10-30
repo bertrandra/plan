@@ -18,9 +18,10 @@ import { RECONCILIATION, type ReglesReconciliation } from '../../../regles/recon
 import type { IdAttribut } from '../../../regles/reconciliation.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import { ecrivainPeut } from '../../../model/protections.js';
+import { motDuToit } from '../../../model/couvertureLue.js';
 import { cibleFacade, indiceDeCorps, formeArbitree, cm, principal, toitChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 import { constatsIgn, constatsLidar } from './constats/mesures.js';
-import { type GroupeDeMurs, groupesDeMurs, bouts, constatsDesSilhouettes, constatsPhoto, constatsAccords, constatsClaude, constatsTerrain } from './constats/vus.js';
+import { type GroupeDeMurs, groupesDeMurs, bouts, constatsDesSilhouettes, constatsPhoto, constatsAccords, constatsClaude, constatsTerrain, constatsToitLu } from './constats/vus.js';
 
 export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, formeDesBouts, confianceCorps, toitChoisiALaMain, releveChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 
@@ -55,7 +56,8 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
       }
       case 'lucarnes': return { valeur: (o.batiment?.corpsToit ?? []).reduce((n, k) => n + (k.lucarnes?.length ?? 0), 0), choisi: !ecrivainPeut(o, 'audit', 'elements') };
       case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !ecrivainPeut(o, 'audit', 'murs') };
-      case 'couverture': return { valeur: o.batiment?.toit?.couverture ?? null, choisi: !ecrivainPeut(o, 'audit', 'couverture') };
+      // Le mot de la couverture et de sa pose (lot L2) : une ardoise en losange ne s'accorde pas avec une ardoise en rangs droits.
+      case 'couverture': return { valeur: motDuToit(o.batiment?.toit), choisi: !ecrivainPeut(o, 'audit', 'couverture') };
       default: return vide;
     }
   };
@@ -146,7 +148,7 @@ export function avecLeToitDesSilhouettes(constats: readonly Constat[], duToit: r
 
 /** Tous les constats d'un batiment, source par source, et l'etat du projet pour les comparer. */
 export function constatsDuBatiment(e: EntreesConstats): ConstatsBatiment {
-  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsAccords(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
+  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsAccords(e), ...constatsToitLu(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
 }
 
 /**

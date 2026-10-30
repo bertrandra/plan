@@ -20,6 +20,7 @@ import { lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete }
 import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { etapesApresValidation } from '../../app/audit/parcelle/facadeValidee.js';
 import { lignesFacadeEnrichie } from '../../app/audit/parcelle/facadeEnrichie.js';
+import { lignesToitDeLaFacade } from '../../app/audit/parcelle/facadeToit.js';
 import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import { LIBELLES_ETAT } from '../../model/etapeFacade.js';
 import { enteteDuRun } from '../../facade/releve/enchainement.js';
@@ -140,7 +141,7 @@ function LectureClaude({ run, prix, commandes, nom, lignes }: { run: RunEnregist
   return (
     <div className="lectureClaude">
       <p className="detailPhoto">{'Lue par ' + enteteDuRun(run) + '.'}</p>
-      {/* La facade enrichie (lot L1) : ce que Claude lit de plus ; l'etat du mur est un signal, sans case (decision 8). */}
+      {/* La facade enrichie (lot L1) et le toit lu (lot L2) : ce que Claude lit de plus ; l'etat du mur et le debord sont des signaux, sans case (decision 8). */}
       {lignes.map((l, i) => <p key={i} className={'detailPhoto' + (l.signal ? ' signalClaude' : '')} {...(l.signal ? { role: 'note' } : {})}>{l.texte}</p>)}
       {!efface && <button type="button" className="secondary small" data-commande={COMMANDE_ESCALADE} disabled={!!run.escalade || !etat?.utilisable} aria-label={libelleEscalade(run, prix) + ' : ' + nom}
         title={raison ?? 'Une lecture de plus, par un modèle plus fin ; le moteur la pèse contre le vote des passes'} onClick={(e) => { commandes.executer(COMMANDE_ESCALADE, e.currentTarget); }}>{libelleEscalade(run, prix)}</button>}
@@ -188,7 +189,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         echelleDepart={correction?.echelleLargeurM}
         appliquer={(c) => corriger(rangReperes, c)} retablir={() => corriger(rangReperes, null)} fermer={() => setRangReperes(null)} />}
       {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom}
-        lignes={lignesFacadeEnrichie(run, { largeurM: mesure?.facade?.dimensions.largeurM ?? largeurPlanM, egoutM: mesure?.facade?.dimensions.egoutM ?? mesure?.releve?.hauteur ?? 3 })} />}
+        lignes={[...lignesFacadeEnrichie(run, { largeurM: mesure?.facade?.dimensions.largeurM ?? largeurPlanM, egoutM: mesure?.facade?.dimensions.egoutM ?? mesure?.releve?.hauteur ?? 3 }), ...lignesToitDeLaFacade(run, session.validation.entrees().objets, cle, cote)]} />}
       {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}
       {gestes && enAdmin() && rangs.length > 0 && <BoutonCommande commandes={commandes} id="facade.creerCas" className="secondary small">Créer un cas depuis cette façade</BoutonCommande>}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}

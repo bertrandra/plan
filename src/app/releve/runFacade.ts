@@ -10,7 +10,7 @@
 // Les photos ne partent qu'avec l'accord de la personne (decision D2), le meme par projet que l'analyse de l'audit (io/accordAnalyse.ts).
 
 import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse, type ResultatsImmediats } from '../../io/analyseClaude.js';
-import { lireLectureEnrichie, lireObservationsFacade, type LectureEnrichieEnregistree, type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
+import { lireLectureEnrichie, lireLectureToit, lireObservationsFacade, type LectureEnrichieEnregistree, type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
 import { observationsDuRun } from '../../facade/regles/facades/ia.js';
 import type { EscaladeEnregistree } from '../../regles/facades/observations.js';
 import { VERSION_CHAINE_FACADES } from '../../facade/releve/chaine.js';
@@ -37,18 +37,38 @@ export function contenuRunFacade(image: Pick<ImageAnalyse, 'base64' | 'mediaType
 
 /**
  * Les requetes d'un appel : `prefixe-p1` (x1), jusqu'a `prefixe-p3` (x3) ; la facade compte sur la premiere du run. La lecture enrichie
- * (lot L1, usage `facade-enrichie`) envoie le meme contenu, et ne compte pas la facade une seconde fois.
+ * (lot L1, usage `facade-enrichie`) et le toit lu (lot L2, usage `facade-toit`) envoient le meme contenu, et ne comptent pas la facade
+ * une seconde fois.
  */
-function requetesRunFacade(prefixe: string, contenu: BlocAnalyse[], passes: 1 | 2 | 3, usage: 'facade' | 'facade-enrichie' = 'facade'): RequeteAnalyse[] {
+function requetesRunFacade(prefixe: string, contenu: BlocAnalyse[], passes: 1 | 2 | 3, usage: 'facade' | UsageLecture = 'facade'): RequeteAnalyse[] {
   return Array.from({ length: passes }, (_, i) => ({ id: prefixe + '-p' + (i + 1), passe: (i + 1) as 1 | 2 | 3, usage, facades: i === 0 && usage === 'facade' ? 1 : 0, contenu }));
 }
+
+/** Les lectures d'une facade qui suivent son run, sur la meme image : la lecture enrichie (lot L1) et le toit lu (lot L2). */
+type UsageLecture = 'facade-enrichie' | 'facade-toit';
+
+/** Ce que chaque lecture lit, et ce qu'elle dit quand elle n'a rien rendu ou n'a pas pu partir. */
+const LECTURES: Record<UsageLecture, { lire: (v: unknown) => unknown; prefixe: string; rien: string; parti: string }> = {
+  'facade-enrichie': { lire: lireLectureEnrichie, prefixe: 'enrichie', rien: 'La lecture des détails (menuiseries, modénature…) n’a rendu aucune réponse lisible', parti: 'La lecture des détails n’a pas pu partir : ' },
+  'facade-toit': { lire: lireLectureToit, prefixe: 'toit', rien: 'La lecture du toit (couverture, fenêtres de toit…) n’a rendu aucune réponse lisible', parti: 'La lecture du toit n’a pas pu partir : ' },
+};
 
 /**
  * La lecture enrichie enregistree (lot L1) : ses passes lisibles, ses versions, son modele, son cout ; `erreur` quand aucune ne s'est
  * lue (le run reste entier, et la facade est proposee sans ses champs). Le meme pour un appel immediat et pour un batch.
  */
 export function enrichieDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' | 'schema' | 'resultats'>, passes: 1 | 2 | 3, le: Date): LectureEnrichieEnregistree {
-  const sorties = lu.resultats.filter((r) => r.statut === 'reussi' && lireLectureEnrichie(r.sortie)).sort((a, b) => (a.passe ?? 0) - (b.passe ?? 0)).map((r) => r.sortie);
+  return lectureDesResultats(lu, passes, le, 'facade-enrichie');
+}
+
+/** Le toit lu enregistre (lot L2) : la meme forme que la lecture enrichie, et le meme sort a l'echec (le reste intact, un signal). */
+export function toitDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' | 'schema' | 'resultats'>, passes: 1 | 2 | 3, le: Date): LectureEnrichieEnregistree {
+  return lectureDesResultats(lu, passes, le, 'facade-toit');
+}
+
+function lectureDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' | 'schema' | 'resultats'>, passes: 1 | 2 | 3, le: Date, usage: UsageLecture): LectureEnrichieEnregistree {
+  const { lire, rien } = LECTURES[usage];
+  const sorties = lu.resultats.filter((r) => r.statut === 'reussi' && lire(r.sortie)).sort((a, b) => (a.passe ?? 0) - (b.passe ?? 0)).map((r) => r.sortie);
   const couts = lu.resultats.map((r) => r.cout);
   const t = (k: 'entree' | 'ecritureCache' | 'lectureCache' | 'sortie') => lu.resultats.reduce((s, r) => s + (r.tokens?.[k] ?? 0), 0);
   const r0 = lu.resultats[0];
@@ -57,17 +77,17 @@ export function enrichieDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'pr
     le: le.toISOString(), modele: r0?.modele ?? lu.modele, prompt: r0?.prompt ?? lu.prompt, schema: r0?.schema ?? lu.schema, passes, sorties,
     cout: couts.length && couts.every((c) => typeof c === 'number') ? Math.round(couts.reduce((s: number, c) => s + (c as number), 0) * 1e6) / 1e6 : null,
     tokens: { entree: t('entree') + t('ecritureCache') + t('lectureCache'), sortie: t('sortie') },
-    ...(sorties.length ? {} : { erreur: 'La lecture des détails (menuiseries, modénature…) n’a rendu aucune réponse lisible' + (raison ? ' (' + raison + ')' : '') + '.' }),
+    ...(sorties.length ? {} : { erreur: rien + (raison ? ' (' + raison + ')' : '') + '.' }),
   };
 }
 
-/** La lecture enrichie d'un appel immediat : jamais une exception (son echec laisse le run entier), ce qui l'a empechee sinon. */
-async function lireEnrichieImmediate(client: ClientAnalyse, demande: { projet: string | null; idu: string | null; adresse: string | null; audit: string }, contenu: BlocAnalyse[], passes: 1 | 2 | 3, le: Date): Promise<LectureEnrichieEnregistree> {
+/** Une lecture d'un appel immediat : jamais une exception (son echec laisse le run entier), ce qui l'a empechee sinon. */
+async function lireImmediate(client: ClientAnalyse, demande: { projet: string | null; idu: string | null; adresse: string | null; audit: string }, contenu: BlocAnalyse[], passes: 1 | 2 | 3, le: Date, usage: UsageLecture): Promise<LectureEnrichieEnregistree> {
   try {
-    return enrichieDesResultats(await client.immediat({ ...demande, usage: 'facade-enrichie', requetes: requetesRunFacade('enrichie', contenu, passes, 'facade-enrichie') }), passes, le);
+    return lectureDesResultats(await client.immediat({ ...demande, usage, requetes: requetesRunFacade(LECTURES[usage].prefixe, contenu, passes, usage) }), passes, le, usage);
   } catch (e) {
     const motif = e instanceof EchecAnalyse ? MESSAGES[e.motif] : String((e as Error).message || e);
-    return { le: le.toISOString(), modele: '', prompt: 0, schema: 0, passes, sorties: [], cout: null, tokens: { entree: 0, sortie: 0 }, erreur: 'La lecture des détails n’a pas pu partir : ' + motif };
+    return { le: le.toISOString(), modele: '', prompt: 0, schema: 0, passes, sorties: [], cout: null, tokens: { entree: 0, sortie: 0 }, erreur: LECTURES[usage].parti + motif };
   }
 }
 
@@ -142,25 +162,26 @@ export function encodageUnique(ctx: ContexteRun): ContexteRun {
 }
 
 /**
- * La lecture enrichie d'une facade (lot L1), la seconde requete sur l'image et le texte du run : jamais une exception, son echec est
- * enregistre (`erreur`) ; null quand rien ne part (ni client, ni image), comme le run.
+ * La lecture enrichie d'une facade (lot L1), la seconde requete sur l'image et le texte du run, ou le toit lu (lot L2, `facade-toit`),
+ * la troisieme : jamais une exception, son echec est enregistre (`erreur`) ; null quand rien ne part (ni client, ni image), comme le run.
  */
-export async function appelerLectureEnrichie(ctx: ContexteRun, d: DemandeRun, origine: 'calibration'): Promise<LectureEnrichieEnregistree | null> {
+export async function appelerLectureEnrichie(ctx: ContexteRun, d: DemandeRun, origine: 'calibration', usage: UsageLecture = 'facade-enrichie'): Promise<LectureEnrichieEnregistree | null> {
   const client = ctx.client();
   const image = client ? ctx.encoder(d.image, d.cache ?? null) : null;
   if (!client || !image) return null;
   const le = ctx.maintenant();
   const audit = (origine + '-' + le.toISOString().replace(/[^0-9]/g, '').slice(0, 14)).slice(0, 64);
-  return lireEnrichieImmediate(client, { ...ctx.identite(), audit }, contenuRunFacade(image, d.texte), d.passes, le);
+  return lireImmediate(client, { ...ctx.identite(), audit }, contenuRunFacade(image, d.texte), d.passes, le, usage);
 }
 
 /**
  * Le run et sa lecture enrichie ensemble : la lecture enrichie se garde avec le run et se pose sur ce qu'il lit, sans rien lui faire
  * perdre (son echec la laisse sans champs, avec sa raison).
  */
-export function avecSaLectureEnrichie(r: ResultatRun, enrichie: LectureEnrichieEnregistree | null): ResultatRun {
-  if ('erreur' in r || !enrichie) return r;
-  const run = { ...r.run, enrichie };
+export function avecSaLectureEnrichie(r: ResultatRun, enrichie: LectureEnrichieEnregistree | null, toit: LectureEnrichieEnregistree | null = null): ResultatRun {
+  if ('erreur' in r || (!enrichie && !toit)) return r;
+  // Le toit lu (lot L2), la troisieme requete, se garde de meme : son echec le laisse sans champs, avec sa raison.
+  const run = { ...r.run, ...(enrichie ? { enrichie } : {}), ...(toit ? { toit } : {}) };
   return { run, reponse: observationsDuRun(run) ?? r.reponse };
 }
 

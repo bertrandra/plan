@@ -60,7 +60,12 @@ export const APP_VERSION = '5.1.0';
 // (`modenature`, `appendices`, `etat`), le genre `auvent` d'une saillie et sa `couverture`, les natures d'equipement `perron`,
 // `unite-exterieure` et `boite-aux-lettres`. Un lecteur 9 les perdrait au premier enregistrement (une Facade se reecrit en entier), et
 // lirait un perron comme un spa qui charge la terrasse. La migration 9 -> 10 est l'identite ; la plateforme accepte deja 7 a 12.
-export const SCHEMA_VERSION = 10;
+// 11 : le toit enrichi (lot L2 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.3, §4.9) : le motif de pose de la couverture
+// (`Toit.pose` : droite, losange, ecaille), les couvertures `bac-acier`, `membrane` et `vegetale`, et ce qui couvre le faitage et la
+// gouttiere d'un corps (`bords.faitage`, `bords.gouttiere`). La migration 10 -> 11 relit la grande ardoise en losange
+// (`ardoise-losange`) comme une ardoise posee en losange : meme texture, meme `.glb`. Un lecteur 10 perdrait la pose et les bords au
+// premier enregistrement. La plateforme accepte deja 7 a 12.
+export const SCHEMA_VERSION = 11;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;

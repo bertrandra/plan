@@ -88,3 +88,19 @@ export const VERSIONS_PROMPT_FACADE_ENRICHIE: readonly VersionTexte[] = [
 export const VERSIONS_SCHEMA_FACADE_ENRICHIE: readonly VersionTexte[] = [
   { version: 1, empreinte: 'a4568ea5' },
 ];
+
+/**
+ * Le toit lu sur une facade (lot L2 de la lecture IA elargie, usage `facade-toit` du serveur) : la troisieme requete sur l'image du
+ * run, avec sa note et les versions de son prompt et de son schema. La version suit chaque lecture enregistree avec le run.
+ */
+export const NOTE_PROMPT_FACADE_TOIT = `Partie fixe du prompt du toit lu sur une façade (lot L2 de la lecture IA élargie), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal et chaque lecture enregistrée. Version 1 (30 octobre 2026) : sur l'image du run d'une façade (la bande au-dessus de l'égout comprise), une troisième requête lit la couverture du toit (le vocabulaire de l'analyse d'une maison) et son motif de pose (droite, losange, écaille), le débord à l'égout, ce qui couvre le faîtage, la gouttière, et les fenêtres de toit et panneaux solaires vus sur le pan, à leur place en parts du mur.`;
+
+export const NOTE_SCHEMA_FACADE_TOIT = `Sortie du toit lu sur une facade par Claude (lot L2). Des mots d'un vocabulaire ferme, indetermine partout ; les elements du pan en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol, au-dessus de 1). Plat, sans union ni champ facultatif : la sortie structuree l'accepte seul (avec la lecture enrichie, sa grammaire etait trop grosse, essai du 30 octobre 2026). Le fichier porte un \`exemple\` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).`;
+
+export const VERSIONS_PROMPT_FACADE_TOIT: readonly VersionTexte[] = [
+  { version: 1, empreinte: '18448c35' },
+];
+
+export const VERSIONS_SCHEMA_FACADE_TOIT: readonly VersionTexte[] = [
+  { version: 1, empreinte: '9bb63209' },
+];

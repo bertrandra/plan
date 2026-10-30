@@ -1,16 +1,17 @@
 // Les fichiers que le serveur lit (deploy/prompt-analyse.md, deploy/schema-analyse.json ; ceux du run d'une facade,
 // deploy/prompt-facade.md et deploy/schema-facade.json ; ceux de la lecture du PLU, deploy/prompt-plu.md et deploy/schema-plu.json ;
-// ceux de la lecture enrichie d'une facade, deploy/prompt-facade-enrichie.md et deploy/schema-facade-enrichie.json ; ceux de la lecture
-// du jardin, deploy/prompt-jardin.md et deploy/schema-jardin.json), tels que
+// ceux de la lecture enrichie d'une facade, deploy/prompt-facade-enrichie.md et deploy/schema-facade-enrichie.json ; ceux du toit lu
+// sur une facade, deploy/prompt-facade-toit.md et deploy/schema-facade-toit.json ; ceux de la lecture du jardin, deploy/prompt-jardin.md et deploy/schema-jardin.json), tels que
 // les descriptions de sujets les donnent : un seul endroit, appele par le script de generation, par les
 // tests et par l'ecran Admin › Regles.
 
 import type { DescriptionSujet } from './description.js';
 import { assemblerPrompt, assemblerSchema, avecEntete, textuel } from './assembler.js';
 import { DESCRIPTIONS_SUJETS } from './liste.js';
-import { NOTE_PROMPT, NOTE_PROMPT_FACADE, NOTE_PROMPT_FACADE_ENRICHIE, NOTE_SCHEMA_FACADE_ENRICHIE, VERSIONS_PROMPT_FACADE_ENRICHIE, VERSIONS_SCHEMA_FACADE_ENRICHIE, NOTE_PROMPT_JARDIN, NOTE_SCHEMA, NOTE_SCHEMA_FACADE, NOTE_SCHEMA_JARDIN, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_SCHEMA_JARDIN, versionCourante } from './versions.js';
+import { NOTE_PROMPT, NOTE_PROMPT_FACADE, NOTE_PROMPT_FACADE_ENRICHIE, NOTE_SCHEMA_FACADE_ENRICHIE, VERSIONS_PROMPT_FACADE_ENRICHIE, VERSIONS_SCHEMA_FACADE_ENRICHIE, NOTE_PROMPT_FACADE_TOIT, NOTE_SCHEMA_FACADE_TOIT, VERSIONS_PROMPT_FACADE_TOIT, VERSIONS_SCHEMA_FACADE_TOIT, NOTE_PROMPT_JARDIN, NOTE_SCHEMA, NOTE_SCHEMA_FACADE, NOTE_SCHEMA_JARDIN, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_SCHEMA_JARDIN, versionCourante } from './versions.js';
 import { RUN_FACADE } from './descriptions/facadesRun.js';
 import { LECTURE_FACADE_ENRICHIE } from './descriptions/facadesEnrichie.js';
+import { LECTURE_FACADE_TOIT } from './descriptions/facadesToit.js';
 import { RUN_JARDIN } from './descriptions/jardinRun.js';
 import { CONSIGNE_EXEMPLE_PLU, LECTURE_PLU } from '../plu/lecture.js';
 import { NOTE_PROMPT_PLU, NOTE_SCHEMA_PLU, VERSIONS_PROMPT_PLU, VERSIONS_SCHEMA_PLU } from '../plu/versions.js';
@@ -46,6 +47,16 @@ export function genererFacadeEnrichie(): FichiersGeneres {
     corpsPrompt: LECTURE_FACADE_ENRICHIE.prompt, versionPrompt, versionSchema,
     prompt: avecEntete(LECTURE_FACADE_ENRICHIE.prompt, { version: versionPrompt, note: NOTE_PROMPT_FACADE_ENRICHIE }),
     schema: textuel({ format: 'plan-schema-facade-enrichie', version: versionSchema, note: NOTE_SCHEMA_FACADE_ENRICHIE, schema: LECTURE_FACADE_ENRICHIE.schema, exemple: LECTURE_FACADE_ENRICHIE.exemple }),
+  };
+}
+
+/** Les deux fichiers du toit lu sur une facade (usage `facade-toit` du serveur, lot L2), sous les versions en vigueur. */
+export function genererFacadeToit(): FichiersGeneres {
+  const versionPrompt = versionCourante(VERSIONS_PROMPT_FACADE_TOIT).version, versionSchema = versionCourante(VERSIONS_SCHEMA_FACADE_TOIT).version;
+  return {
+    corpsPrompt: LECTURE_FACADE_TOIT.prompt, versionPrompt, versionSchema,
+    prompt: avecEntete(LECTURE_FACADE_TOIT.prompt, { version: versionPrompt, note: NOTE_PROMPT_FACADE_TOIT }),
+    schema: textuel({ format: 'plan-schema-facade-toit', version: versionSchema, note: NOTE_SCHEMA_FACADE_TOIT, schema: LECTURE_FACADE_TOIT.schema, exemple: LECTURE_FACADE_TOIT.exemple }),
   };
 }
 

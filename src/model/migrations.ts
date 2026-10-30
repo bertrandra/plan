@@ -112,8 +112,32 @@ export const MIGRATIONS: readonly Migration[] = [
     // les distingue, pour qu'un lecteur 9 refuse le fichier plutot que de les perdre (une Facade se reecrit en entier) ou de lire un
     // perron comme un spa qui charge la terrasse.
     migrer: (d) => d
+  },
+  {
+    de: 10,
+    apporte: 'le toit enrichi : le motif de pose de la couverture (en losange, en écaille), le bac acier, la membrane et la toiture végétalisée, ce qui couvre le faîtage et la gouttière',
+    // La seule migration qui transforme depuis le schema 3 (lot L2) : la grande ardoise en losange n'est plus un materiau, c'est une
+    // ardoise posee en losange (model/couvertureLue.ts). Meme texture, meme `.glb` ; le reste est facultatif et n'existait pas avant.
+    migrer: (d) => ({ ...d, objects: d.objects.map(relireArdoiseLosange) })
   }
 ];
+
+/** Un toit d'avant le schema 11 qui portait la grande ardoise en losange : une ardoise posee en losange (une pose deja dite reste). */
+function toitRelu(t: unknown): unknown {
+  const toit = t as { couverture?: unknown; pose?: unknown } | null | undefined;
+  if (!toit || typeof toit !== 'object' || toit.couverture !== 'ardoise-losange') return t;
+  return { ...toit, couverture: 'ardoise', pose: toit.pose ?? 'losange' };
+}
+
+/** La migration 10 -> 11 d'un objet : son toit et ceux de ses volumes. Un objet sans grande ardoise en losange est rendu tel quel. */
+function relireArdoiseLosange(o: ObjetAPlat): ObjetAPlat {
+  const volumes = (o as { volumesToit?: unknown }).volumesToit;
+  const toit = toitRelu(o.toit);
+  const vols = Array.isArray(volumes) && volumes.some((v) => (v as { toit?: { couverture?: unknown } } | null)?.toit?.couverture === 'ardoise-losange')
+    ? volumes.map((v) => (v && typeof v === 'object' ? { ...(v as object), toit: toitRelu((v as { toit?: unknown }).toit) } : v)) : volumes;
+  if (toit === o.toit && vols === volumes) return o;
+  return { ...o, ...(toit !== o.toit ? { toit } : {}), ...(vols !== volumes ? { volumesToit: vols } : {}) } as ObjetAPlat;
+}
 
 /**
  * Le schema a partir duquel chaque champ facultatif d'un objet s'ecrit : un lecteur plus ancien ne le connait pas et l'efface au
@@ -175,8 +199,22 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
     // La facade enrichie (lot L1) : un lecteur 9 la perdrait, ou lirait un perron comme un spa.
     if (porteLaFacadeEnrichie(brut)) s = Math.max(s, 10);
+    // Le toit enrichi (lot L2) : un lecteur 10 perdrait la pose et les bords, et ne connaitrait pas les couvertures nouvelles.
+    if (porteLeToitEnrichi(brut)) s = Math.max(s, 11);
   }
   return s;
+}
+
+/** Les couvertures venues avec le lot L2, et les bords d'un corps. */
+const COUVERTURES_11: readonly unknown[] = ['bac-acier', 'membrane', 'vegetale'];
+const BORDS_11: readonly string[] = ['faitage', 'gouttiere'];
+const toit11 = (t: unknown): boolean => { const x = t as { pose?: unknown; couverture?: unknown } | null | undefined; return !!x && typeof x === 'object' && (x.pose !== undefined || COUVERTURES_11.includes(x.couverture)); };
+
+/** Un objet qui porte un champ du lot L2 : schema 11. */
+function porteLeToitEnrichi(brut: Record<string, unknown>): boolean {
+  if (toit11(brut.toit)) return true;
+  if (Array.isArray(brut.volumesToit) && brut.volumesToit.some((v) => toit11((v as { toit?: unknown } | null)?.toit))) return true;
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => { const b = (c as { bords?: Record<string, unknown> } | null)?.bords; return !!b && BORDS_11.some((k) => b[k] !== undefined); });
 }
 
 /** Les champs d'une Facade et d'une ouverture venus avec le lot L1, les genres de saillie et les natures d'equipement aussi. */

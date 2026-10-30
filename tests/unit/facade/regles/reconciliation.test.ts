@@ -233,8 +233,9 @@ describe('la silhouette des façades décide de la forme du toit', () => {
     expect(a.retenu?.valeur).toBe('deux-pans');
   });
 
-  it('est déclarée dans le fichier pour la silhouette de chaque mur, puis la forme, les bouts et le sens du faîtage, pas ailleurs', () => {
+  it('est déclarée dans le fichier pour la silhouette de chaque mur, puis la forme, les bouts et le sens du faîtage, pas ailleurs (la couverture a la sienne : celle lue sur la façade, lot L2)', () => {
     const avec = Object.entries(RECONCILIATION.attributs).filter(([, d]) => d.prioritaires?.length).map(([id]) => id);
-    expect(avec.sort()).toEqual(['boutsToit', 'formeToit', 'sensFaitage', 'silhouetteFacade']);
+    expect(avec.sort()).toEqual(['boutsToit', 'couverture', 'formeToit', 'sensFaitage', 'silhouetteFacade']);
+    expect(RECONCILIATION.attributs.couverture.prioritaires).toEqual(['couverture lue sur la façade']);
   });
 });

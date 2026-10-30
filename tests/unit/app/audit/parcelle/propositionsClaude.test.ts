@@ -118,7 +118,9 @@ describe('les propositions de Claude', () => {
 
   it('traduit le vocabulaire de Claude, vote le parement des facades, et met les ecarts en clair', () => {
     expect(couvertureDuVocabulaire('tuile-mecanique')).toBe('tuile');
-    expect(couvertureDuVocabulaire('membrane')).toBe(null);
+    // Depuis le lot L2, la membrane, le bac acier et la toiture vegetale s'ecrivent (la 3D les dessine) ; les gravillons non.
+    expect(couvertureDuVocabulaire('membrane')).toBe('membrane');
+    expect(couvertureDuVocabulaire('gravillons')).toBe(null);
     const v = voter([reponse({ facades: [reponse().facades[0]!, { ...reponse().facades[0]!, facade: 'nord', materiau: 'enduit' }, { ...reponse().facades[0]!, facade: 'est', materiau: 'brique', ouvertures: { niveaux: 1, parNiveau: [2], manquees: 1, enTrop: 0 }, ecart: 'une porte de garage absente du modèle' }] })]);
     expect(materiauDesFacades(v)).toMatchObject({ valeur: 'brique', accord: 1 });
     expect(ecartsEnClair(v)).toEqual(['façade est : 1 ouverture non détectée par Plan', 'façade est : une porte de garage absente du modèle']);
