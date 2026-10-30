@@ -14,7 +14,7 @@
 // dossier. La description (C2ZD1) est le texte que la personne a valide quand elle en a un (dossier.textes), sinon le texte calcule.
 
 import { shoelace } from '../geometry/basic.js';
-import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, natureAbri } from '../engine/abri/pergola.js';
+import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, materiauPergolaInconnu, natureAbri, toitPergolaInconnu } from '../engine/abri/pergola.js';
 import { solDuProjet } from '../engine/sol.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import type { DeclarationPrealable, ObjetPlan } from '../model/types.js';
@@ -101,8 +101,11 @@ export function ouvragesDeclares(objets: ObjetPlan[]): OuvrageDeclare[] {
     const emprise = shoelace(calc.emprise);
     const hauteur = calc.hauteurReglementaire + 0.02;
     const dims = dimensions(o);
-    const toit = r.toit === 'toile' ? 'chevrons et toile tendue' : LIBELLE_TOIT_PERGOLA[r.toit].toLowerCase() + ' couvert, pente ' + r.pente + '°';
-    const description = (nature === 'carport' ? 'un carport (abri de voiture ouvert)' : 'une pergola') + ' en ' + LIBELLE_MATERIAU[r.materiau].toLowerCase()
+    // Un toit ou un materiau hors catalogue (fichier d'une version plus recente) s'ecrit tel qu'il est lu, jamais avec le
+    // libelle du repli sur lequel il est calcule : la declaration dit ce que la personne a choisi.
+    const toitLu = toitPergolaInconnu(o), materiauLu = materiauPergolaInconnu(o);
+    const toit = toitLu ?? (r.toit === 'toile' ? 'chevrons et toile tendue' : LIBELLE_TOIT_PERGOLA[r.toit].toLowerCase() + ' couvert, pente ' + r.pente + '°');
+    const description = (nature === 'carport' ? 'un carport (abri de voiture ouvert)' : 'une pergola') + ' en ' + (materiauLu ?? LIBELLE_MATERIAU[r.materiau].toLowerCase())
       + (dims ? ' de ' + dims : '') + ', emprise au sol ' + fr(emprise, 1) + ' m², hauteur ' + fr(hauteur) + ' m, toit ' + toit
       + (r.adossee ? ', adossé(e) à la maison' : '');
     return [{ nom: o.name, nature, emprise, hauteur, description }];

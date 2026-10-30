@@ -18,8 +18,9 @@ import {
   resumeReglage, resumeAcces, hauteurTotale,
   LIBELLES_TYPE_CLOTURE, LIBELLES_PAREMENT, LIBELLES_ESSENCE, LIBELLES_FORME_PORTAIL,
   LIBELLES_OUVERTURE_PORTAIL, LIBELLES_REMPLISSAGE, LIBELLES_MATERIAU_PORTAIL, COULEUR_PAR_MATERIAU,
-  DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT,
+  DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT, typeDessine,
 } from '../../model/cloture.js';
+import { motConnu } from '../../shell/motsInconnus.js';
 import type {
   Cloture, ReglageCloture, CoteCloture, Portail, TypeCloture, ParementMur, EssenceHaie,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan,
@@ -142,20 +143,24 @@ export function sectionCloture(c: ContexteChamps): Section {
       lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours) ? String(coteEnCours) : ''),
       ecrire: (_cc, v) => { coteEnCours = v === '' ? null : Number(v); },
     },
-    { type: 'choix', cle: 'type', libelle: 'Type', visible: actif, effets: ['inspecteur', ...effets], options: () => options(LIBELLES_TYPE_CLOTURE), lire: (cc) => r(cc).type, ecrire: (cc, v) => ecrireReglage(cc, (x) => changerType(x, v as TypeCloture)) },
+    // Un type hors catalogue (fichier d'une version plus recente) reste dans le fichier et se dessine en palissade : la liste
+    // le montre tel quel, et le reprendre n'ecrit rien.
+    { type: 'choix', cle: 'type', libelle: 'Type', visible: actif, effets: ['inspecteur', ...effets],
+      options: (cc) => { const lu = r(cc).type as string; return [...options(LIBELLES_TYPE_CLOTURE), ...(motConnu(LIBELLES_TYPE_CLOTURE, lu) ? [] : [{ valeur: lu, libelle: 'Clôture inconnue (« ' + lu + ' »), dessinée en palissade bois' }])]; },
+      lire: (cc) => r(cc).type, ecrire: (cc, v) => { if (!motConnu(LIBELLES_TYPE_CLOTURE, v)) return; ecrireReglage(cc, (x) => changerType(x, v as TypeCloture)); } },
     { type: 'choix', cle: 'limite', libelle: 'Limite', visible: surCote, effets: ['inspecteur', 'rendu'], options: () => [{ valeur: '', libelle: 'Non précisée' }, { valeur: 'rue', libelle: 'Sur rue' }, { valeur: 'separative', libelle: 'Séparative (voisin)' }],
       // Non precisee : ce que le plan en devine, pour que le choix se fasse en connaissance.
       note: (cc) => { if (coteEnCours === null || coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) return ''; const d = coteRueDevine(cc.obj, cc.objets); return d === null ? '' : d === coteEnCours ? 'devinée : sur rue' : 'devinée : séparative'; },
       lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) || '', ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v === 'rue' || v === 'separative') x.limite = v; else delete x.limite; }) },
     { type: 'case', cle: 'mitoyenne', libelle: 'Mitoyenne', visible: surCote, effets: ['inspecteur'], aide: 'Clôture partagée avec le voisin', lire: (cc) => !!(coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.mitoyenne), ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v) x.mitoyenne = true; else delete x.mitoyenne; }) },
     { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur', unite: 'm', pas: 0.1, min: 0.1, max: 6, decimales: 2, visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), note: (cc) => (r(cc).soubassement ? `hors soubassement · ${fr(hauteurTotale(r(cc)))} m en tout` : ''), effets, lire: (cc) => r(cc).hauteur, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.hauteur = v; }); } },
-    { type: 'couleur', cle: 'couleur', libelle: 'Couleur', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets, lire: (cc) => r(cc).couleur || DEFAUTS_PAR_TYPE[r(cc).type].couleur || COULEUR_CLOTURE_DEFAUT, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couleur = v; }) },
+    { type: 'couleur', cle: 'couleur', libelle: 'Couleur', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets, lire: (cc) => r(cc).couleur || DEFAUTS_PAR_TYPE[typeDessine(r(cc))].couleur || COULEUR_CLOTURE_DEFAUT, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couleur = v; }) },
     { type: 'texture', cle: 'texture', libelle: 'Texture', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets: ['inspecteur', ...effets], lire: (cc) => r(cc).texture, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.texture = v; }) },
     { type: 'choix', cle: 'lames', libelle: 'Lames', visible: (cc) => type(cc, 'palissade'), effets, options: () => [{ valeur: 'verticales', libelle: 'Verticales' }, { valeur: 'horizontales', libelle: 'Horizontales' }], lire: (cc) => r(cc).lames || 'verticales', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.lames = v === 'horizontales' ? 'horizontales' : 'verticales'; }) },
     { type: 'choix', cle: 'grillage', libelle: 'Grillage', visible: (cc) => type(cc, 'grillage'), effets, options: () => [{ valeur: 'rigide', libelle: 'Rigide (panneaux)' }, { valeur: 'souple', libelle: 'Souple (rouleau)' }], lire: (cc) => r(cc).grillage || 'rigide', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.grillage = v === 'souple' ? 'souple' : 'rigide'; }) },
     { type: 'case', cle: 'occultante', libelle: 'Occultante', visible: (cc) => type(cc, 'palissade', 'grillage'), aide: 'Brise-vue : on ne voit pas au travers', effets, lire: (cc) => !!r(cc).occultante, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.occultante = v; }) },
     { type: 'choix', cle: 'essence', libelle: 'Essence', visible: (cc) => type(cc, 'haie'), effets: ['inspecteur', ...effets], options: () => options(LIBELLES_ESSENCE), lire: (cc) => r(cc).essence || 'laurier', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.essence = v as EssenceHaie; }) },
-    { type: 'nombre', cle: 'epaisseur', libelle: 'Épaisseur', unite: 'm', pas: 0.05, min: 0.05, max: 3, decimales: 2, visible: (cc) => type(cc, 'haie', 'mur'), effets, lire: (cc) => r(cc).epaisseur ?? DEFAUTS_PAR_TYPE[r(cc).type].epaisseur ?? 0.2, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.epaisseur = v; }); } },
+    { type: 'nombre', cle: 'epaisseur', libelle: 'Épaisseur', unite: 'm', pas: 0.05, min: 0.05, max: 3, decimales: 2, visible: (cc) => type(cc, 'haie', 'mur'), effets, lire: (cc) => r(cc).epaisseur ?? DEFAUTS_PAR_TYPE[typeDessine(r(cc))].epaisseur ?? 0.2, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.epaisseur = v; }); } },
     { type: 'case', cle: 'taillee', libelle: 'Taillée', visible: (cc) => type(cc, 'haie'), aide: 'Haie taillée au carré, plutôt que libre', effets, lire: (cc) => r(cc).taillee !== false, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.taillee = v; }) },
     { type: 'choix', cle: 'parement', libelle: 'Parement', visible: (cc) => type(cc, 'mur'), effets: ['inspecteur', ...effets], options: () => options(LIBELLES_PAREMENT), lire: (cc) => r(cc).parement || 'enduit', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.parement = v as ParementMur; }) },
     { type: 'case', cle: 'couvertine', libelle: 'Couvertine', visible: (cc) => type(cc, 'mur'), aide: 'Chaperon ou couvertine qui déborde du mur', effets, lire: (cc) => !!r(cc).couvertine, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couvertine = v; }) },

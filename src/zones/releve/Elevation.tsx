@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import type { OuvertureFacade, PartieBasse } from '../../model/types.js';
 import { estIncertaine, retouchee } from '../../facade/detection/verification.js';
 import { LIBELLES_OUVERTURE, fr, pointSvg, useEchelle } from './commun.js';
+import { libelleOuMot } from '../../shell/motsInconnus.js';
 
 export function Elevation({
   texture,
@@ -97,7 +98,7 @@ export function Elevation({
       {devinees.map((o, i) => (
         <g key={'d' + i} className="releveOuverture incertaine decochee">
           <rect x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" role="button" tabIndex={0}
-            data-controle="releve.garderDevinee" aria-label={`Baie devinée, à garder : ${LIBELLES_OUVERTURE[o.type]} ${fr(o.l)} × ${fr(o.h)} m`}
+            data-controle="releve.garderDevinee" aria-label={`Baie devinée, à garder : ${libelleOuMot(LIBELLES_OUVERTURE, o.type)} ${fr(o.l)} × ${fr(o.h)} m`}
             onPointerDown={(e) => {
               e.stopPropagation();
               garder?.(i);
@@ -112,7 +113,7 @@ export function Elevation({
         const sel = i === choisie;
         return (
           <g key={i} className={'releveOuverture' + (sel ? ' choisie' : '') + (estIncertaine(o) ? ' incertaine' : '')}>
-            <rect x={o.x} y={y} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" onPointerDown={saisir(i, -1)} role="button" aria-label={`${LIBELLES_OUVERTURE[o.type]} ${fr(o.l)} × ${fr(o.h)} m`} tabIndex={0} />
+            <rect x={o.x} y={y} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" onPointerDown={saisir(i, -1)} role="button" aria-label={`${libelleOuMot(LIBELLES_OUVERTURE, o.type)} ${fr(o.l)} × ${fr(o.h)} m`} tabIndex={0} />
             <text x={o.x + o.l / 2} y={y + o.h / 2} fontSize={12 / echelle} strokeWidth={3 / echelle} textAnchor="middle" dominantBaseline="middle" pointerEvents="none">
               {Math.round(o.l * 100)}×{Math.round(o.h * 100)}
             </text>

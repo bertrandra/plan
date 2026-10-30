@@ -5,7 +5,7 @@
 // l'urbanisme et les limites. Texte seul : l'ecrivain PDF du projet n'a qu'une police Helvetica sans
 // encodage declare, donc le texte passe en ASCII (accents et symboles transcrits).
 
-import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleAbri, libelleSection } from '../engine/abri/pergola.js';
+import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleAbri, libelleSection, materiauPergolaInconnu, toitPergolaInconnu } from '../engine/abri/pergola.js';
 import { ALU, BOIS, noteDeCalcul, noteExportable, TERRAINS, VB0, type NoteCalcul } from '../engine/abri/noteCalcul.js';
 import { A4_H, A4_L, MARGE_PDF, assemblerPDF, pdfPolygone, pdfTexte, type PagePdf } from './pdf/writer.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -89,7 +89,11 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
 
   f.titre('1. Ouvrage');
   f.puce('Emprise du toit ' + fr(n.emprise, 1) + ' m², contour de ' + (o.type === 'polygon' ? o.pts.length : 0) + ' côtés, débord ' + Math.round(r.debord * 100) + ' cm.');
-  f.puce('Matériau : ' + LIBELLE_MATERIAU[r.materiau] + ' ; toit : ' + LIBELLE_TOIT_PERGOLA[r.toit] + (r.toit === 'toile' ? '' : ', pente ' + r.pente + '°') + ' ; hauteur sous poutres ' + fr(r.hauteur) + ' m' + (r.adossee ? ' ; adossé à un mur' : '') + '.');
+  // Un mot hors catalogue s'ecrit tel quel, avec ce sur quoi la note est calculee : jamais le libelle du repli seul.
+  const materiauLu = materiauPergolaInconnu(o), toitLu = toitPergolaInconnu(o);
+  const materiau = materiauLu === null ? LIBELLE_MATERIAU[r.materiau] : materiauLu + ' (inconnu, calculé en ' + LIBELLE_MATERIAU[r.materiau].toLowerCase() + ')';
+  const toit = toitLu === null ? LIBELLE_TOIT_PERGOLA[r.toit] : toitLu + ' (inconnu, calculé en ' + LIBELLE_TOIT_PERGOLA[r.toit].toLowerCase() + ')';
+  f.puce('Matériau : ' + materiau + ' ; toit : ' + toit + (r.toit === 'toile' ? '' : ', pente ' + r.pente + '°') + ' ; hauteur sous poutres ' + fr(r.hauteur) + ' m' + (r.adossee ? ' ; adossé à un mur' : '') + '.');
   f.puce('Sections : poteaux ' + libelleSection(r.sectionPoteau) + ' (entraxe maximal ' + fr(r.entraxePoteaux, 1) + ' m), poutres ' + libelleSection(r.sectionPoutre) + ', chevrons ' + libelleSection(r.sectionChevron) + ' à ' + Math.round(r.entraxeChevrons * 100) + ' cm' + (r.avecContrefiches ? ', contrefiches ' + libelleSection(r.sectionContrefiche) + ' de ' + fr(r.longueurContrefiche) + ' m' : '') + '.');
 
   f.titre('2. Normes de référence');

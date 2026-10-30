@@ -10,7 +10,7 @@
 
 import {
   calculerPergola, chiffrerPergola, libelleAbri, clePrixPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleSection,
-  longueursPergola, MATERIAUX, metrageParSection, pergolaDe, prixMlDe, prixMlSaisi, SECTIONS_CONTREFICHE,
+  longueursPergola, MATERIAUX, materiauPergolaInconnu, metrageParSection, pergolaDe, prixMlDe, prixMlSaisi, SECTIONS_CONTREFICHE, toitPergolaInconnu,
   type MetrageSection, type ReglagesPergola, type RolePiece
 } from '../../engine/abri/pergola.js';
 import { solDuProjet } from '../../engine/sol.js';
@@ -28,6 +28,8 @@ function poser<K extends keyof Pergola>(c: ContexteChamps, cle: K, v: Pergola[K]
 }
 
 const fr = (v: number, d = 2): string => v.toFixed(d).replace('.', ',');
+/** L'option d'un mot hors catalogue, pour qu'une liste le montre tel quel au lieu du repli. */
+const inconnu = (mot: string | null, libelle: (mot: string) => string) => (mot === null ? [] : [{ valeur: mot, libelle: libelle(mot) }]);
 const toitEst = (...t: ToitPergola[]) => (c: ContexteChamps) => t.includes(reglages(c).toit);
 const enBois = (c: ContexteChamps) => reglages(c).materiau === 'bois';
 const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: c.obj.segmentNames?.[i] || ('Côté ' + (i + 1)) })) : [];
@@ -62,11 +64,17 @@ const sectionPergola: Section = {
     {
       type: 'choix', cle: 'materiau', libelle: 'Matériau', effets: EFFETS,
       aide: 'Bois : poteaux, poutres et contrefiches. Aluminium : profilés thermolaqués, sans contrefiches',
-      options: () => (Object.keys(LIBELLE_MATERIAU) as MateriauPergola[]).map(m => ({ valeur: m, libelle: LIBELLE_MATERIAU[m] })),
-      lire: (c) => reglages(c).materiau,
+      // Un mot hors catalogue (fichier d'une version plus recente) reste dans le fichier et se calcule en bois
+      // (pergolaDe) : la liste le montre tel quel, plutot que « Bois » pour un choix qui n'en est pas un.
+      options: (c) => [
+        ...(Object.keys(LIBELLE_MATERIAU) as MateriauPergola[]).map(m => ({ valeur: m, libelle: LIBELLE_MATERIAU[m] })),
+        ...inconnu(materiauPergolaInconnu(c.obj), (m) => 'Matériau inconnu (« ' + m + ' »), calculé en bois'),
+      ],
+      lire: (c) => materiauPergolaInconnu(c.obj) ?? reglages(c).materiau,
       // Les sections, les longueurs vendues et la couleur sont propres a la matiere : elles
       // reprennent celles de la nouvelle. Les prix saisis restent, ranges par matiere.
       ecrire: (c, v) => {
+        if (v === materiauPergolaInconnu(c.obj)) return; // le mot inconnu repris tel quel reste dans le fichier
         const p: Pergola = { ...(c.obj.pergola || {}), materiau: v as MateriauPergola };
         delete p.sectionPoteau; delete p.sectionPoutre; delete p.sectionChevron; delete p.longueursBois; delete p.couleurBois;
         c.obj.pergola = p;
@@ -74,10 +82,13 @@ const sectionPergola: Section = {
     },
     {
       type: 'choix', cle: 'toit', libelle: 'Toit', effets: EFFETS,
-      options: () => (Object.keys(LIBELLE_TOIT_PERGOLA) as ToitPergola[]).map(t => ({ valeur: t, libelle: LIBELLE_TOIT_PERGOLA[t] })),
-      lire: (c) => reglages(c).toit,
+      options: (c) => [
+        ...(Object.keys(LIBELLE_TOIT_PERGOLA) as ToitPergola[]).map(t => ({ valeur: t, libelle: LIBELLE_TOIT_PERGOLA[t] })),
+        ...inconnu(toitPergolaInconnu(c.obj), (t) => 'Toit inconnu (« ' + t + ' »), calculé en ' + LIBELLE_TOIT_PERGOLA[reglages(c).toit].toLowerCase()),
+      ],
+      lire: (c) => toitPergolaInconnu(c.obj) ?? reglages(c).toit,
       // La pente suit le toit tant qu'on ne l'a pas reglee : celle d'un appentis n'est pas celle de quatre pans.
-      ecrire: (c, v) => { const p: Pergola = { ...(c.obj.pergola || {}), toit: v as ToitPergola }; delete p.pente; c.obj.pergola = p; }
+      ecrire: (c, v) => { if (v === toitPergolaInconnu(c.obj)) return; const p: Pergola = { ...(c.obj.pergola || {}), toit: v as ToitPergola }; delete p.pente; c.obj.pergola = p; }
     },
     {
       type: 'nombre', cle: 'hauteur', libelle: 'Hauteur des poteaux', unite: 'm', pas: 0.05, min: 1.8, max: 4, decimales: 2, effets: EFFETS,

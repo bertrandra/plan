@@ -8,7 +8,7 @@
 // l'export GLB, montrent la meme maison.
 
 import type { ObjetPlan, ReglagesVoisinage3d, TypeCloture } from './types.js';
-import { DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT } from './cloture.js';
+import { DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT, typeDessine } from './cloture.js';
 import { FENETRE, ENTRAXE_FENETRES_M } from './fenetres3d.js';
 
 /** La couleur des murs des maisons voisines a l'import (geo/cadastreObjets.ts), et son second ton. */
@@ -28,7 +28,8 @@ export const VOISINAGE_3D_DEFAUT: ReglagesVoisinage3d = {
 
 /** La couleur par defaut d'une cloture du voisinage selon son type : celle du type, sauf le grillage, plus clair. */
 export function couleurClotureVoisinageDefaut(type: Exclude<TypeCloture, 'aucune'>): string {
-  return type === 'grillage' ? COULEUR_GRILLAGE_VOISINAGE : DEFAUTS_PAR_TYPE[type].couleur ?? COULEUR_CLOTURE_DEFAUT;
+  // Le type se lit dans le fichier : hors catalogue, la couleur de la palissade (typeDessine, le signal compris).
+  return type === 'grillage' ? COULEUR_GRILLAGE_VOISINAGE : DEFAUTS_PAR_TYPE[typeDessine({ type })].couleur ?? COULEUR_CLOTURE_DEFAUT;
 }
 
 /** Les reglages de la parcelle, completes des defauts ; les defauts seuls sans parcelle. */
