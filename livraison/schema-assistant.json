@@ -1,0 +1,82 @@
+{
+  "format": "plan-schema-assistant",
+  "version": 1,
+  "note": "Sortie de l'assistant en langue naturelle (lot L6). Une liste d'etapes, chacune une commande du catalogue ou l'ecriture d'un champ de l'objet selectionne (sa valeur en texte, dans l'unite du champ), et des questions. Plat, sans union ni champ facultatif : un champ sans objet vaut la chaine vide. Les identifiants ne s'enumerent pas (le catalogue change avec le plan) : Plan les verifie contre le catalogue. Le fichier porte un `exemple` de reponse et sa `consigne`, que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "etapes",
+      "questions"
+    ],
+    "properties": {
+      "etapes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "genre",
+            "commande",
+            "objet",
+            "champ",
+            "valeur",
+            "pourquoi"
+          ],
+          "properties": {
+            "genre": {
+              "type": "string",
+              "enum": [
+                "commande",
+                "champ"
+              ]
+            },
+            "commande": {
+              "type": "string"
+            },
+            "objet": {
+              "type": "string"
+            },
+            "champ": {
+              "type": "string"
+            },
+            "valeur": {
+              "type": "string"
+            },
+            "pourquoi": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "questions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "exemple": {
+    "etapes": [
+      {
+        "genre": "champ",
+        "commande": "",
+        "objet": "terrasse",
+        "champ": "lames.essence",
+        "valeur": "pin",
+        "pourquoi": "Les lames passent en pin, comme demandé."
+      },
+      {
+        "genre": "commande",
+        "commande": "affichage.grille",
+        "objet": "",
+        "champ": "",
+        "valeur": "",
+        "pourquoi": "La grille est masquée : cette bascule l’affiche."
+      }
+    ],
+    "questions": []
+  },
+  "consigne": "Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour une demande inventée : ses étapes ne sont pas à recopier, la réponse ne prend que des identifiants du catalogue joint à la demande, et sa liste a autant d’étapes que la demande en appelle (aucune si elle demande une question)."
+}

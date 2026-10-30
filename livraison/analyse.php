@@ -9,7 +9,7 @@
 //   POST admin/claude/batches                 cree un batch (une requete par passe) apres les plafonds
 //   GET  admin/claude/batches/<id>            son etat, lu chez Anthropic
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
-//   POST admin/claude/messages                l'appel immediat (run d'une facade, trois passes au plus ; lecture du PLU, un PDF)
+//   POST admin/claude/messages                l'appel immediat (run d'une facade, trois passes au plus ; lecture du PLU, un PDF ; texte du dossier)
 //   POST admin/claude/rejouer                 rejoue le run d'une facade gardee, depuis son image (administrateur, lot L0)
 //   GET  admin/claude/donnees-analyse         l'export « données d'analyse » a travers les audits (administrateur, lot L0)
 //   GET  admin/claude/images/<sha256>.<ext>   une image gardee par une trace, par son empreinte (administrateur, lot L0)
@@ -276,13 +276,17 @@ try {
         $plu = $versionsDe('plu');
         // La lecture du jardin (lot L3) : ses versions, ou null sur un deploiement d'avant.
         $jardin = $versionsDe('jardin');
+        // La redaction d'un texte du dossier (lot L5) : ses versions, ou null sur un deploiement d'avant.
+        $texte = $versionsDe('texte');
         // La lecture enrichie d'une facade (lot L1) : ses versions, ou null sur un deploiement d'avant.
         $facadeEnrichie = $versionsDe('facade-enrichie');
         // Le toit lu sur une facade (lot L2) : ses versions, ou null sur un deploiement d'avant.
         $facadeToit = $versionsDe('facade-toit');
+        // L'assistant (lot L6) : ses versions, ou null sur un deploiement d'avant.
+        $assistant = $versionsDe('assistant');
         $parUsage = modelesParUsage(reglageModeles($dossierClaude));
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'facade' => $facade, 'facadeEnrichie' => $facadeEnrichie, 'facadeToit' => $facadeToit, 'plu' => $plu, 'jardin' => $jardin, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
+                       'facade' => $facade, 'facadeEnrichie' => $facadeEnrichie, 'facadeToit' => $facadeToit, 'plu' => $plu, 'jardin' => $jardin, 'texte' => $texte, 'assistant' => $assistant, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 
