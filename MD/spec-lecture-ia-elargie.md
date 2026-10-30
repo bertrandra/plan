@@ -942,7 +942,7 @@ coupé par l'attente du téléchargement).
 |---|---|
 | Dix demandes de référence traduites en listes justes sur la démonstration | `tests/fixtures/assistant/` (demandes, listes admises) ; la vraie API, run 41050741385 : **10 sur 10** ; rejouées hors ligne par `reference.test.ts` sur ces réponses enregistrées |
 | Une étape refusée par `commandes.etat` est grisée avec sa raison | `etapes.test.ts` (contexte, permission, hors catalogue, bornes, autre objet) ; `assistant.test.ts` (jsdom) ; fumée 121 |
-| « Appliquer » puis Ctrl+Z rend le projet à l'identique | `reference.test.ts` pour chacune des dix ; `etapes.test.ts` (refus en route : rien n'est appliqué) ; `historique.test.ts` (transaction) ; fumée 121 |
+| « Appliquer » puis Ctrl+Z rend le projet à l'identique | `reference.test.ts` pour chacune des dix ; `etapes.test.ts` (refus en route : rien n'est appliqué) ; `historique.test.ts` (transaction) ; fumée 121 (le projet exporté, avant et après) — hors les préférences d'affichage que la parcelle range (interprétation 3) |
 | En lecture seule, seules les préférences d'affichage s'appliquent | `reference.test.ts` (demande 10 : la grille, pas les lames ; projet et pile intacts) ; `catalogue.test.ts` |
 | Catalogue généré, pas écrit à la main | `catalogue.test.ts` ; `requete-verification.json` comparée à ce que Plan génère |
 | Claude propose, le registre exécute | les étapes ne s'exécutent que par `commandes.executer` et `inspecteur.appliquer` ; rien du projet n'est écrit ailleurs |
@@ -953,7 +953,10 @@ coupé par l'attente du téléchargement).
    redemandez » ; Claude pose la même question (demande 08).
 2. **Un ajout pose l'objet à sa taille par défaut** et le sélectionne ; ses réglages se font ensuite (question 22).
 3. **Les préférences d'affichage d'une liste ne reviennent pas avec Ctrl+Z**, comme à la main (« Filaire », les bascules du menu
-   Affichage) ; elles se posent avant l'instantané. Une liste qui n'en a que ne fait aucune étape d'historique.
+   Affichage) ; elles se posent avant l'instantané. Une liste qui n'en a que ne fait aucune étape d'historique. La grille et le
+   voisinage se rangent sur la parcelle (`affichage`) : après Ctrl+Z, le projet est identique **hors** ce rangement, comme après les
+   mêmes bascules à la main. « À l'identique » se mesure sur le projet tel qu'il s'enregistre : l'état en mémoire porte des champs de
+   travail (`bdtopo.constructionLegere`…) que toute annulation recalcule et que le fichier ne garde pas.
 4. **Les sections des côtés et des coins** (le côté ou le coin que le pointeur désigne) n'entrent pas dans le catalogue : l'étape
    écrirait celui que la souris montre à l'instant d'« Appliquer ».
 5. **Une bascule déjà dans l'état voulu** quand la personne applique (elle l'a basculée entre-temps) est grisée « Déjà fait » : la
@@ -968,5 +971,8 @@ fichier, aucun schéma, aucune empreinte golden ne bouge ; aucun test retiré (t
 
 **Coût mesuré** (run 41050741385) : 0,00027 $ la demande en moyenne (0,00009 à 0,00087 $ selon la longueur de la réponse et l'écriture
 du cache), sous l'estimation de 0,001 $ ; la demande de la vérification, 0,0009 $ (le catalogue et le prompt écrits en cache).
+
+**Fumée.** Point **121** nouveau (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z) et point 9 (les
+annulations) rejoués : 6 sur 6 (compact, moyen, large ; clair ; réseau témoin). Le lot `ci` de la CI, vert.
 
 **Supprimé.** Rien : le lot ajoute.
