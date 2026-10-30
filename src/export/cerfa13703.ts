@@ -9,6 +9,9 @@
 // les protections patrimoniales (servitudes du PLU), et les ouvrages (pergolas, carports, terrasses)
 // avec leurs dimensions. Ce qu'il ne sait pas — le declarant, la date de naissance, la signature —
 // vient de la section « Déclaration préalable » de la parcelle, ou reste a completer a la main.
+//
+// Ce qui manque au formulaire ne se dit plus ici : la relecture avant l'export le dit (export/relecture.ts, lot L5), avec le reste du
+// dossier. La description (C2ZD1) est le texte que la personne a valide quand elle en a un (dossier.textes), sinon le texte calcule.
 
 import { shoelace } from '../geometry/basic.js';
 import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, natureAbri } from '../engine/abri/pergola.js';
@@ -16,6 +19,7 @@ import { solDuProjet } from '../engine/sol.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import type { DeclarationPrealable, ObjetPlan } from '../model/types.js';
 import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
+import { texteValide } from '../regles/textes/dossier.js';
 
 export const CERFA_13703 = { fichier: 'cerfa/cerfa_13703-12.pdf', version: '13703*12' } as const;
 
@@ -38,8 +42,6 @@ export interface RemplissageCerfa {
   ouvrages: OuvrageDeclare[];
   /** Emprise au sol creee par les abris, en m² (une terrasse de plain-pied n'en cree pas). */
   emprise: number;
-  /** Ce qui reste a completer dans le formulaire ou a joindre. */
-  manques: string[];
   /** Le regime qui s'applique : au-dela de la declaration prealable, il faut un permis. */
   regime: 'aucune' | 'declaration' | 'permis';
 }
@@ -70,6 +72,13 @@ export function dateCerfa(d: string | Date | undefined): string {
   if (d instanceof Date) return String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear();
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   return m ? (m[3] ?? '') + (m[2] ?? '') + (m[1] ?? '') : '';
+}
+
+/** Les references cadastrales du terrain, lues a l'import (une par parcelle fusionnee) avec leur superficie, en m² (0 : inconnue). */
+export function referencesDuTerrain(parcelle: ObjetPlan | null | undefined): { prefixe: string; section: string; numero: string; surface: number }[] {
+  const cad = (parcelle?.cadastre || {}) as Record<string, unknown>;
+  const fusion = Array.isArray(cad.fusionDe) ? cad.fusionDe as Record<string, unknown>[] : [cad];
+  return fusion.filter(p => p.idu || p.section).map(p => ({ ...referenceCadastrale(String(p.idu || ''), p.section, p.numero), surface: Number(p.contenanceM2) || 0 }));
 }
 
 /** Les cotes d'un contour a quatre angles droits : `4,00 x 3,00 m` ; sinon rien. */
@@ -121,22 +130,18 @@ export function remplirCerfa13703(objets: ObjetPlan[], aujourdHui: Date, pieces:
   const d: DeclarationPrealable = parcelle?.declaration || {};
   const t: Record<string, string> = {};
   const cases: string[] = ['C2ZA1_nouvelle'];
-  const manques: string[] = [];
   const poser = (champ: string, v: string | undefined) => { if (v) t[champ] = v; };
 
   // 1. Le declarant.
   poser('D1N_nom', d.nom?.toUpperCase()); poser('D1P_prenom', d.prenom);
   poser('D1A_naissance', dateCerfa(d.naissance)); poser('D1C_commune', d.communeNaissance);
   poser('D1D_dept', d.departementNaissance); poser('D1E_pays', d.paysNaissance);
-  if (!d.nom || !d.prenom) manques.push('le nom et le prénom du déclarant');
-  if (!d.naissance) manques.push('la date et le lieu de naissance');
 
   // 2. Ses coordonnees.
   poser('D3N_numero', d.numero); poser('D3V_voie', d.voie); poser('D3W_lieudit', d.lieuDit);
   poser('D3L_localite', d.localite); poser('D3C_code', chiffres(d.codePostal)); poser('D3T_telephone', chiffres(d.telephone));
   const [local, domaine] = (d.email || '').split('@');
   if (local && domaine) { t.D5GE1_email = local; t.D5GE2_email = domaine; if (d.accepteEmail) cases.push('D5A_acceptation'); }
-  if (!d.voie || !d.localite) manques.push('l\'adresse du déclarant');
 
   // 3. Le terrain : l'adresse lue a l'import, sauf si la declaration en donne une autre.
   const cad = (parcelle?.cadastre || {}) as Record<string, unknown>;
@@ -145,14 +150,11 @@ export function remplirCerfa13703(objets: ObjetPlan[], aujourdHui: Date, pieces:
   poser('T2V_voie', d.terrainVoie || lue.voie);
   poser('T2L_localite', d.terrainLocalite || lue.localite || String(cad.commune || parcelle?.nomLieu || ''));
   poser('T2C_code', chiffres(d.terrainCodePostal || lue.codePostal));
-  const fusion = Array.isArray(cad.fusionDe) ? cad.fusionDe as Record<string, unknown>[] : [cad];
-  const refs = fusion.filter(p => p.idu || p.section).map(p => ({ ...referenceCadastrale(String(p.idu || ''), p.section, p.numero), surface: Number(p.contenanceM2) || 0 }));
+  const refs = referencesDuTerrain(parcelle);
   const premiere = refs[0];
   if (premiere) {
     t.T2F_prefixe = premiere.prefixe; t.T2S_section = premiere.section; t.T2N_numero = premiere.numero;
     if (premiere.surface) t.T2T_superficie = String(Math.round(premiere.surface));
-  } else {
-    manques.push('les références cadastrales du terrain (importez la parcelle depuis son adresse)');
   }
   // Plusieurs parcelles : la fiche complementaire, une ligne par parcelle, et la superficie totale.
   if (refs.length > 1) {
@@ -169,9 +171,8 @@ export function remplirCerfa13703(objets: ObjetPlan[], aujourdHui: Date, pieces:
   const natures = [...new Set(ouvrages.map(o => o.nature === 'carport' ? 'carport (abri voiture ouvert)' : o.nature))];
   if (natures.length) t.C2ZA7_autres = natures.join(', ');
   const emprise = ouvrages.reduce((s, o) => s + o.emprise, 0);
-  t.C2ZD1_description = 'Construction de ' + ouvrages.map(o => o.description).join(' ; ') + '. '
-    + 'Emprise au sol créée : ' + fr(emprise, 1) + ' m². Ouvrages ouverts, sans création de surface de plancher.';
-  if (!ouvrages.length) manques.push('un ouvrage à déclarer (pergola, carport ou terrasse)');
+  // Le texte valide par la personne (lot L5), tel quel ; sinon celui que le plan calcule, comme avant.
+  t.C2ZD1_description = texteValide(parcelle?.dossier, 'description') ?? descriptionCalculee(ouvrages, emprise);
   cases.push(d.residence === 'secondaire' ? 'C2ZF2_secondaire' : 'C2ZF1_principale');
 
   // 5. Les protections patrimoniales, lues dans les servitudes du PLU quand le plan les a.
@@ -180,22 +181,23 @@ export function remplirCerfa13703(objets: ObjetPlan[], aujourdHui: Date, pieces:
     if (plu.spr.length) cases.push('X2R_remarquable');
     if (plu.servitudes.some(s => s.type === 'AC1')) cases.push('X2H_historique');
     if (plu.servitudes.some(s => s.type === 'AC2' && /class/i.test(s.nom + ' ' + s.nature))) cases.push('X2C_classe');
-  } else {
-    manques.push('les protections patrimoniales (consultez le PLU de la parcelle pour les cocher)');
   }
 
   // 8. L'engagement : le lieu et la date ; la signature reste manuscrite.
   poser('E1L_lieu', d.localite || t.T2L_localite);
   t.E1D_date = dateCerfa(aujourdHui);
-  manques.push('la signature du déclarant');
 
   // Le bordereau des pieces.
   pieces.forEach(p => cases.push(CASES_PIECES[p]));
-  if (!pieces.includes('DP6')) manques.push('la pièce DP6 (insertion) : ouvrez la Vue 3D, cadrez le projet comme vu de la rue, puis générez le dossier depuis le menu Exporter sans quitter la 3D');
-  manques.push('les photographies DP7 (environnement proche) et DP8 (paysage lointain), si le projet est visible depuis l\'espace public');
 
   const adossee = objets.some(o => estAbri(o) && !!o.pergola?.adossee);
-  return { textes: t, cases, ouvrages, emprise, manques, regime: regime(emprise, adossee) };
+  return { textes: t, cases, ouvrages, emprise, regime: regime(emprise, adossee) };
+}
+
+/** La description que le plan calcule depuis ses ouvrages : celle du cerfa tant qu'aucun texte n'est valide. */
+export function descriptionCalculee(ouvrages: readonly OuvrageDeclare[], emprise: number): string {
+  return 'Construction de ' + ouvrages.map(o => o.description).join(' ; ') + '. '
+    + 'Emprise au sol créée : ' + fr(emprise, 1) + ' m². Ouvrages ouverts, sans création de surface de plancher.';
 }
 
 /** Le libelle d'un ouvrage pour une liste : `Pergola « Pergola 1 »`. */

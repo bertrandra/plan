@@ -1,0 +1,31 @@
+{
+  "format": "plan-schema-texte",
+  "version": 1,
+  "note": "Sortie de la redaction d'une piece du dossier par Claude (lot L5) : le texte et ses reserves. Avec la sortie structuree, le schema part en output_config.format ; sans elle, le serveur montre `exemple` avec la consigne `consigne`, propre a cet usage. La reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer). Version 1 (30 octobre 2026) : texte, reserves.",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "texte",
+      "reserves"
+    ],
+    "properties": {
+      "texte": {
+        "type": "string"
+      },
+      "reserves": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "exemple": {
+    "texte": "Le projet consiste en la construction d’une pergola en bois de 4,00 x 3,00 m, adossée à la maison, d’une hauteur de 2,60 m, créant une emprise au sol de 12,0 m². Ouvrage ouvert, sans création de surface de plancher.",
+    "reserves": [
+      "la couleur de la pergola"
+    ]
+  },
+  "consigne": "Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour un projet inventé : ses valeurs ne sont pas à recopier, le texte rédige la pièce demandée depuis les faits envoyés."
+}

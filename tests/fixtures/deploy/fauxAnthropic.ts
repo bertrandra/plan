@@ -152,6 +152,11 @@ export const TEXTE_FACADE_SANS_FORMAT = 'Je lis la façade {scène de synthèse}
  */
 export const SORTIE_JARDIN = (JSON.parse(fs.readFileSync(new URL('../jardin-ia/reponse-synthetique.json', import.meta.url), 'utf8')) as { sortie: { objets: unknown[]; confiance: string } }).sortie;
 
+/** Une redaction d'un texte du dossier (deploy/schema-texte.json, lot L5). SYNTHETIQUE : ecrite a la main, pas une reponse de Claude. */
+export const SORTIE_TEXTE = { texte: 'Le projet consiste en la construction d’une pergola en bois de 4,00 x 3,00 m, adossée à la maison.', reserves: ['la couleur de la pergola'] };
+/** La requete est-elle une redaction d'un texte du dossier (son prompt) ? */
+export const estTexte = (corps: Record<string, unknown>): boolean => /rédiger une pièce écrite/.test(JSON.stringify(corps.system ?? ''));
+
 /** Le schema du run d'une facade, tel que le serveur le lit (deploy/schema-facade.json). */
 export const schemaFacade = (): Record<string, unknown> =>
   (JSON.parse(fs.readFileSync(new URL('../../../deploy/schema-facade.json', import.meta.url), 'utf8')) as { schema: Record<string, unknown> }).schema;

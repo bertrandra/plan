@@ -67,3 +67,21 @@ describe('le depot de la plateforme', () => {
     expect(facadesDe(p.objects[0])[0]!.texture).toBe(PHOTO);
   });
 });
+
+describe('les photographies DP7 et DP8 du dossier (lot L5)', () => {
+  it('sortent vers l appareil comme l elevation d un releve, et reviennent par leur cle', async () => {
+    const image = 'data:image/jpeg;base64,' + 'A'.repeat(200);
+    const parcelle = { key: 'p', type: 'polygon', pts: [], dossier: { textes: [], photos: [{ piece: 'DP7', image, source: 'audit', largeur: 1, hauteur: 1, choisieLe: '' }] } } as unknown as ObjetBrut;
+    const magasin = magasinMemoire();
+    const sortie = await sortirLesPhotos([parcelle], magasin);
+    expect(sortie.sorties).toBe(1);
+    const photo = (sortie.objets[0] as unknown as { dossier: { photos: { image: string | null; photoLocale?: string }[] } }).dossier.photos[0]!;
+    expect(photo).toMatchObject({ image: null, photoLocale: cleDePhoto(image) });
+    expect(JSON.stringify(sortie.objets)).not.toContain('data:');
+    // L'objet d'origine garde sa photo (la page la montre toujours).
+    expect((parcelle as unknown as { dossier: { photos: { image: string }[] } }).dossier.photos[0]!.image).toBe(image);
+    const rentree = await rentrerLesPhotos(sortie.objets, magasin);
+    expect((rentree.objets[0] as unknown as { dossier: { photos: { image: string }[] } }).dossier.photos[0]!.image).toBe(image);
+    expect((await rentrerLesPhotos(sortie.objets, magasinMemoire())).manquantes).toBe(1);
+  });
+});

@@ -13,6 +13,7 @@ import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
 import { brancherDialogueDeclaration } from './ecouteurs/exports.js';
+import type { ServiceDossier } from './declaration/serviceDossier.js';
 import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { titreObjet } from '../ui/champs/objet.js';
@@ -31,6 +32,8 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
   | 'applyAngleEdit' | 'applyLengthEdit' | 'deleteVertex' | 'alignObjectByRotation' | 'allerAuPointDeVue' | 'startPick' | 'pushHistory' | 'render'> {
   /** Le projet a change ; `objets` : ceux que l'ecriture a modifies sur place (core/controleurObjets.ts), sinon tout est neuf. */
   markDirty: (...objets: object[]) => void;
+  /** Le dossier de declaration (lot L5) : ses textes, ses photographies et sa relecture, que le dialogue de la declaration montre. */
+  dossier?: ServiceDossier;
   /** L'instantane d'avant l'ecriture, empile seulement si elle reussit (core/historique.ts `preparer`). */
   preparerHistorique: (...objets: object[]) => () => void;
   refreshTerrasseView: () => void;
@@ -155,6 +158,6 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
   };
   // La declaration prealable : un dialogue du menu Exporter qui rend des champs de la parcelle. Le
   // service qui les ecrit le declare, comme il les ecrit dans l'inspecteur.
-  brancherDialogueDeclaration(commandes, service);
+  brancherDialogueDeclaration(commandes, service, ctx.dossier);
   return service;
 }

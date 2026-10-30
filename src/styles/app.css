@@ -360,6 +360,34 @@
   .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
   .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
   .dialogueDeclaration{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
+  /* Le dossier de la declaration (lot L5, zones/parcours/TextesDossier.tsx) : les textes, les photographies, la relecture. Une piece
+     par carte ; l'etat se dit en mots, la bordure d'alerte ne fait que le souligner. */
+  .dossierDeclaration{ margin-top:14px; border-top:1px solid var(--rule); padding-top:10px; }
+  .sectionDossier{ margin:0 0 10px; }
+  .sectionDossier > summary, .faitsDossier > summary{ cursor:pointer; font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); padding:6px 0; }
+  .pieceDossier{ background:var(--panel-2); border:1px solid var(--hairline); border-radius:var(--r-tuile); padding:10px 12px; margin:0 0 10px; }
+  .titrePieceDossier{ font-family:var(--serif); font-size:0.95rem; margin-bottom:4px; }
+  .etatPieceDossier{ font-size:0.76rem; color:var(--ink-soft); margin:0 0 6px; line-height:1.4; }
+  .alertePieceDossier{ color:var(--ink); border-left:3px solid var(--alerte); padding-left:6px; }
+  .texteDossier{ width:100%; box-sizing:border-box; font-family:var(--serif); font-size:0.84rem; line-height:1.45; background:var(--input-bg); color:var(--ink);
+    border:1px solid var(--rule); border-radius:var(--r-champ); padding:8px; resize:vertical; }
+  .compteDossier{ font-size:0.68rem; color:var(--ink-soft); text-align:right; margin:2px 0 4px; font-variant-numeric:tabular-nums; }
+  .reservesDossier{ font-size:0.74rem; font-style:italic; color:var(--ink-soft); margin:0 0 4px; }
+  .actionsDossier{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .raisonDossier{ font-size:0.72rem; color:var(--ink-soft); margin:4px 0 0; }
+  .photoDossier{ display:block; max-width:100%; max-height:180px; border-radius:var(--r-champ); border:1px solid var(--hairline); }
+  .photosAuditDossier{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .vignetteDossier{ padding:0; width:64px; height:48px; overflow:hidden; border:1px solid var(--rule); border-radius:6px; background:var(--paper-deep); cursor:pointer; }
+  .vignetteDossier img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .faitsDossier pre{ font-family:var(--mono); font-size:0.68rem; max-height:220px; overflow:auto; background:var(--paper-deep); border-radius:var(--r-champ); padding:8px; white-space:pre-wrap; }
+  .relectureDossier{ margin-top:6px; }
+  .pointsRelecture{ list-style:none; margin:0; padding:0; }
+  .pointsRelecture li{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; padding:6px 0; border-bottom:1px solid var(--hairline); font-size:0.78rem; line-height:1.4; }
+  .graviteRelecture{ font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); min-width:84px; }
+  .pointsRelecture li[data-gravite="alerte"] .graviteRelecture{ color:var(--ink); border-left:3px solid var(--alerte); padding-left:4px; }
+  .textePointRelecture{ flex:1 1 260px; }
+  html:is([data-classe="compact"], [data-classe="moyen"]) :is(.actionsDossier button, .pointsRelecture button){ min-height:44px; }
+  html:is([data-classe="compact"], [data-classe="moyen"]) .vignetteDossier{ width:66px; height:50px; min-height:44px; }
   /* Les sections d'un ouvrage au tiroir (zones/resultats/Ouvrages.tsx) : un titre, ses lignes ; les prix se deplient. */
   .sectionOuvrage{ margin:0 0 12px; }
   .sectionOuvrage > summary{ cursor:pointer; }

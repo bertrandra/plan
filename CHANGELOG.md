@@ -5,6 +5,47 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Textes et relecture, lot L5** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.6, §5.4, §12.4). La déclaration préalable (Exporter ›
+  « Déclaration préalable… ») gagne ses pièces écrites : la description du cerfa, la notice descriptive et le texte d'insertion
+  paysagère. « Rédiger avec Claude » envoie les faits du projet (le terrain, les ouvrages déclarés, l'existant, la clôture, la zone du
+  PLU et ses seules règles vérifiées, les protections ; rien du déclarant) par un usage nouveau du serveur, `texte` (une requête, ses
+  prompt et schéma générés, en sortie structurée, Haiku par défaut) ; le brouillon revient avec ce que Claude n'a pas pu dire, à côté des
+  faits qui l'ont nourri. Vous le corrigez et le validez : **seul un texte validé entre dans le dossier**, à l'identique à chaque export
+  (la case C2ZD1 du cerfa, une page « Notice descriptive du projet »). Sans texte validé, le cerfa garde la description calculée et le
+  dossier n'a pas de page de notice. Un brouillon rédigé sur un projet qui a changé depuis est dit périmé ; un texte validé ne se
+  réécrit jamais seul.
+- **« Vérifier avant l'export »** : la relecture du dossier, déterministe et sans Claude, dans le dialogue de la déclaration (et
+  résumée par le message de l'export) : ce que le formulaire demande encore, les pièces sans image (DP6, DP7, DP8), un ouvrage en
+  limite dont le DP2 ne cote pas la distance, un brouillon périmé ou non validé, un texte validé sur un projet qui a changé, les règles
+  du PLU lues et pas vérifiées, les écarts aux règles vérifiées, un projet qui relève du permis. Chaque point dit sa gravité et, quand il
+  en a un, le geste qui le règle.
+- Les photographies **DP7** (environnement proche) et **DP8** (paysage lointain) : une par pièce, choisie parmi les photos de l'audit de
+  la parcelle gardées sur l'appareil (question 2 de la spec) ; elles entrent au dossier et cochent leur case du bordereau. Comme
+  l'élévation d'un relevé, elles sortent du document vers l'appareil quand le projet part à la plateforme.
+- Le champ `dossier` de la parcelle (textes, brouillons, photographies) : le schéma des projets passe à **12** (migration 11 → 12
+  identité ; la plateforme accepte déjà 7 à 12).
+- Le serveur, la vérification de l'API (huit requêtes), le réglage du modèle de chaque usage et le tableau de la consommation
+  connaissent l'usage `texte` (« Textes du dossier »).
+- Point de fumée **121** (rédiger, corriger, valider, exporter ; la relecture, un brouillon périmé).
+
+### Modifié
+
+- Le message de l'export de la déclaration préalable cite les points de la relecture que le formulaire demande (les mêmes phrases
+  qu'avant), et dit combien d'autres points elle relève.
+
+### Supprimé
+
+- La liste `manques` du remplissage du cerfa (`export/cerfa13703.ts`) : elle est déplacée dans la relecture avant l'export
+  (`export/relecture.ts`), mêmes phrases, même ordre.
+
+### Corrigé
+
+- Les prompts de la lecture enrichie d'une façade, du toit lu et de la lecture du jardin restaient lisibles par une adresse directe : le
+  modèle `.htaccess` ne refusait que `prompt-analyse.md`, `prompt-facade.md` et `prompt-plu.md`. Il refuse désormais tous les prompts que
+  le serveur lit, celui des textes du dossier compris.
+
 ## [5.3.0] — 2026-10-30
 
 Version **mineure** au sens de `MD/RELEASE.md` : le toit enrichi (lot L2 : la couverture et sa pose, le débord, le faîtage, la

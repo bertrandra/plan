@@ -119,6 +119,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.soleil) out.soleil = { dateStr: o.soleil.dateStr, minutes: o.soleil.minutes };
     // Le reglement du PLU lu pour le projet (lot L4), sur la parcelle : pose seulement une fois lu.
     if(o.reglementPlu) out.reglementPlu = JSON.parse(JSON.stringify(o.reglementPlu));
+    // Les textes et les photographies du dossier de declaration (lot L5), sur la parcelle : poses seulement s'ils existent.
+    if(o.dossier) out.dossier = JSON.parse(JSON.stringify(o.dossier));
     if(o.ruesVoisinage) out.ruesVoisinage = JSON.parse(JSON.stringify(o.ruesVoisinage));
     if(o.batiment?.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.batiment?.volumesToit));
     if(o.batiment?.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.batiment?.toitMesure));

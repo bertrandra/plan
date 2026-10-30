@@ -12,9 +12,10 @@
     8,
     9,
     10,
-    11
+    11,
+    12
   ],
-  "current_schema_version": 11,
+  "current_schema_version": 12,
   "demo_project": {
     "name": "Parcelle AE 101",
     "schema_version": 5,

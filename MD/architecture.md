@@ -527,6 +527,9 @@ src/regles/plu/              layer 2 — the PLU of the project's zone (lot L4):
                              and fallback example, assembled into deploy/prompt-plu.md and schema-plu.json), versions.ts, observations.ts
                              (the only reader of Claude's answer: no article or no quote, no fact), reglages.ts
 src/engine/regles/plu/       layer 3 — conformite.ts: the project's works checked against the VALIDATED PLU facts, as warnings
+src/regles/textes/           layer 2 — the declaration's written pieces (lot L5): dossier.ts (a piece's Claude draft and the text the
+                             person validated; the DP7 and DP8 photographs), redaction.ts (the `texte` prompt and closed schema, assembled
+                             into deploy/prompt-texte.md and schema-texte.json), versions.ts
 ```
 
 **The PLU subtree (lot L4).** A PLU fact is a fourth kind of input, next to rule, setting and roof fact, and it does not mix with them:
@@ -539,6 +542,12 @@ because they read the works' heights, the pergola's regulatory height and the cl
 only. Their verdicts are warnings in the PLU tab of the drawer (« Conformité PLU »); no export, quantity or command reads them. The
 reading keeps the règlement's address, the pages sent, the SHA-256 of the excerpt and of the document, the raw answer, model, versions and
 cost, so it can be re-read and compared.
+
+**The written pieces (lot L5).** A draft is not a fact either: Claude writes it from the project's facts (`export/faitsDossier.ts`,
+usage `texte`), the person corrects and validates it, and only a validated text reaches the export — verbatim, every time. It lives on the
+parcel (`ObjetPlan.dossier`, schema 12) with the SHA-256 of the facts it was written from, so a draft whose project has changed says it
+is stale. The review before export (`export/relecture.ts`) is deterministic and calls nobody: the cerfa's missing items, moved there, plus
+the pieces without an image, the DP2 distances not dimensioned, stale or unvalidated texts and the PLU's unverified facts and gaps.
 
 The calculation itself (`facade/toits/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
 proposes and prices, the engine arbitrates. `app/toits/toitsLidar.ts` and `app/toits/toitsFond.ts` orchestrate
