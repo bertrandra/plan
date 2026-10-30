@@ -60,7 +60,8 @@ export interface DemandeAnalyse {
  * calibration et le releve, une requete par facade dans le batch de l'audit), et la lecture du reglement du PLU (lot L4 : appel
  * immediat, un extrait PDF).
  */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'plu';
+/** `jardin` : la lecture du jardin d'une parcelle sur son orthophoto (lot L3), une requete dans le batch de l'audit. */
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'plu' | 'jardin';
 
 export interface EtatServeurAnalyse {
   actif: boolean;

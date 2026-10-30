@@ -10,7 +10,7 @@
 import { useStore } from 'zustand';
 import { sectionMetragePergola, sectionPrixPergola } from '../../ui/champs/pergola.js';
 import { sectionsResultatsPiscine } from '../../ui/champs/piscine.js';
-import { estAbri, estPiscine } from '../../model/fonctions.js';
+import { estAbri, estExistant, estPiscine } from '../../model/fonctions.js';
 import { ListeChamps, Tactile, useServiceLocal } from '../composants/Champs.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { Optimisation } from './Optimisation.js';
@@ -58,6 +58,8 @@ function selection(magasin: Magasin, garder: (o: ObjetPlan) => boolean): ObjetPl
 export function OngletPiscine({ magasin, inspecteur }: PropsOuvrage) {
   const piscine = selection(magasin, estPiscine);
   if (!piscine) return <div className="hint">Sélectionnez une piscine pour lire son métrage et son chiffrage.</div>;
+  // Une piscine deja la (lue sur la photo aerienne, lot L3) situe le projet : elle n'a ni chiffrage ni dossier.
+  if (estExistant(piscine)) return <div className="hint">Piscine existante : elle situe le projet, elle n’est ni chiffrée ni déclarée.</div>;
   const c = inspecteur.contexte(piscine);
   return <div id="piscineResultatsWrap"><Sections sections={sectionsResultatsPiscine(c)} c={c} inspecteur={inspecteur} magasin={magasin} /></div>;
 }

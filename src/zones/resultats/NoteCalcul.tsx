@@ -6,7 +6,7 @@
 // meme note s'imprime en annexe du dossier de mairie (export/dossierPiscine.ts).
 
 import { calculerPiscine, noteDeCalcul } from '../../engine/piscine.js';
-import { estPiscine } from '../../model/fonctions.js';
+import { estExistant, estPiscine } from '../../model/fonctions.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -15,6 +15,7 @@ export function NoteCalcul({ resultats, commandes }: { resultats: Resultats; com
   const etat = resultats.etat;
   const piscine = etat.objects.find(o => o.key === etat.selectedKey && estPiscine(o));
   if (!piscine) return <div className="hint">Sélectionnez une piscine pour lire sa note de calcul.</div>;
+  if (estExistant(piscine)) return <div className="hint">Piscine existante : elle situe le projet, elle n’a pas de note de calcul.</div>;
   const calc = calculerPiscine(piscine, etat.objects);
   if (!calc) return <div className="hint">Le bassin doit avoir au moins trois coins et plus d'un demi-mètre carré pour être calculé.</div>;
   const sections = noteDeCalcul(calc);

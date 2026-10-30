@@ -274,9 +274,11 @@ try {
         };
         $facade = $versionsDe('facade');
         $plu = $versionsDe('plu');
+        // La lecture du jardin (lot L3) : ses versions, ou null sur un deploiement d'avant.
+        $jardin = $versionsDe('jardin');
         $parUsage = modelesParUsage(reglageModeles($dossierClaude));
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'facade' => $facade, 'plu' => $plu, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
+                       'facade' => $facade, 'plu' => $plu, 'jardin' => $jardin, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 

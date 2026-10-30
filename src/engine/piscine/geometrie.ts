@@ -4,7 +4,7 @@
 import { au } from '../../util/tableaux.js';
 import { centroid, dist, shoelace, signedArea } from '../../geometry/basic.js';
 import { clipLineToPolygon, polygonOffset } from '../../geometry/polygon.js';
-import { estPiscine } from '../../model/fonctions.js';
+import { estExistant, estPiscine } from '../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { PROFILS_STRUCTURE, piscineDe, type ReglagesPiscine } from './reglages.js';
 
@@ -164,7 +164,8 @@ function demiPlan(poly: PtBrut[], sDe: (p: PtBrut) => number, s0: number, sens: 
 
 
 /** Les piscines calculables du plan. */
-export const piscinesDu = (objets: ObjetPlan[]): ObjetPlan[] => objets.filter(estPiscine);
+/** Les piscines du projet : une piscine existante (lue sur la photo, `existant`) ne se chiffre ni ne se declare. */
+export const piscinesDu = (objets: ObjetPlan[]): ObjetPlan[] => objets.filter((o) => estPiscine(o) && !estExistant(o));
 
 /** Le centre du bassin, pour les etiquettes et les cotes. */
 export const centrePiscine = (o: ObjetPlan): PtBrut => o.type === 'circle' ? { x: o.center.x, y: o.center.y } : centroid(o.pts);

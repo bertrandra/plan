@@ -13,7 +13,10 @@
 //   le projet est marque modifie. Les batiments vus et valides sont marques « vérifié sur place ».
 
 import { toucher } from '../../../core/controleurObjets.js';
-import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
+import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, clesVisees, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
+import { propositionsDuJardin } from '../../regles/jardin.js';
+import { especesChargees } from '../../../model/especesArbre.js';
+import type { RunJardin } from '../../../regles/jardin/observations.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeForme } from './formeFacades.js';
@@ -82,7 +85,7 @@ export interface ContexteValidation {
   /** Apres chaque validation qui a ecrit : le partage pour le corpus (§15) part alors, s'il est coche. */
   apresValidation?: () => void;
   /** Les reponses de Claude (app/audit/parcelle/analyseClaude.ts), quand il y en a : elles s'ajoutent aux mesures. */
-  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; accords?(): Record<string, AccordFacadeCapture> | null; runs?(): Record<string, RunEnregistre> | null };
+  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; accords?(): Record<string, AccordFacadeCapture> | null; runs?(): Record<string, RunEnregistre> | null; jardin?(): RunJardin | null };
 }
 
 export interface Validation {
@@ -312,7 +315,8 @@ function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Propos
     if (compare) { ctx.projet.comparer3d?.(null); compare = false; }
     // La vue unique ne repose que les batiments, tous ceux que les propositions visent : un decoche y
     // revient ainsi au plan.
-    const cles = [...new Set(toutes.map((p) => cleDeLaCible(p.cible)).filter((c): c is string => c !== null))];
+    // Un objet neuf du jardin (lot L3) compte aussi : decoche, il quitte la vue « Après ».
+    const cles = [...new Set(toutes.flatMap(clesVisees))];
     if (!cles.length && !montres.length) return;
     const tous = [...new Set([...montres, ...cles])];
     if (ctx.projet.remplacer3d(tous, apres.objets)) montres = cles;
@@ -454,7 +458,7 @@ function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Propos
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
 const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
 
-function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>, runs: Record<string, RunEnregistre> | null | undefined = null) {
+function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>, jardin: RunJardin | null = null, runs: Record<string, RunEnregistre> | null | undefined = null) {
   const e: EntreesPropositions = { ...entrees, accords, runs };
   const deLAudit = [...propositionsDeLAudit(e), ...propositionsDeForme(e)];
   // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
@@ -464,7 +468,10 @@ function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable
   const arbitrages = arbitragesParBatiment(e, votes, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
   const arbitrees = avecReserveDesNiveaux(propositionsDesArbitrages(e, arbitrages), e.objets, votes);
   // Un element du toit (cheminees, lucarnes, terrasse, appentis) dit aussi sa place sur la forme proposee du meme batiment (apresForme.ts).
-  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(accords ? propositionsAccords(e, accords) : [])])));
+  const avant = [...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(accords ? propositionsAccords(e, accords) : [])];
+  // La lecture du jardin (lot L3) : ses objets neufs et les cotes de cloture que rien d'autre ne regle, decoches, a la fin.
+  const duJardin = jardin ? propositionsDuJardin(jardin, e.objets, especesChargees(), avant).propositions : [];
+  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...avant, ...duJardin])));
   const observations = reponses || accords ? observationsDeClaude(e, reponses ?? {}, accords ?? {}) : [];
   return { propositions, observations, arbitrages };
 }
@@ -510,7 +517,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     if (figees) return figees;
     const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0) + ':' + versionDecisions;
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
-    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.accords?.(), decisions, ctx.analyse?.runs?.());
+    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.accords?.(), decisions, ctx.analyse?.jardin?.() ?? null, ctx.analyse?.runs?.());
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions), arbitrages };
     calculs++;
     return memo;

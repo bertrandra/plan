@@ -10,6 +10,7 @@ import { nomFichierAuditParcelle } from '../../../model/fichierAuditParcelle.js'
 import { partagerFichier } from '../../../shell/partage.js';
 import { creerAnalyseClaude, decoderImageNavigateur, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude } from './analyseClaude.js';
 import { accorderLesFacades } from './runsFacades.js';
+import { fabriqueJardinNavigateur } from './jardinClaude.js';
 import { chercherCoins } from '../../releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
@@ -29,7 +30,7 @@ export function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours
     etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant, apresValidation,
     projet: ctx.projet ?? PROJET_MUET,
     mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
-    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), accords: () => analyse().accords(), runs: () => analyse().runs() },
+    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), accords: () => analyse().accords(), runs: () => analyse().runs(), jardin: () => analyse().jardin() },
   });
 }
 
@@ -49,6 +50,8 @@ export function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, v
       depot: capture.lire().sauvegarde?.id ?? capture.lire().partage?.envoi?.id ?? null,
     }),
     images: a?.images ?? fabriqueImagesNavigateur(),
+    // La lecture du jardin (lot L3) : celle du navigateur, sauf quand les images sont simulees (tests) et qu'aucune n'est donnee.
+    ...(a?.jardin ? { jardin: a.jardin } : a?.images ? {} : { jardin: fabriqueJardinNavigateur() }),
     // Le run de chaque facade (lot F3) : ses boites accordees par le moteur avec la detection de la facade mesuree.
     accorder: a?.accorder ?? ((runs) => accorderLesFacades(runs, validation().entrees().mesures, decoderImageNavigateur)),
     ...(a?.notifier ? { notifier: a.notifier } : {}),

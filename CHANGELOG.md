@@ -81,6 +81,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (`tests/fixtures/plu/chatou-ul-extrait.pdf`).
 - Fumée : point 120 (le zonage du point 15, puis la lecture du règlement par une réponse **synthétique**, deux règles cochées, la
   conformité, Ctrl+Z, le projet exporté au schéma 8).
+- **Jardin, lot L3 de la lecture IA élargie : plate-bande, regard, et la lecture du jardin par Claude.** Un **massif** se règle
+  dans une section « Plantation » de l'inspecteur : **plate-bande** (au ras du sol, 12 cm) ou **massif planté**, ses plantes
+  (fleurs, arbustes, vivaces, mixte, potager), un **mini-arbre** pris parmi les petits arbres de la bibliothèque d'essences. Sa
+  **végétation basse se dessine par défaut dans la Vue 3D** : des plantes et des fleurs en instances (deux appels de dessin par
+  massif), semées dans le contour et tirées de la clé de l'objet (elles ne bougent jamais d'une ouverture à l'autre), plus ou moins
+  denses selon le niveau de qualité à l'écran, à la densité de référence dans le `.glb` ; la case « Plantes en 3D » les retire ; une plantation `haie` reste un volume vert. Un
+  massif d'avant (ceux de la démonstration, les haies de l'IGN) reste le bloc d'avant : **la démonstration et son `.glb` ne bougent
+  pas** (l'interrupteur `VEGETATION_POUR_TOUS_LES_MASSIFS` de `model/jardin.ts`, éteint, attend la décision du propriétaire). Un
+  **équipement** peut être un **regard** (un carré de 60 cm sur le plan, une plaque de fonte au ras du sol en 3D), un **éclairage**
+  ou un **robinet** : aucun ne charge la terrasse sous lui, à la différence d'un spa. Un ouvrage **existant** (une piscine, une
+  terrasse, un chemin lus sur la photo) situe le projet sans qu'aucune quantité ne le compte (dossier, piscine, équipements d'une
+  terrasse). Les champs sont ceux de `MD/spec-lecture-ia-elargie.md` §4.4 (`plantation`, `vegetation3d`, `nature`, `existant`).
+  **Schéma 9** (migration 8 → 9 identité ; le 8 est celui du lot L4, `reglementPlu` ; la plateforme accepte déjà 7 à 12).
+- **La lecture du jardin par Claude** : quand l'analyse de l'audit part, une requête de plus lit le jardin sur l'**orthophoto
+  recadrée sur la parcelle** (et les photos de la clôture et du portail), au modèle rapide (usage `jardin`, prompt et schéma
+  générés : `deploy/prompt-jardin.md`, `deploy/schema-jardin.json`). Claude dit les arbres (genre dans une liste fermée, taille),
+  haies, clôtures, portails, murets, bordures, chemins, terrasse et piscine déjà là, potager, plates-bandes, regards, éclairages et
+  robinets, à leur place sur l'image ; **le moteur décide** (`facade/regles/jardin.ts`, seuils dans `regles/jardin/reglages.json`) :
+  certitude, hors parcelle, déjà dans le plan, position en mètres par le géo-référencement de l'image, essence la plus proche de la
+  bibliothèque, ce qui va sur la clôture d'un côté. Ses propositions arrivent **décochées** dans l'avant/après (niveau « Jardin » de
+  la parcelle), se montrent dans « Après » seulement, et n'entrent dans le plan qu'à « Valider » (Ctrl+Z les défait). La lecture est
+  enregistrée avec la réponse brute, les versions, le modèle, le coût et l'image exacte envoyée.
+- `scripts/verifier-api-claude.mjs` vérifie aussi la requête du jardin, sur une orthophoto de synthèse du dépôt
+  (`tests/fixtures/jardin-ia/`, réponse de test SYNTHÉTIQUE).
+- Fumée : points 110 (plate-bande et sa végétation en 3D), 111 (regard), 115 (lecture du jardin acceptée dans l'avant/après).
 
 - **Lecture élargie par l'IA, lot L0 : tout garder** (`MD/spec-lecture-ia-elargie.md` §4.8, §12.1, décision 7). **Toute requête à
   Claude laisse une trace sur le serveur** : ce qui est parti (le texte complet, chaque requête, les images par empreinte) et ce qui

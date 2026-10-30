@@ -21,16 +21,18 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // L18), retire au lot F3 : une ligne `renfort` ne vit plus que dans le journal, et s'y lit encore.
 // `plu` (lot L4 de la lecture IA elargie) : la lecture du reglement d'une zone du PLU, sur un extrait PDF du document public que
 // la page tire du Geoportail de l'urbanisme (appel immediat, une requete). Son prompt et son schema sont les siens.
-const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'plu'];
+// `jardin` (lot L3 de la lecture IA elargie) : la lecture du jardin d'une parcelle, sur son orthophoto recadree (et les photos de la
+// cloture et du portail) ; une requete dans le batch de l'audit, ou un appel immediat. Le modele rapide par defaut.
+const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'plu', 'jardin'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
 // Sauf l'escalade, au modele plus fin depuis le 29 octobre 2026 (decision de l'utilisateur) : elle ne part qu'a la demande, apres
 // trois lectures votees du modele rapide, et un quatrieme passage du meme modele n'apporterait presque rien.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le run d'une facade (lot F2, generes par `npm run regles:generer`) a les siens ; les autres
 // usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json']];
+const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
@@ -43,8 +45,8 @@ const REQUETES_IMMEDIATES = 3;
 // d'une facade. Sans elle, sa reponse reelle n'etait pas lue (« Sortie non JSON », verification de l'API du
 // 29 octobre 2026, run 40887362801) ; son schema n'a ni recursion ni contrainte numerique, et l'API le compile. Si elle le
 // refusait un jour, la requete repart sans (formatRefuse).
-// La lecture du PLU aussi (lot L4) : un schema plat, sans recursion ni contrainte numerique.
-const SORTIE_STRUCTUREE = ['facade', 'plu'];
+// La lecture du PLU (lot L4) et celle du jardin (lot L3) aussi : des schemas plats, sans recursion ni contrainte numerique.
+const SORTIE_STRUCTUREE = ['facade', 'plu', 'jardin'];
 // Les usages qui admettent un document PDF dans leur requete (un bloc `document` en base64), un au plus : la lecture du PLU, et elle
 // seule. L'analyse d'une maison et le run d'une facade n'envoient que du texte et des images ; un PDF ailleurs est refuse.
 const USAGES_DOCUMENT = ['plu'];
@@ -562,6 +564,11 @@ function comptesSortie($sortie, string $usage): ?array {
     } elseif ($usage === 'plu') {
         // La lecture du PLU : ses regles relevees, chacune une valeur determinee (le tableau de bord en dit le rendement).
         $c['determines'] = count(listeDe($s['regles'] ?? null));
+    } elseif ($usage === 'jardin') {
+        // La lecture du jardin (lot L3) : ses objets, et ceux dont la certitude est forte.
+        $objets = listeDe($s['objets'] ?? null);
+        $c['elements'] = count($objets);
+        $c['determines'] = count(array_filter($objets, fn($o) => (objetDe($o)['certitude'] ?? null) === 'forte'));
     } else {
         foreach (listeDe($s['facades'] ?? null) as $f) {
             $o = objetDe(objetDe($f)['ouvertures'] ?? null);

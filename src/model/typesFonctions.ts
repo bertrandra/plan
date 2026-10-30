@@ -159,3 +159,28 @@ export interface VerifieSurPlace {
   /** Le jour de la validation, AAAA-MM-JJ. */
   date: string;
 }
+
+/** La forme d'une plantation (lot L3, jardin) : un massif plante (il garde sa hauteur), ou une plate-bande au ras du sol. */
+export type FormePlantation = 'massif' | 'plate-bande';
+/** Ce qu'elle porte (MD/spec-lecture-ia-elargie.md §4.4) : la vegetation basse dessinee en 3D en suit la forme et les couleurs. */
+export type TypePlantation = 'fleurs' | 'arbustes' | 'vivaces' | 'mixte' | 'potager' | 'haie';
+
+/**
+ * La plantation d'un massif (model/jardin.ts, MD/spec-lecture-ia-elargie.md §4.4) ; absente, le massif reste le bloc d'avant (une haie
+ * importee de l'IGN, un ancien fichier) : rien n'y pousse en 3D.
+ */
+export interface Plantation {
+  type: TypePlantation;
+  /** Absente : un massif plante. */
+  forme?: FormePlantation;
+  /** Qui l'a posee : la lecture du jardin (`ia`), ou la personne (`main`). */
+  source: 'ia' | 'main';
+  /** Un arbre nain plante au centre : une essence de la bibliotheque (petits arbres), et sa hauteur. */
+  miniArbre?: { espece: string; hauteurM: number } | null;
+}
+
+/**
+ * La nature d'un equipement (MD/spec-lecture-ia-elargie.md §4.4) ; absente, `spa` : le sens d'avant, la terrasse se renforce sous lui.
+ * Un regard, un eclairage ou un robinet ne la chargent pas (lot L3).
+ */
+export type NatureEquipement = 'spa' | 'regard' | 'eclairage' | 'robinet';

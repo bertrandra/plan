@@ -118,7 +118,13 @@ export type EffetProposition =
   | { type: 'elementsDuToit'; corps: number; cheminees: Cheminee[]; lucarnes: Lucarne[]; vu: ElementDeMurFait; facade: { cote: number; lucarnes: LucarneSurLeMur[] } | null; apresForme?: { corps: number; cheminees: Cheminee[]; lucarnes: Lucarne[] } | null }
   | { type: 'terrasse'; corps: number; terrasse: TerrasseToit; apresForme?: { corps: number; terrasse: TerrasseToit } | null }
   | { type: 'cloture'; cote: number; typeCloture: TypeClotureVue; hauteurM?: number; soubassement?: boolean }
-  | { type: 'portail'; cote: number; nature: 'portail' | 'portillon' | 'aucun'; position?: PositionPortail; largeurM?: number };
+  | { type: 'portail'; cote: number; nature: 'portail' | 'portillon' | 'aucun'; position?: PositionPortail; largeurM?: number }
+  /**
+   * Un objet NEUF du jardin, lu sur la photo aerienne (lot L3, facade/regles/jardin.ts) : un arbre, une plate-bande, un regard, une
+   * piscine deja la... La proposition vise la parcelle ; l'objet est ajoute au plan, une fois coche et valide, sous sa cle (une
+   * seconde validation ne le double pas). Il ne modifie aucun objet existant.
+   */
+  | { type: 'ajoutObjet'; objet: ObjetPlan };
 
 export type TypeEffet = EffetProposition['type'];
 
@@ -182,6 +188,15 @@ export function avecReserveSurPlace(propositions: readonly Proposition[]): Propo
 
 /** La cle du batiment que la proposition touche ; null pour la parcelle. */
 export const cleDeLaCible = (c: CibleProposition): string | null => (c.type === 'parcelle' ? null : c.cle);
+
+/**
+ * Les cles des objets que la proposition change ou ajoute : celle de sa cible (un batiment, une facade), et celle de l'objet neuf
+ * qu'elle pose (lot L3). La vue « Après » les repose.
+ */
+export const clesVisees = (p: Pick<Proposition, 'cible' | 'effet'>): string[] => {
+  const cle = cleDeLaCible(p.cible);
+  return [...(cle !== null ? [cle] : []), ...(p.effet.type === 'ajoutObjet' ? [p.effet.objet.key] : [])];
+};
 
 const cm = (v: number) => Math.round(v * 100) / 100;
 
@@ -307,6 +322,8 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
     }
     case 'cloture': appliquerCloture(o, e); return;
     case 'portail': appliquerPortail(o, e); return;
+    // Pose par `appliquerPropositions` (un objet neuf n'a pas de cible a modifier).
+    case 'ajoutObjet': return;
   }
 }
 
@@ -343,7 +360,7 @@ function effetApresForme(e: EffetProposition): EffetProposition | null {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, elementsDuToit: 2.75, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, elementsDuToit: 2.75, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4, ajoutObjet: 5 };
 
 /**
  * Les effets qui ecrivent le toit d'un batiment (sa forme, ses corps et ce qu'ils portent) : valides, ils sont une decision de la
@@ -370,6 +387,17 @@ export function appliquerPropositions(objets: ObjetPlan[], propositions: readonl
   const formeEcrite = new Set<string>();
   const ordre = [...propositions].sort((a, b) => RANG_EFFET[a.effet.type] - RANG_EFFET[b.effet.type]);
   for (const p of ordre) {
+    // Un objet neuf du jardin (lot L3) : ajoute sous sa cle, une copie, et jamais deux fois.
+    if (p.effet.type === 'ajoutObjet') {
+      const neuf = p.effet.objet;
+      if (!parCle.has(neuf.key)) {
+        const copie = JSON.parse(JSON.stringify(neuf)) as ObjetPlan;
+        objets.push(copie);
+        parCle.set(copie.key, copie);
+        touches.add(copie.key);
+      }
+      continue;
+    }
     const cle = cleDeLaCible(p.cible) ?? 'parcelle';
     const o = parCle.get(cle);
     if (!o) continue;
@@ -411,8 +439,11 @@ export function projetApres(objets: readonly ObjetPlan[], propositions: readonly
     if (o.batiment) copie.batiment = { ...o.batiment };
     return [o.key, copie] as const;
   }));
-  const touches = appliquerPropositions([...copies.values()], propositions, [], jour);
-  return { objets: objets.map((o) => copies.get(o.key) ?? o), touches };
+  const liste = [...copies.values()];
+  const touches = appliquerPropositions(liste, propositions, [], jour);
+  // Les objets neufs (lot L3) s'ajoutent a la suite : ceux qu'`appliquerPropositions` a poses apres les copies.
+  const neufs = liste.slice(copies.size).filter((o) => !objets.some((x) => x.key === o.key));
+  return { objets: [...objets.map((o) => copies.get(o.key) ?? o), ...neufs], touches };
 }
 
 /** Le jour d'une date, AAAA-MM-JJ, dans le fuseau de l'appareil : c'est le jour de la visite. */

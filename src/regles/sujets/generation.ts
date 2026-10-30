@@ -1,13 +1,15 @@
 // Les fichiers que le serveur lit (deploy/prompt-analyse.md, deploy/schema-analyse.json ; ceux du run d'une facade,
-// deploy/prompt-facade.md et deploy/schema-facade.json ; ceux de la lecture du PLU, deploy/prompt-plu.md et deploy/schema-plu.json), tels que
+// deploy/prompt-facade.md et deploy/schema-facade.json ; ceux de la lecture du PLU, deploy/prompt-plu.md et deploy/schema-plu.json ;
+// ceux de la lecture du jardin, deploy/prompt-jardin.md et deploy/schema-jardin.json), tels que
 // les descriptions de sujets les donnent : un seul endroit, appele par le script de generation, par les
 // tests et par l'ecran Admin › Regles.
 
 import type { DescriptionSujet } from './description.js';
 import { assemblerPrompt, assemblerSchema, avecEntete, textuel } from './assembler.js';
 import { DESCRIPTIONS_SUJETS } from './liste.js';
-import { NOTE_PROMPT, NOTE_PROMPT_FACADE, NOTE_SCHEMA, NOTE_SCHEMA_FACADE, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, versionCourante } from './versions.js';
+import { NOTE_PROMPT, NOTE_PROMPT_FACADE, NOTE_PROMPT_JARDIN, NOTE_SCHEMA, NOTE_SCHEMA_FACADE, NOTE_SCHEMA_JARDIN, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_SCHEMA_JARDIN, versionCourante } from './versions.js';
 import { RUN_FACADE } from './descriptions/facadesRun.js';
+import { RUN_JARDIN } from './descriptions/jardinRun.js';
 import { CONSIGNE_EXEMPLE_PLU, LECTURE_PLU } from '../plu/lecture.js';
 import { NOTE_PROMPT_PLU, NOTE_SCHEMA_PLU, VERSIONS_PROMPT_PLU, VERSIONS_SCHEMA_PLU } from '../plu/versions.js';
 
@@ -32,6 +34,16 @@ export function genererRunFacade(): FichiersGeneres {
     corpsPrompt: RUN_FACADE.prompt, versionPrompt, versionSchema,
     prompt: avecEntete(RUN_FACADE.prompt, { version: versionPrompt, note: NOTE_PROMPT_FACADE }),
     schema: textuel({ format: 'plan-schema-facade', version: versionSchema, note: NOTE_SCHEMA_FACADE, schema: RUN_FACADE.schema, exemple: RUN_FACADE.exemple }),
+  };
+}
+
+/** Les deux fichiers de la lecture du jardin (usage `jardin` du serveur, lot L3), sous les versions en vigueur. */
+export function genererRunJardin(): FichiersGeneres {
+  const versionPrompt = versionCourante(VERSIONS_PROMPT_JARDIN).version, versionSchema = versionCourante(VERSIONS_SCHEMA_JARDIN).version;
+  return {
+    corpsPrompt: RUN_JARDIN.prompt, versionPrompt, versionSchema,
+    prompt: avecEntete(RUN_JARDIN.prompt, { version: versionPrompt, note: NOTE_PROMPT_JARDIN }),
+    schema: textuel({ format: 'plan-schema-jardin', version: versionSchema, note: NOTE_SCHEMA_JARDIN, schema: RUN_JARDIN.schema, exemple: RUN_JARDIN.exemple, consigne: RUN_JARDIN.consigne }),
   };
 }
 

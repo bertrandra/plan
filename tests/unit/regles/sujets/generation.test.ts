@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { genererFichiers, genererRunFacade } from '../../../../src/regles/sujets/generation.js';
+import { genererFichiers, genererRunFacade, genererRunJardin } from '../../../../src/regles/sujets/generation.js';
 import { assemblerPrompt, assemblerSchema } from '../../../../src/regles/sujets/assembler.js';
 import { DESCRIPTIONS_SUJETS } from '../../../../src/regles/sujets/liste.js';
-import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE } from '../../../../src/regles/sujets/versions.js';
+import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA_JARDIN } from '../../../../src/regles/sujets/versions.js';
 import { controler } from '../../../../src/regles/sujets/edition.js';
 import type { DescriptionSujet } from '../../../../src/regles/sujets/description.js';
 
@@ -38,6 +38,32 @@ describe('le run d’une façade (deploy/prompt-facade.md, deploy/schema-facade.
     expect(readFileSync('deploy/schema-facade.json', 'utf8') === f.schema).toBe(true);
     expect(empreinteTexte(f.corpsPrompt), 'le prompt du run a change : une ligne de plus a VERSIONS_PROMPT_FACADE').toBe(versionCourante(VERSIONS_PROMPT_FACADE).empreinte);
     expect(empreinteTexte(f.schema), 'le schema du run a change : une ligne de plus a VERSIONS_SCHEMA_FACADE').toBe(versionCourante(VERSIONS_SCHEMA_FACADE).empreinte);
+  });
+
+  it('definit dans le prompt chaque champ et chaque terme de son schema', () => {
+    const termes = new Set<string>(), champs = new Set<string>();
+    const parcourir = (v: unknown): void => {
+      if (Array.isArray(v)) { v.forEach(parcourir); return; }
+      if (!v || typeof v !== 'object') return;
+      const o = v as Record<string, unknown>;
+      if (Array.isArray(o.enum)) for (const t of o.enum) termes.add(String(t));
+      if (o.properties && typeof o.properties === 'object') for (const k of Object.keys(o.properties)) champs.add(k);
+      Object.values(o).forEach(parcourir);
+    };
+    parcourir((JSON.parse(f.schema) as { schema: unknown }).schema);
+    // Un champ s'ecrit seul (`u0`) ou sous son parent (`calage.angles`).
+    for (const t of [...termes, ...champs]) expect(f.corpsPrompt, t).toMatch(new RegExp('[`.]' + t.replace(/[-]/g, '\\-') + '[`.]'));
+  });
+});
+
+describe('la lecture du jardin (deploy/prompt-jardin.md, deploy/schema-jardin.json, lot L3)', () => {
+  const f = genererRunJardin();
+
+  it('est ce que sa description donne, sous une version qui suit le texte', () => {
+    expect(readFileSync('deploy/prompt-jardin.md', 'utf8') === f.prompt).toBe(true);
+    expect(readFileSync('deploy/schema-jardin.json', 'utf8') === f.schema).toBe(true);
+    expect(empreinteTexte(f.corpsPrompt), 'le prompt du jardin a change : une ligne de plus a VERSIONS_PROMPT_JARDIN').toBe(versionCourante(VERSIONS_PROMPT_JARDIN).empreinte);
+    expect(empreinteTexte(f.schema), 'le schema du jardin a change : une ligne de plus a VERSIONS_SCHEMA_JARDIN').toBe(versionCourante(VERSIONS_SCHEMA_JARDIN).empreinte);
   });
 
   it('definit dans le prompt chaque champ et chaque terme de son schema', () => {
