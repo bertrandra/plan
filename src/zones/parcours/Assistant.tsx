@@ -23,7 +23,7 @@ export function Assistant({ service, commandes, fermer }: { service: ServiceAssi
   return (
     <div className="dialogueImperatif dialogueAssistant" role="dialog" aria-modal="true" aria-label="Assistant">
       <div className="titreParcours">Assistant</div>
-      <div className="sousTitreParcours">Écrivez ce que vous voulez faire : Claude le traduit en étapes de Plan. Rien ne change avant « Appliquer », et Ctrl+Z défait la liste d’un coup.</div>
+      <div className="sousTitreParcours">Écrivez ce que vous voulez faire : Claude le traduit en étapes de Plan. Rien ne change avant « Appliquer », et Ctrl+Z défait la liste d’un coup.</div>
       <label className="assistantDemande">
         <span>Demander</span>
         <textarea data-controle="assistant.demande" rows={3} maxLength={1000} value={e.demande} disabled={e.statut === 'envoi'}

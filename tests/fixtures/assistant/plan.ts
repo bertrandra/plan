@@ -34,6 +34,11 @@ export interface PlanDeReference {
   application: ContexteApplication;
   /** Le projet tel qu'il s'enregistre : de quoi dire « a l'identique ». */
   projet: () => string;
+  /**
+   * Le meme, sans les preferences d'affichage que la parcelle garde (`affichage` : la grille, le voisinage) : elles ne s'annulent pas,
+   * ni a la main ni apres une liste de l'assistant ; c'est sur lui que Ctrl+Z rend le projet a l'identique.
+   */
+  projetHorsAffichage: () => string;
 }
 
 /** Ce que les descripteurs demandent, sans le plan : un contexte qui repond « rien » a tout le reste (comme l'inventaire de l'inspecteur). */
@@ -67,7 +72,13 @@ export function planDeReference(options: { selection: string | null; lectureSeul
   }, { get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : rien) }) as unknown as Atelier;
   const commandes = creerRegistre();
   brancherObjets(atelier, commandes);
-  brancherAffichage(atelier, { enregistrerAffichage: rien, ctxOrtho: () => ({}) as never, buildThreeScene: rien }, commandes);
+  // Comme app/assemblage/affichage.ts : la grille et le voisinage se rangent sur la parcelle, hors historique.
+  const enregistrerAffichage = () => {
+    const p = etat.objects.find((o) => o.key === 'parcelle');
+    if (!p || (!p.affichage && etat.voisinageVisible && !etat.grilleVisible)) return;
+    p.affichage = { ...(p.affichage ?? {}), voisinage: etat.voisinageVisible, grille: etat.grilleVisible };
+  };
+  brancherAffichage(atelier, { enregistrerAffichage, ctxOrtho: () => ({}) as never, buildThreeScene: rien }, commandes);
 
   const contexte = (obj: ObjetPlan): ContexteChamps => {
     const base: Record<string, unknown> = {
@@ -114,5 +125,6 @@ export function planDeReference(options: { selection: string | null; lectureSeul
     },
     transaction: (f) => historique.transaction(f)
   };
-  return { etat, commandes, historique, source, application, projet: () => JSON.stringify(serializeObjects(etat.objects)) };
+  const projetHorsAffichage = () => JSON.stringify(serializeObjects(etat.objects).map((o) => (o.key === 'parcelle' ? { ...o, affichage: undefined } : o)));
+  return { etat, commandes, historique, source, application, projet: () => JSON.stringify(serializeObjects(etat.objects)), projetHorsAffichage };
 }

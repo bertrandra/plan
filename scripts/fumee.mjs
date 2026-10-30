@@ -4250,12 +4250,17 @@ const POINTS = {
       + `${lu.faits.length} règle(s), ${proposes} proposée(s) décochée(s) ; cochées : « ${bilan} » ; ${verdicts.join(' | ')} ; article « ${article} » ; source « ${source.replace(/\s+/g, ' ').slice(0, 120)} » ; `
       + `Ctrl+Z ×${annulations} → ${apresAnnuler} ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, reglementPlu ${porteur ? 'présent' : 'ABSENT'}` };
   },
-  121: async (page) => {
+  121: async (page, f) => {
     // L'assistant en langue naturelle (lot L6) : la terrasse selectionnee, le menu Aide › « Demander a l'assistant… », une demande ;
     // `admin/claude/messages` rend une liste SYNTHETIQUE (pas Claude) de trois etapes : le bois des lames (un champ), la grille (une
     // bascule d'affichage), et la plage d'une piscine (une commande que le registre refuse : aucune piscine n'est selectionnee).
-    // La liste se montre, l'etape refusee grisee avec sa raison ; « Appliquer » ; un Ctrl+Z rend le projet a l'identique.
+    // La liste se montre, l'etape refusee grisee avec sa raison ; « Appliquer » ; un Ctrl+Z rend le projet a l'identique, hors la
+    // grille que la parcelle range (`affichage`) : une preference d'affichage, qui ne s'annule pas, a la main non plus. Le projet se
+    // compare tel qu'il s'enregistre (Fichier › Exporter) : l'etat en memoire porte des champs de travail que toute annulation
+    // recalcule (`bdtopo.constructionLegere`…), et que le fichier ne garde pas.
     await selectionner(page, TERRASSE);
+    const projet = async () => JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson')))).objects;
+    const horsAffichage = (objets) => JSON.stringify(objets.map((o) => (o.key === 'parcelle' ? { ...o, affichage: undefined } : o)));
     const recues = [];
     const SORTIE = { etapes: [
       { genre: 'champ', commande: '', objet: 'terrasse', champ: 'lames.essenceBois', valeur: 'douglas', pourquoi: 'Les lames passent en douglas.' },
@@ -4267,7 +4272,7 @@ const POINTS = {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1,
         resultats: [{ id: 'assistant', statut: 'reussi', passe: 1, usage: 'assistant', sortie: SORTIE, erreur: null, cout: 0.0011, synthetique: true }] }) });
     });
-    const avant = JSON.stringify((await lireEtat(page)).objects);
+    const avant = horsAffichage(await projet());
     const grilleAvant = await page.evaluate(() => window.__plan.etat().grilleVisible);
     await page.evaluate(() => window.__plan.executer('assistant.demander'));
     const champ = page.locator('[data-controle="assistant.demande"]');
@@ -4280,7 +4285,9 @@ const POINTS = {
     const source = await page.locator('.sourceAssistant').innerText().catch(() => '');
     // Rien ne deborde du dialogue.
     const deborde = await page.evaluate(() => { const d = document.querySelector('.dialogueAssistant'); return !d ? 'dialogue absent' : d.scrollWidth > d.clientWidth + 1 ? 'oui' : ''; });
-    const pendant = JSON.stringify((await lireEtat(page)).objects);
+    // `FUMEE_CAPTURE_L6=<prefixe>` : le dialogue et sa liste, une image par classe et theme.
+    if (process.env.FUMEE_CAPTURE_L6) await page.screenshot({ path: process.env.FUMEE_CAPTURE_L6 + '-' + f.nom + '.png' }).catch(() => {});
+    const pendant = horsAffichage(await projet());
     const appliquer = page.locator('[data-commande="assistant.appliquer"]');
     const actif = await appliquer.isEnabled().catch(() => false);
     await appliquer.click();
@@ -4291,7 +4298,9 @@ const POINTS = {
     const grille = await page.evaluate(() => window.__plan.etat().grilleVisible);
     await page.waitForTimeout(200);
     await annuler(page);
-    const annule = JSON.stringify((await lireEtat(page)).objects);
+    const objetsAnnules = await projet();
+    const annule = horsAffichage(objetsAnnules);
+    const grilleRangee = objetsAnnules.find((o) => o.key === 'parcelle')?.affichage?.grille;
     const demande = recues[0];
     const blocs = demande?.requetes?.[0]?.contenu ?? [];
     const ok = envoiVide && recues.length === 1 && demande.usage === 'assistant' && blocs.length === 2 && /^# Catalogue de Plan/.test(blocs[0]?.text ?? '') && /^Demande :\n/.test(blocs[1]?.text ?? '')
@@ -4299,7 +4308,7 @@ const POINTS = {
       && pendant === avant && actif && ferme && essence === 'douglas' && grille === !grilleAvant && annule === avant && !deborde;
     return { ok, mesure: `envoi ${envoiVide ? 'grisé' : 'ACTIF'} sans demande ; ${recues.length} demande(s) usage ${demande?.usage}, ${blocs.length} bloc(s) (catalogue ${(blocs[0]?.text ?? '').length} caractères) ; `
       + `liste : ${lignes.map((l) => (l.refusee ? '[grisée] ' : '') + l.libelle + (l.raison ? ' — ' + l.raison : '')).join(' | ')} ; source « ${source} » ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} avant « Appliquer » ; `
-      + `appliqué : dialogue ${ferme ? 'fermé' : 'OUVERT'}, lames ${essence}, grille ${grille ? 'affichée' : 'masquée'} ; Ctrl+Z : projet ${annule === avant ? 'identique' : 'DIFFÉRENT'} ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'}` };
+      + `appliqué : dialogue ${ferme ? 'fermé' : 'OUVERT'}, lames ${essence}, grille ${grille ? 'affichée' : 'masquée'} ; Ctrl+Z : projet ${annule === avant ? 'identique' : 'DIFFÉRENT'} (grille rangée sur la parcelle : ${grilleRangee}) ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'}` };
   }
 };
 

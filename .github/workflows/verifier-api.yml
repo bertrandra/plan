@@ -106,8 +106,9 @@ jobs:
           set -o pipefail
           npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer mesure-facades --journal journal-api.txt --relance mesure-relance --journal-relance journal-relance.txt | tee -a "$GITHUB_STEP_SUMMARY"
       # Chaque liste de l'assistant jugee contre les listes admises (tests/fixtures/assistant/demandes.json) : rouge si une est fausse.
+      # Toujours, apres le garde-fou des facades : l'un rouge ne saute pas l'autre.
       - name: Les demandes de reference de l'assistant, jugees (sans la cle)
-        if: ${{ inputs.mesure_assistant }}
+        if: ${{ always() && inputs.mesure_assistant }}
         run: |
           set -o pipefail
           npx tsx scripts/assistant-reference.ts --evaluer mesure-assistant | tee -a "$GITHUB_STEP_SUMMARY"

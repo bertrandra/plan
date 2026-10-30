@@ -71,13 +71,13 @@ describe('une etape confrontee au catalogue', () => {
 describe('« Appliquer »', () => {
   it('fait la liste en une etape d annulation, et l annule toute quand une etape est refusee en route', () => {
     const p = planDeReference({ selection: 'terrasse' });
-    const avant = p.projet();
+    const avantHorsAffichage = p.projetHorsAffichage();
     const etapes = resoudre(lireReponse({ etapes: [commande('affichage.grille'), champ('terrasse', 'lames.essenceBois', 'douglas'), commande('objet.dupliquer')] }), construireCatalogue(p.source()));
     // Le registre refuse la duplication au moment de la faire : la liste entiere est defaite, la grille comprise.
     const executer = p.application.executer;
     const r = appliquerEtapes(etapes, { ...p.application, executer: (id) => (id === 'objet.dupliquer' ? false : executer(id)) });
     expect(r).toEqual({ ok: false, raison: '« Dupliquer » a été refusée par Plan. Rien n’a été appliqué.' });
-    expect(p.projet()).toBe(avant);
+    expect(p.projetHorsAffichage()).toBe(avantHorsAffichage);
     expect(p.etat.grilleVisible).toBe(false);
     expect(p.historique.pile.vide).toBe(true);
     // Sans refus : une etape d'annulation, et Ctrl+Z rend le projet d'avant (la grille, preference d'affichage, reste).
@@ -85,7 +85,7 @@ describe('« Appliquer »', () => {
     expect(p.etat.objects.filter((o) => o.name?.startsWith('Terrasse')).length).toBe(2);
     expect(p.historique.pile.taille).toBe(1);
     p.historique.annuler();
-    expect(p.projet()).toBe(avant);
+    expect(p.projetHorsAffichage()).toBe(avantHorsAffichage);
     expect(p.etat.grilleVisible).toBe(true);
   });
 

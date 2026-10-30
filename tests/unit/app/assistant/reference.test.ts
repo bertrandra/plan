@@ -28,17 +28,19 @@ describe('les dix demandes de reference de l assistant, sur la demonstration', (
       it('« Appliquer » puis Ctrl+Z rend le projet a l identique, en une seule etape d annulation', () => {
         const plan = planDe(d);
         const etapes = resoudre(lireReponse(enregistrees.reponses[d.id]?.sortie), construireCatalogue(plan.source()));
-        const avant = plan.projet(), affichage = [plan.etat.showNorth, plan.etat.grilleVisible, plan.etat.voisinageVisible];
+        const avant = plan.projetHorsAffichage(), affichage = [plan.etat.showNorth, plan.etat.grilleVisible, plan.etat.voisinageVisible];
         const utiles = etapes.filter((e) => !e.refus);
         const r = appliquerEtapes(etapes, plan.application);
-        if (!utiles.length) { expect(r.ok).toBe(false); expect(plan.projet()).toBe(avant); return; }
+        if (!utiles.length) { expect(r.ok).toBe(false); expect(plan.projetHorsAffichage()).toBe(avant); return; }
         expect(r).toMatchObject({ ok: true, faites: utiles.length });
         const projet = utiles.some((e) => e.ecrit === 'projet');
         // Une etape d'historique pour la liste entiere, et aucune si elle ne touche que l'affichage.
         expect(plan.historique.pile.taille).toBe(projet ? 1 : 0);
-        if (projet) expect(plan.projet()).not.toBe(avant);
+        if (projet) expect(plan.projetHorsAffichage()).not.toBe(avant);
         plan.historique.annuler();
-        expect(plan.projet()).toBe(avant);
+        // Le projet d'avant, a l'identique ; seules les preferences d'affichage que la parcelle range (la grille, le voisinage)
+        // restent, comme apres les memes bascules a la main.
+        expect(plan.projetHorsAffichage()).toBe(avant);
         // Les preferences d'affichage ne reviennent pas avec Ctrl+Z (comme a la main) : elles restent posees.
         if (utiles.some((e) => e.ecrit === 'affichage')) expect([plan.etat.showNorth, plan.etat.grilleVisible, plan.etat.voisinageVisible]).not.toEqual(affichage);
       });
@@ -51,10 +53,10 @@ describe('les dix demandes de reference de l assistant, sur la demonstration', (
     const plan = planDe(d);
     const etapes = resoudre(lireReponse(enregistrees.reponses[d.id]?.sortie), construireCatalogue(plan.source()));
     expect(etapes.filter((e) => e.ecrit === 'projet').every((e) => /Lecture seule/.test(e.refus ?? ''))).toBe(true);
-    const avant = plan.projet();
+    const avant = plan.projetHorsAffichage();
     expect(appliquerEtapes(etapes, plan.application)).toMatchObject({ ok: true });
     expect(plan.etat.grilleVisible).toBe(true);
-    expect(plan.projet()).toBe(avant);
+    expect(plan.projetHorsAffichage()).toBe(avant);
     expect(plan.historique.pile.vide).toBe(true);
   });
 
