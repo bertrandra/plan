@@ -23,6 +23,7 @@ import { rangerChampsAPlat } from './champsFonction.js';
 import type { ChampsBatiment, ObjetBrut, ObjetAPoints } from './types.js';
 import { lireChampsEtendus } from './corpsToitEtendu.js';
 import { soleilEnregistre } from './soleilProjet.js';
+import { reglementPluEnregistre } from '../regles/plu/faits.js';
 
 /**
  * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
@@ -57,6 +58,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.cadastre) c.cadastre = JSON.parse(JSON.stringify(c.cadastre));
     if (c.bdtopo) c.bdtopo = JSON.parse(JSON.stringify(c.bdtopo));
     if (c.plu) c.plu = JSON.parse(JSON.stringify(c.plu));
+    // Le reglement du PLU lu pour le projet (lot L4) : relu et copie s'il se lit, retire sinon.
+    if (c.reglementPlu !== undefined) { const r = reglementPluEnregistre(c.reglementPlu); if (r) c.reglementPlu = r; else delete c.reglementPlu; }
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
     if (c.declaration) c.declaration = JSON.parse(JSON.stringify(c.declaration));

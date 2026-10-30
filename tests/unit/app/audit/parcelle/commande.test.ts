@@ -4,6 +4,8 @@ import { creerRegistre, PHRASE_PERMISSION, type Droits } from '../../../../../sr
 import { parcours } from '../../../../../src/app/parcours.js';
 import { creerEtat } from '../../../../../src/core/state.js';
 import { entrerEnAdmin } from '../../../../../src/app/acces.js';
+import { designerFacade } from '../../../../../src/interaction/choixFacade.js';
+import type { CasStocke } from '../../../../../src/facade/corpusReel.js';
 import type { ClientAudits, FicheAudit } from '../../../../../src/io/auditsServeur.js';
 import type { ObjetPlan } from '../../../../../src/model/types.js';
 
@@ -56,6 +58,23 @@ describe('la commande audit.parcelle', () => {
     cmd.executer('audit.parcelle');
     await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
     expect(b.session()).toBe(premiere);
+  });
+});
+
+describe('la Vue 3D sous la liste de l audit', () => {
+  it('ne rend plus d images tant que la liste la couvre ; la prise et la fermeture la font repartir', async () => {
+    const { vue3d } = await import('../../../../../src/three/etat3d.js');
+    const { cmd, b } = monter([parcelle({ idu: 'X', origineLat: 48.9, origineLon: 2.13 })], droits(true));
+    expect(vue3d.renduCouvert).toBe(false);
+    cmd.executer('audit.parcelle');
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
+    expect(vue3d.renduCouvert).toBe(true);
+    b.session()?.montrer('prise');
+    expect(vue3d.renduCouvert).toBe(false);
+    b.session()?.montrer('liste');
+    expect(vue3d.renduCouvert).toBe(true);
+    parcours.fermer();
+    expect(vue3d.renduCouvert).toBe(false);
   });
 });
 
@@ -235,5 +254,62 @@ describe('la commande admin.auditsParcelle', () => {
     await vi.waitFor(() => expect(messages.at(-1)).toMatch(/^Consultation refusée/));
     expect(messages.at(-1)).toMatch(/^Consultation refusée : Ce fichier est l’audit de la parcelle 78650000AE0199/);
     expect(parcours.courant()?.type).toBe('auditsParcelle');
+  });
+});
+
+// Apres les tests de l'admin : la session de l'admin des demos, une fois ouverte, le reste pour tout le fichier.
+describe('photographier une facade : la capture est dans l audit (lot F6)', () => {
+  const idu = { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 };
+  const maison = (pts = [{ x: 2, y: 2 }, { x: 8, y: 2 }, { x: 8, y: 7 }, { x: 2, y: 7 }]): ObjetPlan => ({ key: 'maison', name: 'Maison', type: 'polygon', fonction: 'batiment', elevation: 5, pts } as ObjetPlan);
+
+  it('facade.photographier : grisee avec sa raison sans parcelle ou hors de la parcelle ; ouvre l ecran de prise sur le mur designe', async () => {
+    const sans = monter([parcelle(null), maison()], droits(true));
+    sans.etat.selectedKey = 'maison';
+    expect(sans.cmd.etat('facade.photographier')).toEqual({ utilisable: false, raison: 'contexte', message: RAISON_SANS_PARCELLE });
+    const loin = monter([parcelle(idu), maison([{ x: 50, y: 50 }, { x: 60, y: 50 }, { x: 60, y: 58 }])], droits(true));
+    loin.etat.selectedKey = 'maison';
+    expect(loin.cmd.etat('facade.photographier')).toEqual({ utilisable: false, raison: 'contexte', message: 'Ce bâtiment n’est pas sur la parcelle du projet : l’audit ne photographie que ses bâtiments.' });
+    expect(monter([parcelle(idu), maison()], droits(false)).cmd.obtenir('facade.photographier')).toMatchObject({ groupe: 'facade', permission: 'projects.write' });
+    const { cmd, b, etat } = monter([parcelle(idu), maison()], droits(true));
+    etat.selectedKey = 'maison';
+    designerFacade(2);
+    expect(cmd.executer('facade.photographier')).toBe(true);
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
+    expect(b.session()?.ecran()).toBe('prise');
+    expect(b.session()?.cible()).toMatchObject({ cle: 'maison', cote: 2, choisie: true });
+  });
+
+  it('facade.creerCas : l administrateur seul fait d une facade photographiee un cas de calibration, range sur le serveur', async () => {
+    const etat = creerEtat({ objects: [parcelle(idu), maison()] } as never, (o) => o as never);
+    const cmd = creerRegistre(droits(true));
+    const messages: string[] = [];
+    const ranges: [string, CasStocke][] = [];
+    brancherAuditParcelle({
+      etat, ouvrir3d: vi.fn(), signaler: (m) => messages.push(m), stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, lireGrille: async () => null, maintenant: () => new Date('2026-10-29T12:00:00Z'),
+      enregistrerCas: async (id, cas) => { ranges.push([id, cas]); },
+    }, cmd);
+    cmd.executer('audit.parcelle');
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
+    const p = parcours.courant();
+    if (p?.type !== 'auditParcelle') throw new Error('audit absent');
+    p.session.capture.ajouterPhotoFacade('maison', 0, { type: 'image/jpeg', base64: 'AAAA' } as never);
+    entrerEnAdmin();
+    expect(cmd.etat('facade.creerCas').utilisable).toBe(true);
+    // Le bouton sous la barre de la facade : la facade vient de `data-facade` de la barre.
+    const barre = { dataset: { facade: 'maison#0' } };
+    const bouton = { closest: () => barre } as unknown as HTMLElement;
+    cmd.executer('facade.creerCas', bouton);
+    await vi.waitFor(() => expect(ranges).toHaveLength(1));
+    const [id, cas] = ranges[0]!;
+    expect(id).toBe('cas-' + new Date('2026-10-29T12:00:00Z').getTime().toString(36));
+    expect(cas).toMatchObject({ format: 'plan-facade-reelle', statut: 'brouillon', largeurM: 6, images: ['data:image/jpeg;base64,AAAA'] });
+    expect(cas.nom).toMatch(/^Maison · façade .* \(78650000AE0101\)$/);
+    expect(messages.at(-1)).toBe('Cas de calibration créé : « ' + cas.nom + ' », 1 photo. Ouvrez-le dans Admin › Calibrer la détection.');
+    // Une facade sans photo ne fait pas de cas.
+    barre.dataset.facade = 'maison#1';
+    cmd.executer('facade.creerCas', bouton);
+    await vi.waitFor(() => expect(messages.at(-1)).toBe('Cette façade n’a pas de photo, ou ses dimensions manquent : rien à calibrer.'));
+    expect(ranges).toHaveLength(1);
   });
 });

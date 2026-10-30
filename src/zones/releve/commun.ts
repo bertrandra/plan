@@ -1,4 +1,4 @@
-// Le releve de facade (zones/Releve.tsx) : reglages de l'appareil, reperes SVG et libelles partages.
+// L'editeur d'une facade (zones/Releve.tsx), les quatre reperes (PoserReperes) et la calibration : reperes SVG et libelles partages.
 
 import { useEffect, useState } from 'react';
 import type { P2 } from '../../facade/vision/homographie.js';
@@ -12,23 +12,6 @@ export const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à 
 export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
 
 export { chiffreFr as fr } from '../../util/format.js';
-
-/** Reglages propres a l'appareil : l'objectif choisi et le champ de chacun. Jamais dans le projet. */
-export function lireReglage(cle: string, defaut: number): number {
-  try {
-    const v = parseFloat(localStorage.getItem('plan.releve.' + cle) || '');
-    return Number.isFinite(v) && v > 0 ? v : defaut;
-  } catch {
-    return defaut;
-  }
-}
-export function ecrireReglage(cle: string, v: number): void {
-  try {
-    localStorage.setItem('plan.releve.' + cle, String(v));
-  } catch {
-    /* navigation privee : le reglage vaut pour la seance */
-  }
-}
 
 /** Un point d'un SVG sous le doigt, dans le repere de son viewBox. */
 export function pointSvg(svg: SVGSVGElement, e: { clientX: number; clientY: number }): P2 {

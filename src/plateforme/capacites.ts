@@ -73,8 +73,9 @@ export const CAPACITES = {
   plu: {
     code: 'plan.plu',
     libelle: "Regles d'urbanisme (PLU)",
-    commandes: ['plu.interroger'],
-    origines: ['https://apicarto.ign.fr']
+    commandes: ['plu.interroger', 'plu.lireReglement', 'plu.validerFait'],
+    // data.geopf.fr : le PDF du reglement (lot L4), deja dans la CSP pour la BD TOPO et les tuiles.
+    origines: ['https://apicarto.ign.fr', 'https://data.geopf.fr']
   },
   terrasse: {
     code: 'plan.terrasse',

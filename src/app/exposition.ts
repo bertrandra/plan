@@ -127,10 +127,15 @@ export const EXPOSITION: Record<string, Ligne> = {
   'mesure.effacer': partout('tiroir'),
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
   'plu.interroger': partout('tiroir'),
+  // La lecture du reglement par Claude et la validation de ses regles : l'onglet PLU du tiroir, dans les trois classes (lot L4).
+  'plu.lireReglement': partout('tiroir'),
+  'plu.validerFait': partout('tiroir'),
   // L'optimisation de la structure : un resultat, l'onglet Optimisation du tiroir d'une terrasse.
   'terrasse.optimisation': partout('tiroir'),
-  // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
-  'facade.relever': partout('inspecteur'),
+  // Une facade d'un batiment : la section « Facades et toit », une ligne par mur. La photo se prend dans l'audit (lot F6) ;
+  // l'editeur du releve corrige ses ouvertures.
+  'facade.photographier': partout('inspecteur'),
+  'facade.modifier': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
   // Une etape de l'enchainement d'une facade : un segment de la barre de progression (MD/spec-facade-calage-audit.md §4 ter.5), que la
   // calibration porte en haut de l'editeur d'un cas (et sa frise des etapes), dans les trois classes.
@@ -139,6 +144,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'facade.escalader': partout('barreFacade'),
   // La validation d'une facade (V4, lot F5) : sous sa barre, dans l'audit, dans les trois classes.
   'facade.valider': partout('barreFacade'),
+  // Un cas de calibration tire d'une facade de l'audit (lot F6) : dans la fiche de la facade de l'audit, pour l'administrateur, dans les trois classes.
+  'facade.creerCas': partout('parcours'),
   // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.
   'toit.modifier': partout('vue3d'),
   'toit.valider': partout('vue3d'),

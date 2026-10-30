@@ -1,5 +1,5 @@
-// Z8, le releve de facade charge a l'ouverture (AD-10) : le parcours (zones/Releve.tsx) et ce qu'il atteint — l'analyse des
-// facades, le calage, la camera — ne se telechargent que quand un releve s'ouvre. Cette coquille ne fait que l'attendre.
+// Z8, l'editeur d'une facade relevee, charge a l'ouverture (AD-10) : l'editeur (zones/Releve.tsx) et ce qu'il atteint ne se
+// telechargent que quand il s'ouvre. Cette coquille ne fait que l'attendre.
 
 import { lazy, Suspense, useSyncExternalStore } from 'react';
 import type { ServiceReleve } from '../app/releve/releve.js';

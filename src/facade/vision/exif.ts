@@ -34,11 +34,6 @@ export function lireExif(tampon: ArrayBuffer): ExifPhoto {
   return SANS_EXIF;
 }
 
-/** Focale equivalente 24x36 en millimetres, ou `null`. */
-export function focale35mm(tampon: ArrayBuffer): number | null {
-  return lireExif(tampon).focale35;
-}
-
 interface Entree { type: number; compte: number; position: number }
 
 function lireTiff(v: DataView, base: number): ExifPhoto {

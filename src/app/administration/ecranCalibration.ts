@@ -14,11 +14,6 @@ import { canevasPour, chargerUrl, imageDuCanevas, versJpeg } from '../../ui/rele
 import { creerClientAudits } from '../../io/auditsServeur.js';
 import { lireFichierAuditParcelle } from '../../model/fichierAuditParcelle.js';
 import { casDepuisFacade, facadesACalibrer } from '../audit/parcelle/casDeCalibration.js';
-import { facadesRelevees } from '../releve/casDeReleve.js';
-import { creerDepotDemos } from '../../io/depotDemos.js';
-import { validerProjetJSON } from '../../io/validation.js';
-import { magasinPhotos, rentrerLesPhotos } from '../../io/photosLocales.js';
-import type { ObjetBrut } from '../../model/types.js';
 import { hoteDeZone } from '../../shell/dom.js';
 import { creerRegistre, type RegistreCommandes } from '../commandes.js';
 import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
@@ -53,21 +48,6 @@ export function demandeEcranCalibration(recherche: string): boolean {
   return new URLSearchParams(recherche).get('ecran') === 'calibration';
 }
 
-/** Photo reduite au plus a `PHOTO_MAX_PX`, en JPEG : assez pour le redressement, sans alourdir le cas sur le serveur. */
-async function reduirePhoto(fichier: File): Promise<string> {
-  const url = URL.createObjectURL(fichier);
-  try {
-    const img = await chargerUrl(url);
-    const { c } = canevasPour(img.naturalWidth, img.naturalHeight);
-    const ctx = c.getContext('2d');
-    if (!ctx) throw new Error('Canevas indisponible.');
-    ctx.drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.85);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
 async function decoder(url: string) {
   const img = await chargerUrl(url);
   const { c } = canevasPour(img.naturalWidth, img.naturalHeight, Math.max(img.naturalWidth, img.naturalHeight));
@@ -79,22 +59,9 @@ async function decoder(url: string) {
 
 const message = (e: unknown) => (e as Error).message || String(e);
 
-/** La taille d'une image, en pixels. */
-async function dimensions(url: string): Promise<{ l: number; h: number }> {
-  const img = await chargerUrl(url);
-  return { l: img.naturalWidth, h: img.naturalHeight };
-}
-
-/** Les facades relevees d'objets de projet, leurs photos restees sur ce navigateur relues. */
-async function facadesDesObjets(objets: readonly ObjetBrut[], nom: string | null) {
-  const { objets: complets } = await rentrerLesPhotos(objets, magasinPhotos());
-  return facadesRelevees(complets, dimensions, nom);
-}
-
 export function ouvrirEcranCalibration(): void {
   const f = (entree: string, init?: RequestInit) => fetch(entree, init);
   const audits = creerClientAudits(f, () => null);
-  const demos = creerDepotDemos(f);
   const claude = creerClientAnalyse(f, () => null);
   const contexteRun: ContexteRun = { client: () => claude, identite: () => ({ projet: 'calibration', idu: null, adresse: null }), encoder: dessinerImageFacade, maintenant: () => new Date() };
   const deps: DepsCalibration = {
@@ -111,7 +78,6 @@ export function ouvrirEcranCalibration(): void {
     lireCas: (id) => lireCasCalibration(f, id),
     enregistrerCas: async (id, cas) => { try { await enregistrerCasCalibration(f, id, cas); return null; } catch (e) { return message(e); } },
     supprimerCas: async (id) => { try { await supprimerCasCalibration(f, id); return null; } catch (e) { return message(e); } },
-    reduirePhoto,
     decoder,
     elevationEnUrl: (img) => versJpeg(img, 0.9),
     ...registreDeLEcran(),
@@ -123,10 +89,6 @@ export function ouvrirEcranCalibration(): void {
     // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
     audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')
       .map((a) => ({ id: a.id, libelle: [a.adresse ?? a.idu, (a.debut ?? a.recuLe).slice(0, 10), (a.photos ?? 0) + ' photos'].filter(Boolean).join(' · ') })),
-    // Les projets du serveur (les fichiers de demo de l'admin) et les fichiers de projet : leurs facades relevees deviennent des cas.
-    projets: async () => (await demos.lister()).map((p) => ({ id: p.id, libelle: p.name || p.id })),
-    facadesDeProjet: async (id) => { const p = await demos.ouvrir(id); return facadesDesObjets(p.objects as ObjetBrut[], p.meta?.name ?? id); },
-    facadesDeFichier: async (fichier) => { const v = validerProjetJSON(JSON.parse(await fichier.text())); return facadesDesObjets(v.objets, typeof v.meta.name === 'string' ? v.meta.name : fichier.name); },
     facadesDAudit: async (id) => {
       const fichier = lireFichierAuditParcelle(JSON.parse(await audits.lire(id)));
       const idu = fichier.parcelle?.idu ?? null;

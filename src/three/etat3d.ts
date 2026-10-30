@@ -248,6 +248,12 @@ export const vue3d: {
    * dont l'exporteur travaille par petites taches sur le meme fil que le rendu.
    */
   pauseRendu: boolean;
+  /**
+   * Un ecran couvre la Vue 3D et ne s'en sert pas (la liste de l'audit de la parcelle) : la boucle ne rend plus d'images, la
+   * derniere reste sur le canevas. Sous un rendu logiciel, une image de la Vue 3D en grand prenait plus d'une seconde, et chaque
+   * toucher de l'ecran pose dessus l'attendait.
+   */
+  renduCouvert: boolean;
   /** Une voiture et une silhouette, pour l'echelle (three/objetsEchelle.ts) ; decochees par defaut. */
   objetsEchelle: boolean;
   /**
@@ -279,6 +285,7 @@ export const vue3d: {
   ombres: true,
   qualite: 'normale',
   pauseRendu: false,
+  renduCouvert: false,
   objetsEchelle: false,
   focaleBloquee: false
 };
@@ -359,7 +366,7 @@ export const hotes3d: { vue3d: HTMLElement | null; glb: HTMLElement | null } = {
 
 /** Ce que l'interface regle de la Vue 3D : ses preferences d'affichage, et ce qu'un autre tient le temps d'un geste. */
 export type ReglagesVue3d = Pick<typeof vue3d, 'tousLesObjets' | 'solEnCoupe' | 'platelageTranslucide' | 'objetsOpaques' | 'textures'
-  | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil'>;
+  | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil' | 'renduCouvert'>;
 export function reglerVue3d(r: Partial<ReglagesVue3d>): void { Object.assign(vue3d, r); }
 
 /** Ce que l'interface regle de la visionneuse : ouverte ou non, ses preferences, sa facon de montrer le soleil. */

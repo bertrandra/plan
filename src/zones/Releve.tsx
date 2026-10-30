@@ -1,85 +1,22 @@
-// Z8, le releve de facade (spec-releve-facade §4 a §10) : un parcours plein ecran en six temps.
+// Z8, l'editeur d'une facade relevee (MD/spec-facade-calage-audit.md §6, lot F6 ; spec-releve-facade §10).
 //
-// 1. **Mur** : choisir la facade sur le contour du batiment (sautee si l'inspecteur l'a designee) ;
-//    la boussole du telephone propose celle qu'on a devant soi.
-// 2. **Methode** : d'ou vient la photo - une photo de rue (Panoramax, etape « rue »), la camera
-//    guidee (« visee »), ou une photo importee (qui passe droit aux coins).
-// 2 bis. **Visee** : la camera, avec l'aide au positionnement - la distance au mur (realite augmentee
-//    sur Android ; sinon une alerte, et les reperes sur les bords du mur pour l'estimer), ce qu'elle
-//    permet (une photo, plusieurs en se decalant, ou reculer) et l'aplomb du telephone. Le LiDAR est
-//    eteint (ui/releve/profondeur.ts).
-// 3. **Coins** : les quatre coins du mur (ou du morceau de mur) sur chaque photo, proposes d'apres
-//    la distance, ajustes au doigt avec une loupe. Ils peuvent deborder de la photo. Plusieurs photos
-//    se prennent l'une apres l'autre, et s'assemblent a l'analyse : morceaux cote a cote
-//    (facade/vision/mosaique.ts), ou vues du mur entier, de face et de biais, fondues pour voir derriere une
-//    voiture ou une haie (facade/fusion.ts, lot L13).
-// 4. **Analyse** : hauteur du mur, redressement, ouvertures, silhouette du toit (facade/analyse.ts).
-//    **Seule la largeur est connue**, lue sur le plan : la hauteur du cadastre n'est qu'une
-//    estimation, c'est la photo qui mesure la hauteur a l'egout - et, sur un pignon, son triangle.
-// 5. **Resultat** : la facade a l'echelle, sa hauteur mesuree, les ouvertures corrigeables, le toit
-//    lu sur la facade ; Valider ecrit le tout dans le projet par le service (app/releve/releve.ts), en un
-//    seul pas d'historique. Le toit lu sur la facade remplace celui du batiment.
-//
-// Rien n'est ecrit dans le plan avant Valider : fermer le parcours ne laisse aucune trace.
-//
-// Le parcours vit ici ; chaque etape et ses outils, dans zones/releve/.
+// Les photos d'une facade se prennent, se redressent et s'assemblent dans l'audit de la parcelle ; le releve n'a plus de capture. Il
+// reste l'editeur du mur deja releve, ouvert par « Modifier » sur sa ligne de l'inspecteur (la commande `facade.modifier`) :
+// l'elevation et ses ouvertures, que le doigt corrige (nature, cotes, ajout dans la grille, retrait, verification), et la partie basse
+// d'un mur en L. « Valider la façade » ecrit l'edition par le service (app/releve/releve.ts), en un seul pas d'historique ; « Annuler »
+// et Echap ferment sans rien ecrire.
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
-import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
-import { hauteurPignon } from '../facade/toits/toit.js';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/vision/cadrage.js';
-import { versJpeg, type Photo } from '../ui/releve/camera.js';
-import type { MesureDistance } from '../ui/releve/profondeur.js';
-import { toitAutomatique, type ServiceReleve } from '../app/releve/releve.js';
-import type { GrilleFacade, ObjetPolygone, Toit } from '../model/types.js';
+import { facadesDuContour } from '../geometry/cotesVusDeDehors.js';
+import type { ServiceReleve } from '../app/releve/releve.js';
+import type { ObjetPolygone, PartieBasse, ReleveFacade } from '../model/types.js';
 import { fr } from './releve/commun.js';
-import { ChoixMur } from './releve/ChoixMur.js';
-import { ChoixMethode } from './releve/ChoixMethode.js';
-import { PhotosRue } from './releve/PhotosRue.js';
-import { type Prise, useMurVise } from './releve/capteurs.js';
-import { Visee } from './releve/Visee.js';
-import { type Assemblage, type Etape, type Morceau, type Resultat, coinsDePrise, entreeRecherche, arreterRecherche, estPartielle } from '../facade/releve/serie.js';
-import { lancerRecherche } from '../app/releve/rechercheCoins.js';
-import type { SourceCoin } from '../facade/calage/calageFin.js';
-import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
-import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
-import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from '../facade/releve/analyseSerie.js';
-import { analyserSansRien, champDesFuites } from '../facade/releve/chaine.js';
-import { masqueDeFusion } from '../facade/releve/masque.js';
 import { useOuvertures } from './releve/ouvertures.js';
-import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
-import type { AideClaudeReleve } from '../app/releve/runFacade.js';
-import { textureDesMurs } from '../model/couleurMur.js';
-import { MATERIAUX_MURS_VUS, libelleDe } from '../model/ceQueJeVois.js';
-import type { Image } from '../facade/vision/homographie.js';
+import { EditionFacade, type Verification } from './releve/EditionFacade.js';
 
-/**
- * Le morceau d'une prise : ses coins predits s'affichent tout de suite ; le calage fin les cherche
- * ensuite sur la photo (dans un worker) et les remplace s'il les trouve, sauf ceux que le doigt a deja
- * deplaces.
- */
-function morceauDePrise(p: Prise, facade: Facade, hauteurEstimee: number, partiel: boolean, maj: (f: (ms: Morceau[]) => Morceau[]) => void): Morceau {
-  const entree = entreeRecherche(p, facade.largeur, hauteurEstimee, partiel, facade.azimut);
-  if (entree) lancerRecherche(p, entree, maj);
-  return {
-    prise: p,
-    coins: coinsDePrise(p, facade.largeur, hauteurEstimee, partiel, facade.azimut),
-    sources: ['predit', 'predit', 'predit', 'predit'],
-    recherche: !!entree,
-    ...(entree?.chercher === false ? { distorsionSeule: true } : {}),
-  };
-}
-
-/** Les sources des coins une fois le coin `k` deplace au doigt. */
-function coinAuDoigt(sources: Morceau['sources'], k: number | undefined): SourceCoin[] {
-  const s: SourceCoin[] = [...(sources ?? ['predit', 'predit', 'predit', 'predit'])];
-  if (k !== undefined && k >= 0 && k < 4) s[k] = 'doigt';
-  return s;
-}
-
-/** Echap ferme le parcours, sans rien ecrire. */
+/** Echap ferme l'editeur, sans rien ecrire. */
 function useEchapFerme(releve: ServiceReleve) {
   useEffect(() => {
     const surTouche = (e: KeyboardEvent) => {
@@ -90,264 +27,29 @@ function useEchapFerme(releve: ServiceReleve) {
   }, [releve]);
 }
 
-const LIBELLES_ETAPE: Record<Etape, string> = { mur: 'Choisir le mur', methode: 'Choisir la méthode', rue: 'Photo de rue', visee: 'Se placer', coins: 'Placer les coins', analyse: 'Analyse', resultat: 'Vérifier' };
-
-/** Les deux ecrans d'ou vient la photo : la methode, et les photos de rue. */
-function SourcePhoto({ etape, mur, surPhoto, setEtape, onRetour }: { etape: Etape; mur: ReturnType<typeof useMurVise>; surPhoto: (p: Photo, m: MesureDistance | null) => void; setEtape: (e: Etape) => void; onRetour: () => void }) {
-  if (etape === 'methode') {
-    return <ChoixMethode rue={mur ? null : 'sansPosition'} onRue={() => setEtape('rue')} onCamera={() => setEtape('visee')} onImporter={(p) => surPhoto(p, null)} onRetour={onRetour} />;
-  }
-  if (etape === 'rue' && mur) return <PhotosRue mur={mur} onPhoto={surPhoto} onRetour={() => setEtape('methode')} />;
-  return null;
-}
-
-/** L'etape des coins dans le parcours : la serie de photos, la photo courante et ses gestes. */
-function CoinsDuParcours(p: {
-  morceaux: Morceau[];
-  setMorceaux: (f: (ms: Morceau[]) => Morceau[]) => void;
-  courant: number;
-  setCourant: (k: number) => void;
-  assemblage: Assemblage;
-  changerAssemblage: (a: Assemblage) => void;
-  prevues: number;
-  avis: string | null;
-  largeur: number;
-  viser: (remplacer: number | null) => void;
-  analyser: () => void;
-  aide: AideClaudeReleve | null;
-  hauteurEstimee: number;
-  etiquette: string;
-  /** Le parement du mur deja connu (vu sur place, sinon la BD TOPO), en clair : Claude lit la photo avec lui. */
-  parement: string | null;
-}) {
-  const { morceaux, setMorceaux, courant } = p;
-  const m = morceaux[Math.min(courant, morceaux.length - 1)];
-  // Les coins d'un morceau d'une serie ne sont pas ceux du mur : Claude n'y est pas appele.
-  const entiere = morceaux.length === 1 || p.assemblage === 'vues';
-  const aide = m && entiere ? <AideDesCoins aide={p.aide} morceau={m} maj={(x) => setMorceaux((ms) => ms.map((y) => (y.prise === x.prise ? x : y)))} largeurM={p.largeur} hauteurM={p.hauteurEstimee} etiquette={p.etiquette} parement={p.parement} /> : null;
-  return (
-    <EtapeCoins
-      morceaux={morceaux}
-      courant={Math.min(courant, morceaux.length - 1)}
-      choisir={p.setCourant}
-      retirer={(k) => {
-        setMorceaux((ms) => ms.filter((_, i) => i !== k));
-        p.setCourant(Math.max(0, Math.min(courant, morceaux.length - 2)));
-      }}
-      setCoins={(c, k) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, coins: c, sources: coinAuDoigt(m.sources, k) } : m)))}
-      setDecrochement={(d) => setMorceaux((ms) => ms.map((m, i) => (i === courant ? { ...m, decrochement: d } : m)))}
-      assemblage={p.assemblage}
-      setAssemblage={p.changerAssemblage}
-      prevues={p.prevues}
-      avis={p.avis}
-      largeur={p.largeur}
-      onReprendre={() => p.viser(courant)}
-      onAjouter={() => p.viser(null)}
-      onAnalyser={p.analyser}
-      aide={aide}
-    />
-  );
-}
-
-/**
- * Ce que l'analyse laisse a la verification, hors de l'ecran : l'elevation redressee et la grille, que
- * l'aide de Claude regarde ; pour une fusion de vues, son masque d'occlusion et sa vue de reference
- * (lot G20) : c'est la photo que Claude recoit, et le masque part hachure sur l'elevation.
- */
-interface ExtrasAnalyse {
-  elevation: Image;
-  grille: GrilleFacade | null;
-  fusion: { occlusion: Uint8Array; masque: number; reference: number } | null;
-}
-
-type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
-
-function extrasDe({ r, fusion }: Analyse): ExtrasAnalyse {
-  return { elevation: r.elevation, grille: r.grille, fusion: fusion ? { occlusion: fusion.occlusion, masque: fusion.masque, reference: fusion.reference } : null };
-}
-
-/** Le resultat affiche par la verification : la texture, la hauteur, l'avis, le calage et le masque hachure d'une fusion. */
-function resultatDe(a: Analyse, morceaux: readonly Morceau[], facade: Facade, assemblage: Assemblage): Resultat {
-  const { r } = a;
-  return {
-    texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse,
-    calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut, assemblage), masque: masqueDeFusion(a.fusion ?? null, facade.largeur),
-  };
-}
-
-/**
- * L'aide de Claude a la verification : sur une photo seule, ou sur la vue de reference d'une fusion
- * (lot G20) ; jamais sur des morceaux cote a cote, dont aucune photo ne montre le mur entier.
- */
-function AideDeVerification(p: { aide: AideClaudeReleve | null; ouv: ReturnType<typeof useOuvertures>; morceaux: readonly Morceau[]; extras: ExtrasAnalyse | null; v: Verification; facade: Facade; parement: string | null }) {
-  const { extras, morceaux, v } = p;
-  const fusion = extras?.fusion ?? null;
-  const morceau = fusion ? morceaux[fusion.reference] : morceaux.length === 1 ? morceaux[0] : undefined;
-  return (
-    <AideDesOuvertures aide={p.aide} ouv={p.ouv} morceau={morceau} elevation={extras?.elevation ?? null} largeurM={p.facade.largeur} hauteurM={v.hauteurMur}
-      couverture={v.resultat.couverture} masque={fusion?.masque ?? 0} occlusion={fusion?.occlusion ?? null} etiquette={p.facade.orientation.toLowerCase()} parement={p.parement} />
-  );
-}
-
-/** Sans EXIF, le champ de l'objectif se lit sur les points de fuite de la photo, comme a l'audit (releve/chaine.ts). */
-function avecChampLu(photo: Photo): Photo {
-  const lu = photo.champ == null && photo.focalePx == null ? champDesFuites(photo.image) : null;
-  return lu === null ? photo : { ...photo, champ: lu };
-}
-
-/** Le parement deja connu du mur (vu sur place, sinon la BD TOPO), en clair : Claude lit la photo avec lui (un colombage s'y distingue mieux). */
-function parementConnu(bat: ObjetPolygone): string | null {
-  const m = textureDesMurs(bat);
-  return m ? libelleDe(MATERIAUX_MURS_VUS, m).toLowerCase() : null;
-}
-
-function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
-  // La hauteur du batiment (le cadastre, ou un releve precedent) n'est qu'une estimation : elle aide a
-  // viser et propose les coins ; la photo mesure la vraie.
-  const hauteurEstimee = releve.hauteurMur();
-  const facades = useMemo(() => facadesDuContour(enPoints(bat).pts, hauteurEstimee), [bat, hauteurEstimee]);
-  const [cote, setCote] = useState<number | null>(coteInitial !== null && facades.some((f) => f.cote === coteInitial) ? coteInitial : null);
-  const [etape, setEtape] = useState<Etape>(cote === null ? 'mur' : 'methode');
-  // La hauteur mesuree a l'analyse, corrigeable ensuite.
-  const [hauteurMur, setHauteurMur] = useState(hauteurEstimee);
-  const [morceaux, setMorceaux] = useState<Morceau[]>([]);
-  const [assemblage, setAssemblage] = useState<Assemblage>('morceaux');
-  const [courant, setCourant] = useState(0);
-  // Pendant la visee : la photo a remplacer (« Reprendre »), ou null pour en ajouter une.
-  const [aRemplacer, setARemplacer] = useState<number | null>(null);
-  const [resultat, setResultat] = useState<Resultat | null>(null);
-  const ouv = useOuvertures();
-  const { ouvertures, setOuvertures, choisie, setChoisie } = ouv;
-  const [toit, setToit] = useState<Toit | null>(null);
-  const [appliquerToit, setAppliquerToit] = useState(true);
-  const [avis, setAvis] = useState<string | null>(null);
-  // L'elevation redressee, la grille et le masque d'une fusion : ce que l'aide de Claude regarde a la verification.
-  const [extras, setExtras] = useState<ExtrasAnalyse | null>(null);
-  const facade = facades.find((f) => f.cote === cote) || null;
-  // Ce que la photo doit cadrer en hauteur : l'egout et, sur un pignon du toit connu, son triangle.
-  const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.batiment?.toit, facade.cote) : hauteurEstimee;
-  const prevues = Math.max(1, ...morceaux.map((m) => m.prise.photosPrevues ?? 1));
+function Editeur({ releve, bat, r }: { releve: ServiceReleve; bat: ObjetPolygone; r: ReleveFacade }) {
+  const ouv = useOuvertures(r.ouvertures);
+  const [partieBasse, setPartieBasse] = useState<PartieBasse | null>(r.partieBasse ?? null);
   useEchapFerme(releve);
-  const mur = useMurVise(facade, releve.origine());
-
-  const surPrise = (p: Prise) => {
-    if (!facade) return;
-    const partiel = estPartielle(assemblage, p.photosPrevues, morceaux.length);
-    const m = morceauDePrise(p, facade, hauteurEstimee, partiel, setMorceaux);
-    const k = aRemplacer ?? morceaux.length;
-    setMorceaux(aRemplacer === null ? [...morceaux, m] : morceaux.map((x, i) => (i === aRemplacer ? m : x)));
-    setCourant(k);
-    setAvis(null);
-    setEtape('coins');
+  const orientation = useMemo(() => facadesDuContour(enPoints(bat).pts, r.hauteur).find((f) => f.cote === r.cote)?.orientation ?? '', [bat, r.hauteur, r.cote]);
+  const titre = `Façade ${orientation.toLowerCase()} · ${fr(r.largeur)} × ${fr(r.hauteur)} m`;
+  const v: Verification = {
+    texture: r.texture, hauteurTexture: r.hauteurTexture ?? r.hauteur, largeur: r.largeur, hauteurMur: r.hauteur, calage: r.calage ?? null,
+    ouvertures: ouv.ouvertures, setOuvertures: ouv.setOuvertures, choisie: ouv.choisie, setChoisie: ouv.setChoisie,
+    devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, partieBasse, setPartieBasse, aujourdhui: releve.aujourdhui(),
   };
-
-  const analyser = () => {
-    if (!morceaux.length || !facade) return;
-    setEtape('analyse'); setMorceaux((ms) => ms.map(arreterRecherche));
-    // Laisser le navigateur peindre l'ecran d'analyse avant le calcul, qui tient le fil une seconde.
-    setTimeout(() => {
-      const { a, retenus } = analyserSansRien(morceaux, facade, hauteurEstimee, bat, assemblage); // la chaine de l'audit (releve/chaine.ts)
-      if (retenus !== morceaux) setMorceaux(retenus);
-      if (!a) {
-        setAvis('Les quatre coins ne forment pas un quadrilatère : reprenez-les.');
-        setEtape('coins');
-        return;
-      }
-      const { r } = a;
-      setHauteurMur(r.hauteur);
-      setResultat(resultatDe(a, retenus, facade, assemblage));
-      ouv.poser(r);
-      setExtras(extrasDe(a));
-      setToit(r.toitPropose);
-      // La facade propose son toit a la place de celui du batiment ; pas d'office sur un toit compose (corps
-      // lus au LiDAR, volumes) : plus fin que ce qu'une facade en voit, le remplacer arrete sa lecture LiDAR.
-      setAppliquerToit(!!r.toitPropose && toitAutomatique(bat) !== 'compose');
-      setEtape('resultat');
-    }, 40);
-  };
-
-  const valider = () => {
-    if (!facade || !resultat) return;
-    // Le batiment garde sa hauteur (cadastre, saisie) : la facade mesuree y est ramenee, ouvertures,
-    // partie basse et toit compris, plutot que d'etirer le batiment a la hauteur lue sur la photo.
-    // Les corrections se tracent sur la proposition de l'analyse, ramenee de meme (spec facades §12).
-    const k = hauteurMur > 0 && hauteurEstimee > 0 ? hauteurEstimee / hauteurMur : 1;
-    const e = Math.abs(k - 1) > 1e-9 ? etirerEnHauteur(resultat, [], toit, k) : { resultat, toit };
-    const t = ouv.conclure(k);
-    releve.valider(releveDuMur(facade, e.resultat, t.ouvertures, hauteurEstimee, morceaux[0]?.prise.mesure ?? null, t.corrections), appliquerToit ? e.toit : null, hauteurMur);
-  };
-
-  // Passer des morceaux aux vues (ou l'inverse) change ce que chaque photo cadre : le mur entier, ou
-  // une part. Les coins que le doigt n'a pas touches sont proposes a nouveau, et cherches sur la photo.
-  const changerAssemblage = (a: Assemblage) => {
-    if (!facade || a === assemblage) return;
-    setAssemblage(a);
-    setMorceaux(morceaux.map((m) => (m.sources?.includes('doigt') ? m : morceauDePrise({ ...m.prise }, facade, hauteurEstimee, estPartielle(a, m.prise.photosPrevues, morceaux.length), setMorceaux))));
-  };
-  const viser = (remplacer: number | null) => {
-    setARemplacer(remplacer);
-    setEtape('visee');
-  };
-  // Une photo importee ou de rue n'a ni reperes ni plan de prise : ses coins se proposent d'apres
-  // la distance quand on la connait (photo de rue), sinon au centre de l'image.
-  const surPhoto = (photo: Photo, mesure: MesureDistance | null) => { const p = avecChampLu(photo); surPrise({ photo: p, mesure, reperes: null, champ: p.champ ?? CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null }); };
-  const corrigerHauteur = (v: number) => {
-    if (!resultat || !(hauteurMur > 0)) return;
-    const e = etirerEnHauteur(resultat, [], toit, v / hauteurMur);
-    setHauteurMur(v);
-    setResultat(e.resultat);
-    ouv.etirer(v / hauteurMur);
-    setToit(e.toit);
-  };
-  // Avant l'analyse, seule la largeur est connue ; la hauteur s'affiche une fois mesuree.
-  const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)}${resultat ? ` × ${fr(hauteurMur)}` : ''} m` : 'Relever une façade';
-  const verification: Verification | null =
-    resultat && facade
-      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, toit, setToit, appliquerToit, setAppliquerToit, toitAutomatique: toitAutomatique(bat), contour: bat.pts, cote: facade.cote,
-          partieBasse: resultat.partieBasse, setPartieBasse: (pb) => setResultat({ ...resultat, partieBasse: pb }), hauteurEstimee, hauteurMesuree: resultat.hauteurMesuree, corrigerHauteur }
-      : null;
-
   return (
-    <div className={'releve' + (etape === 'visee' ? ' camera' : '')} role="dialog" aria-modal="true" aria-label={titre}>
+    <div className="releve" role="dialog" aria-modal="true" aria-label={titre}>
       <div className="releveEntete">
         <div className="releveTitre">
-          <span className="releveEtape">{LIBELLES_ETAPE[etape]}</span>
+          <span className="releveEtape">Modifier la façade</span>
           <span>{titre}</span>
         </div>
-        <button data-controle="releve.fermer" type="button" className="releveFermer" aria-label="Fermer le relevé" title="Fermer (Échap)" onClick={() => releve.fermer()}>
+        <button data-controle="releve.fermer" type="button" className="releveFermer" aria-label="Fermer l’éditeur de la façade" title="Fermer (Échap)" onClick={() => releve.fermer()}>
           <Icone nom="fermer" taille={22} />
         </button>
       </div>
-      {etape === 'mur' && (
-        <ChoixMur
-          bat={bat}
-          facades={facades}
-          position={releve.position}
-          obstacles={releve.obstacles}
-          onChoisir={(c) => {
-            setCote(c);
-            setEtape('methode');
-          }}
-        />
-      )}
-      {facade && <SourcePhoto etape={etape} mur={mur} surPhoto={surPhoto} setEtape={setEtape} onRetour={() => (morceaux.length ? setEtape('coins') : coteInitial === null ? setEtape('mur') : releve.fermer())} />}
-      {etape === 'visee' && facade && (
-        <Visee
-          facade={facade}
-          hauteurACadrer={hauteurACadrer}
-          faites={aRemplacer ?? morceaux.length}
-          onPrise={surPrise}
-          onRetour={() => (morceaux.length ? setEtape('coins') : setEtape('methode'))}
-        />
-      )}
-      {etape === 'coins' && morceaux.length > 0 && facade && (
-        <CoinsDuParcours morceaux={morceaux} setMorceaux={setMorceaux} courant={courant} setCourant={setCourant} assemblage={assemblage} changerAssemblage={changerAssemblage}
-          prevues={prevues} avis={avis} largeur={facade.largeur} viser={viser} analyser={analyser} aide={releve.aide()} hauteurEstimee={hauteurEstimee} etiquette={facade.orientation.toLowerCase()} parement={parementConnu(bat)} />
-      )}
-      {etape === 'analyse' && <EtapeAnalyse vues={assemblage === 'vues' && morceaux.length > 1} />}
-      {etape === 'resultat' && verification && facade && (
-        <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} aide={<AideDeVerification aide={releve.aide()} ouv={ouv} morceaux={morceaux} extras={extras} v={verification} facade={facade} parement={parementConnu(bat)} />} />
-      )}
+      <EditionFacade v={v} onAnnuler={() => releve.fermer()} onValider={() => releve.valider({ ouvertures: ouv.ouvertures, partieBasse })} />
     </div>
   );
 }
@@ -356,6 +58,7 @@ export function Releve({ releve }: { releve: ServiceReleve }) {
   const ouvert = useSyncExternalStore(releve.abonner, releve.courant, releve.courant);
   if (!ouvert) return null;
   const bat = releve.batiment();
-  if (!bat) return null;
-  return <Parcours key={ouvert.objKey + ':' + ouvert.cote} releve={releve} bat={bat} coteInitial={ouvert.cote} />;
+  const r = releve.releve();
+  if (!bat || !r) return null;
+  return <Editeur key={ouvert.objKey + ':' + ouvert.cote} releve={releve} bat={bat} r={r} />;
 }

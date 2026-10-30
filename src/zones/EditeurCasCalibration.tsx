@@ -1,6 +1,7 @@
 // Admin › Calibrer la detection : un cas = une facade photographiee et annotee (facade/corpusReel.ts).
 //
-// On prend (ou choisit) une a huit photos du meme mur. Le cas se rejoue par l'orchestrateur de la facade
+// Les photos d'un cas viennent d'une facade de l'audit (« Créer un cas depuis cette façade », ou un audit recu) : la calibration n'en
+// prend plus pour elle (lot F6) ; on peut seulement en retirer une. Le cas se rejoue par l'orchestrateur de la facade
 // (facade/releve/enchainement.ts), etape par etape : chaque photo redressee entiere (par quatre reperes poses au doigt, sinon par ses
 // points de fuite), les vues assemblees, le mur cherche sur l'assemblage et reporte dans chaque photo, le haut du mur lu, la texture,
 // les ouvertures. La barre de progression (zones/composants/BarreProgressionFacade.tsx) et la frise des etapes
@@ -29,9 +30,8 @@ import { enteteDuRun } from '../facade/releve/enchainement.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
 
-/** Ce que l'editeur demande au navigateur : reduire une photo, la decoder, montrer une elevation ; et l'ecran, ses commandes. */
+/** Ce que l'editeur demande au navigateur : decoder une photo, montrer une elevation ; et l'ecran, ses commandes. */
 export interface OutilsPhotos {
-  reduirePhoto: (f: File) => Promise<string>;
   decoder: (url: string) => Promise<Image>;
   elevationEnUrl: (img: Image) => string;
   /** Le registre de l'ecran : la commande `facade.etape` ouvre une etape (la barre, la frise). Absent : rien ne s'ouvre. */
@@ -54,7 +54,6 @@ export interface OutilsPhotos {
   ecouterEscalade?: (escalader: () => void) => () => void;
 }
 
-export const PHOTOS_CAS_MAX = 8;
 const TYPES: readonly TypeOuverture[] = ['fenetre', 'porte-fenetre', 'porte', 'garage'];
 
 const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'mur posé à la main', reperes: 'redressée par vos repères' };
@@ -296,8 +295,6 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [dims, setDims] = useState<Record<number, { l: number; h: number }>>({});
   const [origines, setOrigines] = useState<Record<number, OrigineCoins>>(() => originesDuCas(depart));
   const [ouverte, setOuverte] = useState<IdEtape | null>(null);
-  // Par defaut tout est automatique : coins, redressement, fusion, et ouvertures proposees par la detection (a relire).
-  const [auto, setAuto] = useState(true);
   const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, chercherCoins);
   const claude = useClaude(cas);
   const url = useAdresses(outils);
@@ -315,26 +312,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       if (calees && cherche) setOrigines(Object.fromEntries(calees.flatMap((p, k) => (p.origine ? [[k, p.origine]] : []))));
       const a = r.sorties.analyse;
       if (!a) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Retrouver le mur sur toutes les photos ».');
-      // Un cas sans annotation part de la detection ; une annotation deja faite n'est jamais ecrasee.
-      else if (auto) modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) }));
+      // Un cas sans annotation part de la detection (a relire) ; une annotation deja faite n'est jamais ecrasee.
+      else modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) }));
     } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
-  };
-  const ajouterPhotos = async (fichiers: FileList | null) => {
-    if (!fichiers?.length) return;
-    setOccupe(true); setMessage(null);
-    try {
-      let suite = cas;
-      for (const f of Array.from(fichiers).slice(0, PHOTOS_CAS_MAX - cas.photos.length)) {
-        const u = await outils.reduirePhoto(f);
-        const img = await outils.decoder(u);
-        // Les coins se cherchent au rejeu, sur toute la serie ; ce qui reste devine est dit, la personne le corrige au doigt.
-        const k = suite.photos.length;
-        suite = { ...suite, images: [...suite.images, u], photos: [...suite.photos, { fichier: 'photo-' + (k + 1), coins: coinsParDefaut(img.largeur, img.hauteur) }] };
-        setDims((d) => ({ ...d, [k]: { l: img.largeur, h: img.hauteur } }));
-      }
-      setCas(suite); oublier();
-      if (auto) await rejouer(suite, null, 'chercher');
-    } catch (e) { setMessage('Photo illisible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
   const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
@@ -386,7 +366,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   useEffect(() => { if (chercherCoins) void rejouer(cas, null, 'chercher'); }, []);
   const sauver = async () => {
     if (!cas.nom.trim()) { setMessage('Donnez un nom au cas (la maison, le côté).'); return; }
-    if (!cas.photos.length) { setMessage('Ajoutez au moins une photo.'); return; }
+    if (!cas.photos.length) { setMessage('Un cas a besoin d’au moins une photo : tirez-le d’une façade de l’audit.'); return; }
     setOccupe(true);
     const erreur = await enregistrer({ ...cas, nom: cas.nom.trim() });
     setOccupe(false);
@@ -406,14 +386,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         <NombreM libelle="Hauteur à l’égout (m)" controle="calibration.hauteurM" valeur={cas.hauteurM} changer={(v) => { modifier((c) => ({ ...c, hauteurM: v })); oublier(); }} />
       </div>
 
-      <label className="calCase"><input type="checkbox" checked={auto} data-controle="calibration.auto" onChange={(e) => setAuto(e.target.checked)} /> Automatique : rejouer le cas et proposer les ouvertures dès l’ajout d’une photo</label>
-      <div className="calLigne">
-        <label className={'boutonFichier' + (cas.photos.length >= PHOTOS_CAS_MAX || occupe ? ' desactive' : '')}>
-          <input type="file" accept="image/*" capture="environment" multiple disabled={cas.photos.length >= PHOTOS_CAS_MAX || occupe} data-controle="calibration.photo" onChange={(e) => { const f = e.target.files; void ajouterPhotos(f).then(() => { e.target.value = ''; }); }} />
-          <span>{cas.photos.length ? 'Ajouter une photo du même mur' : 'Prendre ou choisir une photo'}</span>
-        </label>
-        <span className="calNote">{cas.photos.length} / {PHOTOS_CAS_MAX} photos. {auto ? 'Tout se rejoue seul à l’ajout ; corrigez au doigt ce que la barre signale et relisez les ouvertures.' : 'Placez les repères, puis retrouvez le mur.'}</span>
-      </div>
+      <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}, prise{cas.photos.length > 1 ? 's' : ''} dans l’audit. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
       {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant} />}

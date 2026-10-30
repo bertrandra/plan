@@ -484,6 +484,7 @@ lists the engine, and nothing else lives in those folders.
 ```
 regles/                      data, the JSON the engine reads (repository root, compiled in the build)
   toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture,enchainement,ia}.json   conformite.json   reconciliation.json
+  plu/reglages.json          the PLU reading and check thresholds (lot L4): pages sent to Claude, rounding tolerances
 src/regles/                  layer 2 — contract and validated data, pure
   decisions.ts               what a decision writes (Proposition, EffetProposition), applied in one history step
   toits/{reglages,profils,faits,formes,silhouettes}.ts    facades/reglages.ts    conformite.ts    reconciliation.ts
@@ -520,7 +521,23 @@ src/app/regles/              layer 6 — what the audit can see and propose
     observations.ts          the observations, said by the registry in prompt order (a simple field with no module says itself)
     vote.ts                  the vote of the passes as the audit reads it (the subjects' simple fields included)
 src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/administration/ecranRegles.ts
+src/regles/plu/              layer 2 — the PLU of the project's zone (lot L4): faits.ts (a PLU fact: grandeur, value, article, quoted
+                             text, page, `propose` | `valide`; the reading's source and record), lecture.ts (Claude's prompt, closed schema
+                             and fallback example, assembled into deploy/prompt-plu.md and schema-plu.json), versions.ts, observations.ts
+                             (the only reader of Claude's answer: no article or no quote, no fact), reglages.ts
+src/engine/regles/plu/       layer 3 — conformite.ts: the project's works checked against the VALIDATED PLU facts, as warnings
 ```
+
+**The PLU subtree (lot L4).** A PLU fact is a fourth kind of input, next to rule, setting and roof fact, and it does not mix with them:
+it holds for one zone of one commune, it comes from a public document read *for this project*, and the person validates it. So it
+lives in the project file, on the parcel (`ObjetPlan.reglementPlu`, schema 8), not in `regles/` (which changes only by PR); its
+thresholds do live in `regles/plu/reglages.json`. The chain is the engine's: Claude proposes (usage `plu` of the PHP server, an excerpt of
+the règlement PDF from the GPU, `app/plu/lecturePlu.ts`), `regles/plu/observations.ts` turns the answer into proposed facts, the person
+ticks those she compared with the quoted text (`plu.validerFait`), and the rules (`engine/regles/plu/conformite.ts`, under `engine/`
+because they read the works' heights, the pergola's regulatory height and the clôture) check the project's works against validated facts
+only. Their verdicts are warnings in the PLU tab of the drawer (« Conformité PLU »); no export, quantity or command reads them. The
+reading keeps the règlement's address, the pages sent, the SHA-256 of the excerpt and of the document, the raw answer, model, versions and
+cost, so it can be re-read and compared.
 
 The calculation itself (`facade/toits/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
 proposes and prices, the engine arbitrates. `app/toits/toitsLidar.ts` and `app/toits/toitsFond.ts` orchestrate
@@ -635,9 +652,11 @@ The whole chain is pure and lives in layer 3: `facade/releve/` holds the series 
 `masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration of the photos (`chaine.ts`), the orchestrator of
 the façade's steps (`enchainement.ts`, MD/spec-facade-calage-audit.md §4 ter.4, lot F0; the calibration is its first consumer and its
 own chaining, `casCalibration.ts`, was deleted with it; since lot F3 the audit is its second, in the `audit` mode, and the wall's
-survey comes out of it — `analyseSerie.ts::releveDeLaSerie` is a step function only the orchestrator calls) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
-`ui/releve/profondeur.ts` and `zones/releve/capteurs.ts`). The survey screen (`zones/`), the audit (`app/`) and the calibration
-call it; none of them holds a step of it. The orchestration used to live in `zones/releve/`; it moved to
+survey comes out of it — `analyseSerie.ts::releveDeLaSerie` is a step function only the orchestrator calls) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`). The audit (`app/`) and the calibration call it; none of them holds a step of it. Since
+lot F6 (29 October 2026) photos are taken in the audit only: the survey screen (`zones/Releve.tsx`) is an editor of a wall already
+surveyed (its openings, the lower part of an L-shaped wall), its capture (aim, street photos, depth, sensors, corners by hand) and
+`masque.ts` were deleted, and `tests/unit/architecture/captureAudit.test.ts` keeps any camera or image file input inside
+`zones/parcours/`. The orchestration used to live in `zones/releve/`; it moved to
 `facade/releve/chaine.ts` on 24 October 2026 (PR #410, debt AD-9 paid).
 
 ### 5.2.6 Module map, as built — 25 October 2026

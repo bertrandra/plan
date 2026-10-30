@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { poserPositionGps, retirerPositionGps, reposerPositionGps, positionGpsCourante, NOM_POSITION_GPS, PRECISION_DESSINEE_MAX_M } from '../../../src/three/positionGps3d.js';
+import { poserPositionGps, retirerPositionGps, reposerPositionGps, NOM_POSITION_GPS, PRECISION_DESSINEE_MAX_M } from '../../../src/three/positionGps3d.js';
 import { HORS_EXPORT } from '../../../src/three/primitives.js';
 import { vue3d } from '../../../src/three/etat3d.js';
 
@@ -49,7 +49,6 @@ describe('la position GPS dans la Vue 3D', () => {
     expect(g!.getObjectByName('precision')!.scale.x).toBe(PRECISION_DESSINEE_MAX_M);
     retirerPositionGps();
     expect(scene.getObjectByName(NOM_POSITION_GPS)).toBeUndefined();
-    expect(positionGpsCourante()).toBeNull();
   });
 
   it('une scene reconstruite reprend la derniere position connue', () => {

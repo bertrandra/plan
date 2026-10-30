@@ -4,21 +4,18 @@
 // de l'usage `escalade` (le meme prompt, le meme schema, la meme image), enregistree avec le run. Ce qui revient est ENREGISTRE avec les versions du prompt et du schema, le modele, les tokens
 // et le cout (facade/detection/runFacade.ts::RunEnregistre) : la calibration le rejoue ensuite sans reseau ni cout.
 //
-// Trois appelants : « Rappeler Claude » de la calibration (sur l'assemblage du cas), l'aide du releve (sur la photo a l'etape des
-// coins, sur l'elevation redressee a la verification), et l'audit de la parcelle, qui envoie le meme contenu dans son batch et
-// enregistre la reponse de la meme facon (app/audit/parcelle/runsFacades.ts, lot F3). Plus personne ne fait trois passes de renfort.
+// Deux appelants : « Rappeler Claude » de la calibration (sur l'assemblage du cas), et l'audit de la parcelle, qui envoie le meme
+// contenu dans son batch et enregistre la reponse de la meme facon (app/audit/parcelle/runsFacades.ts, lot F3). L'aide de Claude au
+// releve est partie avec la capture du releve (lot F6) : les photos d'une facade se prennent dans l'audit, et c'est son run qui les lit.
 // Les photos ne partent qu'avec l'accord de la personne (decision D2), le meme par projet que l'analyse de l'audit (io/accordAnalyse.ts).
 
 import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse, type ResultatsImmediats } from '../../io/analyseClaude.js';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
-import { observationsDuRun, passesDeProduction } from '../../facade/regles/facades/ia.js';
+import { observationsDuRun } from '../../facade/regles/facades/ia.js';
 import type { EscaladeEnregistree } from '../../regles/facades/observations.js';
 import { VERSION_CHAINE_FACADES } from '../../facade/releve/chaine.js';
-import { dessinerImageFacade } from '../../render/imageFacade.js';
 import type { ImageAnalyse } from '../../render/imagesAnalyse.js';
-import type { AnalyseDuNavigateur } from '../audit/parcelle/analyseNavigateur.js';
 import type { Image } from '../../facade/vision/homographie.js';
-import type { AccordAnalyse } from '../../model/auditParcelle.js';
 
 const MESSAGES: Record<MotifAnalyse, string> = {
   reseau: 'Le serveur de l’analyse ne répond pas : réessayez plus tard, ou placez les coins et les ouvertures au doigt.',
@@ -83,7 +80,7 @@ export interface ContexteRun {
 }
 
 /** Appelle Claude sur une facade, et rend l'appel enregistre. */
-export async function appelerRunFacade(ctx: ContexteRun, d: DemandeRun, origine: 'releve' | 'calibration'): Promise<ResultatRun> {
+export async function appelerRunFacade(ctx: ContexteRun, d: DemandeRun, origine: 'calibration'): Promise<ResultatRun> {
   const client = ctx.client();
   if (!client) return { erreur: MESSAGES.refuse };
   const image = ctx.encoder(d.image, d.cache ?? null);
@@ -167,29 +164,4 @@ export async function envoyerEscalade(client: ClientAnalyse, identite: { projet:
   } catch (e) {
     return { erreur: e instanceof EchecAnalyse ? MESSAGES[e.motif] : 'La demande n’a pas pu partir : ' + String((e as Error).message || e) };
   }
-}
-
-/** L'aide de Claude au releve : le run d'une facade, propose sur signal, apres l'accord de la personne pour ce projet. */
-export interface AideClaudeReleve {
-  /** Le serveur de l'analyse est-il joignable pour cette personne (plateforme ou administrateur) ? */
-  disponible(): boolean;
-  /** L'accord d'envoyer les photos est-il donne pour ce projet ? */
-  accordDonne(): boolean;
-  /** Donne l'accord pour ce projet (le geste de la personne). */
-  accorder(): void;
-  demander(d: Omit<DemandeRun, 'passes'>): Promise<ResultatRun>;
-}
-
-function creerAideReleve(ctx: ContexteRun & { memoire: { lire(): AccordAnalyse | null; ecrire(a: AccordAnalyse | null): void } }): AideClaudeReleve {
-  return {
-    disponible: () => !!ctx.client(),
-    accordDonne: () => !!ctx.memoire.lire(),
-    accorder() { ctx.memoire.ecrire({ t: ctx.maintenant().toISOString(), partage: true }); },
-    demander: (d) => appelerRunFacade(ctx, { ...d, passes: passesDeProduction() }, 'releve'),
-  };
-}
-
-/** L'aide du releve dans le navigateur : le client, l'identite et l'accord de l'analyse de l'audit, l'image encodee par le canevas. */
-export function aideReleveDuNavigateur(a: Pick<AnalyseDuNavigateur, 'client' | 'identite' | 'memoire'>, encoder: ContexteRun['encoder'] = dessinerImageFacade): AideClaudeReleve {
-  return creerAideReleve({ client: () => a.client, identite: () => a.identite(), memoire: a.memoire, encoder, maintenant: () => new Date() });
 }

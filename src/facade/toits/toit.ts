@@ -294,18 +294,6 @@ function planDuPan(pan: Pan): PlanToit | null {
 }
 
 /**
- * Hauteur du triangle (ou du trapeze) de toit porte par le mur `cote`, au-dessus de son egout : 0
- * quand le mur n'est pas un pignon. C'est ce qui s'ajoute a la hauteur a l'egout pour avoir la
- * hauteur de la facade, et ce que la photo doit cadrer pour lire le toit.
- */
-export function hauteurPignon(pts: readonly PtBrut[], toitLu: Toit | null | undefined, cote: number): number {
-  const toit = toitLu ? toitDessine(toitLu) : toitLu;
-  if (!toit || toit.forme === 'plat' || !(toit.hauteur > 0)) return 0;
-  const g = facettesToit(pts, toit).pignons.find((x) => x.cote === cote);
-  return g ? Math.max(0, ...g.profil.map((q) => q.z)) : 0;
-}
-
-/**
  * Les coordonnees de texture d'un pan, en metres : `u` le long de l'egout, `v` dans la pente, en
  * vraie grandeur. Les rangs de tuiles ou d'ardoises suivent ainsi l'egout de chaque pan, et leur
  * pas ne s'etire pas sur un pan raide. Un pan horizontal se lit dans le repere du plan.

@@ -1,7 +1,7 @@
 // Le calage fin hors du fil principal (MD/plan-mise-en-oeuvre-audit.md, lot L7 ; risque « calculs
 // lourds sur telephone »). Segments, points de fuite et hypotheses prennent une fraction de seconde
-// sur un ordinateur, plusieurs sur un telephone modeste : l'ecran des coins reste vivant pendant ce
-// temps, et la loupe repond au doigt. La correction de la distorsion du grand-angle (lot L8) s'y fait
+// sur un ordinateur, plusieurs sur un telephone modeste : l'ecran de prise de l'audit reste vivant pendant ce
+// temps. La correction de la distorsion du grand-angle (lot L8) s'y fait
 // aussi, juste avant : elle relit chaque pixel de la photo.
 //
 // Le worker recoit une `EntreeRecherche` (facade/releve/serie.ts) et rend la photo corrigee s'il y a

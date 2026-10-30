@@ -99,8 +99,8 @@ describe('ecritures de l inspecteur', () => {
   });
 
   it('grise un bouton de commande quand le registre ne la permet pas', () => {
-    expect(champActif(bouton({ commande: 'facade.relever' }), monter(false, false).c)).toBe(false);
-    expect(champActif(bouton({ commande: 'facade.relever' }), monter(false, true).c)).toBe(true);
+    expect(champActif(bouton({ commande: 'facade.modifier' }), monter(false, false).c)).toBe(false);
+    expect(champActif(bouton({ commande: 'facade.modifier' }), monter(false, true).c)).toBe(true);
   });
 });
 

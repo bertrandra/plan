@@ -32,6 +32,56 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se relit comme avant.
 - Fumée : point 106 (une cheminée peinte sur la photo de la façade sud, proposée décochée sur le corps 1, cochée et validée : une
   souche sur son faîtage, dessinée en 3D, rien d'autre ne bouge ; Ctrl+Z).
+
+- **Façades, lot F6 : les photos dans l'audit** (`MD/spec-facade-calage-audit.md` §6, §7.1, §9, décision 6). Les photos d'une
+  façade se prennent, se redressent, s'assemblent et se rangent **dans l'audit de la parcelle, et nulle part ailleurs**. Dans
+  l'inspecteur, section « Façades et toit », « **Photographier** » sur la ligne d'un mur (commande `facade.photographier`, dans les
+  trois classes d'écran) ouvre l'audit sur l'écran de prise, la façade choisie (la vue de prise d'une façade choisie) ; « Photographier
+  les façades… », sans mur, ouvre l'écran de prise qui suit la position. Grisé avec sa raison sans parcelle cadastrale, ou pour un
+  bâtiment hors de la parcelle.
+- **L'éditeur d'une façade relevée** (`zones/Releve.tsx`, commande `facade.modifier`, « **Modifier** » sur la ligne d'un mur relevé) :
+  l'élévation et ses ouvertures, à corriger (nature, cotes au centimètre, « Ajouter dans la grille », « Même taille pour la travée »,
+  « Même hauteur pour le niveau », retrait, une baie devinée rendue au pointillé ou gardée), **une ouverture vérifiée d'une case**
+  (« Vérifiée sur la photo » : plus aucun rejeu de l'audit ne la déplace ; décochée, la date part), la partie basse d'un mur en L.
+  « **Valider la façade** » écrit l'édition en une étape d'historique : les corrections se tracent contre le relevé (une retouche
+  devient `corrigee`, un ajout `ajoutee`), la grille se recalcule, une ouverture nouvelle d'une façade validée reçoit son identifiant ;
+  tout le reste du relevé (photo, calage, Façade validée, seuils de la détection) est gardé ; rien ne s'écrit quand rien n'a changé.
+- **« Créer un cas depuis cette façade »** (commande `facade.creerCas`, sous la barre d'une façade photographiée de l'audit, pour
+  l'administrateur) : ses photos, ses dimensions du plan (largeur du cadastre, hauteur du LiDAR), son gabarit, les corps de son toit
+  et les repères posés deviennent un cas de calibration, rangé sur le serveur (`admin/calibration-cas`), à ouvrir dans Admin ›
+  Calibrer la détection.
+- Un test tient la décision : **aucun écran de capture hors de l'audit** (`tests/unit/architecture/captureAudit.test.ts` : une
+  caméra, un champ fichier qui la demande ou qui prend une image n'existent que dans les écrans de l'audit).
+- Fumée : points 112 (de « Photographier » dans l'inspecteur à l'éditeur, deux Ctrl+Z), 113 (deux vues du même mur fondues dans
+  l'audit), 114 (« Créer un cas depuis cette façade », lu et rejoué par la calibration).
+
+- **Lecture IA élargie, lot L4 : le règlement du PLU** (`MD/spec-lecture-ia-elargie.md` §L4). Dans l'onglet PLU du tiroir,
+  « **Lire le règlement de la zone avec Claude** » (commande `plu.lireReglement`, capacité `plu`, dans les trois classes d'écran ;
+  grisée, avec sa raison, tant que la zone n'est pas connue) va chercher le règlement écrit de la zone au **Géoportail de
+  l'urbanisme** (la zone relue au point, le PDF sur `data.geopf.fr`, la page du chapitre de la zone), en envoie un extrait de
+  25 pages au plus à Claude (usage `plu`, Haiku par défaut, appel immédiat, sortie structurée et repli sur un exemple, `refusFormat`,
+  coût au journal), et range sur la parcelle les règles qu'il relève : hauteurs (égout, faîtage, absolue, annexes), reculs (voie,
+  limites séparatives), emprise au sol, espaces verts, stationnement, pentes et couvertures de toit, couleurs, clôtures et annexes,
+  **chacune avec son article, sa citation mot pour mot et sa page**. Elles arrivent **proposées, décochées** : une ligne sans article
+  ou sans citation n'en devient pas une, un nombre hors de ce qu'un PLU peut dire perd sa valeur, et seules les règles que la personne
+  **coche** (`plu.validerFait`, Ctrl+Z la défait) contrôlent le projet. « **Conformité PLU** » compare alors les ouvrages du projet
+  (bâtiment, annexe, pergola, carport dessinés ; l'existant compte dans l'emprise) aux règles retenues — hauteurs, reculs (la voie
+  est le côté que la clôture dit « sur rue »), emprise, part libre de la parcelle, pente et couverture, hauteur de clôture — en
+  **avertissements** qui citent l'article, jamais un blocage, et laisse « à vérifier » ce qui ne se mesure pas. Ce qui a été lu reste
+  relisible : l'adresse du règlement, les pages envoyées, l'empreinte SHA-256 de l'extrait et du document, la réponse brute, le
+  modèle, les versions du prompt et du schéma, le coût. Le moteur de règles a un dossier de plus : `regles/plu/reglages.json` (les
+  seuils), `src/regles/plu/` (les faits, la lecture, le lecteur de la réponse), `src/engine/regles/plu/conformite.ts` (les règles) ;
+  `deploy/prompt-plu.md` et `deploy/schema-plu.json` sont générés (`npm run regles:generer`).
+- **Schéma de projet 8** : la parcelle peut porter `reglementPlu` (le règlement lu et ses règles). Un projet sans lecture du PLU
+  s'écrit toujours au plus petit schéma qui le décrit ; la migration 7 → 8 est l'identité ; la plateforme accepte déjà 7 à 12.
+  La démonstration et les témoins ne bougent pas.
+- Serveur (`deploy/analyse-fonctions.php`) : l'usage `plu`, un bloc `document` (un PDF en base64, un seul) admis pour lui seul,
+  le texte brut du modèle rendu à la page (`brut`, jamais au journal), la consigne du repli lue dans le fichier de schéma de l'usage.
+  `scripts/verifier-api-claude.mjs` envoie une requête `plu` sur un extrait public de trois pages du règlement de Chatou
+  (`tests/fixtures/plu/chatou-ul-extrait.pdf`).
+- Fumée : point 120 (le zonage du point 15, puis la lecture du règlement par une réponse **synthétique**, deux règles cochées, la
+  conformité, Ctrl+Z, le projet exporté au schéma 8).
+
 - **Lecture élargie par l'IA, lot L0 : tout garder** (`MD/spec-lecture-ia-elargie.md` §4.8, §12.1, décision 7). **Toute requête à
   Claude laisse une trace sur le serveur** : ce qui est parti (le texte complet, chaque requête, les images par empreinte) et ce qui
   est revenu (le texte brut, la sortie ramenée au schéma, les tokens, le coût, le refus de la sortie structurée, les versions). Une
@@ -179,6 +229,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le relevé de façade devient un éditeur** (lot F6) : il n'a plus de capture ; il s'ouvre sur un mur déjà relevé (« Modifier »), et
+  la photo d'un mur se prend dans l'audit. Un relevé d'avant (posé par l'audit ou fait par l'ancienne capture, sa photo restée sur
+  l'appareil comprise) se rouvre, s'édite et se relit sans rien perdre ; F6 ne touche pas au schéma (un relevé sans Façade validée reste au 6).
+  Le toit lu sur la façade ne remplace plus le toit du bâtiment depuis le relevé : la forme lue sur la photo passe par le diagnostic de
+  l'audit et le moteur (lot F4), ou par le Mode Toit.
+- **La calibration lit les façades de l'audit** (lot F6, décision 6) : un cas naît d'une façade de l'audit (« Créer un cas depuis cette
+  façade », ou un audit reçu) ; l'écran ne prend plus de photos et n'ajoute plus de photo à un cas (on peut en retirer une). La
+  détection propose les ouvertures d'un cas encore sans annotation à chaque rejeu (la case « Automatique », qui ne réglait plus que
+  cela, part avec l'ajout de photos).
 - **La conclusion d'un audit sur le serveur** (`decisions.json`) passe en version 2 (lot L0) : chaque proposition y dit sa cible, son
   effet, sa réserve, la décision du moteur et l'accord de Claude ; une conclusion d'avant se refait depuis le fichier de l'audit à
   l'export. Les escalades d'un audit sauvegardé portent son dépôt et se rangent avec son analyse.
@@ -224,6 +283,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La liste des cas de calibration tient sur un téléphone** : le nom d'un cas tiré de l'audit (« Maison · façade nord
+  (78650000AE0101) ») se coupe dans sa cellule au lieu d'élargir la page.
+- **La liste de l'audit de la parcelle ne se fige plus derrière la Vue 3D** : la boucle de rendu de la 3D redessinait la scène à
+  chaque trame, même cachée par la liste (un dialogue modal) ; sur un appareil lent, ou le navigateur sans carte graphique de la
+  fumée, une image plein cadre coûte près d'une seconde, et un toucher dans la liste attendait plusieurs secondes (fumée 104 et 106
+  en large : le clic d'un segment de la barre prenait jusqu'à 9 s, 77 ms maintenant). La boucle se tait tant que la liste est à
+  l'écran (`vue3d.renduCouvert`, posé par `app/audit/parcelle/commande.ts`, qui suit le parcours ouvert et l'écran de sa session) et
+  repart à l'écran de prise, aux propositions (l'avant/après) et à la fermeture ; les rendus de l'audit depuis une prise de vue et les
+  captures ne passent pas par elle. Reste à faire : ne rendre que quand quelque chose change.
 - **L'escalade d'une maison (D20) prend le modèle de l'escalade** (`deploy/analyse-fonctions.php`) : ses requêtes portent l'usage
   `analyse` (pour son prompt), et le serveur leur donnait le modèle de l'analyse ; dans une demande `escalade`, une requête garde le
   prompt de son usage et prend le modèle de l'escalade, et se compte en escalade au journal.
@@ -259,6 +327,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Les constats « rien n'est proposé avant le lot F7 »** de l'É5 bis (une bosse étroite, un élément vu par Claude) : remplacés par
   les propositions d'éléments du lot F7.
+- **La capture du relevé de façade** (lot F6, `MD/spec-facade-calage-audit.md` §8 bis.2) : le parcours de `zones/Releve.tsx` (choix
+  du mur et sa boussole, méthode, photos de rue Panoramax, visée et caméra guidée avec la distance en réalité augmentée, le niveau et
+  le grand-angle, les quatre coins du mur et le mur en L posés au doigt, l'analyse, la vérification de la hauteur et du toit lu),
+  `zones/releve/Visee.tsx`, `ChoixMethode.tsx`, `PhotosRue.tsx`, `ChoixMur.tsx`, `EtapeCoins.tsx`, `capteurs.ts`, l'aide de Claude au
+  relevé (`AideClaude.tsx`, `AideEtapes.tsx`, `aide.ts`, `facade/detection/signaux.ts`, `aideReleveDuNavigateur`), le masque
+  hachuré de la vérification (`facade/releve/masque.ts`), la caméra du navigateur et ses objectifs (`ui/releve/camera.ts` : flux,
+  grand-angle ; `ui/releve/profondeur.ts`, `ui/releve/panoramax.ts`, `facade/vision/objectifs.ts`, `facade/vision/panorama.ts`), les
+  consignes de la visée (`facade/vision/cadrage.ts` : distance par cadrage, aplomb, consigne de prise), le mur proposé
+  (`priseDeVue.ts::murPropose`, `facadeFaceAuCap`), les photos de rue face au mur (`geo/panoramax.ts::classerFaceAuMur`), la glue
+  de l'analyse du relevé (`chaine.ts::analyserSansRien`, `morceauRedresse`, `analyseSerie.ts::etirerEnHauteur`, l'avis de l'analyse),
+  ce que seule la visée posait sur une prise (les repères sur les bords du mur, le plan de prise, les morceaux d'une série), le
+  recalage des coins de Claude (`recalageIa.ts::recalerCoins`, `ia.ts::coinsDeLIa`), `hauteurPignon`, `positionGpsCourante`, la
+  commande `facade.relever` et ses vingt-six contrôles de capture, leurs règles CSS et leurs tests.
+- **Les cas de calibration faits à part** (lot F6) : « Nouveau cas (photos) », le champ photo de l'éditeur d'un cas, et les cas tirés
+  d'une façade relevée d'un projet ou d'un fichier de projet (`app/releve/casDeReleve.ts`), et leurs sept contrôles ; un cas naît d'une façade de l'audit.
+- Fumée : points 54, 58, 59, 65, 67, 68, 71, 80, 81 et 82 (la capture du relevé), remplacés par 112 à 114 et les tests de l'éditeur
+  (`tests/CHECKLIST-FUMEE.md`, « Points retirés au lot F6 »).
 - **L'analyse « sans trace »** (lot L0) : une analyse dont le dépôt a été retiré, ou un appel immédiat, n'est plus envoyée sans rien
   garder ; sa trace va sous l'organisation (`claude/analyses/sans-depot/`).
 

@@ -157,9 +157,7 @@ export function priseDeLaPhoto(photo: PhotoCas, image: Image, facade: Facade, ch
   return {
     photo: { image, url: '', champ, focalePx: null },
     mesure: fiable ? { distance: Math.round(distance * 100) / 100, source: 'gps' } : null,
-    reperes: null,
     champ: champ ?? CHAMP_GRAND_COTE_DEFAUT,
-    photosPrevues: null,
     cap: p?.sourceAzimut === 'boussole' ? p.azimutDeg : null,
     attitude: null,
   };

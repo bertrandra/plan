@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { facettesToit, formesAuChoix, hauteurPignon, LIBELLES_FORME_TOIT, penteDeg, plansDuToit, type Toit } from '../../../../src/facade/toits/toit.js';
+import { facettesToit, formesAuChoix, LIBELLES_FORME_TOIT, penteDeg, plansDuToit, type Toit } from '../../../../src/facade/toits/toit.js';
 import { FORME_DESSINEE, FORMES_TOIT_CATALOGUE, FORMES_TOIT_SIMPLES } from '../../../../src/model/formeToit.js';
 import { penteDuToit } from '../../../../src/model/volumesToit.js';
 
@@ -18,7 +18,6 @@ describe('formes du catalogue dans la geometrie du toit', () => {
       expect(facettesToit(maison, t), f).toEqual(facettesToit(maison, s));
       expect(penteDeg(maison, t), f).toBe(penteDeg(maison, s));
       expect(penteDuToit(maison, t), f).toBe(penteDuToit(maison, s));
-      expect(hauteurPignon(maison, t, 1), f).toBe(hauteurPignon(maison, s, 1));
     }
   });
 
