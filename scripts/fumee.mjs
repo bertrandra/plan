@@ -273,6 +273,92 @@ async function telechargerOctets(page, action, delai = 60000) {
 }
 
 /** « Auditer la parcelle… » comme la personne : menu Fichier sur bureau, feuille Projet au doigt (lot L9). */
+/**
+ * Le toit lu sur une facade (lot L2, MD/spec-lecture-ia-elargie.md §3.2, §4.3) contre une API simulee : la maison du point 117 (un corps a
+ * deux pans, une aile, une mesure LiDAR), la photo de la scene 22 ; la reponse SYNTHETIQUE du toit lu (la troisieme requete) voit une
+ * ardoise en ecaille, un faitage en zinc, une gouttiere pendante et une fenetre de toit. `quoi` : `couverture` (point 118 : la ligne
+ * « Couverture de Maison » arrive decochee, l'emporte sur l'analyse d'une maison, s'ecrit en ardoise + ecaille et se dessine) ou
+ * `fenetre` (point 119 : la ligne de la fenetre de toit arrive decochee, posee par le moteur sur le pan sud du corps 1). Ctrl+Z defait.
+ */
+async function jouerToitLu(page, f, quoi) {
+  const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const p = (x, y) => ({ x, y });
+      o.pts = [p(-8, -20), p(0, -20), p(0, -11), p(-4, -11), p(-4, -6), p(-8, -6)];
+      o.vertexNames = ['A', 'B', 'C', 'D', 'E', 'F']; o.segmentNames = ['', '', '', '', '', '']; o.frozenVertices = o.pts.map(() => false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.egoutChoisi;
+      o.elevation = 5.2;
+      b.toit = { forme: 'deux-pans', hauteur: 3.6, angleFaitage: 0, source: 'saisie' };
+      b.corpsToit = [{ pts: [p(-8, -20), p(0, -20), p(0, -11), p(-8, -11)], posFaitage: 4.5, faitage: 8.8, egouts: [5.2, 5.2], pignons: [], ecart: 0.1 },
+        { pts: [p(-8, -11), p(-4, -11), p(-4, -6), p(-8, -6)], posFaitage: 2, faitage: 6, egouts: [4, 4], pignons: [], ecart: 0.1 }];
+      const z = [];
+      for (let j = 0; j < 29; j++) for (let i = 0; i < 17; i++) {
+        const x = -8 + i * 0.5, y = -6 - j * 0.5;
+        z.push(y <= -11 && x <= 0 ? 8.8 - (3.6 * Math.abs(y + 15.5)) / 4.5 : y > -11 && x <= -4 ? 6 - Math.abs(x + 6) : null);
+      }
+      b.toitMesure = { pas: 0.5, x0: -8, y0: -6, nx: 17, ny: 29, z, egout: 5.2, faite: 8.8, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+    });
+    const SORTIE = {
+      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      surface: { principale: 'pierre', zones: [], confiance: 'forte' }, ouvertures: [], confiance: 'forte',
+    };
+    const ENRICHIE = {
+      baies: [], saillies: [], decroches: [], modenature: { egout: 'indetermine', rangsGenoise: -1, bandeaux: [], chaines: 'indetermine', encadrements: 'indetermine', soubassement: -1, parementSoubassement: 'indetermine', descentes: [] },
+      appendices: [], etat: [],
+    };
+    // Le toit lu : la fenetre de toit a mi-pente du pan sud (1,3 fois l'egout de 5,2 m, entre l'egout et le faitage a 8,8 m).
+    const TOIT = { toit: { couverture: 'ardoise', pose: 'ecaille', debord: 'faible', faitage: 'zinc', gouttiere: 'pendante', confiance: 'forte' }, elements: [{ element: 'fenetre-toit', u0: 0.45, u1: 0.55, v: 1.3, confiance: 'forte' }] };
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE, toit: TOIT });
+    const canon = (v) => JSON.parse(JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x)));
+    const lire = async () => canon(await page.evaluate(() => { const b = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment; return JSON.parse(JSON.stringify({ toit: b?.toit ?? null, corps: b?.corpsToit ?? [] })); }));
+    const avant = await lire();
+    const { vues: [photo] } = photosScene('22-pignon-decentre-pierre');
+    const capture = async (q) => { if (process.env.FUMEE_CAPTURE_L2) await page.screenshot({ path: process.env.FUMEE_CAPTURE_L2 + '-' + quoi + '-' + f.nom + '-' + q + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label^="Photographier : Façade sud"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    await etape('accord', () => toucher(page.locator('[data-controle="auditParcelle.accordAnalyse"]').first()));
+    const texte = quoi === 'couverture' ? 'Ardoise en écaille' : 'fenêtre de toit';
+    await page.locator('.ligneProposition', { hasText: texte }).first().waitFor({ state: 'attached', timeout: 90000 }).catch(() => {});
+    const requetes = serveur.demandes.flatMap((d) => d.requetes ?? []);
+    const n = (u) => requetes.filter((q) => q.usage === u).length;
+    const ligne = await ligneProposition(page, texte);
+    await capture('propositions');
+    const pendant = await lire();
+    if (ligne) {
+      await etape('cocher', () => cocherLigne(page, texte));
+      await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]')));
+      await page.waitForTimeout(1500);
+    }
+    const ecrit = await lire();
+    await page.waitForTimeout(1500);
+    // La 3D : la couverture texturee du corps (toit-corps, sa texture), et la fenetre de toit (toit-elements).
+    const dessin = await page.evaluate(() => { const r = { toit: 0, texture: 0, elements: 0 }; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'toit-corps') { r.toit++; if (o.material?.map) r.texture++; } if (o.name === 'toit-elements') r.elements++; }); return r; });
+    await capture('apres');
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(1500);
+    const annule = await lire();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const memes = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const base = n('facade') >= 3 && n('facade-enrichie') >= 3 && n('facade-toit') >= 3 && !!ligne && !ligne.cochee && memes(pendant, avant) && memes(annule, avant) && !deborde;
+    const toit = ecrit.toit ?? {}, c0 = ecrit.corps[0] ?? {};
+    const ok = base && (quoi === 'couverture'
+      ? toit.couverture === 'ardoise' && toit.pose === 'ecaille' && memes(ecrit.corps, avant.corps) && dessin.texture > 0
+      : (c0.elementsToit ?? []).length === (avant.corps[0]?.elementsToit ?? []).length + 1 && c0.elementsToit.at(-1).type === 'fenetre-toit' && c0.elementsToit.at(-1).pan === 0 && /posée par le moteur des toits sur ce pan/.test(ligne.texte) && memes(ecrit.corps.slice(1), avant.corps.slice(1)) && dessin.elements > 0);
+    const fe = c0.elementsToit?.at?.(-1);
+    return { ok, mesure: `${n('facade')} passe(s) du run, ${n('facade-enrichie')} de la lecture enrichie, ${n('facade-toit')} du toit lu ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 160) + ' »' : 'ABSENTE'} ; aperçu ${memes(pendant, avant) ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validée : couverture ${toit.couverture ?? '—'}${toit.pose ? ' (' + toit.pose + ')' : ''}${fe ? ', fenêtre de toit pan ' + fe.pan + ' à ' + fe.sM + ' m / ' + fe.dM + ' m' : ''} ; 3D ${dessin.toit} toit(s) dont ${dessin.texture} texturé(s), ${dessin.elements} maille(s) d’éléments ; Ctrl+Z ${memes(annule, avant) ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+}
+
 async function ouvrirAuditParcelle(page) {
   if ((await classe(page)) !== 'large') await feuille(page, 'projet');
   await page.evaluate(() => document.getElementById('menuFichier')?.setAttribute('open', ''));
@@ -436,7 +522,7 @@ const toastVu = (page, motif) => page.evaluate((m) => (window.__toastsVus || [])
  * disent la meme chose (zinc, une cheminee, un parement en pierre sur chaque facade a decrire).
  * `panne` rend le serveur injoignable.
  */
-async function simulerAnalyse(page, { jardin = null, facade = null, enrichie = null } = {}) {
+async function simulerAnalyse(page, { jardin = null, facade = null, enrichie = null, toit = null } = {}) {
   const s = { demandes: [], jetons: [], panne: false };
   const ind = (image, vu) => [{ image, vu }];
   const sortie = (facades) => ({
@@ -471,6 +557,8 @@ async function simulerAnalyse(page, { jardin = null, facade = null, enrichie = n
       if (r.usage === 'jardin' && jardin) return { id: r.id, statut: 'reussi', passe: 1, usage: 'jardin', sortie: jardin, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 };
       // Le run d'une facade et sa lecture enrichie (lot L1) : les sorties que le point donne, SYNTHETIQUES, les memes pour leurs trois passes.
       if (r.usage === 'facade' && facade) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade', sortie: facade, erreur: null, modele: 'claude-haiku-5-5', prompt: 2, schema: 2, cout: 0.0016, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 2600 } };
+      // Le toit lu (lot L2) : la troisieme requete, sa sortie SYNTHETIQUE, la meme pour ses trois passes.
+      if (r.usage === 'facade-toit' && toit) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade-toit', sortie: toit, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0011, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 300 } };
       if (r.usage === 'facade-enrichie' && enrichie) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade-enrichie', sortie: enrichie, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0012, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 1500 } };
       return { id: r.id, statut: 'reussi', passe: r.passe, sortie: sortie(facades), erreur: null };
     });
@@ -3382,6 +3470,9 @@ const POINTS = {
       && ecrit.length === avant.length + 1 && bow?.saillie?.genre === 'bow-window' && bow.saillie.hote === 0 && intacts && JSON.stringify(annule) === JSON.stringify(avant) && !deborde;
     return { ok, mesure: `${runs} passe(s) du run ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 150) + ' »' : 'ABSENTE'} ; aperçu ${JSON.stringify(pendant) === JSON.stringify(avant) ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validée : ${ecrit.length - avant.length} corps ajouté(s)${bow?.saillie ? ' (' + bow.saillie.genre + ', hôte ' + (bow.saillie.hote + 1) + ', ' + bow.saillie.largeurM + ' × ' + bow.saillie.profondeurM + ' m)' : ''}, corps d’avant ${intacts ? 'intacts' : 'MODIFIÉS'} ; 3D ${dessine} maille(s) de saillie ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  // 118 et 119 : le toit lu sur une facade (lot L2) : une couverture en ecaille lue et dessinee ; une fenetre de toit posee par le moteur.
+  118: (page, f) => jouerToitLu(page, f, 'couverture'),
+  119: (page, f) => jouerToitLu(page, f, 'fenetre'),
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -4200,7 +4291,8 @@ function pointsPour(nomClasse) {
   // 110, 111 et 115 : le jardin (lot L3) : la plate-bande et sa vegetation en 3D, le regard, la lecture du jardin acceptee dans l'avant/apres.
   // 116 et 117 : la facade enrichie (lot L1) : menuiseries, garde-corps, modenature, store et signal lus, valides et dessines ; un
   // bow-window lu, propose decoche, pose par le moteur des toits.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 120];
+  // 118 et 119 : le toit lu sur une facade (lot L2) : une couverture en ecaille lue et dessinee ; une fenetre de toit posee par le moteur.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
