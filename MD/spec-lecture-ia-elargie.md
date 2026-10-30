@@ -686,18 +686,26 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
     `projects.write` : un compte en lecture seule n'obtient donc pas de liste, et la règle « en lecture seule, seules les préférences
     d'affichage s'appliquent » ne joue que si la lecture seule vient d'ailleurs (elle est tenue à l'application, et testée). *Choix
     prudent retenu : rien de neuf côté droits ; à trancher : ouvrir l'assistant aux lecteurs pour les seules préférences d'affichage ?*
+    **Décision du propriétaire (30 octobre 2026) : non.** L'assistant reste fermé aux comptes en lecture seule, et il n'y a pas de
+    capacité `plan.assistant`.
 25. **Quelles commandes l'assistant propose-t-il ?** (L6) Celles dont la déclaration porte le drapeau `assistant` : les ouvrages posés à
     leur taille par défaut, dupliquer, le trou d'une terrasse, la plage d'une piscine, le recentrage, et trois bascules d'affichage
     (nord, grille, voisinage). Pas « Supprimer » ni « Réinitialiser » (ils posent une question, qu'une transaction n'attend pas), ni les
     outils qui attendent un clic sur le plan, ni ce qui part sur le réseau (orthophoto, rues, relief), ni les vues. *Choix prudent
     retenu ; à élargir commande par commande, chacune avec sa raison.*
+    **Décision du propriétaire (30 octobre 2026) : d'accord.** Les commandes s'ouvrent à l'assistant une à une, chacune avec sa
+    raison ; ni suppression, ni réseau, ni outil qui attend un pointage sur le plan.
 26. **Un objet ajouté puis réglé dans la même liste** (« ajoutez une pergola de 3 m de haut ») : l'objet neuf n'a pas encore de clé
     quand Claude écrit la liste, et les champs ne s'écrivent que sur l'objet sélectionné. La liste pose l'objet, puis Claude pose la
     question de le régler une fois sélectionné. *Proposition : une étape « champ » sur `nouveau` (l'objet que l'étape d'avant a créé),
     si le besoin se confirme.*
+    **Décision du propriétaire (30 octobre 2026) : oui.** « Ajouter puis régler » dans une même liste reste non pris en charge :
+    l'assistant pose l'objet, puis pose une question à la place du réglage.
 27. **La demande au serveur** (L6, §6 : « journal seulement : ni projet ni photo »). Le journal ne garde que les comptes (étapes,
     questions) ; mais la trace de L0 (toute requête en a une) garde le texte envoyé : la demande et le catalogue, donc les noms des
     objets du projet. *Choix retenu : la règle de L0 (24 mois sans dépôt) ; à confirmer pour l'assistant.*
+    **Décision du propriétaire (30 octobre 2026) : oui.** La trace du serveur peut garder la demande et le catalogue, noms des objets
+    du projet compris, selon la règle de L0.
 
 ---
 
