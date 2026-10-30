@@ -667,6 +667,20 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 19. **Une couverture lue sur la façade décide-t-elle seule ?** (L2) Elle passe devant l'analyse d'une maison et les fichiers fonciers
     (règle prioritaire), mais la source « photo de façade » n'a pas le droit d'être seule : la ligne arrive décochée, « à confirmer ».
     *Proposition : garder ainsi tant que la mesure du banc n'a pas de vérité pour le toit.*
+20. **Les textes sont-ils une capacité vendue ?** (L5, suite de la question 10) Le lot n'a pas créé `plan.textes` : une capacité nouvelle
+    s'inscrit d'abord au catalogue de la plateforme (ADR-052), et l'attacher avant ferait disparaître la commande chez tous les locataires
+    (`plateforme/capacites.ts`). « Rédiger avec Claude » ne demande que le droit d'écriture et le serveur de Plan (connecté à
+    l'organisation, ou administrateur), comme la lecture du PLU ; ses plafonds de dépense sont ceux de tous les usages. *À trancher.*
+21. **DP7 et DP8 : seulement les photos de l'audit ?** (L5, question 2) La photographie se choisit parmi les photos de l'audit de la
+    parcelle gardées sur l'appareil, pas dans un fichier : les photos se prennent dans l'audit (décision 6 de la spec des façades, tenue
+    par `tests/unit/architecture/captureAudit.test.ts`). Une personne qui a sa photo ailleurs (un appareil photo, un autre téléphone)
+    doit passer par l'audit. *Proposition : garder ainsi ; si un fichier doit être admis, le dire comme une exception à la décision 6.*
+22. **Le texte d'insertion et la DP11.** (L5) Le texte d'insertion validé s'imprime sur la page de notice, sous la notice ; il n'est pas
+    numéroté DP11 (la notice des secteurs protégés, que le bordereau du cerfa 13703 ne coche pas pour une maison). *À confirmer : une
+    pièce DP11 à part en secteur protégé (SPR, abords), avec sa case.*
+23. **Les faits envoyés et l'accord de l'analyse.** (L5) La rédaction envoie l'adresse et les références cadastrales du terrain (rien
+    du déclarant, aucune photo) sans l'accord demandé pour les photos d'un audit (`io/accordAnalyse.ts`), comme la lecture du PLU envoie
+    un document public. *À confirmer, avec la question 11 (durée de garde des traces).*
 
 ---
 
@@ -891,4 +905,59 @@ l'arbitrage, le contrôle du PLU), remplacées par `model/couvertureLue.ts`.
 **Fumée.** Points **118** (couverture en écaille lue, décochée, écrite et dessinée) et **119** (fenêtre de toit posée par le moteur) ;
 24, 97, 98 et 104 rejoués : 18 sur 18 (compact, moyen, large ; clair ; réseau témoin ; le 24 compact au second essai, le premier
 coupé par l'attente du téléchargement).
+
+### 12.4 L5 — Textes et relecture (30 octobre 2026)
+
+**Ce qui est livré.**
+
+- **L'usage `texte` du serveur** (`src/regles/textes/redaction.ts`, prompt et schéma v1 générés en `deploy/prompt-texte.md` et
+  `deploy/schema-texte.json`, versions dans `src/regles/textes/versions.ts`) : une requête, une passe (on ne vote pas une prose), en
+  sortie structurée, Haiku par défaut ; la réponse est `{ texte, reserves }`. Les consignes des trois pièces (description du cerfa,
+  au plus 1 000 caractères ; notice ; insertion) sont dans le prompt ; la requête ne dit que la pièce et **les faits du projet** en JSON
+  (`export/faitsDossier.ts` : le terrain, les ouvrages déclarés tels que le cerfa les décrit, l'existant, la clôture, la zone du PLU et
+  ses seules règles **validées**, les protections ; rien du déclarant). Le prompt interdit d'inventer un nombre, d'affirmer une
+  conformité et de parler de l'état du bâti. La trace du serveur (L0) garde les faits envoyés et le texte revenu ; le journal, ni l'un ni
+  l'autre.
+- **Le modèle** (schéma **12**, migration 11 → 12 identité) : `dossier` sur la parcelle du projet, comme `declaration` et `reglementPlu`
+  (le §4.6 disait « Projet » : le fichier n'a pas d'autre endroit que les objets, et la parcelle est déjà celle du dossier). Chaque pièce
+  porte son brouillon (`texte`, `reserves`, date, modèle, versions, coût, trace, `entrees` : le SHA-256 des faits envoyés) et son texte
+  validé (`texte`, date, et `entrees` du jour de la validation) ; les photographies DP7 et DP8 (`dossier.photos`). Contrat et relecture
+  d'un fichier : `src/regles/textes/dossier.ts`. Le SHA-256 se calcule en synchrone (`util/sha256.ts`), pour qu'un rendu dise « périmé ».
+- **Le texte validé dans le dossier** (`export/cerfa13703.ts`, `export/dossierMairie.ts`) : la description validée remplit C2ZD1 telle
+  quelle (le texte calculé sinon) ; la notice et l'insertion validées font une page « Notice descriptive du projet », après les pièces ;
+  sans elles, pas de page. Ni date ni heure sur la page : le même texte s'imprime à l'identique à chaque export.
+- **La relecture** (`export/relecture.ts`, déterministe, sans appel à Claude) : les `manques` du cerfa, **déplacés** (mêmes phrases,
+  même ordre ; la phrase des photographies se dédouble quand une seule est jointe) ; un projet qui relève du permis ; une photographie
+  restée sur un autre appareil ; un ouvrage en limite dont le DP2 ne cote pas la distance (`piecesDP.ts::distancesAuxLimites`, la même
+  règle que la page) ; un brouillon non validé (à vérifier), périmé (alerte), un texte validé sur un projet qui a changé (alerte) ; les
+  règles du PLU lues et non vérifiées ; la zone changée ; chaque écart aux règles vérifiées. Chaque point a sa gravité (à compléter,
+  alerte, à vérifier) et, quand il en a un, son geste (une commande du registre : rédiger ou valider le texte, ouvrir la Vue 3D,
+  importer la parcelle, interroger le PLU). Elle se lit dans le dialogue (« Vérifier avant l'export ») et dans le message de l'export.
+- **L'écran** (Z8, le dialogue de la déclaration préalable, `zones/parcours/TextesDossier.tsx`) : par pièce, son état, sa zone de texte,
+  « Rédiger avec Claude », « Valider ce texte », « Retirer » (`export.redigerTexte`, `export.validerTexte`, `export.retirerTexte`, la
+  pièce en valeur, exposées dans les trois classes) ; les faits envoyés à Claude, dépliables ; les photos de l'audit en vignettes pour
+  DP7 et DP8 (`export.choisirPhoto`, `export.retirerPhoto`) ; la relecture. Chaque écriture est un pas d'annulation sur la parcelle ;
+  la frappe ne touche pas au projet. Le service : `app/declaration/serviceDossier.ts`.
+
+**Critères d'acceptation.**
+
+| Critère | Preuve |
+|---|---|
+| `dossier.pdf` de la démonstration identique | Empreintes golden inchangées (aucun fichier de `tests/fixtures/golden/` touché ; `npm test` vert). Le dossier de déclaration sans texte validé a le même nombre de pages et la même description qu'avant (`dossierTextes.test.ts`) |
+| Un texte validé s'imprime à l'identique à chaque export | `dossierTextes.test.ts` : deux exports, la même page de notice (flux décodé), le texte dedans ; la case C2ZD1 porte le texte validé tel quel |
+| Un brouillon périmé est dit | `relecture.ts` (alerte « périmé ») et l'écran ; `serviceDossier.test.ts`, `dossierTextes.test.ts` ; point de fumée 121 |
+| La relecture d'un même projet est la même à chaque fois | `dossierTextes.test.ts` (deux relectures égales) ; aucune date, aucun appel |
+| La page de notice n'existe qu'avec un texte validé | `dossierTextes.test.ts` (sans texte, avec un brouillon seul : pas de page ; avec un texte validé : une de plus) |
+| `manques` de `cerfa13703.ts` passe dans la relecture | `RemplissageCerfa.manques` supprimé ; `dossierMairie.test.ts` lit les mêmes phrases dans la relecture ; le message de l'export les cite |
+
+**Rien de perdu.** Les corps envoyés à l'API par le serveur PHP du dépôt (faux Anthropic local, par `verifier-api-claude.mjs`, sortie
+structurée acceptée puis refusée) : les 20 corps de `main` (e54ea460) — l'analyse d'une maison, le run d'une façade et son escalade, la
+lecture enrichie, le toit lu, le PLU, le jardin, avec et sans sortie structurée — sont **identiques** par `cmp` dans la branche ; ceux
+qui existaient en 5.1.0 (1ea13701 : l'analyse, le run, l'escalade, le PLU, le jardin, 14 corps) aussi. Aucun test de `main` ne manque
+(4 583 noms de `vitest list`, tous présents ; 33 de plus). `identite.ts` : « AE 101 : corps identiques ». Aucune empreinte golden ne
+bouge.
+
+**Supprimé.** `RemplissageCerfa.manques` et les `manques.push` de `remplirCerfa13703` (déplacés dans `export/relecture.ts`, qui reprend
+les mêmes phrases) ; la description calculée se lit maintenant par `descriptionCalculee`, la seule à l'écrire. `grep -rn "manques" src/export` :
+seuls les deux commentaires de la relecture qui disent d'où viennent ses phrases.
 
