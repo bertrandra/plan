@@ -34,6 +34,18 @@
       "lectureCache": 0.1,
       "sortie": 10,
       "remiseBatch": 0.5
+    },
+    {
+      "modele": "claude-opus-5-5",
+      "depuis": "2026-10-30",
+      "verifieLe": "2026-10-30",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "entree": 4,
+      "ecritureCache5m": 5,
+      "ecritureCache1h": 8,
+      "lectureCache": 0.2,
+      "sortie": 20,
+      "remiseBatch": 0.5
     }
   ]
 }

@@ -9,7 +9,7 @@
 declare(strict_types=1);
 
 const VERSION_API = '2023-06-01';
-const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
+const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'];
 // `candidats` (lot G3 bis) : les cas candidats Panoramax du skill regles-toits, qui observent un
 // batiment sur des photos de rue avec le prompt et le schema de l'analyse ; un usage a part pour que
 // le journal et le tableau de bord en disent le cout.

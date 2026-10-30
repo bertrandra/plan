@@ -42,7 +42,7 @@ const IMAGE_JARDIN = path.join(racine, 'tests/fixtures/jardin-ia/jardin-test.jpg
 const PDF_PLU = path.join(racine, 'tests/fixtures/plu/chatou-ul-extrait.pdf');
 const MOT_DE_PASSE = 'verification-api-claude';
 const PLAFOND_DEFAUT = 0.05;
-const PLAFOND_MAX = 2;
+const PLAFOND_MAX = 8;
 const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 
 // Les usages et la famille de prompt et de schema de chacun (deploy/analyse.php, FICHIERS_PAR_USAGE) :
