@@ -677,7 +677,8 @@ qui va dans le toit ; **les éléments posés à la main** (Mode Toit, `toitFige
   l'assemblage, la silhouette lue et la texture tournent en arrière-plan. La personne ne voit que le résultat.
 - **Parcours** : l'audit propose les côtés du contour, la personne choisit un côté (la vue de prise existante, élévation devant la
   façade), prend une à huit photos du mur entier, l'assemblage et la pose s'affichent, la personne valide (§4 É9).
-- **Aucun écran n'est supprimé d'un coup** : le relevé garde son entrée tant que l'audit ne l'a pas remplacé (lot F6).
+- **Aucun écran n'est supprimé d'un coup** : le relevé a gardé son entrée tant que l'audit ne l'avait pas remplacé. *Livré au lot F6 (§9 bis) :*
+  la capture du relevé est supprimée, il reste l'éditeur d'une façade relevée (« Modifier », `facade.modifier`) ; « Photographier » ouvre l'audit.
 
 ---
 
@@ -893,7 +894,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | **F3 — L'audit sur l'orchestrateur** *(livré le 29 octobre 2026, §9 bis)* | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** *(livré le 29 octobre 2026, §9 bis)* | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** *(livré le 29 octobre 2026, §9 bis)* | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
-| **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
+| **F6 — Photos dans l'audit** *(livré le 29 octobre 2026, §9 bis)* | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
 | **F7 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
 | **F8 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) | le dessin de fenêtre sans carreaux si le nouveau le remplace | Un fichier sans carreaux se dessine comme avant ; empreinte `glb-structure.json` dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
 
@@ -1567,6 +1568,111 @@ importeur dans `src/` ; ceux que seuls les tests liraient ont été rendus locau
 Grep des noms supprimés : `contourDecaleM` ne reste que dans la migration, son témoin et leurs tests ; « vient avec le lot F5 » et
 `def.lot` : vides.
 
+### 9 bis. F6, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **Les photos d'une façade se prennent dans l'audit, et nulle part ailleurs.** La prise, le redressement, l'assemblage et le rangement
+  vivaient déjà dans l'audit (F3) ; F6 en fait le seul chemin. L'inspecteur d'un bâtiment (section « Façades et toit ») propose
+  « Photographier les façades… » et, sur la ligne de chaque mur, « Photographier » : la commande `facade.photographier` ouvre l'audit
+  de la parcelle sur l'écran de prise, la façade de ce mur **choisie** (`SessionAuditParcelle.photographier`), la vue de prise devant
+  elle. Grisée avec sa raison sans parcelle du projet, ou pour un bâtiment hors de la parcelle (l'audit ne photographie que les siens).
+- **« Créer un cas depuis cette façade »** (`facade.creerCas`, fiche de la façade dans la liste de l'audit, administrateur seulement) :
+  la façade et ses photos deviennent un cas de calibration (`casDepuisFacade`), rangé sur le serveur (`admin/calibration-cas`), avec un
+  toast qui dit où l'ouvrir. L'écran de calibration ne prend plus de photos : ses cas viennent de l'audit (ou du corpus déjà là).
+- **Le relevé devient l'éditeur d'une façade relevée** (`zones/Releve.tsx`, `zones/releve/EditionFacade.tsx`, service
+  `app/releve/releve.ts`) : ouvert par « Modifier » sur la ligne d'un mur qui a un relevé (`facade.modifier`, qui remplace
+  `facade.relever`), il montre l'élévation et ses ouvertures, que le doigt corrige (nature, cotes, ajout, ajout dans la grille, retrait,
+  « Vérifiée sur la photo »), et la partie basse d'un mur en L. « Valider la façade » écrit l'édition **en un pas d'historique** :
+  corrections tracées (`tracerCorrections`), grille recalculée, identifiants donnés aux ouvertures nouvelles d'une façade objet
+  (`numeroterOuvertures`) ; rien ne s'écrit quand rien n'a changé. Tout ce que l'éditeur ne touche pas reste tel quel : texture, photo
+  locale, calage, seuils de la détection, Façade validée.
+- **Le garde-fou** `tests/unit/architecture/captureAudit.test.ts` : une caméra (`getUserMedia`), un champ fichier qui demande la caméra
+  ou qui prend une image n'existent que dans les écrans de l'audit (`zones/parcours/AuditParcelle.tsx`, `AuditCas.tsx`) ;
+  `facade.relever` et les contrôles de capture ne sont plus déclarés.
+- Fumée : points **109** (le parcours complet, de l'inspecteur à l'éditeur, deux Ctrl+Z), **110** (deux vues du même mur, fondues dans
+  l'audit, l'éditeur sur la texture fondue), **111** (« Créer un cas depuis cette façade », rouvert et rejoué dans la calibration).
+
+**Acceptation.**
+
+- *Parcours complet sur téléphone, trois classes d'écran* : points 109, 110 et 111 joués en compact, moyen et large (thème clair,
+  réseau témoin), avec les points touchés de l'audit et de la calibration (100 à 105, 62, 63, 85, 86, 88) : **42 passés sur 42**
+  (port 5189, `FUMEE_PARALLELE=1`, charge de la machine 9 à 16) ; le lot `ci` : 12 sur 12.
+
+  | Point | compact | moyen | large | Ce qu'il dit |
+  |---|---|---|---|---|
+  | 109 | OK | OK | OK | « Photographier » → prise, façade « (choisie) » ; V4 écrite ; « Modifier » → éditeur sans capture ; retrait, vérification, ajout (`o7`) ; un Ctrl+Z par pas |
+  | 110 | OK | OK | OK | deux photos, Image faite, calage de deux vues (73,5 et 82,5 px/m), éditeur sur la texture fondue |
+  | 111 | OK | OK | OK | un cas `plan-facade-reelle`, une photo, 8 × 6 m ; ni champ photo ni « Nouveau cas » ; rejeu de neuf étapes ; rien ne déborde |
+  | 100 à 105 | OK | OK | OK | la calibration, l'audit discret, l'escalade, la forme, la validation V4 |
+  | 62, 63, 85, 86, 88 | OK | OK | OK | les propositions, la sauvegarde, Admin › Audits, la vue épurée |
+
+  Au premier passage, 102, 104 et 105 échouaient en grand écran (et 111 en compact) : causes et corrections à l'interprétation 10.
+- *Migration d'un projet existant sans perte* : `tests/unit/app/releve/releve.test.ts` ouvre le témoin du schéma 6
+  (`tests/fixtures/migrations/schema-6.json`, un relevé posé par l'audit, sa photo restée sur l'appareil) : rouvert et validé sans
+  geste, il revient octet pour octet, sans pas d'historique ; édité (une baie retirée, une fenêtre déplacée), il garde la photo locale,
+  le calage d'avant (son `contourDecaleM` compris), les seuils, la distance et sa source, la date, les détails des ouvertures ; écrit
+  puis rouvert, il est identique, **au schéma 6**. Aucun champ nouveau : le schéma reste **7** ; les allers-retours de
+  `migrations.test.ts` sont inchangés.
+- *Plus aucun écran de capture hors de l'audit* : le garde-fou ci-dessus, et le `grep` (`getUserMedia`, `capture=`, `accept="image/`
+  ne restent que dans `zones/parcours/`).
+- *Le moteur ne bouge pas* : banc des façades identique hors colonnes des temps (202 lignes) ; `egout-sol.ts` identique (égout
+  **44/44**, sol **43/44**, bouts 86/88, silhouette à 2 % **39/44**, 44/44 expliquées) ; AE 101 : « corps identiques » ; un rejeu ne
+  déplace pas une ouverture vérifiée (F5, `facadeValidee.test.ts`, `facadeObjet.test.ts`, inchangés) ; empreintes golden inchangées.
+- CI locale verte : `npm run typecheck && npm run lint && npm run cliquet && npm run gate:client && npm test`.
+
+**Interprétations** (le code l'emporte sur la spec quand ils diffèrent ; les plus petites lectures fidèles) :
+
+1. **Ce qui ne vivait que dans la capture du relevé part avec elle**, faute d'équivalent voulu dans l'audit : la visée par les photos
+   de rue Panoramax (et la profondeur qui les classait ; Panoramax reste aux cas candidats des toits et à la couleur des murs), la visée à la boussole, le choix de méthode, les quatre coins posés à la main
+   du relevé (`EtapeCoins` doublait le geste des quatre repères de l'audit, qui reste), la hauteur du mur saisie et la proposition de
+   toit tirée de la photo (la hauteur est celle du LiDAR, le toit celui du moteur, décision 12 et F4), le masque d'occlusion hachuré
+   (l'audit fond les vues), la baie devinée proposée en pointillé pendant la capture (une baie devinée écrite se garde ou se rend au
+   pointillé dans l'éditeur).
+2. **L'aide de Claude au relevé** (`AideClaude`, `aide.ts`, `signaux.ts`) part aussi : Claude lit chaque façade dans l'audit (trois
+   lectures votées, l'escalade, F2 et F3).
+3. **La calibration ne crée plus de cas** (« Nouveau cas », photo, depuis un projet, depuis un fichier, la case « auto ») : un cas
+   naît d'une façade de l'audit (décision 6). Les cas déjà rangés et le corpus se rouvrent et se rejouent comme avant.
+4. **Les sources de distance** (`SourceDistance`, `sourceDistance` d'un relevé) restent dans les types : un fichier d'avant les porte et
+   l'éditeur les garde ; plus rien ne les écrit.
+5. **`grandAngleACorriger`** (`facade/vision/distorsion.ts`) n'a plus d'importeur dans `src/` mais reste : le banc s'en sert ; il est
+   hors du périmètre du cliquet.
+6. **Les points 58, 59 et 71 ne sont pas remplacés par un point** : la recherche des coins et la distorsion sont la chaîne de l'audit,
+   tenue par le banc et les tests (`serie.test.ts`, `distorsion.test.ts`) ; l'aide de Claude n'existe plus (`CHECKLIST-FUMEE.md`).
+7. **L'éditeur garde la partie basse d'un mur en L** et gagne la vérification d'une ouverture (« Vérifiée sur la photo », `verifieeLe`),
+   le geste par ouverture que F5 laissait à F6 (F5, interprétation 4). Sans texture (une photo restée sur l'appareil), il montre
+   l'élévation sans image et le dit.
+8. **« Créer un cas »** est sur la fiche de la façade de l'audit (emplacement `parcours`), pas sous la barre de progression
+   (`barreFacade`, le composant partagé avec la calibration, où le geste n'aurait pas de sens).
+9. **Fermer l'audit laisse la Vue 3D ouverte**, comme avant F6 : la personne qui veut corriger une façade revient au Plan, où vit
+   l'inspecteur (les points 109 et 110 le font).
+10. **Deux corrections trouvées par la fumée** : la Vue 3D ne se redessine plus sous la liste de l'audit (`vue3d.renduCouvert` : sous
+    un rendu logiciel en grand écran, une image prenait plus d'une seconde et chaque toucher de la liste l'attendait, d'où les échecs
+    des points 102, 104 et 105 en grand écran, constatés aussi sur la base F5 ; profil du clic : 9 s de rendu natif, 77 ms sans la
+    boucle) ; la liste des cas de calibration coupe un nom tiré de l'audit (son IDU) au lieu d'élargir la page du téléphone.
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| Les écrans de capture du relevé | `zones/releve/Visee.tsx`, `ChoixMethode.tsx`, `PhotosRue.tsx`, `ChoixMur.tsx`, `EtapeCoins.tsx` | la visée, le choix de méthode, les photos de rue, le choix du mur, les coins à la main | 296 + 73 + 80 + 134 + 225 = 808 | la prise de l'audit (`AuditParcelle.tsx`), ses quatre repères (`PoserReperes.tsx`) |
+| Les capteurs et l'aide du relevé | `zones/releve/capteurs.ts`, `aide.ts`, `AideEtapes.tsx`, `AideClaude.tsx`, `facade/detection/signaux.ts` | caméra, boussole, GPS, inclinaison ; aide par étape ; aide de Claude | 245 + 114 + 50 + 63 + 84 = 556 | la vue de prise de l'audit ; la barre de progression ; les lectures de Claude dans l'audit |
+| La glue de capture | `zones/Releve.tsx` (−324 +27), `zones/releve/EtapeResultat.tsx` → `EditionFacade.tsx` (−199 +32), `ouvertures.ts` (−53), `Elevation.tsx` (−57), `Coins.tsx` (−66), `commun.ts` (−18) | l'enchaînement des étapes, le toit et la hauteur, le masque, la recherche en cours | 717 | l'éditeur (`Releve.tsx`, `EditionFacade.tsx`) |
+| L'écriture du relevé capturé | `app/releve/releve.ts` (−91 +70), `app/releve/casDeReleve.ts` | `toitAutomatique`, `hauteurMur`, `origine`, `position`, `obstacles`, `aide` ; le cas tiré du relevé | 91 + 57 = 148 | le service de l'éditeur ; `casDepuisFacade` (« Créer un cas depuis cette façade ») |
+| Panoramax et la profondeur | `ui/releve/panoramax.ts`, `ui/releve/profondeur.ts`, `geo/panoramax.ts` (−63), `facade/vision/panorama.ts`, `facade/vision/objectifs.ts` | `MurVise`, `classerFaceAuMur`, la profondeur, le panorama, les objectifs | 92 + 214 + 63 + 77 + 57 = 503 | — (la photo se prend devant le mur, dans l'audit) |
+| Le masque d'occlusion du relevé | `facade/releve/masque.ts` | le masque hachuré | 89 | la fusion des vues (`fondreLesVues`) |
+| Les branches mortes de la chaîne | `facade/releve/serie.ts` (−87), `chaine.ts` (−51), `analyseSerie.ts` (−60), `recalageIa.ts` (−93), `app/releve/rechercheCoins.ts` (−29), `runFacade.ts` (−33), `prise.ts` (−21), `ui/releve/camera.ts` (−99), `facade/vision/cadrage.ts` (−53), et onze fichiers de moins de 20 lignes chacun | `Etape`, `estPartielle`, `arreterRecherche`, `consigneCoins`, `analyserSansRien`, `morceauRedresse`, `etirerEnHauteur`, `avisHauteur`, `recalerCoins`, `lancerRecherche`, `urlCorrigee`, `photosPrevues`, `distanceParCadrage`, `consignePrise`, `facadeFaceAuCap`, `murPropose`, `coinsDeLIa`, `hauteurPignon`, `positionGpsCourante`, `focale35mm` | ≈ 640 | — (les mêmes calculs, sans les entrées que seule la capture donnait : le banc est identique) |
+| La calibration qui prenait ses photos | `zones/EcranCalibration.tsx` (−49), `EditeurCasCalibration.tsx` (−34), `app/administration/ecranCalibration.ts` (−38) | « Nouveau cas », photo, depuis un projet, depuis un fichier, la case « auto » | 121 | « Créer un cas depuis cette façade » |
+| Commandes, contrôles et CSS | `app/ecouteurs/facade.ts`, `app/exposition.ts`, `app/controlesInterface.ts` (−39), `styles/app.css` (−141) | `facade.relever` ; 26 contrôles de capture et 7 de la calibration ; ≈ 49 classes | ≈ 190 | `facade.photographier`, `facade.modifier`, `facade.creerCas` ; 12 contrôles de l'éditeur |
+| Points de fumée | `scripts/fumee.mjs` (−603 +183), `tests/CHECKLIST-FUMEE.md` | 54, 58, 59, 65, 67, 68, 71, 80, 81, 82 et leurs aides (`choisirMurProche`, `releverScene`, `poserCoins`, `memeContenu`) | 603 | 109, 110, 111 |
+| Tests de ce qui est parti | `releveMasque`, `releveAide`, `releveVerification` (→ `editeurFacade.test.ts`), `panorama`, `objectifs`, `ui/releve/panoramax`, `casDeReleve`, `signaux` | — | 122 + 84 + 99 + 75 + 71 + 53 + 40 + 28 = 572 | `editeurFacade.test.ts`, `releve.test.ts`, `captureAudit.test.ts` |
+
+En tout : `src/` +412 −3 780 lignes (soixante fichiers, seize supprimés), `tests/` +484 −978, `scripts/fumee.mjs` +183 −603. Cliquet
+des orphelins : **217 → 206** entrées (onze exports partis avec leur fichier ou devenus locaux) ; `app/releve/calageFin.worker.ts` reste
+déclaré (importé par `?worker&inline`, que le test ne résout pas). Grep des noms supprimés (`Visee`, `ChoixMethode`, `PhotosRue`,
+`EtapeCoins`, `casDeReleve`, `facade.relever`, `releve.importerPhoto`, `calibration.nouveauCas`) : vides dans `src/` et `tests/`, hors
+des tests qui vérifient leur absence et des noms voisins qui restent (`chercherPhotosRue`, `FacadeVisee`).
+
 ---
 
 ## 10. Vérifier
@@ -1630,8 +1736,8 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
     nouveau doit refaire.*
 13. **Le cliquet des orphelins est un test d'imports, pas un analyseur** : un import dynamique ou un export utilisé dans son seul fichier lui échappe ; ceux-là se
     déclarent à la main, et le bilan de suppression de la PR reste le filet.
-14. **Deux chemins de capture** : le relevé garde son entrée tant que F6 n'est pas livré ; la chaîne est commune et l'enchaînement unique (F3), donc seule
-    l'**interface** de capture coexiste, jusqu'à la suppression de F6.
+14. ~~**Deux chemins de capture**~~ *(résolu au lot F6)* : la capture du relevé est supprimée ; une photo de façade se prend dans l'audit, et
+    `tests/unit/architecture/captureAudit.test.ts` le tient.
 
 ---
 

@@ -2565,7 +2565,7 @@
   .calTrace{ fill:var(--accent-light); fill-opacity:0.35; stroke:var(--accent); stroke-dasharray:5 3; }
   .calFiche{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:8px 0; padding:8px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
   .calTable{ width:100%; margin:8px 0; font-variant-numeric:tabular-nums; }
-  .calTable th[scope="row"]{ text-align:left; font-weight:600; }
+  .calTable th[scope="row"]{ text-align:left; font-weight:600; overflow-wrap:anywhere; }
   .calParams ul{ columns:2 280px; margin:6px 0; padding:0; list-style:none; font-size:0.8rem; }
   .calParams li{ break-inside:avoid; min-height:28px; }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }

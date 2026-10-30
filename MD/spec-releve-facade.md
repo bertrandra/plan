@@ -9,6 +9,16 @@ photo, toit redéfini par chaque façade, LiDAR désactivé
 
 ---
 
+> **Depuis le lot F6 (29 octobre 2026, [`spec-facade-calage-audit.md`](spec-facade-calage-audit.md) §6, §9 bis F6) : le relevé
+> n'a plus de capture.** Les photos d'une façade se prennent, se redressent, s'assemblent et se rangent **dans l'audit de la
+> parcelle** ([`spec-audit.md`](spec-audit.md) §12), par la même chaîne (§6, inchangé). Le relevé est devenu l'**éditeur** d'une
+> façade déjà relevée (§4) : corriger, ajouter, retirer, vérifier ses ouvertures et la partie basse d'un mur en L. Le choix du mur et
+> sa boussole, la méthode, la photo de rue (§4.3), la visée et la distance au mur (§5), les coins posés au doigt, la vérification de
+> la hauteur et le toit lu qui remplaçait celui du bâtiment (§8.3) sont **partis avec la capture** : ces sections restent comme
+> l'histoire de ce que faisait le relevé, pas comme ce que Plan fait. Un relevé d'avant se rouvre et s'édite sans rien perdre (§10).
+
+---
+
 ## 1. Ce que fait la fonction
 
 On sélectionne un bâtiment sur le plan, on choisit une de ses façades, et le téléphone la
@@ -59,20 +69,20 @@ se décalant le long du mur quand on manque de recul, ou reculer ; une alerte qu
 | Couche | Fichier | Rôle |
 |---|---|---|
 | `facade/` (niveau 3, pur) | `geometrie.ts` | les façades d'un contour : gauche vue de dehors, normale, azimut, nom |
-| | `cadrage.ts` | focale, distance par la taille apparente, consignes de distance et d'aplomb |
+| | `cadrage.ts` | focale, plan de prise (la distance par la taille apparente et les consignes de la visée sont parties au lot F6) |
 | | `homographie.ts` | homographie à quatre points, redressement bilinéaire |
 | | `detection.ts` | ouvertures sur l'élévation, affinage au centimètre, classement |
 | | `toit.ts` | plans du toit, pans et pignons, lecture de la silhouette, correction de fuite |
 | | `analyse.ts` | l'enchaînement complet photo → relevé ; coins proposés |
 | | `exif.ts` | focale 24×36 d'un JPEG importé |
 | | `choix.ts` | le mur désigné avant d'ouvrir le relevé |
-| `ui/releve/` (niveau 5) | `camera.ts`, `profondeur.ts` | caméra, fichiers, JPEG ; WebXR, inclinaison ; LiDAR natif (désactivé) |
+| `ui/releve/` (niveau 5) | `camera.ts` | canevas, image brute et JPEG (la caméra, `profondeur.ts` et `panoramax.ts` sont partis au lot F6) |
 | `ui/champs/facade.ts` | | la section « Façades et toit » de l'inspecteur |
 | `render/releve.ts` | | les ouvertures sur le plan à l'écran |
 | `three/releve3d.ts` | | façades texturées, encadrements, pans et pignons |
-| `app/releve/releve.ts`, `app/ecouteurs/facade.ts` | | le service qui écrit dans le projet ; les deux commandes |
-| `zones/Releve.tsx` | | le parcours plein écran (Z8) : l'enchaînement des cinq temps |
-| `zones/releve/` | | chaque temps et ses outils : `ChoixMur`, `capteurs` et `Visee`, `Coins`, `EtapeCoins`, `Elevation` et `EtapeResultat` ; sans React, `serie` (coins proposés, consignes) et `analyse` (analyser une série, écrire le relevé d'un mur), testés seuls |
+| `app/releve/releve.ts`, `app/ecouteurs/facade.ts` | | le service de l'éditeur, qui écrit l'édition dans le projet (`releveEdite`) ; `facade.modifier` et `facade.retirer` (`facade.photographier` est dans `app/audit/parcelle/commande.ts`) |
+| `zones/Releve.tsx` | | l'éditeur plein écran (Z8), depuis le lot F6 |
+| `zones/releve/` | | `EditionFacade` (l'élévation, la fiche d'une ouverture, les gestes de la grille, la partie basse), `Elevation`, `ouvertures` ; `PoserReperes`, `Coins` et `AjusterMur`, les gestes à la main de l'audit et de la calibration (§6.1 bis). Sans React, `facade/releve/serie.ts` et `analyseSerie.ts` (la série de l'audit, écrire le relevé d'un mur), testés seuls |
 | `native/ios/` | | le module natif, hors de l'application web |
 
 Le calcul (`facade/`) ne touche ni au DOM ni au réseau : tout se teste sous Node, sur des images
@@ -104,59 +114,52 @@ sol. Tout le relevé s'exprime dans ce repère.
 
 ### 4.1 Entrée
 
-L'inspecteur (Z5) d'un bâtiment porte une section **« Façades et toit »** : un bouton « Relever une
-façade… », puis une ligne par mur — orientation, nom du côté, longueur, nombre d'ouvertures
-relevées — avec **Relever** (ou **Refaire**) et **Retirer**. Suivent les champs du toit : forme,
-hauteur du faîtage (avec la pente calculée), direction du faîtage, couleur de la couverture.
+L'inspecteur (Z5) d'un bâtiment porte une section **« Façades et toit »** : un bouton « Photographier
+les façades… », puis une ligne par mur — orientation, nom du côté, longueur, nombre d'ouvertures
+relevées — avec **Photographier**, **Modifier** (un mur relevé) et **Retirer**. Suivent les champs du
+toit : forme, hauteur du faîtage (avec la pente calculée), direction du faîtage, couleur de la
+couverture.
 
-Deux commandes, groupe `facade`, permission `projects.write`, placées `inspecteur` dans les trois
+Trois commandes, groupe `facade`, permission `projects.write`, placées `inspecteur` dans les trois
 classes d'écran (`app/exposition.ts`) :
 
 | Commande | Active quand | Effet |
 |---|---|---|
-| `facade.relever` | un bâtiment est sélectionné (même verrouillé : le verrou fige la position, pas ce qu'on sait des murs) | ouvre le parcours, sur le mur désigné ou sur le choix du mur |
+| `facade.photographier` | un bâtiment de la parcelle du projet est sélectionné ; grisée avec sa raison sans parcelle cadastrale, ou hors de la parcelle | ouvre l'audit de la parcelle sur l'écran de prise, la façade désignée choisie ; sans mur désigné, l'écran de prise suit la position (lot F6) |
+| `facade.modifier` | le bâtiment a au moins un relevé (même verrouillé : le verrou fige la position, pas ce qu'on sait des murs) | ouvre l'éditeur sur le relevé du mur désigné (§4.2) |
 | `facade.retirer` | le bâtiment a au moins un relevé | retire le relevé du mur désigné ; Ctrl+Z le rend |
 
 Une commande ne prend pas d'argument : le bouton d'une ligne **désigne** d'abord son mur
 (`facade/choix.ts`), puis exécute la commande, qui le reprend — le même schéma que la cible
 d'alignement.
 
-### 4.2 Les six temps (`zones/Releve.tsx`, `zones/releve/`)
+### 4.2 L'éditeur (`zones/Releve.tsx`, `zones/releve/EditionFacade.tsx`, lot F6)
 
-Plein écran, dans les trois classes, fermable par Échap ou la croix. **Rien n'est écrit dans le
-plan avant « Valider »** : fermer ne laisse aucune trace.
+Plein écran, dans les trois classes, fermable par Échap, la croix ou « Annuler ». **Rien n'est écrit dans le plan avant « Valider
+la façade »** : fermer ne laisse aucune trace. L'éditeur montre :
 
-1. **Choisir le mur** — le contour du bâtiment, nord en haut, chaque côté une cible de 44 px, et la
-   même liste en boutons. Sauté si l'inspecteur a désigné le mur. Au téléphone, la **boussole**
-   (`useBoussole`, `facadeFaceAuCap`) dit vers où l'on regarde et propose le mur qu'on a devant soi,
-   surligné sur le contour, avec « C'est ce mur » ; sur iOS, un bouton demande d'abord la permission
-   d'orientation ; sans capteur (ordinateur), rien ne s'affiche. Le mur est proposé, pas choisi.
-2. **Choisir la méthode** (`ChoixMethode`) — trois cartes, chacune expliquée en deux phrases : la
-   **photo de rue** (Panoramax, §4.3 ; grisée tant que la parcelle n'est pas géolocalisée), la
-   **caméra guidée** (temps 2 bis), ou **importer une photo** déjà prise, qui passe droit aux coins.
-2 bis. **Se placer** — la caméra arrière, la distance **mesurée** au mur et sa source, ce qu'elle
-   permet (« une photo suffit », « 3 photos, de gauche à droite », ou l'alerte « reculez à au moins
-   Y m »), une alerte quand rien ne mesure, l'aplomb du téléphone, le choix de l'objectif (0,5× / 1×).
-   La hauteur à cadrer est l'égout estimé plus, sur un pignon d'un toit déjà connu, son triangle.
-   Le déclencheur, et « Importer » pour une photo déjà prise. Voir §5.
-3. **Placer les coins** — la photo (ou chaque photo de la série, en vignettes, §6.1), avec une marge tout autour : les quatre coins du mur (égout en
-   haut, pied du mur en bas) sont proposés d'après la distance (§5.4), et se déplacent au doigt
-   avec une **loupe**. Un coin caché ou hors cadre se place là où il serait. La largeur vient du
-   plan ; la hauteur ne se saisit pas, elle se mesure d'après ces coins.
-4. **Analyse** — une seconde environ (§6 à §8).
-5. **Vérifier** — la façade redressée à l'échelle, chaque ouverture un cadre qu'on déplace, qu'on
-   redimensionne par ses coins, dont on change la nature et les cotes au centimètre, qu'on retire ;
-   « Ajouter une ouverture ». La **hauteur mesurée**, à côté de celle du bâtiment (cadastre, ou
-   saisie), corrigeable : la façade s'étire alors en hauteur, ouvertures, partie basse, bande du
-   pignon et toit compris (la largeur, elle, est celle du plan). **Le bâtiment garde sa hauteur** :
-   à la validation, la façade est ramenée à la hauteur du bâtiment du même facteur (ouvertures,
-   partie basse, toit compris), et la hauteur mesurée n'est que dite dans le message de fin
-   (« mesurée 7,40 m sur la photo, le bâtiment garde 6,00 m »). La photo apporte la texture, les
-   ouvertures et le toit ; la hauteur reste celle du cadastre ou de la saisie. Le toit lu sur la façade, avec sa pente et, sur un pignon, la
-   hauteur de la façade au faîtage ; « Remplacer le toit du bâtiment par celui-ci » part cochée.
-   **Valider** écrit le tout en **un seul pas d'historique**.
+- la façade redressée à l'échelle (la texture du relevé ; sur un appareil qui n'a pas la photo, le mur nu et une note), chaque
+  ouverture un cadre qu'on déplace, qu'on redimensionne par ses coins, dont on change la nature et les cotes au centimètre, qu'on
+  retire ; « Ajouter dans la grille » (au croisement libre le plus proche, §10.5 de la spec des façades), « Ajouter une ouverture » ;
+  « Même taille pour la travée », « Même hauteur pour le niveau » ;
+- une baie devinée (source `devinee`) garde sa case « Garder cette baie devinée » : décochée, elle passe au pointillé et ne s'écrit
+  pas ; une touche la rend ;
+- « **Vérifiée sur la photo** » : la date du jour sur l'ouverture (`verifieeLe`) ; plus aucun rejeu de l'audit ne la déplace ni ne
+  la retire ([`spec-facade-calage-audit.md`](spec-facade-calage-audit.md) §3.3) ; décochée, la date part ;
+- la précision des cotes (un pixel de la photo au mur), et la partie basse d'un mur en L (§6.2), corrigeable.
 
-### 4.3 La photo de rue (Panoramax)
+**Valider la façade** écrit l'édition en **un seul pas d'historique** (`app/releve/releve.ts::releveEdite`) : les corrections se
+tracent contre les ouvertures du relevé (§12 de la spec des façades : une retouche `corrigee`, un ajout `ajoutee`, un retrait), et
+s'ajoutent à celles déjà tracées ; la grille se recalcule ; une ouverture nouvelle d'une façade validée reçoit son identifiant
+(`numeroterOuvertures`) ; `depuisAudit` tombe (la mesure suivante de l'audit ne remplacera plus le relevé d'office). Tout le reste —
+la photo, le calage, la Façade validée (dimensions, forme, pose de la texture), les seuils de la détection — est gardé tel quel.
+Quand rien n'a changé, rien ne s'écrit, pas même un pas d'historique.
+
+*Avant le lot F6*, le relevé était un parcours de capture en six temps (choisir le mur et sa boussole, la méthode, se placer avec la
+caméra guidée, placer les coins, l'analyse, vérifier la hauteur et le toit) : la prise est dans l'audit, et la vérification de la
+hauteur et du toit lu sur la photo passe par l'audit (le diagnostic de forme, lot F4) et le Mode Toit.
+
+### 4.3 La photo de rue (Panoramax) — partie au lot F6
 
 Panoramax est le commun des photos de rue libres (OpenStreetMap France, IGN) : une API STAC
 (`geo/panoramax.ts`, `https://api.panoramax.xyz/api/search`) rend, dans une emprise, chaque photo
@@ -192,7 +195,7 @@ les deux autres méthodes restent là.
 
 ---
 
-## 5. La distance au mur
+## 5. La distance au mur — partie au lot F6 avec la visée
 
 ### 5.1 Les sources (`ui/releve/profondeur.ts`)
 
@@ -637,7 +640,11 @@ projette plus bas qu'il n'est. `corrigerFuite` remonte la hauteur apparente avec
 mesurée et la demi-largeur du bâtiment. Moins d'un tiers de la bande vu : aucun toit n'est proposé,
 plutôt que de conclure à un toit plat.
 
-### 8.3 Chaque façade redéfinit le toit
+### 8.3 Chaque façade redéfinit le toit — jusqu'au lot F6
+
+*Depuis le lot F6, l'éditeur ne touche plus au toit* : la forme lue sur la photo passe par le diagnostic de forme de l'audit, qui
+propose une correction du toit corps par corps, relue par le moteur après confirmation (lot F4), ou par le Mode Toit. Ce qui suit
+décrit le relevé d'avant.
 
 Le bâtiment par défaut est le contour du cadastre extrudé à la hauteur du cadastre, avec le toit
 qu'on lui connaît (ou aucun). **Chaque façade relevée le redéfinit** : sa hauteur à l'égout mesurée
@@ -776,6 +783,14 @@ change. À l'ouverture (`rentrerLesPhotos`), la photo revient du navigateur quan
 Quand la plateforme aura son stockage de fichiers (son jalon M7), la photo y montera et `photoLocale`
 deviendra la référence de ce fichier.
 
+### 10.2 Un relevé d'avant, dans l'éditeur (lot F6)
+
+Le fichier ne change pas de forme : un relevé fait par l'ancienne capture (sa distance et sa source — `lidar`, `webxr`, `cadrage`,
+`rue` —, ses coins et leur source, son calage d'avant avec `contourDecaleM`, ses corrections) ou posé par l'audit se rouvre dans
+l'éditeur tel quel. Rouvert et validé sans geste, il ne s'écrit pas ; édité, il garde tout ce que l'éditeur ne touche pas, et un
+relevé sans Façade validée reste au schéma 6 (`tests/unit/app/releve/releve.test.ts`, sur le témoin
+`tests/fixtures/migrations/schema-6.json` : rouvert, édité, réécrit, relu, octet pour octet). Le schéma reste **7**.
+
 ## 11. Limites connues et suites
 
 | Limite | Effet | Suite possible |
@@ -822,6 +837,12 @@ deviendra la référence de ce fichier.
   120 × 120 et 90 × 216 pour 120 × 135, 120 × 120 et 90 × 215 ; correction à 6,00 m puis retour,
   cotes rendues à l'identique ; validation : élévation 5,20 m, toit à deux pans remplacé. La visée
   n'annonce plus le LiDAR ; le canal natif n'est plus appelé.
+- **Lot F6 (29 octobre 2026)** : l'éditeur sous jsdom (`tests/unit/zones/editeurFacade.test.ts` : la baie devinée, les gestes de la
+  grille, la vérification, Annuler et Échap), son service (`tests/unit/app/releve/releve.test.ts` : rien ne s'écrit sans geste, un
+  pas d'historique, un relevé d'avant rouvert et édité sans perte), aucune capture hors de l'audit
+  (`tests/unit/architecture/captureAudit.test.ts`) ; fumée 109 (de « Photographier » dans l'inspecteur à l'éditeur), 110 (deux vues
+  dans l'audit), 111 (un cas de calibration tiré de l'audit). Les points de fumée de la capture (54, 58, 59, 65, 67, 68, 71, 80,
+  81, 82) sont retirés (`tests/CHECKLIST-FUMEE.md`).
 - **Empreintes** : les six artefacts du jeu de démonstration, recapturés à la `2.2.0` ; l'ancien
   numéro, l'ancienne date de build et l'ancien numéro de schéma remis dans les octets frais rendent
   les six empreintes de la `2.0.2` au bit près (`tests/fixtures/golden/EMPREINTES.md`).

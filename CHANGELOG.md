@@ -7,6 +7,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F6 : les photos dans l'audit** (`MD/spec-facade-calage-audit.md` §6, §7.1, §9, décision 6). Les photos d'une
+  façade se prennent, se redressent, s'assemblent et se rangent **dans l'audit de la parcelle, et nulle part ailleurs**. Dans
+  l'inspecteur, section « Façades et toit », « **Photographier** » sur la ligne d'un mur (commande `facade.photographier`, dans les
+  trois classes d'écran) ouvre l'audit sur l'écran de prise, la façade choisie (la vue de prise d'une façade choisie) ; « Photographier
+  les façades… », sans mur, ouvre l'écran de prise qui suit la position. Grisé avec sa raison sans parcelle cadastrale, ou pour un
+  bâtiment hors de la parcelle.
+- **L'éditeur d'une façade relevée** (`zones/Releve.tsx`, commande `facade.modifier`, « **Modifier** » sur la ligne d'un mur relevé) :
+  l'élévation et ses ouvertures, à corriger (nature, cotes au centimètre, « Ajouter dans la grille », « Même taille pour la travée »,
+  « Même hauteur pour le niveau », retrait, une baie devinée rendue au pointillé ou gardée), **une ouverture vérifiée d'une case**
+  (« Vérifiée sur la photo » : plus aucun rejeu de l'audit ne la déplace ; décochée, la date part), la partie basse d'un mur en L.
+  « **Valider la façade** » écrit l'édition en une étape d'historique : les corrections se tracent contre le relevé (une retouche
+  devient `corrigee`, un ajout `ajoutee`), la grille se recalcule, une ouverture nouvelle d'une façade validée reçoit son identifiant ;
+  tout le reste du relevé (photo, calage, Façade validée, seuils de la détection) est gardé ; rien ne s'écrit quand rien n'a changé.
+- **« Créer un cas depuis cette façade »** (commande `facade.creerCas`, sous la barre d'une façade photographiée de l'audit, pour
+  l'administrateur) : ses photos, ses dimensions du plan (largeur du cadastre, hauteur du LiDAR), son gabarit, les corps de son toit
+  et les repères posés deviennent un cas de calibration, rangé sur le serveur (`admin/calibration-cas`), à ouvrir dans Admin ›
+  Calibrer la détection.
+- Un test tient la décision : **aucun écran de capture hors de l'audit** (`tests/unit/architecture/captureAudit.test.ts` : une
+  caméra, un champ fichier qui la demande ou qui prend une image n'existent que dans les écrans de l'audit).
+- Fumée : points 109 (de « Photographier » dans l'inspecteur à l'éditeur, deux Ctrl+Z), 110 (deux vues du même mur fondues dans
+  l'audit), 111 (« Créer un cas depuis cette façade », lu et rejoué par la calibration).
+
 - **Façades, lot F5 : la Façade et la façade objet** (`MD/spec-facade-calage-audit.md` §3.2 à §3.4, §4 É9, §9). Une façade
   **validée** garde ce que la photo a servi à vérifier : ses **dimensions** (le plan et le LiDAR, et leur source ; l'écart que la
   photo constate, dit en alerte au-delà de 10 %, jamais une correction), sa **forme** (le gabarit du toit calculé, le haut lu, les
@@ -117,6 +139,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le relevé de façade devient un éditeur** (lot F6) : il n'a plus de capture ; il s'ouvre sur un mur déjà relevé (« Modifier »), et
+  la photo d'un mur se prend dans l'audit. Un relevé d'avant (posé par l'audit ou fait par l'ancienne capture, sa photo restée sur
+  l'appareil comprise) se rouvre, s'édite et se relit sans rien perdre ; le schéma reste 7 (un relevé sans Façade validée reste au 6).
+  Le toit lu sur la façade ne remplace plus le toit du bâtiment depuis le relevé : la forme lue sur la photo passe par le diagnostic de
+  l'audit et le moteur (lot F4), ou par le Mode Toit.
+- **La calibration lit les façades de l'audit** (lot F6, décision 6) : un cas naît d'une façade de l'audit (« Créer un cas depuis cette
+  façade », ou un audit reçu) ; l'écran ne prend plus de photos et n'ajoute plus de photo à un cas (on peut en retirer une). La
+  détection propose les ouvertures d'un cas encore sans annotation à chaque rejeu (la case « Automatique », qui ne réglait plus que
+  cela, part avec l'ajout de photos).
+
 - **Schéma du projet : 7** (lot F5). Un projet dont une façade est validée s'écrit au schéma 7 (un lecteur 6 perdrait sa Façade à la
   première réécriture du mur) ; les autres restent au plus petit schéma qui les décrit (la démonstration au 5). La migration 6 → 7
   est l'identité ; un fichier ancien se relit à l'identique. **La plateforme doit accepter le schéma 7 avant le dépôt**
@@ -158,6 +190,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La Vue 3D ne se redessine plus sous la liste de l'audit** (`three/etat3d.ts::renduCouvert`, `app/audit/parcelle/commande.ts`) :
+  la liste couvre la Vue 3D et ne s'en sert pas, mais sa boucle rendait une image à chaque trame. Sous un rendu logiciel, en grand
+  écran, une image prenait plus d'une seconde et chaque toucher de la liste l'attendait (neuf secondes pour ouvrir une étape de la
+  barre : les points de fumée 102, 104 et 105 échouaient en grand écran sous charge). La prise et les propositions, posées sur la
+  Vue 3D, et la fermeture de l'audit la font repartir.
+- **La liste des cas de calibration tient sur un téléphone** : le nom d'un cas tiré de l'audit (« Maison · façade nord
+  (78650000AE0101) ») se coupe dans sa cellule au lieu d'élargir la page.
 - **L'escalade d'une maison (D20) prend le modèle de l'escalade** (`deploy/analyse-fonctions.php`) : ses requêtes portent l'usage
   `analyse` (pour son prompt), et le serveur leur donnait le modèle de l'analyse ; dans une demande `escalade`, une requête garde le
   prompt de son usage et prend le modèle de l'escalade, et se compte en escalade au journal.
@@ -190,6 +229,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   deux modes.
 
 ### Supprimé
+
+- **La capture du relevé de façade** (lot F6, `MD/spec-facade-calage-audit.md` §8 bis.2) : le parcours de `zones/Releve.tsx` (choix
+  du mur et sa boussole, méthode, photos de rue Panoramax, visée et caméra guidée avec la distance en réalité augmentée, le niveau et
+  le grand-angle, les quatre coins du mur et le mur en L posés au doigt, l'analyse, la vérification de la hauteur et du toit lu),
+  `zones/releve/Visee.tsx`, `ChoixMethode.tsx`, `PhotosRue.tsx`, `ChoixMur.tsx`, `EtapeCoins.tsx`, `capteurs.ts`, l'aide de Claude au
+  relevé (`AideClaude.tsx`, `AideEtapes.tsx`, `aide.ts`, `facade/detection/signaux.ts`, `aideReleveDuNavigateur`), le masque
+  hachuré de la vérification (`facade/releve/masque.ts`), la caméra du navigateur et ses objectifs (`ui/releve/camera.ts` : flux,
+  grand-angle ; `ui/releve/profondeur.ts`, `ui/releve/panoramax.ts`, `facade/vision/objectifs.ts`, `facade/vision/panorama.ts`), les
+  consignes de la visée (`facade/vision/cadrage.ts` : distance par cadrage, aplomb, consigne de prise), le mur proposé
+  (`priseDeVue.ts::murPropose`, `facadeFaceAuCap`), les photos de rue face au mur (`geo/panoramax.ts::classerFaceAuMur`), la glue
+  de l'analyse du relevé (`chaine.ts::analyserSansRien`, `morceauRedresse`, `analyseSerie.ts::etirerEnHauteur`, l'avis de l'analyse),
+  ce que seule la visée posait sur une prise (les repères sur les bords du mur, le plan de prise, les morceaux d'une série), le
+  recalage des coins de Claude (`recalageIa.ts::recalerCoins`, `ia.ts::coinsDeLIa`), `hauteurPignon`, `positionGpsCourante`, la
+  commande `facade.relever` et ses vingt-six contrôles de capture, leurs règles CSS et leurs tests.
+- **Les cas de calibration faits à part** (lot F6) : « Nouveau cas (photos) », le champ photo de l'éditeur d'un cas, et les cas tirés
+  d'une façade relevée d'un projet ou d'un fichier de projet (`app/releve/casDeReleve.ts`), et leurs sept contrôles ; un cas naît d'une façade de l'audit.
+- Fumée : points 54, 58, 59, 65, 67, 68, 71, 80, 81 et 82 (la capture du relevé), remplacés par 109 à 111 et les tests de l'éditeur
+  (`tests/CHECKLIST-FUMEE.md`, « Points retirés au lot F6 »).
 
 - **L'écart du contour dans le calage d'un relevé** (lot F5) : `calage.contourDecaleM`, que rien ne lisait ; l'écart de la largeur
   vue va dans les dimensions de la façade validée (`dimensions.ecartPhoto`, en part). Un fichier d'avant le garde tel quel. Et le

@@ -58,8 +58,8 @@ const THEMES = ['light', 'dark'];
  *   57  un ecran d'admin : Consommation de Claude (graphique, tri, export CSV, tarifs).
  * Ecartes : 23 (points de vue 3D), qui rate un passage sur quatre en Econome, l'image du rappel
  * changeant avec les tuiles qui arrivent ; 93 (Admin › Regles), qui echoue aujourd'hui sur `main` ;
- * le GLB (24, deux minutes de rendu logiciel) ; les releves de facade (photos de synthese a generer,
- * longues attentes) ; les points du telephone.
+ * le GLB (24, deux minutes de rendu logiciel) ; les facades (photos de synthese a generer, longues
+ * attentes : 102 a 111) ; les points du telephone.
  */
 const LOTS = {
   ci: {
@@ -75,9 +75,6 @@ if (lot) for (const [k, v] of Object.entries(lot.reglages)) if (!process.env[k])
 const choisis = lot ? lot.points : argsPoints.map(Number).filter(Boolean);
 
 // ---- Aides cote page -----------------------------------------------------------------------------
-
-/** Les passes d'un appel du run d'une facade (trois, votees : decision du 29 octobre 2026) portent toutes le meme contenu. */
-const memeContenu = (d) => d.requetes.every((q) => JSON.stringify(q.contenu) === JSON.stringify(d.requetes[0].contenu));
 
 /**
  * Les photos de synthese d'une scene du banc de facades (tests/fixtures/facades/), en PNG : la vue
@@ -96,62 +93,8 @@ function photosScene(nom) {
   return photosRendues.get(nom);
 }
 
-/**
- * Le mur de la maison le plus proche de la largeur d'une scene du banc : la detection se lit en metres,
- * et un mur deux fois plus court ecraserait les baies sous les seuils de taille.
- */
-async function choisirMurProche(page, largeur) {
-  const murs = page.locator('.releveListe [data-controle="releve.choisirMur"]');
-  const largeurs = await murs.evaluateAll((bs) => bs.map((b) => Number((b.textContent.match(/([\d,]+) m/)?.[1] ?? '0').replace(',', '.'))));
-  const k = largeurs.length ? largeurs.reduce((m, l, i) => (Math.abs(l - largeur) < Math.abs(largeurs[m] - largeur) ? i : m), 0) : -1;
-  if (k >= 0) await murs.nth(k).click(); else await page.locator('[data-controle="releve.choisirMur"]').first().click();
-  await page.waitForTimeout(600);
-  return k >= 0 ? largeurs[k] : null;
-}
 
-/**
- * Le releve d'une seule photo de synthese d'une scene du banc, coins vrais poses au doigt, jusqu'a
- * l'etape Verifier. Rend l'etat des facades d'avant, pour le Ctrl+Z.
- */
-async function releverScene(page, nom) {
-  const { vues: [photo], coins, largeur, largeurPx } = photosScene(nom);
-  await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-  const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
-  await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-  const mur = await choisirMurProche(page, largeur);
-  await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-0.png', mimeType: 'image/png', buffer: photo });
-  await poserCoins(page, coins[0], largeurPx[0]);
-  await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
-  await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
-  return { avant, mur };
-}
 
-/**
- * Pose au doigt les quatre coins du mur sur la photo du releve (haut gauche, haut droit, bas droit, bas
- * gauche), en pixels de la photo d'origine : chaque cible est glissee de sa place proposee a la sienne.
- * La photo importee a pu etre reduite : les coins le sont d'autant.
- */
-async function poserCoins(page, coins, largeurPx) {
-  await page.locator('svg.releveCoins').first().waitFor({ timeout: 20000 });
-  await page.waitForTimeout(800);
-  for (let i = 0; i < 4; i++) {
-    await page.locator('circle.releveCoinCible').nth(i).scrollIntoViewIfNeeded();
-    const { a, b } = await page.evaluate(({ i, p }) => {
-      const svg = document.querySelector('svg.releveCoins');
-      const img = svg.querySelector('image');
-      const k = Number(img.getAttribute('width')) / p.largeurPx;
-      const ctm = svg.getScreenCTM();
-      const pt = svg.createSVGPoint();
-      const c = svg.querySelectorAll('circle.releveCoinCible')[i];
-      pt.x = Number(c.getAttribute('cx')); pt.y = Number(c.getAttribute('cy'));
-      const a = pt.matrixTransform(ctm);
-      pt.x = p.x * k; pt.y = p.y * k;
-      const b = pt.matrixTransform(ctm);
-      return { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } };
-    }, { i, p: { ...coins[i], largeurPx } });
-    await glisser(page, a, b.x - a.x, b.y - a.y, 6);
-  }
-}
 
 /** L'etat du plan, en JSON : ce qu'on compare avant et apres un geste. */
 const lireEtat = (page) => page.evaluate(() => {
@@ -1559,129 +1502,6 @@ const POINTS = {
     const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && !nonAdmises.length && nommesParCle === 0 && sansDescription === 0;
     return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation}${nonAdmises.length ? ' (non admises : ' + nonAdmises.join(', ') + ')' : ' (admises)'} ; champs nommés par leur clé ${nommesParCle} ; commandes sans description ${sansDescription}/${commandes}` };
   },
-  54: async (page) => {
-    // Le releve de facade de bout en bout, sans camera : une facade synthetique (mur enduit, deux
-    // fenetres et une porte) importee, coins proposes, analyse, Valider ; un Ctrl+Z le retire d'un coup.
-    const dessin = await page.context().newPage();
-    await dessin.setViewportSize({ width: 1600, height: 1200 });
-    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
-      + "const x=document.getElementById('c').getContext('2d');"
-      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6b6b5a';x.fillRect(0,1000,1600,200);"
-      + "x.fillStyle='#e8dcc4';x.fillRect(200,250,1200,750);"
-      + "x.fillStyle='#2b3440';x.fillRect(380,450,220,300);x.fillRect(1000,450,220,300);x.fillRect(700,620,200,380);"
-      + '</script></body>');
-    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
-    await dessin.close();
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
-    const avant = await facades();
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
-    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 15000 });
-    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 30000 });
-    // La precision annoncee (lot L6) : un pixel de la photo au mur, lu ici sur les coins poses.
-    const precision = await page.locator('.releveNote', { hasText: 'Cotes précises' }).first().textContent({ timeout: 2000 }).catch(() => null);
-    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
-    await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, ouvertures: o.batiment.facades.map((f) => f.ouvertures.length), pxParM: o.batiment.facades.map((f) => f.calage?.photos?.[0]?.pxParMSource ?? null) })));
-    await annuler(page);
-    const retour = (await facades()) === avant;
-    const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
-    const pxParM = ecrit[0]?.pxParM?.[0] ?? null;
-    return { ok: ecrit.length === 1 && ouvertures >= 2 && retour && !!precision && pxParM > 0, mesure: `relevé écrit : ${ecrit.map((e) => e.nom + ' ' + e.ouvertures.join('/') + ' ouverture(s)').join(', ') || 'RIEN'} ; ${precision ? '« ' + precision.trim() + ' »' : 'PAS de précision annoncée'} ; calage gardé : ${pxParM ?? 'RIEN'} px/m ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
-  },
-  58: async (page) => {
-    // Le calage fin (lot L7) : une facade photographiee de biais, sous un ciel et sur un gazon,
-    // importee sans distance ni cap ; les coins sont cherches sur la photo (dans un worker), trouves
-    // pleins, predits en pointille ; un coin deplace au doigt le dit ; la loupe suit le doigt.
-    const dessin = await page.context().newPage();
-    await dessin.setViewportSize({ width: 1600, height: 1200 });
-    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
-      + "const x=document.getElementById('c').getContext('2d');"
-      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,865,1600,335);"
-      + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
-      // Un mur de 8 m sur 6 m (la maison de la demonstration), vu un peu de biais, sous une bande de toit.
-      + "q('#8a4a36',[260,170,1330,205,1330,300,260,290]);"
-      + "q('#e4d6bc',[260,290,1330,300,1350,1040,240,1075]);"
-      + "q('#2b3440',[420,420,620,423,620,660,420,662]);q('#2b3440',[980,428,1180,430,1180,665,980,664]);q('#5a3a2a',[730,760,880,762,880,1060,730,1065]);"
-      + '</script></body>');
-    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
-    await dessin.close();
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
-    const recherche = await page.locator('.releveNote', { hasText: 'Recherche des coins' }).count();
-    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 20000 });
-    const note = (await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().textContent())?.trim();
-    const classes = () => page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
-    const avant = await classes();
-    const etiquette = await page.locator('circle.releveCoinCible').first().getAttribute('aria-label');
-    // Un geste sur le premier coin : il devient « place au doigt », la loupe s'ouvre pendant le geste.
-    const cible = page.locator('circle.releveCoinCible').first();
-    const b = await cible.boundingBox();
-    let loupe = false;
-    if (b) {
-      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 4, { steps: 3 });
-      loupe = (await page.locator('.releveLoupe').count()) > 0;
-      await page.mouse.up();
-    }
-    const apres = await classes();
-    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
-    const pleins = avant.filter((c) => c === 'trouve').length;
-    const ok = pleins >= 2 && avant.length === 4 && apres[0] === 'doigt' && loupe && !!etiquette && /\(/.test(etiquette);
-    return { ok, mesure: `${recherche ? 'recherche annoncée ; ' : ''}« ${note} » ; coins : ${avant.join(', ')} ; après un geste : ${apres.join(', ')} ; loupe ${loupe ? 'ouverte' : 'ABSENTE'} ; « ${etiquette} »` };
-  },
-  59: async (page) => {
-    // La distorsion du grand-angle (lot L8) : une facade de face, vue par un ultra grand-angle non
-    // corrige (barillet de 15 % au coin), en JPEG dont l'EXIF dit 13 mm ; la photo montree devient la
-    // photo corrigee, une note le dit, et les coins sont trouves sur les aretes redevenues droites.
-    const dessin = await page.context().newPage();
-    const jpeg = await dessin.evaluate(() => {
-      const L = 1280, H = 960, k = -0.15, R = Math.hypot(L, H) / 2;
-      const c = document.createElement('canvas'); c.width = L; c.height = H;
-      const x = c.getContext('2d'), img = x.createImageData(L, H);
-      const fen = [[330, 360, 470, 520], [810, 360, 950, 520], [330, 590, 470, 750], [810, 590, 950, 750], [585, 600, 695, 800]];
-      for (let j = 0; j < H; j++) for (let i = 0; i < L; i++) {
-        // Le pixel de la photo deformee vise le point du stenope qui y tombe (rd = ru (1 + k ru^2)).
-        const dx = i + 0.5 - L / 2, dy = j + 0.5 - H / 2, rd = Math.hypot(dx, dy) / R;
-        let ru = rd; for (let n = 0; n < 20; n++) ru -= (ru * (1 + k * ru * ru) - rd) / (1 + 3 * k * ru * ru);
-        const f = rd > 1e-9 ? ru / rd : 1, u = L / 2 + dx * f, v = H / 2 + dy * f;
-        let col = v > 800 ? [111, 154, 82] : [156, 195, 230];
-        if (u > 200 && u < 1080 && v > 200 && v < 800) col = v < 250 ? [138, 74, 54] : [228, 214, 188];
-        if (fen.some(([a, b, cc, d]) => u > a && u < cc && v > b && v < d)) col = [43, 52, 64];
-        const o = (j * L + i) * 4; img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0);
-      const brut = atob(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
-      // Un segment APP1 Exif minimal : IFD0 -> sous-IFD Exif -> FocalLengthIn35mmFilm = 13.
-      const exif = [0x45, 0x78, 0x69, 0x66, 0, 0, 0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8,
-        0, 1, 0x87, 0x69, 0, 4, 0, 0, 0, 1, 0, 0, 0, 26, 0, 0, 0, 0,
-        0, 1, 0xa4, 0x05, 0, 3, 0, 0, 0, 1, 0, 13, 0, 0, 0, 0, 0, 0];
-      const app1 = [0xff, 0xe1, ((exif.length + 2) >> 8) & 0xff, (exif.length + 2) & 0xff, ...exif];
-      const octets = [0xff, 0xd8, ...app1];
-      for (let n = 2; n < brut.length; n++) octets.push(brut.charCodeAt(n));
-      return octets;
-    });
-    await dessin.close();
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'grand-angle.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(jpeg) });
-    const urlAvant = await page.locator('.releveCoins image, .releveCoins img').first().getAttribute('href').catch(() => null);
-    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 30000 });
-    const note = (await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().textContent())?.trim() ?? '';
-    const urlApres = await page.locator('.releveCoins image, .releveCoins img').first().getAttribute('href').catch(() => null);
-    const classes = await page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
-    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
-    const corrigee = /Distorsion du grand-angle corrigée/.test(note);
-    const pleins = classes.filter((c) => c === 'trouve').length;
-    const changee = !!urlApres && urlApres !== urlAvant && urlApres.startsWith('data:image/jpeg');
-    return { ok: corrigee && pleins >= 2 && changee, mesure: `« ${note} » ; coins : ${classes.join(', ')} ; photo montrée ${changee ? 'remplacée par la corrigée' : 'PAS remplacée (' + (urlApres ?? 'aucune') + ')'}` };
-  },
   60: async (page, f) => {
     // L'audit de la parcelle, la liste de controle (lot L9) : « Auditer la parcelle… » depuis le menu
     // Fichier (feuille Projet au doigt) ; les batiments de la parcelle, sans les maisons voisines ; une facade
@@ -2332,56 +2152,6 @@ const POINTS = {
       && avecClaude >= 1 && retire === 0 && toastRetrait && garde === 0;
     return { ok, mesure: `« ${refuse.slice(0, 90)} » ; ${rienParti ? 'rien envoyé' : 'ENVOYÉ'} ; panne : « ${erreur.slice(0, 100)} », ${sansClaude} ligne(s) de Claude ; relancé : ${avecClaude} ligne(s) ; retrait : ${retire} ligne(s), toast ${toastRetrait ? 'oui' : 'NON'}, accord gardé ${garde}` };
   },
-  65: async (page) => {
-    // La fusion de plusieurs vues (lot L13) : deux photos du meme mur, de face puis de biais, une
-    // voiture devant ; « Vues du mur entier » les fait fondre au lieu de les mettre cote a cote. Les
-    // coins de la seconde sont proposes pour le mur entier ; l'analyse rend la facade, Valider l'ecrit
-    // avec le calage des deux vues, un Ctrl+Z la retire.
-    const dessiner = async (mur, voiture) => {
-      const d = await page.context().newPage();
-      await d.setViewportSize({ width: 1600, height: 1200 });
-      await d.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
-        + "const x=document.getElementById('c').getContext('2d');"
-        + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,880,1600,320);"
-        + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
-        + `const m=${JSON.stringify(mur)};const v=${JSON.stringify(voiture)};`
-        // Un point du mur (u, w en fractions de largeur et de hauteur) sur le quadrilatere du mur.
-        + "const P=(u,w)=>{const h=[m[0]+(m[2]-m[0])*u,m[1]+(m[3]-m[1])*u],b=[m[6]+(m[4]-m[6])*u,m[7]+(m[5]-m[7])*u];return [h[0]+(b[0]-h[0])*w,h[1]+(b[1]-h[1])*w];};"
-        + "const R=(u0,w0,u1,w1)=>[...P(u0,w0),...P(u1,w0),...P(u1,w1),...P(u0,w1)];"
-        + "q('#e4d6bc',m);q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
-        + "x.fillStyle='#1e3c78';x.fillRect(v[0],v[1],v[2],v[3]);"
-        + '</script></body>');
-      const png = await d.locator('#c').screenshot({ type: 'png' });
-      await d.close();
-      return png;
-    };
-    const face = await dessiner([250, 260, 1350, 260, 1350, 1000, 250, 1000], [600, 820, 520, 230]);
-    const biais = await dessiner([330, 200, 1250, 300, 1250, 960, 330, 1060], [820, 830, 470, 230]);
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
-    const avant = await facades();
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face });
-    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 15000 }); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais });
-    const choix = page.locator('[data-controle="releve.assemblage"]');
-    await choix.first().waitFor({ timeout: 15000 });
-    const parDefaut = await choix.first().getAttribute('aria-pressed');
-    await choix.nth(1).click(); await page.waitForTimeout(400);
-    const vues = await choix.nth(1).getAttribute('aria-pressed');
-    const consigne = (await page.locator('.releveConsigne').first().textContent())?.trim() ?? '';
-    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
-    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
-    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
-    await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, vues: o.batiment.facades.map((f) => (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length), ouvertures: o.batiment.facades.map((f) => f.ouvertures.length) })));
-    await annuler(page);
-    const retour = (await facades()) === avant;
-    const deux = ecrit[0]?.vues?.[0] ?? 0;
-    const ok = parDefaut === 'true' && vues === 'true' && /^Vue 2 sur 2 .*mur entier/.test(consigne) && ecrit.length === 1 && deux === 2 && retour;
-    return { ok, mesure: `assemblage par défaut : ${parDefaut === 'true' ? 'morceaux' : 'AUTRE'} ; « Vues du mur entier » ${vues === 'true' ? 'choisi' : 'NON choisi'} ; « ${consigne.slice(0, 60)}… » ; écrit : ${ecrit.map((e) => `${e.nom}, ${e.vues.join('/')} vue(s) calée(s), ${e.ouvertures.join('/')} ouverture(s)`).join(' ; ') || 'RIEN'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
-  },
   74: async (page, f) => {
     // Le partage pour le corpus (lot L21, decision D7) : la case « Partager cet audit pour améliorer
     // Plan » est cochee par defaut sur l'ecran des propositions ; rien ne part avant « Valider » ;
@@ -2938,6 +2708,182 @@ const POINTS = {
       && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
     return { ok, mesure: `E9 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  109: async (page, f) => {
+    // Le parcours complet d'une facade, de l'inspecteur a l'editeur (lot F6, MD/spec-facade-calage-audit.md §6) : la photo d'un mur
+    // ne se prend plus que dans l'audit. « Photographier » sur la ligne d'un mur de l'inspecteur ouvre l'audit sur l'ecran de prise,
+    // la facade choisie ; une photo (la scene 02 du banc), le calcul, « Valider la façade » (V4) depuis la liste ; l'audit ferme,
+    // « Modifier » sur la meme ligne ouvre l'editeur du releve : ni camera ni champ fichier, l'elevation et ses ouvertures, la
+    // precision de ses cotes. On retire une ouverture, on en ajoute une, on rend une ouverture non verifiee ; « Valider la façade »
+    // ecrit l'edition en un pas (corrections tracees, identifiant pour la nouvelle) ; un Ctrl+Z la defait, un second la validation.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    // Le releve en texte, cles triees : un pas d'historique rendu remet les memes valeurs, pas forcement dans le meme ordre.
+    const releves = () => page.evaluate(() => { const trie = (v) => (Array.isArray(v) ? v.map(trie) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, trie(v[k])])) : v); return JSON.stringify(trie(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? [])); });
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise, .releve')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F6) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F6 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    const avantTout = await releves();
+    await selectionner(page, "o.key === 'maison'");
+    await inspecteur(page);
+    await ouvrirSection(page, 'releve');
+    const nonReleve = (await page.locator('#zoneInspecteur button[title^="Corriger les ouvertures de la façade"]').count()) === 0;
+    const photographier = page.locator('#zoneInspecteur button[title^="Photographier la façade"]').first();
+    const mur = ((await photographier.getAttribute('title')) || '').replace(/^Photographier la façade (\S+).*$/, '$1');
+    await etape('photographier depuis l inspecteur', () => photographier.click({ timeout: 10000 }));
+    await etape('ecran de prise', () => page.locator('.auditPrise').waitFor({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    const titrePrise = ((await page.locator('.auditPrise .titreParcours').first().textContent()) || '').trim();
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 120000 }));
+    const debords = [await deborde()];
+    await capture('prise');
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const barre = '.dialogueAuditParcelle .facadeAudit';
+    await etape('valider V4', () => toucher(page.locator(barre + ' button[data-commande="facade.valider"]')));
+    await page.waitForTimeout(1500);
+    const valide = await releves();
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    // L'audit ferme laisse la Vue 3D ouverte : on revient au plan, ou vit l'inspecteur.
+    await etape('retour au plan', () => toucher(page.locator('[data-commande="vue.plan"]').first()));
+    await selectionner(page, "o.key === 'maison'");
+    await inspecteur(page);
+    await ouvrirSection(page, 'releve');
+    await etape('modifier', () => page.locator('#zoneInspecteur button[title="Corriger les ouvertures de la façade ' + mur + '"]').first().click({ timeout: 10000 }));
+    await etape('editeur', () => page.locator('.releve[role="dialog"]').waitFor({ timeout: 30000 }));
+    const titre = await page.locator('.releve[role="dialog"]').getAttribute('aria-label');
+    const sansCapture = (await page.locator('.releve input[type="file"], .releve video, [data-controle="releve.importerPhoto"], [data-controle="releve.analyser"]').count()) === 0;
+    const precision = ((await page.locator('.releve .releveNote', { hasText: 'Cotes précises' }).first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
+    const cadres = page.locator('.releve g.releveOuverture:not(.decochee) rect');
+    const n = await cadres.count();
+    await capture('editeur');
+    debords.push(await deborde());
+    // Retirer la premiere ouverture ; rendre la suivante non verifiee ; en ajouter une au milieu.
+    await etape('retirer', async () => { await cadres.first().click({ force: true }); await page.locator('[data-controle="releve.retirerOuverture"]').click({ timeout: 5000 }); });
+    await etape('verifier', async () => { await cadres.first().click({ force: true }); await page.locator('input[data-controle="releve.verifierOuverture"]').click({ timeout: 5000 }); });
+    const fiche = ((await page.locator('.releve .releveFiche').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+    await etape('ajouter', () => page.locator('[data-controle="releve.ajouterOuverture"]').click({ timeout: 5000 }));
+    debords.push(await deborde());
+    await capture('edite');
+    await etape('valider l edition', () => page.locator('[data-controle="releve.valider"]').click({ timeout: 5000 }));
+    await page.waitForTimeout(800);
+    const ferme = (await page.locator('.releve[role="dialog"]').count()) === 0;
+    const edite = JSON.parse(await releves());
+    const r = edite.find((x) => x.dimensions) ?? edite[0] ?? {};
+    const ouv = r.ouvertures ?? [];
+    const ajoutee = ouv.find((o) => o.source === 'ajoutee');
+    const gestes = (r.corrections ?? []).map((c) => c.geste);
+    await page.evaluate(() => window.__plan.executer('objet.annuler')); await page.waitForTimeout(800);
+    const unPas = (await releves()) === valide;
+    await page.evaluate(() => window.__plan.executer('objet.annuler')); await page.waitForTimeout(800);
+    const deuxPas = (await releves()) === avantTout;
+    const ok = nonReleve && /\(choisie\)/.test(titrePrise) && valide !== avantTout && /^Façade \S+ · /.test(titre || '') && sansCapture && /^Cotes précises/.test(precision) && n > 0
+      && ferme && ouv.length === n && !!ajoutee && /^o\d+$/.test(ajoutee.id ?? '') && ouv.filter((o) => !o.verifieeLe).length >= 2 && gestes.includes('retrait') && gestes.includes('ajout')
+      && unPas && deuxPas && !debords.some(Boolean);
+    return { ok, mesure: `inspecteur : ${nonReleve ? 'pas de « Modifier » avant la photo' : '« Modifier » DÉJÀ LÀ'}, « Photographier » (façade ${mur}) → « ${titrePrise.slice(0, 60)} » ; V4 ${valide !== avantTout ? 'écrite' : 'RIEN'} ; éditeur « ${titre} », ${sansCapture ? 'sans capture' : 'AVEC CAPTURE'}, « ${precision.slice(0, 40)}… », ${n} ouverture(s) ; fiche « ${fiche.slice(0, 70)} » ; écrit : ${ouv.length} ouverture(s), ajoutée ${ajoutee ? ajoutee.id : 'ABSENTE'}, gestes ${gestes.join('/') || 'AUCUN'} ; Ctrl+Z ${unPas ? 'défait l’édition' : 'NE DÉFAIT PAS l’édition'}, puis ${deuxPas ? 'la validation' : 'PAS la validation'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  110: async (page, f) => {
+    // Deux vues du meme mur, dans l'audit (lot F6, ce que faisait le releve en « vues du mur entier » : lots L13 et G20) : la scene 19
+    // du banc, une haie haute devant la fenetre de gauche du rez sur les deux vues, de face puis de biais. Les deux photos rangees sur
+    // la meme facade se redressent et s'assemblent (l'E3 de la barre, la fusion), « Valider la façade » ecrit le releve avec le calage
+    // des deux vues ; l'editeur s'ouvre sur sa texture fondue.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [face, biais] } = photosScene('19-vues-haie-haute-baie-cachee');
+    const releves = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? [])));
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise, .releve')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    const fini = () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 });
+    await etape('photo de face', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face }));
+    await etape('calcul 1', fini);
+    await etape('photo de biais', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais }));
+    await page.waitForFunction(() => /2 photos/.test(document.querySelector('.auditPrise .titreParcours')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await etape('calcul 2', fini);
+    const debords = [await deborde()];
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const barre = '.dialogueAuditParcelle .facadeAudit';
+    await etape('barre', () => page.locator(barre + ' .barreFacade').waitFor({ timeout: 30000 }));
+    const image = await page.locator(barre + ' .barreFacade ol > li').nth(1).evaluate((l) => ({ etat: l.className.replace('barreFacadeSegment', '').replace('courant', '').trim(), texte: l.querySelector('[aria-label]')?.getAttribute('aria-label') ?? '' }));
+    const vignettes = await page.locator('.dialogueAuditParcelle .photosAudit li').count();
+    debords.push(await deborde());
+    await etape('valider V4', () => toucher(page.locator(barre + ' button[data-commande="facade.valider"]')));
+    await page.waitForTimeout(1500);
+    const r = (await releves()).find((x) => x.dimensions) ?? {};
+    const calees = (r.calage?.photos ?? []).map((p) => p.pxParMSource);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await etape('retour au plan', () => toucher(page.locator('[data-commande="vue.plan"]').first()));
+    await selectionner(page, "o.key === 'maison'");
+    await inspecteur(page);
+    await ouvrirSection(page, 'releve');
+    await etape('modifier', () => page.locator('#zoneInspecteur button[title^="Corriger les ouvertures de la façade"]').first().click({ timeout: 10000 }));
+    await etape('editeur', () => page.locator('.releve[role="dialog"]').waitFor({ timeout: 30000 }));
+    const texture = await page.locator('.releve svg.releveElevation image').getAttribute('href').catch(() => null);
+    debords.push(await deborde());
+    await page.locator('[data-controle="releve.annuler"]').click({ timeout: 5000 });
+    const ok = vignettes === 2 && image.etat === 'ok' && calees.length === 2 && calees.every((p) => p > 0) && !!texture && texture.startsWith('data:image/jpeg') && !debords.some(Boolean);
+    return { ok, mesure: `${vignettes} photo(s) sur la façade ; Image : ${image.etat} (« ${image.texte} ») ; écrit : calage de ${calees.length} vue(s) (${calees.join(', ')} px/m) ; éditeur : texture ${texture ? 'fondue' : 'ABSENTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  111: async (page, f) => {
+    // « Créer un cas depuis cette façade » (lot F6, MD/spec-facade-calage-audit.md §7.1) : la calibration ne prend plus de photos,
+    // elle lit les facades de l'audit. En admin des demos (`?demofile=1`, routes `admin/session`, `admin/demos` et
+    // `admin/calibration-cas` simulees), l'audit, une photo de la facade de la maison (la scene 02 du banc), la facade depliee de la
+    // liste porte « Créer un cas depuis cette façade » ; le toucher range un cas sur le serveur (ses photos, ses dimensions du plan, son
+    // nom) ; Admin › Calibrer la détection le liste, l'ouvre, et le rejoue par l'enchainement de la facade. L'ecran de calibration n'a
+    // plus de champ photo ni de « Nouveau cas ».
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const objets = await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects)));
+    const cas = new Map();
+    await page.route(/\/admin\/(session|demos|calibration|calibration-cas)(\/|$|\?)/, async (route) => {
+      const u = new URL(route.request().url()), m = route.request().method();
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/demos')) return json({ demos: [{ id: '1', name: 'Démonstration' }] });
+      if (u.pathname.endsWith('/admin/demos/1')) return json({ meta: { id: '1', name: 'Démonstration', schemaVersion: 1 }, objects: objets, measures: [] });
+      if (u.pathname.endsWith('/admin/calibration')) return json(null);
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [...cas.entries()].map(([id, c]) => ({ id, nom: c.nom, statut: c.statut, photos: c.photos.length, ouvertures: c.ouvertures.length, updatedAt: '2026-10-29T10:00:00Z' })) });
+      const id = decodeURIComponent(u.pathname.split('/').pop());
+      if (m === 'PUT') { cas.set(id, JSON.parse(route.request().postData() || '{}')); return json({ ok: true }); }
+      if (cas.has(id)) return json(cas.get(id));
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    await page.goto(BASE + '/?demofile=1');
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await noterToasts(page);
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await page.locator('.rangementAudit').waitFor({ timeout: 10000 }).catch(() => {});
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const bouton = page.locator('.dialogueAuditParcelle .facadeAudit button[data-commande="facade.creerCas"]').first();
+    await etape('creer un cas', () => bouton.click({ timeout: 30000 }));
+    for (let i = 0; i < 60 && !cas.size; i++) await page.waitForTimeout(500);
+    const [id, c] = [...cas.entries()][0] ?? [null, null];
+    const toast = await toastVu(page, '^Cas de calibration créé');
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await page.locator('[data-controle="calibration.ouvrirCas"]').first().waitFor({ timeout: 20000 }).catch(() => {});
+    // La liste des cas tient dans l'ecran : un nom de cas tire de l'audit (son IDU) ne l'elargit pas.
+    const debordeCal = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    const sansPhoto = (await page.locator('input[type="file"][accept^="image"], [data-controle="calibration.photo"], [data-controle="calibration.nouveauCas"]').count()) === 0;
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 }));
+    const frise = await page.locator('.calFrise > li').count();
+    const ok = !!c && /^cas-/.test(id) && c.format === 'plan-facade-reelle' && c.images?.length === 1 && c.photos?.length === 1 && c.largeurM > 0 && /^Maison · façade /.test(c.nom)
+      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 9 && !deborde && !debordeCal;
+    return { ok, mesure: `cas ${id ?? 'ABSENT'} : « ${c?.nom ?? ''} », ${c?.images?.length ?? 0} photo(s), ${c?.largeurM ?? '?'} × ${c?.hauteurM ?? '?'} m ; « ${toast.slice(0, 80)} » ; calibration : ${sansPhoto ? 'ni champ photo ni « Nouveau cas »' : 'CHAMP PHOTO'}, rejeu ${frise} étapes ; débordement ${deborde ? 'OUI' : 'non'}/${debordeCal ? 'OUI' : 'non'}` };
+  },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -3170,62 +3116,6 @@ const POINTS = {
       && lignes.length === 2 && /Rejeu/.test(lignes[1] ?? '') && /Claude Sonnet 5\.5/.test(lignes[1] ?? '') && !/En cours/.test(lignes[1] ?? '')
       && /Vous regardez une maison/.test(trace) && /Deux pans/.test(trace) && imageTrace >= 1 && !debordeDetail && !debordeTrace;
     return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'}${confirmation ? ', confirmé' : ', SANS confirmation'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; avant/après : « ${consultation} », ${decisionConsultee || 'SANS décision'}, ${sansValider ? 'lecture seule' : 'ÉDITABLE'}, ${deuxVues ? 'deux vues' : 'PAS de deux vues'}, projet ${projetIntact ? 'intact' : 'MODIFIÉ'}, ${retourne ? 'retour aux audits' : 'PAS de retour'} ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
-  },
-  67: async (page) => {
-    // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
-    // travees sur deux niveaux, la fenetre d'etage de droite absente ; « Ajouter dans la grille » la pose
-    // au croisement libre ; « Meme taille pour la travee » egalise la travee de gauche ; Valider ecrit la
-    // grille et les corrections tracees ; un Ctrl+Z retire tout.
-    const dessin = await page.context().newPage();
-    await dessin.setViewportSize({ width: 1600, height: 1200 });
-    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
-      + "const x=document.getElementById('c').getContext('2d');"
-      + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6b6b5a';x.fillRect(0,1000,1600,200);"
-      + "x.fillStyle='#e8dcc4';x.fillRect(200,250,1200,750);"
-      // Rez : deux fenetres et la porte du milieu ; etage : deux fenetres, la gauche plus etroite de 20 cm.
-      + "x.fillStyle='#2b3440';x.fillRect(380,700,180,180);x.fillRect(1040,700,180,180);x.fillRect(735,640,150,360);"
-      + "x.fillRect(395,370,150,180);x.fillRect(720,370,180,180);"
-      + '</script></body>');
-    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
-    await dessin.close();
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
-    const avant = await facades();
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
-    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 15000 });
-    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 30000 });
-    const cadres = page.locator('g.releveOuverture:not(.decochee) rect');
-    const n0 = await cadres.count();
-    const grille = page.locator('[data-controle="releve.ajouterDansGrille"]');
-    const grilleActif = await grille.isEnabled();
-    if (grilleActif) await grille.click();
-    await page.waitForTimeout(200);
-    const n1 = await cadres.count();
-    const ajoutee = (await page.locator('.releveFiche .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) ?? '';
-    // La fenetre la plus a gauche du rez (la premiere dans l'ordre des x, puis des hauteurs).
-    await cadres.first().click({ force: true });
-    await page.waitForTimeout(200);
-    const taille = page.locator('[data-controle="releve.memeTailleTravee"]');
-    const tailleActif = (await taille.count()) > 0 && (await taille.isEnabled());
-    if (tailleActif) await taille.click();
-    await page.waitForTimeout(200);
-    const apresTaille = (await taille.count()) > 0 ? await taille.isEnabled() : null;
-    const fiche = ((await page.locator('.releveFiche .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) ?? '').trim();
-    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
-    await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => {
-      const f = o.batiment.facades[o.batiment.facades.length - 1];
-      return { nom: o.name, ouvertures: f.ouvertures.length, niveaux: f.grille?.niveaux?.length ?? 0, travees: f.grille?.travees?.length ?? 0, gestes: (f.corrections ?? []).map((c) => c.geste), sources: f.ouvertures.map((x) => x.source ?? '—') };
-    }));
-    await annuler(page);
-    const retour = (await facades()) === avant;
-    const e = ecrit[0];
-    const ok = n0 >= 4 && grilleActif && n1 === n0 + 1 && /Ajoutée par vous/.test(ajoutee) && tailleActif && apresTaille === false && !deborde
-      && !!e && e.niveaux === 2 && e.travees === 3 && e.gestes.includes('ajout') && e.gestes.includes('deplacement') && e.sources.includes('ajoutee') && e.sources.includes('corrigee') && retour;
-    return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
   93: async (page, f) => {
     // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les neuf sujets du depot, le
@@ -3551,202 +3441,6 @@ const POINTS = {
       && historique.length === 1 && /33 %/.test(historique[0] || '') && serveur.listes === 2 && !deborde;
     return { ok, mesure: `alerte « ${(alertes[0] || '').slice(0, 90)} » ; « ${message} » ; mesure ${m ? `${m.format}, corpus ${m.sources?.corpus}, audits ${m.sources?.audits}, ${m.toits?.conformes}/${(m.toits?.conformes ?? 0) + (m.toits?.nonConformes ?? 0)} conformes, façades ${m.facades}, Claude ${m.claude}` : 'AUCUNE'} ; historique « ${(historique[0] || '').slice(0, 80)} » ; relu ${serveur.listes} fois ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
-  68: async (page) => {
-    // La baie devinee en pointille, sur de vraies prises (lot G17, suite du lot L15, spec facades §10.5) :
-    // les deux photos de synthese de la scene 19 du banc (une haie haute, presque contre le mur, cache la
-    // fenetre de gauche du rez-de-chaussee sur les deux vues). « Vues du mur entier » les fait fondre ; la
-    // parallaxe separe la haie du mur, la partie cachee partout finit dans le masque d'occlusion, et la
-    // grille y devine une baie, proposee en pointille. Une touche la garde ; Valider l'ecrit avec sa
-    // source `devinee` ; un Ctrl+Z retire tout.
-    const { vues: [face, biais], coins, largeur, largeurPx } = photosScene('19-vues-haie-haute-baie-cachee');
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
-    const avant = await facades();
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await choisirMurProche(page, largeur);
-    // Les coins vrais de chaque vue, poses au doigt comme le ferait l'utilisateur : la fumee joue la
-    // fusion et la grille, pas le calage d'une photo sans EXIF.
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-0.png', mimeType: 'image/png', buffer: face });
-    await poserCoins(page, coins[0], largeurPx[0]);
-    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 20000 }); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-1.png', mimeType: 'image/png', buffer: biais });
-    const choix = page.locator('[data-controle="releve.assemblage"]');
-    await choix.first().waitFor({ timeout: 20000 });
-    await choix.nth(1).click(); await page.waitForTimeout(400);
-    await poserCoins(page, coins[1], largeurPx[1]);
-    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
-    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 90000 });
-    // Les devinees : sures, cochees mais en pointille ; peu sures, decochees, a garder d'une touche.
-    const decochees = page.locator('g.releveOuverture.decochee rect[data-controle="releve.garderDevinee"]');
-    const cochees = page.locator('g.releveOuverture:not(.decochee) rect');
-    const caseGarder = page.locator('input[type="checkbox"][data-controle="releve.garderDevinee"]');
-    const nDecochees = await decochees.count();
-    const pointilles = page.locator('g.releveOuverture.incertaine:not(.decochee) rect');
-    const nPointilles = await pointilles.count();
-    // Parmi les pointilles, la devinee : sa fiche porte la case « Garder cette baie devinee ».
-    let cochee = false;
-    for (let i = 0; i < nPointilles && !cochee; i++) {
-      await pointilles.nth(i).click({ force: true }); await page.waitForTimeout(200);
-      cochee = (await caseGarder.count()) > 0 && await caseGarder.first().isChecked();
-    }
-    const c0 = await cochees.count(), d0 = await decochees.count();
-    // La case decochee la rend au pointille decoche ; une touche la garde a nouveau.
-    if (cochee) { await caseGarder.first().click(); await page.waitForTimeout(250); }
-    const c1 = await cochees.count(), d1 = await decochees.count();
-    if (d1) { await decochees.first().click({ force: true }); await page.waitForTimeout(250); }
-    const c2 = await cochees.count(), d2 = await decochees.count();
-    const regardee = (await caseGarder.count()) ? await caseGarder.first().isChecked() : null;
-    const aller = cochee ? c1 === c0 - 1 && d1 === d0 + 1 : nDecochees > 0;
-    const retourGeste = c2 === c1 + 1 && d2 === d1 - 1 && regardee === true;
-    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
-    await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => {
-      const f = o.batiment.facades[o.batiment.facades.length - 1];
-      return { ouvertures: f.ouvertures.length, sources: f.ouvertures.map((x) => x.source ?? '—'), detail: f.ouvertures.map((x) => `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${x.source ?? '—'} ${x.confiance ?? ''}`), vues: (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length };
-    }));
-    await annuler(page);
-    const retour = (await facades()) === avant;
-    const e = ecrit[0];
-    const devinees = e ? e.sources.filter((s) => s === 'devinee').length : 0;
-    const ok = aller && retourGeste && !!e && e.vues === 2 && devinees >= 1 && !deborde && retour;
-    return { ok, mesure: `proposée(s) : ${nDecochees} devinée(s) décochée(s), ${nPointilles} ouverture(s) en pointillé dont ${cochee ? 'une devinée cochée' : 'AUCUNE devinée cochée'} ; case « Garder » décochée : ${c0}/${d0} → ${c1}/${d1} (cochées/décochées) ; une touche : → ${c2}/${d2}, case ${regardee === null ? 'ABSENTE' : regardee ? 'cochée' : 'DÉCOCHÉE'} ; écrit : ${e ? `${e.ouvertures} ouvertures dont ${devinees} devinée(s), ${e.vues} vue(s) calée(s)` : 'RIEN'}${process.env.FUMEE_DETAIL ? ' [' + (e?.detail ?? []).join(' | ') + ']' : ''} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
-  },
-  80: async (page) => {
-    // Les details des ouvertures dans le releve (lot G17) : la photo de synthese de la scene 20 du banc
-    // (fenetre en plein cintre, persiennes fermees, balcon, oeil-de-boeuf, garde-corps). La fiche de
-    // chaque ouverture dit ce qui a ete reconnu ; Valider ecrit les details avec le releve ; un Ctrl+Z
-    // retire tout.
-    const { avant, mur } = await releverScene(page, '20-details-cintres-persiennes-garde-corps');
-    const cochees = page.locator('g.releveOuverture:not(.decochee) rect');
-    const n = await cochees.count();
-    const fiches = [];
-    for (let i = 0; i < n; i++) {
-      // Au telephone, la fiche ouverte pousse l'elevation vers le haut de la colonne : on la ramene a
-      // l'ecran, et l'on referme d'un toucher les notifications qui la couvriraient.
-      for (const t of await page.locator('.toast').all()) await t.click({ timeout: 1000 }).catch(() => {});
-      await cochees.nth(i).scrollIntoViewIfNeeded();
-      await cochees.nth(i).click({ force: true }); await page.waitForTimeout(150);
-      fiches.push(((await page.locator('.releveFiche').first().textContent({ timeout: 2000 }).catch(() => '')) ?? '').replace(/\s+/g, ' '));
-    }
-    // Le haut cintre et les persiennes fermees sont lus a coup sur ; l'oeil-de-boeuf, petite baie ronde,
-    // l'est au banc mais pas toujours ici (mur de la maison un peu plus large, coins poses au pixel pres) :
-    // il est dit, sans etre exige.
-    const lus = ['haut cintré', 'persiennes fermées', 'œil-de-bœuf'].map((t) => [t, fiches.some((f) => f.toLowerCase().includes(t))]);
-    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
-    await page.waitForTimeout(500);
-    const ecrites = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).flatMap((o) => o.batiment.facades.at(-1).ouvertures.map((x) => ({ d: x.details, t: `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${JSON.stringify(x.details ?? {})}` }))));
-    const details = ecrites.map((x) => x.d).filter(Boolean);
-    await annuler(page);
-    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)))) === avant;
-    const formes = details.map((d) => d.forme).filter((f) => f === 'cintre' || f === 'rond').length;
-    const ok = lus.slice(0, 2).every(([, v]) => v) && formes >= 1 && details.some((d) => d.forme === 'cintre') && details.some((d) => d.volets === 'persiennes') && !deborde && retour;
-    return { ok, mesure: `mur de ${mur ?? '?'} m, ${n} ouverture(s) ; fiches : ${lus.map(([t, v]) => `« ${t} » ${v ? 'lu' : 'ABSENT'}`).join(', ')} ; écrit : ${details.length} ouverture(s) détaillée(s), ${formes} forme(s) cintrée ou ronde${process.env.FUMEE_DETAIL ? ' [' + ecrites.map((x) => x.t).join(' | ') + ']' : ''} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
-  },
-  81: async (page) => {
-    // Les details des ouvertures en 3D (lot G17, three/detailsOuvertures.ts) : le releve de la scene 20
-    // valide, la Vue 3D pose une maille de details (les persiennes fermees) et l'encadrement de la baie
-    // cintree (et de l'oeil-de-boeuf quand il est lu) ; une maison sans details n'en a aucune (empreinte
-    // du GLB, point 24).
-    const compter = () => page.evaluate(() => {
-      const n = { details: 0, formes: 0, quads: 0 };
-      window.__plan.scene3d()?.scene.traverse((o) => {
-        if (o.name === 'batiment-details-ouvertures') { n.details++; n.quads += (o.geometry.index?.count ?? 0) / 6; }
-        if (o.name === 'releve-ouverture-forme') n.formes++;
-      });
-      return n;
-    });
-    const avantVue = await POINTS[22](page);
-    if (!avantVue.ok) return { ok: avantVue.ok, mesure: 'vue 3D préalable : ' + avantVue.mesure };
-    const sans = await compter();
-    await page.evaluate(() => window.__plan.executer('vue.plan')); await page.waitForTimeout(400);
-    const { avant } = await releverScene(page, '20-details-cintres-persiennes-garde-corps');
-    await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
-    await page.waitForTimeout(500);
-    await page.evaluate(() => window.__plan.executer('vue.3d'));
-    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
-    await image3dStable(page, 3500);
-    const avec = await compter();
-    if (process.env.FUMEE_CAPTURE_3D) {
-      // Pour l'oeil : la camera devant le mur releve, a quelques metres (hors mesure).
-      await page.evaluate(() => {
-        const v = window.__plan.scene3d();
-        const m = v.scene.getObjectByName('releve-ouverture-forme') ?? v.scene.getObjectByName('batiment-details-ouvertures');
-        if (!m) return;
-        const p = m.geometry.attributes.position.array;
-        const a = new THREE.Vector3(p[0], p[1], p[2]), b = new THREE.Vector3(p[3], p[4], p[5]), c = new THREE.Vector3(p[6], p[7], p[8]);
-        const n = b.clone().sub(a).cross(c.clone().sub(a)).normalize();
-        n.y = 0; n.normalize();
-        const centre = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
-        centre.x += 0; centre.y = 3;
-        const lateral = new THREE.Vector3(-n.z, 0, n.x);
-        v.camera.position.copy(centre.clone().add(n.clone().multiplyScalar(11)).add(lateral.multiplyScalar(4)).add(new THREE.Vector3(0, 1.5, 0)));
-        v.controls.target.copy(centre.clone().add(new THREE.Vector3(-n.z, 0, n.x).multiplyScalar(-2)));
-        v.controls.update();
-        v.renderer.render(v.scene, v.camera);
-      });
-      await page.waitForTimeout(800);
-      await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: process.env.FUMEE_CAPTURE_3D });
-    }
-    await page.evaluate(() => window.__plan.executer('vue.plan')); await page.waitForTimeout(400);
-    await annuler(page);
-    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)))) === avant;
-    const ok = sans.details === 0 && sans.formes === 0 && avec.details >= 1 && avec.formes >= 1 && retour;
-    return { ok, mesure: `avant le relevé : ${sans.details} maille(s) de détails, ${sans.formes} encadrement(s) de forme ; après : ${avec.details} maille(s) de détails (${avec.quads} quads), ${avec.formes} encadrement(s) cintré ou rond ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
-  },
-  71: async (page) => {
-    // L'aide de Claude au releve (lot L18, spec facades §12 bis ; le run unique d'une facade depuis F2) : une photo sans aucune arete
-    // (un ciel en degrade) laisse les quatre coins predits ; « Demander de l'aide » n'est propose que sur ce signal ; le premier appel
-    // demande l'accord ; l'envoi part en UNE requete par `admin/claude/messages` (usage facade, la photo seule, jeton de la
-    // plateforme) ; les angles que rien ne soutient sont rejetes, et la note le dit ; un coin ne change que s'il etait predit, et
-    // devient « proposé par Claude ».
-    const recues = [];
-    const sortie = { calage: { angles: { gauche: { x: 0.2, egout: 0.3, sol: 0.72, confiance: 'moyenne' }, droite: { x: 0.8, egout: 0.3, sol: 0.72, confiance: 'moyenne' } }, pointes: [], appentis: [], corps: [], cache: [] },
-      forme: { silhouette: 'indetermine', bout: 'indetermine' }, elements: [], surface: { principale: 'indetermine', zones: [], confiance: 'indetermine' }, ouvertures: [], confiance: 'moyenne' };
-    await page.route(/\/admin\/claude\/messages$/, async (route) => {
-      const req = route.request();
-      const d = JSON.parse(req.postData() || 'null');
-      recues.push({ d, jeton: req.headers().authorization ?? '' });
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'facade', sortie, erreur: null, cout: 0.0012 })) }) });
-    });
-    const dessin = await page.context().newPage();
-    await dessin.setViewportSize({ width: 1600, height: 1200 });
-    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
-      + "const x=document.getElementById('c').getContext('2d');"
-      // Un ciel en degrade doux, sans aucune arete : rien sur quoi caler les coins.
-      + "const g=x.createRadialGradient(800,500,50,800,600,1100);g.addColorStop(0,'#c9dcef');g.addColorStop(1,'#7fa8cf');x.fillStyle=g;x.fillRect(0,0,1600,1200);"
-      + '</script></body>');
-    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
-    await dessin.close();
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'ciel.png', mimeType: 'image/png', buffer: photo });
-    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 20000 });
-    const classes = () => page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
-    const avant = await classes();
-    const bouton = page.locator('[data-controle="releve.demanderAide"]');
-    const propose = await bouton.count();
-    const note = ((await page.locator('.releveAide .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
-    if (propose) await bouton.first().click();
-    const accord = page.locator('[data-controle="releve.accorderAide"]');
-    const demandeAccord = await accord.count();
-    if (demandeAccord) await accord.first().click();
-    await page.locator('.releveAide [role="status"]').first().waitFor({ timeout: 30000 }).catch(() => {});
-    const message = ((await page.locator('.releveAide [role="status"]').first().textContent().catch(() => '')) || '').trim();
-    const apres = await classes();
-    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
-    await page.unroute(/\/admin\/claude\/messages$/);
-    const d = recues[0]?.d;
-    const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
-    const coinsOk = apres.length === 4 && apres.every((c, k) => c === avant[k] || (avant[k] === 'predit' && c === 'claude'));
-    const ok = avant.every((c) => c === 'predit') && propose === 1 && /coins non trouvés/.test(note) && demandeAccord === 1 && recues.length === 1
-      && d?.usage === 'facade' && d.requetes.length === 3 && memeContenu(d) && d.requetes.every((q) => q.usage === 'facade') && images === 1 && /^Bearer /.test(recues[0].jeton)
-      && /^Claude (a proposé|n’a situé aucun coin)/.test(message) && coinsOk && !deborde;
-    return { ok, mesure: `coins ${avant.join(', ')} ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 70)}… ») ; accord ${demandeAccord ? 'demandé' : 'PAS demandé'} ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s) ' + d.usage + ', ' + images + ' image(s), jeton ' + (/^Bearer /.test(recues[0].jeton) ? 'oui' : 'NON') : 'RIEN'} ; « ${message.slice(0, 90)} » ; coins après : ${apres.join(', ')} ; débordement ${deborde ? 'OUI' : 'non'}` };
-  },
   73: async (page) => {
     // L'essai des faits des toits (lot L20, `?regles=local`, MD/spec-regles-toits.md §9.2) : l'entree
     // du menu Admin n'existe qu'avec `?regles=local` ; un fichier de faits se charge depuis le poste,
@@ -3777,111 +3471,6 @@ const POINTS = {
     const ok = sansEssai === 0 && avecEssai === 1 && /1 fait\(s\), 1 bâtiment/.test(toast) && luApres === null && saleApres === saleAvant && /forme/.test(refus);
     return { ok, mesure: `entrée sans essai : ${sansEssai}, avec ?regles=local : ${avecEssai} ; « ${toast.trim().slice(0, 70)}… » ; bâtiment touché : marque ${luAvant} → ${luApres} ; projet modifié ${saleAvant ? 'oui' : 'non'} → ${saleApres ? 'oui' : 'non'} ; refus : « ${refus.slice(0, 80)} »` };
   },
-  82: async (page) => {
-    // Le masque d'occlusion hachure (lot G20, spec facades §8) : deux vues du meme mur, une
-    // camionnette vitree devant qui se deplace d'une vue a l'autre sans jamais degager le milieu du
-    // mur ; « Vues du mur entier », Analyser. La part cachee sur les deux vues se hachure dans
-    // l'elevation, avec sa legende ; « Demander de l'aide » est propose (avant G20, jamais sur
-    // plusieurs photos), en disant la part cachee ; l'envoi (le run unique d'une facade depuis F2) porte l'elevation fondue, ce
-    // qu'aucune photo ne montre en gris (route `admin/claude/messages` simulee).
-    const recues = [];
-    const sortie = { calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'indetermine', bout: 'indetermine' },
-      elements: [], surface: { principale: 'enduit', zones: [], confiance: 'moyenne' }, ouvertures: [], confiance: 'moyenne' };
-    await page.route(/\/admin\/claude\/messages$/, async (route) => {
-      const d = JSON.parse(route.request().postData() || 'null');
-      recues.push(d);
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'facade', sortie, erreur: null, cout: 0.0012 })) }) });
-    });
-    const dessiner = async (mur, camion) => {
-      const d = await page.context().newPage();
-      await d.setViewportSize({ width: 1600, height: 1200 });
-      await d.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
-        + "const x=document.getElementById('c').getContext('2d');"
-        + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,880,1600,320);"
-        + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
-        + `const m=${JSON.stringify(mur)};const v=${JSON.stringify(camion)};`
-        + "const P=(u,w)=>{const h=[m[0]+(m[2]-m[0])*u,m[1]+(m[3]-m[1])*u],b=[m[6]+(m[4]-m[6])*u,m[7]+(m[5]-m[7])*u];return [h[0]+(b[0]-h[0])*w,h[1]+(b[1]-h[1])*w];};"
-        + "const R=(u0,w0,u1,w1)=>[...P(u0,w0),...P(u1,w0),...P(u1,w1),...P(u0,w1)];"
-        // Un crepi : des taches a des places fixes du mur, les memes sur les deux vues. Sans texture, l'assemblage n'a aucun point
-        // commun a apparier et ecarte la seconde vue (« trop peu de points communs »), comme il le ferait d'une vraie photo sans prise.
-        + "q('#e4d6bc',m);let g=7;const r=()=>{g=(g*16807)%2147483647;return g/2147483647;};"
-        + "for(let i=0;i<900;i++){const u=r(),w=r(),t=0.004+0.006*r();x.globalAlpha=0.35+0.4*r();q(r()<0.5?'#8a7a62':'#f6ecd8',R(u,w,Math.min(1,u+t),Math.min(1,w+t*1.4)));}x.globalAlpha=1;"
-        + "q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
-        // La camionnette et ses deux vitres : leurs bords trahissent le recul d'une vue a l'autre.
-        + "x.fillStyle='#1e3c78';x.fillRect(v[0],v[1],700,420);x.fillStyle='#cfe3f2';x.fillRect(v[0]+80,v[1]+40,160,110);x.fillRect(v[0]+420,v[1]+40,160,110);"
-        + '</script></body>');
-      const png = await d.locator('#c').screenshot({ type: 'png' });
-      await d.close();
-      return png;
-    };
-    const face = await dessiner([250, 260, 1350, 260, 1350, 1000, 250, 1000], [400, 620]);
-    const biais = await dessiner([330, 200, 1250, 300, 1250, 960, 330, 1060], [620, 640]);
-    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
-    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face });
-    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 15000 }); await page.waitForTimeout(600);
-    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais });
-    const choix = page.locator('[data-controle="releve.assemblage"]');
-    await choix.first().waitFor({ timeout: 15000 });
-    await choix.nth(1).click(); await page.waitForTimeout(400);
-    // Les coins se posent au doigt sur chaque vue, comme la personne le ferait : le calage fin de ces
-    // dessins (sans perspective vraie) n'est pas ce que ce point mesure.
-    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 30000 }).catch(() => {});
-    await page.waitForTimeout(1500);
-    const poser = async (quad) => {
-      // Au telephone, un toast peut couvrir la photo : le doigt tomberait dessus. On le touche d'abord pour le fermer, comme au point 10.
-      for (const t of await page.locator('.toast').all()) await t.click({ timeout: 1000 }).catch(() => {});
-      const svg = page.locator('svg.releveCoins').first();
-      await svg.scrollIntoViewIfNeeded();
-      for (let k = 0; k < 4; k++) {
-        const cible = await svg.evaluate((s, [x, y]) => { const p = s.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(s.getScreenCTM()); return { x: q.x, y: q.y }; }, [quad[2 * k], quad[2 * k + 1]]);
-        // Sur un petit ecran, les ronds se chevauchent : le doigt prend celui du dessus. On saisit donc le rond k la ou il est
-        // seul (un point de son disque que `elementFromPoint` lui rend), et on le deplace de l'ecart entre son centre et la cible :
-        // le coin suit le deplacement du doigt, pas sa position.
-        const saisie = await page.locator('circle.releveCoinCible').nth(k).evaluate((c) => {
-          const b = c.getBoundingClientRect(), cx = b.x + b.width / 2, cy = b.y + b.height / 2, r = b.width / 2;
-          for (const f of [0, 0.5, 0.8]) for (let a = 0; a < 16; a++) {
-            const x = cx + f * r * Math.cos(a * Math.PI / 8), y = cy + f * r * Math.sin(a * Math.PI / 8);
-            if (document.elementFromPoint(x, y) === c) return { x, y, cx, cy };
-          }
-          return { x: cx, y: cy, cx, cy };
-        });
-        await page.mouse.move(saisie.x, saisie.y);
-        await page.mouse.down();
-        await page.mouse.move(saisie.x + cible.x - saisie.cx, saisie.y + cible.y - saisie.cy, { steps: 4 });
-        await page.mouse.up();
-      }
-    };
-    await poser([330, 200, 1250, 300, 1250, 960, 330, 1060]);
-    await page.locator('.releveVignette').first().click(); await page.waitForTimeout(500);
-    await poser([250, 260, 1350, 260, 1350, 1000, 250, 1000]);
-    const auDoigt = await page.locator('circle.releveCoinCible.doigt').count();
-    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
-    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
-    const chemins = await page.locator('g.releveMasque path').evaluateAll((ps) => ps.map((p) => (p.getAttribute('d') || '').split('M').length - 1));
-    // Le trait du hachure lit son jeton : une couleur resolue dans les deux themes, pas « none ».
-    const trait = await page.locator('g.releveMasque .releveMasqueTrait').first().evaluate((l) => getComputedStyle(l).stroke).catch(() => 'absent');
-    const legende = ((await page.locator('.releveLegendeMasque').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
-    const bouton = page.locator('[data-controle="releve.demanderAide"]');
-    const propose = await bouton.count();
-    const note = ((await page.locator('.releveAide .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
-    if (propose) await bouton.first().click();
-    const accord = page.locator('[data-controle="releve.accorderAide"]');
-    if (await accord.count()) await accord.first().click();
-    await page.locator('.releveAide [role="status"]').first().waitFor({ timeout: 30000 }).catch(() => {});
-    const message = ((await page.locator('.releveAide [role="status"]').first().textContent().catch(() => '')) || '').trim();
-    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
-    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
-    await page.unroute(/\/admin\/claude\/messages$/);
-    const d = recues[0];
-    const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
-    const zones = chemins[1] ?? 0;
-    const ok = chemins.length === 2 && zones >= 1 && !!trait && trait !== 'none' && trait !== 'absent'
-      && /^Hachuré : caché sur toutes les photos .*\d+ % du mur\.$/.test(legende) && propose === 1 && /\d+ % du mur caché sur toutes les photos/.test(note)
-      && recues.length === 1 && d.usage === 'facade' && d.requetes.length === 3 && memeContenu(d) && images === 1 && /vues? par Claude|Claude ne voit aucune ouverture/.test(message) && !deborde;
-    return { ok, mesure: `coins au doigt ${auDoigt}/4 ; hachure : ${zones} zone(s), trait ${trait} ; « ${legende.slice(0, 90)} » ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 80)}… ») ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s), ' + images + ' image(s)' : 'RIEN'} ; « ${message.slice(0, 70)} » ; débordement ${deborde ? 'OUI' : 'non'}` };
-  },
   99: async (page) => {
     // Le fichier du projet : Fichier › « Exporter le projet (JSON) », un sommet de la terrasse tire,
     // puis Fichier › « Importer un projet (JSON) » de ce meme fichier (« Remplacer le plan actuel »,
@@ -3911,26 +3500,18 @@ const POINTS = {
   }
 };
 
-/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous et le releve sans camera (49 a 54, 57 a 59, 65), l'audit de la parcelle (60, 61). */
+/** Quels points se jouent dans quelle classe : les 25 d'origine partout, ceux du mobile au telephone, les garde-fous (49 a 53), l'audit de la parcelle (60, 61) et la suite. */
 function pointsPour(nomClasse) {
   const base = [...Array(25).keys()].map((i) => i + 1);
   const mobile = nomClasse === 'compact' ? [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] : [];
   // Les garde-fous de l'inspecteur partout ; la decouverte une fois, elle parcourt deja les trois classes.
-  // 57 : le tableau de bord de la consommation de Claude ; 58 : le calage fin d'une facade (lot L7) ;
-  // 59 : la distorsion du grand-angle (lot L8) ; 60 et 61 : l'audit de la parcelle, liste et prise (lot L9) ;
+  // 57 : le tableau de bord de la consommation de Claude ; 60 et 61 : l'audit de la parcelle, liste et prise (lot L9) ;
   // 62 et 63 : ses propositions, l'apercu avant / apres, la validation et Ctrl+Z (lot L11).
-  // 59 : la distorsion du grand-angle (lot L8) ; 65 : la fusion de plusieurs vues (lot L13) ;
-  // 73 : l'essai des faits des toits (lot L20).
-  // 65 : la fusion de plusieurs vues (lot L13) ; 64 : le batiment verifie sur place protege de
-  // l'actualisation (lot L12).
-  // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
-  // 68 : la baie devinee en pointille, sur les deux vues de synthese d'une scene du banc (lot G17).
-  // 80 et 81 : les details des ouvertures, dans le releve puis en 3D (lot G17).
+  // 73 : l'essai des faits des toits (lot L20) ; 64 : le batiment verifie sur place protege de l'actualisation (lot L12).
+  // (54, 58, 59, 65, 67, 68, 71, 80, 81, 82 : la capture du releve de facade, partie dans l'audit au lot F6 ; voir 109 a 111.)
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
-  // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
   // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
   // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
-  // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
   // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits qui la rouvre (§15).
   // 86 : Admin › Audits : donnees, conclusion, analyses cote a cote, rejeu par modele et son detail (§15.4, §15.5).
@@ -3949,7 +3530,9 @@ function pointsPour(nomClasse) {
   // 103 : l'escalade d'une facade a la demande, dans la calibration (decision du 29 octobre 2026).
   // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
   // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105];
+  // 109 : le parcours complet d'une facade, de « Photographier » dans l'inspecteur a l'editeur du releve (lot F6) ;
+  // 110 : deux vues du meme mur fondues dans l'audit ; 111 : « Créer un cas depuis cette façade », lu par la calibration (lot F6).
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 109, 110, 111];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
@@ -4027,7 +3610,7 @@ const ligne = (r) => `${r.classe.padEnd(7)} ${r.theme.padEnd(5)} ${String(r.n).p
  * `FUMEE_PARALLELE` parties a la fois (par defaut, une par tranche de quatre coeurs, entre 1 et 4) :
  * le serveur Vite et le navigateur sans carte graphique se partagent les coeurs. Sur quatre coeurs,
  * deux parties a la fois ne raccourcissaient pas le passage et rendaient instables les points aux
- * longues attentes (62, 67, 70, qui passent joues seuls). Chaque ligne s'ecrit quand sa partie
+ * longues attentes (62, 70, qui passent joues seuls). Chaque ligne s'ecrit quand sa partie
  * finit ; le recapitulatif, trie, reprend l'ordre du passage.
  */
 async function principal() {
