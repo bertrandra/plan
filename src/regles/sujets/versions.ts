@@ -69,5 +69,5 @@ export const VERSIONS_PROMPT_JARDIN: readonly VersionTexte[] = [
 ];
 
 export const VERSIONS_SCHEMA_JARDIN: readonly VersionTexte[] = [
-  { version: 1, empreinte: '4640a29b' },
+  { version: 1, empreinte: '52e1240a' },
 ];

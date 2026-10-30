@@ -257,7 +257,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
   describe('le modele de chaque usage', () => {
     // Le modele rapide partout (15 octobre 2026), sauf l'escalade (29 octobre 2026) : elle ne part qu'a la demande, apres trois
     // lectures votees du modele rapide, qu'une quatrieme du meme modele ne departagerait pas.
-    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE, jardin: RAPIDE };
+    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE, plu: RAPIDE, jardin: RAPIDE };
 
     it('prend le modele rapide par defaut pour tous les usages sauf l escalade, au modele fin, parmi deux admis', () => {
       expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
@@ -340,7 +340,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('demande la sortie structuree quand on la veut, et reconnait son refus par l API', () => {
       const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
-      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'jardin']);
+      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'plu', 'jardin']);
       const p = phpObjets<{ output_config: unknown; system: { text: string }[] }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }], true);
       expect(p.output_config).toEqual({ effort: 'low', format: { type: 'json_schema', schema: SCHEMA_FACADE.schema } });
       // Avec la sortie structuree, le schema ne part plus dans le prompt ; sans elle, l'exemple s'il y en a un, sinon le schema.
@@ -433,7 +433,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       ]);
       expect(php('choixConsommation', lignes, p)).toEqual({
         organisations: ['admin', 'org-1', 'org-2'], modeles: [RAPIDE, FIN],
-        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'jardin'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'plu', 'jardin'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
       });
     });
   });

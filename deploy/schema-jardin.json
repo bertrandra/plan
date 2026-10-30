@@ -335,5 +335,6 @@
       }
     ],
     "confiance": "moyenne"
-  }
+  },
+  "consigne": "Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour un jardin inventé : ses valeurs ne sont pas à recopier, la réponse dit ce que l’image 1 montre, et la liste `objets` a autant d’entrées que vous voyez d’objets (aucune s’il n’y en a pas). Tous les nombres sont des parts de l’image, comme expliqué plus haut : jamais des pixels ni des mètres."
 }

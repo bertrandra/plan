@@ -1,17 +1,248 @@
 {
-  "meta": { "id": "temoin-7", "name": "Témoin du schéma 7", "appVersion": "5.0.0", "schemaVersion": 7 },
-  "objects": [
+ "meta": {
+  "id": "temoin-7",
+  "name": "Témoin du schéma 7",
+  "appVersion": "5.0.0",
+  "schemaVersion": 7
+ },
+ "objects": [
+  {
+   "key": "parcelle",
+   "type": "polygon",
+   "name": "Parcelle",
+   "fonction": "terrain",
+   "pts": [
     {
-      "key": "parcelle", "type": "polygon", "name": "Parcelle", "fonction": "terrain",
-      "pts": [{ "x": 0, "y": 0 }, { "x": 30, "y": 0 }, { "x": 30, "y": 20 }, { "x": 0, "y": 20 }]
+     "x": 0,
+     "y": 0
     },
     {
-      "key": "massif-1", "type": "polygon", "name": "Massif", "fonction": "massif", "elevation": 0.6,
-      "pts": [{ "x": 2, "y": 2 }, { "x": 6, "y": 2 }, { "x": 6, "y": 4 }, { "x": 2, "y": 4 }]
+     "x": 30,
+     "y": 0
     },
     {
-      "key": "spa-1", "type": "circle", "name": "Spa", "fonction": "equipement", "center": { "x": 20, "y": 10 }, "r": 1
+     "x": 30,
+     "y": 20
+    },
+    {
+     "x": 0,
+     "y": 20
     }
-  ],
-  "measures": []
+   ],
+   "soleil": {
+    "dateStr": "2026-06-21",
+    "minutes": 900
+   },
+   "plu": {
+    "zones": [
+     {
+      "libelle": "ULp",
+      "libelong": "ULp : Secteur urbain",
+      "typezone": "U",
+      "partition": "DU_78146",
+      "urlfic": "",
+      "nomfic": "78146_reglement_20181003.pdf#page=38",
+      "datappro": ""
+     }
+    ],
+    "prescriptions": [],
+    "informations": [],
+    "servitudes": [],
+    "spr": [],
+    "document": {
+     "nom": "78146_PLU_20181003",
+     "type": "PLU",
+     "partition": "DU_78146"
+    },
+    "commune": {
+     "nom": "Chatou",
+     "insee": "78146",
+     "rnu": false
+    },
+    "interrogeLe": "2026-10-29T10:00:00.000Z",
+    "lon": 2.1606,
+    "lat": 48.8935
+   }
+  },
+  {
+   "key": "bati-1",
+   "type": "polygon",
+   "name": "Maison",
+   "fonction": "batiment",
+   "elevation": 5.2,
+   "pts": [
+    {
+     "x": 5,
+     "y": 5
+    },
+    {
+     "x": 15,
+     "y": 5
+    },
+    {
+     "x": 15,
+     "y": 12
+    },
+    {
+     "x": 5,
+     "y": 12
+    }
+   ],
+   "bdtopo": {
+    "couche": "BDTOPO_V3:batiment",
+    "id": "BATIMENT0000000000000001",
+    "surParcellePrincipale": true
+   },
+   "toit": {
+    "forme": "deux-pans",
+    "hauteur": 3,
+    "angleFaitage": 0,
+    "source": "lidar"
+   },
+   "toitLidarLu": 7,
+   "egoutChoisi": "audit",
+   "facades": [
+    {
+     "cote": 0,
+     "largeur": 10,
+     "hauteur": 5.2,
+     "texture": null,
+     "photoLocale": "photo-temoin-6",
+     "hauteurTexture": 6.4,
+     "ouvertures": [
+      {
+       "type": "fenetre",
+       "x": 1.2,
+       "y": 1,
+       "l": 1.2,
+       "h": 1.35,
+       "confiance": 0.92,
+       "source": "detectee",
+       "niveau": 0,
+       "travee": 0,
+       "details": {
+        "volets": "battants",
+        "vitrage": "petits-bois"
+       }
+      },
+      {
+       "type": "porte",
+       "x": 4.4,
+       "y": 0,
+       "l": 1,
+       "h": 2.15,
+       "confiance": 0.8,
+       "source": "detectee",
+       "niveau": 0,
+       "travee": 1
+      },
+      {
+       "type": "fenetre",
+       "x": 7.5,
+       "y": 1,
+       "l": 1.2,
+       "h": 1.35,
+       "source": "corrigee",
+       "niveau": 0,
+       "travee": 2
+      },
+      {
+       "type": "fenetre",
+       "x": 1.2,
+       "y": 3.6,
+       "l": 1.2,
+       "h": 1.2,
+       "confiance": 0.4,
+       "source": "devinee",
+       "niveau": 1,
+       "travee": 0
+      }
+     ],
+     "distance": 8.5,
+     "sourceDistance": "gps",
+     "releveLe": "2026-10-28T09:12:00.000Z",
+     "depuisAudit": true,
+     "partieBasse": null,
+     "calage": {
+      "photos": [
+       {
+        "coins": [
+         {
+          "x": 120,
+          "y": 340
+         },
+         {
+          "x": 2860,
+          "y": 330
+         },
+         {
+          "x": 2870,
+          "y": 1820
+         },
+         {
+          "x": 110,
+          "y": 1830
+         }
+        ],
+        "pxParMSource": 274,
+        "sourceCoins": [
+         "trouve",
+         "trouve",
+         "predit",
+         "predit"
+        ]
+       }
+      ],
+      "azimutCorrigeDeg": 181,
+      "confiance": 0.71,
+      "contourDecaleM": -0.8
+     },
+     "calibration": {},
+     "grille": {
+      "niveaux": [
+       {
+        "appuiM": 1,
+        "linteauM": 2.35
+       },
+       {
+        "appuiM": 3.6,
+        "linteauM": 4.8
+       }
+      ],
+      "travees": [
+       {
+        "xM": 1.8,
+        "largeurM": 1.2
+       },
+       {
+        "xM": 4.9,
+        "largeurM": 1
+       },
+       {
+        "xM": 8.1,
+        "largeurM": 1.2
+       }
+      ]
+     },
+     "corrections": [
+      {
+       "geste": "deplacement",
+       "type": "fenetre",
+       "x": 7.5,
+       "y": 1,
+       "l": 1.2,
+       "h": 1.35,
+       "ecart": {
+        "x": 0.1,
+        "y": 0,
+        "l": 0,
+        "h": 0
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "measures": []
 }

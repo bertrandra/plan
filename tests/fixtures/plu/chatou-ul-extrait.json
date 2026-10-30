@@ -1,0 +1,16 @@
+{
+  "format": "plan-extrait-plu",
+  "pourquoi": "Un extrait court et PUBLIC d'un reglement de PLU (lot L4) : la verification de la vraie API (scripts/verifier-api-claude.mjs, une requete `plu`) et le temoin du point de fumee 120 (le PDF servi a la place du reglement) l'envoient a Claude. Document d'urbanisme opposable, publie par la commune sur le Geoportail de l'urbanisme (donnees publiques, reutilisation libre). Coupe par pdf-lib, dates et producteur fixes.",
+  "commune": "Chatou",
+  "insee": "78146",
+  "document": "78146_PLU_20181003",
+  "zone": "ULp",
+  "source": "https://data.geopf.fr/annexes/gpu/documents/DU_78146/d900b44519db2d309cb7c160688df167/78146_reglement_20181003.pdf",
+  "empreinteDocument": "c5996a9f5c112088f2ce8ce78e420ec788e912e9fac3841765138b91f10b012e",
+  "pagesDocument": 252,
+  "pages": [47, 49],
+  "fichier": "chatou-ul-extrait.pdf",
+  "empreinte": "be804d69f68cf5e76471109af367f496a89cc11ddc84caa14d7df2a4fa3b8fec",
+  "luLe": "2026-10-29",
+  "attendu": "Secteur ULp : emprise au sol au plus 30 % du terrain (UL 9.2), 120 m2 par construction ; hauteur limitee a 10 metres (UL 10.2), gabarit de 7 m a l'aplomb des limites separatives puis 45 degres. Article UL 8 non reglemente."
+}

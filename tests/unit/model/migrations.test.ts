@@ -107,20 +107,20 @@ describe('la migration 6 -> 7 : la Facade d un releve valide (lot F5)', () => {
   });
 });
 
-const temoin7 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-7.json', import.meta.url), 'utf8')) as {
+const temoin8 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-8.json', import.meta.url), 'utf8')) as {
   meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
 };
 
 describe('la migration 8 -> 9 : le jardin (lot L3 ; le 8 est celui du lot L4)', () => {
-  it('lit un document de schema 7 tel quel : un massif d avant et un spa restent ce qu ils etaient, au schema qui les decrit', () => {
-    const d = { objects: temoin7.objects as unknown as ObjetAPlat[], measures: temoin7.measures };
+  it('lit un document de schema 8 tel quel : un massif d avant et un spa restent ce qu ils etaient, au schema qui les decrit', () => {
+    const d = { objects: temoin8.objects as unknown as ObjetAPlat[], measures: temoin8.measures };
     expect(migrer(structuredClone(d), 7)).toEqual(d);
     expect(migrer(structuredClone(d), 8)).toEqual(d);
-    const reecrit = relu(temoin7.objects, 7);
+    const reecrit = relu(temoin8.objects, 8);
     expect(reecrit[1]!.plantation).toBeUndefined();
     expect(reecrit[2]!.nature).toBeUndefined();
     expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(1);
-    expect(relu(reecrit, 7)).toEqual(reecrit);
+    expect(relu(reecrit, 8)).toEqual(reecrit);
   });
 
   it('s ecrit au 9 des qu un objet porte une plantation, son retrait de vegetation, une nature d equipement ou la marque existant', () => {

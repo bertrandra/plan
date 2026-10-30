@@ -15,6 +15,11 @@
 // configuration temporaire (droits 0600), supprime a la fin, et n'est jamais affichee. Le serveur
 // lui-meme refuse au-dela du plafond pose dans le dossier temporaire (0,05 $ par jour par defaut).
 //
+// La lecture du reglement du PLU (usage `plu`, lot L4) part sur un extrait PUBLIC de trois pages du reglement de Chatou, zone UL
+// (tests/fixtures/plu/chatou-ul-extrait.pdf, un document d'urbanisme publie au Geoportail de l'urbanisme), en bloc `document` ; le
+// script dit en plus si sa sortie a la forme du schema et ce qu'elle a releve (attendu : l'emprise de 30 % et la hauteur de 10 m du
+// secteur ULp, chatou-ul-extrait.json).
+//
 // Le run d'une facade (usage `facade`, lot F2) part sur une image de synthese du depot (tests/fixtures/facades-ia/facade-test.jpg :
 // l'assemblage d'une scene du banc, aucune photo personnelle) ; le script dit en plus si sa sortie a la forme du schema (calage,
 // forme, surface, elements, ouvertures, carreaux). `--facades <dossier>` mesure x1 contre x3 : pour chaque image preparee par
@@ -34,6 +39,7 @@ const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMAGE = path.join(racine, 'tests/fixtures/visuel/rue-compact-clair.jpg');
 const IMAGE_FACADE = path.join(racine, 'tests/fixtures/facades-ia/facade-test.jpg');
 const IMAGE_JARDIN = path.join(racine, 'tests/fixtures/jardin-ia/jardin-test.jpg');
+const PDF_PLU = path.join(racine, 'tests/fixtures/plu/chatou-ul-extrait.pdf');
 const MOT_DE_PASSE = 'verification-api-claude';
 const PLAFOND_DEFAUT = 0.05;
 const PLAFOND_MAX = 2;
@@ -55,7 +61,7 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // La lecture du jardin (usage `jardin`, lot L3) a ses fichiers et part sur une orthophoto de SYNTHESE du depot
 // (tests/fixtures/jardin-ia/jardin-test.jpg, dessinee par dessiner.py : aucune photo reelle) ; le script dit si sa sortie a la forme du
 // schema (objets, points, genre d'arbre). Une requete au modele rapide, quelques dixiemes de centime : sous le plafond par defaut.
-const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'jardin' ? 'jardin' : 'analyse');
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -106,6 +112,10 @@ const dollars = (v) => (typeof v === 'number' ? v.toFixed(5) + ' $' : 'inconnu (
 
 /** Le contenu minimal d'une requete : la photo de test et une ligne de contexte, comme la page. */
 function contenu(famille, image) {
+  if (famille === 'plu') {
+    return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fs.readFileSync(PDF_PLU).toString('base64') } },
+      { type: 'text', text: 'Commune : Chatou (INSEE 78146).\nDocument d’urbanisme : 78146_PLU_20181003.\nZone demandée : ULp (« ULp : Secteur urbain »).\nL’extrait envoyé va de la page 47 à la page 49 du document entier (252 pages) : sa première page est la page 47.' }];
+  }
   if (famille === 'facade') {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
@@ -202,7 +212,8 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
   const imageJardin = fs.readFileSync(IMAGE_JARDIN).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
-  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
+  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?')
+    + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
   for (const g of aEnvoyer) {
@@ -212,7 +223,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
     // le defaut), comme pour la page ; `--modele` l'impose a toutes.
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
-      requetes: [{ id, passe: 1, facades: usage === 'escalade' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
     process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -233,11 +244,16 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formeFacade(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie du run d’une façade n’a pas la forme du schéma : ' + defaut, 1); }
     }
+    if (g.famille === 'plu') {
+      const defaut = formePlu(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du PLU n’a pas la forme du schéma : ' + defaut, 1); }
+    }
     if (g.famille === 'jardin') {
       const defaut = formeJardin(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du jardin n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + (g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : '') + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
+    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : '';
+    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + resume + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
   if (options.facades) await mesurerFacades(options.facades, ecrire, options.modele);
@@ -293,6 +309,20 @@ function resumeJardin(s) {
   const n = new Map();
   for (const o of s.objets) n.set(o.genre, (n.get(o.genre) ?? 0) + 1);
   return s.objets.length + ' objet(s)' + (n.size ? ' : ' + [...n].map(([g, k]) => k + ' ' + g).join(', ') : '');
+}
+
+/** Ce qui manque a une sortie de la lecture du PLU pour avoir la forme du schema (deploy/schema-plu.json) ; null si rien. */
+function formePlu(s) {
+  if (!s.zone || typeof s.zone !== 'object' || !Array.isArray(s.regles) || typeof s.remarques !== 'string') return 'zone, regles ou remarques absents';
+  if (s.regles.some((r) => typeof r.grandeur !== 'string' || typeof r.article !== 'string' || typeof r.citation !== 'string' || !Array.isArray(r.termes))) return 'une règle sans grandeur, article, citation ou termes';
+  return null;
+}
+
+/** La sortie de la lecture du PLU en quelques mots : la zone, et chaque regle relevee avec sa valeur et son article. */
+function resumePlu(s) {
+  const valeur = (r) => (typeof r.valeur === 'number' ? r.valeur + (r.unite === 'pourcent' ? ' %' : r.unite === 'm' ? ' m' : r.unite === 'degres' ? '°' : '') : '—');
+  return 'zone ' + (s.zone.libelle || '?') + ' (' + s.zone.trouvee + '), ' + s.regles.length + ' règle(s) : '
+    + (s.regles.map((r) => r.grandeur + ' ' + valeur(r) + ' [' + r.article + ']').join(', ') || 'aucune');
 }
 
 /** La sortie du run d'une facade en quelques mots : ce qu'elle a vu. */

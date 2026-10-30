@@ -93,9 +93,9 @@ export const MIGRATIONS: readonly Migration[] = [
   },
   {
     de: 7,
-    // Reserve au lot L4 (le reglement du PLU de la parcelle), mene en parallele : le lot fusionne en second regle la numerotation et
-    // reprend cette ligne telle que L4 l'ecrit.
-    apporte: 'le règlement du PLU de la parcelle, lu dans son document (lot L4)',
+    apporte: 'le règlement de la zone du PLU lu pour le projet : sa source, sa lecture par Claude, et ses règles proposées ou vérifiées par vous',
+    // Un champ facultatif de la parcelle (`reglementPlu`, lot L4), qui n'existait pas avant : un document 7 est un document 8 valide.
+    // Le 8 le distingue, pour qu'un lecteur 7 refuse le fichier plutot que de perdre des faits du PLU que la personne a verifies.
     migrer: (d) => d
   },
   {
@@ -117,6 +117,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   relief: 4,
   piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
   retoucheMain: 6, egoutChoisi: 6, soleil: 6,
+  reglementPlu: 8,
   plantation: 9, vegetation3d: 9, nature: 9, existant: 9,
 };
 

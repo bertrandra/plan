@@ -109,5 +109,11 @@ const EXEMPLE = {
   confiance: 'moyenne',
 };
 
-/** La lecture du jardin : son prompt, son schema et l'exemple du repli, tels que le serveur les sert (usage `jardin`). */
-export const RUN_JARDIN: { prompt: string; schema: SchemaJson; exemple: object } = { prompt: PROMPT, schema: SCHEMA, exemple: EXEMPLE };
+/**
+ * La consigne du repli sans sortie structuree (le batch de l'audit) : celle du serveur parle d'une facade inventee et de parts d'une
+ * facade ; celle-ci, d'un jardin (le fichier de schema la porte, comme celui de la lecture du PLU).
+ */
+const CONSIGNE = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour un jardin inventé : ses valeurs ne sont pas à recopier, la réponse dit ce que l’image 1 montre, et la liste `objets` a autant d’entrées que vous voyez d’objets (aucune s’il n’y en a pas). Tous les nombres sont des parts de l’image, comme expliqué plus haut : jamais des pixels ni des mètres.';
+
+/** La lecture du jardin : son prompt, son schema, l'exemple et la consigne du repli, tels que le serveur les sert (usage `jardin`). */
+export const RUN_JARDIN: { prompt: string; schema: SchemaJson; exemple: object; consigne: string } = { prompt: PROMPT, schema: SCHEMA, exemple: EXEMPLE, consigne: CONSIGNE };

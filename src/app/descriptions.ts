@@ -89,6 +89,8 @@ export const DESCRIPTIONS: Record<string, string> = {
 
   // ---- PLU, terrasse, façade ----------------------------------------------------------------------
   'plu.interroger': 'Demande au Géoportail de l’urbanisme le zonage PLU au centre de la parcelle',
+  'plu.lireReglement': 'Envoie à Claude les pages du règlement de la zone ; ses règles reviennent proposées, à vérifier dans le texte',
+  'plu.validerFait': 'Retient une règle lue par Claude après l’avoir comparée au texte du règlement ; seules les règles retenues contrôlent le projet',
   'terrasse.optimisation': 'Montre ou cache le tableau qui compare des réglages de structure par leur coût',
   'facade.retirer': 'Retire la photo et les ouvertures relevées sur le mur désigné ; Ctrl+Z les rend',
   'facade.escalader': 'Demande une lecture de plus de la façade à un modèle plus fin (le modèle de l’escalade), une requête, à son coût annoncé ; le moteur la pèse contre le vote des trois passes et la garde pour le rejeu',

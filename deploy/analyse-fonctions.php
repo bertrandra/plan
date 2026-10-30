@@ -19,18 +19,20 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // le calage, la forme, les elements du toit, les ouvertures et leurs carreaux. La calibration et le releve l'appellent (appel
 // immediat), l'audit dans le batch de l'analyse (une requete par facade). Il a remplace le renfort a trois passes (`renfort`, lot
 // L18), retire au lot F3 : une ligne `renfort` ne vit plus que dans le journal, et s'y lit encore.
+// `plu` (lot L4 de la lecture IA elargie) : la lecture du reglement d'une zone du PLU, sur un extrait PDF du document public que
+// la page tire du Geoportail de l'urbanisme (appel immediat, une requete). Son prompt et son schema sont les siens.
 // `jardin` (lot L3 de la lecture IA elargie) : la lecture du jardin d'une parcelle, sur son orthophoto recadree (et les photos de la
 // cloture et du portail) ; une requete dans le batch de l'audit, ou un appel immediat. Le modele rapide par defaut.
-const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'jardin'];
+const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'plu', 'jardin'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
 // Sauf l'escalade, au modele plus fin depuis le 29 octobre 2026 (decision de l'utilisateur) : elle ne part qu'a la demande, apres
 // trois lectures votees du modele rapide, et un quatrieme passage du meme modele n'apporterait presque rien.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le run d'une facade (lot F2, generes par `npm run regles:generer`) a les siens ; les autres
 // usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
+const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
@@ -43,8 +45,15 @@ const REQUETES_IMMEDIATES = 3;
 // d'une facade. Sans elle, sa reponse reelle n'etait pas lue (« Sortie non JSON », verification de l'API du
 // 29 octobre 2026, run 40887362801) ; son schema n'a ni recursion ni contrainte numerique, et l'API le compile. Si elle le
 // refusait un jour, la requete repart sans (formatRefuse).
-// La lecture du jardin aussi (lot L3) : son schema n'a ni recursion ni contrainte numerique.
-const SORTIE_STRUCTUREE = ['facade', 'jardin'];
+// La lecture du PLU (lot L4) et celle du jardin (lot L3) aussi : des schemas plats, sans recursion ni contrainte numerique.
+const SORTIE_STRUCTUREE = ['facade', 'plu', 'jardin'];
+// Les usages qui admettent un document PDF dans leur requete (un bloc `document` en base64), un au plus : la lecture du PLU, et elle
+// seule. L'analyse d'une maison et le run d'une facade n'envoient que du texte et des images ; un PDF ailleurs est refuse.
+const USAGES_DOCUMENT = ['plu'];
+const DOCUMENTS_PAR_REQUETE = 1;
+// Les usages dont l'appel immediat rend aussi le texte brut du modele (`brut`) : la lecture du PLU, que le projet garde pour la
+// relire (lot L4, « enregistre pour la re-analyse »). Le journal, lui, ne garde jamais de contenu de reponse.
+const USAGES_TEXTE_BRUT = ['plu'];
 // Assez pour la reflexion a l'effort `low` et le JSON avec indices : ~600 tokens par facade, et le
 // rejeu d'AE 101 (15 octobre 2026) a coupe a 8 000 la passe d'une maison de huit murs
 // (reponse perdue, un vote sur deux passes). On ne paie que ce que le modele ecrit.
@@ -176,7 +185,10 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
         if ($passe !== null && !(is_int($passe) && $passe >= 1 && $passe <= 3)) throw new Refus('Passe invalide (1, 2 ou 3).');
         $blocs = $r['contenu'] ?? null;
         if (!is_array($blocs) || !array_is_list($blocs) || count($blocs) === 0 || count($blocs) > BLOCS_PAR_REQUETE) throw new Refus('Contenu de requête invalide.');
+        $usageR = $r['usage'] ?? $usage;
+        if (!in_array($usageR, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usageR) ? $usageR : '?') . '.');
         $images = 0;
+        $documents = 0;
         $contenu = [];
         foreach ($blocs as $b) {
             if (is_array($b) && ($b['type'] ?? null) === 'text' && is_string($b['text'] ?? null) && $b['text'] !== '' && mb_strlen($b['text']) <= TEXTE_MAX) {
@@ -189,17 +201,24 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
                 $contenu[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $s['media_type'], 'data' => $s['data']]];
                 continue;
             }
-            throw new Refus('Bloc de contenu non admis (texte ou image base64 seulement).');
+            // Un PDF (la lecture du PLU) : un bloc `document` en base64, pour les usages qui l'admettent.
+            $doc = is_array($b) && ($b['type'] ?? null) === 'document' && is_array($b['source'] ?? null) ? $b['source'] : null;
+            if ($doc && in_array($usageR, USAGES_DOCUMENT, true) && ($doc['type'] ?? null) === 'base64' && ($doc['media_type'] ?? null) === 'application/pdf'
+                && is_string($doc['data'] ?? null) && $doc['data'] !== '' && preg_match('#^[A-Za-z0-9+/]+={0,2}$#', $doc['data'])) {
+                $documents++;
+                $contenu[] = ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => $doc['data']]];
+                continue;
+            }
+            throw new Refus(in_array($usageR, USAGES_DOCUMENT, true) ? 'Bloc de contenu non admis (texte, image ou PDF base64 seulement).' : 'Bloc de contenu non admis (texte ou image base64 seulement).');
         }
         if ($images > IMAGES_PAR_REQUETE) throw new Refus('Trop d’images dans une requête (' . IMAGES_PAR_REQUETE . ' au plus).');
+        if ($documents > DOCUMENTS_PAR_REQUETE) throw new Refus('Un seul document PDF par requête.');
         $facades = $r['facades'] ?? 0;
         if (!is_int($facades) || $facades < 0 || $facades > FACADES_MAX) throw new Refus('Nombre de façades invalide.');
         // Une requete peut porter son usage (le run d'une facade dans le batch de l'analyse) :
         // son prompt, son schema et son modele sont alors les siens. Dans une demande `escalade`, elle garde le prompt et le schema
         // de son usage (l'analyse d'une maison, le run d'une facade) et prend le modele de l'escalade ; elle se compte en escalade
         // (`compte`, au journal et au resultat). Avant, une requete d'une maison escaladee prenait le modele de l'analyse.
-        $usageR = $r['usage'] ?? $usage;
-        if (!in_array($usageR, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usageR) ? $usageR : '?') . '.');
         $escalade = $usage === 'escalade';
         $modeleR = isset($d['modele']) ? $modele : $modeles[$escalade ? 'escalade' : $usageR];
         $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'facades' => $facades, 'usage' => $usageR, 'compte' => $escalade ? 'escalade' : $usageR,
@@ -230,15 +249,16 @@ function promptAvecSchema(string $prompt, $schema): string {
 }
 
 const CONSIGNE_STRUCTUREE = 'Répondez par l’objet JSON que la requête impose (sortie structurée), rien d’autre.';
-const CONSIGNE_EXEMPLE = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour un cas inventé : ses valeurs ne sont pas à recopier, la réponse dit ce que votre image montre, et ses listes ont autant d’éléments que vous en voyez (aucun s’il n’y en a pas). Tous les nombres sont des parts, comme expliqué plus haut : jamais des pixels.';
+const CONSIGNE_EXEMPLE = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour une façade inventée : ses valeurs ne sont pas à recopier, la réponse dit ce que votre image montre, et ses listes ont autant d’éléments que vous en voyez (aucun s’il n’y en a pas). Tous les nombres sont des parts, comme expliqué plus haut : jamais des pixels.';
 
 /**
  * Le prompt en system, selon la forme demandee : avec la sortie structuree, la partie fixe et une ligne (le schema part a cote) ; sans
  * elle, l'exemple de reponse quand l'usage en a un ; sinon le schema a la suite (les usages de l'analyse d'une maison).
  */
-function systemeDe(string $prompt, $schema, $exemple, bool $structuree): string {
+function systemeDe(string $prompt, $schema, $exemple, bool $structuree, ?string $consigne = null): string {
     if ($structuree) return $prompt . "\n\n# Forme de la réponse\n\n" . CONSIGNE_STRUCTUREE;
-    if ($exemple !== null) return $prompt . "\n\n# Forme de la réponse\n\n" . CONSIGNE_EXEMPLE . "\n\n" . json_encode($exemple, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    // La consigne du repli : celle du fichier de schema de l'usage quand il en porte une (la lecture du PLU), sinon celle du run d'une facade.
+    if ($exemple !== null) return $prompt . "\n\n# Forme de la réponse\n\n" . ($consigne ?? CONSIGNE_EXEMPLE) . "\n\n" . json_encode($exemple, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     return promptAvecSchema($prompt, $schema);
 }
 
@@ -408,11 +428,11 @@ function sortieConforme(string $texte, $schema) {
  * SORTIE_STRUCTUREE la demandent, et seulement a l'appel immediat (voir appelImmediat) : le schema
  * de l'analyse d'une maison depasse la grammaire que l'API compile.
  */
-function parametresRequete(string $modele, string $prompt, $schema, array $contenu, bool $structuree = false, $exemple = null): array {
+function parametresRequete(string $modele, string $prompt, $schema, array $contenu, bool $structuree = false, $exemple = null, ?string $consigne = null): array {
     return [
         'model' => $modele,
         'max_tokens' => MAX_TOKENS,
-        'system' => [['type' => 'text', 'text' => systemeDe($prompt, $schema, $exemple, $structuree), 'cache_control' => ['type' => 'ephemeral']]],
+        'system' => [['type' => 'text', 'text' => systemeDe($prompt, $schema, $exemple, $structuree, $consigne), 'cache_control' => ['type' => 'ephemeral']]],
         'messages' => [['role' => 'user', 'content' => $contenu]],
         'output_config' => ['effort' => EFFORT] + ($structuree ? ['format' => ['type' => 'json_schema', 'schema' => $schema]] : []),
     ];
@@ -541,6 +561,9 @@ function comptesSortie($sortie, string $usage): ?array {
     $c = array_fill_keys(COMPTES, 0);
     if ($usage === 'facade') {
         foreach (comptesFacade($s) as $k => $n) $c[$k] = $n;
+    } elseif ($usage === 'plu') {
+        // La lecture du PLU : ses regles relevees, chacune une valeur determinee (le tableau de bord en dit le rendement).
+        $c['determines'] = count(listeDe($s['regles'] ?? null));
     } elseif ($usage === 'jardin') {
         // La lecture du jardin (lot L3) : ses objets, et ceux dont la certitude est forte.
         $objets = listeDe($s['objets'] ?? null);
@@ -824,7 +847,7 @@ function promptEtSchema(string $usage = 'analyse', ?array $brouillon = null): ar
     // Le schema en objets : `{}` et `[]` doivent repartir tels quels vers l'API.
     $s = json_decode((string)@file_get_contents(__DIR__ . '/' . $fSchema));
     if (!is_object($s) || !isset($s->schema)) throw new RuntimeException($fSchema . ' illisible');
-    return [$prompt, ['version' => (int)$s->version, 'schema' => $s->schema, 'exemple' => $s->exemple ?? null]];
+    return [$prompt, ['version' => (int)$s->version, 'schema' => $s->schema, 'exemple' => $s->exemple ?? null, 'consigne' => is_string($s->consigne ?? null) ? $s->consigne : null]];
 }
 
 /** Le prompt et le schema de chaque usage des requetes, lus une fois. */
@@ -1211,6 +1234,9 @@ function listeAudits(string $dA): array {
 const ID_TRACE = '/^\d{8}-\d{6}-[a-z0-9-]{1,48}-[0-9a-f]{4}$/';
 const EXTENSIONS_IMAGE = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
 const IMAGE_TRACE = '/^[0-9a-f]{64}\.(jpg|png|webp|gif)$/';
+// Le PDF de la lecture du PLU (lot L4) : garde comme les images, une fois par empreinte, a cote d'elles (`images/<sha256>.pdf`) ; ni
+// l'entrant, ni le journal n'en portent les octets.
+const DOCUMENT_TRACE = '/^[0-9a-f]{64}\.pdf$/';
 
 /** Ce qui est parti chez Claude : les images rangees dans `images/`, remplacees par leur nom. */
 function entrantTrace(array $demande, array $prompts, string $dir): array {
@@ -1218,6 +1244,14 @@ function entrantTrace(array $demande, array $prompts, string $dir): array {
     foreach ($demande['requetes'] as $r) {
         $blocs = [];
         foreach ($r['contenu'] as $b) {
+            if ($b['type'] === 'document') {
+                $octets = (string)base64_decode($b['source']['data'], true);
+                $nom = hash('sha256', $octets) . '.pdf';
+                if (!is_dir($dir . '/images')) @mkdir($dir . '/images', 0750, true);
+                if (!is_file($dir . '/images/' . $nom)) @file_put_contents($dir . '/images/' . $nom, $octets);
+                $blocs[] = ['type' => 'document', 'media_type' => 'application/pdf', 'document' => $nom, 'octets' => strlen($octets)];
+                continue;
+            }
             if ($b['type'] !== 'image') { $blocs[] = $b; continue; }
             $octets = (string)base64_decode($b['source']['data'], true);
             $nom = hash('sha256', $octets) . '.' . EXTENSIONS_IMAGE[$b['source']['media_type']];
@@ -1382,11 +1416,11 @@ const DOSSIER_SANS_DEPOT = 'analyses/sans-depot';
 // Les traces sans depot se gardent comme le journal : 24 mois, puis leur mois s'efface en entier (images comprises).
 const MOIS_GARDES_TRACES = 24;
 
-/** Les images d'une requete verifiee : l'empreinte de leurs octets, leur taille et leur type, dans l'ordre. */
+/** Les images d'une requete verifiee (et le PDF de la lecture du PLU) : l'empreinte de leurs octets, leur taille et leur type, dans l'ordre. */
 function empreintesRequete(array $r): array {
     $e = [];
     foreach ($r['contenu'] as $b) {
-        if (($b['type'] ?? null) !== 'image') continue;
+        if (($b['type'] ?? null) !== 'image' && ($b['type'] ?? null) !== 'document') continue;
         $octets = (string)base64_decode($b['source']['data'], true);
         $e[] = ['sha256' => hash('sha256', $octets), 'octets' => strlen($octets), 'type' => $b['source']['media_type']];
     }
@@ -1483,6 +1517,12 @@ function contenuRejoue(array $requete, string $base): array {
     $contenu = [];
     foreach (listeDe($requete['contenu'] ?? null) as $b) {
         if (is_array($b) && ($b['type'] ?? null) === 'text' && is_string($b['text'] ?? null)) { $contenu[] = ['type' => 'text', 'text' => $b['text']]; continue; }
+        $doc = is_array($b) && ($b['type'] ?? null) === 'document' ? (string)($b['document'] ?? '') : null;
+        if ($doc !== null) {
+            if (!preg_match(DOCUMENT_TRACE, $doc) || !is_file($base . '/images/' . $doc)) throw new Refus('Le document gardé de cette requête est introuvable.');
+            $contenu[] = ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => base64_encode((string)file_get_contents($base . '/images/' . $doc))]];
+            continue;
+        }
         $nom = is_array($b) ? (string)($b['image'] ?? '') : '';
         if (!preg_match(IMAGE_TRACE, $nom) || !is_file($base . '/images/' . $nom)) throw new Refus('L’image gardée de cette requête est introuvable.');
         $contenu[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => (string)$b['media_type'], 'data' => base64_encode((string)file_get_contents($base . '/images/' . $nom))]];
@@ -1587,7 +1627,8 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
     $empreintes = [];
     foreach ($demande['requetes'] as $r) $empreintes[$r['id']] = empreintesRequete($r);
     $corps = fn(array $r, bool $structuree) => (string)json_encode(parametresRequete($r['modele'], $prompts[$r['usage']][0]['texte'], $prompts[$r['usage']][1]['schema'], $r['contenu'],
-                                                                                     $structuree, $prompts[$r['usage']][1]['exemple'] ?? null), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                                                                                     $structuree, $prompts[$r['usage']][1]['exemple'] ?? null, $prompts[$r['usage']][1]['consigne'] ?? null),
+                                                      JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $structurees = [];
     $envoi = [];
     foreach ($demande['requetes'] as $r) {
@@ -1622,7 +1663,9 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
             'empreintes' => array_column($empreintes[$r['id']], 'sha256'), 'reponse' => empreinteReponse($bruts[$r['id']]), 'trace' => $idTrace];
         $resultats[] = ['id' => $r['id'], 'statut' => $x['statut'], 'arret' => $x['arret'], 'tokens' => $x['tokens'], 'sortie' => $x['sortie'], 'erreur' => $x['erreur'],
                         'passe' => $r['passe'], 'usage' => $r['compte'] ?? $r['usage'], 'cout' => $cout, 'structuree' => $structurees[$r['id']],
-                        'refusFormat' => $refus[$r['id']] ?? null, 'empreintes' => $empreintes[$r['id']]];
+                        'refusFormat' => $refus[$r['id']] ?? null, 'empreintes' => $empreintes[$r['id']]]
+                        // Le texte du modele tel quel, pour les usages qui le gardent (la lecture du PLU) : jamais au journal.
+                        + (in_array($r['usage'], USAGES_TEXTE_BRUT, true) ? ['brut' => $bruts[$r['id']]] : []);
         $sortie[] = $x + ['passe' => $r['passe'], 'usage' => $r['compte'] ?? $r['usage'], 'modele' => $r['modele'], 'cout' => $cout, 'trouve' => $trouve, 'tarif' => $ligneTarif['depuis'] ?? null,
                           'prompt' => $pR['version'], 'schema' => $sR['version'], 'refusFormat' => $refus[$r['id']] ?? null, 'empreintes' => $empreintes[$r['id']]];
     }
