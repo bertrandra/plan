@@ -318,6 +318,13 @@ s'écrit toujours au plus petit schéma qui le décrit ; la plateforme accepte d
 
 ### Corrigé
 
+- **Tablette : le résumé du tiroir replié suit la terrasse qu'on redessine.** Sur tablette, tiroir replié, la barre des résultats
+  montre les chiffres clés de la terrasse (appuis, lames, bois porteur, surface, estimation) ; sa clé ne suivait que les attributs des
+  objets, pas leur forme, si bien que tirer un sommet ou une arête laissait, dans le paquet livré, le résumé d'avant le geste (le
+  garde-fou `[cle de version]` le disait en développement, points 1, 2, 9 et 99 de la fumée en classe moyenne). La clé suit
+  maintenant la forme des objets (`cleEtatEtObjets`, `zones/Resultats.tsx`), comme les tuiles et le pied de la feuille Chiffrage du
+  téléphone, qui lisent le même chiffrage.
+
 - **La liste des cas de calibration tient sur un téléphone** : le nom d'un cas tiré de l'audit (« Maison · façade nord
   (78650000AE0101) ») se coupe dans sa cellule au lieu d'élargir la page.
 - **La liste de l'audit de la parcelle ne se fige plus derrière la Vue 3D** : la boucle de rendu de la 3D redessinait la scène à

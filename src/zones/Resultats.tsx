@@ -20,7 +20,7 @@ import { suivreTableaux } from '../ui/tableau.js';
 import { terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { Icone } from './icones.js';
-import { useCle, cleEtat } from './composants/abonnement.js';
+import { useCle, cleEtatEtObjets } from './composants/abonnement.js';
 import type { Magasin } from '../app/magasin.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -107,8 +107,10 @@ const LIBELLE_HAUTEUR: Record<HauteurTiroir, [string, string]> = {
 };
 
 export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResultats) {
-  // Le plan (terrasse courante, chiffrage, onglet actif), les onglets offerts, et la commande du dossier.
-  useCle(magasin, 'barre des résultats', (s) => cleEtat(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
+  // Le plan (terrasse courante, chiffrage, onglet actif), les onglets offerts, et la commande du dossier. La forme des objets
+  // compte : le resume du tiroir replie (tablette), les tuiles et le pied (telephone) chiffrent la terrasse, et un sommet tire
+  // change sa surface et ses quantites sans toucher a ses attributs.
+  useCle(magasin, 'barre des résultats', (s) => cleEtatEtObjets(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
     commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier')] : null]));
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
