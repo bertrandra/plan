@@ -5,6 +5,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc des modèles sur la lecture des façades** (`MD/banc-modeles-facades.md`) : la lecture 5.1.0 mesurée sur les 22 scènes du banc,
+  ×1 et ×3, avec Haiku (trois runs au code de lecture de main), Sonnet et Opus (deux runs chacun, sur une branche de mesure jamais fusionnée) : baies,
+  genres, carreaux, angles, pointes, parement, coût et durée par façade, scènes qui divergent, et comment refaire la mesure. Rien ne
+  change en production : le modèle du run d'une façade reste Haiku.
+
 ## [5.1.0] — 2026-10-30
 
 Version **mineure** au sens de `MD/RELEASE.md` : façades (lots F0 à F8 : calage, run de Claude en trois passes et escalade, diagnostic

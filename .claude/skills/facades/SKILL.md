@@ -728,6 +728,9 @@ npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/mesure        
 - `tests/banc/facades/runIa.ts` : l'image d'une scène telle que la calibration la compose, sa vérité (le mur en pixels, les
   ouvertures, les pointes, les carreaux peints), des réponses **synthétiques** (pas Claude) et la mesure d'une réponse.
 - Le workflow « Vérifier l'API Claude », case « mesure des façades » cochée, joue les trois temps et colle le tableau au résumé.
+- **Haiku, Sonnet et Opus comparés** sur ce banc (lecture 5.1.0, 30 octobre 2026) : `MD/banc-modeles-facades.md` (protocole, ce que veut
+  dire « juste » pour chaque ligne, tables ×1 et ×3, scènes qui divergent, bruit de Haiku d'une mesure à l'autre, coût, comment refaire
+  la mesure avec un autre modèle).
 
 
 
