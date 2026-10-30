@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lireExif, focale35mm, champDepuisFocale35, focale35DepuisChamp } from '../../../../src/facade/vision/exif.js';
+import { lireExif, champDepuisFocale35, focale35DepuisChamp } from '../../../../src/facade/vision/exif.js';
 
 // L'EXIF d'une photo : la focale 24x36 du sous-IFD Exif et le modele d'appareil de l'IFD0, dans les
 // deux boutismes, et rien d'invente quand le chemin ne ressemble pas a un EXIF.
@@ -44,7 +44,7 @@ describe('l EXIF d une photo', () => {
   it('lit la focale 24x36 et le modele, en gros et en petit boutisme', () => {
     expect(lireExif(jpeg({ modele: 'iPhone 13', focale: 26 }))).toEqual({ focale35: 26, modele: 'iPhone 13' });
     expect(lireExif(jpeg({ le: true, modele: 'SM-G991B', focale: 24, avantApp1: true }))).toEqual({ focale35: 24, modele: 'SM-G991B' });
-    expect(focale35mm(jpeg({ modele: 'iPhone 13', focale: 26 }))).toBe(26);
+    expect(lireExif(jpeg({ modele: 'iPhone 13', focale: 26 })).focale35).toBe(26);
   });
 
   it('lit un modele court range dans l entree elle-meme, et retire les espaces de fin', () => {

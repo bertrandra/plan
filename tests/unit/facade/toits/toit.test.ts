@@ -10,7 +10,6 @@ import {
   penteDeg,
   angleDuPlusLongCote,
   profilSilhouette,
-  hauteurPignon,
   type Toit,
 } from '../../../../src/facade/toits/toit.js';
 
@@ -174,17 +173,3 @@ describe('estimation depuis la silhouette', () => {
   });
 });
 
-describe('hauteurPignon', () => {
-  const maison = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
-  it('le triangle du pignon sur les murs en bout de faitage, rien sous les longs pans', () => {
-    const toit: Toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 };
-    expect(hauteurPignon(maison, toit, 1)).toBeCloseTo(3, 6);
-    expect(hauteurPignon(maison, toit, 3)).toBeCloseTo(3, 6);
-    expect(hauteurPignon(maison, toit, 0)).toBe(0);
-  });
-  it('rien pour un toit plat, a quatre pans ou absent', () => {
-    expect(hauteurPignon(maison, { forme: 'plat', hauteur: 0, angleFaitage: 0 }, 1)).toBe(0);
-    expect(hauteurPignon(maison, { forme: 'quatre-pans', hauteur: 3, angleFaitage: 0 }, 1)).toBe(0);
-    expect(hauteurPignon(maison, null, 1)).toBe(0);
-  });
-});

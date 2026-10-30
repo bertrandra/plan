@@ -216,8 +216,10 @@ sélecteur de textures. Depuis le 27 septembre 2026, ce sont des composants Reac
 (`zones/Parcours.tsx`, `zones/parcours/`) ouverts un à la fois par `app/parcours.ts` ; leur logique
 vit sans DOM dans `app/cadastre/importCadastre.ts`, `app/cadastre/actualisationIgn.ts` et `io/polyhaven.ts`.
 Un quatrième s'y ajoute en `2.2.0`, plein écran : le **relevé de façade** (`zones/Releve.tsx`,
-[`spec-releve-facade.md`](spec-releve-facade.md) §4), ouvert par la commande `facade.relever`
-depuis la section « Façades et toit » de Z5 — seul endroit où elle vit, avec `facade.retirer`.
+[`spec-releve-facade.md`](spec-releve-facade.md) §4). Depuis le lot F6 (29 octobre 2026), c'est
+l'**éditeur** d'une façade déjà relevée, ouvert par la commande `facade.modifier` depuis la section
+« Façades et toit » de Z5 — seul endroit où elle vit, avec `facade.photographier` (qui ouvre l'audit
+de la parcelle sur la prise de ce mur : les photos ne se prennent que là) et `facade.retirer`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
 

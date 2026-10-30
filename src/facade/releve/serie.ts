@@ -1,38 +1,23 @@
-// Le releve de facade (zones/Releve.tsx) : les etapes, la serie de photos et ses coins proposes.
+// La serie de photos d'un mur (l'audit, par l'orchestrateur facade/releve/enchainement.ts ; la calibration) : ses morceaux, leurs
+// coins proposes et le calage fin qui les cherche sur la photo.
 
-import { au } from '../../util/tableaux.js';
 import { focalePx } from '../vision/cadrage.js';
 import { coinsProposes } from '../analyse.js';
 import { coinsDuReleve, biaisDepuisCap, ecartSigne, type PriseReleve } from '../calage/calage.js';
 import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../calage/calageFin.js';
-import { corrigerDistorsion, corrigerPoint, focale35DePixels, grandAngleACorriger, type ModeleDistorsion } from '../vision/distorsion.js';
-import { type Decrochement } from '../profil.js';
+import { corrigerDistorsion, corrigerPoint, focale35DePixels, type ModeleDistorsion } from '../vision/distorsion.js';
 import type { Image, P2 } from '../vision/homographie.js';
-import type { Toit, PartieBasse, CalageReleve } from '../../model/types.js';
+import type { PartieBasse, CalageReleve } from '../../model/types.js';
 import type { Prise } from './prise.js';
-import type { MasqueReleve } from './masque.js';
 
-/* ------------------------------------------------------------------------------------------------
- * Le parcours
- * --------------------------------------------------------------------------------------------- */
-
-export type Etape = 'mur' | 'methode' | 'rue' | 'visee' | 'coins' | 'analyse' | 'resultat';
-
+/** Ce que l'analyse d'une serie donne au releve du mur : sa texture, sa partie basse, son calage. */
 export interface Resultat {
-  /** La partie basse d'un mur en L, mesuree ; corrigeable avant de valider. */
+  /** La partie basse d'un mur en L, mesuree. */
   partieBasse: PartieBasse | null;
   texture: string;
   hauteurTexture: number;
-  /** La hauteur a-t-elle ete mesuree sur la photo (sinon, c'est celle du cadastre) ? */
-  hauteurMesuree: boolean;
-  couverture: number;
-  toitPropose: Toit | null;
-  /** Ce que l'assemblage de plusieurs photos a trouve a redire, s'il y a lieu. */
-  avis: string | null;
   /** Les coins de chaque photo et leur resolution au mur : la precision annoncee des cotes. */
   calage?: CalageReleve | null;
-  /** Ce qui reste cache sur toutes les vues d'une fusion, hachure sur l'elevation (lot G20). */
-  masque?: MasqueReleve | null;
 }
 
 /**
@@ -42,23 +27,14 @@ export interface Resultat {
  */
 export type Assemblage = 'morceaux' | 'vues';
 
-/** Une photo est-elle un morceau du mur (et non le mur entier) ? */
-export function estPartielle(assemblage: Assemblage, photosPrevues: number | null | undefined, dejaPrises: number): boolean {
-  return assemblage === 'morceaux' && ((photosPrevues ?? 1) > 1 || dejaPrises > 0);
-}
-
 /** Une photo d'un morceau du mur et ses quatre coins. */
 export interface Morceau {
   prise: Prise;
   coins: P2[];
-  /** Mur a deux hauteurs d'egout : le decrochement pose sur la photo (une seule photo). */
-  decrochement?: Decrochement | null;
   /** D'ou vient chacun des quatre coins : trouve sur la photo, predit, ou pose au doigt. */
   sources?: SourceCoin[];
   /** Vrai pendant que le calage fin cherche les coins sur la photo. */
   recherche?: boolean;
-  /** Vrai : la recherche ne fait que corriger la distorsion du grand-angle (un morceau d'une serie). */
-  distorsionSeule?: boolean;
   /** Ce que le calage fin a rendu (sans le detail), une fois la recherche faite. */
   fin?: ResultatCoins | null;
   /** La silhouette du haut du mur sur la photo (ajustee a la main, ou lue entre ses coins) : elle dit le toit quand elle a une forme. */
@@ -88,8 +64,6 @@ export interface EntreeRecherche {
    * estimee et corrigee avant de chercher les coins (lot L8). `null` : inconnue, rien n'est corrige.
    */
   focale35?: number | null;
-  /** Faux : un morceau d'une serie, dont on ne cherche pas les coins ; seule la distorsion est corrigee. */
-  chercher?: boolean;
 }
 
 /** La photo corrigee de la distorsion du grand-angle, telle que la recherche la rend. */
@@ -98,7 +72,7 @@ export interface DistorsionCorrigee {
   modele: ModeleDistorsion;
 }
 
-/** Ce que rend la recherche d'une prise : la photo corrigee s'il y a lieu, et les coins s'ils etaient cherches. */
+/** Ce que rend la recherche d'une prise : la photo corrigee s'il y a lieu, et les coins. */
 export interface ResultatRecherche {
   distorsion: DistorsionCorrigee | null;
   coins: ResultatCoins | null;
@@ -113,7 +87,7 @@ export function rechercher(e: EntreeRecherche): ResultatRecherche {
   const d = corrigerDistorsion(e.image, e.focale35);
   const image = d?.image ?? e.image;
   const prise = d ? { ...e.prise, focalePx: e.prise.focalePx * d.modele.echelle } : e.prise;
-  const coins = e.chercher === false ? null : sansDetail(calageFinDuReleve(image, e.largeur, e.hauteur, prise, e.distance));
+  const coins = sansDetail(calageFinDuReleve(image, e.largeur, e.hauteur, prise, e.distance));
   return { distorsion: d ? { image: d.image, modele: d.modele } : null, coins };
 }
 
@@ -135,7 +109,7 @@ export function focale35DePrise(p: Prise): number {
 
 /**
  * La prise une fois sa photo corrigee de la distorsion : l'image et son URL remplacees, les coins
- * (et le decrochement) ramenes dans l'image corrigee, la focale reduite d'autant. Une recherche deja
+ * ramenes dans l'image corrigee, la focale reduite d'autant. Une recherche deja
  * arretee (l'analyse est partie avec la photo d'origine et ses coins) ne change plus rien.
  */
 export function appliquerDistorsion(m: Morceau, d: DistorsionCorrigee, url: string): Morceau {
@@ -146,7 +120,6 @@ export function appliquerDistorsion(m: Morceau, d: DistorsionCorrigee, url: stri
   return {
     ...m,
     coins: m.coins.map(vers),
-    ...(m.decrochement ? { decrochement: { ...m.decrochement, haut: vers(m.decrochement.haut), bas: vers(m.decrochement.bas) } } : {}),
     prise: {
       ...m.prise,
       photo: { ...photo, image: d.image, url, focalePx: photo.focalePx != null ? photo.focalePx * modele.echelle : null, distorsion: { k1: modele.k1, echelle: modele.echelle } },
@@ -168,17 +141,12 @@ function distanceIndependante(m: Prise['mesure']): EntreeRecherche['distance'] {
 }
 
 /**
- * Ce que le calage fin recoit pour une prise : la photo, le mur, la prise du releve (cap, attitude,
- * focale, distance). `null` pour un morceau d'un mur photographie en plusieurs fois : ses bords ne
- * sont pas ceux du mur, il n'y a pas d'aretes a y chercher.
+ * Ce que le calage fin recoit pour une prise d'une photo du mur entier : la photo, le mur, la prise (cap, attitude, focale,
+ * distance).
  */
-export function entreeRecherche(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): EntreeRecherche | null {
-  // Un morceau d'une serie n'a pas d'aretes de mur a chercher ; pris au grand-angle, sa photo reste
-  // pourtant a corriger de la distorsion, comme une photo entiere.
-  // Une photo deja corrigee ne se corrige pas deux fois (une serie qui passe des morceaux aux vues
-  // relance la recherche sur la photo corrigee).
+export function entreeRecherche(p: Prise, largeurMur: number, hauteurEstimee: number, azimutFacade: number | null = null): EntreeRecherche {
+  // Une photo deja corrigee de la distorsion ne se corrige pas deux fois.
   const focale35 = p.photo.distorsion ? null : focale35DePrise(p);
-  if (partiel && !grandAngleACorriger(focale35)) return null;
   const img = p.photo.image;
   const f = focaleDePrise(p);
   const mesuree = p.mesure?.distance ?? null;
@@ -201,7 +169,6 @@ export function entreeRecherche(p: Prise, largeurMur: number, hauteurEstimee: nu
     },
     distance: distanceIndependante(p.mesure),
     focale35,
-    chercher: !partiel,
   };
 }
 
@@ -214,7 +181,7 @@ export function appliquerRecherche(m: Morceau, r: ResultatCoins): Morceau {
   // Une recherche arretee (l'analyse est lancee avec les coins du moment) ne change plus rien.
   if (!m.recherche) return m;
   const fin = { ...m, recherche: false, fin: r };
-  if (!r.trouve || !r.coins || m.sources?.includes('doigt') || m.decrochement) return fin;
+  if (!r.trouve || !r.coins || m.sources?.includes('doigt')) return fin;
   const w = m.prise.photo.image.largeur,
     h = m.prise.photo.image.hauteur;
   const marge = Math.max(w, h) * 0.2;
@@ -234,11 +201,6 @@ export function appliquerResultat(m: Morceau, r: ResultatRecherche, url: string 
   return x.recherche ? { ...x, recherche: false } : x;
 }
 
-/** Le morceau dont on n'attend plus le calage fin : l'analyse part avec les coins tels qu'ils sont. */
-export function arreterRecherche(m: Morceau): Morceau {
-  return m.recherche ? { ...m, recherche: false } : m;
-}
-
 /** Le cap de la prise lu sur la photo, en degres depuis le nord ; `null` si la boussole n'a pas ete calee. */
 export function capCorrige(r: ResultatCoins | null | undefined, azimutFacade: number): number | null {
   if (!r?.trouve || !r.azimutCorrige) return null;
@@ -249,49 +211,20 @@ export function capCorrige(r: ResultatCoins | null | undefined, azimutFacade: nu
 }
 
 /**
- * Les coins proposes pour une prise : projection d'apres la distance (et la hauteur estimee), ou les
- * reperes poses sur la video, qui disent exactement ou sont les bords et l'emportent. Quand le mur
- * se photographie en plusieurs fois, le rectangle propose est la part de mur que l'image couvre, pas
- * le mur entier.
+ * Les coins proposes pour une prise du mur entier : projection d'apres la distance et la hauteur estimee, sans bornes (ils peuvent
+ * tomber hors de la photo).
  *
  * A distance connue, la projection tient compte de l'inclinaison et du roulis du telephone au
  * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage/calage.ts) : un tangage
  * de 6 degres a 12 m decalait les coins centres de 1,3 m.
  */
-export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null, borner = true): P2[] {
+export function coinsDePrise(p: Prise, largeur: number, hauteurEstimee: number, azimutFacade: number | null = null): P2[] {
   const w = p.photo.image.largeur,
     h = p.photo.image.hauteur;
   const f = focaleDePrise(p);
   const d = p.mesure?.distance ?? null;
-  const visible = d ? (d * w) / f : largeurMur;
-  const largeur = partiel ? Math.min(largeurMur, 0.8 * visible) : largeurMur;
   const biais = p.cap != null && azimutFacade !== null ? biaisDepuisCap(p.cap, azimutFacade) : null;
-  const c =
-    d && d > 0
-      ? coinsDuReleve(largeur, hauteurEstimee, { largeurPx: w, hauteurPx: h, focalePx: f, distance: d, biaisDeg: biais, inclinaisonDeg: p.attitude?.inclinaisonDeg ?? null, roulisDeg: p.attitude?.roulisDeg ?? null })
-      : coinsProposes(w, h, f, d, largeur, hauteurEstimee);
-  if (p.reperes) {
-    const [a, b] = [Math.min(p.reperes.a, p.reperes.b), Math.max(p.reperes.a, p.reperes.b)];
-    au(c, 0).x = au(c, 3).x = a * w;
-    au(c, 1).x = au(c, 2).x = b * w;
-  }
-  // A courte distance, le mur deborde de l'image : les coins projetes tombent loin hors cadre.
-  // On les ramene dans la marge ou le doigt peut les saisir (celle de <Coins>) ; un calcul sans ecran (`borner` faux) les garde.
-  if (!borner) return c;
-  const m = Math.max(w, h) * 0.2;
-  return c.map((q) => ({ x: Math.max(-m, Math.min(w + m, q.x)), y: Math.max(-m, Math.min(h + m, q.y)) }));
-}
-
-/** La consigne des coins, selon la place de la photo dans la serie. */
-export function consigneCoins(numero: number, total: number, assemblage: Assemblage = 'morceaux'): string {
-  if (total > 1 && assemblage === 'vues')
-    return `Vue ${numero + 1} sur ${total} : placez chaque rond sur un coin du mur entier, comme sur les autres vues. Un coin caché derrière une voiture ou une haie se place là où il serait.`;
-  if (total <= 1) return "Placez chaque rond sur un coin du mur : les deux du haut à l'égout, les deux du bas au pied du mur. Un coin caché ou hors cadre se place là où il serait.";
-  const bords =
-    numero === 0
-      ? 'Ceux de gauche sur le coin gauche du mur, ceux de droite sur une verticale du mur près du bord droit de la photo.'
-      : numero === total - 1
-        ? 'Ceux de droite sur le coin droit du mur, ceux de gauche sur une verticale du mur près du bord gauche de la photo.'
-        : 'À gauche et à droite, sur une verticale du mur près du bord de la photo.';
-  return `Photo ${numero + 1} sur ${total} : les ronds du haut sur l'égout, ceux du bas au pied du mur. ${bords}`;
+  return d && d > 0
+    ? coinsDuReleve(largeur, hauteurEstimee, { largeurPx: w, hauteurPx: h, focalePx: f, distance: d, biaisDeg: biais, inclinaisonDeg: p.attitude?.inclinaisonDeg ?? null, roulisDeg: p.attitude?.roulisDeg ?? null })
+    : coinsProposes(w, h, f, d, largeur, hauteurEstimee);
 }

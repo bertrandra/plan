@@ -144,7 +144,7 @@ cap :
    Votre position est du côté extérieur du mur, à 3 à 40 m, sans autre bâtiment entre vous et lui
    (`vueCachee`).
 2. **Celle que vous regardez** : parmi elles, celle dont le milieu est le plus près de l'axe de la
-   boussole (`facade/geometrie.ts::facadeFaceAuCap`, à 50° près). À égalité, la plus proche.
+   boussole (`facade/calage/priseDeVue.ts::facadeDevant`, à 50° près). À égalité, la plus proche.
 3. Elle est **surlignée** dans la Vue 3D et nommée sur l'écran de prise : « Vous êtes devant la façade
    sud, 9,2 m ». La photo prise s'y **range d'elle-même**. « Ce n'est pas cette façade » en propose
    une autre.
@@ -184,6 +184,14 @@ réussite (§22).
 
 ## 7. Le relevé d'une façade
 
+> **Depuis le lot F6 (29 octobre 2026, `spec-facade-calage-audit.md` §6, §9 bis F6), l'audit est le seul endroit où les photos d'une
+> façade se prennent.** « Photographier » sur la ligne d'un mur de l'inspecteur (commande `facade.photographier`) ouvre l'audit sur
+> l'écran de prise, la façade choisie ; « Photographier les façades… », sans mur, l'ouvre sur la prise qui suit la position. Le relevé
+> n'a plus de capture : c'est l'**éditeur** d'une façade relevée (« Modifier » sur la ligne du mur, `spec-releve-facade.md` §4.2). Pour
+> l'administrateur, « **Créer un cas depuis cette façade** » (commande `facade.creerCas`, sous la barre d'une façade photographiée) en
+> fait un cas de calibration, rangé sur le serveur : la calibration lit les façades de l'audit et ne prend plus de photos pour elle.
+> Ce qui suit dit ce que l'audit reprenait du relevé (la boussole, la distance, les coins proposés) : la chaîne est la même.
+
 Le relevé existant (`spec-releve-facade.md`), sur les photos situées. Les temps « Choisir le mur » et
 « Se placer » sont guidés par la position (§6.1). **Le calage des photos et la détection des
 ouvertures évoluent** : l'audit devient le moteur des façades. Le détail est dans
@@ -191,7 +199,7 @@ ouvertures évoluent** : l'audit devient le moteur des façades. Le détail est 
 plusieurs vues, teinte locale, profils de contours, structure en niveaux et travées, confiance et
 corrections tracées.
 
-- **Le mur en face** : la boussole propose le mur que l'on regarde (`facade/geometrie.ts::facadeFaceAuCap`).
+- **Le mur en face** : la boussole propose le mur que l'on regarde (`facade/calage/priseDeVue.ts::facadeDevant`).
 - **Se placer** : la distance au mur vient du GPS (à sa précision près), puis du cadrage. Le plan de
   prise dit « une photo suffit » ou « 3 photos, de gauche à droite » (`facade/vision/cadrage.ts::planDePrise`).
 - **Coins proposés** d'après la prise de vue (`facade/analyse.ts::coinsProposes`, la distance venant du
@@ -746,8 +754,8 @@ validation (§14).
    - **une valeur que vous aviez choisie à la main** (couleur, matériau, relevé d'une façade, forme du
      toit) n'est jamais remplacée en silence. Sa ligne est décochée par défaut et le dit : « remplace
      votre choix : brique rouge ».
-   Les corrections d'ouvertures se font dans l'éditeur du relevé, ouvert depuis la ligne de la façade
-   (`spec-facades-calage-detection.md` §12).
+   Les corrections d'ouvertures se font dans l'éditeur du relevé, ouvert depuis la ligne de la façade (« Modifier », lot F6 ;
+   `spec-facades-calage-detection.md` §12).
 4. **Valider** écrit tout ce qui est coché en **un seul pas d'historique** (Ctrl+Z le défait). Le projet
    est marqué modifié.
 5. **Vérifié sur place** : un bâtiment dont le toit et les façades ont été vus et validés est marqué
@@ -787,8 +795,7 @@ source `claude`) ; Avant / Après dans la Vue 3D sur des copies des bâtiments, 
 (`three/comparaison3d.ts`, `regles/decisions.ts::projetApres`, point de fumée 90) ; cases, choix à la main
 décochés (« Remplace votre choix : … ») ; « Valider » en un pas d'historique ; `verifieSurPlace`.
 Restent : la forme du toit vue (forme, faîtage, bouts, lucarnes), qui attend les règles et Claude ;
-la photo et les indices touchés depuis la 3D ; l'éditeur du relevé ouvert depuis la ligne d'une
-façade ; la mosaïque de plusieurs photos d'un mur dans les mesures (lots L13 à L15) ; la texture du
+la photo et les indices touchés depuis la 3D ; la mosaïque de plusieurs photos d'un mur dans les mesures (lots L13 à L15) ; la texture du
 gros plan du parement.
 
 **Fait (lot L12, le 100 % protégé)** : `model/toitVerifie.ts`. La relecture des toits en tâche de

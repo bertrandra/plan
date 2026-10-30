@@ -8,7 +8,7 @@
 
 import { vueCachee, type Obstacle } from '../../geometry/ligneDeVue.js';
 import type { PtBrut } from '../../model/types.js';
-import { facadeFaceAuCap, type Facade } from '../../geometry/cotesVusDeDehors.js';
+import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 
 /** Plus pres, le mur deborde de la photo ; plus loin, il n'en occupe plus assez (comme Panoramax). */
 export const DISTANCE_DEVANT_MIN_M = 3;
@@ -117,20 +117,4 @@ export function facadeDevant(pos: PtBrut, cap: number | null, batiments: readonl
 export function texteFacadeDevant(v: FacadeDevant): string {
   const m = (Math.round(v.distance * 10) / 10).toFixed(1).replace('.', ',');
   return 'Vous êtes devant la façade ' + v.facade.orientation.toLowerCase() + ', ' + m + ' m';
-}
-
-
-/**
- * Le mur propose par le releve d'une facade (zones/releve/ChoixMur.tsx) : quand la position est
- * connue, celui devant lequel on se tient, la boussole departageant ceux que l'on voit ; sinon celui
- * qui fait face au cap de la boussole. `devant` n'est donne que dans le premier cas : c'est lui qui
- * permet de dire la distance.
- */
-export function murPropose(facades: readonly Facade[], cle: string, position: PtBrut | null, obstacles: readonly Obstacle[], cap: number | null): { facade: Facade; devant: FacadeDevant | null } | null {
-  if (position) {
-    const devant = facadeDevant(position, cap, [{ cle, facades }], obstacles);
-    return devant ? { facade: devant.facade, devant } : null;
-  }
-  const f = cap === null ? null : facadeFaceAuCap(facades, cap);
-  return f ? { facade: f, devant: null } : null;
 }

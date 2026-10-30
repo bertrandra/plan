@@ -5,7 +5,6 @@ import { interiorAngleDeg } from '../../geometry/angles.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { cleDernierProjet, withProjectParam, apiSave, apiDelete } from '../../io/api.js';
-import { analyseClaudeDuNavigateur } from '../audit/parcelle/analyseNavigateur.js';
 import { creerInspecteur, type Inspecteur } from '../inspecteur.js';
 import { creerExplorateur } from '../explorateur.js';
 import { brancherCommandesCiblees } from '../ecouteurs/cibles.js';
@@ -16,7 +15,6 @@ import { libelleTypeObjet, dejaRectangle } from '../assemblage/gestes.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
 import { monterZones } from '../../zones/monter.js';
 import { creerServiceReleve } from '../releve/releve.js';
-import { aideReleveDuNavigateur } from '../releve/runFacade.js';
 import { brancherFacade } from '../ecouteurs/facade.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -61,10 +59,8 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
   }, magasin, commandes);
   // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap.
   const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
-  // Le releve de facade : le parcours de prise de vue (zones/Releve.tsx) et ses deux commandes.
-  // L'aide de Claude au releve (lot L18) : le meme client, la meme identite et le meme accord par projet que l'audit.
-  const aide = aideReleveDuNavigateur(analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null));
-  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf, aide });
+  // L'editeur d'une facade relevee (zones/Releve.tsx) et ses commandes ; ses photos se prennent dans l'audit (lot F6).
+  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene });
   brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
   monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
   return { explorateur, inspecteur, projet };

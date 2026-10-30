@@ -1,6 +1,6 @@
-// La chaine des photos d'un mur, une seule pour tous (MD/spec-facades-calage-detection.md) : l'audit de la parcelle
-// (app/audit/parcelle/mesures.ts), le releve de facade (zones/Releve.tsx) et la calibration (zones/EditeurCasCalibration.tsx)
-// redressent, fusionnent et cotent par elle. Sans React : testable seule.
+// La chaine des photos d'un mur, une seule pour tous (MD/spec-facades-calage-detection.md) : l'audit de la parcelle (par
+// l'orchestrateur, facade/releve/enchainement.ts) et la calibration (zones/EditeurCasCalibration.tsx) redressent, fusionnent et
+// cotent par elle ; depuis le lot F6, les photos d'une facade ne se prennent plus que dans l'audit. Sans React : testable seule.
 //
 // Chaque photo est redressee : coins poses au doigt, sinon trouves sur les aretes (calage fin, distorsion du grand-angle), sinon
 // reportes d'une autre photo du mur ou lus sur l'assemblage des vues, sinon predits par la prise de vue. Des verticales qui
@@ -18,7 +18,7 @@ import { redresser, resolutionTexture, type Image, type P2 } from '../vision/hom
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { ObjetPolygone } from '../../model/types.js';
 import { analyserSerie } from './analyseSerie.js';
-import { appliquerResultat, coinsDePrise, entreeRecherche, type Assemblage, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
+import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
 import { gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
 import type { Prise } from './prise.js';
@@ -59,7 +59,7 @@ function verticaliteDeg(elevation: Image): number | null {
 }
 
 /** Le champ du grand cote de la photo (degres) que donnent ses points de fuite, quand ils le disent ; null sinon. */
-export function champDesFuites(image: Image): number | null {
+function champDesFuites(image: Image): number | null {
   const f = focaleDeLaPhotoParFuites(detecterSegments(image), image.largeur, image.hauteur);
   return f === null ? null : (2 * Math.atan(Math.max(image.largeur, image.hauteur) / 2 / f) * 180) / Math.PI;
 }
@@ -130,7 +130,7 @@ async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, cor
   const prise = e.prise(e.champConnu ? null : champDesFuites(image));
   // Les coins predits tels quels : ramenes au bord du cadre (ce que fait l'ecran pour le doigt), ils ne seraient plus le mur, et
   // le redressement deformerait la photo au lieu de la redresser (un mur de 7 m photographie a 4 m deborde de l'image).
-  const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, false, f.azimut, false), recherche: true };
+  const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, f.azimut), recherche: true };
   if (correction?.coins && correction.coins.length === 4) {
     return { rang, coins: 'main', morceau: { ...depart, coins: correction.coins.map((c) => ({ x: c.x, y: c.y })), sources: ['doigt', 'doigt', 'doigt', 'doigt'], recherche: false } };
   }
@@ -138,8 +138,8 @@ async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, cor
   // comptes trouves quand le mur y a ete lu.
   if (serie) return { rang, coins: serie.lu ? 'trouve' : 'predit', morceau: { ...depart, coins: serie.coins.map((c) => ({ x: c.x, y: c.y })), ...(serie.lu ? { sources: ['trouve', 'trouve', 'trouve', 'trouve'] as SourceCoin[] } : {}), recherche: false } };
   if (predits) return { rang, coins: 'predit', morceau: { ...depart, recherche: false } };
-  const entree = entreeRecherche(prise, f.largeur, f.hauteur, false, f.azimut);
-  const r = entree ? await o.chercherCoins(entree).catch(() => null) : null;
+  const entree = entreeRecherche(prise, f.largeur, f.hauteur, f.azimut);
+  const r = await o.chercherCoins(entree).catch(() => null);
   // La photo corrigee de la distorsion n'a pas besoin d'URL ici : on ne l'affiche pas.
   const m = r ? appliquerResultat(depart, r, r.distorsion ? 'corrigee' : null) : { ...depart, recherche: false };
   return { rang, morceau: m, coins: m.sources?.includes('trouve') ? 'trouve' : 'predit' };
@@ -200,48 +200,6 @@ export function verticaliteDesCoins(image: Image, coins: readonly P2[], largeurM
   if (!quadrilatereSain(coins, { largeur: 0, hauteur: 0 })) return null;
   const r = redresser(image, coins, largeurM, hauteurM, resolutionTexture(largeurM, hauteurM, COTE_VERTICALES_PX));
   return r ? verticaliteDeg(r.image) : null;
-}
-
-/**
- * Le morceau d'un releve a l'ecran, avant l'analyse : des verticales qui penchent font essayer les coins predits par la prise,
- * puis les cotes ramenes sur les verticales de la photo ; le moins penche est garde. Le meme repli que pour l'audit
- * (redresserPhoto), sans relancer la recherche des coins deja faite, et juge sur une elevation reduite : l'analyse, la seule
- * couteuse, ne se fait qu'une fois, sur les coins retenus. Des coins poses au doigt ne bougent jamais.
- */
-export function morceauRedresse(m: Morceau, f: Facade, hauteur: number): Morceau {
-  if (m.sources?.includes('doigt') || m.decrochement) return m;
-  const img = m.prise.photo.image;
-  const vert = (coins: readonly P2[]) => verticaliteDesCoins(img, coins, f.largeur, hauteur);
-  const predit: Morceau = { ...m, coins: coinsDePrise(m.prise, f.largeur, hauteur, false, f.azimut, false), sources: m.coins.map((): SourceCoin => 'predit') };
-  // Des coins qui ne forment pas un mur (croises, ecrases) : ceux de la prise de vue, plutot qu'un mur faux.
-  if (!quadrilatereSain(m.coins, { largeur: 0, hauteur: 0 })) return predit;
-  const v0 = vert(m.coins);
-  if (v0 === null || v0 <= SEUIL_VERTICALES_DEG) return m;
-  let meilleur = { morceau: m, vert: v0 };
-  const vp = vert(predit.coins);
-  if (vp !== null && vp < meilleur.vert) meilleur = { morceau: predit, vert: vp };
-  if (meilleur.vert > SEUIL_VERTICALES_DEG) {
-    const coins = coinsSurLesVerticales(meilleur.morceau);
-    const vd = coins ? vert(coins) : null;
-    if (coins && vd !== null && vd < meilleur.vert) meilleur = { morceau: { ...meilleur.morceau, coins }, vert: vd };
-  }
-  return meilleur.morceau;
-}
-
-/**
- * L'analyse d'une serie du releve a l'ecran : chaque photo du mur entier passe par le repli des verticales (morceauRedresse) ;
- * des coins qui ne s'analysent pas laissent place a ceux de la prise de vue, plutot que rien. Les coins poses au doigt ne
- * bougent jamais. `retenus` : les morceaux analyses (les memes quand rien n'a change).
- */
-export function analyserSansRien(morceaux: Morceau[], f: Facade, hauteur: number, bat: ObjetPolygone, assemblage: Assemblage): { a: Analyse | null; retenus: Morceau[] } {
-  const entiers = morceaux.length === 1 || assemblage === 'vues';
-  const redresses = entiers ? morceaux.map((m) => morceauRedresse(m, f, hauteur)) : morceaux;
-  const retenus = redresses.some((m, k) => m !== morceaux[k]) ? redresses : morceaux;
-  const a = analyserSerie(retenus, f, hauteur, bat, assemblage);
-  if (a) return { a, retenus };
-  const parLaPrise = retenus.map((m) => (m.sources?.includes('doigt') ? m : { ...m, coins: coinsDePrise(m.prise, f.largeur, hauteur, !entiers, f.azimut, false), sources: m.coins.map((): SourceCoin => 'predit') }));
-  const b = analyserSerie(parLaPrise, f, hauteur, bat, assemblage);
-  return b ? { a: b, retenus: parLaPrise } : { a: null, retenus: morceaux };
 }
 
 /**
@@ -393,5 +351,5 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
 
 /** La prise d'une photo sans capteurs (importee, calibration) : ni GPS, ni boussole, le champ de l'EXIF ou celui lu sur la photo. */
 export function priseSansCapteurs(image: Image, focalePx: number | null = null): (champLu: number | null) => Prise {
-  return (champLu) => ({ photo: { image, url: '', champ: champLu, focalePx }, mesure: null, reperes: null, champ: champLu ?? CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null });
+  return (champLu) => ({ photo: { image, url: '', champ: champLu, focalePx }, mesure: null, champ: champLu ?? CHAMP_GRAND_COTE_DEFAUT });
 }

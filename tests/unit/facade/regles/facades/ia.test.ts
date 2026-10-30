@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../../../src/regles/facades/observations.js';
-import { accorderOuvertures, avisDesPointes, decisionColombage, escaladerObservations, passesDeProduction, reglagesIa, coinsDeLIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
+import { accorderOuvertures, avisDesPointes, decisionColombage, escaladerObservations, passesDeProduction, reglagesIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
 import { lireReglagesIa } from '../../../../../src/regles/facades/ia.js';
 import fichierIa from '../../../../../regles/facades/ia.json';
 import type { OuvertureFacade } from '../../../../../src/model/types.js';
@@ -100,14 +100,12 @@ describe('l escalade : une lecture de plus, a la demande, contre le vote', () =>
 });
 
 describe('la pose candidate et les boites', () => {
-  it('pose le mur par les deux angles, et donne ses quatre coins', () => {
+  it('pose le mur par les deux angles', () => {
     const p = poseDeLIa(R, { largeur: 1000, hauteur: 600 });
     expect(p).toEqual({ x0: 140, x1: 860, y0: 312, y1: 528 });
-    expect(coinsDeLIa(R, { largeur: 1000, hauteur: 600 })).toEqual([{ x: 140, y: 312 }, { x: 860, y: 312 }, { x: 860, y: 528 }, { x: 140, y: 528 }]);
     expect(ecartDesPoses({ x0: 150, x1: 860, y0: 312, y1: 528 }, p as NonNullable<typeof p>)).toBeCloseTo(10 / 720);
     const sansDroite = lireObservationsFacade({ ...SORTIE_FACADE, calage: { ...SORTIE_FACADE.calage, angles: { gauche: SORTIE_FACADE.calage.angles.gauche, droite: 'indetermine' } } }) as ObservationsFacade;
     expect(poseDeLIa(sansDroite, { largeur: 1000, hauteur: 600 })).toBeNull();
-    expect(coinsDeLIa(sansDroite, { largeur: 1000, hauteur: 600 })[1]).toBeNull();
   });
 
   it('ramene une boite en metres, depuis les dimensions du plan', () => {

@@ -1,90 +1,85 @@
-// Le releve de facade vu du reste du programme (spec-releve-facade §4 et §10, app/).
+// L'editeur d'une facade relevee vu du reste du programme (MD/spec-facade-calage-audit.md §6, lot F6 ; spec-releve-facade §10).
 //
-// Le dialogue (zones/Releve.tsx) fait tout le travail de prise de vue et d'analyse sans toucher au
-// plan. Ce service lui dit sur quel batiment il travaille, et c'est lui seul qui ecrit le resultat
-// dans le projet : un instantane d'historique d'abord (Ctrl+Z defait un releve comme n'importe quel
-// geste), puis le releve, le toit, la hauteur d'egout mesuree, et les rendus qui doivent suivre.
-//
-// Le batiment par defaut est le contour du cadastre extrude a la hauteur du cadastre, avec le toit
-// qu'on lui connait. Une facade relevee **ne change pas sa hauteur** : la photo est ramenee a la
-// hauteur du batiment (zones/Releve.tsx), et la hauteur mesuree n'est que dite. Le toit lu sur la
-// facade - le triangle d'un pignon, ou le pan vu depuis l'egout - remplace le toit du batiment si
-// la case est cochee.
+// Depuis le lot F6, les photos de facade se prennent, se redressent et s'assemblent dans l'audit de la parcelle : le releve n'a plus
+// de capture. Il reste l'editeur d'une facade deja relevee (zones/Releve.tsx) : corriger ses ouvertures (nature, cotes, ajout,
+// retrait, verification) et la partie basse d'un mur en L. Ce service lui dit sur quel mur il travaille, et c'est lui seul qui ecrit
+// le resultat dans le projet : un instantane d'historique d'abord (Ctrl+Z defait l'edition d'un coup), puis le releve, et les rendus
+// qui doivent suivre. Rien d'autre du releve ne change : sa texture, son calage, sa Facade validee (dimensions, forme, pose de la
+// texture) restent tels quels, et un releve d'avant se rouvre et se reecrit sans rien perdre (`releveEdite`).
 
 import { vue3d } from '../../three/etat3d.js';
-import { positionGpsCourante } from '../../three/positionGps3d.js';
-import { obstacle, type Obstacle } from '../../geometry/ligneDeVue.js';
-import { aDesSommets } from '../../model/formes.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { showToast } from '../../shell/dialogs.js';
 import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
-import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
+import { avecGrille, tracerCorrections } from '../../facade/detection/verification.js';
+import { numeroterOuvertures } from '../../model/facadeObjet.js';
 import type { EtatApp } from '../../core/state.js';
-import type { AideClaudeReleve } from './runFacade.js';
-import type { ObjetPlan, ObjetPolygone, PtBrut, ReleveFacade, Toit } from '../../model/types.js';
+import type { ObjetPlan, ObjetPolygone, OuvertureFacade, PartieBasse, ReleveFacade } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
-import { modeToitActif } from '../../model/toitMesure.js';
 
 export interface ContexteReleve {
   etat: EtatApp;
   pushHistory: () => void;
   render: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
-  elevationOf: (obj: ObjetPlan) => number;
-  /** L'aide de Claude du releve (lot L18) ; absente hors navigateur ou dans les tests. */
-  aide?: AideClaudeReleve | null;
+  /** Le jour (AAAA-MM-JJ) que porte une ouverture verifiee ; par defaut, aujourd'hui. */
+  aujourdhui?: () => string;
 }
 
-/** Ce qui est ouvert : le batiment, et le mur deja choisi s'il l'est. */
+/** Ce qui est ouvert : le batiment et son mur releve. */
 export interface ReleveOuvert {
   objKey: string;
-  cote: number | null;
+  cote: number;
+}
+
+/** Ce que la personne retient a la fin de l'edition. */
+interface EditionReleve {
+  ouvertures: OuvertureFacade[];
+  partieBasse: PartieBasse | null;
 }
 
 export interface ServiceReleve {
   courant(): ReleveOuvert | null;
   abonner(cb: () => void): () => void;
-  ouvrir(objKey: string, cote: number | null): void;
+  /** Ouvre l'editeur sur le mur `cote` du batiment, s'il a un releve ; sinon rien ne s'ouvre (la photo se prend dans l'audit). */
+  ouvrir(objKey: string, cote: number): void;
   fermer(): void;
   /** Le batiment du releve ouvert, tel qu'il est maintenant dans le plan. */
   batiment(): ObjetPolygone | null;
-  hauteurMur(): number;
-  /** L'origine geographique du plan (le calage du cadastre), s'il est geolocalise : les photos de rue se cherchent autour. */
-  origine(): { lat: number; lon: number } | null;
-  /**
-   * La position de l'appareil dans le plan, quand elle est suivie (« Ma position (3D) », ou le mode
-   * audit) : le mur propose est alors celui devant lequel on se tient (facade/calage/priseDeVue.ts).
-   */
-  position(): PtBrut | null;
-  /** Les contours des batiments du plan : ce qui peut cacher un mur a la position. */
-  obstacles(): Obstacle[];
-  /**
-   * Ecrit le releve dans le projet. `hauteurMesuree` est la hauteur d'egout lue sur la photo : elle
-   * est dite, pas appliquee — le batiment garde sa hauteur ; `toit`, s'il est donne, remplace celui
-   * du batiment.
-   */
-  valider(releve: ReleveFacade, toit: Toit | null, hauteurMesuree: number): void;
-  /**
-   * L'aide de Claude (MD/spec-facades-calage-detection.md §12 bis, lot L18) : null quand le serveur
-   * de l'analyse n'est pas la ; le releve ne la propose de toute facon que sur signal.
-   */
-  aide(): AideClaudeReleve | null;
+  /** Le releve ouvert, tel qu'il est maintenant dans le plan. */
+  releve(): ReleveFacade | null;
+  /** Le jour d'aujourd'hui (AAAA-MM-JJ), pour la verification d'une ouverture. */
+  aujourdhui(): string;
+  /** Ecrit l'edition dans le projet, en un pas d'historique ; rien quand rien n'a change. Ferme l'editeur. */
+  valider(e: EditionReleve): void;
 }
 
+const memes = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 /**
- * Le toit automatique que le toit lu sur la photo remplacerait : `compose` quand la 3D montre un toit
- * fait de plusieurs pieces (corps lus au LiDAR, volumes, surface mesuree), `ign` quand le toit unique
- * vient de la BD TOPO ou du LiDAR, null quand il a ete saisi ou releve. Un toit remplace porte
- * `source: 'photo'` : le LiDAR ne relit plus ce batiment (toitAAjuster), a aucune version. Le releve le
- * dit sur sa case, et ne la coche pas d'office sur un toit compose, ou rien ne se voyait du
- * remplacement alors que la lecture s'arretait.
+ * Le releve apres l'edition, ou null quand rien n'a change (rien ne s'ecrit, pas meme un pas d'historique). Les ouvertures retenues
+ * sont comparees a celles du releve pour tracer les corrections (spec facades §12) : une ouverture deplacee ou d'un autre type devient
+ * `corrigee`, une ajoutee `ajoutee`, et chaque geste s'ajoute aux corrections deja tracees ; la grille est recalculee sur elles. Sur une
+ * facade objet (ses ouvertures ont un identifiant, lot F5), une ouverture nouvelle en recoit un. Tout le reste du releve (texture,
+ * calage, Facade validee, photo locale, seuils de la detection) est garde tel quel. Edite a la main, le releve n'est plus celui que
+ * l'audit a pose tout seul : `depuisAudit` tombe, une nouvelle mesure ne le remplacera plus d'office.
  */
-export function toitAutomatique(o: Pick<ObjetPlan, 'batiment'> | null): 'compose' | 'ign' | null {
-  if (!o) return null;
-  if (modeToitActif(o.batiment) !== 'simple') return 'compose';
-  const source = o.batiment?.toit?.source;
-  return source === 'bdtopo' || source === 'lidar' ? 'ign' : null;
+function releveEdite(r: ReleveFacade, e: EditionReleve): ReleveFacade | null {
+  if (memes(e.ouvertures, r.ouvertures) && memes(e.partieBasse ?? null, r.partieBasse ?? null)) return null;
+  const { ouvertures: tracees, corrections } = tracerCorrections(r.ouvertures, [], e.ouvertures);
+  const { ouvertures: rangees, grille } = avecGrille(tracees, r.largeur);
+  const ouvertures = r.ouvertures.some((o) => o.id) ? numeroterOuvertures(rangees, r.ouvertures) : rangees;
+  const out: ReleveFacade = { ...r, ouvertures };
+  // Un releve d'avant sans partie basse le reste : la cle ne s'ajoute pas pour dire « aucune ».
+  if (e.partieBasse || r.partieBasse !== undefined) out.partieBasse = e.partieBasse;
+  if (grille) out.grille = grille; else delete out.grille;
+  const toutes = [...(r.corrections ?? []), ...corrections];
+  if (toutes.length) out.corrections = toutes;
+  delete out.depuisAudit;
+  return out;
 }
+
+const jourDuJour = () => new Date().toISOString().slice(0, 10);
 
 export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
   let courant: ReleveOuvert | null = null;
@@ -97,6 +92,10 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
     const o = ctx.etat.objects.find((x) => x.key === ouvert.objKey);
     return o && o.type === 'polygon' ? o : null;
   };
+  const releve = (): ReleveFacade | null => {
+    const o = batiment(), cote = courant?.cote;
+    return (o?.batiment?.facades || []).find((r) => r.cote === cote) ?? null;
+  };
 
   return {
     courant: () => courant,
@@ -105,6 +104,8 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       return () => abonnes.delete(cb);
     },
     ouvrir(objKey, cote) {
+      const o = ctx.etat.objects.find((x) => x.key === objKey);
+      if (!o?.batiment?.facades?.some((r) => r.cote === cote)) return;
       courant = { objKey, cote };
       annoncer();
     },
@@ -113,42 +114,20 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       annoncer();
     },
     batiment,
-    hauteurMur() {
-      const o = batiment();
-      return o ? ctx.elevationOf(o) : 0;
-    },
-    origine() {
-      const cad = parcelleDuProjet(ctx.etat.objects)?.cadastre;
-      return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? { lat: cad.origineLat, lon: cad.origineLon } : null;
-    },
-    position: () => positionGpsCourante()?.p ?? null,
-    aide: () => ctx.aide ?? null,
-    obstacles: () => ctx.etat.objects.filter(estBatiment).filter(aDesSommets).map((o) => obstacle(o.pts)),
-    valider(releve, toit, hauteurMesuree) {
-      const o = batiment();
-      if (!o) return;
-      ctx.pushHistory();
-      // Releve a la main : il n'est plus celui que l'audit a pose tout seul (une nouvelle photo ne le remplacera plus).
-      const faite = { ...releve };
-      delete faite.depuisAudit;
-      champsBatiment(o).facades = [...(o.batiment?.facades || []).filter((r) => r.cote !== releve.cote), faite].sort((a, b) => a.cote - b.cote);
-      if (toit) {
-        // Remplacer un toit compose par le toit de la photo, c'est le montrer : la 3D dessinait les
-        // corps (ou les volumes) et ignorait `toit`. Les corps restent dans l'objet, le menu du mode
-        // de toit de l'inspecteur les rend.
-        if (toitAutomatique(o) === 'compose') champsBatiment(o).modeToit = 'simple';
-        champsBatiment(o).toit = toit;
+    releve,
+    aujourdhui: ctx.aujourdhui ?? jourDuJour,
+    valider(e) {
+      const o = batiment(), r = releve();
+      const fait = o && r ? releveEdite(r, e) : null;
+      if (o && fait) {
+        ctx.pushHistory();
+        champsBatiment(o).facades = (o.batiment?.facades || []).map((x) => (x.cote === fait.cote ? fait : x));
+        ctx.render();
+        if (vue3d.scene) ctx.buildThreeScene(terrasseCourante(ctx.etat) || null);
+        const f = facadesDuContour(o.pts, fait.hauteur).find((x) => x.cote === fait.cote);
+        const n = fait.ouvertures.length;
+        showToast(`Façade ${f ? f.orientation.toLowerCase() + ' ' : ''}modifiée : ${n} ouverture${n > 1 ? 's' : ''}. Ctrl+Z la rend telle qu’elle était.`);
       }
-      // La hauteur du batiment n'est pas touchee : la photo a ete ramenee a elle. La mesure est dite,
-      // pour que l'ecart avec le cadastre se voie.
-      const hBat = ctx.elevationOf(o);
-      ctx.render();
-      if (vue3d.scene) ctx.buildThreeScene(terrasseCourante(ctx.etat) || null);
-      const f = facadesDuContour(o.pts, hBat).find((x) => x.cote === releve.cote);
-      const n = releve.ouvertures.length;
-      const fr = (v: number) => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',');
-      const ecart = hauteurMesuree > 0 && Math.abs(hauteurMesuree - hBat) > 0.05 ? ` (mesurée ${fr(hauteurMesuree)} m sur la photo, le bâtiment garde ${fr(hBat)} m)` : '';
-      showToast(`Façade ${f ? f.orientation.toLowerCase() : ''} relevée : ${n} ouverture${n > 1 ? 's' : ''}${toit ? ', toit remplacé' : ''}${ecart}.`);
       courant = null;
       annoncer();
     },

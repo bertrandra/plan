@@ -678,9 +678,11 @@ The whole chain is pure and lives in layer 3: `facade/releve/` holds the series 
 `masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration of the photos (`chaine.ts`), the orchestrator of
 the façade's steps (`enchainement.ts`, MD/spec-facade-calage-audit.md §4 ter.4, lot F0; the calibration is its first consumer and its
 own chaining, `casCalibration.ts`, was deleted with it; since lot F3 the audit is its second, in the `audit` mode, and the wall's
-survey comes out of it — `analyseSerie.ts::releveDeLaSerie` is a step function only the orchestrator calls) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
-`ui/releve/profondeur.ts` and `zones/releve/capteurs.ts`). The survey screen (`zones/`), the audit (`app/`) and the calibration
-call it; none of them holds a step of it. The orchestration used to live in `zones/releve/`; it moved to
+survey comes out of it — `analyseSerie.ts::releveDeLaSerie` is a step function only the orchestrator calls) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`). The audit (`app/`) and the calibration call it; none of them holds a step of it. Since
+lot F6 (29 October 2026) photos are taken in the audit only: the survey screen (`zones/Releve.tsx`) is an editor of a wall already
+surveyed (its openings, the lower part of an L-shaped wall), its capture (aim, street photos, depth, sensors, corners by hand) and
+`masque.ts` were deleted, and `tests/unit/architecture/captureAudit.test.ts` keeps any camera or image file input inside
+`zones/parcours/`. The orchestration used to live in `zones/releve/`; it moved to
 `facade/releve/chaine.ts` on 24 October 2026 (PR #410, debt AD-9 paid).
 
 ### 5.2.6 Module map, as built — 25 October 2026

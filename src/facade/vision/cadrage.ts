@@ -7,8 +7,8 @@
 // donne a quelques centimetres pres - le modele du stenope suffit, les objectifs principaux des
 // telephones corrigent leur distorsion avant de livrer l'image.
 //
-// Quand un vrai capteur repond (profondeur WebXR sur Android), sa mesure remplace l'estimation :
-// `ui/releve/profondeur.ts` choisit la source.
+// La visee du releve (sa distance par cadrage, ses consignes d'aplomb et de prise) est partie avec sa capture (lot F6) : l'audit de
+// la parcelle prend les photos et dit son plan de prise (`planDePrise`).
 
 /**
  * Champ horizontal par defaut du grand cote de l'image, en degres : l'objectif principal d'un
@@ -34,15 +34,6 @@ export function champPx(px: number, focale: number): number {
   return degres(2 * Math.atan(px / 2 / focale));
 }
 
-/**
- * Distance a un objet de `tailleReelle` metres qui occupe `taillePx` pixels dans l'image.
- * Renvoie `null` si la mesure n'a pas de sens (moins de 4 pixels : un geste accidentel).
- */
-export function distanceParCadrage(tailleReelle: number, taillePx: number, focale: number): number | null {
-  if (!(taillePx >= 4) || !(tailleReelle > 0) || !(focale > 0)) return null;
-  return (tailleReelle * focale) / taillePx;
-}
-
 /** Ce que couvre l'image a une distance donnee : largeur et hauteur de mur visibles, en metres. */
 export function couverture(distance: number, largeurPx: number, hauteurPx: number, focale: number): { largeur: number; hauteur: number } {
   return { largeur: (distance * largeurPx) / focale, hauteur: (distance * hauteurPx) / focale };
@@ -65,20 +56,6 @@ export function distancePourToutCadrer(largeurMur: number, hauteurMur: number, l
 export function etalonnerChamp(distance: number, tailleReelle: number, taillePx: number, grandCotePx: number): number {
   const focale = (taillePx * distance) / tailleReelle;
   return champPx(grandCotePx, focale);
-}
-
-const fr = (v: number) => v.toFixed(1).replace('.', ',');
-
-/**
- * Consigne d'aplomb, depuis l'inclinaison du telephone (`DeviceOrientationEvent.beta`, en degres :
- * 90 = tenu droit en portrait). Un telephone penche fuit les verticales ; le redressement le
- * rattrape, mais au prix de la definition en haut du mur.
- */
-export function consigneAplomb(beta: number | null, tolerance = 6): { bon: boolean; message: string } {
-  if (beta === null || !Number.isFinite(beta)) return { bon: true, message: '' };
-  const ecart = beta - 90;
-  if (Math.abs(ecart) <= tolerance) return { bon: true, message: 'Téléphone droit' };
-  return ecart > 0 ? { bon: false, message: 'Ramenez le haut du téléphone vers vous' } : { bon: false, message: 'Inclinez le haut du téléphone vers le mur' };
 }
 
 /**
@@ -122,33 +99,5 @@ export function planDePrise(largeur: number, hauteur: number, distance: number, 
     pas,
     reculPourUne: distancePourToutCadrer(largeur, hauteur, largeurPx, hauteurPx, focale),
     reculPourHauteur: (hauteur * 1.1 * focale) / hauteurPx,
-  };
-}
-
-/** Une consigne de prise de vue : ce qui s'affiche sous la distance, et son ton. */
-export interface ConsignePrise {
-  ton: 'bon' | 'info' | 'alerte';
-  message: string;
-}
-
-/** La consigne d'apres le plan de prise, la photo en cours (0 = la premiere) et l'objectif. */
-export function consignePrise(plan: PlanDePrise, faites: number, grandAngleDisponible: boolean): ConsignePrise {
-  if (!plan.hauteurTient) {
-    return {
-      ton: 'alerte',
-      message: `La hauteur du mur ne tient pas : l'image n'en couvre que ${fr(plan.couvre.hauteur)} m. Reculez à au moins ${fr(plan.reculPourHauteur)} m${grandAngleDisponible ? ', ou passez au grand-angle' : ''}.`,
-    };
-  }
-  if (plan.photos === 1) return { ton: 'bon', message: faites ? 'Tout le mur tient dans l’image : une photo suffisait.' : 'Tout le mur tient dans l’image : une photo suffit.' };
-  if (faites === 0) {
-    return {
-      ton: 'info',
-      message: `Le mur ne tient pas en largeur : ${plan.photos} photos, de gauche à droite (ou reculez à ${fr(plan.reculPourUne)} m pour une seule). Photo 1 : cadrez le coin gauche du mur.`,
-    };
-  }
-  const derniere = faites + 1 >= plan.photos;
-  return {
-    ton: 'info',
-    message: `Photo ${faites + 1} sur ${plan.photos} : décalez-vous d’environ ${fr(plan.pas)} m vers la droite, en gardant un tiers de la photo précédente${derniere ? ' ; cadrez le coin droit du mur' : ''}.`,
   };
 }

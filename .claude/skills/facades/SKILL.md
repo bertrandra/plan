@@ -734,13 +734,13 @@ npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/mesure        
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
   `facade/releve/enchainement.ts::derouler` (étapes É0 à É9, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
   images `imagesEtapes.ts`) ; la mesure des cas passe par `preparerPourLaMesure`. Il appelle la chaîne sans la toucher : sur six scènes
-  du banc, l'éditeur et la mesure rendent au bit près ce qu'ils rendaient avant lui. L'audit (F3) et le relevé (F6) y viendront.
+  du banc, l'éditeur et la mesure rendent au bit près ce qu'ils rendaient avant lui. L'audit y est venu au lot F3 ; depuis F6, le relevé n'a plus de capture (c'est l'éditeur d'un mur relevé), les photos se prennent dans l'audit.
   `npx tsx … reel.ts etalon <cas.json>` rejoue un cas étape par étape avec la vérité d'un étalon (`tests/fixtures/facades-reel/etalons/`).
-- **Une seule chaîne** : l'audit (`app/audit/parcelle/mesures.ts`), le relevé (`zones/Releve.tsx`) et la calibration
+- **Une seule chaîne** : l'audit (`app/audit/parcelle/mesures.ts`) et la calibration
   (l'orchestrateur ci-dessus, `facade/corpusReel.ts`) redressent, fusionnent et cotent par `facade/releve/chaine.ts`
   (coins, replis, report, fusion) et `facade/analyseMur.ts` (une photo, des morceaux, des vues). Un repli, un seuil ou une
-  étape de plus s'y ajoute, jamais dans un écran : `tests/unit/zones/chaine.test.ts` vérifie que le relevé et la calibration
-  rendent le même mur. Le banc, lui, appelle `analyserReleve` et `analyserVues` directement : il mesure l'algorithme seul.
+  étape de plus s'y ajoute, jamais dans un écran : `tests/unit/facade/releve/chaine.test.ts` vérifie que l'audit et la
+  calibration rendent le même mur. Le banc, lui, appelle `analyserReleve` et `analyserVues` directement : il mesure l'algorithme seul.
   La lecture du mur sur l'assemblage des vues (`lireSurLAssemblage`) ne sert qu'à la calibration : à l'audit, elle comptait
   des coins pour trouvés et posait le relevé tout seul (point 62 de la fumée).
 - **Moiré** : la photo lit l'élévation au plus proche voisin, à 1 cm. Sur la brique, cela fait des

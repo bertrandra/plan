@@ -16,7 +16,7 @@ import { parcelleDuProjet } from '../../../model/fonctions.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { AccordAnalyse } from '../../../model/auditParcelle.js';
 
-export interface AnalyseDuNavigateur {
+interface AnalyseDuNavigateur {
   readonly client: ClientAnalyse | null;
   identite(): { projet: string | null; idu: string | null; adresse: string | null };
   memoire: { lire(): AccordAnalyse | null; ecrire(a: AccordAnalyse | null): void };

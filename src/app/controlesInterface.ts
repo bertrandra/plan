@@ -59,13 +59,13 @@ export interface Ecriture { annulable: boolean; droits: 'commande' | 'lectureSeu
 const SAISIE: Ecriture = { annulable: true, droits: 'lectureSeule' };
 
 const Z1 = 'Z1 Barre d’application', Z3 = 'Z3 Explorateur', Z4 = 'Z4 Vues 3D', Z5 = 'Z5 Inspecteur', Z6 = 'Z6 Résultats';
-const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Relevé de façade', FEUILLES = 'Feuilles (téléphone)';
+const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Éditeur de façade', FEUILLES = 'Feuilles (téléphone)';
 const SELECTION = 'Z4 Barre de sélection', NAVIGATION = 'Navigation (téléphone)';
 
 /** Une etape d'un ecran qui ne s'ouvre qu'a la demande : on ne la voit pas tant qu'il est ferme. */
 const etape = (zone: string, ouvertPar: string, libelle: string, plus: Partial<ControleInterface> = {}): ControleInterface =>
   ({ libelle, zone, nature: 'parcours', ouvertPar, ...plus });
-const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.relever';
+const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.modifier';
 const DIALOGUE = 'toute commande qui pose une question';
 const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
 const AUDIT_PARCELLE = 'audit.parcelle';
@@ -308,12 +308,10 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
   // Admin › Calibrer la detection (zones/EcranCalibration.tsx, EditeurCasCalibration.tsx) : des photos de facades annotees, la mesure de la
   // detection sur elles et les reglages calibres, enregistres sur le serveur (data/admin/). Rien n'ecrit dans un projet.
-  'calibration.nouveauCas': etape(Z8, CALIBRATION, 'Nouveau cas de calibration : photographier une façade'),
   'calibration.ouvrirCas': etape(Z8, CALIBRATION, 'Ouvrir un cas de calibration', { repete: true }),
   'calibration.nomCas': etape(Z8, CALIBRATION, 'Nommer le cas'),
   'calibration.largeurM': etape(Z8, CALIBRATION, 'Largeur réelle du mur du cas'),
   'calibration.hauteurM': etape(Z8, CALIBRATION, 'Hauteur du mur du cas, à l’égout'),
-  'calibration.photo': etape(Z8, CALIBRATION, 'Prendre ou choisir une photo du mur (jusqu’à huit)', { repete: true }),
   'calibration.choisirPhoto': etape(Z8, CALIBRATION, 'Choisir la photo du cas à montrer', { repete: true }),
   'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas', { repete: true }),
   'reperes.ajusterMur': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Montrer la photo redressée entière pour tirer à la main l’égout, le sol et les bouts du mur (le geste « quatre repères », le même dans l’audit et la calibration)', { repete: true }),
@@ -323,10 +321,6 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.depuisAudit': etape(Z8, CALIBRATION, 'Créer un cas depuis un audit de parcelle reçu (photos, largeur du cadastre, hauteur du LiDAR)'),
   'calibration.choisirAudit': etape(Z8, CALIBRATION, 'Choisir l’audit dont tirer un cas', { repete: true }),
   'calibration.choisirFacade': etape(Z8, CALIBRATION, 'Choisir la façade photographiée qui devient le cas', { repete: true }),
-  'calibration.depuisProjet': etape(Z8, CALIBRATION, 'Créer un cas depuis un bâtiment d’un projet du serveur'),
-  'calibration.depuisFichier': etape(Z8, CALIBRATION, 'Créer un cas depuis un fichier de projet (JSON)'),
-  'calibration.choisirProjet': etape(Z8, CALIBRATION, 'Choisir le projet', { repete: true }),
-  'calibration.choisirReleve': etape(Z8, CALIBRATION, 'Choisir la façade relevée qui devient un cas', { repete: true }),
   'calibration.rejouer': etape(Z8, CALIBRATION, 'Rejouer le cas tel qu’il est enregistré (les coins de ses photos), étape par étape : redressement, assemblage, mur, haut lu, texture, ouvertures'),
   'calibration.coinsSerie': etape(Z8, CALIBRATION, 'Retrouver le mur sur toutes les photos, puis rejouer : chacune redressée entière (repères, sinon points de fuite), assemblée, l’égout, le sol et les bouts cherchés sur l’assemblage'),
   'calibration.modeDeterministe': etape(Z8, CALIBRATION, 'Rejouer le cas sans Claude : la chaîne déterministe seule'),
@@ -337,7 +331,6 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.rejouerDepuis': etape(Z8, CALIBRATION, 'Rejouer le cas depuis l’étape ouverte, avec ce que les précédentes ont donné'),
   'barreFacade.arreter': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Arrêter l’enchaînement de la façade en cours : les étapes restantes restent à venir'),
   'calibration.proposer': etape(Z8, CALIBRATION, 'Partir des ouvertures que la détection propose'),
-  'calibration.auto': etape(Z8, CALIBRATION, 'Activer ou non le rejeu automatique à l’ajout d’une photo (et les ouvertures proposées)'),
   'calibration.originePhoto': etape(Z8, CALIBRATION, 'Lire d’où viennent les coins d’une photo ajoutée (trouvés, devinés à vérifier, posés à la main)', { repete: true }),
   'calibration.tracer': etape(Z8, CALIBRATION, 'Basculer le tracé d’ouvertures sur le mur redressé (coupé : le doigt fait défiler la page)'),
   'calibration.viderBaies': etape(Z8, CALIBRATION, 'Effacer toutes les ouvertures annotées'),
@@ -413,41 +406,17 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'texture.annuler': etape(Z8, TEXTURE, 'Annuler le choix de texture'),
   'texture.enregistrer': etape(Z8, TEXTURE, 'Enregistrer la texture', { ecrit: { annulable: true, droits: 'lectureSeule' } }),
 
-  // ---- Le releve de facade (zones/Releve.tsx), ecran plein --------------------------------------
-  'releve.fermer': etape(RELEVE, RELEVER, 'Fermer le relevé'),
-  'releve.choisirMur': etape(RELEVE, RELEVER, 'Choisir le mur à relever', { repete: true }),
-  'releve.boussole': etape(RELEVE, RELEVER, 'Me guider à la boussole (permission d’orientation, iOS)'),
-  'releve.methode': etape(RELEVE, RELEVER, 'Méthode : photo de rue (Panoramax) ou caméra guidée', { repete: true }),
-  'releve.photoRue': etape(RELEVE, RELEVER, 'Choisir une photo de rue', { repete: true }),
-  'releve.objectif': etape(RELEVE, RELEVER, 'Objectif de l’appareil (grand-angle ou principal)', { repete: true }),
-  'releve.champObjectif': etape(RELEVE, RELEVER, 'Champ de l’objectif (degrés)'),
-  'releve.retour': etape(RELEVE, RELEVER, 'Retour', { repete: true }),
-  'releve.declencher': etape(RELEVE, RELEVER, 'Prendre la photo'),
-  'releve.importerPhoto': etape(RELEVE, RELEVER, 'Importer une photo', { repete: true }),
-  'releve.realiteAugmentee': etape(RELEVE, RELEVER, 'Mesure en réalité augmentée'),
-  'releve.niveau': etape(RELEVE, RELEVER, 'Niveau à bulle'),
-  'releve.vignette': etape(RELEVE, RELEVER, 'Choisir une photo du relevé', { repete: true }),
-  'releve.retirerPhoto': etape(RELEVE, RELEVER, 'Retirer une photo', { repete: true }),
-  'releve.formeMur': etape(RELEVE, RELEVER, 'Forme du mur (droit, décroché à gauche ou à droite)', { repete: true }),
-  'releve.assemblage': etape(RELEVE, RELEVER, 'Plusieurs photos : morceaux côte à côte ou vues du mur entier', { repete: true }),
-  'releve.cote': etape(RELEVE, RELEVER, 'Cote en centimètres (largeur, hauteur, allège…)', { repete: true }),
-  'releve.reprendre': etape(RELEVE, RELEVER, 'Reprendre la photo'),
-  'releve.ajouterPhoto': etape(RELEVE, RELEVER, 'Ajouter une photo'),
-  'releve.analyser': etape(RELEVE, RELEVER, 'Analyser'),
+  // ---- L'editeur d'une facade relevee (zones/Releve.tsx, lot F6), ecran plein : la capture est dans l'audit -------------------
+  'releve.fermer': etape(RELEVE, RELEVER, 'Fermer l’éditeur de la façade'),
+  'releve.cote': etape(RELEVE, RELEVER, 'Cote en centimètres (depuis la gauche, appui, largeur, hauteur, décrochement…)', { repete: true }),
   'releve.typeOuverture': etape(RELEVE, RELEVER, 'Type d’une ouverture (fenêtre, porte…)', { repete: true }),
   'releve.retirerOuverture': etape(RELEVE, RELEVER, 'Retirer une ouverture', { repete: true }),
+  'releve.verifierOuverture': etape(RELEVE, RELEVER, 'Ouverture vérifiée sur la photo : plus aucun rejeu ne la déplace', { repete: true }),
   'releve.ajouterOuverture': etape(RELEVE, RELEVER, 'Ajouter une ouverture'),
   'releve.ajouterDansGrille': etape(RELEVE, RELEVER, 'Ajouter une baie au croisement libre de la grille'),
   'releve.memeTailleTravee': etape(RELEVE, RELEVER, 'Même taille pour la travée'),
   'releve.memeHauteurNiveau': etape(RELEVE, RELEVER, 'Même hauteur pour le niveau'),
   'releve.garderDevinee': etape(RELEVE, RELEVER, 'Garder une baie devinée par la grille (en pointillé)', { repete: true }),
-  'releve.demanderAide': etape(RELEVE, RELEVER, 'Demander de l’aide à Claude (coins ou ouvertures, proposé quand Plan n’est pas sûr)', { repete: true }),
-  'releve.accorderAide': etape(RELEVE, RELEVER, 'Envoyer la photo à Claude (accord pour ce projet)', { repete: true }),
-  'releve.annulerAide': etape(RELEVE, RELEVER, 'Ne pas envoyer la photo à Claude', { repete: true }),
-  'releve.appliquerToit': etape(RELEVE, RELEVER, 'Appliquer le toit relevé au bâtiment'),
-  'releve.formeToit': etape(RELEVE, RELEVER, 'Forme du toit'),
-  'releve.faitage': etape(RELEVE, RELEVER, 'Hauteur du faîtage'),
-  'releve.hauteur': etape(RELEVE, RELEVER, 'Hauteur du mur'),
-  'releve.revoir': etape(RELEVE, RELEVER, 'Revoir le relevé'),
-  'releve.valider': etape(RELEVE, RELEVER, 'Valider le relevé', { ecrit: { annulable: true, droits: 'commande' } })
+  'releve.annuler': etape(RELEVE, RELEVER, 'Fermer sans rien écrire'),
+  'releve.valider': etape(RELEVE, RELEVER, 'Valider la façade modifiée', { ecrit: { annulable: true, droits: 'commande' } })
 };

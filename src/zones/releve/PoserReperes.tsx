@@ -39,7 +39,7 @@ export function PoserReperes({ photo, rang, reperes, changer, mur, gabarit, char
   return (
     <div className="poserReperes" role="group" aria-label={'Quatre repères sur la photo ' + (rang + 1)}>
       <p className="detailPhoto">Photo {rang + 1} : placez quatre repères aux coins d’un rectangle du mur (une fenêtre, une porte, le mur entier) : deux en haut sur une même horizontale, deux en bas. Ils redressent la photo entière ; l’égout et le sol sont cherchés ensuite ({suite}).</p>
-      <Coins photo={photo} coins={reperes} setCoins={(c) => changer(c.slice(0, 4))} sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" />
+      <Coins photo={photo} coins={reperes} setCoins={(c) => changer(c.slice(0, 4))} noms={NOMS_REPERES} libelle="Photo : placez quatre repères" />
       <div className="actionsAudit">
         <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="reperes.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>
         {children}
