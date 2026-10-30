@@ -12,7 +12,7 @@ audit reçu, puis piscine) ne fait plus planter l'écran ni n'écrit « undefine
 et écrit tel quel ; « Ajuster l'égout et le sol » montre la façade assemblée, l'image prise pour la suite ; le plafond conseillé du
 workflow « Vérifier l'API Claude » passe à 0,50 $. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne
 bougent qu'à leur numéro de version (la date de build reste celle de la 5.4.0, le même jour ; preuve forte, sept sur sept,
-`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques. Schéma inchangé (12).
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques. Schéma inchangé (12). Fumée complète (Fumée de la nuit, run 41126779479).
 
 ### Modifié
 
