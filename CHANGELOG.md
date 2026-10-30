@@ -73,6 +73,16 @@ plateforme accepte déjà les schémas 7 à 12.
   session : « Couverture inconnue (« … »), dessinée en tuile ». La valeur reste telle quelle dans l'objet et dans le fichier enregistré
   (ni migration, ni « projet modifié », ni historique) ; l'inspecteur la montre dans « Matériau » au lieu d'afficher « Automatique ».
   Le repli tient dans `three/couverture.ts` (dessin, texture, matière), par où passent la Vue 3D, l'export `.glb` et le relevé.
+- **« Mettre à jour le modèle ? » sortait de l'écran.** La question posée à l'ouverture d'un projet enregistré à un schéma ancien
+  liste ce qu'apporte chaque migration ; au schéma 12, la liste dépassait la hauteur d'un écran de bureau (900 px) et la boîte,
+  centrée, perdait son haut et ses deux boutons hors de la vue, sans défilement (points 85, 86, 109 et 114 de la fumée, en large).
+  Une boîte de dialogue tient désormais dans l'écran : la liste défile entre le texte et les boutons, qui restent visibles
+  (`.dialogueBoite`, `styles/app.css`) ; au téléphone, la feuille du bas fait de même.
+- **« Appliquer la liste » de l'assistant demande le droit d'écrire le projet** (décision du propriétaire du 30 octobre 2026,
+  question 24 de `MD/spec-lecture-ia-elargie.md`). Elle se déclarait écriture du projet sans permission : un compte en lecture seule
+  pouvait l'exécuter, et Admin › Contrôleurs la rangeait parmi les écritures sans contrôle des droits (point 53 de la fumée). Elle
+  porte désormais `projects.write` : sans ce droit, elle est grisée avec sa raison. Un projet en lecture seule pour une autre raison
+  n'applique toujours que les préférences d'affichage d'une liste.
 - Les prompts de la lecture enrichie d'une façade, du toit lu et de la lecture du jardin restaient lisibles par une adresse directe : le
   modèle `.htaccess` ne refusait que `prompt-analyse.md`, `prompt-facade.md` et `prompt-plu.md`. Il refuse désormais tous les prompts que
   le serveur lit, celui des textes du dossier compris.
