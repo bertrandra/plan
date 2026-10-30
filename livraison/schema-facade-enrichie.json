@@ -1,0 +1,477 @@
+{
+  "format": "plan-schema-facade-enrichie",
+  "version": 1,
+  "note": "Sortie de la lecture enrichie d'une facade par Claude (lot L1). Tout en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) ; un nombre non vu vaut -1. Une baie se rapporte a une ouverture du run par sa boite. Sans union ni champ facultatif : la sortie structuree l'accepte seul. Le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "baies",
+      "saillies",
+      "decroches",
+      "modenature",
+      "appendices",
+      "etat"
+    ],
+    "properties": {
+      "baies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "u0",
+            "u1",
+            "v0",
+            "v1",
+            "menuiserie",
+            "couleurMenuiserie",
+            "couleurVolets",
+            "gardeCorps",
+            "hautGardeCorps",
+            "couleurGardeCorps"
+          ],
+          "properties": {
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v0": {
+              "type": "number"
+            },
+            "v1": {
+              "type": "number"
+            },
+            "menuiserie": {
+              "type": "string",
+              "enum": [
+                "bois",
+                "pvc",
+                "alu",
+                "acier",
+                "indetermine"
+              ]
+            },
+            "couleurMenuiserie": {
+              "$ref": "#/$defs/couleur"
+            },
+            "couleurVolets": {
+              "type": "string",
+              "enum": [
+                "blanc",
+                "creme",
+                "gris-clair",
+                "gris-fonce",
+                "gris-anthracite",
+                "bleu",
+                "vert",
+                "rouge",
+                "brun",
+                "bois",
+                "noir",
+                "sans-objet",
+                "indetermine"
+              ]
+            },
+            "gardeCorps": {
+              "type": "string",
+              "enum": [
+                "barreaux",
+                "fer-forge",
+                "verre",
+                "plein",
+                "sans-objet",
+                "indetermine"
+              ]
+            },
+            "hautGardeCorps": {
+              "type": "number",
+              "default": -1
+            },
+            "couleurGardeCorps": {
+              "$ref": "#/$defs/couleur"
+            }
+          }
+        }
+      },
+      "saillies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "genre",
+            "u0",
+            "u1",
+            "forme",
+            "niveau",
+            "toit",
+            "haut",
+            "couverture",
+            "confiance"
+          ],
+          "properties": {
+            "genre": {
+              "type": "string",
+              "enum": [
+                "bow-window",
+                "galerie",
+                "auvent",
+                "appentis"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "forme": {
+              "type": "string",
+              "enum": [
+                "pans",
+                "rectangle",
+                "arc",
+                "conge"
+              ]
+            },
+            "niveau": {
+              "type": "string",
+              "enum": [
+                "rdc",
+                "toit"
+              ]
+            },
+            "toit": {
+              "type": "string",
+              "enum": [
+                "pan",
+                "pavillon",
+                "plat"
+              ]
+            },
+            "haut": {
+              "type": "number",
+              "default": -1
+            },
+            "couverture": {
+              "type": "string",
+              "enum": [
+                "verre",
+                "tuile",
+                "zinc",
+                "autre",
+                "sans-objet"
+              ]
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      },
+      "decroches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "u",
+            "sens",
+            "confiance"
+          ],
+          "properties": {
+            "u": {
+              "type": "number"
+            },
+            "sens": {
+              "type": "string",
+              "enum": [
+                "avance",
+                "recul"
+              ]
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      },
+      "modenature": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "egout",
+          "rangsGenoise",
+          "bandeaux",
+          "chaines",
+          "encadrements",
+          "soubassement",
+          "parementSoubassement",
+          "descentes"
+        ],
+        "properties": {
+          "egout": {
+            "type": "string",
+            "enum": [
+              "aucune",
+              "corniche",
+              "genoise",
+              "indetermine"
+            ]
+          },
+          "rangsGenoise": {
+            "type": "integer",
+            "default": -1
+          },
+          "bandeaux": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "chaines": {
+            "type": "string",
+            "enum": [
+              "aucune",
+              "pierre",
+              "brique",
+              "indetermine"
+            ]
+          },
+          "encadrements": {
+            "type": "string",
+            "enum": [
+              "aucun",
+              "enduit",
+              "pierre",
+              "brique",
+              "indetermine"
+            ]
+          },
+          "soubassement": {
+            "type": "number",
+            "default": -1
+          },
+          "parementSoubassement": {
+            "type": "string",
+            "enum": [
+              "enduit",
+              "pierre",
+              "brique",
+              "colombage",
+              "bardage-bois",
+              "bardage-metal",
+              "beton",
+              "indetermine"
+            ]
+          },
+          "descentes": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "appendices": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nature",
+            "u0",
+            "u1",
+            "v0",
+            "v1",
+            "marches",
+            "confiance"
+          ],
+          "properties": {
+            "nature": {
+              "type": "string",
+              "enum": [
+                "perron",
+                "store",
+                "unite-exterieure",
+                "boite-aux-lettres"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v0": {
+              "type": "number"
+            },
+            "v1": {
+              "type": "number"
+            },
+            "marches": {
+              "type": "integer",
+              "default": -1
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      },
+      "etat": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nature",
+            "u0",
+            "u1",
+            "v0",
+            "v1",
+            "confiance"
+          ],
+          "properties": {
+            "nature": {
+              "type": "string",
+              "enum": [
+                "fissure",
+                "enduit-abime",
+                "humidite",
+                "mousses",
+                "autre"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v0": {
+              "type": "number"
+            },
+            "v1": {
+              "type": "number"
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      }
+    },
+    "$defs": {
+      "confiance": {
+        "type": "string",
+        "enum": [
+          "forte",
+          "moyenne",
+          "faible",
+          "indetermine"
+        ]
+      },
+      "couleur": {
+        "type": "string",
+        "enum": [
+          "blanc",
+          "creme",
+          "gris-clair",
+          "gris-fonce",
+          "gris-anthracite",
+          "bleu",
+          "vert",
+          "rouge",
+          "brun",
+          "bois",
+          "noir",
+          "indetermine"
+        ]
+      }
+    }
+  },
+  "exemple": {
+    "baies": [
+      {
+        "u0": 0.2,
+        "u1": 0.3,
+        "v0": 0,
+        "v1": 0.42,
+        "menuiserie": "bois",
+        "couleurMenuiserie": "vert",
+        "couleurVolets": "sans-objet",
+        "gardeCorps": "sans-objet",
+        "hautGardeCorps": -1,
+        "couleurGardeCorps": "indetermine"
+      },
+      {
+        "u0": 0.62,
+        "u1": 0.74,
+        "v0": 0.18,
+        "v1": 0.42,
+        "menuiserie": "bois",
+        "couleurMenuiserie": "blanc",
+        "couleurVolets": "bleu",
+        "gardeCorps": "sans-objet",
+        "hautGardeCorps": -1,
+        "couleurGardeCorps": "indetermine"
+      },
+      {
+        "u0": 0.44,
+        "u1": 0.56,
+        "v0": 0.62,
+        "v1": 0.88,
+        "menuiserie": "pvc",
+        "couleurMenuiserie": "blanc",
+        "couleurVolets": "blanc",
+        "gardeCorps": "fer-forge",
+        "hautGardeCorps": 0.78,
+        "couleurGardeCorps": "noir"
+      }
+    ],
+    "saillies": [
+      {
+        "genre": "auvent",
+        "u0": 0.17,
+        "u1": 0.33,
+        "forme": "rectangle",
+        "niveau": "rdc",
+        "toit": "pan",
+        "haut": 0.47,
+        "couverture": "verre",
+        "confiance": "moyenne"
+      }
+    ],
+    "decroches": [],
+    "modenature": {
+      "egout": "corniche",
+      "rangsGenoise": -1,
+      "bandeaux": [
+        0.52
+      ],
+      "chaines": "aucune",
+      "encadrements": "enduit",
+      "soubassement": 0.12,
+      "parementSoubassement": "pierre",
+      "descentes": [
+        0.97
+      ]
+    },
+    "appendices": [
+      {
+        "nature": "perron",
+        "u0": 0.18,
+        "u1": 0.32,
+        "v0": 0,
+        "v1": 0.06,
+        "marches": 2,
+        "confiance": "moyenne"
+      }
+    ],
+    "etat": []
+  }
+}
