@@ -131,6 +131,20 @@ describe('Materiau de la couverture', () => {
     expect(c.obj.batiment?.toit && 'couverture' in c.obj.batiment.toit).toBe(false);
   });
 
+  it('une couverture hors du catalogue se montre telle quelle, dessinee en tuile, et reste dans l objet', () => {
+    const c = contexte({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo', couverture: 'lauze-solaire' } } });
+    const m = champ<ChampChoix>(c, 'toitMateriau');
+    expect(m.lire(c)).toBe('lauze-solaire');
+    expect(m.options(c).at(-1)).toEqual({ valeur: 'lauze-solaire', libelle: 'Couverture inconnue (« lauze-solaire »), dessinée en tuile' });
+    expect(() => cles(c)).not.toThrow();
+    // Reprise telle quelle, elle reste ; un autre choix la remplace, comme tout choix.
+    m.ecrire(c, 'lauze-solaire');
+    expect(c.obj.batiment?.toit?.couverture).toBe('lauze-solaire');
+    m.ecrire(c, 'ardoise');
+    expect(c.obj.batiment?.toit?.couverture).toBe('ardoise');
+    expect(m.options(c).map((o) => o.valeur)).not.toContain('lauze-solaire');
+  });
+
   it('ne se montre pas sur un toit plat simple', () => {
     const c = contexte({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } });
     expect(cles(c)).not.toContain('toitMateriau');

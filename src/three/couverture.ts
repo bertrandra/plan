@@ -12,6 +12,7 @@ import type * as THREE_NS from 'three';
 import type { MateriauCouverture } from '../model/couleurToit.js';
 import type { PoseCouverture } from '../model/types.js';
 import { poseAdmise } from '../model/couvertureLue.js';
+import { showToast } from '../shell/dialogs.js';
 
 const COTE = 256;
 
@@ -250,7 +251,10 @@ function vegetale(px: Uint8ClampedArray): void {
 export type DessinCouverture = MateriauCouverture | 'ardoise-losange' | 'ardoise-ecaille' | 'tuile-plate-ecaille';
 
 /** Le dessin d'un materiau pose ainsi : une pose qui ne s'y dessine pas (`poseAdmise`) se dessine en rangs droits. */
-export function dessinCouverture(materiau: MateriauCouverture, pose?: PoseCouverture | null): DessinCouverture {
+export function dessinCouverture(lu: MateriauCouverture, pose?: PoseCouverture | null): DessinCouverture {
+  // Le materiau vient du fichier (`Toit.couverture`) : un mot hors du catalogue se dessine en tuile, sans toucher a la donnee.
+  let materiau: MateriauCouverture = lu;
+  if (!connu(lu)) { signalerInconnue(lu); materiau = 'tuile'; }
   const p = materiau === 'terrasse' ? undefined : poseAdmise(materiau, pose ?? undefined);
   if (p === 'losange') return 'ardoise-losange';
   if (p === 'ecaille') return materiau === 'ardoise' ? 'ardoise-ecaille' : 'tuile-plate-ecaille';
@@ -262,15 +266,50 @@ const DESSINS: Record<DessinCouverture, (px: Uint8ClampedArray) => void> = {
   'ardoise-ecaille': ardoisesEcaille, 'tuile-plate-ecaille': tuilesPlatesEcaille, 'bac-acier': bacAcier, membrane, vegetale,
 };
 
+/**
+ * Un dessin du catalogue. Le materiau d'un toit se lit dans le fichier : un fichier ecrit par une version plus recente (ou a la
+ * main) peut porter un mot que cette version ne dessine pas, et indexer la table par ce mot faisait planter l'ecran (Plan 2.2.0,
+ * « fAe[e] is not a function » a l'ouverture d'un audit). Decision du 30 octobre 2026 : hors catalogue, la tuile.
+ */
+const connu = (d: unknown): d is DessinCouverture => typeof d === 'string' && Object.prototype.hasOwnProperty.call(DESSINS, d);
+
+/** Les mots inconnus deja signales : une fois par mot et par session, pas a chaque rendu. */
+const signales = new Set<string>();
+// Sans document (tests, export sans page), le toast n'a nulle part ou s'afficher : rien ne doit lever pour un signal.
+const toast = (message: string): void => { if (typeof document !== 'undefined') showToast(message); };
+let avertir: (message: string) => void = toast;
+
+/** Dit qu'une couverture est inconnue et dessinee en tuile, une fois par mot. Ne touche pas au projet. */
+function signalerInconnue(mot: unknown): void {
+  const cle = String(mot);
+  if (signales.has(cle)) return;
+  signales.add(cle);
+  avertir('Couverture inconnue (« ' + cle + ' »), dessinée en tuile.');
+}
+
+/** Le dessin a poser : celui demande s'il est au catalogue, sinon la tuile (et le signal). */
+function dessinConnu(d: DessinCouverture): DessinCouverture {
+  if (connu(d)) return d;
+  signalerInconnue(d);
+  return 'tuile';
+}
+
+/** Pour les tests : qui recoit le signal (par defaut le toast de l'application), et l'oubli des mots deja signales. */
+export function poserAvertissementCouverture(f: ((message: string) => void) | null): void {
+  avertir = f ?? toast;
+  signales.clear();
+}
+
 /** Les pixels (RGBA a plat, en gris) d'une couverture, sur COTE pixels de cote : pour les tests. */
 export function pixelsCouverture(dessin: DessinCouverture): Uint8ClampedArray {
   const px = new Uint8ClampedArray(COTE * COTE * 4);
-  DESSINS[dessin](px);
+  DESSINS[dessinConnu(dessin)](px);
   return px;
 }
 
 /** La matiere d'une couverture en 3D : une tuile est mate, une ardoise un peu moins, le zinc brille un peu, le bac acier un peu moins. */
-export function matiereCouverture(materiau: DessinCouverture): { roughness: number; metalness: number } {
+export function matiereCouverture(demande: DessinCouverture): { roughness: number; metalness: number } {
+  const materiau = dessinConnu(demande);
   if (materiau === 'zinc') return { roughness: 0.45, metalness: 0.35 };
   if (materiau === 'bac-acier') return { roughness: 0.55, metalness: 0.25 };
   if (materiau === 'ardoise' || materiau === 'ardoise-losange' || materiau === 'ardoise-ecaille') return { roughness: 0.7, metalness: 0 };
@@ -281,7 +320,8 @@ export function matiereCouverture(materiau: DessinCouverture): { roughness: numb
 const cache = new Map<DessinCouverture, THREE_NS.Texture>();
 
 /** La texture d'une couverture, ou `null` sans canevas (tests, environnement sans DOM). */
-export function textureCouverture(materiau: DessinCouverture): THREE_NS.Texture | null {
+export function textureCouverture(demande: DessinCouverture): THREE_NS.Texture | null {
+  const materiau = dessinConnu(demande);
   const deja = cache.get(materiau);
   if (deja) return deja;
   if (typeof document === 'undefined' || typeof THREE === 'undefined' || !THREE.CanvasTexture) return null;

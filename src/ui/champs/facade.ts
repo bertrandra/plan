@@ -136,15 +136,22 @@ function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
     historique: true,
     effets: ['scene3d', 'inspecteur'],
     aide: 'Automatique : le matériau déduit des fichiers fonciers, de la couleur et de la pente. Un autre choix l’emporte en 3D.',
-    options: (cc) => [
-      { valeur: '', libelle: 'Automatique (' + LIBELLES_COUVERTURE[couvertureDeduite(cc)].toLowerCase() + ')' },
-      ...COUVERTURES_CHOISIES.map((m) => ({ valeur: m, libelle: LIBELLES_COUVERTURE[m] })),
-    ],
+    options: (cc) => {
+      // Un mot hors du catalogue (fichier d'une version plus recente) reste dans le fichier et se dessine en tuile
+      // (three/couverture.ts) : la liste le montre tel quel, sinon elle afficherait « Automatique » pour un choix qui n'en est pas un.
+      const lu = cc.obj.batiment?.toit?.couverture as string | undefined;
+      const inconnu = lu && !(COUVERTURES_CHOISIES as readonly string[]).includes(lu) ? [{ valeur: lu, libelle: 'Couverture inconnue (« ' + lu + ' »), dessinée en tuile' }] : [];
+      return [
+        { valeur: '', libelle: 'Automatique (' + LIBELLES_COUVERTURE[couvertureDeduite(cc)].toLowerCase() + ')' },
+        ...COUVERTURES_CHOISIES.map((m) => ({ valeur: m, libelle: LIBELLES_COUVERTURE[m] })),
+        ...inconnu,
+      ];
+    },
     lire: (cc) => cc.obj.batiment?.toit?.couverture ?? '',
     ecrire: (cc, v) => {
       const toit = toitDe(cc);
       if ((COUVERTURES_CHOISIES as readonly string[]).includes(v)) toit.couverture = v as CouvertureChoisie;
-      else delete toit.couverture;
+      else if (v !== toit.couverture) delete toit.couverture; // le mot inconnu repris tel quel reste dans le fichier
       // Une pose qui ne se dessine pas sur le nouveau materiau tombe : elle ne ressortirait pas a un autre choix.
       if (toit.pose && !poseAdmise(materiauDuChamp(cc, toit.couverture), toit.pose)) delete toit.pose;
     },
