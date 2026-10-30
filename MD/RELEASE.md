@@ -247,6 +247,8 @@ The tool **proposes**; a human confirms. The rule in §2.1 (a golden-fixture dif
 [ ] npm run verifier:api-claude (ANTHROPIC_API_KEY posée), ou le workflow manuel « Vérifier l'API
     Claude » : chaque requête que le serveur PHP envoie (analyse, renfort) acceptée par la VRAIE API,
     sortie conforme au schéma — les tests ne voient qu'un faux Anthropic, qui accepte tout
+[ ] Lot qui touche à la lecture des façades (prompt, schéma ou règles du run, vote, escalade) : le
+    même workflow, case « mesure des façades » cochée, vert contre les planchers de 5.1.0 (§8.2 bis)
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)
 [ ] `livraison/` déposé EN ENTIER à la racine web — `index.html`, le dossier `assets/` et
     `.htaccess` —, de préférence en extrayant `livraison.zip` sur le serveur. La page appelle son
@@ -265,6 +267,39 @@ The tool **proposes**; a human confirms. The rule in §2.1 (a golden-fixture dif
     `/plan.html` avec sa chaîne de requête, les en-têtes, le cache et data/ fermé
 [ ] GitHub release published with the changelog section
 ```
+
+### 8.2 bis La lecture des façades ne baisse pas (garde-fou)
+
+Ce que la lecture des façades par Claude savait faire en 5.1.0 est figé, et aucun lot ne peut le perdre
+sans que cela se voie. Détail au skill `facades` (§5 quater).
+
+- **La référence** : `tests/fixtures/facades/lecture-5.1.0/reference.json` garde trois mesures de
+  `main` au même code de lecture (runs 40998593930, 41012308826 et 41014104555 du workflow
+  « Vérifier l'API Claude », 30 octobre 2026). Le **plancher** de chaque ligne est le pire des trois.
+  - **Motif** : contre une seule mesure, `main` inchangé a été rouge une fois sur deux. Un garde-fou
+    rouge une fois sur deux sur `main` ne protège rien.
+  - Le coût n'est qu'une information : il ne fait jamais échouer.
+- **Ce qui est jugé** :
+  - en ×3, par scène : baies (rappel, précision), genres, pointes, parement ;
+  - en ×3, au total : toutes les lignes, dont les angles et les carreaux, qui ne se jugent qu'au total ;
+  - en ×1 : au total seulement ;
+  - l'escalade : acceptée, conforme, angles et parement lus.
+- **Le comparateur, branché au workflow** : quand la case « mesure des façades » est cochée, le
+  résumé du run montre la table plancher / mesure.
+- **La règle du bruit, écrite ici et nulle part en code** : le workflow relance **une fois** les
+  scènes en cause. Si une ligne est sous le plancher à la première mesure **et** à la relance, c'est
+  une régression, et le job finit rouge. Aucune marge en plus du plancher.
+  - Une régression ne se règle pas en baissant le plancher : on la corrige, ou on la porte à la
+    décision du propriétaire.
+  - La référence ne se réécrit (`garde-lecture.ts --referencer`) qu'avec les runs qui le
+    justifient, cités dans la PR.
+- **À chaque PR, sans frais** (`npm test`) :
+  - les réponses brutes du run 40998593930, rejouées dans le chemin du jour
+    (`lectureReference.test.ts`) ;
+  - l'inventaire figé des champs du schéma du run, de l'escalade et de la Façade
+    (`champsLecture.test.ts`) : un champ ne se retire qu'en modifiant ce test ;
+  - un projet enregistré en 5.1.0 avec des façades validées, relu et réécrit sans perte
+    (`projet510Facades.test.ts`).
 
 ### 8.3 Cadence
 
