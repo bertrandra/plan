@@ -14,9 +14,10 @@ import { elevationParDefaut } from '../model/defaults.js';
 import { poserAccesVuDeLaRue, reglerCoteVuDeLaRue } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
+import type { ElementDeMurFait } from './toits/faits.js';
 import type { ChampsBatiment, Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 import { completerDetails } from '../model/ouverturesVues.js';
-import { releveReecrit } from '../model/facadeObjet.js';
+import { ouverturesHorsDesLucarnes, releveReecrit, type LucarneSurLeMur } from '../model/facadeObjet.js';
 
 /**
  * Qui propose : une mesure faite dans le telephone, Claude analyste (lot L17), ou plusieurs sources arbitrees par le moteur de
@@ -108,6 +109,13 @@ export type EffetProposition =
   | { type: 'appentis'; corps: number[]; ouvert: boolean; apresForme?: { corps: number[] } | null }
   /** Les lucarnes vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees (celles du LiDAR restent). */
   | { type: 'lucarnes'; corps: number; lucarnes: Lucarne[]; apresForme?: { corps: number; lucarnes: Lucarne[] } | null }
+  /**
+   * Les cheminees et lucarnes que le moteur pose sur le corps `corps` d'apres la ligne du haut d'une facade (lot F7) : elles s'ajoutent
+   * a ce que le corps porte, qui ne bouge pas. `vu` : l'element tel que la facade le montre, de quoi le reposer par le moteur sur les
+   * corps d'une forme validee avec lui (`apresForme`). `facade` : le mur ou la lucarne se voit ; l'ouverture qui est sa fenetre quitte
+   * la facade objet (un element n'a qu'un endroit, MD/spec-facade-calage-audit.md §5 quater).
+   */
+  | { type: 'elementsDuToit'; corps: number; cheminees: Cheminee[]; lucarnes: Lucarne[]; vu: ElementDeMurFait; facade: { cote: number; lucarnes: LucarneSurLeMur[] } | null; apresForme?: { corps: number; cheminees: Cheminee[]; lucarnes: Lucarne[] } | null }
   | { type: 'terrasse'; corps: number; terrasse: TerrasseToit; apresForme?: { corps: number; terrasse: TerrasseToit } | null }
   | { type: 'cloture'; cote: number; typeCloture: TypeClotureVue; hauteurM?: number; soubassement?: boolean }
   | { type: 'portail'; cote: number; nature: 'portail' | 'portillon' | 'aucun'; position?: PositionPortail; largeurM?: number }
@@ -305,6 +313,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       });
       return;
     }
+    case 'elementsDuToit': appliquerElementsDuToit(o, e); return;
     case 'terrasse': {
       const corps = o.batiment?.corpsToit;
       if (!corps || !corps[e.corps]) return;
@@ -319,11 +328,31 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /**
+ * Les cheminees et lucarnes posees par le moteur d'apres une facade (lot F7) : ajoutees a celles du corps, sans en deplacer aucune (un
+ * element pose a la main ne bouge jamais) ; la fenetre d'une lucarne quitte la facade objet du mur ou elle se voit.
+ */
+function appliquerElementsDuToit(o: ObjetPlan, e: Extract<EffetProposition, { type: 'elementsDuToit' }>): void {
+  const corps = o.batiment?.corpsToit, c = corps?.[e.corps];
+  if (!corps || !c) return;
+  const suite: CorpsToit = { ...c };
+  if (e.cheminees.length) suite.cheminees = [...(c.cheminees ?? []), ...e.cheminees.map((ch) => ({ ...ch }))];
+  if (e.lucarnes.length) suite.lucarnes = [...(c.lucarnes ?? []), ...e.lucarnes.map((l) => ({ ...l }))];
+  batimentACopier(o).corpsToit = corps.map((x, i) => (i === e.corps ? suite : x));
+  const f = e.facade, facades = o.batiment?.facades;
+  if (!f || !facades?.some((r) => r.cote === f.cote)) return;
+  batimentACopier(o).facades = facades.map((r) => {
+    if (r.cote !== f.cote) return r;
+    const ouvertures = ouverturesHorsDesLucarnes(r.ouvertures, f.lucarnes);
+    return ouvertures.length === r.ouvertures.length ? r : { ...r, ouvertures };
+  });
+}
+
+/**
  * L'effet d'un element du toit une fois la forme ecrite dans la meme validation : sa place sur les corps neufs, ou rien quand il
  * n'y tient pas (`apresForme: null`). Un effet sans `apresForme` (une ancienne proposition, un autre effet) reste tel quel.
  */
 function effetApresForme(e: EffetProposition): EffetProposition | null {
-  if (e.type !== 'cheminees' && e.type !== 'lucarnes' && e.type !== 'terrasse' && e.type !== 'appentis') return e;
+  if (e.type !== 'cheminees' && e.type !== 'lucarnes' && e.type !== 'terrasse' && e.type !== 'appentis' && e.type !== 'elementsDuToit') return e;
   if (e.apresForme === undefined) return e;
   if (e.apresForme === null) return null;
   const { apresForme, ...reste } = e;
@@ -331,14 +360,14 @@ function effetApresForme(e: EffetProposition): EffetProposition | null {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4, ajoutObjet: 5 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, elementsDuToit: 2.75, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4, ajoutObjet: 5 };
 
 /**
  * Les effets qui ecrivent le toit d'un batiment (sa forme, ses corps et ce qu'ils portent) : valides, ils sont une decision de la
  * personne, que la relecture du LiDAR ne doit plus remplacer. La couverture n'en est pas : la relecture la garde
  * (app/toits/toitsLidar.ts::avecCouleurDe).
  */
-export const EFFETS_DU_TOIT: readonly TypeEffet[] = ['corpsToit', 'corpsDuToit', 'hauteurToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
+export const EFFETS_DU_TOIT: readonly TypeEffet[] = ['corpsToit', 'corpsDuToit', 'hauteurToit', 'elementsDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

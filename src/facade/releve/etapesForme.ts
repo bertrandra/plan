@@ -4,7 +4,8 @@
 // L'E8 n'ecrit rien : une proposition ne s'applique qu'une fois cochee par la personne, dans l'avant/apres de l'audit, et c'est le
 // moteur des toits qui la relit (corpsSousContrainte). Pur.
 
-import { diagnostiquerForme, direAlerte, direChangement, direPreuve, type DiagnosticForme, type PropositionForme } from '../regles/facades/diagnosticForme.js';
+import { diagnostiquerForme, direAlerte, direChangement, direElement, direPreuve, type DiagnosticForme, type PropositionElement, type PropositionForme } from '../regles/facades/diagnosticForme.js';
+import { cadreCorps, elementPoseSurLeMur, versCadre } from '../regles/toits/elementsDesMurs.js';
 import { murDuCorps } from '../regles/toits/murDuCorps.js';
 import { facadeDuMur } from '../../geometry/cotesVusDeDehors.js';
 import type { Objectifs } from '../regles/facades/enchainement.js';
@@ -35,6 +36,34 @@ const nomDuCorps = (corps: number, cote: number): string => `corps ${corps + 1},
 /** Une proposition en une phrase : le corps, ce qui change, d'ou elle vient. */
 const direPropositionForme = (p: PropositionForme): string => `${nomDuCorps(p.corps, p.cote)} : ${direChangement(p)}, ${direPreuve(p)}`;
 
+/** Un element propose en une phrase : le corps, ce qu'il est, d'ou il vient. */
+const direPropositionElement = (p: PropositionElement): string => `${nomDuCorps(p.corps, p.cote)} : ${direElement(p)}`;
+
+/** La place le long du faitage (s, metres depuis `pts[0]`) des elements d'un genre qu'un corps porte, et de ceux que le diagnostic y pose. */
+function placesDesElements(d: DiagnosticForme, corps: readonly CorpsToit[], k: number, genre: 'cheminee' | 'lucarne'): number[] {
+  const c = corps[k], r = c ? cadreCorps(c) : null;
+  if (!c || !r) return [];
+  const poses = d.elements.filter((e) => e.element === genre).flatMap((e) => { const v = e.observation.elementsDesMurs?.[0]; const p = v ? elementPoseSurLeMur(corps, v) : null; return p && p.corps === k ? [p] : []; });
+  const s = (x: { x: number; y: number }) => versCadre(r, x).s;
+  return genre === 'cheminee'
+    ? [...(c.cheminees ?? []), ...poses.flatMap((p) => (p.cheminee ? [p.cheminee] : []))].map(s)
+    : [...(c.lucarnes ?? []), ...poses.flatMap((p) => (p.lucarne ? [p.lucarne] : []))].map((l) => (l.debutM + l.finM) / 2);
+}
+
+/** Les cheminees et lucarnes d'un corps vrai contre celles du plan et du diagnostic (lot F7) : autant, chacune a un metre pres. */
+function elementsContreLeVrai(d: DiagnosticForme, corps: readonly CorpsToit[], k: number, t: ToitVraiCorps): { texte: string; juste: boolean } | null {
+  const lignes: string[] = [];
+  let juste = true;
+  for (const [genre, vrais, nom] of [['cheminee', t.cheminees, 'cheminée'], ['lucarne', t.lucarnes, 'lucarne']] as const) {
+    const vues = placesDesElements(d, corps, k, genre);
+    if (!vrais?.length && !vues.length) continue;
+    const ok = vues.length === (vrais?.length ?? 0) && (vrais ?? []).every((v) => vues.some((x) => Math.abs(x - v.s) <= 1));
+    juste &&= ok;
+    lignes.push(`${pluriel(vrais?.length ?? 0, nom)} vraie${(vrais?.length ?? 0) > 1 ? 's' : ''}, ${vues.length} posée${vues.length > 1 ? 's' : ''} ou proposée${vues.length > 1 ? 's' : ''} : ${ok ? 'juste' : 'faux'}`);
+  }
+  return lignes.length ? { texte: lignes.join(', '), juste } : null;
+}
+
 /**
  * Les propositions contre la vraie forme du toit d'un cas (§7.3) : pour chaque corps de la verite, celui que designe son mur. Juste
  * quand ses pignons apres la proposition (ou tels quels, sans proposition) sont ceux de la verite : autant, et chacun recouvert a moitie
@@ -54,7 +83,8 @@ function contreLeToitVrai(d: DiagnosticForme, corps: readonly CorpsToit[], vrai:
     const memes = apres.length === voulus.length && apparies.every(Boolean);
     const bords = voulus.flatMap((v, i) => { const a = apparies[i]; return a ? [Math.abs(a.debut - v.debut), Math.abs(a.fin - v.fin)] : []; });
     const ecart = bords.length ? `, bords à ${dec(Math.max(...bords))} m près` : '';
-    lignes.push({ texte: `${t.nom} (corps ${m.corps + 1}) : ` + (p ? 'proposition ' + (memes ? 'juste' : 'fausse') : memes ? 'rien à proposer, juste' : 'proposition manquée') + ` (${pluriel(voulus.length, 'pignon')} vrai${voulus.length > 1 ? 's' : ''}${memes ? ecart : ''})`, juste: memes });
+    const el = elementsContreLeVrai(d, corps, m.corps, t);
+    lignes.push({ texte: `${t.nom} (corps ${m.corps + 1}) : ` + (p ? 'proposition ' + (memes ? 'juste' : 'fausse') : memes ? 'rien à proposer, juste' : 'proposition manquée') + ` (${pluriel(voulus.length, 'pignon')} vrai${voulus.length > 1 ? 's' : ''}${memes ? ecart : ''})` + (el ? ` ; ${el.texte}` : ''), juste: memes && (el?.juste ?? true) });
   }
   const juste = lignes.every((l) => l.juste);
   return { texte: 'Contre la vraie forme du toit : ' + lignes.map((l) => l.texte).join(' ; ') + (juste ? '.' : ' : faux.'), juste };
@@ -75,11 +105,12 @@ export function etapeDiagnostic(toit: ToitDeLaFacade | null, hauteurM: number, l
   if (!d.lue && !ia) return { etape: { etat: 'saute', resume: `Tronçons : ${troncons}. Le haut du mur ne se lit pas et Claude n’a rien dit : rien à comparer au gabarit.` + (d.constats.length ? ' ' + d.constats.join(' ') : ''), verite }, diagnostic: d };
   const dits = [
     ...d.propositions.map((p) => 'Proposition (à confirmer) : ' + direPropositionForme(p) + '.'),
+    ...d.elements.map((p) => 'Proposition (à confirmer) : ' + direPropositionElement(p) + '.'),
     ...d.alertes.map((a) => 'Alerte : ' + direAlerte(a) + '.'),
     ...d.constats,
   ];
   const ecart = d.ecart === null ? '' : ` Écart du gabarit au haut lu : ${dec(d.ecart)} hauteur d’égout.`;
-  const rien = !d.propositions.length && !d.alertes.length;
+  const rien = !d.propositions.length && !d.elements.length && !d.alertes.length;
   return {
     etape: { etat: rien ? 'ok' : 'a-confirmer', resume: `Tronçons : ${troncons}.` + ecart + (rien ? (d.lue ? ' Le toit calculé explique la photo : aucune proposition.' : ' Claude voit les pointes du plan : aucune proposition.') : '') + (dits.length ? ' ' + dits.join(' ') : ''), verite },
     diagnostic: d,
@@ -88,7 +119,8 @@ export function etapeDiagnostic(toit: ToitDeLaFacade | null, hauteurM: number, l
 
 /** E8 : ce que le toit attend des propositions. Rien ne s'ecrit ici : la personne coche, le moteur relit le corps concerne. */
 export function etapeToit(d: DiagnosticForme | null): Etape {
-  if (!d?.propositions.length) return { etat: 'saute', resume: 'Aucune proposition de toit : le toit calculé reste, ses hauteurs aussi.', verite: null };
-  const corps = [...new Set(d.propositions.map((p) => nomDuCorps(p.corps, p.cote)))].join(', ');
-  return { etat: 'a-confirmer', resume: `${pluriel(d.propositions.length, 'proposition')} de toit à confirmer dans l’avant/après de l’audit (${corps}), décochée${d.propositions.length > 1 ? 's' : ''} : cochée, le moteur des toits la relit sur le corps concerné (corpsSousContrainte), les hauteurs du LiDAR restent.`, verite: null };
+  const n = (d?.propositions.length ?? 0) + (d?.elements.length ?? 0);
+  if (!d || !n) return { etat: 'saute', resume: 'Aucune proposition de toit : le toit calculé reste, ses hauteurs aussi.', verite: null };
+  const corps = [...new Set([...d.propositions, ...d.elements].map((p) => nomDuCorps(p.corps, p.cote)))].join(', ');
+  return { etat: 'a-confirmer', resume: `${pluriel(n, 'proposition')} de toit à confirmer dans l’avant/après de l’audit (${corps}), décochée${n > 1 ? 's' : ''} : cochée, le moteur des toits la relit sur le corps concerné (corpsSousContrainte), les hauteurs du LiDAR restent ; une cheminée ou une lucarne s’y pose, ce qui est déjà posé ne bouge pas.`, verite: null };
 }

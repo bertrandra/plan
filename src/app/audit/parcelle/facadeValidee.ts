@@ -8,13 +8,17 @@
 //   run de Claude y a lus (l'accord, par recouvrement), chacune avec son identifiant ; la personne les verifie en validant
 //   (`verifieeLe`) : plus aucun rejeu ne les deplace.
 // - Le parement est celui que lit le run de Claude, s'il le lit.
+// - La fenetre d'une lucarne que le toit porte devant ce mur n'est pas une ouverture du mur (lot F7) : un element n'a qu'un endroit,
+//   le toit (MD/spec-facade-calage-audit.md §5 quater).
 
-import { fusionnerOuvertures, numeroterOuvertures, recouvrement, RECOUVREMENT_MEME_OUVERTURE } from '../../../model/facadeObjet.js';
+import { fusionnerOuvertures, numeroterOuvertures, ouverturesHorsDesLucarnes, recouvrement, RECOUVREMENT_MEME_OUVERTURE } from '../../../model/facadeObjet.js';
+import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
+import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { origineActuelle, type Origine } from '../../../model/protections.js';
 import { observationsDuRun, surfaceDeLIa } from '../../../facade/regles/facades/ia.js';
 import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
-import type { DimensionsFacade, ObjetPlan, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
+import type { DimensionsFacade, ObjetPlan, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
 import type { EtapeCalculee } from '../../../facade/releve/enchainement.js';
 
@@ -37,6 +41,13 @@ function avecLesCarreaux(ouvertures: readonly OuvertureFacade[], accord: AccordF
   });
 }
 
+/** Les lucarnes du toit qui se voient sur ce mur du contour (lot F7) : leurs fenetres ne sont pas des ouvertures du mur. */
+function lucarnesDuMur(o: ObjetPlan, cote: number): ReturnType<typeof lucarnesDevantLeMur> {
+  const pts = 'pts' in o && Array.isArray(o.pts) ? (o.pts as PtBrut[]) : null;
+  const f = pts && pts.length >= 3 ? facadesDuContour(pts, 0).find((x) => x.cote === cote) : undefined;
+  return f ? lucarnesDevantLeMur(o.batiment?.corpsToit ?? [], f.gauche, f.droite) : [];
+}
+
 /** Le releve du mur que l'audit a pose d'office d'apres cette mesure, s'il est dans le projet. */
 function poseDOffice(o: ObjetPlan, m: MesureFacade): ReleveFacade | null {
   const r = o.batiment?.facades?.find((x) => x.cote === m.cote);
@@ -54,7 +65,7 @@ export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accor
   const existant = o.batiment?.facades?.find((x) => x.cote === m.cote);
   const base = poseDOffice(o, m) ?? m.releve;
   // Les ouvertures que la personne avait deja verifiees restent ; les autres sont celles du releve, avec leurs carreaux.
-  const ouvertures = numeroterOuvertures(fusionnerOuvertures(existant?.ouvertures ?? [], avecLesCarreaux(base.ouvertures, accord)), existant?.ouvertures ?? [])
+  const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], avecLesCarreaux(base.ouvertures, accord)), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
     .map((x) => (x.verifieeLe ? x : { ...x, verifieeLe: jour }));
   const surface = run ? surfaceDeLIa(observationsDuRun(run)) : null;
   const r: ReleveFacade = {

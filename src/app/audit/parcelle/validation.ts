@@ -446,7 +446,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
  * ecrivaient les corps du toit y sont entrees comme un constat de plus.
  */
 /** L'ordre d'une liste : par batiment (celui de la liste de controle), puis ce qui se mesure, ce qui se decide, ce qui se voit ; la parcelle a la fin. */
-const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'corpsDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
+const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'corpsDuToit', 'elementsDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
   const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };
@@ -458,8 +458,8 @@ function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Propos
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
 const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
 
-function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>, jardin: RunJardin | null = null) {
-  const e: EntreesPropositions = { ...entrees, accords };
+function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>, jardin: RunJardin | null = null, runs: Record<string, RunEnregistre> | null | undefined = null) {
+  const e: EntreesPropositions = { ...entrees, accords, runs };
   const deLAudit = [...propositionsDeLAudit(e), ...propositionsDeForme(e)];
   // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
   const couleurLue = new Set(deLAudit.filter((p) => p.effet.type === 'couleurMurs').map((p) => cleDeLaCible(p.cible)));
@@ -517,7 +517,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     if (figees) return figees;
     const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0) + ':' + versionDecisions;
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
-    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.accords?.(), decisions, ctx.analyse?.jardin?.() ?? null);
+    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.accords?.(), decisions, ctx.analyse?.jardin?.() ?? null, ctx.analyse?.runs?.());
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions), arbitrages };
     calculs++;
     return memo;

@@ -46,7 +46,12 @@
     "facades.enchainement.diagnosticReliefMin": {
       "valeur": 0.2,
       "unite": "part",
-      "pourquoi": "E5 bis (lot F4) : le haut lu qui depasse le gabarit d'au moins cela (en hauteurs d'egout) est une bosse ou chercher un pignon ; plus etroite qu'un pignon (LARGEUR_PIGNON_MIN_M), une cheminee ou une lucarne, dite sans proposition (F7). C'est aussi le relief au-dessous duquel une pointe lue n'est pas une pointe (pas d'alerte de hauteur)."
+      "pourquoi": "E5 bis (lot F4) : le haut lu qui depasse le gabarit d'au moins cela (en hauteurs d'egout) est une bosse ou chercher un pignon ; plus etroite qu'un pignon (LARGEUR_PIGNON_MIN_M), une cheminee ou une lucarne (lot F7). C'est aussi le relief au-dessous duquel une pointe lue n'est pas une pointe (pas d'alerte de hauteur)."
+    },
+    "facades.enchainement.diagnosticElementLargeurMinM": {
+      "valeur": 0.2,
+      "unite": "m",
+      "pourquoi": "E5 bis (lot F7) : une bosse du haut lu plus etroite qu'un pignon est une cheminee ou une lucarne a proposer si elle fait au moins cette largeur le long du mur (0,2 m : un tubage, la plus etroite des souches vues, facade/regles/toits/elementsVus.ts) ; en deca, une colonne ou deux du haut lu qui sautent (une antenne, une branche) ne sont pas un element. Pose sans cas reel valide (§5.6) ; toute proposition arrive decochee (decision 10)."
     },
     "facades.enchainement.rappelMin": {
       "valeur": 0.85,

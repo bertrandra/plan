@@ -12,6 +12,7 @@
 // Le navigateur ne compte rien et ne choisit rien : prompt, schema, modele et plafonds sont au
 // serveur ; ici on prepare les images, on envoie, on attend, on lit.
 
+import type { ImageDuRun } from '../../../facade/releve/imageDuRun.js';
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
 import { signatureAnalyse, type AccordAnalyse, type AccordFacadeCapture, type AnalyseCapture, type BatchAnalyse, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
 import { murDeLaTexture, rangerRuns, type ImageRunFacade } from './runsFacades.js';
@@ -172,8 +173,16 @@ export async function decoderImageNavigateur(url: string): Promise<Image | null>
   return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: p.data instanceof Uint8ClampedArray ? p.data : new Uint8ClampedArray(Array.from(p.data)) } : null;
 }
 
-/** L'elevation d'une facade pour son run : le mur seul, decoupe dans la texture de son releve mesure, telle quelle (lot F3). */
-async function elevationRunNavigateur(r: ReleveFacade): Promise<ImageRunFacade | null> {
+/**
+ * L'image d'une facade pour son run : la photo du releve redressee jusqu'au haut de la facade, quand la mesure l'a faite (lot F7) ;
+ * sinon le mur seul, decoupe dans la texture de son releve mesure (lot F3). Reduite sous 1 024 px, en JPEG.
+ */
+async function elevationRunNavigateur(r: ReleveFacade, imageRun: ImageDuRun | null): Promise<ImageRunFacade | null> {
+  const avecBande = imageRun ? await decoderImageNavigateur(imageRun.image).catch(() => null) : null;
+  if (imageRun && avecBande) {
+    const image = dessinerImageFacade(avecBande);
+    return image ? { image, largeur: avecBande.largeur, hauteur: avecBande.hauteur, egoutPart: imageRun.egoutPart } : null;
+  }
   const texture = r.texture ? await decoderImageNavigateur(r.texture).catch(() => null) : null;
   if (!texture) return null;
   const mur = murDeLaTexture(texture, r);

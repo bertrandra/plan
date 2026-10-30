@@ -15,6 +15,7 @@
 // La forme du toit vue (forme, faitage, bouts, lucarnes) n'est pas proposee : la changer demande les
 // regles des toits et Claude (lots L17 a L19) ; elle reste une observation de l'audit.
 
+import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { couleurMursRetenue } from '../../../model/couleurMur.js';
 import {
@@ -49,6 +50,11 @@ export interface EntreesPropositions {
   mesures: ReadonlyMap<string, MesureFacade>;
   /** L'accord du run de chaque facade avec sa detection (par `cle#cote`) ; absent sans analyse. */
   accords?: Record<string, AccordFacadeCapture> | null | undefined;
+  /**
+   * Le run de Claude de chaque facade (par `cle#cote`), ses passes votees et son escalade : ses formes (pointes, silhouette, elements)
+   * completent le diagnostic de forme de la facade (lot F7, formeFacades.ts) ; absent sans analyse.
+   */
+  runs?: Record<string, RunEnregistre> | null | undefined;
 }
 
 export { cleMesure };

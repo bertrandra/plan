@@ -24,6 +24,7 @@ import { expliquer, expliqueLaPhoto, seuilsDuCalage, type Explication, type MurC
 import { detecterSegments } from '../vision/segments.js';
 import { priseSansCapteurs, redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from './chaine.js';
 import { avisFusion, releveDeLaSerie, type ReleveDeLaSerie } from './analyseSerie.js';
+import { hautDeLImage, imageDuRunAvecLaBande, type ImageDuRun } from './imageDuRun.js';
 import type { EntreeRecherche, Morceau, ResultatRecherche } from './serie.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
@@ -142,6 +143,8 @@ interface SortieAudit {
   mesure: (ReleveDeLaSerie & { rangReleve: number }) | null;
   redressement: BilanRedressement;
   redressees: PhotoRedresseeDeLAudit[];
+  /** L'image du run de Claude : la photo du releve redressee jusqu'au haut de la facade (lot F7), null sans releve. */
+  imageRun: ImageDuRun | null;
 }
 
 /** Ce que le rejeu tire de la reponse de Claude (mode « IA »). */
@@ -290,6 +293,20 @@ function photosRedressees(c: ResultatChaine, jpeg: (img: Image) => string): Phot
   return out.sort((a, b) => a.rang - b.rang);
 }
 
+/**
+ * L'image du run de Claude dans l'audit (lot F7) : la photo qui porte le releve, redressee dans le plan du mur du sol jusqu'au haut de
+ * la facade (le gabarit, le faitage des corps), pour que Claude y lise les pointes, la forme et les elements du toit.
+ */
+function imageRunDeLAudit(e: EntreesFacade, a: PrisesAudit, retenue: NonNullable<ReturnType<typeof analyseRetenue>>): ImageDuRun | null {
+  const ref = a.photos.find((p) => p.rang === retenue.rang)?.image;
+  const m = retenue.morceaux.find((x) => x.prise.photo.image === ref) ?? retenue.morceaux[0];
+  if (!m) return null;
+  const H = retenue.a.r.hauteur;
+  const faitages = (e.toit?.corps ?? []).map((c) => c.faitage);
+  const hautV = Math.max(1, ...(e.gabarit ?? []).map((p) => p.v));
+  return imageDuRunAvecLaBande(m, a.facade.largeur, H, hautDeLImage(H, hautV, faitages.length ? Math.max(...faitages) : null), a.jpeg);
+}
+
 /** L'analyse que la chaine a retenue (la fusion, sinon la photo seule), ses morceaux, la photo qui porte le releve. */
 function analyseRetenue(c: ResultatChaine): { a: NonNullable<ResultatChaine['seule']>['a']; morceaux: Morceau[]; rang: number; assemblage: 'morceaux' | 'vues' } | null {
   if (c.fusion) return { a: c.fusion.a, morceaux: c.fusion.morceaux, rang: c.fusion.rangReference, assemblage: 'vues' };
@@ -312,6 +329,7 @@ async function redressementDeLAudit({ e, o, s, obj }: Contexte): Promise<Omit<Et
   s.audit = {
     mesure: retenue ? { ...releveDeLaSerie(retenue.a, retenue.morceaux, a.facade, a.jpeg, retenue.assemblage), rangReleve: retenue.rang } : null,
     redressement: c.redressement, redressees: photosRedressees(c, a.jpeg),
+    imageRun: retenue ? imageRunDeLAudit(e, a, retenue) : null,
   };
   if (retenue) {
     const { r, fusion } = retenue.a;

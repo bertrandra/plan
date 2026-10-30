@@ -59,6 +59,18 @@ describe('les propositions de forme de l audit', () => {
     expect(proposer(o)[0]?.remplaceChoix).toBe('forme du toit saisie');
   });
 
+  it('les pointes que Claude lit sur la bande au-dessus de l egout completent le diagnostic de l audit (lot F7) : sans run, rien ; avec, le pignon est', () => {
+    const run = lireRunEnregistre(JSON.parse(readFileSync('tests/fixtures/facades-ia/ae101-sud-synthetique.json', 'utf8')))!;
+    const sansClaude = diagnostiquerForme({ facade: sud, corps: seul, hauteurMur: 2.4, lue: null });
+    const m = new Map<string, MesureFacade>([[cleMesure('maison', 6), { cle: 'maison', cote: 6, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, hautLu: null, diagnostic: sansClaude }]]);
+    const o = maison(), capture = captureVide('78650000AE0101');
+    const e = { objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures: m };
+    expect(propositionsDeForme(e)).toEqual([]);
+    const [p] = propositionsDeForme({ ...e, runs: { 'maison#6': run } });
+    expect(p).toMatchObject({ id: 'maison:forme:6:0:2', effet: { type: 'corpsDuToit', corps: 0 } });
+    expect(p!.apres).toMatch(/^un pignon de plus .*, d’après Claude seul/);
+  });
+
   it('le fait du batiment l emporte : en remplacement, rien ne se propose', () => {
     essayerFaitsToits(lireFaitsToits({ format: 'plan-faits-toits', version: 1, faits: { [CLE]: { observation: { forme: 'deux-pans' }, application: 'remplacement', dimensions: { egoutM: 5, faitageM: 8 } } } }));
     expect(proposer(maison({ bdtopo: { cleabs: CLE } }))).toEqual([]);
