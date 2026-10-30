@@ -125,7 +125,7 @@ Un point retiré du lot parce qu'il devient instable est remplacé, jamais assou
 | 47 | Sur iPhone, dans Plan Capture (`native/ios/`) | la distance porte « LiDAR », la photo est prise par le module ; hors module, rien ne change |
 | 48 | Ouvrir un projet enregistré au schéma 1 (la démonstration d'une organisation neuve) | « Mettre à jour le modèle ? » ; « Garder tel quel » : la question ne revient pas au rechargement ; Fichier › Mettre à jour le modèle : enregistré au schéma 2, ou, si la plateforme ne l'accepte pas, un bandeau qui dit à qui s'adresser et le projet reste au schéma 1 |
 
-## Garde-fous de l'inspecteur et des contrôleurs (depuis la 2.2.0, joués par `scripts/fumee.mjs`)
+## Garde-fous de l'inspecteur et des contrôleurs (depuis la 2.2.0, joués par `scripts/fumee.mjs`, sauf 55 et 56, à la main)
 
 | # | Geste | Attendu |
 |---|---|---|
