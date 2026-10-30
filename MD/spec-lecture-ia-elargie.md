@@ -1040,14 +1040,24 @@ l'estimation du §6 (≈ 0,002 $). La relecture ne coûte rien. Le run complet (
    et le catalogue, comme toute requête depuis L0 (question 27).
 
 **Rien de perdu.** Les corps envoyés à l'API (serveur PHP du dépôt, faux Anthropic local, sortie structurée acceptée puis refusée) :
-l'analyse d'une maison, le run, l'escalade, la lecture enrichie, le toit lu, le PLU et le jardin identiques à ceux de `main` (e54ea460)
-par `cmp`, et ceux qui existaient en 5.1.0 (1ea13701) identiques aux siens ; l'assistant est la seule requête en plus. Aucun champ du
-fichier, aucun schéma, aucune empreinte golden ne bouge ; aucun test retiré (trois tests étendus d'une requête de plus).
+l'analyse d'une maison, le run, l'escalade, la lecture enrichie, le toit lu, le PLU, le jardin et le texte du dossier identiques à ceux
+de `main` (300b6ead, après L5) par `cmp`, et ceux qui existaient en 5.1.0 (1ea13701) identiques aux siens ; l'assistant est la seule
+requête en plus (neuf à la vérification de l'API). Aucun champ du fichier, aucun schéma, aucune empreinte golden ne bouge ; aucun test
+retiré (trois tests étendus d'une requête de plus) : 4 668 tests sur la branche.
 
 **Coût mesuré** (run 41050741385) : 0,00027 $ la demande en moyenne (0,00009 à 0,00087 $ selon la longueur de la réponse et l'écriture
 du cache), sous l'estimation de 0,001 $ ; la demande de la vérification, 0,0009 $ (le catalogue et le prompt écrits en cache).
 
+**Garde-fou de la lecture** (workflow « Vérifier l'API Claude », cases façades et assistant, plafond 0,50 $, sur la branche fusionnée
+avec L5, run 41069292979) : **vert du premier coup** (« Aucune ligne jugée sous le plancher ») ; ×3 rappel 99,2 %, précision 100 % ;
+les **neuf** requêtes du serveur acceptées (dont `texte` et `assistant`) ; les dix demandes de référence, **10 listes justes sur 10**,
+0,00035 $ la demande. Avant la fusion, quatre essais du même garde-fou (run 41052579887) avaient chacun une ligne différente sous le
+plancher aux deux mesures (x3 rappel 97,6 %, puis x1 porte-fenêtre 6 → 5, puis x1 parements 21 → 20) alors que les corps du run sont
+ceux de `main` à l'octet : du bruit de l'API, que la mesure témoin de `main` le même jour (run 41059280294) montre aussi (x3 rappel
+97,6 % à sa relance).
+
 **Fumée.** Point **122** nouveau (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z) et point 9 (les
-annulations) rejoués : 6 sur 6 (compact, moyen, large ; clair ; réseau témoin). Le lot `ci` de la CI, vert.
+annulations) rejoués : 6 sur 6 (compact, moyen, large ; clair ; réseau témoin), avant et après la fusion de L5. Le lot `ci` de la CI,
+vert.
 
 **Supprimé.** Rien : le lot ajoute.

@@ -19,7 +19,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   cache ; au modèle rapide par défaut, réglable dans Réglages › Modèles, compté à part au tableau de la consommation (« Assistant »).
   Les corps des autres requêtes ne changent pas d'un octet.
 - Les dix demandes de référence (`tests/fixtures/assistant/`), rejouées hors ligne sur les réponses enregistrées de l'API : dix listes
-  justes sur dix (environ 0,0003 $ la demande). Le workflow « Vérifier l'API Claude » sait jouer l'usage `assistant` (huit requêtes) et,
+  justes sur dix (environ 0,0003 $ la demande). Le workflow « Vérifier l'API Claude » sait jouer l'usage `assistant` (neuf requêtes avec le texte du dossier) et,
   case « assistant », les dix demandes, chaque liste jugée.
 - `historique.transaction` : plusieurs gestes, une seule étape d'annulation, tout défait si un geste est refusé en route.
 - Point de fumée **122** (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z).
