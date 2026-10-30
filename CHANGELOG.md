@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.4.0] — 2026-10-30
+
+Version **mineure** au sens de `MD/RELEASE.md` : les textes et la relecture du dossier (lot L5 : pièces écrites rédigées par Claude,
+corrigées et validées, « Vérifier avant l'export », photographies DP7 et DP8) et l'assistant en langue naturelle (lot L6). Aucune
+quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build
+reste celle de la 5.3.0, le même jour ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les
+quantités et `glb-structure.json` sont identiques, et le dossier d'un projet sans texte validé aussi. Le schéma des projets passe de 11 à
+12 (le champ `dossier` de la parcelle), par une migration identité, et un projet s'écrit toujours au plus petit schéma qui le décrit ; la
+plateforme accepte déjà les schémas 7 à 12.
+
 ### Ajouté
 
 - **Assistant en langue naturelle, lot L6** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.7, §5.5, §12.5). Menu Aide › « Demander à
