@@ -8,7 +8,7 @@
 
 import { sha256Texte } from '../util/sha256.js';
 import { ouvragesDeclares, referencesDuTerrain } from './cerfa13703.js';
-import { clotureDe, LIBELLES_TYPE_CLOTURE } from '../model/cloture.js';
+import { clotureDe, libelleTypeCloture } from '../model/cloture.js';
 import { estBatiment, parcelleDuProjet } from '../model/fonctions.js';
 import { ouvrage } from '../model/ouvrages/index.js';
 import { hauteurAuPointLePlusHaut } from '../model/volumesToit.js';
@@ -51,7 +51,7 @@ export function faitsDuDossier(objets: readonly ObjetPlan[]): FaitsDossier {
       references: refs.map((x) => x.prefixe + ' ' + x.section + ' ' + x.numero), superficieM2: superficie ? Math.round(superficie) : null,
     },
     ouvrages, existant,
-    cloture: cl && cl.active ? { type: LIBELLES_TYPE_CLOTURE[cl.defaut.type], hauteurM: arrondi(cl.defaut.hauteur) } : null,
+    cloture: cl && cl.active ? { type: libelleTypeCloture(cl.defaut.type), hauteurM: arrondi(cl.defaut.hauteur) } : null,
     plu: plu && plu.zones.length ? {
       zone: plu.zones[0]?.libelle ?? '',
       regles: faitsValides(parcelle?.reglementPlu).map((f) => ({ regle: GRANDEURS_PLU[f.grandeur].libelle, valeur: valeurLisible(f), article: f.article, condition: f.condition })),

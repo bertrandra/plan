@@ -11,6 +11,7 @@
 // projet a la validation (apres un seul instantane d'historique), ou des copies pour l'apercu 3D.
 
 import { elevationParDefaut } from '../model/defaults.js';
+import { motConnu } from '../shell/motsInconnus.js';
 import { poserAccesVuDeLaRue, reglerCoteVuDeLaRue } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
@@ -403,6 +404,13 @@ function effetApresForme(e: EffetProposition): EffetProposition | null {
 const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, elementsDuToit: 2.75, saillieDuToit: 2.8, elementsToitDuToit: 2.85, bordsDuToit: 2.85, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4, ajoutObjet: 5 };
 
 /**
+ * Le rang d'un effet. Les propositions d'un audit recu se lisent dans son fichier, telles quelles : un effet d'une version plus
+ * recente n'a pas de rang ici (la soustraction rendait NaN, et l'ordre d'ecriture n'etait plus defini). Il passe en dernier, et
+ * `appliquerEffet` ne l'ecrit pas.
+ */
+const rangEffet = (t: unknown): number => (motConnu(RANG_EFFET, t) ? RANG_EFFET[t] : 6);
+
+/**
  * Les effets qui ecrivent le toit d'un batiment (sa forme, ses corps et ce qu'ils portent) : valides, ils sont une decision de la
  * personne, que la relecture du LiDAR ne doit plus remplacer. La couverture n'en est pas : la relecture la garde
  * (app/toits/toitsLidar.ts::avecCouleurDe).
@@ -425,7 +433,7 @@ export function appliquerPropositions(objets: ObjetPlan[], propositions: readonl
   const parCle = new Map(objets.map((o) => [o.key, o]));
   const touches = new Set<string>();
   const formeEcrite = new Set<string>();
-  const ordre = [...propositions].sort((a, b) => RANG_EFFET[a.effet.type] - RANG_EFFET[b.effet.type]);
+  const ordre = [...propositions].sort((a, b) => rangEffet(a.effet.type) - rangEffet(b.effet.type));
   for (const p of ordre) {
     // Un objet neuf du jardin (lot L3) : ajoute sous sa cle, une copie, et jamais deux fois.
     if (p.effet.type === 'ajoutObjet') {

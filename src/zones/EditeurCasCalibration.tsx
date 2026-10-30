@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type MurAjuste } from './releve/AjusterMur.js';
 import { PoserReperes } from './releve/PoserReperes.js';
 import { coinsParDefaut, LIBELLES_OUVERTURE, pointSvg } from './releve/commun.js';
+import { libelleOuMot } from '../shell/motsInconnus.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
@@ -81,7 +82,7 @@ function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, tra
       <image href={elevation.url} x={0} y={0} width={L} height={H} preserveAspectRatio="none" />
       {ouvertures.map((o, k) => (
         <rect key={k} className={'calBaie' + (k === choisie ? ' choisie' : '')} x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke"
-          role="button" tabIndex={0} aria-label={`Ouverture ${k + 1} : ${LIBELLES_OUVERTURE[o.type]}`} onPointerDown={(e) => { e.stopPropagation(); choisir(k); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') choisir(k); }} />
+          role="button" tabIndex={0} aria-label={`Ouverture ${k + 1} : ${libelleOuMot(LIBELLES_OUVERTURE, o.type)}`} onPointerDown={(e) => { e.stopPropagation(); choisir(k); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') choisir(k); }} />
       ))}
       {trace && <rect className="calTrace" x={Math.min(trace.a.x, trace.b.x)} y={Math.min(trace.a.y, trace.b.y)} width={Math.abs(trace.a.x - trace.b.x)} height={Math.abs(trace.a.y - trace.b.y)} vectorEffect="non-scaling-stroke" />}
     </svg>

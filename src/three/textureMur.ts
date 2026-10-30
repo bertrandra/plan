@@ -9,6 +9,7 @@
 import { inscrireHauteurs } from './materiauxVivants.js';
 import type * as THREE_NS from 'three';
 import type { MateriauTexture } from '../model/couleurMur.js';
+import { citer, motConnu, signalerMotInconnu } from '../shell/motsInconnus.js';
 
 /** Le cote d'une texture en pixels, et ce qu'elle couvre en metres. */
 export const COTE_TEXTURE_MUR = 512;
@@ -153,9 +154,21 @@ function bois(): Peintre {
 
 const PEINTRES: Record<MateriauTexture, () => Peintre> = { brique, pierre, meuliere, beton, enduit, bois };
 
+/**
+ * Le materiau a dessiner. Celui vu sur place (`couleurMurs.materiau`) se lit dans le fichier, tel quel (model/couleurMur.ts,
+ * textureDesMurs) : un fichier d'une version plus recente peut porter un mot que cette version ne dessine pas, et la table
+ * des peintres ne rendait pas de fonction. Hors catalogue : l'enduit, le plus neutre (presque lisse, sans joints qui
+ * affirmeraient une brique ou une pierre), et Plan le dit une fois par mot. La donnee reste telle quelle.
+ */
+function materiauConnu(m: MateriauTexture): MateriauTexture {
+  if (motConnu(PEINTRES, m)) return m;
+  signalerMotInconnu('Matériau des murs inconnu (' + citer(m) + '), dessiné en enduit.');
+  return 'enduit';
+}
+
 /** Les pixels (RGBA a plat, en gris) de la texture d'un materiau, `cote` pixels de cote. */
-export function pixelsTextureMur(materiau: MateriauTexture, cote = COTE_TEXTURE_MUR): Uint8ClampedArray {
-  const peindre = PEINTRES[materiau]();
+export function pixelsTextureMur(demande: MateriauTexture, cote = COTE_TEXTURE_MUR): Uint8ClampedArray {
+  const peindre = PEINTRES[materiauConnu(demande)]();
   const px = new Uint8ClampedArray(cote * cote * 4);
   for (let y = 0; y < cote; y++) for (let x = 0; x < cote; x++) {
     // Le haut du canevas est le haut du mur (v croit vers le haut dans les coordonnees du mur).
@@ -176,7 +189,8 @@ const RELIEF_MUR: Record<MateriauTexture, { clairEnCreux: boolean; force: number
 const cache = new Map<MateriauTexture, THREE_NS.Texture>();
 
 /** La texture des murs d'un materiau, ou `null` sans canevas (tests, environnement sans DOM). */
-export function textureMur(materiau: MateriauTexture): THREE_NS.Texture | null {
+export function textureMur(demande: MateriauTexture): THREE_NS.Texture | null {
+  const materiau = materiauConnu(demande);
   const deja = cache.get(materiau);
   if (deja) return deja;
   if (typeof document === 'undefined' || typeof THREE === 'undefined' || !THREE.CanvasTexture) return null;

@@ -7,7 +7,7 @@
 
 import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import {
-  clotureDe, reglageDuCote, tronconsDuCote, empriseAcces, vantauxDe, coteValide, epaisseurDe,
+  clotureDe, reglageDessine, reglageDuCote, tronconsDuCote, empriseAcces, vantauxDe, coteValide, epaisseurDe,
   COULEUR_CLOTURE_DEFAUT, DEFAUTS_PAR_TYPE,
 } from '../model/cloture.js';
 import { aDesSommets } from '../model/formes.js';
@@ -85,7 +85,7 @@ export function dessinerCloture(groupe: SVGGElement, etat: { scene: { scale: num
   for (let i = 0; i < pts.length; i++) {
     const f = facades.find(x => x.cote === i);
     if (!f) continue;
-    const r = reglageDuCote(cl, i);
+    const r = reglageDessine(reglageDuCote(cl, i));
     const m = motif(r);
     if (!m.epaisseur) continue;
     const couleur = r.couleur || DEFAUTS_PAR_TYPE[r.type].couleur || COULEUR_CLOTURE_DEFAUT;

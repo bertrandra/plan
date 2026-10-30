@@ -26,9 +26,8 @@ import {
   type PagePdf, type Rgb01
 } from './pdf/writer.js';
 import {
-  calculerPiscine, EPAISSEUR_MARGELLE_M, fr, LIBELLE_FOND, LIBELLE_IMPLANTATION, LIBELLE_LOCAL, LIBELLE_PLAGE, LIBELLE_REGIME, LIBELLE_REVETEMENT,
-  LIBELLE_SECURITE, LIBELLE_STRUCTURE, noteDeCalcul, piscinesDu, PROFILS_STRUCTURE, REVANCHE_M, SEUIL_PERMIS_M2, TAXE_AMENAGEMENT_M2,
-  type PiscineCalculee, type SectionNote
+  calculerPiscine, EPAISSEUR_MARGELLE_M, fr, LIBELLE_REGIME, libellePiscine, noteDeCalcul, piscinesDu, PROFILS_STRUCTURE, REVANCHE_M, SEUIL_PERMIS_M2, TAXE_AMENAGEMENT_M2,
+  type ChampFermePiscine, type PiscineCalculee, type ReglagesPiscine, type SectionNote
 } from '../engine/piscine.js';
 import { lieuDeParcelle } from '../model/lieu.js';
 import { estTerrain, parcelleDuProjet } from '../model/fonctions.js';
@@ -177,6 +176,13 @@ function pied(meta: MetaDossierPiscine): string {
 }
 
 /** Les surfaces d'urbanisme : le bassin fait emprise au sol, la plage et les margelles au sol non. */
+const minuscules = (l: string): string => l.toLowerCase();
+/**
+ * Les libelles des reglages de cette piscine : ceux des valeurs retenues, ou, pour un mot hors vocabulaire (fichier d'une version
+ * plus recente), le mot lu et ce sur quoi le dossier est calcule (engine/piscine/reglages.ts, libellePiscine).
+ */
+const libelles = (piscine: ObjetPlan, r: ReglagesPiscine) => (cle: ChampFermePiscine, forme?: (l: string) => string): string => libellePiscine(piscine, r, cle, forme);
+
 function surfaces(calc: PiscineCalculee) {
   const r = calc.reglages;
   const localMaconne = r.local === 'maconne';
@@ -191,7 +197,7 @@ function surfaces(calc: PiscineCalculee) {
 // ---- 1. Notice et aide au cerfa --------------------------------------------------------------
 
 function pagesNotice(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierPiscine): PagePdf[] {
-  const r = calc.reglages;
+  const r = calc.reglages, lib = libelles(piscine, r);
   const parcelle = parcelleDuProjet(objets);
   const lieu = lieuDeParcelle(parcelle);
   const cad = parcelle?.cadastre as { commune?: string; section?: string; numero?: string; contenance?: number } | null | undefined;
@@ -217,15 +223,15 @@ function pagesNotice(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineCalcu
 
   e.sousTitre('Description du projet (notice ' + prefixe + (permis ? '4' : '') + ')');
   const horsSol = calc.hauteurHorsSol > 0.01;
-  const description = 'Création d\'une piscine ' + LIBELLE_IMPLANTATION[r.implantation].toLowerCase() + ' de ' + fr(calc.surface, 1) + ' m² de plan d\'eau'
+  const description = 'Création d\'une piscine ' + lib('implantation', minuscules) + ' de ' + fr(calc.surface, 1) + ' m² de plan d\'eau'
     + (piscine.type === 'circle' ? ' (bassin rond de ' + fr(piscine.r * 2) + ' m de diamètre)' : ' (' + dimensions(calc) + ')')
-    + ', ' + LIBELLE_FOND[r.fond].toLowerCase() + ', profondeur ' + (r.fond === 'plat' ? fr(r.profondeurPetitBain) + ' m' : 'de ' + fr(r.profondeurPetitBain) + ' à ' + fr(r.profondeurGrandBain) + ' m')
-    + ', volume ' + fr(calc.volume, 0) + ' m³. Structure : ' + LIBELLE_STRUCTURE[r.structure].toLowerCase() + ', ' + LIBELLE_REVETEMENT[r.revetement].toLowerCase() + '.'
+    + ', ' + lib('fond', minuscules) + ', profondeur ' + (r.fond === 'plat' ? fr(r.profondeurPetitBain) + ' m' : 'de ' + fr(r.profondeurPetitBain) + ' à ' + fr(r.profondeurGrandBain) + ' m')
+    + ', volume ' + fr(calc.volume, 0) + ' m³. Structure : ' + lib('structure', minuscules) + ', ' + lib('revetement', minuscules) + '.'
     + (horsSol ? ' Les parois dépassent le terrain naturel de ' + fr(calc.hauteurHorsSol) + ' m.' : ' Le haut des parois est au niveau du terrain naturel.')
     + (r.margelle ? ' Margelles de ' + Math.round(r.largeurMargelle * 100) + ' cm en pierre reconstituée ou naturelle.' : '')
-    + (r.plage !== 'aucune' ? ' Plage de ' + fr(r.largeurPlage, 1) + ' m : ' + LIBELLE_PLAGE[r.plage].toLowerCase() + ' (' + fr(calc.surfacePlage, 1) + ' m²).' : '')
-    + ' ' + LIBELLE_LOCAL[r.local] + ' à ' + fr(r.distanceLocal, 0) + ' m du bassin.'
-    + ' Dispositif de sécurité : ' + LIBELLE_SECURITE[r.securite].toLowerCase() + '.'
+    + (r.plage !== 'aucune' ? ' Plage de ' + fr(r.largeurPlage, 1) + ' m : ' + lib('plage', minuscules) + ' (' + fr(calc.surfacePlage, 1) + ' m²).' : '')
+    + ' ' + lib('local') + ' à ' + fr(r.distanceLocal, 0) + ' m du bassin.'
+    + ' Dispositif de sécurité : ' + lib('securite', minuscules) + '.'
     + ' Eau du bassin raccordée à l\'assainissement pour les vidanges, pas de rejet au milieu naturel.';
   e.texte(description);
   e.texte('Matériaux et couleurs : eau ' + r.couleurEau + ', margelles ' + r.couleurMargelle + (r.plage !== 'aucune' ? ', plage ' + r.couleurPlage : '') + '. Terrain : les déblais sont évacués (' + fr(calc.fouille.evacuation, 0) + ' m³) ; aucun mouvement de terre ne modifie le niveau du terrain hors de l\'emprise du bassin et de sa plage.', 8.5, ENCRE_DOUCE);
@@ -238,7 +244,7 @@ function pagesNotice(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineCalcu
   e.rangee('Cadre 3 - Références cadastrales', cad ? [cad.section, String(cad.numero || '').replace(/^0+/, '')].filter(Boolean).join(' ') + (cad.commune ? ' - ' + cad.commune : '') : 'À reporter depuis le cadastre', 'Préfixe, section et numéro de chaque parcelle du terrain.');
   e.rangee('Cadre 3 - Superficie du terrain', contenance);
   e.rangee('Cadre 4 - Nature des travaux', permis ? 'Nouvelle construction : piscine' : 'Construction nouvelle : piscine ' + (horsSol ? 'hors-sol ou semi-enterrée' : 'enterrée'), 'Cocher « piscine » ; préciser le bassin et son local technique.');
-  e.rangee('Cadre 4 - Courte description', 'Piscine ' + LIBELLE_IMPLANTATION[r.implantation].toLowerCase() + ' de ' + fr(calc.surface, 1) + ' m², ' + LIBELLE_STRUCTURE[r.structure].toLowerCase() + (r.plage !== 'aucune' ? ', plage ' + LIBELLE_PLAGE[r.plage].toLowerCase() : ''));
+  e.rangee('Cadre 4 - Courte description', 'Piscine ' + lib('implantation', minuscules) + ' de ' + fr(calc.surface, 1) + ' m², ' + lib('structure', minuscules) + (r.plage !== 'aucune' ? ', plage ' + lib('plage', minuscules) : ''));
   e.rangee('Cadre 4 - Destination', 'Habitation (annexe)');
   e.rangee('Cadre 5 - Surface de plancher créée', fr(s.plancherCreee, 0) + ' m²', s.noteLocal || 'Un bassin ne crée pas de surface de plancher.');
   e.rangee('Cadre 5 - Emprise au sol créée', fr(s.empriseCreee, 1) + ' m²', 'Le plan d\'eau compte dans l\'emprise au sol' + (s.noteLocal ? ' ; ' + s.noteLocal.toLowerCase() : ' ; les margelles et une plage au niveau du sol n\'en font pas partie.'));
@@ -345,9 +351,9 @@ function pagePlanDeMasse(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineC
   const rangeesCartouche = 5 + calc.distances.length;
   const hautTitre = 96, basCartouche = 50 + 11.5 * rangeesCartouche;
   const { denom, k, P } = miseEnPage(emprise, hautTitre, basCartouche, 30);
-  const r = calc.reglages;
+  const r = calc.reglages, lib = libelles(piscine, r);
   let c = enTete(prefixe + '2 - Plan de masse', meta.nomProjet || parcelle?.name || 'Plan',
-    ['Bassin ' + piscine.name + ' : ' + fr(calc.surface, 1) + ' m2 de plan d\'eau, ' + LIBELLE_IMPLANTATION[r.implantation].toLowerCase() + (calc.hauteurHorsSol > 0.01 ? ', parois a +' + fr(calc.hauteurHorsSol) + ' m' : ''),
+    ['Bassin ' + piscine.name + ' : ' + fr(calc.surface, 1) + ' m2 de plan d\'eau, ' + lib('implantation', minuscules) + (calc.hauteurHorsSol > 0.01 ? ', parois a +' + fr(calc.hauteurHorsSol) + ' m' : ''),
      'Distances du bassin aux limites separatives cotees ; cotes de la parcelle en gris.']);
   if (parcelle) c += pdfPolygone(sommetsDe(parcelle).map(P), null, ENCRE_COTE, 1.4, 1);
   batiments.forEach(b => { c += dessinerObjet(b, P, k, 0.85); });
@@ -398,7 +404,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineC
     ['Parcelle', parcelle ? fr(shoelace(sommetsDe(parcelle)), 0) + ' m2' : '-', ''],
     ['Plan d\'eau (emprise au sol creee)', fr(calc.surface, 1) + ' m2', fr(s.empriseCreee, 1) + ' m2 avec le local'],
     ['Margelles', r.margelle ? fr(shoelace(calc.margelleExt) - shoelace(calc.parois), 1) + ' m2' : '-', r.margelle ? Math.round(r.largeurMargelle * 100) + ' cm' : ''],
-    ['Plage', r.plage !== 'aucune' ? fr(calc.surfacePlage, 1) + ' m2' : '-', r.plage !== 'aucune' ? LIBELLE_PLAGE[r.plage] : ''],
+    ['Plage', r.plage !== 'aucune' ? fr(calc.surfacePlage, 1) + ' m2' : '-', r.plage !== 'aucune' ? lib('plage') : ''],
     ['Emprise totale (bassin, margelles, plage)', fr(shoelace(calc.plageExt), 1) + ' m2', parcelle ? fr(shoelace(calc.plageExt) / shoelace(sommetsDe(parcelle)) * 100, 1) + ' % de la parcelle' : '']
   ];
   calc.distances.forEach(d => lignesCartouche.push(['Distance a la limite ' + d.nom, fr(d.distance) + ' m', d.distance < 3 ? 'a verifier au reglement de zone' : '']));
@@ -431,7 +437,7 @@ export function profilTerrainCoupe(relief: Relief, contour: PtBrut[], axe: Pisci
 }
 
 function pageCoupe(piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierPiscine, prefixe: string, relief: Relief | null): PagePdf {
-  const r = calc.reglages, ps = PROFILS_STRUCTURE[r.structure];
+  const r = calc.reglages, ps = PROFILS_STRUCTURE[r.structure], lib = libelles(piscine, r);
   const H = calc.hauteurHorsSol, L = calc.axe.L;
   const paroi = Math.max(ps.paroi, 0.05);
   const marg = r.margelle ? r.largeurMargelle : 0, plage = r.plage !== 'aucune' ? r.largeurPlage : 0;
@@ -520,7 +526,7 @@ function pageCoupe(piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierP
   let y = MARGE_PDF + basTexte - 48;
   const notes = [
     'Hauteur des parois ' + fr(calc.hauteurParoi) + ' m (profondeur maximale + revanche ' + Math.round(REVANCHE_M * 100) + ' cm) ; fouille ' + fr(calc.fouille.profondeur) + ' m sous le terrain naturel.',
-    'Structure : ' + LIBELLE_STRUCTURE[r.structure] + ', ' + LIBELLE_REVETEMENT[r.revetement].toLowerCase() + ' ; fond ' + LIBELLE_FOND[r.fond].toLowerCase() + '.'
+    'Structure : ' + lib('structure') + ', ' + lib('revetement', minuscules) + ' ; fond ' + lib('fond', minuscules) + '.'
   ];
   notes.forEach(n => { c += pdfTexte(MARGE_PDF, y, 8, n, ENCRE_DOUCE); y -= 11; });
   c += pied(meta);
@@ -586,7 +592,7 @@ export function construireDossierPiscine(objets: ObjetPlan[], cle: string | null
     pagePlanDeMasse(objets, piscine, calc, meta, prefixe),
     pageCoupe(piscine, calc, meta, prefixe, reliefDe(objets)),
     pagePieces(meta, prefixe, calc.secteurProtege),
-    ...pagesNote(piscine, noteDeCalcul(calc), meta)
+    ...pagesNote(piscine, noteDeCalcul(calc, piscine), meta)
   ];
   return { pdf: assemblerPDF(pages, { appVersion: meta.appVersion, ...(meta.buildAt ? { buildAt: meta.buildAt } : {}), ...(meta.maintenant ? { maintenant: meta.maintenant } : {}) }), pages: pages.length, piscine, regime: calc.regime };
 }

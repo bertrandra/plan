@@ -12,7 +12,7 @@ import type * as THREE_NS from 'three';
 import type { ObjetPlan, PtBrut, Portail, ReglageCloture } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import {
-  clotureDe, reglageDuCote, tronconsDuCote, empriseAcces, vantauxDe, profilDuVantail,
+  clotureDe, reglageDessine, reglageDuCote, tronconsDuCote, empriseAcces, vantauxDe, profilDuVantail,
   epaisseurDe, coteValide, COULEUR_CLOTURE_DEFAUT, DEFAUTS_PAR_TYPE,
 } from '../model/cloture.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
@@ -297,7 +297,7 @@ export function ajouterCloture3d(ctx: ContexteCloture3d, parcelle: ObjetPlan | n
   for (let i = 0; i < pts.length; i++) {
     const f = facadeDuCote(facades, i);
     if (!f) continue;
-    const r = reglageDuCote(cl, i);
+    const r = reglageDessine(reglageDuCote(cl, i));
     if (r.type === 'aucune') continue;
     // L'anneau mitre a l'epaisseur de ce cote : ses deux sommets de ce cote bornent les troncons
     // d'extremite, pour que l'angle se ferme comme avant avec la bande unique.
@@ -316,6 +316,6 @@ export function ajouterCloture3d(ctx: ContexteCloture3d, parcelle: ObjetPlan | n
     if (!coteValide(pts, a.cote)) continue;
     const f = facadeDuCote(facades, a.cote);
     if (!f) continue;
-    poserAcces(ctx, f, reglageDuCote(cl, a.cote), a);
+    poserAcces(ctx, f, reglageDessine(reglageDuCote(cl, a.cote)), a);
   }
 }

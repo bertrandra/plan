@@ -24,6 +24,7 @@
 // C'est un outil d'avant-projet : il ne verifie ni les portees ni les assemblages.
 
 import { au } from '../../util/tableaux.js';
+import { citer, motConnu, signalerMotInconnu } from '../../shell/motsInconnus.js';
 import { dist, shoelace, signedArea } from '../../geometry/basic.js';
 import { clipLineToPolygon, polygonOffset } from '../../geometry/polygon.js';
 import { lineLineIntersect } from '../../geometry/segments.js';
@@ -115,11 +116,26 @@ function coteEnFace(pts: PtBrut[], ref: number): number {
 
 const indiceValide = (i: number | undefined, n: number): i is number => i !== undefined && Number.isInteger(i) && i >= 0 && i < n;
 
+/**
+ * Un mot de l'objet hors de la table qui le connait (fichier d'une version plus recente, ou corrompu), ou null : un mot absent
+ * n'est pas inconnu, il prend la valeur par defaut. Le calcul se fait sur le repli, que Plan signale une fois par mot ; les
+ * exports ecrivent ce mot tel quel plutot que le libelle du repli (shell/motsInconnus.ts).
+ */
+const motInconnu = (table: object, mot: unknown): string | null => (mot === undefined || mot === null || mot === '' || motConnu(table, mot) ? null : String(mot));
+/** Le materiau lu dans l'objet quand il est hors catalogue (calcule en bois), sinon null. */
+export const materiauPergolaInconnu = (o: ObjetPlan): string | null => motInconnu(MATERIAUX, o.pergola?.materiau);
+/** Le toit lu dans l'objet quand il est hors catalogue (calcule avec le toit par defaut de l'ouvrage), sinon null. */
+export const toitPergolaInconnu = (o: ObjetPlan): string | null => motInconnu(LIBELLE_TOIT_PERGOLA, o.pergola?.toit);
+
 /** Les reglages complets d'une pergola : ce que l'objet porte, et les valeurs par defaut pour le reste. */
 export function pergolaDe(o: ObjetPlan): ReglagesPergola {
   const p = o.pergola || {};
   const nature = NATURES[natureAbri(o)];
-  const toit: ToitPergola = p.toit && p.toit in LIBELLE_TOIT_PERGOLA ? p.toit : nature.toit;
+  // Un toit ou un materiau hors catalogue se calcule comme un abri neuf (le toit de l'ouvrage, le bois), et se signale.
+  const toitInconnu = toitPergolaInconnu(o), materiauInconnu = materiauPergolaInconnu(o);
+  if (toitInconnu !== null) signalerMotInconnu('Toit inconnu (' + citer(toitInconnu) + '), calculé en ' + LIBELLE_TOIT_PERGOLA[nature.toit].toLowerCase() + '.');
+  if (materiauInconnu !== null) signalerMotInconnu('Matériau inconnu (' + citer(materiauInconnu) + '), calculé en bois.');
+  const toit: ToitPergola = p.toit && toitInconnu === null ? p.toit : nature.toit;
   const materiau: MateriauPergola = p.materiau === 'aluminium' ? 'aluminium' : 'bois';
   const m = MATERIAUX[materiau];
   const pts = o.type === 'polygon' ? o.pts : [];

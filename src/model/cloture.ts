@@ -11,6 +11,7 @@
 import { dist } from '../geometry/basic.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { au } from '../util/tableaux.js';
+import { citer, libelleOuMot, motConnu, signalerMotInconnu } from '../shell/motsInconnus.js';
 import type {
   Cloture, CoteCloture, ReglageCloture, TypeCloture, ParementMur, EssenceHaie, Portail,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan, PtBrut,
@@ -75,6 +76,27 @@ export function hauteurTotale(r: ReglageCloture): number {
   if (r.type === 'aucune') return 0;
   return Math.max(0, r.hauteur) + (r.soubassement ? Math.max(0, r.soubassement.hauteur) : 0);
 }
+
+/**
+ * Le type d'un reglage tel qu'il se dessine. Il se lit dans le fichier, tel quel (`clotureDe` rend la cloture de l'objet) : un
+ * fichier d'une version plus recente peut porter un type que cette version ne connait pas, et `DEFAUTS_PAR_TYPE` ne rendait rien
+ * (la Vue 3D et l'inspecteur plantaient). Hors catalogue : la palissade, le type d'une cloture neuve, signalee une fois par mot.
+ */
+export function typeDessine(r: Pick<ReglageCloture, 'type'>): TypeCloture {
+  if (motConnu(LIBELLES_TYPE_CLOTURE, r.type)) return r.type;
+  signalerMotInconnu('Clôture inconnue (' + citer(r.type) + '), dessinée en palissade bois.');
+  return 'palissade';
+}
+
+/** Le reglage tel qu'il se dessine : lui-meme, ou une copie en palissade si son type est hors catalogue. La donnee ne change pas. */
+export function reglageDessine(r: ReglageCloture): ReglageCloture {
+  const type = typeDessine(r);
+  return type === r.type ? r : { ...r, type };
+}
+
+/** Le libelle d'un type de cloture, ou le mot lu s'il est hors catalogue. */
+const minuscules = (l: string): string => l.toLowerCase();
+export const libelleTypeCloture = (type: unknown): string => libelleOuMot(LIBELLES_TYPE_CLOTURE, type);
 
 /** Le reglage par defaut tel qu'il se deduit des anciens champs d'une parcelle. */
 function defautDesAnciensChamps(p: ObjetPlan): ReglageCloture {
@@ -143,7 +165,7 @@ export function retirerCote(cl: Cloture, cote: number): void {
  * mais on respecte une couleur choisie.
  */
 export function changerType(r: ReglageCloture, type: TypeCloture): void {
-  const avant = DEFAUTS_PAR_TYPE[r.type];
+  const avant = DEFAUTS_PAR_TYPE[typeDessine(r)];
   const apres = DEFAUTS_PAR_TYPE[type];
   if (r.hauteur === avant.hauteur || !(r.hauteur > 0)) r.hauteur = apres.hauteur || r.hauteur;
   if (!r.couleur || r.couleur === avant.couleur) r.couleur = apres.couleur || COULEUR_CLOTURE_DEFAUT;
@@ -390,18 +412,18 @@ export function coteLePlusProche(pts: readonly PtBrut[], p: PtBrut): { cote: num
 export function resumeReglage(r: ReglageCloture): string {
   if (r.type === 'aucune') return 'Aucune';
   const m = (v: number) => v.toFixed(2).replace('.', ',') + ' m';
-  const detail = r.type === 'mur' ? LIBELLES_PAREMENT[r.parement || 'enduit'].toLowerCase()
-    : r.type === 'haie' ? LIBELLES_ESSENCE[r.essence || 'laurier'].toLowerCase()
+  const detail = r.type === 'mur' ? libelleOuMot(LIBELLES_PAREMENT, r.parement || 'enduit', minuscules)
+    : r.type === 'haie' ? libelleOuMot(LIBELLES_ESSENCE, r.essence || 'laurier', minuscules)
     : r.type === 'grillage' ? (r.grillage || 'rigide')
     : (r.lames || 'verticales');
   const sous = r.soubassement ? ` · muret ${m(r.soubassement.hauteur)}` : '';
-  return `${LIBELLES_TYPE_CLOTURE[r.type]} ${m(r.hauteur)} · ${detail}${sous}`;
+  return `${libelleTypeCloture(r.type)} ${m(r.hauteur)} · ${detail}${sous}`;
 }
 
 /** « Portail 3,50 m · à 4,20 m ». */
 export function resumeAcces(a: Portail): string {
   const m = (v: number) => v.toFixed(2).replace('.', ',') + ' m';
-  return `${a.nature === 'portail' ? 'Portail' : 'Portillon'} ${m(a.largeur)} · ${LIBELLES_OUVERTURE_PORTAIL[a.ouverture].toLowerCase()} · à ${m(a.x)}`;
+  return `${a.nature === 'portail' ? 'Portail' : 'Portillon'} ${m(a.largeur)} · ${libelleOuMot(LIBELLES_OUVERTURE_PORTAIL, a.ouverture, minuscules)} · à ${m(a.x)}`;
 }
 
 // ---- Les decisions qui touchent la cloture (l'audit, l'import du cadastre) : elles passent par ici (etape 6.6). ----

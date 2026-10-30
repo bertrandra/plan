@@ -11,6 +11,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Un mot hors catalogue lu dans un fichier (écrit par une version plus récente, ou abîmé) ne fait plus planter l'écran ni n'écrit
+  « undefined » dans un export, comme la couverture de toit en 5.4.0 : Plan le remplace par la valeur d'un objet neuf et le signale une
+  fois par mot et par session ; la valeur reste telle quelle dans l'objet et le fichier (ni migration, ni « projet modifié », ni historique).
+  - Pergola et carport : un matériau ou un toit inconnu se calcule en bois ou avec le toit de l'ouvrage (« Matériau inconnu (« … »),
+    calculé en bois ») ; le CERFA écrit le mot lu, la note de calcul aussi avec ce sur quoi elle est calculée, et l'inspecteur le montre.
+  - Clôture : un type inconnu se dessine en palissade (plan, Vue 3D, clôtures du voisinage) ; l'inspecteur le montre, les résumés et le
+    dossier de la mairie écrivent le mot lu (comme un parement, une essence de haie ou une ouverture de portail inconnus).
+  - Murs en 3D : un matériau vu sur place inconnu se dessine en enduit.
+  - Audit reçu (Admin › Audits) : l'origine et la décision d'une proposition s'écrivent telles quelles ; un effet inconnu ne dérange
+    plus l'ordre d'écriture des autres ; une ouverture d'un type inconnu reste sans les détails de la façade au lieu de faire planter la
+    validation. Les libellés des ouvertures d'un relevé ne disent plus « undefined ».
+  Le socle commun est `shell/motsInconnus.ts`, que la couverture de toit utilise désormais aussi.
+- Piscine : un réglage hors catalogue (implantation, structure, revêtement, fond, plage, essence de la plage, traitement, chauffage,
+  sécurité, local technique) se calculait déjà sur sa valeur par défaut, mais en silence, et la note de calcul, le chiffrage et le
+  dossier de mairie écrivaient le libellé de ce défaut. Plan le signale désormais une fois par mot (« Structure inconnue (« … »),
+  calculée en coque polyester »), les exports écrivent « mot (inconnu, calculé en … ») et l'inspecteur montre le mot lu ; la valeur
+  reste dans l'objet et le fichier.
 - Audit de la parcelle et calibration, « Ajuster l'égout et le sol » (geste « quatre repères ») : avec plusieurs photos d'une façade
   assemblées, le geste montrait une seule photo redressée, et le mur tiré ne valait que pour elle, alors que la suite (texture, toit,
   détection) part de l'assemblage. Il montre désormais l'assemblage des photos, l'image prise pour la suite, avec le mur là où la
