@@ -52,9 +52,9 @@ mesure ; il ne recommande rien. Le choix du modèle de production reste au propr
   moitié des passes la voit (deux sur trois). Deux baies de passes différentes sont la même si leurs boîtes se recouvrent à 30 % au
   moins (`facades.ia.voteMemeBaie`) ; la boîte gardée prend la médiane de chaque bord, le genre est celui de la majorité, les carreaux
   ceux de la majorité. Un angle et une pointe prennent la médiane.
-- **La lecture** des réponses se fait hors ligne, en lecture seule, par `tests/banc/facades/gardeLecture.ts::mesurerLecture` de la
-  branche `claude/garde-fou-lecture` (PR #513, commit 09cb0f3e), sur les artefacts `mesure-facades-x1-x3` de chaque run. C'est le
-  chemin de production : la réponse relue comme un run enregistré, le vote, puis les règles.
+- **La lecture** des réponses se fait hors ligne, en lecture seule, par `tests/banc/facades/gardeLecture.ts::mesurerLecture` (le garde-fou
+  de la lecture, PR #513, lu à son commit 09cb0f3e, identique à main depuis sa fusion), sur les artefacts `mesure-facades-x1-x3` de chaque
+  run. C'est le chemin de production : la réponse relue comme un run enregistré, le vote, puis les règles.
 
 Ce que veut dire « juste » pour chaque ligne :
 
@@ -198,15 +198,18 @@ un autre prompt (par exemple un repère `v` dit autrement) ou des photos réelle
 ## 5. Refaire la mesure
 
 1. Pour Haiku (le modèle de production) : lancer le workflow « Vérifier l'API Claude » sur `main`, case « mesure des façades »
-   cochée, `modele` vide, `plafond` 0.25.
+   cochée, `modele` vide, `plafond` 0.25. Le garde-fou de la lecture juge alors la mesure contre ses planchers.
+   Avec `modele` rempli, le garde-fou ne juge pas (ses planchers sont ceux de Haiku), ne relance rien et ne fait pas finir le job en
+   rouge : le workflow mesure seulement.
 2. Pour Sonnet : même chose avec `modele` = `claude-sonnet-5-5` et `plafond` 4. Le vérificateur refuse un plafond au-dessus de 2 $
    (`PLAFOND_MAX`) : il faut le lancer depuis une branche où ce plafond est relevé, comme `claude/mesure-modeles-facades`.
 3. Pour Opus : `modele` = `claude-opus-5-5`, `plafond` 7, depuis une branche qui admet Opus au serveur (`MODELES`) et lui donne un
    tarif (`deploy/claude-tarifs.json`), comme `claude/mesure-modeles-facades`. Sur main, le vérificateur s'arrête avant toute requête
    (« modèle non admis par le serveur »).
-4. Relire chaque artefact `mesure-facades-x1-x3` (hors ligne, sans clé) : préparer la vérité des scènes avec
-   `npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer <dossier>`, y copier les `*.reponses.json` de l'artefact, puis
-   appeler `mesurerLecture(<dossier>)` de `tests/banc/facades/gardeLecture.ts` (PR #513). Le tableau du workflow
+4. Relire chaque artefact `mesure-facades-x1-x3` (hors ligne, sans clé) : appeler `mesurerLecture(<dossier>)` de
+   `tests/banc/facades/gardeLecture.ts` sur le dossier `mesure-facades` de l'artefact. Il y faut les `*.verite.json` à côté des
+   `*.reponses.json` : l'artefact les contient depuis le garde-fou ; pour un run plus ancien, les préparer avec
+   `npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer <dossier>`. Le tableau du workflow
    (`ia-x1-x3.ts --evaluer`) donne déjà le rappel, la précision, les carreaux, les pointes et le coût. Les genres, les angles et le
    parement viennent de `mesurerLecture`.
 

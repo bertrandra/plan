@@ -7,10 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Garde-fou de la lecture des façades** (`MD/RELEASE.md` §8.2 bis, skill `facades` §5 quater). Ce que la lecture des façades par
+  Claude savait faire en 5.1.0 ne peut plus se perdre sans que cela se voie. La référence garde trois mesures de main au même code de
+  lecture (runs 40998593930, 41012308826 et 41014104555 de « Vérifier l'API Claude ») et le **plancher** de chaque ligne, le pire des
+  trois : en ×3, par scène les baies, genres, pointes et parement, au total toutes les lignes (angles et carreaux au total seulement) ;
+  en ×1, au total seulement ; et l'escalade. Le coût n'y est qu'une information. Le workflow, case « mesure des façades » cochée, relance
+  une fois les scènes dont une ligne passe sous le plancher, finit rouge si elle y reste, et montre la table plancher / mesure au résumé.
+  À chaque PR, sans appel : les **vraies réponses** du run 40998593930 rejouées dans le chemin du jour (vote, règles, façade proposée), à
+  l'identique ; l'**inventaire figé** des champs du schéma du run, de l'escalade et de la Façade, qu'un lot ne peut réduire qu'en
+  modifiant le test ; un **projet 5.1.0 à façades validées** relu et réécrit sans perte.
 - **Banc des modèles sur la lecture des façades** (`MD/banc-modeles-facades.md`) : la lecture 5.1.0 mesurée sur les 22 scènes du banc,
   ×1 et ×3, avec Haiku (trois runs au code de lecture de main), Sonnet et Opus (deux runs chacun, sur une branche de mesure jamais fusionnée) : baies,
   genres, carreaux, angles, pointes, parement, coût et durée par façade, scènes qui divergent, et comment refaire la mesure. Rien ne
   change en production : le modèle du run d'une façade reste Haiku.
+
+### Modifié
+
+- **« Vérifier l'API Claude » avec un autre modèle** : quand l'entrée `modele` est remplie (un banc des modèles), le garde-fou de la
+  lecture ne juge pas la mesure, puisque ses planchers sont ceux de Haiku. Il ne relance aucune scène et ne fait pas finir le job en
+  rouge. Avec `modele` vide, rien ne change.
 
 ## [5.1.0] — 2026-10-30
 

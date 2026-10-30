@@ -1,0 +1,1002 @@
+{
+  "meta": {
+    "id": "temoin-5-1-0-facades",
+    "name": "Témoin 5.1.0 : façades validées",
+    "createdAt": "2026-10-30T08:00:00.000Z",
+    "updatedAt": "2026-10-30T09:00:00.000Z",
+    "exportedAt": "2026-10-30T09:00:00.000Z",
+    "exportedBy": "plan.html",
+    "appVersion": "5.1.0",
+    "schemaVersion": 9,
+    "writtenAt": "2026-10-30T09:00:00.000Z"
+  },
+  "objects": [
+    {
+      "key": "parcelle",
+      "type": "polygon",
+      "name": "Parcelle AE 101",
+      "fill": "#FBF3D9",
+      "fillOpacity": 1,
+      "stroke": "#3B2E1F",
+      "showName": false,
+      "showSegNames": false,
+      "showVertNames": false,
+      "showDims": false,
+      "showAngles": false,
+      "constrained": false,
+      "fonction": "terrain",
+      "matiere": "",
+      "priority": 0,
+      "locked": true,
+      "textureVerticale": null,
+      "textureHorizontale": null,
+      "hidden": false,
+      "clotureActive": true,
+      "clotureHauteur": 2,
+      "clotureCouleur": "#e19951",
+      "clotureTexture": {
+        "id": "oak_veneer_01",
+        "nom": "Oak Veneer 01",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/oak_veneer_01.png?width=256&height=256",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_veneer_01/oak_veneer_01_diff_1k.jpg"
+      },
+      "textureArbre": null,
+      "latitude": 48.905189,
+      "longitude": 2.132811,
+      "nomLieu": "Le Vésinet",
+      "terrasseLieeKey": null,
+      "matSurPerimetre": false,
+      "matDeporte": false,
+      "cadastre": {
+        "idu": "78650000AE0101",
+        "codeInsee": "78650",
+        "commune": "Le Vésinet",
+        "section": "AE",
+        "numero": "0101",
+        "contenanceM2": 716,
+        "source": "IGN/API Carto/PCI",
+        "recupereLe": "2026-10-11T08:35:26.389Z",
+        "adresse": "2 Allee des Limites 78110 Le Vesinet",
+        "origineLat": 48.9053664,
+        "origineLon": 2.1328776,
+        "simplifieM": 0,
+        "recale": {
+          "depuis": "plan dessine a la main",
+          "rotationDeg": 16.033,
+          "echelle": 1.004124,
+          "ecartMoyenM": 0.064
+        },
+        "geometrieSource": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                2.13260294,
+                48.90503255
+              ],
+              [
+                2.13249541,
+                48.90511613
+              ],
+              [
+                2.13287759,
+                48.9053664
+              ],
+              [
+                2.13303283,
+                48.90533406
+              ],
+              [
+                2.13297032,
+                48.90515545
+              ],
+              [
+                2.13288675,
+                48.90512787
+              ],
+              [
+                2.13260294,
+                48.90503255
+              ]
+            ]
+          ]
+        }
+      },
+      "bdtopo": null,
+      "plu": {
+        "zones": [
+          {
+            "libelle": "UFb",
+            "libelong": "Quartier residentiel a parcellaire plus resserre",
+            "typezone": "U",
+            "partition": "DU_78650",
+            "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_reglement_20251229.pdf",
+            "nomfic": "78650_reglement_20251229.pdf",
+            "datappro": ""
+          }
+        ],
+        "prescriptions": [],
+        "informations": [
+          {
+            "libelle": "Droit de preemption urbain renforce",
+            "typeinf": "04",
+            "nomfic": "78650_info_surf_99_notice_20251229.pdf",
+            "urlfic": "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_info_surf_99_notice_20251229.pdf"
+          }
+        ],
+        "servitudes": [
+          {
+            "type": "AC4",
+            "nom": "Site patrimonial remarquable du Vésinet",
+            "assiette": "Périmètre du SPR",
+            "forme": "surfacique",
+            "generateur": "SPR",
+            "nature": "",
+            "source": "Plus précis que le cadastre",
+            "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
+            "partition": "172014607_SUP_78_AC4",
+            "urlreg": ""
+          },
+          {
+            "type": "AC2",
+            "nom": "Secteur résidentiel d'habitations individuelles de la commune",
+            "assiette": "Enceinte du site",
+            "forme": "surfacique",
+            "generateur": "Site",
+            "nature": "Inscrit",
+            "source": "BD-PARCELLAIRE",
+            "fichier": "AC2_SI6012_19700710_act.pdf",
+            "partition": "130029325_SUP_R11_AC2",
+            "urlreg": ""
+          }
+        ],
+        "spr": [
+          {
+            "type": "AC4",
+            "nom": "Site patrimonial remarquable du Vésinet",
+            "assiette": "Périmètre du SPR",
+            "forme": "surfacique",
+            "generateur": "SPR",
+            "nature": "",
+            "source": "Plus précis que le cadastre",
+            "fichier": "AC4_Site-patrimonial-remarquable-du-Vesinet_20180125_act.pdf",
+            "partition": "172014607_SUP_78_AC4",
+            "urlreg": ""
+          }
+        ],
+        "document": {
+          "nom": "78650_PLU_20251229",
+          "type": "PLU",
+          "partition": "DU_78650"
+        },
+        "commune": {
+          "nom": "LE VESINET",
+          "insee": "78650",
+          "rnu": false
+        },
+        "interrogeLe": "2026-10-11T08:35:52.856Z",
+        "lon": 2.132810974545229,
+        "lat": 48.90518874476205
+      },
+      "ortho": null,
+      "affichage": null,
+      "voisinage": false,
+      "pts": [
+        {
+          "x": -20.135,
+          "y": -37.127
+        },
+        {
+          "x": -28.018,
+          "y": -27.832
+        },
+        {
+          "x": -0.001,
+          "y": 0
+        },
+        {
+          "x": 11.38,
+          "y": -3.596
+        },
+        {
+          "x": 6.797,
+          "y": -23.459
+        },
+        {
+          "x": 0.671,
+          "y": -26.526
+        }
+      ],
+      "vertexNames": [
+        "Coin Sud",
+        "Coin Ouest",
+        "Coin Nord",
+        "Coin Est",
+        "Coin Sud-Est",
+        "Point 6"
+      ],
+      "segmentNames": [
+        "Sud-Ouest (rue)",
+        "Nord-Ouest (Aline)",
+        "Nord-Est (Babar)",
+        "Sud-Est (guitare)",
+        "Cote 5",
+        "Sud (Joel)"
+      ],
+      "frozenVertices": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "key": "terrasse",
+      "type": "polygon",
+      "name": "Terrasse",
+      "fill": "#E9D2A6",
+      "fillOpacity": 0.68,
+      "stroke": "#7A5C31",
+      "showName": true,
+      "showSegNames": false,
+      "showVertNames": false,
+      "showDims": true,
+      "showAngles": false,
+      "constrained": true,
+      "fonction": "terrasse",
+      "matiere": "",
+      "priority": 1,
+      "locked": false,
+      "textureVerticale": {
+        "id": "teak_veneer",
+        "nom": "Teak Veneer",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+      },
+      "textureHorizontale": {
+        "id": "teak_veneer",
+        "nom": "Teak Veneer",
+        "vignette": "https://cdn.polyhaven.com/asset_img/thumbs/teak_veneer.png?width=256&height=256",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/teak_veneer/teak_veneer_diff_1k.jpg"
+      },
+      "hidden": false,
+      "clotureActive": false,
+      "clotureTexture": null,
+      "textureArbre": null,
+      "terrasseLieeKey": null,
+      "matSurPerimetre": false,
+      "matDeporte": false,
+      "cadastre": null,
+      "bdtopo": null,
+      "plu": null,
+      "ortho": null,
+      "affichage": null,
+      "voisinage": false,
+      "pts": [
+        {
+          "x": -2.6169,
+          "y": -2.5407
+        },
+        {
+          "x": -0.8835,
+          "y": -6.9272
+        },
+        {
+          "x": -3.5484,
+          "y": -7.9065
+        },
+        {
+          "x": -4.7495,
+          "y": -10.1162
+        },
+        {
+          "x": -7.5497,
+          "y": -11.5003
+        },
+        {
+          "x": -10.9945,
+          "y": -10.8692
+        }
+      ],
+      "vertexNames": [
+        "Coin 1",
+        "Coin 2",
+        "Coin 5",
+        "Coin 3",
+        "Coin 6",
+        "Coin 4"
+      ],
+      "segmentNames": [
+        "Cote 1",
+        "Cote 2",
+        "Cote 5",
+        "Cote 3",
+        "Cote 6",
+        "Cote 4"
+      ],
+      "frozenVertices": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "construction": {
+        "typePose": "vis-fondation",
+        "hauteurVis": 40,
+        "depassementVis": 0,
+        "visModeAuto": true,
+        "chargeNormale": 250,
+        "chargeSpa": 500,
+        "kPortee": 25.8,
+        "kEntraxeLame": 18.5,
+        "coefRaideurLame": 1,
+        "jeuLames": 6,
+        "epaisseurLameRive": 22,
+        "longueursLames": "3, 2.5, 2, 1.7, 1.5",
+        "chuteMinReutilisable": 50,
+        "jointsSurAppui": true,
+        "prixLongueurs": [],
+        "longueursBois": "5, 4, 3, 2.5, 2",
+        "prixLongueursBois": [],
+        "jointsBoisSurAppui": true,
+        "lambourdeSection": "45x70",
+        "longueursLambourde": "5, 4, 3, 2.5, 2",
+        "prixLongueursLambourde": [],
+        "prixVisUnite": 35,
+        "visParBoite": 1,
+        "hauteurPlot": 10,
+        "plotModele": "auto",
+        "plotEntraxe": 65,
+        "plotEntraxeAuto": true,
+        "plotAvecSolives": false,
+        "plotSurfaceAssise": 300,
+        "prixPlots": [],
+        "supportType": "concasse",
+        "supportDecaissement": 15,
+        "cadences": [],
+        "equipe": 2,
+        "heuresJour": 7,
+        "echelleImplant": 200,
+        "lames3dFilaire": false,
+        "vues3d": [
+          {
+            "nom": "vers terrasse",
+            "pos": {
+              "x": -7.56491,
+              "y": 1.695000000000002,
+              "z": 5.64849
+            },
+            "cible": {
+              "x": 0,
+              "y": 0,
+              "z": 0
+            }
+          },
+          {
+            "nom": "Fenetre",
+            "pos": {
+              "x": 0.69835,
+              "y": 1.7,
+              "z": 3.70067
+            },
+            "cible": {
+              "x": 0,
+              "y": 1.7,
+              "z": 0
+            }
+          },
+          {
+            "nom": "Entree",
+            "pos": {
+              "x": -15.88592,
+              "y": 1.695,
+              "z": 27.68098
+            },
+            "cible": {
+              "x": 0,
+              "y": 1.695,
+              "z": 0
+            }
+          },
+          {
+            "nom": "Arriere",
+            "pos": {
+              "x": 8.82492,
+              "y": 1.695,
+              "z": -3.37977
+            },
+            "cible": {
+              "x": 0,
+              "y": 1.695,
+              "z": 0
+            }
+          },
+          {
+            "nom": "Vue 5",
+            "pos": {
+              "x": -7.56491,
+              "y": 1.6950000000000025,
+              "z": 5.64849
+            },
+            "cible": {
+              "x": 0,
+              "y": 0,
+              "z": 0
+            }
+          }
+        ],
+        "visEntraxe": 100,
+        "visEntraxeZoneSpa": 60,
+        "visMargeZoneSpa": 30,
+        "soliveEntraxe": 65,
+        "soliveSection": "63x175",
+        "avecLambourde": true,
+        "lambourdeEntraxe": 45,
+        "sensPose": 0,
+        "segmentReference": 0,
+        "essenceBois": "pin-classe4",
+        "largeurLame": 140,
+        "epaisseurLame": 25,
+        "avecLameRive": true,
+        "hauteurLameRive": 270,
+        "avecLamePlat": true,
+        "bom": [
+          {
+            "poste": "vis",
+            "label": "Vis de fondation — têtes de 1 à 33 cm hors sol (sol en pente)",
+            "qte": 37,
+            "unite": "u",
+            "prixBas": 25,
+            "prixHaut": 45,
+            "prixReel": 1295,
+            "calcule": "calcule — 35.00 € x 37"
+          },
+          {
+            "poste": "bois",
+            "label": "Cadre, solives (63x175) — barres achetees",
+            "qte": 92.5,
+            "unite": "ml",
+            "prixBas": 4,
+            "prixHaut": 7,
+            "prixReel": 508.75,
+            "calcule": "calcule — prix par longueur, debit 63x175"
+          },
+          {
+            "poste": "lambourde",
+            "label": "Lambourdes (45x70) — barres achetees",
+            "qte": 94,
+            "unite": "ml",
+            "prixBas": 4,
+            "prixHaut": 7,
+            "prixReel": 517,
+            "calcule": "calcule — prix par longueur, debit 45x70"
+          },
+          {
+            "poste": "lames",
+            "label": "Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees",
+            "qte": 269.3999999999999,
+            "unite": "ml",
+            "prixBas": 3.5000000000000004,
+            "prixHaut": 5.6000000000000005,
+            "prixReel": 1226.19,
+            "calcule": "calcule — prix par longueur, debit des lames"
+          },
+          {
+            "poste": "visserie",
+            "label": "Visserie / fixations",
+            "qte": 35.00596645000001,
+            "unite": "m²",
+            "prixBas": 4,
+            "prixHaut": 6,
+            "prixReel": null
+          },
+          {
+            "poste": "lameRive",
+            "label": "Lame de rive (finition)",
+            "qte": 28.6135212262717,
+            "unite": "ml",
+            "prixBas": 10,
+            "prixHaut": 20,
+            "prixReel": null
+          }
+        ]
+      }
+    },
+    {
+      "key": "maison",
+      "type": "polygon",
+      "name": "Maison",
+      "fill": "#DCCFB9",
+      "fillOpacity": 0.88,
+      "stroke": "#6B5A41",
+      "showName": true,
+      "showSegNames": false,
+      "showVertNames": false,
+      "showDims": false,
+      "showAngles": false,
+      "constrained": true,
+      "fonction": "batiment",
+      "matiere": "",
+      "priority": 2,
+      "locked": true,
+      "elevation": 6,
+      "textureVerticale": null,
+      "textureHorizontale": null,
+      "hidden": false,
+      "clotureActive": false,
+      "clotureTexture": null,
+      "textureArbre": null,
+      "terrasseLieeKey": null,
+      "matSurPerimetre": false,
+      "matDeporte": false,
+      "cadastre": null,
+      "bdtopo": null,
+      "plu": null,
+      "ortho": null,
+      "affichage": null,
+      "voisinage": false,
+      "pts": [
+        {
+          "x": -2.7612,
+          "y": -8.7789
+        },
+        {
+          "x": 4.8971,
+          "y": -6.4527
+        },
+        {
+          "x": 6.6161,
+          "y": -12.1437
+        },
+        {
+          "x": 1.5483,
+          "y": -13.7046
+        },
+        {
+          "x": 2.1,
+          "y": -15.4788
+        },
+        {
+          "x": 2.7479,
+          "y": -15.2613
+        },
+        {
+          "x": 3.9625,
+          "y": -19.4152
+        },
+        {
+          "x": 3.2511,
+          "y": -19.6301
+        },
+        {
+          "x": 3.5744,
+          "y": -20.864
+        },
+        {
+          "x": -5.4791,
+          "y": -23.5702
+        },
+        {
+          "x": -5.6483,
+          "y": -22.9816
+        },
+        {
+          "x": -6.295,
+          "y": -23.0943
+        },
+        {
+          "x": -9.2023,
+          "y": -13.3776
+        },
+        {
+          "x": -2.0706,
+          "y": -11.1819
+        }
+      ],
+      "vertexNames": [
+        "H0",
+        "H1",
+        "H5",
+        "H4",
+        "H6",
+        "H7",
+        "H9",
+        "H8",
+        "H13",
+        "H12",
+        "H11",
+        "H10",
+        "H2",
+        "H3"
+      ],
+      "segmentNames": [
+        "Facade Nord",
+        "Cote 2",
+        "Cote 3",
+        "Cote 4",
+        "Cote 5",
+        "Cote 6",
+        "Cote 7",
+        "Cote 8",
+        "Cote 9",
+        "Cote 10",
+        "Cote 11",
+        "Cote 12",
+        "Retrait Nord",
+        "Cote 14"
+      ],
+      "frozenVertices": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "facades": [
+        {
+          "cote": 0,
+          "largeur": 9.6,
+          "hauteur": 5.8,
+          "texture": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
+          "photoLocale": "photo-facade-maison-0",
+          "hauteurTexture": 8.4,
+          "ouvertures": [
+            {
+              "type": "fenetre",
+              "x": 1.2,
+              "y": 0.9,
+              "l": 1.2,
+              "h": 1.35,
+              "confiance": 0.92,
+              "source": "detectee",
+              "niveau": 0,
+              "travee": 0,
+              "id": "o1",
+              "verifieeLe": "2026-10-30",
+              "details": {
+                "volets": "battants",
+                "ferme": false,
+                "allege": "pleine",
+                "forme": "rect",
+                "vitrage": "petits-bois",
+                "ouvrant": "battants",
+                "couleurVolets": "#4a6b5a",
+                "carreaux": {
+                  "vantaux": 2,
+                  "grille": {
+                    "colonnes": 1,
+                    "rangees": 3
+                  },
+                  "petitsBois": "fins",
+                  "imposte": {
+                    "hauteurM": 0.35,
+                    "grille": {
+                      "colonnes": 2,
+                      "rangees": 1
+                    }
+                  },
+                  "vitrage": "clair",
+                  "source": "ia"
+                }
+              }
+            },
+            {
+              "type": "porte",
+              "x": 4.3,
+              "y": 0,
+              "l": 0.95,
+              "h": 2.15,
+              "confiance": 0.85,
+              "source": "claude",
+              "niveau": 0,
+              "travee": 1,
+              "id": "o2",
+              "verifieeLe": "2026-10-30",
+              "details": {
+                "remplissage": "semi-vitree",
+                "forme": "cintre"
+              }
+            },
+            {
+              "type": "porte-fenetre",
+              "x": 4.2,
+              "y": 3,
+              "l": 1.1,
+              "h": 2.2,
+              "confiance": 0.75,
+              "source": "corrigee",
+              "niveau": 1,
+              "travee": 1,
+              "id": "o3",
+              "verifieeLe": "2026-10-30",
+              "details": {
+                "allege": "garde-corps",
+                "volets": "roulant",
+                "ferme": true,
+                "carreaux": {
+                  "vantaux": 2,
+                  "grille": {
+                    "colonnes": 1,
+                    "rangees": 1
+                  },
+                  "petitsBois": "aucun",
+                  "vitrage": "clair",
+                  "source": "doigt"
+                }
+              }
+            },
+            {
+              "type": "garage",
+              "x": 6.8,
+              "y": 0,
+              "l": 2.4,
+              "h": 2.1,
+              "confiance": 0.7,
+              "source": "ajoutee",
+              "niveau": 0,
+              "travee": 2,
+              "id": "o4",
+              "verifieeLe": "2026-10-29",
+              "details": {
+                "garage": "sectionnelle"
+              }
+            },
+            {
+              "type": "fenetre",
+              "x": 7.4,
+              "y": 3.2,
+              "l": 1,
+              "h": 1.2,
+              "confiance": 0.4,
+              "source": "devinee",
+              "niveau": 1,
+              "travee": 2,
+              "id": "o5",
+              "verifieeLe": "2026-10-30",
+              "details": {
+                "volets": "persiennes",
+                "ouvrant": "coulissant",
+                "vitrage": "imposte-petits-bois"
+              }
+            }
+          ],
+          "distance": 11.5,
+          "sourceDistance": "gps",
+          "releveLe": "2026-10-30T08:12:00.000Z",
+          "partieBasse": {
+            "debut": 6.5,
+            "fin": 9.6,
+            "hauteur": 2.9
+          },
+          "calage": {
+            "photos": [
+              {
+                "coins": [
+                  {
+                    "x": 112,
+                    "y": 88
+                  },
+                  {
+                    "x": 1180,
+                    "y": 95
+                  },
+                  {
+                    "x": 1175,
+                    "y": 870
+                  },
+                  {
+                    "x": 108,
+                    "y": 862
+                  }
+                ],
+                "pxParMSource": 108.4,
+                "sourceCoins": [
+                  "trouve",
+                  "trouve",
+                  "predit",
+                  "claude"
+                ]
+              }
+            ],
+            "azimutCorrigeDeg": 181.5,
+            "confiance": 0.82
+          },
+          "calibration": {
+            "detection.seuilContraste": 0.18
+          },
+          "grille": {
+            "niveaux": [
+              {
+                "appuiM": 0.9,
+                "linteauM": 2.25
+              },
+              {
+                "appuiM": 3,
+                "linteauM": 4.4
+              }
+            ],
+            "travees": [
+              {
+                "xM": 1.8,
+                "largeurM": 1.2
+              },
+              {
+                "xM": 4.75,
+                "largeurM": 1
+              },
+              {
+                "xM": 8,
+                "largeurM": 2.4
+              }
+            ]
+          },
+          "corrections": [
+            {
+              "geste": "ajout",
+              "type": "garage",
+              "x": 6.8,
+              "y": 0,
+              "l": 2.4,
+              "h": 2.1,
+              "source": "devinee"
+            },
+            {
+              "geste": "deplacement",
+              "type": "porte-fenetre",
+              "x": 4.2,
+              "y": 3,
+              "l": 1.1,
+              "h": 2.2,
+              "ecart": {
+                "x": 0.05,
+                "y": 0,
+                "l": -0.04,
+                "h": 0.02
+              }
+            },
+            {
+              "geste": "type",
+              "type": "porte-fenetre",
+              "x": 4.2,
+              "y": 3,
+              "l": 1.1,
+              "h": 2.2,
+              "avant": "fenetre"
+            },
+            {
+              "geste": "retrait",
+              "type": "fenetre",
+              "x": 0.1,
+              "y": 0.2,
+              "l": 0.4,
+              "h": 0.5,
+              "source": "claude"
+            }
+          ],
+          "dimensions": {
+            "largeurM": 9.6,
+            "egoutM": 5.8,
+            "faitageM": 8.4,
+            "source": "lidar",
+            "ecartPhoto": {
+              "largeur": 0.02,
+              "egout": 0.04
+            }
+          },
+          "forme": {
+            "gabarit": [
+              {
+                "u": 0,
+                "v": 1
+              },
+              {
+                "u": 0.5,
+                "v": 1.45
+              },
+              {
+                "u": 1,
+                "v": 1
+              }
+            ],
+            "silhouetteLue": "triangle",
+            "bout": "pignon",
+            "pointes": [
+              {
+                "u": 0.5,
+                "v": 1.45,
+                "source": "ia"
+              }
+            ],
+            "corps": [
+              {
+                "mur": {
+                  "gauche": {
+                    "x": -2.7612,
+                    "y": -8.7789
+                  },
+                  "droite": {
+                    "x": 4.8971,
+                    "y": -6.4527
+                  }
+                },
+                "u0": 0,
+                "u1": 1
+              }
+            ],
+            "source": "ia"
+          },
+          "surface": {
+            "principale": "enduit",
+            "zones": [
+              {
+                "type": "pierre",
+                "u0": 0,
+                "u1": 1,
+                "v0": 0,
+                "v1": 0.15,
+                "confiance": 0.6
+              }
+            ],
+            "source": "ia"
+          },
+          "textureCalee": {
+            "pxParM": 100,
+            "cadre": {
+              "x0": 40,
+              "y0": 30,
+              "x1": 1000,
+              "y1": 610
+            },
+            "sansOmbres": true
+          }
+        },
+        {
+          "cote": 1,
+          "largeur": 7.2,
+          "hauteur": 5.8,
+          "texture": null,
+          "ouvertures": [
+            {
+              "type": "fenetre",
+              "x": 2,
+              "y": 1,
+              "l": 1.1,
+              "h": 1.3,
+              "confiance": 0.88,
+              "source": "detectee",
+              "niveau": 0,
+              "travee": 0
+            }
+          ],
+          "distance": null,
+          "sourceDistance": "rue",
+          "releveLe": "2026-10-30T08:20:00.000Z",
+          "depuisAudit": true,
+          "partieBasse": null
+        }
+      ],
+      "toit": {
+        "forme": "croupes",
+        "hauteur": 3,
+        "angleFaitage": 0,
+        "source": "saisie",
+        "couleur": "#6F7275",
+        "origineCouleur": "gris"
+      }
+    }
+  ],
+  "measures": []
+}

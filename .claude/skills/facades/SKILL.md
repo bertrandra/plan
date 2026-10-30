@@ -732,6 +732,56 @@ npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/mesure        
   dire « juste » pour chaque ligne, tables ×1 et ×3, scènes qui divergent, bruit de Haiku d'une mesure à l'autre, coût, comment refaire
   la mesure avec un autre modèle).
 
+## 5 quater. Le garde-fou de la lecture : rien de 5.1.0 ne se perd
+
+La lecture des façades par Claude est sécurisée **au niveau d'avant L1**, pour tous les lots qui suivent (L1, L2, L5, L6…) : un lot qui
+touche au prompt, au schéma ou aux règles du run, au vote ou à l'escalade ne peut plus perdre ce que la lecture savait faire en 5.1.0
+sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
+
+- **La référence** : `tests/fixtures/facades/lecture-5.1.0/reference.json`. Elle garde **trois mesures de main** au même code de lecture
+  (celui de 1ea13701) : les runs **40998593930**, **41012308826** et **41014104555** de « Vérifier l'API Claude », chacun pris à sa
+  première mesure, avant toute relance. Elle en déduit le **plancher** de chaque ligne : le pire des trois, soit le plus bas pour une
+  ligne où plus vaut mieux, le plus haut pour les baies en trop, les pointes en plus et les passes illisibles. Le coût, les tokens, la
+  pose et les cotes sont gardés pour information et ne font jamais échouer. À côté sont versionnées les **réponses brutes de Claude du
+  run 40998593930** (`<scène>.reponses.json`, artefact `mesure-facades-x1-x3`), seules rejouées hors ligne, et les vérités de
+  `ia-x1-x3.ts --preparer`.
+- **Pourquoi un plancher, et pas une mesure** (décision du propriétaire, 30 octobre 2026) : contre la seule mesure 40998593930, le code
+  inchangé de main a été rouge au deuxième des deux passages. Un garde-fou rouge une fois sur deux sur main ne protège rien.
+  - Sur les trois mesures, le rappel et la précision ×3 sont fixes (99,2 % et 100 %).
+  - Ce que Claude tire au sort d'un appel à l'autre, c'est surtout les carreaux ×3 (7, 2, 10 sur 21), les angles ×3 (38, 38, 34 sur
+    44 ; Claude donne ses parts au centième de l'image, de 1,3 à 1,8 % de la largeur du mur, et un angle juste l'est à 2 %) et toute
+    passe ×1.
+- **Ce qui est jugé** :
+  - en ×3, **par scène** : baies retrouvées et en trop, genres, pointes justes et en plus, parement ;
+  - en ×3, **au total** : toutes les lignes, dont les **angles et les carreaux, jugés au total seulement** ;
+  - en ×1, **au total seulement**, toutes les lignes ;
+  - l'escalade, sur le journal du vérificateur : acceptée et conforme, angles lus, parement lu.
+- **La table** : `npx tsx .claude/skills/facades/scripts/garde-lecture.ts --tableau`. Planchers au total : ×3 rappel 99,2 %, précision
+  100 %, carreaux 2, angles 34, pointes 2, parements 21, 0 passe illisible ; ×1 rappel 92,9 %, précision 99,2 %, carreaux 0, angles 34.
+- **Le comparateur** (`tests/banc/facades/gardeLecture.ts`, script `garde-lecture.ts --comparer <dossier>`) mesure un dossier du banc
+  par le chemin de production (la réponse relue comme un run enregistré, `observationsDuRun`, puis `accorderOuvertures`,
+  `surfaceDeLIa`, `avisDesPointes`) et échoue, avec la liste des lignes, dès qu'une ligne jugée passe sous son plancher. **Aucune marge
+  dans le code en plus du plancher.**
+- **La règle du bruit** : une ligne sous le plancher peut encore être le hasard d'un appel. **On relance une fois** les scènes en cause
+  (toutes dès qu'un total est en dessous : seule une mesure entière le rattrape). Si la ligne est sous le plancher **à la première
+  mesure et à la relance**, c'est une **régression**. Une ligne qui ne baisse qu'à la relance, sur une scène relancée pour une autre, est
+  dite à part, sans compter.
+  - Le workflow le fait seul (case « mesure des façades » : premier jugement, relance, second jugement, job rouge s'il reste une ligne
+    en dessous) et montre les deux tables au résumé.
+  - Avec l'entrée `modele` remplie (un autre modèle que celui du serveur, `MD/banc-modeles-facades.md`), le garde-fou ne juge pas :
+    ses planchers sont ceux de Haiku. Pas de relance, pas de job rouge.
+  - Une régression ne se règle pas en baissant le plancher. La référence ne se réécrit (`--referencer`) qu'avec les runs qui le
+    justifient (une amélioration, ou une décision du propriétaire), cités dans la PR.
+- **À chaque PR, sans appel** (`npm test`) :
+  - `tests/unit/facade/regles/facades/lectureReference.test.ts` rejoue les réponses brutes du run 40998593930 dans le chemin du jour et
+    exige, à l'identique, sa mesure (et le tableau que le run a imprimé) ; il vérifie aussi que le plancher est bien le pire des trois ;
+  - `tests/unit/regles/facades/champsLecture.test.ts` fige les champs du schéma du run et de l'escalade, d'`ObservationsFacade`, de
+    `RunEnregistre` et de la Façade (`ReleveFacade`) : un champ ou un mot ne se retire, et un sens ne change, qu'en modifiant ce test ;
+  - `tests/unit/io/projet510Facades.test.ts` relit et réécrit un projet 5.1.0 à façades validées sans perdre un champ ;
+  - `tests/unit/facade/gardeLecture.test.ts` montre le comparateur rouge sur des mesures fabriquées.
+- **Ce qu'un lot doit faire** : garder la lecture des réponses d'avant (les fichiers de `lecture-5.1.0/` sont des réponses 5.1.0 et le
+  restent), lancer le workflow case cochée sur sa branche et coller la table du résumé dans la PR.
+
 
 
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
