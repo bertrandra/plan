@@ -961,3 +961,13 @@ bouge.
 les mêmes phrases) ; la description calculée se lit maintenant par `descriptionCalculee`, la seule à l'écrire. `grep -rn "manques" src/export` :
 seuls les deux commentaires de la relecture qui disent d'où viennent ses phrases.
 
+**Garde-fou de la lecture** (workflow « Vérifier l'API Claude », case façades, plafond 0,50 $, run 41056553301) : **vert du premier
+coup** (« Aucune ligne jugée sous le plancher », pas de relance) ; ×3 rappel 99,2 %, précision 100 %. Les huit requêtes du serveur
+acceptées, dont `texte` en sortie structurée (697 caractères, 5 réserves sur les faits inventés du vérificateur).
+
+**Coût mesuré** (même run) : une rédaction, **0,00047 $** (Haiku ; 473 tokens d'entrée, 1 639 écrits au cache, 441 en sortie), sous
+l'estimation du §6 (≈ 0,002 $). La relecture ne coûte rien. Le run complet (vérification et mesure du banc) : 0,264 $.
+
+**Fumée.** Point **121** nouveau (rédiger, corriger, valider, exporter ; la relecture, un brouillon périmé) ; 25 et 37 rejoués : 7 sur 7
+(compact, moyen, large ; clair ; réseau témoin).
+

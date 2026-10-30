@@ -4300,7 +4300,7 @@ const POINTS = {
     const porteur = fichier.objects.find((o) => o.dossier);
     const ok = recues.length === 2 && recues.every((d) => d.usage === 'texte' && d.requetes?.[0]?.contenu?.[0]?.type === 'text' && /Faits du projet/.test(d.requetes[0].contenu[0].text))
       && !!brouillon && brouillon.synthetique === true && valide?.texte === corrige && /Texte validé le/.test(etatNotice)
-      && points.some((p) => /^alerte : .*périmé/.test(p)) && points.some((p) => /^a-completer : la signature/.test(p)) && !points.some((p) => /« notice » n’est pas validé/.test(p))
+      && points.some((p) => /^alerte : .*périmé/.test(p)) && points.some((p) => /^a-completer : Reste à compléter : la signature/.test(p)) && !points.some((p) => /« notice » n’est pas validé/.test(p))
       && notice && !deborde && !!porteur && fichier.meta?.schemaVersion === 12;
     return { ok, mesure: `${recues.length} demande(s) usage ${recues[0]?.usage} ; brouillon ${brouillon ? (brouillon.synthetique ? 'synthétique' : 'Claude') : 'ABSENT'}, validé ${valide?.texte === corrige ? 'tel que corrigé' : 'NON'} (« ${etatNotice.slice(0, 40)} ») ; `
       + `relecture : ${points.join(' | ')} ; pages ${avant.getPageCount()} → ${apres.getPageCount()} ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, dossier ${porteur ? 'présent' : 'ABSENT'}` };
