@@ -303,11 +303,18 @@
     position:fixed; inset:0; background:var(--scrim); z-index:9998;
     display:flex; align-items:center; justify-content:center; padding:14px;
   }
+  /* La boite tient dans l'ecran : la liste des points (la question de mise a jour du modele en porte une par migration, douze au
+     schema 12) defile entre le texte et les boutons, qui restent visibles. Sans borne, une boite centree plus haute que l'ecran
+     perdait ses boutons au-dessus et au-dessous de la vue. Le reste ne retrecit pas ; si la boite deborde encore, elle defile. */
   .dialogueBoite{
     background:var(--panel-bg); color:var(--ink); padding:20px 22px; border-radius:8px;
     max-width:360px; width:min(90vw, 360px); font-family:var(--sans);
     box-shadow:var(--ombre-forte);
+    display:flex; flex-direction:column;
+    max-height:calc(100vh - 28px); max-height:calc(100dvh - 28px); overflow-y:auto;
   }
+  .dialogueBoite > *{ flex-shrink:0; }
+  .dialogueBoite > .dialoguePoints{ flex-shrink:1; min-height:4.5em; overflow-y:auto; overscroll-behavior:contain; }
   .dialogueBoite.erreur{ max-width:420px; width:min(90vw, 420px); text-align:center; }
   .dialogueTitre{ font-weight:600; margin-bottom:8px; font-size:1.05rem; }
   .dialoguePoints{ margin:0 0 16px; padding-left:1.2em; font-size:0.84rem; line-height:1.45; color:var(--ink-soft); }

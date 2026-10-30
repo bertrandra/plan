@@ -2,12 +2,13 @@
 //
 //   - `assistant.demander` (menu Aide, feuille du projet au doigt) ouvre le dialogue de l'assistant (Z8, zones/parcours/Assistant.tsx) ;
 //   - `assistant.envoyer` envoie la demande et le catalogue ; grisee, avec sa raison, hors plateforme et hors admin ;
-//   - `assistant.appliquer` execute la liste, en une etape d'historique ; grisee tant qu'aucune etape ne s'applique.
+//   - `assistant.appliquer` execute la liste, en une etape d'historique ; grisee tant qu'aucune etape ne s'applique, et sans le droit
+//     d'ecrire le projet (question 24).
 //
 // Le catalogue se lit dans le registre, la carte d'exposition et l'inspecteur tels qu'ils sont a l'instant ; une etape s'execute par
 // le registre (`commandes.executer`) ou par le service de l'inspecteur (`inspecteur.appliquer`) : l'assistant n'ecrit rien lui-meme.
 
-import { enAdmin, sessionCourante } from '../acces.js';
+import { enAdmin, PERMISSION_ECRITURE, sessionCourante } from '../acces.js';
 import { creerClientAnalyse } from '../../io/analyseClaude.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { showToast } from '../../shell/dialogs.js';
@@ -109,7 +110,10 @@ export function declarerCommandesAssistant(commandes: RegistreCommandes, service
     executer: () => { void service.envoyer(); }
   });
   commandes.declarer({
-    id: 'assistant.appliquer', libelle: 'Appliquer la liste', groupe: 'assistant', ecrit: 'projet',
+    // Le droit d'ecrire le projet (decision du proprietaire du 30 octobre 2026, question 24 de la spec) : un compte en lecture seule
+    // n'applique rien, pas meme les preferences d'affichage d'une liste ; le registre grise la commande avec sa raison, et le
+    // classement des ecritures (Admin > Controleurs) la range parmi les ecritures gardees.
+    id: 'assistant.appliquer', libelle: 'Appliquer la liste', groupe: 'assistant', permission: PERMISSION_ECRITURE,
     description: 'Exécute les étapes utilisables de la liste, en une seule étape d’annulation (Ctrl+Z la défait d’un coup)',
     actif: () => service.etat().statut === 'liste' && service.etapes().some((e) => !e.refus),
     raisonInactive: () => (service.etat().statut === 'liste' ? 'Aucune étape de la liste ne s’applique : chacune dit sa raison.' : null),
