@@ -280,3 +280,27 @@ describe('la migration 10 -> 11 : le toit enrichi (lot L2)', () => {
     expect(schemaMinimal([batiment({ corpsToit: [{ ...corps, bords: { debordEgoutM: 0.4 } }] } as unknown as Partial<ObjetAPlat>)])).toBe(5);
   });
 });
+
+describe('la migration 11 -> 12 : les textes et les photographies du dossier (lot L5)', () => {
+  const parcelle = (extra: Record<string, unknown> = {}): ObjetAPlat => ({ key: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 9 }], ...extra } as unknown as ObjetAPlat);
+  const dossier = {
+    textes: [{ piece: 'notice', valide: { texte: 'Notice validée.', le: '2026-10-30', entrees: 'a'.repeat(64) } }],
+    photos: [{ piece: 'DP7', image: null, photoLocale: 'pabc', source: 'audit', largeur: 4, hauteur: 3, choisieLe: '2026-10-30' }],
+  };
+
+  it('lit un document de schema 11 tel quel : la migration est l identite', () => {
+    const d = { objects: [parcelle(), batiment()] };
+    expect(migrer(structuredClone(d), 11)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 11)?.apporte).toMatch(/textes du dossier/);
+  });
+
+  it('s ecrit au 12 des que la parcelle porte un dossier, et le relit a l identique ; sans dossier, rien ne change', () => {
+    expect(schemaMinimal([parcelle()])).toBe(1);
+    const avec = relu([parcelle({ dossier })], 12);
+    expect(avec[0]!.dossier).toEqual(dossier);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(12);
+    expect(relu(avec, 12)).toEqual(avec);
+    // Un dossier qui ne se lit pas est retire a la lecture : le fichier garde sa forme d'avant.
+    expect(relu([parcelle({ dossier: { textes: [{ piece: 'inconnue' }] } })], 12)[0]).not.toHaveProperty('dossier');
+  });
+});

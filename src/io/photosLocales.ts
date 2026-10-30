@@ -11,9 +11,10 @@
 // (`photoLocale`), la texture a `null`. A l'ouverture, la photo revient du navigateur quand il l'a.
 // Ouvert sur un autre appareil, le releve garde ses mesures et ses ouvertures, sans la photo — et
 // l'inspecteur le dit. L'export JSON, un fichier de l'utilisateur, garde la photo : seul le depot
-// de la plateforme passe par ici.
+// de la plateforme passe par ici. Les photographies DP7 et DP8 du dossier de declaration (lot L5) aussi.
 
 import type { ObjetBrut, ReleveFacade } from '../model/types.js';
+import type { DossierProjet } from '../regles/textes/dossier.js';
 
 /** Ou les photos se rangent : IndexedDB dans le navigateur, une table en memoire sinon (tests, navigation privee). */
 export interface MagasinPhotos {
@@ -85,6 +86,34 @@ export function cleDePhoto(photo: string): string {
 }
 
 type AvecFacades = ObjetBrut & { facades?: ReleveFacade[] | null };
+type AvecDossier = ObjetBrut & { dossier?: DossierProjet | null };
+
+/** Les photographies DP7 et DP8 du dossier de declaration (lot L5) sortent comme l'elevation d'un releve : la cle reste, l'image part. */
+async function sortirPhotosDossier<T extends ObjetBrut>(o: T, magasin: MagasinPhotos, compte: { sorties: number; perdues: number }): Promise<T> {
+  const d = (o as AvecDossier).dossier;
+  if (!d?.photos?.some((p) => estEmbarquee(p.image))) return o;
+  const photos = await Promise.all(d.photos.map(async (p) => {
+    if (!estEmbarquee(p.image)) return p;
+    const cle = cleDePhoto(p.image);
+    try { await magasin.ecrire(cle, p.image); } catch { compte.perdues++; }
+    compte.sorties++;
+    return { ...p, image: null, photoLocale: cle };
+  }));
+  return { ...o, dossier: { ...d, photos } };
+}
+
+/** Les photographies du dossier qui portent une cle retrouvent leur image quand le magasin l'a. */
+async function rentrerPhotosDossier<T extends ObjetBrut>(o: T, magasin: MagasinPhotos, compte: { manquantes: number }): Promise<T> {
+  const d = (o as AvecDossier).dossier;
+  if (!d?.photos?.some((p) => p.photoLocale && !p.image)) return o;
+  const photos = await Promise.all(d.photos.map(async (p) => {
+    if (!p.photoLocale || p.image) return p;
+    const image = await magasin.lire(p.photoLocale).catch(() => null);
+    if (!image) { compte.manquantes++; return p; }
+    return { ...p, image };
+  }));
+  return { ...o, dossier: { ...d, photos } };
+}
 
 /**
  * Le document tel qu'il part vers la plateforme : chaque photo de releve rangee dans le magasin et
@@ -93,7 +122,9 @@ type AvecFacades = ObjetBrut & { facades?: ReleveFacade[] | null };
  */
 export async function sortirLesPhotos<T extends ObjetBrut>(objets: readonly T[], magasin: MagasinPhotos): Promise<{ objets: T[]; sorties: number; perdues: number }> {
   let sorties = 0, perdues = 0;
-  const out = await Promise.all(objets.map(async (o) => {
+  const compte = { sorties: 0, perdues: 0 };
+  const out = await Promise.all(objets.map(async (objet) => {
+    const o = await sortirPhotosDossier(objet, magasin, compte);
     const facades = (o as AvecFacades).facades;
     if (!Array.isArray(facades) || !facades.some((r) => estEmbarquee(r.texture))) return o;
     const copie = await Promise.all(facades.map(async (r) => {
@@ -105,13 +136,15 @@ export async function sortirLesPhotos<T extends ObjetBrut>(objets: readonly T[],
     }));
     return { ...o, facades: copie };
   }));
-  return { objets: out, sorties, perdues };
+  return { objets: out, sorties: sorties + compte.sorties, perdues: perdues + compte.perdues };
 }
 
 /** Le document relu : chaque releve qui porte une cle retrouve sa photo quand le magasin l'a. */
 export async function rentrerLesPhotos<T extends ObjetBrut>(objets: readonly T[], magasin: MagasinPhotos): Promise<{ objets: T[]; manquantes: number }> {
   let manquantes = 0;
-  const out = await Promise.all(objets.map(async (o) => {
+  const compte = { manquantes: 0 };
+  const out = await Promise.all(objets.map(async (objet) => {
+    const o = await rentrerPhotosDossier(objet, magasin, compte);
     const facades = (o as AvecFacades).facades;
     if (!Array.isArray(facades) || !facades.some((r) => r.photoLocale && !r.texture)) return o;
     const copie = await Promise.all(facades.map(async (r) => {
@@ -122,5 +155,5 @@ export async function rentrerLesPhotos<T extends ObjetBrut>(objets: readonly T[]
     }));
     return { ...o, facades: copie };
   }));
-  return { objets: out, manquantes };
+  return { objets: out, manquantes: manquantes + compte.manquantes };
 }

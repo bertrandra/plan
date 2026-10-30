@@ -6,4 +6,4 @@ export { construirePDF } from './pdfPlan.js';
 export { construireDossierPDF } from './dossierPdf.js';
 export { construireDossierPiscine } from './dossierPiscine.js';
 export { construireNoteCalculPDF } from './noteCalculPdf.js';
-export { assemblerDossierMairie } from './dossierMairie.js';
+export { assemblerDossierMairie, relireAvantExport } from './dossierMairie.js';

@@ -119,6 +119,13 @@ export const MIGRATIONS: readonly Migration[] = [
     // La seule migration qui transforme depuis le schema 3 (lot L2) : la grande ardoise en losange n'est plus un materiau, c'est une
     // ardoise posee en losange (model/couvertureLue.ts). Meme texture, meme `.glb` ; le reste est facultatif et n'existait pas avant.
     migrer: (d) => ({ ...d, objects: d.objects.map(relireArdoiseLosange) })
+  },
+  {
+    de: 11,
+    apporte: 'les textes du dossier de déclaration préalable (rédigés avec Claude, validés par vous) et ses photographies de l’environnement proche et lointain',
+    // Un champ facultatif de la parcelle (`dossier`, lot L5), qui n'existait pas avant : un document 11 est un document 12 valide, relu
+    // a l'identique. Le 12 le distingue, pour qu'un lecteur 11 refuse le fichier plutot que de perdre un texte que la personne a valide.
+    migrer: (d) => d
   }
 ];
 
@@ -151,6 +158,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   retoucheMain: 6, egoutChoisi: 6, soleil: 6,
   reglementPlu: 8,
   plantation: 9, vegetation3d: 9, nature: 9, existant: 9,
+  dossier: 12,
 };
 
 /**

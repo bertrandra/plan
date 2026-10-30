@@ -30,16 +30,18 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // image (la bande au-dessus de l'egout comprise) : la couverture et sa pose, le debord, le faitage, la gouttiere, les fenetres de toit
 // et panneaux solaires. Son prompt et son schema sont les siens : ajoutes a ceux de la lecture enrichie, la grammaire de la sortie
 // structuree etait trop grosse (run 41026430391).
-const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin'];
+// `texte` (lot L5 de la lecture IA elargie, 30 octobre 2026) : la redaction d'une piece ecrite du dossier de declaration prealable
+// (description du cerfa, notice, insertion paysagere) sur les faits du projet en JSON ; un appel immediat, une requete, du texte seul.
+const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
 // Sauf l'escalade, au modele plus fin depuis le 29 octobre 2026 (decision de l'utilisateur) : elle ne part qu'a la demande, apres
 // trois lectures votees du modele rapide, et un quatrieme passage du meme modele n'apporterait presque rien.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'facade-enrichie' => 'claude-haiku-5-5', 'facade-toit' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'facade-enrichie' => 'claude-haiku-5-5', 'facade-toit' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5', 'texte' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le run d'une facade (lot F2, generes par `npm run regles:generer`) a les siens ; les autres
 // usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'facade-enrichie' => ['prompt-facade-enrichie.md', 'schema-facade-enrichie.json'], 'facade-toit' => ['prompt-facade-toit.md', 'schema-facade-toit.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
+const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'facade-enrichie' => ['prompt-facade-enrichie.md', 'schema-facade-enrichie.json'], 'facade-toit' => ['prompt-facade-toit.md', 'schema-facade-toit.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json'], 'texte' => ['prompt-texte.md', 'schema-texte.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
@@ -55,8 +57,8 @@ const REQUETES_IMMEDIATES = 3;
 // La lecture du PLU (lot L4), celle du jardin (lot L3) et la lecture enrichie d'une facade (lot L1) aussi : des schemas plats, sans
 // recursion ni contrainte numerique. Le run d'une facade la demande encore et l'API la refuse : il repart sans elle, comme en 5.1.0
 // (la lecture d'avant L1 ne change pas, decision du proprietaire du 30 octobre 2026).
-// Le toit lu sur une facade (lot L2) aussi, pour la meme raison.
-const SORTIE_STRUCTUREE = ['facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin'];
+// Le toit lu sur une facade (lot L2) aussi, pour la meme raison ; et la redaction d'un texte du dossier (lot L5), deux champs.
+const SORTIE_STRUCTUREE = ['facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte'];
 // Les usages qui admettent un document PDF dans leur requete (un bloc `document` en base64), un au plus : la lecture du PLU, et elle
 // seule. L'analyse d'une maison et le run d'une facade n'envoient que du texte et des images ; un PDF ailleurs est refuse.
 const USAGES_DOCUMENT = ['plu'];
@@ -585,6 +587,10 @@ function comptesSortie($sortie, string $usage): ?array {
     } elseif ($usage === 'plu') {
         // La lecture du PLU : ses regles relevees, chacune une valeur determinee (le tableau de bord en dit le rendement).
         $c['determines'] = count(listeDe($s['regles'] ?? null));
+    } elseif ($usage === 'texte') {
+        // La redaction d'un texte du dossier (lot L5) : un texte rendu, et ce que Claude n'a pas pu dire depuis les faits.
+        $c['determines'] = is_string($s['texte'] ?? null) && trim($s['texte']) !== '' ? 1 : 0;
+        $c['elements'] = count(listeDe($s['reserves'] ?? null));
     } elseif ($usage === 'jardin') {
         // La lecture du jardin (lot L3) : ses objets, et ceux dont la certitude est forte.
         $objets = listeDe($s['objets'] ?? null);

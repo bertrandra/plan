@@ -65,7 +65,11 @@ export const APP_VERSION = '5.2.0';
 // gouttiere d'un corps (`bords.faitage`, `bords.gouttiere`). La migration 10 -> 11 relit la grande ardoise en losange
 // (`ardoise-losange`) comme une ardoise posee en losange : meme texture, meme `.glb`. Un lecteur 10 perdrait la pose et les bords au
 // premier enregistrement. La plateforme accepte deja 7 a 12.
-export const SCHEMA_VERSION = 11;
+// 12 : le dossier de declaration prealable (lot L5 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.6) : les textes de ses
+// pieces (`dossier.textes` : le brouillon de Claude et le texte valide par la personne, que l'export imprime) et ses photographies DP7 et
+// DP8 (`dossier.photos`), sur la parcelle. Un lecteur 11 les perdrait au premier enregistrement (la serialisation est une liste
+// blanche). La migration 11 -> 12 est l'identite ; la plateforme accepte deja 7 a 12.
+export const SCHEMA_VERSION = 12;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;

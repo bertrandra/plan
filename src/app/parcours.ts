@@ -17,6 +17,7 @@ import type { SessionAuditParcelle } from './audit/parcelle/controleur.js';
 import type { CatalogueAudits } from './audit/parcelle/catalogue.js';
 import type { Champ, ContexteChamps } from '../ui/champs/types.js';
 import type { ObjetPlan } from '../model/types.js';
+import type { ServiceDossier } from './declaration/serviceDossier.js';
 
 export type Parcours =
   | { type: 'cadastre'; importe: ImportCadastre }
@@ -39,9 +40,10 @@ export type Parcours =
   | { type: 'auditsParcelle'; catalogue: CatalogueAudits }
   /**
    * La declaration prealable (menu Exporter) : qui declare, l'adresse, puis le dossier. Ses champs sont
-   * ceux de ui/champs/declaration.ts, ecrits sur la parcelle du projet par le service de l'inspecteur.
+   * ceux de ui/champs/declaration.ts, ecrits sur la parcelle du projet par le service de l'inspecteur ; `dossier`, ses textes, ses
+   * photographies et sa relecture (lot L5, app/declaration/serviceDossier.ts).
    */
-  | { type: 'declaration'; service: ServiceChampsParcours };
+  | { type: 'declaration'; service: ServiceChampsParcours; dossier?: ServiceDossier };
 
 /**
  * Ce qu'un parcours qui rend des champs demande au service de l'inspecteur (app/inspecteur.ts) : la
