@@ -198,7 +198,10 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   const equipement = equipementDuJardin(o);
   if (equipement) {
     const emprise = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
-    ajouterEquipementJardin(groupeAuSol(co.scene, co.sol, centreDe(o)), co.versLocal, equipement.nature, emprise, ctx.elevationOf(o));
+    // Sur un sol en pente, la plaque d'un regard se pose au plus haut du sol sous elle : l'herbe ne la recouvre pas d'un cote.
+    const sol = co.sol, groupe = sol ? new THREE.Group() : co.scene;
+    if (sol) { groupe.position.y = Math.max(...emprise.map((p) => sol.hauteur(p)), sol.hauteur(centreDe(o))); co.scene.add(groupe); }
+    ajouterEquipementJardin(groupe, co.versLocal, equipement.nature, emprise, ctx.elevationOf(o));
     return;
   }
   const h = ctx.elevationOf(o);

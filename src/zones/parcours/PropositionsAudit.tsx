@@ -149,7 +149,7 @@ function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir, sele
       <label htmlFor={id} className="texteProposition">
         <span className="objetProposition">{p.objet}</span>
         <span className="avantApres"><span className="avantProposition">{p.avant}</span><span aria-hidden="true"> → </span><span className="texteMasque">, devient </span><span>{p.apres}</span></span>
-        <span className="origineProposition">{ORIGINES[p.source] + (p.confiance !== null ? (p.source === 'claude' ? ' · passes d’accord ' : ' · confiance ') + Math.round(p.confiance * 100) + ' %' : '')}{p.indices[0] ? ' · ' + p.indices[0].texte : ''}</span>
+        <span className="origineProposition">{ORIGINES[p.source] + (p.confiance !== null ? (p.source === 'claude' ? (p.effet.type === 'ajoutObjet' || p.id.startsWith('jardin:') ? ' · certitude ' : ' · passes d’accord ') : ' · confiance ') + Math.round(p.confiance * 100) + ' %' : '')}{p.indices[0] ? ' · ' + p.indices[0].texte : ''}</span>
         {lecture && <span className="decisionProposition">{'Décision de l’audit : ' + texteDecision(lecture.decision)}</span>}
         {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}

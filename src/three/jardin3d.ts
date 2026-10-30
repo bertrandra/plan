@@ -24,6 +24,8 @@ import { EXPORT_SEULEMENT, HORS_EXPORT, SANS_OMBRE, type VersLocal } from './pri
 export const NOM_FEUILLAGE_BAS = 'jardin-feuillage';
 export const NOM_FLEURS = 'jardin-fleurs';
 export const NOM_GROUPE_PLANTES = 'jardin-plantes';
+/** Le groupe qui porte le mini-arbre d'un massif, a la hauteur de son dessus. */
+export const NOM_MINI_ARBRE = 'jardin-mini-arbre';
 
 /** Le facteur de densite de chaque niveau ; la reference (Normale) est celle de l'export. */
 export const DENSITE_QUALITE: Readonly<Record<Qualite3d, number>> = { econome: 0.4, normale: 1, soignee: 1.6 };
@@ -33,10 +35,10 @@ export const PLANTES_MAX = 600;
 /** Ce que pousse chaque contenu, par metre carre a la densite de reference : le feuillage, ses tailles, et les fleurs. */
 interface Pousse { feuillage: number; largeur: [number, number]; hauteur: [number, number]; fleurs: number; rangs?: number }
 export const POUSSES: Readonly<Record<ContenuMassif, Pousse>> = {
-  fleurs: { feuillage: 5, largeur: [0.22, 0.34], hauteur: [0.18, 0.32], fleurs: 9 },
-  vivaces: { feuillage: 3.5, largeur: [0.3, 0.48], hauteur: [0.3, 0.55], fleurs: 3 },
-  arbustes: { feuillage: 1.1, largeur: [0.6, 1.0], hauteur: [0.55, 1.0], fleurs: 0 },
-  mixte: { feuillage: 2.6, largeur: [0.25, 0.8], hauteur: [0.25, 0.8], fleurs: 4 },
+  fleurs: { feuillage: 6, largeur: [0.3, 0.45], hauteur: [0.22, 0.38], fleurs: 10 },
+  vivaces: { feuillage: 4, largeur: [0.35, 0.55], hauteur: [0.35, 0.6], fleurs: 4 },
+  arbustes: { feuillage: 1.3, largeur: [0.6, 1.0], hauteur: [0.55, 1.0], fleurs: 0 },
+  mixte: { feuillage: 3, largeur: [0.3, 0.85], hauteur: [0.3, 0.85], fleurs: 5 },
   // Des rangs tous les 50 cm, un plant tous les 35 cm : un potager se reconnait a ses lignes.
   potager: { feuillage: 0, largeur: [0.22, 0.32], hauteur: [0.15, 0.3], fleurs: 0, rangs: 0.5 },
 };
@@ -88,21 +90,24 @@ export function semis(cle: string, contour: readonly PtBrut[], contenu: ContenuM
     }
     return { feuillage, fleurs };
   }
-  const tirer = (n: number, f: (x: number, y: number) => void) => {
+  const tirer = (n: number, f: (x: number, y: number) => boolean) => {
     // Un tirage dans la boite, garde s'il tombe dans le contour : le nombre d'essais est borne, un contour tres creux en garde moins.
-    for (let essais = 0, poses = 0; poses < n && essais < n * 8; essais++) {
+    for (let essais = 0, poses = 0; poses < n && essais < n * 12; essais++) {
       const x = b.x0 + (b.x1 - b.x0) * hasard(), y = b.y0 + (b.y1 - b.y0) * hasard();
-      if (!dedans(x, y)) continue;
-      f(x, y);
-      poses++;
+      if (dedans(x, y) && f(x, y)) poses++;
     }
   };
   tirer(Math.min(PLANTES_MAX, Math.round(s * p.feuillage * densite)), (x, y) => {
-    feuillage.push({ x, y, z: 0, l: entre(p.largeur), h: entre(p.hauteur), couleur: VERTS[Math.floor(hasard() * VERTS.length)] ?? 0x4f7f36 });
+    // La plante entiere dans le massif : les quatre bords de son houppier dans le contour (sinon un autre tirage).
+    const l = entre(p.largeur), d = l / 2;
+    if (![[d, 0], [-d, 0], [0, d], [0, -d]].every(([dx, dy]) => dedans(x + (dx as number), y + (dy as number)))) return false;
+    feuillage.push({ x, y, z: 0, l, h: entre(p.hauteur), couleur: VERTS[Math.floor(hasard() * VERTS.length)] ?? 0x4f7f36 });
+    return true;
   });
   tirer(Math.min(PLANTES_MAX, Math.round(s * p.fleurs * densite)), (x, y) => {
-    const l = 0.06 + 0.04 * hasard();
+    const l = 0.09 + 0.05 * hasard();
     fleurs.push({ x, y, z: p.hauteur[0] + (p.hauteur[1] - p.hauteur[0]) * hasard(), l, h: l * 0.7, couleur: FLEURS[Math.floor(hasard() * FLEURS.length)] ?? 0xd8434f });
+    return true;
   });
   return { feuillage, fleurs };
 }
@@ -197,6 +202,7 @@ function ajouterMiniArbre(ctx: ContexteJardin3d, o: ObjetPlan, contour: readonly
   const h = Math.min(HAUTEUR_MINI_ARBRE_MAX_M, a.hauteurM);
   const d = e ? Math.max(0.4, e.diametreM * (h / Math.max(0.1, e.hauteurM))) : h * 0.7;
   const g = new THREE.Group();
+  g.name = NOM_MINI_ARBRE;
   g.position.y = y0;
   ctx.scene.add(g);
   const c = centre(contour);

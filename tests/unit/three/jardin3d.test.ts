@@ -28,12 +28,12 @@ describe('le semis d un massif', () => {
 
   it('reste dans le contour, a la densite de chaque contenu, et suit le niveau de qualite', () => {
     const s = semis('pb', contour, 'fleurs', 1);
-    expect(s.feuillage.length).toBe(40);
-    expect(s.fleurs.length).toBe(72);
+    expect(s.feuillage.length).toBe(48);
+    expect(s.fleurs.length).toBe(80);
     expect([...s.feuillage, ...s.fleurs].every((p) => pointInPolygon({ x: p.x, y: p.y }, contour))).toBe(true);
     expect(semis('pb', contour, 'arbustes', 1).fleurs).toHaveLength(0);
-    expect(semis('pb', contour, 'fleurs', DENSITE_QUALITE.econome).feuillage.length).toBe(16);
-    expect(semis('pb', contour, 'fleurs', DENSITE_QUALITE.soignee).feuillage.length).toBe(64);
+    expect(semis('pb', contour, 'fleurs', DENSITE_QUALITE.econome).feuillage.length).toBe(19);
+    expect(semis('pb', contour, 'fleurs', DENSITE_QUALITE.soignee).feuillage.length).toBe(77);
     // Un grand massif ne depasse pas le plafond.
     const grand: PtBrut[] = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
     expect(semis('g', grand, 'fleurs', 1.6).feuillage.length).toBe(PLANTES_MAX);
@@ -56,10 +56,10 @@ describe('la vegetation basse dans la scene', () => {
     const ecran = groupes.find((g) => g.userData[HORS_EXPORT])!, glb = groupes.find((g) => g.userData[EXPORT_SEULEMENT])!;
     expect(glb.visible).toBe(false);
     const nombre = (g: THREE_NS.Object3D, nom: string) => (g.getObjectByName(nom) as THREE_NS.InstancedMesh).count;
-    expect(nombre(ecran, NOM_FEUILLAGE_BAS)).toBe(16);
-    expect(nombre(glb, NOM_FEUILLAGE_BAS)).toBe(40);
-    expect(nombre(glb, NOM_FLEURS)).toBe(72);
-    expect(n).toBe(16 + 29);
+    expect(nombre(ecran, NOM_FEUILLAGE_BAS)).toBe(19);
+    expect(nombre(glb, NOM_FEUILLAGE_BAS)).toBe(48);
+    expect(nombre(glb, NOM_FLEURS)).toBe(80);
+    expect(n).toBe(19 + 32);
   });
 
   it('ne pose rien quand la vegetation est retiree, mais garde le mini-arbre, groupe arbre dessine par les lots', () => {

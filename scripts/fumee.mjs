@@ -705,6 +705,26 @@ async function ouvrirConformite(page) {
 // veut : un refus mesuré se lit, un refus décrété se recopie d'un passage à l'autre sans que
 // personne ne le rejoue jamais.
 
+/**
+ * Un coin libre de la parcelle de la demonstration (lot L3) : un rectangle de 2 m sur 1,5 m dans la parcelle, a plus de 2 m de tout
+ * objet, et le cadrage carre que l'audit donne a l'orthophoto du jardin (render/imagesAnalyse.ts, `dessinerOrthoJardin`, marge 2 m).
+ */
+const coinLibreDeLaParcelle = (page) => page.evaluate(() => {
+  const objets = window.__plan.etat().objects, p = objets.find((x) => x.key === 'parcelle');
+  const dans = (q, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a.y > q.y) !== (b.y > q.y) && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; };
+  const xs = p.pts.map((q) => q.x), ys = p.pts.map((q) => q.y);
+  const cote = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) + 4;
+  const cadrage = { xMin: (Math.min(...xs) + Math.max(...xs)) / 2 - cote / 2, yMin: (Math.min(...ys) + Math.max(...ys)) / 2 - cote / 2, cote };
+  const occupe = (q) => objets.some((o) => o !== p && o.fonction !== 'terrain' && (o.type === 'circle' ? Math.hypot(o.center.x - q.x, o.center.y - q.y) < o.r + 2
+    : (o.pts ?? []).some((s) => Math.hypot(s.x - q.x, s.y - q.y) < 2.5) || (o.type === 'polygon' && dans(q, o.pts))));
+  for (let i = 1; i < 20; i++) for (let j = 1; j < 20; j++) {
+    const q = { x: Math.min(...xs) + (i / 20) * (Math.max(...xs) - Math.min(...xs)), y: Math.min(...ys) + (j / 20) * (Math.max(...ys) - Math.min(...ys)) };
+    const coins = [[-1, -0.75], [1, -0.75], [1, 0.75], [-1, 0.75]].map(([dx, dy]) => ({ x: q.x + dx, y: q.y + dy }));
+    if (coins.every((c) => dans(c, p.pts)) && !occupe(q)) return { centre: q, coins, cadrage };
+  }
+  return null;
+});
+
 const POINTS = {
   1: async (page) => {
     await selectionner(page, TERRASSE);
@@ -3008,12 +3028,11 @@ const POINTS = {
     // un mini-arbre, au sud de la maison ; ses onze massifs d'avant restent des blocs (aucune plante : la demonstration et son .glb ne
     // bougent pas). L'inspecteur montre sa section Plantation ; la Vue 3D pose, pour elle seule, la maille de l'ecran (densite du
     // niveau de qualite, hors export) et celle du .glb (densite de reference, invisible), et son mini-arbre.
-    const cree = await page.evaluate(() => {
+    const libre = await coinLibreDeLaParcelle(page);
+    if (!libre) return { ok: false, mesure: 'aucun coin libre dans la parcelle de la démonstration' };
+    const cree = await page.evaluate((libre) => {
       const objets = window.__plan.etat().objects;
-      const m = objets.find((x) => x.key === 'maison');
-      const xs = m.pts.map((p) => p.x), ys = m.pts.map((p) => p.y);
-      const x0 = (Math.min(...xs) + Math.max(...xs)) / 2 - 2, y0 = Math.min(...ys) - 4;
-      const pts = [{ x: x0, y: y0 }, { x: x0 + 4, y: y0 }, { x: x0 + 4, y: y0 + 1.5 }, { x: x0, y: y0 + 1.5 }];
+      const pts = libre.coins;
       const o = { key: 'pb-fumee', type: 'polygon', name: 'Plate-bande', fill: '#7a5a3a', fillOpacity: 1, stroke: '#4a3520', pts, vertexNames: pts.map((_, i) => 'Point ' + (i + 1)), segmentNames: pts.map((_, i) => 'Cote ' + (i + 1)),
         frozenVertices: pts.map(() => false), showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false, constrained: false, fonction: 'massif', matiere: '', priority: 2, locked: false,
         elevation: 0.12, massif: { nature: 'plate-bande', contenu: 'fleurs', miniArbre: { espece: 'erable-japon', hauteurM: 1.8 } } };
@@ -3021,9 +3040,12 @@ const POINTS = {
       window.__plan.dessinerObjet(o);
       window.__plan.toucher('pb-fumee');
       return { massifsAvant: objets.filter((x) => x.fonction === 'massif' && !x.massif).length };
-    });
+    }, libre);
     await page.evaluate(() => window.__plan.selectionnerCle('pb-fumee'));
-    const section = await page.locator('[data-section="massif"]').count();
+    await inspecteur(page);
+    await ouvrirSection(page, 'massif');
+    const section = await page.locator('#zoneInspecteur [data-section="massif"]').count();
+    await page.evaluate(() => window.__plan.ouvrirFeuille(null));
     const vue = await POINTS[22](page);
     if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
     await page.waitForFunction(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'jardin-plantes') n++; }); return n > 0; }, null, { timeout: 30000 }).catch(() => {});
@@ -3032,7 +3054,7 @@ const POINTS = {
       const groupes = [];
       let arbres = 0;
       sc?.scene?.traverse((o) => {
-        if (o.name === 'arbre' && o.userData.arbre && o.parent && o.parent.position.y > 0.05 && o.userData.arbre.hauteur <= 2.5) arbres++;
+        if (o.name === 'arbre' && o.parent?.name === 'jardin-mini-arbre') arbres++;
         if (o.name !== 'jardin-plantes') return;
         const n = (nom) => o.children.find((c) => c.name === nom)?.count ?? 0;
         groupes.push({ ecran: !!o.userData.horsExport, glb: !!o.userData.exportSeulement, visible: o.visible, feuillage: n('jardin-feuillage'), fleurs: n('jardin-fleurs') });
@@ -3042,7 +3064,7 @@ const POINTS = {
       sc?.scene?.traverse((o) => { if (o.name === 'jardin-plantes' && o.userData.horsExport) b.expandByObject(o); });
       if (!b.isEmpty()) {
         const c = b.getCenter(new window.THREE.Vector3());
-        sc.camera.position.set(c.x + 3, c.y + 3.5, c.z + 4.5);
+        sc.camera.position.set(c.x + 1.8, c.y + 2.2, c.z + 2.6);
         sc.controls.target.set(c.x, c.y, c.z);
         sc.controls.update?.();
       }
@@ -3052,17 +3074,17 @@ const POINTS = {
     await image3dStable(page, 3000);
     if (process.env.FUMEE_CAPTURE_L3) await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: `${process.env.FUMEE_CAPTURE_L3}-plate-bande-${f.nom}.png`, timeout: 120000 }).catch((e) => console.error('capture L3 : ' + e.message.split('\n')[0]));
     const ecran = lu.groupes.find((g) => g.ecran), glb = lu.groupes.find((g) => g.glb);
-    // 6 m² de fleurs : 30 plantes et 54 fleurs a la densite de reference (le .glb), moins en Econome, plus en Soignee.
-    const ok = section === 1 && lu.groupes.length === 2 && !!ecran && !!glb && ecran.visible && !glb.visible && glb.feuillage === 30 && glb.fleurs === 54 && ecran.feuillage > 0 && ecran.fleurs > 0 && lu.arbres === 1;
+    // 3 m² de fleurs : la densite de reference au .glb (POUSSES de three/jardin3d.ts), moins en Econome, plus en Soignee.
+    const ok = section === 1 && lu.groupes.length === 2 && !!ecran && !!glb && ecran.visible && !glb.visible && glb.feuillage === 18 && glb.fleurs === 30 && ecran.feuillage > 0 && ecran.fleurs > 0 && lu.arbres === 1;
     return { ok, mesure: `section Plantation ${section ? 'montrée' : 'ABSENTE'} ; ${lu.groupes.length} groupe(s) de plantes (${cree.massifsAvant} massifs d'avant sans plantes) ; écran ${ecran ? ecran.feuillage + ' plantes, ' + ecran.fleurs + ' fleurs' : 'ABSENT'} (${qualite}) ; .glb ${glb ? glb.feuillage + ' plantes, ' + glb.fleurs + ' fleurs, ' + (glb.visible ? 'VISIBLE' : 'caché') : 'ABSENT'} ; mini-arbre ${lu.arbres}` };
   },
   111: async (page, f) => {
-    // Un regard (lot L3) : un equipement de nature `regard`, un carre de 60 cm sur le plan, une plaque au ras du sol en 3D ; il ne
-    // charge pas la terrasse (aucune zone d'equipement). L'inspecteur dit sa nature.
-    await page.evaluate(() => {
+    // Un regard (lot L3) : un equipement de nature `regard`, pose dans un coin libre de la parcelle, un carre de 60 cm sur le plan,
+    // une plaque au ras du sol en 3D. L'inspecteur dit sa nature.
+    const libre = await coinLibreDeLaParcelle(page);
+    if (!libre) return { ok: false, mesure: 'aucun coin libre dans la parcelle de la démonstration' };
+    await page.evaluate((c) => {
       const objets = window.__plan.etat().objects;
-      const t = objets.find((x) => x.fonction === 'terrasse' && x.type === 'polygon');
-      const c = t.pts.reduce((s, p) => ({ x: s.x + p.x / t.pts.length, y: s.y + p.y / t.pts.length }), { x: 0, y: 0 });
       const pts = [{ x: c.x - 0.3, y: c.y - 0.3 }, { x: c.x + 0.3, y: c.y - 0.3 }, { x: c.x + 0.3, y: c.y + 0.3 }, { x: c.x - 0.3, y: c.y + 0.3 }];
       const o = { key: 'regard-fumee', type: 'polygon', name: 'Regard', fill: '#7b7f84', fillOpacity: 1, stroke: '#33363a', pts, vertexNames: pts.map((_, i) => 'Point ' + (i + 1)), segmentNames: pts.map((_, i) => 'Cote ' + (i + 1)),
         frozenVertices: pts.map(() => false), showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false, constrained: false, fonction: 'equipement', matiere: '', priority: 2, locked: false,
@@ -3070,10 +3092,21 @@ const POINTS = {
       objets.push(o);
       window.__plan.dessinerObjet(o);
       window.__plan.toucher('regard-fumee');
-    });
+      window.__plan.rendre();
+    }, libre.centre);
     const surLePlan = await page.evaluate(() => { const e = document.querySelector('[data-role="obj"][data-key="regard-fumee"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.width, h: r.height }; });
     await page.evaluate(() => window.__plan.selectionnerCle('regard-fumee'));
-    const nature = await page.locator('[data-section="equipement"] select').first().inputValue().catch(() => null);
+    await inspecteur(page);
+    await ouvrirSection(page, 'equipement');
+    // Une liste au bureau, une commande segmentee au doigt : la nature se lit sur la liste, ou sur le choix actif.
+    const nature = await page.evaluate(() => {
+      const d = document.querySelector('#zoneInspecteur [data-section="equipement"]');
+      const sel = d?.querySelector('select');
+      if (sel) return sel.value;
+      const actif = d?.querySelector('[aria-pressed="true"], [aria-checked="true"], .actif');
+      return actif ? (/regard/i.test(actif.textContent || '') ? 'regard' : actif.textContent) : null;
+    });
+    await page.evaluate(() => window.__plan.ouvrirFeuille(null));
     const vue = await POINTS[22](page);
     if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene?.getObjectByName('regard-plaque'), null, { timeout: 30000 }).catch(() => {});
@@ -3091,7 +3124,7 @@ const POINTS = {
     await image3dStable(page, 3000);
     if (process.env.FUMEE_CAPTURE_L3) await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: `${process.env.FUMEE_CAPTURE_L3}-regard-${f.nom}.png`, timeout: 120000 }).catch((e) => console.error('capture L3 : ' + e.message.split('\n')[0]));
     const ok = !!surLePlan && surLePlan.l > 0 && Math.abs(surLePlan.l - surLePlan.h) < 2 && nature === 'regard' && !!lu && lu.epaisseur <= 0.04 && lu.cote === 0.6;
-    return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + lu.epaisseur * 100 + ' cm d’épaisseur' : 'ABSENTE'}` };
+    return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + Math.round(lu.epaisseur * 1000) / 10 + ' cm d’épaisseur' : 'ABSENTE'}` };
   },
   112: async (page, f) => {
     // La lecture du jardin dans l'audit (lot L3), contre une API simulee : une tuile d'orthophoto posee sous la parcelle (l'image de
@@ -3102,6 +3135,10 @@ const POINTS = {
       { genre: 'plate-bande', points: [{ x: 0.44, y: 0.47 }, { x: 0.56, y: 0.47 }, { x: 0.56, y: 0.53 }, { x: 0.44, y: 0.53 }], etendue: 0, arbre: { genre: 'sans-objet', taille: 'indetermine', persistant: 'indetermine' }, nature: 'fleurs', indices: [{ image: 1, vu: 'bande de terre fleurie' }], certitude: 'moyenne' },
       { genre: 'regard', points: [{ x: 0.6, y: 0.62 }], etendue: 0, arbre: { genre: 'sans-objet', taille: 'indetermine', persistant: 'indetermine' }, nature: 'sans-objet', indices: [{ image: 1, vu: 'petit carré gris' }], certitude: 'faible' },
     ] };
+    // La plate-bande se place dans un coin libre de la parcelle de la demonstration (aucun objet dessous : un massif deja la la
+    // ferait ecarter comme doublon), dans le cadrage que l'audit donnera a l'image (render/imagesAnalyse.ts, `dessinerOrthoJardin`).
+    const libre = await coinLibreDeLaParcelle(page);
+    if (libre) SORTIE.objets[0].points = libre.coins.map((c) => ({ x: Math.round(((c.x - libre.cadrage.xMin) / libre.cadrage.cote) * 1000) / 1000, y: Math.round((1 - (c.y - libre.cadrage.yMin) / libre.cadrage.cote) * 1000) / 1000 }));
     const serveur = await simulerAnalyse(page, { jardin: SORTIE });
     const tuile = 'data:image/jpeg;base64,' + readFileSync(new URL('../tests/fixtures/jardin-ia/jardin-test.jpg', import.meta.url)).toString('base64');
     const posee = await page.evaluate(async (dataUri) => {
@@ -3121,6 +3158,10 @@ const POINTS = {
     const avecImage = !!requete && requete.contenu[0]?.type === 'image' && requete.contenu.some((b) => b.type === 'text' && /couvre .* m de côté/.test(b.text));
     const ligne = await ligneProposition(page, 'Plate-bande');
     const regard = await ligneProposition(page, 'Regard');
+    if (!ligne) {
+      const diag = await page.evaluate(async () => { const { ortho } = await import('/src/render/ortho.ts'); return { tuiles: ortho.tuiles.length, etat: document.querySelector('.etatAnalyse')?.textContent ?? '', lignes: [...document.querySelectorAll('.ligneProposition')].map((l) => (l.textContent || '').slice(0, 50)) }; });
+      return { ok: false, mesure: `aucune ligne « Plate-bande » ; requêtes ${d ? d.requetes.map((r) => r.usage ?? 'analyse').join(',') : 'AUCUNE'} ; tuiles ${diag.tuiles} ; « ${diag.etat.slice(0, 120)} » ; lignes : ${diag.lignes.join(' | ')}` };
+    }
     const objetsAvant = await page.evaluate(() => window.__plan.etat().objects.length);
     await cocherLigne(page, 'Plate-bande');
     await page.waitForTimeout(1500);
@@ -4231,7 +4272,8 @@ function pointsPour(nomClasse) {
   // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
   // 108 : les carreaux d'une facade validee dessines dans les fenetres de la Vue 3D (lot F8).
   // 109 : les donnees d'analyse : l'export a travers les audits (CSV, JSON) et le rejeu d'une facade depuis son image gardee (lot L0).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108, 109];
+  // 110 a 112 : le jardin (lot L3) : la plate-bande et sa vegetation en 3D, le regard, la lecture du jardin acceptee dans l'avant/apres.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108, 109, 110, 111, 112];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

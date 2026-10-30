@@ -186,12 +186,13 @@ export function idAuditAnalyse(c: { id: string; debut: string }): string {
   return (c.id + '-' + c.debut.replace(/[^0-9]/g, '').slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
 }
 
-/** Les reponses d'un batch, rangees par batiment : les passes reussies, dans l'ordre des passes. */
+/** Les reponses d'un batch, rangees par batiment : les passes reussies, dans l'ordre des passes. Une requete d'un autre usage (le run d'une
+ * facade, la lecture du jardin) n'est pas une maison. */
 export function rangerResultats(resultats: readonly ResultatBatch[], requetes: BatchAnalyse['requetes']): Record<string, unknown[]> {
   const out: Record<string, { passe: number; sortie: unknown }[]> = {};
   for (const r of resultats) {
     const q = requetes[r.id];
-    if (!q || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie, CHAMPS_SIMPLES)) continue;
+    if (!q || q.usage || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie, CHAMPS_SIMPLES)) continue;
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
@@ -390,14 +391,14 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     const lu = await client.resultats(batch.id);
     const parBatiment = rangerResultats(lu.resultats, batch.requetes);
     const runs = rangerRuns(lu, batch.requetes, ctx.maintenant());
-    const jardin = batch.jardin ? runJardinDesResultats(lu, batch.jardin, ctx.maintenant()) : null;  // la lecture du jardin (lot L3), avec l'image qui l'a produite
+    const jardin = batch.jardin ? runJardinDesResultats(lu, batch.jardin, ctx.maintenant()) : null; // le jardin (lot L3) : l'image passe du batch a la lecture
     // D20 : un modele plus fin departage les passes en desaccord (appel immediat, sous les plafonds), avant les propositions.
     const esc = await escaladerLeBatch({ client, entrees: ctx.entrees, images: ctx.images, identite: ctx.identite }, parBatiment);
     if (esc.message) ctx.signaler(esc.message);
     const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, escalade: esc.parBatiment, ...(Object.keys(runs).length ? { runs } : {}), ...(jardin ? { jardin } : {}) };
     const n = Object.keys(parBatiment).length, s = n > 1 ? 's' : '';
     const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
-    noter({ resultats, erreur: n || jardin ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
+    noter({ resultats, ...(jardin ? { batch: { ...batch, jardin: null } } : {}), erreur: n || jardin ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
     if (n || jardin) {
       const texte = 'Les propositions de Claude sont prêtes : ' + (n ? n + ' bâtiment' + s + ' analysé' + s : '') + (n && jardin ? ', et ' : '') + (jardin ? 'le jardin lu sur la photo aérienne' : '') + '.';
       ctx.signaler(texte);
