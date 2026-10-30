@@ -162,23 +162,27 @@ export function synchroniserArbres(scene: THREE_NS.Object3D, dateStr: string | n
   }
   const arbres = arbresDeLaScene(scene, visible);
   if (!arbres.length) return 0;
-  const parLot = new Map<string, { espece: EspeceArbre; variante: number; arbres: typeof arbres }>();
+  const parLot = new Map<string, { espece: EspeceArbre; variante: number; couches: number; arbres: typeof arbres }>();
   for (const a of arbres) {
     const espece = especeParId(a.d.espece, especesChargees());
     if (!espece) continue;
-    const cle = espece.id + '#' + a.d.variante;
-    const lot = parLot.get(cle) ?? { espece, variante: a.d.variante, arbres: [] };
+    // La couche compte aussi : un arbre propose par l'audit n'est que dans la vue « Après » (three/comparaison3d.ts), son lot aussi.
+    const couches = a.groupe.layers.mask;
+    const cle = espece.id + '#' + a.d.variante + '#' + couches;
+    const lot = parLot.get(cle) ?? { espece, variante: a.d.variante, couches, arbres: [] };
     lot.arbres.push(a);
     parLot.set(cle, lot);
   }
   const groupe = new THREE.Group();
   groupe.name = NOM_LOTS;
-  for (const { espece, variante, arbres: liste } of parLot.values()) {
+  for (const { espece, variante, couches, arbres: liste } of parLot.values()) {
     const modele = modeleArbre(espece, variante);
     if (!modele) continue;
     const branches = faireLot(NOM_LOT_BRANCHES, modele.branches, modele.matBois, liste, modele, false);
+    branches.layers.mask = couches;
     groupe.add(branches);
     const feuilles = faireLot(NOM_LOT_FEUILLES, modele.feuilles, modele.matFeuilles, liste, modele, true);
+    feuilles.layers.mask = couches;
     feuilles.userData.caduc = espece.caduc;
     feuilles.visible = !arbreNu(espece.caduc, dateStr);
     groupe.add(feuilles);

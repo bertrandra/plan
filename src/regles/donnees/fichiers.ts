@@ -13,6 +13,7 @@ import silhouettesToitsBrut from '../../../regles/toits/silhouettes.json?raw';
 import formesToitsBrut from '../../../regles/toits/formes.json?raw';
 import reconciliationBrut from '../../../regles/reconciliation.json?raw';
 import iaFacadesBrut from '../../../regles/facades/ia.json?raw';
+import jardinBrut from '../../../regles/jardin/reglages.json?raw';
 import { empreinteReglagesToits, lireReglagesToits } from '../toits/reglages.js';
 import { formeEmpreinteProfils, lireProfilsToits } from '../toits/profils.js';
 import { empreinteFaitsToits, lireFaitsToits } from '../toits/faits.js';
@@ -21,8 +22,9 @@ import { empreinteSilhouettesToits, lireSilhouettesToits } from '../toits/silhou
 import { empreinteFormesToits, lireFormesToits } from '../toits/formes.js';
 import { empreinteReconciliation, lireReconciliation } from '../reconciliation.js';
 import { empreinteReglagesIa, lireReglagesIa } from '../facades/ia.js';
+import { empreinteReglagesJardin, lireReglagesJardin } from '../jardin/reglages.js';
 
-export type IdDonnees = 'reglagesToits' | 'reglagesFacades' | 'faitsToits' | 'silhouettesToits' | 'formesToits' | 'reconciliation' | 'iaFacades';
+export type IdDonnees = 'reglagesToits' | 'reglagesFacades' | 'faitsToits' | 'silhouettesToits' | 'formesToits' | 'reconciliation' | 'iaFacades' | 'jardin';
 
 export interface FichierDonnees {
   id: IdDonnees;
@@ -90,5 +92,11 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     refus: (j) => essayer(() => lireReglagesIa(j)),
     empreinte: (j) => { try { return empreinteReglagesIa(lireReglagesIa(j)); } catch { return null; } },
     consequence: { ou: 'aucune ligne de version : l’empreinte est inscrite dans chaque rejeu en mode « IA » de la calibration', effet: 'les observations de Claude sur une façade (angles, colombage, pointes, boîtes) se décident avec ces seuils : la pose candidate, les poses écartées par le colombage, les boîtes cochées ou décochées, les alertes de hauteur' },
+  },
+  {
+    id: 'jardin', libelle: 'Règles de la lecture du jardin (Claude)', chemin: 'regles/jardin/reglages.json', livre: jardinBrut, seuils: true,
+    refus: (j) => essayer(() => lireReglagesJardin(j)),
+    empreinte: (j) => { try { return empreinteReglagesJardin(lireReglagesJardin(j)); } catch { return null; } },
+    consequence: { ou: 'aucune ligne de version : l’empreinte est gardée avec chaque lecture du jardin enregistrée', effet: 'les objets lus sur la photo aérienne se décident avec ces seuils : ce qui est assez sûr, ce qui est déjà dans le plan, ce qui va sur la clôture' },
   },
 ];

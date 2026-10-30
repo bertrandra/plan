@@ -9,8 +9,8 @@ export type { Pt, PtEcran, PtBrut, Segment } from './points.js';
 export type { TypeOuverture, OuvertureFacade, SourceOuverture, DetailsOuverture, GrilleFacade, CorrectionOuverture, ReleveFacade, SourceCoinReleve, CalagePhotoReleve, CalageReleve, PartieBasse, CarreauxOuverture, GrilleCarreaux, DimensionsFacade, FormeFacade, PointeLue, CorpsDeFacade, SurfaceFacade, ParementFacade, TextureCalee } from './typesReleve.js';
 export type { FormeToitSimple, FormeToitCatalogue, FormeToit, ToitMesure, PignonToit, ToitACheval, CorpsToit, ElementDeToit, GenreSaillie, FormeSaillie, SaillieFacade, BaieToit, SpecialeToit, ProfilPan, BoutToit, TypeLucarne, Lucarne, BordsToit, PositionCheminee, Cheminee, EdiculeTerrasse, TerrasseToit, VolumeToit, CouvertureChoisie, Toit } from './typesToit.js';
 import type { DeclarationPrealable } from './typesCalcul.js';
-import type { ChampsBatiment, ChampsArbre, ChampsParasol, TextureAppliquee } from './typesFonctions.js';
-export type { ChampsBatiment, ChampsArbre, ChampsParasol, TextureAppliquee, Fenetre3d, ProfilFacadesRetenu, Fenetres3d, VerifieSurPlace } from './typesFonctions.js';
+import type { ChampsBatiment, ChampsArbre, ChampsParasol, Plantation, NatureEquipement, TextureAppliquee } from './typesFonctions.js';
+export type { ChampsBatiment, ChampsArbre, ChampsParasol, Plantation, FormePlantation, TypePlantation, NatureEquipement, TextureAppliquee, Fenetre3d, ProfilFacadesRetenu, Fenetres3d, VerifieSurPlace } from './typesFonctions.js';
 export type { ZoneNeige, CategorieTerrain, HypothesesCalcul, DeclarationPrealable } from './typesCalcul.js';
 import type { Cloture, TypeCloture } from './typesCloture.js';
 export type { TypeCloture, ParementMur, EssenceHaie, LimiteCloture, SoubassementCloture, ReglageCloture, CoteCloture, OuverturePortail, FormePortail, RemplissagePortail, MateriauPortail, PiliersPortail, Portail, Cloture } from './typesCloture.js';
@@ -208,6 +208,17 @@ interface ObjetCommun {
   pergola?: Pergola | null;
   /** Les reglages d'une piscine (`engine/piscine.ts`), sur un polygone ou un cercle de fonction `piscine`. */
   piscine?: Piscine | null;
+  /** La plantation d'un massif (model/jardin.ts, lot L3) ; absente : le bloc d'avant. */
+  plantation?: Plantation | null;
+  /** La vegetation basse d'un massif plante, dessinee par defaut en 3D : seul son retrait s'ecrit (comme `gazon3d`). */
+  vegetation3d?: false;
+  /** La nature d'un equipement (lot L3 : regard, eclairage, robinet) ; absente : un spa, qui charge la terrasse. */
+  nature?: NatureEquipement;
+  /**
+   * Un ouvrage qui existe deja sur le terrain (une piscine, une terrasse, un chemin lus sur la photo aerienne, lot L3 ; schema 8) :
+   * il situe le projet et se dessine, mais il ne se chiffre ni ne se declare (model/fonctions.ts, `estExistant`). Absent : a faire.
+   */
+  existant?: true;
   /**
    * Le relief du sol lu a l'IGN (MD/spec-relief.md), range sur la parcelle du projet comme le lieu
    * et le fond orthophoto. Absent tant que personne ne l'a lu : le plan est alors plat, et le

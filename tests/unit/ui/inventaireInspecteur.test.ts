@@ -97,10 +97,11 @@ const DECIDE: Record<string, { sections: string[]; plis?: Record<string, Record<
   },
   'Chemin Arrière': { sections: ['objet', 'apparence', 'cotes*'] },
   'Dalle beton': { sections: ['objet', 'apparence', 'cotes*', 'coins*'] },
-  'Plattebande Rue': { sections: ['objet', 'apparence', 'cotes*', 'coins*'] },
+  // Lot L3 : un massif a sa section Plantation (type, plantes, vegetation en 3D, mini-arbre), un equipement sa nature (regard...).
+  'Plattebande Rue': { sections: ['objet', 'apparence', 'massif', 'cotes*', 'coins*'] },
   'Parking': { sections: ['objet', 'apparence', 'cotes*', 'coins*'] },
   'Trou 1': { sections: ['objet', 'apparence', 'trou', 'cotes*', 'coins*'] },
-  'Spa': { sections: ['objet', 'apparence'] },
+  'Spa': { sections: ['objet', 'apparence', 'equipement'] },
   'Chêne': { sections: ['objet', 'apparence', 'arbre'] },
   'AE 103': { sections: ['objet', 'parcelle', 'apparence'] },
   'Coin entrant terrasse': { sections: ['objet', 'apparence', 'pointDeVue'] }

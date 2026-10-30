@@ -9,7 +9,7 @@
 // MD/spec-ouvrages.md) ; ce module en tire les predicats que le reste du code lit.
 
 import type { ObjetPlan } from './types.js';
-import { ouvrage, ouvrageDeclare, estOuvrage, TERRAIN, POINT_DE_VUE, type Forme, type Particularite } from './ouvrages/index.js';
+import { ouvrage, ouvrageDeclare, estOuvrage, TERRAIN, POINT_DE_VUE, EQUIPEMENT, type Forme, type Particularite } from './ouvrages/index.js';
 
 export type { Forme, Particularite };
 
@@ -87,6 +87,8 @@ export const estVueUtilisable = (o: ObjetPlan): boolean => aParticularite(o, 'po
 export function occupeLeSol(o: ObjetPlan): boolean {
   const ouv = ouvrage(o.fonction);
   if (estTerrain(o) || ouv.sansEmprise) return false;
+  // Un equipement du jardin (un regard au ras du sol, une borne, un robinet ; lot L3) se pose sur l'herbe sans la percer.
+  if (o.nature && o.nature !== 'spa' && estOuvrage(o, EQUIPEMENT)) return false;
   if (o.type === 'path') return !!ouv.aUneLargeur;
   return o.type === 'polygon' || o.type === 'circle';
 }
@@ -97,6 +99,12 @@ export function occupeLeSol(o: ObjetPlan): boolean {
  * tourne (decision du 27 octobre 2026) ; un decalage se corrige par le recalage, pas a la main.
  */
 export const estPoseSurLeTerrain = (o: { cadastre?: unknown; bdtopo?: unknown }): boolean => !!o.cadastre || !!o.bdtopo;
+
+/**
+ * Un ouvrage qui existe deja (lot L3 : une piscine, une terrasse, un chemin lus sur la photo aerienne, `existant`) : il situe le projet
+ * et se dessine, mais aucune quantite ne le compte (ni chiffrage, ni dossier, ni zone d'equipement sous une terrasse).
+ */
+export const estExistant = (o: { existant?: unknown }): boolean => o.existant === true;
 
 /** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
 export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);

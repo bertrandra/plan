@@ -90,6 +90,8 @@ export function comparerObjets3d(apres: Apres3d | null): boolean {
   oublierComparaison(d.co.scene);
   if (!apres) {
     couperDeuxVues(d.sc);
+    // Un arbre propose (lecture du jardin) quitte la scene avec sa comparaison : ses lots se refont.
+    rafraichirArbres(d.co.scene as THREE_NS.Scene, d.ground);
     appliquerOmbres(d.co.scene, d.ground);
     rendre3d(d.sc);
     return true;
@@ -115,6 +117,8 @@ export function comparerObjets3d(apres: Apres3d | null): boolean {
     // Sous une cle qu'aucun objet du plan ne porte : la cloture n'est pas un objet.
     comparaison.apres.set('', neufs);
   }
+  // Les arbres poses de chaque cote (un arbre propose n'est que dans « Après ») : leurs lots se refont, couche par couche.
+  rafraichirArbres(co.scene as THREE_NS.Scene, d.ground);
   appliquerOmbres(co.scene, d.ground);
   activerDeuxVues(d.sc);
   rendre3d(d.sc);

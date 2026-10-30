@@ -7,6 +7,7 @@
 // un rectangle qui sortirait de la parcelle, le rayon d'un cercle aussi — mais elles sont ici, a
 // cote du champ, et non au fond d'un ecouteur.
 
+import { sectionEquipement, sectionMassif } from './jardin.js';
 import { especeDe, especesChargees, especeParId, especesParTaille } from '../../model/especesArbre.js';
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
@@ -419,6 +420,8 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   if (fenetres3d) sections.push(fenetres3d);
   sections.push(sectionApparence);
   if (aParticularite(o, 'arbre')) sections.push(sectionArbre);
+  if (aParticularite(o, 'massif')) sections.push(sectionMassif);
+  if (aParticularite(o, 'equipement')) sections.push(sectionEquipement);
   if (aParticularite(o, 'ouverture')) sections.push(sectionTrou);
   if (aParticularite(o, 'parasol')) sections.push(sectionParasol);
   if (aParticularite(o, 'pointDeVue')) sections.push(sectionPointDeVue);

@@ -12,13 +12,15 @@ import { EMPREINTE_REGLAGES_FACADES } from '../../../../src/regles/facades/regla
 import { EMPREINTE_RECONCILIATION } from '../../../../src/regles/reconciliation.js';
 import { EMPREINTE_SILHOUETTES_TOITS } from '../../../../src/regles/toits/silhouettes.js';
 import { EMPREINTE_FORMES_TOITS } from '../../../../src/regles/toits/formes.js';
+import { empreinteReglagesJardin } from '../../../../src/regles/jardin/reglages.js';
+import { REGLAGES_JARDIN } from '../../../../src/app/regles/jardin.js';
 
 const fichier = (id: string) => FICHIERS_DONNEES.find((f) => f.id === id)!;
 const toits = fichier('reglagesToits'), facades = fichier('reglagesFacades'), faits = fichier('faitsToits');
 
 describe('les fichiers livrés', () => {
   it('sont acceptés tels quels par le lecteur du code, et leur empreinte est celle que le code calcule', () => {
-    expect(FICHIERS_DONNEES.map((f) => f.chemin)).toEqual(['regles/toits/reglages.json', 'regles/facades/reglages.json', 'regles/toits/faits.json', 'regles/toits/silhouettes.json', 'regles/toits/formes.json', 'regles/reconciliation.json', 'regles/facades/ia.json']);
+    expect(FICHIERS_DONNEES.map((f) => f.chemin)).toEqual(['regles/toits/reglages.json', 'regles/facades/reglages.json', 'regles/toits/faits.json', 'regles/toits/silhouettes.json', 'regles/toits/formes.json', 'regles/reconciliation.json', 'regles/facades/ia.json', 'regles/jardin/reglages.json']);
     expect(controlerDonnees(toits, toits.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_REGLAGES_TOITS });
     expect(controlerDonnees(facades, facades.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_REGLAGES_FACADES });
     expect(controlerDonnees(faits, faits.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_FAITS_TOITS });
@@ -34,6 +36,13 @@ describe('les fichiers livrés', () => {
     const plus = changerSeuil(ia.livre, 'facades.ia.colombagePartMax', 'valeur', 0.8)!;
     expect(bilanDonnees(ia, plus)).toMatchObject({ lignes: 1, empreinteChange: true });
     expect(controlerDonnees(ia, changerSeuil(ia.livre, 'facades.ia.colombagePartMax', 'valeur', 3)!).erreur).toMatch(/colombagePartMax/);
+  });
+
+  it('montrent les seuils de la lecture du jardin (lot L3), et refusent une valeur hors de ses bornes', () => {
+    const j = fichier('jardin');
+    expect(controlerDonnees(j, j.livre)).toEqual({ valide: true, erreur: null, empreinte: empreinteReglagesJardin(REGLAGES_JARDIN) });
+    expect(seuilsDuTexte(j.livre).map((x) => x.nom)).toContain('jardin.ia.doublonM');
+    expect(controlerDonnees(j, changerSeuil(j.livre, 'jardin.ia.certitudeMin', 'valeur', 2)!).erreur).toMatch(/certitudeMin/);
   });
 
   it('ne montrent aucun écart avec eux-mêmes', () => {

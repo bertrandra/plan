@@ -13,6 +13,7 @@ import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from '../regles/decisions.js';
 import type { RunEnregistre } from '../regles/facades/observations.js';
+import type { RunJardin } from '../regles/jardin/observations.js';
 import type { OuvertureFacade, PtBrut } from './types.js';
 import type { TypeCloture, PositionPortail } from './clotureVue.js';
 export type { TypeCloture, PositionPortail } from './clotureVue.js';
@@ -189,7 +190,12 @@ export interface BatchAnalyse {
    * L'identifiant de requete -> la cle du batiment et la passe ; pour le run d'une facade (MD/spec-facade-calage-audit.md §8, lot F3),
    * aussi son cote, l'usage et la taille de l'image envoyee (l'elevation du mur, avant reduction).
    */
-  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'facade'; image?: { largeur: number; hauteur: number } }>;
+  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'facade' | 'jardin'; image?: { largeur: number; hauteur: number } }>;
+  /**
+   * La lecture du jardin envoyee avec le batch (lot L3) : l'image exacte (l'orthophoto recadree, JPEG), son cadrage dans le plan, le
+   * texte et le nombre de photos jointes. Gardee pour enregistrer la reponse avec ce qui l'a produite.
+   */
+  jardin?: Omit<RunJardin, 'le' | 'modele' | 'prompt' | 'schema' | 'sortie' | 'cout' | 'tokens'> | null;
   /** Les etiquettes des images envoyees, par batiment, dans l'ordre : les indices de Claude s'y referent. */
   etiquettes: Record<string, EtiquetteImage[]>;
 }
@@ -224,6 +230,8 @@ export interface ResultatsAnalyse {
    * Presente (meme vide) des que l'escalade a ete tentee : elle ne repart pas a la reprise d'un brouillon.
    */
   escalade?: Record<string, unknown>;
+  /** La lecture du jardin (lot L3), enregistree avec l'image envoyee : relue par le moteur a chaque calcul des propositions. */
+  jardin?: RunJardin | null;
 }
 
 /**

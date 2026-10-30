@@ -50,7 +50,12 @@ export const APP_VERSION = '5.0.0';
 // lecture de Claude et ses faits proposes ou valides. Un lecteur 7 le perdrait au premier enregistrement (la serialisation est une liste
 // blanche). La migration 7 -> 8 est l'identite ; un projet sans lecture du PLU s'ecrit toujours au plus petit schema qui le decrit.
 // La plateforme accepte deja 7 a 12 (contrat de la plateforme) : rien a deployer chez elle avant le depot.
-export const SCHEMA_VERSION = 8;
+// 9 : le jardin (lot L3 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.4) : la plantation d'un massif (`plantation` : son
+// type, plate-bande ou massif, son mini-arbre), le retrait de sa vegetation en 3D (`vegetation3d`), la nature d'un equipement (`nature` :
+// regard, eclairage, robinet) et la marque `existant`. Un lecteur 8 les perdrait au premier enregistrement (la serialisation est une
+// liste blanche), et un regard redeviendrait un spa qui charge la terrasse. La migration 8 -> 9 est l'identite ; la plateforme accepte
+// deja les schemas 7 a 12.
+export const SCHEMA_VERSION = 9;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-29';
 export const BUILD_SHA: string | null = null;

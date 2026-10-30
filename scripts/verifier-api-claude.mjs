@@ -38,6 +38,7 @@ import { fileURLToPath } from 'node:url';
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMAGE = path.join(racine, 'tests/fixtures/visuel/rue-compact-clair.jpg');
 const IMAGE_FACADE = path.join(racine, 'tests/fixtures/facades-ia/facade-test.jpg');
+const IMAGE_JARDIN = path.join(racine, 'tests/fixtures/jardin-ia/jardin-test.jpg');
 const PDF_PLU = path.join(racine, 'tests/fixtures/plu/chatou-ul-extrait.pdf');
 const MOT_DE_PASSE = 'verification-api-claude';
 const PLAFOND_DEFAUT = 0.05;
@@ -56,7 +57,11 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // l'escalade d'une maison envoie le corps de l'analyse (schema dans le prompt) avec ce meme modele, couvert par les deux.
 // Une seule requete du modele fin, pour tenir sous le plafond par defaut : une analyse d'une maison au tarif de Sonnet
 // (prompt et schema en ecriture du cache) en couterait a elle seule pres de la moitie.
-const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'plu' ? 'plu' : 'analyse');
+//
+// La lecture du jardin (usage `jardin`, lot L3) a ses fichiers et part sur une orthophoto de SYNTHESE du depot
+// (tests/fixtures/jardin-ia/jardin-test.jpg, dessinee par dessiner.py : aucune photo reelle) ; le script dit si sa sortie a la forme du
+// schema (objets, points, genre d'arbre). Une requete au modele rapide, quelques dixiemes de centime : sous le plafond par defaut.
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -114,6 +119,10 @@ function contenu(famille, image) {
   if (famille === 'facade') {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
+  }
+  if (famille === 'jardin') {
+    return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
+      { type: 'text', text: 'Image 1 : orthophoto de synthèse d’un jardin (image de test de la vérification de l’API), 30 m de côté, nord en haut ; contour de la parcelle en jaune, maison en blanc.\nLe plan ne contient encore rien dans le jardin.' }];
   }
   const texte = 'Image 1 : vue de la maison depuis la rue, prise à 12 m, vers 245° (image de test de la vérification de l’API).';
   return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }, { type: 'text', text: texte }];
@@ -201,9 +210,10 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   const aEnvoyer = [...groupes.values()].sort((a, b) => Number(demandeDe(a) === 'escalade') - Number(demandeDe(b) === 'escalade'));
   const image = fs.readFileSync(IMAGE).toString('base64');
   const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
+  const imageJardin = fs.readFileSync(IMAGE_JARDIN).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
   console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?')
-    + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
+    + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
   for (const g of aEnvoyer) {
@@ -213,7 +223,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
     // le defaut), comme pour la page ; `--modele` l'impose a toutes.
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
-      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : image) }] };
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
     process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -238,7 +248,11 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formePlu(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du PLU n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : '';
+    if (g.famille === 'jardin') {
+      const defaut = formeJardin(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du jardin n’a pas la forme du schéma : ' + defaut, 1); }
+    }
+    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : '';
     console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + resume + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
@@ -275,6 +289,26 @@ function formeFacade(s) {
   if (!Array.isArray(s.elements) || !Array.isArray(s.ouvertures)) return 'elements ou ouvertures absents';
   if (s.ouvertures.some((o) => !objet(o.details) || !objet(o.carreaux) || ![o.u0, o.u1, o.v0, o.v1].every((x) => typeof x === 'number'))) return 'une ouverture sans boîte, détails ou carreaux';
   return null;
+}
+
+/** Ce qui manque a une sortie de la lecture du jardin pour avoir la forme du schema (deploy/schema-jardin.json) ; null si rien. */
+function formeJardin(s) {
+  const objet = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  if (!Array.isArray(s.objets)) return 'objets absent';
+  for (const o of s.objets) {
+    if (!objet(o) || typeof o.genre !== 'string') return 'un objet sans genre';
+    if (!Array.isArray(o.points) || !o.points.length || o.points.some((p) => !objet(p) || typeof p.x !== 'number' || typeof p.y !== 'number')) return 'un objet sans points (x, y)';
+    if (o.points.some((p) => p.x < -0.05 || p.x > 1.05 || p.y < -0.05 || p.y > 1.05)) return 'un point hors de l’image : des pixels ou des mètres au lieu de parts ?';
+    if (!objet(o.arbre) || typeof o.arbre.genre !== 'string') return 'un objet sans bloc arbre';
+  }
+  return null;
+}
+
+/** La sortie de la lecture du jardin en quelques mots : combien d'objets de chaque genre. */
+function resumeJardin(s) {
+  const n = new Map();
+  for (const o of s.objets) n.set(o.genre, (n.get(o.genre) ?? 0) + 1);
+  return s.objets.length + ' objet(s)' + (n.size ? ' : ' + [...n].map(([g, k]) => k + ' ' + g).join(', ') : '');
 }
 
 /** Ce qui manque a une sortie de la lecture du PLU pour avoir la forme du schema (deploy/schema-plu.json) ; null si rien. */

@@ -43,6 +43,13 @@ function murNomme(o: ObjetPlan, f: Facade): Surbrillance {
 
 /** La surbrillance d'une ligne de proposition : la zone que son effet change, pas le batiment entier ; null quand elle n'est plus dans le plan. */
 export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Surbrillance | null {
+  // Un objet neuf du jardin (lot L3) : son emprise, a sa hauteur (un cercle en polygone), qu'il soit deja pose ou non.
+  if (p.effet.type === 'ajoutObjet') {
+    const o = p.effet.objet;
+    const pts = o.type === 'circle' ? Array.from({ length: 16 }, (_, i) => ({ x: o.center.x + o.r * Math.cos((i * Math.PI) / 8), y: o.center.y + o.r * Math.sin((i * Math.PI) / 8) })) : o.pts;
+    const haut = Math.max(0.3, typeof o.elevation === 'number' ? o.elevation : 0.3);
+    return pts.length ? zone([{ pts, bas: 0, haut, ferme: o.type !== 'path' }], centreDe(pts), haut) : null;
+  }
   if (p.cible.type === 'parcelle') {
     const pts = sommets(objets.find((o) => o.key === 'parcelle'));
     if (!pts) return null;

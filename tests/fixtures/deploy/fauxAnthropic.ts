@@ -121,6 +121,12 @@ export const TEXTE_FACADE_SANS_FORMAT = 'Je lis la façade {scène de synthèse}
  * "additionalProperties":false,"required":["calage",…],"properties":{"calage":{…"gauche":{"x":0.22,"egout":0.29,"sol… ») : le schema
  * recopie, ses valeurs logees dedans, et une fois `egout: 258` (des pixels). SYNTHETIQUE a partir de cet extrait.
  */
+/**
+ * La sortie de la lecture du jardin (deploy/schema-jardin.json, lot L3). SYNTHETIQUE : ecrite a la main sur l'orthophoto de synthese
+ * (tests/fixtures/jardin-ia/), ce n'est pas une reponse de Claude.
+ */
+export const SORTIE_JARDIN = (JSON.parse(fs.readFileSync(new URL('../jardin-ia/reponse-synthetique.json', import.meta.url), 'utf8')) as { sortie: { objets: unknown[]; confiance: string } }).sortie;
+
 /** Le schema du run d'une facade, tel que le serveur le lit (deploy/schema-facade.json). */
 export const schemaFacade = (): Record<string, unknown> =>
   (JSON.parse(fs.readFileSync(new URL('../../../deploy/schema-facade.json', import.meta.url), 'utf8')) as { schema: Record<string, unknown> }).schema;

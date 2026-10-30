@@ -15,6 +15,8 @@
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
 import { signatureAnalyse, type AccordAnalyse, type AccordFacadeCapture, type AnalyseCapture, type BatchAnalyse, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
 import { murDeLaTexture, rangerRuns, type ImageRunFacade } from './runsFacades.js';
+import { preparerJardin, runJardinDesResultats, type FabriqueImagesJardin } from './jardinClaude.js';
+import type { RunJardin } from '../../../regles/jardin/observations.js';
 import { dessinerImageFacade } from '../../../render/imageFacade.js';
 import type { Image } from '../../../facade/vision/homographie.js';
 import { chargerPixels } from '../../../render/couleurMurPhoto.js';
@@ -82,6 +84,11 @@ export interface ContexteAnalyse {
   accorder?: (runs: Record<string, RunEnregistre>) => Promise<Record<string, AccordFacadeCapture>>;
   delaiSuiviMs?: number;
   /**
+   * La lecture du jardin (lot L3) : qui dessine l'orthophoto de la parcelle et reduit les photos de la cloture. Absente, le batch ne
+   * porte pas de requete du jardin (les tests de l'analyse des maisons).
+   */
+  jardin?: FabriqueImagesJardin;
+  /**
    * L'essai du brouillon des regles est-il demande (`?regles=local`, administrateur) ? L'analyse part alors
    * avec le prompt du brouillon enregistre au serveur, s'il y en a un ; sinon avec celui du depot, et on le dit.
    */
@@ -115,6 +122,8 @@ export interface AnalyseClaude {
   accords(): Record<string, AccordFacadeCapture> | null;
   /** Le run de Claude de chaque facade (`cle#cote`), escalade comprise ; null sans resultat ou sans accord de la personne. */
   runs(): Record<string, RunEnregistre> | null;
+  /** La lecture du jardin enregistree (lot L3) ; null sans resultat ou sans accord de la personne. */
+  jardin(): RunJardin | null;
   /** L'escalade d'une facade, a la demande de la personne : une requete ; rend la phrase a lui dire. */
   escaladerFacade(k: string): Promise<string>;
   /** Le modele de l'escalade et ses prix, pour annoncer son cout ; null tant qu'ils ne sont pas connus. */
@@ -177,12 +186,13 @@ export function idAuditAnalyse(c: { id: string; debut: string }): string {
   return (c.id + '-' + c.debut.replace(/[^0-9]/g, '').slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
 }
 
-/** Les reponses d'un batch, rangees par batiment : les passes reussies, dans l'ordre des passes. */
+/** Les reponses d'un batch, rangees par batiment : les passes reussies, dans l'ordre des passes. Une requete d'un autre usage (le run d'une
+ * facade, la lecture du jardin) n'est pas une maison. */
 export function rangerResultats(resultats: readonly ResultatBatch[], requetes: BatchAnalyse['requetes']): Record<string, unknown[]> {
   const out: Record<string, { passe: number; sortie: unknown }[]> = {};
   for (const r of resultats) {
     const q = requetes[r.id];
-    if (!q || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie, CHAMPS_SIMPLES)) continue;
+    if (!q || q.usage || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie, CHAMPS_SIMPLES)) continue;
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
@@ -322,6 +332,22 @@ async function avecEssai(ctx: ContexteAnalyse, client: ClientAnalyse, demande: D
   return { ...demande, essai: 'brouillon' };
 }
 
+/**
+ * Ce qui part : l'analyse des maisons (preparerDemande) et, dans le meme batch, la lecture du jardin (lot L3) : une requete pour la
+ * parcelle, meme sans photo d'une maison. `prepare` null : rien a envoyer.
+ */
+async function preparerEnvoi(ctx: ContexteAnalyse) {
+  const maisons = await preparerDemande(ctx.entrees(), ctx.images, ctx.identite());
+  const jardin = ctx.jardin ? await preparerJardin(ctx.entrees(), ctx.jardin).catch(() => null) : null;
+  if (!maisons && !jardin) return { prepare: null, jardin: null };
+  const prepare = maisons ?? { demande: { ...ctx.identite(), usage: 'analyse' as const, requetes: [] }, requetes: {}, etiquettes: {}, sansRendu: [] };
+  if (jardin) {
+    prepare.demande.requetes.push(jardin.requete);
+    prepare.requetes[jardin.requete.id] = { cle: 'parcelle', passe: 1, usage: 'jardin' };
+  }
+  return { prepare, jardin };
+}
+
 export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
   const abonnes = new Set<() => void>();
   const publier = () => abonnes.forEach((f) => f());
@@ -365,15 +391,16 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     const lu = await client.resultats(batch.id);
     const parBatiment = rangerResultats(lu.resultats, batch.requetes);
     const runs = rangerRuns(lu, batch.requetes, ctx.maintenant());
+    const jardin = batch.jardin ? runJardinDesResultats(lu, batch.jardin, ctx.maintenant()) : null; // le jardin (lot L3) : l'image passe du batch a la lecture
     // D20 : un modele plus fin departage les passes en desaccord (appel immediat, sous les plafonds), avant les propositions.
     const esc = await escaladerLeBatch({ client, entrees: ctx.entrees, images: ctx.images, identite: ctx.identite }, parBatiment);
     if (esc.message) ctx.signaler(esc.message);
-    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, escalade: esc.parBatiment, ...(Object.keys(runs).length ? { runs } : {}) };
+    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, escalade: esc.parBatiment, ...(Object.keys(runs).length ? { runs } : {}), ...(jardin ? { jardin } : {}) };
     const n = Object.keys(parBatiment).length, s = n > 1 ? 's' : '';
     const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
-    noter({ resultats, erreur: n ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
-    if (n) {
-      const texte = 'Les propositions de Claude sont prêtes : ' + n + ' bâtiment' + s + ' analysé' + s + '.';
+    noter({ resultats, ...(jardin ? { batch: { ...batch, jardin: null } } : {}), erreur: n || jardin ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
+    if (n || jardin) {
+      const texte = 'Les propositions de Claude sont prêtes : ' + (n ? n + ' bâtiment' + s + ' analysé' + s : '') + (n && jardin ? ', et ' : '') + (jardin ? 'le jardin lu sur la photo aérienne' : '') + '.';
       ctx.signaler(texte);
       ctx.notifier?.(texte);
     }
@@ -411,14 +438,14 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     publier();
     try {
       await ctx.mesuresPretes();
-      const prepare = await preparerDemande(ctx.entrees(), ctx.images, ctx.identite());
+      const { prepare, jardin } = await preparerEnvoi(ctx);
       if (!prepare) { noter({ erreur: 'Aucune photo à analyser : photographiez une façade ou le toit.' }); return; }
       if (prepare.sansRendu.length) ctx.signaler(messageSansRendu(prepare.sansRendu));
       phase = 'envoi';
       publier();
       const sig = signature();
       const cree = await client.creerBatch(await avecEssai(ctx, client, prepare.demande));
-      const batch: BatchAnalyse = { id: cree.batch.id, creeLe: ctx.maintenant().toISOString(), signature: sig, requetes: prepare.requetes, etiquettes: prepare.etiquettes };
+      const batch: BatchAnalyse = { id: cree.batch.id, creeLe: ctx.maintenant().toISOString(), signature: sig, requetes: prepare.requetes, etiquettes: prepare.etiquettes, ...(jardin ? { jardin: jardin.envoi } : {}) };
       noter({ batch, resultats: null, erreur: null });
       ctx.signaler('Vos photos sont parties à l’analyse par Claude (accord du ' + jourDe(new Date(accord.t)) + ') : les propositions arriveront dans quelques minutes. Vous pouvez retirer cet accord depuis les propositions.');
       suivre();
@@ -465,6 +492,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     reponses: () => reponsesDe(lire()),
     accords: () => { const a = lire(); return a.accord && a.resultats?.accords ? a.resultats.accords : null; },
     runs: () => { const a = lire(); return a.accord && a.resultats?.runs ? a.resultats.runs : null; },
+    jardin: () => { const a = lire(); return a.accord && a.resultats?.jardin ? a.resultats.jardin : null; },
     escaladerFacade: escalader, prixEscalade,
     version: () => version,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },

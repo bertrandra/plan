@@ -186,3 +186,46 @@ export async function dessinerOrthoRecadree(tuiles: readonly TuileOrtho[], conto
   tracerEchelle(ctx, cad, taille, null);
   return { base64: base64De(cv.c.toDataURL('image/jpeg', QUALITE_JPEG)), mediaType: 'image/jpeg', largeur: taille, hauteur: taille };
 }
+
+/* ------------------------------------------------------------------------------------------------
+ * L'orthophoto du jardin (lot L3)
+ * --------------------------------------------------------------------------------------------- */
+
+/** L'orthophoto du jardin, carree, a 1 024 px (~1 400 tokens) : un regard ou un robinet y fait encore quelques pixels. */
+export const COTE_JARDIN_PX = 1024;
+/** Autour de la parcelle, en metres : une haie ou une cloture de limite se voit en entier. */
+export const MARGE_JARDIN_M = 2;
+
+/**
+ * L'orthophoto recadree sur la parcelle pour la lecture du jardin : les tuiles du fond, le contour de la parcelle en jaune, les
+ * batiments que Plan connait en blanc (Claude ne les decrit pas), l'echelle et le nord. Rend aussi le cadrage (le coin sud-ouest et le
+ * cote, en metres du plan) : c'est le geo-referencement qui ramene les positions de Claude dans le plan. Null sans tuile ou sans canevas.
+ */
+export async function dessinerOrthoJardin(tuiles: readonly TuileOrtho[], parcelle: readonly PtBrut[], batiments: readonly (readonly PtBrut[])[], taille = COTE_JARDIN_PX): Promise<{ image: ImageAnalyse; cadrage: { xMin: number; yMin: number; coteM: number } } | null> {
+  const cad = cadrageCarre(parcelle, taille, MARGE_JARDIN_M);
+  const utiles = tuilesDuCadrage(tuiles, cad);
+  if (!utiles.length) return null;
+  const cv = canevas(taille, taille);
+  if (!cv) return null;
+  const { ctx } = cv;
+  ctx.fillStyle = '#ddd';
+  ctx.fillRect(0, 0, taille, taille);
+  const k = taille / cad.coteM;
+  let posees = 0;
+  for (const t of utiles) {
+    try {
+      const img = await chargerImage(t.dataUri as string);
+      const hg = cad.px({ x: t.xMin, y: t.yMin + t.hauteur });
+      ctx.drawImage(img, hg.x, hg.y, t.largeur * k, t.hauteur * k);
+      posees++;
+    } catch { /* une tuile illisible laisse un trou gris */ }
+  }
+  if (!posees) return null;
+  for (const b of batiments) tracerContour(ctx, b, cad, '#ffffff');
+  tracerContour(ctx, parcelle, cad, '#ffeb3b');
+  tracerEchelle(ctx, cad, taille, null);
+  return {
+    image: { base64: base64De(cv.c.toDataURL('image/jpeg', QUALITE_JPEG)), mediaType: 'image/jpeg', largeur: taille, hauteur: taille },
+    cadrage: { xMin: cad.xMin, yMin: cad.yMin, coteM: cad.coteM },
+  };
+}

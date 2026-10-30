@@ -483,11 +483,12 @@ lists the engine, and nothing else lives in those folders.
 
 ```
 regles/                      data, the JSON the engine reads (repository root, compiled in the build)
-  toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture,enchainement,ia}.json   conformite.json   reconciliation.json
+  toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture,enchainement,ia}.json   conformite.json   reconciliation.json   jardin/reglages.json
   plu/reglages.json          the PLU reading and check thresholds (lot L4): pages sent to Claude, rounding tolerances
 src/regles/                  layer 2 — contract and validated data, pure
   decisions.ts               what a decision writes (Proposition, EffetProposition), applied in one history step
   toits/{reglages,profils,faits,formes,silhouettes}.ts    facades/reglages.ts    conformite.ts    reconciliation.ts
+  jardin/{observations,reglages}.ts   the garden reading's observations and thresholds (lot L3, below)
   facades/observations.ts    the façade run's observations (lot F2): what Claude returns, read and typed, the engine's input — the
                              chain never reads Claude's JSON; facades/ia.ts the reader of regles/facades/ia.json (the rules' thresholds)
 src/facade/regles/           layer 3 — the rules themselves, pure and synchronous
@@ -587,6 +588,31 @@ and one line, then the vocabulary Claude reads:
 5. If the subject changes a roof, it goes through the engine (a fact in constraint,
    `corpsSousContrainte`), never a shape of its own; a new threshold goes to `reglages.json` with its
    reason.
+
+**The garden reading (lot L3, 29 October 2026).** The garden is read per *parcel*, not per building, so it is not one of the
+`SUJETS` of the house analysis (whose description would change the house prompt): it is a run of its own, like a façade's, with the
+same discipline. One request per audit, in the analysis batch (usage `jardin`, Haiku by default), on the orthophoto cropped to the
+parcel (`render/imagesAnalyse.ts::dessinerOrthoJardin`, whose square framing is the image's geo-referencing) and the fence and gate
+photos of the capture.
+
+```
+src/regles/sujets/descriptions/jardinRun.ts   what Claude reads (prompt, schema, example) -> deploy/prompt-jardin.md, schema-jardin.json (generated)
+src/regles/jardin/observations.ts             the typed observations (positions as parts of the image), the recorded reading (RunJardin)
+src/regles/jardin/reglages.ts + regles/jardin/reglages.json   the thresholds (Admin › Règles edits them)
+src/facade/regles/jardin.ts                   the rules: certainty, outside the parcel, already in the plan, metres by the framing, the
+                                              nearest species of the admin library (a closed list of genera in the schema, mapped by a
+                                              rule), a fence/hedge/low wall/gate on a boundary written on that side's fence
+src/app/regles/jardin.ts                      the proposals: always unchecked, effect `ajoutObjet` (a new object) or `cloture`/`portail`
+src/app/audit/parcelle/jardinClaude.ts        the request in the batch, and the reading recorded with the exact image sent
+```
+
+A new object enters the plan only through `regles/decisions.ts::appliquerPropositions` (added under its key, never twice);
+`projetApres` appends it to the "After" copy, so the two 3D views show it on the "After" side only (tree lots are made per layer,
+`three/arbre3d.ts`). Objects already there (pool, terrace, path) carry `existant`: they locate the project and no quantity counts them. The fields are
+those of `MD/spec-lecture-ia-elargie.md` §4.4: a massif's `plantation` (its type, its form — plate-bande or massif —, a dwarf tree),
+`vegetation3d: false` (only the removal is written), an equipment's `nature` (absent: a spa, which loads the terrace). Low vegetation is
+drawn only on a massif that carries a `plantation` (`model/jardin.ts::VEGETATION_POUR_TOUS_LES_MASSIFS`, off: the demonstration's
+eleven massifs and its `.glb` do not move).
 
 **Who consumes it.** The address import, the background re-reading, the recalibration, the case
 replay (`facade/regles/rejeu.ts`, CI), the bench (`scripts/`), and the audit's proposals (§ below).
