@@ -26,6 +26,30 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   consommation connaissent l'usage `facade-toit`.
 - Points de fumée **118** (une couverture en écaille lue, dessinée) et **119** (une fenêtre de toit posée par le moteur).
 
+### Modifié
+
+- L'analyse d'une maison qui lit une membrane, un bac acier ou une toiture végétale le propose désormais (la 3D sait les dessiner) ;
+  `tuile-mecanique` reste la tuile (mécanique) d'avant.
+- Coût mesuré d'une façade lue en production : environ 0,0090 $ (le run, la lecture enrichie, et le toit lu, environ 0,0010 $),
+  contre 0,0080 $ en 5.2.0.
+- Le workflow « Vérifier l'API Claude » a 45 minutes (trois requêtes par façade à la mesure, et sa relance unique).
+
+### Supprimé
+
+- L'écriture de `ardoise-losange` comme matériau de couverture (relu `ardoise` + pose `losange`) ; les traductions locales des mots de
+  couverture (sujet `couverture`, arbitrage, contrôle du PLU), remplacées par la table de `model/couvertureLue.ts`.
+
+## [5.2.0] — 2026-10-30
+
+Version **mineure** au sens de `MD/RELEASE.md` : la façade enrichie (lot L1 : menuiseries, garde-corps, saillies, modénature, ce qui est
+posé contre le mur, état du bâti, lus par une seconde requête sur la même image), le garde-fou de la lecture des façades et le banc des
+modèles. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la
+date de build reste celle de la 5.1.0, le même jour ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités et `glb-structure.json` sont identiques. Le schéma des projets passe de 9 à 10 (la façade enrichie), par une
+migration identité, et un projet s'écrit toujours au plus petit schéma qui le décrit ; la plateforme accepte déjà les schémas 7 à 12.
+
+### Ajouté
+
 - **Façade enrichie, lot L1** (`MD/spec-lecture-ia-elargie.md` §4.1, §4.2, §12.2). Chaque façade lue par Claude l'est par **deux
   requêtes sur la même image** (décision du propriétaire du 30 octobre 2026, qui remplace pour L1 la décision 3) : le **run**, identique
   à la 5.1.0 à l'octet près, et la **lecture enrichie** (usage `facade-enrichie`, ses prompt et schéma générés, en sortie structurée
@@ -50,21 +74,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   réglage du modèle de chaque usage et le tableau de la consommation connaissent l'usage `facade-enrichie`. Le serveur remplit un
   nombre manquant de la valeur `default` que son schéma lui donne.
 - Points de fumée **116** (une façade enrichie lue, validée, dessinée) et **117** (un bow-window proposé, accepté, posé par le moteur).
-
-### Modifié
-
-- L'analyse d'une maison qui lit une membrane, un bac acier ou une toiture végétale le propose désormais (la 3D sait les dessiner) ;
-  `tuile-mecanique` reste la tuile (mécanique) d'avant.
-- Coût mesuré d'une façade lue en production : environ 0,0090 $ (le run, la lecture enrichie et le toit lu, environ 0,0010 $),
-  contre 0,0080 $ en L1.
-
-- Coût mesuré d'une façade lue en production : environ 0,0079 $ (le run, environ 0,0046 $, et la lecture enrichie, environ
-  0,0034 $), contre 0,0047 $ en 5.1.0 ; accepté par le propriétaire.
-- La modénature lue se dessine sur le mur relevé, où la maçonnerie déduite de l'époque ne se posait déjà pas ; les murs sans relevé
-  gardent la maçonnerie de leur époque. Le garde-corps d'avant, codé en constantes, devient le type `barreaux`, aux mêmes cotes.
-
-### Ajouté
-
 - **Garde-fou de la lecture des façades** (`MD/RELEASE.md` §8.2 bis, skill `facades` §5 quater). Ce que la lecture des façades par
   Claude savait faire en 5.1.0 ne peut plus se perdre sans que cela se voie. La référence garde trois mesures de main au même code de
   lecture (runs 40998593930, 41012308826 et 41014104555 de « Vérifier l'API Claude ») et le **plancher** de chaque ligne, le pire des
@@ -81,14 +90,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Coût mesuré d'une façade lue en production : environ 0,0079 $ (le run, environ 0,0046 $, et la lecture enrichie, environ
+  0,0034 $), contre 0,0047 $ en 5.1.0 ; accepté par le propriétaire.
+- La modénature lue se dessine sur le mur relevé, où la maçonnerie déduite de l'époque ne se posait déjà pas ; les murs sans relevé
+  gardent la maçonnerie de leur époque. Le garde-corps d'avant, codé en constantes, devient le type `barreaux`, aux mêmes cotes.
 - **« Vérifier l'API Claude » avec un autre modèle** : quand l'entrée `modele` est remplie (un banc des modèles), le garde-fou de la
   lecture ne juge pas la mesure, puisque ses planchers sont ceux de Haiku. Il ne relance aucune scène et ne fait pas finir le job en
   rouge. Avec `modele` vide, rien ne change.
-
-### Supprimé
-
-- L'écriture de `ardoise-losange` comme matériau de couverture (relu `ardoise` + pose `losange`) ; les traductions locales des mots de
-  couverture (sujet `couverture`, arbitrage, contrôle du PLU), remplacées par la table de `model/couvertureLue.ts`.
 
 ## [5.1.0] — 2026-10-30
 

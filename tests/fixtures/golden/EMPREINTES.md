@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, puis à la 5.1.0 le 30 octobre 2026.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, puis à la 5.2.0 le même jour.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `d7cc398378a95863c5d91e2e6fe8dca1cc8efa353b30fc83dae5a7a12df137db` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `5ae8897b1a6370b848f60451cb79ac7b8291e9f925850d39f16b2da512158b9d` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `115a53c63cdd9fe5833a7e2a0c68dfa3a09659e9d1b14da8b84b7aa5d73a4780` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `a141dd01ef3f923cfdd5e0d4436165afddf84106f0c3e93fe9a8c75e8f47da8c` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `ff55b142e7c2d9305ec150cf6fa07329f7f505d74747831b76a6d031237430b8` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `6fd211504113d2b385fa8492b1e636a135e7c10fddcccd31659a0452f97ccab4` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b242d65e2ae0b3756ccbb6923a8754519690c472bd7c8e744a0cf8b6d59439f7` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `c6095e19a96b490f42fa7c3e9915d8beba10b63f881a2611d7c5eef677b9a371` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `d430b090ed9a56945301fcaf9b17f9c5f5ebbff56ef61ea95293f6e1f9ec0bcd` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a9f33b7ea49aa342c630165624767e8a46b165cd67112a526abad9395770c13d` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `4864772b2690e3f30ab25f845047bb69ad37222ae9892e5de06435ec6a6ba905` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 284 | `0aeef0a28d8eef52415efa03f85baac810d4b8603a295f50a6c34eba44cbc15f` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `d8358fdf30ab74fee385832100ad5f482a566c5e9d0cfe84109cfa2a9fd0b45c` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 284 | `ad8a39d5978628d7bba613940b5a3cea965bfa351211fb616cfa2a734d4bd7ec` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -960,3 +960,26 @@ de build, une fois dans chacun des quatre PDF. Le numéro garde sa longueur : `o
 | `dossier.pdf` (normalisée) | `9ef721fc…` | `c6095e19…` |
 | `dossier-piscine.pdf` (brute) | `37085b8b…` | `4864772b…` |
 | `note-calcul.pdf` (brute) | `009ac14e…` | `0aeef0a2…` |
+
+
+## Version 5.2.0 (30 octobre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.1.0 (façade enrichie, lot L1 ; garde-fou de la lecture des façades ; banc des modèles) ne change aucune
+quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et
+`glb-structure.json` ne bougent pas. Les sept témoins régénérés passent à `5.2.0` ; la date de build reste celle de la 5.1.0
+(`2026-10-30`, même jour) et ne bouge donc pas (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis
+`REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/empreintesPiscinePergola.test.ts`). **La preuve forte, sept sur sept** :
+`5.2.0` → `5.1.0` remis dans les octets frais rend les fichiers de la 5.1.0 **au bit près**, tailles identiques à l'octet, pour
+`resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf`. Occurrences du numéro :
+une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant
+que de `5.1.0` dans les témoins d'avant. Le numéro garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.1.0 | Empreinte 5.2.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `d7cc3983…` | `a141dd01…` |
+| `plan.svg` (normalisée) | `5ae8897b…` | `ff55b142…` |
+| `plan.dxf` (normalisée) | `115a53c6…` | `6fd21150…` |
+| `plan.pdf` (normalisée) | `b242d65e…` | `d430b090…` |
+| `dossier.pdf` (normalisée) | `c6095e19…` | `a9f33b7e…` |
+| `dossier-piscine.pdf` (brute) | `4864772b…` | `d8358fdf…` |
+| `note-calcul.pdf` (brute) | `0aeef0a2…` | `ad8a39d5…` |
