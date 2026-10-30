@@ -3126,7 +3126,7 @@ const POINTS = {
     const ok = !!surLePlan && surLePlan.l > 0 && Math.abs(surLePlan.l - surLePlan.h) < 2 && nature === 'regard' && !!lu && lu.epaisseur <= 0.04 && lu.cote === 0.6;
     return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + Math.round(lu.epaisseur * 1000) / 10 + ' cm d’épaisseur' : 'ABSENTE'}` };
   },
-  112: async (page, f) => {
+  115: async (page, f) => {
     // La lecture du jardin dans l'audit (lot L3), contre une API simulee : une tuile d'orthophoto posee sous la parcelle (l'image de
     // synthese du depot, tests/fixtures/jardin-ia/), l'accord, le batch part avec la requete du jardin (usage `jardin`, l'orthophoto
     // recadree puis le texte) ; sa reponse SYNTHETIQUE propose une plate-bande et un regard, DECOCHES. Cochee, la plate-bande se
@@ -4360,8 +4360,8 @@ function pointsPour(nomClasse) {
   // 108 : les carreaux d'une facade validee dessines dans les fenetres de la Vue 3D (lot F8).
   // 109 : les donnees d'analyse : l'export a travers les audits (CSV, JSON) et le rejeu d'une facade depuis son image gardee (lot L0).
   // 120 : la lecture du reglement de la zone du PLU par Claude, ses regles validees et la conformite du projet (lot L4).
-  // 110 a 112 : le jardin (lot L3) : la plate-bande et sa vegetation en 3D, le regard, la lecture du jardin acceptee dans l'avant/apres.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108, 109, 110, 111, 112, 120];
+  // 110, 111 et 115 : le jardin (lot L3) : la plate-bande et sa vegetation en 3D, le regard, la lecture du jardin acceptee dans l'avant/apres.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108, 109, 110, 111, 115, 120];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -57,7 +57,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   enregistrée avec la réponse brute, les versions, le modèle, le coût et l'image exacte envoyée.
 - `scripts/verifier-api-claude.mjs` vérifie aussi la requête du jardin, sur une orthophoto de synthèse du dépôt
   (`tests/fixtures/jardin-ia/`, réponse de test SYNTHÉTIQUE).
-- Fumée : points 110 (plate-bande et sa végétation en 3D), 111 (regard), 112 (lecture du jardin acceptée dans l'avant/après).
+- Fumée : points 110 (plate-bande et sa végétation en 3D), 111 (regard), 115 (lecture du jardin acceptée dans l'avant/après).
 
 - **Lecture élargie par l'IA, lot L0 : tout garder** (`MD/spec-lecture-ia-elargie.md` §4.8, §12.1, décision 7). **Toute requête à
   Claude laisse une trace sur le serveur** : ce qui est parti (le texte complet, chaque requête, les images par empreinte) et ce qui
