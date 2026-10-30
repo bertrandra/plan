@@ -3341,7 +3341,10 @@ const POINTS = {
       appendices: [{ nature: 'store', u0: 0.1, u1: 0.3, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
       etat: [{ nature: 'fissure', u0: 0.62, u1: 0.64, v0: 0.1, v1: 0.4, confiance: 'moyenne' }],
     };
-    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE });
+    // Le toit lu (lot L2), la troisieme requete : rien de vu sur le toit. Sans reponse, son echec ajouterait un second signal (celui de la
+    // lecture du toit) a celui de la fissure, que ce point compte seul.
+    const TOIT = { toit: { couverture: 'indetermine', pose: 'indetermine', debord: 'indetermine', faitage: 'indetermine', gouttiere: 'indetermine', confiance: 'faible' }, elements: [] };
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE, toit: TOIT });
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const releve = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? [])));
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
@@ -3359,6 +3362,7 @@ const POINTS = {
     for (let i = 0; i < 120 && !serveur.demandes.some((d) => d.requetes?.some((q) => q.usage === 'facade')); i++) await page.waitForTimeout(500);
     const runs = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade').length;
     const enrichies = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-enrichie').length;
+    const toits = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-toit').length;
     await page.waitForTimeout(4000);
     await etape('retour liste', () => toucher(page.locator('.auditPropositions [data-controle="auditParcelle.liste"]').first()));
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
@@ -3389,7 +3393,7 @@ const POINTS = {
       && signal === 1 && lignes.some((l) => /^Signalé par Claude, à vérifier : une fissure/.test(l))
       && menuiseries >= 3 && gardes >= 2 && r.modenature?.bandeauxM?.length === 1 && r.appendices?.[0]?.nature === 'store' && r.etat?.[0]?.nature === 'fissure'
       && modenature3d && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
-    return { ok, mesure: `${runs} passe(s) du run et ${enrichies} de la lecture enrichie envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `${runs} passe(s) du run, ${enrichies} de la lecture enrichie et ${toits} du toit lu envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   117: async (page, f) => {
     // Une saillie lue sur la facade, proposee, acceptee, posee par le moteur (lot L1, MD/spec-lecture-ia-elargie.md §4.2, §5.1), contre

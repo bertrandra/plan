@@ -49,6 +49,13 @@ accepte déjà les schémas 7 à 12.
 - L'écriture de `ardoise-losange` comme matériau de couverture (relu `ardoise` + pose `losange`) ; les traductions locales des mots de
   couverture (sujet `couverture`, arbitrage, contrôle du PLU), remplacées par la table de `model/couvertureLue.ts`.
 
+### Corrigé
+
+- **Point 116 de la fumée** (la façade enrichie lue, validée, dessinée) : son API simulée ne répondait pas à la troisième requête
+  (`facade-toit`, lot L2) ; l'écran disait donc, à raison, que la lecture du toit n'avait rien rendu, et ce second signal faisait échouer
+  le point, qui compte celui de la fissure seul (trois classes, à l'identique au calme). Le point reçoit une lecture du toit qui ne voit
+  rien (`scripts/fumee.mjs`) ; l'application ne change pas.
+
 ## [5.2.0] — 2026-10-30
 
 Version **mineure** au sens de `MD/RELEASE.md` : la façade enrichie (lot L1 : menuiseries, garde-corps, saillies, modénature, ce qui est
