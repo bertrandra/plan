@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.1.0] — 2026-10-30
+
+Version **mineure** au sens de `MD/RELEASE.md` : façades (lots F0 à F8 : calage, run de Claude en trois passes et escalade, diagnostic
+de forme, objet Façade, photos dans l'audit, cheminées et lucarnes, carreaux en 3D), lecture du PLU (L4), jardin (L3), trace de toute
+requête Claude et export des données d'analyse (L0), pause du rendu 3D sous la liste de l'audit. Aucune quantité ni aucun export de la
+démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version et à leur date de build (preuve forte, sept sur sept,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques. Le schéma des projets
+passe de 6 à 9 (7 : la Façade validée ; 8 : le règlement du PLU ; 9 : le jardin), chaque fois par une migration identité, et un projet
+s'écrit toujours au plus petit schéma qui le décrit ; la plateforme accepte déjà les schémas 7 à 12.
+
 ### Ajouté
 
 - **Façades, lot F7 : les éléments découverts** (`MD/spec-facade-calage-audit.md` §4 É8, §5 bis, §5 quater, §9). Une **bosse plus
