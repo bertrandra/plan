@@ -498,7 +498,7 @@ la mesure dans sa section du §9 bis.
 | Lot | Appel | Usage | Requêtes | Entrée | Coût estimé, Haiku | Escalade Sonnet (à la demande) |
 |---|---|---|---|---|---|---|
 | L1 | **seconde requête** sur l'image du run (décision du 30 octobre 2026), en sortie structurée | `facade-enrichie` | 3 par façade, en plus des 3 du run (inchangé) | la même image + texte | mesuré : ≈ 0,0034 $ la façade en plus du run (≈ 0,0079 $ les deux, accepté) | aucune (l'escalade ne relit que le run) |
-| L2 | **même run** (image de F7) | `facade` | idem | idem | ≈ + 0,001 $ la façade | idem |
+| L2 | **troisième requête** sur l'image du run (décision 3, 30 octobre 2026), en sortie structurée | `facade-toit` | 3 par façade, en plus des 6 du run et de la lecture enrichie | la même image + texte | mesuré : 0,00100 $ la façade en plus (≈ 0,0090 $ les trois requêtes) | aucune (l'escalade ne relit que le run) |
 | L3 | aérienne de la parcelle | `jardin` | 3 par parcelle | une image 1 024 px | ≈ 0,003 $ | ≈ 0,02 $ |
 | L3 | photos du jardin | `jardin` | 3 par photo | une image | ≈ 0,003 $ la photo (≈ 0,02 $ pour six) | ≈ 0,02 $ la photo |
 | L4 | pages de la zone | `plu` | 3 | 10 à 30 pages, **sous 100 000 tokens** | ≈ 0,005 à 0,02 $ | ≈ 0,1 à 0,2 $ |
@@ -840,3 +840,49 @@ run, le schéma du run sans union (version 4) et sa règle du -1, devenus sans o
 
 **Fumée.** Points **116** et **117** nouveaux ; 24, 102, 103, 104, 105 et 108 rejoués : 24 sur 24 (compact, moyen, large ; clair ;
 réseau témoin).
+
+### 12.3 L2 — Toit enrichi (30 octobre 2026)
+
+**Ce qui est livré.**
+
+- **Une troisième requête par façade, sur la même image** (usage `facade-toit`, `src/regles/sujets/descriptions/facadesToit.ts`, prompt et
+  schéma v1 générés) : `toit` (couverture dans le vocabulaire de l'analyse d'une maison, la grande ardoise en losange en moins puisque
+  c'est sa `pose` ; pose droite, losange, écaille ; débord ; faîtage ; gouttière ; confiance) et `elements[]` (fenêtre de toit, champ
+  de panneaux, `u0`, `u1`, `v` au-dessus de l'égout). Trois passes votées (`facade/regles/facades/voteToit.ts`), gardées avec le run
+  (`RunEnregistre.toit`, même forme que la lecture enrichie). Audit : dans le même batch, avec la place que les runs et les lectures
+  enrichies laissent ; calibration : en même temps qu'eux, l'image encodée une fois.
+- Les règles (`facade/regles/facades/toitLu.ts`) : la couverture lue devient un constat de la photo de façade que la règle
+  prioritaire `couverture lue sur la façade` (`regles/reconciliation.json`) fait passer devant l'analyse d'une maison et les fichiers
+  fonciers — **la plus proche l'emporte** (question 8) ; Claude n'étant jamais seul, la ligne arrive décochée. Le débord lu ne fait
+  qu'une alerte sur l'écran de la façade (question 18). Le faîtage et la gouttière vont aux bords du corps du mur (`bordsDuToit`). Une
+  fenêtre de toit ou un panneau s'adresse au corps par son mur ; le moteur la pose (`corpsSousContrainte`,
+  `elementsDesMurs.ts::elementToitPoseSurLeMur`) sur le pan dont ce mur est l'égout, `sM` de la place lue, `dM` de la hauteur lue par la
+  pente du pan ; rien sur un mur de bout, un toit plat, ni là où un élément du même genre est déjà.
+- Le modèle (schéma **11**) : `Toit.pose`, `CouvertureChoisie` gagne `bac-acier`, `membrane`, `vegetale` et perd `ardoise-losange`
+  (relu `ardoise` + `losange` par la migration 10 → 11 : même texture, même `.glb`) ; `BordsToit.faitage`, `BordsToit.gouttiere`. La
+  table unique des mots (`model/couvertureLue.ts`) : `tuile-mecanique` y est `tuile` (déjà la tuile mécanique : un mot neuf aurait fait
+  se contredire l'analyse d'une maison et les fichiers fonciers qui s'accordaient), `ardoise-losange` reste un mot lu.
+- La 3D : textures écaille (ardoise, tuile plate), bac acier, membrane, végétale ; la gouttière (pendante, nantaise) le long des égouts
+  en façade et le faîtage (tuiles, zinc, crête). L'inspecteur gagne « Pose ». Un toit sans ces champs se dessine à l'identique.
+
+**Pourquoi une troisième requête** (décision 3, §1). Sonde à bas coût (run 41026430391, une requête par usage, 0,033 $) : le schéma de la
+lecture enrichie avec les champs du toit est refusé en sortie structurée (« The compiled grammar is too large »), et la requête 2
+repart sans elle. Seul, le schéma du toit passe (66 passes sur 66 en sortie structurée). La lecture enrichie garde donc ses fichiers à
+l'octet près : elle ne peut pas baisser.
+
+**Rien de perdu.** Les corps envoyés à l'API (serveur PHP du dépôt, faux Anthropic local, sortie structurée acceptée puis refusée) :
+le run et l'escalade identiques à ceux de 1ea13701 (5.1.0) par `cmp`, avec et sans sortie structurée ; la lecture enrichie et l'analyse
+d'une maison identiques à ceux de cb0bf055 (L1). `champsLecture.test.ts`, `lectureReference.test.ts` et `projet510Facades.test.ts`
+passent sans que leurs listes changent. Les toits lus au LiDAR ne bougent pas (`identite.ts` : « AE 101 : corps identiques »), et la
+pose d'une couverture suit le toit relu (LiDAR, actualisation IGN) comme sa couverture.
+
+**Coût mesuré** (mesure du banc, run 41032809278) : le run ×3, 0,00460 $ la façade ; la lecture enrichie ×3, 0,00337 $ (0,00339 $ en
+L1) ; le toit lu ×3, **0,00100 $** ; les trois, **0,00898 $ la façade** (0,00797 $ avant L2).
+
+**Supprimé.** L'écriture de `ardoise-losange` comme matériau ; les traductions locales des mots de couverture (le sujet `couverture`,
+l'arbitrage, le contrôle du PLU), remplacées par `model/couvertureLue.ts`.
+
+**Fumée.** Points **118** (couverture en écaille lue, décochée, écrite et dessinée) et **119** (fenêtre de toit posée par le moteur) ;
+24, 97, 98 et 104 rejoués : 18 sur 18 (compact, moyen, large ; clair ; réseau témoin ; le 24 compact au second essai, le premier
+coupé par l'attente du téléchargement).
+

@@ -55,7 +55,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - L'analyse d'une maison qui lit une membrane, un bac acier ou une toiture végétale le propose désormais (la 3D sait les dessiner) ;
   `tuile-mecanique` reste la tuile (mécanique) d'avant.
-- Coût par façade : COUT_L2.
+- Coût mesuré d'une façade lue en production : environ 0,0090 $ (le run, la lecture enrichie et le toit lu, environ 0,0010 $),
+  contre 0,0080 $ en L1.
 
 - Coût mesuré d'une façade lue en production : environ 0,0079 $ (le run, environ 0,0046 $, et la lecture enrichie, environ
   0,0034 $), contre 0,0047 $ en 5.1.0 ; accepté par le propriétaire.
