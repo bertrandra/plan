@@ -29,7 +29,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    * `sansDroit` sert a l'annulation, et a elle seule : elle ne peut defaire que ce qu'on a eu le
    * droit de faire, donc en lecture seule sa pile est vide et la grisier serait un bruit de plus.
    */
-  const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean; sansDroit?: boolean } = {}) => {
+  const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean; sansDroit?: boolean; assistant?: { bascule?: () => boolean } } = {}) => {
     const { sansDroit, ...reste } = extra;
     cmd.declarer({ id, libelle, groupe: 'objet', executer, ...reste, ...(sansDroit ? {} : { permission: PERMISSION_ECRITURE }) });
   };
@@ -39,16 +39,17 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   // Des flèches explicites, et non `addEventListener('click', a.addNewObject)` : celui-ci passerait
   // l'événement en premier argument — un objet toujours vrai — et le polygone libre naîtrait en
   // mode rectangle.
+  const ASSISTANT = { assistant: {} }; // L'assistant (lot L6) peut proposer ces gestes : sans question, ni pointage, ni dialogue.
   commande('objet.ajouter.polygone', 'Polygone', () => a.addNewObject(false));
   commande('objet.ajouter.rectangle', 'Rectangle', () => a.addNewObject(true));
   commande('objet.ajouter.chemin', 'Chemin', () => a.addNewPath());
   commande('objet.ajouter.cercle', 'Cercle', () => a.addNewCircle());
-  commande('objet.ajouter.terrasse', 'Terrasse', () => a.addNewTerrasse());
-  commande('objet.ajouter.parasol', 'Parasol', () => a.addNewParasol());
-  commande('objet.ajouter.pergola', 'Pergola', () => a.addNewPergola());
-  commande('objet.ajouter.carport', 'Carport', () => a.addNewCarport());
-  commande('objet.ajouter.piscine', 'Piscine', () => a.addNewPiscine('rectangle'));
-  commande('objet.ajouter.piscineRonde', 'Piscine ronde', () => a.addNewPiscine('ronde'));
+  commande('objet.ajouter.terrasse', 'Terrasse', () => a.addNewTerrasse(), ASSISTANT);
+  commande('objet.ajouter.parasol', 'Parasol', () => a.addNewParasol(), ASSISTANT);
+  commande('objet.ajouter.pergola', 'Pergola', () => a.addNewPergola(), ASSISTANT);
+  commande('objet.ajouter.carport', 'Carport', () => a.addNewCarport(), ASSISTANT);
+  commande('objet.ajouter.piscine', 'Piscine', () => a.addNewPiscine('rectangle'), ASSISTANT);
+  commande('objet.ajouter.piscineRonde', 'Piscine ronde', () => a.addNewPiscine('ronde'), ASSISTANT);
   commande('objet.ajouter.pointDeVue', 'Point de vue', () => a.addNewViewpoint());
   // La plage en bois d'une piscine est une vraie terrasse du plan : la commande la pose autour du
   // bassin (sur plots), ou la selectionne si elle existe deja.
@@ -60,13 +61,13 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
     if (t) { a.selectObject(t.key); return; }
     a.addTerrassePiscine(p);
     showToast('Terrasse posée autour de la piscine, sur plots. Tirez ses coins pour lui donner sa forme.');
-  }, { actif: () => !!piscineChoisie() });
+  }, { actif: () => !!piscineChoisie(), ...ASSISTANT });
   // Un trou dans la terrasse selectionnee (ou courante) : un arbre conserve, une trappe de visite.
   const terrasseDuTrou = () => { const o = a.objByKey(a.etat.selectedKey); return o && estTerrasse(o) ? o : terrasseCourante(a.etat); };
   commande('terrasse.ajouterTrou', 'Ajouter un trou dans la terrasse', () => {
     const t = terrasseDuTrou();
     if (t) a.addTrouTerrasse(t);
-  }, { actif: () => !!terrasseDuTrou() });
+  }, { actif: () => !!terrasseDuTrou(), ...ASSISTANT });
   // La hauteur a l'egout saisie (ou validee par l'audit) rendue a la lecture : la marque tombe, et le toit se relit pour la reprendre
   // (model/protections.ts). Un geste annulable ; seulement quand une lecture pourra l'ecrire, sinon il ne changerait rien.
   const egoutARendre = () => { const o = a.objByKey(a.etat.selectedKey); return o && egoutRendable(o) ? o : undefined; };
@@ -83,7 +84,8 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   // Les conditions que le panneau Objet posait sur ses anciens boutons : la parcelle ne se duplique
   // ni ne se supprime, un objet verrouille ne se supprime pas.
   const selectionne = () => a.objByKey(a.etat.selectedKey);
-  commande('objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle'; } });
+  commande('objet.dupliquer', 'Dupliquer', () => a.duplicateSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle'; }, ...ASSISTANT });
+  // Pas d'assistant pour supprimer : la commande pose une question, qu'une transaction n'attend pas.
   commande('objet.supprimer', 'Supprimer l’objet', () => a.deleteSelectedObject(), { actif: () => { const o = selectionne(); return !!o && o.key !== 'parcelle' && !o.locked; } });
   // Une piscine ou un trou recentre sur sa terrasse (la plage d'un bassin, ou celle qu'il perce) :
   // un seul geste, annulable. Deja centre a 1 mm pres, il n'y a rien a faire.
@@ -103,7 +105,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
     a.rebuildHandles(o);
     a.markDirty(o);
     a.render();
-  }, { actif: () => !!aCentrer() });
+  }, { actif: () => !!aCentrer(), ...ASSISTANT });
 
   /**
    * Reculer d'un cran. Le double-clic sur la forme fait la même chose, mais c'est un geste fragile

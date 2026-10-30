@@ -360,6 +360,29 @@
   .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
   .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
   .dialogueDeclaration{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
+  /* L'assistant (lot L6, zones/parcours/Assistant.tsx) : la demande, puis la liste d'etapes ; une etape grisee dit sa raison sous elle,
+     en toutes lettres (au doigt, l'infobulle n'existe pas), et la couleur ne la porte jamais seule. */
+  .dialogueAssistant{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
+  .assistantDemande{ display:flex; flex-direction:column; gap:4px; }
+  .assistantDemande > span{ font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .assistantDemande textarea{
+    width:100%; box-sizing:border-box; font-family:var(--sans); font-size:0.9rem; padding:8px 10px; resize:vertical; min-height:72px;
+    border:1px solid var(--border); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink);
+  }
+  .actionsAssistant{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0 0; }
+  .refusAssistant{ flex:1 1 100%; margin:0; font-size:0.72rem; color:var(--ink-soft); line-height:1.35; }
+  .piedDialogue .refusAssistant{ text-align:right; }
+  .erreurAssistant{ margin:10px 0 0; padding:8px 10px; border-left:3px solid var(--danger); background:var(--danger-bg); color:var(--ink); font-size:0.8rem; line-height:1.4; }
+  .reponseAssistant{ margin:12px 0 0; }
+  .questionsAssistant{ margin:0 0 10px; padding:8px 10px 8px 26px; border-left:3px solid var(--alerte); background:var(--panel-2); line-height:1.4; }
+  .etapesAssistant{ margin:0; padding:0 0 0 22px; display:flex; flex-direction:column; gap:6px; }
+  .etapesAssistant > li{ line-height:1.35; overflow-wrap:anywhere; }
+  .etapesAssistant .libelleEtape{ display:block; font-weight:600; }
+  .etapesAssistant .pourquoiEtape{ display:block; font-size:0.76rem; color:var(--ink-soft); }
+  .etapesAssistant > li.refusee .libelleEtape{ font-weight:400; color:var(--ink-soft); text-decoration:line-through; }
+  .etapesAssistant .raisonEtape{ display:block; font-size:0.74rem; color:var(--ink); }
+  .etapesAssistant .raisonEtape::before{ content:"Grisée : "; font-weight:600; }
+  .sourceAssistant{ margin:10px 0 0; font-size:0.7rem; color:var(--ink-soft); }
   /* Les sections d'un ouvrage au tiroir (zones/resultats/Ouvrages.tsx) : un titre, ses lignes ; les prix se deplient. */
   .sectionOuvrage{ margin:0 0 12px; }
   .sectionOuvrage > summary{ cursor:pointer; }
@@ -1389,7 +1412,7 @@
     border-radius:0 !important; padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) !important;
     font-size:15px !important; box-shadow:none !important;
   }
-  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
+  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration, .dialogueAssistant){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
   html[data-classe="compact"] .dialogueImperatif button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
   html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }

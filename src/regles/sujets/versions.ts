@@ -104,3 +104,19 @@ export const VERSIONS_PROMPT_FACADE_TOIT: readonly VersionTexte[] = [
 export const VERSIONS_SCHEMA_FACADE_TOIT: readonly VersionTexte[] = [
   { version: 1, empreinte: '9bb63209' },
 ];
+
+/**
+ * L'assistant en langue naturelle (lot L6 de la lecture IA elargie, usage `assistant` du serveur) : sa note, et les versions de son
+ * prompt et de son schema. Le catalogue, lui, part dans la requete (app/assistant/catalogue.ts) et porte sa propre version.
+ */
+export const NOTE_PROMPT_ASSISTANT = `Partie fixe du prompt de l'assistant en langue naturelle (lot L6 de la lecture IA élargie), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 (30 octobre 2026) : une demande de la personne, avec le catalogue que Plan génère à l'instant (commandes exposées et leur état, objets du projet, champs de l'objet sélectionné et leurs bornes), devient une liste d'étapes du catalogue — commandes du registre et écritures de champs —, ou une question ; Plan la montre, la personne la valide d'un geste, le registre l'exécute en une étape d'historique.`;
+
+export const NOTE_SCHEMA_ASSISTANT = `Sortie de l'assistant en langue naturelle (lot L6). Une liste d'etapes, chacune une commande du catalogue ou l'ecriture d'un champ de l'objet selectionne (sa valeur en texte, dans l'unite du champ), et des questions. Plat, sans union ni champ facultatif : un champ sans objet vaut la chaine vide. Les identifiants ne s'enumerent pas (le catalogue change avec le plan) : Plan les verifie contre le catalogue. Le fichier porte un \`exemple\` de reponse et sa \`consigne\`, que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).`;
+
+export const VERSIONS_PROMPT_ASSISTANT: readonly VersionTexte[] = [
+  { version: 1, empreinte: '7694cf1d' },
+];
+
+export const VERSIONS_SCHEMA_ASSISTANT: readonly VersionTexte[] = [
+  { version: 1, empreinte: '70066645' },
+];

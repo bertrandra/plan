@@ -137,7 +137,9 @@ export const NOMS_USAGES: Record<string, string> = {
   // La seconde lecture d'une facade, sur l'image de son run : menuiseries, modenature, saillies (lot L1).
   'facade-enrichie': 'Façade enrichie',
   // La troisieme lecture d'une facade : son toit, sa couverture, ses fenetres de toit (lot L2).
-  'facade-toit': 'Toit d’une façade'
+  'facade-toit': 'Toit d’une façade',
+  // Une demande a l'assistant en langue naturelle, traduite en etapes du registre (lot L6).
+  assistant: 'Assistant'
 };
 
 /** Le nom d'un modele, ou d'une serie (`autres`), pour l'ecran et le CSV. */

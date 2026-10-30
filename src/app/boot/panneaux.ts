@@ -16,6 +16,7 @@ import type { Vues3d } from '../assemblage/vues3d.js';
 import { monterZones } from '../../zones/monter.js';
 import { creerServiceReleve } from '../releve/releve.js';
 import { brancherFacade } from '../ecouteurs/facade.js';
+import { brancherAssistant } from '../assistant/branchement.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { EXPOSITION } from '../exposition.js';
@@ -62,6 +63,9 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
   // L'editeur d'une facade relevee (zones/Releve.tsx) et ses commandes ; ses photos se prennent dans l'audit (lot F6).
   const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene });
   brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
+  // L'assistant en langue naturelle (lot L6) : il lit le registre et l'inspecteur, et ecrit par eux, en une transaction de l'historique.
+  brancherAssistant({ etat, magasin, commandes, inspecteur, transaction: (f) => historique.transaction(f), libelleType: libelleTypeObjet,
+    projetCourant: () => magasin.store.getState().projet.courant?.id ?? null });
   monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
   return { explorateur, inspecteur, projet };
 }

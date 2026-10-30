@@ -25,6 +25,12 @@
 // forme, surface, elements, ouvertures, carreaux). `--facades <dossier>` mesure x1 contre x3 : pour chaque image preparee par
 // `.claude/skills/facades/scripts/ia-x1-x3.ts --preparer`, une passe puis trois, reponses et cout ecrits a cote (`<scene>.reponses.json`).
 //
+// L'assistant (usage `assistant`, lot L6) part sur la premiere demande de reference, sur la demonstration, telle que Plan l'envoie (le
+// catalogue genere puis la demande : tests/fixtures/assistant/requete-verification.json, genere par scripts/assistant-reference.ts) ; le
+// script dit si sa sortie a la forme du schema. `--assistant <dossier>` envoie en plus les dix demandes de reference preparees par
+// `scripts/assistant-reference.ts --preparer`, une requete chacune, et ecrit chaque reponse a cote (`<id>.reponse.json`), que
+// `--evaluer` juge.
+//
 // VERIFIER_API_CLAUDE_URL_LOCALE (reserve aux tests) remplace l'API par un faux Anthropic, sur la
 // boucle locale seulement : la cle ne part jamais vers une autre adresse que l'API ou la machine.
 
@@ -40,6 +46,7 @@ const IMAGE = path.join(racine, 'tests/fixtures/visuel/rue-compact-clair.jpg');
 const IMAGE_FACADE = path.join(racine, 'tests/fixtures/facades-ia/facade-test.jpg');
 const IMAGE_JARDIN = path.join(racine, 'tests/fixtures/jardin-ia/jardin-test.jpg');
 const PDF_PLU = path.join(racine, 'tests/fixtures/plu/chatou-ul-extrait.pdf');
+const REQUETE_ASSISTANT = path.join(racine, 'tests/fixtures/assistant/requete-verification.json');
 const MOT_DE_PASSE = 'verification-api-claude';
 const PLAFOND_DEFAUT = 0.05;
 const PLAFOND_MAX = 2;
@@ -66,7 +73,8 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // Le toit lu sur une facade (usage `facade-toit`, lot L2) a ses fichiers et part sur la meme image : le script dit si sa sortie a la forme
 // de son schema (toit, elements).
 const LECTURES_FACADE = ['facade-enrichie', 'facade-toit'];
-const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : LECTURES_FACADE.includes(usage) ? usage : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : 'analyse');
+// L'assistant (usage `assistant`, lot L6) a ses fichiers et part sans image : le catalogue de la demonstration et une demande.
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : LECTURES_FACADE.includes(usage) ? usage : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : usage === 'assistant' ? 'assistant' : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -74,7 +82,7 @@ function arreter(message, code = 2) {
 }
 
 function lireOptions(argv) {
-  const o = { modele: null, plafond: PLAFOND_DEFAUT, facades: null };
+  const o = { modele: null, plafond: PLAFOND_DEFAUT, facades: null, assistant: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--modele') o.modele = argv[++i] ?? arreter('--modele demande un identifiant de modele.');
@@ -85,10 +93,13 @@ function lireOptions(argv) {
     } else if (a === '--facades') {
       o.facades = argv[++i] ?? arreter('--facades demande le dossier préparé par ia-x1-x3.ts --preparer.');
       if (!fs.existsSync(o.facades)) arreter('--facades : dossier introuvable : ' + o.facades);
+    } else if (a === '--assistant') {
+      o.assistant = argv[++i] ?? arreter('--assistant demande le dossier préparé par scripts/assistant-reference.ts --preparer.');
+      if (!fs.existsSync(o.assistant)) arreter('--assistant : dossier introuvable : ' + o.assistant);
     } else if (a === '--aide' || a === '-h' || a === '--help') {
-      console.log('usage : ANTHROPIC_API_KEY=… npm run verifier:api-claude [-- --modele <id>] [--plafond <dollars>] [--facades <dossier>]');
+      console.log('usage : ANTHROPIC_API_KEY=… npm run verifier:api-claude [-- --modele <id>] [--plafond <dollars>] [--facades <dossier>] [--assistant <dossier>]');
       process.exit(0);
-    } else arreter('option inconnue : ' + a + ' (--modele <id>, --plafond <dollars>, --facades <dossier>).');
+    } else arreter('option inconnue : ' + a + ' (--modele <id>, --plafond <dollars>, --facades <dossier>, --assistant <dossier>).');
   }
   return o;
 }
@@ -117,6 +128,7 @@ const dollars = (v) => (typeof v === 'number' ? v.toFixed(5) + ' $' : 'inconnu (
 
 /** Le contenu minimal d'une requete : la photo de test et une ligne de contexte, comme la page. */
 function contenu(famille, image) {
+  if (famille === 'assistant') return JSON.parse(fs.readFileSync(REQUETE_ASSISTANT, 'utf8')).contenu;
   if (famille === 'plu') {
     return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fs.readFileSync(PDF_PLU).toString('base64') } },
       { type: 'text', text: 'Commune : Chatou (INSEE 78146).\nDocument d’urbanisme : 78146_PLU_20181003.\nZone demandée : ULp (« ULp : Secteur urbain »).\nL’extrait envoyé va de la page 47 à la page 49 du document entier (252 pages) : sa première page est la page 47.' }];
@@ -219,6 +231,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
   console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ', façade enrichie v' + (etat.corps.facadeEnrichie?.prompt ?? '?') + '/v' + (etat.corps.facadeEnrichie?.schema ?? '?')
     + ', toit d’une façade v' + (etat.corps.facadeToit?.prompt ?? '?') + '/v' + (etat.corps.facadeToit?.schema ?? '?')
+    + ', assistant v' + (etat.corps.assistant?.prompt ?? '?') + '/v' + (etat.corps.assistant?.schema ?? '?')
     + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
@@ -229,7 +242,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
     // le defaut), comme pour la page ; `--modele` l'impose a toutes.
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
-      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' || LECTURES_FACADE.includes(g.famille) ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' || LECTURES_FACADE.includes(g.famille) ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' || g.famille === 'assistant' || LECTURES_FACADE.includes(g.famille) ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' || LECTURES_FACADE.includes(g.famille) ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
     process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -262,15 +275,20 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formePlu(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du PLU n’a pas la forme du schéma : ' + defaut, 1); }
     }
+    if (g.famille === 'assistant') {
+      const defaut = formeAssistant(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie de l’assistant n’a pas la forme du schéma : ' + defaut, 1); }
+    }
     if (g.famille === 'jardin') {
       const defaut = formeJardin(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du jardin n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'facade-enrichie' ? ' ; ' + resumeEnrichie(x.sortie) : g.famille === 'facade-toit' ? ' ; ' + resumeToit(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : '';
+    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'facade-enrichie' ? ' ; ' + resumeEnrichie(x.sortie) : g.famille === 'facade-toit' ? ' ; ' + resumeToit(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : g.famille === 'assistant' ? ' ; ' + resumeAssistant(x.sortie) : '';
     console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + resume + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
   if (options.facades) await mesurerFacades(options.facades, ecrire, options.modele);
+  if (options.assistant) await mesurerAssistant(options.assistant, ecrire, options.modele);
   const total = journal(dossierClaude).reduce((s, l) => s + (typeof l.cout === 'number' ? l.cout : 0), 0);
   console.log('Toutes les requêtes ont été acceptées (' + n + '). Coût total journalisé : ' + dollars(total) + '.');
   return 0;
@@ -332,6 +350,37 @@ function formeFacade(s) {
   if (!Array.isArray(s.elements) || !Array.isArray(s.ouvertures)) return 'elements ou ouvertures absents';
   if (s.ouvertures.some((o) => !objet(o.details) || !objet(o.carreaux) || ![o.u0, o.u1, o.v0, o.v1].every((x) => typeof x === 'number'))) return 'une ouverture sans boîte, détails ou carreaux';
   return null;
+}
+
+/** Ce qui manque a une sortie de l'assistant pour avoir la forme du schema (deploy/schema-assistant.json) ; null si rien. */
+function formeAssistant(s) {
+  if (!Array.isArray(s.etapes) || !Array.isArray(s.questions)) return 'etapes ou questions absentes';
+  if (s.etapes.some((e) => !e || typeof e !== 'object' || !['commande', 'champ'].includes(e.genre) || ['commande', 'objet', 'champ', 'valeur', 'pourquoi'].some((k) => typeof e[k] !== 'string'))) return 'une étape sans genre ou sans ses champs';
+  if (s.questions.some((q) => typeof q !== 'string')) return 'une question qui n’est pas un texte';
+  return null;
+}
+
+/** La sortie de l'assistant en quelques mots : ses etapes, et ses questions. */
+function resumeAssistant(s) {
+  return s.etapes.length + ' étape(s)' + (s.etapes.length ? ' : ' + s.etapes.map((e) => (e.genre === 'commande' ? e.commande : e.champ + '=' + e.valeur)).join(', ') : '') + ', ' + s.questions.length + ' question(s)';
+}
+
+/**
+ * Les dix demandes de reference de l'assistant (lot L6), preparees par scripts/assistant-reference.ts --preparer : une requete chacune,
+ * par l'appel immediat du serveur ; la sortie, le cout et les tokens de chacune dans <id>.reponse.json, que --evaluer juge.
+ */
+async function mesurerAssistant(dossier, ecrire, modele) {
+  const requetes = fs.readdirSync(dossier).filter((f) => f.endsWith('.requete.json')).sort();
+  console.log('Assistant : ' + requetes.length + ' demandes de référence (' + dossier + ').');
+  for (const f of requetes) {
+    const q = JSON.parse(fs.readFileSync(path.join(dossier, f), 'utf8'));
+    const r = await ecrire('admin/claude/messages', { projet: 'verification-api', idu: null, adresse: 'demandes de référence de l’assistant', audit: 'assistant', usage: 'assistant', ...(modele ? { modele } : {}),
+      requetes: [{ id: q.id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60), passe: 1, facades: 0, usage: 'assistant', contenu: q.contenu }] });
+    if (r.statut !== 200) arreter('assistant ' + q.id + ' : HTTP ' + r.statut + ' : ' + (r.corps?.error?.message ?? JSON.stringify(r.corps)) + (r.statut === 429 ? '\n(plafond atteint : relancez avec --plafond <dollars>)' : ''), 1);
+    const x = r.corps.resultats?.[0] ?? {};
+    fs.writeFileSync(path.join(dossier, q.id + '.reponse.json'), JSON.stringify({ sortie: x.sortie ?? null, statut: x.statut ?? null, modele: x.modele ?? r.corps.modele ?? null, cout: x.cout ?? null, tokens: x.tokens ?? null, structuree: x.structuree ?? null, erreur: x.erreur ?? null }));
+    console.log('- ' + q.id + ' : ' + (x.statut === 'reussi' && x.sortie ? resumeAssistant(x.sortie) : 'ILLISIBLE (' + diagnostic(x).split('\n')[0] + ')') + ' ; ' + dollars(x.cout) + (x.structuree ? ' ; sortie structurée' : ''));
+  }
 }
 
 /** Ce qui manque a une sortie de la lecture du jardin pour avoir la forme du schema (deploy/schema-jardin.json) ; null si rien. */

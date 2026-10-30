@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { genererFacadeEnrichie, genererFacadeToit, genererFichiers, genererRunFacade, genererRunJardin } from '../../../../src/regles/sujets/generation.js';
+import { genererAssistant, genererFacadeEnrichie, genererFacadeToit, genererFichiers, genererRunFacade, genererRunJardin } from '../../../../src/regles/sujets/generation.js';
 import { assemblerPrompt, assemblerSchema } from '../../../../src/regles/sujets/assembler.js';
 import { DESCRIPTIONS_SUJETS } from '../../../../src/regles/sujets/liste.js';
-import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA_JARDIN, VERSIONS_PROMPT_FACADE_ENRICHIE, VERSIONS_SCHEMA_FACADE_ENRICHIE, VERSIONS_PROMPT_FACADE_TOIT, VERSIONS_SCHEMA_FACADE_TOIT } from '../../../../src/regles/sujets/versions.js';
+import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA_JARDIN, VERSIONS_PROMPT_FACADE_ENRICHIE, VERSIONS_SCHEMA_FACADE_ENRICHIE, VERSIONS_PROMPT_FACADE_TOIT, VERSIONS_SCHEMA_FACADE_TOIT, VERSIONS_PROMPT_ASSISTANT, VERSIONS_SCHEMA_ASSISTANT } from '../../../../src/regles/sujets/versions.js';
 import { controler } from '../../../../src/regles/sujets/edition.js';
 import type { DescriptionSujet } from '../../../../src/regles/sujets/description.js';
 
@@ -86,6 +86,35 @@ describe('la lecture enrichie d’une façade (deploy/prompt-facade-enrichie.md,
   it('a un exemple de la forme de son schema', () => {
     const d = JSON.parse(f.schema) as { schema: { properties: Record<string, unknown> }; exemple: Record<string, unknown> };
     expect(Object.keys(d.exemple)).toEqual(Object.keys(d.schema.properties));
+  });
+});
+
+describe('l assistant (deploy/prompt-assistant.md, deploy/schema-assistant.json, lot L6)', () => {
+  const f = genererAssistant();
+
+  it('est ce que sa description donne, sous une version qui suit le texte', () => {
+    expect(readFileSync('deploy/prompt-assistant.md', 'utf8') === f.prompt).toBe(true);
+    expect(readFileSync('deploy/schema-assistant.json', 'utf8') === f.schema).toBe(true);
+    expect(empreinteTexte(f.corpsPrompt), 'le prompt de l assistant a change : une ligne de plus a VERSIONS_PROMPT_ASSISTANT').toBe(versionCourante(VERSIONS_PROMPT_ASSISTANT).empreinte);
+    expect(empreinteTexte(f.schema), 'le schema de l assistant a change : une ligne de plus a VERSIONS_SCHEMA_ASSISTANT').toBe(versionCourante(VERSIONS_SCHEMA_ASSISTANT).empreinte);
+  });
+
+  it('definit dans le prompt chaque champ et chaque terme de son schema, sans union ni champ facultatif, et porte un exemple et sa consigne', () => {
+    const d = JSON.parse(f.schema) as { schema: { properties: Record<string, unknown> }; exemple: Record<string, unknown>; consigne: string };
+    const termes = new Set<string>();
+    const parcourir = (v: unknown): void => {
+      if (Array.isArray(v)) { v.forEach(parcourir); return; }
+      if (!v || typeof v !== 'object') return;
+      const o = v as Record<string, unknown>;
+      expect(o).not.toHaveProperty('anyOf');
+      if (o.properties && typeof o.properties === 'object') { expect(o.required).toEqual(Object.keys(o.properties)); Object.keys(o.properties).forEach((k) => termes.add(k)); }
+      if (Array.isArray(o.enum)) for (const t of o.enum) termes.add(String(t));
+      Object.values(o).forEach(parcourir);
+    };
+    parcourir(d.schema);
+    for (const t of termes) expect(f.corpsPrompt, t).toContain('`' + t + '`');
+    expect(Object.keys(d.exemple)).toEqual(Object.keys(d.schema.properties));
+    expect(d.consigne).toMatch(/catalogue/);
   });
 });
 

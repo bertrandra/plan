@@ -196,3 +196,47 @@ describe('ce qui manque, et qu on veut voir changer', () => {
     expect('retablir' in h).toBe(false);
   });
 });
+
+describe('la transaction (l assistant, lot L6) : plusieurs gestes, une etape d annulation', () => {
+  it('empile un seul instantane, celui d avant, et Ctrl+Z rend l etat d avant tous les gestes', () => {
+    const { etat, h } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    const avant = JSON.stringify(etat.objects);
+    const ok = h.transaction(() => {
+      h.empiler(); etat.objects[0]!.x = 10;
+      const empiler = h.preparer(); etat.objects[1]!.x = 20; empiler();
+      h.empiler(); etat.objects.push({ key: 'c', x: 3 });
+      return true;
+    });
+    expect(ok).toBe(true);
+    expect(h.pile.taille).toBe(1);
+    expect(etat.dirty).toBe(true);
+    h.annuler();
+    expect(JSON.stringify(etat.objects)).toBe(avant);
+    expect(h.pile.vide).toBe(true);
+  });
+
+  it('n empile rien quand rien n a change', () => {
+    const { h } = monter();
+    expect(h.transaction(() => true)).toBe(true);
+    expect(h.pile.vide).toBe(true);
+  });
+
+  it('defait tout, sans rien empiler, quand un geste est refuse en route (ou leve)', () => {
+    for (const echec of [() => false, () => { throw new Error('refus'); }]) {
+      const { etat, h } = monter([{ key: 'a', x: 1 }]);
+      const avant = JSON.stringify(etat.objects);
+      const ok = h.transaction(() => { h.empiler(); etat.objects[0]!.x = 5; return (echec as () => boolean)(); });
+      expect(ok).toBe(false);
+      expect(JSON.stringify(etat.objects)).toBe(avant);
+      expect(h.pile.vide).toBe(true);
+      expect(etat.dirty).toBe(false);
+    }
+  });
+
+  it('rend la main a l historique ordinaire ensuite : un geste apres la transaction empile le sien', () => {
+    const { etat, h } = monter();
+    h.transaction(() => { h.empiler(); etat.objects[0]!.x = 2; return true; });
+    h.empiler(); etat.objects[0]!.x = 3;
+    expect(h.pile.taille).toBe(2);
+  });
+});

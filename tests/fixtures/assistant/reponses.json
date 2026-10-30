@@ -1,0 +1,204 @@
+{
+  "format": "plan-assistant-reponses",
+  "source": "SYNTHETIQUE provisoire (a remplacer par la mesure de l'API)",
+  "reponses": {
+    "01-lames-douglas": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "terrasse",
+            "champ": "lames.essenceBois",
+            "valeur": "douglas",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "02-grille": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "affichage.grille",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "03-nord-voisinage": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "affichage.nord",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Comme demandé."
+          },
+          {
+            "genre": "commande",
+            "commande": "affichage.voisinage",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "04-dupliquer": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "objet.dupliquer",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "05-piscine-ronde": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "objet.ajouter.piscineRonde",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "06-spa-jacuzzi": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "spa",
+            "champ": "objet.name",
+            "valeur": "Jacuzzi",
+            "pourquoi": "Comme demandé."
+          },
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "spa",
+            "champ": "objet.elevation",
+            "valeur": "0.4",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "07-cloture-grillage": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "parcelle",
+            "champ": "cloture.type",
+            "valeur": "grillage",
+            "pourquoi": "Comme demandé."
+          },
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "parcelle",
+            "champ": "cloture.hauteur",
+            "valeur": "1.5",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "08-autre-objet": {
+      "sortie": {
+        "etapes": [],
+        "questions": [
+          "Sélectionnez « Chêne » puis redemandez."
+        ]
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "09-hors-projet": {
+      "sortie": {
+        "etapes": [],
+        "questions": [
+          "Plan chiffre une terrasse que vous dessinez : voulez-vous en ajouter une ?"
+        ]
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    },
+    "10-lecture-seule": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "affichage.grille",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Comme demandé."
+          },
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "terrasse",
+            "champ": "lames.essenceBois",
+            "valeur": "composite",
+            "pourquoi": "Comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": null,
+      "cout": null,
+      "structuree": null
+    }
+  }
+}

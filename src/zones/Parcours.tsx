@@ -1,6 +1,6 @@
 // Z8, les parcours en plusieurs etapes (spec-ihm-zones §4.8) : import cadastral, actualisation IGN,
-// choix d'une texture, fiches du mode audit, audit de la parcelle, catalogue des audits recus (admin)
-// et declaration prealable.
+// choix d'une texture, fiches du mode audit, audit de la parcelle, catalogue des audits recus (admin),
+// declaration prealable et assistant (lot L6).
 // Un seul a la fois, modal, fermable par Echap ou par un clic sur le voile.
 //
 // Le parcours ouvert vient d'app/parcours.ts ; chacun porte sa logique a part, cette zone ne fait que
@@ -12,6 +12,7 @@ import { ImportCadastre } from './parcours/ImportCadastre.js';
 import { Actualisation } from './parcours/Actualisation.js';
 import { ChoixTexture } from './parcours/ChoixTexture.js';
 import { Declaration } from './parcours/Declaration.js';
+import { Assistant } from './parcours/Assistant.js';
 
 // Les ecrans de l'audit ne se chargent qu'a leur ouverture (26 octobre 2026, AD-10) : seul l'audit les montre, et ils tirent avec
 // eux l'analyse des facades. Le temps de les recevoir, le voile est deja pose ; rien d'autre ne s'affiche.
@@ -42,6 +43,7 @@ export function Parcours({ commandes, magasin }: { commandes: RegistreCommandes;
       {p.type === 'actualisation' && <Actualisation infos={p.infos} lancer={p.lancer} fermer={fermer} />}
       {p.type === 'texture' && <ChoixTexture titre={p.titre} caseLibelle={p.caseLibelle} choisir={p.choisir} fermer={fermer} />}
       {p.type === 'declaration' && <Declaration inspecteur={p.service} magasin={magasin} fermer={fermer} />}
+      {p.type === 'assistant' && <Assistant service={p.service} commandes={p.commandes} fermer={fermer} />}
       <Suspense fallback={null}>
       {p.type === 'auditCas' && <AuditCas promenade={p.promenade} cle={p.cle} retirer={p.retirer} prise={p.prise} {...(p.couleurs ? { couleurs: p.couleurs } : {})} fermer={p.retour ?? fermer} />}
       {p.type === 'auditFin' && <AuditFin promenade={p.promenade} modifier={p.modifier} retirer={p.retirer} partager={p.partager} fermer={fermer} />}

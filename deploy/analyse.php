@@ -280,9 +280,11 @@ try {
         $facadeEnrichie = $versionsDe('facade-enrichie');
         // Le toit lu sur une facade (lot L2) : ses versions, ou null sur un deploiement d'avant.
         $facadeToit = $versionsDe('facade-toit');
+        // L'assistant (lot L6) : ses versions, ou null sur un deploiement d'avant.
+        $assistant = $versionsDe('assistant');
         $parUsage = modelesParUsage(reglageModeles($dossierClaude));
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'facade' => $facade, 'facadeEnrichie' => $facadeEnrichie, 'facadeToit' => $facadeToit, 'plu' => $plu, 'jardin' => $jardin, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
+                       'facade' => $facade, 'facadeEnrichie' => $facadeEnrichie, 'facadeToit' => $facadeToit, 'plu' => $plu, 'jardin' => $jardin, 'assistant' => $assistant, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 

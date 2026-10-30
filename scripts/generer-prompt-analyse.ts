@@ -7,14 +7,15 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { genererFacadeEnrichie, genererFacadeToit, genererFichiers, genererLecturePlu, genererRunFacade, genererRunJardin } from '../src/regles/sujets/generation.js';
+import { genererAssistant, genererFacadeEnrichie, genererFacadeToit, genererFichiers, genererLecturePlu, genererRunFacade, genererRunJardin } from '../src/regles/sujets/generation.js';
 
 const racine = resolve(import.meta.dirname, '..');
-const g = genererFichiers(), f = genererRunFacade(), fe = genererFacadeEnrichie(), plu = genererLecturePlu(), j = genererRunJardin(), ft = genererFacadeToit();
+const g = genererFichiers(), f = genererRunFacade(), fe = genererFacadeEnrichie(), plu = genererLecturePlu(), j = genererRunJardin(), ft = genererFacadeToit(), as = genererAssistant();
 const cibles: [string, string][] = [['deploy/prompt-analyse.md', g.prompt], ['deploy/schema-analyse.json', g.schema], ['deploy/prompt-facade.md', f.prompt], ['deploy/schema-facade.json', f.schema],
   ['deploy/prompt-plu.md', plu.prompt], ['deploy/schema-plu.json', plu.schema], ['deploy/prompt-jardin.md', j.prompt], ['deploy/schema-jardin.json', j.schema],
   ['deploy/prompt-facade-enrichie.md', fe.prompt], ['deploy/schema-facade-enrichie.json', fe.schema],
-  ['deploy/prompt-facade-toit.md', ft.prompt], ['deploy/schema-facade-toit.json', ft.schema]];
+  ['deploy/prompt-facade-toit.md', ft.prompt], ['deploy/schema-facade-toit.json', ft.schema],
+  ['deploy/prompt-assistant.md', as.prompt], ['deploy/schema-assistant.json', as.schema]];
 const verifier = process.argv.includes('--verifier');
 let ecarts = 0;
 for (const [chemin, texte] of cibles) {
@@ -26,4 +27,4 @@ for (const [chemin, texte] of cibles) {
   else { writeFileSync(f, texte); console.log('ecrit : ' + chemin); }
 }
 if (verifier && ecarts) { console.log('Lancez `npm run regles:generer`.'); process.exit(1); }
-if (!ecarts) console.log('deploy/ est a jour (analyse : prompt v' + g.versionPrompt + ', schema v' + g.versionSchema + ' ; facade : prompt v' + f.versionPrompt + ', schema v' + f.versionSchema + ' ; facade enrichie : prompt v' + fe.versionPrompt + ', schema v' + fe.versionSchema + ' ; toit d’une facade : prompt v' + ft.versionPrompt + ', schema v' + ft.versionSchema + ' ; plu : prompt v' + plu.versionPrompt + ', schema v' + plu.versionSchema + ' ; jardin : prompt v' + j.versionPrompt + ', schema v' + j.versionSchema + ').');
+if (!ecarts) console.log('deploy/ est a jour (analyse : prompt v' + g.versionPrompt + ', schema v' + g.versionSchema + ' ; facade : prompt v' + f.versionPrompt + ', schema v' + f.versionSchema + ' ; facade enrichie : prompt v' + fe.versionPrompt + ', schema v' + fe.versionSchema + ' ; toit d’une facade : prompt v' + ft.versionPrompt + ', schema v' + ft.versionSchema + ' ; assistant : prompt v' + as.versionPrompt + ', schema v' + as.versionSchema + ' ; plu : prompt v' + plu.versionPrompt + ', schema v' + plu.versionSchema + ' ; jardin : prompt v' + j.versionPrompt + ', schema v' + j.versionSchema + ').');
