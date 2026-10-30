@@ -28,6 +28,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   dossier de mairie écrivaient le libellé de ce défaut. Plan le signale désormais une fois par mot (« Structure inconnue (« … »),
   calculée en coque polyester »), les exports écrivent « mot (inconnu, calculé en … ») et l'inspecteur montre le mot lu ; la valeur
   reste dans l'objet et le fichier.
+- Audit de la parcelle et calibration, « Ajuster l'égout et le sol » (geste « quatre repères ») : avec plusieurs photos d'une façade
+  assemblées, le geste montrait une seule photo redressée, et le mur tiré ne valait que pour elle, alors que la suite (texture, toit,
+  détection) part de l'assemblage. Il montre désormais l'assemblage des photos, l'image prise pour la suite, avec le mur là où la
+  chaîne l'y a posé ; le mur tiré revient sur chaque photo assemblée (le même chemin que « Appliquer le calage et rejouer » de la
+  calibration) et le rejeu le reprend tel quel. « Revenir à l'automatique » retire aussi ce mur des autres photos. Avec une photo
+  seule, ou une photo restée hors de l'assemblage, rien ne change. Ni quantité ni export ne bougent.
 
 ## [5.4.0] — 2026-10-30
 

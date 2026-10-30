@@ -171,3 +171,77 @@ describe('quatre reperes poses au doigt sur une photo', () => {
     expect(m.redressement?.photos.find((p) => p.rang === 0)?.coinsPx?.[0]?.x).toBeCloseTo((vrais[0] as P2).x, 0);
   }, 90000);
 });
+
+describe('« Ajuster l’égout et le sol » sur la façade assemblée (CLAUDE.md, « Silhouette d’une façade »)', () => {
+  // Deux vues du mur entier : l'egout et le sol s'ajustent sur leur assemblage, dans le cadre ou la chaine a pose le mur, jamais sur une
+  // photo seule ; le mur tire revient sur chaque photo assemblee et la chaine le reprend tel quel.
+  const preparer = async () => {
+    const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
+    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
+    if (!s) throw new Error('scene absente');
+    const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];
+    const images = prises.map((p) => photographier(s, 100, p)?.image);
+    const vrais = prises.map((p) => coinsVrais(s, p));
+    if (images.some((i) => !i) || vrais.some((v) => !v)) throw new Error('prise impossible');
+    const { largeur: L, hauteur: H } = s.verite;
+    const pts = rect(0, 0, L, 8);
+    const f = { ...(facadesDuContour(pts, H).find((x) => x.orientation === 'Sud') as Facade), hauteur: H };
+    const encodees: { largeur: number; hauteur: number }[] = [];
+    const deps = {
+      pixels: async (b: string) => { const img = images[b === 'A' ? 0 : 1]; return img ? { data: img.donnees, largeur: img.largeur, hauteur: img.hauteur } : null; },
+      chercherCoins: async (e: Parameters<typeof rechercher>[0]) => rechercher(e), jpeg: (img: { largeur: number; hauteur: number }) => { encodees.push(img); return 'data:image/jpeg;base64,' + img.largeur + 'x' + img.hauteur; }, limites: () => [],
+    };
+    return { f, pts, deps, vrais: vrais as P2[][], images, encodees };
+  };
+
+  it('donne l assemblage des deux photos, le mur dans son cadre, et le chemin vers chaque photo', async () => {
+    const { murAjusteSurLesPhotos } = await import('../../../../../src/facade/releve/enchainement.js');
+    const { f, pts, deps, vrais } = await preparer();
+    const coins0 = (vrais[0] as P2[]).map((c) => ({ x: c.x, y: c.y }));
+    const photos: PhotoCas[] = ['A', 'B'].map((b) => ({ type: 'image/jpeg', base64: b }));
+    const m = await mesurerFacade('maison', f, { pts }, photos, deps, { '0': { coins: coins0 } });
+    expect(m.redressement?.fusion).toBe('fusionnee');
+    const a = m.assemblage;
+    if (!a) throw new Error('pas d assemblage');
+    // L'image montree est l'assemblage (ni l'une ni l'autre photo redressee seule), et le mur est dans son cadre.
+    expect(a.url).toBe('data:image/jpeg;base64,' + a.largeur + 'x' + a.hauteur);
+    expect(a.retours.map((r) => r.rang).sort()).toEqual([0, 1]);
+    a.coins.forEach((c) => { expect(c.x).toBeGreaterThanOrEqual(-1); expect(c.x).toBeLessThanOrEqual(a.largeur + 1); expect(c.y).toBeGreaterThanOrEqual(-1); expect(c.y).toBeLessThanOrEqual(a.hauteur + 1); });
+    // Le mur de l'assemblage, ramene sur les photos : sur la photo 0, les coins poses ; sur la photo 1, le meme mur (a 2 % de sa largeur).
+    const parPhoto = murAjusteSurLesPhotos(a, a.coins);
+    parPhoto.get(0)?.forEach((q, k) => { expect(Math.abs(q.x - (coins0[k] as P2).x)).toBeLessThan(0.5); expect(Math.abs(q.y - (coins0[k] as P2).y)).toBeLessThan(0.5); });
+    const v1 = vrais[1] as P2[], largeur1 = Math.hypot((v1[1] as P2).x - (v1[0] as P2).x, (v1[1] as P2).y - (v1[0] as P2).y);
+    parPhoto.get(1)?.forEach((q, k) => { expect(Math.hypot(q.x - (v1[k] as P2).x, q.y - (v1[k] as P2).y) / largeur1).toBeLessThan(0.02); });
+    expect(parPhoto.size).toBe(2);
+  }, 120000);
+
+  it('le mur tire sur l assemblage, ecrit sur chaque photo, est celui que la chaine reprend', async () => {
+    const { murAjusteSurLesPhotos } = await import('../../../../../src/facade/releve/enchainement.js');
+    const { f, pts, deps, vrais } = await preparer();
+    const photos: PhotoCas[] = ['A', 'B'].map((b) => ({ type: 'image/jpeg', base64: b }));
+    const m = await mesurerFacade('maison', f, { pts }, photos, deps, { '0': { coins: (vrais[0] as P2[]).map((c) => ({ x: c.x, y: c.y })) } });
+    const a = m.assemblage;
+    if (!a) throw new Error('pas d assemblage');
+    // L'egout remonte de 4 % de la hauteur du mur sur l'assemblage, comme la personne le tire.
+    const [hg, hd, bd, bg] = a.coins as [P2, P2, P2, P2];
+    const d = 0.04 * (bg.y - hg.y);
+    const tire = [{ x: hg.x, y: hg.y - d }, { x: hd.x, y: hd.y - d }, bd, bg];
+    const parPhoto = murAjusteSurLesPhotos(a, tire);
+    const corrections = Object.fromEntries([...parPhoto].map(([r, coins]) => [String(r), { coins }]));
+    const n = await mesurerFacade('maison', f, { pts }, photos, deps, corrections);
+    expect(n.redressement?.photos.map((p) => p.coins)).toEqual(['main', 'main']);
+    // Rejouee, la chaine pose le mur ou la personne l'a tire, dans le meme cadre.
+    const b = n.assemblage;
+    if (!b) throw new Error('pas d assemblage au rejeu');
+    expect(b.largeur).toBe(a.largeur);
+    b.coins.forEach((c, k) => { expect(Math.abs(c.x - (tire[k] as P2).x)).toBeLessThan(1); expect(Math.abs(c.y - (tire[k] as P2).y)).toBeLessThan(1); });
+  }, 180000);
+
+  it('avec une photo seule, rien ne change : pas d assemblage a ajuster, la photo redressee entiere comme avant', async () => {
+    const { f, pts, deps, vrais } = await preparer();
+    const m = await mesurerFacade('maison', f, { pts }, [{ type: 'image/jpeg', base64: 'A' }], deps, { '0': { coins: (vrais[0] as P2[]).map((c) => ({ x: c.x, y: c.y })) } });
+    expect(m.releve).not.toBeNull();
+    expect(m.assemblage).toBeUndefined();
+  }, 60000);
+});

@@ -6,8 +6,8 @@
 import { analyserReleve, finaliserReleve, hauteurBande, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
 import { mosaiqueDesVues, vuesDeFace } from './vision/mosaiqueFuites.js';
 import { inverser, redresserParReperes } from './vision/redressementFuites.js';
-import { appliquerSimilitude } from './vision/ransac.js';
-import { appliquer, homographie, redresser, resolutionTexture } from './vision/homographie.js';
+import { appliquerSimilitude, inverse, IDENTITE as SIMILITUDE_IDENTITE, type Similitude } from './vision/ransac.js';
+import { appliquer, homographie, redresser, resolutionTexture, type Homographie } from './vision/homographie.js';
 import type { GabaritMur } from './gabaritMur.js';
 import { analyserMosaique, type ResultatMosaique } from './vision/mosaique.js';
 import { analyserVues, type ResultatFusion } from './fusion.js';
@@ -92,6 +92,23 @@ export interface AssemblageDuMur {
   coins: P2[];
   /** Par photo : est-elle dans l'assemblage, et sinon pourquoi. */
   vues: { assemblee: boolean; motif: string | null }[];
+  /** Par photo : le chemin de l'assemblage a la photo (null : hors de l'assemblage). Un mur tire sur l'assemblage revient par lui. */
+  retours: (RetourVersLaPhoto | null)[];
+}
+
+/** De l'assemblage a une photo : sa place dans l'assemblage (vue de face -> assemblage), puis sa vue de face ramenee sur la photo. */
+export interface RetourVersLaPhoto { place: Similitude; versPhoto: Homographie }
+
+/**
+ * Le mur tire sur l'assemblage (ses quatre coins), ramene sur chaque photo assemblee (assemblage -> vue de face -> photo), au dixieme
+ * de pixel : les coins d'un mur pose a la main (facade/releve/chaine.ts), le meme pour toutes. Null pour une photo hors de
+ * l'assemblage : elle garde ses coins.
+ */
+export function murSurLesPhotos(retours: readonly (RetourVersLaPhoto | null)[], coins: readonly P2[]): (P2[] | null)[] {
+  return retours.map((r) => {
+    const inv = r ? inverse(r.place) : null;
+    return r && inv ? coins.map((q) => { const p = appliquer(r.versPhoto, appliquerSimilitude(inv, q)); return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 }; }) : null;
+  });
 }
 
 /**
@@ -115,9 +132,12 @@ export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly 
   }
   if (!coins) return null;
   const aPart = new Map(m.groupes.aPart.map((a) => [rangs[a.vue] as number, a.motif]));
+  const retours: (RetourVersLaPhoto | null)[] = photos.map(() => null);
+  rangs.forEach((i, k) => { const v = vues[i], place = m.places[k]; if (v && place) retours[i] = { place, versPhoto: v.versPhoto }; });
   return {
     image: m.image, vu: m.vu, coins,
     vues: photos.map((_, i) => (!vues[i] ? { assemblee: false, motif: 'pas assez de verticales pour redresser la photo' } : aPart.has(i) ? { assemblee: false, motif: aPart.get(i) ?? null } : { assemblee: true, motif: null })),
+    retours,
   };
 }
 
@@ -145,7 +165,7 @@ export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit
 
 /** Une photo prise pour son propre assemblage : toute vue, le mur entre ses coins. */
 function photoCommeAssemblage(p: PhotoDuMur): AssemblageDuMur {
-  return { image: p.photo, vu: new Uint8Array(p.photo.largeur * p.photo.hauteur).fill(1), coins: p.coins, vues: [{ assemblee: true, motif: null }] };
+  return { image: p.photo, vu: new Uint8Array(p.photo.largeur * p.photo.hauteur).fill(1), coins: p.coins, vues: [{ assemblee: true, motif: null }], retours: [{ place: SIMILITUDE_IDENTITE, versPhoto: [1, 0, 0, 0, 1, 0, 0, 0, 1] }] };
 }
 
 /**

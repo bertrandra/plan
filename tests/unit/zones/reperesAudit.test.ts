@@ -4,6 +4,8 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { CorrectionRedressement } from '../../../src/model/auditParcelle.js';
 import { ReperesAudit } from '../../../src/zones/parcours/FacadeAudit.js';
+import type { AssemblageAAjuster } from '../../../src/facade/releve/enchainement.js';
+import type { P2 } from '../../../src/facade/vision/homographie.js';
 
 // La pose a la main de quatre reperes sur une photo de facade (audit de la parcelle), quand le redressement automatique a echoue :
 // le geste partage avec la calibration (zones/releve/PoserReperes.tsx), et ce que l'audit y ajoute (echelle, appliquer).
@@ -23,9 +25,9 @@ beforeEach(() => {
 afterEach(() => { act(() => racine.unmount()); hote.remove(); (window as unknown as { Image: unknown }).Image = ImageOrigine; });
 
 const bouton = (c: string) => hote.querySelector(`[data-controle="${c}"]`) as HTMLButtonElement;
-async function monter(depart?: { x: number; y: number }[]) {
-  const appliquer = vi.fn<(c: CorrectionRedressement) => void>(), retablir = vi.fn(), fermer = vi.fn();
-  const props = { photo: { type: 'image/jpeg' as const, base64: 'AAAA' }, rang: 1, depart, mur: undefined, largeurPlanM: 9.5, echelleDepart: undefined, appliquer, retablir, fermer };
+async function monter(depart?: { x: number; y: number }[], assemblage?: AssemblageAAjuster) {
+  const appliquer = vi.fn<(c: CorrectionRedressement, autres: ReadonlyMap<number, P2[]>) => void>(), retablir = vi.fn(), fermer = vi.fn();
+  const props = { photo: { type: 'image/jpeg' as const, base64: 'AAAA' }, rang: 1, depart, mur: undefined, largeurPlanM: 9.5, echelleDepart: undefined, appliquer, retablir, fermer, ...(assemblage ? { assemblage } : {}) };
   await act(async () => { racine.render(createElement(ReperesAudit, props)); await Promise.resolve(); });
   return { appliquer, retablir, fermer };
 }
@@ -73,5 +75,69 @@ describe('la pose de quatre reperes', () => {
     expect(p.retablir).toHaveBeenCalled();
     act(() => bouton('auditParcelle.annulerCoins').click());
     expect(p.appliquer).not.toHaveBeenCalled();
+  });
+});
+
+describe('« Ajuster l’égout et le sol » avec plusieurs photos assemblées', () => {
+  // L'assemblage de 1 200 x 500 : la photo 1 y est a sa place (identite), la photo 0 decalee de 300 px vers la gauche sur l'assemblage,
+  // et ramenee a la moitie sur sa photo. Le mur que la chaine y a pose va de 200 a 1 000 en x, de 100 a 400 en y.
+  const ASSEMBLAGE: AssemblageAAjuster = {
+    url: 'data:image/jpeg;base64,ASSEMBLAGE', largeur: 1200, hauteur: 500,
+    coins: [{ x: 200, y: 100 }, { x: 1000, y: 100 }, { x: 1000, y: 400 }, { x: 200, y: 400 }],
+    retours: [
+      { rang: 0, place: { a: 1, b: 0, tx: -300, ty: 0 }, versPhoto: [0.5, 0, 0, 0, 0.5, 0, 0, 0, 1] },
+      { rang: 1, place: { a: 1, b: 0, tx: 0, ty: 0 }, versPhoto: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
+    ],
+  };
+  const ouvrir = async () => { await act(async () => { bouton('reperes.ajusterMur').click(); await Promise.resolve(); await Promise.resolve(); }); };
+  const fleche = (nom: string, key: string) => act(() => { (hote.querySelector(`[aria-label="${nom}"]`) as SVGElement).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
+
+  it('montre l assemblage, et non la photo seule, avec le mur ou la chaine l a pose', async () => {
+    await monter(undefined, ASSEMBLAGE);
+    await ouvrir();
+    const svg = hote.querySelector('.ajusterMurPhoto') as SVGSVGElement;
+    expect(svg.getAttribute('aria-label')).toMatch(/^Assemblage des photos/);
+    expect(svg.getAttribute('viewBox')).toBe('0 0 1200 500');
+    expect(svg.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,ASSEMBLAGE');
+    expect(hote.textContent).toMatch(/Sur la façade assemblée \(2 photos\)/);
+    // Les poignees partent du mur pose sur l'assemblage.
+    expect(hote.querySelector('[aria-label="Égout"]')?.getAttribute('aria-valuenow')).toBe('100');
+    expect(hote.querySelector('[aria-label="Sol"]')?.getAttribute('aria-valuenow')).toBe('400');
+    expect(hote.querySelector('[aria-label="Bout gauche du mur"]')?.getAttribute('aria-valuenow')).toBe('200');
+  });
+
+  it('ecrit le mur tire sur chaque photo assemblee, dans le repere de chacune', async () => {
+    const p = await monter(undefined, ASSEMBLAGE);
+    await ouvrir();
+    // Un pas vers le haut : 0,2 % du grand cote (1 200 px), soit 2,4 px sur l'assemblage.
+    fleche('Égout', 'ArrowUp');
+    expect(hote.querySelector('[aria-label="Égout"]')?.getAttribute('aria-valuenow')).toBe('98');
+    act(() => bouton('auditParcelle.appliquerCoins').click());
+    const [c, autres] = p.appliquer.mock.calls[0] ?? [];
+    // Cette photo (rang 1) : le mur de l'assemblage tel quel ; la photo 0 : decale de 300 px, puis a la moitie.
+    expect(c?.coins).toEqual([{ x: 200, y: 97.6 }, { x: 1000, y: 97.6 }, { x: 1000, y: 400 }, { x: 200, y: 400 }]);
+    expect(c?.reperes).toHaveLength(4);
+    expect([...(autres ?? new Map())]).toEqual([[0, [{ x: 250, y: 48.8 }, { x: 650, y: 48.8 }, { x: 650, y: 200 }, { x: 250, y: 200 }]]]);
+  });
+
+  it('sans y toucher, n ecrit aucun mur', async () => {
+    const p = await monter(undefined, ASSEMBLAGE);
+    await ouvrir();
+    act(() => bouton('auditParcelle.appliquerCoins').click());
+    const [c, autres] = p.appliquer.mock.calls[0] ?? [];
+    expect(c?.coins).toBeUndefined();
+    expect(autres?.size).toBe(0);
+  });
+
+  it('garde la photo redressee entiere quand la photo n est pas dans l assemblage, ou qu il n y en a pas (une photo)', async () => {
+    await monter(undefined, { ...ASSEMBLAGE, retours: ASSEMBLAGE.retours.filter((r) => r.rang !== 1) });
+    await ouvrir();
+    expect(hote.textContent).toMatch(/Sur la photo redressée, tirez/);
+    expect(hote.textContent).not.toMatch(/façade assemblée/);
+    act(() => racine.unmount());
+    racine = createRoot(hote);
+    await monter();
+    await ouvrir();
+    expect(hote.textContent).toMatch(/Sur la photo redressée, tirez/);
   });
 });

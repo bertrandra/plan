@@ -10,10 +10,10 @@
 import { ETAPES_FACADE, etapeFacade, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
-import { analyserLAssemblage, analyserLeMur, fondreLesVues, type AssemblageDuMur, type MurAnalyse, type PhotoDuMur } from '../analyseMur.js';
+import { analyserLAssemblage, analyserLeMur, fondreLesVues, murSurLesPhotos, type AssemblageDuMur, type MurAnalyse, type PhotoDuMur, type RetourVersLaPhoto } from '../analyseMur.js';
 import { inverser, type RedressementFuites } from '../vision/redressementFuites.js';
 import { silhouetteLue, vuesDeFace, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
-import { appliquerSimilitude, inverse } from '../vision/ransac.js';
+import { appliquerSimilitude } from '../vision/ransac.js';
 import { appliquer, type Image, type P2 } from '../vision/homographie.js';
 import { libelleSilhouette } from '../../model/silhouetteFacade.js';
 import { sansOmbres } from '../vision/sansOmbres.js';
@@ -138,6 +138,26 @@ interface PrisesAudit {
 /** Une photo de l'audit redressee seule, entiere : son rang parmi les photos de la facade, et l'image en JPEG. */
 interface PhotoRedresseeDeLAudit { rang: number; image: string }
 
+/**
+ * L'assemblage de plusieurs photos tel que la reprise a la main le montre (« Ajuster l'égout et le sol », MD/spec-facade-calage-audit.md
+ * §4 ter.2) : l'image prise pour la suite, le mur que la chaine y a pose (en pixels de l'assemblage), et, pour chaque photo assemblee
+ * (son rang parmi les photos de la facade), le chemin de l'assemblage a la photo. Un mur tire dessus revient sur toutes par lui.
+ */
+export interface AssemblageAAjuster {
+  /** L'adresse de l'image (JPEG `data:` dans l'audit). */
+  url: string;
+  largeur: number;
+  hauteur: number;
+  coins: P2[];
+  retours: (RetourVersLaPhoto & { rang: number })[];
+}
+
+/** Le mur tire sur l'assemblage, ramene sur chaque photo assemblee : par rang, les coins du mur sur la photo. */
+export function murAjusteSurLesPhotos(a: Pick<AssemblageAAjuster, 'retours'>, coins: readonly P2[]): Map<number, P2[]> {
+  const parPhoto = murSurLesPhotos(a.retours, coins);
+  return new Map(a.retours.flatMap((r, k) => { const c = parPhoto[k]; return c ? [[r.rang, c] as [number, P2[]]] : []; }));
+}
+
 /** Ce que l'audit garde de l'enchainement : le releve du mur (ou rien), la photo qui le porte, le bilan du redressement, les photos redressees. */
 interface SortieAudit {
   mesure: (ReleveDeLaSerie & { rangReleve: number }) | null;
@@ -145,6 +165,8 @@ interface SortieAudit {
   redressees: PhotoRedresseeDeLAudit[];
   /** L'image du run de Claude : la photo du releve redressee jusqu'au haut de la facade (lot F7), null sans releve. */
   imageRun: ImageDuRun | null;
+  /** L'assemblage de deux photos ou plus et le mur pose dessus : ce que montre « Ajuster l'égout et le sol » ; null avec une photo. */
+  assemblage: AssemblageAAjuster | null;
 }
 
 /** Ce que le rejeu tire de la reponse de Claude (mode « IA »). */
@@ -307,6 +329,22 @@ function imageRunDeLAudit(e: EntreesFacade, a: PrisesAudit, retenue: NonNullable
   return imageDuRunAvecLaBande(m, a.facade.largeur, H, hautDeLImage(H, hautV, faitages.length ? Math.max(...faitages) : null), a.jpeg);
 }
 
+/**
+ * L'assemblage que la chaine a pris pour la suite, quand deux photos ou plus y sont : le mur s'ajuste a la main sur lui, et non sur
+ * une photo seule (CLAUDE.md, « Silhouette d'une façade »). Une photo que la chaine a lue corrigee de la distorsion du grand-angle n'y
+ * revient pas : ses coins seraient dans l'image corrigee, la correction les lirait sur la photo d'origine.
+ */
+function assemblageAAjusterDeLAudit(c: ResultatChaine, a: PrisesAudit, retenue: NonNullable<ReturnType<typeof analyseRetenue>>): AssemblageAAjuster | null {
+  const asm = retenue.a.assemblage;
+  if (retenue.assemblage !== 'vues' || !asm) return null;
+  const retours = retenue.morceaux.flatMap((m, k) => {
+    const r = asm.retours[k], rang = c.faits.find((x) => x.essai?.p.morceau === m)?.bilan.rang;
+    const brute = rang === undefined ? undefined : a.photos.find((p) => p.rang === rang)?.image;
+    return r && rang !== undefined && brute === m.prise.photo.image ? [{ ...r, rang }] : [];
+  });
+  return retours.length >= 2 ? { url: a.jpeg(asm.image), largeur: asm.image.largeur, hauteur: asm.image.hauteur, coins: asm.coins.map((p) => ({ x: p.x, y: p.y })), retours } : null;
+}
+
 /** L'analyse que la chaine a retenue (la fusion, sinon la photo seule), ses morceaux, la photo qui porte le releve. */
 function analyseRetenue(c: ResultatChaine): { a: NonNullable<ResultatChaine['seule']>['a']; morceaux: Morceau[]; rang: number; assemblage: 'morceaux' | 'vues' } | null {
   if (c.fusion) return { a: c.fusion.a, morceaux: c.fusion.morceaux, rang: c.fusion.rangReference, assemblage: 'vues' };
@@ -326,10 +364,13 @@ async function redressementDeLAudit({ e, o, s, obj }: Contexte): Promise<Omit<Et
   if (!chercher) throw new Error('Le mode audit demande le calage fin (chercherCoins).');
   const c = await redresserEtFusionner(a.photos, a.facade, { pts: [...a.contour] }, { chercherCoins: chercher, gabarit: e.gabarit }, a.corrections, a.illisibles);
   const retenue = analyseRetenue(c);
+  // L'assemblage s'encode d'abord : les photos redressees puis l'image du run restent encodees dans l'ordre d'avant.
+  const assemblage = retenue ? assemblageAAjusterDeLAudit(c, a, retenue) : null;
   s.audit = {
     mesure: retenue ? { ...releveDeLaSerie(retenue.a, retenue.morceaux, a.facade, a.jpeg, retenue.assemblage), rangReleve: retenue.rang } : null,
     redressement: c.redressement, redressees: photosRedressees(c, a.jpeg),
     imageRun: retenue ? imageRunDeLAudit(e, a, retenue) : null,
+    assemblage,
   };
   if (retenue) {
     const { r, fusion } = retenue.a;
@@ -422,6 +463,7 @@ function poseSurLAssemblage(sr: CoinsDeSerie, photos: readonly { coins: readonly
   return {
     image, vu, coins: coins ?? [{ x: mur.x0, y: mur.y0 }, { x: mur.x1, y: mur.y0 }, { x: mur.x1, y: mur.y1 }, { x: mur.x0, y: mur.y1 }],
     vues: sr.vues.map((_, i) => (motif.has(i) ? { assemblee: false, motif: motif.get(i) ?? null } : { assemblee: true, motif: null })),
+    retours: retoursDeLaSerie(sr),
   };
 }
 
@@ -771,11 +813,29 @@ export function casApresRejeu<C extends CasReel>(cas: C, r: Enchainement): C {
 export function casCaleALaMain<C extends CasReel>(cas: C, r: Enchainement, coins: readonly P2[]): C {
   const sr = r.sorties.serie;
   if (!sr) return cas;
-  const parPhoto = sr.vues.map((v, i) => {
-    const place = sr.assemblage.places[i], inv = place ? inverse(place) : null;
-    return v && inv ? coins.map((q) => { const p = appliquer(v.versPhoto, appliquerSimilitude(inv, q)); return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 }; }) : null;
-  });
+  const parPhoto = murSurLesPhotos(retoursDeLaSerie(sr), coins);
   return { ...cas, photos: cas.photos.map((p, i) => { const c = parPhoto[i]; return c ? { ...p, coins: c, murALaMain: true } : p; }) };
+}
+
+/** Le cas avec le mur pose a la main sur ces photos (par rang, ses coins) : la silhouette d'avant, posee sur d'autres coins, s'en va. */
+export function casAvecLeMur<C extends CasReel>(cas: C, parPhoto: ReadonlyMap<number, readonly P2[]>): C {
+  return { ...cas, photos: cas.photos.map((p, i) => { const c = parPhoto.get(i); if (!c) return p; const q = { ...p, coins: c.map((x) => ({ ...x })), murALaMain: true }; delete q.silhouette; return q; }) };
+}
+
+/** Par photo de la serie : le chemin de l'assemblage a la photo (sa place, sa vue de face) ; null hors de l'assemblage. */
+function retoursDeLaSerie(sr: CoinsDeSerie): (RetourVersLaPhoto | null)[] {
+  return sr.vues.map((v, i) => { const place = sr.assemblage.places[i]; return v && place ? { place, versPhoto: v.versPhoto } : null; });
+}
+
+/**
+ * L'assemblage du rejeu de la calibration tel que « Ajuster l'égout et le sol » le montre (le meme geste que dans l'audit) : le mur
+ * pose sur l'assemblage, et le chemin vers chaque photo assemblee. Null avec moins de deux photos assemblees : la photo seule suffit.
+ */
+export function assemblageDuRejeu(r: Enchainement, url: (img: Image) => string): AssemblageAAjuster | null {
+  const sr = r.sorties.serie, pose = r.sorties.calage?.pose;
+  if (!sr || !pose) return null;
+  const retours = retoursDeLaSerie(sr).flatMap((x, rang) => (x ? [{ ...x, rang }] : []));
+  return retours.length >= 2 ? { url: url(pose.image), largeur: pose.image.largeur, hauteur: pose.image.hauteur, coins: pose.coins.map((p) => ({ x: p.x, y: p.y })), retours } : null;
 }
 
 /**

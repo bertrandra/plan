@@ -314,7 +314,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.hauteurM': etape(Z8, CALIBRATION, 'Hauteur du mur du cas, à l’égout'),
   'calibration.choisirPhoto': etape(Z8, CALIBRATION, 'Choisir la photo du cas à montrer', { repete: true }),
   'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas', { repete: true }),
-  'reperes.ajusterMur': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Montrer la photo redressée entière pour tirer à la main l’égout, le sol et les bouts du mur (le geste « quatre repères », le même dans l’audit et la calibration)', { repete: true }),
+  'reperes.ajusterMur': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Montrer l’image prise pour la suite (l’assemblage des photos de la façade, ou la photo redressée entière quand elle est seule) pour tirer à la main l’égout, le sol et les bouts du mur (le geste « quatre repères », le même dans l’audit et la calibration)', { repete: true }),
   'calibration.appliquerCalage': etape(Z8, CALIBRATION, 'Appliquer le calage tiré à la main sur l’assemblage (bouts, égout, sol) : le mur posé sur chaque photo, puis le cas rejoué depuis le calage'),
   'calibration.retablirCalage': etape(Z8, CALIBRATION, 'Revenir au mur retenu : les bouts, l’égout et le sol reprennent leur place'),
   'calibration.retirerReperes': etape(Z8, CALIBRATION, 'Retirer les quatre repères d’une photo : elle se redresse de nouveau par ses points de fuite'),

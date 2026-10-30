@@ -33,23 +33,28 @@ import type { Photo } from '../../ui/releve/camera.js';
 import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PhotoCas } from '../../model/audit.js';
 import type { GabaritMur } from '../../facade/gabaritMur.js';
+import type { AssemblageAAjuster } from '../../facade/releve/enchainement.js';
 
 /**
  * Les quatre repères de l'audit sur une photo : le geste partage (PoserReperes), et ce que l'audit y ajoute — la largeur reelle du
  * mur pour l'echelle, « Appliquer » (la correction va dans la capture : elle prime sur le calcul et survit au rejeu, puis la facade est
- * rejouee), « Revenir à l'automatique » et « Annuler ». Rien n'est ecrit avant « Appliquer ».
+ * rejouee), « Revenir à l'automatique » et « Annuler ». Rien n'est ecrit avant « Appliquer ». Avec plusieurs photos assemblees,
+ * l'egout et le sol s'ajustent sur leur assemblage : le mur tire revient sur chacune (`appliquer`, ses coins par rang).
  */
-export function ReperesAudit({ photo, rang, depart, mur, gabarit, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: {
+export function ReperesAudit({ photo, rang, depart, mur, gabarit, assemblage, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: {
   photo: PhotoCas; rang: number;
   /** Les reperes de depart : ceux deja poses, sinon les coins du mur que le calcul a retenus (un rectangle du mur, eux aussi). */
   depart: readonly P2[] | undefined;
   /** Les coins du mur sur la photo, trouves par la chaine ou deja ajustes a la main : le depart de « Ajuster l'égout et le sol ». */
   mur: readonly P2[] | undefined;
   gabarit?: GabaritMur | undefined;
+  /** L'assemblage des photos de la facade et le mur que la chaine y a pose ; absent avec une photo. */
+  assemblage?: AssemblageAAjuster | undefined;
   /** La largeur du mur lue sur le plan, en metres. */
   largeurPlanM: number | null;
   echelleDepart: number | undefined;
-  appliquer: (c: CorrectionRedressement) => void;
+  /** La correction de cette photo, et le mur tire sur l'assemblage ramene sur les autres photos assemblees (par rang). */
+  appliquer: (c: CorrectionRedressement, autres: ReadonlyMap<number, P2[]>) => void;
   retablir: () => void;
   fermer: () => void;
 }) {
@@ -59,6 +64,10 @@ export function ReperesAudit({ photo, rang, depart, mur, gabarit, largeurPlanM, 
   const [largeur, setLargeur] = useState(echelleDepart ? String(echelleDepart).replace('.', ',') : '');
   // Le mur repris a la main sur la photo redressee : null tant que la personne n'y a pas touche (la chaine le cherche seule).
   const [murAjuste, setMurAjuste] = useState<MurAjuste | null>(null);
+  // Le mur repris sur l'assemblage, ramene sur chaque photo assemblee : null tant que la personne n'y a pas touche.
+  const [murAssemble, setMurAssemble] = useState<Map<number, P2[]> | null>(null);
+  const coinsAjustes = murAssemble ? murAssemble.get(rang) : murAjuste?.coins;
+  const autres = new Map([...(murAssemble ?? [])].filter(([r]) => r !== rang));
   const charger = useCallback(async () => { const p = await pixelsDePhoto(photo.base64); return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: Uint8ClampedArray.from(p.data) } : null; }, [photo.base64]);
   useEffect(() => {
     const img = new window.Image();
@@ -75,7 +84,8 @@ export function ReperesAudit({ photo, rang, depart, mur, gabarit, largeurPlanM, 
   return (
     <div className="reperesAudit">
       {lue && coins
-        ? <PoserReperes photo={lue} rang={rang} reperes={coins} changer={setCoins} mur={murAjuste?.coins ?? mur ?? null} gabarit={gabarit} charger={charger} ajusterMur={setMurAjuste} suite="« Appliquer », puis la façade se rejoue" />
+        ? <PoserReperes photo={lue} rang={rang} reperes={coins} changer={setCoins} mur={murAjuste?.coins ?? mur ?? null} gabarit={gabarit} charger={charger} ajusterMur={setMurAjuste}
+            assemblage={assemblage} ajusterMurAssemble={setMurAssemble} suite="« Appliquer », puis la façade se rejoue" />
         : <div className="detailPhoto">Chargement de la photo…</div>}
       <label className="detailPhoto">
         {'Largeur réelle du mur (m), pour l’échelle' + (largeurPlanM ? ' — le plan donne ' + String(Math.round(largeurPlanM * 100) / 100).replace('.', ',') : '') + ' : '}
@@ -86,7 +96,7 @@ export function ReperesAudit({ photo, rang, depart, mur, gabarit, largeurPlanM, 
         <button type="button" className="secondary small" data-controle="auditParcelle.retablirCoins" onClick={() => { retablir(); fermer(); }}>Revenir à l’automatique</button>
         <button type="button" className="secondary small" data-controle="auditParcelle.annulerCoins" onClick={fermer}>Annuler</button>
         <button type="button" className="small" data-controle="auditParcelle.appliquerCoins" disabled={!coins || faux}
-          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(murAjuste ? { coins: murAjuste.coins } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }); fermer(); } }}>Appliquer</button>
+          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(coinsAjustes ? { coins: coinsAjustes } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }, autres); fermer(); } }}>Appliquer</button>
       </div>
     </div>
   );
@@ -163,9 +173,23 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   const tourne = session.validation.etapeEnCours(cle, cote);
   const rejouer = () => { setEnCours(true); void session.validation.rejouerFacade(cle, cote).finally(() => setEnCours(false)); };
   // Une correction ecrite dans la capture, puis la facade rejouee : le calcul reprend les points de la personne.
-  const corriger = (rang: number, c: CorrectionRedressement | null) => {
+  const corriger = (rang: number, c: CorrectionRedressement | null, autres: ReadonlyMap<number, P2[]> = new Map()) => {
     const avant = saisie?.corrections?.[String(rang)];
     session.capture.corrigerRedressement(cle, cote, rang, c ? { ...avant, ...c } : null);
+    // Le mur tire sur l'assemblage vaut pour chaque photo assemblee : il s'y pose comme un mur ajuste a la main.
+    for (const [r, coins] of autres) session.capture.corrigerRedressement(cle, cote, r, { ...saisie?.corrections?.[String(r)], coins });
+    rejouer();
+  };
+  // Revenir a l'automatique : la correction de cette photo, et le mur tire sur l'assemblage qu'elle partage avec les autres.
+  const retablir = (rang: number) => {
+    session.capture.corrigerRedressement(cle, cote, rang, null);
+    for (const r of mesure?.assemblage?.retours ?? []) {
+      const avant = saisie?.corrections?.[String(r.rang)];
+      if (r.rang === rang || !avant?.coins) continue;
+      const reste = { ...avant };
+      delete reste.coins;
+      session.capture.corrigerRedressement(cle, cote, r.rang, reste);
+    }
     rejouer();
   };
   const rangs = (saisie?.photos ?? []).map((_, i) => i);
@@ -186,8 +210,8 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
       </ul>}
       {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
         depart={correction?.reperes ?? correction?.coins ?? coinsPx} mur={correction?.coins ?? coinsPx} gabarit={mesure?.gabarit}
-        echelleDepart={correction?.echelleLargeurM}
-        appliquer={(c) => corriger(rangReperes, c)} retablir={() => corriger(rangReperes, null)} fermer={() => setRangReperes(null)} />}
+        assemblage={mesure?.assemblage} echelleDepart={correction?.echelleLargeurM}
+        appliquer={(c, autres) => corriger(rangReperes, c, autres)} retablir={() => retablir(rangReperes)} fermer={() => setRangReperes(null)} />}
       {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom}
         lignes={[...lignesFacadeEnrichie(run, { largeurM: mesure?.facade?.dimensions.largeurM ?? largeurPlanM, egoutM: mesure?.facade?.dimensions.egoutM ?? mesure?.releve?.hauteur ?? 3 }), ...lignesToitDeLaFacade(run, session.validation.entrees().objets, cle, cote)]} />}
       {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}

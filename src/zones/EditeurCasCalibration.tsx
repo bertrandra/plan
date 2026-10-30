@@ -17,7 +17,7 @@ import { libelleOuMot } from '../shell/motsInconnus.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
-import { casApresRejeu, casCaleALaMain, derouler, entreesDuCas, originesDuCas, reperesDe, veriteDuCas, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
+import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, derouler, entreesDuCas, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
 import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
@@ -109,13 +109,17 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
 
 /**
  * Les quatre reperes de la photo courante (ceux poses, sinon les coins du mur retenus : un rectangle du mur, eux aussi), et la reprise
- * a la main de l'egout, du sol et des bouts sur la photo redressee entiere : le geste partage avec l'audit (PoserReperes).
+ * a la main de l'egout, du sol et des bouts sur l'assemblage du dernier rejeu quand cette photo y est avec d'autres, sinon sur la photo
+ * redressee entiere : le geste partage avec l'audit (PoserReperes).
  */
-function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void }) {
+function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur, assemblage, ajusterMurAssemble }: {
+  photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void;
+  assemblage: AssemblageAAjuster | null; ajusterMurAssemble: (parPhoto: Map<number, P2[]>) => void;
+}) {
   const r = reperesDe(p);
   return (
     <PoserReperes photo={photo} rang={rang} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} changer={poser}
-      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} suite="« Retrouver le mur sur toutes les photos », ou « Rejouer » après un mur ajusté">
+      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} assemblage={assemblage} ajusterMurAssemble={ajusterMurAssemble} suite="« Retrouver le mur sur toutes les photos », ou « Rejouer » après un mur ajusté">
       {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
     </PoserReperes>
   );
@@ -325,6 +329,11 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p, coins, murALaMain: true }; delete q.silhouette; return q; }) }));
     setOrigines((o) => ({ ...o, [courante]: 'main' })); oublier();
   };
+  // Le mur ajuste a la main sur l'assemblage du rejeu (depuis les reperes) : pose sur chaque photo assemblee, comme a l'E4.
+  const murAssemble = (parPhoto: Map<number, P2[]>) => {
+    modifier((c) => casAvecLeMur(c, parPhoto));
+    setOrigines((o) => ({ ...o, ...Object.fromEntries([...parPhoto.keys()].map((i) => [i, 'main' as const])) })); oublier();
+  };
   // L'option manuelle de l'E4 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis rejoue depuis le calage.
   const caler = (coins: P2[]) => { if (!rejeu) return; const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c, 'calage'); };
   // « Rappeler Claude » : le run sur l'assemblage du rejeu (ce qu'il ne montre pas en gris), enregistre avec le cas, puis rejoue en IA.
@@ -375,6 +384,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   };
   const images = useMemo(() => (rejeu ? imagesEtapes(rejeu, { largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, photos: cas.photos }) : null), [rejeu, cas.largeurM, cas.hauteurM, cas.gabarit, cas.photos]);
   const a = rejeu?.sorties.analyse;
+  const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu, url) : null), [rejeu, url]);
   const elevation = useMemo<Elevation | null>(() => (a ? { url: url(a.elevation), largeurM: a.elevation.largeur / a.pxParM, hauteurM: a.elevation.hauteur / a.pxParM, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, url]);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
   return (
@@ -390,7 +400,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}, prise{cas.photos.length > 1 ? 's' : ''} dans l’audit. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
-      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant} />}
+      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
+        assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
         <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(cas, null, 'chercher'); }}>Retrouver le mur sur toutes les photos</button>
