@@ -25,7 +25,7 @@ import { autoriserBoussole } from '../../../shell/boussole.js';
 import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
 import { creerClientDonneesAnalyse } from '../../../io/donneesAnalyse.js';
 import { telechargerTexte } from '../../../shell/download.js';
-import { abonnerSceneBatie, hotes3d, reglerVue3d } from '../../../three/etat3d.js';
+import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { FicheAudit } from '../../../io/auditsServeur.js';
 import { ETAPES_FACADE } from '../../../model/etapeFacade.js';
@@ -139,21 +139,6 @@ function brancherLeDoigt(session: () => SessionAuditParcelle | null, consultatio
   abonnerSceneBatie(() => { brancherHote(); session()?.sceneBatie(); consultation()?.sceneBatie(); });
 }
 
-/**
- * La liste de l'audit couvre la Vue 3D et ne s'en sert pas : tant qu'elle est a l'ecran, la boucle de la Vue 3D ne rend plus d'images
- * (`vue3d.renduCouvert`). La prise et les propositions, posees sur la Vue 3D, la font repartir, comme la fermeture de l'audit. Suivi
- * par le parcours ouvert (quel audit) et par sa session (quel ecran).
- */
-function suspendreLeRenduSousLaListe(): void {
-  let suivie: SessionAuditParcelle | null = null, desabonner: (() => void) | null = null;
-  const suivre = () => { const p = parcours.courant(); reglerVue3d({ renduCouvert: p?.type === 'auditParcelle' && p.session.ecran() === 'liste' }); };
-  parcours.abonner(() => {
-    const p = parcours.courant(), s = p?.type === 'auditParcelle' ? p.session : null;
-    if (s !== suivie) { desabonner?.(); desabonner = s ? s.abonner(suivre) : null; suivie = s; }
-    suivre();
-  });
-}
-
 export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreCommandes): { session: () => SessionAuditParcelle | null } {
   let session: SessionAuditParcelle | null = null;
   let iduSession: string | null = null;
@@ -174,7 +159,6 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
   }
 
   brancherLeDoigt(() => session, () => consultation);
-  suspendreLeRenduSousLaListe();
 
   /** La session de cette parcelle ; une autre parcelle (un autre projet ouvert) en ouvre une autre. */
   async function sessionDe(idu: string): Promise<SessionAuditParcelle> {

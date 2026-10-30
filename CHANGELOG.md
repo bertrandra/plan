@@ -229,11 +229,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
-- **La Vue 3D ne se redessine plus sous la liste de l'audit** (`three/etat3d.ts::renduCouvert`, `app/audit/parcelle/commande.ts`) :
-  la liste couvre la Vue 3D et ne s'en sert pas, mais sa boucle rendait une image à chaque trame. Sous un rendu logiciel, en grand
-  écran, une image prenait plus d'une seconde et chaque toucher de la liste l'attendait (neuf secondes pour ouvrir une étape de la
-  barre : les points de fumée 102, 104 et 105 échouaient en grand écran sous charge). La prise et les propositions, posées sur la
-  Vue 3D, et la fermeture de l'audit la font repartir.
 - **La liste des cas de calibration tient sur un téléphone** : le nom d'un cas tiré de l'audit (« Maison · façade nord
   (78650000AE0101) ») se coupe dans sa cellule au lieu d'élargir la page.
 - **L'escalade d'une maison (D20) prend le modèle de l'escalade** (`deploy/analyse-fonctions.php`) : ses requêtes portent l'usage

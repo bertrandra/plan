@@ -1608,7 +1608,9 @@ Grep des noms supprimés : `contourDecaleM` ne reste que dans la migration, son 
   | 100 à 105 | OK | OK | OK | la calibration, l'audit discret, l'escalade, la forme, la validation V4 |
   | 62, 63, 85, 86, 88 | OK | OK | OK | les propositions, la sauvegarde, Admin › Audits, la vue épurée |
 
-  Au premier passage, 102, 104 et 105 échouaient en grand écran (et 114 en compact) : causes et corrections à l'interprétation 10.
+  Au premier passage, 102, 104 et 105 échouaient en grand écran (et 114 en compact) : causes à l'interprétation 10. Les 42 passages
+  ont été joués avec la pause du rendu de la Vue 3D sous la liste, qui n'est pas dans ce lot : sans elle, 102, 104 et 105 restent
+  fragiles en grand écran sous charge, comme sur la base F5.
 - *Migration d'un projet existant sans perte* : `tests/unit/app/releve/releve.test.ts` ouvre le témoin du schéma 6
   (`tests/fixtures/migrations/schema-6.json`, un relevé posé par l'audit, sa photo restée sur l'appareil) : rouvert et validé sans
   geste, il revient octet pour octet, sans pas d'historique ; édité (une baie retirée, une fenêtre déplacée), il garde la photo locale,
@@ -1647,10 +1649,11 @@ Grep des noms supprimés : `contourDecaleM` ne reste que dans la migration, son 
    (`barreFacade`, le composant partagé avec la calibration, où le geste n'aurait pas de sens).
 9. **Fermer l'audit laisse la Vue 3D ouverte**, comme avant F6 : la personne qui veut corriger une façade revient au Plan, où vit
    l'inspecteur (les points 112 et 113 le font).
-10. **Deux corrections trouvées par la fumée** : la Vue 3D ne se redessine plus sous la liste de l'audit (`vue3d.renduCouvert` : sous
-    un rendu logiciel en grand écran, une image prenait plus d'une seconde et chaque toucher de la liste l'attendait, d'où les échecs
-    des points 102, 104 et 105 en grand écran, constatés aussi sur la base F5 ; profil du clic : 9 s de rendu natif, 77 ms sans la
-    boucle) ; la liste des cas de calibration coupe un nom tiré de l'audit (son IDU) au lieu d'élargir la page du téléphone.
+10. **Ce que la fumée a trouvé** : la liste des cas de calibration débordait d'un téléphone avec un nom tiré de l'audit (son IDU) ;
+    il se coupe désormais dans sa cellule. Et, en grand écran sous charge, toucher la barre d'une façade dans la liste de l'audit
+    prenait jusqu'à neuf secondes (102, 104 et 105 échouaient, aussi sur la base F5) : la boucle de la Vue 3D redessine chaque trame
+    sous la liste, qui la couvre (profil du clic : 9 s de rendu natif ; 77 ms sans la boucle). **Ce correctif n'est pas dans F6** : il
+    part de main dans un lot à part ; la fumée ci-dessus a été jouée avec lui.
 
 **Bilan de suppression** (§8 bis.4) :
 

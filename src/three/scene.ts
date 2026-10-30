@@ -339,7 +339,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   retenirLaScene({ sc, co, obj, ground });
   // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
   const solCentre = sol ? sol.hauteur(cen) : 0;
-  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu || vue3d.renduCouvert) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); if (imageAttendue(sc)) rendre3d(sc); };
+  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); if (imageAttendue(sc)) rendre3d(sc); };
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);

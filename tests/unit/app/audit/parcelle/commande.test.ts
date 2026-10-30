@@ -61,23 +61,6 @@ describe('la commande audit.parcelle', () => {
   });
 });
 
-describe('la Vue 3D sous la liste de l audit', () => {
-  it('ne rend plus d images tant que la liste la couvre ; la prise et la fermeture la font repartir', async () => {
-    const { vue3d } = await import('../../../../../src/three/etat3d.js');
-    const { cmd, b } = monter([parcelle({ idu: 'X', origineLat: 48.9, origineLon: 2.13 })], droits(true));
-    expect(vue3d.renduCouvert).toBe(false);
-    cmd.executer('audit.parcelle');
-    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
-    expect(vue3d.renduCouvert).toBe(true);
-    b.session()?.montrer('prise');
-    expect(vue3d.renduCouvert).toBe(false);
-    b.session()?.montrer('liste');
-    expect(vue3d.renduCouvert).toBe(true);
-    parcours.fermer();
-    expect(vue3d.renduCouvert).toBe(false);
-  });
-});
-
 describe('la commande audit.importerParcelle', () => {
   /** Un fichier d'audit minimal de cette parcelle : une capture vide, rien a proposer. */
   const fichier = (idu: string) => JSON.stringify({
