@@ -247,6 +247,8 @@ The tool **proposes**; a human confirms. The rule in §2.1 (a golden-fixture dif
 [ ] npm run verifier:api-claude (ANTHROPIC_API_KEY posée), ou le workflow manuel « Vérifier l'API
     Claude » : chaque requête que le serveur PHP envoie (analyse, renfort) acceptée par la VRAIE API,
     sortie conforme au schéma — les tests ne voient qu'un faux Anthropic, qui accepte tout
+[ ] Lot qui touche à la lecture des façades (prompt, schéma ou règles du run, vote, escalade) : le
+    même workflow, case « mesure des façades » cochée, vert contre la référence 5.1.0 (§8.2 bis)
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)
 [ ] `livraison/` déposé EN ENTIER à la racine web — `index.html`, le dossier `assets/` et
     `.htaccess` —, de préférence en extrayant `livraison.zip` sur le serveur. La page appelle son
@@ -265,6 +267,30 @@ The tool **proposes**; a human confirms. The rule in §2.1 (a golden-fixture dif
     `/plan.html` avec sa chaîne de requête, les en-têtes, le cache et data/ fermé
 [ ] GitHub release published with the changelog section
 ```
+
+### 8.2 bis La lecture des façades ne baisse pas (garde-fou)
+
+Ce que la lecture des façades par Claude savait faire en 5.1.0 est figé, et aucun lot ne peut le perdre
+sans que cela se voie. Quatre pièces, détail au skill `facades` (§5 quater) :
+
+- **La référence chiffrée** : `tests/fixtures/facades/lecture-5.1.0/reference.json`, tirée du run
+  40998593930 du workflow « Vérifier l'API Claude » (5.1.0, commit `1ea13701`, 30 octobre 2026),
+  scène par scène, ×1 et ×3 : baies (rappel, précision), genres, carreaux, angles, pointes, parement,
+  passes illisibles, escalade. Le coût y figure comme information : il ne fait jamais échouer.
+- **Le comparateur, branché au workflow** : case « mesure des façades » cochée, le résumé du run
+  montre la table référence / mesure, et le job finit rouge si une ligne de qualité reste sous la
+  référence.
+- **La règle du bruit, écrite ici et nulle part en code** : une baie de moins sur une passe peut être
+  le hasard d'un appel. Le workflow relance **une fois** les scènes en cause ; si la ligne reste en
+  dessous, c'est une régression. Il n'y a aucune tolérance dans le comparateur. Une régression ne se
+  règle pas en baissant la référence : on la corrige, ou on la porte à la décision du propriétaire,
+  et la référence ne se réécrit (`garde-lecture.ts --referencer`) qu'avec le run qui le justifie,
+  cité dans la PR.
+- **À chaque PR, sans frais** (`npm test`) : les réponses brutes du run de référence rejouées dans le
+  chemin du jour (`lectureReference.test.ts`), l'inventaire figé des champs du schéma du run, de
+  l'escalade et de la Façade (`champsLecture.test.ts` : un champ ne se retire qu'en modifiant ce
+  test), et un projet enregistré en 5.1.0 avec des façades validées, relu et réécrit sans perte
+  (`projet510Facades.test.ts`).
 
 ### 8.3 Cadence
 

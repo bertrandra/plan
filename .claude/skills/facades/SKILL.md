@@ -729,6 +729,40 @@ npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/mesure        
   ouvertures, les pointes, les carreaux peints), des réponses **synthétiques** (pas Claude) et la mesure d'une réponse.
 - Le workflow « Vérifier l'API Claude », case « mesure des façades » cochée, joue les trois temps et colle le tableau au résumé.
 
+## 5 quater. Le garde-fou de la lecture : rien de 5.1.0 ne se perd
+
+La lecture des façades par Claude est sécurisée **au niveau d'avant L1**, pour tous les lots qui suivent (L1, L2, L5, L6…) : un lot qui
+touche au prompt, au schéma ou aux règles du run, au vote ou à l'escalade ne peut plus perdre ce que la lecture savait faire en 5.1.0
+sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
+
+- **La référence** : `tests/fixtures/facades/lecture-5.1.0/reference.json`, du run **40998593930** de « Vérifier l'API Claude » (5.1.0,
+  commit `1ea13701`, 30 octobre 2026), chaque ligne ×1 et ×3, par scène et au total : baies (VP, en trop, rappel, précision), baies par
+  genre, carreaux justes, angles justes (bord, égout et sol à 2 % de la largeur du mur), pointes justes et en plus, parement, passes
+  illisibles, façade proposée sans détection, et l'escalade (la requête du vérificateur : acceptée, conforme, angles, parement). Le coût,
+  les tokens, la pose médiane et les cotes y sont pour information : ils ne font pas échouer. À côté, les **réponses brutes de Claude**
+  du run (`<scène>.reponses.json`, artefact `mesure-facades-x1-x3`) et les vérités de `ia-x1-x3.ts --preparer` au même commit.
+- **La table** : `npx tsx .claude/skills/facades/scripts/garde-lecture.ts --tableau`. Ensemble ×1 : rappel 92,9 %, précision 99,2 %,
+  carreaux 0/21, angles 34/42, pointes 2/2, parements 21/22 ; ×3 : rappel 99,2 %, précision 100 %, carreaux 7/21, angles 38/44, pointes
+  2/2, parements 22/22 ; 0 passe illisible ; 0,00155 $ puis 0,00467 $ par façade.
+- **Le comparateur** (`tests/banc/facades/gardeLecture.ts`, script `garde-lecture.ts --comparer <dossier>`) mesure un dossier du banc
+  par le chemin de production (la réponse relue comme un run enregistré, `observationsDuRun`, puis `accorderOuvertures`,
+  `surfaceDeLIa`, `avisDesPointes`) et échoue, avec la liste des lignes, dès qu'une ligne de qualité descend sous la référence, d'une
+  seule baie. **Aucune tolérance dans le code.**
+- **La règle du bruit** : une baie de moins sur une passe peut être le hasard d'un appel. **On relance une fois** les scènes en cause ;
+  si la ligne reste en dessous, c'est une **régression**. Le workflow le fait seul (case « mesure des façades » : premier jugement,
+  relance des scènes en cause, second jugement, job rouge s'il reste une ligne en dessous) et montre les deux tables au résumé. Une
+  régression ne se règle pas en baissant la référence ; la référence ne se réécrit (`--referencer`) qu'avec le run qui le justifie
+  (une amélioration, ou une décision du propriétaire), cité dans la PR.
+- **À chaque PR, sans appel** (`npm test`) :
+  - `tests/unit/facade/regles/facades/lectureReference.test.ts` rejoue les réponses brutes dans le chemin du jour et exige, à
+    l'identique, les chiffres de la référence (et le tableau que le run a imprimé) ;
+  - `tests/unit/regles/facades/champsLecture.test.ts` fige les champs du schéma du run et de l'escalade, d'`ObservationsFacade`, de
+    `RunEnregistre` et de la Façade (`ReleveFacade`) : un champ ou un mot ne se retire, et un sens ne change, qu'en modifiant ce test ;
+  - `tests/unit/io/projet510Facades.test.ts` relit et réécrit un projet 5.1.0 à façades validées sans perdre un champ ;
+  - `tests/unit/facade/gardeLecture.test.ts` montre le comparateur rouge sur des mesures fabriquées.
+- **Ce qu'un lot doit faire** : garder la lecture des réponses d'avant (les fichiers de `lecture-5.1.0/` sont des réponses 5.1.0 et le
+  restent), lancer le workflow case cochée sur sa branche et coller la table du résumé dans la PR.
+
 
 
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur

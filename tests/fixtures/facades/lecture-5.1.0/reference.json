@@ -1,0 +1,2995 @@
+{
+ "source": {
+  "run": "40998593930",
+  "workflow": "Vérifier l’API Claude (verifier-api.yml), case « mesure des façades »",
+  "commit": "1ea137018e51e8f91cda7333611d12a1155e55ec",
+  "version": "5.1.0",
+  "date": "2026-10-30T03:39:25Z",
+  "note": "Réponses brutes de Claude du run (artefact mesure-facades-x1-x3), rejouées par tests/banc/facades/gardeLecture.ts ; vérités de ia-x1-x3.ts --preparer au même commit. Le coût et les tokens sont une information : ils ne font pas échouer."
+ },
+ "scenes": {
+  "02-enduit-uni-face": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 5,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0069,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5380,
+      "sortie": 2845
+     },
+     "cout": 0.00157359
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 5,
+     "justes": 5
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0069,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16140,
+      "sortie": 7624
+     },
+     "cout": 0.00426527
+    }
+   }
+  },
+  "03-brique-volets-battants": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 4,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "brique",
+     "lu": "brique",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.008,
+     "cotesCm": 3.0000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5491,
+      "sortie": 2788
+     },
+     "cout": 0.00155619
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 4,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "brique",
+     "lu": "brique",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0054,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16473,
+      "sortie": 8491
+     },
+     "cout": 0.00473207
+    }
+   }
+  },
+  "04-soubassement-pierre-bandeau": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0068,
+     "cotesCm": 0,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5533,
+      "sortie": 2583
+     },
+     "cout": 0.00145789
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0068,
+     "cotesCm": 0,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16599,
+      "sortie": 8949
+     },
+     "cout": 0.0049736699999999995
+    }
+   }
+  },
+  "05-ombres-debord-balcon": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 3,
+      "justes": 3
+     },
+     "porte-fenetre": {
+      "vraies": 2,
+      "justes": 2
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0105,
+     "cotesCm": 5.000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5419,
+      "sortie": 2713
+     },
+     "cout": 0.00151149
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 3,
+      "justes": 3
+     },
+     "porte-fenetre": {
+      "vraies": 2,
+      "justes": 2
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0105,
+     "cotesCm": 5.000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16257,
+      "sortie": 9739
+     },
+     "cout": 0.00533447
+    }
+   }
+  },
+  "06-volets-roulants-ton-sur-ton": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.008,
+     "cotesCm": 5.000000000000004,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5461,
+      "sortie": 3200
+     },
+     "cout": 0.00175919
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.008,
+     "cotesCm": 5.000000000000004,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16383,
+      "sortie": 8922
+     },
+     "cout": 0.00493857
+    }
+   }
+  },
+  "07-voiture-haie-devant": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 8,
+     "trouvees": 8,
+     "vp": 8,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 6,
+      "justes": 6
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 1,
+      "justes": 1
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 8,
+     "seules": 8,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0073,
+     "cotesCm": 3.0000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5455,
+      "sortie": 3176
+     },
+     "cout": 0.00174659
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 8,
+     "trouvees": 8,
+     "vp": 8,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 6,
+      "justes": 6
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 1,
+      "justes": 1
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 8,
+     "seules": 8,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0065,
+     "cotesCm": 3.000000000000025,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16365,
+      "sortie": 10874
+     },
+     "cout": 0.0059127699999999995
+    }
+   }
+  },
+  "08-prise-de-biais-forte": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0071,
+     "cotesCm": 0,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5530,
+      "sortie": 2596
+     },
+     "cout": 0.00146409
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.01,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16590,
+      "sortie": 7834
+     },
+     "cout": 0.00441527
+    }
+   }
+  },
+  "09-focale-inconnue-grand-angle": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 2,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0061,
+     "cotesCm": 3.000000000000025,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5422,
+      "sortie": 3423
+     },
+     "cout": 0.00186679
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 2,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0061,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16266,
+      "sortie": 7988
+     },
+     "cout": 0.00445987
+    }
+   }
+  },
+  "10-meuliere-garage-ton-sur-ton": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 7,
+     "trouvees": 7,
+     "vp": 7,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 1,
+      "justes": 1
+     }
+    },
+    "carreaux": {
+     "lus": 5,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "pierre",
+     "lu": "pierre",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 7,
+     "seules": 7,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0054,
+     "cotesCm": 0,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5462,
+      "sortie": 3378
+     },
+     "cout": 0.00184829
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 7,
+     "trouvees": 7,
+     "vp": 7,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 1,
+      "justes": 1
+     }
+    },
+    "carreaux": {
+     "lus": 5,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "pierre",
+     "lu": "pierre",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 7,
+     "seules": 7,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0054,
+     "cotesCm": 1.0000000000000009,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16386,
+      "sortie": 9545
+     },
+     "cout": 0.00525037
+    }
+   }
+  },
+  "11-pignon-ombre-arbre": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 3,
+     "trouvees": 3,
+     "vp": 3,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 2,
+      "justes": 2
+     },
+     "porte-fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 1,
+     "vues": 1,
+     "justes": 1,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 3,
+     "seules": 3,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0112,
+     "cotesCm": 4.999999999999982,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5503,
+      "sortie": 2412
+     },
+     "cout": 0.00136939
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 3,
+     "trouvees": 3,
+     "vp": 3,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 2,
+      "justes": 2
+     },
+     "porte-fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 1,
+     "vues": 1,
+     "justes": 1,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 3,
+     "seules": 3,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0112,
+     "cotesCm": 6.999999999999984,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16509,
+      "sortie": 7408
+     },
+     "cout": 0.0041941700000000005
+    }
+   }
+  },
+  "12-haie-pied-cache-roulis": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 5,
+     "fp": 1
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 0
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0552,
+     "cotesCm": 10.000000000000009,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5495,
+      "sortie": 2921
+     },
+     "cout": 0.00162309
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.016,
+     "cotesCm": 5.000000000000004,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16485,
+      "sortie": 9169
+     },
+     "cout": 0.00507227
+    }
+   }
+  },
+  "13-grand-angle-distorsion-forte": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 2,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0078,
+     "cotesCm": 8.999999999999996,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5385,
+      "sortie": 3038
+     },
+     "cout": 0.00167059
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 2,
+     "justes": 2
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0083,
+     "cotesCm": 7.000000000000006,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16155,
+      "sortie": 8220
+     },
+     "cout": 0.00456477
+    }
+   }
+  },
+  "14-grand-angle-distorsion-legere-biais": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 5,
+     "trouvees": 5,
+     "vp": 5,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 4,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 5,
+     "seules": 5,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0065,
+     "cotesCm": 4.0000000000000036,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5462,
+      "sortie": 2257
+     },
+     "cout": 0.00128779
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 5,
+     "trouvees": 5,
+     "vp": 5,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 4,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 5,
+     "seules": 5,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0049,
+     "cotesCm": 4.0000000000000036,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16386,
+      "sortie": 6894
+     },
+     "cout": 0.0039248700000000004
+    }
+   }
+  },
+  "15-grand-angle-deja-corrige": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 2,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 0
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0049,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5421,
+      "sortie": 2549
+     },
+     "cout": 0.00142969
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 2,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 0
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0049,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16263,
+      "sortie": 7977
+     },
+     "cout": 0.00445407
+    }
+   }
+  },
+  "16-vues-voiture-devant": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 7,
+     "trouvees": 0,
+     "vp": 0,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 6,
+      "justes": 0
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 0
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 0,
+     "justes": 0
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "indetermine",
+     "juste": 0
+    },
+    "proposee": {
+     "boites": 0,
+     "seules": 0,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": null,
+     "cotesCm": null,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5233,
+      "sortie": 3137
+     },
+     "cout": 0.00170489
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 7,
+     "trouvees": 7,
+     "vp": 7,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 6,
+      "justes": 6
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 7,
+     "seules": 7,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0113,
+     "cotesCm": 2.9999999999999805,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 15699,
+      "sortie": 8205
+     },
+     "cout": 0.00451167
+    }
+   }
+  },
+  "17-vues-haie-devant": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0074,
+     "cotesCm": 6.000000000000005,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5232,
+      "sortie": 2874
+     },
+     "cout": 0.00157329
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0074,
+     "cotesCm": 3.0000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 15696,
+      "sortie": 7527
+     },
+     "cout": 0.00417237
+    }
+   }
+  },
+  "18-deux-vues-voiture-haie": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0088,
+     "cotesCm": 4.000000000000092,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5421,
+      "sortie": 2654
+     },
+     "cout": 0.00148219
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0088,
+     "cotesCm": 3.000000000000025,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16263,
+      "sortie": 8182
+     },
+     "cout": 0.00455657
+    }
+   }
+  },
+  "19-vues-haie-haute-baie-cachee": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 5,
+     "vp": 5,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 5,
+     "seules": 5,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.04,
+     "cotesCm": 6.999999999999984,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5350,
+      "sortie": 2434
+     },
+     "cout": 0.00136509
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 5,
+     "vp": 5,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 4
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 5,
+     "seules": 5,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.04,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16050,
+      "sortie": 7849
+     },
+     "cout": 0.004368769999999999
+    }
+   }
+  },
+  "20-details-cintres-persiennes-garde-corps": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 3,
+      "justes": 3
+     },
+     "porte-fenetre": {
+      "vraies": 2,
+      "justes": 2
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0066,
+     "cotesCm": 3.0000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5462,
+      "sortie": 3291
+     },
+     "cout": 0.00180479
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 3,
+      "justes": 3
+     },
+     "porte-fenetre": {
+      "vraies": 2,
+      "justes": 2
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0066,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16386,
+      "sortie": 10226
+     },
+     "cout": 0.00559087
+    }
+   }
+  },
+  "21-ebrasements-profonds-biais": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 5,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "pierre",
+     "lu": "pierre",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0365,
+     "cotesCm": 9.999999999999964,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5569,
+      "sortie": 3099
+     },
+     "cout": 0.00171949
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 6,
+     "trouvees": 6,
+     "vp": 6,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 5,
+      "justes": 5
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 5,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "pierre",
+     "lu": "pierre",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 6,
+     "seules": 6,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.03,
+     "cotesCm": 5.000000000000027,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16707,
+      "sortie": 9770
+     },
+     "cout": 0.00539497
+    }
+   }
+  },
+  "22-pignon-decentre-pierre": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 4,
+     "trouvees": 4,
+     "vp": 4,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 3,
+      "justes": 3
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 1,
+     "vues": 1,
+     "justes": 1,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "pierre",
+     "lu": "pierre",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 4,
+     "seules": 4,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0094,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5503,
+      "sortie": 1739
+     },
+     "cout": 0.00103289
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 4,
+     "trouvees": 4,
+     "vp": 4,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 3,
+      "justes": 3
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 2
+    },
+    "pointes": {
+     "attendues": 1,
+     "vues": 1,
+     "justes": 1,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "pierre",
+     "lu": "pierre",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 4,
+     "seules": 4,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.0094,
+     "cotesCm": 2.0000000000000018,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16509,
+      "sortie": 6197
+     },
+     "cout": 0.0035886699999999995
+    }
+   }
+  },
+  "23-pignon-rampe-appentis": {
+   "x1": {
+    "passes": 1,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 2,
+     "trouvees": 2,
+     "vp": 2,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 2,
+     "seules": 2,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.1527,
+     "cotesCm": 5.000000000000004,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 5457,
+      "sortie": 2347
+     },
+     "cout": 0.00133229
+    }
+   },
+   "x3": {
+    "passes": 3,
+    "illisibles": 0,
+    "boites": {
+     "vraies": 2,
+     "trouvees": 2,
+     "vp": 2,
+     "fp": 0
+    },
+    "genres": {
+     "fenetre": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "porte-fenetre": {
+      "vraies": 0,
+      "justes": 0
+     },
+     "porte": {
+      "vraies": 1,
+      "justes": 1
+     },
+     "garage": {
+      "vraies": 0,
+      "justes": 0
+     }
+    },
+    "carreaux": {
+     "lus": 0,
+     "justes": 0
+    },
+    "angles": {
+     "lus": 2,
+     "justes": 1
+    },
+    "pointes": {
+     "attendues": 0,
+     "vues": 0,
+     "justes": 0,
+     "enPlus": 0
+    },
+    "parement": {
+     "vrai": "enduit",
+     "lu": "enduit",
+     "juste": 1
+    },
+    "proposee": {
+     "boites": 2,
+     "seules": 2,
+     "ecartees": 0
+    },
+    "info": {
+     "pose": 0.1527,
+     "cotesCm": 4.0000000000000036,
+     "modele": "claude-haiku-5-5",
+     "prompt": 2,
+     "schema": 2,
+     "tokens": {
+      "entree": 16371,
+      "sortie": 7349
+     },
+     "cout": 0.004150869999999999
+    }
+   }
+  }
+ },
+ "totaux": {
+  "x1": {
+   "facades": 22,
+   "lues": 22,
+   "passes": 22,
+   "illisibles": 0,
+   "boites": {
+    "vraies": 126,
+    "trouvees": 118,
+    "vp": 117,
+    "fp": 1,
+    "rappel": 0.9286,
+    "precision": 0.9915
+   },
+   "genres": {
+    "fenetre": {
+     "vraies": 97,
+     "justes": 89
+    },
+    "porte-fenetre": {
+     "vraies": 7,
+     "justes": 7
+    },
+    "porte": {
+     "vraies": 20,
+     "justes": 19
+    },
+    "garage": {
+     "vraies": 2,
+     "justes": 2
+    }
+   },
+   "carreaux": {
+    "lus": 21,
+    "justes": 0
+   },
+   "angles": {
+    "lus": 42,
+    "justes": 34
+   },
+   "pointes": {
+    "attendues": 2,
+    "vues": 2,
+    "justes": 2,
+    "enPlus": 0
+   },
+   "parements": {
+    "justes": 21,
+    "sur": 22
+   },
+   "info": {
+    "poseMediane": 0.0078,
+    "cout": 0.03418,
+    "coutParFacade": 0.001554
+   }
+  },
+  "x3": {
+   "facades": 22,
+   "lues": 22,
+   "passes": 66,
+   "illisibles": 0,
+   "boites": {
+    "vraies": 126,
+    "trouvees": 125,
+    "vp": 125,
+    "fp": 0,
+    "rappel": 0.9921,
+    "precision": 1
+   },
+   "genres": {
+    "fenetre": {
+     "vraies": 97,
+     "justes": 96
+    },
+    "porte-fenetre": {
+     "vraies": 7,
+     "justes": 7
+    },
+    "porte": {
+     "vraies": 20,
+     "justes": 20
+    },
+    "garage": {
+     "vraies": 2,
+     "justes": 2
+    }
+   },
+   "carreaux": {
+    "lus": 21,
+    "justes": 7
+   },
+   "angles": {
+    "lus": 44,
+    "justes": 38
+   },
+   "pointes": {
+    "attendues": 2,
+    "vues": 2,
+    "justes": 2,
+    "enPlus": 0
+   },
+   "parements": {
+    "justes": 22,
+    "sur": 22
+   },
+   "info": {
+    "poseMediane": 0.0083,
+    "cout": 0.102827,
+    "coutParFacade": 0.004674
+   }
+  }
+ },
+ "escalade": {
+  "acceptee": true,
+  "conforme": true,
+  "angles": 2,
+  "pointes": 1,
+  "parement": "pierre",
+  "ouvertures": 4,
+  "carreaux": 3,
+  "modele": "claude-sonnet-5-5",
+  "cout": 0.02464
+ }
+}
