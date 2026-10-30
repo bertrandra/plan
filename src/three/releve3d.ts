@@ -27,6 +27,7 @@ import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOu
 import { garderLeJpeg } from './chargeurs.js';
 import { sansOmbres } from '../facade/vision/sansOmbres.js';
 import { poserCarreaux, vitreLue } from './carreaux3d.js';
+import { poserModenature } from './modenature3d.js';
 import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -177,16 +178,28 @@ function habillageDuSegment(habillages: readonly Habillage[], a: PtBrut, b: PtBr
   return null;
 }
 
+/**
+ * La couleur et le grain de la menuiserie d'une ouverture (lot L1) : ceux que la Facade a lus (`details.menuiserie`), sinon le cadre
+ * clair d'avant, aux memes valeurs. Un metal (alu, acier) brille un peu, un bois est mat.
+ */
+export function menuiserieDe(o: Pick<OuvertureFacade, 'details'>): { color: number | string; roughness: number; metalness?: number } {
+  const m = o.details?.menuiserie;
+  if (!m) return { color: COULEUR_MENUISERIE, roughness: 0.6 };
+  const metal = m.materiau === 'alu' || m.materiau === 'acier';
+  return { color: m.couleur ?? COULEUR_MENUISERIE, roughness: metal ? 0.35 : m.materiau === 'bois' ? 0.75 : 0.5, ...(metal ? { metalness: 0.4 } : {}) };
+}
+
 /** L'encadrement d'une ouverture, et sa vitre ou son vantail quand il n'y a pas de photo. */
 function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, avecPhoto: boolean) {
+  const menuiserie = menuiserieDe(o);
   // Une baie cintree ou ronde (lot G17) : l'encadrement suit son contour, en une bande.
   if (aUneForme(o.details)) {
-    encadrementForme(ctx, f, o, SECTION_CADRE, SAILLIE_CADRE, { cadre: COULEUR_MENUISERIE, vitre: avecPhoto ? null : COULEUR_VITRE }, DECOLLEMENT * 2);
+    encadrementForme(ctx, f, o, SECTION_CADRE, SAILLIE_CADRE, { cadre: menuiserie.color, vitre: avecPhoto ? null : COULEUR_VITRE }, DECOLLEMENT * 2);
     return;
   }
   const { ux, uz, pt } = repereMur(ctx, f);
   const angle = Math.atan2(-uz, ux);
-  const mat = new THREE.MeshStandardMaterial({ color: COULEUR_MENUISERIE, roughness: 0.6 });
+  const mat = new THREE.MeshStandardMaterial(menuiserie);
   const piece = (x: number, y: number, l: number, h: number) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(l, h, SAILLIE_CADRE), mat);
     const [cx, cy, cz] = pt(x + l / 2, y + h / 2, SAILLIE_CADRE / 2);
@@ -214,7 +227,7 @@ function poserOuverture(ctx: ContexteReleve3d, f: Facade, o: OuvertureFacade, av
     ctx.scene.add(m);
   }
   // Les carreaux que la facade validee porte (lot F8) : meneaux, imposte, petits bois, sur la photo comme sur la vitre.
-  if (carreaux) poserCarreaux(ctx.scene, pt, o, carreaux, COULEUR_MENUISERIE, !!ctx.relief);
+  if (carreaux) poserCarreaux(ctx.scene, pt, o, carreaux, menuiserie.color, !!ctx.relief);
 }
 
 /** Le retrait de la couverture d'un toit-terrasse : la bande du dessus des murs se lit comme un acrotere. */
@@ -346,6 +359,8 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts).
     poserDetailsOuvertures(ctx, posees.map((o) => ({ f, o, hMur: egoutEn(o.x + o.l / 2, hMur, partie), cadre: SECTION_CADRE })));
+    // La modenature lue et le store (lot L1) : rien sans elles.
+    poserModenature(ctx, f, r, hMur, posees);
   });
   // Un toit par corps de batiment (model/volumesToit.ts), chacun a son egout ; sinon le toit coiffe
   // la partie haute, et la partie basse garde le toit plat de son prisme. `sansToit` : la surface

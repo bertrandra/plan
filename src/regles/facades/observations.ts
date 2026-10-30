@@ -17,6 +17,7 @@
 // Ici : la lecture d'une passe (vocabulaire ferme, rien d'invente), le texte qui accompagne l'image, la reponse enregistree. Pur.
 
 import { boutLu, silhouetteLue, type BoutVu, type SilhouetteFacade } from '../../model/silhouetteFacade.js';
+import { MOTS_PALETTE, type CouleurLue } from './palette.js';
 import type { DetailsOuverture, TypeOuverture } from '../../model/types.js';
 
 export type ConfianceIa = 'forte' | 'moyenne' | 'faible' | 'indetermine';
@@ -35,6 +36,46 @@ export interface Carreaux extends Grille {
   vitrage: 'clair' | 'depoli' | 'teinte' | 'vitrail' | null;
 }
 
+/**
+ * Les details de la facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md §4.1), lus sur une ouverture : les mots de Claude, que les
+ * regles (facade/regles/facades/menuiseries.ts) traduisent ; `null` : non dit, ou `indetermine`.
+ */
+export interface DetailsLus {
+  menuiserie: { materiau: 'bois' | 'pvc' | 'alu' | 'acier' | null; couleur: CouleurLue | null };
+  /** `sans-objet` : pas de volets. */
+  couleurVolets: CouleurLue | 'sans-objet' | null;
+  /** `sans-objet` : pas de garde-corps ; `haut` : le dessus de la main courante, en hauteurs d'egout. */
+  gardeCorps: { type: 'barreaux' | 'fer-forge' | 'verre' | 'plein' | 'sans-objet' | null; haut: number | null; couleur: CouleurLue | null };
+}
+
+export type GenreSaillieLu = 'bow-window' | 'galerie' | 'auvent' | 'appentis';
+/** Une saillie vue sur le mur (lot L1), de `u0` a `u1` ; sans profondeur (une vue de face ne la montre pas, decision 4). */
+export interface SaillieIa {
+  genre: GenreSaillieLu; u0: number; u1: number;
+  forme: 'pans' | 'rectangle' | 'arc' | 'conge'; niveau: 'rdc' | 'toit'; toit: 'pan' | 'pavillon' | 'plat';
+  /** Le bas de son toit, en hauteurs d'egout ; null : non dit. */
+  haut: number | null;
+  couverture: 'verre' | 'tuile' | 'zinc' | 'autre' | null;
+  confiance: ConfianceIa;
+}
+/** Un changement de nu du mur, a `u` : la partie de droite avance ou recule (lot L1). */
+export interface DecrocheIa { u: number; sens: 'avance' | 'recul'; confiance: ConfianceIa }
+/** La modenature lue (lot L1) : null pour un mot non dit. */
+export interface ModenatureIa {
+  egout: 'aucune' | 'corniche' | 'genoise' | null;
+  rangsGenoise: number | null;
+  bandeaux: number[];
+  chaines: 'aucune' | 'pierre' | 'brique' | null;
+  encadrements: 'aucun' | 'enduit' | 'pierre' | 'brique' | null;
+  soubassement: { haut: number; parement: Parement | null } | 'aucun' | null;
+  descentes: number[];
+}
+export interface BoiteUV { u0: number; u1: number; v0: number; v1: number }
+/** Ce qui est pose contre le mur (lot L1), dans sa boite. */
+export interface AppendiceIa extends BoiteUV { nature: 'perron' | 'store' | 'unite-exterieure' | 'boite-aux-lettres'; marches: number | null; confiance: ConfianceIa }
+/** Une zone de l'etat du mur (lot L1, decision 8 : un signal). */
+export interface EtatIa extends BoiteUV { nature: 'fissure' | 'enduit-abime' | 'humidite' | 'mousses' | 'autre'; confiance: ConfianceIa }
+
 export interface OuvertureIa {
   type: TypeOuverture;
   /** La boite en part du mur : u le long du mur depuis l'angle gauche, v en hauteurs d'egout depuis le sol. */
@@ -44,6 +85,11 @@ export interface OuvertureIa {
   confiance: ConfianceIa;
   details: Pick<DetailsOuverture, 'volets' | 'allege' | 'forme'>;
   carreaux: Carreaux | null;
+  /**
+   * La menuiserie, les volets, le garde-corps (lot L1) : poses apres le vote, depuis la baie de la lecture enrichie qui recouvre
+   * l'ouverture ; absents sans lecture enrichie.
+   */
+  lus?: DetailsLus;
   /** `escalade` : vue par l'escalade seule, pas par le vote des passes (la regle de l'escalade l'a ajoutee). */
   source?: 'escalade';
 }
@@ -67,6 +113,12 @@ export interface ObservationsFacade {
   /** Le parement du mur : le principal, et les zones d'un autre (un etage en colombage sur un rez-de-chaussee enduit). */
   surface: { principale: Parement | 'mixte' | 'indetermine'; zones: ZoneSurface[]; confiance: ConfianceIa };
   ouvertures: OuvertureIa[];
+  /** La facade enrichie (lot L1) : vides, ou null pour la modenature, dans une reponse d'avant le lot. */
+  saillies: SaillieIa[];
+  decroches: DecrocheIa[];
+  modenature: ModenatureIa | null;
+  appendices: AppendiceIa[];
+  etat: EtatIa[];
   confiance: 'faible' | 'moyenne' | 'forte';
   /**
    * L'escalade a ete lue (facade/regles/facades/ia.ts, `escaladerObservations`) : son modele, et ce qu'elle a tranche contre le vote
@@ -131,6 +183,17 @@ function lireCarreaux(v: unknown): Carreaux | null {
   return Object.values(c).some((x) => x !== null) ? c : null;
 }
 
+const couleurLue = (v: unknown): CouleurLue | null => parmi(v, MOTS_PALETTE);
+
+/** Les details d'une baie de la lecture enrichie (lot L1), a plat dans la reponse : un objet de moins a compiler pour la sortie structuree. */
+function lireDetailsLus(d: Record<string, unknown>): DetailsLus {
+  return {
+    menuiserie: { materiau: parmi(d.menuiserie, ['bois', 'pvc', 'alu', 'acier'] as const), couleur: couleurLue(d.couleurMenuiserie) },
+    couleurVolets: d.couleurVolets === 'sans-objet' ? 'sans-objet' : couleurLue(d.couleurVolets),
+    gardeCorps: { type: parmi(d.gardeCorps, ['barreaux', 'fer-forge', 'verre', 'plein', 'sans-objet'] as const), haut: enHauteur(d.hautGardeCorps), couleur: couleurLue(d.couleurGardeCorps) },
+  };
+}
+
 function lireOuverture(v: unknown): OuvertureIa | null {
   const o = objet(v);
   const type = parmi(o?.type, TYPES);
@@ -145,7 +208,70 @@ function lireOuverture(v: unknown): OuvertureIa | null {
   return { type, ...b, niveau: entier(o.niveau), travee: entier(o.travee), confiance: confiance(o.confiance), details, carreaux: lireCarreaux(o.carreaux) };
 }
 
+function lireSaillie(v: unknown): SaillieIa | null {
+  const o = objet(v), genre = parmi(o?.genre, ['bow-window', 'galerie', 'auvent', 'appentis'] as const);
+  const u0 = enPart(o?.u0), u1 = enPart(o?.u1);
+  if (!o || !genre || u0 === null || u1 === null || !(u1 > u0)) return null;
+  return {
+    genre, u0, u1, forme: parmi(o.forme, ['pans', 'rectangle', 'arc', 'conge'] as const) ?? 'rectangle', niveau: parmi(o.niveau, ['rdc', 'toit'] as const) ?? 'rdc',
+    toit: parmi(o.toit, ['pan', 'pavillon', 'plat'] as const) ?? 'pan', haut: enHauteur(o.haut), couverture: parmi(o.couverture, ['verre', 'tuile', 'zinc', 'autre'] as const), confiance: confiance(o.confiance),
+  };
+}
+
+/** Des hauteurs (bandeaux) ou des places (descentes) : celles qui sont dans leur repere, triees. */
+const nombres = (v: unknown, lire: (x: unknown) => number | null): number[] => garder(liste(v).map(lire)).sort((a, b) => a - b);
+
+function lireModenature(v: unknown): ModenatureIa | null {
+  const o = objet(v);
+  if (!o) return null;
+  // Le soubassement : son haut en hauteurs d'egout (0 : aucun ; -1 : non vu) et son parement a cote.
+  const haut = enHauteur(o.soubassement);
+  return {
+    egout: parmi(o.egout, ['aucune', 'corniche', 'genoise'] as const), rangsGenoise: entier(o.rangsGenoise),
+    bandeaux: nombres(o.bandeaux, enHauteur),
+    chaines: parmi(o.chaines, ['aucune', 'pierre', 'brique'] as const), encadrements: parmi(o.encadrements, ['aucun', 'enduit', 'pierre', 'brique'] as const),
+    soubassement: haut === null ? null : haut > 0 ? { haut, parement: parmi(o.parementSoubassement, PAREMENTS) } : 'aucun',
+    descentes: nombres(o.descentes, enPart),
+  };
+}
+
+function lireAppendice(v: unknown): AppendiceIa | null {
+  const o = objet(v), nature = parmi(o?.nature, ['perron', 'store', 'unite-exterieure', 'boite-aux-lettres'] as const), b = o ? boite(o) : null;
+  return o && nature && b ? { nature, ...b, marches: entier(o.marches), confiance: confiance(o.confiance) } : null;
+}
+
+function lireEtat(v: unknown): EtatIa | null {
+  const o = objet(v), nature = parmi(o?.nature, ['fissure', 'enduit-abime', 'humidite', 'mousses', 'autre'] as const), b = o ? boite(o) : null;
+  return o && nature && b ? { nature, ...b, confiance: confiance(o.confiance) } : null;
+}
+
 export const garder = <T>(l: (T | null)[]): T[] => l.filter((x): x is T => x !== null);
+
+/** Les champs de la facade enrichie d'un run qui n'en a pas lu (ou d'avant le lot L1). */
+export const SANS_ENRICHIE: Pick<ObservationsFacade, 'saillies' | 'decroches' | 'modenature' | 'appendices' | 'etat'> = Object.freeze({ saillies: [], decroches: [], modenature: null, appendices: [], etat: [] });
+
+/**
+ * Une baie de la lecture enrichie (lot L1) : sa boite en part du mur, et ses details. Elle se rapporte a une ouverture du run par sa
+ * boite (facade/regles/facades/voteEnrichi.ts) : les deux requetes ne se lisent pas l'une l'autre.
+ */
+export interface BaieLue extends BoiteUV { lus: DetailsLus }
+
+/** La lecture enrichie d'une facade (lot L1) : la seconde requete sur l'image du run, deploy/schema-facade-enrichie.json. */
+export interface LectureEnrichie extends Pick<ObservationsFacade, 'saillies' | 'decroches' | 'modenature' | 'appendices' | 'etat'> { baies: BaieLue[] }
+
+/** Une passe de la lecture enrichie, ramenee a ce que Plan sait lire ; null quand elle n'en a pas la forme. */
+export function lireLectureEnrichie(v: unknown): LectureEnrichie | null {
+  const r = objet(v);
+  if (!r || !Array.isArray(r.baies)) return null;
+  return {
+    baies: garder(r.baies.map((x) => { const o = objet(x), b = o ? boite(o) : null; return o && b ? { ...b, lus: lireDetailsLus(o) } : null; })),
+    saillies: garder(liste(r.saillies).map(lireSaillie)),
+    decroches: garder(liste(r.decroches).map((x) => { const o = objet(x), u = enPart(o?.u), sens = parmi(o?.sens, ['avance', 'recul'] as const); return o && u !== null && sens ? { u, sens, confiance: confiance(o.confiance) } : null; })),
+    modenature: lireModenature(r.modenature),
+    appendices: garder(liste(r.appendices).map(lireAppendice)),
+    etat: garder(liste(r.etat).map(lireEtat)),
+  };
+}
 
 /** La reponse d'une passe, ramenee a ce que Plan sait lire ; null quand elle n'a pas la forme du run (une autre reponse, du texte). */
 export function lireObservationsFacade(v: unknown): ObservationsFacade | null {
@@ -168,6 +294,8 @@ export function lireObservationsFacade(v: unknown): ObservationsFacade | null {
       confiance: confiance(surface.confiance),
     },
     ouvertures: garder(r.ouvertures.map(lireOuverture)),
+    // La facade enrichie n'est pas dans le run : sa lecture a part (lireLectureEnrichie) la pose apres le vote (facade/regles/facades/ia.ts).
+    ...SANS_ENRICHIE,
     confiance: parmi(r.confiance, ['faible', 'moyenne', 'forte'] as const) ?? 'faible',
   };
 }
@@ -234,6 +362,25 @@ export interface RunEnregistre {
   synthetique?: true;
   /** L'escalade demandee par la personne : une lecture de plus, par le modele de l'usage `escalade`, gardee pour le rejeu. */
   escalade?: EscaladeEnregistree;
+  /**
+   * La lecture enrichie (lot L1) : la seconde requete, sur la meme image, avec ses passes, ses versions et son cout. Absente d'un run
+   * d'avant le lot ; `erreur` quand elle n'a rien rendu de lisible (le run reste entier, la facade est proposee sans ses champs).
+   */
+  enrichie?: LectureEnrichieEnregistree;
+}
+
+/** La lecture enrichie d'un run (lot L1) : ses passes reussies, ses versions, son modele, son cout ; ou ce qui l'a empechee. */
+export interface LectureEnrichieEnregistree {
+  le: string;
+  modele: string;
+  prompt: number;
+  schema: number;
+  passes: 1 | 2 | 3;
+  sorties: unknown[];
+  cout: number | null;
+  tokens: { entree: number; sortie: number };
+  /** Ce qui l'a empechee, en clair ; alors `sorties` est vide. */
+  erreur?: string;
 }
 
 /** L'image d'un run : ses pixels, et l'empreinte (sha256 hexadecimal) et la taille des octets envoyes quand le serveur les a dites. */
@@ -262,6 +409,15 @@ function lireEscalade(v: unknown): EscaladeEnregistree | null {
   return { le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, sortie: o.sortie, cout: fini(o.cout) ? o.cout : null, tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, ...empreinte(o.sha256) };
 }
 
+function lireEnrichie(v: unknown): LectureEnrichieEnregistree | null {
+  const o = objet(v), t = objet(o?.tokens);
+  if (!o || typeof o.le !== 'string' || typeof o.modele !== 'string' || !fini(o.prompt) || !fini(o.schema) || (o.passes !== 1 && o.passes !== 2 && o.passes !== 3) || !Array.isArray(o.sorties)) return null;
+  return {
+    le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, passes: o.passes, sorties: o.sorties, cout: fini(o.cout) ? o.cout : null,
+    tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, ...(typeof o.erreur === 'string' ? { erreur: o.erreur } : {}),
+  };
+}
+
 /** Une reponse enregistree relue d'un cas ; null si elle n'en a pas la forme (elle est alors ignoree, pas inventee). */
 export function lireRunEnregistre(v: unknown): RunEnregistre | null {
   const o = objet(v), im = objet(o?.image), t = objet(o?.tokens);
@@ -272,5 +428,6 @@ export function lireRunEnregistre(v: unknown): RunEnregistre | null {
     tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, image: { largeur: im.largeur, hauteur: im.hauteur, ...empreinte(im.sha256), ...(entier(im.octets) !== null ? { octets: im.octets as number } : {}) }, chaine: o.chaine,
     ...(o.synthetique === true ? { synthetique: true as const } : {}),
     ...(lireEscalade(o.escalade) ? { escalade: lireEscalade(o.escalade) as EscaladeEnregistree } : {}),
+    ...(lireEnrichie(o.enrichie) ? { enrichie: lireEnrichie(o.enrichie) as LectureEnrichieEnregistree } : {}),
   };
 }

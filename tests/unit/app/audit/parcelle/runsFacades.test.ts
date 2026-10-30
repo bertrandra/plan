@@ -180,13 +180,17 @@ describe('le run des facades dans l audit', () => {
       planifier: (f) => { planifies.push(f); return () => {}; },
     });
     await a.accorder(true);
-    expect(demandes[0]!.requetes.map((q) => q.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3', 'b0-f0-p1', 'b0-f0-p2', 'b0-f0-p3']);
+    // La lecture enrichie de la facade (lot L1) part dans le meme batch, apres les runs, sur le meme contenu.
+    expect(demandes[0]!.requetes.map((q) => q.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3', 'b0-f0-p1', 'b0-f0-p2', 'b0-f0-p3', 'b0-f0-e1', 'b0-f0-e2', 'b0-f0-e3']);
+    expect(demandes[0]!.requetes.find((q) => q.id === 'b0-f0-e1')).toMatchObject({ usage: 'facade-enrichie', facades: 0, contenu: demandes[0]!.requetes.find((q) => q.id === 'b0-f0-p1')!.contenu });
     expect(capture.lire().analyse?.batch?.requetes['b0-f0-p1']).toEqual({ cle: 'maison', passe: 1, cote: 0, usage: 'facade', image: { largeur: 500, hauteur: 300 } });
     fini = true;
     for (let k = 0; k < 3 && planifies.length; k++) { planifies.shift()?.(); await new Promise((ok) => setTimeout(ok, 0)); await new Promise((ok) => setTimeout(ok, 0)); }
     // La reponse est gardee avec ses propres versions (pas celles de l'analyse des maisons), puis accordee par le moteur.
     expect(capture.lire().analyse?.resultats?.runs?.['maison#0']).toMatchObject({ prompt: 1, schema: 1, passes: 3 });
     expect(recus[0]?.['maison#0']?.sorties).toHaveLength(3);
+    // Sa lecture enrichie ne s'est pas lue (le faux rend un objet vide) : elle le dit, et le run reste entier.
+    expect(capture.lire().analyse?.resultats?.runs?.['maison#0']?.enrichie).toMatchObject({ passes: 3, sorties: [], erreur: expect.stringMatching(/aucune réponse lisible/) });
     expect(a.accords()?.['maison#0']?.bilan).toMatchObject({ seules: 1 });
     expect(immediats).toHaveLength(0);
 

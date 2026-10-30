@@ -31,8 +31,12 @@ const centimetre = (v: number) => Math.round(v * 100) / 100;
 export const DEFAUTS_SAILLIE: Record<GenreSaillie, { largeurM: number; profondeurM: number; forme: FormeSaillie; niveau: 'rdc' | 'toit'; toit: 'pan' | 'pavillon' | 'plat' }> = {
   'bow-window': { largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan' },
   galerie: { largeurM: 5, profondeurM: 1.5, forme: 'rectangle', niveau: 'rdc', toit: 'pan' },
-  appentis: { largeurM: 4, profondeurM: 3, forme: 'rectangle', niveau: 'rdc', toit: 'pan' }
+  appentis: { largeurM: 4, profondeurM: 3, forme: 'rectangle', niveau: 'rdc', toit: 'pan' },
+  // Une marquise au-dessus d'une porte (lot L1) : sa profondeur ne se lit pas sur une vue de face, c'est celle d'une marquise courante.
+  auvent: { largeurM: 1.6, profondeurM: 0.9, forme: 'rectangle', niveau: 'rdc', toit: 'pan' }
 };
+/** La hauteur d'un auvent dont la photo ne dit pas le haut : au-dessus d'une porte courante. */
+export const HAUTEUR_AUVENT_M = 2.5;
 
 /** Le mur `i` d'un corps : ses deux bouts, sa longueur, son vecteur unitaire et la normale qui sort du corps. */
 export function murDuCorps(h: CorpsToit, i: number): { a: PtBrut; b: PtBrut; L: number; u: PtBrut; n: PtBrut } {
@@ -77,11 +81,12 @@ export function corpsDeSaillie(h: CorpsToit, brute: SaillieFacade): CorpsToit {
   const d = s.profondeurM, L = s.largeurM;
   const haut = egoutBas(h);
   // La hauteur propre l'emporte ; sinon un etage (sans depasser l'egout de la maison) ou l'egout de la maison.
-  const egout = s.hauteurM ?? (s.genre === 'galerie' ? Math.min(2.4, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut));
+  const egout = s.hauteurM ?? (s.genre === 'galerie' ? Math.min(2.4, haut) : s.genre === 'auvent' ? Math.min(HAUTEUR_AUVENT_M, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut));
   let faitage = egout, posFaitage = 0, croupes: [number, number] | undefined;
   if (s.toit === 'pan') {
     // Le pan monte contre le mur ; sous la pente d'une galerie ou d'un appentis (une vingtaine de degres), pas sous celle d'un bow-window.
-    const montee = s.genre === 'bow-window' ? Math.min(1.2, d * 0.6) : Math.min(Math.max(haut - egout, 0.4), d * 0.4);
+    // Une marquise (auvent) est presque plate : une dalle mince qui penche a peine vers la rue.
+    const montee = s.genre === 'bow-window' ? Math.min(1.2, d * 0.6) : s.genre === 'auvent' ? Math.min(0.15, d * 0.2) : Math.min(Math.max(haut - egout, 0.4), d * 0.4);
     faitage = dixieme(egout + montee);
   } else if (s.toit === 'pavillon') {
     faitage = dixieme(egout + Math.min(1.5, Math.min(L, d) * 0.5));
@@ -93,6 +98,8 @@ export function corpsDeSaillie(h: CorpsToit, brute: SaillieFacade): CorpsToit {
   if (croupes) corps.croupes = croupes;
   if (s.genre === 'galerie') { corps.ouvert = true; corps.retraitM = RETRAIT_GALERIE_M; }
   if (s.genre === 'appentis') corps.ouvert = false;
+  // Un auvent n'a ni mur ni poteau : il tient sur ses consoles (three/toitCorps3d.ts les dessine a la place des poteaux).
+  if (s.genre === 'auvent') corps.ouvert = true;
   return corps;
 }
 
@@ -193,7 +200,7 @@ export function retirerSaillie(corps: readonly CorpsToit[], rang: number): Corps
 }
 
 /** Le nom d'une saillie dans l'inspecteur. */
-export const NOM_SAILLIE: Record<GenreSaillie, string> = { 'bow-window': 'Bow-window', galerie: 'Galerie', appentis: 'Appentis' };
+export const NOM_SAILLIE: Record<GenreSaillie, string> = { 'bow-window': 'Bow-window', galerie: 'Galerie', appentis: 'Appentis', auvent: 'Auvent' };
 
 /** Les corps sans leurs bow-windows (null s'il n'en reste aucun), et les bow-windows : ce que le prisme du batiment et ses fenetres lisent, et ce qui se dessine a part. */
 export function separerBowWindows(corps: readonly CorpsToit[] | null): { hotes: CorpsToit[] | null; bows: CorpsToit[] } {

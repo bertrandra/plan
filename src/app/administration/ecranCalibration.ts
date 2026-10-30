@@ -18,7 +18,7 @@ import { hoteDeZone } from '../../shell/dom.js';
 import { creerRegistre, type RegistreCommandes } from '../commandes.js';
 import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
 import { creerClientAnalyse } from '../../io/analyseClaude.js';
-import { appelerEscaladeFacade, appelerRunFacade, type ContexteRun } from '../releve/runFacade.js';
+import { appelerEscaladeFacade, appelerLectureEnrichie, appelerRunFacade, avecSaLectureEnrichie, encodageUnique, type ContexteRun } from '../releve/runFacade.js';
 import { dessinerImageFacade } from '../../render/imageFacade.js';
 
 /**
@@ -82,7 +82,13 @@ export function ouvrirEcranCalibration(): void {
     elevationEnUrl: (img) => versJpeg(img, 0.9),
     ...registreDeLEcran(),
     // « Rappeler Claude » : le run d'une facade par le serveur de l'analyse, sous la session de l'administrateur (son cookie).
-    appelerClaude: (d) => appelerRunFacade(contexteRun, d, 'calibration'),
+    // Les deux requetes d'une facade, en meme temps, sur la meme image (decision du proprietaire du 30 octobre 2026) : le run, puis sa
+    // lecture enrichie posee dessus sans rien lui faire perdre.
+    appelerClaude: async (d) => {
+      const c = encodageUnique(contexteRun);
+      const [r, enrichie] = await Promise.all([appelerRunFacade(c, d, 'calibration'), appelerLectureEnrichie(c, d, 'calibration')]);
+      return avecSaLectureEnrichie(r, enrichie);
+    },
     escaladerClaude: (d, run) => appelerEscaladeFacade(contexteRun, d, run, 'calibration'),
     prixEscalade: async () => (await claude.etat()).escaladeFacade ?? null,
     maintenant: () => new Date(),

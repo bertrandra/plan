@@ -98,7 +98,7 @@ export function vitreLue(vitrage: CarreauxOuverture['vitrage'] | undefined, clai
  * Pose les carreaux d'une ouverture dans `scene` (son groupe `ouverture:<id>`) : la maille a plat, et en relief quand `relief`
  * (hors Econome) ; celle a plat ne sert alors qu'a l'export. Rien quand le vocabulaire ne dit aucune barre.
  */
-export function poserCarreaux(scene: THREE_NS.Object3D, pt: Point3, o: Baie, c: CarreauxOuverture, couleur: number, relief: boolean): number {
+export function poserCarreaux(scene: THREE_NS.Object3D, pt: Point3, o: Baie, c: CarreauxOuverture, couleur: number | string, relief: boolean): number {
   const barres = barresDesCarreaux(o, c);
   if (!barres.length) return 0;
   const mat = new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.6 });

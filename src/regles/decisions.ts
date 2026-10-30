@@ -14,7 +14,7 @@ import { elevationParDefaut } from '../model/defaults.js';
 import { poserAccesVuDeLaRue, reglerCoteVuDeLaRue } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
-import type { ElementDeMurFait } from './toits/faits.js';
+import type { ElementDeMurFait, SaillieDeMurFait } from './toits/faits.js';
 import type { ChampsBatiment, Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 import { completerDetails } from '../model/ouverturesVues.js';
 import { ouverturesHorsDesLucarnes, releveReecrit, type LucarneSurLeMur } from '../model/facadeObjet.js';
@@ -117,6 +117,12 @@ export type EffetProposition =
    */
   | { type: 'elementsDuToit'; corps: number; cheminees: Cheminee[]; lucarnes: Lucarne[]; vu: ElementDeMurFait; facade: { cote: number; lucarnes: LucarneSurLeMur[] } | null; apresForme?: { corps: number; cheminees: Cheminee[]; lucarnes: Lucarne[] } | null }
   | { type: 'terrasse'; corps: number; terrasse: TerrasseToit; apresForme?: { corps: number; terrasse: TerrasseToit } | null }
+  /**
+   * Une saillie (bow-window, galerie, auvent, appentis) que le moteur pose sur le corps d'un mur d'apres le run d'une facade (lot L1) :
+   * le corps neuf (`corps`, sa `saillie` designe son hote) s'ajoute apres les autres, qui ne bougent pas. `vu` : la saillie telle que la
+   * facade la montre, de quoi la reposer par le moteur sur les corps d'une forme validee avec elle (`apresForme`).
+   */
+  | { type: 'saillieDuToit'; corps: CorpsToit; vu: SaillieDeMurFait; apresForme?: { corps: CorpsToit } | null }
   | { type: 'cloture'; cote: number; typeCloture: TypeClotureVue; hauteurM?: number; soubassement?: boolean }
   | { type: 'portail'; cote: number; nature: 'portail' | 'portillon' | 'aucun'; position?: PositionPortail; largeurM?: number }
   /**
@@ -314,6 +320,13 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       return;
     }
     case 'elementsDuToit': appliquerElementsDuToit(o, e); return;
+    case 'saillieDuToit': {
+      // Ajoutee apres les autres corps, une seule fois : une saillie deja posee sur ce mur de cet hote, au meme endroit, reste seule.
+      const corps = o.batiment?.corpsToit, s = e.corps.saillie;
+      if (!corps || !s || !corps[s.hote] || corps.some((c) => c.saillie && c.saillie.hote === s.hote && c.saillie.mur === s.mur && Math.abs(c.saillie.centreM - s.centreM) < (c.saillie.largeurM + s.largeurM) / 2)) return;
+      batimentACopier(o).corpsToit = [...corps, JSON.parse(JSON.stringify(e.corps)) as CorpsToit];
+      return;
+    }
     case 'terrasse': {
       const corps = o.batiment?.corpsToit;
       if (!corps || !corps[e.corps]) return;
@@ -352,7 +365,7 @@ function appliquerElementsDuToit(o: ObjetPlan, e: Extract<EffetProposition, { ty
  * n'y tient pas (`apresForme: null`). Un effet sans `apresForme` (une ancienne proposition, un autre effet) reste tel quel.
  */
 function effetApresForme(e: EffetProposition): EffetProposition | null {
-  if (e.type !== 'cheminees' && e.type !== 'lucarnes' && e.type !== 'terrasse' && e.type !== 'appentis' && e.type !== 'elementsDuToit') return e;
+  if (e.type !== 'cheminees' && e.type !== 'lucarnes' && e.type !== 'terrasse' && e.type !== 'appentis' && e.type !== 'elementsDuToit' && e.type !== 'saillieDuToit') return e;
   if (e.apresForme === undefined) return e;
   if (e.apresForme === null) return null;
   const { apresForme, ...reste } = e;
@@ -360,14 +373,14 @@ function effetApresForme(e: EffetProposition): EffetProposition | null {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, elementsDuToit: 2.75, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4, ajoutObjet: 5 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, elementsDuToit: 2.75, saillieDuToit: 2.8, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4, ajoutObjet: 5 };
 
 /**
  * Les effets qui ecrivent le toit d'un batiment (sa forme, ses corps et ce qu'ils portent) : valides, ils sont une decision de la
  * personne, que la relecture du LiDAR ne doit plus remplacer. La couverture n'en est pas : la relecture la garde
  * (app/toits/toitsLidar.ts::avecCouleurDe).
  */
-export const EFFETS_DU_TOIT: readonly TypeEffet[] = ['corpsToit', 'corpsDuToit', 'hauteurToit', 'elementsDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
+export const EFFETS_DU_TOIT: readonly TypeEffet[] = ['corpsToit', 'corpsDuToit', 'hauteurToit', 'elementsDuToit', 'saillieDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

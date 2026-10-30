@@ -8,7 +8,7 @@
 // Pur : pas de DOM, pas de scene.
 
 import { point, repere } from '../toits/toitCorps.js';
-import { bornerSaillie, murDuCorps, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
+import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PignonToit, PtBrut, SaillieFacade } from '../../model/types.js';
 
@@ -22,7 +22,6 @@ const LIBELLES_LUCARNE: Record<string, string> = {
   jacobine: 'Jacobine', capucine: 'Capucine', 'chien-assis': 'Chien-assis', rampante: 'Lucarne rampante', meuniere: 'Lucarne meunière',
   'oeil-de-boeuf': 'Œil-de-bœuf', outeau: 'Outeau', lanterneau: 'Lanterneau', inconnue: 'Lucarne'
 };
-const LIBELLES_SAILLIE = { 'bow-window': 'Bow-window', galerie: 'Galerie', appentis: 'Appentis' } as const;
 
 const centi = (v: number) => Math.round(v * 100) / 100;
 const borne = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
@@ -32,7 +31,7 @@ export function listerElements(corps: readonly CorpsToit[]): ElementListe[] {
   const l: ElementListe[] = [];
   // Les corps eux-memes, quand il y en a plusieurs : le principal d'abord, puis les autres dans l'ordre ou on les a poses.
   if (rangsDeCorps(corps).length > 1) rangsDeCorps(corps).forEach((rang, n) => l.push({ cible: { type: 'corps', rang, i: 0 }, libelle: rang === rangPrincipal(corps) ? 'Corps principal' : 'Corps ' + (n + 1) }));
-  corps.forEach((c, rang) => { if (c.saillie) l.push({ cible: { type: 'saillie', rang, i: 0 }, libelle: LIBELLES_SAILLIE[c.saillie.genre] }); });
+  corps.forEach((c, rang) => { if (c.saillie) l.push({ cible: { type: 'saillie', rang, i: 0 }, libelle: NOM_SAILLIE[c.saillie.genre] }); });
   corps.forEach((c, rang) => c.pignons.forEach((_, i) => l.push({ cible: { type: 'pignon', rang, i }, libelle: 'Pignon' })));
   corps.forEach((c, rang) => (c.lucarnes ?? []).forEach((x, i) => l.push({ cible: { type: 'lucarne', rang, i }, libelle: LIBELLES_LUCARNE[x.type] ?? 'Lucarne' })));
   corps.forEach((c, rang) => (c.cheminees ?? []).forEach((_, i) => l.push({ cible: { type: 'cheminee', rang, i }, libelle: 'Cheminée' })));

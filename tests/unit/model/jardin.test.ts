@@ -22,7 +22,8 @@ describe('la plate-bande et le massif plante', () => {
       .toEqual({ type: 'potager', source: 'main', miniArbre: { espece: 'lilas', hauteurM: 2.5 } });
     expect(lirePlantation({ type: 'cactus' })).toBeNull();
     expect(lireNatureEquipement('regard')).toBe('regard');
-    expect(lireNatureEquipement('perron')).toBeUndefined();
+    expect(lireNatureEquipement('perron')).toBe('perron');
+    expect(lireNatureEquipement('marquise')).toBeUndefined();
   });
 
   it('s ecrivent et se relisent a l identique, au schema 9 ; un champ illisible tombe a la lecture', () => {

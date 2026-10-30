@@ -17,7 +17,7 @@ import { ribbonChemin } from '../../geometry/ruban.js';
 import { tailleDe, TAILLES, type EspeceArbre, type TailleArbre } from '../../model/especesArbre.js';
 import { estOuvrage, ARBRE, CHEMIN, DALLE, EQUIPEMENT, MASSIF, PISCINE, TERRASSE } from '../../model/ouvrages/index.js';
 import { nouveauMassif, nouvelEquipement } from '../../model/jardin.js';
-import type { NatureEquipement, ObjetPlan, PtBrut, TypePlantation } from '../../model/types.js';
+import type { ObjetPlan, PtBrut, TypePlantation } from '../../model/types.js';
 import type { PositionPortail, TypeCloture } from '../../model/clotureVue.js';
 import { PART_CERTITUDE, versPlan, type CadrageJardin, type GenreArbre, type ObservationJardin, type ObservationsJardin } from '../../regles/jardin/observations.js';
 import type { ReglagesJardin } from '../../regles/jardin/reglages.js';
@@ -274,7 +274,7 @@ export function decisionsDuJardin(e: EntreesJardin): { decisions: DecisionJardin
         break;
       }
       case 'regard': case 'eclairage': case 'robinet': {
-        objet = nouvelEquipement(key, pts[0] as PtBrut, o.genre as Exclude<NatureEquipement, 'spa'>);
+        objet = nouvelEquipement(key, pts[0] as PtBrut, o.genre);
         apres = o.genre === 'regard' ? 'Regard de 60 × 60 cm, au ras du sol' : o.genre === 'eclairage' ? 'Borne d’éclairage' : 'Point d’eau';
         break;
       }

@@ -117,13 +117,16 @@ export function elementDeToitValide(v: unknown): ElementDeToit | null {
 export function saillieValide(v: unknown): SaillieFacade | null {
   if (!objet(v)) return null;
   const { genre, forme, niveau, toit } = v;
-  if (genre !== 'bow-window' && genre !== 'galerie' && genre !== 'appentis') return null;
+  if (genre !== 'bow-window' && genre !== 'galerie' && genre !== 'appentis' && genre !== 'auvent') return null;
   if (forme !== 'pans' && forme !== 'rectangle' && forme !== 'arc' && forme !== 'conge') return null;
   if (niveau !== 'rdc' && niveau !== 'toit') return null;
   if (toit !== 'pan' && toit !== 'pavillon' && toit !== 'plat') return null;
   if (!positifOuNul(v.hote) || !positifOuNul(v.mur) || !fini(v.centreM) || !positif(v.largeurM) || !positif(v.profondeurM)) return null;
   const base: SaillieFacade = { genre, hote: v.hote, mur: v.mur, centreM: v.centreM, largeurM: v.largeurM, profondeurM: v.profondeurM, forme, niveau, toit };
-  return positif(v.hauteurM) ? { ...base, hauteurM: v.hauteurM } : base;
+  if (positif(v.hauteurM)) base.hauteurM = v.hauteurM;
+  // La couverture d'un auvent (lot L1) : un mot connu, ou rien.
+  if (genre === 'auvent' && (v.couverture === 'verre' || v.couverture === 'tuile' || v.couverture === 'zinc' || v.couverture === 'autre')) base.couverture = v.couverture;
+  return base;
 }
 
 const memeBout = (a: BoutToit, b: BoutToit) => JSON.stringify(a) === JSON.stringify(b);

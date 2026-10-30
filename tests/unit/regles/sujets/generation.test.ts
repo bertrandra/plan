@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { genererFichiers, genererRunFacade, genererRunJardin } from '../../../../src/regles/sujets/generation.js';
+import { genererFacadeEnrichie, genererFichiers, genererRunFacade, genererRunJardin } from '../../../../src/regles/sujets/generation.js';
 import { assemblerPrompt, assemblerSchema } from '../../../../src/regles/sujets/assembler.js';
 import { DESCRIPTIONS_SUJETS } from '../../../../src/regles/sujets/liste.js';
-import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA_JARDIN } from '../../../../src/regles/sujets/versions.js';
+import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_PROMPT_FACADE, VERSIONS_SCHEMA, VERSIONS_SCHEMA_FACADE, VERSIONS_PROMPT_JARDIN, VERSIONS_SCHEMA_JARDIN, VERSIONS_PROMPT_FACADE_ENRICHIE, VERSIONS_SCHEMA_FACADE_ENRICHIE } from '../../../../src/regles/sujets/versions.js';
 import { controler } from '../../../../src/regles/sujets/edition.js';
 import type { DescriptionSujet } from '../../../../src/regles/sujets/description.js';
 
@@ -53,6 +53,39 @@ describe('le run d’une façade (deploy/prompt-facade.md, deploy/schema-facade.
     parcourir((JSON.parse(f.schema) as { schema: unknown }).schema);
     // Un champ s'ecrit seul (`u0`) ou sous son parent (`calage.angles`).
     for (const t of [...termes, ...champs]) expect(f.corpsPrompt, t).toMatch(new RegExp('[`.]' + t.replace(/[-]/g, '\\-') + '[`.]'));
+  });
+});
+
+describe('la lecture enrichie d’une façade (deploy/prompt-facade-enrichie.md, deploy/schema-facade-enrichie.json, lot L1)', () => {
+  const f = genererFacadeEnrichie();
+
+  it('est ce que sa description donne, sous une version qui suit le texte', () => {
+    expect(readFileSync('deploy/prompt-facade-enrichie.md', 'utf8') === f.prompt).toBe(true);
+    expect(readFileSync('deploy/schema-facade-enrichie.json', 'utf8') === f.schema).toBe(true);
+    expect(empreinteTexte(f.corpsPrompt), 'le prompt de la lecture enrichie a change : une ligne de plus a VERSIONS_PROMPT_FACADE_ENRICHIE').toBe(versionCourante(VERSIONS_PROMPT_FACADE_ENRICHIE).empreinte);
+    expect(empreinteTexte(f.schema), 'le schema de la lecture enrichie a change : une ligne de plus a VERSIONS_SCHEMA_FACADE_ENRICHIE').toBe(versionCourante(VERSIONS_SCHEMA_FACADE_ENRICHIE).empreinte);
+  });
+
+  it('definit dans le prompt chaque champ et chaque terme de son schema, sans union ni champ facultatif', () => {
+    const termes = new Set<string>(), champs = new Set<string>();
+    const parcourir = (v: unknown): void => {
+      if (Array.isArray(v)) { v.forEach(parcourir); return; }
+      if (!v || typeof v !== 'object') return;
+      const o = v as Record<string, unknown>;
+      // La sortie structuree compile le schema : une union ou un champ facultatif l'alourdit (decision du 30 octobre 2026).
+      expect(o).not.toHaveProperty('anyOf');
+      if (o.properties && typeof o.properties === 'object') expect(o.required).toEqual(Object.keys(o.properties));
+      if (Array.isArray(o.enum)) for (const t of o.enum) termes.add(String(t));
+      if (o.properties && typeof o.properties === 'object') for (const k of Object.keys(o.properties)) champs.add(k);
+      Object.values(o).forEach(parcourir);
+    };
+    parcourir((JSON.parse(f.schema) as { schema: unknown }).schema);
+    for (const t of [...termes, ...champs]) expect(f.corpsPrompt, t).toMatch(new RegExp('[`.]' + t.replace(/[-]/g, '\\-') + '[`.]'));
+  });
+
+  it('a un exemple de la forme de son schema', () => {
+    const d = JSON.parse(f.schema) as { schema: { properties: Record<string, unknown> }; exemple: Record<string, unknown> };
+    expect(Object.keys(d.exemple)).toEqual(Object.keys(d.schema.properties));
   });
 });
 

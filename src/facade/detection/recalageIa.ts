@@ -106,6 +106,14 @@ function bordLe(C: CartesAretes, vertical: boolean, pos: number, debut: number, 
   return meilleur && meilleur.couv >= COUVERTURE_ARETE ? meilleur.p / k : null;
 }
 
+/**
+ * Une verticale soutenue par les aretes pres de `xM` (metres depuis la gauche du mur), sur le milieu de la hauteur du mur (de 15 % a
+ * 85 %, a 30 cm pres) : ce qui confirme une descente d'eau pluviale que Claude voit (lot L1, regle des descentes). Rend sa place, ou null.
+ */
+export function verticaleVue(C: CartesAretes, xM: number): number | null {
+  return bordLe(C, true, xM, 0, C.h / C.pxParM);
+}
+
 interface BoiteRecalee {
   x: number;
   y: number;

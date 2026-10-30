@@ -220,6 +220,7 @@ const TEINTES = { fonte: 0x4c5055, cadre: 0x7b7f84, pied: 0x3a3d40, lumiere: 0xf
  * ras du sol (trois centimetres) ; l'eclairage, une borne et son globe ; le robinet, un pied et son col. Rend les mailles posees.
  */
 export function ajouterEquipementJardin(groupe: THREE_NS.Object3D, versLocal: VersLocal, nature: NatureEquipement, contour: readonly PtBrut[], hauteur: number): number {
+  if (nature === 'perron' || nature === 'unite-exterieure' || nature === 'boite-aux-lettres') return ajouterEquipementDeFacade(groupe, versLocal, nature, contour, hauteur);
   const c = centre(contour);
   const l = versLocal(c);
   const mat = (couleur: number, rugosite = 0.6) => new THREE.MeshStandardMaterial({ color: couleur, roughness: rugosite, metalness: 0.3 });
@@ -256,5 +257,55 @@ export function ajouterEquipementJardin(groupe: THREE_NS.Object3D, versLocal: Ve
   col.position.set(l.x + 0.06, h - 0.05, l.z);
   col.name = 'robinet-col';
   groupe.add(col);
+  return 2;
+}
+
+/** Les teintes des equipements lus sur une facade (lot L1) : la pierre d'un perron, la tole d'un caisson, sa grille, une boite. */
+const TEINTES_FACADE = { perron: 0xc9c2b4, caisson: 0xe4e6e8, grille: 0x4a4e52, boite: 0x5b6a74, pied: 0x3a3d40 } as const;
+
+/** Un prisme de `pts` (le plan), de `y0` a `y1`, dans `groupe`. */
+function prisme(groupe: THREE_NS.Object3D, versLocal: VersLocal, pts: readonly PtBrut[], y0: number, y1: number, couleur: number, nom: string): void {
+  const s = new THREE.Shape();
+  pts.forEach((p, i) => { const q = versLocal(p); if (i) s.lineTo(q.x, -q.z); else s.moveTo(q.x, -q.z); });
+  const geo = new THREE.ExtrudeGeometry(s, { depth: Math.max(0.005, y1 - y0), bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.8 }));
+  m.position.y = y0;
+  m.name = nom;
+  groupe.add(m);
+}
+
+/** Un point entre `a` et `b`, a la part `t`. */
+const entre = (a: PtBrut, b: PtBrut, t: number): PtBrut => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+/**
+ * Un equipement lu sur une facade (lot L1), sur son emprise contre le mur (`pts[0]-pts[1]` le long du mur, `pts[3]-pts[2]` vers dehors) :
+ * le perron, ses marches (la plus haute contre le mur, chacune moins profonde que celle du dessous) ; l'unite exterieure, un caisson et
+ * la grille de son ventilateur ; la boite aux lettres, une boite sur son pied. Rend le nombre de mailles posees.
+ */
+function ajouterEquipementDeFacade(groupe: THREE_NS.Object3D, versLocal: VersLocal, nature: 'perron' | 'unite-exterieure' | 'boite-aux-lettres', contour: readonly PtBrut[], hauteur: number): number {
+  const [a, b, c, d] = contour as [PtBrut, PtBrut, PtBrut, PtBrut];
+  if (contour.length < 4) return 0;
+  if (nature === 'perron') {
+    const marche = 0.17, n = Math.max(1, Math.round(Math.max(marche, hauteur) / marche));
+    for (let k = 0; k < n; k++) {
+      // La marche k, de son giron au mur : sa profondeur recule a chaque marche.
+      const t = (n - k) / n;
+      prisme(groupe, versLocal, [a, b, entre(b, c, t), entre(a, d, t)], k * (hauteur / n), (k + 1) * (hauteur / n), TEINTES_FACADE.perron, 'perron-marche');
+    }
+    return n;
+  }
+  if (nature === 'unite-exterieure') {
+    prisme(groupe, versLocal, contour, 0, hauteur, TEINTES_FACADE.caisson, 'unite-exterieure-caisson');
+    // La grille du ventilateur, sur la face qui regarde dehors : un carre sombre a peine en avant.
+    const g = [entre(entre(a, b, 0.2), entre(d, c, 0.2), 1.02), entre(entre(a, b, 0.7), entre(d, c, 0.7), 1.02), entre(entre(a, b, 0.7), entre(d, c, 0.7), 1.04), entre(entre(a, b, 0.2), entre(d, c, 0.2), 1.04)];
+    prisme(groupe, versLocal, g, hauteur * 0.2, hauteur * 0.8, TEINTES_FACADE.grille, 'unite-exterieure-grille');
+    return 2;
+  }
+  // La boite, au haut de son pied, sur toute l'emprise ; le pied, un carre de 6 cm en son milieu.
+  const boite = Math.min(0.35, hauteur / 3);
+  prisme(groupe, versLocal, contour, hauteur - boite, hauteur, TEINTES_FACADE.boite, 'boite-aux-lettres');
+  const m = centre(contour), e = 0.03;
+  prisme(groupe, versLocal, [{ x: m.x - e, y: m.y - e }, { x: m.x + e, y: m.y - e }, { x: m.x + e, y: m.y + e }, { x: m.x - e, y: m.y + e }], 0, hauteur - boite, TEINTES_FACADE.pied, 'boite-aux-lettres-pied');
   return 2;
 }

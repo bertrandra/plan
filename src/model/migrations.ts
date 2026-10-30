@@ -104,6 +104,14 @@ export const MIGRATIONS: readonly Migration[] = [
     // Des champs facultatifs, qui n'existaient pas avant (lot L3) : un document 8 est un document 9 valide, relu a l'identique. Le 9
     // les distingue, pour qu'un lecteur 8 refuse le fichier plutot que de les perdre a la premiere ecriture.
     migrer: (d) => d
+  },
+  {
+    de: 9,
+    apporte: 'la façade enrichie : la couleur et la matière des menuiseries, les garde-corps, la modénature lue, le store, l’auvent, l’état du bâti signalé, et le perron, l’unité extérieure et la boîte aux lettres',
+    // Des champs facultatifs, qui n'existaient pas avant (lot L1) : un document 9 est un document 10 valide, relu a l'identique. Le 10
+    // les distingue, pour qu'un lecteur 9 refuse le fichier plutot que de les perdre (une Facade se reecrit en entier) ou de lire un
+    // perron comme un spa qui charge la terrasse.
+    migrer: (d) => d
   }
 ];
 
@@ -165,8 +173,28 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     if (Array.isArray(brut.facades) && brut.facades.some(porteLaFacade)) s = Math.max(s, 7);
     // Un toit a croupes : un lecteur 2 le dessinerait en quatre pans sur l'enveloppe, faux sur un L.
     if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
+    // La facade enrichie (lot L1) : un lecteur 9 la perdrait, ou lirait un perron comme un spa.
+    if (porteLaFacadeEnrichie(brut)) s = Math.max(s, 10);
   }
   return s;
+}
+
+/** Les champs d'une Facade et d'une ouverture venus avec le lot L1, les genres de saillie et les natures d'equipement aussi. */
+const CHAMPS_FACADE_10: readonly string[] = ['modenature', 'appendices', 'etat'];
+const DETAILS_10: readonly string[] = ['menuiserie', 'gardeCorps'];
+const NATURES_10: readonly string[] = ['perron', 'unite-exterieure', 'boite-aux-lettres'];
+
+/** Un objet qui porte un champ du lot L1 : schema 10. */
+function porteLaFacadeEnrichie(brut: Record<string, unknown>): boolean {
+  if (typeof brut.nature === 'string' && NATURES_10.includes(brut.nature)) return true;
+  if (Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => { const sa = (c as { saillie?: { genre?: unknown; couverture?: unknown } } | null)?.saillie; return !!sa && (sa.genre === 'auvent' || sa.couverture !== undefined); })) return true;
+  if (!Array.isArray(brut.facades)) return false;
+  return brut.facades.some((f) => {
+    if (!f || typeof f !== 'object') return false;
+    const r = f as Record<string, unknown>;
+    if (CHAMPS_FACADE_10.some((k) => r[k] !== undefined)) return true;
+    return Array.isArray(r.ouvertures) && r.ouvertures.some((o) => { const d = (o as { details?: Record<string, unknown> } | null)?.details; return !!d && DETAILS_10.some((k) => d[k] !== undefined); });
+  });
 }
 
 /** Les champs d'un releve venus avec la Facade (lot F5), et ceux d'une ouverture de la facade objet. */

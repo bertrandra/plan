@@ -55,7 +55,12 @@ export const APP_VERSION = '5.1.0';
 // regard, eclairage, robinet) et la marque `existant`. Un lecteur 8 les perdrait au premier enregistrement (la serialisation est une
 // liste blanche), et un regard redeviendrait un spa qui charge la terrasse. La migration 8 -> 9 est l'identite ; la plateforme accepte
 // deja les schemas 7 a 12.
-export const SCHEMA_VERSION = 9;
+// 10 : la facade enrichie (lot L1 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.2) : la menuiserie et le garde-corps d'une
+// ouverture (`details.menuiserie`, `details.gardeCorps`), la modenature lue d'un mur, ce qu'il porte (un store) et l'etat du bati signale
+// (`modenature`, `appendices`, `etat`), le genre `auvent` d'une saillie et sa `couverture`, les natures d'equipement `perron`,
+// `unite-exterieure` et `boite-aux-lettres`. Un lecteur 9 les perdrait au premier enregistrement (une Facade se reecrit en entier), et
+// lirait un perron comme un spa qui charge la terrasse. La migration 9 -> 10 est l'identite ; la plateforme accepte deja 7 a 12.
+export const SCHEMA_VERSION = 10;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;

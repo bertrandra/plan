@@ -61,7 +61,9 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // La lecture du jardin (usage `jardin`, lot L3) a ses fichiers et part sur une orthophoto de SYNTHESE du depot
 // (tests/fixtures/jardin-ia/jardin-test.jpg, dessinee par dessiner.py : aucune photo reelle) ; le script dit si sa sortie a la forme du
 // schema (objets, points, genre d'arbre). Une requete au modele rapide, quelques dixiemes de centime : sous le plafond par defaut.
-const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : 'analyse');
+// La lecture enrichie d'une facade (usage `facade-enrichie`, lot L1) a ses fichiers et part sur la meme image que le run : le script dit
+// si sa sortie a la forme de son schema (baies, saillies, modenature…).
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'facade-enrichie' ? 'facade-enrichie' : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -116,7 +118,7 @@ function contenu(famille, image) {
     return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fs.readFileSync(PDF_PLU).toString('base64') } },
       { type: 'text', text: 'Commune : Chatou (INSEE 78146).\nDocument d’urbanisme : 78146_PLU_20181003.\nZone demandée : ULp (« ULp : Secteur urbain »).\nL’extrait envoyé va de la page 47 à la page 49 du document entier (252 pages) : sa première page est la page 47.' }];
   }
-  if (famille === 'facade') {
+  if (famille === 'facade' || famille === 'facade-enrichie') {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
   }
@@ -212,7 +214,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
   const imageJardin = fs.readFileSync(IMAGE_JARDIN).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
-  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?')
+  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ', façade enrichie v' + (etat.corps.facadeEnrichie?.prompt ?? '?') + '/v' + (etat.corps.facadeEnrichie?.schema ?? '?')
     + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
@@ -223,7 +225,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
     // le defaut), comme pour la page ; `--modele` l'impose a toutes.
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
-      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' || g.famille === 'facade-enrichie' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' || g.famille === 'facade-enrichie' ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
     process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -244,6 +246,10 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formeFacade(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie du run d’une façade n’a pas la forme du schéma : ' + defaut, 1); }
     }
+    if (g.famille === 'facade-enrichie') {
+      const defaut = formeEnrichie(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture enrichie d’une façade n’a pas la forme du schéma : ' + defaut, 1); }
+    }
     if (g.famille === 'plu') {
       const defaut = formePlu(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du PLU n’a pas la forme du schéma : ' + defaut, 1); }
@@ -252,7 +258,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formeJardin(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du jardin n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : '';
+    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'facade-enrichie' ? ' ; ' + resumeEnrichie(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : '';
     console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + resume + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
@@ -272,6 +278,21 @@ function diagnostic(x) {
     + (typeof x.structuree === 'boolean' ? ', sortie structurée ' + (x.structuree ? 'demandée' : x.refusFormat ? 'refusée par l’API (« ' + x.refusFormat + ' »), repli sans elle' : 'non demandée') : '') + '.\n'
     + 'Anthropic : ' + (e.type ?? '?') + ' : ' + (e.message ?? '(aucun message)')
     + (typeof e.apercu === 'string' ? '\nDébut du texte rendu (' + e.apercu.length + ' caractères au plus 400) :\n' + e.apercu : '');
+}
+
+/** Ce qui manque a une sortie de la lecture enrichie pour avoir la forme du schema (deploy/schema-facade-enrichie.json) ; null si rien. */
+function formeEnrichie(s) {
+  const objet = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  for (const k of ['baies', 'saillies', 'decroches', 'appendices', 'etat']) if (!Array.isArray(s[k])) return k + ' absent';
+  if (!objet(s.modenature)) return 'modenature absente';
+  if (s.baies.some((b) => !objet(b) || ![b.u0, b.u1, b.v0, b.v1].every((x) => typeof x === 'number'))) return 'une baie sans boîte';
+  return null;
+}
+
+/** La sortie de la lecture enrichie en quelques mots : les baies decrites, et ce qu'elle voit d'autre. */
+function resumeEnrichie(s) {
+  const couleurs = s.baies.filter((b) => typeof b.couleurMenuiserie === 'string' && b.couleurMenuiserie !== 'indetermine').length;
+  return s.baies.length + ' baie(s) dont ' + couleurs + ' à la menuiserie colorée, ' + s.saillies.length + ' saillie(s), ' + s.appendices.length + ' appendice(s), égout ' + (s.modenature.egout ?? '?');
 }
 
 /** Ce que la requete a fait de la sortie structuree, pour la ligne d'une requete acceptee. */
@@ -344,10 +365,11 @@ async function mesurerFacades(dossier, ecrire, modele) {
     const blocs = [{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: fs.readFileSync(path.join(dossier, f)).toString('base64') } },
       { type: 'text', text: fs.readFileSync(path.join(dossier, nom + '.texte.txt'), 'utf8') }];
     const sortie = { source: 'claude' };
-    for (const [m, passes] of [['x1', 1], ['x3', 3]]) {
+    // La lecture enrichie (lot L1) part aussi, trois passes sur la meme image : son cout s'ajoute a celui du run (le tableau le dit).
+    for (const [m, passes, usage] of [['x1', 1, 'facade'], ['x3', 3, 'facade'], ['enrichie', 3, 'facade-enrichie']]) {
       const debut = Date.now();
-      const r = await ecrire('admin/claude/messages', { projet: 'verification-api', idu: null, adresse: 'mesure x1 contre x3', audit: null, usage: 'facade', ...(modele ? { modele } : {}),
-        requetes: Array.from({ length: passes }, (_, i) => ({ id: nom.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 50) + '-' + m + '-p' + (i + 1), passe: i + 1, facades: i ? 0 : 1, contenu: blocs })) });
+      const r = await ecrire('admin/claude/messages', { projet: 'verification-api', idu: null, adresse: 'mesure x1 contre x3', audit: null, usage, ...(modele ? { modele } : {}),
+        requetes: Array.from({ length: passes }, (_, i) => ({ id: nom.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 50) + '-' + m + '-p' + (i + 1), passe: i + 1, facades: i || usage !== 'facade' ? 0 : 1, usage, contenu: blocs })) });
       if (r.statut !== 200) arreter('mesure ' + nom + ' ' + m + ' : HTTP ' + r.statut + ' : ' + (r.corps?.error?.message ?? JSON.stringify(r.corps)) + (r.statut === 429 ? '\n(plafond atteint : relancez avec --plafond <dollars>)' : ''), 1);
       const res = r.corps.resultats ?? [];
       const somme = (k) => res.reduce((s, x) => s + (x.tokens?.[k] ?? 0), 0);

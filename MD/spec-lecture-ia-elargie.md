@@ -46,6 +46,18 @@ défait.
    (`src/regles/sujets/descriptions/facadesRun.ts`) : une image, trois lectures votées (`facades.ia.passes`), une escalade à la demande
    (décision 14 de la spec des façades). Une requête nouvelle ne part que là où l'**entrée** est autre : la photo aérienne et les photos du
    jardin (L3), le règlement du PLU (L4), la rédaction d'un texte (L5), une demande à l'assistant (L6).
+   **Remplacée pour L1 le 30 octobre 2026 (décision du propriétaire) : deux requêtes par passe de lecture d'une façade.** Le schéma du
+   run avec les champs de A ne tient pas dans la sortie structurée de l'API (« The compiled grammar is too large », dix essais du
+   30 octobre 2026, même sans aucune énumération), et le run de 5.1.0 lui-même ne passait qu'en repli. Donc :
+   - **requête 1, le run** (usage `facade`) : **identique à la 5.1.0**, prompt, schéma, versions et repli compris (l'API refuse sa
+     sortie structurée et il repart sans elle, comme avant) ; trois passes, le vote et l'escalade vers Sonnet, comme avant. La lecture
+     d'avant L1 ne peut pas baisser : on n'y touche pas (décision du propriétaire du 30 octobre 2026, après deux mesures où le run sans
+     union, en sortie structurée, lisait moins bien le banc) ;
+   - **requête 2, la lecture enrichie** (usage `facade-enrichie`, ses prompt et schéma à elle, `facadesEnrichie.ts`) : les champs de A,
+     sur la même image (gardée une fois par empreinte, L0) ; trois passes et un vote, pas d'escalade ;
+   - la requête 2 ne change rien à ce que donne la requête 1 ; son échec laisse la lecture d'avant L1 intacte, et la façade est proposée
+     sans ses champs, avec un signal.
+   B (le toit, L2) se décidera avec L2.
 4. **Les dimensions viennent du plan et du LiDAR, jamais de la photo** (décision 1 de la spec des façades). Une hauteur de garde-corps, un
    bandeau, un soubassement se lisent en **part** (`v`, en hauteurs d'égout) et deviennent des mètres par le calage du mur ; une profondeur
    (bow-window, auvent, décroché) ne se lit pas sur une vue de face : elle vient du LiDAR, du cadastre, ou d'une valeur par défaut dite.
@@ -244,7 +256,15 @@ ancien dans chaque lot).
 
 ### 4.1 Le run d'une façade, version suivante (L1, puis L2)
 
-Ajouts au schéma du run, dans le repère du mur (`u` le long du mur, `v` en hauteurs d'égout), vocabulaire fermé, `indetermine` partout :
+**Depuis le 30 octobre 2026 (décision 3 remplacée pour L1), les champs de L1 ne sont plus dans le run** : ils forment la lecture enrichie,
+une seconde requête sur la même image (`deploy/schema-facade-enrichie.json`, usage `facade-enrichie`). Ses champs sont ceux ci-dessous,
+à plat et sans union pour que la sortie structurée les accepte : une baie de la lecture enrichie (`baies[]` : sa boîte `u0`, `u1`, `v0`,
+`v1`, `menuiserie`, `couleurMenuiserie`, `couleurVolets`, `gardeCorps`, `hautGardeCorps`, `couleurGardeCorps`) se rapporte à l'ouverture du
+run qu'elle recouvre ; `soubassement` est un nombre (`0` : aucun) suivi de `parementSoubassement` ; un nombre non vu vaut `-1`. Le run
+reste celui de la 5.1.0, à l'octet près (prompt et schéma version 2, repli sans sortie structurée).
+
+Ajouts au schéma (prévus pour le run, portés depuis par la lecture enrichie), dans le repère du mur (`u` le long du mur, `v` en hauteurs
+d'égout), vocabulaire fermé, `indetermine` partout :
 
 ```text
 ouvertures[].details.menuiserie   { materiau: bois|pvc|alu|acier|indetermine, couleur: <palette>|indetermine }
@@ -464,7 +484,7 @@ la mesure dans sa section du §9 bis.
 
 | Lot | Appel | Usage | Requêtes | Entrée | Coût estimé, Haiku | Escalade Sonnet (à la demande) |
 |---|---|---|---|---|---|---|
-| L1 | **même run** que la façade | `facade` | 3 par façade (inchangé) | une image + texte ; sortie plus longue (+ 40 à 80 %) | ≈ 0,006 à 0,008 $ la façade | 1 requête, ≈ 0,03 à 0,05 $ |
+| L1 | **seconde requête** sur l'image du run (décision du 30 octobre 2026), en sortie structurée | `facade-enrichie` | 3 par façade, en plus des 3 du run (inchangé) | la même image + texte | mesuré : ≈ 0,0034 $ la façade en plus du run (≈ 0,0079 $ les deux, accepté) | aucune (l'escalade ne relit que le run) |
 | L2 | **même run** (image de F7) | `facade` | idem | idem | ≈ + 0,001 $ la façade | idem |
 | L3 | aérienne de la parcelle | `jardin` | 3 par parcelle | une image 1 024 px | ≈ 0,003 $ | ≈ 0,02 $ |
 | L3 | photos du jardin | `jardin` | 3 par photo | une image | ≈ 0,003 $ la photo (≈ 0,02 $ pour six) | ≈ 0,02 $ la photo |
@@ -475,7 +495,7 @@ la mesure dans sa section du §9 bis.
 
 - **Haiku partout par défaut, Sonnet jamais d'office** (décision 6) ; le modèle de chaque usage nouveau se règle dans Réglages › Modèles.
 - **Plafonds** : chaque usage nouveau entre dans les plafonds du serveur (jour, mois, engagé, estimation) et a sa ligne au tableau de bord
-  de la consommation (« Jardin », « PLU », « Textes », « Assistant ») ; l'escalade se compte en escalade.
+  de la consommation (« Façade enrichie », « Jardin », « PLU », « Textes », « Assistant ») ; l'escalade se compte en escalade.
 - **Ce qui est enregistré pour réanalyser** (L0 pour tous) : passes brutes, sortie ramenée au schéma, versions, modèle, tokens, coût, image
   ou document exact envoyé (par empreinte), et l'escalade. Pour le PLU : le PDF entier par empreinte et les pages envoyées. Pour un texte :
   les faits envoyés (par empreinte) et le brouillon. Pour l'assistant : la demande et la liste (journal seulement : ni projet ni photo).
@@ -493,7 +513,7 @@ touchés, PR, merge par commit de merge. AE 101 ne bouge pas (`identite.ts`) ; l
 | Lot | Livre | Supprime, dans la même PR | Critère d'acceptation |
 |---|---|---|---|
 | **L0 — Tout garder** | L'image exacte de chaque requête gardée par empreinte (audit, cas de calibration, trace serveur) ; une trace pour **toute** requête (sans dépôt, escalade, « Rappeler Claude ») ; l'export « données d'analyse » (JSON, CSV) à travers les audits ; le rejeu d'un run de façade depuis son image gardée | la branche « sans trace » de l'analyse sans dépôt ; `RunEnregistre.image` réduit à ses dimensions (relu tel quel, plus écrit) | Une façade rejouée depuis l'image gardée envoie **les mêmes octets** (empreinte égale) ; trois passes et une escalade = **une** image gardée ; l'export d'une période relit toutes les passes de tous les audits, CSV ouvert dans un tableur français ; aucun secret ni photo hors demande dans l'export (`verifier-paquet`) |
-| **L1 — Façade enrichie** (A, état du bâti) | Le schéma du run élargi (§4.1, sans `toit`) ; le vote et les règles des familles nouvelles ; les champs de la façade objet et de la Façade (§4.2) ; les saillies et décrochés en propositions de corps ; le dessin 3D : menuiseries colorées, garde-corps par type, modénature lue, auvent, store, descentes ; natures d'équipement `perron`, `unite-exterieure`, `boite-aux-lettres` (qui ne chargent pas) | la maçonnerie déduite de l'époque **sur un mur dont la modénature est lue** (la règle reste pour les autres) ; le garde-corps unique codé en constantes (devient le type `barreaux`) ; les champs `facades.details.*` de l'analyse d'une maison que le run lit mieux, **si la mesure le dit** (question 9) | Ouvertures : rappel et précision du banc `ia-x1-x3.ts` **pas en dessous** de 99,2 % et 100 % moins un point ; sur la façade d'AE 101, couleur des menuiseries et garde-corps lus et dessinés ; un fichier sans champs nouveaux se dessine à l'identique (`glb-structure.json` inchangé) ; l'état du bâti ne change aucun nombre ni export ; une saillie acceptée passe par le moteur seulement |
+| **L1 — Façade enrichie** (A, état du bâti) | La lecture enrichie, seconde requête sur l'image du run (§4.1, décision 3 remplacée le 30 octobre 2026), le run restant celui de la 5.1.0 ; le vote et les règles des familles nouvelles ; les champs de la façade objet et de la Façade (§4.2) ; les saillies et décrochés en propositions de corps ; le dessin 3D : menuiseries colorées, garde-corps par type, modénature lue, auvent, store, descentes ; natures d'équipement `perron`, `unite-exterieure`, `boite-aux-lettres` (qui ne chargent pas) | la maçonnerie déduite de l'époque **sur un mur dont la modénature est lue** (la règle reste pour les autres) ; le garde-corps unique codé en constantes (devient le type `barreaux`) ; les champs `facades.details.*` de l'analyse d'une maison que le run lit mieux, **si la mesure le dit** (question 9) | Ouvertures : rappel et précision du banc `ia-x1-x3.ts` **pas en dessous** de 99,2 % et 100 % moins un point ; sur la façade d'AE 101, couleur des menuiseries et garde-corps lus et dessinés ; un fichier sans champs nouveaux se dessine à l'identique (`glb-structure.json` inchangé) ; l'état du bâti ne change aucun nombre ni export ; une saillie acceptée passe par le moteur seulement |
 | **L2 — Toit enrichi** (B) | `toit` du run (couverture, pose, débord, faîtage, gouttière), `elements` `fenetre-toit` et `solaire` ; `Toit.pose`, couvertures nouvelles, `bords.faitage`, `bords.gouttiere` ; textures écaille, bac acier, membrane, végétale ; gouttière et faîtage dessinés | l'écriture de `ardoise-losange` (relu `ardoise` + `losange`) ; la table de correspondance des deux vocabulaires de couverture remplace les traductions locales | La démonstration et AE 101 identiques (`glb-structure.json`, `identite.ts`) ; une couverture lue sur la façade et à l'analyse d'une maison se départage par une règle écrite (la plus proche l'emporte, question 8) ; un débord lu ne change pas celui du LiDAR (alerte seulement) ; une fenêtre de toit lue se pose sur le bon pan du bon corps |
 | **L3 — Jardin** (C, essence des arbres) | L'étape « Jardin » de l'audit ; les usages `jardin` (aérienne, photos) ; les règles d'appariement, `especePlusProche` ; `massif.plantation`, `bordure`, `vegetation3d` ; natures `regard`, `eclairage`, `robinet` ; la marque `existant` ; **la végétation basse par défaut** | le volume générique de 0,6 m d'un massif à plantation (remplacé par sol et végétation) | La démonstration se dessine avec ses onze plates-bandes plantées : **`glb-structure.json` recalculé et dit** (version majeure) ; aucune quantité ne bouge (`moteur-terrasses.json`, `quantites-demo.txt` identiques : une nature absente reste un spa) ; un objet `existant` n'entre ni dans la nomenclature ni dans le chiffrage ; rien n'est lu hors de la parcelle ; Vue 3D : pas plus de 10 % d'appels de dessin en plus en Normale (`?fps=on`) |
 | **L4 — PLU** (D6) | `plu.lire` : le PDF par le serveur, le choix des pages, l'usage `plu`, les règles de zone lues et citées ; les contrôles (`facade/regles/plu/`) ; Résultats › PLU et ses cases | les deux champs de hauteur de clôture comme stockage propre (devenus `RegleZone` `main`) ; l'avertissement générique « 3 m » de la piscine **quand un recul est lu** (il reste en repli) | Sur le règlement du Vésinet, zone UFb (point 15) : hauteur, reculs et emprise lus avec leur page ; une valeur dont la phrase ne se retrouve pas dans la page est écartée ; aucun contrôle ne bloque un geste ; une parcelle au RNU ne propose rien ; le PDF et les pages gardés par empreinte |
@@ -755,3 +775,48 @@ l'escalade D20 (`escalade.ts`) ; l'écriture de la trace propre au batch (rempla
 
 **Fumée.** Point **109** nouveau (l'export CSV et JSON, le rejeu d'une façade depuis son image) ; 57, 85, 86, 101, 103 rejoués
 (compact, moyen, large ; clair ; réseau témoin).
+
+### 12.2 L1 — Façade enrichie (30 octobre 2026)
+
+**Ce qui est livré.**
+
+- **Deux requêtes par façade, sur la même image** (décision du propriétaire du 30 octobre 2026, qui remplace pour L1 la décision 3) :
+  - **le run** (usage `facade`), identique à la 5.1.0 à l'octet près : prompt et schéma en version 2, repli sans sortie structurée
+    (l'API refuse sa grammaire, comme avant), trois passes votées, escalade vers Sonnet. Les corps envoyés à l'API pour le run et
+    l'escalade, avec et sans sortie structurée, sont comparés à ceux de 1ea13701 : identiques ;
+  - **la lecture enrichie** (usage `facade-enrichie`, `src/regles/sujets/descriptions/facadesEnrichie.ts`, prompt v2 et schéma v1
+    générés), en sortie structurée acceptée par l'API (66 passes sur 66), trois passes votées, sans escalade.
+- Une baie de la lecture enrichie donne ses détails (menuiserie, couleur des volets, garde-corps) à l'ouverture du run qu'elle
+  recouvre le plus (`voteMemeBaie`), une au plus ; les saillies, décrochés, modénature, appendices et état viennent d'elle seule
+  (`facade/regles/facades/voteEnrichi.ts`, `avecLectureEnrichie`). Rien d'autre du run ne change. Son échec est gardé avec le run
+  (`RunEnregistre.enrichie.erreur`) : la façade est proposée sans ses champs, avec un signal.
+- Audit : ses requêtes partent dans le même batch, avec la place que les runs laissent (jamais à leur place). Calibration : en même
+  temps que le run, l'image encodée une fois (`encodageUnique`) ; la trace L0 la garde une fois par empreinte.
+- Les règles (menuiseries, modénature, saillies, état), la Façade validée (schéma 10), la 3D et les équipements de la façade, tels que
+  le §4.2 les décrit. La profondeur d'une saillie vue est un réglage (`regles/facades/reglages.json`, `saillies.profondeursM`), aux
+  valeurs d'une saillie posée au Mode Toit.
+
+**Pourquoi deux requêtes.** Dix essais de schéma sur la vraie API (30 octobre 2026) : le run avec les champs de L1 dépasse la grammaire
+de la sortie structurée, même sans union, sans champ facultatif et sans aucune énumération ; les champs de 5.1.0 seuls, sans union,
+passent, et ceux de L1 seuls aussi. Un run de 5.1.0 réécrit sans union pour passer en sortie structurée lisait moins bien le banc
+(runs 41014320579 et 41016247854 : rappel ×3 96,8 et 97,6 %, carreaux 5/21) : le run est resté celui de la 5.1.0.
+
+**Critères d'acceptation.**
+
+| Critère | Preuve |
+|---|---|
+| La lecture d'avant L1 ne baisse pas | Garde-fou de la lecture (run 41021689763) : vert contre les planchers de 5.1.0 après la relance automatique ; ×3 rappel 99,2 %, précision 100 % ; `lectureReference.test.ts`, `champsLecture.test.ts` intacts |
+| Sur la façade d'AE 101 et du banc, couleurs et garde-corps lus et dessinés | Points 116 (menuiseries en bois, garde-corps en fer forgé, bandeau, store, signal ; dessinés) dans les trois classes |
+| Un fichier sans champ nouveau se dessine à l'identique | `glb-structure.json` et les autres empreintes golden inchangés ; `projet510Facades.test.ts` vert |
+| L'état du bâti ne change aucun nombre ni export | signal sans case ; aucune empreinte ne bouge |
+| Une saillie acceptée passe par le moteur seulement | Point 117 (bow-window décoché, posé par `corpsSousContrainte`), dans les trois classes |
+| AE 101 ne bouge pas | `identite.ts` : « AE 101 : corps identiques » |
+
+**Coût mesuré** (run 41021689763) : le run ×3, 0,00466 $ la façade (0,00467 $ en 5.1.0) ; la lecture enrichie ×3, 0,00339 $ ; les
+deux, **0,00805 $ la façade**, accepté par le propriétaire (« +60 à 100 % »).
+
+**Supprimé.** Rien de la 5.1.0 : le run n'est pas touché. Dans la branche, le vote et l'escalade des champs enrichis à l'intérieur du
+run, le schéma du run sans union (version 4) et sa règle du -1, devenus sans objet.
+
+**Fumée.** Points **116** et **117** nouveaux ; 24, 102, 103, 104, 105 et 108 rejoués : 24 sur 24 (compact, moyen, large ; clair ;
+réseau témoin).

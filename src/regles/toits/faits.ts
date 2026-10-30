@@ -92,6 +92,25 @@ export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait }
 export interface ElementDeMurFait { mur: MurDesigne; element: 'cheminee' | 'lucarne'; a: number }
 
 /**
+ * Une saillie vue sur un mur (lot L1 de MD/spec-lecture-ia-elargie.md : une proposition de l'audit) : un bow-window, une galerie, un
+ * auvent ou un appentis, sur le corps que designe ce mur, de `de` a `a` metres le long du mur depuis sa gauche vue de dehors. Le moteur
+ * la pose (facade/regles/toits/sailliesDesMurs.ts) avec la profondeur par defaut de son genre (une vue de face ne la montre pas,
+ * decision 4) ; il ne s'ecrit jamais dans faits.json.
+ */
+export interface SaillieDeMurFait {
+  mur: MurDesigne;
+  genre: 'bow-window' | 'galerie' | 'auvent' | 'appentis';
+  de: number;
+  a: number;
+  forme: 'pans' | 'rectangle' | 'arc' | 'conge';
+  niveau: 'rdc' | 'toit';
+  toit: 'pan' | 'pavillon' | 'plat';
+  /** Le bas de son toit, en metres au-dessus du sol ; absent : celui de son niveau. */
+  hauteurM?: number;
+  couverture?: 'verre' | 'tuile' | 'zinc' | 'autre';
+}
+
+/**
  * Une bay window (spec §2.3) : une avancee de facade que le contour cadastral porte (AE 101 : 2,3 x 0,6 m cote est). La facade se
  * designe par l'azimut de sa normale sortante, comme pour un appentis ; `largeurM` departage deux saillies sur une meme facade.
  * `toit: 'propre'` : un toit a elle, plat (`hauteurM`) ou en appentis (`hautM` contre le mur, `egoutM` au bord) ; les cotes absentes sont
@@ -133,6 +152,8 @@ export interface ObservationFait {
   elementsDesMurs?: ElementDeMurFait[];
   /** Les bay windows que le calcul pose sur les saillies du contour (spec §2.3). */
   baies?: BaieFait[];
+  /** Les saillies que montrent des murs, chacune posee sur son corps (lot L1) ; ce qui y est deja pose ne bouge pas. */
+  sailliesDesMurs?: SaillieDeMurFait[];
 }
 
 /** Les dimensions d'un fait en remplacement : la mesure n'en dit rien de juste. */

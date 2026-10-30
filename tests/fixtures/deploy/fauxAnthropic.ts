@@ -107,6 +107,22 @@ export const SORTIE_FACADE = {
 };
 
 /**
+ * Une sortie de la lecture enrichie de la meme facade (deploy/schema-facade-enrichie.json, lot L1). SYNTHETIQUE : ecrite a la main pour
+ * les tests. Les deux baies du run, en bois blanc et gris anthracite ; une galerie, une genoise et un bandeau, un store, une fissure.
+ */
+export const SORTIE_FACADE_ENRICHIE = {
+  baies: [
+    { u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, menuiserie: 'bois', couleurMenuiserie: 'blanc', couleurVolets: 'vert', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+    { u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, menuiserie: 'indetermine', couleurMenuiserie: 'gris-anthracite', couleurVolets: 'sans-objet', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+  ],
+  saillies: [{ genre: 'galerie', u0: 0.3, u1: 0.62, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 0.45, couverture: 'sans-objet', confiance: 'moyenne' }],
+  decroches: [],
+  modenature: { egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [] },
+  appendices: [{ nature: 'store', u0: 0.6, u1: 0.8, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
+  etat: [{ nature: 'fissure', u0: 0.7, u1: 0.72, v0: 0.2, v1: 0.6, confiance: 'faible' }],
+};
+
+/**
  * Le run d'une facade tel qu'une reponse SANS sortie structuree peut l'ecrire. SYNTHETIQUE (la vraie reponse du 29 octobre 2026,
  * « Sortie non JSON », n'a pas ete gardee) : une phrase dont les accolades precedent l'objet, un premier jet coupe, le JSON dans un
  * bloc de code, puis une remarque avec des accolades. La lecture d'avant (de la premiere accolade a la derniere) n'en lisait rien.
@@ -145,11 +161,13 @@ export function texteSqueletteDuSchema(schema: Record<string, unknown>): string 
 export function messageFacade(corps: Record<string, unknown>, refuserFormat = false): { statut: number; corps: object } {
   const format = (corps.output_config as { format?: unknown } | undefined)?.format;
   if (format && refuserFormat) return { statut: 400, corps: { type: 'error', error: { type: 'invalid_request_error', message: 'output_config.format: The compiled grammar is too large' } } };
-  const m = messageReussi(USAGE_P1, SORTIE_FACADE) as { content: unknown[] };
-  // Sans format : le schema en texte dans le prompt, Haiku le recopie ; un exemple a la place, il repond (du texte autour).
   const systeme = JSON.stringify(corps.system ?? '');
+  // La lecture enrichie (lot L1) a le meme role que le run, et ses baies : elle rend la sienne.
+  const enrichie = /`baies`/.test(systeme);
+  const m = messageReussi(USAGE_P1, enrichie ? SORTIE_FACADE_ENRICHIE : SORTIE_FACADE) as { content: unknown[] };
+  // Sans format : le schema en texte dans le prompt, Haiku le recopie ; un exemple a la place, il repond (du texte autour).
   const schemaEnTexte = /conforme à ce schéma JSON/.test(systeme);
-  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: schemaEnTexte ? texteSqueletteDuSchema(schemaFacade()) : TEXTE_FACADE_SANS_FORMAT }];
+  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: schemaEnTexte ? texteSqueletteDuSchema(schemaFacade()) : enrichie ? JSON.stringify(SORTIE_FACADE_ENRICHIE) : TEXTE_FACADE_SANS_FORMAT }];
   return { statut: 200, corps: m };
 }
 

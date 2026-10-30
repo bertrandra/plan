@@ -71,3 +71,20 @@ export const VERSIONS_PROMPT_JARDIN: readonly VersionTexte[] = [
 export const VERSIONS_SCHEMA_JARDIN: readonly VersionTexte[] = [
   { version: 1, empreinte: '52e1240a' },
 ];
+
+/**
+ * La lecture enrichie d'une facade (lot L1 de la lecture IA elargie, usage `facade-enrichie` du serveur) : la seconde requete sur
+ * l'image du run, avec sa note et les versions de son prompt et de son schema. La version suit chaque lecture enregistree avec le run.
+ */
+export const NOTE_PROMPT_FACADE_ENRICHIE = `Partie fixe du prompt de la lecture enrichie d'une façade (lot L1 de la lecture IA élargie), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal et chaque lecture enregistrée. Version 1 (30 octobre 2026) : sur l'image du run d'une façade, une seconde requête lit la menuiserie de chaque baie (matière, couleur), la couleur de ses volets et son garde-corps (type, hauteur, couleur), dans une palette fermée de mots ; les saillies (bow-window, galerie, auvent, appentis) et les décrochés du mur, sans profondeur ; la modénature (égout, génoise, bandeaux, chaînes, encadrements, soubassement, descentes) ; ce qui est posé contre le mur (perron, store, unité extérieure, boîte aux lettres) ; et l'état du mur (fissure, enduit abîmé, humidité, mousses), que Plan signale sans rien en conclure. Version 2 (30 octobre 2026, après la mesure du banc) : \`-1\` ne vaut que pour un compte ou une hauteur ; une position cachée se situe en prolongeant ce qui se voit.`;
+
+export const NOTE_SCHEMA_FACADE_ENRICHIE = `Sortie de la lecture enrichie d'une facade par Claude (lot L1). Tout en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) ; un nombre non vu vaut -1. Une baie se rapporte a une ouverture du run par sa boite. Sans union ni champ facultatif : la sortie structuree l'accepte seul. Le fichier porte un \`exemple\` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).`;
+
+export const VERSIONS_PROMPT_FACADE_ENRICHIE: readonly VersionTexte[] = [
+  { version: 1, empreinte: '2e88ab46' },
+  { version: 2, empreinte: 'b74229d1' },
+];
+
+export const VERSIONS_SCHEMA_FACADE_ENRICHIE: readonly VersionTexte[] = [
+  { version: 1, empreinte: 'a4568ea5' },
+];

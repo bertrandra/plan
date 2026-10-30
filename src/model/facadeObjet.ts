@@ -13,7 +13,7 @@
 
 import { NIVEAU, ouvertureGardee, peutEcrire, type BatimentProtege } from './protections.js';
 import type { BoutVu, SilhouetteFacade } from './silhouetteFacade.js';
-import type { CarreauxOuverture, CorpsDeFacade, DimensionsFacade, FormeFacade, GrilleCarreaux, OuvertureFacade, ParementFacade, PointeLue, ReleveFacade, SurfaceFacade, TextureCalee } from './typesReleve.js';
+import type { AppendiceFacade, CarreauxOuverture, CorpsDeFacade, DimensionsFacade, EtatBati, FormeFacade, GardeCorpsOuverture, GrilleCarreaux, MenuiserieOuverture, ModenatureFacade, NatureEtatBati, OuvertureFacade, ParementFacade, PointeLue, ReleveFacade, SurfaceFacade, TextureCalee } from './typesReleve.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -45,6 +45,68 @@ export function carreauxValides(v: unknown): CarreauxOuverture | null {
   }
   if (parmi(v.vitrage, ['clair', 'depoli', 'teinte', 'vitrail'] as const)) c.vitrage = v.vitrage;
   return Object.keys(c).length > 1 ? c : null;
+}
+
+/** Une couleur ecrite : `#` et six chiffres hexadecimaux. */
+const HEX = /^#[0-9a-f]{6}$/i;
+const couleur = (v: unknown): v is string => typeof v === 'string' && HEX.test(v);
+const SOURCES_LUES = ['ia', 'doigt'] as const;
+
+/** La menuiserie d'une ouverture (lot L1), sans ses mots inconnus ; null s'il ne reste ni matiere ni couleur, ou sans source. */
+export function menuiserieValide(v: unknown): MenuiserieOuverture | null {
+  if (!objet(v) || !parmi(v.source, SOURCES_LUES)) return null;
+  const m: MenuiserieOuverture = { source: v.source };
+  if (parmi(v.materiau, ['bois', 'pvc', 'alu', 'acier'] as const)) m.materiau = v.materiau;
+  if (couleur(v.couleur)) m.couleur = v.couleur.toLowerCase();
+  return m.materiau || m.couleur ? m : null;
+}
+
+/** Un garde-corps garde moins de 30 cm ou plus de 2 m n'en est pas un : la hauteur est retiree, le type reste. */
+const HAUTEUR_GARDE_CORPS_M = [0.3, 2] as const;
+
+/** Le garde-corps d'une ouverture (lot L1) ; null sans type connu ou sans source. */
+export function gardeCorpsValide(v: unknown): GardeCorpsOuverture | null {
+  if (!objet(v) || !parmi(v.type, ['barreaux', 'fer-forge', 'verre', 'plein'] as const) || !parmi(v.source, SOURCES_LUES)) return null;
+  const g: GardeCorpsOuverture = { type: v.type, source: v.source };
+  if (fini(v.hauteurM) && v.hauteurM >= HAUTEUR_GARDE_CORPS_M[0] && v.hauteurM <= HAUTEUR_GARDE_CORPS_M[1]) g.hauteurM = v.hauteurM;
+  if (couleur(v.couleur)) g.couleur = v.couleur.toLowerCase();
+  return g;
+}
+
+const hauteursPositives = (v: unknown): number[] => (Array.isArray(v) ? v.filter(positif) : []);
+
+/** La modenature d'un mur (lot L1), sans ses mots inconnus ; null s'il n'en reste rien ou sans source. */
+export function modenatureValide(v: unknown): ModenatureFacade | null {
+  if (!objet(v) || !parmi(v.source, SOURCES_LUES)) return null;
+  const m: ModenatureFacade = { source: v.source };
+  if (parmi(v.egout, ['aucune', 'corniche', 'genoise'] as const)) m.egout = v.egout;
+  if (m.egout === 'genoise' && fini(v.rangsGenoise) && Number.isInteger(v.rangsGenoise) && v.rangsGenoise >= 1 && v.rangsGenoise <= 4) m.rangsGenoise = v.rangsGenoise;
+  const bandeaux = hauteursPositives(v.bandeauxM);
+  if (bandeaux.length) m.bandeauxM = bandeaux;
+  if (parmi(v.chaines, ['aucune', 'pierre', 'brique'] as const)) m.chaines = v.chaines;
+  if (parmi(v.encadrements, ['aucun', 'enduit', 'pierre', 'brique'] as const)) m.encadrements = v.encadrements;
+  if (objet(v.soubassement) && positif(v.soubassement.hauteurM)) m.soubassement = { hauteurM: v.soubassement.hauteurM, ...(parmi(v.soubassement.parement, PAREMENTS) ? { parement: v.soubassement.parement } : {}) };
+  const descentes = Array.isArray(v.descentesM) ? v.descentesM.filter((x): x is number => fini(x) && x >= 0) : [];
+  if (descentes.length) m.descentesM = descentes;
+  return Object.keys(m).length > 1 ? m : null;
+}
+
+/** Ce que porte un mur (lot L1) : les stores bien formes ; null s'il n'en reste aucun. */
+export function appendicesValides(v: unknown): AppendiceFacade[] | null {
+  if (!Array.isArray(v)) return null;
+  const l = v.filter((x): x is AppendiceFacade => objet(x) && x.nature === 'store' && fini(x.xM) && x.xM >= 0 && positif(x.largeurM) && positif(x.hauteurM) && parmi(x.source, SOURCES_LUES))
+    .map((x) => ({ nature: x.nature, xM: x.xM, largeurM: x.largeurM, hauteurM: x.hauteurM, source: x.source }));
+  return l.length ? l : null;
+}
+
+const NATURES_ETAT: readonly NatureEtatBati[] = ['fissure', 'enduit-abime', 'humidite', 'mousses', 'autre'];
+
+/** L'etat du bati signale (lot L1) : les signaux bien formes ; null s'il n'en reste aucun. */
+export function etatValide(v: unknown): EtatBati[] | null {
+  if (!Array.isArray(v)) return null;
+  const l = v.filter((x): x is EtatBati => objet(x) && parmi(x.nature, NATURES_ETAT) && objet(x.zone) && fini(x.zone.u0) && fini(x.zone.u1) && fini(x.zone.v0) && fini(x.zone.v1) && fini(x.confiance) && typeof x.vuLe === 'string' && !!x.vuLe)
+    .map((x) => ({ nature: x.nature, zone: { u0: x.zone.u0, u1: x.zone.u1, v0: x.zone.v0, v1: x.zone.v1 }, confiance: x.confiance, vuLe: x.vuLe }));
+  return l.length ? l : null;
 }
 
 /** Les dimensions d'une facade bien formees ; null sinon. */
@@ -100,24 +162,27 @@ export function textureCaleeValide(v: unknown): TextureCalee | null {
   return { pxParM: v.pxParM, cadre: { x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1 }, ...(v.sansOmbres === true ? { sansOmbres: true } : {}) };
 }
 
-/** Une ouverture relue : son identifiant, sa date de verification et ses carreaux verifies ; tout le reste tel quel. */
+/** Les details d'une ouverture que ce module verifie (lot F5 : les carreaux ; lot L1 : la menuiserie, le garde-corps). */
+const DETAILS_VERIFIES = { carreaux: carreauxValides, menuiserie: menuiserieValide, gardeCorps: gardeCorpsValide } as const;
+
+/** Une ouverture relue : son identifiant, sa date de verification et ses details verifies ; tout le reste tel quel. */
 function ouvertureLue(ov: OuvertureFacade): OuvertureFacade {
   const brut = ov as unknown as Record<string, unknown>;
   const details = brut.details as Record<string, unknown> | undefined;
-  if (!('id' in brut) && !('verifieeLe' in brut) && !(details && 'carreaux' in details)) return ov;
+  const cles = details ? (Object.keys(DETAILS_VERIFIES) as (keyof typeof DETAILS_VERIFIES)[]).filter((k) => k in details) : [];
+  if (!('id' in brut) && !('verifieeLe' in brut) && !cles.length) return ov;
   const o = { ...ov };
   if ('id' in brut && !(typeof brut.id === 'string' && brut.id)) delete o.id;
   if ('verifieeLe' in brut && !(typeof brut.verifieeLe === 'string' && brut.verifieeLe)) delete o.verifieeLe;
-  if (details && 'carreaux' in details) {
-    const c = carreauxValides(details.carreaux);
-    const d = { ...ov.details };
-    if (c) d.carreaux = c; else delete d.carreaux;
-    o.details = d;
+  if (details && cles.length) {
+    const d: Record<string, unknown> = { ...ov.details };
+    for (const k of cles) { const x = DETAILS_VERIFIES[k](details[k]); if (x) d[k] = x; else delete d[k]; }
+    o.details = d as NonNullable<OuvertureFacade['details']>;
   }
   return o;
 }
 
-const VALIDATEURS = { dimensions: dimensionsValides, forme: formeValide, surface: surfaceValide, textureCalee: textureCaleeValide } as const;
+const VALIDATEURS = { dimensions: dimensionsValides, forme: formeValide, surface: surfaceValide, textureCalee: textureCaleeValide, modenature: modenatureValide, appendices: appendicesValides, etat: etatValide } as const;
 
 /**
  * Un releve relu d'un fichier : les champs de la Facade et de la facade objet verifies, retires s'ils sont mal formes. Un releve qui
@@ -191,13 +256,17 @@ export function releveReecrit(o: BatimentProtege, existant: ReleveFacade | undef
   const ouvertures = fusionnerOuvertures(existant.ouvertures, r.ouvertures);
   const out: ReleveFacade = ouvertures.length === r.ouvertures.length && ouvertures.every((x, i) => x === r.ouvertures[i]) ? r : { ...r, ouvertures };
   const ctx = { cote: r.cote };
-  const garde = (groupe: 'facadeDimensions' | 'facadeForme') => !peutEcrire(o, groupe, NIVEAU.surPlace, ctx);
+  const garde = (groupe: 'facadeDimensions' | 'facadeForme' | 'facadeModenature') => !peutEcrire(o, groupe, NIVEAU.surPlace, ctx);
   if (!r.dimensions && existant.dimensions && garde('facadeDimensions')) {
     const d = { ...existant.dimensions };
     delete d.ecartPhoto;
     out.dimensions = d;
   }
   if (!r.forme && existant.forme && garde('facadeForme')) out.forme = existant.forme;
+  // La modenature lue et ce que le mur porte (lot L1) decrivent le mur, pas la photo : validees, elles restent tant que le neuf n'en
+  // apporte pas. L'etat du bati, lui, disait la photo d'avant : il part avec elle.
+  if (!r.modenature && existant.modenature && garde('facadeModenature')) out.modenature = existant.modenature;
+  if (!r.appendices && existant.appendices && garde('facadeModenature')) out.appendices = existant.appendices;
   return out;
 }
 

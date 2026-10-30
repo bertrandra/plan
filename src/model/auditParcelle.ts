@@ -190,7 +190,7 @@ export interface BatchAnalyse {
    * L'identifiant de requete -> la cle du batiment et la passe ; pour le run d'une facade (MD/spec-facade-calage-audit.md §8, lot F3),
    * aussi son cote, l'usage et la taille de l'image envoyee (l'elevation du mur, avant reduction).
    */
-  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'facade' | 'jardin'; image?: { largeur: number; hauteur: number } }>;
+  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'facade' | 'facade-enrichie' | 'jardin'; image?: { largeur: number; hauteur: number } }>;
   /**
    * La lecture du jardin envoyee avec le batch (lot L3) : l'image exacte (l'orthophoto recadree, JPEG), son cadrage dans le plan, le
    * texte et le nombre de photos jointes. Gardee pour enregistrer la reponse avec ce qui l'a produite.
@@ -249,6 +249,11 @@ export interface AccordFacadeCapture {
   resume: string | null;
   /** La confiance que Claude se donne sur cette facade, de 0 a 1. */
   confiance: number;
+  /**
+   * Les descentes d'eau pluviale que Claude voit et que la detection retrouve (une verticale a leur place), en part du mur (lot L1) :
+   * seules celles-la entrent dans la modenature de la Facade validee. Absentes : aucune (ou un accord d'avant le lot).
+   */
+  descentes?: number[];
 }
 
 export interface AnalyseCapture {

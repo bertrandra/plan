@@ -15,5 +15,30 @@
     "LARGEUR_MUR_MIN_M": { "valeur": 2, "unite": "m", "ou": "facade/ouvertures.ts", "pourquoi": "Un mur plus etroit n'a pas de fenetre.", "cas": [] },
     "HAUTEUR_PIGNON_FENETRE_M": { "valeur": 1.8, "unite": "m", "ou": "facade/ouvertures.ts", "pourquoi": "Un pignon plus bas que cela, de son egout a son faitage, n'a pas de fenetre.", "cas": [] }
   },
-  "profils": []
+  "profils": [],
+  "palette": {
+    "pourquoi": "Les mots de couleur que Claude emploie pour une menuiserie, des volets ou un garde-corps (lot L1 de MD/spec-lecture-ia-elargie.md §4.1), et la couleur qui en tient lieu dans le dessin : celle des volets de l'analyse d'une maison, completee du gris anthracite (RAL 7016 environ, la couleur la plus vendue des menuiseries neuves). Un mot, jamais un hexadecimal lu sur la photo (risque 2 : la balance des blancs) ; un mot hors de la liste ne se traduit pas. Lu par src/regles/facades/palette.ts.",
+    "couleurs": {
+      "blanc": "#EEEDE8",
+      "creme": "#E6DCC3",
+      "gris-clair": "#B9BCBA",
+      "gris-fonce": "#55595B",
+      "gris-anthracite": "#3B3F42",
+      "bleu": "#5B7A99",
+      "vert": "#5E7D5E",
+      "rouge": "#8E3B32",
+      "brun": "#6B4E3A",
+      "bois": "#A2774E",
+      "noir": "#2E3033"
+    }
+  },
+  "saillies": {
+    "pourquoi": "La profondeur d'une saillie que Claude voit sur une facade (lot L1 de MD/spec-lecture-ia-elargie.md §4.2, risque 3) : une vue de face ne la montre pas, le moteur la pose donc a cette valeur, par genre, et la proposition le dit. Les valeurs d'origine sont celles d'une saillie posee a la main au Mode Toit (DEFAUTS_SAILLIE de facade/modeToit/saillies.ts), qui restent le repli d'un genre absent d'ici. Un reglage, pas une constante : l'administrateur le voit avec les autres reglages des facades. Lu par src/regles/facades/saillies.ts.",
+    "profondeursM": {
+      "bow-window": 0.8,
+      "galerie": 1.5,
+      "appentis": 3,
+      "auvent": 0.9
+    }
+  }
 }

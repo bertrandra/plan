@@ -85,6 +85,18 @@ const POTEAU_COTE_M = 0.14;
 const POTEAU_RETRAIT_M = 0.12;
 const ENTRAXE_POTEAUX_M = 2.5;
 
+/** Les consoles d'un auvent : leur retrait des bouts, leur hauteur sous l'auvent et la part de sa profondeur qu'elles portent. */
+const CONSOLE = { retraitM: 0.15, hauteurM: 0.45, portee: 0.7 } as const;
+
+/**
+ * Les deux consoles d'un auvent (lot L1) : un triangle chacune, dans le plan perpendiculaire au mur, du mur (`tMur`) vers l'egout
+ * (`tBas`), sous le toit a la hauteur `egout`.
+ */
+function consolesDAuvent(L: number, tMur: number, tBas: number, egout: number): { s: number; t: number; z: number }[][] {
+  const t = tMur + (tBas - tMur) * CONSOLE.portee, z0 = Math.max(0, egout - CONSOLE.hauteurM);
+  return [CONSOLE.retraitM, L - CONSOLE.retraitM].map((s) => [{ s, t: tMur, z: z0 }, { s, t: tMur, z: egout }, { s, t, z: egout }]);
+}
+
 /** Les poteaux d'un appentis ouvert, le long de son egout (`t` fixe) : quatre faces chacun, du sol a l'egout. */
 function poteauxDAppentis(L: number, t: number, egout: number, retrait: number = POTEAU_RETRAIT_M): { s: number; t: number; z: number }[][] {
   const n = Math.max(2, Math.ceil(L / ENTRAXE_POTEAUX_M) + 1), h = POTEAU_COTE_M / 2;
@@ -186,6 +198,8 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     if (eBas > MUR_MIN_M) {
       // Un mur ferme peut etre recule du bord de l'egout (retrait) : le toit le couvre encore.
       if (c.ouvert === false) { const tm = tBas === 0 ? Math.min(c.retraitM ?? 0, W / 2) : W - Math.min(c.retraitM ?? 0, W / 2); murs.push([P(0, tm, 0), P(L, tm, 0), P(L, tm, eBas), P(0, tm, eBas)]); }
+      // Un auvent (lot L1) tient sur deux consoles contre le mur, pas sur des poteaux.
+      else if (c.saillie?.genre === 'auvent') murs.push(...consolesDAuvent(L, p <= 0.01 ? 0 : W, tBas, eBas).map((f) => f.map((q) => P(q.s, q.t, q.z))));
       else murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait).map((f) => f.map((q) => P(q.s, q.t, q.z))));
     }
   }

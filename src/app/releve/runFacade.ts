@@ -10,7 +10,7 @@
 // Les photos ne partent qu'avec l'accord de la personne (decision D2), le meme par projet que l'analyse de l'audit (io/accordAnalyse.ts).
 
 import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse, type ResultatsImmediats } from '../../io/analyseClaude.js';
-import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
+import { lireLectureEnrichie, lireObservationsFacade, type LectureEnrichieEnregistree, type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
 import { observationsDuRun } from '../../facade/regles/facades/ia.js';
 import type { EscaladeEnregistree } from '../../regles/facades/observations.js';
 import { VERSION_CHAINE_FACADES } from '../../facade/releve/chaine.js';
@@ -35,9 +35,40 @@ export function contenuRunFacade(image: Pick<ImageAnalyse, 'base64' | 'mediaType
   return [{ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.base64 } }, { type: 'text', text: texte }];
 }
 
-/** Les requetes d'un appel : `prefixe-p1` (x1), jusqu'a `prefixe-p3` (x3) ; la facade compte sur la premiere. */
-function requetesRunFacade(prefixe: string, contenu: BlocAnalyse[], passes: 1 | 2 | 3): RequeteAnalyse[] {
-  return Array.from({ length: passes }, (_, i) => ({ id: prefixe + '-p' + (i + 1), passe: (i + 1) as 1 | 2 | 3, usage: 'facade' as const, facades: i === 0 ? 1 : 0, contenu }));
+/**
+ * Les requetes d'un appel : `prefixe-p1` (x1), jusqu'a `prefixe-p3` (x3) ; la facade compte sur la premiere du run. La lecture enrichie
+ * (lot L1, usage `facade-enrichie`) envoie le meme contenu, et ne compte pas la facade une seconde fois.
+ */
+function requetesRunFacade(prefixe: string, contenu: BlocAnalyse[], passes: 1 | 2 | 3, usage: 'facade' | 'facade-enrichie' = 'facade'): RequeteAnalyse[] {
+  return Array.from({ length: passes }, (_, i) => ({ id: prefixe + '-p' + (i + 1), passe: (i + 1) as 1 | 2 | 3, usage, facades: i === 0 && usage === 'facade' ? 1 : 0, contenu }));
+}
+
+/**
+ * La lecture enrichie enregistree (lot L1) : ses passes lisibles, ses versions, son modele, son cout ; `erreur` quand aucune ne s'est
+ * lue (le run reste entier, et la facade est proposee sans ses champs). Le meme pour un appel immediat et pour un batch.
+ */
+export function enrichieDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' | 'schema' | 'resultats'>, passes: 1 | 2 | 3, le: Date): LectureEnrichieEnregistree {
+  const sorties = lu.resultats.filter((r) => r.statut === 'reussi' && lireLectureEnrichie(r.sortie)).sort((a, b) => (a.passe ?? 0) - (b.passe ?? 0)).map((r) => r.sortie);
+  const couts = lu.resultats.map((r) => r.cout);
+  const t = (k: 'entree' | 'ecritureCache' | 'lectureCache' | 'sortie') => lu.resultats.reduce((s, r) => s + (r.tokens?.[k] ?? 0), 0);
+  const r0 = lu.resultats[0];
+  const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
+  return {
+    le: le.toISOString(), modele: r0?.modele ?? lu.modele, prompt: r0?.prompt ?? lu.prompt, schema: r0?.schema ?? lu.schema, passes, sorties,
+    cout: couts.length && couts.every((c) => typeof c === 'number') ? Math.round(couts.reduce((s: number, c) => s + (c as number), 0) * 1e6) / 1e6 : null,
+    tokens: { entree: t('entree') + t('ecritureCache') + t('lectureCache'), sortie: t('sortie') },
+    ...(sorties.length ? {} : { erreur: 'La lecture des détails (menuiseries, modénature…) n’a rendu aucune réponse lisible' + (raison ? ' (' + raison + ')' : '') + '.' }),
+  };
+}
+
+/** La lecture enrichie d'un appel immediat : jamais une exception (son echec laisse le run entier), ce qui l'a empechee sinon. */
+async function lireEnrichieImmediate(client: ClientAnalyse, demande: { projet: string | null; idu: string | null; adresse: string | null; audit: string }, contenu: BlocAnalyse[], passes: 1 | 2 | 3, le: Date): Promise<LectureEnrichieEnregistree> {
+  try {
+    return enrichieDesResultats(await client.immediat({ ...demande, usage: 'facade-enrichie', requetes: requetesRunFacade('enrichie', contenu, passes, 'facade-enrichie') }), passes, le);
+  } catch (e) {
+    const motif = e instanceof EchecAnalyse ? MESSAGES[e.motif] : String((e as Error).message || e);
+    return { le: le.toISOString(), modele: '', prompt: 0, schema: 0, passes, sorties: [], cout: null, tokens: { entree: 0, sortie: 0 }, erreur: 'La lecture des détails n’a pas pu partir : ' + motif };
+  }
 }
 
 /**
@@ -99,6 +130,38 @@ export async function appelerRunFacade(ctx: ContexteRun, d: DemandeRun, origine:
   } catch (e) {
     return { erreur: e instanceof EchecAnalyse ? MESSAGES[e.motif] : 'La demande n’a pas pu partir : ' + String((e as Error).message || e) };
   }
+}
+
+/**
+ * Le contexte d'un appel dont l'image ne s'encode qu'une fois : les deux requetes d'une facade (le run et la lecture enrichie, decision du
+ * proprietaire du 30 octobre 2026) envoient alors les memes octets, que le serveur garde une fois (lot L0).
+ */
+export function encodageUnique(ctx: ContexteRun): ContexteRun {
+  const vus = new Map<Image, ReturnType<ContexteRun['encoder']>>();
+  return { ...ctx, encoder: (img, cache) => { if (!vus.has(img)) vus.set(img, ctx.encoder(img, cache)); return vus.get(img) ?? null; } };
+}
+
+/**
+ * La lecture enrichie d'une facade (lot L1), la seconde requete sur l'image et le texte du run : jamais une exception, son echec est
+ * enregistre (`erreur`) ; null quand rien ne part (ni client, ni image), comme le run.
+ */
+export async function appelerLectureEnrichie(ctx: ContexteRun, d: DemandeRun, origine: 'calibration'): Promise<LectureEnrichieEnregistree | null> {
+  const client = ctx.client();
+  const image = client ? ctx.encoder(d.image, d.cache ?? null) : null;
+  if (!client || !image) return null;
+  const le = ctx.maintenant();
+  const audit = (origine + '-' + le.toISOString().replace(/[^0-9]/g, '').slice(0, 14)).slice(0, 64);
+  return lireEnrichieImmediate(client, { ...ctx.identite(), audit }, contenuRunFacade(image, d.texte), d.passes, le);
+}
+
+/**
+ * Le run et sa lecture enrichie ensemble : la lecture enrichie se garde avec le run et se pose sur ce qu'il lit, sans rien lui faire
+ * perdre (son echec la laisse sans champs, avec sa raison).
+ */
+export function avecSaLectureEnrichie(r: ResultatRun, enrichie: LectureEnrichieEnregistree | null): ResultatRun {
+  if ('erreur' in r || !enrichie) return r;
+  const run = { ...r.run, enrichie };
+  return { run, reponse: observationsDuRun(run) ?? r.reponse };
 }
 
 /** L'escalade lue d'un appel : sa requete reussie et lisible, ses versions, son modele, son cout ; null sinon. */

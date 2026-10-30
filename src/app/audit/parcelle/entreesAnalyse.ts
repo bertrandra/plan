@@ -293,11 +293,19 @@ export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImage
   });
   // Le run de chaque facade part dans le meme batch (MD/spec-facade-calage-audit.md §8, lot F3) : aucun delai de plus.
   if (fab.facade) {
+    const enrichies: Awaited<ReturnType<typeof requetesRunsDuBatiment>>['enrichies'] = [];
     for (const [rang, x] of entrees.entries()) {
       const nom = e.liste.batiments.find((b) => b.cle === x.cle)?.nom ?? x.cle;
       const r = await requetesRunsDuBatiment(e, x.cle, nom, rang, fab.facade, REQUETES_PAR_BATCH - liste.length);
       liste.push(...r.requetes);
       Object.assign(requetes, r.parId);
+      enrichies.push(...r.enrichies);
+    }
+    // La lecture enrichie de chaque facade lue (lot L1) : avec la place que les runs laissent, jamais a leur place.
+    for (const x of enrichies) {
+      if (liste.length + x.requetes.length > REQUETES_PAR_BATCH) break;
+      liste.push(...x.requetes);
+      Object.assign(requetes, x.parId);
     }
   }
   // Les batiments dont les prises permettaient un rendu et qui n'en ont aucun : la Vue 3D n'etait pas

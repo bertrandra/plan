@@ -436,7 +436,7 @@ const toastVu = (page, motif) => page.evaluate((m) => (window.__toastsVus || [])
  * disent la meme chose (zinc, une cheminee, un parement en pierre sur chaque facade a decrire).
  * `panne` rend le serveur injoignable.
  */
-async function simulerAnalyse(page, { jardin = null } = {}) {
+async function simulerAnalyse(page, { jardin = null, facade = null, enrichie = null } = {}) {
   const s = { demandes: [], jetons: [], panne: false };
   const ind = (image, vu) => [{ image, vu }];
   const sortie = (facades) => ({
@@ -469,6 +469,9 @@ async function simulerAnalyse(page, { jardin = null } = {}) {
       const facades = (texte.match(/Façades à décrire \(étiquettes\) : ([^.\n]*)\./)?.[1] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
       // La lecture du jardin (lot L3) : la sortie que le point donne, SYNTHETIQUE ; sans elle, la reponse d'une maison (illisible).
       if (r.usage === 'jardin' && jardin) return { id: r.id, statut: 'reussi', passe: 1, usage: 'jardin', sortie: jardin, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 };
+      // Le run d'une facade et sa lecture enrichie (lot L1) : les sorties que le point donne, SYNTHETIQUES, les memes pour leurs trois passes.
+      if (r.usage === 'facade' && facade) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade', sortie: facade, erreur: null, modele: 'claude-haiku-5-5', prompt: 2, schema: 2, cout: 0.0016, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 2600 } };
+      if (r.usage === 'facade-enrichie' && enrichie) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade-enrichie', sortie: enrichie, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0012, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 1500 } };
       return { id: r.id, statut: 'reussi', passe: r.passe, sortie: sortie(facades), erreur: null };
     });
     return json(200, { batch: vue, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats });
@@ -3219,6 +3222,166 @@ const POINTS = {
       && !!apres.cle && /^jardin-plate-bande-/.test(apres.cle) && apres.contenu === 'fleurs' && apres.objets === objetsAvant + 1 && !encore && !deborde;
     return { ok, mesure: `requête du jardin ${requete ? (avecImage ? 'partie (orthophoto + texte)' : 'SANS image ou texte') : 'ABSENTE'} ; ligne plate-bande ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') : 'ABSENTE'}, regard ${regard ? (regard.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; aperçu « Après » ${apercu.neufs} groupe(s) de plantes, plan ${apercu.objets === objetsAvant ? 'intact' : 'MODIFIÉ'} ; validée : ${apres.cle ?? 'RIEN'} (${apres.contenu ?? '-'}), ${apres.objets - objetsAvant} objet(s) ajouté(s) ; ${encore ? 'ENCORE proposée' : 'plus proposée'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  116: async (page, f) => {
+    // La facade enrichie (lot L1, MD/spec-lecture-ia-elargie.md §5.1), contre une API simulee : la facade de la maison photographiee
+    // (la scene 02 du banc), l'accord, le batch part avec le run de la facade ; sa reponse SYNTHETIQUE (pas Claude) voit des
+    // menuiseries en bois vert, des garde-corps en fer forge noir aux baies d'etage, un bandeau, un store, une fissure. La facade
+    // depliee le dit (« Lu par Claude », « Modénature lue », et le signal sans case) ; « Valider la façade » ecrit menuiseries,
+    // garde-corps, modenature, store et signal dans la Facade ; la 3D dessine la modenature et les garde-corps lus ; Ctrl+Z defait.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
+    const { largeur: L } = scene.verite;
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    // La chaine pose le mur de la photo sur celui de la maison (8 x 6 m) : ses hauteurs y valent 0,855 fois celles de la scene (le releve
+    // les met a 0,78 et 3,25 m pour 0,9 et 3,8 m). Les parts du run sont celles du mur que l'audit lui montre, en hauteurs d'egout (6 m).
+    const H = 6 / 0.855;
+    // Le run (la lecture d'avant L1) et la lecture enrichie, deux requetes sur la meme image (decision du 30 octobre 2026).
+    const boite = (o) => ({ u0: r3(o.x / L), u1: r3((o.x + o.l) / L), v0: r3(o.y / H), v1: r3((o.y + o.h) / H) });
+    const SORTIE = {
+      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      surface: { principale: 'enduit', zones: [], confiance: 'forte' },
+      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, ...boite(o), niveau: o.y > 2 ? 1 : 0, travee: 'indetermine', confiance: 'forte',
+        details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect' },
+        carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } })),
+      confiance: 'forte',
+    };
+    const ENRICHIE = {
+      baies: scene.verite.ouvertures.map((o) => ({ ...boite(o), menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'sans-objet',
+        ...(o.y > 2 ? { gardeCorps: 'fer-forge', hautGardeCorps: r3((o.y + 1) / H), couleurGardeCorps: 'noir' } : { gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' }) })),
+      saillies: [], decroches: [],
+      modenature: { egout: 'aucune', rangsGenoise: -1, bandeaux: [r3(3.3 / H)], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [] },
+      appendices: [{ nature: 'store', u0: 0.1, u1: 0.3, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
+      etat: [{ nature: 'fissure', u0: 0.62, u1: 0.64, v0: 0.1, v1: 0.4, confiance: 'moyenne' }],
+    };
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE });
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const releve = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? [])));
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_L1) await page.screenshot({ path: process.env.FUMEE_CAPTURE_L1 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 120000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    await etape('accord', () => toucher(page.locator('[data-controle="auditParcelle.accordAnalyse"]').first()));
+    for (let i = 0; i < 120 && !serveur.demandes.some((d) => d.requetes?.some((q) => q.usage === 'facade')); i++) await page.waitForTimeout(500);
+    const runs = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade').length;
+    const enrichies = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-enrichie').length;
+    await page.waitForTimeout(4000);
+    await etape('retour liste', () => toucher(page.locator('.auditPropositions [data-controle="auditParcelle.liste"]').first()));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const barre = '.dialogueAuditParcelle .facadeAudit';
+    await page.locator(barre + ' .lectureClaude').waitFor({ timeout: 60000 }).catch(() => {});
+    const lignes = await page.locator(barre + ' .lectureClaude .detailPhoto').allTextContents();
+    const signal = await page.locator(barre + ' .lectureClaude .signalClaude').count();
+    await capture('lecture');
+    const debords = [await deborde()];
+    const avant = await releve();
+    await etape('valider', () => toucher(page.locator(barre + ' button[data-commande="facade.valider"]')));
+    await page.waitForTimeout(2000);
+    const r = (await releve())[0] ?? {};
+    const ouv = r.ouvertures ?? [];
+    const menuiseries = ouv.filter((o) => o.details?.menuiserie?.materiau === 'bois').length;
+    const gardes = ouv.filter((o) => o.details?.gardeCorps?.type === 'fer-forge').length;
+    debords.push(await deborde());
+    await page.waitForTimeout(1500);
+    const mailles = await page.evaluate(() => { const n = []; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'releve-modenature' || o.name === 'batiment-details-ouvertures') n.push(o.name + ':' + (Array.isArray(o.material) ? o.material.length : 1)); }); return n; });
+    await capture('validee');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(800);
+    const annule = await releve();
+    const modenature3d = mailles.some((m) => m.startsWith('releve-modenature'));
+    const ok = runs >= 3 && enrichies >= 3 && lignes.some((l) => /^Lu par Claude : menuiseries en bois/.test(l) && /garde-corps en fer forgé/.test(l)) && lignes.some((l) => /^Modénature lue : 1 bandeau, 1 store/.test(l))
+      && signal === 1 && lignes.some((l) => /^Signalé par Claude, à vérifier : une fissure/.test(l))
+      && menuiseries >= 3 && gardes >= 2 && r.modenature?.bandeauxM?.length === 1 && r.appendices?.[0]?.nature === 'store' && r.etat?.[0]?.nature === 'fissure'
+      && modenature3d && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
+    return { ok, mesure: `${runs} passe(s) du run et ${enrichies} de la lecture enrichie envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  117: async (page, f) => {
+    // Une saillie lue sur la facade, proposee, acceptee, posee par le moteur (lot L1, MD/spec-lecture-ia-elargie.md §4.2, §5.1), contre
+    // une API simulee : la maison du point 104 (un corps a deux pans, une aile, une mesure LiDAR), la photo de la scene 22 ; la reponse
+    // SYNTHETIQUE du run voit un bow-window sur la facade sud. La ligne « Toit de Maison, corps 1 » qui le propose arrive DECOCHEE ;
+    // cochee et validee, le moteur ajoute un corps de bow-window apres les autres (aucun ne bouge), la 3D le dessine ; Ctrl+Z defait.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const p = (x, y) => ({ x, y });
+      o.pts = [p(-8, -20), p(0, -20), p(0, -11), p(-4, -11), p(-4, -6), p(-8, -6)];
+      o.vertexNames = ['A', 'B', 'C', 'D', 'E', 'F']; o.segmentNames = ['', '', '', '', '', '']; o.frozenVertices = o.pts.map(() => false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.egoutChoisi;
+      o.elevation = 5.2;
+      b.toit = { forme: 'deux-pans', hauteur: 3.6, angleFaitage: 0, source: 'saisie' };
+      b.corpsToit = [{ pts: [p(-8, -20), p(0, -20), p(0, -11), p(-8, -11)], posFaitage: 4.5, faitage: 8.8, egouts: [5.2, 5.2], pignons: [], ecart: 0.1 },
+        { pts: [p(-8, -11), p(-4, -11), p(-4, -6), p(-8, -6)], posFaitage: 2, faitage: 6, egouts: [4, 4], pignons: [], ecart: 0.1 }];
+      const z = [];
+      for (let j = 0; j < 29; j++) for (let i = 0; i < 17; i++) {
+        const x = -8 + i * 0.5, y = -6 - j * 0.5;
+        z.push(y <= -11 && x <= 0 ? 8.8 - (3.6 * Math.abs(y + 15.5)) / 4.5 : y > -11 && x <= -4 ? 6 - Math.abs(x + 6) : null);
+      }
+      b.toitMesure = { pas: 0.5, x0: -8, y0: -6, nx: 17, ny: 29, z, egout: 5.2, faite: 8.8, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+    });
+    const SORTIE = {
+      calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      surface: { principale: 'pierre', zones: [], confiance: 'forte' }, ouvertures: [], confiance: 'forte',
+    };
+    // Le bow-window vient de la lecture enrichie (la seconde requete sur la meme image, lot L1).
+    const ENRICHIE = {
+      baies: [], saillies: [{ genre: 'bow-window', u0: 0.3, u1: 0.62, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.5, couverture: 'sans-objet', confiance: 'forte' }],
+      decroches: [], modenature: { egout: 'indetermine', rangsGenoise: -1, bandeaux: [], chaines: 'indetermine', encadrements: 'indetermine', soubassement: -1, parementSoubassement: 'indetermine', descentes: [] },
+      appendices: [], etat: [],
+    };
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE });
+    // Les corps aux cles triees : l'annulation rend les memes corps, pas forcement dans le meme ordre de cles (comme le point 104).
+    const canon = (v) => JSON.parse(JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x)));
+    const corps = async () => canon(await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []))));
+    const avant = await corps();
+    const { vues: [photo] } = photosScene('22-pignon-decentre-pierre');
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_L1) await page.screenshot({ path: process.env.FUMEE_CAPTURE_L1 + '-saillie-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label^="Photographier : Façade sud"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    await etape('accord', () => toucher(page.locator('[data-controle="auditParcelle.accordAnalyse"]').first()));
+    const texte = 'bow-window';
+    await page.locator('.ligneProposition', { hasText: texte }).first().waitFor({ state: 'attached', timeout: 90000 }).catch(() => {});
+    const runs = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade').length;
+    const enrichies = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-enrichie').length;
+    const ligne = await ligneProposition(page, texte);
+    await capture('propositions');
+    const pendant = await corps();
+    if (ligne) {
+      await etape('cocher', () => cocherLigne(page, texte));
+      await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]')));
+      await page.waitForTimeout(1500);
+    }
+    const ecrit = await corps();
+    const bow = ecrit[avant.length];
+    const intacts = JSON.stringify(ecrit.slice(0, avant.length)) === JSON.stringify(avant);
+    await page.waitForTimeout(1500);
+    const dessine = await page.evaluate(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (/saillie|bow/i.test(o.name)) n++; }); return n; });
+    await capture('apres');
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(1500);
+    const annule = await corps();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const ok = runs >= 3 && enrichies >= 3 && !!ligne && !ligne.cochee && /posée par le moteur des toits/.test(ligne.texte) && /profondeur par défaut/.test(ligne.texte) && JSON.stringify(pendant) === JSON.stringify(avant)
+      && ecrit.length === avant.length + 1 && bow?.saillie?.genre === 'bow-window' && bow.saillie.hote === 0 && intacts && JSON.stringify(annule) === JSON.stringify(avant) && !deborde;
+    return { ok, mesure: `${runs} passe(s) du run ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 150) + ' »' : 'ABSENTE'} ; aperçu ${JSON.stringify(pendant) === JSON.stringify(avant) ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validée : ${ecrit.length - avant.length} corps ajouté(s)${bow?.saillie ? ' (' + bow.saillie.genre + ', hôte ' + (bow.saillie.hote + 1) + ', ' + bow.saillie.largeurM + ' × ' + bow.saillie.profondeurM + ' m)' : ''}, corps d’avant ${intacts ? 'intacts' : 'MODIFIÉS'} ; 3D ${dessine} maille(s) de saillie ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -4035,7 +4198,9 @@ function pointsPour(nomClasse) {
   // 113 : deux vues du meme mur fondues dans l'audit ; 114 : « Créer un cas depuis cette façade », lu par la calibration (lot F6).
   // 120 : la lecture du reglement de la zone du PLU par Claude, ses regles validees et la conformite du projet (lot L4).
   // 110, 111 et 115 : le jardin (lot L3) : la plate-bande et sa vegetation en 3D, le regard, la lecture du jardin acceptee dans l'avant/apres.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 120];
+  // 116 et 117 : la facade enrichie (lot L1) : menuiseries, garde-corps, modenature, store et signal lus, valides et dessines ; un
+  // bow-window lu, propose decoche, pose par le moteur des toits.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 120];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

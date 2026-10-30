@@ -97,6 +97,11 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
       if (formes.length) return zone(formes, centreDe(formes.flatMap((f) => f.pts)), faite);
       break;
     }
+    case 'saillieDuToit': {
+      // La saillie posee par le moteur : son rectangle, du sol a son faitage.
+      const c = p.effet.corps;
+      return zone([{ pts: c.pts, bas: 0, haut: c.faitage, ferme: true }], centreDe(c.pts), c.faitage / 2);
+    }
     case 'corpsToit': case 'hauteurToit': case 'couverture':
       // Le toit seul, de l'egout au faitage.
       return zone(o.batiment?.corpsToit?.length ? o.batiment?.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }], centreDe(pts), (mur + faite) / 2);

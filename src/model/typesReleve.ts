@@ -67,7 +67,46 @@ export interface DetailsOuverture {
   couleurVolets?: string;
   /** La division du vitrage lue par Claude (decision 15), dessinee dans la fenetre de la 3D (three/carreaux3d.ts, lot F8). */
   carreaux?: CarreauxOuverture;
+  /**
+   * La menuiserie (dormant, ouvrants, petits bois) : sa matiere et sa couleur (hexadecimal, traduite du mot lu par la palette de
+   * regles/facades/reglages.json). Lot L1 de MD/spec-lecture-ia-elargie.md ; absente : le cadre clair d'avant.
+   */
+  menuiserie?: MenuiserieOuverture;
+  /** Le garde-corps devant la baie ou au bord de son balcon : son type, sa hauteur, sa couleur (lot L1) ; absent : les barreaux d'avant. */
+  gardeCorps?: GardeCorpsOuverture;
 }
+
+/** Les matieres d'une menuiserie (lot L1). */
+export type MateriauMenuiserie = 'bois' | 'pvc' | 'alu' | 'acier';
+export interface MenuiserieOuverture { materiau?: MateriauMenuiserie; couleur?: string; source: 'ia' | 'doigt' }
+
+/** Les types de garde-corps (lot L1) : `barreaux` est le dessin d'avant, aux memes cotes. */
+export type TypeGardeCorps = 'barreaux' | 'fer-forge' | 'verre' | 'plein';
+export interface GardeCorpsOuverture { type: TypeGardeCorps; hauteurM?: number; couleur?: string; source: 'ia' | 'doigt' }
+
+/**
+ * La modenature d'un mur (lot L1) : ce qui le decore et le protege sans en etre une ouverture, lue sur sa photo. Lue, elle remplace sur
+ * ce mur seul la maconnerie que l'epoque du batiment faisait deduire (three/fenetresRelief.ts). Les hauteurs sont en metres depuis le
+ * sol, tirees des parts lues par le calage du mur (decision 4) ; les places `descentesM` en metres depuis la gauche du mur.
+ */
+export interface ModenatureFacade {
+  egout?: 'aucune' | 'corniche' | 'genoise';
+  /** Le nombre de rangs d'une genoise (1 a 4). */
+  rangsGenoise?: number;
+  bandeauxM?: number[];
+  chaines?: 'aucune' | 'pierre' | 'brique';
+  encadrements?: 'aucun' | 'enduit' | 'pierre' | 'brique';
+  soubassement?: { hauteurM: number; parement?: ParementFacade };
+  descentesM?: number[];
+  source: 'ia' | 'doigt';
+}
+
+/** Ce que le mur porte et qui n'est pas un objet du plan (lot L1) : un store banne, de `xM` sur `largeurM`, a `hauteurM` du sol. */
+export interface AppendiceFacade { nature: 'store'; xM: number; largeurM: number; hauteurM: number; source: 'ia' | 'doigt' }
+
+/** Ce que Claude signale de l'etat du bati (lot L1, decision 8) : un signal, jamais lu par un calcul ni un export. */
+export type NatureEtatBati = 'fissure' | 'enduit-abime' | 'humidite' | 'mousses' | 'autre';
+export interface EtatBati { nature: NatureEtatBati; zone: { u0: number; u1: number; v0: number; v1: number }; confiance: number; vuLe: string }
 
 /** Une grille de carreaux : colonnes et rangees, par vantail. */
 export interface GrilleCarreaux { colonnes: number; rangees: number }
@@ -235,6 +274,12 @@ export interface ReleveFacade {
   forme?: FormeFacade;
   surface?: SurfaceFacade;
   textureCalee?: TextureCalee;
+  /** La modenature lue (lot L1) : elle remplace, sur ce mur, la maconnerie deduite de l'epoque. */
+  modenature?: ModenatureFacade;
+  /** Ce que le mur porte (un store banne, lot L1). */
+  appendices?: AppendiceFacade[];
+  /** L'etat du bati signale par Claude (lot L1) : montre, jamais propose, jamais exporte (decision 8). */
+  etat?: EtatBati[];
 }
 
 /**

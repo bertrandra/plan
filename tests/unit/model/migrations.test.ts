@@ -130,6 +130,46 @@ describe('la migration 8 -> 9 : le jardin (lot L3 ; le 8 est celui du lot L4)', 
   });
 });
 
+const temoin9 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-9.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+
+describe('la migration 9 -> 10 : la facade enrichie (lot L1)', () => {
+  it('lit un document de schema 9 tel quel : une Facade validee, un bow-window et un spa restent, au schema qui les decrit', () => {
+    const d = { objects: temoin9.objects as unknown as ObjetAPlat[], measures: temoin9.measures };
+    expect(migrer(structuredClone(d), 9)).toEqual(d);
+    const reecrit = relu(temoin9.objects, 9);
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(7);
+    expect(relu(reecrit, 9)).toEqual(reecrit);
+  });
+
+  it('s ecrit au 10 des qu une ouverture, un mur, une saillie ou un equipement porte un champ du lot, et le relit a l identique', () => {
+    const [, b] = structuredClone(temoin9.objects) as Record<string, unknown>[];
+    const f = (b!.facades as Record<string, unknown>[])[0]!;
+    const ouv = (f.ouvertures as Record<string, Record<string, unknown>>[])[0]!;
+    const cas: [string, () => unknown][] = [
+      ['menuiserie', () => { ouv.details!.menuiserie = { materiau: 'bois', couleur: '#5e7d5e', source: 'ia' }; }],
+      ['gardeCorps', () => { ouv.details!.gardeCorps = { type: 'fer-forge', hauteurM: 1, couleur: '#2e3033', source: 'ia' }; }],
+      ['modenature', () => { f.modenature = { egout: 'genoise', rangsGenoise: 2, bandeauxM: [3], descentesM: [9.8], source: 'ia' }; }],
+      ['appendices', () => { f.appendices = [{ nature: 'store', xM: 5, largeurM: 2, hauteurM: 2.9, source: 'ia' }]; }],
+      ['etat', () => { f.etat = [{ nature: 'fissure', zone: { u0: 0.8, u1: 0.82, v0: 0.2, v1: 0.5 }, confiance: 0.6, vuLe: '2026-10-30' }]; }],
+    ];
+    for (const [champ, poser] of cas) {
+      poser();
+      expect(schemaMinimal(relu([b], 10) as unknown as ObjetAPlat[]), champ).toBe(10);
+    }
+    const reecrit = relu([b], 10);
+    expect(relu(reecrit, 10)).toEqual(reecrit);
+    const fr = (reecrit[0]!.facades as Record<string, unknown>[])[0]!;
+    expect(fr.modenature).toEqual({ egout: 'genoise', rangsGenoise: 2, bandeauxM: [3], descentesM: [9.8], source: 'ia' });
+    expect(fr.etat).toHaveLength(1);
+    const auvent = { genre: 'auvent', hote: 0, mur: 0, centreM: 5, largeurM: 1.6, profondeurM: 0.9, forme: 'rectangle', niveau: 'rdc', toit: 'pan', couverture: 'verre' };
+    expect(schemaMinimal([batiment({ corpsToit: [{ pts: [], saillie: auvent }] } as unknown as Partial<ObjetAPlat>)])).toBe(10);
+    for (const nature of ['perron', 'unite-exterieure', 'boite-aux-lettres']) expect(schemaMinimal([batiment({ nature } as Partial<ObjetAPlat>)]), nature).toBe(10);
+    expect(schemaMinimal([batiment({ nature: 'regard' } as Partial<ObjetAPlat>)])).toBe(9);
+  });
+});
+
 describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
   const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
   const ign = (extra: Partial<ObjetAPlat> = {}, bdtopo: Record<string, unknown> = {}) =>
