@@ -761,6 +761,17 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
     `RunEnregistre` et de la Façade (`ReleveFacade`) : un champ ou un mot ne se retire, et un sens ne change, qu'en modifiant ce test ;
   - `tests/unit/io/projet510Facades.test.ts` relit et réécrit un projet 5.1.0 à façades validées sans perdre un champ ;
   - `tests/unit/facade/gardeLecture.test.ts` montre le comparateur rouge sur des mesures fabriquées.
+- **Premiers passages sur `main` (30 octobre 2026, code de la 5.1.0 inchangé), à décider par le propriétaire.** Le run 41012308826 a eu
+  9 lignes en dessous à la première mesure, toutes revenues à la relance : vert, une fois la règle lue « en dessous aux deux mesures ».
+  Le run 41014104555 a eu 14 lignes en dessous, et **6 y sont restées** : angles justes de `09` ×3, `11` ×1 et `12` ×3 (et le total des
+  angles ×3, 38 → 35), et `23` ×1, rappel 2 → 1. Le job est rouge **sans qu'aucun code ait changé**. Sur les trois mesures, rappel et
+  précision ×3 ne bougent pas (99,2 % et 100 %). Ce qui bouge, c'est ce que Claude tire au sort d'un appel à l'autre :
+  - les carreaux ×3 (7, puis 2, puis 10 sur 21) ;
+  - les angles ×3 (38, 38, 34 sur 44). Claude écrit ses parts avec deux décimales, et un centième de l'image vaut de 1,3 à 1,8 % de la
+    largeur du mur : un bord juste à 2 % tient à un arrondi ;
+  - toute ligne ×1, une passe seule (`09` ×1 et `23` ×1 vides une fois chacun ; le rappel ×1 va de 92,9 à 97,6 %).
+  La référence n'a pas été baissée. Les pistes sont ouvertes : juger ×1 au total seulement, juger les angles et les carreaux au total,
+  ou prendre pour référence plusieurs runs.
 - **Ce qu'un lot doit faire** : garder la lecture des réponses d'avant (les fichiers de `lecture-5.1.0/` sont des réponses 5.1.0 et le
   restent), lancer le workflow case cochée sur sa branche et coller la table du résumé dans la PR.
 
