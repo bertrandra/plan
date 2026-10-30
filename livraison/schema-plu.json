@@ -1,0 +1,200 @@
+{
+  "format": "plan-schema-plu",
+  "version": 1,
+  "note": "Sortie de la lecture du reglement d'une zone du PLU par Claude (lot L4). Vocabulaire ferme des grandeurs, des unites et des couvertures ; `indetermine` pour une valeur ou une page que le texte ne donne pas. Avec la sortie structuree, le schema part en output_config.format ; sans elle, le serveur montre `exemple` avec la consigne `consigne`, propre a cet usage. La reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer). Version 1 : zone, regles (grandeur, valeur, unite, termes, condition, article, citation, page, confiance), remarques.",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "zone",
+      "regles",
+      "remarques"
+    ],
+    "properties": {
+      "zone": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "libelle",
+          "trouvee"
+        ],
+        "properties": {
+          "libelle": {
+            "type": "string"
+          },
+          "trouvee": {
+            "type": "string",
+            "enum": [
+              "oui",
+              "non",
+              "indetermine"
+            ]
+          }
+        }
+      },
+      "regles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grandeur",
+            "valeur",
+            "unite",
+            "termes",
+            "condition",
+            "article",
+            "citation",
+            "page",
+            "confiance"
+          ],
+          "properties": {
+            "grandeur": {
+              "type": "string",
+              "enum": [
+                "hauteur-egout-max",
+                "hauteur-faitage-max",
+                "hauteur-absolue-max",
+                "hauteur-annexe-max",
+                "recul-voie-min",
+                "recul-limites-min",
+                "emprise-max",
+                "espaces-verts-min",
+                "stationnement",
+                "pente-toit-min",
+                "pente-toit-max",
+                "materiaux-toit",
+                "couleurs",
+                "cloture-voie-hauteur-max",
+                "cloture-limites-hauteur-max",
+                "clotures-haies",
+                "annexes"
+              ]
+            },
+            "valeur": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "indetermine"
+                  ]
+                }
+              ]
+            },
+            "unite": {
+              "type": "string",
+              "enum": [
+                "m",
+                "pourcent",
+                "degres",
+                "places",
+                "aucune"
+              ]
+            },
+            "termes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "tuile",
+                  "tuile-plate",
+                  "tuile-canal",
+                  "tuile-mecanique",
+                  "ardoise",
+                  "zinc",
+                  "bac-acier",
+                  "membrane",
+                  "vegetale",
+                  "verre",
+                  "autre"
+                ]
+              }
+            },
+            "condition": {
+              "type": "string"
+            },
+            "article": {
+              "type": "string"
+            },
+            "citation": {
+              "type": "string"
+            },
+            "page": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "indetermine"
+                  ]
+                }
+              ]
+            },
+            "confiance": {
+              "type": "string",
+              "enum": [
+                "faible",
+                "moyenne",
+                "forte"
+              ]
+            }
+          }
+        }
+      },
+      "remarques": {
+        "type": "string"
+      }
+    }
+  },
+  "exemple": {
+    "zone": {
+      "libelle": "UZ",
+      "trouvee": "oui"
+    },
+    "regles": [
+      {
+        "grandeur": "hauteur-egout-max",
+        "valeur": 6,
+        "unite": "m",
+        "termes": [],
+        "condition": "",
+        "article": "UZ 10.1",
+        "citation": "La hauteur des constructions ne peut excéder 6 mètres à l’égout du toit.",
+        "page": 41,
+        "confiance": "forte"
+      },
+      {
+        "grandeur": "recul-limites-min",
+        "valeur": 3,
+        "unite": "m",
+        "termes": [],
+        "condition": "en cas de retrait des limites séparatives",
+        "article": "UZ 7.2",
+        "citation": "En cas de retrait, la distance comptée horizontalement de tout point de la construction à la limite séparative doit être au moins égale à 3 mètres.",
+        "page": 39,
+        "confiance": "forte"
+      },
+      {
+        "grandeur": "materiaux-toit",
+        "valeur": "indetermine",
+        "unite": "aucune",
+        "termes": [
+          "tuile-plate",
+          "ardoise"
+        ],
+        "condition": "constructions principales",
+        "article": "UZ 11.3",
+        "citation": "Les toitures des constructions principales seront couvertes de tuiles plates ou d’ardoises.",
+        "page": 43,
+        "confiance": "moyenne"
+      }
+    ],
+    "remarques": "Le chapitre renvoie au lexique des dispositions générales pour la définition de la hauteur, que l’extrait ne contient pas."
+  },
+  "consigne": "Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour une zone inventée : ses valeurs ne sont pas à recopier, la réponse dit ce que le règlement envoyé impose, et la liste `regles` a autant d’entrées que le chapitre de la zone en contient (aucune s’il n’y en a pas). Chaque citation est recopiée mot pour mot du document."
+}
