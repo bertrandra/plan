@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-facade-enrichie",
   "version": 1,
-  "note": "Sortie de la lecture enrichie d'une facade par Claude (lot L1). Tout en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) ; un nombre non vu vaut -1. Une baie se rapporte a une ouverture du run par sa boite. Sans union ni champ facultatif : la sortie structuree l'accepte seul. Le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).",
+  "note": "SONDE L2 (branche jetable) : schema de la lecture enrichie avec les champs du toit, pour savoir si la sortie structuree l accepte.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -11,7 +11,9 @@
       "decroches",
       "modenature",
       "appendices",
-      "etat"
+      "etat",
+      "toit",
+      "elementsToit"
     ],
     "properties": {
       "baies": {
@@ -363,6 +365,109 @@
             }
           }
         }
+      },
+      "toit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "couverture",
+          "pose",
+          "debord",
+          "faitage",
+          "gouttiere",
+          "confiance"
+        ],
+        "properties": {
+          "couverture": {
+            "type": "string",
+            "enum": [
+              "tuile-plate",
+              "tuile-canal",
+              "tuile-mecanique",
+              "ardoise",
+              "zinc",
+              "bac-acier",
+              "membrane",
+              "gravillons",
+              "vegetale",
+              "indetermine"
+            ]
+          },
+          "pose": {
+            "type": "string",
+            "enum": [
+              "droite",
+              "losange",
+              "ecaille",
+              "indetermine"
+            ]
+          },
+          "debord": {
+            "type": "string",
+            "enum": [
+              "aucun",
+              "faible",
+              "fort",
+              "indetermine"
+            ]
+          },
+          "faitage": {
+            "type": "string",
+            "enum": [
+              "tuiles",
+              "zinc",
+              "crete",
+              "indetermine"
+            ]
+          },
+          "gouttiere": {
+            "type": "string",
+            "enum": [
+              "pendante",
+              "nantaise",
+              "aucune",
+              "indetermine"
+            ]
+          },
+          "confiance": {
+            "$ref": "#/$defs/confiance"
+          }
+        }
+      },
+      "elementsToit": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "element",
+            "u0",
+            "u1",
+            "v",
+            "confiance"
+          ],
+          "properties": {
+            "element": {
+              "type": "string",
+              "enum": [
+                "fenetre-toit",
+                "solaire"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v": {
+              "type": "number"
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
       }
     },
     "$defs": {
@@ -472,6 +577,15 @@
         "confiance": "moyenne"
       }
     ],
-    "etat": []
+    "etat": [],
+    "toit": {
+      "couverture": "ardoise",
+      "pose": "droite",
+      "debord": "faible",
+      "faitage": "tuiles",
+      "gouttiere": "pendante",
+      "confiance": "moyenne"
+    },
+    "elementsToit": []
   }
 }
