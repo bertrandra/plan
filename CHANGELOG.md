@@ -13,7 +13,9 @@ quantité ni aucun export de la démonstration ne change : les sept témoins ne 
 reste celle de la 5.3.0, le même jour ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les
 quantités et `glb-structure.json` sont identiques, et le dossier d'un projet sans texte validé aussi. Le schéma des projets passe de 11 à
 12 (le champ `dossier` de la parcelle), par une migration identité, et un projet s'écrit toujours au plus petit schéma qui le décrit ; la
-plateforme accepte déjà les schémas 7 à 12.
+plateforme accepte déjà les schémas 7 à 12. Trois corrections y entrent aussi : une couverture hors catalogue dessinée en tuile au lieu
+de planter, la question « Mettre à jour le modèle ? » bornée à l'écran, et « Appliquer la liste » de l'assistant soumise au droit
+d'écrire le projet.
 
 ### Ajouté
 
