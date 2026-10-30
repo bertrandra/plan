@@ -9,7 +9,10 @@
 //   POST admin/claude/batches                 cree un batch (une requete par passe) apres les plafonds
 //   GET  admin/claude/batches/<id>            son etat, lu chez Anthropic
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
-//   POST admin/claude/messages                l'appel immediat (renfort du releve, trois passes au plus)
+//   POST admin/claude/messages                l'appel immediat (run d'une facade, trois passes au plus ; lecture du PLU, un PDF)
+//   POST admin/claude/rejouer                 rejoue le run d'une facade gardee, depuis son image (administrateur, lot L0)
+//   GET  admin/claude/donnees-analyse         l'export « données d'analyse » a travers les audits (administrateur, lot L0)
+//   GET  admin/claude/images/<sha256>.<ext>   une image gardee par une trace, par son empreinte (administrateur, lot L0)
 //   GET|PUT admin/claude/tarifs              la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
@@ -51,8 +54,10 @@
 // Defenses : celles d'admin.php (en-tete `X-Plan-Admin: 1` sur toute ecriture, 404 partout sans
 // configuration) ; seuls les batches crees ici se lisent, et par l'organisation qui les a crees ;
 // ecriture atomique et `.bak` pour les JSON ; le journal ne fait que s'allonger, verrouille. Il ne
-// garde ni photo ni contenu de reponse : les compteurs de `usage`, l'identite de la parcelle, et
-// le cout calcule avec la table des tarifs en vigueur le jour de l'appel.
+// garde ni photo ni contenu de reponse : les compteurs de `usage`, l'identite de la parcelle, le
+// cout calcule avec la table des tarifs en vigueur le jour de l'appel, et les empreintes de l'image
+// et de la reponse. L'image et la reponse elles-memes vont a la trace de la requete (lot L0), dans
+// le dossier de l'audit nomme ou sous claude/analyses/sans-depot/, hors de la racine web comme le reste.
 //
 // L'appel se fait en HTTP direct (cURL, sinon les flux de PHP) : l'hebergement n'a pas Composer,
 // et le SDK PHP d'Anthropic ne s'y installe pas.
@@ -247,19 +252,33 @@ try {
     $qui = acteur($sessionAdmin, jetonPorteur(), $plateformeUrl);
     $organisation = $qui['organisation'];
     $reserveAdmin = function () use ($qui): void { if (!$qui['admin']) erreur(403, 'FORBIDDEN', 'Réservé à l’administrateur.'); };
+    // Le dossier de l'audit nomme par une demande (`depot`), quand sa trace peut s'y ranger : il existe, et il est a cette
+    // organisation (ou l'administrateur appelle). Sinon null : la trace se range sans depot (lot L0).
+    $dirAuditPermis = function (?string $depot) use ($dossierAudits, $qui, $organisation): ?string {
+        if ($depot === null) return null;
+        $entree = indexAudits($dossierAudits)[$depot] ?? null;
+        return is_array($entree) && ($qui['admin'] || ($entree['organisation'] ?? null) === $organisation) ? dossierAudit($dossierAudits, $depot) : null;
+    };
 
     if ($chemin === 'etat') {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         [$prompt, $schema] = promptEtSchema();
-        // Un deploiement d'avant le lot L18 n'a pas les fichiers du renfort : l'etat le dit, sans tomber.
-        try {
-            [$promptR, $schemaR] = promptEtSchema('renfort');
-            $renfort = ['prompt' => $promptR['version'], 'schema' => $schemaR['version']];
-        } catch (Throwable $e) {
-            $renfort = null;
-        }
-        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]
+        // Un deploiement d'avant le lot F2 n'a pas les fichiers du run d'une facade : l'etat le dit, sans tomber.
+        $versionsDe = function (string $usage): ?array {
+            try {
+                [$pU, $sU] = promptEtSchema($usage);
+                return ['prompt' => $pU['version'], 'schema' => $sU['version']];
+            } catch (Throwable $e) {
+                return null;
+            }
+        };
+        $facade = $versionsDe('facade');
+        $plu = $versionsDe('plu');
+        // La lecture du jardin (lot L3) : ses versions, ou null sur un deploiement d'avant.
+        $jardin = $versionsDe('jardin');
+        $parUsage = modelesParUsage(reglageModeles($dossierClaude));
+        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
+                       'facade' => $facade, 'plu' => $plu, 'jardin' => $jardin, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 
@@ -359,14 +378,9 @@ try {
             if ($brouillon === null) throw new Refus('Aucun brouillon des règles enregistré sur le serveur (Admin › Règles, « Enregistrer sur le serveur »).');
         }
         // La trace va dans le dossier de l'audit nomme. Un rejeu exige cet audit ; l'analyse de la
-        // session, elle, part sans trace si son depot a ete retire entre-temps ou n'est pas le sien.
-        $dirAudit = null;
-        if ($demande['depot'] !== null) {
-            $entree = indexAudits($dossierAudits)[$demande['depot']] ?? null;
-            $sien = is_array($entree) && ($qui['admin'] || ($entree['organisation'] ?? null) === $organisation);
-            if ($demande['usage'] === 'rejeu' && !is_array($entree)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $demande['depot'] . ' ».');
-            if ($sien) $dirAudit = dossierAudit($dossierAudits, $demande['depot']);
-        }
+        // session, elle, se range sans depot (lot L0) si son depot a ete retire entre-temps ou n'est pas le sien.
+        if ($demande['usage'] === 'rejeu' && $demande['depot'] !== null && !is_array(indexAudits($dossierAudits)[$demande['depot']] ?? null)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $demande['depot'] . ' ».');
+        $dirAudit = $dirAuditPermis($demande['depot']);
         $t = maintenant();
         $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
                      'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true]
@@ -395,7 +409,7 @@ try {
         $requetes = [];
         foreach ($demande['requetes'] as $r) {
             [$pR, $sR] = $prompts[$r['usage']];
-            $requetes[] = ['custom_id' => $r['id'], 'params' => parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu'])];
+            $requetes[] = ['custom_id' => $r['id'], 'params' => parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu'], false, $sR['exemple'] ?? null, $sR['consigne'] ?? null)];
         }
         $corps = json_encode(['requests' => $requetes], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         [$statut, $texte] = anthropic('POST', '/v1/messages/batches', $corps === false ? '' : $corps);
@@ -412,28 +426,20 @@ try {
         $parRequete = [];
         foreach ($demande['requetes'] as $r) {
             $parRequete[$r['id']] = ['passe' => $r['passe'], 'images' => $r['images'], 'facades' => $r['facades'], 'usage' => $r['usage'], 'modele' => $r['modele'],
-                                     'prompt' => $prompts[$r['usage']][0]['version'], 'schema' => $prompts[$r['usage']][1]['version']];
+                                     'prompt' => $prompts[$r['usage']][0]['version'], 'schema' => $prompts[$r['usage']][1]['version'], 'empreintes' => empreintesRequete($r)];
         }
-        // La trace (15.5) : ce qui part, dans le dossier de l'audit ; ce qui revient la completera.
-        $trace = null;
-        if ($dirAudit !== null) {
-            $idTrace = gmdate('Ymd-His') . '-' . nomSur($demande['modele'], 'modele', true) . '-' . bin2hex(random_bytes(2));
-            $dt = $dirAudit . '/analyses/' . $idTrace;
-            if (!is_dir($dt)) @mkdir($dt, 0750, true);
-            ecrireJson($dt . '/entrant.json', entrantTrace($demande, $prompts, $dirAudit));
-            $versions = [];
-            foreach ($prompts as $u => [$pU, $sU]) $versions[$u] = ['prompt' => $pU['version'], 'schema' => $sU['version']];
-            ecrireJson($dt . '/resume.json', ['format' => 'plan-audit-analyse', 'version' => 1, 'id' => $idTrace, 'audit' => $demande['depot'],
-                'nature' => $demande['usage'] === 'rejeu' ? 'rejeu' : 'analyse', 'etat' => 'en_cours', 'creeLe' => $t, 'finLe' => null, 'idBatch' => $b['id'],
-                'organisation' => $organisation, 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'effort' => EFFORT, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'essai' => $demande['essai'],
-                'versions' => (object)$versions, 'requetes' => count($demande['requetes']), 'images' => $images, 'facades' => $facades, 'resultats' => null, 'cout' => null, 'tokens' => null]);
-            $trace = ['audit' => $demande['depot'], 'id' => $idTrace];
-        }
+        // La trace (15.5, lot L0) : ce qui part, dans le dossier de l'audit ou sans depot ; ce qui revient la completera.
+        $idTrace = idNouvelleTrace($demande['modele'], $t);
+        [$base, $dt, $trace] = lieuTrace($dossierClaude, $dirAudit, $dirAudit !== null ? $demande['depot'] : null, $organisation, $idTrace);
+        if ($dirAudit === null) purgerSansDepot($dossierClaude, substr($t, 0, 10));
+        commencerTrace($base, $dt, $dirAudit !== null ? $demande : ['depot' => null] + $demande, $prompts,
+                       resumeTrace($idTrace, $dirAudit !== null ? $demande : ['depot' => null] + $demande, $prompts, $identite, $demande['usage'] === 'rejeu' ? 'rejeu' : 'analyse', $t, $b['id']));
         ecrireFiche($dossierBatches, ['id' => $b['id'], 'creeLe' => $t] + $identite + ['promptVersion' => $prompt['version'], 'schemaVersion' => $schema['version'],
                     'requetes' => $parRequete, 'etat' => $b['processing_status'] ?? null, 'journalise' => false, 'trace' => $trace]
                     // Le texte du brouillon qui est parti : la reponse se ramene a SON schema, meme si le brouillon change ensuite.
                     + ($brouillon !== null ? ['brouillonCopie' => ['prompt' => $brouillon['prompt'], 'schema' => $brouillon['schema']]] : []));
-        repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'essai' => $demande['essai'], 'trace' => $trace['id'] ?? null]);
+        repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'essai' => $demande['essai'], 'trace' => $idTrace,
+                       'depot' => $trace['audit']]);
     }
 
     if ($chemin === 'messages') {
@@ -441,11 +447,69 @@ try {
         if (!$avecCle) $sansCle();
         $p = plafonds($dossierClaude);
         $d = lireCorps(TAILLE_MAX);
-        if (is_array($d) && !isset($d['usage'])) $d['usage'] = 'renfort';
         if (is_array($d) && ($d['usage'] ?? null) === 'rejeu') throw new Refus('Un rejeu passe par un batch.');
         $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p, modelesParUsage(reglageModeles($dossierClaude)));
         if ($demande['essai']) throw new Refus('L’essai du brouillon passe par un batch.');
-        repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, $qui['admin'], $avecCle, $p));
+        // La trace (lot L0) : dans le dossier de l'audit nomme quand il est permis (l'escalade d'un audit sauvegarde), sinon sans depot.
+        $dirAudit = $dirAuditPermis($demande['depot']);
+        if ($dirAudit === null) $demande['depot'] = null;
+        repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, $qui['admin'], $avecCle, $p, $dirAudit));
+    }
+
+    // Le rejeu du run d'une facade depuis son image gardee (lot L0) : la requete d'une trace repart telle qu'elle est partie (ses
+    // textes, son image octet pour octet), avec le prompt, le schema et le modele d'aujourd'hui. Administrateur seul ; une passe ou
+    // trois ; il se compte en rejeu, et sa trace se range a cote de celle qu'il rejoue.
+    if ($chemin === 'rejouer') {
+        if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $reserveAdmin();
+        if (!$avecCle) $sansCle();
+        $d = lireCorps(64 * 1024);
+        $audit = $d['audit'] ?? null;
+        $idSource = (string)($d['trace'] ?? '');
+        $idRequete = (string)($d['requete'] ?? '');
+        $passes = $d['passes'] ?? 3;
+        if ($audit !== null && (!is_string($audit) || !preg_match(ID_AUDIT, $audit))) throw new Refus('Champ « audit » invalide.');
+        if (!is_int($passes) || $passes < 1 || $passes > REQUETES_IMMEDIATES) throw new Refus('Passes invalides (1 à 3).');
+        $dirAudit = $audit !== null ? dossierAudit($dossierAudits, $audit) : null;
+        $dt = $audit !== null ? dossierTrace($dossierAudits, $audit, $idSource) : traceSansDepot($dossierClaude, $idSource);
+        if ($dt === null) erreur(404, 'NOT_FOUND', 'Aucune analyse « ' . $idSource . ' ».');
+        $resumeSource = lireJson($dt . '/resume.json') ?? [];
+        $source = null;
+        foreach (listeDe(lireJson($dt . '/entrant.json')['requetes'] ?? null) as $q) if (is_array($q) && ($q['id'] ?? null) === $idRequete) $source = $q;
+        if ($source === null) erreur(404, 'NOT_FOUND', 'Aucune requête « ' . $idRequete . ' » dans cette analyse.');
+        if (($source['usage'] ?? null) !== 'facade') throw new Refus('Seul le run d’une façade se rejoue depuis son image.');
+        $contenu = contenuRejoue($source, $dirAudit ?? dirname($dt));
+        $fiche = $audit !== null ? (indexAudits($dossierAudits)[$audit] ?? []) : [];
+        $p = plafonds($dossierClaude);
+        $demande = verifierDemande(['projet' => 'admin', 'idu' => $fiche['idu'] ?? ($resumeSource['idu'] ?? null), 'adresse' => $fiche['adresse'] ?? ($resumeSource['adresse'] ?? null),
+            'audit' => substr('rejeu-' . $idSource, 0, 64), 'depot' => $audit, 'usage' => 'facade']
+            + (isset($d['modele']) ? ['modele' => $d['modele']] : [])
+            + ['requetes' => array_map(fn($k) => ['id' => 'rejeu-p' . $k, 'passe' => $k, 'usage' => 'facade', 'facades' => $k === 1 ? 1 : 0, 'contenu' => $contenu], range(1, $passes))],
+            ['requetesParBatch' => REQUETES_IMMEDIATES] + $p, modelesParUsage(reglageModeles($dossierClaude)));
+        foreach ($demande['requetes'] as &$r) $r['compte'] = 'rejeu';
+        unset($r);
+        repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, true, $avecCle, $p, $dirAudit, 'rejeu-facade') + ['source' => $idSource]);
+    }
+
+    // L'export « données d'analyse » (lot L0) : a l'administrateur seul ; il ne fait que relire les traces et les conclusions.
+    if ($chemin === 'donnees-analyse') {
+        if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $reserveAdmin();
+        repondre(200, donneesAnalyse($dossierAudits, $dossierClaude, lireFiltres($_GET, gmdate('Y-m-d')), maintenant()));
+    }
+
+    // Une image gardee, par son empreinte : a l'administrateur seul (les photos ne partent que sur demande, une a une).
+    if (preg_match('#^images/([^/]+)$#', $chemin, $mi)) {
+        if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $reserveAdmin();
+        $audit = isset($_GET['audit']) && $_GET['audit'] !== '' ? (string)$_GET['audit'] : null;
+        $f = imageGardee($dossierAudits, $dossierClaude, $audit, $mi[1]);
+        if ($f === null) erreur(404, 'NOT_FOUND', 'Aucune image « ' . $mi[1] . ' ».');
+        header('Content-Type: ' . array_search(pathinfo($f, PATHINFO_EXTENSION), EXTENSIONS_IMAGE, true));
+        header('Cache-Control: private, max-age=86400, immutable');
+        http_response_code(200);
+        if ($methode !== 'HEAD') readfile($f);
+        exit;
     }
 
     if (preg_match('#^batches/([^/]+)(/resultats)?$#', $chemin, $mb)) {
