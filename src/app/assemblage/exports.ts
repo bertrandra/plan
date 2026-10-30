@@ -29,7 +29,7 @@ import type { Resultats } from '../resultats.js';
 
 // Les PDF se construisent dans un module charge au premier export (export/moteurPdf.ts, AD-10).
 let chargementPdf: Promise<typeof import('../../export/moteurPdf.js')> | null = null;
-const moteurPdf = () => {
+export const moteurPdf = () => {
   chargementPdf ??= import('../../export/moteurPdf.js').catch((e: unknown) => { chargementPdf = null; throw e; });
   return chargementPdf;
 };
@@ -104,7 +104,7 @@ async function construireDeclaration(objets: ObjetPlan[], nomProjet: string | nu
   });
   return {
     pdf: res.pdf, nom: slugFichier(nomProjet || 'projet') + '-declaration-prealable.pdf',
-    manques: res.remplissage.manques, regime: res.remplissage.regime, pieces: res.pieces
+    relecture: res.relecture, regime: res.remplissage.regime, pieces: res.pieces
   };
 }
 

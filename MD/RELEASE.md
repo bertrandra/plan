@@ -71,6 +71,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 | `5.0.0` | Le `.glb` change (MAJOR) : plus de cheminée d'office, couleur des murs des annexes lue sur photo de rue ; zoom du plan sans redessin des objets, fuseau horaire du lieu pour le soleil, Mode Toit (voisins, session hors enregistrement, mur le plus visible) | Témoins recapturés avec la preuve forte (ancien numéro et ancienne date de build remis → anciens octets au bit près, sept sur sept) ; `glb-structure.json` recapturé par le point 24 ; schéma inchangé (6) ; requêtes vérifiées contre l'API Claude — ✅ 29/10/2026 |
 | `5.1.0` | Façades F0 à F8 (calage, run de Claude et escalade, diagnostic de forme, objet Façade, photos dans l'audit, cheminées et lucarnes, carreaux 3D), lecture du PLU, jardin, trace des requêtes Claude et export des données d'analyse, pause du rendu 3D sous la liste de l'audit ; aucune quantité ni aucun export ne change (MINOR) | Sept témoins régénérés avec la preuve forte (ancien numéro et ancienne date de build remis → octets de la 5.0.0 au bit près, sept sur sept) ; `projet.json` et `glb-structure.json` inchangés ; schéma 9 (migrations 6 → 7 → 8 → 9 identité), déjà accepté par la plateforme (7 à 12) ; fumée complète, trois classes ; requêtes vérifiées contre l'API Claude (run 40989743154 : 5 sur 5, 0,033 $) — ✅ 30/10/2026 |
 | `5.2.0` | Façade enrichie (lot L1 : menuiseries, garde-corps, saillies proposées au moteur des toits, modénature, équipements du mur, état du bâti), garde-fou de la lecture des façades, banc des modèles ; aucune quantité ni aucun export ne change (MINOR) | Sept témoins régénérés avec la preuve forte (ancien numéro remis → octets de la 5.1.0 au bit près, sept sur sept ; date de build inchangée) ; `projet.json` et `glb-structure.json` inchangés ; schéma 10 (migration 9 → 10 identité), déjà accepté par la plateforme (7 à 12) ; fumée complète, trois classes ; requêtes vérifiées contre l'API Claude avec la mesure des façades (run 41042218342 : 6 sur 6, garde-fou de la lecture vert après sa relance unique, 0,48 $ relance comprise) — ✅ 30/10/2026 |
+| `5.3.0` | Toit enrichi (lot L2 : couverture et pose, débord, faîtage, gouttière, fenêtres de toit et panneaux lus sur la façade, proposés au moteur des toits) ; aucune quantité ni aucun export ne change (MINOR) | Sept témoins régénérés avec la preuve forte (ancien numéro remis → octets de la 5.2.0 au bit près, sept sur sept ; date de build inchangée) ; `projet.json` et `glb-structure.json` inchangés ; schéma 11 (migration 10 → 11 : la grande ardoise en losange relue en ardoise posée en losange, même `.glb`), déjà accepté par la plateforme (7 à 12) ; fumée complète, trois classes |
 
 ---
 
@@ -81,7 +82,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 `SCHEMA_VERSION` is an integer stamped into every saved project as `meta.schemaVersion`. It increments by exactly 1 whenever the persisted shape changes in any way — additive or not.
 
 ```ts
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 12;
 
 export interface ProjectMeta {
   schemaVersion: number;

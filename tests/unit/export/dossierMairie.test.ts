@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import * as lib from 'pdf-lib';
 import { assemblerDossierMairie, pourWinAnsi } from '../../../src/export/dossierMairie.js';
 import { dateCerfa, decouperAdresse, referenceCadastrale, remplirCerfa13703 } from '../../../src/export/cerfa13703.js';
+import { relireDossier } from '../../../src/export/relecture.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 const cerfa = new Uint8Array(readFileSync(resolve(__dirname, '../../../public/cerfa/cerfa_13703-12.pdf')));
@@ -48,7 +49,8 @@ describe('cerfa 13703 : ce que le plan sait ecrire', () => {
     expect(r.textes.C2ZA7_autres).toBe('pergola, carport (abri voiture ouvert)');
     expect(r.ouvrages).toHaveLength(2);
     expect(r.regime).toBe('permis');
-    expect(r.manques.join(' ')).toMatch(/signature.*DP6.*DP7/);
+    // Ce qui manque au formulaire se dit dans la relecture (lot L5), memes phrases, meme ordre.
+    expect(relireDossier(projet(), ['DP1', 'DP2', 'DP4']).filter(p => p.cerfa).map(p => p.texte).join(' ')).toMatch(/signature.*DP6.*DP7/);
   });
 
   it('passe en declaration sous 20 m² d\'emprise', () => {

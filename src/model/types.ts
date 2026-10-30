@@ -19,6 +19,7 @@ export type { ToitPergola, MateriauPergola, Pergola } from './typesPergola.js';
 import type { Piscine } from './typesPiscine.js';
 import type { SoleilProjet } from './soleilProjet.js';
 import type { ReglementPlu } from '../regles/plu/faits.js';
+import type { DossierProjet } from '../regles/textes/dossier.js';
 export type { ImplantationPiscine, StructurePiscine, RevetementPiscine, FondPiscine, PlagePiscine, SecuritePiscine, TraitementPiscine, ChauffagePiscine, LocalTechniquePiscine, Piscine } from './typesPiscine.js';
 
 /**
@@ -198,6 +199,12 @@ interface ObjetCommun {
   reglementPlu?: ReglementPlu | null;
   /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
   ruesVoisinage?: RuesVoisinage | null;
+  /**
+   * Le dossier de declaration prealable (lot L5, regles/textes/dossier.ts) : les textes de ses pieces (brouillon de Claude, texte
+   * valide par la personne) et ses photographies DP7 et DP8. Range sur la parcelle du projet, comme \`declaration\` ; absent tant que
+   * rien n'est redige, ecrit ni choisi : le fichier garde sa forme d'avant (schema 12 des qu'il est pose).
+   */
+  dossier?: DossierProjet | null;
   /** Le toit et les facades d'un batiment (model/typesFonctions.ts) ; absent sur tout autre objet. */
   batiment?: ChampsBatiment | null;
   /** Le diametre et l'essence d'un arbre (model/typesFonctions.ts). */

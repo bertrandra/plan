@@ -29,7 +29,7 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
     construireDossierPiscine: async () => ({ pdf: '%PDF', pages: 7, piscine: { name: 'Piscine 1' }, regime: 'declaration' }),
     genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats,
     construireNoteCalcul: async () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
-    construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', manques: ['la signature'], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
+    construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', relecture: [{ cle: 'cerfa.signature', gravite: 'a-completer', cerfa: true, texte: 'la signature' }], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
     declarationPossible: () => true, ...plus
   };
   const droits: Droits = { branchee: () => true, aCapacite: () => capacites, aPermission: () => true, reste: () => null };

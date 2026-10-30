@@ -3341,7 +3341,10 @@ const POINTS = {
       appendices: [{ nature: 'store', u0: 0.1, u1: 0.3, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
       etat: [{ nature: 'fissure', u0: 0.62, u1: 0.64, v0: 0.1, v1: 0.4, confiance: 'moyenne' }],
     };
-    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE });
+    // Le toit lu (lot L2), la troisieme requete : rien de vu sur le toit. Sans reponse, son echec ajouterait un second signal (celui de la
+    // lecture du toit) a celui de la fissure, que ce point compte seul.
+    const TOIT = { toit: { couverture: 'indetermine', pose: 'indetermine', debord: 'indetermine', faitage: 'indetermine', gouttiere: 'indetermine', confiance: 'faible' }, elements: [] };
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE, toit: TOIT });
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const releve = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? [])));
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
@@ -3359,6 +3362,7 @@ const POINTS = {
     for (let i = 0; i < 120 && !serveur.demandes.some((d) => d.requetes?.some((q) => q.usage === 'facade')); i++) await page.waitForTimeout(500);
     const runs = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade').length;
     const enrichies = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-enrichie').length;
+    const toits = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-toit').length;
     await page.waitForTimeout(4000);
     await etape('retour liste', () => toucher(page.locator('.auditPropositions [data-controle="auditParcelle.liste"]').first()));
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
@@ -3389,7 +3393,7 @@ const POINTS = {
       && signal === 1 && lignes.some((l) => /^Signalé par Claude, à vérifier : une fissure/.test(l))
       && menuiseries >= 3 && gardes >= 2 && r.modenature?.bandeauxM?.length === 1 && r.appendices?.[0]?.nature === 'store' && r.etat?.[0]?.nature === 'fissure'
       && modenature3d && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
-    return { ok, mesure: `${runs} passe(s) du run et ${enrichies} de la lecture enrichie envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `${runs} passe(s) du run, ${enrichies} de la lecture enrichie et ${toits} du toit lu envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   117: async (page, f) => {
     // Une saillie lue sur la facade, proposee, acceptee, posee par le moteur (lot L1, MD/spec-lecture-ia-elargie.md §4.2, §5.1), contre
@@ -4250,7 +4254,61 @@ const POINTS = {
       + `${lu.faits.length} règle(s), ${proposes} proposée(s) décochée(s) ; cochées : « ${bilan} » ; ${verdicts.join(' | ')} ; article « ${article} » ; source « ${source.replace(/\s+/g, ' ').slice(0, 120)} » ; `
       + `Ctrl+Z ×${annulations} → ${apresAnnuler} ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, reglementPlu ${porteur ? 'présent' : 'ABSENT'}` };
   },
-  121: async (page, f) => {
+  121: async (page) => {
+    // Les textes du dossier et la relecture avant l'export (lot L5, MD/spec-lecture-ia-elargie.md §5.4) : la demonstration, la declaration
+    // prealable ; « Rédiger avec Claude » la notice (`admin/claude/messages` rend une redaction SYNTHETIQUE, pas Claude) ; corriger le
+    // brouillon, le valider ; la relecture le prend en compte ; un brouillon de l'insertion, puis le projet change : la relecture le dit
+    // perime. Le dossier exporte gagne une page (la notice), le fichier du projet s'ecrit au schema 12.
+    const recues = [];
+    const SORTIE = { texte: 'Le terrain porte une maison individuelle. Le projet consiste en une terrasse en bois de plain-pied (rédaction synthétique de la fumée).', reserves: ['l’essence du bois'] };
+    await page.route(/\/admin\/claude\/messages$/, async (route) => {
+      const d = JSON.parse(route.request().postData() || 'null');
+      recues.push(d);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, trace: '20261030-100000-fumee',
+        resultats: [{ id: d?.requetes?.[0]?.id ?? 'texte', statut: 'reussi', passe: 1, usage: 'texte', sortie: SORTIE, erreur: null, cout: 0.0021, synthetique: true }] }) });
+    });
+    const { PDFDocument } = await import('pdf-lib');
+    const exporter = async () => PDFDocument.load(await telechargerOctets(page, () => page.evaluate(() => window.__plan.executer('export.declaration'))));
+    const avant = await exporter();
+    await page.evaluate(() => window.__plan.executer('export.ouvrirDeclaration'));
+    const boite = page.locator('.dialogueDeclaration');
+    await boite.locator('.dossierDeclaration').waitFor({ timeout: 15000 });
+    const rediger = boite.locator('[data-piece="notice"] [data-commande="export.redigerTexte"]');
+    if (await rediger.isDisabled()) return { ok: false, mesure: '« Rédiger avec Claude » grisé : ' + (await boite.locator('[data-piece="notice"] .raisonDossier').innerText().catch(() => '?')) };
+    await rediger.click();
+    const dossier = () => page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'terrain' && o.dossier)?.dossier ?? null);
+    await page.waitForFunction(() => window.__plan.etat().objects.some((o) => o.dossier?.textes?.some((t) => t.piece === 'notice' && t.brouillon)), null, { timeout: 20000 }).catch(() => {});
+    const brouillon = (await dossier())?.textes?.find((t) => t.piece === 'notice')?.brouillon;
+    const corrige = SORTIE.texte.replace('de plain-pied', 'de plain-pied, en pin traité');
+    await boite.locator('[data-piece="notice"] textarea').fill(corrige);
+    await boite.locator('[data-piece="notice"] [data-commande="export.validerTexte"]').click();
+    await page.waitForTimeout(300);
+    const valide = (await dossier())?.textes?.find((t) => t.piece === 'notice')?.valide;
+    const etatNotice = await boite.locator('[data-piece="notice"] .etatPieceDossier').innerText();
+    // Un brouillon de l'insertion, puis le projet change (une terrasse s'allonge) : le brouillon est perime, et la relecture le dit.
+    await boite.locator('[data-piece="insertion"] [data-commande="export.redigerTexte"]').click();
+    await page.waitForFunction(() => window.__plan.etat().objects.some((o) => o.dossier?.textes?.some((t) => t.piece === 'insertion' && t.brouillon)), null, { timeout: 20000 }).catch(() => {});
+    await page.evaluate(() => {
+      const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
+      t.pts = t.pts.map((p, i) => (i === 1 || i === 2 ? { x: p.x + 0.5, y: p.y } : p));
+      window.__plan.toucher(t.key);
+      window.__plan.rendre();
+    });
+    await page.waitForFunction(() => [...document.querySelectorAll('.pointsRelecture li')].some((l) => /périmé/.test(l.textContent || '')), null, { timeout: 15000 }).catch(() => {});
+    const points = await boite.locator('.pointsRelecture li').evaluateAll((l) => l.map((e) => e.getAttribute('data-gravite') + ' : ' + (e.querySelector('.textePointRelecture')?.textContent || '').slice(0, 70)));
+    // Rien ne deborde du dialogue, dans aucune classe.
+    const deborde = await boite.evaluate((b) => b.scrollWidth > b.clientWidth + 1);
+    const apres = await exporter();
+    const notice = apres.getPageCount() === avant.getPageCount() + 1;
+    const fichier = JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson'))));
+    const porteur = fichier.objects.find((o) => o.dossier);
+    const ok = recues.length === 2 && recues.every((d) => d.usage === 'texte' && d.requetes?.[0]?.contenu?.[0]?.type === 'text' && /Faits du projet/.test(d.requetes[0].contenu[0].text))
+      && !!brouillon && brouillon.synthetique === true && valide?.texte === corrige && /Texte validé le/.test(etatNotice)
+      && points.some((p) => /^alerte : .*périmé/.test(p)) && points.some((p) => /^a-completer : Reste à compléter : la signature/.test(p)) && !points.some((p) => /« notice » n’est pas validé/.test(p))
+      && notice && !deborde && !!porteur && fichier.meta?.schemaVersion === 12;
+    return { ok, mesure: `${recues.length} demande(s) usage ${recues[0]?.usage} ; brouillon ${brouillon ? (brouillon.synthetique ? 'synthétique' : 'Claude') : 'ABSENT'}, validé ${valide?.texte === corrige ? 'tel que corrigé' : 'NON'} (« ${etatNotice.slice(0, 40)} ») ; `
+      + `relecture : ${points.join(' | ')} ; pages ${avant.getPageCount()} → ${apres.getPageCount()} ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, dossier ${porteur ? 'présent' : 'ABSENT'}` };
+  122: async (page, f) => {
     // L'assistant en langue naturelle (lot L6) : la terrasse selectionnee, le menu Aide › « Demander a l'assistant… », une demande ;
     // `admin/claude/messages` rend une liste SYNTHETIQUE (pas Claude) de trois etapes : le bois des lames (un champ), la grille (une
     // bascule d'affichage), et la plage d'une piscine (une commande que le registre refuse : aucune piscine n'est selectionnee).
@@ -4352,8 +4410,9 @@ function pointsPour(nomClasse) {
   // 116 et 117 : la facade enrichie (lot L1) : menuiseries, garde-corps, modenature, store et signal lus, valides et dessines ; un
   // bow-window lu, propose decoche, pose par le moteur des toits.
   // 118 et 119 : le toit lu sur une facade (lot L2) : une couverture en ecaille lue et dessinee ; une fenetre de toit posee par le moteur.
-  // 121 : l'assistant en langue naturelle (lot L6) : une demande, sa liste (une etape grisee avec sa raison), « Appliquer », Ctrl+Z.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121];
+  // 121 : les textes du dossier (lot L5) : rediger, corriger, valider, exporter ; la relecture avant l'export, un brouillon perime.
+  // 122 : l'assistant en langue naturelle (lot L6) : une demande, sa liste (une etape grisee avec sa raison), « Appliquer », Ctrl+Z.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

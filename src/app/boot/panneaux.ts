@@ -6,6 +6,8 @@ import { mesure } from '../../interaction/outilMesure.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { cleDernierProjet, withProjectParam, apiSave, apiDelete } from '../../io/api.js';
 import { creerInspecteur, type Inspecteur } from '../inspecteur.js';
+import { serviceDossierDuNavigateur } from '../declaration/navigateurDossier.js';
+import { brancherDossier } from '../declaration/commandesDossier.js';
 import { creerExplorateur } from '../explorateur.js';
 import { brancherCommandesCiblees } from '../ecouteurs/cibles.js';
 import { creerProjet } from '../projet.js';
@@ -16,7 +18,6 @@ import type { Vues3d } from '../assemblage/vues3d.js';
 import { monterZones } from '../../zones/monter.js';
 import { creerServiceReleve } from '../releve/releve.js';
 import { brancherFacade } from '../ecouteurs/facade.js';
-import { brancherAssistant } from '../assistant/branchement.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { EXPOSITION } from '../exposition.js';
@@ -45,6 +46,9 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
   const explorateur = creerExplorateur(etat, { render: p.render, redimensionner: p.cadrage.redimensionner }, magasin);
   // Les commandes qui portent sur un objet ou une cote : l'explorateur et le tiroir les declenchent.
   brancherCommandesCiblees(commandes, { etat, explorateur, resultats });
+  // Le dossier de declaration prealable (lot L5) : ses textes, ses photographies et sa relecture, dans le dialogue de la declaration.
+  const dossier = serviceDossierDuNavigateur(etat, magasin, { pushHistory: p.pushHistory, markDirty: p.markDirty });
+  brancherDossier(commandes, dossier);
   // L'inspecteur rend des descripteurs de champs (ui/champs/) ; ce service leur donne leur contexte.
   const inspecteur = creerInspecteur(etat, {
     libelleType: libelleTypeObjet, elevationOf, refLabel: mesures.refLabel, measureSegCoords: mesures.measureSegCoords, dejaRectangle,
@@ -56,16 +60,13 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
     pushHistory: p.pushHistory, preparerHistorique: (...objets: object[]) => p.historique.preparer(...objets), render: p.render, markDirty: p.markDirty, refreshTerrasseView: p.refreshTerrasseView,
     buildThreeScene: vues.buildThreeScene, reapplyStackingOrder: p.dessin.reapplyStackingOrder, rebuildHandles: p.dessin.rebuildHandles,
     trouverParcelle: p.affichage.trouverParcelleCloture,
-    redimensionner: p.cadrage.redimensionner
+    redimensionner: p.cadrage.redimensionner, dossier
   }, magasin, commandes);
   // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap.
   const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
   // L'editeur d'une facade relevee (zones/Releve.tsx) et ses commandes ; ses photos se prennent dans l'audit (lot F6).
   const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene });
   brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
-  // L'assistant en langue naturelle (lot L6) : il lit le registre et l'inspecteur, et ecrit par eux, en une transaction de l'historique.
-  brancherAssistant({ etat, magasin, commandes, inspecteur, transaction: (f) => historique.transaction(f), libelleType: libelleTypeObjet,
-    projetCourant: () => magasin.store.getState().projet.courant?.id ?? null });
   monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
   return { explorateur, inspecteur, projet };
 }

@@ -42,7 +42,7 @@ export function Parcours({ commandes, magasin }: { commandes: RegistreCommandes;
       {p.type === 'cadastre' && <ImportCadastre importe={p.importe} />}
       {p.type === 'actualisation' && <Actualisation infos={p.infos} lancer={p.lancer} fermer={fermer} />}
       {p.type === 'texture' && <ChoixTexture titre={p.titre} caseLibelle={p.caseLibelle} choisir={p.choisir} fermer={fermer} />}
-      {p.type === 'declaration' && <Declaration inspecteur={p.service} magasin={magasin} fermer={fermer} />}
+      {p.type === 'declaration' && <Declaration inspecteur={p.service} magasin={magasin} fermer={fermer} commandes={commandes} dossier={p.dossier} />}
       {p.type === 'assistant' && <Assistant service={p.service} commandes={p.commandes} fermer={fermer} />}
       <Suspense fallback={null}>
       {p.type === 'auditCas' && <AuditCas promenade={p.promenade} cle={p.cle} retirer={p.retirer} prise={p.prise} {...(p.couleurs ? { couleurs: p.couleurs } : {})} fermer={p.retour ?? fermer} />}

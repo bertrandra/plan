@@ -11,8 +11,14 @@ import { sectionDeclaration } from '../../ui/champs/declaration.js';
 import { ListeChamps, Tactile, useServiceLocal } from '../composants/Champs.js';
 import type { ServiceChampsParcours } from '../../app/parcours.js';
 import type { Magasin } from '../../app/magasin.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
+import type { ServiceDossier } from '../../app/declaration/serviceDossier.js';
+import { TextesDossier } from './TextesDossier.js';
 
-export function Declaration({ inspecteur, magasin, fermer }: { inspecteur: ServiceChampsParcours; magasin: Magasin; fermer: () => void }) {
+/** `dossier` : les textes, les photographies et la relecture du dossier (lot L5), sous les champs du declarant. */
+export function Declaration({ inspecteur, magasin, fermer, commandes, dossier }: {
+  inspecteur: ServiceChampsParcours; magasin: Magasin; fermer: () => void; commandes: RegistreCommandes; dossier?: ServiceDossier | undefined;
+}) {
   const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
   const service = useServiceLocal(inspecteur);
   const parcelle = inspecteur.parcelle();
@@ -29,6 +35,7 @@ export function Declaration({ inspecteur, magasin, fermer }: { inspecteur: Servi
                 <div className="champs"><ListeChamps champs={section.champs} c={c} inspecteur={service} /></div>
               </div>
             </Tactile.Provider>
+            {dossier && <TextesDossier dossier={dossier} commandes={commandes} magasin={magasin} fermer={fermer} />}
           </>
         : <div className="sousTitreParcours">Le plan n’a pas de parcelle : créez-le depuis une adresse (Fichier › Nouveau plan depuis une adresse) pour remplir la déclaration.</div>}
       <div className="piedDialogue">

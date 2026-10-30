@@ -193,6 +193,12 @@ export const EXPOSITION: Record<string, Ligne> = {
   // La declaration prealable : une entree du menu Exporter ouvre son dialogue, dont le bouton produit le dossier.
   'export.ouvrirDeclaration': menu('menuExporter'),
   'export.declaration': partout('parcours'),
+  // Le dossier de la declaration (lot L5) : les textes, les photographies DP7 et DP8, dans le dialogue de la declaration, partout.
+  'export.redigerTexte': partout('parcours'),
+  'export.validerTexte': partout('parcours'),
+  'export.retirerTexte': partout('parcours'),
+  'export.choisirPhoto': partout('parcours'),
+  'export.retirerPhoto': partout('parcours'),
   'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------

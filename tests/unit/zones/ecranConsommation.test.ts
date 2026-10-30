@@ -182,7 +182,7 @@ describe('l ecran de la consommation de Claude', () => {
     // Le nom lisible et le prix au million de tokens (entree / sortie) en vigueur.
     expect([...(liste?.options ?? [])].map((o) => o.textContent)).toEqual(['Claude Haiku 5.5 — 0,10 $ / 0,50 $', 'Claude Sonnet 5.5 — 2,00 $ / 10,00 $ (par défaut)']);
     expect([...hote.querySelectorAll('.consReglages fieldset')[0]?.querySelectorAll('label > span') ?? []].map((e) => e.textContent))
-      .toEqual(['Analyse des audits', 'Aide immédiate', 'Escalade', 'Cas candidats', 'Rejeu des audits', 'Run d’une façade (audit, calibration, relevé)', 'Façade enrichie (menuiseries, garde-corps, modénature, saillies)', 'Toit d’une façade (couverture, pose, faîtage, gouttière, fenêtres de toit)', 'Lecture du règlement du PLU', 'Assistant (une demande traduite en étapes)']);
+      .toEqual(['Analyse des audits', 'Aide immédiate', 'Escalade', 'Cas candidats', 'Rejeu des audits', 'Run d’une façade (audit, calibration, relevé)', 'Façade enrichie (menuiseries, garde-corps, modénature, saillies)', 'Toit d’une façade (couverture, pose, faîtage, gouttière, fenêtres de toit)', 'Lecture du règlement du PLU', 'Textes du dossier de déclaration (description, notice, insertion)', 'Assistant (une demande traduite en étapes)']);
     expect(bouton(hote, 'Enregistrer les modèles')?.disabled).toBe(true);
     await act(async () => {
       if (!liste) return;

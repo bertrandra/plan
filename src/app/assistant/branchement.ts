@@ -12,6 +12,7 @@ import { creerClientAnalyse } from '../../io/analyseClaude.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { showToast } from '../../shell/dialogs.js';
 import { parcours } from '../parcours.js';
+import { libelleTypeObjet } from '../assemblage/gestes.js';
 import { champsDuCatalogue, type SourceCatalogue } from './catalogue.js';
 import { creerServiceAssistant, type ServiceAssistant } from './service.js';
 import type { ValeurChamp } from './etapes.js';
@@ -19,7 +20,6 @@ import type { RegistreCommandes } from '../commandes.js';
 import type { Inspecteur } from '../inspecteur.js';
 import type { Magasin } from '../magasin.js';
 import type { EtatApp } from '../../core/state.js';
-import type { ObjetPlan } from '../../model/types.js';
 
 export interface ContexteBranchementAssistant {
   etat: EtatApp;
@@ -27,8 +27,6 @@ export interface ContexteBranchementAssistant {
   commandes: RegistreCommandes;
   inspecteur: Inspecteur;
   transaction: (f: () => boolean) => boolean;
-  libelleType: (obj: ObjetPlan) => string;
-  projetCourant: () => string | null;
 }
 
 /** Le champ d'un objet que l'assistant peut ecrire, et son contexte ; null s'il ne l'est pas (ou plus). */
@@ -48,13 +46,13 @@ export function brancherAssistant(ctx: ContexteBranchementAssistant): ServiceAss
     classe: magasin.store.getState().classe, lectureSeule: !!etat.lectureSeule,
     commandes: commandes.lister(), etat: (id) => commandes.etat(id),
     objets: etat.objects, selection: etat.objects.find((o) => o.key === etat.selectedKey),
-    contexte: (o) => inspecteur.contexte(o), sections: (c) => inspecteur.sections(c), libelleType: ctx.libelleType
+    contexte: (o) => inspecteur.contexte(o), sections: (c) => inspecteur.sections(c), libelleType: libelleTypeObjet
   });
   const service = creerServiceAssistant({
     client: () => (enAdmin() || jeton() ? client : null),
     identite: () => {
       const cad = (parcelleDuProjet(etat.objects)?.cadastre ?? null) as { idu?: unknown; adresse?: unknown } | null;
-      return { projet: ctx.projetCourant(), idu: typeof cad?.idu === 'string' ? cad.idu : null, adresse: typeof cad?.adresse === 'string' ? cad.adresse.slice(0, 300) : null };
+      return { projet: magasin.store.getState().projet.courant?.id ?? null, idu: typeof cad?.idu === 'string' ? cad.idu : null, adresse: typeof cad?.adresse === 'string' ? cad.adresse.slice(0, 300) : null };
     },
     source,
     application: {

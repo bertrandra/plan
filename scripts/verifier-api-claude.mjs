@@ -72,9 +72,20 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // si sa sortie a la forme de son schema (baies, saillies, modenature…).
 // Le toit lu sur une facade (usage `facade-toit`, lot L2) a ses fichiers et part sur la meme image : le script dit si sa sortie a la forme
 // de son schema (toit, elements).
+// La redaction d'un texte du dossier (usage `texte`, lot L5) a ses fichiers et part sur des faits de projet INVENTES (FAITS_TEXTE : ni
+// adresse ni personne reelles), en texte seul ; le script dit si sa sortie a la forme du schema (un texte, des reserves).
 const LECTURES_FACADE = ['facade-enrichie', 'facade-toit'];
 // L'assistant (usage `assistant`, lot L6) a ses fichiers et part sans image : le catalogue de la demonstration et une demande.
-const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : LECTURES_FACADE.includes(usage) ? usage : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : usage === 'assistant' ? 'assistant' : 'analyse');
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : LECTURES_FACADE.includes(usage) ? usage : usage === 'plu' ? 'plu' : usage === 'jardin' ? 'jardin' : usage === 'texte' ? 'texte' : usage === 'assistant' ? 'assistant' : 'analyse');
+/** Les faits d'un projet invente, comme export/faitsDossier.ts les ecrit : une pergola dans une zone UZ inventee. */
+const FAITS_TEXTE = JSON.stringify({
+  terrain: { adresse: '1 rue de l’Exemple 99999 Commune-Inventée', commune: 'Commune-Inventée', references: ['000 ZZ 1'], superficieM2: 600 },
+  ouvrages: [{ nom: 'Pergola 1', nature: 'pergola', description: 'une pergola en bois de 4,00 x 3,00 m, emprise au sol 12,0 m², hauteur 2,62 m, toit chevrons et toile tendue, adossé(e) à la maison', empriseM2: 12, hauteurM: 2.62 }],
+  existant: [{ nom: 'Maison', nature: 'bâtiment', hauteurM: 8.4, couverture: 'tuile' }],
+  cloture: { type: 'Haie', hauteurM: 1.8 },
+  plu: { zone: 'UZ', regles: [{ regle: 'Hauteur maximale des annexes', valeur: '3,5 m', article: 'UZ 10.3', condition: '' }] },
+  protections: [],
+}, null, 2);
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -137,6 +148,7 @@ function contenu(famille, image) {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
   }
+  if (famille === 'texte') return [{ type: 'text', text: 'Pièce demandée : notice.\n\nFaits du projet (JSON) :\n' + FAITS_TEXTE }];
   if (famille === 'jardin') {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Image 1 : orthophoto de synthèse d’un jardin (image de test de la vérification de l’API), 30 m de côté, nord en haut ; contour de la parcelle en jaune, maison en blanc.\nLe plan ne contient encore rien dans le jardin.' }];
@@ -231,8 +243,9 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
   console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ', façade enrichie v' + (etat.corps.facadeEnrichie?.prompt ?? '?') + '/v' + (etat.corps.facadeEnrichie?.schema ?? '?')
     + ', toit d’une façade v' + (etat.corps.facadeToit?.prompt ?? '?') + '/v' + (etat.corps.facadeToit?.schema ?? '?')
+    + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?')
     + ', assistant v' + (etat.corps.assistant?.prompt ?? '?') + '/v' + (etat.corps.assistant?.schema ?? '?')
-    + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ', jardin v' + (etat.corps.jardin?.prompt ?? '?') + '/v' + (etat.corps.jardin?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
+    + ', texte du dossier v' + (etat.corps.texte?.prompt ?? '?') + '/v' + (etat.corps.texte?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
   for (const g of aEnvoyer) {
@@ -242,7 +255,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
     // le defaut), comme pour la page ; `--modele` l'impose a toutes.
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
-      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' || g.famille === 'assistant' || LECTURES_FACADE.includes(g.famille) ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' || LECTURES_FACADE.includes(g.famille) ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' || g.famille === 'jardin' || g.famille === 'texte' || g.famille === 'assistant' || LECTURES_FACADE.includes(g.famille) ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' || LECTURES_FACADE.includes(g.famille) ? imageFacade : g.famille === 'jardin' ? imageJardin : image) }] };
     process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -283,7 +296,11 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formeJardin(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du jardin n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'facade-enrichie' ? ' ; ' + resumeEnrichie(x.sortie) : g.famille === 'facade-toit' ? ' ; ' + resumeToit(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : g.famille === 'assistant' ? ' ; ' + resumeAssistant(x.sortie) : '';
+    if (g.famille === 'texte') {
+      const defaut = formeTexte(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la rédaction d’un texte n’a pas la forme du schéma : ' + defaut, 1); }
+    }
+    const resume = g.famille === 'texte' ? ' ; ' + resumeTexte(x.sortie) : g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'facade-enrichie' ? ' ; ' + resumeEnrichie(x.sortie) : g.famille === 'facade-toit' ? ' ; ' + resumeToit(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : g.famille === 'jardin' ? ' ; ' + resumeJardin(x.sortie) : g.famille === 'assistant' ? ' ; ' + resumeAssistant(x.sortie) : '';
     console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + resume + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
@@ -401,6 +418,18 @@ function resumeJardin(s) {
   const n = new Map();
   for (const o of s.objets) n.set(o.genre, (n.get(o.genre) ?? 0) + 1);
   return s.objets.length + ' objet(s)' + (n.size ? ' : ' + [...n].map(([g, k]) => k + ' ' + g).join(', ') : '');
+}
+
+/** Ce qui manque a une sortie de la redaction d'un texte pour avoir la forme du schema (deploy/schema-texte.json) ; null si rien. */
+function formeTexte(s) {
+  if (typeof s.texte !== 'string' || !s.texte.trim()) return 'texte absent ou vide';
+  if (!Array.isArray(s.reserves) || s.reserves.some((r) => typeof r !== 'string')) return 'reserves absentes';
+  return null;
+}
+
+/** La sortie de la redaction en quelques mots : la longueur du texte et ses reserves. */
+function resumeTexte(s) {
+  return s.texte.length + ' caractères, ' + s.reserves.length + ' réserve(s)';
 }
 
 /** Ce qui manque a une sortie de la lecture du PLU pour avoir la forme du schema (deploy/schema-plu.json) ; null si rien. */

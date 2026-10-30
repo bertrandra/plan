@@ -1,7 +1,8 @@
 // Les fichiers que le serveur lit (deploy/prompt-analyse.md, deploy/schema-analyse.json ; ceux du run d'une facade,
 // deploy/prompt-facade.md et deploy/schema-facade.json ; ceux de la lecture du PLU, deploy/prompt-plu.md et deploy/schema-plu.json ;
 // ceux de la lecture enrichie d'une facade, deploy/prompt-facade-enrichie.md et deploy/schema-facade-enrichie.json ; ceux du toit lu
-// sur une facade, deploy/prompt-facade-toit.md et deploy/schema-facade-toit.json ; ceux de la lecture du jardin, deploy/prompt-jardin.md et deploy/schema-jardin.json ; ceux de l'assistant, deploy/prompt-assistant.md et deploy/schema-assistant.json), tels que
+// sur une facade, deploy/prompt-facade-toit.md et deploy/schema-facade-toit.json ; ceux de la lecture du jardin, deploy/prompt-jardin.md et deploy/schema-jardin.json ; ceux de la redaction d'un texte du dossier,
+// deploy/prompt-texte.md et deploy/schema-texte.json ; ceux de l'assistant, deploy/prompt-assistant.md et deploy/schema-assistant.json), tels que
 // les descriptions de sujets les donnent : un seul endroit, appele par le script de generation, par les
 // tests et par l'ecran Admin › Regles.
 
@@ -17,6 +18,8 @@ import { ASSISTANT } from './descriptions/assistant.js';
 import { NOTE_PROMPT_ASSISTANT, NOTE_SCHEMA_ASSISTANT, VERSIONS_PROMPT_ASSISTANT, VERSIONS_SCHEMA_ASSISTANT } from './versions.js';
 import { CONSIGNE_EXEMPLE_PLU, LECTURE_PLU } from '../plu/lecture.js';
 import { NOTE_PROMPT_PLU, NOTE_SCHEMA_PLU, VERSIONS_PROMPT_PLU, VERSIONS_SCHEMA_PLU } from '../plu/versions.js';
+import { CONSIGNE_EXEMPLE_TEXTE, REDACTION_TEXTE } from '../textes/redaction.js';
+import { NOTE_PROMPT_TEXTE, NOTE_SCHEMA_TEXTE, VERSIONS_PROMPT_TEXTE, VERSIONS_SCHEMA_TEXTE } from '../textes/versions.js';
 
 export interface FichiersGeneres { prompt: string; schema: string; corpsPrompt: string; versionPrompt: number; versionSchema: number }
 
@@ -95,5 +98,15 @@ export function genererAssistant(): FichiersGeneres {
     corpsPrompt: ASSISTANT.prompt, versionPrompt, versionSchema,
     prompt: avecEntete(ASSISTANT.prompt, { version: versionPrompt, note: NOTE_PROMPT_ASSISTANT }),
     schema: textuel({ format: 'plan-schema-assistant', version: versionSchema, note: NOTE_SCHEMA_ASSISTANT, schema: ASSISTANT.schema, exemple: ASSISTANT.exemple, consigne: ASSISTANT.consigne }),
+  };
+}
+
+/** Les deux fichiers de la redaction d'un texte du dossier (usage `texte` du serveur, lot L5), sous les versions en vigueur. */
+export function genererRedactionTexte(): FichiersGeneres {
+  const versionPrompt = versionCourante(VERSIONS_PROMPT_TEXTE).version, versionSchema = versionCourante(VERSIONS_SCHEMA_TEXTE).version;
+  return {
+    corpsPrompt: REDACTION_TEXTE.prompt, versionPrompt, versionSchema,
+    prompt: avecEntete(REDACTION_TEXTE.prompt, { version: versionPrompt, note: NOTE_PROMPT_TEXTE }),
+    schema: textuel({ format: 'plan-schema-texte', version: versionSchema, note: NOTE_SCHEMA_TEXTE, schema: REDACTION_TEXTE.schema, exemple: REDACTION_TEXTE.exemple, consigne: CONSIGNE_EXEMPLE_TEXTE }),
   };
 }

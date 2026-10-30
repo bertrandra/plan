@@ -7,7 +7,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
-- **Assistant en langue naturelle, lot L6** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.7, §5.5, §12.4). Menu Aide › « Demander à
+- **Assistant en langue naturelle, lot L6** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.7, §5.5, §12.5). Menu Aide › « Demander à
   l'assistant… » (feuille du projet au téléphone) ouvre un dialogue (Z8) : la personne écrit une demande, Claude la traduit en une
   **liste d'étapes** prises dans un **catalogue généré** à l'instant par Plan (les commandes que leur déclaration ouvre à
   l'assistant et que la classe d'écran expose, avec leur état ; les objets du projet ; les champs de l'objet sélectionné, leur valeur,
@@ -22,7 +22,57 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   justes sur dix (environ 0,0003 $ la demande). Le workflow « Vérifier l'API Claude » sait jouer l'usage `assistant` (huit requêtes) et,
   case « assistant », les dix demandes, chaque liste jugée.
 - `historique.transaction` : plusieurs gestes, une seule étape d'annulation, tout défait si un geste est refusé en route.
-- Point de fumée **121** (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z).
+- Point de fumée **122** (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z).
+- **Textes et relecture, lot L5** (`MD/spec-lecture-ia-elargie.md` §3.4, §4.6, §5.4, §12.4). La déclaration préalable (Exporter ›
+  « Déclaration préalable… ») gagne ses pièces écrites : la description du cerfa, la notice descriptive et le texte d'insertion
+  paysagère. « Rédiger avec Claude » envoie les faits du projet (le terrain, les ouvrages déclarés, l'existant, la clôture, la zone du
+  PLU et ses seules règles vérifiées, les protections ; rien du déclarant) par un usage nouveau du serveur, `texte` (une requête, ses
+  prompt et schéma générés, en sortie structurée, Haiku par défaut) ; le brouillon revient avec ce que Claude n'a pas pu dire, à côté des
+  faits qui l'ont nourri. Vous le corrigez et le validez : **seul un texte validé entre dans le dossier**, à l'identique à chaque export
+  (la case C2ZD1 du cerfa, une page « Notice descriptive du projet »). Sans texte validé, le cerfa garde la description calculée et le
+  dossier n'a pas de page de notice. Un brouillon rédigé sur un projet qui a changé depuis est dit périmé ; un texte validé ne se
+  réécrit jamais seul.
+- **« Vérifier avant l'export »** : la relecture du dossier, déterministe et sans Claude, dans le dialogue de la déclaration (et
+  résumée par le message de l'export) : ce que le formulaire demande encore, les pièces sans image (DP6, DP7, DP8), un ouvrage en
+  limite dont le DP2 ne cote pas la distance, un brouillon périmé ou non validé, un texte validé sur un projet qui a changé, les règles
+  du PLU lues et pas vérifiées, les écarts aux règles vérifiées, un projet qui relève du permis. Chaque point dit sa gravité et, quand il
+  en a un, le geste qui le règle.
+- Les photographies **DP7** (environnement proche) et **DP8** (paysage lointain) : une par pièce, choisie parmi les photos de l'audit de
+  la parcelle gardées sur l'appareil (question 2 de la spec) ; elles entrent au dossier et cochent leur case du bordereau. Comme
+  l'élévation d'un relevé, elles sortent du document vers l'appareil quand le projet part à la plateforme.
+- Le champ `dossier` de la parcelle (textes, brouillons, photographies) : le schéma des projets passe à **12** (migration 11 → 12
+  identité ; la plateforme accepte déjà 7 à 12).
+- Le serveur, la vérification de l'API (huit requêtes), le réglage du modèle de chaque usage et le tableau de la consommation
+  connaissent l'usage `texte` (« Textes du dossier »).
+- Point de fumée **121** (rédiger, corriger, valider, exporter ; la relecture, un brouillon périmé).
+
+### Modifié
+
+- Le message de l'export de la déclaration préalable cite les points de la relecture que le formulaire demande (les mêmes phrases
+  qu'avant), et dit combien d'autres points elle relève.
+
+### Supprimé
+
+- La liste `manques` du remplissage du cerfa (`export/cerfa13703.ts`) : elle est déplacée dans la relecture avant l'export
+  (`export/relecture.ts`), mêmes phrases, même ordre.
+
+### Corrigé
+
+- Les prompts de la lecture enrichie d'une façade, du toit lu et de la lecture du jardin restaient lisibles par une adresse directe : le
+  modèle `.htaccess` ne refusait que `prompt-analyse.md`, `prompt-facade.md` et `prompt-plu.md`. Il refuse désormais tous les prompts que
+  le serveur lit, celui des textes du dossier compris.
+
+## [5.3.0] — 2026-10-30
+
+Version **mineure** au sens de `MD/RELEASE.md` : le toit enrichi (lot L2 : la couverture et sa pose, le débord, le faîtage, la
+gouttière, les fenêtres de toit et panneaux lus sur la façade par une troisième requête sur la même image, et proposés au moteur). Aucune
+quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste
+celle de la 5.2.0, le même jour ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et
+`glb-structure.json` sont identiques. Le schéma des projets passe de 10 à 11 ; la migration relit la grande ardoise en losange comme une
+ardoise posée en losange (même texture, même `.glb`), et un projet s'écrit toujours au plus petit schéma qui le décrit ; la plateforme
+accepte déjà les schémas 7 à 12.
+
+### Ajouté
 
 - **Toit enrichi, lot L2** (`MD/spec-lecture-ia-elargie.md` §3.2, §4.1, §4.3, §12.3). Chaque façade lue par Claude l'est par une
   **troisième requête** sur la même image (usage `facade-toit`, ses prompt et schéma générés, en sortie structurée), trois passes
@@ -55,6 +105,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - L'écriture de `ardoise-losange` comme matériau de couverture (relu `ardoise` + pose `losange`) ; les traductions locales des mots de
   couverture (sujet `couverture`, arbitrage, contrôle du PLU), remplacées par la table de `model/couvertureLue.ts`.
+
+### Corrigé
+
+- **Point 116 de la fumée** (la façade enrichie lue, validée, dessinée) : son API simulée ne répondait pas à la troisième requête
+  (`facade-toit`, lot L2) ; l'écran disait donc, à raison, que la lecture du toit n'avait rien rendu, et ce second signal faisait échouer
+  le point, qui compte celui de la fissure seul (trois classes, à l'identique au calme). Le point reçoit une lecture du toit qui ne voit
+  rien (`scripts/fumee.mjs`) ; l'application ne change pas.
 
 ## [5.2.0] — 2026-10-30
 

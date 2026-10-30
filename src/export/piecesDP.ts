@@ -177,6 +177,24 @@ function plusProcheLimite(emprise: PtBrut[], limite: PtBrut[]): { a: PtBrut; b: 
   return best;
 }
 
+/** La cote a la limite que le DP2 trace pour un ouvrage : sous 5 cm (un ouvrage en limite), aucune. */
+export const SEUIL_COTE_LIMITE_M = 0.05;
+
+/**
+ * La distance de chaque ouvrage du projet (abri, terrasse) a la limite la plus proche du terrain, telle que le DP2 la cote : null
+ * quand il ne la cote pas (en limite). La relecture avant l'export (export/relecture.ts) dit ces ouvrages-la.
+ */
+export function distancesAuxLimites(objets: ObjetPlan[]): { objet: ObjetPlan; distance: number | null }[] {
+  const parcelle = parcelleDuProjet(objets);
+  if (!parcelle || parcelle.type !== 'polygon') return [];
+  const sol = solDuProjet(objets);
+  return objets.filter(o => estAbri(o) || estTerrasse(o)).map(o => {
+    const calc = estAbri(o) ? calculerPergola(o, sol) : null;
+    const l = plusProcheLimite(calc ? calc.emprise : contour(o), parcelle.pts);
+    return { objet: o, distance: l && l.d > SEUIL_COTE_LIMITE_M ? l.d : null };
+  });
+}
+
 /** DP2 : le plan de masse cote dans les trois dimensions. */
 export function pagePlanDeMasse(objets: ObjetPlan[], meta: MetaPieces): PagePdf | null {
   const parcelle = parcelleDuProjet(objets);
@@ -234,7 +252,7 @@ export function pagePlanDeMasse(objets: ObjetPlan[], meta: MetaPieces): PagePdf 
     s += pdfTexte(gauche, bas, 8, enAscii(nomOuvrage(o) + ' (projet)'), PROJET);
     s += pdfTexte(gauche, bas - 10, 7, enAscii('emprise ' + fr(calc ? shoelace(calc.emprise) : shoelace(pts), 1) + ' m2' + (calc ? ' - H max ' + fr(hauteur) + ' m' : '')), PROJET);
     const limite = plusProcheLimite(calc ? calc.emprise : pts, parcelle.pts);
-    if (limite && limite.d > 0.05) s += cote(P(limite.a), P(limite.b), fr(limite.d) + ' m', ENCRE);
+    if (limite && limite.d > SEUIL_COTE_LIMITE_M) s += cote(P(limite.a), P(limite.b), fr(limite.d) + ' m', ENCRE);
   });
   // Legende.
   const ly = MARGE_PDF + 40;

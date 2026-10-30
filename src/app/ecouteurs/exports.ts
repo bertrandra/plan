@@ -22,6 +22,8 @@ import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { parcours, type ServiceChampsParcours } from '../parcours.js';
 import type { Resultats } from '../resultats.js';
+import type { PointRelecture } from '../../export/typesRelecture.js';
+import type { ServiceDossier } from '../declaration/serviceDossier.js';
 
 /** Ce que la livraison d'un fichier demande au reste du programme. */
 export interface ContexteExports {
@@ -48,7 +50,7 @@ export interface ContexteExports {
    * Le dossier de declaration prealable : le cerfa 13703 rempli et ses pieces, en PDF. Asynchrone :
    * il charge pdf-lib, le formulaire et la carte IGN.
    */
-  construireDeclaration: () => Promise<{ pdf: Uint8Array; nom: string; manques: string[]; regime: string; pieces: string[] }>;
+  construireDeclaration: () => Promise<{ pdf: Uint8Array; nom: string; relecture: PointRelecture[]; regime: string; pieces: string[] }>;
   /** Y a-t-il un ouvrage a declarer ? */
   declarationPossible: () => boolean;
   /** Le nom du projet, pour nommer le dossier PDF. */
@@ -60,6 +62,16 @@ export interface ContexteExports {
   resultats: Resultats;
 }
 
+
+/**
+ * Ce que dit l'export de la declaration : les pieces, ce que le formulaire demande encore (les points du cerfa de la relecture, les
+ * phrases d'avant le lot L5), et combien d'autres points la relecture releve (le dialogue de la declaration les montre un a un).
+ */
+export function messageDeclaration(res: { nom: string; pieces: string[]; relecture: PointRelecture[] }): string {
+  const cerfa = res.relecture.filter((p) => p.cerfa), autres = res.relecture.length - cerfa.length;
+  return 'Dossier téléchargé : ' + res.nom + ' (pièces ' + res.pieces.join(', ') + '). Reste à compléter : ' + cerfa.map((p) => p.texte).join(' ; ') + '.'
+    + (autres ? ' La relecture relève ' + (autres > 1 ? autres + ' autres points' : 'un autre point') + ' : voyez « Vérifier avant l’export » dans la déclaration préalable.' : '');
+}
 
 /** Le nom du fichier qui vient de partir, dit en bas de l'ecran : le seul filet qui survive au clic. */
 function direTelechargement(nomFichier: string): void {
@@ -81,7 +93,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       ctx.construireDeclaration().then(res => {
         telechargerBlob(res.nom, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         const avis = res.regime === 'permis' ? ' Attention : l\'emprise créée relève d\'un permis de construire (cerfa 13406).' : '';
-        showToast('Dossier téléchargé : ' + res.nom + ' (pièces ' + res.pieces.join(', ') + '). Reste à compléter : ' + res.manques.join(' ; ') + '.' + avis);
+        showToast(messageDeclaration(res) + avis);
       }).catch((err: unknown) => showErrBanner('Déclaration préalable : ' + (err as Error).message));
     }
   });
@@ -211,9 +223,9 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
  * qui declare et ou, puis le dossier. Il ecrit sur la parcelle du projet ; sans parcelle, rien a declarer.
  * Ouvrir ne modifie rien : chaque champ porte ses droits (refuse en lecture seule) et le dossier, les siens.
  */
-export function brancherDialogueDeclaration(cmd: RegistreCommandes, service: ServiceChampsParcours): void {
+export function brancherDialogueDeclaration(cmd: RegistreCommandes, service: ServiceChampsParcours, dossier?: ServiceDossier): void {
   cmd.declarer({
     id: 'export.ouvrirDeclaration', libelle: 'Déclaration préalable…', groupe: 'export', actif: () => !!service.parcelle(),
-    executer: () => parcours.ouvrir({ type: 'declaration', service })
+    executer: () => parcours.ouvrir({ type: 'declaration', service, ...(dossier ? { dossier } : {}) })
   });
 }

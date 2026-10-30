@@ -667,21 +667,35 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 19. **Une couverture lue sur la façade décide-t-elle seule ?** (L2) Elle passe devant l'analyse d'une maison et les fichiers fonciers
     (règle prioritaire), mais la source « photo de façade » n'a pas le droit d'être seule : la ligne arrive décochée, « à confirmer ».
     *Proposition : garder ainsi tant que la mesure du banc n'a pas de vérité pour le toit.*
-20. **Qui peut demander à l'assistant ?** (L6) Aucune capacité nouvelle (`plan.assistant`, question 10) : une capacité s'inscrit d'abord
+20. **Les textes sont-ils une capacité vendue ?** (L5, suite de la question 10) Le lot n'a pas créé `plan.textes` : une capacité nouvelle
+    s'inscrit d'abord au catalogue de la plateforme (ADR-052), et l'attacher avant ferait disparaître la commande chez tous les locataires
+    (`plateforme/capacites.ts`). « Rédiger avec Claude » ne demande que le droit d'écriture et le serveur de Plan (connecté à
+    l'organisation, ou administrateur), comme la lecture du PLU ; ses plafonds de dépense sont ceux de tous les usages. *À trancher.*
+21. **DP7 et DP8 : seulement les photos de l'audit ?** (L5, question 2) La photographie se choisit parmi les photos de l'audit de la
+    parcelle gardées sur l'appareil, pas dans un fichier : les photos se prennent dans l'audit (décision 6 de la spec des façades, tenue
+    par `tests/unit/architecture/captureAudit.test.ts`). Une personne qui a sa photo ailleurs (un appareil photo, un autre téléphone)
+    doit passer par l'audit. *Proposition : garder ainsi ; si un fichier doit être admis, le dire comme une exception à la décision 6.*
+22. **Le texte d'insertion et la DP11.** (L5) Le texte d'insertion validé s'imprime sur la page de notice, sous la notice ; il n'est pas
+    numéroté DP11 (la notice des secteurs protégés, que le bordereau du cerfa 13703 ne coche pas pour une maison). *À confirmer : une
+    pièce DP11 à part en secteur protégé (SPR, abords), avec sa case.*
+23. **Les faits envoyés et l'accord de l'analyse.** (L5) La rédaction envoie l'adresse et les références cadastrales du terrain (rien
+    du déclarant, aucune photo) sans l'accord demandé pour les photos d'un audit (`io/accordAnalyse.ts`), comme la lecture du PLU envoie
+    un document public. *À confirmer, avec la question 11 (durée de garde des traces).*
+24. **Qui peut demander à l'assistant ?** (L6) Aucune capacité nouvelle (`plan.assistant`, question 10) : une capacité s'inscrit d'abord
     dans la liste des fonctionnalités de la plateforme (ADR-052), hors de ce dépôt. Le serveur refuse tout appel à Claude sans
     `projects.write` : un compte en lecture seule n'obtient donc pas de liste, et la règle « en lecture seule, seules les préférences
     d'affichage s'appliquent » ne joue que si la lecture seule vient d'ailleurs (elle est tenue à l'application, et testée). *Choix
     prudent retenu : rien de neuf côté droits ; à trancher : ouvrir l'assistant aux lecteurs pour les seules préférences d'affichage ?*
-21. **Quelles commandes l'assistant propose-t-il ?** (L6) Celles dont la déclaration porte le drapeau `assistant` : les ouvrages posés à
+25. **Quelles commandes l'assistant propose-t-il ?** (L6) Celles dont la déclaration porte le drapeau `assistant` : les ouvrages posés à
     leur taille par défaut, dupliquer, le trou d'une terrasse, la plage d'une piscine, le recentrage, et trois bascules d'affichage
     (nord, grille, voisinage). Pas « Supprimer » ni « Réinitialiser » (ils posent une question, qu'une transaction n'attend pas), ni les
     outils qui attendent un clic sur le plan, ni ce qui part sur le réseau (orthophoto, rues, relief), ni les vues. *Choix prudent
     retenu ; à élargir commande par commande, chacune avec sa raison.*
-22. **Un objet ajouté puis réglé dans la même liste** (« ajoutez une pergola de 3 m de haut ») : l'objet neuf n'a pas encore de clé
+26. **Un objet ajouté puis réglé dans la même liste** (« ajoutez une pergola de 3 m de haut ») : l'objet neuf n'a pas encore de clé
     quand Claude écrit la liste, et les champs ne s'écrivent que sur l'objet sélectionné. La liste pose l'objet, puis Claude pose la
     question de le régler une fois sélectionné. *Proposition : une étape « champ » sur `nouveau` (l'objet que l'étape d'avant a créé),
     si le besoin se confirme.*
-23. **La demande au serveur** (L6, §6 : « journal seulement : ni projet ni photo »). Le journal ne garde que les comptes (étapes,
+27. **La demande au serveur** (L6, §6 : « journal seulement : ni projet ni photo »). Le journal ne garde que les comptes (étapes,
     questions) ; mais la trace de L0 (toute requête en a une) garde le texte envoyé : la demande et le catalogue, donc les noms des
     objets du projet. *Choix retenu : la règle de L0 (24 mois sans dépôt) ; à confirmer pour l'assistant.*
 
@@ -909,8 +923,41 @@ l'arbitrage, le contrôle du PLU), remplacées par `model/couvertureLue.ts`.
 24, 97, 98 et 104 rejoués : 18 sur 18 (compact, moyen, large ; clair ; réseau témoin ; le 24 compact au second essai, le premier
 coupé par l'attente du téléchargement).
 
+### 12.4 L5 — Textes et relecture (30 octobre 2026)
 
-### 12.4 L6 — Assistant (30 octobre 2026)
+**Ce qui est livré.**
+
+- **L'usage `texte` du serveur** (`src/regles/textes/redaction.ts`, prompt et schéma v1 générés en `deploy/prompt-texte.md` et
+  `deploy/schema-texte.json`, versions dans `src/regles/textes/versions.ts`) : une requête, une passe (on ne vote pas une prose), en
+  sortie structurée, Haiku par défaut ; la réponse est `{ texte, reserves }`. Les consignes des trois pièces (description du cerfa,
+  au plus 1 000 caractères ; notice ; insertion) sont dans le prompt ; la requête ne dit que la pièce et **les faits du projet** en JSON
+  (`export/faitsDossier.ts` : le terrain, les ouvrages déclarés tels que le cerfa les décrit, l'existant, la clôture, la zone du PLU et
+  ses seules règles **validées**, les protections ; rien du déclarant). Le prompt interdit d'inventer un nombre, d'affirmer une
+  conformité et de parler de l'état du bâti. La trace du serveur (L0) garde les faits envoyés et le texte revenu ; le journal, ni l'un ni
+  l'autre.
+- **Le modèle** (schéma **12**, migration 11 → 12 identité) : `dossier` sur la parcelle du projet, comme `declaration` et `reglementPlu`
+  (le §4.6 disait « Projet » : le fichier n'a pas d'autre endroit que les objets, et la parcelle est déjà celle du dossier). Chaque pièce
+  porte son brouillon (`texte`, `reserves`, date, modèle, versions, coût, trace, `entrees` : le SHA-256 des faits envoyés) et son texte
+  validé (`texte`, date, et `entrees` du jour de la validation) ; les photographies DP7 et DP8 (`dossier.photos`). Contrat et relecture
+  d'un fichier : `src/regles/textes/dossier.ts`. Le SHA-256 se calcule en synchrone (`util/sha256.ts`), pour qu'un rendu dise « périmé ».
+- **Le texte validé dans le dossier** (`export/cerfa13703.ts`, `export/dossierMairie.ts`) : la description validée remplit C2ZD1 telle
+  quelle (le texte calculé sinon) ; la notice et l'insertion validées font une page « Notice descriptive du projet », après les pièces ;
+  sans elles, pas de page. Ni date ni heure sur la page : le même texte s'imprime à l'identique à chaque export.
+- **La relecture** (`export/relecture.ts`, déterministe, sans appel à Claude) : les `manques` du cerfa, **déplacés** (mêmes phrases,
+  même ordre ; la phrase des photographies se dédouble quand une seule est jointe) ; un projet qui relève du permis ; une photographie
+  restée sur un autre appareil ; un ouvrage en limite dont le DP2 ne cote pas la distance (`piecesDP.ts::distancesAuxLimites`, la même
+  règle que la page) ; un brouillon non validé (à vérifier), périmé (alerte), un texte validé sur un projet qui a changé (alerte) ; les
+  règles du PLU lues et non vérifiées ; la zone changée ; chaque écart aux règles vérifiées. Chaque point a sa gravité (à compléter,
+  alerte, à vérifier) et, quand il en a un, son geste (une commande du registre : rédiger ou valider le texte, ouvrir la Vue 3D,
+  importer la parcelle, interroger le PLU). Elle se lit dans le dialogue (« Vérifier avant l'export ») et dans le message de l'export.
+- **L'écran** (Z8, le dialogue de la déclaration préalable, `zones/parcours/TextesDossier.tsx`) : par pièce, son état, sa zone de texte,
+  « Rédiger avec Claude », « Valider ce texte », « Retirer » (`export.redigerTexte`, `export.validerTexte`, `export.retirerTexte`, la
+  pièce en valeur, exposées dans les trois classes) ; les faits envoyés à Claude, dépliables ; les photos de l'audit en vignettes pour
+  DP7 et DP8 (`export.choisirPhoto`, `export.retirerPhoto`) ; la relecture. Chaque écriture est un pas d'annulation sur la parcelle ;
+  la frappe ne touche pas au projet. Le service : `app/declaration/serviceDossier.ts`.
+
+
+### 12.5 L6 — Assistant (30 octobre 2026)
 
 **Ce qui est livré.**
 
@@ -940,9 +987,37 @@ coupé par l'attente du téléchargement).
 
 | Critère | Preuve |
 |---|---|
+| `dossier.pdf` de la démonstration identique | Empreintes golden inchangées (aucun fichier de `tests/fixtures/golden/` touché ; `npm test` vert). Le dossier de déclaration sans texte validé a le même nombre de pages et la même description qu'avant (`dossierTextes.test.ts`) |
+| Un texte validé s'imprime à l'identique à chaque export | `dossierTextes.test.ts` : deux exports, la même page de notice (flux décodé), le texte dedans ; la case C2ZD1 porte le texte validé tel quel |
+| Un brouillon périmé est dit | `relecture.ts` (alerte « périmé ») et l'écran ; `serviceDossier.test.ts`, `dossierTextes.test.ts` ; point de fumée 122 |
+| La relecture d'un même projet est la même à chaque fois | `dossierTextes.test.ts` (deux relectures égales) ; aucune date, aucun appel |
+| La page de notice n'existe qu'avec un texte validé | `dossierTextes.test.ts` (sans texte, avec un brouillon seul : pas de page ; avec un texte validé : une de plus) |
+| `manques` de `cerfa13703.ts` passe dans la relecture | `RemplissageCerfa.manques` supprimé ; `dossierMairie.test.ts` lit les mêmes phrases dans la relecture ; le message de l'export les cite |
+
+**Rien de perdu.** Les corps envoyés à l'API par le serveur PHP du dépôt (faux Anthropic local, par `verifier-api-claude.mjs`, sortie
+structurée acceptée puis refusée) : les 20 corps de `main` (e54ea460) — l'analyse d'une maison, le run d'une façade et son escalade, la
+lecture enrichie, le toit lu, le PLU, le jardin, avec et sans sortie structurée — sont **identiques** par `cmp` dans la branche ; ceux
+qui existaient en 5.1.0 (1ea13701 : l'analyse, le run, l'escalade, le PLU, le jardin, 14 corps) aussi. Aucun test de `main` ne manque
+(4 583 noms de `vitest list`, tous présents ; 33 de plus). `identite.ts` : « AE 101 : corps identiques ». Aucune empreinte golden ne
+bouge.
+
+**Supprimé.** `RemplissageCerfa.manques` et les `manques.push` de `remplirCerfa13703` (déplacés dans `export/relecture.ts`, qui reprend
+les mêmes phrases) ; la description calculée se lit maintenant par `descriptionCalculee`, la seule à l'écrire. `grep -rn "manques" src/export` :
+seuls les deux commentaires de la relecture qui disent d'où viennent ses phrases.
+
+**Garde-fou de la lecture** (workflow « Vérifier l'API Claude », case façades, plafond 0,50 $, run 41056553301) : **vert du premier
+coup** (« Aucune ligne jugée sous le plancher », pas de relance) ; ×3 rappel 99,2 %, précision 100 %. Les huit requêtes du serveur
+acceptées, dont `texte` en sortie structurée (697 caractères, 5 réserves sur les faits inventés du vérificateur).
+
+**Coût mesuré** (même run) : une rédaction, **0,00047 $** (Haiku ; 473 tokens d'entrée, 1 639 écrits au cache, 441 en sortie), sous
+l'estimation du §6 (≈ 0,002 $). La relecture ne coûte rien. Le run complet (vérification et mesure du banc) : 0,264 $.
+
+**Fumée.** Point **122** nouveau (rédiger, corriger, valider, exporter ; la relecture, un brouillon périmé) ; 25 et 37 rejoués : 7 sur 7
+(compact, moyen, large ; clair ; réseau témoin).
+
 | Dix demandes de référence traduites en listes justes sur la démonstration | `tests/fixtures/assistant/` (demandes, listes admises) ; la vraie API, run 41050741385 : **10 sur 10** ; rejouées hors ligne par `reference.test.ts` sur ces réponses enregistrées |
-| Une étape refusée par `commandes.etat` est grisée avec sa raison | `etapes.test.ts` (contexte, permission, hors catalogue, bornes, autre objet) ; `assistant.test.ts` (jsdom) ; fumée 121 |
-| « Appliquer » puis Ctrl+Z rend le projet à l'identique | `reference.test.ts` pour chacune des dix ; `etapes.test.ts` (refus en route : rien n'est appliqué) ; `historique.test.ts` (transaction) ; fumée 121 (le projet exporté, avant et après) — hors les préférences d'affichage que la parcelle range (interprétation 3) |
+| Une étape refusée par `commandes.etat` est grisée avec sa raison | `etapes.test.ts` (contexte, permission, hors catalogue, bornes, autre objet) ; `assistant.test.ts` (jsdom) ; fumée 122 |
+| « Appliquer » puis Ctrl+Z rend le projet à l'identique | `reference.test.ts` pour chacune des dix ; `etapes.test.ts` (refus en route : rien n'est appliqué) ; `historique.test.ts` (transaction) ; fumée 122 (le projet exporté, avant et après) — hors les préférences d'affichage que la parcelle range (interprétation 3) |
 | En lecture seule, seules les préférences d'affichage s'appliquent | `reference.test.ts` (demande 10 : la grille, pas les lames ; projet et pile intacts) ; `catalogue.test.ts` |
 | Catalogue généré, pas écrit à la main | `catalogue.test.ts` ; `requete-verification.json` comparée à ce que Plan génère |
 | Claude propose, le registre exécute | les étapes ne s'exécutent que par `commandes.executer` et `inspecteur.appliquer` ; rien du projet n'est écrit ailleurs |
@@ -951,7 +1026,7 @@ coupé par l'attente du téléchargement).
 
 1. **Les champs sont ceux de l'objet sélectionné** (§4.7). Une étape sur un autre objet est grisée : « sélectionnez « … », puis
    redemandez » ; Claude pose la même question (demande 08).
-2. **Un ajout pose l'objet à sa taille par défaut** et le sélectionne ; ses réglages se font ensuite (question 22).
+2. **Un ajout pose l'objet à sa taille par défaut** et le sélectionne ; ses réglages se font ensuite (question 26).
 3. **Les préférences d'affichage d'une liste ne reviennent pas avec Ctrl+Z**, comme à la main (« Filaire », les bascules du menu
    Affichage) ; elles se posent avant l'instantané. Une liste qui n'en a que ne fait aucune étape d'historique. La grille et le
    voisinage se rangent sur la parcelle (`affichage`) : après Ctrl+Z, le projet est identique **hors** ce rangement, comme après les
@@ -961,8 +1036,8 @@ coupé par l'attente du téléchargement).
    écrirait celui que la souris montre à l'instant d'« Appliquer ».
 5. **Une bascule déjà dans l'état voulu** quand la personne applique (elle l'a basculée entre-temps) est grisée « Déjà fait » : la
    refaire la défairait.
-6. **Rien de neuf côté droits** (question 20) ; **commandes ouvertes une à une** (question 21) ; **la trace serveur** garde la demande
-   et le catalogue, comme toute requête depuis L0 (question 23).
+6. **Rien de neuf côté droits** (question 24) ; **commandes ouvertes une à une** (question 25) ; **la trace serveur** garde la demande
+   et le catalogue, comme toute requête depuis L0 (question 27).
 
 **Rien de perdu.** Les corps envoyés à l'API (serveur PHP du dépôt, faux Anthropic local, sortie structurée acceptée puis refusée) :
 l'analyse d'une maison, le run, l'escalade, la lecture enrichie, le toit lu, le PLU et le jardin identiques à ceux de `main` (e54ea460)
@@ -972,7 +1047,7 @@ fichier, aucun schéma, aucune empreinte golden ne bouge ; aucun test retiré (t
 **Coût mesuré** (run 41050741385) : 0,00027 $ la demande en moyenne (0,00009 à 0,00087 $ selon la longueur de la réponse et l'écriture
 du cache), sous l'estimation de 0,001 $ ; la demande de la vérification, 0,0009 $ (le catalogue et le prompt écrits en cache).
 
-**Fumée.** Point **121** nouveau (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z) et point 9 (les
+**Fumée.** Point **122** nouveau (une demande, sa liste, une étape grisée avec sa raison, « Appliquer », Ctrl+Z) et point 9 (les
 annulations) rejoués : 6 sur 6 (compact, moyen, large ; clair ; réseau témoin). Le lot `ci` de la CI, vert.
 
 **Supprimé.** Rien : le lot ajoute.
