@@ -8,13 +8,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ### Ajouté
 
 - **Garde-fou de la lecture des façades** (`MD/RELEASE.md` §8.2 bis, skill `facades` §5 quater). Ce que la lecture des façades par
-  Claude savait faire en 5.1.0 ne peut plus se perdre sans que cela se voie. La **référence chiffrée** du run 40998593930 de
-  « Vérifier l'API Claude » (commit `1ea13701`) est versionnée, scène par scène, ×1 et ×3 : baies (rappel, précision), genres,
-  carreaux, angles, pointes, parement, passes illisibles et escalade ; le coût n'y est qu'une information. Le workflow, case « mesure
-  des façades » cochée, la compare à la mesure : il relance une fois les scènes dont une ligne baisse, puis finit rouge si elle reste en
-  dessous, et montre la table référence / mesure au résumé. À chaque PR, sans appel : les **vraies réponses** de ce run rejouées dans le
-  chemin du jour (vote, règles, façade proposée), à l'identique ; l'**inventaire figé** des champs du schéma du run, de l'escalade et de
-  la Façade, qu'un lot ne peut réduire qu'en modifiant le test ; un **projet 5.1.0 à façades validées** relu et réécrit sans perte.
+  Claude savait faire en 5.1.0 ne peut plus se perdre sans que cela se voie. La référence garde trois mesures de main au même code de
+  lecture (runs 40998593930, 41012308826 et 41014104555 de « Vérifier l'API Claude ») et le **plancher** de chaque ligne, le pire des
+  trois : en ×3, par scène les baies, genres, pointes et parement, au total toutes les lignes (angles et carreaux au total seulement) ;
+  en ×1, au total seulement ; et l'escalade. Le coût n'y est qu'une information. Le workflow, case « mesure des façades » cochée, relance
+  une fois les scènes dont une ligne passe sous le plancher, finit rouge si elle y reste, et montre la table plancher / mesure au résumé.
+  À chaque PR, sans appel : les **vraies réponses** du run 40998593930 rejouées dans le chemin du jour (vote, règles, façade proposée), à
+  l'identique ; l'**inventaire figé** des champs du schéma du run, de l'escalade et de la Façade, qu'un lot ne peut réduire qu'en
+  modifiant le test ; un **projet 5.1.0 à façades validées** relu et réécrit sans perte.
 
 ## [5.1.0] — 2026-10-30
 

@@ -4,10 +4,14 @@
 // - `mesurerLecture` : la mesure d'un dossier de reponses du banc x1 / x3 (.claude/skills/facades/scripts/ia-x1-x3.ts), scene par scene
 //   et au total, par le CHEMIN DE PRODUCTION (la reponse relue comme un run enregistre, le vote, les regles de facade/regles/facades/ia.ts
 //   jusqu'a la facade proposee), et en plus de ce que le tableau du banc imprime : les baies par genre, les angles, le parement ;
-// - `comparerLecture` : chaque ligne de qualite de la mesure contre la reference versionnee
-//   (tests/fixtures/facades/lecture-5.1.0/reference.json). Une ligne sous la reference est une regression, sans tolerance : le bruit
-//   d'un appel se traite par UNE relance (la regle ecrite au skill et a MD/RELEASE.md), pas par une marge cachee ici ;
-// - `tableauLecture` : la table reference / mesure, en Markdown, pour le resume du workflow « Vérifier l'API Claude ».
+// - `plancherDe` : le PLANCHER de chaque ligne de qualite, le pire de plusieurs mesures de main au meme code de lecture (decision du
+//   proprietaire, 30 octobre 2026 : trois runs, 40998593930, 41012308826 et 41014104555). Une seule mesure prise pour reference faisait
+//   rougir main une fois sur deux, et un garde-fou rouge une fois sur deux sur main ne protege rien ;
+// - `comparerLecture` : chaque ligne jugee de la mesure contre le plancher (tests/fixtures/facades/lecture-5.1.0/reference.json), a la
+//   granularite decidee : en x3, par scene les baies (retrouvees, en trop), les genres, les pointes et le parement, et au total toutes
+//   les lignes (angles et carreaux au total SEULEMENT) ; en x1, au total seulement. Aucune marge en plus du plancher : le bruit d'un
+//   appel se traite par UNE relance (regressionsApresRelance), la regle ecrite au skill et a MD/RELEASE.md ;
+// - `tableauLecture` : la table plancher / mesure, en Markdown, pour le resume du workflow « Vérifier l'API Claude ».
 //
 // Le cout et les tokens sont dans la reference comme information : ils ne font jamais echouer.
 
@@ -78,8 +82,29 @@ export interface MesureLecture {
   escalade?: EscaladeLue | null;
 }
 
-export interface ReferenceLecture extends MesureLecture {
-  source: { run: string; workflow: string; commit: string; version: string; date: string; note: string };
+/** Une mesure de main gardee dans la reference : d'ou elle vient, et ce qu'elle a mesure (la premiere mesure du run, avant relance). */
+export interface MesureDeReference {
+  source: { run: string; commit: string; date: string; note: string };
+  mesure: MesureLecture;
+}
+
+/** Les lignes jugees, par nom : leur plancher. */
+export type Lignes = Record<string, number>;
+
+/** Le plancher de chaque ligne jugee : le pire des mesures de reference. */
+export interface Plancher {
+  /** En x3, par scene (baies, genres, pointes, parement). */
+  scenes: Record<string, Lignes>;
+  /** Au total, par mode (x1 : toutes les lignes ; x3 : toutes, dont angles et carreaux, qui ne se jugent que la). */
+  totaux: Record<Mode, Lignes>;
+  /** L'escalade : acceptee et conforme (1 ou 0), angles lus, parement lu (1 ou 0). */
+  escalade: Lignes | null;
+}
+
+export interface ReferenceLecture {
+  source: { workflow: string; version: string; regle: string; rejeu: string };
+  mesures: MesureDeReference[];
+  plancher: Plancher;
 }
 
 /** Ce que le verificateur ecrit pour une scene (scripts/verifier-api-claude.mjs --facades). */
@@ -221,149 +246,174 @@ export function lireEscalade(journal: string): EscaladeLue | null {
   };
 }
 
-/** Une ligne de qualite sous la reference. */
+/** Une ligne jugee sous le plancher. */
 export interface Regression { scene: string; mode: Mode | 'escalade'; ligne: string; reference: number | string; mesure: number | string }
 
-/** Plus haut vaut mieux (au moins la reference) ou plus bas vaut mieux (au plus la reference). */
+/** Plus haut vaut mieux (au moins le plancher) ou plus bas vaut mieux (au plus le plancher). */
 type Sens = 'haut' | 'bas';
-const qualitesScene = (x: LigneLecture): [string, number, Sens][] => [
-  ['passes illisibles', x.illisibles, 'bas'],
-  ['baies retrouvées (rappel)', x.boites.vp, 'haut'],
-  ['baies en trop (précision)', x.boites.fp, 'bas'],
-  ...GENRES.map((g): [string, number, Sens] => ['genre ' + g + ' retrouvé', x.genres[g].justes, 'haut']),
-  ['carreaux justes', x.carreaux.justes, 'haut'],
-  ['angles justes', x.angles.justes, 'haut'],
-  ['pointes justes', x.pointes.justes, 'haut'],
-  ['pointes en plus', x.pointes.enPlus, 'bas'],
-  ['parement juste', x.parement.juste, 'haut'],
-];
-const qualitesTotal = (t: TotalLecture): [string, number, Sens][] => [
-  ['façades lues', t.lues, 'haut'],
-  ['passes illisibles', t.illisibles, 'bas'],
-  ['rappel des baies', t.boites.rappel ?? 0, 'haut'],
-  ['précision des baies', t.boites.precision ?? 0, 'haut'],
-  ...GENRES.map((g): [string, number, Sens] => ['genre ' + g + ' retrouvé', t.genres[g].justes, 'haut']),
-  ['carreaux justes', t.carreaux.justes, 'haut'],
-  ['angles justes', t.angles.justes, 'haut'],
-  ['pointes justes', t.pointes.justes, 'haut'],
-  ['pointes en plus', t.pointes.enPlus, 'bas'],
-  ['parements justes', t.parements.justes, 'haut'],
-];
+const BAS = new Set(['baies en trop (précision)', 'pointes en plus', 'passes illisibles']);
+const sens = (nom: string): Sens => (BAS.has(nom) ? 'bas' : 'haut');
 
-function confronter(scene: string, mode: Mode, ref: [string, number, Sens][], mes: [string, number, Sens][] | null, out: Regression[]): void {
-  ref.forEach(([nom, r, sens], i) => {
-    const m = mes ? (mes[i] as [string, number, Sens])[1] : null;
-    if (m === null) { out.push({ scene, mode, ligne: nom + ' (lecture illisible)', reference: r, mesure: 'illisible' }); return; }
-    if (sens === 'haut' ? m < r : m > r) out.push({ scene, mode, ligne: nom, reference: r, mesure: m });
-  });
+/** Les lignes jugees d'une scene en x3 : baies retrouvees et en trop, genres, pointes, parement (angles et carreaux : au total seulement). */
+export function lignesScene(x: LigneLecture | null): Lignes {
+  const l: Lignes = {
+    'baies retrouvées (rappel)': x?.boites.vp ?? 0,
+    'baies en trop (précision)': x?.boites.fp ?? 0,
+  };
+  for (const g of GENRES) l['genre ' + g + ' retrouvé'] = x?.genres[g].justes ?? 0;
+  l['pointes justes'] = x?.pointes.justes ?? 0;
+  l['pointes en plus'] = x?.pointes.enPlus ?? 0;
+  l['parement juste'] = x?.parement.juste ?? 0;
+  return l;
+}
+
+/** Les lignes jugees d'un total (x1 et x3) : toutes les lignes de qualite. */
+export function lignesTotal(t: TotalLecture): Lignes {
+  const l: Lignes = {
+    'façades lues': t.lues,
+    'passes illisibles': t.illisibles,
+    'rappel des baies': t.boites.rappel ?? 0,
+    'précision des baies': t.boites.precision ?? 0,
+  };
+  for (const g of GENRES) l['genre ' + g + ' retrouvé'] = t.genres[g].justes;
+  l['carreaux justes'] = t.carreaux.justes;
+  l['angles justes'] = t.angles.justes;
+  l['pointes justes'] = t.pointes.justes;
+  l['pointes en plus'] = t.pointes.enPlus;
+  l['parements justes'] = t.parements.justes;
+  return l;
+}
+
+const lignesEscalade = (e: EscaladeLue | null | undefined): Lignes | null =>
+  e ? { 'acceptée et conforme': e.acceptee && e.conforme ? 1 : 0, 'angles lus': e.angles, 'parement lu': e.parement === 'indetermine' ? 0 : 1 } : null;
+
+/** Le pire de plusieurs jeux de lignes : le plus bas pour une ligne ou plus haut vaut mieux, le plus haut sinon. */
+function pire(jeux: readonly Lignes[]): Lignes {
+  const out: Lignes = {};
+  for (const j of jeux) for (const [k, v] of Object.entries(j)) {
+    const o = out[k];
+    out[k] = o === undefined ? v : sens(k) === 'haut' ? Math.min(o, v) : Math.max(o, v);
+  }
+  return out;
 }
 
 /**
- * Chaque ligne de qualite de la mesure contre la reference, scene par scene et au total : la liste des lignes en dessous (vide : rien
- * n'a baisse). Aucune marge : une ligne a 5 quand la reference dit 6 est en dessous. Une scene de la reference absente de la mesure est
- * une regression (on ne mesure pas moins pour passer) ; une scene nouvelle n'a rien a battre.
+ * Le plancher : chaque ligne jugee au pire des mesures de main (le meme code de lecture). Une scene absente d'une mesure n'y compte pas
+ * (elle n'a rien mesure) ; une scene illisible y compte pour zero.
  */
-export function comparerLecture(ref: MesureLecture, mes: MesureLecture): Regression[] {
-  const out: Regression[] = [];
-  for (const [scene, modes] of Object.entries(ref.scenes)) {
-    for (const m of MODES) {
-      const r = modes[m];
-      if (!r) continue;
-      if (!mes.scenes[scene]) { out.push({ scene, mode: m, ligne: 'scène mesurée', reference: 'oui', mesure: 'absente' }); continue; }
-      const x = mes.scenes[scene][m];
-      confronter(scene, m, qualitesScene(r), x ? qualitesScene(x) : null, out);
-    }
+export function plancherDe(mesures: readonly MesureLecture[]): Plancher {
+  const scenes = [...new Set(mesures.flatMap((m) => Object.keys(m.scenes)))].sort();
+  const escalades = mesures.map((m) => lignesEscalade(m.escalade)).filter((e): e is Lignes => e !== null);
+  return {
+    scenes: Object.fromEntries(scenes.map((s) => [s, pire(mesures.filter((m) => m.scenes[s]).map((m) => lignesScene(m.scenes[s]?.x3 ?? null)))])),
+    totaux: { x1: pire(mesures.map((m) => lignesTotal(m.totaux.x1))), x3: pire(mesures.map((m) => lignesTotal(m.totaux.x3))) },
+    escalade: escalades.length ? pire(escalades) : null,
+  };
+}
+
+function confronter(scene: string, mode: Mode | 'escalade', plancher: Lignes, mes: Lignes | null, out: Regression[]): void {
+  for (const [nom, p] of Object.entries(plancher)) {
+    const m = mes ? mes[nom] : undefined;
+    if (m === undefined) { out.push({ scene, mode, ligne: nom + (mes ? ' (absente)' : ' (lecture illisible)'), reference: p, mesure: mes ? 'absente' : 'illisible' }); continue; }
+    if (sens(nom) === 'haut' ? m < p : m > p) out.push({ scene, mode, ligne: nom, reference: p, mesure: m });
   }
-  for (const m of MODES) confronter('Total', m, qualitesTotal(ref.totaux[m]), qualitesTotal(mes.totaux[m]), out);
-  const re = ref.escalade, me = mes.escalade;
-  if (re && me !== undefined) {
-    if (!me) out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'ligne du journal', reference: 'présente', mesure: 'absente' });
-    else {
-      if (re.acceptee && !me.acceptee) out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'acceptée', reference: 'oui', mesure: 'non' });
-      if (re.conforme && !me.conforme) out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'sortie conforme', reference: 'oui', mesure: 'non' });
-      if (me.angles < re.angles) out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'angles lus', reference: re.angles, mesure: me.angles });
-      if (re.parement !== 'indetermine' && me.parement === 'indetermine') out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'parement lu', reference: re.parement, mesure: me.parement });
-    }
+}
+
+/**
+ * Chaque ligne jugee de la mesure contre le plancher : la liste des lignes en dessous (vide : rien n'a baisse). Aucune marge en plus du
+ * plancher. Une scene du plancher absente de la mesure est une regression (on ne mesure pas moins pour passer) ; une scene nouvelle n'a
+ * rien a battre. L'escalade n'est jugee que si la mesure a lu un journal.
+ */
+export function comparerLecture(plancher: Plancher, mes: MesureLecture): Regression[] {
+  const out: Regression[] = [];
+  for (const [scene, lignes] of Object.entries(plancher.scenes)) {
+    if (!mes.scenes[scene]) { out.push({ scene, mode: 'x3', ligne: 'scène mesurée', reference: 'oui', mesure: 'absente' }); continue; }
+    const x = mes.scenes[scene].x3;
+    confronter(scene, 'x3', lignes, x ? lignesScene(x) : null, out);
+  }
+  for (const m of MODES) confronter('Total', m, plancher.totaux[m], lignesTotal(mes.totaux[m]), out);
+  if (plancher.escalade && mes.escalade !== undefined) {
+    const e = lignesEscalade(mes.escalade);
+    if (!e) out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'ligne du journal', reference: 'présente', mesure: 'absente' });
+    else confronter('Escalade', 'escalade', plancher.escalade, e, out);
   }
   return out;
 }
 
 const pc = (x: number | null) => (x === null ? '—' : (Math.round(x * 1000) / 10).toFixed(1).replace('.', ',') + ' %');
 const fr = (n: number | null, k = 5) => (n === null ? '—' : n.toFixed(k) + ' $');
+const valeur = (nom: string, v: number | string) => (typeof v === 'number' && nom.endsWith('des baies') ? pc(v) : String(v));
 
-/** Une cellule « reference → mesure », en gras quand la mesure est en dessous. */
-function cellule(r: string, m: string | null, baisse: boolean): string {
-  if (m === null) return r;
-  if (r === m) return r;
-  return baisse ? `**${r} → ${m}**` : `${r} → ${m}`;
+/** Une cellule « plancher → mesure », en gras quand la mesure est sous le plancher. */
+function cellule(p: string, m: string | null, baisse: boolean): string {
+  if (m === null || p === m) return p;
+  return baisse ? `**${p} → ${m}**` : `${p} → ${m}`;
 }
 
 /**
- * La table reference / mesure, en Markdown : une ligne par scene et par mode, puis les totaux, l'escalade et la liste des lignes en
- * dessous. Sans mesure, la reference seule (la table que le skill et MD/RELEASE.md citent).
+ * La table plancher / mesure, en Markdown : les lignes jugees en x3 par scene, puis les totaux x1 et x3, l'escalade, la liste des
+ * lignes sous le plancher et, apres une relance, celles qui ne baissent qu'a la relance. Sans mesure, le plancher seul.
  */
-export function tableauLecture(ref: MesureLecture, mes: MesureLecture | null, regressions: readonly Regression[] = [], nouvelles: readonly Regression[] = []): string {
-  const bas = (scene: string, mode: string, prefixe: string) => regressions.some((r) => r.scene === scene && r.mode === mode && r.ligne.startsWith(prefixe));
+export function tableauLecture(plancher: Plancher, mes: MesureLecture | null, regressions: readonly Regression[] = [], nouvelles: readonly Regression[] = []): string {
+  const bas = (scene: string, mode: string, nom: string) => regressions.some((r) => r.scene === scene && r.mode === mode && r.ligne === nom);
   const sortie = [
-    mes ? '**Référence 5.1.0 → mesure** (une cellule « a → b » a changé ; en gras, elle est sous la référence).' : '**Référence 5.1.0** (run 40998593930).',
+    mes ? '**Plancher → mesure** (le plancher : le pire de trois mesures de main ; une cellule « a → b » a changé, en gras elle est sous le plancher).' : '**Planchers** (le pire des runs 40998593930, 41012308826 et 41014104555 de main).',
     '',
-    '| Scène | Mode | Illisibles | Baies VP / vraies / trouvées | Genres justes (F, PF, P, G) | Carreaux justes / lus | Angles justes / lus | Pointes justes / attendues (+ en plus) | Parement (vrai : lu) | Proposée (seules / écartées) | Coût (info) |',
-    '|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|',
+    '**x3, par scène** (angles et carreaux : au total seulement)',
+    '',
+    '| Scène | Baies retrouvées | Baies en trop | Genres (F, PF, P, G) | Pointes justes | Pointes en plus | Parement juste |',
+    '|---|--:|--:|--:|--:|--:|--:|',
   ];
-  const ligne = (x: LigneLecture | null) => x === null ? null : {
-    ill: String(x.illisibles), baies: `${x.boites.vp} / ${x.boites.vraies} / ${x.boites.trouvees}`,
-    genres: GENRES.map((g) => `${x.genres[g].justes}/${x.genres[g].vraies}`).join(', '), carreaux: `${x.carreaux.justes} / ${x.carreaux.lus}`,
-    angles: `${x.angles.justes} / ${x.angles.lus}`, pointes: `${x.pointes.justes} / ${x.pointes.attendues}` + (x.pointes.enPlus ? ` (+${x.pointes.enPlus})` : ''),
-    parement: `${x.parement.vrai} : ${x.parement.lu}`, proposee: `${x.proposee.seules} / ${x.proposee.ecartees}`, cout: fr(x.info.cout),
-  };
-  for (const [scene, modes] of Object.entries(ref.scenes)) {
-    for (const m of MODES) {
-      const r = ligne(modes[m]), x = mes ? ligne(mes.scenes[scene]?.[m] ?? null) : null;
-      if (!r) { sortie.push(`| ${scene} | ${m} | illisible | | | | | | | | |`); continue; }
-      const c = (k: keyof NonNullable<typeof r>, prefixe: string) => cellule(r[k], mes ? (x ? x[k] : 'illisible') : null, bas(scene, m, prefixe));
-      sortie.push(`| ${scene} | ${m} | ${c('ill', 'passes illisibles')} | ${c('baies', 'baies')} | ${c('genres', 'genre')} | ${c('carreaux', 'carreaux')} | ${c('angles', 'angles')} | ${c('pointes', 'pointes')} | ${c('parement', 'parement')} | ${c('proposee', '§')} | ${c('cout', '§')} |`);
-    }
+  for (const [scene, p] of Object.entries(plancher.scenes)) {
+    const x = mes ? (mes.scenes[scene] ? lignesScene(mes.scenes[scene].x3 ?? null) : null) : null;
+    const c = (nom: string) => cellule(String(p[nom]), mes ? (x ? String(x[nom]) : 'absente') : null, bas(scene, 'x3', nom));
+    const genres = GENRES.map((g) => c('genre ' + g + ' retrouvé')).join(', ');
+    sortie.push(`| ${scene} | ${c('baies retrouvées (rappel)')} | ${c('baies en trop (précision)')} | ${genres} | ${c('pointes justes')} | ${c('pointes en plus')} | ${c('parement juste')} |`);
   }
-  const total = (t: TotalLecture) => ({
-    lues: `${t.lues} / ${t.facades}`, ill: `${t.illisibles} / ${t.passes}`, rappel: pc(t.boites.rappel), precision: pc(t.boites.precision),
-    genres: GENRES.map((g) => `${t.genres[g].justes}/${t.genres[g].vraies}`).join(', '), carreaux: `${t.carreaux.justes} / ${t.carreaux.lus}`,
-    angles: `${t.angles.justes} / ${t.angles.lus}`, pointes: `${t.pointes.justes} / ${t.pointes.attendues}` + (t.pointes.enPlus ? ` (+${t.pointes.enPlus})` : ''),
-    parements: `${t.parements.justes} / ${t.parements.sur}`, pose: pc(t.info.poseMediane), cout: `${fr(t.info.cout, 4)} (${fr(t.info.coutParFacade)} par façade)`,
-  });
-  sortie.push('', '| Total | Mode | Façades lues | Passes illisibles | Rappel | Précision | Genres justes (F, PF, P, G) | Carreaux justes / lus | Angles justes / lus | Pointes | Parements justes | Pose méd. (info) | Coût (info) |', '|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|');
-  for (const m of MODES) {
-    const r = total(ref.totaux[m]), x = mes ? total(mes.totaux[m]) : null;
-    const c = (k: keyof typeof r, prefixe: string) => cellule(r[k], x ? x[k] : null, bas('Total', m, prefixe));
-    sortie.push(`| **Ensemble** | ${m} | ${c('lues', 'façades')} | ${c('ill', 'passes')} | ${c('rappel', 'rappel')} | ${c('precision', 'précision')} | ${c('genres', 'genre')} | ${c('carreaux', 'carreaux')} | ${c('angles', 'angles')} | ${c('pointes', 'pointes')} | ${c('parements', 'parements')} | ${c('pose', '§')} | ${c('cout', '§')} |`);
-  }
-  if (ref.escalade) {
-    const e = (x: EscaladeLue | null | undefined) => (x ? `${x.acceptee ? 'acceptée' : 'refusée'}, ${x.conforme ? 'conforme' : 'non conforme'} ; ${x.angles} angle(s), ${x.pointes} pointe(s), parement ${x.parement}, ${x.ouvertures} ouverture(s) dont ${x.carreaux} aux carreaux lus ; ${x.modele ?? '?'}, ${fr(x.cout)}` : 'absente');
-    sortie.push('', `**Escalade** (une requête du vérificateur, sans vérité) : référence ${e(ref.escalade)}` + (mes && mes.escalade !== undefined ? ` ; mesure ${e(mes.escalade)}.` : '.'));
+  sortie.push('', '**Totaux** (x1 : au total seulement)', '', '| Ligne | x1 | x3 |', '|---|--:|--:|');
+  for (const nom of Object.keys(plancher.totaux.x3)) {
+    const c = (m: Mode) => {
+      const p = plancher.totaux[m][nom];
+      if (p === undefined) return '—';
+      const x = mes ? lignesTotal(mes.totaux[m])[nom] : undefined;
+      return cellule(valeur(nom, p), x === undefined ? null : valeur(nom, x), bas('Total', m, nom));
+    };
+    sortie.push(`| ${nom} | ${c('x1')} | ${c('x3')} |`);
   }
   if (mes) {
-    sortie.push('', regressions.length
-      ? `**${regressions.length} ligne(s) sous la référence** :\n\n` + regressions.map((r) => { const v = (x: number | string) => (typeof x === 'number' && r.ligne.endsWith('des baies') ? pc(x) : String(x)); return `- ${r.scene} ${r.mode} : ${r.ligne}, ${v(r.reference)} → ${v(r.mesure)}`; }).join('\n')
-      : '**Aucune ligne de qualité sous la référence.**');
-    if (nouvelles.length) {
-      sortie.push('', `${nouvelles.length} ligne(s) en dessous à la relance seule, sur une scène relancée pour une autre ligne (le bruit d'un appel : pas sous la référence à la première mesure, donc pas une régression) :\n\n`
-        + nouvelles.map((r) => `- ${r.scene} ${r.mode} : ${r.ligne}, ${r.reference} → ${r.mesure}`).join('\n'));
-    }
+    const t = (m: Mode) => `${fr(mes.totaux[m].info.cout, 4)} (${fr(mes.totaux[m].info.coutParFacade)} par façade), pose méd. ${pc(mes.totaux[m].info.poseMediane)}`;
+    sortie.push('', `Information (jamais jugée) : x1 ${t('x1')} ; x3 ${t('x3')}.`);
+  }
+  if (plancher.escalade) {
+    const e = mes?.escalade;
+    sortie.push('', `**Escalade** (une requête du vérificateur, sans vérité) : plancher ${Object.entries(plancher.escalade).map(([k, v]) => k + ' ' + v).join(', ')}`
+      + (e === undefined ? '.' : e ? ` ; mesure ${e.acceptee ? 'acceptée' : 'refusée'}, ${e.conforme ? 'conforme' : 'non conforme'}, ${e.angles} angle(s), ${e.pointes} pointe(s), parement ${e.parement}, ${e.ouvertures} ouverture(s) dont ${e.carreaux} aux carreaux lus, ${fr(e.cout)}.` : ' ; mesure absente.'));
+  }
+  if (mes) {
+    const liste = (l: readonly Regression[]) => l.map((r) => `- ${r.scene} ${r.mode} : ${r.ligne}, ${valeur(r.ligne, r.reference)} → ${valeur(r.ligne, r.mesure)}`).join('\n');
+    sortie.push('', regressions.length ? `**${regressions.length} ligne(s) sous le plancher** :\n\n` + liste(regressions) : '**Aucune ligne jugée sous le plancher.**');
+    if (nouvelles.length) sortie.push('', `${nouvelles.length} ligne(s) sous le plancher à la relance seule, sur une scène relancée pour une autre ligne (pas sous le plancher à la première mesure, donc pas une régression) :\n\n` + liste(nouvelles));
   }
   return sortie.join('\n');
 }
 
 /**
- * La regle du bruit (skill facades §5 quater, MD/RELEASE.md §8.2 bis) : une ligne sous la reference a la premiere mesure est relancee
- * UNE fois ; elle est une regression si elle reste en dessous a la relance. `restees` : les lignes en dessous aux deux mesures (le job
- * finit rouge) ; `nouvelles` : celles qui ne baissent qu'a la relance, sur une scene relancee pour une autre ligne. Une ligne qui n'a
- * pas baisse a la premiere mesure n'a pas a etre relancee, et la relance ne la juge pas : elle est dite, a part, jamais tue.
+ * La regle du bruit (skill facades §5 quater, MD/RELEASE.md §8.2 bis) : une ligne sous le plancher a la premiere mesure est relancee
+ * UNE fois ; elle est une regression si elle reste sous le plancher a la relance. `restees` : les lignes en dessous aux deux mesures
+ * (le job finit rouge) ; `nouvelles` : celles qui ne baissent qu'a la relance, dites a part, jamais tues.
  */
-export function regressionsApresRelance(ref: MesureLecture, premiere: MesureLecture, relance: MesureLecture): { restees: Regression[]; nouvelles: Regression[] } {
+export function regressionsApresRelance(plancher: Plancher, premiere: MesureLecture, relance: MesureLecture): { restees: Regression[]; nouvelles: Regression[] } {
   const cle = (r: Regression) => r.scene + '\u0000' + r.mode + '\u0000' + r.ligne;
-  const avant = new Set(comparerLecture(ref, premiere).map(cle));
-  const apres = comparerLecture(ref, remplacerScenes(premiere, relance));
+  const avant = new Set(comparerLecture(plancher, premiere).map(cle));
+  const apres = comparerLecture(plancher, remplacerScenes(premiere, relance));
   return { restees: apres.filter((r) => avant.has(cle(r))), nouvelles: apres.filter((r) => !avant.has(cle(r))) };
 }
 
-/** Les scenes ou une ligne a baisse (a relancer une fois) ; « Total » et l'escalade suivent leurs scenes. */
-export const scenesARelancer = (regressions: readonly Regression[]): string[] => [...new Set(regressions.map((r) => r.scene).filter((s) => s !== 'Total' && s !== 'Escalade'))].sort();
+/**
+ * Les scenes a relancer une fois : celles d'une ligne de scene sous le plancher ; toutes des qu'un total est en dessous (x1, et les
+ * angles et carreaux x3, ne se jugent qu'au total : seule une mesure entiere peut le rattraper).
+ */
+export function scenesARelancer(regressions: readonly Regression[], toutes: readonly string[]): string[] {
+  if (regressions.some((r) => r.scene === 'Total')) return [...toutes].sort();
+  return [...new Set(regressions.map((r) => r.scene).filter((s) => s !== 'Escalade'))].sort();
+}

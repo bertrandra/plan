@@ -9,10 +9,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { comparerLecture, DOSSIER_LECTURE_510, FICHIER_REFERENCE_510, mesurerLecture, type ReferenceLecture } from '../../../../banc/facades/gardeLecture.js';
+import { comparerLecture, DOSSIER_LECTURE_510, FICHIER_REFERENCE_510, mesurerLecture, plancherDe, type ReferenceLecture } from '../../../../banc/facades/gardeLecture.js';
 
 const reference = JSON.parse(readFileSync(FICHIER_REFERENCE_510, 'utf8')) as ReferenceLecture;
 const rejeu = mesurerLecture(DOSSIER_LECTURE_510);
+/** La mesure du run dont les reponses sont rejouees : la premiere des trois de la reference. */
+const mesure510 = reference.mesures[0];
 
 /**
  * Le tableau que le run de reference a imprime (journal du job, etape « Le tableau x1 contre x3 ») : scene, mode, boites VP / vraies /
@@ -68,8 +70,8 @@ const IMPRIME: [string, 'x1' | 'x3', number, number, number, number, number, num
 describe('les reponses de Claude du run de reference, rejouees dans le chemin actuel', () => {
   it('portent les 22 scenes du banc, x1 et x3, toutes lisibles', () => {
     expect(Object.keys(rejeu.scenes)).toHaveLength(22);
-    expect(reference.source.run).toBe('40998593930');
-    expect(reference.source.commit.startsWith('1ea13701')).toBe(true);
+    expect(mesure510?.source.run).toBe('40998593930');
+    expect(mesure510?.source.commit.startsWith('1ea13701')).toBe(true);
     for (const [scene, modes] of Object.entries(rejeu.scenes)) for (const m of ['x1', 'x3'] as const) expect(modes[m], scene + ' ' + m).not.toBeNull();
   });
 
@@ -86,8 +88,11 @@ describe('les reponses de Claude du run de reference, rejouees dans le chemin ac
     expect([rejeu.totaux.x1.illisibles, rejeu.totaux.x3.illisibles]).toEqual([0, 0]);
   });
 
-  it('donnent a l identique la reference : baies, genres, carreaux, angles, pointes, parement, facade proposee', () => {
-    for (const [scene, modes] of Object.entries(reference.scenes)) {
+  it('donnent a l identique la mesure du run 40998593930 : baies, genres, carreaux, angles, pointes, parement, facade proposee', () => {
+    const r510 = mesure510?.mesure;
+    expect(r510).toBeTruthy();
+    if (!r510) return;
+    for (const [scene, modes] of Object.entries(r510.scenes)) {
       for (const m of ['x1', 'x3'] as const) {
         const r = modes[m], x = rejeu.scenes[scene]?.[m];
         expect(x, scene + ' ' + m).toBeTruthy();
@@ -96,7 +101,13 @@ describe('les reponses de Claude du run de reference, rejouees dans le chemin ac
         expect([x.info.pose, x.info.cotesCm], scene + ' ' + m).toEqual([r.info.pose, r.info.cotesCm]);
       }
     }
-    for (const m of ['x1', 'x3'] as const) expect(rejeu.totaux[m]).toEqual(reference.totaux[m]);
-    expect(comparerLecture(reference, rejeu)).toEqual([]);
+    for (const m of ['x1', 'x3'] as const) expect(rejeu.totaux[m]).toEqual(r510.totaux[m]);
+    expect(comparerLecture(reference.plancher, rejeu)).toEqual([]);
+  });
+
+  it('le plancher est le pire des trois mesures de main gardees, et chacune passe au-dessus', () => {
+    expect(reference.mesures.map((m) => m.source.run)).toEqual(['40998593930', '41012308826', '41014104555']);
+    expect(plancherDe(reference.mesures.map((m) => m.mesure))).toEqual(reference.plancher);
+    for (const m of reference.mesures) expect(comparerLecture(reference.plancher, m.mesure), m.source.run).toEqual([]);
   });
 });

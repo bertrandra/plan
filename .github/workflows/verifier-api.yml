@@ -18,7 +18,7 @@ on:
         required: false
         default: "0.05"
       mesure_facades:
-        description: "Mesurer aussi le run d'une façade x1 contre x3 sur les scènes de synthèse du banc, et la confronter à la référence 5.1.0 (garde-fou de la lecture ; ~88 requêtes, quelques centimes)"
+        description: "Mesurer aussi le run d'une façade x1 contre x3 sur les scènes de synthèse du banc, et la confronter aux planchers de 5.1.0 (garde-fou de la lecture ; ~88 requêtes, quelques centimes)"
         type: boolean
         required: false
         default: false
@@ -62,16 +62,17 @@ jobs:
       - name: Le tableau x1 contre x3 (sans la cle)
         if: ${{ inputs.mesure_facades }}
         run: npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer mesure-facades | tee -a "$GITHUB_STEP_SUMMARY"
-      # Le garde-fou de la lecture (skill facades §5 quater, MD/RELEASE.md §8.2 bis) : chaque ligne de qualite contre la reference 5.1.0
-      # (tests/fixtures/facades/lecture-5.1.0/reference.json). Une ligne sous la reference peut etre le bruit d'un appel : les scenes en
-      # cause sont relancees UNE fois ; si une ligne reste en dessous, c'est une regression et le job finit rouge. Aucune marge ailleurs.
-      - name: Garde-fou de la lecture, contre la reference 5.1.0 (sans la cle)
+      # Le garde-fou de la lecture (skill facades §5 quater, MD/RELEASE.md §8.2 bis) : chaque ligne jugee contre son plancher, le pire de
+      # trois mesures de main (tests/fixtures/facades/lecture-5.1.0/reference.json). Une ligne sous le plancher peut etre le bruit d'un
+      # appel : les scenes en cause sont relancees UNE fois ; si la ligne est sous le plancher aux deux mesures, c'est une regression et le
+      # job finit rouge. Aucune marge ailleurs.
+      - name: Garde-fou de la lecture, contre les planchers 5.1.0 (sans la cle)
         id: garde
         if: ${{ inputs.mesure_facades }}
         run: |
           set -o pipefail
           npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer mesure-facades --journal journal-api.txt --a-relancer mesure-relance | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Relance unique des scenes sous la reference
+      - name: Relance unique des scenes sous le plancher
         if: ${{ inputs.mesure_facades && steps.garde.outputs.relance == 'true' }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
