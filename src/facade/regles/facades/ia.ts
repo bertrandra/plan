@@ -17,7 +17,6 @@ import { empreinteReglagesIa, lireReglagesIa, type ReglagesIa } from '../../../r
 import { CONFIANCE_PLEINE } from '../../detection/verification.js';
 import { recalerBoite, type CartesAretes } from '../../detection/recalageIa.js';
 import { garder, lireObservationsFacade, type AngleIa, type Carreaux, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
-import type { P2 } from '../../vision/homographie.js';
 
 // Les seuils des regles : regles/facades/ia.json (MD/architecture.md §5.2.4), lus et verifies par src/regles/facades/ia.ts, edites
 // dans Admin › Regles.
@@ -221,12 +220,6 @@ export function avisDesPointes(obs: ObservationsFacade, attendues: readonly { u:
   });
   for (const a of attendues) if (!vues.some((p) => Math.abs(p.u - a.u) <= pres)) out.push({ u: a.u, vue: null, attendue: a.v, avis: 'manquante' });
   return out;
-}
-
-/** Les quatre coins (haut gauche, haut droit, bas droit, bas gauche) en pixels de l'image, chacun null si son angle manque. */
-export function coinsDeLIa(r: ObservationsFacade, image: { largeur: number; hauteur: number }): (P2 | null)[] {
-  const { gauche: g, droite: d } = r.calage.angles, L = image.largeur, H = image.hauteur;
-  return [g && { x: g.x * L, y: g.egout * H }, d && { x: d.x * L, y: d.egout * H }, d && { x: d.x * L, y: d.sol * H }, g && { x: g.x * L, y: g.sol * H }];
 }
 
 /** L'ecart de deux poses : le pire de leurs quatre bords, en part de la largeur de la seconde. */

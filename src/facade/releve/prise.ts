@@ -1,6 +1,7 @@
 // Ce qu'est une prise de vue d'une facade, pour la chaine qui la redresse (facade/releve/chaine.ts) : la photo, la distance mesuree,
-// les reperes de la visee, le champ, le cap et l'attitude. Des types seuls : la camera (ui/releve/camera.ts), les capteurs de distance
-// (ui/releve/profondeur.ts) et la visee (zones/releve/capteurs.ts) les remplissent et les re-exportent.
+// le champ, le cap et l'attitude. Des types seuls : l'audit de la parcelle les remplit (app/audit/parcelle/mesures.ts), la calibration
+// aussi (une photo sans capteurs, chaine.ts::priseSansCapteurs). La visee du releve (ses reperes sur les bords du mur, son plan de
+// prise, ses capteurs de distance) est partie avec sa capture (lot F6).
 
 import type { Image } from '../vision/homographie.js';
 import type { Attitude } from '../../shell/boussole.js';
@@ -23,35 +24,17 @@ export interface Photo {
 }
 
 // `gps` : la position de la photo d'un audit de la parcelle, a quelques metres pres (app/audit/parcelle/mesures.ts).
-export type SourceDistance = 'lidar' | 'webxr' | 'cadrage' | 'rue' | 'gps';
+type SourceDistance = 'lidar' | 'webxr' | 'cadrage' | 'rue' | 'gps';
 
 export interface MesureDistance {
   distance: number;
   source: SourceDistance;
-  /**
-   * La geometrie de l'image que voit le capteur, quand il la donne (module natif) : sans video dans
-   * la page, c'est elle - et non la taille de l'ecran - qui dit ce que la photo couvrira.
-   */
-  camera?: { largeurPx: number; hauteurPx: number; focalePx: number };
-}
-
-/**
- * Les deux reperes a poser sur les bords du mur : sa largeur est la seule taille connue (le plan), la
- * distance s'en deduit. La hauteur, elle, ne l'est pas - c'est la photo qui la mesure.
- */
-export interface Reperes {
-  a: number;
-  b: number;
-  touches: boolean;
 }
 
 export interface Prise {
   photo: Photo;
   mesure: MesureDistance | null;
-  reperes: Reperes | null;
   champ: number;
-  /** Photos que le plan de prise prevoyait au declenchement (null sans distance). */
-  photosPrevues: number | null;
   /**
    * Le cap de la boussole et l'attitude du telephone au declenchement : ils placent les coins
    * proposes la ou le mur se trouve (facade/calage/calage.ts). Absents d'une photo importee.

@@ -1,18 +1,14 @@
 // Le recalage des points de Claude sur l'image (MD/spec-facades-calage-detection.md §12 bis, « Ce que Plan en fait »). Une position
 // donnee par Claude n'est jamais une cote : c'est une **graine**.
-// - Un coin propose est rattache au croisement de segments le plus proche (calage fin, F§6) : l'aide du releve.
-// - Une boite proposee est ajustee sur les profils de contours (F§9) : l'accord des boites du run d'une facade avec la detection
-//   (facade/regles/facades/ia.ts, lot F2), dans l'audit, le releve et la calibration.
-// Une graine que rien ne soutient dans l'image (aucun segment, aucune arete a moins de 30 cm) reste ou elle est.
+// Une boite proposee est ajustee sur les profils de contours (F§9) : l'accord des boites du run d'une facade avec la detection
+// (facade/regles/facades/ia.ts, lot F2), dans l'audit et la calibration. Une graine que rien ne soutient dans l'image (aucune arete a
+// moins de 30 cm) reste ou elle est.
 //
 // Tout est pur. (Le renfort a trois passes votees, qui appliquait ici ses avis et ses graines, est parti au lot F3 : le run unique
-// d'une facade le remplace, decide par le moteur de regles.)
+// d'une facade le remplace, decide par le moteur de regles. Le recalage des coins de Claude sur les segments de la photo, qui servait
+// l'aide du releve, est parti avec elle au lot F6.)
 
-import { au } from '../../util/tableaux.js';
-import { pxParMetreDesCoins } from '../calage/calage.js';
-import { intersection, ligneParPoints } from '../calage/calageFin.js';
-import type { Image, P2 } from '../vision/homographie.js';
-import type { Segment } from '../vision/segments.js';
+import type { Image } from '../vision/homographie.js';
 
 /** Au-dela de 30 cm, une arete ne soutient plus une graine (F§12 bis). */
 const RAYON_SOUTIEN_M = 0.3;
@@ -20,91 +16,8 @@ const RAYON_SOUTIEN_M = 0.3;
 const COUVERTURE_ARETE = 0.6;
 /** La resolution de travail des profils : 2 cm suffisent a un bord au centimetre pres apres affinage. */
 const PX_PAR_M_PROFILS = 50;
-/** La precision d'une graine de coin : un demi-dixieme de la photo (Claude situe un point a un dixieme pres). */
-const DIXIEMES_PHOTO = 10;
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
-
-/* ------------------------------------------------------------------------------------------------
- * Les coins : le croisement de segments le plus proche
- * --------------------------------------------------------------------------------------------- */
-
-interface CoinRecale {
-  /** Le croisement retenu, en pixels de la photo. */
-  point: P2;
-  /** Distance de la graine au croisement, en pixels. */
-  ecartPx: number;
-}
-
-/** Les deux voisins d'un coin (HG, HD, BD, BG) : les aretes qui en partent. */
-const VOISINS: readonly [number, number][] = [[1, 3], [0, 2], [3, 1], [2, 0]];
-
-const unitaire = (a: P2, b: P2): P2 | null => {
-  const l = Math.hypot(b.x - a.x, b.y - a.y);
-  return l > 1e-9 ? { x: (b.x - a.x) / l, y: (b.y - a.y) / l } : null;
-};
-
-/** Distance d'un point a un segment (et non a sa droite) : le segment doit atteindre le croisement. */
-function distanceAuSegment(p: P2, g: Segment): number {
-  const dx = g.x2 - g.x1, dy = g.y2 - g.y1;
-  const l2 = dx * dx + dy * dy;
-  const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - g.x1) * dx + (p.y - g.y1) * dy) / l2)) : 0;
-  return Math.hypot(p.x - (g.x1 + t * dx), p.y - (g.y1 + t * dy));
-}
-
-/**
- * Une arete du mur est longue : un segment de moins de 15 % du cote attendu est un joint de brique,
- * une pierre, un petit bois, pas un bord de mur.
- */
-const PART_COTE_MIN = 0.15;
-
-/** Les segments qui suivent la direction `d` (a 15 degres pres), longs d'au moins `longueurMin`, et passent a moins de `rayon` de `graine`. */
-function segmentsVers(segments: readonly Segment[], graine: P2, d: P2, rayon: number, longueurMin: number): Segment[] {
-  const cosMax = Math.cos((15 * Math.PI) / 180);
-  return segments.filter((g) => {
-    if (g.longueur < longueurMin) return false;
-    const u = unitaire({ x: g.x1, y: g.y1 }, { x: g.x2, y: g.y2 });
-    if (!u || Math.abs(u.x * d.x + u.y * d.y) < cosMax) return false;
-    return distanceAuSegment(graine, g) <= rayon;
-  });
-}
-
-/**
- * Rattache les graines de coins (pixels de la photo ; null : Claude ne l'a pas situe) au croisement le
- * plus proche de deux segments qui suivent les deux aretes du coin. La recherche va jusqu'a un
- * demi-dixieme de la photo (la precision de la graine) ; le croisement n'est retenu que si chacun de
- * ses deux segments passe a moins de 30 cm de lui. Rend, pour chaque coin, le croisement, ou null :
- * la graine n'est soutenue par rien, elle est rejetee et le coin de l'algorithme reste.
- */
-export function recalerCoins(graines: readonly (P2 | null)[], segments: readonly Segment[], largeurM: number, hauteurM: number, image: { largeur: number; hauteur: number }, repli: readonly P2[]): (CoinRecale | null)[] {
-  // Le quadrilatere de reference : les graines, completees par les coins de l'algorithme.
-  const quad = [0, 1, 2, 3].map((k) => graines[k] ?? au(repli, k));
-  const pxParM = pxParMetreDesCoins(quad, largeurM, hauteurM) ?? 0;
-  const soutien = Math.max(4, RAYON_SOUTIEN_M * pxParM);
-  const demiRepere = 0.5 * Math.max(image.largeur, image.hauteur) / DIXIEMES_PHOTO;
-  const recherche = Math.max(soutien, demiRepere);
-  return [0, 1, 2, 3].map((k) => {
-    const g = graines[k];
-    if (!g) return null;
-    const [a, b] = au(VOISINS, k);
-    const da = unitaire(g, au(quad, a)), db = unitaire(g, au(quad, b));
-    if (!da || !db) return null;
-    const la = Math.hypot(au(quad, a).x - g.x, au(quad, a).y - g.y), lb = Math.hypot(au(quad, b).x - g.x, au(quad, b).y - g.y);
-    const A = segmentsVers(segments, g, da, recherche, Math.max(12, PART_COTE_MIN * la)), B = segmentsVers(segments, g, db, recherche, Math.max(12, PART_COTE_MIN * lb));
-    let meilleur: { point: P2; score: number; ecart: number } | null = null;
-    for (const s of A) for (const t of B) {
-      const ls = ligneParPoints({ x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 }), lt = ligneParPoints({ x: t.x1, y: t.y1 }, { x: t.x2, y: t.y2 });
-      const p = ls && lt ? intersection(ls, lt) : null;
-      if (!p) continue;
-      const ecart = Math.hypot(p.x - g.x, p.y - g.y);
-      if (ecart > recherche || distanceAuSegment(p, s) > soutien || distanceAuSegment(p, t) > soutien) continue;
-      // Le plus proche, et a distance egale le mieux soutenu (les plus longs segments).
-      const score = ecart / recherche - 0.5 * Math.min(1, (s.longueur + t.longueur) / Math.max(1, la + lb));
-      if (!meilleur || score < meilleur.score) meilleur = { point: p, score, ecart };
-    }
-    return meilleur ? { point: { x: Math.round(meilleur.point.x * 10) / 10, y: Math.round(meilleur.point.y * 10) / 10 }, ecartPx: Math.round(meilleur.ecart * 10) / 10 } : null;
-  });
-}
 
 /* ------------------------------------------------------------------------------------------------
  * Les boites : les profils de contours

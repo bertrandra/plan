@@ -1,17 +1,15 @@
-// Le releve de facade (zones/Releve.tsx), etape 5 : verifier, corriger, valider.
+// L'editeur d'une facade relevee (zones/Releve.tsx, lot F6) : l'elevation et ses ouvertures, a corriger (nature, cotes, ajout,
+// retrait, verification), la partie basse d'un mur en L ; « Valider » ecrit l'edition en un pas d'historique.
 
-import { useEffect, useState, type ReactNode } from 'react';
 import { au } from '../../util/tableaux.js';
 import { Icone } from '../icones.js';
 import { classer } from '../../facade/detection/detection.js';
 import { ajouterDansLaGrille, memeHauteurNiveau, memeTailleTravee } from '../../facade/detection/structure.js';
 import { retouchee } from '../../facade/detection/verification.js';
 import { texteDetails, texteOrigine } from './ouvertures.js';
-import { LIBELLES_FORME_TOIT, formesAuChoix, penteDeg, hauteurPignon } from '../../facade/toits/toit.js';
-import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../../model/types.js';
+import type { OuvertureFacade, TypeOuverture, PartieBasse, CalageReleve } from '../../model/types.js';
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
-import { ChampCm, Elevation, LegendeMasque } from './Elevation.js';
-import { type Resultat } from '../../facade/releve/serie.js';
+import { ChampCm, Elevation } from './Elevation.js';
 import { pxParMDuCalage, textePrecision } from '../../facade/releve/analyseSerie.js';
 
 /**
@@ -41,8 +39,8 @@ function GestesGrille({ i, ouvertures, setOuvertures, largeur }: { i: number; ou
   );
 }
 
-/** La fiche de l'ouverture choisie : origine et details, nature, cotes au centimetre, gestes, retrait. */
-function FicheOuverture({ v, i, maj, retirer }: { v: Verification; i: number; maj: (c: Partial<OuvertureFacade>) => void; retirer: () => void }) {
+/** La fiche de l'ouverture choisie : origine et details, nature, cotes au centimetre, gestes, verification, retrait. */
+function FicheOuverture({ v, i, maj, verifier, retirer }: { v: Verification; i: number; maj: (c: Partial<OuvertureFacade>) => void; verifier: (oui: boolean) => void; retirer: () => void }) {
   const o = au(v.ouvertures, i);
   const { largeur, hauteurMur } = v;
   const details = texteDetails(o.details);
@@ -72,6 +70,11 @@ function FicheOuverture({ v, i, maj, retirer }: { v: Verification; i: number; ma
         <ChampCm libelle="Hauteur" valeur={o.h} onChange={(h) => maj({ h: Math.max(0.1, Math.min(h, hauteurMur - o.y)) })} />
       </div>
       <GestesGrille i={i} ouvertures={v.ouvertures} setOuvertures={v.setOuvertures} largeur={largeur} />
+      {/* Verifiee, l'ouverture est verrouillee : plus aucun rejeu de l'audit ne la deplace ni ne la retire (model/protections.ts). */}
+      <label className="releveCase">
+        <input data-controle="releve.verifierOuverture" type="checkbox" checked={!!o.verifieeLe} onChange={(e) => verifier(e.target.checked)} />
+        {o.verifieeLe ? `Vérifiée sur la photo le ${o.verifieeLe.split('-').reverse().join('/')} : aucun rejeu ne la déplace` : 'Vérifiée sur la photo : aucun rejeu ne la déplacera'}
+      </label>
       <button data-controle="releve.retirerOuverture" type="button" className="secondary small" onClick={retirer}>
         <Icone nom="supprimer" taille={16} /> Retirer cette ouverture
       </button>
@@ -126,179 +129,28 @@ function BarreOuvertures({ v }: { v: Verification }) {
   );
 }
 
-/**
- * Le toit lu sur la facade, corrigeable. Il remplace celui du batiment (celui du cadastre, ou d'un
- * releve precedent) : c'est la derniere facade relevee qui definit le toit. Sur un pignon, la facade
- * porte le triangle du toit, dont la hauteur s'ajoute a celle de l'egout.
- */
-function CarteToit({
-  toit,
-  setToit,
-  appliquer,
-  setAppliquer,
-  contour,
-  cote,
-  hauteurMur,
-  automatique,
-}: {
-  toit: Toit | null;
-  setToit: (t: Toit) => void;
-  appliquer: boolean;
-  setAppliquer: (v: boolean) => void;
-  automatique: 'compose' | 'ign' | null;
-  contour: PtBrut[];
-  cote: number;
-  hauteurMur: number;
-}) {
-  if (!toit) {
-    return (
-      <div className="releveToit">
-        <div className="releveSousTitre">Toit</div>
-        <p className="releveNote">Le toit n'est pas assez visible sur la photo : celui du bâtiment reste tel quel.</p>
-      </div>
-    );
-  }
-  const pignon = hauteurPignon(contour, toit, cote);
-  return (
-    <div className="releveToit">
-      <div className="releveSousTitre">Toit</div>
-      <p className="releveNote">
-        Lu sur la façade : {LIBELLES_FORME_TOIT[toit.forme].toLowerCase()}
-        {toit.forme !== 'plat' ? `, faîtage à ${fr(toit.hauteur)} m au-dessus de l'égout (pente ${fr(penteDeg(contour, toit), 0)}°)` : ''}.
-        {pignon > 0.01 ? ` Ce mur est un pignon : la façade monte à ${fr(hauteurMur + pignon)} m au faîtage.` : ''}
-      </p>
-      <label className="releveCase">
-        <input data-controle="releve.appliquerToit" type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} />
-        {automatique === 'compose'
-          ? 'Remplacer le toit lu au LiDAR (corps et pignons) par celui-ci'
-          : automatique === 'ign'
-          ? 'Remplacer le toit lu à l’IGN par celui-ci'
-          : 'Remplacer le toit du bâtiment par celui-ci'}
-      </label>
-      {automatique && (
-        <p className="releveNote">
-          {automatique === 'compose' ? 'Cochée, la Vue 3D montre ce toit à la place des corps, et ' : 'Cochée, '}
-          le LiDAR ne relit plus le toit de ce bâtiment. Laissée vide, le relevé garde la photo et les ouvertures du mur.
-        </p>
-      )}
-      {appliquer && (
-        <div className="releveChamps">
-          <label className="releveCm">
-            <span>Forme</span>
-            <select data-controle="releve.formeToit" value={toit.forme} onChange={(e) => setToit({ ...toit, forme: e.target.value as FormeToit })}>
-              {formesAuChoix(toit.forme).map((k) => (
-                <option key={k} value={k}>
-                  {LIBELLES_FORME_TOIT[k]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {toit.forme !== 'plat' && (
-            <label className="releveCm">
-              <span>Faîtage</span>
-              <span className="champNombre">
-                <input data-controle="releve.faitage"
-                  type="number"
-                  step={0.05}
-                  min={0}
-                  max={20}
-                  value={toit.hauteur}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (v >= 0) setToit({ ...toit, hauteur: v });
-                  }}
-                />
-                <span className="unite">m</span>
-              </span>
-            </label>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Ce que l'etape Verifier lit et modifie. */
+/** Ce que l'editeur lit et modifie. */
 export interface Verification {
-  resultat: Resultat;
+  /** L'elevation redressee du releve, ou null (photo restee sur un autre appareil). */
+  texture: string | null;
+  /** Hauteur couverte par la texture (le mur, puis la bande au-dessus de l'egout). */
+  hauteurTexture: number;
   largeur: number;
   hauteurMur: number;
+  /** Le calage du releve : la precision de ses cotes. */
+  calage: CalageReleve | null;
   ouvertures: OuvertureFacade[];
   setOuvertures: (o: OuvertureFacade[]) => void;
   choisie: number | null;
   setChoisie: (i: number | null) => void;
-  /** Les baies devinees decochees, en pointille (spec facades §10.5) ; les garder, ou les y rendre. */
+  /** Les baies devinees rendues au pointille (spec facades §10.5) ; les garder, ou les y rendre. */
   devinees: OuvertureFacade[];
   garder: (i: number) => void;
   ecarter: (i: number) => void;
-  toit: Toit | null;
-  setToit: (t: Toit) => void;
-  appliquerToit: boolean;
-  setAppliquerToit: (v: boolean) => void;
-  /** Le toit automatique que la case remplacerait (app/releve/releve.ts::toitAutomatique) : la case le dit. */
-  toitAutomatique: 'compose' | 'ign' | null;
-  contour: PtBrut[];
-  cote: number;
   partieBasse: PartieBasse | null;
   setPartieBasse: (p: PartieBasse) => void;
-  /** La hauteur d'egout du batiment avant ce releve (cadastre, ou releve precedent), pour comparaison. */
-  hauteurEstimee: number;
-  hauteurMesuree: boolean;
-  /** Corrige la hauteur mesuree : la facade s'etire en hauteur, sa largeur (le plan) ne bouge pas. */
-  corrigerHauteur: (v: number) => void;
-}
-
-/** La hauteur du mur, mesuree sur la photo ; corrigeable si l'on connait mieux. */
-function CarteHauteur({ v }: { v: Verification }) {
-  return (
-    <div className="releveToit">
-      <div className="releveSousTitre">Hauteur</div>
-      <p className="releveNote">
-        {v.hauteurMesuree
-          ? `Mesurée sur la photo, à l'échelle de la largeur du plan (${fr(v.largeur)} m). Le bâtiment garde ses ${fr(v.hauteurEstimee)} m : la façade y sera ramenée, ouvertures comprises.`
-          : `La photo ne permettait pas de la mesurer : c'est celle du bâtiment jusqu'ici (cadastre ou relevé précédent). Corrigez-la si vous la connaissez.`}
-      </p>
-      <div className="releveChamps">
-        <ChampHauteur valeur={v.hauteurMur} onChange={v.corrigerHauteur} />
-      </div>
-    </div>
-  );
-}
-
-/**
- * La hauteur a l'egout, en metres. Elle ne s'applique qu'a la validation du champ (Entree, ou en le
- * quittant) : chaque correction etire les ouvertures, une frappe intermediaire (« 5 » avant « 5,8 »)
- * ne doit pas le faire.
- */
-function ChampHauteur({ valeur, onChange }: { valeur: number; onChange: (v: number) => void }) {
-  const [texte, setTexte] = useState(valeur.toFixed(2));
-  useEffect(() => setTexte(valeur.toFixed(2)), [valeur]);
-  const appliquer = () => {
-    const v = parseFloat(texte.replace(',', '.'));
-    if (Number.isFinite(v) && v >= 1 && v <= 60 && Math.abs(v - valeur) >= 0.005) onChange(Math.round(v * 100) / 100);
-    else setTexte(valeur.toFixed(2));
-  };
-  return (
-    <label className="releveCm">
-      <span>À l'égout</span>
-      <span className="champNombre">
-        <input data-controle="releve.hauteur"
-          type="number"
-          inputMode="decimal"
-          step={0.01}
-          min={1}
-          max={60}
-          value={texte}
-          onChange={(e) => setTexte(e.target.value)}
-          onBlur={appliquer}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') appliquer();
-          }}
-        />
-        <span className="unite">m</span>
-      </span>
-    </label>
-  );
+  /** Le jour d'aujourd'hui (AAAA-MM-JJ) : la date d'une ouverture que la personne verifie. */
+  aujourdhui: string;
 }
 
 /** La partie basse d'un mur en L, telle que la photo l'a mesuree : la position du decrochement et l'egout bas. */
@@ -322,58 +174,39 @@ function CartePartieBasse({ p, largeur, hauteurMur, maj }: { p: PartieBasse; lar
   );
 }
 
-/**
- * La part du mur que la serie n'a pas vue, completee a la teinte du mur. Le masque d'une fusion n'en
- * fait pas partie : la texture y montre l'obstacle, hachure (lot G20), pas la teinte du mur.
- */
-function AvisCouverture({ resultat }: { resultat: Resultat }) {
-  const m = resultat.masque;
-  const vue = Math.min(1, resultat.couverture + (m?.part ?? 0));
-  if (vue >= 0.9) return null;
-  return <p className="releveAvis">{m ? 'Les photos couvraient' : 'La photo couvrait'} {Math.round(vue * 100)} % du mur ; le reste est complété à la teinte du mur.</p>;
-}
-
-export function EtapeResultat({ v, onRevoir, onValider, aide = null }: { v: Verification; onRevoir: () => void; onValider: () => void; aide?: ReactNode }) {
-  const { resultat, largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
-  const precision = textePrecision(pxParMDuCalage(resultat.calage));
+export function EditionFacade({ v, onAnnuler, onValider }: { v: Verification; onAnnuler: () => void; onValider: () => void }) {
+  const { largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
+  const precision = textePrecision(pxParMDuCalage(v.calage));
   // Corrigee au doigt (cote, type), l'ouverture est verifiee : elle quitte le pointille.
   const maj = (i: number, champ: Partial<OuvertureFacade>) => setOuvertures(ouvertures.map((x, k) => (k === i ? retouchee({ ...x, ...champ }) : x)));
   return (
     <>
-      <div className="releveCorps releveCorpsPhoto">
-        {resultat.avis && (
-          <p className="releveAvis" role="alert">
-            {resultat.avis}
-          </p>
-        )}
-        <AvisCouverture resultat={resultat} />
-        <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
-          devinees={v.devinees} garder={v.garder} masque={resultat.masque?.zones ?? null} />
-        {resultat.masque && <LegendeMasque part={resultat.masque.part} />}
+      <div className="releveCorps">
+        {!v.texture && <p className="releveNote">La photo de ce mur est restée sur l’appareil qui l’a prise : ses ouvertures se corrigent sans elle.</p>}
+        <Elevation texture={v.texture} Ht={v.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
+          devinees={v.devinees} garder={v.garder} />
         <BarreOuvertures v={v} />
-        {aide}
         {precision && <p className="releveNote">{precision}</p>}
         {choisie !== null && ouvertures[choisie] && (
           <FicheOuverture
             v={v}
             i={choisie}
             maj={(c) => maj(choisie, c)}
+            verifier={(oui) => setOuvertures(ouvertures.map((x, k) => { if (k !== choisie) return x; const o = { ...x }; if (oui) o.verifieeLe = v.aujourdhui; else delete o.verifieeLe; return o; }))}
             retirer={() => {
               setOuvertures(ouvertures.filter((_, k) => k !== choisie));
               setChoisie(null);
             }}
           />
         )}
-        <CarteHauteur v={v} />
         {v.partieBasse && <CartePartieBasse p={v.partieBasse} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartieBasse} />}
-        <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} automatique={v.toitAutomatique} contour={v.contour} cote={v.cote} hauteurMur={hauteurMur} />
       </div>
       <div className="relevePied">
-        <button data-controle="releve.revoir" type="button" className="secondary" onClick={onRevoir}>
-          Revoir les coins
+        <button data-controle="releve.annuler" type="button" className="secondary" onClick={onAnnuler}>
+          Annuler
         </button>
         <button data-controle="releve.valider" type="button" onClick={onValider}>
-          Valider le relevé
+          Valider la façade
         </button>
       </div>
     </>

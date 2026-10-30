@@ -103,7 +103,7 @@ export const CHAINE: readonly NoeudChaine[] = [
   { id: 'o3d.lanterneau', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Lanterneau', detail: 'Un coffre bas à dessus plat vitré, sur le pan ou sur le toit plat.', forme: 'lanterneau', mode: 'mixte', ou: 'facade/toits/toitFormes.ts#facettesLucarnes' },
   { id: 'objets3d.elements', parent: 'objets3d', genre: 'objet', titre: 'Éléments de bâtiment' },
   { id: 'o3d.murs', parent: 'objets3d.elements', genre: 'objet', titre: 'Murs, pignons et murs hauts', detail: 'Le prisme à l’égout le plus bas, puis les murs jusqu’au faîtage.', mode: 'auto', ou: 'three/toitCorps3d.ts' },
-  { id: 'o3d.fenetres', parent: 'objets3d.elements', genre: 'objet', titre: 'Fenêtres et portes', detail: 'Relevé de façade sur photo, sinon disposition automatique.', mode: 'mixte', ou: 'facade/ouvertures.ts' },
+  { id: 'o3d.fenetres', parent: 'objets3d.elements', genre: 'objet', titre: 'Fenêtres et portes', detail: 'Façade photographiée dans l’audit (et corrigée dans son éditeur), sinon disposition automatique.', mode: 'mixte', ou: 'facade/ouvertures.ts' },
   { id: 'o3d.cheminees', parent: 'objets3d.elements', genre: 'objet', titre: 'Cheminées', detail: 'Souches notées sur place ou vues par Claude.', mode: 'mixte', ou: 'model/types.ts#Cheminee' },
   { id: 'o3d.arbres', parent: 'objets3d.elements', genre: 'objet', titre: 'Arbres', detail: 'Générés par EZ-tree depuis la bibliothèque d’essences.', mode: 'manuel', ecran: '?admin&ecran=arbres', ou: 'three/arbre3d.ts' },
 

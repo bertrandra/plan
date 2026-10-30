@@ -193,7 +193,7 @@ describe('branche « Écritures à surveiller »', () => {
 describe('boutons de l inspecteur dans l arbre', () => {
   const section: Section = { id: 'cotes', titre: 'Côtés', champs: [
     { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', agit: 'projet', executer: () => {} },
-    { type: 'bouton', cle: 'relever', libelle: 'Relever', agit: { commande: 'facade.relever' }, executer: () => {} },
+    { type: 'bouton', cle: 'modifier', libelle: 'Modifier', agit: { commande: 'facade.modifier' }, executer: () => {} },
     { type: 'bouton', cle: 'aller', libelle: 'Aller', agit: 'interface', executer: () => {} }
   ] };
   const tous = aplatir(construireArbre({ appVersion: '9', commandes: [], exposition: EXPOSITION, inspecteur: [{ cle: 'polygon.terrasse', nom: 'Polygone', sections: [section] }] }));
@@ -201,7 +201,7 @@ describe('boutons de l inspecteur dans l arbre', () => {
 
   it('dit sur quoi chaque bouton agit', () => {
     expect(agit('supprimer')).toContain('refusé en lecture seule');
-    expect(agit('relever')).toContain('facade.relever');
+    expect(agit('modifier')).toContain('facade.modifier');
     expect(agit('aller')).toBe('l’interface seulement');
   });
 

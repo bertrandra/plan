@@ -9,8 +9,9 @@ import { creerRegistre } from '../../../src/app/commandes.js';
 import type { IdEtape } from '../../../src/model/etapeFacade.js';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../src/regles/facades/observations.js';
 
-// L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un nouveau cas avec ses photos,
-// la mesure et la calibration sur un cas fabrique d'une scene du banc, et l'application des reglages.
+// L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un cas tire d'une facade d'un audit
+// (la calibration ne prend plus de photos pour elle, lot F6), la mesure et la calibration sur un cas fabrique d'une scene du banc, et
+// l'application des reglages.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -62,7 +63,6 @@ function fausses(plus: Partial<DepsCalibration> = {}) {
     lireCas: async (id) => stock.get(id),
     enregistrerCas: vi.fn(async (id: string, c: CasStocke) => { stock.set(id, c); return null; }),
     supprimerCas: vi.fn(async (id: string) => { stock.delete(id); return null; }),
-    reduirePhoto: async () => 'data:image/jpeg;base64,NEUVE',
     decoder: async (): Promise<Image> => scene.image,
     elevationEnUrl: () => 'data:image/jpeg;base64,ELEV',
     maintenant: () => new Date('2026-10-17T10:00:00Z'),
@@ -81,14 +81,20 @@ const attendre = async (ms = 0) => { await act(async () => { await new Promise((
 const attendreQue = async (ok: () => boolean) => { for (let t = 0; t < 100 && !ok(); t++) await attendre(100); };
 
 describe('l ecran de calibration', () => {
-  it('liste les cas du serveur et propose un nouveau cas', async () => {
-    const { deps } = fausses();
+  it('liste les cas du serveur ; un cas ne nait que d une facade de l audit, aucune photo ne se prend ici', async () => {
+    const { deps } = fausses({ audits: async () => [], facadesDAudit: async () => [] });
     await monter(deps);
     expect(hote.textContent).toContain('Calibrer la détection');
     expect(hote.textContent).toContain('Synthèse 02');
     expect(hote.textContent).toContain('Valeurs livrées en usage');
-    expect(bouton('calibration.nouveauCas')).not.toBeNull();
+    expect(bouton('calibration.depuisAudit')).not.toBeNull();
+    expect(hote.querySelector('[data-controle="calibration.nouveauCas"], input[type="file"]')).toBeNull();
     expect(bouton('calibration.revenir')?.disabled).toBe(true);
+    // Le cas ouvert non plus : on y retire une photo, on n'en ajoute pas.
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    expect(bouton('calibration.enregistrerCas')).not.toBeNull();
+    expect(hote.querySelector('input[type="file"]')).toBeNull();
   });
 
   it('depuis un audit : chaque facade montre ses photos en vignettes au bout de sa ligne', async () => {
@@ -105,61 +111,54 @@ describe('l ecran de calibration', () => {
     expect(ligne.lastElementChild?.className).toBe('calVignettesFacade');
   });
 
-  it('enregistre un nouveau cas : nom, photo, dimensions, relu sur la photo', async () => {
-    const { deps, stock } = fausses();
+  it('enregistre un cas tire d un audit : rejoue a l ouverture, coins cherches, detection proposee, nom exige, relu sur la photo', async () => {
+    const tire: CasStocke = { ...scene.cas, nom: 'Maison · façade nord (AE0101)', statut: 'brouillon', ouvertures: [], photos: [{ fichier: 'photo-1', coins: [{ x: 120, y: 160 }, { x: 880, y: 160 }, { x: 880, y: 1120 }, { x: 120, y: 1120 }] }] };
+    const { deps, stock } = fausses({ audits: async () => [{ id: 'a1', libelle: 'Audit du 29 octobre' }], facadesDAudit: async () => [{ libelle: 'Maison · façade nord', cas: tire }] });
     await monter(deps);
-    await act(async () => { bouton('calibration.nouveauCas')?.click(); });
-    // Sans nom, l'enregistrement est refuse avec un mot clair.
-    await act(async () => { bouton('calibration.enregistrerCas')?.click(); });
-    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/nom/);
-    const nom = hote.querySelector('[data-controle="calibration.nomCas"]') as HTMLInputElement;
-    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(nom, 'Maison nord'); nom.dispatchEvent(new Event('input', { bubbles: true })); });
-    await act(async () => { bouton('calibration.enregistrerCas')?.click(); });
-    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/photo/);
-    const champ = hote.querySelector('[data-controle="calibration.photo"]') as HTMLInputElement;
-    Object.defineProperty(champ, 'files', { value: [new File(['x'], 'p.jpg')], configurable: true });
-    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
-    // Ajouter une photo cherche ses coins, redresse le mur et propose la detection, sans autre geste.
+    await act(async () => { bouton('calibration.depuisAudit')?.click(); await Promise.resolve(); });
+    await act(async () => { bouton('calibration.choisirAudit')?.click(); await Promise.resolve(); });
+    await act(async () => { bouton('calibration.choisirFacade')?.click(); await Promise.resolve(); });
+    // Le cas se rejoue des l'ouverture, ses coins cherches, et la detection propose les ouvertures, sans autre geste.
     await attendreQue(() => !!bouton('calibration.proposer'));
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
-    expect(hote.querySelectorAll('.releveCoins [role="slider"]')).toHaveLength(4);
     expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés|lus sur l’assemblage)/);
-    expect(bouton('calibration.proposer')).not.toBeNull();
     expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
+    expect(hote.textContent).toContain('1 photo, prise dans l’audit.');
+    // Sans nom, l'enregistrement est refuse avec un mot clair.
+    const nom = hote.querySelector('[data-controle="calibration.nomCas"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(nom, ' '); nom.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); });
+    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/nom/);
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(nom, 'Maison nord'); nom.dispatchEvent(new Event('input', { bubbles: true })); });
     const valide = hote.querySelector('[data-controle="calibration.valide"]') as HTMLInputElement;
     await act(async () => { valide.click(); });
     await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
     await attendre(10);
     const ajoute = [...stock.entries()].find(([id]) => id.startsWith('cas-') && id !== 'cas-a');
-    expect(ajoute?.[1]).toMatchObject({ nom: 'Maison nord', statut: 'valide', images: ['data:image/jpeg;base64,NEUVE'] });
+    expect(ajoute?.[1]).toMatchObject({ nom: 'Maison nord', statut: 'valide', images: scene.cas.images });
     expect(ajoute?.[1].photos[0]?.coins).toHaveLength(4);
     // Le cas rejoint la liste et l'editeur se ferme.
     expect(hote.textContent).toContain('Maison nord');
     expect(bouton('calibration.enregistrerCas')).toBeNull();
-  });
+  }, 60_000);
 
-  it('ajoute une seconde photo : le rejeu seul, la photo qui ne se redresse pas est signalee et gardee', async () => {
+  it('un cas tire d un audit a deux photos : la photo qui ne se redresse pas est signalee et gardee', async () => {
     const grise: Image = { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(640 * 480 * 4).fill(128) };
-    let n = 0;
-    const { deps } = fausses({ decoder: async () => (n++ < 2 ? scene.image : grise) });
+    const tire: CasStocke = { ...scene.cas, statut: 'brouillon', ouvertures: [], images: ['data:image/jpeg;base64,SCENE', 'data:image/jpeg;base64,GRISE'],
+      photos: [{ fichier: 'photo-1', coins: scene.cas.photos[0]!.coins }, { fichier: 'photo-2', coins: [{ x: 120, y: 160 }, { x: 520, y: 160 }, { x: 520, y: 400 }, { x: 120, y: 400 }] }] };
+    const { deps } = fausses({ decoder: async (u: string) => (u.endsWith('GRISE') ? grise : scene.image), audits: async () => [{ id: 'a1', libelle: 'Audit' }], facadesDAudit: async () => [{ libelle: 'Maison · façade nord', cas: tire }] });
     await monter(deps);
-    await act(async () => { bouton('calibration.nouveauCas')?.click(); });
-    const champ = hote.querySelector('[data-controle="calibration.photo"]') as HTMLInputElement;
-    for (let k = 0; k < 2; k++) {
-      Object.defineProperty(champ, 'files', { value: [new File(['x'], 'p' + k + '.jpg')], configurable: true });
-      await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
-      await attendre(1500);
-    }
-    // Le rejeu de la seconde photo peut finir apres l'attente fixe sur une machine chargee : on attend
-    // ce qu'il ecrit plutot qu'une duree.
-    await attendreQue(() => /coins devinés, à vérifier/.test(hote.textContent ?? '') && !!hote.querySelector('.barreFacadeSegment.echec'));
+    await act(async () => { bouton('calibration.depuisAudit')?.click(); await Promise.resolve(); });
+    await act(async () => { bouton('calibration.choisirAudit')?.click(); await Promise.resolve(); });
+    await act(async () => { bouton('calibration.choisirFacade')?.click(); await Promise.resolve(); });
+    await attendreQue(() => /coins devinés, à vérifier/.test(hote.textContent ?? '') && hote.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer');
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
-    expect(hote.textContent).toMatch(/coins devinés, à vérifier/);
-    // La barre le dit sur son segment « Image », et l'etape du redressement, ouverte, dit pourquoi et quel geste faire.
-    expect(hote.querySelector('.barreFacadeSegment.echec')?.textContent).toMatch(/Image/);
+    expect([...hote.querySelectorAll('[data-controle="calibration.originePhoto"]')].map((x) => x.textContent)).toEqual(['coins trouvés', 'coins devinés, à vérifier']);
+    // La barre le dit sur son segment « Image », a confirmer, et l'etape du redressement, ouverte, dit quelle photo et quel geste faire.
+    expect(hote.querySelector('.barreFacadeSegment.a-confirmer')?.textContent).toMatch(/Image/);
     await act(async () => { (hote.querySelector('.calFrise [data-etape="redressement"]') as HTMLButtonElement).click(); });
-    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/ne se redresse pas : posez quatre repères/);
-    expect(hote.querySelectorAll('.barreFacadeLigne')[0]?.textContent).toBe('Image : redressement, en échec');
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toBe('1 photo redressée entière sur 2 ; la photo 2 ne se redresse pas : posez quatre repères.');
+    expect(hote.querySelectorAll('.barreFacadeLigne')[0]?.textContent).toBe('Image : redressement, à confirmer');
   }, 60_000);
 
   it('rejoue un cas, part de la detection pour annoter, et enregistre', async () => {

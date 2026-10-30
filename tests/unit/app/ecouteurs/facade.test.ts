@@ -6,7 +6,7 @@ import { droits } from './faux.js';
 import type { EtatApp } from '../../../../src/core/state.js';
 import type { ServiceReleve } from '../../../../src/app/releve/releve.js';
 
-// Les commandes de facade (app/ecouteurs/facade.ts) : relever un mur d'un batiment, retirer un
+// Les commandes de facade (app/ecouteurs/facade.ts) : modifier le releve d'un mur (l'editeur, lot F6), retirer un
 // releve en un pas annulable ; ni l'une ni l'autre sans le droit d'ecrire.
 
 function monter(selection: string, ecrire = true) {
@@ -23,16 +23,17 @@ function monter(selection: string, ecrire = true) {
 }
 
 describe('facades', () => {
-  it('relevent un mur d un batiment ou d une annexe, sur le mur designe', () => {
-    expect(monter('terrasse').cmd.etat('facade.relever').utilisable).toBe(false);
-    expect(monter('garage').cmd.etat('facade.relever').utilisable).toBe(true);
+  it('ouvrent l editeur sur le mur designe d un batiment qui a un releve, et sur lui seul', () => {
+    expect(monter('terrasse').cmd.etat('facade.modifier').utilisable).toBe(false);
+    // Sans releve, rien a modifier : la photo se prend dans l'audit.
+    expect(monter('garage').cmd.etat('facade.modifier').utilisable).toBe(false);
     const { ctx, cmd } = monter('maison');
     designerFacade(2);
-    cmd.executer('facade.relever');
+    cmd.executer('facade.modifier');
     expect(ctx.releve.ouvrir).toHaveBeenCalledWith('maison', 2);
-    // La designation ne vaut qu'une fois.
-    cmd.executer('facade.relever');
-    expect(ctx.releve.ouvrir).toHaveBeenLastCalledWith('maison', null);
+    // La designation ne vaut qu'une fois : sans mur designe, l'editeur ne s'ouvre pas.
+    cmd.executer('facade.modifier');
+    expect(ctx.releve.ouvrir).toHaveBeenCalledTimes(1);
   });
 
   it('retirent le releve du mur designe en un pas annulable, et la liste quand elle est vide', () => {
@@ -59,7 +60,7 @@ describe('facades', () => {
     const { ctx, cmd } = monter('maison', false);
     designerFacade(0);
     expect(cmd.executer('facade.retirer')).toBe(false);
-    expect(cmd.executer('facade.relever')).toBe(false);
+    expect(cmd.executer('facade.modifier')).toBe(false);
     expect(ctx.pushHistory).not.toHaveBeenCalled();
     designerFacade(null);
   });

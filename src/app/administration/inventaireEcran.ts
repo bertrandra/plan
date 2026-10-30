@@ -59,7 +59,7 @@ export const ZONES_DOM: Record<string, string> = {
   zoneSurimpression: 'Z4 Canevas', stage: 'Z4 Canevas', zoneVues3d: 'Z4 Vues 3D', zoneSelection: 'Z4 Barre de sélection',
   zoneInspecteur: 'Z5 Inspecteur', zoneResultats: 'Z6 Résultats', zoneEtat: 'Z7 Barre d’état',
   zoneDialogues: 'Z8 Dialogues', zoneNotifications: 'Z9 Notifications', zoneFeuilles: 'Feuilles (téléphone)',
-  zoneNavigation: 'Navigation (téléphone)', zoneReleve: 'Relevé de façade'
+  zoneNavigation: 'Navigation (téléphone)', zoneReleve: 'Éditeur de façade'
 };
 
 /**

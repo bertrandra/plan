@@ -1,6 +1,8 @@
 // L'ecran Admin › Calibrer la detection (`?admin&ecran=calibration`).
 //
-// L'administrateur y prend des photos de facades, annote leurs ouvertures (EditeurCasCalibration), puis mesure la detection
+// L'administrateur y tire des cas des facades photographiees dans l'audit (« Créer un cas depuis cette façade » sous la barre d'une
+// facade de l'audit, ou un audit recu ; lot F6 : la calibration ne prend plus de photos pour elle), annote leurs ouvertures
+// (EditeurCasCalibration), puis mesure la detection
 // sur ces cas (precision, rappel, fiabilite de la confiance) et lui fait chercher de meilleurs reglages
 // (facade/corpusReel.ts::calibrer). « Appliquer » ecrit les reglages sur le serveur (`admin/calibration`, data/admin/) ; chaque
 // page les applique au demarrage (io/calibrationServeur.ts). Rien ne change pour l'utilisateur final, sinon ce que la
@@ -11,7 +13,7 @@
 import { useEffect, useState } from 'react';
 import { EditeurCasCalibration, type OutilsPhotos } from './EditeurCasCalibration.js';
 import {
-  CAS_MIN_CALIBRATION, FORMAT_CALIBRATION, FORMAT_CAS_REEL, PARAMETRES, bilan, calibrer, evaluerPrepare, fiabilite, lireCasStocke,
+  CAS_MIN_CALIBRATION, FORMAT_CALIBRATION, PARAMETRES, bilan, calibrer, evaluerPrepare, fiabilite, lireCasStocke,
   type Bilan, type CasPrepare, type CasStocke, type DocumentCalibration, type ResultatCalibration,
 } from '../facade/corpusReel.js';
 import { preparerPourLaMesure } from '../facade/releve/enchainement.js';
@@ -29,46 +31,6 @@ export interface DepsCalibration extends OutilsPhotos {
   audits?: () => Promise<{ id: string; libelle: string }[]>;
   /** Les facades photographiees d'un audit, chacune deja en cas : photos, largeur du cadastre, hauteur du LiDAR. */
   facadesDAudit?: (id: string) => Promise<{ libelle: string; cas: CasStocke }[]>;
-  /** Les projets du serveur (fichiers de demo) dont un batiment a une facade relevee (facultatif). */
-  projets?: () => Promise<{ id: string; libelle: string }[]>;
-  /** Les facades relevees d'un projet du serveur, chacune deja en cas : la texture, les dimensions, les ouvertures validees. */
-  facadesDeProjet?: (id: string) => Promise<{ libelle: string; cas: CasStocke }[]>;
-  /** Les facades relevees d'un fichier de projet (« Exporter le projet (JSON) »). */
-  facadesDeFichier?: (f: File) => Promise<{ libelle: string; cas: CasStocke }[]>;
-}
-
-/**
- * Creer un cas depuis une facade relevee d'un batiment : celle d'un projet du serveur, ou d'un fichier de projet. Le releve
- * garde l'elevation redressee et les ouvertures que la personne a validees : un cas de detection, deja annote.
- */
-function DepuisUnBatiment({ deps, choisir }: { deps: DepsCalibration; choisir: (cas: CasStocke) => void }) {
-  const [projets, setProjets] = useState<{ id: string; libelle: string }[] | null>(null);
-  const [facades, setFacades] = useState<{ libelle: string; cas: CasStocke }[] | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  if (!deps.facadesDeProjet && !deps.facadesDeFichier) return null;
-  const erreur = (quoi: string) => (e: unknown) => setMessage(quoi + ' : ' + ((e as Error).message || String(e)));
-  const lister = async () => { try { setProjets(await (deps.projets as NonNullable<DepsCalibration['projets']>)()); setFacades(null); setMessage(null); } catch (e) { erreur('Projets illisibles')(e); } };
-  const lire = async (id: string) => { try { setFacades(await (deps.facadesDeProjet as NonNullable<DepsCalibration['facadesDeProjet']>)(id)); setMessage(null); } catch (e) { erreur('Projet illisible')(e); } };
-  const fichier = async (f: File | undefined) => { if (!f) return; try { setProjets(null); setFacades(await (deps.facadesDeFichier as NonNullable<DepsCalibration['facadesDeFichier']>)(f)); setMessage(null); } catch (e) { erreur('Fichier illisible')(e); } };
-  return (
-    <div className="calDepuisAudit">
-      <div className="calLigne">
-        {deps.projets && deps.facadesDeProjet && <button type="button" className="secondary" data-controle="calibration.depuisProjet" onClick={() => { void lister(); }}>Créer un cas depuis un bâtiment d’un projet</button>}
-        {deps.facadesDeFichier && <label className="boutonFichier secondary">
-          <input type="file" accept="application/json,.json" data-controle="calibration.depuisFichier" onChange={(e) => { void fichier(e.target.files?.[0]).then(() => { e.target.value = ''; }); }} />
-          <span>Depuis un fichier de projet (JSON)</span>
-        </label>}
-      </div>
-      {message && <p className="arbMessage" role="alert">{message}</p>}
-      {projets && !facades && (projets.length
-        ? <ul className="calListe" aria-label="Projets">{projets.map((p) => <li key={p.id}><button type="button" className="secondary small" data-controle="calibration.choisirProjet" onClick={() => { void lire(p.id); }}>{p.libelle}</button></li>)}</ul>
-        : <p className="calNote">Aucun projet sur le serveur.</p>)}
-      {facades && (facades.length
-        ? <><p className="calNote">Le mur redressé du relevé, ses dimensions, et les ouvertures validées au relevé comme point de départ : relisez-les sur la photo.</p>
-          <ul className="calListe" aria-label="Façades relevées">{facades.map((f, k) => <li key={k}><button type="button" className="secondary small" data-controle="calibration.choisirReleve" onClick={() => choisir(f.cas)}>{f.libelle}</button></li>)}</ul></>
-        : <p className="calNote">Aucune façade relevée avec sa photo dans ce projet (une photo restée sur un autre appareil ne se relit pas ici).</p>)}
-    </div>
-  );
 }
 
 /**
@@ -109,8 +71,6 @@ export const PARAMETRES_PAR_DEFAUT: readonly string[] = ['areteNette', 'rempliss
 const pc = (x: number | null) => (x === null ? '—' : Math.round(x * 100) + ' %');
 const dec = (x: number | null, n = 2) => (x === null ? '—' : x.toFixed(n).replace('.', ','));
 const nombre = (v: number) => String(Math.round(v * 10000) / 10000).replace('.', ',');
-
-const casVide = (): CasStocke => ({ format: FORMAT_CAS_REEL, version: 1, nom: '', statut: 'brouillon', source: 'admin', largeurM: 9, hauteurM: 5, photos: [], images: [], ouvertures: [] });
 
 function LigneBilan({ nom, b }: { nom: string; b: Bilan }) {
   return <tr><th scope="row">{nom}</th><td>{b.vraies}</td><td>{b.trouvees}</td><td>{pc(b.precision)}</td><td>{pc(b.rappel)}</td><td>{pc(b.f1)}</td><td>{dec(b.cotesMedianesCm, 1)}</td><td>{dec(b.ece)}</td><td>{dec(b.brier, 3)}</td></tr>;
@@ -238,7 +198,6 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
     const erreur = await deps.enregistrerCalibration(suivant);
     if (erreur) setMessage(erreur); else { setDoc(suivant); setMessage(null); }
   };
-  const nouveau = () => setEdition({ id: null, cas: casVide() });
   const nbCalibres = Object.keys(doc.parametres).length;
 
   return (
@@ -246,7 +205,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
       <header className="palEntete">
         <div>
           <h1 className="palTitre">Calibrer la détection</h1>
-          <p className="palSous">Photographiez des façades, annotez leurs ouvertures, puis laissez Plan chercher les réglages qui font le mieux sur vos photos. Les réglages calibrés sont enregistrés sur le serveur (data/admin/calibration.json) et appliqués à chaque page ; les valeurs livrées avec Plan restent disponibles.</p>
+          <p className="palSous">Tirez des cas des façades photographiées dans l’audit, annotez leurs ouvertures, puis laissez Plan chercher les réglages qui font le mieux sur vos photos. Les réglages calibrés sont enregistrés sur le serveur (data/admin/calibration.json) et appliqués à chaque page ; les valeurs livrées avec Plan restent disponibles.</p>
         </div>
         <div className="palActions"><a className="palLien" href={retour}>← Retour à l’admin</a></div>
       </header>
@@ -270,11 +229,9 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
           fermer={() => setEdition(null)} />
         : <section className="calCas" aria-label="Cas de calibration">
           <h2 className="calTitre2">Cas de calibration</h2>
-          <div className="calLigne"><button type="button" data-controle="calibration.nouveauCas" onClick={nouveau}>Nouveau cas (photos)</button></div>
           <DepuisUnAudit deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: true })} />
-          <DepuisUnBatiment deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: false })} />
           {resumes.length === 0
-            ? <p className="calNote">Aucun cas. Prenez des photos de façades variées : brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton. Une vingtaine de cas validés donnent des réglages fiables.</p>
+            ? <p className="calNote">Aucun cas. Photographiez des façades variées dans l’audit (brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton), puis « Créer un cas depuis cette façade » sous leur barre. Une vingtaine de cas validés donnent des réglages fiables.</p>
             : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
               <tbody>{resumes.map((r) => <tr key={r.id}><th scope="row">{r.nom}</th><td>{r.statut === 'valide' ? 'Validé' : 'Brouillon'}</td><td>{r.photos}</td><td>{r.ouvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirCas" aria-label={'Ouvrir le cas ' + r.nom} onClick={() => { void ouvrir(r.id); }}>Ouvrir</button></td></tr>)}</tbody></table>}
         </section>}

@@ -1,83 +1,122 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerServiceReleve, toitAutomatique } from '../../../../src/app/releve/releve.js';
-import { poserPositionGps, retirerPositionGps } from '../../../../src/three/positionGps3d.js';
-import type { ObjetPlan, ReleveFacade, Toit } from '../../../../src/model/types.js';
+import { readFileSync } from 'node:fs';
+import { creerServiceReleve } from '../../../../src/app/releve/releve.js';
+import { migrer, schemaAEcrire, schemaMinimal } from '../../../../src/model/migrations.js';
+import { normalizeObjects } from '../../../../src/model/normalisation.js';
+import { serializeObjects } from '../../../../src/io/serialisation.js';
+import type { ObjetAPlat, ObjetPlan, OuvertureFacade, ReleveFacade } from '../../../../src/model/types.js';
 
-// Le service du releve de facade (app/releve/releve.ts) : ce qu'il ecrit a la validation, et surtout ce
-// qu'il n'ecrit pas — la hauteur du batiment, que la photo ne change plus.
+// L'editeur d'une facade relevee (app/releve/releve.ts, lot F6 de MD/spec-facade-calage-audit.md) : la capture est partie dans
+// l'audit, le releve ne fait plus que corriger ce qui est deja releve. Ce qu'il ecrit, en un pas d'historique ; ce qu'il n'ecrit pas
+// (rien quand rien n'a change) ; et surtout ce qu'il garde d'un releve d'avant — un fichier ancien se rouvre, s'edite et se relit sans
+// rien perdre, au meme schema.
 
 vi.mock('../../../../src/shell/dialogs.js', () => ({ showToast: vi.fn() }));
 vi.mock('../../../../src/three/etat3d.js', () => ({ vue3d: { scene: null } }));
 
-const maison = (): ObjetPlan => ({ key: 'maison', name: 'Maison', type: 'polygon', fonction: 'batiment', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }] } as unknown as ObjetPlan);
-const releve = (cote: number): ReleveFacade => ({ cote, largeur: 10, hauteur: 6, texture: null, hauteurTexture: 6, ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1.2 }], distance: null, sourceDistance: null, releveLe: '' });
+const temoin6 = JSON.parse(readFileSync(new URL('../../../fixtures/migrations/schema-6.json', import.meta.url), 'utf8')) as { meta: { schemaVersion: number }; objects: unknown[] };
 
-function service(o: ObjetPlan) {
-  const ctx = { etat: { objects: [o] } as never, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn(), elevationOf: (x: ObjetPlan) => x.elevation ?? 0 };
+/** Un document ouvert comme Plan l'ouvre (migre, normalise) : les objets en memoire. */
+const ouvrir = (objets: unknown[], schema: number) => normalizeObjects(migrer({ objects: structuredClone(objets) as ObjetAPlat[] }, schema).objects) as unknown as ObjetPlan[];
+const ecrire = (objets: ObjetPlan[]) => serializeObjects(objets) as unknown as ObjetAPlat[];
+
+function service(objets: ObjetPlan[]) {
+  const ctx = { etat: { objects: objets } as never, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn(), aujourdhui: () => '2026-10-29' };
   return { ctx, s: creerServiceReleve(ctx) };
 }
+const releveDe = (o: ObjetPlan | undefined, cote = 0) => (o?.batiment?.facades ?? []).find((r) => r.cote === cote) as ReleveFacade;
+const maison = (facades: ReleveFacade[]): ObjetPlan => ({ key: 'maison', name: 'Maison', type: 'polygon', fonction: 'batiment', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { facades } } as unknown as ObjetPlan);
+const fenetre = (x: number, plus: Partial<OuvertureFacade> = {}): OuvertureFacade => ({ type: 'fenetre', x, y: 1, l: 1.2, h: 1.35, source: 'detectee', confiance: 0.9, ...plus });
+const releve = (plus: Partial<ReleveFacade> = {}): ReleveFacade => ({ cote: 0, largeur: 10, hauteur: 6, texture: 'data:image/jpeg;base64,AA==', hauteurTexture: 7, ouvertures: [fenetre(1), fenetre(5)], distance: null, sourceDistance: null, releveLe: '2026-10-20T10:00:00.000Z', ...plus });
 
-describe('le service du releve', () => {
-  it('ecrit le releve et le toit en un pas d historique, et garde la hauteur du batiment', () => {
-    const o = maison();
-    const { ctx, s } = service(o);
-    s.ouvrir('maison', 0);
-    expect(s.hauteurMur()).toBe(6);
-    const toit: Toit = { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'photo' };
-    s.valider(releve(0), toit, 7.4);
-    expect(ctx.pushHistory).toHaveBeenCalledTimes(1);
-    expect(o.batiment?.facades).toHaveLength(1);
-    expect(o.batiment?.toit).toEqual(toit);
-    // La photo mesurait 7,4 m : le batiment reste a 6 m.
-    expect(o.elevation).toBe(6);
-    expect(s.courant()).toBeNull();
-    // Un second releve du meme cote le remplace, un autre cote s'ajoute, dans l'ordre des cotes.
+describe('l editeur d une facade relevee', () => {
+  it('ne s ouvre que sur un mur qui a un releve : la photo se prend dans l audit', () => {
+    const { s } = service([maison([releve()])]);
     s.ouvrir('maison', 2);
-    s.valider(releve(2), null, 6);
+    expect(s.courant()).toBeNull();
     s.ouvrir('maison', 0);
-    s.valider({ ...releve(0), ouvertures: [] }, null, 6);
-    expect(o.batiment?.facades?.map((r) => [r.cote, r.ouvertures.length])).toEqual([[0, 0], [2, 1]]);
-    expect(o.batiment?.toit).toEqual(toit);
+    expect(s.courant()).toEqual({ objKey: 'maison', cote: 0 });
+    expect(s.releve()?.ouvertures).toHaveLength(2);
+    s.fermer();
+    expect(s.courant()).toBeNull();
   });
 
-  it('donne la position suivie et les batiments qui peuvent cacher un mur, pour proposer celui devant soi', () => {
-    const o = maison();
-    const terrain = { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: [{ x: -5, y: -5 }, { x: 20, y: -5 }, { x: 20, y: 20 }] } as unknown as ObjetPlan;
-    const ctx = { etat: { objects: [o, terrain] } as never, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn(), elevationOf: (x: ObjetPlan) => x.elevation ?? 0 };
-    const s = creerServiceReleve(ctx);
-    retirerPositionGps();
-    expect(s.position()).toBeNull();
-    poserPositionGps({ x: 5, y: -6 }, 4);
-    expect(s.position()).toEqual({ x: 5, y: -6 });
-    expect(s.obstacles().map((b) => b.pts)).toEqual([(o as { pts: unknown }).pts]);
-    retirerPositionGps();
+  it('n ecrit rien, pas meme un pas d historique, quand rien n a change', () => {
+    const o = maison([releve({ depuisAudit: true })]);
+    const { ctx, s } = service([o]);
+    const avant = JSON.stringify(o);
+    s.ouvrir('maison', 0);
+    s.valider({ ouvertures: [...releveDe(o).ouvertures], partieBasse: null });
+    expect(ctx.pushHistory).not.toHaveBeenCalled();
+    expect(JSON.stringify(o)).toBe(avant);
+    expect(s.courant()).toBeNull();
   });
 
-  it('nomme le toit automatique que le releve remplacerait : compose (corps, volumes), IGN, ou aucun', () => {
-    const corps = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [6, 6] as [number, number], ecart: 0.1 };
-    expect(toitAutomatique(null)).toBeNull();
-    expect(toitAutomatique(maison())).toBeNull();
-    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' } } })).toBe('ign');
-    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' } } })).toBeNull();
-    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps] } } as never)).toBe('compose');
-    // Le mode « un seul toit » choisi : le toit unique est ce que la 3D montre.
-    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps], modeToit: 'simple' } } as never)).toBe('ign');
+  it('ecrit l edition en un pas : sources et corrections tracees, grille recalculee, depuisAudit tombe, le reste garde', () => {
+    const o = maison([releve({ depuisAudit: true, calage: { photos: [{ coins: [], pxParMSource: 120 }] }, corrections: [{ geste: 'retrait', type: 'porte', x: 3, y: 0, l: 1, h: 2.1 }] })]);
+    const { ctx, s } = service([o]);
+    s.ouvrir('maison', 0);
+    const [a, b] = releveDe(o).ouvertures as [OuvertureFacade, OuvertureFacade];
+    s.valider({ ouvertures: [{ ...a, x: 1.3, source: 'corrigee' }, b, { type: 'porte', x: 7, y: 0, l: 1, h: 2.15, source: 'ajoutee' }], partieBasse: null });
+    expect(ctx.pushHistory).toHaveBeenCalledTimes(1);
+    const r = releveDe(o);
+    expect(r.depuisAudit).toBeUndefined();
+    expect(r.ouvertures.map((x) => x.source)).toEqual(['corrigee', 'detectee', 'ajoutee']);
+    expect(r.corrections?.map((c) => c.geste)).toEqual(['retrait', 'deplacement', 'ajout']);
+    expect(r.grille?.travees).toHaveLength(3);
+    expect(r.ouvertures.map((x) => x.travee)).toEqual([0, 1, 2]);
+    expect(r).toMatchObject({ texture: 'data:image/jpeg;base64,AA==', hauteurTexture: 7, releveLe: '2026-10-20T10:00:00.000Z', calage: { photos: [{ pxParMSource: 120 }] } });
+    expect(r).not.toHaveProperty('partieBasse');
   });
 
-  it('un toit de photo qui remplace des corps se montre : le mode passe a « un seul toit », les corps restent', () => {
-    const corps = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [6, 6] as [number, number], ecart: 0.1 };
-    const o = { ...maison(), batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps] } } as unknown as ObjetPlan;
-    const { s } = service(o);
+  it('sur une facade objet (lot F5), une ouverture nouvelle recoit un identifiant ; une verifiee garde sa date', () => {
+    const o = maison([releve({ ouvertures: [fenetre(1, { id: 'o1', verifieeLe: '2026-10-28' }), fenetre(5, { id: 'o2' })], dimensions: { largeurM: 10, egoutM: 6, source: 'lidar' } })]);
+    const { s } = service([o]);
     s.ouvrir('maison', 0);
-    // Sans toit (case decochee) : le releve s'ecrit, le toit et ses corps ne bougent pas.
-    s.valider(releve(0), null, 6);
-    expect(o.batiment?.modeToit).toBeUndefined();
-    expect(o.batiment?.toit?.source).toBe('lidar');
-    const toit: Toit = { forme: 'croupes', hauteur: 2.5, angleFaitage: 0, source: 'photo' };
-    s.ouvrir('maison', 0);
-    s.valider(releve(0), toit, 6);
-    expect(o.batiment?.toit).toEqual(toit);
-    expect(o.batiment?.modeToit).toBe('simple');
-    expect(o.batiment?.corpsToit).toHaveLength(1);
+    const [a, b] = releveDe(o).ouvertures as [OuvertureFacade, OuvertureFacade];
+    s.valider({ ouvertures: [a, { ...b, verifieeLe: s.aujourdhui() }, { type: 'fenetre', x: 8, y: 1, l: 1.2, h: 1.35, source: 'ajoutee' }], partieBasse: null });
+    const r = releveDe(o);
+    expect(r.ouvertures.map((x) => [x.id, x.verifieeLe ?? null])).toEqual([['o1', '2026-10-28'], ['o2', '2026-10-29'], ['o3', null]]);
+    expect(r.dimensions).toEqual({ largeurM: 10, egoutM: 6, source: 'lidar' });
+  });
+});
+
+describe('un fichier d avant se rouvre et s edite sans rien perdre (migration, lot F6)', () => {
+  it('le temoin du schema 6 (un releve pose par l audit, sa photo restee sur l appareil) : rouvert sans geste, il revient octet pour octet', () => {
+    const objets = ouvrir(temoin6.objects, temoin6.meta.schemaVersion);
+    const o = objets.find((x) => x.key === 'bati-1');
+    const { ctx, s } = service(objets);
+    const avant = JSON.stringify(ecrire(objets));
+    s.ouvrir('bati-1', 0);
+    expect(s.releve()?.texture).toBeNull();
+    s.valider({ ouvertures: [...releveDe(o).ouvertures], partieBasse: releveDe(o).partieBasse ?? null });
+    expect(ctx.pushHistory).not.toHaveBeenCalled();
+    expect(JSON.stringify(ecrire(objets))).toBe(avant);
+  });
+
+  it('edite, il garde tout ce que l editeur ne touche pas, se relit a l identique et reste au schema 6', () => {
+    const objets = ouvrir(temoin6.objects, temoin6.meta.schemaVersion);
+    const o = objets.find((x) => x.key === 'bati-1');
+    const avant = structuredClone(releveDe(o));
+    const { s } = service(objets);
+    s.ouvrir('bati-1', 0);
+    // La baie devinee de l'etage est retiree, la fenetre de droite deplacee.
+    const [f1, porte, f3] = releveDe(o).ouvertures as [OuvertureFacade, OuvertureFacade, OuvertureFacade];
+    s.valider({ ouvertures: [f1, porte, { ...f3, x: 7.6, source: 'corrigee' }], partieBasse: null });
+    const apres = releveDe(o);
+    // Tout ce que l'editeur ne touche pas : la photo restee sur l'appareil, le calage d'avant (son ecart du contour compris, que la
+    // seule migration lit), les seuils de la detection, la distance et sa source, la date.
+    for (const k of ['cote', 'largeur', 'hauteur', 'texture', 'photoLocale', 'hauteurTexture', 'distance', 'sourceDistance', 'releveLe', 'partieBasse', 'calage', 'calibration'] as const) expect(apres[k], k).toEqual(avant[k]);
+    expect(apres.depuisAudit).toBeUndefined();
+    expect(apres.ouvertures.map((x) => [x.type, x.x, x.source])).toEqual([['fenetre', 1.2, 'detectee'], ['porte', 4.4, 'detectee'], ['fenetre', 7.6, 'corrigee']]);
+    expect(apres.ouvertures[0]?.details).toEqual({ volets: 'battants', vitrage: 'petits-bois' });
+    expect(apres.corrections?.map((c) => c.geste)).toEqual(['deplacement', 'deplacement', 'retrait']);
+    // Ecrit puis rouvert : le meme releve ; un releve sans Facade validee reste au schema 6.
+    const ecrits = ecrire(objets);
+    expect(schemaAEcrire(ecrits, 6)).toBe(6);
+    expect(schemaMinimal(ecrits)).toBe(6);
+    const relus = ouvrir(ecrits, 6);
+    expect(releveDe(relus.find((x) => x.key === 'bati-1'))).toEqual(apres);
+    expect(JSON.stringify(ecrire(relus))).toBe(JSON.stringify(ecrits));
   });
 });

@@ -1,65 +1,20 @@
-// Le releve de facade (zones/Releve.tsx), etape 3 : les coins du mur sur la photo.
+// Le geste « quatre repères » (zones/releve/PoserReperes.tsx) : quatre points poses au doigt sur la photo, avec une loupe. Ils
+// peuvent deborder de la photo.
 
 import { au } from '../../util/tableaux.js';
 import { useRef, useState, type PointerEvent as PE } from 'react';
-import { type CoteBas, type Decrochement } from '../../facade/profil.js';
 import type { P2 } from '../../facade/vision/homographie.js';
 import { type Photo } from '../../ui/releve/camera.js';
 import { pointSvg, useEchelle } from './commun.js';
-import type { SourceCoin } from '../../facade/calage/calageFin.js';
 
-/** Ce que dit un coin de sa source, pour le lecteur d'ecran (la forme le dit a l'oeil). */
-const DIT_SOURCE: Record<SourceCoin, string> = { trouve: 'trouvé sur la photo', predit: 'prédit, à vérifier', claude: 'proposé par Claude, recalé sur la photo', doigt: 'placé au doigt' };
-
-/* ------------------------------------------------------------------------------------------------
- * 3. Les coins
- * --------------------------------------------------------------------------------------------- */
-
-const NOMS_COINS = ['Égout, à gauche', 'Égout, à droite', 'Pied du mur, à droite', 'Pied du mur, à gauche'];
-
-/** Les poignees d'un mur en L : les quatre coins visibles du L, puis les deux points du decrochement. */
-export function nomsEnL(cote: CoteBas): string[] {
-  return cote === 'droite'
-    ? ['Égout haut, à gauche', 'Égout bas, à droite', 'Pied du mur, à droite', 'Pied du mur, à gauche', 'Décrochement, égout haut', 'Décrochement, égout bas']
-    : ['Égout bas, à gauche', 'Égout haut, à droite', 'Pied du mur, à droite', 'Pied du mur, à gauche', 'Décrochement, égout haut', 'Décrochement, égout bas'];
-}
-
-/** Ordre de trace du contour : le rectangle, ou le L en passant par le decrochement. */
-export function ordreDuContour(decro: Decrochement | null | undefined): number[] {
-  if (!decro) return [0, 1, 2, 3];
-  return decro.cote === 'droite' ? [0, 4, 5, 1, 2, 3] : [0, 5, 4, 1, 2, 3];
-}
-
-/** Le decrochement propose quand on bascule en L : aux trois cinquiemes du mur, cote bas. */
-export function decrochementPropose(coins: readonly P2[], cote: CoteBas): Decrochement {
-  const t = cote === 'droite' ? 0.6 : 0.4;
-  const lerp = (a: P2, b: P2, k: number) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
-  const haut = lerp(au(coins, 0), au(coins, 1), t);
-  const pied = lerp(au(coins, 3), au(coins, 2), t);
-  return { cote, haut, bas: lerp(haut, pied, 0.5) };
-}
-
-export function Coins({
-  photo,
-  coins,
-  setCoins,
-  noms = NOMS_COINS,
-  ordre = [0, 1, 2, 3],
-  sources,
-  etiquettes = true,
-  libelle = 'Photo : placez les quatre coins du mur',
-}: {
+export function Coins({ photo, coins, setCoins, noms, libelle }: {
   photo: Photo;
   coins: P2[];
-  /** Les coins apres un geste, et l'indice du coin deplace. */
-  setCoins: (c: P2[], k?: number) => void;
-  noms?: string[];
-  ordre?: number[];
-  /** La source de chacun des quatre premiers coins : trouve (rond plein), predit (en pointille), doigt. */
-  sources?: SourceCoin[] | undefined;
-  /** Les mots « Égout » et « Sol » sur le quadrilatere : faux quand les points sont des reperes, pas les coins du mur. */
-  etiquettes?: boolean;
-  libelle?: string;
+  /** Les points apres un geste. */
+  setCoins: (c: P2[]) => void;
+  /** Le nom de chaque point, pour le lecteur d'ecran. */
+  noms: readonly string[];
+  libelle: string;
 }) {
   const W = photo.image.largeur,
     H = photo.image.hauteur;
@@ -82,7 +37,7 @@ export function Coins({
       const q = pointSvg(racine, ev);
       const n = [...coins];
       n[i] = { x: Math.max(-m, Math.min(W + m, origine.x + q.x - depart.x)), y: Math.max(-m, Math.min(H + m, origine.y + q.y - depart.y)) };
-      setCoins(n, i);
+      setCoins(n);
     };
     const lacher = () => {
       setActif(null);
@@ -95,9 +50,6 @@ export function Coins({
     el.addEventListener('pointercancel', lacher);
   };
 
-  const milieu = (a: P2, b: P2) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-  const haut = milieu(au(coins, 0), au(coins, 1)),
-    bas = milieu(au(coins, 2), au(coins, 3));
   const loupe = actif !== null ? au(coins, actif) : null;
   const fen = Math.max(W, H) * 0.06;
 
@@ -106,23 +58,17 @@ export function Coins({
       <svg ref={svg} className="releveCoins" viewBox={`${-m} ${-m} ${W + 2 * m} ${H + 2 * m}`} aria-label={libelle}>
         <rect x={-m} y={-m} width={W + 2 * m} height={H + 2 * m} className="releveCoinsFond" />
         <image href={photo.url} x={0} y={0} width={W} height={H} preserveAspectRatio="none" />
-        <polygon points={ordre.map((i) => au(coins, i)).map((c) => `${c.x},${c.y}`).join(' ')} className="releveQuad" vectorEffect="non-scaling-stroke" />
-        {etiquettes && <text x={haut.x} y={haut.y - r * 1.6} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
-          Égout
-        </text>}
-        {etiquettes && <text x={bas.x} y={bas.y + r * 2.4} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
-          Sol
-        </text>}
+        <polygon points={coins.map((c) => `${c.x},${c.y}`).join(' ')} className="releveQuad" vectorEffect="non-scaling-stroke" />
         {coins.map((c, i) => (
           <g key={i}>
             <circle
               cx={c.x}
               cy={c.y}
               r={r * 1.7}
-              className={'releveCoinCible' + (sources?.[i] ? ' ' + sources[i] : '')}
+              className="releveCoinCible"
               onPointerDown={saisirCoin(i)}
               role="slider"
-              aria-label={(noms[i] ?? '') + (sources?.[i] ? ' (' + DIT_SOURCE[sources[i]] + ')' : '')}
+              aria-label={noms[i] ?? ''}
               aria-valuenow={0}
               tabIndex={0}
             />

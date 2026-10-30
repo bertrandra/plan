@@ -1,5 +1,5 @@
-// Le releve de facade (zones/Releve.tsx) et l'audit (par l'orchestrateur, facade/releve/enchainement.ts) : analyser une serie et
-// ecrire le releve d'un mur. Sans React : testable seul.
+// L'audit (par l'orchestrateur, facade/releve/enchainement.ts, et sa chaine, chaine.ts) : analyser une serie et ecrire le releve
+// d'un mur. Sans React : testable seul. L'editeur d'une facade relevee (zones/Releve.tsx) n'en lit que la precision des cotes.
 
 import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../geometry/cotesVusDeDehors.js';
@@ -9,7 +9,7 @@ import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
 import type { MesureDistance } from './prise.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../calage/calage.js';
 import { avecGrille, versOuvertureFacade } from '../detection/verification.js';
-import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture, TextureCalee } from '../../model/types.js';
+import type { ObjetPolygone, OuvertureFacade, ReleveFacade, CalageReleve, TextureCalee } from '../../model/types.js';
 import type { SilhouetteFacade } from '../../model/silhouetteFacade.js';
 import { silhouetteDeEstimation } from '../regles/toits/silhouettes.js';
 import { chiffreFr as fr } from '../../util/format.js';
@@ -18,17 +18,6 @@ import { surchargesCalibrees } from '../regles/facades/surcharges.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
 const focaleDe = (m: Morceau): number => focaleDePrise(m.prise);
-
-/**
- * Ce que la hauteur mesuree a d'etonnant : loin de l'estimation (cadastre, ou releve precedent), c'est
- * le plus souvent un coin mal place (ou une focale mal reglee) ; non mesuree, l'estimation reste.
- */
-function avisHauteur(r: ResultatAnalyse, hauteurEstimee: number): string | null {
-  if (!r.hauteurMesuree) return `La hauteur n'a pas pu se mesurer sur la photo : celle du bâtiment (${fr(hauteurEstimee)} m) est gardée.`;
-  if (hauteurEstimee > 0 && Math.abs(r.hauteur - hauteurEstimee) / hauteurEstimee > 0.25)
-    return `Hauteur mesurée : ${fr(r.hauteur)} m, pour ${fr(hauteurEstimee)} m jusqu'ici. Si l'écart vous étonne, vérifiez les coins du haut et du bas, et le champ de l'objectif.`;
-  return null;
-}
 
 /**
  * Ce que la fusion de plusieurs vues trouve a redire : une vue qui ne se recale sur aucune autre (elle reste independante, son motif est
@@ -43,46 +32,15 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>
 }
 
 /**
- * Analyse une serie : une photo, c'est le mur entier entre ses coins ; plusieurs, ce sont des
- * morceaux a assembler, ou des vues du mur entier a fondre (`assemblage`). Dans les deux cas la hauteur se mesure (la largeur du plan donne l'echelle) ;
- * `hauteurEstimee` (le cadastre) ne sert que de depart et de repli. L'analyse dit ce qu'elle a trouve
- * a redire : deux photos voisines qui se ressemblent mal sur leur partie commune, une hauteur loin de
- * celle du cadastre.
+ * Analyse une serie : une photo, c'est le mur entier entre ses coins ; plusieurs, ce sont des morceaux a assembler, ou des vues du mur
+ * entier a fondre (`assemblage`). Dans les deux cas la hauteur se mesure (la largeur du plan donne l'echelle) ; `hauteurEstimee` (le
+ * cadastre) ne sert que de depart et de repli. Ce que la fusion trouve a redire, l'orchestrateur le dit (`avisFusion`).
  */
-export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
+export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
   const mur = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
-  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null, silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage);
+  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: null, silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage);
   if (!a) return null;
-  // L'assemblage des photos redressees entieres : une photo restee a part se dit.
-  if (a.assemblage) {
-    const k = a.assemblage.vues.findIndex((v) => !v.assemblee);
-    const avis = k >= 0 && morceaux.length > 1 ? `La vue ${k + 1} reste hors de l’assemblage : ${a.assemblage.vues[k]?.motif ?? 'elle ne se recale sur aucune autre'}. Vérifiez ses coins, ou prenez-en une autre en gardant un tiers de mur en commun.` : null;
-    // Plusieurs vues fondues : la fusion garde son masque d'occlusion, que la verification hachure.
-    return { r: a.r, avis: avis ?? (a.fusion ? avisFusion(a.fusion) : null) ?? avisHauteur(a.r, hauteurEstimee), assemblage: a.assemblage, ...(a.fusion ? { fusion: a.fusion } : {}) };
-  }
-  // La fusion garde son masque d'occlusion et sa vue de reference : la verification hachure l'un et montre l'autre a Claude (lot G20).
-  if (a.fusion) return { r: a.r, avis: avisFusion(a.fusion) ?? avisHauteur(a.r, hauteurEstimee), fusion: a.fusion };
-  if (!a.mosaique) return { r: a.r, avis: avisHauteur(a.r, hauteurEstimee) };
-  const mauvaise = a.mosaique.jointures.findIndex((s) => s < 0.5);
-  let avis: string | null = null;
-  if (mauvaise >= 0) avis = `Les photos ${mauvaise + 1} et ${mauvaise + 2} se raccordent mal : reprenez-en une en gardant un tiers de mur en commun.`;
-  else if (Math.abs(a.mosaique.rapportLargeur - 1) > 0.06) avis = "Les photos s'assemblent mal : vérifiez les coins, surtout ceux des extrémités.";
-  else avis = avisHauteur(a.r, hauteurEstimee);
-  return { r: a.r, avis };
-}
-
-/**
- * Corrige la hauteur mesuree d'un facteur `k`. La largeur est celle du plan : c'est la hauteur seule
- * qui etait fausse, donc la facade s'etire en hauteur - ouvertures, partie basse, bande du pignon et
- * toit lu dessus, tous du meme facteur.
- */
-export function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit: Toit | null, k: number): { resultat: Resultat; ouvertures: OuvertureFacade[]; toit: Toit | null } {
-  const cm = (x: number) => Math.round(x * k * 100) / 100;
-  return {
-    resultat: { ...r, hauteurTexture: r.hauteurTexture * k, partieBasse: r.partieBasse ? { ...r.partieBasse, hauteur: cm(r.partieBasse.hauteur) } : null },
-    ouvertures: ouvertures.map((o) => ({ ...o, y: cm(o.y), h: cm(o.h) })),
-    toit: toit ? { ...toit, hauteur: cm(toit.hauteur) } : null,
-  };
+  return { r: a.r, ...(a.assemblage ? { assemblage: a.assemblage } : {}), ...(a.fusion ? { fusion: a.fusion } : {}) };
 }
 
 /**
@@ -93,7 +51,7 @@ export function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit
  * la largeur vue a celle du plan n'y est plus (lot F5) : il va dans les dimensions de la Facade
  * (`ecartDeLargeur`, `dimensions.ecartPhoto`), ecrites a la validation.
  */
-export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number, azimutFacade: number | null = null, assemblage: Assemblage = 'morceaux'): CalageReleve {
+function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number, azimutFacade: number | null = null, assemblage: Assemblage = 'morceaux'): CalageReleve {
   // Une photo seule, ou chaque vue d'une fusion, montre le mur entier entre ses coins.
   const seul = morceaux.length === 1 || assemblage === 'vues';
   const c: CalageReleve = {
@@ -144,10 +102,10 @@ export function textePrecision(pxParM: number | null): string | null {
 }
 
 /**
- * Ce qui s'ecrit pour le mur : sa hauteur mesuree (ou corrigee), sa photo, ses ouvertures, leur grille
- * (spec facades §10, recalculee sur les ouvertures retenues) et les corrections de l'utilisateur (§12).
+ * Ce qui s'ecrit pour le mur : sa hauteur mesuree, sa photo, ses ouvertures et leur grille (spec facades §10, recalculee sur les
+ * ouvertures retenues). Les corrections de la personne (§12) s'y ajoutent dans l'editeur (app/releve/releve.ts::releveEdite).
  */
-export function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFacade[], hauteur: number, mesure: MesureDistance | null, corrections: CorrectionOuverture[] = []): ReleveFacade {
+function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFacade[], hauteur: number, mesure: MesureDistance | null): ReleveFacade {
   const cm = (v: number) => Math.round(v * 100) / 100;
   const { ouvertures, grille } = avecGrille(retenues, facade.largeur);
   return {
@@ -165,7 +123,6 @@ export function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFaca
     // Les seuils de la detection qui ont produit ce releve : un rejeu repartira des memes (MD/roadmap-architecture.md, etape 1.4).
     calibration: { ...surchargesCalibrees() },
     ...(grille ? { grille } : {}),
-    ...(corrections.length ? { corrections } : {}),
   };
 }
 
@@ -207,10 +164,7 @@ function poseDeLaTexture(t: { largeur: number; hauteur: number }, largeurM: numb
  */
 export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>, morceaux: readonly Morceau[], f: Facade, jpeg: (img: ResultatAnalyse['texture']) => string, assemblage: Assemblage): ReleveDeLaSerie {
   const calage = calageDeSerie(morceaux, f.largeur, a.r.hauteur, f.azimut, assemblage);
-  const resultat: Resultat = {
-    texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, hauteurMesuree: a.r.hauteurMesuree, couverture: a.r.couverture,
-    toitPropose: a.r.toitPropose, avis: a.avis, partieBasse: a.r.partieBasse, calage,
-  };
+  const resultat: Resultat = { texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, partieBasse: a.r.partieBasse, calage };
   const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
   const coinsTrouves = morceaux.some((m) => !!m.sources?.includes('trouve'));
   return {

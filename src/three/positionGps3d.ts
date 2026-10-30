@@ -87,8 +87,3 @@ export function reposerPositionGps(sol?: (p: PtBrut) => number): void {
   hauteurSol = sol;
   placer();
 }
-
-/** La derniere position connue, pour les tests et la barre d'etat. */
-export function positionGpsCourante(): { p: PtBrut; precisionM: number } | null {
-  return derniere;
-}

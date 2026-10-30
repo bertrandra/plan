@@ -1,8 +1,9 @@
 // Section « Facades et toit » de l'inspecteur, pour un batiment (spec-releve-facade §4).
 //
-// Une ligne par mur : son orientation, sa longueur, ce que le releve en a retenu, et le bouton qui
-// ouvre le releve sur ce mur. Puis le toit, en champs ordinaires : la forme que la photo a proposee
-// se corrige ici, comme n'importe quelle propriete.
+// Une ligne par mur : son orientation, sa longueur, ce que le releve en a retenu, et ses gestes : « Photographier » ouvre l'audit de
+// la parcelle sur ce mur (les photos d'une facade se prennent dans l'audit, lot F6), « Modifier » l'editeur de son releve,
+// « Retirer » le retire. Puis le toit, en champs ordinaires : la forme que la photo a proposee se corrige ici, comme n'importe quelle
+// propriete.
 
 import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
@@ -430,15 +431,15 @@ export function sectionReleve(c: ContexteChamps): Section {
   const champs: Champ[] = [
     {
       type: 'bouton',
-      cle: 'relever',
+      cle: 'photographier',
       libelle: '',
-      nom: 'Relever une façade',
-      texte: () => 'Relever une façade…',
-      explication: 'Photographiez un mur : Plan le redresse, en retrouve les ouvertures et la forme du toit.',
-      agit: { commande: 'facade.relever' },
+      nom: 'Photographier les façades',
+      texte: () => 'Photographier les façades…',
+      explication: 'Les photos se prennent dans l’audit de la parcelle : Plan redresse chaque mur, en retrouve les ouvertures et la forme du toit.',
+      agit: { commande: 'facade.photographier' },
       executer: (cx) => {
         designerFacade(null);
-        cx.executerCommande('facade.relever');
+        cx.executerCommande('facade.photographier');
       },
     },
   ];
@@ -482,14 +483,25 @@ export function sectionReleve(c: ContexteChamps): Section {
         },
         {
           type: 'bouton',
-          cle: 'relever',
-          libelle: 'Relever',
-          texte: () => (releve() ? 'Refaire' : 'Relever'),
-          aide: `Relever la façade ${f.orientation.toLowerCase()}`,
-          agit: { commande: 'facade.relever' },
+          cle: 'photographier',
+          libelle: 'Photographier',
+          aide: `Photographier la façade ${f.orientation.toLowerCase()} dans l’audit de la parcelle`,
+          agit: { commande: 'facade.photographier' },
           executer: (cx) => {
             designerFacade(i);
-            cx.executerCommande('facade.relever');
+            cx.executerCommande('facade.photographier');
+          },
+        },
+        {
+          type: 'bouton',
+          cle: 'modifier',
+          libelle: 'Modifier',
+          visible: () => !!releve(),
+          aide: `Corriger les ouvertures de la façade ${f.orientation.toLowerCase()}`,
+          agit: { commande: 'facade.modifier' },
+          executer: (cx) => {
+            designerFacade(i);
+            cx.executerCommande('facade.modifier');
           },
         },
         {

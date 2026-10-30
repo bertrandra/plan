@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { facadeDevant, facadesDevant, ecartAuCap, texteFacadeDevant, murPropose, type FacadesDUnBatiment } from '../../../../src/facade/calage/priseDeVue.js';
+import { facadeDevant, facadesDevant, ecartAuCap, texteFacadeDevant, type FacadesDUnBatiment } from '../../../../src/facade/calage/priseDeVue.js';
 import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import { obstacle, vueCachee } from '../../../../src/geometry/ligneDeVue.js';
 import type { PtBrut } from '../../../../src/model/types.js';
@@ -81,23 +81,6 @@ describe('facadeDevant : distance, cote et obstacle', () => {
   it('un poteau qui cache le milieu du mur ne le cache pas tout entier', () => {
     const poteau = { pts: rect(4.5, -5, 1, 2) };
     expect(facadeDevant(p(5, -10), 0, [maison], obstacles(maison, poteau))?.facade.orientation).toBe('Sud');
-  });
-});
-
-describe('murPropose : le mur que le releve propose', () => {
-  it('position connue : la facade devant soi, avec sa distance, meme sans boussole', () => {
-    const m = murPropose(maison.facades, 'maison', p(5, -6), obstacles(maison), null)!;
-    expect(m.facade.orientation).toBe('Sud');
-    expect(m.devant?.distance).toBeCloseTo(6, 9);
-    // Dans le dos du mur sud, la boussole ne suffit plus : on n'est devant aucun mur qu'elle designe.
-    expect(murPropose(maison.facades, 'maison', p(5, -6), obstacles(maison), 180)).toBeNull();
-  });
-
-  it('position inconnue : la facade qui fait face au cap, sans distance ; ni l un ni l autre, rien', () => {
-    const m = murPropose(maison.facades, 'maison', null, [], 0)!;
-    expect(m.facade.orientation).toBe('Sud');
-    expect(m.devant).toBeNull();
-    expect(murPropose(maison.facades, 'maison', null, [], null)).toBeNull();
   });
 });
 

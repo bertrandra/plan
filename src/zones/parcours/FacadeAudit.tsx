@@ -6,10 +6,13 @@
 // mur tire a la main). « Rejouer la façade » rejoue l'orchestrateur ; les photos et les corrections ne bougent pas. Quand Claude a lu
 // la facade (trois passes votees), une ligne le dit avec son cout, et « Escalader » (la commande `facade.escalader`, a la demande
 // seulement) annonce le sien. Le point V4 (lot F5) : « Valider la façade » (la commande `facade.valider`) ecrit sa Facade dans le
-// projet ; validee, l'E9 de la barre est faite.
+// projet ; validee, l'E9 de la barre est faite. Pour l'administrateur, « Créer un cas depuis cette façade » (la commande
+// `facade.creerCas`, lot F6) en fait un cas de calibration : la calibration ne prend plus de photos, elle lit celles de l'audit.
 
 import { useCallback, useEffect, useState } from 'react';
 import { BarreProgressionFacade, COMMANDE_ESCALADE, COMMANDE_VALIDER } from '../composants/BarreProgressionFacade.js';
+import { BoutonCommande } from '../composants/BoutonCommande.js';
+import { enAdmin } from '../../app/acces.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
 import { type MurAjuste } from '../releve/AjusterMur.js';
 import { coinsParDefaut } from '../releve/commun.js';
@@ -183,6 +186,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         appliquer={(c) => corriger(rangReperes, c)} retablir={() => corriger(rangReperes, null)} fermer={() => setRangReperes(null)} />}
       {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom} />}
       {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}
+      {gestes && enAdmin() && rangs.length > 0 && <BoutonCommande commandes={commandes} id="facade.creerCas" className="secondary small">Créer un cas depuis cette façade</BoutonCommande>}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
     </div>
   );
