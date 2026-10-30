@@ -156,6 +156,8 @@ export function champsDuCatalogue(c: ContexteChamps, sections: readonly Section[
 export function construireCatalogue(src: SourceCatalogue): Catalogue {
   const commandes: CommandeCatalogue[] = [];
   for (const c of src.commandes) {
+    // Le drapeau avant l'etat : les commandes de l'assistant lui-meme lisent le catalogue pour dire le leur.
+    if (!c.assistant) continue;
     const etat = src.etat(c.id);
     if (!proposable(c, src.classe, etat)) continue;
     commandes.push({

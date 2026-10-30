@@ -92,6 +92,12 @@ export function brancherAssistant(ctx: ContexteBranchementAssistant): ServiceAss
     if (k !== vu) { vu = k; magasin.notifier(); }
   });
 
+  declarerCommandesAssistant(commandes, service);
+  return service;
+}
+
+/** Les trois commandes de l'assistant, sur ce service (le dialogue les lit par le registre, comme tout bouton). */
+export function declarerCommandesAssistant(commandes: RegistreCommandes, service: ServiceAssistant): void {
   commandes.declarer({
     id: 'assistant.demander', libelle: 'Demander à l’assistant…', groupe: 'assistant',
     description: 'Écrire une demande en français : Claude la traduit en une liste d’étapes de Plan, que vous validez d’un geste',
@@ -118,5 +124,4 @@ export function brancherAssistant(ctx: ContexteBranchementAssistant): ServiceAss
         + (projet ? ' Ctrl+Z la défait d’un coup.' : ''));
     }
   });
-  return service;
 }
