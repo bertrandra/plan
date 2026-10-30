@@ -789,7 +789,7 @@ Le fichier ne change pas de forme : un relevé fait par l'ancienne capture (sa d
 `rue` —, ses coins et leur source, son calage d'avant avec `contourDecaleM`, ses corrections) ou posé par l'audit se rouvre dans
 l'éditeur tel quel. Rouvert et validé sans geste, il ne s'écrit pas ; édité, il garde tout ce que l'éditeur ne touche pas, et un
 relevé sans Façade validée reste au schéma 6 (`tests/unit/app/releve/releve.test.ts`, sur le témoin
-`tests/fixtures/migrations/schema-6.json` : rouvert, édité, réécrit, relu, octet pour octet). Le schéma reste **7**.
+`tests/fixtures/migrations/schema-6.json` : rouvert, édité, réécrit, relu, octet pour octet). F6 ne touche pas au schéma.
 
 ## 11. Limites connues et suites
 

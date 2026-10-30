@@ -28,6 +28,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   caméra, un champ fichier qui la demande ou qui prend une image n'existent que dans les écrans de l'audit).
 - Fumée : points 112 (de « Photographier » dans l'inspecteur à l'éditeur, deux Ctrl+Z), 113 (deux vues du même mur fondues dans
   l'audit), 114 (« Créer un cas depuis cette façade », lu et rejoué par la calibration).
+
+- **Lecture IA élargie, lot L4 : le règlement du PLU** (`MD/spec-lecture-ia-elargie.md` §L4). Dans l'onglet PLU du tiroir,
+  « **Lire le règlement de la zone avec Claude** » (commande `plu.lireReglement`, capacité `plu`, dans les trois classes d'écran ;
+  grisée, avec sa raison, tant que la zone n'est pas connue) va chercher le règlement écrit de la zone au **Géoportail de
+  l'urbanisme** (la zone relue au point, le PDF sur `data.geopf.fr`, la page du chapitre de la zone), en envoie un extrait de
+  25 pages au plus à Claude (usage `plu`, Haiku par défaut, appel immédiat, sortie structurée et repli sur un exemple, `refusFormat`,
+  coût au journal), et range sur la parcelle les règles qu'il relève : hauteurs (égout, faîtage, absolue, annexes), reculs (voie,
+  limites séparatives), emprise au sol, espaces verts, stationnement, pentes et couvertures de toit, couleurs, clôtures et annexes,
+  **chacune avec son article, sa citation mot pour mot et sa page**. Elles arrivent **proposées, décochées** : une ligne sans article
+  ou sans citation n'en devient pas une, un nombre hors de ce qu'un PLU peut dire perd sa valeur, et seules les règles que la personne
+  **coche** (`plu.validerFait`, Ctrl+Z la défait) contrôlent le projet. « **Conformité PLU** » compare alors les ouvrages du projet
+  (bâtiment, annexe, pergola, carport dessinés ; l'existant compte dans l'emprise) aux règles retenues — hauteurs, reculs (la voie
+  est le côté que la clôture dit « sur rue »), emprise, part libre de la parcelle, pente et couverture, hauteur de clôture — en
+  **avertissements** qui citent l'article, jamais un blocage, et laisse « à vérifier » ce qui ne se mesure pas. Ce qui a été lu reste
+  relisible : l'adresse du règlement, les pages envoyées, l'empreinte SHA-256 de l'extrait et du document, la réponse brute, le
+  modèle, les versions du prompt et du schéma, le coût. Le moteur de règles a un dossier de plus : `regles/plu/reglages.json` (les
+  seuils), `src/regles/plu/` (les faits, la lecture, le lecteur de la réponse), `src/engine/regles/plu/conformite.ts` (les règles) ;
+  `deploy/prompt-plu.md` et `deploy/schema-plu.json` sont générés (`npm run regles:generer`).
+- **Schéma de projet 8** : la parcelle peut porter `reglementPlu` (le règlement lu et ses règles). Un projet sans lecture du PLU
+  s'écrit toujours au plus petit schéma qui le décrit ; la migration 7 → 8 est l'identité ; la plateforme accepte déjà 7 à 12.
+  La démonstration et les témoins ne bougent pas.
+- Serveur (`deploy/analyse-fonctions.php`) : l'usage `plu`, un bloc `document` (un PDF en base64, un seul) admis pour lui seul,
+  le texte brut du modèle rendu à la page (`brut`, jamais au journal), la consigne du repli lue dans le fichier de schéma de l'usage.
+  `scripts/verifier-api-claude.mjs` envoie une requête `plu` sur un extrait public de trois pages du règlement de Chatou
+  (`tests/fixtures/plu/chatou-ul-extrait.pdf`).
+- Fumée : point 120 (le zonage du point 15, puis la lecture du règlement par une réponse **synthétique**, deux règles cochées, la
+  conformité, Ctrl+Z, le projet exporté au schéma 8).
+
 - **Lecture élargie par l'IA, lot L0 : tout garder** (`MD/spec-lecture-ia-elargie.md` §4.8, §12.1, décision 7). **Toute requête à
   Claude laisse une trace sur le serveur** : ce qui est parti (le texte complet, chaque requête, les images par empreinte) et ce qui
   est revenu (le texte brut, la sortie ramenée au schéma, les tokens, le coût, le refus de la sortie structurée, les versions). Une
@@ -177,7 +205,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Le relevé de façade devient un éditeur** (lot F6) : il n'a plus de capture ; il s'ouvre sur un mur déjà relevé (« Modifier »), et
   la photo d'un mur se prend dans l'audit. Un relevé d'avant (posé par l'audit ou fait par l'ancienne capture, sa photo restée sur
-  l'appareil comprise) se rouvre, s'édite et se relit sans rien perdre ; le schéma reste 7 (un relevé sans Façade validée reste au 6).
+  l'appareil comprise) se rouvre, s'édite et se relit sans rien perdre ; F6 ne touche pas au schéma (un relevé sans Façade validée reste au 6).
   Le toit lu sur la façade ne remplace plus le toit du bâtiment depuis le relevé : la forme lue sur la photo passe par le diagnostic de
   l'audit et le moteur (lot F4), ou par le Mode Toit.
 - **La calibration lit les façades de l'audit** (lot F6, décision 6) : un cas naît d'une façade de l'audit (« Créer un cas depuis cette

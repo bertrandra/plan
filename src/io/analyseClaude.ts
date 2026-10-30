@@ -11,10 +11,11 @@ import { ENTETE_ADMIN, RACINE_ADMIN } from './depotDemos.js';
 
 type Fetch = (entree: string, init?: RequestInit) => Promise<Response>;
 
-/** Un bloc de la requete, tel que l'API Messages le lit : du texte, ou une image en base64. */
+/** Un bloc de la requete, tel que l'API Messages le lit : du texte, une image en base64, ou un PDF (la lecture du PLU seule). */
 export type BlocAnalyse =
   | { type: 'text'; text: string }
-  | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/webp'; data: string } };
+  | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/webp'; data: string } }
+  | { type: 'document'; source: { type: 'base64'; media_type: 'application/pdf'; data: string } };
 
 export interface RequeteAnalyse {
   id: string;
@@ -55,10 +56,11 @@ export interface DemandeAnalyse {
 /**
  * Les usages demandes : l'analyse d'une maison (batch), l'escalade des passes en desaccord vers un modele plus
  * fin (appel immediat, D20), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), le
- * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (lots F2 et F3 : appel immediat pour la
- * calibration et le releve, une requete par facade dans le batch de l'audit).
+ * rejeu d'un audit stocke (administrateur, spec-audit 15.5), le run d'une facade (lots F2 et F3 : appel immediat pour la
+ * calibration et le releve, une requete par facade dans le batch de l'audit), et la lecture du reglement du PLU (lot L4 : appel
+ * immediat, un extrait PDF).
  */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade';
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'plu';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
@@ -102,9 +104,13 @@ export interface ResultatBatch {
   schema?: number;
   /** L'appel immediat : la sortie structuree (`output_config.format`) a-t-elle servi ? Faux apres un repli sans elle. */
   structuree?: boolean;
+  /** Le texte rendu par le modele, tel quel : seulement pour les usages qui le gardent (la lecture du PLU). */
+  brut?: string | null;
+  /** Une reponse de simulation (la fumee, les tests), pas de Claude : le serveur reel ne la pose jamais, l'ecran la dit synthetique. */
+  synthetique?: boolean;
   /**
    * Les images de la requete telles que le serveur les a recues et gardees (lot L0) : l'empreinte de leurs octets, leur taille, leur
-   * type, dans l'ordre ; absentes d'un serveur d'avant le lot.
+   * type, dans l'ordre ; absentes d'un serveur d'avant le lot. Le PDF de la lecture du PLU y est aussi (`application/pdf`).
    */
   empreintes?: ImageGardee[];
 }

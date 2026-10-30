@@ -127,6 +127,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'mesure.effacer': partout('tiroir'),
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
   'plu.interroger': partout('tiroir'),
+  // La lecture du reglement par Claude et la validation de ses regles : l'onglet PLU du tiroir, dans les trois classes (lot L4).
+  'plu.lireReglement': partout('tiroir'),
+  'plu.validerFait': partout('tiroir'),
   // L'optimisation de la structure : un resultat, l'onglet Optimisation du tiroir d'une terrasse.
   'terrasse.optimisation': partout('tiroir'),
   // Une facade d'un batiment : la section « Facades et toit », une ligne par mur. La photo se prend dans l'audit (lot F6) ;

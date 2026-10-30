@@ -15,6 +15,11 @@
 // configuration temporaire (droits 0600), supprime a la fin, et n'est jamais affichee. Le serveur
 // lui-meme refuse au-dela du plafond pose dans le dossier temporaire (0,05 $ par jour par defaut).
 //
+// La lecture du reglement du PLU (usage `plu`, lot L4) part sur un extrait PUBLIC de trois pages du reglement de Chatou, zone UL
+// (tests/fixtures/plu/chatou-ul-extrait.pdf, un document d'urbanisme publie au Geoportail de l'urbanisme), en bloc `document` ; le
+// script dit en plus si sa sortie a la forme du schema et ce qu'elle a releve (attendu : l'emprise de 30 % et la hauteur de 10 m du
+// secteur ULp, chatou-ul-extrait.json).
+//
 // Le run d'une facade (usage `facade`, lot F2) part sur une image de synthese du depot (tests/fixtures/facades-ia/facade-test.jpg :
 // l'assemblage d'une scene du banc, aucune photo personnelle) ; le script dit en plus si sa sortie a la forme du schema (calage,
 // forme, surface, elements, ouvertures, carreaux). `--facades <dossier>` mesure x1 contre x3 : pour chaque image preparee par
@@ -33,6 +38,7 @@ import { fileURLToPath } from 'node:url';
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMAGE = path.join(racine, 'tests/fixtures/visuel/rue-compact-clair.jpg');
 const IMAGE_FACADE = path.join(racine, 'tests/fixtures/facades-ia/facade-test.jpg');
+const PDF_PLU = path.join(racine, 'tests/fixtures/plu/chatou-ul-extrait.pdf');
 const MOT_DE_PASSE = 'verification-api-claude';
 const PLAFOND_DEFAUT = 0.05;
 const PLAFOND_MAX = 2;
@@ -50,7 +56,7 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // l'escalade d'une maison envoie le corps de l'analyse (schema dans le prompt) avec ce meme modele, couvert par les deux.
 // Une seule requete du modele fin, pour tenir sous le plafond par defaut : une analyse d'une maison au tarif de Sonnet
 // (prompt et schema en ecriture du cache) en couterait a elle seule pres de la moitie.
-const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : 'analyse');
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : usage === 'plu' ? 'plu' : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -101,6 +107,10 @@ const dollars = (v) => (typeof v === 'number' ? v.toFixed(5) + ' $' : 'inconnu (
 
 /** Le contenu minimal d'une requete : la photo de test et une ligne de contexte, comme la page. */
 function contenu(famille, image) {
+  if (famille === 'plu') {
+    return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fs.readFileSync(PDF_PLU).toString('base64') } },
+      { type: 'text', text: 'Commune : Chatou (INSEE 78146).\nDocument d’urbanisme : 78146_PLU_20181003.\nZone demandée : ULp (« ULp : Secteur urbain »).\nL’extrait envoyé va de la page 47 à la page 49 du document entier (252 pages) : sa première page est la page 47.' }];
+  }
   if (famille === 'facade') {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
@@ -192,7 +202,8 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   const image = fs.readFileSync(IMAGE).toString('base64');
   const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
-  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
+  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?')
+    + ', lecture du PLU v' + (etat.corps.plu?.prompt ?? '?') + '/v' + (etat.corps.plu?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
   for (const g of aEnvoyer) {
@@ -202,7 +213,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
     // le defaut), comme pour la page ; `--modele` l'impose a toutes.
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
-      requetes: [{ id, passe: 1, facades: usage === 'escalade' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : image) }] };
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' || g.famille === 'plu' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : image) }] };
     process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -223,7 +234,12 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
       const defaut = formeFacade(x.sortie);
       if (defaut) { console.log('NON CONFORME'); arreter('la sortie du run d’une façade n’a pas la forme du schéma : ' + defaut, 1); }
     }
-    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + (g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : '') + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
+    if (g.famille === 'plu') {
+      const defaut = formePlu(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie de la lecture du PLU n’a pas la forme du schéma : ' + defaut, 1); }
+    }
+    const resume = g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : g.famille === 'plu' ? ' ; ' + resumePlu(x.sortie) : '';
+    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + resume + structure(x) + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
   if (options.facades) await mesurerFacades(options.facades, ecrire, options.modele);
@@ -259,6 +275,20 @@ function formeFacade(s) {
   if (!Array.isArray(s.elements) || !Array.isArray(s.ouvertures)) return 'elements ou ouvertures absents';
   if (s.ouvertures.some((o) => !objet(o.details) || !objet(o.carreaux) || ![o.u0, o.u1, o.v0, o.v1].every((x) => typeof x === 'number'))) return 'une ouverture sans boîte, détails ou carreaux';
   return null;
+}
+
+/** Ce qui manque a une sortie de la lecture du PLU pour avoir la forme du schema (deploy/schema-plu.json) ; null si rien. */
+function formePlu(s) {
+  if (!s.zone || typeof s.zone !== 'object' || !Array.isArray(s.regles) || typeof s.remarques !== 'string') return 'zone, regles ou remarques absents';
+  if (s.regles.some((r) => typeof r.grandeur !== 'string' || typeof r.article !== 'string' || typeof r.citation !== 'string' || !Array.isArray(r.termes))) return 'une règle sans grandeur, article, citation ou termes';
+  return null;
+}
+
+/** La sortie de la lecture du PLU en quelques mots : la zone, et chaque regle relevee avec sa valeur et son article. */
+function resumePlu(s) {
+  const valeur = (r) => (typeof r.valeur === 'number' ? r.valeur + (r.unite === 'pourcent' ? ' %' : r.unite === 'm' ? ' m' : r.unite === 'degres' ? '°' : '') : '—');
+  return 'zone ' + (s.zone.libelle || '?') + ' (' + s.zone.trouvee + '), ' + s.regles.length + ' règle(s) : '
+    + (s.regles.map((r) => r.grandeur + ' ' + valeur(r) + ' [' + r.article + ']').join(', ') || 'aucune');
 }
 
 /** La sortie du run d'une facade en quelques mots : ce qu'elle a vu. */

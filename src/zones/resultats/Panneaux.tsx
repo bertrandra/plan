@@ -38,13 +38,16 @@ function cleDesObjetsLus(s: EtatMagasin): string {
   return cleDesObjets(s.etat.objects);
 }
 
+/** Le reglement du PLU lu pour la parcelle : sa lecture et l'etat de chaque fait (une validation redessine l'onglet). */
+const cleReglementPlu = (r: Resultats): string => { const p = r.parcelle()?.reglementPlu; return p ? p.lecture.demandeeLe + ':' + p.faits.map(f => f.statut[0]).join('') : ''; };
+
 /** `inspecteur` : le service qui ecrit les champs des onglets d'un ouvrage (prix d'une piscine, d'un abri). */
 export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes; inspecteur: ServiceInspecteur }
 
 export function PanneauxResultats({ magasin, resultats, commandes, inspecteur }: PropsPanneaux) {
   // Le plan, l'etat d'interface que tient le service des resultats (PLU en cours, resume, optimisation, ligne du profil), et le
   // brouillon de la cote. Les boutons de commande suivent chacun la leur.
-  useCle(magasin, 'panneaux des résultats', (s) => cleEtat(s) + cleDesObjetsLus(s) + JSON.stringify([resultats.pluEnCours(), resultats.resume().affichage,
+  useCle(magasin, 'panneaux des résultats', (s) => cleEtat(s) + cleDesObjetsLus(s) + JSON.stringify([resultats.pluEnCours(), resultats.lecturePluEnCours(), cleReglementPlu(resultats), resultats.resume().affichage,
     resultats.optimisationVisible(), resultats.ligneProfil(), resultats.lieu(), mesure.pointage?.mode, mesure.ref, mesure.startEnd, mesure.cibles,
     ['mesure.choisirReference', 'mesure.origine', 'mesure.selectionnerCoins', 'mesure.ajouter', 'mesure.afficher', 'mesure.supprimer'].map((id) => commandes.etat(id).utilisable)]));
   const actif = magasin.store.getState().etat.panelTab;

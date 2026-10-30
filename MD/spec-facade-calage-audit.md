@@ -1615,7 +1615,7 @@ Grep des noms supprimés : `contourDecaleM` ne reste que dans la migration, son 
   (`tests/fixtures/migrations/schema-6.json`, un relevé posé par l'audit, sa photo restée sur l'appareil) : rouvert et validé sans
   geste, il revient octet pour octet, sans pas d'historique ; édité (une baie retirée, une fenêtre déplacée), il garde la photo locale,
   le calage d'avant (son `contourDecaleM` compris), les seuils, la distance et sa source, la date, les détails des ouvertures ; écrit
-  puis rouvert, il est identique, **au schéma 6**. Aucun champ nouveau : le schéma reste **7** ; les allers-retours de
+  puis rouvert, il est identique, **au schéma 6**. Aucun champ nouveau : F6 ne touche pas au schéma (7 à sa base, 8 depuis le lot L4) ; les allers-retours de
   `migrations.test.ts` sont inchangés.
 - *Plus aucun écran de capture hors de l'audit* : le garde-fou ci-dessus, et le `grep` (`getUserMedia`, `capture=`, `accept="image/`
   ne restent que dans `zones/parcours/`).

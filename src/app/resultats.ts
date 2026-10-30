@@ -16,6 +16,9 @@ import { ensureConstruction } from '../engine/construction.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { solDuProjet } from '../engine/sol.js';
 import { interrogerPlu } from '../geo/apiIgn.js';
+import type { ConformitePlu } from '../engine/regles/plu/conformite.js';
+import type { ContexteLecturePlu } from './plu/lecturePlu.js';
+import { creerServicePlu, type ServicePlu } from './plu/servicePlu.js';
 import { idMesure } from '../model/cles.js';
 import { mesure, type Pointage } from '../interaction/outilMesure.js';
 import { showToast } from '../shell/dialogs.js';
@@ -43,6 +46,8 @@ export interface ContexteResultats {
   montrerResume: () => void;
   /** Montre l'onglet Profil du relief (et, sur telephone, la feuille des resultats). */
   montrerProfil: () => void;
+  /** Le client de Claude, l'identite et l'heure de la lecture du reglement du PLU (app/plu/navigateurPlu.ts) ; absent, pas de lecture. */
+  lecturePlu?: ContexteLecturePlu;
 }
 
 /** Une ligne de coupe sur le plan, en metres : les deux bouts du profil du sol. */
@@ -75,6 +80,14 @@ export interface Resultats {
   // ---- PLU ---------------------------------------------------------------------------------
   pluEnCours(): boolean;
   interrogerPlu(): Promise<void>;
+  /** La lecture du reglement de la zone par Claude (lot L4) est-elle en cours ? */
+  lecturePluEnCours(): boolean;
+  /** Lit le reglement de la zone et range ses faits, PROPOSES, sur la parcelle (un pas d'annulation, projet modifie). */
+  lireReglementPlu(): Promise<void>;
+  /** Valide un fait du PLU apres l'avoir compare au texte, ou le rend a l'etat propose (un pas d'annulation, projet modifie). */
+  basculerFaitPlu(id: string): void;
+  /** Le projet controle contre les faits valides : des avertissements, jamais un blocage (engine/regles/plu/conformite.ts). */
+  conformitePlu(): ConformitePlu;
   parcelle(): ObjetPlan | null | undefined;
   lieu(): Lieu;
 
@@ -95,7 +108,12 @@ export interface Resultats {
   profiler(ligne: LigneProfil | null): void;
 }
 
+/** Le service, avec la lecture du reglement du PLU et ses faits (lot L4), un service a part du domaine plu. */
 export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: Magasin): Resultats {
+  return { ...creerResultatsDuTiroir(etat, ctx, magasin), ...creerServicePlu(etat, ctx, magasin) };
+}
+
+function creerResultatsDuTiroir(etat: EtatApp, ctx: ContexteResultats, magasin: Magasin): Omit<Resultats, keyof ServicePlu> {
   let pluEnCours = false;
   let resume = { texte: '', affichage: 0 };
   // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement : on
