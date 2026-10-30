@@ -259,6 +259,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **La liste des cas de calibration tient sur un téléphone** : le nom d'un cas tiré de l'audit (« Maison · façade nord
   (78650000AE0101) ») se coupe dans sa cellule au lieu d'élargir la page.
+- **La liste de l'audit de la parcelle ne se fige plus derrière la Vue 3D** : la boucle de rendu de la 3D redessinait la scène à
+  chaque trame, même cachée par la liste (un dialogue modal) ; sur un appareil lent, ou le navigateur sans carte graphique de la
+  fumée, une image plein cadre coûte près d'une seconde, et un toucher dans la liste attendait plusieurs secondes (fumée 104 et 106
+  en large : le clic d'un segment de la barre prenait jusqu'à 9 s, 77 ms maintenant). La boucle se tait tant que la liste est à
+  l'écran (`vue3d.renduCouvert`, posé par `app/audit/parcelle/commande.ts`, qui suit le parcours ouvert et l'écran de sa session) et
+  repart à l'écran de prise, aux propositions (l'avant/après) et à la fermeture ; les rendus de l'audit depuis une prise de vue et les
+  captures ne passent pas par elle. Reste à faire : ne rendre que quand quelque chose change.
 - **L'escalade d'une maison (D20) prend le modèle de l'escalade** (`deploy/analyse-fonctions.php`) : ses requêtes portent l'usage
   `analyse` (pour son prompt), et le serveur leur donnait le modèle de l'analyse ; dans une demande `escalade`, une requête garde le
   prompt de son usage et prend le modèle de l'escalade, et se compte en escalade au journal.
