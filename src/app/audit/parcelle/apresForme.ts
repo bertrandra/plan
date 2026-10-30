@@ -7,7 +7,7 @@
 // corps restent ceux du moteur : rien ici ne dessine un toit.
 
 import { appentisDesCorps, corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, panDesLucarnes, souchesDe, souchesSurLeCorps, terrasseVueDe, terrasseVueSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
-import { elementPoseSurLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
+import { elementPoseSurLeMur, elementToitPoseSurLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
 import { saillieSurLeMur } from '../../../facade/regles/toits/sailliesDesMurs.js';
 import { cleDeLaCible, type EffetProposition, type Proposition } from '../../../regles/decisions.js';
 import type { CorpsToit } from '../../../model/types.js';
@@ -27,6 +27,11 @@ function placeSurLesCorps(e: EffetProposition, corps: readonly CorpsToit[]): Eff
       // Le moteur repose l'element vu sur le corps de la forme proposee qui porte son mur (elementsDesMurs.ts), ou nulle part.
       const pose = elementPoseSurLeMur(corps, e.vu);
       return pose ? { ...e, apresForme: { corps: pose.corps, cheminees: pose.cheminee ? [pose.cheminee] : [], lucarnes: pose.lucarne ? [pose.lucarne] : [] } } : { ...e, apresForme: null };
+    }
+    case 'elementsToitDuToit': {
+      // Le moteur repose la fenetre de toit vue sur le pan de son mur, sur les corps de la forme proposee (elementsDesMurs.ts), ou nulle part.
+      const pose = elementToitPoseSurLeMur(corps, e.vu);
+      return { ...e, apresForme: pose ? { corps: pose.corps, elements: [pose.element] } : null };
     }
     case 'saillieDuToit': {
       // Le moteur repose la saillie vue sur le corps de la forme proposee qui porte son mur (sailliesDesMurs.ts), ou nulle part.

@@ -57,7 +57,12 @@ défait.
      sur la même image (gardée une fois par empreinte, L0) ; trois passes et un vote, pas d'escalade ;
    - la requête 2 ne change rien à ce que donne la requête 1 ; son échec laisse la lecture d'avant L1 intacte, et la façade est proposée
      sans ses champs, avec un signal.
-   B (le toit, L2) se décidera avec L2.
+   **B (le toit, L2), décidé le 30 octobre 2026 sur preuve : une troisième requête** (usage `facade-toit`, ses prompt et schéma à elle,
+   `facadesToit.ts`), sur la même image (la bande au-dessus de l'égout de F7 comprise), trois passes votées, sans escalade. Les champs
+   du toit ajoutés au schéma de la requête 2 la font refuser en sortie structurée (« The compiled grammar is too large », run
+   41026430391 du workflow « Vérifier l'API Claude », sur une branche jetable) : la lecture enrichie de L1 aurait perdu sa sortie
+   structurée. Seuls, ils passent. Les requêtes 1 et 2 restent à l'octet près (corps comparés par `cmp`, §12.3) ; un échec de la
+   requête 3 laisse les deux autres intacts, avec un signal.
 4. **Les dimensions viennent du plan et du LiDAR, jamais de la photo** (décision 1 de la spec des façades). Une hauteur de garde-corps, un
    bandeau, un soubassement se lisent en **part** (`v`, en hauteurs d'égout) et deviennent des mètres par le calage du mur ; une profondeur
    (bow-window, auvent, décroché) ne se lit pas sur une vue de face : elle vient du LiDAR, du cadastre, ou d'une valeur par défaut dite.
@@ -180,7 +185,11 @@ Colonnes : **Plan** dit ce qui existe ; **Atterrit** le seul endroit où va la l
 | Boîte aux lettres | rien | ❌ | `equipement`, nature `boite-aux-lettres`, sur la clôture ou le mur | run (façade) ou photo du portail (L3) | un caisson |
 | État du bâti : fissures, enduit abîmé, humidité, mousses | rien | ❌ | **signal** : `etat[]` de la Façade (`nature`, zone `u`/`v`, `confiance`), montré, jamais proposé | run | rien (décision 8) |
 
-### 3.2 B — Le toit (lot L2, dans le run, sur la bande au-dessus de l'égout que F7 ajoute)
+### 3.2 B — Le toit (lot L2, dans une troisième requête sur l'image du run, la bande au-dessus de l'égout que F7 ajoute)
+
+Livré par L2 (§12.3) dans la requête `facade-toit` (décision 3) : « run » se lit ci-dessous « toit lu ». Le faîtage et la gouttière
+vont aux bords du corps du mur ; le débord lu n'est qu'une alerte (le dessin garde 35 cm, faute de mesure LiDAR du débord : question
+18) ; `tuile-mecanique` se range sous `tuile`, déjà la tuile mécanique (pas de mot nouveau, §12.3).
 
 | Élément | Plan aujourd'hui | État | Atterrit | Lu par | 3D |
 |---|---|---|---|---|---|
@@ -262,6 +271,10 @@ une seconde requête sur la même image (`deploy/schema-facade-enrichie.json`, u
 `v1`, `menuiserie`, `couleurMenuiserie`, `couleurVolets`, `gardeCorps`, `hautGardeCorps`, `couleurGardeCorps`) se rapporte à l'ouverture du
 run qu'elle recouvre ; `soubassement` est un nombre (`0` : aucun) suivi de `parementSoubassement` ; un nombre non vu vaut `-1`. Le run
 reste celui de la 5.1.0, à l'octet près (prompt et schéma version 2, repli sans sortie structurée).
+
+**Depuis L2 (30 octobre 2026), les champs de B forment une troisième requête** (`deploy/schema-facade-toit.json`, usage `facade-toit`) :
+`toit` (`couverture`, `pose`, `debord`, `faitage`, `gouttiere`, `confiance`) et `elements[]` (`fenetre-toit` ou `solaire`, `u0`, `u1`, `v`
+au-dessus de 1), à plat, sans union. Le run et la lecture enrichie ne changent pas.
 
 Ajouts au schéma (prévus pour le run, portés depuis par la lecture enrichie), dans le repère du mur (`u` le long du mur, `v` en hauteurs
 d'égout), vocabulaire fermé, `indetermine` partout :
@@ -647,6 +660,13 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
     du texte ? *Proposition : une liste ou une question, jamais un chiffre de sa main (la nomenclature chiffre).*
 17. **L'orthophoto** est à 20 cm (5 cm par endroits) et datée : un regard, un robinet ou une boîte aux lettres ne s'y voient pas, un jardin
     a pu changer. La date de l'orthophoto est-elle dite avec chaque proposition aérienne ?
+18. **Le débord du LiDAR** (L2) : §3.2 dit « le LiDAR l'emporte (emprise du toit moins le contour) », mais aucune lecture ne mesure
+    aujourd'hui le débord (la grille du toit s'arrête au contour, et la 3D dessine 35 cm en façade). L2 compare donc la classe lue au
+    débord du corps (une observation, sinon les 35 cm du dessin) et n'écrit rien. *Proposition : lire le débord sur la grille large
+    (`grilleLarge`) dans un lot de toits, puis comparer à lui.*
+19. **Une couverture lue sur la façade décide-t-elle seule ?** (L2) Elle passe devant l'analyse d'une maison et les fichiers fonciers
+    (règle prioritaire), mais la source « photo de façade » n'a pas le droit d'être seule : la ligne arrive décochée, « à confirmer ».
+    *Proposition : garder ainsi tant que la mesure du banc n'a pas de vérité pour le toit.*
 
 ---
 
