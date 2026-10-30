@@ -51,13 +51,13 @@ describe('les requetes de l escalade', () => {
 });
 
 describe('appeler le modele fin', () => {
-  it('part par appels de trois requetes, usage escalade, sans depot, et range la reponse de chaque batiment', async () => {
+  it('part par appels de trois requetes, usage escalade, avec le depot de l analyse (lot L0), et range la reponse de chaque batiment', async () => {
     const { demande: d, requetes } = demande(5);
     const immediat = vi.fn(async (x: DemandeAnalyse) => ({ modele: 'claude-sonnet-5-5', prompt: 5, schema: 1, resultats: x.requetes.map((r) => ok(r.id, forme(r.id))) }));
     const out = await escalader(client(immediat), d, requetes, ['cle0', 'cle1', 'cle2', 'cle3', 'cle4']);
     expect(ESCALADE_PAR_APPEL).toBe(3);
     expect(immediat.mock.calls.map((c) => c[0].requetes.length)).toEqual([3, 2]);
-    expect(immediat.mock.calls.every((c) => c[0].usage === 'escalade' && c[0].depot === null)).toBe(true);
+    expect(immediat.mock.calls.every((c) => c[0].usage === 'escalade' && c[0].depot === 'depot-1')).toBe(true);
     expect(Object.keys(out.parBatiment)).toEqual(['cle0', 'cle1', 'cle2', 'cle3', 'cle4']);
     expect(out).toMatchObject({ arret: null, message: null });
   });

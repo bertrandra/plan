@@ -59,7 +59,7 @@ const THEMES = ['light', 'dark'];
  * Ecartes : 23 (points de vue 3D), qui rate un passage sur quatre en Econome, l'image du rappel
  * changeant avec les tuiles qui arrivent ; 93 (Admin › Regles), qui echoue aujourd'hui sur `main` ;
  * le GLB (24, deux minutes de rendu logiciel) ; les facades (photos de synthese a generer, longues
- * attentes : 102 a 111) ; les points du telephone.
+ * attentes : 102 a 114) ; les points du telephone.
  */
 const LOTS = {
   ci: {
@@ -2708,7 +2708,7 @@ const POINTS = {
       && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
     return { ok, mesure: `E9 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
-  109: async (page, f) => {
+  112: async (page, f) => {
     // Le parcours complet d'une facade, de l'inspecteur a l'editeur (lot F6, MD/spec-facade-calage-audit.md §6) : la photo d'un mur
     // ne se prend plus que dans l'audit. « Photographier » sur la ligne d'un mur de l'inspecteur ouvre l'audit sur l'ecran de prise,
     // la facade choisie ; une photo (la scene 02 du banc), le calcul, « Valider la façade » (V4) depuis la liste ; l'audit ferme,
@@ -2782,7 +2782,7 @@ const POINTS = {
       && unPas && deuxPas && !debords.some(Boolean);
     return { ok, mesure: `inspecteur : ${nonReleve ? 'pas de « Modifier » avant la photo' : '« Modifier » DÉJÀ LÀ'}, « Photographier » (façade ${mur}) → « ${titrePrise.slice(0, 60)} » ; V4 ${valide !== avantTout ? 'écrite' : 'RIEN'} ; éditeur « ${titre} », ${sansCapture ? 'sans capture' : 'AVEC CAPTURE'}, « ${precision.slice(0, 40)}… », ${n} ouverture(s) ; fiche « ${fiche.slice(0, 70)} » ; écrit : ${ouv.length} ouverture(s), ajoutée ${ajoutee ? ajoutee.id : 'ABSENTE'}, gestes ${gestes.join('/') || 'AUCUN'} ; Ctrl+Z ${unPas ? 'défait l’édition' : 'NE DÉFAIT PAS l’édition'}, puis ${deuxPas ? 'la validation' : 'PAS la validation'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
-  110: async (page, f) => {
+  113: async (page, f) => {
     // Deux vues du meme mur, dans l'audit (lot F6, ce que faisait le releve en « vues du mur entier » : lots L13 et G20) : la scene 19
     // du banc, une haie haute devant la fenetre de gauche du rez sur les deux vues, de face puis de biais. Les deux photos rangees sur
     // la meme facade se redressent et s'assemblent (l'E3 de la barre, la fusion), « Valider la façade » ecrit le releve avec le calage
@@ -2827,7 +2827,7 @@ const POINTS = {
     const ok = vignettes === 2 && image.etat === 'ok' && calees.length === 2 && calees.every((p) => p > 0) && !!texture && texture.startsWith('data:image/jpeg') && !debords.some(Boolean);
     return { ok, mesure: `${vignettes} photo(s) sur la façade ; Image : ${image.etat} (« ${image.texte} ») ; écrit : calage de ${calees.length} vue(s) (${calees.join(', ')} px/m) ; éditeur : texture ${texture ? 'fondue' : 'ABSENTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
-  111: async (page, f) => {
+  114: async (page, f) => {
     // « Créer un cas depuis cette façade » (lot F6, MD/spec-facade-calage-audit.md §7.1) : la calibration ne prend plus de photos,
     // elle lit les facades de l'audit. En admin des demos (`?demofile=1`, routes `admin/session`, `admin/demos` et
     // `admin/calibration-cas` simulees), l'audit, une photo de la facade de la maison (la scene 02 du banc), la facade depliee de la
@@ -2883,6 +2883,69 @@ const POINTS = {
     const ok = !!c && /^cas-/.test(id) && c.format === 'plan-facade-reelle' && c.images?.length === 1 && c.photos?.length === 1 && c.largeurM > 0 && /^Maison · façade /.test(c.nom)
       && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 9 && !deborde && !debordeCal;
     return { ok, mesure: `cas ${id ?? 'ABSENT'} : « ${c?.nom ?? ''} », ${c?.images?.length ?? 0} photo(s), ${c?.largeurM ?? '?'} × ${c?.hauteurM ?? '?'} m ; « ${toast.slice(0, 80)} » ; calibration : ${sansPhoto ? 'ni champ photo ni « Nouveau cas »' : 'CHAMP PHOTO'}, rejeu ${frise} étapes ; débordement ${deborde ? 'OUI' : 'non'}/${debordeCal ? 'OUI' : 'non'}` };
+  },
+  108: async (page, f) => {
+    // Les carreaux d'une facade validee en 3D (lot F8, MD/spec-facade-calage-audit.md §3.3, §9 bis F8). La facade nord de la maison
+    // de la demonstration recoit une Facade validee, sans photo, dont les ouvertures portent `details.carreaux` comme la fenetre
+    // d'AE 101 sud (deux vantaux d'un carreau sur trois, petits bois fins, une imposte a quatre carreaux), plus une baie sans petits
+    // bois et une porte d'un vantail. La Vue 3D pose dans le groupe de chaque ouverture qui dit des barres sa maille de carreaux :
+    // a plat en Econome, en relief (la maille a plat cachee, gardee pour l'export) aux autres niveaux. La porte, d'un seul vantail
+    // sans grille, n'en recoit pas.
+    await page.evaluate(() => {
+      const m = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const [a, b] = m.pts;
+      const L = Math.round(Math.hypot(b.x - a.x, b.y - a.y) * 100) / 100;
+      const ae101 = { vantaux: 2, grille: { colonnes: 1, rangees: 3 }, petitsBois: 'fins', imposte: { hauteurM: 0.35, grille: { colonnes: 4, rangees: 1 } }, vitrage: 'clair', source: 'ia' };
+      const fenetre = (id, x, y, carreaux) => ({ type: 'fenetre', x, y, l: 1.2, h: 1.4, id, verifieeLe: '2026-10-29', source: 'claude', details: { carreaux } });
+      const ouvertures = [
+        fenetre('o1', 1, 1, ae101), fenetre('o2', 3.4, 1, ae101), fenetre('o3', 1, 3.6, ae101), fenetre('o4', 3.4, 3.6, ae101),
+        fenetre('o5', 5.8, 3.6, { vantaux: 2, petitsBois: 'aucun', vitrage: 'teinte', source: 'ia' }),
+        { type: 'porte', x: 6, y: 0, l: 1, h: 2.2, id: 'o6', verifieeLe: '2026-10-29', details: { carreaux: { vantaux: 1, source: 'ia' } } },
+      ];
+      (m.batiment ??= {}).facades = [{ cote: 0, largeur: L, hauteur: 6, texture: null, ouvertures, distance: null, sourceDistance: null, releveLe: '2026-10-29',
+        dimensions: { largeurM: L, egoutM: 6, source: 'saisie' } }];
+      window.__plan.toucher('maison');
+    });
+    const vue = await POINTS[22](page);
+    if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
+    await page.waitForFunction(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (/^releve-carreaux/.test(o.name)) n++; }); return n > 0; }, null, { timeout: 30000 }).catch(() => {});
+    const lu = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const groupes = [];
+      sc?.scene?.traverse((o) => {
+        if (!/^ouverture:/.test(o.name)) return;
+        const m = (nom) => o.children.find((c) => c.name === nom);
+        const tri = (x) => (x?.geometry?.index ? x.geometry.index.count / 3 : 0);
+        const plat = m('releve-carreaux'), relief = m('releve-carreaux-relief');
+        groupes.push({ id: o.userData.ouverture, plat: tri(plat), platVisible: !!plat?.visible, exportSeulement: !!plat?.userData?.exportSeulement, relief: tri(relief), reliefVisible: !!relief?.visible });
+      });
+      // La camera devant la facade nord, a mi-hauteur : la Box3 des carreaux donne le milieu, la normale vient du plan.
+      const boite = new window.THREE.Box3();
+      sc?.scene?.traverse((o) => { if (/^releve-carreaux/.test(o.name)) boite.expandByObject(o); });
+      if (!boite.isEmpty()) {
+        const c = boite.getCenter(new window.THREE.Vector3());
+        const m = window.__plan.etat().objects.find((x) => x.key === 'maison');
+        const [a, b] = m.pts;
+        const aire = m.pts.reduce((s, p, i) => { const q = m.pts[(i + 1) % m.pts.length]; return s + p.x * q.y - q.x * p.y; }, 0);
+        const dx = b.x - a.x, dy = b.y - a.y, n = Math.hypot(dx, dy), sgn = aire > 0 ? 1 : -1;
+        const nx = (sgn * dy) / n, nz = (sgn * dx) / n;
+        sc.camera.position.set(c.x + nx * 7, c.y + 1.5, c.z + nz * 7);
+        sc.controls.target.set(c.x, c.y, c.z);
+        sc.controls.update?.();
+      }
+      return groupes.sort((x, y) => x.id.localeCompare(y.id));
+    });
+    // Le niveau de la Vue 3D est celui de l'appareil (detecte, ou pose par FUMEE_QUALITE_3D) : on le lit, sans le supposer.
+    const qualite = await page.evaluate(() => document.querySelector('[data-controle="vue3d.qualite"]')?.value || (() => { try { return localStorage.getItem('plan.qualite3d'); } catch { return null; } })())
+      || (lu.some((g) => g.relief) ? 'normale ou soignée (détectée)' : 'econome (détectée)');
+    await image3dStable(page, 3000);
+    if (process.env.FUMEE_CAPTURE_F8) await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: `${process.env.FUMEE_CAPTURE_F8}-${qualite}-${f.nom}.png`, timeout: 120000 }).catch((e) => console.error('capture F8 : ' + e.message.split('\n')[0]));
+    const econome = qualite.startsWith('econome');
+    // Neuf barres pour la fenetre d'AE 101 (18 triangles a plat, 90 en relief), une pour la baie a deux vantaux sans petits bois.
+    const attendu = { o1: 9, o2: 9, o3: 9, o4: 9, o5: 1, o6: 0 };
+    const justes = lu.length === 6 && lu.every((g) => g.plat === 2 * attendu[g.id]
+      && (attendu[g.id] === 0 ? g.relief === 0 : econome ? g.platVisible && g.relief === 0 : !g.platVisible && g.exportSeulement && g.relief === 10 * attendu[g.id] && g.reliefVisible));
+    return { ok: justes, mesure: `${qualite} ; ${lu.length} ouverture(s) : ` + lu.map((g) => `${g.id} ${g.plat / 2} barre(s)${g.relief ? ' en relief' : g.plat ? ' à plat' : ''}`).join(', ') };
   },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
@@ -3116,6 +3179,82 @@ const POINTS = {
       && lignes.length === 2 && /Rejeu/.test(lignes[1] ?? '') && /Claude Sonnet 5\.5/.test(lignes[1] ?? '') && !/En cours/.test(lignes[1] ?? '')
       && /Vous regardez une maison/.test(trace) && /Deux pans/.test(trace) && imageTrace >= 1 && !debordeDetail && !debordeTrace;
     return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'}${confirmation ? ', confirmé' : ', SANS confirmation'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; avant/après : « ${consultation} », ${decisionConsultee || 'SANS décision'}, ${sansValider ? 'lecture seule' : 'ÉDITABLE'}, ${deuxVues ? 'deux vues' : 'PAS de deux vues'}, projet ${projetIntact ? 'intact' : 'MODIFIÉ'}, ${retourne ? 'retour aux audits' : 'PAS de retour'} ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
+  },
+  109: async (page, f) => {
+    // Les donnees d'analyse (lot L0, MD/spec-lecture-ia-elargie.md 4.8), routes `admin/…` simulees : Admin › Audits, « Exporter les
+    // données d'analyse » d'une periode et d'un usage, en CSV (un tableur francais : BOM, `;`, une ligne par requete et par
+    // proposition, aucune photo) puis en JSON (tel que le serveur le rend) ; puis, sur l'analyse d'une facade gardee avec l'audit,
+    // « Rejouer cette façade depuis son image » : la requete gardee repart par la route du rejeu, sans que la page envoie d'image.
+    const objets = await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects)));
+    const parcelle = objets.find((o) => o.cadastre && typeof o.cadastre.idu === 'string');
+    const idu = parcelle?.cadastre?.idu ?? '';
+    const ID = '20261029-090000-0000beef', TRACE = '20261029-091000-claude-haiku-5-5-aaaa', SHA = 'a'.repeat(64);
+    const ligneRequete = (requete, usage) => ({ nature: 'requete', trace: TRACE, lot: 'immediat', audit: ID, organisation: 'admin', idu, adresse: '=2 allée des Limites', t: '2026-10-29T09:10:00Z',
+      finLe: '2026-10-29T09:10:05Z', idBatch: null, requete, batiment: 'facade', facade: null, passe: 1, usage, usageRequete: 'facade', modele: 'claude-haiku-5-5', prompt: 2, schema: 2, essai: false,
+      statut: 'reussi', arret: 'end_turn', erreur: null, tokens: { entree: 3000, sortie: 900 }, cout: 0.0015, refusFormat: null, empreintes: [SHA], octets: 4, reponse: 'b'.repeat(64), trouve: null,
+      sortie: { confiance: 'moyenne', forme: { silhouette: 'un-sommet', bout: 'pignon' }, ouvertures: [{}, {}] }, texte: '{"confiance":"moyenne"}' });
+    const donnees = { format: 'plan-donnees-analyse', version: 1, genereLe: '2026-10-29T11:00:00Z', du: '2026-10-01', au: '2026-10-29', filtres: { modele: null, usage: 'facade' },
+      requetes: [ligneRequete('facade-p1', 'facade'), ligneRequete('escalade-p1', 'escalade')],
+      propositions: [{ nature: 'proposition', audit: ID, organisation: 'admin', idu, adresse: null, t: '2026-10-29T09:00:00Z', proposition: 'p1', objet: 'Façade sud de Maison', batiment: 'maison', facade: 0,
+        effet: 'ouvertures', source: 'claude', avant: '4', apres: '6', confiance: 0.9, reserve: null, decision: 'refusee', moteur: null, accordClaude: 'claude-seul' }] };
+    const resume = { id: TRACE, audit: ID, nature: 'immediat', etat: 'termine', creeLe: '2026-10-29T09:10:00Z', finLe: '2026-10-29T09:10:05Z', idBatch: null, organisation: 'admin', usage: 'facade',
+      modele: 'claude-haiku-5-5', effort: 'low', prompt: 2, schema: 2, versions: {}, requetes: 3, images: 3, facades: 1, resultats: [], cout: 0.0045, tokens: null };
+    const s = { exports: [], rejeu: null };
+    await page.route(/\/admin\/(session|demos|audits|claude)/, async (route) => {
+      const req = route.request(), u = new URL(req.url()), p = u.pathname, json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (p.endsWith('/admin/session')) return json({});
+      if (p.endsWith('/admin/demos')) return json({ demos: [{ id: '1', name: 'Démonstration' }] });
+      if (p.endsWith('/admin/demos/1')) return json({ meta: { id: '1', name: 'Démonstration', schemaVersion: 1 }, objects: objets, measures: [] });
+      if (p.endsWith('/admin/audits')) return json({ audits: [{ id: ID, recuLe: '2026-10-29T09:00:00Z', organisation: 'admin', nature: 'parcelle', idu, adresse: null, dossier: null, taille: 2048, marque: 'sauvegarde', photos: 1, phase: 'analyse', debut: '2026-10-29T08:00:00.000Z', propositions: { total: 1, claude: 1, mesures: 0, validees: 0, refusees: 1, enAttente: 0 } }] });
+      if (p.endsWith('/admin/audits/' + ID)) return json({ format: 'plan-audit-parcelle', version: 1, parcelle: { idu, adresse: null, origine: null }, code: { version: '5.0.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-29T08:00:00.000Z', finCapture: '2026-10-29T08:30:00.000Z', ecritLe: '2026-10-29T09:00:00.000Z', batiments: [], cloture: { photos: [] }, portail: { photos: [] }, propositions: [], decisions: [] });
+      if (p.endsWith('/admin/audits/' + ID + '/analyses')) return json({ analyses: [resume] });
+      if (p.endsWith('/admin/audits/' + ID + '/analyses/' + TRACE)) {
+        return json({ audit: ID, resume, sortant: null, entrant: { max_tokens: 16000, effort: 'low', usages: {}, requetes: [1, 2, 3].map((n) => ({ id: 'facade-p' + n, passe: n, usage: 'facade', modele: 'claude-haiku-5-5', facades: n === 1 ? 1 : 0, images: 1,
+          contenu: [{ type: 'image', media_type: 'image/jpeg', image: SHA + '.jpg', octets: 4 }, { type: 'text', text: 'Façade : sud de Maison.' }] })) } });
+      }
+      if (p.includes('/admin/audits/' + ID + '/images/')) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from('/9j/', 'base64') });
+      if (p.endsWith('/admin/claude/etat')) return json({ actif: true, modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'], prompt: 9, schema: 9, organisation: 'admin', admin: true });
+      if (p.endsWith('/admin/claude/donnees-analyse')) { s.exports.push(Object.fromEntries(u.searchParams)); return json(donnees); }
+      if (p.endsWith('/admin/claude/rejouer') && req.method() === 'POST') {
+        s.rejeu = JSON.parse(req.postData() || '{}');
+        return json({ modele: 'claude-haiku-5-5', prompt: 2, schema: 2, trace: '20261029-120000-claude-haiku-5-5-bbbb', source: TRACE, resultats: [1, 2, 3].map((n) => ({ id: 'rejeu-p' + n, statut: 'reussi', passe: n, sortie: {}, erreur: null, cout: 0.0015 })) });
+      }
+      return json({ error: { code: 'NOT_FOUND', message: 'route simulée absente : ' + p } }, 404);
+    });
+    await page.goto(BASE + '/?demofile=1');
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await page.evaluate(() => window.__plan.executer('admin.auditsParcelle'));
+    await page.locator('.carteAuditRecu').first().waitFor({ timeout: 30000 }).catch(() => {});
+    await page.locator('.exportDonneesAnalyse summary').click({ timeout: 30000 });
+    await page.locator('[data-controle="auditsParcelle.exportDu"]').fill('2026-10-01');
+    await page.locator('[data-controle="auditsParcelle.exportAu"]').fill('2026-10-29');
+    await page.locator('[data-controle="auditsParcelle.exportUsage"]').selectOption('facade');
+    const debordeExport = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const csvTexte = (await telechargerOctets(page, () => page.locator('[data-controle="auditsParcelle.exporterDonneesCsv"]').click(), 20000)).toString('utf8');
+    const lignes = csvTexte.replace(/^﻿/, '').trimEnd().split('\r\n');
+    const entetes = (lignes[0] ?? '').split(';');
+    const jsonTexte = (await telechargerOctets(page, () => page.locator('[data-controle="auditsParcelle.exporterDonneesJson"]').click(), 20000)).toString('utf8');
+    let lu = null;
+    try { lu = JSON.parse(jsonTexte); } catch { /* lu reste null : le point le dit */ }
+    // Le rejeu d'une facade depuis son image gardee, sur l'analyse ouverte de l'audit.
+    await page.locator('.carteAuditRecu [data-controle="auditsParcelle.details"]').first().click({ timeout: 30000 });
+    await page.locator('.tableComparaison [data-controle="auditsParcelle.voirAnalyse"]').first().click({ timeout: 30000 }).catch(() => {});
+    await page.locator('.traceAudit').waitFor({ timeout: 30000 }).catch(() => {});
+    const boutons = await page.locator('[data-controle="auditsParcelle.rejouerFacade"]').count();
+    await page.locator('.traceAudit details.blocTrace summary').first().click({ timeout: 15000 }).catch(() => {});
+    await page.locator('[data-controle="auditsParcelle.rejouerFacade"]').first().click({ timeout: 15000 }).catch(() => {});
+    for (let i = 0; i < 40 && !s.rejeu; i++) await page.waitForTimeout(250);
+    const debordeTrace = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const filtre = s.exports[0] ?? {};
+    const ok = csvTexte.startsWith('﻿') && entetes[0] === 'Nature' && lignes.length === 4 && /^requête;/.test(lignes[1] ?? '') && /^proposition;/.test(lignes[3] ?? '')
+      && entetes.includes('sortie.forme.silhouette') && !csvTexte.includes('"confiance":"moyenne"') && /'=2 allée/.test(csvTexte)
+      && lu?.format === 'plan-donnees-analyse' && lu?.requetes?.length === 2 && filtre.du === '2026-10-01' && filtre.au === '2026-10-29' && filtre.usage === 'facade'
+      && boutons === 1 && s.rejeu?.audit === ID && s.rejeu?.trace === TRACE && s.rejeu?.requete === 'facade-p1' && s.rejeu?.passes === 3 && !('contenu' in (s.rejeu ?? {}))
+      && !debordeExport && !debordeTrace;
+    return { ok, mesure: `export : ${s.exports.length} demande(s) (du ${filtre.du ?? '?'} au ${filtre.au ?? '?'}, usage ${filtre.usage ?? 'tous'}) ; CSV ${csvTexte.startsWith('﻿') ? 'avec BOM' : 'SANS BOM'}, ${lignes.length - 1} ligne(s), ${entetes.length} colonnes ; JSON ${lu?.format ?? 'ILLISIBLE'} ; rejeu : ${boutons} bouton(s), ${s.rejeu ? 'demande ' + s.rejeu.requete + ' ×' + s.rejeu.passes + ' (audit ' + (s.rejeu.audit === ID ? 'nommé' : 'ABSENT') + ')' : 'AUCUNE demande'} ; débordement ${debordeExport || debordeTrace ? 'OUI' : 'non'}` };
   },
   93: async (page, f) => {
     // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les neuf sujets du depot, le
@@ -3508,7 +3647,7 @@ function pointsPour(nomClasse) {
   // 57 : le tableau de bord de la consommation de Claude ; 60 et 61 : l'audit de la parcelle, liste et prise (lot L9) ;
   // 62 et 63 : ses propositions, l'apercu avant / apres, la validation et Ctrl+Z (lot L11).
   // 73 : l'essai des faits des toits (lot L20) ; 64 : le batiment verifie sur place protege de l'actualisation (lot L12).
-  // (54, 58, 59, 65, 67, 68, 71, 80, 81, 82 : la capture du releve de facade, partie dans l'audit au lot F6 ; voir 109 a 111.)
+  // (54, 58, 59, 65, 67, 68, 71, 80, 81, 82 : la capture du releve de facade, partie dans l'audit au lot F6 ; voir 112 a 114.)
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
   // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
   // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
@@ -3530,9 +3669,11 @@ function pointsPour(nomClasse) {
   // 103 : l'escalade d'une facade a la demande, dans la calibration (decision du 29 octobre 2026).
   // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
   // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
-  // 109 : le parcours complet d'une facade, de « Photographier » dans l'inspecteur a l'editeur du releve (lot F6) ;
-  // 110 : deux vues du meme mur fondues dans l'audit ; 111 : « Créer un cas depuis cette façade », lu par la calibration (lot F6).
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 109, 110, 111];
+  // 108 : les carreaux d'une facade validee dessines dans les fenetres de la Vue 3D (lot F8).
+  // 109 : les donnees d'analyse : l'export a travers les audits (CSV, JSON) et le rejeu d'une facade depuis son image gardee (lot L0).
+  // 112 : le parcours complet d'une facade, de « Photographier » dans l'inspecteur a l'editeur du releve (lot F6) ;
+  // 113 : deux vues du meme mur fondues dans l'audit ; 114 : « Créer un cas depuis cette façade », lu par la calibration (lot F6).
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108, 109, 112, 113, 114];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

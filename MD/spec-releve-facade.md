@@ -840,8 +840,8 @@ relevé sans Façade validée reste au schéma 6 (`tests/unit/app/releve/releve.
 - **Lot F6 (29 octobre 2026)** : l'éditeur sous jsdom (`tests/unit/zones/editeurFacade.test.ts` : la baie devinée, les gestes de la
   grille, la vérification, Annuler et Échap), son service (`tests/unit/app/releve/releve.test.ts` : rien ne s'écrit sans geste, un
   pas d'historique, un relevé d'avant rouvert et édité sans perte), aucune capture hors de l'audit
-  (`tests/unit/architecture/captureAudit.test.ts`) ; fumée 109 (de « Photographier » dans l'inspecteur à l'éditeur), 110 (deux vues
-  dans l'audit), 111 (un cas de calibration tiré de l'audit). Les points de fumée de la capture (54, 58, 59, 65, 67, 68, 71, 80,
+  (`tests/unit/architecture/captureAudit.test.ts`) ; fumée 112 (de « Photographier » dans l'inspecteur à l'éditeur), 113 (deux vues
+  dans l'audit), 114 (un cas de calibration tiré de l'audit). Les points de fumée de la capture (54, 58, 59, 65, 67, 68, 71, 80,
   81, 82) sont retirés (`tests/CHECKLIST-FUMEE.md`).
 - **Empreintes** : les six artefacts du jeu de démonstration, recapturés à la `2.2.0` ; l'ancien
   numéro, l'ancienne date de build et l'ancien numéro de schéma remis dans les octets frais rendent

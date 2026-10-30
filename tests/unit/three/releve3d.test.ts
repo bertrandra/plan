@@ -17,10 +17,13 @@ class Geo {
   setIndex(i: number[]) {
     this.index = i;
   }
+  addGroup() {}
   computeVertexNormals() {}
 }
 class Mesh {
   name = '';
+  visible = true;
+  userData: Record<string, unknown> = {};
   position = { set() {} };
   rotation = { y: 0 };
   constructor(
@@ -86,6 +89,36 @@ describe('ajouterReleve3d', () => {
     // L'encadrement (linteau, deux montants, appui) et la vitre de la fenetre sont dans son groupe ; ceux de la porte, dans la scene.
     expect(groupes[0]!.enfants).toHaveLength(5);
     expect(ajoutes.filter((m) => !m.name.startsWith('ouverture:'))).toHaveLength(4);
+  });
+
+  it('pose les carreaux d une ouverture de la facade validee dans son groupe : a plat pour l export, en relief de pres (lot F8)', () => {
+    // La fenetre d'AE 101 sud (tests/fixtures/facades-ia/ae101-sud-synthetique.json) : deux vantaux d'un carreau sur trois, petits
+    // bois fins, une imposte du quart de la baie a quatre carreaux.
+    const carreaux = { vantaux: 2 as const, grille: { colonnes: 1, rangees: 3 }, petitsBois: 'fins' as const, imposte: { hauteurM: 0.35, grille: { colonnes: 4, rangees: 1 } }, vitrage: 'clair' as const, source: 'ia' as const };
+    const facade = (relief: boolean, avecCarreaux: boolean) => {
+      const { ajoutes, ctx } = scene();
+      const ov = { type: 'fenetre' as const, x: 1, y: 1, l: 1.2, h: 1.4, id: 'o1', verifieeLe: '2026-10-29', ...(avecCarreaux ? { details: { carreaux } } : {}) };
+      ajouterReleve3d({ ...ctx, relief }, { ...maison(), batiment: { facades: [{ cote: 0, largeur: 10, hauteur: 3, texture: null, ouvertures: [ov], distance: null, sourceDistance: null, releveLe: '' }] } }, 3);
+      return (ajoutes.find((m) => m.name === 'ouverture:o1') as unknown as { enfants: Mesh[] }).enfants;
+    };
+    const tri = (m: Mesh | undefined) => (m ? m.geometry.index.length / 3 : 0);
+    // Sans carreaux : l'encadrement et la vitre, rien de plus, en relief comme a plat.
+    expect(facade(true, false).map((m) => m.name)).toEqual(facade(false, false).map((m) => m.name));
+    expect(facade(true, false)).toHaveLength(5);
+    // A plat (Econome, ou de loin) : une maille de neuf barres, deux triangles chacune, montree et exportee.
+    const plat = facade(false, true);
+    expect(plat).toHaveLength(6);
+    const p0 = plat.find((m) => m.name === 'releve-carreaux');
+    expect(tri(p0)).toBe(18);
+    expect(p0!.visible).toBe(true);
+    expect(plat.some((m) => m.name === 'releve-carreaux-relief')).toBe(false);
+    // De pres : la meme a plat, cachee, pour l'export seulement ; a l'ecran, les barres en relief (cinq faces), hors export.
+    const pres = facade(true, true);
+    const p1 = pres.find((m) => m.name === 'releve-carreaux'), r1 = pres.find((m) => m.name === 'releve-carreaux-relief');
+    expect(tri(p1)).toBe(18);
+    expect([p1!.visible, p1!.userData.exportSeulement]).toEqual([false, true]);
+    expect(tri(r1)).toBe(90);
+    expect(r1!.userData.horsExport).toBe(true);
   });
 
   it("n'ajoute rien a un batiment sans releve", () => {

@@ -1015,10 +1015,16 @@ visite, pour comparer les réponses d'une version du prompt à l'autre et d'un m
   - `resume.json` : nature (`analyse` ou `rejeu`), état (`en_cours`, `termine`), dates, batch,
     organisation, usage, modèle, effort, versions, nombre de requêtes et d'images, puis les comptes,
     tokens et coût de chaque requête. C'est ce que la liste montre.
-  Le journal de `claude/` ne change pas : il ne garde toujours ni photo ni réponse.
+  Le journal de `claude/` ne garde toujours ni photo ni réponse : depuis le lot L0, leurs empreintes
+  (`empreintes`, `reponse`) et l'identifiant de la trace (`trace`).
 - **Qui nomme son audit** : l'analyse de la session, quand l'audit a déjà un dépôt sur le serveur
-  (sa sauvegarde, sinon son partage) — si ce dépôt a été retiré ou n'est pas celui de l'organisation,
-  l'analyse part quand même, sans trace ; et le **rejeu**, qui l'exige (404 sinon).
+  (sa sauvegarde, sinon son partage), et ses escalades ; le **rejeu**, qui l'exige (404 sinon).
+- **Toute requête garde sa trace** (lot L0, [`spec-lecture-ia-elargie.md`](spec-lecture-ia-elargie.md)
+  §4.8, §12) : un batch ou un appel immédiat qui ne nomme pas d'audit permis (dépôt retiré, d'une
+  autre organisation, « Rappeler Claude » de la calibration, l'aide du relevé) se range sous
+  `claude/analyses/sans-depot/<organisation>/<AAAA-MM>/<trace>/`, ses images une fois par mois dans
+  `images/` ; un mois s'efface 24 mois après, comme le journal se consulte. Un appel immédiat a la
+  nature `immediat` (pas de batch) ; le rejeu d'un run de façade depuis son image gardée, `rejeu-facade`.
 - **Le rejeu** (`app/audit/parcelle/rejeu.ts`) : depuis la carte ouverte, « Rejouer l'analyse » avec
   le modèle choisi dans la liste des modèles que le serveur admet (`MODELES`, lus dans
   `admin/claude/etat`). Il demande le projet ouvert de la même parcelle (le modèle actuel, l'orthophoto,

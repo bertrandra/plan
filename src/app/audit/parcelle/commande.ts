@@ -23,6 +23,7 @@ import { brancherDoigtAudit } from '../doigt.js';
 import type { CatalogueAudits } from './catalogue.js';
 import { autoriserBoussole } from '../../../shell/boussole.js';
 import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
+import { creerClientDonneesAnalyse } from '../../../io/donneesAnalyse.js';
 import { telechargerTexte } from '../../../shell/download.js';
 import { abonnerSceneBatie, hotes3d, reglerVue3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
@@ -89,6 +90,7 @@ function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, ac
   // Admin › « Audits » : le catalogue, ouvert sur le projet en cours. Les analyses gardees se lisent
   // par la session admin (cookie) ; le rejeu passe par le client de l'analyse, sous ses plafonds.
   const analysesAudits = creerClientAnalysesAudits((entree, init) => fetch(entree, init));
+  const donneesAnalyse = creerClientDonneesAnalyse((entree, init) => fetch(entree, init));
   cmd.declarer({
     id: 'admin.auditsParcelle',
     libelle: 'Audits',
@@ -105,6 +107,7 @@ function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, ac
         telecharger: (nom, texte, type) => telechargerTexte(nom, texte, type ?? 'application/json'),
         signaler: a.signaler,
         choisirFichier: a.choisirFichier ?? choisirFichierNavigateur(a.signaler),
+        donnees: () => (enAdmin() ? donneesAnalyse : null),
         rejeu: {
           analyses: () => (enAdmin() ? analysesAudits : null),
           analyse: () => (enAdmin() ? a.analyse?.client ?? null : null),

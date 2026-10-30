@@ -8,7 +8,7 @@
 // app/audit/parcelle/catalogue.ts ; ici on affiche.
 
 import { useState } from 'react';
-import { lignesBenchmark, comptesAnalyse, batimentDe, type LigneBenchmark } from '../../export/benchmarkAnalyses.js';
+import { lignesBenchmark, comptesAnalyse, batimentDe, NOMS_NATURES, type LigneBenchmark } from '../../export/benchmarkAnalyses.js';
 import { nomModele } from '../../model/consommation.js';
 import type { CatalogueAudits } from '../../app/audit/parcelle/catalogue.js';
 import type { DonneesAudit, PhotoVue } from '../../app/audit/parcelle/donneesAudit.js';
@@ -102,7 +102,7 @@ function Comparaison({ catalogue, a, lignes }: { catalogue: CatalogueAudits; a: 
         <tbody>{lignes.map((l) => (
           <tr key={l.id} className={e.trace?.id === l.id ? 'choisie' : undefined}>
             <td>{l.creeLe.slice(0, 16).replace('T', ' ')}</td>
-            <td>{l.nature === 'rejeu' ? 'Rejeu' : 'Analyse'}</td>
+            <td>{NOMS_NATURES[l.nature] ?? l.nature}</td>
             <td>{nomModele(l.modele)}</td>
             <td>{l.essai ? 'brouillon ' : ''}{l.prompt} · {l.schema}</td>
             <td>{l.etat === 'termine' ? l.reussies + ' / ' + l.requetes : 'En cours'}</td>
@@ -176,12 +176,12 @@ function Trace({ catalogue, complete, autres }: { catalogue: CatalogueAudits; co
   return (
     <div className="traceAudit" role="region" aria-label="Détail de l’analyse">
       <div className="enteteAuditRecu">
-        <span className="dateAuditRecu">{resume.nature === 'rejeu' ? 'Rejeu' : 'Analyse'} du {resume.creeLe.slice(0, 16).replace('T', ' ')}</span>
+        <span className="dateAuditRecu">{NOMS_NATURES[resume.nature] ?? resume.nature} du {resume.creeLe.slice(0, 16).replace('T', ' ')}</span>
         <span className="pastilleAudit">{nomModele(resume.modele)}</span>
         <span className="pastilleAudit">{resume.etat === 'termine' ? 'Terminée' : 'En cours'}</span>
         {resume.essai && <span className="pastilleAudit" title="Parti avec le brouillon des règles du serveur, pas avec le prompt livré">Brouillon des règles</span>}
       </div>
-      <p className="detailPhoto">Batch {resume.idBatch} · prompt {resume.prompt}, schéma {resume.schema} · effort {resume.effort ?? '—'} · {pluriel(resume.requetes, 'requête')}, {pluriel(resume.images, 'image')} · {dollars(resume.cout)}</p>
+      <p className="detailPhoto">{resume.idBatch ? 'Batch ' + resume.idBatch : 'Appel immédiat'} · prompt {resume.prompt}, schéma {resume.schema} · effort {resume.effort ?? '—'} · {pluriel(resume.requetes, 'requête')}, {pluriel(resume.images, 'image')} · {dollars(resume.cout)}</p>
       <details open>
         <summary>Entrant : ce qui est parti chez Claude</summary>
         {entrant ? <>
@@ -192,6 +192,14 @@ function Trace({ catalogue, complete, autres }: { catalogue: CatalogueAudits; co
           {entrant.requetes.map((q) => (
             <details key={q.id} className="blocTrace">
               <summary>Requête {q.id} · passe {q.passe ?? '—'} · {q.usage} · {nomModele(q.modele)} · {pluriel(q.images, 'image')}</summary>
+              {/* Le run d'une facade se rejoue depuis son image gardee (lot L0) : memes octets, prompt et modele d'aujourd'hui. Facture. */}
+              {q.usage === 'facade' && q.passe !== null && q.passe <= 1 && (
+                <div className="actionsAuditRecu">
+                  <button type="button" className="secondary small" data-controle="auditsParcelle.rejouerFacade" disabled={catalogue.etat().donneesEnCours !== null}
+                    title="Renvoie à Claude la même image et le même texte, en trois passes votées, avec le prompt et le modèle d’aujourd’hui : un appel facturé, gardé avec l’audit"
+                    onClick={() => { void catalogue.rejouerFacade(complete.audit, resume.id, q.id); }}>Rejouer cette façade depuis son image</button>
+                </div>
+              )}
               {q.contenu.map((b, i) => b.type === 'text'
                 ? <pre key={i} className="texteTrace">{b.text}</pre>
                 : <img key={i} className="imageTrace" src={catalogue.urlImage(complete.audit, b.image) ?? ''} alt={'Image envoyée ' + b.image} loading="lazy" />)}
@@ -266,7 +274,7 @@ export function DetailAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: F
             </div>
           )}
           {raisonRejeu && <p className="raisonAuditRecu">{raisonRejeu}</p>}
-          {e.trace?.audit === a.id && (e.trace.complete ? <Trace catalogue={catalogue} complete={e.trace.complete} autres={lignes.filter((l) => l.id !== e.trace?.id && l.etat === 'termine').map((l) => ({ id: l.id, libelle: (l.nature === 'rejeu' ? 'Rejeu' : 'Analyse') + ' du ' + l.creeLe.slice(0, 16).replace('T', ' ') + ' · ' + nomModele(l.modele) + ' · ' + (l.essai ? 'brouillon ' : 'prompt ') + l.prompt }))} />
+          {e.trace?.audit === a.id && (e.trace.complete ? <Trace catalogue={catalogue} complete={e.trace.complete} autres={lignes.filter((l) => l.id !== e.trace?.id && l.etat === 'termine').map((l) => ({ id: l.id, libelle: (NOMS_NATURES[l.nature] ?? l.nature) + ' du ' + l.creeLe.slice(0, 16).replace('T', ' ') + ' · ' + nomModele(l.modele) + ' · ' + (l.essai ? 'brouillon ' : 'prompt ') + l.prompt }))} />
             : <p className={e.trace.erreur ? 'erreurParcours' : 'detailPhoto'} role="status">{e.trace.erreur ?? 'Lecture de l’analyse…'}</p>)}
         </details>
       )}

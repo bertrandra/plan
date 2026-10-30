@@ -46,6 +46,21 @@ describe('le run d une facade', () => {
     expect(r.reponse.ouvertures[0]?.carreaux).toEqual({ vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' });
   });
 
+  it('garde l empreinte des octets que le serveur a recus (lot L0), celle de l escalade aussi : la meme image', async () => {
+    const SHA = 'a'.repeat(64);
+    const avecEmpreintes = (c: ClientAnalyse): ClientAnalyse => ({ immediat: async (d: DemandeAnalyse) => {
+      const lu = await c.immediat(d);
+      return { ...lu, trace: '20261029-083000-claude-haiku-5-5-0a1b', resultats: lu.resultats.map((x) => ({ ...x, empreintes: [{ sha256: SHA, octets: 5, type: 'image/jpeg' }] })) };
+    } } as unknown as ClientAnalyse);
+    const recues: DemandeAnalyse[] = [];
+    const r = await appelerRunFacade(contexte(avecEmpreintes(client(recues))), { image: IMAGE, texte: 'Façade : sud.', passes: 3 }, 'calibration');
+    if ('erreur' in r) throw new Error(r.erreur);
+    expect(r.run.image).toEqual({ largeur: 4, hauteur: 3, sha256: SHA, octets: 5 });
+    const e = await appelerEscaladeFacade(contexte(avecEmpreintes(client(recues))), { image: IMAGE, texte: 'Façade : sud.' }, r.run, 'calibration');
+    if ('erreur' in e) throw new Error(e.erreur);
+    expect(e.run.escalade?.sha256).toBe(SHA);
+  });
+
   it('envoie trois passes identiques (x3), vote celles qui reussissent, et compte le cout de toutes', async () => {
     const recues: DemandeAnalyse[] = [];
     const r = await appelerRunFacade(contexte(client(recues, [2])), { image: IMAGE, cache: new Uint8Array(12), texte: 'Façade : sud.', passes: 3 }, 'calibration');

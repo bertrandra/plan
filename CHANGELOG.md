@@ -26,8 +26,44 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Calibrer la détection.
 - Un test tient la décision : **aucun écran de capture hors de l'audit** (`tests/unit/architecture/captureAudit.test.ts` : une
   caméra, un champ fichier qui la demande ou qui prend une image n'existent que dans les écrans de l'audit).
-- Fumée : points 109 (de « Photographier » dans l'inspecteur à l'éditeur, deux Ctrl+Z), 110 (deux vues du même mur fondues dans
-  l'audit), 111 (« Créer un cas depuis cette façade », lu et rejoué par la calibration).
+- Fumée : points 112 (de « Photographier » dans l'inspecteur à l'éditeur, deux Ctrl+Z), 113 (deux vues du même mur fondues dans
+  l'audit), 114 (« Créer un cas depuis cette façade », lu et rejoué par la calibration).
+- **Lecture élargie par l'IA, lot L0 : tout garder** (`MD/spec-lecture-ia-elargie.md` §4.8, §12.1, décision 7). **Toute requête à
+  Claude laisse une trace sur le serveur** : ce qui est parti (le texte complet, chaque requête, les images par empreinte) et ce qui
+  est revenu (le texte brut, la sortie ramenée au schéma, les tokens, le coût, le refus de la sortie structurée, les versions). Une
+  requête qui nomme son audit se range dans son dossier, comme avant, les escalades de l'audit comprises ; toutes les autres
+  (« Rappeler Claude », l'aide du relevé, une analyse dont le dépôt a été retiré) sous `claude/analyses/sans-depot/<organisation>/<mois>/`,
+  gardées 24 mois. **L'image exacte envoyée** (le JPEG que Claude a vu) est gardée une fois par empreinte : trois passes et une
+  escalade d'une façade, un fichier ; la réponse enregistrée d'un run la référence (`image.sha256`, `image.octets`), une réponse
+  d'avant se relit telle quelle. Le journal gagne les empreintes de l'image et de la réponse, et la trace ; toujours ni photo ni
+  réponse. **Rejouer une façade depuis son image gardée** (Admin › Audits, sur une analyse ouverte ; `POST admin/claude/rejouer`) :
+  les mêmes octets et le même texte, avec le prompt et le modèle d'aujourd'hui, comptés en rejeu. **Exporter les données
+  d'analyse** (Admin › Audits ; `GET admin/claude/donnees-analyse`, administrateur seul) : pour une période, un usage et un modèle,
+  chaque requête de tous les audits et hors audit, et chaque proposition des audits reçus avec sa décision, la décision du moteur et
+  l'accord de Claude, en JSON (complet) ou en CSV (tableur français) ; les images par empreinte seulement
+  (`GET admin/claude/images/<sha256>.<ext>`). Le fichier du projet ne change pas (schéma 7) ; aucun export du projet ne bouge.
+- Fumée : point 109 (l'export « données d'analyse » en CSV et en JSON, et le rejeu d'une façade depuis son image gardée).
+
+- **Spec de la lecture élargie par l'IA** (`MD/spec-lecture-ia-elargie.md`, documentation seule, aucun code). Le périmètre lancé par
+  le propriétaire le 29 octobre 2026 — la façade (menuiseries, garde-corps, bow-window, auvents, décrochés, modénature, perron, store,
+  unité extérieure, boîte aux lettres, état du bâti en signal), le toit (couverture et motif de pose, fenêtres de toit, panneaux solaires,
+  débords, faîtage, gouttières), le jardin (plates-bandes à végétation basse en 3D, arbres et leur essence, regards, haies, allées,
+  existant), les règles de zone du PLU lues dans son règlement, les textes de la déclaration préalable et la relecture avant l'export,
+  l'assistant en langue naturelle — classé contre ce que Plan sait déjà (8 éléments existent, 23 sont à étendre, 17 à créer), avec le
+  modèle cible, le déroulé, les coûts par usage (Haiku par défaut, Sonnet à la demande) et sept lots : L0 (tout garder : l'image exacte
+  envoyée, une trace pour toute requête, l'export « données d'analyse » à travers les audits), L1 façade et L2 toit dans le run d'une
+  façade (après F7), L3 jardin et L4 PLU en parallèle, L5 textes et relecture, L6 assistant. Pointeur dans `MD/roadmap.md` §5.7.
+
+- **Façades, lot F8 : les carreaux en 3D** (`MD/spec-facade-calage-audit.md` §3.3, §9). Une ouverture d'une façade validée dont
+  la façade objet porte ses **carreaux** (`details.carreaux`, lus par Claude ou dits au doigt) les montre dans la Vue 3D : le
+  **meneau** entre les vantaux, la **traverse de l'imposte** et sa grille sur toute la largeur, les **petits bois** de chaque
+  vantail (colonnes × rangées, fins ou épais), et la vitre selon le vitrage lu (clair, dépoli, teinté, vitrail) quand le mur n'a
+  pas de photo. Le dessin suit le vocabulaire enregistré et lui seul : ce qu'il ne dit pas ne se dessine pas. Une maille par
+  ouverture, deux triangles par barre, dans son groupe `ouverture:<id>` ; en Normale et en Soignée, l'écran les montre en relief
+  (hors export), le `.glb` garde les barres à plat à tous les niveaux. **Un fichier sans carreaux se dessine exactement comme
+  avant** : empreinte `glb-structure.json` inchangée (`three/carreaux3d.ts`, `three/releve3d.ts`).
+- Fumée : point 108 (une façade validée à carreaux, ceux de la fenêtre d'AE 101 sud : ses barres dans la Vue 3D, à plat en
+  Économe, en relief aux autres niveaux).
 
 - **Façades, lot F5 : la Façade et la façade objet** (`MD/spec-facade-calage-audit.md` §3.2 à §3.4, §4 É9, §9). Une façade
   **validée** garde ce que la photo a servi à vérifier : ses **dimensions** (le plan et le LiDAR, et leur source ; l'écart que la
@@ -148,6 +184,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   façade », ou un audit reçu) ; l'écran ne prend plus de photos et n'ajoute plus de photo à un cas (on peut en retirer une). La
   détection propose les ouvertures d'un cas encore sans annotation à chaque rejeu (la case « Automatique », qui ne réglait plus que
   cela, part avec l'ajout de photos).
+- **La conclusion d'un audit sur le serveur** (`decisions.json`) passe en version 2 (lot L0) : chaque proposition y dit sa cible, son
+  effet, sa réserve, la décision du moteur et l'accord de Claude ; une conclusion d'avant se refait depuis le fichier de l'audit à
+  l'export. Les escalades d'un audit sauvegardé portent son dépôt et se rangent avec son analyse.
 
 - **Schéma du projet : 7** (lot F5). Un projet dont une façade est validée s'écrit au schéma 7 (un lecteur 6 perdrait sa Façade à la
   première réécriture du mur) ; les autres restent au plus petit schéma qui les décrit (la démonstration au 5). La migration 6 → 7
@@ -245,8 +284,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   commande `facade.relever` et ses vingt-six contrôles de capture, leurs règles CSS et leurs tests.
 - **Les cas de calibration faits à part** (lot F6) : « Nouveau cas (photos) », le champ photo de l'éditeur d'un cas, et les cas tirés
   d'une façade relevée d'un projet ou d'un fichier de projet (`app/releve/casDeReleve.ts`), et leurs sept contrôles ; un cas naît d'une façade de l'audit.
-- Fumée : points 54, 58, 59, 65, 67, 68, 71, 80, 81 et 82 (la capture du relevé), remplacés par 109 à 111 et les tests de l'éditeur
+- Fumée : points 54, 58, 59, 65, 67, 68, 71, 80, 81 et 82 (la capture du relevé), remplacés par 112 à 114 et les tests de l'éditeur
   (`tests/CHECKLIST-FUMEE.md`, « Points retirés au lot F6 »).
+- **L'analyse « sans trace »** (lot L0) : une analyse dont le dépôt a été retiré, ou un appel immédiat, n'est plus envoyée sans rien
+  garder ; sa trace va sous l'organisation (`claude/analyses/sans-depot/`).
 
 - **L'écart du contour dans le calage d'un relevé** (lot F5) : `calage.contourDecaleM`, que rien ne lisait ; l'écart de la largeur
   vue va dans les dimensions de la façade validée (`dimensions.ecartPhoto`, en part). Un fichier d'avant le garde tel quel. Et le
