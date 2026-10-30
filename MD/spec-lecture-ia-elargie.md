@@ -775,3 +775,48 @@ l'escalade D20 (`escalade.ts`) ; l'écriture de la trace propre au batch (rempla
 
 **Fumée.** Point **109** nouveau (l'export CSV et JSON, le rejeu d'une façade depuis son image) ; 57, 85, 86, 101, 103 rejoués
 (compact, moyen, large ; clair ; réseau témoin).
+
+### 12.2 L1 — Façade enrichie (30 octobre 2026)
+
+**Ce qui est livré.**
+
+- **Deux requêtes par façade, sur la même image** (décision du propriétaire du 30 octobre 2026, qui remplace pour L1 la décision 3) :
+  - **le run** (usage `facade`), identique à la 5.1.0 à l'octet près : prompt et schéma en version 2, repli sans sortie structurée
+    (l'API refuse sa grammaire, comme avant), trois passes votées, escalade vers Sonnet. Les corps envoyés à l'API pour le run et
+    l'escalade, avec et sans sortie structurée, sont comparés à ceux de 1ea13701 : identiques ;
+  - **la lecture enrichie** (usage `facade-enrichie`, `src/regles/sujets/descriptions/facadesEnrichie.ts`, prompt v2 et schéma v1
+    générés), en sortie structurée acceptée par l'API (66 passes sur 66), trois passes votées, sans escalade.
+- Une baie de la lecture enrichie donne ses détails (menuiserie, couleur des volets, garde-corps) à l'ouverture du run qu'elle
+  recouvre le plus (`voteMemeBaie`), une au plus ; les saillies, décrochés, modénature, appendices et état viennent d'elle seule
+  (`facade/regles/facades/voteEnrichi.ts`, `avecLectureEnrichie`). Rien d'autre du run ne change. Son échec est gardé avec le run
+  (`RunEnregistre.enrichie.erreur`) : la façade est proposée sans ses champs, avec un signal.
+- Audit : ses requêtes partent dans le même batch, avec la place que les runs laissent (jamais à leur place). Calibration : en même
+  temps que le run, l'image encodée une fois (`encodageUnique`) ; la trace L0 la garde une fois par empreinte.
+- Les règles (menuiseries, modénature, saillies, état), la Façade validée (schéma 10), la 3D et les équipements de la façade, tels que
+  le §4.2 les décrit. La profondeur d'une saillie vue est un réglage (`regles/facades/reglages.json`, `saillies.profondeursM`), aux
+  valeurs d'une saillie posée au Mode Toit.
+
+**Pourquoi deux requêtes.** Dix essais de schéma sur la vraie API (30 octobre 2026) : le run avec les champs de L1 dépasse la grammaire
+de la sortie structurée, même sans union, sans champ facultatif et sans aucune énumération ; les champs de 5.1.0 seuls, sans union,
+passent, et ceux de L1 seuls aussi. Un run de 5.1.0 réécrit sans union pour passer en sortie structurée lisait moins bien le banc
+(runs 41014320579 et 41016247854 : rappel ×3 96,8 et 97,6 %, carreaux 5/21) : le run est resté celui de la 5.1.0.
+
+**Critères d'acceptation.**
+
+| Critère | Preuve |
+|---|---|
+| La lecture d'avant L1 ne baisse pas | Garde-fou de la lecture (run 41021689763) : vert contre les planchers de 5.1.0 après la relance automatique ; ×3 rappel 99,2 %, précision 100 % ; `lectureReference.test.ts`, `champsLecture.test.ts` intacts |
+| Sur la façade d'AE 101 et du banc, couleurs et garde-corps lus et dessinés | Points 116 (menuiseries en bois, garde-corps en fer forgé, bandeau, store, signal ; dessinés) dans les trois classes |
+| Un fichier sans champ nouveau se dessine à l'identique | `glb-structure.json` et les autres empreintes golden inchangés ; `projet510Facades.test.ts` vert |
+| L'état du bâti ne change aucun nombre ni export | signal sans case ; aucune empreinte ne bouge |
+| Une saillie acceptée passe par le moteur seulement | Point 117 (bow-window décoché, posé par `corpsSousContrainte`), dans les trois classes |
+| AE 101 ne bouge pas | `identite.ts` : « AE 101 : corps identiques » |
+
+**Coût mesuré** (run 41021689763) : le run ×3, 0,00466 $ la façade (0,00467 $ en 5.1.0) ; la lecture enrichie ×3, 0,00339 $ ; les
+deux, **0,00805 $ la façade**, accepté par le propriétaire (« +60 à 100 % »).
+
+**Supprimé.** Rien de la 5.1.0 : le run n'est pas touché. Dans la branche, le vote et l'escalade des champs enrichis à l'intérieur du
+run, le schéma du run sans union (version 4) et sa règle du -1, devenus sans objet.
+
+**Fumée.** Points **116** et **117** nouveaux ; 24, 102, 103, 104, 105 et 108 rejoués : 24 sur 24 (compact, moyen, large ; clair ;
+réseau témoin).

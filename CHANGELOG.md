@@ -7,6 +7,40 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façade enrichie, lot L1** (`MD/spec-lecture-ia-elargie.md` §4.1, §4.2, §12.2). Chaque façade lue par Claude l'est par **deux
+  requêtes sur la même image** (décision du propriétaire du 30 octobre 2026, qui remplace pour L1 la décision 3) : le **run**, identique
+  à la 5.1.0 à l'octet près, et la **lecture enrichie** (usage `facade-enrichie`, ses prompt et schéma générés, en sortie structurée
+  acceptée par l'API), trois passes votées. Elle lit la menuiserie de chaque baie (matière, couleur), la couleur de ses volets et son
+  garde-corps (type, hauteur, couleur), dans une palette fermée de mots tenue en réglage (`regles/facades/reglages.json`, `palette`) ;
+  les saillies (bow-window, galerie, auvent, appentis) et les décrochés ; la modénature (égout, génoise, bandeaux, chaînes,
+  encadrements, soubassement, descentes) ; ce qui est posé contre le mur (perron, store, unité extérieure, boîte aux lettres) ; l'état du
+  mur. Une baie de la lecture enrichie donne ses détails à l'ouverture du run qu'elle recouvre, et rien d'autre du run ne change ; son
+  échec laisse la façade proposée sans ses champs, avec un signal. Dans l'audit, elle part dans le même batch, avec la place que les
+  runs laissent ; dans la calibration, en même temps que le run, l'image encodée une fois (une seule image gardée, lot L0).
+- Claude propose, le moteur tranche : quatre modules de règles (menuiseries, modénature, saillies, état). Une saillie n'est posée que
+  par le moteur des toits (`corpsSousContrainte`), par une proposition **décochée**, à la profondeur de son genre, **un réglage**
+  (`regles/facades/reglages.json`, `saillies.profondeursM`, aux valeurs d'une saillie posée au Mode Toit) ; un décroché est dit, jamais
+  proposé ; une descente n'est retenue que si la détection voit une verticale à sa place ; l'état du bâti est un signal, sans case ni
+  export.
+- La Façade validée gagne `modenature`, `appendices` et `etat`, l'ouverture `menuiserie` et `gardeCorps` ; une saillie peut être un
+  `auvent` ; l'équipement gagne `perron`, `unite-exterieure` et `boite-aux-lettres`, qui ne chargent rien. Le schéma des projets passe à
+  **10** (migration identité ; un projet s'écrit toujours au plus petit schéma qui le décrit). La 3D dessine les menuiseries colorées,
+  les garde-corps par type, la modénature lue, le store, l'auvent sur consoles et les équipements de la façade ; un fichier sans champ
+  nouveau se dessine à l'identique.
+- Le serveur, la vérification de l'API (six requêtes), la mesure du banc (le coût de la lecture enrichie s'ajoute au tableau), le
+  réglage du modèle de chaque usage et le tableau de la consommation connaissent l'usage `facade-enrichie`. Le serveur remplit un
+  nombre manquant de la valeur `default` que son schéma lui donne.
+- Points de fumée **116** (une façade enrichie lue, validée, dessinée) et **117** (un bow-window proposé, accepté, posé par le moteur).
+
+### Modifié
+
+- Coût mesuré d'une façade lue en production : environ 0,0079 $ (le run, environ 0,0046 $, et la lecture enrichie, environ
+  0,0034 $), contre 0,0047 $ en 5.1.0 ; accepté par le propriétaire.
+- La modénature lue se dessine sur le mur relevé, où la maçonnerie déduite de l'époque ne se posait déjà pas ; les murs sans relevé
+  gardent la maçonnerie de leur époque. Le garde-corps d'avant, codé en constantes, devient le type `barreaux`, aux mêmes cotes.
+
+### Ajouté
+
 - **Garde-fou de la lecture des façades** (`MD/RELEASE.md` §8.2 bis, skill `facades` §5 quater). Ce que la lecture des façades par
   Claude savait faire en 5.1.0 ne peut plus se perdre sans que cela se voie. La référence garde trois mesures de main au même code de
   lecture (runs 40998593930, 41012308826 et 41014104555 de « Vérifier l'API Claude ») et le **plancher** de chaque ligne, le pire des
