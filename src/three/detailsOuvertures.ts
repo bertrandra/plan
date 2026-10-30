@@ -15,7 +15,7 @@
 // mesurees : ce sont les proportions courantes, que le releve ne lit pas encore.
 
 import type * as THREE_NS from 'three';
-import type { DetailsOuverture, OuvertureFacade, PtBrut } from '../model/types.js';
+import type { DetailsOuverture, OuvertureFacade, PtBrut, TypeGardeCorps } from '../model/types.js';
 import type { Facade } from '../geometry/cotesVusDeDehors.js';
 import { au } from '../util/tableaux.js';
 import { Batisseur, type S3 } from './batisseur.js';
@@ -48,6 +48,8 @@ const COULEUR_VOLET = 0x7f8f84;
 const COULEUR_COFFRE = 0xe6e2d8;
 const COULEUR_DALLE = 0xcfcac0;
 const COULEUR_GARDE_CORPS = 0x3b3d40;
+/** Le vitrage d'un garde-corps en verre (lot L1) : clair, a peine teinte. */
+const COULEUR_VERRE_GARDE_CORPS = 0xcfe3e8;
 
 /** Une ouverture habillee : une forme qui n'est pas un rectangle, ou des volets, un balcon, un garde-corps. */
 export function aDesDetails(d: DetailsOuverture | undefined): boolean {
@@ -163,6 +165,12 @@ interface Pieces {
   coffres: (() => void)[];
   dalles: (() => void)[];
   gardeCorps: (() => void)[];
+  /**
+   * Les garde-corps lus (lot L1) d'une couleur ou d'un type autre que les barreaux d'avant, par couleur ; et les vitrages des
+   * garde-corps en verre. Apres les autres groupes : un mur sans lecture garde exactement sa maille.
+   */
+  gardeCorpsLus: Map<string, (() => void)[]>;
+  verres: (() => void)[];
 }
 
 /**
@@ -198,25 +206,56 @@ function volets(b: Batisseur, pt: Point3, o: Baie, cadre: number, hMur: number, 
   if (x + l + cadre + w <= f.largeur + 0.01) vantail(x + l + cadre, x + l + cadre + w, D.saillieVolet);
 }
 
-/** Un garde-corps droit, de `x0` a `x1`, de `y0` a `y0 + hauteur`, a la saillie `s` : deux lisses et des barreaux. */
-function gardeCorpsDroit(b: Batisseur, pt: Point3, x0: number, x1: number, y0: number, hauteur: number, s: number): void {
+/** Les cotes propres aux garde-corps lus (lot L1) : le pas des barreaux d'un fer forge et ses losanges, l'epaisseur d'un plein. */
+const FER_FORGE = { pas: 0.1, losange: 0.07 } as const;
+const PLEIN_EPAISSEUR = 0.06;
+
+/**
+ * Un garde-corps droit, de `x0` a `x1`, de `y0` a `y0 + hauteur`, a la saillie `s`. `barreaux` (le dessin d'avant, aux memes cotes) :
+ * deux lisses et des barreaux ; `fer-forge` : des barreaux plus serres, une lisse a mi-hauteur et une frise de losanges dessous ;
+ * `verre` : la lisse haute et un vitrage (dans `verre`, son groupe a lui) ; `plein` : un muret mince sous sa lisse.
+ */
+function gardeCorpsDroit(b: Batisseur, pt: Point3, x0: number, x1: number, y0: number, hauteur: number, s: number, type: TypeGardeCorps = 'barreaux'): void {
   const G = DETAILS_OUVERTURE.gardeCorps;
   pave(b, pt, x0, x1, y0 + hauteur - G.lisse, y0 + hauteur, s - G.lisse / 2, s + G.lisse / 2);
+  if (type === 'plein') { pave(b, pt, x0, x1, y0, y0 + hauteur - G.lisse, s - PLEIN_EPAISSEUR / 2, s + PLEIN_EPAISSEUR / 2); return; }
+  // Le vitrage d'un garde-corps en verre se pose dans son groupe a lui (`vitrageDroit`) : ici, la lisse seule.
+  if (type === 'verre') return;
   pave(b, pt, x0, x1, y0 + 0.05, y0 + 0.05 + G.lisse / 2, s - G.lisse / 4, s + G.lisse / 4);
-  const n = Math.max(1, Math.round((x1 - x0) / G.pas));
+  const pas = type === 'fer-forge' ? FER_FORGE.pas : G.pas;
+  const n = Math.max(1, Math.round((x1 - x0) / pas));
   for (let k = 0; k <= n; k++) {
     const c = x0 + ((x1 - x0) * k) / n;
     panneau(b, pt, c - G.barreau / 2, c + G.barreau / 2, y0, y0 + hauteur - G.lisse, s);
   }
+  if (type !== 'fer-forge') return;
+  // La lisse a mi-hauteur et, dessous, un losange entre deux barreaux : la frise d'un balcon en fer forge, vue de la rue.
+  const mi = y0 + hauteur / 2;
+  pave(b, pt, x0, x1, mi - G.lisse / 4, mi + G.lisse / 4, s - G.lisse / 4, s + G.lisse / 4);
+  const r = FER_FORGE.losange / 2, yc = mi - r - 0.03;
+  for (let k = 0; k < n; k++) {
+    const c = x0 + ((x1 - x0) * (k + 0.5)) / n;
+    b.quad(pt(c, yc - r, s), pt(c + r, yc, s), pt(c, yc + r, s), pt(c - r, yc, s));
+  }
 }
 
-/** Un garde-corps perpendiculaire au mur, au droit de `x`, de la saillie `s0` a `s1` : le cote d'un balcon. */
-function gardeCorpsCote(b: Batisseur, pt: Point3, x: number, s0: number, s1: number, y0: number, hauteur: number): void {
+/** Le vitrage d'un garde-corps en verre, sous sa lisse : parallele au mur (`s` fixe) ou, sur le cote d'un balcon, perpendiculaire. */
+function vitrageDroit(b: Batisseur, pt: Point3, x0: number, x1: number, y0: number, hauteur: number, s: number): void {
+  panneau(b, pt, x0 + 0.02, x1 - 0.02, y0 + 0.05, y0 + hauteur - DETAILS_OUVERTURE.gardeCorps.lisse, s);
+}
+function vitrageCote(b: Batisseur, pt: Point3, x: number, s0: number, s1: number, y0: number, hauteur: number): void {
+  const y1 = y0 + hauteur - DETAILS_OUVERTURE.gardeCorps.lisse;
+  b.quad(pt(x, y0 + 0.05, s0), pt(x, y0 + 0.05, s1), pt(x, y1, s1), pt(x, y1, s0));
+}
+
+/** Un garde-corps perpendiculaire au mur, au droit de `x`, de la saillie `s0` a `s1` : le cote d'un balcon. `barreaux` faux : la lisse seule. */
+function gardeCorpsCote(b: Batisseur, pt: Point3, x: number, s0: number, s1: number, y0: number, hauteur: number, barreaux = true): void {
   const G = DETAILS_OUVERTURE.gardeCorps;
   const e = G.lisse / 2;
   // La lisse haute, vue de dessus et de cote.
   b.quad(pt(x - e, y0 + hauteur, s0), pt(x - e, y0 + hauteur, s1), pt(x + e, y0 + hauteur, s1), pt(x + e, y0 + hauteur, s0));
   b.quad(pt(x, y0 + hauteur - G.lisse, s0), pt(x, y0 + hauteur - G.lisse, s1), pt(x, y0 + hauteur, s1), pt(x, y0 + hauteur, s0));
+  if (!barreaux) return;
   const n = Math.max(1, Math.round((s1 - s0) / G.pas));
   for (let k = 0; k < n; k++) {
     const s = s0 + ((s1 - s0) * (k + 0.5)) / n;
@@ -233,21 +272,31 @@ function allege(b: Batisseur, pt: Point3, o: Baie, f: Facade, p: Pieces): void {
   if ((a !== 'balcon' && a !== 'garde-corps') || o.y < AU_SOL_M) return;
   const D = DETAILS_OUVERTURE;
   const { x, y, l, h } = o;
+  // Le garde-corps lu (lot L1) : son type, sa hauteur calee et sa couleur ; sans lecture, les barreaux d'avant, dans leur groupe.
+  const lu = o.details?.gardeCorps;
+  const type = lu?.type ?? 'barreaux';
+  const groupe = lu && (lu.couleur || type !== 'barreaux') ? p.gardeCorpsLus.get(lu.couleur ?? '') ?? (p.gardeCorpsLus.set(lu.couleur ?? '', []).get(lu.couleur ?? '') as (() => void)[]) : p.gardeCorps;
   if (a === 'garde-corps') {
-    const H = Math.min(D.gardeCorps.hauteur, 0.5 * h);
-    p.gardeCorps.push(() => gardeCorpsDroit(b, pt, x, x + l, y, H, D.gardeCorps.saillie));
+    const H = lu?.hauteurM ?? Math.min(D.gardeCorps.hauteur, 0.5 * h);
+    groupe.push(() => gardeCorpsDroit(b, pt, x, x + l, y, H, D.gardeCorps.saillie, type));
+    if (type === 'verre') p.verres.push(() => vitrageDroit(b, pt, x, x + l, y, H, D.gardeCorps.saillie));
     return;
   }
   const x0 = Math.max(0, x - D.balcon.debord),
     x1 = Math.min(f.largeur, x + l + D.balcon.debord);
   const P = D.balcon.portee,
     e = D.gardeCorps.lisse;
+  const H = lu?.hauteurM ?? D.gardeCorps.hauteur;
   p.dalles.push(() => pave(b, pt, x0, x1, y - D.balcon.epaisseur, y, 0, P));
-  p.gardeCorps.push(() => {
-    gardeCorpsDroit(b, pt, x0, x1, y, D.gardeCorps.hauteur, P - e);
-    gardeCorpsCote(b, pt, x0 + e, 0, P - e, y, D.gardeCorps.hauteur);
-    gardeCorpsCote(b, pt, x1 - e, 0, P - e, y, D.gardeCorps.hauteur);
+  const pleins = type === 'verre' || type === 'plein';
+  groupe.push(() => {
+    gardeCorpsDroit(b, pt, x0, x1, y, H, P - e, type);
+    gardeCorpsCote(b, pt, x0 + e, 0, P - e, y, H, !pleins);
+    gardeCorpsCote(b, pt, x1 - e, 0, P - e, y, H, !pleins);
+    // Les cotes d'un garde-corps plein : un muret mince de chaque cote, du mur au devant du balcon.
+    if (type === 'plein') for (const xc of [x0 + e, x1 - e]) pave(b, pt, xc - PLEIN_EPAISSEUR / 2, xc + PLEIN_EPAISSEUR / 2, y, y + H - D.gardeCorps.lisse, 0, P - e);
   });
+  if (type === 'verre') p.verres.push(() => { vitrageDroit(b, pt, x0, x1, y, H, P - e); vitrageCote(b, pt, x0 + e, 0, P - e, y, H); vitrageCote(b, pt, x1 - e, 0, P - e, y, H); });
 }
 
 /** Une ouverture posee sur son mur : la facade, l'ouverture (cotes et details), la hauteur du mur la ou elle est. */
@@ -273,15 +322,18 @@ export function poserDetailsOuvertures(ctx: ContexteDetailsOuvertures, poses: re
   const habillees = poses.filter((q) => aDesDetails(q.o.details));
   if (!habillees.length) return;
   const b = new Batisseur();
-  const p: Pieces = { volets: [], voletsColores: new Map(), coffres: [], dalles: [], gardeCorps: [] };
+  const p: Pieces = { volets: [], voletsColores: new Map(), coffres: [], dalles: [], gardeCorps: [], gardeCorpsLus: new Map(), verres: [] };
   habillees.forEach((q) => {
     const pt = repereFacade(ctx.toLocal, q.f);
     volets(b, pt, q.o, q.cadre, q.hMur, q.f, p);
     allege(b, pt, q.o, q.f, p);
   });
-  // Les volets de couleur vue viennent apres les quatre groupes d'avant : sans eux, la maille ne change pas.
+  // Les volets de couleur vue viennent apres les quatre groupes d'avant : sans eux, la maille ne change pas. De meme les garde-corps
+  // lus et leurs vitrages (lot L1), apres eux.
   const colores = [...p.voletsColores];
-  const groupes = [p.volets, p.coffres, p.dalles, p.gardeCorps, ...colores.map(([, g]) => g)];
+  const gardes = [...p.gardeCorpsLus];
+  const verres = p.verres.length ? [p.verres] : [];
+  const groupes = [p.volets, p.coffres, p.dalles, p.gardeCorps, ...colores.map(([, g]) => g), ...gardes.map(([, g]) => g), ...verres];
   if (!groupes.some((g) => g.length)) return;
   groupes.forEach((g, k) => {
     g.forEach((f) => f());
@@ -293,6 +345,8 @@ export function poserDetailsOuvertures(ctx: ContexteDetailsOuvertures, poses: re
     new THREE.MeshStandardMaterial({ color: COULEUR_DALLE, roughness: 0.9, side: THREE.DoubleSide }),
     new THREE.MeshStandardMaterial({ color: COULEUR_GARDE_CORPS, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide }),
     ...colores.map(([c]) => new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.8, side: THREE.DoubleSide })),
+    ...gardes.map(([c]) => new THREE.MeshStandardMaterial({ color: c ? new THREE.Color(c) : COULEUR_GARDE_CORPS, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide })),
+    ...verres.map(() => new THREE.MeshStandardMaterial({ color: COULEUR_VERRE_GARDE_CORPS, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.35, side: THREE.DoubleSide })),
   ];
   // Plaques contre le mur (volets ouverts a 3 cm) : de loin, elles doivent gagner le test de profondeur.
   materiaux.forEach((m) => poserEnCouche(m, COUCHES_SOL.surMur));
@@ -315,7 +369,7 @@ export function cadreEtVitreFormes(b: Batisseur, pt: Point3, o: Baie, cadre: num
  * entre le contour elargi de `section` et le contour de la baie, a la saillie `saillie`, et la vitre quand
  * le mur n'a pas de photo. Une seule maille (`releve-ouverture-forme`).
  */
-export function encadrementForme(ctx: ContexteDetailsOuvertures, f: Facade, o: Baie, section: number, saillie: number, couleurs: { cadre: number; vitre: number | null }, decollement: number): void {
+export function encadrementForme(ctx: ContexteDetailsOuvertures, f: Facade, o: Baie, section: number, saillie: number, couleurs: { cadre: number | string; vitre: number | null }, decollement: number): void {
   const pt = repereFacade(ctx.toLocal, f);
   const ext = contourBaie(o, section),
     int = contourBaie(o, 0);

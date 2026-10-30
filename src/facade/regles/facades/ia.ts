@@ -16,6 +16,8 @@ import { mediane } from '../../../util/stats.js';
 import { empreinteReglagesIa, lireReglagesIa, type ReglagesIa } from '../../../regles/facades/ia.js';
 import { CONFIANCE_PLEINE } from '../../detection/verification.js';
 import { recalerBoite, type CartesAretes } from '../../detection/recalageIa.js';
+import { detailsDeLIa } from './menuiseries.js';
+import { escaladerBaies, escaladerEnrichi, voterDetailsLus, voterEnrichi } from './voteEnrichi.js';
 import { garder, lireObservationsFacade, type AngleIa, type Carreaux, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
 
 // Les seuils des regles : regles/facades/ia.json (MD/architecture.md §5.2.4), lus et verifies par src/regles/facades/ia.ts, edites
@@ -90,11 +92,18 @@ export function voterObservations(rs: readonly ObservationsFacade[], r: Reglages
       confiance: majorite(rs.map((r) => r.surface.confiance), ind),
     },
     elements: grouper(rs.map((r) => r.elements), (a, b) => a.element === b.element && Math.abs(a.u - b.u) <= memeU).map((g) => ({ element: (g[0] as ObservationsFacade['elements'][number]).element, u: med(g.map((e) => e.u)), confiance: majorite(g.map((e) => e.confiance), ind) })),
-    ouvertures: grouper(rs.map((r) => r.ouvertures), (a, b) => recouvrementUV(a, b) >= r['facades.ia.voteMemeBaie']).map((g) => ({
-      ...commune(g), type: majorite(g.map((o) => o.type), (g[0] as OuvertureIa).type),
-      u0: med(g.map((o) => o.u0)), u1: med(g.map((o) => o.u1)), v0: med(g.map((o) => o.v0)), v1: med(g.map((o) => o.v1)),
-      confiance: majorite(g.map((o) => o.confiance), ind), carreaux: commune(g.map((o) => o.carreaux)),
-    })).sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
+    ouvertures: grouper(rs.map((r) => r.ouvertures), (a, b) => recouvrementUV(a, b) >= r['facades.ia.voteMemeBaie']).map((g) => {
+      // Les details lus (lot L1) se votent champ par champ, pas avec la baie de la premiere passe.
+      const reste: OuvertureIa = { ...commune(g) };
+      delete reste.lus;
+      const lus = voterDetailsLus(g.map((o) => o.lus));
+      return {
+        ...reste, type: majorite(g.map((o) => o.type), (g[0] as OuvertureIa).type),
+        u0: med(g.map((o) => o.u0)), u1: med(g.map((o) => o.u1)), v0: med(g.map((o) => o.v0)), v1: med(g.map((o) => o.v1)),
+        confiance: majorite(g.map((o) => o.confiance), ind), carreaux: commune(g.map((o) => o.carreaux)), ...(lus ? { lus } : {}),
+      };
+    }).sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
+    ...voterEnrichi(rs, r),
     confiance: majorite(rs.map((r) => r.confiance), 'faible'),
   };
 }
@@ -161,11 +170,12 @@ export function escaladerObservations(vote: ObservationsFacade | null, esc: Obse
       zones: choisir('les zones du parement', vote.surface.zones, esc.surface.zones, accordees(vote.surface.zones, esc.surface.zones, (a, b) => a.type === b.type && pres(a.u0, b.u0) && pres(a.u1, b.u1) && pres(a.v0, b.v0, a.v0) && pres(a.v1, b.v1, a.v1))),
       confiance: vote.surface.confiance,
     },
-    ouvertures: [...vote.ouvertures, ...enPlus].sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
+    ouvertures: [...escaladerBaies(vote.ouvertures, esc.ouvertures, memeBaie, tranche), ...enPlus].sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
+    ...escaladerEnrichi(vote, esc, accordees, (a, b) => pres(a, b), tranche),
     confiance: vote.confiance,
   };
   if (enPlus.length) tranche.push(enPlus.length + (enPlus.length > 1 ? ' ouvertures de plus' : ' ouverture de plus'));
-  return { ...out, escalade: { modele, tranche } };
+  return { ...out, escalade: { modele, tranche: [...new Set(tranche)] } };
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -275,7 +285,9 @@ export function ouvertureDeLIa(o: OuvertureIa, largeurM: number, hauteurM: numbe
   if (o.niveau !== null) out.niveau = o.niveau;
   if (o.travee !== null) out.travee = o.travee;
   const carreaux = carreauxDeLIa(o.carreaux, out.h);
-  if (Object.keys(o.details).length || carreaux) out.details = { ...o.details, ...(carreaux ? { carreaux } : {}) };
+  // La menuiserie, la couleur des volets et le garde-corps (lot L1) : traduits par les regles des menuiseries.
+  const lus = detailsDeLIa(o.lus, out, hauteurM, o.details.allege);
+  if (Object.keys(o.details).length || carreaux || Object.keys(lus).length) out.details = { ...o.details, ...lus, ...(carreaux ? { carreaux } : {}) };
   return out;
 }
 

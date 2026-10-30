@@ -150,14 +150,14 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
-      expect(p.version).toBe(2);
+      expect(p.version).toBe(3);
       expect(p.texte).toMatch(/^# Rôle/);
       const s = lireSchema('schema-facade.json');
-      expect(s.version).toBe(2);
+      expect(s.version).toBe(3);
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, [])) expect(texte('prompt-facade.md'), t).toContain('`' + t + '`');
       // Le serveur sert ce couple pour l'usage `facade`, et garde celui de l'analyse pour les autres.
-      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([2, 2]);
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([3, 3]);
       // L'exemple du repli a la forme du schema : le serveur le ramene a lui-meme, sans rien ecarter ni completer.
       const exemple = (JSON.parse(texte('schema-facade.json')) as { exemple: object }).exemple;
       expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
@@ -321,7 +321,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(s.ouvertures.map((o) => o.type)).toEqual(['fenetre']);
       const bon = phpObjets<Sortie>('sortieConforme', JSON.stringify({ ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8 }] }), SCHEMA_FACADE.schema);
       expect(bon.ouvertures[0]).toEqual({ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: 'indetermine', travee: 'indetermine', confiance: 'indetermine',
-        details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' },
+        details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine', menuiserie: { materiau: 'indetermine', couleur: 'indetermine' }, couleurVolets: 'indetermine', gardeCorps: { type: 'indetermine', haut: 'indetermine', couleur: 'indetermine' } },
         carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } });
       expect(bon.confiance).toBe('faible');
     });

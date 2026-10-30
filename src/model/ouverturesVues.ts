@@ -5,21 +5,18 @@
 // qui n'en ont pas, et seulement du type qu'ils concernent (une porte n'a pas de petits bois, une fenetre pas
 // de remplissage). `mixte`, `sans-objet` et `indetermine` ne se traduisent pas : ils ne disent rien a poser.
 
+import { PALETTE_FACADES } from '../regles/facades/palette.js';
 import type { DetailsOuverture, TypeOuverture } from './types.js';
 
-/** Les couleurs de volets que Claude nomme, et la couleur qui en tient lieu dans le dessin. */
-export const COULEURS_VOLETS: readonly { code: string; libelle: string; couleur: string }[] = [
-  { code: 'blanc', libelle: 'blancs', couleur: '#EEEDE8' },
-  { code: 'creme', libelle: 'crème', couleur: '#E6DCC3' },
-  { code: 'gris-clair', libelle: 'gris clair', couleur: '#B9BCBA' },
-  { code: 'gris-fonce', libelle: 'gris foncé', couleur: '#55595B' },
-  { code: 'bleu', libelle: 'bleus', couleur: '#5B7A99' },
-  { code: 'vert', libelle: 'verts', couleur: '#5E7D5E' },
-  { code: 'rouge', libelle: 'rouges', couleur: '#8E3B32' },
-  { code: 'brun', libelle: 'bruns', couleur: '#6B4E3A' },
-  { code: 'bois', libelle: 'bois naturel', couleur: '#A2774E' },
-  { code: 'noir', libelle: 'noirs', couleur: '#2E3033' },
+/**
+ * Les couleurs de volets que Claude nomme, et la couleur qui en tient lieu dans le dessin : celle de la palette des facades
+ * (regles/facades/reglages.json, lot L1), une seule table pour l'analyse d'une maison et le run d'une facade.
+ */
+const LIBELLES_VOLETS: readonly [string, string][] = [
+  ['blanc', 'blancs'], ['creme', 'crème'], ['gris-clair', 'gris clair'], ['gris-fonce', 'gris foncé'], ['bleu', 'bleus'], ['vert', 'verts'],
+  ['rouge', 'rouges'], ['brun', 'bruns'], ['bois', 'bois naturel'], ['noir', 'noirs'],
 ];
+export const COULEURS_VOLETS: readonly { code: string; libelle: string; couleur: string }[] = LIBELLES_VOLETS.map(([code, libelle]) => ({ code, libelle, couleur: PALETTE_FACADES[code] as string }));
 
 export const VITRAGES_VUS: Readonly<Record<string, NonNullable<DetailsOuverture['vitrage']>>> = { plein: 'plein', 'petits-bois': 'petits-bois', 'imposte-petits-bois': 'imposte-petits-bois' };
 export const OUVRANTS_VUS: Readonly<Record<string, NonNullable<DetailsOuverture['ouvrant']>>> = { battants: 'battants', coulissant: 'coulissant', guillotine: 'guillotine', soufflet: 'soufflet', fixe: 'fixe' };

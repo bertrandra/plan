@@ -98,11 +98,17 @@ export const SORTIE_FACADE = {
   elements: [{ element: 'cheminee', u: 0.45, confiance: 'moyenne' }],
   surface: { principale: 'enduit', zones: [{ type: 'colombage', u0: 0.5, u1: 1, v0: 1.5, v1: 3, confiance: 'moyenne' }], confiance: 'forte' },
   ouvertures: [
-    { type: 'fenetre', u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect' },
+    { type: 'fenetre', u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect', menuiserie: { materiau: 'bois', couleur: 'blanc' }, couleurVolets: 'vert', gardeCorps: { type: 'sans-objet', haut: 'indetermine', couleur: 'indetermine' } },
       carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' } },
-    { type: 'porte', u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, niveau: 0, travee: 1, confiance: 'moyenne', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect' },
+    { type: 'porte', u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, niveau: 0, travee: 1, confiance: 'moyenne', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect', menuiserie: { materiau: 'indetermine', couleur: 'gris-anthracite' }, couleurVolets: 'sans-objet', gardeCorps: { type: 'sans-objet', haut: 'indetermine', couleur: 'indetermine' } },
       carreaux: { vantaux: 1, colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: { hauteur: 0.2, colonnes: 3, rangees: 1 }, vitrage: 'indetermine' } },
   ],
+  // La facade enrichie (lot L1) : une galerie, une genoise et un bandeau, un store, une fissure signalee.
+  saillies: [{ genre: 'galerie', u0: 0.3, u1: 0.62, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 0.45, couverture: 'sans-objet', confiance: 'moyenne' }],
+  decroches: [],
+  modenature: { egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'aucune', encadrements: 'indetermine', soubassement: 'aucun', descentes: [] },
+  appendices: [{ nature: 'store', u0: 0.6, u1: 0.8, v0: 0.4, v1: 0.45, marches: 'indetermine', confiance: 'moyenne' }],
+  etat: [{ nature: 'fissure', u0: 0.7, u1: 0.72, v0: 0.2, v1: 0.6, confiance: 'faible' }],
   confiance: 'moyenne'
 };
 

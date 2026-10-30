@@ -7,7 +7,7 @@ import { fnv1a } from '../toits/reglages.js';
 /** Les seuils, et les bornes de chacun : une valeur hors de ses bornes est refusee (une part va de 0 a 1). */
 export const BORNES_IA = {
   'facades.ia.passes': [1, 3], 'facades.ia.escaladeEcartPart': [0, 0.5],
-  'facades.ia.voteMemeU': [0, 1], 'facades.ia.voteMemeBaie': [0.05, 1], 'facades.ia.voteMemeEtendue': [0.05, 1],
+  'facades.ia.voteMemeU': [0, 1], 'facades.ia.voteMemeV': [0, 1], 'facades.ia.voteMemeBaie': [0.05, 1], 'facades.ia.voteMemeEtendue': [0.05, 1],
   'facades.ia.colombagePartMax': [0.1, 1], 'facades.ia.colombageTolerancePart': [0, 0.2],
   'facades.ia.baieRetrouvee': [0.05, 1], 'facades.ia.devineeConfirmee': [0.05, 1], 'facades.ia.baieMinM': [0, 3], 'facades.ia.confianceSeule': [0, 1],
   'facades.ia.pointeEcartU': [0, 0.5], 'facades.ia.pointeEcartHauteur': [0, 1],

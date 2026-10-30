@@ -15,6 +15,7 @@ import type { BlocAnalyse } from '../../../io/analyseClaude.js';
 import { texteRunFacade, type RunEnregistre } from '../../../regles/facades/observations.js';
 import { accorderOuvertures, observationsDuRun, passesDeProduction, texteAccord } from '../../../facade/regles/facades/ia.js';
 import { cartesAretes } from '../../../facade/detection/recalageIa.js';
+import { descentesRetrouvees } from '../../../facade/regles/facades/modenature.js';
 import { pointesDuGabarit } from '../../../facade/gabaritMur.js';
 import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
@@ -133,10 +134,13 @@ export async function accorderLesFacades(runs: Record<string, RunEnregistre>, me
     if (!r || !obs) continue;
     const texture = r.texture ? await decoder(r.texture).catch(() => null) : null;
     const mur = texture ? murDeLaTexture(texture, r) : null;
-    const a = accorderOuvertures({ ouvertures: r.ouvertures, decochees: m?.devinees ?? [], observations: obs, cartes: mur ? cartesAretes(mur, mur.largeur / r.largeur) : null, largeurM: r.largeur, hauteurM: r.hauteur });
+    const cartes = mur ? cartesAretes(mur, mur.largeur / r.largeur) : null;
+    const a = accorderOuvertures({ ouvertures: r.ouvertures, decochees: m?.devinees ?? [], observations: obs, cartes, largeurM: r.largeur, hauteurM: r.hauteur });
     // Des boites toutes retrouvees, sans detail de plus, ne changent rien au releve : il n'y a rien a proposer.
     const change = a.bilan.devineesConfirmees + a.bilan.seules + a.bilan.detailsAjoutes > 0;
-    out[cle] = { ouvertures: a.ouvertures, decochees: a.decochees, bilan: { ...a.bilan }, resume: change ? texteAccord(a.bilan) : null, confiance: CONFIANCE_DU_RUN[obs.confiance] };
+    // Les descentes que Claude voit, retenues seulement la ou la detection voit une verticale (lot L1, regle des descentes).
+    const descentes = descentesRetrouvees(obs.modenature?.descentes ?? [], cartes, r.largeur);
+    out[cle] = { ouvertures: a.ouvertures, decochees: a.decochees, bilan: { ...a.bilan }, resume: change ? texteAccord(a.bilan) : null, confiance: CONFIANCE_DU_RUN[obs.confiance], ...(descentes.length ? { descentes } : {}) };
   }
   return out;
 }

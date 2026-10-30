@@ -2683,6 +2683,8 @@
   /* La lecture de Claude d'une facade (ses passes, son cout) et l'escalade a la demande, sous les etapes : une ligne, puis le bouton. */
   .lectureClaude{ display:grid; gap:4px; justify-items:start; min-width:0; }
   .lectureClaude .detailPhoto{ overflow-wrap:anywhere; }
+  /* L etat du mur signale par Claude (lot L1, decision 8) : une note a verifier, sans case ; le mot le dit, la bordure le souligne. */
+  .lectureClaude .signalClaude{ border-left:3px solid var(--alerte); padding-left:6px; font-style:italic; }
   /* L'ecran de prise est une carte etroite posee sur la Vue 3D : la barre s'y lit en ruban (« 4 sur 8 · Forme »), comme au telephone. */
   .auditPrise .facadeAudit{ margin:4px 0 2px; }
   .auditPrise .barreFacadeEtiquette{ display:none; }

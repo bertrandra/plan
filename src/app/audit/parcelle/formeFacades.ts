@@ -17,6 +17,7 @@ import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
 import { diagnostiquerForme, direAlerte, direChangement, direElement, direPreuve, type DiagnosticForme, type PropositionElement } from '../../../facade/regles/facades/diagnosticForme.js';
 import { observationsDuRun } from '../../../facade/regles/facades/ia.js';
 import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
+import { propositionsEquipements, propositionsSaillies } from './facadeEnrichie.js';
 import { ecrivainPeut } from '../../../model/protections.js';
 import { faitDuBatiment } from '../../../regles/toits/faits.js';
 import { toitChoisiALaMain } from './constats.js';
@@ -128,6 +129,13 @@ export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
       for (const p of d?.elements ?? []) {
         const x = propositionElement(o, b.nom, b.cle, f.cote, mur, corps, mesure, pts, p, indice);
         if (x) out.push(x);
+      }
+      // La facade enrichie (lot L1) : les saillies que le moteur pose sur le corps de leur mur, et ce qui est pose contre le mur.
+      const run = e.runs?.[cleMesure(b.cle, f.cote)];
+      const obs = run ? observationsDuRun(run) : null;
+      if (obs) {
+        const lue = { o, nom: b.nom, cle: b.cle, facade: f.facade, mur, corps, mesure, pts, obs, diagnostic: d, indice: { texte: 'Lu par Claude sur la photo de la ' + mur + '.', ...(indice.photo ? { photo: indice.photo } : {}) } };
+        out.push(...propositionsSaillies(lue), ...propositionsEquipements(lue, e.objets));
       }
     }
   }

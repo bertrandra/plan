@@ -7,7 +7,8 @@
 // - Les ouvertures sont celles du releve du mur (celui que l'audit a pose d'office, ou celui de la mesure), avec les carreaux que le
 //   run de Claude y a lus (l'accord, par recouvrement), chacune avec son identifiant ; la personne les verifie en validant
 //   (`verifieeLe`) : plus aucun rejeu ne les deplace.
-// - Le parement est celui que lit le run de Claude, s'il le lit.
+// - Le parement est celui que lit le run de Claude, s'il le lit ; de meme la modenature, le store et l'etat du mur signale (lot L1 de
+//   MD/spec-lecture-ia-elargie.md), et sur chaque ouverture la menuiserie, la couleur des volets et le garde-corps.
 // - La fenetre d'une lucarne que le toit porte devant ce mur n'est pas une ouverture du mur (lot F7) : un element n'a qu'un endroit,
 //   le toit (MD/spec-facade-calage-audit.md §5 quater).
 
@@ -16,6 +17,8 @@ import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMur
 import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { origineActuelle, type Origine } from '../../../model/protections.js';
 import { observationsDuRun, surfaceDeLIa } from '../../../facade/regles/facades/ia.js';
+import { appendicesDeLIa, modenatureDeLIa } from '../../../facade/regles/facades/modenature.js';
+import { etatDeLIa } from '../../../facade/regles/facades/etat.js';
 import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { DimensionsFacade, ObjetPlan, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
@@ -30,14 +33,23 @@ function sourceDesDimensions(o: ObjetPlan): DimensionsFacade['source'] {
   return h === 'defaut' ? 'cadastre' : 'saisie';
 }
 
-/** Les carreaux que le run de Claude a lus sur une ouverture, portes sur celle du releve qu'elle recouvre de plus de moitie. */
-function avecLesCarreaux(ouvertures: readonly OuvertureFacade[], accord: AccordFacadeCapture | null): OuvertureFacade[] {
-  const lues = (accord?.ouvertures ?? []).filter((a) => a.details?.carreaux);
+/**
+ * Les details que le run de Claude lit et que la Facade garde : les carreaux (lot F5), la menuiserie, la couleur des volets, le
+ * garde-corps et l'allege qu'il donne (lot L1).
+ */
+const DETAILS_DU_RUN = ['carreaux', 'menuiserie', 'couleurVolets', 'gardeCorps', 'allege'] as const;
+
+/**
+ * Les details que le run de Claude a lus sur une ouverture (l'accord avec la detection), portes sur celle du releve qu'elle recouvre de
+ * plus de moitie : chacun seulement s'il lui manque (ce que le releve dit, ou la personne, l'emporte).
+ */
+function avecLesDetailsLus(ouvertures: readonly OuvertureFacade[], accord: AccordFacadeCapture | null): OuvertureFacade[] {
+  const lues = (accord?.ouvertures ?? []).filter((a) => DETAILS_DU_RUN.some((k) => a.details?.[k] !== undefined));
   if (!lues.length) return [...ouvertures];
   return ouvertures.map((o) => {
-    if (o.details?.carreaux) return o;
     const a = lues.find((x) => recouvrement(x, o) > RECOUVREMENT_MEME_OUVERTURE);
-    return a?.details?.carreaux ? { ...o, details: { ...o.details, carreaux: { ...a.details.carreaux } } } : o;
+    const ajout = Object.fromEntries(DETAILS_DU_RUN.filter((k) => a?.details?.[k] !== undefined && o.details?.[k] === undefined).map((k) => [k, structuredClone(a?.details?.[k])]));
+    return Object.keys(ajout).length ? { ...o, details: { ...o.details, ...ajout } } : o;
   });
 }
 
@@ -65,15 +77,24 @@ export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accor
   const existant = o.batiment?.facades?.find((x) => x.cote === m.cote);
   const base = poseDOffice(o, m) ?? m.releve;
   // Les ouvertures que la personne avait deja verifiees restent ; les autres sont celles du releve, avec leurs carreaux.
-  const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], avecLesCarreaux(base.ouvertures, accord)), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
+  const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], avecLesDetailsLus(base.ouvertures, accord)), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
     .map((x) => (x.verifieeLe ? x : { ...x, verifieeLe: jour }));
-  const surface = run ? surfaceDeLIa(observationsDuRun(run)) : null;
+  const obs = run ? observationsDuRun(run) : null;
+  const surface = surfaceDeLIa(obs);
+  // La facade enrichie (lot L1) : la modenature (les descentes retrouvees par la detection seulement), le store, l'etat du mur signale.
+  const mur = { largeurM: bilan.dimensions.largeurM, egoutM: bilan.dimensions.egoutM };
+  const modenature = modenatureDeLIa(obs, mur, accord?.descentes ?? null);
+  const appendices = appendicesDeLIa(obs, mur);
+  const etat = etatDeLIa(obs, jour);
   const r: ReleveFacade = {
     ...base, ouvertures,
     dimensions: { ...bilan.dimensions, source: sourceDesDimensions(o) },
     forme: bilan.forme,
     ...(surface ? { surface } : {}),
     ...(bilan.textureCalee ? { textureCalee: bilan.textureCalee } : {}),
+    ...(modenature ? { modenature } : {}),
+    ...(appendices.length ? { appendices } : {}),
+    ...(etat.length ? { etat } : {}),
   };
   // Valide par la personne : ce n'est plus le releve que l'audit pose tout seul, une nouvelle photo ne le remplacera plus d'office.
   delete r.depuisAudit;

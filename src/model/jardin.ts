@@ -30,6 +30,10 @@ export const NATURES_EQUIPEMENT: readonly { id: NatureEquipement; libelle: strin
   { id: 'regard', libelle: 'Regard', charge: false },
   { id: 'eclairage', libelle: 'Éclairage', charge: false },
   { id: 'robinet', libelle: 'Robinet', charge: false },
+  // Lus sur une facade (lot L1) : poses contre le mur, ils ne chargent rien.
+  { id: 'perron', libelle: 'Perron', charge: false },
+  { id: 'unite-exterieure', libelle: 'Unité extérieure (climatisation, pompe à chaleur)', charge: false },
+  { id: 'boite-aux-lettres', libelle: 'Boîte aux lettres', charge: false },
 ];
 
 /** La hauteur d'une plate-bande : la terre au ras de sa bordure, juste au-dessus du sol. */
@@ -96,7 +100,22 @@ export const APPARENCES_JARDIN = {
   regard: { fill: '#7b7f84', stroke: '#33363a' },
   eclairage: { fill: '#e8d68a', stroke: '#5c5020' },
   robinet: { fill: '#9fb7c9', stroke: '#2e4a5c' },
+  perron: { fill: '#c9c2b4', stroke: '#6b645a' },
+  'unite-exterieure': { fill: '#e4e6e8', stroke: '#5d6166' },
+  'boite-aux-lettres': { fill: '#5b6a74', stroke: '#2b3338' },
 } as const;
+
+/**
+ * Ce que pose un equipement lu sur une facade (lot L1), en metres : son emprise (largeur le long du mur, profondeur depuis lui) et sa
+ * hauteur. La profondeur ne se lit pas sur une vue de face (decision 4) : ce sont des valeurs courantes, dites dans la proposition.
+ */
+export const EQUIPEMENTS_DE_FACADE = {
+  perron: { profondeurM: 0.9, hauteurMarcheM: 0.17 },
+  'unite-exterieure': { largeurM: 0.9, profondeurM: 0.35, hauteurM: 0.7 },
+  'boite-aux-lettres': { largeurM: 0.4, profondeurM: 0.3, hauteurM: 1.2 },
+} as const;
+/** Un perron sans nombre de marches lu en a deux ; il n'en a jamais plus de huit. */
+export const MARCHES_PERRON = { defaut: 2, max: 8 } as const;
 
 const champsCommuns = (key: string, name: string, fill: string, stroke: string) => ({
   key, name, fill, fillOpacity: 1, stroke, showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false,
@@ -126,9 +145,18 @@ export function nouveauMassif(key: string, pts: readonly PtBrut[], p: Plantation
 }
 
 /** Un equipement du jardin neuf : un regard est un carre de 60 cm, un eclairage ou un robinet un petit cercle. */
-export function nouvelEquipement(key: string, c: PtBrut, nature: Exclude<NatureEquipement, 'spa'>): ObjetPlan {
+export function nouvelEquipement(key: string, c: PtBrut, nature: 'regard' | 'eclairage' | 'robinet'): ObjetPlan {
   const ap = APPARENCES_JARDIN[nature];
   const commun = { ...champsCommuns(key, libelleEquipement(nature), ap.fill, ap.stroke), fonction: 'equipement', nature };
   if (nature === 'regard') return { ...commun, ...polygoneNeuf(carre(c, COTE_REGARD_M)), elevation: 0.02 } as ObjetPlan;
   return { ...commun, type: 'circle', center: { x: c.x, y: c.y }, r: nature === 'eclairage' ? 0.12 : 0.1, elevation: nature === 'eclairage' ? 0.8 : 0.6 } as ObjetPlan;
+}
+
+/**
+ * Un equipement lu sur une facade (lot L1), pose contre son mur : `pts` son emprise (le rectangle contre le mur, de la facade vers
+ * dehors) ; `elevation` sa hauteur (un perron : ses marches). Il ne charge rien (NATURES_EQUIPEMENT).
+ */
+export function equipementDeFacade(key: string, pts: readonly PtBrut[], nature: 'perron' | 'unite-exterieure' | 'boite-aux-lettres', elevation: number): ObjetPlan {
+  const ap = APPARENCES_JARDIN[nature];
+  return { ...champsCommuns(key, libelleEquipement(nature), ap.fill, ap.stroke), ...polygoneNeuf(pts), fonction: 'equipement', nature, elevation } as ObjetPlan;
 }

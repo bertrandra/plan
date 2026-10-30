@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-facade",
-  "version": 2,
-  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt.",
+  "version": 3,
+  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt. Version 3 (lot L1, 30 octobre 2026) : `details.menuiserie`, `details.couleurVolets`, `details.gardeCorps` (couleurs dans la palette de regles/facades/reglages.json), `saillies`, `decroches`, `modenature`, `appendices`, `etat`.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -11,6 +11,11 @@
       "elements",
       "surface",
       "ouvertures",
+      "saillies",
+      "decroches",
+      "modenature",
+      "appendices",
+      "etat",
       "confiance"
     ],
     "properties": {
@@ -293,7 +298,10 @@
               "required": [
                 "volets",
                 "allege",
-                "forme"
+                "forme",
+                "menuiserie",
+                "couleurVolets",
+                "gardeCorps"
               ],
               "properties": {
                 "volets": {
@@ -323,6 +331,75 @@
                     "rond",
                     "indetermine"
                   ]
+                },
+                "menuiserie": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "materiau",
+                    "couleur"
+                  ],
+                  "properties": {
+                    "materiau": {
+                      "type": "string",
+                      "enum": [
+                        "bois",
+                        "pvc",
+                        "alu",
+                        "acier",
+                        "indetermine"
+                      ]
+                    },
+                    "couleur": {
+                      "$ref": "#/$defs/couleur"
+                    }
+                  }
+                },
+                "couleurVolets": {
+                  "type": "string",
+                  "enum": [
+                    "blanc",
+                    "creme",
+                    "gris-clair",
+                    "gris-fonce",
+                    "gris-anthracite",
+                    "bleu",
+                    "vert",
+                    "rouge",
+                    "brun",
+                    "bois",
+                    "noir",
+                    "sans-objet",
+                    "indetermine"
+                  ]
+                },
+                "gardeCorps": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "haut",
+                    "couleur"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "barreaux",
+                        "fer-forge",
+                        "verre",
+                        "plein",
+                        "sans-objet",
+                        "indetermine"
+                      ]
+                    },
+                    "haut": {
+                      "$ref": "#/$defs/hauteur"
+                    },
+                    "couleur": {
+                      "$ref": "#/$defs/couleur"
+                    }
+                  }
                 }
               }
             },
@@ -398,6 +475,290 @@
                   ]
                 }
               }
+            }
+          }
+        }
+      },
+      "saillies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "genre",
+            "u0",
+            "u1",
+            "forme",
+            "niveau",
+            "toit",
+            "haut",
+            "couverture",
+            "confiance"
+          ],
+          "properties": {
+            "genre": {
+              "type": "string",
+              "enum": [
+                "bow-window",
+                "galerie",
+                "auvent",
+                "appentis"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "forme": {
+              "type": "string",
+              "enum": [
+                "pans",
+                "rectangle",
+                "arc",
+                "conge"
+              ]
+            },
+            "niveau": {
+              "type": "string",
+              "enum": [
+                "rdc",
+                "toit"
+              ]
+            },
+            "toit": {
+              "type": "string",
+              "enum": [
+                "pan",
+                "pavillon",
+                "plat"
+              ]
+            },
+            "haut": {
+              "$ref": "#/$defs/hauteur"
+            },
+            "couverture": {
+              "type": "string",
+              "enum": [
+                "verre",
+                "tuile",
+                "zinc",
+                "autre",
+                "sans-objet"
+              ]
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      },
+      "decroches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "u",
+            "sens",
+            "confiance"
+          ],
+          "properties": {
+            "u": {
+              "type": "number"
+            },
+            "sens": {
+              "type": "string",
+              "enum": [
+                "avance",
+                "recul"
+              ]
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      },
+      "modenature": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "egout",
+          "rangsGenoise",
+          "bandeaux",
+          "chaines",
+          "encadrements",
+          "soubassement",
+          "descentes"
+        ],
+        "properties": {
+          "egout": {
+            "type": "string",
+            "enum": [
+              "aucune",
+              "corniche",
+              "genoise",
+              "indetermine"
+            ]
+          },
+          "rangsGenoise": {
+            "$ref": "#/$defs/compte"
+          },
+          "bandeaux": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "chaines": {
+            "type": "string",
+            "enum": [
+              "aucune",
+              "pierre",
+              "brique",
+              "indetermine"
+            ]
+          },
+          "encadrements": {
+            "type": "string",
+            "enum": [
+              "aucun",
+              "enduit",
+              "pierre",
+              "brique",
+              "indetermine"
+            ]
+          },
+          "soubassement": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "haut",
+                  "parement"
+                ],
+                "properties": {
+                  "haut": {
+                    "type": "number"
+                  },
+                  "parement": {
+                    "type": "string",
+                    "enum": [
+                      "enduit",
+                      "pierre",
+                      "brique",
+                      "colombage",
+                      "bardage-bois",
+                      "bardage-metal",
+                      "beton",
+                      "indetermine"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "aucun",
+                  "indetermine"
+                ]
+              }
+            ]
+          },
+          "descentes": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "appendices": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nature",
+            "u0",
+            "u1",
+            "v0",
+            "v1",
+            "marches",
+            "confiance"
+          ],
+          "properties": {
+            "nature": {
+              "type": "string",
+              "enum": [
+                "perron",
+                "store",
+                "unite-exterieure",
+                "boite-aux-lettres"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v0": {
+              "type": "number"
+            },
+            "v1": {
+              "type": "number"
+            },
+            "marches": {
+              "$ref": "#/$defs/compte"
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      },
+      "etat": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nature",
+            "u0",
+            "u1",
+            "v0",
+            "v1",
+            "confiance"
+          ],
+          "properties": {
+            "nature": {
+              "type": "string",
+              "enum": [
+                "fissure",
+                "enduit-abime",
+                "humidite",
+                "mousses",
+                "autre"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v0": {
+              "type": "number"
+            },
+            "v1": {
+              "type": "number"
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
             }
           }
         }
@@ -483,6 +844,36 @@
             ]
           }
         ]
+      },
+      "hauteur": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "enum": [
+              "indetermine"
+            ]
+          }
+        ]
+      },
+      "couleur": {
+        "type": "string",
+        "enum": [
+          "blanc",
+          "creme",
+          "gris-clair",
+          "gris-fonce",
+          "gris-anthracite",
+          "bleu",
+          "vert",
+          "rouge",
+          "brun",
+          "bois",
+          "noir",
+          "indetermine"
+        ]
       }
     }
   },
@@ -557,7 +948,17 @@
         "details": {
           "volets": "aucun",
           "allege": "indetermine",
-          "forme": "rect"
+          "forme": "rect",
+          "menuiserie": {
+            "materiau": "bois",
+            "couleur": "vert"
+          },
+          "couleurVolets": "sans-objet",
+          "gardeCorps": {
+            "type": "sans-objet",
+            "haut": "indetermine",
+            "couleur": "indetermine"
+          }
         },
         "carreaux": {
           "vantaux": 1,
@@ -580,7 +981,17 @@
         "details": {
           "volets": "battants",
           "allege": "pleine",
-          "forme": "rect"
+          "forme": "rect",
+          "menuiserie": {
+            "materiau": "bois",
+            "couleur": "blanc"
+          },
+          "couleurVolets": "bleu",
+          "gardeCorps": {
+            "type": "sans-objet",
+            "haut": "indetermine",
+            "couleur": "indetermine"
+          }
         },
         "carreaux": {
           "vantaux": 2,
@@ -602,8 +1013,18 @@
         "confiance": "moyenne",
         "details": {
           "volets": "roulant",
-          "allege": "pleine",
-          "forme": "rect"
+          "allege": "garde-corps",
+          "forme": "rect",
+          "menuiserie": {
+            "materiau": "pvc",
+            "couleur": "blanc"
+          },
+          "couleurVolets": "blanc",
+          "gardeCorps": {
+            "type": "fer-forge",
+            "haut": 0.78,
+            "couleur": "noir"
+          }
         },
         "carreaux": {
           "vantaux": 2,
@@ -615,6 +1036,48 @@
         }
       }
     ],
+    "saillies": [
+      {
+        "genre": "auvent",
+        "u0": 0.17,
+        "u1": 0.33,
+        "forme": "rectangle",
+        "niveau": "rdc",
+        "toit": "pan",
+        "haut": 0.47,
+        "couverture": "verre",
+        "confiance": "moyenne"
+      }
+    ],
+    "decroches": [],
+    "modenature": {
+      "egout": "corniche",
+      "rangsGenoise": "indetermine",
+      "bandeaux": [
+        0.52
+      ],
+      "chaines": "aucune",
+      "encadrements": "enduit",
+      "soubassement": {
+        "haut": 0.12,
+        "parement": "pierre"
+      },
+      "descentes": [
+        0.97
+      ]
+    },
+    "appendices": [
+      {
+        "nature": "perron",
+        "u0": 0.18,
+        "u1": 0.32,
+        "v0": 0,
+        "v1": 0.06,
+        "marches": 2,
+        "confiance": "moyenne"
+      }
+    ],
+    "etat": [],
     "confiance": "moyenne"
   }
 }

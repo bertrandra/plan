@@ -85,7 +85,13 @@ export type Groupe =
   /** La texture du mur, sa pose et ce qu'elle dit du parement (`texture`, `hauteurTexture`, `textureCalee`, `surface`). */
   | 'facadeTexture'
   /** Les ouvertures hors automatique (la facade objet) ; une ouverture verifiee, corrigee ou ajoutee est gardee une a une (`ouvertureGardee`). */
-  | 'facadeOuvertures';
+  | 'facadeOuvertures'
+  /**
+   * La modenature lue d'un mur et ce qu'il porte (`modenature`, `appendices` ; lot L1 de MD/spec-lecture-ia-elargie.md §4.2) : ecrite
+   * par l'audit (la validation V4) ou a la main. L'etat du bati signale (`etat`) n'a pas d'autre ecrivain que l'audit : il n'est pas un
+   * groupe, il suit la photo qui l'a montre.
+   */
+  | 'facadeModenature';
 
 /** D'ou vient la valeur d'aujourd'hui d'un groupe : la marque qui la porte. */
 export type Origine =
@@ -163,6 +169,8 @@ export interface FacadeProtegee {
   forme?: unknown;
   textureCalee?: unknown;
   surface?: unknown;
+  modenature?: unknown;
+  appendices?: unknown;
   ouvertures?: readonly OuvertureProtegee[];
 }
 
@@ -273,12 +281,13 @@ function origineDesFacades(o: BatimentProtege, ctx: ContexteEcriture, verifie: b
 export const ouvertureGardee = (ov: OuvertureProtegee): boolean => !!ov.verifieeLe || ov.source === 'corrigee' || ov.source === 'ajoutee';
 
 /** Les groupes de la Facade d'un mur, et la part du releve que chacun designe (lot F5). */
-type GroupeDeFacade = 'facadeDimensions' | 'facadeForme' | 'facadeTexture' | 'facadeOuvertures';
+type GroupeDeFacade = 'facadeDimensions' | 'facadeForme' | 'facadeTexture' | 'facadeOuvertures' | 'facadeModenature';
 const PART_VALIDEE: Readonly<Record<GroupeDeFacade, (r: FacadeProtegee) => boolean>> = {
   facadeDimensions: (r) => !!r.dimensions,
   facadeForme: (r) => !!r.forme,
   facadeTexture: (r) => !!r.textureCalee || !!r.surface,
   facadeOuvertures: (r) => (r.ouvertures ?? []).some(ouvertureGardee),
+  facadeModenature: (r) => !!r.modenature || !!r.appendices,
 };
 
 /**
@@ -309,7 +318,7 @@ export function origineActuelle(o: BatimentProtege, groupe: Groupe, ctx: Context
     case 'murs': return origineDesMurs(o, verifie);
     case 'photoMurs': return origineDeLaPhotoDesMurs(o);
     case 'facades': return origineDesFacades(o, ctx, verifie);
-    case 'facadeDimensions': case 'facadeForme': case 'facadeTexture': case 'facadeOuvertures': return origineDUnePartDeFacade(o, groupe, ctx, verifie);
+    case 'facadeDimensions': case 'facadeForme': case 'facadeTexture': case 'facadeOuvertures': case 'facadeModenature': return origineDUnePartDeFacade(o, groupe, ctx, verifie);
   }
 }
 

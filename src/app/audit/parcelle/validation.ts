@@ -446,7 +446,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
  * ecrivaient les corps du toit y sont entrees comme un constat de plus.
  */
 /** L'ordre d'une liste : par batiment (celui de la liste de controle), puis ce qui se mesure, ce qui se decide, ce qui se voit ; la parcelle a la fin. */
-const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'corpsDuToit', 'elementsDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
+const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'corpsDuToit', 'elementsDuToit', 'saillieDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
   const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };

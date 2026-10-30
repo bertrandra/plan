@@ -141,7 +141,8 @@ export interface ElementDeToit {
 }
 
 /** Ce qu'est un element pose sur une facade. */
-export type GenreSaillie = 'bow-window' | 'galerie' | 'appentis';
+/** `auvent` (lot L1) : une marquise sur consoles, sans poteaux, au-dessus d'une porte. */
+export type GenreSaillie = 'bow-window' | 'galerie' | 'appentis' | 'auvent';
 /** La forme du plan d'un bow-window : des pans coupes (un trapeze), un rectangle, un demi-cercle (arc) ou un rectangle aux angles arrondis (conge). */
 export type FormeSaillie = 'pans' | 'rectangle' | 'arc' | 'conge';
 
@@ -163,6 +164,8 @@ export interface SaillieFacade {
   toit: 'pan' | 'pavillon' | 'plat';
   /** Sa hauteur a l'egout, en metres, quand la personne la regle ; absente : celle du `niveau` (un etage, ou l'egout de la maison). */
   hauteurM?: number | undefined;
+  /** La couverture d'un auvent (lot L1) ; absente : celle du dessin d'un appentis. */
+  couverture?: 'verre' | 'tuile' | 'zinc' | 'autre' | undefined;
 }
 
 /** Une bay window : le plan, la hauteur ou elle commence, son toit, et d'ou on le sait. */

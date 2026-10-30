@@ -183,4 +183,4 @@ export interface Plantation {
  * La nature d'un equipement (MD/spec-lecture-ia-elargie.md §4.4) ; absente, `spa` : le sens d'avant, la terrasse se renforce sous lui.
  * Un regard, un eclairage ou un robinet ne la chargent pas (lot L3).
  */
-export type NatureEquipement = 'spa' | 'regard' | 'eclairage' | 'robinet';
+export type NatureEquipement = 'spa' | 'regard' | 'eclairage' | 'robinet' | 'perron' | 'unite-exterieure' | 'boite-aux-lettres';

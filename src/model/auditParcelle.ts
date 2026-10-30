@@ -249,6 +249,11 @@ export interface AccordFacadeCapture {
   resume: string | null;
   /** La confiance que Claude se donne sur cette facade, de 0 a 1. */
   confiance: number;
+  /**
+   * Les descentes d'eau pluviale que Claude voit et que la detection retrouve (une verticale a leur place), en part du mur (lot L1) :
+   * seules celles-la entrent dans la modenature de la Facade validee. Absentes : aucune (ou un accord d'avant le lot).
+   */
+  descentes?: number[];
 }
 
 export interface AnalyseCapture {

@@ -17,6 +17,7 @@
 // Ici : la lecture d'une passe (vocabulaire ferme, rien d'invente), le texte qui accompagne l'image, la reponse enregistree. Pur.
 
 import { boutLu, silhouetteLue, type BoutVu, type SilhouetteFacade } from '../../model/silhouetteFacade.js';
+import { MOTS_PALETTE, type CouleurLue } from './palette.js';
 import type { DetailsOuverture, TypeOuverture } from '../../model/types.js';
 
 export type ConfianceIa = 'forte' | 'moyenne' | 'faible' | 'indetermine';
@@ -35,6 +36,46 @@ export interface Carreaux extends Grille {
   vitrage: 'clair' | 'depoli' | 'teinte' | 'vitrail' | null;
 }
 
+/**
+ * Les details de la facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md §4.1), lus sur une ouverture : les mots de Claude, que les
+ * regles (facade/regles/facades/menuiseries.ts) traduisent ; `null` : non dit, ou `indetermine`.
+ */
+export interface DetailsLus {
+  menuiserie: { materiau: 'bois' | 'pvc' | 'alu' | 'acier' | null; couleur: CouleurLue | null };
+  /** `sans-objet` : pas de volets. */
+  couleurVolets: CouleurLue | 'sans-objet' | null;
+  /** `sans-objet` : pas de garde-corps ; `haut` : le dessus de la main courante, en hauteurs d'egout. */
+  gardeCorps: { type: 'barreaux' | 'fer-forge' | 'verre' | 'plein' | 'sans-objet' | null; haut: number | null; couleur: CouleurLue | null };
+}
+
+export type GenreSaillieLu = 'bow-window' | 'galerie' | 'auvent' | 'appentis';
+/** Une saillie vue sur le mur (lot L1), de `u0` a `u1` ; sans profondeur (une vue de face ne la montre pas, decision 4). */
+export interface SaillieIa {
+  genre: GenreSaillieLu; u0: number; u1: number;
+  forme: 'pans' | 'rectangle' | 'arc' | 'conge'; niveau: 'rdc' | 'toit'; toit: 'pan' | 'pavillon' | 'plat';
+  /** Le bas de son toit, en hauteurs d'egout ; null : non dit. */
+  haut: number | null;
+  couverture: 'verre' | 'tuile' | 'zinc' | 'autre' | null;
+  confiance: ConfianceIa;
+}
+/** Un changement de nu du mur, a `u` : la partie de droite avance ou recule (lot L1). */
+export interface DecrocheIa { u: number; sens: 'avance' | 'recul'; confiance: ConfianceIa }
+/** La modenature lue (lot L1) : null pour un mot non dit. */
+export interface ModenatureIa {
+  egout: 'aucune' | 'corniche' | 'genoise' | null;
+  rangsGenoise: number | null;
+  bandeaux: number[];
+  chaines: 'aucune' | 'pierre' | 'brique' | null;
+  encadrements: 'aucun' | 'enduit' | 'pierre' | 'brique' | null;
+  soubassement: { haut: number; parement: Parement | null } | 'aucun' | null;
+  descentes: number[];
+}
+export interface BoiteUV { u0: number; u1: number; v0: number; v1: number }
+/** Ce qui est pose contre le mur (lot L1), dans sa boite. */
+export interface AppendiceIa extends BoiteUV { nature: 'perron' | 'store' | 'unite-exterieure' | 'boite-aux-lettres'; marches: number | null; confiance: ConfianceIa }
+/** Une zone de l'etat du mur (lot L1, decision 8 : un signal). */
+export interface EtatIa extends BoiteUV { nature: 'fissure' | 'enduit-abime' | 'humidite' | 'mousses' | 'autre'; confiance: ConfianceIa }
+
 export interface OuvertureIa {
   type: TypeOuverture;
   /** La boite en part du mur : u le long du mur depuis l'angle gauche, v en hauteurs d'egout depuis le sol. */
@@ -44,6 +85,8 @@ export interface OuvertureIa {
   confiance: ConfianceIa;
   details: Pick<DetailsOuverture, 'volets' | 'allege' | 'forme'>;
   carreaux: Carreaux | null;
+  /** La menuiserie, les volets, le garde-corps (lot L1) ; absents d'une reponse d'avant le lot. */
+  lus?: DetailsLus;
   /** `escalade` : vue par l'escalade seule, pas par le vote des passes (la regle de l'escalade l'a ajoutee). */
   source?: 'escalade';
 }
@@ -67,6 +110,12 @@ export interface ObservationsFacade {
   /** Le parement du mur : le principal, et les zones d'un autre (un etage en colombage sur un rez-de-chaussee enduit). */
   surface: { principale: Parement | 'mixte' | 'indetermine'; zones: ZoneSurface[]; confiance: ConfianceIa };
   ouvertures: OuvertureIa[];
+  /** La facade enrichie (lot L1) : vides, ou null pour la modenature, dans une reponse d'avant le lot. */
+  saillies: SaillieIa[];
+  decroches: DecrocheIa[];
+  modenature: ModenatureIa | null;
+  appendices: AppendiceIa[];
+  etat: EtatIa[];
   confiance: 'faible' | 'moyenne' | 'forte';
   /**
    * L'escalade a ete lue (facade/regles/facades/ia.ts, `escaladerObservations`) : son modele, et ce qu'elle a tranche contre le vote
@@ -131,6 +180,19 @@ function lireCarreaux(v: unknown): Carreaux | null {
   return Object.values(c).some((x) => x !== null) ? c : null;
 }
 
+const couleurLue = (v: unknown): CouleurLue | null => parmi(v, MOTS_PALETTE);
+
+/** Les details de la facade enrichie d'une ouverture (lot L1) ; null quand la reponse n'en porte aucun (une reponse d'avant le lot). */
+function lireDetailsLus(d: Record<string, unknown>): DetailsLus | null {
+  if (!('menuiserie' in d) && !('couleurVolets' in d) && !('gardeCorps' in d)) return null;
+  const m = objet(d.menuiserie) ?? {}, g = objet(d.gardeCorps) ?? {};
+  return {
+    menuiserie: { materiau: parmi(m.materiau, ['bois', 'pvc', 'alu', 'acier'] as const), couleur: couleurLue(m.couleur) },
+    couleurVolets: d.couleurVolets === 'sans-objet' ? 'sans-objet' : couleurLue(d.couleurVolets),
+    gardeCorps: { type: parmi(g.type, ['barreaux', 'fer-forge', 'verre', 'plein', 'sans-objet'] as const), haut: enHauteur(g.haut), couleur: couleurLue(g.couleur) },
+  };
+}
+
 function lireOuverture(v: unknown): OuvertureIa | null {
   const o = objet(v);
   const type = parmi(o?.type, TYPES);
@@ -142,7 +204,44 @@ function lireOuverture(v: unknown): OuvertureIa | null {
   if (volets) details.volets = volets;
   if (allege) details.allege = allege;
   if (forme) details.forme = forme;
-  return { type, ...b, niveau: entier(o.niveau), travee: entier(o.travee), confiance: confiance(o.confiance), details, carreaux: lireCarreaux(o.carreaux) };
+  const lus = lireDetailsLus(d);
+  return { type, ...b, niveau: entier(o.niveau), travee: entier(o.travee), confiance: confiance(o.confiance), details, carreaux: lireCarreaux(o.carreaux), ...(lus ? { lus } : {}) };
+}
+
+function lireSaillie(v: unknown): SaillieIa | null {
+  const o = objet(v), genre = parmi(o?.genre, ['bow-window', 'galerie', 'auvent', 'appentis'] as const);
+  const u0 = enPart(o?.u0), u1 = enPart(o?.u1);
+  if (!o || !genre || u0 === null || u1 === null || !(u1 > u0)) return null;
+  return {
+    genre, u0, u1, forme: parmi(o.forme, ['pans', 'rectangle', 'arc', 'conge'] as const) ?? 'rectangle', niveau: parmi(o.niveau, ['rdc', 'toit'] as const) ?? 'rdc',
+    toit: parmi(o.toit, ['pan', 'pavillon', 'plat'] as const) ?? 'pan', haut: enHauteur(o.haut), couverture: parmi(o.couverture, ['verre', 'tuile', 'zinc', 'autre'] as const), confiance: confiance(o.confiance),
+  };
+}
+
+/** Des hauteurs (bandeaux) ou des places (descentes) : celles qui sont dans leur repere, triees. */
+const nombres = (v: unknown, lire: (x: unknown) => number | null): number[] => garder(liste(v).map(lire)).sort((a, b) => a - b);
+
+function lireModenature(v: unknown): ModenatureIa | null {
+  const o = objet(v);
+  if (!o) return null;
+  const sb = objet(o.soubassement), haut = enHauteur(sb?.haut);
+  return {
+    egout: parmi(o.egout, ['aucune', 'corniche', 'genoise'] as const), rangsGenoise: entier(o.rangsGenoise),
+    bandeaux: nombres(o.bandeaux, enHauteur),
+    chaines: parmi(o.chaines, ['aucune', 'pierre', 'brique'] as const), encadrements: parmi(o.encadrements, ['aucun', 'enduit', 'pierre', 'brique'] as const),
+    soubassement: sb && haut !== null && haut > 0 ? { haut, parement: parmi(sb.parement, PAREMENTS) } : o.soubassement === 'aucun' ? 'aucun' : null,
+    descentes: nombres(o.descentes, enPart),
+  };
+}
+
+function lireAppendice(v: unknown): AppendiceIa | null {
+  const o = objet(v), nature = parmi(o?.nature, ['perron', 'store', 'unite-exterieure', 'boite-aux-lettres'] as const), b = o ? boite(o) : null;
+  return o && nature && b ? { nature, ...b, marches: entier(o.marches), confiance: confiance(o.confiance) } : null;
+}
+
+function lireEtat(v: unknown): EtatIa | null {
+  const o = objet(v), nature = parmi(o?.nature, ['fissure', 'enduit-abime', 'humidite', 'mousses', 'autre'] as const), b = o ? boite(o) : null;
+  return o && nature && b ? { nature, ...b, confiance: confiance(o.confiance) } : null;
 }
 
 export const garder = <T>(l: (T | null)[]): T[] => l.filter((x): x is T => x !== null);
@@ -168,6 +267,11 @@ export function lireObservationsFacade(v: unknown): ObservationsFacade | null {
       confiance: confiance(surface.confiance),
     },
     ouvertures: garder(r.ouvertures.map(lireOuverture)),
+    saillies: garder(liste(r.saillies).map(lireSaillie)),
+    decroches: garder(liste(r.decroches).map((x) => { const o = objet(x), u = enPart(o?.u), sens = parmi(o?.sens, ['avance', 'recul'] as const); return o && u !== null && sens ? { u, sens, confiance: confiance(o.confiance) } : null; })),
+    modenature: lireModenature(r.modenature),
+    appendices: garder(liste(r.appendices).map(lireAppendice)),
+    etat: garder(liste(r.etat).map(lireEtat)),
     confiance: parmi(r.confiance, ['faible', 'moyenne', 'forte'] as const) ?? 'faible',
   };
 }
