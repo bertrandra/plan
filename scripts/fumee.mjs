@@ -4368,6 +4368,67 @@ const POINTS = {
     return { ok, mesure: `envoi ${envoiVide ? 'grisé' : 'ACTIF'} sans demande ; ${recues.length} demande(s) usage ${demande?.usage}, ${blocs.length} bloc(s) (catalogue ${(blocs[0]?.text ?? '').length} caractères) ; `
       + `liste : ${lignes.map((l) => (l.refusee ? '[grisée] ' : '') + l.libelle + (l.raison ? ' — ' + l.raison : '')).join(' | ')} ; source « ${source} » ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} avant « Appliquer » ; `
       + `appliqué : dialogue ${ferme ? 'fermé' : 'OUVERT'}, lames ${essence}, grille ${grille ? 'affichée' : 'masquée'} ; Ctrl+Z : projet ${annule === avant ? 'identique' : 'DIFFÉRENT'} (grille rangée sur la parcelle : ${grilleRangee}) ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'}` };
+  },
+  123: async (page, f) => {
+    // « Ajuster l'égout et le sol » sur la facade assemblee (CLAUDE.md, « Silhouette d'une façade ») : la scene 19 du banc, deux vues du
+    // mur entier assemblees (le parcours du point 113). Depuis le segment « Mur » de la barre, « Repères, photo 1 », puis le geste : il
+    // montre l'assemblage des deux photos (l'image prise pour la suite), et non la photo 1 redressee seule, avec le mur ou la chaine l'a
+    // pose. L'egout remonte d'un grand pas, « Appliquer » ; la facade se rejoue. Rouvert depuis la photo 2, le geste montre encore
+    // l'assemblage, et le mur aux proportions tirees : le mur ecrit sur chaque photo est celui que la chaine reprend. Le cadre peut
+    // changer (« Appliquer » ecrit aussi les reperes de la photo 1, qui la redressent autrement) : on compare la hauteur du mur sur sa
+    // largeur, qui n'en depend pas.
+    // FUMEE_CAPTURE_EGOUT=<prefixe> enregistre la vue du geste, avant le pas.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [face, biais] } = photosScene('19-vues-haie-haute-baie-cachee');
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise, .ajusterMur')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    const fini = () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 });
+    await etape('photo de face', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face }));
+    await etape('calcul 1', fini);
+    await etape('photo de biais', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais }));
+    await page.waitForFunction(() => /2 photos/.test(document.querySelector('.auditPrise .titreParcours')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await etape('calcul 2', fini);
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const facade = '.dialogueAuditParcelle .facadeAudit';
+    const vue = facade + ' .ajusterMurPhoto';
+    /** Ouvre les reperes de la photo k (1 ou 2) depuis le segment « Mur », puis « Ajuster l'égout et le sol » ; rend ce que le geste montre. */
+    const ajuster = async (k) => {
+      // Le segment ouvert le reste apres un rejeu : le toucher encore le refermerait.
+      const placer = page.locator(facade + ` button[data-controle="auditParcelle.placerCoins"][aria-label^="Placer quatre repères sur la photo ${k} "]`);
+      if (!(await placer.count())) await etape('segment Mur', () => page.locator(facade + ' button[data-etape="calage"]').click({ timeout: 30000 }));
+      await etape('reperes photo ' + k, () => toucher(page.locator(facade + ` button[data-controle="auditParcelle.placerCoins"][aria-label^="Placer quatre repères sur la photo ${k} "]`)));
+      await etape('ajuster ' + k, () => toucher(page.locator(facade + ' button[data-controle="reperes.ajusterMur"]')));
+      await etape('vue ' + k, () => page.locator(vue + ' [role="slider"][aria-label="Égout"]').waitFor({ state: 'attached', timeout: 30000 })
+        .catch(async (e) => { throw new Error(e.message.split('\n')[0] + ' (« ' + ((await page.locator(facade + ' .poserReperes').textContent().catch(() => '')) || '').slice(-200) + ' »)'); }));
+      return page.locator(vue).evaluate((svg) => ({
+        libelle: svg.getAttribute('aria-label') || '', cadre: svg.getAttribute('viewBox') || '', adresse: (svg.querySelector('image')?.getAttribute('href') || '').slice(0, 40),
+        egout: Number(svg.querySelector('[aria-label="Égout"]')?.getAttribute('aria-valuenow')), sol: Number(svg.querySelector('[aria-label="Sol"]')?.getAttribute('aria-valuenow')),
+        x0: Number(svg.querySelector('[aria-label="Bout gauche du mur"]')?.getAttribute('aria-valuenow')), x1: Number(svg.querySelector('[aria-label="Bout droit du mur"]')?.getAttribute('aria-valuenow')),
+        consigne: [...svg.closest('.poserReperes').querySelectorAll('.detailPhoto')].map((p) => p.textContent).join(' '),
+      }));
+    };
+    const premiere = await ajuster(1);
+    await page.locator(vue).scrollIntoViewIfNeeded().catch(() => {});
+    if (process.env.FUMEE_CAPTURE_EGOUT) await page.locator(facade + ' .ajusterMur').screenshot({ path: process.env.FUMEE_CAPTURE_EGOUT + '-' + f.nom + '.png' }).catch(() => {});
+    const debords = [await deborde()];
+    await etape('tirer l egout', async () => { const b = page.locator(vue + ' [role="slider"][aria-label="Égout"]'); await b.focus({ timeout: 5000 }); await page.keyboard.press('Shift+ArrowUp'); });
+    const tire = Number(await page.locator(vue + ' [role="slider"][aria-label="Égout"]').getAttribute('aria-valuenow'));
+    await etape('appliquer', () => toucher(page.locator(facade + ' button[data-controle="auditParcelle.appliquerCoins"]')));
+    await etape('rejeu', () => page.waitForFunction((s) => { const b = document.querySelector(s); return !!b && b.textContent === 'Rejouer la façade' && !b.disabled; }, facade + ' button[data-controle="auditParcelle.rejouerFacade"]', { timeout: 180000 }));
+    const seconde = await ajuster(2);
+    debords.push(await deborde());
+    await etape('annuler', () => toucher(page.locator(facade + ' button[data-controle="auditParcelle.annulerCoins"]')));
+    const assemblage = (v) => /^Assemblage des photos/.test(v.libelle) && /Sur la façade assemblée \(2 photos\)/.test(v.consigne);
+    const rapport = (v, egout = v.egout) => (v.sol - egout) / (v.x1 - v.x0);
+    const avant = rapport(premiere), voulu = rapport(premiere, tire), apres = rapport(seconde);
+    const ok = assemblage(premiere) && premiere.adresse.startsWith('data:image/jpeg') && tire < premiere.egout && assemblage(seconde)
+      && Math.abs(apres - voulu) <= 0.01 && Math.abs(apres - avant) > 0.03 && !debords.some(Boolean);
+    const dec = (v) => v.toFixed(3).replace('.', ',');
+    return { ok, mesure: `photo 1 : « ${premiere.libelle.split(' :')[0]} », cadre ${premiere.cadre}, mur ${premiere.x0}–${premiere.x1} × ${premiere.egout}–${premiere.sol} (hauteur/largeur ${dec(avant)}) ; égout tiré à ${tire} (${dec(voulu)}) ; après le rejeu, depuis la photo 2 : « ${seconde.libelle.split(' :')[0]} », cadre ${seconde.cadre}, mur ${seconde.x0}–${seconde.x1} × ${seconde.egout}–${seconde.sol} (${dec(apres)}) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   }
 };
 
@@ -4413,7 +4474,8 @@ function pointsPour(nomClasse) {
   // 118 et 119 : le toit lu sur une facade (lot L2) : une couverture en ecaille lue et dessinee ; une fenetre de toit posee par le moteur.
   // 121 : les textes du dossier (lot L5) : rediger, corriger, valider, exporter ; la relecture avant l'export, un brouillon perime.
   // 122 : l'assistant en langue naturelle (lot L6) : une demande, sa liste (une etape grisee avec sa raison), « Appliquer », Ctrl+Z.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122];
+  // 123 : « Ajuster l'égout et le sol » sur la facade assemblee (deux vues), le mur tire repris par la chaine.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

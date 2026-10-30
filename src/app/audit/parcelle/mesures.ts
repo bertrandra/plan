@@ -19,7 +19,7 @@ import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/vision/cadrage.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
 import { VERSION_CHAINE_FACADES, type PhotoARedresser } from '../../../facade/releve/chaine.js';
-import { derouler, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
+import { derouler, type AssemblageAAjuster, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { DiagnosticForme } from '../../../facade/regles/facades/diagnosticForme.js';
 import type { BilanFacade } from '../../../facade/releve/bilanFacade.js';
@@ -92,6 +92,12 @@ export interface MesureFacade {
    * mesure. Les photos brutes et les corrections restent la source d'un rejeu ; ces images disent ce qu'il change.
    */
   redressees?: PhotoRedresseeAuditee[];
+  /**
+   * L'assemblage de deux photos ou plus, pris pour la suite, et le mur que la chaine y a pose : « Ajuster l'égout et le sol » le montre
+   * (jamais une photo seule), et le mur tire dessus revient sur chaque photo assemblee. Derive : il ne s'ecrit pas dans le fichier de
+   * l'audit ; absent avec une photo, ou d'une mesure relue d'un fichier.
+   */
+  assemblage?: AssemblageAAjuster;
   /** La version de la chaine des facades qui a fait ces mesures (facade/releve/chaine.ts). */
   versionChaine?: number;
   /** Le gabarit du mur (le plan et le LiDAR) pose sur les photos : la reprise a la main le montre tel quel. */
@@ -224,6 +230,6 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const sortie = r.sorties.audit;
   const etapes = r.etapes.map(({ id, etat, resume }) => ({ id, etat, resume }));
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
-  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
+  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun, ...(sortie.assemblage ? { assemblage: sortie.assemblage } : {}) } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };
 }

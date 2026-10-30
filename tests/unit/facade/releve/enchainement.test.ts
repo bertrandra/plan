@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { casCaleALaMain, derouler, entreesDuCas, etapeDe, originesDuCas, preparerPourLaMesure, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
+import { assemblageDuRejeu, casAvecLeMur, casCaleALaMain, derouler, murAjusteSurLesPhotos, entreesDuCas, etapeDe, originesDuCas, preparerPourLaMesure, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
 import { imagesEtapes } from '../../../../src/facade/releve/imagesEtapes.js';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { analyserLeMur } from '../../../../src/facade/analyseMur.js';
@@ -198,6 +198,40 @@ describe('le cas de calibration dans l enchainement', () => {
     expect(cale.photos[0]?.murALaMain).toBe(true);
     // Le mur retenu, ramene sur la photo, retombe sur les coins d'ou il venait (au dixieme de pixel pres de l'arrondi).
     cale.photos[0]?.coins.forEach((q, k) => { expect(Math.abs(q.x - (vrais[k] as P2).x)).toBeLessThan(0.2); expect(Math.abs(q.y - (vrais[k] as P2).y)).toBeLessThan(0.2); });
+  }, 60_000);
+});
+
+describe('« Ajuster l’égout et le sol » depuis les reperes de la calibration : sur l assemblage, comme a l E4', () => {
+  it('avec deux vues : l assemblage du rejeu, son mur, et le meme chemin vers les photos que le calage a la main', async () => {
+    const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
+    if (!s) throw new Error('scene absente');
+    const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])].slice(0, 2) as PriseCamera[];
+    const phs = prises.map((p) => photographier(s, 100, p)), vrais = prises.map((p) => coinsVrais(s, p));
+    if (phs.some((p) => !p) || vrais.some((v) => !v)) throw new Error('prise impossible');
+    const c = casDe(s.verite.largeur, s.verite.hauteur, vrais[0] as P2[], null, { images: ['x', 'y'], photos: vrais.map((v, k) => ({ fichier: 'photo-' + (k + 1), coins: v as P2[] })) });
+    const r = await derouler(entreesDuCas(c, phs.map((p) => (p as NonNullable<typeof p>).image)), { coins: 'garder', image: 'assemblage' });
+    const pose = r.sorties.calage?.pose;
+    const a = assemblageDuRejeu(r, (img) => 'adresse-' + img.largeur);
+    if (!a || !pose) throw new Error('pas d assemblage');
+    // L'image montree est celle du calage (l'assemblage), avec le mur qui y est pose.
+    expect(a.url).toBe('adresse-' + pose.image.largeur);
+    expect(a.coins).toEqual(pose.coins);
+    expect(a.retours.map((x) => x.rang)).toEqual([0, 1]);
+    // Le mur tire, ramene sur chaque photo : le meme que celui de « Appliquer le calage et rejouer » (casCaleALaMain).
+    const tire = a.coins.map((q, k) => ({ x: q.x, y: q.y - (k < 2 ? 10 : 0) }));
+    const parPhoto = murAjusteSurLesPhotos(a, tire);
+    const cale = casCaleALaMain(c, r, tire), avec = casAvecLeMur(c, parPhoto);
+    expect(avec.photos.map((p) => p.coins)).toEqual(cale.photos.map((p) => p.coins));
+    expect(avec.photos.every((p) => p.murALaMain)).toBe(true);
+    // Sans y toucher, le mur revient sur la photo d'ou il venait.
+    murAjusteSurLesPhotos(a, a.coins).get(0)?.forEach((q, k) => { expect(Math.abs(q.x - ((vrais[0] as P2[])[k] as P2).x)).toBeLessThan(0.2); expect(Math.abs(q.y - ((vrais[0] as P2[])[k] as P2).y)).toBeLessThan(0.2); });
+  }, 120_000);
+
+  it('avec une photo seule : pas d assemblage a montrer, la photo redressee comme avant', async () => {
+    const { s, ph, vrais } = scene('02-');
+    const r = await derouler(entreesDuCas(casDe(s.verite.largeur, s.verite.hauteur, vrais, ph.focalePx), [ph.image]), { coins: 'garder', image: 'assemblage' });
+    expect(r.sorties.calage?.pose).not.toBeNull();
+    expect(assemblageDuRejeu(r, () => 'u')).toBeNull();
   }, 60_000);
 });
 
