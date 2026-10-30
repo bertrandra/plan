@@ -498,7 +498,7 @@ la mesure dans sa section du §9 bis.
 | Lot | Appel | Usage | Requêtes | Entrée | Coût estimé, Haiku | Escalade Sonnet (à la demande) |
 |---|---|---|---|---|---|---|
 | L1 | **seconde requête** sur l'image du run (décision du 30 octobre 2026), en sortie structurée | `facade-enrichie` | 3 par façade, en plus des 3 du run (inchangé) | la même image + texte | mesuré : ≈ 0,0034 $ la façade en plus du run (≈ 0,0079 $ les deux, accepté) | aucune (l'escalade ne relit que le run) |
-| L2 | **troisième requête** sur l'image du run (décision 3, 30 octobre 2026), en sortie structurée | `facade-toit` | 3 par façade, en plus des 6 du run et de la lecture enrichie | la même image + texte | mesuré : 0,00100 $ la façade en plus (≈ 0,0090 $ les trois requêtes) | aucune (l'escalade ne relit que le run) |
+| L2 | **troisième requête** sur l'image du run (décision 3, 30 octobre 2026), en sortie structurée | `facade-toit` | 3 par façade, en plus des 6 du run et de la lecture enrichie | la même image + texte | mesuré : 0,00099 $ la façade en plus (0,00902 $ les trois requêtes, run 41037125239) | aucune (l'escalade ne relit que le run) |
 | L3 | aérienne de la parcelle | `jardin` | 3 par parcelle | une image 1 024 px | ≈ 0,003 $ | ≈ 0,02 $ |
 | L3 | photos du jardin | `jardin` | 3 par photo | une image | ≈ 0,003 $ la photo (≈ 0,02 $ pour six) | ≈ 0,02 $ la photo |
 | L4 | pages de la zone | `plu` | 3 | 10 à 30 pages, **sous 100 000 tokens** | ≈ 0,005 à 0,02 $ | ≈ 0,1 à 0,2 $ |
@@ -876,8 +876,14 @@ d'une maison identiques à ceux de cb0bf055 (L1). `champsLecture.test.ts`, `lect
 passent sans que leurs listes changent. Les toits lus au LiDAR ne bougent pas (`identite.ts` : « AE 101 : corps identiques »), et la
 pose d'une couverture suit le toit relu (LiDAR, actualisation IGN) comme sa couverture.
 
-**Coût mesuré** (mesure du banc, run 41032809278) : le run ×3, 0,00460 $ la façade ; la lecture enrichie ×3, 0,00337 $ (0,00339 $ en
-L1) ; le toit lu ×3, **0,00100 $** ; les trois, **0,00898 $ la façade** (0,00797 $ avant L2).
+**Garde-fou de la lecture** (workflow « Vérifier l'API Claude », case façades, run 41037125239) : **vert après la relance
+automatique** (« Aucune ligne jugée sous le plancher ») ; à la première mesure, une seule ligne sous le plancher, x1 seul (« genre
+porte-fenêtre retrouvé », 6 → 5), redevenue 7 à la relance ; ×3 rappel 99,2 %, précision 100 %. Le workflow passe à 45 minutes : la
+relance de toutes les scènes, trois requêtes par façade, était coupée à 30 (run 41032809278).
+
+**Coût mesuré** (run 41037125239, 22 façades) : le run ×3, 0,00470 $ la façade ; la lecture enrichie ×3, 0,00333 $ (0,00339 $ en L1) ;
+le toit lu ×3, **0,00099 $** ; les trois, **0,00902 $ la façade** (0,00805 $ en L1). Toit lu : 66 passes lisibles sur 66, 66 en
+sortie structurée.
 
 **Supprimé.** L'écriture de `ardoise-losange` comme matériau ; les traductions locales des mots de couverture (le sujet `couverture`,
 l'arbitrage, le contrôle du PLU), remplacées par `model/couvertureLue.ts`.
