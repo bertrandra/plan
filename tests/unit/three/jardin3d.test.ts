@@ -50,7 +50,7 @@ describe('le semis d un massif', () => {
 describe('la vegetation basse dans la scene', () => {
   it('pose la maille de l ecran hors export et celle du .glb, invisible, a la densite de reference', () => {
     const scene = new THREE_NS.Scene();
-    const n = ajouterVegetationBasse({ scene, versLocal, qualite: 'econome', dateStr: null }, massif, contour, { nature: 'plate-bande', contenu: 'fleurs' }, 0.12);
+    const n = ajouterVegetationBasse({ scene, versLocal, qualite: 'econome', dateStr: null }, massif, contour, { type: 'fleurs', forme: 'plate-bande', source: 'main' }, 0.12, true);
     const groupes = scene.children.filter((c) => c.name === NOM_GROUPE_PLANTES);
     expect(groupes).toHaveLength(2);
     const ecran = groupes.find((g) => g.userData[HORS_EXPORT])!, glb = groupes.find((g) => g.userData[EXPORT_SEULEMENT])!;
@@ -64,7 +64,7 @@ describe('la vegetation basse dans la scene', () => {
 
   it('ne pose rien quand la vegetation est retiree, mais garde le mini-arbre, groupe arbre dessine par les lots', () => {
     const scene = new THREE_NS.Scene();
-    ajouterVegetationBasse({ scene, versLocal, qualite: 'normale', dateStr: null }, massif, contour, { nature: 'massif', contenu: 'mixte', vegetation: false, miniArbre: { espece: 'lilas', hauteurM: 1.8 } }, 0.6);
+    ajouterVegetationBasse({ scene, versLocal, qualite: 'normale', dateStr: null }, massif, contour, { type: 'mixte', source: 'main', miniArbre: { espece: 'lilas', hauteurM: 1.8 } }, 0.6, false);
     expect(scene.getObjectByName(NOM_GROUPE_PLANTES)).toBeUndefined();
     const arbre = scene.getObjectByName(NOM_ARBRE)!;
     expect(arbre.parent!.position.y).toBe(0.6);

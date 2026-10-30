@@ -4,7 +4,7 @@ import { creerAnalyseClaude, type AnalyseClaude } from '../../../../../src/app/a
 import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/parcelle/validation.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
-import type { FabriqueImagesJardin } from '../../../../../src/app/audit/parcelle/jardinClaude.js';
+import { runJardinDesResultats, type FabriqueImagesJardin } from '../../../../../src/app/audit/parcelle/jardinClaude.js';
 import { propositionsDuJardin, RESERVE_JARDIN } from '../../../../../src/app/regles/jardin.js';
 import { cocheeParDefaut, projetApres } from '../../../../../src/regles/decisions.js';
 import { lireRunJardin } from '../../../../../src/regles/jardin/observations.js';
@@ -125,7 +125,7 @@ describe('la lecture du jardin dans l audit', () => {
     expect(t.validation.valider()).toMatchObject({ ecrites: 1 });
     expect(t.historique).toHaveBeenCalledTimes(1);
     expect(t.etat.objects).toHaveLength(3);
-    expect(t.etat.objects[2]).toMatchObject({ fonction: 'massif', massif: { nature: 'plate-bande', contenu: 'fleurs' } });
+    expect(t.etat.objects[2]).toMatchObject({ fonction: 'massif', plantation: { type: 'fleurs', forme: 'plate-bande', source: 'ia' } });
     // Elle ne se propose plus : elle est dans le plan.
     expect(t.validation.propositions().some((p) => p.objet === 'Plate-bande')).toBe(false);
     // Une seconde lecture dit a Claude ce que le plan porte deja.
@@ -141,5 +141,16 @@ describe('la lecture du jardin dans l audit', () => {
     const rue = { id: 'parcelle:portail', cible: { type: 'parcelle' as const }, objet: 'Portail', avant: '', apres: '', source: 'mesure' as const, indices: [], confiance: 1, remplaceChoix: null, reserve: null, effet: { type: 'portail' as const, cote: 0, nature: 'portillon' as const } };
     expect(propositionsDuJardin(run, objets, BIBLIOTHEQUE_LIVREE, [rue]).propositions.some((p) => p.effet.type === 'portail')).toBe(false);
     expect(propositionsDuJardin(run, objets, BIBLIOTHEQUE_LIVREE).propositions.some((p) => p.effet.type === 'portail')).toBe(true);
+  });
+
+  it('garde l image par l empreinte que le serveur en garde avec la trace (lot L0), ses octets seulement a defaut', () => {
+    const envoi = { image: { base64: IMAGE_JARDIN, mediaType: 'image/jpeg' as const, largeur: 512, hauteur: 512 }, cadrage: { xMin: 0, yMin: 0, coteM: 30 }, photos: 0, texte: 't' };
+    const r = { id: ID_REQUETE_JARDIN, statut: 'reussi' as const, passe: 1, sortie: SORTIE_JARDIN, erreur: null };
+    const sha = 'a'.repeat(64);
+    const avec = runJardinDesResultats({ modele: 'm', prompt: 1, schema: 1, resultats: [{ ...r, empreintes: [{ sha256: sha, octets: 20208, type: 'image/jpeg' }] }] }, envoi, new Date('2026-10-30T08:00:00Z'))!;
+    expect(avec.image).toEqual({ mediaType: 'image/jpeg', largeur: 512, hauteur: 512, sha256: sha, octets: 20208 });
+    const sans = runJardinDesResultats({ modele: 'm', prompt: 1, schema: 1, resultats: [r] }, envoi, new Date('2026-10-30T08:00:00Z'))!;
+    expect(sans.image.base64).toBe(IMAGE_JARDIN);
+    expect(lireRunJardin(JSON.parse(JSON.stringify(avec)))).toEqual(avec);
   });
 });

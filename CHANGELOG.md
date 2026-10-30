@@ -12,13 +12,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (fleurs, arbustes, vivaces, mixte, potager), un **mini-arbre** pris parmi les petits arbres de la bibliothèque d'essences. Sa
   **végétation basse se dessine par défaut dans la Vue 3D** : des plantes et des fleurs en instances (deux appels de dessin par
   massif), semées dans le contour et tirées de la clé de l'objet (elles ne bougent jamais d'une ouverture à l'autre), plus ou moins
-  denses selon le niveau de qualité à l'écran, à la densité de référence dans le `.glb` ; la case « Plantes en 3D » les retire. Un
+  denses selon le niveau de qualité à l'écran, à la densité de référence dans le `.glb` ; la case « Plantes en 3D » les retire ; une plantation `haie` reste un volume vert. Un
   massif d'avant (ceux de la démonstration, les haies de l'IGN) reste le bloc d'avant : **la démonstration et son `.glb` ne bougent
   pas** (l'interrupteur `VEGETATION_POUR_TOUS_LES_MASSIFS` de `model/jardin.ts`, éteint, attend la décision du propriétaire). Un
   **équipement** peut être un **regard** (un carré de 60 cm sur le plan, une plaque de fonte au ras du sol en 3D), un **éclairage**
   ou un **robinet** : aucun ne charge la terrasse sous lui, à la différence d'un spa. Un ouvrage **existant** (une piscine, une
   terrasse, un chemin lus sur la photo) situe le projet sans qu'aucune quantité ne le compte (dossier, piscine, équipements d'une
-  terrasse). **Schéma 8** (migration 7 → 8 identité ; la plateforme accepte déjà 7 à 12).
+  terrasse). Les champs sont ceux de `MD/spec-lecture-ia-elargie.md` §4.4 (`plantation`, `vegetation3d`, `nature`, `existant`).
+  **Schéma 9** (migration 8 → 9 identité ; le 8 est réservé au lot L4, mené en parallèle ; la plateforme accepte déjà 7 à 12).
 - **La lecture du jardin par Claude** : quand l'analyse de l'audit part, une requête de plus lit le jardin sur l'**orthophoto
   recadrée sur la parcelle** (et les photos de la clôture et du portail), au modèle rapide (usage `jardin`, prompt et schéma
   générés : `deploy/prompt-jardin.md`, `deploy/schema-jardin.json`). Claude dit les arbres (genre dans une liste fermée, taille),

@@ -6,7 +6,7 @@ import { fnv1a } from '../toits/reglages.js';
 
 /** Les seuils, et les bornes de chacun : une valeur hors de ses bornes est refusee. */
 export const BORNES_JARDIN = {
-  'jardin.ia.passes': [1, 3], 'jardin.ia.certitudeMin': [0, 1], 'jardin.ia.doublonM': [0, 10], 'jardin.ia.limiteM': [0, 10],
+  'jardin.ia.certitudeMin': [0, 1], 'jardin.ia.doublonM': [0, 10], 'jardin.ia.limiteM': [0, 10],
   'jardin.ia.horsParcelleM': [0, 20], 'jardin.ia.surfaceMinM2': [0, 100], 'jardin.ia.largeurHaieM': [0.1, 5], 'jardin.ia.hauteurHaieM': [0.2, 10],
   'jardin.ia.largeurCheminM': [0.2, 10], 'jardin.ia.hauteurMuretM': [0.1, 3],
 } as const;
@@ -22,7 +22,7 @@ export function lireReglagesJardin(donnees: unknown): ReglagesJardin {
   const v = {} as ReglagesJardin;
   for (const [nom, [min, max]] of Object.entries(BORNES_JARDIN) as [NomReglageJardin, readonly [number, number]][]) {
     const x = f.seuils[nom]?.valeur;
-    if (typeof x !== 'number' || !Number.isFinite(x) || x < min || x > max || (nom === 'jardin.ia.passes' && !Number.isInteger(x))) throw new Error('Réglages de la lecture du jardin : « ' + nom + ' » veut une valeur de ' + min + ' à ' + max + '.');
+    if (typeof x !== 'number' || !Number.isFinite(x) || x < min || x > max) throw new Error('Réglages de la lecture du jardin : « ' + nom + ' » veut une valeur de ' + min + ' à ' + max + '.');
     v[nom] = x;
   }
   return v;

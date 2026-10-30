@@ -88,7 +88,7 @@ export function occupeLeSol(o: ObjetPlan): boolean {
   const ouv = ouvrage(o.fonction);
   if (estTerrain(o) || ouv.sansEmprise) return false;
   // Un equipement du jardin (un regard au ras du sol, une borne, un robinet ; lot L3) se pose sur l'herbe sans la percer.
-  if (o.equipement && estOuvrage(o, EQUIPEMENT)) return false;
+  if (o.nature && o.nature !== 'spa' && estOuvrage(o, EQUIPEMENT)) return false;
   if (o.type === 'path') return !!ouv.aUneLargeur;
   return o.type === 'polygon' || o.type === 'circle';
 }

@@ -7,17 +7,17 @@ import type { PtBrut } from '../types.js';
 import { longueurTrace } from '../../geometry/courbe.js';
 
 /**
- * Un massif : le bloc d'avant, ou, quand il porte son sous-objet `massif` (model/jardin.ts, lot L3), un massif plante ou une
- * plate-bande, sa vegetation basse dessinee en 3D. Le sous-objet ne s'ecrit qu'avec la fonction (`reglagesAuFichier`).
+ * Un massif : le bloc d'avant, ou, quand il porte une `plantation` (model/jardin.ts, lot L3), un massif plante ou une plate-bande, sa
+ * vegetation basse dessinee en 3D.
  */
-export const MASSIF: Ouvrage = { fonction: 'massif', libelle: 'Massif', famille: 'surface', elevation: 0.6, auMenu: true, particularites: ['massif'], reglagesAuFichier: ['massif'] };
+export const MASSIF: Ouvrage = { fonction: 'massif', libelle: 'Massif', famille: 'surface', elevation: 0.6, auMenu: true, particularites: ['massif'], reglagesAuFichier: ['plantation', 'vegetation3d'] };
 
 export const MOBILIER: Ouvrage = { fonction: 'mobilier', libelle: 'Mobilier', famille: 'surface', elevation: 0.9, auMenu: true };
 
 export const DALLE: Ouvrage = { fonction: 'dalle', libelle: 'Dalle', famille: 'surface', elevation: 0.02, auMenu: true, dossierPiscine: { masse: true } };
 
-/** Un equipement : un spa ou un jacuzzi, ou un equipement du jardin (`equipement` : regard, eclairage, robinet ; lot L3), qui ne charge rien. */
-export const EQUIPEMENT: Ouvrage = { fonction: 'equipement', libelle: 'Équipement', famille: 'surface', elevation: 0.9, auMenu: true, particularites: ['equipement'], reglagesAuFichier: ['equipement'] };
+/** Un equipement : un spa ou un jacuzzi (nature absente), ou un equipement du jardin (`nature` : regard, eclairage, robinet ; lot L3), qui ne charge rien. */
+export const EQUIPEMENT: Ouvrage = { fonction: 'equipement', libelle: 'Équipement', famille: 'surface', elevation: 0.9, auMenu: true, particularites: ['equipement'], reglagesAuFichier: ['nature'] };
 
 /** Un chemin a une largeur ; un trace qui n'est pas un chemin n'en a pas. */
 export const CHEMIN: Ouvrage = { fonction: 'chemin', libelle: 'Chemin', famille: 'surface', elevation: 0, auMenu: true, horsEquipement: true, aUneLargeur: true,

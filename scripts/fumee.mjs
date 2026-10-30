@@ -3035,11 +3035,11 @@ const POINTS = {
       const pts = libre.coins;
       const o = { key: 'pb-fumee', type: 'polygon', name: 'Plate-bande', fill: '#7a5a3a', fillOpacity: 1, stroke: '#4a3520', pts, vertexNames: pts.map((_, i) => 'Point ' + (i + 1)), segmentNames: pts.map((_, i) => 'Cote ' + (i + 1)),
         frozenVertices: pts.map(() => false), showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false, constrained: false, fonction: 'massif', matiere: '', priority: 2, locked: false,
-        elevation: 0.12, massif: { nature: 'plate-bande', contenu: 'fleurs', miniArbre: { espece: 'erable-japon', hauteurM: 1.8 } } };
+        elevation: 0.12, plantation: { type: 'fleurs', forme: 'plate-bande', source: 'main', miniArbre: { espece: 'erable-japon', hauteurM: 1.8 } } };
       objets.push(o);
       window.__plan.dessinerObjet(o);
       window.__plan.toucher('pb-fumee');
-      return { massifsAvant: objets.filter((x) => x.fonction === 'massif' && !x.massif).length };
+      return { massifsAvant: objets.filter((x) => x.fonction === 'massif' && !x.plantation).length };
     }, libre);
     await page.evaluate(() => window.__plan.selectionnerCle('pb-fumee'));
     await inspecteur(page);
@@ -3088,7 +3088,7 @@ const POINTS = {
       const pts = [{ x: c.x - 0.3, y: c.y - 0.3 }, { x: c.x + 0.3, y: c.y - 0.3 }, { x: c.x + 0.3, y: c.y + 0.3 }, { x: c.x - 0.3, y: c.y + 0.3 }];
       const o = { key: 'regard-fumee', type: 'polygon', name: 'Regard', fill: '#7b7f84', fillOpacity: 1, stroke: '#33363a', pts, vertexNames: pts.map((_, i) => 'Point ' + (i + 1)), segmentNames: pts.map((_, i) => 'Cote ' + (i + 1)),
         frozenVertices: pts.map(() => false), showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false, constrained: false, fonction: 'equipement', matiere: '', priority: 2, locked: false,
-        elevation: 0.02, equipement: { nature: 'regard' } };
+        elevation: 0.02, nature: 'regard' };
       objets.push(o);
       window.__plan.dessinerObjet(o);
       window.__plan.toucher('regard-fumee');
@@ -3174,8 +3174,8 @@ const POINTS = {
     await toucher(page.locator('[data-controle="auditParcelle.valider"]'));
     await page.waitForTimeout(1000);
     const apres = await page.evaluate(() => {
-      const o = window.__plan.etat().objects.find((x) => x.fonction === 'massif' && x.massif?.nature === 'plate-bande');
-      return { cle: o?.key ?? null, contenu: o?.massif?.contenu ?? null, objets: window.__plan.etat().objects.length };
+      const o = window.__plan.etat().objects.find((x) => x.fonction === 'massif' && x.plantation?.forme === 'plate-bande');
+      return { cle: o?.key ?? null, contenu: o?.plantation?.type ?? null, objets: window.__plan.etat().objects.length };
     });
     const encore = await ligneProposition(page, 'Plate-bande');
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);

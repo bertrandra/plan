@@ -77,11 +77,15 @@ export function runJardinDesResultats(lu: Pick<ResultatsBatch, 'modele' | 'promp
   const r = lu.resultats.find((x) => x.id === ID_REQUETE_JARDIN && x.statut === 'reussi' && lireObservationsJardin(x.sortie));
   if (!r) return null;
   const t = r.tokens;
+  // L'image que Claude a vue, par l'empreinte que le serveur en garde avec la trace (lot L0) : ses octets ne restent ici qu'a defaut.
+  const vue = r.empreintes?.[0];
+  const { base64, ...image } = envoi.image;
   return {
     le: le.toISOString(), modele: r.modele ?? lu.modele, prompt: r.prompt ?? lu.prompt, schema: r.schema ?? lu.schema, sortie: r.sortie,
     cout: typeof r.cout === 'number' ? r.cout : null,
     tokens: { entree: (t?.entree ?? 0) + (t?.ecritureCache ?? 0) + (t?.lectureCache ?? 0), sortie: t?.sortie ?? 0 },
     ...envoi,
+    image: vue ? { ...image, sha256: vue.sha256, octets: vue.octets } : { ...image, ...(base64 !== undefined ? { base64 } : {}) },
   };
 }
 

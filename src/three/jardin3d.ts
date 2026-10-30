@@ -1,7 +1,7 @@
 // Le jardin dans la Vue 3D (lot L3) : la vegetation basse d'un massif plante ou d'une plate-bande, son mini-arbre, et les
 // equipements du jardin (le regard en plaque au ras du sol, l'eclairage et le robinet sur leur pied).
 //
-// La vegetation est **dessinee par defaut** sur tout massif qui porte son sous-objet (model/jardin.ts) : des plantes basses et des
+// La vegetation est **dessinee par defaut** sur tout massif qui porte une plantation (model/jardin.ts) : des plantes basses et des
 // fleurs semees dans le contour, en instances (une `InstancedMesh` pour le feuillage, une pour les fleurs : deux appels de dessin
 // par massif, quel que soit le nombre de plantes). Le semis est **tire de la cle de l'objet** : le meme massif pousse toujours de
 // la meme facon, d'une ouverture a l'autre, il ne tremble jamais.
@@ -16,7 +16,7 @@ import { pointInPolygon } from '../geometry/basic.js';
 import { graineDe, tirage } from '../model/voisinage3d.js';
 import { especeParId, especesChargees } from '../model/especesArbre.js';
 import { HAUTEUR_MINI_ARBRE_MAX_M } from '../model/jardin.js';
-import type { ChampsMassif, ContenuMassif, NatureEquipement, ObjetPlan, PtBrut } from '../model/types.js';
+import type { NatureEquipement, ObjetPlan, Plantation, PtBrut, TypePlantation } from '../model/types.js';
 import type { Qualite3d } from './qualite.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { EXPORT_SEULEMENT, HORS_EXPORT, SANS_OMBRE, type VersLocal } from './primitives.js';
@@ -34,12 +34,14 @@ export const PLANTES_MAX = 600;
 
 /** Ce que pousse chaque contenu, par metre carre a la densite de reference : le feuillage, ses tailles, et les fleurs. */
 interface Pousse { feuillage: number; largeur: [number, number]; hauteur: [number, number]; fleurs: number; rangs?: number }
-export const POUSSES: Readonly<Record<ContenuMassif, Pousse>> = {
+export const POUSSES: Readonly<Record<TypePlantation, Pousse>> = {
   fleurs: { feuillage: 6, largeur: [0.3, 0.45], hauteur: [0.22, 0.38], fleurs: 10 },
   vivaces: { feuillage: 4, largeur: [0.35, 0.55], hauteur: [0.35, 0.6], fleurs: 4 },
   arbustes: { feuillage: 1.3, largeur: [0.6, 1.0], hauteur: [0.55, 1.0], fleurs: 0 },
   mixte: { feuillage: 3, largeur: [0.3, 0.85], hauteur: [0.3, 0.85], fleurs: 5 },
   // Des rangs tous les 50 cm, un plant tous les 35 cm : un potager se reconnait a ses lignes.
+  // Une haie ne seme rien (un volume vert) ; ses valeurs ne servent qu'a qui la dessinerait en plantes.
+  haie: { feuillage: 1.3, largeur: [0.6, 1.0], hauteur: [0.55, 1.0], fleurs: 0 },
   potager: { feuillage: 0, largeur: [0.22, 0.32], hauteur: [0.15, 0.3], fleurs: 0, rangs: 0.5 },
 };
 
@@ -67,7 +69,7 @@ function aire(pts: readonly PtBrut[]): number {
  * Le semis d'un massif, pur et reproductible : les plantes et les fleurs semees dans `contour` (le plan, en metres), tirees de
  * `cle`, a la densite `densite` (1 : la reference). Une plante reste a une demi-largeur du bord, pour ne pas deborder du massif.
  */
-export function semis(cle: string, contour: readonly PtBrut[], contenu: ContenuMassif, densite: number): { feuillage: Instance[]; fleurs: Instance[] } {
+export function semis(cle: string, contour: readonly PtBrut[], contenu: TypePlantation, densite: number): { feuillage: Instance[]; fleurs: Instance[] } {
   const p = POUSSES[contenu];
   const hasard = tirage(graineDe(cle + ':' + contenu));
   const entre = (a: [number, number]) => a[0] + (a[1] - a[0]) * hasard();
@@ -173,13 +175,13 @@ export interface ContexteJardin3d {
  * densite du niveau de qualite, et celle de l'export a la densite de reference ; puis le mini-arbre, s'il en a un. Rend le nombre de
  * plantes et de fleurs montrees.
  */
-export function ajouterVegetationBasse(ctx: ContexteJardin3d, o: ObjetPlan, contour: readonly PtBrut[], m: ChampsMassif, y0: number): number {
+export function ajouterVegetationBasse(ctx: ContexteJardin3d, o: ObjetPlan, contour: readonly PtBrut[], m: Plantation, y0: number, vegetation: boolean): number {
   let montrees = 0;
-  if (m.vegetation !== false) {
-    const ecran = semis(o.key, contour, m.contenu, DENSITE_QUALITE[ctx.qualite]);
+  if (vegetation) {
+    const ecran = semis(o.key, contour, m.type, DENSITE_QUALITE[ctx.qualite]);
     const gEcran = groupeDuSemis(ecran, ctx.versLocal, y0, HORS_EXPORT);
     ctx.scene.add(gEcran);
-    const gExport = groupeDuSemis(ctx.qualite === 'normale' ? ecran : semis(o.key, contour, m.contenu, 1), ctx.versLocal, y0, EXPORT_SEULEMENT);
+    const gExport = groupeDuSemis(ctx.qualite === 'normale' ? ecran : semis(o.key, contour, m.type, 1), ctx.versLocal, y0, EXPORT_SEULEMENT);
     gExport.visible = false;
     ctx.scene.add(gExport);
     montrees = ecran.feuillage.length + ecran.fleurs.length;
@@ -197,7 +199,7 @@ function centre(pts: readonly PtBrut[]): PtBrut {
  * Le mini-arbre : un arbre de la bibliotheque (three/arbre3d.ts), ramene a sa hauteur naine, son houppier a l'echelle. C'est un
  * groupe `arbre` comme un autre : les lots d'instances le dessinent (`rafraichirArbres`, appele par qui pose la scene).
  */
-function ajouterMiniArbre(ctx: ContexteJardin3d, o: ObjetPlan, contour: readonly PtBrut[], a: NonNullable<ChampsMassif['miniArbre']>, y0: number): void {
+function ajouterMiniArbre(ctx: ContexteJardin3d, o: ObjetPlan, contour: readonly PtBrut[], a: NonNullable<Plantation['miniArbre']>, y0: number): void {
   const e = especeParId(a.espece, especesChargees());
   const h = Math.min(HAUTEUR_MINI_ARBRE_MAX_M, a.hauteurM);
   const d = e ? Math.max(0.4, e.diametreM * (h / Math.max(0.1, e.hauteurM))) : h * 0.7;

@@ -6,7 +6,7 @@
 
 import { ajouterArbre3d, synchroniserArbres } from './arbre3d.js';
 import { ajouterEquipementJardin, ajouterVegetationBasse } from './jardin3d.js';
-import { equipementDuJardin, massifPlante } from '../model/jardin.js';
+import { natureDuJardin, plantationDe, vegetationVisible } from '../model/jardin.js';
 import { vue3d } from './etat3d.js';
 import { soleilDuProjet } from '../core/soleil.js';
 import { centroid } from '../geometry/basic.js';
@@ -195,13 +195,13 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   // Un arbre n'est pas un prisme : un tronc et un houppier (three/arbre3d.ts).
   if (estOuvrage(o, ARBRE)) { ajouterArbreDuPlan(o, co); return; }
   // Un regard, un eclairage, un robinet (model/jardin.ts) : pas un bloc, une plaque au ras du sol ou une borne sur son pied.
-  const equipement = equipementDuJardin(o);
-  if (equipement) {
+  const nature = natureDuJardin(o);
+  if (nature) {
     const emprise = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
     // Sur un sol en pente, la plaque d'un regard se pose au plus haut du sol sous elle : l'herbe ne la recouvre pas d'un cote.
     const sol = co.sol, groupe = sol ? new THREE.Group() : co.scene;
     if (sol) { groupe.position.y = Math.max(...emprise.map((p) => sol.hauteur(p)), sol.hauteur(centreDe(o))); co.scene.add(groupe); }
-    ajouterEquipementJardin(groupe, co.versLocal, equipement.nature, emprise, ctx.elevationOf(o));
+    ajouterEquipementJardin(groupe, co.versLocal, nature, emprise, ctx.elevationOf(o));
     return;
   }
   const h = ctx.elevationOf(o);
@@ -217,8 +217,8 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, bati.couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
   habillerLeBati(o, bati, h, centre, ySol, yBase, co);
   // Un massif plante ou une plate-bande : sa vegetation basse sur son dessus, et son mini-arbre (three/jardin3d.ts).
-  const plante = massifPlante(o);
-  if (plante) ajouterVegetationBasse({ scene: co.scene, versLocal: co.versLocal, qualite: vue3d.qualite, dateStr: soleilDuProjet.lire().dateStr }, o, footprint, plante, (dessusTerrasse ?? ySol + h));
+  const plante = plantationDe(o);
+  if (plante) ajouterVegetationBasse({ scene: co.scene, versLocal: co.versLocal, qualite: vue3d.qualite, dateStr: soleilDuProjet.lire().dateStr }, o, footprint, plante, (dessusTerrasse ?? ySol + h), vegetationVisible(o));
 }
 
 /**

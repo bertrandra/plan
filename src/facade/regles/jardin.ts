@@ -5,7 +5,7 @@
 // 2. Ou c'est, en metres : chaque point de l'image passe dans le repere du plan par le cadrage de l'image (son geo-referencement).
 // 3. Ce qui est deja dans le plan (`jardin.ia.doublonM`) : rien n'est propose deux fois, un objet confirme ne revient pas.
 // 4. Ce que c'est dans le plan : un arbre de la bibliotheque (son genre rapproche de l'essence la plus proche, sa classe de taille), une
-//    plate-bande ou un potager (model/jardin.ts), un equipement du jardin, une terrasse, une piscine ou un chemin DEJA LA (`existant` :
+//    plate-bande ou un potager (une `plantation`, model/jardin.ts), un equipement du jardin (sa `nature`), une terrasse, une piscine ou un chemin DEJA LA (`existant` :
 //    ils situent le projet, rien ne les chiffre), une haie interieure ; une cloture, une haie de limite, un muret ou un portail a moins
 //    de `jardin.ia.limiteM` d'un cote de la parcelle s'ecrit sur la cloture de ce cote (MD/spec-cloture.md), pas comme un objet.
 //
@@ -17,7 +17,7 @@ import { ribbonChemin } from '../../geometry/ruban.js';
 import { tailleDe, TAILLES, type EspeceArbre, type TailleArbre } from '../../model/especesArbre.js';
 import { estOuvrage, ARBRE, CHEMIN, DALLE, EQUIPEMENT, MASSIF, PISCINE, TERRASSE } from '../../model/ouvrages/index.js';
 import { nouveauMassif, nouvelEquipement } from '../../model/jardin.js';
-import type { ContenuMassif, NatureEquipement, ObjetPlan, PtBrut } from '../../model/types.js';
+import type { NatureEquipement, ObjetPlan, PtBrut, TypePlantation } from '../../model/types.js';
 import type { PositionPortail, TypeCloture } from '../../model/clotureVue.js';
 import { PART_CERTITUDE, versPlan, type CadrageJardin, type GenreArbre, type ObservationJardin, type ObservationsJardin } from '../../regles/jardin/observations.js';
 import type { ReglagesJardin } from '../../regles/jardin/reglages.js';
@@ -142,7 +142,7 @@ function cleDe(genre: string, pts: readonly PtBrut[]): string {
 
 // ---- Les regles ----------------------------------------------------------------------------------------------------------------
 
-const CONTENUS: Readonly<Record<string, ContenuMassif>> = { fleurs: 'fleurs', arbustes: 'arbustes', vivaces: 'vivaces', mixte: 'mixte' };
+const CONTENUS: Readonly<Record<string, TypePlantation>> = { fleurs: 'fleurs', arbustes: 'arbustes', vivaces: 'vivaces', mixte: 'mixte' };
 const TYPES_CLOTURE: Readonly<Record<string, TypeCloture>> = { grillage: 'grillage', palissade: 'palissade', mur: 'mur' };
 const POINT_SEUL: ReadonlySet<string> = new Set(['arbre', 'portail', 'regard', 'eclairage', 'robinet']);
 const LIGNE: ReadonlySet<string> = new Set(['haie', 'cloture', 'muret', 'bordure', 'chemin']);
@@ -160,7 +160,7 @@ function memeSorte(genre: ObservationJardin['genre']): (o: ObjetPlan) => boolean
     case 'terrasse': return (o) => estOuvrage(o, DALLE) || estOuvrage(o, TERRASSE);
     case 'piscine': return (o) => estOuvrage(o, PISCINE);
     case 'potager': case 'plate-bande': case 'haie': return (o) => estOuvrage(o, MASSIF);
-    case 'regard': case 'eclairage': case 'robinet': return (o) => estOuvrage(o, EQUIPEMENT) && o.equipement?.nature === genre;
+    case 'regard': case 'eclairage': case 'robinet': return (o) => estOuvrage(o, EQUIPEMENT) && o.nature === genre;
     default: return () => false;
   }
 }
@@ -243,9 +243,8 @@ export function decisionsDuJardin(e: EntreesJardin): { decisions: DecisionJardin
         const l = largeur > 0.2 ? largeur : r['jardin.ia.largeurHaieM'];
         const contour = ribbonChemin(pts, l);
         if (!contour) { ecarter(o, 'ligne trop courte'); continue; }
-        // Une haie interieure est un massif d'avant (comme une haie de l'IGN) : un volume vert, sans plantes semees.
-        objet = { key, type: 'polygon', name: 'Haie', fill: '#7FA86B', fillOpacity: 0.8, stroke: '#3F5C33', pts: contour.map(pt), vertexNames: contour.map((_, i) => 'Point ' + (i + 1)), segmentNames: contour.map((_, i) => 'Cote ' + (i + 1)), frozenVertices: contour.map(() => false),
-          showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false, constrained: false, fonction: 'massif', matiere: '', priority: 2, locked: false, elevation: r['jardin.ia.hauteurHaieM'] } as ObjetPlan;
+        // Une haie interieure : un massif a plantation `haie` (MD/spec-lecture-ia-elargie.md §3.3), un volume vert sans plantes semees.
+        objet = nouveauMassif(key, contour.map(pt), { type: 'haie', source: 'ia' }, 'Haie', r['jardin.ia.hauteurHaieM']);
         apres = 'Haie de ' + m(l) + ' de large, ' + m(r['jardin.ia.hauteurHaieM']) + ' de haut';
         suppose = 'hauteur d’une haie courante';
         break;
@@ -268,14 +267,14 @@ export function decisionsDuJardin(e: EntreesJardin): { decisions: DecisionJardin
       }
       case 'potager': case 'plate-bande': {
         if (shoelace(pts) < r['jardin.ia.surfaceMinM2']) { ecarter(o, 'trop petit'); continue; }
-        const contenu: ContenuMassif = o.genre === 'potager' ? 'potager' : CONTENUS[o.nature ?? ''] ?? 'mixte';
-        objet = nouveauMassif(key, pts, { nature: 'plate-bande', contenu });
+        const contenu: TypePlantation = o.genre === 'potager' ? 'potager' : CONTENUS[o.nature ?? ''] ?? 'mixte';
+        objet = nouveauMassif(key, pts, { type: contenu, forme: 'plate-bande', source: 'ia' });
         apres = (o.genre === 'potager' ? 'Potager' : 'Plate-bande (' + contenu + ')') + ' de ' + (Math.round(shoelace(pts) * 10) / 10).toString().replace('.', ',') + ' m², plantes en 3D';
         suppose = o.genre === 'plate-bande' && !CONTENUS[o.nature ?? ''] ? 'plantes non vues : mixte' : null;
         break;
       }
       case 'regard': case 'eclairage': case 'robinet': {
-        objet = nouvelEquipement(key, pts[0] as PtBrut, o.genre as NatureEquipement);
+        objet = nouvelEquipement(key, pts[0] as PtBrut, o.genre as Exclude<NatureEquipement, 'spa'>);
         apres = o.genre === 'regard' ? 'Regard de 60 × 60 cm, au ras du sol' : o.genre === 'eclairage' ? 'Borne d’éclairage' : 'Point d’eau';
         break;
       }

@@ -17,7 +17,7 @@
 // sommet a ete ajoute sans que `frozenVertices` suive donnerait sinon un tableau plus court que
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
-import { lireChampsEquipement, lireChampsMassif } from './jardin.js';
+import { lireNatureEquipement, lirePlantation } from './jardin.js';
 import { facadeLue } from './facadeObjet.js';
 import { deplierRelief } from './relief.js';
 import { rangerChampsAPlat } from './champsFonction.js';
@@ -91,10 +91,11 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     // Une grille enregistree compacte (`zCode`) retrouve ici ses altitudes en clair (model/relief.ts).
     if (c.relief) c.relief = deplierRelief(JSON.parse(JSON.stringify(c.relief)));
     if (c.piscine) c.piscine = JSON.parse(JSON.stringify(c.piscine));
-    // Le massif plante et l'equipement du jardin (lot L3) : leurs champs connus, ou rien (le bloc et l'equipement d'avant).
-    if (c.massif !== undefined) { const m = lireChampsMassif(c.massif); if (m) c.massif = m; else delete c.massif; }
+    // La plantation d'un massif, le retrait de sa vegetation et la nature d'un equipement (lot L3) : leurs valeurs connues, ou rien.
+    if (c.plantation !== undefined) { const m = lirePlantation(c.plantation); if (m) c.plantation = m; else delete c.plantation; }
+    if (c.vegetation3d !== undefined && c.vegetation3d !== false) delete c.vegetation3d;
+    if (c.nature !== undefined) { const n = lireNatureEquipement(c.nature); if (n) c.nature = n; else delete c.nature; }
     if (c.existant !== undefined && c.existant !== true) delete c.existant;
-    if (c.equipement !== undefined) { const e = lireChampsEquipement(c.equipement); if (e) c.equipement = e; else delete c.equipement; }
     return c as T & ObjetBrut;
   });
 }

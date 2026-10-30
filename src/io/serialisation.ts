@@ -103,9 +103,10 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // Meme regle pour la pergola : un projet sans pergola garde sa forme d'avant.
     if(o.pergola) out.pergola = JSON.parse(JSON.stringify(o.pergola));
     if(o.piscine) out.piscine = JSON.parse(JSON.stringify(o.piscine));
-    // Le massif plante et l'equipement du jardin (lot L3, schema 8) : poses seulement s'ils existent.
-    if(o.massif) out.massif = JSON.parse(JSON.stringify(o.massif));
-    if(o.equipement) out.equipement = { nature: o.equipement.nature };
+    // La plantation d'un massif, le retrait de sa vegetation, la nature d'un equipement (lot L3) : poses seulement s'ils existent.
+    if(o.plantation) out.plantation = JSON.parse(JSON.stringify(o.plantation));
+    if(o.vegetation3d === false) out.vegetation3d = false;
+    if(o.nature) out.nature = o.nature;
     // Un ouvrage deja la (lu sur la photo, lot L3) : pose seulement s'il l'est.
     if(o.existant === true) out.existant = true;
     // Le declarant d'une declaration prealable, range sur la parcelle : pose seulement s'il existe.

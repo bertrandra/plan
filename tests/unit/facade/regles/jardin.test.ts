@@ -54,8 +54,8 @@ describe('les decisions du moteur', () => {
     expect(objet('terrasse')).toMatchObject({ fonction: 'dalle', existant: true });
     expect(objet('piscine')).toMatchObject({ fonction: 'piscine', existant: true });
     // La plate-bande de fleurs : son massif plante, sa vegetation par defaut.
-    expect(objet('plate-bande')).toMatchObject({ fonction: 'massif', massif: { nature: 'plate-bande', contenu: 'fleurs' } });
-    expect(objet('regard')).toMatchObject({ fonction: 'equipement', equipement: { nature: 'regard' } });
+    expect(objet('plate-bande')).toMatchObject({ fonction: 'massif', plantation: { type: 'fleurs', forme: 'plate-bande', source: 'ia' } });
+    expect(objet('regard')).toMatchObject({ fonction: 'equipement', nature: 'regard' });
     // Les cles sont stables : une seconde lecture garde ses cases.
     expect(decisionsDuJardin(entrees()).decisions.map((d) => d.id)).toEqual(decisions.map((d) => d.id));
   });
@@ -71,7 +71,7 @@ describe('les decisions du moteur', () => {
     expect(prudent.decisions.map((d) => d.genre)).toEqual(['arbre', 'haie', 'chemin', 'terrasse', 'piscine']);
   });
 
-  it('une haie interieure devient un massif d avant (sans vegetation), une cloture interieure n est pas proposee', () => {
+  it('une haie interieure devient un massif a plantation haie (un volume, sans vegetation semee), une cloture interieure n est pas proposee', () => {
     const o = { objets: [
       { genre: 'haie' as const, points: [{ x: 0.3, y: 0.6 }, { x: 0.6, y: 0.6 }], etendue: 0, arbre: null, nature: null, indices: [], certitude: 'forte' as const },
       { genre: 'cloture' as const, points: [{ x: 0.3, y: 0.7 }, { x: 0.6, y: 0.7 }], etendue: 0, arbre: null, nature: null, indices: [], certitude: 'forte' as const },
@@ -79,7 +79,7 @@ describe('les decisions du moteur', () => {
     const { decisions, ecartees } = decisionsDuJardin(entrees({ observations: o }));
     expect(decisions).toHaveLength(1);
     expect(decisions[0]!.effet.type === 'objet' && decisions[0]!.effet.objet).toMatchObject({ fonction: 'massif', name: 'Haie', elevation: 1.6 });
-    expect(decisions[0]!.effet.type === 'objet' && decisions[0]!.effet.objet.massif).toBeUndefined();
+    expect(decisions[0]!.effet.type === 'objet' && decisions[0]!.effet.objet.plantation).toEqual({ type: 'haie', source: 'ia' });
     expect(ecartees[0]!.raison).toMatch(/clôture intérieure/);
   });
 });

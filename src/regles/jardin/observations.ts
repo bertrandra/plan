@@ -99,7 +99,9 @@ export function texteJardin(e: { coteM: number; dejaLa: readonly string[]; photo
 
 /**
  * La lecture du jardin enregistree avec l'audit (pour la rejouer sans reseau ni cout) : la reponse brute, les versions du prompt et du
- * schema, le modele, les tokens et le cout, l'image exacte envoyee (le JPEG compresse, tel qu'il est parti) et son cadrage, le texte.
+ * schema, le modele, les tokens et le cout, l'image exacte envoyee et son cadrage, le texte. L'image est celle que le serveur garde avec
+ * la trace de la requete (lot L0 : `images/<sha256>.jpg`, une fois par empreinte) : la lecture en garde l'empreinte ; ses octets
+ * (base64) ne restent que si le serveur ne l'a pas gardee (un serveur d'avant le lot L0).
  */
 export interface RunJardin {
   le: string;
@@ -110,7 +112,7 @@ export interface RunJardin {
   sortie: unknown;
   cout: number | null;
   tokens: { entree: number; sortie: number };
-  image: { base64: string; mediaType: 'image/jpeg' | 'image/png'; largeur: number; hauteur: number };
+  image: { mediaType: 'image/jpeg' | 'image/png'; largeur: number; hauteur: number; sha256?: string; octets?: number; base64?: string };
   cadrage: CadrageJardin;
   /** Les photos de la capture jointes (cloture, portail) : leur nombre ; elles restent dans la capture. */
   photos: number;
@@ -125,13 +127,13 @@ export function lireRunJardin(v: unknown): RunJardin | null {
   const r = v as Record<string, unknown>;
   const i = r.image as Record<string, unknown> | null, c = r.cadrage as Record<string, unknown> | null;
   if (typeof r.le !== 'string' || typeof r.modele !== 'string' || !fini(r.prompt) || !fini(r.schema)) return null;
-  if (!i || typeof i.base64 !== 'string' || (i.mediaType !== 'image/jpeg' && i.mediaType !== 'image/png') || !fini(i.largeur) || !fini(i.hauteur)) return null;
+  if (!i || (typeof i.base64 !== 'string' && typeof i.sha256 !== 'string') || (i.mediaType !== 'image/jpeg' && i.mediaType !== 'image/png') || !fini(i.largeur) || !fini(i.hauteur)) return null;
   if (!c || !fini(c.xMin) || !fini(c.yMin) || !fini(c.coteM) || !(c.coteM > 0)) return null;
   const t = r.tokens as Record<string, unknown> | null;
   return {
     le: r.le, modele: r.modele, prompt: r.prompt, schema: r.schema, sortie: r.sortie ?? null, cout: fini(r.cout) ? r.cout : null,
     tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 },
-    image: { base64: i.base64, mediaType: i.mediaType, largeur: i.largeur, hauteur: i.hauteur }, cadrage: { xMin: c.xMin, yMin: c.yMin, coteM: c.coteM },
+    image: { mediaType: i.mediaType, largeur: i.largeur, hauteur: i.hauteur, ...(typeof i.sha256 === 'string' ? { sha256: i.sha256 } : {}), ...(fini(i.octets) ? { octets: i.octets } : {}), ...(typeof i.base64 === 'string' ? { base64: i.base64 } : {}) }, cadrage: { xMin: c.xMin, yMin: c.yMin, coteM: c.coteM },
     photos: fini(r.photos) ? r.photos : 0, texte: typeof r.texte === 'string' ? r.texte : '', ...(typeof r.reglages === 'string' ? { reglages: r.reglages } : {}),
   };
 }

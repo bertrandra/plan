@@ -591,7 +591,11 @@ src/app/audit/parcelle/jardinClaude.ts        the request in the batch, and the 
 
 A new object enters the plan only through `regles/decisions.ts::appliquerPropositions` (added under its key, never twice);
 `projetApres` appends it to the "After" copy, so the two 3D views show it on the "After" side only (tree lots are made per layer,
-`three/arbre3d.ts`). Objects already there (pool, terrace, path) carry `existant`: they locate the project and no quantity counts them.
+`three/arbre3d.ts`). Objects already there (pool, terrace, path) carry `existant`: they locate the project and no quantity counts them. The fields are
+those of `MD/spec-lecture-ia-elargie.md` §4.4: a massif's `plantation` (its type, its form — plate-bande or massif —, a dwarf tree),
+`vegetation3d: false` (only the removal is written), an equipment's `nature` (absent: a spa, which loads the terrace). Low vegetation is
+drawn only on a massif that carries a `plantation` (`model/jardin.ts::VEGETATION_POUR_TOUS_LES_MASSIFS`, off: the demonstration's
+eleven massifs and its `.glb` do not move).
 
 **Who consumes it.** The address import, the background re-reading, the recalibration, the case
 replay (`facade/regles/rejeu.ts`, CI), the bench (`scripts/`), and the audit's proposals (§ below).

@@ -93,9 +93,16 @@ export const MIGRATIONS: readonly Migration[] = [
   },
   {
     de: 7,
-    apporte: 'le jardin : les plates-bandes et les massifs plantés (leur végétation en 3D, leur mini-arbre) et les équipements du jardin (regard, éclairage, robinet)',
-    // Des champs facultatifs, qui n'existaient pas avant (lot L3) : un document 7 est un document 8 valide, relu a l'identique. Le 8
-    // les distingue, pour qu'un lecteur 7 refuse le fichier plutot que de les perdre a la premiere ecriture.
+    // Reserve au lot L4 (le reglement du PLU de la parcelle), mene en parallele : le lot fusionne en second regle la numerotation et
+    // reprend cette ligne telle que L4 l'ecrit.
+    apporte: 'le règlement du PLU de la parcelle, lu dans son document (lot L4)',
+    migrer: (d) => d
+  },
+  {
+    de: 8,
+    apporte: 'le jardin : les plates-bandes et les massifs plantés (leur végétation en 3D, leur mini-arbre), les équipements du jardin (regard, éclairage, robinet) et les ouvrages existants',
+    // Des champs facultatifs, qui n'existaient pas avant (lot L3) : un document 8 est un document 9 valide, relu a l'identique. Le 9
+    // les distingue, pour qu'un lecteur 8 refuse le fichier plutot que de les perdre a la premiere ecriture.
     migrer: (d) => d
   }
 ];
@@ -110,7 +117,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   relief: 4,
   piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
   retoucheMain: 6, egoutChoisi: 6, soleil: 6,
-  massif: 8, equipement: 8, existant: 8,
+  plantation: 9, vegetation3d: 9, nature: 9, existant: 9,
 };
 
 /**

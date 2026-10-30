@@ -46,11 +46,14 @@ export const APP_VERSION = '5.0.0';
 // sa texture, et ses ouvertures en objets (identifiant, date de verification, carreaux). Un lecteur 6 les garderait a la lecture,
 // mais les perdrait des que la facade se reecrit (le releve d'un mur refait, la mesure de l'audit posee d'office) : une ouverture
 // verifiee redeviendrait deplacable. La migration 6 -> 7 est l'identite ; la plateforme doit accepter 7 avant le depot.
-// 8 : le jardin (lot L3 de la lecture IA elargie) : un massif plante ou une plate-bande (`massif` : sa nature, ce qu'il porte, sa
-// vegetation et son mini-arbre) et un equipement du jardin (`equipement` : regard, eclairage, robinet). Un lecteur 7 les perdrait au
-// premier enregistrement (la serialisation est une liste blanche), et un regard redeviendrait un spa qui charge la terrasse. La
-// migration 7 -> 8 est l'identite ; la plateforme accepte deja les schemas 7 a 12.
-export const SCHEMA_VERSION = 8;
+// 8 : reserve au lot L4 (le reglement du PLU de la parcelle, `reglementPlu`), mene en parallele (coordination du 30 octobre 2026) :
+// le lot fusionne en second regle la numerotation. Ici, la migration 7 -> 8 est l'identite.
+// 9 : le jardin (lot L3 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.4) : la plantation d'un massif (`plantation` : son
+// type, plate-bande ou massif, son mini-arbre), le retrait de sa vegetation en 3D (`vegetation3d`), la nature d'un equipement (`nature` :
+// regard, eclairage, robinet) et la marque `existant`. Un lecteur 8 les perdrait au premier enregistrement (la serialisation est une
+// liste blanche), et un regard redeviendrait un spa qui charge la terrasse. La migration 8 -> 9 est l'identite ; la plateforme accepte
+// deja les schemas 7 a 12.
+export const SCHEMA_VERSION = 9;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-29';
 export const BUILD_SHA: string | null = null;
