@@ -5,6 +5,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.4.1] — 2026-10-30
+
+Version **corrective** au sens de `MD/RELEASE.md` : un mot hors catalogue lu dans un fichier (pergola et carport, clôture, murs en 3D,
+audit reçu, puis piscine) ne fait plus planter l'écran ni n'écrit « undefined » ou le libellé d'un défaut dans un export, il est signalé
+et écrit tel quel ; « Ajuster l'égout et le sol » montre la façade assemblée, l'image prise pour la suite ; le plafond conseillé du
+workflow « Vérifier l'API Claude » passe à 0,50 $. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne
+bougent qu'à leur numéro de version (la date de build reste celle de la 5.4.0, le même jour ; preuve forte, sept sur sept,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques. Schéma inchangé (12). Fumée complète (Fumée de la nuit, run 41126779479).
+
 ### Modifié
 
 - Workflow « Vérifier l'API Claude » : le plafond conseillé pour la mesure des façades et l'assistant passe de 0,25 à 0,50 $ (une passe coûte environ 0,27 $ depuis la 5.2.0, la relance du garde-fou compte à part).
