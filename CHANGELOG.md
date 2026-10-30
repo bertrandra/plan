@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.3.0] — 2026-10-30
+
+Version **mineure** au sens de `MD/RELEASE.md` : le toit enrichi (lot L2 : la couverture et sa pose, le débord, le faîtage, la
+gouttière, les fenêtres de toit et panneaux lus sur la façade par une troisième requête sur la même image, et proposés au moteur). Aucune
+quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste
+celle de la 5.2.0, le même jour ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et
+`glb-structure.json` sont identiques. Le schéma des projets passe de 10 à 11 ; la migration relit la grande ardoise en losange comme une
+ardoise posée en losange (même texture, même `.glb`), et un projet s'écrit toujours au plus petit schéma qui le décrit ; la plateforme
+accepte déjà les schémas 7 à 12.
+
 ### Ajouté
 
 - **Toit enrichi, lot L2** (`MD/spec-lecture-ia-elargie.md` §3.2, §4.1, §4.3, §12.3). Chaque façade lue par Claude l'est par une
@@ -38,6 +48,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - L'écriture de `ardoise-losange` comme matériau de couverture (relu `ardoise` + pose `losange`) ; les traductions locales des mots de
   couverture (sujet `couverture`, arbitrage, contrôle du PLU), remplacées par la table de `model/couvertureLue.ts`.
+
+### Corrigé
+
+- **Point 116 de la fumée** (la façade enrichie lue, validée, dessinée) : son API simulée ne répondait pas à la troisième requête
+  (`facade-toit`, lot L2) ; l'écran disait donc, à raison, que la lecture du toit n'avait rien rendu, et ce second signal faisait échouer
+  le point, qui compte celui de la fissure seul (trois classes, à l'identique au calme). Le point reçoit une lecture du toit qui ne voit
+  rien (`scripts/fumee.mjs`) ; l'application ne change pas.
 
 ## [5.2.0] — 2026-10-30
 
