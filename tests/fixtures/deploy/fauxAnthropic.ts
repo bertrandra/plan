@@ -97,19 +97,30 @@ export const SORTIE_FACADE = {
   forme: { silhouette: 'plusieurs-sommets', bout: 'pignon' },
   elements: [{ element: 'cheminee', u: 0.45, confiance: 'moyenne' }],
   surface: { principale: 'enduit', zones: [{ type: 'colombage', u0: 0.5, u1: 1, v0: 1.5, v1: 3, confiance: 'moyenne' }], confiance: 'forte' },
+  // La forme de la version 4 du schema (aucune union) : un compte non vu vaut -1, l'imposte est un nombre suivi de ses carreaux.
   ouvertures: [
-    { type: 'fenetre', u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'blanc', couleurVolets: 'vert', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+    { type: 'fenetre', u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect' },
       carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' } },
-    { type: 'porte', u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, niveau: 0, travee: 1, confiance: 'moyenne', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect', menuiserie: 'indetermine', couleurMenuiserie: 'gris-anthracite', couleurVolets: 'sans-objet', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+    { type: 'porte', u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, niveau: 0, travee: 1, confiance: 'moyenne', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect' },
       carreaux: { vantaux: 1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: 0.2, imposteColonnes: 3, imposteRangees: 1, vitrage: 'indetermine' } },
   ],
-  // La facade enrichie (lot L1) : une galerie, une genoise et un bandeau, un store, une fissure signalee.
+  confiance: 'moyenne'
+};
+
+/**
+ * Une sortie de la lecture enrichie de la meme facade (deploy/schema-facade-enrichie.json, lot L1). SYNTHETIQUE : ecrite a la main pour
+ * les tests. Les deux baies du run, en bois blanc et gris anthracite ; une galerie, une genoise et un bandeau, un store, une fissure.
+ */
+export const SORTIE_FACADE_ENRICHIE = {
+  baies: [
+    { u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, menuiserie: 'bois', couleurMenuiserie: 'blanc', couleurVolets: 'vert', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+    { u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, menuiserie: 'indetermine', couleurMenuiserie: 'gris-anthracite', couleurVolets: 'sans-objet', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+  ],
   saillies: [{ genre: 'galerie', u0: 0.3, u1: 0.62, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 0.45, couverture: 'sans-objet', confiance: 'moyenne' }],
   decroches: [],
   modenature: { egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [] },
   appendices: [{ nature: 'store', u0: 0.6, u1: 0.8, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
   etat: [{ nature: 'fissure', u0: 0.7, u1: 0.72, v0: 0.2, v1: 0.6, confiance: 'faible' }],
-  confiance: 'moyenne'
 };
 
 /**
@@ -151,11 +162,13 @@ export function texteSqueletteDuSchema(schema: Record<string, unknown>): string 
 export function messageFacade(corps: Record<string, unknown>, refuserFormat = false): { statut: number; corps: object } {
   const format = (corps.output_config as { format?: unknown } | undefined)?.format;
   if (format && refuserFormat) return { statut: 400, corps: { type: 'error', error: { type: 'invalid_request_error', message: 'output_config.format: The compiled grammar is too large' } } };
-  const m = messageReussi(USAGE_P1, SORTIE_FACADE) as { content: unknown[] };
-  // Sans format : le schema en texte dans le prompt, Haiku le recopie ; un exemple a la place, il repond (du texte autour).
   const systeme = JSON.stringify(corps.system ?? '');
+  // La lecture enrichie (lot L1) a le meme role que le run, et ses baies : elle rend la sienne.
+  const enrichie = /`baies`/.test(systeme);
+  const m = messageReussi(USAGE_P1, enrichie ? SORTIE_FACADE_ENRICHIE : SORTIE_FACADE) as { content: unknown[] };
+  // Sans format : le schema en texte dans le prompt, Haiku le recopie ; un exemple a la place, il repond (du texte autour).
   const schemaEnTexte = /conforme à ce schéma JSON/.test(systeme);
-  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: schemaEnTexte ? texteSqueletteDuSchema(schemaFacade()) : TEXTE_FACADE_SANS_FORMAT }];
+  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: schemaEnTexte ? texteSqueletteDuSchema(schemaFacade()) : enrichie ? JSON.stringify(SORTIE_FACADE_ENRICHIE) : TEXTE_FACADE_SANS_FORMAT }];
   return { statut: 200, corps: m };
 }
 

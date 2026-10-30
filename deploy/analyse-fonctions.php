@@ -23,16 +23,19 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // la page tire du Geoportail de l'urbanisme (appel immediat, une requete). Son prompt et son schema sont les siens.
 // `jardin` (lot L3 de la lecture IA elargie) : la lecture du jardin d'une parcelle, sur son orthophoto recadree (et les photos de la
 // cloture et du portail) ; une requete dans le batch de l'audit, ou un appel immediat. Le modele rapide par defaut.
-const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'plu', 'jardin'];
+// `facade-enrichie` (lot L1 de la lecture IA elargie, decision du proprietaire du 30 octobre 2026) : la seconde requete de la lecture
+// d'une facade, sur la meme image que son run (menuiseries, garde-corps, saillies, decroches, modenature, ce qui est pose contre le
+// mur, etat du mur). Son prompt et son schema sont les siens : avec ceux du run, la grammaire de la sortie structuree etait trop grosse.
+const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'facade-enrichie', 'plu', 'jardin'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
 // Sauf l'escalade, au modele plus fin depuis le 29 octobre 2026 (decision de l'utilisateur) : elle ne part qu'a la demande, apres
 // trois lectures votees du modele rapide, et un quatrieme passage du meme modele n'apporterait presque rien.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'facade-enrichie' => 'claude-haiku-5-5', 'plu' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le run d'une facade (lot F2, generes par `npm run regles:generer`) a les siens ; les autres
 // usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
+const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'facade-enrichie' => ['prompt-facade-enrichie.md', 'schema-facade-enrichie.json'], 'plu' => ['prompt-plu.md', 'schema-plu.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
@@ -45,8 +48,9 @@ const REQUETES_IMMEDIATES = 3;
 // d'une facade. Sans elle, sa reponse reelle n'etait pas lue (« Sortie non JSON », verification de l'API du
 // 29 octobre 2026, run 40887362801) ; son schema n'a ni recursion ni contrainte numerique, et l'API le compile. Si elle le
 // refusait un jour, la requete repart sans (formatRefuse).
-// La lecture du PLU (lot L4) et celle du jardin (lot L3) aussi : des schemas plats, sans recursion ni contrainte numerique.
-const SORTIE_STRUCTUREE = ['facade', 'plu', 'jardin'];
+// La lecture du PLU (lot L4), celle du jardin (lot L3) et la lecture enrichie d'une facade (lot L1) aussi : des schemas plats, sans
+// recursion ni contrainte numerique. Depuis la version 4 du run (30 octobre 2026), aucun n'a d'union : l'API les compile.
+const SORTIE_STRUCTUREE = ['facade', 'facade-enrichie', 'plu', 'jardin'];
 // Les usages qui admettent un document PDF dans leur requete (un bloc `document` en base64), un au plus : la lecture du PLU, et elle
 // seule. L'analyse d'une maison et le run d'une facade n'envoient que du texte et des images ; un PDF ailleurs est refuse.
 const USAGES_DOCUMENT = ['plu'];
@@ -564,6 +568,10 @@ function comptesSortie($sortie, string $usage): ?array {
     $c = array_fill_keys(COMPTES, 0);
     if ($usage === 'facade') {
         foreach (comptesFacade($s) as $k => $n) $c[$k] = $n;
+    } elseif ($usage === 'facade-enrichie') {
+        // La lecture enrichie d'une facade (lot L1) : ses baies decrites, et ce qu'elle voit d'autre sur le mur.
+        $c['ouvertures'] = count(listeDe($s['baies'] ?? null));
+        foreach (['saillies', 'decroches', 'appendices', 'etat'] as $k) $c['elements'] += count(listeDe($s[$k] ?? null));
     } elseif ($usage === 'plu') {
         // La lecture du PLU : ses regles relevees, chacune une valeur determinee (le tableau de bord en dit le rendement).
         $c['determines'] = count(listeDe($s['regles'] ?? null));
@@ -602,7 +610,8 @@ function comptesFacade(array $s): array {
     $forme = objetDe($s['forme'] ?? null);
     return [
         'ouvertures' => count(listeDe($s['ouvertures'] ?? null)),
-        'coins' => count(array_filter([$angles['gauche'] ?? null, $angles['droite'] ?? null], 'is_array')),
+        // Un angle introuvable a ses nombres a -1 depuis la version 4 du schema (un mot `indetermine` avant) : il ne compte pas.
+        'coins' => count(array_filter([$angles['gauche'] ?? null, $angles['droite'] ?? null], fn($a) => is_array($a) && is_numeric($a['x'] ?? null) && $a['x'] >= 0)),
         'bouts' => count(listeDe($calage['pointes'] ?? null)),
         'elements' => count(listeDe($s['elements'] ?? null)),
         'determines' => (determine($forme['silhouette'] ?? null) ? 1 : 0) + (determine($forme['bout'] ?? null) ? 1 : 0),

@@ -31,20 +31,26 @@ const maison = (): ObjetPlan => ({
 }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [p(-50, -50), p(50, -50), p(50, 50), p(-50, 50)] } as unknown as ObjetPlan;
 
-/** La sortie d'une passe, telle que le serveur la rend : une baie d'etage en bois vert a garde-corps en fer forge, une galerie, un perron. */
+/** La sortie d'une passe du run, telle que le serveur la rend : une baie d'etage. */
 const SORTIE = {
   calage: { angles: {}, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
   surface: { principale: 'enduit', zones: [], confiance: 'forte' },
-  ouvertures: [{ type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte',
-    details: { volets: 'battants', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'bleu', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir' }, carreaux: null }],
+  ouvertures: [{ type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'indetermine', forme: 'rect' }, carreaux: null }],
+  confiance: 'forte',
+};
+/** La sortie d'une passe de la lecture enrichie (la seconde requete) : la baie en bois vert a garde-corps en fer forge, une galerie, un perron. */
+const ENRICHIE = {
+  baies: [{ u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'bleu', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir' }],
   saillies: [{ genre: 'galerie', u0: 0.1, u1: 0.5, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 0.4, couverture: 'sans-objet', confiance: 'moyenne' }],
   decroches: [{ u: 0.7, sens: 'avance', confiance: 'moyenne' }],
   modenature: { egout: 'corniche', rangsGenoise: -1, bandeaux: [0.5], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [0.98] },
   appendices: [{ nature: 'store', u0: 0.6, u1: 0.8, v0: 0.4, v1: 0.47, marches: -1, confiance: 'moyenne' }, { nature: 'perron', u0: 0.55, u1: 0.65, v0: 0, v1: 0.08, marches: 3, confiance: 'forte' }, { nature: 'unite-exterieure', u0: 0.9, u1: 0.98, v0: 0, v1: 0.12, marches: -1, confiance: 'moyenne' }],
   etat: [{ nature: 'humidite', u0: 0, u1: 0.3, v0: 0, v1: 0.15, confiance: 'moyenne' }],
-  confiance: 'forte',
 };
-const RUN: RunEnregistre = { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 4, schema: 4, passes: 3, sorties: [SORTIE, SORTIE, SORTIE], cout: 0.007, tokens: { entree: 9000, sortie: 3000 }, image: { largeur: 1024, hauteur: 700 }, chaine: 1 };
+const RUN: RunEnregistre = {
+  le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 4, schema: 4, passes: 3, sorties: [SORTIE, SORTIE, SORTIE], cout: 0.004, tokens: { entree: 9000, sortie: 2000 }, image: { largeur: 1024, hauteur: 700 }, chaine: 1,
+  enrichie: { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 3, sorties: [ENRICHIE, ENRICHIE, ENRICHIE], cout: 0.003, tokens: { entree: 9000, sortie: 1000 } },
+};
 
 const proposer = (o: ObjetPlan, objets: ObjetPlan[] = [parcelle, o]) => {
   const diagnostic = diagnostiquerForme({ facade: sud, corps: o.batiment!.corpsToit!, hauteurMur: 6, lue: null });
@@ -112,5 +118,16 @@ describe('les propositions de la facade enrichie (lot L1)', () => {
     ]);
     expect(l[3]!.signal).toBe(true);
     expect(lignesFacadeEnrichie(null, { largeurM: 10, egoutM: 6 })).toEqual([]);
+  });
+
+  it('une lecture enrichie qui echoue : la facade est proposee sans ses champs, et un signal le dit', () => {
+    const echec: RunEnregistre = { ...RUN, enrichie: { ...RUN.enrichie!, sorties: [], erreur: 'La lecture des détails (menuiseries, modénature…) n’a rendu aucune réponse lisible.' } };
+    expect(lignesFacadeEnrichie(echec, { largeurM: 10, egoutM: 6 })).toEqual([
+      { texte: 'La lecture des détails (menuiseries, modénature…) n’a rendu aucune réponse lisible. La façade est proposée sans les menuiseries, la modénature, les saillies ni l’état du mur.', signal: true },
+    ]);
+    // Un run d'avant le lot (sans lecture enrichie) ne dit rien.
+    const avant: RunEnregistre = { ...RUN };
+    delete avant.enrichie;
+    expect(lignesFacadeEnrichie(avant, { largeurM: 10, egoutM: 6 })).toEqual([]);
   });
 });

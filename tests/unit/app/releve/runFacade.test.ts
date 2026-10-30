@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { appelerEscaladeFacade, appelerRunFacade, libelleEscalade } from '../../../../src/app/releve/runFacade.js';
+import { appelerEscaladeFacade, appelerLectureEnrichie, appelerRunFacade, avecSaLectureEnrichie, encodageUnique, libelleEscalade } from '../../../../src/app/releve/runFacade.js';
 
 type ContexteRun = Parameters<typeof appelerRunFacade>[0];
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatsImmediats } from '../../../../src/io/analyseClaude.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
-import { SORTIE_FACADE } from '../../../fixtures/deploy/fauxAnthropic.js';
+import { SORTIE_FACADE, SORTIE_FACADE_ENRICHIE } from '../../../fixtures/deploy/fauxAnthropic.js';
 
 // Le run d'une facade, cote page (lots F2 et F3) : trois passes votees (la production, `facades.ia.passes`) ou une (pour mesurer) par
 // la route immediate, usage `facade` ; la reponse enregistree avec les versions, le modele, les tokens et le cout ; l'escalade, a la
@@ -131,5 +131,54 @@ describe('l escalade d une facade, a la demande', () => {
     if ('erreur' in r0) throw new Error(r0.erreur);
     expect(await appelerEscaladeFacade(contexte(client([], [0])), { image: IMAGE, texte: 't' }, r0.run, 'audit')).toEqual({ erreur: 'L’escalade n’a rendu aucune réponse lisible (Surcharge.).' });
     expect(await appelerEscaladeFacade(contexte({ immediat: async () => { throw new EchecAnalyse('plafond', 'x'); } } as unknown as ClientAnalyse), { image: IMAGE, texte: 't' }, r0.run, 'audit')).toEqual({ erreur: 'Le plafond de l’analyse est atteint pour aujourd’hui ou ce mois-ci.' });
+  });
+});
+
+/** Les deux requetes d'une facade, comme la calibration les envoie (app/administration/ecranCalibration.ts). */
+async function lesDeux(ctx: ContexteRun, d: Parameters<typeof appelerRunFacade>[1]) {
+  const c = encodageUnique(ctx);
+  const [r, e] = await Promise.all([appelerRunFacade(c, d, 'calibration'), appelerLectureEnrichie(c, d, 'calibration')]);
+  return avecSaLectureEnrichie(r, e);
+}
+
+describe('les deux requetes d une facade (lot L1)', () => {
+  // La decision du proprietaire du 30 octobre 2026 : le run, et la lecture enrichie sur la meme image ; l'une ne peut rien faire perdre a l'autre.
+  const deux = (recues: DemandeAnalyse[], enrichieEchoue = false): ClientAnalyse => ({
+    immediat: async (d: DemandeAnalyse): Promise<ResultatsImmediats> => {
+      recues.push(d);
+      if (d.usage === 'facade-enrichie' && enrichieEchoue) throw new EchecAnalyse('serveur', 'x');
+      const sortie = d.usage === 'facade-enrichie' ? SORTIE_FACADE_ENRICHIE : SORTIE_FACADE;
+      return { modele: 'claude-haiku-5-5', prompt: d.usage === 'facade-enrichie' ? 1 : 4, schema: d.usage === 'facade-enrichie' ? 1 : 4, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi' as const, passe: q.passe, sortie, erreur: null, tokens: TOKENS, cout: 0.001 })) };
+    },
+  } as unknown as ClientAnalyse);
+
+  it('envoie le run et la lecture enrichie sur la meme image, et les garde ensemble', async () => {
+    const recues: DemandeAnalyse[] = [];
+    let encodages = 0;
+    const ctx = contexte(deux(recues));
+    const r = await lesDeux({ ...ctx, encoder: (i, c) => { encodages++; return ctx.encoder(i, c); } }, { image: IMAGE, texte: 'Façade : sud.', passes: 3 });
+    expect(encodages).toBe(1);
+    if ('erreur' in r) throw new Error(r.erreur);
+    expect(recues.map((d) => [d.usage, d.requetes.map((q) => [q.id, q.usage, q.facades])])).toEqual([
+      ['facade', [['facade-p1', 'facade', 1], ['facade-p2', 'facade', 0], ['facade-p3', 'facade', 0]]],
+      ['facade-enrichie', [['enrichie-p1', 'facade-enrichie', 0], ['enrichie-p2', 'facade-enrichie', 0], ['enrichie-p3', 'facade-enrichie', 0]]],
+    ]);
+    expect(recues[1]!.requetes[0]!.contenu).toEqual(recues[0]!.requetes[0]!.contenu);
+    expect(r.run).toMatchObject({ prompt: 4, schema: 4, sorties: [SORTIE_FACADE, SORTIE_FACADE, SORTIE_FACADE], enrichie: { prompt: 1, schema: 1, passes: 3, cout: 0.003 } });
+    expect(r.run.enrichie!.erreur).toBeUndefined();
+    expect(r.reponse.ouvertures[0]?.lus?.menuiserie).toEqual({ materiau: 'bois', couleur: 'blanc' });
+    expect(r.reponse.modenature?.egout).toBe('genoise');
+  });
+
+  it('un echec de la lecture enrichie laisse le run tel quel, et se garde avec lui', async () => {
+    const seul = await appelerRunFacade(contexte(client([])), { image: IMAGE, texte: 'Façade : sud.', passes: 3 }, 'calibration');
+    const r = await lesDeux(contexte(deux([], true)), { image: IMAGE, texte: 'Façade : sud.', passes: 3 });
+    if ('erreur' in r || 'erreur' in seul) throw new Error('rien');
+    expect(r.run.enrichie).toMatchObject({ sorties: [], erreur: expect.stringMatching(/n’a pas pu partir/) });
+    const run = { ...r.run };
+    delete run.enrichie;
+    expect({ ...run, cout: null, tokens: null }).toEqual({ ...seul.run, prompt: 4, schema: 4, cout: null, tokens: null });
+    expect(r.reponse.ouvertures.map((o) => { const x = { ...o }; delete x.lus; return x; })).toEqual(seul.reponse.ouvertures);
+    expect(r.reponse.saillies).toEqual([]);
   });
 });

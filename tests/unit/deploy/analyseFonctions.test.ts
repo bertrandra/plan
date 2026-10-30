@@ -166,6 +166,23 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(constantePhp<string[]>('USAGES')).not.toContain('renfort');
       expect(fs.existsSync(path.join(deploy, 'prompt-renfort.md')) || fs.existsSync(path.join(deploy, 'schema-renfort.json'))).toBe(false);
     });
+    it('versionne le prompt et le schema de la lecture enrichie d une facade (lot L1), generes, et definit chaque terme', () => {
+      const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade-enrichie.md'));
+      expect(p.version).toBe(1);
+      const s = lireSchema('schema-facade-enrichie.json');
+      expect(s.version).toBe(1);
+      verifier(s.schema, 'schema');
+      for (const t of termes(s.schema, [])) expect(texte('prompt-facade-enrichie.md'), t).toContain('`' + t + '`');
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade-enrichie').map((x) => x.version)).toEqual([1, 1]);
+      // L'exemple du repli a la forme du schema ; un nombre manquant prend son -1, une baie sans cote est ecartee.
+      const exemple = (JSON.parse(texte('schema-facade-enrichie.json')) as { exemple: object }).exemple;
+      expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
+      const r = phpObjets<{ baies: Record<string, unknown>[]; modenature: Record<string, unknown> }>('sortieConforme', JSON.stringify({ baies: [{ u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, menuiserie: 'Bois' }, { u0: 0.4 }] }), s.schema);
+      expect(r.baies).toEqual([{ u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, menuiserie: 'bois', couleurMenuiserie: 'indetermine', couleurVolets: 'indetermine', gardeCorps: 'indetermine', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' }]);
+      expect(r.modenature).toMatchObject({ rangsGenoise: -1, soubassement: -1, bandeaux: [] });
+      expect(php('comptesSortie', JSON.parse(texte('schema-facade-enrichie.json')).exemple, 'facade-enrichie')).toMatchObject({ ouvertures: 3, elements: 2 });
+    });
+
     it('versionne le prompt et le schema de la lecture du jardin (lot L3), generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-jardin.md'));
       expect(p.version).toBe(1);
@@ -257,7 +274,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
   describe('le modele de chaque usage', () => {
     // Le modele rapide partout (15 octobre 2026), sauf l'escalade (29 octobre 2026) : elle ne part qu'a la demande, apres trois
     // lectures votees du modele rapide, qu'une quatrieme du meme modele ne departagerait pas.
-    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE, plu: RAPIDE, jardin: RAPIDE };
+    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE, 'facade-enrichie': RAPIDE, plu: RAPIDE, jardin: RAPIDE };
 
     it('prend le modele rapide par defaut pour tous les usages sauf l escalade, au modele fin, parmi deux admis', () => {
       expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
@@ -322,7 +339,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(s.ouvertures.map((o) => o.type)).toEqual(['fenetre']);
       const bon = phpObjets<Sortie>('sortieConforme', JSON.stringify({ ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8 }] }), SCHEMA_FACADE.schema);
       expect(bon.ouvertures[0]).toEqual({ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: -1, travee: -1, confiance: 'indetermine',
-        details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine', menuiserie: 'indetermine', couleurMenuiserie: 'indetermine', couleurVolets: 'indetermine', gardeCorps: 'indetermine', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+        details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' },
         carreaux: { vantaux: -1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: -1, imposteColonnes: -1, imposteRangees: -1, vitrage: 'indetermine' } });
       // Un compte dit `indetermine` (le vocabulaire d'avant la version 4, que le repli peut encore rendre) prend sa valeur par defaut.
       const ancien = phpObjets<Sortie>('sortieConforme', JSON.stringify({ ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: 'indetermine', carreaux: { colonnes: 'indetermine', rangees: 3 } }] }), SCHEMA_FACADE.schema);
@@ -344,7 +361,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('demande la sortie structuree quand on la veut, et reconnait son refus par l API', () => {
       const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
-      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'plu', 'jardin']);
+      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'facade-enrichie', 'plu', 'jardin']);
       const p = phpObjets<{ output_config: unknown; system: { text: string }[] }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }], true);
       expect(p.output_config).toEqual({ effort: 'low', format: { type: 'json_schema', schema: SCHEMA_FACADE.schema } });
       // Avec la sortie structuree, le schema ne part plus dans le prompt ; sans elle, l'exemple s'il y en a un, sinon le schema.
@@ -437,7 +454,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       ]);
       expect(php('choixConsommation', lignes, p)).toEqual({
         organisations: ['admin', 'org-1', 'org-2'], modeles: [RAPIDE, FIN],
-        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'plu', 'jardin'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'facade-enrichie', 'plu', 'jardin'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
       });
     });
   });

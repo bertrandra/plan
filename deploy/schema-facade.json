@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-facade",
   "version": 4,
-  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt. Version 3 (lot L1, 30 octobre 2026) : `details.menuiserie`, `details.couleurVolets`, `details.gardeCorps` (couleurs dans la palette de regles/facades/reglages.json), `saillies`, `decroches`, `modenature`, `appendices`, `etat`. Version 4 (lot L1, 30 octobre 2026) : la grammaire compilee de la sortie structuree etait refusee par l'API (« The compiled grammar is too large », sur la version 2 comme sur la 3) ; le schema n'a plus aucune union (`anyOf`) ni champ facultatif : un compte ou une hauteur non vus valent -1 (`default`, dont le serveur remplit un nombre manquant comme il remplit `indetermine` pour un mot), un angle introuvable a ses nombres a -1, `carreaux.imposte` et `modenature.soubassement` deviennent des nombres (0 : aucun) suivis de `imposteColonnes`, `imposteRangees` et `parementSoubassement`, et `details.menuiserie` et `details.gardeCorps` sont mis a plat (`menuiserie`, `couleurMenuiserie`, `gardeCorps`, `hautGardeCorps`, `couleurGardeCorps`). Le lecteur relit les reponses enregistrees d'avant telles quelles.",
+  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt. Version 3 (lot L1, 30 octobre 2026) : `details.menuiserie`, `details.couleurVolets`, `details.gardeCorps` (couleurs dans la palette de regles/facades/reglages.json), `saillies`, `decroches`, `modenature`, `appendices`, `etat`. La version 3 n'a jamais ete livree (branche du lot L1). Version 4 (lot L1, 30 octobre 2026) : les champs de la version 2 et eux seuls, sans aucune union (`anyOf`), dont l'API refusait la grammaire compilee (« The compiled grammar is too large ») ; un compte ou un nombre non vus valent -1 (`default`, dont le serveur remplit un nombre manquant comme il remplit `indetermine` pour un mot), un angle introuvable a ses nombres a -1, `carreaux.imposte` devient un nombre (0 : aucune) suivi de `imposteColonnes` et `imposteRangees`. Les champs de la facade enrichie ont leur schema (deploy/schema-facade-enrichie.json). Le lecteur relit les reponses enregistrees d'avant telles quelles.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -11,11 +11,6 @@
       "elements",
       "surface",
       "ouvertures",
-      "saillies",
-      "decroches",
-      "modenature",
-      "appendices",
-      "etat",
       "confiance"
     ],
     "properties": {
@@ -300,13 +295,7 @@
               "required": [
                 "volets",
                 "allege",
-                "forme",
-                "menuiserie",
-                "couleurMenuiserie",
-                "couleurVolets",
-                "gardeCorps",
-                "hautGardeCorps",
-                "couleurGardeCorps"
+                "forme"
               ],
               "properties": {
                 "volets": {
@@ -336,55 +325,6 @@
                     "rond",
                     "indetermine"
                   ]
-                },
-                "menuiserie": {
-                  "type": "string",
-                  "enum": [
-                    "bois",
-                    "pvc",
-                    "alu",
-                    "acier",
-                    "indetermine"
-                  ]
-                },
-                "couleurMenuiserie": {
-                  "$ref": "#/$defs/couleur"
-                },
-                "couleurVolets": {
-                  "type": "string",
-                  "enum": [
-                    "blanc",
-                    "creme",
-                    "gris-clair",
-                    "gris-fonce",
-                    "gris-anthracite",
-                    "bleu",
-                    "vert",
-                    "rouge",
-                    "brun",
-                    "bois",
-                    "noir",
-                    "sans-objet",
-                    "indetermine"
-                  ]
-                },
-                "gardeCorps": {
-                  "type": "string",
-                  "enum": [
-                    "barreaux",
-                    "fer-forge",
-                    "verre",
-                    "plein",
-                    "sans-objet",
-                    "indetermine"
-                  ]
-                },
-                "hautGardeCorps": {
-                  "type": "number",
-                  "default": -1
-                },
-                "couleurGardeCorps": {
-                  "$ref": "#/$defs/couleur"
                 }
               }
             },
@@ -450,274 +390,6 @@
           }
         }
       },
-      "saillies": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "genre",
-            "u0",
-            "u1",
-            "forme",
-            "niveau",
-            "toit",
-            "haut",
-            "couverture",
-            "confiance"
-          ],
-          "properties": {
-            "genre": {
-              "type": "string",
-              "enum": [
-                "bow-window",
-                "galerie",
-                "auvent",
-                "appentis"
-              ]
-            },
-            "u0": {
-              "type": "number"
-            },
-            "u1": {
-              "type": "number"
-            },
-            "forme": {
-              "type": "string",
-              "enum": [
-                "pans",
-                "rectangle",
-                "arc",
-                "conge"
-              ]
-            },
-            "niveau": {
-              "type": "string",
-              "enum": [
-                "rdc",
-                "toit"
-              ]
-            },
-            "toit": {
-              "type": "string",
-              "enum": [
-                "pan",
-                "pavillon",
-                "plat"
-              ]
-            },
-            "haut": {
-              "type": "number",
-              "default": -1
-            },
-            "couverture": {
-              "type": "string",
-              "enum": [
-                "verre",
-                "tuile",
-                "zinc",
-                "autre",
-                "sans-objet"
-              ]
-            },
-            "confiance": {
-              "$ref": "#/$defs/confiance"
-            }
-          }
-        }
-      },
-      "decroches": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "u",
-            "sens",
-            "confiance"
-          ],
-          "properties": {
-            "u": {
-              "type": "number"
-            },
-            "sens": {
-              "type": "string",
-              "enum": [
-                "avance",
-                "recul"
-              ]
-            },
-            "confiance": {
-              "$ref": "#/$defs/confiance"
-            }
-          }
-        }
-      },
-      "modenature": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "egout",
-          "rangsGenoise",
-          "bandeaux",
-          "chaines",
-          "encadrements",
-          "soubassement",
-          "parementSoubassement",
-          "descentes"
-        ],
-        "properties": {
-          "egout": {
-            "type": "string",
-            "enum": [
-              "aucune",
-              "corniche",
-              "genoise",
-              "indetermine"
-            ]
-          },
-          "rangsGenoise": {
-            "type": "integer",
-            "default": -1
-          },
-          "bandeaux": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          },
-          "chaines": {
-            "type": "string",
-            "enum": [
-              "aucune",
-              "pierre",
-              "brique",
-              "indetermine"
-            ]
-          },
-          "encadrements": {
-            "type": "string",
-            "enum": [
-              "aucun",
-              "enduit",
-              "pierre",
-              "brique",
-              "indetermine"
-            ]
-          },
-          "soubassement": {
-            "type": "number",
-            "default": -1
-          },
-          "parementSoubassement": {
-            "type": "string",
-            "enum": [
-              "enduit",
-              "pierre",
-              "brique",
-              "colombage",
-              "bardage-bois",
-              "bardage-metal",
-              "beton",
-              "indetermine"
-            ]
-          },
-          "descentes": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          }
-        }
-      },
-      "appendices": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "nature",
-            "u0",
-            "u1",
-            "v0",
-            "v1",
-            "marches",
-            "confiance"
-          ],
-          "properties": {
-            "nature": {
-              "type": "string",
-              "enum": [
-                "perron",
-                "store",
-                "unite-exterieure",
-                "boite-aux-lettres"
-              ]
-            },
-            "u0": {
-              "type": "number"
-            },
-            "u1": {
-              "type": "number"
-            },
-            "v0": {
-              "type": "number"
-            },
-            "v1": {
-              "type": "number"
-            },
-            "marches": {
-              "type": "integer",
-              "default": -1
-            },
-            "confiance": {
-              "$ref": "#/$defs/confiance"
-            }
-          }
-        }
-      },
-      "etat": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "nature",
-            "u0",
-            "u1",
-            "v0",
-            "v1",
-            "confiance"
-          ],
-          "properties": {
-            "nature": {
-              "type": "string",
-              "enum": [
-                "fissure",
-                "enduit-abime",
-                "humidite",
-                "mousses",
-                "autre"
-              ]
-            },
-            "u0": {
-              "type": "number"
-            },
-            "u1": {
-              "type": "number"
-            },
-            "v0": {
-              "type": "number"
-            },
-            "v1": {
-              "type": "number"
-            },
-            "confiance": {
-              "$ref": "#/$defs/confiance"
-            }
-          }
-        }
-      },
       "confiance": {
         "type": "string",
         "enum": [
@@ -777,23 +449,6 @@
           "forte",
           "moyenne",
           "faible",
-          "indetermine"
-        ]
-      },
-      "couleur": {
-        "type": "string",
-        "enum": [
-          "blanc",
-          "creme",
-          "gris-clair",
-          "gris-fonce",
-          "gris-anthracite",
-          "bleu",
-          "vert",
-          "rouge",
-          "brun",
-          "bois",
-          "noir",
           "indetermine"
         ]
       }
@@ -870,13 +525,7 @@
         "details": {
           "volets": "aucun",
           "allege": "indetermine",
-          "forme": "rect",
-          "menuiserie": "bois",
-          "couleurMenuiserie": "vert",
-          "couleurVolets": "sans-objet",
-          "gardeCorps": "sans-objet",
-          "hautGardeCorps": -1,
-          "couleurGardeCorps": "indetermine"
+          "forme": "rect"
         },
         "carreaux": {
           "vantaux": 1,
@@ -901,13 +550,7 @@
         "details": {
           "volets": "battants",
           "allege": "pleine",
-          "forme": "rect",
-          "menuiserie": "bois",
-          "couleurMenuiserie": "blanc",
-          "couleurVolets": "bleu",
-          "gardeCorps": "sans-objet",
-          "hautGardeCorps": -1,
-          "couleurGardeCorps": "indetermine"
+          "forme": "rect"
         },
         "carreaux": {
           "vantaux": 2,
@@ -931,14 +574,8 @@
         "confiance": "moyenne",
         "details": {
           "volets": "roulant",
-          "allege": "garde-corps",
-          "forme": "rect",
-          "menuiserie": "pvc",
-          "couleurMenuiserie": "blanc",
-          "couleurVolets": "blanc",
-          "gardeCorps": "fer-forge",
-          "hautGardeCorps": 0.78,
-          "couleurGardeCorps": "noir"
+          "allege": "pleine",
+          "forme": "rect"
         },
         "carreaux": {
           "vantaux": 2,
@@ -952,46 +589,6 @@
         }
       }
     ],
-    "saillies": [
-      {
-        "genre": "auvent",
-        "u0": 0.17,
-        "u1": 0.33,
-        "forme": "rectangle",
-        "niveau": "rdc",
-        "toit": "pan",
-        "haut": 0.47,
-        "couverture": "verre",
-        "confiance": "moyenne"
-      }
-    ],
-    "decroches": [],
-    "modenature": {
-      "egout": "corniche",
-      "rangsGenoise": -1,
-      "bandeaux": [
-        0.52
-      ],
-      "chaines": "aucune",
-      "encadrements": "enduit",
-      "soubassement": 0.12,
-      "parementSoubassement": "pierre",
-      "descentes": [
-        0.97
-      ]
-    },
-    "appendices": [
-      {
-        "nature": "perron",
-        "u0": 0.18,
-        "u1": 0.32,
-        "v0": 0,
-        "v1": 0.06,
-        "marches": 2,
-        "confiance": "moyenne"
-      }
-    ],
-    "etat": [],
     "confiance": "moyenne"
   }
 }

@@ -436,7 +436,7 @@ const toastVu = (page, motif) => page.evaluate((m) => (window.__toastsVus || [])
  * disent la meme chose (zinc, une cheminee, un parement en pierre sur chaque facade a decrire).
  * `panne` rend le serveur injoignable.
  */
-async function simulerAnalyse(page, { jardin = null, facade = null } = {}) {
+async function simulerAnalyse(page, { jardin = null, facade = null, enrichie = null } = {}) {
   const s = { demandes: [], jetons: [], panne: false };
   const ind = (image, vu) => [{ image, vu }];
   const sortie = (facades) => ({
@@ -469,8 +469,9 @@ async function simulerAnalyse(page, { jardin = null, facade = null } = {}) {
       const facades = (texte.match(/Façades à décrire \(étiquettes\) : ([^.\n]*)\./)?.[1] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
       // La lecture du jardin (lot L3) : la sortie que le point donne, SYNTHETIQUE ; sans elle, la reponse d'une maison (illisible).
       if (r.usage === 'jardin' && jardin) return { id: r.id, statut: 'reussi', passe: 1, usage: 'jardin', sortie: jardin, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 };
-      // Le run d'une facade (lot L1) : la sortie que le point donne, SYNTHETIQUE, la meme pour ses trois passes.
-      if (r.usage === 'facade' && facade) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade', sortie: facade, erreur: null, modele: 'claude-haiku-5-5', prompt: 3, schema: 3, cout: 0.0022, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 4100 } };
+      // Le run d'une facade et sa lecture enrichie (lot L1) : les sorties que le point donne, SYNTHETIQUES, les memes pour leurs trois passes.
+      if (r.usage === 'facade' && facade) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade', sortie: facade, erreur: null, modele: 'claude-haiku-5-5', prompt: 4, schema: 4, cout: 0.0016, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 2600 } };
+      if (r.usage === 'facade-enrichie' && enrichie) return { id: r.id, statut: 'reussi', passe: r.passe, usage: 'facade-enrichie', sortie: enrichie, erreur: null, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0012, tokens: { entree: 5400, ecritureCache: 0, lectureCache: 0, sortie: 1500 } };
       return { id: r.id, statut: 'reussi', passe: r.passe, sortie: sortie(facades), erreur: null };
     });
     return json(200, { batch: vue, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats });
@@ -3234,20 +3235,26 @@ const POINTS = {
     // La chaine pose le mur de la photo sur celui de la maison (8 x 6 m) : ses hauteurs y valent 0,855 fois celles de la scene (le releve
     // les met a 0,78 et 3,25 m pour 0,9 et 3,8 m). Les parts du run sont celles du mur que l'audit lui montre, en hauteurs d'egout (6 m).
     const H = 6 / 0.855;
+    // Le run (la lecture d'avant L1) et la lecture enrichie, deux requetes sur la meme image (decision du 30 octobre 2026).
+    const ANGLE = { x: -1, egout: -1, sol: -1, confiance: 'indetermine' };
+    const boite = (o) => ({ u0: r3(o.x / L), u1: r3((o.x + o.l) / L), v0: r3(o.y / H), v1: r3((o.y + o.h) / H) });
     const SORTIE = {
-      calage: { angles: { gauche: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' }, droite: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' } }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      calage: { angles: { gauche: ANGLE, droite: ANGLE }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
       surface: { principale: 'enduit', zones: [], confiance: 'forte' },
-      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, u0: r3(o.x / L), u1: r3((o.x + o.l) / L), v0: r3(o.y / H), v1: r3((o.y + o.h) / H), niveau: o.y > 2 ? 1 : 0, travee: -1, confiance: 'forte',
-        details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'sans-objet',
-          ...(o.y > 2 ? { gardeCorps: 'fer-forge', hautGardeCorps: r3((o.y + 1) / H), couleurGardeCorps: 'noir' } : { gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' }) },
+      ouvertures: scene.verite.ouvertures.map((o) => ({ type: o.type, ...boite(o), niveau: o.y > 2 ? 1 : 0, travee: -1, confiance: 'forte',
+        details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect' },
         carreaux: { vantaux: -1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: -1, imposteColonnes: -1, imposteRangees: -1, vitrage: 'indetermine' } })),
+      confiance: 'forte',
+    };
+    const ENRICHIE = {
+      baies: scene.verite.ouvertures.map((o) => ({ ...boite(o), menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'sans-objet',
+        ...(o.y > 2 ? { gardeCorps: 'fer-forge', hautGardeCorps: r3((o.y + 1) / H), couleurGardeCorps: 'noir' } : { gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' }) })),
       saillies: [], decroches: [],
       modenature: { egout: 'aucune', rangsGenoise: -1, bandeaux: [r3(3.3 / H)], chaines: 'aucune', encadrements: 'indetermine', soubassement: 0, parementSoubassement: 'indetermine', descentes: [] },
       appendices: [{ nature: 'store', u0: 0.1, u1: 0.3, v0: 0.4, v1: 0.45, marches: -1, confiance: 'moyenne' }],
       etat: [{ nature: 'fissure', u0: 0.62, u1: 0.64, v0: 0.1, v1: 0.4, confiance: 'moyenne' }],
-      confiance: 'forte',
     };
-    const serveur = await simulerAnalyse(page, { facade: SORTIE });
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE });
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const releve = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? [])));
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
@@ -3264,6 +3271,7 @@ const POINTS = {
     await etape('accord', () => toucher(page.locator('[data-controle="auditParcelle.accordAnalyse"]').first()));
     for (let i = 0; i < 120 && !serveur.demandes.some((d) => d.requetes?.some((q) => q.usage === 'facade')); i++) await page.waitForTimeout(500);
     const runs = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade').length;
+    const enrichies = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-enrichie').length;
     await page.waitForTimeout(4000);
     await etape('retour liste', () => toucher(page.locator('.auditPropositions [data-controle="auditParcelle.liste"]').first()));
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
@@ -3290,11 +3298,11 @@ const POINTS = {
     await page.waitForTimeout(800);
     const annule = await releve();
     const modenature3d = mailles.some((m) => m.startsWith('releve-modenature'));
-    const ok = runs >= 3 && lignes.some((l) => /^Lu par Claude : menuiseries en bois/.test(l) && /garde-corps en fer forgé/.test(l)) && lignes.some((l) => /^Modénature lue : 1 bandeau, 1 store/.test(l))
+    const ok = runs >= 3 && enrichies >= 3 && lignes.some((l) => /^Lu par Claude : menuiseries en bois/.test(l) && /garde-corps en fer forgé/.test(l)) && lignes.some((l) => /^Modénature lue : 1 bandeau, 1 store/.test(l))
       && signal === 1 && lignes.some((l) => /^Signalé par Claude, à vérifier : une fissure/.test(l))
       && menuiseries >= 3 && gardes >= 2 && r.modenature?.bandeauxM?.length === 1 && r.appendices?.[0]?.nature === 'store' && r.etat?.[0]?.nature === 'fissure'
       && modenature3d && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
-    return { ok, mesure: `${runs} passe(s) du run envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `${runs} passe(s) du run et ${enrichies} de la lecture enrichie envoyée(s) ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 70) + ' »').join(', ') || 'AUCUNE'} ; signal ${signal ? 'sans case' : 'ABSENT'} ; validée : ${menuiseries} menuiserie(s) en bois, ${gardes} garde-corps en fer forgé, bandeau ${r.modenature?.bandeauxM?.join(', ') ?? 'ABSENT'} m, store ${r.appendices?.length ? 'écrit' : 'ABSENT'}, état ${r.etat?.length ? 'signalé' : 'ABSENT'} ; 3D ${mailles.join(', ') || 'RIEN'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   117: async (page, f) => {
     // Une saillie lue sur la facade, proposee, acceptee, posee par le moteur (lot L1, MD/spec-lecture-ia-elargie.md §4.2, §5.1), contre
@@ -3322,14 +3330,18 @@ const POINTS = {
       window.__plan.toucher('maison');
       window.__plan.etat().measures.length = 0;
     });
+    const ANGLE = { x: -1, egout: -1, sol: -1, confiance: 'indetermine' };
     const SORTIE = {
-      calage: { angles: { gauche: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' }, droite: { x: -1, egout: -1, sol: -1, confiance: 'indetermine' } }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
-      surface: { principale: 'pierre', zones: [], confiance: 'forte' }, ouvertures: [],
-      saillies: [{ genre: 'bow-window', u0: 0.3, u1: 0.62, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.5, couverture: 'sans-objet', confiance: 'forte' }],
-      decroches: [], modenature: { egout: 'indetermine', rangsGenoise: -1, bandeaux: [], chaines: 'indetermine', encadrements: 'indetermine', soubassement: -1, parementSoubassement: 'indetermine', descentes: [] },
-      appendices: [], etat: [], confiance: 'forte',
+      calage: { angles: { gauche: ANGLE, droite: ANGLE }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
+      surface: { principale: 'pierre', zones: [], confiance: 'forte' }, ouvertures: [], confiance: 'forte',
     };
-    const serveur = await simulerAnalyse(page, { facade: SORTIE });
+    // Le bow-window vient de la lecture enrichie (la seconde requete sur la meme image, lot L1).
+    const ENRICHIE = {
+      baies: [], saillies: [{ genre: 'bow-window', u0: 0.3, u1: 0.62, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.5, couverture: 'sans-objet', confiance: 'forte' }],
+      decroches: [], modenature: { egout: 'indetermine', rangsGenoise: -1, bandeaux: [], chaines: 'indetermine', encadrements: 'indetermine', soubassement: -1, parementSoubassement: 'indetermine', descentes: [] },
+      appendices: [], etat: [],
+    };
+    const serveur = await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE });
     // Les corps aux cles triees : l'annulation rend les memes corps, pas forcement dans le meme ordre de cles (comme le point 104).
     const canon = (v) => JSON.parse(JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x)));
     const corps = async () => canon(await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []))));
@@ -3349,6 +3361,7 @@ const POINTS = {
     const texte = 'bow-window';
     await page.locator('.ligneProposition', { hasText: texte }).first().waitFor({ state: 'attached', timeout: 90000 }).catch(() => {});
     const runs = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade').length;
+    const enrichies = serveur.demandes.flatMap((d) => d.requetes ?? []).filter((q) => q.usage === 'facade-enrichie').length;
     const ligne = await ligneProposition(page, texte);
     await capture('propositions');
     const pendant = await corps();
@@ -3367,7 +3380,7 @@ const POINTS = {
     await page.waitForTimeout(1500);
     const annule = await corps();
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
-    const ok = runs >= 3 && !!ligne && !ligne.cochee && /posée par le moteur des toits/.test(ligne.texte) && /profondeur par défaut/.test(ligne.texte) && JSON.stringify(pendant) === JSON.stringify(avant)
+    const ok = runs >= 3 && enrichies >= 3 && !!ligne && !ligne.cochee && /posée par le moteur des toits/.test(ligne.texte) && /profondeur par défaut/.test(ligne.texte) && JSON.stringify(pendant) === JSON.stringify(avant)
       && ecrit.length === avant.length + 1 && bow?.saillie?.genre === 'bow-window' && bow.saillie.hote === 0 && intacts && JSON.stringify(annule) === JSON.stringify(avant) && !deborde;
     return { ok, mesure: `${runs} passe(s) du run ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 150) + ' »' : 'ABSENTE'} ; aperçu ${JSON.stringify(pendant) === JSON.stringify(avant) ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validée : ${ecrit.length - avant.length} corps ajouté(s)${bow?.saillie ? ' (' + bow.saillie.genre + ', hôte ' + (bow.saillie.hote + 1) + ', ' + bow.saillie.largeurM + ' × ' + bow.saillie.profondeurM + ' m)' : ''}, corps d’avant ${intacts ? 'intacts' : 'MODIFIÉS'} ; 3D ${dessine} maille(s) de saillie ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },

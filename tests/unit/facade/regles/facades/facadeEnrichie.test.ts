@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { lireObservationsFacade, type ObservationsFacade } from '../../../../../src/regles/facades/observations.js';
-import { escaladerObservations, observationsDuRun, ouvertureDeLIa, reglagesIa, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
+import { lireLectureEnrichie, lireObservationsFacade, lireRunEnregistre, type LectureEnrichie, type ObservationsFacade, type RunEnregistre } from '../../../../../src/regles/facades/observations.js';
+import { observationsDuRun, ouvertureDeLIa, reglagesIa } from '../../../../../src/facade/regles/facades/ia.js';
+import { avecLectureEnrichie, voterLectureEnrichie } from '../../../../../src/facade/regles/facades/voteEnrichi.js';
 import { detailsDeLIa, direDetailsLus } from '../../../../../src/facade/regles/facades/menuiseries.js';
 import { appendicesDeLIa, descentesRetrouvees, direModenature, equipementsLus, modenatureDeLIa } from '../../../../../src/facade/regles/facades/modenature.js';
 import { direEtat, etatDeLIa } from '../../../../../src/facade/regles/facades/etat.js';
@@ -12,71 +13,109 @@ import { PALETTE_FACADES, couleurDuMot, lirePalette } from '../../../../../src/r
 import type { CartesAretes } from '../../../../../src/facade/detection/recalageIa.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../../../../src/model/types.js';
 
-// La facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md) : ce que le run d'une facade lit de plus que ses ouvertures, le vote
-// de trois passes, l'escalade, et les regles qui en font des decisions (des details, une modenature, des saillies, un signal).
+// La facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md) : ce que la lecture enrichie d'une facade (la seconde requete sur
+// l'image du run, decision du proprietaire du 30 octobre 2026) lit de plus que ses ouvertures, son vote de trois passes, sa pose sur
+// le run (qui n'y perd rien), et les regles qui en font des decisions (des details, une modenature, des saillies, un signal).
 
-const baie = (extra: Record<string, unknown> = {}) => ({
-  type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte',
-  details: { volets: 'battants', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'bleu', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir', ...extra },
-  carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' },
-});
-/** Une passe du run, telle que le serveur la rend (ramenee au schema), avec les champs du lot L1. */
-const passe = (d: Record<string, unknown> = {}, reste: Record<string, unknown> = {}): ObservationsFacade => lireObservationsFacade({
+/** Une passe du run (la lecture d'avant L1), telle que le serveur la rend : une baie d'etage. */
+const SORTIE_RUN = {
   calage: { angles: {}, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [],
-  surface: { principale: 'enduit', zones: [], confiance: 'forte' }, ouvertures: [baie(d)],
+  surface: { principale: 'enduit', zones: [], confiance: 'forte' },
+  ouvertures: [{
+    type: 'fenetre', u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, niveau: 1, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'indetermine', forme: 'rect' },
+    carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' },
+  }],
+  confiance: 'forte',
+};
+/** Une passe de la lecture enrichie de la meme facade : la meme baie decrite, une saillie, un decroche, la modenature, un store, un perron, une fissure. */
+const enrichie = (d: Record<string, unknown> = {}, reste: Record<string, unknown> = {}) => ({
+  baies: [{ u0: 0.3, u1: 0.42, v0: 0.6, v1: 0.85, menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'bleu', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir', ...d }],
   saillies: [{ genre: 'bow-window', u0: 0.1, u1: 0.3, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.45, couverture: 'sans-objet', confiance: 'moyenne' }],
   decroches: [{ u: 0.7, sens: 'recul', confiance: 'moyenne' }],
   modenature: { egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'pierre', encadrements: 'enduit', soubassement: 0.1, parementSoubassement: 'pierre', descentes: [0.98] },
   appendices: [{ nature: 'store', u0: 0.5, u1: 0.7, v0: 0.4, v1: 0.48, marches: -1, confiance: 'moyenne' }, { nature: 'perron', u0: 0.45, u1: 0.55, v0: 0, v1: 0.06, marches: 3, confiance: 'forte' }],
   etat: [{ nature: 'fissure', u0: 0.8, u1: 0.82, v0: 0.2, v1: 0.5, confiance: 'moyenne' }],
-  confiance: 'forte', ...reste,
-})!;
+  ...reste,
+});
+const R = reglagesIa();
+const lue = (x: unknown): LectureEnrichie => lireLectureEnrichie(x)!;
+/** Les observations d'une passe du run, avec une passe de la lecture enrichie posee dessus. */
+const passe = (d: Record<string, unknown> = {}, reste: Record<string, unknown> = {}): ObservationsFacade =>
+  avecLectureEnrichie(lireObservationsFacade(SORTIE_RUN)!, lue(enrichie(d, reste)), R);
+/** Un run enregistre de trois passes, avec sa lecture enrichie (trois passes aussi) ou ce qui l'a empechee. */
+const run = (lectures: unknown[] | { erreur: string }): RunEnregistre => ({
+  le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 4, schema: 4, passes: 3, sorties: [SORTIE_RUN, SORTIE_RUN, SORTIE_RUN], cout: 0.005, tokens: { entree: 1, sortie: 1 }, image: { largeur: 1, hauteur: 1 }, chaine: 1,
+  enrichie: { le: '2026-10-30T10:00:00Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 3, sorties: Array.isArray(lectures) ? lectures : [], cout: 0.004, tokens: { entree: 1, sortie: 1 }, ...(Array.isArray(lectures) ? {} : lectures) },
+});
 
-describe('la lecture des champs du lot L1', () => {
-  it('lit les details, les saillies, la modenature, les appendices et l etat ; une reponse d avant le lot n en a aucun', () => {
+describe('la lecture enrichie, a part du run', () => {
+  it('lit les details, les saillies, la modenature, les appendices et l etat ; le run seul n en a aucun', () => {
     const o = passe();
     expect(o.ouvertures[0]!.lus).toEqual({ menuiserie: { materiau: 'bois', couleur: 'vert' }, couleurVolets: 'bleu', gardeCorps: { type: 'fer-forge', haut: 0.78, couleur: 'noir' } });
     expect(o.saillies).toHaveLength(1);
     expect(o.modenature).toMatchObject({ egout: 'genoise', bandeaux: [0.5], soubassement: { haut: 0.1, parement: 'pierre' } });
     expect(o.appendices.map((a) => a.nature)).toEqual(['store', 'perron']);
-    const ancienne = lireObservationsFacade({ calage: {}, ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.6, details: { volets: 'aucun' } }] })!;
-    expect(ancienne.ouvertures[0]!.lus).toBeUndefined();
-    expect([ancienne.saillies, ancienne.decroches, ancienne.appendices, ancienne.etat, ancienne.modenature]).toEqual([[], [], [], [], null]);
+    const seul = lireObservationsFacade(SORTIE_RUN)!;
+    expect(seul.ouvertures[0]!.lus).toBeUndefined();
+    expect([seul.saillies, seul.decroches, seul.appendices, seul.etat, seul.modenature]).toEqual([[], [], [], [], null]);
+    expect(lireLectureEnrichie(SORTIE_RUN)).toBeNull();
   });
 
-  it('un mot hors de la palette est indetermine, une hauteur de pixels est ecartee', () => {
-    const o = passe({ menuiserie: 'zinc', couleurMenuiserie: 'fuchsia', hautGardeCorps: 312 });
-    expect(o.ouvertures[0]!.lus).toMatchObject({ menuiserie: { materiau: null, couleur: null }, gardeCorps: { haut: null } });
+  it('un mot hors de la palette est indetermine, une hauteur de pixels est ecartee, un -1 n est pas une hauteur', () => {
+    expect(passe({ menuiserie: 'zinc', couleurMenuiserie: 'fuchsia', hautGardeCorps: 312 }).ouvertures[0]!.lus).toMatchObject({ menuiserie: { materiau: null, couleur: null }, gardeCorps: { haut: null } });
+    expect(passe({ hautGardeCorps: -1 }).ouvertures[0]!.lus!.gardeCorps.haut).toBeNull();
+    expect(lue(enrichie({}, { modenature: { egout: 'aucune', rangsGenoise: -1, bandeaux: [], chaines: 'aucune', encadrements: 'aucun', soubassement: 0, parementSoubassement: 'indetermine', descentes: [] } })).modenature).toMatchObject({ rangsGenoise: null, soubassement: 'aucun' });
+    expect(lue(enrichie({}, { modenature: { egout: 'aucune', rangsGenoise: -1, bandeaux: [], chaines: 'aucune', encadrements: 'aucun', soubassement: -1, parementSoubassement: 'indetermine', descentes: [] } })).modenature!.soubassement).toBeNull();
+  });
+
+  it('ne donne ses details qu a l ouverture qu une baie recouvre, une baie a une seule ; rien d autre du run ne bouge', () => {
+    const autre = { u0: 0.7, u1: 0.8, v0: 0.6, v1: 0.85, menuiserie: 'alu', couleurMenuiserie: 'noir', couleurVolets: 'sans-objet', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' };
+    const o = avecLectureEnrichie(lireObservationsFacade(SORTIE_RUN)!, lue({ ...enrichie(), baies: [autre] }), R);
+    expect(o.ouvertures[0]!.lus).toBeUndefined();
+    const avec = observationsDuRun(run([enrichie(), enrichie(), enrichie()]), R)!;
+    const sans = observationsDuRun({ ...run([]), enrichie: undefined } as unknown as RunEnregistre, R)!;
+    expect(avec.ouvertures.map((o) => { const x = { ...o }; delete x.lus; return x; })).toEqual(sans.ouvertures);
+    expect({ ...avec, ouvertures: [], saillies: [], decroches: [], modenature: null, appendices: [], etat: [] }).toEqual({ ...sans, ouvertures: [] });
+  });
+
+  it('un echec de la lecture enrichie laisse le run entier, sans ses champs', () => {
+    const sans = observationsDuRun({ ...run([]), enrichie: undefined } as unknown as RunEnregistre, R);
+    expect(observationsDuRun(run({ erreur: 'La lecture des détails n’a rendu aucune réponse lisible.' }), R)).toEqual(sans);
+    expect(observationsDuRun(run([{ texte: 'illisible' }, 'non', null]), R)).toEqual(sans);
+  });
+
+  it('se relit avec le run enregistre, son echec compris', () => {
+    const r = lireRunEnregistre(JSON.parse(JSON.stringify(run({ erreur: 'x' }))))!;
+    expect(r.enrichie).toMatchObject({ prompt: 1, schema: 1, passes: 3, sorties: [], erreur: 'x' });
+    expect(lireRunEnregistre(JSON.parse(JSON.stringify(run([enrichie()]))))!.enrichie!.sorties).toHaveLength(1);
   });
 });
 
-describe('le vote de trois passes et l escalade', () => {
+describe('le vote de trois passes de la lecture enrichie', () => {
+  const votee = (ls: unknown[]) => avecLectureEnrichie(lireObservationsFacade(SORTIE_RUN)!, voterLectureEnrichie(ls.map(lue), R)!, R);
+
   it('une couleur dite par deux passes sur trois est retenue ; sans majorite, indeterminee', () => {
-    const v = voterObservations([passe(), passe(), passe({ menuiserie: 'pvc', couleurMenuiserie: 'blanc' })])!;
-    expect(v.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'bois', couleur: 'vert' });
-    const w = voterObservations([passe(), passe({ menuiserie: 'pvc', couleurMenuiserie: 'blanc' }), passe({ menuiserie: 'alu', couleurMenuiserie: 'noir' })])!;
-    expect(w.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: null, couleur: null });
+    expect(votee([enrichie(), enrichie(), enrichie({ menuiserie: 'pvc', couleurMenuiserie: 'blanc' })]).ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'bois', couleur: 'vert' });
+    expect(votee([enrichie(), enrichie({ menuiserie: 'pvc', couleurMenuiserie: 'blanc' }), enrichie({ menuiserie: 'alu', couleurMenuiserie: 'noir' })]).ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: null, couleur: null });
   });
 
   it('une saillie, un store ou une fissure vus par une seule passe ne sont pas gardes ; la mediane des positions', () => {
-    const seule = passe({}, { saillies: [], appendices: [], etat: [] });
-    const v = voterObservations([passe(), seule, seule])!;
+    const seule = enrichie({}, { saillies: [], appendices: [], etat: [] });
+    const v = votee([enrichie(), seule, seule]);
     expect([v.saillies, v.appendices, v.etat]).toEqual([[], [], []]);
-    const decale = passe({}, { saillies: [{ genre: 'bow-window', u0: 0.12, u1: 0.32, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.5, couverture: 'sans-objet', confiance: 'forte' }] });
-    const m = voterObservations([passe(), decale, passe()])!;
+    const decale = enrichie({}, { saillies: [{ genre: 'bow-window', u0: 0.12, u1: 0.32, forme: 'pans', niveau: 'rdc', toit: 'pan', haut: 0.5, couverture: 'sans-objet', confiance: 'forte' }] });
+    const m = votee([enrichie(), decale, enrichie()]);
     expect(m.saillies).toHaveLength(1);
     expect(m.saillies[0]).toMatchObject({ u0: 0.1, u1: 0.3, haut: 0.45 });
     expect(m.modenature).toMatchObject({ egout: 'genoise', rangsGenoise: 2, bandeaux: [0.5], chaines: 'pierre' });
   });
 
-  it('l escalade l emporte la ou elle dit autre chose, et le dit', () => {
-    const vote = voterObservations([passe(), passe(), passe()])!;
-    const e = escaladerObservations(vote, passe({ menuiserie: 'alu', couleurMenuiserie: 'gris-anthracite' }, { modenature: { egout: 'corniche', rangsGenoise: -1, bandeaux: [0.5], chaines: 'pierre', encadrements: 'enduit', soubassement: 0.1, parementSoubassement: 'pierre', descentes: [0.98] } }), 'claude-sonnet-5-5');
-    expect(e.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'alu', couleur: 'gris-anthracite' });
-    expect(e.modenature!.egout).toBe('corniche');
-    // Un mot que l'escalade ne dit pas (indetermine) ne contredit rien : la genoise avait deux rangs, l'escalade ne le dit pas.
-    expect(e.modenature!.rangsGenoise).toBe(2);
-    expect(e.escalade!.tranche).toEqual(expect.arrayContaining(['les détails d’une baie', 'la modénature']));
+  it('l escalade du run ne lit pas la facade enrichie : elle n y touche pas', () => {
+    const r = run([enrichie(), enrichie(), enrichie()]);
+    const e = observationsDuRun({ ...r, escalade: { le: r.le, modele: 'claude-sonnet-5-5', prompt: 4, schema: 4, sortie: SORTIE_RUN, cout: 0.03, tokens: { entree: 1, sortie: 1 } } }, R)!;
+    expect(e.escalade?.modele).toBe('claude-sonnet-5-5');
+    expect(e.ouvertures[0]!.lus!.menuiserie).toEqual({ materiau: 'bois', couleur: 'vert' });
+    expect(e.modenature!.egout).toBe('genoise');
   });
 });
 

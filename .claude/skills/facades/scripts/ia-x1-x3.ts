@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
 import { casIaDeScene, mesurerReponse, sortieSynthetique, type CasIa, type MesureIa } from '../../../../tests/banc/facades/runIa.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
-import { lireObservationsFacade, texteRunFacade, type ObservationsFacade } from '../../../../src/regles/facades/observations.ts';
+import { lireLectureEnrichie, lireObservationsFacade, texteRunFacade, type ObservationsFacade } from '../../../../src/regles/facades/observations.ts';
 import { voterObservations } from '../../../../src/facade/regles/facades/ia.ts';
 import { genererRunFacade } from '../../../../src/regles/sujets/generation.ts';
 import type { Image } from '../../../../src/facade/vision/homographie.ts';
@@ -55,7 +55,8 @@ interface Appel {
   /** Les passes envoyees et celles dont la reponse ne s'est pas lue (absents des reponses simulees : toutes lues). */
   passes?: number; illisibles?: number;
 }
-interface FichierReponses { source: 'claude' | 'synthetique'; x1: Appel; x3: Appel }
+/** `enrichie` : la lecture enrichie (lot L1, usage `facade-enrichie`), trois passes sur la meme image ; absente des reponses d'avant. */
+interface FichierReponses { source: 'claude' | 'synthetique'; x1: Appel; x3: Appel; enrichie?: Appel & { structurees?: number } }
 
 const casDuDossier = (): Verite[] => readdirSync(dossier).filter((f) => f.endsWith('.verite.json')).sort().map((f) => JSON.parse(readFileSync(join(dossier, f), 'utf8')) as Verite);
 
@@ -107,6 +108,7 @@ if (mode === '--evaluer') {
   const pc = (x: number) => (Math.round(x * 1000) / 10).toFixed(1).replace('.', ',') + ' %';
   const lignes = ['| Scène | Mode | Passes lues | Pose (pire bord) | Pointes justes | Boîtes VP / vraies / trouvées | Cotes méd. | Carreaux justes / lus | Tokens (entrée / sortie) | Coût |', '|---|---|--:|--:|--:|--:|--:|--:|--:|--:|'];
   type Lu = { nom: string; mesure: MesureIa | null; passes: number; illisibles: number; cout: number };
+  const enrichies: { passes: number; lues: number; structurees: number; cout: number }[] = [];
   const parMode: Record<'x1' | 'x3', Lu[]> = { x1: [], x3: [] };
   let source = '';
   for (const v of casDuDossier()) {
@@ -115,6 +117,7 @@ if (mode === '--evaluer') {
     const r = JSON.parse(readFileSync(f, 'utf8')) as FichierReponses;
     source = r.source;
     const c: CasIa = { nom: v.nom, photos: [], image: { largeur: v.image.largeur, hauteur: v.image.hauteur, donnees: new Uint8ClampedArray(0) }, verite: v.verite };
+    if (r.enrichie) enrichies.push({ passes: r.enrichie.passes ?? r.enrichie.sorties.length, lues: r.enrichie.sorties.filter((x) => lireLectureEnrichie(x)).length, structurees: r.enrichie.structurees ?? 0, cout: r.enrichie.cout ?? 0 });
     for (const m of ['x1', 'x3'] as const) {
       const a = r[m], lues = a.sorties.map(lireObservationsFacade).filter((x): x is ObservationsFacade => x !== null);
       const passes = a.passes ?? a.sorties.length, illisibles = passes - lues.length;
@@ -138,6 +141,14 @@ if (mode === '--evaluer') {
     return `| **${etiquette}** | ${m} | façades ${lues} / ${l.length}, passes illisibles ${illisibles} / ${passes} | méd. ${med === undefined ? '—' : pc(med)} | ${t.pointes} / ${t.attendues} | rappel ${t.vraies ? pc(t.vp / t.vraies) : '—'}, précision ${t.trouvees ? pc(t.vp / t.trouvees) : '—'} | | ${t.carreaux} / ${t.lus} | | ${cout.toFixed(4)} $ (${l.length ? (cout / l.length).toFixed(5) : '—'} $ par façade) |`;
   };
   for (const m of ['x1', 'x3'] as const) lignes.push(total(parMode[m], 'Façades lues', m));
+  // La lecture enrichie (lot L1) : une seconde requete, trois passes ; sa qualite ne se mesure pas ici (le banc n'a pas de verite
+  // pour elle), son cout et ses passes lisibles si. Le cout d'une facade lue en production est celui du run x3 et de cette lecture.
+  if (enrichies.length) {
+    const e = enrichies.reduce((t, x) => ({ passes: t.passes + x.passes, lues: t.lues + x.lues, structurees: t.structurees + x.structurees, cout: t.cout + x.cout }), { passes: 0, lues: 0, structurees: 0, cout: 0 });
+    const run = parMode.x3.reduce((t, x) => t + x.cout, 0);
+    lignes.push(`| **Lecture enrichie** | x3 | façades ${enrichies.length}, passes lisibles ${e.lues} / ${e.passes}, sortie structurée ${e.structurees} / ${e.passes} | | | | | | | ${e.cout.toFixed(4)} $ (${(e.cout / enrichies.length).toFixed(5)} $ par façade) |`);
+    lignes.push(`| **Run x3 + lecture enrichie** | | | | | | | | | ${((run + e.cout) / Math.max(1, parMode.x3.length)).toFixed(5)} $ par façade |`);
+  }
   const communes = new Set(parMode.x1.filter((x) => x.mesure).map((x) => x.nom).filter((n) => parMode.x3.some((y) => y.nom === n && y.mesure)));
   for (const m of ['x1', 'x3'] as const) lignes.push(total(parMode[m].filter((x) => communes.has(x.nom)), 'Lues dans les deux modes (' + communes.size + ')', m));
   console.log((source === 'synthetique' ? '**Réponses SYNTHÉTIQUES (pas Claude), coût ESTIMÉ** : la mesure tourne de bout en bout ; les vrais chiffres viennent du workflow « Vérifier l’API Claude ».\n\n' : '**Réponses de Claude**, coût journalisé par le serveur. Une passe illisible est comptée à part, hors de la qualité.\n\n') + lignes.join('\n'));

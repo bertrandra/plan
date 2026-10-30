@@ -133,7 +133,9 @@ export const NOMS_USAGES: Record<string, string> = {
   // Le rejeu d'un audit stocke, pour comparer les modeles et les versions du prompt (spec-audit 15.5).
   rejeu: 'Rejeu des audits',
   // La lecture du jardin d'une parcelle sur son orthophoto (lot L3).
-  jardin: 'Lecture du jardin'
+  jardin: 'Lecture du jardin',
+  // La seconde lecture d'une facade, sur l'image de son run : menuiseries, modenature, saillies (lot L1).
+  'facade-enrichie': 'Façade enrichie'
 };
 
 /** Le nom d'un modele, ou d'une serie (`autres`), pour l'ecran et le CSV. */

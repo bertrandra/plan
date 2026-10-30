@@ -1,5 +1,5 @@
-// Les propositions de la facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md §5.1, points 4 et 5) : ce que le run d'une facade
-// lit et qui ne va pas dans la Facade elle-meme.
+// Les propositions de la facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md §5.1, points 4 et 5) : ce que la lecture enrichie
+// d'une facade (la seconde requete sur l'image de son run) lit et qui ne va pas dans la Facade elle-meme.
 // - Les saillies (bow-window, galerie, auvent, appentis) : une proposition de corps, comme une forme de toit (formeFacades.ts). La regle
 //   des saillies (facade/regles/facades/saillies.ts) l'adresse au corps du troncon par son mur ; le moteur des toits la pose
 //   (corpsSousContrainte) ; l'effet n'ajoute que le corps que le moteur a rendu. Decochee (decision 2), sa profondeur dite par defaut.
@@ -118,14 +118,16 @@ export function propositionsEquipements(l: FacadeLue, objets: readonly ObjetPlan
 }
 
 /**
- * Ce que le run d'une facade lit de plus que ses ouvertures (lot L1), en lignes pour l'ecran de la facade (É7 et É9) : les menuiseries et
+ * Ce que la lecture enrichie d'une facade lit de plus que ses ouvertures (lot L1), en lignes pour l'ecran de la facade (É7 et É9) : les menuiseries et
  * les garde-corps, la modenature et les stores, les decroches (a retoucher a la main), et l'etat du mur, signale sans case. La hauteur
- * du mur sert a la modenature dite (`egoutM`). Vide quand le run n'en dit rien.
+ * du mur sert a la modenature dite (`egoutM`). Vide quand le run n'en dit rien ; un signal quand la lecture enrichie a echoue.
  */
 export function lignesFacadeEnrichie(run: RunEnregistre | null, mur: { largeurM: number; egoutM: number }): { texte: string; signal?: true }[] {
   const obs = run ? observationsDuRun(run) : null;
   if (!obs) return [];
   const out: { texte: string; signal?: true }[] = [];
+  // La lecture enrichie part dans sa propre requete (decision du 30 octobre 2026) : son echec laisse le run entier, et se dit.
+  if (run?.enrichie?.erreur) out.push({ texte: run.enrichie.erreur + ' La façade est proposée sans les menuiseries, la modénature, les saillies ni l’état du mur.', signal: true });
   const details = obs.ouvertures.map((o) => detailsDeLIa(o.lus, { y: o.v0 * mur.egoutM }, mur.egoutM));
   const menuiseries = direDetailsLus(details);
   if (menuiseries) out.push({ texte: 'Lu par Claude : ' + menuiseries + '.' });

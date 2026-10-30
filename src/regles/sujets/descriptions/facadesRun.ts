@@ -8,7 +8,6 @@
 // (facade/detection/runFacade.ts) : un champ qu'aucun lecteur n'utilise n'entre pas au schema (§8 bis.2).
 
 import type { SchemaJson } from '../description.js';
-import { MOTS_PALETTE } from '../../facades/palette.js';
 
 /** Le corps du prompt (sans en-tete) : ce que Claude lit, en system, avant le schema. */
 const PROMPT = `# Rôle
@@ -25,7 +24,7 @@ Vous aidez le logiciel Plan à lire **une façade** sur une image. Plan connaît
 - **Le repère de l'image** (\`x\`, \`y\`) : \`x\` va de 0 (le bord gauche de l'image) à 1 (le bord droit), \`y\` de 0 (le bord haut) à 1 (le bord bas). Il ne sert qu'aux angles du mur.
 - **Le repère du mur** (\`u\`, \`v\`) : \`u\` va de 0 (l'angle gauche du mur) à 1 (l'angle droit), le long du mur ; \`v\` va de 0 (le sol, au pied du mur) à 1 (l'égout, là où le toit commence sur les longs pans). Au-dessus de l'égout, \`v\` dépasse 1 : une pointe de pignon deux fois plus haute que l'égout a \`v\` = 2. Tout le reste de la réponse est dans ce repère.
 
-Donnez les nombres au centième (0.37), sans chercher le pixel : Plan affine. **Tous les nombres de la réponse sont des parts**, jamais des pixels ni des mètres : \`x\`, \`egout\`, \`sol\` et \`u\` vont de 0 à 1 ; \`v\` part de 0 au sol, vaut 1 à l'égout, et ne dépasse 1 qu'au-dessus de lui. Les seuls entiers sont des comptes (\`niveau\`, \`travee\`, \`vantaux\`, \`colonnes\`, \`rangees\`, \`rangsGenoise\`, \`marches\`). Un nombre que vous ne voyez pas vaut \`-1\` : jamais un nombre deviné.
+Donnez les nombres au centième (0.37), sans chercher le pixel : Plan affine. **Tous les nombres de la réponse sont des parts**, jamais des pixels ni des mètres : \`x\`, \`egout\`, \`sol\` et \`u\` vont de 0 à 1 ; \`v\` part de 0 au sol, vaut 1 à l'égout, et ne dépasse 1 qu'au-dessus de lui. Les seuls entiers sont des comptes (\`niveau\`, \`travee\`, \`vantaux\`, \`colonnes\`, \`rangees\`). Un nombre que vous ne voyez pas vaut \`-1\` : jamais un nombre deviné.
 
 # Comment remplir la réponse
 
@@ -42,16 +41,8 @@ Donnez les nombres au centième (0.37), sans chercher le pixel : Plan affine. **
   - \`niveau\` (0 au rez-de-chaussée, 1 au premier étage…) et \`travee\` (0 pour la colonne de baies la plus à gauche…) quand vous les voyez, sinon \`-1\` ;
   - \`confiance\` ;
   - \`details.volets\` : \`battants\`, \`roulant\` (un tablier sous un coffre), \`persiennes\`, \`aucun\` ; \`details.allege\` : \`balcon\`, \`garde-corps\` (une barre devant la baie), \`pleine\` (le mur sous l'appui) ; \`details.forme\` : \`rect\`, \`cintre\` (le haut en arc), \`rond\` (un œil-de-bœuf) ;
-  - \`details.menuiserie\` : la matière du cadre et des ouvrants de la baie (\`bois\`, \`pvc\`, \`alu\`, \`acier\`), et \`details.couleurMenuiserie\` leur couleur (un mot de la palette) ; \`details.couleurVolets\` : la couleur des volets ou du tablier (un mot de la palette, \`sans-objet\` sans volets) ;
-  - \`details.gardeCorps\` : le garde-corps devant la baie ou au bord de son balcon (\`barreaux\` droits, \`fer-forge\` à volutes, \`verre\`, \`plein\` maçonné ou en tôle ; \`sans-objet\` sans garde-corps), \`details.hautGardeCorps\` le dessus de sa main courante (en \`v\`) et \`details.couleurGardeCorps\` sa couleur (un mot de la palette) ;
   - \`carreaux\` : la division du vitrage — \`vantaux\` (le nombre de vantaux visibles, de 1 à 3), \`colonnes\` et \`rangees\` (les carreaux d'un vantail : 3 et 2 pour six carreaux, 1 et 1 pour un verre d'un seul tenant), \`petitsBois\` (\`aucun\`, \`fins\`, \`epais\`), \`imposte\` (la partie haute vitrée à part : sa part de la hauteur de la baie, \`0\` sans imposte) et ses carreaux \`imposteColonnes\` et \`imposteRangees\`, \`vitrage\` (\`clair\`, \`depoli\`, \`teinte\`, \`vitrail\`). Pour une porte pleine ou une porte de garage, \`vantaux\` seul ; le reste \`indetermine\` ou \`-1\`.
 - \`surface\` : le parement du mur. \`surface.principale\` : celui de la plus grande part du mur — \`enduit\`, \`pierre\`, \`brique\`, \`colombage\` (un pan de bois : poteaux, traverses et écharpes de bois apparents, un remplissage entre eux), \`bardage-bois\`, \`bardage-metal\` (métal ou composite), \`beton\`, ou \`mixte\` quand plusieurs parements se partagent le mur sans qu'aucun ne domine. \`surface.zones\` : chaque partie du mur d'un autre parement que le principal (ou chaque parement d'un mur \`mixte\`) — son \`type\` (les mêmes mots, sauf \`mixte\`), sa boîte \`u0\`, \`u1\`, \`v0\`, \`v1\` dans le repère du mur, et sa \`confiance\` ; un étage en colombage sur un rez-de-chaussée enduit est une zone \`colombage\` au-dessus de l'appui de l'étage, un pignon en colombage une zone au-dessus de l'égout. \`surface.confiance\` dit votre confiance dans le parement principal.
-- \`saillies\` : ce qui avance du mur et porte un toit à soi, de \`u0\` à \`u1\` — \`genre\` (\`bow-window\` : une avancée vitrée du mur ; \`galerie\` : un toit sur poteaux le long du mur ; \`auvent\` : une marquise sur consoles, sans poteaux, au-dessus d'une porte ; \`appentis\` : une avancée fermée à un seul pan), \`forme\` du plan d'un bow-window (\`pans\` coupés, \`rectangle\`, \`arc\`, \`conge\` ; \`rectangle\` pour les autres), \`niveau\` (\`rdc\` : sous le premier étage ; \`toit\` : jusqu'au toit), \`toit\` (\`pan\`, \`pavillon\`, \`plat\`), \`haut\` (le bas de son toit, en \`v\`), \`couverture\` d'un auvent (\`verre\`, \`tuile\`, \`zinc\`, \`autre\` ; \`sans-objet\` pour les autres) et \`confiance\`. Vous ne dites pas sa profondeur : une vue de face ne la montre pas.
-- \`decroches\` : chaque endroit où le nu du mur change (une partie qui avance ou recule), à sa place \`u\`, \`sens\` (\`avance\` ou \`recul\` de la partie de droite par rapport à celle de gauche) et \`confiance\`.
-- \`modenature\` : ce qui décore le mur sans être une ouverture — \`egout\` (\`corniche\` moulurée, \`genoise\` : des rangs de tuiles sous l'égout, \`aucune\`) et \`rangsGenoise\` ; \`bandeaux\` : la hauteur \`v\` de chaque bande horizontale entre les niveaux ; \`chaines\` d'angle (\`pierre\`, \`brique\`, \`aucune\`) ; \`encadrements\` des baies (\`enduit\`, \`pierre\`, \`brique\`, \`aucun\`) ; \`soubassement\` (son haut en \`v\`, \`0\` sans soubassement) et \`parementSoubassement\` ; \`descentes\` : la place \`u\` de chaque descente d'eau pluviale.
-- \`appendices\` : ce qui est posé contre le mur, sa boîte \`u0\`, \`u1\`, \`v0\`, \`v1\` — \`nature\` (\`perron\` : des marches devant une porte, et leur nombre \`marches\` ; \`store\` : un store banne, replié ou ouvert ; \`unite-exterieure\` : le caisson d'une climatisation ou d'une pompe à chaleur ; \`boite-aux-lettres\`) et \`confiance\`.
-- \`etat\` : ce que l'image montre de l'état du mur, chaque zone dans sa boîte \`u0\`, \`u1\`, \`v0\`, \`v1\` — \`nature\` (\`fissure\`, \`enduit-abime\`, \`humidite\`, \`mousses\`, \`autre\`) et \`confiance\`. Plan le signale à la personne, sans rien en conclure : ne dites que ce qui se voit nettement.
-- **La palette** des couleurs : \`blanc\`, \`creme\`, \`gris-clair\`, \`gris-fonce\`, \`gris-anthracite\`, \`bleu\`, \`vert\`, \`rouge\`, \`brun\`, \`bois\` (bois naturel ou lasuré), \`noir\` ; une couleur que l'ombre ou le contre-jour rend douteuse reste \`indetermine\`.
 - \`confiance\` : \`forte\` si l'image est nette et le mur entier visible, \`moyenne\` si une partie est cachée ou floue, \`faible\` si l'image est mauvaise ou si vous doutez que ce soit le mur.
 
 # Règles de prudence
@@ -62,13 +53,12 @@ Donnez les nombres au centième (0.37), sans chercher le pixel : Plan affine. **
 - Un triangle de colombages ou une tache en triangle dans le mur n'est pas un pignon : la pointe d'un pignon est sur la ligne du haut, contre le ciel ou le toit.
 - Un pignon que vous voyez plus haut ou plus bas que le plan ne l'attend : donnez ce que vous voyez. Plan garde la hauteur du LiDAR et signale l'écart.
 - Les carreaux se comptent sur la vitre, pas sur les volets ; des persiennes fermées ne disent rien du vitrage (\`indetermine\`).
-- Un auvent, une galerie ou un store ne sont pas des ouvertures ; un perron n'est pas le soubassement. Une boîte aux lettres sur la clôture n'est pas sur le mur.
 `;
 
 const nombre = { type: 'number' } as const;
 /**
- * Un compte (niveau, travee, carreaux, rangs, marches) et un nombre qui peut ne pas etre vu (un angle, une hauteur) : -1 quand il ne
- * l'est pas, jamais une union (voir SCHEMA). `default` le dit au serveur, qui en remplit un nombre manquant (une reponse du repli,
+ * Un compte (niveau, travee, carreaux) et un nombre qui peut ne pas etre vu (un angle, une imposte) : -1 quand il ne l'est pas, jamais
+ * une union (voir SCHEMA). `default` le dit au serveur, qui en remplit un nombre manquant (une reponse du repli,
  * deploy/analyse-fonctions.php::valeurParDefaut), comme il remplit `indetermine` pour un mot.
  */
 const compte = { type: 'integer', default: -1 } as const;
@@ -82,12 +72,12 @@ const ref = (nom: string) => ({ $ref: '#/$defs/' + nom });
 
 /**
  * Le schema de la reponse : chaque champ a son lecteur (regles/facades/observations.ts). Il part en sortie structuree
- * (`output_config.format`), que l'API compile en grammaire : jusqu'a la version 3, elle la refusait (« The compiled grammar is too
- * large », verification de l'API du 30 octobre 2026, runs 40998593930 et 41004304481, sur main comme sur le lot L1) et le serveur
- * retombait sur l'exemple. Ce qui alourdit la grammaire, d'apres la documentation de l'API : les unions (`anyOf`, cout exponentiel),
- * les champs facultatifs et les objets imbriques. D'ou, depuis la version 4 : aucune union (un nombre non vu vaut -1, que le lecteur
- * ecarte comme un nombre hors de son repere ; un angle introuvable a ses nombres a -1 ; l'imposte et le soubassement sont un nombre,
- * 0 pour « aucun »), aucun champ facultatif, et les details d'une baie a plat.
+ * (`output_config.format`), que l'API compile en grammaire. Jusqu'a la version 3, elle la refusait (« The compiled grammar is too
+ * large », verification de l'API du 30 octobre 2026, run 40998593930 sur main) et le serveur retombait sur l'exemple. Les unions
+ * (`anyOf`) en etaient la cause : leur compilation coute un exponentiel (documentation de l'API), et le meme schema sans elles est
+ * accepte (essai du 30 octobre 2026). D'ou, depuis la version 4 : aucune union. Un nombre non vu vaut -1, que le lecteur ecarte comme
+ * un nombre hors de son repere ; un angle introuvable a ses nombres a -1 ; l'imposte est un nombre (0 : aucune) suivi de ses carreaux.
+ * Les champs de la facade enrichie (lot L1) ne tiennent pas dans la meme grammaire : ils ont leur requete (facadesEnrichie.ts).
  */
 const SCHEMA: SchemaJson = {
   ...objet({
@@ -116,12 +106,6 @@ const SCHEMA: SchemaJson = {
         volets: terme('battants', 'roulant', 'persiennes', 'aucun', 'indetermine'),
         allege: terme('balcon', 'garde-corps', 'pleine', 'indetermine'),
         forme: terme('rect', 'cintre', 'rond', 'indetermine'),
-        menuiserie: terme('bois', 'pvc', 'alu', 'acier', 'indetermine'),
-        couleurMenuiserie: ref('couleur'),
-        couleurVolets: terme(...MOTS_PALETTE, 'sans-objet', 'indetermine'),
-        gardeCorps: terme('barreaux', 'fer-forge', 'verre', 'plein', 'sans-objet', 'indetermine'),
-        hautGardeCorps: nonVu,
-        couleurGardeCorps: ref('couleur'),
       }),
       carreaux: objet({
         vantaux: compte, colonnes: compte, rangees: compte,
@@ -130,22 +114,6 @@ const SCHEMA: SchemaJson = {
         vitrage: terme('clair', 'depoli', 'teinte', 'vitrail', 'indetermine'),
       }),
     })),
-    saillies: liste(objet({
-      genre: terme('bow-window', 'galerie', 'auvent', 'appentis'), u0: nombre, u1: nombre,
-      forme: terme('pans', 'rectangle', 'arc', 'conge'), niveau: terme('rdc', 'toit'), toit: terme('pan', 'pavillon', 'plat'),
-      haut: nonVu, couverture: terme('verre', 'tuile', 'zinc', 'autre', 'sans-objet'), confiance: ref('confiance'),
-    })),
-    decroches: liste(objet({ u: nombre, sens: terme('avance', 'recul'), confiance: ref('confiance') })),
-    modenature: objet({
-      egout: terme('aucune', 'corniche', 'genoise', 'indetermine'), rangsGenoise: compte,
-      bandeaux: liste(nombre),
-      chaines: terme('aucune', 'pierre', 'brique', 'indetermine'),
-      encadrements: terme('aucun', 'enduit', 'pierre', 'brique', 'indetermine'),
-      soubassement: nonVu, parementSoubassement: terme(...PAREMENTS, 'indetermine'),
-      descentes: liste(nombre),
-    }),
-    appendices: liste(objet({ nature: terme('perron', 'store', 'unite-exterieure', 'boite-aux-lettres'), u0: nombre, u1: nombre, v0: nombre, v1: nombre, marches: compte, confiance: ref('confiance') })),
-    etat: liste(objet({ nature: terme('fissure', 'enduit-abime', 'humidite', 'mousses', 'autre'), u0: nombre, u1: nombre, v0: nombre, v1: nombre, confiance: ref('confiance') })),
     // A la racine, un terme manquant prend le premier du vocabulaire (deploy/analyse-fonctions.php::conformer) : `faible`, le plus prudent.
     confiance: terme('faible', 'moyenne', 'forte'),
   }),
@@ -153,7 +121,6 @@ const SCHEMA: SchemaJson = {
     angle: objet({ x: nonVu, egout: nonVu, sol: nonVu, confiance: ref('confiance') }),
     etendue: objet({ debut: nombre, fin: nombre }),
     confiance: terme('forte', 'moyenne', 'faible', 'indetermine'),
-    couleur: terme(...MOTS_PALETTE, 'indetermine'),
   },
 };
 
@@ -176,21 +143,13 @@ const EXEMPLE = {
   elements: [{ element: 'cheminee', u: 0.62, confiance: 'faible' }],
   surface: { principale: 'enduit', zones: [{ type: 'pierre', u0: 0, u1: 1, v0: 0, v1: 0.12, confiance: 'moyenne' }], confiance: 'forte' },
   ouvertures: [
-    { type: 'porte', u0: 0.2, u1: 0.3, v0: 0, v1: 0.42, niveau: 0, travee: 0, confiance: 'forte',
-      details: { volets: 'aucun', allege: 'indetermine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'vert', couleurVolets: 'sans-objet', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+    { type: 'porte', u0: 0.2, u1: 0.3, v0: 0, v1: 0.42, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect' },
       carreaux: { vantaux: 1, colonnes: -1, rangees: -1, petitsBois: 'indetermine', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'indetermine' } },
-    { type: 'fenetre', u0: 0.62, u1: 0.74, v0: 0.18, v1: 0.42, niveau: 0, travee: 1, confiance: 'forte',
-      details: { volets: 'battants', allege: 'pleine', forme: 'rect', menuiserie: 'bois', couleurMenuiserie: 'blanc', couleurVolets: 'bleu', gardeCorps: 'sans-objet', hautGardeCorps: -1, couleurGardeCorps: 'indetermine' },
+    { type: 'fenetre', u0: 0.62, u1: 0.74, v0: 0.18, v1: 0.42, niveau: 0, travee: 1, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect' },
       carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' } },
-    { type: 'fenetre', u0: 0.44, u1: 0.56, v0: 0.62, v1: 0.88, niveau: 1, travee: -1, confiance: 'moyenne',
-      details: { volets: 'roulant', allege: 'garde-corps', forme: 'rect', menuiserie: 'pvc', couleurMenuiserie: 'blanc', couleurVolets: 'blanc', gardeCorps: 'fer-forge', hautGardeCorps: 0.78, couleurGardeCorps: 'noir' },
+    { type: 'fenetre', u0: 0.44, u1: 0.56, v0: 0.62, v1: 0.88, niveau: 1, travee: -1, confiance: 'moyenne', details: { volets: 'roulant', allege: 'pleine', forme: 'rect' },
       carreaux: { vantaux: 2, colonnes: 1, rangees: 1, petitsBois: 'aucun', imposte: 0, imposteColonnes: -1, imposteRangees: -1, vitrage: 'clair' } },
   ],
-  saillies: [{ genre: 'auvent', u0: 0.17, u1: 0.33, forme: 'rectangle', niveau: 'rdc', toit: 'pan', haut: 0.47, couverture: 'verre', confiance: 'moyenne' }],
-  decroches: [],
-  modenature: { egout: 'corniche', rangsGenoise: -1, bandeaux: [0.52], chaines: 'aucune', encadrements: 'enduit', soubassement: 0.12, parementSoubassement: 'pierre', descentes: [0.97] },
-  appendices: [{ nature: 'perron', u0: 0.18, u1: 0.32, v0: 0, v1: 0.06, marches: 2, confiance: 'moyenne' }],
-  etat: [],
   confiance: 'moyenne',
 };
 

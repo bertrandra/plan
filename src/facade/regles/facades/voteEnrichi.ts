@@ -1,15 +1,16 @@
-// Le vote et l'escalade de la facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md §5.1, points 2 et 6) : les champs que le run
-// d'une facade lit en plus des ouvertures (la menuiserie, les volets et le garde-corps de chaque baie ; les saillies, les decroches, la
-// modenature, ce qui est pose contre le mur, l'etat du mur). Les memes regles que le reste du run (facade/regles/facades/ia.ts) :
-// - le vote : la mediane des positions, le mot de la majorite (plus de la moitie des passes), `indetermine` (null) sans majorite ; un
-//   element d'une liste n'est garde que vu par plus de la moitie des passes ;
-// - l'escalade : la ou elle dit autre chose que le vote, elle l'emporte ; un mot qu'elle ne dit pas (null) ne contredit rien.
+// Le vote de la facade enrichie (lot L1 de MD/spec-lecture-ia-elargie.md §5.1, point 2) : ce que la lecture enrichie d'une facade, la
+// seconde requete sur l'image du run (decision du proprietaire du 30 octobre 2026), lit en plus des ouvertures : la menuiserie, les
+// volets et le garde-corps de chaque baie ; les saillies, les decroches, la modenature, ce qui est pose contre le mur, l'etat du mur.
+// Les memes regles que le run (facade/regles/facades/ia.ts) : la mediane des positions, le mot de la majorite (plus de la moitie des
+// passes), `indetermine` (null) sans majorite ; un element d'une liste n'est garde que vu par plus de la moitie des passes. Puis la
+// lecture votee se pose sur les observations du run (avecLectureEnrichie) sans rien y changer d'autre : une baie donne ses details a
+// l'ouverture du run qu'elle recouvre, et a elle seule. Pas d'escalade : celle du run ne lit pas ces champs.
 // Pur ; les seuils sont ceux du run (regles/facades/ia.json).
 
 import { voterAttribut } from '../../../model/analyseClaude.js';
 import { mediane } from '../../../util/stats.js';
 import type { ReglagesIa } from '../../../regles/facades/ia.js';
-import type { AppendiceIa, BoiteUV, DecrocheIa, DetailsLus, EtatIa, ModenatureIa, ObservationsFacade, OuvertureIa, SaillieIa } from '../../../regles/facades/observations.js';
+import type { AppendiceIa, BaieLue, BoiteUV, DecrocheIa, DetailsLus, EtatIa, LectureEnrichie, ModenatureIa, ObservationsFacade, SaillieIa } from '../../../regles/facades/observations.js';
 
 const IND = 'indetermine';
 const med = (l: readonly number[]) => Math.round(mediane(l) * 1000) / 1000;
@@ -48,10 +49,8 @@ export function grouper<T>(passes: readonly (readonly T[])[], meme: (a: T, b: T)
 const confianceVotee = (l: readonly { confiance: SaillieIa['confiance'] }[]) => motVote(l.map((x) => (x.confiance === IND ? null : x.confiance))) ?? IND;
 const etendue = (a: { u0: number; u1: number }): BoiteUV => ({ u0: a.u0, u1: a.u1, v0: 0, v1: 1 });
 
-/** Les details lus d'une baie, votes entre les passes qui l'ont vue ; null quand aucune n'en dit (des reponses d'avant le lot). */
-export function voterDetailsLus(l: readonly (DetailsLus | undefined)[]): DetailsLus | null {
-  const d = l.filter((x): x is DetailsLus => !!x);
-  if (!d.length) return null;
+/** Les details lus d'une baie, votes entre les passes qui l'ont vue. */
+function voterDetailsLus(d: readonly DetailsLus[]): DetailsLus {
   return {
     menuiserie: { materiau: motVote(d.map((x) => x.menuiserie.materiau)), couleur: motVote(d.map((x) => x.menuiserie.couleur)) },
     couleurVolets: motVote(d.map((x) => x.couleurVolets)),
@@ -75,11 +74,14 @@ function voterModenature(l: readonly (ModenatureIa | null)[], r: ReglagesIa): Mo
   };
 }
 
-/** Les champs enrichis de plusieurs passes, votes (les ouvertures, elles, sont votees par ia.ts et recoivent `voterDetailsLus`). */
-export function voterEnrichi(rs: readonly ObservationsFacade[], r: ReglagesIa): Pick<ObservationsFacade, 'saillies' | 'decroches' | 'modenature' | 'appendices' | 'etat'> {
+const boite = <T extends BoiteUV>(g: readonly T[]): BoiteUV => ({ u0: med(g.map((x) => x.u0)), u1: med(g.map((x) => x.u1)), v0: med(g.map((x) => x.v0)), v1: med(g.map((x) => x.v1)) });
+
+/** La lecture enrichie de plusieurs passes, votee ; sa seule passe telle quelle ; null sans passe lisible. */
+export function voterLectureEnrichie(rs: readonly LectureEnrichie[], r: ReglagesIa): LectureEnrichie | null {
+  if (rs.length <= 1) return rs[0] ?? null;
   const memeE = r['facades.ia.voteMemeEtendue'], memeU = r['facades.ia.voteMemeU'], memeBaie = r['facades.ia.voteMemeBaie'];
-  const boite = <T extends BoiteUV>(g: readonly T[]) => ({ u0: med(g.map((x) => x.u0)), u1: med(g.map((x) => x.u1)), v0: med(g.map((x) => x.v0)), v1: med(g.map((x) => x.v1)) });
   return {
+    baies: grouper(rs.map((x) => x.baies), (a, b) => recouvrement(a, b) >= memeBaie).map((g): BaieLue => ({ ...boite(g), lus: voterDetailsLus(g.map((x) => x.lus)) })).sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
     saillies: grouper(rs.map((x) => x.saillies), (a, b) => a.genre === b.genre && recouvrement(etendue(a), etendue(b)) >= memeE).map((g): SaillieIa => {
       const p = g[0] as SaillieIa;
       return {
@@ -97,63 +99,20 @@ export function voterEnrichi(rs: readonly ObservationsFacade[], r: ReglagesIa): 
   };
 }
 
-/* ------------------------------------------------------------------------------------------------
- * L'escalade
- * --------------------------------------------------------------------------------------------- */
-
-/** Un mot de l'escalade l'emporte sur celui du vote quand elle en dit un ; le nom de ce qu'elle a tranche est dit. */
-function mot<T>(nom: string, v: T | null, x: T | null, tranche: string[]): T | null {
-  if (x === null || JSON.stringify(x) === JSON.stringify(v)) return v;
-  tranche.push(nom);
-  return x;
-}
-
-/** Les details lus d'une baie du vote, completes et tranches par ceux de la baie de l'escalade qui la recouvre. */
-export function escaladerDetailsLus(v: DetailsLus | undefined, x: DetailsLus | undefined, tranche: string[]): DetailsLus | undefined {
-  if (!x) return v;
-  if (!v) { tranche.push('les détails d’une baie'); return x; }
-  const t: string[] = [];
-  const out: DetailsLus = {
-    menuiserie: { materiau: mot('', v.menuiserie.materiau, x.menuiserie.materiau, t), couleur: mot('', v.menuiserie.couleur, x.menuiserie.couleur, t) },
-    couleurVolets: mot('', v.couleurVolets, x.couleurVolets, t),
-    gardeCorps: { type: mot('', v.gardeCorps.type, x.gardeCorps.type, t), haut: v.gardeCorps.haut, couleur: mot('', v.gardeCorps.couleur, x.gardeCorps.couleur, t) },
-  };
-  if (t.length) tranche.push('les détails d’une baie');
-  return out;
-}
-
-/** Les champs enrichis apres l'escalade : ses listes l'emportent quand elles ne s'accordent pas avec le vote ; ses mots, quand elle en dit. */
-export function escaladerEnrichi(vote: ObservationsFacade, esc: ObservationsFacade, accordees: <T>(a: readonly T[], b: readonly T[], pareil: (x: T, y: T) => boolean) => boolean, pres: (a: number, b: number) => boolean, tranche: string[]): Pick<ObservationsFacade, 'saillies' | 'decroches' | 'modenature' | 'appendices' | 'etat'> {
-  const choisir = <T>(nom: string, v: T[], x: T[], accord: boolean): T[] => { if (accord) return v; tranche.push(nom); return x; };
-  const memeBoite = (a: BoiteUV, b: BoiteUV) => pres(a.u0, b.u0) && pres(a.u1, b.u1) && pres(a.v0, b.v0) && pres(a.v1, b.v1);
-  const vm = vote.modenature, xm = esc.modenature;
-  let modenature = vm;
-  if (xm && !vm) { modenature = xm; tranche.push('la modénature'); }
-  else if (xm && vm) {
-    const t: string[] = [];
-    modenature = {
-      egout: mot('', vm.egout, xm.egout, t), rangsGenoise: mot('', vm.rangsGenoise, xm.rangsGenoise, t),
-      bandeaux: accordees(vm.bandeaux, xm.bandeaux, pres) ? vm.bandeaux : (t.push(''), xm.bandeaux),
-      chaines: mot('', vm.chaines, xm.chaines, t), encadrements: mot('', vm.encadrements, xm.encadrements, t),
-      soubassement: mot('', vm.soubassement, xm.soubassement, t),
-      descentes: accordees(vm.descentes, xm.descentes, pres) ? vm.descentes : (t.push(''), xm.descentes),
-    };
-    if (t.length) tranche.push('la modénature');
-  }
-  return {
-    saillies: choisir('les saillies', vote.saillies, esc.saillies, accordees(vote.saillies, esc.saillies, (a, b) => a.genre === b.genre && pres(a.u0, b.u0) && pres(a.u1, b.u1))),
-    decroches: choisir('les décrochés', vote.decroches, esc.decroches, accordees(vote.decroches, esc.decroches, (a, b) => a.sens === b.sens && pres(a.u, b.u))),
-    modenature,
-    appendices: choisir('ce qui est posé contre le mur', vote.appendices, esc.appendices, accordees(vote.appendices, esc.appendices, (a, b) => a.nature === b.nature && memeBoite(a, b))),
-    etat: choisir('l’état du mur', vote.etat, esc.etat, accordees(vote.etat, esc.etat, (a, b) => a.nature === b.nature && memeBoite(a, b))),
-  };
-}
-
-/** Les details lus des baies du vote, tranches par les baies de l'escalade qui les recouvrent (`memeBaie`). */
-export function escaladerBaies(vote: readonly OuvertureIa[], esc: readonly OuvertureIa[], memeBaie: number, tranche: string[]): OuvertureIa[] {
-  return vote.map((o) => {
-    const x = esc.find((e) => recouvrement(e, o) >= memeBaie);
-    const lus = escaladerDetailsLus(o.lus, x?.lus, tranche);
-    return lus === o.lus ? o : { ...o, ...(lus ? { lus } : {}) };
+/**
+ * Les observations du run, avec la lecture enrichie votee : chaque ouverture recoit les details de la baie qui la recouvre le plus
+ * (au moins `voteMemeBaie`), une baie au plus une ouverture ; les listes et la modenature sont celles de la lecture. Rien d'autre ne
+ * change : les ouvertures, leur nombre, leurs boites et leurs carreaux restent ceux du run.
+ */
+export function avecLectureEnrichie(obs: ObservationsFacade, lue: LectureEnrichie, r: ReglagesIa): ObservationsFacade {
+  const memeBaie = r['facades.ia.voteMemeBaie'];
+  const libres = [...lue.baies];
+  const ouvertures = obs.ouvertures.map((o) => {
+    let k = -1, mieux = memeBaie;
+    libres.forEach((b, i) => { const x = recouvrement(b, o); if (x >= mieux) { mieux = x; k = i; } });
+    if (k < 0) return o;
+    const [b] = libres.splice(k, 1) as [BaieLue];
+    return { ...o, lus: b.lus };
   });
+  return { ...obs, ouvertures, saillies: lue.saillies, decroches: lue.decroches, modenature: lue.modenature, appendices: lue.appendices, etat: lue.etat };
 }
