@@ -58,6 +58,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Une couverture de toit hors du catalogue (fichier écrit par une version plus récente, ou mot inconnu) faisait planter la Vue 3D et
+  l'avant / après d'un audit (« … is not a function »). Elle se dessine désormais en tuile, et Plan le signale une fois par mot et par
+  session : « Couverture inconnue (« … »), dessinée en tuile ». La valeur reste telle quelle dans l'objet et dans le fichier enregistré
+  (ni migration, ni « projet modifié », ni historique) ; l'inspecteur la montre dans « Matériau » au lieu d'afficher « Automatique ».
+  Le repli tient dans `three/couverture.ts` (dessin, texture, matière), par où passent la Vue 3D, l'export `.glb` et le relevé.
 - Les prompts de la lecture enrichie d'une façade, du toit lu et de la lecture du jardin restaient lisibles par une adresse directe : le
   modèle `.htaccess` ne refusait que `prompt-analyse.md`, `prompt-facade.md` et `prompt-plu.md`. Il refuse désormais tous les prompts que
   le serveur lit, celui des textes du dossier compris.
