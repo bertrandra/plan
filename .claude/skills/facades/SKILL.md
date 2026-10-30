@@ -728,6 +728,9 @@ npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/mesure        
 - `tests/banc/facades/runIa.ts` : l'image d'une scène telle que la calibration la compose, sa vérité (le mur en pixels, les
   ouvertures, les pointes, les carreaux peints), des réponses **synthétiques** (pas Claude) et la mesure d'une réponse.
 - Le workflow « Vérifier l'API Claude », case « mesure des façades » cochée, joue les trois temps et colle le tableau au résumé.
+- **Haiku, Sonnet et Opus comparés** sur ce banc (lecture 5.1.0, 30 octobre 2026) : `MD/banc-modeles-facades.md` (protocole, ce que veut
+  dire « juste » pour chaque ligne, tables ×1 et ×3, scènes qui divergent, bruit de Haiku d'une mesure à l'autre, coût, comment refaire
+  la mesure avec un autre modèle).
 
 ## 5 quater. Le garde-fou de la lecture : rien de 5.1.0 ne se perd
 
@@ -765,6 +768,8 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   dite à part, sans compter.
   - Le workflow le fait seul (case « mesure des façades » : premier jugement, relance, second jugement, job rouge s'il reste une ligne
     en dessous) et montre les deux tables au résumé.
+  - Avec l'entrée `modele` remplie (un autre modèle que celui du serveur, `MD/banc-modeles-facades.md`), le garde-fou ne juge pas :
+    ses planchers sont ceux de Haiku. Pas de relance, pas de job rouge.
   - Une régression ne se règle pas en baissant le plancher. La référence ne se réécrit (`--referencer`) qu'avec les runs qui le
     justifient (une amélioration, ou une décision du propriétaire), cités dans la PR.
 - **À chaque PR, sans appel** (`npm test`) :

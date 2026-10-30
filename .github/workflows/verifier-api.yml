@@ -66,9 +66,11 @@ jobs:
       # trois mesures de main (tests/fixtures/facades/lecture-5.1.0/reference.json). Une ligne sous le plancher peut etre le bruit d'un
       # appel : les scenes en cause sont relancees UNE fois ; si la ligne est sous le plancher aux deux mesures, c'est une regression et le
       # job finit rouge. Aucune marge ailleurs.
+      # Avec un autre modele que celui du serveur (`modele` rempli : un banc des modeles, MD/banc-modeles-facades.md), le garde-fou ne
+      # juge pas : ses planchers sont ceux de Haiku. Sans lui, ni relance ni second jugement.
       - name: Garde-fou de la lecture, contre les planchers 5.1.0 (sans la cle)
         id: garde
-        if: ${{ inputs.mesure_facades }}
+        if: ${{ inputs.mesure_facades && inputs.modele == '' }}
         run: |
           set -o pipefail
           npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer mesure-facades --journal journal-api.txt --a-relancer mesure-relance | tee -a "$GITHUB_STEP_SUMMARY"
