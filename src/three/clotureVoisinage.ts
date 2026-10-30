@@ -15,7 +15,7 @@ import type { ObjetPlan, PtBrut, TypeCloture } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
-import { clotureDe, DEFAUTS_PAR_TYPE } from '../model/cloture.js';
+import { clotureDe, DEFAUTS_PAR_TYPE, typeDessine } from '../model/cloture.js';
 import { COULEUR_GRILLAGE_VOISINAGE } from '../model/voisinage3d.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { sommetDe } from '../geometry/anneau.js';
@@ -77,7 +77,8 @@ export function ajouterClotureVoisinage(scene: THREE_NS.Object3D, versLocal: Ver
   if (!limites.length) return null;
   const pos: number[] = [];
   const idx: number[] = [];
-  const h = DEFAUTS_PAR_TYPE[reglage.type].hauteur || HAUTEUR_CLOTURE_VOISINAGE_M;
+  // Le type se lit dans le fichier (voisinage3d de la parcelle) : hors catalogue, la hauteur de la palissade, signalee.
+  const h = DEFAUTS_PAR_TYPE[typeDessine(reglage)].hauteur || HAUTEUR_CLOTURE_VOISINAGE_M;
   const grillage = reglage.type === 'grillage';
   for (const { a, b } of limites) {
     const L = Math.hypot(b.x - a.x, b.y - a.y);

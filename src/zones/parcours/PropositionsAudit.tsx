@@ -24,12 +24,14 @@ import { tauxAutomatique, type TauxAutomatique } from '../../app/audit/parcelle/
 import type { Validation } from '../../app/audit/parcelle/validation.js';
 import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
+import { libelleOuMot } from '../../shell/motsInconnus.js';
 
 const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude', arbitrage: 'Sources arbitrées' };
 const DECISIONS_FICHIER = { validee: 'Validée', refusee: 'Refusée' } as const;
 
 /** Ce que l'audit recu a fait d'une proposition (consultation) : la case ne dit que oui ou non. */
-const texteDecision = (d: DecisionProposition) => (d ? DECISIONS_FICHIER[d] : 'En attente');
+// Les propositions d'un audit recu se lisent dans le fichier, telles quelles : un mot d'une version plus recente s'ecrit tel quel.
+const texteDecision = (d: DecisionProposition) => (d ? libelleOuMot(DECISIONS_FICHIER, d) : 'En attente');
 
 /**
  * Les sources d'un attribut arbitre (MD/spec-reconciliation.md) : la decision du moteur et sa raison, puis chaque constat, groupe
@@ -149,7 +151,7 @@ function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir, sele
       <label htmlFor={id} className="texteProposition">
         <span className="objetProposition">{p.objet}</span>
         <span className="avantApres"><span className="avantProposition">{p.avant}</span><span aria-hidden="true"> → </span><span className="texteMasque">, devient </span><span>{p.apres}</span></span>
-        <span className="origineProposition">{ORIGINES[p.source] + (p.confiance !== null ? (p.source === 'claude' ? (p.effet.type === 'ajoutObjet' || p.id.startsWith('jardin:') ? ' · certitude ' : ' · passes d’accord ') : ' · confiance ') + Math.round(p.confiance * 100) + ' %' : '')}{p.indices[0] ? ' · ' + p.indices[0].texte : ''}</span>
+        <span className="origineProposition">{libelleOuMot(ORIGINES, p.source) + (p.confiance !== null ? (p.source === 'claude' ? (p.effet.type === 'ajoutObjet' || p.id.startsWith('jardin:') ? ' · certitude ' : ' · passes d’accord ') : ' · confiance ') + Math.round(p.confiance * 100) + ' %' : '')}{p.indices[0] ? ' · ' + p.indices[0].texte : ''}</span>
         {lecture && <span className="decisionProposition">{'Décision de l’audit : ' + texteDecision(lecture.decision)}</span>}
         {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}

@@ -7,6 +7,7 @@
 
 import { PALETTE_FACADES } from '../regles/facades/palette.js';
 import type { DetailsOuverture, TypeOuverture } from './types.js';
+import { citer, motConnu, signalerMotInconnu } from '../shell/motsInconnus.js';
 
 /**
  * Les couleurs de volets que Claude nomme, et la couleur qui en tient lieu dans le dessin : celle de la palette des facades
@@ -33,6 +34,12 @@ export const DETAILS_PAR_TYPE: Readonly<Record<TypeOuverture, readonly (keyof De
 
 /** Les details d'une ouverture, completes de ceux de la facade qui valent pour son type et qu'elle n'a pas encore. */
 export function completerDetails(type: TypeOuverture, details: DetailsOuverture | undefined, facade: DetailsOuverture): DetailsOuverture | null {
+  // Le type d'une ouverture relevee se lit dans le fichier, tel quel (model/facadeObjet.ts ne le verifie pas) : hors catalogue,
+  // la table ne rendait rien a parcourir et la validation d'un audit plantait. L'ouverture reste alors telle qu'elle est.
+  if (!motConnu(DETAILS_PAR_TYPE, type)) {
+    signalerMotInconnu('Ouverture inconnue (' + citer(type) + '), laissée sans les détails de la façade.');
+    return null;
+  }
   const ajout: DetailsOuverture = {};
   for (const k of DETAILS_PAR_TYPE[type]) {
     const v = facade[k];

@@ -12,7 +12,7 @@ import type * as THREE_NS from 'three';
 import type { MateriauCouverture } from '../model/couleurToit.js';
 import type { PoseCouverture } from '../model/types.js';
 import { poseAdmise } from '../model/couvertureLue.js';
-import { showToast } from '../shell/dialogs.js';
+import { citer, motConnu, poserAvertissementMotsInconnus, signalerMotInconnu } from '../shell/motsInconnus.js';
 
 const COTE = 256;
 
@@ -271,20 +271,11 @@ const DESSINS: Record<DessinCouverture, (px: Uint8ClampedArray) => void> = {
  * main) peut porter un mot que cette version ne dessine pas, et indexer la table par ce mot faisait planter l'ecran (Plan 2.2.0,
  * « fAe[e] is not a function » a l'ouverture d'un audit). Decision du 30 octobre 2026 : hors catalogue, la tuile.
  */
-const connu = (d: unknown): d is DessinCouverture => typeof d === 'string' && Object.prototype.hasOwnProperty.call(DESSINS, d);
+const connu = (d: unknown): d is DessinCouverture => motConnu(DESSINS, d);
 
-/** Les mots inconnus deja signales : une fois par mot et par session, pas a chaque rendu. */
-const signales = new Set<string>();
-// Sans document (tests, export sans page), le toast n'a nulle part ou s'afficher : rien ne doit lever pour un signal.
-const toast = (message: string): void => { if (typeof document !== 'undefined') showToast(message); };
-let avertir: (message: string) => void = toast;
-
-/** Dit qu'une couverture est inconnue et dessinee en tuile, une fois par mot. Ne touche pas au projet. */
+/** Dit qu'une couverture est inconnue et dessinee en tuile, une fois par mot (shell/motsInconnus.ts). Ne touche pas au projet. */
 function signalerInconnue(mot: unknown): void {
-  const cle = String(mot);
-  if (signales.has(cle)) return;
-  signales.add(cle);
-  avertir('Couverture inconnue (« ' + cle + ' »), dessinée en tuile.');
+  signalerMotInconnu('Couverture inconnue (' + citer(mot) + '), dessinée en tuile.');
 }
 
 /** Le dessin a poser : celui demande s'il est au catalogue, sinon la tuile (et le signal). */
@@ -295,10 +286,7 @@ function dessinConnu(d: DessinCouverture): DessinCouverture {
 }
 
 /** Pour les tests : qui recoit le signal (par defaut le toast de l'application), et l'oubli des mots deja signales. */
-export function poserAvertissementCouverture(f: ((message: string) => void) | null): void {
-  avertir = f ?? toast;
-  signales.clear();
-}
+export const poserAvertissementCouverture = poserAvertissementMotsInconnus;
 
 /** Les pixels (RGBA a plat, en gris) d'une couverture, sur COTE pixels de cote : pour les tests. */
 export function pixelsCouverture(dessin: DessinCouverture): Uint8ClampedArray {
