@@ -14,10 +14,11 @@ import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';
 import { repere, penteDominante } from '../../facade/toits/toitCorps.js';
 import { materiauCouverture, type MateriauCouverture } from '../../model/couleurToit.js';
+import { COUVERTURES_CHOISIES, POSES_COUVERTURE, poseAdmise } from '../../model/couvertureLue.js';
 import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
 import { formeDuCorps } from '../../facade/regles/toits/faits.js';
-import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, OuvertureFacade, ReleveFacade, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
+import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, OuvertureFacade, PoseCouverture, ReleveFacade, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
 import { libelleSilhouette } from '../../model/silhouetteFacade.js';
 import { ALERTE_ECART } from '../../facade/releve/bilanFacade.js';
 import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/modeToit/saillies.js';
@@ -53,9 +54,10 @@ function origineCouleur(toit: Toit | null | undefined): string {
 }
 
 export const LIBELLES_COUVERTURE: Record<MateriauCouverture, string> = {
-  tuile: 'Tuile romane', 'tuile-plate': 'Tuile plate', 'tuile-canal': 'Tuile canal', ardoise: 'Ardoise', 'ardoise-losange': 'Grande ardoise en losange', zinc: 'Zinc', terrasse: 'Toit-terrasse',
+  tuile: 'Tuile romane', 'tuile-plate': 'Tuile plate', 'tuile-canal': 'Tuile canal', ardoise: 'Ardoise', zinc: 'Zinc', 'bac-acier': 'Bac acier', membrane: 'Membrane d’étanchéité', vegetale: 'Toiture végétalisée', terrasse: 'Toit-terrasse',
 };
-const COUVERTURES_CHOISIES: CouvertureChoisie[] = ['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'zinc'];
+/** Les motifs de pose (lot L2) : la grande ardoise en losange d'avant le schema 11 est une ardoise posee en losange. */
+const LIBELLES_POSE: Record<PoseCouverture, string> = { droite: 'En rangs droits', losange: 'En losange', ecaille: 'En écaille' };
 
 /**
  * Le materiau que Plan deduit, sans le choix de l'inspecteur : les memes indices que la 3D
@@ -141,8 +143,38 @@ function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
     lire: (cc) => cc.obj.batiment?.toit?.couverture ?? '',
     ecrire: (cc, v) => {
       const toit = toitDe(cc);
-      if ((COUVERTURES_CHOISIES as string[]).includes(v)) toit.couverture = v as CouvertureChoisie;
+      if ((COUVERTURES_CHOISIES as readonly string[]).includes(v)) toit.couverture = v as CouvertureChoisie;
       else delete toit.couverture;
+      // Une pose qui ne se dessine pas sur le nouveau materiau tombe : elle ne ressortirait pas a un autre choix.
+      if (toit.pose && !poseAdmise(materiauDuChamp(cc, toit.couverture), toit.pose)) delete toit.pose;
+    },
+  };
+}
+
+/** Le materiau que dessine la 3D : celui choisi, sinon celui que Plan deduit. */
+const materiauDuChamp = (cc: ContexteChamps, choix: CouvertureChoisie | undefined): MateriauCouverture => choix ?? couvertureDeduite(cc);
+
+/**
+ * Le motif de pose de la couverture (lot L2) : en rangs droits par defaut ; en losange sur l'ardoise, en ecaille sur l'ardoise et la
+ * tuile plate (`poseAdmise`). Visible seulement quand le materiau en admet une autre.
+ */
+function champPose(unSeul: (cc: ContexteChamps) => boolean): Champ {
+  const admises = (cc: ContexteChamps) => POSES_COUVERTURE.filter((p) => p === 'droite' || poseAdmise(materiauDuChamp(cc, cc.obj.batiment?.toit?.couverture), p));
+  return {
+    type: 'choix',
+    cle: 'toitPose',
+    libelle: 'Pose',
+    visible: (cc) => !!cc.obj.batiment?.toit && !(unSeul(cc) && cc.obj.batiment?.toit.forme === 'plat') && admises(cc).length > 1,
+    historique: true,
+    effets: ['scene3d', 'inspecteur'],
+    aide: 'Le motif des ardoises ou des tuiles plates : en rangs droits, en losange (ardoise), en écaille.',
+    options: (cc) => admises(cc).map((p) => ({ valeur: p, libelle: LIBELLES_POSE[p] })),
+    lire: (cc) => cc.obj.batiment?.toit?.pose ?? 'droite',
+    ecrire: (cc, v) => {
+      const toit = toitDe(cc);
+      const p = POSES_COUVERTURE.find((x) => x === v);
+      if (p && p !== 'droite' && poseAdmise(materiauDuChamp(cc, toit.couverture), p)) toit.pose = p;
+      else delete toit.pose;
     },
   };
 }
@@ -384,6 +416,7 @@ function champsDuToit(): Champ[] {
       },
     },
     champMateriau(unSeul),
+    champPose(unSeul),
   ];
 }
 

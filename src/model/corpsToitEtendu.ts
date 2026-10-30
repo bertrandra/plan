@@ -70,6 +70,9 @@ export function bordsValides(v: unknown): BordsToit | null {
   if (positifOuNul(v.saillieRiveM)) out.saillieRiveM = v.saillieRiveM;
   if (typeof v.coyau === 'boolean') out.coyau = v.coyau;
   if (typeof v.queueDeVache === 'boolean') out.queueDeVache = v.queueDeVache;
+  // Ce qui couvre le faitage et la gouttiere (lot L2) : un mot du vocabulaire ferme, sinon rien.
+  if (v.faitage === 'tuiles' || v.faitage === 'zinc' || v.faitage === 'crete') out.faitage = v.faitage;
+  if (v.gouttiere === 'pendante' || v.gouttiere === 'nantaise' || v.gouttiere === 'aucune') out.gouttiere = v.gouttiere;
   return Object.keys(out).length ? out : null;
 }
 

@@ -243,7 +243,7 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
 /** Le niveau d'objet d'une proposition dans l'arbre : un par type (facades, toit, murs, cloture...), comme pour un batiment. */
 const NIVEAUX: readonly { id: string; libelle: string; de: (p: Proposition) => boolean }[] = [
   { id: 'facades', libelle: 'Façades', de: (p) => p.cible.type === 'facade' },
-  { id: 'toit', libelle: 'Toit', de: (p) => ['corpsToit', 'corpsDuToit', 'elementsDuToit', 'saillieDuToit', 'hauteurToit', 'couverture', 'cheminees', 'lucarnes', 'appentis', 'terrasse'].includes(p.effet.type) },
+  { id: 'toit', libelle: 'Toit', de: (p) => ['corpsToit', 'corpsDuToit', 'elementsDuToit', 'saillieDuToit', 'elementsToitDuToit', 'bordsDuToit', 'hauteurToit', 'couverture', 'cheminees', 'lucarnes', 'appentis', 'terrasse'].includes(p.effet.type) },
   { id: 'murs', libelle: 'Murs', de: (p) => ['hauteur', 'couleurMurs', 'materiauMurs'].includes(p.effet.type) },
   { id: 'cloture', libelle: 'Clôture et portail', de: (p) => p.effet.type === 'cloture' || p.effet.type === 'portail' },
   // La lecture du jardin (lot L3) : les objets neufs lus sur la photo aerienne.

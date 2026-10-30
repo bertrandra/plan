@@ -138,8 +138,8 @@ function lireCouleur(rgba: ArrayLike<number>): CouleurToitLue {
 
 /**
  * Le materiau dessine sur la couverture en 3D (three/couverture.ts) : tuiles romanes (mecaniques),
- * tuiles plates d'un toit raide, tuiles canal d'un toit peu pentu, ardoises (et la grande ardoise posee en losange), zinc a joints debout,
- * gravillons d'un toit-terrasse.
+ * tuiles plates d'un toit raide, tuiles canal d'un toit peu pentu, ardoises, zinc a joints debout, bac acier, membrane et toiture
+ * vegetale (lot L2), gravillons d'un toit-terrasse. Le motif de pose (losange, ecaille) est a part : `Toit.pose`.
  */
 export type MateriauCouverture = CouvertureChoisie | 'terrasse';
 
@@ -175,7 +175,7 @@ export function couvertureDesFichiersFonciers(code: unknown): 'tuile' | 'ardoise
 }
 
 /** Une couverture grise et lisse (ardoise, zinc) : sa cheminee, sa brillance ne sont pas celles d'une tuile. */
-export const couvertureGrise = (m: MateriauCouverture): boolean => m === 'ardoise' || m === 'ardoise-losange' || m === 'zinc';
+export const couvertureGrise = (m: MateriauCouverture): boolean => m === 'ardoise' || m === 'zinc';
 
 function rgbDeHex(hex: string): Rgb | null {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());

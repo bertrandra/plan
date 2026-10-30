@@ -137,6 +137,7 @@ export const USAGES_REGLABLES: { id: string; libelle: string }[] = [
   { id: 'rejeu', libelle: 'Rejeu des audits' },
   { id: 'facade', libelle: 'Run d’une façade (audit, calibration, relevé)' },
   { id: 'facade-enrichie', libelle: 'Façade enrichie (menuiseries, garde-corps, modénature, saillies)' },
+  { id: 'facade-toit', libelle: 'Toit d’une façade (couverture, pose, faîtage, gouttière, fenêtres de toit)' },
   { id: 'plu', libelle: 'Lecture du règlement du PLU' }
 ];
 

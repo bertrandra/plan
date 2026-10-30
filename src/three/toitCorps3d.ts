@@ -18,7 +18,7 @@ export { penteDuCorps, penteDominante } from '../facade/toits/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/modeToit/saillies.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
-import { textureCouverture, matiereCouverture } from './couverture.js';
+import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import { distancePointSegment } from '../geometry/segments.js';
@@ -439,6 +439,7 @@ export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: read
   const { pans, murs } = facettesSurContour(corps, contour);
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   ajouterElementsToit3d(ctx, corps);
+  ajouterBordsToit3d(ctx, corps, contour);
   return { pans: pans.length, murs: murs.length };
 }
 
@@ -448,6 +449,7 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
   corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps)); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   ajouterElementsToit3d(ctx, corps);
+  ajouterBordsToit3d(ctx, corps, contour);
   return { pans: pans.length, murs: murs.length };
 }
 
@@ -477,6 +479,71 @@ export function ajouterElementsToit3d(ctx: ContexteToitCorps, corps: readonly Co
   return n;
 }
 
+export const NOM_GOUTTIERES = 'toit-gouttieres';
+export const NOM_FAITAGES = 'toit-faitages';
+/** Une gouttiere pendante : un profil de 12 cm sous le bord du debord ; une nantaise : un bandeau de 20 cm au nu du mur, sous l'egout. */
+const GOUTTIERE = { pendante: { large: 0.12, haut: 0.1 }, nantaise: { large: 0.06, haut: 0.2 } } as const;
+/** Ce qui couvre un faitage : la rangee de faitieres (25 cm), une bande de zinc (12 cm, 4 de haut), une crete (8 cm, 22 de haut). */
+const FAITAGE = { tuiles: { large: 0.25, haut: 0.12 }, zinc: { large: 0.12, haut: 0.04 }, crete: { large: 0.08, haut: 0.22 } } as const;
+const COULEUR_GOUTTIERE = 0x9aa0a6;
+const COULEUR_FAITAGE = { tuiles: 0x8a4a33, zinc: 0x9aa0a6, crete: 0x5b5f63 } as const;
+
+/** Une poutre droite de `a` a `b` (dans le plan), large de `large`, de `bas` a `bas + haut` au-dessus du sol : ses quatre faces et ses bouts. */
+function poutre(a: { x: number; y: number }, b: { x: number; y: number }, large: number, bas: number, haut: number): S3[][] {
+  const l = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!(l > 0.01)) return [];
+  const n = { x: (-(b.y - a.y) / l) * (large / 2), y: ((b.x - a.x) / l) * (large / 2) };
+  const c = (q: { x: number; y: number }, k: 1 | -1, z: number): S3 => ({ x: q.x + k * n.x, y: q.y + k * n.y, z });
+  const h = bas + haut;
+  const [a1, a2, b1, b2] = [c(a, 1, bas), c(a, -1, bas), c(b, 1, bas), c(b, -1, bas)];
+  const [A1, A2, B1, B2] = [c(a, 1, h), c(a, -1, h), c(b, 1, h), c(b, -1, h)];
+  return [[a1, b1, B1, A1], [a2, A2, B2, b2], [A1, B1, B2, A2], [a1, a2, b2, b1], [a1, A1, A2, a2], [b1, b2, B2, B1]];
+}
+
+/**
+ * Les gouttieres et les faitages lus (lot L2 de MD/spec-lecture-ia-elargie.md, `bords.gouttiere`, `bords.faitage`) : une gouttiere le
+ * long de chaque egout en facade (au bord du debord pour une pendante, au nu du mur pour une nantaise), et ce qui couvre le faitage d'un
+ * corps a deux pans, d'une croupe a l'autre. Un corps sans ces bords n'en a pas : le dessin d'avant reste (le `.glb` de la demonstration
+ * ne change pas).
+ */
+export function ajouterBordsToit3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], contour: readonly PtBrut[] | null): number {
+  const gouttieres: S3[][] = [];
+  const faitages = { tuiles: [] as S3[][], zinc: [] as S3[][], crete: [] as S3[][] };
+  for (const c of corps) {
+    const g = c.bords?.gouttiere, f = c.bords?.faitage;
+    if ((!g || g === 'aucune') && !f) continue;
+    const r = repere(c.pts), { L, W } = r, p = c.posFaitage;
+    const plat = c.faitage - Math.min(...c.egouts) < 0.05;
+    if (g && g !== 'aucune' && !plat) {
+      const d = GOUTTIERE[g];
+      for (const n of [0, 1] as const) {
+        const largeur = n === 0 ? p : W - p;
+        if (largeur < 0.01 || !enFacade(r, contour, n === 0 ? 't0' : 'tW')) continue;
+        // Le bord du debord (pendante), ou le nu du mur (nantaise) ; le pan descend de k par metre au-dela du mur.
+        const k = (c.faitage - c.egouts[n]) / largeur, t = g === 'pendante' ? -DEBORD_EGOUT_M : 0;
+        const z = c.egouts[n] - (g === 'pendante' ? k * DEBORD_EGOUT_M + d.haut : d.haut);
+        const tt = n === 0 ? t - d.large / 2 : W - t + d.large / 2;
+        gouttieres.push(...poutre(point(r, 0, tt), point(r, L, tt), d.large, z, d.haut));
+      }
+    }
+    if (f && !plat && p > 0.01 && p < W - 0.01) {
+      const [h0, h1] = c.croupes ?? [0, 0], d = FAITAGE[f];
+      faitages[f].push(...poutre(point(r, h0, p), point(r, L - h1, p), d.large, c.faitage - d.haut / 3, d.haut));
+    }
+  }
+  let n = 0;
+  const poser = (faces: S3[][], couleur: number, nom: string, metal: boolean) => {
+    if (!faces.length) return;
+    const m = new THREE.Mesh(maille(faces, ctx.toLocal, false), new THREE.MeshStandardMaterial({ color: couleur, roughness: metal ? 0.5 : 0.85, metalness: metal ? 0.3 : 0, side: THREE.DoubleSide }));
+    m.name = nom;
+    ctx.scene.add(m);
+    n += faces.length;
+  };
+  poser(gouttieres, COULEUR_GOUTTIERE, NOM_GOUTTIERES, true);
+  for (const f of ['tuiles', 'zinc', 'crete'] as const) poser(faitages[f], COULEUR_FAITAGE[f], NOM_FAITAGES, f !== 'tuiles');
+  return n;
+}
+
 /**
  * Les bow-windows d'un batiment : leurs murs du sol a l'egout et leur toit propre (facade/modeToit/saillies.ts), a la
  * forme de leur plan (rectangle, arc, conge). Ils ne passent ni par le prisme du batiment ni par la liste des corps.
@@ -502,7 +569,7 @@ function poserFacettes(ctx: ContexteToitCorps, pans: readonly S3[][], murs: read
   const plate = (f: readonly S3[]) => f.every((q) => Math.abs(q.z - (f[0] as S3).z) < 0.01);
   const enPente = pans.filter((f) => !plate(f)), plates = pans.filter(plate);
   if (enPente.length) {
-    const materiau = materiauCouverture(toitRef, { ...ctx.couverture, pente });
+    const materiau = dessinCouverture(materiauCouverture(toitRef, { ...ctx.couverture, pente }), toitRef?.pose);
     const tex = ctx.textures ? textureCouverture(materiau) : null;
     const m = new THREE.Mesh(maille(enPente, ctx.toLocal, !!tex, true), new THREE.MeshStandardMaterial({ color: toitRef?.couleur || COULEUR_TOIT_DEFAUT, ...matiereCouverture(materiau), side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) }));
     m.name = NOM_TOIT_CORPS;

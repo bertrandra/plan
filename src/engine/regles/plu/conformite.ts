@@ -184,7 +184,7 @@ export function conformitePlu(objets: readonly ObjetPlan[], reglement: Reglement
           if (estAbri(o)) continue;
           const c = o.batiment?.toit?.couverture;
           if (!c) { pousser(f, o.key, 'a-verifier', null, nom(o) + ' : choisissez sa couverture dans l’inspecteur pour la comparer aux matériaux admis (' + valeurLisible(f) + ', ' + f.article + ').'); continue; }
-          const admis = (f.termes as readonly string[]).includes(c) || (c !== 'tuile' && c.startsWith('tuile') && f.termes.includes('tuile')) || (c === 'ardoise-losange' && f.termes.includes('ardoise'));
+          const admis = (f.termes as readonly string[]).includes(c) || (c !== 'tuile' && c.startsWith('tuile') && f.termes.includes('tuile'));
           const tuileVague = c === 'tuile' && f.termes.some((t) => t.startsWith('tuile-'));
           pousser(f, o.key, admis ? 'conforme' : tuileVague ? 'a-verifier' : 'ecart', null, admis
             ? nom(o) + ' : couverture « ' + c + ' », admise (' + f.article + ').'

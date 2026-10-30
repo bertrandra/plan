@@ -180,8 +180,9 @@ describe('le run des facades dans l audit', () => {
       planifier: (f) => { planifies.push(f); return () => {}; },
     });
     await a.accorder(true);
-    // La lecture enrichie de la facade (lot L1) part dans le meme batch, apres les runs, sur le meme contenu.
-    expect(demandes[0]!.requetes.map((q) => q.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3', 'b0-f0-p1', 'b0-f0-p2', 'b0-f0-p3', 'b0-f0-e1', 'b0-f0-e2', 'b0-f0-e3']);
+    // La lecture enrichie de la facade (lot L1) part dans le meme batch, apres les runs, sur le meme contenu ; le toit lu (lot L2) apres elle.
+    expect(demandes[0]!.requetes.map((q) => q.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3', 'b0-f0-p1', 'b0-f0-p2', 'b0-f0-p3', 'b0-f0-e1', 'b0-f0-e2', 'b0-f0-e3', 'b0-f0-t1', 'b0-f0-t2', 'b0-f0-t3']);
+    expect(demandes[0]!.requetes.find((q) => q.id === 'b0-f0-t1')).toMatchObject({ usage: 'facade-toit', facades: 0, contenu: demandes[0]!.requetes.find((q) => q.id === 'b0-f0-p1')!.contenu });
     expect(demandes[0]!.requetes.find((q) => q.id === 'b0-f0-e1')).toMatchObject({ usage: 'facade-enrichie', facades: 0, contenu: demandes[0]!.requetes.find((q) => q.id === 'b0-f0-p1')!.contenu });
     expect(capture.lire().analyse?.batch?.requetes['b0-f0-p1']).toEqual({ cle: 'maison', passe: 1, cote: 0, usage: 'facade', image: { largeur: 500, hauteur: 300 } });
     fini = true;
@@ -191,6 +192,8 @@ describe('le run des facades dans l audit', () => {
     expect(recus[0]?.['maison#0']?.sorties).toHaveLength(3);
     // Sa lecture enrichie ne s'est pas lue (le faux rend un objet vide) : elle le dit, et le run reste entier.
     expect(capture.lire().analyse?.resultats?.runs?.['maison#0']?.enrichie).toMatchObject({ passes: 3, sorties: [], erreur: expect.stringMatching(/aucune réponse lisible/) });
+    // Le toit lu de meme (lot L2) : son echec se garde, avec sa raison, sans rien enlever au run ni a la lecture enrichie.
+    expect(capture.lire().analyse?.resultats?.runs?.['maison#0']?.toit).toMatchObject({ passes: 3, sorties: [], erreur: expect.stringMatching(/^La lecture du toit .*aucune réponse lisible/) });
     expect(a.accords()?.['maison#0']?.bilan).toMatchObject({ seules: 1 });
     expect(immediats).toHaveLength(0);
 

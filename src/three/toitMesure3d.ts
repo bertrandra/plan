@@ -14,7 +14,7 @@ import { trianguler } from '../geometry/triangulation.js';
 import { COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
 import { materiauCouverture, type ContexteCouverture } from '../model/couleurToit.js';
 import { hauteurToitMesure } from '../model/toitMesure.js';
-import { textureCouverture, matiereCouverture } from './couverture.js';
+import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
 import type { PtBrut, Toit, ToitMesure } from '../model/types.js';
 
@@ -94,7 +94,7 @@ export function ajouterToitMesure3d(ctx: ContexteToitMesure, contour: readonly P
   };
   const tris = maillesDuToit(contour);
   for (const tri of tris) indices.push(idDe(tri[0]), idDe(tri[1]), idDe(tri[2]));
-  const materiau = materiauCouverture(toitRef, ctx.couverture);
+  const materiau = dessinCouverture(materiauCouverture(toitRef, ctx.couverture), toitRef?.pose);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
   // Par facettes : chaque triangle de 50 cm est un plan, et un pignon qui avance depuis le faitage se
   // lit comme des pans, la ou l'ombrage lisse en faisait une bosse.

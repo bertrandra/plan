@@ -18,6 +18,7 @@ import { diagnostiquerForme, direAlerte, direChangement, direElement, direPreuve
 import { observationsDuRun } from '../../../facade/regles/facades/ia.js';
 import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
 import { propositionsEquipements, propositionsSaillies } from './facadeEnrichie.js';
+import { propositionBords, propositionsElementsToit } from './facadeToit.js';
 import { ecrivainPeut } from '../../../model/protections.js';
 import { faitDuBatiment } from '../../../regles/toits/faits.js';
 import { toitChoisiALaMain } from './constats.js';
@@ -136,6 +137,10 @@ export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
       if (obs) {
         const lue = { o, nom: b.nom, cle: b.cle, facade: f.facade, mur, corps, mesure, pts, obs, diagnostic: d, indice: { texte: 'Lu par Claude sur la photo de la ' + mur + '.', ...(indice.photo ? { photo: indice.photo } : {}) } };
         out.push(...propositionsSaillies(lue), ...propositionsEquipements(lue, e.objets));
+        // Le toit lu sur la facade (lot L2) : les fenetres de toit et panneaux poses par le moteur, le faitage et la gouttiere.
+        out.push(...propositionsElementsToit(lue));
+        const bords = propositionBords(lue);
+        if (bords) out.push(bords);
       }
     }
   }

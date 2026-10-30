@@ -146,7 +146,7 @@ export interface BatimentProtege {
   elevation?: number;
   retoucheMain?: { date: string } | null;
   batiment?: {
-    toit?: Pick<Toit, 'source' | 'couverture' | 'couleur' | 'origineCouleur'> | null;
+    toit?: Pick<Toit, 'source' | 'couverture' | 'pose' | 'couleur' | 'origineCouleur'> | null;
     toitFige?: boolean;
     egoutChoisi?: 'saisie' | 'audit';
     verifieSurPlace?: { date: string } | null;
@@ -313,7 +313,7 @@ export function origineActuelle(o: BatimentProtege, groupe: Groupe, ctx: Context
     case 'hauteur': return origineDeLaHauteur(o, fige, verifie);
     case 'toit': return origineDuToit(o, ctx, fige, verifie);
     case 'elements': return fige ? 'fige' : aElements(o) ? 'elementsPoses' : 'defaut';
-    case 'couverture': return o.batiment?.toit?.couverture ? 'couvertureChoisie' : 'defaut';
+    case 'couverture': return o.batiment?.toit?.couverture || o.batiment?.toit?.pose ? 'couvertureChoisie' : 'defaut';
     case 'couleurToit': return origineDeLaCouleurDuToit(o, verifie);
     case 'murs': return origineDesMurs(o, verifie);
     case 'photoMurs': return origineDeLaPhotoDesMurs(o);

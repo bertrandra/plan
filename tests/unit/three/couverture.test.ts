@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { pixelsCouverture, matiereCouverture } from '../../../src/three/couverture.js';
+import { dessinCouverture, pixelsCouverture, matiereCouverture } from '../../../src/three/couverture.js';
 
 // Les textures des couvertures (MD/spec-toit-ign.md §6.2) : en niveaux de clair, a teinter par la
 // couleur du toit, sans couture d'une tuile a l'autre ; la matiere de chacune.
 
 const COTE = 256;
-const MATERIAUX = ['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'zinc', 'terrasse'] as const;
+const MATERIAUX = ['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'zinc', 'terrasse', 'ardoise-ecaille', 'tuile-plate-ecaille', 'bac-acier', 'membrane', 'vegetale'] as const;
 const gris = (px: Uint8ClampedArray, x: number, y: number) => px[(y * COTE + x) * 4] as number;
 
 describe('pixelsCouverture', () => {
@@ -50,5 +50,25 @@ describe('pixelsCouverture', () => {
     expect(matiereCouverture('zinc').metalness).toBeGreaterThan(0);
     expect(matiereCouverture('tuile-canal').roughness).toBeGreaterThan(0.8);
     expect(matiereCouverture('terrasse').roughness).toBeGreaterThan(0.9);
+  });
+  it('la pose choisit le dessin (lot L2) : l ardoise en losange d avant le schema 11 garde sa texture, une pose qui ne va pas avec le materiau est en rangs droits', () => {
+    expect(dessinCouverture('ardoise', 'losange')).toBe('ardoise-losange');
+    expect(dessinCouverture('ardoise', 'ecaille')).toBe('ardoise-ecaille');
+    expect(dessinCouverture('tuile-plate', 'ecaille')).toBe('tuile-plate-ecaille');
+    expect(dessinCouverture('tuile', 'ecaille')).toBe('tuile');
+    expect(dessinCouverture('tuile-plate', 'losange')).toBe('tuile-plate');
+    expect(dessinCouverture('ardoise', undefined)).toBe('ardoise');
+    expect(dessinCouverture('terrasse', 'ecaille')).toBe('terrasse');
+  });
+  it('l ecaille : le bas de chaque element arrondi, autre que les rangs droits', () => {
+    for (const [e, d] of [['ardoise-ecaille', 'ardoise'], ['tuile-plate-ecaille', 'tuile-plate']] as const) {
+      const a = pixelsCouverture(e), b = pixelsCouverture(d);
+      expect(Buffer.from(a).equals(Buffer.from(b))).toBe(false);
+      // Le nez arrondi : sur une colonne au milieu d'une ecaille et une colonne pres d'un joint, le bas sombre n'est pas a la meme hauteur.
+      const nez = (x: number) => Array.from({ length: 32 }, (_, y) => y).find((y) => gris(a, x, y) < 115) ?? -1;
+      expect(nez(4)).not.toBe(nez(32));
+    }
+    expect(matiereCouverture('ardoise-ecaille')).toEqual(matiereCouverture('ardoise'));
+    expect(matiereCouverture('bac-acier').metalness).toBeGreaterThan(0);
   });
 });

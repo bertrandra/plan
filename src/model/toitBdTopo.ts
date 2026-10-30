@@ -88,7 +88,8 @@ export function toitActualise(ancien: Toit | null | undefined, pts: readonly PtB
   const neuf = toitBdTopo(pts, a);
   // Le materiau de couverture n'est jamais deduit dans l'objet : present, quelqu'un l'a choisi
   // (inspecteur, audit), et une valeur choisie ne se perd pas a l'actualisation.
-  const couverture = ancien?.couverture ? { couverture: ancien.couverture } : {};
+  // Sa pose (lot L2) suit de meme.
+  const couverture = { ...(ancien?.couverture ? { couverture: ancien.couverture } : {}), ...(ancien?.pose ? { pose: ancien.pose } : {}) };
   if (!ancien?.couleur) return { ...neuf, ...couverture };
   // Une couleur posee par Plan (orthophoto ou repli) suit le toit avec son origine : la lecture de
   // l'orthophoto qui suit l'actualisation la revoit. Une couleur choisie n'a pas d'origine et reste.

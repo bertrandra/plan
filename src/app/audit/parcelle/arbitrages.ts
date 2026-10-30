@@ -28,10 +28,10 @@ import { cleMesure, corpsAvecCeQuIlsPortaient, corpsDesCheminees, dateFr, ECART_
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
-import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe as libelleDeListe, type SoucheVue } from '../../../model/ceQueJeVois.js';
+import { MATERIAUX_MURS_VUS, couvertureDuMot, libelleDe as libelleDeListe, libelleMotCouverture, motDuToit, type SoucheVue } from '../../../model/ceQueJeVois.js';
 import { pluriel } from '../../regles/sujets/contrat.js';
 import { materiauMurs, textureDesMurs } from '../../../model/couleurMur.js';
-import type { CorpsToit, CouvertureChoisie, FormeToitSimple, ObjetPlan, PtBrut, ReleveFacade, TypeLucarne } from '../../../model/types.js';
+import type { CorpsToit, FormeToitSimple, ObjetPlan, PtBrut, ReleveFacade, TypeLucarne } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
 import { ouverturesEnClair } from './propositionsClaude.js';
 
@@ -57,7 +57,7 @@ export function direRegle(nom: string, regles: ReglesReconciliation = RECONCILIA
 const libelleDe = (attribut: string): ((mot: string) => string) | undefined =>
   attribut === 'formeToit' ? libelleForme : attribut === 'silhouetteFacade' ? (m) => libelleSilhouette(m as SilhouetteFacade)
     : attribut === 'materiauMurs' ? (m) => libelleDeListe(MATERIAUX_MURS_VUS, m as (typeof MATERIAUX_MURS_VUS)[number]['code'])
-    : attribut === 'couverture' ? (m) => libelleDeListe(COUVERTURES_VUES, m as (typeof COUVERTURES_VUES)[number]['code']) : undefined;
+    : attribut === 'couverture' ? libelleMotCouverture : undefined;
 
 /** La facade que vise un arbitrage (`facade:<cle>#<cote>`), nommee « sud (côté 3) » : sans elle, dix silhouettes de la liste se ressemblent. */
 function nomDeLaCible(b: LigneBatiment | undefined, cible: string): string | undefined {
@@ -130,20 +130,23 @@ function propositionMateriauMurs(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | 
   };
 }
 
-/** La couverture : meme chose. Un batiment sans toit n'a pas de couverture a ecrire. */
+/**
+ * La couverture : meme chose. Un batiment sans toit n'a pas de couverture a ecrire. La valeur arbitree est un mot de couverture
+ * (model/couvertureLue.ts, lot L2) : il ecrit un materiau et sa pose (l'ardoise en losange, en ecaille). Quand la facade l'a lue, de
+ * pres, elle passe devant l'analyse d'une maison et les fichiers fonciers (`prioritaires`, regles/reconciliation.json).
+ */
 function propositionCouverture(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
   if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'string' || !o.batiment?.toit) return null;
-  const v = a.retenu.valeur as CouvertureChoisie;
-  if (!COUVERTURES_VUES.some((m) => m.code === v)) return null;
-  const choisie = o.batiment?.toit.couverture;
+  const v = a.retenu.valeur, lu = couvertureDuMot(v);
+  if (!lu) return null;
+  const choisie = motDuToit(o.batiment?.toit);
   if (choisie === v) return null;
-  const libelle = (m: CouvertureChoisie) => libelleDeListe(COUVERTURES_VUES, m);
   return {
     id: b.cle + ':couverture', cible: { type: 'batiment', cle: b.cle }, objet: 'Couverture de ' + b.nom, source: 'arbitrage',
-    avant: choisie ? libelle(choisie) : 'déduite par Plan', apres: libelle(v) + ', ' + dOu(a, regles, true), confiance: null, indices: indicesDuRetenu(a),
-    remplaceChoix: choisie ? libelle(choisie).toLowerCase() : null,
+    avant: choisie ? libelleMotCouverture(choisie) : 'déduite par Plan', apres: libelleMotCouverture(v) + ', ' + dOu(a, regles, true), confiance: null, indices: indicesDuRetenu(a),
+    remplaceChoix: choisie ? libelleMotCouverture(choisie).toLowerCase() : null,
     reserve: a.decision === 'manuelle' && !a.projet.choisi ? a.raison : null,
-    effet: { type: 'couverture', couverture: v }, arbitrages: [resumeArbitrage(a, regles, b)],
+    effet: { type: 'couverture', couverture: lu.couverture, ...(lu.pose ? { pose: lu.pose } : {}) }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -437,7 +440,7 @@ export const cleChoix = (cible: string, attribut: string): string => cible + '|'
 export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: LigneBatiment, vote: VoteAnalyse | null, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Arbitrage[] {
   const choixDe = (cible: string, attribut: string) => choix[cleChoix(cible, attribut)];
   // D'abord la silhouette de chaque mur (la photo gagne sur le LiDAR), puis le toit qu'elles disent, corps par corps.
-  const { constats, projet } = constatsReconcilies({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, accords: e.accords }, regles, choixDe);
+  const { constats, projet } = constatsReconcilies({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, accords: e.accords, runs: e.runs }, regles, choixDe);
   const faits = arbitrerTout(constats, projet, regles, choixDe);
   // Meme sans source, ces attributs restent proposes a la personne : c'est ainsi qu'elle peut forcer une valeur que personne n'a lue.
   const cible = cibleBatiment(b.cle);

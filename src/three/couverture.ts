@@ -1,5 +1,6 @@
 // Les textures des couvertures en 3D : tuiles romanes, plates ou canal, ardoises (et grande ardoise en losange), zinc a joints
-// debout, gravillons d'un toit-terrasse (MD/spec-toit-ign.md §6.2).
+// debout, gravillons d'un toit-terrasse (MD/spec-toit-ign.md §6.2) ; l'ecaille (ardoise, tuile plate), le bac acier, la membrane et la
+// toiture vegetale (lot L2 de MD/spec-lecture-ia-elargie.md).
 //
 // Elles sont dessinees, pas telechargees : la vue 3D les a sans reseau, et l'export GLB les emporte.
 // Chacune est en niveaux de clair, autour de 0,85 : la couleur du toit (lue sur l'orthophoto, de
@@ -9,6 +10,8 @@
 import { inscrireHauteurs } from './materiauxVivants.js';
 import type * as THREE_NS from 'three';
 import type { MateriauCouverture } from '../model/couleurToit.js';
+import type { PoseCouverture } from '../model/types.js';
+import { poseAdmise } from '../model/couvertureLue.js';
 
 const COTE = 256;
 
@@ -186,29 +189,99 @@ function terrasse(px: Uint8ClampedArray): void {
   }
 }
 
-const DESSINS: Record<MateriauCouverture, (px: Uint8ClampedArray) => void> = {
+/**
+ * Ecailles (lot L2) : des elements de `colonnes` par metre et `rangs` rangs, a joints croises, dont le bas est arrondi en demi-cercle et
+ * passe sur le haut du rang du dessous (le nez de chaque ecaille ombre le rang qu'il recouvre). Chaque ecaille a sa nuance.
+ */
+function ecailles(px: Uint8ClampedArray, colonnes: number, rangs: number, graine: number, base: number, ecart: number): void {
+  const rnd = tirage(graine), grain = bruit(48, graine + 1), l = COTE / colonnes, h = COTE / rangs;
+  const nuance = Array.from({ length: (colonnes + 1) * rangs }, () => base + ecart * rnd());
+  for (let y = 0; y < COTE; y++) for (let x = 0; x < COTE; x++) {
+    let r = Math.floor(y / h), t = (y - r * h) / h;
+    const dec = (rr: number) => (rr % 2 ? l / 2 : 0);
+    let xs = (x + dec(r)) % COTE, c = Math.floor(xs / l), u = (xs - c * l) / l;
+    // Le bas arrondi de l'ecaille : au-dela de son arc, c'est le haut de l'ecaille du rang du dessous qui se voit.
+    const arc = 0.55 + 0.45 * Math.sqrt(Math.max(0, 1 - (2 * u - 1) ** 2));
+    const nez = Math.abs(t - arc) < 0.05;
+    if (t > arc) { r = (r + 1) % rangs; t = t - 1; xs = (x + dec(r)) % COTE; c = Math.floor(xs / l); u = (xs - c * l) / l; }
+    const joint = u < 0.03 || u > 0.97;
+    const ombre = 0.72 + 0.28 * Math.min(1, Math.max(0, t + 0.2) / 0.5);
+    poser(px, x, y, nez || joint ? 0.42 : (nuance[r * (colonnes + 1) + c] as number) * ombre + 0.06 * (grain(x / COTE, y / COTE) - 0.5));
+  }
+}
+
+/** Ardoises en ecaille : la taille des ardoises droites (4 par metre, 8 rangs), le bas arrondi. */
+const ardoisesEcaille = (px: Uint8ClampedArray) => ecailles(px, 4, 8, 43, 0.74, 0.2);
+/** Tuiles plates en ecaille (le « petit moule » arrondi) : 6 par metre, 10 rangs. */
+const tuilesPlatesEcaille = (px: Uint8ClampedArray) => ecailles(px, 6, 10, 47, 0.76, 0.2);
+
+/** Bac acier (lot L2) : une tole nervuree, une nervure trapezoidale tous les 25 cm dans la pente, claire au sommet, ombree au pied. */
+function bacAcier(px: Uint8ClampedArray): void {
+  const moire = bruit(4, 53), nervures = 4, l = COTE / nervures;
+  for (let y = 0; y < COTE; y++) for (let x = 0; x < COTE; x++) {
+    const u = (x % l) / l;
+    const relief = u < 0.08 ? 0.95 : u < 0.14 ? 0.62 : u > 0.94 ? 0.78 : 0.84;
+    poser(px, x, y, relief + 0.04 * (moire(x / COTE, y / COTE) - 0.5));
+  }
+}
+
+/** Membrane d'etancheite (lot L2) : un revetement continu, ses lés de 1 m soudes (un recouvrement plus sombre), un leger grain. */
+function membrane(px: Uint8ClampedArray): void {
+  const grain = bruit(64, 67), large = bruit(5, 71);
+  for (let y = 0; y < COTE; y++) for (let x = 0; x < COTE; x++) {
+    const le = y < 4 ? 0.7 : y < 7 ? 0.86 : 0.8;
+    poser(px, x, y, le + 0.05 * (large(x / COTE, y / COTE) - 0.5) + 0.04 * (grain(x / COTE, y / COTE) - 0.5));
+  }
+}
+
+/** Toiture vegetale (lot L2) : des touffes de sedum serrees, claires au sommet, sombres entre elles, sans motif regulier. */
+function vegetale(px: Uint8ClampedArray): void {
+  const touffes = bruit(24, 73), fin = bruit(96, 79), large = bruit(5, 83);
+  for (let y = 0; y < COTE; y++) for (let x = 0; x < COTE; x++) {
+    const t = touffes(x / COTE, y / COTE);
+    poser(px, x, y, 0.55 + 0.4 * t * t + 0.12 * (fin(x / COTE, y / COTE) - 0.5) + 0.08 * (large(x / COTE, y / COTE) - 0.5));
+  }
+}
+
+/**
+ * Ce qui se dessine sur une couverture : son materiau, et sa pose quand elle s'y dessine (lot L2). La grande ardoise en losange d'avant le
+ * schema 11 est une ardoise posee en losange : meme dessin, meme texture, meme `.glb`.
+ */
+export type DessinCouverture = MateriauCouverture | 'ardoise-losange' | 'ardoise-ecaille' | 'tuile-plate-ecaille';
+
+/** Le dessin d'un materiau pose ainsi : une pose qui ne s'y dessine pas (`poseAdmise`) se dessine en rangs droits. */
+export function dessinCouverture(materiau: MateriauCouverture, pose?: PoseCouverture | null): DessinCouverture {
+  const p = materiau === 'terrasse' ? undefined : poseAdmise(materiau, pose ?? undefined);
+  if (p === 'losange') return 'ardoise-losange';
+  if (p === 'ecaille') return materiau === 'ardoise' ? 'ardoise-ecaille' : 'tuile-plate-ecaille';
+  return materiau;
+}
+
+const DESSINS: Record<DessinCouverture, (px: Uint8ClampedArray) => void> = {
   tuile: tuiles, 'tuile-plate': tuilesPlates, 'tuile-canal': tuilesCanal, ardoise: ardoises, 'ardoise-losange': ardoisesLosange, zinc, terrasse,
+  'ardoise-ecaille': ardoisesEcaille, 'tuile-plate-ecaille': tuilesPlatesEcaille, 'bac-acier': bacAcier, membrane, vegetale,
 };
 
 /** Les pixels (RGBA a plat, en gris) d'une couverture, sur COTE pixels de cote : pour les tests. */
-export function pixelsCouverture(materiau: MateriauCouverture): Uint8ClampedArray {
+export function pixelsCouverture(dessin: DessinCouverture): Uint8ClampedArray {
   const px = new Uint8ClampedArray(COTE * COTE * 4);
-  DESSINS[materiau](px);
+  DESSINS[dessin](px);
   return px;
 }
 
-/** La matiere d'une couverture en 3D : une tuile est mate, une ardoise un peu moins, le zinc brille un peu. */
-export function matiereCouverture(materiau: MateriauCouverture): { roughness: number; metalness: number } {
+/** La matiere d'une couverture en 3D : une tuile est mate, une ardoise un peu moins, le zinc brille un peu, le bac acier un peu moins. */
+export function matiereCouverture(materiau: DessinCouverture): { roughness: number; metalness: number } {
   if (materiau === 'zinc') return { roughness: 0.45, metalness: 0.35 };
-  if (materiau === 'ardoise' || materiau === 'ardoise-losange') return { roughness: 0.7, metalness: 0 };
-  if (materiau === 'terrasse') return { roughness: 0.95, metalness: 0 };
+  if (materiau === 'bac-acier') return { roughness: 0.55, metalness: 0.25 };
+  if (materiau === 'ardoise' || materiau === 'ardoise-losange' || materiau === 'ardoise-ecaille') return { roughness: 0.7, metalness: 0 };
+  if (materiau === 'terrasse' || materiau === 'vegetale') return { roughness: 0.95, metalness: 0 };
   return { roughness: 0.85, metalness: 0 };
 }
 
-const cache = new Map<MateriauCouverture, THREE_NS.Texture>();
+const cache = new Map<DessinCouverture, THREE_NS.Texture>();
 
 /** La texture d'une couverture, ou `null` sans canevas (tests, environnement sans DOM). */
-export function textureCouverture(materiau: MateriauCouverture): THREE_NS.Texture | null {
+export function textureCouverture(materiau: DessinCouverture): THREE_NS.Texture | null {
   const deja = cache.get(materiau);
   if (deja) return deja;
   if (typeof document === 'undefined' || typeof THREE === 'undefined' || !THREE.CanvasTexture) return null;
@@ -221,7 +294,7 @@ export function textureCouverture(materiau: MateriauCouverture): THREE_NS.Textur
   c2d.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canevas);
   // Le relief de la couverture (R3, three/materiauxVivants.ts) : l'ombre sous chaque tuile est en creux.
-  inscrireHauteurs(tex, new Uint8ClampedArray(img.data), COTE, false, materiau === 'zinc' ? 1.5 : 3);
+  inscrireHauteurs(tex, new Uint8ClampedArray(img.data), COTE, false, materiau === 'zinc' || materiau === 'bac-acier' || materiau === 'membrane' ? 1.5 : 3);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 4;
   cache.set(materiau, tex);

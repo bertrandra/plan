@@ -61,7 +61,7 @@ export interface DemandeAnalyse {
  * immediat, un extrait PDF).
  */
 /** `jardin` : la lecture du jardin d'une parcelle sur son orthophoto (lot L3), une requete dans le batch de l'audit. */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'facade-enrichie' | 'plu' | 'jardin';
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'facade-enrichie' | 'facade-toit' | 'plu' | 'jardin';
 
 export interface EtatServeurAnalyse {
   actif: boolean;

@@ -27,7 +27,7 @@ import type { Fenetre3d } from '../model/types.js';
 import type { ValeursFacades } from '../regles/facades/reglages.js';
 import { plansDuToit, profondeurToit, uvDuPan, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toits/toit.js';
 import { materiauCouverture, type ContexteCouverture } from '../model/couleurToit.js';
-import { textureCouverture, matiereCouverture } from './couverture.js';
+import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
@@ -193,7 +193,7 @@ function cassures(contour: readonly PtBrut[], toitLu: Toit, a: PtBrut, b: PtBrut
 }
 
 function materiauToit(ctx: ContexteDetails, toit: Toit): THREE_NS.MeshStandardMaterial {
-  const materiau = materiauCouverture(toit, ctx.couverture);
+  const materiau = dessinCouverture(materiauCouverture(toit, ctx.couverture), toit.pose);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
   return new THREE.MeshStandardMaterial({ color: toit.couleur || COULEUR_TOIT_DEFAUT, ...matiereCouverture(materiau), side: THREE.DoubleSide, ...(tex ? { map: tex } : {}) });
 }

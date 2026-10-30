@@ -35,6 +35,7 @@ export function valeursParDefaut(o: ObjetBrut): ObjetBrut {
     delete toit.couleur;
     delete toit.origineCouleur;
     delete toit.couverture;
+    delete toit.pose;
     champsBatiment(copie).toit = toit;
     champsBatiment(copie).toitMesure = null;
     champsBatiment(copie).corpsToit = null;

@@ -22,7 +22,7 @@ import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit
 import { trianguler } from '../geometry/triangulation.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { safeOffset } from '../geometry/polygon.js';
-import { textureCouverture, matiereCouverture } from './couverture.js';
+import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
 import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
 import { garderLeJpeg } from './chargeurs.js';
 import { sansOmbres } from '../facade/vision/sansOmbres.js';
@@ -266,7 +266,7 @@ function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toitLu: Toit, h: nu
   if (toit.forme === 'plat' || toit.hauteur <= 0) { poserToitPlat(ctx, contour, toit, h); return; }
   const { pans, pignons } = facettesToit(contour, toit);
   // Tuiles ou ardoises selon la couverture, teintees de sa couleur (MD/spec-toit-ign.md §6.2).
-  const materiau = materiauCouverture(toit, ctx.couverture);
+  const materiau = dessinCouverture(materiauCouverture(toit, ctx.couverture), toit?.pose);
   const tex = ctx.textures ? textureCouverture(materiau) : null;
   const matToit = new THREE.MeshStandardMaterial({
     color: toit.couleur || COULEUR_TOIT_DEFAUT,

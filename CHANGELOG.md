@@ -5,6 +5,40 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Toit enrichi, lot L2** (`MD/spec-lecture-ia-elargie.md` §3.2, §4.1, §4.3, §12.3). Chaque façade lue par Claude l'est par une
+  **troisième requête** sur la même image (usage `facade-toit`, ses prompt et schéma générés, en sortie structurée), trois passes
+  votées : la couverture et son motif de pose (droite, losange, écaille), le débord, ce qui couvre le faîtage, la gouttière, et les
+  fenêtres de toit et panneaux solaires vus sur le pan. Ajoutés à la lecture enrichie, ces champs faisaient refuser sa sortie structurée
+  par l'API (« The compiled grammar is too large ») : le run (5.1.0) et la lecture enrichie (L1) restent à l'octet près. Son échec
+  laisse les deux autres intacts, avec un signal sur l'écran de la façade.
+- Claude propose, le moteur tranche : la couverture lue sur la façade passe devant l'analyse d'une maison et les fichiers fonciers
+  (la plus proche l'emporte, une règle prioritaire de `regles/reconciliation.json`), décochée ; le débord lu ne fait qu'une alerte ; une
+  fenêtre de toit ou un panneau se pose sur le pan du mur par le moteur des toits (`corpsSousContrainte`), décochée ; le faîtage et la
+  gouttière vont aux bords du corps, décochés.
+- `Toit.pose` (droite, losange, écaille), les couvertures `bac-acier`, `membrane` et `vegetale`, `bords.faitage` et `bords.gouttiere`.
+  Le schéma des projets passe à **11** ; la migration relit la grande ardoise en losange comme une ardoise posée en losange (même
+  texture, même `.glb`). La 3D dessine l'écaille (ardoise, tuile plate), le bac acier, la membrane, la toiture végétale, la gouttière et
+  le faîtage ; l'inspecteur gagne « Pose ». Une table unique des mots de couverture (`model/couvertureLue.ts`) remplace les traductions
+  locales.
+- Le serveur, la vérification de l'API (sept requêtes), la mesure du banc, le réglage du modèle de chaque usage et le tableau de la
+  consommation connaissent l'usage `facade-toit`.
+- Points de fumée **118** (une couverture en écaille lue, dessinée) et **119** (une fenêtre de toit posée par le moteur).
+
+### Modifié
+
+- L'analyse d'une maison qui lit une membrane, un bac acier ou une toiture végétale le propose désormais (la 3D sait les dessiner) ;
+  `tuile-mecanique` reste la tuile (mécanique) d'avant.
+- Coût mesuré d'une façade lue en production : environ 0,0090 $ (le run, la lecture enrichie, et le toit lu, environ 0,0010 $),
+  contre 0,0080 $ en 5.2.0.
+- Le workflow « Vérifier l'API Claude » a 45 minutes (trois requêtes par façade à la mesure, et sa relance unique).
+
+### Supprimé
+
+- L'écriture de `ardoise-losange` comme matériau de couverture (relu `ardoise` + pose `losange`) ; les traductions locales des mots de
+  couverture (sujet `couverture`, arbitrage, contrôle du PLU), remplacées par la table de `model/couvertureLue.ts`.
+
 ## [5.2.0] — 2026-10-30
 
 Version **mineure** au sens de `MD/RELEASE.md` : la façade enrichie (lot L1 : menuiseries, garde-corps, saillies, modénature, ce qui est

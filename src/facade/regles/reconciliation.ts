@@ -148,7 +148,7 @@ function arbitrerSeul(constats: readonly Constat[], projet: EtatProjet, attribut
   if (second && retenu.score < margeMin * second.score) return manuelle('Les sources se contredisent (' + fr(retenu.score) + ' contre ' + fr(second.score) + ', il faut ×' + fr(margeMin) + ') : ' + ecarts + '.', ['MARGE_AUTO_MIN']);
   if (seulNonSeul) return manuelle(regles.sources[retenu.sources[0] as SourceConstat].libelle + ' seul ne décide pas : ' + ecarts + '.', []);
   if (retenu.score < scoreMin) return manuelle('Score insuffisant (' + fr(retenu.score) + ' pour ' + fr(scoreMin) + ' requis) : ' + ecarts + '.', ['SCORE_AUTO_MIN']);
-  const devant = enTete.length && groupes[0] !== retenu ? ' Elle l’emporte sur ' + dit(groupes[0] as Groupe) + ' : la silhouette des façades décide.' : '';
+  const devant = enTete.length && groupes[0] !== retenu ? ' Elle l’emporte sur ' + dit(groupes[0] as Groupe) + ' : ' + (desc.prioriteDit ?? 'la silhouette des façades décide') + '.' : '';
   return { ...base, retenu, decision: 'auto', raison: (retenu.sources.length > 1 ? 'Les sources s’accordent' : 'Une seule source, sûre') + ' (score ' + fr(retenu.score) + ') : ' + dit(retenu) + '.' + devant, regles: ['SCORE_AUTO_MIN', ...(devant ? ['prioritaires'] : []), ...regleDe(retenu)] };
 }
 

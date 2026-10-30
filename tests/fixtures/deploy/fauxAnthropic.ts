@@ -123,6 +123,15 @@ export const SORTIE_FACADE_ENRICHIE = {
 };
 
 /**
+ * Une sortie du toit lu sur la meme facade (deploy/schema-facade-toit.json, lot L2). SYNTHETIQUE : ecrite a la main pour les tests. Une
+ * ardoise en ecaille, un faible debord, un faitage en zinc, une gouttiere pendante, une fenetre de toit.
+ */
+export const SORTIE_FACADE_TOIT = {
+  toit: { couverture: 'ardoise', pose: 'ecaille', debord: 'faible', faitage: 'zinc', gouttiere: 'pendante', confiance: 'moyenne' },
+  elements: [{ element: 'fenetre-toit', u0: 0.6, u1: 0.68, v: 1.3, confiance: 'moyenne' }],
+};
+
+/**
  * Le run d'une facade tel qu'une reponse SANS sortie structuree peut l'ecrire. SYNTHETIQUE (la vraie reponse du 29 octobre 2026,
  * « Sortie non JSON », n'a pas ete gardee) : une phrase dont les accolades precedent l'objet, un premier jet coupe, le JSON dans un
  * bloc de code, puis une remarque avec des accolades. La lecture d'avant (de la premiere accolade a la derniere) n'en lisait rien.
@@ -164,10 +173,13 @@ export function messageFacade(corps: Record<string, unknown>, refuserFormat = fa
   const systeme = JSON.stringify(corps.system ?? '');
   // La lecture enrichie (lot L1) a le meme role que le run, et ses baies : elle rend la sienne.
   const enrichie = /`baies`/.test(systeme);
-  const m = messageReussi(USAGE_P1, enrichie ? SORTIE_FACADE_ENRICHIE : SORTIE_FACADE) as { content: unknown[] };
+  // Le toit lu (lot L2) de meme : il rend le sien.
+  const toit = /le toit d'une maison sur la photo/.test(systeme);
+  const lu = toit ? SORTIE_FACADE_TOIT : enrichie ? SORTIE_FACADE_ENRICHIE : null;
+  const m = messageReussi(USAGE_P1, lu ?? SORTIE_FACADE) as { content: unknown[] };
   // Sans format : le schema en texte dans le prompt, Haiku le recopie ; un exemple a la place, il repond (du texte autour).
   const schemaEnTexte = /conforme à ce schéma JSON/.test(systeme);
-  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: schemaEnTexte ? texteSqueletteDuSchema(schemaFacade()) : enrichie ? JSON.stringify(SORTIE_FACADE_ENRICHIE) : TEXTE_FACADE_SANS_FORMAT }];
+  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: schemaEnTexte ? texteSqueletteDuSchema(schemaFacade()) : lu ? JSON.stringify(lu) : TEXTE_FACADE_SANS_FORMAT }];
   return { statut: 200, corps: m };
 }
 

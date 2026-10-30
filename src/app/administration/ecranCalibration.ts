@@ -86,8 +86,8 @@ export function ouvrirEcranCalibration(): void {
     // lecture enrichie posee dessus sans rien lui faire perdre.
     appelerClaude: async (d) => {
       const c = encodageUnique(contexteRun);
-      const [r, enrichie] = await Promise.all([appelerRunFacade(c, d, 'calibration'), appelerLectureEnrichie(c, d, 'calibration')]);
-      return avecSaLectureEnrichie(r, enrichie);
+      const [r, enrichie, toit] = await Promise.all([appelerRunFacade(c, d, 'calibration'), appelerLectureEnrichie(c, d, 'calibration'), appelerLectureEnrichie(c, d, 'calibration', 'facade-toit')]);
+      return avecSaLectureEnrichie(r, enrichie, toit);
     },
     escaladerClaude: (d, run) => appelerEscaladeFacade(contexteRun, d, run, 'calibration'),
     prixEscalade: async () => (await claude.etat()).escaladeFacade ?? null,

@@ -40,7 +40,7 @@ const RUN: RunEnregistre = { le: '2026-10-29T08:30:00.000Z', modele: 'claude-hai
 function session(etapes: Etape[], ouverte: { facade: string; etape: IdEtape } | null = null, runs: Record<string, RunEnregistre> | null = null, plus: Partial<MesureFacade> = {}, validee: ReleveFacade | null = null) {
   const mesure = { cle: 'maison', cote: 0, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.8, hauteurM: 6, couleur: null, etapes, ...plus } as MesureFacade;
   const s = {
-    validation: { mesuresFaites: () => new Map([['maison#0', mesure]]), etapeEnCours: () => null, rejouerFacade: vi.fn(async () => 1), arreterMesure: vi.fn(), facadeValidee: () => validee },
+    validation: { mesuresFaites: () => new Map([['maison#0', mesure]]), etapeEnCours: () => null, rejouerFacade: vi.fn(async () => 1), arreterMesure: vi.fn(), facadeValidee: () => validee, entrees: () => ({ objets: [] }) },
     capture: { lire: () => ({ batiments: { maison: { facades: { '0': { photos: [{ type: 'image/jpeg', base64: 'QQ==' }, { type: 'image/jpeg', base64: 'Qg==' }] } } } } }), corrigerRedressement: vi.fn() },
     etapeOuverte: () => ouverte,
     analyse: { runs: () => runs, prixEscalade: () => ({ modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } }) },

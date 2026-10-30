@@ -87,6 +87,10 @@ describe('les valeurs que la personne peut forcer', () => {
   it('le matériau des murs et la couverture proposent exactement les mots du projet (« terrasse » n’est pas une couverture)', async () => {
     const { MATERIAUX_MURS_VUS, COUVERTURES_VUES } = await import('../../../src/model/ceQueJeVois.js');
     expect(RECONCILIATION.attributs.materiauMurs.valeurs).toEqual(MATERIAUX_MURS_VUS.map((m) => m.code));
-    expect(RECONCILIATION.attributs.couverture.valeurs).toEqual(COUVERTURES_VUES.map((m) => m.code).filter((c) => c !== 'terrasse'));
+    // Les mots vus sur place, puis ceux que lit la facade de pres (lot L2) : chacun s'ecrit dans le projet (model/couvertureLue.ts).
+    const { couvertureDuMot } = await import('../../../src/model/couvertureLue.js');
+    expect(RECONCILIATION.attributs.couverture.valeurs).toEqual(['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'ardoise-ecaille', 'tuile-plate-ecaille', 'zinc', 'bac-acier', 'membrane', 'vegetale']);
+    for (const c of COUVERTURES_VUES.map((m) => m.code).filter((x) => x !== 'terrasse')) expect(RECONCILIATION.attributs.couverture.valeurs).toContain(c);
+    for (const v of RECONCILIATION.attributs.couverture.valeurs ?? []) expect(couvertureDuMot(v as string), String(v)).not.toBeNull();
   });
 });

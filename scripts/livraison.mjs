@@ -24,6 +24,8 @@
 //   schema-jardin.json         son schema de sortie versionne
 //   prompt-facade-enrichie.md  le prompt versionne de la lecture enrichie d'une facade (lot L1, genere par npm run regles:generer)
 //   schema-facade-enrichie.json son schema de sortie versionne
+//   prompt-facade-toit.md      le prompt versionne du toit lu sur une facade (lot L2, genere par npm run regles:generer)
+//   schema-facade-toit.json    son schema de sortie versionne
 //   claude-tarifs.json         la premiere table des tarifs, posee dans data/claude/ au premier usage
 //   data/demo/1.json           la demonstration integree, premiere demo de l'admin (data/ se pose hors racine)
 //   data/demo/2.json…          les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
@@ -55,7 +57,7 @@ cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/donnees.php'), resolve(sortie, 'donnees.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
 // L'analyse par Claude (MD/spec-audit.md 13.2) : le proxy, son prompt, son schema et ses tarifs.
-for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'prompt-plu.md', 'schema-plu.json', 'prompt-jardin.md', 'schema-jardin.json', 'prompt-facade-enrichie.md', 'schema-facade-enrichie.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
+for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'prompt-plu.md', 'schema-plu.json', 'prompt-jardin.md', 'schema-jardin.json', 'prompt-facade-enrichie.md', 'schema-facade-enrichie.json', 'prompt-facade-toit.md', 'schema-facade-toit.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 

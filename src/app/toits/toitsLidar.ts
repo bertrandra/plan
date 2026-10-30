@@ -126,7 +126,7 @@ export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut
 
 /** Le toit lu remplace l'ancien, qui garde sa couleur, son origine et sa couverture choisie. */
 function avecCouleurDe(ancien: Toit | null | undefined, toit: Toit): Toit {
-  return { ...toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}), ...(ancien?.couverture ? { couverture: ancien.couverture } : {}) };
+  return { ...toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}), ...(ancien?.couverture ? { couverture: ancien.couverture } : {}), ...(ancien?.pose ? { pose: ancien.pose } : {}) };
 }
 
 /**

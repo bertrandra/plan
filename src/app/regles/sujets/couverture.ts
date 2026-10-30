@@ -1,25 +1,28 @@
 // Sujet « couverture » : le materiau de couverture que Claude voit sur l'orthophoto et les photos.
 
-import { libelleDe, COUVERTURES_VUES } from '../../../model/ceQueJeVois.js';
-import type { CouvertureChoisie } from '../../../model/types.js';
+import { couvertureDuMot, libelleMotCouverture, motDeLaCouverture, motDuToit, type MotCouverture } from '../../../model/couvertureLue.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import { deClaude, type EntreeSujet, type Sujet } from './contrat.js';
 
-/** Le materiau de couverture de Claude dans le vocabulaire du projet ; null quand le projet n'a pas ce terme. */
-export function couvertureDuVocabulaire(v: string): CouvertureChoisie | null {
-  const table: Record<string, CouvertureChoisie> = { 'tuile-plate': 'tuile-plate', 'tuile-canal': 'tuile-canal', 'tuile-mecanique': 'tuile', ardoise: 'ardoise', 'ardoise-losange': 'ardoise-losange', zinc: 'zinc' };
-  return table[v] ?? null;
+/**
+ * Le mot de couverture de Claude dans le vocabulaire du projet (la table de model/couvertureLue.ts, lot L2) : `tuile-mecanique` y est
+ * `tuile`, `ardoise-losange` reste le mot de l'ardoise en losange ; null quand le projet n'a pas ce terme (`gravillons`).
+ */
+export function couvertureDuVocabulaire(v: string): MotCouverture | null {
+  const c = couvertureDuMot(v);
+  return c ? motDeLaCouverture(c.couverture, c.pose) : null;
 }
 
 function propositionCouverture({ o, b, v, et, contra }: EntreeSujet): Proposition | null {
-  const couverture = couvertureDuVocabulaire(v.couverture.valeur);
-  if (!couverture || !o.batiment?.toit || o.batiment?.toit.couverture === couverture) return null;
-  const choisie = o.batiment?.toit.couverture;
+  const mot = couvertureDuVocabulaire(v.couverture.valeur);
+  const lu = mot ? couvertureDuMot(mot) : null;
+  const avant = motDuToit(o.batiment?.toit);
+  if (!mot || !lu || !o.batiment?.toit || avant === mot) return null;
   return deClaude({
     id: b.cle + ':claude:couverture', cible: { type: 'batiment', cle: b.cle }, objet: 'Couverture de ' + b.nom,
-    avant: choisie ? libelleDe(COUVERTURES_VUES, choisie) : 'déduite par Plan', apres: libelleDe(COUVERTURES_VUES, couverture) + ', vue par Claude',
-    effet: { type: 'couverture', couverture },
-  }, 'couverture', v.couverture, et, contra, choisie ? libelleDe(COUVERTURES_VUES, choisie).toLowerCase() : null);
+    avant: avant ? libelleMotCouverture(avant) : 'déduite par Plan', apres: libelleMotCouverture(mot) + ', vue par Claude',
+    effet: { type: 'couverture', couverture: lu.couverture, ...(lu.pose ? { pose: lu.pose } : {}) },
+  }, 'couverture', v.couverture, et, contra, avant ? libelleMotCouverture(avant).toLowerCase() : null);
 }
 
 export const couverture: Sujet = { id: 'couverture', attribut: 'couverture', effet: 'couverture', proposer: propositionCouverture };

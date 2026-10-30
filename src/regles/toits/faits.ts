@@ -92,6 +92,14 @@ export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait }
 export interface ElementDeMurFait { mur: MurDesigne; element: 'cheminee' | 'lucarne'; a: number }
 
 /**
+ * Une fenetre de toit ou un champ de panneaux solaires vu sur le pan au-dessus d'un mur (lot L2 de MD/spec-lecture-ia-elargie.md : une
+ * proposition de l'audit), sur le corps que designe ce mur : de `de` a `a` metres le long du mur depuis sa gauche vue de dehors, son
+ * milieu a `hauteurM` metres au-dessus du sol sur la photo redressee. Le moteur le pose sur le pan de ce mur (sM du long du mur, dM de la
+ * hauteur par la pente du pan : facade/regles/toits/elementsDesMurs.ts::elementToitPoseSurLeMur) ; il ne s'ecrit jamais dans faits.json.
+ */
+export interface ElementToitDeMurFait { mur: MurDesigne; element: 'fenetre-toit' | 'solaire'; de: number; a: number; hauteurM: number }
+
+/**
  * Une saillie vue sur un mur (lot L1 de MD/spec-lecture-ia-elargie.md : une proposition de l'audit) : un bow-window, une galerie, un
  * auvent ou un appentis, sur le corps que designe ce mur, de `de` a `a` metres le long du mur depuis sa gauche vue de dehors. Le moteur
  * la pose (facade/regles/toits/sailliesDesMurs.ts) avec la profondeur par defaut de son genre (une vue de face ne la montre pas,
@@ -154,6 +162,8 @@ export interface ObservationFait {
   baies?: BaieFait[];
   /** Les saillies que montrent des murs, chacune posee sur son corps (lot L1) ; ce qui y est deja pose ne bouge pas. */
   sailliesDesMurs?: SaillieDeMurFait[];
+  /** Les fenetres de toit et panneaux solaires que montrent des murs, chacun pose sur le pan de son corps (lot L2) ; ce qui y est deja pose ne bouge pas. */
+  elementsToitDesMurs?: ElementToitDeMurFait[];
 }
 
 /** Les dimensions d'un fait en remplacement : la mesure n'en dit rien de juste. */

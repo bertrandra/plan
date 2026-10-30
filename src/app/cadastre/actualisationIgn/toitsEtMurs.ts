@@ -166,8 +166,9 @@ export function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p
   const contour = contourEcrit || !avant ? pts : avant;
   const recalcule = batiment && ecrivainPeut(o, 'ign', 'toit', ctx) ? toitActualise(o.batiment?.toit, contour, attributsToitBdTopo(p)) : undefined;
   // Une couverture choisie reste sur le toit recalcule (niveau 1, model/protections.ts).
-  const couverture = o.batiment?.toit?.couverture;
-  const toit = recalcule && recalcule !== o.batiment?.toit && couverture && !ecrivainPeut(o, 'ign', 'couverture', ctx) ? { ...recalcule, couverture } : recalcule;
+  // Sa pose aussi (lot L2) : la grande ardoise en losange d'avant le schema 11 y est une ardoise posee en losange.
+  const couverture = o.batiment?.toit?.couverture, pose = o.batiment?.toit?.pose;
+  const toit = recalcule && recalcule !== o.batiment?.toit && (couverture || pose) && !ecrivainPeut(o, 'ign', 'couverture', ctx) ? { ...recalcule, ...(couverture ? { couverture } : {}), ...(pose ? { pose } : {}) } : recalcule;
   const toitDeduit = !!toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat';
   const volumesToit = volumesRecalcules(o, contour, toit);
   const objet = Object.assign({}, sansRetouche(o), contourEcrit ? {

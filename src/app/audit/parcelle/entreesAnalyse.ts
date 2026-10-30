@@ -11,6 +11,7 @@
 // Les trois passes recoivent exactement le meme contenu : c'est ce qui rend le vote honnete, et ce
 // qui laisse le cache du prompt faire son travail (la partie fixe est au serveur).
 
+import { motDuToit } from '../../../model/couvertureLue.js';
 import { contourCompact, indicesLidar, PASSES_ANALYSE, type IndicesLidar } from '../../../model/analyseClaude.js';
 import { couleurMursRetenue, textureDesMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';
@@ -86,7 +87,8 @@ export function modeleCompact(o: ObjetPlan, b: LigneBatiment): Record<string, un
   }));
   return {
     nom: b.nom, contour: 'pts' in o && o.pts ? contourCompact(o.pts) : [], hauteurEgoutM: Math.round(hauteurDe(o) * 100) / 100,
-    toit: o.batiment?.toit ? { forme: o.batiment?.toit.forme, ...(o.batiment?.toit.couverture ? { couverture: o.batiment?.toit.couverture } : {}) } : null,
+    // Le mot de la couverture (model/couvertureLue.ts) : celui d'avant le lot L2 pour tout toit d'avant (l'ardoise en losange reste `ardoise-losange`).
+    toit: o.batiment?.toit ? { forme: o.batiment?.toit.forme, ...(motDuToit(o.batiment.toit) ? { couverture: motDuToit(o.batiment.toit) } : {}) } : null,
     corps,
     murs: { materiau: textureDesMurs(o) ?? null, couleur: couleurMursRetenue(o)?.couleur ?? null },
     facades: b.facades.map((f) => ({ etiquette: etiquetteFacade(b, f), largeurM: Math.round(f.facade.largeur * 10) / 10, ouverturesRelevees: (o.batiment?.facades ?? []).find((r) => r.cote === f.cote)?.ouvertures.length ?? null })),
@@ -293,19 +295,23 @@ export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImage
   });
   // Le run de chaque facade part dans le meme batch (MD/spec-facade-calage-audit.md §8, lot F3) : aucun delai de plus.
   if (fab.facade) {
-    const enrichies: Awaited<ReturnType<typeof requetesRunsDuBatiment>>['enrichies'] = [];
+    const enrichies: Awaited<ReturnType<typeof requetesRunsDuBatiment>>['enrichies'] = [], toits: typeof enrichies = [];
     for (const [rang, x] of entrees.entries()) {
       const nom = e.liste.batiments.find((b) => b.cle === x.cle)?.nom ?? x.cle;
       const r = await requetesRunsDuBatiment(e, x.cle, nom, rang, fab.facade, REQUETES_PAR_BATCH - liste.length);
       liste.push(...r.requetes);
       Object.assign(requetes, r.parId);
       enrichies.push(...r.enrichies);
+      toits.push(...r.toits);
     }
     // La lecture enrichie de chaque facade lue (lot L1) : avec la place que les runs laissent, jamais a leur place.
-    for (const x of enrichies) {
-      if (liste.length + x.requetes.length > REQUETES_PAR_BATCH) break;
-      liste.push(...x.requetes);
-      Object.assign(requetes, x.parId);
+    // Puis le toit lu de chaque facade (lot L2), avec la place qui reste encore : jamais a la place d'un run ni d'une lecture enrichie.
+    for (const lot of [enrichies, toits]) {
+      for (const x of lot) {
+        if (liste.length + x.requetes.length > REQUETES_PAR_BATCH) break;
+        liste.push(...x.requetes);
+        Object.assign(requetes, x.parId);
+      }
     }
   }
   // Les batiments dont les prises permettaient un rendu et qui n'en ont aucun : la Vue 3D n'etait pas

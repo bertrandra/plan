@@ -18,7 +18,8 @@ import { CONFIANCE_PLEINE } from '../../detection/verification.js';
 import { recalerBoite, type CartesAretes } from '../../detection/recalageIa.js';
 import { detailsDeLIa } from './menuiseries.js';
 import { avecLectureEnrichie, voterLectureEnrichie } from './voteEnrichi.js';
-import { garder, lireLectureEnrichie, lireObservationsFacade, SANS_ENRICHIE, type AngleIa, type Carreaux, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
+import { avecToitLu, voterLectureToit } from './voteToit.js';
+import { garder, lireLectureEnrichie, lireLectureToit, lireObservationsFacade, SANS_ENRICHIE, SANS_TOIT, type AngleIa, type Carreaux, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
 
 // Les seuils des regles : regles/facades/ia.json (MD/architecture.md §5.2.4), lus et verifies par src/regles/facades/ia.ts, edites
 // dans Admin › Regles.
@@ -97,8 +98,9 @@ export function voterObservations(rs: readonly ObservationsFacade[], r: Reglages
       u0: med(g.map((o) => o.u0)), u1: med(g.map((o) => o.u1)), v0: med(g.map((o) => o.v0)), v1: med(g.map((o) => o.v1)),
       confiance: majorite(g.map((o) => o.confiance), ind), carreaux: commune(g.map((o) => o.carreaux)),
     })).sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
-    // La facade enrichie n'est pas lue par le run (lot L1) : observationsDuRun la pose apres, depuis sa lecture a part.
+    // La facade enrichie n'est pas lue par le run (lot L1) : observationsDuRun la pose apres, depuis sa lecture a part ; le toit lu (lot L2) aussi.
     ...SANS_ENRICHIE,
+    ...SANS_TOIT,
     confiance: majorite(rs.map((r) => r.confiance), 'faible'),
   };
 }
@@ -109,7 +111,7 @@ export const passesDeProduction = (r: ReglagesIa = reglagesIa()): 1 | 2 | 3 => r
 
 /**
  * Les observations d'un appel enregistre : sa passe telle quelle, ou le vote de ses passes, puis l'escalade s'il y en a une, puis la
- * lecture enrichie votee (lot L1) ; null sans rien de lisible du run.
+ * lecture enrichie votee (lot L1), puis le toit lu vote (lot L2) ; null sans rien de lisible du run.
  */
 export function observationsDuRun(run: RunEnregistre, r: ReglagesIa = reglagesIa()): ObservationsFacade | null {
   const vote = voterObservations(garder(run.sorties.map(lireObservationsFacade)), r);
@@ -117,7 +119,10 @@ export function observationsDuRun(run: RunEnregistre, r: ReglagesIa = reglagesIa
   const lu = esc && run.escalade ? escaladerObservations(vote, esc, run.escalade.modele, r) : vote;
   // La lecture enrichie (lot L1), votee a part, se pose sur ce que le run a lu sans rien y changer d'autre.
   const enrichie = lu && run.enrichie ? voterLectureEnrichie(garder(run.enrichie.sorties.map(lireLectureEnrichie)), r) : null;
-  return lu && enrichie ? avecLectureEnrichie(lu, enrichie, r) : lu;
+  const avecEnrichie = lu && enrichie ? avecLectureEnrichie(lu, enrichie, r) : lu;
+  // Le toit lu (lot L2), vote a part lui aussi, se pose ensuite, sans rien changer au reste.
+  const toit = avecEnrichie && run.toit ? voterLectureToit(garder(run.toit.sorties.map(lireLectureToit)), r) : null;
+  return avecEnrichie && toit ? avecToitLu(avecEnrichie, toit) : avecEnrichie;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -170,6 +175,7 @@ export function escaladerObservations(vote: ObservationsFacade | null, esc: Obse
     },
     ouvertures: [...vote.ouvertures, ...enPlus].sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
     ...SANS_ENRICHIE,
+    ...SANS_TOIT,
     confiance: vote.confiance,
   };
   if (enPlus.length) tranche.push(enPlus.length + (enPlus.length > 1 ? ' ouvertures de plus' : ' ouverture de plus'));
