@@ -26,8 +26,8 @@
 
 import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Homographie, type Image, type P2 } from './vision/homographie.js';
-import { finaliserReleve, hauteurBande, mesurerHauteur, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
-import { detecterOuvertures, type OuvertureDetectee } from './detection/detection.js';
+import { detecterDansLaSilhouette, finaliserReleve, hauteurBande, mesurerHauteur, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
+import type { OuvertureDetectee } from './detection/detection.js';
 import { voter, type VueVotante, type VoteOuverture } from './detection/voteVues.js';
 import { focalePx as focaleParDefaut } from './vision/cadrage.js';
 import { recalerElevations, type BilanPaire, type StatutFusion } from './vision/recalageOrb.js';
@@ -774,25 +774,28 @@ function partsDuGroupe(vues: VueRedressee[], occ: Uint8Array[], c: Composition, 
  */
 function voterLesVues(res: ResultatAnalyse, vues: VueRedressee[], occ: Uint8Array[], g: Grille, egout: number, pxParM: number) {
   if (vues.length < 2) return { ouvertures: res.ouvertures, votes: new Map<OuvertureDetectee, VoteOuverture>() };
-  const hauteur = vues[0] ? vues[0].image.hauteur - egout : 0;
+  // Chaque vue se lit comme la fusion : la facade entiere, dans sa silhouette (un pignon compris), du haut de la silhouette au sol.
+  const dedans = res.facade.dedans;
+  const premiere = dedans.indexOf(1);
+  const Ht = vues[0] ? vues[0].image.hauteur : 0;
   const votantes: VueVotante[] = vues.map((v, j) => {
     const L = v.image.largeur;
-    const mur = { largeur: L, hauteur, donnees: v.image.donnees.subarray(egout * L * 4) };
-    const vu = v.vu.subarray(egout * L);
-    const lues = detecterOuvertures(mur, pxParM, vu);
-    // Les pixels d'une boite : x en metres depuis la gauche, y en metres depuis le sol.
+    const haut = premiere >= 0 ? Math.floor(premiere / L) : egout;
+    const lues = detecterDansLaSilhouette(v.image, v.vu, dedans, pxParM).ouvertures;
+    // Les pixels d'une boite (x en metres depuis la gauche, y en metres depuis le sol), dans le cadre, entre le haut de la silhouette et le sol.
     const sur = (o: OuvertureDetectee, f: (i: number, x: number, y: number) => number): number => {
       const x0 = Math.max(0, Math.floor(o.x * pxParM)), x1 = Math.min(L, Math.ceil((o.x + o.l) * pxParM));
-      const y0 = Math.max(0, Math.floor(hauteur - (o.y + o.h) * pxParM)), y1 = Math.min(hauteur, Math.ceil(hauteur - o.y * pxParM));
+      const y0 = Math.max(haut, Math.floor(Ht - (o.y + o.h) * pxParM)), y1 = Math.min(Ht, Math.ceil(Ht - o.y * pxParM));
       let n = 0, tot = 0;
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { tot++; n += f(y * L + x, x, y); }
       return tot ? n / tot : 0;
     };
+    // Le masque des obstacles ne couvre que le mur (sous l'egout) : au-dessus, sur un pignon, rien n'est devant.
     const cellule = (x: number, y: number) => Math.min(g.l - 1, Math.floor(x / g.facteur)) + Math.min(g.h - 1, Math.floor(y / g.facteur)) * g.l;
     return {
       ouvertures: lues,
-      partVue: (o) => sur(o, (i) => vu[i] ?? 0),
-      partObstacle: (o) => sur(o, (_, x, y) => au(occ, j)[cellule(x, y)] ?? 0),
+      partVue: (o) => sur(o, (i) => (v.vu[i] ?? 0) & (dedans[i] ?? 0)),
+      partObstacle: (o) => sur(o, (_, x, y) => (y < egout ? 0 : au(occ, j)[cellule(x, y - egout)] ?? 0)),
     };
   });
   return voter(res.ouvertures, votantes);

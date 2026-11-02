@@ -16,7 +16,7 @@ import type { CorpsToit, ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, To
 import { hauteurDuMur } from '../facade/ouvertures.js';
 import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { contourDuMur, egoutEn, volumesDuBatiment } from '../facade/profil.js';
-import { silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
+import { hautDuMurSousCorps, silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
 import { trianguler } from '../geometry/triangulation.js';
@@ -329,6 +329,17 @@ function ouvertureObjet(ctx: ContexteReleve3d, ov: OuvertureFacade): ContexteRel
   return { ...ctx, scene: g };
 }
 
+/** La hauteur d'un haut de mur (points de gauche a droite, x le long du mur, y en hauteur) en `x` ; hors de ses bouts, son bout. */
+function hauteurDuHautEn(haut: readonly { x: number; y: number }[], x: number): number {
+  const a0 = au(haut, 0), b0 = au(haut, haut.length - 1);
+  if (x <= a0.x) return a0.y;
+  for (let i = 0; i + 1 < haut.length; i++) {
+    const a = au(haut, i), b = au(haut, i + 1);
+    if (x <= b.x) return a.y + ((b.y - a.y) * (x - a.x)) / Math.max(1e-9, b.x - a.x);
+  }
+  return b0.y;
+}
+
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
 export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null): void {
   if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return;
@@ -355,10 +366,16 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       habillages.push(hab);
       plaquerTexture(ctx, hab, hMur, partie, corps);
     }
-    const posees = r.ouvertures.filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01);
+    // Le haut de la facade sous les corps du toit (le pignon jusqu'au faitage) : la detection y cherche aussi (facade/analyse.ts), une
+    // baie de pignon (lucarne, oculus) s'y pose. Sans corps, ou sur un mur en L, le haut est l'egout.
+    const hautFacade = corps?.length && !partie ? hautDuMurSousCorps(f, corps, hMur) : null;
+    const hautEn = (x: number) => Math.max(egoutEn(x, hMur, partie), hautFacade ? hauteurDuHautEn(hautFacade, x) : 0);
+    const sousEgout = (ov: OuvertureFacade) => ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01;
+    const posees = r.ouvertures.filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01));
     posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
-    // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts).
-    poserDetailsOuvertures(ctx, posees.map((o) => ({ f, o, hMur: egoutEn(o.x + o.l / 2, hMur, partie), cadre: SECTION_CADRE })));
+    // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts) ; une baie de pignon borne son coffre
+    // au haut de la facade au-dessus d'elle.
+    poserDetailsOuvertures(ctx, posees.map((o) => ({ f, o, hMur: sousEgout(o) ? egoutEn(o.x + o.l / 2, hMur, partie) : hautEn(o.x + o.l / 2), cadre: SECTION_CADRE })));
     // La modenature lue et le store (lot L1) : rien sans elles.
     poserModenature(ctx, f, r, hMur, posees);
   });

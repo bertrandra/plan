@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { detecterFacade, detecterOuvertures, type OuvertureDetectee } from '../../../../src/facade/detection/detection.js';
+import { detecterFacade, type OuvertureDetectee } from '../../../../src/facade/detection/detection.js';
 import type { Image } from '../../../../src/facade/vision/homographie.js';
+
+// Les ouvertures seules d'une elevation (la detection rend aussi les devinees et la grille).
+const detecterOuvertures = (...a: Parameters<typeof detecterFacade>) => detecterFacade(...a).ouvertures;
 
 // Les candidats ouvertures (spec-facades §9, lot L14) : fond local, filtre d'ombre, volets battants,
 // fusion des indices et confiance. Elevations peintes a 100 px/m, du sol (bas de l'image) vers le haut.

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ajouterReleve3d } from '../../../src/three/releve3d.js';
-import type { ObjetPolygone } from '../../../src/model/types.js';
+import type { CorpsToit, ObjetPolygone, OuvertureFacade } from '../../../src/model/types.js';
 
 // Un THREE minimal : chaque classe retient ce qu'on lui donne, la scene compte ce qu'on lui ajoute.
 // Ce qu'on verifie ici n'est pas le rendu mais la structure : combien de mailles, lesquelles, et
@@ -218,6 +218,33 @@ describe('ajouterReleve3d', () => {
     );
     // Fenetre : linteau, deux montants, appui, vitre = 5 ; porte : linteau, deux montants, vantail = 4.
     expect(ajoutes).toHaveLength(9);
+  });
+});
+
+describe('ajouterReleve3d, baie de pignon', () => {
+  // Un deux-pans de 10 m sur 6, faitage le long de x a 8 m, egouts a 5 m : le mur est (cote 1, 6 m) est un pignon.
+  const corps: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 };
+  const avecPignon = (ouvertures: OuvertureFacade[]): ObjetPolygone => ({
+    ...maison(),
+    batiment: { facades: [{ cote: 1, largeur: 6, hauteur: 5, texture: null, ouvertures, distance: null, sourceDistance: null, releveLe: '' }] },
+  });
+  const auMur: OuvertureFacade = { type: 'fenetre', x: 1, y: 0.9, l: 1.1, h: 1.3 };
+  const auPignon: OuvertureFacade = { type: 'fenetre', x: 2.5, y: 5.6, l: 1, h: 1 };
+  const dansLeCiel: OuvertureFacade = { type: 'fenetre', x: 0.2, y: 5.6, l: 1, h: 1 };
+
+  it('pose une baie du pignon (au-dessus de l egout, sous les rampants) quand les corps du toit disent le pignon', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, avecPignon([auMur, auPignon]), 5, null, false, [corps]);
+    // Chaque fenetre : linteau, deux montants, appui, vitre = 5.
+    expect(ajoutes).toHaveLength(10);
+  });
+  it('omet une baie qui sort de la silhouette (dans le ciel, a cote du rampant), et celle d un pignon sans corps', () => {
+    const avec = scene();
+    ajouterReleve3d(avec.ctx, avecPignon([auMur, dansLeCiel]), 5, null, false, [corps]);
+    expect(avec.ajoutes).toHaveLength(5);
+    const sans = scene();
+    ajouterReleve3d(sans.ctx, avecPignon([auMur, auPignon]), 5);
+    expect(sans.ajoutes).toHaveLength(5);
   });
 });
 

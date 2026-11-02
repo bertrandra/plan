@@ -243,6 +243,17 @@ chaque scène, comme le LiDAR le donnerait, **une fois le mur calé** (il n'entr
 gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et du sol trouvés. Le profil lu pour caler un sol caché a été essayé,
 puis retiré : il dégradait la rampe `23`.
 
+**La détection dans la silhouette** (`facade/analyse.ts::detecterDansLaSilhouette`, `silhouetteDansLeCadre`, 2 novembre 2026,
+demande du propriétaire) : la détection lisait le mur coupé au sol et à l'égout et ne voyait jamais une baie de pignon. Elle lit
+désormais la façade redressée entière (fusionnée quand plusieurs vues se fondent : `ResultatAnalyse.facade`, le cadre de la texture
+avant que le ciel n'y soit repeint) et ne cherche que dans la silhouette du gabarit, pignons compris ; une baie dont moins de la moitié
+tombe dans la silhouette (le ciel, un voisin) est écartée. Le vote entre vues lit chaque vue de même. Sous un rectangle, c'est au pixel
+près la détection d'avant (banc rejoué sans gabarit : identique). Le banc pose le gabarit vrai de chaque scène (`synthese.ts::gabaritVrai`,
+comme le LiDAR) et la détection seule lit l'élévation peinte entière (`facadePeinte`). Scène `24-pignon-baie-dans-le-pignon` ajoutée (une
+fenêtre de comble) : `main` la manquait (5/6), trouvée depuis (6/6). Seul autre écart du corpus : `22`, la hauteur d'une fenêtre du rez
+passe de 1,35 à 1,36 m (vraie : 1,30), au-delà des 5 cm, soit une correction de plus (le fond du mur se lit sur une image plus haute, le
+pignon compris). `tests/unit/facade/analyseSilhouette.test.ts` le garde.
+
 **Le calage par les ancres** (`facade/releve/calageAncres.ts`, lot F1 de `MD/spec-facade-calage-audit.md`) : une pose du mur se juge
 sans le toit, par un score d'explication (les deux angles, bords de la matière du mur ; l'égout ; le sol ; les proportions du plan) ;
 elle passe quand le score atteint `facades.enchainement.explicationMin` (0,75) et chaque angle `angleMin` (0,6). Sinon l'arbitre prend

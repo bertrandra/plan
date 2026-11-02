@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { facadesDuContour, nomOrientation, stationDevant } from '../../../src/geometry/cotesVusDeDehors.js';
 import { focalePx, distancePourToutCadrer, etalonnerChamp, planDePrise } from '../../../src/facade/vision/cadrage.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Image } from '../../../src/facade/vision/homographie.js';
-import { detecterOuvertures, aligner, classer } from '../../../src/facade/detection/detection.js';
+import { detecterFacade, aligner, classer } from '../../../src/facade/detection/detection.js';
+
+// Les ouvertures seules d'une elevation (la detection rend aussi les devinees et la grille).
+const detecterOuvertures = (...a: Parameters<typeof detecterFacade>) => detecterFacade(...a).ouvertures;
 
 const p = (x: number, y: number) => ({ x, y });
 // Une maison de 10 x 6 m, contour trigonometrique : le cote 0 va d'ouest en est au sud.

@@ -24,7 +24,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection/detection.js';
+import type { OuvertureDetectee } from '../../../src/facade/detection/detection.js';
+import { detecterDansLaSilhouette } from '../../../src/facade/analyse.js';
+import { GABARIT_RECTANGLE, gabaritSurLaPhoto } from '../../../src/facade/gabaritMur.js';
 import { coinsProposes } from '../../../src/facade/analyse.js';
 import { analyserLeMur } from '../../../src/facade/analyseMur.js';
 import type { BilanVue } from '../../../src/facade/fusion.js';
@@ -33,7 +35,7 @@ import { focalePx as focaleParDefaut } from '../../../src/facade/vision/cadrage.
 import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calage/calageFin.js';
 import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
 import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/vision/distorsion.js';
-import { peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, detailsVrais, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
+import { facadePeinte, gabaritVrai, peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, detailsVrais, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
 import { mesurerDetection, mesurerDetails, cumulerDetails, mediane, erreurCoinsCm, ATTRIBUTS_DETAILS, type MesureDetection, type MesureDetails } from './mesure.js';
 
 export const DOSSIER_CORPUS = fileURLToPath(new URL('../../fixtures/facades', import.meta.url));
@@ -238,7 +240,8 @@ function mesurerPhoto(s: SceneFacade, p: PriseCamera | PriseCoins, photo: { imag
   const focale = focaleBrute !== null ? focaleBrute * (prep?.modele.echelle ?? 1) : null;
   const distance = p.type === 'camera' ? (p.distanceConnue === false ? null : p.distance) : (p.distance ?? null);
   // La chaine de production : `analyserLeMur`, qu'appellent l'audit, le releve et la calibration (une photo : son assemblage).
-  const r = analyserLeMur({ largeur: v.largeur, hauteur: hauteurEstimee, contour: CONTOUR(v.largeur), cote: 0, distance }, [{ photo: image, coins: coinsImage, focalePx: focale }], 'vues')?.r ?? null;
+  // Le gabarit vrai pose par les coins, comme l'audit et la calibration posent celui du LiDAR : la silhouette ou la detection cherche.
+  const r = analyserLeMur({ largeur: v.largeur, hauteur: hauteurEstimee, contour: CONTOUR(v.largeur), cote: 0, distance }, [{ photo: image, coins: coinsImage, focalePx: focale, silhouette: silhouetteVraie(s, coinsImage) }], 'vues')?.r ?? null;
   if (r) {
     m.photo = mesurerDetection(v.ouvertures, r.ouvertures);
     m.hauteurCm = Math.round((r.hauteur - v.hauteur) * 100);
@@ -357,7 +360,7 @@ function mesurerVues(s: SceneFacade, p: PriseCamera, photo: { image: Image; foca
     const [dx, dy] = q.decalageCoins ?? [0, 0];
     return [{ photo: ph.image, coins: c.map((k) => ({ x: k.x + dx, y: k.y + dy })), focalePx: p.focaleConnue === false ? null : ph.focalePx }];
   });
-  const principale = { photo: photo.image, coins: v.coins ?? [], focalePx: p.focaleConnue === false ? null : photo.focalePx };
+  const principale = { photo: photo.image, coins: v.coins ?? [], focalePx: p.focaleConnue === false ? null : photo.focalePx, silhouette: silhouetteVraie(s, v.coins ?? []) };
   // La chaine de production : l'assemblage pose le mur, la fusion des vues en compose l'image (analyseMur.ts::fondreLesVues).
   const a = analyserLeMur({ largeur: v.largeur, hauteur: p.hauteurEstimee ?? v.hauteur, contour: CONTOUR(v.largeur), cote: 0, distance: p.distanceConnue === false ? null : p.distance }, [principale, ...autres], 'vues');
   const f = a ? { elevation: a.r.elevation, ouvertures: a.r.ouvertures, masque: a.fusion?.masque ?? 0, vues: a.fusion?.vues ?? [], occlusion: a.fusion?.occlusion ?? new Uint8Array(0) } : null;
@@ -383,6 +386,12 @@ function mesurerVues(s: SceneFacade, p: PriseCamera, photo: { image: Image; foca
 const chaine = (m: MesurePhoto): ChaineScene => ({ photo: m.photo, hauteurCm: m.hauteurCm, coinsFinCm: m.fin.releve?.coinsCm ?? null });
 
 /** Rejoue une scene. */
+/** Le gabarit vrai d'une scene pose sur une photo par ses coins ; null pour un rectangle (rien au-dessus de l'egout, rien ne change). */
+function silhouetteVraie(s: SceneFacade, coins: readonly P2[]): P2[] | null {
+  const g = gabaritVrai(s);
+  return g === GABARIT_RECTANGLE ? null : gabaritSurLaPhoto(g, coins);
+}
+
 /** Le batiment d'un mur du banc : un rectangle de 6 m de profondeur derriere lui. */
 const CONTOUR = (L: number) => [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }];
 
@@ -390,8 +399,9 @@ export function rejouerScene(s: SceneFacade): ResultatScene {
   const t0 = performance.now();
   const px = s.synthese.pxParM ?? 100;
   const v = s.verite;
-  const elev = murSeul(s, peindreElevation(s, px, true), px);
-  const detElev = detecterOuvertures(elev, px);
+  // L'elevation parfaite, lue comme la chaine la lit : la facade entiere dans la silhouette du gabarit vrai (un pignon compris).
+  const fp = facadePeinte(s, peindreElevation(s, px, true), px);
+  const detElev = detecterDansLaSilhouette(fp.image, null, fp.dedans, px).ouvertures;
   const res: ResultatScene = {
     nom: s.nom,
     difficultes: s.difficultes,
@@ -618,7 +628,7 @@ const atteint = (ok: boolean) => (ok ? 'atteint' : 'non atteint');
 /** Le tableau du banc, en Markdown : trois sections, puis les objectifs de la spec (§14). */
 export function tableau(b: ResultatBanc): string {
   const l: string[] = [];
-  l.push('### Détection seule (élévation parfaite, `detecterOuvertures`)', '', ...ENTETE_DETECTION);
+  l.push('### Détection seule (élévation parfaite, `detecterDansLaSilhouette`)', '', ...ENTETE_DETECTION);
   for (const r of b.scenes) l.push(ligneDetection(r.nom, r.elevation));
   l.push(ligneSynthese(b.elevation), '');
   l.push('### Chaîne de production (photo, coins vrais, `analyserLeMur`)', '', ...ENTETE_DETECTION);

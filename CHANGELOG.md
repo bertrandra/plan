@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Façades (calibration, audit de la parcelle, relevé) : la détection des ouvertures lisait le mur coupé au sol et à l'égout, et ne
+  voyait jamais une baie de pignon (fenêtre de comble, oculus). Elle lit désormais la façade redressée entière, fusionnée quand
+  plusieurs vues se fondent, et cherche dans la silhouette du mur (le gabarit du plan et du LiDAR, pignons compris) : rien dans le ciel
+  à côté des rampants ni dans le mur d'un voisin. Une baie de pignon garde sa place dans le repère du mur, au-dessus de l'égout, et la
+  Vue 3D la pose quand les corps du toit disent le pignon (elle l'omettait). Sous un mur rectangulaire, rien ne change.
+  - Admin › Calibration : l'étape É7 et la toile d'annotation montrent la façade que lit la détection, entière et fusionnée, avec sa
+    silhouette par-dessus (la toile montrait le mur coupé à l'égout) ; une baie de pignon s'y annote.
+  - Banc des façades : scène `24-pignon-baie-dans-le-pignon` ajoutée (trouvée 6 sur 6, contre 5 sur 6 avant) ; le banc pose le gabarit
+    vrai de chaque scène, comme le LiDAR. Aucune quantité ni aucun export ne change.
+
 ## [5.4.1] — 2026-10-30
 
 Version **corrective** au sens de `MD/RELEASE.md` : un mot hors catalogue lu dans un fichier (pergola et carport, clôture, murs en 3D,

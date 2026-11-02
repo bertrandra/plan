@@ -22,6 +22,12 @@ describe('analyserLeMur, plusieurs vues assemblees', () => {
     expect(a.fusion?.statut).toBe('fusionnee');
     expect(a.r).toBe(a.fusion);
     expect(a.fusion!.masque).toBeGreaterThan(0);
+    // La detection lit la composition de la fusion entiere, dans le cadre de la texture : le mur fondu et la bande au-dessus de
+    // l'egout, rien n'est coupe a l'egout.
+    const f = a.r.facade;
+    expect([f.image.largeur, f.image.hauteur]).toEqual([a.r.texture.largeur, a.r.texture.hauteur]);
+    expect(f.image.hauteur).toBeGreaterThan(a.r.elevation.hauteur);
+    expect(f.image.donnees.subarray((f.image.hauteur - a.r.elevation.hauteur) * f.image.largeur * 4)).toEqual(a.r.elevation.donnees);
     const m = mesurerDetection(v.ouvertures, a.r.ouvertures);
     expect(m.rappel).toBe(1);
     // L'assemblage seul (sans vote ni occultation) en manque.

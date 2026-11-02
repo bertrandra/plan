@@ -374,7 +374,7 @@ async function redressementDeLAudit({ e, o, s, obj }: Contexte): Promise<Omit<Et
   };
   if (retenue) {
     const { r, fusion } = retenue.a;
-    s.analyse = { elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? resumeFusion(fusion) : null, assemblage: retenue.a.assemblage ?? null };
+    s.analyse = { elevation: r.elevation, facade: r.facade, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? resumeFusion(fusion) : null, assemblage: retenue.a.assemblage ?? null };
   }
   const photos = c.redressement.photos, faites = photos.filter((p) => p.statut !== 'echec').length;
   if (!photos.length) return attend('une photo');
@@ -654,11 +654,11 @@ function analyserLeMurDuCas(e: EntreesFacade, pose: AssemblageDuMur | null, prem
   // Plusieurs vues dans l'assemblage pose : il pose le mur, leur fusion en compose l'image (vote, occultations).
   const fondue = pose ? fondreLesVues(mur, photos, pose, e.gabarit) : null;
   const r0 = fondue ?? (pose ? analyserLAssemblage(mur, pose, e.gabarit) : null);
-  if (r0) return { elevation: r0.elevation, pxParM: r0.pxParM, texture: r0.texture, hauteurTexture: r0.hauteurTexture, profilToit: r0.profilToit ?? null, toitEstime: r0.toitEstime, ouvertures: r0.ouvertures, devinees: r0.devinees, fusion: fondue ? resumeFusion(fondue) : null, assemblage: pose };
+  if (r0) return { elevation: r0.elevation, facade: r0.facade, pxParM: r0.pxParM, texture: r0.texture, hauteurTexture: r0.hauteurTexture, profilToit: r0.profilToit ?? null, toitEstime: r0.toitEstime, ouvertures: r0.ouvertures, devinees: r0.devinees, fusion: fondue ? resumeFusion(fondue) : null, assemblage: pose };
   const a = analyserLeMur(mur, photos, 'vues');
   if (!a) return null;
   const { r, fusion } = a;
-  return { elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? resumeFusion(fusion) : null, assemblage: a.assemblage ?? null };
+  return { elevation: r.elevation, facade: r.facade, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? resumeFusion(fusion) : null, assemblage: a.assemblage ?? null };
 }
 
 const resumeFusion = (f: ResultatFusion): NonNullable<AnalyseDuMur['fusion']> => ({ statut: f.statut, vues: f.vues, masque: f.masque, reference: f.reference, occlusion: f.occlusion });

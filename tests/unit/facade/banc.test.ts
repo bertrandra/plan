@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus, rejouerCorpus, rejouerScene, tableau, capteursSimules } from '../../banc/facades/banc.js';
-import { coinsVrais, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../banc/facades/synthese.js';
+import { coinsVrais, formePignon, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../banc/facades/synthese.js';
 import { apparier, recouvrement, mesurerDetection, erreurCoinsCm } from '../../banc/facades/mesure.js';
 import { coinsDuReleve, biaisDepuisCap } from '../../../src/facade/calage/calage.js';
 
@@ -28,7 +28,10 @@ describe('corpus de facades', () => {
       for (const o of s.verite.ouvertures) {
         expect(o.x, s.nom).toBeGreaterThanOrEqual(0);
         expect(o.x + o.l, s.nom).toBeLessThanOrEqual(s.verite.largeur + 1e-9);
-        expect(o.y + o.h, s.nom).toBeLessThanOrEqual(s.verite.hauteur + 1e-9);
+        // Dans le mur, ou dans son pignon : sous les rampants aux deux coins du haut de la baie.
+        const pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5;
+        const haut = Math.min(...[o.x, o.x + o.l].map((x) => s.verite.hauteur + pg * formePignon(x / s.verite.largeur, sommet)));
+        expect(o.y + o.h, s.nom).toBeLessThanOrEqual(haut + 1e-9);
       }
     }
   });
