@@ -172,6 +172,10 @@ d'y toucher.
   en a une, en lecture seule ; (c) la fin (`vue`) : V4 écrit la Façade dans l'audit, la calibration n'écrit rien ; (d) ce qui se montre.
   Un ajout de la calibration (vérité, réponse de Claude rejouée, texture sans ombres) lit les sorties communes sans les changer
   (`tests/unit/facade/releve/uneOrchestration.test.ts`). Un écran de l'audit ne calcule rien : il cache.
+  **Une seule exception, acceptée** (décision du propriétaire, 2 novembre 2026) : « Rappeler Claude » de la calibration envoie l'assemblage
+  (l'image prise pour la suite), l'audit envoie `imageRun` (la photo du relevé redressée jusqu'au haut de la façade). On la laisse : les
+  références du plancher de lecture 5.1.0 (`tests/fixtures/facades/lecture-5.1.0/`, garde-fou de la lecture) ont été lues sur
+  l'assemblage, et changer l'image de la calibration les rendrait incomparables. Ne pas « corriger » cet écart sans nouvelle décision.
 - **Les étapes d'une façade s'appellent É1 à É11** (`model/etapeFacade.ts`, sans « bis »), dans l'orchestrateur et à l'écran (calibration
   et audit, où une étape cachée garde son numéro) ; le propriétaire les désigne par ces numéros dans ses demandes.
 - **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur

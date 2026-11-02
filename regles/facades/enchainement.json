@@ -33,6 +33,11 @@
       "unite": "part",
       "pourquoi": "E4 : chacun des deux angles d'une pose doit etre explique au moins a cette part (la matiere du mur qui s'arrete la, une verticale qui le longe) : un seul angle juste (la moitie du mur, un bout pris sur une fenetre) n'explique pas la photo. Pose au lot F1 sur le banc de synthese : les angles des poses trouvees font au moins 0,86 ; la seule pose de travers qui passerait le score (la moitie gauche de 05, 0,76) a un angle a 0,57 ; l'angle gauche d'AE 101 en synthese, a demi cache par un buisson, 0,67."
     },
+    "facades.enchainement.egoutSilhouetteMin": {
+      "valeur": 0.4,
+      "unite": "part",
+      "pourquoi": "E5 : l'egout de la pose retenue, juge sur la silhouette du gabarit posee par elle (facade/releve/calageAncres.ts : la matiere du mur sous le haut pose et pas au-dessus, d'un bout a l'autre de la silhouette, dans des bandes de 2,5 a 4,5 % de la largeur ; un rectangle n'est que l'egout), doit l'etre au moins a cette part : sous un pignon, l'egout n'est pas une arete et un egout pose sur les linteaux de l'etage passait le score (scene 24 : 0,89). Pose le 2 novembre 2026 sur le banc de synthese (calage-e5.ts, 22 poses justes) : les poses justes font de 0,79 a 1, les memes l'egout deplace de 2 % de la largeur (encore juste) de 0,53 a 1, l'egout deplace de 5 ou 10 % (faux, au-dela de calageEcartMaxPart) au plus 0,16. Le seuil est entre les deux."
+    },
     "facades.enchainement.diagnosticEcartMin": {
       "valeur": 0.08,
       "unite": "part",

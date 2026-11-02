@@ -69,6 +69,19 @@ describe('calageFin', () => {
     expect(r.contour?.decale).toBe(false);
   }, LONG);
 
+  // Sous un pignon, l'egout n'est pas une arete : c'est la ou les deux cotes du mur cessent d'etre verticaux. Scene 24 : les linteaux de
+  // l'etage (4,70 m) etaient pris pour l'egout (5,20 m), 48 cm trop bas ; scene 23 : la droite des hauts des cotes joignait l'egout au
+  // sommet de la rampe, et le coin haut droit tombait 1,8 m trop haut.
+  it.each(['22-', '23-', '24-'])('trouve l egout d un pignon (%s), ni sur les linteaux de l etage ni sur une rampe', (prefixe) => {
+    const s = parNom(prefixe);
+    const { image, prise, coins } = releve(s);
+    const r = calageFinDuReleve(image, s.verite.largeur, s.verite.hauteur, prise, { valeur: prise.distance, precisionM: 0.3 });
+    expect(r.trouve).toBe(true);
+    // A 2 % de la largeur du mur pres (8 m : 16 cm, une dizaine de pixels a cette distance).
+    const px = Math.hypot(coins[1]!.x - coins[0]!.x, coins[1]!.y - coins[0]!.y) / s.verite.largeur;
+    r.coins?.forEach((c, i) => expect(ecartPx(c, coins[i]!)).toBeLessThan(0.02 * s.verite.largeur * px));
+  }, LONG);
+
   it('predit le pied cache par une haie, et le marque comme tel', () => {
     const s = parNom('12-');
     const { image, prise, coins } = releve(s);

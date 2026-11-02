@@ -69,6 +69,22 @@ const POIDS = { soutien: 0.5, plan: 0.2, prise: 0.15, oeil: 0.15 };
  * et le pied du mur n'est pas toujours au niveau du trottoir.
  */
 const ECART_OEIL_M = 0.6;
+/**
+ * Un egout ne coupe pas le mur : les deux cotes du mur s'arretent a lui. Une horizontale que les deux cotes depassent vers le haut de plus
+ * que cette part de leur hauteur, et dont le dessus a encore la teinte du mur, est une ligne dans le mur (les linteaux d'un etage, le bas
+ * d'un pignon), pas son egout. Scene 24 du banc : les linteaux de l'etage, 48 cm sous l'egout d'un pignon, l'emportaient sur l'egout (sous
+ * un pignon, l'egout n'est pas une arete : le mur continue au-dessus) ; leurs cotes montaient 32 px plus haut.
+ */
+const COTES_AU_DESSUS_PART = 0.04;
+/** Au-dela de cet ecart de chromaticite du dessus au mur (`Contraste.autre`), le dessus de l'horizontale n'est plus le mur. */
+const AUTRE_AU_DESSUS_MAX = 0.5;
+/**
+ * La droite qui joint les hauts des deux cotes reste l'egout tant qu'elle ne s'ecarte pas de l'horizontale du mur de plus que cet angle :
+ * le point de fuite horizontal n'est sur qu'a un degre pres quand la boussole est gardee (scene 11 : 0,9 degre). Une rampe en fait 15.
+ * Sans boussole ni point de fuite lu sur la photo, l'horizontale n'est pas connue (la scene 22 importee, sans capteurs : 3,7 degres) :
+ * la droite des deux hauts reste, comme avant.
+ */
+const PENTE_EGOUT_BOUTS_DEG = 3;
 
 export interface EntreeCalageFin {
   image: Image;
@@ -87,6 +103,11 @@ export interface EntreeCalageFin {
   distance?: { valeur: number; precisionM: number } | null;
   /** Les segments deja detectes (le banc les reutilise). */
   segments?: Segment[];
+  /**
+   * Faux : l'azimut de la prise n'a pas ete mesure (une photo importee, sans boussole) ; le point de fuite horizontal n'est alors connu
+   * que s'il se lit sur la photo. Par defaut, il l'a ete.
+   */
+  capConnu?: boolean;
 }
 
 export interface CalageFin {
@@ -360,6 +381,10 @@ interface Contexte {
   horizontaux: Segment[];
   horizon: Ligne | null;
   vV: V3;
+  /** Le point de fuite des horizontales du mur : un egout le vise. */
+  vH: V3;
+  /** Le point de fuite horizontal est-il connu (lu sur la photo, ou la boussole mesuree) ? Sinon, il n'est qu'une supposition. */
+  vHConnu: boolean;
   tol: number;
   largeur: number;
   /**
@@ -419,10 +444,14 @@ function noter(ctx: Contexte, G: Arete, D: Arete, Eg: Arete, Fp: Arete): Hypothe
   // Et un cote dont le dehors a la teinte du mur (la limite d'une ombre portee sur le mur, sous le
   // debord) le borde moins surement qu'un cote qui s'ouvre sur le toit ou le ciel.
   const cote = (c: number, k: Contraste) => ((c + k.ecart) / 2) * k.semblable * (0.5 + 0.5 * k.autre);
+  const kE = contraste(ctx.image, hg, hd, centre, teinte);
+  // Un egout lu sur les aretes (ou predit) que les deux cotes depassent, le mur au-dessus de lui : une ligne dans le mur, pas l'egout
+  // (COTES_AU_DESSUS_PART). L'egout par les bouts des cotes en est dispense : il est la ou ils s'arretent.
+  if (Eg.nature !== 'bouts' && kE.autre < AUTRE_AU_DESSUS_MAX && auDessus(G, hg, bg) && auDessus(D, hd, bd)) return null;
   const soutien =
     (cote(cG, contraste(ctx.image, bg, hg, centre, teinte)) +
       cote(cD, contraste(ctx.image, hd, bd, centre, teinte)) +
-      cote(cE, contraste(ctx.image, hg, hd, centre, teinte)) +
+      cote(cE, kE) +
       cote(cF, contraste(ctx.image, bd, bg, centre, null))) /
     4;
   // La hauteur du modele (BD TOPO) n'est sure qu'a 10 % pres : en deca, toutes les hauteurs se valent ;
@@ -446,6 +475,15 @@ function noter(ctx: Contexte, G: Arete, D: Arete, Eg: Arete, Fp: Arete): Hypothe
     okD = cD >= COUVERTURE_MIN;
   const sources: SourceCoin[] = [okG && vu(cE, Eg), okD && vu(cE, Eg), okD && vu(cF, Fp), okG && vu(cF, Fp)].map((t) => (t ? 'trouve' : 'predit'));
   return { note, coins: q, sources, lignes: [G.ligne, D.ligne, Eg.ligne, Fp.ligne], gauche: G, droite: D, hauteur: h };
+}
+
+/** Le haut des segments d'un cote (`haut`) depasse-t-il son coin du haut `h` (le bas `b`) de plus de COTES_AU_DESSUS_PART du cote ? */
+function auDessus(A: Arete, h: P2, b: P2): boolean {
+  if (!A.haut) return false;
+  const L = Math.hypot(b.x - h.x, b.y - h.y);
+  // Le long du cote, du coin du haut vers le haut (oppose au bas).
+  const t = L > 0 ? ((A.haut.x - h.x) * (h.x - b.x) + (A.haut.y - h.y) * (h.y - b.y)) / L : 0;
+  return t > COTES_AU_DESSUS_PART * L;
 }
 
 /**
@@ -475,7 +513,20 @@ function meilleureHypothese(ctx: Contexte, gauches: Arete[], droites: Arete[], e
         const l = ligneParPoints(a, b);
         return l ? { ligne: l, segments: [], soutien: 0, nature: 'bouts' } : null;
       };
-      const E = [...egouts, bouts(G.haut, D.haut), pred(mur.hauteur)].filter((x): x is Arete => !!x);
+      // L'egout par les hauts des cotes est une horizontale du mur (elle vise le point de fuite horizontal) : la droite qui joint deux
+      // hauts a des hauteurs differentes (une rampe, un appentis adosse : un cote monte plus haut que l'autre) n'en est pas une. Scene 23
+      // du banc : elle joignait l'egout a gauche au haut de la rampe a droite, et le coin haut droit tombait 1,8 m trop haut. Chaque haut
+      // donne alors son horizontale ; quand la droite des deux hauts ne penche pas sur l'horizontale (PENTE_EGOUT_BOUTS_DEG), elle reste.
+      const horizontaleDe = (a?: P2): Arete | null => {
+        if (!a || auBord(a)) return null;
+        const l = ligneParFuite(a, ctx.vH);
+        return l ? { ligne: l, segments: [], soutien: 0, nature: 'bouts' } : null;
+      };
+      const hG = horizontaleDe(G.haut), hD = horizontaleDe(D.haut);
+      const ecartHauts = G.haut && D.haut ? Math.hypot(D.haut.x - G.haut.x, D.haut.y - G.haut.y) : 0;
+      const memeHorizontale = !ctx.vHConnu || !!(hG && D.haut && ecartHauts > 0 && distanceA(hG.ligne, D.haut) <= ecartHauts * Math.tan((PENTE_EGOUT_BOUTS_DEG * Math.PI) / 180));
+      const parLesBouts = memeHorizontale ? [bouts(G.haut, D.haut)] : [hG, hD];
+      const E = [...egouts, ...parLesBouts, pred(mur.hauteur)].filter((x): x is Arete => !!x);
       const F = [...pieds, bouts(G.bas, D.bas), pred(0)].filter((x): x is Arete => !!x);
       for (const Eg of E)
         for (const Fp of F) {
@@ -566,6 +617,8 @@ export function calageFin(e: EntreeCalageFin): CalageFin {
     horizontaux,
     horizon,
     vV,
+    vH,
+    vHConnu: hor.trouve || e.capConnu !== false,
     tol,
     largeur: Math.hypot(e.mur.droite.x - e.mur.gauche.x, e.mur.droite.y - e.mur.gauche.y),
     // Une focale estimee fausse l'echelle de la triangulation d'autant : la distance s'en ressent.
@@ -616,7 +669,7 @@ export function calageFinDuReleve(image: Image, largeur: number, hauteur: number
   // L'azimut de la prise du releve vaut moins le biais (la facade regarde vers -Y).
   const recaler = (a: { azimutDeg: number; inclinaisonDeg: number; roulisDeg: number }) =>
     priseVisantLeMilieu(largeur, hauteur, { ...r, biaisDeg: -ecartSigne(a.azimutDeg), inclinaisonDeg: a.inclinaisonDeg, roulisDeg: a.roulisDeg }).prise;
-  return calageFin({ image, mur, prise, incertitude: incertitudeDuReleve(r), recaler, distance, ...(segments ? { segments } : {}) });
+  return calageFin({ image, mur, prise, incertitude: incertitudeDuReleve(r), recaler, distance, capConnu: r.biaisDeg != null, ...(segments ? { segments } : {}) });
 }
 
 /**

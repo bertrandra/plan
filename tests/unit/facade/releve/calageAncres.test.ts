@@ -5,7 +5,7 @@ import { murSurLAssemblage, vuesDeFace } from '../../../../src/facade/releve/coi
 import { mosaiqueDesVues, rectanglesSurLesAretes, type Rect } from '../../../../src/facade/vision/mosaiqueFuites.js';
 import { detecterSegments } from '../../../../src/facade/vision/segments.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, type PriseCamera } from '../../../banc/facades/synthese.js';
+import { gabaritVrai, photographier, type PriseCamera } from '../../../banc/facades/synthese.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
 import { lireRunEnregistre, type ObservationsFacade, type RunEnregistre } from '../../../../src/regles/facades/observations.js';
@@ -43,6 +43,40 @@ describe('le score d explication d une pose du mur, sans le toit', () => {
       { x0: r.x0 + 0.15 * w, x1: r.x1 - 0.15 * w, y0: r.y0 + 0.15 * h, y1: r.y1 - 0.15 * h },
     ];
     for (const q of fausses) expect(expliqueLaPhoto(expliquer(m, segs, q, rapport), seuils)).toBe(false);
+  }, 60_000);
+
+  // L'E5 juge la pose retenue sur la silhouette du gabarit qu'elle pose (decision du proprietaire, 2 novembre 2026) : l'egout tout le long,
+  // et les angles aux bouts de la silhouette. Sur un pignon, un egout 48 cm trop bas passait le test (scene 24 : 0,89). Un bord a plus de
+  // 3 % de la largeur du mur est faux (`calageEcartMaxPart`) : a 5 et 10 %, l'egout est refuse.
+  it.each(['02-', '22-', '23-', '24-'])('avec le gabarit, refuse un egout deplace de 5 ou 10 %% de la largeur (scene %s)', (prefixe) => {
+    const s = chargerCorpus().find((c) => c.nom.startsWith(prefixe))!;
+    const { m, rapport } = assemblage(prefixe);
+    const r = murSurLAssemblage(m, rapport);
+    const segs = detecterSegments(m.image), g = gabaritVrai(s);
+    const juste = expliquer(m, segs, r, rapport, m, g);
+    expect(juste.silhouette).toBe(true);
+    expect(expliqueLaPhoto(juste, seuils)).toBe(true);
+    const w = r.x1 - r.x0;
+    for (const d of [-0.1, -0.05, 0.05, 0.1]) {
+      const e = expliquer(m, segs, { ...r, y0: r.y0 + d * w }, rapport, m, g);
+      expect(e.egout).toBeLessThan(seuils.egout);
+      expect(expliqueLaPhoto(e, seuils)).toBe(false);
+    }
+  }, 60_000);
+
+  it('un pignon voisin qui prolonge la facade : l angle est au bout de la silhouette, pas au bout du mur', () => {
+    // La scene 24 vue comme un mur de 5 m que le pignon d'un corps voisin prolonge jusqu'a 8 m : a x = 5 m, la matiere continue.
+    const { m } = assemblage('24-');
+    const r8 = murSurLAssemblage(m, 5.2 / 8);
+    const w8 = r8.x1 - r8.x0, r5 = { ...r8, x1: r8.x0 + (5 / 8) * w8 };
+    const segs = detecterSegments(m.image), H = 5.2;
+    const g = [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }];
+    const sans = expliquer(m, segs, r5, H / 5);
+    expect(sans.angles[1]).toBeLessThan(seuils.angle);
+    const avec = expliquer(m, segs, r5, H / 5, m, g);
+    expect(expliqueLaPhoto(avec, seuils)).toBe(true);
+    // Le mur entier de 8 m pris pour le mur de 5 m, sous le meme gabarit : son bout de silhouette tombe dans le vide.
+    expect(expliqueLaPhoto(expliquer(m, segs, r8, H / 5, m, g), seuils)).toBe(false);
   }, 60_000);
 
   it('ne lit rien sans matiere de mur : score nul', () => {

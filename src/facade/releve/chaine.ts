@@ -29,8 +29,10 @@ import type { Prise } from './prise.js';
  * les images d'origine, et ce qui a change. 11 (2 novembre 2026) : la calibration rejoue la chaine de l'audit (un seul processus) ;
  * un cas, un mur vrai ou une reponse de Claude enregistres sous la 10 ont ete poses sur l'image de l'ancien chemin de la calibration.
  * 12 (2 novembre 2026) : le cadre que lit la detection est la boite de la silhouette entiere et sa marge (analyse.ts::cadreDeLaSilhouette).
+ * 13 (2 novembre 2026) : le calage fin ne prend plus pour l'egout une horizontale que les deux cotes du mur depassent (les linteaux d'un
+ * etage sous un pignon) ni la droite qui joint des hauts de cotes a des hauteurs differentes (une rampe) : les coins d'un pignon changent.
  */
-export const VERSION_CHAINE_FACADES = 12;
+export const VERSION_CHAINE_FACADES = 13;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 const SEUIL_VERTICALES_DEG = 0.5;
