@@ -296,6 +296,26 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Sortie** : `x0`, `x1`, `égout`, `sol` sur l'assemblage, `forme.pointes`, la source de chaque point.
 - **Illustration** : trois calques sur l'assemblage, activables : la pose déterministe (rouge), les points de l'IA (bleu), la pose retenue
   (vert), avec le score de chacune et l'écart entre elles en pourcentage de la largeur.
+- **Les pignons** (lot « calage des pignons », 2 novembre 2026 ; question Q3 du propriétaire) :
+  - **Chercher** (`facade/calage/calageFin.ts`, sans le gabarit) : sous un pignon, l'égout n'est pas une arête, c'est là où les deux côtés du
+    mur cessent d'être verticaux. Une horizontale que **les deux côtés dépassent vers le haut**, le mur au-dessus d'elle, est une ligne dans
+    le mur (les linteaux d'un étage), pas l'égout ; l'égout par les hauts des côtés est une **horizontale** du mur (la droite qui joint deux
+    hauts à des hauteurs différentes, une rampe, n'en est pas une, sauf à 3° près quand le point de fuite horizontal n'est sûr qu'au degré ;
+    sans boussole ni point de fuite lu sur la photo, l'horizontale n'est pas connue et cette droite reste, comme avant).
+    Banc : scène 24 (égout pris 48 cm trop bas, sur les linteaux de l'étage) et 23 (coin haut droit 1,8 m trop haut, au sommet de la
+    rampe) retrouvées ; coins du calage fin sans geste 87/92 → 92/92.
+  - **Juger** (`facade/releve/calageAncres.ts::expliquer(…, gabarit)`, l'É5 seulement ; l'arbitre de la recherche reste sans gabarit) : la pose
+    retenue se juge sur **la silhouette du gabarit qu'elle pose** : l'égout tout le long (la matière du mur sous le haut posé, pas au-dessus ;
+    un rectangle n'est que l'égout), seuil `facades.enchainement.egoutSilhouetteMin` (0,4) en plus du score et des angles ; les angles **aux
+    bouts de la silhouette** : le bout d'un mur que le pignon d'un corps voisin prolonge n'est pas un angle, la matière y continue. Banc
+    (`calage-e5.ts`) : l'égout faux de la scène 24 passait « ok » (score 0,89). L'égout se lit dans des bandes de 2,5 à 4,5 % de la largeur
+    de part et d'autre du haut posé : un égout encore juste (2 %) passe, un égout faux (au-delà des 3 % de `calageEcartMaxPart`) échoue.
+    Les poses justes ont un égout de 0,79 à 1, à 2 % de 0,53 à 1, à 5 ou 10 % au plus 0,16 ; 176 poses fausses sur 176 refusées (87 sur
+    160 avant), 44 sur 44 à 2 % acceptées (37 sur 40 avant), aucune pose juste refusée ; le mur de 5 m prolongé par un pignon voisin,
+    posé juste, passe de 0,52 à 1. Un gabarit faux rend une pose juste « à confirmer » : la direction
+    prudente, et l'É7 dit l'écart.
+  - **Reste** : sur le mur de 5 m prolongé par un pignon voisin, la recherche (qui ignore le gabarit) prend le mur entier de 8 m pour un mur
+    de 5 m ; l'É5 le dit « à confirmer » (score 0,20) et la personne pose le mur.
 
 ### É6 · Silhouette lue, par corps
 
@@ -539,6 +559,12 @@ façade, ce qui est fait, ce qui attend la personne.
      le texte de l'É11 en dépendent ;
   4. **ce qui se montre** : la calibration montre chaque étape et ses images (frise, calques) ; l'audit montre V1 à V4 et ce qui doute,
      avec la même barre de progression (§4 ter.5), les mêmes gestes de reprise (`PoserReperes`, `AjusterMur`).
+- **Une seule exception, acceptée** (décision du propriétaire, 2 novembre 2026, question Q1) : **« Rappeler Claude »** de la calibration
+  envoie l'**assemblage** (l'image prise pour la suite), l'audit envoie **`imageRun`** (la photo qui porte le relevé, redressée dans le plan
+  du mur du sol jusqu'au haut de la façade). L'écart reste : les références du plancher de lecture 5.1.0 (`lecture-5.1.0/`, §5 quater du
+  skill `facades`, `MD/RELEASE.md` §8.2 bis) ont été lues sur l'assemblage ; envoyer `imageRun` depuis la calibration rendrait ses mesures
+  incomparables à ce plancher. C'est la seule différence de calcul entre les deux vues ; elle ne touche que l'appel à Claude, pas la chaîne
+  (É1 à É11 restent identiques, `uneOrchestration.test.ts`). Ne se change que sur une nouvelle décision, avec une nouvelle référence.
 - **Les ajouts de la calibration lisent, ne changent rien** : la mesure contre la vérité (É5, É7, É9), la réponse de Claude rejouée
   (sa pose des deux angles se mesure contre le mur retenu sans le changer ni changer l'état de l'É5 ; l'accord des boîtes et le diagnostic
   sont ce que l'audit fait après son run), la texture sans ombres (l'écran seulement).

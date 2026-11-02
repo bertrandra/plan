@@ -1,8 +1,17 @@
 // Le calage du mur par ses ancres (MD/spec-facade-calage-audit.md §4 E5, §5) : une pose du mur sur l'assemblage (ses bouts, son
 // egout, son sol) se juge sur ce qui ne depend pas du toit. Les deux angles du mur sont des bords de sa matiere (du mur d'un cote, autre
 // chose de l'autre, sous l'egout), l'egout est une horizontale ou le haut de la matiere aux angles, le sol la fin de la matiere, et les
-// proportions sont celles du plan a 30 % pres. Le gabarit n'y entre pas : il vient du toit calcule, qui est ce que la photo met en
-// question (§5 bis) ; s'en servir pour caler masquerait l'ecart que l'on cherche a voir.
+// proportions sont celles du plan a 30 % pres. Le gabarit n'entre pas dans la recherche du mur (l'arbitre, calerParLesAncres) : il vient
+// du toit calcule, qui est ce que la photo met en question (§5 bis) ; s'en servir pour caler masquerait l'ecart que l'on cherche a voir.
+//
+// Il entre en revanche dans le jugement de la pose retenue (l'E5, `expliquer(…, gabarit)` ; demande du proprietaire, 2 novembre 2026) :
+// l'egout se juge sur toute la silhouette posee (la matiere du mur sous elle, pas au-dessus), et non plus a ses seuls angles. Sous un
+// pignon, l'egout n'est pas une arete et le mur continue au-dessus de lui : la matiere aux angles ne disait pas un egout pose 48 cm trop
+// bas (scene 24 du banc, score 0,89 pour la pose fausse comme pour la juste). Sur un mur rectangulaire, un egout deplace de 5 a 10 % de
+// la hauteur passait aussi le test (son poids est faible, et la bande lue aux angles pres d'eux) : le seuil de l'egout
+// (`egoutSilhouetteMin`) le refuse desormais. Et quand le pignon d'un corps voisin prolonge la facade au-dela d'un bout, ce bout n'est pas
+// un angle (la matiere y continue) : l'angle est au bout de la silhouette (le mur de 5 m de la scene 24, score 0,52). Un gabarit faux (le
+// LiDAR) rend alors une pose juste « a confirmer » : la direction prudente, et le diagnostic de forme (E7) dit l'ecart.
 //
 // Sur AE 101 (facade sud), le rectangle des aretes retenait un bloc de pignon, un mur de 302 px au lieu de 610 : ses bouts tombaient
 // au milieu de l'enduit, que rien ne faisait finir la. Le score le dit, et l'arbitre prend alors la pose qui explique la photo, ou,
@@ -13,6 +22,7 @@
 import type { Image } from '../vision/homographie.js';
 import { affinerEgoutEtSol, matiereDuMur, type MurLu, type Rect } from '../vision/mosaiqueFuites.js';
 import { objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
+import type { GabaritMur } from '../gabaritMur.js';
 
 type Segment = { x1: number; y1: number; x2: number; y2: number; longueur: number };
 type Vue = { image: Image; vu: Uint8Array };
@@ -27,6 +37,12 @@ export interface Explication {
   sol: number;
   /** Les proportions de la pose contre celles du plan : 1 a 30 % pres, 0 au double de l'ecart. */
   proportions: number;
+  /**
+   * Vrai : l'egout a ete juge sur la silhouette du gabarit posee par la pose (la matiere du mur sous elle, pas au-dessus, d'un bout a
+   * l'autre), et les angles aux bouts de la silhouette ; il doit alors atteindre son seuil (SeuilsCalage.egout). Faux : sans gabarit
+   * (l'arbitre de la recherche), l'egout aux angles ou sur une horizontale, comme avant.
+   */
+  silhouette: boolean;
   /**
    * La part du mur, entre ses angles, qui a la matiere lue le long de ses bouts. Les baies en prennent une part ; quand la matiere
    * n'est pas celle de la plus grande part du mur, ce n'est pas le mur (deux fenetres prises pour ses bouts) : le score la suit.
@@ -57,11 +73,14 @@ interface CalageParAncres {
   seuils: SeuilsCalage;
 }
 
-/** Les seuils du test d'explication : le score, et chacun des deux angles (regles/facades/enchainement.json). */
-export interface SeuilsCalage { score: number; angle: number }
+/**
+ * Les seuils du test d'explication : le score, chacun des deux angles, et l'egout lu sur la silhouette du gabarit
+ * (regles/facades/enchainement.json).
+ */
+export interface SeuilsCalage { score: number; angle: number; egout: number }
 
 /** Les seuils du test d'explication tires des objectifs de l'enchainement (ceux livres, sauf surcharge). */
-export const seuilsDuCalage = (o: Objectifs = objectifsEnchainement()): SeuilsCalage => ({ score: o['facades.enchainement.explicationMin'], angle: o['facades.enchainement.angleMin'] });
+export const seuilsDuCalage = (o: Objectifs = objectifsEnchainement()): SeuilsCalage => ({ score: o['facades.enchainement.explicationMin'], angle: o['facades.enchainement.angleMin'], egout: o['facades.enchainement.egoutSilhouetteMin'] });
 
 /** Le mur cale sur l'assemblage : le rectangle, ce qui en a ete lu (drapeaux honnetes), et le calage qui l'a retenu. */
 export interface MurCale extends MurLu { calage: CalageParAncres }
@@ -88,6 +107,29 @@ const AUTRES_POSES = 6;
 const MATIERE_MIN = 0.5;
 /** La pose du plan seul : la plus grande, aux proportions du plan, dans cette part de ce que l'assemblage montre, centree. */
 const PART_PLAN_SEUL = 0.8;
+/** Les colonnes ou se lit la silhouette, regulierement de l'un de ses bouts a l'autre. */
+const COLONNES_SILHOUETTE = 40;
+/** Les colonnes trop pres d'un bout de la silhouette (en part de la largeur du mur) ne se lisent pas : l'angle y est, pas le haut. */
+const BOUT_SILHOUETTE = 0.02;
+/**
+ * Les bandes lues de part et d'autre du haut pose par la silhouette, en part de la largeur du mur : a partir de 2,5 % de lui, sur 2 %.
+ * L'ecart laisse passer un egout juste a la tolerance d'un bord (`calageEcartMaxPart`, 3 %) ; un egout a 4 % ou plus a du mur dans la
+ * bande du dessus (ou du ciel dans celle du dessous) et echoue. Collees au haut, elles refusaient un egout a 1 % (scene 24 : 0,36).
+ */
+const BANDE_SILHOUETTE: readonly [number, number] = [0.025, 0.045];
+
+/** La hauteur du gabarit en `u` (part de la hauteur du mur), entre ses sommets ; ses bouts au-dela. */
+function hauteurDuGabarit(g: GabaritMur, u: number): number {
+  const a = g[0], b = g[g.length - 1];
+  if (!a || !b) return 1;
+  if (u <= a.u) return a.v;
+  if (u >= b.u) return b.v;
+  for (let i = 0; i + 1 < g.length; i++) {
+    const p = g[i] as { u: number; v: number }, q = g[i + 1] as { u: number; v: number };
+    if (u >= p.u && u <= q.u) return q.u > p.u ? p.v + ((q.v - p.v) * (u - p.u)) / (q.u - p.u) : Math.max(p.v, q.v);
+  }
+  return 1;
+}
 
 /** La part des cases de mur dans un rectangle de l'image (cases de quelques pixels, moyennes des pixels vus) ; null s'il n'y a rien de vu. */
 function partDeMur(m: Vue, mat: NonNullable<ReturnType<typeof matiereDuMur>>, x0: number, y0: number, x1: number, y1: number, pas: number): number | null {
@@ -133,33 +175,67 @@ const borne = (x: number) => Math.min(1, Math.max(0, x));
  * cadre de l'assemblage dessine aussi des aretes) ne dit pas ou finit la matiere. `pourLaTeinte` : la vue ou se lit la teinte du mur
  * (par defaut la meme ; sans les zones d'un autre parement quand Claude en voit).
  */
-export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: number | null, pourLaTeinte: Vue = m): Explication {
+export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: number | null, pourLaTeinte: Vue = m, gabarit: GabaritMur | null = null): Explication {
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
   // La teinte se lit ou se lisent les angles : le haut du mur, au-dessus d'une haie ou d'une voiture contre un angle ; hors des zones
   // d'un autre parement quand Claude en voit (`pourLaTeinte` : le colombage n'y est pas vu), pour lire celle du parement principal.
   const mat = w > 0 && h > 0 ? matiereDuMur(pourLaTeinte, r, RANGEES_ANGLE) : null;
-  if (!mat) return { score: 0, angles: [0, 0], egout: 0, sol: 0, proportions: 0, matiere: 0 };
+  const g = gabarit && gabarit.length >= 2 ? gabarit : null;
+  if (!mat) return { score: 0, angles: [0, 0], egout: 0, sol: 0, proportions: 0, matiere: 0, silhouette: !!g };
   const pas = Math.max(2, Math.round(0.005 * w));
   const part = (x0: number, y0: number, x1: number, y1: number) => partDeMur(m, mat, x0, y0, x1, y1, pas);
-  const ya = r.y0 + RANGEES_ANGLE[0] * h, yb = r.y0 + RANGEES_ANGLE[1] * h;
   const [b0, b1] = BANDE_ANGLE;
-  const angle = (x: number, sens: 1 | -1) => {
+  // Un angle se lit sur les rangees du haut du mur, sous l'egout ; au bout d'une silhouette qui deborde (le pignon d'un corps voisin
+  // dans le prolongement), sous le haut de ce bout quand il est plus bas que l'egout.
+  const angle = (x: number, sens: 1 | -1, v = 1) => {
+    const hv = Math.min(1, v) * h, ya = r.y1 - hv + RANGEES_ANGLE[0] * hv, yb = r.y1 - hv + RANGEES_ANGLE[1] * hv;
     const dedans = part(x + sens * b0 * w, ya, x + sens * b1 * w, yb) ?? 0, dehors = part(x - sens * b1 * w, ya, x - sens * b0 * w, yb) ?? 1;
-    return PART_MATIERE_ANGLE * borne(dedans - dehors) + (1 - PART_MATIERE_ANGLE) * couvertureArete(segs, true, x, r.y0, r.y1, PROCHE_ARETE * w);
+    return PART_MATIERE_ANGLE * borne(dedans - dehors) + (1 - PART_MATIERE_ANGLE) * couvertureArete(segs, true, x, r.y1 - hv, r.y1, PROCHE_ARETE * w);
   };
+  const ya = r.y0 + RANGEES_ANGLE[0] * h, yb = r.y0 + RANGEES_ANGLE[1] * h;
   const [c0, c1] = BANDE_BORD;
   // L'egout : aux deux angles, la matiere commence sous lui (un pignon monte des l'angle, une bande de tuiles ou le ciel est au-dessus).
   const debut = (xa: number, xb: number) => borne((part(xa, r.y0 + c0 * w, xb, r.y0 + c1 * w) ?? 0) - (part(xa, r.y0 - c1 * w, xb, r.y0 - c0 * w) ?? 0));
   const egoutMatiere = (debut(r.x0 + 0.01 * w, r.x0 + 0.04 * w) + debut(r.x1 - 0.04 * w, r.x1 - 0.01 * w)) / 2;
-  const egout = Math.max(egoutMatiere, couvertureArete(segs, false, r.y0, r.x0, r.x1, PROCHE_ARETE * w));
+  // Avec le gabarit : la silhouette posee par la pose (son egout et son sol) explique le haut de la matiere, colonne par colonne, d'un
+  // bout de la silhouette a l'autre ; un egout pose trop bas laisse du mur au-dessus d'elle, un egout trop haut du ciel sous elle. Un
+  // rectangle n'est que l'egout, d'un angle a l'autre.
+  const egout = g ? egoutParLaSilhouette(g, r, (xa, ya0, xb, yb0) => part(xa, ya0, xb, yb0), BANDE_SILHOUETTE[0], BANDE_SILHOUETTE[1]) : Math.max(egoutMatiere, couvertureArete(segs, false, r.y0, r.x0, r.x1, PROCHE_ARETE * w));
   const solMatiere = borne((part(r.x0 + 0.05 * w, r.y1 - c1 * w, r.x1 - 0.05 * w, r.y1 - c0 * w) ?? 0) - (part(r.x0 + 0.05 * w, r.y1 + c0 * w, r.x1 - 0.05 * w, r.y1 + c1 * w) ?? 0));
   const sol = Math.max(solMatiere, couvertureArete(segs, false, r.y1, r.x0, r.x1, PROCHE_ARETE * w));
   const ecart = rapport && rapport > 0 ? Math.abs(h / w / rapport - 1) : 0;
   const proportions = borne(1 - Math.max(0, ecart - ECART_RAPPORT) / ECART_RAPPORT);
-  const angles: [number, number] = [angle(r.x0, 1), angle(r.x1, -1)];
+  // Les angles sont aux bouts de la silhouette : un bout du mur que le gabarit prolonge (u hors de 0 a 1) n'est pas un angle, la matiere
+  // y continue ; le bout du gabarit l'est.
+  const ug0 = g ? Math.min(0, (g[0] as { u: number }).u) : 0, ug1 = g ? Math.max(1, (g[g.length - 1] as { u: number }).u) : 1;
+  const angles: [number, number] = [
+    ug0 < 0 ? angle(r.x0 + ug0 * w, 1, hauteurDuGabarit(g as GabaritMur, ug0)) : angle(r.x0, 1),
+    ug1 > 1 ? angle(r.x0 + ug1 * w, -1, hauteurDuGabarit(g as GabaritMur, ug1)) : angle(r.x1, -1),
+  ];
   const matiere = part(r.x0 + 0.05 * w, ya, r.x1 - 0.05 * w, yb) ?? 0;
   const score = (POIDS.angle * (angles[0] + angles[1]) + POIDS.egout * egout + POIDS.sol * sol + POIDS.proportions * proportions) * Math.min(1, matiere / MATIERE_MIN);
-  return { score: Math.round(score * 1000) / 1000, angles, egout, sol, proportions, matiere };
+  return { score: Math.round(score * 1000) / 1000, angles, egout, sol, proportions, matiere, silhouette: !!g };
+}
+
+/**
+ * L'egout juge par la silhouette du gabarit posee sur la pose : sur COLONNES_SILHOUETTE colonnes de l'un de ses bouts a l'autre, la
+ * matiere du mur sous le haut pose, et pas au-dessus (des bandes de `c0` a `c1` de la largeur du mur), de 0 a 1 en moyenne. `part` : la
+ * part de mur d'un rectangle de l'image (null : rien de vu ; au-dessus de l'image, rien de vu ne compte pas pour du mur).
+ */
+function egoutParLaSilhouette(g: GabaritMur, r: Rect, part: (x0: number, y0: number, x1: number, y1: number) => number | null, c0: number, c1: number): number {
+  const w = r.x1 - r.x0, h = r.y1 - r.y0;
+  const u0 = Math.min(0, (g[0] as { u: number }).u) + BOUT_SILHOUETTE, u1 = Math.max(1, (g[g.length - 1] as { u: number }).u) - BOUT_SILHOUETTE;
+  const pasU = (u1 - u0) / COLONNES_SILHOUETTE;
+  let somme = 0, n = 0;
+  for (let k = 0; k < COLONNES_SILHOUETTE; k++) {
+    const u = u0 + (k + 0.5) * pasU, x = r.x0 + u * w, y = r.y1 - hauteurDuGabarit(g, u) * h;
+    const xa = x - (pasU * w) / 2, xb = x + (pasU * w) / 2;
+    const dessous = part(xa, y + c0 * w, xb, y + c1 * w);
+    if (dessous === null) continue;
+    somme += borne(dessous - (part(xa, y - c1 * w, xb, y - c0 * w) ?? 0));
+    n++;
+  }
+  return n ? somme / n : 0;
 }
 
 /**
@@ -181,7 +257,7 @@ function poseDuPlanSeul(m: Vue, rapport: number | null): MurLu {
  * Le test d'explication : le score au moins a son seuil, et chacun des deux angles au sien. Un seul angle juste (la moitie du mur, un
  * bout pris sur une fenetre) n'explique pas la photo, si bien que le reste de la pose la decrive.
  */
-export const expliqueLaPhoto = (e: Explication, s: SeuilsCalage): boolean => e.score >= s.score && Math.min(...e.angles) >= s.angle;
+export const expliqueLaPhoto = (e: Explication, s: SeuilsCalage): boolean => e.score >= s.score && Math.min(...e.angles) >= s.angle && (!e.silhouette || e.egout >= s.egout);
 
 /**
  * L'arbitre du calage (§5) : la premiere pose (celle des aretes) est gardee si elle explique la photo (expliqueLaPhoto) ; sinon,

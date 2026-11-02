@@ -152,7 +152,7 @@ describe('l enchainement d une facade', () => {
     const e = etapeDe(await derouler(entreesDuCas(c, [sc.image]), { ...CAL, verite: { calage: etalon.calageVrai } }), 'calage');
     // Un mur pose a la main l'emporte (comme dans l'audit) ; ce qu'il explique de l'image reste dit.
     expect(e.etat).toBe('ok');
-    expect(e.resume).toMatch(/^Mur posé à la main\. .*Sur l’assemblage : x de 4\d\d à 7\d\d .* qui n’explique pas la photo sans le toit/);
+    expect(e.resume).toMatch(/^Mur posé à la main\. .*Sur l’assemblage : x de 4\d\d à 7\d\d .* que sa silhouette n’explique pas/);
     expect(e.verite?.juste).toBe(false);
   }, 120_000);
 

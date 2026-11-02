@@ -270,6 +270,21 @@ de 0,83 à 1 ; les poses de travers (une moitié du mur, le mur décalé ou rent
 défaut d'AE 101 (un bloc de pignon retenu) se rejoue sans ses photos sur `tests/banc/facades/ae101.ts::sceneAe101`, tiré de l'étalon.
 Une photo serrée sur le mur sans rien autour n'explique pas ses angles : c'est voulu (un bord d'image ne dit pas où finit la matière).
 
+**L'É5 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :
+chaque scène à prise par caméra passe par `enchainement.ts::derouler` (vue `audit`), une photo avec le GPS à 1 m, la boussole et l'EXIF,
+le gabarit vrai : les coins se cherchent comme sur place (le banc des façades, lui, pose les coins vrais). Par scène : l'écart de chaque coin
+retenu en cm sur le mur, l'égout signé, l'état de l'É5, son score et ses ancres, les **poses fausses refusées** (la pose retenue, juste,
+l'égout déplacé de ±5 et ±10 % de la largeur, un bout de ±5 % : au-delà des 3 % où un bord est faux ; combien le test de l'É5 en refuse)
+et les **justes à 2 %** (l'égout déplacé de ±2 % : combien il en accepte). Deux variantes de la scène 24 : un mur de 5 m que le pignon d'un
+corps voisin prolonge jusqu'à 8 m (le gabarit déborde), coins cherchés puis posés à la main. Les scènes 13 et 14 (distorsion corrigée)
+rendent leurs coins sur l'image corrigée : non comparés. Au 2 novembre 2026, après le lot du calage des pignons : 22/23 poses justes,
+aucun faux « ok », aucune pose juste refusée, 176/176 poses fausses refusées, 44/44 à 2 % acceptées (avant, sur `main` f3c6e2db : 20/23,
+un faux « ok » — l'égout de 24 pris 48 cm trop bas, score 0,89 —, le mur de 5 m posé juste refusé à 0,52, 87/160 poses fausses refusées,
+37/40 à 2 % acceptées). Le seul faux qui reste est le mur de 5 m prolongé (la recherche ignore le gabarit), dit « à confirmer ».
+`--sans-capteurs` (photos importées, le point 100 de la fumée) : coins identiques à `main` sauf 21 (faux avant et après) et la variante du
+voisin ; les deux faux « ok » de `main` (08, 21) sont « à confirmer » ; 152/152 poses fausses refusées. La rampe 23 y reste fausse comme
+sur `main` : sans boussole, l'horizontale n'est pas connue et la règle de la rampe ne s'applique pas.
+
 **Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
 par la bande au-dessus de l'égout (l'avis de la photo seule) et celui que dit le gabarit vrai de la scène, posé entre les vrais coins
 (ce que le LiDAR donnerait). Pignons justes
@@ -808,6 +823,9 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   relu par `entreesDuCas`, qui garde le côté, le contour et la prise de vue de chaque photo), les mesures qui demandent la vérité (en lecture
   seule), la fin (`vue` : V4 écrit la Façade dans l'audit, rien en calibration) et ce qui se montre. `uneOrchestration.test.ts` le prouve.
   Un résultat de calibration prouve ce que fera l'audit ; le banc de synthèse, lui, reste sur `analyserLeMur` (synchrone, coins vrais).
+  **Seule exception acceptée** (propriétaire, 2 novembre 2026) : « Rappeler Claude » envoie l'assemblage en calibration et `imageRun` dans
+  l'audit, parce que les références du plancher de lecture 5.1.0 (§5 quater) ont été lues sur l'assemblage. On ne l'aligne pas sans
+  nouvelle décision et nouvelle référence.
 - **Les étapes s'appellent É1 à É11** (É1 Préparation, É2 Prises, É3 Redressement, É4 Assemblage, É5 Calage du mur, É6 Silhouette lue,
   É7 Diagnostic de forme, É8 Texture, É9 Ouvertures, É10 Toit, É11 Validation ; `libelleEtape`), dans l'orchestrateur (et le texte
   d'un rejeu, `reel.ts etalon`) et à l'écran ; le propriétaire les cite par ces numéros.

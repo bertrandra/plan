@@ -59,6 +59,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - Vue 3D : une ouverture qui commence à gauche du mur n'était pas écartée, contrairement à celle qui dépasse à droite ; elle ne se pose
   plus à cheval sur l'angle.
 - Admin › Calibration : « Appliquer le calage et rejouer » rejoue le cas entier ; repris depuis l'É5, il gardait le mur d'avant.
+- Façades (audit et calibration), É5 Calage du mur sur un pignon : l'égout d'un pignon n'est plus pris sur les linteaux de l'étage (il
+  tombait 48 cm trop bas sur la scène 24 du banc), ni sur la droite qui joint le bas et le haut d'une rampe (le coin haut droit de la
+  scène 23 tombait 1,8 m trop haut). Les coins trouvés sans geste par le calage fin passent de 87 à 92 sur 92 au banc des façades ; les
+  autres scènes ne bougent pas. Les coins d'un pignon peuvent changer au rejeu (version de la chaîne 13).
+- Façades (audit et calibration), É5 : le mur retenu se juge désormais sur la silhouette du gabarit qu'il pose. L'égout se lit tout le
+  long de cette silhouette et doit atteindre son seuil : un égout faux ne passe plus « ok » (sur le banc, 176 poses fausses sur 176
+  refusées, 87 sur 160 avant ; aucune pose juste refusée). Quand le pignon d'un corps voisin prolonge la façade au-delà d'un de ses
+  bouts, l'angle se lit au bout de la silhouette : un mur posé juste n'est plus dit « à confirmer » (score 0,52 → 1). La légende de
+  l'É5 dit « Score d’explication par la silhouette ». La recherche du mur, elle, se fait toujours sans le gabarit.
 
 ## [5.4.1] — 2026-10-30
 

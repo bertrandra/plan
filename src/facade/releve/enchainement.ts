@@ -154,7 +154,8 @@ interface SortiesFacade {
   vues: (RedressementFuites | null)[] | null;
   /**
    * E5 : les coins retenus sur chaque photo (par rang) et leur origine, ce qui doute, le mur pose sur l'image prise pour la suite
-   * (l'assemblage, une photo seule comprise), et ce que ce mur explique de cette image sans le toit (calageAncres.ts).
+   * (l'assemblage, une photo seule comprise), et ce que ce mur explique de cette image, juge sur la silhouette du gabarit qu'il pose
+   * (calageAncres.ts).
    */
   calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication } | null;
   /** E6 : le haut du mur lu, pose sur l'image prise pour la suite par les coins du mur (pixels). */
@@ -376,9 +377,12 @@ function ecartAuVrai(pose: { x0: number; x1: number; y0: number; y1: number }, v
   return { texte: `Contre la vérité (mur de ${Math.round(w)} px, x de ${Math.round(vrai.x0)} à ${Math.round(vrai.x1)})${autre} : ` + ecarts.map((x) => x.nom + ' à ' + pc(x.e)).join(', ') + (pire > seuil ? ` : faux (au-delà de ${pc(seuil)}).` : ' : juste.'), juste: pire <= seuil };
 }
 
-/** Ce qu'une pose explique de l'image prise pour la suite, sans le toit : le score, et s'il passe le test. */
+/**
+ * Ce qu'une pose explique de l'image prise pour la suite, jugee sur la silhouette du gabarit qu'elle pose (les angles a ses bouts,
+ * l'egout tout le long) : le score, et s'il passe le test. Le gabarit juge la pose, il ne l'a pas cherchee (calageAncres.ts).
+ */
 function explicationDe(pose: AssemblageDuMur, e: EntreesFacade): Explication {
-  return expliquer(pose, detecterSegments(pose.image), rectDeLaPose(pose.coins), e.hauteurM / e.largeurM);
+  return expliquer(pose, detecterSegments(pose.image), rectDeLaPose(pose.coins), e.hauteurM / e.largeurM, pose, e.gabarit);
 }
 
 const sc = (x: number) => dec(x, 2);
@@ -386,7 +390,7 @@ const px = (r: { x0: number; x1: number }) => `x de ${Math.round(r.x0)} à ${Mat
 
 /**
  * E5 : d'ou viennent les coins du mur retenus (poses a la main, trouves sur la photo, sinon predits par la prise de vue), et, sur l'image
- * prise pour la suite, ce que le mur pose explique sans le toit. La verite et la pose de Claude s'y mesurent sans rien changer.
+ * prise pour la suite, ce que le mur pose explique, juge sur sa silhouette. La verite et la pose de Claude s'y mesurent sans rien changer.
  */
 const calage: Pas = ({ e, o, s, obj }) => {
   const m = s.audit?.mesure, b = s.audit?.redressement;
@@ -402,12 +406,13 @@ const calage: Pas = ({ e, o, s, obj }) => {
   const ia = o.ia && r ? avisDeLIa(o.ia, pose as AssemblageDuMur, r, s.preparation?.pointes ?? [], obj['facades.enchainement.calageEcartMaxPart']) : null;
   s.ia = ia?.sortie ?? (o.ia ? { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null } : null);
   const dit = ia ? ' ' + ia.texte : '';
-  // L'image prise pour la suite se juge comme ailleurs : ce que la pose explique de l'image sans le toit (calageAncres.ts).
+  // L'image prise pour la suite se juge sur la silhouette que la pose y pose (calageAncres.ts) : un egout faux sous un pignon, ou un bout
+  // que le pignon d'un corps voisin prolonge, ne se voient qu'ainsi.
   if (pose && r && s.calage) {
     const ex = explicationDe(pose, e), passe = expliqueLaPhoto(ex, seuilsDuCalage(obj));
     s.calage.explication = ex;
     const etat: EtatAffiche = main ? 'ok' : !m.coinsTrouves || !passe ? 'a-confirmer' : 'ok';
-    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué sans le toit (score ${sc(ex.score)}).` : `qui n’explique pas la photo sans le toit (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}) : à confirmer.`) + dit, verite };
+    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + dit, verite };
   }
   return { etat: main || m.coinsTrouves ? 'ok' : 'a-confirmer', resume: origine + hauteur + dit, verite };
 };

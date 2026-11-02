@@ -179,7 +179,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
   </ul>;
   if (id === 'assemblage') return im.assemblage ? <Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="L’assemblage des photos redressées" /> : <p className="calNote">Aucune photo ne s’assemble.</p>;
   if (id === 'calage') {
-    // Le mur que la chaine a pose (celui de l'audit), et ce qu'il explique de l'image sans le toit ; la pose de Claude, mesuree a cote.
+    // Le mur que la chaine a pose (celui de l'audit), et ce que sa silhouette explique de l'image ; la pose de Claude, mesuree a cote.
     const ex = p.rejeu.sorties.calage?.explication, pose = im.pose;
     return <>
       {pose && <figure><Calques url={url(pose.image)} l={pose.image.largeur} h={pose.image.hauteur} libelle="Le mur retenu sur l’image prise pour la suite (contour), comme dans l’audit">
@@ -189,7 +189,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
         {im.ia?.etendues.map((x, k) => <line key={'t' + k} className={'calEtendueIa ' + x.quoi} x1={x.x0} x2={x.x1} y1={x.y} y2={x.y} vectorEffect="non-scaling-stroke" />)}
       </Calques><figcaption>
         Contour : le mur retenu par la chaîne de l’audit (coins posés à la main, sinon trouvés sur les photos, sinon prédits), le gabarit posé entre ses coins.
-        {ex && <> Score d’explication sans le toit {note(ex.score)} (angles {note(ex.angles[0])} et {note(ex.angles[1])}, égout {note(ex.egout)}, sol {note(ex.sol)}).</>}
+        {ex && <> Score d’explication par la silhouette {note(ex.score)} (angles {note(ex.angles[0])} et {note(ex.angles[1])}, égout {note(ex.egout)}, sol {note(ex.sol)}).</>}
         {im.ia && <> Trait sombre : la pose des deux angles de Claude, mesurée sans rien changer ; ronds : ses pointes ; traits sous le mur : ses appentis, ses autres volumes, ce qui cache le mur.</>}
       </figcaption></figure>}
       {pose && <CalageALaMain key={url(pose.image)} image={pose.image} url={url(pose.image)} coins={pose.coins} gabarit={g} caler={caler} />}
