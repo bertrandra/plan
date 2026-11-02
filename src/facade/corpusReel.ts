@@ -19,6 +19,8 @@ import { recouvrement } from './detection/voteVues.js';
 import { lireRunEnregistre, type RunEnregistre } from '../regles/facades/observations.js';
 import type { Image, P2 } from './vision/homographie.js';
 import type { CorpsToit, FormeToitSimple, PignonToit, PtBrut, TypeOuverture } from '../model/types.js';
+import type { PrisePhoto } from '../model/audit.js';
+import type { Facade } from '../geometry/cotesVusDeDehors.js';
 
 export const FORMAT_CAS_REEL = 'plan-facade-reelle';
 
@@ -38,6 +40,11 @@ export interface PhotoReelle {
   /** Les `coins` ont ete poses (ou le mur ajuste) a la main : ils l'emportent sur ceux que la chaine trouverait, et se reportent. */
   murALaMain?: boolean;
   focalePx?: number | null;
+  /**
+   * La prise de vue de la photo dans l'audit (GPS, boussole, EXIF), gardee avec un cas tire d'un audit : la calibration la rejoue comme
+   * l'audit l'a lue (enchainement.ts::entreesDuCas). Absente d'un cas d'avant : une photo sans capteurs, comme une photo importee.
+   */
+  prise?: PrisePhoto;
 }
 export interface CasReel {
   format: typeof FORMAT_CAS_REEL;
@@ -74,6 +81,12 @@ export interface CasReel {
   ia?: RunEnregistre[];
   /** Le parement du mur deja connu (vu sur place a l'audit), en clair : le run d'une facade le donne a Claude. */
   parement?: string;
+  /**
+   * Le cote du contour dans le repere du plan, tel que l'audit l'a mesure, et le contour du batiment : avec la prise de vue de chaque
+   * photo, ce sont les entrees de l'audit (prisesFacade.ts). Absents d'un cas d'avant : le mur seul, face au sud.
+   */
+  facade?: Facade;
+  contour?: PtBrut[];
 }
 
 /**
@@ -135,7 +148,10 @@ export function lireCasReel(donnees: unknown): CasReel {
   if (!Array.isArray(c.ouvertures)) throw new Error('Cas reel incomplet : ouvertures.');
   const gabarit = lireGabarit(c.gabarit);
   const reste = { ...(c as CasReel) };
-  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia; delete reste.toit;
+  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia; delete reste.toit; delete reste.facade; delete reste.contour;
+  // Le cote et le contour de l'audit, et la prise de chaque photo : relus s'ils se lisent, sinon le cas se rejoue sans eux (un cas d'avant).
+  const facade = lireFacade(c.facade), contour = Array.isArray(c.contour) && c.contour.length >= 3 && c.contour.every(point) ? c.contour.map((p) => ({ x: p.x, y: p.y })) : null;
+  reste.photos = c.photos.map((p) => { const q = { ...p }; if (!q.prise || !point(q.prise)) delete q.prise; return q; });
   // Une reponse enregistree illisible est laissee de cote, jamais inventee : les autres restent rejouables.
   const ia = Array.isArray(c.ia) ? c.ia.map(lireRunEnregistre).filter((x): x is RunEnregistre => x !== null) : [];
   if (typeof reste.parement !== 'string' || !reste.parement.trim()) delete reste.parement;
@@ -143,8 +159,14 @@ export function lireCasReel(donnees: unknown): CasReel {
     ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}),
     ...(c.toit !== undefined ? { toit: lireToitDuCas(c.toit) } : {}),
     ...(c.calageVrai !== undefined ? { calageVrai: lireCalageVrai(c.calageVrai) } : {}), ...(c.toitVrai !== undefined ? { toitVrai: lireToitVrai(c.toitVrai) } : {}),
-    ...(ia.length ? { ia } : {}),
+    ...(ia.length ? { ia } : {}), ...(facade ? { facade } : {}), ...(contour ? { contour } : {}),
   };
+}
+
+/** Relit le cote d'un cas : ses deux bouts, sa normale et son azimut ; null s'il ne se lit pas. */
+function lireFacade(brut: unknown): Facade | null {
+  const f = brut as Partial<Facade> | null;
+  return f && fini(f.cote) && point(f.gauche) && point(f.droite) && point(f.normale) && fini(f.azimut) && fini(f.largeur) && fini(f.hauteur) ? { ...(f as Facade) } : null;
 }
 
 /** Une ouverture detectee, jugee : juste si elle recouvre une vraie ouverture (une seule vraie par detectee). */

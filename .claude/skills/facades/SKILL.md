@@ -795,18 +795,22 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
 
 
 
+- **Calibration et audit : le même code et la même orchestration ; l'audit n'en cache qu'une part** (décision du propriétaire, 2 novembre
+  2026, `MD/spec-facade-calage-audit.md` §4 ter.6). Une entrée, `enchainement.ts::derouler`, un chemin : la calibration en est la vue entière,
+  l'audit la même chose dont la personne voit moins. Ne diffèrent que d'où viennent les entrées (`prisesFacade.ts` : sur place, ou un cas
+  relu par `entreesDuCas`, qui garde le côté, le contour et la prise de vue de chaque photo), les mesures qui demandent la vérité (en lecture
+  seule), la fin (`vue` : V4 écrit la Façade dans l'audit, rien en calibration) et ce qui se montre. `uneOrchestration.test.ts` le prouve.
+  Un résultat de calibration prouve ce que fera l'audit ; le banc de synthèse, lui, reste sur `analyserLeMur` (synchrone, coins vrais).
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
   `facade/releve/enchainement.ts::derouler` (étapes É0 à É9, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
-  images `imagesEtapes.ts`) ; la mesure des cas passe par `preparerPourLaMesure`. Il appelle la chaîne sans la toucher : sur six scènes
-  du banc, l'éditeur et la mesure rendent au bit près ce qu'ils rendaient avant lui. L'audit y est venu au lot F3 ; depuis F6, le relevé n'a plus de capture (c'est l'éditeur d'un mur relevé), les photos se prennent dans l'audit.
+  images `imagesEtapes.ts`) ; la mesure des cas passe par `preparerPourLaMesure`, le même chemin. L'audit y est venu au lot F3 ; depuis F6,
+  le relevé n'a plus de capture (c'est l'éditeur d'un mur relevé), les photos se prennent dans l'audit.
   `npx tsx … reel.ts etalon <cas.json>` rejoue un cas étape par étape avec la vérité d'un étalon (`tests/fixtures/facades-reel/etalons/`).
-- **Une seule chaîne** : l'audit (`app/audit/parcelle/mesures.ts`) et la calibration
-  (l'orchestrateur ci-dessus, `facade/corpusReel.ts`) redressent, fusionnent et cotent par `facade/releve/chaine.ts`
-  (coins, replis, report, fusion) et `facade/analyseMur.ts` (une photo, des morceaux, des vues). Un repli, un seuil ou une
-  étape de plus s'y ajoute, jamais dans un écran : `tests/unit/facade/releve/chaine.test.ts` vérifie que l'audit et la
-  calibration rendent le même mur. Le banc, lui, appelle `analyserReleve` et `analyserVues` directement : il mesure l'algorithme seul.
-  La lecture du mur sur l'assemblage des vues (`lireSurLAssemblage`) ne sert qu'à la calibration : à l'audit, elle comptait
-  des coins pour trouvés et posait le relevé tout seul (point 62 de la fumée).
+- **Une seule chaîne** : l'audit (`app/audit/parcelle/mesures.ts`) et la calibration (le même orchestrateur, `facade/corpusReel.ts`)
+  redressent, fusionnent et cotent par `facade/releve/chaine.ts` (coins, replis, report, fusion) et `facade/analyseMur.ts` (une photo,
+  des vues). Un repli, un seuil ou une étape de plus s'y ajoute, jamais dans un écran. La lecture du mur sur l'assemblage sans repères
+  (`lireSurLAssemblage`), qui ne servait qu'à la calibration, est partie le 2 novembre 2026 : à l'audit, elle comptait des coins pour
+  trouvés et posait le relevé tout seul (point 62 de la fumée). Seuls des repères posés à la main font chercher le mur sur l'assemblage.
 - **Moiré** : la photo lit l'élévation au plus proche voisin, à 1 cm. Sur la brique, cela fait des
   moirés, comme un vrai capteur. Ce n'est pas un défaut du générateur.
 - **Recouvrement à 50 % pile** : il ne compte pas (« plus de 50 % »). Une baie avec ses volets

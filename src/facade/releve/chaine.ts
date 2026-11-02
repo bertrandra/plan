@@ -1,13 +1,13 @@
-// La chaine des photos d'un mur, une seule pour tous (MD/spec-facades-calage-detection.md) : l'audit de la parcelle (par
-// l'orchestrateur, facade/releve/enchainement.ts) et la calibration (zones/EditeurCasCalibration.tsx) redressent, fusionnent et
-// cotent par elle ; depuis le lot F6, les photos d'une facade ne se prennent plus que dans l'audit. Sans React : testable seule.
+// La chaine des photos d'un mur, une seule pour tous (MD/spec-facades-calage-detection.md) : l'audit de la parcelle et la calibration
+// redressent, fusionnent et cotent par elle, par le meme orchestrateur (facade/releve/enchainement.ts::derouler), avec les memes
+// options : la calibration rejoue ce que fait l'audit (CLAUDE.md, « Calibration et audit : un seul processus »). Depuis le lot F6, les
+// photos d'une facade ne se prennent plus que dans l'audit. Sans React : testable seule.
 //
 // Chaque photo est redressee : coins poses au doigt, sinon trouves sur les aretes (calage fin, distorsion du grand-angle), sinon
 // reportes d'une autre photo du mur ou lus sur l'assemblage des vues, sinon predits par la prise de vue. Des verticales qui
 // penchent font essayer les coins predits, puis les cotes ramenes sur le point de fuite des verticales. A partir de deux photos
 // redressees, elles sont fusionnees. Rien ne se perd : une photo qui doute reste, avec son motif, et sert faute de mieux.
 
-import { CHAMP_GRAND_COTE_DEFAUT } from '../vision/cadrage.js';
 import { detecterSegments } from '../vision/segments.js';
 import { focaleDeLaPhotoParFuites } from '../vision/redressementFuites.js';
 import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../vision/verticales.js';
@@ -26,9 +26,10 @@ import type { Prise } from './prise.js';
 /**
  * La version de la chaine : elle monte quand un changement de la chaine change les coins, les redressements ou la fusion qu'elle
  * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
- * les images d'origine, et ce qui a change.
+ * les images d'origine, et ce qui a change. 11 (2 novembre 2026) : la calibration rejoue la chaine de l'audit (un seul processus) ;
+ * un cas, un mur vrai ou une reponse de Claude enregistres sous la 10 ont ete poses sur l'image de l'ancien chemin de la calibration.
  */
-export const VERSION_CHAINE_FACADES = 10;
+export const VERSION_CHAINE_FACADES = 11;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 const SEUIL_VERTICALES_DEG = 0.5;
@@ -77,19 +78,6 @@ export interface PhotoARedresser {
 /** Ce que la chaine demande au navigateur : le calage fin (un worker a l'ecran, en direct ailleurs). */
 export interface OutilsChaine {
   chercherCoins: (e: EntreeRecherche) => Promise<ResultatRecherche>;
-  /**
-   * La hauteur du mur est-elle celle du plan (cadastre, LiDAR) ? Elle fixe alors les proportions du mur lu sur l'assemblage
-   * des vues ; sinon elles s'y lisent.
-   */
-  hauteurDuPlan?: boolean;
-  /**
-   * Vrai : sans photo posee au doigt, le mur se lit sur l'assemblage des vues pour les photos restees aux coins predits (la
-   * calibration, dont les photos n'ont pas de prise de vue). L'audit garde les coins de sa prise de vue : un mur lu de loin sur
-   * l'assemblage s'arretait a un poteau du pan de bois (AE 101), et ses coins comptes trouves poseraient le releve tout seul.
-   */
-  lireSurLAssemblage?: boolean;
-  /** Vrai : les coins seuls (la calibration redresse ensuite le cas) ; ni analyse de la photo seule, ni fusion. */
-  coinsSeuls?: boolean;
   /**
    * Le gabarit du mur (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, une forme fixe posee sur l'image. Il ne
    * cale pas le mur (il vient du toit, que la photo met en question) : il devient la silhouette de chaque photo, posee par ses coins
@@ -206,8 +194,9 @@ export function verticaliteDesCoins(image: Image, coins: readonly P2[], largeurM
  * Remplace les photos aux coins predits par celles aux coins reportes de la photo ou le mur a ete pose au doigt. Pas d'une photo
  * ou il est « trouve » sur les aretes : sur AE 101 (octobre 2026), un mur trouve sur une photo prise de loin s'arretait a un poteau
  * du pan de bois, et le report le recopiait sur l'autre photo (fusionnee, mais sans ses fenetres).
- * Sans photo posee au doigt, et quand l'appelant le demande (`lireSurLAssemblage`), le mur se lit sur l'assemblage des vues
- * redressees (coinsAutoDeSerie), pour les seules photos restees aux coins predits.
+ * Sans photo posee au doigt, le mur n'est pas lu sur l'assemblage des vues : un mur lu de loin sur l'assemblage s'arretait a un poteau
+ * du pan de bois (AE 101), et ses coins comptes trouves poseraient le releve tout seul (point 62 de la fumee). Seuls des reperes poses
+ * a la main font chercher le mur sur l'assemblage (ci-dessous).
  */
 async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: OutilsChaine, corrections: Readonly<Record<string, CorrectionRedressement>>, faits: PhotoRedressee[]): Promise<void> {
   const aReporter = () => faits.filter((x) => x.bilan.coins === 'predit' && !corrections[String(x.bilan.rang)]?.coins);
@@ -248,12 +237,7 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
         if (aReperes(x)) await remplacer(x, sr.coins[i], sr.lu, true);
         else if (aReporter().includes(x)) await remplacer(x, sr.coins[i], sr.lu);
       }
-      return;
     }
-    if (!o.lireSurLAssemblage) return;
-    const sr = coinsAutoDeSerie(images, f.largeur, o.hauteurDuPlan ? f.hauteur : null);
-    if (!sr) return;
-    for (const x of aReporter()) await remplacer(x, sr.coins[k(x.bilan.rang)], sr.lu);
   } catch { /* l'assemblage n'a pas pu se faire : chaque photo garde ses coins */ }
 }
 
@@ -294,7 +278,6 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
   bilans.sort((a, b) => a.rang - b.rang);
   const total = entrees.length + echecs.length;
   const bilan = (fusion: BilanRedressement['fusion'], fusionnees: number[], motif?: string): BilanRedressement => ({ photos: bilans, fusion, fusionnees, ...(motif ? { motifFusion: motif } : {}) });
-  if (o.coinsSeuls) return { redressement: bilan('sans', []), faits, seule: null, fusion: null };
   // Les reperes poses a la main redressent la photo entiere avant l'assemblage. La silhouette du haut du mur sur chaque photo, avant
   // l'analyse : le gabarit pose par ses coins (sa forme ne bouge pas, elle ne se lit jamais sur la photo). Sans gabarit, aucune : la
   // bande au-dessus de l'egout lit le toit (facade/analyse.ts).
@@ -347,9 +330,4 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
     redressement: bilan(res.statut === 'fusionnee' ? 'fusionnee' : 'partielle', fusionnees, res.statut === 'partielle' ? motifFusion(autres) : undefined),
     faits, seule: null, fusion: { a, res, morceaux, rangReference: rangDe(res.reference) },
   };
-}
-
-/** La prise d'une photo sans capteurs (importee, calibration) : ni GPS, ni boussole, le champ de l'EXIF ou celui lu sur la photo. */
-export function priseSansCapteurs(image: Image, focalePx: number | null = null): (champLu: number | null) => Prise {
-  return (champLu) => ({ photo: { image, url: '', champ: champLu, focalePx }, mesure: null, champ: champLu ?? CHAMP_GRAND_COTE_DEFAUT });
 }

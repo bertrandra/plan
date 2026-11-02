@@ -48,3 +48,9 @@ export const LIBELLES_OUVERTURE: Record<TypeOuverture, string> = {
   porte: 'Porte',
   garage: 'Garage',
 };
+
+/**
+ * Des points poses au doigt, au dixieme de pixel : la forme sous laquelle une correction (reperes) s'enregistre, dans l'audit comme dans
+ * la calibration, pour que le meme geste donne la meme entree au meme processus.
+ */
+export const auDixiemeDePixel = (l: readonly { x: number; y: number }[]): { x: number; y: number }[] => l.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 }));

@@ -23,7 +23,7 @@ export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hau
 }
 
 /** Ce que la serie redressee par ses points de fuite donne : les coins du mur sur chaque photo, et la hauteur qui en garde les proportions. */
-export interface CoinsDeSerie {
+interface CoinsDeSerie {
   /** Par photo : les coins du mur (haut gauche, haut droit, bas droit, bas gauche), null pour une photo restee hors de la mosaique. */
   coins: (P2[] | null)[];
   /** La hauteur du mur, de l'egout au pied, a la largeur donnee : la mosaique est vue de face, ses proportions sont celles du mur. */
@@ -79,7 +79,7 @@ export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hau
 }
 
 /** Les vues redressees assemblees (le deuxieme temps de la serie) ; null quand aucune ne se redresse ou ne s'assemble. */
-export function mosaiqueDeLaSerie(vues: readonly (RedressementFuites | null)[]): ResultatMosaique | null {
+function mosaiqueDeLaSerie(vues: readonly (RedressementFuites | null)[]): ResultatMosaique | null {
   const rangs = rangsRedresses(vues);
   return rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites)) : null;
 }
@@ -90,7 +90,7 @@ const rangsRedresses = (vues: readonly (RedressementFuites | null)[]): number[] 
  * Le mur cherche sur l'assemblage des vues (le troisieme temps), puis reporte dans chaque photo : ce que rend la serie. `vues` : une
  * par photo (null : elle ne s'est pas redressee), `m` leur assemblage (mosaiqueDeLaSerie).
  */
-export function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, seuils?: SeuilsCalage, poseIa: MurLu | null = null, colombage: Colombage | null = null): CoinsDeSerie {
+function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, seuils?: SeuilsCalage, poseIa: MurLu | null = null, colombage: Colombage | null = null): CoinsDeSerie {
   const rangs = rangsRedresses(vues);
   const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, seuils, poseIa, colombage);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);

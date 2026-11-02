@@ -5,7 +5,6 @@
 import { contourDuGabarit, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
 import { inverser } from '../vision/redressementFuites.js';
 import { appliquer, homographie, type Image, type P2 } from '../vision/homographie.js';
-import type { MurCale } from './calageAncres.js';
 import type { OuvertureDetectee } from '../detection/detection.js';
 import type { Etendue } from '../../regles/facades/observations.js';
 import type { BoiteAccordee, RectIa } from '../regles/facades/ia.js';
@@ -14,11 +13,8 @@ import type { EntreesFacade, Enchainement } from './enchainement.js';
 export interface ImagesEtapes {
   /** E2 : par photo, la vue redressee entiere et le gabarit pose par ses coins (en pixels de la vue) ; null : elle ne se redresse pas. */
   vues: ({ image: Image; silhouette: P2[] | null } | null)[];
-  /**
-   * E3, E4 : l'assemblage des vues et le mur qui y a ete cherche (en pixels de l'assemblage), avec le calage qui l'a retenu : la pose
-   * des aretes quand une autre l'a remplacee, et le score de chacune.
-   */
-  assemblage: { image: Image; mur: MurCale } | null;
+  /** E3 : l'image prise pour la suite, l'assemblage des vues (une photo seule : sa vue de face), celle de l'audit. */
+  assemblage: { image: Image } | null;
   /**
    * E4, E5, E7 : l'image prise pour la suite et le mur retenu dessus ; le contour du mur (le sol, puis le gabarit a l'echelle de la
    * facade entre ses coins), le haut lu sur l'image, et les ouvertures ramenees du mur sur elle.
@@ -52,6 +48,12 @@ export interface ImagesEtapes {
   } | null;
 }
 
+/** Le mur pose (haut gauche, haut droit, bas droit, bas gauche) ramene a ses bouts, son egout et son sol. */
+function rectDeLaPose(coins: readonly P2[]): { x0: number; x1: number; y0: number; y1: number } {
+  const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2];
+  return { x0: (hg.x + bg.x) / 2, x1: (hd.x + bd.x) / 2, y0: (hg.y + hd.y) / 2, y1: (bd.y + bg.y) / 2 };
+}
+
 /** Les ouvertures d'un mur (metres, y depuis le sol) ramenees sur une image par les coins du mur. */
 function versLImage(coins: readonly P2[], L: number, H: number, ouvertures: readonly OuvertureDetectee[]): P2[][] {
   const h = homographie([{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }], coins);
@@ -72,26 +74,25 @@ function dansLeCadre(c: CadreFacade, o: Pick<OuvertureDetectee, 'x' | 'y' | 'l' 
   return [{ x: o.x, y: haut }, { x: o.x + o.l, y: haut }, { x: o.x + o.l, y: bas }, { x: o.x, y: bas }];
 }
 
-/** Le gabarit pose sur chaque photo par ses coins, ramene sur sa vue redressee. */
-function vuesAvecGabarit(r: Enchainement, e: Mur, g: GabaritMur): ImagesEtapes['vues'] {
-  const vues = r.sorties.serie?.vues ?? r.sorties.vues ?? [];
-  const coins = r.sorties.calage?.photos ?? e.photos;
-  return e.photos.map((_, k) => {
-    const v = vues[k];
+/** Le gabarit pose sur chaque photo par les coins que la chaine a retenus, ramene sur sa vue redressee (par rang de photo). */
+function vuesAvecGabarit(r: Enchainement, g: GabaritMur): ImagesEtapes['vues'] {
+  const vues = r.sorties.vues ?? [];
+  const coins = r.sorties.calage?.photos ?? [];
+  return vues.map((v, k) => {
     if (!v) return null;
     const c = coins[k]?.coins, sil = c?.length === 4 ? gabaritSurLaPhoto(g, c) : null, versVue = inverser(v.versPhoto);
     return { image: v.image, silhouette: sil && versVue ? sil.map((q) => appliquer(versVue, q)) : null };
   });
 }
 
-/** Ce que les images lisent des entrees du rejeu : les dimensions et le gabarit du mur, les coins de depart de chaque photo. */
-type Mur = Pick<EntreesFacade, 'largeurM' | 'hauteurM' | 'gabarit'> & { photos: readonly { coins: readonly P2[] }[] };
+/** Ce que les images lisent des entrees du rejeu : les dimensions et le gabarit du mur. */
+type Mur = Pick<EntreesFacade, 'largeurM' | 'hauteurM' | 'gabarit'>;
 
-/** Le calque de Claude : ses points sur l'assemblage (portes par sa pose, sinon par le mur cherche), ses boites sur l'image de la pose. */
+/** Le calque de Claude : ses points sur l'image prise pour la suite (portes par sa pose, sinon par le mur retenu), ses boites sur la facade. */
 function calqueIa(r: Enchainement, e: Mur, pose: NonNullable<Enchainement['sorties']['calage']>['pose']): ImagesEtapes['ia'] {
   const ia = r.sorties.ia;
   if (!ia?.reponse) return ia ? { pose: ia.pose, pointes: [], etendues: [], boites: [] } : null;
-  const cadre = ia.pose ?? r.sorties.serie?.assemblage.mur ?? null;
+  const cadre = ia.pose ?? (pose?.coins.length === 4 ? rectDeLaPose(pose.coins) : null);
   const w = cadre ? cadre.x1 - cadre.x0 : 0, h = cadre ? cadre.y1 - cadre.y0 : 0;
   const enU = (u: number) => (cadre ? cadre.x0 + u * w : 0);
   const bande = (quoi: 'appentis' | 'corps' | 'cache', l: readonly Etendue[], k: number) => l.map((x) => ({ quoi, x0: enU(x.debut), x1: enU(x.fin), y: (cadre?.y1 ?? 0) + (0.02 + 0.02 * k) * w }));
@@ -127,8 +128,8 @@ export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
   const a = s.analyse;
   const [, , bd, bg] = (pose?.coins ?? []) as P2[];
   return {
-    vues: vuesAvecGabarit(r, e, g),
-    assemblage: s.serie ? { image: s.serie.assemblage.image, mur: s.serie.assemblage.mur } : null,
+    vues: vuesAvecGabarit(r, g),
+    assemblage: pose ? { image: pose.image } : null,
     pose: pose && bd && bg ? {
       image: pose.image, coins: pose.coins, contour: gabaritSurLaPhoto(contourDuGabarit(g), pose.coins) ?? [bg, bd], silhouette: s.silhouette?.points ?? null,
       proposees: a ? versLImage(pose.coins, L, H, a.ouvertures) : [], devinees: a ? versLImage(pose.coins, L, H, a.devinees) : [],

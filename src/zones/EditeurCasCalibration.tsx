@@ -2,9 +2,9 @@
 //
 // Les photos d'un cas viennent d'une facade de l'audit (« Créer un cas depuis cette façade », ou un audit recu) : la calibration n'en
 // prend plus pour elle (lot F6) ; on peut seulement en retirer une. Le cas se rejoue par l'orchestrateur de la facade
-// (facade/releve/enchainement.ts), etape par etape : chaque photo redressee entiere (par quatre reperes poses au doigt, sinon par ses
-// points de fuite), les vues assemblees, le mur cherche sur l'assemblage et reporte dans chaque photo, le haut du mur lu, la texture,
-// les ouvertures. La barre de progression (zones/composants/BarreProgressionFacade.tsx) et la frise des etapes
+// (facade/releve/enchainement.ts), le meme que l'audit, avec les memes entrees (ses photos et leurs prises de vue, les reperes et le mur
+// poses a la main) : les coins de chaque photo cherches comme dans l'audit, les photos redressees, assemblees et fondues, le gabarit
+// pose, le haut du mur lu, la texture, les ouvertures. Seules s'y ajoutent la mesure contre la verite et la reponse de Claude rejouee. La barre de progression (zones/composants/BarreProgressionFacade.tsx) et la frise des etapes
 // (FriseEtapesCalibration.tsx) lisent ses etats ; la calibration montre toutes les etapes. On annote ensuite les ouvertures sur le
 // mur redresse : la detection en propose, on retire les fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ;
 // un cas ne compte dans la calibration qu'une fois marque « relu sur la photo » (valide).
@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type MurAjuste } from './releve/AjusterMur.js';
 import { PoserReperes } from './releve/PoserReperes.js';
-import { coinsParDefaut, LIBELLES_OUVERTURE, pointSvg } from './releve/commun.js';
+import { auDixiemeDePixel, coinsParDefaut, LIBELLES_OUVERTURE, pointSvg } from './releve/commun.js';
 import { libelleOuMot } from '../shell/motsInconnus.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
@@ -124,7 +124,7 @@ function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajust
   const r = reperesDe(p);
   return (
     <PoserReperes photo={photo} rang={rang} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} changer={poser}
-      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} assemblage={assemblage} ajusterMurAssemble={ajusterMurAssemble} suite="« Retrouver le mur sur toutes les photos », ou « Rejouer » après un mur ajusté">
+      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} assemblage={assemblage} ajusterMurAssemble={ajusterMurAssemble} suite="« Rejouer »">
       {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
     </PoserReperes>
   );
@@ -196,26 +196,25 @@ const pause = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 const rang = (id: IdEtape) => ETAPES_FACADE.findIndex((e) => e.id === id);
 
 /**
- * Le rejeu d'un cas par l'orchestrateur, et ce que la barre en montre pendant le calcul. Par defaut le cas tel qu'il est enregistre (les
- * coins de ses photos) : un rejeu reproductible. `chercher` : les coins de chaque photo se cherchent de nouveau (un mur pose a la main
- * reste), a l'ajout d'une photo, a l'ouverture d'un cas tire d'un audit, ou a la demande. Rejouer depuis une etape reprend les sorties
- * des precedentes.
+ * Le rejeu d'un cas par l'orchestrateur, et ce que la barre en montre pendant le calcul : ce que l'audit ferait de ces photos, les coins
+ * cherches comme dans l'audit (un mur pose a la main reste). Les coins retenus sont gardes avec le cas, pour memoire (les reperes
+ * proposes, le mur a ajuster) ; ils ne sont pas une entree du rejeu suivant. Rejouer depuis une etape reprend les sorties des precedentes.
  */
-function useRejeu(outils: OutilsPhotos, hauteurDuPlan: boolean) {
+function useRejeu(outils: OutilsPhotos, url: (img: Image) => string) {
   const [rejeu, setRejeu] = useState<Enchainement | null>(null);
   const [progression, setProgression] = useState<EtapeAffichee[]>([]);
   const [enCours, setEnCours] = useState<IdEtape | null>(null);
   const arret = useRef(false);
-  const lancer = async (depart: CasStocke, depuis: IdEtape | null, mode?: 'chercher' | 'garder', ia: RunEnregistre | null = null): Promise<{ cas: CasStocke; r: Enchainement; images: Image[]; cherche: boolean }> => {
+  const lancer = async (depart: CasStocke, depuis: IdEtape | null, ia: RunEnregistre | null = null): Promise<{ cas: CasStocke; r: Enchainement; images: Image[] }> => {
     arret.current = false;
     // Rendre la main un instant : la barre doit s'afficher avant que le redressement, long sur un telephone, occupe le fil.
     await pause(30);
     const images = await Promise.all(depart.images.map((u) => outils.decoder(u)));
-    const coins = mode ?? 'garder';
     const precedent = depuis && rejeu ? { depuis, precedent: rejeu } : {};
     setProgression(precedent.precedent ? precedent.precedent.etapes.filter((e) => rang(e.id) < rang(depuis as IdEtape)) : []);
-    const r = await derouler(entreesDuCas(depart, images), {
-      coins, image: 'assemblage', chercherCoins: async (e) => rechercher(e), hauteurDuPlan, illustrer: true, verite: veriteDuCas(depart), ia, ...precedent,
+    // Les entrees de l'audit, relues du cas ; la calibration ne fait que mesurer a la fin (`pour`).
+    const r = await derouler(entreesDuCas(depart, images, url), {
+      vue: 'calibration', chercherCoins: async (e) => rechercher(e), illustrer: true, verite: veriteDuCas(depart), ia, ...precedent,
       surEtape: (id, etat: EtatAffiche, resume = '') => {
         setEnCours(etat === 'en-cours' ? id : null);
         if (etat !== 'en-cours') setProgression((p) => [...p.filter((x) => x.id !== id), { id, etat, resume }]);
@@ -223,7 +222,7 @@ function useRejeu(outils: OutilsPhotos, hauteurDuPlan: boolean) {
       rendreLaMain: () => pause(0), arrete: () => arret.current,
     });
     setRejeu(r); setProgression(r.etapes); setEnCours(null);
-    return { cas: coins === 'chercher' ? casApresRejeu(depart, r) : depart, r, images, cherche: coins === 'chercher' };
+    return { cas: casApresRejeu(depart, r), r, images };
   };
   return { rejeu, setRejeu, progression, enCours, lancer, arreter: () => { arret.current = true; } };
 }
@@ -305,23 +304,23 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [dims, setDims] = useState<Record<number, { l: number; h: number }>>({});
   const [origines, setOrigines] = useState<Record<number, OrigineCoins>>(() => originesDuCas(depart));
   const [ouverte, setOuverte] = useState<IdEtape | null>(null);
-  const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, chercherCoins);
-  const claude = useClaude(cas);
   const url = useAdresses(outils);
+  const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, url);
+  const claude = useClaude(cas);
   const modifier = (f: (c: CasStocke) => CasStocke) => setCas((c) => f(c));
   // Un geste sur les photos rend le rejeu caduc : ses sorties ne valent plus pour ce cas.
   const oublier = () => setRejeu(null);
   useEffect(() => outils.ecouterEtape?.(setOuverte), [outils]);
 
-  const rejouer = async (depart: CasStocke = cas, depuis: IdEtape | null = null, mode?: 'chercher' | 'garder', ia: RunEnregistre | null = claude.run) => {
+  const rejouer = async (depart: CasStocke = cas, depuis: IdEtape | null = null, ia: RunEnregistre | null = claude.run) => {
     setOccupe(true); setMessage(null);
     try {
-      const { cas: suite, r, images, cherche } = await lancer(depart, depuis, mode, ia);
+      const { cas: suite, r, images } = await lancer(depart, depuis, ia);
       setCas(suite); setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
       const calees = r.sorties.calage?.photos;
-      if (calees && cherche) setOrigines(Object.fromEntries(calees.flatMap((p, k) => (p.origine ? [[k, p.origine]] : []))));
+      if (calees) setOrigines(Object.fromEntries(calees.flatMap((p, k) => (p.origine ? [[k, p.origine]] : []))));
       const a = r.sorties.analyse;
-      if (!a) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Retrouver le mur sur toutes les photos ».');
+      if (!a) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».');
       // Un cas sans annotation part de la detection (a relire) ; une annotation deja faite n'est jamais ecrasee.
       else modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) }));
     } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
@@ -341,10 +340,11 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   };
   // L'option manuelle de l'E4 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis rejoue depuis le calage.
   const caler = (coins: P2[]) => { if (!rejeu) return; const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c, 'calage'); };
-  // « Rappeler Claude » : le run sur l'assemblage du rejeu (ce qu'il ne montre pas en gris), enregistre avec le cas, puis rejoue en IA.
+  // « Rappeler Claude » : le run sur l'image prise pour la suite par le rejeu (ce qu'elle ne montre pas en gris), enregistre avec le cas,
+  // puis rejoue en IA.
   const texteDuCas = () => texteRunFacade({ etiquette: cas.nom, image: 'assemblage', pointes: rejeu?.sorties.preparation?.pointes ?? [], parement: cas.parement ?? null });
   const appeler = async (passes: 1 | 2 | 3) => {
-    const m = rejeu?.sorties.mosaique;
+    const m = rejeu?.sorties.calage?.pose;
     if (!outils.appelerClaude || !m) { setMessage('Rejouez d’abord le cas : Claude lit l’assemblage des photos.'); return; }
     setOccupe(true); setMessage(null);
     const r = await outils.appelerClaude({ image: m.image, cache: m.vu.map((v) => (v ? 0 : 1)), texte: texteDuCas(), passes });
@@ -352,12 +352,12 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: [...(cas.ia ?? []), r.run] };
     setCas(suite); claude.setChoisi(suite.ia.length - 1); claude.setModeIa(true);
-    await rejouer(suite, 'calage', undefined, r.run);
+    await rejouer(suite, 'calage', r.run);
     setMessage((m) => 'Réponse enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m ? ' ' + m : ''));
   };
   // L'escalade de la reponse choisie (la commande `facade.escalader`) : gardee dans ce run du cas, puis rejouee en IA.
   const escalader = async () => {
-    const run = claude.runs[claude.choisi], m = rejeu?.sorties.mosaique;
+    const run = claude.runs[claude.choisi], m = rejeu?.sorties.calage?.pose;
     if (!outils.escaladerClaude || !run || !m) { setMessage('Rejouez d’abord le cas avec une réponse de Claude : l’escalade relit le même assemblage.'); return; }
     if (run.escalade) { setMessage('Cette réponse est déjà escaladée : une seule escalade par réponse.'); return; }
     setOccupe(true); setMessage(null);
@@ -365,20 +365,20 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOccupe(false); if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: (cas.ia ?? []).map((x, i) => (i === claude.choisi ? r.run : x)) };
     setCas(suite); claude.setModeIa(true);
-    await rejouer(suite, 'calage', undefined, r.run);
+    await rejouer(suite, 'calage', r.run);
     setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m2 ? ' ' + m2 : ''));
   };
   const prixEscalade = useEscalade(outils, escalader);
   const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent au prochain rejeu ; null les retire.
   const reperesCourants = (reperes: P2[] | null) => {
-    modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p }; if (reperes) q.reperes = reperes; else delete q.reperes; return q; }) }));
+    modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p }; if (reperes) q.reperes = auDixiemeDePixel(reperes); else delete q.reperes; return q; }) }));
     // Un mur deja ajuste a la main le reste : les reperes ne font que redresser la photo.
     setOrigines((o) => { const q = { ...o }; if (reperes) q[courante] = q[courante] === 'main' ? 'main' : 'reperes'; else if (q[courante] !== 'main') delete q[courante]; return q; });
     oublier();
   };
   // Un cas tire d'un audit se rejoue des l'ouverture, ses coins cherches : il n'y a rien a placer avant.
-  useEffect(() => { if (chercherCoins) void rejouer(cas, null, 'chercher'); }, []);
+  useEffect(() => { if (chercherCoins) void rejouer(cas, null); }, []);
   const sauver = async () => {
     if (!cas.nom.trim()) { setMessage('Donnez un nom au cas (la maison, le côté).'); return; }
     if (!cas.photos.length) { setMessage('Un cas a besoin d’au moins une photo : tirez-le d’une façade de l’audit.'); return; }
@@ -387,9 +387,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOccupe(false);
     if (erreur) setMessage(erreur); else fermer();
   };
-  const images = useMemo(() => (rejeu ? imagesEtapes(rejeu, { largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, photos: cas.photos }) : null), [rejeu, cas.largeurM, cas.hauteurM, cas.gabarit, cas.photos]);
+  const images = useMemo(() => (rejeu ? imagesEtapes(rejeu, { largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE }) : null), [rejeu, cas.largeurM, cas.hauteurM, cas.gabarit]);
   const a = rejeu?.sorties.analyse;
-  const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu, url) : null), [rejeu, url]);
+  const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu) : null), [rejeu]);
   // La facade entiere que lit la detection (rien n'est coupe au sol ni a l'egout : un pignon peut porter une baie), et sa silhouette.
   const f = images?.facade ?? null;
   const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
@@ -411,10 +411,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
-        <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(cas, null, 'chercher'); }}>Retrouver le mur sur toutes les photos</button>
       </div>
-      <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.mosaique} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', undefined, run); }} appeler={(n) => { void appeler(n); }}
-        escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.mosaique }} />
+      <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
+        escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />
       {rejeu && <FriseEtapes rejeu={rejeu} images={images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />}
       {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} />}
 

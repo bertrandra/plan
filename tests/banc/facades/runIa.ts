@@ -10,7 +10,8 @@
 import { hache, coinsVrais, formePignon, photographier, type PriseCamera, type SceneFacade } from './synthese.js';
 import { appliquer, type Image, type P2 } from '../../../src/facade/vision/homographie.js';
 import { inverser } from '../../../src/facade/vision/redressementFuites.js';
-import { mosaiqueDeLaSerie, vuesDeFace } from '../../../src/facade/releve/coinsAuto.js';
+import { vuesDeFace } from '../../../src/facade/releve/coinsAuto.js';
+import { mosaiqueDesVues } from '../../../src/facade/vision/mosaiqueFuites.js';
 import { appliquerSimilitude } from '../../../src/facade/vision/ransac.js';
 import { type ObservationsFacade } from '../../../src/regles/facades/observations.js';
 import { ecartDesPoses, ouvertureDeLIa, poseDeLIa } from '../../../src/facade/regles/facades/ia.js';
@@ -47,7 +48,7 @@ export function casIaDeScene(s: SceneFacade): CasIa | null {
   if (photos.some((p) => !p) || !vrais) return null;
   const vues = vuesDeFace(photos as Image[], []);
   // La premiere vue redressee est la premiere de l'assemblage : sa place est la premiere.
-  const m = vues[0] ? mosaiqueDeLaSerie(vues) : null;
+  const m = vues[0] ? mosaiqueDesVues(vues.filter((v): v is NonNullable<typeof v> => !!v)) : null;
   const place = m?.places[0], versVue = vues[0] ? inverser(vues[0].versPhoto) : null;
   if (!m || !place || !versVue) return null;
   const v = vrais.map((c) => appliquerSimilitude(place, appliquer(versVue, c)));

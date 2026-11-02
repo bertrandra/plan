@@ -15,7 +15,7 @@ import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { enAdmin } from '../../app/acces.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
 import { type MurAjuste } from '../releve/AjusterMur.js';
-import { coinsParDefaut } from '../releve/commun.js';
+import { auDixiemeDePixel, coinsParDefaut } from '../releve/commun.js';
 import { lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
 import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { etapesApresValidation } from '../../app/audit/parcelle/facadeValidee.js';
@@ -96,7 +96,7 @@ export function ReperesAudit({ photo, rang, depart, mur, gabarit, assemblage, la
         <button type="button" className="secondary small" data-controle="auditParcelle.retablirCoins" onClick={() => { retablir(); fermer(); }}>Revenir à l’automatique</button>
         <button type="button" className="secondary small" data-controle="auditParcelle.annulerCoins" onClick={fermer}>Annuler</button>
         <button type="button" className="small" data-controle="auditParcelle.appliquerCoins" disabled={!coins || faux}
-          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(coinsAjustes ? { coins: coinsAjustes } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }, autres); fermer(); } }}>Appliquer</button>
+          onClick={() => { if (coins) { appliquer({ reperes: auDixiemeDePixel(coins), ...(coinsAjustes ? { coins: coinsAjustes } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }, autres); fermer(); } }}>Appliquer</button>
       </div>
     </div>
   );

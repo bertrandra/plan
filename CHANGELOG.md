@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Façades : la calibration et l'audit sont le même code et la même orchestration ; l'audit n'en cache qu'une part (décision du
+  propriétaire). Admin › Calibrer la détection rejoue un cas exactement comme l'audit traite ses photos : mêmes entrées (les prises de vue
+  de l'audit, les repères et le mur posés à la main), même redressement, même assemblage, même gabarit, même lecture du haut du mur, même
+  détection, dans le même cadre. Un résultat de calibration dit donc ce que fera l'audit. Ne diffèrent que d'où viennent les photos, la
+  mesure contre la vérité (en plus, sans rien changer), la fin (l'audit écrit la Façade à la validation, la calibration n'écrit rien) et
+  ce qui s'affiche. Le résultat de l'audit ne change pas.
+  - Admin › Calibration : « Rejouer » cherche les coins comme l'audit (un mur posé à la main reste) ; le bouton « Retrouver le mur sur
+    toutes les photos » disparaît, il faisait ce que fait désormais « Rejouer ». L'étape É4 montre le mur retenu par la chaîne de l'audit
+    et ce qu'il explique de l'image ; la recherche du mur propre à la calibration et son arbitre s'en vont. La pose des angles de Claude
+    s'y mesure sans changer le mur ni l'état de l'étape.
+  - Un cas tiré d'un audit garde le côté du contour, le contour et la prise de vue de chaque photo, pour être rejoué tel que l'audit l'a
+    lu ; un cas d'avant se rejoue comme des photos importées. Un mur vrai ou une réponse de Claude enregistrés sur l'ancienne chaîne
+    (version 10) le disent au rejeu.
+
 ### Corrigé
 
 - Façades (calibration, audit de la parcelle, relevé) : la détection des ouvertures lisait le mur coupé au sol et à l'égout, et ne
@@ -16,6 +32,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     silhouette par-dessus (la toile montrait le mur coupé à l'égout) ; une baie de pignon s'y annote.
   - Banc des façades : scène `24-pignon-baie-dans-le-pignon` ajoutée (trouvée 6 sur 6, contre 5 sur 6 avant) ; le banc pose le gabarit
     vrai de chaque scène, comme le LiDAR. Aucune quantité ni aucun export ne change.
+- Admin › Calibration : les repères posés sur une photo s'enregistrent au dixième de pixel, comme dans l'audit (le même geste donnait
+  une entrée différente) ; un cas tiré d'une façade dont la largeur a été corrigée à la main dans l'audit garde cette largeur (il
+  reprenait celle du plan, et le rejeu ne mesurait pas le même mur).
 
 ## [5.4.1] — 2026-10-30
 

@@ -1,6 +1,6 @@
 // Ce qu'est une prise de vue d'une facade, pour la chaine qui la redresse (facade/releve/chaine.ts) : la photo, la distance mesuree,
 // le champ, le cap et l'attitude. Des types seuls : l'audit de la parcelle les remplit (app/audit/parcelle/mesures.ts), la calibration
-// aussi (une photo sans capteurs, chaine.ts::priseSansCapteurs). La visee du releve (ses reperes sur les bords du mur, son plan de
+// aussi, depuis un cas (prisesFacade.ts::priseDeLaPhoto, la meme fonction). La visee du releve (ses reperes sur les bords du mur, son plan de
 // prise, ses capteurs de distance) est partie avec sa capture (lot F6).
 
 import type { Image } from '../vision/homographie.js';
