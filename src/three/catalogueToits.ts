@@ -108,15 +108,16 @@ function facettesSimples(c: Corps, L: number, W: number): { pans: Sommet[][]; mu
   return { pans, murs };
 }
 
-export interface FacettePlate { points: [number, number][]; ton: number; mur: boolean; lucarne: boolean; vitre?: boolean }
+/** `element` : une facette de ce qui est pose sur le toit (fenetre, panneau, souche), passee par `plus` ; la vignette se cadre dessus. */
+export interface FacettePlate { points: [number, number][]; ton: number; mur: boolean; lucarne: boolean; vitre?: boolean; element?: true }
 export interface VueIso { facettes: FacettePlate[]; largeur: number; hauteur: number }
 
 /**
  * Les facettes d'un exemple, en projection isometrique (x vers la droite, y vers le bas), de l'arriere vers l'avant.
  * `plus` : des facettes de plus, dans le repere de l'exemple (un element de facade pose contre son mur).
  */
-export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur: boolean; vitre?: boolean }[] = []): VueIso {
-  const liste: { f: Sommet[]; mur: boolean; lucarne: boolean; vitre?: boolean }[] = [];
+export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur: boolean; vitre?: boolean; element?: boolean }[] = []): VueIso {
+  const liste: { f: Sommet[]; mur: boolean; lucarne: boolean; vitre?: boolean; element?: boolean }[] = [];
   for (const { corps: c, t0 = 0, w: W = LARGEUR_M, l: L = LONGUEUR_M } of e.corps) {
     // Un avant-corps a pignon (corps.pignons) se dessine comme la 3D : le grand pan est entaille le long des noues du pignon.
     const avecPignons = c.pignons?.length ? facettesCorps({ ...c, pts: [{ x: 0, y: t0 }, { x: L, y: t0 }, { x: L, y: t0 + W }, { x: 0, y: t0 + W }], pignons: c.pignons, ecart: 0 } as CorpsToit, null, false) : null;
@@ -133,12 +134,14 @@ export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur
       ...dormers.murs.map((f) => ({ f: decale(f), mur: true, lucarne: true })), ...dormers.pans.map((f) => ({ f: decale(f), mur: false, lucarne: true })),
     );
   }
-  liste.push(...plus.map(({ f, mur, vitre }) => ({ f, mur, lucarne: false, vitre: !!vitre })));
+  liste.push(...plus.map(({ f, mur, vitre, element }) => ({ f, mur, lucarne: false, vitre: !!vitre, element: !!element })));
   const K = 22, cos = Math.cos(Math.PI / 6), sin = Math.sin(Math.PI / 6);
   const proj = (m: Sommet): [number, number] => [(m.s - m.t) * cos * K, (m.s + m.t) * sin * K - m.z * K];
   const profondeur = (f: Sommet[]) => f.reduce((a, m) => a + m.s + m.t, 0) / f.length;
-  const tries = liste.slice().sort((a, b) => profondeur(a.f) - profondeur(b.f) || Number(a.mur) - Number(b.mur));
-  const plates = tries.map(({ f, mur, lucarne, vitre }) => {
+  // Ce qui est pose sur le toit (`element`) se peint apres lui : un panneau couche sur le pan a presque sa profondeur moyenne, et le pan
+  // le recouvrait. Sa vitre, a la meme profondeur que son cadre, se peint par-dessus.
+  const tries = liste.slice().sort((a, b) => Number(!!a.element) - Number(!!b.element) || profondeur(a.f) - profondeur(b.f) || Number(a.mur) - Number(b.mur) || Number(!!a.vitre) - Number(!!b.vitre));
+  const plates = tries.map(({ f, mur, lucarne, vitre, element }) => {
     // Le ton vient de la normale : un pan face au soleil (haut-gauche) est clair.
     const [A, B, C] = [f[0] as Sommet, f[1] as Sommet, f[2] as Sommet];
     const [ux, uy, uz] = [B.s - A.s, B.t - A.t, B.z - A.z], [vx, vy, vz] = [C.s - A.s, C.t - A.t, C.z - A.z];
@@ -146,12 +149,35 @@ export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur
     const n = Math.hypot(nx, ny, nz) || 1; nx /= n; ny /= n; nz /= n;
     const signe = nz < 0 && !mur ? -1 : 1;
     const ton = Math.max(0, Math.min(1, 0.55 + 0.45 * signe * (-0.4 * nx + 0.3 * ny + 0.85 * nz)));
-    return { points: f.map(proj), ton, mur, lucarne, ...(vitre ? { vitre } : {}) };
+    return { points: f.map(proj), ton, mur, lucarne, ...(vitre ? { vitre } : {}), ...(element ? { element: true as const } : {}) };
   });
   const xs = plates.flatMap((p) => p.points.map((q) => q[0])), ys = plates.flatMap((p) => p.points.map((q) => q[1]));
   const x0 = Math.min(...xs), y0 = Math.min(...ys);
   return {
     facettes: plates.map((p) => ({ ...p, points: p.points.map(([x, y]) => [Math.round((x - x0 + 6) * 10) / 10, Math.round((y - y0 + 6) * 10) / 10] as [number, number]) })),
     largeur: Math.max(...xs) - x0 + 12, hauteur: Math.max(...ys) - y0 + 12,
+  };
+}
+
+/**
+ * La part de la vignette autour de l'element pose sur le toit (lucarne, ou facettes `element`) : un carre de `ZOOM_VIGNETTE` fois sa plus
+ * grande dimension, au moins `COTE_MIN_VIGNETTE` (en unites de la projection, 22 par metre), centre sur lui. Dans la maison entiere, une
+ * fenetre de toit ou une jacobine ne faisaient que quelques pixels d'une tuile du catalogue (2 novembre 2026). Les facettes qui sortent du
+ * carre sont coupees par la vignette elle-meme ; sans element, la vue est rendue telle quelle.
+ */
+export const ZOOM_VIGNETTE = 2.2;
+export const COTE_MIN_VIGNETTE = 70;
+export function recadrerSurElement(vue: VueIso): VueIso {
+  const pts = vue.facettes.filter((f) => f.lucarne || f.element).flatMap((f) => f.points);
+  if (!pts.length) return vue;
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const cote = Math.max(COTE_MIN_VIGNETTE, ZOOM_VIGNETTE * Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)));
+  const x0 = cx - cote / 2, y0 = cy - cote / 2;
+  // Une facette dont la boite touche le carre reste (un grand pan qui le traverse sans y avoir de sommet compris).
+  const dedans = (f: FacettePlate) => { const fx = f.points.map((q) => q[0]), fy = f.points.map((q) => q[1]); return Math.min(...fx) < x0 + cote && Math.max(...fx) > x0 && Math.min(...fy) < y0 + cote && Math.max(...fy) > y0; };
+  return {
+    facettes: vue.facettes.filter(dedans).map((f) => ({ ...f, points: f.points.map(([x, y]) => [Math.round((x - x0) * 10) / 10, Math.round((y - y0) * 10) / 10] as [number, number]) })),
+    largeur: cote, hauteur: cote,
   };
 }

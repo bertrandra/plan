@@ -10,7 +10,7 @@ import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
 import { OPTIONS_PIECE, piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
-import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
+import { vueDeSaillie, vueSurLeToit } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
 import { PoigneesToit } from './PoigneesToit.js';
@@ -29,14 +29,19 @@ const ONGLETS: { id: FamillePiece; libelle: string }[] = [
 ];
 
 const vuesFacade = new Map<string, ReturnType<typeof vueDeSaillie>>();
-/** L'image d'une piece : la vignette du catalogue, ou celle de l'element de facade (calculee une fois). */
+const vuesSurLeToit = new Map<string, ReturnType<typeof vueSurLeToit>>();
+/**
+ * L'image d'une piece : la vignette du catalogue, celle de l'element de facade, ou (onglet « Sur le toit ») l'element cadre de pres sur
+ * son toit, chacune calculee une fois.
+ */
 function ImagePiece({ p }: { p: PieceCatalogue }) {
-  if (p.exemple) return <VignetteToit forme={p.exemple} />;
   const nom = p.id.replace(/^[a-z]+:/, '');
-  if (nom === 'fenetre-toit' || nom === 'solaire') {
-    if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeElementToit(nom));
-    return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
+  if (p.famille === 'sur') {
+    if (!vuesSurLeToit.has(nom)) vuesSurLeToit.set(nom, vueSurLeToit(nom));
+    const vue = vuesSurLeToit.get(nom);
+    if (vue) return <VignetteVue vue={vue} titre={p.libelle} />;
   }
+  if (p.exemple) return <VignetteToit forme={p.exemple} />;
   if (p.famille !== 'facade') return <Icone nom="polygone" />;
   if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeSaillie(nom));
   return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;

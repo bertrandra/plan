@@ -8,6 +8,7 @@
 // Pur : pas de DOM, pas de scene.
 
 import { hauteurDuToitEn, point, repere } from '../toits/toitCorps.js';
+import { facettesElementsToit, facettesLucarnes, type Sommet } from '../toits/toitFormes.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps, rangPrincipal } from './corpsNeufs.js';
 import { orientationDuCorps } from './planCorps.js';
@@ -171,9 +172,11 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
   const largeur = e.pan === 0 ? c.posFaitage : repere(c.pts).W - c.posFaitage;
   const z = Math.min(...c.egouts) + ((c.faitage - Math.min(...c.egouts)) * e.dM) / Math.max(largeur, 0.5);
   const w = (e.type === 'solaire' ? 2.55 : 0.8) * (e.echelle ?? 1);
+  // L'element est a `dM` de l'egout vers le faitage, donc en deca du mur : la normale de la facade sort du corps, la profondeur est
+  // negative. A `+dM`, les poignees flottaient hors du toit, sous la fenetre a l'ecran (2 novembre 2026, vu en la cadrant de pres).
   return [
-    { id: 'pos', point: P(e.sM, e.dM, z), axes: ['long', 'vert'], libelle: 'Position' },
-    { id: 'taille', point: P(e.sM + w / 2, e.dM, z), axes: ['long'], libelle: 'Taille' }
+    { id: 'pos', point: P(e.sM, -e.dM, z), axes: ['long', 'vert'], libelle: 'Position' },
+    { id: 'taille', point: P(e.sM + w / 2, -e.dM, z), axes: ['long'], libelle: 'Taille' }
   ];
 }
 
@@ -447,4 +450,78 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
   }
   if (id === 'taille') return { corps: avec(depart, t.rang, { ...c, elementsToit: remplace(c.elementsToit, t.i, { ...e, echelle: centi(borne(((dim + 2 * dl) / (e.type === 'solaire' ? 2.55 : 0.8)), 0.5, 2.2)) }) }), guides };
   return rien;
+}
+
+/**
+ * La marge laissee autour d'un element quand la camera se cadre sur lui : assez de toit autour pour savoir ou il est, assez peu pour qu'un
+ * oeil-de-boeuf fasse encore une cible de 44 px au telephone (a 1,5 m, il en faisait 41). Une fenetre de
+ * toit, un panneau, une jacobine faisaient quelques pixels devant la facade entiere (2 novembre 2026, « il faut zoomer dessus »).
+ */
+export const MARGE_CADRAGE_M = 1;
+
+/**
+ * Le mur devant lequel la camera se pose pour montrer l'element choisi : sa facade (pignon, element de mur), sinon celle du pan qui le
+ * porte (lucarne, fenetre de toit, panneau : le pan 0 au mur 0, le pan 1 au mur 2, comme `facadeDeLElement`). Une cheminee n'a pas de
+ * pan : la facade regardee si elle est a son corps, sinon le mur 0. Null pour un corps (il se regarde en entier) ou un element disparu.
+ */
+export function murDeCadrage(corps: readonly CorpsToit[], t: CibleElement, regardee: { rang: number | null; mur: number } | null): { rang: number; mur: number } | null {
+  const c = corps[t.rang];
+  if (!c || t.type === 'corps' || !poigneesDe(corps, t).length) return null;
+  const m = facadeDeLElement(corps, t);
+  if (m) return m;
+  const pan = t.type === 'lucarne' ? c.lucarnes?.[t.i]?.pan : t.type === 'fenetre-toit' || t.type === 'solaire' ? c.elementsToit?.[t.i]?.pan : undefined;
+  if (pan !== undefined) return { rang: t.rang, mur: pan === 1 ? 2 : 0 };
+  return { rang: t.rang, mur: regardee && regardee.rang === t.rang ? regardee.mur : 0 };
+}
+
+/** Le plus petit cote de ce que la camera tient autour d'un element, dans le plan : en deca, on ne sait plus sur quel toit il est. */
+export const CADRAGE_MIN_M = 3.5;
+
+/**
+ * Les points de l'element lui-meme, dans le plan et en hauteur au-dessus du sol du batiment : ses facettes (lucarne, fenetre de toit,
+ * panneau : les memes que la 3D), sa souche (cheminee : sa section, du toit a son sommet), ou ses poignees (pignon, element de mur : elles
+ * sont dans le plan de sa facade). Vide pour un corps ou un element disparu.
+ */
+export function pointsDeLElement(corps: readonly CorpsToit[], t: CibleElement): Point3[] {
+  const c = corps[t.rang];
+  if (!c || t.type === 'corps') return [];
+  const r = repere(c.pts), plan = (q: Sommet): Point3 => ({ ...point(r, q.s, q.t), z: q.z });
+  if (t.type === 'lucarne') {
+    const l = c.lucarnes?.[t.i];
+    if (!l) return [];
+    const f = facettesLucarnes({ ...c, lucarnes: [l] }, r.L, r.W);
+    const pts = [...f.pans, ...f.murs].flat().map(plan);
+    if (pts.length) return pts;
+  }
+  if (t.type === 'fenetre-toit' || t.type === 'solaire') {
+    const e = c.elementsToit?.[t.i];
+    if (!e) return [];
+    const pts = facettesElementsToit({ ...c, elementsToit: [e] }, r.L, r.W).flatMap((x) => x.cadre).map(plan);
+    if (pts.length) return pts;
+  }
+  if (t.type === 'cheminee') {
+    const h = c.cheminees?.[t.i];
+    if (!h) return [];
+    const a = Math.max(h.largeurM, h.profondeurM) / 2, bas = Math.min(...c.egouts);
+    return [-a, a].flatMap((dx) => [-a, a].flatMap((dy) => [bas, h.sommetM].map((z) => ({ x: h.x + dx, y: h.y + dy, z }))));
+  }
+  return poigneesDe(corps, t).map((p) => p.point);
+}
+
+/**
+ * Ce que la camera doit tenir dans l'image pour montrer l'element choisi : la boite de l'element (`pointsDeLElement`), elargie de
+ * `MARGE_CADRAGE_M` de chaque cote et d'au moins `CADRAGE_MIN_M` de cote dans le plan, jamais sous le sol. Ses huit coins, dans le plan et
+ * en hauteur au-dessus du sol du batiment ; vide pour un corps ou un element disparu.
+ */
+export function emprisePourCadrer(corps: readonly CorpsToit[], t: CibleElement): Point3[] {
+  const pts = pointsDeLElement(corps, t);
+  if (!pts.length) return [];
+  const m = MARGE_CADRAGE_M;
+  const autour = (v: number[]): [number, number] => {
+    const a = Math.min(...v) - m, b = Math.max(...v) + m, manque = Math.max(0, CADRAGE_MIN_M - (b - a)) / 2;
+    return [a - manque, b + manque];
+  };
+  const [x0, x1] = autour(pts.map((p) => p.x)), [y0, y1] = autour(pts.map((p) => p.y));
+  const zs = pts.map((p) => p.z), z0 = Math.max(0, Math.min(...zs) - m), z1 = Math.max(...zs) + m;
+  return [x0, x1].flatMap((x) => [y0, y1].flatMap((y) => [z0, z1].map((z) => ({ x, y, z }))));
 }
