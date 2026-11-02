@@ -4477,6 +4477,27 @@ const POINTS = {
     const pres = await parMetre('pos', 'taille', 0.4);
     const largeurPx = Math.round(pres * 0.8);
     const facadeChoisie = await page.locator('[data-commande="toit.vueFacade"][aria-pressed="true"]').count();
+    // La scene est dessinee, panneau ouvert : une grille de points de l'image, sur la scene que le panneau laisse libre, ne tombe pas sur
+    // le fond de l'hote (le canevas absent). Au telephone, un panneau qui defilait, au fond opaque, faisait disparaitre la vue de facade
+    // au-dessus de lui (2 novembre 2026) : 100 % des points sur le fond.
+    const zone = await page.evaluate(() => {
+      const h = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(), p = document.querySelector('.panneauToit').getBoundingClientRect();
+      const fond = getComputedStyle(document.querySelector('#terrasse3dCanvasHost')).backgroundColor.match(/\d+/g).slice(0, 3).map(Number);
+      // Une colonne a droite (grand ecran) ou un bandeau en bas : la scene libre est a gauche, ou au-dessus.
+      const colonne = p.width < h.width * 0.6;
+      return { x0: h.left, y0: h.top, x1: colonne ? p.left : h.right, y1: colonne ? h.bottom : p.top, fond };
+    });
+    const image = (await page.screenshot()).toString('base64');
+    const surLeFond = await page.evaluate(async ([d, z]) => {
+      const i = new Image(); i.src = 'data:image/png;base64,' + d; await i.decode();
+      const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const x = c.getContext('2d'); x.drawImage(i, 0, 0);
+      let n = 0, fond = 0;
+      for (let a = 1; a < 20; a++) for (let b = 1; b < 20; b++) {
+        const px = x.getImageData(Math.round(z.x0 + ((z.x1 - z.x0) * a) / 20), Math.round(z.y0 + ((z.y1 - z.y0) * b) / 20), 1, 1).data;
+        n++; if (Math.abs(px[0] - z.fond[0]) + Math.abs(px[1] - z.fond[1]) + Math.abs(px[2] - z.fond[2]) <= 3) fond++;
+      }
+      return fond / n;
+    }, [image, zone]);
     // Lachee de nouveau : la facade revient entiere.
     await page.evaluate(() => window.__plan.executer('toit.selection'));
     await page.waitForTimeout(800);
@@ -4485,9 +4506,9 @@ const POINTS = {
     if (process.env.FUMEE_CAPTURE_ICONES) await page.screenshot({ path: `${process.env.FUMEE_CAPTURE_ICONES}-${f.nom}.png` });
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
     const ok = pieces >= 13 && vignettes === pieces && plusPetite >= 44 && facadeAvant === 1 && facadeChoisie === 1 && entier > 0 && pres >= 2 * entier
-      && largeurPx >= 44 && Math.abs(retour - entier) <= 0.05 * entier && inchange && sans;
+      && largeurPx >= 44 && surLeFond < 0.1 && Math.abs(retour - entier) <= 0.05 * entier && inchange && sans;
     const r = (v) => v.toFixed(1).replace('.', ',');
-    return { ok, mesure: `${vignettes}/${pieces} vignettes 3D, la plus petite ${plusPetite} px ; façade entière ${r(entier)} px/m ; fenêtre de toit choisie ${r(pres)} px/m (${largeurPx} px de large), vue de la façade ${facadeChoisie ? 'oui' : 'NON'} ; lâchée ${r(retour)} px/m ; toit ${inchange ? 'inchangé' : 'CHANGÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
+    return { ok, mesure: `${vignettes}/${pieces} vignettes 3D, la plus petite ${plusPetite} px ; façade entière ${r(entier)} px/m ; fenêtre de toit choisie ${r(pres)} px/m (${largeurPx} px de large), vue de la façade ${facadeChoisie ? 'oui' : 'NON'}, scène ${surLeFond < 0.1 ? 'dessinée' : 'ABSENTE'} panneau ouvert (${Math.round(surLeFond * 100)} % sur le fond) ; lâchée ${r(retour)} px/m ; toit ${inchange ? 'inchangé' : 'CHANGÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
   }
 };
 

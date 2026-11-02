@@ -38,6 +38,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Vue 3D, « Modifier la toiture », au téléphone : dès que le panneau du mode débordait (un élément posé, son inspecteur), la vue de
+  la façade restait vide au-dessus de lui, poignées flottant sur le fond ; replié, le panneau la laissait voir. Un bloc qui défile, au
+  fond opaque, posé sur la scène, est composé à part par le navigateur et tenu pour opaque : la scène 3D qu'il recouvrait en partie
+  était écartée de l'image entière. Le panneau garde son fond et ne défile plus ; ce qui défile est dedans, transparent. Le point 124
+  de la fumée vérifie que la scène est dessinée panneau ouvert. Rien ne change au projet, aux quantités ni aux exports.
 - Vue 3D, « Modifier la toiture » : les objets posés sur le toit étaient trop petits pour se voir et se toucher. Les vignettes de
   l'onglet « Sur le toit » montraient la maison entière, où une fenêtre de toit, un panneau solaire ou une jacobine ne faisaient que
   quelques pixels ; elles sont désormais cadrées de près sur l'élément, chacune la sienne (le pignon et la cheminée avaient le même

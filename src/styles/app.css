@@ -79,12 +79,17 @@
   #zonePalette .outil:disabled{ opacity:0.35; cursor:not-allowed; }
   /* Le groupe « Toit » : l'interrupteur des Regles, les onglets du catalogue, puis les gestes en images. */
   /* Le mode Toit de la Vue 3D : une barre de session, puis le catalogue du toit en images, sur le bas de la scene. */
-  .panneauToit{ position:absolute; left:8px; right:64px; bottom:8px; z-index:5; max-height:46%; overflow:auto; background:var(--panel-bg); border:1px solid var(--rule); border-radius:10px; padding:6px 8px; display:flex; flex-direction:column; gap:6px; box-shadow:0 2px 10px rgba(0,0,0,.18); }
+  .panneauToit{ position:absolute; left:8px; right:64px; bottom:8px; z-index:5; max-height:46%; overflow:hidden; background:var(--panel-bg); border:1px solid var(--rule); border-radius:10px; padding:6px 8px; display:flex; flex-direction:column; gap:6px; box-shadow:0 2px 10px rgba(0,0,0,.18); }
+  /* Le panneau est opaque et ne defile pas ; ce qui defile est dedans, transparent. Un bloc qui defile, au fond opaque, pose sur la
+     scene 3D, la faisait disparaitre au-dessus de lui : Chromium le compose a part et le croit opaque, et ecarte le canevas WebGL comme
+     s'il etait cache (2 novembre 2026 : au telephone, des qu'un element pose faisait deborder le panneau, la vue de facade restait vide
+     au-dessus de lui ; le point 124 de la fumee le mesure). Un defilement transparent n'est pas tenu pour opaque. */
+  .defilementToit{ flex:1 1 auto; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:6px; }
   /* Sur grand ecran, le panneau est une colonne a droite (comme dans la maquette) : la scene se cadre dans ce qui reste a gauche. */
-  /* Le panneau defile ; ses blocs gardent leur hauteur. Sans cela, dans la colonne flexible bornee en hauteur, le catalogue (qui
+  /* Le panneau defile (dans `.defilementToit`) ; ses blocs gardent leur hauteur. Sans cela, dans la colonne flexible bornee en hauteur, le catalogue (qui
      defile en largeur, donc en hauteur aussi) se reduisait a rien sur telephone : les pieces etaient sous les onglets, hors d'atteinte
      (point 98 de la fumee, classe compact). */
-  .panneauToit > *{ flex-shrink:0; }
+  .defilementToit > *{ flex-shrink:0; }
   html[data-classe="large"] .panneauToit{ top:8px; bottom:8px; left:auto; right:64px; width:340px; max-height:none; }
   html[data-classe="large"] .panneauToit .toitCatalogue{ flex-wrap:wrap; overflow-x:visible; }
   .panneauToit .barreToit{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
@@ -124,14 +129,15 @@
   html[data-classe="compact"] .panneauToit{ left:0; right:0; bottom:0; max-height:52%; padding:2px 6px 6px; border-radius:14px 14px 0 0; border-bottom:0; }
   html[data-classe="compact"] .panneauToit .languetteToit{ display:flex; align-self:center; align-items:center; justify-content:center; min-width:64px; min-height:28px; padding:0; color:var(--ink-soft); background:transparent; border:0; cursor:pointer; }
   html[data-classe="compact"] .panneauToit.replie{ max-height:none; }
-  html[data-classe="compact"] .panneauToit.replie > :not(.barreToit):not(.languetteToit){ display:none; }
+  html[data-classe="compact"] .panneauToit.replie .defilementToit > :not(.barreToit){ display:none; }
   html[data-classe="compact"] .panneauToit .toitPiece{ width:68px; min-height:68px; }
   html[data-classe="compact"] .panneauToit .toitPieceOptions{ width:68px; }
   /* Au doigt, les options des trois pans sont des cibles de 44 px comme les autres. */
   html[data-classe="compact"] .panneauToit .optionPiece, html[data-classe="moyen"] .panneauToit .optionPiece{ min-height:44px; }
   /* Tablette : la barre de la session est un rail vertical a gauche du panneau, les boutons restent sous le pouce. */
-  html[data-classe="moyen"] .panneauToit{ right:64px; max-height:64%; display:grid; grid-template-columns:56px minmax(0,1fr); column-gap:8px; align-content:start; }
-  html[data-classe="moyen"] .panneauToit > :not(.barreToit){ grid-column:2; }
+  html[data-classe="moyen"] .panneauToit{ right:64px; max-height:64%; }
+  html[data-classe="moyen"] .panneauToit .defilementToit{ display:grid; grid-template-columns:56px minmax(0,1fr); column-gap:8px; align-content:start; }
+  html[data-classe="moyen"] .panneauToit .defilementToit > :not(.barreToit){ grid-column:2; }
   html[data-classe="moyen"] .panneauToit .barreToit{ grid-column:1; grid-row:1 / span 12; flex-direction:column; flex-wrap:nowrap; align-items:center; }
   html[data-classe="moyen"] .panneauToit .barreToit .boutonToit.valider span{ display:none; }
   html[data-classe="moyen"] .panneauToit .barreToit .espaceToit{ flex:0 0 4px; }
