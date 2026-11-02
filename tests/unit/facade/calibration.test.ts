@@ -18,7 +18,7 @@ async function cas(debut: string) {
   const p = s.synthese.prise as PriseCamera;
   const ph = photographier(s, 100, p), coins = coinsVrais(s, p);
   if (!ph || !coins) throw new Error('scene impossible');
-  const c: CasReel = { format: FORMAT_CAS_REEL, version: 1, nom: s.nom, statut: 'valide', largeurM: s.verite.largeur, hauteurM: s.verite.hauteur, photos: [{ fichier: 'synthese', coins, focalePx: ph.focalePx }], ouvertures: s.verite.ouvertures as never };
+  const c: CasReel = { format: FORMAT_CAS_REEL, version: 1, nom: s.nom, statut: 'valide', largeurM: s.verite.largeur, hauteurM: s.verite.hauteur, photos: [{ fichier: 'synthese', coins, focalePx: ph.focalePx, murALaMain: true }], ouvertures: s.verite.ouvertures as never };
   return (await preparerPourLaMesure(c, [ph.image])).prepare;
 }
 

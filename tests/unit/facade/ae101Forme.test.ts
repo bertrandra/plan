@@ -7,7 +7,14 @@ import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import { diagnostiquerForme } from '../../../src/facade/regles/facades/diagnosticForme.js';
 import { observationsDuRun } from '../../../src/facade/regles/facades/ia.js';
 import { lireRunEnregistre } from '../../../src/regles/facades/observations.js';
-import { etapeDiagnostic, hautEnPartsDuMur } from '../../../src/facade/releve/etapesForme.js';
+import { etapeDiagnostic } from '../../../src/facade/releve/etapesForme.js';
+import type { P2 } from '../../../src/facade/vision/homographie.js';
+
+/** Le haut lu (pixels de la vue) ramene au mur : u de 0 a 1 entre ses bouts, v en hauteurs d'egout. */
+const hautEnPartsDuMur = (points: readonly P2[], r: { x0: number; x1: number; y0: number; y1: number }) => {
+  const w = r.x1 - r.x0, h = r.y1 - r.y0;
+  return w > 0 && h > 0 && points.length >= 2 ? points.map((p) => ({ u: (p.x - r.x0) / w, v: (r.y1 - p.y) / h })) : null;
+};
 import { corpsSousContrainte, ecartsAuFait, plusGrand } from '../../../src/facade/regles/toits/faits.js';
 import { murDuCorps } from '../../../src/facade/regles/toits/murDuCorps.js';
 import { reconstruireCorps, type Grille } from '../../../src/facade/toits/toitCorps.js';

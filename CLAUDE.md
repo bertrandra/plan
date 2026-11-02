@@ -164,6 +164,14 @@ d'y toucher.
   validation est figée sur le fichier (`validation.figer`), en lecture seule. Ne pas écrire un second
   aperçu 3D : toute évolution de l'avant/après (et plus tard les décisions) se fait dans
   `validation.ts` / `PropositionsAudit.tsx`, pour les deux.
+- **Calibration et audit : le même code et la même orchestration ; l'audit n'en cache qu'une part** (décision du propriétaire,
+  2 novembre 2026). Une seule entrée, `facade/releve/enchainement.ts::derouler`, un seul chemin de calcul : la calibration est la vue
+  entière du processus, l'audit le même processus dont la personne voit moins, et il ne calcule rien autrement. Un résultat de calibration
+  prouve donc ce que fera l'audit. Ne diffèrent que : (a) d'où viennent les entrées (`EntreesFacade.prises`, `prisesFacade.ts` : les
+  captures sur place, ou un cas enregistré relu par `entreesDuCas`) ; (b) les mesures qui demandent la vérité, faites seulement quand un cas
+  en a une, en lecture seule ; (c) la fin (`vue`) : V4 écrit la Façade dans l'audit, la calibration n'écrit rien ; (d) ce qui se montre.
+  Un ajout de la calibration (vérité, réponse de Claude rejouée, texture sans ombres) lit les sorties communes sans les changer
+  (`tests/unit/facade/releve/uneOrchestration.test.ts`). Un écran de l'audit ne calcule rien : il cache.
 - **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur
   la photo ni déformé : le haut de toute la façade, tous corps du toit compris, en mètres ramenés à la hauteur du mur. Il se pose
   entre l'égout, le sol et les bouts trouvés, et seule son échelle suit. Les repères ne disent que les directions ; la dimension

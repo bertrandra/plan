@@ -371,7 +371,9 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     const hautFacade = corps?.length && !partie ? hautDuMurSousCorps(f, corps, hMur) : null;
     const hautEn = (x: number) => Math.max(egoutEn(x, hMur, partie), hautFacade ? hauteurDuHautEn(hautFacade, x) : 0);
     const sousEgout = (ov: OuvertureFacade) => ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01;
-    const posees = r.ouvertures.filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01));
+    // Une baie hors du mur, d'un cote comme de l'autre (sous le pignon d'un corps voisin qui prolonge la facade, que la detection lit
+    // depuis le 2 novembre 2026, ou un mur raccourci depuis le releve) ne se pose pas sur lui : elle n'en est pas.
+    const posees = r.ouvertures.filter((ov) => ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01));
     posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts) ; une baie de pignon borne son coffre
     // au haut de la facade au-dessus d'elle.

@@ -35,14 +35,15 @@ const scene = (prefixe: string) => {
   if (!ph || !vrais) throw new Error('scene impossible');
   return { s, ph, vrais };
 };
-const casDe = (L: number, H: number, coins: P2[], focalePx: number | null, plus: Partial<CasStocke> = {}): CasStocke => ({
+// Un cas d'une photo ; `main` : ses coins posees a la main (ils l'emportent, comme dans l'audit), sinon ils se cherchent.
+const casDe = (L: number, H: number, coins: P2[], focalePx: number | null, plus: Partial<CasStocke> = {}, main = true): CasStocke => ({
   format: FORMAT_CAS_REEL, version: 1, nom: 'essai', statut: 'brouillon', largeurM: L, hauteurM: H, ouvertures: [], images: ['x'],
-  photos: [{ fichier: 'photo-1', coins, ...(focalePx !== null ? { focalePx } : {}) }], ...plus,
+  photos: [{ fichier: 'photo-1', coins, ...(focalePx !== null ? { focalePx } : {}), ...(main ? { murALaMain: true } : {}) }], ...plus,
 });
 type OptionsEnchainement = Parameters<typeof derouler>[1];
 /** Le mur pose (haut gauche, haut droit, bas droit, bas gauche) ramene a ses bouts. */
 const rectDeLaPose = (c: readonly P2[]) => ({ x0: ((c[0] as P2).x + (c[3] as P2).x) / 2, x1: ((c[1] as P2).x + (c[2] as P2).x) / 2 });
-const CHERCHER: OptionsEnchainement = { coins: 'chercher', image: 'assemblage', chercherCoins: async (e) => rechercher(e) };
+const CAL: OptionsEnchainement = { vue: 'calibration', chercherCoins: async (e) => rechercher(e) };
 const etats = (r: Enchainement) => Object.fromEntries(r.etapes.map((e) => [e.id, e.etat]));
 
 describe('l enchainement d une facade', () => {
@@ -51,9 +52,10 @@ describe('l enchainement d une facade', () => {
 
   it('calcule l etat de chaque etape, dans l ordre du tableau, et dit ses versions', async () => {
     const vus: string[] = [];
-    const r = await derouler(entreesDuCas(casDe(L, H, vrais, ph.focalePx), [ph.image]), { ...CHERCHER, surEtape: (id, e) => vus.push(id + ':' + e) });
+    const r = await derouler(entreesDuCas(casDe(L, H, vrais, ph.focalePx, {}, false), [ph.image]), { ...CAL, surEtape: (id, e) => vus.push(id + ':' + e) });
     expect(r.etapes.map((e) => e.id)).toEqual(ETAPES_FACADE.map((e) => e.id));
-    expect(etats(r)).toMatchObject({ preparation: 'ok', prises: 'ok', redressement: 'ok', assemblage: 'ok', silhouette: 'ok', texture: 'ok', diagnostic: 'saute', toit: 'saute', validation: 'saute' });
+    // Une photo seule : rien a assembler (comme dans l'audit).
+    expect(etats(r)).toMatchObject({ preparation: 'ok', prises: 'ok', redressement: 'ok', assemblage: 'saute', silhouette: 'ok', texture: 'ok', diagnostic: 'saute', toit: 'saute', validation: 'saute' });
     expect(['ok', 'a-confirmer']).toContain(etapeDe(r, 'calage').etat);
     expect(r.etapes.every((e) => e.resume.length > 10)).toBe(true);
     // L'E9 (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrirait ; la calibration le montre sans rien ecrire.
@@ -61,6 +63,7 @@ describe('l enchainement d une facade', () => {
     expect(f?.dimensions).toMatchObject({ largeurM: Math.round(L * 100) / 100, egoutM: Math.round(H * 100) / 100 });
     expect(f?.forme.gabarit).toEqual(GABARIT_RECTANGLE);
     expect(f?.textureCalee?.pxParM).toBeGreaterThan(0);
+    expect(f?.ouvertures).toHaveLength(r.sorties.analyse?.ouvertures.length ?? -1);
     expect(f?.ouvertures.map((o) => o.id)).toEqual(r.sorties.analyse?.ouvertures.map((_, i) => 'o' + (i + 1)));
     expect(etapeDe(r, 'validation').resume).toMatch(/^Bilan : Mur de .* La calibration n’écrit pas de façade : elle se valide dans l’audit \(V4\)\.$/);
     // La barre avance au fil des etapes : chacune commence, puis finit.
@@ -68,38 +71,40 @@ describe('l enchainement d une facade', () => {
     expect(vus.filter((v) => v.endsWith(':en-cours'))).toHaveLength(ETAPES_FACADE.length);
     expect(r.versions).toEqual({ chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS });
     // Les images de chaque etape : la vue redressee, l'assemblage et le mur, le mur retenu, la texture.
-    const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE, photos: [{ coins: vrais }] });
+    const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(!!im.vues[0]?.image).toBe(true);
-    expect(im.assemblage?.mur.x1).toBeGreaterThan(im.assemblage?.mur.x0 ?? Infinity);
+    expect(im.assemblage?.image).toBe(r.sorties.calage?.pose?.image);
     expect(im.pose?.proposees.length).toBe(r.sorties.analyse?.ouvertures.length);
     expect(im.texture?.l).toBeCloseTo(L, 1);
     // L'E7 montre la facade que lit la detection, entiere : le mur et la bande au-dessus de l'egout (rien n'est coupe a l'egout), la
     // silhouette du mur dessus (un rectangle ici : son haut a l'egout), les ouvertures a leur place.
     expect(im.facade?.image).toBe(r.sorties.analyse?.facade.image);
-    expect(im.facade?.l).toBeCloseTo(L, 1);
+    // Le cadre : le mur et 3 % de marge de chaque cote ; le bout gauche du mur a 3 % de la largeur.
+    expect(im.facade?.l).toBeCloseTo(L * 1.06, 1);
+    expect(im.facade?.x0).toBeCloseTo(L * 0.03, 1);
     expect(im.facade?.h).toBeGreaterThan(H + 1);
     expect(Math.min(...(im.facade?.contour ?? []).map((q) => q.y))).toBeCloseTo((im.facade?.h ?? 0) - (r.sorties.analyse?.elevation.hauteur ?? 0) / (r.sorties.analyse?.pxParM ?? 1), 6);
     expect(im.facade?.proposees.length).toBe(r.sorties.analyse?.ouvertures.length);
   }, 60_000);
 
-  it('mesure les coins gardes par la chaine du releve : les memes ouvertures qu analyserLeMur', async () => {
+  it('mesure un mur pose a la main par la chaine de l audit : les memes ouvertures qu analyserLeMur', async () => {
     const cas = casDe(L, H, vrais, ph.focalePx);
     const { r, prepare } = await preparerPourLaMesure(cas, [ph.image]);
     const direct = analyserLeMur({ largeur: L, hauteur: H, contour: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }], cote: 0, distance: null },
       [{ photo: ph.image, coins: vrais, focalePx: ph.focalePx, silhouette: gabaritSurLaPhoto(GABARIT_RECTANGLE, vrais), reperes: null }], 'vues');
     expect(prepare?.pxParM).toBe(direct?.r.pxParM);
-    expect(prepare?.ouvertures).toEqual(direct?.r.ouvertures);
+    expect(prepare?.ouvertures.map((o) => [o.type, o.x, o.y, o.l, o.h].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v)))).toEqual(direct?.r.ouvertures.map((o) => [o.type, o.x, o.y, o.l, o.h].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v))));
     expect(prepare?.cas === cas).toBe(true);
-    expect(etapeDe(r, 'calage').resume).toMatch(/coins du cas/);
+    expect(etapeDe(r, 'calage').resume).toMatch(/^Mur posé à la main\./);
   }, 60_000);
 
   it('reprend depuis une etape avec les sorties des precedentes, et rend les memes cotes', async () => {
     const e = entreesDuCas(casDe(L, H, vrais, ph.focalePx), [ph.image]);
-    const r = await derouler(e, { coins: 'garder', image: 'assemblage' });
-    const suite = await derouler(e, { coins: 'garder', image: 'assemblage', depuis: 'texture', precedent: r });
+    const r = await derouler(e, { ...CAL, illustrer: true });
+    const suite = await derouler(e, { ...CAL, illustrer: true, depuis: 'texture', precedent: r });
     // Des identites, pas des egalites : comparer des images entieres coute des secondes a l'outil de test.
-    expect(suite.sorties.mosaique === r.sorties.mosaique && suite.sorties.calage === r.sorties.calage).toBe(true);
-    expect(suite.sorties.analyse === r.sorties.analyse).toBe(false);
+    expect(suite.sorties.audit === r.sorties.audit && suite.sorties.calage === r.sorties.calage && suite.sorties.analyse === r.sorties.analyse).toBe(true);
+    expect(suite.sorties.sansOmbres === r.sorties.sansOmbres).toBe(false);
     const cotes = (x: Enchainement) => x.sorties.analyse?.ouvertures.map((o) => [o.type, o.x, o.y, o.l, o.h]);
     expect(cotes(suite)).toEqual(cotes(r));
     expect(suite.etapes.find((x) => x.id === 'assemblage') === r.etapes.find((x) => x.id === 'assemblage')).toBe(true);
@@ -107,47 +112,45 @@ describe('l enchainement d une facade', () => {
 
   it('s arrete quand la personne le demande : les etapes restantes restent a venir', async () => {
     let n = 0;
-    const r = await derouler(entreesDuCas(casDe(L, H, vrais, ph.focalePx), [ph.image]), { coins: 'garder', image: 'assemblage', arrete: () => ++n > 3 });
+    const r = await derouler(entreesDuCas(casDe(L, H, vrais, ph.focalePx), [ph.image]), { ...CAL, arrete: () => ++n > 3 });
     expect(r.etapes.slice(0, 3).map((x) => x.etat)).toEqual(['ok', 'ok', 'ok']);
     expect(r.etapes.slice(3).every((x) => x.etat === 'a-venir')).toBe(true);
   }, 60_000);
 
   it('dit ce qui manque sans photo, sans rien rejeter', async () => {
-    const r = await derouler({ largeurM: 9, hauteurM: 5, gabarit: GABARIT_RECTANGLE, photos: [] }, { coins: 'garder', image: 'assemblage' });
+    const r = await derouler(entreesDuCas({ ...casDe(9, 5, [], null), photos: [] }, []), CAL);
     expect(etapeDe(r, 'prises').etat).toBe('echec');
     for (const id of ['redressement', 'calage', 'silhouette', 'texture', 'ouvertures'] as IdEtape[]) expect(etapeDe(r, id).etat).toBe('a-venir');
   });
 
   it('mesure le calage contre la verite : un mur pose de travers est dit faux, en part de la largeur', async () => {
     const e = entreesDuCas(casDe(L, H, vrais, ph.focalePx), [ph.image]);
-    const r = await derouler(e, { coins: 'garder', image: 'assemblage' });
+    const r = await derouler(e, CAL);
     const m = rectDeLaPose(r.sorties.calage?.pose?.coins ?? []);
-    const juste = await derouler(e, { coins: 'garder', image: 'assemblage', verite: { calage: { x0: m.x0, x1: m.x1, versionChaine: VERSION_CHAINE_FACADES } } });
+    const juste = await derouler(e, { ...CAL, verite: { calage: { x0: m.x0, x1: m.x1, versionChaine: VERSION_CHAINE_FACADES } } });
     expect(etapeDe(juste, 'calage').verite).toMatchObject({ juste: true });
     // Un mur vrai deux fois plus large, a gauche : le bout gauche est loin (le defaut d'AE 101, un seul bloc retenu).
     const w = m.x1 - m.x0;
-    const faux = await derouler(e, { coins: 'garder', image: 'assemblage', verite: { calage: { x0: m.x0 - w, x1: m.x1, versionChaine: VERSION_CHAINE_FACADES } } });
+    const faux = await derouler(e, { ...CAL, verite: { calage: { x0: m.x0 - w, x1: m.x1, versionChaine: VERSION_CHAINE_FACADES } } });
     expect(etapeDe(faux, 'calage').verite?.juste).toBe(false);
     expect(etapeDe(faux, 'calage').verite?.texte).toMatch(/bout gauche à 50 %.*faux/);
+    // La mesure ne change rien a l'etape : son etat et son resume sont ceux du rejeu sans verite.
+    expect([etapeDe(faux, 'calage').etat, etapeDe(faux, 'calage').resume]).toEqual([etapeDe(r, 'calage').etat, etapeDe(r, 'calage').resume]);
+    // Une verite posee sur l'assemblage d'une autre version de la chaine le dit.
+    const vieille = await derouler(e, { ...CAL, verite: { calage: { x0: m.x0, x1: m.x1, versionChaine: VERSION_CHAINE_FACADES - 1 } } });
+    expect(etapeDe(vieille, 'calage').verite?.texte).toMatch(new RegExp(`chaîne ${VERSION_CHAINE_FACADES - 1}, celle-ci est la ${VERSION_CHAINE_FACADES}`));
   }, 60_000);
 
-  it('donne a l E4 l etat de l arbitre du calage : a confirmer quand une autre pose explique mieux la photo, echec quand aucune (AE 101 en synthese)', async () => {
+  it('dit a l E4 qu un mur pose a la main de travers n explique pas la photo, et la verite le dit faux (AE 101 en synthese)', async () => {
     const etalon = lireEtalon(JSON.parse(readFileSync('tests/fixtures/facades-reel/etalons/ae101-sud.json', 'utf8')));
     const leurre = [{ x: 451, y: 220 }, { x: 752, y: 220 }, { x: 752, y: 301 }, { x: 451, y: 301 }];
-    const rejeu = async (angle: 'buisson' | 'arbre') => {
-      const sc = sceneAe101(etalon, angle);
-      return derouler({ largeurM: etalon.largeurM, hauteurM: etalon.hauteurM, gabarit: etalon.gabarit, photos: [{ image: sc.image, coins: leurre, reperes: null, focalePx: null, murALaMain: false }] },
-        { coins: 'garder', image: 'assemblage', verite: { calage: etalon.calageVrai } });
-    };
-    const b = etapeDe(await rejeu('buisson'), 'calage');
-    expect(b.etat).toBe('a-confirmer');
-    expect(b.resume).toMatch(/retenue : celle qui l’explique, x de 1\d\d à 7\d\d/);
-    // Les coins gardes du cas (le bloc du pignon) n'expliquent pas la photo : c'est dit, et la verite les dit faux.
-    expect(b.resume).toMatch(/Mur retenu : x de 45\d à 75\d .* il n’explique pas la photo/);
-    expect(b.verite?.juste).toBe(false);
-    const a = etapeDe(await rejeu('arbre'), 'calage');
-    expect(a.etat).toBe('echec');
-    expect(a.resume).toMatch(/Aucune pose n’explique la photo sans le toit.*Posez les deux angles/);
+    const sc = sceneAe101(etalon, 'buisson');
+    const c = { ...casDe(etalon.largeurM, etalon.hauteurM, leurre, null), gabarit: etalon.gabarit };
+    const e = etapeDe(await derouler(entreesDuCas(c, [sc.image]), { ...CAL, verite: { calage: etalon.calageVrai } }), 'calage');
+    // Un mur pose a la main l'emporte (comme dans l'audit) ; ce qu'il explique de l'image reste dit.
+    expect(e.etat).toBe('ok');
+    expect(e.resume).toMatch(/^Mur posé à la main\. .*Sur l’assemblage : x de 4\d\d à 7\d\d .* qui n’explique pas la photo sans le toit/);
+    expect(e.verite?.juste).toBe(false);
   }, 120_000);
 
   it('E5 bis et E8 (lot F4) : sur AE 101 sud, le pignon est que le LiDAR du soir a perdu, propose sur le corps principal, a confirmer', async () => {
@@ -158,8 +161,9 @@ describe('l enchainement d une facade', () => {
     const sc = sceneAe101(etalon, 'buisson');
     const coins = [{ x: sc.vrai.x0, y: sc.vrai.y0 }, { x: sc.vrai.x1, y: sc.vrai.y0 }, { x: sc.vrai.x1, y: sc.vrai.y1 }, { x: sc.vrai.x0, y: sc.vrai.y1 }];
     const ia = lireRunEnregistre(JSON.parse(readFileSync('tests/fixtures/facades-ia/ae101-sud-synthetique.json', 'utf8')));
-    const e = { largeurM: etalon.largeurM, hauteurM: etalon.hauteurM, gabarit: etalon.gabarit, photos: [{ image: sc.image, coins, reperes: null, focalePx: null, murALaMain: true }] };
-    const r = await derouler({ ...e, toit: { mur: { gauche: f.gauche, droite: f.droite }, corps } }, { coins: 'garder', image: 'assemblage', ia, verite: { toit: etalon.toitVrai } });
+    const c = { ...casDe(etalon.largeurM, etalon.hauteurM, coins, null), gabarit: etalon.gabarit };
+    const e = entreesDuCas(c, [sc.image]);
+    const r = await derouler({ ...e, toit: { mur: { gauche: f.gauche, droite: f.droite }, corps } }, { ...CAL, ia, verite: { toit: etalon.toitVrai } });
     const d = etapeDe(r, 'diagnostic');
     expect(d.etat).toBe('a-confirmer');
     expect(d.resume).toMatch(/Tronçons : corps 1, long pan de u 0 à 1\./);
@@ -169,7 +173,7 @@ describe('l enchainement d une facade', () => {
     expect(etapeDe(r, 'toit')).toMatchObject({ etat: 'a-confirmer' });
     expect(etapeDe(r, 'toit').resume).toMatch(/^1 proposition de toit à confirmer dans l’avant\/après de l’audit \(corps 1, long pan\), décochée/);
     // Sans les corps du toit, rien ne se compare : les deux etapes sont sautees, et le reste ne change pas.
-    const sans = await derouler(e, { coins: 'garder', image: 'assemblage', ia });
+    const sans = await derouler(e, { ...CAL, ia });
     expect([etapeDe(sans, 'diagnostic').etat, etapeDe(sans, 'toit').etat]).toEqual(['saute', 'saute']);
     expect(sans.etapes.filter((x) => x.id !== 'diagnostic' && x.id !== 'toit')).toEqual(r.etapes.filter((x) => x.id !== 'diagnostic' && x.id !== 'toit'));
   }, 120_000);
@@ -191,15 +195,17 @@ describe('le cas de calibration dans l enchainement', () => {
 
   it('relit d ou viennent les coins : le mur pose a la main, puis les reperes', () => {
     expect(originesDuCas(cas)).toEqual({ 0: 'main', 1: 'reperes' });
-    const e = entreesDuCas(cas, [{} as Image, {} as Image, {} as Image]);
-    expect(e.photos.map((p) => [p.murALaMain, !!p.reperes])).toEqual([[true, false], [false, true], [false, false]]);
+    const e = entreesDuCas(cas, [{ largeur: 10, hauteur: 10 } as Image, { largeur: 10, hauteur: 10 } as Image, { largeur: 10, hauteur: 10 } as Image]);
+    // Les corrections de l'audit : le mur pose a la main (ses coins), les reperes ; la troisieme photo n'en a pas, ses coins se cherchent.
+    expect(e.prises.corrections).toEqual({ 0: { coins: carre }, 1: { reperes: carre } });
+    expect(e.prises.photos.map((p) => p.rang)).toEqual([0, 1, 2]);
     expect(e.gabarit).toBe(GABARIT_RECTANGLE);
   });
 
   it('pose le mur cale a la main sur l assemblage sur chaque photo assemblee, comme un mur pose a la main', async () => {
     const { s, ph, vrais } = scene('02-');
     const c = casDe(s.verite.largeur, s.verite.hauteur, vrais, ph.focalePx);
-    const r = await derouler(entreesDuCas(c, [ph.image]), { coins: 'garder', image: 'assemblage' });
+    const r = await derouler(entreesDuCas(c, [ph.image]), CAL);
     const pose = r.sorties.calage?.pose?.coins ?? [];
     const cale = casCaleALaMain(c, r, pose);
     expect(cale.photos[0]?.murALaMain).toBe(true);
@@ -215,10 +221,10 @@ describe('« Ajuster l’égout et le sol » depuis les reperes de la calibratio
     const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])].slice(0, 2) as PriseCamera[];
     const phs = prises.map((p) => photographier(s, 100, p)), vrais = prises.map((p) => coinsVrais(s, p));
     if (phs.some((p) => !p) || vrais.some((v) => !v)) throw new Error('prise impossible');
-    const c = casDe(s.verite.largeur, s.verite.hauteur, vrais[0] as P2[], null, { images: ['x', 'y'], photos: vrais.map((v, k) => ({ fichier: 'photo-' + (k + 1), coins: v as P2[] })) });
-    const r = await derouler(entreesDuCas(c, phs.map((p) => (p as NonNullable<typeof p>).image)), { coins: 'garder', image: 'assemblage' });
+    const c = casDe(s.verite.largeur, s.verite.hauteur, vrais[0] as P2[], null, { images: ['x', 'y'], photos: vrais.map((v, k) => ({ fichier: 'photo-' + (k + 1), coins: v as P2[], murALaMain: true })) });
+    const r = await derouler(entreesDuCas(c, phs.map((p) => (p as NonNullable<typeof p>).image), (img) => 'adresse-' + img.largeur), CAL);
     const pose = r.sorties.calage?.pose;
-    const a = assemblageDuRejeu(r, (img) => 'adresse-' + img.largeur);
+    const a = assemblageDuRejeu(r);
     if (!a || !pose) throw new Error('pas d assemblage');
     // L'image montree est celle du calage (l'assemblage), avec le mur qui y est pose.
     expect(a.url).toBe('adresse-' + pose.image.largeur);
@@ -236,9 +242,9 @@ describe('« Ajuster l’égout et le sol » depuis les reperes de la calibratio
 
   it('avec une photo seule : pas d assemblage a montrer, la photo redressee comme avant', async () => {
     const { s, ph, vrais } = scene('02-');
-    const r = await derouler(entreesDuCas(casDe(s.verite.largeur, s.verite.hauteur, vrais, ph.focalePx), [ph.image]), { coins: 'garder', image: 'assemblage' });
+    const r = await derouler(entreesDuCas(casDe(s.verite.largeur, s.verite.hauteur, vrais, ph.focalePx), [ph.image]), CAL);
     expect(r.sorties.calage?.pose).not.toBeNull();
-    expect(assemblageDuRejeu(r, () => 'u')).toBeNull();
+    expect(assemblageDuRejeu(r)).toBeNull();
   }, 60_000);
 });
 
@@ -254,26 +260,27 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
   const cas = casDe(L, H, vrais, ph.focalePx, { ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
 
   it('pose candidate a l E4 (accord), boites accordees a l E7, version et cout dits', async () => {
-    const r = await derouler(entreesDuCas(cas, [ph.image]), { coins: 'garder', image: 'assemblage', ia: run(sortie), verite: veriteDuCas(cas) });
+    const r = await derouler(entreesDuCas(cas, [ph.image]), { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
     expect(etapeDe(r, 'calage').resume).toMatch(/IA \(réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0011 \$\) : ses angles posent le mur .* accord/);
     expect(etapeDe(r, 'silhouette').resume).toMatch(/Claude lit : ligne droite/);
     expect(etapeDe(r, 'ouvertures').resume).toMatch(/ouvertures vues par Claude : \d+ retrouvées par la détection, 1 seule, proposée décochée/);
     expect(etapeDe(r, 'ouvertures').etat).toBe('a-confirmer');
     expect(etapeDe(r, 'ouvertures').verite?.texte).toMatch(/Boîtes de Claude : rappel/);
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
-    const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE, photos: [{ coins: vrais }] });
+    const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(im.ia?.pose).not.toBeNull();
     expect(im.ia?.boites.filter((b) => !b.cochee)).toHaveLength(1);
   }, 60_000);
 
-  it('dit la divergence quand ses angles tombent loin du mur retenu : l E4 est a confirmer', async () => {
+  it('dit la divergence quand ses angles tombent loin du mur retenu, sans changer le mur ni l etat de l E4', async () => {
     const loin = JSON.parse(JSON.stringify(sortie)) as typeof sortie;
     for (const a of Object.values(loin.calage.angles)) a.x += 0.1;
-    const r = await derouler(entreesDuCas(cas, [ph.image]), { coins: 'garder', image: 'assemblage', ia: run(loin) });
-    expect(etapeDe(r, 'calage').resume).toMatch(/les deux chemins divergent, à confirmer/);
-    expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
+    const r = await derouler(entreesDuCas(cas, [ph.image]), { ...CAL, ia: run(loin) });
+    expect(etapeDe(r, 'calage').resume).toMatch(/les deux chemins divergent, à vérifier/);
     // Sans Claude, aucune version des regles de l'IA, aucune phrase de Claude.
-    const sans = await derouler(entreesDuCas(cas, [ph.image]), { coins: 'garder', image: 'assemblage' });
+    const sans = await derouler(entreesDuCas(cas, [ph.image]), CAL);
+    expect(etapeDe(r, 'calage').etat).toBe(etapeDe(sans, 'calage').etat);
+    expect(r.sorties.calage?.pose?.coins).toEqual(sans.sorties.calage?.pose?.coins);
     expect(sans.versions.ia).toBeUndefined();
     expect(etapeDe(sans, 'calage').resume).not.toMatch(/IA \(/);
   }, 60_000);

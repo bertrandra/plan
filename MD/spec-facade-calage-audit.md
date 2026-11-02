@@ -467,6 +467,7 @@ flowchart TD
 - **L'audit** lit les états et ne montre que V1 à V4 et les étapes en échec ; **la calibration** lit les mêmes états et montre tout. Un
   seul calcul, deux affichages, et **une seule barre de progression** (§4 ter.5) qui les rend l'un et l'autre.
 - **Le rejeu** (§7.2) exécute le même orchestrateur sur un cas : mêmes entrants, mêmes réponses enregistrées, mêmes objectifs, mêmes états.
+- **Calibration et audit : le même code et la même orchestration ; l'audit n'en cache qu'une part** (§4 ter.6).
 
 ---
 
@@ -517,6 +518,51 @@ façade, ce qui est fait, ce qui attend la personne.
   il lit `commandes.etat(id)` (grisé avec la raison, jamais `obtenir(id).actif` seul).
 - **Place** : en haut du contenu de l'écran (sous la barre d'application Z1), **collée** quand on défile. Ce n'est pas une zone de plus : c'est un
   bandeau de l'écran qui le porte (le parcours de l'audit, l'éditeur de cas de la calibration).
+
+
+### 4 ter.6 Calibration et audit : le même code, la même orchestration (décision du propriétaire, 2 novembre 2026)
+
+> « Écrit que les process et audit sont les même c'est le même orchestration. » — « Same code and orchestration for both. Audit is just
+> hiding a part of it. »
+
+- **Une seule entrée, un seul chemin** : `facade/releve/enchainement.ts::derouler`. La calibration est la **vue entière** du processus ;
+  l'audit est **le même processus**, dont la personne voit moins. L'audit ne calcule rien autrement : un résultat de calibration prouve ce
+  que fera l'audit sur les mêmes photos.
+- **Ce qui diffère, et rien d'autre** :
+  1. **d'où viennent les entrées** (`EntreesFacade.prises`, `facade/releve/prisesFacade.ts`) : le côté du contour, les photos avec leur
+     prise de vue (GPS, boussole, EXIF), les corrections de la personne (repères, mur posé à la main, échelle) — prises sur place
+     (`app/audit/parcelle/mesures.ts`), ou relues d'un cas enregistré (`entreesDuCas`). Un cas tiré d'un audit garde pour cela le côté,
+     le contour et la prise de vue de chaque photo ; un cas d'avant se rejoue comme des photos importées, sans capteurs. Les coins d'une
+     photo d'un cas ne sont une entrée que s'ils ont été posés à la main (`murALaMain`) : les autres se cherchent, comme dans l'audit ;
+  2. **les mesures qui demandent la vérité** (`verite`) : faites seulement quand un cas en a une, en lecture seule ;
+  3. **la fin** (`vue`) : l'audit attend la validation V4, qui écrit la Façade ; la calibration n'écrit rien dans un projet. Seuls l'état et
+     le texte de l'É9 en dépendent ;
+  4. **ce qui se montre** : la calibration montre chaque étape et ses images (frise, calques) ; l'audit montre V1 à V4 et ce qui doute,
+     avec la même barre de progression (§4 ter.5), les mêmes gestes de reprise (`PoserReperes`, `AjusterMur`).
+- **Les ajouts de la calibration lisent, ne changent rien** : la mesure contre la vérité (É4, É5 bis, É7), la réponse de Claude rejouée
+  (sa pose des deux angles se mesure contre le mur retenu sans le changer ni changer l'état de l'É4 ; l'accord des boîtes et le diagnostic
+  sont ce que l'audit fait après son run), la texture sans ombres (l'écran seulement).
+- **La preuve** : `tests/unit/facade/releve/uneOrchestration.test.ts`. Une façade passe par l'entrée réelle de l'audit (`mesurerFacade`),
+  devient un cas comme l'admin le crée (`casDepuisFacade`, enregistré puis relu), puis se rejoue avec la vue de la calibration et celle de
+  l'audit : chaque étape de l'É0 à l'É8 rend la même chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture) ; l'É9 ne
+  diffère que par sa fin. Une photo seule et trois vues d'un pignon à fenêtre de comble.
+- **Ce qui est parti avec** (2 novembre 2026) : les modes `assemblage` et `chaine` de l'orchestrateur (la recherche du mur sur l'assemblage
+  et son arbitre propres à la calibration, `lireSurLAssemblage`, `coinsSeuls`, `hauteurDuPlan`, la photo seule ré-échantillonnée deux
+  fois, les coins « gardés » d'un cas) et le bouton « Retrouver le mur sur toutes les photos » : « Rejouer » fait ce que fait l'audit.
+  `VERSION_CHAINE_FACADES` passe à 11 : un mur vrai ou une réponse de Claude enregistrés sous la 10 l'ont été sur l'image de l'ancien chemin,
+  et le rejeu le dit.
+- **Le cadre que lit la détection** (même jour, `facade/analyse.ts::cadreDeLaSilhouette`) : la boîte de la silhouette entière (le mur, et
+  le pignon d'un corps voisin qui prolonge la façade au-delà d'un de ses bouts, `u` hors de 0 à 1), plus **3 % de la largeur du mur** de
+  chaque côté ; au-dessus, la bande d'avant, ou le haut de la silhouette et sa marge s'il dépasse. La marge dépasse les 2 % auxquels un
+  bout se juge juste, pour qu'un bout posé à cette erreur près garde le bord de sa silhouette dans le cadre, sans prendre le mur d'un
+  voisin (25 cm sur 8 m). Rien n'est cherché hors de la silhouette (la marge n'en est jamais). Le cadre s'élargit de colonnes entières sur
+  la grille de pixels du mur (`etendreAuCadre`) : rognée au mur, l'image est celle d'avant, si bien que la texture, l'élévation, la lecture
+  du toit et la Façade écrite ne bougent pas ; les cotes des ouvertures restent celles du mur (x depuis son bout gauche, négatif ou au-delà
+  de la largeur sous un pignon voisin). Le même cadre partout (assemblage, photo seule, fusion et vote des vues), et à l'écran (É7, toile
+  d'annotation). Un mur en L garde son rectangle.
+- **Le banc de synthèse** (`tests/banc/facades/banc.ts`) reste sur `analyseMur.ts::analyserLeMur`, la fonction que la chaîne appelle une fois
+  les coins posés : il mesure la détection avec les coins vrais et une focale connue, de façon synchrone (quatre tests et deux scripts
+  le lisent), alors que l'entrée de l'audit est asynchrone (la recherche des coins, un worker à l'écran).
 
 ---
 
@@ -710,6 +756,8 @@ pour l'IA**, avec la mesure contre la vérité. On y règle les seuils sur des c
     à côté de l'ancienne (jamais en l'écrasant).
 - Un rejeu est **reproductible** : mêmes photos, mêmes réponses enregistrées, mêmes seuils, même résultat. La version de la chaîne et
   celle des réglages sont inscrites dans le résultat.
+- Un rejeu fait **ce que fait l'audit** (§4 ter.6) : mêmes entrées (prises de vue, repères, mur posé à la main), même chemin ; les coins
+  qui n'ont pas été posés à la main se cherchent à chaque rejeu.
 
 ### 7.3 Ce que l'écran montre
 

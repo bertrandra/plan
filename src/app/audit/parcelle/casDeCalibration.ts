@@ -4,7 +4,7 @@
 // hauteur du prisme, est relu sur son cas fige.
 
 import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
-import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
+import { facadesDuContour, type Facade } from '../../../geometry/cotesVusDeDehors.js';
 import { GABARIT_RECTANGLE, gabaritDesCorps, relief, type GabaritMur } from '../../../facade/gabaritMur.js';
 import { FORMAT_CAS_REEL, type CasStocke, type PhotoReelle } from '../../../facade/corpusReel.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
@@ -34,6 +34,12 @@ export interface FacadeACalibrer {
   toit: CasStocke['toit'] | null;
   /** Le parement des murs vu sur place (« Ce que je vois »), en clair ; null : non dit. */
   parement: string | null;
+  /**
+   * Le cote du contour et le contour du batiment (le cas fige) : avec la prise de vue de chaque photo, les entrees que l'audit avait,
+   * que la calibration rejoue telles quelles (facade/releve/prisesFacade.ts) ; null sans contour.
+   */
+  facade: Facade | null;
+  contour: PtBrut[] | null;
 }
 
 const arrondi = (v: number) => Math.round(v * 100) / 100;
@@ -58,6 +64,12 @@ function toitDuCas(pts: readonly PtBrut[] | undefined, corps: readonly CorpsToit
   return f && corps?.length ? { mur: { gauche: { x: f.gauche.x, y: f.gauche.y }, droite: { x: f.droite.x, y: f.droite.y } }, corps: corps.map((c) => JSON.parse(JSON.stringify(c)) as CorpsToit) } : null;
 }
 
+/** Le cote du contour (a la hauteur du mur sous le toit) et le contour, relus sur le cas fige ; null sans contour. */
+function coteDuCas(pts: readonly PtBrut[] | undefined, elevation: number, cote: number, hauteur: number): Pick<FacadeACalibrer, 'facade' | 'contour'> {
+  const f = pts?.length ? facadesDuContour(pts, elevation).find((x) => x.cote === cote) : undefined;
+  return f && pts ? { facade: { ...f, hauteur }, contour: pts.map((p) => ({ x: p.x, y: p.y })) } : { facade: null, contour: null };
+}
+
 /** Les facades photographiees d'un audit, du batiment le plus photographie au moins, avec leurs dimensions du plan. */
 export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer[] {
   const out: FacadeACalibrer[] = [];
@@ -72,7 +84,8 @@ export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer
       out.push({ cle: b.cle, nom: b.nom, cote: f.cote, orientation: f.orientation ?? '', largeurM: arrondi(f.largeurM), hauteurM: arrondi(hauteur), sourceHauteur: lidar !== null ? 'lidar' : 'fichier', photos: f.photos, corrections: f.corrections ?? {}, bilans: f.mesure?.redressement?.photos ?? [],
         gabarit: gabaritLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur),
         toit: toitDuCas(entrees?.pts, sorties?.corps, f.cote),
-        parement: b.vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, b.vu.murs).toLowerCase() : null });
+        parement: b.vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, b.vu.murs).toLowerCase() : null,
+        ...coteDuCas(entrees?.pts, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur) });
     }
   }
   return out.sort((a, b) => b.photos.length - a.photos.length);
@@ -91,19 +104,26 @@ export function casDepuisFacade(f: FacadeACalibrer, idu: string | null = null): 
   const photo = (k: number): PhotoReelle => {
     const c = f.corrections[String(k)], b = f.bilans.find((x) => x.rang === k);
     const coins = c?.coins?.length === 4 ? c.coins : b?.coinsPx?.length === 4 ? b.coinsPx : provisoires;
+    const prise = f.photos[k]?.prise;
     return {
       fichier: 'photo-' + (k + 1), coins: copie(coins),
+      ...(prise ? { prise: { ...prise } } : {}),
       ...(c?.reperes?.length === 4 ? { reperes: copie(c.reperes) } : {}),
       ...(c?.coins?.length === 4 ? { murALaMain: true } : {}),
     };
   };
+  // La largeur corrigee a la main dans l'audit (l'echelle, la premiere donnee l'emporte, comme prisesFacade.ts) : celle que l'audit a
+  // mesuree, que la calibration rejoue.
+  const echelle = Object.keys(f.corrections).map(Number).sort((a, b) => a - b).map((k) => f.corrections[String(k)]?.echelleLargeurM).find((v) => typeof v === 'number' && v > 0);
+  const largeurM = echelle ? arrondi(echelle) : f.largeurM;
   return {
     format: FORMAT_CAS_REEL, version: 1, statut: 'brouillon', source: 'admin',
     nom: f.nom + ' · façade ' + f.orientation.toLowerCase() + (idu ? ' (' + idu + ')' : ''),
-    largeurM: f.largeurM, hauteurM: f.hauteurM,
+    largeurM, hauteurM: f.hauteurM,
     ...(f.parement ? { parement: f.parement } : {}),
     ...(relief(f.gabarit) > 0 ? { gabarit: f.gabarit.map((p) => ({ u: p.u, v: p.v })) } : {}),
     ...(f.toit ? { toit: f.toit } : {}),
+    ...(f.facade ? { facade: { ...f.facade, largeur: largeurM, hauteur: f.hauteurM } } : {}), ...(f.contour ? { contour: f.contour } : {}),
     photos: images.map((_, k) => photo(k)),
     images, ouvertures: [],
   };

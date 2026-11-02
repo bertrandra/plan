@@ -13,7 +13,6 @@ import type { EtatAffiche } from '../../model/etapeFacade.js';
 import type { ObservationsFacade } from '../../regles/facades/observations.js';
 import type { ToitVraiCorps } from '../corpusReel.js';
 import type { CorpsToit, PtBrut } from '../../model/types.js';
-import type { P2 } from '../vision/homographie.js';
 
 /** Les corps du toit du plan qui font le gabarit (E0) : le mur de la facade (vu de dehors) et les corps lus sur le LiDAR. */
 export interface ToitDeLaFacade { mur: { gauche: PtBrut; droite: PtBrut }; corps: readonly CorpsToit[] }
@@ -23,12 +22,6 @@ interface Etape { etat: EtatAffiche; resume: string; verite: { texte: string; ju
 
 const dec = (x: number, n = 2) => String(Math.round(x * 10 ** n) / 10 ** n).replace('.', ',');
 const pluriel = (n: number, s: string, p = s + 's') => n + ' ' + (n > 1 ? p : s);
-
-/** Le haut lu sur l'assemblage (pixels) ramene au mur pose : `u` de 0 a 1 entre ses bouts, `v` en hauteurs d'egout depuis le sol. */
-export function hautEnPartsDuMur(points: readonly P2[], r: { x0: number; x1: number; y0: number; y1: number }): { u: number; v: number }[] | null {
-  const w = r.x1 - r.x0, h = r.y1 - r.y0;
-  return w > 0 && h > 0 && points.length >= 2 ? points.map((p) => ({ u: (p.x - r.x0) / w, v: (r.y1 - p.y) / h })) : null;
-}
 
 /** Le nom d'un corps dans une phrase : son rang et le role du mur (« corps 1, long pan »). */
 const nomDuCorps = (corps: number, cote: number): string => `corps ${corps + 1}, ${cote === 0 || cote === 2 ? 'long pan' : 'mur de bout'}`;

@@ -174,31 +174,25 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
     {cas.images.map((u, k) => { const d = dims[k], r = reperesDe(cas.photos[k]), v = im.vues[k]; return <li key={k}><figure>
       {d ? <Calques url={u} l={d.l} h={d.h} libelle={'Photo ' + (k + 1) + (r ? ' et ses repères' : '')}>{r && <polygon className="calReperes" points={points(r)} vectorEffect="non-scaling-stroke" />}</Calques> : <img className="calEtape" src={u} alt={'Photo ' + (k + 1)} />}
       {v ? <Calques url={url(v.image)} l={v.image.largeur} h={v.image.hauteur} libelle={'Photo ' + (k + 1) + ' redressée entière, et le gabarit posé par ses coins'}>{v.silhouette && <polyline className="calMurLigne silhouette" points={points(v.silhouette)} vectorEffect="non-scaling-stroke" />}</Calques> : <p className="calNote">Elle ne se redresse pas : posez quatre repères.</p>}
-      <figcaption>Photo {k + 1} : {r ? 'redressée par vos quatre repères' : 'redressée par ses points de fuite'}, entière, sans coupe ni échelle.</figcaption>
+      <figcaption>Photo {k + 1}{r ? ', avec vos quatre repères' : ''} : tournée de face par le mur que la chaîne de l’audit a retenu, entière, sans coupe ni échelle.</figcaption>
     </figure></li>; })}
   </ul>;
   if (id === 'assemblage') return im.assemblage ? <Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="L’assemblage des photos redressées" /> : <p className="calNote">Aucune photo ne s’assemble.</p>;
   if (id === 'calage') {
-    const mur = im.assemblage?.mur, c = mur?.calage, aretes = c?.aretes;
-    const retenue = c ? { aretes: 'la pose des arêtes', 'mieux-expliquee': 'une autre pose des arêtes, qui explique mieux la photo', 'plan-seul': 'la pose du plan seul, supposée (aucune n’explique la photo)' }[c.retenue] : '';
+    // Le mur que la chaine a pose (celui de l'audit), et ce qu'il explique de l'image sans le toit ; la pose de Claude, mesuree a cote.
+    const ex = p.rejeu.sorties.calage?.explication, pose = im.pose;
     return <>
-      {im.assemblage && mur && c && <figure><Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="Le mur cherché sur l’assemblage (traits), la pose des arêtes écartée (tirets) et le mur retenu (contour)">
-        {aretes && <rect className="calMurAretes" x={aretes.x0} y={aretes.y0} width={aretes.x1 - aretes.x0} height={aretes.y1 - aretes.y0} vectorEffect="non-scaling-stroke" />}
-        {[mur.y0, mur.y1].map((y, k) => <line key={'h' + k} className="calMurLigne" x1={mur.x0} x2={mur.x1} y1={y} y2={y} vectorEffect="non-scaling-stroke" />)}
-        {[mur.x0, mur.x1].map((x, k) => <line key={'v' + k} className="calMurBout" x1={x} x2={x} y1={mur.y0} y2={mur.y1} vectorEffect="non-scaling-stroke" />)}
-        {im.pose && <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />}
-        {c.colombage?.zones.map((z, k) => <rect key={'z' + k} className="calColombage" x={z.x0} y={z.y0} width={z.x1 - z.x0} height={z.y1 - z.y0} vectorEffect="non-scaling-stroke" />)}
-        {c.colombage?.ecartees.map((z, k) => <rect key={'e' + k} className="calMurEcarte" x={z.x0} y={z.y0} width={z.x1 - z.x0} height={z.y1 - z.y0} vectorEffect="non-scaling-stroke" />)}
+      {pose && <figure><Calques url={url(pose.image)} l={pose.image.largeur} h={pose.image.hauteur} libelle="Le mur retenu sur l’image prise pour la suite (contour), comme dans l’audit">
+        <polygon className="calCalage" points={points(pose.contour)} vectorEffect="non-scaling-stroke" />
         {im.ia?.pose && <rect className="calMurIa" x={im.ia.pose.x0} y={im.ia.pose.y0} width={im.ia.pose.x1 - im.ia.pose.x0} height={im.ia.pose.y1 - im.ia.pose.y0} vectorEffect="non-scaling-stroke" />}
-        {im.ia?.pointes.map((p, k) => <circle key={'p' + k} className="calPointeIa" cx={p.x} cy={p.y} r={0.008 * (im.assemblage?.image.largeur ?? 1000)} vectorEffect="non-scaling-stroke" />)}
+        {im.ia?.pointes.map((q, k) => <circle key={'p' + k} className="calPointeIa" cx={q.x} cy={q.y} r={0.008 * pose.image.largeur} vectorEffect="non-scaling-stroke" />)}
         {im.ia?.etendues.map((x, k) => <line key={'t' + k} className={'calEtendueIa ' + x.quoi} x1={x.x0} x2={x.x1} y1={x.y} y2={x.y} vectorEffect="non-scaling-stroke" />)}
       </Calques><figcaption>
-        Traits : le mur cherché, {retenue}, score d’explication sans le toit {note(c.explication.score)} (angles {note(c.explication.angles[0])} et {note(c.explication.angles[1])}, égout {note(c.explication.egout)}, sol {note(c.explication.sol)} ; seuils {note(c.seuils.score)} et {note(c.seuils.angle)} par angle).
-        {aretes && <> Tirets : la pose des arêtes, écartée (score {note(aretes.score)}).</>} Contour : le mur retenu, le gabarit posé entre ses coins.
-        {im.ia && <> Trait sombre : la pose des deux angles de Claude{c.ia ? `, score ${note(c.ia.score)}${c.ia.retenue ? ', retenue' : ''}` : ''} ; ronds : ses pointes ; traits sous le mur : ses appentis, ses autres volumes, ce qui cache le mur.</>}
-        {c.colombage && <> Voile : les zones de colombage que Claude voit ; tirets : {c.colombage.ecartees.length ? `${c.colombage.ecartees.length} pose${c.colombage.ecartees.length > 1 ? 's' : ''} des arêtes écartée${c.colombage.ecartees.length > 1 ? 's' : ''}, qui sui${c.colombage.ecartees.length > 1 ? 'vent' : 't'} les bois` : 'aucune pose écartée'}.</>}
+        Contour : le mur retenu par la chaîne de l’audit (coins posés à la main, sinon trouvés sur les photos, sinon prédits), le gabarit posé entre ses coins.
+        {ex && <> Score d’explication sans le toit {note(ex.score)} (angles {note(ex.angles[0])} et {note(ex.angles[1])}, égout {note(ex.egout)}, sol {note(ex.sol)}).</>}
+        {im.ia && <> Trait sombre : la pose des deux angles de Claude, mesurée sans rien changer ; ronds : ses pointes ; traits sous le mur : ses appentis, ses autres volumes, ce qui cache le mur.</>}
       </figcaption></figure>}
-      {im.pose && <CalageALaMain key={url(im.pose.image)} image={im.pose.image} url={url(im.pose.image)} coins={im.pose.coins} gabarit={g} caler={caler} />}
+      {pose && <CalageALaMain key={url(pose.image)} image={pose.image} url={url(pose.image)} coins={pose.coins} gabarit={g} caler={caler} />}
     </>;
   }
   if (id === 'silhouette') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">

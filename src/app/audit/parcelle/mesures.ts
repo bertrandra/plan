@@ -15,10 +15,10 @@
 // corrections manuelles (reperes, mur, echelle) priment sur le calcul et ne sont jamais ecrasees par un rejeu.
 
 import type { ImageDuRun } from '../../../facade/releve/imageDuRun.js';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/vision/cadrage.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
-import { VERSION_CHAINE_FACADES, type PhotoARedresser } from '../../../facade/releve/chaine.js';
+import { VERSION_CHAINE_FACADES } from '../../../facade/releve/chaine.js';
+import { distanceAuMur, priseDeLaPhoto, prisesDeLaFacade } from '../../../facade/releve/prisesFacade.js';
 import { derouler, type AssemblageAAjuster, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { DiagnosticForme } from '../../../facade/regles/facades/diagnosticForme.js';
@@ -28,12 +28,11 @@ import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { Image } from '../../../facade/vision/homographie.js';
-import type { Prise } from '../../../facade/releve/prise.js';
 import type { PhotoCas } from '../../../model/audit.js';
-import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
+import type { BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
-import type { CorpsToit, ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
+import type { CorpsToit, ObjetPolygone, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
 
 /** La cle d'une mesure : le batiment et le cote du mur (`cle#cote`). */
 export const cleMesure = (cle: string, cote: number): string => cle + '#' + cote;
@@ -130,44 +129,11 @@ export interface DependancesMesures {
   rendreLaMain?: () => Promise<void>;
 }
 
-/** La distance de la prise de vue au mur, perpendiculairement, en metres. */
-export function distanceAuMur(f: Facade, p: PtBrut): number {
-  const dx = f.droite.x - f.gauche.x, dy = f.droite.y - f.gauche.y;
-  const l = Math.hypot(dx, dy);
-  if (!(l > 0)) return Math.hypot(p.x - f.gauche.x, p.y - f.gauche.y);
-  return Math.abs(dx * (p.y - f.gauche.y) - dy * (p.x - f.gauche.x)) / l;
-}
-
 const versImage = (p: Pixels): Image => ({ largeur: p.largeur, hauteur: p.hauteur, donnees: p.data instanceof Uint8ClampedArray ? p.data : new Uint8ClampedArray(Array.from(p.data)) });
 
-/**
- * La prise du releve d'apres la photo de l'audit : sa position donne la distance au mur (a la
- * precision du GPS), la boussole le cap, l'EXIF le champ de l'objectif.
- * Le cap du sens de la marche ne dit pas ou visait le telephone : il n'est pas repris.
- *
- * L'attitude n'est pas reprise non plus : elle est lue au retour de l'appareil photo, telephone baisse vers l'ecran, pas au
- * declenchement. Sur l'audit d'AE 101 (18 octobre), elle valait -17 a -48 degres pour des photos prises vers le haut : le calage,
- * qui ne lui laisse que 3 degres de marge, cherchait les coins la ou le mur n'etait pas. Inconnue, elle se lit sur la photo (le
- * point de fuite des verticales, calageFin.ts), dans une marge de 20 degres.
- */
-export function priseDeLaPhoto(photo: PhotoCas, image: Image, facade: Facade, champLu: number | null = null): Prise {
-  const p = photo.prise;
-  const distance = p ? distanceAuMur(facade, p) : 0;
-  // Un GPS de telephone se trompe de 3 a 8 m : a cette distance du mur, il ne dit pas ou se tenait la personne (AE 101 : 2,7 m
-  // pour un pignon vu en entier, a 7 m). La distance ne sert que si elle depasse deux fois la precision ; sinon le cadrage la
-  // suppose (le mur sur les sept dixiemes de la photo), avec sa marge.
-  const fiable = distance > 0.5 && p?.precisionM != null && distance > 2 * p.precisionM;
-  // Sans EXIF, le champ note est celui d'un telephone : celui que donnent les points de fuite de la photo l'emporte (AE 101 : des
-  // photos a l'ultra grand-angle, deux fois plus larges que le champ suppose ; l'inclinaison lue sur les verticales en depend).
-  const champ = p?.sourceFocale === 'defaut' || p?.champDeg == null ? (champLu ?? p?.champDeg ?? null) : p.champDeg;
-  return {
-    photo: { image, url: '', champ, focalePx: null },
-    mesure: fiable ? { distance: Math.round(distance * 100) / 100, source: 'gps' } : null,
-    champ: champ ?? CHAMP_GRAND_COTE_DEFAUT,
-    cap: p?.sourceAzimut === 'boussole' ? p.azimutDeg : null,
-    attitude: null,
-  };
-}
+// La prise de vue d'une photo vit avec les entrees de l'enchainement (facade/releve/prisesFacade.ts) : la calibration relit un cas
+// par la meme fonction. Reexportees ici pour les appelants de l'audit.
+export { distanceAuMur, priseDeLaPhoto };
 
 /** La couleur du mur sur chaque photo prise a la boussole ; la lecture qui a le plus de points. */
 async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number) => Promise<Pixels | null>, f: Facade, d: DependancesMesures): Promise<MesureFacade['couleur']> {
@@ -199,32 +165,19 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const vide: MesureFacade = { cle, cote: f.cote, releve: null, rangReleve: null, coinsTrouves: false, confiance: null, hauteurM: null, couleur: null };
   const couleur = await couleurDesPhotos(photos, images, f, d).catch(() => null);
   if (!photos.length) return { ...vide, couleur };
-  // L'echelle corrigee a la main (la largeur reelle du mur) vaut pour toutes les photos du mur : la premiere donnee l'emporte.
-  const largeurM = Object.keys(corrections).map(Number).sort((a, b) => a - b).map((k) => corrections[String(k)]?.echelleLargeurM).find((v) => typeof v === 'number' && v > 0);
-  const fm: Facade = largeurM ? { ...f, largeur: largeurM } : f;
-
-  // 1. Le redressement de chaque photo, la premiere avec une prise de vue d'abord, puis la fusion : la chaine de tous
-  // (facade/releve/chaine.ts), celle du releve et de la calibration.
-  const ordre = photos.map((_, i) => i).sort((a, b) => Number(!photos[a]?.prise) - Number(!photos[b]?.prise) || a - b);
-  const entrees: PhotoARedresser[] = [];
-  const illisibles: BilanPhotoRedressement[] = [];
-  for (const i of ordre) {
-    const photo = photos[i] as PhotoCas;
-    const img = await images(i);
-    if (!img) { illisibles.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'image illisible' }); continue; }
-    const image = versImage(img);
-    entrees.push({ rang: i, image, prise: (champLu) => priseDeLaPhoto(photo, image, fm, champLu), champConnu: photo.prise?.sourceFocale === 'exif' });
-  }
+  // 1. Les entrees de la facade (facade/releve/prisesFacade.ts) : l'echelle corrigee a la main, les photos dans l'ordre du
+  // redressement (la premiere avec une prise de vue d'abord), leur prise. La calibration relit un cas par la meme fonction.
+  const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, prise: p.prise ?? null }; }));
+  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, jpeg: d.jpeg });
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
-  // L'enchainement de la facade, par l'orchestrateur (mode `audit`) : le releve et l'etat de chaque etape en sortent.
+  // L'enchainement de la facade, par l'orchestrateur : le meme que la calibration rejoue ; le releve et l'etat de chaque etape en sortent.
   const r = await derouler({
-    largeurM: fm.largeur, hauteurM: fm.hauteur, gabarit,
-    photos: entrees.map((x) => ({ image: x.image, coins: [], reperes: corrections[String(x.rang)]?.reperes ?? null, focalePx: null, murALaMain: !!corrections[String(x.rang)]?.coins })),
+    largeurM: prises.facade.largeur, hauteurM: prises.facade.hauteur, gabarit, prises,
     // Les corps du toit qui font le gabarit : le diagnostic de forme (E5 bis) se fait corps par corps.
     toit: bat.corpsToit?.length ? { mur: { gauche: f.gauche, droite: f.droite }, corps: bat.corpsToit } : null,
   }, {
-    coins: 'chercher', image: 'audit', chercherCoins: d.chercherCoins, audit: { facade: fm, contour: bat.pts, photos: entrees, illisibles, corrections, jpeg: d.jpeg },
+    vue: 'audit', chercherCoins: d.chercherCoins,
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
   });
   const sortie = r.sorties.audit;

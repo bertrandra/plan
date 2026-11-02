@@ -94,9 +94,9 @@ export function poserEtalon<C extends CasReel>(cas: C, e: EtalonFacade): C {
   return { ...cas, largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, calageVrai: e.calageVrai, toitVrai: e.toitVrai };
 }
 
-/** Le rejeu d'un cas etape par etape, comme « Rejouer » de la calibration (coins cherches, assemblage) : une ligne par etape. */
+/** Le rejeu d'un cas etape par etape, comme « Rejouer » de la calibration (ce que l'audit en ferait) : une ligne par etape. */
 export async function rejouerEtapes(cas: CasReel, images: readonly Image[]): Promise<string[]> {
-  const r = await derouler(entreesDuCas(cas, images), { coins: 'chercher', image: 'assemblage', chercherCoins: async (q) => rechercher(q), verite: veriteDuCas(cas) });
+  const r = await derouler(entreesDuCas(cas, images), { vue: 'calibration', chercherCoins: async (q) => rechercher(q), verite: veriteDuCas(cas) });
   return [
     `Rejeu de « ${cas.nom} » : chaîne des façades version ${r.versions.chaine}, objectifs ${r.versions.objectifs}.`, '',
     ...r.etapes.map((x) => `- ${etapeFacade(x.id).numero} ${etapeFacade(x.id).nom} : **${LIBELLES_ETAT[x.etat]}**. ${x.resume}${x.verite ? ' ' + x.verite.texte : ''}`),

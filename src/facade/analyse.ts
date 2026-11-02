@@ -56,9 +56,11 @@ export interface ResultatAnalyse {
   /**
    * La facade entiere redressee (fusionnee quand plusieurs vues se fondent), dans le cadre de la texture (le mur et la bande au-dessus
    * de l'egout, le sol en bas), avant que le ciel n'y soit repeint : ce que la detection lit et ce que l'ecran montre. `vu` : les pixels
-   * vus ; `dedans` : la silhouette du mur (son gabarit, pignons compris), la seule zone ou la detection cherche.
+   * vus ; `dedans` : la silhouette du mur (son gabarit, pignons compris), la seule zone ou la detection cherche. Le cadre est la boite
+   * de la silhouette entiere, plus une marge (`cadreDeLaSilhouette`) : un pignon voisin qui prolonge la facade y est lu. `x0Px` : les
+   * colonnes a gauche du bout gauche du mur ; les cotes des ouvertures restent celles du mur (x depuis son bout gauche).
    */
-  facade: { image: Image; vu: Uint8Array; dedans: Uint8Array };
+  facade: { image: Image; vu: Uint8Array; dedans: Uint8Array; x0Px: number };
   /**
    * La texture : le mur et la bande au-dessus de l'egout, dans le meme plan. Un pignon est dans ce
    * plan, il y est donc a l'echelle, et la 3D le plaque sur le triangle du pignon.
@@ -122,6 +124,45 @@ export function hauteurBande(largeur: number): number {
   return Math.min(8, Math.max(3, 0.6 * largeur));
 }
 
+/**
+ * La marge du cadre de la facade autour de la boite de sa silhouette, de chaque cote, en part de la largeur du mur : 3 %. Plus que les
+ * 2 % auxquels un bout du mur se juge juste (`facades.enchainement.calageEcartMaxPart`), pour qu'un bout pose a cette erreur pres garde
+ * le bord de sa silhouette dans le cadre ; assez peu pour ne pas prendre le mur d'un voisin (25 cm sur un mur de 8 m). La detection n'y
+ * cherche rien (hors de la silhouette) : la marge donne aux aretes du bord de quoi se lire, et a l'ecran de quoi voir le bord.
+ */
+export const MARGE_CADRE = 0.03;
+
+/** Le cadre de la facade au-dela du mur : les colonnes a gauche et a droite de ses bouts, et la bande au-dessus de l'egout. */
+export interface CadreFacade { gauchePx: number; droitePx: number; E: number }
+
+/**
+ * Le cadre que lit la detection (decision du proprietaire, 2 novembre 2026) : la boite de la silhouette entiere (le mur, et le pignon
+ * d'un corps voisin qui deborde de ses bouts, `u` hors de 0 a 1), plus `MARGE_CADRE` de chaque cote ; au-dessus, la bande d'avant
+ * (`hauteurBande`), ou le haut de la silhouette plus la marge s'il depasse. Des colonnes entieres, a l'echelle `pxParM`. Sans
+ * silhouette : le rectangle du mur, avec sa marge.
+ */
+export function cadreDeLaSilhouette(largeurM: number, hauteurM: number, silhouette: readonly { u: number; v: number }[] | null | undefined, pxParM: number): CadreFacade {
+  const us = [0, 1, ...(silhouette ?? []).map((p) => p.u)], vs = [1, ...(silhouette ?? []).map((p) => p.v)];
+  const marge = MARGE_CADRE * largeurM;
+  const gauche = (0 - Math.min(...us)) * largeurM + marge, droite = (Math.max(...us) - 1) * largeurM + marge;
+  return { gauchePx: Math.max(0, Math.round(gauche * pxParM)), droitePx: Math.max(0, Math.round(droite * pxParM)), E: Math.max(hauteurBande(largeurM), (Math.max(...vs) - 1) * hauteurM + marge) };
+}
+
+/** Le cadre du mur seul (un mur en L, une photo sans assemblage) : ni colonne de plus, la bande d'avant. */
+export const cadreDuMur = (largeurM: number): CadreFacade => ({ gauchePx: 0, droitePx: 0, E: hauteurBande(largeurM) });
+
+/**
+ * Le quadrilatere a redresser pour le cadre elargi : celui du mur et de sa bande (`etendus`, rendu sur `largeurPx` x `hauteurPx`),
+ * prolonge de colonnes entieres a gauche et a droite par la meme homographie. Rogne au mur, le cadre elargi rend la texture d'avant,
+ * sur la meme grille de pixels.
+ */
+export function etendreAuCadre(etendus: readonly P2[], largeurPx: number, hauteurPx: number, c: CadreFacade): P2[] {
+  if (!c.gauchePx && !c.droitePx) return [...etendus];
+  const h = homographie([{ x: 0, y: 0 }, { x: largeurPx, y: 0 }, { x: largeurPx, y: hauteurPx }, { x: 0, y: hauteurPx }], etendus);
+  if (!h) return [...etendus];
+  return [{ x: -c.gauchePx, y: 0 }, { x: largeurPx + c.droitePx, y: 0 }, { x: largeurPx + c.droitePx, y: hauteurPx }, { x: -c.gauchePx, y: hauteurPx }].map((q) => appliquer(h, q));
+}
+
 /** Les lignes `y0` a `y1` d'une image (et de son masque). */
 function rogner(img: Image, vu: Uint8Array, y0: number, y1: number): { image: Image; vu: Uint8Array } {
   const L = img.largeur;
@@ -172,17 +213,21 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
   // Un seul redressement, du sol jusqu'a la bande au-dessus de l'egout : meme homographie, prolongee
   // vers le haut dans le plan du mur. Un pignon est dans ce plan, il se lit donc juste ; un long pan
   // fuit, la correction s'en charge.
-  const E = hauteurBande(e.largeur);
-  const coinsEtendus = [
+  // Le cadre de la facade (cadreDeLaSilhouette), comme l'assemblage et la fusion ; un mur en L garde le rectangle de son mur.
+  const sil = partie ? null : e.silhouette;
+  const E = partie ? hauteurBande(e.largeur) : cadreDeLaSilhouette(e.largeur, e.hauteur, sil, 1).E;
+  const pxParM = resolutionTexture(e.largeur, e.hauteur + E);
+  const cadre = partie ? cadreDuMur(e.largeur) : cadreDeLaSilhouette(e.largeur, e.hauteur, sil, pxParM);
+  const Lpx = Math.max(1, Math.round(e.largeur * pxParM));
+  const coinsEtendus = etendreAuCadre([
     { x: 0, y: -E },
     { x: e.largeur, y: -E },
     { x: e.largeur, y: e.hauteur },
     { x: 0, y: e.hauteur },
-  ].map((q) => appliquer(H, q));
-  const pxParM = resolutionTexture(e.largeur, e.hauteur + E);
-  const r = redresser(e.photo, coinsEtendus, e.largeur, e.hauteur + E, pxParM);
+  ].map((q) => appliquer(H, q)), Lpx, Math.max(1, Math.round((e.hauteur + E) * pxParM)), cadre);
+  const r = redresser(e.photo, coinsEtendus, (Lpx + cadre.gauchePx + cadre.droitePx) / pxParM, e.hauteur + E, pxParM);
   if (!r) return null;
-  return finaliserReleve(r.image, r.vu, E, pxParM, e, partie, !!mesuree);
+  return finaliserReleve(r.image, r.vu, E, pxParM, e, partie, !!mesuree, cadre);
 }
 
 /** Ce que le releve exige du mur, quelle que soit la facon dont l'elevation a ete obtenue. */
@@ -222,14 +267,19 @@ export function silhouetteEnPartsDuMur(coins: readonly P2[], silhouette: readonl
  * haut de la facade, 0 au-dessus (le ciel, le toit qu'on voit derriere). `silhouette` en parts du mur (`u` de 0 a 1, `v` en hauteurs
  * d'egout) ; hors de ses bouts, la hauteur de son bout le plus proche. Sans silhouette, le rectangle du mur : tout sous l'egout.
  */
-export function silhouetteDansLeCadre(largeurPx: number, hauteurPx: number, egoutPx: number, silhouette: readonly { u: number; v: number }[] | null | undefined): Uint8Array {
+export function silhouetteDansLeCadre(largeurPx: number, hauteurPx: number, egoutPx: number, silhouette: readonly { u: number; v: number }[] | null | undefined, cadre: Pick<CadreFacade, 'gauchePx' | 'droitePx'> = { gauchePx: 0, droitePx: 0 }): Uint8Array {
   const dedans = new Uint8Array(largeurPx * hauteurPx);
   const pts = silhouette && silhouette.length >= 2 ? [...silhouette].sort((a, b) => a.u - b.u) : null;
   const murPx = hauteurPx - egoutPx;
+  // Le mur entre ses bouts, dans le cadre : `u` de 0 a 1. Dans la marge du cadre, hors des bouts de la silhouette, rien n'est du mur.
+  const g = cadre.gauchePx, l = Math.max(1, largeurPx - g - cadre.droitePx), marge = g > 0 || cadre.droitePx > 0;
+  const uMin = pts ? Math.min(0, au(pts, 0).u) : 0, uMax = pts ? Math.max(1, au(pts, pts.length - 1).u) : 1;
   for (let x = 0; x < largeurPx; x++) {
+    const u = (x + 0.5 - g) / l;
+    if (marge && (u < uMin || u > uMax)) continue;
     // La rangee du haut de la facade dans cette colonne : l'egout, decale de ce dont la silhouette monte (un pignon) ou descend (un
     // corps plus bas), arrondi comme la rangee de l'egout pour qu'un rectangle tombe pile sur elle.
-    const v = pts ? hauteurSurLaSilhouette(pts, (x + 0.5) / largeurPx) : 1;
+    const v = pts ? hauteurSurLaSilhouette(pts, u) : 1;
     const haut = Math.max(0, Math.min(hauteurPx, egoutPx - Math.round((v - 1) * murPx)));
     for (let y = haut; y < hauteurPx; y++) dedans[y * largeurPx + x] = 1;
   }
@@ -263,7 +313,7 @@ const PART_DANS_LA_SILHOUETTE = 0.5;
  * depuis le sol), au-dessus de l'egout pour une baie de pignon. Sous un rectangle, c'est exactement la detection d'avant, du sol a
  * l'egout.
  */
-export function detecterDansLaSilhouette(image: Image, vu: Uint8Array | null, dedans: Uint8Array, pxParM: number, options: OptionsDetection = {}): DetectionFacade {
+export function detecterDansLaSilhouette(image: Image, vu: Uint8Array | null, dedans: Uint8Array, pxParM: number, options: OptionsDetection = {}, x0Px = 0): DetectionFacade {
   const L = image.largeur, H = image.hauteur;
   let haut = H;
   for (let i = 0; i < dedans.length; i++) if (dedans[i]) { haut = Math.floor(i / L); break; }
@@ -282,7 +332,13 @@ export function detecterDansLaSilhouette(image: Image, vu: Uint8Array | null, de
     return tot ? n / tot : 0;
   };
   const dans = (o: OuvertureDetectee) => part(o) >= PART_DANS_LA_SILHOUETTE;
-  return { ...d, ouvertures: d.ouvertures.filter(dans), devinees: d.devinees.filter(dans) };
+  if (!x0Px) return { ...d, ouvertures: d.ouvertures.filter(dans), devinees: d.devinees.filter(dans) };
+  // Les cotes du mur : x depuis son bout gauche, et non depuis le bord du cadre.
+  // Au centimetre, comme toutes les cotes de la detection.
+  const dx = x0Px / pxParM, cm = (v: number) => Math.round(v * 100) / 100;
+  const auMur = (o: OuvertureDetectee): OuvertureDetectee => ({ ...o, x: cm(o.x - dx) });
+  const grille = d.grille ? { ...d.grille, travees: d.grille.travees.map((t) => ({ ...t, xM: cm(t.xM - dx) })) } : null;
+  return { ...d, grille, ouvertures: d.ouvertures.filter(dans).map(auMur), devinees: d.devinees.filter(dans).map(auMur) };
 }
 
 /** Au-dessous de cette hauteur au-dessus de l'egout (m), la silhouette du mur est plate : le toit se lit sur la bande. */
@@ -306,9 +362,22 @@ function profilDeLaSilhouette(s: readonly { u: number; v: number }[], hauteur: n
   return Math.max(...hauteurs) >= RELIEF_SILHOUETTE_M ? { x0M: 0, x1M: largeurM, hauteurs } : null;
 }
 
-export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null, hauteurMesuree = false): ResultatAnalyse {
-  const r = { image: texture, vu };
+/**
+ * La suite commune des analyses, sur le cadre redresse (`cadreDeLaSilhouette` : le mur et ses colonnes de plus, la bande au-dessus de
+ * l'egout) : la detection lit le cadre entier, dans la silhouette ; la texture, l'elevation, le toit et tout ce qui s'ecrit restent ceux
+ * du mur, entre ses bouts.
+ */
+export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null, hauteurMesuree = false, cadre: Pick<CadreFacade, 'gauchePx' | 'droitePx'> = { gauchePx: 0, droitePx: 0 }): ResultatAnalyse {
   const egout = Math.round(E * pxParM);
+  // La detection lit la facade entiere, dans sa silhouette (le gabarit, pignons compris, et un pignon voisin qui deborde des bouts) : un
+  // pignon peut porter une baie. Un mur en L garde son rectangle (le haut de sa partie basse se dit par la partie, pas par la silhouette).
+  const dedans = silhouetteDansLeCadre(cadreImage.largeur, cadreImage.hauteur, egout, partie ? null : e.silhouette, cadre);
+  const facade = { image: { largeur: cadreImage.largeur, hauteur: cadreImage.hauteur, donnees: cadreImage.donnees.slice() }, vu: cadreVu, dedans, x0Px: cadre.gauchePx };
+  const detection = detecterDansLaSilhouette(cadreImage, cadreVu, dedans, pxParM, {}, cadre.gauchePx);
+  // Le mur, entre ses bouts : la texture, l'elevation, le toit.
+  const avecMarge = cadre.gauchePx > 0 || cadre.droitePx > 0;
+  const r = avecMarge ? colonnes(cadreImage, cadreVu, cadre.gauchePx, cadreImage.largeur - cadre.droitePx) : { image: cadreImage, vu: cadreVu };
+  const texture = r.image;
   const mur = rogner(r.image, r.vu, egout, r.image.hauteur);
   const bande = rogner(r.image, r.vu, 0, egout);
   // La couverture ne compte que le mur : sur un mur en L, pas le vide au-dessus de la partie basse.
@@ -322,11 +391,6 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
       vusMur += mur.vu[y * mur.image.largeur + x] ?? 0;
     }
   }
-  // La detection lit la facade entiere, dans sa silhouette (le gabarit, pignons compris) : un pignon peut porter une baie. Un mur en L
-  // garde son rectangle (le haut de sa partie basse se dit par la partie, pas par la silhouette).
-  const dedans = silhouetteDansLeCadre(texture.largeur, texture.hauteur, egout, partie ? null : e.silhouette);
-  const facade = { image: { largeur: texture.largeur, hauteur: texture.hauteur, donnees: texture.donnees.slice() }, vu, dedans };
-  const detection = detecterDansLaSilhouette(r.image, r.vu, dedans, pxParM);
   const ouvertures = ouverturesDansLeMur(detection.ouvertures, e.hauteur, partie);
   const devinees = ouverturesDansLeMur(detection.devinees, e.hauteur, partie);
   // Le toit se lit au-dessus de la partie haute seulement : au-dessus de la partie basse, la bande

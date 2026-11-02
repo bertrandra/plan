@@ -154,11 +154,13 @@ describe('l ecran de calibration', () => {
     await attendreQue(() => /coins devinés, à vérifier/.test(hote.textContent ?? '') && hote.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer');
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
     expect([...hote.querySelectorAll('[data-controle="calibration.originePhoto"]')].map((x) => x.textContent)).toEqual(['coins trouvés', 'coins devinés, à vérifier']);
-    // La barre le dit sur son segment « Image », a confirmer, et l'etape du redressement, ouverte, dit quelle photo et quel geste faire.
-    expect(hote.querySelector('.barreFacadeSegment.a-confirmer')?.textContent).toMatch(/Image/);
+    // Comme dans l'audit (le meme processus) : la photo grise garde des coins calcules, et c'est l'assemblage qui la laisse de cote ;
+    // la barre le dit sur son segment « Image », en echec, et l'etape ouverte dit quel geste faire.
+    expect(hote.querySelector('.barreFacadeSegment.echec')?.textContent).toMatch(/Image/);
     await act(async () => { (hote.querySelector('.calFrise [data-etape="redressement"]') as HTMLButtonElement).click(); });
-    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toBe('1 photo redressée entière sur 2 ; la photo 2 ne se redresse pas : posez quatre repères.');
-    expect(hote.querySelectorAll('.barreFacadeLigne')[0]?.textContent).toBe('Image : redressement, à confirmer');
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Photo 2 : redressée automatiquement, coins calculés/);
+    await act(async () => { (hote.querySelector('.calFrise [data-etape="assemblage"]') as HTMLButtonElement).click(); });
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/^Photos indépendantes : aucun assemblage.* Reprenez la façade avec des chevauchements/);
   }, 60_000);
 
   it('rejoue un cas, part de la detection pour annoter, et enregistre', async () => {

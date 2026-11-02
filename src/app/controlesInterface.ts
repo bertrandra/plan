@@ -322,7 +322,6 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.choisirAudit': etape(Z8, CALIBRATION, 'Choisir l’audit dont tirer un cas', { repete: true }),
   'calibration.choisirFacade': etape(Z8, CALIBRATION, 'Choisir la façade photographiée qui devient le cas', { repete: true }),
   'calibration.rejouer': etape(Z8, CALIBRATION, 'Rejouer le cas tel qu’il est enregistré (les coins de ses photos), étape par étape : redressement, assemblage, mur, haut lu, texture, ouvertures'),
-  'calibration.coinsSerie': etape(Z8, CALIBRATION, 'Retrouver le mur sur toutes les photos, puis rejouer : chacune redressée entière (repères, sinon points de fuite), assemblée, l’égout, le sol et les bouts cherchés sur l’assemblage'),
   'calibration.modeDeterministe': etape(Z8, CALIBRATION, 'Rejouer le cas sans Claude : la chaîne déterministe seule'),
   'calibration.modeIa': etape(Z8, CALIBRATION, 'Rejouer le cas avec une réponse de Claude enregistrée, sans réseau ni coût : ses angles comme pose candidate, ses zones de colombage, ses boîtes et leurs carreaux'),
   'calibration.choisirRun': etape(Z8, CALIBRATION, 'Choisir la réponse de Claude que le mode IA rejoue (date, passes, modèle, versions du prompt et du schéma, coût)'),

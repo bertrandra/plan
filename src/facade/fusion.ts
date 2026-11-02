@@ -26,7 +26,7 @@
 
 import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Homographie, type Image, type P2 } from './vision/homographie.js';
-import { detecterDansLaSilhouette, finaliserReleve, hauteurBande, mesurerHauteur, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
+import { cadreDeLaSilhouette, detecterDansLaSilhouette, etendreAuCadre, finaliserReleve, mesurerHauteur, type CadreFacade, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
 import type { OuvertureDetectee } from './detection/detection.js';
 import { voter, type VueVotante, type VoteOuverture } from './detection/voteVues.js';
 import { focalePx as focaleParDefaut } from './vision/cadrage.js';
@@ -199,17 +199,21 @@ function carteQualite(H: Homographie, r: { image: Image; vu: Uint8Array }, pxPar
   return q;
 }
 
-/** Une vue redressee a la hauteur `hauteur`, avec la bande de `E` metres au-dessus de l'egout. */
-function redresserVue(v: VuePhoto, largeur: number, hauteur: number, E: number, pxParM: number): VueRedressee | null {
+/**
+ * Une vue redressee a la hauteur `hauteur`, avec la bande de `E` metres au-dessus de l'egout, dans le cadre de la facade (le mur et les
+ * colonnes de plus de `cadre`, sur la grille de pixels du mur : analyse.ts::cadreDeLaSilhouette).
+ */
+function redresserVue(v: VuePhoto, largeur: number, hauteur: number, E: number, pxParM: number, cadre: CadreFacade): VueRedressee | null {
   const H = homographieMur(v.coins, largeur, hauteur);
   if (!H) return null;
-  const etendus = [
+  const Lpx = Math.max(1, Math.round(largeur * pxParM));
+  const etendus = etendreAuCadre([
     { x: 0, y: -E },
     { x: largeur, y: -E },
     { x: largeur, y: hauteur },
     { x: 0, y: hauteur },
-  ].map((q) => appliquer(H, q));
-  const r = redresser(v.photo, etendus, largeur, hauteur + E, pxParM);
+  ].map((q) => appliquer(H, q)), Lpx, Math.max(1, Math.round((hauteur + E) * pxParM)), cadre);
+  const r = redresser(v.photo, etendus, (Lpx + cadre.gauchePx + cadre.droitePx) / pxParM, hauteur + E, pxParM);
   if (!r) return null;
   const f = v.focalePx && v.focalePx > 0 ? v.focalePx : focaleParDefaut(v.photo.largeur, v.photo.hauteur);
   return { image: r.image, vu: r.vu, qualite: carteQualite(H, r, pxParM, E), centre: centreOptique(H, f, v.photo.largeur / 2, v.photo.hauteur / 2) };
@@ -781,10 +785,12 @@ function voterLesVues(res: ResultatAnalyse, vues: VueRedressee[], occ: Uint8Arra
   const votantes: VueVotante[] = vues.map((v, j) => {
     const L = v.image.largeur;
     const haut = premiere >= 0 ? Math.floor(premiere / L) : egout;
-    const lues = detecterDansLaSilhouette(v.image, v.vu, dedans, pxParM).ouvertures;
-    // Les pixels d'une boite (x en metres depuis la gauche, y en metres depuis le sol), dans le cadre, entre le haut de la silhouette et le sol.
+    const x0Px = res.facade.x0Px;
+    const lues = detecterDansLaSilhouette(v.image, v.vu, dedans, pxParM, {}, x0Px).ouvertures;
+    // Les pixels d'une boite (x en metres depuis le bout gauche du mur, y en metres depuis le sol), dans le cadre, entre le haut de la
+    // silhouette et le sol.
     const sur = (o: OuvertureDetectee, f: (i: number, x: number, y: number) => number): number => {
-      const x0 = Math.max(0, Math.floor(o.x * pxParM)), x1 = Math.min(L, Math.ceil((o.x + o.l) * pxParM));
+      const x0 = Math.max(0, Math.floor(o.x * pxParM) + x0Px), x1 = Math.min(L, Math.ceil((o.x + o.l) * pxParM) + x0Px);
       const y0 = Math.max(haut, Math.floor(Ht - (o.y + o.h) * pxParM)), y1 = Math.min(Ht, Math.ceil(Ht - o.y * pxParM));
       let n = 0, tot = 0;
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { tot++; n += f(y * L + x, x, y); }
@@ -810,9 +816,11 @@ function voterLesVues(res: ResultatAnalyse, vues: VueRedressee[], occ: Uint8Arra
 export function analyserVues(e: EntreeFusion): ResultatFusion | null {
   if (!e.vues.length) return null;
   const { hauteur, mesuree } = hauteurDesVues(e);
-  const E = hauteurBande(e.largeur);
+  // Le cadre de la facade : la boite de la silhouette entiere et sa marge, au-dessus la bande (analyse.ts::cadreDeLaSilhouette).
+  const E = cadreDeLaSilhouette(e.largeur, hauteur, e.silhouette, 1).E;
   const pxParM = resolutionTexture(e.largeur, hauteur + E);
-  const brutes = e.vues.map((v) => redresserVue(v, e.largeur, hauteur, E, pxParM));
+  const cadre = cadreDeLaSilhouette(e.largeur, hauteur, e.silhouette, pxParM);
+  const brutes = e.vues.map((v) => redresserVue(v, e.largeur, hauteur, E, pxParM, cadre));
   if (!brutes.some((v) => v)) return null;
   const egout = Math.round(E * pxParM);
   const qualites = brutes.map((v) => (v ? qualiteMoyenne(v, egout) : 0));
@@ -833,7 +841,7 @@ export function analyserVues(e: EntreeFusion): ResultatFusion | null {
   const c = composer(g, vues, occ, refLocal);
   // La composition numerote les vues du groupe ; on rend les numeros des photos d'entree.
   const source = c.source.map((x) => (x === MEDIANE ? MEDIANE : groupe[x] ?? x));
-  const res = finaliserReleve(c.image, c.vu, E, pxParM, { ...e, hauteur }, null, mesuree);
+  const res = finaliserReleve(c.image, c.vu, E, pxParM, { ...e, hauteur }, null, mesuree, cadre);
   const vote = voterLesVues(res, vues, occ, g, egout, pxParM);
   const masque = c.occlusion.reduce((s, v) => s + v, 0) / Math.max(1, c.occlusion.length);
   const parts = partsDuGroupe(vues, occ, { ...c, source }, g, groupe);
