@@ -180,8 +180,6 @@
   "facade/calage/priseDeVue.ts#OBLIQUITE_DEVANT_MAX_DEG",
   "facade/detection/classement.ts#IndicesClassement",
   "facade/detection/classement.ts#LectureAllege",
-  "facade/detection/detection.ts#DetectionFacade",
-  "facade/detection/detection.ts#OptionsDetection",
   "facade/detection/detection.ts#TypeOuverture",
   "facade/detection/detection.ts#aligner",
   "facade/detection/detectionCartes.ts#CarteK",

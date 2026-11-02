@@ -58,7 +58,11 @@ export interface OutilsPhotos {
 const TYPES: readonly TypeOuverture[] = ['fenetre', 'porte-fenetre', 'porte', 'garage'];
 
 const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'mur posé à la main', reperes: 'redressée par vos repères' };
-interface Elevation { url: string; largeurM: number; hauteurM: number; propositions: OuvertureVraie[] }
+/**
+ * La facade a annoter : l'image que lit la detection, entiere (pignons compris), fusionnee quand plusieurs vues se fondent, en metres
+ * (`hauteurM` : du sol au haut du cadre) ; la silhouette du mur dessus (y vers le bas), et les ouvertures que la detection propose.
+ */
+interface Elevation { url: string; largeurM: number; hauteurM: number; contour: P2[]; propositions: OuvertureVraie[] }
 
 /** Le mur redresse, avec les ouvertures annotees : tracer un rectangle en ajoute une, toucher un rectangle le choisit. */
 function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, trace: tracer }: { trace: boolean; elevation: Elevation; ouvertures: readonly OuvertureVraie[]; choisie: number | null; choisir: (k: number | null) => void; ajouter: (o: OuvertureVraie) => void }) {
@@ -76,10 +80,11 @@ function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, tra
     ajouter({ type: 'fenetre', x: arrondi(x), l: arrondi(l), y: arrondi(H - (haut + h)), h: arrondi(h) });
   };
   return (
-    <svg ref={svg} className={'calToile' + (tracer ? ' trace' : '')} viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Mur redressé : en mode tracé, glissez un rectangle autour d’une ouverture pour l’ajouter"
+    <svg ref={svg} className={'calToile' + (tracer ? ' trace' : '')} viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Façade redressée entière : en mode tracé, glissez un rectangle autour d’une ouverture pour l’ajouter"
       onPointerDown={(e) => { if (tracer && (e.target === svg.current || (e.target as Element).tagName === 'image')) { choisir(null); const p = sur(e); setTrace({ a: p, b: p }); (e.currentTarget as Element).setPointerCapture(e.pointerId); } }}
       onPointerMove={(e) => { if (trace) setTrace({ ...trace, b: sur(e) }); }} onPointerUp={finir} onPointerCancel={() => setTrace(null)}>
       <image href={elevation.url} x={0} y={0} width={L} height={H} preserveAspectRatio="none" />
+      {elevation.contour.length > 2 && <polygon className="calMurLigne silhouette" points={elevation.contour.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" aria-hidden="true" />}
       {ouvertures.map((o, k) => (
         <rect key={k} className={'calBaie' + (k === choisie ? ' choisie' : '')} x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke"
           role="button" tabIndex={0} aria-label={`Ouverture ${k + 1} : ${libelleOuMot(LIBELLES_OUVERTURE, o.type)}`} onPointerDown={(e) => { e.stopPropagation(); choisir(k); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') choisir(k); }} />
@@ -173,7 +178,7 @@ function AnnotationDuCas({ elevation, ouvertures, modifier }: { elevation: Eleva
   const [choisie, setChoisie] = useState<number | null>(null);
   const [tracer, setTracer] = useState(false);
   return <>
-      <p className="calNote">Mur redressé. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>
+      <p className="calNote">La façade redressée entière, fusionnée de ses vues quand il y en a plusieurs ; le contour est la silhouette du mur, pignons compris. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>
       <div className="calLigne">
         <button type="button" className="secondary" data-controle="calibration.proposer" onClick={() => { modifier((c) => ({ ...c, ouvertures: elevation.propositions.map((o) => ({ ...o })) })); setChoisie(null); }}>Partir de la détection ({elevation.propositions.length})</button>
         <button type="button" className={tracer ? '' : 'secondary'} aria-pressed={tracer} data-controle="calibration.tracer" onClick={() => setTracer((t) => !t)}>{tracer ? 'Tracé en cours : toucher pour défiler' : 'Tracer une ouverture'}</button>
@@ -385,7 +390,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const images = useMemo(() => (rejeu ? imagesEtapes(rejeu, { largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, photos: cas.photos }) : null), [rejeu, cas.largeurM, cas.hauteurM, cas.gabarit, cas.photos]);
   const a = rejeu?.sorties.analyse;
   const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu, url) : null), [rejeu, url]);
-  const elevation = useMemo<Elevation | null>(() => (a ? { url: url(a.elevation), largeurM: a.elevation.largeur / a.pxParM, hauteurM: a.elevation.hauteur / a.pxParM, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, url]);
+  // La facade entiere que lit la detection (rien n'est coupe au sol ni a l'egout : un pignon peut porter une baie), et sa silhouette.
+  const f = images?.facade ?? null;
+  const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
   return (
     <section className="calEditeur" aria-label={id ? 'Cas ' + cas.nom : 'Nouveau cas'}>

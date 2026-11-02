@@ -90,7 +90,8 @@ function vignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
   if (!im) return null;
   if (id === 'redressement') return im.vues.find((v) => v)?.image ?? null;
   if (id === 'assemblage') return im.assemblage?.image ?? null;
-  if (id === 'calage' || id === 'silhouette' || id === 'diagnostic' || id === 'ouvertures') return im.pose?.image ?? null;
+  if (id === 'ouvertures') return im.facade?.image ?? im.pose?.image ?? null;
+  if (id === 'calage' || id === 'silhouette' || id === 'diagnostic') return im.pose?.image ?? null;
   if (id === 'texture') return im.texture?.image ?? null;
   return null;
 }
@@ -159,7 +160,8 @@ interface PropsEtape {
 }
 
 /** Les calques d'une etape : ce que l'automatique a vu, ce qui a ete retenu. */
-function CalquesDeLEtape({ id, images: im, cas, dims, url, caler }: Omit<PropsEtape, 'rejeu' | 'occupe' | 'rejouerDepuis'>) {
+function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
+  const { id, images: im, cas, dims, url, caler } = p;
   const g = cas.gabarit ?? GABARIT_RECTANGLE;
   if (id === 'preparation') {
     const L = cas.largeurM, H = cas.hauteurM, haut = Math.max(...g.map((p) => p.v)) * H;
@@ -203,12 +205,14 @@ function CalquesDeLEtape({ id, images: im, cas, dims, url, caler }: Omit<PropsEt
     <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
     {im.pose.silhouette && <polyline className="calSilhouetteLue" points={points(im.pose.silhouette)} vectorEffect="non-scaling-stroke" />}
   </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.</figcaption></figure> : null;
-  if (id === 'ouvertures') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="La façade et les ouvertures proposées">
-    <polygon className="calMurLigne silhouette" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
-    {im.pose.proposees.map((q, k) => <polygon key={'p' + k} className="calPropose" points={points(q)} vectorEffect="non-scaling-stroke" />)}
-    {im.pose.devinees.map((q, k) => <polygon key={'d' + k} className="calDevinee" points={points(q)} vectorEffect="non-scaling-stroke" />)}
-    {im.ia && <BoitesIa boites={im.ia.boites} l={im.pose.image.largeur} rayon={0.008 * im.pose.image.largeur} />}
-  </Calques><figcaption>Trait plein : les ouvertures trouvées ; pointillé : celles que la structure devine.{im.ia ? ' Trait sombre : les boîtes de Claude, pleines quand la détection les retrouve (cochées), en tirets quand elles sont seules (décochées) ; touchez-en une pour voir la division de son vitrage.' : ''}</figcaption></figure> : null;
+  // La facade que lit la detection, entiere (pignons compris, rien n'est coupe a l'egout), fusionnee quand plusieurs vues se fondent,
+  // en metres : la silhouette, seule zone ou la detection cherche, et les ouvertures dessus.
+  if (id === 'ouvertures') { const f = im.facade; return f ? <figure><Calques url={url(f.image)} l={f.l} h={f.h} libelle="La façade entière lue par la détection, sa silhouette et les ouvertures proposées">
+    <polygon className="calMurLigne silhouette" points={points(f.contour)} vectorEffect="non-scaling-stroke" />
+    {f.proposees.map((q, k) => <polygon key={'p' + k} className="calPropose" points={points(q)} vectorEffect="non-scaling-stroke" />)}
+    {f.devinees.map((q, k) => <polygon key={'d' + k} className="calDevinee" points={points(q)} vectorEffect="non-scaling-stroke" />)}
+    {im.ia && <BoitesIa boites={im.ia.boites} l={f.l} rayon={0.008 * f.l} />}
+  </Calques><figcaption>La façade redressée entière{p.rejeu.sorties.analyse?.fusion ? ', fusionnée de ses vues' : ''}, telle que la lit la détection. Contour : la silhouette du mur (le gabarit du plan et du LiDAR, pignons compris), seule zone où les ouvertures se cherchent. Trait plein : les ouvertures trouvées ; pointillé : celles que la structure devine.{im.ia ? ' Trait sombre : les boîtes de Claude, pleines quand la détection les retrouve (cochées), en tirets quand elles sont seules (décochées) ; touchez-en une pour voir la division de son vitrage.' : ''}</figcaption></figure> : null; }
   if (id === 'texture' && im.texture) {
     const t = im.texture;
     const surSilhouette = (img: Image, cle: string, libelle: string) => <svg className="calEtape large" viewBox={`0 0 ${t.l} ${t.h}`} role="img" aria-label={libelle}>

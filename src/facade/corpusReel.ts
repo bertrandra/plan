@@ -9,8 +9,8 @@
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
 import { lireGabarit } from './gabaritMur.js';
-import { detecterFacade, type OuvertureDetectee } from './detection/detection.js';
-import type { ResultatAnalyse } from './analyse.js';
+import type { OuvertureDetectee } from './detection/detection.js';
+import { detecterDansLaSilhouette, type ResultatAnalyse } from './analyse.js';
 import type { AssemblageDuMur } from './analyseMur.js';
 import type { ResultatFusion } from './fusion.js';
 import { REGLAGES_DETECTION } from './regles/facades/detection.js';
@@ -184,6 +184,8 @@ const mediane = (l: number[]): number | null => { if (!l.length) return null; co
 /** Ce que l'analyse du mur rend (l'enchainement d'une facade, releve/enchainement.ts, E6 et E7) : l'elevation, la texture, les ouvertures, ce que la fusion en dit, l'assemblage pris. */
 export interface AnalyseDuMur {
   elevation: Image;
+  /** La facade entiere redressee (fusionnee), dans le cadre de la texture, ses pixels vus et sa silhouette : ce que la detection lit. */
+  facade: ResultatAnalyse['facade'];
   pxParM: number;
   /** Les ouvertures de la chaine ordinaire (reglages en usage), avec le vote entre vues quand il y a plusieurs photos. */
   ouvertures: OuvertureDetectee[];
@@ -217,7 +219,8 @@ export const mesurerPrepare = (p: CasPrepare): ResultatCas => resultat(p.cas, p.
 
 /** La detection seule d'un cas prepare, avec ces reglages (pas de vote) : de quoi comparer deux jeux de reglages. */
 export function evaluerPrepare(p: CasPrepare, reglages: Readonly<Record<string, number>>): ResultatCas {
-  return resultat(p.cas, detecterFacade(p.elevation, p.pxParM, null, { reglages: reglages as never }).ouvertures);
+  // La detection lit la facade entiere dans sa silhouette, comme la chaine (pignons compris), sans masque des pixels vus comme avant.
+  return resultat(p.cas, detecterDansLaSilhouette(p.facade.image, null, p.facade.dedans, p.pxParM, { reglages: reglages as never }).ouvertures);
 }
 
 export interface Case { de: number; a: number; n: number; justes: number; taux: number | null; confianceMoyenne: number | null }

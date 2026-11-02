@@ -13,7 +13,7 @@
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus, rejouerCorpus, tableau, DOSSIER_CORPUS } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, peindreElevation, murSeul, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
+import { coinsVrais, facadePeinte, peindreElevation, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
 import type { Image } from '../../../../src/facade/vision/homographie.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
 
@@ -138,7 +138,8 @@ if (images) {
     const r = b.scenes[i];
     if (!r) return;
     const px = s.synthese.pxParM ?? 100;
-    const elev = murSeul(s, peindreElevation(s, px, true), px);
+    // La facade entiere, comme la detection la lit (un pignon et sa baie compris) ; le ciel reste noir.
+    const elev = facadePeinte(s, peindreElevation(s, px, true), px).image;
     for (const o of s.verite.ouvertures) cadre(elev, px, o, VERT, 3);
     for (const o of r.detail.elevation) cadre(elev, px, o, ROUGE);
     writeFileSync(join(images, s.nom + '-elevation.png'), png(elev));

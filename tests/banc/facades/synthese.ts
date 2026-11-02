@@ -26,6 +26,8 @@ import { homographie, appliquer, type Image, type P2 } from '../../../src/facade
 import { focalePx } from '../../../src/facade/vision/cadrage.js';
 import { champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
 import type { DetailsOuverture, TypeOuverture } from '../../../src/model/types.js';
+import { gabaritDuHaut, type GabaritMur } from '../../../src/facade/gabaritMur.js';
+import { silhouetteDansLeCadre } from '../../../src/facade/analyse.js';
 
 export type RGB = [number, number, number];
 
@@ -530,8 +532,12 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
       if (Z > v.hauteur) {
         mur = false;
         const pg = y.mur.pignon;
-        if (pg && Z <= v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5)) coul = couleurParement(p, X, Z, y.graine, assises);
-        else if (y.mur.toit && Z <= v.hauteur + y.mur.toit.hauteur) coul = (Z - v.hauteur) % 0.18 < 0.025 ? assombrir(y.mur.toit.couleur, 0.7) : y.mur.toit.couleur;
+        if (pg && Z <= v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5)) {
+          coul = couleurParement(p, X, Z, y.graine, assises);
+          // Un pignon peut porter une baie (une lucarne, un oculus) : peinte comme celles du mur, sans l'eclairage du mur, que le
+          // pignon n'a jamais eu (les scenes d'avant gardent leurs pixels).
+          for (const ov of v.ouvertures) coul = couleurOuverture(ov, X, Z) ?? coul;
+        } else if (y.mur.toit && Z <= v.hauteur + y.mur.toit.hauteur) coul = (Z - v.hauteur) % 0.18 < 0.025 ? assombrir(y.mur.toit.couleur, 0.7) : y.mur.toit.couleur;
       } else {
         coul = sb && Z < sb.hauteur ? couleurParement(sb.parement, X, Z, y.graine + 3, assisesSb) : couleurParement(p, X, Z, y.graine, assises);
         for (const b of y.mur.bandeaux ?? []) if (Z >= b.z && Z < b.z + b.h) coul = b.couleur;
@@ -554,6 +560,27 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
 export function formePignon(u: number, sommet: number): number {
   if (u <= sommet) return sommet > 0 ? Math.max(0, u / sommet) : 1;
   return sommet < 1 ? Math.max(0, (1 - u) / (1 - sommet)) : 1;
+}
+
+/**
+ * Le gabarit vrai d'une scene, comme le LiDAR le donnerait (facade/gabaritMur.ts) : le haut du mur, l'egout et le pignon au-dessus. Un
+ * rectangle sans pignon.
+ */
+export function gabaritVrai(s: SceneFacade): GabaritMur {
+  const H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5;
+  return gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg * formePignon(u, sommet) })));
+}
+
+/**
+ * L'elevation peinte vue comme la detection la lit (facade/analyse.ts::detecterDansLaSilhouette) : le cadre du haut de la peinture au
+ * sol (le pied tombe ou le coupe `murSeul`), la rangee de l'egout, et la silhouette du gabarit vrai dedans.
+ */
+export function facadePeinte(s: SceneFacade, elevation: Image, pxParM: number): { image: Image; dedans: Uint8Array } {
+  const haut = Math.round((hauteurPeinte(s) - s.verite.hauteur) * pxParM);
+  const L = elevation.largeur;
+  const h = Math.max(1, Math.round(s.verite.hauteur * pxParM));
+  const image = { largeur: L, hauteur: haut + h, donnees: elevation.donnees.slice(0, (haut + h) * L * 4) };
+  return { image, dedans: silhouetteDansLeCadre(L, haut + h, haut, gabaritVrai(s)) };
 }
 
 /** Les lignes du mur seul (sol -> egout) d'une elevation peinte : ce que lit la detection. */

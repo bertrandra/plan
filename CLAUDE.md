@@ -171,6 +171,8 @@ d'y toucher.
   suite (mur, détection, texture, toit), pour l'audit, le relevé et la calibration (`analyseMur.ts::analyserLeMur`). Avec
   plusieurs vues du mur entier, l'assemblage pose le mur et l'image du mur se compose par la fusion de ces mêmes photos (vote des
   baies, occultations par la parallaxe, meilleure vue pixel par pixel : `analyseMur.ts::fondreLesVues`), dans le même cadre.
+  La détection lit cette façade entière (fusionnée) et cherche dans la silhouette du gabarit, pignons compris, jamais coupée à
+  l'égout ; une baie de pignon garde sa place au-dessus de l'égout (`analyse.ts::detecterDansLaSilhouette`).
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

@@ -2648,6 +2648,8 @@
   .calParams li{ break-inside:avoid; min-height:28px; }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
   .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }
+  /* La silhouette sur la toile : un repere, le trace d'une ouverture passe au travers. */
+  .calToile .calMurLigne{ pointer-events:none; }
   .calGrille{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; padding:0; margin:6px 0; list-style:none; }
   .calEtape{ display:block; width:100%; height:auto; max-height:220px; object-fit:contain; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--panel-bg); }
   .calEtape.large{ max-height:50vh; }

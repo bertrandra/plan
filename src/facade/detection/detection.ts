@@ -379,11 +379,3 @@ export function detecterFacade(img: Image, pxParM: number, vu: Uint8Array | null
   const ouvertures = retenues.map((o, i) => ({ ...o, niveau: au(s.niveauDe, i), travee: au(s.traveeDe, i) }));
   return { ouvertures, devinees: devinees.filter((d) => !d.cochee).map((d) => d.o), grille: s.grille, symetrique: s.symetrique };
 }
-
-/**
- * Les ouvertures d'une elevation redressee de `largeurM` x `hauteurM` metres a `pxParM` pixels par
- * metre. `vu` (facultatif) masque ce que la photo n'a pas couvert.
- */
-export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | null = null, options: OptionsDetection = {}): OuvertureDetectee[] {
-  return detecterFacade(img, pxParM, vu, options).ouvertures;
-}
