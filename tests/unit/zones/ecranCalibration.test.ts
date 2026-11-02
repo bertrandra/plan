@@ -160,7 +160,7 @@ describe('l ecran de calibration', () => {
     await act(async () => { (hote.querySelector('.calFrise [data-etape="redressement"]') as HTMLButtonElement).click(); });
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Photo 2 : redressée automatiquement, coins calculés/);
     await act(async () => { (hote.querySelector('.calFrise [data-etape="assemblage"]') as HTMLButtonElement).click(); });
-    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/^Photos indépendantes : aucune fusion.* Reprenez la façade avec des chevauchements/);
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/^Photos indépendantes : aucun assemblage.* Reprenez la façade avec des chevauchements/);
   }, 60_000);
 
   it('rejoue un cas, part de la detection pour annoter, et enregistre', async () => {

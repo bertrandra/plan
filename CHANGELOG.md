@@ -39,6 +39,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - Admin › Calibration : les repères posés sur une photo s'enregistrent au dixième de pixel, comme dans l'audit (le même geste donnait
   une entrée différente) ; un cas tiré d'une façade dont la largeur a été corrigée à la main dans l'audit garde cette largeur (il
   reprenait celle du plan, et le rejeu ne mesurait pas le même mur).
+- Façades (audit et calibration) : l'étape É3 disait « Fusionnée » pour l'assemblage des photos alors que l'étape É6 pouvait dire
+  qu'une vue n'était pas fusionnée ; elle dit désormais « Assemblée » (ou « Assemblage partiel »), et laisse la fusion à l'É6.
+- Vue 3D : une ouverture qui commence à gauche du mur n'était pas écartée, contrairement à celle qui dépasse à droite ; elle ne se pose
+  plus à cheval sur l'angle.
 
 ## [5.4.1] — 2026-10-30
 

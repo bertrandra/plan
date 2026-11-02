@@ -352,12 +352,15 @@ const assemblage: Pas = ({ s, obj }) => {
   const motif = b.motifFusion ? ' (' + b.motifFusion + ')' : '';
   const reprendre = ' Reprenez la façade avec des chevauchements entre les photos : un tiers de mur en commun.';
   const n = b.photos.length;
-  if (b.fusion === 'fusionnee') return { etat: 'ok', resume: `Fusionnée : ${b.fusionnees.length} photos assemblées en une image.`, verite: null };
+  // L'E3 dit l'assemblage (la mosaique des photos redressees, qui pose le mur) ; la fusion des vues (le recalage, les occultations) se dit
+  // a l'E6. Sans assemblage, la chaine les a fondues directement : c'est bien une fusion.
+  const asm = !!s.calage?.pose;
+  if (b.fusion === 'fusionnee') return { etat: 'ok', resume: asm ? `Assemblée : ${b.fusionnees.length} photos dans une même image.` : `Fusionnée : ${b.fusionnees.length} photos en une image.`, verite: null };
   if (b.fusion === 'partielle') {
     const seules = b.photos.filter((p) => !b.fusionnees.includes(p.rang)).map((p) => p.rang);
-    return { etat: selonLaPart(b.fusionnees.length, n, obj['facades.enchainement.assembleesMinPart']), resume: `Fusion partielle : photos ${rangs(b.fusionnees)} assemblées, ${seules.length > 1 ? 'photos' : 'photo'} ${rangs(seules)} hors de l’assemblage${motif}.` + reprendre, verite: null };
+    return { etat: selonLaPart(b.fusionnees.length, n, obj['facades.enchainement.assembleesMinPart']), resume: `${asm ? 'Assemblage' : 'Fusion'} partiel${asm ? '' : 'le'} : photos ${rangs(b.fusionnees)} assemblées, ${seules.length > 1 ? 'photos' : 'photo'} ${rangs(seules)} hors de l’assemblage${motif}.` + reprendre, verite: null };
   }
-  if (b.fusion === 'independantes') return { etat: 'echec', resume: `Photos indépendantes : aucune fusion${motif}.` + reprendre, verite: null };
+  if (b.fusion === 'independantes') return { etat: 'echec', resume: `Photos indépendantes : ${asm ? 'aucun assemblage' : 'aucune fusion'}${motif}.` + reprendre, verite: null };
   if (n > 1) return { etat: b.photos.some((p) => p.statut !== 'echec') ? 'a-confirmer' : 'echec', resume: `Photos redressées seules${motif}.` + reprendre, verite: null };
   return sans('Une photo seule : rien à assembler.');
 };
