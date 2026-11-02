@@ -43,6 +43,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   qu'une vue n'était pas fusionnée ; elle dit désormais « Assemblée » (ou « Assemblage partiel »), et laisse la fusion à l'É6.
 - Vue 3D : une ouverture qui commence à gauche du mur n'était pas écartée, contrairement à celle qui dépasse à droite ; elle ne se pose
   plus à cheval sur l'angle.
+- Admin › Calibration : « Appliquer le calage et rejouer » rejoue le cas entier ; repris depuis l'É4, il gardait le mur d'avant.
 
 ## [5.4.1] — 2026-10-30
 
