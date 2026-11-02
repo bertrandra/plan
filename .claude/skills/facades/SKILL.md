@@ -281,6 +281,14 @@ rendent leurs coins sur l'image corrigée : non comparés. Au 2 novembre 2026, a
 aucun faux « ok », aucune pose juste refusée, 176/176 poses fausses refusées, 44/44 à 2 % acceptées (avant, sur `main` f3c6e2db : 20/23,
 un faux « ok » — l'égout de 24 pris 48 cm trop bas, score 0,89 —, le mur de 5 m posé juste refusé à 0,52, 87/160 poses fausses refusées,
 37/40 à 2 % acceptées). Le seul faux qui reste est le mur de 5 m prolongé (la recherche ignore le gabarit), dit « à confirmer ».
+**La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit ; le
+gabarit juge la pose (l'É5), il ne la cherche pas. Sur ce mur, la personne pose le mur à la main.
+
+**Les baies sous le pignon d'un corps voisin** (décision du propriétaire, 2 novembre 2026, `facade/releve/murVoisin.ts`) : une baie lue
+hors des cotes du mur, sous le pignon d'un corps voisin qui prolonge la façade, va sur la façade du côté du contour qui porte ce mur, s'il
+en a une (`detectee`, sans toucher au reste de cette façade ; V4 écrit les deux en un pas) ; sinon elle reste sur la façade photographiée
+et l'É9 dit « pas de façade sur ce mur : relevez-le pour les y poser ». Aucune façade n'est créée (elle effacerait les fenêtres
+automatiques du mur). `murVoisin.test.ts` le joue de bout en bout sur la scène 24 vue comme un mur de 5 m posé à la main.
 `--sans-capteurs` (photos importées, le point 100 de la fumée) : coins identiques à `main` sauf 21 (faux avant et après) et la variante du
 voisin ; les deux faux « ok » de `main` (08, 21) sont « à confirmer » ; 152/152 poses fausses refusées. La rampe 23 y reste fausse comme
 sur `main` : sans boussole, l'horizontale n'est pas connue et la règle de la rampe ne s'applique pas.

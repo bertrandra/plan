@@ -154,7 +154,7 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
  * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
-export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}): Promise<MesureFacade> {
+export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;
   const cache = new Map<number, Promise<Pixels | null>>();
   const images = (i: number) => {
@@ -176,6 +176,8 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     largeurM: prises.facade.largeur, hauteurM: prises.facade.hauteur, gabarit, prises,
     // Les corps du toit qui font le gabarit : le diagnostic de forme (E7) se fait corps par corps.
     toit: bat.corpsToit?.length ? { mur: { gauche: f.gauche, droite: f.droite }, corps: bat.corpsToit } : null,
+    // Les facades deja relevees des autres murs : une ouverture lue sous le pignon d'un corps voisin y va (facade/releve/murVoisin.ts).
+    voisines: (bat.facades ?? []).filter((r) => r.cote !== f.cote).map((r) => ({ cote: r.cote, ouvertures: r.ouvertures })),
   }, {
     vue: 'audit', chercherCoins: d.chercherCoins,
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),

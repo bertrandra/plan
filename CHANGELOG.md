@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration) : une fenêtre lue sous le pignon d'un corps voisin qui prolonge la façade va, à la validation (V4),
+  sur la façade du mur de ce corps quand il en a une : dans son repère, comme détectée, sans rien changer d'autre à cette façade, et
+  dans le même pas que la façade validée (Ctrl+Z défait les deux). La Vue 3D la pose alors sur ce mur. Quand ce mur n'a pas de façade,
+  la fenêtre reste sur la façade photographiée et l'étape É9 le dit : « sur le pignon du corps voisin — pas de façade sur ce mur :
+  relevez-le pour les y poser » ; aucune façade n'est créée (elle effacerait les fenêtres automatiques du mur). Aucune quantité ni aucun
+  export ne change.
 - Façades : les étapes s'appellent désormais É1 à É11, sans « bis » (É1 Préparation, É2 Prises, É3 Redressement, É4 Assemblage,
   É5 Calage du mur, É6 Silhouette lue, É7 Diagnostic de forme, É8 Texture, É9 Ouvertures, É10 Toit, É11 Validation), dans
   l'orchestrateur et à l'écran : la frise et chaque étape ouverte de la calibration, la barre de progression (« É5 Mur », « É3–É4

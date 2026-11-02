@@ -139,4 +139,49 @@ describe('la validation d une facade (V4)', () => {
     expect(t.v.validerFacade('maison', 0)).toBe(false);
     expect(t.projet.pushHistory).not.toHaveBeenCalled();
   });
+
+  // Une ouverture lue sous le pignon d'un corps voisin (decision du proprietaire, 2 novembre 2026, Q2 ; facade/releve/murVoisin.ts) : la
+  // maison a un sommet au milieu de sa facade sud (le mur photographie, cote 0, de 5 a 10 ; le mur du corps voisin, cote 1, de 10 a 15).
+  // La detection elle-meme est prouvee de bout en bout dans murVoisin.test.ts ; ici, ce qu'elle a lu est pose sur la mesure.
+  const EN_L: PtBrut[] = [{ x: 5, y: 10 }, { x: 10, y: 10 }, { x: 15, y: 10 }, { x: 15, y: 18 }, { x: 5, y: 18 }];
+  const SOUS_LE_PIGNON = { type: 'fenetre' as const, x: 5.8, y: 0.9, l: 1.1, h: 1.3 };
+  const avecLaBaieDuVoisin = (t: ReturnType<typeof monter>) => {
+    const m = t.v.mesuresFaites().get('maison#0');
+    if (!m?.releve) throw new Error('pas de releve');
+    m.releve.ouvertures = [...m.releve.ouvertures, { ...SOUS_LE_PIGNON }];
+    // Le releve que l'audit a pose d'office sur le mur, d'apres la meme mesure.
+    const pose = t.maison().batiment?.facades?.find((x) => x.cote === 0);
+    if (pose) pose.ouvertures = [...pose.ouvertures, { ...SOUS_LE_PIGNON }];
+  };
+
+  it('A1 : une baie sous le pignon voisin va sur la facade de son mur, en un pas avec celle-ci ; Ctrl+Z defait les deux', async () => {
+    const voisine = { cote: 1, largeur: 5, hauteur: 6, texture: 'data:image/jpeg;base64,VOISINE', ouvertures: [{ type: 'porte' as const, x: 3, y: 0, l: 1, h: 2.1, id: 'o1', verifieeLe: '2026-10-01', source: 'ajoutee' as const }], distance: null, sourceDistance: null, releveLe: '2026-10-01', dimensions: { largeurM: 5, egoutM: 6, source: 'saisie' as const } };
+    const t = monter({ pts: EN_L, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS], facades: [voisine] } });
+    await t.v.lancer();
+    avecLaBaieDuVoisin(t);
+    const avant = JSON.stringify(serializeObjects(t.etat.objects));
+    const appels = (t.projet.pushHistory as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(t.v.validerFacade('maison', 0)).toBe(true);
+    expect((t.projet.pushHistory as ReturnType<typeof vi.fn>).mock.calls.length).toBe(appels + 1);
+    const facades = t.maison().batiment?.facades ?? [];
+    // Ce mur ne la porte plus ; le mur voisin l'a, dans son repere (x = 0,8 depuis sa gauche), detectee, numerotee a la suite.
+    expect(facades.find((x) => x.cote === 0)?.ouvertures.some((o) => o.x > 5)).toBe(false);
+    const v = facades.find((x) => x.cote === 1);
+    expect(v?.ouvertures).toEqual([voisine.ouvertures[0], { type: 'fenetre', x: 0.8, y: 0.9, l: 1.1, h: 1.3, source: 'detectee', id: 'o2' }]);
+    // Rien d'autre de la facade voisine ne change.
+    expect({ ...v, ouvertures: [] }).toEqual({ ...voisine, ouvertures: [] });
+    expect(t.messages.at(-1)).toMatch(/La façade voisine est complétée des ouvertures lues sous le pignon de son corps\. Ctrl\+Z la défait\.$/);
+    t.historique.annuler();
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(avant);
+  }, 30000);
+
+  it('A2c : le mur voisin n a pas de facade, la baie reste sur ce mur et aucune facade n est creee', async () => {
+    const t = monter({ pts: EN_L });
+    await t.v.lancer();
+    avecLaBaieDuVoisin(t);
+    expect(t.v.validerFacade('maison', 0)).toBe(true);
+    const facades = t.maison().batiment?.facades ?? [];
+    expect(facades.map((x) => x.cote)).toEqual([0]);
+    expect(facades[0]?.ouvertures.some((o) => o.x === 5.8)).toBe(true);
+  }, 30000);
 });

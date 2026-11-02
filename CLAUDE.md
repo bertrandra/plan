@@ -186,7 +186,11 @@ d'y toucher.
   plusieurs vues du mur entier, l'assemblage pose le mur et l'image du mur se compose par la fusion de ces mêmes photos (vote des
   baies, occultations par la parallaxe, meilleure vue pixel par pixel : `analyseMur.ts::fondreLesVues`), dans le même cadre.
   La détection lit cette façade entière (fusionnée) et cherche dans la silhouette du gabarit, pignons compris, jamais coupée à
-  l'égout ; une baie de pignon garde sa place au-dessus de l'égout (`analyse.ts::detecterDansLaSilhouette`).
+  l'égout ; une baie de pignon garde sa place au-dessus de l'égout (`analyse.ts::detecterDansLaSilhouette`). Une baie lue sous le pignon
+  d'un corps voisin qui prolonge la façade va, à la validation V4, sur la façade du côté du contour qui porte ce mur s'il en a une (dans le
+  même pas d'historique, sans rien y changer d'autre) ; sinon elle reste là et l'É9 dit de relever ce mur. Aucune façade n'est créée pour
+  elle (`facade/releve/murVoisin.ts`, décision du propriétaire, 2 novembre 2026). La recherche du mur reste « sans le toit » : le gabarit
+  juge la pose (É5), il ne la cherche pas.
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

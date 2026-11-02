@@ -27,7 +27,7 @@ import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDes
 import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
 import type { ArbitrageProposition } from '../../../regles/decisions.js';
 import { ecrivainPeut } from '../../../model/protections.js';
-import { facadeAEcrire, facadeValideeDe } from './facadeValidee.js';
+import { facadeAEcrire, facadesVoisinesAEcrire, facadeValideeDe } from './facadeValidee.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
@@ -219,7 +219,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
           arrete: () => arret,
           rendreLaMain: () => new Promise<void>((ok) => { setTimeout(ok, 0); }),
         };
-        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections);
+        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null, facades: 'batiment' in bat ? bat.batiment?.facades ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections);
         etape = null;
         // Une mesure arretee ne se garde pas : elle se refera a la demande (le rejeu, l'analyse).
         if (!arret) { faites.set(x.cle, { signature: x.sig, mesure: m }); version++; }
@@ -484,14 +484,23 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
   const o = ctx.etat.objects.find((x) => x.key === cle);
   if (!m || !o) return false;
   const jour = jourIso(ctx.maintenant()), k = cleMesure(cle, cote);
-  const r = facadeAEcrire(o, m, jour, ctx.analyse?.accords?.()?.[k] ?? null, ctx.analyse?.runs?.()?.[k] ?? null);
+  const accord = ctx.analyse?.accords?.()?.[k] ?? null;
+  const r = facadeAEcrire(o, m, jour, accord, ctx.analyse?.runs?.()?.[k] ?? null);
   if (!r) return false;
+  // Les ouvertures lues sous le pignon d'un corps voisin, sur la facade du mur qui les porte (facade/releve/murVoisin.ts) : calculees
+  // avant l'ecriture (sur les facades du projet), ecrites dans le meme pas d'historique.
+  const voisines = facadesVoisinesAEcrire(o, m, accord);
   ctx.projet.pushHistory();
   ecrireDansLeProjet(ctx, [{ id: k + ':facade', cible: { type: 'facade', cle, cote }, objet: 'Façade', source: 'mesure', avant: '', apres: '', indices: [], confiance: null, remplaceChoix: null, reserve: null, effet: { type: 'releve', releve: r } }], [], jour);
+  if (voisines.length && o.batiment) {
+    o.batiment = { ...o.batiment, facades: (o.batiment.facades ?? []).map((x) => voisines.find((v) => v.cote === x.cote) ?? x) };
+    toucher(o);
+  }
   ctx.projet.render();
   ctx.projet.refaire3d();
   const n = r.ouvertures.length;
-  ctx.signaler('Façade validée : ' + n + ' ouverture' + (n > 1 ? 's vérifiées' : ' vérifiée') + ', dimensions, forme et texture écrites dans le projet. Ctrl+Z la défait.');
+  const ailleurs = voisines.length ? ' ' + (voisines.length > 1 ? voisines.length + ' façades voisines complétées' : 'La façade voisine est complétée') + ' des ouvertures lues sous le pignon de son corps.' : '';
+  ctx.signaler('Façade validée : ' + n + ' ouverture' + (n > 1 ? 's vérifiées' : ' vérifiée') + ', dimensions, forme et texture écrites dans le projet.' + ailleurs + ' Ctrl+Z la défait.');
   return true;
 }
 

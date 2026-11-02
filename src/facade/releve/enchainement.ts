@@ -43,6 +43,9 @@ import { cartesAretes } from '../detection/recalageIa.js';
 import { etapeDiagnostic, etapeToit, type ToitDeLaFacade } from './etapesForme.js';
 import type { DiagnosticForme } from '../regles/facades/diagnosticForme.js';
 import { bilanDeLaFacade, texteBilan, type BilanFacade } from './bilanFacade.js';
+import { partagerSousLesVoisins, texteDuPartage, type FacadeVoisine, type PartageOuvertures } from './murVoisin.js';
+import type { OuvertureFacade } from '../../model/types.js';
+import { nomFacade } from '../../geometry/cotesVusDeDehors.js';
 
 /** Ce qui entre dans l'enchainement : les dimensions et le gabarit du plan (E1), les photos et ce qui les accompagne (E2). */
 export interface EntreesFacade {
@@ -53,6 +56,11 @@ export interface EntreesFacade {
   prises: PrisesFacade;
   /** Les corps du toit qui font le gabarit, et le mur de la facade (lot F4) : le diagnostic de forme se fait corps par corps. */
   toit?: ToitDeLaFacade | null;
+  /**
+   * Les facades deja relevees des autres cotes du batiment (l'audit les lit dans le projet) : une ouverture lue sous le pignon d'un corps
+   * voisin va sur celle du mur qui la porte (murVoisin.ts). Absentes (un cas de calibration) : aucune, elle reste sur ce mur.
+   */
+  voisines?: readonly FacadeVoisine[];
 }
 
 /** La verite d'un cas de calibration, pour la mesure de chaque etape (§7.3). */
@@ -515,6 +523,14 @@ function contreLaVerite(vraies: readonly OuvertureVraie[], trouvees: readonly Ou
   return { rappel: j.vp / vraies.length, precision: trouvees.length ? j.vp / trouvees.length : 0, cotes: [...j.cotes].sort((x, y) => x - y)[Math.floor(j.cotes.length / 2)] ?? null };
 }
 
+/** Le partage des ouvertures du releve entre ce mur et les murs voisins (murVoisin.ts), sur les entrees ; null sans releve. */
+function partageDuReleve(e: EntreesFacade, ouvertures: readonly OuvertureFacade[] | undefined): PartageOuvertures | null {
+  return ouvertures ? partagerSousLesVoisins(e.prises.facade, e.prises.contour, ouvertures, e.voisines ?? []) : null;
+}
+
+/** Le nom d'un cote du contour dans une phrase : « sud (côté 3) ». */
+const nomDuCote = (e: EntreesFacade) => (cote: number): string => nomFacade(e.prises.facade.orientation, cote);
+
 const ouvertures: Pas = ({ e, o, s, obj }) => {
   const a = s.analyse;
   if (!a) return attend('le mur redressé (É8)');
@@ -525,7 +541,10 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   const accord = reponse && s.ia ? accorderOuvertures({ ouvertures: a.ouvertures, decochees: a.devinees, observations: reponse, cartes: cartesAretes(a.elevation, a.pxParM), largeurM: e.largeurM, hauteurM: e.hauteurM }) : null;
   if (s.ia) s.ia = { ...s.ia, accord };
   const ditIa = accord ? ' ' + (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' : '';
-  const resume = `${n} ouverture${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}` + (d ? `, ${d} devinée${d > 1 ? 's' : ''} par la structure, à confirmer.` : ', aucune devinée.') + ditIa;
+  // Les ouvertures sous le pignon d'un corps voisin : sur la facade du mur qui les porte, sinon gardees ici (murVoisin.ts).
+  const partage = partageDuReleve(e, s.ia?.accord?.ouvertures ?? s.audit?.mesure?.releve.ouvertures);
+  const voisin = partage ? texteDuPartage(partage, nomDuCote(e)) : '';
+  const resume = `${n} ouverture${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}` + (d ? `, ${d} devinée${d > 1 ? 's' : ''} par la structure, à confirmer.` : ', aucune devinée.') + ditIa + (voisin ? ' ' + voisin.charAt(0).toUpperCase() + voisin.slice(1) : '');
   const etat: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
   const vraies = o.verite?.ouvertures;
   if (!vraies?.length) return { etat, resume, verite: null };
@@ -549,13 +568,17 @@ const validation: Pas = ({ e, o, s }) => {
   const m = s.audit?.mesure;
   if (!m) return attend('le relevé du mur (É8, É9)');
   // Apres un run de Claude (le mode « IA », ce que l'audit fait apres le sien) : ses pointes, et les ouvertures accordees.
+  // Les ouvertures sous le pignon d'un corps voisin qui vont sur la facade de ce mur quittent celle-ci ; V4 les y ecrit (murVoisin.ts).
+  const partage = partageDuReleve(e, s.ia?.accord?.ouvertures ?? m.releve.ouvertures);
   s.facade = bilanDeLaFacade({
     largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: s.forme?.lue ?? null,
-    silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: s.ia?.accord?.ouvertures ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
+    silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
     ...(s.ia?.reponse ? { pointesIa: s.ia.reponse.calage.pointes } : {}),
   });
-  if (o.vue === 'audit') return { etat: 'a-confirmer', resume: texteBilan(s.facade) + ' Validez la façade pour l’écrire dans le projet (V4).', verite: null };
-  return sans('Bilan : ' + texteBilan(s.facade) + ' La calibration n’écrit pas de façade : elle se valide dans l’audit (V4).');
+  const ajoutes = partage?.ajouts.reduce((k, a) => k + a.ouvertures.length, 0) ?? 0;
+  const voisin = ajoutes ? ` Et ${ajoutes} ouverture${ajoutes > 1 ? 's' : ''} sur la façade ${partage?.ajouts.map((a) => nomDuCote(e)(a.cote)).join(', ')}, dans le même pas.` : '';
+  if (o.vue === 'audit') return { etat: 'a-confirmer', resume: texteBilan(s.facade) + voisin + ' Validez la façade pour l’écrire dans le projet (V4).', verite: null };
+  return sans('Bilan : ' + texteBilan(s.facade) + voisin + ' La calibration n’écrit pas de façade : elle se valide dans l’audit (V4).');
 };
 
 const PAS: Record<IdEtape, Pas> = {

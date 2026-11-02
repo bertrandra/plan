@@ -314,8 +314,9 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
     160 avant), 44 sur 44 à 2 % acceptées (37 sur 40 avant), aucune pose juste refusée ; le mur de 5 m prolongé par un pignon voisin,
     posé juste, passe de 0,52 à 1. Un gabarit faux rend une pose juste « à confirmer » : la direction
     prudente, et l'É7 dit l'écart.
-  - **Reste** : sur le mur de 5 m prolongé par un pignon voisin, la recherche (qui ignore le gabarit) prend le mur entier de 8 m pour un mur
-    de 5 m ; l'É5 le dit « à confirmer » (score 0,20) et la personne pose le mur.
+  - **La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit pour
+    chercher les bouts du mur. Sur le mur de 5 m prolongé par un pignon voisin, elle prend le mur entier de 8 m pour un mur de 5 m ; l'É5
+    le dit « à confirmer » (score 0,20) et la personne pose le mur (le chemin réel). Le gabarit juge la pose, il ne la cherche pas.
 
 ### É6 · Silhouette lue, par corps
 
@@ -713,6 +714,20 @@ silhouette**.
 - **Un diagnostic ne traverse pas deux corps** : une pointe n'est jamais « à cheval » ; si une marche tombe à la frontière de deux corps,
   la proposition est un second corps, pas un déplacement de pignon.
 - **Illustration** : chaque corps en couleur sur la silhouette et sur la 3D ; la proposition se montre sur le corps concerné seulement.
+- **Les ouvertures sous le pignon d'un corps voisin** (décision du propriétaire, 2 novembre 2026, question Q2 ; `facade/releve/murVoisin.ts`).
+  La détection lit la silhouette entière, et une baie lue sous le pignon d'un corps voisin qui prolonge la façade tombe hors des cotes du
+  mur (x < 0 ou au-delà de sa largeur, le milieu dehors). Elle n'est pas de ce mur : elle est sur le mur du corps voisin, un autre côté du
+  contour, dans le plan de la façade (parallèle à 5° près, à `MUR_CORPS_DISTANCE_M` de lui, la baie entre ses bouts).
+  - **Ce côté a déjà une façade** (A1) : la baie s'y ajoute, dans son repère, `detectee`, numérotée à la suite ; pas si une de ses
+    ouvertures la recouvre de plus de moitié (elle y est déjà). Rien d'autre de cette façade ne change : ses ouvertures vérifiées,
+    corrigées, ajoutées, sa texture, ses dimensions. V4 écrit les deux façades **en un pas d'historique** (`facadeValidee.ts::
+    facadesVoisinesAEcrire`), sur les façades du projet au moment de valider.
+  - **Ce côté n'a pas de façade, ou aucun côté du contour ne porte ce mur** (A2c, A3) : la baie reste dans la façade photographiée, hors de
+    ses cotes (la 3D ne la pose pas), et l'É9 le dit : « sur le pignon du corps voisin — pas de façade sur ce mur : relevez-le pour les y
+    poser ». Aucune façade n'est créée : une façade sur ce mur effacerait toutes ses fenêtres automatiques (§3.3) pour une ou deux baies vues.
+  - L'É9 et l'É11 font le même partage sur les façades du bâtiment que les entrées donnent (`EntreesFacade.voisines`, lues dans le projet
+    par l'audit) : la calibration, qui rejoue un cas sans les autres façades du bâtiment, dit toujours « pas de façade sur ce mur ». C'est
+    une différence d'entrées (§4 ter.6, a), pas de calcul.
 
 ## 5 quater. Les éléments que l'IA découvre
 
