@@ -17,7 +17,7 @@ import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '.
 // Calibration et audit : le meme code et la meme orchestration, l'audit n'en cache qu'une part (CLAUDE.md, decision du proprietaire du
 // 2 novembre 2026). Une facade passe par l'entree reelle de l'audit (mesurerFacade), devient un cas de calibration comme l'admin le
 // cree (casDepuisFacade, enregistre puis relu), et se rejoue avec la vue de la calibration et avec celle de l'audit : chaque etape, de
-// l'E0 a l'E8, rend la meme chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture), a la verite pres ; l'E9 ne
+// l'E1 a l'E10, rend la meme chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture), a la verite pres ; l'E11 ne
 // differe que par sa fin (V4 dans l'audit, rien d'ecrit en calibration).
 
 /** Une empreinte d'image (FNV-1a sur tous ses octets) : comparer des images entieres couterait des secondes a l'outil de test. */
@@ -42,7 +42,7 @@ function sorties(r: Enchainement) {
     facade: s.facade,
   };
 }
-/** L'etat et le resume de chaque etape de l'E0 a l'E8. */
+/** L'etat et le resume de chaque etape de l'E1 a l'E10. */
 const etapes = (r: Enchainement | Pick<MesureFacade, 'etapes'>) => (r.etapes ?? []).filter((e) => e.id !== 'validation').map(({ id, etat, resume }) => ({ id, etat, resume }));
 
 /** Une prise de vue d'audit pour une camera du banc : le GPS a sa place (a 1 m pres), la boussole vers le mur, l'EXIF de sa focale. */
@@ -91,12 +91,12 @@ async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], correctio
 
 function memesSorties(x: Awaited<ReturnType<typeof lesDeux>>): void {
   const { audit, calibration, vueAudit } = x;
-  // La vue de la calibration et celle de l'audit : chaque etape, de l'E0 a l'E8, rend la meme chose ; la verite n'est qu'un ajout.
+  // La vue de la calibration et celle de l'audit : chaque etape, de l'E1 a l'E10, rend la meme chose ; la verite n'est qu'un ajout.
   expect(etapes(calibration)).toEqual(etapes(vueAudit));
   expect(calibration.etapes.map((e) => e.id)).toEqual(ETAPES_FACADE.map((e) => e.id));
   const { ...sc } = sorties(calibration), { ...sa } = sorties(vueAudit);
   expect(sc).toEqual(sa);
-  // L'E9 : le meme bilan (la Facade que V4 ecrirait) ; seule la fin differe.
+  // L'E11 : le meme bilan (la Facade que V4 ecrirait) ; seule la fin differe.
   expect(calibration.sorties.facade).toEqual(vueAudit.sorties.facade);
   expect(calibration.etapes.find((e) => e.id === 'validation')?.resume).toMatch(/La calibration n’écrit pas de façade/);
   expect(vueAudit.etapes.find((e) => e.id === 'validation')?.resume).toMatch(/Validez la façade pour l’écrire dans le projet \(V4\)\.$/);

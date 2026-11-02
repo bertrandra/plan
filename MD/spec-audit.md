@@ -519,7 +519,7 @@ Ces calculs commencent dès la prise, pendant que vous photographiez la façade 
 
 **Depuis le lot F3** (`spec-facade-calage-audit.md` §4 ter, §6, §9 bis) : une façade se calcule par **l'orchestrateur de
 l'enchaînement** (`facade/releve/enchainement.ts`, mode `audit`), le même que la calibration rejoue, dès sa première photo ; le relevé
-sort de l'orchestrateur avec l'état de chaque étape (É0 à É9). L'audit montre **la même barre de progression** que la calibration,
+sort de l'orchestrateur avec l'état de chaque étape (É1 à É11). L'audit montre **la même barre de progression** que la calibration,
 sur la façade dépliée de la liste et en tête de l'écran de prise, en **mode discret** : une étape cachée qui a réussi (redressement,
 assemblage, silhouette lue, texture) ne se montre pas ; une étape qui échoue ou doute apparaît aussitôt avec son geste de repli
 (quatre repères sur une photo, le même geste que la calibration) ; seuls les points de validation et ce qui doute s'ouvrent.

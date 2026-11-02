@@ -7,7 +7,7 @@
 // - « une zone de colombage ecarte les poses du mur qui tiennent dedans » : leurs bouts suivent les bois, pas les angles (AE 101) ;
 // - « une pointe vue ailleurs ou plus haut que le plan est un diagnostic ou une alerte, jamais une correction » (decision 12) ;
 // - « une boite de l'IA n'est cochee que si la detection (ou la grille, par une baie devinee) la retrouve » (§8).
-// La chaine (l'arbitre de l'E4, l'E7 de l'enchainement, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
+// La chaine (l'arbitre de l'E5, l'E9 de l'enchainement, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
 
 import fichierIa from '../../../../regles/facades/ia.json';
 import { voterAttribut } from '../../../model/analyseClaude.js';
@@ -183,7 +183,7 @@ export function escaladerObservations(vote: ObservationsFacade | null, esc: Obse
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Ce que Plan en fait : une pose candidate (E4), des boites a accorder avec la detection (E7)
+ * Ce que Plan en fait : une pose candidate (E5), des boites a accorder avec la detection (E9)
  * --------------------------------------------------------------------------------------------- */
 
 export interface RectIa { x0: number; x1: number; y0: number; y1: number }

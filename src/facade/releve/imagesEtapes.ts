@@ -11,30 +11,30 @@ import type { BoiteAccordee, RectIa } from '../regles/facades/ia.js';
 import type { EntreesFacade, Enchainement } from './enchainement.js';
 
 export interface ImagesEtapes {
-  /** E2 : par photo, la vue redressee entiere et le gabarit pose par ses coins (en pixels de la vue) ; null : elle ne se redresse pas. */
+  /** E3 : par photo, la vue redressee entiere et le gabarit pose par ses coins (en pixels de la vue) ; null : elle ne se redresse pas. */
   vues: ({ image: Image; silhouette: P2[] | null } | null)[];
-  /** E3 : l'image prise pour la suite, l'assemblage des vues (une photo seule : sa vue de face), celle de l'audit. */
+  /** E4 : l'image prise pour la suite, l'assemblage des vues (une photo seule : sa vue de face), celle de l'audit. */
   assemblage: { image: Image } | null;
   /**
-   * E4, E5, E7 : l'image prise pour la suite et le mur retenu dessus ; le contour du mur (le sol, puis le gabarit a l'echelle de la
+   * E5, E6, E9 : l'image prise pour la suite et le mur retenu dessus ; le contour du mur (le sol, puis le gabarit a l'echelle de la
    * facade entre ses coins), le haut lu sur l'image, et les ouvertures ramenees du mur sur elle.
    */
   pose: { image: Image; coins: P2[]; contour: P2[]; silhouette: P2[] | null; proposees: P2[][]; devinees: P2[][] } | null;
   /**
-   * E7 : la facade que lit la detection, en metres depuis son coin haut gauche (le sol en bas) : l'image redressee entiere, fusionnee
+   * E9 : la facade que lit la detection, en metres depuis son coin haut gauche (le sol en bas) : l'image redressee entiere, fusionnee
    * quand plusieurs vues se fondent, dans son cadre (la boite de la silhouette entiere et sa marge, la bande au-dessus de l'egout), sans
    * coupe a l'egout ; la silhouette du mur (le gabarit, pignons compris), seule zone ou la detection cherche ; les ouvertures trouvees et
    * devinees. `x0` : la place du bout gauche du mur dans le cadre (les cotes des ouvertures se comptent depuis lui).
    */
   facade: { image: Image; l: number; h: number; x0: number; contour: P2[]; proposees: P2[][]; devinees: P2[][] } | null;
-  /** E6 : le contour du mur sur la texture, en metres depuis son coin haut gauche, et la taille de la texture. */
+  /** E8 : le contour du mur sur la texture, en metres depuis son coin haut gauche, et la taille de la texture. */
   texture: { image: Image; sansOmbres: Image | null; contour: P2[]; l: number; h: number } | null;
   /**
-   * Le mode « IA » (lot F2). E4, sur l'assemblage : la pose des deux angles de Claude (le calque bleu), ses pointes, et ses appentis,
-   * corps et caches en bandes sous le mur, portes par sa pose. E7, sur l'image prise pour la suite : ses boites (cochees, ou seules).
+   * Le mode « IA » (lot F2). E5, sur l'assemblage : la pose des deux angles de Claude (le calque bleu), ses pointes, et ses appentis,
+   * corps et caches en bandes sous le mur, portes par sa pose. E9, sur l'image prise pour la suite : ses boites (cochees, ou seules).
    */
   /**
-   * E5 bis (lot F4), sur l'image prise pour la suite : les troncons de corps (en pixels le long du haut du mur, avec leur corps) et,
+   * E7 (lot F4), sur l'image prise pour la suite : les troncons de corps (en pixels le long du haut du mur, avec leur corps) et,
    * pour chaque proposition de toit, le gabarit modifie pose entre les memes coins, avec son corps et son gain.
    */
   forme: {
@@ -101,7 +101,7 @@ function calqueIa(r: Enchainement, e: Mur, pose: NonNullable<Enchainement['sorti
   const enU = (u: number) => (cadre ? cadre.x0 + u * w : 0);
   const bande = (quoi: 'appentis' | 'corps' | 'cache', l: readonly Etendue[], k: number) => l.map((x) => ({ quoi, x0: enU(x.debut), x1: enU(x.fin), y: (cadre?.y1 ?? 0) + (0.02 + 0.02 * k) * w }));
   const c = ia.reponse.calage;
-  // Les boites se posent sur la facade que lit la detection (l'E7 la montre), sinon sur l'image de la pose.
+  // Les boites se posent sur la facade que lit la detection (l'E9 la montre), sinon sur l'image de la pose.
   const a = r.sorties.analyse, cadre_ = a ? cadreDe(a) : null;
   const boites = ia.accord && (cadre_ || pose) ? ia.accord.boites : [];
   const quads = cadre_ ? boites.map((b) => dansLeCadre(cadre_, b.ouverture)) : pose ? versLImage(pose.coins, e.largeurM, e.hauteurM, boites.map((b) => ({ ...b.ouverture, confiance: 1 }))) : [];

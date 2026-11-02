@@ -118,7 +118,7 @@ export function propositionsEquipements(l: FacadeLue, objets: readonly ObjetPlan
 }
 
 /**
- * Ce que la lecture enrichie d'une facade lit de plus que ses ouvertures (lot L1), en lignes pour l'ecran de la facade (É7 et É9) : les menuiseries et
+ * Ce que la lecture enrichie d'une facade lit de plus que ses ouvertures (lot L1), en lignes pour l'ecran de la facade (É9 et É11) : les menuiseries et
  * les garde-corps, la modenature et les stores, les decroches (a retoucher a la main), et l'etat du mur, signale sans case. La hauteur
  * du mur sert a la modenature dite (`egoutM`). Vide quand le run n'en dit rien ; un signal quand la lecture enrichie a echoue.
  */

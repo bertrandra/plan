@@ -86,8 +86,8 @@ describe('le moteur pose l element sur le corps concerne (corpsSousContrainte)',
   });
 });
 
-describe('la calibration dit les elements (E5 bis, E8) et les juge contre la verite du cas', () => {
-  it('la proposition a confirmer, l E8 qui l attend, et la mesure contre les cheminees vraies du corps', () => {
+describe('la calibration dit les elements (E7, E10) et les juge contre la verite du cas', () => {
+  it('la proposition a confirmer, l E10 qui l attend, et la mesure contre les cheminees vraies du corps', () => {
     const mur = { gauche: sud.gauche, droite: sud.droite };
     const vrai = (s: number) => [{ nom: 'Maison', mur, forme: 'deux-pans' as const, pignons: [], cheminees: [{ s }] }];
     const juste = etapeDiagnostic({ mur, corps: [maison] }, 5, null, ia([{ element: 'cheminee', u: 0.3 }]), undefined, vrai(3.2));

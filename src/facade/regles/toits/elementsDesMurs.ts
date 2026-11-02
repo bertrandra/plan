@@ -1,5 +1,5 @@
 // Les cheminees et lucarnes vues sur la ligne du haut d'un mur, posees par le moteur sur le corps de ce mur (lot F7,
-// MD/spec-facade-calage-audit.md §4 E8, §5 quater) : la photo d'une facade (le haut lu, Claude) les voit ; l'audit les propose, decochees
+// MD/spec-facade-calage-audit.md §4 E10, §5 quater) : la photo d'une facade (le haut lu, Claude) les voit ; l'audit les propose, decochees
 // (app/audit/parcelle/formeFacades.ts) ; le moteur des toits les pose (corpsSousContrainte, facade/regles/toits/faits.ts) une fois la
 // proposition cochee. Ce qui est deja pose (le Mode Toit, une observation) ne bouge jamais. Les valeurs d'une souche et d'une lucarne
 // que la photo ne donne pas (section, largeur, ou le faitage d'une lucarne rejoint le pan) sont celles des elements vus
@@ -57,7 +57,7 @@ function centreLucarne(c: CorpsToit, r: Cadre, l: Lucarne): PtBrut {
 }
 
 /**
- * Pose un element vu sur un mur (lot F7, l'E8 de la spec) : le corps que designe le mur (murDuCorps, quelle que soit la renumerotation),
+ * Pose un element vu sur un mur (lot F7, l'E10 de la spec) : le corps que designe le mur (murDuCorps, quelle que soit la renumerotation),
  * le point du mur vu ramene dans son repere. Une cheminee vue sur un long pan se pose sur le faitage (a mi-pan sur un appentis), a cette
  * place le long du faitage ; vue sur un mur de bout, dans ce mur (`pignon`), a cette place en travers. Une lucarne ne se pose que sur un
  * long pan en pente : sur le pan de ce mur, centree a cette place, aux valeurs du type inconnu (la photo ne dit ni son type, ni sa

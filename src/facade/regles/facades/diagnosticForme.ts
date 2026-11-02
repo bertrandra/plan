@@ -1,4 +1,4 @@
-// Le diagnostic de forme d'une facade (MD/spec-facade-calage-audit.md §4 E5 bis, §5 bis, §5 ter ; lot F4) : la silhouette de la
+// Le diagnostic de forme d'une facade (MD/spec-facade-calage-audit.md §4 E7, §5 bis, §5 ter ; lot F4) : la silhouette de la
 // facade derive du toit (gabaritDesCorps, la meme projection que le mode Toit) ; son ecart avec le haut lu sur la photo est donc
 // d'abord un diagnostic du TOIT CALCULE, corps par corps. Decisions de la personne : « la silhouette derive du toit ; son ecart avec
 // la photo est un diagnostic de toit » (9), « l'IA propose, le moteur tranche » (3), « toute proposition de toit venue de la photo est
@@ -24,7 +24,7 @@
 //   §5 quater) : proposee sur le corps du troncon, par son mur, et posee par le moteur une fois cochee (elementsDesMurs.ts) ; ce qui y
 //   est deja pose ne se propose pas, et ne bouge jamais ;
 // - ce que le moteur ne sait pas poser (un autre volume vu par Claude) est dit en constat, sans proposition.
-// Les seuils sont des objectifs de l'E5 bis, dans regles/facades/enchainement.json. Pur.
+// Les seuils sont des objectifs de l'E7, dans regles/facades/enchainement.json. Pur.
 
 import { gabaritDesCorps, pointesDuGabarit, type GabaritMur } from '../../gabaritMur.js';
 import { silhouetteDeFace, tronconsDeFace } from '../toits/silhouetteDesCorps.js';

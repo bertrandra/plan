@@ -808,8 +808,11 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   relu par `entreesDuCas`, qui garde le côté, le contour et la prise de vue de chaque photo), les mesures qui demandent la vérité (en lecture
   seule), la fin (`vue` : V4 écrit la Façade dans l'audit, rien en calibration) et ce qui se montre. `uneOrchestration.test.ts` le prouve.
   Un résultat de calibration prouve ce que fera l'audit ; le banc de synthèse, lui, reste sur `analyserLeMur` (synchrone, coins vrais).
+- **Les étapes s'appellent É1 à É11** (É1 Préparation, É2 Prises, É3 Redressement, É4 Assemblage, É5 Calage du mur, É6 Silhouette lue,
+  É7 Diagnostic de forme, É8 Texture, É9 Ouvertures, É10 Toit, É11 Validation ; `libelleEtape`), dans l'orchestrateur (et le texte
+  d'un rejeu, `reel.ts etalon`) et à l'écran ; le propriétaire les cite par ces numéros.
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
-  `facade/releve/enchainement.ts::derouler` (étapes É0 à É9, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
+  `facade/releve/enchainement.ts::derouler` (étapes É1 à É11, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
   images `imagesEtapes.ts`) ; la mesure des cas passe par `preparerPourLaMesure`, le même chemin. L'audit y est venu au lot F3 ; depuis F6,
   le relevé n'a plus de capture (c'est l'éditeur d'un mur relevé), les photos se prennent dans l'audit.
   `npx tsx … reel.ts etalon <cas.json>` rejoue un cas étape par étape avec la vérité d'un étalon (`tests/fixtures/facades-reel/etalons/`).

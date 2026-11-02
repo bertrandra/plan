@@ -6,7 +6,7 @@ import { EcranCalibration, type DepsCalibration } from '../../../src/zones/Ecran
 import { FORMAT_CAS_REEL, type CasStocke, type DocumentCalibration } from '../../../src/facade/corpusReel.js';
 import type { Image } from '../../../src/facade/vision/homographie.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
-import type { IdEtape } from '../../../src/model/etapeFacade.js';
+import { ETAPES_FACADE, SEGMENTS_FACADE, etapeFacade, type IdEtape } from '../../../src/model/etapeFacade.js';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../src/regles/facades/observations.js';
 
 // L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un cas tire d'une facade d'un audit
@@ -174,6 +174,17 @@ describe('l ecran de calibration', () => {
     expect(hote.querySelectorAll('.barreFacade ol > li')).toHaveLength(8);
     expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(9);
     expect(hote.querySelector('.barreFacadeSegment.echec')).toBeNull();
+    // Chaque etape se nomme par son numero, de É1 a É11, sans « bis » : sur sa vignette, sur son ecran ouvert, dans la barre (decision
+    // du proprietaire : il les cite par ces numeros).
+    expect(ETAPES_FACADE.map((e) => e.numero)).toEqual(ETAPES_FACADE.map((_, k) => 'É' + (k + 1)));
+    for (const li of [...hote.querySelectorAll('.calFrise > li')]) {
+      const id = li.querySelector('[data-etape]')?.getAttribute('data-etape') as IdEtape, def = etapeFacade(id);
+      expect(li.textContent).toContain(def.numero + ' · ' + def.nom);
+      await act(async () => { (li.querySelector('[data-etape]') as HTMLButtonElement).click(); });
+      expect(hote.querySelector('.calEtapeOuverte h3')?.textContent?.startsWith(def.numero + ' · ' + def.nom)).toBe(true);
+    }
+    const segments = [...hote.querySelectorAll('.barreFacadeSegment [aria-label]')].map((x) => x.getAttribute('aria-label') ?? '');
+    SEGMENTS_FACADE.forEach((s, k) => expect(segments[k]).toContain(etapeFacade(s.etapes[0] as IdEtape).numero));
     expect(bouton('calibration.proposer')).not.toBeNull();
     expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
     await act(async () => { bouton('calibration.viderBaies')?.click(); });
@@ -210,7 +221,7 @@ describe('l ecran de calibration', () => {
     expect(appelerClaude).toHaveBeenCalledWith(expect.objectContaining({ passes: 3, texte: expect.stringMatching(/^Façade : Synthèse 02\./) }));
     expect(hote.textContent).toContain('Réponse enregistrée : Claude, 2026-10-29, trois passes votées, claude-haiku-5-5, prompt v1, schéma v1, 0,0039 $');
     expect(bouton('calibration.modeIa')?.getAttribute('aria-pressed')).toBe('true');
-    // L'E4 dit l'accord de Claude, l'E7 ses boites retrouvees par la detection.
+    // L'E5 dit l'accord de Claude, l'E9 ses boites retrouvees par la detection.
     const ouvrir = async (id: string) => { await act(async () => { (hote.querySelector(`.calFrise [data-etape="${id}"]`) as HTMLButtonElement | null)?.click(); }); };
     await ouvrir('calage');
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/IA \(Claude, 2026-10-29.*accord/);

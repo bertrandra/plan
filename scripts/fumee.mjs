@@ -2456,7 +2456,7 @@ const POINTS = {
     // gabarit. « Ouvrir », « Rejouer », puis toucher le segment « Mur » de la barre et « Rejouer depuis cette étape ». On mesure : la
     // barre de huit segments, chacun avec son etat en mot (le texte lu) et sa forme ; la frise de neuf etapes, chacune avec son etat ;
     // l'etape ouverte (son resultat, son contrat, la ligne sous la barre) ; le rejeu depuis une etape qui garde les precedentes ;
-    // rien ne deborde. Lot F1 : l'E4 dit le score d'explication sans le toit ; son option manuelle, sur l'assemblage, est le seul
+    // rien ne deborde. Lot F1 : l'E5 dit le score d'explication sans le toit ; son option manuelle, sur l'assemblage, est le seul
     // composant du geste (quatre poignees : egout, sol, deux bouts) ; tirer un bout au clavier puis « Appliquer le calage et rejouer »
     // pose le mur a la main et rejoue depuis le calage.
     const { vues: [photo], coins, largeur, largeurPx } = photosScene('22-pignon-decentre-pierre');
@@ -2507,17 +2507,17 @@ const POINTS = {
     const resumeCale = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const calage = poignees.join() === 'Égout,Sol,Bout gauche du mur,Bout droit du mur' && appliquerAvant && !appliquerApres && /Score d’explication sans le toit \d,\d\d/.test(legende) && /^Mur posé à la main/.test(resumeCale);
     const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
-    const ok = segments.length === 8 && segments.every((x) => /^Étape \d sur 8, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
-      && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É4 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
-      && contrat >= 5 && /^Mur : calage du mur, /.test(ligne) && /^Étape 3 sur 8, Mur/.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && !debords.some(Boolean);
-    return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É4 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication sans le toit [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    const ok = segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
+      && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É5 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
+      && contrat >= 5 && /^É5 Calage du mur \(Mur\), /.test(ligne) && /^É5 Mur, /.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && !debords.some(Boolean);
+    return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É5 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication sans le toit [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   101: async (page, f) => {
     // Admin › Calibrer la detection, le mode « IA » du rejeu (MD/spec-facade-calage-audit.md §7.2, §8, lot F2). Un cas du serveur simule :
     // la photo de synthese de la scene 02 du banc, ses coins vrais, ses ouvertures vraies, et une reponse ENREGISTREE du run de la
     // facade (SYNTHETIQUE, tests/fixtures/facades-ia/02-synthetique.json : pas Claude). « Rejouer », puis « IA (réponse enregistrée) » :
-    // le rejeu repart du calage avec elle, sans reseau. On mesure : l'entete de la reponse (date, passes, modele, versions, cout) ; l'E4
-    // dit la pose des deux angles de Claude et l'accord ; son calque (la pose de Claude en trait sombre) ; l'E7 dit ses boites
+    // le rejeu repart du calage avec elle, sans reseau. On mesure : l'entete de la reponse (date, passes, modele, versions, cout) ; l'E5
+    // dit la pose des deux angles de Claude et l'accord ; son calque (la pose de Claude en trait sombre) ; l'E9 dit ses boites
     // retrouvees par la detection et la boite seule, decochee ; toucher une boite dessine la division de son vitrage ; la note de version
     // dit l'IA et l'empreinte de ses regles ; rien ne debord. Aucun appel a `admin/claude/messages`.
     const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
@@ -2548,13 +2548,13 @@ const POINTS = {
     await etape('fin du rejeu IA', finRejeu);
     await page.waitForTimeout(300);
     await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
-    await etape('E4 ouverte', () => page.locator('.calEtapeOuverte .calMurIa').waitFor({ timeout: 10000 }));
+    await etape('E5 ouverte', () => page.locator('.calEtapeOuverte .calMurIa').waitFor({ timeout: 10000 }));
     const resume4 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const note = (await page.locator('.calEtapeOuverte > .calNote').last().textContent()) || '';
     if (process.env.FUMEE_CAPTURE_F2_E4) await page.locator('.calEtapeOuverte figure').first().screenshot({ path: process.env.FUMEE_CAPTURE_F2_E4 });
     const debords = [await deborde()];
-    await etape('E7', () => page.locator('.calFrise button[data-etape="ouvertures"]').click({ timeout: 5000 }));
-    await etape('E7 ouverte', () => page.locator('.calEtapeOuverte .calBoiteIa').first().waitFor({ timeout: 10000 }));
+    await etape('E9', () => page.locator('.calFrise button[data-etape="ouvertures"]').click({ timeout: 5000 }));
+    await etape('E9 ouverte', () => page.locator('.calEtapeOuverte .calBoiteIa').first().waitFor({ timeout: 10000 }));
     const resume7 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const cochees = await page.locator('.calEtapeOuverte .calBoiteIa.cochee').count(), seules = await page.locator('.calEtapeOuverte .calBoiteIa.seule').count();
     // La boite dont le vitrage est dit : la premiere cochee qui a des carreaux lus (une fenetre a petits bois de la scene).
@@ -2569,7 +2569,7 @@ const POINTS = {
       && /IA \(réponse synthétique .*\) : ses angles posent le mur x de \d+ à \d+ .*(accord|divergent)/.test(resume4) && /IA : réponse synthétique.*règles [0-9a-f]{8}/.test(note)
       && /ouvertures? vues? par Claude : \d+ retrouvées? par la détection, 1 seule, proposée décochée/.test(resume7) && cochees >= 3 && seules === 1 && vitrage.length > 5
       && appels === 0 && !debords.some(Boolean);
-    return { ok, mesure: `réponse rejouée « ${entete} » ; É4 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; É7 « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `réponse rejouée « ${entete} » ; É5 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; É9 « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   103: async (page, f) => {
     // L'escalade d'une facade, a la demande (decision du proprietaire du 29 octobre 2026 : « trois lectures, et une escalade a la
@@ -2577,7 +2577,7 @@ const POINTS = {
     // « Rejouer », « IA (réponse enregistrée) », puis le bouton de la commande `facade.escalader`. Le serveur est simule : `etat` dit
     // le modele de l'escalade et ses prix, `admin/claude/messages` rend une lecture SYNTHETIQUE qui voit de la pierre la ou le vote
     // voit de l'enduit. On mesure : le libelle du bouton (modele et cout annonce), UNE requete envoyee (usage `escalade`, la requete
-    // en usage `facade`), l'E4 qui dit ce que l'escalade a tranche, le bouton grise ensuite (une seule escalade), rien ne deborde.
+    // en usage `facade`), l'E5 qui dit ce que l'escalade a tranche, le bouton grise ensuite (une seule escalade), rien ne deborde.
     const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
     const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
     const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
@@ -2617,7 +2617,7 @@ const POINTS = {
     await etape('escalader', () => bouton.click({ timeout: 10000 }));
     await etape('escalade enregistree', () => page.waitForFunction(() => /Escalade enregistrée/.test(document.body.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer', null, { timeout: 90000 }));
     await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
-    await etape('E4 ouverte', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
+    await etape('E5 ouverte', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
     const resume4 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const apres = ((await bouton.textContent()) || '').trim();
     const grise = await bouton.isDisabled();
@@ -2626,7 +2626,7 @@ const POINTS = {
     const d = demandes[0];
     const ok = /^Escalader vers claude-sonnet-5-5 \(≈ 0,\d{4} \$\)$/.test(avant) && demandes.length === 1 && d?.usage === 'escalade' && d?.requetes?.length === 1 && d.requetes[0]?.usage === 'facade'
       && /Escalade \(claude-sonnet-5-5\) : elle l’emporte sur le parement/.test(resume4) && apres === 'Escaladée (claude-sonnet-5-5)' && grise && !debords.some(Boolean);
-    return { ok, mesure: `bouton « ${avant} » ; ${demandes.length} demande(s), usage ${d?.usage}, requête ${d?.requetes?.map((q) => q.usage).join('/')} ; É4 « ${(resume4.match(/Escalade \(.*?\.(?= |$)/) || ['PAS d’escalade'])[0]} » ; ensuite « ${apres} »${grise ? ', grisé' : ', ACTIF'} ; débordement ${debords.map((x) => (x ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `bouton « ${avant} » ; ${demandes.length} demande(s), usage ${d?.usage}, requête ${d?.requetes?.map((q) => q.usage).join('/')} ; É5 « ${(resume4.match(/Escalade \(.*?\.(?= |$)/) || ['PAS d’escalade'])[0]} » ; ensuite « ${apres} »${grise ? ', grisé' : ', ACTIF'} ; débordement ${debords.map((x) => (x ? 'OUI' : 'non')).join('/')}` };
   },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
@@ -2689,9 +2689,9 @@ const POINTS = {
   },
   104: async (page, f) => {
     // Le diagnostic de forme d'une facade et sa proposition de toit, sur le bon corps (lot F4, MD/spec-facade-calage-audit.md §5 bis,
-    // §5 ter, E8). La maison devient un corps a deux pans, faitage parallele a la facade sud (son gabarit y est un rectangle), et une
+    // §5 ter, E10). La maison devient un corps a deux pans, faitage parallele a la facade sud (son gabarit y est un rectangle), et une
     // aile au nord ; la photo de la facade sud est celle de la scene 22 du banc (8 x 5,2 m, un pignon decentre). L'audit la mesure par
-    // l'orchestrateur ; l'E5 bis dit la proposition ; dans l'avant/apres, sa ligne « Toit de Maison, corps 1 » arrive DECOCHEE (decision
+    // l'orchestrateur ; l'E7 dit la proposition ; dans l'avant/apres, sa ligne « Toit de Maison, corps 1 » arrive DECOCHEE (decision
     // 10) ; cochee et validee, le moteur pose le pignon sur le corps 1 seul, ses hauteurs (faitage, egouts) inchangees ; Ctrl+Z defait.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     await page.evaluate(() => {
@@ -2729,7 +2729,7 @@ const POINTS = {
     await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
     await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
-    // Le segment « Forme » (V2) : l'E5 bis dit sa proposition sous la barre.
+    // Le segment « Forme » (V2) : l'E7 dit sa proposition sous la barre.
     await etape('segment Forme', () => page.locator('.dialogueAuditParcelle .facadeAudit button[data-etape="diagnostic"]').click({ timeout: 10000 }));
     const forme = ((await page.locator('.dialogueAuditParcelle .barreFacadeLigne').first().textContent()) || '').trim();
     const lignes = await page.locator('.dialogueAuditParcelle .ligneEtapeAudit').allTextContents();
@@ -2765,10 +2765,10 @@ const POINTS = {
     return { ok, mesure: `sous la barre : « ${forme.slice(0, 90)} » ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 50) + ' »').join(', ') || 'aucune'} ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 140) + ' »' : 'ABSENTE'} ; aperçu ${pendant === avant ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validé : ${pignons.length} pignon(s) sur le pan sud du corps 1 (${pignons.map((x) => x.debut + '–' + x.fin + ' m').join(', ')}), hauteurs ${hauteurs ? 'inchangées' : 'MODIFIÉES'}, aile ${aile ? 'inchangée' : 'MODIFIÉE'}, propositions ${fermee ? 'fermées' : 'ENCORE OUVERTES'} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
   105: async (page, f) => {
-    // La validation d'une facade (V4, lot F5, MD/spec-facade-calage-audit.md §4 E9, §3.2, §3.3) : l'audit, « Photographier » la facade
-    // de la maison (la scene 02 du banc), le calcul par l'orchestrateur ; la facade depliee de la liste dit son bilan (E9, a confirmer)
+    // La validation d'une facade (V4, lot F5, MD/spec-facade-calage-audit.md §4 E11, §3.2, §3.3) : l'audit, « Photographier » la facade
+    // de la maison (la scene 02 du banc), le calcul par l'orchestrateur ; la facade depliee de la liste dit son bilan (E11, a confirmer)
     // et porte « Valider la façade ». Le toucher ecrit la Facade dans le projet, en un pas d'historique : ses dimensions, sa forme, la
-    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E9 est faite, le bouton part. La 3D pose chaque ouverture dans un
+    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E11 est faite, le bouton part. La 3D pose chaque ouverture dans un
     // groupe nomme par son identifiant ; l'inspecteur dit la Facade et les ouvertures verifiees. Ctrl+Z defait la validation.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
@@ -2819,14 +2819,14 @@ const POINTS = {
     const ok = avantE9 === 'a-confirmer' && /Façade.*Mur de .*\(V4\)/.test(bilan) && !avant.some((x) => x.dimensions) && !!r.dimensions && !!r.forme && !!r.textureCalee
       && ids.length > 0 && ids.every((id, i) => id === 'o' + (i + 1)) && verifiees && apresE9 === 'ok' && boutonParti && groupes.length === ids.length
       && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
-    return { ok, mesure: `E9 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `E11 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   106: async (page, f) => {
     // Une cheminee proposee d'apres la photo, confirmee dans l'avant/apres, posee par le moteur sur le bon corps (lot F7,
-    // MD/spec-facade-calage-audit.md §5 bis « une bosse etroite », §5 quater, E8). La maison devient un corps a deux pans, faitage
+    // MD/spec-facade-calage-audit.md §5 bis « une bosse etroite », §5 quater, E10). La maison devient un corps a deux pans, faitage
     // parallele a la facade sud (un mur gouttereau : son gabarit est un rectangle), faitage a 6,8 m, egouts a 5,8 m, et une aile au
     // nord ; la photo de la facade sud est celle de la scene 02 du banc (10 x 5,8 m), ou l'on peint une souche de l'enduit du mur qui
-    // monte de l'egout a 2 m au-dessus, au tiers gauche. L'audit la mesure ; l'E5 bis dit « une cheminée » ; la ligne « Toit de Maison,
+    // monte de l'egout a 2 m au-dessus, au tiers gauche. L'audit la mesure ; l'E7 dit « une cheminée » ; la ligne « Toit de Maison,
     // corps 1 » qui la propose arrive DECOCHEE (decision 10) ; cochee et validee, le moteur pose une souche sur le faitage du corps 1,
     // et lui seul ; rien d'autre du toit ne bouge ; la 3D la dessine ; Ctrl+Z defait.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
@@ -2874,7 +2874,7 @@ const POINTS = {
     await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
     await etape('segment Forme', () => page.locator('.dialogueAuditParcelle .facadeAudit button[data-etape="diagnostic"]').click({ timeout: 10000 }));
-    // La seconde ligne sous la barre dit le resultat de l'etape ouverte : la proposition de l'E5 bis.
+    // La seconde ligne sous la barre dit le resultat de l'etape ouverte : la proposition de l'E7.
     const forme = ((await page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade').first().textContent()) || '').replace(/^[\s\S]*?(Forme : )/, '$1').trim();
     await capture('liste');
     await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
@@ -2988,7 +2988,7 @@ const POINTS = {
   113: async (page, f) => {
     // Deux vues du meme mur, dans l'audit (lot F6, ce que faisait le releve en « vues du mur entier » : lots L13 et G20) : la scene 19
     // du banc, une haie haute devant la fenetre de gauche du rez sur les deux vues, de face puis de biais. Les deux photos rangees sur
-    // la meme facade se redressent et s'assemblent (l'E3 de la barre, la fusion), « Valider la façade » ecrit le releve avec le calage
+    // la meme facade se redressent et s'assemblent (l'E4 de la barre, la fusion), « Valider la façade » ecrit le releve avec le calage
     // des deux vues ; l'editeur s'ouvre sur sa texture fondue.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const { vues: [face, biais] } = photosScene('19-vues-haie-haute-baie-cachee');
@@ -3519,9 +3519,9 @@ const POINTS = {
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     const etats = (l) => l.map((e) => e || '?').join(' ');
-    const ok = enTete && prise.length === 8 && prise[0] === 'ok' && segments.length === 8 && segments.every((x) => /^Étape \d sur 8, /.test(x.texte))
-      && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^Mur : calage du mur, /.test(sousLaBarre) && apresRejeu === 8
-      && (f.nom !== 'compact' || /\d sur 8 · /.test(ruban)) && projet === avant && !debords.some(Boolean);
+    const ok = enTete && prise.length === 8 && prise[0] === 'ok' && segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte))
+      && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^É5 Calage du mur \(Mur\), /.test(sousLaBarre) && apresRejeu === 8
+      && (f.nom !== 'compact' || /^É\d+(–É\d+)? · /.test(ruban)) && projet === avant && !debords.some(Boolean);
     return { ok, mesure: `prise : barre ${enTete ? 'en tête' : 'PAS en tête'} (${etats(prise)})${ruban ? ', ruban « ' + ruban + ' »' : ''} ; liste : ${etats(segments.map((x) => x.etat))}, ouvrables ${segments.filter((x) => x.bouton).length}/8 ${ouvrablesJustes ? '(points de validation et doutes)' : '(FAUX)'} ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 60) + ' »').join(', ') || 'AUCUNE'} ; Mur ouvert : « ${sousLaBarre.slice(0, 50)} » ; rejeu : ${apresRejeu} segments ; projet ${projet === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   85: async (page, f) => {

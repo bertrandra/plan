@@ -54,7 +54,7 @@ function carreauxEnClair(c: Carreaux | null): string {
   return morceaux.filter(Boolean).join(', ');
 }
 
-/** L'E7 en mode « IA » : les boites de Claude (trait plein : cochees, retrouvees ; tirets : seules), et au toucher leur vitrage. */
+/** L'E9 en mode « IA » : les boites de Claude (trait plein : cochees, retrouvees ; tirets : seules), et au toucher leur vitrage. */
 function BoitesIa({ boites, l, rayon }: { boites: NonNullable<ImagesEtapes['ia']>['boites']; l: number; rayon: number }) {
   const [choisie, setChoisie] = useState<number | null>(null);
   const b = choisie !== null ? boites[choisie] : undefined;
@@ -67,7 +67,7 @@ function BoitesIa({ boites, l, rayon }: { boites: NonNullable<ImagesEtapes['ia']
   </>;
 }
 
-/** Les etapes de la frise : ce que le rejeu illustre (E0 et E1, l'entree, sont dans l'editeur ; E9 n'est pas de la calibration). */
+/** Les etapes de la frise : ce que le rejeu illustre (E1 et E2, l'entree, sont dans l'editeur ; E11 n'est pas de la calibration). */
 const ETAPES_FRISE: readonly IdEtape[] = ['preparation', 'redressement', 'assemblage', 'calage', 'silhouette', 'diagnostic', 'texture', 'ouvertures', 'toit'];
 
 const MOTS_MODE = { cache: 'cachée (elle ne se montre que si elle échoue)', resume: 'en une ligne', valider: 'un point d’arrêt : la personne confirme' } as const;
@@ -97,7 +97,7 @@ function vignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
 }
 
 /**
- * L'option manuelle de l'E4 sur l'assemblage (MD/spec-facade-calage-audit.md §4 ter.2) : les deux bouts, l'egout et le sol a tirer
+ * L'option manuelle de l'E5 sur l'assemblage (MD/spec-facade-calage-audit.md §4 ter.2) : les deux bouts, l'egout et le sol a tirer
  * (zones/releve/AjusterMur.tsx, le seul composant de ce geste), puis le mur pose sur chaque photo et le cas rejoue depuis le calage.
  */
 function CalageALaMain({ image, url, coins, gabarit, caler }: { image: Image; url: string; coins: readonly P2[]; gabarit: GabaritMur; caler: (coins: P2[]) => void }) {
@@ -238,7 +238,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
   return null;
 }
 
-/** La vraie forme du toit du cas, corps par corps : la verite du diagnostic de forme (E5 bis) et du toit (E8). */
+/** La vraie forme du toit du cas, corps par corps : la verite du diagnostic de forme (E7) et du toit (E10). */
 function ToitVrai({ cas }: { cas: CasStocke }) {
   if (!cas.toitVrai?.length) return <p className="calNote">Ce cas ne porte pas la vraie forme de son toit.</p>;
   return <ul className="calListe" aria-label="La vraie forme du toit, corps par corps">

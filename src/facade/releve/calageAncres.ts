@@ -1,4 +1,4 @@
-// Le calage du mur par ses ancres (MD/spec-facade-calage-audit.md §4 E4, §5) : une pose du mur sur l'assemblage (ses bouts, son
+// Le calage du mur par ses ancres (MD/spec-facade-calage-audit.md §4 E5, §5) : une pose du mur sur l'assemblage (ses bouts, son
 // egout, son sol) se juge sur ce qui ne depend pas du toit. Les deux angles du mur sont des bords de sa matiere (du mur d'un cote, autre
 // chose de l'autre, sous l'egout), l'egout est une horizontale ou le haut de la matiere aux angles, le sol la fin de la matiere, et les
 // proportions sont celles du plan a 30 % pres. Le gabarit n'y entre pas : il vient du toit calcule, qui est ce que la photo met en

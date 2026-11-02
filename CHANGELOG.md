@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades : les étapes s'appellent désormais É1 à É11, sans « bis » (É1 Préparation, É2 Prises, É3 Redressement, É4 Assemblage,
+  É5 Calage du mur, É6 Silhouette lue, É7 Diagnostic de forme, É8 Texture, É9 Ouvertures, É10 Toit, É11 Validation), dans
+  l'orchestrateur et à l'écran : la frise et chaque étape ouverte de la calibration, la barre de progression (« É5 Mur », « É3–É4
+  Image ») et les lignes de l'audit (« É5 Mur posé : … »), où une étape cachée garde son numéro. Les points de validation V1 à V4
+  gardent leur nom.
 - Façades : la calibration et l'audit sont le même code et la même orchestration ; l'audit n'en cache qu'une part (décision du
   propriétaire). Admin › Calibrer la détection rejoue un cas exactement comme l'audit traite ses photos : mêmes entrées (les prises de vue
   de l'audit, les repères et le mur posés à la main), même redressement, même assemblage, même gabarit, même lecture du haut du mur, même
@@ -14,7 +19,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   mesure contre la vérité (en plus, sans rien changer), la fin (l'audit écrit la Façade à la validation, la calibration n'écrit rien) et
   ce qui s'affiche. Le résultat de l'audit ne change pas.
   - Admin › Calibration : « Rejouer » cherche les coins comme l'audit (un mur posé à la main reste) ; le bouton « Retrouver le mur sur
-    toutes les photos » disparaît, il faisait ce que fait désormais « Rejouer ». L'étape É4 montre le mur retenu par la chaîne de l'audit
+    toutes les photos » disparaît, il faisait ce que fait désormais « Rejouer ». L'étape É5 montre le mur retenu par la chaîne de l'audit
     et ce qu'il explique de l'image ; la recherche du mur propre à la calibration et son arbitre s'en vont. La pose des angles de Claude
     s'y mesure sans changer le mur ni l'état de l'étape.
   - Un cas tiré d'un audit garde le côté du contour, le contour et la prise de vue de chaque photo, pour être rejoué tel que l'audit l'a
@@ -23,7 +28,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - Façades (audit et calibration) : la détection lit la façade dans un cadre fait de la silhouette entière du mur, avec une marge de 3 %
   de sa largeur de chaque côté, et non plus le mur entre ses deux bouts. Le pignon d'un corps voisin qui prolonge la façade au-delà d'un
   de ses bouts est lu, ses fenêtres comprises ; rien n'est cherché hors de la silhouette. La texture, la Façade écrite et la Vue 3D ne
-  changent pas ; une baie retrouvée au bout d'un mur peut s'ajouter. L'étape É7 et la toile d'annotation montrent ce cadre.
+  changent pas ; une baie retrouvée au bout d'un mur peut s'ajouter. L'étape É9 et la toile d'annotation montrent ce cadre.
 
 ### Corrigé
 
@@ -32,18 +37,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   plusieurs vues se fondent, et cherche dans la silhouette du mur (le gabarit du plan et du LiDAR, pignons compris) : rien dans le ciel
   à côté des rampants ni dans le mur d'un voisin. Une baie de pignon garde sa place dans le repère du mur, au-dessus de l'égout, et la
   Vue 3D la pose quand les corps du toit disent le pignon (elle l'omettait). Sous un mur rectangulaire, rien ne change.
-  - Admin › Calibration : l'étape É7 et la toile d'annotation montrent la façade que lit la détection, entière et fusionnée, avec sa
+  - Admin › Calibration : l'étape É9 et la toile d'annotation montrent la façade que lit la détection, entière et fusionnée, avec sa
     silhouette par-dessus (la toile montrait le mur coupé à l'égout) ; une baie de pignon s'y annote.
   - Banc des façades : scène `24-pignon-baie-dans-le-pignon` ajoutée (trouvée 6 sur 6, contre 5 sur 6 avant) ; le banc pose le gabarit
     vrai de chaque scène, comme le LiDAR. Aucune quantité ni aucun export ne change.
 - Admin › Calibration : les repères posés sur une photo s'enregistrent au dixième de pixel, comme dans l'audit (le même geste donnait
   une entrée différente) ; un cas tiré d'une façade dont la largeur a été corrigée à la main dans l'audit garde cette largeur (il
   reprenait celle du plan, et le rejeu ne mesurait pas le même mur).
-- Façades (audit et calibration) : l'étape É3 disait « Fusionnée » pour l'assemblage des photos alors que l'étape É6 pouvait dire
-  qu'une vue n'était pas fusionnée ; elle dit désormais « Assemblée » (ou « Assemblage partiel »), et laisse la fusion à l'É6.
+- Façades (audit et calibration) : l'étape É4 disait « Fusionnée » pour l'assemblage des photos alors que l'étape É8 pouvait dire
+  qu'une vue n'était pas fusionnée ; elle dit désormais « Assemblée » (ou « Assemblage partiel »), et laisse la fusion à l'É8.
 - Vue 3D : une ouverture qui commence à gauche du mur n'était pas écartée, contrairement à celle qui dépasse à droite ; elle ne se pose
   plus à cheval sur l'angle.
-- Admin › Calibration : « Appliquer le calage et rejouer » rejoue le cas entier ; repris depuis l'É4, il gardait le mur d'avant.
+- Admin › Calibration : « Appliquer le calage et rejouer » rejoue le cas entier ; repris depuis l'É5, il gardait le mur d'avant.
 
 ## [5.4.1] — 2026-10-30
 

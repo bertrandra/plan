@@ -83,7 +83,7 @@ export interface ResultatAnalyse {
    */
   profilToit?: { x0M: number; x1M: number; hauteurs: number[] } | null;
   /**
-   * Le haut du mur lu sur l'image (la matiere du mur, comme l'E5 de la calibration : mosaiqueFuites.ts::silhouetteLue), jamais le
+   * Le haut du mur lu sur l'image (la matiere du mur, comme l'E6 de la calibration : mosaiqueFuites.ts::silhouetteLue), jamais le
    * gabarit : `u` de 0 a 1 le long du mur, `v` en hauteurs d'egout depuis le sol. Le diagnostic de forme de l'audit le compare au
    * gabarit (lot F4, facade/regles/facades/diagnosticForme.ts). Null quand il ne se lit pas (moins de la moitie des colonnes).
    */

@@ -5,7 +5,7 @@
 import { FORMAT_CAS_REEL, fiabilite, lireCasReel, mesurerPrepare, type CasReel, type OuvertureVraie, type ResultatCas } from '../../../src/facade/corpusReel.js';
 import { derouler, entreesDuCas, preparerPourLaMesure, veriteDuCas } from '../../../src/facade/releve/enchainement.js';
 import { rechercher } from '../../../src/facade/releve/serie.js';
-import { etapeFacade, LIBELLES_ETAT } from '../../../src/model/etapeFacade.js';
+import { libelleEtape, LIBELLES_ETAT } from '../../../src/model/etapeFacade.js';
 import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
 
 export { FORMAT_CAS_REEL, fiabilite, juger, lireCasReel, type CasReel, type Fiabilite, type Jugee, type ResultatCas, type OuvertureVraie } from '../../../src/facade/corpusReel.js';
@@ -99,6 +99,6 @@ export async function rejouerEtapes(cas: CasReel, images: readonly Image[]): Pro
   const r = await derouler(entreesDuCas(cas, images), { vue: 'calibration', chercherCoins: async (q) => rechercher(q), verite: veriteDuCas(cas) });
   return [
     `Rejeu de « ${cas.nom} » : chaîne des façades version ${r.versions.chaine}, objectifs ${r.versions.objectifs}.`, '',
-    ...r.etapes.map((x) => `- ${etapeFacade(x.id).numero} ${etapeFacade(x.id).nom} : **${LIBELLES_ETAT[x.etat]}**. ${x.resume}${x.verite ? ' ' + x.verite.texte : ''}`),
+    ...r.etapes.map((x) => `- ${libelleEtape(x.id)} : **${LIBELLES_ETAT[x.etat]}**. ${x.resume}${x.verite ? ' ' + x.verite.texte : ''}`),
   ];
 }

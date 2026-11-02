@@ -1,4 +1,4 @@
-// La validation d'une facade dans l'audit (MD/spec-facade-calage-audit.md §4 E9, point V4, lot F5) : la personne valide d'un geste
+// La validation d'une facade dans l'audit (MD/spec-facade-calage-audit.md §4 E11, point V4, lot F5) : la personne valide d'un geste
 // le bilan de la facade (ses dimensions, sa forme, la pose de sa texture, ses ouvertures), et la Facade s'ecrit dans le projet, en un
 // pas d'historique (validation.ts::validerFacade). Ici, pur : ce qui s'ecrit, et ce que la barre en dit ensuite.
 //
@@ -108,7 +108,7 @@ export function facadeValideeDe(objets: readonly ObjetPlan[], cle: string, m: Me
   return r && r.dimensions && !r.depuisAudit && r.releveLe === m.releve.releveLe ? r : null;
 }
 
-/** Les etapes d'une mesure telles que la barre les montre : l'E9 faite quand la Facade de cette mesure est validee dans le projet. */
+/** Les etapes d'une mesure telles que la barre les montre : l'E11 faite quand la Facade de cette mesure est validee dans le projet. */
 export function etapesApresValidation<E extends Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>>(etapes: readonly E[], validee: ReleveFacade | null): E[] {
   if (!validee) return [...etapes];
   const n = validee.ouvertures.length;

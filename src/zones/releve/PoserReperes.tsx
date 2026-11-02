@@ -1,7 +1,7 @@
-// Le geste « quatre repères » (MD/spec-facade-calage-audit.md §8 bis.2, lot F3) : l'option manuelle du redressement (E2), une seule
+// Le geste « quatre repères » (MD/spec-facade-calage-audit.md §8 bis.2, lot F3) : l'option manuelle du redressement (E3), une seule
 // version pour l'audit de la parcelle et la calibration. Quatre reperes aux coins d'un rectangle du mur (une fenetre, une porte, le
 // mur entier) : ils ne disent que les verticales et les horizontales, la photo se redresse entiere, sans coupe, et l'egout et le sol
-// se cherchent ensuite sur l'assemblage. « Ajuster l'égout et le sol » les reprend a la main (AjusterMur, l'option manuelle de l'E4)
+// se cherchent ensuite sur l'assemblage. « Ajuster l'égout et le sol » les reprend a la main (AjusterMur, l'option manuelle de l'E5)
 // sur l'image prise pour la suite : l'assemblage des photos quand cette photo y est avec d'autres (le mur tire revient alors sur
 // chacune), sinon la photo redressee entiere (CLAUDE.md, « Silhouette d'une façade »).
 //

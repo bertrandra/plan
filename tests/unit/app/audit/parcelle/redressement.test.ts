@@ -167,11 +167,11 @@ describe('ce que l audit montre d une facade qui doute', () => {
     const l = lignesDiscretes(etapes({ etat: 'echec', resume: 'Photos indépendantes : aucune fusion. Reprenez la façade avec des chevauchements entre les photos : un tiers de mur en commun.' }));
     expect(l.map((x) => x.id)).toEqual(['assemblage', 'calage']);
     expect(l[0]).toMatchObject({ etat: 'echec', surLaPhoto: true, option: expect.stringMatching(/retirer une photo/) });
-    expect(l[0]?.texte).toMatch(/^Assemblage : Photos indépendantes/);
+    expect(l[0]?.texte).toMatch(/^É4 Assemblage : Photos indépendantes/);
   }, 120000);
   it('ne montre pas une etape cachee qui a reussi ; le mur tient en une ligne', () => {
     const l = lignesDiscretes(etapes({ etat: 'ok', resume: 'Fusionnée : 3 photos assemblées en une image.' }));
-    expect(l).toEqual([{ id: 'calage', etat: 'ok', texte: 'Mur posé : Coins du mur trouvés sur la photo.', option: null, surLaPhoto: false }]);
+    expect(l).toEqual([{ id: 'calage', etat: 'ok', texte: 'É5 Mur posé : Coins du mur trouvés sur la photo.', option: null, surLaPhoto: false }]);
     expect(lignesDiscretes(etapes({ etat: 'saute', resume: 'Une photo seule : rien à assembler.' })).map((x) => x.id)).toEqual(['calage']);
   });
 });

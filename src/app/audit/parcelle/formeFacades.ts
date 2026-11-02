@@ -1,5 +1,5 @@
-// Les propositions de toit que le diagnostic de forme des facades fait a l'audit (MD/spec-facade-calage-audit.md §5 bis, §5 ter, E8 ;
-// lot F4). Le diagnostic est celui de l'orchestrateur (E5 bis, `MesureFacade.diagnostic`) : chaque proposition y porte son corps par son
+// Les propositions de toit que le diagnostic de forme des facades fait a l'audit (MD/spec-facade-calage-audit.md §5 bis, §5 ter, E10 ;
+// lot F4). Le diagnostic est celui de l'orchestrateur (E7, `MesureFacade.diagnostic`) : chaque proposition y porte son corps par son
 // MUR et l'observation que le moteur doit relire. Ici, on la fait relire par le moteur des toits (corpsSousContrainte), sur la mesure
 // LiDAR du batiment, puis passer la porte du fait du batiment (corpsProposesSousFait : un fait en remplacement fixe le toit, un fait en
 // contrainte refuse ce qui ne le tient pas). Rien n'est ecrit de notre main : l'effet est le corps que le moteur rend, au rang que son

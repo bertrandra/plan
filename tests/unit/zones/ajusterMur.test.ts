@@ -79,7 +79,7 @@ describe('la reprise a la main du mur sur la photo redressee', () => {
     expect((m.coins[0] as P2).y).toBeLessThan((m.coins[3] as P2).y);
   });
 
-  it('cale le mur sur l assemblage, deja de face (l option manuelle de l E4) : les coins rendus sont ceux de l image', async () => {
+  it('cale le mur sur l assemblage, deja de face (l option manuelle de l E5) : les coins rendus sont ceux de l image', async () => {
     const changer = await monter(PIGNON, null);
     expect(hote.querySelector('svg[aria-label^="Assemblage des photos"] image')?.getAttribute('href')).toBe('data:,');
     touche('Bout gauche du mur', 'ArrowRight', true);

@@ -6,7 +6,7 @@
 // mur tire a la main). « Rejouer la façade » rejoue l'orchestrateur ; les photos et les corrections ne bougent pas. Quand Claude a lu
 // la facade (trois passes votees), une ligne le dit avec son cout, et « Escalader » (la commande `facade.escalader`, a la demande
 // seulement) annonce le sien. Le point V4 (lot F5) : « Valider la façade » (la commande `facade.valider`) ecrit sa Facade dans le
-// projet ; validee, l'E9 de la barre est faite. Pour l'administrateur, « Créer un cas depuis cette façade » (la commande
+// projet ; validee, l'E11 de la barre est faite. Pour l'administrateur, « Créer un cas depuis cette façade » (la commande
 // `facade.creerCas`, lot F6) en fait un cas de calibration : la calibration ne prend plus de photos, elle lit celles de l'audit.
 
 import { useCallback, useEffect, useState } from 'react';
@@ -131,7 +131,7 @@ function Ligne({ l, rangs, nom, placer, gestes, ouverte = false }: { l: LigneDis
   );
 }
 
-/** Le point V4 : la Facade a valider (son bilan, l'E9), et le bouton qui l'ecrit dans le projet. */
+/** Le point V4 : la Facade a valider (son bilan, l'E11), et le bouton qui l'ecrit dans le projet. */
 function ValiderFacade({ commandes, nom }: { commandes: RegistreCommandes; nom: string }) {
   const etat = commandes.etat(COMMANDE_VALIDER);
   if (commandes.effacee(COMMANDE_VALIDER)) return null;
@@ -164,7 +164,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   const [rangReperes, setRangReperes] = useState<number | null>(null);
   const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
   const saisie = session.capture.lire().batiments[cle]?.facades[String(cote)];
-  // Validee (V4), la Facade de cette mesure est dans le projet : l'E9 de la barre est faite.
+  // Validee (V4), la Facade de cette mesure est dans le projet : l'E11 de la barre est faite.
   const validee = session.validation.facadeValidee(cle, cote);
   const etapes = etapesApresValidation(mesure?.etapes ?? [], validee);
   const facade = cle + '#' + cote;

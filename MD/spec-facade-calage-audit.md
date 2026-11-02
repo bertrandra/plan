@@ -250,30 +250,30 @@ interface OuvertureFacade {
 
 Chaque étape dit ce qui entre, ce que fait chaque chemin, qui arbitre, ce qui sort, et **l'illustration que la calibration en montre**.
 
-### É0 · Préparation (plan + LiDAR)
+### É1 · Préparation (plan + LiDAR)
 
 - **Entrée** : le contour, les corps du toit, les hauteurs.
 - **Sortie** : pour chaque côté, `dimensions`, `forme.gabarit` (`gabaritDesCorps`), le rapport hauteur/largeur, la liste des pointes attendues
   (leurs `u` et `v`).
 - **Illustration** : le gabarit seul, en mètres, avec ses cotes et ses pointes numérotées.
 
-### É1 · Prises (audit)
+### É2 · Prises (audit)
 
 - Les photos se prennent et se rangent **dans l'audit**, par côté du contour (`BatimentCapture.facades[rang].photos`). Voir §6.
 - **Sortie** : `PhotoCas` + prise (position, cap, attitude, focale), photos gardées sur l'appareil (`io/photosLocales.ts`).
 
-### É2 · Redressement *(inchangé, §4 bis)*
+### É3 · Redressement *(inchangé, §4 bis)*
 
 - **Déterministe** : par les repères posés, sinon par les points de fuite (`vuesDeFace`, `redresserParFuites`).
 - **IA** : néant (la géométrie n'est pas son travail).
 - **Illustration** : chaque photo redressée, avec ses verticales et ses horizontales.
 
-### É3 · Assemblage *(inchangé, §4 bis)*
+### É4 · Assemblage *(inchangé, §4 bis)*
 
 - **Déterministe** : mosaïque ORB + RANSAC de similitude (`mosaiqueDesVues`), image prise pour tout le reste.
 - **Illustration** : l'assemblage, le masque `vu`, les photos restées à part avec leur motif.
 
-### É4 · Calage du mur (bouts, égout, sol) — l'étape à gagner
+### É5 · Calage du mur (bouts, égout, sol) — l'étape à gagner
 
 C'est le maillon faible : tout le reste en dépend. **On cale d'abord sur ce qui ne dépend pas du toit** : les deux angles du mur, la ligne
 d'égout et le sol. Le gabarit vient du toit calculé, qui est peut-être faux ; s'en servir pour caler fausse le calage et masque l'écart que
@@ -297,7 +297,7 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Illustration** : trois calques sur l'assemblage, activables : la pose déterministe (rouge), les points de l'IA (bleu), la pose retenue
   (vert), avec le score de chacune et l'écart entre elles en pourcentage de la largeur.
 
-### É5 · Silhouette lue, par corps
+### É6 · Silhouette lue, par corps
 
 - **Déterministe** : `silhouetteDuMur`, `classerProfil` : le haut du mur lu entre les bouts retenus (deux rampes, un triangle, des marches),
   **découpé selon les corps que la façade porte** (§5 ter) : chaque partie de la silhouette est rattachée au corps dont le mur la porte.
@@ -307,9 +307,9 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Illustration** : le haut lu sur l'image, le gabarit posé par-dessus, les corps en couleurs distinctes, le mot retenu par corps et sa
   provenance.
 
-### É5 bis · Diagnostic de forme (nouveau)
+### É7 · Diagnostic de forme (nouveau)
 
-- **Entrée** : la silhouette lue (É5) et le gabarit calculé (É0), posés sur le mur calé par les ancres seules (É4).
+- **Entrée** : la silhouette lue (É6) et le gabarit calculé (É1), posés sur le mur calé par les ancres seules (É5).
 - **Traitement** : l'écart entre les deux, **corps par corps**, rangé dans la taxonomie du §5 bis. On teste un petit nombre de variantes de
   toit du corps (un pignon de plus, un de moins, un pan à la place, une croupe) et l'on garde celles qui expliquent mieux l'image que le
   toit calculé, avec le gain de chacune.
@@ -318,14 +318,14 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Illustration** : la silhouette de l'image, le gabarit calculé, et pour chaque proposition le gabarit **modifié**, avec le gain en
   pourcentage ; les alertes en marge.
 
-### É6 · Texture *(le moteur de fusion est inchangé, §4 bis)*
+### É8 · Texture *(le moteur de fusion est inchangé, §4 bis)*
 
 - **Déterministe** : l'élévation calée sur le mur (`pxParM`), la fusion des vues (vote des baies, occultations, meilleure vue par pixel),
   la version sans ombres (`vision/sansOmbres.ts`).
 - **Sortie** : `texture`, `textureCalee`, `hauteurTexture` (la bande au-dessus de l'égout, que la 3D plaque sur le pignon).
 - **Illustration** : l'image calée sur la silhouette ; la même sans ombres ; la façade en 3D vue de face (`VueFacade3d`).
 
-### É7 · Ouvertures
+### É9 · Ouvertures
 
 - **Déterministe** : candidats, classement, structure (grille niveaux × travées), détails (volets, allège, forme).
 - **IA** : **le même run que le calage** (§8) rend les ouvertures vues, leur type, leurs `details` et leurs **carreaux** ; leurs boîtes sont
@@ -337,9 +337,9 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Illustration** : l'image avec les boîtes (trait plein : détectées ; tirets : devinées ; couleur par source) ; au toucher d'une boîte, la
   division du vitrage lue (grille, petits bois, imposte) dessinée en surimpression.
 
-### É8 · Toit (par le moteur, sur le corps concerné, après confirmation)
+### É10 · Toit (par le moteur, sur le corps concerné, après confirmation)
 
-- **Entrée** : les propositions confirmées de l'É5 bis, chacune sur **un corps** ; les éléments de toit lus (cheminée, lucarne).
+- **Entrée** : les propositions confirmées de l'É7, chacune sur **un corps** ; les éléments de toit lus (cheminée, lucarne).
 - **Confirmation** : **toujours demandée à la personne** (décision 10), dans l'avant/après de l'audit : chaque proposition est une ligne
   décochée par défaut, avec son image avant/après et son gain.
 - **Sortie** : une **observation** du moteur par proposition, **adressée au corps** par son mur (`facade/regles/toits/murDuCorps.ts`, qui
@@ -349,7 +349,7 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Hauteurs** : celles du LiDAR (décision 12) ; une alerte les signale, la personne les règle à la main si besoin.
 - **Illustration** : le toit avant et après l'observation (le rendu de l'avant/après de l'admin), le corps concerné en évidence.
 
-### É9 · Validation
+### É11 · Validation
 
 - La personne valide la façade (ou la corrige) dans l'audit ; la validation écrit `dimensions`, `forme`, `texture`, `textureCalee`, la
   façade objet, en **une étape d'historique** (comme la validation du Mode Toit). Annuler la défait d'un coup.
@@ -360,10 +360,10 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 
 Décision 16. Le moteur d'**image** reste tel quel, avec ses chiffres :
 
-- **Redressement** (É2) : par les repères posés, sinon par les points de fuite ; une photo seule se redresse en une passe depuis la photo
+- **Redressement** (É3) : par les repères posés, sinon par les points de fuite ; une photo seule se redresse en une passe depuis la photo
   d'origine (`analyseMur.ts::photoCommeAssemblage`) ; plusieurs vues passent par l'assemblage.
-- **Assemblage** (É3) : mosaïque ORB + RANSAC de similitude, avec ses critères (`CRITERES_MOSAIQUE`, `CRITERES_FUSION`).
-- **Fusion** (É6) : `fondreLesVues`, le vote entre vues (`facade/detection/voteVues.ts`), les occultations par la parallaxe, la meilleure vue pixel
+- **Assemblage** (É4) : mosaïque ORB + RANSAC de similitude, avec ses critères (`CRITERES_MOSAIQUE`, `CRITERES_FUSION`).
+- **Fusion** (É8) : `fondreLesVues`, le vote entre vues (`facade/detection/voteVues.ts`), les occultations par la parallaxe, la meilleure vue pixel
   par pixel ; la version sans ombres (`vision/sansOmbres.ts`).
 
 Conséquences :
@@ -383,7 +383,7 @@ Conséquences :
 
 ## 4 ter. L'enchaînement global
 
-Une façade traverse les étapes É0 à É9. Chacune est un **contrat** : ce qui entre, ce que l'automatique en fait **et l'objectif qu'il doit
+Une façade traverse les étapes É1 à É11. Chacune est un **contrat** : ce qui entre, ce que l'automatique en fait **et l'objectif qu'il doit
 atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'objectif n'est pas atteint.
 
 ### 4 ter.1 Le contrat d'une étape
@@ -404,17 +404,17 @@ atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'ob
 
 | Étape | Entrant | Action automatique | Objectif (réussi quand…) | Sortant | Option manuelle | Audit |
 |---|---|---|---|---|---|---|
-| **É0** Préparation | contour, corps du toit, LiDAR, cadastre | dimensions, gabarit, rapport, pointes attendues | un gabarit existe par côté (rectangle sinon) | `dimensions`, `forme.gabarit` | — (corriger le plan ailleurs) | `cache` |
-| **É1** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
-| **É2** Redressement | photos, repères | points de fuite, sinon repères posés | chaque photo redressée, ou son motif dit | vues de face | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
-| **É3** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
-| **É4** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur`, le seul composant du geste depuis F1) | `resume` ; **`valider`** si divergence ou score faible |
-| **É5** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | silhouette lue sur ≥ la moitié des colonnes, corps attribués | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
-| **É5 bis** Diagnostic | silhouette lue, gabarit, **run IA** (pointes, corps) | variantes de toit par corps | une proposition n'existe que si elle explique mieux l'image (gain ≥ seuil) | propositions de toit, alertes de hauteur | cocher/décocher, ouvrir le Mode Toit | **`valider`** (toujours, décision 10) |
-| **É6** Texture | assemblage calé | élévation calée, fusion, sans ombres | écart de teinte et liserés sous le seuil | `texture`, `textureCalee`, `hauteurTexture` | recadrer, activer/désactiver « sans ombres » | `cache` ; aperçu en `resume` |
-| **É7** Ouvertures | assemblage calé, grille, **run IA** (boîtes, carreaux) | détection, accord avec l'IA, grille | rappel ≥ 85 %, précision ≥ 90 %, cotes ≤ 5 cm, < 3 corrections par façade | ouvertures de la **façade objet**, `carreaux` | ajouter, retirer, déplacer, redimensionner (éditeur du relevé) | `resume` : seules les boîtes **décochées** demandent un geste |
-| **É8** Toit | propositions **confirmées**, faits, marques | observations du moteur, sur le corps concerné | observation acceptée par le moteur ; **hauteurs du LiDAR inchangées** | toit ajusté (par le moteur) | Mode Toit pour tout régler à la main | `valider` (avant/après) |
-| **É9** Validation | tout ce qui précède | assemble le bilan de la façade | personne a validé ; une étape d'historique | `dimensions`, `forme`, `texture`, façade objet écrits | corriger n'importe quel sortant | **`valider`** (une validation, un Ctrl+Z) |
+| **É1** Préparation | contour, corps du toit, LiDAR, cadastre | dimensions, gabarit, rapport, pointes attendues | un gabarit existe par côté (rectangle sinon) | `dimensions`, `forme.gabarit` | — (corriger le plan ailleurs) | `cache` |
+| **É2** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
+| **É3** Redressement | photos, repères | points de fuite, sinon repères posés | chaque photo redressée, ou son motif dit | vues de face | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
+| **É4** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
+| **É5** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur`, le seul composant du geste depuis F1) | `resume` ; **`valider`** si divergence ou score faible |
+| **É6** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | silhouette lue sur ≥ la moitié des colonnes, corps attribués | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
+| **É7** Diagnostic | silhouette lue, gabarit, **run IA** (pointes, corps) | variantes de toit par corps | une proposition n'existe que si elle explique mieux l'image (gain ≥ seuil) | propositions de toit, alertes de hauteur | cocher/décocher, ouvrir le Mode Toit | **`valider`** (toujours, décision 10) |
+| **É8** Texture | assemblage calé | élévation calée, fusion, sans ombres | écart de teinte et liserés sous le seuil | `texture`, `textureCalee`, `hauteurTexture` | recadrer, activer/désactiver « sans ombres » | `cache` ; aperçu en `resume` |
+| **É9** Ouvertures | assemblage calé, grille, **run IA** (boîtes, carreaux) | détection, accord avec l'IA, grille | rappel ≥ 85 %, précision ≥ 90 %, cotes ≤ 5 cm, < 3 corrections par façade | ouvertures de la **façade objet**, `carreaux` | ajouter, retirer, déplacer, redimensionner (éditeur du relevé) | `resume` : seules les boîtes **décochées** demandent un geste |
+| **É10** Toit | propositions **confirmées**, faits, marques | observations du moteur, sur le corps concerné | observation acceptée par le moteur ; **hauteurs du LiDAR inchangées** | toit ajusté (par le moteur) | Mode Toit pour tout régler à la main | `valider` (avant/après) |
+| **É11** Validation | tout ce qui précède | assemble le bilan de la façade | personne a validé ; une étape d'historique | `dimensions`, `forme`, `texture`, façade objet écrits | corriger n'importe quel sortant | **`valider`** (une validation, un Ctrl+Z) |
 
 ### 4 ter.3 Les points de validation, et l'audit discret
 
@@ -422,12 +422,12 @@ L'audit ne déroule pas dix écrans. Il se tient à **quatre points d'arrêt**, 
 
 | Point | Après l'étape | Ce que la personne voit | Ce qu'elle fait |
 |---|---|---|---|
-| **V1 · Le mur** | É4 | l'assemblage, le mur posé, les angles | confirme, ou tire un angle / l'égout / le sol ; **n'apparaît que si** les deux chemins divergent ou si le score est faible (sinon une ligne « Mur posé ✓ ») |
-| **V2 · Le toit** | É5 bis | l'avant/après de chaque proposition, par corps | coche les propositions qu'elle accepte (toujours demandé) |
-| **V3 · Les ouvertures** | É7 | la façade avec les boîtes **décochées** en évidence | accepte, retire ou corrige ; les cochées passent sans geste |
-| **V4 · La façade** | É9 | le bilan : dimensions, forme, texture, ouvertures | valide d'un geste |
+| **V1 · Le mur** | É5 | l'assemblage, le mur posé, les angles | confirme, ou tire un angle / l'égout / le sol ; **n'apparaît que si** les deux chemins divergent ou si le score est faible (sinon une ligne « Mur posé ✓ ») |
+| **V2 · Le toit** | É7 | l'avant/après de chaque proposition, par corps | coche les propositions qu'elle accepte (toujours demandé) |
+| **V3 · Les ouvertures** | É9 | la façade avec les boîtes **décochées** en évidence | accepte, retire ou corrige ; les cochées passent sans geste |
+| **V4 · La façade** | É11 | le bilan : dimensions, forme, texture, ouvertures | valide d'un geste |
 
-- **Étapes en arrière-plan** (`cache`) : É0, É2, É3, É5, É6. Seul leur **résultat** compte : elles rendent leur sortant sans se montrer. Une
+- **Étapes en arrière-plan** (`cache`) : É1, É3, É4, É6, É8. Seul leur **résultat** compte : elles rendent leur sortant sans se montrer. Une
   étape cachée **passe en `resume` dès qu'elle échoue** (une photo restée à part, un redressement impossible, une texture avec liserés)
   et propose son option manuelle.
 - **Un échec arrête la suite** (pas de calage fondé sur un assemblage manquant) ; ou, quand la suite peut continuer sur une valeur
@@ -438,18 +438,18 @@ L'audit ne déroule pas dix écrans. Il se tient à **quatre points d'arrêt**, 
 
 ```mermaid
 flowchart TD
-  P["É0 Préparation (plan + LiDAR)"] --> C["É1 Prises"]
-  C --> R["É2 Redressement"]
-  R --> A["É3 Assemblage"]
-  A --> M["É4 Calage du mur"]
-  M -->|"ok, accord"| S["É5 Silhouette lue (par corps)"]
+  P["É1 Préparation (plan + LiDAR)"] --> C["É2 Prises"]
+  C --> R["É3 Redressement"]
+  R --> A["É4 Assemblage"]
+  A --> M["É5 Calage du mur"]
+  M -->|"ok, accord"| S["É6 Silhouette lue (par corps)"]
   M -->|"divergence ou score faible"| V1(["V1 Le mur : la personne tire les angles"])
   V1 --> S
-  S --> D["É5 bis Diagnostic de forme"]
+  S --> D["É7 Diagnostic de forme"]
   D --> V2(["V2 Le toit : confirmer les propositions"])
-  V2 --> T["É8 Toit par le moteur, sur le corps concerné"]
-  M --> X["É6 Texture"]
-  M --> O["É7 Ouvertures + carreaux"]
+  V2 --> T["É10 Toit par le moteur, sur le corps concerné"]
+  M --> X["É8 Texture"]
+  M --> O["É9 Ouvertures + carreaux"]
   O -->|"boites decochees"| V3(["V3 Les ouvertures"])
   T --> F(["V4 La façade : valider"])
   X --> F
@@ -485,22 +485,22 @@ façade, ce qui est fait, ce qui attend la personne.
 
   | Segment | Étapes | Point de validation sur le segment |
   |---|---|---|
-  | 1 · Prise | É1 | — (c'est le geste) |
-  | 2 · Image | É2 redressement, É3 assemblage | — (caché, passe en résumé s'il échoue) |
-  | 3 · Mur | É4 calage | **V1** |
-  | 4 · Forme | É5 silhouette lue, É5 bis diagnostic | **V2** |
-  | 5 · Texture | É6 | — |
-  | 6 · Ouvertures | É7 | **V3** |
-  | 7 · Toit | É8 | — (suit V2) |
-  | 8 · Façade | É9 | **V4** |
+  | 1 · Prise | É2 | — (c'est le geste) |
+  | 2 · Image | É3 redressement, É4 assemblage | — (caché, passe en résumé s'il échoue) |
+  | 3 · Mur | É5 calage | **V1** |
+  | 4 · Forme | É6 silhouette lue, É7 diagnostic | **V2** |
+  | 5 · Texture | É8 | — |
+  | 6 · Ouvertures | É9 | **V3** |
+  | 7 · Toit | É10 | — (suit V2) |
+  | 8 · Façade | É11 | **V4** |
 
-  (É0, la préparation, est instantanée et n'a pas de segment.) Les points de validation sont marqués d'un **repère** sur leur segment.
+  (É1, la préparation, est instantanée et n'a pas de segment.) Les points de validation sont marqués d'un **repère** sur leur segment.
 - **L'état de chaque segment** (le pire état de ses étapes) : *à venir* (neutre), *en cours* (animé, sans mouvement avec
   `prefers-reduced-motion`), *ok* (accent), *à confirmer* (attention), *échec* (danger), *sauté* (hachuré). Jamais la couleur seule : chaque état a
   aussi une **forme** (coche, point d'exclamation, croix, tiret) et un texte, pour le thème sombre et le daltonisme. Les couleurs sont des
   **jetons** (`styles/jetons.ts` d'abord, puis les modèles de palette), pas des valeurs en dur.
-- **Sous la barre**, deux lignes : le **nom de l'étape en cours** (« Mur : calage ») et le **résultat de la dernière étape finie** en une
-  phrase (« Mur posé, bouts à 1,2 % de la largeur »). Sur téléphone, la barre se réduit à un **fin ruban** et au libellé « 3 sur 8 · Mur ».
+- **Sous la barre**, deux lignes : le **nom de l'étape en cours**, par son numéro (« É5 Calage du mur (Mur), en cours… ») et le **résultat de la dernière étape finie** en une
+  phrase (« Mur posé, bouts à 1,2 % de la largeur »). Sur téléphone, la barre se réduit à un **fin ruban** et au libellé « É5 · Mur ».
 - **Pendant un calcul**, la barre avance au fil des événements de l'orchestrateur (étape, part faite) : le redressement, l'assemblage et le run
   IA durent plusieurs secondes sur téléphone ; ils tournent hors du fil de l'interface (le worker existant), et un bouton **« Arrêter »** apparaît
   à droite de la barre tant que quelque chose tourne.
@@ -511,7 +511,7 @@ façade, ce qui est fait, ce qui attend la personne.
 - **Un échec** se lit sur le segment (croix, texte) ; le toucher dit pourquoi (une ligne sous la barre, pas une infobulle seule : le doigt n'a pas
   de survol) et propose l'**option manuelle** de l'étape.
 - **Accessibilité** : une liste ordonnée (`ol`) de huit éléments, `aria-current="step"` sur l'étape en cours, un texte lu à voix haute
-  (« Étape 3 sur 8, Mur, à confirmer ») ; les segments ouvrables sont des **boutons de 44 px au moins** (le segment est mince, sa zone de
+  (« É5 Mur, à confirmer » : un segment se nomme par les numéros de ses étapes, « É3–É4 Image ») ; les segments ouvrables sont des **boutons de 44 px au moins** (le segment est mince, sa zone de
   toucher ne l'est pas).
 - **Commandes** : un segment ouvrable est un bouton lié à une commande du registre (`facade.etape`, paramètre `data-etape`), inscrite dans
   `app/exposition.ts` pour les trois classes d'écran, décrite au glossaire (`app/descriptions.ts`) et classée dans `app/controlesInterface.ts` ;
@@ -536,15 +536,15 @@ façade, ce qui est fait, ce qui attend la personne.
      photo d'un cas ne sont une entrée que s'ils ont été posés à la main (`murALaMain`) : les autres se cherchent, comme dans l'audit ;
   2. **les mesures qui demandent la vérité** (`verite`) : faites seulement quand un cas en a une, en lecture seule ;
   3. **la fin** (`vue`) : l'audit attend la validation V4, qui écrit la Façade ; la calibration n'écrit rien dans un projet. Seuls l'état et
-     le texte de l'É9 en dépendent ;
+     le texte de l'É11 en dépendent ;
   4. **ce qui se montre** : la calibration montre chaque étape et ses images (frise, calques) ; l'audit montre V1 à V4 et ce qui doute,
      avec la même barre de progression (§4 ter.5), les mêmes gestes de reprise (`PoserReperes`, `AjusterMur`).
-- **Les ajouts de la calibration lisent, ne changent rien** : la mesure contre la vérité (É4, É5 bis, É7), la réponse de Claude rejouée
-  (sa pose des deux angles se mesure contre le mur retenu sans le changer ni changer l'état de l'É4 ; l'accord des boîtes et le diagnostic
+- **Les ajouts de la calibration lisent, ne changent rien** : la mesure contre la vérité (É5, É7, É9), la réponse de Claude rejouée
+  (sa pose des deux angles se mesure contre le mur retenu sans le changer ni changer l'état de l'É5 ; l'accord des boîtes et le diagnostic
   sont ce que l'audit fait après son run), la texture sans ombres (l'écran seulement).
 - **La preuve** : `tests/unit/facade/releve/uneOrchestration.test.ts`. Une façade passe par l'entrée réelle de l'audit (`mesurerFacade`),
   devient un cas comme l'admin le crée (`casDepuisFacade`, enregistré puis relu), puis se rejoue avec la vue de la calibration et celle de
-  l'audit : chaque étape de l'É0 à l'É8 rend la même chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture) ; l'É9 ne
+  l'audit : chaque étape de l'É1 à l'É10 rend la même chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture) ; l'É11 ne
   diffère que par sa fin. Une photo seule et trois vues d'un pignon à fenêtre de comble.
 - **Ce qui est parti avec** (2 novembre 2026) : les modes `assemblage` et `chaine` de l'orchestrateur (la recherche du mur sur l'assemblage
   et son arbitre propres à la calibration, `lireSurLAssemblage`, `coinsSeuls`, `hauteurDuPlan`, la photo seule ré-échantillonnée deux
@@ -558,7 +558,7 @@ façade, ce qui est fait, ce qui attend la personne.
   voisin (25 cm sur 8 m). Rien n'est cherché hors de la silhouette (la marge n'en est jamais). Le cadre s'élargit de colonnes entières sur
   la grille de pixels du mur (`etendreAuCadre`) : rognée au mur, l'image est celle d'avant, si bien que la texture, l'élévation, la lecture
   du toit et la Façade écrite ne bougent pas ; les cotes des ouvertures restent celles du mur (x depuis son bout gauche, négatif ou au-delà
-  de la largeur sous un pignon voisin). Le même cadre partout (assemblage, photo seule, fusion et vote des vues), et à l'écran (É7, toile
+  de la largeur sous un pignon voisin). Le même cadre partout (assemblage, photo seule, fusion et vote des vues), et à l'écran (É9, toile
   d'annotation). Un mur en L garde son rectangle.
 - **Le banc de synthèse** (`tests/banc/facades/banc.ts`) reste sur `analyseMur.ts::analyserLeMur`, la fonction que la chaîne appelle une fois
   les coins posés : il mesure la détection avec les coins vrais et une focale connue, de façon synchrone (quatre tests et deux scripts
@@ -589,8 +589,8 @@ Principe : **l'IA propose le sens, le déterministe prouve la géométrie, la pe
 **L'IA alimente le moteur de règles** (décision du propriétaire du 29 octobre 2026, lot F2). Rien de ce que Claude rend n'est lu
 directement par la chaîne des façades : sa réponse devient des **observations** typées (`src/regles/facades/observations.ts`, le
 contrat d'entrée du moteur, comme les faits pour les toits), et des **règles** (`facade/regles/facades/ia.ts`, une par sujet, leurs
-seuils dans `regles/facades/ia.json`, des réglages édités dans Admin › Règles) en tirent des **décisions**, que l'arbitre de l'É4,
-l'É7 de l'enchaînement et l'aide du relevé appliquent :
+seuils dans `regles/facades/ia.json`, des réglages édités dans Admin › Règles) en tirent des **décisions**, que l'arbitre de l'É5,
+l'É9 de l'enchaînement et l'aide du relevé appliquent :
 
 | Règle | Observation | Décision | Réglages |
 |---|---|---|---|
@@ -723,7 +723,7 @@ qui va dans le toit ; **les éléments posés à la main** (Mode Toit, `toitFige
 - **Mode discret** (décision 18) : l'audit ne montre que les points de validation V1 à V4 (§4 ter.3) et les étapes qui échouent ; le redressement,
   l'assemblage, la silhouette lue et la texture tournent en arrière-plan. La personne ne voit que le résultat.
 - **Parcours** : l'audit propose les côtés du contour, la personne choisit un côté (la vue de prise existante, élévation devant la
-  façade), prend une à huit photos du mur entier, l'assemblage et la pose s'affichent, la personne valide (§4 É9).
+  façade), prend une à huit photos du mur entier, l'assemblage et la pose s'affichent, la personne valide (§4 É11).
 - **Aucun écran n'est supprimé d'un coup** : le relevé a gardé son entrée tant que l'audit ne l'avait pas remplacé. *Livré au lot F6 (§9 bis) :*
   la capture du relevé est supprimée, il reste l'éditeur d'une façade relevée (« Modifier », `facade.modifier`) ; « Photographier » ouvre l'audit.
 
@@ -742,14 +742,14 @@ pour l'IA**, avec la mesure contre la vérité. On y règle les seuils sur des c
   dimensions et le gabarit, comme le fait déjà « depuis un bâtiment d'un projet ». Les images sont **gardées** : c'est ce qui permet de
   rejouer.
 - **Le premier cas à poser** : la façade sud d'AE 101 (deux pignons et l'appentis), avec ses photos, sa largeur 8,96 m, son égout 2,4 m,
-  son gabarit et les quatre coins vrais posés à la main. Elle sert d'étalon pour l'É4.
+  son gabarit et les quatre coins vrais posés à la main. Elle sert d'étalon pour l'É5.
 - **Le cas porte aussi la vraie forme du toit, corps par corps** (pignons : pan, début, fin, hauteur ; appentis ; cheminées ; lucarnes),
-  relue sur la photo par la personne : c'est la vérité du diagnostic (É5 bis) et de l'É8. Sans elle, on mesure le calage mais pas ce que le
+  relue sur la photo par la personne : c'est la vérité du diagnostic (É7) et de l'É10. Sans elle, on mesure le calage mais pas ce que le
   toit gagne ou perd. La façade sud d'AE 101 la donne : deux pignons (3,7 m au faîtage, `faits.json`) et l'appentis.
 
 ### 7.2 Rejouer
 
-- Un bouton **« Rejouer »** exécute É2 à É8 dans **deux modes** :
+- Un bouton **« Rejouer »** exécute É3 à É10 dans **deux modes** :
   - **déterministe** : la chaîne seule ;
   - **IA** : avec les réponses de Claude **enregistrées** pour ce cas (comme `tests/fixtures/facades/claude/` pour le banc), donc sans
     appel réseau ni coût ; un second bouton **« Rappeler Claude »** refait l'appel, en disant son coût, et enregistre la nouvelle réponse
@@ -761,18 +761,18 @@ pour l'IA**, avec la mesure contre la vérité. On y règle les seuils sur des c
 
 ### 7.3 Ce que l'écran montre
 
-En haut, **la barre de progression** (§4 ter.5), dont tous les segments s'ouvrent. Dessous, une **frise d'étapes** (É2 à É8), chacune avec sa vignette ; toucher une étape l'ouvre en grand avec ses **calques** :
+En haut, **la barre de progression** (§4 ter.5), dont tous les segments s'ouvrent. Dessous, une **frise d'étapes** (É3 à É10), chacune avec sa vignette ; toucher une étape l'ouvre en grand avec ses **calques** :
 
 | Étape | Vignette | Calques (déterministe / IA / retenu) | Mesure contre la vérité |
 |---|---|---|---|
-| É2 Redressement | la photo redressée | verticales, horizontales | écart des coins (cm sur le mur) |
-| É3 Assemblage | la mosaïque | photos assemblées, à part (motif) | recouvrement, échelle, rotation |
-| É4 Calage | le mur posé | pose des arêtes, points de l'IA, pose retenue | écart de chaque bout/égout/sol en % de la largeur ; score d'explication |
-| É5 Silhouette | le haut lu, par corps | silhouette lue, gabarit, corps en couleurs, mot | mot juste / faux, corps bien attribués |
-| É5 bis Diagnostic | l'écart gabarit / image | propositions de toit (gabarit modifié), gain, alertes de hauteur | propositions justes / fausses / manquées, contre la vraie forme du toit |
-| É6 Texture | l'image calée | avec et sans ombres, 3D de face | écart de teinte, liserés |
-| É7 Ouvertures | les boîtes | détectées, devinées, IA, retirées | VP, FP, FN, cotes médianes |
-| É8 Toit | avant / après, sur le corps concerné | observation, forme obtenue | forme du toit juste / fausse par corps ; hauteurs inchangées |
+| É3 Redressement | la photo redressée | verticales, horizontales | écart des coins (cm sur le mur) |
+| É4 Assemblage | la mosaïque | photos assemblées, à part (motif) | recouvrement, échelle, rotation |
+| É5 Calage | le mur posé | pose des arêtes, points de l'IA, pose retenue | écart de chaque bout/égout/sol en % de la largeur ; score d'explication |
+| É6 Silhouette | le haut lu, par corps | silhouette lue, gabarit, corps en couleurs, mot | mot juste / faux, corps bien attribués |
+| É7 Diagnostic | l'écart gabarit / image | propositions de toit (gabarit modifié), gain, alertes de hauteur | propositions justes / fausses / manquées, contre la vraie forme du toit |
+| É8 Texture | l'image calée | avec et sans ombres, 3D de face | écart de teinte, liserés |
+| É9 Ouvertures | les boîtes | détectées, devinées, IA, retirées | VP, FP, FN, cotes médianes |
+| É10 Toit | avant / après, sur le corps concerné | observation, forme obtenue | forme du toit juste / fausse par corps ; hauteurs inchangées |
 
 Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on colle dans une PR, comme le banc de synthèse.
 
@@ -831,13 +831,13 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
   angle, les pointes, les appentis, les corps, ce qui cache), la forme, les éléments du toit et le parement, elle **l'emporte** là où
   elle s'écarte du vote de plus de `facades.ia.escaladeEcartPart` (3 %) ou dit un autre mot ; un `indetermine` ne contredit rien. Ses
   ouvertures que le vote n'a pas **s'ajoutent**, marquées `escalade`, et ne sont cochées que si la détection les retrouve, comme les
-  autres. Ce qu'elle a tranché se dit en mots (É4 : « Escalade (modèle) : elle l'emporte sur le parement. »).
+  autres. Ce qu'elle a tranché se dit en mots (É5 : « Escalade (modèle) : elle l'emporte sur le parement. »).
 - **Ce que Claude ne fait pas** : il n'écrit ni hauteur, ni largeur, ni forme de toit ; il ne corrige pas le plan. Quand il voit une
   pointe plus haute ou plus basse que prévu, il le dit (`v`), et la spec le traite en **alerte**, jamais en correction (décision 12).
 - **Par le moteur de règles** (§5, « L'IA alimente le moteur de règles ») : la réponse devient des observations, les règles en
   décident ; la chaîne ne lit jamais le JSON de Claude.
-- **Où va chaque champ** : le calage et le parement → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
-  leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F8).
+- **Où va chaque champ** : le calage et le parement → É5 ; la forme et les `elements` → É7 et É10 (propositions confirmées) ; les ouvertures et
+  leurs détails → É9, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F8).
 - **L'image de l'audit montre le haut de la façade** (lot F7, décision du propriétaire du 29 octobre 2026 : « fais-le dans F7 et utilise
   les formes pour compléter les décisions ») : la photo du relevé, redressée dans le plan du mur du sol jusqu'au haut de la façade (le
   gabarit, le faîtage des corps, plus un mètre), sous 1 024 px en JPEG 85, ce qu'aucune photo ne montre en gris ; le texte du run dit
@@ -895,13 +895,13 @@ passer par **l'orchestrateur** du §4 ter.4 et **supprime** ce qui devient inuti
 | `facade/releve/chaine.ts` (`redresserEtFusionner`, `morceauRedresse`, `champDesFuites`, `verticaliteDeg`, `VERSION_CHAINE_FACADES`…) | 397 | redressement, replis, report, fusion | la **partie moteur reste** telle quelle ; ce qui est de l'**ordre des étapes** passe à l'orchestrateur | F0 |
 | `facade/vision/*` (redressement, mosaïque, fusion, vote, sans ombres) | — | le moteur d'image | **reste**, intact | — |
 | `facade/releve/coinsAuto.ts` (`murSurLAssemblage`, `coinsAutoDeSerie`, `reporterCoins`) | 150 | le mur sur l'assemblage | reste ; `murSurLAssemblage` reçoit le calage par ancres | F1 |
-| `facade/releve/serie.ts`, `app/releve/rechercheCoins.ts`, `calageFin.worker.ts`, `facade/calage/*` | 297+90+23 | les coins par la prise de vue (calage grossier, fin) | restent, **chemin déterministe de l'É4** pour une photo avec capteurs ; appelés par l'orchestrateur seul | F1 |
+| `facade/releve/serie.ts`, `app/releve/rechercheCoins.ts`, `calageFin.worker.ts`, `facade/calage/*` | 297+90+23 | les coins par la prise de vue (calage grossier, fin) | restent, **chemin déterministe de l'É5** pour une photo avec capteurs ; appelés par l'orchestrateur seul | F1 |
 | `facade/releve/analyseSerie.ts` (`analyserSerie`, `calageDeSerie`, `etirerEnHauteur`, `releveDuMur`, `avisFusion`) | 158 | colle l'analyse, le calage et le relevé | **fonctions d'étape** appelées par l'orchestrateur seul ; les appels de `zones/Releve.tsx` et de `mesures.ts` disparaissent | F3, F6 |
 | `facade/releve/casCalibration.ts` (`preparerSurLAssemblage`, `coinsDeSerie`, `etapesDe`, `assemblageDeLaSerie`, `facadeSurLAssemblage`) | 181 | l'enchaînement propre à la calibration | **supprimé** : les états et les images d'étapes viennent de l'orchestrateur | F0 |
 | `facade/corpusReel.ts` (`preparerCas`, `calibrer`, la mesure) | 365 | cas, descente des réglages | `preparerCas` → orchestrateur ; la descente (`calibrer`) et la mesure **restent** | F0 |
 | `zones/EditeurCasCalibration.tsx`, `EcranCalibration.tsx` | 403+292 | éditeur de cas, étapes | deviennent l'écran de rejeu (frise d'étapes) ; l'enchaînement inline **disparaît** | F0, F2 |
-| `zones/CalageSilhouette.tsx` et `zones/releve/AjusterMur.tsx` | 102+135 | **deux composants du même geste** (poser bouts, égout, sol) | **un seul** : l'option manuelle de l'É4 ; l'autre est supprimé | F1 |
-| `zones/releve/Coins.tsx`, `EtapeCoins.tsx` | 142+225 | poser 4 repères | **une seule version**, option manuelle de l'É2, pour l'audit, le relevé et la calibration | F3 |
+| `zones/CalageSilhouette.tsx` et `zones/releve/AjusterMur.tsx` | 102+135 | **deux composants du même geste** (poser bouts, égout, sol) | **un seul** : l'option manuelle de l'É5 ; l'autre est supprimé | F1 |
+| `zones/releve/Coins.tsx`, `EtapeCoins.tsx` | 142+225 | poser 4 repères | **une seule version**, option manuelle de l'É3, pour l'audit, le relevé et la calibration | F3 |
 | `zones/Releve.tsx` + `zones/releve/*` (`Visee`, `ChoixMethode`, `PhotosRue`, `ChoixMur`, `Elevation`, `EtapeResultat`, aides, `capteurs`, `commun`, `ouvertures`) | ~1 900 | le relevé : capture + chaîne + éditeur | la capture → l'audit ; la chaîne → l'orchestrateur ; **ce qui reste est l'éditeur** du mur et des ouvertures ; le reste est supprimé (écrans, commandes, aides, CSS, fumée) | F6 |
 | `app/releve/releve.ts`, `casDeReleve.ts`, `renfortReleve.ts` | 156+57+150 | écrire le relevé, créer un cas, renfort du relevé | l'écriture → la validation V4 ; `casDeReleve` → « Créer un cas depuis cette façade » ; `renfortReleve` **supprimé** (run unique) | F2, F5, F6 |
 | `app/audit/parcelle/mesures.ts`, `redressement.ts`, `rejeu.ts` | 233+… | l'audit calcule sa façade | appellent l'orchestrateur ; leur glue **disparaît** ; « Rejouer » = rejeu de l'orchestrateur | F3 |
@@ -944,8 +944,8 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | Lot | Livre | Supprime, dans la même PR | Critère d'acceptation |
 |---|---|---|---|
 | **F0 — Orchestrateur + calibration** *(livré le 29 octobre 2026, §9 bis)* | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
-| **F1 — Calage par ancres** *(livré le 29 octobre 2026, §9 bis)* | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
-| **F2 — Un run IA par façade** *(livré le 29 octobre 2026, §9 bis)* | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
+| **F1 — Calage par ancres** *(livré le 29 octobre 2026, §9 bis)* | L'É5 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
+| **F2 — Un run IA par façade** *(livré le 29 octobre 2026, §9 bis)* | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É5, les boîtes et leurs carreaux à l'É9 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
 | **F3 — L'audit sur l'orchestrateur** *(livré le 29 octobre 2026, §9 bis)* | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** *(livré le 29 octobre 2026, §9 bis)* | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** *(livré le 29 octobre 2026, §9 bis)* | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
@@ -966,9 +966,9 @@ carreaux.
 - Les objectifs en réglages : `regles/facades/enchainement.json` (`facade/regles/facades/enchainement.ts`, empreinte inscrite dans chaque
   rejeu) : photos minimum, part redressée, part assemblée, écart du calage contre la vérité (3 % de la largeur), rappel, précision et cotes
   des ouvertures contre la vérité.
-- L'orchestrateur pur `facade/releve/enchainement.ts::derouler` : É0 à É9 dans l'ordre, un état par étape (`ok`, `a-confirmer`, `echec`,
-  `saute` ; `a-venir` pour ce qui n'a pas tourné), une phrase par étape, la mesure contre la vérité (É4 : chaque bord en part de la largeur
-  vraie ; É7 : rappel, précision, cotes), les versions (`VERSION_CHAINE_FACADES`, empreinte des objectifs), la reprise depuis une étape
+- L'orchestrateur pur `facade/releve/enchainement.ts::derouler` : É1 à É11 dans l'ordre, un état par étape (`ok`, `a-confirmer`, `echec`,
+  `saute` ; `a-venir` pour ce qui n'a pas tourné), une phrase par étape, la mesure contre la vérité (É5 : chaque bord en part de la largeur
+  vraie ; É9 : rappel, précision, cotes), les versions (`VERSION_CHAINE_FACADES`, empreinte des objectifs), la reprise depuis une étape
   avec les sorties des précédentes, l'arrêt à la demande, un événement par étape (la barre avance). Il appelle la chaîne telle quelle :
   `vuesDeFace`, `mosaiqueDesVues` et `murSurLAssemblage` (par `coinsAuto.ts::mosaiqueDeLaSerie` et `murDeLaSerie`, le corps de
   `coinsAutoDeSerie` découpé sans rien changer), `redresserEtFusionner` pour chercher les coins, `fondreLesVues`, `analyserLAssemblage`,
@@ -976,9 +976,9 @@ carreaux.
 - La calibration, premier consommateur : en haut de l'éditeur d'un cas, **la barre de progression** (`zones/composants/BarreProgressionFacade.tsx`,
   une liste ordonnée de huit segments, un état en mot et en forme, `aria-current="step"`, des boutons de 44 px liés à la commande
   `facade.etape`, « Arrêter » pendant un calcul, deux lignes dessous, un ruban « 3 sur 8 · Mur » au téléphone) ; dessous, **la frise des
-  étapes** (`zones/FriseEtapesCalibration.tsx`, É0 à É8 avec leur vignette), qui ouvre une étape en grand : ses calques, sa phrase, sa mesure
+  étapes** (`zones/FriseEtapesCalibration.tsx`, É1 à É10 avec leur vignette), qui ouvre une étape en grand : ses calques, sa phrase, sa mesure
   contre la vérité, son contrat, « Rejouer depuis cette étape ». Le calage de la silhouette (`CalageSilhouette.tsx`) y est l'option manuelle
-  de l'É4. La mesure des cas validés et le corpus réel préparent leurs cas par `preparerPourLaMesure`.
+  de l'É5. La mesure des cas validés et le corpus réel préparent leurs cas par `preparerPourLaMesure`.
 - Le cas d'étalon d'AE 101 sud : `tests/fixtures/facades-reel/etalons/ae101-sud.json` (dimensions et gabarit du plan, mur vrai sur
   l'assemblage, pose constatée, vraie forme du toit corps par corps : le corps principal à deux pignons de 3,7 m au faîtage 7,6 m, l'appentis
   à l'égout 2,4 m, chacun désigné par son mur), tenu aux données du dépôt par `tests/unit/facade/etalonAe101.test.ts` ;
@@ -1001,19 +1001,19 @@ carreaux.
 
 1. **Les objectifs ne sont pas dans `reglages.json`** mais dans `regles/facades/enchainement.json`, à côté : l'empreinte de `reglages.json`
    entre dans `VERSION_LECTURE_FACADES` et fait rechoisir les profils des bâtiments de tous les projets ouverts ; un objectif d'étape ne
-   change aucun bâtiment. L'objectif de l'É5 (« la moitié des colonnes ») reste le seuil de `silhouetteDuMur` (moteur, décision 16).
+   change aucun bâtiment. L'objectif de l'É6 (« la moitié des colonnes ») reste le seuil de `silhouetteDuMur` (moteur, décision 16).
 2. **Les photos d'AE 101 ne sont pas dans le dépôt** (donnée personnelle, §6, §11.4 ; aucune copie n'en existe hors de l'audit du serveur).
    L'étalon porte donc la vérité du cas sans ses photos ; la pose constatée (302 px, x de 451 à 752, chaîne version 9) y est écrite comme
-   un constat. La reproduction : tirer le cas de l'audit dans la calibration (l'É4 dit alors « Mur cherché sur l'assemblage : x de … à … »),
+   un constat. La reproduction : tirer le cas de l'audit dans la calibration (l'É5 dit alors « Mur cherché sur l'assemblage : x de … à … »),
    ou `reel.ts etalon <cas.json>`, qui ajoute la mesure contre le mur vrai (sur la pose constatée, le bout gauche est à 51 % de la largeur vraie : faux). Le premier cas *validé* du corpus
    réel reste à poser avec les photos que le propriétaire accepte d'y mettre.
 3. **Deux images prises pour la suite**, que l'orchestrateur garde toutes deux pour ne rien changer : l'assemblage montré par l'éditeur
-   (`image: 'assemblage'`, É2 et É3 calculées par l'orchestrateur) et celle d'`analyserLeMur` (`image: 'chaine'`, la mesure et le banc, où
-   la chaîne redresse et assemble en un appel ; É2 à É4 s'y lisent sur ce qu'elle rend). Les unifier changerait les nombres d'une photo
+   (`image: 'assemblage'`, É3 et É4 calculées par l'orchestrateur) et celle d'`analyserLeMur` (`image: 'chaine'`, la mesure et le banc, où
+   la chaîne redresse et assemble en un appel ; É3 à É5 s'y lisent sur ce qu'elle rend). Les unifier changerait les nombres d'une photo
    seule (un rééchantillonnage de plus) : c'est une décision à prendre à part, avec le banc.
-4. **Les états de F0 sont ceux que la chaîne sait dire** : l'É4 suit les drapeaux trouvé / supposé de `murSurLAssemblage` (ils mentent sur
-   AE 101 jusqu'à F1 ; la mesure contre la vérité, elle, le dit) ; l'É7 est « à confirmer » quand la structure a deviné des baies ; É5 bis
-   et É8 (F4), É9 (F5) sont « sautées » avec leur lot. La lecture du haut de l'image (É5) passe par `mosaiqueFuites.ts::silhouetteLue`, la
+4. **Les états de F0 sont ceux que la chaîne sait dire** : l'É5 suit les drapeaux trouvé / supposé de `murSurLAssemblage` (ils mentent sur
+   AE 101 jusqu'à F1 ; la mesure contre la vérité, elle, le dit) ; l'É9 est « à confirmer » quand la structure a deviné des baies ; É7
+   et É10 (F4), É11 (F5) sont « sautées » avec leur lot. La lecture du haut de l'image (É6) passe par `mosaiqueFuites.ts::silhouetteLue`, la
    même lecture que celle qui affine l'égout, exposée sans rien poser.
 5. **« Rejouer » rejoue le cas tel qu'il est enregistré** (ses coins) : un rejeu reproductible. « Retrouver le mur sur toutes les photos »,
    l'ajout d'une photo et l'ouverture d'un cas tiré d'un audit cherchent de nouveau les coins (un mur posé à la main reste).
@@ -1051,17 +1051,17 @@ historique) : vide.
   `facades.enchainement.angleMin` (0,6), deux réglages de `regles/facades/enchainement.json`.
 - **L'arbitre** (`calerParLesAncres`, appelé par `murSurLAssemblage`) : la pose des arêtes est gardée si elle passe le test ; sinon,
   parmi les autres murs que les arêtes dessinent (`mosaiqueFuites.ts::rectanglesSurLesAretes`, les six suivants, un par paire de
-  bouts, et le mur lu sur les lignes de la largeur vue), le mieux expliqué qui passe le test : l'É4 est **à confirmer** ; sinon la pose
-  du **plan seul** (aux proportions du plan, centrée sur ce que l'assemblage montre), dite supposée : l'É4 est **en échec** et demande
+  bouts, et le mur lu sur les lignes de la largeur vue), le mieux expliqué qui passe le test : l'É5 est **à confirmer** ; sinon la pose
+  du **plan seul** (aux proportions du plan, centrée sur ce que l'assemblage montre), dite supposée : l'É5 est **en échec** et demande
   les deux angles, l'égout et le sol. Chaque pose est affinée par la teinte (`affinerEgoutEtSol`) avant d'être jugée.
 - **Des drapeaux honnêtes** : `egout`, `pied`, `cotes` ne disent « trouvé » que d'une pose qui passe le test ; la série le reporte
   (`lu` faux : les coins restent prédits dans la chaîne de l'audit, `chaine.ts`). `VERSION_CHAINE_FACADES` passe à 10.
-- **L'É4 de l'orchestrateur** lit l'arbitre : « Mur cherché … expliqué sans le toit (score …) », « La pose des arêtes … n'explique pas
+- **L'É5 de l'orchestrateur** lit l'arbitre : « Mur cherché … expliqué sans le toit (score …) », « La pose des arêtes … n'explique pas
   la photo … ; retenue : celle qui l'explique … : à confirmer », « Aucune pose n'explique la photo … Le mur est supposé … Posez les deux
   angles, l'égout et le sol. » ; la pose retenue (les coins du cas) a son propre score, et une pose qui échoue au test rend l'étape à
   confirmer (sauf un mur posé à la main). La calibration montre la pose des arêtes écartée en tirets, avec son score.
 - **Un seul composant du calage à la main** : `zones/releve/AjusterMur.tsx` (égout, sol, deux bouts), sur une photo redressée par ses
-  repères (l'audit, l'éditeur d'un cas) ou sur l'assemblage déjà de face (`reperes: null` : l'option manuelle de l'É4 de la
+  repères (l'audit, l'éditeur d'un cas) ou sur l'assemblage déjà de face (`reperes: null` : l'option manuelle de l'É5 de la
   calibration, « Revenir au mur retenu », « Appliquer le calage et rejouer »).
 - **La silhouette n'est plus posée avant le calage** : le paramètre `gabarit` de `murSurLAssemblage`, `affinerEgoutEtSol`,
   `coinsAutoDeSerie` et `murDeLaSerie` est retiré ; `MurLu.silhouette` est celle lue sur l'image ; qui veut le gabarit le pose sur le
@@ -1083,9 +1083,9 @@ historique) : vide.
 - *AE 101, bouts à 3 % près* : voir l'interprétation 1. Sur l'assemblage refait en synthèse, les arêtes seules retiennent le bloc du
   pignon (x de 448 à 756 : le bout gauche à 51 % de la largeur vraie, comme le constat) ; le calage par les ancres l'écarte (score 0,50)
   et retient le mur vrai : **bout gauche à 0,7 %, bout droit à 1,0 %, égout et sol à 0 %**. Par l'orchestrateur (redressement et
-  assemblage compris) : x de 136 à 755 (0,7 % et 0,8 %), l'É4 à confirmer.
+  assemblage compris) : x de 136 à 755 (0,7 % et 0,8 %), l'É5 à confirmer.
 - *Aucun « trouvé » sur une pose qui échoue au test* : l'angle gauche caché par un arbre, aucune pose ne passe ; la pose du plan seul
-  est retenue, égout, sol et bouts **supposés**, l'É4 **en échec** (`calageAncres.test.ts`, `enchainement.test.ts`).
+  est retenue, égout, sol et bouts **supposés**, l'É5 **en échec** (`calageAncres.test.ts`, `enchainement.test.ts`).
 - AE 101 « corps identiques » ; empreintes golden inchangées.
 
 **Interprétations** :
@@ -1093,12 +1093,12 @@ historique) : vide.
 1. **Les photos d'AE 101 ne sont toujours pas dans le dépôt** (F0, interprétation 2) : l'acceptation « bouts à 3 % près » est prouvée
    sur l'assemblage refait en synthèse à partir des nombres de l'étalon (mur vrai, rapport du plan, gabarit, pose constatée), qui
    reproduit le défaut (les arêtes retiennent le même bloc, à 51 %), et sur les scènes du banc ; elle reste à constater sur la vraie
-   mosaïque, par `reel.ts etalon <cas.json>` (l'É4 y dit le score de chaque pose), le jour où le cas est tiré de l'audit. Sur la vraie
+   mosaïque, par `reel.ts etalon <cas.json>` (l'É5 y dit le score de chaque pose), le jour où le cas est tiré de l'audit. Sur la vraie
    photo, si le mur vrai n'est pas parmi les murs que dessinent les arêtes, l'arbitre ne l'inventera pas : il dira la pose supposée
    (échec, geste demandé), ce qui tient déjà le critère « aucun trouvé faux ».
 2. **F1 n'a pas encore d'IA** (F2) : les « deux chemins » du §5 sont, ici, la pose des arêtes et les autres murs qu'elles dessinent,
    jugés par le même score. L'arbitre (`calerParLesAncres`) reçoit des poses : F2 lui donnera celle de l'IA, sans changer la règle.
-3. **Les seuils du calage sont dans `regles/facades/enchainement.json`**, à côté des objectifs d'F0 : ils sont l'objectif de l'É4
+3. **Les seuils du calage sont dans `regles/facades/enchainement.json`**, à côté des objectifs d'F0 : ils sont l'objectif de l'É5
    (§4 ter.2, « score d'explication ≥ seuil »). À la différence des autres, ils changent ce que la chaîne retient (une pose qui échoue
    n'est plus prise pour trouvée) : la chaîne monte en version 10. Ils sont posés sur le banc de synthèse faute de vingt cas réels
    validés (§5.6) ; deux réglages et non un, parce qu'un angle juste et l'autre faux font un score moyen qui passe (la moitié gauche de
@@ -1114,7 +1114,7 @@ historique) : vide.
    (`CoinsPhotoAudit.tsx`). `CalageSilhouette` liait l'égout au sol par le rapport du plan et ajoutait un étirement de la photo pour
    compenser ; l'égout tiré librement fait les deux. L'éditeur d'un cas garde « Ajuster l'égout et le sol » sur une photo (le même
    composant), utile pour une photo restée hors de l'assemblage.
-7. **« Rejouer » garde les coins du cas** (F0, interprétation 5) : l'option manuelle part du mur retenu, et l'É4 dit si ce mur
+7. **« Rejouer » garde les coins du cas** (F0, interprétation 5) : l'option manuelle part du mur retenu, et l'É5 dit si ce mur
    explique la photo. « Retrouver le mur sur toutes les photos » cherche de nouveau, par l'arbitre.
 
 **Bilan de suppression** (§8 bis.4) :
@@ -1149,11 +1149,11 @@ cite comme historique, et le CHANGELOG) : vide.
   cas (`CasReel.ia`, jamais écrasée) ; le cas porte aussi le parement vu à l'audit (`CasReel.parement`).
 - **La calibration** : « Déterministe » / « IA (réponse enregistrée) », le choix de la réponse rejouée (son en-tête dit la date, les
   passes, le modèle, les versions et le coût), « Rappeler Claude » et « Rappeler Claude ×3 » (`app/releve/runFacade.ts`, par la route
-  immédiate, sous la session de l'administrateur). L'É4 montre la pose des deux angles de Claude (trait sombre), ses pointes, ses
+  immédiate, sous la session de l'administrateur). L'É5 montre la pose des deux angles de Claude (trait sombre), ses pointes, ses
   appentis et caches, les zones de colombage et les poses qu'elles écartent ; sa phrase dit l'accord ou la divergence (à confirmer),
-  les pointes contre le gabarit (diagnostic ou alerte de hauteur), le parement. L'É5 dit le mot de Claude. L'É7 montre ses boîtes
+  les pointes contre le gabarit (diagnostic ou alerte de hauteur), le parement. L'É6 dit le mot de Claude. L'É9 montre ses boîtes
   (pleines : cochées, retrouvées ; tirets : seules, décochées) ; toucher une boîte dessine la division de son vitrage. La mesure
-  contre la vérité de l'É7 compte aussi les boîtes de Claude. La note de version dit l'IA et l'empreinte de ses règles.
+  contre la vérité de l'É9 compte aussi les boîtes de Claude. La note de version dit l'IA et l'empreinte de ses règles.
 - **Le relevé** passe par le run (une requête) : à l'étape des coins, les angles de Claude sur la photo deviennent des graines
   recalées sur ses arêtes ; à la vérification, ses boîtes sur l'élévation (ce qu'aucune photo ne montre en gris) s'accordent avec la
   détection.
@@ -1165,7 +1165,7 @@ cite comme historique, et le CHANGELOG) : vide.
 
 **Acceptation.**
 
-- *Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7, coût et version affichés* :
+- *Les points de l'IA s'affichent à l'É5, les boîtes et leurs carreaux à l'É9, coût et version affichés* :
   `tests/unit/zones/ecranCalibration.test.ts` (« rappelle Claude… ») et `tests/unit/facade/releve/enchainement.test.ts` (« le mode IA
   du rejeu »), fumée 101 ; captures `f2-e4.png`, `f2-e7.png`.
 - *La zone de colombage écarte la pose du pan de bois d'AE 101* : sur l'assemblage refait en synthèse, une réponse enregistrée
@@ -1191,7 +1191,7 @@ cite comme historique, et le CHANGELOG) : vide.
    trois passes de l'audit (`entreesRenfort.ts`) l'appelle encore, jusqu'à F3 ; la mesure ×1 contre ×3 n'est pas faite sur Claude. Si
    elle montre que le vote n'apporte rien, F3 retire l'option ×3 (`voterObservations`, « Rappeler Claude ×3 ») avec le renfort.
 5. **« Les champs du schéma qu'aucun lecteur n'utilise »** : le schéma du run n'en a pas (chaque champ est lu par une règle ou par
-   l'écran : les observations de toit sont dites à l'É5 et enregistrées pour F4) ; celui de l'analyse d'une maison non plus. Le schéma
+   l'écran : les observations de toit sont dites à l'É6 et enregistrées pour F4) ; celui de l'analyse d'une maison non plus. Le schéma
    du renfort garde `raison` et `confiance`, sans lecteur, parce qu'il disparaît avec le renfort en F3 : le changer demanderait une
    version de son prompt écrit à la main pour un fichier qui s'en va.
 6. **Une boîte seule n'est pas retirée** si rien ne la soutient sur l'image (le renfort la rejetait) : la spec dit qu'elle reste
@@ -1257,12 +1257,12 @@ manquées. Corrigé, prompt et schéma en **version 2** :
 
 - **L'audit sur l'orchestrateur** : `facade/releve/enchainement.ts` gagne le mode `audit` (`image: 'audit'`, `PrisesAudit`) : les photos
   de l'audit avec leur prise de vue (GPS, boussole, EXIF), le côté du contour, les corrections de la personne et les photos illisibles.
-  L'É2 y appelle la chaîne de l'audit telle quelle (`redresserEtFusionner`, avec le calage fin et le gabarit) ; le relevé du mur sort
+  L'É3 y appelle la chaîne de l'audit telle quelle (`redresserEtFusionner`, avec le calage fin et le gabarit) ; le relevé du mur sort
   de l'orchestrateur (`sorties.audit` : le relevé, la photo qui le porte, le bilan du redressement, les photos redressées entières),
   écrit par une fonction d'étape que lui seul appelle (`analyseSerie.ts::releveDeLaSerie`, le corps de l'ancien `releveDeLAnalyse`). Les
-  étapes se lisent sur ce qu'elle rend : É2 le statut de chaque photo, É3 la fusion (complète, partielle, indépendante, une photo
-  seule : sautée), É4 d'où viennent les coins (posés à la main, trouvés, prédits) et, sur un assemblage, le score d'explication du lot
-  F1, É5 la ligne du haut lue sur la photo, É6 et É7 comme ailleurs. `app/audit/parcelle/mesures.ts` ne garde que ce qui n'est pas
+  étapes se lisent sur ce qu'elle rend : É3 le statut de chaque photo, É4 la fusion (complète, partielle, indépendante, une photo
+  seule : sautée), É5 d'où viennent les coins (posés à la main, trouvés, prédits) et, sur un assemblage, le score d'explication du lot
+  F1, É6 la ligne du haut lue sur la photo, É8 et É9 comme ailleurs. `app/audit/parcelle/mesures.ts` ne garde que ce qui n'est pas
   l'enchaînement : la prise de chaque photo, la couleur du mur, et la lecture des sorties ; `MesureFacade.etapes` porte l'état de chaque
   étape (dérivé, jamais écrit dans le fichier de l'audit).
 - **Le mode discret** : `app/audit/parcelle/discret.ts` lit le mode d'audit du contrat de chaque étape (`EtapeFacade.modeAudit`) : une
@@ -1328,10 +1328,10 @@ manquées. Corrigé, prompt et schéma en **version 2** :
    ce vote-là n'est pas celui du renfort. « Si le vote est parti » ne le concerne pas.
 3. **Le run de l'audit lit l'élévation du mur**, pas l'assemblage : l'audit ne garde pas l'assemblage de ses vues, et ce que le run y
    sert ici, ce sont les boîtes des ouvertures en part du mur (l'image « élévation » du prompt : ses angles sont les bords de l'image).
-   La pose de ses angles, qui sert l'É4 de la calibration, n'est pas lue par l'audit : son mur est calé avant la réponse (elle arrive
+   La pose de ses angles, qui sert l'É5 de la calibration, n'est pas lue par l'audit : son mur est calé avant la réponse (elle arrive
    avec le batch). Une requête par façade mesurée, sans signal (décision D11, comme le renfort pendant les premiers audits).
-4. **Les étapes de l'audit sont celles que sa chaîne sait dire** (comme F0, interprétation 4) : l'É4 suit d'où viennent les coins et,
-   sur un assemblage, le score du lot F1 ; É5 bis, É8 et É9 restent sautées avec leur lot (F4, F5). Le mode d'audit est lu sur le contrat
+4. **Les étapes de l'audit sont celles que sa chaîne sait dire** (comme F0, interprétation 4) : l'É5 suit d'où viennent les coins et,
+   sur un assemblage, le score du lot F1 ; É7, É10 et É11 restent sautées avec leur lot (F4, F5). Le mode d'audit est lu sur le contrat
    de l'étape par `discret.ts`, la seule fonction d'affichage qui le lit ; la calibration l'ignore et montre tout.
 5. **La calibration et le relevé ne bougent pas** : la calibration garde ses modes (`assemblage`, `chaine`) ; le relevé appelle encore
    `analyserSerie`, `calageDeSerie`, `releveDuMur` depuis son écran (F6). Le geste « quatre repères » du relevé (`EtapeCoins`, les
@@ -1359,7 +1359,7 @@ entrées (**31 de moins** : les 29 de `renfort.ts`, `renfortRecalage.ts` et `ent
 de `mesures.ts` ; les exports qui ont changé de fichier sans importeur ont été rendus locaux). Grep des noms supprimés dans `src/`,
 `tests/`, `scripts/` : vide, hors l'historique (le CHANGELOG, cette spec, `spec-facades-calage-detection.md`, la note du skill
 `facades`), le journal de consommation (une ligne `renfort` se lit toujours), `livraison/` (construit depuis `main`) et `textePhoto`,
-déplacé tel quel dans l'orchestrateur (la phrase de l'É2 de l'audit).
+déplacé tel quel dans l'orchestrateur (la phrase de l'É3 de l'audit).
 
 #### Trois lectures et l'escalade à la demande (29 octobre 2026, sur la branche F3)
 
@@ -1403,8 +1403,8 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
   LiDAR) ; `ObservationFait.boutsDesMurs` dit le bout que montre un mur de bout (`boutAuMur` : une croupe à la pente des pans,
   profondeur de la moitié de la largeur, ou un pignon). `corpsSousContrainte` les applique comme tout fait (`avecPignons`, puis
   `avecBoutsDesMurs`). Le vocabulaire de `regles/toits/faits.json` ne change pas (une observation de l'audit ne s'y écrit jamais).
-- **Le diagnostic de forme** (É5 bis, `facade/regles/facades/diagnosticForme.ts::diagnostiquerForme`, pur) : le haut lu sur la photo,
-  en parts du mur (l'É5 de la calibration, `etapesForme.ts::hautEnPartsDuMur` ; l'analyse le rend aussi, `ResultatAnalyse.hautLu`,
+- **Le diagnostic de forme** (É7, `facade/regles/facades/diagnosticForme.ts::diagnostiquerForme`, pur) : le haut lu sur la photo,
+  en parts du mur (l'É6 de la calibration, `etapesForme.ts::hautEnPartsDuMur` ; l'analyse le rend aussi, `ResultatAnalyse.hautLu`,
   lu à la matière du mur avant que le ciel ne soit repeint : l'audit en a un) contre le gabarit, **tronçon par tronçon**, sur 120
   colonnes, l'écart plafonné à une hauteur d'égout par colonne. Sur un long pan à faîtage, une recherche en trois tours au plus
   essaie un pignon de moins, chaque pignon déplacé ou élargi (bords au quart de mètre, à ±1 m) et un pignon ajouté sur chaque bosse
@@ -1424,10 +1424,10 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
 - **Ce qui ne se propose pas** est dit en constat : une bosse plus étroite qu'un pignon (cheminée ou lucarne, F7), les éléments et les
   autres volumes que Claude voit, et un haut lu qui passe sous l'égout (il ne lit pas le haut du mur : il ne sert pas).
 - **L'orchestrateur** : `EntreesFacade.toit` (le mur de la façade et les corps du toit), `SortiesFacade.forme` (le haut lu, le
-  diagnostic) ; l'É5 bis (`etapesForme.ts::etapeDiagnostic`) dit les tronçons, l'écart, chaque proposition, chaque alerte et les
-  constats, à confirmer s'il y en a (le point V2, toujours demandé), et sa mesure contre la vraie forme du toit d'un cas ; l'É8
-  (`etapeToit`) dit les propositions à confirmer dans l'avant/après. Seule l'É9 reste « sautée » avec son lot (F5) ; un
-  cas sans corps du toit saute l'É5 bis et l'É8, en le disant. Un segment de la barre s'ouvre sur l'étape qui doute, sinon son point
+  diagnostic) ; l'É7 (`etapesForme.ts::etapeDiagnostic`) dit les tronçons, l'écart, chaque proposition, chaque alerte et les
+  constats, à confirmer s'il y en a (le point V2, toujours demandé), et sa mesure contre la vraie forme du toit d'un cas ; l'É10
+  (`etapeToit`) dit les propositions à confirmer dans l'avant/après. Seule l'É11 reste « sautée » avec son lot (F5) ; un
+  cas sans corps du toit saute l'É7 et l'É10, en le disant. Un segment de la barre s'ouvre sur l'étape qui doute, sinon son point
   de validation (« Forme » ouvre le diagnostic).
 - **L'audit** : `mesurerFacade` donne les corps du toit à l'orchestrateur ; la mesure garde le haut lu et le diagnostic (dérivés,
   jamais écrits dans le fichier de l'audit) ; `app/audit/parcelle/formeFacades.ts::propositionsDeForme` fait relire chaque
@@ -1435,7 +1435,7 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
   à la porte du fait du bâtiment (`corpsProposesSousFait`), et propose le corps rendu (`effet: corpsDuToit`), **décochée** (« Une
   forme de toit lue sur la photo se confirme toujours … ») ; un toit figé ou saisi le dit (`remplaceChoix`). L'avant/après la montre,
   le corps concerné en surbrillance.
-- **La calibration** : un cas tiré d'un audit garde les corps qui font son gabarit (`CasReel.toit`, relu et vérifié) ; l'É5 bis de
+- **La calibration** : un cas tiré d'un audit garde les corps qui font son gabarit (`CasReel.toit`, relu et vérifié) ; l'É7 de
   la frise montre sur l'image le gabarit du plan, le haut lu, le gabarit de chaque proposition (tirets) et les tronçons de corps,
   avec la vraie forme du toit du cas.
 - Fumée : point 104. Points touchés rejoués dans les trois classes (62, 63, 85, 86, 88, 97, 98, 100, 101, 102, 104) : **33 sur 33**.
@@ -1443,11 +1443,11 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
 **Acceptation.**
 
 - *Sur AE 101 sud, la proposition juste est faite sur le bon corps, décochée* (`tests/unit/facade/ae101Forme.test.ts`,
-  `tests/unit/facade/releve/enchainement.test.ts` « E5 bis et E8 ») : le toit est celui du LiDAR du 14 octobre au soir
+  `tests/unit/facade/releve/enchainement.test.ts` « E7 et E10 ») : le toit est celui du LiDAR du 14 octobre au soir
   (`vesinet-ae101-lidar-soir.json`), où le calcul seul a perdu le pignon est de la façade sud ; la façade se découpe en un tronçon,
   le long pan du corps principal (celui que désigne le mur du toit vrai de l'étalon) ; l'assemblage refait en synthèse et la réponse
   synthétique de Claude du lot F2 font proposer **un pignon de plus, sur le corps principal et lui seul**, à sa place (« Corps
-  principal (corps 1) : proposition juste (2 pignons vrais, …) » contre la vraie forme du toit) ; l'É5 bis et l'É8 sont à confirmer ;
+  principal (corps 1) : proposition juste (2 pignons vrais, …) » contre la vraie forme du toit) ; l'É7 et l'É10 sont à confirmer ;
   dans l'audit, la ligne arrive décochée (`tests/unit/app/audit/parcelle/formeFacades.test.ts`).
 - *Accepter change le toit par le moteur seulement ; hauteurs du LiDAR inchangées* : l'observation relue par `corpsSousContrainte`
   pose le pignon est sur le corps principal ; ses murs, son faîtage, ses égouts et le pignon ouest lu par le LiDAR ne bougent pas ;
@@ -1496,7 +1496,7 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
 9. **Un segment de la barre ouvre l'étape qui doute** (sinon son point de validation, sinon la première) : « Forme » ouvrait la
    silhouette lue, qui a réussi ; il ouvre maintenant le diagnostic qui attend la personne. Le segment « Image » ouvre l'assemblage
    quand c'est lui qui échoue.
-10. **Les objectifs de l'É5 bis sont dans `regles/facades/enchainement.json`**, à côté de ceux d'F0 et F1 (F0, interprétation 1), posés
+10. **Les objectifs de l'É7 sont dans `regles/facades/enchainement.json`**, à côté de ceux d'F0 et F1 (F0, interprétation 1), posés
     sans cas réel validé (§5.6) ; toute proposition arrive décochée, le seuil ne décide que de ce qui est montré.
 
 **Bilan de suppression** (§8 bis.4) :
@@ -1520,7 +1520,7 @@ lisaient ont été rendus locaux). Grep des noms supprimés : sans objet (aucun 
   lu par Claude, lot F2), `textureCalee` (la précision de l'image et le mur sur elle). **La façade objet** (§3.3) : chaque ouverture a
   un `id` stable (`o1`, `o2`…), une date de vérification (`verifieeLe`) et ses carreaux rangés dans `details.carreaux` (vantaux,
   grille, petits bois, imposte en mètres, vitrage, source), dans le vocabulaire fermé de la spec.
-- **Le bilan de l'É9** (`facade/releve/bilanFacade.ts::bilanDeLaFacade`) : l'orchestrateur ne la saute plus. Dans l'audit, l'É9 dit le
+- **Le bilan de l'É11** (`facade/releve/bilanFacade.ts::bilanDeLaFacade`) : l'orchestrateur ne la saute plus. Dans l'audit, l'É11 dit le
   bilan (« Mur de 8 × 6 m ; haut … ; texture calée à 98 px/m ; 6 ouvertures. Validez la façade … (V4). »), **à confirmer** jusqu'à
   la validation ; la calibration le montre sans rien écrire (sautée : la façade se valide dans l'audit). La pose de la texture de
   l'audit est celle de son élévation (`analyseSerie.ts::poseDeLaTexture`) ; celle de la calibration, le mur retenu sur l'assemblage.
@@ -1528,7 +1528,7 @@ lisaient ont été rendus locaux). Grep des noms supprimés : sans objet (aucun 
   exposée sous la barre dans les trois classes, décrite au glossaire) : « Valider la façade » écrit la Façade d'un geste, **en un pas
   d'historique**, par l'effet `releve` (le même chemin que les propositions) ; les dimensions prennent la source de la hauteur du
   bâtiment (`model/protections.ts` : LiDAR, IGN, saisie, cadastre) ; les ouvertures (celles du relevé posé d'office, sinon de la
-  mesure) reçoivent leur identifiant, les carreaux que l'accord du run y a lus, et `verifieeLe` ; `depuisAudit` tombe. Validée, l'É9
+  mesure) reçoivent leur identifiant, les carreaux que l'accord du run y a lus, et `verifieeLe` ; `depuisAudit` tombe. Validée, l'É11
   de la barre est faite et le bouton part (`etapesApresValidation`). Ctrl+Z la défait d'un coup.
 - **Un rejeu ne déplace pas une ouverture vérifiée** (`model/facadeObjet.ts`) : une Façade validée arrête l'écriture d'office de
   l'audit (groupe `facadeTexture`) ; un relevé neuf écrit quand même (la ligne cochée) garde, telles quelles et à leur place, les
@@ -1547,7 +1547,7 @@ lisaient ont été rendus locaux). Grep des noms supprimés : sans objet (aucun 
   (triangle, 2 pointes) »).
 - **Les carreaux rangés** : la règle `ouvertureDeLIa` (`facade/regles/facades/ia.ts`) range les carreaux que lit Claude dans les
   détails de la boîte ; l'accord les porte sur l'ouverture retrouvée (un « détail ajouté »). Sans effet sur la 3D avant F8.
-- Fumée : point 105 (le bilan à confirmer, « Valider la façade », la Façade écrite, l'É9 faite, les groupes de la 3D, l'inspecteur,
+- Fumée : point 105 (le bilan à confirmer, « Valider la façade », la Façade écrite, l'É11 faite, les groupes de la 3D, l'inspecteur,
   Ctrl+Z).
 
 **Acceptation.**
@@ -1616,7 +1616,7 @@ façade a été validée répond `422 UNSUPPORTED_SCHEMA_VERSION`.
 |---|---|---|---|---|
 | L'écart du contour dans le calage du relevé | `model/typesReleve.ts`, `facade/releve/analyseSerie.ts` (`calageDeSerie`), `tests/unit/zones/releve.test.ts` | `CalageReleve.contourDecaleM`, son écrivain | 4 | `dimensions.ecartPhoto.largeur` (en part), écrit à V4 ; `ReleveDeLaSerie.ecartLargeur` (`ecartDeLargeur`) ; un fichier d'avant garde la clé, lue par la seule migration |
 | Le lot des étapes à venir | `model/etapeFacade.ts`, `zones/FriseEtapesCalibration.tsx` | `EtapeFacade.lot` (onze `lot: null`, un `lot: 'F5'`), `disabled={… \|\| !!def.lot}` | 14 | — (plus aucune étape n'attend son lot) |
-| L'É9 sautée | `facade/releve/enchainement.ts` | « La validation de la façade vient avec le lot F5 … » | 1 | `validation` (le bilan, `bilanDeLaFacade`) |
+| L'É11 sautée | `facade/releve/enchainement.ts` | « La validation de la façade vient avec le lot F5 … » | 1 | `validation` (le bilan, `bilanDeLaFacade`) |
 | La marque lue à la main par l'écriture d'office | `app/audit/parcelle/validation.ts` | `!releveChoisiALaMain(o, cote)` dans `alimenterLesFacades` | 1 | `ecrivainPeut(o, 'audit', 'facadeTexture', { cote })` |
 
 En tout : `src/` +949 −59 lignes, `tests/` +548 −45. Cliquet des orphelins : 217 entrées, inchangé (les exports nouveaux ont tous un
@@ -1735,7 +1735,7 @@ des tests qui vérifient leur absence et des noms voisins qui restent (`chercher
 
 **Ce qui est livré.**
 
-- **Les éléments de la ligne du haut** (É5 bis, `facade/regles/facades/diagnosticForme.ts`, `DiagnosticForme.elements`) : une bosse
+- **Les éléments de la ligne du haut** (É7, `facade/regles/facades/diagnosticForme.ts`, `DiagnosticForme.elements`) : une bosse
   du haut lu plus étroite qu'un pignon (`LARGEUR_PIGNON_MIN_M`) et d'au moins `facades.enchainement.diagnosticElementLargeurMinM`
   (0,2 m, un objectif nouveau de `regles/facades/enchainement.json`), hors d'une proposition de pignon, est une **cheminée** quand
   elle monte au faîtage du corps du tronçon (une souche le dépasse), une **lucarne** sinon (sur un long pan à faîtage). Un élément des
@@ -1766,8 +1766,8 @@ des tests qui vérifient leur absence et des noms voisins qui restent (`chercher
   `elementsDuToit` porte les lucarnes vues sur ce mur, `lucarnesDevantLeMur`) ; la validation de la façade (V4,
   `facadeValidee.ts::facadeAEcrire`) ne reprend pas celle d'une lucarne que le toit porte devant ce mur
   (`model/facadeObjet.ts::ouverturesHorsDesLucarnes`). Une cheminée n'est jamais une ouverture : le run ne la rend pas comme telle.
-- **La calibration** : l'É5 bis dit chaque élément proposé (« Proposition (à confirmer) : corps 1, long pan : une cheminée à 0,3 de
-  la largeur de la façade, d'après … »), l'É8 les compte avec les propositions de forme, et la mesure contre la vraie forme du toit
+- **La calibration** : l'É7 dit chaque élément proposé (« Proposition (à confirmer) : corps 1, long pan : une cheminée à 0,3 de
+  la largeur de la façade, d'après … »), l'É10 les compte avec les propositions de forme, et la mesure contre la vraie forme du toit
   d'un cas juge les cheminées et lucarnes de chaque corps vrai (`ToitVraiCorps.cheminees`, `.lucarnes`, déjà au format du cas) contre
   celles que le corps porte et que le diagnostic y pose, à un mètre près le long du faîtage.
 - **L'image du run et les formes de Claude dans l'audit** (décision du propriétaire du 29 octobre 2026, ajoutée au lot : « fais-le dans
@@ -1832,7 +1832,7 @@ des tests qui vérifient leur absence et des noms voisins qui restent (`chercher
    dessous ; c'est la seule chose que le haut lu dise du genre. Sur un mur de bout, une bosse est une souche (une lucarne est sur un
    pan). Claude, quand il voit l'élément, l'emporte sur ce mot.
 2. **Claude complète les décisions de l'audit** (décision du propriétaire, ajoutée au lot) : voir « L'image du run et les formes de
-   Claude dans l'audit » ci-dessus. L'É5 bis de la barre reste celle de la mesure (le run arrive après, avec le batch) : c'est la liste
+   Claude dans l'audit » ci-dessus. L'É7 de la barre reste celle de la mesure (le run arrive après, avec le batch) : c'est la liste
    des propositions qui prend Claude, chaque fois qu'elle se recalcule (l'escalade comprise).
 3. **Ce que la photo ne dit pas** (la section d'une souche, le type, la largeur et la hauteur d'une lucarne, sa profondeur) prend les
    valeurs d'un élément vu (celles de l'audit d'une maison) ; la place le long du faîtage est celle de la photo. Le Mode Toit règle le
@@ -1977,7 +1977,7 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
    non fusionné). Faut-il le fusionner avec la forme de la Façade (§3.2) ou l'abandonner ? *Proposition : le reprendre une fois F5 posé,
    en lisant `forme.gabarit`.*
 8. **Circularité** : la silhouette dérive du toit, qui est ce qu'on veut corriger. Si le calage s'appuie sur le gabarit, une erreur de toit
-   déforme le calage et cache l'écart (§4 É4, §5). Garde-fou : le score d'explication du calage ne contient jamais le gabarit.
+   déforme le calage et cache l'écart (§4 É5, §5). Garde-fou : le score d'explication du calage ne contient jamais le gabarit.
 9. **Un faux pignon** (colombage en triangle, arbre) proposé par l'IA ou le déterministe : toute proposition est décochée et vérifiée par
    l'autre chemin (§5 bis, règle 5).
 10. **Plusieurs corps** : l'attribution d'une partie de silhouette au bon corps peut se tromper (un corps en retrait plus haut, un
@@ -2021,7 +2021,7 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 | Gabarit et silhouette | `facade/gabaritMur.ts`, `facade/regles/toits/silhouettes.ts`, `silhouetteDesCorps.ts`, `model/silhouetteFacade.ts` |
 | Modèle | `model/typesReleve.ts`, `model/auditParcelle.ts`, `model/protections.ts`, `model/migrations.ts` |
 | IA | `model/analyseClaude.ts`, `app/regles/sujets/facades.ts`, `deploy/schema-analyse.json` (généré), `facade/detection/renfort.ts` |
-| Calage du mur (É4) | `facade/releve/calageAncres.ts` (score d'explication, arbitre), `facade/releve/coinsAuto.ts::murSurLAssemblage`, `zones/releve/AjusterMur.tsx` (à la main) |
+| Calage du mur (É5) | `facade/releve/calageAncres.ts` (score d'explication, arbitre), `facade/releve/coinsAuto.ts::murSurLAssemblage`, `zones/releve/AjusterMur.tsx` (à la main) |
 | Calibration | `zones/EditeurCasCalibration.tsx`, `zones/FriseEtapesCalibration.tsx`, `zones/VueFacade3d.tsx`, `facade/releve/enchainement.ts`, `facade/corpusReel.ts` |
 | Audit | `app/audit/parcelle/`, `zones/parcours/` |
 | 3D et plan | `three/detailsBatiment.ts`, `facade/ouvertures.ts`, `render/releve.ts` |
