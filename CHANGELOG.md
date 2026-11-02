@@ -32,6 +32,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Vue 3D, « Modifier la toiture » : les objets posés sur le toit étaient trop petits pour se voir et se toucher. Les vignettes de
+  l'onglet « Sur le toit » montraient la maison entière, où une fenêtre de toit, un panneau solaire ou une jacobine ne faisaient que
+  quelques pixels ; elles sont désormais cadrées de près sur l'élément, chacune la sienne (le pignon et la cheminée avaient le même
+  pictogramme), toujours dessinées par le code de la 3D. Choisir un élément (sa pastille, un toucher sur la scène, ou le poser) cadre
+  la caméra sur lui devant la façade qui le porte, avec un peu de toit autour ; le lâcher (Échap) rend la façade entière, « Vue 3D »
+  la caméra d'avant. Au téléphone, une fenêtre de toit choisie fait 52 px de large au lieu de 16.
+  - Les poignées d'une fenêtre de toit et d'un panneau solaire flottaient hors du toit, sous l'élément à l'écran : elles sont sur lui.
+  - Fumée : point 124 (vignettes de « Sur le toit » et cadrage sur l'élément choisi). Ni le toit, ni Ctrl+Z, ni « projet modifié », ni
+    aucune quantité ou export ne changent : le cadrage est un réglage de caméra.
+
 - Façades (calibration, audit de la parcelle, relevé) : la détection des ouvertures lisait le mur coupé au sol et à l'égout, et ne
   voyait jamais une baie de pignon (fenêtre de comble, oculus). Elle lit désormais la façade redressée entière, fusionnée quand
   plusieurs vues se fondent, et cherche dans la silhouette du mur (le gabarit du plan et du LiDAR, pignons compris) : rien dans le ciel

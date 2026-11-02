@@ -4429,6 +4429,65 @@ const POINTS = {
       && Math.abs(apres - voulu) <= 0.01 && Math.abs(apres - avant) > 0.03 && !debords.some(Boolean);
     const dec = (v) => v.toFixed(3).replace('.', ',');
     return { ok, mesure: `photo 1 : « ${premiere.libelle.split(' :')[0]} », cadre ${premiere.cadre}, mur ${premiere.x0}–${premiere.x1} × ${premiere.egout}–${premiere.sol} (hauteur/largeur ${dec(avant)}) ; égout tiré à ${tire} (${dec(voulu)}) ; après le rejeu, depuis la photo 2 : « ${seconde.libelle.split(' :')[0]} », cadre ${seconde.cadre}, mur ${seconde.x0}–${seconde.x1} × ${seconde.egout}–${seconde.sol} (${dec(apres)}) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  124: async (page, f) => {
+    // Mode Toit, ce qui est pose sur le toit se voit (2 novembre 2026, « les icônes des objets sur le toit sont trop petits, il faut zoomer
+    // dessus ») : chaque piece de l'onglet « Sur le toit » a sa vignette 3D cadree sur l'element (plus le glyphe commun), d'au moins 44 px ;
+    // une fenetre de toit posee, lachee, puis choisie par sa pastille : la camera de facade se cadre sur elle (des pixels par metre au moins
+    // doubles de ceux de la facade entiere) ; lachee, la facade revient entiere. Le toit n'a pas bouge ; rien ne deborde.
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = [{ x: -8, y: -20 }, { x: 4, y: -20 }, { x: 4, y: -12 }, { x: -8, y: -12 }];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.corpsToit; delete b.volumesToit; delete b.toitMesure;
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3.5, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await image3dStable(page, 3000);
+    await page.locator('#terrasse3dModifierToit').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 20000 });
+    await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
+    const pieces = await page.locator('.toitPiece[data-piece^="sur:"]').count();
+    const vignettes = await page.locator('.toitPiece[data-piece^="sur:"] .glyphe svg.chaineVignette').count();
+    const cotes = await page.locator('.toitPiece[data-piece^="sur:"] .glyphe').evaluateAll((l) => l.map((e) => { const r = e.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); }));
+    const plusPetite = Math.min(...cotes);
+    await page.locator('[data-piece="sur:fenetre-toit"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
+    const toit = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit));
+    // Les pixels par metre entre deux poignees dont l'ecart est connu en metres (le long du mur, que la camera oblique montre de face).
+    const parMetre = (a, b, m) => page.evaluate(([a, b, m]) => {
+      const c = (id) => { const r = document.querySelector('[data-poignee="' + id + '"] .pointPoignee')?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; };
+      const p = c(a), q = c(b);
+      return p && q ? Math.hypot(p.x - q.x, p.y - q.y) / m : 0;
+    }, [a, b, m]);
+    // Lachee : la facade entiere (12 m de mur ; la poignee de l'egout au quart, celle de la longueur au bout : 9 m).
+    await page.evaluate(() => window.__plan.executer('toit.selection'));
+    await page.waitForTimeout(800);
+    const facadeAvant = await page.locator('[data-commande="toit.vueFacade"][aria-pressed="true"]').count();
+    const entier = await parMetre('egout', 'long', 9);
+    const avant = await toit();
+    // Choisie par sa pastille : la taille se tire au bord de la fenetre (0,4 m de sa position, `poigneesDe`).
+    await page.locator('.puceToit[data-type="fenetre-toit"]').click({ timeout: 30000 });
+    await page.waitForTimeout(800);
+    const pres = await parMetre('pos', 'taille', 0.4);
+    const largeurPx = Math.round(pres * 0.8);
+    const facadeChoisie = await page.locator('[data-commande="toit.vueFacade"][aria-pressed="true"]').count();
+    // Lachee de nouveau : la facade revient entiere.
+    await page.evaluate(() => window.__plan.executer('toit.selection'));
+    await page.waitForTimeout(800);
+    const retour = await parMetre('egout', 'long', 9);
+    const inchange = (await toit()) === avant;
+    if (process.env.FUMEE_CAPTURE_ICONES) await page.screenshot({ path: `${process.env.FUMEE_CAPTURE_ICONES}-${f.nom}.png` });
+    const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
+    const ok = pieces >= 13 && vignettes === pieces && plusPetite >= 44 && facadeAvant === 1 && facadeChoisie === 1 && entier > 0 && pres >= 2 * entier
+      && largeurPx >= 44 && Math.abs(retour - entier) <= 0.05 * entier && inchange && sans;
+    const r = (v) => v.toFixed(1).replace('.', ',');
+    return { ok, mesure: `${vignettes}/${pieces} vignettes 3D, la plus petite ${plusPetite} px ; façade entière ${r(entier)} px/m ; fenêtre de toit choisie ${r(pres)} px/m (${largeurPx} px de large), vue de la façade ${facadeChoisie ? 'oui' : 'NON'} ; lâchée ${r(retour)} px/m ; toit ${inchange ? 'inchangé' : 'CHANGÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
   }
 };
 
@@ -4475,7 +4534,8 @@ function pointsPour(nomClasse) {
   // 121 : les textes du dossier (lot L5) : rediger, corriger, valider, exporter ; la relecture avant l'export, un brouillon perime.
   // 122 : l'assistant en langue naturelle (lot L6) : une demande, sa liste (une etape grisee avec sa raison), « Appliquer », Ctrl+Z.
   // 123 : « Ajuster l'égout et le sol » sur la facade assemblee (deux vues), le mur tire repris par la chaine.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123];
+  // 124 : le mode Toit, les vignettes de « Sur le toit » cadrees sur l'element, et la camera qui se cadre sur l'element choisi.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
