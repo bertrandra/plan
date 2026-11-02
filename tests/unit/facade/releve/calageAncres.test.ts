@@ -11,7 +11,7 @@ import { sceneAe101 } from '../../../banc/facades/ae101.js';
 import { lireRunEnregistre, type ObservationsFacade, type RunEnregistre } from '../../../../src/regles/facades/observations.js';
 import { poseDeLIa, observationsDuRun, decisionColombage } from '../../../../src/facade/regles/facades/ia.js';
 
-// Le calage du mur par ses ancres (facade/releve/calageAncres.ts, MD/spec-facade-calage-audit.md §4 E4, §5, lot F1) : une pose se juge
+// Le calage du mur par ses ancres (facade/releve/calageAncres.ts, MD/spec-facade-calage-audit.md §4 E5, §5, lot F1) : une pose se juge
 // sans le toit (les angles, l'egout, le sol), l'arbitre garde celle des aretes si elle explique la photo, sinon une autre qui
 // l'explique, sinon la pose du plan seul, supposee ; et les drapeaux ne disent « trouve » que d'une pose qui passe le test.
 

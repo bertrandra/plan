@@ -172,6 +172,8 @@ d'y toucher.
   en a une, en lecture seule ; (c) la fin (`vue`) : V4 écrit la Façade dans l'audit, la calibration n'écrit rien ; (d) ce qui se montre.
   Un ajout de la calibration (vérité, réponse de Claude rejouée, texture sans ombres) lit les sorties communes sans les changer
   (`tests/unit/facade/releve/uneOrchestration.test.ts`). Un écran de l'audit ne calcule rien : il cache.
+- **Les étapes d'une façade s'appellent É1 à É11** (`model/etapeFacade.ts`, sans « bis »), dans l'orchestrateur et à l'écran (calibration
+  et audit, où une étape cachée garde son numéro) ; le propriétaire les désigne par ces numéros dans ses demandes.
 - **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur
   la photo ni déformé : le haut de toute la façade, tous corps du toit compris, en mètres ramenés à la hauteur du mur. Il se pose
   entre l'égout, le sol et les bouts trouvés, et seule son échelle suit. Les repères ne disent que les directions ; la dimension

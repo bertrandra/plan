@@ -40,7 +40,7 @@ const ia = observationsDuRun(run);
 const scene = sceneAe101(etalon, 'buisson');
 const lue = (() => { const l = silhouetteLue(scene, scene.vrai); return l ? hautEnPartsDuMur(l.silhouette, scene.vrai) : null; })();
 const [principalVrai] = etalon.toitVrai;
-/** La mesure de l'E5 bis contre la vraie forme du toit de l'etalon. */
+/** La mesure de l'E7 contre la vraie forme du toit de l'etalon. */
 const contreLaVerite = (corps: readonly CorpsToit[], l: typeof lue) => etapeDiagnostic({ mur: { gauche: facade.gauche, droite: facade.droite }, corps }, etalon.hauteurM, l, ia, undefined, etalon.toitVrai).etape.verite;
 
 describe('AE 101 sud : le diagnostic de forme, corps par corps (lot F4)', () => {

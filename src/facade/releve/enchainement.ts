@@ -1,4 +1,4 @@
-// L'orchestrateur de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 ter.4) : les etapes E0 a E9 dans l'ordre du
+// L'orchestrateur de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 ter.4) : les etapes E1 a E11 dans l'ordre du
 // tableau, l'etat de chacune (son objectif atteint ou non, regles/facades/enchainement.json), et ce que chacune rend a la suivante.
 // Pur, sans React ni DOM.
 //
@@ -16,7 +16,7 @@
 // Ce que la calibration ajoute (la mesure contre la verite, la reponse enregistree de Claude rejouee, la texture sans ombres) LIT les
 // sorties communes et ne les change jamais : `tests/unit/facade/releve/uneOrchestration.test.ts` le prouve, etape par etape.
 
-import { ETAPES_FACADE, etapeFacade, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
+import { ETAPES_FACADE, libelleEtape, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
 import { murSurLesPhotos, type AssemblageDuMur, type RetourVersLaPhoto } from '../analyseMur.js';
@@ -44,7 +44,7 @@ import { etapeDiagnostic, etapeToit, type ToitDeLaFacade } from './etapesForme.j
 import type { DiagnosticForme } from '../regles/facades/diagnosticForme.js';
 import { bilanDeLaFacade, texteBilan, type BilanFacade } from './bilanFacade.js';
 
-/** Ce qui entre dans l'enchainement : les dimensions et le gabarit du plan (E0), les photos et ce qui les accompagne (E1). */
+/** Ce qui entre dans l'enchainement : les dimensions et le gabarit du plan (E1), les photos et ce qui les accompagne (E2). */
 export interface EntreesFacade {
   largeurM: number;
   hauteurM: number;
@@ -61,7 +61,7 @@ interface VeriteFacade {
   calage?: CasReel['calageVrai'];
   /** Les ouvertures vraies, en metres. */
   ouvertures?: readonly OuvertureVraie[];
-  /** La vraie forme du toit, corps par corps : la verite du diagnostic de forme (E5 bis). */
+  /** La vraie forme du toit, corps par corps : la verite du diagnostic de forme (E7). */
   toit?: readonly ToitVraiCorps[];
 }
 
@@ -72,7 +72,7 @@ interface OptionsEnchainement {
   /**
    * Ce que la personne voit, et comment le processus finit ; jamais ce qu'il calcule. `calibration` : la vue entiere, et rien ne
    * s'ecrit. `audit` : le meme processus, dont l'ecran cache une part ; la facade attend la validation V4, qui l'ecrit dans le projet.
-   * Seuls l'etat et le texte de l'E9 en dependent.
+   * Seuls l'etat et le texte de l'E11 en dependent.
    */
   vue: 'audit' | 'calibration';
   /** Le calage fin d'une photo (un worker a l'ecran, en direct ailleurs). */
@@ -92,7 +92,7 @@ interface OptionsEnchainement {
   arrete?: () => boolean;
   /**
    * Une reponse de Claude au run de cette facade, enregistree avec le cas, rejouee sans reseau ni cout (§7.2) : ce que l'audit fait
-   * apres son run (l'accord des boites a l'E7, le diagnostic a l'E5 bis). Sa pose des deux angles se mesure a l'E4 contre le mur
+   * apres son run (l'accord des boites a l'E9, le diagnostic a l'E7). Sa pose des deux angles se mesure a l'E5 contre le mur
    * retenu, sans le changer. Absente : le mode deterministe.
    */
   ia?: RunEnregistre | null;
@@ -139,40 +139,40 @@ interface IaDuRejeu {
   run: RunEnregistre;
   /** La reponse lue (la passe, ou le vote de trois) ; null : aucune passe lisible. */
   reponse: ObservationsFacade | null;
-  /** E4 : la pose de ses deux angles sur l'image prise pour la suite (pixels), et son ecart a la pose retenue, en part de la largeur. */
+  /** E5 : la pose de ses deux angles sur l'image prise pour la suite (pixels), et son ecart a la pose retenue, en part de la largeur. */
   pose: RectIa | null;
   ecart: number | null;
-  /** E7 : ses boites accordees avec la detection. */
+  /** E9 : ses boites accordees avec la detection. */
   accord: AccordIa | null;
 }
 
 /** Les sorties des etapes : chacune ne lit que celles d'avant. */
 interface SortiesFacade {
-  /** E0 : le rapport hauteur sur largeur du plan, et les pointes que le gabarit attend (au-dessus de l'egout). */
+  /** E1 : le rapport hauteur sur largeur du plan, et les pointes que le gabarit attend (au-dessus de l'egout). */
   preparation: { rapport: number; pointes: { u: number; v: number }[] } | null;
-  /** E2 : par rang de photo, la photo redressee entiere (tournee de face par le mur retenu, sans coupe ni echelle) ; null : rien. */
+  /** E3 : par rang de photo, la photo redressee entiere (tournee de face par le mur retenu, sans coupe ni echelle) ; null : rien. */
   vues: (RedressementFuites | null)[] | null;
   /**
-   * E4 : les coins retenus sur chaque photo (par rang) et leur origine, ce qui doute, le mur pose sur l'image prise pour la suite
+   * E5 : les coins retenus sur chaque photo (par rang) et leur origine, ce qui doute, le mur pose sur l'image prise pour la suite
    * (l'assemblage, une photo seule comprise), et ce que ce mur explique de cette image sans le toit (calageAncres.ts).
    */
   calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication } | null;
-  /** E5 : le haut du mur lu, pose sur l'image prise pour la suite par les coins du mur (pixels). */
+  /** E6 : le haut du mur lu, pose sur l'image prise pour la suite par les coins du mur (pixels). */
   silhouette: { points: P2[] } | null;
   /**
-   * E5 : le haut lu ramene au mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic compare au gabarit ; E5 bis : le diagnostic
+   * E6 : le haut lu ramene au mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic compare au gabarit ; E7 : le diagnostic
    * de forme, corps par corps (propositions de toit, alertes de hauteur).
    */
   forme: { lue: { u: number; v: number }[] | null; diagnostic: DiagnosticForme | null } | null;
-  /** E6, E7 : l'analyse du mur. */
+  /** E8, E9 : l'analyse du mur. */
   analyse: AnalyseDuMur | null;
-  /** E6 : la texture sans les ombres de la photo (`illustrer`). */
+  /** E8 : la texture sans les ombres de la photo (`illustrer`). */
   sansOmbres: Image | null;
-  /** E4, E5, E7 : ce que la reponse de Claude donne au rejeu (mode « IA ») ; null en mode deterministe. */
+  /** E5, E6, E9 : ce que la reponse de Claude donne au rejeu (mode « IA ») ; null en mode deterministe. */
   ia: IaDuRejeu | null;
-  /** E2 a E7 : ce que la chaine a rendu, et le releve du mur qui en sort. */
+  /** E3 a E9 : ce que la chaine a rendu, et le releve du mur qui en sort. */
   audit: SortieAudit | null;
-  /** E9 : le bilan de la facade, la Facade que la validation V4 ecrira (lot F5). */
+  /** E11 : le bilan de la facade, la Facade que la validation V4 ecrira (lot F5). */
   facade: BilanFacade | null;
 }
 
@@ -312,7 +312,7 @@ function analyseRetenue(c: ResultatChaine): { a: NonNullable<ResultatChaine['seu
 const resumeFusion = (f: ResultatFusion): NonNullable<AnalyseDuMur['fusion']> => ({ statut: f.statut, vues: f.vues, masque: f.masque, reference: f.reference, occlusion: f.occlusion });
 
 /**
- * E2 : la chaine redresse chaque photo (coins poses au doigt, sinon trouves sur les aretes, sinon reportes, sinon predits par la prise
+ * E3 : la chaine redresse chaque photo (coins poses au doigt, sinon trouves sur les aretes, sinon reportes, sinon predits par la prise
  * de vue), reporte le mur, assemble et analyse en un appel. Le releve du mur s'ecrit ici, sur l'analyse qu'elle a retenue ; les etapes
  * suivantes se lisent sur ce qu'elle a rendu.
  */
@@ -344,7 +344,7 @@ const redressement: Pas = async ({ e, o, s, obj }) => {
   return { etat, resume: `${faites} photo${faites > 1 ? 's' : ''} redressée${faites > 1 ? 's' : ''} sur ${photos.length}` + (echecs.length ? ' : ' + echecs.map(textePhoto).join(' ; ') + '. Posez quatre repères sur la photo qui ne se redresse pas.' : ' : ' + photos.map(textePhoto).join(' ; ') + '.'), verite: null };
 };
 
-/** E3 : les photos redressees assemblees (ou fusionnees), partiellement, ou chacune seule ; une photo seule n'a rien a assembler. */
+/** E4 : les photos redressees assemblees (ou fusionnees), partiellement, ou chacune seule ; une photo seule n'a rien a assembler. */
 const assemblage: Pas = ({ s, obj }) => {
   const b = s.audit?.redressement;
   if (!b) return attend('une photo redressée');
@@ -352,8 +352,8 @@ const assemblage: Pas = ({ s, obj }) => {
   const motif = b.motifFusion ? ' (' + b.motifFusion + ')' : '';
   const reprendre = ' Reprenez la façade avec des chevauchements entre les photos : un tiers de mur en commun.';
   const n = b.photos.length;
-  // L'E3 dit l'assemblage (la mosaique des photos redressees, qui pose le mur) ; la fusion des vues (le recalage, les occultations) se dit
-  // a l'E6. Sans assemblage, la chaine les a fondues directement : c'est bien une fusion.
+  // L'E4 dit l'assemblage (la mosaique des photos redressees, qui pose le mur) ; la fusion des vues (le recalage, les occultations) se dit
+  // a l'E8. Sans assemblage, la chaine les a fondues directement : c'est bien une fusion.
   const asm = !!s.calage?.pose;
   if (b.fusion === 'fusionnee') return { etat: 'ok', resume: asm ? `Assemblée : ${b.fusionnees.length} photos dans une même image.` : `Fusionnée : ${b.fusionnees.length} photos en une image.`, verite: null };
   if (b.fusion === 'partielle') {
@@ -385,7 +385,7 @@ const sc = (x: number) => dec(x, 2);
 const px = (r: { x0: number; x1: number }) => `x de ${Math.round(r.x0)} à ${Math.round(r.x1)} (${Math.round(r.x1 - r.x0)} px)`;
 
 /**
- * E4 : d'ou viennent les coins du mur retenus (poses a la main, trouves sur la photo, sinon predits par la prise de vue), et, sur l'image
+ * E5 : d'ou viennent les coins du mur retenus (poses a la main, trouves sur la photo, sinon predits par la prise de vue), et, sur l'image
  * prise pour la suite, ce que le mur pose explique sans le toit. La verite et la pose de Claude s'y mesurent sans rien changer.
  */
 const calage: Pas = ({ e, o, s, obj }) => {
@@ -434,7 +434,7 @@ function pointesDeLIa(obs: ObservationsFacade, attendues: readonly { u: number; 
 }
 
 /**
- * Ce que la reponse de Claude dit du calage (E4) : sa pose contre la pose retenue (accord sous l'ecart admis, sinon divergence), et ses
+ * Ce que la reponse de Claude dit du calage (E5) : sa pose contre la pose retenue (accord sous l'ecart admis, sinon divergence), et ses
  * pointes contre le gabarit. Une mesure : la pose retenue ne change pas, ni l'etat de l'etape (l'audit ne pose pas le mur par Claude).
  */
 function avisDeLIa(run: RunEnregistre, image: AssemblageDuMur, retenue: RectIa, attendues: readonly { u: number; v: number }[], seuil: number): { sortie: IaDuRejeu; texte: string } {
@@ -465,10 +465,10 @@ function surfaceDeLIa(r: ObservationsFacade): string {
   return ` Parement : ${r.surface.principale}` + (zones.length ? ` ; zones : ${zones.join(', ')}` : '') + '.';
 }
 
-/** E5 : la ligne du haut du mur lue sur la photo (jamais le gabarit) ; hors cadre, la suite garde le gabarit. */
+/** E6 : la ligne du haut du mur lue sur la photo (jamais le gabarit) ; hors cadre, la suite garde le gabarit. */
 const silhouette: Pas = ({ s }) => {
   const m = s.audit?.mesure;
-  if (!m) return attend('le mur posé (É4)');
+  if (!m) return attend('le mur posé (É5)');
   s.forme = { lue: m.hautLu, diagnostic: null };
   // Le haut lu, pose sur l'image prise pour la suite par les coins du mur (il est en parts du mur, comme le gabarit).
   const pose = s.calage?.pose, points = pose && m.hautLu?.length ? gabaritSurLaPhoto(m.hautLu, pose.coins) : null;
@@ -480,7 +480,7 @@ const silhouette: Pas = ({ s }) => {
 
 const MOTS_ELEMENT = { cheminee: 'une cheminée', lucarne: 'une lucarne' } as const;
 
-/** Ce que Claude lit du haut (E5) : le mot, le bout, les elements du toit, les appentis et les corps qu'il voit. */
+/** Ce que Claude lit du haut (E6) : le mot, le bout, les elements du toit, les appentis et les corps qu'il voit. */
 function formeDeLIa(r: ObservationsFacade | null): string {
   if (!r) return '';
   const vus = [
@@ -491,7 +491,7 @@ function formeDeLIa(r: ObservationsFacade | null): string {
   return ` Claude lit : ${r.forme.silhouette === 'indetermine' ? 'un haut qu’il ne lit pas' : libelleSilhouette(r.forme.silhouette)}, bout ${r.forme.bout}` + (vus.length ? ` ; ${vus.join(', ')}` : '') + '.';
 }
 
-/** E6 : la texture du mur (et la bande au-dessus de l'egout) a l'echelle du plan ; la texture sans ombres, pour l'ecran seulement. */
+/** E8 : la texture du mur (et la bande au-dessus de l'egout) a l'echelle du plan ; la texture sans ombres, pour l'ecran seulement. */
 const texture: Pas = ({ e, o, s }) => {
   if (!e.prises.photos.length) return attend('une photo');
   const a = s.analyse;
@@ -512,7 +512,7 @@ function contreLaVerite(vraies: readonly OuvertureVraie[], trouvees: readonly Ou
 
 const ouvertures: Pas = ({ e, o, s, obj }) => {
   const a = s.analyse;
-  if (!a) return attend('le mur redressé (É6)');
+  if (!a) return attend('le mur redressé (É8)');
   const n = a.ouvertures.length, d = a.devinees.length;
   // La reponse de Claude (ce que l'audit fait apres son run, runsFacades.ts) : ses boites accordees avec la detection ; une boite seule
   // reste decochee, et l'etape est a confirmer.
@@ -536,13 +536,13 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
 };
 
 /**
- * E9, la validation (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrira (ses dimensions, sa forme, la pose de sa
+ * E11, la validation (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrira (ses dimensions, sa forme, la pose de sa
  * texture, ses ouvertures avec leur identifiant), le meme pour les deux. La seule difference de sortie est ici : l'audit attend la
  * personne (V4), la calibration montre le bilan sans rien ecrire.
  */
 const validation: Pas = ({ e, o, s }) => {
   const m = s.audit?.mesure;
-  if (!m) return attend('le relevé du mur (É6, É7)');
+  if (!m) return attend('le relevé du mur (É8, É9)');
   // Apres un run de Claude (le mode « IA », ce que l'audit fait apres le sien) : ses pointes, et les ouvertures accordees.
   s.facade = bilanDeLaFacade({
     largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: s.forme?.lue ?? null,
@@ -590,7 +590,7 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
 
 /** L'etape calculee d'un rejeu. */
 export function etapeDe(r: Enchainement, id: IdEtape): EtapeCalculee {
-  return r.etapes.find((x) => x.id === id) ?? { id, etat: 'a-venir', resume: etapeFacade(id).nom + ' : pas encore calculée.', verite: null };
+  return r.etapes.find((x) => x.id === id) ?? { id, etat: 'a-venir', resume: libelleEtape(id) + ' : pas encore calculée.', verite: null };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -656,7 +656,7 @@ export function casApresRejeu<C extends CasReel>(cas: C, r: Enchainement): C {
 }
 
 /**
- * L'option manuelle de l'E4 : le mur pose a la main sur l'image prise pour la suite (ses coins), ramene sur chaque photo de cette image
+ * L'option manuelle de l'E5 : le mur pose a la main sur l'image prise pour la suite (ses coins), ramene sur chaque photo de cette image
  * (image -> vue de face -> photo) et pose comme un mur ajuste a la main. Les autres photos gardent leurs coins.
  */
 export function casCaleALaMain<C extends CasReel>(cas: C, r: Enchainement, coins: readonly P2[]): C {

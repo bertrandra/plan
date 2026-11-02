@@ -6,7 +6,7 @@ import { analyserLeMur } from '../../../../src/facade/analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto } from '../../../../src/facade/gabaritMur.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
 import { EMPREINTE_OBJECTIFS } from '../../../../src/facade/regles/facades/enchainement.js';
-import { ETAPES_FACADE, type IdEtape } from '../../../../src/model/etapeFacade.js';
+import { ETAPES_FACADE, libelleEtape, type IdEtape } from '../../../../src/model/etapeFacade.js';
 import { FORMAT_CAS_REEL, type CasStocke } from '../../../../src/facade/corpusReel.js';
 import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
 import { readFileSync } from 'node:fs';
@@ -58,7 +58,7 @@ describe('l enchainement d une facade', () => {
     expect(etats(r)).toMatchObject({ preparation: 'ok', prises: 'ok', redressement: 'ok', assemblage: 'saute', silhouette: 'ok', texture: 'ok', diagnostic: 'saute', toit: 'saute', validation: 'saute' });
     expect(['ok', 'a-confirmer']).toContain(etapeDe(r, 'calage').etat);
     expect(r.etapes.every((e) => e.resume.length > 10)).toBe(true);
-    // L'E9 (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrirait ; la calibration le montre sans rien ecrire.
+    // L'E11 (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrirait ; la calibration le montre sans rien ecrire.
     const f = r.sorties.facade;
     expect(f?.dimensions).toMatchObject({ largeurM: Math.round(L * 100) / 100, egoutM: Math.round(H * 100) / 100 });
     expect(f?.forme.gabarit).toEqual(GABARIT_RECTANGLE);
@@ -70,13 +70,16 @@ describe('l enchainement d une facade', () => {
     expect(vus.slice(0, 4)).toEqual(['preparation:en-cours', 'preparation:ok', 'prises:en-cours', 'prises:ok']);
     expect(vus.filter((v) => v.endsWith(':en-cours'))).toHaveLength(ETAPES_FACADE.length);
     expect(r.versions).toEqual({ chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS });
+    // Le texte du rejeu nomme chaque etape par son numero, de É1 a É11 (« É5 Calage du mur : … »).
+    expect(r.etapes.map((x) => libelleEtape(x.id))).toEqual(ETAPES_FACADE.map((e, k) => 'É' + (k + 1) + ' ' + e.nom));
+    expect(etapeDe(r, 'calage').resume.length).toBeGreaterThan(0);
     // Les images de chaque etape : la vue redressee, l'assemblage et le mur, le mur retenu, la texture.
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(!!im.vues[0]?.image).toBe(true);
     expect(im.assemblage?.image).toBe(r.sorties.calage?.pose?.image);
     expect(im.pose?.proposees.length).toBe(r.sorties.analyse?.ouvertures.length);
     expect(im.texture?.l).toBeCloseTo(L, 1);
-    // L'E7 montre la facade que lit la detection, entiere : le mur et la bande au-dessus de l'egout (rien n'est coupe a l'egout), la
+    // L'E9 montre la facade que lit la detection, entiere : le mur et la bande au-dessus de l'egout (rien n'est coupe a l'egout), la
     // silhouette du mur dessus (un rectangle ici : son haut a l'egout), les ouvertures a leur place.
     expect(im.facade?.image).toBe(r.sorties.analyse?.facade.image);
     // Le cadre : le mur et 3 % de marge de chaque cote ; le bout gauche du mur a 3 % de la largeur.
@@ -141,7 +144,7 @@ describe('l enchainement d une facade', () => {
     expect(etapeDe(vieille, 'calage').verite?.texte).toMatch(new RegExp(`chaîne ${VERSION_CHAINE_FACADES - 1}, celle-ci est la ${VERSION_CHAINE_FACADES}`));
   }, 60_000);
 
-  it('dit a l E4 qu un mur pose a la main de travers n explique pas la photo, et la verite le dit faux (AE 101 en synthese)', async () => {
+  it('dit a l E5 qu un mur pose a la main de travers n explique pas la photo, et la verite le dit faux (AE 101 en synthese)', async () => {
     const etalon = lireEtalon(JSON.parse(readFileSync('tests/fixtures/facades-reel/etalons/ae101-sud.json', 'utf8')));
     const leurre = [{ x: 451, y: 220 }, { x: 752, y: 220 }, { x: 752, y: 301 }, { x: 451, y: 301 }];
     const sc = sceneAe101(etalon, 'buisson');
@@ -153,7 +156,7 @@ describe('l enchainement d une facade', () => {
     expect(e.verite?.juste).toBe(false);
   }, 120_000);
 
-  it('E5 bis et E8 (lot F4) : sur AE 101 sud, le pignon est que le LiDAR du soir a perdu, propose sur le corps principal, a confirmer', async () => {
+  it('E7 et E10 (lot F4) : sur AE 101 sud, le pignon est que le LiDAR du soir a perdu, propose sur le corps principal, a confirmer', async () => {
     const etalon = lireEtalon(JSON.parse(readFileSync('tests/fixtures/facades-reel/etalons/ae101-sud.json', 'utf8')));
     const soir = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101-lidar-soir.json', 'utf8')) as { contour: PtBrut[]; grille: Grille };
     const corps = reconstruireCorps(toitMesureDepuisGrille(soir.grille as never, soir.contour)!, soir.contour, { grille: soir.grille })!;
@@ -214,7 +217,7 @@ describe('le cas de calibration dans l enchainement', () => {
   }, 60_000);
 });
 
-describe('« Ajuster l’égout et le sol » depuis les reperes de la calibration : sur l assemblage, comme a l E4', () => {
+describe('« Ajuster l’égout et le sol » depuis les reperes de la calibration : sur l assemblage, comme a l E5', () => {
   it('avec deux vues : l assemblage du rejeu, son mur, et le meme chemin vers les photos que le calage a la main', async () => {
     const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
     if (!s) throw new Error('scene absente');
@@ -259,7 +262,7 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
   const sortie = sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine) as { calage: { angles: Record<string, { x: number }> } };
   const cas = casDe(L, H, vrais, ph.focalePx, { ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
 
-  it('pose candidate a l E4 (accord), boites accordees a l E7, version et cout dits', async () => {
+  it('pose candidate a l E5 (accord), boites accordees a l E9, version et cout dits', async () => {
     const r = await derouler(entreesDuCas(cas, [ph.image]), { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
     expect(etapeDe(r, 'calage').resume).toMatch(/IA \(réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0011 \$\) : ses angles posent le mur .* accord/);
     expect(etapeDe(r, 'silhouette').resume).toMatch(/Claude lit : ligne droite/);
@@ -272,7 +275,7 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     expect(im.ia?.boites.filter((b) => !b.cochee)).toHaveLength(1);
   }, 60_000);
 
-  it('dit la divergence quand ses angles tombent loin du mur retenu, sans changer le mur ni l etat de l E4', async () => {
+  it('dit la divergence quand ses angles tombent loin du mur retenu, sans changer le mur ni l etat de l E5', async () => {
     const loin = JSON.parse(JSON.stringify(sortie)) as typeof sortie;
     for (const a of Object.values(loin.calage.angles)) a.x += 0.1;
     const r = await derouler(entreesDuCas(cas, [ph.image]), { ...CAL, ia: run(loin) });

@@ -12,7 +12,7 @@ import { lireObservationsFacade, type RunEnregistre } from '../../../../../src/r
 import { facadesDuContour } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, ObjetPlan, OuvertureFacade, PtBrut, ReleveFacade, ToitMesure } from '../../../../../src/model/types.js';
 
-// Les elements decouverts dans l'audit (MD/spec-facade-calage-audit.md §4 E8, §5 quater ; lot F7) : une cheminee et une lucarne lues
+// Les elements decouverts dans l'audit (MD/spec-facade-calage-audit.md §4 E10, §5 quater ; lot F7) : une cheminee et une lucarne lues
 // sur la ligne du haut de la facade sud, proposees decochees sur le corps de ce mur, posees par le moteur une fois cochees ; ce qui
 // est deja pose ne bouge pas ; la fenetre de la lucarne n'est jamais a la fois dans la facade objet et dans le toit.
 

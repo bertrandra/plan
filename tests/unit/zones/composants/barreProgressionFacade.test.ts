@@ -38,13 +38,13 @@ describe('la barre de progression de la facade', () => {
     expect(segments).toHaveLength(8);
     expect(segments.map((s) => s.className.replace('barreFacadeSegment ', '').replace(' courant', ''))).toEqual(['ok', 'a-confirmer', 'echec', 'a-venir', 'a-venir', 'a-venir', 'a-venir', 'a-venir']);
     const boutons = [...hote.querySelectorAll('button[data-commande="facade.etape"]')];
-    expect(boutons.map((b) => b.getAttribute('aria-label'))[2]).toBe('Étape 3 sur 8, Mur, en échec, point de validation V1');
+    expect(boutons.map((b) => b.getAttribute('aria-label'))[2]).toBe('É5 Mur, en échec, point de validation V1');
     // Une forme par etat : la coche, le point d'exclamation, la croix ; un segment a venir n'a qu'une pastille.
     expect(segments[0]?.querySelector('svg')).not.toBeNull();
     expect(segments[5]?.querySelector('.barreFacadePastille')).not.toBeNull();
     // Le segment courant au repos : le premier qui demande un geste.
     expect(segments.findIndex((s) => s.getAttribute('aria-current') === 'step')).toBe(1);
-    expect(hote.querySelector('.barreFacadeRuban')?.textContent).toBe('2 sur 8 · Image · à confirmer');
+    expect(hote.querySelector('.barreFacadeRuban')?.textContent).toBe('É3–É4 · Image · à confirmer');
   });
 
   it('ouvre une etape par la commande, et dit pourquoi elle echoue avec son geste de repli', () => {
@@ -53,7 +53,7 @@ describe('la barre de progression de la facade', () => {
     expect(ouvertes).toEqual(['calage']);
     monter({ ouverte: 'calage' as IdEtape });
     const lignes = [...hote.querySelectorAll('.barreFacadeLigne')].map((p) => p.textContent);
-    expect(lignes[0]).toBe('Mur : calage du mur, en échec');
+    expect(lignes[0]).toBe('É5 Calage du mur (Mur), en échec');
     expect(lignes[1]).toMatch(/^Aucun mur sur l’assemblage\. À la main : tirer les bouts, l’égout et le sol\.$/);
   });
 
@@ -62,7 +62,7 @@ describe('la barre de progression de la facade', () => {
     monter({ enCours: 'calage', arreter, etapes: etapes.slice(0, 4) });
     const courant = hote.querySelector('li[aria-current="step"]');
     expect(courant?.className).toContain('en-cours');
-    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toBe('Mur : calage du mur, en cours…');
+    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toBe('É5 Calage du mur (Mur), en cours…');
     act(() => { (hote.querySelector('[data-controle="barreFacade.arreter"]') as HTMLButtonElement).click(); });
     expect(arreter).toHaveBeenCalledTimes(1);
   });

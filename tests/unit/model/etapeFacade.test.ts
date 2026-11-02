@@ -4,8 +4,8 @@ import { ETAPES_FACADE, SEGMENTS_FACADE, etapeFacade, etatDuSegment } from '../.
 // Le contrat des etapes de l'enchainement d'une facade (model/etapeFacade.ts, MD/spec-facade-calage-audit.md §4 ter).
 
 describe('les etapes d une facade', () => {
-  it('suivent le tableau E0 a E9, chacune une fois, avec son contrat', () => {
-    expect(ETAPES_FACADE.map((e) => e.numero)).toEqual(['É0', 'É1', 'É2', 'É3', 'É4', 'É5', 'É5 bis', 'É6', 'É7', 'É8', 'É9']);
+  it('suivent le tableau E1 a E11, chacune une fois, avec son contrat', () => {
+    expect(ETAPES_FACADE.map((e) => e.numero)).toEqual(['É1', 'É2', 'É3', 'É4', 'É5', 'É6', 'É7', 'É8', 'É9', 'É10', 'É11']);
     expect(new Set(ETAPES_FACADE.map((e) => e.id)).size).toBe(ETAPES_FACADE.length);
     for (const e of ETAPES_FACADE) for (const t of [e.nom, e.entrant, e.action, e.objectif, e.sortant]) expect(t.length, e.id).toBeGreaterThan(3);
     // Les quatre points de validation de l'audit (§4 ter.3), chacun sur son etape.

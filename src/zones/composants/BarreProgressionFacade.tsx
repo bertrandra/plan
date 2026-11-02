@@ -5,9 +5,10 @@
 // Huit segments, chacun le pire etat de ses etapes ; chaque etat a une forme (coche, point d'exclamation, croix, tiret) et un mot,
 // pas seulement une couleur. Un segment ouvrable est un bouton lie a la commande `facade.etape` (son etape dans `data-etape`) : la
 // calibration les ouvre tous, l'audit seulement les points de validation et ce qui doute. Sous la barre, deux lignes : l'etape en
-// cours (ou ouverte), et le resultat de la derniere etape finie. Au telephone, un fin ruban et « 3 sur 8 · Mur ».
+// cours (ou ouverte), et le resultat de la derniere etape finie. Au telephone, un fin ruban et « E5 · Mur ». Les
+// etapes et les segments se disent par les numeros des etapes (E1 a E11), la poignee que le proprietaire emploie.
 
-import { SEGMENTS_FACADE, etapeFacade, etatDuSegment, LIBELLES_ETAT, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../model/etapeFacade.js';
+import { SEGMENTS_FACADE, etapeFacade, etatDuSegment, libelleEtape, numerosDuSegment, LIBELLES_ETAT, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../model/etapeFacade.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { EtapeCalculee } from '../../facade/releve/enchainement.js';
 import { Icone, type NomIcone } from '../icones.js';
@@ -49,14 +50,15 @@ const segmentDe = (id: IdEtape): SegmentFacade | undefined => SEGMENTS_FACADE.fi
 function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouverte: IdEtape | null): [string, string] {
   const finies = etapes.filter((e) => e.etat !== 'a-venir' && e.etat !== 'en-cours' && e.etat !== 'saute');
   const derniere = finies[finies.length - 1];
-  if (enCours) return [`${segmentDe(enCours)?.nom ?? etapeFacade(enCours).nom} : ${etapeFacade(enCours).nom.toLowerCase()}, en cours…`, derniere ? derniere.resume : ''];
+  // Chaque etape se dit par son numero (E5 Calage du mur) : la poignee que le proprietaire emploie.
+  if (enCours) return [`${libelleEtape(enCours)} (${segmentDe(enCours)?.nom ?? etapeFacade(enCours).nom}), en cours…`, derniere ? libelleEtape(derniere.id) + ' : ' + derniere.resume : ''];
   if (ouverte) {
     const e = etapes.find((x) => x.id === ouverte), def = etapeFacade(ouverte);
     const repli = e && (e.etat === 'echec' || e.etat === 'a-confirmer') && def.optionManuelle ? ' À la main : ' + def.optionManuelle + '.' : '';
-    return [`${segmentDe(ouverte)?.nom ?? def.nom} : ${def.nom.toLowerCase()}, ${LIBELLES_ETAT[e?.etat ?? 'a-venir']}`, (e?.resume ?? '') + repli];
+    return [`${libelleEtape(ouverte)} (${segmentDe(ouverte)?.nom ?? def.nom}), ${LIBELLES_ETAT[e?.etat ?? 'a-venir']}`, (e?.resume ?? '') + repli];
   }
   if (!derniere) return ['Rien n’est encore calculé.', ''];
-  return [etapes.some((e) => e.etat === 'a-venir') ? 'Enchaînement arrêté.' : 'Enchaînement terminé.', derniere.resume];
+  return [etapes.some((e) => e.etat === 'a-venir') ? 'Enchaînement arrêté.' : 'Enchaînement terminé.', libelleEtape(derniere.id) + ' : ' + derniere.resume];
 }
 
 /**
@@ -87,10 +89,11 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
         <ol className="barreFacadeSegments">
           {SEGMENTS_FACADE.map((s, k) => {
             const etat = etats[k] as EtatAffiche, icone = ICONES[etat];
-            const texte = `Étape ${s.numero} sur ${SEGMENTS_FACADE.length}, ${s.nom}, ${LIBELLES_ETAT[etat]}` + (s.validation ? ', point de validation ' + s.validation : '');
+            // Le segment se dit par les numeros de ses etapes (E3-E4 Image) : dans l'audit, une etape cachee garde le sien.
+            const texte = `${numerosDuSegment(s)} ${s.nom}, ${LIBELLES_ETAT[etat]}` + (s.validation ? ', point de validation ' + s.validation : '');
             const contenu = <>
               <span className="barreFacadeTrait" aria-hidden="true" />
-              <span className="barreFacadeEtiquette" aria-hidden="true">{icone ? <Icone nom={icone} taille={14} /> : <span className="barreFacadePastille" />}{s.numero} · {s.nom}{s.validation && <span className="barreFacadeRepere">{s.validation}</span>}</span>
+              <span className="barreFacadeEtiquette" aria-hidden="true">{icone ? <Icone nom={icone} taille={14} /> : <span className="barreFacadePastille" />}{numerosDuSegment(s)} · {s.nom}{s.validation && <span className="barreFacadeRepere">{s.validation}</span>}</span>
             </>;
             const bouton = !efface && ouvrable(s, etat);
             return (
@@ -105,7 +108,7 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
         </ol>
         {enCours && arreter && <button type="button" className="secondary small barreFacadeArreter" data-controle="barreFacade.arreter" onClick={arreter}>Arrêter</button>}
       </div>
-      <p className="barreFacadeRuban" aria-hidden="true">{seg.numero} sur {SEGMENTS_FACADE.length} · {seg.nom} · {LIBELLES_ETAT[etats[courant] as EtatAffiche]}</p>
+      <p className="barreFacadeRuban" aria-hidden="true">{numerosDuSegment(seg)} · {seg.nom} · {LIBELLES_ETAT[etats[courant] as EtatAffiche]}</p>
       <p className="barreFacadeLigne" role="status">{haut}</p>
       {bas && <p className="barreFacadeLigne resultat">{bas}</p>}
     </div>

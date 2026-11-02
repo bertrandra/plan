@@ -1,9 +1,9 @@
-// Le bilan d'une facade (MD/spec-facade-calage-audit.md §4 E9, lot F5) : la Facade que la validation V4 ecrira, tiree de ce que les
+// Le bilan d'une facade (MD/spec-facade-calage-audit.md §4 E11, lot F5) : la Facade que la validation V4 ecrira, tiree de ce que les
 // etapes ont rendu. Les dimensions viennent du plan et du LiDAR (decision 1), la photo n'en dit que l'ecart ; la forme est le
 // gabarit du toit calcule, et ce que la photo en lit (le mot, les pointes, les corps que la facade porte) ; la pose de la texture dit
 // ou est le mur sur l'image calee ; les ouvertures sont celles du releve, chacune avec son identifiant.
 //
-// Pur : l'orchestrateur (enchainement.ts) l'appelle a l'E9, l'audit l'ecrit a la validation V4 (app/audit/parcelle/facadeValidee.ts).
+// Pur : l'orchestrateur (enchainement.ts) l'appelle a l'E11, l'audit l'ecrit a la validation V4 (app/audit/parcelle/facadeValidee.ts).
 
 import { pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
 import { numeroterOuvertures } from '../../model/facadeObjet.js';
@@ -24,11 +24,11 @@ interface EntreesBilan {
   largeurM: number;
   hauteurM: number;
   gabarit: GabaritMur;
-  /** Le mot lu sur la photo (E5) ; null ou `indetermine` quand le haut ne se lit pas. */
+  /** Le mot lu sur la photo (E6) ; null ou `indetermine` quand le haut ne se lit pas. */
   silhouette: SilhouetteFacade | null;
-  /** Le haut du mur lu sur la photo, en parts du mur et de l'egout (E5). */
+  /** Le haut du mur lu sur la photo, en parts du mur et de l'egout (E6). */
   hautLu: readonly { u: number; v: number }[] | null;
-  /** Le diagnostic de forme (E5 bis) : ses troncons disent les corps que la facade porte. */
+  /** Le diagnostic de forme (E7) : ses troncons disent les corps que la facade porte. */
   diagnostic: DiagnosticForme | null;
   /** Les pointes que Claude voit (le mode « IA » de la calibration). */
   pointesIa?: readonly { u: number; v: number }[] | null;

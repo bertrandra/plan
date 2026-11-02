@@ -426,14 +426,14 @@ son schéma et sa table de versions dans `versions.ts`, générés comme ceux du
 
 ### 5.1 Une façade (L1, L2) : rien de plus à faire pour la personne
 
-1. La prise, le redressement, l'assemblage, le calage : inchangés (enchaînement É0 à É9).
+1. La prise, le redressement, l'assemblage, le calage : inchangés (enchaînement É1 à É11).
 2. **Le run** part comme aujourd'hui (trois passes votées) avec le schéma élargi. Le vote (`voterObservations`) s'étend aux champs nouveaux :
    la médiane des positions, le mot de la majorité, l'`indetermine` quand aucune majorité.
 3. **Les règles** (`facade/regles/facades/ia.ts` et un module par famille : `menuiseries.ts`, `modenature.ts`, `saillies.ts`, `etat.ts`) font
    des observations des décisions : une couleur lue par deux passes sur trois devient une proposition ; un garde-corps n'est proposé que sur une
    ouverture retenue ; une saillie n'est proposée que si son étendue tombe dans un tronçon de corps (F4) ; une descente n'est proposée que si
    la détection voit une verticale à ce `u`.
-4. **L'É7 et l'É9** montrent les détails des ouvertures (couleur, matière, garde-corps) ; l'**É8** montre les saillies, les décrochés et le
+4. **L'É9 et l'É11** montrent les détails des ouvertures (couleur, matière, garde-corps) ; l'**É10** montre les saillies, les décrochés et le
    toit (L2) comme propositions de corps ; une ligne « Signalé par Claude » dit l'état du bâti, sans case.
 5. **La validation V4** écrit les détails cochés dans la façade objet et la Façade, en une étape d'historique ; les propositions de corps
    passent par l'avant/après et le moteur.

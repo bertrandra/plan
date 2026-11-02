@@ -584,7 +584,7 @@ export function matiereDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs
  * rangee de mur sous le toit, le sol la derniere au-dessus de ce qui n'est plus le mur (le gazon, le trottoir), cherche pres de la
  * hauteur que donne le plan (`rapport`) ; un bord trouve se colle a l'arete horizontale la plus proche. Un sol cache (haie sur toute
  * la largeur) tombe a la hauteur du plan, et se dit suppose. La silhouette rendue est celle lue sur l'image : le gabarit du plan et du
- * LiDAR ne pose pas le mur, il ne se pose qu'une fois le mur cale (MD/spec-facade-calage-audit.md §4 E4).
+ * LiDAR ne pose pas le mur, il ne se pose qu'une fois le mur cale (MD/spec-facade-calage-audit.md §4 E5).
  */
 export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null): MurLu {
   const w = r.x1 - r.x0, H = m.image.hauteur;

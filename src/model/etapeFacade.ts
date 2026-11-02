@@ -5,7 +5,7 @@
 //
 // L'etat est derive (comme le bilan du redressement) : il se recalcule a chaque rejeu, il n'est jamais enregistre comme verite.
 
-/** Les etapes, dans l'ordre du tableau §4 ter.2 (E0 a E9). */
+/** Les etapes, dans l'ordre du tableau §4 ter.2 (E1 a E11). */
 export type IdEtape =
   | 'preparation' | 'prises' | 'redressement' | 'assemblage' | 'calage'
   | 'silhouette' | 'diagnostic' | 'texture' | 'ouvertures' | 'toit' | 'validation';
@@ -28,7 +28,7 @@ export type PointValidation = 'V1' | 'V2' | 'V3' | 'V4';
 /** Le contrat d'une etape (§4 ter.1). Des phrases pour les personnes ; les objectifs chiffres sont des reglages (regles/facades/enchainement.json). */
 export interface EtapeFacade {
   id: IdEtape;
-  /** E0 a E9, comme la spec les nomme. */
+  /** E1 a E11, comme la spec les nomme. */
   numero: string;
   nom: string;
   entrant: string;
@@ -43,18 +43,33 @@ export interface EtapeFacade {
 }
 
 export const ETAPES_FACADE: readonly EtapeFacade[] = [
-  { id: 'preparation', numero: 'É0', nom: 'Préparation', entrant: 'le contour, les corps du toit, le LiDAR, le cadastre', action: 'les dimensions, le gabarit, le rapport hauteur sur largeur, les pointes attendues', objectif: 'un gabarit existe (un rectangle sinon)', sortant: 'les dimensions et le gabarit', optionManuelle: null, modeAudit: 'cache', validation: null},
-  { id: 'prises', numero: 'É1', nom: 'Prises', entrant: 'le côté choisi, le téléphone', action: 'la prise, située quand le téléphone le permet', objectif: 'au moins une photo du mur', sortant: 'les photos', optionManuelle: 'ajouter, retirer ou refaire une photo', modeAudit: 'valider', validation: null},
-  { id: 'redressement', numero: 'É2', nom: 'Redressement', entrant: 'les photos, les repères posés', action: 'chaque photo redressée entière, par ses repères, sinon par ses points de fuite', objectif: 'chaque photo redressée', sortant: 'les vues de face', optionManuelle: 'poser quatre repères (un rectangle du mur)', modeAudit: 'cache', validation: null},
-  { id: 'assemblage', numero: 'É3', nom: 'Assemblage', entrant: 'les vues de face', action: 'les vues assemblées (ORB et RANSAC de similitude)', objectif: 'toutes les vues assemblées', sortant: 'l’assemblage et ce qu’il montre', optionManuelle: 'retirer une photo, ou en prendre une autre qui recoupe le mur', modeAudit: 'cache', validation: null},
-  { id: 'calage', numero: 'É4', nom: 'Calage du mur', entrant: 'l’assemblage, le rapport du plan', action: 'les bouts, l’égout et le sol, par les arêtes puis la teinte du mur, jugés sans le toit (les angles, l’égout, le sol) ; une autre pose qui explique mieux la photo, sinon celle du plan seul, supposée ; les coins reportés sur chaque photo', objectif: 'une pose qui explique la photo (score d’explication et chaque angle au seuil) ; bouts, égout et sol à 3 % de la largeur contre la vérité', sortant: 'le mur sur l’assemblage', optionManuelle: 'tirer les bouts, l’égout et le sol', modeAudit: 'resume', validation: 'V1'},
-  { id: 'silhouette', numero: 'É5', nom: 'Silhouette lue', entrant: 'l’assemblage calé', action: 'le haut du mur lu à la teinte, entre les bouts retenus', objectif: 'la silhouette lue sur au moins la moitié des colonnes', sortant: 'la silhouette lue', optionManuelle: 'désigner les pointes sur l’image', modeAudit: 'cache', validation: null},
-  { id: 'diagnostic', numero: 'É5 bis', nom: 'Diagnostic de forme', entrant: 'la silhouette lue, le gabarit, les corps du toit, la lecture de Claude', action: 'les variantes du toit de chaque corps (un pignon de plus, de moins, déplacé, une croupe), faites par le moteur des toits', objectif: 'une proposition n’existe que si elle explique mieux l’image', sortant: 'les propositions de toit, les alertes de hauteur', optionManuelle: 'cocher ou décocher, ouvrir le Mode Toit', modeAudit: 'valider', validation: 'V2'},
-  { id: 'texture', numero: 'É6', nom: 'Texture', entrant: 'l’assemblage calé', action: 'l’élévation calée, la fusion des vues, la version sans ombres', objectif: 'une texture posée sur le mur', sortant: 'la texture et la bande au-dessus de l’égout', optionManuelle: 'recadrer, activer ou non « sans ombres »', modeAudit: 'cache', validation: null},
-  { id: 'ouvertures', numero: 'É7', nom: 'Ouvertures', entrant: 'l’assemblage calé', action: 'la détection, la structure, le vote entre les vues', objectif: 'aucune ouverture seulement devinée (rappel, précision et cotes contre la vérité)', sortant: 'les ouvertures', optionManuelle: 'ajouter, retirer, déplacer, redimensionner', modeAudit: 'resume', validation: 'V3'},
-  { id: 'toit', numero: 'É8', nom: 'Toit', entrant: 'les propositions confirmées', action: 'les observations du moteur, sur le corps concerné', objectif: 'observation acceptée, hauteurs du LiDAR inchangées', sortant: 'le toit ajusté par le moteur', optionManuelle: 'le Mode Toit', modeAudit: 'valider', validation: null},
-  { id: 'validation', numero: 'É9', nom: 'Validation', entrant: 'tout ce qui précède', action: 'le bilan de la façade : ses dimensions, sa forme, la pose de sa texture, ses ouvertures', objectif: 'la personne a validé, en une étape d’historique', sortant: 'la Façade écrite (dimensions, forme, texture calée, ouvertures vérifiées)', optionManuelle: 'corriger n’importe quel sortant', modeAudit: 'valider', validation: 'V4'},
+  { id: 'preparation', numero: 'É1', nom: 'Préparation', entrant: 'le contour, les corps du toit, le LiDAR, le cadastre', action: 'les dimensions, le gabarit, le rapport hauteur sur largeur, les pointes attendues', objectif: 'un gabarit existe (un rectangle sinon)', sortant: 'les dimensions et le gabarit', optionManuelle: null, modeAudit: 'cache', validation: null},
+  { id: 'prises', numero: 'É2', nom: 'Prises', entrant: 'le côté choisi, le téléphone', action: 'la prise, située quand le téléphone le permet', objectif: 'au moins une photo du mur', sortant: 'les photos', optionManuelle: 'ajouter, retirer ou refaire une photo', modeAudit: 'valider', validation: null},
+  { id: 'redressement', numero: 'É3', nom: 'Redressement', entrant: 'les photos, les repères posés', action: 'chaque photo redressée entière, par ses repères, sinon par ses points de fuite', objectif: 'chaque photo redressée', sortant: 'les vues de face', optionManuelle: 'poser quatre repères (un rectangle du mur)', modeAudit: 'cache', validation: null},
+  { id: 'assemblage', numero: 'É4', nom: 'Assemblage', entrant: 'les vues de face', action: 'les vues assemblées (ORB et RANSAC de similitude)', objectif: 'toutes les vues assemblées', sortant: 'l’assemblage et ce qu’il montre', optionManuelle: 'retirer une photo, ou en prendre une autre qui recoupe le mur', modeAudit: 'cache', validation: null},
+  { id: 'calage', numero: 'É5', nom: 'Calage du mur', entrant: 'l’assemblage, le rapport du plan', action: 'les bouts, l’égout et le sol, par les arêtes puis la teinte du mur, jugés sans le toit (les angles, l’égout, le sol) ; une autre pose qui explique mieux la photo, sinon celle du plan seul, supposée ; les coins reportés sur chaque photo', objectif: 'une pose qui explique la photo (score d’explication et chaque angle au seuil) ; bouts, égout et sol à 3 % de la largeur contre la vérité', sortant: 'le mur sur l’assemblage', optionManuelle: 'tirer les bouts, l’égout et le sol', modeAudit: 'resume', validation: 'V1'},
+  { id: 'silhouette', numero: 'É6', nom: 'Silhouette lue', entrant: 'l’assemblage calé', action: 'le haut du mur lu à la teinte, entre les bouts retenus', objectif: 'la silhouette lue sur au moins la moitié des colonnes', sortant: 'la silhouette lue', optionManuelle: 'désigner les pointes sur l’image', modeAudit: 'cache', validation: null},
+  { id: 'diagnostic', numero: 'É7', nom: 'Diagnostic de forme', entrant: 'la silhouette lue, le gabarit, les corps du toit, la lecture de Claude', action: 'les variantes du toit de chaque corps (un pignon de plus, de moins, déplacé, une croupe), faites par le moteur des toits', objectif: 'une proposition n’existe que si elle explique mieux l’image', sortant: 'les propositions de toit, les alertes de hauteur', optionManuelle: 'cocher ou décocher, ouvrir le Mode Toit', modeAudit: 'valider', validation: 'V2'},
+  { id: 'texture', numero: 'É8', nom: 'Texture', entrant: 'l’assemblage calé', action: 'l’élévation calée, la fusion des vues, la version sans ombres', objectif: 'une texture posée sur le mur', sortant: 'la texture et la bande au-dessus de l’égout', optionManuelle: 'recadrer, activer ou non « sans ombres »', modeAudit: 'cache', validation: null},
+  { id: 'ouvertures', numero: 'É9', nom: 'Ouvertures', entrant: 'l’assemblage calé', action: 'la détection, la structure, le vote entre les vues', objectif: 'aucune ouverture seulement devinée (rappel, précision et cotes contre la vérité)', sortant: 'les ouvertures', optionManuelle: 'ajouter, retirer, déplacer, redimensionner', modeAudit: 'resume', validation: 'V3'},
+  { id: 'toit', numero: 'É10', nom: 'Toit', entrant: 'les propositions confirmées', action: 'les observations du moteur, sur le corps concerné', objectif: 'observation acceptée, hauteurs du LiDAR inchangées', sortant: 'le toit ajusté par le moteur', optionManuelle: 'le Mode Toit', modeAudit: 'valider', validation: null},
+  { id: 'validation', numero: 'É11', nom: 'Validation', entrant: 'tout ce qui précède', action: 'le bilan de la façade : ses dimensions, sa forme, la pose de sa texture, ses ouvertures', objectif: 'la personne a validé, en une étape d’historique', sortant: 'la Façade écrite (dimensions, forme, texture calée, ouvertures vérifiées)', optionManuelle: 'corriger n’importe quel sortant', modeAudit: 'valider', validation: 'V4'},
 ];
+
+/**
+ * Le nom d'une etape tel que l'orchestrateur et les ecrans le disent, et que le proprietaire l'emploie dans ses demandes : son numero
+ * puis son nom (E5 Calage du mur, avec son accent a l'ecran). Le numero est la poignee stable d'une etape : une etape cachee dans l'audit garde le sien.
+ */
+export function libelleEtape(id: IdEtape): string {
+  const e = etapeFacade(id);
+  return e.numero + ' ' + e.nom;
+}
+
+/** Les numeros des etapes d'un segment de la barre : E5, ou E3-E4 quand il en regroupe plusieurs. */
+export function numerosDuSegment(s: Pick<SegmentFacade, 'etapes'>): string {
+  const n = s.etapes.map((id) => etapeFacade(id).numero);
+  return n.length > 1 ? n[0] + '–' + n[n.length - 1] : n[0] ?? '';
+}
 
 /** Le contrat d'une etape. */
 export function etapeFacade(id: IdEtape): EtapeFacade {
@@ -63,7 +78,7 @@ export function etapeFacade(id: IdEtape): EtapeFacade {
   return e;
 }
 
-/** Un segment de la barre de progression (§4 ter.5) : des etapes regroupees pour rester lisible. E0, instantanee, n'en a pas. */
+/** Un segment de la barre de progression (§4 ter.5) : des etapes regroupees pour rester lisible. E1, instantanee, n'en a pas. */
 export interface SegmentFacade { numero: number; nom: string; etapes: readonly IdEtape[]; validation: PointValidation | null }
 
 export const SEGMENTS_FACADE: readonly SegmentFacade[] = [

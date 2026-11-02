@@ -334,13 +334,13 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p, coins, murALaMain: true }; delete q.silhouette; return q; }) }));
     setOrigines((o) => ({ ...o, [courante]: 'main' })); oublier();
   };
-  // Le mur ajuste a la main sur l'assemblage du rejeu (depuis les reperes) : pose sur chaque photo assemblee, comme a l'E4.
+  // Le mur ajuste a la main sur l'assemblage du rejeu (depuis les reperes) : pose sur chaque photo assemblee, comme a l'E5.
   const murAssemble = (parPhoto: Map<number, P2[]>) => {
     modifier((c) => casAvecLeMur(c, parPhoto));
     setOrigines((o) => ({ ...o, ...Object.fromEntries([...parPhoto.keys()].map((i) => [i, 'main' as const])) })); oublier();
   };
-  // L'option manuelle de l'E4 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue entier : comme dans
-  // l'audit, un mur pose a la main est une entree de la chaine, qui redresse et assemble a l'E2.
+  // L'option manuelle de l'E5 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue entier : comme dans
+  // l'audit, un mur pose a la main est une entree de la chaine, qui redresse et assemble a l'E3.
   const caler = (coins: P2[]) => { if (!rejeu) return; const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c); };
   // « Rappeler Claude » : le run sur l'image prise pour la suite par le rejeu (ce qu'elle ne montre pas en gris), enregistre avec le cas,
   // puis rejoue en IA.

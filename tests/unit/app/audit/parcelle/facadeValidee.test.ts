@@ -13,7 +13,7 @@ import type { EtatApp } from '../../../../../src/core/state.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { CorpsToit, ObjetAPlat, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
-// La validation d'une facade dans l'audit (V4, MD/spec-facade-calage-audit.md §4 E9, lot F5) : le bilan de la facade (E9) s'ecrit
+// La validation d'une facade dans l'audit (V4, MD/spec-facade-calage-audit.md §4 E11, lot F5) : le bilan de la facade (E11) s'ecrit
 // dans le projet d'un geste, en un pas d'historique ; ses ouvertures, verifiees, ne bougent plus a un rejeu. La photo de synthese et
 // le montage sont ceux de facadesAutomatiques.test.ts.
 
@@ -77,7 +77,7 @@ describe('la validation d une facade (V4)', () => {
     const t = monter();
     await t.v.lancer();
     const m = t.v.mesuresFaites().get('maison#0');
-    // L'E9 attend la personne : le bilan est la, rien n'est encore ecrit de la Facade.
+    // L'E11 attend la personne : le bilan est la, rien n'est encore ecrit de la Facade.
     expect(m?.etapes?.find((e) => e.id === 'validation')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/^Mur de 10 × .* Validez la façade pour l’écrire dans le projet \(V4\)\.$/) });
     expect(m?.facade?.ouvertures.length).toBe(m?.releve?.ouvertures.length);
     expect(t.maison().batiment?.facades?.[0]?.dimensions).toBeUndefined();
@@ -94,7 +94,7 @@ describe('la validation d une facade (V4)', () => {
     expect(r?.ouvertures.map((o) => o.id)).toEqual(r?.ouvertures.map((_, i) => 'o' + (i + 1)));
     expect(r?.ouvertures.every((o) => o.verifieeLe === '2026-10-13')).toBe(true);
     expect(schemaMinimal(serializeObjects(t.etat.objects) as unknown as ObjetAPlat[])).toBe(7);
-    // La barre dit l'E9 faite ; Ctrl+Z defait la validation d'un coup.
+    // La barre dit l'E11 faite ; Ctrl+Z defait la validation d'un coup.
     expect(t.v.facadeValidee('maison', 0)).toBe(r);
     expect(etapesApresValidation(m?.etapes ?? [], r ?? null).find((e) => e.id === 'validation')?.etat).toBe('ok');
     expect(t.messages.at(-1)).toMatch(/^Façade validée : \d+ ouvertures? vérifiées?, dimensions, forme et texture écrites dans le projet\. Ctrl\+Z la défait\.$/);

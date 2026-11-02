@@ -384,7 +384,7 @@ function declarerEscaladeFacade(cmd: RegistreCommandes, signaler: (m: string) =>
 }
 
 /**
- * La validation d'une facade (V4, MD/spec-facade-calage-audit.md §4 E9, lot F5) : le bouton sous la barre de la facade (`data-facade`)
+ * La validation d'une facade (V4, MD/spec-facade-calage-audit.md §4 E11, lot F5) : le bouton sous la barre de la facade (`data-facade`)
  * ecrit sa Facade dans le projet, en un pas d'historique (Ctrl+Z la defait). Grisee sur un audit relu en lecture seule (l'avant/apres
  * de l'admin) : il ne s'ecrit rien.
  */

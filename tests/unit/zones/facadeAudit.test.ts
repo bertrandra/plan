@@ -67,7 +67,7 @@ describe('une facade dans l audit discret', () => {
   it('montre la barre de la calibration, et rien des etapes cachees qui ont reussi : le mur et les ouvertures en une ligne', () => {
     monter(session(OK));
     expect(hote.querySelectorAll('.barreFacade .barreFacadeSegment')).toHaveLength(8);
-    expect(lignes()).toEqual(['faite Mur posé : Coins du mur trouvés sur la photo.', 'faite Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
+    expect(lignes()).toEqual(['faite É5 Mur posé : Coins du mur trouvés sur la photo.', 'faite É9 Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
     // Seuls les points de validation s'ouvrent : V1 (mur), V2 (forme, sur son diagnostic : lot F4), V3 (ouvertures), V4 (facade) ; ni la
     // prise, ni l'image, ni la texture.
     expect(ouvrables()).toEqual(['calage', 'diagnostic', 'ouvertures', 'validation']);
@@ -76,7 +76,7 @@ describe('une facade dans l audit discret', () => {
   it('fait apparaitre une etape cachee des qu elle echoue, avec son geste de repli sur chaque photo', () => {
     const etapes = OK.map((e) => (e.id === 'assemblage' ? { ...e, etat: 'echec' as const, resume: 'Photos indépendantes : aucune fusion. Reprenez la façade avec des chevauchements entre les photos : un tiers de mur en commun.' } : e));
     const { ouvrir } = monter(session(etapes));
-    expect(lignes()[0]).toMatch(/^en échec Assemblage : Photos indépendantes.* À la main : retirer une photo, ou en prendre une autre qui recoupe le mur\./);
+    expect(lignes()[0]).toMatch(/^en échec É4 Assemblage : Photos indépendantes.* À la main : retirer une photo, ou en prendre une autre qui recoupe le mur\./);
     expect([...hote.querySelectorAll('[data-controle="auditParcelle.placerCoins"]')].map((b) => b.textContent)).toEqual(['Repères, photo 1', 'Repères, photo 2']);
     // Le segment « Image » s'ouvre maintenant, sur l'etape qui echoue ; le toucher passe par la commande, avec la facade de la barre.
     expect(ouvrables()).toContain('assemblage');
@@ -96,7 +96,7 @@ describe('une facade dans l audit discret', () => {
 
   it('une etape ouverte depuis la barre n y repete pas son resultat, mais garde son geste', () => {
     monter(session(OK, { facade: 'maison#0', etape: 'calage' }));
-    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toMatch(/^Mur : calage du mur, faite/);
+    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toMatch(/^É5 Calage du mur \(Mur\), faite/);
     expect(lignes()[0]).toBe('À la main : tirer les bouts, l’égout et le sol.Placer 4 repères'.replace('Placer 4 repères', 'Repères, photo 1Repères, photo 2'));
   });
 
@@ -123,16 +123,16 @@ describe('une facade dans l audit discret', () => {
     expect([b.textContent, b.disabled]).toEqual(['Escaladée (claude-sonnet-5-5)', true]);
   });
 
-  it('V4 : le bilan de la facade attend la personne, « Valider la façade » passe par la commande ; validee, l E9 est faite', () => {
+  it('V4 : le bilan de la facade attend la personne, « Valider la façade » passe par la commande ; validee, l E11 est faite', () => {
     const bilan = { dimensions: { largeurM: 10, egoutM: 6 }, forme: { gabarit: [{ u: 0, v: 1 }, { u: 1, v: 1 }], source: 'plan' as const }, textureCalee: null, ouvertures: [] };
     const attend = OK.map((e) => (e.id === 'validation' ? { ...e, etat: 'a-confirmer' as const, resume: 'Mur de 10 × 6 m ; haut du plan ; sans texture ; 0 ouverture. Validez la façade pour l’écrire dans le projet (V4).' } : e));
     const { valider } = monter(session(attend, null, null, { facade: bilan }));
-    expect(lignes().at(-1)).toMatch(/^à confirmer Validation : Mur de 10 × 6 m .* \(V4\)\. À la main : corriger n’importe quel sortant\.$/);
+    expect(lignes().at(-1)).toMatch(/^à confirmer É11 Validation : Mur de 10 × 6 m .* \(V4\)\. À la main : corriger n’importe quel sortant\.$/);
     const b = hote.querySelector('[data-commande="facade.valider"]') as HTMLButtonElement;
     expect([b.textContent, b.disabled]).toEqual(['Valider la façade', false]);
     act(() => b.click());
     expect(valider).toHaveBeenCalledWith('maison#0');
-    // Validee : plus de bouton, et l'E9 de la barre est faite.
+    // Validee : plus de bouton, et l'E11 de la barre est faite.
     act(() => racine.unmount());
     racine = createRoot(hote);
     const ecrite = { cote: 0, ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1, id: 'o1', verifieeLe: '2026-10-29' }] } as unknown as ReleveFacade;
