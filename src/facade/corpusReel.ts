@@ -242,7 +242,7 @@ export const mesurerPrepare = (p: CasPrepare): ResultatCas => resultat(p.cas, p.
 /** La detection seule d'un cas prepare, avec ces reglages (pas de vote) : de quoi comparer deux jeux de reglages. */
 export function evaluerPrepare(p: CasPrepare, reglages: Readonly<Record<string, number>>): ResultatCas {
   // La detection lit la facade entiere dans sa silhouette, comme la chaine (pignons compris), sans masque des pixels vus comme avant.
-  return resultat(p.cas, detecterDansLaSilhouette(p.facade.image, null, p.facade.dedans, p.pxParM, { reglages: reglages as never }).ouvertures);
+  return resultat(p.cas, detecterDansLaSilhouette(p.facade.image, null, p.facade.dedans, p.pxParM, { reglages: reglages as never }, p.facade.x0Px).ouvertures);
 }
 
 export interface Case { de: number; a: number; n: number; justes: number; taux: number | null; confianceMoyenne: number | null }

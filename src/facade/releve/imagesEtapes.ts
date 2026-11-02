@@ -22,10 +22,11 @@ export interface ImagesEtapes {
   pose: { image: Image; coins: P2[]; contour: P2[]; silhouette: P2[] | null; proposees: P2[][]; devinees: P2[][] } | null;
   /**
    * E7 : la facade que lit la detection, en metres depuis son coin haut gauche (le sol en bas) : l'image redressee entiere, fusionnee
-   * quand plusieurs vues se fondent, dans le cadre de la texture (le mur et la bande au-dessus de l'egout), sans coupe a l'egout ; la
-   * silhouette du mur (le gabarit, pignons compris), seule zone ou la detection cherche ; les ouvertures trouvees et devinees.
+   * quand plusieurs vues se fondent, dans son cadre (la boite de la silhouette entiere et sa marge, la bande au-dessus de l'egout), sans
+   * coupe a l'egout ; la silhouette du mur (le gabarit, pignons compris), seule zone ou la detection cherche ; les ouvertures trouvees et
+   * devinees. `x0` : la place du bout gauche du mur dans le cadre (les cotes des ouvertures se comptent depuis lui).
    */
-  facade: { image: Image; l: number; h: number; contour: P2[]; proposees: P2[][]; devinees: P2[][] } | null;
+  facade: { image: Image; l: number; h: number; x0: number; contour: P2[]; proposees: P2[][]; devinees: P2[][] } | null;
   /** E6 : le contour du mur sur la texture, en metres depuis son coin haut gauche, et la taille de la texture. */
   texture: { image: Image; sansOmbres: Image | null; contour: P2[]; l: number; h: number } | null;
   /**
@@ -60,18 +61,21 @@ function versLImage(coins: readonly P2[], L: number, H: number, ouvertures: read
   return h ? ouvertures.map((o) => [{ x: o.x, y: o.y + o.h }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x + o.l, y: o.y }, { x: o.x, y: o.y }].map((q) => appliquer(h, q))) : [];
 }
 
-/** Le cadre de la facade lue par la detection (metres, y vers le bas depuis le haut du cadre) : sa taille et la hauteur du mur. */
-interface CadreFacade { l: number; h: number; hMur: number }
+/**
+ * Le cadre de la facade lue par la detection (metres, y vers le bas depuis le haut du cadre) : sa taille, la place du bout gauche du mur
+ * (`x0`), la largeur et la hauteur du mur.
+ */
+interface CadreFacade { l: number; h: number; x0: number; lMur: number; hMur: number }
 
-/** Le cadre de la facade d'une analyse : la largeur et la hauteur de l'image, la hauteur du mur (l'elevation, du sol a l'egout). */
-function cadreDe(a: { facade: { image: Image }; elevation: Image; pxParM: number }): CadreFacade {
-  return { l: a.facade.image.largeur / a.pxParM, h: a.facade.image.hauteur / a.pxParM, hMur: a.elevation.hauteur / a.pxParM };
+/** Le cadre de la facade d'une analyse : l'image, le bout gauche du mur dedans, le mur (l'elevation, du sol a l'egout). */
+function cadreDe(a: { facade: { image: Image; x0Px: number }; elevation: Image; pxParM: number }): CadreFacade {
+  return { l: a.facade.image.largeur / a.pxParM, h: a.facade.image.hauteur / a.pxParM, x0: a.facade.x0Px / a.pxParM, lMur: a.elevation.largeur / a.pxParM, hMur: a.elevation.hauteur / a.pxParM };
 }
 
 /** Une ouverture du mur (metres, y depuis le sol) dans le cadre de la facade : haut gauche, haut droit, bas droit, bas gauche. */
 function dansLeCadre(c: CadreFacade, o: Pick<OuvertureDetectee, 'x' | 'y' | 'l' | 'h'>): P2[] {
-  const haut = c.h - (o.y + o.h), bas = c.h - o.y;
-  return [{ x: o.x, y: haut }, { x: o.x + o.l, y: haut }, { x: o.x + o.l, y: bas }, { x: o.x, y: bas }];
+  const haut = c.h - (o.y + o.h), bas = c.h - o.y, x = c.x0 + o.x;
+  return [{ x, y: haut }, { x: x + o.l, y: haut }, { x: x + o.l, y: bas }, { x, y: bas }];
 }
 
 /** Le gabarit pose sur chaque photo par les coins que la chaine a retenus, ramene sur sa vue redressee (par rang de photo). */
@@ -136,7 +140,7 @@ export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
     } : null,
     facade: a ? (() => {
       const c = cadreDe(a);
-      return { image: a.facade.image, l: c.l, h: c.h, contour: contourDuGabarit(g).map((q) => ({ x: q.u * c.l, y: c.h - q.v * c.hMur })), proposees: a.ouvertures.map((o) => dansLeCadre(c, o)), devinees: a.devinees.map((o) => dansLeCadre(c, o)) };
+      return { image: a.facade.image, l: c.l, h: c.h, x0: c.x0, contour: contourDuGabarit(g).map((q) => ({ x: c.x0 + q.u * c.lMur, y: c.h - q.v * c.hMur })), proposees: a.ouvertures.map((o) => dansLeCadre(c, o)), devinees: a.devinees.map((o) => dansLeCadre(c, o)) };
     })() : null,
     texture: a ? { image: a.texture, sansOmbres: s.sansOmbres, contour: contourDuGabarit(g).map((q) => ({ x: q.u * L, y: a.hauteurTexture - q.v * H })), l: a.texture.largeur / a.pxParM, h: a.hauteurTexture } : null,
     forme: calqueForme(r, pose),

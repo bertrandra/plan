@@ -62,13 +62,14 @@ const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés
  * La facade a annoter : l'image que lit la detection, entiere (pignons compris), fusionnee quand plusieurs vues se fondent, en metres
  * (`hauteurM` : du sol au haut du cadre) ; la silhouette du mur dessus (y vers le bas), et les ouvertures que la detection propose.
  */
-interface Elevation { url: string; largeurM: number; hauteurM: number; contour: P2[]; propositions: OuvertureVraie[] }
+interface Elevation { url: string; largeurM: number; hauteurM: number; x0M: number; contour: P2[]; propositions: OuvertureVraie[] }
 
 /** Le mur redresse, avec les ouvertures annotees : tracer un rectangle en ajoute une, toucher un rectangle le choisit. */
 function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, trace: tracer }: { trace: boolean; elevation: Elevation; ouvertures: readonly OuvertureVraie[]; choisie: number | null; choisir: (k: number | null) => void; ajouter: (o: OuvertureVraie) => void }) {
   const svg = useRef<SVGSVGElement>(null);
   const [trace, setTrace] = useState<{ a: P2; b: P2 } | null>(null);
-  const { largeurM: L, hauteurM: H } = elevation;
+  // Le cadre montre la facade entiere et sa marge ; les cotes d'une ouverture se comptent depuis le bout gauche du mur (`x0M`).
+  const { largeurM: L, hauteurM: H, x0M } = elevation;
   const sensible = Math.max(L, H) * 0.01;
   const sur = (e: React.PointerEvent): P2 => { const p = svg.current ? pointSvg(svg.current, e) : { x: 0, y: 0 }; return { x: Math.max(0, Math.min(L, p.x)), y: Math.max(0, Math.min(H, p.y)) }; };
   const finir = () => {
@@ -77,7 +78,7 @@ function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, tra
     setTrace(null);
     if (l < sensible || h < sensible) return;
     const arrondi = (v: number) => Math.round(v * 100) / 100;
-    ajouter({ type: 'fenetre', x: arrondi(x), l: arrondi(l), y: arrondi(H - (haut + h)), h: arrondi(h) });
+    ajouter({ type: 'fenetre', x: arrondi(x - x0M), l: arrondi(l), y: arrondi(H - (haut + h)), h: arrondi(h) });
   };
   return (
     <svg ref={svg} className={'calToile' + (tracer ? ' trace' : '')} viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Façade redressée entière : en mode tracé, glissez un rectangle autour d’une ouverture pour l’ajouter"
@@ -86,7 +87,7 @@ function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, tra
       <image href={elevation.url} x={0} y={0} width={L} height={H} preserveAspectRatio="none" />
       {elevation.contour.length > 2 && <polygon className="calMurLigne silhouette" points={elevation.contour.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" aria-hidden="true" />}
       {ouvertures.map((o, k) => (
-        <rect key={k} className={'calBaie' + (k === choisie ? ' choisie' : '')} x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke"
+        <rect key={k} className={'calBaie' + (k === choisie ? ' choisie' : '')} x={x0M + o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke"
           role="button" tabIndex={0} aria-label={`Ouverture ${k + 1} : ${libelleOuMot(LIBELLES_OUVERTURE, o.type)}`} onPointerDown={(e) => { e.stopPropagation(); choisir(k); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') choisir(k); }} />
       ))}
       {trace && <rect className="calTrace" x={Math.min(trace.a.x, trace.b.x)} y={Math.min(trace.a.y, trace.b.y)} width={Math.abs(trace.a.x - trace.b.x)} height={Math.abs(trace.a.y - trace.b.y)} vectorEffect="non-scaling-stroke" />}
@@ -392,7 +393,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu) : null), [rejeu]);
   // La facade entiere que lit la detection (rien n'est coupe au sol ni a l'egout : un pignon peut porter une baie), et sa silhouette.
   const f = images?.facade ?? null;
-  const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
+  const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, x0M: f.x0, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
   return (
     <section className="calEditeur" aria-label={id ? 'Cas ' + cas.nom : 'Nouveau cas'}>

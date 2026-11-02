@@ -28,8 +28,9 @@ import type { Prise } from './prise.js';
  * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
  * les images d'origine, et ce qui a change. 11 (2 novembre 2026) : la calibration rejoue la chaine de l'audit (un seul processus) ;
  * un cas, un mur vrai ou une reponse de Claude enregistres sous la 10 ont ete poses sur l'image de l'ancien chemin de la calibration.
+ * 12 (2 novembre 2026) : le cadre que lit la detection est la boite de la silhouette entiere et sa marge (analyse.ts::cadreDeLaSilhouette).
  */
-export const VERSION_CHAINE_FACADES = 11;
+export const VERSION_CHAINE_FACADES = 12;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 const SEUIL_VERTICALES_DEG = 0.5;

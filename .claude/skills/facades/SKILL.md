@@ -254,6 +254,13 @@ fenêtre de comble) : `main` la manquait (5/6), trouvée depuis (6/6). Seul autr
 passe de 1,35 à 1,36 m (vraie : 1,30), au-delà des 5 cm, soit une correction de plus (le fond du mur se lit sur une image plus haute, le
 pignon compris). `tests/unit/facade/analyseSilhouette.test.ts` le garde.
 
+**Le cadre de la détection** (`facade/analyse.ts::cadreDeLaSilhouette`, 2 novembre 2026, demande du propriétaire) : la boîte de la
+silhouette entière (un pignon voisin qui prolonge la façade au-delà d'un bout compris) et 3 % de la largeur du mur de chaque côté ; rien
+n'est cherché hors de la silhouette. L'image, rognée au mur, est celle d'avant (colonnes entières sur la même grille) : texture et Façade
+ne bougent pas. Banc, chaîne de production : précision 93 → 94 %, rappel 91 → 93 %, 1,8 → 1,76 correction par façade (`07` et `12` :
+une baie de bout de mur retrouvée ; `11` : cotes de 15 à 3 cm) ; deux volets battants lus à tort sur ces baies retrouvées (détails :
+1 → 3 faux). `analyseSilhouette.test.ts` garde le pignon voisin (la scène `24` vue comme un mur de 5 m).
+
 **Le calage par les ancres** (`facade/releve/calageAncres.ts`, lot F1 de `MD/spec-facade-calage-audit.md`) : une pose du mur se juge
 sans le toit, par un score d'explication (les deux angles, bords de la matière du mur ; l'égout ; le sol ; les proportions du plan) ;
 elle passe quand le score atteint `facades.enchainement.explicationMin` (0,75) et chaque angle `angleMin` (0,6). Sinon l'arbitre prend

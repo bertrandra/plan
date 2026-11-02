@@ -20,6 +20,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - Un cas tiré d'un audit garde le côté du contour, le contour et la prise de vue de chaque photo, pour être rejoué tel que l'audit l'a
     lu ; un cas d'avant se rejoue comme des photos importées. Un mur vrai ou une réponse de Claude enregistrés sur l'ancienne chaîne
     (version 10) le disent au rejeu.
+- Façades (audit et calibration) : la détection lit la façade dans un cadre fait de la silhouette entière du mur, avec une marge de 3 %
+  de sa largeur de chaque côté, et non plus le mur entre ses deux bouts. Le pignon d'un corps voisin qui prolonge la façade au-delà d'un
+  de ses bouts est lu, ses fenêtres comprises ; rien n'est cherché hors de la silhouette. La texture, la Façade écrite et la Vue 3D ne
+  changent pas ; une baie retrouvée au bout d'un mur peut s'ajouter. L'étape É7 et la toile d'annotation montrent ce cadre.
 
 ### Corrigé
 

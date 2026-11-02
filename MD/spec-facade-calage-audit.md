@@ -551,6 +551,15 @@ façade, ce qui est fait, ce qui attend la personne.
   fois, les coins « gardés » d'un cas) et le bouton « Retrouver le mur sur toutes les photos » : « Rejouer » fait ce que fait l'audit.
   `VERSION_CHAINE_FACADES` passe à 11 : un mur vrai ou une réponse de Claude enregistrés sous la 10 l'ont été sur l'image de l'ancien chemin,
   et le rejeu le dit.
+- **Le cadre que lit la détection** (même jour, `facade/analyse.ts::cadreDeLaSilhouette`) : la boîte de la silhouette entière (le mur, et
+  le pignon d'un corps voisin qui prolonge la façade au-delà d'un de ses bouts, `u` hors de 0 à 1), plus **3 % de la largeur du mur** de
+  chaque côté ; au-dessus, la bande d'avant, ou le haut de la silhouette et sa marge s'il dépasse. La marge dépasse les 2 % auxquels un
+  bout se juge juste, pour qu'un bout posé à cette erreur près garde le bord de sa silhouette dans le cadre, sans prendre le mur d'un
+  voisin (25 cm sur 8 m). Rien n'est cherché hors de la silhouette (la marge n'en est jamais). Le cadre s'élargit de colonnes entières sur
+  la grille de pixels du mur (`etendreAuCadre`) : rognée au mur, l'image est celle d'avant, si bien que la texture, l'élévation, la lecture
+  du toit et la Façade écrite ne bougent pas ; les cotes des ouvertures restent celles du mur (x depuis son bout gauche, négatif ou au-delà
+  de la largeur sous un pignon voisin). Le même cadre partout (assemblage, photo seule, fusion et vote des vues), et à l'écran (É7, toile
+  d'annotation). Un mur en L garde son rectangle.
 - **Le banc de synthèse** (`tests/banc/facades/banc.ts`) reste sur `analyseMur.ts::analyserLeMur`, la fonction que la chaîne appelle une fois
   les coins posés : il mesure la détection avec les coins vrais et une focale connue, de façon synchrone (quatre tests et deux scripts
   le lisent), alors que l'entrée de l'audit est asynchrone (la recherche des coins, un worker à l'écran).

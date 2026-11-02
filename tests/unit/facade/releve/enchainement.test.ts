@@ -79,7 +79,9 @@ describe('l enchainement d une facade', () => {
     // L'E7 montre la facade que lit la detection, entiere : le mur et la bande au-dessus de l'egout (rien n'est coupe a l'egout), la
     // silhouette du mur dessus (un rectangle ici : son haut a l'egout), les ouvertures a leur place.
     expect(im.facade?.image).toBe(r.sorties.analyse?.facade.image);
-    expect(im.facade?.l).toBeCloseTo(L, 1);
+    // Le cadre : le mur et 3 % de marge de chaque cote ; le bout gauche du mur a 3 % de la largeur.
+    expect(im.facade?.l).toBeCloseTo(L * 1.06, 1);
+    expect(im.facade?.x0).toBeCloseTo(L * 0.03, 1);
     expect(im.facade?.h).toBeGreaterThan(H + 1);
     expect(Math.min(...(im.facade?.contour ?? []).map((q) => q.y))).toBeCloseTo((im.facade?.h ?? 0) - (r.sorties.analyse?.elevation.hauteur ?? 0) / (r.sorties.analyse?.pxParM ?? 1), 6);
     expect(im.facade?.proposees.length).toBe(r.sorties.analyse?.ouvertures.length);

@@ -3,7 +3,7 @@
 // calibration (facade/corpusReel.ts) passent tous par elle : ce que l'un redresse, fusionne et cote, les autres le redressent,
 // le fusionnent et le cotent de meme.
 
-import { analyserReleve, finaliserReleve, hauteurBande, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
+import { analyserReleve, cadreDeLaSilhouette, etendreAuCadre, finaliserReleve, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
 import { mosaiqueDesVues, vuesDeFace } from './vision/mosaiqueFuites.js';
 import { inverser, redresserParReperes } from './vision/redressementFuites.js';
 import { appliquerSimilitude, inverse, IDENTITE as SIMILITUDE_IDENTITE, type Similitude } from './vision/ransac.js';
@@ -150,17 +150,21 @@ export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit
   const { largeur: L, hauteur: H } = mur;
   const versAssemblage = homographie([{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: H }, { x: 0, y: H }], a.coins);
   if (!versAssemblage) return null;
-  const E = hauteurBande(L);
-  const etendus = [{ x: 0, y: -E }, { x: L, y: -E }, { x: L, y: H }, { x: 0, y: H }].map((q) => appliquer(versAssemblage, q));
+  const silhouette = gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null;
+  // Le cadre : la boite de la silhouette entiere et sa marge (analyse.ts::cadreDeLaSilhouette), sur la grille de pixels du mur.
+  const E = cadreDeLaSilhouette(L, H, silhouette, 1).E;
   const pxParM = resolutionTexture(L, H + E);
-  const r = redresser(a.image, etendus, L, H + E, pxParM);
+  const cadre = cadreDeLaSilhouette(L, H, silhouette, pxParM);
+  const etendus = etendreAuCadre([{ x: 0, y: -E }, { x: L, y: -E }, { x: L, y: H }, { x: 0, y: H }].map((q) => appliquer(versAssemblage, q)), Math.max(1, Math.round(L * pxParM)), Math.max(1, Math.round((H + E) * pxParM)), cadre);
+  const largeurCadre = (Math.max(1, Math.round(L * pxParM)) + cadre.gauchePx + cadre.droitePx) / pxParM;
+  const r = redresser(a.image, etendus, largeurCadre, H + E, pxParM);
   // Ce que l'assemblage n'a pas vu reste hors champ : son masque, redresse de meme.
   const masque = { largeur: a.image.largeur, hauteur: a.image.hauteur, donnees: new Uint8ClampedArray(a.vu.length * 4) };
   a.vu.forEach((v, i) => { masque.donnees[i * 4] = v ? 255 : 0; });
-  const vuR = redresser(masque, etendus, L, H + E, pxParM);
+  const vuR = redresser(masque, etendus, largeurCadre, H + E, pxParM);
   if (!r || !vuR) return null;
   const vu = r.vu.map((v, i) => (v && (vuR.image.donnees[i * 4] ?? 0) > 127 ? 1 : 0));
-  return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null }, null, hauteurMesuree);
+  return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette }, null, hauteurMesuree, cadre);
 }
 
 /** Une photo prise pour son propre assemblage : toute vue, le mur entre ses coins. */
