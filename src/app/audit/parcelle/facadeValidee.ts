@@ -15,6 +15,7 @@
 import { fusionnerOuvertures, numeroterOuvertures, ouverturesHorsDesLucarnes, recouvrement, RECOUVREMENT_MEME_OUVERTURE } from '../../../model/facadeObjet.js';
 import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
 import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
+import { partagerSousLesVoisins, type PartageOuvertures } from '../../../facade/releve/murVoisin.js';
 import { origineActuelle, type Origine } from '../../../model/protections.js';
 import { observationsDuRun, surfaceDeLIa } from '../../../facade/regles/facades/ia.js';
 import { appendicesDeLIa, modenatureDeLIa } from '../../../facade/regles/facades/modenature.js';
@@ -60,6 +61,32 @@ function lucarnesDuMur(o: ObjetPlan, cote: number): ReturnType<typeof lucarnesDe
   return f ? lucarnesDevantLeMur(o.batiment?.corpsToit ?? [], f.gauche, f.droite) : [];
 }
 
+/**
+ * Le partage des ouvertures de cette mesure entre son mur et les murs voisins (facade/releve/murVoisin.ts), sur les facades du projet au
+ * moment de valider : une ouverture lue sous le pignon d'un corps voisin va sur la facade du mur qui la porte, s'il en a une.
+ */
+function partageDeLaMesure(o: ObjetPlan, cote: number, largeurM: number, ouvertures: readonly OuvertureFacade[]): PartageOuvertures | null {
+  const pts = 'pts' in o && Array.isArray(o.pts) ? (o.pts as PtBrut[]) : null;
+  const f = pts && pts.length >= 3 ? facadesDuContour(pts, 0).find((x) => x.cote === cote) : undefined;
+  if (!pts || !f) return null;
+  const voisines = (o.batiment?.facades ?? []).filter((r) => r.cote !== cote).map((r) => ({ cote: r.cote, ouvertures: r.ouvertures }));
+  return partagerSousLesVoisins({ ...f, largeur: largeurM }, pts, ouvertures, voisines);
+}
+
+/**
+ * Les facades des murs voisins a reecrire avec la validation de cette mesure (V4, dans le meme pas d'historique) : chacune avec les
+ * ouvertures lues sous le pignon de son corps, ajoutees `detectee` et numerotees a la suite. Rien d'autre d'elles ne change : leurs
+ * ouvertures (verifiees, corrigees, ajoutees ou non), leur texture, leurs dimensions. Vide quand aucune ouverture ne va ailleurs.
+ */
+export function facadesVoisinesAEcrire(o: ObjetPlan, m: MesureFacade, accord: AccordFacadeCapture | null = null): ReleveFacade[] {
+  const base = m.releve && (poseDOffice(o, m) ?? m.releve);
+  const p = base ? partageDeLaMesure(o, m.cote, base.largeur, avecLesDetailsLus(base.ouvertures, accord)) : null;
+  return (p?.ajouts ?? []).flatMap((a) => {
+    const r = o.batiment?.facades?.find((x) => x.cote === a.cote);
+    return r ? [{ ...r, ouvertures: numeroterOuvertures([...r.ouvertures, ...a.ouvertures], r.ouvertures) }] : [];
+  });
+}
+
 /** Le releve du mur que l'audit a pose d'office d'apres cette mesure, s'il est dans le projet. */
 function poseDOffice(o: ObjetPlan, m: MesureFacade): ReleveFacade | null {
   const r = o.batiment?.facades?.find((x) => x.cote === m.cote);
@@ -76,8 +103,11 @@ export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accor
   if (!bilan || !m.releve) return null;
   const existant = o.batiment?.facades?.find((x) => x.cote === m.cote);
   const base = poseDOffice(o, m) ?? m.releve;
-  // Les ouvertures que la personne avait deja verifiees restent ; les autres sont celles du releve, avec leurs carreaux.
-  const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], avecLesDetailsLus(base.ouvertures, accord)), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
+  // Les ouvertures que la personne avait deja verifiees restent ; les autres sont celles du releve, avec leurs carreaux, sauf celles
+  // qui vont sur la facade d'un mur voisin (facadesVoisinesAEcrire).
+  const lues = avecLesDetailsLus(base.ouvertures, accord);
+  const surLeMur = partageDeLaMesure(o, m.cote, base.largeur, lues)?.surLeMur ?? lues;
+  const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], surLeMur), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
     .map((x) => (x.verifieeLe ? x : { ...x, verifieeLe: jour }));
   const obs = run ? observationsDuRun(run) : null;
   const surface = surfaceDeLIa(obs);

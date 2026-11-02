@@ -91,6 +91,19 @@ describe('ajouterReleve3d', () => {
     expect(ajoutes.filter((m) => !m.name.startsWith('ouverture:'))).toHaveLength(4);
   });
 
+  it('pose une baie lue sous le pignon d un corps voisin sur le mur de ce corps, ou V4 l a ecrite ; laissee sur le mur photographie, elle est omise', () => {
+    // Une maison en L vue du sud (facade/releve/murVoisin.ts) : le mur photographie (cote 0, 5 m) et le mur du corps voisin (cote 1, 3 m).
+    const enL = { ...maison(), pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }] };
+    const baie = { type: 'fenetre' as const, y: 0.9, l: 1.1, h: 1.3 };
+    const releve = (cote: number, largeur: number, x: number, id: string) => ({ cote, largeur, hauteur: 3, texture: null, ouvertures: [{ ...baie, x, id }], distance: null, sourceDistance: null, releveLe: '' });
+    const posee = scene();
+    ajouterReleve3d(posee.ctx, { ...enL, batiment: { facades: [releve(0, 5, 1, 'o1'), releve(1, 3, 0.8, 'o2')] } }, 3);
+    expect(posee.ajoutes.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name)).toEqual(['ouverture:o1', 'ouverture:o2']);
+    const laissee = scene();
+    ajouterReleve3d(laissee.ctx, { ...enL, batiment: { facades: [{ ...releve(0, 5, 1, 'o1'), ouvertures: [{ ...baie, x: 1, id: 'o1' }, { ...baie, x: 5.8, id: 'o2' }] }] } }, 3);
+    expect(laissee.ajoutes.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name)).toEqual(['ouverture:o1']);
+  });
+
   it('pose les carreaux d une ouverture de la facade validee dans son groupe : a plat pour l export, en relief de pres (lot F8)', () => {
     // La fenetre d'AE 101 sud (tests/fixtures/facades-ia/ae101-sud-synthetique.json) : deux vantaux d'un carreau sur trois, petits
     // bois fins, une imposte du quart de la baie a quatre carreaux.
