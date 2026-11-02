@@ -162,6 +162,9 @@ export function ModeToit({ magasin, commandes }: Props) {
     <div className={'panneauToit' + (replie ? ' replie' : '')} role="region" aria-label="Mode Toit">
       <button type="button" className="languetteToit" aria-expanded={!replie} aria-label={replie ? 'Déployer le catalogue' : 'Replier le catalogue'}
         title={replie ? 'Déployer le catalogue' : 'Replier le catalogue'} onClick={() => { setReplie(!replie); }}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={20} /></button>
+      {/* Ce qui defile, transparent, dans le panneau opaque qui ne defile pas : un defilement opaque pose sur la scene la faisait
+          disparaitre (Chromium ecarte le canevas 3D qu'il croit cache ; app.css, `.defilementToit`). */}
+      <div className="defilementToit">
       <div className="barreToit" role="toolbar" aria-label="Session du toit">
         <BoutonToit commandes={commandes} id="toit.abandonner" icone="chevronGauche" libelle="Retour : abandonner les changements" />
         <BoutonToit commandes={commandes} id="toit.annuler" icone="annuler" libelle="Annuler (Ctrl+Z)" />
@@ -219,6 +222,7 @@ export function ModeToit({ magasin, commandes }: Props) {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
     </>
