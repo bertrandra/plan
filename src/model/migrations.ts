@@ -29,6 +29,7 @@ import { aPlat } from './champsFonction.js';
 // La migration 2 -> 3 lit sa copie figee (model/fige/toitSchema3.ts) : l'algorithme d'aujourd'hui peut changer sans elle.
 import { toitBdTopoSchema3, COUCHE_BATIMENT_BDTOPO } from './fige/toitSchema3.js';
 import type { ObjetAPlat, PtBrut } from './types.js';
+import { porteDesPartiesBasses } from './partiesBasses.js';
 
 /** Un document de projet, tel qu'il est lu ou ecrit : la forme de `projet.json`. */
 export interface DocumentBrut {
@@ -126,6 +127,14 @@ export const MIGRATIONS: readonly Migration[] = [
     // Un champ facultatif de la parcelle (`dossier`, lot L5), qui n'existait pas avant : un document 11 est un document 12 valide, relu
     // a l'identique. Le 12 le distingue, pour qu'un lecteur 11 refuse le fichier plutot que de perdre un texte que la personne a valide.
     migrer: (d) => d
+  },
+  {
+    de: 12,
+    apporte: 'les murs à plusieurs hauteurs d’égout : une partie basse à chaque bout (un garage et un appentis de part et d’autre de la maison), lues sur le plan et le LiDAR',
+    // Un champ facultatif d'un releve (`partiesBasses`), qui n'existait pas avant : un document 12 est un document 13 valide, relu a
+    // l'identique (un mur en L garde sa `partieBasse`, memes nombres). Le 13 le distingue, pour qu'un lecteur 12 refuse le fichier
+    // plutot que de perdre une partie basse et de rendre une autre surface de mur.
+    migrer: (d) => d
   }
 ];
 
@@ -209,6 +218,8 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     if (porteLaFacadeEnrichie(brut)) s = Math.max(s, 10);
     // Le toit enrichi (lot L2) : un lecteur 10 perdrait la pose et les bords, et ne connaitrait pas les couvertures nouvelles.
     if (porteLeToitEnrichi(brut)) s = Math.max(s, 11);
+    // Un mur a plusieurs parties basses : un lecteur 12 perdrait la liste et rendrait une autre surface de mur.
+    if (Array.isArray(brut.facades) && brut.facades.some(porteDesPartiesBasses)) s = Math.max(s, 13);
   }
   return s;
 }

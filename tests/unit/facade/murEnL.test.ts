@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { partieBasseDuGabarit, volumesDuBatiment } from '../../../src/facade/profil.js';
+import { partiesBassesDuGabarit, volumesDuBatiment } from '../../../src/facade/profil.js';
 import { gabaritDesCorps } from '../../../src/facade/gabaritMur.js';
 import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import { derouler } from '../../../src/facade/releve/enchainement.js';
@@ -12,7 +12,7 @@ import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 // Le mur en L (MD/spec-releve-facade.md §6.2) : une partie basse dans l'alignement du mur (garage, extension). Le decrochement que la
 // photo posait au doigt n'a plus de geste depuis le lot F6 (la chaine le passait toujours a null) ; la marche est dans le gabarit, le
-// haut de la facade sous les corps du LiDAR, et la chaine de l'audit et de la calibration l'ecrit sur le releve (partieBasse).
+// haut de la facade sous les corps du LiDAR, et la chaine de l'audit et de la calibration l'ecrit sur le releve (partieBasse ; plusieurs : murDeuxBouts.test.ts).
 
 // Une maison a etage de 6,5 m et un garage de 3,5 m dans son alignement, vus du sud (la scene 25 du banc).
 const CONTOUR: PtBrut[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 6.5, y: 6 }, { x: 6.5, y: 8 }, { x: 0, y: 8 }];
@@ -25,23 +25,22 @@ const sud = () => facadesDuContour(CONTOUR, 5.6).find((f) => f.cote === 0)!;
 describe('la partie basse d un mur en L, lue sur le gabarit', () => {
   it('du plan et du LiDAR : le gabarit des corps porte la marche, et la partie basse s en lit', () => {
     const g = gabaritDesCorps(sud(), CORPS, 5.6);
-    expect(partieBasseDuGabarit(g, 10, 5.6)).toEqual({ debut: 6.5, fin: 10, hauteur: 2.91 });
+    expect(partiesBassesDuGabarit(g, 10, 5.6)).toEqual([{ debut: 6.5, fin: 10, hauteur: 2.91 }]);
   });
 
   it('a gauche comme a droite ; son egout est le plus bas de son haut (un garage a pignon)', () => {
-    expect(partieBasseDuGabarit([{ u: 0, v: 0.5 }, { u: 0.3, v: 0.5 }, { u: 0.3001, v: 1 }, { u: 1, v: 1 }], 10, 6)).toEqual({ debut: 0, fin: 3, hauteur: 3 });
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 0.6, v: 1 }, { u: 0.6001, v: 0.5 }, { u: 0.8, v: 0.7 }, { u: 1, v: 0.5 }], 10, 6)).toEqual({ debut: 6, fin: 10, hauteur: 3 });
+    expect(partiesBassesDuGabarit([{ u: 0, v: 0.5 }, { u: 0.3, v: 0.5 }, { u: 0.3001, v: 1 }, { u: 1, v: 1 }], 10, 6)).toEqual([{ debut: 0, fin: 3, hauteur: 3 }]);
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 0.6, v: 1 }, { u: 0.6001, v: 0.5 }, { u: 0.8, v: 0.7 }, { u: 1, v: 0.5 }], 10, 6)).toEqual([{ debut: 6, fin: 10, hauteur: 3 }]);
   });
 
-  it('rien sur un rectangle, un pignon, une rampe, une marche de moins de 50 cm ou de moins d un metre, une partie haute au milieu', () => {
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 1, v: 1 }], 10, 6)).toBeNull();
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 0.5, v: 1.6 }, { u: 1, v: 1 }], 10, 6)).toBeNull();
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 1, v: 1.6 }], 10, 6)).toBeNull();
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 0.6, v: 1 }, { u: 0.6001, v: 0.95 }, { u: 1, v: 0.95 }], 10, 6)).toBeNull();
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 0.95, v: 1 }, { u: 0.9501, v: 0.5 }, { u: 1, v: 0.5 }], 10, 6)).toBeNull();
-    expect(partieBasseDuGabarit([{ u: 0, v: 0.5 }, { u: 0.3, v: 0.5 }, { u: 0.3001, v: 1 }, { u: 0.7, v: 1 }, { u: 0.7001, v: 0.5 }, { u: 1, v: 0.5 }], 10, 6)).toBeNull();
+  it('rien sur un rectangle, un pignon, une rampe, une marche de moins de 50 cm ou de moins d un metre', () => {
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 1, v: 1 }], 10, 6)).toEqual([]);
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 0.5, v: 1.6 }, { u: 1, v: 1 }], 10, 6)).toEqual([]);
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 1, v: 1.6 }], 10, 6)).toEqual([]);
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 0.6, v: 1 }, { u: 0.6001, v: 0.95 }, { u: 1, v: 0.95 }], 10, 6)).toEqual([]);
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 0.95, v: 1 }, { u: 0.9501, v: 0.5 }, { u: 1, v: 0.5 }], 10, 6)).toEqual([]);
     // Le pignon d'un corps voisin qui deborde la facade (u au-dela de 1) n'est pas une partie basse du mur.
-    expect(partieBasseDuGabarit([{ u: 0, v: 1 }, { u: 0.8, v: 1.7 }, { u: 1.6, v: 1 }], 5, 5.2)).toBeNull();
+    expect(partiesBassesDuGabarit([{ u: 0, v: 1 }, { u: 0.8, v: 1.7 }, { u: 1.6, v: 1 }], 5, 5.2)).toEqual([]);
   });
 
   it('la partie basse ecrite donne les deux volumes du batiment (le garage a la profondeur de son pignon)', () => {

@@ -319,3 +319,42 @@ describe('ajouterReleve3d, mur en L', () => {
     expect(Math.max(...xs)).toBeLessThanOrEqual(6 + 1e-9);
   });
 });
+
+describe('ajouterReleve3d, partie haute au milieu', () => {
+  // Une maison de 12 x 8 m : un appentis de 3 m a l'ouest (egout 2,6 m), un garage de 3,4 m a l'est (egout 2,9 m), la partie haute au
+  // milieu a 5,6 m ; facade sud (cote 0) relevee avec ses deux parties basses (schema 13, model/partiesBasses.ts).
+  const M = { key: 'maison', name: 'Maison', type: 'polygon' as const, fonction: 'batiment', pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)] };
+  const releve = {
+    cote: 0, largeur: 12, hauteur: 5.6, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 7, distance: 15, sourceDistance: 'lidar' as const, releveLe: '',
+    ouvertures: [
+      { type: 'porte' as const, x: 1, y: 0, l: 0.9, h: 2 },
+      { type: 'fenetre' as const, x: 1, y: 3.6, l: 1.2, h: 1.35 }, // au-dessus de l'appentis : dans le vide
+      { type: 'fenetre' as const, x: 4, y: 3.6, l: 1.2, h: 1.35 },
+      { type: 'garage' as const, x: 9.1, y: 0, l: 2.4, h: 2.1 },
+      { type: 'fenetre' as const, x: 10, y: 3.6, l: 1.2, h: 1.35 }, // au-dessus du garage : dans le vide
+    ],
+    partieBasse: null,
+    partiesBasses: [{ debut: 0, fin: 3, hauteur: 2.6 }, { debut: 8.6, fin: 12, hauteur: 2.9 }],
+  };
+
+  it('pose la photo sur le mur a deux marches, et omet les baies dans le vide au-dessus des deux parties basses', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...M, batiment: { facades: [releve] } }, 5.6);
+    const mur = ajoutes.find((m) => m.name === 'releve-facade')!;
+    // Le pied (2 sommets), puis le haut de droite a gauche : garage, partie haute, appentis (2 sommets chacun).
+    const a = mur.geometry.attributes.position!.array;
+    expect(a).toHaveLength(8 * 3);
+    const hauts = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => Math.round((a[i * 3 + 1] as number) * 100) / 100);
+    expect(hauts.slice(2)).toEqual([2.9, 2.9, 5.6, 5.6, 2.6, 2.6]);
+    // Porte : 3 pieces d'encadrement ; fenetre haute du milieu : 4 ; garage : 3 ; les deux fenetres dans le vide : aucune.
+    expect(ajoutes.filter((m) => m.name === '')).toHaveLength(10);
+  });
+
+  it('coiffe la partie haute seulement, entre les deux parties basses', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...M, batiment: { facades: [releve], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } } }, 5.6);
+    const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(3 - 1e-9);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(8.6 + 1e-9);
+  });
+});

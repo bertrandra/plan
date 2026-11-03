@@ -14,7 +14,7 @@ import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle, type Image, type P2 } from './vision/homographie.js';
 import { detecterFacade, type DetectionFacade, type OptionsDetection, type OuvertureDetectee } from './detection/detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toits/toit.js';
-import { coinsEnglobants, mesurerPartieBasse, egoutEn, ouverturesDansLeMur, type Decrochement } from './profil.js';
+import { coinsEnglobants, mesurerPartieBasse, egoutEn, enListe, ouverturesDansLeMur, partieHaute, type Decrochement, type PartiesDuMur } from './profil.js';
 import { silhouetteLue } from './vision/mosaiqueFuites.js';
 import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
@@ -98,8 +98,11 @@ export interface ResultatAnalyse {
    */
   toitLu: ToitEstime | null;
   toitPropose: Toit | null;
-  /** La partie basse d'un mur en L, mesuree sur la photo ; `null` pour un mur rectangulaire. */
-  partieBasse: PartieBasse | null;
+  /**
+   * Les parties basses du mur, de gauche a droite (model/partiesBasses.ts) : une pour un mur en L, une a chaque bout pour une partie
+   * haute au milieu ; vide pour un mur rectangulaire.
+   */
+  partiesBasses: PartieBasse[];
 }
 
 /** Au-dela, une hauteur « mesuree » trahit des coins mal places : on garde l'estimation. */
@@ -367,11 +370,12 @@ function profilDeLaSilhouette(s: readonly { u: number; v: number }[], hauteur: n
  * l'egout) : la detection lit le cadre entier, dans la silhouette ; la texture, l'elevation, le toit et tout ce qui s'ecrit restent ceux
  * du mur, entre ses bouts.
  */
-export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null, hauteurMesuree = false, cadre: Pick<CadreFacade, 'gauchePx' | 'droitePx'> = { gauchePx: 0, droitePx: 0 }): ResultatAnalyse {
+export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartiesDuMur = null, hauteurMesuree = false, cadre: Pick<CadreFacade, 'gauchePx' | 'droitePx'> = { gauchePx: 0, droitePx: 0 }): ResultatAnalyse {
   const egout = Math.round(E * pxParM);
+  const parties = enListe(partie);
   // La detection lit la facade entiere, dans sa silhouette (le gabarit, pignons compris, et un pignon voisin qui deborde des bouts) : un
   // pignon peut porter une baie. Un mur en L garde son rectangle (le haut de sa partie basse se dit par la partie, pas par la silhouette).
-  const dedans = silhouetteDansLeCadre(cadreImage.largeur, cadreImage.hauteur, egout, partie ? null : e.silhouette, cadre);
+  const dedans = silhouetteDansLeCadre(cadreImage.largeur, cadreImage.hauteur, egout, parties.length ? null : e.silhouette, cadre);
   const facade = { image: { largeur: cadreImage.largeur, hauteur: cadreImage.hauteur, donnees: cadreImage.donnees.slice() }, vu: cadreVu, dedans, x0Px: cadre.gauchePx };
   const detection = detecterDansLaSilhouette(cadreImage, cadreVu, dedans, pxParM, {}, cadre.gauchePx);
   // Le mur, entre ses bouts : la texture, l'elevation, le toit.
@@ -395,7 +399,7 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
   const devinees = ouverturesDansLeMur(detection.devinees, e.hauteur, partie);
   // Le toit se lit au-dessus de la partie haute seulement : au-dessus de la partie basse, la bande
   // montre le mur de la partie haute, pas une silhouette de toit.
-  const haute = partie ? (partie.debut > 0 ? [0, partie.debut] : [partie.fin, texture.largeur / pxParM]) : null;
+  const haute = partieHaute(texture.largeur / pxParM, parties);
   const bandeToit = haute ? colonnes(bande.image, bande.vu, Math.round(au(haute, 0) * pxParM), Math.round(au(haute, 1) * pxParM)) : bande;
   const vusBande = bandeToit.vu.reduce((s, v) => s + v, 0);
 
@@ -412,7 +416,7 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
   // La silhouette du haut du mur, quand elle a une forme (un pignon, une rampe, un trapeze de croupe vu de face), dit le toit : forme
   // et hauteur, dans le plan du mur, donc a l'echelle. Plate (un mur gouttereau), elle ne dit rien du toit qu'on voit derriere : la
   // bande au-dessus de l'egout le lit. Un mur en L garde la bande (sa partie haute seule porte le toit).
-  const parLaSilhouette = !partie && e.silhouette ? profilDeLaSilhouette(e.silhouette, e.hauteur, texture.largeur / pxParM) : null;
+  const parLaSilhouette = !parties.length && e.silhouette ? profilDeLaSilhouette(e.silhouette, e.hauteur, texture.largeur / pxParM) : null;
   const profilToit = parLaSilhouette ?? profilBande;
   const toitEstime = parLaSilhouette ? classerProfil(parLaSilhouette.hauteurs) : toitLu;
   const toitPropose = toitEstime ? toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance) : null;
@@ -437,7 +441,7 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
     toitPropose,
     profilToit,
     hautLu,
-    partieBasse: partie,
+    partiesBasses: [...parties],
   };
 }
 

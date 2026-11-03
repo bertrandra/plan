@@ -5,13 +5,14 @@
 // fenetres, reperees par leur cote, suivent d'elles-memes.
 //
 // Quand le contour se deforme, ce qui est range par cote suit son mur (model/referencesContour.ts) : un releve de facade en
-// proportion de la longueur du mur (ouvertures, partie basse, grille : la photo est etiree sur le mur), une fenetre reglee une par
+// proportion de la longueur du mur (ouvertures, parties basses, grille : la photo est etiree sur le mur), une fenetre reglee une par
 // une a sa place, bornee au mur. Les saillies (`saillie.hote`, `mur`) sont rangees sur les corps, pas sur le contour : une
 // deformation ne les touche pas, la relecture du toit les repose sur les corps neufs (facade/regles/toits/elementsVus.ts).
 
 import type { Ouvrage } from './ouvrage.js';
 import type { ObjetPlan, ReleveFacade } from '../types.js';
 import { deplacerPoint, type DeplacementRigide } from '../../geometry/deplacement.js';
+import { partiesBassesTransformees } from '../partiesBasses.js';
 import { borne, coteOuTombe, coteSuivi, memeCote, milieuReporte, rapportDeLongueur, type Deformation } from '../referencesContour.js';
 
 /** Un releve pose sur un mur dont la longueur a change : ce qui est lu sur sa photo suit en proportion (`k`). */
@@ -21,7 +22,7 @@ function releveEnProportion(r: ReleveFacade, k: number): ReleveFacade {
     ...r,
     largeur: r.largeur * k,
     ouvertures: r.ouvertures.map((ov) => ({ ...ov, x: ov.x * k, l: ov.l * k })),
-    ...(r.partieBasse ? { partieBasse: { ...r.partieBasse, debut: r.partieBasse.debut * k, fin: r.partieBasse.fin * k } } : {}),
+    ...partiesBassesTransformees(r, (pb) => ({ ...pb, debut: pb.debut * k, fin: pb.fin * k })),
     ...(r.grille ? { grille: { ...r.grille, travees: r.grille.travees.map((t) => ({ xM: t.xM * k, largeurM: t.largeurM * k })) } } : {}),
   };
 }

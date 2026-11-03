@@ -130,7 +130,7 @@ describe('mur en L : analyse complete', () => {
   })!;
 
   it('rend la partie basse mesuree', () => {
-    expect(r.partieBasse).toEqual({ debut: 6, fin: 10, hauteur: 3 });
+    expect(r.partiesBasses).toEqual([{ debut: 6, fin: 10, hauteur: 3 }]);
   });
 
   it('trouve les baies des deux parties, et pas le ciel au-dessus du garage', () => {
@@ -164,8 +164,8 @@ describe('mur en L : la hauteur se mesure sur la photo', () => {
   it('mesure l egout haut sur le rectangle englobant, puis la partie basse a cette echelle', () => {
     expect(r.hauteurMesuree).toBe(true);
     expect(Math.abs(r.hauteur - 6)).toBeLessThan(0.03);
-    expect(Math.abs(r.partieBasse!.debut - 6)).toBeLessThan(0.03);
-    expect(Math.abs(r.partieBasse!.hauteur - 3)).toBeLessThan(0.03);
+    expect(Math.abs(r.partiesBasses[0]!.debut - 6)).toBeLessThan(0.03);
+    expect(Math.abs(r.partiesBasses[0]!.hauteur - 3)).toBeLessThan(0.03);
   });
 });
 

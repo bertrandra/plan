@@ -24,8 +24,8 @@ export function Elevation({
   texture: string | null;
   /** Hauteur couverte par la texture : le mur, et au-dessus la bande du pignon, hors du cadre. */
   Ht: number;
-  /** Mur en L : au-dessus de la partie basse, il n'y a pas de mur. */
-  partie?: PartieBasse | null;
+  /** Les parties basses (un mur en L, ou une a chaque bout) : au-dessus d'elles, il n'y a pas de mur. */
+  partie?: readonly PartieBasse[];
   L: number;
   H: number;
   ouvertures: OuvertureFacade[];
@@ -94,7 +94,7 @@ export function Elevation({
         <image href={texture} x={0} y={H - Ht} width={L} height={Ht} preserveAspectRatio="none" />
       </svg>}
       <rect x={0} y={0} width={L} height={H} className="releveElevationCadre" vectorEffect="non-scaling-stroke" />
-      {partie && <rect x={partie.debut} y={0} width={partie.fin - partie.debut} height={H - partie.hauteur} className="releveVide" pointerEvents="none" />}
+      {(partie ?? []).map((p, i) => <rect key={'v' + i} x={p.debut} y={0} width={p.fin - p.debut} height={H - p.hauteur} className="releveVide" pointerEvents="none" />)}
       {devinees.map((o, i) => (
         <g key={'d' + i} className="releveOuverture incertaine decochee">
           <rect x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" role="button" tabIndex={0}

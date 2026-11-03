@@ -19,6 +19,7 @@ import type { ElementDeMurFait, ElementToitDeMurFait, SaillieDeMurFait } from '.
 import type { ChampsBatiment, Cheminee, BordsToit, CorpsToit, CouvertureChoisie, DetailsOuverture, ElementDeToit, Lucarne, PoseCouverture, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 import { completerDetails } from '../model/ouverturesVues.js';
 import { ouverturesHorsDesLucarnes, releveReecrit, type LucarneSurLeMur } from '../model/facadeObjet.js';
+import { partiesBassesTransformees } from '../model/partiesBasses.js';
 
 /**
  * Qui propose : une mesure faite dans le telephone, Claude analyste (lot L17), ou plusieurs sources arbitrees par le moteur de
@@ -234,7 +235,7 @@ export function releveALaHauteur(r: ReleveFacade, hauteur: number): ReleveFacade
     hauteur: cm(hauteur),
     ouvertures: r.ouvertures.map((o) => ({ ...o, y: cm(o.y * k), h: cm(o.h * k) })),
     ...(r.hauteurTexture !== undefined ? { hauteurTexture: cm(r.hauteurTexture * k) } : {}),
-    ...(r.partieBasse ? { partieBasse: { ...r.partieBasse, hauteur: cm(r.partieBasse.hauteur * k) } } : {}),
+    ...partiesBassesTransformees(r, (pb) => ({ ...pb, hauteur: cm(pb.hauteur * k) })),
   };
 }
 

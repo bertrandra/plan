@@ -7,6 +7,33 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration) : un mur dont la partie haute est au milieu, avec une partie basse à chaque bout (une maison entre
+  un garage et un appentis), s'écrit avec ses deux parties basses, lues sur la silhouette du plan et du LiDAR. Il s'écrivait sans
+  aucune : le relevé ne connaissait qu'une partie basse, à un bout. Une partie basse au milieu du mur se lit aussi, quand la silhouette
+  y descend. La surface du mur retire chacune, la Vue 3D pose la photo sur le mur à deux marches et coupe le bâtiment en trois volumes
+  (sans les corps du toit), les baies dans le vide au-dessus d'elles ne sont pas posées, et l'éditeur de la façade corrige chacune
+  (décrochement, égout bas). L'étape É5 lit la teinte du mur sous le haut de chaque bout quand aucun ne monte à l'égout, et juge
+  l'égout aussi sur la seule partie haute (et, sans bout à l'égout, sur chaque partie basse) : une pose juste est « faite », un égout
+  décalé de 5 % est refusé, et le garage pris pour le mur entier par la calibration sans capteurs n'est plus dit « fait » mais « à
+  confirmer ». **Schéma 13** : seul un
+  fichier qui porte un mur à plusieurs parties basses s'y écrit ; un mur en L s'écrit comme avant (`partieBasse`), et un fichier
+  d'avant s'ouvre avec les mêmes nombres (migration 12 → 13 identité). La plateforme doit accepter le schéma 13
+  (bertrandra/backprod, `project_schema_versions`) et être déployée **avant** une livraison de Plan qui l'écrit. Banc des façades :
+  scène `26-partie-haute-au-milieu` ajoutée, les 26 autres identiques au bit près. Aucune quantité ni aucun export ne change.
+
+## [5.5.0] — 2026-11-03
+
+Version **mineure** au sens de `MD/RELEASE.md` : la détection des ouvertures lit la façade fusionnée entière, pignons compris (#533) ;
+la calibration et l'audit ne font plus qu'une orchestration, dans un cadre fait de la silhouette du mur plus 3 % (#534) ; les étapes
+s'appellent É1 à É11 (#535) ; en Mode Toit, les objets du toit ont leurs vignettes et la caméra se cadre sur l'élément choisi (#536) ;
+l'étape É5 se cale sur les pignons (#537) ; la vue de la façade se dessine au téléphone (#538) ; une fenêtre sous le pignon d'un corps
+voisin va sur la façade de ce mur (#539) ; un mur en L s'écrit avec sa partie basse (#540). Aucune quantité ni aucun export de la
+démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.4.1 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques.
+Schéma inchangé (12). Fumée complète (Fumée de la nuit, run 41601785149).
+
+### Modifié
+
 - Façades (audit et calibration) : un mur en L (une partie basse, garage ou extension, dans l'alignement du mur) s'écrit avec sa partie
   basse, lue sur la silhouette du plan et du LiDAR : la position du décrochement et l'égout bas, corrigeables dans l'éditeur comme
   avant. Elle s'écrivait toujours vide depuis que la photo ne la posait plus. L'étape É5 lit chaque angle sous le haut de la silhouette

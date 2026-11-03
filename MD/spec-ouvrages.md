@@ -267,7 +267,7 @@ Ce que l'arbre ci-dessus ne nomme pas, relevé champ par champ (audit du 27 octo
   traitement, chauffage, éclairage, sécurité, `local`, `distanceLocal`, couleurs, `prix`.
 - **Bâtiment, annexe** (`batiment`) : `toitLidarLu`, `verifieSurPlace`, `toitFige`, `modeToit`, `profilFacades`,
   `toitACheval` (les **clés** des parcelles qu'il chevauche), `fenetres3d` (`mode`, `liste[].cote`) ; par façade relevée :
-  `photoLocale` (clé d'une photo gardée sur l'appareil), `calage`, `calibration`, `corrections`, `grille`, `partieBasse`,
+  `photoLocale` (clé d'une photo gardée sur l'appareil), `calage`, `calibration`, `corrections`, `grille`, `partieBasse` (plusieurs : `partiesBasses`, schéma 13),
   `depuisAudit` ; par corps de toit : `saillie.hote` (rang d'un autre corps), `cheminees` (en coordonnées **absolues**),
   `lucarnes`, `elementsToit`, `terrasse.edicules.pts` ; `bdtopo.id` (le cleabs) est **son identité** : actualisation IGN,
   faits du moteur de règles (`regles/toits/faits.json`), audit.

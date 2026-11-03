@@ -14,6 +14,7 @@
 import { NIVEAU, ouvertureGardee, peutEcrire, type BatimentProtege } from './protections.js';
 import type { BoutVu, SilhouetteFacade } from './silhouetteFacade.js';
 import type { AppendiceFacade, CarreauxOuverture, CorpsDeFacade, DimensionsFacade, EtatBati, FormeFacade, GardeCorpsOuverture, GrilleCarreaux, MenuiserieOuverture, ModenatureFacade, NatureEtatBati, OuvertureFacade, ParementFacade, PointeLue, ReleveFacade, SurfaceFacade, TextureCalee } from './typesReleve.js';
+import { partiesBassesLues } from './partiesBasses.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -182,7 +183,7 @@ function ouvertureLue(ov: OuvertureFacade): OuvertureFacade {
   return o;
 }
 
-const VALIDATEURS = { dimensions: dimensionsValides, forme: formeValide, surface: surfaceValide, textureCalee: textureCaleeValide, modenature: modenatureValide, appendices: appendicesValides, etat: etatValide } as const;
+const VALIDATEURS = { partiesBasses: partiesBassesLues, dimensions: dimensionsValides, forme: formeValide, surface: surfaceValide, textureCalee: textureCaleeValide, modenature: modenatureValide, appendices: appendicesValides, etat: etatValide } as const;
 
 /**
  * Un releve relu d'un fichier : les champs de la Facade et de la facade objet verifies, retires s'ils sont mal formes. Un releve qui

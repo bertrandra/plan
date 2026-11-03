@@ -15,6 +15,7 @@ import { silhouetteDeEstimation } from '../regles/toits/silhouettes.js';
 import { chiffreFr as fr } from '../../util/format.js';
 import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 import { surchargesCalibrees } from '../regles/facades/surcharges.js';
+import { champsDesPartiesBasses } from '../../model/partiesBasses.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
 const focaleDe = (m: Morceau): number => focaleDePrise(m.prise);
@@ -118,7 +119,7 @@ function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFacade[], h
     distance: mesure ? cm(mesure.distance) : null,
     sourceDistance: mesure?.source ?? null,
     releveLe: new Date().toISOString(),
-    partieBasse: r.partieBasse,
+    ...champsDesPartiesBasses(r.partiesBasses),
     ...(r.calage ? { calage: r.calage } : {}),
     // Les seuils de la detection qui ont produit ce releve : un rejeu repartira des memes (MD/roadmap-architecture.md, etape 1.4).
     calibration: { ...surchargesCalibrees() },
@@ -164,7 +165,7 @@ function poseDeLaTexture(t: { largeur: number; hauteur: number }, largeurM: numb
  */
 export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>, morceaux: readonly Morceau[], f: Facade, jpeg: (img: ResultatAnalyse['texture']) => string, assemblage: Assemblage): ReleveDeLaSerie {
   const calage = calageDeSerie(morceaux, f.largeur, a.r.hauteur, f.azimut, assemblage);
-  const resultat: Resultat = { texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, partieBasse: a.r.partieBasse, calage };
+  const resultat: Resultat = { texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, partiesBasses: a.r.partiesBasses, calage };
   const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
   const coinsTrouves = morceaux.some((m) => !!m.sources?.includes('trouve'));
   return {
