@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { FacadeAudit } from '../../../src/zones/parcours/FacadeAudit.js';
+import { FacadeAudit, correctionAAppliquer } from '../../../src/zones/parcours/FacadeAudit.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
 import type { SessionAuditParcelle } from '../../../src/app/audit/parcelle/controleur.js';
 import type { MesureFacade } from '../../../src/app/audit/parcelle/mesures.js';
@@ -140,5 +140,19 @@ describe('une facade dans l audit discret', () => {
     expect(hote.querySelector('[data-commande="facade.valider"]')).toBeNull();
     expect(hote.querySelector('.barreFacadeSegment:last-child')?.className).toMatch(/\bok\b/);
     expect(lignes().some((l) => l.includes('Validation'))).toBe(false);
+  });
+});
+
+describe('« Appliquer » des quatre reperes (revue des etapes, B1)', () => {
+  const depart = [{ x: 10, y: 10 }, { x: 90, y: 10 }, { x: 90, y: 80 }, { x: 10, y: 80 }];
+  it('n ecrit pas de reperes que la personne n a pas deplaces : la photo garde le chemin automatique', () => {
+    expect(correctionAAppliquer(depart.map((c) => ({ ...c })), depart, undefined, undefined)).toEqual({});
+    // L'echelle et le mur tire s'ecrivent seuls.
+    expect(correctionAAppliquer(depart, depart, depart, 9.5)).toEqual({ coins: depart, echelleLargeurM: 9.5 });
+  });
+  it('ecrit les reperes deplaces, au dixieme de pixel', () => {
+    const bouges = depart.map((c, k) => (k === 1 ? { x: 95.04, y: 12.36 } : c));
+    expect(correctionAAppliquer(bouges, depart, undefined, undefined)).toEqual({ reperes: [{ x: 10, y: 10 }, { x: 95, y: 12.4 }, { x: 90, y: 80 }, { x: 10, y: 80 }] });
+    expect(correctionAAppliquer(bouges, undefined, undefined, undefined).reperes).toHaveLength(4);
   });
 });

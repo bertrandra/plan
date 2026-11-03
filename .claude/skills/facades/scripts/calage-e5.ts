@@ -10,9 +10,14 @@
 // haut, signee : negatif, trop bas) ; l'etat de l'E5, son score d'explication et ses deux angles. « Juste » : les quatre coins a 2 % de
 // la largeur du mur au plus (`facades.enchainement.calageEcartMaxPart`). La ligne qui compte : aucun E5 « ok » sur une pose fausse.
 //
-// En plus des scenes, deux variantes de la scene 24 vue comme un mur de 5 m que le pignon d'un corps voisin prolonge jusqu'a 8 m (le
-// gabarit deborde du mur) : coins cherches (« voisin »), et mur pose a la main sur les coins vrais (« voisin, à la main » : l'E5 est
-// alors « ok » quoi qu'il arrive, son score dit si l'explication tient compte du gabarit).
+// En plus des scenes, trois variantes de la scene 24 vue comme un mur de 5 m que le pignon d'un corps voisin prolonge jusqu'a 8 m (le
+// gabarit deborde du mur) : coins cherches (« voisin »), mur pose a la main sur les coins vrais (« voisin, à la main » : l'E5 n'est
+// « ok » que si la silhouette l'explique, son score dit si l'explication tient compte du gabarit), et quatre reperes poses sur les
+// coins que la chaine avait retenus (« voisin, repères = coins de la chaîne » : ouvrir « Placer 4 repères » puis « Appliquer »).
+//
+// Le chemin des reperes (decision du proprietaire, 3 novembre 2026 : seuls des coins tires a la main sont « a la main ») : chaque scene
+// rejouee une seconde fois avec quatre reperes aux coins de sa premiere ouverture (« repères »), comme egout-sol.ts. Le mur s'y cherche
+// sur l'assemblage redresse par eux, l'arbitre juge les poses : la ligne d'ensemble compte ces cas comme les autres.
 //
 // « Poses fausses refusées » : sur l'image de la pose retenue, quand elle est juste, la meme pose l'egout deplace de 5 et 10 % de la
 // largeur du mur vers le haut et vers le bas, puis un bout de 5 % vers l'interieur et l'exterieur (au-dela des 3 % ou un bord est faux,
@@ -46,17 +51,19 @@ function priseDe(p: PriseCamera, L: number): PrisePhoto {
   };
 }
 
-interface Cas { nom: string; s: SceneFacade; largeurM: number; gabarit: GabaritMur; aLaMain?: boolean }
+interface Cas { nom: string; s: SceneFacade; largeurM: number; gabarit: GabaritMur; aLaMain?: boolean; reperes?: 'ouverture' | 'chaine' }
 
 const cas: Cas[] = [];
 for (const s of chargerCorpus()) {
   if (s.synthese.prise.type !== 'camera') continue;
   cas.push({ nom: s.nom, s, largeurM: s.verite.largeur, gabarit: gabaritVrai(s) });
+  if (s.verite.ouvertures.length) cas.push({ nom: s.nom + ', repères', s, largeurM: s.verite.largeur, gabarit: gabaritVrai(s), reperes: 'ouverture' });
   if (s.nom.startsWith('24-')) {
     // Le mur de 5 m, prolonge par le pignon d'un corps voisin jusqu'a 8 m (tests/unit/facade/analyseSilhouette.test.ts).
     const H = s.verite.hauteur;
     const g = [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }];
-    cas.push({ nom: '24-voisin (mur de 5 m)', s, largeurM: 5, gabarit: g }, { nom: '24-voisin, à la main', s, largeurM: 5, gabarit: g, aLaMain: true });
+    cas.push({ nom: '24-voisin (mur de 5 m)', s, largeurM: 5, gabarit: g }, { nom: '24-voisin, à la main', s, largeurM: 5, gabarit: g, aLaMain: true },
+      { nom: '24-voisin, repères = coins de la chaîne', s, largeurM: 5, gabarit: g, reperes: 'chaine' });
   }
 }
 
@@ -81,9 +88,19 @@ for (const c of cas) {
   // La prise : centree sur le mur de la scene ; pour le mur de 5 m, le GPS est le meme, la position se lit dans le repere du mur.
   const prise = priseDe(p, L8);
   const vraisPhoto = vraisM.map((q) => appliquer(murVersPhoto, q));
-  const corrections = c.aLaMain ? { 0: { coins: vraisPhoto } } : {};
-  const prises = prisesDeLaFacade({ facade, contour, photos: [{ rang: 0, image: ph.image, prise: sansCapteurs ? null : prise }], corrections, jpeg: () => '' });
-  const r = await derouler({ largeurM: L, hauteurM: H, gabarit: c.gabarit, prises }, { vue: 'audit', chercherCoins: async (e) => rechercher(e) });
+  const jouer = (corrections: Record<number, { coins?: P2[]; reperes?: P2[] }>) => derouler({ largeurM: L, hauteurM: H, gabarit: c.gabarit,
+    prises: prisesDeLaFacade({ facade, contour, photos: [{ rang: 0, image: ph.image, prise: sansCapteurs ? null : prise }], corrections, jpeg: () => '' }) },
+  { vue: 'audit', chercherCoins: async (e) => rechercher(e) });
+  let corrections: Record<number, { coins?: P2[]; reperes?: P2[] }> = c.aLaMain ? { 0: { coins: vraisPhoto } } : {};
+  if (c.reperes === 'chaine') {
+    const px = (await jouer({})).sorties.audit?.redressement?.photos[0]?.coinsPx;
+    if (px?.length !== 4) continue;
+    corrections = { 0: { reperes: px } };
+  } else if (c.reperes === 'ouverture') {
+    const o = c.s.verite.ouvertures[0]!;
+    corrections = { 0: { reperes: [{ x: o.x, y: o.y + o.h }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x + o.l, y: o.y }, { x: o.x, y: o.y }].map((q) => appliquer(murVersPhoto, q)) } };
+  }
+  const r = await jouer(corrections);
   const e5 = r.etapes.find((x) => x.id === 'calage');
   const coins = r.sorties.calage?.photos[0]?.coins ?? [];
   const ex = r.sorties.calage?.explication;
