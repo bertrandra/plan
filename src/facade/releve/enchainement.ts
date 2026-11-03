@@ -39,7 +39,7 @@ import { estLeMurConfirme, sontRelues, type BilanPhotoRedressement, type BilanRe
 import type { PrisePhoto } from '../../model/audit.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie, type ToitVraiCorps } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
-import { accorderOuvertures, avisDesPointes, ecartDesPoses, EMPREINTE_IA, poseDeLIa, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
+import { accorderOuvertures, avisDesPointes, ecartDesPoses, EMPREINTE_IA, poseDeLIa, poseDeLIaSurLeMur, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
 import { cartesAretes } from '../detection/recalageIa.js';
 import { etapeDiagnostic, etapeToit, type ToitDeLaFacade } from './etapesForme.js';
 import type { DiagnosticForme } from '../regles/facades/diagnosticForme.js';
@@ -478,7 +478,7 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Omit<EtapeCalculee, 'id'> => {
   const hauteur = m.hauteurM !== null ? ` Hauteur à l’égout mesurée : ${dec(m.hauteurM)} m.` : '';
   const r = pose ? rectDeLaPose(pose.coins) : null;
   const verite = r && o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null;
-  const ia = o.ia && r ? avisDeLIa(o.ia, pose as AssemblageDuMur, r, s.preparation?.pointes ?? [], obj['facades.enchainement.calageEcartMaxPart']) : null;
+  const ia = o.ia && r ? avisDeLIa(o.ia, pose as AssemblageDuMur, r, s.preparation?.pointes ?? [], obj['facades.enchainement.calageEcartMaxPart'], cadreDuRun(o.ia, s.audit?.imageRun ?? null)) : null;
   s.ia = ia?.sortie ?? (o.ia ? { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null } : null);
   const dit = ia ? ' ' + ia.texte : '';
   // L'image prise pour la suite se juge sur la silhouette que la pose y pose (calageAncres.ts) : un egout faux sous un pignon, ou un bout
@@ -514,12 +514,22 @@ function pointesDeLIa(obs: ObservationsFacade, attendues: readonly { u: number; 
 }
 
 /**
+ * Le cadre de l'image qu'un run a lue, quand c'est celle du run de l'audit (le mur cadre, ImageDuRun) : la meme taille que l'image du
+ * run que cette mesure prepare. Sinon l'assemblage (« Rappeler Claude » de la calibration). Une propriete du run, pas de la vue : la
+ * calibration et l'audit le lisent pareil.
+ */
+function cadreDuRun(run: RunEnregistre, image: ImageDuRun | null): { egoutPart: number } | null {
+  return image && run.image.largeur === image.largeur && run.image.hauteur === image.hauteur ? { egoutPart: image.egoutPart } : null;
+}
+
+/**
  * Ce que la reponse de Claude dit du calage (E5) : sa pose contre la pose retenue (accord sous l'ecart admis, sinon divergence), et ses
  * pointes contre le gabarit. Une mesure : la pose retenue ne change pas, ni l'etat de l'etape (l'audit ne pose pas le mur par Claude).
  */
-function avisDeLIa(run: RunEnregistre, image: AssemblageDuMur, retenue: RectIa, attendues: readonly { u: number; v: number }[], seuil: number): { sortie: IaDuRejeu; texte: string } {
+function avisDeLIa(run: RunEnregistre, image: AssemblageDuMur, retenue: RectIa, attendues: readonly { u: number; v: number }[], seuil: number, cadre: { egoutPart: number } | null): { sortie: IaDuRejeu; texte: string } {
   const reponse = observationsDuRun(run);
-  const pose = reponse ? poseDeLIa(reponse, image.image) : null;
+  // Lue sur l'image du run de l'audit, la pose de Claude revient par les coins du mur qu'elle cadrait ; sinon, en parts de l'assemblage.
+  const pose = !reponse ? null : cadre ? poseDeLIaSurLeMur(reponse, image.coins, cadre.egoutPart) : poseDeLIa(reponse, image.image);
   const ecart = pose ? ecartDesPoses(pose, retenue) : null;
   const sortie: IaDuRejeu = { run, reponse, pose, ecart, accord: null };
   // Une reponse enregistree sous une autre version de la chaine a lu une autre image : ses angles se mesurent, mais c'est dit.

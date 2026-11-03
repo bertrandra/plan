@@ -32,10 +32,10 @@ describe('les fichiers livrés', () => {
   it('montrent les seuils des règles du run d’une façade, et refusent une valeur hors de ses bornes', () => {
     const ia = fichier('iaFacades');
     expect(controlerDonnees(ia, ia.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_IA });
-    expect(seuilsDuTexte(ia.livre).map((x) => x.nom)).toContain('facades.ia.colombagePartMax');
-    const plus = changerSeuil(ia.livre, 'facades.ia.colombagePartMax', 'valeur', 0.8)!;
+    expect(seuilsDuTexte(ia.livre).map((x) => x.nom)).toContain('facades.ia.baieRetrouvee');
+    const plus = changerSeuil(ia.livre, 'facades.ia.baieRetrouvee', 'valeur', 0.8)!;
     expect(bilanDonnees(ia, plus)).toMatchObject({ lignes: 1, empreinteChange: true });
-    expect(controlerDonnees(ia, changerSeuil(ia.livre, 'facades.ia.colombagePartMax', 'valeur', 3)!).erreur).toMatch(/colombagePartMax/);
+    expect(controlerDonnees(ia, changerSeuil(ia.livre, 'facades.ia.baieRetrouvee', 'valeur', 3)!).erreur).toMatch(/baieRetrouvee/);
   });
 
   it('montrent les seuils de la lecture du jardin (lot L3), et refusent une valeur hors de ses bornes', () => {

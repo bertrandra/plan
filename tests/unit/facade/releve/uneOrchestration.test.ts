@@ -177,6 +177,28 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     expect(x.audit.facade?.forme).toEqual(x.calibration.sorties.facade?.forme);
   }, 240_000);
 
+  it('avec la lecture de Claude faite sur l image du run de l audit (le mur cadre) : ses angles reviennent sur l assemblage, accord', async () => {
+    // Regression de la decision 4 (#551) : les angles d'un run de l'audit sont aux bords de son image (le mur redresse et cadre, du sol
+    // au-dessus du haut) ; lus en parts de l'assemblage, ils posaient le mur sur toute sa largeur et l'E5 disait « les deux chemins
+    // divergent ». Ils reviennent par le mur retenu et l'egout de l'image du run.
+    const s = scene('02-');
+    const c = casIaDeScene(s);
+    if (!c) throw new Error('pas de cas');
+    const sans = await lesDeux(s, [s.synthese.prise as PriseCamera], {});
+    const img = sans.audit.imageRun;
+    if (!img) throw new Error('pas d image du run');
+    const run: RunEnregistre = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine, { egoutPart: img.egoutPart })], cout: 0.0011,
+      tokens: { entree: 4000, sortie: 800 }, image: { largeur: img.largeur, hauteur: img.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
+    memesSorties(x);
+    const e5 = x.audit.etapes?.find((e) => e.id === 'calage')?.resume ?? '';
+    expect(e5).toMatch(/IA \(réponse synthétique.*: accord\./);
+    expect(e5).not.toMatch(/divergent/);
+    expect(x.calibration.sorties.ia?.ecart ?? 1).toBeLessThan(0.03);
+    // Les boites sont dans le repere du mur, quelle que soit l'image : le meme accord a l'E9 que sur l'assemblage.
+    expect(x.audit.accord?.bilan.retrouvees).toBeGreaterThan(0);
+  }, 360_000);
+
   it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {
     const s = scene('24-');
     const p0 = s.synthese.prise as PriseCamera;

@@ -70,11 +70,17 @@ const ecart = (amplitude: number, a: number, b: number, c: number) => (hache(a, 
 
 /**
  * Une sortie SYNTHETIQUE du run pour une passe (0, 1 ou 2), dans la forme du schema (deploy/schema-facade.json) : de quoi rejouer sans
- * Claude. `graine` distingue les scenes.
+ * Claude. `graine` distingue les scenes. `cadre` : l'image du run de l'audit (le mur redresse et cadre, du sol jusqu'au-dessus du
+ * haut, l'egout a `egoutPart` de sa hauteur depuis le bas, runsFacades.ts) ; ses angles sont alors aux bords de l'image, comme le
+ * prompt le dit. Sans lui, l'assemblage de la calibration. Les boites et les pointes sont dans le repere du mur, les memes.
  */
-export function sortieSynthetique(c: CasIa, passe: number, graine: number): object {
+export function sortieSynthetique(c: CasIa, passe: number, graine: number, cadre: { egoutPart: number } | null = null): object {
   const { mur, largeurM: L, hauteurM: H } = c.verite, W = c.image.largeur, Hi = c.image.hauteur;
-  const angle = (x: number, k: number) => ({ x: r3(x / W + ecart(0.01, graine, passe, k)), egout: r3(mur.y0 / Hi + ecart(0.01, graine, passe, k + 1)), sol: r3(mur.y1 / Hi + ecart(0.01, graine, passe, k + 2)), confiance: 'moyenne' });
+  const place = cadre
+    ? { gauche: 0, droite: 1, egout: 1 - cadre.egoutPart, sol: 1 }
+    : { gauche: mur.x0 / W, droite: mur.x1 / W, egout: mur.y0 / Hi, sol: mur.y1 / Hi };
+  const borne = (v: number) => (cadre ? Math.min(1, Math.max(0, v)) : v);
+  const angle = (x: number, k: number) => ({ x: r3(borne(x + ecart(0.01, graine, passe, k))), egout: r3(place.egout + ecart(0.01, graine, passe, k + 1)), sol: r3(borne(place.sol + ecart(0.01, graine, passe, k + 2))), confiance: 'moyenne' });
   const ouvertures = c.verite.ouvertures.flatMap((o, i) => {
     // Une passe oublie parfois une baie ; les deux autres la voient.
     if (hache(graine, i, 50 + passe) < 0.12) return [];
@@ -89,7 +95,7 @@ export function sortieSynthetique(c: CasIa, passe: number, graine: number): obje
   if (passe === graine % 3) ouvertures.push({ type: 'fenetre', u0: 0.005, u1: 0.06, v0: 0.03, v1: 0.2, niveau: 'indetermine', travee: 'indetermine', confiance: 'faible', details: { volets: 'indetermine', allege: 'indetermine', forme: 'rect' }, carreaux: { vantaux: 'indetermine', colonnes: 1, rangees: 1, petitsBois: 'aucun', imposte: 'indetermine', vitrage: 'clair' } });
   return {
     calage: {
-      angles: { gauche: angle(mur.x0, 1), droite: angle(mur.x1, 4) },
+      angles: { gauche: angle(place.gauche, 1), droite: angle(place.droite, 4) },
       pointes: c.verite.pointes.map((p, k) => ({ u: r3(p.u + ecart(0.02, graine, passe, 20 + k)), v: r3(p.v * (1 + ecart(0.08, graine, passe, 30 + k))), confiance: 'moyenne' })),
       appentis: [], corps: [], cache: [],
     },
