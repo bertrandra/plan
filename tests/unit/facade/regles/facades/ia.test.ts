@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../../../src/regles/facades/observations.js';
-import { accorderOuvertures, avisDesPointes, decisionColombage, escaladerObservations, passesDeProduction, reglagesIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, poseDeLIaSurLeMur, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
+import { accorderOuvertures, avisDesPointes, escaladerObservations, passesDeProduction, reglagesIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, poseDeLIaSurLeMur, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
 import { lireReglagesIa } from '../../../../../src/regles/facades/ia.js';
 import fichierIa from '../../../../../regles/facades/ia.json';
 import type { OuvertureFacade } from '../../../../../src/model/types.js';
@@ -8,7 +8,7 @@ import { SORTIE_FACADE } from '../../../../fixtures/deploy/fauxAnthropic.js';
 
 // Les regles du run d'une facade (lot F2, MD/spec-facade-calage-audit.md §5, §8) : une observation de Claude entre, une decision du
 // moteur sort. Le vote de trois passes (la production, decision du 29 octobre 2026), l'escalade a la demande, la pose candidate de ses angles, l'accord de ses boites avec la
-// detection, le colombage qui ecarte une pose, les pointes contre le gabarit.
+// detection, les pointes contre le gabarit.
 // Toutes les reponses ici sont SYNTHETIQUES.
 
 const R = lireObservationsFacade(SORTIE_FACADE) as ObservationsFacade;
@@ -150,22 +150,7 @@ describe('la pose candidate et les boites', () => {
   });
 });
 
-describe('les regles du colombage et des pointes : une observation entre, une decision sort', () => {
-  const avecZone = (zone: object) => lireObservationsFacade({ ...SORTIE_FACADE, surface: { principale: 'enduit', zones: [zone], confiance: 'moyenne' } }) as ObservationsFacade;
-  const pose = { x0: 100, x1: 700, y0: 300, y1: 500 };
-
-  it('une zone de colombage partielle ecarte une pose qui tient dedans, pas le mur', () => {
-    const d = decisionColombage(avecZone({ type: 'colombage', u0: 0.5, u1: 1, v0: 1.2, v1: 2, confiance: 'moyenne' }), pose, { largeur: 1000 });
-    expect(d?.zones).toEqual([{ x0: 400, x1: 700, y0: 100, y1: 260 }]);
-    expect(d?.ecarte({ x0: 410, x1: 705, y0: 120, y1: 240 })).toBe(true);
-    expect(d?.ecarte(pose)).toBe(false);
-    // Un mur tout en colombage : ses angles sont ceux du mur, rien n'est ecarte ; un autre parement non plus.
-    expect(decisionColombage(avecZone({ type: 'colombage', u0: 0, u1: 1, v0: 0, v1: 1, confiance: 'forte' }), pose, { largeur: 1000 })).toBeNull();
-    expect(decisionColombage(avecZone({ type: 'brique', u0: 0.5, u1: 1, v0: 0, v1: 1, confiance: 'forte' }), pose, { largeur: 1000 })).toBeNull();
-    // Le seuil est un reglage (regles/facades/ia.json) : une surcharge le change.
-    expect(decisionColombage(avecZone({ type: 'colombage', u0: 0.5, u1: 1, v0: 1.2, v1: 2, confiance: 'moyenne' }), pose, { largeur: 1000 }, reglagesIa({ 'facades.ia.colombagePartMax': 0.4 }))).toBeNull();
-  });
-
+describe('la regle des pointes : une observation entre, une decision sort', () => {
   it('une pointe a sa place s accorde, plus haute est signalee, en plus ou manquante est un diagnostic', () => {
     // SORTIE_FACADE : deux pointes, u 0.11 (3.1) et u 0.8 (3.2).
     expect(avisDesPointes(R, [{ u: 0.12, v: 3.15 }, { u: 0.5, v: 2 }]).map((a) => a.avis)).toEqual(['accord', 'en-plus', 'manquante']);

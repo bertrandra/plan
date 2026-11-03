@@ -3,11 +3,11 @@
 // - « trois passes deviennent une observation » : le vote, le mode de production (`facades.ia.passes`, decision du 29 octobre 2026) ;
 // - « l'escalade, une lecture de plus demandee par la personne, l'emporte la ou elle contredit le vote sur le calage, la forme et le
 //   parement ; ses boites s'ajoutent, et ne sont cochees que si la detection les retrouve, comme les autres » ;
-// - « les deux angles de l'IA sont une pose candidate pour l'arbitre » (calageAncres.ts la juge comme les autres) ;
-// - « une zone de colombage ecarte les poses du mur qui tiennent dedans » : leurs bouts suivent les bois, pas les angles (AE 101) ;
+// - « les deux angles de l'IA disent l'accord avec la pose retenue », jamais une pose candidate de l'arbitre (decision du proprietaire,
+//   3 novembre 2026 : dans l'audit, Claude lit le mur retenu ; ses zones de colombage n'ecartent pas de pose non plus) ;
 // - « une pointe vue ailleurs ou plus haut que le plan est un diagnostic ou une alerte, jamais une correction » (decision 12) ;
 // - « une boite de l'IA n'est cochee que si la detection (ou la grille, par une baie devinee) la retrouve » (§8).
-// La chaine (l'arbitre de l'E5, l'E9 de l'enchainement, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
+// La chaine (l'E5 et l'E9 de l'enchainement, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
 
 import fichierIa from '../../../../regles/facades/ia.json';
 import { voterAttribut } from '../../../model/analyseClaude.js';
@@ -184,7 +184,7 @@ export function escaladerObservations(vote: ObservationsFacade | null, esc: Obse
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Ce que Plan en fait : une pose candidate (E5), des boites a accorder avec la detection (E9)
+ * Ce que Plan en fait : une pose a confronter a la pose retenue (E5), des boites a accorder avec la detection (E9)
  * --------------------------------------------------------------------------------------------- */
 
 export interface RectIa { x0: number; x1: number; y0: number; y1: number }
@@ -210,28 +210,6 @@ export function poseDeLIaSurLeMur(r: ObservationsFacade, coins: readonly P2[], e
   const sur = (x: number, y: number) => appliquer(versMur, { x, y: (y - (1 - egoutPart)) / egoutPart });
   const [ge, gs, de, ds] = [sur(g.x, g.egout), sur(g.x, g.sol), sur(d.x, d.egout), sur(d.x, d.sol)];
   return { x0: (ge.x + gs.x) / 2, x1: (de.x + ds.x) / 2, y0: (ge.y + de.y) / 2, y1: (gs.y + ds.y) / 2 };
-}
-
-/** La decision du colombage, que l'arbitre du calage applique : les zones (pixels), et la pose qu'elles ecartent. */
-export interface DecisionColombage {
-  zones: RectIa[];
-  /** Vrai : la pose tient dans une zone (ses deux bouts dedans, et elle la recoupe en hauteur) ; elle suit les bois, pas les angles. */
-  ecarte(p: RectIa): boolean;
-}
-
-/**
- * Regle du colombage : les zones de colombage que Claude voit, en pixels, portees par sa pose, celles qui ne couvrent qu'une partie
- * du mur (`facades.ia.colombagePartMax`). Leurs bois dessinent des rectangles nets que les aretes prennent pour le mur (AE 101 sud :
- * le pan de bois du pignon de droite, x de 451 a 752) : une pose dont les deux bouts tombent dedans (a `colombageTolerancePart` de
- * l'image pres) est ecartee. Un mur tout en colombage n'en a pas : ses angles sont ceux du mur. Null : rien a decider.
- */
-export function decisionColombage(obs: ObservationsFacade, pose: RectIa, image: { largeur: number }, r: ReglagesIa = reglagesIa()): DecisionColombage | null {
-  const w = pose.x1 - pose.x0, h = pose.y1 - pose.y0;
-  const zones = obs.surface.zones.filter((z) => z.type === 'colombage' && z.u1 - z.u0 < r['facades.ia.colombagePartMax'])
-    .map((z) => ({ x0: pose.x0 + z.u0 * w, x1: pose.x0 + z.u1 * w, y0: pose.y1 - z.v1 * h, y1: pose.y1 - z.v0 * h }));
-  if (!zones.length) return null;
-  const tol = r['facades.ia.colombageTolerancePart'] * image.largeur;
-  return { zones, ecarte: (p) => zones.some((z) => p.x0 >= z.x0 - tol && p.x1 <= z.x1 + tol && Math.min(p.y1, z.y1) > Math.max(p.y0, z.y0)) };
 }
 
 /** Ce que la regle des pointes dit d'une pointe : vue la ou le plan l'attend (a sa hauteur, ou une autre : alerte), en plus, ou manquante. */

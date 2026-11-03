@@ -799,8 +799,10 @@ Trois lectures votées par façade (décision du 29 octobre 2026, réglage `faca
 prise pour la suite (`MD/spec-facade-calage-audit.md` §8) : prompt et schéma générés
 (`deploy/prompt-facade.md`, `deploy/schema-facade.json`, depuis `src/regles/sujets/descriptions/facadesRun.ts`), usage `facade` du
 serveur. Sa réponse devient des observations (`src/regles/facades/observations.ts`) que les règles de `facade/regles/facades/ia.ts`
-décident (seuils : `regles/facades/ia.json`) : pose candidate, zones de colombage qui écartent des poses, pointes, boîtes cochées
-seulement si la détection les retrouve. Le banc déterministe ne la voit pas (aucune réponse) : il ne bouge pas.
+décident (seuils : `regles/facades/ia.json`) : l'accord de ses angles avec la pose retenue (dans le cadre de l'image lue : dans
+l'audit, le mur retenu cadré, ramené sur l'assemblage par lui), pointes, boîtes cochées seulement si la détection les retrouve. Sa
+pose et ses zones de colombage ne sont pas candidates de l'arbitre (décision du propriétaire, 3 novembre 2026). Les options
+manuelles « désigner les pointes » (É6) et « recadrer » (É8), jamais écrites, sont retirées du contrat. Le banc déterministe ne la voit pas (aucune réponse) : il ne bouge pas.
 
 ```bash
 npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/mesure [mots]   # l'assemblage (≤ 1 024 px), le texte, la vérité

@@ -74,7 +74,7 @@ describe('l ecran des regles', () => {
     const tab = [...hote.querySelectorAll('[role="tab"]')].find((b) => b.textContent === 'Run d’une façade') as HTMLButtonElement;
     await act(async () => { tab.click(); });
     const regles = hote.querySelector('[aria-label="Règles du run d’une façade"]')?.textContent ?? '';
-    expect(regles).toContain('colombagePartMax = 0,9 part');
+    expect(regles).toContain('baieRetrouvee = 0,3 part');
     expect(hote.querySelector('[aria-label="Prompt du run d’une façade"]')?.textContent).toBe(genererRunFacade().prompt);
   });
 

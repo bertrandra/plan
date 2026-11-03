@@ -83,6 +83,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   maintenant sur l'assemblage par le mur que l'image cadrait et l'égout qu'elle porte. Les boîtes des ouvertures (É9), dans le repère
   du mur, n'avaient pas ce défaut. Aucune image ni requête envoyée à Claude ne change, aucune quantité ni aucun export.
 
+### Retiré
+
+- Façades : la pose de Claude et ses zones de colombage ne sont plus des candidates de l'arbitre du calage (décision du propriétaire,
+  3 novembre 2026) : dans l'audit, Claude lit le mur retenu, et son accord se mesure dans ce cadre. Aucun appelant ne les passait ; la
+  règle du colombage et ses deux réglages (`facades.ia.colombagePartMax`, `facades.ia.colombageTolerancePart`) partent avec elles, ce
+  qui change l'empreinte des réglages du run d'une façade. Le contrat des étapes perd deux options manuelles jamais écrites :
+  « désigner les pointes sur l'image » (É6) et « recadrer » (É8). Aucune quantité ni aucun export ne change.
+
 ## [5.5.0] — 2026-11-03
 
 Version **mineure** au sens de `MD/RELEASE.md` : la détection des ouvertures lit la façade fusionnée entière, pignons compris (#533) ;
