@@ -14,7 +14,7 @@ l'étape É5 se cale sur les pignons (#537) ; la vue de la façade se dessine au
 voisin va sur la façade de ce mur (#539) ; un mur en L s'écrit avec sa partie basse (#540). Aucune quantité ni aucun export de la
 démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.4.1 ; preuve
 forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques.
-Schéma inchangé (12). Fumée complète (Fumée de la nuit, run RUN_NUIT).
+Schéma inchangé (12). Fumée complète (Fumée de la nuit, run 41591466196).
 
 ### Modifié
 
