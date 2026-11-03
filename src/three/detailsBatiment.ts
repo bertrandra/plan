@@ -18,7 +18,7 @@ import { signedArea, centroid } from '../geometry/basic.js';
 import type * as THREE_NS from 'three';
 import type { CorpsToit, ObjetPolygone, PtBrut, Toit } from '../model/types.js';
 import { toitDessine } from '../model/formeToit.js';
-import { volumesDuBatiment, type Volume } from '../facade/profil.js';
+import { volumesEtHautesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
 import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
@@ -568,13 +568,16 @@ function poserMaconnerieDesFacades(ctx: ContexteDetails, contour: readonly PtBru
 export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h: number, options: OptionsDetails = {}): void {
   if (!Array.isArray(o.pts) || o.pts.length < 3 || h <= 0) return;
   const multi = options.volumes;
-  const volumes = multi ?? volumesDuBatiment(o.pts, h, o.batiment?.facades);
+  const lus = multi ? null : volumesEtHautesDuBatiment(o.pts, h, o.batiment?.facades);
+  const volumes = multi ?? lus?.volumes ?? [];
   const contourHaut = au(volumes, 0).pts;
+  // Les parties hautes : une, ou deux de part et d'autre d'une partie basse au milieu du mur ; chacune a son debord.
+  const hautes = lus ? volumes.slice(0, lus.hautes).map((v) => v.pts) : [contourHaut];
   const toit = options.sansToit ? null : o.batiment?.toit;
   const pres = ctx.distance <= (ctx.detailFin ?? DETAIL_FIN_M);
   // Chaque corps de batiment a son debord a son egout ; sinon le debord suit la partie haute.
   if (multi && !options.sansToit) multi.forEach((v) => poserDebord(ctx, v.pts, v.toit, v.hauteur, pres, o.pts));
-  else if (toit) poserDebord(ctx, contourHaut, toit, h, pres);
+  else if (toit) hautes.forEach((pts) => poserDebord(ctx, pts, toit, h, pres));
   poserAretes(ctx, volumes, contourHaut);
   if (!pres) return;
   poserSoubassement(ctx, o.pts, h);
