@@ -2394,13 +2394,18 @@ const POINTS = {
         essences: [...new Set(feuilles.map((m) => m.userData.caduc))].sort().join('/')
       };
     });
-    const ete = await lire();
     const changerDate = (d) => page.evaluate((d) => {
       const i = document.querySelector('[data-controle="vue3d.date"]');
       if (!i) return;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, d);
       i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
     }, d);
+    // Chaque mesure pose sa date : la date par defaut de la Vue 3D est celle du jour, et un caduc est
+    // nu de novembre a mars. Mesurer « l'ete » a la date du jour faisait echouer le point des le
+    // 1er novembre (fumee de la nuit des 1er, 2 et 3 novembre 2026).
+    await changerDate('2026-06-21');
+    await page.waitForTimeout(500);
+    const ete = await lire();
     await changerDate('2026-01-15');
     await page.waitForTimeout(500);
     const hiver = await lire();
