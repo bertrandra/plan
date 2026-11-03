@@ -11,6 +11,8 @@ import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { etapesApresValidation } from '../../../../../src/app/audit/parcelle/facadeValidee.js';
 import type { EtatApp } from '../../../../../src/core/state.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
+import type { RunEnregistre } from '../../../../../src/regles/facades/observations.js';
+import { SORTIE_FACADE } from '../../../../fixtures/deploy/fauxAnthropic.js';
 import type { CorpsToit, ObjetAPlat, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 // La validation d'une facade dans l'audit (V4, MD/spec-facade-calage-audit.md §4 E11, lot F5) : le bilan de la facade (E11) s'ecrit
@@ -48,7 +50,7 @@ async function coinsTrouves(e: Parameters<typeof rechercher>[0]): Promise<Return
 }
 const dependances = { pixels: async () => image(), chercherCoins: coinsTrouves, jpeg: () => 'data:image/jpeg;base64,TEXTURE', limites: () => [] };
 
-function monter(avant: Partial<ObjetPlan> = {}) {
+function monter(avant: Partial<ObjetPlan> = {}, runs: () => Record<string, RunEnregistre> | null = () => null) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
     obj('maison', { fonction: 'batiment', pts: PTS, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  ...avant }),
@@ -66,6 +68,7 @@ function monter(avant: Partial<ObjetPlan> = {}) {
   const v = creerValidation({
     etat, capture, liste: () => listeDeControle(etat.objects, capture.lire()), projet, signaler: (m) => messages.push(m),
     maintenant: () => new Date('2026-10-13T09:00:00Z'), mesures: dependances,
+    analyse: { reponses: () => null, version: () => 0, runs },
   });
   const maison = () => etat.objects.find((o) => o.key === 'maison') as ObjetPlan;
   return { etat, historique, projet, v, messages, maison, capture };
@@ -284,3 +287,27 @@ describe('V3 dans l audit : les ouvertures se relisent avant V4 (decision du pro
     expect(r?.ouvertures[0]?.x).toBeCloseTo(detectees[1]!.x, 6);
   }, 60000);
 });
+
+describe('la lecture de Claude dans l enchainement de l audit (decision 4 du proprietaire, 3 novembre 2026)', () => {
+  it('sa lecture refait la mesure : la barre la dit, l accord est celui de l E9, et V4 ecrit ses pointes dans la forme', async () => {
+    let runs: Record<string, RunEnregistre> | null = null;
+    const t = monter({}, () => runs);
+    await t.v.lancer();
+    const m = () => t.v.mesuresFaites().get('maison#0');
+    expect(m()?.accord).toBeUndefined();
+    expect(m()?.etapes?.find((e) => e.id === 'calage')?.resume).not.toMatch(/IA \(/);
+    // La lecture arrive (le batch de l'analyse) : la facade se mesure de nouveau, avec elle.
+    runs = { 'maison#0': { le: '2026-10-13T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1, sorties: [SORTIE_FACADE], cout: 0.001, tokens: { entree: 1000, sortie: 400 }, image: { largeur: 500, hauteur: 300 }, chaine: 13 } };
+    await t.v.lancer();
+    expect(m()?.etapes?.find((e) => e.id === 'calage')?.resume).toMatch(/IA \(Claude, 2026-10-13/);
+    expect(m()?.etapes?.find((e) => e.id === 'ouvertures')?.resume).toMatch(/vues? par Claude/);
+    expect(m()?.accord?.bilan.boites).toBeGreaterThan(0);
+    // V4 ecrit ce que la barre montre : la forme du bilan, les pointes de Claude comprises.
+    if (m()?.etapes?.find((e) => e.id === 'calage')?.etat === 'a-confirmer') await t.v.confirmerMur('maison', 0);
+    expect(t.v.validerFacade('maison', 0)).toBe(true);
+    const forme = t.maison().batiment?.facades?.[0]?.forme;
+    expect(forme).toEqual(m()?.facade?.forme);
+    expect(forme?.pointes?.some((p) => p.source === 'ia')).toBe(true);
+  }, 60000);
+});
+

@@ -16,6 +16,7 @@
 // Ce que la calibration ajoute (la mesure contre la verite, la reponse enregistree de Claude rejouee, la texture sans ombres) LIT les
 // sorties communes et ne les change jamais : `tests/unit/facade/releve/uneOrchestration.test.ts` le prouve, etape par etape.
 
+import { descentesRetrouvees } from '../regles/facades/modenature.js';
 import { ETAPES_FACADE, libelleEtape, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
@@ -152,6 +153,8 @@ interface IaDuRejeu {
   ecart: number | null;
   /** E9 : ses boites accordees avec la detection. */
   accord: AccordIa | null;
+  /** E9 : les descentes d'eau pluviale qu'il voit et que la detection retrouve (une verticale a leur place), en part du mur (lot L1). */
+  descentes?: number[];
 }
 
 /** Les sorties des etapes : chacune ne lit que celles d'avant. */
@@ -590,11 +593,13 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   const a = s.analyse;
   if (!a) return attend('le mur redressé (É8)');
   const n = a.ouvertures.length, d = a.devinees.length;
-  // La reponse de Claude (ce que l'audit fait apres son run, runsFacades.ts) : ses boites accordees avec la detection ; une boite seule
-  // reste decochee, et l'etape est a confirmer.
-  const reponse = s.ia?.reponse ?? null;
-  const accord = reponse && s.ia ? accorderOuvertures({ ouvertures: a.ouvertures, decochees: a.devinees, observations: reponse, cartes: cartesAretes(a.elevation, a.pxParM), largeurM: e.largeurM, hauteurM: e.hauteurM }) : null;
-  if (s.ia) s.ia = { ...s.ia, accord };
+  // La reponse de Claude, dans l'audit comme dans la calibration (decision 4 du proprietaire, 3 novembre 2026 : une seule
+  // orchestration) : ses boites accordees avec les ouvertures du releve que V4 ecrira, sur les aretes de l'elevation ; une boite seule
+  // reste decochee, et l'etape est a confirmer. Les descentes qu'il voit ne valent que la ou une verticale les confirme.
+  const reponse = s.ia?.reponse ?? null, rel = s.audit?.mesure;
+  const cartes = reponse ? cartesAretes(a.elevation, a.pxParM) : null;
+  const accord = reponse && s.ia ? accorderOuvertures({ ouvertures: rel?.releve.ouvertures ?? a.ouvertures, decochees: rel?.devinees ?? a.devinees, observations: reponse, cartes, largeurM: rel?.releve.largeur ?? e.largeurM, hauteurM: rel?.releve.hauteur ?? e.hauteurM }) : null;
+  if (s.ia) s.ia = { ...s.ia, accord, descentes: reponse ? descentesRetrouvees(reponse.modenature?.descentes ?? [], cartes, rel?.releve.largeur ?? e.largeurM) : [] };
   const ditIa = accord ? ' ' + (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' : '';
   // Les ouvertures sous le pignon d'un corps voisin : sur la facade du mur qui les porte, sinon gardees ici (murVoisin.ts).
   const partage = partageDuReleve(e, s.ia?.accord?.ouvertures ?? s.audit?.mesure?.releve.ouvertures);

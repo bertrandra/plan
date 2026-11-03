@@ -195,6 +195,9 @@ export interface Validation {
 /** Les photos d'une facade, et ce qui les distingue : une photo ajoutee ou retiree relance la mesure. */
 const signature = (photos: readonly PhotoCas[], corrections?: object, ...gestes: (object | undefined)[]) => photos.map((p) => p.base64.length + ':' + (p.prise?.t ?? '')).join('|') + (corrections && Object.keys(corrections).length ? '#' + JSON.stringify(corrections) : '') + gestes.map((g) => (g ? '@' + JSON.stringify(g) : '')).join('');
 
+/** Ce qui distingue une lecture de Claude d'une autre : quand, et son escalade. Null : pas de lecture. */
+const lectureDe = (run: RunEnregistre | null): object | undefined => (run ? { le: run.le, escalade: run.escalade?.le ?? null } : undefined);
+
 /** Les mesures des facades photographiees, faites une fois, l'une apres l'autre. */
 function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   const faites = new Map<string, { signature: string; mesure: MesureFacade }>();
@@ -209,7 +212,9 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   const aMesurer = () => ctx.liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee').map((f) => {
     const saisie = ctx.capture.lire().batiments[b.cle]?.facades[String(f.cote)];
     const photos = saisie?.photos ?? [];
-    return { b, f, photos, corrections: saisie?.corrections ?? {}, gestes: { murConfirme: saisie?.murConfirme ?? null, ouverturesRelues: saisie?.ouverturesRelues ?? null }, cle: cleMesure(b.cle, f.cote), sig: signature(photos, saisie?.corrections, saisie?.murConfirme, saisie?.ouverturesRelues) };
+    // La lecture de Claude de la facade entre dans l'enchainement (decision 4) : une lecture nouvelle, ou escaladee, refait la mesure.
+    const ia = ctx.analyse?.runs?.()?.[cleMesure(b.cle, f.cote)] ?? null;
+    return { b, f, photos, corrections: saisie?.corrections ?? {}, gestes: { murConfirme: saisie?.murConfirme ?? null, ouverturesRelues: saisie?.ouverturesRelues ?? null, ia }, cle: cleMesure(b.cle, f.cote), sig: signature(photos, saisie?.corrections, saisie?.murConfirme, saisie?.ouverturesRelues, lectureDe(ia)) };
   }));
 
   /** `silencieux` : un rejeu (a la prise de vue, ou « Rejouer ») ; la barre de progression de la facade dit ou il en est, sans toast. */
@@ -277,7 +282,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       for (const m of mesures) {
         const saisie = ctx.capture.lire().batiments[m.cle]?.facades[String(m.cote)];
         const photos = saisie?.photos ?? [];
-        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos, saisie?.corrections, saisie?.murConfirme, saisie?.ouverturesRelues), mesure: m });
+        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos, saisie?.corrections, saisie?.murConfirme, saisie?.ouverturesRelues, lectureDe(ctx.analyse?.runs?.()?.[cleMesure(m.cle, m.cote)] ?? null)), mesure: m });
       }
       version++;
       publier();

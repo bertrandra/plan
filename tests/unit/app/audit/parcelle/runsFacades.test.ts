@@ -3,7 +3,11 @@ import { creerAnalyseClaude } from '../../../../../src/app/audit/parcelle/analys
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { cleMesure, cochesParDefaut, type EntreesPropositions } from '../../../../../src/app/audit/parcelle/propositions.js';
-import { accorderLesFacades, murDeLaTexture, rangerRuns, requetesRunsDuBatiment, type FabriqueImageRunFacade } from '../../../../../src/app/audit/parcelle/runsFacades.js';
+import { accordsDesMesures, murDeLaTexture, rangerRuns, requetesRunsDuBatiment, type FabriqueImageRunFacade } from '../../../../../src/app/audit/parcelle/runsFacades.js';
+import { accordDeLaLecture } from '../../../../../src/app/audit/parcelle/accordLecture.js';
+import { accorderOuvertures, observationsDuRun } from '../../../../../src/facade/regles/facades/ia.js';
+import { cartesAretes } from '../../../../../src/facade/detection/recalageIa.js';
+import { descentesRetrouvees } from '../../../../../src/facade/regles/facades/modenature.js';
 import { propositionsAccords, RESERVE_POINTILLE } from '../../../../../src/app/audit/parcelle/propositionsClaude.js';
 import type { FabriqueImages } from '../../../../../src/app/audit/parcelle/entreesAnalyse.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
@@ -48,6 +52,23 @@ const RETROUVEE = { ...SORTIE_FACADE.ouvertures[0], type: 'fenetre', u0: 0.2, u1
 const SEULE = { ...RETROUVEE, u0: 0.61, u1: 0.71, v0: 0.9 / 6, v1: 2.4 / 6 };
 const sortie = (ouvertures: object[]) => ({ ...SORTIE_FACADE, ouvertures, confiance: 'forte' });
 const run = (ouvertures: object[]): RunEnregistre => ({ le: '2026-10-13T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1, sorties: [sortie(ouvertures)], cout: 0.001, tokens: { entree: 1000, sortie: 400 }, image: { largeur: 500, hauteur: 300 }, chaine: 10 });
+
+/**
+ * L'accord de chaque run comme l'enchainement de la facade le fait a l'E9 (decision 4 : plus de calcul a cote dans l'audit) : les
+ * ouvertures du releve mesure et ses devinees, les aretes de l'elevation (ici la texture de synthese), puis l'accord garde par l'audit.
+ * Le chemin complet (mesurerFacade avec la lecture) est joue par uneOrchestration.test.ts.
+ */
+function accorderCommeLEnchainement(runs: Record<string, RunEnregistre>, mesures: ReadonlyMap<string, MesureFacade>): Record<string, ReturnType<typeof accordsDesMesures>[string]> {
+  const avecAccord = new Map([...mesures].map(([k, m]) => {
+    const run = runs[k], obs = run ? observationsDuRun(run) : null, r = m.releve;
+    if (!obs || !r) return [k, m];
+    const mur = murDeLaTexture(texture(), r), cartes = cartesAretes(mur, mur.largeur / r.largeur);
+    const accord = accorderOuvertures({ ouvertures: r.ouvertures, decochees: m.devinees ?? [], observations: obs, cartes, largeurM: r.largeur, hauteurM: r.hauteur });
+    const lu = accordDeLaLecture({ reponse: obs, accord, descentes: descentesRetrouvees(obs.modenature?.descentes ?? [], cartes, r.largeur) });
+    return [k, { ...m, ...(lu ? { accord: lu } : {}) }];
+  }));
+  return accordsDesMesures(runs, avecAccord);
+}
 
 function entrees(m: Partial<MesureFacade> = {}): EntreesPropositions {
   const objets = normalizeObjects([
@@ -120,7 +141,7 @@ describe('le run des facades dans l audit', () => {
 
   it('accorde ses boites avec la detection : une boite seule reste decochee, en pointille, a part', async () => {
     const e = entrees();
-    const accords = await accorderLesFacades({ 'maison#0': run([RETROUVEE, SEULE]) }, e.mesures, async () => texture());
+    const accords = accorderCommeLEnchainement({ 'maison#0': run([RETROUVEE, SEULE]) }, e.mesures);
     const a = accords['maison#0']!;
     expect(a.bilan).toMatchObject({ boites: 2, retrouvees: 1, seules: 1 });
     expect(a.confiance).toBe(0.9);
@@ -136,21 +157,21 @@ describe('le run des facades dans l audit', () => {
   it('confirme une baie devinee du releve au lieu d en ajouter une seconde ; ne propose rien quand rien ne change', async () => {
     const devinee = { type: 'fenetre' as const, x: 6, y: 1, l: 1.2, h: 1.3, source: 'devinee' as const, confiance: 0.4 };
     const e = entrees({ devinees: [devinee] });
-    const a = (await accorderLesFacades({ 'maison#0': run([RETROUVEE, SEULE]) }, e.mesures, async () => texture()))['maison#0']!;
+    const a = (accorderCommeLEnchainement({ 'maison#0': run([RETROUVEE, SEULE]) }, e.mesures))['maison#0']!;
     expect(a.ouvertures).toContainEqual(devinee);
     expect(a.resume).toMatch(/1 baie devinée confirmée/);
     const ps = propositionsAccords(e, { 'maison#0': a });
     expect(ps.map((p) => p.id)).toEqual(['maison#0:claude:releve']);
     expect(ps[0]).toMatchObject({ reserve: expect.stringMatching(/^Taux d’accord de Claude non encore mesuré sur le relevé des façades/), apres: '2 ouvertures avec l’aide de Claude (2 ouvertures vues par Claude : 1 retrouvée par la détection, 1 baie devinée confirmée)' });
     // Ses details (volets, allege) completent ceux d'une ouverture retrouvee : le releve change, une ligne le propose.
-    const details = (await accorderLesFacades({ 'maison#0': run([{ ...RETROUVEE, details: SORTIE_FACADE.ouvertures[0]!.details }]) }, entrees().mesures, async () => texture()))['maison#0']!;
+    const details = (accorderCommeLEnchainement({ 'maison#0': run([{ ...RETROUVEE, details: SORTIE_FACADE.ouvertures[0]!.details }]) }, entrees().mesures))['maison#0']!;
     expect(details.resume).toMatch(/1 détail ajouté/);
     // Ses carreaux (lot F5) se rangent dans les details de l'ouverture retrouvee : ils sont un detail de plus, la 3D ne les dessine pas encore.
-    const carreaux = (await accorderLesFacades({ 'maison#0': run([{ ...RETROUVEE, carreaux: SORTIE_FACADE.ouvertures[0]!.carreaux }]) }, entrees().mesures, async () => texture()))['maison#0']!;
+    const carreaux = (accorderCommeLEnchainement({ 'maison#0': run([{ ...RETROUVEE, carreaux: SORTIE_FACADE.ouvertures[0]!.carreaux }]) }, entrees().mesures))['maison#0']!;
     expect(carreaux.resume).toMatch(/1 détail ajouté/);
     expect(carreaux.ouvertures.find((o) => o.details?.carreaux)?.details?.carreaux).toMatchObject({ source: 'ia', vantaux: 2 });
     // Toutes ses boites retrouvees, sans detail de plus : rien a proposer.
-    const rien = (await accorderLesFacades({ 'maison#0': run([RETROUVEE]) }, entrees().mesures, async () => texture()))['maison#0']!;
+    const rien = (accorderCommeLEnchainement({ 'maison#0': run([RETROUVEE]) }, entrees().mesures))['maison#0']!;
     expect(rien.resume).toBeNull();
     expect(propositionsAccords(entrees(), { 'maison#0': rien })).toEqual([]);
   });
@@ -176,7 +197,7 @@ describe('le run des facades dans l audit', () => {
     const a = creerAnalyseClaude({
       capture, entrees: () => ({ ...e, capture: capture.lire() }), mesuresPretes: async () => {}, client, images,
       identite: () => ({ projet: null, idu: '78650000AE0101', adresse: null, audit: 'a-1' }), signaler: () => {}, maintenant: () => new Date('2026-10-13T10:00:00Z'),
-      accorder: async (runs) => { recus.push(runs); return accorderLesFacades(runs, e.mesures, async () => texture()); },
+      accorder: async (runs) => { recus.push(runs); return accorderCommeLEnchainement(runs, e.mesures); },
       planifier: (f) => { planifies.push(f); return () => {}; },
     });
     await a.accorder(true);

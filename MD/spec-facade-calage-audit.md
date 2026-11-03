@@ -628,13 +628,22 @@ façade, ce qui est fait, ce qui attend la personne.
   skill `facades`, `MD/RELEASE.md` §8.2 bis) ont été lues sur l'assemblage ; envoyer `imageRun` depuis la calibration rendrait ses mesures
   incomparables à ce plancher. C'est la seule différence de calcul entre les deux vues ; elle ne touche que l'appel à Claude, pas la chaîne
   (É1 à É11 restent identiques, `uneOrchestration.test.ts`). Ne se change que sur une nouvelle décision, avec une nouvelle référence.
-- **Les ajouts de la calibration lisent, ne changent rien** : la mesure contre la vérité (É5, É7, É9), la réponse de Claude rejouée
-  (sa pose des deux angles se mesure contre le mur retenu sans le changer ni changer l'état de l'É5 ; l'accord des boîtes et le diagnostic
-  sont ce que l'audit fait après son run), la texture sans ombres (l'écran seulement).
+- **Les ajouts de la calibration lisent, ne changent rien** : la mesure contre la vérité (É5, É7, É9), la texture sans ombres (l'écran
+  seulement).
+- **La lecture de Claude passe par la même orchestration** (décision 4 du propriétaire, 3 novembre 2026 ; revue des étapes, constat T1).
+  Dans l'audit, la lecture d'une façade (son run enregistré, escalade comprise) entre dans `derouler` comme dans la calibration
+  (`mesures.ts`, `gestes.ia`) : à son arrivée, la façade se mesure de nouveau avec elle (la lecture fait partie de la signature de la
+  mesure), et la barre de l'audit se refait (É5 : sa pose, mesurée sans changer le mur ; É7 : le diagnostic avec ses pointes et ses
+  éléments ; É9 : l'accord de ses boîtes ; É11 : le bilan, ses pointes comprises). Il n'y a plus de calcul à côté : `runsFacades.ts` lit
+  l'accord de l'É9 (`accordsDesMesures`, `accordLecture.ts`), `formeFacades.ts` le diagnostic de l'É7, et V4 (`facadeValidee.ts`) écrit
+  les ouvertures que la barre montre (relues, sinon celles de l'accord, détails de Claude compris) et la forme du bilan. L'accord se fait
+  sur les ouvertures du relevé, dans les deux vues, sur les arêtes de l'élévation (plus sur la texture JPEG décodée). L'exception
+  « Rappeler Claude » ci-dessus reste : elle ne porte que sur l'image envoyée.
 - **La preuve** : `tests/unit/facade/releve/uneOrchestration.test.ts`. Une façade passe par l'entrée réelle de l'audit (`mesurerFacade`),
   devient un cas comme l'admin le crée (`casDepuisFacade`, enregistré puis relu), puis se rejoue avec la vue de la calibration et celle de
   l'audit : chaque étape de l'É1 à l'É10 rend la même chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture) ; l'É11 ne
-  diffère que par sa fin. Une photo seule et trois vues d'un pignon à fenêtre de comble.
+  diffère que par sa fin. Une photo seule et trois vues d'un pignon à fenêtre de comble ; le mur confirmé (V1), les ouvertures relues (V3) ;
+  et la lecture de Claude (une réponse synthétique), où l'accord que l'audit garde est celui de l'É9.
 - **Ce qui est parti avec** (2 novembre 2026) : les modes `assemblage` et `chaine` de l'orchestrateur (la recherche du mur sur l'assemblage
   et son arbitre propres à la calibration, `lireSurLAssemblage`, `coinsSeuls`, `hauteurDuPlan`, la photo seule ré-échantillonnée deux
   fois, les coins « gardés » d'un cas) et le bouton « Retrouver le mur sur toutes les photos » : « Rejouer » fait ce que fait l'audit.

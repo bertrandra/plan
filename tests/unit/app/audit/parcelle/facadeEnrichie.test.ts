@@ -95,8 +95,9 @@ describe('les propositions de la facade enrichie (lot L1)', () => {
     const accord: AccordFacadeCapture = { ouvertures: [ia], decochees: [], bilan: {}, resume: null, confiance: 0.9, descentes: [0.98] };
     const m = { cle: 'maison', cote: 0, releve: RELEVE, facade: { dimensions: { largeurM: 10, egoutM: 6 }, forme: { gabarit: [], source: 'plan' } } } as unknown as MesureFacade;
     const r = facadeAEcrire(o, m, '2026-10-30', accord, RUN)!;
-    // Les details que le run lit et que le releve n'a pas ; le reste (les volets) vient du releve, pas d'ici.
-    expect(r.ouvertures[0]!.details).toEqual({ menuiserie: { materiau: 'bois', couleur: '#5e7d5e', source: 'ia' }, couleurVolets: '#5b7a99', gardeCorps: { type: 'fer-forge', hauteurM: 1.08, couleur: '#2e3033', source: 'ia' }, allege: 'garde-corps' });
+    // V4 ecrit les ouvertures de l'accord que l'enchainement a fait et que la barre montre (decision 4) : la detection, et les details
+    // que le run lit et qu'elle n'avait pas, les volets compris.
+    expect(r.ouvertures[0]!.details).toEqual({ volets: 'battants', menuiserie: { materiau: 'bois', couleur: '#5e7d5e', source: 'ia' }, couleurVolets: '#5b7a99', gardeCorps: { type: 'fer-forge', hauteurM: 1.08, couleur: '#2e3033', source: 'ia' }, allege: 'garde-corps' });
     expect(r.modenature).toEqual({ egout: 'corniche', bandeauxM: [3], chaines: 'aucune', descentesM: [9.8], source: 'ia' });
     expect(r.appendices).toEqual([{ nature: 'store', xM: 6, largeurM: 2, hauteurM: 2.82, source: 'ia' }]);
     expect(r.etat).toEqual([{ nature: 'humidite', zone: { u0: 0, u1: 0.3, v0: 0, v1: 0.15 }, confiance: 0.6, vuLe: '2026-10-30' }]);

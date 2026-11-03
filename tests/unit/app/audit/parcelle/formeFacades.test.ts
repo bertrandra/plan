@@ -66,7 +66,11 @@ describe('les propositions de forme de l audit', () => {
     const o = maison(), capture = captureVide('78650000AE0101');
     const e = { objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures: m };
     expect(propositionsDeForme(e)).toEqual([]);
-    const [p] = propositionsDeForme({ ...e, runs: { 'maison#6': run } });
+    // La lecture de Claude entre dans l'enchainement (decision 4) : la mesure refaite avec elle porte le diagnostic qui la lit, et c'est
+    // lui que l'audit propose, sans le refaire a cote.
+    const avecClaude = diagnostiquerForme({ facade: sud, corps: seul, hauteurMur: 2.4, lue: null, ia: observationsDuRun(run) });
+    const mesure = { ...m.get(cleMesure('maison', 6))!, diagnostic: avecClaude };
+    const [p] = propositionsDeForme({ ...e, mesures: new Map([[cleMesure('maison', 6), mesure]]), runs: { 'maison#6': run } });
     expect(p).toMatchObject({ id: 'maison:forme:6:0:2', effet: { type: 'corpsDuToit', corps: 0 } });
     expect(p!.apres).toMatch(/^un pignon de plus .*, d’après Claude seul/);
   });

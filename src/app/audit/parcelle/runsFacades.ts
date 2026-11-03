@@ -6,7 +6,7 @@
 // (`contenuDeLaFacade`).
 //
 // Claude propose, le moteur decide (decision du proprietaire) : la reponse n'est lue que par les regles des facades
-// (facade/regles/facades/ia.ts, `accorderOuvertures`) ; le resultat est garde dans la capture, et les propositions se recalculent
+// (facade/regles/facades/ia.ts, `accorderOuvertures`, que l'enchainement de la facade applique) ; le resultat est garde dans la capture, et les propositions se recalculent
 // ensuite sans image (propositionsClaude.ts, `propositionsAccords`). Chaque facade photographiee est lue (decision D11 : pendant les
 // premiers audits, toutes, pour mesurer l'apport de Claude) ; une facade sans releve mesure n'a pas de requete.
 //
@@ -18,9 +18,7 @@
 import { contenuRunFacade, enrichieDesResultats, runDesResultats, toitDesResultats } from '../../releve/runFacade.js';
 import type { BlocAnalyse } from '../../../io/analyseClaude.js';
 import { texteRunFacade, type RunEnregistre } from '../../../regles/facades/observations.js';
-import { accorderOuvertures, observationsDuRun, passesDeProduction, texteAccord } from '../../../facade/regles/facades/ia.js';
-import { cartesAretes } from '../../../facade/detection/recalageIa.js';
-import { descentesRetrouvees } from '../../../facade/regles/facades/modenature.js';
+import { passesDeProduction } from '../../../facade/regles/facades/ia.js';
 import { pointesDuGabarit } from '../../../facade/gabaritMur.js';
 import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
@@ -157,29 +155,12 @@ export function murDeLaTexture(t: Image, r: Pick<ReleveFacade, 'hauteur' | 'haut
   return { largeur: t.largeur, hauteur: t.hauteur - y0, donnees: t.donnees.slice(y0 * t.largeur * 4) };
 }
 
-/** La confiance que Claude se donne sur une facade, en part : il dit faible, moyenne ou forte, jamais un nombre. */
-const CONFIANCE_DU_RUN = { faible: 0.5, moyenne: 0.75, forte: 0.9 } as const;
-
 /**
- * L'accord du run de chaque facade avec sa detection, par le moteur de regles : ses boites retrouvees par la detection confirment
- * les ouvertures, celles qui recouvrent une baie devinee la confirment, les seules restent decochees, recalees sur les aretes de
- * l'elevation (decodee de la texture du releve mesure, `decoder`). Une facade sans releve mesure, ou sans reponse lisible, n'a pas
- * de resultat (l'appelant attend les mesures avant, analyseClaude.ts).
+ * L'accord du run de chaque facade avec sa detection, tel que l'enchainement de la facade l'a fait (decision 4 du proprietaire,
+ * 3 novembre 2026 : Claude passe par la meme orchestration dans l'audit et la calibration) : la mesure refaite avec la lecture de Claude
+ * (mesures.ts, `gestes.ia`) porte l'accord de ses boites (E9), sans calcul a cote. Une facade sans mesure faite avec cette lecture n'a
+ * pas de resultat (l'appelant attend les mesures avant, analyseClaude.ts).
  */
-export async function accorderLesFacades(runs: Record<string, RunEnregistre>, mesures: ReadonlyMap<string, MesureFacade>, decoder: (dataUrl: string) => Promise<Image | null>): Promise<Record<string, AccordFacadeCapture>> {
-  const out: Record<string, AccordFacadeCapture> = {};
-  for (const [cle, run] of Object.entries(runs)) {
-    const m = mesures.get(cle), r = m?.releve, obs = observationsDuRun(run);
-    if (!r || !obs) continue;
-    const texture = r.texture ? await decoder(r.texture).catch(() => null) : null;
-    const mur = texture ? murDeLaTexture(texture, r) : null;
-    const cartes = mur ? cartesAretes(mur, mur.largeur / r.largeur) : null;
-    const a = accorderOuvertures({ ouvertures: r.ouvertures, decochees: m?.devinees ?? [], observations: obs, cartes, largeurM: r.largeur, hauteurM: r.hauteur });
-    // Des boites toutes retrouvees, sans detail de plus, ne changent rien au releve : il n'y a rien a proposer.
-    const change = a.bilan.devineesConfirmees + a.bilan.seules + a.bilan.detailsAjoutes > 0;
-    // Les descentes que Claude voit, retenues seulement la ou la detection voit une verticale (lot L1, regle des descentes).
-    const descentes = descentesRetrouvees(obs.modenature?.descentes ?? [], cartes, r.largeur);
-    out[cle] = { ouvertures: a.ouvertures, decochees: a.decochees, bilan: { ...a.bilan }, resume: change ? texteAccord(a.bilan) : null, confiance: CONFIANCE_DU_RUN[obs.confiance], ...(descentes.length ? { descentes } : {}) };
-  }
-  return out;
+export function accordsDesMesures(runs: Record<string, RunEnregistre>, mesures: ReadonlyMap<string, MesureFacade>): Record<string, AccordFacadeCapture> {
+  return Object.fromEntries(Object.keys(runs).flatMap((cle) => { const a = mesures.get(cle)?.accord; return a ? [[cle, a]] : []; }));
 }
