@@ -35,7 +35,7 @@ import { murAConfirmer, relecture, type AccordFacadeCapture } from '../../../mod
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
-import type { ObjetPlan, ReleveFacade } from '../../../model/types.js';
+import type { ObjetPlan, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
 import { surbrillanceArbitrage, surbrillanceDe, surbrillanceObservation, type Surbrillance } from './surbrillance.js';
@@ -503,6 +503,8 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
   // avant l'ecriture (sur les facades du projet), ecrites dans le meme pas d'historique.
   const voisines = facadesVoisinesAEcrire(o, m, accord);
   ctx.projet.pushHistory();
+  // Ecrite dans le projet : Ctrl+Z defait desormais la validation (le projet), plus les gestes d'avant sur la capture.
+  ctx.capture.oublierGestes();
   ecrireDansLeProjet(ctx, [{ id: k + ':facade', cible: { type: 'facade', cle, cote }, objet: 'Façade', source: 'mesure', avant: '', apres: '', indices: [], confiance: null, remplaceChoix: null, reserve: null, effet: { type: 'releve', releve: r } }], [], jour);
   if (voisines.length && o.batiment) {
     o.batiment = { ...o.batiment, facades: (o.batiment.facades ?? []).map((x) => voisines.find((v) => v.cote === x.cote) ?? x) };
@@ -523,16 +525,26 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
 /** La relecture (V3) dans la capture, d'apres la detection de la mesure ; faux sans mesure. La facade se rejoue ensuite (l'appelant). */
 function relireLesOuvertures(ctx: ContexteValidation, m: MesureFacade | undefined, cle: string, cote: number, gardees: readonly OuvertureFacade[]): boolean {
   if (!m?.releve) return false;
-  ctx.capture.relireOuvertures(cle, cote, relecture(m.releve.ouvertures, gardees, ctx.maintenant().toISOString()));
+  const r = relecture(m.releve.ouvertures, gardees, ctx.maintenant().toISOString());
+  // Un geste de la facade : Ctrl+Z le defait avant V4 (capture.ts::geste).
+  ctx.capture.geste(cle, cote, () => ctx.capture.relireOuvertures(cle, cote, r));
   return true;
 }
 
 function confirmerLeMur(ctx: ContexteValidation, m: MesureFacade | undefined, cle: string, cote: number): boolean {
   const deja = ctx.capture.lire().batiments[cle]?.facades[String(cote)]?.murConfirme;
-  if (deja && m?.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme') { ctx.capture.confirmerMur(cle, cote, null); return true; }
+  // Un geste de la facade : Ctrl+Z le defait avant V4 (capture.ts::geste).
+  if (deja && m?.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme') { ctx.capture.geste(cle, cote, () => ctx.capture.confirmerMur(cle, cote, null)); return true; }
   const mur = murAConfirmer((m?.redressement?.photos ?? []).map((p) => ({ rang: p.rang, coins: p.statut === 'echec' ? [] : p.coinsPx ?? [] })), ctx.maintenant().toISOString());
   if (!mur) return false;
-  ctx.capture.confirmerMur(cle, cote, mur);
+  ctx.capture.geste(cle, cote, () => ctx.capture.confirmerMur(cle, cote, mur));
+  return true;
+}
+
+/** Un geste aux points de validation (V1, V3), puis la facade rejouee ; rien sur un audit relu en lecture seule (`fige`). */
+async function apresUnGeste(fige: boolean, mesureur: Pick<ReturnType<typeof mesureurDe>, 'lues' | 'rejouer'>, cle: string, cote: number, f: (m: MesureFacade | undefined) => boolean): Promise<boolean> {
+  if (fige || !f(mesureur.lues().get(cleMesure(cle, cote)))) return false;
+  await mesureur.rejouer(cle, cote);
   return true;
 }
 
@@ -598,7 +610,6 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     apercu.poser(); choix3d.surligner();
     publier();
   }
-
   return {
     mesures: () => (figees ? { etat: 'pretes' } : mesureur.etat()),
     lancer: async () => {
@@ -683,8 +694,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       calculs++;
       publier();
     },
-    lectureSeule: () => figees !== null, confirmerMur: async (cle, cote) => (figees || !confirmerLeMur(ctx, mesureur.lues().get(cleMesure(cle, cote)), cle, cote) ? false : (await mesureur.rejouer(cle, cote), true)),
-    relireOuvertures: async (cle, cote, gardees) => (figees || !relireLesOuvertures(ctx, mesureur.lues().get(cleMesure(cle, cote)), cle, cote, gardees) ? false : (await mesureur.rejouer(cle, cote), true)),
+    lectureSeule: () => figees !== null, confirmerMur: (cle, cote) => apresUnGeste(figees !== null, mesureur, cle, cote, (m) => confirmerLeMur(ctx, m, cle, cote)), relireOuvertures: (cle, cote, g) => apresUnGeste(figees !== null, mesureur, cle, cote, (m) => relireLesOuvertures(ctx, m, cle, cote, g)),
     decision: (id) => decisionsFigees.get(id) ?? null,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };

@@ -7,11 +7,12 @@
 
 import {
   batimentVide, captureVide, PHOTOS_PAR_FACADE_MAX, PHOTOS_PAR_LIGNE_MAX,
-  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type MurConfirme, type OuverturesRelues, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
+  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type MurConfirme, type FacadeCapturee, type OuverturesRelues, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
 } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import type { PtBrut } from '../../../model/types.js';
+import { creerPileGestes } from '../../../util/pileGestes.js';
 import { facadesSurLeContour } from '../../../model/cotesAudit.js';
 
 /** Ce qu'un geste note sur la cloture ou le portail : une cle sans valeur est retiree (on n'affirme que ce que l'on a vu). */
@@ -33,6 +34,20 @@ export interface CaptureEnCours {
   confirmerMur(cle: string, cote: number, mur: MurConfirme | null): void;
   /** « Relire les ouvertures » (V3) : les ouvertures que la personne a gardees (null : la relecture retiree). Survivent au rejeu. */
   relireOuvertures(cle: string, cote: number, relues: OuverturesRelues | null): void;
+  /**
+   * Un geste de la personne sur une facade avant sa validation (les reperes, le mur tire, l'echelle, « Revenir à l'automatique », la
+   * confirmation du mur) : `faire` ecrit dans la capture, et le geste entier devient un pas que Ctrl+Z defait (annulerGeste), sans rien
+   * ecrire dans le projet ni le marquer modifie (decision du proprietaire, 3 novembre 2026). Rien n'est empile si rien n'a change.
+   */
+  geste(cle: string, cote: number, faire: () => void): void;
+  /** Defait le dernier geste : la facade qu'il touchait, a rejouer ; null quand il n'y a rien a defaire. */
+  annulerGeste(): { cle: string; cote: number } | null;
+  /** Refait le dernier geste defait ; null quand il n'y a rien a refaire. */
+  retablirGeste(): { cle: string; cote: number } | null;
+  peutAnnulerGeste(): boolean;
+  peutRetablirGeste(): boolean;
+  /** Oublie les gestes a defaire : la validation V4 a ecrit dans le projet, son propre Ctrl+Z prend la suite. */
+  oublierGestes(): void;
   /** Inaccessible, ou rendue a la liste : la touche inverse ce que la liste montre. */
   basculerInaccessible(cle: string, cote: number, inaccessibleAvant: boolean): void;
   noterVu(cle: string, vu: CeQueJeVois): void;
@@ -76,6 +91,9 @@ function fusionner<T extends object>(o: T, x: object): T {
 /** Retire un rang d'une liste, sans toucher l'originale. */
 const sans = <T>(liste: readonly T[], rang: number): T[] => liste.filter((_, i) => i !== rang);
 
+/** Ce qu'un geste sur une facade change : ses corrections et le mur confirme (les photos n'en sont pas : elles ne s'annulent pas). */
+type GestesDeLaFacade = Pick<FacadeCapturee, 'corrections' | 'murConfirme' | 'ouverturesRelues'>;
+
 export function creerCapture(idu: string, maintenant: () => Date = () => new Date()): CaptureEnCours {
   let capture = captureVide(idu, maintenant());
   let version = 0;
@@ -84,6 +102,27 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
   /** Le batiment de la capture, cree a son premier geste. */
   const batiment = (cle: string): BatimentCapture => (capture.batiments[cle] ??= batimentVide());
   const facade = (cle: string, cote: number) => (batiment(cle).facades[String(cote)] ??= { photos: [] });
+  // Les gestes d'une facade, par `cle#cote` : l'etat d'avant chaque geste, pour Ctrl+Z.
+  const pile = creerPileGestes<GestesDeLaFacade>();
+  const cleFacade = (cle: string, cote: number) => cle + '#' + cote;
+  const deCle = (k: string) => ({ cle: k.slice(0, k.lastIndexOf('#')), cote: Number(k.slice(k.lastIndexOf('#') + 1)) });
+  const gestesDe = (k: string): GestesDeLaFacade => {
+    const { cle, cote } = deCle(k), f = capture.batiments[cle]?.facades[String(cote)];
+    return JSON.parse(JSON.stringify({ ...(f?.corrections ? { corrections: f.corrections } : {}), ...(f?.murConfirme ? { murConfirme: f.murConfirme } : {}), ...(f?.ouverturesRelues ? { ouverturesRelues: f.ouverturesRelues } : {}) })) as GestesDeLaFacade;
+  };
+  const remettre = (k: string, g: GestesDeLaFacade) => {
+    const { cle, cote } = deCle(k), f = facade(cle, cote);
+    if (g.corrections) f.corrections = g.corrections; else delete f.corrections;
+    if (g.murConfirme) f.murConfirme = g.murConfirme; else delete f.murConfirme;
+    if (g.ouverturesRelues) f.ouverturesRelues = g.ouverturesRelues; else delete f.ouverturesRelues;
+  };
+  /** Defait ou refait : l'etat remis, la facade a rejouer. */
+  const bouger = (g: { quoi: string; etat: GestesDeLaFacade } | null) => {
+    if (!g) return null;
+    remettre(g.quoi, g.etat);
+    changer();
+    return deCle(g.quoi);
+  };
 
   return {
     lire: () => capture,
@@ -92,6 +131,8 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       const f = facade(cle, cote);
       if (f.photos.length >= PHOTOS_PAR_FACADE_MAX) return false;
       f.photos = [...f.photos, photo];
+      // Une photo de plus ou de moins change les rangs et le mur : les gestes d'avant ne se defont plus sur elle.
+      pile.vider();
       changer();
       return true;
     },
@@ -108,6 +149,7 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       // Une photo de moins : le mur confirme etait vu sur elle aussi, et ses rangs ont bouge. Il est a confirmer de nouveau.
       delete f.murConfirme;
       delete f.ouverturesRelues;
+      pile.vider();
       changer();
     },
     corrigerRedressement(cle, cote, rang, correction) {
@@ -119,6 +161,16 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       if (Object.keys(suite).length) f.corrections = suite; else delete f.corrections;
       changer();
     },
+    geste(cle, cote, faire) {
+      const k = cleFacade(cle, cote), avant = gestesDe(k);
+      faire();
+      if (JSON.stringify(gestesDe(k)) !== JSON.stringify(avant)) pile.empiler(k, avant);
+    },
+    annulerGeste: () => bouger(pile.annuler(gestesDe)),
+    retablirGeste: () => bouger(pile.retablir(gestesDe)),
+    peutAnnulerGeste: () => pile.peutAnnuler(),
+    peutRetablirGeste: () => pile.peutRetablir(),
+    oublierGestes: () => pile.vider(),
     confirmerMur(cle, cote, mur) {
       const f = facade(cle, cote);
       if (mur && mur.coins.length) f.murConfirme = JSON.parse(JSON.stringify(mur)) as MurConfirme;
@@ -167,7 +219,7 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
     retirerPhotoPortail(rang) { capture.portail = { ...capture.portail, photos: sans(capture.portail.photos, rang) }; changer(); },
     terminer() { capture = { ...capture, phase: 'analyse', finCapture: maintenant().toISOString() }; changer(); },
     rouvrir() { capture = { ...capture, phase: 'capture', finCapture: null }; changer(); },
-    remplacer(c) { capture = c; changer(); },
+    remplacer(c) { capture = c; pile.vider(); changer(); },
     suivreLesContours(contours) {
       let change = false;
       const batiments = { ...capture.batiments };

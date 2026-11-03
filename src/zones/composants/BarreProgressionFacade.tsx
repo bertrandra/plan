@@ -21,6 +21,9 @@ export const COMMANDE_ESCALADE = 'facade.escalader';
 export const COMMANDE_VALIDER = 'facade.valider';
 /** « Confirmer le mur » (V1) : le mur que la chaine a pose, confirme par la personne ; la meme commande dans l'audit et la calibration. */
 export const COMMANDE_CONFIRMER_MUR = 'facade.confirmerMur';
+/** Defaire et refaire un geste sur la facade avant V4 (Ctrl+Z, Ctrl+Y ; app/clavierGestes.ts) : sous la barre, audit et calibration. */
+export const COMMANDE_ANNULER_GESTE = 'facade.annulerGeste';
+export const COMMANDE_RETABLIR_GESTE = 'facade.retablirGeste';
 
 /** Une etape telle que la barre la montre : l'etat que l'orchestrateur lui a calcule (ou a venir, ou en cours) et ce qu'elle a donne. */
 export type EtapeAffichee = Pick<EtapeCalculee, 'id' | 'etat' | 'resume'> & Partial<Pick<EtapeCalculee, 'herite'>>;

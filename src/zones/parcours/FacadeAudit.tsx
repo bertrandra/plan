@@ -24,6 +24,7 @@ import { lignesToitDeLaFacade } from '../../app/audit/parcelle/facadeToit.js';
 import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import { LIBELLES_ETAT } from '../../model/etapeFacade.js';
 import { enteteDuRun } from '../../facade/releve/enchainement.js';
+import { COMMANDE_ANNULER_GESTE, COMMANDE_RETABLIR_GESTE } from '../../app/clavierGestes.js';
 import { libelleEscalade, type PrixEscalade } from '../../app/releve/runFacade.js';
 import type { RunEnregistre } from '../../regles/facades/observations.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
@@ -192,21 +193,26 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   // Une correction ecrite dans la capture, puis la facade rejouee : le calcul reprend les points de la personne.
   const corriger = (rang: number, c: CorrectionRedressement | null, autres: ReadonlyMap<number, P2[]> = new Map()) => {
     const avant = saisie?.corrections?.[String(rang)];
-    session.capture.corrigerRedressement(cle, cote, rang, c ? { ...avant, ...c } : null);
-    // Le mur tire sur l'assemblage vaut pour chaque photo assemblee : il s'y pose comme un mur ajuste a la main.
-    for (const [r, coins] of autres) session.capture.corrigerRedressement(cle, cote, r, { ...saisie?.corrections?.[String(r)], coins });
+    // Un seul geste, que Ctrl+Z defait d'un coup avant V4 : la photo et le mur tire ramene sur les autres.
+    session.capture.geste(cle, cote, () => {
+      session.capture.corrigerRedressement(cle, cote, rang, c ? { ...avant, ...c } : null);
+      // Le mur tire sur l'assemblage vaut pour chaque photo assemblee : il s'y pose comme un mur ajuste a la main.
+      for (const [r, coins] of autres) session.capture.corrigerRedressement(cle, cote, r, { ...saisie?.corrections?.[String(r)], coins });
+    });
     rejouer();
   };
   // Revenir a l'automatique : la correction de cette photo, et le mur tire sur l'assemblage qu'elle partage avec les autres.
   const retablir = (rang: number) => {
-    session.capture.corrigerRedressement(cle, cote, rang, null);
-    for (const r of mesure?.assemblage?.retours ?? []) {
-      const avant = saisie?.corrections?.[String(r.rang)];
-      if (r.rang === rang || !avant?.coins) continue;
-      const reste = { ...avant };
-      delete reste.coins;
-      session.capture.corrigerRedressement(cle, cote, r.rang, reste);
-    }
+    session.capture.geste(cle, cote, () => {
+      session.capture.corrigerRedressement(cle, cote, rang, null);
+      for (const r of mesure?.assemblage?.retours ?? []) {
+        const avant = saisie?.corrections?.[String(r.rang)];
+        if (r.rang === rang || !avant?.coins) continue;
+        const reste = { ...avant };
+        delete reste.coins;
+        session.capture.corrigerRedressement(cle, cote, r.rang, reste);
+      }
+    });
     rejouer();
   };
   const rangs = (saisie?.photos ?? []).map((_, i) => i);
@@ -233,6 +239,10 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         lignes={[...lignesFacadeEnrichie(run, { largeurM: mesure?.facade?.dimensions.largeurM ?? largeurPlanM, egoutM: mesure?.facade?.dimensions.egoutM ?? mesure?.releve?.hauteur ?? 3 }), ...lignesToitDeLaFacade(run, session.validation.entrees().objets, cle, cote)]} />}
       {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}
       {gestes && enAdmin() && rangs.length > 0 && <BoutonCommande commandes={commandes} id="facade.creerCas" className="secondary small">Créer un cas depuis cette façade</BoutonCommande>}
+      {gestes && <span className="actionsAudit" role="group" aria-label={'Gestes sur la façade : ' + nom}>
+        <BoutonCommande commandes={commandes} id={COMMANDE_ANNULER_GESTE} className="secondary small">Annuler le geste</BoutonCommande>
+        <BoutonCommande commandes={commandes} id={COMMANDE_RETABLIR_GESTE} className="secondary small">Rétablir</BoutonCommande>
+      </span>}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
     </div>
   );

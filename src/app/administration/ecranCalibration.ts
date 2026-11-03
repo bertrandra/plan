@@ -4,6 +4,8 @@
 // demarre pas dessous. Il branche l'ecran sur le serveur (`admin/calibration`, `admin/calibration-cas`) et sur le navigateur
 // (reduire, decoder et montrer une photo).
 
+import { brancherGestesFacade } from '../clavierGestes.js';
+import type { GestesDuCas } from '../../zones/EditeurCasCalibration.js';
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranCalibration, type DepsCalibration } from '../../zones/EcranCalibration.js';
@@ -26,11 +28,12 @@ import { dessinerImageFacade } from '../../render/imageFacade.js';
  * progression et a la frise des etapes (MD/spec-facade-calage-audit.md §4 ter.5). L'etape vient de `data-etape` du bouton ; l'editeur
  * ouvert s'abonne a son ouverture.
  */
-function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void; ecouterConfirmerMur: (f: () => void) => () => void } {
+function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void; ecouterConfirmerMur: (f: () => void) => () => void; ecouterGestes: (g: GestesDuCas) => () => void } {
   const commandes = creerRegistre();
   let ouvrir: ((id: IdEtape) => void) | null = null;
   let escalader: (() => void) | null = null;
   let confirmer: (() => void) | null = null;
+  let gestes: GestesDuCas | null = null;
   commandes.declarer({
     id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade',
     executer: (source) => { const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape); if (etape) ouvrir?.(etape.id); },
@@ -39,11 +42,16 @@ function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (
   commandes.declarer({ id: 'facade.escalader', libelle: 'Escalader la lecture de la façade', groupe: 'facade', executer: () => { escalader?.(); } });
   // « Confirmer le mur » (V1) : la meme commande que dans l'audit ; l'editeur ouvert ecrit le mur confirme dans le cas et le rejoue.
   commandes.declarer({ id: 'facade.confirmerMur', libelle: 'Confirmer le mur', groupe: 'facade', executer: () => { confirmer?.(); } });
+  // Ctrl+Z et Ctrl+Y sur les gestes du cas ouvert (reperes, mur tire, confirmation du mur) : les memes commandes que dans l'audit.
+  commandes.declarer({ id: 'facade.annulerGeste', libelle: 'Annuler le dernier geste sur la façade', groupe: 'facade', actif: () => !!gestes?.peutAnnuler(), executer: () => { gestes?.annuler(); } });
+  commandes.declarer({ id: 'facade.retablirGeste', libelle: 'Rétablir le geste sur la façade', groupe: 'facade', actif: () => !!gestes?.peutRetablir(), executer: () => { gestes?.retablir(); } });
+  brancherGestesFacade(typeof document === 'undefined' ? null : document, () => !!gestes, commandes);
   return {
     commandes,
     ecouterEtape: (f) => { ouvrir = f; return () => { if (ouvrir === f) ouvrir = null; }; },
     ecouterEscalade: (f) => { escalader = f; return () => { if (escalader === f) escalader = null; }; },
     ecouterConfirmerMur: (f) => { confirmer = f; return () => { if (confirmer === f) confirmer = null; }; },
+    ecouterGestes: (g) => { gestes = g; return () => { if (gestes === g) gestes = null; }; },
   };
 }
 

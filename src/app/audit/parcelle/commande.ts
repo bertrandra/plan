@@ -15,6 +15,7 @@
 //   promenades, admin des demos seulement, comme la Conformite ; « Ouvrir dans ce projet » passe par
 //   le meme import ; « Rejouer l'analyse » renvoie l'analyse d'un audit stocke avec le modele choisi.
 
+import { brancherGestesFacade } from '../../clavierGestes.js';
 import { PERMISSION_ECRITURE, enAdmin } from '../../acces.js';
 import { parcours } from '../../parcours.js';
 import type { ContexteAuditParcelle, SessionAuditParcelle } from './controleur.js';
@@ -293,6 +294,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
   declarerEscaladeFacade(cmd, a.signaler);
   declarerValidationFacade(cmd);
   declarerConfirmationMur(cmd);
+  declarerGestesFacade(cmd);
   declarerCasDeCalibration(a, cmd);
   declarerAuditsAdmin(a, cmd, { importer, consulter });
 
@@ -430,6 +432,28 @@ function declarerConfirmationMur(cmd: RegistreCommandes): void {
       void s.validation.confirmerMur(cle, cote);
     },
   });
+}
+
+/**
+ * Ctrl+Z et Ctrl+Y sur les gestes d'une facade avant V4 (decision du proprietaire, 3 novembre 2026) : les reperes, le mur tire,
+ * l'echelle, « Revenir à l'automatique », la confirmation du mur, gardes dans la capture (capture.ts::geste). Defaire remet la capture
+ * de la facade comme avant le geste, puis la facade se rejoue ; rien n'entre dans le projet ni ne le marque modifie. Les boutons sous la
+ * barre de la facade et les touches, tant que l'audit est ouvert ; sans geste a defaire, Ctrl+Z va au projet (app/clavierGestes.ts).
+ */
+function declarerGestesFacade(cmd: RegistreCommandes): void {
+  const session = () => { const c = parcours.courant(); return c?.type === 'auditParcelle' && !c.session.validation.lectureSeule() ? c.session : null; };
+  const bouger = (f: { cle: string; cote: number } | null) => { const s = session(); if (s && f) void s.validation.rejouerFacade(f.cle, f.cote); };
+  cmd.declarer({
+    id: 'facade.annulerGeste', libelle: 'Annuler le dernier geste sur la façade', groupe: 'facade',
+    actif: () => !!session()?.capture.peutAnnulerGeste(),
+    executer: () => { bouger(session()?.capture.annulerGeste() ?? null); },
+  });
+  cmd.declarer({
+    id: 'facade.retablirGeste', libelle: 'Rétablir le geste sur la façade', groupe: 'facade',
+    actif: () => !!session()?.capture.peutRetablirGeste(),
+    executer: () => { bouger(session()?.capture.retablirGeste() ?? null); },
+  });
+  brancherGestesFacade(typeof document === 'undefined' ? null : document, () => !!session(), cmd);
 }
 
 /**
