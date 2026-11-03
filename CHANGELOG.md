@@ -20,6 +20,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit) : la lecture de Claude passe par le même enchaînement que dans la calibration. À son arrivée, la façade se mesure de
+  nouveau avec elle et sa barre se refait : l'étape É5 dit la pose que Claude lit, l'É7 le diagnostic avec ses pointes, l'É9 l'accord de
+  ses boîtes avec la détection. La validation (V4) écrit ce que la barre montre : les ouvertures de cet accord (les détails lus par
+  Claude compris) et la forme du bilan, ses pointes comprises. Avant, l'audit refaisait ces calculs à part, sur d'autres entrées, et sa
+  barre restait celle d'avant Claude. Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration), point V3 : les ouvertures trouvées se relisent toujours avant de valider la façade. « Relire les
   ouvertures » ouvre l'éditeur du mur sur ce que la détection a trouvé : gardez, corrigez, ajoutez, retirez, puis « Garder ces
   ouvertures ». L'étape É9 n'est faite qu'après ce regard, tant que la détection rend les mêmes ouvertures ; la validation (V4) écrit

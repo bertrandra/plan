@@ -168,7 +168,7 @@ export function fabriqueImagesNavigateur(): FabriqueImages {
 }
 
 /** Les pixels d'une image `data:` (la texture d'un releve), lus par le canevas du navigateur. */
-export async function decoderImageNavigateur(url: string): Promise<Image | null> {
+async function decoderImageNavigateur(url: string): Promise<Image | null> {
   const p = await chargerPixels(url);
   return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: p.data instanceof Uint8ClampedArray ? p.data : new Uint8ClampedArray(Array.from(p.data)) } : null;
 }

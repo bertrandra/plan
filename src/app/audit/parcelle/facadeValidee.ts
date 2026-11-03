@@ -12,7 +12,7 @@
 // - La fenetre d'une lucarne que le toit porte devant ce mur n'est pas une ouverture du mur (lot F7) : un element n'a qu'un endroit,
 //   le toit (MD/spec-facade-calage-audit.md §5 quater).
 
-import { fusionnerOuvertures, numeroterOuvertures, ouverturesHorsDesLucarnes, recouvrement, RECOUVREMENT_MEME_OUVERTURE } from '../../../model/facadeObjet.js';
+import { fusionnerOuvertures, numeroterOuvertures, ouverturesHorsDesLucarnes } from '../../../model/facadeObjet.js';
 import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
 import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { partagerSousLesVoisins, type PartageOuvertures } from '../../../facade/releve/murVoisin.js';
@@ -35,23 +35,13 @@ function sourceDesDimensions(o: ObjetPlan): DimensionsFacade['source'] {
 }
 
 /**
- * Les details que le run de Claude lit et que la Facade garde : les carreaux (lot F5), la menuiserie, la couleur des volets, le
- * garde-corps et l'allege qu'il donne (lot L1).
+ * Les ouvertures que la facade montre et que V4 ecrit : celles que la personne a relues (V3), tant qu'elles valent pour cette detection ;
+ * sinon celles de l'accord de Claude que l'enchainement a fait (E9 : les detections, ses details en plus, les devinees qu'il confirme ;
+ * decision 4, plus de calcul a cote) ; sinon celles du releve.
  */
-const DETAILS_DU_RUN = ['carreaux', 'menuiserie', 'couleurVolets', 'gardeCorps', 'allege'] as const;
-
-/**
- * Les details que le run de Claude a lus sur une ouverture (l'accord avec la detection), portes sur celle du releve qu'elle recouvre de
- * plus de moitie : chacun seulement s'il lui manque (ce que le releve dit, ou la personne, l'emporte).
- */
-function avecLesDetailsLus(ouvertures: readonly OuvertureFacade[], accord: AccordFacadeCapture | null): OuvertureFacade[] {
-  const lues = (accord?.ouvertures ?? []).filter((a) => DETAILS_DU_RUN.some((k) => a.details?.[k] !== undefined));
-  if (!lues.length) return [...ouvertures];
-  return ouvertures.map((o) => {
-    const a = lues.find((x) => recouvrement(x, o) > RECOUVREMENT_MEME_OUVERTURE);
-    const ajout = Object.fromEntries(DETAILS_DU_RUN.filter((k) => a?.details?.[k] !== undefined && o.details?.[k] === undefined).map((k) => [k, structuredClone(a?.details?.[k])]));
-    return Object.keys(ajout).length ? { ...o, details: { ...o.details, ...ajout } } : o;
-  });
+function ouverturesMontrees(m: MesureFacade, base: ReleveFacade, accord: AccordFacadeCapture | null, relues: OuverturesRelues | null = null): OuvertureFacade[] {
+  if (relues && m.releve && sontRelues(relues, m.releve.ouvertures)) return relues.ouvertures.map((x) => ({ ...x }));
+  return (m.accord ?? accord)?.ouvertures.map((x) => ({ ...x })) ?? [...base.ouvertures];
 }
 
 /** Les lucarnes du toit qui se voient sur ce mur du contour (lot F7) : leurs fenetres ne sont pas des ouvertures du mur. */
@@ -80,7 +70,7 @@ function partageDeLaMesure(o: ObjetPlan, cote: number, largeurM: number, ouvertu
  */
 export function facadesVoisinesAEcrire(o: ObjetPlan, m: MesureFacade, accord: AccordFacadeCapture | null = null): ReleveFacade[] {
   const base = m.releve && (poseDOffice(o, m) ?? m.releve);
-  const p = base ? partageDeLaMesure(o, m.cote, base.largeur, avecLesDetailsLus(base.ouvertures, accord)) : null;
+  const p = base ? partageDeLaMesure(o, m.cote, base.largeur, ouverturesMontrees(m, base, accord)) : null;
   return (p?.ajouts ?? []).flatMap((a) => {
     const r = o.batiment?.facades?.find((x) => x.cote === a.cote);
     return r ? [{ ...r, ouvertures: numeroterOuvertures([...r.ouvertures, ...a.ouvertures], r.ouvertures) }] : [];
@@ -106,7 +96,7 @@ export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accor
   // Les ouvertures que la personne avait deja verifiees restent ; les autres sont celles du releve, avec leurs carreaux, sauf celles
   // qui vont sur la facade d'un mur voisin (facadesVoisinesAEcrire).
   // Les ouvertures que la personne a relues (V3), tant qu'elles valent pour cette detection : ce que la barre a montre et ce qui s'ecrit.
-  const lues = relues && m.releve && sontRelues(relues, m.releve.ouvertures) ? relues.ouvertures.map((x) => ({ ...x })) : avecLesDetailsLus(base.ouvertures, accord);
+  const lues = ouverturesMontrees(m, base, accord, relues);
   const surLeMur = partageDeLaMesure(o, m.cote, base.largeur, lues)?.surLeMur ?? lues;
   const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], surLeMur), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
     .map((x) => (x.verifieeLe ? x : { ...x, verifieeLe: jour }));

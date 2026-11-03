@@ -8,8 +8,8 @@ import { lireGrilleSous } from '../../../geo/mnh.js';
 import { ecrireFichierAudit, type EntreesEcriture } from './fichier.js';
 import { nomFichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { partagerFichier } from '../../../shell/partage.js';
-import { creerAnalyseClaude, decoderImageNavigateur, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude } from './analyseClaude.js';
-import { accorderLesFacades } from './runsFacades.js';
+import { creerAnalyseClaude, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude } from './analyseClaude.js';
+import { accordsDesMesures } from './runsFacades.js';
 import { fabriqueJardinNavigateur } from './jardinClaude.js';
 import { chercherCoins } from '../../releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
@@ -52,8 +52,9 @@ export function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, v
     images: a?.images ?? fabriqueImagesNavigateur(),
     // La lecture du jardin (lot L3) : celle du navigateur, sauf quand les images sont simulees (tests) et qu'aucune n'est donnee.
     ...(a?.jardin ? { jardin: a.jardin } : a?.images ? {} : { jardin: fabriqueJardinNavigateur() }),
-    // Le run de chaque facade (lot F3) : ses boites accordees par le moteur avec la detection de la facade mesuree.
-    accorder: a?.accorder ?? ((runs) => accorderLesFacades(runs, validation().entrees().mesures, decoderImageNavigateur)),
+    // Le run de chaque facade (lot F3) : ses boites accordees par le moteur avec la detection, dans l'enchainement de la facade refait avec
+    // la lecture de Claude (decision 4) ; l'analyse attend les mesures avant de les lire.
+    accorder: a?.accorder ?? ((runs) => Promise.resolve(accordsDesMesures(runs, validation().entrees().mesures))),
     ...(a?.notifier ? { notifier: a.notifier } : {}),
     ...(a?.preparerNotification ? { preparerNotification: a.preparerNotification } : {}),
     ...(a?.memoire ? { memoire: a.memoire } : {}),

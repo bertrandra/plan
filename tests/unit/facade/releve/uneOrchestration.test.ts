@@ -4,6 +4,10 @@ import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { mesurerFacade, type MesureFacade } from '../../../../src/app/audit/parcelle/mesures.js';
 import { casDepuisFacade, type FacadeACalibrer } from '../../../../src/app/audit/parcelle/casDeCalibration.js';
 import { lireCasReel } from '../../../../src/facade/corpusReel.js';
+import { accordDeLaLecture } from '../../../../src/app/audit/parcelle/accordLecture.js';
+import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
+import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
+import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
 import { gabaritDesCorps, relief } from '../../../../src/facade/gabaritMur.js';
 import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import { ETAPES_FACADE } from '../../../../src/model/etapeFacade.js';
@@ -39,6 +43,7 @@ function sorties(r: Enchainement) {
     silhouette: s.silhouette, forme: s.forme,
     analyse: a && { elevation: empreinte(a.elevation), facade: empreinte(a.facade.image), texture: empreinte(a.texture), pxParM: a.pxParM, hauteurTexture: a.hauteurTexture, ouvertures: a.ouvertures, devinees: a.devinees, toitEstime: a.toitEstime, fusion: a.fusion && { statut: a.fusion.statut, masque: a.fusion.masque, vues: a.fusion.vues } },
     audit: s.audit && { ...s.audit, mesure: m && { ...m, releve: { ...m.releve, releveLe: '' } } },
+    ia: s.ia && { pose: s.ia.pose, ecart: s.ia.ecart, accord: s.ia.accord, descentes: s.ia.descentes },
     facade: s.facade,
   };
 }
@@ -70,22 +75,24 @@ function facadeDeLaScene(s: SceneFacade, prises: readonly PriseCamera[]) {
 }
 
 /** La facade passee par l'audit, le cas tire d'elle (enregistre, relu), et son rejeu avec chacune des deux vues. */
-async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], corrections: Record<string, CorrectionRedressement>, murConfirme: MurConfirme | null = null, ouverturesRelues: OuverturesRelues | null = null) {
+async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], corrections: Record<string, CorrectionRedressement>, murConfirme: MurConfirme | null = null, ouverturesRelues: OuverturesRelues | null = null, ia: RunEnregistre | null = null) {
   const { f, contour, corps, images, photos } = facadeDeLaScene(s, prises);
   const chercherCoins = async (e: Parameters<typeof rechercher>[0]) => rechercher(e);
   // L'entree reelle de l'audit (app/audit/parcelle/mesures.ts) : ce que la personne obtient sur place.
   const audit = await mesurerFacade('b1', f, { pts: contour, corpsToit: [corps] }, photos, {
     pixels: async (b64) => { const im = images[Number(b64.slice(6))]; return im ? { largeur: im.largeur, hauteur: im.hauteur, data: im.donnees } : null; },
     chercherCoins, jpeg, limites: () => [],
-  }, corrections, { murConfirme, ouverturesRelues });
+  }, corrections, { murConfirme, ouverturesRelues, ia });
   // Le cas, tel que l'admin le cree depuis la facade de l'audit, enregistre puis relu.
   const fc: FacadeACalibrer = {
     cle: 'b1', nom: 'Maison', cote: f.cote, orientation: f.orientation, largeurM: f.largeur, hauteurM: f.hauteur, sourceHauteur: 'lidar', photos, corrections,
     ...(murConfirme ? { murConfirme } : {}), ...(ouverturesRelues ? { ouverturesRelues } : {}), bilans: audit.redressement?.photos ?? [], gabarit: gabaritDesCorps(f, [corps], f.hauteur), toit: { mur: { gauche: f.gauche, droite: f.droite }, corps: [corps] }, parement: null, facade: f, contour,
   };
   const cas = lireCasReel(JSON.parse(JSON.stringify({ ...casDepuisFacade(fc), ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) })));
-  const calibration = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'calibration', chercherCoins, verite: veriteDuCas(cas), illustrer: true });
-  const vueAudit = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'audit', chercherCoins });
+  // La lecture de Claude, quand il y en a une : la meme dans les deux vues (decision 4 : elle entre dans l'enchainement de l'audit aussi).
+  const avecIa = ia ? { ia } : {};
+  const calibration = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'calibration', chercherCoins, verite: veriteDuCas(cas), illustrer: true, ...avecIa });
+  const vueAudit = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'audit', chercherCoins, ...avecIa });
   return { audit, cas, calibration, vueAudit, gabarit: fc.gabarit };
 }
 
@@ -110,6 +117,8 @@ function memesSorties(x: Awaited<ReturnType<typeof lesDeux>>): void {
   expect(audit.imageRun).toEqual(calibration.sorties.audit?.imageRun);
   expect(audit.assemblage ?? null).toEqual(calibration.sorties.audit?.assemblage ?? null);
   expect(audit.facade).toEqual(calibration.sorties.facade);
+  // Avec la lecture de Claude : l'accord que l'audit garde est celui de l'E9 de l'enchainement, pas un calcul a cote.
+  expect(audit.accord ?? null).toEqual(accordDeLaLecture(calibration.sorties.ia));
 }
 
 const scene = (prefixe: string) => {
@@ -149,6 +158,23 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, relecture(detectees, detectees.slice(1), '2026-11-03T10:00:00.000Z'));
     memesSorties(x);
     expect(x.audit.facade?.ouvertures).toHaveLength(detectees.length - 1);
+  }, 240_000);
+
+  it('avec la lecture de Claude (decision 4) : les memes sorties a chaque etape, accord, diagnostic et bilan (ses pointes) compris', async () => {
+    const s = scene('02-');
+    const c = casIaDeScene(s);
+    if (!c) throw new Error('pas de cas');
+    // Une reponse SYNTHETIQUE tiree de la verite de la scene (tests/banc/facades/runIa.ts), pas Claude.
+    const run: RunEnregistre = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine)], cout: 0.0011,
+      tokens: { entree: 4000, sortie: 800 }, image: { largeur: c.image.largeur, hauteur: c.image.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
+    memesSorties(x);
+    expect(x.audit.accord?.bilan.boites).toBeGreaterThan(0);
+    // La barre de l'audit dit la lecture de Claude a l'E5 et a l'E9, comme la calibration.
+    expect(x.audit.etapes?.find((e) => e.id === 'calage')?.resume).toMatch(/IA \(réponse synthétique/);
+    expect(x.audit.etapes?.find((e) => e.id === 'ouvertures')?.resume).toMatch(/vues? par Claude/);
+    // Le bilan (ce que V4 ecrit) porte ses pointes quand il en voit.
+    expect(x.audit.facade?.forme).toEqual(x.calibration.sorties.facade?.forme);
   }, 240_000);
 
   it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {

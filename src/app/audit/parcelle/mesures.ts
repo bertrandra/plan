@@ -29,10 +29,12 @@ import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { Image } from '../../../facade/vision/homographie.js';
 import type { PhotoCas } from '../../../model/audit.js';
-import type { BilanRedressement, CorrectionRedressement, MurConfirme, OuverturesRelues } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture, BilanRedressement, CorrectionRedressement, MurConfirme, OuverturesRelues } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
 import type { CorpsToit, ObjetPolygone, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
+import type { RunEnregistre } from '../../../regles/facades/observations.js';
+import { accordDeLaLecture } from './accordLecture.js';
 
 /** La cle d'une mesure : le batiment et le cote du mur (`cle#cote`). */
 export const cleMesure = (cle: string, cote: number): string => cle + '#' + cote;
@@ -111,6 +113,11 @@ export interface MesureFacade {
    * numerotees). Derive, comme les etapes : absent d'une mesure lue dans un fichier d'audit, « Rejouer la façade » le refait.
    */
   facade?: BilanFacade;
+  /**
+   * L'accord de la lecture de Claude avec les ouvertures du releve, tel que l'enchainement l'a fait (E9) quand la facade a ete mesuree
+   * avec elle : ce que l'audit garde et propose, sans le refaire a cote. Derive ; absent sans lecture de Claude.
+   */
+  accord?: AccordFacadeCapture;
 }
 
 export interface DependancesMesures {
@@ -155,7 +162,16 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
 /** Les gestes de la personne aux points de validation, entrees de la chaine comme les corrections : le mur confirme (V1), les ouvertures relues (V3). */
-interface GestesFacade { murConfirme?: MurConfirme | null; ouverturesRelues?: OuverturesRelues | null }
+interface GestesFacade {
+  murConfirme?: MurConfirme | null;
+  ouverturesRelues?: OuverturesRelues | null;
+  /**
+   * La lecture de Claude de cette facade (son run enregistre) : elle entre dans l'enchainement comme dans la calibration (decision 4 du
+   * proprietaire, 3 novembre 2026), et l'accord de ses boites, le diagnostic avec elle et le bilan (V4) en sortent, sans calcul a cote.
+   */
+  ia?: RunEnregistre | null;
+}
+
 
 export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, gestes: GestesFacade = {}): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;
@@ -182,12 +198,13 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     // Les facades deja relevees des autres murs : une ouverture lue sous le pignon d'un corps voisin y va (facade/releve/murVoisin.ts).
     voisines: (bat.facades ?? []).filter((r) => r.cote !== f.cote).map((r) => ({ cote: r.cote, ouvertures: r.ouvertures })),
   }, {
-    vue: 'audit', chercherCoins: d.chercherCoins,
+    vue: 'audit', chercherCoins: d.chercherCoins, ...(gestes.ia ? { ia: gestes.ia } : {}),
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
   });
   const sortie = r.sorties.audit;
   const etapes = r.etapes.map(({ id, etat, resume, herite }) => ({ id, etat, resume, ...(herite ? { herite } : {}) }));
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
   const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun, ...(sortie.assemblage ? { assemblage: sortie.assemblage } : {}) } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
-  return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };
+  const accord = accordDeLaLecture(r.sorties.ia);
+  return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace, ...(accord ? { accord } : {}) };
 }

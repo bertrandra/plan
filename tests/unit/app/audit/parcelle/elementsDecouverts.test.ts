@@ -1,3 +1,4 @@
+import { observationsDuRun } from '../../../../../src/facade/regles/facades/ia.js';
 import { describe, it, expect } from 'vitest';
 import { propositionsDeForme } from '../../../../../src/app/audit/parcelle/formeFacades.js';
 import { facadeAEcrire } from '../../../../../src/app/audit/parcelle/facadeValidee.js';
@@ -92,7 +93,9 @@ describe('les formes que Claude lit sur la bande completent les decisions de l a
   const run = (elements: { element: 'cheminee' | 'lucarne'; u: number }[]): RunEnregistre => ({ le: '2026-10-29T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 2, schema: 2, passes: 3, sorties: [sortie(elements), sortie(elements), sortie(elements)], cout: 0.005, tokens: { entree: 3000, sortie: 900 }, image: { largeur: 640, hauteur: 520 }, chaine: 10 });
   const propositions = (runs: Record<string, RunEnregistre> | null) => {
     const o = maison();
-    const diagnostic = diagnostiquerForme({ facade: sud, corps: o.batiment!.corpsToit!, hauteurMur: 5, lue });
+    // La mesure refaite avec la lecture de Claude porte le diagnostic qui la lit (decision 4 : l'enchainement, pas un calcul a cote).
+    const ia = runs?.['maison#0'] ? observationsDuRun(runs['maison#0']) : null;
+    const diagnostic = diagnostiquerForme({ facade: sud, corps: o.batiment!.corpsToit!, hauteurMur: 5, lue, ...(ia ? { ia } : {}) });
     const mesures = new Map<string, MesureFacade>([[cleMesure('maison', 0), { cle: 'maison', cote: 0, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, hautLu: lue, diagnostic }]]);
     const capture = captureVide('78650000AE0101');
     return propositionsDeForme({ objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures, runs });
