@@ -147,29 +147,43 @@ export interface Verification {
   devinees: OuvertureFacade[];
   garder: (i: number) => void;
   ecarter: (i: number) => void;
-  partieBasse: PartieBasse | null;
-  setPartieBasse: (p: PartieBasse) => void;
+  /** Les parties basses du mur, de gauche a droite (model/partiesBasses.ts) ; vide pour un mur rectangulaire. */
+  partiesBasses: PartieBasse[];
+  setPartiesBasses: (p: PartieBasse[]) => void;
   /** Le jour d'aujourd'hui (AAAA-MM-JJ) : la date d'une ouverture que la personne verifie. */
   aujourdhui: string;
 }
 
-/** La partie basse d'un mur en L, telle que la photo l'a mesuree : la position du decrochement et l'egout bas. */
-function CartePartieBasse({ p, largeur, hauteurMur, maj }: { p: PartieBasse; largeur: number; hauteurMur: number; maj: (p: PartieBasse) => void }) {
-  const aDroite = p.debut > 0;
-  const x = aDroite ? p.debut : p.fin;
+/**
+ * Les parties basses du mur, telles que le plan et le LiDAR les ont lues : pour chacune, ou elle commence ou finit et son egout. Un mur
+ * en L en a une, a un bout ; un mur dont la partie haute est au milieu, une a chaque bout. Un decrochement reste entre les parties
+ * voisines : il ne passe pas sur une autre partie basse.
+ */
+function CartePartiesBasses({ parties, largeur, hauteurMur, maj }: { parties: PartieBasse[]; largeur: number; hauteurMur: number; maj: (p: PartieBasse[]) => void }) {
+  const une = parties.length === 1;
   return (
     <div className="releveToit">
-      <div className="releveSousTitre">Mur en L</div>
-      <p className="releveNote">
-        Partie basse {aDroite ? 'à droite' : 'à gauche'}, sur {fr(p.fin - p.debut)} m ; elle va jusqu'au pignon voisin.
-      </p>
-      <div className="releveChamps">
-        <ChampCm libelle="Décrochement à" valeur={x} onChange={(v) => {
-          const c = Math.max(0.1, Math.min(largeur - 0.1, v));
-          maj(aDroite ? { ...p, debut: c } : { ...p, fin: c });
-        }} />
-        <ChampCm libelle="Égout bas" valeur={p.hauteur} onChange={(v) => maj({ ...p, hauteur: Math.max(0.5, Math.min(hauteurMur - 0.1, v)) })} />
-      </div>
+      <div className="releveSousTitre">{une ? 'Mur en L' : 'Parties basses'}</div>
+      {parties.map((p, i) => {
+        const gauche = i > 0 ? (parties[i - 1] as PartieBasse).fin : 0, droite = i + 1 < parties.length ? (parties[i + 1] as PartieBasse).debut : largeur;
+        const auBoutGauche = !(p.debut > 0), auBoutDroit = p.fin >= largeur - 0.01;
+        const ou = auBoutGauche ? 'à gauche' : auBoutDroit ? 'à droite' : 'au milieu';
+        const remplacer = (q: PartieBasse) => maj(parties.map((x, k) => (k === i ? q : x)));
+        const borne = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+        return (
+          <div key={i} role="group" aria-label={'Partie basse ' + ou}>
+            <p className="releveNote">
+              Partie basse {ou}, sur {fr(p.fin - p.debut)} m{auBoutGauche || auBoutDroit ? " ; elle va jusqu'au pignon voisin." : '.'}
+            </p>
+            <div className="releveChamps">
+              {/* Le decrochement d'une partie au bout du mur ; une partie au milieu en a deux. */}
+              {!auBoutGauche && <ChampCm libelle={auBoutDroit ? 'Décrochement à' : 'Début à'} valeur={p.debut} onChange={(v) => remplacer({ ...p, debut: borne(v, gauche + 0.1, p.fin - 0.1) })} />}
+              {!auBoutDroit && <ChampCm libelle={auBoutGauche ? 'Décrochement à' : 'Fin à'} valeur={p.fin} onChange={(v) => remplacer({ ...p, fin: borne(v, p.debut + 0.1, droite - 0.1) })} />}
+              <ChampCm libelle="Égout bas" valeur={p.hauteur} onChange={(v) => remplacer({ ...p, hauteur: borne(v, 0.5, hauteurMur - 0.1) })} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -183,7 +197,7 @@ export function EditionFacade({ v, onAnnuler, onValider }: { v: Verification; on
     <>
       <div className="releveCorps">
         {!v.texture && <p className="releveNote">La photo de ce mur est restée sur l’appareil qui l’a prise : ses ouvertures se corrigent sans elle.</p>}
-        <Elevation texture={v.texture} Ht={v.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
+        <Elevation texture={v.texture} Ht={v.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partiesBasses} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
           devinees={v.devinees} garder={v.garder} />
         <BarreOuvertures v={v} />
         {precision && <p className="releveNote">{precision}</p>}
@@ -199,7 +213,7 @@ export function EditionFacade({ v, onAnnuler, onValider }: { v: Verification; on
             }}
           />
         )}
-        {v.partieBasse && <CartePartieBasse p={v.partieBasse} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartieBasse} />}
+        {v.partiesBasses.length > 0 && <CartePartiesBasses parties={v.partiesBasses} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartiesBasses} />}
       </div>
       <div className="relevePied">
         <button data-controle="releve.annuler" type="button" className="secondary" onClick={onAnnuler}>

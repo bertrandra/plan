@@ -594,6 +594,34 @@ l'horizontale du bout haut), l'É5 lit chaque angle sous le haut du gabarit à c
   `mesurerPartieBasse` restent pour `analyserReleve` (le banc, les tests), sans appelant dans l'application.
 - Banc : scène `25-mur-en-l-garage` (maison à étage, garage dans l'alignement, vue de biais).
 
+**Depuis le 3 novembre 2026, un mur a autant de parties basses que son gabarit en montre.** Une maison
+entre un garage et un appentis, dans le même alignement, a sa partie haute au milieu et une partie basse à
+chaque bout ; le relevé n'en décrivait qu'une, à un bout, et ce mur s'écrivait sans aucune.
+
+- **La lecture** (`facade/profil.ts::partiesBassesDuGabarit`) : chaque suite de colonnes à 50 cm au moins
+  sous l'égout, sur un mètre au moins, quand une autre partie du mur atteint l'égout ; de gauche à droite.
+  Une à un bout (le mur en L, comme avant), une à chaque bout, et une au milieu quand le gabarit y descend
+  (un corps bas entre deux corps hauts). Rien quand le mur entier est sous l'égout.
+- **Le modèle** (`model/partiesBasses.ts`) : une partie basse s'écrit toujours dans `partieBasse`, comme
+  depuis le schéma 2 ; plusieurs dans `partiesBasses` (triées, sans recouvrement), `partieBasse` nulle.
+  Seul un fichier qui porte un tel mur s'écrit au schéma 13 : un fichier d'avant garde sa forme, son schéma
+  et ses nombres. Tout lecteur passe par `partiesBassesDu` ; la mise à l'échelle par
+  `partiesBassesTransformees`, qui garde la forme rangée.
+- **Ce qui les lit** : la surface du mur (chacune retirée), l'égout en un point, le contour du mur (la photo
+  plaquée en 3D), les baies dans le vide au-dessus d'elles (écartées), la bande du toit (lue sur la plus
+  large partie haute), l'éditeur (une carte par partie : décrochement, ou début et fin au milieu, et égout
+  bas), et les volumes du bâtiment : la partie haute, puis une partie basse à chaque bout, chacune à la
+  profondeur de son pignon. Une partie basse au milieu ne découpe pas le bâtiment (elle n'a pas de pignon).
+- **L'É5** : quand aucun bout du gabarit ne monte à l'égout, les rangées du haut sont le ciel aux deux bouts ;
+  la teinte du mur s'y lit alors sous le haut de chaque bout, comme ses angles (la pose juste de la scène 26
+  passait de 0,19 à 1,00). Et l'égout se juge aussi sur les seules colonnes à sa hauteur (le moins bon des
+  deux) : sous une partie haute plus étroite que les parties basses, un égout décalé de 60 cm passait la
+  moyenne. Sans bout à l'égout, chaque partie basse doit aussi s'expliquer à la sienne : la calibration sans
+  capteurs prend le garage de la scène 26 pour le mur entier (la recherche ne lit pas le gabarit), et l'É5 le
+  disait « fait » (0,81, comme sur `main`) ; il est « à confirmer » (égout 0), et le mur posé à la main est
+  « fait » (0,99). Un rectangle, un pignon, le mur en L de la scène 25 : au bit près comme avant.
+- Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais).
+
 ---
 
 ## 7. Les ouvertures (`facade/detection/detection.ts`)

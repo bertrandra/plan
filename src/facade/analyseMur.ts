@@ -12,7 +12,7 @@ import type { GabaritMur } from './gabaritMur.js';
 import { analyserMosaique, type ResultatMosaique } from './vision/mosaique.js';
 import { analyserVues, type ResultatFusion } from './fusion.js';
 import { CHAMP_GRAND_COTE_DEFAUT, focalePx } from './vision/cadrage.js';
-import { partieBasseDuGabarit } from './profil.js';
+import { partiesBassesDuGabarit } from './profil.js';
 import type { Image, P2 } from './vision/homographie.js';
 
 /** Comment plusieurs photos d'un mur se combinent : des morceaux cote a cote, ou des vues du mur entier a fondre. */
@@ -47,13 +47,14 @@ export interface AnalyseMur {
  */
 export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur = 'morceaux'): AnalyseMur | null {
   const a = analyserLeMurSansMarche(murSeul, photos, assemblage);
-  if (!a || a.r.partieBasse) return a;
-  // Un mur en L (une partie basse dans l'alignement, garage ou extension) : sa marche est dans le gabarit, la silhouette du plan et du
-  // LiDAR posee sur la photo (facade/profil.ts::partieBasseDuGabarit), a la hauteur mesuree du mur. La detection et le calage l'ont
-  // deja suivie (ils lisent la silhouette) ; elle s'ecrit ici sur le releve, la meme pour l'audit, le releve et la calibration.
+  if (!a || a.r.partiesBasses.length) return a;
+  // Un mur a plusieurs hauteurs d'egout (une partie basse dans l'alignement, garage ou extension, a un bout ou a chacun) : ses marches
+  // sont dans le gabarit, la silhouette du plan et du LiDAR posee sur la photo (facade/profil.ts::partiesBassesDuGabarit), a la hauteur
+  // mesuree du mur. La detection et le calage les ont deja suivies (ils lisent la silhouette) ; elles s'ecrivent ici sur le releve, les
+  // memes pour l'audit, le releve et la calibration.
   const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
-  const partie = avec ? partieBasseDuGabarit(silhouetteEnPartsDuMur(avec.coins, avec.silhouette), murSeul.largeur, a.r.hauteur) : null;
-  return partie ? { ...a, r: { ...a.r, partieBasse: partie } } : a;
+  const parties = avec ? partiesBassesDuGabarit(silhouetteEnPartsDuMur(avec.coins, avec.silhouette), murSeul.largeur, a.r.hauteur) : [];
+  return parties.length ? { ...a, r: { ...a.r, partiesBasses: parties } } : a;
 }
 
 function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur): AnalyseMur | null {

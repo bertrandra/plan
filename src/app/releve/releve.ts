@@ -16,6 +16,7 @@ import { numeroterOuvertures } from '../../model/facadeObjet.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, ObjetPolygone, OuvertureFacade, PartieBasse, ReleveFacade } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { avecPartiesBasses, partiesBassesDu } from '../../model/partiesBasses.js';
 
 export interface ContexteReleve {
   etat: EtatApp;
@@ -35,7 +36,8 @@ export interface ReleveOuvert {
 /** Ce que la personne retient a la fin de l'edition. */
 interface EditionReleve {
   ouvertures: OuvertureFacade[];
-  partieBasse: PartieBasse | null;
+  /** Les parties basses du mur, de gauche a droite (model/partiesBasses.ts) ; vide pour un mur rectangulaire. */
+  partiesBasses: PartieBasse[];
 }
 
 export interface ServiceReleve {
@@ -65,13 +67,14 @@ const memes = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b
  * l'audit a pose tout seul : `depuisAudit` tombe, une nouvelle mesure ne le remplacera plus d'office.
  */
 function releveEdite(r: ReleveFacade, e: EditionReleve): ReleveFacade | null {
-  if (memes(e.ouvertures, r.ouvertures) && memes(e.partieBasse ?? null, r.partieBasse ?? null)) return null;
+  if (memes(e.ouvertures, r.ouvertures) && memes(e.partiesBasses, partiesBassesDu(r))) return null;
   const { ouvertures: tracees, corrections } = tracerCorrections(r.ouvertures, [], e.ouvertures);
   const { ouvertures: rangees, grille } = avecGrille(tracees, r.largeur);
   const ouvertures = r.ouvertures.some((o) => o.id) ? numeroterOuvertures(rangees, r.ouvertures) : rangees;
-  const out: ReleveFacade = { ...r, ouvertures };
-  // Un releve d'avant sans partie basse le reste : la cle ne s'ajoute pas pour dire « aucune ».
-  if (e.partieBasse || r.partieBasse !== undefined) out.partieBasse = e.partieBasse;
+  // Un releve d'avant sans partie basse le reste : la cle ne s'ajoute pas pour dire « aucune ». Une partie basse s'ecrit comme avant
+  // le schema 13, plusieurs en liste (model/partiesBasses.ts).
+  const sans = !e.partiesBasses.length && r.partieBasse === undefined && r.partiesBasses === undefined;
+  const out: ReleveFacade = sans ? { ...r, ouvertures } : avecPartiesBasses({ ...r, ouvertures }, e.partiesBasses);
   if (grille) out.grille = grille; else delete out.grille;
   const toutes = [...(r.corrections ?? []), ...corrections];
   if (toutes.length) out.corrections = toutes;

@@ -17,6 +17,7 @@ import { homographie, appliquer, type P2 } from './vision/homographie.js';
 import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type { OuvertureFacade, PartieBasse, PtBrut, ReleveFacade } from '../model/types.js';
+import { partiesBassesDu } from '../model/partiesBasses.js';
 
 export type { PartieBasse };
 
@@ -85,15 +86,17 @@ const PARTIE_BASSE_MIN_M = 1;
 const PAS_GABARIT = 0.005;
 
 /**
- * La partie basse d'un mur en L lue sur son gabarit (facade/gabaritMur.ts, le haut de la facade sous les corps du LiDAR, en parts du
- * mur : `v` en hauteurs d'egout), de `largeur` x `hauteur` metres : depuis un bout, la plus longue suite de colonnes sous l'egout de
- * MARCHE_MIN_M au moins, quand l'autre partie atteint l'egout. Son egout est le plus bas de ce haut (un garage a pignon se mesure a
- * son egout, pas a sa pointe). Null sans marche, sur moins de PARTIE_BASSE_MIN_M, ou quand les deux bouts descendent (une partie haute
- * au milieu : le releve ne decrit qu'une partie basse, a un bout). C'est ce que la photo posait avant au doigt (Decrochement) : le plan
- * et le LiDAR le disent maintenant, la meme chose pour l'audit et la calibration (MD/spec-releve-facade.md §6.2).
+ * Les parties basses d'un mur lues sur son gabarit (facade/gabaritMur.ts, le haut de la facade sous les corps du LiDAR, en parts du
+ * mur : `v` en hauteurs d'egout), de `largeur` x `hauteur` metres, de gauche a droite : chaque suite de colonnes sous l'egout de
+ * MARCHE_MIN_M au moins, sur PARTIE_BASSE_MIN_M au moins, quand une autre partie du mur atteint l'egout. Un mur en L en a une, a un bout ;
+ * un mur dont la partie haute est au milieu (une maison entre un garage et un appentis) en a une a chaque bout ; une au milieu seulement
+ * quand le gabarit y descend (un corps bas entre deux corps hauts). L'egout de chacune est le plus bas de son haut (un garage a pignon se
+ * mesure a son egout, pas a sa pointe). Vide sans marche (un rectangle, un pignon, une rampe), ou quand le mur entier est sous l'egout.
+ * C'est ce que la photo posait avant au doigt (Decrochement) : le plan et le LiDAR le disent maintenant, la meme chose pour l'audit et la
+ * calibration (MD/spec-releve-facade.md §6.2).
  */
-export function partieBasseDuGabarit(g: readonly { u: number; v: number }[] | null | undefined, largeur: number, hauteur: number): PartieBasse | null {
-  if (!g || g.length < 2 || !(largeur > 0) || !(hauteur > 0)) return null;
+export function partiesBassesDuGabarit(g: readonly { u: number; v: number }[] | null | undefined, largeur: number, hauteur: number): PartieBasse[] {
+  if (!g || g.length < 2 || !(largeur > 0) || !(hauteur > 0)) return [];
   const pts = [...g].sort((a, b) => a.u - b.u);
   const vEn = (u: number): number => {
     const a = pts[0] as { u: number; v: number }, b = pts[pts.length - 1] as { u: number; v: number };
@@ -108,65 +111,95 @@ export function partieBasseDuGabarit(g: readonly { u: number; v: number }[] | nu
   const n = Math.round(1 / PAS_GABARIT);
   const colonnes = Array.from({ length: n }, (_, k) => vEn((k + 0.5) / n));
   const basse = colonnes.map((v) => (1 - v) * hauteur >= MARCHE_MIN_M);
-  if (!basse.some((b) => !b)) return null;
-  const aGauche = basse.findIndex((b) => !b), aDroite = n - 1 - [...basse].reverse().findIndex((b) => !b);
-  const gauche = aGauche, droite = n - 1 - aDroite;
-  if (gauche > 0 && droite > 0) return null;
-  const k = Math.max(gauche, droite);
-  if ((k / n) * largeur < PARTIE_BASSE_MIN_M) return null;
-  const span = droite > 0 ? colonnes.slice(n - droite) : colonnes.slice(0, gauche);
-  // Les sommets du gabarit sur la partie basse comptent aussi : une colonne se lit en son milieu, un sommet au bout du mur lui echappe.
-  // A droite, le sommet haut de la marche (au decrochement meme) n'en est pas ; a gauche, celui du bout (u = 0) en est.
-  const dans = droite > 0 ? (u: number) => u > (n - droite) / n + 1e-6 && u <= 1 + 1e-6 : (u: number) => u >= -1e-6 && u <= gauche / n + 1e-6;
-  const sommets = pts.filter((q) => dans(q.u)).map((q) => q.v);
+  if (!basse.some((b) => !b)) return [];
+  // Les suites de colonnes basses : [premiere, apres la derniere[.
+  const suites: [number, number][] = [];
+  for (let k = 0; k < n; k++) {
+    if (!basse[k]) continue;
+    const s = k;
+    while (k < n && basse[k]) k++;
+    suites.push([s, k]);
+  }
   const cm = (v: number) => Math.round(v * 100) / 100;
-  const egout = cm(Math.min(...span, ...sommets) * hauteur);
-  return droite > 0 ? { debut: cm(((n - droite) / n) * largeur), fin: cm(largeur), hauteur: egout } : { debut: 0, fin: cm((gauche / n) * largeur), hauteur: egout };
+  return suites.filter(([s, t]) => ((t - s) / n) * largeur >= PARTIE_BASSE_MIN_M).map(([s, t]) => {
+    // Les sommets du gabarit sur la partie basse comptent aussi : une colonne se lit en son milieu, un sommet au bout du mur lui echappe.
+    // Au debut d'une partie qui ne part pas du bout, le sommet haut de la marche (au decrochement meme) n'en est pas ; au bout du mur
+    // (u = 0 ou 1), il en est. A sa fin, le sommet bas de la marche en est, le sommet haut qui suit non.
+    const dans = (u: number) => (s > 0 ? u > s / n + 1e-6 : u >= -1e-6) && (t < n ? u <= t / n + 1e-6 : u <= 1 + 1e-6);
+    const sommets = pts.filter((q) => dans(q.u)).map((q) => q.v);
+    const egout = cm(Math.min(...colonnes.slice(s, t), ...sommets) * hauteur);
+    return { debut: s > 0 ? cm((s / n) * largeur) : 0, fin: t < n ? cm((t / n) * largeur) : cm(largeur), hauteur: egout };
+  });
 }
 
-/** Hauteur d'egout du mur a l'abscisse \`x\`. */
-export function egoutEn(x: number, hauteur: number, p: PartieBasse | null | undefined): number {
-  return p && x >= p.debut && x <= p.fin ? p.hauteur : hauteur;
+/** Une partie basse, plusieurs (de gauche a droite), ou aucune : ce que lisent les fonctions du mur. */
+export type PartiesDuMur = PartieBasse | readonly PartieBasse[] | null | undefined;
+
+/** Les parties basses en liste, de gauche a droite comme elles sont donnees. */
+export const enListe = (p: PartiesDuMur): readonly PartieBasse[] => (!p ? [] : Array.isArray(p) ? p : [p as PartieBasse]);
+
+/**
+ * La plus large partie haute du mur (de `largeur` metres), entre deux parties basses ou entre une partie basse et un bout : `[debut, fin]`,
+ * ou null sans partie basse. C'est elle qui porte le toit vu au-dessus de l'egout.
+ */
+export function partieHaute(largeur: number, p: PartiesDuMur): [number, number] | null {
+  const parties = enListe(p);
+  if (!parties.length) return null;
+  let x = 0, meilleure: [number, number] = [0, 0];
+  for (const q of [...parties, { debut: largeur, fin: largeur, hauteur: 0 }]) {
+    if (q.debut - x > meilleure[1] - meilleure[0]) meilleure = [x, q.debut];
+    x = Math.max(x, q.fin);
+  }
+  return meilleure;
+}
+
+/** Hauteur d'egout du mur a l'abscisse \`x\` : celle de la partie basse qui la couvre, sinon celle du mur. */
+export function egoutEn(x: number, hauteur: number, p: PartiesDuMur): number {
+  const q = enListe(p).find((r) => x >= r.debut && x <= r.fin);
+  return q ? q.hauteur : hauteur;
 }
 
 /**
- * Les ouvertures qui tiennent dans le mur en L : sur la partie basse, une tache qui monte au-dessus de
- * son egout est sa toiture ou le ciel vu au-dessus, pas une baie.
+ * Les ouvertures qui tiennent dans le mur : sur une partie basse, une tache qui monte au-dessus de son egout est sa toiture ou le ciel
+ * vu au-dessus, pas une baie.
  */
-export function ouverturesDansLeMur<T extends Pick<OuvertureFacade, 'x' | 'y' | 'l' | 'h'>>(ouvertures: readonly T[], hauteur: number, p: PartieBasse | null | undefined): T[] {
-  if (!p) return [...ouvertures];
+export function ouverturesDansLeMur<T extends Pick<OuvertureFacade, 'x' | 'y' | 'l' | 'h'>>(ouvertures: readonly T[], hauteur: number, p: PartiesDuMur): T[] {
+  if (!enListe(p).length) return [...ouvertures];
   return ouvertures.filter((o) => {
     const milieu = o.x + o.l / 2;
     return o.y + o.h <= egoutEn(milieu, hauteur, p) + 0.1;
   });
 }
 
-/** Le contour du mur en L, dans le repere du mur (x depuis la gauche, y depuis le sol). */
-export function contourDuMur(largeur: number, hauteur: number, p: PartieBasse | null | undefined): P2[] {
-  if (!p) return [
+/**
+ * Le contour du mur, dans le repere du mur (x depuis la gauche, y depuis le sol) : le pied, puis le haut de droite a gauche, a l'egout
+ * de chaque partie basse sur sa longueur et a celui du mur ailleurs.
+ */
+export function contourDuMur(largeur: number, hauteur: number, p: PartiesDuMur): P2[] {
+  const parties = enListe(p);
+  const out: P2[] = [
     { x: 0, y: 0 },
     { x: largeur, y: 0 },
-    { x: largeur, y: hauteur },
-    { x: 0, y: hauteur },
   ];
-  return p.debut > 0
-    ? [
-        { x: 0, y: 0 },
-        { x: largeur, y: 0 },
-        { x: largeur, y: p.hauteur },
-        { x: p.debut, y: p.hauteur },
-        { x: p.debut, y: hauteur },
-        { x: 0, y: hauteur },
-      ]
-    : [
-        { x: 0, y: 0 },
-        { x: largeur, y: 0 },
-        { x: largeur, y: hauteur },
-        { x: p.fin, y: hauteur },
-        { x: p.fin, y: p.hauteur },
-        { x: 0, y: p.hauteur },
-      ];
+  // Le haut, de droite a gauche : chaque palier (une partie basse, ou le mur entre deux) par ses deux bouts.
+  let x = largeur;
+  const palier = (de: number, a: number, y: number) => {
+    if (de <= a) return;
+    out.push({ x: de, y }, { x: a, y });
+  };
+  for (let i = parties.length - 1; i >= 0; i--) {
+    const q = parties[i] as PartieBasse;
+    const fin = Math.min(x, q.fin), debut = Math.max(0, q.debut);
+    palier(x, fin, hauteur);
+    palier(fin, debut, q.hauteur);
+    x = Math.min(x, debut);
+  }
+  palier(x, 0, hauteur);
+  return out;
 }
+
+/** Une partie basse qui finit a moins de cela du bout du mur va jusqu'au bout (un arrondi au centimetre, une mise a l'echelle). */
+const BOUT_TOLERANCE_M = 0.01;
 
 /** Un volume du batiment : son emprise et sa hauteur d'egout. */
 export interface Volume {
@@ -177,48 +210,63 @@ export interface Volume {
 }
 
 /**
- * Les volumes d'un batiment dont un mur a ete releve en L. La partie basse va du decrochement au
- * bout bas du mur, et sa profondeur est celle du pignon adjacent : le mur du contour qui part du coin
- * C du bout bas vers le sommet suivant E. Avec S le decrochement sur la facade, la partie basse est le
- * parallelogramme S, C, E, S' ou S' = E + (S - C) ; la partie haute est le contour ou C est remplace
- * par S puis S' - l'encoche. Un contour qui porte deja l'encoche (garage moins profond que la maison)
- * retombe sur ses propres murs : son pignon adjacent est le mur lateral du garage.
+ * Les volumes d'un batiment dont un mur a ete releve avec une partie basse a un bout (un L), ou a chacun de ses deux bouts (une partie
+ * haute au milieu) : la partie haute d'abord, puis chaque partie basse. Une partie basse va du decrochement au bout bas du mur, et sa
+ * profondeur est celle du pignon adjacent : le mur du contour qui part du coin C du bout bas vers le sommet suivant E. Avec S le
+ * decrochement sur la facade, la partie basse est le parallelogramme S, C, E, S' ou S' = E + (S - C) ; la partie haute est le contour
+ * ou C est remplace par S puis S' - l'encoche. Un contour qui porte deja l'encoche (garage moins profond que la maison) retombe sur ses
+ * propres murs : son pignon adjacent est le mur lateral du garage. Une partie basse au milieu du mur n'a pas de pignon adjacent : elle
+ * ne decoupe pas le batiment (la facade la porte, ses ouvertures et sa surface la suivent).
  */
 export function volumesDuBatiment(pts: readonly PtBrut[], hauteur: number, releves: readonly ReleveFacade[] | null | undefined): Volume[] {
   const entier = [{ pts: pts.map((q) => ({ ...q })), hauteur }];
-  const r = (releves || []).find((x) => x.partieBasse);
-  const pb = r?.partieBasse;
-  if (!r || !pb) return entier;
+  const r = (releves || []).find((x) => partiesBassesDu(x).length);
+  if (!r) return entier;
   const n = pts.length;
   const f = facadesDuContour(pts, hauteur).find((x) => x.cote === r.cote);
   if (!f || n < 3) return entier;
-  const basseADroite = pb.debut > 0;
-  // Abscisse du decrochement, mise a l'echelle si le mur a change de longueur depuis le releve.
+  // Abscisses du decrochement, mises a l'echelle si le mur a change de longueur depuis le releve.
   const k = r.largeur > 0 ? f.largeur / r.largeur : 1;
-  const S = pointDeFacade(f, (basseADroite ? pb.debut : pb.fin) * k);
-  const C = basseADroite ? f.droite : f.gauche;
-  // Indice de C dans le contour, et le sommet E du pignon adjacent : celui qui n'est pas l'autre
-  // bout de la facade.
-  const iA = r.cote,
-    iB = (r.cote + 1) % n;
   const proche = (a: PtBrut, b: PtBrut) => Math.hypot(a.x - b.x, a.y - b.y) < 1e-9;
-  const iC = proche(sommetDe(pts, iA), C) ? iA : iB;
-  const iE = iC === iB ? (iB + 1) % n : (iA - 1 + n) % n;
-  const E = sommetDe(pts, iE);
-  const S2 = { x: E.x + S.x - C.x, y: E.y + S.y - C.y };
-  const haute: PtBrut[] = [];
-  // C et E quittent la partie haute : ce sont les coins de la partie basse, remplaces par S et S'.
-  pts.forEach((q, i) => {
-    if (i === iE) return;
-    if (i !== iC) haute.push({ ...q });
-    // Dans le sens du contour : de la facade vers le pignon, S puis S' ; en sens inverse, S' puis S.
-    else if (iC === iB) haute.push({ ...S }, S2);
-    else haute.push(S2, { ...S });
-  });
-  const nettoye = haute.filter((q, i) => !proche(q, sommetDe(haute, i + 1)));
-  if (nettoye.length < 3) return entier;
-  return [
-    { pts: nettoye, hauteur },
-    { pts: [{ ...S }, { ...C }, { ...E }, S2], hauteur: Math.min(hauteur, pb.hauteur) },
+  // Les parties basses a un bout du mur. Une seule : celle d'un mur en L, a droite des que son debut n'est pas nul (comme avant le
+  // schema 13, memes volumes). Plusieurs : celle qui finit au bout droit, puis celle qui part du bout gauche ; celles du milieu restent.
+  const parties = partiesBassesDu(r);
+  const bouts = parties.length === 1 ? parties : [
+    ...parties.filter((pb) => pb.debut > 0 && pb.fin >= r.largeur - BOUT_TOLERANCE_M),
+    ...parties.filter((pb) => pb.debut <= BOUT_TOLERANCE_M && pb.fin < r.largeur - BOUT_TOLERANCE_M),
   ];
+  if (!bouts.length) return entier;
+  let haute: PtBrut[] = pts.map((q) => ({ ...q }));
+  const basses: Volume[] = [];
+  const decrochements: PtBrut[] = [];
+  for (const pb of bouts) {
+    const basseADroite = pb.debut > 0;
+    const S = pointDeFacade(f, (basseADroite ? pb.debut : pb.fin) * k);
+    const C = basseADroite ? f.droite : f.gauche;
+    const m = haute.length;
+    const iC = haute.findIndex((q) => proche(q, C));
+    if (iC < 0 || m < 3) return entier;
+    // Le sommet E du pignon adjacent : le voisin de C qui ne suit pas la facade. Celui qui la suit est son autre bout, ou le
+    // decrochement d'une partie basse deja decoupee a l'autre bout.
+    const autreBout = basseADroite ? f.gauche : f.droite;
+    const precedent = sommetDe(haute, (iC - 1 + m) % m);
+    const versLePignon = proche(precedent, autreBout) || decrochements.some((d) => proche(precedent, d));
+    const iE = versLePignon ? (iC + 1) % m : (iC - 1 + m) % m;
+    const E = sommetDe(haute, iE);
+    const S2 = { x: E.x + S.x - C.x, y: E.y + S.y - C.y };
+    const suivante: PtBrut[] = [];
+    // C et E quittent la partie haute : ce sont les coins de la partie basse, remplaces par S et S'. Dans le sens du contour : de la
+    // facade vers le pignon, S puis S' ; en sens inverse, S' puis S.
+    haute.forEach((q, i) => {
+      if (i === iE) return;
+      if (i !== iC) suivante.push({ ...q });
+      else if (versLePignon) suivante.push({ ...S }, S2);
+      else suivante.push(S2, { ...S });
+    });
+    haute = suivante.filter((q, i) => !proche(q, sommetDe(suivante, i + 1)));
+    if (haute.length < 3) return entier;
+    decrochements.push(S);
+    basses.push({ pts: [{ ...S }, { ...C }, { ...E }, S2], hauteur: Math.min(hauteur, pb.hauteur) });
+  }
+  return [{ pts: haute, hauteur }, ...basses];
 }

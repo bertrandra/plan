@@ -27,6 +27,7 @@ import { focalePx } from '../../../src/facade/vision/cadrage.js';
 import { champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
 import type { DetailsOuverture, TypeOuverture } from '../../../src/model/types.js';
 import { gabaritDuHaut, type GabaritMur } from '../../../src/facade/gabaritMur.js';
+import { au } from '../../../src/util/tableaux.js';
 import { silhouetteDansLeCadre } from '../../../src/facade/analyse.js';
 
 export type RGB = [number, number, number];
@@ -78,6 +79,20 @@ export interface OuvertureVraie {
   details?: DetailsOuverture;
 }
 
+/** Une partie basse d'un mur de synthese : de `debut` a `fin` metres depuis la gauche, a son egout `hauteur`, et sa bande de toit. */
+export interface PartieBasseSynthese {
+  debut: number;
+  fin: number;
+  hauteur: number;
+  toit?: { hauteur: number; couleur: RGB };
+}
+
+/** Les parties basses peintes d'une scene, de gauche a droite : la liste, ou la partie basse seule d'un mur en L. */
+export function partiesBassesSynthese(s: SceneFacade): PartieBasseSynthese[] {
+  const m = s.synthese.mur;
+  return m.partiesBasses?.length ? m.partiesBasses : m.partieBasse ? [m.partieBasse] : [];
+}
+
 export interface Mur {
   parement: Parement;
   soubassement?: { hauteur: number; parement: Parement };
@@ -93,7 +108,12 @@ export interface Mur {
    * depuis la gauche, a son egout `hauteur`) : au-dessus, ni le mur haut ni son toit, le ciel, sauf la bande de toit de la partie basse.
    * La verite (`verite.hauteur`) est l'egout le plus haut, et le gabarit vrai suit la marche.
    */
-  partieBasse?: { debut: number; fin: number; hauteur: number; toit?: { hauteur: number; couleur: RGB } };
+  partieBasse?: PartieBasseSynthese;
+  /**
+   * Plusieurs parties basses, de gauche a droite et sans recouvrement (une partie haute au milieu, un appentis a un bout et un garage a
+   * l'autre, scene 26) : chacune comme `partieBasse`. Le gabarit vrai suit chaque marche.
+   */
+  partiesBasses?: PartieBasseSynthese[];
   /** Eclairage qui baisse de gauche a droite : 0,2 = 20 % plus sombre au bout du mur. */
   degrade?: number;
 }
@@ -519,6 +539,7 @@ export function hauteurPeinte(s: SceneFacade): number {
  */
 export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: boolean): Image {
   const { verite: v, synthese: y } = s;
+  const basses = partiesBassesSynthese(s);
   const HT = hauteurPeinte(s);
   const L = Math.max(1, Math.round(v.largeur * pxParM));
   const H = Math.max(1, Math.round(HT * pxParM));
@@ -535,7 +556,7 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
       const o = (r * L + c) * 4;
       let coul: RGB | null = null;
       let mur = true;
-      const pb = y.mur.partieBasse;
+      const pb = basses.find((q) => X >= q.debut && X <= q.fin && Z > q.hauteur);
       if (pb && X >= pb.debut && X <= pb.fin && Z > pb.hauteur) {
         // Au-dessus de la partie basse d'un mur en L : sa bande de toit, puis le ciel.
         mur = false;
@@ -579,6 +600,19 @@ export function formePignon(u: number, sommet: number): number {
  */
 export function gabaritVrai(s: SceneFacade): GabaritMur {
   const H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5, pb = s.synthese.mur.partieBasse;
+  const plusieurs = s.synthese.mur.partiesBasses;
+  if (plusieurs?.length) {
+    // Les marches de chaque partie basse, de gauche a droite : l'egout haut entre elles, d'aplomb a chaque decrochement.
+    const L = s.verite.largeur, e = 1e-4;
+    const haut: { x: number; y: number }[] = [];
+    if (!((au(plusieurs, 0).debut / L) <= e)) haut.push({ x: 0, y: H });
+    plusieurs.forEach((q) => {
+      const a = q.debut / L, b = q.fin / L;
+      haut.push(...(a > e ? [{ x: a, y: H }, { x: a + e, y: q.hauteur }] : [{ x: 0, y: q.hauteur }]), ...(b < 1 - e ? [{ x: b, y: q.hauteur }, { x: b + e, y: H }] : [{ x: 1, y: q.hauteur }]));
+    });
+    if (au(haut, haut.length - 1).x < 1) haut.push({ x: 1, y: H });
+    return gabaritDuHaut(haut, H);
+  }
   if (pb) {
     // La marche d'un mur en L : l'egout haut, puis celui de la partie basse, d'aplomb au decrochement.
     const L = s.verite.largeur, a = pb.debut / L, b = pb.fin / L, e = 1e-4;

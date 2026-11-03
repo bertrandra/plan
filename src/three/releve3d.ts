@@ -12,10 +12,11 @@ import type { VolumeToit } from '../model/types.js';
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type * as THREE_NS from 'three';
-import type { CorpsToit, ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, Toit } from '../model/types.js';
+import type { CorpsToit, ObjetPolygone, PtBrut, OuvertureFacade, Toit } from '../model/types.js';
+import { partiesBassesDu } from '../model/partiesBasses.js';
 import { hauteurDuMur } from '../facade/ouvertures.js';
 import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
-import { contourDuMur, egoutEn, ouverturesDansLeMur, volumesDuBatiment } from '../facade/profil.js';
+import { contourDuMur, egoutEn, ouverturesDansLeMur, volumesDuBatiment, type PartiesDuMur } from '../facade/profil.js';
 import { hautDuMurSousCorps, silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
@@ -149,7 +150,7 @@ interface Habillage {
  * (LiDAR), la photo epouse la silhouette du mur : son egout, son pignon jusqu'au faitage, ses marches ; a
  * l'echelle (un metre de photo pour un metre de mur), et elle s'arrete ou la photo s'arrete.
  */
-function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartieBasse | null, corps: readonly CorpsToit[] | null = null) {
+function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartiesDuMur, corps: readonly CorpsToit[] | null = null) {
   const { pt } = repereMur(ctx, hab.f);
   const L = hab.f.largeur;
   const contour = corps?.length ? silhouetteDuMur(hab.f, corps, hab.hauteurTexture, hauteur) : contourDuMur(L, hauteur, partie);
@@ -349,13 +350,15 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
   (o.batiment?.facades || []).forEach((r) => {
     const f = facades.find((x) => x.cote === r.cote);
     if (!f) return;
-    // La partie basse d'un mur en L ne decide de la 3D que sans corps du toit : avec eux, la marche est deja la leur (le prisme et la
-    // silhouette de chaque corps), et la chaine l'a lue sur leur gabarit (facade/profil.ts::partieBasseDuGabarit) ; la reprendre ici
-    // poserait le mur a la hauteur du batiment et oublierait les baies de pignon de la partie haute.
-    const partie = corps?.length ? null : r.partieBasse ?? null;
-    // Avec les corps, la partie basse dit encore ce qui n'est pas du mur : une baie au-dessus de son egout est dans le vide.
-    const dansLeL = (l: OuvertureFacade[]) => (corps?.length && r.partieBasse ? ouverturesDansLeMur(l, Infinity, r.partieBasse) : l);
-    const hMur = partie ? h : hauteurDuMur(f, volumes);
+    // Les parties basses (un mur en L, ou une a chaque bout) ne decident de la 3D que sans corps du toit : avec eux, les marches sont
+    // deja les leurs (le prisme et la silhouette de chaque corps), et la chaine les a lues sur leur gabarit
+    // (facade/profil.ts::partiesBassesDuGabarit) ; les reprendre ici poserait le mur a la hauteur du batiment et oublierait les baies de
+    // pignon de la partie haute.
+    const parties = partiesBassesDu(r);
+    const partie = corps?.length ? [] : parties;
+    // Avec les corps, les parties basses disent encore ce qui n'est pas du mur : une baie au-dessus de leur egout est dans le vide.
+    const dansLeL = (l: OuvertureFacade[]) => (corps?.length && parties.length ? ouverturesDansLeMur(l, Infinity, parties) : l);
+    const hMur = partie.length ? h : hauteurDuMur(f, volumes);
     // Le mur a pu changer depuis le releve (sommet deplace) : la photo s'etire sur sa nouvelle
     // largeur, les ouvertures gardent leur cote depuis la gauche et celles qui sortent sont omises.
     const photo = ctx.textures ? r.texture : null;
@@ -373,7 +376,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     }
     // Le haut de la facade sous les corps du toit (le pignon jusqu'au faitage) : la detection y cherche aussi (facade/analyse.ts), une
     // baie de pignon (lucarne, oculus) s'y pose. Sans corps, ou sur un mur en L, le haut est l'egout.
-    const hautFacade = corps?.length && !partie ? hautDuMurSousCorps(f, corps, hMur) : null;
+    const hautFacade = corps?.length && !partie.length ? hautDuMurSousCorps(f, corps, hMur) : null;
     const hautEn = (x: number) => Math.max(egoutEn(x, hMur, partie), hautFacade ? hauteurDuHautEn(hautFacade, x) : 0);
     const sousEgout = (ov: OuvertureFacade) => ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01;
     // Une baie hors du mur, d'un cote comme de l'autre (sous le pignon d'un corps voisin qui prolonge la facade, que la detection lit

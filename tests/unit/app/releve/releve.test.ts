@@ -4,6 +4,7 @@ import { creerServiceReleve } from '../../../../src/app/releve/releve.js';
 import { migrer, schemaAEcrire, schemaMinimal } from '../../../../src/model/migrations.js';
 import { normalizeObjects } from '../../../../src/model/normalisation.js';
 import { serializeObjects } from '../../../../src/io/serialisation.js';
+import { partiesBassesDu } from '../../../../src/model/partiesBasses.js';
 import type { ObjetAPlat, ObjetPlan, OuvertureFacade, ReleveFacade } from '../../../../src/model/types.js';
 
 // L'editeur d'une facade relevee (app/releve/releve.ts, lot F6 de MD/spec-facade-calage-audit.md) : la capture est partie dans
@@ -46,7 +47,7 @@ describe('l editeur d une facade relevee', () => {
     const { ctx, s } = service([o]);
     const avant = JSON.stringify(o);
     s.ouvrir('maison', 0);
-    s.valider({ ouvertures: [...releveDe(o).ouvertures], partieBasse: null });
+    s.valider({ ouvertures: [...releveDe(o).ouvertures], partiesBasses: [] });
     expect(ctx.pushHistory).not.toHaveBeenCalled();
     expect(JSON.stringify(o)).toBe(avant);
     expect(s.courant()).toBeNull();
@@ -57,7 +58,7 @@ describe('l editeur d une facade relevee', () => {
     const { ctx, s } = service([o]);
     s.ouvrir('maison', 0);
     const [a, b] = releveDe(o).ouvertures as [OuvertureFacade, OuvertureFacade];
-    s.valider({ ouvertures: [{ ...a, x: 1.3, source: 'corrigee' }, b, { type: 'porte', x: 7, y: 0, l: 1, h: 2.15, source: 'ajoutee' }], partieBasse: null });
+    s.valider({ ouvertures: [{ ...a, x: 1.3, source: 'corrigee' }, b, { type: 'porte', x: 7, y: 0, l: 1, h: 2.15, source: 'ajoutee' }], partiesBasses: [] });
     expect(ctx.pushHistory).toHaveBeenCalledTimes(1);
     const r = releveDe(o);
     expect(r.depuisAudit).toBeUndefined();
@@ -74,7 +75,7 @@ describe('l editeur d une facade relevee', () => {
     const { s } = service([o]);
     s.ouvrir('maison', 0);
     const [a, b] = releveDe(o).ouvertures as [OuvertureFacade, OuvertureFacade];
-    s.valider({ ouvertures: [a, { ...b, verifieeLe: s.aujourdhui() }, { type: 'fenetre', x: 8, y: 1, l: 1.2, h: 1.35, source: 'ajoutee' }], partieBasse: null });
+    s.valider({ ouvertures: [a, { ...b, verifieeLe: s.aujourdhui() }, { type: 'fenetre', x: 8, y: 1, l: 1.2, h: 1.35, source: 'ajoutee' }], partiesBasses: [] });
     const r = releveDe(o);
     expect(r.ouvertures.map((x) => [x.id, x.verifieeLe ?? null])).toEqual([['o1', '2026-10-28'], ['o2', '2026-10-29'], ['o3', null]]);
     expect(r.dimensions).toEqual({ largeurM: 10, egoutM: 6, source: 'lidar' });
@@ -89,7 +90,7 @@ describe('un fichier d avant se rouvre et s edite sans rien perdre (migration, l
     const avant = JSON.stringify(ecrire(objets));
     s.ouvrir('bati-1', 0);
     expect(s.releve()?.texture).toBeNull();
-    s.valider({ ouvertures: [...releveDe(o).ouvertures], partieBasse: releveDe(o).partieBasse ?? null });
+    s.valider({ ouvertures: [...releveDe(o).ouvertures], partiesBasses: partiesBassesDu(releveDe(o)) });
     expect(ctx.pushHistory).not.toHaveBeenCalled();
     expect(JSON.stringify(ecrire(objets))).toBe(avant);
   });
@@ -102,7 +103,7 @@ describe('un fichier d avant se rouvre et s edite sans rien perdre (migration, l
     s.ouvrir('bati-1', 0);
     // La baie devinee de l'etage est retiree, la fenetre de droite deplacee.
     const [f1, porte, f3] = releveDe(o).ouvertures as [OuvertureFacade, OuvertureFacade, OuvertureFacade];
-    s.valider({ ouvertures: [f1, porte, { ...f3, x: 7.6, source: 'corrigee' }], partieBasse: null });
+    s.valider({ ouvertures: [f1, porte, { ...f3, x: 7.6, source: 'corrigee' }], partiesBasses: [] });
     const apres = releveDe(o);
     // Tout ce que l'editeur ne touche pas : la photo restee sur l'appareil, le calage d'avant (son ecart du contour compris, que la
     // seule migration lit), les seuils de la detection, la distance et sa source, la date.

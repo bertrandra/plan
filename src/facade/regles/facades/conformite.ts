@@ -25,7 +25,7 @@ export interface FacadeAJuger {
   cote: number;
   orientation: string | null;
   region: string;
-  releve: Pick<ReleveFacade, 'largeur' | 'hauteur' | 'ouvertures' | 'grille' | 'partieBasse'>;
+  releve: Pick<ReleveFacade, 'largeur' | 'hauteur' | 'ouvertures' | 'grille' | 'partieBasse' | 'partiesBasses'>;
   etages?: number | null;
 }
 
@@ -35,7 +35,7 @@ export function jugerFacade(f: FacadeAJuger, profil: ValeursFacades = REGLAGES_F
   const porte = r.ouvertures.some((o) => o.type === 'porte');
   const auto = ouverturesDUnMur(r.largeur, r.hauteur, { etages: f.etages ?? null, profil }, porte);
   const mesureAuto = mesurerFacade({ largeur: r.largeur, hauteur: r.hauteur, ouvertures: auto });
-  const mesureReleve = mesurerFacade({ largeur: r.largeur, hauteur: r.hauteur, ouvertures: r.ouvertures, grille: r.grille ?? null, partieBasse: r.partieBasse ?? null });
+  const mesureReleve = mesurerFacade({ largeur: r.largeur, hauteur: r.hauteur, ouvertures: r.ouvertures, grille: r.grille ?? null, partieBasse: r.partieBasse ?? null, partiesBasses: r.partiesBasses ?? null });
   const criteres = jugerCriteres(
     { baies: mesureAuto.baies, partVitree: mesureAuto.partVitree, hauteurNiveauM: mesureAuto.hauteurNiveauM },
     { baies: mesureReleve.baies, partVitree: mesureReleve.partVitree, hauteurNiveauM: mesureReleve.hauteurNiveauM },

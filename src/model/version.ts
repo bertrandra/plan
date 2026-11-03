@@ -69,7 +69,13 @@ export const APP_VERSION = '5.5.0';
 // pieces (`dossier.textes` : le brouillon de Claude et le texte valide par la personne, que l'export imprime) et ses photographies DP7 et
 // DP8 (`dossier.photos`), sur la parcelle. Un lecteur 11 les perdrait au premier enregistrement (la serialisation est une liste
 // blanche). La migration 11 -> 12 est l'identite ; la plateforme accepte deja 7 a 12.
-export const SCHEMA_VERSION = 12;
+// 13 : un mur a plusieurs parties basses (MD/spec-releve-facade.md §6.2) : une partie haute au milieu, une partie basse a chaque bout
+// (une maison entre un garage et un appentis), lues sur le gabarit du plan et du LiDAR. Le releve les range dans `partiesBasses`
+// (model/partiesBasses.ts) ; un mur en L (une seule partie basse) s'ecrit toujours dans `partieBasse`, comme avant. Un lecteur 12 perdrait
+// la liste au premier enregistrement, et lirait le mur sans ses parties basses (surface, volumes, 3D) : seul un fichier qui en porte une
+// s'ecrit au 13. La migration 12 -> 13 est l'identite. La plateforme accepte 13 depuis bertrandra/backprod#252 (migration
+// Version20261103090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+export const SCHEMA_VERSION = 13;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;

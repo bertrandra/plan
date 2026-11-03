@@ -18,7 +18,7 @@ const prise = (plus: Partial<Prise> = {}): Prise => ({
 
 /** Une analyse de serie reduite a ce que le releve en lit (la chaine la fait vraiment, chaine.test.ts). */
 const analyse = (ouvertures: OuvertureDetectee[] = [], plus: Partial<NonNullable<ReturnType<typeof analyserSerie>>['r']> = {}) => ({
-  r: { hauteur: 6, hauteurMesuree: true, texture: { largeur: 800, hauteur: 600, donnees: new Uint8ClampedArray(0) }, hauteurTexture: 5, partieBasse: null, ouvertures, devinees: [], toitLu: null, ...plus },
+  r: { hauteur: 6, hauteurMesuree: true, texture: { largeur: 800, hauteur: 600, donnees: new Uint8ClampedArray(0) }, hauteurTexture: 5, partiesBasses: [], ouvertures, devinees: [], toitLu: null, ...plus },
 }) as unknown as NonNullable<ReturnType<typeof analyserSerie>>;
 const releveDe = (morceaux: Morceau[], f: Facade, a = analyse(), assemblage: 'morceaux' | 'vues' = 'morceaux') => releveDeLaSerie(a, morceaux, f, () => 'data:', assemblage).releve;
 

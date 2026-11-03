@@ -29,6 +29,7 @@ import { estBatiment, surParcelleDuProjet } from '../../model/fonctions.js';
 import type { SolRelief } from '../relief3d.js';
 import type { ContexteObjets } from '../typesScene.js';
 import { groupeAuSol, texturesDe } from './pose.js';
+import { partiesBassesDu } from '../../model/partiesBasses.js';
 
 /** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
 const BLANC_PAR_DEFAUT = 0xffffff;
@@ -72,7 +73,7 @@ export function volumesEnBati(o: ObjetPlan, diag: boolean, h: number, footprint:
     ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
     : volumesToit
     ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
-    : o.type === 'polygon' && o.batiment?.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.batiment?.facades) : [{ pts: footprint, hauteur: h }];
+    : o.type === 'polygon' && o.batiment?.facades?.some((r) => partiesBassesDu(r).length) ? volumesDuBatiment(o.pts, h, o.batiment?.facades) : [{ pts: footprint, hauteur: h }];
   return { apparence, couleurMur, corpsToit, bowWindows, volumesToit, toitMesure, surContour, volumes, egoutDe };
 }
 
