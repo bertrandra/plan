@@ -337,7 +337,9 @@ async function jouerToitLu(page, f, quoi) {
     const pendant = await lire();
     if (ligne) {
       await etape('cocher', () => cocherLigne(page, texte));
-      await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]')));
+      // Valider s'attend actif : la lecture de Claude, arrivee apres l'accord, refait la mesure de la facade (#551), et le bouton reste
+      // grise tant qu'elle tourne ; touche par le DOM avant la fin, il ne faisait rien (nuit du 3 novembre 2026, 118 et 119 en compact et moyen).
+      await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]:not([disabled])'), 90000));
       await page.waitForTimeout(1500);
     }
     const ecrit = await lire();
@@ -3480,7 +3482,9 @@ const POINTS = {
     const pendant = await corps();
     if (ligne) {
       await etape('cocher', () => cocherLigne(page, texte));
-      await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]')));
+      // Valider s'attend actif : la lecture de Claude, arrivee apres l'accord, refait la mesure de la facade (#551), et le bouton reste
+      // grise tant qu'elle tourne ; touche par le DOM avant la fin, il ne faisait rien (nuit du 3 novembre 2026, 118 et 119 en compact et moyen).
+      await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]:not([disabled])'), 90000));
       await page.waitForTimeout(1500);
     }
     const ecrit = await corps();
