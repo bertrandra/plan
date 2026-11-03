@@ -173,7 +173,7 @@ function CartePartiesBasses({ parties, largeur, hauteurMur, maj }: { parties: Pa
         return (
           <div key={i} role="group" aria-label={'Partie basse ' + ou}>
             <p className="releveNote">
-              Partie basse {ou}, sur {fr(p.fin - p.debut)} m{auBoutGauche || auBoutDroit ? " ; elle va jusqu'au pignon voisin." : '.'}
+              Partie basse {ou}, sur {fr(p.fin - p.debut)} m{auBoutGauche || auBoutDroit ? " ; elle va jusqu'au pignon voisin." : ' ; elle va sur toute la profondeur du bâtiment.'}
             </p>
             <div className="releveChamps">
               {/* Le decrochement d'une partie au bout du mur ; une partie au milieu en a deux. */}
