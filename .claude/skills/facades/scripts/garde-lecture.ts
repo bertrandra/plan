@@ -10,20 +10,41 @@
 //                                    sous le plancher a la premiere mesure ET a la relance
 //   npx tsx .claude/skills/facades/scripts/garde-lecture.ts --referencer <fichier> --mesure <run>,<commit>,<date>,<dossier>[,<journal>] …
 //                                    ecrire la reference (les mesures et leur plancher) ; un changement se voit dans la PR, et se justifie
+//   npx tsx .claude/skills/facades/scripts/garde-lecture.ts --ajouter <scene>[,<scene>…] --mesure <run>,<commit>,<date>,<dossier>
+//                                    figer le plancher d'une scene entree au banc apres la reference, a sa PREMIERE mesure (la premiere
+//                                    passe du premier run qui l'a mesuree), dans lecture-5.1.0/scenes-ajoutees.json ; une scene deja
+//                                    enregistree ne se reecrit pas
+//
+// Les totaux se jugent sur les scenes du corpus de reference ; une scene ajoutee, par scene, contre son propre plancher (gardeLecture.ts).
 //
 // Sans --a-relancer, une ligne sous le plancher fait sortir a 1. Le cout ne fait jamais echouer.
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { comparerLecture, FICHIER_REFERENCE_510, mesurerLecture, plancherDe, regressionsApresRelance, remplacerScenes, scenesARelancer, tableauLecture, type MesureLecture, type ReferenceLecture, type Regression } from '../../../../tests/banc/facades/gardeLecture.ts';
+import { comparerLecture, FICHIER_REFERENCE_510, FICHIER_SCENES_AJOUTEES, plancherAjoute, planchersAjoutes, mesurerLecture, plancherDe, regressionsApresRelance, remplacerScenes, scenesARelancer, tableauLecture, type MesureLecture, type ReferenceLecture, type Regression } from '../../../../tests/banc/facades/gardeLecture.ts';
 
 const args = process.argv.slice(2);
 const opt = (nom: string): string | null => { const i = args.indexOf(nom); return i >= 0 ? (args[i + 1] ?? null) : null; };
 const toutes = (nom: string): string[] => args.flatMap((a, i) => (a === nom && args[i + 1] ? [args[i + 1] as string] : []));
 const lire = (f: string | null | undefined) => (f && existsSync(f) ? readFileSync(f, 'utf8') : null);
+const ajouteesLues = () => planchersAjoutes(opt('--ajoutees') ?? FICHIER_SCENES_AJOUTEES);
 const referenceLue = () => JSON.parse(readFileSync(opt('--reference') ?? FICHIER_REFERENCE_510, 'utf8')) as ReferenceLecture;
 
 if (args[0] === '--tableau') {
-  console.log(tableauLecture(referenceLue().plancher, null));
+  console.log(tableauLecture(referenceLue().plancher, null, [], [], ajouteesLues()));
+} else if (args[0] === '--ajouter') {
+  const scenes = (args[1] ?? '').split(',').filter(Boolean), m = (opt('--mesure') ?? '').split(',');
+  if (!scenes.length || m.length < 4) { console.error('usage : garde-lecture.ts --ajouter <scene>[,<scene>…] --mesure <run>,<commit>,<date>,<dossier>'); process.exit(2); }
+  const [run, commit, date, dossier] = m as [string, string, string, string];
+  const fichier = opt('--ajoutees') ?? FICHIER_SCENES_AJOUTEES, deja = planchersAjoutes(fichier), { plancher } = referenceLue();
+  const mesure = mesurerLecture(dossier, null);
+  for (const s of scenes) {
+    if (plancher.scenes[s]) { console.error(s + ' : scène du corpus de référence, son plancher est dans reference.json'); process.exit(2); }
+    if (deja[s]) { console.error(s + ' : déjà enregistrée (run ' + deja[s].source.run + ') ; un plancher ajouté ne se réécrit pas'); process.exit(2); }
+    deja[s] = plancherAjoute(mesure, s, { run, commit, date, note: 'Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3.' });
+  }
+  const tri = Object.fromEntries(Object.entries(deja).sort(([a], [b]) => (a < b ? -1 : 1)));
+  writeFileSync(fichier, JSON.stringify({ regle: 'Plancher d’une scène entrée au banc après la référence 5.1.0 : ses lignes ×3 à sa première mesure (décision du propriétaire, 3 novembre 2026). Elle ne compte pas dans les totaux, jugés sur les scènes du corpus de référence.', scenes: tri }, null, 1) + '\n');
+  console.log('Planchers ajoutés : ' + scenes.join(', ') + ' (' + fichier + ')');
 } else if (args[0] === '--referencer') {
   const ecrire = args[1], mesures = toutes('--mesure').map((m) => m.split(','));
   if (!ecrire || !mesures.length || mesures.some((m) => m.length < 4)) { console.error('usage : garde-lecture.ts --referencer <fichier> --mesure <run>,<commit>,<date>,<dossier>[,<journal>] …'); process.exit(2); }
@@ -45,19 +66,19 @@ if (args[0] === '--tableau') {
 } else if (args[0] === '--comparer') {
   const dossier = args[1];
   if (!dossier) { console.error('usage : garde-lecture.ts --comparer <dossier> [--journal <f>] [--a-relancer <dossier2> | --relance <dossier2>]'); process.exit(2); }
-  const { plancher } = referenceLue();
+  const { plancher } = referenceLue(), ajoutees = ajouteesLues();
   const premiere = mesurerLecture(dossier, lire(opt('--journal')));
   const relance = opt('--relance');
-  let mesure: MesureLecture = premiere, regressions = comparerLecture(plancher, premiere), nouvelles: Regression[] = [];
+  let mesure: MesureLecture = premiere, regressions = comparerLecture(plancher, premiere, ajoutees), nouvelles: Regression[] = [];
   if (relance && existsSync(relance)) {
     // La relance : les scenes relancees remplacent les premieres dans la table ; une regression est une ligne sous le plancher aux DEUX
     // mesures (la regle du bruit). La premiere table reste dans le resume, au-dessus.
     const second = mesurerLecture(relance, lire(opt('--journal-relance')));
     mesure = remplacerScenes(premiere, second);
-    ({ restees: regressions, nouvelles } = regressionsApresRelance(plancher, premiere, second));
+    ({ restees: regressions, nouvelles } = regressionsApresRelance(plancher, premiere, second, ajoutees));
   }
   const titre = relance ? '### Garde-fou de la lecture : après la relance' : '### Garde-fou de la lecture : planchers contre la mesure';
-  console.log(titre + '\n\n' + tableauLecture(plancher, mesure, regressions, nouvelles));
+  console.log(titre + '\n\n' + tableauLecture(plancher, mesure, regressions, nouvelles, ajoutees));
   const aRelancer = opt('--a-relancer');
   if (regressions.length && aRelancer && !relance) {
     // Une ligne sous le plancher peut etre du bruit d'un appel : on relance UNE fois les scenes en cause (la regle ecrite).
@@ -73,6 +94,6 @@ if (args[0] === '--tableau') {
   }
   process.exit(regressions.length ? 1 : 0);
 } else {
-  console.error('usage : garde-lecture.ts --tableau | --comparer <dossier> … | --referencer <fichier> --mesure …');
+  console.error('usage : garde-lecture.ts --tableau | --comparer <dossier> … | --referencer <fichier> --mesure … | --ajouter <scene> --mesure …');
   process.exit(2);
 }

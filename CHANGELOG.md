@@ -36,6 +36,11 @@ avec la mesure des façades et les dix demandes de l'assistant (run RUN_API).
 
 ### Modifié
 
+- Workflow « Vérifier l'API Claude », garde-fou de la lecture des façades : les totaux se jugent sur les 22 scènes du corpus de
+  référence, celles où leurs planchers ont été fixés ; une scène entrée au banc ensuite (24, 25, 26) se juge par scène contre son propre
+  plancher, figé à sa première mesure (`tests/fixtures/facades/lecture-5.1.0/scenes-ajoutees.json`), et sa lecture ×1 est dite à part.
+  La scène 26, nouvelle, faisait passer la précision ×1 au total sous son plancher (97,9 %) quand les 22 scènes du corpus étaient à
+  100 % (run 41699049779). Aucune requête, aucune quantité ni aucun export ne change.
 - Façades (audit) : « Revenir à l'automatique » garde la largeur réelle tapée pour l'échelle ; les repères et le mur tiré s'en vont
   comme avant. Elle se perdait sans que rien ne le dise. Façades : les textes de l'écran de calibration (« Rejouer » nomme aussi l'É7
   et l'É10, le mode « IA » ne promet plus une pose candidate ni des zones de colombage qui n'agissent pas) et le contrat de l'É5 (l'arbitre

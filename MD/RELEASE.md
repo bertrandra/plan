@@ -290,6 +290,13 @@ sans que cela se voie. Détail au skill `facades` (§5 quater).
   - en ×3, au total : toutes les lignes, dont les angles et les carreaux, qui ne se jugent qu'au total ;
   - en ×1 : au total seulement ;
   - l'escalade : acceptée, conforme, angles et parement lus.
+- **Les totaux se jugent sur le corpus de référence**, les 22 scènes où le plancher a été fixé
+  (décision du propriétaire, 3 novembre 2026). Une scène entrée au banc ensuite ne déplace pas un
+  total : elle a **son propre plancher**, ses lignes ×3 à sa **première mesure** (première passe du
+  premier run qui l'a mesurée), figé dans `tests/fixtures/facades/lecture-5.1.0/scenes-ajoutees.json`
+  (`garde-lecture.ts --ajouter`, jamais réécrit), et se juge par scène. Ce n'est pas une exclusion :
+  la table la montre avec son plancher et sa lecture ×1, et une scène mesurée sans plancher y est
+  nommée, à enregistrer. Scènes 24 et 25 : run 41610829374 ; scène 26 : run 41699049779.
 - **Le comparateur, branché au workflow** : quand la case « mesure des façades » est cochée, le
   résumé du run montre la table plancher / mesure.
 - **La règle du bruit, écrite ici et nulle part en code** : le workflow relance **une fois** les
