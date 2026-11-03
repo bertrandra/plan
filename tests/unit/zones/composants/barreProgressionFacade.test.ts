@@ -57,6 +57,22 @@ describe('la barre de progression de la facade', () => {
     expect(lignes[1]).toMatch(/^Aucun mur sur l’assemblage\. À la main : tirer les bouts, l’égout et le sol\.$/);
   });
 
+  it('le segment « Forme » ouvre le diagnostic (V2) qui attend la personne, pas la silhouette qui ne doute que du mur', () => {
+    const forme: EtapeAffichee[] = [...etapes.filter((e) => e.id !== 'calage' && e.id !== 'diagnostic'),
+      { id: 'calage', etat: 'a-confirmer', resume: 'Mur à confirmer.' }, { id: 'silhouette', etat: 'a-confirmer', resume: 'Triangle. Dépend du mur à confirmer (É5).', herite: 'calage' },
+      { id: 'diagnostic', etat: 'a-confirmer', resume: 'Un pignon de plus.' }];
+    const { ouvertes } = monter({ etapes: forme });
+    act(() => { (hote.querySelector('button[data-commande="facade.etape"][data-etape="diagnostic"]') as HTMLButtonElement | null)?.click(); });
+    expect(ouvertes).toEqual(['diagnostic']);
+  });
+
+  it('dit « confirmé par vous » d un mur confirme (V1), avec sa forme', () => {
+    monter({ etapes: etapes.map((e) => (e.id === 'calage' ? { ...e, etat: 'confirme' as const, resume: 'Mur confirmé par vous.' } : e)) });
+    const mur = hote.querySelector('button[data-commande="facade.etape"][data-etape="calage"]');
+    expect(mur?.getAttribute('aria-label')).toBe('É5 Mur, confirmé par vous, point de validation V1');
+    expect(hote.querySelectorAll('ol.barreFacadeSegments > li')[2]?.className).toMatch(/confirme/);
+  });
+
   it('avance pendant un calcul, se dit en cours, et propose d arreter', () => {
     const arreter = vi.fn();
     monter({ enCours: 'calage', arreter, etapes: etapes.slice(0, 4) });

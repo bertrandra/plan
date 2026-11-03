@@ -26,20 +26,24 @@ import { dessinerImageFacade } from '../../render/imageFacade.js';
  * progression et a la frise des etapes (MD/spec-facade-calage-audit.md §4 ter.5). L'etape vient de `data-etape` du bouton ; l'editeur
  * ouvert s'abonne a son ouverture.
  */
-function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void } {
+function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void; ecouterConfirmerMur: (f: () => void) => () => void } {
   const commandes = creerRegistre();
   let ouvrir: ((id: IdEtape) => void) | null = null;
   let escalader: (() => void) | null = null;
+  let confirmer: (() => void) | null = null;
   commandes.declarer({
     id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade',
     executer: (source) => { const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape); if (etape) ouvrir?.(etape.id); },
   });
   // L'escalade de la reponse rejouee (decision du 29 octobre 2026) : a la demande seulement, une requete par geste.
   commandes.declarer({ id: 'facade.escalader', libelle: 'Escalader la lecture de la façade', groupe: 'facade', executer: () => { escalader?.(); } });
+  // « Confirmer le mur » (V1) : la meme commande que dans l'audit ; l'editeur ouvert ecrit le mur confirme dans le cas et le rejoue.
+  commandes.declarer({ id: 'facade.confirmerMur', libelle: 'Confirmer le mur', groupe: 'facade', executer: () => { confirmer?.(); } });
   return {
     commandes,
     ecouterEtape: (f) => { ouvrir = f; return () => { if (ouvrir === f) ouvrir = null; }; },
     ecouterEscalade: (f) => { escalader = f; return () => { if (escalader === f) escalader = null; }; },
+    ecouterConfirmerMur: (f) => { confirmer = f; return () => { if (confirmer === f) confirmer = null; }; },
   };
 }
 

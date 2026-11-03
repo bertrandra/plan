@@ -17,7 +17,8 @@ import { libelleOuMot } from '../shell/motsInconnus.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
-import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, derouler, entreesDuCas, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
+import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
+import { murAConfirmer } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
 import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
@@ -53,6 +54,8 @@ export interface OutilsPhotos {
   prixEscalade?: () => Promise<PrixEscalade | null>;
   /** S'abonner a la commande `facade.escalader` de l'ecran ; rend de quoi se desabonner. */
   ecouterEscalade?: (escalader: () => void) => () => void;
+  /** S'abonner a la commande `facade.confirmerMur` de l'ecran (V1, « Confirmer le mur ») ; rend de quoi se desabonner. */
+  ecouterConfirmerMur?: (confirmer: () => void) => () => void;
 }
 
 const TYPES: readonly TypeOuverture[] = ['fenetre', 'porte-fenetre', 'porte', 'garage'];
@@ -257,6 +260,13 @@ function useEscalade(outils: OutilsPhotos, escalader: () => Promise<void>): Prix
   return prix;
 }
 
+/** La commande `facade.confirmerMur` de l'ecran branchee sur l'editeur (la derniere version de son geste). */
+function useConfirmerMur(outils: OutilsPhotos, confirmer: () => Promise<void>): void {
+  const ref = useRef(confirmer);
+  ref.current = confirmer;
+  useEffect(() => outils.ecouterConfirmerMur?.(() => { void ref.current(); }), [outils]);
+}
+
 /** Le bouton de l'escalade : lie a la commande `facade.escalader` de l'ecran, il annonce son modele et son cout ; une seule par reponse. */
 function BoutonEscalade({ run, prix, occupe, commandes }: { run: RunEnregistre | null; prix: PrixEscalade | null; occupe: boolean; commandes: OutilsPhotos['commandes'] }) {
   const etat = commandes?.etat(COMMANDE_ESCALADE);
@@ -371,6 +381,19 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m2 ? ' ' + m2 : ''));
   };
   const prixEscalade = useEscalade(outils, escalader);
+  // « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme et garde dans le cas (une entree, comme dans l'audit), puis le
+  // cas se rejoue depuis l'E5 ; deja confirme, le meme geste retire la confirmation.
+  const confirmerMur = async () => {
+    if (!rejeu) { setMessage('Rejouez d’abord le cas : on confirme le mur que la chaîne a posé.'); return; }
+    const deja = cas.murConfirme && etapeDe(rejeu, 'calage').etat === 'confirme';
+    const mur = deja ? null : murAConfirmer((rejeu.sorties.calage?.photos ?? []).map((p, rang) => ({ rang, coins: p.coins })), new Date().toISOString());
+    if (!deja && !mur) { setMessage('Aucun mur posé à confirmer.'); return; }
+    const suite = { ...cas };
+    if (mur) suite.murConfirme = mur; else delete suite.murConfirme;
+    setCas(suite);
+    await rejouer(suite, 'calage');
+  };
+  useConfirmerMur(outils, confirmerMur);
   const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent au prochain rejeu ; null les retire.
   const reperesCourants = (reperes: P2[] | null) => {
@@ -417,7 +440,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
         escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />
       {rejeu && <FriseEtapes rejeu={rejeu} images={images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />}
-      {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} />}
+      {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} commandes={outils.commandes ?? null} />}
 
       {elevation && <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} />}
 

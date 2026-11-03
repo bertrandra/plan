@@ -311,6 +311,11 @@ export interface CalageReleve {
   azimutCorrigeDeg?: number;
   /** La note du calage fin de la premiere photo, de 0 a 1 (le seuil des coins trouves est 0,5). */
   confiance?: number;
+  /**
+   * Le jour (ISO 8601) ou la personne a confirme le mur au point V1 de l'audit (« Confirmer le mur ») : ecrit avec la Facade a la
+   * validation V4. Absent : le mur n'a pas ete confirme a la main (il a ete trouve, ou tire a la main).
+   */
+  murConfirmeLe?: string;
 }
 
 /** La partie basse d'un mur en L, dans le repere de sa facade (metres). */

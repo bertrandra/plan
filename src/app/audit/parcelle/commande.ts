@@ -292,6 +292,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
   declarerEtapeFacade(cmd);
   declarerEscaladeFacade(cmd, a.signaler);
   declarerValidationFacade(cmd);
+  declarerConfirmationMur(cmd);
   declarerCasDeCalibration(a, cmd);
   declarerAuditsAdmin(a, cmd, { importer, consulter });
 
@@ -402,6 +403,31 @@ function declarerValidationFacade(cmd: RegistreCommandes): void {
       const [cle, cote] = facade ? [facade.slice(0, facade.lastIndexOf('#')), Number(facade.slice(facade.lastIndexOf('#') + 1))] : [null, NaN];
       if (!s || !cle || !Number.isInteger(cote)) return;
       s.validation.validerFacade(cle, cote);
+    },
+  });
+}
+
+/**
+ * « Confirmer le mur » (V1, decision du proprietaire du 3 novembre 2026) : le bouton de la ligne du mur (`data-facade` de la facade qui
+ * le porte) ecrit dans la capture le mur que la chaine a retenu, confirme par la personne ; la facade se rejoue, l'E5 est « confirme par
+ * vous » et le doute qu'elle passait aux etapes suivantes tombe. Le meme geste retire la confirmation. Rien n'ecrit dans le projet avant
+ * V4, qui l'y ecrit avec la facade, en un pas d'historique. Grisee sur un audit relu en lecture seule. La calibration declare la meme
+ * commande (app/administration/ecranCalibration.ts).
+ */
+function declarerConfirmationMur(cmd: RegistreCommandes): void {
+  const session = () => { const c = parcours.courant(); return c?.type === 'auditParcelle' ? c.session : null; };
+  cmd.declarer({
+    id: 'facade.confirmerMur',
+    libelle: 'Confirmer le mur',
+    groupe: 'facade',
+    actif: () => { const s = session(); return !!s && !s.validation.lectureSeule(); },
+    raisonInactive: () => (session()?.validation.lectureSeule() ? 'Audit relu en lecture seule : rien ne se confirme.' : null),
+    executer: (source) => {
+      const s = session();
+      const facade = source?.closest<HTMLElement>('[data-facade]')?.dataset.facade;
+      const [cle, cote] = facade ? [facade.slice(0, facade.lastIndexOf('#')), Number(facade.slice(facade.lastIndexOf('#') + 1))] : [null, NaN];
+      if (!s || !cle || !Number.isInteger(cote)) return;
+      void s.validation.confirmerMur(cle, cote);
     },
   });
 }

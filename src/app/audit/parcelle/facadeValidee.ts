@@ -20,7 +20,7 @@ import { origineActuelle, type Origine } from '../../../model/protections.js';
 import { observationsDuRun, surfaceDeLIa } from '../../../facade/regles/facades/ia.js';
 import { appendicesDeLIa, modenatureDeLIa } from '../../../facade/regles/facades/modenature.js';
 import { etatDeLIa } from '../../../facade/regles/facades/etat.js';
-import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture, MurConfirme } from '../../../model/auditParcelle.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { DimensionsFacade, ObjetPlan, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
@@ -98,7 +98,7 @@ function poseDOffice(o: ObjetPlan, m: MesureFacade): ReleveFacade | null {
  * mesure), ses dimensions, sa forme, son parement, la pose de sa texture, ses ouvertures numerotees et verifiees. Null sans bilan (une
  * mesure relue d'un fichier d'audit : « Rejouer la façade » le refait).
  */
-export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accord: AccordFacadeCapture | null = null, run: RunEnregistre | null = null): ReleveFacade | null {
+export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accord: AccordFacadeCapture | null = null, run: RunEnregistre | null = null, murConfirme: MurConfirme | null = null): ReleveFacade | null {
   const bilan = m.facade;
   if (!bilan || !m.releve) return null;
   const existant = o.batiment?.facades?.find((x) => x.cote === m.cote);
@@ -116,8 +116,11 @@ export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accor
   const modenature = modenatureDeLIa(obs, mur, accord?.descentes ?? null);
   const appendices = appendicesDeLIa(obs, mur);
   const etat = etatDeLIa(obs, jour);
+  // Le mur confirme par la personne au point V1, tant que l'E5 le dit confirme : il s'ecrit avec le calage du releve.
+  const confirme = murConfirme && m.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme' ? murConfirme.le : null;
   const r: ReleveFacade = {
     ...base, ouvertures,
+    ...(confirme ? { calage: { ...(base.calage ?? { photos: [] }), murConfirmeLe: confirme } } : {}),
     dimensions: { ...bilan.dimensions, source: sourceDesDimensions(o) },
     forme: bilan.forme,
     ...(surface ? { surface } : {}),

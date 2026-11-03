@@ -7,7 +7,7 @@
 
 import {
   batimentVide, captureVide, PHOTOS_PAR_FACADE_MAX, PHOTOS_PAR_LIGNE_MAX,
-  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
+  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type MurConfirme, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
 } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
@@ -26,6 +26,11 @@ export interface CaptureEnCours {
   retirerPhotoFacade(cle: string, cote: number, rang: number): void;
   /** Une correction manuelle du redressement de cette photo (null : la retire). Elle prime sur le calcul et survit au rejeu. */
   corrigerRedressement(cle: string, cote: number, rang: number, correction: CorrectionRedressement | null): void;
+  /**
+   * « Confirmer le mur » (V1) : le mur que la chaine a retenu, confirme par la personne (null : la confirmation retiree). Comme une
+   * correction, il survit au rejeu ; un mur qui change ensuite n'est plus le mur confirme (model/auditParcelle.ts::estLeMurConfirme).
+   */
+  confirmerMur(cle: string, cote: number, mur: MurConfirme | null): void;
   /** Inaccessible, ou rendue a la liste : la touche inverse ce que la liste montre. */
   basculerInaccessible(cle: string, cote: number, inaccessibleAvant: boolean): void;
   noterVu(cle: string, vu: CeQueJeVois): void;
@@ -98,6 +103,8 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
         for (const [k, c] of Object.entries(f.corrections)) { const r = Number(k); if (r < rang) suite[k] = c; else if (r > rang) suite[String(r - 1)] = c; }
         if (Object.keys(suite).length) f.corrections = suite; else delete f.corrections;
       }
+      // Une photo de moins : le mur confirme etait vu sur elle aussi, et ses rangs ont bouge. Il est a confirmer de nouveau.
+      delete f.murConfirme;
       changer();
     },
     corrigerRedressement(cle, cote, rang, correction) {
@@ -107,6 +114,12 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       if (correction && (correction.coins || correction.reperes || correction.echelleLargeurM !== undefined)) suite[String(rang)] = JSON.parse(JSON.stringify(correction)) as CorrectionRedressement;
       else delete suite[String(rang)];
       if (Object.keys(suite).length) f.corrections = suite; else delete f.corrections;
+      changer();
+    },
+    confirmerMur(cle, cote, mur) {
+      const f = facade(cle, cote);
+      if (mur && mur.coins.length) f.murConfirme = JSON.parse(JSON.stringify(mur)) as MurConfirme;
+      else delete f.murConfirme;
       changer();
     },
     basculerInaccessible(cle, cote, inaccessibleAvant) {

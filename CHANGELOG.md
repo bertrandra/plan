@@ -5,8 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Façades (audit et calibration), point V1 : « Confirmer le mur ». Le mur que la chaîne a posé se confirme d'un geste, sur la ligne
+  du mur de l'audit comme dans l'étape É5 ouverte de la calibration (la même commande) : l'étape É5 dit alors « confirmé par vous »,
+  un état à part de « faite », et ce que la silhouette en disait reste écrit en note. La confirmation survit au rejeu de la façade, tant
+  que le mur est le même, et s'écrit avec la façade à sa validation (V4), dans le même pas d'historique (Ctrl+Z défait les deux). Le
+  même bouton la retire. Aucune quantité ni aucun export ne change.
+
 ### Modifié
 
+- Façades (audit et calibration) : le doute du mur se transmet. Tant que l'étape É5 est à confirmer, les étapes qui lisent le mur
+  (silhouette, forme, texture, ouvertures, toit, bilan) et qui atteignent leur objectif sont à confirmer elles aussi, avec « Dépend du
+  mur à confirmer (É5) » ; dans l'audit, leur ligne renvoie au mur. Le mur confirmé, elles retrouvent leur propre verdict. Avant, une
+  façade posée sur un mur faux de plusieurs mètres montrait une barre presque verte.
 - Façades (audit et calibration) : le calage fin ne prend plus la limite de l'ombre d'un débord pour l'égout. Sur un mur dont la
   partie haute est plus étroite que ses parties basses, l'égout était posé au bord de l'ombre, 25 cm trop bas, et l'étape É5 le disait
   « fait » ; un égout qui borde, là où il longe le mur, une bande du même mur plus sombre au-dessus de lui est maintenant écarté. Banc

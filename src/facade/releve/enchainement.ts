@@ -34,7 +34,7 @@ import { hautDeLImage, imageDuRunAvecLaBande, type ImageDuRun } from './imageDuR
 import { rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { prisesDeLaFacade, type PrisesFacade } from './prisesFacade.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
-import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement, PoseDuMurCherche } from '../../model/auditParcelle.js';
+import { estLeMurConfirme, type BilanPhotoRedressement, type BilanRedressement, type CorrectionRedressement, type PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { PrisePhoto } from '../../model/audit.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie, type ToitVraiCorps } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
@@ -191,6 +191,24 @@ export interface EtapeCalculee {
   etat: EtatAffiche;
   resume: string;
   verite: { texte: string; juste: boolean } | null;
+  /**
+   * Le doute vient du mur (decision du proprietaire, 3 novembre 2026) : l'etape a atteint son objectif, mais sur un mur que l'E5 laisse
+   * a confirmer ; elle est a confirmer elle aussi, « depend du mur a confirmer (E5) ». Le mur confirme (V1), elle retrouve son verdict.
+   */
+  herite?: 'calage';
+}
+
+/** Les etapes qui lisent le mur pose a l'E5 : la silhouette entre ses bouts, la forme, la texture et les ouvertures sur lui, la suite. */
+const DEPENDENT_DU_MUR: readonly IdEtape[] = ['silhouette', 'diagnostic', 'texture', 'ouvertures', 'toit', 'validation'];
+
+/**
+ * Le doute herite du mur : une etape qui depend du mur et a atteint son objectif est a confirmer tant que l'E5 l'est (ou echoue). Son
+ * propre verdict reste dans son resume ; une etape qui doutait deja, ou sautee, garde le sien.
+ */
+function avecLeDouteDuMur(id: IdEtape, r: Omit<EtapeCalculee, 'id'>, etapes: readonly EtapeCalculee[]): Omit<EtapeCalculee, 'id'> {
+  const mur = etapes.find((x) => x.id === 'calage')?.etat;
+  if (!DEPENDENT_DU_MUR.includes(id) || r.etat !== 'ok' || (mur !== 'a-confirmer' && mur !== 'echec')) return r;
+  return { ...r, etat: 'a-confirmer', resume: r.resume + ' Dépend du mur à confirmer (É5).', herite: 'calage' };
 }
 
 /** Un rejeu : l'etat de chaque etape, leurs sorties, et les versions qui les ont donnees (§7.2). */
@@ -415,6 +433,27 @@ const calage: Pas = ({ e, o, s, obj }) => {
   const m = s.audit?.mesure, b = s.audit?.redressement;
   if (!b?.photos.length) return attend('une photo');
   if (!m) return { etat: 'echec', resume: 'La photo ne montre pas le mur : coins introuvables. Posez quatre repères sur une photo, puis rejouez.', verite: null };
+  const juge = calageJuge({ e, o, s, obj });
+  // Le mur confirme par la personne (V1) : tant que la chaine retient ce mur, l'E5 est « confirme par vous », sa propre note dite.
+  const conf = e.prises.murConfirme;
+  if (!conf) return juge;
+  const confirme = estLeMurConfirme(conf, (s.calage?.photos ?? []).map((p, rang) => ({ rang, coins: p.coins })));
+  if (!confirme) return { ...juge, resume: `Le mur confirmé ${jourEnClair(conf.le)} n’est plus celui que la chaîne retient (une photo, des repères ou un mur tiré ont changé) : à confirmer de nouveau. ` + juge.resume };
+  // Ce que la silhouette en dit reste ecrit, comme une note : elle ne remet plus le mur en doute.
+  const note = juge.resume.replace(', à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.', '.').replace(' : à confirmer.', ' : noté, le mur reste celui que vous avez confirmé.');
+  return { ...juge, etat: 'confirme', resume: `Mur confirmé par vous ${jourEnClair(conf.le)}. ` + note };
+};
+
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+/** « le 3 novembre 2026 », d'apres une date ISO (le jour seul : l'heure ne dit rien ici). */
+function jourEnClair(iso: string): string {
+  const [a, mo, j] = iso.slice(0, 10).split('-').map(Number);
+  return a && mo && j ? `le ${j} ${MOIS[mo - 1]} ${a}` : '';
+}
+
+/** L'E5 sans la confirmation de la personne : son propre verdict. */
+const calageJuge = ({ e, o, s, obj }: Contexte): Omit<EtapeCalculee, 'id'> => {
+  const m = s.audit?.mesure as NonNullable<NonNullable<SortiesFacade['audit']>['mesure']>, b = s.audit?.redressement as BilanRedressement;
   const pose = s.calage?.pose ?? null;
   const main = b.photos.some((p) => p.coins === 'main');
   const cherche = main ? undefined : b.photos.find((p) => p.murCherche)?.murCherche;
@@ -625,7 +664,7 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
     if (o.arrete?.()) { etapes.push({ id: def.id, etat: 'a-venir', resume: 'Arrêté avant cette étape.', verite: null }); continue; }
     o.surEtape?.(def.id, 'en-cours');
     await o.rendreLaMain?.();
-    const r = await PAS[def.id](c);
+    const r = avecLeDouteDuMur(def.id, await PAS[def.id](c), etapes);
     etapes.push({ id: def.id, ...r });
     o.surEtape?.(def.id, r.etat, r.resume);
   }
@@ -681,7 +720,7 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
   const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image) }; });
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
-    prises: prisesDeLaFacade({ facade, contour, photos, corrections, jpeg }),
+    prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, jpeg }),
   };
 }
 

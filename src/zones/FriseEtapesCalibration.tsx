@@ -4,14 +4,14 @@
 // change les images en adresses et dessine.
 
 import { useCallback, useState } from 'react';
-import { etapeFacade, LIBELLES_ETAT, type IdEtape } from '../model/etapeFacade.js';
+import { etapeFacade, LIBELLES_ETAT, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
 import { etapeDe, reperesDe, type Enchainement } from '../facade/releve/enchainement.js';
 import type { ImagesEtapes } from '../facade/releve/imagesEtapes.js';
 import type { CasStocke } from '../facade/corpusReel.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
 import { GABARIT_RECTANGLE, contourDuGabarit, type GabaritMur } from '../facade/gabaritMur.js';
-import { COMMANDE_ETAPE } from './composants/BarreProgressionFacade.js';
+import { COMMANDE_CONFIRMER_MUR, COMMANDE_ETAPE } from './composants/BarreProgressionFacade.js';
 import { AjusterMur } from './releve/AjusterMur.js';
 import { VueFacade3d } from './VueFacade3d.js';
 import type { Carreaux } from '../regles/facades/observations.js';
@@ -157,6 +157,20 @@ interface PropsEtape {
   occupe: boolean;
   rejouerDepuis: (id: IdEtape) => void;
   caler: (coins: P2[]) => void;
+  /** Le registre de l'ecran : « Confirmer le mur » (V1) passe par la commande `facade.confirmerMur`, comme dans l'audit. */
+  commandes?: Pick<RegistreCommandes, 'etat' | 'executer' | 'effacee'> | null;
+}
+
+/**
+ * « Confirmer le mur » (V1) : le meme geste que dans l'audit, par la meme commande ; le mur que la chaine a pose devient « confirme par
+ * vous », et le doute qu'il passait aux etapes suivantes tombe. Confirme, le bouton retire la confirmation.
+ */
+function ConfirmerLeMur({ commandes, etat }: { commandes: Pick<RegistreCommandes, 'etat' | 'executer' | 'effacee'>; etat: EtatAffiche }) {
+  if (etat !== 'a-confirmer' && etat !== 'confirme') return null;
+  if (commandes.effacee(COMMANDE_CONFIRMER_MUR)) return null;
+  const e = commandes.etat(COMMANDE_CONFIRMER_MUR);
+  return <div className="calLigne"><button type="button" className={etat === 'confirme' ? 'secondary small' : 'small'} data-commande={COMMANDE_CONFIRMER_MUR} disabled={!e.utilisable} title={'message' in e ? e.message : undefined}
+    onClick={(ev) => commandes.executer(COMMANDE_CONFIRMER_MUR, ev.currentTarget)}>{etat === 'confirme' ? 'Retirer la confirmation du mur' : 'Confirmer le mur'}</button></div>;
 }
 
 /** Les calques d'une etape : ce que l'automatique a vu, ce qui a ete retenu. */
@@ -193,6 +207,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
         {im.ia && <> Trait sombre : la pose des deux angles de Claude, mesurée sans rien changer ; ronds : ses pointes ; traits sous le mur : ses appentis, ses autres volumes, ce qui cache le mur.</>}
       </figcaption></figure>}
       {pose && <CalageALaMain key={url(pose.image)} image={pose.image} url={url(pose.image)} coins={pose.coins} gabarit={g} caler={caler} />}
+      {pose && p.commandes && <ConfirmerLeMur commandes={p.commandes} etat={etapeDe(p.rejeu, 'calage').etat} />}
     </>;
   }
   if (id === 'silhouette') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">

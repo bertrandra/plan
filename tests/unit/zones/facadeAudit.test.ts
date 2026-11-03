@@ -20,7 +20,7 @@ let racine: Root, hote: HTMLElement;
 beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); racine = createRoot(hote); });
 afterEach(() => { act(() => racine.unmount()); hote.remove(); });
 
-type Etape = { id: IdEtape; etat: EtatAffiche; resume: string };
+type Etape = { id: IdEtape; etat: EtatAffiche; resume: string; herite?: 'calage' };
 const OK: Etape[] = [
   { id: 'preparation', etat: 'ok', resume: 'Mur de 10 × 6 m.' },
   { id: 'prises', etat: 'ok', resume: '2 photos du mur.' },
@@ -56,8 +56,10 @@ function monter(s: SessionAuditParcelle) {
   const valider = vi.fn();
   commandes.declarer({ id: 'facade.valider', libelle: 'Valider la façade', groupe: 'facade', executer: (source) => valider(source?.closest<HTMLElement>('[data-facade]')?.dataset.facade) });
   commandes.declarer({ id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade', executer: (source) => ouvrir(source?.dataset.etape, source?.closest<HTMLElement>('[data-facade]')?.dataset.facade) });
+  const confirmer = vi.fn();
+  commandes.declarer({ id: 'facade.confirmerMur', libelle: 'Confirmer le mur', groupe: 'facade', executer: (source) => confirmer(source?.closest<HTMLElement>('[data-facade]')?.dataset.facade) });
   act(() => racine.render(createElement(FacadeAudit, { session: s, commandes, cle: 'maison', cote: 0, nom: 'Façade sud de Maison', largeurPlanM: 10 })));
-  return { ouvrir, escalader, valider };
+  return { ouvrir, escalader, valider, confirmer };
 }
 
 const lignes = () => [...hote.querySelectorAll('.ligneEtapeAudit')].map((l) => l.textContent ?? '');
@@ -156,3 +158,26 @@ describe('« Appliquer » des quatre reperes (revue des etapes, B1)', () => {
     expect(correctionAAppliquer(bouges, undefined, undefined, undefined).reperes).toHaveLength(4);
   });
 });
+
+describe('« Confirmer le mur » (V1) et le doute herite du mur (decisions du proprietaire, 3 novembre 2026)', () => {
+  const doute = OK.map((e): Etape => (e.id === 'calage' ? { ...e, etat: 'a-confirmer', resume: 'Coins du mur trouvés sur la photo. Sur l’assemblage : x de 1 à 9, que sa silhouette n’explique pas (score 0,4) : à confirmer.' }
+    : e.id === 'texture' || e.id === 'ouvertures' ? { ...e, etat: 'a-confirmer', resume: e.resume + ' Dépend du mur à confirmer (É5).', herite: 'calage' } : e));
+  it('le mur a confirmer porte « Confirmer le mur », par la commande ; une etape qui ne doute que du mur renvoie a lui', () => {
+    const { confirmer } = monter(session(doute));
+    const bouton = hote.querySelector<HTMLButtonElement>('[data-commande="facade.confirmerMur"]');
+    expect(bouton?.textContent).toBe('Confirmer le mur');
+    act(() => bouton?.click());
+    expect(confirmer).toHaveBeenCalledWith('maison#0');
+    const texture = lignes().find((l) => /É8 Texture/.test(l));
+    expect(texture).toMatch(/Dépend du mur à confirmer \(É5\)\. À la main : confirmer le mur \(É5, V1\), ou le tirer à la main\.$/);
+    // Le geste d'une etape qui ne doute que du mur ne se fait pas sur la photo de cette etape.
+    expect(hote.querySelectorAll('[data-controle="auditParcelle.placerCoins"]').length).toBe(2);
+  });
+  it('confirme, la ligne le dit (« confirmé par vous », jamais « faite ») et le bouton retire la confirmation', () => {
+    const etapes = OK.map((e): Etape => (e.id === 'calage' ? { ...e, etat: 'confirme', resume: 'Mur confirmé par vous le 3 novembre 2026. Coins du mur trouvés sur la photo.' } : e));
+    monter(session(etapes));
+    expect(lignes()[0]).toBe('confirmé par vous É5 Mur confirmé : Mur confirmé par vous le 3 novembre 2026. Coins du mur trouvés sur la photo.Retirer la confirmation du mur');
+    expect(hote.querySelector('.barreFacade [data-etape="calage"]')?.getAttribute('aria-label')).toMatch(/^É5 Mur, confirmé par vous, point de validation V1/);
+  });
+});
+
