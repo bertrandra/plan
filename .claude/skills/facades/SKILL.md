@@ -270,6 +270,13 @@ de 0,83 à 1 ; les poses de travers (une moitié du mur, le mur décalé ou rent
 défaut d'AE 101 (un bloc de pignon retenu) se rejoue sans ses photos sur `tests/banc/facades/ae101.ts::sceneAe101`, tiré de l'étalon.
 Une photo serrée sur le mur sans rien autour n'explique pas ses angles : c'est voulu (un bord d'image ne dit pas où finit la matière).
 
+**Ce qui est « à la main » à l'É5** (revue des étapes, B1 ; décision du propriétaire, 3 novembre 2026) : seul un mur **tiré** à la main
+(des coins posés) l'est. Quatre repères ne font que redresser la photo : le mur cherché sur leur assemblage garde le verdict de l'arbitre
+(`BilanPhotoRedressement.murCherche` : pose retenue et `lu`) et l'É5 le juge comme un mur trouvé (plan seul ou `lu` faux : à confirmer).
+Un mur tiré à la main que sa silhouette n'explique pas est à confirmer, jamais fait. `calage-e5.ts` rejoue chaque scène une seconde fois
+avec quatre repères aux coins de sa première ouverture (lignes « , repères »), et la scène 24 vue comme un mur de 5 m avec des repères
+posés sur les coins que la chaîne avait retenus (« 24-voisin, repères = coins de la chaîne ») : la ligne d'ensemble les compte.
+
 **L'É5 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :
 chaque scène à prise par caméra passe par `enchainement.ts::derouler` (vue `audit`), une photo avec le GPS à 1 m, la boussole et l'EXIF,
 le gabarit vrai : les coins se cherchent comme sur place (le banc des façades, lui, pose les coins vrais). Par scène : l'écart de chaque coin

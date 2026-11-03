@@ -13,7 +13,8 @@ import { readFileSync } from 'node:fs';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
-import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, gabaritVrai, type PriseCamera } from '../../../banc/facades/synthese.js';
+import { appliquer, homographie } from '../../../../src/facade/vision/homographie.js';
 import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
 import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
 import { veriteDuCas } from '../../../../src/facade/releve/enchainement.js';
@@ -150,9 +151,10 @@ describe('l enchainement d une facade', () => {
     const sc = sceneAe101(etalon, 'buisson');
     const c = { ...casDe(etalon.largeurM, etalon.hauteurM, leurre, null), gabarit: etalon.gabarit };
     const e = etapeDe(await derouler(entreesDuCas(c, [sc.image]), { ...CAL, verite: { calage: etalon.calageVrai } }), 'calage');
-    // Un mur pose a la main l'emporte (comme dans l'audit) ; ce qu'il explique de l'image reste dit.
-    expect(e.etat).toBe('ok');
-    expect(e.resume).toMatch(/^Mur posé à la main\. .*Sur l’assemblage : x de 4\d\d à 7\d\d .* que sa silhouette n’explique pas/);
+    // Un mur tire a la main l'emporte (comme dans l'audit) ; s'il n'explique pas l'image, il est a confirmer, sa raison dite, jamais
+    // fait (decision du proprietaire, 3 novembre 2026).
+    expect(e.etat).toBe('a-confirmer');
+    expect(e.resume).toMatch(/^Mur posé à la main\. .*Sur l’assemblage : x de 4\d\d à 7\d\d .* que sa silhouette n’explique pas .*: à confirmer\./);
     expect(e.verite?.juste).toBe(false);
   }, 120_000);
 
@@ -187,6 +189,49 @@ describe('l enchainement d une facade', () => {
     expect(etapeDe(r, 'ouvertures').verite).toMatchObject({ juste: true });
     expect(etapeDe(r, 'ouvertures').verite?.texte).toMatch(/rappel 100 %, précision 100 %/);
   }, 60_000);
+});
+
+describe('l E5 sur le chemin des reperes (revue des etapes, B1) : quatre reperes redressent la photo, le mur qui en sort se juge', () => {
+  // Les reperes aux coins de la premiere ouverture de la scene, sur la photo : un rectangle du mur, comme la personne le pose.
+  const reperesSurOuverture = (s: ReturnType<typeof scene>['s'], vrais: P2[]) => {
+    const L = s.verite.largeur, H = s.verite.hauteur, o = s.verite.ouvertures[0]!;
+    const versPhoto = homographie([{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }], vrais)!;
+    return [{ x: o.x, y: o.y + o.h }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x + o.l, y: o.y }, { x: o.x, y: o.y }].map((q) => appliquer(versPhoto, q));
+  };
+  const avecReperes = (L: number, H: number, reperes: P2[], plus: Partial<CasStocke> = {}): CasStocke =>
+    ({ ...casDe(L, H, reperes, null, plus, false), photos: [{ fichier: 'photo-1', coins: reperes, reperes }] });
+
+  it('24-voisin : « Placer 4 repères » puis « Appliquer » sur les coins de la chaine ne rend pas l E5 faite', async () => {
+    const { s, ph } = scene('24-');
+    const H = s.verite.hauteur, g = [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }];
+    const auto = await derouler(entreesDuCas({ ...casDe(5, H, [], null, {}, false), photos: [{ fichier: 'photo-1', coins: [] }], gabarit: g }, [ph.image]), CAL);
+    expect(etapeDe(auto, 'calage').etat).toBe('a-confirmer');
+    const px = auto.sorties.audit?.redressement?.photos[0]?.coinsPx ?? [];
+    expect(px).toHaveLength(4);
+    const r = await derouler(entreesDuCas(avecReperes(5, H, px, { gabarit: g }), [ph.image]), CAL);
+    // La photo est redressee avec les points de la personne (É3) ; le mur cherche sur leur assemblage garde le verdict de l'arbitre.
+    expect(r.sorties.audit?.redressement?.photos[0]).toMatchObject({ statut: 'manuelle', coins: 'predit', murCherche: { lu: false } });
+    const e = etapeDe(r, 'calage');
+    expect(e.etat).toBe('a-confirmer');
+    expect(e.resume).toMatch(/^Mur cherché sur l’assemblage de vos repères/);
+    expect(e.resume).not.toMatch(/posé à la main/);
+  }, 120_000);
+
+  it('scene 25 (mur en L) : des reperes sur une fenetre trouvent un mur faux, l E5 le dit a confirmer', async () => {
+    const { s, ph, vrais } = scene('25-');
+    const r = await derouler(entreesDuCas(avecReperes(s.verite.largeur, s.verite.hauteur, reperesSurOuverture(s, vrais), { gabarit: gabaritVrai(s).map((p) => ({ ...p })) }), [ph.image]), CAL);
+    expect(r.sorties.audit?.redressement?.photos[0]?.murCherche).toBeDefined();
+    expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
+  }, 120_000);
+
+  it('scene 02 : des reperes sur une fenetre trouvent le mur juste, l E5 est faite', async () => {
+    const { s, ph, vrais } = scene('02-');
+    const r = await derouler(entreesDuCas(avecReperes(s.verite.largeur, s.verite.hauteur, reperesSurOuverture(s, vrais)), [ph.image]), CAL);
+    expect(r.sorties.audit?.redressement?.photos[0]?.murCherche).toEqual({ pose: 'aretes', lu: true });
+    const e = etapeDe(r, 'calage');
+    expect(e.etat).toBe('ok');
+    expect(e.resume).toMatch(/^Mur cherché sur l’assemblage de vos repères\. .*expliqué par sa silhouette/);
+  }, 120_000);
 });
 
 describe('le cas de calibration dans l enchainement', () => {

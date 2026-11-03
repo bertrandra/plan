@@ -19,6 +19,7 @@
 //
 // Pur, sans DOM. Les seuils sont des reglages (regles/facades/enchainement.json).
 
+import type { PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { Image } from '../vision/homographie.js';
 import { affinerEgoutEtSol, matiereDuMur, type MurLu, type Rect } from '../vision/mosaiqueFuites.js';
 import { objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
@@ -51,7 +52,7 @@ export interface Explication {
 }
 
 /** D'ou vient la pose retenue : les aretes (elles expliquent la photo), une autre pose qui l'explique mieux, ou le plan seul. */
-type PoseRetenue = 'aretes' | 'mieux-expliquee' | 'plan-seul';
+type PoseRetenue = PoseDuMurCherche;
 
 /** Le calage par les ancres : la pose retenue, son explication, et celle des aretes quand elle n'a pas ete retenue. */
 interface CalageParAncres {
