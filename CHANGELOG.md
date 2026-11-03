@@ -43,6 +43,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Fumée, point 91 (arbres d'EZ-tree) : la mesure « été » se prenait à la date par défaut de la Vue 3D, celle du jour ; un caduc
+  étant nu de novembre à mars, le point échouait dans toutes les classes depuis le 1er novembre (Fumée de la nuit des 1er, 2 et
+  3 novembre). Elle se prend désormais au 21 juin, posé avant la mesure ; la mesure « hiver » pose déjà le 15 janvier. Rien ne change
+  à l'application.
 - Vue 3D, « Modifier la toiture », au téléphone : dès que le panneau du mode débordait (un élément posé, son inspecteur), la vue de
   la façade restait vide au-dessus de lui, poignées flottant sur le fond ; replié, le panneau la laissait voir. Un bloc qui défile, au
   fond opaque, posé sur la scène, est composé à part par le navigateur et tenu pour opaque : la scène 3D qu'il recouvrait en partie
