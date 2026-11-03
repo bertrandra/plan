@@ -155,7 +155,7 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
 /** Les gestes de la personne aux points de validation, entrees de la chaine comme les corrections : le mur confirme (V1), les ouvertures relues (V3). */
-export interface GestesFacade { murConfirme?: MurConfirme | null; ouverturesRelues?: OuverturesRelues | null }
+interface GestesFacade { murConfirme?: MurConfirme | null; ouverturesRelues?: OuverturesRelues | null }
 
 export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, gestes: GestesFacade = {}): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;

@@ -118,11 +118,12 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.depuisAudit')?.click(); await Promise.resolve(); });
     await act(async () => { bouton('calibration.choisirAudit')?.click(); await Promise.resolve(); });
     await act(async () => { bouton('calibration.choisirFacade')?.click(); await Promise.resolve(); });
-    // Le cas se rejoue des l'ouverture, ses coins cherches, et la detection propose les ouvertures, sans autre geste.
+    // Le cas se rejoue des l'ouverture, ses coins cherches ; la detection se propose (« Partir de la détection »), mais ne remplit plus
+    // la verite d'elle-meme (decision du proprietaire, 3 novembre 2026) : l'E9 se comparerait a sa propre sortie.
     await attendreQue(() => !!bouton('calibration.proposer'));
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
     expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés|lus sur l’assemblage)/);
-    expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
+    expect(hote.textContent).not.toMatch(/[1-9]\d* ouvertures? annotée/);
     expect(hote.textContent).toContain('1 photo, prise dans l’audit.');
     // Sans nom, l'enregistrement est refuse avec un mot clair.
     const nom = hote.querySelector('[data-controle="calibration.nomCas"]') as HTMLInputElement;
@@ -136,6 +137,7 @@ describe('l ecran de calibration', () => {
     await attendre(10);
     const ajoute = [...stock.entries()].find(([id]) => id.startsWith('cas-') && id !== 'cas-a');
     expect(ajoute?.[1]).toMatchObject({ nom: 'Maison nord', statut: 'valide', images: scene.cas.images });
+    expect(ajoute?.[1].ouvertures).toEqual([]);
     expect(ajoute?.[1].photos[0]?.coins).toHaveLength(4);
     // Le cas rejoint la liste et l'editeur se ferme.
     expect(hote.textContent).toContain('Maison nord');

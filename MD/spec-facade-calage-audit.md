@@ -364,6 +364,22 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
       et qu'un geste reste à défaire, Ctrl+Z est le sien ; sinon la touche va à l'historique du projet. V4 vide la pile : après elle,
       Ctrl+Z défait la validation, comme avant. Dans un champ (la largeur tapée), la touche reste au champ.
 
+- **V3 s'ouvre toujours, l'É9 n'est faite qu'après lui** (revue des étapes ; décision 2 du propriétaire, 3 novembre 2026, rangée ici à côté
+  des autres gestes des points de validation) :
+  - **Le regard** : « Relire les ouvertures », sur la ligne des ouvertures de l'audit et dans l'étape É9 ouverte de la calibration,
+    ouvre l'éditeur d'un mur relevé (`zones/releve/RelireOuvertures.tsx`, le même `EditionFacade`) sur le relevé que la chaîne a fait :
+    garder, corriger, ajouter, retirer. « Garder ces ouvertures » écrit une **entrée**, `OuverturesRelues` (ce que la détection
+    montrait, ce que la personne garde, le jour) : `FacadeCapturee.ouverturesRelues` dans l'audit, `CasReel.ouverturesRelues` dans un
+    cas, `prisesDeLaFacade` pour les deux. C'est un geste de la façade : Ctrl+Z le défait avant V4.
+  - **L'É9** : sans relecture, elle est à confirmer et le dit (« Relisez-les (V3) : … ») ; relue, et tant que la détection rend les
+    mêmes ouvertures (au centimètre), elle est faite (« Ouvertures relues par vous le … : n gardées »). Une autre détection (une photo,
+    un mur changé) les remet à relire, et le dit.
+  - **Ce qui s'écrit** : le bilan (É11) et V4 portent les ouvertures gardées, pas celles de la détection.
+  - **La calibration** : la vérité d'un cas (son annotation) ne se remplit plus de la détection d'elle-même ; « Partir de la
+    détection » le fait d'un geste. Sinon l'É9 se comparait à sa propre sortie et disait « objectifs atteints ». Le regard V3 y est le
+    même geste que dans l'audit, rangé à part de la vérité : « J'ai relu les ouvertures » (la case de la vérité) ne vaut pas regard
+    (décision du propriétaire, 3 novembre 2026).
+
 ### É6 · Silhouette lue, par corps
 
 - **Déterministe** : `silhouetteDuMur`, `classerProfil` : le haut du mur lu entre les bouts retenus (deux rampes, un triangle, des marches),

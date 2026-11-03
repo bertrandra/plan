@@ -188,7 +188,8 @@ function CartePartiesBasses({ parties, largeur, hauteurMur, maj }: { parties: Pa
   );
 }
 
-export function EditionFacade({ v, onAnnuler, onValider }: { v: Verification; onAnnuler: () => void; onValider: () => void }) {
+/** Le pied de l'editeur : « Valider la façade » dans l'editeur d'un mur releve ; « Garder ces ouvertures » au point V3 (audit, calibration). */
+export function EditionFacade({ v, onAnnuler, onValider, pied = 'releve' }: { v: Verification; onAnnuler: () => void; onValider: () => void; pied?: 'releve' | 'relecture' }) {
   const { largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
   const precision = textePrecision(pxParMDuCalage(v.calage));
   // Corrigee au doigt (cote, type), l'ouverture est verifiee : elle quitte le pointille.
@@ -216,12 +217,13 @@ export function EditionFacade({ v, onAnnuler, onValider }: { v: Verification; on
         {v.partiesBasses.length > 0 && <CartePartiesBasses parties={v.partiesBasses} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartiesBasses} />}
       </div>
       <div className="relevePied">
-        <button data-controle="releve.annuler" type="button" className="secondary" onClick={onAnnuler}>
-          Annuler
-        </button>
-        <button data-controle="releve.valider" type="button" onClick={onValider}>
-          Valider la façade
-        </button>
+        {pied === 'releve' ? <>
+          <button data-controle="releve.annuler" type="button" className="secondary" onClick={onAnnuler}>Annuler</button>
+          <button data-controle="releve.valider" type="button" onClick={onValider}>Valider la façade</button>
+        </> : <>
+          <button data-controle="facade.annulerRelecture" type="button" className="secondary" onClick={onAnnuler}>Annuler</button>
+          <button data-controle="facade.garderOuvertures" type="button" onClick={onValider}>Garder ces ouvertures</button>
+        </>}
       </div>
     </>
   );

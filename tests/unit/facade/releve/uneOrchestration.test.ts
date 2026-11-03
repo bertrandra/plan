@@ -9,7 +9,7 @@ import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import { ETAPES_FACADE } from '../../../../src/model/etapeFacade.js';
 import type { Image } from '../../../../src/facade/vision/homographie.js';
 import type { PhotoCas, PrisePhoto } from '../../../../src/model/audit.js';
-import { murAConfirmer, type CorrectionRedressement, type MurConfirme } from '../../../../src/model/auditParcelle.js';
+import { murAConfirmer, relecture, type CorrectionRedressement, type MurConfirme, type OuverturesRelues } from '../../../../src/model/auditParcelle.js';
 import type { CorpsToit, PtBrut } from '../../../../src/model/types.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../banc/facades/synthese.js';
@@ -70,18 +70,18 @@ function facadeDeLaScene(s: SceneFacade, prises: readonly PriseCamera[]) {
 }
 
 /** La facade passee par l'audit, le cas tire d'elle (enregistre, relu), et son rejeu avec chacune des deux vues. */
-async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], corrections: Record<string, CorrectionRedressement>, murConfirme: MurConfirme | null = null) {
+async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], corrections: Record<string, CorrectionRedressement>, murConfirme: MurConfirme | null = null, ouverturesRelues: OuverturesRelues | null = null) {
   const { f, contour, corps, images, photos } = facadeDeLaScene(s, prises);
   const chercherCoins = async (e: Parameters<typeof rechercher>[0]) => rechercher(e);
   // L'entree reelle de l'audit (app/audit/parcelle/mesures.ts) : ce que la personne obtient sur place.
   const audit = await mesurerFacade('b1', f, { pts: contour, corpsToit: [corps] }, photos, {
     pixels: async (b64) => { const im = images[Number(b64.slice(6))]; return im ? { largeur: im.largeur, hauteur: im.hauteur, data: im.donnees } : null; },
     chercherCoins, jpeg, limites: () => [],
-  }, corrections, { murConfirme });
+  }, corrections, { murConfirme, ouverturesRelues });
   // Le cas, tel que l'admin le cree depuis la facade de l'audit, enregistre puis relu.
   const fc: FacadeACalibrer = {
     cle: 'b1', nom: 'Maison', cote: f.cote, orientation: f.orientation, largeurM: f.largeur, hauteurM: f.hauteur, sourceHauteur: 'lidar', photos, corrections,
-    ...(murConfirme ? { murConfirme } : {}), bilans: audit.redressement?.photos ?? [], gabarit: gabaritDesCorps(f, [corps], f.hauteur), toit: { mur: { gauche: f.gauche, droite: f.droite }, corps: [corps] }, parement: null, facade: f, contour,
+    ...(murConfirme ? { murConfirme } : {}), ...(ouverturesRelues ? { ouverturesRelues } : {}), bilans: audit.redressement?.photos ?? [], gabarit: gabaritDesCorps(f, [corps], f.hauteur), toit: { mur: { gauche: f.gauche, droite: f.droite }, corps: [corps] }, parement: null, facade: f, contour,
   };
   const cas = lireCasReel(JSON.parse(JSON.stringify({ ...casDepuisFacade(fc), ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) })));
   const calibration = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'calibration', chercherCoins, verite: veriteDuCas(cas), illustrer: true });
@@ -140,6 +140,15 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     memesSorties(x);
     expect(x.audit.etapes?.find((e) => e.id === 'calage')?.etat).toBe('confirme');
     expect(x.calibration.etapes.find((e) => e.id === 'calage')?.etat).toBe('confirme');
+  }, 240_000);
+
+  it('les ouvertures relues au point V3 : la meme entree, les memes sorties, l E9 faite des deux cotes et le bilan sur les gardees', async () => {
+    const s = scene('24-');
+    const avant = await lesDeux(s, [s.synthese.prise as PriseCamera], {});
+    const detectees = avant.audit.releve?.ouvertures ?? [];
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, relecture(detectees, detectees.slice(1), '2026-11-03T10:00:00.000Z'));
+    memesSorties(x);
+    expect(x.audit.facade?.ouvertures).toHaveLength(detectees.length - 1);
   }, 240_000);
 
   it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {

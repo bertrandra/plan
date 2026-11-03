@@ -100,14 +100,14 @@ describe('la detection pose les baies du pignon voisin sur son mur', () => {
     const releve = r.sorties.audit?.mesure?.releve.ouvertures ?? [];
     // La detection les lit hors des cotes du mur, a 5,8 m de son bout gauche (sous le pignon voisin).
     expect(releve.filter((o) => o.x > 5).map((o) => Math.round(o.x * 10) / 10)).toEqual([5.8, 5.8]);
-    expect(r.etapes.find((e) => e.id === 'ouvertures')?.resume).toMatch(/2 ouvertures sur le pignon du corps voisin, posées sur la façade sud \(côté 2\) à la validation\.$/);
+    expect(r.etapes.find((e) => e.id === 'ouvertures')?.resume).toMatch(/2 ouvertures sur le pignon du corps voisin, posées sur la façade sud \(côté 2\) à la validation\. Relisez-les \(V3\)/);
     expect(r.sorties.facade?.ouvertures.every((o) => o.x + o.l / 2 <= 5)).toBe(true);
     expect(r.etapes.find((e) => e.id === 'validation')?.resume).toMatch(/ Et 2 ouvertures sur la façade sud \(côté 2\), dans le même pas\. Validez la façade/);
   }, 120_000);
 
   it('le mur voisin n a pas de facade : les baies restent sur ce mur, et l E9 dit de relever le mur voisin', async () => {
     const r = await lancer([]);
-    expect(r.etapes.find((e) => e.id === 'ouvertures')?.resume).toMatch(/2 ouvertures sur le pignon du corps voisin — pas de façade sur ce mur : relevez-le pour les y poser\.$/);
+    expect(r.etapes.find((e) => e.id === 'ouvertures')?.resume).toMatch(/2 ouvertures sur le pignon du corps voisin — pas de façade sur ce mur : relevez-le pour les y poser\. Relisez-les \(V3\)/);
     expect(r.sorties.facade?.ouvertures.filter((o) => o.x > 5)).toHaveLength(2);
   }, 120_000);
 });

@@ -257,3 +257,30 @@ describe('Ctrl+Z sur « Confirmer le mur » avant V4 (decision du proprietaire, 
     expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(projet);
   }, 60000);
 });
+
+describe('V3 dans l audit : les ouvertures se relisent avant V4 (decision du proprietaire, 3 novembre 2026)', () => {
+  it('relues, l E9 est faite et V4 ecrit celles qui ont ete gardees ; Ctrl+Z defait la relecture avant V4', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const m = () => t.v.mesuresFaites().get('maison#0');
+    const e9 = () => m()?.etapes?.find((e) => e.id === 'ouvertures');
+    expect(e9()).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/Relisez-les \(V3\)/) });
+    // Le mur de cette photo de synthese est a confirmer : V1 d'abord, sinon l'E9 en herite le doute.
+    if (m()?.etapes?.find((e) => e.id === 'calage')?.etat === 'a-confirmer') await t.v.confirmerMur('maison', 0);
+    const detectees = m()?.releve?.ouvertures ?? [];
+    if (detectees.length < 2) throw new Error('il faut deux ouvertures');
+    // La personne retire la premiere et garde l'autre.
+    expect(await t.v.relireOuvertures('maison', 0, detectees.slice(1))).toBe(true);
+    expect(e9()).toMatchObject({ etat: 'ok', resume: expect.stringMatching(/^Ouvertures relues par vous le 13 octobre 2026 : 1 gardée\. /) });
+    // Ctrl+Z avant V4 : la relecture defaite, l'E9 a relire ; Ctrl+Y : relue de nouveau.
+    t.capture.annulerGeste(); await t.v.rejouerFacade('maison', 0);
+    expect(e9()?.etat).toBe('a-confirmer');
+    t.capture.retablirGeste(); await t.v.rejouerFacade('maison', 0);
+    expect(e9()?.etat).toBe('ok');
+    // V4 : la Facade ecrite porte les ouvertures gardees, pas celles de la detection.
+    expect(t.v.validerFacade('maison', 0)).toBe(true);
+    const r = t.maison().batiment?.facades?.[0];
+    expect(r?.ouvertures).toHaveLength(detectees.length - 1);
+    expect(r?.ouvertures[0]?.x).toBeCloseTo(detectees[1]!.x, 6);
+  }, 60000);
+});
