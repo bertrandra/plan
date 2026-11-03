@@ -208,9 +208,11 @@ export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: nu
   // Les angles sont aux bouts de la silhouette : un bout du mur que le gabarit prolonge (u hors de 0 a 1) n'est pas un angle, la matiere
   // y continue ; le bout du gabarit l'est.
   const ug0 = g ? Math.min(0, (g[0] as { u: number }).u) : 0, ug1 = g ? Math.max(1, (g[g.length - 1] as { u: number }).u) : 1;
+  // Chaque angle se lit sous le haut du gabarit a ce bout : au bout bas d'un mur en L (un garage dans l'alignement, scene 25), les
+  // rangees sous l'egout haut sont le ciel au-dessus de la partie basse (0,38 pour la pose juste). Un rectangle, un pignon : 1.
   const angles: [number, number] = [
-    ug0 < 0 ? angle(r.x0 + ug0 * w, 1, hauteurDuGabarit(g as GabaritMur, ug0)) : angle(r.x0, 1),
-    ug1 > 1 ? angle(r.x0 + ug1 * w, -1, hauteurDuGabarit(g as GabaritMur, ug1)) : angle(r.x1, -1),
+    angle(r.x0 + ug0 * w, 1, g ? hauteurDuGabarit(g, ug0) : 1),
+    angle(r.x0 + ug1 * w, -1, g ? hauteurDuGabarit(g, ug1) : 1),
   ];
   const matiere = part(r.x0 + 0.05 * w, ya, r.x1 - 0.05 * w, yb) ?? 0;
   const score = (POIDS.angle * (angles[0] + angles[1]) + POIDS.egout * egout + POIDS.sol * sol + POIDS.proportions * proportions) * Math.min(1, matiere / MATIERE_MIN);

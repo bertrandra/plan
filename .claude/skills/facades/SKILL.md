@@ -293,6 +293,13 @@ automatiques du mur). `murVoisin.test.ts` le joue de bout en bout sur la scène 
 voisin ; les deux faux « ok » de `main` (08, 21) sont « à confirmer » ; 152/152 poses fausses refusées. La rampe 23 y reste fausse comme
 sur `main` : sans boussole, l'horizontale n'est pas connue et la règle de la rampe ne s'applique pas.
 
+**Le mur en L** (2 novembre 2026, `MD/spec-releve-facade.md` §6.2) : la marche vient du gabarit, plus de la photo
+(`facade/profil.ts::partieBasseDuGabarit`, lue dans `analyserLeMur`, écrite sur le relevé). Le générateur peint un mur en L
+(`synthese.mur.partieBasse` : début, fin, hauteur, bande de toit ; au-dessus, le ciel) et `gabaritVrai` suit la marche. Scène
+`25-mur-en-l-garage` : chaîne de production 5/5, sans fausse ; calage fin 4/4 (le coin caché au-dessus du garage par l'horizontale du
+bout haut) ; É5 de l'audit « faite » à 0,99 (avant la lecture des angles sous le gabarit : « à confirmer », angle droit 0,38) ; partie
+basse retrouvée à 6,5–10 m, égout 2,9 m.
+
 **Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
 par la bande au-dessus de l'égout (l'avis de la photo seule) et celui que dit le gabarit vrai de la scène, posé entre les vrais coins
 (ce que le LiDAR donnerait). Pignons justes

@@ -569,6 +569,31 @@ Sur les images de test (mur de 10 m, partie haute à 6 m, garage à 3 m, vu de b
 décrochement et l'égout bas sont retrouvés exacts au centimètre ; dans l'application, avec des
 poignées posées au doigt, 4,99 m pour 5,00 et 3,00 m pour 3,00.
 
+**Depuis le 2 novembre 2026, la marche vient du plan et du LiDAR, pas de la photo.** Le geste « En L »
+est parti avec la capture du relevé (lot F6 de `MD/spec-facade-calage-audit.md`) : plus rien ne posait
+de décrochement, et la chaîne de l'audit et de la calibration le passait toujours à `null` ; un mur en L
+de l'audit s'écrivait sans partie basse. Or son gabarit (le haut de la façade sous les corps du LiDAR,
+`facade/gabaritMur.ts`) porte déjà la marche, et la chaîne la suit : la détection cherche dans la
+silhouette (rien au-dessus du garage), le calage pose le rectangle englobant (le coin caché par
+l'horizontale du bout haut), l'É5 lit chaque angle sous le haut du gabarit à ce bout.
+
+- **La partie basse** se lit sur le gabarit (`facade/profil.ts::partieBasseDuGabarit`), à la hauteur
+  mesurée du mur, dans `analyserLeMur` : la même pour l'audit, le relevé et la calibration. Depuis un
+  bout, la plus longue suite de colonnes à 50 cm au moins sous l'égout, sur un mètre au moins, quand
+  l'autre partie atteint l'égout ; son égout est le plus bas de son haut. Rien sur un rectangle, un
+  pignon, une rampe, un pignon voisin qui déborde, ni quand les deux bouts descendent (une partie haute
+  au milieu : le relevé ne décrit qu'une partie basse). Elle s'écrit sur le relevé, que la personne
+  corrige dans l'éditeur comme avant.
+- **Deux façades ou une avec une marche** : le contour en décide, comme pour tout mur. Une partie basse
+  dans l'alignement est sur le même côté du contour : une façade, avec sa partie basse. Une partie basse
+  en retrait ou en avancée est un autre côté du contour : sa propre façade.
+- **La 3D** : avec les corps du toit, le L est déjà le leur (un prisme et une silhouette par corps) ;
+  la partie basse n'y écarte plus qu'une baie au-dessus de son égout, dans le vide. Sans corps, elle
+  coupe le bâtiment en deux volumes, comme ci-dessus.
+- **La photo** ne pose plus de décrochement : `Decrochement`, `coinsEnglobants` et
+  `mesurerPartieBasse` restent pour `analyserReleve` (le banc, les tests), sans appelant dans l'application.
+- Banc : scène `25-mur-en-l-garage` (maison à étage, garage dans l'alignement, vue de biais).
+
 ---
 
 ## 7. Les ouvertures (`facade/detection/detection.ts`)
