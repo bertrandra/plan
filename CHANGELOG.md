@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration) : un mur en L (une partie basse, garage ou extension, dans l'alignement du mur) s'écrit avec sa partie
+  basse, lue sur la silhouette du plan et du LiDAR : la position du décrochement et l'égout bas, corrigeables dans l'éditeur comme
+  avant. Elle s'écrivait toujours vide depuis que la photo ne la posait plus. L'étape É5 lit chaque angle sous le haut de la silhouette
+  à ce bout : un mur en L posé juste n'est plus dit « à confirmer ». En Vue 3D, une fenêtre au-dessus de la partie basse, dans le vide,
+  n'est plus posée. Banc des façades : scène `25-mur-en-l-garage` ajoutée. Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration) : une fenêtre lue sous le pignon d'un corps voisin qui prolonge la façade va, à la validation (V4),
   sur la façade du mur de ce corps quand il en a une : dans son repère, comme détectée, sans rien changer d'autre à cette façade, et
   dans le même pas que la façade validée (Ctrl+Z défait les deux). La Vue 3D la pose alors sur ce mur. Quand ce mur n'a pas de façade,

@@ -88,6 +88,12 @@ export interface Mur {
   pignonSommet?: number;
   /** Bande de toiture vue au-dessus de l'egout (mur gouttereau). */
   toit?: { hauteur: number; couleur: RGB };
+  /**
+   * Un mur en L (deux hauteurs d'egout dans le meme alignement : une partie basse, garage ou extension, de `debut` a `fin` metres
+   * depuis la gauche, a son egout `hauteur`) : au-dessus, ni le mur haut ni son toit, le ciel, sauf la bande de toit de la partie basse.
+   * La verite (`verite.hauteur`) est l'egout le plus haut, et le gabarit vrai suit la marche.
+   */
+  partieBasse?: { debut: number; fin: number; hauteur: number; toit?: { hauteur: number; couleur: RGB } };
   /** Eclairage qui baisse de gauche a droite : 0,2 = 20 % plus sombre au bout du mur. */
   degrade?: number;
 }
@@ -529,7 +535,12 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
       const o = (r * L + c) * 4;
       let coul: RGB | null = null;
       let mur = true;
-      if (Z > v.hauteur) {
+      const pb = y.mur.partieBasse;
+      if (pb && X >= pb.debut && X <= pb.fin && Z > pb.hauteur) {
+        // Au-dessus de la partie basse d'un mur en L : sa bande de toit, puis le ciel.
+        mur = false;
+        if (pb.toit && Z <= pb.hauteur + pb.toit.hauteur) coul = (Z - pb.hauteur) % 0.18 < 0.025 ? assombrir(pb.toit.couleur, 0.7) : pb.toit.couleur;
+      } else if (Z > v.hauteur) {
         mur = false;
         const pg = y.mur.pignon;
         if (pg && Z <= v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5)) {
@@ -567,7 +578,13 @@ export function formePignon(u: number, sommet: number): number {
  * rectangle sans pignon.
  */
 export function gabaritVrai(s: SceneFacade): GabaritMur {
-  const H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5;
+  const H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5, pb = s.synthese.mur.partieBasse;
+  if (pb) {
+    // La marche d'un mur en L : l'egout haut, puis celui de la partie basse, d'aplomb au decrochement.
+    const L = s.verite.largeur, a = pb.debut / L, b = pb.fin / L, e = 1e-4;
+    const haut = [{ x: 0, y: H }, ...(a > e ? [{ x: a, y: H }, { x: a + e, y: pb.hauteur }] : [{ x: 0, y: pb.hauteur }]), ...(b < 1 - e ? [{ x: b, y: pb.hauteur }, { x: b + e, y: H }, { x: 1, y: H }] : [{ x: 1, y: pb.hauteur }])];
+    return gabaritDuHaut(a > e ? haut : haut.slice(1), H);
+  }
   return gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg * formePignon(u, sommet) })));
 }
 

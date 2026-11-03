@@ -1,0 +1,154 @@
+{
+  "nom": "25-mur-en-l-garage",
+  "description": "Mur en L : une maison à étage (égout à 5,6 m) prolongée dans le même alignement par un garage (égout à 2,9 m, sa bande de tuiles), enduit, photographiée de biais : au-dessus du garage, le ciel ; le coin haut du rectangle englobant n'a pas d'arête.",
+  "difficultes": [
+    "mur-en-l",
+    "enduit",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.6,
+    "coins": [
+      {
+        "x": 271,
+        "y": 263.6
+      },
+      {
+        "x": 948.02,
+        "y": 315.42
+      },
+      {
+        "x": 960.93,
+        "y": 676.93
+      },
+      {
+        "x": 252.33,
+        "y": 697.68
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 3.6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "garage",
+        "x": 7.3,
+        "y": 0,
+        "l": 2.4,
+        "h": 2.1,
+        "rendu": {
+          "couleur": [
+            120,
+            118,
+            112
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 25,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          226,
+          214,
+          192
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.2,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      },
+      "partieBasse": {
+        "debut": 6.5,
+        "fin": 10,
+        "hauteur": 2.9,
+        "toit": {
+          "hauteur": 0.7,
+          "couleur": [
+            150,
+            72,
+            52
+          ]
+        }
+      }
+    },
+    "ombres": [
+      {
+        "type": "debord",
+        "hauteur": 0.25,
+        "facteur": 0.8
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 13,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -14,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

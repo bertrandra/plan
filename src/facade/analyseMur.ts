@@ -12,7 +12,7 @@ import type { GabaritMur } from './gabaritMur.js';
 import { analyserMosaique, type ResultatMosaique } from './vision/mosaique.js';
 import { analyserVues, type ResultatFusion } from './fusion.js';
 import { CHAMP_GRAND_COTE_DEFAUT, focalePx } from './vision/cadrage.js';
-import type { Decrochement } from './profil.js';
+import { partieBasseDuGabarit } from './profil.js';
 import type { Image, P2 } from './vision/homographie.js';
 
 /** Comment plusieurs photos d'un mur se combinent : des morceaux cote a cote, ou des vues du mur entier a fondre. */
@@ -23,8 +23,6 @@ export interface PhotoDuMur {
   photo: Image;
   coins: P2[];
   focalePx: number | null;
-  /** Mur a deux hauteurs d'egout : le decrochement pose sur la photo (une photo seule). */
-  decrochement?: Decrochement | null;
   /** La silhouette du haut du mur sur la photo (ajustee a la main, ou lue entre ses coins) : elle dit le toit quand elle a une forme. */
   silhouette?: P2[] | null;
   /** Quatre reperes poses a la main (un rectangle du mur) : ils redressent la photo entiere avant l'assemblage. */
@@ -48,6 +46,17 @@ export interface AnalyseMur {
  * assembler (`morceaux`). Null quand rien ne se redresse.
  */
 export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur = 'morceaux'): AnalyseMur | null {
+  const a = analyserLeMurSansMarche(murSeul, photos, assemblage);
+  if (!a || a.r.partieBasse) return a;
+  // Un mur en L (une partie basse dans l'alignement, garage ou extension) : sa marche est dans le gabarit, la silhouette du plan et du
+  // LiDAR posee sur la photo (facade/profil.ts::partieBasseDuGabarit), a la hauteur mesuree du mur. La detection et le calage l'ont
+  // deja suivie (ils lisent la silhouette) ; elle s'ecrit ici sur le releve, la meme pour l'audit, le releve et la calibration.
+  const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
+  const partie = avec ? partieBasseDuGabarit(silhouetteEnPartsDuMur(avec.coins, avec.silhouette), murSeul.largeur, a.r.hauteur) : null;
+  return partie ? { ...a, r: { ...a.r, partieBasse: partie } } : a;
+}
+
+function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur): AnalyseMur | null {
   const p0 = photos[0];
   if (!p0) return null;
   // La silhouette du haut du mur, en parts du mur, depuis la premiere photo qui en a une : chaque photo ramene le meme mur au meme
@@ -55,8 +64,8 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
   const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
   const mur = { ...murSeul, silhouette: avec ? silhouetteEnPartsDuMur(avec.coins, avec.silhouette) : null };
   // Une photo seule, ou des vues du mur entier : l'assemblage des photos redressees entieres est l'image prise pour la suite
-  // (decision de l'utilisateur, 21 octobre 2026). Un mur a deux hauteurs d'egout garde son analyse a lui.
-  if ((photos.length === 1 || assemblage === 'vues') && !p0.decrochement) {
+  // (decision de l'utilisateur, 21 octobre 2026). Un mur en L aussi : sa marche est dans le gabarit (analyserLeMur).
+  if (photos.length === 1 || assemblage === 'vues') {
     const a = assemblerLeMur(photos);
     // La hauteur se mesure sur la premiere photo dont la focale le permet ; l'estimation du plan sert de repli.
     const mesuree = photos.map((p) => (p.focalePx ? mesurerHauteur(p.coins, mur.largeur, p.focalePx, p.photo.largeur, p.photo.hauteur) : null)).find((h) => h !== null) ?? null;
@@ -75,7 +84,7 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
     return r ? { r, fusion: r } : null;
   }
   if (photos.length === 1) {
-    const r = analyserReleve({ ...mur, photo: p0.photo, coins: p0.coins, focalePx: p0.focalePx, decrochement: p0.decrochement ?? null });
+    const r = analyserReleve({ ...mur, photo: p0.photo, coins: p0.coins, focalePx: p0.focalePx });
     return r ? { r } : null;
   }
   // Des morceaux se mettent a l'echelle par leur focale : inconnue, celle du champ d'un telephone.

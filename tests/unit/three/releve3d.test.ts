@@ -292,6 +292,25 @@ describe('ajouterReleve3d, mur en L', () => {
     expect(ajoutes.filter((m) => m.name === '')).toHaveLength(7);
   });
 
+  it('avec les corps du toit, le L est le leur : la partie basse ecrite par la chaine ne change pas la photo, et ecarte la baie dans le vide au-dessus du garage', () => {
+    // Les deux corps de cette maison (facade/profil.ts::partieBasseDuGabarit lit la marche sur leur gabarit) : la maison a 6 m, le garage a 3 m.
+    const corpsL: CorpsToit[] = [
+      { pts: [p(0, 0), p(6, 0), p(6, 8), p(0, 8)], posFaitage: 4, faitage: 8, egouts: [6, 6], pignons: [], ecart: 0 },
+      { pts: [p(6, 0), p(10, 0), p(10, 5), p(6, 5)], posFaitage: 2.5, faitage: 4, egouts: [3, 3], pignons: [], ecart: 0 },
+    ];
+    const ids = (r: typeof releveL) => r.ouvertures.map((o, i) => ({ ...o, id: 'o' + (i + 1) }));
+    const sans = scene(), avec = scene();
+    ajouterReleve3d(sans.ctx, { ...L, batiment: { facades: [{ ...releveL, ouvertures: ids(releveL), partieBasse: undefined as never }] } }, 6, null, false, corpsL);
+    ajouterReleve3d(avec.ctx, { ...L, batiment: { facades: [{ ...releveL, ouvertures: ids(releveL) }] } }, 6, null, false, corpsL);
+    // La photo (le releve-facade, sur la silhouette des corps) est la meme ; la fenetre haute et le garage sont poses. Celle au-dessus
+    // du garage (dans le vide) : sans partie basse, l'egout du mur haut la laissait passer ; la partie basse l'ecarte.
+    const photo = (a: Mesh[]) => a.filter((m) => m.name === 'releve-facade').map((m) => m.geometry.attributes.position?.array);
+    expect(photo(avec.ajoutes)).toEqual(photo(sans.ajoutes));
+    const groupes = (a: Mesh[]) => a.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name);
+    expect(groupes(sans.ajoutes)).toEqual(['ouverture:o1', 'ouverture:o2', 'ouverture:o3']);
+    expect(groupes(avec.ajoutes)).toEqual(['ouverture:o1', 'ouverture:o2']);
+  });
+
   it('coiffe la partie haute seulement', () => {
     const { ajoutes, ctx } = scene();
     ajouterReleve3d(ctx, { ...L, batiment: { facades: [releveL], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } },  }, 6);

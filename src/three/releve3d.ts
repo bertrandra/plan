@@ -15,7 +15,7 @@ import type * as THREE_NS from 'three';
 import type { CorpsToit, ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, Toit } from '../model/types.js';
 import { hauteurDuMur } from '../facade/ouvertures.js';
 import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
-import { contourDuMur, egoutEn, volumesDuBatiment } from '../facade/profil.js';
+import { contourDuMur, egoutEn, ouverturesDansLeMur, volumesDuBatiment } from '../facade/profil.js';
 import { hautDuMurSousCorps, silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
@@ -349,7 +349,12 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
   (o.batiment?.facades || []).forEach((r) => {
     const f = facades.find((x) => x.cote === r.cote);
     if (!f) return;
-    const partie = r.partieBasse ?? null;
+    // La partie basse d'un mur en L ne decide de la 3D que sans corps du toit : avec eux, la marche est deja la leur (le prisme et la
+    // silhouette de chaque corps), et la chaine l'a lue sur leur gabarit (facade/profil.ts::partieBasseDuGabarit) ; la reprendre ici
+    // poserait le mur a la hauteur du batiment et oublierait les baies de pignon de la partie haute.
+    const partie = corps?.length ? null : r.partieBasse ?? null;
+    // Avec les corps, la partie basse dit encore ce qui n'est pas du mur : une baie au-dessus de son egout est dans le vide.
+    const dansLeL = (l: OuvertureFacade[]) => (corps?.length && r.partieBasse ? ouverturesDansLeMur(l, Infinity, r.partieBasse) : l);
     const hMur = partie ? h : hauteurDuMur(f, volumes);
     // Le mur a pu changer depuis le releve (sommet deplace) : la photo s'etire sur sa nouvelle
     // largeur, les ouvertures gardent leur cote depuis la gauche et celles qui sortent sont omises.
@@ -373,7 +378,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     const sousEgout = (ov: OuvertureFacade) => ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01;
     // Une baie hors du mur, d'un cote comme de l'autre (sous le pignon d'un corps voisin qui prolonge la facade, que la detection lit
     // depuis le 2 novembre 2026, ou un mur raccourci depuis le releve) ne se pose pas sur lui : elle n'en est pas.
-    const posees = r.ouvertures.filter((ov) => ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01));
+    const posees = dansLeL(r.ouvertures.filter((ov) => ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01)));
     posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts) ; une baie de pignon borne son coffre
     // au haut de la facade au-dessus d'elle.

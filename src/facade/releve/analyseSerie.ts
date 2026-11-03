@@ -38,7 +38,7 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>
  */
 export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
   const mur = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
-  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: null, silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage);
+  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage);
   if (!a) return null;
   return { r: a.r, ...(a.assemblage ? { assemblage: a.assemblage } : {}), ...(a.fusion ? { fusion: a.fusion } : {}) };
 }

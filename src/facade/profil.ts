@@ -77,6 +77,53 @@ export function mesurerPartieBasse(englobants: readonly P2[], d: Decrochement, l
   return d.cote === 'droite' ? { debut: cm(x), fin: cm(largeur), hauteur: cm(egout) } : { debut: 0, fin: cm(x), hauteur: cm(egout) };
 }
 
+/** Une partie basse descend d'au moins cela sous l'egout du mur : en deca, c'est le meme egout (un debord, une gouttiere, le LiDAR). */
+const MARCHE_MIN_M = 0.5;
+/** Et couvre au moins cela du mur : en deca, un poteau, un trumeau, pas un garage ni une extension. */
+const PARTIE_BASSE_MIN_M = 1;
+/** Le pas, en part de la largeur, auquel le haut du gabarit se lit. */
+const PAS_GABARIT = 0.005;
+
+/**
+ * La partie basse d'un mur en L lue sur son gabarit (facade/gabaritMur.ts, le haut de la facade sous les corps du LiDAR, en parts du
+ * mur : `v` en hauteurs d'egout), de `largeur` x `hauteur` metres : depuis un bout, la plus longue suite de colonnes sous l'egout de
+ * MARCHE_MIN_M au moins, quand l'autre partie atteint l'egout. Son egout est le plus bas de ce haut (un garage a pignon se mesure a
+ * son egout, pas a sa pointe). Null sans marche, sur moins de PARTIE_BASSE_MIN_M, ou quand les deux bouts descendent (une partie haute
+ * au milieu : le releve ne decrit qu'une partie basse, a un bout). C'est ce que la photo posait avant au doigt (Decrochement) : le plan
+ * et le LiDAR le disent maintenant, la meme chose pour l'audit et la calibration (MD/spec-releve-facade.md §6.2).
+ */
+export function partieBasseDuGabarit(g: readonly { u: number; v: number }[] | null | undefined, largeur: number, hauteur: number): PartieBasse | null {
+  if (!g || g.length < 2 || !(largeur > 0) || !(hauteur > 0)) return null;
+  const pts = [...g].sort((a, b) => a.u - b.u);
+  const vEn = (u: number): number => {
+    const a = pts[0] as { u: number; v: number }, b = pts[pts.length - 1] as { u: number; v: number };
+    if (u <= a.u) return a.v;
+    if (u >= b.u) return b.v;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const p = pts[i] as { u: number; v: number }, q = pts[i + 1] as { u: number; v: number };
+      if (u >= p.u && u <= q.u) return q.u > p.u ? p.v + ((q.v - p.v) * (u - p.u)) / (q.u - p.u) : Math.min(p.v, q.v);
+    }
+    return 1;
+  };
+  const n = Math.round(1 / PAS_GABARIT);
+  const colonnes = Array.from({ length: n }, (_, k) => vEn((k + 0.5) / n));
+  const basse = colonnes.map((v) => (1 - v) * hauteur >= MARCHE_MIN_M);
+  if (!basse.some((b) => !b)) return null;
+  const aGauche = basse.findIndex((b) => !b), aDroite = n - 1 - [...basse].reverse().findIndex((b) => !b);
+  const gauche = aGauche, droite = n - 1 - aDroite;
+  if (gauche > 0 && droite > 0) return null;
+  const k = Math.max(gauche, droite);
+  if ((k / n) * largeur < PARTIE_BASSE_MIN_M) return null;
+  const span = droite > 0 ? colonnes.slice(n - droite) : colonnes.slice(0, gauche);
+  // Les sommets du gabarit sur la partie basse comptent aussi : une colonne se lit en son milieu, un sommet au bout du mur lui echappe.
+  // A droite, le sommet haut de la marche (au decrochement meme) n'en est pas ; a gauche, celui du bout (u = 0) en est.
+  const dans = droite > 0 ? (u: number) => u > (n - droite) / n + 1e-6 && u <= 1 + 1e-6 : (u: number) => u >= -1e-6 && u <= gauche / n + 1e-6;
+  const sommets = pts.filter((q) => dans(q.u)).map((q) => q.v);
+  const cm = (v: number) => Math.round(v * 100) / 100;
+  const egout = cm(Math.min(...span, ...sommets) * hauteur);
+  return droite > 0 ? { debut: cm(((n - droite) / n) * largeur), fin: cm(largeur), hauteur: egout } : { debut: 0, fin: cm((gauche / n) * largeur), hauteur: egout };
+}
+
 /** Hauteur d'egout du mur a l'abscisse \`x\`. */
 export function egoutEn(x: number, hauteur: number, p: PartieBasse | null | undefined): number {
   return p && x >= p.debut && x <= p.fin ? p.hauteur : hauteur;
