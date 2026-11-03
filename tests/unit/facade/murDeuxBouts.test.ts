@@ -152,7 +152,8 @@ describe('un fichier d avant (une partie basse) : memes nombres', () => {
   });
 });
 
-// De bout en bout, par l'orchestrateur (le chemin de l'audit, et de la calibration qui le rejoue) : la scene 26 du banc, une photo avec
+// De bout en bout, par l'orchestrateur (le chemin de l'audit, et de la calibration qui le rejoue) : la scene 26 du banc (avec l'ombre du
+// debord sous l'egout haut : le calage fin prenait sa limite pour l'egout, 25 cm trop bas), une photo avec
 // le GPS, la boussole et l'EXIF, le gabarit vrai, les coins cherches comme sur place.
 describe('la chaine sur une partie haute au milieu (scene 26)', () => {
   it('cale le mur, l explique, lit les baies des trois parties et pas le ciel au-dessus, et ecrit les deux parties basses', async () => {

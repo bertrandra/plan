@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration) : le calage fin ne prend plus la limite de l'ombre d'un débord pour l'égout. Sur un mur dont la
+  partie haute est plus étroite que ses parties basses, l'égout était posé au bord de l'ombre, 25 cm trop bas, et l'étape É5 le disait
+  « fait » ; un égout qui borde, là où il longe le mur, une bande du même mur plus sombre au-dessus de lui est maintenant écarté. Banc
+  des façades : la scène `26-partie-haute-au-milieu` retrouve l'ombre de son débord (coins à 3 cm au plus, É5 « faite » à 0,99), les
+  26 autres identiques au bit près. Aucune quantité ni aucun export ne change.
 - Façades : une partie basse au milieu d'un mur (un corps bas entre deux corps hauts, lue sur la silhouette du plan et du LiDAR) est
   un volume à part, sur toute la profondeur du bâtiment, d'équerre à la façade : la partie haute se coupe en deux, chacune avec son
   toit et son débord, et les fenêtres automatiques, le plan et la Vue 3D suivent ces volumes. Elle ne découpait pas le bâtiment.

@@ -626,7 +626,10 @@ chaque bout ; le relevé n'en décrivait qu'une, à un bout, et ce mur s'écriva
   capteurs prend le garage de la scène 26 pour le mur entier (la recherche ne lit pas le gabarit), et l'É5 le
   disait « fait » (0,81, comme sur `main`) ; il est « à confirmer » (égout 0), et le mur posé à la main est
   « fait » (0,99). Un rectangle, un pignon, le mur en L de la scène 25 : au bit près comme avant.
-- Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais).
+- Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais), avec l'ombre du
+  débord depuis le 3 novembre 2026 : le calage fin ne prend plus la limite de l'ombre pour l'égout quand la
+  partie haute est étroite (`facade/calage/calageFin.ts`, un égout qui borde au-dessus de lui une bande du
+  même mur plus sombre est écarté).
 
 ---
 

@@ -79,6 +79,15 @@ const COTES_AU_DESSUS_PART = 0.04;
 /** Au-dela de cet ecart de chromaticite du dessus au mur (`Contraste.autre`), le dessus de l'horizontale n'est plus le mur. */
 const AUTRE_AU_DESSUS_MAX = 0.5;
 /**
+ * La limite d'une ombre portee sur le mur (`Contraste.ombre`) : un troncon dont le dedans ressemble au mur au moins a cette part, le dehors
+ * de la meme chromaticite a cet ecart pres, et plus sombre que le dedans de cette part au moins (le debord des scenes 05, 25 et 26 l'assombrit
+ * a 0,8). Une moitie des troncons qui longent le mur suffit a dire la ligne une limite d'ombre.
+ */
+const OMBRE_SEMBLABLE_MIN = 0.5;
+const OMBRE_CHROMA_MAX = 0.05;
+const OMBRE_LUMIERE_MAX = 0.9;
+const OMBRE_PART_MIN = 0.5;
+/**
  * La droite qui joint les hauts des deux cotes reste l'egout tant qu'elle ne s'ecarte pas de l'horizontale du mur de plus que cet angle :
  * le point de fuite horizontal n'est sur qu'a un degre pres quand la boussole est gardee (scene 11 : 0,9 degre). Une rampe en fait 15.
  * Sans boussole ni point de fuite lu sur la photo, l'horizontale n'est pas connue (la scene 22 importee, sans capteurs : 3,7 degres) :
@@ -448,6 +457,11 @@ function noter(ctx: Contexte, G: Arete, D: Arete, Eg: Arete, Fp: Arete): Hypothe
   // Un egout lu sur les aretes (ou predit) que les deux cotes depassent, le mur au-dessus de lui : une ligne dans le mur, pas l'egout
   // (COTES_AU_DESSUS_PART). L'egout par les bouts des cotes en est dispense : il est la ou ils s'arretent.
   if (Eg.nature !== 'bouts' && kE.autre < AUTRE_AU_DESSUS_MAX && auDessus(G, hg, bg) && auDessus(D, hd, bd)) return null;
+  // Un egout lu sur les aretes ou predit qui borde, la ou il longe le mur, une bande du meme mur plus sombre au-dessus de lui : la limite
+  // de l'ombre du debord, l'egout est au-dessus d'elle. Quand le mur est partout sous l'egout, sa teinte et ses cotes l'ecartent deja
+  // (scenes 05 et 25) ; quand la partie haute est plus etroite que les parties basses (scene 26), les cotes, ciel des deux bords au-dessus
+  // des parties basses, gagnaient a un egout plus bas, et la limite de l'ombre l'emportait (25 cm sous l'egout, 2,1 % de la largeur).
+  if (Eg.nature !== 'bouts' && kE.ombre >= OMBRE_PART_MIN) return null;
   const soutien =
     (cote(cG, contraste(ctx.image, bg, hg, centre, teinte)) +
       cote(cD, contraste(ctx.image, hd, bd, centre, teinte)) +
@@ -680,6 +694,11 @@ interface Contraste {
   ecart: number;
   semblable: number;
   autre: number;
+  /**
+   * La part des troncons ou le cote borde le mur d'une ombre : dedans le mur, dehors la meme matiere (sa chromaticite) mais plus sombre.
+   * C'est la limite d'une ombre portee sur le mur (sous un debord), pas un bord du mur.
+   */
+  ombre: number;
 }
 
 /** Ecart de teinte (distance RGB des moyennes) au-dela duquel un cote separe nettement deux matieres. */
@@ -692,7 +711,7 @@ const CONTRASTE_PLEIN = 40;
  */
 function contraste(img: Image, a: P2, b: P2, centre: P2, mur: number[] | null): Contraste {
   const L = Math.hypot(b.x - a.x, b.y - a.y);
-  if (!(L > 0)) return { ecart: 0, semblable: 0, autre: 0 };
+  if (!(L > 0)) return { ecart: 0, semblable: 0, autre: 0, ombre: 0 };
   const ux = (b.x - a.x) / L,
     uy = (b.y - a.y) / L;
   // Normale vers l'interieur du quadrilatere.
@@ -713,6 +732,7 @@ function contraste(img: Image, a: P2, b: P2, centre: P2, mur: number[] | null): 
   const ecarts: number[] = [],
     semblables: number[] = [],
     autres: number[] = [];
+  let auMur = 0, ombres = 0;
   for (let t = 0; t < 4; t++) {
     const dedans = [0, 0, 0, 0],
       dehors = [0, 0, 0, 0];
@@ -732,11 +752,19 @@ function contraste(img: Image, a: P2, b: P2, centre: P2, mur: number[] | null): 
     const ecart = Math.hypot(...din.map((v, c) => v - (dehors[c] ?? 0) / nh));
     // Ressembler au mur se juge a la chromaticite : l'ombre d'un debord assombrit le mur sans changer
     // sa teinte, une bande de tuiles ou d'ardoises la change.
-    semblables.push(mur ? Math.max(0, 1 - ecartChroma(din, mur) / ECART_CHROMA_PLEIN) : 1);
-    autres.push(mur ? Math.min(1, ecartChroma([0, 1, 2].map((c) => (dehors[c] ?? 0) / nh), mur) / ECART_CHROMA_PLEIN) : 1);
+    const semblable = mur ? Math.max(0, 1 - ecartChroma(din, mur) / ECART_CHROMA_PLEIN) : 1;
+    const dout = [0, 1, 2].map((c) => (dehors[c] ?? 0) / nh);
+    semblables.push(semblable);
+    autres.push(mur ? Math.min(1, ecartChroma(dout, mur) / ECART_CHROMA_PLEIN) : 1);
+    // Le mur des deux cotes (la chromaticite du mur dehors aussi), le dehors plus sombre : la limite d'une ombre portee.
+    if (mur && semblable >= OMBRE_SEMBLABLE_MIN) {
+      auMur++;
+      const lum = (v: number[]) => (v[0] ?? 0) + (v[1] ?? 0) + (v[2] ?? 0);
+      if (ecartChroma(dout, din) < OMBRE_CHROMA_MAX && lum(dout) < OMBRE_LUMIERE_MAX * lum(din)) ombres++;
+    }
     ecarts.push(Math.min(1, ecart / CONTRASTE_PLEIN));
   }
-  return { ecart: mediane(ecarts), semblable: mediane(semblables), autre: mediane(autres) };
+  return { ecart: mediane(ecarts), semblable: mediane(semblables), autre: mediane(autres), ombre: auMur ? ombres / auMur : 0 };
 }
 
 
