@@ -616,7 +616,10 @@ chaque bout ; le relevé n'en décrivait qu'une, à un bout, et ce mur s'écriva
   la teinte du mur s'y lit alors sous le haut de chaque bout, comme ses angles (la pose juste de la scène 26
   passait de 0,19 à 1,00). Et l'égout se juge aussi sur les seules colonnes à sa hauteur (le moins bon des
   deux) : sous une partie haute plus étroite que les parties basses, un égout décalé de 60 cm passait la
-  moyenne. Un rectangle, un pignon, le mur en L de la scène 25 : au bit près comme avant.
+  moyenne. Sans bout à l'égout, chaque partie basse doit aussi s'expliquer à la sienne : la calibration sans
+  capteurs prend le garage de la scène 26 pour le mur entier (la recherche ne lit pas le gabarit), et l'É5 le
+  disait « fait » (0,81, comme sur `main`) ; il est « à confirmer » (égout 0), et le mur posé à la main est
+  « fait » (0,99). Un rectangle, un pignon, le mur en L de la scène 25 : au bit près comme avant.
 - Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais).
 
 ---

@@ -181,3 +181,20 @@ describe('la chaine sur une partie haute au milieu (scene 26)', () => {
     expect(ouv.filter((o) => o.x + o.l / 2 < 3 || o.x + o.l / 2 > 8.6).every((o) => o.y + o.h <= 2.9 + 0.1)).toBe(true);
   }, 120_000);
 });
+
+// La calibration, sans GPS ni boussole (des photos importees) : la recherche du mur ne lit pas le gabarit, et prend le garage pour le mur
+// entier. L'E5, qui le lit, ne le dit pas fait : chaque partie basse doit s'expliquer a son egout (sur main : « faite », 0,81).
+describe('la calibration sans capteurs sur une partie haute au milieu (scene 26)', () => {
+  it('ne dit pas « faite » la pose du garage seul', async () => {
+    const s = chargerCorpus().find((c) => c.nom.startsWith('26-'))!;
+    const p = s.synthese.prise as PriseCamera, L = s.verite.largeur, H = s.verite.hauteur;
+    const ph = photographier(s, 100, p)!;
+    const facade = { cote: 0, gauche: { x: 0, y: 0 }, droite: { x: L, y: 0 }, largeur: L, hauteur: H, normale: { x: 0, y: -1 }, azimut: 180, orientation: 'Sud' };
+    const prises = prisesDeLaFacade({ facade, contour: CONTOUR, photos: [{ rang: 0, image: ph.image, prise: null }], corrections: {}, jpeg: () => '' });
+    const r = await derouler({ largeurM: L, hauteurM: H, gabarit: gabaritVrai(s), prises }, { vue: 'audit', chercherCoins: async (e) => rechercher(e) });
+    const e5 = r.etapes.find((e) => e.id === 'calage');
+    const ex = r.sorties.calage?.explication;
+    expect(e5?.etat).not.toBe('ok');
+    expect(ex?.egout).toBeLessThan(0.4);
+  }, 120_000);
+});

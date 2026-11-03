@@ -13,7 +13,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   y descend. La surface du mur retire chacune, la Vue 3D pose la photo sur le mur à deux marches et coupe le bâtiment en trois volumes
   (sans les corps du toit), les baies dans le vide au-dessus d'elles ne sont pas posées, et l'éditeur de la façade corrige chacune
   (décrochement, égout bas). L'étape É5 lit la teinte du mur sous le haut de chaque bout quand aucun ne monte à l'égout, et juge
-  l'égout aussi sur la seule partie haute : une pose juste est « faite », un égout décalé de 5 % est refusé. **Schéma 13** : seul un
+  l'égout aussi sur la seule partie haute (et, sans bout à l'égout, sur chaque partie basse) : une pose juste est « faite », un égout
+  décalé de 5 % est refusé, et le garage pris pour le mur entier par la calibration sans capteurs n'est plus dit « fait » mais « à
+  confirmer ». **Schéma 13** : seul un
   fichier qui porte un mur à plusieurs parties basses s'y écrit ; un mur en L s'écrit comme avant (`partieBasse`), et un fichier
   d'avant s'ouvre avec les mêmes nombres (migration 12 → 13 identité). La plateforme doit accepter le schéma 13
   (bertrandra/backprod, `project_schema_versions`) et être déployée **avant** une livraison de Plan qui l'écrit. Banc des façades :

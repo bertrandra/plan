@@ -210,7 +210,7 @@ export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: nu
   // Avec le gabarit : la silhouette posee par la pose (son egout et son sol) explique le haut de la matiere, colonne par colonne, d'un
   // bout de la silhouette a l'autre ; un egout pose trop bas laisse du mur au-dessus d'elle, un egout trop haut du ciel sous elle. Un
   // rectangle n'est que l'egout, d'un angle a l'autre.
-  const egout = g ? egoutParLaSilhouette(g, r, (xa, ya0, xb, yb0) => part(xa, ya0, xb, yb0), BANDE_SILHOUETTE[0], BANDE_SILHOUETTE[1]) : Math.max(egoutMatiere, couvertureArete(segs, false, r.y0, r.x0, r.x1, PROCHE_ARETE * w));
+  const egout = g ? egoutParLaSilhouette(g, r, (xa, ya0, xb, yb0) => part(xa, ya0, xb, yb0), BANDE_SILHOUETTE[0], BANDE_SILHOUETTE[1], basAuxDeuxBouts) : Math.max(egoutMatiere, couvertureArete(segs, false, r.y0, r.x0, r.x1, PROCHE_ARETE * w));
   const solMatiere = borne((part(r.x0 + 0.05 * w, r.y1 - c1 * w, r.x1 - 0.05 * w, r.y1 - c0 * w) ?? 0) - (part(r.x0 + 0.05 * w, r.y1 + c0 * w, r.x1 - 0.05 * w, r.y1 + c1 * w) ?? 0));
   const sol = Math.max(solMatiere, couvertureArete(segs, false, r.y1, r.x0, r.x1, PROCHE_ARETE * w));
   const ecart = rapport && rapport > 0 ? Math.abs(h / w / rapport - 1) : 0;
@@ -228,11 +228,13 @@ export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: nu
  * matiere du mur sous le haut pose, et pas au-dessus (des bandes de `c0` a `c1` de la largeur du mur), de 0 a 1 en moyenne. `part` : la
  * part de mur d'un rectangle de l'image (null : rien de vu ; au-dessus de l'image, rien de vu ne compte pas pour du mur).
  */
-function egoutParLaSilhouette(g: GabaritMur, r: Rect, part: (x0: number, y0: number, x1: number, y1: number) => number | null, c0: number, c1: number): number {
+function egoutParLaSilhouette(g: GabaritMur, r: Rect, part: (x0: number, y0: number, x1: number, y1: number) => number | null, c0: number, c1: number, basAuxDeuxBouts = false): number {
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
   const u0 = Math.min(0, (g[0] as { u: number }).u) + BOUT_SILHOUETTE, u1 = Math.max(1, (g[g.length - 1] as { u: number }).u) - BOUT_SILHOUETTE;
   const pasU = (u1 - u0) / COLONNES_SILHOUETTE;
-  let somme = 0, n = 0, sommeHaut = 0, nHaut = 0;
+  let somme = 0, n = 0;
+  // Les paliers de la silhouette : les suites de colonnes a l'egout (ou au-dessus, un pignon) et celles sous lui (une partie basse).
+  const paliers: { haut: boolean; somme: number; n: number }[] = [];
   for (let k = 0; k < COLONNES_SILHOUETTE; k++) {
     const u = u0 + (k + 0.5) * pasU, x = r.x0 + u * w, y = r.y1 - hauteurDuGabarit(g, u) * h;
     const xa = x - (pasU * w) / 2, xb = x + (pasU * w) / 2;
@@ -241,14 +243,20 @@ function egoutParLaSilhouette(g: GabaritMur, r: Rect, part: (x0: number, y0: num
     const v = borne(dessous - (part(xa, y - c1 * w, xb, y - c0 * w) ?? 0));
     somme += v;
     n++;
-    if (hauteurDuGabarit(g, u) >= 1 - 1e-9) { sommeHaut += v; nHaut++; }
+    const haut = hauteurDuGabarit(g, u) >= 1 - 1e-9, dernier = paliers[paliers.length - 1];
+    if (dernier && dernier.haut === haut) { dernier.somme += v; dernier.n++; } else paliers.push({ haut, somme: v, n: 1 });
   }
   if (!n) return 0;
   // L'egout du mur doit s'expliquer la ou il est : sous une partie haute plus etroite que les parties basses (une partie basse a chaque
-  // bout, scene 26), la moyenne de toutes les colonnes passait un egout pose 60 cm trop haut ou trop bas, les parties basses suivant la
-  // pose en proportion. L'egout se juge aussi sur les seules colonnes a sa hauteur, et le moins bon des deux compte. Un rectangle, un
-  // pignon (toutes leurs colonnes sont a l'egout ou au-dessus) : la moyenne, comme avant.
-  return nHaut && nHaut < n ? Math.min(somme / n, sommeHaut / nHaut) : somme / n;
+  // bout, scene 26), la moyenne de toutes les colonnes passait un egout pose 60 cm trop haut ou trop bas (les parties basses suivent la
+  // pose en proportion). L'egout se juge aussi sur les seules colonnes a sa hauteur, et le moins bon des deux compte. Quand aucun bout ne
+  // monte a l'egout (`basAuxDeuxBouts`), chaque partie basse doit aussi s'expliquer a son egout : le garage pris pour le mur entier (la
+  // calibration, sans capteurs) a un haut qui explique la partie haute, mais ses parties basses tombent dans le mur (0,41 en moyenne,
+  // 0 palier par palier). Un rectangle, un pignon (un seul palier) : la moyenne, comme avant ; le mur en L (scene 25), comme le
+  // 2 novembre 2026, au bit pres.
+  if (paliers.length < 2) return somme / n;
+  const hauts = paliers.filter((q) => q.haut), haut = hauts.reduce((a, q) => a + q.somme, 0) / Math.max(1, hauts.reduce((a, q) => a + q.n, 0));
+  return basAuxDeuxBouts ? Math.min(somme / n, ...paliers.map((q) => q.somme / q.n)) : hauts.length ? Math.min(somme / n, haut) : somme / n;
 }
 
 /**
