@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.6.0] — 2026-11-03
+
+Version **mineure** au sens de `MD/RELEASE.md` : un mur peut porter plusieurs parties basses, au bout comme au milieu (#543, #546) ;
+le calage fin ne prend plus l'ombre du débord pour l'égout (#547) ; la revue des étapes É1 à É11 des façades (#544, #548 à #554) donne
+« Confirmer le mur » (V1), le doute du mur qui se transmet, Ctrl+Z et Ctrl+Y sur les gestes de la façade avant V4, les ouvertures
+relues avant V4 (V3), la lecture de Claude par l'enchaînement de l'audit, « Revenir au mur cherché » et la fin du faux désaccord de
+Claude à l'É5. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version
+(la date de build reste celle de la 5.5.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les
+quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. **Schéma 13** (migration 12 → 13 identité), accepté
+par la plateforme (bertrandra/backprod#252, migration `Version20261103090000`) : appliquer backprod puis `setup.php` en production
+**avant** de déposer cette livraison de Plan. Fumée complète (Fumée de la nuit, run 41711980343) ; requêtes vérifiées contre l'API Claude
+avec la mesure des façades et les dix demandes de l'assistant (run 41707163657 : 9 sur 9, garde-fou de la lecture vert après sa relance
+unique, totaux jugés sur le corpus de référence et scènes 24 à 26 contre leur propre plancher, #556 ; dix listes justes sur dix, 0,60 $
+relance comprise).
+
 ### Ajouté
 
 - Façades (calibration) : « Revenir au mur cherché ». Un mur posé à la main sur une photo (et sur les photos de son assemblage)
