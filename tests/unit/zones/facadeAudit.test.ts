@@ -40,7 +40,7 @@ const RUN: RunEnregistre = { le: '2026-10-29T08:30:00.000Z', modele: 'claude-hai
 function session(etapes: Etape[], ouverte: { facade: string; etape: IdEtape } | null = null, runs: Record<string, RunEnregistre> | null = null, plus: Partial<MesureFacade> = {}, validee: ReleveFacade | null = null) {
   const mesure = { cle: 'maison', cote: 0, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.8, hauteurM: 6, couleur: null, etapes, ...plus } as MesureFacade;
   const s = {
-    validation: { mesuresFaites: () => new Map([['maison#0', mesure]]), etapeEnCours: () => null, rejouerFacade: vi.fn(async () => 1), arreterMesure: vi.fn(), facadeValidee: () => validee, entrees: () => ({ objets: [] }) },
+    validation: { mesuresFaites: () => new Map([['maison#0', mesure]]), etapeEnCours: () => null, rejouerFacade: vi.fn(async () => 1), relireOuvertures: vi.fn(async () => true), arreterMesure: vi.fn(), facadeValidee: () => validee, entrees: () => ({ objets: [] }) },
     capture: { lire: () => ({ batiments: { maison: { facades: { '0': { photos: [{ type: 'image/jpeg', base64: 'QQ==' }, { type: 'image/jpeg', base64: 'Qg==' }] } } } } }), corrigerRedressement: vi.fn() },
     etapeOuverte: () => ouverte,
     analyse: { runs: () => runs, prixEscalade: () => ({ modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } }) },
@@ -178,6 +178,28 @@ describe('« Confirmer le mur » (V1) et le doute herite du mur (decisions du pr
     monter(session(etapes));
     expect(lignes()[0]).toBe('confirmé par vous É5 Mur confirmé : Mur confirmé par vous le 3 novembre 2026. Coins du mur trouvés sur la photo.Retirer la confirmation du mur');
     expect(hote.querySelector('.barreFacade [data-etape="calage"]')?.getAttribute('aria-label')).toMatch(/^É5 Mur, confirmé par vous, point de validation V1/);
+  });
+});
+
+describe('V3 : « Relire les ouvertures » avant V4 (decision du proprietaire, 3 novembre 2026)', () => {
+  const RELEVE = { cote: 0, largeur: 10, hauteur: 6, texture: null, ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1.2, h: 1.4 }, { type: 'fenetre', x: 6, y: 1, l: 1.2, h: 1.4 }],
+    distance: null, sourceDistance: null, releveLe: '2026-11-03T10:00:00.000Z' } as unknown as ReleveFacade;
+  const doute = OK.map((e): Etape => (e.id === 'ouvertures' ? { ...e, etat: 'a-confirmer', resume: '2 ouvertures trouvées, aucune devinée. Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.' } : e));
+  // jsdom n'a pas la geometrie du SVG : l'elevation n'en a pas besoin ici (aucun geste au doigt).
+  beforeEach(() => {
+    (globalThis as { ResizeObserver?: unknown }).ResizeObserver = class { observe() {} disconnect() {} };
+    (SVGElement.prototype as unknown as { getScreenCTM: () => null }).getScreenCTM = () => null;
+  });
+  it('la ligne des ouvertures ouvre leur relecture ; « Garder ces ouvertures » passe par la session, avec celles qui restent', async () => {
+    const s = session(doute, null, null, { releve: RELEVE });
+    monter(s);
+    const relire = hote.querySelector<HTMLButtonElement>('[data-controle="auditParcelle.relireOuvertures"]');
+    expect(relire?.textContent).toBe('Relire les ouvertures');
+    act(() => relire?.click());
+    expect(hote.querySelector('.relireOuvertures')).not.toBeNull();
+    await act(async () => { hote.querySelector<HTMLButtonElement>('[data-controle="facade.garderOuvertures"]')?.click(); });
+    expect(s.validation.relireOuvertures).toHaveBeenCalledWith('maison', 0, RELEVE.ouvertures);
+    expect(hote.querySelector('.relireOuvertures')).toBeNull();
   });
 });
 

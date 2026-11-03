@@ -20,7 +20,7 @@ import { origineActuelle, type Origine } from '../../../model/protections.js';
 import { observationsDuRun, surfaceDeLIa } from '../../../facade/regles/facades/ia.js';
 import { appendicesDeLIa, modenatureDeLIa } from '../../../facade/regles/facades/modenature.js';
 import { etatDeLIa } from '../../../facade/regles/facades/etat.js';
-import type { AccordFacadeCapture, MurConfirme } from '../../../model/auditParcelle.js';
+import { sontRelues, type AccordFacadeCapture, type MurConfirme, type OuverturesRelues } from '../../../model/auditParcelle.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { DimensionsFacade, ObjetPlan, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
@@ -98,14 +98,15 @@ function poseDOffice(o: ObjetPlan, m: MesureFacade): ReleveFacade | null {
  * mesure), ses dimensions, sa forme, son parement, la pose de sa texture, ses ouvertures numerotees et verifiees. Null sans bilan (une
  * mesure relue d'un fichier d'audit : « Rejouer la façade » le refait).
  */
-export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accord: AccordFacadeCapture | null = null, run: RunEnregistre | null = null, murConfirme: MurConfirme | null = null): ReleveFacade | null {
+export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accord: AccordFacadeCapture | null = null, run: RunEnregistre | null = null, murConfirme: MurConfirme | null = null, relues: OuverturesRelues | null = null): ReleveFacade | null {
   const bilan = m.facade;
   if (!bilan || !m.releve) return null;
   const existant = o.batiment?.facades?.find((x) => x.cote === m.cote);
   const base = poseDOffice(o, m) ?? m.releve;
   // Les ouvertures que la personne avait deja verifiees restent ; les autres sont celles du releve, avec leurs carreaux, sauf celles
   // qui vont sur la facade d'un mur voisin (facadesVoisinesAEcrire).
-  const lues = avecLesDetailsLus(base.ouvertures, accord);
+  // Les ouvertures que la personne a relues (V3), tant qu'elles valent pour cette detection : ce que la barre a montre et ce qui s'ecrit.
+  const lues = relues && m.releve && sontRelues(relues, m.releve.ouvertures) ? relues.ouvertures.map((x) => ({ ...x })) : avecLesDetailsLus(base.ouvertures, accord);
   const surLeMur = partageDeLaMesure(o, m.cote, base.largeur, lues)?.surLeMur ?? lues;
   const ouvertures = numeroterOuvertures(ouverturesHorsDesLucarnes(fusionnerOuvertures(existant?.ouvertures ?? [], surLeMur), lucarnesDuMur(o, m.cote)), existant?.ouvertures ?? [])
     .map((x) => (x.verifieeLe ? x : { ...x, verifieeLe: jour }));

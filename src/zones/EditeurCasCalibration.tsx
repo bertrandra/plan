@@ -21,7 +21,7 @@ import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
 import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
-import { murAConfirmer } from '../model/auditParcelle.js';
+import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
 import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
@@ -33,7 +33,7 @@ import { passesDeProduction } from '../facade/regles/facades/ia.js';
 import { texteRunFacade, type RunEnregistre } from '../regles/facades/observations.js';
 import { enteteDuRun } from '../facade/releve/enchainement.js';
 import type { Photo } from '../ui/releve/camera.js';
-import type { TypeOuverture } from '../model/types.js';
+import type { OuvertureFacade, TypeOuverture } from '../model/types.js';
 
 /** Ce que l'editeur demande au navigateur : decoder une photo, montrer une elevation ; et l'ecran, ses commandes. */
 export interface OutilsPhotos {
@@ -293,6 +293,12 @@ function BoutonsGestes({ commandes, occupe }: { commandes: NonNullable<OutilsPho
   return <>{bouton(COMMANDE_ANNULER_GESTE, 'Annuler le geste')}{bouton(COMMANDE_RETABLIR_GESTE, 'Rétablir')}</>;
 }
 
+/** V3 : le cas avec la relecture de ses ouvertures (une entree, comme dans l'audit ; un geste que Ctrl+Z defait), sur le releve du rejeu. */
+function casRelu(cas: CasStocke, rejeu: Enchainement | null, gardees: readonly OuvertureFacade[]): CasStocke | null {
+  const r = rejeu?.sorties.audit?.mesure?.releve;
+  return r ? { ...cas, ouverturesRelues: relecture(r.ouvertures, gardees, new Date().toISOString()) } : null;
+}
+
 /**
  * Le cas apres « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme (une entree, comme dans l'audit) ; deja confirme, le
  * meme geste retire la confirmation. Un texte quand il n'y a rien a confirmer.
@@ -379,10 +385,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       setCas(suite); setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
       const calees = r.sorties.calage?.photos;
       if (calees) setOrigines(Object.fromEntries(calees.flatMap((p, k) => (p.origine ? [[k, p.origine]] : []))));
-      const a = r.sorties.analyse;
-      if (!a) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».');
-      // Un cas sans annotation part de la detection (a relire) ; une annotation deja faite n'est jamais ecrasee.
-      else modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) }));
+      // La verite du cas ne se remplit plus de la detection (decision du proprietaire, 3 novembre 2026) : l'E9 se comparerait a sa propre
+      // sortie et dirait « objectifs atteints ». « Partir de la détection », plus bas, le fait d'un geste.
+      if (!r.sorties.analyse) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».');
     } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
@@ -435,6 +440,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const prixEscalade = useEscalade(outils, escalader);
   // « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme et garde dans le cas (une entree, comme dans l'audit), puis le
   // cas se rejoue depuis l'E5 ; deja confirme, le meme geste retire la confirmation.
+  const relire = (gardees: OuvertureFacade[]) => { const suite = casRelu(cas, rejeu, gardees); if (suite) { geste(); setCas(suite); void rejouer(suite, 'ouvertures'); } };
   useConfirmerMur(outils, async () => {
     const suite = casConfirme(cas, rejeu);
     if (typeof suite === 'string') { setMessage(suite); return; }
@@ -488,7 +494,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
         escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />
       {rejeu && <FriseEtapes rejeu={rejeu} images={images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />}
-      {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} commandes={outils.commandes ?? null} />}
+      {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} relire={relire} commandes={outils.commandes ?? null} />}
 
       {elevation && <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} />}
 

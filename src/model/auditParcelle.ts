@@ -112,12 +112,45 @@ export function murAConfirmer(retenus: readonly { rang: number; coins: readonly 
   return coins.length ? { le, coins } : null;
 }
 
+/**
+ * Les ouvertures relues par la personne au point V3 (« Relire les ouvertures », decision du proprietaire du 3 novembre 2026) : celles
+ * que la detection avait trouvees (`detectees`, en metres, ce qu'elle a montre), celles que la personne a gardees, corrigees ou
+ * ajoutees (`ouvertures`), et le jour. Tant que la detection rend les memes ouvertures, l'E9 est faite et V4 ecrit celles de la
+ * personne ; une autre detection (une photo, un mur change) les remet a relire.
+ */
+export interface OuverturesRelues {
+  le: string;
+  detectees: { type: OuvertureFacade['type']; x: number; y: number; l: number; h: number }[];
+  ouvertures: OuvertureFacade[];
+}
+
+/** Les ouvertures d'une detection au centimetre, de gauche a droite : ce qui dit qu'une detection est la meme. */
+export function empreinteOuvertures(l: readonly Pick<OuvertureFacade, 'type' | 'x' | 'y' | 'l' | 'h'>[]): string {
+  const cm = (v: number) => Math.round(v * 100);
+  return l.map((o) => [o.type, cm(o.x), cm(o.y), cm(o.l), cm(o.h)].join(':')).sort().join('|');
+}
+
+/** Les ouvertures relues valent-elles pour cette detection (la meme, au centimetre) ? */
+export function sontRelues(r: OuverturesRelues, detectees: readonly Pick<OuvertureFacade, 'type' | 'x' | 'y' | 'l' | 'h'>[]): boolean {
+  return empreinteOuvertures(r.detectees) === empreinteOuvertures(detectees);
+}
+
+/** La relecture d'une detection (V3) : ce qu'elle montrait, ce que la personne garde, ce jour. La meme forme dans l'audit et un cas. */
+export function relecture(detectees: readonly OuvertureFacade[], gardees: readonly OuvertureFacade[], le: string): OuverturesRelues {
+  return { le, detectees: detecteesDe(detectees), ouvertures: gardees.map((o) => ({ ...o })) };
+}
+
+/** Ce qu'il faut garder d'une detection pour la reconnaitre : sa nature et ses cotes. */
+export const detecteesDe = (l: readonly OuvertureFacade[]): OuverturesRelues['detectees'] => l.map(({ type, x, y, l: lo, h }) => ({ type, x, y, l: lo, h }));
+
 export interface FacadeCapturee<P = PhotoCas> {
   photos: P[];
   /** Les corrections manuelles du redressement, par rang de photo dans `photos` (le rang en texte). */
   corrections?: Record<string, CorrectionRedressement>;
   /** Le mur confirme au point V1 (MurConfirme) ; absent : rien de confirme. */
   murConfirme?: MurConfirme;
+  /** Les ouvertures relues au point V3 (OuverturesRelues) ; absentes : pas encore relues. */
+  ouverturesRelues?: OuverturesRelues;
   /**
    * Marquee a la main : `true` inaccessible (cote voisin, cachee), `false` accessible malgre ce que
    * la liste supposait (le mur d'un mitoyen vu depuis le jardin). Absente : ce que la liste suppose.

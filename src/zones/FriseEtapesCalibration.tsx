@@ -3,6 +3,9 @@
 // de l'orchestrateur (facade/releve/enchainement.ts) et de ses images (facade/releve/imagesEtapes.ts) : l'ecran ne calcule rien, il
 // change les images en adresses et dessine.
 
+import { RelireOuvertures } from './releve/RelireOuvertures.js';
+import { sontRelues } from '../model/auditParcelle.js';
+import type { OuvertureFacade } from '../model/types.js';
 import { useCallback, useState } from 'react';
 import { etapeFacade, LIBELLES_ETAT, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
 import { etapeDe, reperesDe, type Enchainement } from '../facade/releve/enchainement.js';
@@ -157,6 +160,8 @@ interface PropsEtape {
   occupe: boolean;
   rejouerDepuis: (id: IdEtape) => void;
   caler: (coins: P2[]) => void;
+  /** V3 : les ouvertures que la personne garde de la detection, ecrites comme sa relecture du cas (le meme geste que dans l'audit). */
+  relire?: (gardees: OuvertureFacade[]) => void;
   /** Le registre de l'ecran : « Confirmer le mur » (V1) passe par la commande `facade.confirmerMur`, comme dans l'audit. */
   commandes?: Pick<RegistreCommandes, 'etat' | 'executer' | 'effacee'> | null;
 }
@@ -171,6 +176,21 @@ function ConfirmerLeMur({ commandes, etat }: { commandes: Pick<RegistreCommandes
   const e = commandes.etat(COMMANDE_CONFIRMER_MUR);
   return <div className="calLigne"><button type="button" className={etat === 'confirme' ? 'secondary small' : 'small'} data-commande={COMMANDE_CONFIRMER_MUR} disabled={!e.utilisable} title={'message' in e ? e.message : undefined}
     onClick={(ev) => commandes.executer(COMMANDE_CONFIRMER_MUR, ev.currentTarget)}>{etat === 'confirme' ? 'Retirer la confirmation du mur' : 'Confirmer le mur'}</button></div>;
+}
+
+/**
+ * V3 dans la calibration (decision du proprietaire, 3 novembre 2026) : le meme regard que dans l'audit, sur le releve que le rejeu a fait
+ * (RelireOuvertures) ; « Garder ces ouvertures » l'ecrit comme la relecture du cas. Ce n'est pas la verite du cas (son annotation, plus
+ * bas) : « J'ai relu les ouvertures » ne vaut pas regard.
+ */
+function RelectureDuCas({ rejeu, cas, relire }: { rejeu: Enchainement; cas: CasStocke; relire: (gardees: OuvertureFacade[]) => void }) {
+  const [ouvert, setOuvert] = useState(false);
+  const r = rejeu.sorties.audit?.mesure?.releve;
+  if (!r) return null;
+  const relues = cas.ouverturesRelues && sontRelues(cas.ouverturesRelues, r.ouvertures) ? cas.ouverturesRelues.ouvertures : undefined;
+  return ouvert
+    ? <RelireOuvertures key={r.releveLe} releve={r} depart={relues} aujourdhui={new Date().toISOString().slice(0, 10)} garder={(o) => { setOuvert(false); relire(o); }} annuler={() => setOuvert(false)} />
+    : <div className="calLigne"><button type="button" className={relues ? 'secondary small' : 'small'} data-controle="calibration.relireOuvertures" onClick={() => setOuvert(true)}>Relire les ouvertures</button></div>;
 }
 
 /** Les calques d'une etape : ce que l'automatique a vu, ce qui a ete retenu. */
@@ -278,6 +298,7 @@ export function EtapeOuverte(p: PropsEtape) {
         {def.optionManuelle && <><dt>À la main</dt><dd>{def.optionManuelle}</dd></>}
         <dt>Dans l’audit</dt><dd>{MOTS_MODE[def.modeAudit]}{def.validation ? ' (' + def.validation + ')' : ''}</dd>
       </dl>
+      {p.id === 'ouvertures' && p.relire && <RelectureDuCas rejeu={p.rejeu} cas={p.cas} relire={p.relire} />}
       <div className="calLigne">
         <button type="button" className="secondary" data-controle="calibration.rejouerDepuis" disabled={p.occupe} onClick={() => p.rejouerDepuis(p.id)}>Rejouer depuis cette étape</button>
       </div>

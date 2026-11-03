@@ -282,7 +282,12 @@ posés sur les coins que la chaîne avait retenus (« 24-voisin, repères = coin
 « Confirmer le mur » (V1, commande `facade.confirmerMur`, audit et calibration) écrit le mur retenu comme une entrée (`MurConfirme`) :
 l'É5 est alors `confirme` (« confirmé par vous »), le doute hérité tombe, la note de la silhouette reste. Les gestes de la façade
 avant V4 (repères, mur tiré, échelle, confirmation) se défont par Ctrl+Z et se refont par Ctrl+Y, dans l'audit (`capture.ts::geste`)
-comme dans la calibration, sans toucher au projet (`app/clavierGestes.ts`). Les bancs ne confirment rien :
+comme dans la calibration, sans toucher au projet (`app/clavierGestes.ts`).
+
+**V3 et l'É9** (décision 2 du propriétaire, 3 novembre 2026) : les ouvertures trouvées se relisent toujours avant V4 (« Relire les
+ouvertures », `RelireOuvertures.tsx`, audit et calibration) ; l'É9 n'est faite qu'après ce regard, tant que la détection est la même
+(`OuverturesRelues`, entrée de `prisesDeLaFacade`), et V4 écrit les ouvertures gardées. La vérité d'un cas ne se remplit plus de la
+détection. Les bancs ne relisent rien : l'état de l'É9 n'y entre pas. Les bancs ne confirment rien :
 `banc.ts`, `egout-sol.ts` et `calage-e5.ts` ne lisent pas les étapes qui en héritent (seul l'état de l'É5 compte dans `calage-e5.ts`).
 
 **L'É5 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :

@@ -14,6 +14,8 @@ import { BarreProgressionFacade, COMMANDE_CONFIRMER_MUR, COMMANDE_ESCALADE, COMM
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { enAdmin } from '../../app/acces.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
+import { RelireOuvertures } from '../releve/RelireOuvertures.js';
+import { sontRelues } from '../../model/auditParcelle.js';
 import { type MurAjuste } from '../releve/AjusterMur.js';
 import { auDixiemeDePixel, coinsParDefaut } from '../releve/commun.js';
 import { lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
@@ -133,10 +135,12 @@ interface Props {
  * Une ligne du mode discret : l'etape, ce qu'elle a donne, et son geste de repli ; sur une photo, un bouton par photo. L'etape ouverte
  * depuis la barre (`ouverte`) : la barre dit deja son resultat, la ligne n'en garde que le geste.
  */
-function Ligne({ l, rangs, nom, placer, gestes, commandes, ouverte = false }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; commandes: RegistreCommandes; ouverte?: boolean }) {
+function Ligne({ l, rangs, nom, placer, gestes, commandes, relire, ouverte = false }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; commandes: RegistreCommandes; relire?: (() => void) | undefined; ouverte?: boolean }) {
   // V1 : le mur que la chaine a pose se confirme ici (« Confirmer le mur »), et le meme geste retire la confirmation.
   const confirmer = gestes && l.id === 'calage' && (l.etat === 'a-confirmer' || l.etat === 'confirme');
-  if (ouverte && !l.option && !confirmer) return null;
+  // V3 : les ouvertures trouvees se relisent toujours avant V4 (decision du proprietaire, 3 novembre 2026).
+  const relireIci = gestes && l.id === 'ouvertures' && !!relire;
+  if (ouverte && !l.option && !confirmer && !relireIci) return null;
   return (
     <li className={'ligneEtapeAudit ' + l.etat + (ouverte ? ' ouverte' : '')}>
       {!ouverte && <><span className="etatEtapeAudit">{LIBELLES_ETAT[l.etat]}</span> {l.texte}</>}
@@ -144,9 +148,21 @@ function Ligne({ l, rangs, nom, placer, gestes, commandes, ouverte = false }: { 
       {gestes && l.surLaPhoto && rangs.length > 0 && <span className="actionsAudit">
         {rangs.map((r) => <button key={r} type="button" className={l.etat === 'echec' ? 'small' : 'secondary small'} data-controle="auditParcelle.placerCoins" aria-label={'Placer quatre repères sur la photo ' + (r + 1) + ' : ' + nom} onClick={() => placer(r)}>{rangs.length > 1 ? 'Repères, photo ' + (r + 1) : 'Placer 4 repères'}</button>)}
       </span>}
-      {confirmer && <span className="actionsAudit"><BoutonCommande commandes={commandes} id={COMMANDE_CONFIRMER_MUR} className={l.etat === 'confirme' ? 'secondary small' : 'small'}>{l.etat === 'confirme' ? 'Retirer la confirmation du mur' : 'Confirmer le mur'}</BoutonCommande></span>}
+      {relireIci && <span className="actionsAudit"><button type="button" className={l.etat === 'ok' ? 'secondary small' : 'small'} data-controle="auditParcelle.relireOuvertures" aria-label={'Relire les ouvertures : ' + nom} onClick={relire}>Relire les ouvertures</button></span>}
+      {confirmer && <span className="actionsAudit"><BoutonDeLaFacade commandes={commandes} id={COMMANDE_CONFIRMER_MUR} className={l.etat === 'confirme' ? 'secondary small' : 'small'}>{l.etat === 'confirme' ? 'Retirer la confirmation du mur' : 'Confirmer le mur'}</BoutonDeLaFacade></span>}
     </li>
   );
+}
+
+/**
+ * Un bouton lie a une commande de la facade dont l'etat suit la capture de l'audit (les gestes, la confirmation du mur), pas le magasin :
+ * il se lit a chaque rendu de la facade, comme « Valider la façade ». BoutonCommande, abonne au magasin, garderait la cle d'avant le geste
+ * (la fumee le relevait : « son affichage a change sans que sa cle change »).
+ */
+function BoutonDeLaFacade({ commandes, id, className, children }: { commandes: RegistreCommandes; id: string; className: string; children: string }) {
+  if (commandes.effacee(id)) return null;
+  const etat = commandes.etat(id);
+  return <button type="button" className={className} data-commande={id} disabled={!etat.utilisable} title={'message' in etat ? etat.message : undefined} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>{children}</button>;
 }
 
 /** Le point V4 : la Facade a valider (son bilan, l'E11), et le bouton qui l'ecrit dans le projet. */
@@ -180,6 +196,7 @@ function LectureClaude({ run, prix, commandes, nom, lignes }: { run: RunEnregist
 export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, gestes = true }: Props) {
   const [enCours, setEnCours] = useState(false);
   const [rangReperes, setRangReperes] = useState<number | null>(null);
+  const [relecture, setRelecture] = useState(false);
   const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
   const saisie = session.capture.lire().batiments[cle]?.facades[String(cote)];
   // Validee (V4), la Facade de cette mesure est dans le projet : l'E11 de la barre est faite.
@@ -216,6 +233,9 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
     rejouer();
   };
   const rangs = (saisie?.photos ?? []).map((_, i) => i);
+  // V3 : la relecture deja faite (tant que la detection est la meme) est le depart de la suivante ; sinon les ouvertures trouvees.
+  const reluesValides = saisie?.ouverturesRelues && mesure?.releve && sontRelues(saisie.ouverturesRelues, mesure.releve.ouvertures) ? saisie.ouverturesRelues.ouvertures : undefined;
+  const relirePossible = mesure?.releve && !tourne ? () => setRelecture(true) : undefined;
   const lignes = lignesDiscretes(etapes).filter((l) => l.id !== ouverte);
   const premiere = ouverte ? ligneOuverte(etapes, ouverte) : null;
   const photo = rangReperes !== null ? saisie?.photos[rangReperes] : undefined;
@@ -228,9 +248,11 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
       {!mesure && !tourne && <p className="detailPhoto">Pas encore calculée : la façade se calcule après la photo, ou avec « Rejouer la façade ».</p>}
       {mesure && !etapes.length && <p className="detailPhoto">Mesure reprise d’un fichier d’audit : « Rejouer la façade » recalcule ses étapes.</p>}
       {(premiere || lignes.length > 0) && <ul className="etapesAudit" aria-label={'Étapes à voir : ' + nom}>
-        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} ouverte />}
-        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} />)}
+        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} ouverte />}
+        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} />)}
       </ul>}
+      {gestes && relecture && mesure?.releve && <RelireOuvertures key={mesure.releve.releveLe} releve={mesure.releve} depart={reluesValides} aujourdhui={new Date().toISOString().slice(0, 10)}
+        garder={(o) => { setRelecture(false); setEnCours(true); void session.validation.relireOuvertures(cle, cote, o).finally(() => setEnCours(false)); }} annuler={() => setRelecture(false)} />}
       {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
         depart={correction?.reperes ?? correction?.coins ?? coinsPx} mur={correction?.coins ?? coinsPx} gabarit={mesure?.gabarit}
         assemblage={mesure?.assemblage} echelleDepart={correction?.echelleLargeurM}
@@ -240,8 +262,8 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
       {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}
       {gestes && enAdmin() && rangs.length > 0 && <BoutonCommande commandes={commandes} id="facade.creerCas" className="secondary small">Créer un cas depuis cette façade</BoutonCommande>}
       {gestes && <span className="actionsAudit" role="group" aria-label={'Gestes sur la façade : ' + nom}>
-        <BoutonCommande commandes={commandes} id={COMMANDE_ANNULER_GESTE} className="secondary small">Annuler le geste</BoutonCommande>
-        <BoutonCommande commandes={commandes} id={COMMANDE_RETABLIR_GESTE} className="secondary small">Rétablir</BoutonCommande>
+        <BoutonDeLaFacade commandes={commandes} id={COMMANDE_ANNULER_GESTE} className="secondary small">Annuler le geste</BoutonDeLaFacade>
+        <BoutonDeLaFacade commandes={commandes} id={COMMANDE_RETABLIR_GESTE} className="secondary small">Rétablir</BoutonDeLaFacade>
       </span>}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
     </div>

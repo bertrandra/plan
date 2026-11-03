@@ -20,6 +20,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration), point V3 : les ouvertures trouvées se relisent toujours avant de valider la façade. « Relire les
+  ouvertures » ouvre l'éditeur du mur sur ce que la détection a trouvé : gardez, corrigez, ajoutez, retirez, puis « Garder ces
+  ouvertures ». L'étape É9 n'est faite qu'après ce regard, tant que la détection rend les mêmes ouvertures ; la validation (V4) écrit
+  celles que vous avez gardées. Ctrl+Z défait la relecture avant V4. En calibration, la vérité d'un cas ne se remplit plus de la
+  détection d'elle-même (« Partir de la détection » le fait d'un geste) : l'É9 ne se compare plus à sa propre sortie. Aucune quantité
+  ni aucun export ne change.
 - Façades (audit et calibration) : le doute du mur se transmet. Tant que l'étape É5 est à confirmer, les étapes qui lisent le mur
   (silhouette, forme, texture, ouvertures, toit, bilan) et qui atteignent leur objectif sont à confirmer elles aussi, avec « Dépend du
   mur à confirmer (É5) » ; dans l'audit, leur ligne renvoie au mur. Le mur confirmé, elles retrouvent leur propre verdict. Avant, une

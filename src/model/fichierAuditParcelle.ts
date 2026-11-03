@@ -10,7 +10,7 @@
 // Le fichier ne recalcule rien : il recopie. Deux lectures du meme fichier donnent la meme capture
 // et les memes mesures, c'est ce qui le rend rejouable.
 
-import { idCaptureParcelle, VERSION_CAPTURE_PARCELLE, type BatimentCapture, type BilanRedressement, type CaptureParcelle, type CorrectionRedressement, type ClotureCapturee, type DecisionAudit, type FacadeCapturee, type MurConfirme, type PortailCapture } from './auditParcelle.js';
+import { idCaptureParcelle, VERSION_CAPTURE_PARCELLE, type BatimentCapture, type BilanRedressement, type CaptureParcelle, type CorrectionRedressement, type ClotureCapturee, type DecisionAudit, type FacadeCapturee, type MurConfirme, type OuverturesRelues, type PortailCapture } from './auditParcelle.js';
 import type { CasAudit, MetaPromenade, PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from '../regles/decisions.js';
@@ -55,6 +55,8 @@ export interface FacadeAuditee {
   corrections?: Record<string, CorrectionRedressement>;
   /** Le mur confirme au point V1 : il survit au rejeu, comme les corrections. */
   murConfirme?: MurConfirme;
+  /** Les ouvertures relues au point V3 : elles survivent au rejeu, comme les corrections. */
+  ouverturesRelues?: OuverturesRelues;
   /** Les photos, avec leur prise et, par la mesure, leur calage. */
   photos: PhotoCas[];
   /** null : la facade n'a pas ete mesuree (pas de photo, ou mesure non faite). */
@@ -168,6 +170,7 @@ function facadesDuBatiment(cle: string, b: BatimentPourFichier | undefined, c: B
       ...(cap?.inaccessible !== undefined ? { inaccessible: cap.inaccessible } : {}),
       ...(cap?.corrections ? { corrections: copie(cap.corrections) } : {}),
       ...(cap?.murConfirme ? { murConfirme: copie(cap.murConfirme) } : {}),
+      ...(cap?.ouverturesRelues ? { ouverturesRelues: copie(cap.ouverturesRelues) } : {}),
       photos: [...(cap?.photos ?? [])],
       mesure: m ? mesureSeule(m) : null,
     };
@@ -254,7 +257,7 @@ export function captureDuFichier(f: FichierAuditParcelle): CaptureParcelle {
     const facades: Record<string, FacadeCapturee> = {};
     for (const fa of b.facades) {
       if (!fa.photos.length && fa.inaccessible === undefined) continue;
-      facades[String(fa.cote)] = { photos: [...fa.photos], ...(fa.inaccessible !== undefined ? { inaccessible: fa.inaccessible } : {}), ...(fa.corrections ? { corrections: copie(fa.corrections) } : {}), ...(fa.murConfirme ? { murConfirme: copie(fa.murConfirme) } : {}) };
+      facades[String(fa.cote)] = { photos: [...fa.photos], ...(fa.inaccessible !== undefined ? { inaccessible: fa.inaccessible } : {}), ...(fa.corrections ? { corrections: copie(fa.corrections) } : {}), ...(fa.murConfirme ? { murConfirme: copie(fa.murConfirme) } : {}), ...(fa.ouverturesRelues ? { ouverturesRelues: copie(fa.ouverturesRelues) } : {}) };
     }
     if (!Object.keys(facades).length && !b.photos.length && !Object.keys(b.vu).length) continue;
     batiments[b.cle] = { facades, vu: copie(b.vu), photos: [...b.photos] };

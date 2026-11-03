@@ -4676,6 +4676,84 @@ const POINTS = {
       && retire.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && calAvant === 'à confirmer' && calApres === 'confirmé par vous' && /^Mur confirmé par vous le /.test(calResume) && calZ === 'à confirmer' && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 110) + ' »';
     return { ok, mesure: `audit : ${heritees} étape(s) héritent du doute ; Ctrl+Z ${defaitParZ.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau, Ctrl+Y reconfirmé, projet ${projetZ === projetAvant ? 'inchangé' : 'MODIFIÉ'} ; É5 ${court(e5(avant))} → ${court(e5(confirme))} (segment « ${murConfirme} »), ${confirme.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) après ; V4 : murConfirmeLe ${ecrit}, Ctrl+Z ${defait === null ? 'le défait' : 'NE le défait PAS'} ; « ${libelleRetirer} » : ${retire.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau ; calibration : É5 ${calAvant} → ${calApres} → Ctrl+Z ${calZ} ${court(calResume)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  127: async (page, f) => {
+    // V3 (decision 2 du proprietaire, 3 novembre 2026) : les ouvertures trouvees se relisent toujours avant V4, l'E9 n'est faite qu'apres
+    // ce regard. L'audit : la scene 02 sur la facade de la maison ; le mur confirme (V1), l'E9 reste a confirmer (« Relisez-les (V3) ») ;
+    // « Relire les ouvertures », « Garder ces ouvertures » : l'E9 est faite ; Ctrl+Z la remet a relire, Ctrl+Y relue ; V4 ecrit les
+    // ouvertures gardees. La calibration : un cas de la scene 02 sans verite ; le rejeu ne la remplit plus de la detection ; l'E9 ouverte,
+    // le meme geste : faite. Rien ne deborde.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
+    const facade = '.dialogueAuditParcelle .facadeAudit';
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .calEditeur')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi, sel) => { if (process.env.FUMEE_CAPTURE_V3) await page.locator(sel).first().screenshot({ path: process.env.FUMEE_CAPTURE_V3 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    const ligne = (re) => page.waitForFunction(([s, r]) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => new RegExp(r).test(l.textContent || '')), [facade, re], { timeout: 120000 });
+    const e9 = () => page.evaluate((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].map((l) => l.textContent || '').find((t) => /É9/.test(t)) || '', facade);
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    // V1 d'abord : sans le mur confirme, l'E9 herite son doute.
+    const confirmer = page.locator(facade + ' button[data-commande="facade.confirmerMur"]');
+    if (await confirmer.count()) { await etape('confirmer', () => toucher(confirmer)); await etape('mur confirme', () => ligne('^confirmé par vous É5')); }
+    await etape('E9 a relire', () => ligne('^à confirmer É9 .*Relisez-les \\(V3\\)'));
+    const avant = await e9();
+    await etape('relire', () => toucher(page.locator(facade + ' button[data-controle="auditParcelle.relireOuvertures"]').first()));
+    await etape('editeur', () => page.locator(facade + ' .relireOuvertures').waitFor({ timeout: 30000 }));
+    const nb = await page.locator(facade + ' .relireOuvertures .releveNote').first().textContent().catch(() => '');
+    await capture('relecture', facade + ' .relireOuvertures');
+    const debords = [await deborde()];
+    await etape('garder', () => toucher(page.locator(facade + ' button[data-controle="facade.garderOuvertures"]')));
+    await etape('E9 faite', () => ligne('^faite É9 .*Ouvertures relues par vous'));
+    const relue = await e9();
+    await capture('relue', facade);
+    await page.keyboard.press('Control+z');
+    await etape('Ctrl+Z', () => ligne('^à confirmer É9 .*Relisez-les'));
+    await page.keyboard.press('Control+y');
+    await etape('Ctrl+Y', () => ligne('^faite É9 .*Ouvertures relues par vous'));
+    const ouvertures = () => page.evaluate(() => (window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? []).map((r) => r.ouvertures.length));
+    await etape('valider', () => toucher(page.locator(facade + ' button[data-commande="facade.valider"]')));
+    await page.waitForTimeout(1500);
+    const ecrites = await ouvertures();
+    debords.push(await deborde());
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    // La calibration : un cas sans verite.
+    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 02 · sans vérité', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: scene.verite.hauteur,
+      photos: [{ fichier: 'photo-1', coins: coins[0], murALaMain: true }], ouvertures: [], images: ['data:image/png;base64,' + photo.toString('base64')] };
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-02', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: 0, updatedAt: '2026-11-03T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 120000 });
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer le cas', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    const annotees = await page.evaluate(() => /[1-9]\d* ouvertures? annotée/.test(document.querySelector('.calEditeur')?.textContent || ''));
+    await etape('segment Ouvertures', () => page.locator('.barreFacade button[data-etape="ouvertures"]').click({ timeout: 5000 }));
+    const calAvant = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
+    await etape('relire (calibration)', () => page.locator('.calEtapeOuverte [data-controle="calibration.relireOuvertures"]').click({ timeout: 10000 }));
+    await etape('garder (calibration)', () => page.locator('.calEtapeOuverte [data-controle="facade.garderOuvertures"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu 2', finRejeu);
+    await page.waitForFunction(() => /faite/.test(document.querySelector('.calEtapeOuverte .calFriseEtat')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const calApres = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
+    await capture('calibration', '.calEtapeOuverte');
+    debords.push(await deborde());
+    const n = (t) => Number((t.match(/^.*?(\d+) ouvertures? trouvées?/) || [])[1] ?? NaN);
+    const ok = /Relisez-les \(V3\)/.test(avant) && /Ouvertures relues par vous le /.test(relue) && ecrites.includes(n(relue.replace(/^.*La détection : /, '')))
+      && !annotees && calAvant === 'à confirmer' && calApres === 'faite' && !debords.some(Boolean);
+    const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 120) + ' »';
+    return { ok, mesure: `audit : É9 ${court(avant)} → ${court(relue)} (éditeur : ${court(nb || '')}) ; Ctrl+Z à relire, Ctrl+Y relue ; V4 : ${ecrites.join('/')} ouverture(s) écrite(s) ; calibration : vérité ${annotees ? 'REMPLIE' : 'vide'} après le rejeu, É9 ${calAvant} → ${calApres} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   }
 };
 
@@ -4725,7 +4803,8 @@ function pointsPour(nomClasse) {
   // 124 : le mode Toit, les vignettes de « Sur le toit » cadrees sur l'element, et la camera qui se cadre sur l'element choisi.
   // 125 : l'E5 sur le chemin des reperes : « Appliquer » sans geste n'ecrit rien ; un repere tire, le mur cherche sur leur assemblage est juge.
   // 126 : « Confirmer le mur » (V1) dans l'audit et la calibration ; le doute herite du mur, qui tombe une fois le mur confirme.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126];
+  // 127 : V3, les ouvertures relues avant V4 (audit et calibration) ; la verite d'un cas ne se remplit plus de la detection.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

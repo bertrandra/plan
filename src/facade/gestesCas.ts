@@ -5,11 +5,12 @@
 import type { CasStocke } from './corpusReel.js';
 
 /** Ce qu'un geste change dans un cas : les reperes, le mur tire a la main, ses coins, le mur confirme (pas les photos elles-memes). */
-export interface GestesCas { photos: Pick<CasStocke['photos'][number], 'coins' | 'reperes' | 'murALaMain' | 'silhouette'>[]; murConfirme?: CasStocke['murConfirme'] }
+export interface GestesCas { photos: Pick<CasStocke['photos'][number], 'coins' | 'reperes' | 'murALaMain' | 'silhouette'>[]; murConfirme?: CasStocke['murConfirme']; ouverturesRelues?: CasStocke['ouverturesRelues'] }
 
 export const gestesDuCas = (c: CasStocke): GestesCas => JSON.parse(JSON.stringify({
   photos: c.photos.map((p) => ({ coins: p.coins, ...(p.reperes ? { reperes: p.reperes } : {}), ...(p.murALaMain ? { murALaMain: true } : {}), ...(p.silhouette ? { silhouette: p.silhouette } : {}) })),
   ...(c.murConfirme ? { murConfirme: c.murConfirme } : {}),
+  ...(c.ouverturesRelues ? { ouverturesRelues: c.ouverturesRelues } : {}),
 })) as GestesCas;
 
 /** Le cas avec ces gestes remis (les photos gardent le reste : fichier, prise, focale). */
@@ -21,5 +22,6 @@ export function avecLesGestes(c: CasStocke, g: GestesCas): CasStocke {
   });
   const suite: CasStocke = { ...c, photos };
   if (g.murConfirme) suite.murConfirme = g.murConfirme; else delete suite.murConfirme;
+  if (g.ouverturesRelues) suite.ouverturesRelues = g.ouverturesRelues; else delete suite.ouverturesRelues;
   return suite;
 }

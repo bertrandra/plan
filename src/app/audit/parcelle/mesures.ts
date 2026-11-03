@@ -29,7 +29,7 @@ import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { Image } from '../../../facade/vision/homographie.js';
 import type { PhotoCas } from '../../../model/audit.js';
-import type { BilanRedressement, CorrectionRedressement, MurConfirme } from '../../../model/auditParcelle.js';
+import type { BilanRedressement, CorrectionRedressement, MurConfirme, OuverturesRelues } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
 import type { CorpsToit, ObjetPolygone, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
@@ -154,7 +154,10 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
  * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
-export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, murConfirme: MurConfirme | null = null): Promise<MesureFacade> {
+/** Les gestes de la personne aux points de validation, entrees de la chaine comme les corrections : le mur confirme (V1), les ouvertures relues (V3). */
+interface GestesFacade { murConfirme?: MurConfirme | null; ouverturesRelues?: OuverturesRelues | null }
+
+export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, gestes: GestesFacade = {}): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;
   const cache = new Map<number, Promise<Pixels | null>>();
   const images = (i: number) => {
@@ -168,7 +171,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   // 1. Les entrees de la facade (facade/releve/prisesFacade.ts) : l'echelle corrigee a la main, les photos dans l'ordre du
   // redressement (la premiere avec une prise de vue d'abord), leur prise. La calibration relit un cas par la meme fonction.
   const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, prise: p.prise ?? null }; }));
-  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme, jpeg: d.jpeg });
+  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, jpeg: d.jpeg });
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
   // L'enchainement de la facade, par l'orchestrateur : le meme que la calibration rejoue ; le releve et l'etat de chaque etape en sortent.

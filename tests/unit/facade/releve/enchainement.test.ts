@@ -3,7 +3,7 @@ import { assemblageDuRejeu, casAvecLeMur, casCaleALaMain, derouler, murAjusteSur
 import { imagesEtapes } from '../../../../src/facade/releve/imagesEtapes.js';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { prisesDeLaFacade } from '../../../../src/facade/releve/prisesFacade.js';
-import { murAConfirmer, type MurConfirme } from '../../../../src/model/auditParcelle.js';
+import { murAConfirmer, relecture, type MurConfirme } from '../../../../src/model/auditParcelle.js';
 import { analyserLeMur } from '../../../../src/facade/analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto } from '../../../../src/facade/gabaritMur.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
@@ -210,12 +210,14 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
   it('une E5 a confirmer rend a confirmer les etapes qui en dependent et qui avaient atteint leur objectif, en le disant', async () => {
     const r = await jouer();
     expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
-    for (const id of ['silhouette', 'texture', 'ouvertures'] as const) {
+    for (const id of ['silhouette', 'texture'] as const) {
       const e = etapeDe(r, id);
       expect(e.etat, id).toBe('a-confirmer');
       expect(e.herite, id).toBe('calage');
       expect(e.resume, id).toMatch(/ Dépend du mur à confirmer \(É5\)\.$/);
     }
+    // L'E9 doute deja d'elle-meme tant que ses ouvertures ne sont pas relues (V3) : son propre verdict, sans heritage.
+    expect(etapeDe(r, 'ouvertures')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/Relisez-les \(V3\)/) });
     // Ce qui ne lit pas le mur garde son etat ; ce qui est saute le reste.
     expect([etapeDe(r, 'prises').etat, etapeDe(r, 'diagnostic').etat, etapeDe(r, 'toit').etat]).toEqual(['ok', 'saute', 'saute']);
   }, 120_000);
@@ -230,7 +232,7 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
     expect(e5.resume).toMatch(/^Mur confirmé par vous le 3 novembre 2026\. .*que sa silhouette n’explique pas \(score .*\) : noté, le mur reste celui que vous avez confirmé\./);
     expect(e5.resume).not.toMatch(/: à confirmer\./);
     // Les etapes retrouvent leur propre verdict : le meme resume que sans le doute du mur.
-    for (const id of ['silhouette', 'texture', 'ouvertures'] as const) {
+    for (const id of ['silhouette', 'texture'] as const) {
       expect(etapeDe(r, id).etat, id).toBe('ok');
       expect(etapeDe(r, id).herite, id).toBeUndefined();
       expect(etapeDe(r, id).resume, id).toBe(etapeDe(auto, id).resume.replace(' Dépend du mur à confirmer (É5).', ''));
@@ -246,7 +248,7 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
     const r = await jouer(mur);
     expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
     expect(etapeDe(r, 'calage').resume).toMatch(/^Le mur confirmé le 3 novembre 2026 n’est plus celui que la chaîne retient .* : à confirmer de nouveau\. /);
-    expect(etapeDe(r, 'ouvertures').herite).toBe('calage');
+    expect(etapeDe(r, 'texture').herite).toBe('calage');
   }, 120_000);
 
   it('la calibration rejoue la confirmation du cas comme l audit (la meme entree)', async () => {
@@ -299,6 +301,35 @@ describe('l E5 sur le chemin des reperes (revue des etapes, B1) : quatre reperes
     const e = etapeDe(r, 'calage');
     expect(e.etat).toBe('ok');
     expect(e.resume).toMatch(/^Mur cherché sur l’assemblage de vos repères\. .*expliqué par sa silhouette/);
+  }, 120_000);
+});
+
+describe('V3 : les ouvertures se relisent toujours avant V4 (decision du proprietaire, 3 novembre 2026)', () => {
+  const { s, ph, vrais } = scene('02-');
+  const L = s.verite.largeur, H = s.verite.hauteur;
+  const cas = casDe(L, H, vrais, ph.focalePx);
+  const LE = '2026-11-03T10:00:00.000Z';
+
+  it('sans relecture, l E9 est a confirmer et le dit ; relue, elle est faite, et le bilan (V4) porte les ouvertures gardees', async () => {
+    const auto = await derouler(entreesDuCas(cas, [ph.image]), CAL);
+    expect(etapeDe(auto, 'ouvertures')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/ Relisez-les \(V3\) : vérifiez, ajoutez ou retirez, avant de valider la façade\.$/) });
+    const detectees = auto.sorties.audit?.mesure?.releve.ouvertures ?? [];
+    expect(detectees.length).toBeGreaterThan(1);
+    // La personne en retire une : c'est ce que le bilan, donc V4, ecrira.
+    const gardees = detectees.slice(1);
+    const r = await derouler(entreesDuCas({ ...cas, ouverturesRelues: relecture(detectees, gardees, LE) }, [ph.image]), CAL);
+    expect(etapeDe(r, 'ouvertures')).toMatchObject({ etat: 'ok', resume: expect.stringMatching(new RegExp(`^Ouvertures relues par vous le 3 novembre 2026 : ${gardees.length} gardées?\\. La détection : `)) });
+    expect(r.sorties.facade?.ouvertures).toHaveLength(gardees.length);
+    // La verite du cas n'y est pour rien : elle se mesure a cote, sans changer l'etat.
+    expect(etapeDe(r, 'ouvertures').verite).toBeNull();
+  }, 120_000);
+
+  it('une autre detection que celle relue : les ouvertures sont a relire, et l E9 le dit', async () => {
+    const auto = await derouler(entreesDuCas(cas, [ph.image]), CAL);
+    const detectees = (auto.sorties.audit?.mesure?.releve.ouvertures ?? []).map((o) => ({ ...o, x: o.x + 0.3 }));
+    const r = await derouler(entreesDuCas({ ...cas, ouverturesRelues: relecture(detectees, detectees, LE) }, [ph.image]), CAL);
+    expect(etapeDe(r, 'ouvertures')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/^Les ouvertures relues le 3 novembre 2026 ne sont plus celles que la détection trouve : à relire\. /) });
+    expect(r.sorties.facade?.ouvertures).toHaveLength(auto.sorties.facade?.ouvertures.length ?? -1);
   }, 120_000);
 });
 
