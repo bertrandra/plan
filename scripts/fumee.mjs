@@ -2463,7 +2463,8 @@ const POINTS = {
     // l'etape ouverte (son resultat, son contrat, la ligne sous la barre) ; le rejeu depuis une etape qui garde les precedentes ;
     // rien ne deborde. Lot F1 : l'E5 dit le score d'explication (par la silhouette depuis le 2 novembre 2026) ; son option manuelle, sur l'assemblage, est le seul
     // composant du geste (quatre poignees : egout, sol, deux bouts) ; tirer un bout au clavier puis « Appliquer le calage et rejouer »
-    // pose le mur a la main et rejoue depuis le calage.
+    // pose le mur a la main et rejoue depuis le calage. Revue des etapes, lot 5 : l'E3 montre chaque photo redressee comme l'assemblage
+    // la prend (sa legende le dit) ; l'E6 se juge sur le haut qu'elle rend (son resume dit le nombre de points lus).
     const { vues: [photo], coins, largeur, largeurPx } = photosScene('22-pignon-decentre-pierre');
     const scene = JSON.parse(readFileSync('tests/fixtures/facades/22-pignon-decentre-pierre.json', 'utf8'));
     const hauteur = scene.verite.hauteur, pignon = scene.synthese.mur.pignon;
@@ -2488,6 +2489,11 @@ const POINTS = {
     const segments = await page.locator('.barreFacade ol > li').evaluateAll((ls) => ls.map((l) => ({ etat: l.className.replace('barreFacadeSegment', '').replace('courant', '').trim(), texte: l.querySelector('[aria-label]')?.getAttribute('aria-label') ?? '', forme: !!l.querySelector('svg, .barreFacadePastille') })));
     const frise = await page.locator('.calFrise > li .calFriseEtat').allTextContents();
     const debords = [await deborde()];
+    await etape('etape E3', async () => { await page.locator('.calFrise button[data-etape="redressement"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calGrille figcaption').first().waitFor({ timeout: 5000 }); });
+    const legendeE3 = (await page.locator('.calEtapeOuverte .calGrille figcaption').first().textContent()) || '';
+    await etape('etape E6', async () => { await page.locator('.calFrise button[data-etape="silhouette"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte h3', { hasText: 'É6' }).waitFor({ timeout: 5000 }); });
+    const resumeE6 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const lot5 = /tournée de face comme l’assemblage la prend/.test(legendeE3) && /^Le haut lu sur la photo \(\d+ points\)/.test(resumeE6);
     await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
     await etape('etape ouverte', () => page.locator('.calEtapeOuverte').waitFor({ timeout: 5000 }));
     const titre = (await page.locator('.calEtapeOuverte h3').textContent()) || '';
@@ -2514,8 +2520,8 @@ const POINTS = {
     const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
     const ok = segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
       && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É5 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
-      && contrat >= 5 && /^É5 Calage du mur \(Mur\), /.test(ligne) && /^É5 Mur, /.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && !debords.some(Boolean);
-    return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É5 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+      && contrat >= 5 && /^É5 Calage du mur \(Mur\), /.test(ligne) && /^É5 Mur, /.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && lot5 && !debords.some(Boolean);
+    return { ok, mesure: `É3 « ${legendeE3.slice(0, 80)}… » ; É6 « ${resumeE6.slice(0, 70)}… » ; barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É5 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   101: async (page, f) => {
     // Admin › Calibrer la detection, le mode « IA » du rejeu (MD/spec-facade-calage-audit.md §7.2, §8, lot F2). Un cas du serveur simule :

@@ -208,7 +208,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
     {cas.images.map((u, k) => { const d = dims[k], r = reperesDe(cas.photos[k]), v = im.vues[k]; return <li key={k}><figure>
       {d ? <Calques url={u} l={d.l} h={d.h} libelle={'Photo ' + (k + 1) + (r ? ' et ses repères' : '')}>{r && <polygon className="calReperes" points={points(r)} vectorEffect="non-scaling-stroke" />}</Calques> : <img className="calEtape" src={u} alt={'Photo ' + (k + 1)} />}
       {v ? <Calques url={url(v.image)} l={v.image.largeur} h={v.image.hauteur} libelle={'Photo ' + (k + 1) + ' redressée entière, et le gabarit posé par ses coins'}>{v.silhouette && <polyline className="calMurLigne silhouette" points={points(v.silhouette)} vectorEffect="non-scaling-stroke" />}</Calques> : <p className="calNote">Elle ne se redresse pas : posez quatre repères.</p>}
-      <figcaption>Photo {k + 1}{r ? ', avec vos quatre repères' : ''} : tournée de face par le mur que la chaîne de l’audit a retenu, entière, sans coupe ni échelle.</figcaption>
+      <figcaption>Photo {k + 1}{r ? ', avec vos quatre repères' : ''} : tournée de face comme l’assemblage la prend ({r ? 'par vos repères' : 'par ses points de fuite, sinon par le mur retenu'}), entière, sans coupe ni échelle.</figcaption>
     </figure></li>; })}
   </ul>;
   if (id === 'assemblage') return im.assemblage ? <Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="L’assemblage des photos redressées" /> : <p className="calNote">Aucune photo ne s’assemble.</p>;

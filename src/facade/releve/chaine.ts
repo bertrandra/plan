@@ -18,6 +18,7 @@ import { redresser, resolutionTexture, type Image, type P2 } from '../vision/hom
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement, PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { ObjetPolygone } from '../../model/types.js';
 import { analyserSerie } from './analyseSerie.js';
+import { objectifsEnchainement } from '../regles/facades/enchainement.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
 import { gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
@@ -34,8 +35,8 @@ import type { Prise } from './prise.js';
  */
 export const VERSION_CHAINE_FACADES = 13;
 
-/** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
-const SEUIL_VERTICALES_DEG = 0.5;
+/** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit (un reglage, lu a chaque appel). */
+const seuilVerticalesDeg = (): number => objectifsEnchainement()['facades.enchainement.verticalesMaxDeg'];
 /** Les segments pris pour des verticales : a moins de cet angle de la verticale. */
 const ANGLE_VERTICALE_MAX_DEG = 12;
 /** Il faut au moins ce nombre de verticales lues pour oser une mesure. */
@@ -168,22 +169,22 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   const parSesReperes = !!parReperes && essai === parReperes;
   const manuelle = essai.p.coins === 'main' || parSesReperes;
   // Des verticales qui penchent : les points calcules d'apres la prise de vue valent parfois mieux que ceux cherches sur les aretes.
-  if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
+  if (!manuelle && essai.vert !== null && essai.vert > seuilVerticalesDeg()) {
     const repli = await analyser(true).catch(() => null);
     if (repli && repli.vert !== null && repli.vert < essai.vert) essai = repli;
   }
   // Toujours penchees : les cotes du quadrilatere ramenes sur le point de fuite des verticales lues sur la photo.
-  if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
+  if (!manuelle && essai.vert !== null && essai.vert > seuilVerticalesDeg()) {
     const coins = coinsSurLesVerticales(essai.p.morceau);
     const droit = coins ? juger({ ...essai.p, morceau: { ...essai.p.morceau, coins } }) : null;
     if (droit && droit.vert !== null && droit.vert < essai.vert) essai = droit;
   }
-  const ok = manuelle || essai.vert === null || essai.vert <= SEUIL_VERTICALES_DEG;
+  const ok = manuelle || essai.vert === null || essai.vert <= seuilVerticalesDeg();
   const bilan: BilanPhotoRedressement = {
     rang, statut: manuelle ? 'manuelle' : ok ? 'auto' : 'echec', verticaliteDeg: essai.vert, coins: essai.p.coins,
     coinsPx: essai.p.morceau.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })),
     ...(parSesReperes && serie?.pose ? { murCherche: { pose: serie.pose, lu: serie.lu } } : {}),
-    ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(SEUIL_VERTICALES_DEG).replace('.', ',') + '°) : placez les quatre coins à la main' }),
+    ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(seuilVerticalesDeg()).replace('.', ',') + '°) : placez les quatre coins à la main' }),
   };
   return { bilan, essai };
 }

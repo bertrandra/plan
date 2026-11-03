@@ -13,6 +13,7 @@ import { appliquer, type Image } from './homographie.js';
 import { inverser as inverserHomographie, redresserParFuites, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
 import { detecterSegments } from './segments.js';
 import { simplifierLigne } from '../../geometry/simplifierLigne.js';
+import { objectifsEnchainement } from '../regles/facades/enchainement.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
 const COTE_RECHERCHE_PX = 900;
@@ -518,7 +519,8 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
     const auBord = haut !== null && vus.slice(Math.max(0, haut - k), haut).some((v) => !v);
     if (haut !== null && haut > 0 && !auBord) hauts.push({ x: xc, y: yDebut + haut });
   }
-  if (hauts.length < COLONNES_SILHOUETTE / 2) return null;
+  // Le haut n'est lu que sur une part assez grande des colonnes (un reglage de l'E6, regles/facades/enchainement.json).
+  if (hauts.length < objectifsEnchainement()['facades.enchainement.silhouetteColonnesMin'] * COLONNES_SILHOUETTE) return null;
   const med = (t: number[]) => { const u = [...t].sort((a, b) => a - b); return u[u.length >> 1] as number; };
   // Une colonne masquee (un arbre devant le pignon) ne casse pas la ligne : mediane glissante sur cinq colonnes.
   const lisses = hauts.map((p, i) => ({ x: p.x, y: med(hauts.slice(Math.max(0, i - 2), i + 3).map((q) => q.y)) }));

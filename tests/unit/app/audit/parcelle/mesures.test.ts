@@ -77,11 +77,20 @@ describe('les mesures d une facade', () => {
     expect(m.couleur?.rang).toBe(0);
   }, 30000);
 
-  it('ne rend rien d une photo illisible, sans rejeter', async () => {
+  it('sans photo, l enchainement se deroule : l E2 est en echec et la suite attend', async () => {
+    const m = await mesurerFacade('maison', sud(), { pts: PTS }, [], { pixels: async () => null, chercherCoins: async (e) => rechercher(e), jpeg: () => '', limites: () => [] });
+    expect(m).toMatchObject({ releve: null, hauteurM: null, coinsTrouves: false });
+    expect(m.etapes?.find((e) => e.id === 'prises')).toMatchObject({ etat: 'echec', resume: 'Aucune photo : prenez ou choisissez une photo du mur entier.' });
+    expect(m.etapes?.find((e) => e.id === 'redressement')?.etat).toBe('a-venir');
+  });
+
+  it('ne rend rien d une photo illisible, sans rejeter, et le dit : É2 sans prise lisible, É3 conseille de la reprendre', async () => {
     const m = await mesurerFacade('maison', sud(), { pts: PTS }, [PHOTO], {
       pixels: async () => null, chercherCoins: async (e) => rechercher(e), jpeg: () => '', limites: () => [],
     });
     expect(m).toMatchObject({ releve: null, couleur: null, hauteurM: null, coinsTrouves: false });
+    expect(m.etapes?.find((e) => e.id === 'prises')).toMatchObject({ etat: 'a-confirmer', resume: '1 photo du mur, aucune lisible : reprenez une photo du mur entier.' });
+    expect(m.etapes?.find((e) => e.id === 'redressement')).toMatchObject({ etat: 'echec', resume: expect.stringMatching(/L’image ne se lit pas : retirez ou reprenez la photo 1\.$/) });
   });
 });
 

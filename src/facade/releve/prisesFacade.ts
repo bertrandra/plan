@@ -68,6 +68,9 @@ export interface PrisesFacade {
   jpeg: (img: Image) => string;
 }
 
+/** Le motif d'une photo dont l'image ne se decode pas : l'E3 le reconnait pour conseiller de la reprendre, pas d'y poser des reperes. */
+export const MOTIF_ILLISIBLE = 'image illisible';
+
 /** Une photo de la facade, a son rang : son image decodee (null : illisible) et sa prise de vue (null : importee, sans capteurs). */
 interface PhotoDeLaFacade { rang: number; image: Image | null; prise: PrisePhoto | null }
 
@@ -85,7 +88,7 @@ export function prisesDeLaFacade(d: { facade: Facade; contour: readonly PtBrut[]
   const illisibles: BilanPhotoRedressement[] = [];
   for (const p of ordre) {
     const image = p.image;
-    if (!image) { illisibles.push({ rang: p.rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'image illisible' }); continue; }
+    if (!image) { illisibles.push({ rang: p.rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: MOTIF_ILLISIBLE }); continue; }
     photos.push({ rang: p.rang, image, prise: (champLu) => priseDeLaPhoto(p, image, facade, champLu), champConnu: p.prise?.sourceFocale === 'exif' });
   }
   return { facade, contour: d.contour, photos, illisibles, corrections, murConfirme: d.murConfirme ?? null, ouverturesRelues: d.ouverturesRelues ?? null, jpeg: d.jpeg };

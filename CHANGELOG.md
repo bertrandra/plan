@@ -20,6 +20,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration), états des étapes (revue des étapes, lot 5) : l'É6 se juge sur le haut qu'elle rend, celui que l'É7
+  lit (lu sur au moins la moitié des colonnes), et plus sur le mot de la bande au-dessus de l'égout, qui reste une information ; un
+  pignon ombré par un arbre, dont le haut est lu, n'est plus dit « hors cadre ». L'É2 ne compte que les photos lisibles : une photo
+  illisible seule la laisse à confirmer, et l'É3 conseille alors de retirer ou de reprendre la photo plutôt que d'y poser des repères.
+  Sans photo, l'enchaînement de l'audit se déroule aussi (l'É2 le dit). L'É3 montre chaque photo redressée comme l'assemblage la prend
+  (ses repères, sinon ses points de fuite). Quatre seuils quittent le code pour les réglages de l'enchaînement
+  (`regles/facades/enchainement.json` : verticales de l'É3, colonnes et bande de l'É6, masque de la fusion à l'É8), sans changer de
+  valeur. L'objectif de l'É10 dit ce que l'étape vérifie : elle compte les propositions du diagnostic (sautée sans proposition, à
+  confirmer sinon) ; le moteur des toits les relit à l'avant/après. Aucune quantité ni aucun export ne change.
 - Façades (audit) : la lecture de Claude passe par le même enchaînement que dans la calibration. À son arrivée, la façade se mesure de
   nouveau avec elle et sa barre se refait : l'étape É5 dit la pose que Claude lit, l'É7 le diagnostic avec ses pointes, l'É9 l'accord de
   ses boîtes avec la détection. La validation (V4) écrit ce que la barre montre : les ouvertures de cet accord (les détails lus par

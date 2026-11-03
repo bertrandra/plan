@@ -20,8 +20,8 @@ import { descentesRetrouvees } from '../regles/facades/modenature.js';
 import { ETAPES_FACADE, libelleEtape, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
-import { murSurLesPhotos, type AssemblageDuMur, type RetourVersLaPhoto } from '../analyseMur.js';
-import { redresserParReperes, type RedressementFuites } from '../vision/redressementFuites.js';
+import { murSurLesPhotos, vuesDeLAssemblage, type AssemblageDuMur, type RetourVersLaPhoto } from '../analyseMur.js';
+import type { RedressementFuites } from '../vision/redressementFuites.js';
 import type { Image, P2 } from '../vision/homographie.js';
 import { libelleSilhouette } from '../../model/silhouetteFacade.js';
 import { sansOmbres } from '../vision/sansOmbres.js';
@@ -33,7 +33,7 @@ import { redresserEtFusionner, VERSION_CHAINE_FACADES, type ResultatChaine } fro
 import { avisFusion, releveDeLaSerie, type ReleveDeLaSerie } from './analyseSerie.js';
 import { hautDeLImage, imageDuRunAvecLaBande, type ImageDuRun } from './imageDuRun.js';
 import { rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
-import { prisesDeLaFacade, type PrisesFacade } from './prisesFacade.js';
+import { MOTIF_ILLISIBLE, prisesDeLaFacade, type PrisesFacade } from './prisesFacade.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import { estLeMurConfirme, sontRelues, type BilanPhotoRedressement, type BilanRedressement, type CorrectionRedressement, type PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { PrisePhoto } from '../../model/audit.js';
@@ -248,11 +248,14 @@ const preparation: Pas = ({ e, s }) => {
 };
 
 const prises: Pas = ({ e, obj }) => {
-  // Une photo illisible a bien ete prise : son echec se dit au redressement.
-  const n = e.prises.photos.length + e.prises.illisibles.length;
-  return n >= obj['facades.enchainement.photosMin']
-    ? { etat: 'ok', resume: `${n} photo${n > 1 ? 's' : ''} du mur.`, verite: null }
-    : { etat: 'echec', resume: 'Aucune photo : prenez ou choisissez une photo du mur entier.', verite: null };
+  // L'objectif compte les prises lisibles (le contrat : « une photo du mur entier, prise lisible ») ; une photo illisible a bien ete
+  // prise, elle se dit ici et son echec au redressement.
+  const lisibles = e.prises.photos.length, illisibles = e.prises.illisibles.length, n = lisibles + illisibles;
+  if (!n) return { etat: 'echec', resume: 'Aucune photo : prenez ou choisissez une photo du mur entier.', verite: null };
+  const dont = illisibles ? ` (dont ${illisibles} illisible${illisibles > 1 ? 's' : ''})` : '';
+  return lisibles >= obj['facades.enchainement.photosMin']
+    ? { etat: 'ok', resume: `${n} photo${n > 1 ? 's' : ''} du mur${dont}.`, verite: null }
+    : { etat: 'a-confirmer', resume: `${n} photo${n > 1 ? 's' : ''} du mur, aucune lisible : reprenez une photo du mur entier.`, verite: null };
 };
 
 /** L'etat d'une part : objectif atteint, en partie, ou rien. */
@@ -270,16 +273,15 @@ function textePhoto(p: BilanPhotoRedressement): string {
 }
 
 /**
- * Chaque photo redressee seule, **entiere** : tournee de face par le rectangle du mur que la chaine a retenu (ses coins, lus ou poses),
- * sans etre coupee a ce mur ni mise a son echelle (redresserParReperes). Sur l'image que la chaine a lue (corrigee de la distorsion
- * du grand-angle s'il y a lieu). Une photo sans essai n'en a pas. Par rang.
+ * Chaque photo redressee seule, **entiere**, comme l'assemblage la prend (analyseMur.ts::vuesDeLAssemblage) : par ses reperes, sinon
+ * par ses points de fuite, sinon par les coins du mur retenu ; sans etre coupee au mur ni mise a son echelle. Sur l'image que la chaine
+ * a lue (corrigee de la distorsion du grand-angle s'il y a lieu). Une photo sans essai n'en a pas. Par rang.
  */
 function vuesRedressees(c: ResultatChaine, n: number): (RedressementFuites | null)[] {
   const out: (RedressementFuites | null)[] = Array.from({ length: n }, () => null);
-  for (const x of c.faits) {
-    const m = x.essai?.p.morceau;
-    if (m) out[x.bilan.rang] = redresserParReperes(m.prise.photo.image, m.coins, m.prise.photo.focalePx);
-  }
+  const essais = c.faits.flatMap((x) => (x.essai ? [{ rang: x.bilan.rang, m: x.essai.p.morceau }] : []));
+  const vues = vuesDeLAssemblage(essais.map(({ m }) => ({ photo: m.prise.photo.image, coins: m.coins, reperes: m.reperes ?? null })));
+  essais.forEach(({ rang }, k) => { out[rang] = vues[k] ?? null; });
   return out;
 }
 
@@ -341,6 +343,13 @@ function analyseRetenue(c: ResultatChaine): { a: NonNullable<ResultatChaine['seu
 
 const resumeFusion = (f: ResultatFusion): NonNullable<AnalyseDuMur['fusion']> => ({ statut: f.statut, vues: f.vues, masque: f.masque, reference: f.reference, occlusion: f.occlusion });
 
+/** Ce que la personne peut faire d'une photo qui ne se redresse pas : des reperes, sauf sur une image qui ne se lit pas. */
+function conseilDesEchecs(echecs: readonly BilanPhotoRedressement[]): string {
+  const illisibles = echecs.filter((p) => p.motif === MOTIF_ILLISIBLE).map((p) => p.rang + 1), autres = echecs.length - illisibles.length;
+  const nums = illisibles.length > 1 ? 'les photos ' + illisibles.join(', ') : 'la photo ' + illisibles.join('');
+  return (illisibles.length ? `L’image ne se lit pas : retirez ou reprenez ${nums}.` : '') + (illisibles.length && autres ? ' ' : '') + (autres ? 'Posez quatre repères sur la photo qui ne se redresse pas.' : '');
+}
+
 /**
  * E3 : la chaine redresse chaque photo (coins poses au doigt, sinon trouves sur les aretes, sinon reportes, sinon predits par la prise
  * de vue), reporte le mur, assemble et analyse en un appel. Le releve du mur s'ecrit ici, sur l'analyse qu'elle a retenue ; les etapes
@@ -371,7 +380,7 @@ const redressement: Pas = async ({ e, o, s, obj }) => {
   if (!photos.length) return attend('une photo');
   const echecs = photos.filter((p) => p.statut === 'echec');
   const etat = selonLaPart(faites, photos.length, obj['facades.enchainement.redresseesMinPart']);
-  return { etat, resume: `${faites} photo${faites > 1 ? 's' : ''} redressée${faites > 1 ? 's' : ''} sur ${photos.length}` + (echecs.length ? ' : ' + echecs.map(textePhoto).join(' ; ') + '. Posez quatre repères sur la photo qui ne se redresse pas.' : ' : ' + photos.map(textePhoto).join(' ; ') + '.'), verite: null };
+  return { etat, resume: `${faites} photo${faites > 1 ? 's' : ''} redressée${faites > 1 ? 's' : ''} sur ${photos.length}` + (echecs.length ? ' : ' + echecs.map(textePhoto).join(' ; ') + '. ' + conseilDesEchecs(echecs) : ' : ' + photos.map(textePhoto).join(' ; ') + '.'), verite: null };
 };
 
 /** E4 : les photos redressees assemblees (ou fusionnees), partiellement, ou chacune seule ; une photo seule n'a rien a assembler. */
@@ -536,8 +545,12 @@ function surfaceDeLIa(r: ObservationsFacade): string {
   return ` Parement : ${r.surface.principale}` + (zones.length ? ` ; zones : ${zones.join(', ')}` : '') + '.';
 }
 
-/** E6 : la ligne du haut du mur lue sur la photo (jamais le gabarit) ; hors cadre, la suite garde le gabarit. */
-const silhouette: Pas = ({ s }) => {
+/**
+ * E6 : la ligne du haut du mur lue sur la photo (jamais le gabarit). L'etat se juge sur cette ligne, celle que l'E7 lit (`hautLu`, lue
+ * sur au moins `silhouetteColonnesMin` des colonnes) ; le mot de la bande au-dessus de l'egout n'est qu'une information. Sans elle, la
+ * suite garde le gabarit du plan.
+ */
+const silhouette: Pas = ({ s, obj }) => {
   const m = s.audit?.mesure;
   if (!m) return attend('le mur posé (É5)');
   s.forme = { lue: m.hautLu, diagnostic: null };
@@ -545,8 +558,10 @@ const silhouette: Pas = ({ s }) => {
   const pose = s.calage?.pose, points = pose && m.hautLu?.length ? gabaritSurLaPhoto(m.hautLu, pose.coins) : null;
   s.silhouette = points ? { points } : null;
   const ia = formeDeLIa(s.ia?.reponse ?? null);
-  if (m.silhouette === 'indetermine') return { etat: 'a-confirmer', resume: 'Le haut du mur ne se lit pas sur la photo (hors cadre) : la suite garde le gabarit du plan.' + ia, verite: null };
-  return { etat: 'ok', resume: `Le haut lu sur la photo : ${libelleSilhouette(m.silhouette)}.` + ia, verite: null };
+  const part = Math.round(obj['facades.enchainement.silhouetteColonnesMin'] * 100);
+  if (!m.hautLu?.length) return { etat: 'a-confirmer', resume: `Le haut du mur se lit sur moins de ${part} % des colonnes (hors cadre, caché) : la suite garde le gabarit du plan.` + ia, verite: null };
+  const mot = m.silhouette === 'indetermine' ? 'sans forme reconnue au-dessus de l’égout' : libelleSilhouette(m.silhouette);
+  return { etat: 'ok', resume: `Le haut lu sur la photo (${m.hautLu.length} points) : ${mot}.` + ia, verite: null };
 };
 
 const MOTS_ELEMENT = { cheminee: 'une cheminée', lucarne: 'une lucarne' } as const;

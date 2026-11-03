@@ -422,7 +422,12 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 
 ### É10 · Toit (par le moteur, sur le corps concerné, après confirmation)
 
-- **Entrée** : les propositions confirmées de l'É7, chacune sur **un corps** ; les éléments de toit lus (cheminée, lucarne).
+- **Entrée** : les propositions de l'É7, décochées, chacune sur **un corps** ; les éléments de toit lus (cheminée, lucarne).
+- **Objectif, ce que l'étape vérifie** (décision du propriétaire, 3 novembre 2026, revue des étapes Q4) : l'orchestrateur compte les
+  propositions du diagnostic (`etapesForme.ts::etapeToit`) : **sautée** sans proposition, **à confirmer** sinon, jamais faite ici. Il ne
+  mesure pas l'observation acceptée ni les hauteurs du LiDAR : la mesure du toit et les faits du bâtiment n'y entrent pas. Le moteur
+  relit dans l'avant/après de l'audit ce que la personne coche (`formeFacades.ts`, `corpsProposesSousFait`), et en écarte (un refus, une
+  forme identique) : l'avant/après peut montrer moins de propositions que l'É10 n'en compte.
 - **Confirmation** : **toujours demandée à la personne** (décision 10), dans l'avant/après de l'audit : chaque proposition est une ligne
   décochée par défaut, avec son image avant/après et son gain.
 - **Sortie** : une **observation** du moteur par proposition, **adressée au corps** par son mur (`facade/regles/toits/murDuCorps.ts`, qui
@@ -488,15 +493,15 @@ atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'ob
 | Étape | Entrant | Action automatique | Objectif (réussi quand…) | Sortant | Option manuelle | Audit |
 |---|---|---|---|---|---|---|
 | **É1** Préparation | contour, corps du toit, LiDAR, cadastre | dimensions, gabarit, rapport, pointes attendues | un gabarit existe par côté (rectangle sinon) | `dimensions`, `forme.gabarit` | — (corriger le plan ailleurs) | `cache` |
-| **É2** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
-| **É3** Redressement | photos, repères | points de fuite, sinon repères posés | chaque photo redressée, ou son motif dit | vues de face | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
+| **É2** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible (`photosMin` compte les lisibles ; illisible seule : à confirmer) | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
+| **É3** Redressement | photos, repères | repères posés, sinon points de fuite, sinon les coins du mur retenu (§4 bis) | chaque photo redressée (verticales ≤ `verticalesMaxDeg`), ou son motif dit (illisible : la reprendre) | vues de face, celles que l'assemblage prend | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
 | **É4** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
 | **É5** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur`, le seul composant du geste depuis F1) | `resume` ; **`valider`** si divergence ou score faible |
-| **É6** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | silhouette lue sur ≥ la moitié des colonnes, corps attribués | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
+| **É6** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | haut lu sur ≥ `silhouetteColonnesMin` des colonnes (l'état se juge sur ce haut, `hautLu`, que l'É7 lit ; le mot de la bande, lue sur ≥ `bandeVueMin`, est une information) ; les corps s'attribuent à l'É7 | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
 | **É7** Diagnostic | silhouette lue, gabarit, **run IA** (pointes, corps) | variantes de toit par corps | une proposition n'existe que si elle explique mieux l'image (gain ≥ seuil) | propositions de toit, alertes de hauteur | cocher/décocher, ouvrir le Mode Toit | **`valider`** (toujours, décision 10) |
 | **É8** Texture | assemblage calé | élévation calée, fusion, sans ombres | écart de teinte et liserés sous le seuil | `texture`, `textureCalee`, `hauteurTexture` | recadrer, activer/désactiver « sans ombres » | `cache` ; aperçu en `resume` |
 | **É9** Ouvertures | assemblage calé, grille, **run IA** (boîtes, carreaux) | détection, accord avec l'IA, grille | rappel ≥ 85 %, précision ≥ 90 %, cotes ≤ 5 cm, < 3 corrections par façade | ouvertures de la **façade objet**, `carreaux` | ajouter, retirer, déplacer, redimensionner (éditeur du relevé) | `resume` : seules les boîtes **décochées** demandent un geste |
-| **É10** Toit | propositions **confirmées**, faits, marques | observations du moteur, sur le corps concerné | observation acceptée par le moteur ; **hauteurs du LiDAR inchangées** | toit ajusté (par le moteur) | Mode Toit pour tout régler à la main | `valider` (avant/après) |
+| **É10** Toit | propositions de l'É7, décochées | remises à l'avant/après ; le moteur relit celles que la personne coche, sur le corps concerné | sautée sans proposition, à confirmer sinon (compte des propositions ; l'observation acceptée et les hauteurs du LiDAR se vérifient à l'avant/après, pas ici) | propositions à cocher ; toit ajusté (par le moteur) | Mode Toit pour tout régler à la main | `valider` (avant/après) |
 | **É11** Validation | tout ce qui précède | assemble le bilan de la façade | personne a validé ; une étape d'historique | `dimensions`, `forme`, `texture`, façade objet écrits | corriger n'importe quel sortant | **`valider`** (une validation, un Ctrl+Z) |
 
 ### 4 ter.3 Les points de validation, et l'audit discret

@@ -1,77 +1,97 @@
 {
   "format": "plan-reglages-enchainement",
   "version": 1,
-  "pourquoi": "Les objectifs des etapes de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 ter.1) : le critere mesurable qui dit qu'une etape automatique a reussi, lus par facade/regles/facades/enchainement.ts et appliques par l'orchestrateur (facade/releve/enchainement.ts). Ils ne changent ni la photo ni ce que la chaine calcule : seulement l'etat d'une etape (ok, a confirmer, echec) et la mesure contre la verite de la calibration. Un seuil par PR, justifie par des cas, jamais sur moins d'une vingtaine de cas valides (§5.6). Rangees a part de reglages.json, dont l'empreinte fait rechoisir les profils des batiments.",
+  "pourquoi": "Les objectifs des etapes de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 ter.1) : le critere mesurable qui dit qu'une etape automatique a reussi, lus par facade/regles/facades/enchainement.ts et appliques par l'orchestrateur (facade/releve/enchainement.ts). Ils disent l'etat d'une etape (ok, a confirmer, echec) et la mesure contre la verite de la calibration ; quatre d'entre eux (É3 verticalesMaxDeg, É6 silhouetteColonnesMin et bandeVueMin, É8 masqueMaxPart) decident aussi si la chaine tient une chose pour lue ou redressee : ils jugent, ils ne calculent rien (revue des etapes, 3 novembre 2026, ou ils ont quitte le code sans changer de valeur). Un seuil par PR, justifie par des cas, jamais sur moins d'une vingtaine de cas valides (§5.6). Rangees a part de reglages.json, dont l'empreinte fait rechoisir les profils des batiments.",
   "reglages": {
     "facades.enchainement.photosMin": {
       "valeur": 1,
       "unite": "nombre",
-      "pourquoi": "E1 : une photo du mur suffit a l'enchainement ; sans photo, rien ne se redresse."
+      "pourquoi": "É2 : une photo du mur suffit a l'enchainement ; sans photo, rien ne se redresse."
     },
     "facades.enchainement.redresseesMinPart": {
       "valeur": 1,
       "unite": "part",
-      "pourquoi": "E2 : chaque photo doit se redresser ; une seule qui reste de biais suffit a demander un geste (quatre reperes)."
+      "pourquoi": "É3 : chaque photo doit se redresser ; une seule qui reste de biais suffit a demander un geste (quatre reperes)."
     },
     "facades.enchainement.assembleesMinPart": {
       "valeur": 1,
       "unite": "part",
-      "pourquoi": "E3 : toutes les vues redressees doivent s'assembler ; une photo restee a part est dite, avec son motif."
+      "pourquoi": "É4 : toutes les vues redressees doivent s'assembler ; une photo restee a part est dite, avec son motif."
     },
     "facades.enchainement.calageEcartMaxPart": {
       "valeur": 0.03,
       "unite": "part",
-      "pourquoi": "E4 : un bout, l'egout ou le sol a plus de 3 % de la largeur du mur de la verite est faux (§4 ter.2, le seuil de l'accord du §5)."
+      "pourquoi": "É5 : un bout, l'egout ou le sol a plus de 3 % de la largeur du mur de la verite est faux (§4 ter.2, le seuil de l'accord du §5)."
     },
     "facades.enchainement.explicationMin": {
       "valeur": 0.75,
       "unite": "part",
-      "pourquoi": "E4 : le score d'explication d'une pose du mur, sans le toit (facade/releve/calageAncres.ts : les deux angles, l'egout, le sol, les proportions du plan, la matiere du mur entre ses angles). En deca, la pose n'explique pas la photo : une autre pose des aretes qui l'explique est retenue (a confirmer), sinon celle du plan seul, supposee, et aucun drapeau ne dit trouve. Pose au lot F1 (29 octobre 2026) sur le banc de synthese, faute de cas reels valides : les 44 poses trouvees (egout-sol.ts) font de 0,83 a 1 ; les 88 poses de travers (une moitie du mur, le mur decale ou rentre de 15 %) restent sous 0,77."
+      "pourquoi": "É5 : le score d'explication d'une pose du mur, sans le toit (facade/releve/calageAncres.ts : les deux angles, l'egout, le sol, les proportions du plan, la matiere du mur entre ses angles). En deca, la pose n'explique pas la photo : une autre pose des aretes qui l'explique est retenue (a confirmer), sinon celle du plan seul, supposee, et aucun drapeau ne dit trouve. Pose au lot F1 (29 octobre 2026) sur le banc de synthese, faute de cas reels valides : les 44 poses trouvees (egout-sol.ts) font de 0,83 a 1 ; les 88 poses de travers (une moitie du mur, le mur decale ou rentre de 15 %) restent sous 0,77."
     },
     "facades.enchainement.angleMin": {
       "valeur": 0.6,
       "unite": "part",
-      "pourquoi": "E4 : chacun des deux angles d'une pose doit etre explique au moins a cette part (la matiere du mur qui s'arrete la, une verticale qui le longe) : un seul angle juste (la moitie du mur, un bout pris sur une fenetre) n'explique pas la photo. Pose au lot F1 sur le banc de synthese : les angles des poses trouvees font au moins 0,86 ; la seule pose de travers qui passerait le score (la moitie gauche de 05, 0,76) a un angle a 0,57 ; l'angle gauche d'AE 101 en synthese, a demi cache par un buisson, 0,67."
+      "pourquoi": "É5 : chacun des deux angles d'une pose doit etre explique au moins a cette part (la matiere du mur qui s'arrete la, une verticale qui le longe) : un seul angle juste (la moitie du mur, un bout pris sur une fenetre) n'explique pas la photo. Pose au lot F1 sur le banc de synthese : les angles des poses trouvees font au moins 0,86 ; la seule pose de travers qui passerait le score (la moitie gauche de 05, 0,76) a un angle a 0,57 ; l'angle gauche d'AE 101 en synthese, a demi cache par un buisson, 0,67."
     },
     "facades.enchainement.egoutSilhouetteMin": {
       "valeur": 0.4,
       "unite": "part",
-      "pourquoi": "E5 : l'egout de la pose retenue, juge sur la silhouette du gabarit posee par elle (facade/releve/calageAncres.ts : la matiere du mur sous le haut pose et pas au-dessus, d'un bout a l'autre de la silhouette, dans des bandes de 2,5 a 4,5 % de la largeur ; un rectangle n'est que l'egout), doit l'etre au moins a cette part : sous un pignon, l'egout n'est pas une arete et un egout pose sur les linteaux de l'etage passait le score (scene 24 : 0,89). Pose le 2 novembre 2026 sur le banc de synthese (calage-e5.ts, 22 poses justes) : les poses justes font de 0,79 a 1, les memes l'egout deplace de 2 % de la largeur (encore juste) de 0,53 a 1, l'egout deplace de 5 ou 10 % (faux, au-dela de calageEcartMaxPart) au plus 0,16. Le seuil est entre les deux."
+      "pourquoi": "É5 : l'egout de la pose retenue, juge sur la silhouette du gabarit posee par elle (facade/releve/calageAncres.ts : la matiere du mur sous le haut pose et pas au-dessus, d'un bout a l'autre de la silhouette, dans des bandes de 2,5 a 4,5 % de la largeur ; un rectangle n'est que l'egout), doit l'etre au moins a cette part : sous un pignon, l'egout n'est pas une arete et un egout pose sur les linteaux de l'etage passait le score (scene 24 : 0,89). Pose le 2 novembre 2026 sur le banc de synthese (calage-e5.ts, 22 poses justes) : les poses justes font de 0,79 a 1, les memes l'egout deplace de 2 % de la largeur (encore juste) de 0,53 a 1, l'egout deplace de 5 ou 10 % (faux, au-dela de calageEcartMaxPart) au plus 0,16. Le seuil est entre les deux."
     },
     "facades.enchainement.diagnosticEcartMin": {
       "valeur": 0.08,
       "unite": "part",
-      "pourquoi": "E5 bis (lot F4) : l'ecart moyen du gabarit au haut lu sur la photo, sur le troncon d'un corps, en hauteurs d'egout, en deca duquel le toit calcule explique la photo et rien ne se diagnostique (0,08 : 19 cm sous l'egout de 2,4 m d'AE 101 sud, la precision du haut lu a la matiere du mur sur le banc de synthese). Pose sans cas reel valide (§5.6)."
+      "pourquoi": "É7 (lot F4) : l'ecart moyen du gabarit au haut lu sur la photo, sur le troncon d'un corps, en hauteurs d'egout, en deca duquel le toit calcule explique la photo et rien ne se diagnostique (0,08 : 19 cm sous l'egout de 2,4 m d'AE 101 sud, la precision du haut lu a la matiere du mur sur le banc de synthese). Pose sans cas reel valide (§5.6)."
     },
     "facades.enchainement.diagnosticGainMin": {
       "valeur": 0.25,
       "unite": "part",
-      "pourquoi": "E5 bis (lot F4, §5 bis regle 1) : une variante du toit d'un corps (un pignon de plus, de moins, deplace, une croupe) n'est proposee que si elle reduit l'ecart au haut lu d'au moins cette part. Pose sans cas reel valide ; toute proposition arrive decochee (decision 10)."
+      "pourquoi": "É7 (lot F4, §5 bis regle 1) : une variante du toit d'un corps (un pignon de plus, de moins, deplace, une croupe) n'est proposee que si elle reduit l'ecart au haut lu d'au moins cette part. Pose sans cas reel valide ; toute proposition arrive decochee (decision 10)."
     },
     "facades.enchainement.diagnosticReliefMin": {
       "valeur": 0.2,
       "unite": "part",
-      "pourquoi": "E5 bis (lot F4) : le haut lu qui depasse le gabarit d'au moins cela (en hauteurs d'egout) est une bosse ou chercher un pignon ; plus etroite qu'un pignon (LARGEUR_PIGNON_MIN_M), une cheminee ou une lucarne (lot F7). C'est aussi le relief au-dessous duquel une pointe lue n'est pas une pointe (pas d'alerte de hauteur)."
+      "pourquoi": "É7 (lot F4) : le haut lu qui depasse le gabarit d'au moins cela (en hauteurs d'egout) est une bosse ou chercher un pignon ; plus etroite qu'un pignon (LARGEUR_PIGNON_MIN_M), une cheminee ou une lucarne (lot F7). C'est aussi le relief au-dessous duquel une pointe lue n'est pas une pointe (pas d'alerte de hauteur)."
     },
     "facades.enchainement.diagnosticElementLargeurMinM": {
       "valeur": 0.2,
       "unite": "m",
-      "pourquoi": "E5 bis (lot F7) : une bosse du haut lu plus etroite qu'un pignon est une cheminee ou une lucarne a proposer si elle fait au moins cette largeur le long du mur (0,2 m : un tubage, la plus etroite des souches vues, facade/regles/toits/elementsVus.ts) ; en deca, une colonne ou deux du haut lu qui sautent (une antenne, une branche) ne sont pas un element. Pose sans cas reel valide (§5.6) ; toute proposition arrive decochee (decision 10)."
+      "pourquoi": "É7 (lot F7) : une bosse du haut lu plus etroite qu'un pignon est une cheminee ou une lucarne a proposer si elle fait au moins cette largeur le long du mur (0,2 m : un tubage, la plus etroite des souches vues, facade/regles/toits/elementsVus.ts) ; en deca, une colonne ou deux du haut lu qui sautent (une antenne, une branche) ne sont pas un element. Pose sans cas reel valide (§5.6) ; toute proposition arrive decochee (decision 10)."
     },
     "facades.enchainement.rappelMin": {
       "valeur": 0.85,
       "unite": "part",
-      "pourquoi": "E7, contre la verite : les objectifs de la premiere version (MD/spec-facades-calage-detection.md §14)."
+      "pourquoi": "É9, contre la verite : les objectifs de la premiere version (MD/spec-facades-calage-detection.md §14)."
     },
     "facades.enchainement.precisionMin": {
       "valeur": 0.9,
       "unite": "part",
-      "pourquoi": "E7, contre la verite : une fausse baie cochee coute un geste ; 90 % au moins (spec §14)."
+      "pourquoi": "É9, contre la verite : une fausse baie cochee coute un geste ; 90 % au moins (spec §14)."
     },
     "facades.enchainement.cotesMaxM": {
       "valeur": 0.05,
       "unite": "m",
-      "pourquoi": "E7, contre la verite : l'ecart median des cotes des baies retrouvees, 5 cm au plus (spec §14)."
+      "pourquoi": "É9, contre la verite : l'ecart median des cotes des baies retrouvees, 5 cm au plus (spec §14)."
+    },
+    "facades.enchainement.silhouetteColonnesMin": {
+      "valeur": 0.5,
+      "unite": "part",
+      "pourquoi": "É6 : le haut du mur est lu quand la teinte du mur s'arrete nettement sur au moins cette part des colonnes de la silhouette (facade/vision/mosaiqueFuites.ts::silhouetteDuMur) ; en deca, la suite garde le gabarit du plan et l'É6 est a confirmer. C'est ce que l'É7 lit : l'etat de l'É6 se juge sur la meme ligne (revue des etapes, 3 novembre 2026). Valeur d'avant, reprise telle quelle (COLONNES_SILHOUETTE / 2)."
+    },
+    "facades.enchainement.bandeVueMin": {
+      "valeur": 0.33,
+      "unite": "part",
+      "pourquoi": "É6 : le mot du toit (la bande au-dessus de l'egout, facade/analyse.ts) ne se lit que si au moins cette part de la bande est vue ; sinon il est indetermine (un toit hors cadre n'est pas un toit plat). Une information de l'É6, pas son etat. Valeur d'avant, reprise telle quelle."
+    },
+    "facades.enchainement.verticalesMaxDeg": {
+      "valeur": 0.5,
+      "unite": "degres",
+      "pourquoi": "É3 : une photo est redressee quand ses verticales ne penchent pas de plus que cela sur la vue de face (facade/releve/chaine.ts) ; au-dela, la chaine essaie les coins predits puis les verticales lues, et la photo reste en echec, a reprendre par quatre reperes. Valeur d'avant, reprise telle quelle."
+    },
+    "facades.enchainement.masqueMaxPart": {
+      "valeur": 0.02,
+      "unite": "part",
+      "pourquoi": "É8 : une part du mur cachee sur toutes les vues au-dela de cela rend la texture a confirmer (facade/releve/analyseSerie.ts::avisFusion) : aucune ouverture n'y est cherchee. Valeur d'avant, reprise telle quelle."
     }
   }
 }

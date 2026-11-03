@@ -183,7 +183,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   };
   const vide: MesureFacade = { cle, cote: f.cote, releve: null, rangReleve: null, coinsTrouves: false, confiance: null, hauteurM: null, couleur: null };
   const couleur = await couleurDesPhotos(photos, images, f, d).catch(() => null);
-  if (!photos.length) return { ...vide, couleur };
+  // Sans photo aussi, l'enchainement se deroule : l'E2 le dit (« Aucune photo… »), la suite attend ; rien ne se calcule a cote.
   // 1. Les entrees de la facade (facade/releve/prisesFacade.ts) : l'echelle corrigee a la main, les photos dans l'ordre du
   // redressement (la premiere avec une prise de vue d'abord), leur prise. La calibration relit un cas par la meme fonction.
   const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, prise: p.prise ?? null }; }));

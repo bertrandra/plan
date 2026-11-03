@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assemblageDuRejeu, casAvecLeMur, casCaleALaMain, derouler, murAjusteSurLesPhotos, entreesDuCas, etapeDe, originesDuCas, preparerPourLaMesure, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
 import { imagesEtapes } from '../../../../src/facade/releve/imagesEtapes.js';
+import { vuesDeFace } from '../../../../src/facade/vision/mosaiqueFuites.js';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { prisesDeLaFacade } from '../../../../src/facade/releve/prisesFacade.js';
 import { murAConfirmer, relecture, type MurConfirme } from '../../../../src/model/auditParcelle.js';
@@ -210,12 +211,13 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
   it('une E5 a confirmer rend a confirmer les etapes qui en dependent et qui avaient atteint leur objectif, en le disant', async () => {
     const r = await jouer();
     expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
-    for (const id of ['silhouette', 'texture'] as const) {
-      const e = etapeDe(r, id);
-      expect(e.etat, id).toBe('a-confirmer');
-      expect(e.herite, id).toBe('calage');
-      expect(e.resume, id).toMatch(/ Dépend du mur à confirmer \(É5\)\.$/);
-    }
+    const e = etapeDe(r, 'texture');
+    expect(e.etat).toBe('a-confirmer');
+    expect(e.herite).toBe('calage');
+    expect(e.resume).toMatch(/ Dépend du mur à confirmer \(É5\)\.$/);
+    // L'E6 n'a pas lu le haut sur ce mur (moins de la moitie des colonnes) : son propre verdict, sans heritage.
+    expect(etapeDe(r, 'silhouette')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/^Le haut du mur se lit sur moins de 50 % des colonnes/) });
+    expect(etapeDe(r, 'silhouette').herite).toBeUndefined();
     // L'E9 doute deja d'elle-meme tant que ses ouvertures ne sont pas relues (V3) : son propre verdict, sans heritage.
     expect(etapeDe(r, 'ouvertures')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/Relisez-les \(V3\)/) });
     // Ce qui ne lit pas le mur garde son etat ; ce qui est saute le reste.
@@ -232,8 +234,8 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
     expect(e5.resume).toMatch(/^Mur confirmé par vous le 3 novembre 2026\. .*que sa silhouette n’explique pas \(score .*\) : noté, le mur reste celui que vous avez confirmé\./);
     expect(e5.resume).not.toMatch(/: à confirmer\./);
     // Les etapes retrouvent leur propre verdict : le meme resume que sans le doute du mur.
+    expect(etapeDe(r, 'texture').etat).toBe('ok');
     for (const id of ['silhouette', 'texture'] as const) {
-      expect(etapeDe(r, id).etat, id).toBe('ok');
       expect(etapeDe(r, id).herite, id).toBeUndefined();
       expect(etapeDe(r, id).resume, id).toBe(etapeDe(auto, id).resume.replace(' Dépend du mur à confirmer (É5).', ''));
     }
@@ -433,3 +435,29 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
   }, 60_000);
 });
 
+
+describe('l E6 se juge sur le haut qu elle rend (hautLu), pas sur le mot de la bande au-dessus de l egout', () => {
+  // Le pignon 11, ombre par un arbre : la bande au-dessus de l'egout ne donne pas de mot (indetermine), mais le haut se lit sur plus de la
+  // moitie des colonnes, et c'est lui que l'E7 lit. L'etape est faite, et dit le mot de la bande comme une information.
+  it('le haut lu sur assez de colonnes : faite, meme quand la bande ne dit pas de mot', async () => {
+    const { s, ph, vrais } = scene('11-');
+    const r = await derouler({ ...entreesDuCas(casDe(s.verite.largeur, s.verite.hauteur, vrais, ph.focalePx), [ph.image]), gabarit: gabaritVrai(s) }, CAL);
+    const m = r.sorties.audit?.mesure;
+    expect(m?.hautLu?.length).toBeGreaterThan(1);
+    expect(m?.silhouette).toBe('indetermine');
+    const e6 = etapeDe(r, 'silhouette');
+    expect(e6.etat).toBe('ok');
+    expect(e6.resume).toMatch(/^Le haut lu sur la photo \(\d+ points\)/);
+    expect(e6.resume).not.toMatch(/hors cadre/);
+  }, 120_000);
+});
+
+describe('l E3 montre les vues que l assemblage prend', () => {
+  it('chaque photo redressee entiere comme l assemblage la redresse (ses points de fuite ici), pas par les coins du mur retenu', async () => {
+    const { s, ph, vrais } = scene('02-');
+    const r = await derouler(entreesDuCas(casDe(s.verite.largeur, s.verite.hauteur, vrais, ph.focalePx, {}, false), [ph.image]), CAL);
+    const parFuites = vuesDeFace([ph.image])[0];
+    expect(parFuites).toBeTruthy();
+    expect(r.sorties.vues?.[0]?.versPhoto).toEqual(parFuites?.versPhoto);
+  }, 120_000);
+});
