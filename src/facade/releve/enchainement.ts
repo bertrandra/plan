@@ -777,6 +777,17 @@ export function casCaleALaMain<C extends CasReel>(cas: C, r: Enchainement, coins
   return retours?.length ? casAvecLeMur(cas, murAjusteSurLesPhotos({ retours }, coins)) : cas;
 }
 
+/**
+ * « Revenir au mur cherché » (calibration, revue des etapes) : le cas sans le mur pose a la main sur cette photo, ni sur les photos de
+ * l'assemblage qu'elle partage (le mur tire sur l'assemblage s'y etait pose d'un coup), comme « Revenir à l'automatique » dans l'audit
+ * retire le mur tire de toutes. Leurs coins restent ceux du dernier rejeu (un point de depart, pas une entree) : la chaine cherche le
+ * mur de nouveau. Les reperes restent, ils ont leur propre retrait.
+ */
+export function casSansLeMur<C extends CasReel>(cas: C, rang: number, r: Enchainement | null): C {
+  const rangs = new Set([rang, ...(r?.sorties.audit?.retours ?? []).map((x) => x.rang)]);
+  return { ...cas, photos: cas.photos.map((p, i) => { if (!rangs.has(i) || !p.murALaMain) return p; const q = { ...p }; delete q.murALaMain; delete q.silhouette; return q; }) };
+}
+
 /** Le cas avec le mur pose a la main sur ces photos (par rang, ses coins) : la silhouette d'avant, posee sur d'autres coins, s'en va. */
 export function casAvecLeMur<C extends CasReel>(cas: C, parPhoto: ReadonlyMap<number, readonly P2[]>): C {
   return { ...cas, photos: cas.photos.map((p, i) => { const c = parPhoto.get(i); if (!c) return p; const q = { ...p, coins: c.map((x) => ({ ...x })), murALaMain: true }; delete q.silhouette; return q; }) };
