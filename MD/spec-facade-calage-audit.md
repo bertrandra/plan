@@ -349,9 +349,20 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
     (`calage.murConfirmeLe`), dans le même pas d'historique que la façade (Ctrl+Z défait les deux). Un autre mur (une photo, des repères
     ou un mur tiré en plus) n'est plus le mur confirmé : l'É5 retrouve son verdict et dit « Le mur confirmé le … n'est plus celui que la
     chaîne retient … : à confirmer de nouveau ». Retirer une photo retire la confirmation.
-  - **Ce qu'il ne fait pas** : avant V4, la confirmation est une note de la capture de l'audit (ou du cas), pas du projet : elle n'a pas
-    de pas d'historique à elle ; elle se défait par le même bouton (« Retirer la confirmation du mur »), et dans le projet par le Ctrl+Z
-    de V4.
+  - **Ctrl+Z avant V4** (demande du propriétaire, 3 novembre 2026) : la confirmation est une note de la capture de l'audit (ou du cas),
+    pas du projet ; elle a pourtant son pas d'annulation. Les **gestes de la façade** (la confirmation et son retrait, mais aussi les
+    quatre repères, le mur tiré, l'échelle, « Revenir à l'automatique ») passent par `capture.ts::geste` dans l'audit et par les gestes du
+    cas dans la calibration (`EditeurCasCalibration.tsx::useGestesDuCas`) : une pile d'instantanés (`util/pileGestes.ts`), un pas par
+    geste (le mur tiré ramené sur plusieurs photos compris). Ctrl+Z le défait, Ctrl+Y (ou Ctrl+Maj+Z) le refait, puis la façade se
+    rejoue ; les commandes `facade.annulerGeste` et `facade.retablirGeste` le font aussi au doigt (« Annuler le geste », « Rétablir »).
+    Rien n'entre dans le projet ni ne le marque modifié.
+    - **Périmètre** : tous les gestes de la façade, pas seulement la confirmation. C'est le même mécanisme (les mêmes écritures dans la
+      capture, `corrections` et `murConfirme`), et une pile limitée à la confirmation défairait mal : Ctrl+Z après un mur tiré
+      défairait la confirmation d'avant lui. Les photos ajoutées ou retirées n'en sont pas (elles changent les rangs) : elles vident la
+      pile.
+    - **Pas de conflit avec le projet** (`app/clavierGestes.ts`) : tant que l'écran de la façade est ouvert (l'audit, l'éditeur d'un cas)
+      et qu'un geste reste à défaire, Ctrl+Z est le sien ; sinon la touche va à l'historique du projet. V4 vide la pile : après elle,
+      Ctrl+Z défait la validation, comme avant. Dans un champ (la largeur tapée), la touche reste au champ.
 
 ### É6 · Silhouette lue, par corps
 

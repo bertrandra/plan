@@ -225,3 +225,35 @@ describe('« Confirmer le mur » (V1) dans l audit, puis V4 (decision du proprie
   }, 30000);
 });
 
+
+describe('Ctrl+Z sur « Confirmer le mur » avant V4 (decision du proprietaire, 3 novembre 2026)', () => {
+  it('defait la confirmation d un pas (et la refait), sans rien ecrire dans le projet ; V4 passe la main au Ctrl+Z du projet', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const etatE5 = () => t.v.mesuresFaites().get('maison#0')?.etapes?.find((e) => e.id === 'calage')?.etat;
+    const propre = etatE5();
+    const projet = JSON.stringify(serializeObjects(t.etat.objects));
+    const pas = (t.projet.pushHistory as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(t.capture.peutAnnulerGeste()).toBe(false);
+    await t.v.confirmerMur('maison', 0);
+    expect(etatE5()).toBe('confirme');
+    expect(t.capture.peutAnnulerGeste()).toBe(true);
+    // Ctrl+Z : la capture d'avant le geste, la facade rejouee ; l'E5 retrouve son verdict.
+    expect(t.capture.annulerGeste()).toEqual({ cle: 'maison', cote: 0 });
+    expect(t.capture.lire().batiments.maison?.facades['0']?.murConfirme).toBeUndefined();
+    await t.v.rejouerFacade('maison', 0);
+    expect(etatE5()).toBe(propre);
+    // Ctrl+Y : la confirmation revient.
+    expect(t.capture.retablirGeste()).toEqual({ cle: 'maison', cote: 0 });
+    await t.v.rejouerFacade('maison', 0);
+    expect(etatE5()).toBe('confirme');
+    // Rien n'est entre dans le projet : ni pas d'historique, ni changement.
+    expect((t.projet.pushHistory as ReturnType<typeof vi.fn>).mock.calls.length).toBe(pas);
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(projet);
+    // V4 ecrit dans le projet : son Ctrl+Z prend la suite, les gestes d'avant ne se defont plus sur la capture.
+    t.v.validerFacade('maison', 0);
+    expect(t.capture.peutAnnulerGeste()).toBe(false);
+    t.historique.annuler();
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(projet);
+  }, 60000);
+});

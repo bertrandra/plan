@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- Façades (audit et calibration) : Ctrl+Z défait un geste sur la façade avant sa validation (V4), et Ctrl+Y le refait : « Confirmer
+  le mur » et son retrait, mais aussi les quatre repères, le mur tiré, l'échelle et « Revenir à l'automatique ». La façade se rejoue,
+  rien n'entre dans le projet ni ne le marque modifié. Les boutons « Annuler le geste » et « Rétablir » sous la barre de la façade font
+  de même au doigt. Sans geste à défaire, ou hors de l'écran de la façade, Ctrl+Z reste celui du projet ; après la validation, il
+  défait la validation, comme avant. Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration), point V1 : « Confirmer le mur ». Le mur que la chaîne a posé se confirme d'un geste, sur la ligne
   du mur de l'audit comme dans l'étape É5 ouverte de la calibration (la même commande) : l'étape É5 dit alors « confirmé par vous »,
   un état à part de « faite », et ce que la silhouette en disait reste écrit en note. La confirmation survit au rejeu de la façade, tant

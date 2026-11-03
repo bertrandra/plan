@@ -9,6 +9,9 @@
 // mur redresse : la detection en propose, on retire les fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ;
 // un cas ne compte dans la calibration qu'une fois marque « relu sur la photo » (valide).
 
+import { COMMANDE_ANNULER_GESTE, COMMANDE_RETABLIR_GESTE } from '../app/clavierGestes.js';
+import { creerPileGestes } from '../util/pileGestes.js';
+import { avecLesGestes, gestesDuCas, type GestesCas } from '../facade/gestesCas.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type MurAjuste } from './releve/AjusterMur.js';
 import { PoserReperes } from './releve/PoserReperes.js';
@@ -56,7 +59,13 @@ export interface OutilsPhotos {
   ecouterEscalade?: (escalader: () => void) => () => void;
   /** S'abonner a la commande `facade.confirmerMur` de l'ecran (V1, « Confirmer le mur ») ; rend de quoi se desabonner. */
   ecouterConfirmerMur?: (confirmer: () => void) => () => void;
+  /** Brancher Ctrl+Z et Ctrl+Y de l'ecran (`facade.annulerGeste`, `facade.retablirGeste`) sur les gestes du cas ouvert. */
+  ecouterGestes?: (g: GestesDuCas) => () => void;
 }
+
+/** Les gestes d'un cas ouvert, que les commandes de l'ecran defont et refont (Ctrl+Z, Ctrl+Y). */
+export interface GestesDuCas { annuler(): void; retablir(): void; peutAnnuler(): boolean; peutRetablir(): boolean }
+
 
 const TYPES: readonly TypeOuverture[] = ['fenetre', 'porte-fenetre', 'porte', 'garage'];
 
@@ -260,6 +269,44 @@ function useEscalade(outils: OutilsPhotos, escalader: () => Promise<void>): Prix
   return prix;
 }
 
+/**
+ * Les gestes du cas (reperes, mur tire, confirmation du mur), pour Ctrl+Z et Ctrl+Y : le meme chemin que dans l'audit (capture.ts::geste).
+ * `geste()` garde l'etat d'avant ; defaire ou refaire remet un etat (`remettre` : le cas, puis son rejeu).
+ */
+function useGestesDuCas(outils: OutilsPhotos, cas: { current: CasStocke }, remettre: (c: CasStocke) => void) {
+  const pile = useRef(creerPileGestes<GestesCas>()).current;
+  const bouger = (g: { etat: GestesCas } | null) => { if (g) remettre(avecLesGestes(cas.current, g.etat)); };
+  useEffect(() => outils.ecouterGestes?.({
+    annuler: () => bouger(pile.annuler(() => gestesDuCas(cas.current))), retablir: () => bouger(pile.retablir(() => gestesDuCas(cas.current))),
+    peutAnnuler: () => pile.peutAnnuler(), peutRetablir: () => pile.peutRetablir(),
+  }));
+  return { geste: () => pile.empiler('cas', gestesDuCas(cas.current)), pile };
+}
+
+/** Defaire et refaire un geste sur le cas (Ctrl+Z, Ctrl+Y) : les commandes de l'ecran, comme sous la barre de l'audit. */
+function BoutonsGestes({ commandes, occupe }: { commandes: NonNullable<OutilsPhotos['commandes']>; occupe: boolean }) {
+  const bouton = (id: string, texte: string) => {
+    if (commandes.effacee(id)) return null;
+    const e = commandes.etat(id);
+    return <button type="button" className="secondary small" data-commande={id} disabled={occupe || !e.utilisable} title={'message' in e ? e.message : undefined} onClick={(ev) => commandes.executer(id, ev.currentTarget)}>{texte}</button>;
+  };
+  return <>{bouton(COMMANDE_ANNULER_GESTE, 'Annuler le geste')}{bouton(COMMANDE_RETABLIR_GESTE, 'Rétablir')}</>;
+}
+
+/**
+ * Le cas apres « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme (une entree, comme dans l'audit) ; deja confirme, le
+ * meme geste retire la confirmation. Un texte quand il n'y a rien a confirmer.
+ */
+function casConfirme(cas: CasStocke, rejeu: Enchainement | null): CasStocke | string {
+  if (!rejeu) return 'Rejouez d’abord le cas : on confirme le mur que la chaîne a posé.';
+  const deja = cas.murConfirme && etapeDe(rejeu, 'calage').etat === 'confirme';
+  const mur = deja ? null : murAConfirmer((rejeu.sorties.calage?.photos ?? []).map((p, rang) => ({ rang, coins: p.coins })), new Date().toISOString());
+  if (!deja && !mur) return 'Aucun mur posé à confirmer.';
+  const suite = { ...cas };
+  if (mur) suite.murConfirme = mur; else delete suite.murConfirme;
+  return suite;
+}
+
 /** La commande `facade.confirmerMur` de l'ecran branchee sur l'editeur (la derniere version de son geste). */
 function useConfirmerMur(outils: OutilsPhotos, confirmer: () => Promise<void>): void {
   const ref = useRef(confirmer);
@@ -309,6 +356,8 @@ function PanneauClaude({ c, peutAppeler, occupe, rejouer, appeler, escalade }: {
 
 export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false }: Props) {
   const [cas, setCas] = useState<CasStocke>(depart);
+  const casCourant = useRef(cas);
+  casCourant.current = cas;
   const [courante, setCourante] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
@@ -338,20 +387,23 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   };
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
   const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
-  const retirerPhoto = (k: number) => { modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setCourante(0); oublier(); };
+  const { geste, pile } = useGestesDuCas(outils, casCourant, (suite) => { setCas(suite); setOrigines(originesDuCas(suite)); void rejouer(suite); });
+  const retirerPhoto = (k: number) => { pile.vider(); modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setCourante(0); oublier(); };
   // Le mur ajuste a la main sur la photo courante redressee : ses coins seuls (le gabarit s'y pose) ; il se reporte sur les autres photos.
   const murCourant = ({ coins }: MurAjuste) => {
+    geste();
     modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p, coins, murALaMain: true }; delete q.silhouette; return q; }) }));
     setOrigines((o) => ({ ...o, [courante]: 'main' })); oublier();
   };
   // Le mur ajuste a la main sur l'assemblage du rejeu (depuis les reperes) : pose sur chaque photo assemblee, comme a l'E5.
   const murAssemble = (parPhoto: Map<number, P2[]>) => {
+    geste();
     modifier((c) => casAvecLeMur(c, parPhoto));
     setOrigines((o) => ({ ...o, ...Object.fromEntries([...parPhoto.keys()].map((i) => [i, 'main' as const])) })); oublier();
   };
   // L'option manuelle de l'E5 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue entier : comme dans
   // l'audit, un mur pose a la main est une entree de la chaine, qui redresse et assemble a l'E3.
-  const caler = (coins: P2[]) => { if (!rejeu) return; const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c); };
+  const caler = (coins: P2[]) => { if (!rejeu) return; geste(); const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c); };
   // « Rappeler Claude » : le run sur l'image prise pour la suite par le rejeu (ce qu'elle ne montre pas en gris), enregistre avec le cas,
   // puis rejoue en IA.
   const texteDuCas = () => texteRunFacade({ etiquette: cas.nom, image: 'assemblage', pointes: rejeu?.sorties.preparation?.pointes ?? [], parement: cas.parement ?? null });
@@ -383,20 +435,15 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const prixEscalade = useEscalade(outils, escalader);
   // « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme et garde dans le cas (une entree, comme dans l'audit), puis le
   // cas se rejoue depuis l'E5 ; deja confirme, le meme geste retire la confirmation.
-  const confirmerMur = async () => {
-    if (!rejeu) { setMessage('Rejouez d’abord le cas : on confirme le mur que la chaîne a posé.'); return; }
-    const deja = cas.murConfirme && etapeDe(rejeu, 'calage').etat === 'confirme';
-    const mur = deja ? null : murAConfirmer((rejeu.sorties.calage?.photos ?? []).map((p, rang) => ({ rang, coins: p.coins })), new Date().toISOString());
-    if (!deja && !mur) { setMessage('Aucun mur posé à confirmer.'); return; }
-    const suite = { ...cas };
-    if (mur) suite.murConfirme = mur; else delete suite.murConfirme;
-    setCas(suite);
-    await rejouer(suite, 'calage');
-  };
-  useConfirmerMur(outils, confirmerMur);
+  useConfirmerMur(outils, async () => {
+    const suite = casConfirme(cas, rejeu);
+    if (typeof suite === 'string') { setMessage(suite); return; }
+    geste(); setCas(suite); await rejouer(suite, 'calage');
+  });
   const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent au prochain rejeu ; null les retire.
   const reperesCourants = (reperes: P2[] | null) => {
+    geste();
     modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p }; if (reperes) q.reperes = auDixiemeDePixel(reperes); else delete q.reperes; return q; }) }));
     // Un mur deja ajuste a la main le reste : les reperes ne font que redresser la photo.
     setOrigines((o) => { const q = { ...o }; if (reperes) q[courante] = q[courante] === 'main' ? 'main' : 'reperes'; else if (q[courante] !== 'main') delete q[courante]; return q; });
@@ -436,6 +483,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
+        {outils.commandes && <BoutonsGestes commandes={outils.commandes} occupe={occupe} />}
       </div>
       <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
         escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />

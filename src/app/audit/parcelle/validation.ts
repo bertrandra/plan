@@ -497,6 +497,8 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
   // avant l'ecriture (sur les facades du projet), ecrites dans le meme pas d'historique.
   const voisines = facadesVoisinesAEcrire(o, m, accord);
   ctx.projet.pushHistory();
+  // Ecrite dans le projet : Ctrl+Z defait desormais la validation (le projet), plus les gestes d'avant sur la capture.
+  ctx.capture.oublierGestes();
   ecrireDansLeProjet(ctx, [{ id: k + ':facade', cible: { type: 'facade', cle, cote }, objet: 'Façade', source: 'mesure', avant: '', apres: '', indices: [], confiance: null, remplaceChoix: null, reserve: null, effet: { type: 'releve', releve: r } }], [], jour);
   if (voisines.length && o.batiment) {
     o.batiment = { ...o.batiment, facades: (o.batiment.facades ?? []).map((x) => voisines.find((v) => v.cote === x.cote) ?? x) };
@@ -516,10 +518,11 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
  */
 function confirmerLeMur(ctx: ContexteValidation, m: MesureFacade | undefined, cle: string, cote: number): boolean {
   const deja = ctx.capture.lire().batiments[cle]?.facades[String(cote)]?.murConfirme;
-  if (deja && m?.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme') { ctx.capture.confirmerMur(cle, cote, null); return true; }
+  // Un geste de la facade : Ctrl+Z le defait avant V4 (capture.ts::geste).
+  if (deja && m?.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme') { ctx.capture.geste(cle, cote, () => ctx.capture.confirmerMur(cle, cote, null)); return true; }
   const mur = murAConfirmer((m?.redressement?.photos ?? []).map((p) => ({ rang: p.rang, coins: p.statut === 'echec' ? [] : p.coinsPx ?? [] })), ctx.maintenant().toISOString());
   if (!mur) return false;
-  ctx.capture.confirmerMur(cle, cote, mur);
+  ctx.capture.geste(cle, cote, () => ctx.capture.confirmerMur(cle, cote, mur));
   return true;
 }
 
