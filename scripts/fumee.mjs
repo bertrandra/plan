@@ -2516,12 +2516,21 @@ const POINTS = {
     await etape('fin du rejeu cale', finRejeu);
     await etape('etape cale', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
     const resumeCale = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    // « Revenir au mur cherché » (revue des etapes, lot 5) : le mur pose a la main s'en va, « Rejouer » le cherche de nouveau.
+    await etape('revenir au mur cherche', () => page.locator('[data-controle="calibration.revenirMurCherche"]').click({ timeout: 5000 }));
+    const revenirApres = await page.locator('[data-controle="calibration.revenirMurCherche"]').count();
+    await etape('rejouer apres retour', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu apres retour', finRejeu);
+    await etape('segment Mur apres retour', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
+    await etape('etape apres retour', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
+    const resumeRetour = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const retour = revenirApres === 0 && /^Coins du mur trouvés/.test(resumeRetour);
     const calage = poignees.join() === 'Égout,Sol,Bout gauche du mur,Bout droit du mur' && appliquerAvant && !appliquerApres && /Score d’explication par la silhouette \d,\d\d/.test(legende) && /^Mur posé à la main/.test(resumeCale);
     const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
     const ok = segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
       && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É5 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
-      && contrat >= 5 && /^É5 Calage du mur \(Mur\), /.test(ligne) && /^É5 Mur, /.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && lot5 && !debords.some(Boolean);
-    return { ok, mesure: `É3 « ${legendeE3.slice(0, 80)}… » ; É6 « ${resumeE6.slice(0, 70)}… » ; barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É5 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+      && contrat >= 5 && /^É5 Calage du mur \(Mur\), /.test(ligne) && /^É5 Mur, /.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && lot5 && retour && !debords.some(Boolean);
+    return { ok, mesure: `É3 « ${legendeE3.slice(0, 80)}… » ; É6 « ${resumeE6.slice(0, 70)}… » ; barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É5 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… », revenu au mur cherché : « ${resumeRetour.slice(0, 50)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   101: async (page, f) => {
     // Admin › Calibrer la detection, le mode « IA » du rejeu (MD/spec-facade-calage-audit.md §7.2, §8, lot F2). Un cas du serveur simule :

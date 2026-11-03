@@ -20,7 +20,7 @@ import { libelleOuMot } from '../shell/motsInconnus.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
-import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
+import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSansLeMur, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
 import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
@@ -130,15 +130,16 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
  * a la main de l'egout, du sol et des bouts sur l'assemblage du dernier rejeu quand cette photo y est avec d'autres, sinon sur la photo
  * redressee entiere : le geste partage avec l'audit (PoserReperes).
  */
-function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur, assemblage, ajusterMurAssemble }: {
+function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur, assemblage, ajusterMurAssemble, revenir }: {
   photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void;
-  assemblage: AssemblageAAjuster | null; ajusterMurAssemble: (parPhoto: Map<number, P2[]>) => void;
+  assemblage: AssemblageAAjuster | null; ajusterMurAssemble: (parPhoto: Map<number, P2[]>) => void; revenir: () => void;
 }) {
   const r = reperesDe(p);
   return (
     <PoserReperes photo={photo} rang={rang} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} changer={poser}
       mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} assemblage={assemblage} ajusterMurAssemble={ajusterMurAssemble} suite="« Rejouer »">
       {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
+      {p?.murALaMain && <button type="button" className="secondary small" data-controle="calibration.revenirMurCherche" onClick={revenir}>Revenir au mur cherché</button>}
     </PoserReperes>
   );
 }
@@ -455,6 +456,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOrigines((o) => { const q = { ...o }; if (reperes) q[courante] = q[courante] === 'main' ? 'main' : 'reperes'; else if (q[courante] !== 'main') delete q[courante]; return q; });
     oublier();
   };
+  // « Revenir au mur cherché » (casSansLeMur), comme « Revenir à l'automatique » dans l'audit : un geste ; « Rejouer » cherche le mur.
+  const revenirAuMurCherche = () => { geste(); const suite = casSansLeMur(cas, courante, rejeu); setCas(suite); setOrigines(originesDuCas(suite)); oublier(); };
   // Un cas tire d'un audit se rejoue des l'ouverture, ses coins cherches : il n'y a rien a placer avant.
   useEffect(() => { if (chercherCoins) void rejouer(cas, null); }, []);
   const sauver = async () => {
@@ -486,7 +489,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
       {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
-        assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} />}
+        assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} revenir={revenirAuMurCherche} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
         {outils.commandes && <BoutonsGestes commandes={outils.commandes} occupe={occupe} />}

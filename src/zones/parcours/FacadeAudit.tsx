@@ -53,6 +53,14 @@ export function correctionAAppliquer(coins: readonly P2[], depart: readonly P2[]
 }
 
 /**
+ * Ce que « Revenir à l'automatique » laisse de la correction d'une photo : la largeur reelle tapee pour l'echelle, qui n'est pas un
+ * geste du redressement et ne se perd pas sans le dire (revue des etapes) ; null quand il n'en reste rien.
+ */
+export function correctionApresRetour(avant: CorrectionRedressement | undefined): CorrectionRedressement | null {
+  return avant?.echelleLargeurM ? { echelleLargeurM: avant.echelleLargeurM } : null;
+}
+
+/**
  * Les quatre repères de l'audit sur une photo : le geste partage (PoserReperes), et ce que l'audit y ajoute — la largeur reelle du
  * mur pour l'echelle, « Appliquer » (la correction va dans la capture : elle prime sur le calcul et survit au rejeu, puis la facade est
  * rejouee), « Revenir à l'automatique » et « Annuler ». Rien n'est ecrit avant « Appliquer ». Avec plusieurs photos assemblees,
@@ -218,10 +226,10 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
     });
     rejouer();
   };
-  // Revenir a l'automatique : la correction de cette photo, et le mur tire sur l'assemblage qu'elle partage avec les autres.
+  // Revenir a l'automatique : la correction de cette photo (sauf l'echelle tapee), et le mur tire sur l'assemblage qu'elle partage.
   const retablir = (rang: number) => {
     session.capture.geste(cle, cote, () => {
-      session.capture.corrigerRedressement(cle, cote, rang, null);
+      session.capture.corrigerRedressement(cle, cote, rang, correctionApresRetour(saisie?.corrections?.[String(rang)]));
       for (const r of mesure?.assemblage?.retours ?? []) {
         const avant = saisie?.corrections?.[String(r.rang)];
         if (r.rang === rang || !avant?.coins) continue;

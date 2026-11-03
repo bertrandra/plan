@@ -7,6 +7,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- Façades (calibration) : « Revenir au mur cherché ». Un mur posé à la main sur une photo (et sur les photos de son assemblage)
+  s'en va d'un geste, que Ctrl+Z défait ; au rejeu, la chaîne cherche le mur de nouveau. Avant, seuls « Retirer les repères » ou
+  fermer sans enregistrer le permettaient. Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration) : Ctrl+Z défait un geste sur la façade avant sa validation (V4), et Ctrl+Y le refait : « Confirmer
   le mur » et son retrait, mais aussi les quatre repères, le mur tiré, l'échelle et « Revenir à l'automatique ». La façade se rejoue,
   rien n'entre dans le projet ni ne le marque modifié. Les boutons « Annuler le geste » et « Rétablir » sous la barre de la façade font
@@ -20,6 +23,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit) : « Revenir à l'automatique » garde la largeur réelle tapée pour l'échelle ; les repères et le mur tiré s'en vont
+  comme avant. Elle se perdait sans que rien ne le dise. Façades : les textes de l'écran de calibration (« Rejouer » nomme aussi l'É7
+  et l'É10, le mode « IA » ne promet plus une pose candidate ni des zones de colombage qui n'agissent pas) et le contrat de l'É5 (l'arbitre
+  des poses ne tourne que sur l'assemblage des repères) disent ce que fait le code. Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration), états des étapes (revue des étapes, lot 5) : l'É6 se juge sur le haut qu'elle rend, celui que l'É7
   lit (lu sur au moins la moitié des colonnes), et plus sur le mot de la bande au-dessus de l'égout, qui reste une information ; un
   pignon ombré par un arbre, dont le haut est lu, n'est plus dit « hors cadre ». L'É2 ne compte que les photos lisibles : une photo

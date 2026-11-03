@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { CorrectionRedressement } from '../../../src/model/auditParcelle.js';
-import { ReperesAudit } from '../../../src/zones/parcours/FacadeAudit.js';
+import { correctionApresRetour, ReperesAudit } from '../../../src/zones/parcours/FacadeAudit.js';
 import type { AssemblageAAjuster } from '../../../src/facade/releve/enchainement.js';
 import type { P2 } from '../../../src/facade/vision/homographie.js';
 
@@ -76,6 +76,12 @@ describe('la pose de quatre reperes', () => {
     expect(p.retablir).toHaveBeenCalled();
     act(() => bouton('auditParcelle.annulerCoins').click());
     expect(p.appliquer).not.toHaveBeenCalled();
+  });
+  it('« Revenir à l’automatique » garde la largeur reelle tapee pour l echelle, et retire le reste (revue des etapes)', () => {
+    const carre = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+    expect(correctionApresRetour({ reperes: carre, coins: carre, echelleLargeurM: 9.5 })).toEqual({ echelleLargeurM: 9.5 });
+    expect(correctionApresRetour({ reperes: carre })).toBeNull();
+    expect(correctionApresRetour(undefined)).toBeNull();
   });
 });
 

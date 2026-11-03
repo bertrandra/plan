@@ -496,7 +496,7 @@ atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'ob
 | **É2** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible (`photosMin` compte les lisibles ; illisible seule : à confirmer) | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
 | **É3** Redressement | photos, repères | repères posés, sinon points de fuite, sinon les coins du mur retenu (§4 bis) | chaque photo redressée (verticales ≤ `verticalesMaxDeg`), ou son motif dit (illisible : la reprendre) | vues de face, celles que l'assemblage prend | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
 | **É4** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
-| **É5** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur`, le seul composant du geste depuis F1) | `resume` ; **`valider`** si divergence ou score faible |
+| **É5** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte ; l'arbitre des poses (`calerParLesAncres`) sur l'assemblage des repères seulement ; la pose retenue jugée sur sa silhouette ; avec Claude, l'accord ou la divergence de ses angles (revue des étapes, 3 novembre 2026 ; sa pose et ses zones de colombage redeviendront des candidates de l'arbitre, par `derouler`, décision du propriétaire) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur`, le seul composant du geste depuis F1) | `resume` ; **`valider`** (V1) quand l'É5 est à confirmer : pose que sa silhouette n'explique pas (mur tiré compris), pose du plan seul, égout ou sol non lus, divergence avec Claude |
 | **É6** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | haut lu sur ≥ `silhouetteColonnesMin` des colonnes (l'état se juge sur ce haut, `hautLu`, que l'É7 lit ; le mot de la bande, lue sur ≥ `bandeVueMin`, est une information) ; les corps s'attribuent à l'É7 | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
 | **É7** Diagnostic | silhouette lue, gabarit, **run IA** (pointes, corps) | variantes de toit par corps | une proposition n'existe que si elle explique mieux l'image (gain ≥ seuil) | propositions de toit, alertes de hauteur | cocher/décocher, ouvrir le Mode Toit | **`valider`** (toujours, décision 10) |
 | **É8** Texture | assemblage calé | élévation calée, fusion, sans ombres | écart de teinte et liserés sous le seuil | `texture`, `textureCalee`, `hauteurTexture` | recadrer, activer/désactiver « sans ombres » | `cache` ; aperçu en `resume` |
@@ -531,7 +531,7 @@ flowchart TD
   R --> A["É4 Assemblage"]
   A --> M["É5 Calage du mur"]
   M -->|"ok, accord"| S["É6 Silhouette lue (par corps)"]
-  M -->|"divergence ou score faible"| V1(["V1 Le mur : la personne tire les angles"])
+  M -->|"à confirmer (non expliquée, supposée, divergence)"| V1(["V1 Le mur : la personne le confirme ou le tire"])
   V1 --> S
   S --> D["É7 Diagnostic de forme"]
   D --> V2(["V2 Le toit : confirmer les propositions"])
