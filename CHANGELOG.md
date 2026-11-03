@@ -15,8 +15,10 @@ Claude à l'É5. Aucune quantité ni aucun export de la démonstration ne change
 (la date de build reste celle de la 5.5.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les
 quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. **Schéma 13** (migration 12 → 13 identité), accepté
 par la plateforme (bertrandra/backprod#252, migration `Version20261103090000`) : appliquer backprod puis `setup.php` en production
-**avant** de déposer cette livraison de Plan. Fumée complète (Fumée de la nuit, run RUN_NUIT) ; requêtes vérifiées contre l'API Claude
-avec la mesure des façades et les dix demandes de l'assistant (run RUN_API).
+**avant** de déposer cette livraison de Plan. Fumée complète (Fumée de la nuit, run 41711980343) ; requêtes vérifiées contre l'API Claude
+avec la mesure des façades et les dix demandes de l'assistant (run 41707163657 : 9 sur 9, garde-fou de la lecture vert après sa relance
+unique, totaux jugés sur le corpus de référence et scènes 24 à 26 contre leur propre plancher, #556 ; dix listes justes sur dix, 0,60 $
+relance comprise).
 
 ### Ajouté
 
