@@ -29,7 +29,7 @@ import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { Image } from '../../../facade/vision/homographie.js';
 import type { PhotoCas } from '../../../model/audit.js';
-import type { BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
+import type { BilanRedressement, CorrectionRedressement, MurConfirme } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
 import type { CorpsToit, ObjetPolygone, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
@@ -105,7 +105,7 @@ export interface MesureFacade {
    * L'etat de chaque etape de l'enchainement de la facade (E1 a E11) et ce qu'elle a donne : la barre de progression et le mode discret
    * de l'audit les lisent. Derive : il se recalcule a chaque rejeu ; absent d'une mesure lue dans un fichier d'audit.
    */
-  etapes?: Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>[];
+  etapes?: Pick<EtapeCalculee, 'id' | 'etat' | 'resume' | 'herite'>[];
   /**
    * Le bilan de la facade (E11, lot F5) : la Facade que la validation V4 ecrira (dimensions, forme, pose de la texture, ouvertures
    * numerotees). Derive, comme les etapes : absent d'une mesure lue dans un fichier d'audit, « Rejouer la façade » le refait.
@@ -154,7 +154,7 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
  * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
-export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}): Promise<MesureFacade> {
+export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, murConfirme: MurConfirme | null = null): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;
   const cache = new Map<number, Promise<Pixels | null>>();
   const images = (i: number) => {
@@ -168,7 +168,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   // 1. Les entrees de la facade (facade/releve/prisesFacade.ts) : l'echelle corrigee a la main, les photos dans l'ordre du
   // redressement (la premiere avec une prise de vue d'abord), leur prise. La calibration relit un cas par la meme fonction.
   const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, prise: p.prise ?? null }; }));
-  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, jpeg: d.jpeg });
+  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme, jpeg: d.jpeg });
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
   // L'enchainement de la facade, par l'orchestrateur : le meme que la calibration rejoue ; le releve et l'etat de chaque etape en sortent.
@@ -183,7 +183,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
   });
   const sortie = r.sorties.audit;
-  const etapes = r.etapes.map(({ id, etat, resume }) => ({ id, etat, resume }));
+  const etapes = r.etapes.map(({ id, etat, resume, herite }) => ({ id, etat, resume, ...(herite ? { herite } : {}) }));
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
   const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun, ...(sortie.assemblage ? { assemblage: sortie.assemblage } : {}) } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };

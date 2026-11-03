@@ -8,6 +8,7 @@
 // Un cas = un mur : une ou plusieurs photos, leurs quatre coins, la largeur et la hauteur reelles, les ouvertures de la verite.
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
+import type { MurConfirme } from '../model/auditParcelle.js';
 import { lireGabarit } from './gabaritMur.js';
 import type { OuvertureDetectee } from './detection/detection.js';
 import { detecterDansLaSilhouette, type ResultatAnalyse } from './analyse.js';
@@ -72,6 +73,8 @@ export interface CasReel {
   toit?: { mur: { gauche: PtBrut; droite: PtBrut }; corps: CorpsToit[] };
   /** Le mur vrai sur l'assemblage des photos, pose a la main : la verite de l'etape du calage (E5). */
   calageVrai?: CalageVrai;
+  /** Le mur confirme au point V1 (« Confirmer le mur ») : une entree, comme les reperes (model/auditParcelle.ts::MurConfirme). */
+  murConfirme?: MurConfirme;
   /** La vraie forme du toit, corps par corps, relue sur la photo : la verite du diagnostic de forme (E7) et du toit (E10). */
   toitVrai?: ToitVraiCorps[];
   /**

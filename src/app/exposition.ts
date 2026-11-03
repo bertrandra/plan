@@ -144,6 +144,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'facade.escalader': partout('barreFacade'),
   // La validation d'une facade (V4, lot F5) : sous sa barre, dans l'audit, dans les trois classes.
   'facade.valider': partout('barreFacade'),
+  // « Confirmer le mur » (V1) : sur la ligne du mur, sous la barre, dans l'audit et dans l'etape ouverte de la calibration.
+  'facade.confirmerMur': partout('barreFacade'),
   // Un cas de calibration tire d'une facade de l'audit (lot F6) : dans la fiche de la facade de l'audit, pour l'administrateur, dans les trois classes.
   'facade.creerCas': partout('parcours'),
   // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.

@@ -10,7 +10,7 @@
 // `facade.creerCas`, lot F6) en fait un cas de calibration : la calibration ne prend plus de photos, elle lit celles de l'audit.
 
 import { useCallback, useEffect, useState } from 'react';
-import { BarreProgressionFacade, COMMANDE_ESCALADE, COMMANDE_VALIDER } from '../composants/BarreProgressionFacade.js';
+import { BarreProgressionFacade, COMMANDE_CONFIRMER_MUR, COMMANDE_ESCALADE, COMMANDE_VALIDER } from '../composants/BarreProgressionFacade.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { enAdmin } from '../../app/acces.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
@@ -132,8 +132,10 @@ interface Props {
  * Une ligne du mode discret : l'etape, ce qu'elle a donne, et son geste de repli ; sur une photo, un bouton par photo. L'etape ouverte
  * depuis la barre (`ouverte`) : la barre dit deja son resultat, la ligne n'en garde que le geste.
  */
-function Ligne({ l, rangs, nom, placer, gestes, ouverte = false }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; ouverte?: boolean }) {
-  if (ouverte && !l.option) return null;
+function Ligne({ l, rangs, nom, placer, gestes, commandes, ouverte = false }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; commandes: RegistreCommandes; ouverte?: boolean }) {
+  // V1 : le mur que la chaine a pose se confirme ici (« Confirmer le mur »), et le meme geste retire la confirmation.
+  const confirmer = gestes && l.id === 'calage' && (l.etat === 'a-confirmer' || l.etat === 'confirme');
+  if (ouverte && !l.option && !confirmer) return null;
   return (
     <li className={'ligneEtapeAudit ' + l.etat + (ouverte ? ' ouverte' : '')}>
       {!ouverte && <><span className="etatEtapeAudit">{LIBELLES_ETAT[l.etat]}</span> {l.texte}</>}
@@ -141,6 +143,7 @@ function Ligne({ l, rangs, nom, placer, gestes, ouverte = false }: { l: LigneDis
       {gestes && l.surLaPhoto && rangs.length > 0 && <span className="actionsAudit">
         {rangs.map((r) => <button key={r} type="button" className={l.etat === 'echec' ? 'small' : 'secondary small'} data-controle="auditParcelle.placerCoins" aria-label={'Placer quatre repères sur la photo ' + (r + 1) + ' : ' + nom} onClick={() => placer(r)}>{rangs.length > 1 ? 'Repères, photo ' + (r + 1) : 'Placer 4 repères'}</button>)}
       </span>}
+      {confirmer && <span className="actionsAudit"><BoutonCommande commandes={commandes} id={COMMANDE_CONFIRMER_MUR} className={l.etat === 'confirme' ? 'secondary small' : 'small'}>{l.etat === 'confirme' ? 'Retirer la confirmation du mur' : 'Confirmer le mur'}</BoutonCommande></span>}
     </li>
   );
 }
@@ -219,8 +222,8 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
       {!mesure && !tourne && <p className="detailPhoto">Pas encore calculée : la façade se calcule après la photo, ou avec « Rejouer la façade ».</p>}
       {mesure && !etapes.length && <p className="detailPhoto">Mesure reprise d’un fichier d’audit : « Rejouer la façade » recalcule ses étapes.</p>}
       {(premiere || lignes.length > 0) && <ul className="etapesAudit" aria-label={'Étapes à voir : ' + nom}>
-        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} ouverte />}
-        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} />)}
+        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} ouverte />}
+        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} />)}
       </ul>}
       {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
         depart={correction?.reperes ?? correction?.coins ?? coinsPx} mur={correction?.coins ?? coinsPx} gabarit={mesure?.gabarit}

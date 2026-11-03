@@ -68,7 +68,7 @@ function monter(avant: Partial<ObjetPlan> = {}) {
     maintenant: () => new Date('2026-10-13T09:00:00Z'), mesures: dependances,
   });
   const maison = () => etat.objects.find((o) => o.key === 'maison') as ObjetPlan;
-  return { etat, historique, projet, v, messages, maison };
+  return { etat, historique, projet, v, messages, maison, capture };
 }
 
 
@@ -185,3 +185,43 @@ describe('la validation d une facade (V4)', () => {
     expect(facades[0]?.ouvertures.some((o) => o.x === 5.8)).toBe(true);
   }, 30000);
 });
+
+describe('« Confirmer le mur » (V1) dans l audit, puis V4 (decision du proprietaire, 3 novembre 2026)', () => {
+  it('confirme le mur retenu (il survit au rejeu), l ecrit avec la Facade en un pas d historique, et le meme geste le retire', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const etatE5 = () => t.v.mesuresFaites().get('maison#0')?.etapes?.find((e) => e.id === 'calage');
+    const propre = etatE5()?.etat;
+    expect(propre).not.toBe('confirme');
+    expect(await t.v.confirmerMur('maison', 0)).toBe(true);
+    // Dans la capture : les coins que la mesure a retenus, et le jour ; la facade s'est rejouee, l'E5 est « confirmé par vous ».
+    const mur = t.capture.lire().batiments.maison?.facades['0']?.murConfirme;
+    expect(mur?.le).toBe('2026-10-13T09:00:00.000Z');
+    expect(mur?.coins[0]?.coins).toHaveLength(4);
+    expect(etatE5()).toMatchObject({ etat: 'confirme', resume: expect.stringMatching(/^Mur confirmé par vous le 13 octobre 2026\./) });
+    expect(t.v.mesuresFaites().get('maison#0')?.etapes?.some((e) => e.herite)).toBe(false);
+    // Un rejeu (« Rejouer la façade ») garde la confirmation : le meme mur.
+    await t.v.rejouerFacade('maison', 0);
+    expect(etatE5()?.etat).toBe('confirme');
+    // V4 : la Facade porte le jour de la confirmation, dans son calage ; un seul pas d'historique, que Ctrl+Z defait.
+    const avant = JSON.stringify(serializeObjects(t.etat.objects));
+    const n = (t.projet.pushHistory as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(t.v.validerFacade('maison', 0)).toBe(true);
+    expect((t.projet.pushHistory as ReturnType<typeof vi.fn>).mock.calls.length).toBe(n + 1);
+    expect(t.maison().batiment?.facades?.[0]?.calage?.murConfirmeLe).toBe('2026-10-13T09:00:00.000Z');
+    t.historique.annuler();
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(avant);
+    // Le meme geste retire la confirmation : l'E5 retrouve son propre verdict.
+    expect(await t.v.confirmerMur('maison', 0)).toBe(true);
+    expect(t.capture.lire().batiments.maison?.facades['0']?.murConfirme).toBeUndefined();
+    expect(etatE5()?.etat).toBe(propre);
+  }, 60000);
+
+  it('ne confirme rien dans la consultation d un audit recu', async () => {
+    const t = monter();
+    await t.v.lancer();
+    t.v.figer([]);
+    expect(await t.v.confirmerMur('maison', 0)).toBe(false);
+  }, 30000);
+});
+

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { assemblageDuRejeu, casAvecLeMur, casCaleALaMain, derouler, murAjusteSurLesPhotos, entreesDuCas, etapeDe, originesDuCas, preparerPourLaMesure, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
 import { imagesEtapes } from '../../../../src/facade/releve/imagesEtapes.js';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
+import { prisesDeLaFacade } from '../../../../src/facade/releve/prisesFacade.js';
+import { murAConfirmer, type MurConfirme } from '../../../../src/model/auditParcelle.js';
 import { analyserLeMur } from '../../../../src/facade/analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto } from '../../../../src/facade/gabaritMur.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
@@ -189,6 +191,72 @@ describe('l enchainement d une facade', () => {
     expect(etapeDe(r, 'ouvertures').verite).toMatchObject({ juste: true });
     expect(etapeDe(r, 'ouvertures').verite?.texte).toMatch(/rappel 100 %, précision 100 %/);
   }, 60_000);
+});
+
+describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du proprietaire, 3 novembre 2026)', () => {
+  // La scene 24 vue comme un mur de 5 m que le pignon d'un corps voisin prolonge, prise avec le GPS, la boussole et l'EXIF (l'audit) :
+  // l'E5 est a confirmer (le mur de 8 m est pris pour celui de 5 m), et les etapes qui lisent ce mur atteignent pourtant leur objectif.
+  const { s, ph } = scene('24-');
+  const H = s.verite.hauteur, L = 5, g = [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }];
+  const p = s.synthese.prise as PriseCamera, b = ((p.biais ?? 0) * Math.PI) / 180;
+  const prise = { t: '2026-11-02T10:00:00.000Z', x: s.verite.largeur / 2 + p.distance * Math.sin(b), y: -p.distance * Math.cos(b), lat: null, lon: null, precisionM: 1,
+    azimutDeg: (360 - (p.biais ?? 0)) % 360, sourceAzimut: 'boussole' as const, champDeg: (2 * Math.atan(18 / (p.focale35 ?? 26)) * 180) / Math.PI, sourceFocale: 'exif' as const };
+  const facade = { cote: 0, gauche: { x: 0, y: 0 }, droite: { x: L, y: 0 }, largeur: L, hauteur: H, normale: { x: 0, y: -1 }, azimut: 180, orientation: 'Sud' };
+  const contour = [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 10 }, { x: 0, y: 10 }];
+  const jouer = (murConfirme: MurConfirme | null = null, corrections = {}) => derouler({ largeurM: L, hauteurM: H, gabarit: g,
+    prises: prisesDeLaFacade({ facade, contour, photos: [{ rang: 0, image: ph.image, prise }], corrections, murConfirme, jpeg: () => '' }) }, { vue: 'audit', chercherCoins: async (e) => rechercher(e) });
+  const LE = '2026-11-03T10:00:00.000Z';
+
+  it('une E5 a confirmer rend a confirmer les etapes qui en dependent et qui avaient atteint leur objectif, en le disant', async () => {
+    const r = await jouer();
+    expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
+    for (const id of ['silhouette', 'texture', 'ouvertures'] as const) {
+      const e = etapeDe(r, id);
+      expect(e.etat, id).toBe('a-confirmer');
+      expect(e.herite, id).toBe('calage');
+      expect(e.resume, id).toMatch(/ Dépend du mur à confirmer \(É5\)\.$/);
+    }
+    // Ce qui ne lit pas le mur garde son etat ; ce qui est saute le reste.
+    expect([etapeDe(r, 'prises').etat, etapeDe(r, 'diagnostic').etat, etapeDe(r, 'toit').etat]).toEqual(['ok', 'saute', 'saute']);
+  }, 120_000);
+
+  it('confirme, l E5 est « confirmé par vous », la note de la silhouette reste, le doute herite tombe ; le meme mur survit au rejeu', async () => {
+    const auto = await jouer();
+    const mur = murAConfirmer((auto.sorties.calage?.photos ?? []).map((q, rang) => ({ rang, coins: q.coins })), LE);
+    expect(mur).not.toBeNull();
+    const r = await jouer(mur);
+    const e5 = etapeDe(r, 'calage');
+    expect(e5.etat).toBe('confirme');
+    expect(e5.resume).toMatch(/^Mur confirmé par vous le 3 novembre 2026\. .*que sa silhouette n’explique pas \(score .*\) : noté, le mur reste celui que vous avez confirmé\./);
+    expect(e5.resume).not.toMatch(/: à confirmer\./);
+    // Les etapes retrouvent leur propre verdict : le meme resume que sans le doute du mur.
+    for (const id of ['silhouette', 'texture', 'ouvertures'] as const) {
+      expect(etapeDe(r, id).etat, id).toBe('ok');
+      expect(etapeDe(r, id).herite, id).toBeUndefined();
+      expect(etapeDe(r, id).resume, id).toBe(etapeDe(auto, id).resume.replace(' Dépend du mur à confirmer (É5).', ''));
+    }
+    // Le mur, ses sorties : rien d'autre ne change.
+    expect(r.sorties.calage?.photos).toEqual(auto.sorties.calage?.photos);
+    expect(r.sorties.audit?.mesure?.releve.ouvertures).toEqual(auto.sorties.audit?.mesure?.releve.ouvertures);
+  }, 120_000);
+
+  it('un autre mur que celui qui a ete confirme : l E5 retrouve son verdict et le dit', async () => {
+    const auto = await jouer();
+    const mur = murAConfirmer((auto.sorties.calage?.photos ?? []).map((q, rang) => ({ rang, coins: q.coins.map((c) => ({ x: c.x + 40, y: c.y })) })), LE);
+    const r = await jouer(mur);
+    expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
+    expect(etapeDe(r, 'calage').resume).toMatch(/^Le mur confirmé le 3 novembre 2026 n’est plus celui que la chaîne retient .* : à confirmer de nouveau\. /);
+    expect(etapeDe(r, 'ouvertures').herite).toBe('calage');
+  }, 120_000);
+
+  it('la calibration rejoue la confirmation du cas comme l audit (la meme entree)', async () => {
+    const c = { ...casDe(L, H, [], null, {}, false), photos: [{ fichier: 'photo-1', coins: [] }], gabarit: g };
+    const auto = await derouler(entreesDuCas(c, [ph.image]), CAL);
+    const mur = murAConfirmer((auto.sorties.calage?.photos ?? []).map((q, rang) => ({ rang, coins: q.coins })), LE);
+    const r = await derouler(entreesDuCas({ ...c, ...(mur ? { murConfirme: mur } : {}) }, [ph.image]), CAL);
+    expect(etapeDe(r, 'calage').etat).toBe('confirme');
+    expect(r.etapes.some((e) => e.herite)).toBe(false);
+  }, 120_000);
 });
 
 describe('l E5 sur le chemin des reperes (revue des etapes, B1) : quatre reperes redressent la photo, le mur qui en sort se juge', () => {

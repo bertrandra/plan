@@ -5,8 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Façades (audit et calibration), point V1 : « Confirmer le mur ». Le mur que la chaîne a posé se confirme d'un geste, sur la ligne
+  du mur de l'audit comme dans l'étape É5 ouverte de la calibration (la même commande) : l'étape É5 dit alors « confirmé par vous »,
+  un état à part de « faite », et ce que la silhouette en disait reste écrit en note. La confirmation survit au rejeu de la façade, tant
+  que le mur est le même, et s'écrit avec la façade à sa validation (V4), dans le même pas d'historique (Ctrl+Z défait les deux). Le
+  même bouton la retire. Aucune quantité ni aucun export ne change.
+
 ### Modifié
 
+- Façades (audit et calibration) : le doute du mur se transmet. Tant que l'étape É5 est à confirmer, les étapes qui lisent le mur
+  (silhouette, forme, texture, ouvertures, toit, bilan) et qui atteignent leur objectif sont à confirmer elles aussi, avec « Dépend du
+  mur à confirmer (É5) » ; dans l'audit, leur ligne renvoie au mur. Le mur confirmé, elles retrouvent leur propre verdict. Avant, une
+  façade posée sur un mur faux de plusieurs mètres montrait une barre presque verte.
 - Façades (audit et calibration) : un mur dont la partie haute est au milieu, avec une partie basse à chaque bout (une maison entre
   un garage et un appentis), s'écrit avec ses deux parties basses, lues sur la silhouette du plan et du LiDAR. Il s'écrivait sans
   aucune : le relevé ne connaissait qu'une partie basse, à un bout. Une partie basse au milieu du mur se lit aussi, quand la silhouette

@@ -10,7 +10,7 @@
 import { etapeFacade, libelleEtape, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../../model/etapeFacade.js';
 
 /** Une etape telle que l'audit la lit : son etat et ce qu'elle a donne (`MesureFacade.etapes`). */
-interface EtapeLue { id: IdEtape; etat: EtatAffiche; resume: string }
+interface EtapeLue { id: IdEtape; etat: EtatAffiche; resume: string; herite?: 'calage' }
 
 /** Une ligne sous la barre de la facade : l'etape, ce qu'elle a donne, et le geste de repli quand elle doute. */
 export interface LigneDiscrete {
@@ -28,6 +28,11 @@ const DOUTE: readonly EtatAffiche[] = ['echec', 'a-confirmer'];
 const SUR_LA_PHOTO: readonly IdEtape[] = ['redressement', 'assemblage', 'calage'];
 /** Ce qu'une etape en resume dit d'elle quand elle a reussi : une ligne, et son resultat. */
 const REUSSIE: Partial<Record<IdEtape, string>> = { calage: 'Mur posé', ouvertures: 'Ouvertures' };
+/** Ce qu'une etape confirmee par la personne dit d'elle (V1) : jamais « pose », qui est le mot de l'automatique. */
+const CONFIRMEE: Partial<Record<IdEtape, string>> = { calage: 'Mur confirmé' };
+
+/** Le geste d'une etape qui ne doute que du mur (le doute herite de l'E5) : le sien n'y ferait rien, c'est le mur qu'il faut confirmer. */
+const OPTION_DU_MUR = 'confirmer le mur (É5, V1), ou le tirer à la main';
 
 /** Une etape doute-t-elle (en echec, ou a confirmer) ? */
 const doute = (etat: EtatAffiche): boolean => DOUTE.includes(etat);
@@ -41,11 +46,12 @@ export function lignesDiscretes(etapes: readonly EtapeLue[]): LigneDiscrete[] {
   for (const e of etapes) {
     const def = etapeFacade(e.id);
     if (doute(e.etat)) {
-      out.push({ id: e.id, etat: e.etat, texte: libelleEtape(e.id) + ' : ' + e.resume, option: def.optionManuelle, surLaPhoto: SUR_LA_PHOTO.includes(e.id) });
+      const herite = e.herite === 'calage';
+      out.push({ id: e.id, etat: e.etat, texte: libelleEtape(e.id) + ' : ' + e.resume, option: herite ? OPTION_DU_MUR : def.optionManuelle, surLaPhoto: !herite && SUR_LA_PHOTO.includes(e.id) });
       continue;
     }
-    const reussie = REUSSIE[e.id];
-    if (e.etat === 'ok' && def.modeAudit === 'resume' && reussie) out.push({ id: e.id, etat: e.etat, texte: def.numero + ' ' + reussie + ' : ' + e.resume, option: null, surLaPhoto: false });
+    const reussie = e.etat === 'confirme' ? CONFIRMEE[e.id] : REUSSIE[e.id];
+    if ((e.etat === 'ok' || e.etat === 'confirme') && def.modeAudit === 'resume' && reussie) out.push({ id: e.id, etat: e.etat, texte: def.numero + ' ' + reussie + ' : ' + e.resume, option: null, surLaPhoto: false });
   }
   return out;
 }

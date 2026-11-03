@@ -332,6 +332,26 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
     « Mur posé à la main », **faite**, sur un mur faux de 3 m (score 0,41), et l'alerte du bilan disparaissait ; sur la scène 25 (mur en L),
     des repères sur une fenêtre donnaient un égout faux de 27 % « fait ». Après : à confirmer dans les deux cas (`enchainement.test.ts`,
     `calage-e5.ts`, lignes « repères »).
+- **Le doute se transmet, et « Confirmer le mur » le lève** (revue des étapes, constat T2 ; décisions du propriétaire, 3 novembre 2026) :
+  - **Doute hérité.** Tant que l'É5 est à confirmer (ou en échec), les étapes qui lisent le mur (É6 à É11 : la silhouette entre ses bouts,
+    la forme, la texture, les ouvertures, le toit, le bilan) et qui atteignent leur objectif sont **à confirmer** elles aussi, leur résumé
+    suivi de « Dépend du mur à confirmer (É5). » (`enchainement.ts::avecLeDouteDuMur`, `EtapeCalculee.herite`). Une étape qui doutait
+    déjà, ou sautée, garde le sien. Dans l'audit, leur ligne renvoie au mur (« À la main : confirmer le mur (É5, V1), ou le tirer à la
+    main »), pas à leur propre geste.
+  - **« Confirmer le mur »** (V1) : la commande `facade.confirmerMur`, dans l'audit (la ligne du mur, sous la barre) et dans l'étape É5
+    ouverte de la calibration, par le même chemin : le mur que la chaîne a retenu (ses coins sur chaque photo) et le jour s'écrivent comme
+    une entrée (`MurConfirme` : `FacadeCapturee.murConfirme` dans l'audit, `CasReel.murConfirme` dans un cas, `prisesDeLaFacade` pour les
+    deux). Tant que la chaîne retient ce mur (au pixel près), l'É5 est **« confirmé par vous »**, un état à part (`confirme`), jamais
+    un « faite » de l'automatique ; le doute hérité tombe, les étapes retrouvent leur propre verdict. La note de la silhouette reste
+    écrite (« … que sa silhouette n'explique pas (score …) : noté, le mur reste celui que vous avez confirmé »). Le même geste retire la
+    confirmation.
+  - **Il survit au rejeu** (c'est une entrée, comme les repères) et **à V4** : la Façade écrite porte le jour de la confirmation
+    (`calage.murConfirmeLe`), dans le même pas d'historique que la façade (Ctrl+Z défait les deux). Un autre mur (une photo, des repères
+    ou un mur tiré en plus) n'est plus le mur confirmé : l'É5 retrouve son verdict et dit « Le mur confirmé le … n'est plus celui que la
+    chaîne retient … : à confirmer de nouveau ». Retirer une photo retire la confirmation.
+  - **Ce qu'il ne fait pas** : avant V4, la confirmation est une note de la capture de l'audit (ou du cas), pas du projet : elle n'a pas
+    de pas d'historique à elle ; elle se défait par le même bouton (« Retirer la confirmation du mur »), et dans le projet par le Ctrl+Z
+    de V4.
 
 ### É6 · Silhouette lue, par corps
 
@@ -458,7 +478,7 @@ L'audit ne déroule pas dix écrans. Il se tient à **quatre points d'arrêt**, 
 
 | Point | Après l'étape | Ce que la personne voit | Ce qu'elle fait |
 |---|---|---|---|
-| **V1 · Le mur** | É5 | l'assemblage, le mur posé, les angles | confirme, ou tire un angle / l'égout / le sol ; **n'apparaît que si** les deux chemins divergent ou si le score est faible (sinon une ligne « Mur posé ✓ ») |
+| **V1 · Le mur** | É5 | l'assemblage, le mur posé, les angles | confirme (« Confirmer le mur » : l'É5 devient « confirmé par vous », le doute hérité tombe), ou tire un angle / l'égout / le sol ; **n'apparaît que si** les deux chemins divergent ou si le score est faible (sinon une ligne « Mur posé ✓ ») |
 | **V2 · Le toit** | É7 | l'avant/après de chaque proposition, par corps | coche les propositions qu'elle accepte (toujours demandé) |
 | **V3 · Les ouvertures** | É9 | la façade avec les boîtes **décochées** en évidence | accepte, retire ou corrige ; les cochées passent sans geste |
 | **V4 · La façade** | É11 | le bilan : dimensions, forme, texture, ouvertures | valide d'un geste |

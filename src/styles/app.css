@@ -2716,7 +2716,9 @@
   .barreFacadePastille{ flex:0 0 auto; width:8px; height:8px; margin:0 3px; border-radius:999px; border:1.5px solid currentColor; }
   .barreFacadeRepere{ margin-left:2px; padding:0 4px; border-radius:999px; background:var(--paper-deep); color:var(--ink); font-size:0.6rem; }
   .barreFacadeSegment.courant .barreFacadeEtiquette{ color:var(--ink); font-weight:600; }
-  .barreFacadeSegment.ok .barreFacadeTrait{ background:var(--accent); }
+  .barreFacadeSegment.ok .barreFacadeTrait, .barreFacadeSegment.confirme .barreFacadeTrait{ background:var(--accent); }
+  /* Confirme par la personne (V1) : le trait de l'accent, double d'un filet ; le mot et l'icone (une personne) le disent. */
+  .barreFacadeSegment.confirme .barreFacadeTrait{ box-shadow:0 0 0 1px var(--accent); }
   .barreFacadeSegment.a-confirmer .barreFacadeTrait{ background:var(--alerte); }
   .barreFacadeSegment.echec .barreFacadeTrait{ background:var(--danger); }
   .barreFacadeSegment.echec .barreFacadeEtiquette{ color:var(--danger); }
@@ -2753,7 +2755,8 @@
   .facadeAudit > [data-controle="auditParcelle.rejouerFacade"], .facadeAudit > [data-commande="facade.valider"]{ justify-self:start; }
   .etapesAudit{ display:grid; gap:4px; margin:0; padding:0; list-style:none; }
   .ligneEtapeAudit{ padding:4px 8px; border-left:3px solid var(--rule); border-radius:0 var(--r-champ) var(--r-champ) 0; background:var(--panel-2); font-family:var(--sans); font-size:0.74rem; color:var(--ink); }
-  .ligneEtapeAudit.ok{ border-left-color:var(--accent); }
+  .ligneEtapeAudit.ok, .ligneEtapeAudit.confirme{ border-left-color:var(--accent); }
+  .ligneEtapeAudit.confirme .etatEtapeAudit{ border-color:var(--accent); color:var(--ink); }
   .ligneEtapeAudit.a-confirmer{ border-left-color:var(--alerte); }
   .ligneEtapeAudit.echec{ border-left-color:var(--danger); }
   .ligneEtapeAudit.ouverte{ background:transparent; }
@@ -2771,7 +2774,8 @@
   .calFrise img, .calFriseVide{ display:block; width:100%; height:64px; object-fit:contain; border-radius:var(--r-champ); background:var(--paper-deep); }
   .calFriseNom{ font-family:var(--sans); font-size:0.7rem; font-weight:600; }
   .calFriseEtat{ justify-self:start; padding:0 6px; border-radius:999px; font-family:var(--sans); font-size:0.64rem; background:var(--paper-deep); color:var(--ink-soft); border:1px solid var(--rule); }
-  .calFriseEtat.ok{ border-color:var(--accent); color:var(--ink); }
+  .calFriseEtat.ok, .calFriseEtat.confirme{ border-color:var(--accent); color:var(--ink); }
+  .calFriseEtat.confirme{ background:var(--accent-light); color:var(--on-accent-light); }
   .calFriseEtat.a-confirmer{ border-color:var(--alerte); color:var(--ink); }
   .calFriseEtat.echec{ border-color:var(--danger); color:var(--danger); }
   .calEtapeOuverte{ margin:10px 0; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }

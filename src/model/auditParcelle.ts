@@ -83,10 +83,41 @@ export interface BilanRedressement {
   motifFusion?: string;
 }
 
+/**
+ * Le mur confirme par la personne au point V1 (« Confirmer le mur », decision du proprietaire du 3 novembre 2026) : le mur que la
+ * chaine avait retenu, ses coins sur chaque photo (par rang, en pixels de la photo), et le jour. Il survit au rejeu : tant que la
+ * chaine retient le meme mur, l'E5 est « confirme par vous » et le doute qu'elle passait aux etapes suivantes tombe. Un autre mur
+ * (une photo, des reperes ou un mur tire en plus) ne l'est plus : l'E5 retrouve son propre verdict, et le dit.
+ */
+export interface MurConfirme {
+  le: string;
+  coins: { rang: number; coins: { x: number; y: number }[] }[];
+}
+
+/** Deux poses d'un mur sont le meme mur a ce nombre de pixels de la photo pres : un rejeu des memes entrees rend les memes coins. */
+export const MUR_CONFIRME_ECART_PX = 1;
+
+/** Le mur que la chaine a retenu (ses coins par rang) est-il celui que la personne a confirme ? Chaque photo confirmee, chaque coin. */
+export function estLeMurConfirme(m: MurConfirme, retenus: readonly { rang: number; coins: readonly { x: number; y: number }[] }[]): boolean {
+  if (!m.coins.length) return false;
+  return m.coins.every((c) => {
+    const r = retenus.find((x) => x.rang === c.rang);
+    return !!r && r.coins.length === 4 && c.coins.length === 4 && c.coins.every((p, k) => Math.hypot(p.x - (r.coins[k] as { x: number }).x, p.y - (r.coins[k] as { y: number }).y) <= MUR_CONFIRME_ECART_PX);
+  });
+}
+
+/** Le mur a confirmer d'apres les coins retenus de chaque photo (ceux qui en ont quatre), ce jour ; null s'il n'y en a pas. */
+export function murAConfirmer(retenus: readonly { rang: number; coins: readonly { x: number; y: number }[] }[], le: string): MurConfirme | null {
+  const coins = retenus.filter((r) => r.coins.length === 4).map((r) => ({ rang: r.rang, coins: r.coins.map((p) => ({ x: p.x, y: p.y })) }));
+  return coins.length ? { le, coins } : null;
+}
+
 export interface FacadeCapturee<P = PhotoCas> {
   photos: P[];
   /** Les corrections manuelles du redressement, par rang de photo dans `photos` (le rang en texte). */
   corrections?: Record<string, CorrectionRedressement>;
+  /** Le mur confirme au point V1 (MurConfirme) ; absent : rien de confirme. */
+  murConfirme?: MurConfirme;
   /**
    * Marquee a la main : `true` inaccessible (cote voisin, cachee), `false` accessible malgre ce que
    * la liste supposait (le mur d'un mitoyen vu depuis le jardin). Absente : ce que la liste suppose.

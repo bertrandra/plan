@@ -4571,6 +4571,96 @@ const POINTS = {
       && /Mur cherché sur l’assemblage de vos repères/.test(avecReperes) && ![auto, sansGeste, avecReperes].some(main) && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 140) + ' »';
     return { ok, mesure: `automatique : ${court(auto)} ; « Appliquer » sans geste : ${court(sansGeste)} ; un repère tiré : ${court(avecReperes)} ; débordement ${debords.map((d) => (d ? 'OUI (' + d + ')' : 'non')).join('/')}` };
+  },
+  126: async (page, f) => {
+    // « Confirmer le mur » (V1) et le doute herite du mur (decisions du proprietaire, 3 novembre 2026). L'audit : la scene 02 du banc sur
+    // la facade de la maison, dont le mur reste a confirmer (la maison n'a pas les proportions de la scene) ; les etapes qui lisent ce
+    // mur et atteignent leur objectif le disent (« Dépend du mur à confirmer (É5) »). « Confirmer le mur » : la facade se rejoue, l'E5
+    // est « confirmé par vous » (la note de la silhouette reste), plus aucune etape n'herite du doute. « Valider la façade » (V4) : la
+    // Facade porte le jour de la confirmation ; Ctrl+Z la defait. « Retirer la confirmation du mur » : le doute revient. Puis la
+    // calibration : le cas de la scene 24 vu comme un mur de 5 m (le pignon voisin le prolonge), l'E5 ouverte, le meme bouton, la meme
+    // commande : « confirmé par vous ». Rien ne deborde.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const facade = '.dialogueAuditParcelle .facadeAudit';
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .calEditeur')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi, sel) => { if (process.env.FUMEE_CAPTURE_V1) await (sel ? page.locator(sel).first().screenshot({ path: process.env.FUMEE_CAPTURE_V1 + '-' + f.nom + '-' + quoi + '.png' }) : page.screenshot({ path: process.env.FUMEE_CAPTURE_V1 + '-' + f.nom + '-' + quoi + '.png' })).catch(() => {}); };
+    const lignes = () => page.locator(facade + ' .ligneEtapeAudit').allTextContents();
+    const segmentMur = () => page.locator(facade + ' .barreFacade button[data-etape="calage"]').getAttribute('aria-label');
+    const rejeu = () => page.waitForFunction((s) => { const b = document.querySelector(s); return !!b && b.textContent === 'Rejouer la façade' && !b.disabled; }, facade + ' button[data-controle="auditParcelle.rejouerFacade"]', { timeout: 180000 });
+    const murConfirmeLe = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); return (o?.batiment?.facades ?? []).map((r) => r.calage?.murConfirmeLe ?? null).find(Boolean) ?? null; });
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    await etape('bouton V1', () => page.locator(facade + ' button[data-commande="facade.confirmerMur"]').waitFor({ timeout: 30000 }));
+    const avant = await lignes();
+    const heritees = avant.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length;
+    await capture('doute', facade);
+    const debords = [await deborde()];
+    await etape('confirmer', () => toucher(page.locator(facade + ' button[data-commande="facade.confirmerMur"]')));
+    await etape('rejeu', rejeu);
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^confirmé par vous É5/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
+    const confirme = await lignes();
+    const murConfirme = await segmentMur();
+    await capture('confirme', facade);
+    debords.push(await deborde());
+    // Le meme geste retire la confirmation : le doute revient.
+    const retirer = page.locator(facade + ' button[data-commande="facade.confirmerMur"]');
+    const libelleRetirer = (await retirer.textContent().catch(() => '')) || '';
+    await etape('retirer', () => toucher(retirer));
+    await etape('rejeu 2', rejeu);
+    // Le rejeu fini : la ligne du mur est de nouveau a confirmer (pendant le rejeu, la facade n'a pas de lignes).
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^à confirmer É5/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
+    const retire = await lignes();
+    // Confirme de nouveau, puis V4 : la Facade porte le jour de la confirmation ; Ctrl+Z la defait.
+    await etape('reconfirmer', () => toucher(page.locator(facade + ' button[data-commande="facade.confirmerMur"]')));
+    await etape('rejeu 3', rejeu);
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^confirmé par vous É5/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
+    await etape('valider', () => toucher(page.locator(facade + ' button[data-commande="facade.valider"]')));
+    await page.waitForTimeout(1500);
+    const ecrit = await murConfirmeLe();
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await annuler(page);
+    const defait = await murConfirmeLe();
+    // La calibration : le meme bouton, la meme commande.
+    const s24 = photosScene('24-pignon-baie-dans-le-pignon');
+    const sc = JSON.parse(readFileSync('tests/fixtures/facades/24-pignon-baie-dans-le-pignon.json', 'utf8'));
+    const H = sc.verite.hauteur;
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 24 · mur de 5 m', statut: 'brouillon', source: 'fumee', largeurM: 5, hauteurM: H,
+      gabarit: [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }], photos: [{ fichier: 'photo-1', coins: s24.coins[0] }], ouvertures: [], images: ['data:image/png;base64,' + s24.vues[0].toString('base64')] };
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-24', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: 0, updatedAt: '2026-11-03T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-24')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 120000 });
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer le cas', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
+    const calAvant = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
+    await etape('confirmer (calibration)', () => page.locator('.calEtapeOuverte button[data-commande="facade.confirmerMur"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu 2', finRejeu);
+    await page.waitForFunction(() => /confirmé par vous/.test(document.querySelector('.calEtapeOuverte .calFriseEtat')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const calApres = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
+    const calResume = (await page.locator('.calEtapeOuverte .calResume').first().textContent()) || '';
+    await capture('calibration', '.calEtapeOuverte');
+    debords.push(await deborde());
+    const e5 = (l) => l.find((x) => /É5/.test(x)) ?? '';
+    const ok = heritees > 0 && /^à confirmer/.test(e5(avant)) && /^confirmé par vous É5 Mur confirmé : Mur confirmé par vous le /.test(e5(confirme)) && !confirme.some((l) => /Dépend du mur/.test(l))
+      && /^É5 Mur, confirmé par vous/.test(murConfirme || '') && typeof ecrit === 'string' && defait === null && /Retirer la confirmation/.test(libelleRetirer)
+      && retire.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && calAvant === 'à confirmer' && calApres === 'confirmé par vous' && /^Mur confirmé par vous le /.test(calResume) && !debords.some(Boolean);
+    const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 110) + ' »';
+    return { ok, mesure: `audit : ${heritees} étape(s) héritent du doute ; É5 ${court(e5(avant))} → ${court(e5(confirme))} (segment « ${murConfirme} »), ${confirme.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) après ; V4 : murConfirmeLe ${ecrit}, Ctrl+Z ${defait === null ? 'le défait' : 'NE le défait PAS'} ; « ${libelleRetirer} » : ${retire.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau ; calibration : É5 ${calAvant} → ${calApres} ${court(calResume)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   }
 };
 
@@ -4619,7 +4709,8 @@ function pointsPour(nomClasse) {
   // 123 : « Ajuster l'égout et le sol » sur la facade assemblee (deux vues), le mur tire repris par la chaine.
   // 124 : le mode Toit, les vignettes de « Sur le toit » cadrees sur l'element, et la camera qui se cadre sur l'element choisi.
   // 125 : l'E5 sur le chemin des reperes : « Appliquer » sans geste n'ecrit rien ; un repere tire, le mur cherche sur leur assemblage est juge.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125];
+  // 126 : « Confirmer le mur » (V1) dans l'audit et la calibration ; le doute herite du mur, qui tombe une fois le mur confirme.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

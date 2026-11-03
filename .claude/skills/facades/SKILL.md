@@ -277,6 +277,12 @@ Un mur tiré à la main que sa silhouette n'explique pas est à confirmer, jamai
 avec quatre repères aux coins de sa première ouverture (lignes « , repères »), et la scène 24 vue comme un mur de 5 m avec des repères
 posés sur les coins que la chaîne avait retenus (« 24-voisin, repères = coins de la chaîne ») : la ligne d'ensemble les compte.
 
+**Le doute hérité et « Confirmer le mur »** (décisions du propriétaire, 3 novembre 2026) : une É5 à confirmer rend à confirmer les
+étapes qui lisent le mur (É6 à É11) quand elles atteignent leur objectif (« Dépend du mur à confirmer (É5). », `EtapeCalculee.herite`).
+« Confirmer le mur » (V1, commande `facade.confirmerMur`, audit et calibration) écrit le mur retenu comme une entrée (`MurConfirme`) :
+l'É5 est alors `confirme` (« confirmé par vous »), le doute hérité tombe, la note de la silhouette reste. Les bancs ne confirment rien :
+`banc.ts`, `egout-sol.ts` et `calage-e5.ts` ne lisent pas les étapes qui en héritent (seul l'état de l'É5 compte dans `calage-e5.ts`).
+
 **L'É5 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :
 chaque scène à prise par caméra passe par `enchainement.ts::derouler` (vue `audit`), une photo avec le GPS à 1 m, la boussole et l'EXIF,
 le gabarit vrai : les coins se cherchent comme sur place (le banc des façades, lui, pose les coins vrais). Par scène : l'écart de chaque coin

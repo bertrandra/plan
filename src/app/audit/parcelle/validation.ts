@@ -31,7 +31,7 @@ import { facadeAEcrire, facadesVoisinesAEcrire, facadeValideeDe } from './facade
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
-import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
+import { murAConfirmer, type AccordFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
@@ -98,6 +98,12 @@ export interface Validation {
    * et les corrections manuelles (reperes, mur, echelle) restent, et priment sur le calcul. Rend le nombre de facades rejouees.
    */
   rejouerFacade(cle?: string, cote?: number): Promise<number>;
+  /**
+   * « Confirmer le mur » (V1, decision du proprietaire du 3 novembre 2026) : le mur que la chaine a retenu pour cette facade est ecrit
+   * comme confirme dans la capture (il survit au rejeu), puis la facade se rejoue ; deja confirme, la confirmation se retire (le meme
+   * geste la defait). Rend faux quand rien n'est a confirmer (pas de mesure, pas de coins, audit en lecture seule).
+   */
+  confirmerMur(cle: string, cote: number): Promise<boolean>;
   /** L'etape qui tourne pour cette facade (la barre de progression avance) ; null au repos. */
   etapeEnCours(cle: string, cote: number): IdEtape | null;
   /** Arrete la mesure en cours : ses etapes restantes restent a venir, et elle se refera a la demande. */
@@ -181,7 +187,7 @@ export interface Validation {
 }
 
 /** Les photos d'une facade, et ce qui les distingue : une photo ajoutee ou retiree relance la mesure. */
-const signature = (photos: readonly PhotoCas[], corrections?: object) => photos.map((p) => p.base64.length + ':' + (p.prise?.t ?? '')).join('|') + (corrections && Object.keys(corrections).length ? '#' + JSON.stringify(corrections) : '');
+const signature = (photos: readonly PhotoCas[], corrections?: object, murConfirme?: object) => photos.map((p) => p.base64.length + ':' + (p.prise?.t ?? '')).join('|') + (corrections && Object.keys(corrections).length ? '#' + JSON.stringify(corrections) : '') + (murConfirme ? '@' + JSON.stringify(murConfirme) : '');
 
 /** Les mesures des facades photographiees, faites une fois, l'une apres l'autre. */
 function mesureurDe(ctx: ContexteValidation, publier: () => void) {
@@ -197,7 +203,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   const aMesurer = () => ctx.liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee').map((f) => {
     const saisie = ctx.capture.lire().batiments[b.cle]?.facades[String(f.cote)];
     const photos = saisie?.photos ?? [];
-    return { b, f, photos, corrections: saisie?.corrections ?? {}, cle: cleMesure(b.cle, f.cote), sig: signature(photos, saisie?.corrections) };
+    return { b, f, photos, corrections: saisie?.corrections ?? {}, murConfirme: saisie?.murConfirme ?? null, cle: cleMesure(b.cle, f.cote), sig: signature(photos, saisie?.corrections, saisie?.murConfirme) };
   }));
 
   /** `silencieux` : un rejeu (a la prise de vue, ou « Rejouer ») ; la barre de progression de la facade dit ou il en est, sans toast. */
@@ -219,7 +225,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
           arrete: () => arret,
           rendreLaMain: () => new Promise<void>((ok) => { setTimeout(ok, 0); }),
         };
-        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null, facades: 'batiment' in bat ? bat.batiment?.facades ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections);
+        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null, facades: 'batiment' in bat ? bat.batiment?.facades ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections, x.murConfirme);
         etape = null;
         // Une mesure arretee ne se garde pas : elle se refera a la demande (le rejeu, l'analyse).
         if (!arret) { faites.set(x.cle, { signature: x.sig, mesure: m }); version++; }
@@ -265,7 +271,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       for (const m of mesures) {
         const saisie = ctx.capture.lire().batiments[m.cle]?.facades[String(m.cote)];
         const photos = saisie?.photos ?? [];
-        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos, saisie?.corrections), mesure: m });
+        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos, saisie?.corrections, saisie?.murConfirme), mesure: m });
       }
       version++;
       publier();
@@ -485,7 +491,7 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
   if (!m || !o) return false;
   const jour = jourIso(ctx.maintenant()), k = cleMesure(cle, cote);
   const accord = ctx.analyse?.accords?.()?.[k] ?? null;
-  const r = facadeAEcrire(o, m, jour, accord, ctx.analyse?.runs?.()?.[k] ?? null);
+  const r = facadeAEcrire(o, m, jour, accord, ctx.analyse?.runs?.()?.[k] ?? null, ctx.capture.lire().batiments[cle]?.facades[String(cote)]?.murConfirme ?? null);
   if (!r) return false;
   // Les ouvertures lues sous le pignon d'un corps voisin, sur la facade du mur qui les porte (facade/releve/murVoisin.ts) : calculees
   // avant l'ecriture (sur les facades du projet), ecrites dans le meme pas d'historique.
@@ -501,6 +507,19 @@ function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, 
   const n = r.ouvertures.length;
   const ailleurs = voisines.length ? ' ' + (voisines.length > 1 ? voisines.length + ' façades voisines complétées' : 'La façade voisine est complétée') + ' des ouvertures lues sous le pignon de son corps.' : '';
   ctx.signaler('Façade validée : ' + n + ' ouverture' + (n > 1 ? 's vérifiées' : ' vérifiée') + ', dimensions, forme et texture écrites dans le projet.' + ailleurs + ' Ctrl+Z la défait.');
+  return true;
+}
+
+/**
+ * « Confirmer le mur » (V1) dans la capture : le mur que la mesure a retenu (les coins de chaque photo redressee), ou, deja confirme, la
+ * confirmation retiree. Faux quand il n'y a pas de mur a confirmer. La facade se rejoue ensuite (l'appelant).
+ */
+function confirmerLeMur(ctx: ContexteValidation, m: MesureFacade | undefined, cle: string, cote: number): boolean {
+  const deja = ctx.capture.lire().batiments[cle]?.facades[String(cote)]?.murConfirme;
+  if (deja && m?.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme') { ctx.capture.confirmerMur(cle, cote, null); return true; }
+  const mur = murAConfirmer((m?.redressement?.photos ?? []).map((p) => ({ rang: p.rang, coins: p.statut === 'echec' ? [] : p.coinsPx ?? [] })), ctx.maintenant().toISOString());
+  if (!mur) return false;
+  ctx.capture.confirmerMur(cle, cote, mur);
   return true;
 }
 
@@ -651,7 +670,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       calculs++;
       publier();
     },
-    lectureSeule: () => figees !== null,
+    lectureSeule: () => figees !== null, confirmerMur: async (cle, cote) => (figees || !confirmerLeMur(ctx, mesureur.lues().get(cleMesure(cle, cote)), cle, cote) ? false : (await mesureur.rejouer(cle, cote), true)),
     decision: (id) => decisionsFigees.get(id) ?? null,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };

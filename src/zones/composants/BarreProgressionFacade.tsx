@@ -19,9 +19,11 @@ export const COMMANDE_ETAPE = 'facade.etape';
 export const COMMANDE_ESCALADE = 'facade.escalader';
 /** La validation d'une facade (V4, lot F5) : le bouton sous la barre, dans l'audit ; elle ecrit la Facade dans le projet. */
 export const COMMANDE_VALIDER = 'facade.valider';
+/** « Confirmer le mur » (V1) : le mur que la chaine a pose, confirme par la personne ; la meme commande dans l'audit et la calibration. */
+export const COMMANDE_CONFIRMER_MUR = 'facade.confirmerMur';
 
 /** Une etape telle que la barre la montre : l'etat que l'orchestrateur lui a calcule (ou a venir, ou en cours) et ce qu'elle a donne. */
-export type EtapeAffichee = Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>;
+export type EtapeAffichee = Pick<EtapeCalculee, 'id' | 'etat' | 'resume'> & Partial<Pick<EtapeCalculee, 'herite'>>;
 
 interface Props {
   etapes: readonly EtapeAffichee[];
@@ -37,7 +39,7 @@ interface Props {
   arreter: (() => void) | null;
 }
 
-const ICONES: Partial<Record<EtatAffiche, NomIcone>> = { ok: 'coche', 'a-confirmer': 'alerte', echec: 'fermer', saute: 'moins' };
+const ICONES: Partial<Record<EtatAffiche, NomIcone>> = { ok: 'coche', confirme: 'personne', 'a-confirmer': 'alerte', echec: 'fermer', saute: 'moins' };
 
 function etatDe(etapes: readonly EtapeAffichee[], id: IdEtape): EtatAffiche {
   return etapes.find((e) => e.id === id)?.etat ?? 'a-venir';
@@ -63,11 +65,13 @@ function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouver
 
 /**
  * L'etape qu'ouvre un segment : celle qui doute (en echec, puis a confirmer), sinon son point de validation, sinon la premiere. Le
- * segment « Forme » ouvre ainsi le diagnostic (V2) qui attend la personne, pas la silhouette lue qui a reussi (lot F4).
+ * segment « Forme » ouvre ainsi le diagnostic (V2) qui attend la personne, pas la silhouette lue qui a reussi (lot F4). Un doute herite
+ * du mur (l'E5 a confirmer) ne compte pas ici : il se leve a l'E5, et le point de validation du segment reste ce qui attend la personne.
  */
 function etapeAOuvrir(s: SegmentFacade, etapes: readonly EtapeAffichee[]): IdEtape {
-  return s.etapes.find((id) => etatDe(etapes, id) === 'echec') ?? s.etapes.find((id) => etatDe(etapes, id) === 'a-confirmer')
-    ?? s.etapes.find((id) => etapeFacade(id).validation) ?? (s.etapes[0] as IdEtape);
+  const propre = (id: IdEtape) => !etapes.find((e) => e.id === id)?.herite;
+  return s.etapes.find((id) => etatDe(etapes, id) === 'echec') ?? s.etapes.find((id) => etatDe(etapes, id) === 'a-confirmer' && propre(id))
+    ?? s.etapes.find((id) => etapeFacade(id).validation) ?? s.etapes.find((id) => etatDe(etapes, id) === 'a-confirmer') ?? (s.etapes[0] as IdEtape);
 }
 
 export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, commandes, arreter }: Props) {
@@ -77,7 +81,7 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
     const k = SEGMENTS_FACADE.findIndex((s) => s.etapes.includes(enCours ?? ouverte ?? ('' as IdEtape)));
     if (k >= 0) return k;
     const doute = etats.findIndex((e) => e === 'echec' || e === 'a-confirmer');
-    return doute >= 0 ? doute : etats.map((e, i) => (e === 'ok' ? i : -1)).reduce((a, b) => Math.max(a, b), 0);
+    return doute >= 0 ? doute : etats.map((e, i) => (e === 'ok' || e === 'confirme' ? i : -1)).reduce((a, b) => Math.max(a, b), 0);
   })());
   const [haut, bas] = lignes(etapes, enCours, ouverte);
   const etatCommande = commandes?.etat(COMMANDE_ETAPE);

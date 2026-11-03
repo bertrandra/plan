@@ -4,6 +4,9 @@
 // (zones/composants/BarreProgressionFacade.tsx) et les ecrans qui la portent ne font que le lire.
 //
 // L'etat est derive (comme le bilan du redressement) : il se recalcule a chaque rejeu, il n'est jamais enregistre comme verite.
+// Le doute du mur se transmet (decision du proprietaire, 3 novembre 2026) : tant que l'E5 est a confirmer, les etapes qui lisent le mur
+// (E6 a E11) et qui atteignent leur objectif sont a confirmer aussi, « depend du mur a confirmer (E5) » ; le mur confirme par la
+// personne (V1, « Confirmer le mur », l'etat `confirme`), elles retrouvent leur propre verdict.
 
 /** Les etapes, dans l'ordre du tableau §4 ter.2 (E1 a E11). */
 export type IdEtape =
@@ -13,8 +16,10 @@ export type IdEtape =
 /**
  * L'etat d'une etape calculee : objectif atteint, atteint de justesse (ou deux chemins qui divergent), non atteint, ou inutile ici.
  * Un echec arrete ce qui en depend ; une valeur supposee laisse la suite continuer en le disant (`a-confirmer`).
+ * `confirme` : la personne a confirme ce que l'etape a donne (le mur au point V1, « Confirmer le mur ») ; ce n'est pas un `ok` de
+ * l'automatique, et les deux se disent autrement (decision du proprietaire, 3 novembre 2026). Seule l'E5 le prend aujourd'hui.
  */
-export type EtatEtape = 'ok' | 'a-confirmer' | 'echec' | 'saute';
+export type EtatEtape = 'ok' | 'confirme' | 'a-confirmer' | 'echec' | 'saute';
 
 /** L'etat qu'une etape montre dans la barre : son etat calcule, ou pas encore (a venir, en cours). */
 export type EtatAffiche = EtatEtape | 'a-venir' | 'en-cours';
@@ -93,7 +98,7 @@ export const SEGMENTS_FACADE: readonly SegmentFacade[] = [
 ];
 
 /** Du pire au meilleur : l'etat d'un segment est le pire de ses etapes ; une etape sautee ne cache pas une etape faite. */
-const GRAVITE: Record<EtatAffiche, number> = { echec: 0, 'a-confirmer': 1, 'en-cours': 2, 'a-venir': 3, ok: 4, saute: 5 };
+const GRAVITE: Record<EtatAffiche, number> = { echec: 0, 'a-confirmer': 1, 'en-cours': 2, 'a-venir': 3, confirme: 4, ok: 5, saute: 6 };
 
 /** L'etat d'un segment : le pire de ses etapes ; sautees toutes, il est saute. */
 export function etatDuSegment(etats: readonly EtatAffiche[]): EtatAffiche {
@@ -103,5 +108,5 @@ export function etatDuSegment(etats: readonly EtatAffiche[]): EtatAffiche {
 
 /** L'etat en mots, pour le texte lu a voix haute et la ligne sous la barre. */
 export const LIBELLES_ETAT: Record<EtatAffiche, string> = {
-  ok: 'faite', 'a-confirmer': 'à confirmer', echec: 'en échec', saute: 'sautée', 'a-venir': 'à venir', 'en-cours': 'en cours',
+  ok: 'faite', confirme: 'confirmé par vous', 'a-confirmer': 'à confirmer', echec: 'en échec', saute: 'sautée', 'a-venir': 'à venir', 'en-cours': 'en cours',
 };
