@@ -27,7 +27,7 @@
 
 import { dateFr } from '../util/format.js';
 
-export const APP_VERSION = '5.4.1';
+export const APP_VERSION = '5.5.0';
 // 2 depuis la 2.2.0 : un batiment peut porter `facades` et `toit` (releve de facade). Un fichier
 // qui n'en porte pas s'ouvre toujours dans la 2.1.x ; celui qui en porte y perdrait ces champs au
 // premier enregistrement, d'ou le refus (RELEASE.md §3.1).
@@ -73,8 +73,8 @@ export const APP_VERSION = '5.4.1';
 // (une maison entre un garage et un appentis), lues sur le gabarit du plan et du LiDAR. Le releve les range dans `partiesBasses`
 // (model/partiesBasses.ts) ; un mur en L (une seule partie basse) s'ecrit toujours dans `partieBasse`, comme avant. Un lecteur 12 perdrait
 // la liste au premier enregistrement, et lirait le mur sans ses parties basses (surface, volumes, 3D) : seul un fichier qui en porte une
-// s'ecrit au 13. La migration 12 -> 13 est l'identite. La plateforme accepte 7 a 12 : elle doit accepter 13 (bertrandra/backprod,
-// `project_schema_versions`) et etre deployee avant une livraison de Plan qui l'ecrit.
+// s'ecrit au 13. La migration 12 -> 13 est l'identite. La plateforme accepte 13 depuis bertrandra/backprod#252 (migration
+// Version20261103090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
 export const SCHEMA_VERSION = 13;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';

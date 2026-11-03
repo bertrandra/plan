@@ -20,6 +20,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   d'avant s'ouvre avec les mêmes nombres (migration 12 → 13 identité). La plateforme doit accepter le schéma 13
   (bertrandra/backprod, `project_schema_versions`) et être déployée **avant** une livraison de Plan qui l'écrit. Banc des façades :
   scène `26-partie-haute-au-milieu` ajoutée, les 26 autres identiques au bit près. Aucune quantité ni aucun export ne change.
+
+## [5.5.0] — 2026-11-03
+
+Version **mineure** au sens de `MD/RELEASE.md` : la détection des ouvertures lit la façade fusionnée entière, pignons compris (#533) ;
+la calibration et l'audit ne font plus qu'une orchestration, dans un cadre fait de la silhouette du mur plus 3 % (#534) ; les étapes
+s'appellent É1 à É11 (#535) ; en Mode Toit, les objets du toit ont leurs vignettes et la caméra se cadre sur l'élément choisi (#536) ;
+l'étape É5 se cale sur les pignons (#537) ; la vue de la façade se dessine au téléphone (#538) ; une fenêtre sous le pignon d'un corps
+voisin va sur la façade de ce mur (#539) ; un mur en L s'écrit avec sa partie basse (#540). Aucune quantité ni aucun export de la
+démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.4.1 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités et `glb-structure.json` sont identiques.
+Schéma inchangé (12). Fumée complète (Fumée de la nuit, run 41601785149).
+
+### Modifié
+
 - Façades (audit et calibration) : un mur en L (une partie basse, garage ou extension, dans l'alignement du mur) s'écrit avec sa partie
   basse, lue sur la silhouette du plan et du LiDAR : la position du décrochement et l'égout bas, corrigeables dans l'éditeur comme
   avant. Elle s'écrivait toujours vide depuis que la photo ne la posait plus. L'étape É5 lit chaque angle sous le haut de la silhouette
