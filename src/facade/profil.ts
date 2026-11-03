@@ -200,6 +200,11 @@ export function contourDuMur(largeur: number, hauteur: number, p: PartiesDuMur):
 
 /** Une partie basse qui finit a moins de cela du bout du mur va jusqu'au bout (un arrondi au centimetre, une mise a l'echelle). */
 const BOUT_TOLERANCE_M = 0.01;
+/**
+ * Une partie basse seule (un mur en L d'avant le schema 13) ne se lit au milieu du mur que si elle s'arrete a plus de cela de chacun de
+ * ses bouts : une partie basse d'un releve d'avant finit au bout du mur au centimetre pres, et garde ses volumes.
+ */
+const MILIEU_SEULE_M = 0.5;
 
 /** Un volume du batiment : son emprise et sa hauteur d'egout. */
 export interface Volume {
@@ -210,16 +215,22 @@ export interface Volume {
 }
 
 /**
- * Les volumes d'un batiment dont un mur a ete releve avec une partie basse a un bout (un L), ou a chacun de ses deux bouts (une partie
- * haute au milieu) : la partie haute d'abord, puis chaque partie basse. Une partie basse va du decrochement au bout bas du mur, et sa
- * profondeur est celle du pignon adjacent : le mur du contour qui part du coin C du bout bas vers le sommet suivant E. Avec S le
- * decrochement sur la facade, la partie basse est le parallelogramme S, C, E, S' ou S' = E + (S - C) ; la partie haute est le contour
- * ou C est remplace par S puis S' - l'encoche. Un contour qui porte deja l'encoche (garage moins profond que la maison) retombe sur ses
- * propres murs : son pignon adjacent est le mur lateral du garage. Une partie basse au milieu du mur n'a pas de pignon adjacent : elle
- * ne decoupe pas le batiment (la facade la porte, ses ouvertures et sa surface la suivent).
+ * Les volumes d'un batiment dont un mur a ete releve avec des parties basses (un L, une a chaque bout, ou au milieu), et combien sont
+ * des parties hautes : les parties hautes d'abord, puis chaque partie basse.
+ *
+ * Une partie basse a un bout du mur va du decrochement au bout bas du mur, et sa profondeur est celle du pignon adjacent : le mur du
+ * contour qui part du coin C du bout bas vers le sommet suivant E. Avec S le decrochement sur la facade, la partie basse est le
+ * parallelogramme S, C, E, S' ou S' = E + (S - C) ; la partie haute est le contour ou C est remplace par S puis S' - l'encoche. Un
+ * contour qui porte deja l'encoche (garage moins profond que la maison) retombe sur ses propres murs : son pignon adjacent est le mur
+ * lateral du garage.
+ *
+ * Une partie basse au milieu du mur (un corps bas entre deux corps hauts) est un volume a part, sur toute la profondeur du batiment :
+ * la tranche du contour entre les deux perpendiculaires a la facade a son debut et a sa fin (decision du proprietaire, 3 novembre 2026).
+ * Elle n'a pas de pignon adjacent dont prendre la direction : la tranche est d'equerre a la facade. La partie haute se coupe alors en
+ * deux, de part et d'autre, chacune avec son toit.
  */
-export function volumesDuBatiment(pts: readonly PtBrut[], hauteur: number, releves: readonly ReleveFacade[] | null | undefined): Volume[] {
-  const entier = [{ pts: pts.map((q) => ({ ...q })), hauteur }];
+export function volumesEtHautesDuBatiment(pts: readonly PtBrut[], hauteur: number, releves: readonly ReleveFacade[] | null | undefined): { volumes: Volume[]; hautes: number } {
+  const entier = { volumes: [{ pts: pts.map((q) => ({ ...q })), hauteur }], hautes: 1 };
   const r = (releves || []).find((x) => partiesBassesDu(x).length);
   if (!r) return entier;
   const n = pts.length;
@@ -228,14 +239,19 @@ export function volumesDuBatiment(pts: readonly PtBrut[], hauteur: number, relev
   // Abscisses du decrochement, mises a l'echelle si le mur a change de longueur depuis le releve.
   const k = r.largeur > 0 ? f.largeur / r.largeur : 1;
   const proche = (a: PtBrut, b: PtBrut) => Math.hypot(a.x - b.x, a.y - b.y) < 1e-9;
-  // Les parties basses a un bout du mur. Une seule : celle d'un mur en L, a droite des que son debut n'est pas nul (comme avant le
-  // schema 13, memes volumes). Plusieurs : celle qui finit au bout droit, puis celle qui part du bout gauche ; celles du milieu restent.
+  // Les parties basses a un bout du mur, et celles du milieu. Une seule : celle d'un mur en L, a droite des que son debut n'est pas nul
+  // (comme avant le schema 13, memes volumes), sauf quand elle s'arrete franchement avant les deux bouts : elle est alors au milieu.
+  // Plusieurs : celle qui finit au bout droit, puis celle qui part du bout gauche ; les autres sont au milieu.
   const parties = partiesBassesDu(r);
-  const bouts = parties.length === 1 ? parties : [
+  const auMilieu = (pb: PartieBasse) => parties.length === 1
+    ? pb.debut > MILIEU_SEULE_M && pb.fin < r.largeur - MILIEU_SEULE_M
+    : pb.debut > BOUT_TOLERANCE_M && pb.fin < r.largeur - BOUT_TOLERANCE_M;
+  const milieux = parties.filter(auMilieu);
+  const bouts = parties.length === 1 ? parties.filter((pb) => !auMilieu(pb)) : [
     ...parties.filter((pb) => pb.debut > 0 && pb.fin >= r.largeur - BOUT_TOLERANCE_M),
     ...parties.filter((pb) => pb.debut <= BOUT_TOLERANCE_M && pb.fin < r.largeur - BOUT_TOLERANCE_M),
   ];
-  if (!bouts.length) return entier;
+  if (!bouts.length && !milieux.length) return entier;
   let haute: PtBrut[] = pts.map((q) => ({ ...q }));
   const basses: Volume[] = [];
   const decrochements: PtBrut[] = [];
@@ -268,5 +284,52 @@ export function volumesDuBatiment(pts: readonly PtBrut[], hauteur: number, relev
     decrochements.push(S);
     basses.push({ pts: [{ ...S }, { ...C }, { ...E }, S2], hauteur: Math.min(hauteur, pb.hauteur) });
   }
-  return [{ pts: haute, hauteur }, ...basses];
+  // Les parties basses du milieu : la partie haute se coupe en tranches d'equerre a la facade, a l'abscisse le long d'elle.
+  let hautes: PtBrut[][] = [haute];
+  const ux = (f.droite.x - f.gauche.x) / f.largeur, uy = (f.droite.y - f.gauche.y) / f.largeur;
+  const abscisse = (q: PtBrut) => (q.x - f.gauche.x) * ux + (q.y - f.gauche.y) * uy;
+  for (const pb of milieux) {
+    const a = pb.debut * k, b = pb.fin * k;
+    const suivantes: PtBrut[][] = [];
+    for (const morceau of hautes) {
+      suivantes.push(...[couperAbscisse(morceau, abscisse, -Infinity, a), couperAbscisse(morceau, abscisse, b, Infinity)].filter(utile));
+      const tranche = couperAbscisse(morceau, abscisse, a, b);
+      if (utile(tranche)) basses.push({ pts: tranche, hauteur: Math.min(hauteur, pb.hauteur) });
+    }
+    if (!suivantes.length) return entier;
+    hautes = suivantes;
+  }
+  return { volumes: [...hautes.map((q) => ({ pts: q, hauteur })), ...basses], hautes: hautes.length };
+}
+
+/** Les volumes du batiment (volumesEtHautesDuBatiment) : les parties hautes, puis les parties basses. */
+export function volumesDuBatiment(pts: readonly PtBrut[], hauteur: number, releves: readonly ReleveFacade[] | null | undefined): Volume[] {
+  return volumesEtHautesDuBatiment(pts, hauteur, releves).volumes;
+}
+
+/** Un morceau de contour qui a une surface (une coupe le long d'un bord n'en laisse pas). */
+const utile = (q: readonly PtBrut[]): boolean => q.length >= 3 && Math.abs(aireSignee(q)) > 1e-6;
+
+function aireSignee(q: readonly PtBrut[]): number {
+  return q.reduce((s, p, i) => { const r = sommetDe(q, i + 1); return s + p.x * r.y - r.x * p.y; }, 0) / 2;
+}
+
+/**
+ * Le morceau d'un contour dont l'abscisse (`x`, le long de la facade) est entre `a` et `b` : deux demi-plans d'equerre a la facade,
+ * Sutherland-Hodgman (un contour concave en sort entier, au pire avec un pont sans surface le long de la coupe).
+ */
+function couperAbscisse(pts: readonly PtBrut[], x: (q: PtBrut) => number, a: number, b: number): PtBrut[] {
+  const demiPlan = (entree: readonly PtBrut[], dedans: (q: PtBrut) => number): PtBrut[] => {
+    const out: PtBrut[] = [];
+    entree.forEach((P, i) => {
+      const Q = sommetDe(entree, i + 1), dp = dedans(P), dq = dedans(Q);
+      if (dp >= 0) out.push({ ...P });
+      if ((dp >= 0) !== (dq >= 0)) { const t = dp / (dp - dq); out.push({ x: P.x + t * (Q.x - P.x), y: P.y + t * (Q.y - P.y) }); }
+    });
+    return out.filter((q, i) => Math.hypot(q.x - sommetDe(out, i + 1).x, q.y - sommetDe(out, i + 1).y) > 1e-9);
+  };
+  let out = [...pts];
+  if (Number.isFinite(a)) out = demiPlan(out, (q) => x(q) - a);
+  if (Number.isFinite(b)) out = demiPlan(out, (q) => b - x(q));
+  return out;
 }

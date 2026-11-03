@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades : une partie basse au milieu d'un mur (un corps bas entre deux corps hauts, lue sur la silhouette du plan et du LiDAR) est
+  un volume à part, sur toute la profondeur du bâtiment, d'équerre à la façade : la partie haute se coupe en deux, chacune avec son
+  toit et son débord, et les fenêtres automatiques, le plan et la Vue 3D suivent ces volumes. Elle ne découpait pas le bâtiment.
+  L'éditeur de la façade dit qu'elle va sur toute la profondeur. Un mur en L et un mur à une partie basse à chaque bout gardent leurs
+  volumes au bit près. Schéma inchangé (13). Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration) : un mur dont la partie haute est au milieu, avec une partie basse à chaque bout (une maison entre
   un garage et un appentis), s'écrit avec ses deux parties basses, lues sur la silhouette du plan et du LiDAR. Il s'écrivait sans
   aucune : le relevé ne connaissait qu'une partie basse, à un bout. Une partie basse au milieu du mur se lit aussi, quand la silhouette

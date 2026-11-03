@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { contourDuMur, egoutEn, partiesBassesDuGabarit, volumesDuBatiment, type Volume } from '../../../src/facade/profil.js';
+import { contourDuMur, egoutEn, partiesBassesDuGabarit, volumesDuBatiment, volumesEtHautesDuBatiment, type Volume } from '../../../src/facade/profil.js';
 import { gabaritDesCorps } from '../../../src/facade/gabaritMur.js';
 import { facadesDuContour, pointDeFacade } from '../../../src/geometry/cotesVusDeDehors.js';
 import { sommetDe } from '../../../src/geometry/anneau.js';
@@ -197,4 +197,44 @@ describe('la calibration sans capteurs sur une partie haute au milieu (scene 26)
     expect(e5?.etat).not.toBe('ok');
     expect(ex?.egout).toBeLessThan(0.4);
   }, 120_000);
+});
+
+// Une partie basse au milieu du mur est un volume a part (decision du proprietaire, 3 novembre 2026) : la tranche du contour d'equerre
+// a la facade, sur toute la profondeur ; la partie haute se coupe en deux, chacune avec son toit.
+describe('une partie basse au milieu du mur', () => {
+  const aire = (pts: readonly PtBrut[]) => Math.abs(pts.reduce((s, p, i) => s + p.x * sommetDe(pts, i + 1).y - sommetDe(pts, i + 1).x * p.y, 0)) / 2;
+  const xs = (pts: readonly PtBrut[]) => [Math.min(...pts.map((p) => p.x)), Math.max(...pts.map((p) => p.x))];
+
+  it('coupe le batiment en trois volumes : deux parties hautes de part et d autre, la tranche basse au milieu', () => {
+    const { volumes, hautes } = volumesEtHautesDuBatiment(CONTOUR, 5.6, [releve({ partieBasse: { debut: 4, fin: 8, hauteur: 3 } })]);
+    expect(hautes).toBe(2);
+    expect(volumes.map((v) => v.hauteur)).toEqual([5.6, 5.6, 3]);
+    expect(volumes.map((v) => xs(v.pts))).toEqual([[0, 4], [8, 12], [4, 8]]);
+    expect(volumes.map((v) => Math.round(aire(v.pts) * 100) / 100)).toEqual([32, 32, 32]);
+  });
+
+  it('avec une partie basse a chaque bout en plus : la partie haute en deux, cinq volumes en tout', () => {
+    const parties = [{ debut: 0, fin: 2, hauteur: 2.6 }, { debut: 5, fin: 7, hauteur: 3 }, { debut: 10, fin: 12, hauteur: 2.9 }];
+    const { volumes, hautes } = volumesEtHautesDuBatiment(CONTOUR, 5.6, [releve({ partieBasse: null, partiesBasses: parties })]);
+    expect(hautes).toBe(2);
+    expect(volumes.map((v) => v.hauteur)).toEqual([5.6, 5.6, 2.9, 2.6, 3]);
+    expect(volumes.map((v) => xs(v.pts))).toEqual([[2, 5], [7, 10], [10, 12], [0, 2], [5, 7]]);
+    // Les volumes couvrent le batiment, sans recouvrement.
+    expect(volumes.reduce((s, v) => s + aire(v.pts), 0)).toBeCloseTo(12 * 8, 6);
+  });
+
+  it('sur un contour en L : la tranche suit le contour sur toute sa profondeur', () => {
+    // Une maison de 12 m dont la moitie droite n'a que 5 m de profondeur ; la partie basse de 4 a 8 m est a cheval sur le decroche.
+    const L: PtBrut[] = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 5 }, { x: 6, y: 5 }, { x: 6, y: 8 }, { x: 0, y: 8 }];
+    const { volumes, hautes } = volumesEtHautesDuBatiment(L, 5.6, [releve({ partieBasse: { debut: 4, fin: 8, hauteur: 3 } })]);
+    expect(hautes).toBe(2);
+    expect(volumes.map((v) => Math.round(aire(v.pts) * 100) / 100)).toEqual([32, 20, 2 * 8 + 2 * 5]);
+  });
+
+  it('une partie basse seule qui finit au bout du mur reste celle d un mur en L, au bit pres', () => {
+    for (const pb of [{ debut: 6.5, fin: 12, hauteur: 2.9 }, { debut: 0, fin: 3, hauteur: 2.6 }, { debut: 6.5, fin: 11.7, hauteur: 2.9 }]) {
+      const r = releve({ partieBasse: pb });
+      expect(volumesDuBatiment(CONTOUR, 5.6, [r]), JSON.stringify(pb)).toEqual(volumesAvant(CONTOUR, 5.6, [r]));
+    }
+  });
 });
