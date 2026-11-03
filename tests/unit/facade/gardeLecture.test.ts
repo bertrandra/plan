@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { comparerLecture, FICHIER_REFERENCE_510, lireEscalade, plancherDe, regressionsApresRelance, remplacerScenes, scenesARelancer, tableauLecture, type LigneLecture, type MesureLecture, type ReferenceLecture } from '../../banc/facades/gardeLecture.js';
+import { comparerLecture, duCorpus, FICHIER_REFERENCE_510, lireEscalade, plancherAjoute, planchersAjoutes, scenesSansPlancher, plancherDe, regressionsApresRelance, remplacerScenes, scenesARelancer, tableauLecture, type LigneLecture, type MesureLecture, type ReferenceLecture } from '../../banc/facades/gardeLecture.js';
 
 const reference = JSON.parse(readFileSync(FICHIER_REFERENCE_510, 'utf8')) as ReferenceLecture;
 const { plancher } = reference;
@@ -110,5 +110,51 @@ describe('le comparateur de la lecture des facades, contre les planchers', () =>
     expect(comparerLecture(plancher, m).map((x) => x.ligne)).toEqual(['angles lus', 'parement lu']);
     m.escalade = null;
     expect(comparerLecture(plancher, m).map((x) => x.ligne)).toEqual(['ligne du journal']);
+  });
+  // Decision du proprietaire, 3 novembre 2026 : une scene entree au banc apres la reference ne deplace pas un total (fixe sur les 22 scenes
+  // du corpus) ; elle a son propre plancher, fige a sa premiere mesure, et se juge par scene. Elle est mesuree et dite, jamais tue.
+  describe('les scenes ajoutees au banc', () => {
+    /** Une scene nouvelle : la copie d'une scene du corpus, sous un autre nom. */
+    const avecNouvelle = (m: MesureLecture, nom = '99-nouvelle') => {
+      m.scenes[nom] = structuredClone(m.scenes['02-enduit-uni-face'] as Record<'x1' | 'x3', LigneLecture | null>);
+      return refaite(m);
+    };
+
+    it('les totaux se jugent sur le corpus seul : des baies x1 en trop sur une scene nouvelle ne les font pas baisser', () => {
+      const m = avecNouvelle(copie());
+      const x1 = ligne(m, '99-nouvelle', 'x1');
+      x1.boites.vp = 0; x1.boites.fp = 6; x1.boites.trouvees = 6;
+      const r = refaite(m);
+      expect((r.totaux.x1.boites.precision ?? 1) < (plancher.totaux.x1['précision des baies'] ?? 0)).toBe(true);
+      expect(duCorpus(plancher, r).totaux.x1.facades).toBe(22);
+      expect(comparerLecture(plancher, r)).toEqual([]);
+      // Sans plancher, elle est nommee dans la table (a enregistrer), et sa lecture x1 y est dite.
+      expect(scenesSansPlancher(plancher, r)).toEqual(['99-nouvelle']);
+      const t = tableauLecture(plancher, r);
+      expect(t).toContain('1 scène(s) mesurée(s) sans plancher');
+      expect(t).toContain('99-nouvelle 0 / 6 / 6');
+    });
+
+    it('une scene ajoutee se juge par scene contre son plancher, fige a sa premiere mesure, et son absence est une regression', () => {
+      const premiere = avecNouvelle(copie());
+      const ajoutees = { '99-nouvelle': plancherAjoute(premiere, '99-nouvelle', { run: '1', commit: 'c', date: 'd', note: 'n' }) };
+      expect(comparerLecture(plancher, premiere, ajoutees)).toEqual([]);
+      expect(scenesSansPlancher(plancher, premiere, ajoutees)).toEqual([]);
+      const m = avecNouvelle(copie());
+      const x3 = ligne(m, '99-nouvelle', 'x3');
+      x3.boites.vp = 5; x3.boites.fp = 1;
+      expect(noms(comparerLecture(plancher, refaite(m), ajoutees))).toEqual(['99-nouvelle x3 baies retrouvées (rappel)', '99-nouvelle x3 baies en trop (précision)']);
+      expect(tableauLecture(plancher, refaite(m), [], [], ajoutees)).toContain('99-nouvelle (ajoutée, plancher du run 1)');
+      expect(noms(comparerLecture(plancher, copie(), ajoutees))).toEqual(['99-nouvelle x3 scène mesurée']);
+    });
+
+    it('le depot fige les planchers des scenes 24, 25 et 26, chacune a sa premiere mesure', () => {
+      const a = planchersAjoutes();
+      expect(Object.fromEntries(Object.entries(a).map(([s, p]) => [s, p.source.run]))).toEqual({
+        '24-pignon-baie-dans-le-pignon': '41610829374', '25-mur-en-l-garage': '41610829374', '26-partie-haute-au-milieu': '41699049779',
+      });
+      for (const s of Object.keys(a)) expect(plancher.scenes[s]).toBeUndefined();
+      expect(a['26-partie-haute-au-milieu']?.lignes['baies retrouvées (rappel)']).toBe(6);
+    });
   });
 });

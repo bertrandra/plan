@@ -842,6 +842,12 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   - en ×3, **au total** : toutes les lignes, dont les **angles et les carreaux, jugés au total seulement** ;
   - en ×1, **au total seulement**, toutes les lignes ;
   - l'escalade, sur le journal du vérificateur : acceptée et conforme, angles lus, parement lu.
+- **Les totaux, sur le corpus de référence seulement** (les 22 scènes de `reference.json`, décision du propriétaire, 3 novembre 2026 :
+  la scène 26, nouvelle, faisait passer le total ×1 sous son plancher alors que les 22 scènes étaient à 100 %). Une scène ajoutée au
+  banc a son propre plancher, ses lignes ×3 à sa première mesure, figé dans `lecture-5.1.0/scenes-ajoutees.json` :
+  `garde-lecture.ts --ajouter <scène> --mesure <run>,<commit>,<date>,<dossier>` sur l'artefact du premier run qui l'a mesurée (première
+  passe), jamais réécrit. Elle se juge par scène ; sa lecture ×1 est dite à part (information). Une scène mesurée sans plancher est
+  nommée dans la table : l'ajouter dans la PR qui l'apporte au banc, ou au premier run qui la mesure.
 - **La table** : `npx tsx .claude/skills/facades/scripts/garde-lecture.ts --tableau`. Planchers au total : ×3 rappel 99,2 %, précision
   100 %, carreaux 2, angles 34, pointes 2, parements 21, 0 passe illisible ; ×1 rappel 92,9 %, précision 99,2 %, carreaux 0, angles 34.
 - **Le comparateur** (`tests/banc/facades/gardeLecture.ts`, script `garde-lecture.ts --comparer <dossier>`) mesure un dossier du banc
