@@ -8,7 +8,7 @@ import { CHAMP_GRAND_COTE_DEFAUT } from '../vision/cadrage.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { Image } from '../vision/homographie.js';
 import type { PrisePhoto } from '../../model/audit.js';
-import type { BilanPhotoRedressement, CorrectionRedressement, MurConfirme } from '../../model/auditParcelle.js';
+import type { BilanPhotoRedressement, CorrectionRedressement, MurConfirme, OuverturesRelues } from '../../model/auditParcelle.js';
 import type { PtBrut } from '../../model/types.js';
 import type { PhotoARedresser } from './chaine.js';
 import type { Prise } from './prise.js';
@@ -62,6 +62,8 @@ export interface PrisesFacade {
   corrections: Readonly<Record<string, CorrectionRedressement>>;
   /** Le mur que la personne a confirme au point V1 (« Confirmer le mur ») ; null : rien de confirme. */
   murConfirme: MurConfirme | null;
+  /** Les ouvertures que la personne a relues au point V3 (« Relire les ouvertures ») ; null : pas encore relues. */
+  ouverturesRelues: OuverturesRelues | null;
   /** Une image en JPEG (`data:`) : le canevas du navigateur ; une chaine vide hors navigateur (la mesure, le banc). */
   jpeg: (img: Image) => string;
 }
@@ -74,7 +76,7 @@ interface PhotoDeLaFacade { rang: number; image: Image | null; prise: PrisePhoto
  * mur), les photos dans l'ordre du redressement (celles qui ont une prise de vue d'abord, puis par rang), une photo illisible dite avec
  * son motif, la prise de chacune (priseDeLaPhoto).
  */
-export function prisesDeLaFacade(d: { facade: Facade; contour: readonly PtBrut[]; photos: readonly PhotoDeLaFacade[]; corrections: Readonly<Record<string, CorrectionRedressement>>; murConfirme?: MurConfirme | null | undefined; jpeg: (img: Image) => string }): PrisesFacade {
+export function prisesDeLaFacade(d: { facade: Facade; contour: readonly PtBrut[]; photos: readonly PhotoDeLaFacade[]; corrections: Readonly<Record<string, CorrectionRedressement>>; murConfirme?: MurConfirme | null | undefined; ouverturesRelues?: OuverturesRelues | null | undefined; jpeg: (img: Image) => string }): PrisesFacade {
   const { corrections } = d;
   const largeurM = Object.keys(corrections).map(Number).sort((a, b) => a - b).map((k) => corrections[String(k)]?.echelleLargeurM).find((v) => typeof v === 'number' && v > 0);
   const facade: Facade = largeurM ? { ...d.facade, largeur: largeurM } : d.facade;
@@ -86,5 +88,5 @@ export function prisesDeLaFacade(d: { facade: Facade; contour: readonly PtBrut[]
     if (!image) { illisibles.push({ rang: p.rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'image illisible' }); continue; }
     photos.push({ rang: p.rang, image, prise: (champLu) => priseDeLaPhoto(p, image, facade, champLu), champConnu: p.prise?.sourceFocale === 'exif' });
   }
-  return { facade, contour: d.contour, photos, illisibles, corrections, murConfirme: d.murConfirme ?? null, jpeg: d.jpeg };
+  return { facade, contour: d.contour, photos, illisibles, corrections, murConfirme: d.murConfirme ?? null, ouverturesRelues: d.ouverturesRelues ?? null, jpeg: d.jpeg };
 }

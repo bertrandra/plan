@@ -7,7 +7,7 @@
 
 import {
   batimentVide, captureVide, PHOTOS_PAR_FACADE_MAX, PHOTOS_PAR_LIGNE_MAX,
-  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type MurConfirme, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
+  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type MurConfirme, type OuverturesRelues, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
 } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
@@ -31,6 +31,8 @@ export interface CaptureEnCours {
    * correction, il survit au rejeu ; un mur qui change ensuite n'est plus le mur confirme (model/auditParcelle.ts::estLeMurConfirme).
    */
   confirmerMur(cle: string, cote: number, mur: MurConfirme | null): void;
+  /** « Relire les ouvertures » (V3) : les ouvertures que la personne a gardees (null : la relecture retiree). Survivent au rejeu. */
+  relireOuvertures(cle: string, cote: number, relues: OuverturesRelues | null): void;
   /** Inaccessible, ou rendue a la liste : la touche inverse ce que la liste montre. */
   basculerInaccessible(cle: string, cote: number, inaccessibleAvant: boolean): void;
   noterVu(cle: string, vu: CeQueJeVois): void;
@@ -105,6 +107,7 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       }
       // Une photo de moins : le mur confirme etait vu sur elle aussi, et ses rangs ont bouge. Il est a confirmer de nouveau.
       delete f.murConfirme;
+      delete f.ouverturesRelues;
       changer();
     },
     corrigerRedressement(cle, cote, rang, correction) {
@@ -120,6 +123,12 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       const f = facade(cle, cote);
       if (mur && mur.coins.length) f.murConfirme = JSON.parse(JSON.stringify(mur)) as MurConfirme;
       else delete f.murConfirme;
+      changer();
+    },
+    relireOuvertures(cle, cote, relues) {
+      const f = facade(cle, cote);
+      if (relues) f.ouverturesRelues = JSON.parse(JSON.stringify(relues)) as OuverturesRelues;
+      else delete f.ouverturesRelues;
       changer();
     },
     basculerInaccessible(cle, cote, inaccessibleAvant) {

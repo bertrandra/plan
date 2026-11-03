@@ -7,7 +7,7 @@ import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { facadesDuContour, type Facade } from '../../../geometry/cotesVusDeDehors.js';
 import { GABARIT_RECTANGLE, gabaritDesCorps, relief, type GabaritMur } from '../../../facade/gabaritMur.js';
 import { FORMAT_CAS_REEL, type CasStocke, type PhotoReelle } from '../../../facade/corpusReel.js';
-import type { BilanPhotoRedressement, CorrectionRedressement, MurConfirme } from '../../../model/auditParcelle.js';
+import type { BilanPhotoRedressement, CorrectionRedressement, MurConfirme, OuverturesRelues } from '../../../model/auditParcelle.js';
 import { hauteurMurSousToit } from './liste.js';
 import type { FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
@@ -28,6 +28,8 @@ export interface FacadeACalibrer {
   corrections: Readonly<Record<string, CorrectionRedressement>>;
   /** Le mur confirme au point V1, s'il l'a ete : une entree de l'audit, que la calibration rejoue (« Confirmer le mur »). */
   murConfirme?: MurConfirme;
+  /** Les ouvertures relues au point V3, si elles l'ont ete : une entree de l'audit, que la calibration rejoue. */
+  ouverturesRelues?: OuverturesRelues;
   /** Ce que la chaine a retenu de chaque photo le jour de la mesure (les coins du mur). */
   bilans: readonly BilanPhotoRedressement[];
   /** Le gabarit du mur : sa silhouette sous les corps du LiDAR (le cas fige), un rectangle sans corps. */
@@ -83,7 +85,7 @@ export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer
       const lidar = hauteurLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote);
       const hauteur = lidar ?? f.hauteurM;
       if (!(hauteur && hauteur > 0)) continue;
-      out.push({ cle: b.cle, nom: b.nom, cote: f.cote, orientation: f.orientation ?? '', largeurM: arrondi(f.largeurM), hauteurM: arrondi(hauteur), sourceHauteur: lidar !== null ? 'lidar' : 'fichier', photos: f.photos, corrections: f.corrections ?? {}, ...(f.murConfirme ? { murConfirme: f.murConfirme } : {}), bilans: f.mesure?.redressement?.photos ?? [],
+      out.push({ cle: b.cle, nom: b.nom, cote: f.cote, orientation: f.orientation ?? '', largeurM: arrondi(f.largeurM), hauteurM: arrondi(hauteur), sourceHauteur: lidar !== null ? 'lidar' : 'fichier', photos: f.photos, corrections: f.corrections ?? {}, ...(f.murConfirme ? { murConfirme: f.murConfirme } : {}), ...(f.ouverturesRelues ? { ouverturesRelues: f.ouverturesRelues } : {}), bilans: f.mesure?.redressement?.photos ?? [],
         gabarit: gabaritLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur),
         toit: toitDuCas(entrees?.pts, sorties?.corps, f.cote),
         parement: b.vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, b.vu.murs).toLowerCase() : null,
@@ -128,6 +130,7 @@ export function casDepuisFacade(f: FacadeACalibrer, idu: string | null = null): 
     ...(f.facade ? { facade: { ...f.facade, largeur: largeurM, hauteur: f.hauteurM } } : {}), ...(f.contour ? { contour: f.contour } : {}),
     photos: images.map((_, k) => photo(k)),
     ...(f.murConfirme ? { murConfirme: JSON.parse(JSON.stringify(f.murConfirme)) as MurConfirme } : {}),
+    ...(f.ouverturesRelues ? { ouverturesRelues: JSON.parse(JSON.stringify(f.ouverturesRelues)) as OuverturesRelues } : {}),
     images, ouvertures: [],
   };
 }

@@ -34,7 +34,7 @@ import { hautDeLImage, imageDuRunAvecLaBande, type ImageDuRun } from './imageDuR
 import { rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { prisesDeLaFacade, type PrisesFacade } from './prisesFacade.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
-import { estLeMurConfirme, type BilanPhotoRedressement, type BilanRedressement, type CorrectionRedressement, type PoseDuMurCherche } from '../../model/auditParcelle.js';
+import { estLeMurConfirme, sontRelues, type BilanPhotoRedressement, type BilanRedressement, type CorrectionRedressement, type PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { PrisePhoto } from '../../model/audit.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie, type ToitVraiCorps } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
@@ -599,8 +599,16 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   // Les ouvertures sous le pignon d'un corps voisin : sur la facade du mur qui les porte, sinon gardees ici (murVoisin.ts).
   const partage = partageDuReleve(e, s.ia?.accord?.ouvertures ?? s.audit?.mesure?.releve.ouvertures);
   const voisin = partage ? texteDuPartage(partage, nomDuCote(e)) : '';
-  const resume = `${n} ouverture${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}` + (d ? `, ${d} devinée${d > 1 ? 's' : ''} par la structure, à confirmer.` : ', aucune devinée.') + ditIa + (voisin ? ' ' + voisin.charAt(0).toUpperCase() + voisin.slice(1) : '');
-  const etat: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
+  const detecte = `${n} ouverture${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}` + (d ? `, ${d} devinée${d > 1 ? 's' : ''} par la structure, à confirmer.` : ', aucune devinée.') + ditIa + (voisin ? ' ' + voisin.charAt(0).toUpperCase() + voisin.slice(1) : '');
+  // V3 (decision du proprietaire, 3 novembre 2026) : les ouvertures trouvees se relisent toujours avant V4 ; l'E9 n'est faite qu'apres
+  // ce regard, tant que la detection rend celles que la personne a relues (au centimetre).
+  const relues = e.prises.ouverturesRelues, detectees = s.audit?.mesure?.releve.ouvertures ?? [];
+  const relu = !!relues && sontRelues(relues, detectees);
+  const propre: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
+  const etat: EtatAffiche = relu ? 'ok' : propre === 'ok' ? 'a-confirmer' : propre;
+  const k = relues?.ouvertures.length ?? 0;
+  const resume = relu ? `Ouvertures relues par vous ${jourEnClair(relues.le)} : ${k} gardée${k > 1 ? 's' : ''}. La détection : ` + detecte
+    : (relues ? `Les ouvertures relues ${jourEnClair(relues.le)} ne sont plus celles que la détection trouve : à relire. ` : '') + detecte + ' Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.';
   const vraies = o.verite?.ouvertures;
   if (!vraies?.length) return { etat, resume, verite: null };
   const m = contreLaVerite(vraies, a.ouvertures);
@@ -624,10 +632,12 @@ const validation: Pas = ({ e, o, s }) => {
   if (!m) return attend('le relevé du mur (É8, É9)');
   // Apres un run de Claude (le mode « IA », ce que l'audit fait apres le sien) : ses pointes, et les ouvertures accordees.
   // Les ouvertures sous le pignon d'un corps voisin qui vont sur la facade de ce mur quittent celle-ci ; V4 les y ecrit (murVoisin.ts).
-  const partage = partageDuReleve(e, s.ia?.accord?.ouvertures ?? m.releve.ouvertures);
+  // Les ouvertures relues par la personne (V3), tant qu'elles valent pour cette detection : ce que V4 ecrira.
+  const relues = e.prises.ouverturesRelues && sontRelues(e.prises.ouverturesRelues, m.releve.ouvertures) ? e.prises.ouverturesRelues.ouvertures : null;
+  const partage = partageDuReleve(e, relues ?? s.ia?.accord?.ouvertures ?? m.releve.ouvertures);
   s.facade = bilanDeLaFacade({
     largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: s.forme?.lue ?? null,
-    silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
+    silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? relues ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
     ...(s.ia?.reponse ? { pointesIa: s.ia.reponse.calage.pointes } : {}),
   });
   const ajoutes = partage?.ajouts.reduce((k, a) => k + a.ouvertures.length, 0) ?? 0;
@@ -720,7 +730,7 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
   const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image) }; });
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
-    prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, jpeg }),
+    prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg }),
   };
 }
 

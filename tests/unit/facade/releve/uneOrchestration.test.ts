@@ -77,7 +77,7 @@ async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], correctio
   const audit = await mesurerFacade('b1', f, { pts: contour, corpsToit: [corps] }, photos, {
     pixels: async (b64) => { const im = images[Number(b64.slice(6))]; return im ? { largeur: im.largeur, hauteur: im.hauteur, data: im.donnees } : null; },
     chercherCoins, jpeg, limites: () => [],
-  }, corrections, murConfirme);
+  }, corrections, { murConfirme });
   // Le cas, tel que l'admin le cree depuis la facade de l'audit, enregistre puis relu.
   const fc: FacadeACalibrer = {
     cle: 'b1', nom: 'Maison', cote: f.cote, orientation: f.orientation, largeurM: f.largeur, hauteurM: f.hauteur, sourceHauteur: 'lidar', photos, corrections,
