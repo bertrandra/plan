@@ -4608,6 +4608,16 @@ const POINTS = {
     const murConfirme = await segmentMur();
     await capture('confirme', facade);
     debords.push(await deborde());
+    // Ctrl+Z dans l'ecran de la facade defait la confirmation (un pas), Ctrl+Y la refait ; le projet ne bouge pas.
+    const projetAvant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const ligneE5 = (re) => page.waitForFunction(([s, r]) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => new RegExp(r).test(l.textContent || '')), [facade, re], { timeout: 120000 });
+    await page.keyboard.press('Control+z');
+    await etape('Ctrl+Z', () => ligneE5('^à confirmer É5'));
+    const defaitParZ = await lignes();
+    await capture('ctrlz', facade);
+    await page.keyboard.press('Control+y');
+    await etape('Ctrl+Y', () => ligneE5('^confirmé par vous É5'));
+    const projetZ = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     // Le meme geste retire la confirmation : le doute revient.
     const retirer = page.locator(facade + ' button[data-commande="facade.confirmerMur"]');
     const libelleRetirer = (await retirer.textContent().catch(() => '')) || '';
@@ -4653,14 +4663,19 @@ const POINTS = {
     await page.waitForFunction(() => /confirmé par vous/.test(document.querySelector('.calEtapeOuverte .calFriseEtat')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
     const calApres = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
     const calResume = (await page.locator('.calEtapeOuverte .calResume').first().textContent()) || '';
+    await page.keyboard.press('Control+z');
+    await etape('fin du rejeu 3', finRejeu);
+    await page.waitForFunction(() => /à confirmer/.test(document.querySelector('.calEtapeOuverte .calFriseEtat')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const calZ = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
     await capture('calibration', '.calEtapeOuverte');
     debords.push(await deborde());
     const e5 = (l) => l.find((x) => /É5/.test(x)) ?? '';
-    const ok = heritees > 0 && /^à confirmer/.test(e5(avant)) && /^confirmé par vous É5 Mur confirmé : Mur confirmé par vous le /.test(e5(confirme)) && !confirme.some((l) => /Dépend du mur/.test(l))
+    const ctrlz = defaitParZ.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && projetZ === projetAvant;
+    const ok = ctrlz && heritees > 0 && /^à confirmer/.test(e5(avant)) && /^confirmé par vous É5 Mur confirmé : Mur confirmé par vous le /.test(e5(confirme)) && !confirme.some((l) => /Dépend du mur/.test(l))
       && /^É5 Mur, confirmé par vous/.test(murConfirme || '') && typeof ecrit === 'string' && defait === null && /Retirer la confirmation/.test(libelleRetirer)
-      && retire.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && calAvant === 'à confirmer' && calApres === 'confirmé par vous' && /^Mur confirmé par vous le /.test(calResume) && !debords.some(Boolean);
+      && retire.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && calAvant === 'à confirmer' && calApres === 'confirmé par vous' && /^Mur confirmé par vous le /.test(calResume) && calZ === 'à confirmer' && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 110) + ' »';
-    return { ok, mesure: `audit : ${heritees} étape(s) héritent du doute ; É5 ${court(e5(avant))} → ${court(e5(confirme))} (segment « ${murConfirme} »), ${confirme.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) après ; V4 : murConfirmeLe ${ecrit}, Ctrl+Z ${defait === null ? 'le défait' : 'NE le défait PAS'} ; « ${libelleRetirer} » : ${retire.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau ; calibration : É5 ${calAvant} → ${calApres} ${court(calResume)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `audit : ${heritees} étape(s) héritent du doute ; Ctrl+Z ${defaitParZ.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau, Ctrl+Y reconfirmé, projet ${projetZ === projetAvant ? 'inchangé' : 'MODIFIÉ'} ; É5 ${court(e5(avant))} → ${court(e5(confirme))} (segment « ${murConfirme} »), ${confirme.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) après ; V4 : murConfirmeLe ${ecrit}, Ctrl+Z ${defait === null ? 'le défait' : 'NE le défait PAS'} ; « ${libelleRetirer} » : ${retire.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau ; calibration : É5 ${calAvant} → ${calApres} → Ctrl+Z ${calZ} ${court(calResume)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   }
 };
 

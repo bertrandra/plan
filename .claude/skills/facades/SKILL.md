@@ -280,7 +280,9 @@ posés sur les coins que la chaîne avait retenus (« 24-voisin, repères = coin
 **Le doute hérité et « Confirmer le mur »** (décisions du propriétaire, 3 novembre 2026) : une É5 à confirmer rend à confirmer les
 étapes qui lisent le mur (É6 à É11) quand elles atteignent leur objectif (« Dépend du mur à confirmer (É5). », `EtapeCalculee.herite`).
 « Confirmer le mur » (V1, commande `facade.confirmerMur`, audit et calibration) écrit le mur retenu comme une entrée (`MurConfirme`) :
-l'É5 est alors `confirme` (« confirmé par vous »), le doute hérité tombe, la note de la silhouette reste. Les bancs ne confirment rien :
+l'É5 est alors `confirme` (« confirmé par vous »), le doute hérité tombe, la note de la silhouette reste. Les gestes de la façade
+avant V4 (repères, mur tiré, échelle, confirmation) se défont par Ctrl+Z et se refont par Ctrl+Y, dans l'audit (`capture.ts::geste`)
+comme dans la calibration, sans toucher au projet (`app/clavierGestes.ts`). Les bancs ne confirment rien :
 `banc.ts`, `egout-sol.ts` et `calage-e5.ts` ne lisent pas les étapes qui en héritent (seul l'état de l'É5 compte dans `calage-e5.ts`).
 
 **L'É5 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :

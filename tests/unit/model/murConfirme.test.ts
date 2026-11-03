@@ -54,3 +54,25 @@ describe('le mur confirme', () => {
     expect(captureDuFichier(relu).batiments.maison?.facades['0']?.murConfirme).toEqual(m);
   });
 });
+
+describe('les gestes d une facade dans la capture (Ctrl+Z avant V4)', () => {
+  it('un geste en un pas, quelles que soient ses ecritures ; rien sans changement ; une photo ajoutee oublie les gestes', () => {
+    const c = creerCapture('78650000AE0101', () => new Date(LE));
+    c.ajouterPhotoFacade('maison', 0, PHOTO);
+    c.ajouterPhotoFacade('maison', 0, PHOTO);
+    // Le mur tire sur l'assemblage : deux photos corrigees, un seul geste.
+    c.geste('maison', 0, () => { c.corrigerRedressement('maison', 0, 0, { coins: COINS }); c.corrigerRedressement('maison', 0, 1, { coins: COINS }); });
+    c.geste('maison', 0, () => c.confirmerMur('maison', 0, murAConfirmer([{ rang: 0, coins: COINS }], LE)));
+    c.geste('maison', 0, () => {});
+    expect(c.annulerGeste()).toEqual({ cle: 'maison', cote: 0 });
+    expect(c.lire().batiments.maison?.facades['0']?.murConfirme).toBeUndefined();
+    expect(Object.keys(c.lire().batiments.maison?.facades['0']?.corrections ?? {})).toEqual(['0', '1']);
+    expect(c.annulerGeste()).toEqual({ cle: 'maison', cote: 0 });
+    expect(c.lire().batiments.maison?.facades['0']?.corrections).toBeUndefined();
+    expect(c.annulerGeste()).toBeNull();
+    expect(c.retablirGeste()).toEqual({ cle: 'maison', cote: 0 });
+    expect(Object.keys(c.lire().batiments.maison?.facades['0']?.corrections ?? {})).toEqual(['0', '1']);
+    c.ajouterPhotoFacade('maison', 0, PHOTO);
+    expect([c.peutAnnulerGeste(), c.peutRetablirGeste()]).toEqual([false, false]);
+  });
+});
