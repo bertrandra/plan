@@ -611,7 +611,13 @@ chaque bout ; le relevé n'en décrivait qu'une, à un bout, et ce mur s'écriva
   plaquée en 3D), les baies dans le vide au-dessus d'elles (écartées), la bande du toit (lue sur la plus
   large partie haute), l'éditeur (une carte par partie : décrochement, ou début et fin au milieu, et égout
   bas), et les volumes du bâtiment : la partie haute, puis une partie basse à chaque bout, chacune à la
-  profondeur de son pignon. Une partie basse au milieu ne découpe pas le bâtiment (elle n'a pas de pignon).
+  profondeur de son pignon. Une partie basse au milieu est un volume à part (décision du propriétaire, 3 novembre
+  2026) : la tranche du contour entre les perpendiculaires à la façade à son début et à sa fin, sur toute la
+  profondeur du bâtiment (elle n'a pas de pignon dont prendre la direction). La partie haute se coupe alors
+  en deux, de part et d'autre, chacune avec son toit et son débord ; les fenêtres automatiques, le plan et la
+  3D suivent ces volumes (`facade/profil.ts::volumesEtHautesDuBatiment`). Une partie basse seule d'un relevé
+  d'avant finit au bout du mur au centimètre près : elle n'est lue au milieu que si elle s'arrête à plus de
+  50 cm de chaque bout, et garde ses volumes.
 - **L'É5** : quand aucun bout du gabarit ne monte à l'égout, les rangées du haut sont le ciel aux deux bouts ;
   la teinte du mur s'y lit alors sous le haut de chaque bout, comme ses angles (la pose juste de la scène 26
   passait de 0,19 à 1,00). Et l'égout se juge aussi sur les seules colonnes à sa hauteur (le moins bon des
@@ -620,7 +626,10 @@ chaque bout ; le relevé n'en décrivait qu'une, à un bout, et ce mur s'écriva
   capteurs prend le garage de la scène 26 pour le mur entier (la recherche ne lit pas le gabarit), et l'É5 le
   disait « fait » (0,81, comme sur `main`) ; il est « à confirmer » (égout 0), et le mur posé à la main est
   « fait » (0,99). Un rectangle, un pignon, le mur en L de la scène 25 : au bit près comme avant.
-- Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais).
+- Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais), avec l'ombre du
+  débord depuis le 3 novembre 2026 : le calage fin ne prend plus la limite de l'ombre pour l'égout quand la
+  partie haute est étroite (`facade/calage/calageFin.ts`, un égout qui borde au-dessus de lui une bande du
+  même mur plus sombre est écarté).
 
 ---
 

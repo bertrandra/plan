@@ -358,3 +358,21 @@ describe('ajouterReleve3d, partie haute au milieu', () => {
     expect(Math.max(...xs)).toBeLessThanOrEqual(8.6 + 1e-9);
   });
 });
+
+describe('ajouterReleve3d, partie basse au milieu', () => {
+  // Une maison de 12 x 8 m dont le milieu (4 a 8 m) est un corps bas a 3 m : deux parties hautes a 5,6 m, chacune avec son toit.
+  const M = { key: 'maison', name: 'Maison', type: 'polygon' as const, fonction: 'batiment', pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)] };
+  const releve = {
+    cote: 0, largeur: 12, hauteur: 5.6, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 7, distance: 15, sourceDistance: 'lidar' as const, releveLe: '',
+    ouvertures: [], partieBasse: { debut: 4, fin: 8, hauteur: 3 },
+  };
+
+  it('pose un toit sur chaque partie haute, aucun sur la tranche basse', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...M, batiment: { facades: [releve], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } } }, 5.6);
+    const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    expect(xs.some((x) => x < 4)).toBe(true);
+    expect(xs.some((x) => x > 8)).toBe(true);
+    expect(xs.every((x) => x <= 4 + 1e-9 || x >= 8 - 1e-9)).toBe(true);
+  });
+});

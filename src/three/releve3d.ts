@@ -16,7 +16,7 @@ import type { CorpsToit, ObjetPolygone, PtBrut, OuvertureFacade, Toit } from '..
 import { partiesBassesDu } from '../model/partiesBasses.js';
 import { hauteurDuMur } from '../facade/ouvertures.js';
 import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
-import { contourDuMur, egoutEn, ouverturesDansLeMur, volumesDuBatiment, type PartiesDuMur } from '../facade/profil.js';
+import { contourDuMur, egoutEn, ouverturesDansLeMur, volumesEtHautesDuBatiment, type PartiesDuMur } from '../facade/profil.js';
 import { hautDuMurSousCorps, silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
@@ -344,7 +344,7 @@ function hauteurDuHautEn(haut: readonly { x: number; y: number }[], x: number): 
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
 export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null): void {
   if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return;
-  const volumes = volumesDuBatiment(o.pts, h, o.batiment?.facades);
+  const { volumes, hautes } = volumesEtHautesDuBatiment(o.pts, h, o.batiment?.facades);
   const facades = facadesDuContour(o.pts, h);
   const habillages: Habillage[] = [];
   (o.batiment?.facades || []).forEach((r) => {
@@ -394,6 +394,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
   // mesuree au LiDAR le remplace (three/toitMesure3d.ts), les murs et leurs ouvertures restent.
   if (sansToit) return;
   if (volumesToit) volumesToit.forEach((v) => poserToit(ctx, v.pts, toitDuVolume(v, o.batiment?.toit), v.egout ?? h, habillages));
-  else if (o.batiment?.toit) poserToit(ctx, au(volumes, 0).pts, o.batiment?.toit, h, habillages);
+  // Une partie basse au milieu du mur coupe la partie haute en deux : chacune a son toit.
+  else if (o.batiment?.toit) { const toit = o.batiment.toit; volumes.slice(0, hautes).forEach((v) => poserToit(ctx, v.pts, toit, h, habillages)); }
 }
 

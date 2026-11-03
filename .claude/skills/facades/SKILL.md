@@ -316,9 +316,11 @@ basse retrouvée à 6,5–10 m, égout 2,9 m.
 **La partie haute au milieu** (3 novembre 2026) : un mur a autant de parties basses que son gabarit en montre
 (`facade/profil.ts::partiesBassesDuGabarit`, `model/partiesBasses.ts` ; schéma 13 pour plusieurs). Le générateur en peint une liste
 (`synthese.mur.partiesBasses`). Scène `26-partie-haute-au-milieu` (appentis à 2,6 m, maison à 5,6 m, garage à 2,9 m, 12 m de mur) :
-chaîne de production 6/6 sans fausse ; É5 « faite » à 1,00, 8/8 poses fausses refusées ; parties basses à 0–3 m et 8,6–12 m. Sans
-ombre de débord : avec elle, la recherche du mur prend le bord de l'ombre pour l'égout (25 cm sous lui, 2,1 % de la largeur) quand la
-partie haute fait moins de la moitié du mur, et l'É5, dont la tolérance d'un bord est de 3 %, la dit « faite ». Sans capteurs
+chaîne de production 6/6 sans fausse ; É5 « faite » à 0,99, 8/8 poses fausses refusées ; parties basses à 0–3 m et 8,6–12 m. Avec
+l'ombre du débord (depuis le 3 novembre 2026, comme 05 et 25) : le calage fin prenait la limite de l'ombre pour l'égout (25 cm sous lui,
+2,1 % de la largeur) quand la partie haute fait moins de la moitié du mur, ses côtés gagnant à un égout plus bas ; il écarte maintenant
+un égout qui borde, là où il longe le mur, une bande du même mur plus sombre au-dessus de lui (`calageFin.ts`, `Contraste.ombre`) :
+coins à 0, 1, 3 et 0 cm. Sans capteurs
 (`calage-e5.ts --sans-capteurs`, la calibration), la recherche prend le garage pour le mur : l'É5 le dit « à confirmer » (chaque
 partie basse jugée à son égout), et le mur posé à la main est « fait ».
 
