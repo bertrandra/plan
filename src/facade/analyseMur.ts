@@ -5,7 +5,7 @@
 
 import { analyserReleve, cadreDeLaSilhouette, etendreAuCadre, finaliserReleve, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
 import { mosaiqueDesVues, vuesDeFace } from './vision/mosaiqueFuites.js';
-import { inverser, redresserParReperes } from './vision/redressementFuites.js';
+import { inverser, redresserParReperes, type RedressementFuites } from './vision/redressementFuites.js';
 import { appliquerSimilitude, inverse, IDENTITE as SIMILITUDE_IDENTITE, type Similitude } from './vision/ransac.js';
 import { appliquer, homographie, redresser, resolutionTexture, type Homographie } from './vision/homographie.js';
 import type { GabaritMur } from './gabaritMur.js';
@@ -93,6 +93,15 @@ function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMu
   return r ? { r, mosaique: r } : null;
 }
 
+/**
+ * Chaque photo vue de face, entiere, comme l'assemblage la prend (l'E3) : ses reperes, sinon ses points de fuite ; une photo sans
+ * reperes qui ne se redresse pas par ses points de fuite se redresse par ses coins, un rectangle du mur eux aussi. Null sinon.
+ */
+export function vuesDeLAssemblage(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): (RedressementFuites | null)[] {
+  return vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null))
+    .map((v, i) => v ?? (photos[i]?.coins.length === 4 ? redresserParReperes((photos[i] as { photo: Image }).photo, (photos[i] as { coins: readonly P2[] }).coins) : null));
+}
+
 /** L'assemblage des photos d'un mur, redressees entieres, et le mur pose dessus (ses coins, en pixels de l'assemblage). */
 export interface AssemblageDuMur {
   image: Image;
@@ -127,9 +136,7 @@ export function murSurLesPhotos(retours: readonly (RetourVersLaPhoto | null)[], 
  * la premiere photo assemblee qui en a les coins. Null quand aucune photo ne s'assemble avec ses coins.
  */
 export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): AssemblageDuMur | null {
-  // Une photo sans reperes qui ne se redresse pas par ses points de fuite se redresse par ses coins : un rectangle du mur, eux aussi.
-  const vues = vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null))
-    .map((v, i) => v ?? (photos[i]?.coins.length === 4 ? redresserParReperes((photos[i] as { photo: Image }).photo, (photos[i] as { coins: readonly P2[] }).coins) : null));
+  const vues = vuesDeLAssemblage(photos);
   const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
   const m = rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as NonNullable<(typeof vues)[number]>)) : null;
   if (!m) return null;

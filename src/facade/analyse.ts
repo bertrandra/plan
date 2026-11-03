@@ -16,6 +16,7 @@ import { detecterFacade, type DetectionFacade, type OptionsDetection, type Ouver
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toits/toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, enListe, ouverturesDansLeMur, partieHaute, type Decrochement, type PartiesDuMur } from './profil.js';
 import { silhouetteLue } from './vision/mosaiqueFuites.js';
+import { objectifsEnchainement } from './regles/facades/enchainement.js';
 import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
 export interface EntreeAnalyse {
@@ -408,7 +409,7 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
   // l'avis de la photo (toitLu), meme quand le gabarit dessine le toit.
   let toitLu: ToitEstime | null = null;
   let profilBande: ResultatAnalyse['profilToit'] = null;
-  if (vusBande >= 0.33 * bandeToit.vu.length) {
+  if (vusBande >= objectifsEnchainement()['facades.enchainement.bandeVueMin'] * bandeToit.vu.length) {
     const hauteurs = profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu);
     profilBande = { x0M: haute ? au(haute, 0) : 0, x1M: haute ? au(haute, 1) : texture.largeur / pxParM, hauteurs };
     toitLu = classerProfil(hauteurs);

@@ -15,6 +15,7 @@ import { silhouetteDeEstimation } from '../regles/toits/silhouettes.js';
 import { chiffreFr as fr } from '../../util/format.js';
 import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 import { surchargesCalibrees } from '../regles/facades/surcharges.js';
+import { objectifsEnchainement } from '../regles/facades/enchainement.js';
 import { champsDesPartiesBasses } from '../../model/partiesBasses.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
@@ -27,7 +28,7 @@ const focaleDe = (m: Morceau): number => focaleDePrise(m.prise);
 export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>): string | null {
   const hors = r.vues.findIndex((v) => !v.fusionnee);
   if (r.statut !== 'seule' && hors >= 0) return `La vue ${hors + 1} n’est pas fusionnée : ${r.vues[hors]?.motif ?? 'elle ne se recale sur aucune autre'}. Vérifiez ses coins, ou prenez-en une autre en gardant un tiers de mur en commun.`;
-  if (r.masque >= 0.02)
+  if (r.masque >= objectifsEnchainement()['facades.enchainement.masqueMaxPart'])
     return `Une partie du mur (${Math.round(r.masque * 100)} %) reste cachée sur toutes les vues : aucune ouverture n'y est cherchée. Une vue prise d'un autre endroit la dégagerait.`;
   return null;
 }

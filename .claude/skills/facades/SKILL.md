@@ -199,7 +199,7 @@ erreur, déplacement, corrélation). Le banc ne doit pas baisser : ensemble 80 %
 80 % → 96 % de précision, 2,8 → 0,3 correction par façade, 13 % → 59 % de rendu au mur (c'est le
 chiffre de l'ancien recalage en deux dimensions, retrouvé). Seuil RANSAC 4 px et erreur 3,5 px : à 2,5 px
 la scène `18-` (deux vues seulement) n'était plus fusionnée. L'audit de la parcelle redresse **toutes** les
-photos d'une façade (`app/audit/parcelle/mesures.ts`, verticales sous `SEUIL_VERTICALES_DEG`) et les fusionne dès deux
+photos d'une façade (`app/audit/parcelle/mesures.ts`, verticales sous le réglage `facades.enchainement.verticalesMaxDeg`) et les fusionne dès deux
 photos sans échec ; « Rejouer redressement + fusion » (liste de contrôle) refait ces dérivés sans toucher
 aux photos ni aux corrections manuelles (`FacadeCapturee.corrections`).
 **Vote entre vues** (`facade/detection/voteVues.ts`) : chaque vue du groupe fusionné est aussi lue seule ; une baie de la fusion
