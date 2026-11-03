@@ -177,10 +177,20 @@ const borne = (x: number) => Math.min(1, Math.max(0, x));
  */
 export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: number | null, pourLaTeinte: Vue = m, gabarit: GabaritMur | null = null): Explication {
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
+  const g = gabarit && gabarit.length >= 2 ? gabarit : null;
+  // Les angles sont aux bouts de la silhouette : un bout du mur que le gabarit prolonge (u hors de 0 a 1) n'est pas un angle, la matiere
+  // y continue ; le bout du gabarit l'est. Chacun se lit sous le haut du gabarit a ce bout (`hauts`).
+  const ug0 = g ? Math.min(0, (g[0] as { u: number }).u) : 0, ug1 = g ? Math.max(1, (g[g.length - 1] as { u: number }).u) : 1;
+  const hauts: [number, number] = [g ? hauteurDuGabarit(g, ug0) : 1, g ? hauteurDuGabarit(g, ug1) : 1];
   // La teinte se lit ou se lisent les angles : le haut du mur, au-dessus d'une haie ou d'une voiture contre un angle ; hors des zones
   // d'un autre parement quand Claude en voit (`pourLaTeinte` : le colombage n'y est pas vu), pour lire celle du parement principal.
-  const mat = w > 0 && h > 0 ? matiereDuMur(pourLaTeinte, r, RANGEES_ANGLE) : null;
-  const g = gabarit && gabarit.length >= 2 ? gabarit : null;
+  // Quand aucun bout ne monte a l'egout (une partie haute au milieu, une partie basse a chaque bout : scene 26), les rangees du haut
+  // sont le ciel et la bande de toit aux deux bouts, et la teinte lue serait la leur (score 0,19 pour la pose juste) : chaque bout se lit
+  // alors sous son propre haut, comme ses angles. Un bout a l'egout suffit a la dire (le mur en L de la scene 25 : 0,99), et la teinte
+  // s'y lit comme avant.
+  const sousLeHaut = (v: number): readonly [number, number] => { const hv = Math.min(1, v); return [1 - hv + RANGEES_ANGLE[0] * hv, 1 - hv + RANGEES_ANGLE[1] * hv]; };
+  const basAuxDeuxBouts = Math.max(...hauts) < 1;
+  const mat = w > 0 && h > 0 ? (basAuxDeuxBouts ? matiereDuMur(pourLaTeinte, r, sousLeHaut(hauts[0]), sousLeHaut(hauts[1])) : matiereDuMur(pourLaTeinte, r, RANGEES_ANGLE)) : null;
   if (!mat) return { score: 0, angles: [0, 0], egout: 0, sol: 0, proportions: 0, matiere: 0, silhouette: !!g };
   const pas = Math.max(2, Math.round(0.005 * w));
   const part = (x0: number, y0: number, x1: number, y1: number) => partDeMur(m, mat, x0, y0, x1, y1, pas);
@@ -205,15 +215,9 @@ export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: nu
   const sol = Math.max(solMatiere, couvertureArete(segs, false, r.y1, r.x0, r.x1, PROCHE_ARETE * w));
   const ecart = rapport && rapport > 0 ? Math.abs(h / w / rapport - 1) : 0;
   const proportions = borne(1 - Math.max(0, ecart - ECART_RAPPORT) / ECART_RAPPORT);
-  // Les angles sont aux bouts de la silhouette : un bout du mur que le gabarit prolonge (u hors de 0 a 1) n'est pas un angle, la matiere
-  // y continue ; le bout du gabarit l'est.
-  const ug0 = g ? Math.min(0, (g[0] as { u: number }).u) : 0, ug1 = g ? Math.max(1, (g[g.length - 1] as { u: number }).u) : 1;
   // Chaque angle se lit sous le haut du gabarit a ce bout : au bout bas d'un mur en L (un garage dans l'alignement, scene 25), les
   // rangees sous l'egout haut sont le ciel au-dessus de la partie basse (0,38 pour la pose juste). Un rectangle, un pignon : 1.
-  const angles: [number, number] = [
-    angle(r.x0 + ug0 * w, 1, g ? hauteurDuGabarit(g, ug0) : 1),
-    angle(r.x0 + ug1 * w, -1, g ? hauteurDuGabarit(g, ug1) : 1),
-  ];
+  const angles: [number, number] = [angle(r.x0 + ug0 * w, 1, hauts[0]), angle(r.x0 + ug1 * w, -1, hauts[1])];
   const matiere = part(r.x0 + 0.05 * w, ya, r.x1 - 0.05 * w, yb) ?? 0;
   const score = (POIDS.angle * (angles[0] + angles[1]) + POIDS.egout * egout + POIDS.sol * sol + POIDS.proportions * proportions) * Math.min(1, matiere / MATIERE_MIN);
   return { score: Math.round(score * 1000) / 1000, angles, egout, sol, proportions, matiere, silhouette: !!g };
@@ -228,16 +232,23 @@ function egoutParLaSilhouette(g: GabaritMur, r: Rect, part: (x0: number, y0: num
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
   const u0 = Math.min(0, (g[0] as { u: number }).u) + BOUT_SILHOUETTE, u1 = Math.max(1, (g[g.length - 1] as { u: number }).u) - BOUT_SILHOUETTE;
   const pasU = (u1 - u0) / COLONNES_SILHOUETTE;
-  let somme = 0, n = 0;
+  let somme = 0, n = 0, sommeHaut = 0, nHaut = 0;
   for (let k = 0; k < COLONNES_SILHOUETTE; k++) {
     const u = u0 + (k + 0.5) * pasU, x = r.x0 + u * w, y = r.y1 - hauteurDuGabarit(g, u) * h;
     const xa = x - (pasU * w) / 2, xb = x + (pasU * w) / 2;
     const dessous = part(xa, y + c0 * w, xb, y + c1 * w);
     if (dessous === null) continue;
-    somme += borne(dessous - (part(xa, y - c1 * w, xb, y - c0 * w) ?? 0));
+    const v = borne(dessous - (part(xa, y - c1 * w, xb, y - c0 * w) ?? 0));
+    somme += v;
     n++;
+    if (hauteurDuGabarit(g, u) >= 1 - 1e-9) { sommeHaut += v; nHaut++; }
   }
-  return n ? somme / n : 0;
+  if (!n) return 0;
+  // L'egout du mur doit s'expliquer la ou il est : sous une partie haute plus etroite que les parties basses (une partie basse a chaque
+  // bout, scene 26), la moyenne de toutes les colonnes passait un egout pose 60 cm trop haut ou trop bas, les parties basses suivant la
+  // pose en proportion. L'egout se juge aussi sur les seules colonnes a sa hauteur, et le moins bon des deux compte. Un rectangle, un
+  // pignon (toutes leurs colonnes sont a l'egout ou au-dessus) : la moyenne, comme avant.
+  return nHaut && nHaut < n ? Math.min(somme / n, sommeHaut / nHaut) : somme / n;
 }
 
 /**

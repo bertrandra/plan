@@ -432,18 +432,21 @@ const RANGS_TEINTE: readonly [number, number] = [0.3, 0.9];
 /**
  * La chromaticite et la luminosite medianes du mur : deux bandes le long de ses bouts (de 1 a 6 % de sa largeur, a l'interieur), sur le
  * bas de sa hauteur. Les bouts sont surs, et un mur n'a presque jamais de baie contre ses angles ; son milieu, lui, peut etre pris
- * presque entier par des fenetres a volets, et son haut par une bande de toit quand l'egout des aretes est trop haut.
+ * presque entier par des fenetres a volets, et son haut par une bande de toit quand l'egout des aretes est trop haut. `rangsDroite` : les
+ * rangees du bout droit quand elles ne sont pas celles du gauche (chaque bout sous son propre haut, calageAncres.ts::expliquer).
  */
-function teinteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs: readonly [number, number] = RANGS_TEINTE): { cr: number; cg: number; l: number; grain: number } | null {
+function teinteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs: readonly [number, number] = RANGS_TEINTE, rangsDroite: readonly [number, number] = rangs): { cr: number; cg: number; l: number; grain: number } | null {
   const { largeur: L, hauteur: H, donnees: d } = m.image;
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
-  const ya = Math.max(0, Math.round(r.y0 + rangs[0] * h)), yb = Math.min(H - 1, Math.round(r.y0 + rangs[1] * h));
+  const rangees = (q: readonly [number, number]) => [Math.max(0, Math.round(r.y0 + q[0] * h)), Math.min(H - 1, Math.round(r.y0 + q[1] * h))] as const;
+  const [ya, yb] = rangees(rangs), [yc, yd] = rangees(rangsDroite);
   const med = (t: number[]) => { t.sort((u, v) => u - v); return t[t.length >> 1] as number; };
   const cr: number[] = [], cg: number[] = [], l: number[] = [];
   const parRangee: { cr: number; cg: number }[] = [];
-  for (let y = ya; y <= yb; y++) {
+  for (let y = Math.min(ya, yc); y <= Math.max(yb, yd); y++) {
     const rcr: number[] = [], rcg: number[] = [];
-    for (const [a, b] of [[r.x0 + 0.01 * w, r.x0 + 0.06 * w], [r.x1 - 0.06 * w, r.x1 - 0.01 * w]] as const) {
+    for (const [a, b, y0, y1] of [[r.x0 + 0.01 * w, r.x0 + 0.06 * w, ya, yb], [r.x1 - 0.06 * w, r.x1 - 0.01 * w, yc, yd]] as const) {
+      if (y < y0 || y > y1) continue;
       for (let x = Math.max(0, Math.round(a)); x <= Math.min(L - 1, Math.round(b)); x++) {
         const i = y * L + x;
         if (!m.vu[i]) continue;
@@ -572,8 +575,8 @@ export function silhouetteLue(m: { image: Image; vu: Uint8Array }, r: Rect): Ret
  * case de l'image est du mur. `rangs` : les rangees ou lire la teinte, en part de la hauteur sous l'egout (par defaut, celles de
  * l'affinage). Null quand la teinte ne se lit pas.
  */
-export function matiereDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs: readonly [number, number] = RANGS_TEINTE): { cr: number; cg: number; l: number; ecart: number; lumiere: readonly [number, number] } | null {
-  const mur = teinteDuMur(m, r, rangs);
+export function matiereDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs: readonly [number, number] = RANGS_TEINTE, rangsDroite: readonly [number, number] = rangs): { cr: number; cg: number; l: number; ecart: number; lumiere: readonly [number, number] } | null {
+  const mur = teinteDuMur(m, r, rangs, rangsDroite);
   return mur ? { cr: mur.cr, cg: mur.cg, l: mur.l, ecart: ecartAdmisDuMur(mur) * 1.5, lumiere: LUMIERE_MUR } : null;
 }
 

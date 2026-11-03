@@ -13,6 +13,7 @@
 // l'instant : elles ne changent aucune valeur produite par Plan.
 
 import type { GrilleFacade, OuvertureFacade, PartieBasse, TypeOuverture } from './types.js';
+import { partiesBassesDu } from './partiesBasses.js';
 
 /**
  * La hauteur d'un niveau quand le releve n'en a qu'un : la meme que `HAUTEUR_ETAGE_M` de
@@ -47,7 +48,9 @@ export interface FacadeAMesurer {
   hauteur: number;
   ouvertures: readonly OuvertureFacade[];
   grille?: GrilleFacade | null;
+  /** Une partie basse (un mur en L), ou plusieurs (une partie haute au milieu) : model/partiesBasses.ts. */
   partieBasse?: PartieBasse | null;
+  partiesBasses?: readonly PartieBasse[] | null;
 }
 
 export interface MesureNiveau {
@@ -199,10 +202,9 @@ function ecartsDesRangees(os: readonly OuvertureFacade[], niv: readonly number[]
   return [...parRangee.values()].flatMap((cs) => ecarts(cs.sort((a, b) => a - b)));
 }
 
-/** La surface du mur, du sol a l'egout ; la partie basse d'un mur en L s'arrete a son propre egout. */
+/** La surface du mur, du sol a l'egout ; chaque partie basse (un mur en L, ou une a chaque bout) s'arrete a son propre egout. */
 function surfaceMur(f: FacadeAMesurer): number {
-  const pb = f.partieBasse;
-  const retrait = pb ? Math.max(0, pb.fin - pb.debut) * Math.max(0, f.hauteur - pb.hauteur) : 0;
+  const retrait = partiesBassesDu(f).reduce((s, pb) => s + Math.max(0, pb.fin - pb.debut) * Math.max(0, f.hauteur - pb.hauteur), 0);
   return Math.max(0, f.largeur * f.hauteur - retrait);
 }
 

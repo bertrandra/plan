@@ -304,3 +304,30 @@ describe('la migration 11 -> 12 : les textes et les photographies du dossier (lo
     expect(relu([parcelle({ dossier: { textes: [{ piece: 'inconnue' }] } })], 12)[0]).not.toHaveProperty('dossier');
   });
 });
+
+describe('la migration 12 -> 13 : les murs a plusieurs parties basses', () => {
+  const facade = (extra: Record<string, unknown>) => ({ cote: 0, largeur: 12, hauteur: 5.6, texture: null, ouvertures: [], distance: null, sourceDistance: null, releveLe: '2026-11-03', ...extra });
+  const deux = [{ debut: 0, fin: 3, hauteur: 2.6 }, { debut: 8.6, fin: 12, hauteur: 2.9 }];
+
+  it('lit un document de schema 12 tel quel : un mur en L garde sa partie basse, au schema qui le decrit', () => {
+    const d = { objects: [batiment({ facades: [facade({ partieBasse: { debut: 6.5, fin: 12, hauteur: 2.9 } })] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 12)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 12)?.apporte).toMatch(/partie basse à chaque bout/);
+    const reecrit = relu(d.objects, 12);
+    expect((reecrit[0]!.facades as Record<string, unknown>[])[0]).toEqual(d.objects[0]!.facades![0]);
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(2);
+  });
+
+  it('s ecrit au 13 des qu un mur porte plusieurs parties basses, et les relit a l identique ; une liste illisible est retiree', () => {
+    const avec = relu([batiment({ facades: [facade({ partieBasse: null, partiesBasses: deux })] } as unknown as Partial<ObjetAPlat>)], 13);
+    expect((avec[0]!.facades as Record<string, unknown>[])[0]!.partiesBasses).toEqual(deux);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(13);
+    expect(relu(avec, 13)).toEqual(avec);
+    // Rangee a la lecture : de gauche a droite, sans recouvrement.
+    const desordre = relu([batiment({ facades: [facade({ partiesBasses: [deux[1], { debut: 0, fin: 9, hauteur: 2.6 }] })] } as unknown as Partial<ObjetAPlat>)], 13);
+    expect((desordre[0]!.facades as Record<string, unknown>[])[0]!.partiesBasses).toEqual([{ debut: 0, fin: 9, hauteur: 2.6 }, { debut: 9, fin: 12, hauteur: 2.9 }]);
+    const illisible = relu([batiment({ facades: [facade({ partiesBasses: [{ debut: 'a' }] })] } as unknown as Partial<ObjetAPlat>)], 13);
+    expect((illisible[0]!.facades as Record<string, unknown>[])[0]).not.toHaveProperty('partiesBasses');
+    expect(schemaMinimal(illisible as unknown as ObjetAPlat[])).toBe(2);
+  });
+});

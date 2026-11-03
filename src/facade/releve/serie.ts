@@ -12,8 +12,8 @@ import type { Prise } from './prise.js';
 
 /** Ce que l'analyse d'une serie donne au releve du mur : sa texture, sa partie basse, son calage. */
 export interface Resultat {
-  /** La partie basse d'un mur en L, mesuree. */
-  partieBasse: PartieBasse | null;
+  /** Les parties basses du mur, de gauche a droite (model/partiesBasses.ts) ; vide pour un mur rectangulaire. */
+  partiesBasses: PartieBasse[];
   texture: string;
   hauteurTexture: number;
   /** Les coins de chaque photo et leur resolution au mur : la precision annoncee des cotes. */

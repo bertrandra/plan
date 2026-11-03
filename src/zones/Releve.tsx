@@ -12,6 +12,7 @@ import { enPoints } from '../model/formes.js';
 import { facadesDuContour } from '../geometry/cotesVusDeDehors.js';
 import type { ServiceReleve } from '../app/releve/releve.js';
 import type { ObjetPolygone, PartieBasse, ReleveFacade } from '../model/types.js';
+import { partiesBassesDu } from '../model/partiesBasses.js';
 import { fr } from './releve/commun.js';
 import { useOuvertures } from './releve/ouvertures.js';
 import { EditionFacade, type Verification } from './releve/EditionFacade.js';
@@ -29,14 +30,14 @@ function useEchapFerme(releve: ServiceReleve) {
 
 function Editeur({ releve, bat, r }: { releve: ServiceReleve; bat: ObjetPolygone; r: ReleveFacade }) {
   const ouv = useOuvertures(r.ouvertures);
-  const [partieBasse, setPartieBasse] = useState<PartieBasse | null>(r.partieBasse ?? null);
+  const [partiesBasses, setPartiesBasses] = useState<PartieBasse[]>(() => partiesBassesDu(r));
   useEchapFerme(releve);
   const orientation = useMemo(() => facadesDuContour(enPoints(bat).pts, r.hauteur).find((f) => f.cote === r.cote)?.orientation ?? '', [bat, r.hauteur, r.cote]);
   const titre = `Façade ${orientation.toLowerCase()} · ${fr(r.largeur)} × ${fr(r.hauteur)} m`;
   const v: Verification = {
     texture: r.texture, hauteurTexture: r.hauteurTexture ?? r.hauteur, largeur: r.largeur, hauteurMur: r.hauteur, calage: r.calage ?? null,
     ouvertures: ouv.ouvertures, setOuvertures: ouv.setOuvertures, choisie: ouv.choisie, setChoisie: ouv.setChoisie,
-    devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, partieBasse, setPartieBasse, aujourdhui: releve.aujourdhui(),
+    devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, partiesBasses, setPartiesBasses, aujourdhui: releve.aujourdhui(),
   };
   return (
     <div className="releve" role="dialog" aria-modal="true" aria-label={titre}>
@@ -49,7 +50,7 @@ function Editeur({ releve, bat, r }: { releve: ServiceReleve; bat: ObjetPolygone
           <Icone nom="fermer" taille={22} />
         </button>
       </div>
-      <EditionFacade v={v} onAnnuler={() => releve.fermer()} onValider={() => releve.valider({ ouvertures: ouv.ouvertures, partieBasse })} />
+      <EditionFacade v={v} onAnnuler={() => releve.fermer()} onValider={() => releve.valider({ ouvertures: ouv.ouvertures, partiesBasses })} />
     </div>
   );
 }

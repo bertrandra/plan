@@ -246,9 +246,16 @@ export interface ReleveFacade {
   /**
    * Un mur a deux hauteurs d'egout (en L) : la partie basse, de `debut` a `fin` metres depuis la
    * gauche, a son egout a `hauteur` ; la `hauteur` du releve est alors l'egout le plus haut. La
-   * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2).
+   * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2). Une seule partie basse s'ecrit toujours ici,
+   * comme avant le schema 13 : un fichier qui n'en a qu'une s'ouvre dans un Plan d'avant, avec les memes nombres.
    */
   partieBasse?: PartieBasse | null;
+  /**
+   * Un mur a plus de deux hauteurs d'egout (schema 13) : ses parties basses, au moins deux, triees de gauche a droite et sans
+   * recouvrement (une partie haute au milieu, un garage a un bout et un appentis a l'autre). `partieBasse` est alors nulle. Ne se
+   * lit et ne s'ecrit que par model/partiesBasses.ts, qui tient les deux formes ensemble.
+   */
+  partiesBasses?: PartieBasse[];
   /**
    * Comment les photos ont ete calees (MD/spec-facades-calage-detection.md §13). Facultatif : un
    * releve d'avant garde exactement son sens. Depuis le lot L7 : la source des coins, l'azimut

@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Façades (audit et calibration) : un mur dont la partie haute est au milieu, avec une partie basse à chaque bout (une maison entre
+  un garage et un appentis), s'écrit avec ses deux parties basses, lues sur la silhouette du plan et du LiDAR. Il s'écrivait sans
+  aucune : le relevé ne connaissait qu'une partie basse, à un bout. Une partie basse au milieu du mur se lit aussi, quand la silhouette
+  y descend. La surface du mur retire chacune, la Vue 3D pose la photo sur le mur à deux marches et coupe le bâtiment en trois volumes
+  (sans les corps du toit), les baies dans le vide au-dessus d'elles ne sont pas posées, et l'éditeur de la façade corrige chacune
+  (décrochement, égout bas). L'étape É5 lit la teinte du mur sous le haut de chaque bout quand aucun ne monte à l'égout, et juge
+  l'égout aussi sur la seule partie haute : une pose juste est « faite », un égout décalé de 5 % est refusé. **Schéma 13** : seul un
+  fichier qui porte un mur à plusieurs parties basses s'y écrit ; un mur en L s'écrit comme avant (`partieBasse`), et un fichier
+  d'avant s'ouvre avec les mêmes nombres (migration 12 → 13 identité). La plateforme doit accepter le schéma 13
+  (bertrandra/backprod, `project_schema_versions`) et être déployée **avant** une livraison de Plan qui l'écrit. Banc des façades :
+  scène `26-partie-haute-au-milieu` ajoutée, les 26 autres identiques au bit près. Aucune quantité ni aucun export ne change.
 - Façades (audit et calibration) : un mur en L (une partie basse, garage ou extension, dans l'alignement du mur) s'écrit avec sa partie
   basse, lue sur la silhouette du plan et du LiDAR : la position du décrochement et l'égout bas, corrigeables dans l'éditeur comme
   avant. Elle s'écrivait toujours vide depuis que la photo ne la posait plus. L'étape É5 lit chaque angle sous le haut de la silhouette

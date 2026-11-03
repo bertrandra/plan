@@ -14,7 +14,7 @@ import type { ObjetAPlat } from '../../../../../src/model/types.js';
 const [nom, reglage] = Object.entries(REGLAGES_DETECTION)[0]!;
 const autre = Object.keys(REGLAGES_DETECTION)[1]!;
 /** Le releve d'une serie d'une photo, d'apres une analyse reduite a ce que le releve en lit. */
-const analyse = { r: { hauteur: 6, hauteurMesuree: true, texture: { largeur: 8, hauteur: 6, donnees: new Uint8ClampedArray(0) }, hauteurTexture: 5, partieBasse: null, ouvertures: [], devinees: [], toitLu: null } } as unknown as NonNullable<ReturnType<typeof analyserSerie>>;
+const analyse = { r: { hauteur: 6, hauteurMesuree: true, texture: { largeur: 8, hauteur: 6, donnees: new Uint8ClampedArray(0) }, hauteurTexture: 5, partiesBasses: [], ouvertures: [], devinees: [], toitLu: null } } as unknown as NonNullable<ReturnType<typeof analyserSerie>>;
 const prise = { photo: { image: { largeur: 8, hauteur: 6, donnees: new Uint8ClampedArray(0) }, url: '', champ: null, focalePx: 10 }, mesure: null, champ: 70 };
 const releveDuMur = () => releveDeLaSerie(analyse, [{ prise, coins: [] }], { cote: 0, largeur: 8, azimut: null } as unknown as Facade, () => 'data:', 'morceaux').releve;
 
