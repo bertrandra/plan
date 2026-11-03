@@ -4514,6 +4514,63 @@ const POINTS = {
       && largeurPx >= 44 && surLeFond < 0.1 && Math.abs(retour - entier) <= 0.05 * entier && inchange && sans;
     const r = (v) => v.toFixed(1).replace('.', ',');
     return { ok, mesure: `${vignettes}/${pieces} vignettes 3D, la plus petite ${plusPetite} px ; façade entière ${r(entier)} px/m ; fenêtre de toit choisie ${r(pres)} px/m (${largeurPx} px de large), vue de la façade ${facadeChoisie ? 'oui' : 'NON'}, scène ${surLeFond < 0.1 ? 'dessinée' : 'ABSENTE'} panneau ouvert (${Math.round(surLeFond * 100)} % sur le fond) ; lâchée ${r(retour)} px/m ; toit ${inchange ? 'inchangé' : 'CHANGÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
+  125: async (page, f) => {
+    // L'E5 sur le chemin des reperes (revue des etapes, constat B1 ; decision du proprietaire, 3 novembre 2026 : seuls des coins tires a la
+    // main sont « a la main »). La scene 02 du banc sur la facade de la maison ; « Repères, photo 1 » depuis le segment « Mur », puis
+    // « Appliquer » sans toucher aux repères : rien n'est ecrit, la photo garde le chemin automatique (« Coins du mur trouvés… »). Rouverts,
+    // un repere deplace au doigt, « Appliquer » : la photo se redresse par eux, et le mur cherche sur leur assemblage est juge comme un mur
+    // trouve (« Mur cherché sur l’assemblage de vos repères… »), jamais « Mur posé à la main ». Rien ne deborde.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const facade = '.dialogueAuditParcelle .facadeAudit';
+    // Le pied des reperes deborde de son bloc de 16 px au telephone, expres : comme tout pied de dialogue de l'audit, il va jusqu'aux bords
+    // du dialogue (app.css, `.dialogueAudit .piedDialogue`). C'est le dialogue et la page qui ne doivent pas deborder.
+    const deborde = () => page.evaluate((l) => (document.documentElement.scrollWidth > l + 1 ? 'page ' + document.documentElement.scrollWidth : '')
+      + [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise')].filter((d) => d.scrollWidth > d.clientWidth + 1).map((d) => d.className + ' ' + d.scrollWidth + '>' + d.clientWidth).join(','), f.width);
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    // Le resultat de l'E5, tel que la facade le dit : sous la barre quand le segment « Mur » est ouvert, sinon sa ligne.
+    const e5 = () => page.evaluate((s) => [document.querySelector(s + ' .barreFacadeLigne')?.textContent || '', ...[...document.querySelectorAll(s + ' .ligneEtapeAudit')].map((l) => l.textContent || '')].join(' ‖ '), facade);
+    const reperes = async () => {
+      const placer = page.locator(facade + ' button[data-controle="auditParcelle.placerCoins"]').first();
+      if (!(await placer.count())) await etape('segment Mur', () => page.locator(facade + ' button[data-etape="calage"]').click({ timeout: 30000 }));
+      await etape('reperes', () => toucher(page.locator(facade + ' button[data-controle="auditParcelle.placerCoins"]').first()));
+      await etape('reperes ouverts', () => page.locator(facade + ' .reperesAudit .releveCoinCible').first().waitFor({ timeout: 30000 }));
+    };
+    const appliquer = async () => {
+      await etape('appliquer', () => toucher(page.locator(facade + ' button[data-controle="auditParcelle.appliquerCoins"]')));
+      await etape('rejeu', () => page.waitForFunction((s) => { const b = document.querySelector(s); return !!b && b.textContent === 'Rejouer la façade' && !b.disabled; }, facade + ' button[data-controle="auditParcelle.rejouerFacade"]', { timeout: 180000 }));
+    };
+    const auto = await e5();
+    await reperes();
+    const debords = [await deborde()];
+    await appliquer();
+    const sansGeste = await e5();
+    await reperes();
+    // Le repere en haut a droite, tire de quelques pixels a l'ecran : un geste de la personne.
+    const cible = page.locator(facade + ' .reperesAudit .releveCoinCible[aria-label="Repère en haut, à droite"]');
+    await cible.scrollIntoViewIfNeeded().catch(() => {});
+    const b = await cible.boundingBox();
+    if (!b) throw new Error('repère introuvable');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + 4, b.y + b.height / 2 + 2, { steps: 4 }); await page.mouse.up();
+    debords.push(await deborde());
+    if (process.env.FUMEE_CAPTURE_REPERES) await page.locator(facade + ' .reperesAudit').screenshot({ path: process.env.FUMEE_CAPTURE_REPERES + '-' + f.nom + '-reperes.png' }).catch(() => {});
+    await appliquer();
+    const avecReperes = await e5();
+    if (process.env.FUMEE_CAPTURE_REPERES) await page.locator(facade + ' .etapesAudit').screenshot({ path: process.env.FUMEE_CAPTURE_REPERES + '-' + f.nom + '-e5.png' }).catch(() => {});
+    debords.push(await deborde());
+    const main = (t) => /posé à la main/.test(t);
+    const ok = /Coins du mur trouvés/.test(auto) && /Coins du mur trouvés/.test(sansGeste) && !/vos repères/.test(sansGeste)
+      && /Mur cherché sur l’assemblage de vos repères/.test(avecReperes) && ![auto, sansGeste, avecReperes].some(main) && !debords.some(Boolean);
+    const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 140) + ' »';
+    return { ok, mesure: `automatique : ${court(auto)} ; « Appliquer » sans geste : ${court(sansGeste)} ; un repère tiré : ${court(avecReperes)} ; débordement ${debords.map((d) => (d ? 'OUI (' + d + ')' : 'non')).join('/')}` };
   }
 };
 
@@ -4561,7 +4618,8 @@ function pointsPour(nomClasse) {
   // 122 : l'assistant en langue naturelle (lot L6) : une demande, sa liste (une etape grisee avec sa raison), « Appliquer », Ctrl+Z.
   // 123 : « Ajuster l'égout et le sol » sur la facade assemblee (deux vues), le mur tire repris par la chaine.
   // 124 : le mode Toit, les vignettes de « Sur le toit » cadrees sur l'element, et la camera qui se cadre sur l'element choisi.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124];
+  // 125 : l'E5 sur le chemin des reperes : « Appliquer » sans geste n'ecrit rien ; un repere tire, le mur cherche sur leur assemblage est juge.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

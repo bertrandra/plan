@@ -317,6 +317,21 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   - **La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit pour
     chercher les bouts du mur. Sur le mur de 5 m prolongé par un pignon voisin, elle prend le mur entier de 8 m pour un mur de 5 m ; l'É5
     le dit « à confirmer » (score 0,20) et la personne pose le mur (le chemin réel). Le gabarit juge la pose, il ne la cherche pas.
+- **Ce qui est « à la main »** (revue des étapes, constat B1 ; décision du propriétaire, 3 novembre 2026) :
+  - **Seul un mur tiré à la main** (des coins posés : « Ajuster l'égout et le sol », le calage à la main de la calibration) est « posé à la
+    main ». Les **quatre repères** d'É3 ne font que redresser la photo : le mur que la chaîne cherche ensuite sur l'assemblage redressé par
+    eux (`coinsAutoDeSerie` → `murSurLAssemblage` → `calerParLesAncres`) est jugé **comme un mur trouvé sans geste**. L'arbitre tourne, et
+    son verdict reste : une pose du **plan seul, supposée**, ou un égout ou un pied non lus, rendent l'É5 **à confirmer** ; la pose retenue
+    se juge ensuite sur sa silhouette comme toute autre. La chaîne range ce verdict dans le bilan de la photo (`BilanPhotoRedressement.murCherche` :
+    la pose retenue et `lu`) ; l'É5 dit « Mur cherché sur l'assemblage de vos repères… ».
+  - **Un mur tiré à la main que la silhouette n'explique pas** est **à confirmer**, sa raison dite (score, angles, égout), **jamais
+    « fait »**. Le mur posé l'emporte toujours (rien ne le remplace), mais la barre ne se dit pas verte sur lui.
+  - Dans l'audit, « Appliquer » n'écrit les repères **que si la personne les a déplacés** (`FacadeAudit.tsx::correctionAAppliquer`) : ouvrir
+    « Placer 4 repères », qui part des coins du mur retenu, puis appliquer sans y toucher ne fait plus passer la photo par ce chemin.
+  - Avant : sur la scène 24 vue comme un mur de 5 m que le pignon voisin prolonge, ouvrir les repères puis « Appliquer » rendait l'É5
+    « Mur posé à la main », **faite**, sur un mur faux de 3 m (score 0,41), et l'alerte du bilan disparaissait ; sur la scène 25 (mur en L),
+    des repères sur une fenêtre donnaient un égout faux de 27 % « fait ». Après : à confirmer dans les deux cas (`enchainement.test.ts`,
+    `calage-e5.ts`, lignes « repères »).
 
 ### É6 · Silhouette lue, par corps
 
@@ -1100,7 +1115,7 @@ historique) : vide.
 - **L'É5 de l'orchestrateur** lit l'arbitre : « Mur cherché … expliqué sans le toit (score …) », « La pose des arêtes … n'explique pas
   la photo … ; retenue : celle qui l'explique … : à confirmer », « Aucune pose n'explique la photo … Le mur est supposé … Posez les deux
   angles, l'égout et le sol. » ; la pose retenue (les coins du cas) a son propre score, et une pose qui échoue au test rend l'étape à
-  confirmer (sauf un mur posé à la main). La calibration montre la pose des arêtes écartée en tirets, avec son score.
+  confirmer, un mur tiré à la main compris (décision du 3 novembre 2026 : des repères ne sont pas un mur tiré à la main, voir É5). La calibration montre la pose des arêtes écartée en tirets, avec son score.
 - **Un seul composant du calage à la main** : `zones/releve/AjusterMur.tsx` (égout, sol, deux bouts), sur une photo redressée par ses
   repères (l'audit, l'éditeur d'un cas) ou sur l'assemblage déjà de face (`reperes: null` : l'option manuelle de l'É5 de la
   calibration, « Revenir au mur retenu », « Appliquer le calage et rejouer »).

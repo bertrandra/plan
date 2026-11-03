@@ -15,7 +15,7 @@ import type { ResultatFusion } from '../fusion.js';
 import type { SourceCoin } from '../calage/calageFin.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import { redresser, resolutionTexture, type Image, type P2 } from '../vision/homographie.js';
-import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
+import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement, PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { ObjetPolygone } from '../../model/types.js';
 import { analyserSerie } from './analyseSerie.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
@@ -102,6 +102,8 @@ interface CoinsSerie {
   lu: boolean;
   /** Le mur lu sur l'assemblage d'une photo redressee par ses reperes : il l'emporte sur les coins trouves sur ses aretes. */
   prime?: boolean;
+  /** La pose que l'arbitre a retenue sur l'assemblage des reperes (calageAncres.ts) ; absente pour un mur reporte d'une autre photo. */
+  pose?: PoseDuMurCherche;
 }
 
 type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
@@ -161,8 +163,10 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   // Des coins trouves qui ne forment pas un mur : les coins predits, plutot que rien.
   if (!essai && !correction?.coins) essai = await analyser(true).catch(() => null);
   if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible' }, essai: null };
-  // Des coins poses au doigt, ou le mur lu depuis les reperes de la personne : ils ne se discutent pas.
-  const manuelle = essai.p.coins === 'main' || (!!parReperes && essai === parReperes);
+  // Des coins poses au doigt, ou la photo redressee par les reperes de la personne : son redressement ne se discute pas. Le mur que
+  // l'assemblage des reperes y a trouve, lui, garde le verdict de l'arbitre (`murCherche`) : l'E5 le juge comme un mur trouve.
+  const parSesReperes = !!parReperes && essai === parReperes;
+  const manuelle = essai.p.coins === 'main' || parSesReperes;
   // Des verticales qui penchent : les points calcules d'apres la prise de vue valent parfois mieux que ceux cherches sur les aretes.
   if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
     const repli = await analyser(true).catch(() => null);
@@ -178,6 +182,7 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   const bilan: BilanPhotoRedressement = {
     rang, statut: manuelle ? 'manuelle' : ok ? 'auto' : 'echec', verticaliteDeg: essai.vert, coins: essai.p.coins,
     coinsPx: essai.p.morceau.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })),
+    ...(parSesReperes && serie?.pose ? { murCherche: { pose: serie.pose, lu: serie.lu } } : {}),
     ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(SEUIL_VERTICALES_DEG).replace('.', ',') + '°) : placez les quatre coins à la main' }),
   };
   return { bilan, essai };
@@ -207,10 +212,10 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
   if (!aReporter().length && !avecReperes) return;
   const images = entrees.map((e) => e.image);
   const k = (rang: number) => entrees.findIndex((e) => e.rang === rang);
-  const remplacer = async (x: PhotoRedressee, coins: P2[] | null | undefined, lu: boolean, prime = false) => {
+  const remplacer = async (x: PhotoRedressee, coins: P2[] | null | undefined, lu: boolean, prime = false, pose?: PoseDuMurCherche) => {
     const e = entrees[k(x.bilan.rang)];
     if (!coins || !e) return;
-    const r = await redresserPhoto(e, f, o, undefined, { coins, lu, prime }).catch(() => null);
+    const r = await redresserPhoto(e, f, o, undefined, { coins, lu, prime, ...(pose ? { pose } : {}) }).catch(() => null);
     if (r?.essai && r.bilan.statut !== 'echec') faits[faits.indexOf(x)] = r;
   };
   try {
@@ -237,7 +242,7 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
       if (!sr) return;
       for (const x of [...faits]) {
         const i = k(x.bilan.rang);
-        if (aReperes(x)) await remplacer(x, sr.coins[i], sr.lu, true);
+        if (aReperes(x)) await remplacer(x, sr.coins[i], sr.lu, true, sr.assemblage.mur.calage.retenue);
         else if (aReporter().includes(x)) await remplacer(x, sr.coins[i], sr.lu);
       }
     }

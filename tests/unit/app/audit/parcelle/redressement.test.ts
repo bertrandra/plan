@@ -104,7 +104,9 @@ describe('le redressement de toutes les photos', () => {
     });
     expect(sansHeure(encore.releve)).toEqual(sansHeure(main.releve));
     expect(resume(main, 'redressement')).toMatch(/Photo 1 : redressée avec vos points/);
-    expect(main.etapes?.find((e) => e.id === 'calage')).toMatchObject({ etat: 'ok', resume: expect.stringMatching(/^Mur posé à la main/) });
+    // Le mur tire a la main l'emporte ; sur cette photo de synthese sa silhouette ne l'explique pas : a confirmer, sa raison dite, jamais
+    // fait (decision du proprietaire, 3 novembre 2026).
+    expect(main.etapes?.find((e) => e.id === 'calage')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/^Mur posé à la main\..*que sa silhouette n’explique pas/) });
   }, 120000);
 
   it('l echelle corrigee a la main fixe la largeur du mur', async () => {

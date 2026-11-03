@@ -51,11 +51,12 @@ describe('la pose de quatre reperes', () => {
     expect(hote.querySelector('.poserReperes')?.getAttribute('aria-label')).toBe('Quatre repères sur la photo 2');
     expect(bouton('reperes.ajusterMur').getAttribute('aria-pressed')).toBe('false');
   });
-  it('part des reperes donnes (ceux deja poses, ou le mur du calcul)', async () => {
+  it('part des reperes donnes (ceux deja poses, ou le mur du calcul) ; « Appliquer » sans les deplacer ne les ecrit pas (revue des etapes, B1)', async () => {
     const depart = [{ x: 10, y: 20 }, { x: 700, y: 20 }, { x: 700, y: 500 }, { x: 10, y: 500 }];
     const p = await monter(depart);
     act(() => bouton('auditParcelle.appliquerCoins').click());
-    expect(p.appliquer.mock.calls[0]?.[0].reperes).toEqual(depart);
+    expect(p.appliquer).toHaveBeenCalledTimes(1);
+    expect(p.appliquer.mock.calls[0]?.[0]).not.toHaveProperty('reperes');
   });
   it('porte l echelle tapee, et refuse un texte qui n est pas un nombre', async () => {
     const p = await monter();

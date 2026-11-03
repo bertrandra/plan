@@ -75,6 +75,12 @@ Schéma inchangé (12). Fumée complète (Fumée de la nuit, run 41601785149).
 
 ### Corrigé
 
+- Façades (audit et calibration), étape É5 : quatre repères posés sur une photo ne rendent plus le mur « posé à la main ». Ils
+  redressent la photo ; le mur que la chaîne cherche ensuite sur leur assemblage est jugé comme un mur trouvé seul : une pose supposée
+  d'après le plan, un égout ou un sol non lus, ou une silhouette qui ne l'explique pas le laissent « à confirmer » (« Mur cherché sur
+  l'assemblage de vos repères… »). Avant, ouvrir « Placer 4 repères » puis « Appliquer » suffisait à rendre faite une É5 sur un mur faux
+  de plusieurs mètres. Un mur tiré à la main que sa silhouette n'explique pas est désormais « à confirmer », sa raison dite, au lieu de
+  « fait ». Dans l'audit, « Appliquer » n'écrit les repères que si vous les avez déplacés. Aucune quantité ni aucun export ne change.
 - Fumée, point 91 (arbres d'EZ-tree) : la mesure « été » se prenait à la date par défaut de la Vue 3D, celle du jour ; un caduc
   étant nu de novembre à mars, le point échouait dans toutes les classes depuis le 1er novembre (Fumée de la nuit des 1er, 2 et
   3 novembre). Elle se prend désormais au 21 juin, posé avant la mesure ; la mesure « hiver » pose déjà le 15 janvier. Rien ne change
