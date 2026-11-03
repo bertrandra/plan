@@ -28,6 +28,12 @@ import { mesurerReponse, type CasIa } from './runIa.js';
 /** Le dossier des reponses de reference (run 40998593930, 5.1.0) et la reference chiffree. */
 export const DOSSIER_LECTURE_510 = fileURLToPath(new URL('../../fixtures/facades/lecture-5.1.0', import.meta.url));
 export const FICHIER_REFERENCE_510 = join(DOSSIER_LECTURE_510, 'reference.json');
+/**
+ * Les planchers des scenes entrees au banc apres la reference (decision du proprietaire, 3 novembre 2026) : chacune a le sien, fige a sa
+ * premiere mesure (la premiere passe du premier run qui l'a mesuree), aux lignes x3 d'une scene du corpus. Elles ne comptent pas dans les
+ * totaux, juges sur les scenes du corpus de reference seulement : leur plancher a ete fixe sur ces scenes-la.
+ */
+export const FICHIER_SCENES_AJOUTEES = join(DOSSIER_LECTURE_510, 'scenes-ajoutees.json');
 const DOSSIER_SCENES = fileURLToPath(new URL('../../fixtures/facades', import.meta.url));
 
 export const MODES = ['x1', 'x3'] as const;
@@ -99,6 +105,22 @@ export interface Plancher {
   totaux: Record<Mode, Lignes>;
   /** L'escalade : acceptee et conforme (1 ou 0), angles lus, parement lu (1 ou 0). */
   escalade: Lignes | null;
+}
+
+/** Le plancher d'une scene ajoutee : d'ou il vient, et ses lignes x3 (celles d'une scene du corpus). */
+export interface PlancherAjoute { source: { run: string; commit: string; date: string; note: string }; lignes: Lignes }
+export type PlanchersAjoutes = Record<string, PlancherAjoute>;
+
+/** Les planchers des scenes ajoutees, lus dans le depot (vides sans fichier). */
+export function planchersAjoutes(fichier: string = FICHIER_SCENES_AJOUTEES): PlanchersAjoutes {
+  return existsSync(fichier) ? (JSON.parse(readFileSync(fichier, 'utf8')) as { scenes: PlanchersAjoutes }).scenes : {};
+}
+
+/** Le plancher d'une scene ajoutee, a sa premiere mesure : ses lignes x3. */
+export function plancherAjoute(mes: MesureLecture, scene: string, source: PlancherAjoute['source']): PlancherAjoute {
+  const s = mes.scenes[scene];
+  if (!s) throw new Error('scène absente de la mesure : ' + scene);
+  return { source, lignes: lignesScene(s.x3) };
 }
 
 export interface ReferenceLecture {
@@ -223,6 +245,22 @@ export function mesurerLecture(dossier: string, journal: string | null = null): 
   return { scenes, totaux: { x1: totaliser(parMode.x1), x3: totaliser(parMode.x3) }, ...(journal !== null ? { escalade: lireEscalade(journal) } : {}) };
 }
 
+/**
+ * La mesure ramenee au corpus de reference : les totaux refaits sur les seules scenes du plancher (celles sur lesquelles il a ete fixe).
+ * Une scene ajoutee au banc ne deplace donc pas un total ; elle est jugee a part, contre son propre plancher.
+ */
+export function duCorpus(plancher: Plancher, mes: MesureLecture): MesureLecture {
+  const corpus = Object.keys(plancher.scenes);
+  const scenes = Object.fromEntries(Object.entries(mes.scenes).filter(([s]) => corpus.includes(s)));
+  const parMode = (m: Mode) => Object.values(scenes).map((s) => ({ ligne: s[m], cout: s[m]?.info.cout ?? 0, passes: s[m]?.passes ?? 0 }));
+  return { scenes: mes.scenes, totaux: { x1: totaliser(parMode('x1')), x3: totaliser(parMode('x3')) }, ...(mes.escalade !== undefined ? { escalade: mes.escalade } : {}) };
+}
+
+/** Les scenes mesurees qui n'ont aucun plancher (ni du corpus, ni ajoute) : dites dans la table, a enregistrer (`--ajouter`). */
+export function scenesSansPlancher(plancher: Plancher, mes: MesureLecture, ajoutees: PlanchersAjoutes = {}): string[] {
+  return Object.keys(mes.scenes).filter((s) => !plancher.scenes[s] && !ajoutees[s]).sort();
+}
+
 /** Une mesure dont certaines scenes ont ete relancees : les scenes de la relance remplacent celles de la premiere, les totaux se refont. */
 export function remplacerScenes(premiere: MesureLecture, relance: MesureLecture): MesureLecture {
   const scenes = { ...premiere.scenes, ...relance.scenes };
@@ -321,17 +359,21 @@ function confronter(scene: string, mode: Mode | 'escalade', plancher: Lignes, me
 
 /**
  * Chaque ligne jugee de la mesure contre le plancher : la liste des lignes en dessous (vide : rien n'a baisse). Aucune marge en plus du
- * plancher. Une scene du plancher absente de la mesure est une regression (on ne mesure pas moins pour passer) ; une scene nouvelle n'a
- * rien a battre. L'escalade n'est jugee que si la mesure a lu un journal.
+ * plancher. Une scene du plancher (du corpus ou ajoutee) absente de la mesure est une regression (on ne mesure pas moins pour passer).
+ * Les totaux se jugent sur les scenes du corpus seulement (duCorpus) ; une scene ajoutee se juge par scene contre son propre plancher
+ * (PlanchersAjoutes), et une scene sans plancher n'a rien a battre, mais la table la nomme (scenesSansPlancher). L'escalade n'est jugee
+ * que si la mesure a lu un journal.
  */
-export function comparerLecture(plancher: Plancher, mes: MesureLecture): Regression[] {
+export function comparerLecture(plancher: Plancher, mes: MesureLecture, ajoutees: PlanchersAjoutes = {}): Regression[] {
   const out: Regression[] = [];
-  for (const [scene, lignes] of Object.entries(plancher.scenes)) {
+  const corpus = duCorpus(plancher, mes);
+  const parScene = { ...plancher.scenes, ...Object.fromEntries(Object.entries(ajoutees).map(([s, a]) => [s, a.lignes])) };
+  for (const [scene, lignes] of Object.entries(parScene)) {
     if (!mes.scenes[scene]) { out.push({ scene, mode: 'x3', ligne: 'scène mesurée', reference: 'oui', mesure: 'absente' }); continue; }
     const x = mes.scenes[scene].x3;
     confronter(scene, 'x3', lignes, x ? lignesScene(x) : null, out);
   }
-  for (const m of MODES) confronter('Total', m, plancher.totaux[m], lignesTotal(mes.totaux[m]), out);
+  for (const m of MODES) confronter('Total', m, plancher.totaux[m], lignesTotal(corpus.totaux[m]), out);
   if (plancher.escalade && mes.escalade !== undefined) {
     const e = lignesEscalade(mes.escalade);
     if (!e) out.push({ scene: 'Escalade', mode: 'escalade', ligne: 'ligne du journal', reference: 'présente', mesure: 'absente' });
@@ -354,7 +396,8 @@ function cellule(p: string, m: string | null, baisse: boolean): string {
  * La table plancher / mesure, en Markdown : les lignes jugees en x3 par scene, puis les totaux x1 et x3, l'escalade, la liste des
  * lignes sous le plancher et, apres une relance, celles qui ne baissent qu'a la relance. Sans mesure, le plancher seul.
  */
-export function tableauLecture(plancher: Plancher, mes: MesureLecture | null, regressions: readonly Regression[] = [], nouvelles: readonly Regression[] = []): string {
+export function tableauLecture(plancher: Plancher, mes: MesureLecture | null, regressions: readonly Regression[] = [], nouvelles: readonly Regression[] = [], ajoutees: PlanchersAjoutes = {}): string {
+  const corpus = mes ? duCorpus(plancher, mes) : null;
   const bas = (scene: string, mode: string, nom: string) => regressions.some((r) => r.scene === scene && r.mode === mode && r.ligne === nom);
   const sortie = [
     mes ? '**Plancher → mesure** (le plancher : le pire de trois mesures de main ; une cellule « a → b » a changé, en gras elle est sous le plancher).' : '**Planchers** (le pire des runs 40998593930, 41012308826 et 41014104555 de main).',
@@ -364,23 +407,33 @@ export function tableauLecture(plancher: Plancher, mes: MesureLecture | null, re
     '| Scène | Baies retrouvées | Baies en trop | Genres (F, PF, P, G) | Pointes justes | Pointes en plus | Parement juste |',
     '|---|--:|--:|--:|--:|--:|--:|',
   ];
-  for (const [scene, p] of Object.entries(plancher.scenes)) {
+  const lignesDeScene = { ...plancher.scenes, ...Object.fromEntries(Object.entries(ajoutees).map(([s, a]) => [s, a.lignes])) };
+  for (const [scene, p] of Object.entries(lignesDeScene)) {
     const x = mes ? (mes.scenes[scene] ? lignesScene(mes.scenes[scene].x3 ?? null) : null) : null;
     const c = (nom: string) => cellule(String(p[nom]), mes ? (x ? String(x[nom]) : 'absente') : null, bas(scene, 'x3', nom));
     const genres = GENRES.map((g) => c('genre ' + g + ' retrouvé')).join(', ');
-    sortie.push(`| ${scene} | ${c('baies retrouvées (rappel)')} | ${c('baies en trop (précision)')} | ${genres} | ${c('pointes justes')} | ${c('pointes en plus')} | ${c('parement juste')} |`);
+    const nom = plancher.scenes[scene] ? scene : scene + ' (ajoutée, plancher du run ' + (ajoutees[scene]?.source.run ?? '?') + ')';
+    sortie.push(`| ${nom} | ${c('baies retrouvées (rappel)')} | ${c('baies en trop (précision)')} | ${genres} | ${c('pointes justes')} | ${c('pointes en plus')} | ${c('parement juste')} |`);
   }
-  sortie.push('', '**Totaux** (x1 : au total seulement)', '', '| Ligne | x1 | x3 |', '|---|--:|--:|');
+  sortie.push('', `**Totaux** (x1 : au total seulement ; sur les ${Object.keys(plancher.scenes).length} scènes du corpus de référence, celles où le plancher a été fixé)`, '', '| Ligne | x1 | x3 |', '|---|--:|--:|');
   for (const nom of Object.keys(plancher.totaux.x3)) {
     const c = (m: Mode) => {
       const p = plancher.totaux[m][nom];
       if (p === undefined) return '—';
-      const x = mes ? lignesTotal(mes.totaux[m])[nom] : undefined;
+      const x = corpus ? lignesTotal(corpus.totaux[m])[nom] : undefined;
       return cellule(valeur(nom, p), x === undefined ? null : valeur(nom, x), bas('Total', m, nom));
     };
     sortie.push(`| ${nom} | ${c('x1')} | ${c('x3')} |`);
   }
   if (mes) {
+    // Les scenes hors corpus : leur lecture x1, qu'aucun total ne juge, est dite scene par scene (jamais jugee).
+    const hors = Object.keys(mes.scenes).filter((s) => !plancher.scenes[s]).sort();
+    if (hors.length) {
+      const x1 = (s: string) => { const l = mes.scenes[s]?.x1; return l ? `${l.boites.vp} / ${l.boites.vraies} / ${l.boites.trouvees}` : 'illisible'; };
+      sortie.push('', 'Hors corpus, x1 (information, jamais jugée ; baies VP / vraies / trouvées) : ' + hors.map((s) => s + ' ' + x1(s)).join(' ; ') + '.');
+    }
+    const sans = scenesSansPlancher(plancher, mes, ajoutees);
+    if (sans.length) sortie.push('', `**${sans.length} scène(s) mesurée(s) sans plancher**, à enregistrer à leur première mesure (\`garde-lecture.ts --ajouter\`) : ` + sans.join(', ') + '.');
     const t = (m: Mode) => `${fr(mes.totaux[m].info.cout, 4)} (${fr(mes.totaux[m].info.coutParFacade)} par façade), pose méd. ${pc(mes.totaux[m].info.poseMediane)}`;
     sortie.push('', `Information (jamais jugée) : x1 ${t('x1')} ; x3 ${t('x3')}.`);
   }
@@ -402,10 +455,10 @@ export function tableauLecture(plancher: Plancher, mes: MesureLecture | null, re
  * UNE fois ; elle est une regression si elle reste sous le plancher a la relance. `restees` : les lignes en dessous aux deux mesures
  * (le job finit rouge) ; `nouvelles` : celles qui ne baissent qu'a la relance, dites a part, jamais tues.
  */
-export function regressionsApresRelance(plancher: Plancher, premiere: MesureLecture, relance: MesureLecture): { restees: Regression[]; nouvelles: Regression[] } {
+export function regressionsApresRelance(plancher: Plancher, premiere: MesureLecture, relance: MesureLecture, ajoutees: PlanchersAjoutes = {}): { restees: Regression[]; nouvelles: Regression[] } {
   const cle = (r: Regression) => r.scene + '\u0000' + r.mode + '\u0000' + r.ligne;
-  const avant = new Set(comparerLecture(plancher, premiere).map(cle));
-  const apres = comparerLecture(plancher, remplacerScenes(premiere, relance));
+  const avant = new Set(comparerLecture(plancher, premiere, ajoutees).map(cle));
+  const apres = comparerLecture(plancher, remplacerScenes(premiere, relance), ajoutees);
   return { restees: apres.filter((r) => avant.has(cle(r))), nouvelles: apres.filter((r) => !avant.has(cle(r))) };
 }
 
