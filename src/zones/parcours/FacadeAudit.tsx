@@ -35,6 +35,20 @@ import type { PhotoCas } from '../../model/audit.js';
 import type { GabaritMur } from '../../facade/gabaritMur.js';
 import type { AssemblageAAjuster } from '../../facade/releve/enchainement.js';
 
+/** Un repere ne compte deplace qu'au-dela de ce nombre de pixels de la photo : l'arrondi au dixieme ne deplace rien. */
+const REPERE_DEPLACE_PX = 0.5;
+
+/**
+ * La correction qu'« Appliquer » ecrit. Les reperes n'y vont que si la personne les a deplaces : ouvrir « Placer 4 repères » (qui part
+ * des coins du mur retenus) puis appliquer sans y toucher ne doit pas faire passer la photo par le chemin des reperes (revue des
+ * etapes, B1), ni redresser autrement qu'en calibration pour le meme geste. Des reperes deja poses restent dans la capture : la
+ * correction de la photo s'y fond (`corriger`).
+ */
+export function correctionAAppliquer(coins: readonly P2[], depart: readonly P2[] | undefined, coinsAjustes: P2[] | undefined, echelle: number | undefined): CorrectionRedressement {
+  const deplaces = !depart || depart.length !== coins.length || coins.some((c, k) => Math.hypot(c.x - (depart[k] as P2).x, c.y - (depart[k] as P2).y) > REPERE_DEPLACE_PX);
+  return { ...(deplaces ? { reperes: auDixiemeDePixel(coins) } : {}), ...(coinsAjustes ? { coins: coinsAjustes } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) };
+}
+
 /**
  * Les quatre repères de l'audit sur une photo : le geste partage (PoserReperes), et ce que l'audit y ajoute — la largeur reelle du
  * mur pour l'echelle, « Appliquer » (la correction va dans la capture : elle prime sur le calcul et survit au rejeu, puis la facade est
@@ -96,7 +110,7 @@ export function ReperesAudit({ photo, rang, depart, mur, gabarit, assemblage, la
         <button type="button" className="secondary small" data-controle="auditParcelle.retablirCoins" onClick={() => { retablir(); fermer(); }}>Revenir à l’automatique</button>
         <button type="button" className="secondary small" data-controle="auditParcelle.annulerCoins" onClick={fermer}>Annuler</button>
         <button type="button" className="small" data-controle="auditParcelle.appliquerCoins" disabled={!coins || faux}
-          onClick={() => { if (coins) { appliquer({ reperes: auDixiemeDePixel(coins), ...(coinsAjustes ? { coins: coinsAjustes } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }, autres); fermer(); } }}>Appliquer</button>
+          onClick={() => { if (coins) { appliquer(correctionAAppliquer(coins, depart, coinsAjustes, echelle), autres); fermer(); } }}>Appliquer</button>
       </div>
     </div>
   );

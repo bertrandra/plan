@@ -34,7 +34,7 @@ import { hautDeLImage, imageDuRunAvecLaBande, type ImageDuRun } from './imageDuR
 import { rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { prisesDeLaFacade, type PrisesFacade } from './prisesFacade.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
-import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
+import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement, PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { PrisePhoto } from '../../model/audit.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie, type ToitVraiCorps } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
@@ -396,18 +396,34 @@ function explicationDe(pose: AssemblageDuMur, e: EntreesFacade): Explication {
 const sc = (x: number) => dec(x, 2);
 const px = (r: { x0: number; x1: number }) => `x de ${Math.round(r.x0)} à ${Math.round(r.x1)} (${Math.round(r.x1 - r.x0)} px)`;
 
+/** Ce que l'arbitre a retenu sur l'assemblage des reperes, en clair (calageAncres.ts::calerParLesAncres). */
+const POSE_CHERCHEE: Readonly<Record<PoseDuMurCherche, string>> = {
+  'aretes': '',
+  'mieux-expliquee': ' : une autre pose que celle des arêtes l’explique mieux',
+  'plan-seul': ' : aucune pose des arêtes ne l’explique, celle du plan seul est supposée',
+};
+
 /**
- * E5 : d'ou viennent les coins du mur retenus (poses a la main, trouves sur la photo, sinon predits par la prise de vue), et, sur l'image
- * prise pour la suite, ce que le mur pose explique, juge sur sa silhouette. La verite et la pose de Claude s'y mesurent sans rien changer.
+ * E5 : d'ou viennent les coins du mur retenus (tires a la main, cherches sur l'assemblage des reperes, trouves sur la photo, sinon
+ * predits par la prise de vue), et, sur l'image prise pour la suite, ce que le mur pose explique, juge sur sa silhouette. La verite et
+ * la pose de Claude s'y mesurent sans rien changer.
+ * Seul un mur tire a la main (des coins poses) est « a la main » : quatre reperes ne font que redresser la photo, le mur qu'on y cherche
+ * ensuite est juge comme un mur trouve sans geste, verdict de l'arbitre compris (decision du proprietaire, 3 novembre 2026). Et un mur
+ * tire a la main que sa silhouette n'explique pas est a confirmer, sa raison dite, jamais fait.
  */
 const calage: Pas = ({ e, o, s, obj }) => {
   const m = s.audit?.mesure, b = s.audit?.redressement;
   if (!b?.photos.length) return attend('une photo');
   if (!m) return { etat: 'echec', resume: 'La photo ne montre pas le mur : coins introuvables. Posez quatre repères sur une photo, puis rejouez.', verite: null };
   const pose = s.calage?.pose ?? null;
-  const main = b.photos.some((p) => p.coins === 'main' || p.statut === 'manuelle');
+  const main = b.photos.some((p) => p.coins === 'main');
+  const cherche = main ? undefined : b.photos.find((p) => p.murCherche)?.murCherche;
+  // Le mur des reperes que l'arbitre n'a pas lu (egout ou pied supposes) ou qu'il a pose d'apres le plan seul : il doute.
+  const chercheDoute = !!cherche && (cherche.pose === 'plan-seul' || !cherche.lu);
   const note = m.confiance !== null ? ` (note du calage fin ${dec(m.confiance)})` : '';
-  const origine = main ? 'Mur posé à la main.' : m.coinsTrouves ? `Coins du mur trouvés sur la photo${note}.` : 'Coins du mur prédits par la prise de vue, à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.';
+  const origine = main ? 'Mur posé à la main.'
+    : cherche ? 'Mur cherché sur l’assemblage de vos repères' + POSE_CHERCHEE[cherche.pose] + (cherche.lu ? '.' : ', égout ou sol supposé.')
+    : m.coinsTrouves ? `Coins du mur trouvés sur la photo${note}.` : 'Coins du mur prédits par la prise de vue, à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.';
   const hauteur = m.hauteurM !== null ? ` Hauteur à l’égout mesurée : ${dec(m.hauteurM)} m.` : '';
   const r = pose ? rectDeLaPose(pose.coins) : null;
   const verite = r && o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null;
@@ -419,10 +435,10 @@ const calage: Pas = ({ e, o, s, obj }) => {
   if (pose && r && s.calage) {
     const ex = explicationDe(pose, e), passe = expliqueLaPhoto(ex, seuilsDuCalage(obj));
     s.calage.explication = ex;
-    const etat: EtatAffiche = main ? 'ok' : !m.coinsTrouves || !passe ? 'a-confirmer' : 'ok';
+    const etat: EtatAffiche = !passe || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
     return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + dit, verite };
   }
-  return { etat: main || m.coinsTrouves ? 'ok' : 'a-confirmer', resume: origine + hauteur + dit, verite };
+  return { etat: main || (m.coinsTrouves && !chercheDoute) ? 'ok' : 'a-confirmer', resume: origine + hauteur + dit, verite };
 };
 
 const pluriel = (n: number, s: string, p = s + 's') => n + ' ' + (n > 1 ? p : s);
