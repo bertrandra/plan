@@ -1,6 +1,6 @@
 {
   "nom": "26-partie-haute-au-milieu",
-  "description": "Partie haute au milieu : une maison à étage (égout à 5,6 m) entre un appentis à gauche (égout à 2,6 m) et un garage à droite (égout à 2,9 m), dans le même alignement, enduit, photographiée de biais : au-dessus de chaque partie basse, sa bande de tuiles puis le ciel ; les deux coins hauts du rectangle englobant n'ont pas d'arête.",
+  "description": "Partie haute au milieu : une maison à étage (égout à 5,6 m) entre un appentis à gauche (égout à 2,6 m) et un garage à droite (égout à 2,9 m), dans le même alignement, enduit, l'ombre du débord sous l'égout haut, photographiée de biais : au-dessus de chaque partie basse, sa bande de tuiles puis le ciel ; les deux coins hauts du rectangle englobant n'ont pas d'arête.",
   "difficultes": [
     "partie-haute-au-milieu",
     "mur-en-l",
@@ -162,7 +162,13 @@
         }
       ]
     },
-    "ombres": [],
+    "ombres": [
+      {
+        "type": "debord",
+        "hauteur": 0.25,
+        "facteur": 0.8
+      }
+    ],
     "prise": {
       "type": "camera",
       "distance": 15,
