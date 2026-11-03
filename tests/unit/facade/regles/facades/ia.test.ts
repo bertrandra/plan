@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../../../src/regles/facades/observations.js';
-import { accorderOuvertures, avisDesPointes, decisionColombage, escaladerObservations, passesDeProduction, reglagesIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
+import { accorderOuvertures, avisDesPointes, decisionColombage, escaladerObservations, passesDeProduction, reglagesIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, poseDeLIaSurLeMur, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
 import { lireReglagesIa } from '../../../../../src/regles/facades/ia.js';
 import fichierIa from '../../../../../regles/facades/ia.json';
 import type { OuvertureFacade } from '../../../../../src/model/types.js';
@@ -106,6 +106,19 @@ describe('la pose candidate et les boites', () => {
     expect(ecartDesPoses({ x0: 150, x1: 860, y0: 312, y1: 528 }, p as NonNullable<typeof p>)).toBeCloseTo(10 / 720);
     const sansDroite = lireObservationsFacade({ ...SORTIE_FACADE, calage: { ...SORTIE_FACADE.calage, angles: { gauche: SORTIE_FACADE.calage.angles.gauche, droite: 'indetermine' } } }) as ObservationsFacade;
     expect(poseDeLIa(sansDroite, { largeur: 1000, hauteur: 600 })).toBeNull();
+  });
+
+  it('lue sur l image du run de l audit (le mur cadre), ramene la pose sur l assemblage par les coins du mur', () => {
+    // Le mur de 200 a 600 en x, egout a 100, sol a 300 sur l'assemblage ; l'image du run montre le mur, l'egout a 75 % depuis le bas.
+    const coins = [{ x: 200, y: 100 }, { x: 600, y: 100 }, { x: 600, y: 300 }, { x: 200, y: 300 }];
+    const aux = (gauche: object, droite: object) => lireObservationsFacade({ ...SORTIE_FACADE, calage: { ...SORTIE_FACADE.calage, angles: { gauche, droite } } }) as ObservationsFacade;
+    // Les angles aux bords de l'image, l'egout a 25 % depuis le haut, le sol en bas : le mur que l'image cadrait.
+    const bords = aux({ x: 0, egout: 0.25, sol: 1, confiance: 'forte' }, { x: 1, egout: 0.25, sol: 1, confiance: 'forte' });
+    expect(poseDeLIaSurLeMur(bords, coins, 0.75)).toEqual({ x0: 200, x1: 600, y0: 100, y1: 300 });
+    // Un angle a 10 % de la largeur : 40 px plus loin sur l'assemblage ; lu en parts de l'assemblage, il tombait ailleurs.
+    const dedans = aux({ x: 0.1, egout: 0.25, sol: 1, confiance: 'forte' }, { x: 1, egout: 0.25, sol: 1, confiance: 'forte' });
+    expect(poseDeLIaSurLeMur(dedans, coins, 0.75)?.x0).toBeCloseTo(240);
+    expect(poseDeLIaSurLeMur(bords, [], 0.75)).toBeNull();
   });
 
   it('ramene une boite en metres, depuis les dimensions du plan', () => {

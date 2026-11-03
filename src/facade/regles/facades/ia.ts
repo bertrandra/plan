@@ -17,6 +17,7 @@ import { empreinteReglagesIa, lireReglagesIa, type ReglagesIa } from '../../../r
 import { CONFIANCE_PLEINE } from '../../detection/verification.js';
 import { recalerBoite, type CartesAretes } from '../../detection/recalageIa.js';
 import { detailsDeLIa } from './menuiseries.js';
+import { appliquer, homographie, type P2 } from '../../vision/homographie.js';
 import { avecLectureEnrichie, voterLectureEnrichie } from './voteEnrichi.js';
 import { avecToitLu, voterLectureToit } from './voteToit.js';
 import { garder, lireLectureEnrichie, lireLectureToit, lireObservationsFacade, SANS_ENRICHIE, SANS_TOIT, type AngleIa, type Carreaux, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
@@ -193,6 +194,22 @@ export function poseDeLIa(r: ObservationsFacade, image: { largeur: number; haute
   const { gauche: g, droite: d } = r.calage.angles;
   if (!g || !d || !(d.x > g.x)) return null;
   return { x0: g.x * image.largeur, x1: d.x * image.largeur, y0: ((g.egout + d.egout) / 2) * image.hauteur, y1: ((g.sol + d.sol) / 2) * image.hauteur };
+}
+
+/**
+ * La pose du mur selon Claude quand il l'a lue sur l'image du run de l'audit (le mur redresse et cadre, du sol jusqu'au-dessus du haut,
+ * l'egout a `egoutPart` de sa hauteur depuis le bas : imageDuRun.ts), ramenee sur l'assemblage par les coins du mur que cette image
+ * cadrait (haut gauche, haut droit, bas droit, bas gauche, en pixels de l'assemblage). Ses angles y sont dans le repere du mur : lus en
+ * parts de l'assemblage (poseDeLIa), ils le couvraient en entier. Null sans ses deux angles ou sans coins.
+ */
+export function poseDeLIaSurLeMur(r: ObservationsFacade, coins: readonly P2[], egoutPart: number): RectIa | null {
+  const { gauche: g, droite: d } = r.calage.angles;
+  const versMur = coins.length === 4 && egoutPart > 0 ? homographie([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], coins) : null;
+  if (!g || !d || !(d.x > g.x) || !versMur) return null;
+  // Dans l'image du run, l'egout est a 1 - egoutPart depuis le haut et le sol en bas : la hauteur du mur, de l'egout (0) au sol (1).
+  const sur = (x: number, y: number) => appliquer(versMur, { x, y: (y - (1 - egoutPart)) / egoutPart });
+  const [ge, gs, de, ds] = [sur(g.x, g.egout), sur(g.x, g.sol), sur(d.x, d.egout), sur(d.x, d.sol)];
+  return { x0: (ge.x + gs.x) / 2, x1: (de.x + ds.x) / 2, y0: (ge.y + de.y) / 2, y1: (gs.y + ds.y) / 2 };
 }
 
 /** La decision du colombage, que l'arbitre du calage applique : les zones (pixels), et la pose qu'elles ecartent. */

@@ -75,6 +75,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (bertrandra/backprod, `project_schema_versions`) et être déployée **avant** une livraison de Plan qui l'écrit. Banc des façades :
   scène `26-partie-haute-au-milieu` ajoutée, les 26 autres identiques au bit près. Aucune quantité ni aucun export ne change.
 
+### Corrigé
+
+- Façades (audit), étape É5 : la lecture de Claude ne dit plus que « les deux chemins divergent » quand il pose le mur là où la chaîne
+  l'a posé. Dans l'audit, Claude lit le mur déjà redressé et cadré (ses angles aux bords de l'image) ; ses angles se lisaient pourtant
+  en parts de l'assemblage, ce qui posait le mur sur toute sa largeur (de 39 à 95 % d'écart sur les scènes du banc). Ils reviennent
+  maintenant sur l'assemblage par le mur que l'image cadrait et l'égout qu'elle porte. Les boîtes des ouvertures (É9), dans le repère
+  du mur, n'avaient pas ce défaut. Aucune image ni requête envoyée à Claude ne change, aucune quantité ni aucun export.
+
 ## [5.5.0] — 2026-11-03
 
 Version **mineure** au sens de `MD/RELEASE.md` : la détection des ouvertures lit la façade fusionnée entière, pignons compris (#533) ;
