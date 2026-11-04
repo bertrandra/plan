@@ -135,6 +135,14 @@ export const MIGRATIONS: readonly Migration[] = [
     // l'identique (un mur en L garde sa `partieBasse`, memes nombres). Le 13 le distingue, pour qu'un lecteur 12 refuse le fichier
     // plutot que de perdre une partie basse et de rendre une autre surface de mur.
     migrer: (d) => d
+  },
+  {
+    de: 13,
+    apporte: 'les bâtiments modifiés corps par corps : un mur en travées (un tronçon reculé sous un toit continu, un porche ouvert sur poteaux avec garde-corps), un bow-window sans toit propre sous un auvent',
+    // Deux champs facultatifs d'un corps (`travees`, et la valeur `aucun` du toit d'une saillie), qui n'existaient pas avant : un document
+    // 13 est un document 14 valide, relu a l'identique. Le 14 le distingue, pour qu'un lecteur 13 refuse le fichier plutot que de perdre
+    // un mur recule ou un garde-corps, ou de rejeter le bow-window que la personne a pose sous son auvent.
+    migrer: (d) => d
   }
 ];
 
@@ -220,8 +228,18 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     if (porteLeToitEnrichi(brut)) s = Math.max(s, 11);
     // Un mur a plusieurs parties basses : un lecteur 12 perdrait la liste et rendrait une autre surface de mur.
     if (Array.isArray(brut.facades) && brut.facades.some(porteDesPartiesBasses)) s = Math.max(s, 13);
+    // Un batiment modifie corps par corps (travees d'un mur, bow-window sans toit propre) : un lecteur 13 les perdrait.
+    if (porteLesCorpsModifies(brut)) s = Math.max(s, 14);
   }
   return s;
+}
+
+/** Un objet dont un corps porte des travees, ou une saillie sans toit propre : schema 14. */
+function porteLesCorpsModifies(brut: Record<string, unknown>): boolean {
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => {
+    const k = c as { travees?: unknown; saillie?: { toit?: unknown } } | null;
+    return !!k && ((Array.isArray(k.travees) && k.travees.length > 0) || k.saillie?.toit === 'aucun');
+  });
 }
 
 /** Les couvertures venues avec le lot L2, et les bords d'un corps. */

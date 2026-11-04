@@ -341,17 +341,23 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   sud aux deux pignons sur un toit plat, où le pignon se ferme sous ses noues), ses souches, ses lucarnes et éléments de toit sur une pente.
 - **Un corps, un toit, jamais de trou** (retour du propriétaire, 4 novembre 2026) : un mur qui recule de 50 cm sous un toit continu (le
   décroché d'AE 101) n'est pas un corps coupé. Le modèle ne sait pas reculer un tronçon de mur sans couper le corps : c'est un champ du
-  schéma 14 (décroché de mur, par travée, comme les travées ouvertes). La pièce « Décroché » essayée ici est retirée.
+  schéma 14 : une travée de mur reculée (ci-dessous). La pièce « Décroché » essayée ici est retirée.
 - **Couper** un corps en deux (`toit.scinder`, au bord d'un pignon sinon au milieu ; les deux parties gardent le même toit, bord à bord) et **réunir** deux corps alignés de mêmes hauteurs qui font un rectangle (`toit.fusionner`).
 - 3D : sous un appentis ouvert, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`) ; pas de poteau devant un
   bow-window que son toit couvre, ni entre lui et le bout qu'il approche à moins d'un entraxe.
 - Chaque réglage est un pas de la session (Ctrl+Z), « Valider » une étape du projet ; tout geste fige le toit (`toitFige`, la règle de
   protection unique, niveau 1 de `model/protections.ts`) : la lecture automatique ne l'écrase plus. Le moteur ne change pas (AE 101 :
   `identite.ts` identique).
-- Suite, avec le schéma 14 (une seule montée, une PR backprod) : un mur par **travées** (`{ de, a, nature: mur | poteaux |
-  garde-corps | ouvert }`, et le recul d'un tronçon de mur sous un toit continu), un bow-window **sans toit propre** ; le retour d'angle d'un auvent (deux corps liés, sinon un corps en L).
-- Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points 131 (étalon 25,
-  le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, auvent ouvert, bow-window dessous, retour du porche).
+- Schéma 14 (une seule montée, bertrandra/backprod#253 déployée d'abord) : un mur en **travées** (`CorpsToit.travees`, `{ mur, de, a,
+  nature: mur | poteaux | garde-corps | ouvert, reculM }`, `facade/modeToit/travees.ts`) — le recul d'un tronçon de mur sous un toit
+  continu (le pied du corps, ses fenêtres et ses pignons reculent, le toit ne bouge pas), un porche ouvert avec garde-corps sur la rive
+  basse d'un appentis ; un bow-window **sans toit propre** (`SaillieFacade.toit = 'aucun'`). Le **retour d'angle** d'un auvent
+  (`decroche.ts::retourDAngle`) : deux corps liés sans champ nouveau (`toitCorps3d.ts::boutsLies` : murs hauts qui se rejoignent en équerre,
+  même largeur et mêmes hauteurs), les pans coupés sur la diagonale (un arêtier), un poteau à l'angle. Changer la forme d'un corps
+  replace ses pignons à leur place relative quand il change de dimensions sans tourner.
+- Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `travees.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points
+  131 (étalon 25, le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, la partie droite du mur reculée de 50 cm, auvent
+  ouvert avec garde-corps à droite et retour d'angle, bow-window sans toit propre dessous).
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.

@@ -12,7 +12,7 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
-import { corpsAFusionner, fusionnerCorps, scinderCorps } from '../../facade/modeToit/decroche.js';
+import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
@@ -87,6 +87,7 @@ type Choisi = () => { t: { type: TypeElement; rang: number; i: number }; corps: 
 
 /** Les gestes sur un corps choisi : le tourner, le couper en deux, le reunir a son voisin (decision du 4 novembre 2026). */
 function declarerGestesDesCorps(commande: Declarer, choisi: Choisi, mode: ReturnType<typeof creerModeToit>): void {
+  // Les gestes sur un corps choisi : le tourner, le couper, le reunir, lui faire retourner l'angle.
   commande('toit.tourner', 'Tourner le corps', () => choisi()?.t.type === 'corps', (source) => {
     const c = choisi(), sens = source?.dataset.sens === '-1' ? -1 : 1;
     if (c && c.t.type === 'corps') mode.ecrire((x) => { champsBatiment(x).corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); champsBatiment(x).toitFige = true; });
@@ -95,6 +96,14 @@ function declarerGestesDesCorps(commande: Declarer, choisi: Choisi, mode: Return
   commande('toit.scinder', 'Couper le corps en deux', () => { const c = choisi(); return c?.t.type === 'corps' && !!scinderCorps(c.corps, c.t.rang); }, () => {
     const c = choisi(), l = c && c.t.type === 'corps' ? scinderCorps(c.corps, c.t.rang) : null;
     if (!c || !l) return;
+    mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
+    mode.selectionner({ type: 'corps', rang: l.length - 1, i: 0 });
+  });
+  // Le retour d'un appentis a l'angle de la maison : un second corps lie, en equerre (data-cote : gauche ou droite, vu de face).
+  commande('toit.retour', 'Retour d’angle', () => { const c = choisi(); return c?.t.type === 'corps' && (!!retourDAngle(c.corps, c.t.rang, 'gauche') || !!retourDAngle(c.corps, c.t.rang, 'droite')); }, (source) => {
+    const c = choisi(), cote = source?.dataset.cote === 'gauche' ? 'gauche' : 'droite';
+    const l = c && c.t.type === 'corps' ? retourDAngle(c.corps, c.t.rang, cote) : null;
+    if (!l) { showToast('Pas de retour possible de ce côté : un corps y est déjà lié, ou ce corps n’est pas un appentis.'); return; }
     mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
     mode.selectionner({ type: 'corps', rang: l.length - 1, i: 0 });
   });

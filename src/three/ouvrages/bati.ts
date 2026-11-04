@@ -10,6 +10,7 @@ import { modeToitActif, hauteurMurMesuree } from '../../model/toitMesure.js';
 import { ajouterToitMesure3d } from '../toitMesure3d.js';
 import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from '../toitCorps3d.js';
 import { empriseDeSaillie, separerBowWindows } from '../../facade/modeToit/saillies.js';
+import { contourAvecReculs } from '../../facade/modeToit/travees.js';
 import { corpsVisibles } from '../../facade/modeToit/facadesDesCorps.js';
 import { ajouterCheminees3d } from '../cheminees3d.js';
 import { ajouterTerrasses3d } from '../terrasse3d.js';
@@ -24,7 +25,7 @@ import { apparenceVoisin, fenetresDuVoisin } from '../../model/voisinage3d.js';
 import { valeursFacadesDe } from '../../regles/facades/reglages.js';
 import { fenetres3dDe } from '../../model/fenetres3d.js';
 import { volumesDuBatiment } from '../../facade/profil.js';
-import type { ObjetPlan, PtBrut, VolumeToit, Toit } from '../../model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut, VolumeToit, Toit } from '../../model/types.js';
 import { estBatiment, surParcelleDuProjet } from '../../model/fonctions.js';
 import type { SolRelief } from '../relief3d.js';
 import type { ContexteObjets } from '../typesScene.js';
@@ -68,7 +69,8 @@ export function volumesEnBati(o: ObjetPlan, diag: boolean, h: number, footprint:
     ? [{ pts: footprint, hauteur: surContour.bas, hauteursMurs: surContour.hauteursMurs }]
     : corpsToit
     // Un appentis ouvert n'a pas de prisme : des poteaux le portent, et le mur est celui du corps qui le porte.
-    ? corpsToit.filter((c) => !estAppentisOuvert(c)).map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
+    // Un mur en travees reculees (schema 14) : le pied du corps suit ses reculs, le toit reste celui du rectangle.
+    ? corpsToit.filter((c) => !estAppentisOuvert(c)).map((c) => piedDuCorps(c))
     : toitMesure
     ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
     : volumesToit
@@ -149,4 +151,10 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
         ...(corpsToit?.some(estAppentisOuvert) ? { ouverts: corpsToit.filter(estAppentisOuvert) } : {}) }
     );
   }
+}
+
+/** Le prisme d'un corps : son pied (ses murs recules compris) et la hauteur de chaque mur ; un retour de recul a l'egout le plus bas. */
+export function piedDuCorps(c: CorpsToit): { pts: PtBrut[]; hauteur: number; hauteursMurs: number[] } {
+  const bas = Math.min(...c.egouts), h = hauteursMursCorps(c), pied = contourAvecReculs(c);
+  return { pts: pied.pts, hauteur: bas, hauteursMurs: pied.cotes.map((k) => (k.mur >= 0 ? h[k.mur] ?? bas : bas)) };
 }

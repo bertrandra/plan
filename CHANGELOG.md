@@ -5,7 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+**Schéma 14** : la plateforme doit l'accepter **avant** la livraison de Plan qui l'écrit (bertrandra/backprod#253, migration
+`Version20261104090000`, à appliquer en production d'abord). Un document n'est écrit au 14 que s'il porte une travée ou un bow-window sans
+toit propre ; la migration 13 → 14 est l'identité (un ancien fichier s'ouvre identique).
+
 ### Ajouté
+
+- Mode Toit (Vue 3D), schéma 14 : **un mur en travées**. « Travée » (onglet « Façade ») pose sur le mur regardé d'un corps un tronçon
+  qui a sa nature (mur plein, ouvert sur poteaux, poteaux et garde-corps, ouvert sans rien) et, pour un mur plein, son recul sous le toit
+  (0,25 à 1 m) : le toit reste continu, son débord grandit d'autant, le pied du corps, ses fenêtres et ses pignons reculent avec le mur.
+  Sur la rive basse d'un appentis, une travée pose un garde-corps (deux lisses, des barreaux) entre les poteaux. Une travée se choisit par
+  sa pastille, se règle dans le même panneau, ses deux bords se tirent à la poignée, elle se retire.
+- Mode Toit : **le retour d'un auvent à l'angle** (« Retour d'angle », à gauche ou à droite) : un second appentis lié, en équerre,
+  même largeur, même égout, même faîtage ; les deux pans se coupent en arêtier sur la diagonale, la rive basse est continue, un poteau
+  porte l'angle. Sans champ nouveau : deux corps liés se reconnaissent à leurs murs hauts qui se rejoignent.
+- Mode Toit, schéma 14 : **un bow-window sans toit propre** (« Sans toit propre (sous un auvent) ») : ses murs se ferment à leur
+  hauteur, le toit de l'auvent le couvre.
+- Changer la forme d'un corps garde ses pignons à leur place relative le long de leur mur quand le corps change de dimensions sans
+  tourner (ils étaient perdus).
 
 - Mode Toit (Vue 3D) : **modifier ce qui existe avec les gestes de l'ajout** (demande du propriétaire, 4 novembre 2026). Un corps, même
   seul, se choisit par sa pastille et se règle dans le même panneau : ouvert sur poteaux ou fermé, et le retrait des poteaux ou du mur,

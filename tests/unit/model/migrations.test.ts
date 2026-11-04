@@ -331,3 +331,29 @@ describe('la migration 12 -> 13 : les murs a plusieurs parties basses', () => {
     expect(schemaMinimal(illisible as unknown as ObjetAPlat[])).toBe(2);
   });
 });
+
+describe('la migration 13 -> 14 : les batiments modifies corps par corps', () => {
+  const corps = (extra: Record<string, unknown> = {}) => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4], pignons: [], ecart: 0, ...extra });
+
+  it('lit un document de schema 13 tel quel, au schema qui le decrit', () => {
+    const d = { objects: [batiment({ corpsToit: [corps()] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 13)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 13)?.apporte).toMatch(/travées/);
+    expect(schemaMinimal(relu(d.objects, 13) as unknown as ObjetAPlat[])).toBeLessThan(14);
+  });
+
+  it('s ecrit au 14 des qu un corps porte des travees ou un bow-window sans toit propre, et les relit a l identique', () => {
+    const travees = [{ mur: 2, de: 3.7, a: 10, nature: 'mur', reculM: 0.5 }, { mur: 0, de: 0, a: 4, nature: 'garde-corps' }];
+    const avec = relu([batiment({ corpsToit: [corps({ travees })] } as unknown as Partial<ObjetAPlat>)], 14);
+    expect((avec[0]!.corpsToit as Record<string, unknown>[])[0]!.travees).toEqual(travees);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(14);
+    expect(relu(avec, 14)).toEqual(avec);
+    // Une travee mal formee est retiree a la lecture : le corps garde sa forme d'avant.
+    const illisible = relu([batiment({ corpsToit: [corps({ travees: [{ mur: 7, de: 0, a: 1, nature: 'mur' }, { mur: 0, de: 2, a: 1, nature: 'mur' }] })] } as unknown as Partial<ObjetAPlat>)], 14);
+    expect((illisible[0]!.corpsToit as Record<string, unknown>[])[0]).not.toHaveProperty('travees');
+    const bow = { genre: 'bow-window', hote: 0, mur: 2, centreM: 2, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'aucun' };
+    const sous = relu([batiment({ corpsToit: [corps(), corps({ saillie: bow })] } as unknown as Partial<ObjetAPlat>)], 14);
+    expect(((sous[0]!.corpsToit as Record<string, unknown>[])[1]!.saillie as Record<string, unknown>).toit).toBe('aucun');
+    expect(schemaMinimal(sous as unknown as ObjetAPlat[])).toBe(14);
+  });
+});

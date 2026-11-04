@@ -23,6 +23,8 @@ import { angleDuPlusLongCote } from '../facade/toits/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
+import { coupeParDefaut, gaucheEnDebut } from '../facade/modeToit/decroche.js';
+import { traveeNeuve } from '../facade/modeToit/travees.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
 import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, Toit, TypeLucarne } from '../model/types.js';
 import { champsBatiment } from '../model/champsFonction.js';
@@ -66,7 +68,9 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'facade:bow-arc', famille: 'facade', libelle: 'Bow en arc', cachee: true },
   { id: 'facade:bow-conge', famille: 'facade', libelle: 'Bow arrondi', cachee: true },
   { id: 'facade:galerie', famille: 'facade', libelle: 'Galerie' },
-  { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' }
+  { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' },
+  // Une travee du mur regarde (schema 14) : un mur recule sous le toit, ou, sous un appentis, un garde-corps entre ses poteaux.
+  { id: 'facade:travee', famille: 'facade', libelle: 'Travée' }
 ];
 
 export const piece = (id: string): PieceCatalogue | undefined => PIECES.find((p) => p.id === id);
@@ -236,6 +240,13 @@ export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoi
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
   const choisi = corpsChoisi(o, rangChoisi);
   if (p.famille === 'toit') return null;
+  if (id === 'facade:travee') {
+    // Une travee se pose sur le mur regarde d'un corps (celui du corps choisi, s'il y en a un).
+    if (!facade || facade.rang === null) return 'Regardez d’abord la façade où poser la travée : touchez son mur.';
+    const corps = o.batiment?.corpsToit ?? [], rang = rangDuCorpsChoisi(corps, rangChoisi);
+    if (rang !== null && rang !== facade.rang) return 'La façade regardée n’est pas celle du corps choisi.';
+    return corps[facade.rang]?.saillie ? 'Une travée se pose sur le mur d’un corps, pas sur un élément de façade.' : null;
+  }
   if (p.famille === 'corps') {
     const h = choisi ?? corpsPrincipal(o);
     if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
@@ -316,13 +327,18 @@ function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
 function gardeCeQuiEstPose(avant: CorpsToit, apres: CorpsToit): CorpsToit {
   const neuf: CorpsToit = { ...apres };
   if (avant.cheminees?.length) neuf.cheminees = avant.cheminees;
-  const r0 = repere(avant.pts), r1 = repere(apres.pts);
-  const memeSens = Math.abs(r0.u.x * r1.u.x + r0.u.y * r1.u.y) > 0.999 && Math.abs(r0.L - r1.L) < 0.05 && Math.abs(r0.W - r1.W) < 0.05;
+  const r0 = repere(avant.pts), r1 = repere(apres.pts), cos = r0.u.x * r1.u.x + r0.u.y * r1.u.y;
   const forme = formeDuCorps(apres);
-  if (!memeSens || forme === 'appentis') return neuf;
-  // Un pignon monte au moins un peu au-dessus de l'egout de son pan.
-  neuf.pignons = avant.pignons.map((g) => ({ ...g, faitage: Math.max(g.faitage, apres.egouts[g.pan] + 0.5) }));
-  if (forme !== 'plat') {
+  // Le faitage tourne : le mur qui portait les pignons n'est plus un long pan, rien de ce qui s'y comptait n'a plus de place.
+  if (Math.abs(cos) < 0.999 || forme === 'appentis') return neuf;
+  // Le mur porteur existe encore : chaque pignon garde sa place relative le long de lui (et son pan, retourne si le sens l'est).
+  const k = r1.L / r0.L, rel = (s: number) => (cos > 0 ? s * k : r1.L - s * k);
+  neuf.pignons = avant.pignons.map((g) => {
+    const a = rel(g.debut), b = rel(g.fin), pan = (cos > 0 ? g.pan : g.pan === 0 ? 1 : 0) as 0 | 1;
+    return { ...g, pan, debut: dixieme(Math.min(a, b)), fin: dixieme(Math.max(a, b)), faitage: Math.max(g.faitage, apres.egouts[pan] + 0.5) };
+  });
+  const memeSens = cos > 0.999 && Math.abs(r0.L - r1.L) < 0.05 && Math.abs(r0.W - r1.W) < 0.05;
+  if (forme !== 'plat' && memeSens) {
     if (avant.lucarnes?.length) neuf.lucarnes = avant.lucarnes.map((l) => ({ ...l, faitageM: Math.min(l.faitageM, dixieme(apres.faitage - 0.1)) }));
     if (avant.elementsToit?.length) neuf.elementsToit = avant.elementsToit;
   }
@@ -360,6 +376,14 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     if (estFormeToit(forme.e.id)) toit.forme = forme.e.id;
     toit.source = 'saisie';
     delete toit.pente;
+  } else if (id === 'facade:travee') {
+    const c = facade && facade.rang !== null ? o.batiment?.corpsToit?.[facade.rang] : undefined;
+    if (!c || !facade) return false;
+    // Sur un long mur, la travee part du bord du pignon qui avance (sinon du milieu) ; sur un mur de bout, du milieu.
+    const coupe = facade.mur % 2 === 0 ? coupeParDefaut(c, facade.mur, 'droite') : repere(c.pts).W / 2;
+    c.travees = [...(c.travees ?? []), traveeNeuve(c, facade.mur, coupe, gaucheEnDebut(c, facade.mur))];
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
   } else if (prefixe === 'corps') {
     const hote = choisi ?? corpsPourPoser(o);
     const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.batiment?.corpsToit ?? []) : null;

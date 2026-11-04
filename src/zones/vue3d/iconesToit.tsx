@@ -18,6 +18,8 @@ const TRACES: Record<string, ReactNode> = {
   'toit:pan': <path d="M4 20V6M4 6l14 8v6H4" />,
   'toit:plat': <path d="M4 20V6M4 12h14v8H4" />,
   'toit:pavillon': <path d="M4 20V6M4 12l7-6 7 6v8H4" />,
+  // Sans toit propre : la boite sous le pan d'un auvent, dessine en pointille.
+  'toit:aucun': <><path d="M4 20V6M4 13h12v7H4" /><path d="M4 9l16 4" strokeDasharray="2 2" /></>,
   // Une galerie sur poteaux, ou fermee.
   'ouvert:poteaux': <path d="M3 8h18M6 8v12M12 8v12M18 8v12" />,
   'ouvert:mur': <path d="M3 8h18v12H3z" />,

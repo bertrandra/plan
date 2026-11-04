@@ -31,6 +31,7 @@ import { dessinCouverture, textureCouverture, matiereCouverture } from './couver
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
+import { contourAvecReculs } from '../facade/modeToit/travees.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, carreauxDesDetails, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
@@ -373,20 +374,52 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
  */
 function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut[], corps: readonly CorpsToit[], options: OptionsDetails): void {
   corps.forEach((c, k) => {
+    // Le pied du corps : ses murs recules compris (schema 14) ; sans recul, son rectangle.
+    const pied = contourAvecReculs(c), pts = pied.pts;
     const dedans = centroid(c.pts);
-    const interieurs = c.pts.map((_: PtBrut, i: number) => i).filter((i: number) => !segmentEnFacade(au(c.pts, i), sommetDe(c.pts, i + 1), dedans, batiment));
+    // Un mur recule est en facade quand le mur du corps dont il vient l'est (il est en retrait du contour, pas dedans) ; un retour de
+    // recul ne porte pas de fenetre.
+    const enFacadeMur = c.pts.map((_: PtBrut, m: number) => segmentEnFacade(au(c.pts, m), sommetDe(c.pts, m + 1), dedans, batiment));
+    const interieurs = pts.map((_: PtBrut, i: number) => i).filter((i: number) => {
+      const q = pied.cotes[i];
+      if (!q || pts.length === c.pts.length) return !segmentEnFacade(au(pts, i), sommetDe(pts, i + 1), dedans, batiment);
+      return q.mur < 0 || !enFacadeMur[q.mur];
+    });
     // Les murs releves du batiment se designent par leurs cotes du contour : le corps ecarte les siens
     // qui les doublent. Sans cela, le mur photographie recevait aussi la grille des fenetres automatiques.
-    const releves = options.cotesReleves?.length ? cotesSurLesCotes(c.pts, batiment, options.cotesReleves) : [];
+    const releves = options.cotesReleves?.length ? cotesSurLesCotes(pts, batiment, options.cotesReleves) : [];
     const sansAutomatiques = [...new Set([...interieurs, ...releves])];
     const bas = Math.min(...c.egouts);
     const largeur = options.fenetres?.largeur, hauteur = options.fenetres?.hauteur;
+    const h = hauteursMursCorps(c);
+    const pignons = fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M);
     // Un mur commun se traite comme un mur releve : la disposition automatique ne le touche pas.
-    poserOuvertures(ctx, c.pts, [{ pts: c.pts, hauteur: bas, hauteursMurs: hauteursMursCorps(c) }], bas, {
+    poserOuvertures(ctx, pts, [{ pts, hauteur: bas, hauteursMurs: pied.cotes.map((q) => (q.mur >= 0 ? h[q.mur] ?? bas : bas)) }], bas, {
       ...options, cotesReleves: sansAutomatiques, porte: k === 0,
-      ouverturesHautes: fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M).filter((f) => !sansAutomatiques.includes(f.cote)),
+      ouverturesHautes: (pts.length === c.pts.length ? pignons : pignons.map((f) => surLePied(c, pts, pied.cotes, f)).filter((f): f is Fenetre3d => !!f)).filter((f) => !sansAutomatiques.includes(f.cote)),
     });
   });
+}
+
+/** Une fenetre de pignon posee sur un mur du rectangle du corps, reportee sur le cote du pied qui le porte la ou il recule. */
+function surLePied(c: CorpsToit, pied: readonly PtBrut[], cotes: readonly { mur: number }[], f: Fenetre3d): Fenetre3d | null {
+  const g = facadesDuContour(c.pts, 0).find((x) => x.cote === f.cote);
+  if (!g) return null;
+  const k = (f.x + f.l / 2) / g.largeur, centre = { x: g.gauche.x + (g.droite.x - g.gauche.x) * k, y: g.gauche.y + (g.droite.y - g.gauche.y) * k };
+  const faces = facadesDuContour(pied, 0);
+  let meilleur: { cote: number; x: number } | null = null, dmin = Infinity;
+  cotes.forEach((q, j) => {
+    if (q.mur !== f.cote) return;
+    const fj = faces.find((x) => x.cote === j);
+    if (!fj) return;
+    const ux = (fj.droite.x - fj.gauche.x) / fj.largeur, uy = (fj.droite.y - fj.gauche.y) / fj.largeur;
+    const x = (centre.x - fj.gauche.x) * ux + (centre.y - fj.gauche.y) * uy;
+    if (x < 0 || x > fj.largeur) return;
+    const d = Math.abs((centre.x - fj.gauche.x) * uy - (centre.y - fj.gauche.y) * ux);
+    if (d < dmin) { dmin = d; meilleur = { cote: j, x: x - f.l / 2 }; }
+  });
+  const m = meilleur as { cote: number; x: number } | null;
+  return m ? { ...f, cote: m.cote, x: m.x } : null;
 }
 
 /**

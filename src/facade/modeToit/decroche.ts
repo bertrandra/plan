@@ -68,14 +68,23 @@ export function raisonSansDecroche(corps: readonly CorpsToit[], rang: number, mu
 }
 
 /**
+ * Le debut du mur `mur` (`pts[mur]`) est-il a sa gauche, vu de face (de dehors, devant lui) ? Vu de dehors, la droite est a (-n.y, n.x),
+ * `n` la normale qui sort du corps. L'ordre des sommets ne le dit pas : il depend du corps.
+ */
+export function gaucheEnDebut(c: CorpsToit, mur: number): boolean {
+  const { u, n } = murDuCorps(c, mur);
+  return u.x * -n.y + u.y * n.x > 0;
+}
+
+/**
  * Ou couper le mur, en metres depuis sa gauche (vue de face) : au bord du pignon qui avance quand le mur en porte (le pignon le plus a
  * gauche quand la droite recule, le plus a droite sinon : le volume du pignon est celui qui reste devant, comme a AE 101), sinon au
  * milieu.
  */
 export function coupeParDefaut(c: CorpsToit, mur: number, cote: 'droite' | 'gauche'): number {
-  const L = repere(c.pts).L, pan = mur === 0 ? 0 : 1;
-  // Le mur 0 va de s = 0 a s = L, le mur 2 de s = L a s = 0 : l'abscisse depuis la gauche du mur.
-  const x = (s: number) => (mur === 0 ? s : L - s);
+  const L = repere(c.pts).L, pan = mur === 0 ? 0 : 1, gauche = gaucheEnDebut(c, mur);
+  // Le mur 0 va de s = 0 a s = L, le mur 2 de s = L a s = 0 ; l'abscisse depuis la gauche du mur, vue de face.
+  const x = (s: number) => { const depuisDebut = mur === 0 ? s : L - s; return gauche ? depuisDebut : L - depuisDebut; };
   const pignons = c.pignons.filter((g) => g.pan === pan).map((g) => [Math.min(x(g.debut), x(g.fin)), Math.max(x(g.debut), x(g.fin))] as const);
   const bord = cote === 'droite'
     ? pignons.reduce<readonly [number, number] | null>((m, g) => (!m || g[0] < m[0] ? g : m), null)?.[1]
@@ -91,7 +100,7 @@ export function decrocherCorps(corps: readonly CorpsToit[], rang: number, mur: n
   if (raisonSansDecroche(corps, rang, mur)) return null;
   const c = corps[rang] as CorpsToit, r = repere(c.pts), L = r.L, W = r.W;
   const d = Math.min(recul, W - PARTIE_MIN_M);
-  const x = Math.min(Math.max(coupe ?? coupeParDefaut(c, mur, cote), PARTIE_MIN_M), L - PARTIE_MIN_M), sc = mur === 0 ? x : L - x;
+  const xg = Math.min(Math.max(coupe ?? coupeParDefaut(c, mur, cote), PARTIE_MIN_M), L - PARTIE_MIN_M), x = gaucheEnDebut(c, mur) ? xg : L - xg, sc = mur === 0 ? x : L - x;
   const droiteEnS = mur === 0 ? 'haut' : 'bas';
   const reculeEnHaut = (cote === 'droite') === (droiteEnS === 'haut');
   const [g0, g1, d0, d1] = reculeEnHaut ? [0, sc, sc, L] : [sc, L, 0, sc];
@@ -229,4 +238,34 @@ export function fusionnerCorps(corps: readonly CorpsToit[], rang: number): Corps
 /** Retire le corps `k` de la liste ; les saillies posees sur un corps plus loin descendent d'un rang. */
 function retirerUnCorps(corps: readonly CorpsToit[], k: number): CorpsToit[] {
   return corps.flatMap((x, i) => (i === k ? [] : x.saillie && x.saillie.hote > k ? [{ ...x, saillie: { ...x.saillie, hote: x.saillie.hote - 1 } }] : [x]));
+}
+
+/** La longueur d'un retour d'angle pose d'un geste, le long du mur de bout de la maison, en metres ; ses bouts se tirent ensuite. */
+export const LONGUEUR_RETOUR_M = 3;
+
+/**
+ * Le retour d'un appentis a l'angle de la maison (deux corps lies, decision du proprietaire du 4 novembre 2026) : un second appentis, de
+ * meme largeur, meme egout et meme faitage, dont le mur haut part du bout du mur haut du premier, en equerre, le long du mur de bout. Les
+ * deux pans se coupent sur la diagonale de l'angle (three/toitCorps3d.ts, `boutsLies`) : un aretier, une rive basse continue, une
+ * gouttiere. `cote` : le bout du premier, vu de face (de dehors, devant sa rive basse). Null : pas un appentis, ou deja lie de ce cote.
+ */
+export function retourDAngle(corps: readonly CorpsToit[], rang: number, cote: 'gauche' | 'droite'): CorpsToit[] | null {
+  const a = corps[rang];
+  if (!a || a.saillie || a.speciale || formeDuCorps(a) !== 'appentis') return null;
+  const r = repere(a.pts), hautEnT0 = a.posFaitage <= 0.01;
+  // La normale qui sort de la rive basse ; vu de face, la droite est a (-n.y, n.x).
+  const n = hautEnT0 ? r.v : { x: -r.v.x, y: -r.v.y }, droite = { x: -n.y, y: n.x };
+  const auBout = (droite.x * r.u.x + droite.y * r.u.y > 0) === (cote === 'droite') ? r.L : 0;
+  const coin = point(r, auBout, hautEnT0 ? 0 : r.W), dehors = auBout > 0 ? r.u : { x: -r.u.x, y: -r.u.y };
+  const P = (p: PtBrut): PtBrut => ({ x: centi(p.x), y: centi(p.y) });
+  const long = LONGUEUR_RETOUR_M, W = r.W;
+  const p1 = { x: coin.x - n.x * long, y: coin.y - n.y * long };
+  const b: CorpsToit = {
+    pts: [P(coin), P(p1), P({ x: p1.x + dehors.x * W, y: p1.y + dehors.y * W }), P({ x: coin.x + dehors.x * W, y: coin.y + dehors.y * W })],
+    posFaitage: 0, faitage: a.faitage, egouts: hautEnT0 ? [a.egouts[0], a.egouts[1]] : [a.egouts[1], a.egouts[0]], pignons: [], ecart: 0,
+    ...(a.ouvert !== undefined ? { ouvert: a.ouvert } : {}), ...(a.retraitM !== undefined ? { retraitM: a.retraitM } : {}), ...(a.bords ? { bords: a.bords } : {})
+  };
+  // Deja lie de ce cote : un autre corps a son mur haut sur ce coin.
+  if (corps.some((k, i) => i !== rang && !k.saillie && k.pts.some((q) => Math.hypot(q.x - coin.x, q.y - coin.y) < 0.05) && formeDuCorps(k) === 'appentis')) return null;
+  return [...corps, b];
 }
