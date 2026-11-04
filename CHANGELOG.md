@@ -13,9 +13,9 @@ continue sous le sol posé (#561, nouvel objectif `facades.enchainement.murSousL
 démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.6.0 ; preuve
 forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
 `glb-structure.json` sont identiques. Schéma inchangé (13) : aucun ordre de la plateforme au-delà de celui de la 5.6.0. Fumée complète
-lancée en parallèle (Fumée de la nuit, run RUN_NUIT), livraison sans l'attendre par décision du propriétaire ; un point rouge donnera
+lancée en parallèle (Fumée de la nuit, run 41798971397), livraison sans l'attendre par décision du propriétaire ; un point rouge donnera
 une 5.7.1 ; requêtes inchangées depuis la 5.6.0 (ni `deploy/` ni les descriptions des sujets, ni l'image envoyée à
-Claude : #561 ne change que le verdict de l'É5), vérifiées sans la mesure (run RUN_API).
+Claude : #561 ne change que le verdict de l'É5), vérifiées sans la mesure (run 41798975466 : 9 sur 9, 0,037 $).
 
 ### Corrigé
 
