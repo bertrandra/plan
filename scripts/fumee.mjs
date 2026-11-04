@@ -17,6 +17,7 @@
 // FUMEE_DELAI_POINT=150 : un point qui ne conclut pas en 150 s echoue, nomme, au lieu de pendre.
 // FUMEE_CAPTURES=dossier : la page de chaque point en echec, en PNG, pour la lire apres coup.
 // FUMEE_ECHELLE=2 : la densite de pixels des captures (deviceScaleFactor), 1 par defaut.
+// FUMEE_TEMPS=1 : le temps d'ouverture de la demonstration et, pour le point 132, celui de chaque etape et de chaque geste dans la page.
 // FUMEE_LOT=ci (ou l'argument `ci`) : le lot joue a chaque PR, avec ses reglages (LOTS, plus bas).
 
 import { createRequire } from 'node:module';
@@ -4168,7 +4169,14 @@ const POINTS = {
     // gauche, sans toit propre, que l'auvent couvre (aucun poteau devant lui ni a gauche). « Valider » : une etape, le toit fige ; un Ctrl+Z du projet rend la maison lue.
     // Les choix de l'inspecteur se touchent par leur evenement : le panneau se remet en page pendant que la camera se cadre sur
     // l'element choisi, et un clic de pointeur attend une stabilite qui ne vient pas a temps sur une scene aussi chargee.
-    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    // FUMEE_TEMPS=1 : le temps de chaque etape et, dans la page, celui de chaque geste (le travail synchrone de son clic).
+    const temps = [], chrono = !!process.env.FUMEE_TEMPS;
+    const etape = async (nom, g) => { const t0 = Date.now(); try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } finally { if (chrono) temps.push(nom + ' ' + (Date.now() - t0)); } };
+    if (chrono) await page.evaluate(() => {
+      window.__gestes = [];
+      document.addEventListener('click', (e) => { window.__debutGeste = performance.now(); window.__nomGeste = e.target?.dataset?.commande || e.target?.closest?.('[data-commande]')?.dataset?.commande || e.target?.tagName; }, true);
+      window.addEventListener('click', () => { window.__gestes.push(window.__nomGeste + ' ' + Math.round(performance.now() - window.__debutGeste)); });
+    });
     const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
     const capture = process.env.FUMEE_CAPTURE_AE101;
     await page.evaluate((d) => {
@@ -4187,9 +4195,17 @@ const POINTS = {
     }, ae101);
     const lire = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); return { corps: JSON.parse(JSON.stringify(o.batiment?.corpsToit ?? [])), fige: !!o.batiment?.toitFige }; });
     const depart = await lire();
-    await page.evaluate(() => window.__plan.executer('vue.3d'));
-    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
-    await image3dStable(page, 3000);
+    await etape('vue 3d', async () => { await page.evaluate(() => window.__plan.executer('vue.3d')); await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }); });
+    // La Vue 3D en Économe, la preference de l'appareil (comme le lot `ci`) : au bureau, sans carte graphique, une image de la parcelle
+    // en Normale coute plusieurs secondes et chaque geste en attend une (mesure du 4 novembre 2026, 465 s) ; rien de ce que le point
+    // verifie ne depend de la qualite du rendu.
+    await etape('économe', () => page.evaluate(() => {
+      const sel = document.querySelector('#terrasse3dQualite');
+      if (!sel || sel.value === 'econome') return;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'econome');
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }));
+    await etape('image stable', () => image3dStable(page, 3000));
     // Le bouton de la scene (le meme que les points 97 et 98) ; sur cette scene chargee, un clic d'interface attend sa stabilite : la commande.
     // La vue de la photo du proprietaire : debout devant la facade aux deux pignons, a 9 m, l'oeil a 1,6 m, le regard a mi-facade.
     // Le batiment isole (ni cloture ni voisins devant lui) et le panneau replie : la vue de la photo, dans la session.
@@ -4211,21 +4227,20 @@ const POINTS = {
         sc.controls.update();
         window.__posePhoto = [sc.camera.position.clone(), sc.controls.target.clone()];
       });
-      await image3dStable(page, 2500);
+      await etape('image stable', () => image3dStable(page, 2500));
       // Pour l'image seulement : le panneau, les poignees et leurs cotes ne cachent pas la facade (au bureau, le panneau ne se replie pas).
       const masque = await page.addStyleTag({ content: '.panneauToit, .poigneesToit, .navigateurToit, .planToit { visibility: hidden !important; }' });
       await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
       await masque.evaluate((n) => n.remove());
       await replier();
     };
-    await page.evaluate(() => window.__plan.executer('toit.modifier'));
-    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    await etape('mode toit', async () => { await page.evaluate(() => window.__plan.executer('toit.modifier')); await page.locator('.panneauToit').waitFor({ timeout: 60000 }); });
     await page.evaluate(() => window.__plan.executer('toit.isoler'));
     await vuePhoto('photo-avant');
-    const facade = async (rang, mur) => {
+    const facade = async (rang, mur) => etape('facade ' + rang + ':' + mur, async () => {
       await page.evaluate(([r, m]) => document.querySelector('path.murNav[data-rang="' + r + '"][data-mur="' + m + '"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })), [rang, mur]);
       await page.waitForTimeout(500);
-    };
+    });
     const lacher = () => page.evaluate(() => window.__plan.executer('toit.selection'));
     const poser = async (onglet, piece) => {
       await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).dispatchEvent('click', {}, { timeout: 20000 }));
@@ -4234,7 +4249,7 @@ const POINTS = {
     };
     // La facade aux deux pignons : le mur 2 du corps principal (le pan sud, ou le fait pose les deux pignons).
     await facade(0, 2);
-    await image3dStable(page, 1500);
+    await etape('image stable', () => image3dStable(page, 1500));
     if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-avant.png' }).catch(() => {});
     // Le corps principal reste UN corps, UN toit : plat entre les deux pignons de la facade, qui restent poses dessus (« Toit plat »,
     // corps choisi). Rien n'est coupe : un toit ne s'ouvre jamais.
@@ -4274,29 +4289,37 @@ const POINTS = {
     // Le bow-window va a gauche de la facade (sous le grand pignon) : sa poignee « Position », tiree vers la gauche jusqu'a ce que son
     // milieu soit a moins de 2,2 m du bout du mur.
     const centreBow = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit.find((c) => c.saillie?.genre === 'bow-window')?.saillie.centreM ?? null);
-    for (let k = 0; k < 6 && ((await centreBow()) ?? 0) > 2.2; k++) {
-      const pos = page.locator('[data-poignee="pos"] .pointPoignee').first();
-      const b = (await pos.count()) ? await pos.boundingBox() : null;
+    const tBow = Date.now();
+    // Un seul glisser, de la longueur qu'il faut : l'echelle de la vue (pixels par metre) se lit entre les poignees « Position » (au
+    // milieu du bow-window) et « Largeur » (a son bord droit), a la meme distance du mur.
+    for (let k = 0; k < 3 && ((await centreBow()) ?? 0) > 2.2; k++) {
+      const pos = page.locator('[data-poignee="pos"] .pointPoignee').first(), larg = page.locator('[data-poignee="larg"] .pointPoignee').first();
+      const b = (await pos.count()) ? await pos.boundingBox() : null, bl = (await larg.count()) ? await larg.boundingBox() : null;
       if (!b) break;
-      await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, -80, 0);
-      await page.waitForTimeout(400);
+      const demi = await page.evaluate(() => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit.find((c) => c.saillie?.genre === 'bow-window')?.saillie.largeurM ?? 2.4) / 2);
+      const pxParM = bl ? Math.max(5, Math.abs(bl.x - b.x) / demi) : 40;
+      const dx = -Math.min(600, (((await centreBow()) ?? 2) - 1.7) * pxParM);
+      await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, dx, 0, 3);
+      await page.waitForTimeout(300);
     }
+    if (chrono) temps.push('tirer le bow ' + (Date.now() - tBow));
+    const tHaut = Date.now();
     const haut = page.locator('[data-poignee="haut"] .pointPoignee').first();
     const boite = (await haut.count()) ? await haut.boundingBox() : null;
-    if (boite) { await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height / 2 }, 0, 25); await page.waitForTimeout(400); }
+    if (boite) { await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height / 2 }, 0, 25, 3); await page.waitForTimeout(300); }
+    if (chrono) temps.push('abaisser le bow ' + (Date.now() - tHaut));
     await lacher();
     await facade(0, 2);
-    await image3dStable(page, 2000);
+    await etape('image stable', () => image3dStable(page, 2000));
     if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-apres.png' }).catch(() => {});
     await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
-    await image3dStable(page, 1500);
+    await etape('image stable', () => image3dStable(page, 1500));
     if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-apres-3d.png' }).catch(() => {});
     await vuePhoto('photo-apres');
     const fin = await lire();
-    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
-    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    await etape('valider', async () => { await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 }); await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 }); });
     const valide = await lire();
-    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await etape('annuler', () => page.evaluate(() => window.__plan.executer('objet.annuler')));
     await page.waitForTimeout(300);
     const defait = await lire();
     const bow = fin.corps.find((c) => c.saillie?.genre === 'bow-window');
@@ -4315,6 +4338,7 @@ const POINTS = {
     const bowSansToit = bow?.saillie?.toit === 'aucun';
     const ok = plat && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
       && bow.saillie.centreM <= 2.2 && bowSansToit && reculOk && !!gardeCorps && !!retour && retour.ouvert === true && valide.fige && memesCorps && sans;
+    if (chrono) console.log('[temps 132 ' + f.nom + '] ' + temps.join(' | ') + ' || gestes : ' + (await page.evaluate(() => window.__gestes.join(' | '))));
     return { ok, mesure: `${depart.corps.length} corps lus, ${apresPlat.corps.length} après « Toit plat » ; corps principal ${plat ? 'plat, ses ' + principal.pignons.length + ' pignons gardés' : 'PAS PLAT OU PIGNONS PERDUS'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', milieu à ' + bow.saillie.centreM.toFixed(2) + ' m du bout gauche, égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; ${bowSansToit ? 'sans toit propre' : 'AVEC UN TOIT'} ; mur sud ${reculOk ? 'reculé de 0,50 m à droite du grand pignon (' + recul.de.toFixed(2) + ' m)' : 'PAS RECULÉ'} ; garde-corps ${gardeCorps ? 'de ' + gardeCorps.de.toFixed(2) + ' à ' + gardeCorps.a.toFixed(2) + ' m' : 'ABSENT'} ; retour d’angle ${retour ? (retour.ouvert ? 'ouvert' : 'FERMÉ') : 'ABSENT'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   133: async (page, f) => {

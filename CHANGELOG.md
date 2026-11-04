@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Fumée, point 132 (AE 101 au Mode Toit) : de 465 s à 83 s au bureau (large, clair, sans carte graphique). La mesure
+  (`FUMEE_TEMPS=1`) montre que le code de chaque geste reste court (13 à 100 ms, « Valider » 150 à 250 ms) et que le temps part
+  dans les images de la Vue 3D en qualité Normale, rendues par le processeur : chaque geste en attend une, chaque glisser autant que
+  de pas. Le point passe la Vue 3D en Économe (la préférence de l'appareil, comme le lot `ci`) et place le bow-window d'un seul
+  glisser mesuré au lieu de six ; aucune vérification n'est retirée, le délai ne change pas.
+
 ### Ajouté
 
 - Mode Toit, travées : **une travée ouverte agit aussi sur un corps fermé** (décision du propriétaire, 4 novembre 2026 : « un garage
