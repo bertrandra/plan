@@ -5,6 +5,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Tests et fumée : les cas de calibration des points 100, 101, 103, 126 et 127 et la maison photographiée de
+  `facadesAutomatiques.test.ts` viennent du catalogue des étalons (`casEtalon`, `etalonPourLAudit`) au lieu d'être écrits ou peints à la
+  main : un gabarit recopié, une photo et une maison de moins à tenir. Aucun comportement de Plan ne change.
+
 ### Ajouté
 
 - Admin › Calibrer la détection, étalons de synthèse : **« Créer le projet de démonstration »** pour huit étalons (02, 07, 16, 20, 22,
