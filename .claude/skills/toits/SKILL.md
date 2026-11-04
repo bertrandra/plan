@@ -198,7 +198,9 @@ mur haut. Pas de débord en reprise.
 Un appentis ouvert (`ouvert: true`) n'a pas de prisme (`estAppentisOuvert`, `scene.ts`) : des poteaux, et le mur
 du corps qui le porte derrière ; sous lui, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`), et pas de poteau
 devant un bow-window que son toit couvre. Le débord réglé sur un corps (`bords.debordEgoutM`, `saillieRiveM`) remplace celui du dessin.
-La personne règle tout cela, et coupe ou réunit des corps (sans jamais ouvrir un toit), au Mode Toit (`MD/spec-mode-toit-3d.md`, « Modifier ce qui
+Un mur en travées (schéma 14, `facade/modeToit/travees.ts`) recule sous un toit continu (`contourAvecReculs` : le pied du corps, ses
+fenêtres, ses pignons) ou porte un garde-corps entre les poteaux d'un appentis ; deux appentis dont les murs hauts se rejoignent en équerre
+sont liés (`boutsLies`) : arêtier, rive basse continue. La personne règle tout cela, et coupe ou réunit des corps (sans jamais ouvrir un toit), au Mode Toit (`MD/spec-mode-toit-3d.md`, « Modifier ce qui
 existe ») : des décisions figées (`toitFige`), jamais une règle du moteur. Un appentis adossé à un autre corps n'a ni rive ni débord
 au-delà de son mur haut (`appentisAdosse`) : son toit s'arrête au nu des murs ; ses fenêtres ne sont pas posées s'il est ouvert.
 

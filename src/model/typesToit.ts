@@ -114,6 +114,11 @@ export interface CorpsToit {
   /** Le recul des poteaux d'un appentis ouvert depuis le bord de l'egout, en metres ; absent : le dessin d'avant (12 cm). */
   retraitM?: number;
   /**
+   * Les travees de ses murs (schema 14, decision du proprietaire du 4 novembre 2026) : un troncon d'un mur, sa nature, et son recul sous
+   * le toit. Absentes : chaque mur d'un seul tenant, le dessin d'avant (un appentis ouvert sur ses poteaux, un corps ferme de ses murs).
+   */
+  travees?: TraveeMur[];
+  /**
    * Cet element est pose sur un mur d'un autre corps (bow-window, galerie, appentis) : ce qui le place et le forme.
    * Absent : un corps du toit comme les autres. Le rectangle `pts` en est calcule (facade/modeToit/saillies.ts).
    */
@@ -125,6 +130,23 @@ export interface CorpsToit {
    * propre toit. Absent : un corps ordinaire. Sans effet sur le dessin, qui la traite comme un corps plat ou un appentis.
    */
   baie?: BaieToit;
+}
+
+/** Ce qu'est une travee d'un mur : un mur plein, des poteaux, des poteaux et un garde-corps, ou rien (ouvert). */
+export type NatureTravee = 'mur' | 'poteaux' | 'garde-corps' | 'ouvert';
+
+/**
+ * Une travee d'un mur d'un corps (schema 14) : le mur `mur` (de `pts[mur]` a `pts[mur + 1]`), de `de` a `a` metres depuis `pts[mur]`, sa
+ * nature, et le recul du mur vers l'interieur sous le toit (un decroche : le toit reste continu, son debord grandit d'autant). La nature ne
+ * change que le mur bas d'un appentis ouvert ou ferme (les poteaux et le garde-corps d'un porche) ; le recul, un mur plein.
+ */
+export interface TraveeMur {
+  mur: number;
+  de: number;
+  a: number;
+  nature: NatureTravee;
+  /** Le recul du mur sous le toit, en metres (0 a 3) ; absent : au nu du mur. */
+  reculM?: number;
 }
 
 /** Un element pose sur un pan : une fenetre de toit (velux) ou un panneau solaire. */
@@ -160,8 +182,8 @@ export interface SaillieFacade {
   profondeurM: number;
   forme: FormeSaillie;
   niveau: 'rdc' | 'toit';
-  /** Le toit propre : un pan contre le mur, quatre pans, ou plat. */
-  toit: 'pan' | 'pavillon' | 'plat';
+  /** Le toit propre : un pan contre le mur, quatre pans, plat, ou aucun (schema 14 : un bow-window sous un auvent, que le toit de l'auvent couvre). */
+  toit: 'pan' | 'pavillon' | 'plat' | 'aucun';
   /** Sa hauteur a l'egout, en metres, quand la personne la regle ; absente : celle du `niveau` (un etage, ou l'egout de la maison). */
   hauteurM?: number | undefined;
   /** La couverture d'un auvent (lot L1) ; absente : celle du dessin d'un appentis. */

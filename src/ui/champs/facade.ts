@@ -257,8 +257,8 @@ function champsSaillies(c: ContexteChamps): Champ[] {
             lire: (cc) => cc.obj.batiment?.corpsToit?.[rang]?.egouts[0] ?? 0, ecrire: (cc, v) => { regler(cc, { hauteurM: Math.min(Math.max(v, 1), HAUTEUR_BOW_MAX_M) }); } } satisfies Champ
         ] : []),
         { type: 'choix', cle: 'toit', libelle: 'Toit', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
-          options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }],
-          lire: (cc) => lire(cc)?.toit ?? 'pan', ecrire: (cc, v) => { regler(cc, { toit: v === 'plat' ? 'plat' : v === 'pavillon' ? 'pavillon' : 'pan' }); } },
+          options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }, { valeur: 'aucun', libelle: 'Aucun (sous un auvent)' }],
+          lire: (cc) => lire(cc)?.toit ?? 'pan', ecrire: (cc, v) => { regler(cc, { toit: v === 'plat' ? 'plat' : v === 'pavillon' ? 'pavillon' : v === 'aucun' ? 'aucun' : 'pan' }); } },
         nombre('largeur', 'Largeur', 'largeurM', 0.6, murLong),
         nombre('saillie', 'Saillie', 'profondeurM', 0.3, () => 6),
         nombre('position', 'Position sur le mur', 'centreM', 0, murLong),

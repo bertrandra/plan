@@ -174,7 +174,9 @@ export function facettesBowWindow(c: CorpsToit): { pans: Pt3[][]; murs: Pt3[][] 
   const large = (q: PtBrut): PtBrut => { const { s, t } = ST(q); return point(r, L / 2 + (s - L / 2) * ((L + 2 * deb) / L), t * ((d + deb) / d)); };
   const eT = e.map(large);
   const toit = c.saillie?.toit ?? 'pan';
-  if (toit === 'plat') pans.push(eT.map((q) => Z(q, top)));
+  // Sans toit propre (schema 14) : le toit d'un auvent le couvre ; ses murs se ferment a leur hauteur, sans debord ni couverture.
+  if (toit === 'aucun') murs.push(e.map((q) => Z(q, top)));
+  else if (toit === 'plat') pans.push(eT.map((q) => Z(q, top)));
   else if (toit === 'pan') pans.push(eT.map((q) => Z(q, top + (F - top) * (1 - T(q) / d))));
   else if (c.saillie?.forme && c.saillie.forme !== 'rectangle') {
     const apex = { x: eT.reduce((t, q) => t + q.x, 0) / eT.length, y: eT.reduce((t, q) => t + q.y, 0) / eT.length };

@@ -85,6 +85,7 @@ export function cadreDe(corps: readonly CorpsToit[], t: CibleGlisser): CadreFaca
   if (!c) return null;
   if (t.type === 'facade') { const m = murDuCorps(c, t.mur); return { o: m.a, u: m.u, n: m.n, L: m.L }; }
   if (t.type === 'corps') { const m = murDuCorps(c, 0); return { o: m.a, u: m.u, n: m.n, L: m.L }; }
+  if (t.type === 'travee') { const k = c.travees?.[t.i]; if (!k) return null; const m = murDuCorps(c, k.mur); return { o: m.a, u: m.u, n: m.n, L: m.L }; }
   if (t.type === 'saillie' && c.saillie) {
     const h = corps[c.saillie.hote];
     if (!h) return null;
@@ -141,6 +142,16 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
       { id: 'retrait', point: P(s.centreM, Math.max(0.1, s.profondeurM - (c.retraitM ?? 0)), 0.4), axes: ['prof'], libelle: 'Retrait du mur' }
     );
     return l;
+  }
+  if (t.type === 'travee') {
+    // Une travee : ses deux bords se tirent le long du mur, a mi-hauteur du mur (sur le mur recule quand il recule).
+    const k = c.travees?.[t.i];
+    if (!k) return [];
+    const z = egoutDeLaFacade(c, k.mur) / 2, d = -(k.reculM ?? 0);
+    return [
+      { id: 'gauche', point: P(k.de, d, z), axes: ['long'], libelle: 'Bord gauche' },
+      { id: 'droite', point: P(k.a, d, z), axes: ['long'], libelle: 'Bord droit' }
+    ];
   }
   if (t.type === 'pignon') {
     const g = c.pignons[t.i];
@@ -303,6 +314,7 @@ export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
     return [{ cle: 'w', texte: fr(g.fin - g.debut) }, { cle: 'ang', texte: Math.round((Math.atan2(g.faitage - e, demi) * 180) / Math.PI) + '°' }, { cle: 'h', texte: fr(g.faitage) }, ...(g.saillieM ? [{ cle: 'prof', texte: fr(g.saillieM) }] : [])];
   }
   if (t.type === 'lucarne') { const l = c.lucarnes?.[t.i]; return l ? [{ cle: 'w', texte: fr(l.finM - l.debutM) }, { cle: 'h', texte: fr(l.faitageM) }] : []; }
+  if (t.type === 'travee') { const k = c.travees?.[t.i]; return k ? [{ cle: 'w', texte: fr(k.a - k.de) }, ...((k.reculM ?? 0) > 0 ? [{ cle: 'prof', texte: 'recul ' + fr(k.reculM ?? 0) }] : [])] : []; }
   if (t.type === 'cheminee') { const h = c.cheminees?.[t.i]; return h ? [{ cle: 'w', texte: fr(h.largeurM) }, { cle: 'h', texte: fr(h.sommetM) }] : []; }
   const e = c.elementsToit?.[t.i];
   return e ? [{ cle: 'w', texte: fr((e.type === 'solaire' ? 2.55 : 0.8) * (e.echelle ?? 1)) }] : [];
@@ -435,6 +447,15 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     if (id === 'larg') { const fin = borne(coller(l.finM + dl), l.debutM + 0.6, Math.min(l.debutM + 3, f.L - 0.1)); return { corps: avec(depart, t.rang, { ...c, lucarnes: remplace(c.lucarnes, t.i, { ...l, finM: centi(fin) }) }), guides }; }
     if (id === 'haut') return { corps: avec(depart, t.rang, { ...c, lucarnes: remplace(c.lucarnes, t.i, { ...l, faitageM: centi(borne(l.faitageM + dv, c.egouts[l.pan] + 0.6, c.faitage - 0.1)) }) }), guides };
     return rien;
+  }
+  if (t.type === 'travee') {
+    const k = c.travees?.[t.i];
+    if (!k) return rien;
+    // Les bords d'une travee se collent aux bords des autres travees du meme mur, aux bouts du mur, et restent dans le mur.
+    const bordsT = [0, f.L, ...(c.travees ?? []).flatMap((x, j) => (j !== t.i && x.mur === k.mur ? [x.de, x.a] : []))];
+    const colle = (v: number) => { const a = aimanter(v, bordsT); if (a.colle !== null) guides.push(a.colle); return a.v; };
+    const neuve = id === 'gauche' ? { ...k, de: centi(borne(colle(k.de + dl), 0, k.a - 0.3)) } : id === 'droite' ? { ...k, a: centi(borne(colle(k.a + dl), k.de + 0.3, f.L)) } : null;
+    return neuve ? { corps: avec(depart, t.rang, { ...c, travees: remplace(c.travees, t.i, neuve) }), guides } : rien;
   }
   if (t.type === 'cheminee') {
     const h = c.cheminees?.[t.i];

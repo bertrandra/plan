@@ -75,7 +75,12 @@ export const APP_VERSION = '5.7.0';
 // la liste au premier enregistrement, et lirait le mur sans ses parties basses (surface, volumes, 3D) : seul un fichier qui en porte une
 // s'ecrit au 13. La migration 12 -> 13 est l'identite. La plateforme accepte 13 depuis bertrandra/backprod#252 (migration
 // Version20261103090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
-export const SCHEMA_VERSION = 13;
+// 14 : un batiment modifie corps par corps au Mode Toit (MD/spec-mode-toit-3d.md, decision du proprietaire du 4 novembre 2026) : les
+// travees d'un mur (`CorpsToit.travees` : un troncon recule sous un toit continu, un porche ouvert sur poteaux avec garde-corps) et le
+// bow-window sans toit propre sous un auvent (`SaillieFacade.toit = 'aucun'`). Un lecteur 13 les perdrait au premier enregistrement ;
+// seul un batiment qui en porte s'ecrit au 14. La migration 13 -> 14 est l'identite. La plateforme accepte 14 depuis
+// bertrandra/backprod#253 (migration Version20261104090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+export const SCHEMA_VERSION = 14;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;

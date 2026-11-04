@@ -12,9 +12,10 @@ import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
-import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PignonToit, PtBrut, SaillieFacade, TypeLucarne } from '../../model/types.js';
+import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
+import { RECULS_TRAVEE_M } from './travees.js';
 
-export type TypeElement = 'corps' | 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire';
+export type TypeElement = 'corps' | 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire' | 'travee';
 
 export interface CibleElement { type: TypeElement; rang: number; i: number }
 
@@ -26,6 +27,12 @@ const LIBELLES_LUCARNE: Record<string, string> = {
 };
 
 const centi = (v: number) => Math.round(v * 100) / 100;
+
+/** Les natures d'une travee, dites a l'inspecteur. */
+const LIBELLES_NATURE: Record<NatureTravee, string> = { mur: 'Mur plein', poteaux: 'Ouvert, sur poteaux', 'garde-corps': 'Poteaux et garde-corps', ouvert: 'Ouvert, sans rien' };
+
+/** Le nom d'une travee dans les pastilles et l'inspecteur. */
+const LIBELLES_TRAVEE: Record<NatureTravee, string> = { mur: 'Travée de mur', poteaux: 'Travée sur poteaux', 'garde-corps': 'Garde-corps', ouvert: 'Travée ouverte' };
 const borne = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 
 /** Tous les elements du batiment, dans l'ordre ou on les presente : ce qui est pose sur une facade, puis ce qui est sur le toit. */
@@ -39,13 +46,14 @@ export function listerElements(corps: readonly CorpsToit[]): ElementListe[] {
   corps.forEach((c, rang) => (c.lucarnes ?? []).forEach((x, i) => l.push({ cible: { type: 'lucarne', rang, i }, libelle: LIBELLES_LUCARNE[x.type] ?? 'Lucarne' })));
   corps.forEach((c, rang) => (c.cheminees ?? []).forEach((_, i) => l.push({ cible: { type: 'cheminee', rang, i }, libelle: 'Cheminée' })));
   corps.forEach((c, rang) => (c.elementsToit ?? []).forEach((x, i) => l.push({ cible: { type: x.type, rang, i }, libelle: x.type === 'solaire' ? 'Solaire' : 'Fenêtre de toit' })));
+  corps.forEach((c, rang) => (c.travees ?? []).forEach((x, i) => l.push({ cible: { type: 'travee', rang, i }, libelle: (x.reculM ?? 0) > 0 ? 'Mur reculé' : LIBELLES_TRAVEE[x.nature] })));
   return l;
 }
 
 export const memeCible = (a: CibleElement | null, b: CibleElement | null): boolean => !!a && !!b && a.type === b.type && a.rang === b.rang && a.i === b.i;
 
 /** L'element que nomme la cible dans cette liste de corps, ou null s'il n'existe plus (une annulation l'a retire). */
-export function lireElement(corps: readonly CorpsToit[], t: CibleElement): CorpsToit | SaillieFacade | PignonToit | Lucarne | Cheminee | ElementDeToit | null {
+export function lireElement(corps: readonly CorpsToit[], t: CibleElement): CorpsToit | SaillieFacade | PignonToit | Lucarne | Cheminee | ElementDeToit | TraveeMur | null {
   const c = corps[t.rang];
   if (!c) return null;
   switch (t.type) {
@@ -54,6 +62,7 @@ export function lireElement(corps: readonly CorpsToit[], t: CibleElement): Corps
     case 'pignon': return c.pignons[t.i] ?? null;
     case 'lucarne': return c.lucarnes?.[t.i] ?? null;
     case 'cheminee': return c.cheminees?.[t.i] ?? null;
+    case 'travee': return c.travees?.[t.i] ?? null;
     default: { const e = c.elementsToit?.[t.i]; return e && e.type === t.type ? e : null; }
   }
 }
@@ -75,6 +84,7 @@ export function supprimerElement(corps: readonly CorpsToit[], t: CibleElement): 
   if (t.type === 'pignon') neuf.pignons = sans(c.pignons, t.i);
   else if (t.type === 'lucarne') { neuf.lucarnes = sans(c.lucarnes, t.i); if (!neuf.lucarnes.length) delete neuf.lucarnes; }
   else if (t.type === 'cheminee') { neuf.cheminees = sans(c.cheminees, t.i); if (!neuf.cheminees.length) delete neuf.cheminees; }
+  else if (t.type === 'travee') { neuf.travees = sans(c.travees, t.i); if (!neuf.travees.length) delete neuf.travees; }
   else { neuf.elementsToit = sans(c.elementsToit, t.i); if (!neuf.elementsToit.length) delete neuf.elementsToit; }
   return avec(corps, t.rang, neuf);
 }
@@ -89,7 +99,8 @@ function placeLibre(longueur: number, largeur: number, depart: number, occupes: 
 /** Duplique l'element a cote de lui. Null : pas de place (une facade pleine). Rend les nouveaux corps et la cible de la copie. */
 export function dupliquerElement(corps: readonly CorpsToit[], t: CibleElement): { corps: CorpsToit[]; cible: CibleElement } | null {
   const c = corps[t.rang];
-  if (!c) return null;
+  // Une travee ne se double pas : deux travees sur le meme troncon se contrediraient. On en pose une autre, ou on tire ses bords.
+  if (!c || t.type === 'travee') return null;
   const r = repere(c.pts);
   if (t.type === 'saillie' && c.saillie) {
     const s = c.saillie, hote = corps[s.hote];
@@ -139,7 +150,8 @@ export function dupliquerElement(corps: readonly CorpsToit[], t: CibleElement): 
 /** Agrandit (+1) ou reduit (-1) l'element d'un cran. Les bornes sont celles de la maquette : un pignon de 1,4 a 8 m, un bow-window de 1,2 a 6 m, un element de 0,5 a 2,2. */
 export function redimensionnerElement(corps: readonly CorpsToit[], t: CibleElement, sens: 1 | -1): CorpsToit[] {
   const c = corps[t.rang];
-  if (!c) return corps.slice();
+  // Une travee se regle par ses poignees (ses deux bords), pas par un cran.
+  if (!c || t.type === 'travee') return corps.slice();
   const r = repere(c.pts);
   if (t.type === 'saillie' && c.saillie) {
     const h = corps[c.saillie.hote];
@@ -268,7 +280,7 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
     if (c.saillie.genre === 'bow-window') return [
       { groupe: 'forme', valeurs: [{ valeur: 'pans', libelle: 'Pans coupés' }, { valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Rectangle arrondi' }] },
       { groupe: 'niveau', valeurs: [{ valeur: 'rdc', libelle: 'Sous le premier étage' }, { valeur: 'toit', libelle: 'Monte jusqu’au toit' }] },
-      { groupe: 'toit', valeurs: [{ valeur: 'pan', libelle: 'Toit à un pan' }, { valeur: 'plat', libelle: 'Toit plat' }, { valeur: 'pavillon', libelle: 'Toit en pointe' }] }
+      { groupe: 'toit', valeurs: [{ valeur: 'pan', libelle: 'Toit à un pan' }, { valeur: 'plat', libelle: 'Toit plat' }, { valeur: 'pavillon', libelle: 'Toit en pointe' }, { valeur: 'aucun', libelle: 'Sans toit propre (sous un auvent)' }] }
     ];
     return [
       { groupe: 'ouvert', valeurs: [{ valeur: 'poteaux', libelle: 'Sur poteaux' }, { valeur: 'mur', libelle: 'Fermée' }] },
@@ -285,6 +297,14 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
     if (penteReglable(c)) l.push({ groupe: 'pente', valeurs: PENTES_DEG.map((v) => ({ valeur: String(v), libelle: 'Pente de ' + v + '°' })) });
     if (sensReglable(corps, t.rang)) l.push({ groupe: 'sens', valeurs: [{ valeur: 'long', libelle: 'Faîtage dans la longueur' }, { valeur: 'court', libelle: 'Faîtage dans la largeur' }] });
     if (!c.speciale) l.push({ groupe: 'debord', valeurs: DEBORDS_M.map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Sans débord' : 'Débord de ' + String(v).replace('.', ',') + ' m' })) });
+    return l;
+  }
+  if (t.type === 'travee') {
+    const k = c?.travees?.[t.i];
+    if (!k) return [];
+    const l: GroupeChoix[] = [{ groupe: 'nature', valeurs: (['mur', 'poteaux', 'garde-corps', 'ouvert'] as const).map((v) => ({ valeur: v, libelle: LIBELLES_NATURE[v] })) }];
+    // Seul un mur plein recule sous le toit.
+    if (k.nature === 'mur') l.push({ groupe: 'recul', valeurs: RECULS_TRAVEE_M.map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Au nu du mur' : 'Reculé de ' + String(v).replace('.', ',') + ' m sous le toit' })) });
     return l;
   }
   if (t.type === 'pignon') return [
@@ -341,6 +361,12 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
     return p ? SAILLIES_PIGNON.reduce((m, v) => (Math.abs(v - r) < Math.abs(m - r) ? v : m), 0).toString() : null;
   }
   if (t.type === 'lucarne' && groupe === 'lucarne') return c.lucarnes?.[t.i]?.type ?? null;
+  if (t.type === 'travee') {
+    const k = c.travees?.[t.i];
+    if (!k) return null;
+    if (groupe === 'nature') return k.nature;
+    if (groupe === 'recul') { const r = k.reculM ?? 0, v = RECULS_TRAVEE_M.find((x) => Math.abs(x - r) <= 0.02); return v === undefined ? null : String(v); }
+  }
   if (groupe === 'pan') { const p = panDe(c, t); return p === null ? null : String(p); }
   return null;
 }
@@ -370,7 +396,7 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
   if (t.type === 'saillie' && c.saillie) {
     if (groupe === 'forme' && ['pans', 'rectangle', 'arc', 'conge'].includes(valeur)) return replacerSaillie(corps, t.rang, { forme: valeur as SaillieFacade['forme'] });
     if (groupe === 'niveau' && (valeur === 'rdc' || valeur === 'toit')) return replacerSaillie(corps, t.rang, { niveau: valeur, hauteurM: undefined });
-    if (groupe === 'toit' && (valeur === 'pan' || valeur === 'plat' || valeur === 'pavillon')) return replacerSaillie(corps, t.rang, { toit: valeur });
+    if (groupe === 'toit' && (valeur === 'pan' || valeur === 'plat' || valeur === 'pavillon' || valeur === 'aucun')) return replacerSaillie(corps, t.rang, { toit: valeur });
     if (groupe === 'ouvert') {
       // Poteaux ou mur : la galerie est ouverte, l'appentis ferme ; le genre suit pour que le nom de la ligne reste juste.
       const ouvert = valeur === 'poteaux';
@@ -412,6 +438,18 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
     return l ? avec(corps, t.rang, { ...c, lucarnes: remplace(c.lucarnes, t.i, { ...l, type: valeur as TypeLucarne }) }) : corps.slice();
   }
   if (groupe === 'pan' && (valeur === '0' || valeur === '1') && deuxPans(c)) return changerDePan(corps, t, valeur === '0' ? 0 : 1);
+  if (t.type === 'travee' && c.travees?.[t.i]) {
+    const k = c.travees[t.i] as TraveeMur;
+    let neuve: TraveeMur | null = null;
+    if (groupe === 'nature' && (valeur === 'mur' || valeur === 'poteaux' || valeur === 'garde-corps' || valeur === 'ouvert')) {
+      // Le recul ne vaut que pour un mur plein : il part avec une autre nature.
+      neuve = { mur: k.mur, de: k.de, a: k.a, nature: valeur, ...(valeur === 'mur' && k.reculM ? { reculM: k.reculM } : {}) };
+    }
+    if (groupe === 'recul' && k.nature === 'mur' && RECULS_TRAVEE_M.includes(Number(valeur))) {
+      neuve = { mur: k.mur, de: k.de, a: k.a, nature: 'mur', ...(Number(valeur) > 0 ? { reculM: Number(valeur) } : {}) };
+    }
+    if (neuve) return avec(corps, t.rang, { ...c, travees: remplace(c.travees, t.i, neuve) });
+  }
   return corps.slice();
 }
 
@@ -466,5 +504,6 @@ export function facadeDeLElement(corps: readonly CorpsToit[], t: CibleElement): 
   if (!c) return null;
   if (t.type === 'pignon') { const p = c.pignons[t.i]; return p ? { rang: t.rang, mur: p.pan === 1 ? 2 : 0 } : null; }
   if (t.type === 'saillie' && c.saillie) return { rang: c.saillie.hote, mur: c.saillie.mur };
+  if (t.type === 'travee') { const k = c.travees?.[t.i]; return k ? { rang: t.rang, mur: k.mur } : null; }
   return null;
 }

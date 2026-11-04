@@ -4163,9 +4163,9 @@ const POINTS = {
     // AE 101 tel que le proprietaire le voit (decisions du 4 novembre 2026) : la maison lue par le moteur (corps sous les faits,
     // tests/fixtures/toits/vesinet-ae101.json, la sortie automatique qu'identite.ts garde), puis retouchee dans le mode Toit avec les
     // gestes de la personne : le corps principal en toit plat, ses deux pignons de facade gardes (un corps, un toit, jamais de trou) ;
-    // l'auvent reste un seul corps a la rive basse droite, ouvert sur poteaux ; un bow-window a gauche, sous l'auvent, qui le porte (aucun
-    // poteau devant lui ni a gauche) ; une galerie qui retourne sur le pignon est. Le recul de 50 cm du mur (un decroche de mur sous un
-    // toit continu) demande un champ nouveau : il vient avec le schema 14. « Valider » : une etape, le toit fige ; un Ctrl+Z du projet rend la maison lue.
+    // la partie droite du mur sud reculee de 50 cm sous ce toit (une travee, schema 14) ; l'auvent reste un seul corps a la rive basse
+    // droite, ouvert sur poteaux, un garde-corps a droite (une travee), et son retour a l'angle droit (deux corps lies) ; un bow-window a
+    // gauche, sans toit propre, que l'auvent couvre (aucun poteau devant lui ni a gauche). « Valider » : une etape, le toit fige ; un Ctrl+Z du projet rend la maison lue.
     // Les choix de l'inspecteur se touchent par leur evenement : le panneau se remet en page pendant que la camera se cadre sur
     // l'element choisi, et un clic de pointeur attend une stabilite qui ne vient pas a temps sur une scene aussi chargee.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
@@ -4243,6 +4243,11 @@ const POINTS = {
     await poser('Toit', 'forme:plat');
     const apresPlat = await lire();
     const principal = apresPlat.corps[0];
+    // Le volume du grand pignon avance de 50 cm : la partie droite du mur sud recule sous le toit continu (« Travée », schema 14).
+    await lacher();
+    await facade(0, 2);
+    await poser('Façade', 'facade:travee');
+    const recul = (await lire()).corps[0].travees?.[0] ?? null;
     // L'auvent (le corps a un pan adosse au mur sud) : ouvert sur poteaux.
     const W = (c) => Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
     const rangAuvent = apresPlat.corps.findIndex((c) => !c.saillie && !c.baie && c.posFaitage <= 0.01 && c.faitage - Math.min(...c.egouts) > 0.3 && W(c) < 3);
@@ -4250,12 +4255,21 @@ const POINTS = {
     await etape('pastille de l’auvent', () => page.locator('.puceToit[data-type="corps"][data-rang="' + rangAuvent + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await etape('auvent ouvert', () => page.locator('.inspecteurToit [data-groupe="ouvert"][data-valeur="poteaux"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await page.waitForTimeout(300);
-    // Le bow-window, a gauche (la partie qui avance), sous l'auvent : toit plat, sous la rive de l'auvent.
+    // A droite, un garde-corps entre les poteaux de l'auvent (une travee de sa rive basse) ; puis le retour du porche a l'angle droit.
+    await lacher();
+    await facade(rangAuvent, 2);
+    await poser('Façade', 'facade:travee');
+    await lacher();
+    await etape('pastille de l’auvent (retour)', () => page.locator('.puceToit[data-type="corps"][data-rang="' + rangAuvent + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('retour d’angle', () => page.locator('[data-commande="toit.retour"][data-cote="droite"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await page.waitForTimeout(400);
+    const apresRetour = await lire();
+    // Le bow-window, a gauche (la partie qui avance), sous l'auvent : sans toit propre, le toit de l'auvent le couvre.
     await lacher();
     await facade(0, 2);
     await poser('Façade', 'facade:bow-window');
     await etape('bow-window a pans', () => page.locator('.inspecteurToit [data-groupe="forme"][data-valeur="pans"]').dispatchEvent('click', {}, { timeout: 20000 }));
-    await etape('bow-window toit plat', () => page.locator('.inspecteurToit [data-groupe="toit"][data-valeur="plat"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('bow-window sans toit propre', () => page.locator('.inspecteurToit [data-groupe="toit"][data-valeur="aucun"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await page.waitForTimeout(300);
     // Le bow-window va a gauche de la facade (sous le grand pignon) : sa poignee « Position », tiree vers la gauche jusqu'a ce que son
     // milieu soit a moins de 2,2 m du bout du mur.
@@ -4270,10 +4284,6 @@ const POINTS = {
     const haut = page.locator('[data-poignee="haut"] .pointPoignee').first();
     const boite = (await haut.count()) ? await haut.boundingBox() : null;
     if (boite) { await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height / 2 }, 0, 25); await page.waitForTimeout(400); }
-    // Le retour du porche sur le pignon est : une galerie sur le mur de bout est du corps principal.
-    await lacher();
-    await facade(0, 3);
-    await poser('Façade', 'facade:galerie');
     await lacher();
     await facade(0, 2);
     await image3dStable(page, 2000);
@@ -4290,7 +4300,9 @@ const POINTS = {
     await page.waitForTimeout(300);
     const defait = await lire();
     const bow = fin.corps.find((c) => c.saillie?.genre === 'bow-window');
-    const galerie = fin.corps.find((c) => c.saillie?.genre === 'galerie');
+    const retour = apresRetour.corps.length === apresPlat.corps.length + 1 ? apresRetour.corps[apresRetour.corps.length - 1] : null;
+    const gardeCorps = fin.corps[rangAuvent]?.travees?.find((t) => t.nature === 'garde-corps') ?? null;
+    const reculOk = !!recul && recul.nature === 'mur' && recul.reculM === 0.5 && Math.abs(recul.de - 3.7) < 0.05;
     const auvent = fin.corps[rangAuvent];
     const auventAvant = depart.corps[rangAuvent];
     const memeRive = auvent && auventAvant && JSON.stringify([auvent.pts[2], auvent.pts[3]]) === JSON.stringify([auventAvant.pts[2], auventAvant.pts[3]]);
@@ -4300,9 +4312,10 @@ const POINTS = {
     const memesCorps = JSON.stringify(canon(defait.corps)) === JSON.stringify(canon(depart.corps));
     const ecart = depart.corps.map((c, k) => (JSON.stringify(c) === JSON.stringify(defait.corps[k]) ? null : k + ' : ' + Object.keys({ ...c, ...defait.corps[k] }).filter((x) => JSON.stringify(c[x]) !== JSON.stringify(defait.corps[k]?.[x])).join(','))).filter(Boolean);
     const plat = !!principal && principal.faitage - Math.min(...principal.egouts) < 0.05 && principal.pignons.length === 2 && apresPlat.corps.length === depart.corps.length;
+    const bowSansToit = bow?.saillie?.toit === 'aucun';
     const ok = plat && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
-      && Math.max(...bow.egouts) < 2.6 && bow.saillie.centreM <= 2.2 && !!galerie && valide.fige && memesCorps && sans;
-    return { ok, mesure: `${depart.corps.length} corps lus, ${apresPlat.corps.length} après « Toit plat » ; corps principal ${plat ? 'plat, ses ' + principal.pignons.length + ' pignons gardés' : 'PAS PLAT OU PIGNONS PERDUS'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', milieu à ' + bow.saillie.centreM.toFixed(2) + ' m du bout gauche, égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; galerie de retour ${galerie ? 'posée' : 'ABSENTE'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
+      && bow.saillie.centreM <= 2.2 && bowSansToit && reculOk && !!gardeCorps && !!retour && retour.ouvert === true && valide.fige && memesCorps && sans;
+    return { ok, mesure: `${depart.corps.length} corps lus, ${apresPlat.corps.length} après « Toit plat » ; corps principal ${plat ? 'plat, ses ' + principal.pignons.length + ' pignons gardés' : 'PAS PLAT OU PIGNONS PERDUS'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', milieu à ' + bow.saillie.centreM.toFixed(2) + ' m du bout gauche, égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; ${bowSansToit ? 'sans toit propre' : 'AVEC UN TOIT'} ; mur sud ${reculOk ? 'reculé de 0,50 m à droite du grand pignon (' + recul.de.toFixed(2) + ' m)' : 'PAS RECULÉ'} ; garde-corps ${gardeCorps ? 'de ' + gardeCorps.de.toFixed(2) + ' à ' + gardeCorps.a.toFixed(2) + ' m' : 'ABSENT'} ; retour d’angle ${retour ? (retour.ouvert ? 'ouvert' : 'FERMÉ') : 'ABSENT'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe

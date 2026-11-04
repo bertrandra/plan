@@ -8,7 +8,7 @@
 // pignons et les cheminees (io/serialisation.ts).
 
 import { boutsDuCorps } from './formeToit.js';
-import type { BordsToit, BoutToit, ElementDeToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TypeLucarne } from './types.js';
+import type { BordsToit, BoutToit, ElementDeToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TraveeMur, TypeLucarne } from './types.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -98,6 +98,10 @@ export function lireChampsEtendus(c: Record<string, unknown>): void {
   if ('bords' in c) { const b = bordsValides(c.bords); if (b) c.bords = b; else delete c.bords; }
   if ('ouvert' in c && typeof c.ouvert !== 'boolean') delete c.ouvert;
   if ('retraitM' in c && !positifOuNul(c.retraitM)) delete c.retraitM;
+  if ('travees' in c) {
+    const l = Array.isArray(c.travees) ? c.travees.map(traveeValide).filter((x): x is TraveeMur => !!x) : [];
+    if (l.length) c.travees = l; else delete c.travees;
+  }
   if ('elementsToit' in c) {
     const l = Array.isArray(c.elementsToit) ? c.elementsToit.map(elementDeToitValide).filter((x): x is ElementDeToit => !!x) : [];
     if (l.length) c.elementsToit = l; else delete c.elementsToit;
@@ -116,6 +120,19 @@ export function elementDeToitValide(v: unknown): ElementDeToit | null {
   return positif(v.echelle) ? { ...base, echelle: v.echelle } : base;
 }
 
+/** Le recul le plus grand d'une travee, en metres : au-dela, ce n'est plus un decroche mais un autre corps. */
+export const RECUL_TRAVEE_MAX_M = 3;
+
+/** Une travee bien formee (schema 14), recopiee sans ses cles inconnues ; null sinon. */
+export function traveeValide(v: unknown): TraveeMur | null {
+  if (!objet(v)) return null;
+  if (typeof v.mur !== 'number' || !Number.isInteger(v.mur) || v.mur < 0 || v.mur > 3) return null;
+  if (!positifOuNul(v.de) || !fini(v.a) || (v.a as number) <= (v.de as number)) return null;
+  if (v.nature !== 'mur' && v.nature !== 'poteaux' && v.nature !== 'garde-corps' && v.nature !== 'ouvert') return null;
+  const base: TraveeMur = { mur: v.mur, de: v.de as number, a: v.a as number, nature: v.nature };
+  return positif(v.reculM) && (v.reculM as number) <= RECUL_TRAVEE_MAX_M ? { ...base, reculM: v.reculM as number } : base;
+}
+
 /** Un element de facade bien forme, recopie sans ses cles inconnues ; null sinon. */
 export function saillieValide(v: unknown): SaillieFacade | null {
   if (!objet(v)) return null;
@@ -123,7 +140,7 @@ export function saillieValide(v: unknown): SaillieFacade | null {
   if (genre !== 'bow-window' && genre !== 'galerie' && genre !== 'appentis' && genre !== 'auvent') return null;
   if (forme !== 'pans' && forme !== 'rectangle' && forme !== 'arc' && forme !== 'conge') return null;
   if (niveau !== 'rdc' && niveau !== 'toit') return null;
-  if (toit !== 'pan' && toit !== 'pavillon' && toit !== 'plat') return null;
+  if (toit !== 'pan' && toit !== 'pavillon' && toit !== 'plat' && toit !== 'aucun') return null;
   if (!positifOuNul(v.hote) || !positifOuNul(v.mur) || !fini(v.centreM) || !positif(v.largeurM) || !positif(v.profondeurM)) return null;
   const base: SaillieFacade = { genre, hote: v.hote, mur: v.mur, centreM: v.centreM, largeurM: v.largeurM, profondeurM: v.profondeurM, forme, niveau, toit };
   if (positif(v.hauteurM)) base.hauteurM = v.hauteurM;
