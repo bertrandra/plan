@@ -21,13 +21,14 @@ import type { CalageVrai, CasStocke, OuvertureVraie } from '../facade/corpusReel
 import { calageVraiDuRejeu } from '../facade/banc/etalons.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
+import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
 import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSansLeMur, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
 import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
 import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
 import { BarreProgressionFacade, COMMANDE_ESCALADE, type EtapeAffichee } from './composants/BarreProgressionFacade.js';
-import { EtapeOuverte, FriseEtapes } from './FriseEtapesCalibration.js';
+import { EtapeOuverte, FriseEtapes, MentionObjectif } from './FriseEtapesCalibration.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { libelleEscalade, type PrixEscalade, type ResultatRun } from '../app/releve/runFacade.js';
 import { passesDeProduction } from '../facade/regles/facades/ia.js';
@@ -146,7 +147,7 @@ function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajust
 }
 
 /** Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer. */
-function VignettesDuCas({ images, courante, origines, choisir, retirer }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; retirer: (k: number) => void }) {
+function VignettesDuCas({ images, courante, origines, choisir, retirer, bilans, photos }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; retirer: (k: number) => void; bilans: readonly BilanPhotoRedressement[] | undefined; photos: CasStocke['photos'] }) {
   if (!images.length) return null;
   return (
     <ul className="calVignettes" aria-label="Photos du cas">
@@ -154,6 +155,7 @@ function VignettesDuCas({ images, courante, origines, choisir, retirer }: { imag
             <li key={k} className={k === courante ? 'actif' : ''}>
               <button type="button" className="calVignette" data-controle="calibration.choisirPhoto" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
               {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
+              <MentionObjectif bilan={bilans?.find((b) => b.rang === k)} parReperes={!!reperesDe(photos[k])} />
               <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirer(k)}>Retirer</button>
             </li>
           ))}
@@ -512,7 +514,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       </div>
 
       <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
-      <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
+      <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} bilans={rejeu?.sorties.audit?.redressement.photos} photos={cas.photos} />
 
       {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
         assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} revenir={revenirAuMurCherche} />}

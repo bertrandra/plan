@@ -119,6 +119,10 @@ describe('l ecran de calibration', () => {
     // Il se rejoue des l'ouverture, comme un cas tire d'un audit.
     await attendreQue(() => !!hote.querySelector('.calFrise'));
     expect(hote.querySelector('.calFrise')).not.toBeNull();
+    // Sa photo n'a pas d'EXIF : la vignette le dit, en alerte (un mot, et le texte entier pour le lecteur d'ecran).
+    const mention = hote.querySelector('.calVignettes .calObjectif') as HTMLElement;
+    expect(mention.classList.contains('alerte')).toBe(true);
+    expect(mention.textContent).toMatch(/^Sans EXIF : (focale supposée|champ lu).*posez quatre repères\.$/);
     expect(deps.enregistrerCas).not.toHaveBeenCalled();
     expect([...stock.keys()]).toEqual(['cas-a']);
   });

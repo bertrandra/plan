@@ -68,6 +68,12 @@ export interface BilanPhotoRedressement {
    * juge comme un mur trouve sans geste (decision du proprietaire, 3 novembre 2026), seul un mur tire a la main est « a la main ».
    */
   murCherche?: { pose: PoseDuMurCherche; lu: boolean };
+  /**
+   * L'objectif que la chaine a pris pour cette photo : le champ de son grand cote, en degres, et d'ou il vient (l'EXIF ; faute d'EXIF,
+   * les points de fuite de la photo, le champ note pour l'appareil, ou celui d'un telephone suppose, CHAMP_GRAND_COTE_DEFAUT). Sans EXIF,
+   * le redressement par les points de fuite peut etre faux : l'E3 le dit. Absent d'un bilan d'avant, ou d'une photo qui ne se lit pas.
+   */
+  objectif?: { source: 'exif' | 'fuites' | 'appareil' | 'defaut'; champDeg: number };
 }
 
 /** D'ou vient la pose du mur cherche sur l'assemblage (facade/releve/calageAncres.ts::PoseRetenue, meme vocabulaire). */

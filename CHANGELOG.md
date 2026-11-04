@@ -17,6 +17,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'écrase plus. Le moteur des toits ne change pas (AE 101 identique) ; aucun champ nouveau, schéma inchangé (13).
 - Fumée : points 131 (le garage de l'étalon 25 passé en carport, Ctrl+Z et Ctrl+Y, validé) et 132 (AE 101 retouché : décroché, auvent
   ouvert, bow-window dessous, retour du porche) ; `FUMEE_ECHELLE` règle la densité des captures.
+- Façades, É3 (redressement) : chaque photo dit si elle a une focale EXIF ou non, d'après ce que la chaîne a réellement pris (l'EXIF ;
+  sinon le champ lu sur les points de fuite, noté pour l'appareil, ou supposé à 67°). Dans Admin › Calibrer la détection, la vignette de
+  la photo et l'É3 ouverte disent « Avec EXIF (focale 26 mm éq.) » ou avertissent « Sans EXIF : focale supposée (67°). Le redressement
+  par les points de fuite peut être faux ; posez quatre repères » (une photo redressée par ses repères n'a que l'information). Quand l'É3
+  n'atteint pas son objectif, son résumé le dit pour chaque photo sans EXIF. Aucun calcul ne change.
 
 ### Corrigé
 
