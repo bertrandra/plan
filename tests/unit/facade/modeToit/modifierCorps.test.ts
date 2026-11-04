@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { appliquerChoix, groupesDe, valeurDuGroupe, listerElements } from '../../../../src/facade/modeToit/elements.js';
 import { coupeParDefaut, corpsAFusionner, decrocherCorps, fusionnerCorps, raisonSansDecroche, scinderCorps } from '../../../../src/facade/modeToit/decroche.js';
-import { appliquerPiece, formeEnPlace, raisonIndisponible } from '../../../../src/three/gestesToits.js';
+import { appliquerPiece, formeEnPlace } from '../../../../src/three/gestesToits.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
@@ -95,13 +95,17 @@ describe('decrocher, couper, reunir', () => {
     expect(raisonSansDecroche([deuxPans()], 0, 1)).toMatch(/long mur/);
   });
 
-  it('un decroche demande la facade regardee', () => {
-    const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 6), batiment: { corpsToit: [deuxPans()] } } as unknown as ObjetPlan;
-    expect(raisonIndisponible(o, 'corps:decroche', null)).toMatch(/Regardez/);
-    expect(raisonIndisponible(o, 'corps:decroche', { rang: 0, mur: 0 })).toBeNull();
-    expect(appliquerPiece(o, 'corps:decroche', { rang: 0, mur: 0 })).toBe(true);
-    expect(o.batiment?.corpsToit).toHaveLength(2);
-    expect(o.batiment?.toitFige).toBe(true);
+  it('changer la forme d un corps garde ses pignons : AE 101, la facade aux deux pignons sur un toit plat', () => {
+    const corps = JSON.parse(JSON.stringify(AE101.corpsAvecFaits)) as CorpsToit[];
+    const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: corps[0]!.pts, batiment: { corpsToit: corps } } as unknown as ObjetPlan;
+    expect(appliquerPiece(o, 'forme:plat', null, 0)).toBe(true);
+    const c = o.batiment!.corpsToit![0]!;
+    expect(c.faitage - Math.min(...c.egouts)).toBeLessThan(0.05);
+    expect(c.pignons).toHaveLength(2);
+    expect(c.pignons.every((g) => g.faitage > c.faitage)).toBe(true);
+    // Un seul corps, un seul toit : rien n'est coupe.
+    expect(o.batiment!.corpsToit).toHaveLength(corps.length);
+    expect(o.batiment!.toitFige).toBe(true);
   });
 
   it('AE 101 : la facade aux deux pignons se decroche au bord du pignon de gauche ; l auvent reste un corps, sa rive basse droite', () => {
@@ -117,6 +121,16 @@ describe('decrocher, couper, reunir', () => {
     expect(l[auvent]!.pts.slice(2)).toEqual(corps[auvent]!.pts.slice(2));
     expect(repere(l[auvent]!.pts).W).toBeCloseTo(repere(corps[auvent]!.pts).W + 0.5, 1);
     expect(l[auvent]!.faitage).toBe(corps[auvent]!.faitage);
+  });
+
+  it('couper un corps ne laisse aucun trou : les deux parties gardent le meme toit, bord a bord', () => {
+    const [a, b] = scinderCorps([deuxPans()], 0) as [CorpsToit, CorpsToit];
+    expect([a.faitage, ...a.egouts]).toEqual([b.faitage, ...b.egouts]);
+    expect(a.posFaitage).toBeCloseTo(b.posFaitage, 6);
+    // Le bout de l'une est le debut de l'autre : la coupe est un mur commun, sans ecart.
+    const ra = repere(a.pts), rb = repere(b.pts);
+    expect(ra.L + rb.L).toBeCloseTo(10, 6);
+    expect(Math.hypot(a.pts[1]!.x - b.pts[0]!.x, a.pts[1]!.y - b.pts[0]!.y)).toBeLessThan(0.011);
   });
 
   it('couper puis reunir rend le rectangle d avant', () => {

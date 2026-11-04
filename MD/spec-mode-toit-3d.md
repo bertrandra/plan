@@ -337,20 +337,21 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   (`bords.debordEgoutM`, que la 3D lit désormais). La **forme** se change par les vignettes de l'onglet « Toit », qui disent celle en place
   (enfoncée, « · en place »).
 - **Lucarne** : son type se change sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau changent de **pan**.
-- **Décroché** (onglet « Corps », sur la façade regardée, un long pan) : la partie droite (vue de face) recule de 50 cm, la gauche en
-  option ; coupée au bord du pignon qui avance s'il y en a un, sinon au milieu (`facade/modeToit/decroche.ts`). Le faîtage reste ;
-  pignons, lucarnes, éléments de façade vont à leur partie. Un appentis adossé au mur reste **un** corps, rive basse droite (une seule
-  gouttière), son mur haut recule jusqu'au mur reculé.
-- **Couper** un corps en deux (`toit.scinder`) et **réunir** deux corps alignés de mêmes hauteurs qui font un rectangle (`toit.fusionner`).
+- **Changer la forme** d'un corps garde ce qui est posé dessus quand cela tient : ses pignons (même sur un toit plat : AE 101, la façade
+  sud aux deux pignons sur un toit plat, où le pignon se ferme sous ses noues), ses souches, ses lucarnes et éléments de toit sur une pente.
+- **Un corps, un toit, jamais de trou** (retour du propriétaire, 4 novembre 2026) : un mur qui recule de 50 cm sous un toit continu (le
+  décroché d'AE 101) n'est pas un corps coupé. Le modèle ne sait pas reculer un tronçon de mur sans couper le corps : c'est un champ du
+  schéma 14 (décroché de mur, par travée, comme les travées ouvertes). La pièce « Décroché » essayée ici est retirée.
+- **Couper** un corps en deux (`toit.scinder`, au bord d'un pignon sinon au milieu ; les deux parties gardent le même toit, bord à bord) et **réunir** deux corps alignés de mêmes hauteurs qui font un rectangle (`toit.fusionner`).
 - 3D : sous un appentis ouvert, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`) ; pas de poteau devant un
-  bow-window que son toit couvre.
+  bow-window que son toit couvre, ni entre lui et le bout qu'il approche à moins d'un entraxe.
 - Chaque réglage est un pas de la session (Ctrl+Z), « Valider » une étape du projet ; tout geste fige le toit (`toitFige`, la règle de
   protection unique, niveau 1 de `model/protections.ts`) : la lecture automatique ne l'écrase plus. Le moteur ne change pas (AE 101 :
   `identite.ts` identique).
-- Suite, avec le schéma 14 (une seule montée, une PR backprod) : un mur ouvert par **travées** (`{ de, a, nature: mur | poteaux |
-  garde-corps | ouvert }`), un bow-window **sans toit propre** ; le retour d'angle d'un auvent (deux corps liés, sinon un corps en L).
+- Suite, avec le schéma 14 (une seule montée, une PR backprod) : un mur par **travées** (`{ de, a, nature: mur | poteaux |
+  garde-corps | ouvert }`, et le recul d'un tronçon de mur sous un toit continu), un bow-window **sans toit propre** ; le retour d'angle d'un auvent (deux corps liés, sinon un corps en L).
 - Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points 131 (étalon 25,
-  le garage en carport), 132 (AE 101 : décroché, auvent ouvert, bow-window dessous, retour du porche).
+  le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, auvent ouvert, bow-window dessous, retour du porche).
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.

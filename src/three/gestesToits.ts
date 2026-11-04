@@ -23,7 +23,6 @@ import { angleDuPlusLongCote } from '../facade/toits/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
-import { decrocherCorps, raisonSansDecroche } from '../facade/modeToit/decroche.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
 import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, Toit, TypeLucarne } from '../model/types.js';
 import { champsBatiment } from '../model/champsFonction.js';
@@ -52,9 +51,6 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'corps:aile', famille: 'corps', libelle: 'Aile', exemple: 'appentis' },
   { id: 'corps:retour', famille: 'corps', libelle: 'Retour', exemple: 'deux-pans' },
   { id: 'corps:biaise', famille: 'corps', libelle: 'Biaise', exemple: 'croupes' },
-  // Le decroche : une partie du long mur regarde recule (facade/modeToit/decroche.ts) ; la droite vue de face, ou la gauche en option.
-  { id: 'corps:decroche', famille: 'corps', libelle: 'Décroché' },
-  { id: 'corps:decroche-gauche', famille: 'corps', libelle: 'Décroché, la gauche recule', cachee: true },
   ...formes.map((e) => ({ id: 'forme:' + e.id, famille: 'toit' as const, libelle: e.titre, exemple: e.id })),
   // Les trois pans : le quatre-pans avec une seule croupe, l'autre bout en pignon. Pas des vignettes a eux : des options sous celle du
   // quatre-pans (zones/vue3d/ModeToit.tsx, OPTIONS_PIECE).
@@ -83,8 +79,7 @@ const dixieme = (v: number) => Math.round(v * 10) / 10;
  * aussi en trois pans, la croupe a un seul bout du faitage (au debut, cote du premier mur de bout, ou a la fin), un pignon a l'autre.
  */
 export const OPTIONS_PIECE: Readonly<Record<string, readonly { id: string; libelle: string }[]>> = {
-  'forme:croupes': [{ id: 'forme:croupes-debut', libelle: 'Croupe au début' }, { id: 'forme:croupes-fin', libelle: 'Croupe à la fin' }],
-  'corps:decroche': [{ id: 'corps:decroche-gauche', libelle: 'La gauche recule' }]
+  'forme:croupes': [{ id: 'forme:croupes-debut', libelle: 'Croupe au début' }, { id: 'forme:croupes-fin', libelle: 'Croupe à la fin' }]
 };
 
 /** Une forme du catalogue a poser : son exemple, et le bout du faitage qui garde seul sa croupe (les trois pans). */
@@ -241,13 +236,6 @@ export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoi
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
   const choisi = corpsChoisi(o, rangChoisi);
   if (p.famille === 'toit') return null;
-  if (id.startsWith('corps:decroche')) {
-    // Le decroche recule une partie du mur regarde : il lui faut une facade d'un corps (celle du corps choisi, s'il y en a un).
-    if (!facade || facade.rang === null) return 'Regardez d’abord la façade à décrocher : touchez son mur.';
-    const rang = rangDuCorpsChoisi(o.batiment?.corpsToit ?? [], rangChoisi);
-    if (rang !== null && rang !== facade.rang) return 'La façade regardée n’est pas celle du corps choisi.';
-    return raisonSansDecroche(o.batiment?.corpsToit ?? [], facade.rang, facade.mur);
-  }
   if (p.famille === 'corps') {
     const h = choisi ?? corpsPrincipal(o);
     if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
@@ -320,6 +308,28 @@ function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
 }
 
 /**
+ * Changer la forme d'un corps garde ce qui est pose dessus quand cela tient encore : ses pignons (un pignon de facade sur un toit plat
+ * aussi : AE 101, les deux pignons de la facade sud sur le toit plat entre eux), ses souches, et ses lucarnes, fenetres de toit et panneaux
+ * sur un toit en pente. Le corps garde son rectangle et son sens (sinon ce qui se compte le long du faitage n'a plus de place), et rien
+ * ne se garde sur un appentis, qui n'a pas de long pan a pignon. Decision du proprietaire, 4 novembre 2026 : modifier, pas remplacer.
+ */
+function gardeCeQuiEstPose(avant: CorpsToit, apres: CorpsToit): CorpsToit {
+  const neuf: CorpsToit = { ...apres };
+  if (avant.cheminees?.length) neuf.cheminees = avant.cheminees;
+  const r0 = repere(avant.pts), r1 = repere(apres.pts);
+  const memeSens = Math.abs(r0.u.x * r1.u.x + r0.u.y * r1.u.y) > 0.999 && Math.abs(r0.L - r1.L) < 0.05 && Math.abs(r0.W - r1.W) < 0.05;
+  const forme = formeDuCorps(apres);
+  if (!memeSens || forme === 'appentis') return neuf;
+  // Un pignon monte au moins un peu au-dessus de l'egout de son pan.
+  neuf.pignons = avant.pignons.map((g) => ({ ...g, faitage: Math.max(g.faitage, apres.egouts[g.pan] + 0.5) }));
+  if (forme !== 'plat') {
+    if (avant.lucarnes?.length) neuf.lucarnes = avant.lucarnes.map((l) => ({ ...l, faitageM: Math.min(l.faitageM, dixieme(apres.faitage - 0.1)) }));
+    if (avant.elementsToit?.length) neuf.elementsToit = avant.elementsToit;
+  }
+  return neuf;
+}
+
+/**
  * Ecrit le geste dans le batiment : rend vrai s'il a change quelque chose. Le toit est fige ensuite :
  * c'est la personne qui le regle. `facade` : celle que la personne regarde ; un pignon ou un element de mur s'y pose.
  */
@@ -335,7 +345,7 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const egout = Math.min(...choisi.egouts), montee = Math.max(1, choisi.faitage - egout);
     const [tel, ...autres] = corpsDepuisExemple(forme.e, rectangleDuCorps(choisi), egout, montee);
     if (!tel) return false;
-    const premier = trancherUneCroupe(tel, forme.seuleCroupe);
+    const premier = gardeCeQuiEstPose(choisi, trancherUneCroupe(tel, forme.seuleCroupe));
     const rang = o.batiment.corpsToit.indexOf(choisi);
     champsBatiment(o).corpsToit = [...o.batiment.corpsToit.slice(0, rang), premier, ...o.batiment.corpsToit.slice(rang + 1), ...autres];
     champsBatiment(o).modeToit = 'corps';
@@ -350,12 +360,6 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     if (estFormeToit(forme.e.id)) toit.forme = forme.e.id;
     toit.source = 'saisie';
     delete toit.pente;
-  } else if (prefixe === 'corps' && nom.startsWith('decroche')) {
-    const l = facade && facade.rang !== null && o.batiment?.corpsToit ? decrocherCorps(o.batiment.corpsToit, facade.rang, facade.mur, nom === 'decroche-gauche' ? 'gauche' : 'droite') : null;
-    if (!l) return false;
-    champsBatiment(o).corpsToit = l;
-    champsBatiment(o).modeToit = 'corps';
-    toitDe(o).source = 'saisie';
   } else if (prefixe === 'corps') {
     const hote = choisi ?? corpsPourPoser(o);
     const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.batiment?.corpsToit ?? []) : null;

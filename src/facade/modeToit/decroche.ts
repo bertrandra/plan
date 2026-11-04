@@ -10,7 +10,9 @@
 // devant la partie qui avance il passe dans le mur, cache par elle. Son toit reste a la meme hauteur.
 //
 // Un decroche est une decision de la personne, ecrite dans son projet (le toit est fige par l'appelant) : la lecture automatique ne
-// produit jamais de decroche (`SEUIL_DECROCHE_M`), et ce module n'y touche pas.
+// produit jamais de decroche (`SEUIL_DECROCHE_M`), et ce module n'y touche pas. Avec un recul, il coupe le corps : ce n'est pas le
+// recul d'un mur sous un toit continu (retour du proprietaire, 4 novembre 2026 : « c'est un toit »), qui viendra avec le schema 14 ; le
+// Mode Toit ne l'offre donc pas, et seule la scission (sans recul) s'en sert.
 //
 // La scission (un decroche sans recul) et la fusion (deux corps alignes de memes hauteurs reunis en un) vivent ici aussi : la personne
 // coupe un corps lu d'un seul tenant, ou reunit deux morceaux que la lecture avait separes.

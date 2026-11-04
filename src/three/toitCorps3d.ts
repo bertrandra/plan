@@ -144,6 +144,21 @@ function poteauxDAppentis(L: number, t: number, egout: number, retrait: number =
   return faces;
 }
 
+/**
+ * Les travees de la rive d'un appentis ouvert ou une avancee fermee (son centre dans le rectangle du corps) porte le toit : pas de poteau
+ * devant elle ; et quand elle approche un bout a moins d'un entraxe, elle porte aussi ce bout (aucun poteau entre elle et lui).
+ */
+function traveesAbritees(r: ReturnType<typeof repere>, abrites: readonly (readonly PtBrut[])[]): (readonly [number, number])[] {
+  const { L, W } = r;
+  const le = (q: PtBrut) => (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y, travers = (q: PtBrut) => (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y;
+  return abrites.flatMap((e) => {
+    const cx = e.reduce((t, q) => t + q.x, 0) / e.length, cy = e.reduce((t, q) => t + q.y, 0) / e.length, sc = le({ x: cx, y: cy }), tc = travers({ x: cx, y: cy });
+    if (sc < 0 || sc > L || tc < 0 || tc > W) return [];
+    const ss = e.map(le), a = Math.min(...ss), b = Math.max(...ss);
+    return [[a - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? -Infinity : a - POTEAU_ABRITE_M, L - b - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? Infinity : b + POTEAU_ABRITE_M] as const];
+  });
+}
+
 /** Un poteau a moins de cela, le long de la rive, d'une avancee fermee sous le toit (un bow-window) ne se pose pas : le toit la couvre. */
 const POTEAU_ABRITE_M = 0.25;
 
@@ -240,15 +255,7 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
       // Un auvent (lot L1) tient sur deux consoles contre le mur, pas sur des poteaux.
       else if (c.saillie?.genre === 'auvent') murs.push(...consolesDAuvent(L, p <= 0.01 ? 0 : W, tBas, eBas).map((f) => f.map((q) => P(q.s, q.t, q.z))));
       else {
-        // Une avancee sous ce toit (son centre dans le rectangle du corps) occupe une travee le long de la rive : pas de poteau devant elle.
-        const le = (q: PtBrut) => (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y, travers = (q: PtBrut) => (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y;
-        const travees = abrites.flatMap((e) => {
-          const cx = e.reduce((t, q) => t + q.x, 0) / e.length, cy = e.reduce((t, q) => t + q.y, 0) / e.length, sc = le({ x: cx, y: cy }), tc = travers({ x: cx, y: cy });
-          if (sc < 0 || sc > L || tc < 0 || tc > W) return [];
-          const ss = e.map(le), a = Math.min(...ss), b = Math.max(...ss);
-          // L'avancee porte aussi le bout du toit qu'elle approche a moins d'un entraxe : pas de poteau entre elle et ce bout.
-          return [[a - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? -Infinity : a - POTEAU_ABRITE_M, L - b - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? Infinity : b + POTEAU_ABRITE_M] as const];
-        });
+        const travees = traveesAbritees(r, abrites);
         const abrite = (sp: number) => travees.some(([a, b]) => sp >= a && sp <= b);
         murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait, travees.length ? abrite : undefined).map((f) => f.map((q) => P(q.s, q.t, q.z))));
       }
@@ -281,6 +288,12 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
       murs.push([P(pg.debut, T(-av), bas), P(pg.fin, T(-av), bas), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage), P(pg.debut, T(-av), e)]);
       for (const s of [pg.debut, pg.fin]) murs.push([P(s, T(0), bas), P(s, T(-av), bas), P(s, T(-av), e), P(s, T(0), e)]);
     } else murs.push([P(pg.debut, T(0), e), P(pg.fin, T(0), e), P(sc, T(0), pg.faitage)]);
+    // Sur un toit plat, les noues du pignon ne retrouvent pas de pan : sous chacune, un mur la ferme jusqu'au toit (AE 101, les deux
+    // pignons de la facade sud sur le toit plat ; sans lui, le pignon etait ouvert par-derriere).
+    if (plat && pg.faitage - e > MUR_MIN_M) {
+      murs.push([P(piedG, T(0), e), P(sc, T(D), e), P(sc, T(D), pg.faitage)]);
+      murs.push([P(piedD, T(0), e), P(sc, T(D), pg.faitage), P(sc, T(D), e)]);
+    }
   }
   // L'acrotere d'un toit-terrasse : le muret qui borde le toit, de l'epaisseur d'un parpaing, dessine par ses faces et son dessus.
   const acro = plat ? c.terrasse?.acrotereM ?? 0 : 0;

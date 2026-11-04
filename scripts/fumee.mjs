@@ -4162,9 +4162,10 @@ const POINTS = {
   132: async (page, f) => {
     // AE 101 tel que le proprietaire le voit (decisions du 4 novembre 2026) : la maison lue par le moteur (corps sous les faits,
     // tests/fixtures/toits/vesinet-ae101.json, la sortie automatique qu'identite.ts garde), puis retouchee dans le mode Toit avec les
-    // gestes de la personne : sur la facade aux deux pignons, la partie droite recule de 50 cm (« Décroché ») ; l'auvent reste un seul
-    // corps a la rive basse droite, ouvert sur poteaux ; un bow-window a gauche, sous l'auvent, sans poteau devant lui ; une galerie
-    // qui retourne sur le pignon est. « Valider » : une etape, le toit fige ; un Ctrl+Z du projet rend la maison lue.
+    // gestes de la personne : le corps principal en toit plat, ses deux pignons de facade gardes (un corps, un toit, jamais de trou) ;
+    // l'auvent reste un seul corps a la rive basse droite, ouvert sur poteaux ; un bow-window a gauche, sous l'auvent, qui le porte (aucun
+    // poteau devant lui ni a gauche) ; une galerie qui retourne sur le pignon est. Le recul de 50 cm du mur (un decroche de mur sous un
+    // toit continu) demande un champ nouveau : il vient avec le schema 14. « Valider » : une etape, le toit fige ; un Ctrl+Z du projet rend la maison lue.
     // Les choix de l'inspecteur se touchent par leur evenement : le panneau se remet en page pendant que la camera se cadre sur
     // l'element choisi, et un clic de pointeur attend une stabilite qui ne vient pas a temps sur une scene aussi chargee.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
@@ -4227,30 +4228,26 @@ const POINTS = {
     };
     const lacher = () => page.evaluate(() => window.__plan.executer('toit.selection'));
     const poser = async (onglet, piece) => {
-      await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).click({ timeout: 20000 }));
-      await etape('pièce ' + piece, () => page.locator('[data-piece="' + piece + '"]').click({ timeout: 20000 }));
+      await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).dispatchEvent('click', {}, { timeout: 20000 }));
+      await etape('pièce ' + piece, () => page.locator('[data-piece="' + piece + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
       await page.waitForTimeout(500);
     };
     // La facade aux deux pignons : le mur 2 du corps principal (le pan sud, ou le fait pose les deux pignons).
     await facade(0, 2);
     await image3dStable(page, 1500);
     if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-avant.png' }).catch(() => {});
-    await poser('Corps', 'corps:decroche');
-    const apresDecroche = await lire();
-    const recule = apresDecroche.corps[apresDecroche.corps.length - 1];
-    // Le troncon entre les deux pignons est un toit plat : la partie reculee, coupee au bord de son pignon, puis « Toit plat ».
+    // Le corps principal reste UN corps, UN toit : plat entre les deux pignons de la facade, qui restent poses dessus (« Toit plat »,
+    // corps choisi). Rien n'est coupe : un toit ne s'ouvre jamais.
     await lacher();
-    await etape('pastille de la partie reculee', () => page.locator('.puceToit[data-type="corps"][data-rang="' + (apresDecroche.corps.length - 1) + '"]').click({ timeout: 20000 }));
-    await etape('couper le corps', () => page.locator('[data-commande="toit.scinder"]').dispatchEvent('click', {}, { timeout: 20000 }));
-    await page.waitForTimeout(400);
-    const apresCoupe = await lire();
+    await etape('pastille du corps principal', () => page.locator('.puceToit[data-type="corps"][data-rang="0"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await poser('Toit', 'forme:plat');
-    const troncon = (await lire()).corps[apresCoupe.corps.length - 1];
+    const apresPlat = await lire();
+    const principal = apresPlat.corps[0];
     // L'auvent (le corps a un pan adosse au mur sud) : ouvert sur poteaux.
     const W = (c) => Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
-    const rangAuvent = apresDecroche.corps.findIndex((c) => !c.saillie && !c.baie && c.posFaitage <= 0.01 && c.faitage - Math.min(...c.egouts) > 0.3 && W(c) < 3);
+    const rangAuvent = apresPlat.corps.findIndex((c) => !c.saillie && !c.baie && c.posFaitage <= 0.01 && c.faitage - Math.min(...c.egouts) > 0.3 && W(c) < 3);
     await lacher();
-    await etape('pastille de l’auvent', () => page.locator('.puceToit[data-type="corps"][data-rang="' + rangAuvent + '"]').click({ timeout: 20000 }));
+    await etape('pastille de l’auvent', () => page.locator('.puceToit[data-type="corps"][data-rang="' + rangAuvent + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await etape('auvent ouvert', () => page.locator('.inspecteurToit [data-groupe="ouvert"][data-valeur="poteaux"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await page.waitForTimeout(300);
     // Le bow-window, a gauche (la partie qui avance), sous l'auvent : toit plat, sous la rive de l'auvent.
@@ -4260,12 +4257,22 @@ const POINTS = {
     await etape('bow-window a pans', () => page.locator('.inspecteurToit [data-groupe="forme"][data-valeur="pans"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await etape('bow-window toit plat', () => page.locator('.inspecteurToit [data-groupe="toit"][data-valeur="plat"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await page.waitForTimeout(300);
+    // Le bow-window va a gauche de la facade (sous le grand pignon) : sa poignee « Position », tiree vers la gauche jusqu'a ce que son
+    // milieu soit a moins de 2,2 m du bout du mur.
+    const centreBow = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit.find((c) => c.saillie?.genre === 'bow-window')?.saillie.centreM ?? null);
+    for (let k = 0; k < 6 && ((await centreBow()) ?? 0) > 2.2; k++) {
+      const pos = page.locator('[data-poignee="pos"] .pointPoignee').first();
+      const b = (await pos.count()) ? await pos.boundingBox() : null;
+      if (!b) break;
+      await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, -80, 0);
+      await page.waitForTimeout(400);
+    }
     const haut = page.locator('[data-poignee="haut"] .pointPoignee').first();
     const boite = (await haut.count()) ? await haut.boundingBox() : null;
     if (boite) { await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height / 2 }, 0, 25); await page.waitForTimeout(400); }
-    // Le retour du porche sur le pignon est : une galerie sur le mur de bout de la partie reculee.
+    // Le retour du porche sur le pignon est : une galerie sur le mur de bout est du corps principal.
     await lacher();
-    await facade(apresDecroche.corps.length - 1, 3);
+    await facade(0, 3);
     await poser('Façade', 'facade:galerie');
     await lacher();
     await facade(0, 2);
@@ -4292,10 +4299,10 @@ const POINTS = {
     const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
     const memesCorps = JSON.stringify(canon(defait.corps)) === JSON.stringify(canon(depart.corps));
     const ecart = depart.corps.map((c, k) => (JSON.stringify(c) === JSON.stringify(defait.corps[k]) ? null : k + ' : ' + Object.keys({ ...c, ...defait.corps[k] }).filter((x) => JSON.stringify(c[x]) !== JSON.stringify(defait.corps[k]?.[x])).join(','))).filter(Boolean);
-    const plat = !!troncon && troncon.faitage - Math.min(...troncon.egouts) < 0.05 && apresCoupe.corps.length === depart.corps.length + 2;
-    const ok = apresDecroche.corps.length === depart.corps.length + 1 && !!recule && plat && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
-      && Math.max(...bow.egouts) < 2.6 && !!galerie && valide.fige && memesCorps && sans;
-    return { ok, mesure: `${depart.corps.length} corps lus → ${apresDecroche.corps.length} après le décroché, ${apresCoupe.corps.length} après la coupe ; troncon entre les pignons ${plat ? 'plat' : 'PAS PLAT'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; galerie de retour ${galerie ? 'posée' : 'ABSENTE'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
+    const plat = !!principal && principal.faitage - Math.min(...principal.egouts) < 0.05 && principal.pignons.length === 2 && apresPlat.corps.length === depart.corps.length;
+    const ok = plat && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
+      && Math.max(...bow.egouts) < 2.6 && bow.saillie.centreM <= 2.2 && !!galerie && valide.fige && memesCorps && sans;
+    return { ok, mesure: `${depart.corps.length} corps lus, ${apresPlat.corps.length} après « Toit plat » ; corps principal ${plat ? 'plat, ses ' + principal.pignons.length + ' pignons gardés' : 'PAS PLAT OU PIGNONS PERDUS'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', milieu à ' + bow.saillie.centreM.toFixed(2) + ' m du bout gauche, égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; galerie de retour ${galerie ? 'posée' : 'ABSENTE'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe
