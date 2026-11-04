@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- Admin › Calibrer la détection, étalons de synthèse : **« Créer le projet de démonstration »** pour huit étalons (02, 07, 16, 20, 22,
+  23, 25, 26). Le bâtiment se pose autour du mur photographié selon une règle fixe (deux pans à 40°, faîtage parallèle au mur, 9 m de
+  profondeur ; un mur pignon garde son pignon, une rampe devient un appentis ; les parties basses deviennent leurs volumes) ; la façade
+  se mesure par le chemin de l'audit et s'écrit par sa validation V4. Le projet s'enregistre dans les démos de l'admin (sous le nom de
+  l'étalon, un seul par étalon) et s'ouvre dans l'atelier : plan, Vue 3D, relevé. Rien n'est ajouté au dépôt.
+- Étalons de synthèse : la vérité de l'É5 (le mur vrai sur l'assemblage) se calcule à chaque rejeu, depuis les coins vrais des photos,
+  par le même chemin que la chaîne ; l'É5 d'un étalon se dit juste ou faux contre elle (sauf les objectifs déformants 13 et 14).
+
+### Ajouté
+
 - Admin › Calibrer la détection : les **étalons de synthèse**. Les 27 scènes du banc des façades (celles sur lesquelles Plan juge le
   calage, les étapes É1 à É11 et la lecture de Claude) sont listées à part des cas réels, avec ce que chacune éprouve (étapes, pignon,
   parties basses, biais, vues). Une scène s'ouvre comme un cas : ses photos se dessinent dans le navigateur (les pixels du banc, au bit

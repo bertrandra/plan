@@ -2661,6 +2661,8 @@
   /* Le tableau defile dans son cadre plutot que la page ; sous 720 px, les difficultes (dites a l'ouverture) laissent la place a ce qu'il eprouve. */
   .calDefile{ max-width:100%; overflow-x:auto; }
   .calTableEtalons td{ font-size:0.8rem; }
+  .calTableEtalons td button + button{ margin-left:6px; margin-top:4px; }
+  .calProjetEtalon{ margin:6px 0; padding:8px 10px; font-size:0.85rem; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
   @media (max-width: 719px){ .calTableEtalons .calColDifficile{ display:none; } }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
   .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }

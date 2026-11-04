@@ -17,7 +17,8 @@ import { type MurAjuste } from './releve/AjusterMur.js';
 import { PoserReperes } from './releve/PoserReperes.js';
 import { auDixiemeDePixel, coinsParDefaut, LIBELLES_OUVERTURE, pointSvg } from './releve/commun.js';
 import { libelleOuMot } from '../shell/motsInconnus.js';
-import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
+import type { CalageVrai, CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
+import { calageVraiDuRejeu } from '../facade/banc/etalons.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
 import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSansLeMur, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
@@ -177,7 +178,7 @@ interface Props {
    * Un etalon de synthese (facade/banc/etalons.ts) : une scene du banc, rendue a l'ouverture. Il se deroule comme un cas, mais rien ne
    * s'enregistre : ni le cas, ni sa validation, ni une reponse de Claude.
    */
-  etalon?: { description: string; difficultes: readonly string[] };
+  etalon?: { description: string; difficultes: readonly string[]; coinsVrais?: readonly (P2[] | null)[] };
 }
 
 /** Une dimension du mur en metres ; une valeur nulle ou illisible ne s'ecrit pas. */
@@ -211,6 +212,9 @@ function AnnotationDuCas({ elevation, ouvertures, modifier }: { elevation: Eleva
 
 const pause = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 
+/** Le meme mur vrai, au dixieme de pixel pres. */
+const memeMurVrai = (a: CalageVrai, b: CalageVrai | undefined) => !!b && a.versionChaine === b.versionChaine && (['x0', 'x1', 'egout', 'sol'] as const).every((k) => Math.abs((a[k] ?? 0) - (b[k] ?? 0)) < 0.05);
+
 /** L'index d'une etape dans l'ordre de l'enchainement. */
 const rang = (id: IdEtape) => ETAPES_FACADE.findIndex((e) => e.id === id);
 
@@ -219,7 +223,7 @@ const rang = (id: IdEtape) => ETAPES_FACADE.findIndex((e) => e.id === id);
  * cherches comme dans l'audit (un mur pose a la main reste). Les coins retenus sont gardes avec le cas, pour memoire (les reperes
  * proposes, le mur a ajuster) ; ils ne sont pas une entree du rejeu suivant. Rejouer depuis une etape reprend les sorties des precedentes.
  */
-function useRejeu(outils: OutilsPhotos, url: (img: Image) => string) {
+function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, coinsVrais: readonly (P2[] | null)[] | null = null) {
   const [rejeu, setRejeu] = useState<Enchainement | null>(null);
   const [progression, setProgression] = useState<EtapeAffichee[]>([]);
   const [enCours, setEnCours] = useState<IdEtape | null>(null);
@@ -232,16 +236,25 @@ function useRejeu(outils: OutilsPhotos, url: (img: Image) => string) {
     const precedent = depuis && rejeu ? { depuis, precedent: rejeu } : {};
     setProgression(precedent.precedent ? precedent.precedent.etapes.filter((e) => rang(e.id) < rang(depuis as IdEtape)) : []);
     // Les entrees de l'audit, relues du cas ; la calibration ne fait que mesurer a la fin (`pour`).
-    const r = await derouler(entreesDuCas(depart, images, url), {
-      vue: 'calibration', chercherCoins: async (e) => rechercher(e), illustrer: true, verite: veriteDuCas(depart), ia, ...precedent,
-      surEtape: (id, etat: EtatAffiche, resume = '') => {
+    const options = {
+      vue: 'calibration' as const, chercherCoins: async (e: Parameters<typeof rechercher>[0]) => rechercher(e), illustrer: true, ia,
+      surEtape: (id: IdEtape, etat: EtatAffiche, resume = '') => {
         setEnCours(etat === 'en-cours' ? id : null);
         if (etat !== 'en-cours') setProgression((p) => [...p.filter((x) => x.id !== id), { id, etat, resume }]);
       },
       rendreLaMain: () => pause(0), arrete: () => arret.current,
-    });
+    };
+    let cas = depart;
+    let r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), ...precedent });
+    // Un etalon de synthese : le mur vrai se porte sur l'assemblage de ce rejeu (il en depend) ; s'il change, l'E5 et la suite se
+    // rejouent contre lui, les etapes d'avant reprises telles quelles.
+    const vrai = coinsVrais ? calageVraiDuRejeu(r.sorties.calage?.pose, coinsVrais) : null;
+    if (vrai && !memeMurVrai(vrai, cas.calageVrai)) {
+      cas = { ...cas, calageVrai: vrai };
+      r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), depuis: 'calage', precedent: r });
+    }
     setRejeu(r); setProgression(r.etapes); setEnCours(null);
-    return { cas: casApresRejeu(depart, r), r, images };
+    return { cas: casApresRejeu(cas, r), r, images };
   };
   return { rejeu, setRejeu, progression, enCours, lancer, arreter: () => { arret.current = true; } };
 }
@@ -385,7 +398,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [origines, setOrigines] = useState<Record<number, OrigineCoins>>(() => originesDuCas(depart));
   const [ouverte, setOuverte] = useState<IdEtape | null>(null);
   const url = useAdresses(outils);
-  const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, url);
+  const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, url, etalon?.coinsVrais ?? null);
   const claude = useClaude(cas);
   const modifier = (f: (c: CasStocke) => CasStocke) => setCas((c) => f(c));
   // Un geste sur les photos rend le rejeu caduc : ses sorties ne valent plus pour ce cas.

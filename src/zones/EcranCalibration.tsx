@@ -19,6 +19,7 @@ import {
 import { preparerPourLaMesure } from '../facade/releve/enchainement.js';
 import type { ResumeCasCalibration } from '../io/depotDemos.js';
 import type { ResumeEtalon } from '../facade/banc/etalons.js';
+import type { P2 } from '../facade/vision/homographie.js';
 import { ETAPES_FACADE } from '../model/etapeFacade.js';
 
 export interface DepsCalibration extends OutilsPhotos {
@@ -38,7 +39,13 @@ export interface DepsCalibration extends OutilsPhotos {
    * en lecture seule. Facultatifs : sans eux, la section n'est pas montree.
    */
   etalons?: () => Promise<ResumeEtalon[]>;
-  ouvrirEtalon?: (id: string) => Promise<CasStocke>;
+  /** Un etalon rendu : son cas, et les coins vrais de chaque photo (le mur vrai de l'E5 s'en deduit a chaque rejeu). */
+  ouvrirEtalon?: (id: string) => Promise<{ cas: CasStocke; coinsVrais: (P2[] | null)[] }>;
+  /**
+   * « Créer le projet de démonstration » d'un etalon (app/administration/projetEtalon.ts) : le batiment autour du mur, sa facade mesuree
+   * et validee comme dans l'audit, enregistre dans les demos de l'admin ; rend l'identifiant de la demo et son nom. Absent : pas de bouton.
+   */
+  creerProjetEtalon?: (id: string) => Promise<{ id: string; nom: string }>;
 }
 
 const NUMEROS = new Map(ETAPES_FACADE.map((e) => [e.id, e.numero]));
@@ -64,6 +71,13 @@ function couverture(e: ResumeEtalon): string {
 function ListeEtalons({ deps, ouvrir }: { deps: DepsCalibration; ouvrir: (e: ResumeEtalon) => void }) {
   const [etalons, setEtalons] = useState<ResumeEtalon[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [projet, setProjet] = useState<{ enCours: string } | { id: string; nom: string } | null>(null);
+  const creer = async (e: ResumeEtalon) => {
+    if (!deps.creerProjetEtalon) return;
+    setProjet({ enCours: e.nom }); setMessage(null);
+    await new Promise((ok) => setTimeout(ok, 30));
+    try { setProjet(await deps.creerProjetEtalon(e.id)); } catch (err) { setProjet(null); setMessage('Projet de démonstration impossible : ' + ((err as Error).message || String(err))); }
+  };
   useEffect(() => { void deps.etalons?.().then(setEtalons, (e) => setMessage('Étalons illisibles : ' + ((e as Error).message || String(e)))); }, [deps]);
   if (!deps.etalons || !deps.ouvrirEtalon) return null;
   return (
@@ -72,8 +86,12 @@ function ListeEtalons({ deps, ouvrir }: { deps: DepsCalibration; ouvrir: (e: Res
         <summary><h2 className="calTitre2">Étalons de synthèse{etalons ? ' (' + etalons.length + ')' : ''}</h2></summary>
         <p className="calNote">Les scènes du banc des façades, sur lesquelles Plan juge le calage, les étapes É1 à É11 et la lecture de Claude : des photos de synthèse dont on connaît la vérité au centimètre. Ouvrez-en une pour la comparer à vos photos et la dérouler comme un cas. Elles se dessinent dans votre navigateur ; elles ne s’enregistrent pas et ne comptent pas dans la calibration.</p>
         {message && <p className="arbMessage" role="alert">{message}</p>}
+        {projet && ('enCours' in projet
+          ? <p className="calNote" role="status">Construction du projet de « {projet.enCours} » : le bâtiment, puis la façade mesurée comme dans l’audit…</p>
+          : <p className="calProjetEtalon" role="status">Projet de démonstration enregistré dans vos démos : <a href={'?demofile=' + encodeURIComponent(projet.id)} data-controle="calibration.ouvrirProjetEtalon">ouvrir « {projet.nom} »</a></p>)}
         {etalons && <div className="calDefile"><table className="attrTable calTable calTableEtalons"><thead><tr><th scope="col">Étalon</th><th scope="col" className="calColDifficile">Ce qu’il a de difficile</th><th scope="col">Ce qu’il éprouve</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
-          <tbody>{etalons.map((e) => <tr key={e.id}><th scope="row" title={e.description}>{e.nom}</th><td className="calColDifficile">{e.difficultes.join(', ')}</td><td>{couverture(e)}</td><td>{e.photos}</td><td>{e.nbOuvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirEtalon" aria-label={'Ouvrir l’étalon ' + e.nom} onClick={() => ouvrir(e)}>Ouvrir</button></td></tr>)}</tbody></table></div>}
+          <tbody>{etalons.map((e) => <tr key={e.id}><th scope="row" title={e.description}>{e.nom}</th><td className="calColDifficile">{e.difficultes.join(', ')}</td><td>{couverture(e)}</td><td>{e.photos}</td><td>{e.nbOuvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirEtalon" aria-label={'Ouvrir l’étalon ' + e.nom} onClick={() => ouvrir(e)}>Ouvrir</button>
+            {e.projet && deps.creerProjetEtalon && <button type="button" className="secondary small" data-controle="calibration.creerProjetEtalon" aria-label={'Créer le projet de démonstration de l’étalon ' + e.nom} disabled={!!projet && 'enCours' in projet} onClick={() => { void creer(e); }}>Créer le projet de démonstration</button>}</td></tr>)}</tbody></table></div>}
       </details>
     </section>
   );
@@ -220,7 +238,7 @@ function PanneauCalibration({ deps, resumes, doc, appliquer }: PropsPanneau) {
 export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibration; retour?: string }) {
   const [doc, setDoc] = useState<DocumentCalibration>({ format: FORMAT_CALIBRATION, version: 1, modifieLe: '', parametres: {}, historique: [] });
   const [resumes, setResumes] = useState<ResumeCasCalibration[]>([]);
-  const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke; chercher?: boolean; etalon?: ResumeEtalon } | null>(null);
+  const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke; chercher?: boolean; etalon?: ResumeEtalon & { coinsVrais: (P2[] | null)[] } } | null>(null);
   const [rendu, setRendu] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -240,7 +258,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
     if (!deps.ouvrirEtalon) return;
     setRendu('Rendu des photos de « ' + e.nom + ' »…'); setMessage(null);
     await new Promise((ok) => setTimeout(ok, 30));
-    try { setEdition({ id: null, cas: await deps.ouvrirEtalon(e.id), chercher: true, etalon: e }); } catch (err) { setMessage('Étalon illisible : ' + ((err as Error).message || String(err))); } finally { setRendu(null); }
+    try { const o = await deps.ouvrirEtalon(e.id); setEdition({ id: null, cas: o.cas, chercher: true, etalon: { ...e, coinsVrais: o.coinsVrais } }); } catch (err) { setMessage('Étalon illisible : ' + ((err as Error).message || String(err))); } finally { setRendu(null); }
   };
   const appliquer = async (parametres: Record<string, number>, r: ResultatCalibration | null) => {
     const maintenant = deps.maintenant().toISOString();

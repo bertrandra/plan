@@ -10,12 +10,17 @@
 // Un etalon ne s'ecrit nulle part : ni sur le serveur (admin/calibration-cas), ni dans les reglages calibres. Il ne compte pas dans
 // « Mesurer et calibrer » : un seuil regle sur le corpus qui a servi a l'ecrire ne prouverait rien sur le terrain.
 
-import { FORMAT_CAS_REEL, type CasReel } from '../corpusReel.js';
-import type { Image, P2 } from '../vision/homographie.js';
+import { FORMAT_CAS_REEL, type CalageVrai, type CasReel } from '../corpusReel.js';
+import { appliquer, type Image, type P2 } from '../vision/homographie.js';
+import { inverser } from '../vision/redressementFuites.js';
+import { appliquerSimilitude } from '../vision/ransac.js';
+import { VERSION_CHAINE_FACADES } from '../releve/chaine.js';
+import type { AssemblageDuMur } from '../analyseMur.js';
 import type { PrisePhoto } from '../../model/audit.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { TypeOuverture } from '../../model/types.js';
 import type { IdEtape } from '../../model/etapeFacade.js';
+import { aUnProjet } from './projetEtalon.js';
 import { coinsVrais, gabaritVrai, partiesBassesSynthese, photographier, type PriseCamera, type PriseCoins, type SceneFacade } from './synthese.js';
 
 /** L'identifiant d'un etalon : son nom de scene, precede de ce prefixe (jamais celui d'un cas du serveur, `cas-…`). */
@@ -62,6 +67,8 @@ export interface ResumeEtalon extends FicheEtalon {
   id: string;
   /** Le nombre d'ouvertures de la verite. */
   nbOuvertures: number;
+  /** L'etalon a un projet de demonstration (projetEtalon.ts) : « Créer le projet de démonstration » est propose. */
+  projet: boolean;
 }
 
 const sansDoublon = <T,>(l: readonly T[]): T[] => [...new Set(l)];
@@ -98,7 +105,7 @@ export function prisesDeLaScene(s: SceneFacade): (PriseCamera | PriseCoins)[] {
 }
 
 export function resumeEtalon(s: SceneFacade): ResumeEtalon {
-  return { ...ficheEtalon(s), id: PREFIXE_ETALON + s.nom, nbOuvertures: s.verite.ouvertures.length };
+  return { ...ficheEtalon(s), id: PREFIXE_ETALON + s.nom, nbOuvertures: s.verite.ouvertures.length, projet: aUnProjet(s.nom) };
 }
 
 /**
@@ -157,4 +164,31 @@ export function casDeLEtalon(s: SceneFacade, photos: readonly PhotoEtalon[], fic
     gabarit: gabaritVrai(s).map(({ u, v }) => ({ u, v })),
     ...facadeDeLEtalon(L, H),
   };
+}
+
+/**
+ * Les coins vrais du mur sur chaque photo, a garder pour la verite de l'E5 : null pour une photo d'un objectif deformant (la chaine
+ * travaille sur l'image corrigee de la distorsion, ou les coins de la photo ne tombent plus, calage-e5.ts) ou sans coins.
+ */
+export function coinsVraisDesPhotos(s: SceneFacade): (P2[] | null)[] {
+  return prisesDeLaScene(s).map((p) => (p.type === 'camera' && p.distorsion ? null : coinsVrais(s, p)));
+}
+
+/**
+ * Le mur vrai sur l'image prise pour la suite par un rejeu (l'E5 de la calibration le compare a la pose retenue) : les coins vrais d'une
+ * photo assemblee, portes par le meme chemin que la chaine (photo -> vue de face -> assemblage, l'inverse de `retours`), comme
+ * runIa.ts et egout-sol.ts le font sur leur assemblage. Il vaut pour cet assemblage-la, a cette version de la chaine : un autre (des
+ * reperes poses, un mur tire) en demande un autre. Null sans photo assemblee qui ait ses coins vrais.
+ */
+export function calageVraiDuRejeu(pose: AssemblageDuMur | null | undefined, coins: readonly (P2[] | null)[]): CalageVrai | null {
+  if (!pose) return null;
+  for (let k = 0; k < pose.retours.length; k++) {
+    const r = pose.retours[k], c = coins[k];
+    const versVue = r ? inverser(r.versPhoto) : null;
+    if (!r || !versVue || !c || c.length !== 4) continue;
+    const [hg, hd, bd, bg] = c.map((q) => appliquerSimilitude(r.place, appliquer(versVue, q))) as [P2, P2, P2, P2];
+    const r1 = (v: number) => Math.round(v * 10) / 10;
+    return { x0: r1((hg.x + bg.x) / 2), x1: r1((hd.x + bd.x) / 2), egout: r1((hg.y + hd.y) / 2), sol: r1((bg.y + bd.y) / 2), versionChaine: VERSION_CHAINE_FACADES };
+  }
+  return null;
 }
