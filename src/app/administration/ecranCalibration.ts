@@ -23,6 +23,8 @@ import { creerClientAnalyse } from '../../io/analyseClaude.js';
 import { appelerEscaladeFacade, appelerLectureEnrichie, appelerRunFacade, avecSaLectureEnrichie, encodageUnique, type ContexteRun } from '../releve/runFacade.js';
 import { dessinerImageFacade } from '../../render/imageFacade.js';
 import { imageDeLEtalon, listerEtalons, ouvrirEtalon } from '../../io/etalonsFacades.js';
+import { creerProjetDeLEtalon } from './projetEtalon.js';
+import { chercherCoins } from '../releve/rechercheCoins.js';
 
 /**
  * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de
@@ -111,6 +113,8 @@ export function ouvrirEcranCalibration(): void {
     // Les etalons de synthese : les scenes du banc des facades, rendues ici, ouvertes en lecture seule (facade/banc/etalons.ts).
     etalons: listerEtalons,
     ouvrirEtalon: (id) => ouvrirEtalon(id, (img) => versJpeg(img, 0.9)),
+    // Son projet de demonstration : construit ici, enregistre dans les demos de l'admin (data/demo/), ouvert par `?demofile=<id>`.
+    creerProjetEtalon: (id) => creerProjetDeLEtalon(id, f, { chercherCoins, jpeg: (img) => versJpeg(img, 0.9), maintenant: () => new Date() }),
     // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
     audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')
       .map((a) => ({ id: a.id, libelle: [a.adresse ?? a.idu, (a.debut ?? a.recuLe).slice(0, 10), (a.photos ?? 0) + ' photos'].filter(Boolean).join(' · ') })),

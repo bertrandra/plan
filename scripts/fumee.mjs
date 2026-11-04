@@ -4863,6 +4863,53 @@ const POINTS = {
     if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-ouvert.png', fullPage: true }).catch(() => {});
     const ok = lignes === 27 && /\(27\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && !ecrits.length && !debords.some(Boolean);
     return { ok, mesure: `${lignes} étalons listés (« ${titre.trim()} ») ; l’étalon 22 ouvert : photo de ${vignette} px, frise de ${frise} étapes, ${sansEnregistrer ? 'sans' : 'AVEC'} enregistrement, note ${note ? 'oui' : 'NON'} ; écritures au serveur : ${ecrits.join(', ') || 'aucune'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  130: async (page, f) => {
+    // Le projet de demonstration d'un etalon (decision du proprietaire, 4 novembre 2026) : Admin › Calibrer la detection, « Créer le
+    // projet de démonstration » de l'etalon 25 (mur en L), enregistre dans les demos de l'admin (routes `admin/…` simulees, le
+    // fichier garde), puis ouvert dans l'atelier par son lien (`?demofile=`) : le plan, puis la Vue 3D.
+    let fichier = null;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url()), m = route.request().method();
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'GET') return json({ demos: fichier ? [{ id: '9', name: fichier.meta.name }] : [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'POST') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9', updatedAt: '2026-11-04T10:00:00Z' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && m === 'PUT') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && fichier) return json(fichier);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const capture = process.env.FUMEE_CAPTURE_PROJET_ETALON;
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('liste des etalons', () => page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 20000 }));
+    const boutons = await page.locator('[data-controle="calibration.creerProjetEtalon"]').count();
+    await etape('creer le projet', () => page.locator('[aria-label="Créer le projet de démonstration de l’étalon 25-mur-en-l-garage"]').click({ timeout: 10000 }));
+    await etape('projet enregistre', () => page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').waitFor({ timeout: 120000 }));
+    const lien = await page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').getAttribute('href');
+    const debords = [await deborde()];
+    const maisonEnvoyee = fichier?.objects?.find((o) => o.key === 'maison');
+    const releve = maisonEnvoyee?.facades?.[0];
+    const taille = fichier ? JSON.stringify(fichier).length : 0;
+    await etape('ouvrir le projet', () => page.goto(BASE + '/' + lien));
+    await etape('plan', () => page.waitForSelector('#stage svg', { timeout: 30000 }));
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    const lu = await page.evaluate(() => { const m = window.__plan.etat().objects.find((o) => o.key === 'maison'); return m ? { facades: m.batiment?.facades?.length ?? 0, corps: m.batiment?.corpsToit?.length ?? 0, cote: m.batiment?.facades?.[0]?.cote } : null; });
+    debords.push(await deborde());
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-plan.png' }).catch(() => {});
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }));
+    await page.waitForTimeout(2500);
+    const texture = await page.evaluate(() => { let n = 0; window.__plan.scene3d()?.scene.traverse((o) => { const t = o.material?.map; if (t && t.image && /releve|facade/i.test(o.name || o.parent?.name || '')) n++; }); return n; });
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-3d.png' }).catch(() => {});
+    debords.push(await deborde());
+    const ok = boutons === 8 && lien === '?demofile=9' && fichier?.meta?.name === 'Étalon 25-mur-en-l-garage' && releve?.cote === 0 && (releve?.partieBasse?.debut ?? null) === 6.5
+      && !!lu && lu.facades === 1 && lu.corps === 2 && lu.cote === 0 && !debords.some(Boolean);
+    return { ok, mesure: `${boutons} étalons à projet ; « ${fichier?.meta?.name ?? 'RIEN'} » enregistré (${Math.round(taille / 1024)} Ko, lien ${lien}) : façade sur le côté ${releve?.cote ?? '—'}, partie basse depuis ${releve?.partieBasse?.debut ?? '—'} m, ${releve?.ouvertures?.length ?? 0} ouvertures ; rouvert : ${lu ? lu.facades + ' façade, ' + lu.corps + ' corps' : 'RIEN'} ; 3D : ${texture} maillage(s) texturé(s) de façade ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   }
 };
 
@@ -4915,7 +4962,8 @@ function pointsPour(nomClasse) {
   // 127 : V3, les ouvertures relues avant V4 (audit et calibration) ; la verite d'un cas ne se remplit plus de la detection.
   // 128 : la lecture de Claude dans l'enchainement de l'audit : la barre se refait apres elle (E5, E9).
   // 129 : les etalons de synthese dans Admin › Calibration : les scenes du banc listees, l'une ouverte et rejouee, rien d'ecrit.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129];
+  // 130 : le projet de demonstration d'un etalon : cree depuis la calibration, enregistre dans les demos, ouvert en plan et en 3D.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

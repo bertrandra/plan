@@ -378,6 +378,12 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   catalogue ; prendre l'étalon qui couvre le cas. S'il n'y en a pas, **ajouter un étalon au corpus** (même format, numéro suivant,
   §3 ci-dessous), jamais une scène ou un mur peint à côté dans un test ou un script. Un étalon ajouté entre au banc (tableau avant et
   après dans la PR) et au garde-fou de la lecture (`scenes-ajoutees.json`, §5 quater).
+- **Projets de démonstration** (4 novembre 2026) : huit étalons (02, 07, 16, 20, 22, 23, 25, 26) ont un projet, construit à la
+  demande depuis l'étalon (« Créer le projet de démonstration », Admin › Calibration) : le bâtiment de la règle
+  `facade/banc/projetEtalon.ts` (deux pans à 40°, faîtage parallèle au mur, 9 m ; un pignon gardé ; une partie basse en appentis adossé, rive haute sous l'égout haut ; sans lieu), la
+  façade mesurée et validée par le chemin de l'audit (`app/administration/projetEtalon.ts`). Un projet de test pour une façade part de là.
+- **La vérité de l'É5** d'un étalon se porte à chaque rejeu sur l'assemblage de ce rejeu (`etalons.ts::calageVraiDuRejeu`, depuis les
+  coins vrais) : aucune n'est écrite dans le corpus, elle dépend de la version de la chaîne.
 - Un test qui ne mesure qu'une fonction (un segment, une homographie) peut garder sa petite image peinte : la règle vise les murs et
   bâtiments de test, pas les pixels d'essai d'un module.
 

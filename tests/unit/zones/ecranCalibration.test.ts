@@ -100,8 +100,8 @@ describe('l ecran de calibration', () => {
   it('montre les etalons de synthese a part ; un etalon s ouvre et se rejoue, sans rien enregistrer ni compter', async () => {
     const etalon = { id: 'etalon-02-x', nom: '02-x', description: 'Un mur d’essai.', difficultes: ['enduit'], prise: 'camera' as const, photos: 1, biaisDeg: 0, focaleConnue: true, distorsion: false,
       largeurM: 9, hauteurM: 5, parement: 'enduit' as const, soubassement: false, pignonM: 0, pignonSommet: 0.5, partiesBasses: 0, obstacles: [], ombres: [], balcons: 0,
-      ouvertures: { fenetre: 3 }, details: [], etapes: ['redressement', 'calage', 'ouvertures'] as IdEtape[], nbOuvertures: 3 };
-    const ouvrirEtalon = vi.fn(async () => ({ ...scene.cas, nom: '02-x', statut: 'brouillon' as const }));
+      ouvertures: { fenetre: 3 }, details: [], etapes: ['redressement', 'calage', 'ouvertures'] as IdEtape[], nbOuvertures: 3, projet: false };
+    const ouvrirEtalon = vi.fn(async () => ({ cas: { ...scene.cas, nom: '02-x', statut: 'brouillon' as const }, coinsVrais: [scene.cas.photos[0]!.coins] }));
     const { deps, stock } = fausses({ etalons: async () => [etalon], ouvrirEtalon });
     await monter(deps);
     const section = hote.querySelector('[aria-label="Étalons de synthèse"]') as HTMLElement;
@@ -121,6 +121,21 @@ describe('l ecran de calibration', () => {
     expect(hote.querySelector('.calFrise')).not.toBeNull();
     expect(deps.enregistrerCas).not.toHaveBeenCalled();
     expect([...stock.keys()]).toEqual(['cas-a']);
+  });
+
+  it('cree le projet de demonstration d un etalon qui en a un, et donne le lien vers la demo', async () => {
+    const etalon = { id: 'etalon-25-l', nom: '25-l', description: 'Un mur en L.', difficultes: ['mur-en-l'], prise: 'camera' as const, photos: 1, biaisDeg: 14, focaleConnue: true, distorsion: false,
+      largeurM: 10, hauteurM: 5.6, parement: 'enduit' as const, soubassement: false, pignonM: 0, pignonSommet: 0.5, partiesBasses: 1, obstacles: [], ombres: [], balcons: 0,
+      ouvertures: { fenetre: 3 }, details: [], etapes: ['calage'] as IdEtape[], nbOuvertures: 3, projet: true };
+    const creerProjetEtalon = vi.fn(async () => ({ id: '7', nom: 'Étalon 25-mur-en-l-garage' }));
+    const { deps } = fausses({ etalons: async () => [etalon, { ...etalon, id: 'etalon-02-x', nom: '02-x', projet: false }], ouvrirEtalon: async () => ({ cas: scene.cas, coinsVrais: [] }), creerProjetEtalon });
+    await monter(deps);
+    expect(hote.querySelectorAll('[data-controle="calibration.creerProjetEtalon"]')).toHaveLength(1);
+    await act(async () => { bouton('calibration.creerProjetEtalon')?.click(); await new Promise((ok) => setTimeout(ok, 60)); });
+    expect(creerProjetEtalon).toHaveBeenCalledWith('etalon-25-l');
+    const lien = hote.querySelector('[data-controle="calibration.ouvrirProjetEtalon"]') as HTMLAnchorElement;
+    expect(lien.getAttribute('href')).toBe('?demofile=7');
+    expect(lien.textContent).toContain('Étalon 25');
   });
 
   it('depuis un audit : chaque facade montre ses photos en vignettes au bout de sa ligne', async () => {

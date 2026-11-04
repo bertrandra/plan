@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { chargerCorpus, DOSSIER_CORPUS } from '../../../banc/facades/banc.js';
-import { casDeLEtalon, ficheEtalon, photosDeLEtalon, PREFIXE_ETALON } from '../../../../src/facade/banc/etalons.js';
+import { calageVraiDuRejeu, casDeLEtalon, coinsVraisDesPhotos, ficheEtalon, photosDeLEtalon, PREFIXE_ETALON } from '../../../../src/facade/banc/etalons.js';
+import { derouler, entreesDuCas, veriteDuCas } from '../../../../src/facade/releve/enchainement.js';
+import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { photographier } from '../../../../src/facade/banc/synthese.js';
 import { imageDeLEtalon, listerEtalons, ouvrirEtalon } from '../../../../src/io/etalonsFacades.js';
 import { lireCasStocke } from '../../../../src/facade/corpusReel.js';
@@ -47,7 +49,8 @@ describe('un etalon ouvert', () => {
     const vraie = photographier(s, 100)!;
     const [p] = photosDeLEtalon(s);
     expect(memes(p!.image.donnees, vraie.image.donnees)).toBe(true);
-    const cas = await ouvrirEtalon(PREFIXE_ETALON + s.nom, () => 'data:etalon-22');
+    const { cas, coinsVrais } = await ouvrirEtalon(PREFIXE_ETALON + s.nom, () => 'data:etalon-22');
+    expect(coinsVrais).toHaveLength(1);
     expect(memes(imageDeLEtalon('data:etalon-22')!.donnees, vraie.image.donnees)).toBe(true);
     expect(imageDeLEtalon('data:autre')).toBeNull();
     // Le cas se relit comme un cas du serveur ; il reste un brouillon, avec la verite et ce que l'audit en aurait su.
@@ -69,5 +72,23 @@ describe('un etalon ouvert', () => {
   });
   it('refuse un etalon inconnu', async () => {
     await expect(ouvrirEtalon('etalon-99-rien', () => 'x')).rejects.toThrow(/inconnu/);
+  });
+});
+
+describe('le mur vrai d un etalon (verite de l E5)', () => {
+  it('se porte sur l assemblage du rejeu par le meme chemin que la chaine : l E5 se juge juste contre lui', async () => {
+    const s = chargerCorpus().find((x) => x.nom.startsWith('22-'))!;
+    const ph = photosDeLEtalon(s), cas = casDeLEtalon(s, ph, ['p']);
+    const o = { vue: 'calibration' as const, chercherCoins: async (e: Parameters<typeof rechercher>[0]) => rechercher(e) };
+    const r = await derouler(entreesDuCas(cas, ph.map((p) => p.image)), o);
+    const vrai = calageVraiDuRejeu(r.sorties.calage?.pose, coinsVraisDesPhotos(s));
+    expect(vrai).not.toBeNull();
+    const avec = { ...cas, calageVrai: vrai! };
+    const r2 = await derouler(entreesDuCas(avec, ph.map((p) => p.image)), { ...o, verite: veriteDuCas(avec) });
+    expect(r2.etapes.find((e) => e.id === 'calage')?.verite?.juste).toBe(true);
+  });
+  it('n en a pas pour un objectif deformant : la chaine travaille sur l image corrigee', () => {
+    const s = chargerCorpus().find((x) => x.nom.startsWith('13-'))!;
+    expect(coinsVraisDesPhotos(s)).toEqual([null]);
   });
 });
