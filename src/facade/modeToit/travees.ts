@@ -3,7 +3,7 @@
 //
 // Le toit d'un corps ne change jamais avec ses travees : un mur qui recule laisse le toit continu au-dessus de lui (son debord grandit
 // d'autant), un porche ouvert garde son toit. Ce module dit ce que la 3D et le Mode Toit en lisent :
-//   - `contourAvecReculs` : le pied du corps, ses murs recules (le prisme, les fenetres) ;
+//   - `contourAvecReculs` : le pied du corps, ses murs recules et ses travees ouvertes (le prisme, ses murs, les fenetres) ;
 //   - `reculEn` : le recul d'un mur a une abscisse (un pignon dans un troncon recule recule avec lui) ;
 //   - `segmentsDuMurBas` : le mur bas d'un appentis, troncon par troncon (poteaux, garde-corps, mur, rien) ;
 //   - les gestes : poser une travee sur un mur, la regler, la retirer.
@@ -29,15 +29,20 @@ export function reculEn(c: CorpsToit, mur: number, x: number): number {
   return t?.reculM ?? 0;
 }
 
-/** Un cote du pied d'un corps : de quel mur il vient (-1 : le retour d'un recul), et son recul. */
-export interface CotePied { mur: number; recul: number }
+/** Un cote du pied d'un corps : de quel mur il vient (-1 : le retour d'un recul), son recul, et ce qu'il est (un mur, ou une travee ouverte). */
+export interface CotePied { mur: number; recul: number; nature: NatureTravee }
+
+/** Un corps ferme dont un mur a une travee ouverte (poteaux, garde-corps, rien) : son pied se dessine mur par mur, pas en prisme. */
+export const aDesTraveesOuvertes = (c: CorpsToit): boolean => !c.saillie && (c.travees ?? []).some((t) => t.nature !== 'mur');
 
 /**
- * Le pied du corps, ses murs recules : le rectangle `pts`, ou chaque travee qui recule entre de son recul vers l'interieur. Rend les
- * sommets et, pour chaque cote (`pts[i] -> pts[i + 1]`), le mur dont il vient. Sans recul, le rectangle tel quel.
+ * Le pied du corps, ses murs recules et ses travees : le rectangle `pts`, ou chaque travee qui recule entre de son recul vers l'interieur,
+ * et ou chaque travee ouverte (poteaux, garde-corps, rien) devient un cote a part. Rend les sommets et, pour chaque cote
+ * (`pts[i] -> pts[i + 1]`), le mur dont il vient et sa nature. Sans recul ni travee ouverte, le rectangle tel quel.
  */
 export function contourAvecReculs(c: CorpsToit): { pts: PtBrut[]; cotes: CotePied[] } {
-  if (!(c.travees ?? []).some((t) => (t.reculM ?? 0) > 0)) return { pts: c.pts.slice(), cotes: c.pts.map((_, i) => ({ mur: i, recul: 0 })) };
+  const utiles = (c.travees ?? []).some((t) => (t.reculM ?? 0) > 0 || t.nature !== 'mur');
+  if (!utiles) return { pts: c.pts.slice(), cotes: c.pts.map((_, i) => ({ mur: i, recul: 0, nature: 'mur' as const })) };
   const pts: PtBrut[] = [], cotes: CotePied[] = [];
   const pousser = (p: PtBrut, cote: CotePied) => {
     const der = pts[pts.length - 1];
@@ -49,17 +54,26 @@ export function contourAvecReculs(c: CorpsToit): { pts: PtBrut[]; cotes: CotePie
     const { a, u, n } = murDuCorps(c, m);
     // La normale de murDuCorps sort du corps : le recul va vers l'interieur, a l'oppose.
     const P = (x: number, d: number): PtBrut => ({ x: a.x + u.x * x - n.x * d, y: a.y + u.y * x - n.y * d });
+    const plein: CotePied = { mur: m, recul: 0, nature: 'mur' };
     let x = 0;
-    pousser(P(0, 0), { mur: m, recul: 0 });
+    pousser(P(0, 0), plein);
     for (const t of traveesDuMur(c, m)) {
-      const d = t.reculM ?? 0;
-      if (d <= 0 || t.de < x - 1e-6) continue;
-      // Le mur jusqu'a la travee, le retour vers l'interieur, le mur recule, le retour vers le nu du mur.
-      if (t.de > x) { cotes[cotes.length - 1] = { mur: m, recul: 0 }; pousser(P(t.de, 0), { mur: -1, recul: d }); }
-      else cotes[cotes.length - 1] = { mur: -1, recul: d };
-      pousser(P(t.de, d), { mur: m, recul: d });
-      pousser(P(t.a, d), { mur: -1, recul: d });
-      pousser(P(t.a, 0), { mur: m, recul: 0 });
+      if (t.de < x - 1e-6) continue;
+      const d = t.nature === 'mur' ? t.reculM ?? 0 : 0;
+      if (d > 0) {
+        // Le mur jusqu'a la travee, le retour vers l'interieur, le mur recule, le retour vers le nu du mur.
+        const retour: CotePied = { mur: -1, recul: d, nature: 'mur' };
+        if (t.de > x) { cotes[cotes.length - 1] = plein; pousser(P(t.de, 0), retour); }
+        else cotes[cotes.length - 1] = retour;
+        pousser(P(t.de, d), { mur: m, recul: d, nature: 'mur' });
+        pousser(P(t.a, d), retour);
+        pousser(P(t.a, 0), plein);
+      } else if (t.nature !== 'mur') {
+        // Une travee ouverte : un cote a part, au nu du mur.
+        if (t.de > x) { cotes[cotes.length - 1] = plein; pousser(P(t.de, 0), { mur: m, recul: 0, nature: t.nature }); }
+        else cotes[cotes.length - 1] = { mur: m, recul: 0, nature: t.nature };
+        pousser(P(t.a, 0), plein);
+      } else continue;
       x = t.a;
     }
   }

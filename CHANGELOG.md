@@ -5,6 +5,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Mode Toit, travées : **une travée ouverte agit aussi sur un corps fermé** (décision du propriétaire, 4 novembre 2026 : « un garage
+  dont on retire la porte pour en faire un abri ouvert »). Sur une travée « Ouvert, sur poteaux », « Poteaux et garde-corps » ou
+  « Ouvert, sans rien », la partie de mur disparaît ; des poteaux portent le toit à ses bouts et à entraxe (un garde-corps entre eux s'il
+  en a un), un plafond ferme le dessous du toit, le sol couvert reste. Le relevé de façade, ses baies, les fenêtres et le soubassement ne
+  se posent pas sur la partie ouverte. Sans champ nouveau (schéma 14). Un corps sans travée ouverte se dessine comme avant.
+- Fumée : point 133 (le garage de l'étalon 25 ouvert sur poteaux sur la rue, validé, Ctrl+Z).
+
 ## [5.8.0] — 2026-11-04
 
 Version **mineure** au sens de `MD/RELEASE.md` : l'É3 dit l'objectif de chaque photo, EXIF ou non (#564) ; le Mode Toit modifie

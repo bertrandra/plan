@@ -10,7 +10,7 @@ import { modeToitActif, hauteurMurMesuree } from '../../model/toitMesure.js';
 import { ajouterToitMesure3d } from '../toitMesure3d.js';
 import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from '../toitCorps3d.js';
 import { empriseDeSaillie, separerBowWindows } from '../../facade/modeToit/saillies.js';
-import { contourAvecReculs } from '../../facade/modeToit/travees.js';
+import { aDesTraveesOuvertes, contourAvecReculs } from '../../facade/modeToit/travees.js';
 import { corpsVisibles } from '../../facade/modeToit/facadesDesCorps.js';
 import { ajouterCheminees3d } from '../cheminees3d.js';
 import { ajouterTerrasses3d } from '../terrasse3d.js';
@@ -70,7 +70,8 @@ export function volumesEnBati(o: ObjetPlan, diag: boolean, h: number, footprint:
     : corpsToit
     // Un appentis ouvert n'a pas de prisme : des poteaux le portent, et le mur est celui du corps qui le porte.
     // Un mur en travees reculees (schema 14) : le pied du corps suit ses reculs, le toit reste celui du rectangle.
-    ? corpsToit.filter((c) => !estAppentisOuvert(c)).map((c) => piedDuCorps(c))
+    // Un corps aux travees ouvertes (un garage devenu abri) n'a pas de prisme : ses murs et ses poteaux se dessinent a part (toitCorps3d.ts).
+    ? corpsToit.filter((c) => !estAppentisOuvert(c) && !aDesTraveesOuvertes(c)).map((c) => piedDuCorps(c))
     : toitMesure
     ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
     : volumesToit
@@ -148,7 +149,7 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
         // Un appentis ouvert n'a pas de mur : pas de fenetre non plus.
         ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit.filter((c) => !estAppentisOuvert(c)) } : {}),
         // Le soubassement s'interrompt sous un appentis ouvert : il n'a pas de mur.
-        ...(corpsToit?.some(estAppentisOuvert) ? { ouverts: corpsToit.filter(estAppentisOuvert) } : {}) }
+        ...(corpsToit?.some((c) => estAppentisOuvert(c) || aDesTraveesOuvertes(c)) ? { ouverts: corpsToit.filter((c) => estAppentisOuvert(c) || aDesTraveesOuvertes(c)) } : {}) }
     );
   }
 }

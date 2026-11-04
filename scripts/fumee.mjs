@@ -4317,6 +4317,98 @@ const POINTS = {
       && bow.saillie.centreM <= 2.2 && bowSansToit && reculOk && !!gardeCorps && !!retour && retour.ouvert === true && valide.fige && memesCorps && sans;
     return { ok, mesure: `${depart.corps.length} corps lus, ${apresPlat.corps.length} après « Toit plat » ; corps principal ${plat ? 'plat, ses ' + principal.pignons.length + ' pignons gardés' : 'PAS PLAT OU PIGNONS PERDUS'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', milieu à ' + bow.saillie.centreM.toFixed(2) + ' m du bout gauche, égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; ${bowSansToit ? 'sans toit propre' : 'AVEC UN TOIT'} ; mur sud ${reculOk ? 'reculé de 0,50 m à droite du grand pignon (' + recul.de.toFixed(2) + ' m)' : 'PAS RECULÉ'} ; garde-corps ${gardeCorps ? 'de ' + gardeCorps.de.toFixed(2) + ' à ' + gardeCorps.a.toFixed(2) + ' m' : 'ABSENT'} ; retour d’angle ${retour ? (retour.ouvert ? 'ouvert' : 'FERMÉ') : 'ABSENT'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  133: async (page, f) => {
+    // Un corps ferme aux travees ouvertes (decision du proprietaire, 4 novembre 2026 : « un garage dont on retire la porte pour en
+    // faire un abri ouvert ») : le projet de demonstration de l'etalon 25, Vue 3D, « Modifier la toiture », sur la facade du garage
+    // (son mur sur la rue), « Travée », nature « Ouvert, sur poteaux », tiree sur tout le mur ; le garage n'a plus de mur sur la rue,
+    // des poteaux portent son toit, sans porte ni soubassement ; « Valider » : le toit fige ; un Ctrl+Z du projet rend le garage ferme.
+    let fichier = null;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url()), m = route.request().method();
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'GET') return json({ demos: fichier ? [{ id: '9', name: fichier.meta.name }] : [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'POST') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9', updatedAt: '2026-11-04T10:00:00Z' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && m === 'PUT') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && fichier) return json(fichier);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const capture = process.env.FUMEE_CAPTURE_GARAGE;
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('liste des etalons', () => page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 20000 }));
+    await etape('creer le projet', () => page.locator('[aria-label="Créer le projet de démonstration de l’étalon 25-mur-en-l-garage"]').click({ timeout: 10000 }));
+    await etape('projet enregistre', () => page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').waitFor({ timeout: 120000 }));
+    const lien = await page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').getAttribute('href');
+    await etape('ouvrir le projet', () => page.goto(BASE + '/' + lien));
+    await etape('plan', () => page.waitForSelector('#stage svg', { timeout: 30000 }));
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    await etape('modifier la toiture', () => page.locator('#terrasse3dModifierToit').click({ timeout: 30000 }));
+    await page.locator('.panneauToit').waitFor({ timeout: 20000 });
+    const lire = () => page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const corps = o.batiment?.corpsToit ?? [];
+      const W = (c) => Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
+      const rang = corps.findIndex((c) => !c.saillie && (c.posFaitage <= 0.01 || c.posFaitage >= W(c) - 0.01) && c.faitage - Math.min(...c.egouts) >= 0.3);
+      const L = rang >= 0 ? Math.hypot(corps[rang].pts[1].x - corps[rang].pts[0].x, corps[rang].pts[1].y - corps[rang].pts[0].y) : 0;
+      return { rang, L, travees: rang >= 0 ? JSON.parse(JSON.stringify(corps[rang].travees ?? [])) : [], fige: !!o.batiment?.toitFige, n: corps.length };
+    });
+    const depart = await lire();
+    if (depart.rang < 0) return { ok: false, mesure: `aucun garage dans le projet de l’étalon (${depart.n} corps)` };
+    const libre = page.locator('[data-commande="toit.vueLibre"]');
+    if (await libre.isEnabled()) await libre.click();
+    await image3dStable(page, 1500);
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-avant.png' }).catch(() => {});
+    // La facade du garage sur la rue : son mur bas (le faitage est au fond).
+    const murRue = await page.evaluate((r) => { const c = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[r]; return c.posFaitage <= 0.01 ? 2 : 0; }, depart.rang);
+    await page.evaluate(([r, m]) => document.querySelector('path.murNav[data-rang="' + r + '"][data-mur="' + m + '"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })), [depart.rang, murRue]);
+    await page.waitForTimeout(600);
+    await etape('onglet Façade', () => page.locator('.toitOnglet', { hasText: /^Façade$/ }).dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('pièce Travée', () => page.locator('[data-piece="facade:travee"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await page.waitForTimeout(500);
+    await etape('ouvert sur poteaux', () => page.locator('.inspecteurToit [data-groupe="nature"][data-valeur="poteaux"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await page.waitForTimeout(500);
+    // La travee sur tout le mur : ses bords tires jusqu'aux bouts (ils s'y collent).
+    for (const [id, dx] of [['gauche', -400], ['droite', 400]]) {
+      for (let k = 0; k < 3; k++) {
+        const t = (await lire()).travees[0];
+        if (!t || (id === 'gauche' ? t.de < 0.05 : t.a > (await lire()).L - 0.05)) break;
+        const pg = page.locator('[data-poignee="' + id + '"] .pointPoignee').first();
+        const b = (await pg.count()) ? await pg.boundingBox() : null;
+        if (!b) break;
+        await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, dx, 0);
+        await page.waitForTimeout(400);
+      }
+    }
+    const apres = await lire();
+    await page.evaluate(() => window.__plan.executer('toit.selection'));
+    if (await libre.isEnabled()) await libre.click();
+    await image3dStable(page, 1500);
+    if (capture) {
+      const masque = await page.addStyleTag({ content: '.poigneesToit { visibility: hidden !important; }' });
+      await page.screenshot({ path: capture + '-' + f.nom + '-apres.png' }).catch(() => {});
+      await masque.evaluate((n) => n.remove());
+    }
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(300);
+    const defait = await lire();
+    const t = apres.travees[0];
+    const toutLeMur = !!t && t.nature === 'poteaux' && t.de < 0.05 && t.a > apres.L - 0.05 && t.mur === murRue;
+    const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
+    const ok = depart.travees.length === 0 && toutLeMur && valide.fige && valide.travees.length === 1 && defait.travees.length === 0 && sans;
+    return { ok, mesure: `garage : corps ${depart.rang}, mur sur la rue ${murRue} (${apres.L.toFixed(2)} m) ; travée ${t ? t.nature + ' de ' + t.de.toFixed(2) + ' à ' + t.a.toFixed(2) + ' m' : 'ABSENTE'} ${toutLeMur ? '(tout le mur)' : '(PAS TOUT LE MUR)'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${defait.travees.length === 0 ? 'rend le garage fermé' : 'GARDE LA TRAVÉE'} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe
     // (processus, actions, coulisses), le choix d'un angle qui masque les autres, la recherche qui filtre, un lien vers l'ecran des regles ; rien ne deborde.
@@ -5236,8 +5328,9 @@ function pointsPour(nomClasse) {
   // 129 : les etalons de synthese dans Admin › Calibration : les scenes du banc listees, l'une ouverte et rejouee, rien d'ecrit.
   // 130 : le projet de demonstration d'un etalon : cree depuis la calibration, enregistre dans les demos, ouvert en plan et en 3D.
   // 131 : le mode Toit modifie ce qu'il sait poser : le garage de l'etalon 25 passe en appentis ouvert (carport), Ctrl+Z, valide.
+  // 133 : un corps ferme aux travees ouvertes : le garage de l'etalon 25 ouvert sur poteaux sur la rue, valide, Ctrl+Z.
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
