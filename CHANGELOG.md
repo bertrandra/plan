@@ -15,7 +15,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - Admin › Calibrer la détection, étalons de synthèse : **« Créer le projet de démonstration »** pour huit étalons (02, 07, 16, 20, 22,
   23, 25, 26). Le bâtiment se pose autour du mur photographié selon une règle fixe (deux pans à 40°, faîtage parallèle au mur, 9 m de
-  profondeur ; un mur pignon garde son pignon, une rampe devient un appentis ; les parties basses deviennent leurs volumes) ; la façade
+  profondeur ; un mur pignon garde son pignon, une rampe devient un appentis ; une partie basse est un appentis adossé à la partie haute,
+  sa rive basse côté rue, sa rive haute sous l'égout haut, et devient son volume) ; un projet de synthèse, sans lieu (ni orthophoto, ni LiDAR) ; la façade
   se mesure par le chemin de l'audit et s'écrit par sa validation V4. Le projet s'enregistre dans les démos de l'admin (sous le nom de
   l'étalon, un seul par étalon) et s'ouvre dans l'atelier : plan, Vue 3D, relevé. Rien n'est ajouté au dépôt.
 - Étalons de synthèse : la vérité de l'É5 (le mur vrai sur l'assemblage) se calcule à chaque rejeu, depuis les coins vrais des photos,

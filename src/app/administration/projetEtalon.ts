@@ -38,12 +38,15 @@ const MARGE_M = 6;
 /** Le nom du projet : l'identifiant de l'etalon (« Étalon 22-pignon-decentre-pierre »), celui du catalogue, pour le retrouver. */
 export const nomDuProjet = (s: SceneFacade): string => 'Étalon ' + s.nom;
 
-/** La parcelle autour du batiment, a MARGE_M de chaque cote : le gazon et la cloture de la 3D s'y posent. */
+/**
+ * La parcelle autour du batiment, a MARGE_M de chaque cote : le gazon et la cloture de la 3D s'y posent. Elle n'a ni lieu ni cadastre (un
+ * projet de synthese) : le lieu par defaut vaut pour le soleil, et ni l'orthophoto ni le LiDAR ne se lisent ; son nom le dit.
+ */
 function parcelle(L: number): ObjetPlan {
   const D = PROFONDEUR_M, m = MARGE_M;
   const pts: PtBrut[] = [{ x: -m, y: -m - 4 }, { x: L + m, y: -m - 4 }, { x: L + m, y: D + m }, { x: -m, y: D + m }];
   return {
-    key: 'parcelle', type: 'polygon', name: 'Parcelle', fill: '#FBF3D9', fillOpacity: 1, stroke: '#3B2E1F', pts,
+    key: 'parcelle', type: 'polygon', name: 'Parcelle (projet de synthèse, sans lieu)', fill: '#FBF3D9', fillOpacity: 1, stroke: '#3B2E1F', pts,
     vertexNames: ['Coin Sud-Ouest', 'Coin Sud-Est', 'Coin Nord-Est', 'Coin Nord-Ouest'], segmentNames: ['Sud (rue)', 'Est', 'Nord', 'Ouest'],
     frozenVertices: [false, false, false, false], showName: false, showSegNames: false, showVertNames: false, showDims: false, showAngles: false,
     constrained: false, fonction: 'terrain', matiere: '', priority: 0, locked: true,
