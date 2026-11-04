@@ -382,6 +382,8 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
     const enFacadeMur = c.pts.map((_: PtBrut, m: number) => segmentEnFacade(au(c.pts, m), sommetDe(c.pts, m + 1), dedans, batiment));
     const interieurs = pts.map((_: PtBrut, i: number) => i).filter((i: number) => {
       const q = pied.cotes[i];
+      // Une travee ouverte n'a pas de mur : pas de fenetre.
+      if (q && q.nature !== 'mur') return true;
       if (!q || pts.length === c.pts.length) return !segmentEnFacade(au(pts, i), sommetDe(pts, i + 1), dedans, batiment);
       return q.mur < 0 || !enFacadeMur[q.mur];
     });

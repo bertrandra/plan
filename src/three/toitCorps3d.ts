@@ -17,7 +17,7 @@ import { estSpecial } from '../facade/toits/toitSpeciaux.js';
 export { penteDuCorps, penteDominante } from '../facade/toits/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/modeToit/saillies.js';
-import { reculEn, segmentsDuMurBas } from '../facade/modeToit/travees.js';
+import { aDesTraveesOuvertes, contourAvecReculs, murBasDeLAppentis, reculEn, segmentsDuMurBas } from '../facade/modeToit/travees.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
@@ -79,12 +79,21 @@ export function portionsOuvertesDuMur(f: { gauche: PtBrut; droite: PtBrut; large
   const le = (p: PtBrut) => (p.x - f.gauche.x) * ux + (p.y - f.gauche.y) * uy;
   const ecart = (p: PtBrut) => Math.abs((p.x - f.gauche.x) * uy - (p.y - f.gauche.y) * ux);
   const brutes: [number, number][] = [];
+  const ajouter = (xs: number[]) => { const a = Math.max(0, Math.min(...xs)), b = Math.min(L, Math.max(...xs)); if (b - a > 0.05) brutes.push([a, b]); };
   for (const c of corps) {
-    if (!estAppentisOuvert(c)) continue;
-    const surLeMur = c.pts.filter((p) => ecart(p) <= SUR_LE_MUR_M).map(le);
-    if (surLeMur.length < 2) continue;
-    const a = Math.max(0, Math.min(...surLeMur)), b = Math.min(L, Math.max(...surLeMur));
-    if (b - a > 0.05) brutes.push([a, b]);
+    if (estAppentisOuvert(c)) {
+      const surLeMur = c.pts.filter((p) => ecart(p) <= SUR_LE_MUR_M).map(le);
+      if (surLeMur.length >= 2) ajouter(surLeMur);
+      continue;
+    }
+    // Un corps ferme : ses travees ouvertes (poteaux, garde-corps, rien) qui longent ce mur (schema 14, un garage devenu abri ouvert).
+    if (!aDesTraveesOuvertes(c)) continue;
+    const pied = contourAvecReculs(c);
+    pied.cotes.forEach((k, i) => {
+      if (k.nature === 'mur') return;
+      const a = pied.pts[i] as PtBrut, b = pied.pts[(i + 1) % pied.pts.length] as PtBrut;
+      if (ecart(a) <= SUR_LE_MUR_M && ecart(b) <= SUR_LE_MUR_M) ajouter([le(a), le(b)]);
+    });
   }
   brutes.sort((p, q) => p[0] - q[0]);
   const fondues: [number, number][] = [];
@@ -93,6 +102,12 @@ export function portionsOuvertesDuMur(f: { gauche: PtBrut; droite: PtBrut; large
     if (der && a <= der[1] + 0.01) der[1] = Math.max(der[1], b); else fondues.push([a, b]);
   }
   return fondues;
+}
+
+/** Un corps a un pan : son faitage sur un mur, et un toit qui monte. */
+function estUnAppentis(c: CorpsToit): boolean {
+  const { W } = repere(c.pts);
+  return !estSpecial(c, W) && (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) && c.faitage - Math.min(...c.egouts) >= 0.05;
 }
 
 /** Un appentis est adosse quand les deux bouts de son mur haut sont a moins de cela d'un mur d'un autre corps. */
@@ -210,6 +225,39 @@ function sousLAppentis(c: CorpsToit, r: ReturnType<typeof repere>, abrites: read
     }
   }
   return out;
+}
+
+/**
+ * Le pied d'un corps ferme dont un mur a des travees ouvertes (schema 14, un garage devenu abri ouvert) : il ne se dessine pas en prisme
+ * (scene.ts) mais mur par mur. Un mur plein monte du sol a l'egout le plus bas (au-dessus, les murs hauts du corps, comme avant) ; une
+ * travee ouverte n'a pas de mur : des poteaux a ses bouts et a entraxe (le toit reste porte), un garde-corps entre eux s'il en a un, ou
+ * rien. Un plafond ferme le dessus a l'egout. `sansMur` : un mur que l'appelant dessine lui-meme (la rive basse d'un appentis).
+ */
+export function piedEnTravees(c: CorpsToit, sansMur: number | null = null): S3[][] {
+  const pied = contourAvecReculs(c), n = pied.pts.length, bas = Math.min(...c.egouts), faces: S3[][] = [];
+  pied.cotes.forEach((k, i) => {
+    if (sansMur !== null && k.mur === sansMur) return;
+    const a = pied.pts[i] as PtBrut, b = pied.pts[(i + 1) % n] as PtBrut, L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L < 0.01) return;
+    if (k.nature === 'mur') { faces.push([{ ...a, z: 0 }, { ...b, z: 0 }, { ...b, z: bas }, { ...a, z: bas }]); return; }
+    if (k.nature === 'ouvert') return;
+    // Le long du cote, dans son repere : s le long, t en travers (vers l'interieur, la ou se tiennent poteaux et lisses).
+    const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L }, v = { x: -u.y, y: u.x };
+    const Q = (q: { s: number; t: number; z: number }): S3 => ({ x: a.x + u.x * q.s + v.x * q.t, y: a.y + u.y * q.s + v.y * q.t, z: q.z });
+    const tP = 0;
+    faces.push(...poteauxDAppentis(L, tP, bas, POTEAU_COTE_M / 2).map((f) => f.map(Q)));
+    if (k.nature === 'garde-corps') {
+      faces.push(...boiteLe(0, L, tP, GARDE_CORPS.lisseM, GARDE_CORPS.hauteurM - GARDE_CORPS.lisseM, GARDE_CORPS.hauteurM).map((f) => f.map(Q)));
+      faces.push(...boiteLe(0, L, tP, GARDE_CORPS.lisseM, 0.08, 0.08 + GARDE_CORPS.lisseM).map((f) => f.map(Q)));
+      for (let j = 1; j < Math.floor(L / GARDE_CORPS.entraxeM); j++) {
+        const s0 = j * GARDE_CORPS.entraxeM, h = GARDE_CORPS.barreauM / 2;
+        faces.push([{ s: s0 - h, t: tP, z: 0.08 }, { s: s0 + h, t: tP, z: 0.08 }, { s: s0 + h, t: tP, z: GARDE_CORPS.hauteurM }, { s: s0 - h, t: tP, z: GARDE_CORPS.hauteurM }].map(Q));
+      }
+    }
+  });
+  // Le plafond, a l'egout : le dessous du toit, vu par l'ouverture.
+  faces.push(pied.pts.map((p) => ({ ...p, z: bas })));
+  return faces;
 }
 
 /** La hauteur d'un garde-corps, l'entraxe de ses barreaux, et les sections de ses lisses et barreaux, en metres. */
@@ -610,7 +658,13 @@ export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: read
 /** Pose les toits et les murs hauts des corps d'un batiment. `toitRef` porte la couleur de la couverture ; `contour` dit ou sont les facades. */
 export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null, abrites: readonly (readonly PtBrut[])[] = []): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
-  corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps), abrites, boutsLies(c, corps)); pans.push(...f.pans); murs.push(...f.murs); });
+  corps.forEach((c) => {
+    const f = facettesCorps(c, contour, true, appentisAdosse(c, corps), abrites, boutsLies(c, corps));
+    pans.push(...f.pans); murs.push(...f.murs);
+    // Un corps aux travees ouvertes n'a pas de prisme (scene.ts) : ses murs, ses poteaux et son plafond. Un appentis ouvert n'a pas de
+    // mur ; ferme, sa rive basse est dessinee avec ses travees (`sousLAppentis`).
+    if (aDesTraveesOuvertes(c) && c.ouvert !== true) murs.push(...piedEnTravees(c, c.ouvert === false && estUnAppentis(c) ? murBasDeLAppentis(c) : null));
+  });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   ajouterElementsToit3d(ctx, corps);
   ajouterBordsToit3d(ctx, corps, contour);

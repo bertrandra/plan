@@ -355,6 +355,10 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   (`decroche.ts::retourDAngle`) : deux corps liés sans champ nouveau (`toitCorps3d.ts::boutsLies` : murs hauts qui se rejoignent en équerre,
   même largeur et mêmes hauteurs), les pans coupés sur la diagonale (un arêtier), un poteau à l'angle. Changer la forme d'un corps
   replace ses pignons à leur place relative quand il change de dimensions sans tourner.
+- Une travée ouverte (poteaux, garde-corps, rien) agit aussi sur un **corps fermé** (un garage devenu abri ouvert ; décision du
+  propriétaire, 4 novembre 2026) : le corps n'a plus de prisme mais ses murs, mur par mur (`toitCorps3d.ts::piedEnTravees`) ; sur la
+  partie ouverte, des poteaux à ses bouts et à entraxe, un garde-corps s'il en a un ; un plafond sous le toit. Ni relevé, ni baie, ni
+  fenêtre, ni soubassement sur elle (`portionsOuvertesDuMur`). Fumée : point 133.
 - Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `travees.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points
   131 (étalon 25, le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, la partie droite du mur reculée de 50 cm, auvent
   ouvert avec garde-corps à droite et retour d'angle, bow-window sans toit propre dessous).

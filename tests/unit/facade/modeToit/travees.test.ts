@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { contourAvecReculs, reculEn, segmentsDuMurBas, traveeNeuve } from '../../../../src/facade/modeToit/travees.js';
+import { aDesTraveesOuvertes, contourAvecReculs, reculEn, segmentsDuMurBas, traveeNeuve } from '../../../../src/facade/modeToit/travees.js';
 import { retourDAngle } from '../../../../src/facade/modeToit/decroche.js';
 import { appliquerChoix, groupesDe, listerElements, supprimerElement, valeurDuGroupe } from '../../../../src/facade/modeToit/elements.js';
 import { glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
 import { appliquerPiece } from '../../../../src/three/gestesToits.js';
-import { boutsLies, facettesCorps } from '../../../../src/three/toitCorps3d.js';
+import { boutsLies, facettesCorps, piedEnTravees, portionsOuvertesDuMur } from '../../../../src/three/toitCorps3d.js';
 import { facettesBowWindow } from '../../../../src/facade/modeToit/saillies.js';
 import type { CorpsToit, ObjetPlan, SaillieFacade } from '../../../../src/model/types.js';
 
@@ -91,5 +91,41 @@ describe('un bow-window sans toit propre', () => {
     const f = facettesBowWindow(c);
     expect(f.pans).toHaveLength(0);
     expect(f.murs.length).toBeGreaterThan(1);
+  });
+});
+
+describe('un corps ferme aux travees ouvertes (un garage devenu abri)', () => {
+  // Le garage : un appentis sans indication, son mur 0 (y = 0) sur la rue.
+  const garage = (): CorpsToit => ({ pts: rect(0, 0, 4, 6), posFaitage: 6, faitage: 3.4, egouts: [2.6, 3.4], pignons: [], ecart: 0 });
+
+  it('son pied garde le rectangle, la travee ouverte devient un cote a part', () => {
+    const c: CorpsToit = { ...garage(), travees: [{ mur: 0, de: 0, a: 4, nature: 'poteaux' }] };
+    expect(aDesTraveesOuvertes(c)).toBe(true);
+    const pied = contourAvecReculs(c);
+    expect(pied.pts).toHaveLength(4);
+    expect(pied.cotes.map((k) => k.nature)).toEqual(['poteaux', 'mur', 'mur', 'mur']);
+    const milieu = { ...garage(), travees: [{ mur: 0, de: 1, a: 3, nature: 'ouvert' as const }] };
+    expect(contourAvecReculs(milieu).cotes.map((k) => k.nature)).toEqual(['mur', 'ouvert', 'mur', 'mur', 'mur', 'mur']);
+    expect(aDesTraveesOuvertes({ ...garage(), travees: [{ mur: 0, de: 0, a: 4, nature: 'mur', reculM: 0.5 }] })).toBe(false);
+  });
+
+  it('se dessine mur par mur : pas de mur sur la travee ouverte, des poteaux qui portent le toit, un plafond', () => {
+    const c: CorpsToit = { ...garage(), travees: [{ mur: 0, de: 0, a: 4, nature: 'poteaux' }] };
+    const faces = piedEnTravees(c);
+    // Aucun mur plein du sol a l'egout sur y = 0 : seulement les faces etroites des poteaux.
+    const pleinSurLaRue = faces.filter((f) => f.length === 4 && f.every((q) => Math.abs(q.y) < 0.01) && Math.abs(f[1]!.x - f[0]!.x) > 1);
+    expect(pleinSurLaRue).toHaveLength(0);
+    const poteaux = faces.filter((f) => f.some((q) => q.z === 0) && f.every((q) => Math.abs(q.y) < 0.2));
+    expect(poteaux.length).toBeGreaterThanOrEqual(8);
+    expect(faces.some((f) => f.length === 4 && f.every((q) => q.z === 2.6))).toBe(true);
+    // Un garde-corps ajoute ses lisses et ses barreaux.
+    expect(piedEnTravees({ ...c, travees: [{ mur: 0, de: 0, a: 4, nature: 'garde-corps' }] }).length).toBeGreaterThan(faces.length + 20);
+  });
+
+  it('ni releve, ni baie, ni soubassement sur la partie ouverte du mur', () => {
+    const c: CorpsToit = { ...garage(), travees: [{ mur: 0, de: 1, a: 3, nature: 'poteaux' }] };
+    const mur = { gauche: { x: -2, y: 0 }, droite: { x: 8, y: 0 }, largeur: 10 };
+    expect(portionsOuvertesDuMur(mur, [c])).toEqual([[3, 5]]);
+    expect(portionsOuvertesDuMur(mur, [garage()])).toEqual([]);
   });
 });
