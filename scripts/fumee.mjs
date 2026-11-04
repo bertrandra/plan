@@ -4227,7 +4227,7 @@ const POINTS = {
     };
     const lacher = () => page.evaluate(() => window.__plan.executer('toit.selection'));
     const poser = async (onglet, piece) => {
-      await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: onglet }).click({ timeout: 20000 }));
+      await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).click({ timeout: 20000 }));
       await etape('pièce ' + piece, () => page.locator('[data-piece="' + piece + '"]').click({ timeout: 20000 }));
       await page.waitForTimeout(500);
     };
