@@ -38,6 +38,11 @@
       "unite": "part",
       "pourquoi": "É5 : l'egout de la pose retenue, juge sur la silhouette du gabarit posee par elle (facade/releve/calageAncres.ts : la matiere du mur sous le haut pose et pas au-dessus, d'un bout a l'autre de la silhouette, dans des bandes de 2,5 a 4,5 % de la largeur ; un rectangle n'est que l'egout), doit l'etre au moins a cette part : sous un pignon, l'egout n'est pas une arete et un egout pose sur les linteaux de l'etage passait le score (scene 24 : 0,89). Pose le 2 novembre 2026 sur le banc de synthese (calage-e5.ts, 22 poses justes) : les poses justes font de 0,79 a 1, les memes l'egout deplace de 2 % de la largeur (encore juste) de 0,53 a 1, l'egout deplace de 5 ou 10 % (faux, au-dela de calageEcartMaxPart) au plus 0,16. Le seuil est entre les deux."
     },
+    "facades.enchainement.murSousLeSolMax": {
+      "valeur": 0.5,
+      "unite": "part",
+      "pourquoi": "É5 : la part des rangees de la bande sous le sol de la pose retenue (2,5 % de la largeur, entre ses bouts) qui ont encore la matiere du mur (facade/vision/mosaiqueFuites.ts::murSousLeSol). Au-dela, le sol est pose dans le mur (sur l'appui des fenetres, un bandeau), le pied est plus bas : l'É5 est a confirmer, meme quand le score d'explication passe (le sol y pese peu). Pose le 4 novembre 2026 sur les 27 etalons, avec et sans capteurs : 0 sous chacune des 52 poses dont le sol est juste (haies et voitures comprises : sous le pied cache, ce n'est pas le mur), 1 sous la pose de l'etalon 00, son sol pose a 13 % de la largeur au-dessus du pied (une photo sans EXIF au teleobjectif : la focale supposee fausse le redressement, le pied n'est pas trouve). Le seuil est entre les deux."
+    },
     "facades.enchainement.diagnosticEcartMin": {
       "valeur": 0.08,
       "unite": "part",
