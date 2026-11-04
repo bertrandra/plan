@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Façades, É5 (calage du mur) : une pose dont le sol tombe dans le mur (la matière du mur continue sous lui, sur l'appui des fenêtres
+  par exemple) est à confirmer, avec « le mur continue sous le sol posé : le pied est plus bas, tirez le sol ». L'étalon 00 (photo sans
+  EXIF au téléobjectif, sol à 13 % de la largeur) se disait « fait ». Nouvel objectif `facades.enchainement.murSousLeSolMax` (0,5),
+  posé sur les 27 étalons avec et sans capteurs ; seul l'étalon 00 change d'état, le banc, `calage-e5.ts` (avec et sans capteurs) et
+  `egout-sol.ts` sont identiques.
+
 ### Modifié
 
 - Tests et fumée : les cas de calibration des points 100, 101, 103, 126 et 127 et la maison photographiée de

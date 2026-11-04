@@ -20,6 +20,7 @@ import { descentesRetrouvees } from '../regles/facades/modenature.js';
 import { ETAPES_FACADE, libelleEtape, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
+import { murSousLeSol } from '../vision/mosaiqueFuites.js';
 import { murSurLesPhotos, vuesDeLAssemblage, type AssemblageDuMur, type RetourVersLaPhoto } from '../analyseMur.js';
 import type { RedressementFuites } from '../vision/redressementFuites.js';
 import type { Image, P2 } from '../vision/homographie.js';
@@ -486,8 +487,13 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Omit<EtapeCalculee, 'id'> => {
   if (pose && r && s.calage) {
     const ex = explicationDe(pose, e), passe = expliqueLaPhoto(ex, seuilsDuCalage(obj));
     s.calage.explication = ex;
-    const etat: EtatAffiche = !passe || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
-    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + dit, verite };
+    // Le sol pose dans le mur (l'appui des fenetres, un bandeau) : la matiere du mur continue sous lui, le pied est plus bas. Le score
+    // d'explication n'y suffit pas (le sol y pese peu) : etalon 00, une photo sans EXIF au teleobjectif, sol a 13 % de la largeur.
+    const sous = murSousLeSol(pose, r);
+    const solDansLeMur = sous !== null && sous > obj['facades.enchainement.murSousLeSolMax'];
+    const etat: EtatAffiche = !passe || solDansLeMur || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
+    const sol = solDansLeMur ? ` Mais le mur continue sous le sol posé (${pc(sous)} de la bande sous lui) : le pied est plus bas, tirez le sol.` : '';
+    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + sol + dit, verite };
   }
   return { etat: main || (m.coinsTrouves && !chercheDoute) ? 'ok' : 'a-confirmer', resume: origine + hauteur + dit, verite };
 };

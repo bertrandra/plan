@@ -646,6 +646,30 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
 }
 
 /**
+ * La part du mur qui continue sous un sol pose : parmi les rangees de la bande sous lui (BANDE_BORD de la largeur, entre ses bouts a 5 %
+ * pres), celles qui ont la matiere du mur, la meme lecture que l'affinage du sol (affinerEgoutEtSol). Pres de 0 sous un vrai pied (le
+ * gazon, le trottoir, une haie qui cache le pied) ; pres de 1 quand le sol est pose au milieu du mur, sur l'appui des fenetres. Null
+ * quand la teinte du mur ne se lit pas, ou que la bande sort de l'image.
+ */
+export function murSousLeSol(m: { image: Image; vu: Uint8Array }, r: Rect): number | null {
+  const w = r.x1 - r.x0, H = m.image.hauteur;
+  if (!(w > 0)) return null;
+  const mur = teinteDuMur(m, r);
+  if (!mur) return null;
+  const k = Math.max(3, Math.round(BANDE_BORD * w));
+  const a = Math.round(r.y1) + 1, b = Math.min(H - 1, a + k - 1);
+  if (b < a) return null;
+  const ecartAdmis = ecartAdmisDuMur(mur);
+  const lignes = rangees(m, r.x0 + 0.05 * w, r.x1 - 0.05 * w);
+  let n = 0;
+  for (let y = a; y <= b; y++) {
+    const x = lignes[y];
+    if (x && x.n >= 5 && Math.hypot(x.cr - mur.cr, x.cg - mur.cg) < ecartAdmis && x.l >= LUMIERE_MUR[0] * mur.l && x.l <= LUMIERE_MUR[1] * mur.l) n++;
+  }
+  return n / (b - a + 1);
+}
+
+/**
  * Chaque photo d'une serie vue de face, entiere : redressee par ses quatre reperes s'il y en a, sinon par ses points de fuite ; null
  * quand elle ne se redresse pas. Le premier temps de la chaine, avant l'assemblage (mosaiqueDesVues).
  */
