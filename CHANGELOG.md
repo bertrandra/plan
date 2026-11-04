@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.8.0] — 2026-11-04
+
+Version **mineure** au sens de `MD/RELEASE.md` : l'É3 dit l'objectif de chaque photo, EXIF ou non (#564) ; le Mode Toit modifie
+l'existant (appentis ouvert, pente, faîtage, débord, couper et réunir des corps, lucarnes, pans ; #565) ; un mur se pose en travées
+avec recul, un bow-window peut n'avoir pas de toit propre, un retour d'angle et des pignons replacés (#566). Aucune quantité ni aucun
+export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la
+5.7.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. **Schéma 14** (migration 13 → 14 identité), accepté par la
+plateforme (bertrandra/backprod#253, migration `Version20261104090000`) : appliquer backprod puis `setup.php` en production **avant** de
+déposer cette livraison de Plan. Fumée complète lancée en parallèle (Fumée de la nuit, run 41892042656), livraison sans l'attendre par
+décision du propriétaire ; un point rouge donnera une 5.8.1 ; requêtes inchangées depuis la 5.7.0 (ni `deploy/` ni les descriptions des
+sujets, ni l'image envoyée à Claude : #564 ne change que ce que l'É3 dit), vérifiées sans la mesure (run 41892046252 : 9 sur 9, 0,036 $).
+
 **Schéma 14** : la plateforme doit l'accepter **avant** la livraison de Plan qui l'écrit (bertrandra/backprod#253, migration
 `Version20261104090000`, à appliquer en production d'abord). Un document n'est écrit au 14 que s'il porte une travée ou un bow-window sans
 toit propre ; la migration 13 → 14 est l'identité (un ancien fichier s'ouvre identique).
