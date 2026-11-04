@@ -15,7 +15,7 @@ import { normalizeObjects } from '../../../src/model/normalisation.js';
 import { serializeObjects } from '../../../src/io/serialisation.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { gabaritVrai, photographier, type PriseCamera } from '../../banc/facades/synthese.js';
+import { gabaritVrai, photographier, type PriseCamera } from '../../../src/facade/banc/synthese.js';
 import type { CorpsToit, ObjetAPlat, ObjetPlan, PartieBasse, PtBrut, ReleveFacade } from '../../../src/model/types.js';
 
 // Un mur dont la partie haute est au milieu, avec une partie basse a chaque bout (une maison entre un appentis et un garage, dans le

@@ -13,7 +13,7 @@
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus, rejouerCorpus, tableau, DOSSIER_CORPUS } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, facadePeinte, peindreElevation, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
+import { coinsVrais, facadePeinte, peindreElevation, type SceneFacade } from '../../../../src/facade/banc/synthese.ts';
 import type { Image } from '../../../../src/facade/vision/homographie.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
 

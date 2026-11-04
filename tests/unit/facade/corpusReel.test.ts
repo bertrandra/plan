@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { brouillonsDeLAudit, fiabilite, juger, lireCasReel, mesurerCas, tableauReel, FORMAT_CAS_REEL, type CasReel } from '../../banc/facades/reel.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../src/facade/banc/synthese.js';
 import type { OuvertureDetectee } from '../../../src/facade/detection/detection.js';
 
 // Le corpus de facades reelles (banc/facades/reel.ts) : le format, le jugement des baies, la courbe de fiabilite de la

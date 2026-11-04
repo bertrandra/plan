@@ -176,6 +176,12 @@ d'y toucher.
   (l'image prise pour la suite), l'audit envoie `imageRun` (la photo du relevé redressée jusqu'au haut de la façade). On la laisse : les
   références du plancher de lecture 5.1.0 (`tests/fixtures/facades/lecture-5.1.0/`, garde-fou de la lecture) ont été lues sur
   l'assemblage, et changer l'image de la calibration les rendrait incomparables. Ne pas « corriger » cet écart sans nouvelle décision.
+- **Les étalons de test des façades : chercher avant de créer** (demande du propriétaire, 4 novembre 2026). Les scènes du banc
+  (`tests/fixtures/facades/<nom>.json`, rendues par `src/facade/banc/synthese.ts`) sont la bibliothèque unique des façades de test :
+  un identifiant stable (le nom du fichier), une fiche de ce que chacune couvre (`facade/banc/etalons.ts::ficheEtalon`,
+  `npx tsx .claude/skills/facades/scripts/etalons.ts [mots]`), lues par le banc, les tests, la fumée et Admin › Calibration (section
+  « Étalons de synthèse », en lecture seule). Avant de créer une scène, une photo, un cas ou un projet de test pour une façade, chercher
+  dans ce catalogue ; un nouvel étalon s'ajoute au corpus, au même format, jamais à côté (skill `facades`, §0 bis).
 - **Les étapes d'une façade s'appellent É1 à É11** (`model/etapeFacade.ts`, sans « bis »), dans l'orchestrateur et à l'écran (calibration
   et audit, où une étape cachée garde son numéro) ; le propriétaire les désigne par ces numéros dans ses demandes.
 - **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { coinsVrais, photographier, type PriseCamera } from '../../banc/facades/synthese.js';
+import { coinsVrais, photographier, type PriseCamera } from '../../../src/facade/banc/synthese.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';
 import { analyserLAssemblage, analyserLeMur, assemblerLeMur } from '../../../src/facade/analyseMur.js';
 

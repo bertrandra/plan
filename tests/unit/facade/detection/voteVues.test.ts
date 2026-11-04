@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { recouvrement, voter, VOTE, type VueVotante } from '../../../../src/facade/detection/voteVues.js';
 import { analyserVues, type VuePhoto } from '../../../../src/facade/fusion.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 import type { OuvertureDetectee } from '../../../../src/facade/detection/detection.js';
 
 // Le vote entre vues (facade/detection/voteVues.ts) : la logique pure sur des boites, puis ses effets sur les scenes a plusieurs vues du banc.

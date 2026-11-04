@@ -4,7 +4,7 @@ import { recalerPaire, CRITERES_FUSION } from '../../../../src/facade/vision/rec
 import { analyserReleve } from '../../../../src/facade/analyse.js';
 import { detecterOrb } from '../../../../src/facade/vision/orb.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 import { mesurerDetection } from '../../../banc/facades/mesure.js';
 
 // La fusion de plusieurs photos d'une facade par points d'interet (spec-facades-calage-detection §8) : ORB sur chaque elevation

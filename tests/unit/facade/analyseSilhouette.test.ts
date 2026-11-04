@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { facadePeinte, gabaritVrai, peindreElevation, photographier, type PriseCamera, type SceneFacade } from '../../banc/facades/synthese.js';
+import { facadePeinte, gabaritVrai, peindreElevation, photographier, type PriseCamera, type SceneFacade } from '../../../src/facade/banc/synthese.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';
 import { detecterDansLaSilhouette, silhouetteDansLeCadre } from '../../../src/facade/analyse.js';
 import { analyserLeMur } from '../../../src/facade/analyseMur.js';

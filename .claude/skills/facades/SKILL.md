@@ -47,7 +47,8 @@ npx tsx .claude/skills/facades/scripts/banc.ts --ecrire-coins      # après un c
 - Avant / après : lancer avec `--json` sur `main` (un worktree détaché suffit) puis sur la branche,
   et comparer scène par scène (`vp`, `fp`, `fn`, `cotes`, `detectees`).
 
-Le code : `tests/banc/facades/` (`synthese.ts` le générateur, `mesure.ts` les mesures, `banc.ts` le
+Le code : `src/facade/banc/synthese.ts` le générateur (dans `src/` depuis le 4 novembre 2026 : Admin › Calibration rend les
+scènes dans le navigateur, comme étalons de synthèse, `facade/banc/etalons.ts`), puis `tests/banc/facades/` (`mesure.ts` les mesures, `banc.ts` le
 rejeu et le tableau, `png.ts` l'écriture des images), les scripts `scripts/banc.ts` et `scripts/photos.ts`
 de ce skill, et le corpus `tests/fixtures/facades/`.
 
@@ -351,6 +352,34 @@ autre, sauf ce qui est caché partout (le milieu de la voiture de `16-`), qui do
 **Objectifs** (spec §14, première version) : 70 % des coins sans geste, rappel d'au moins 85 %,
 précision d'au moins 90 %, erreur médiane des cotes de 5 cm au plus, moins de trois corrections par
 façade. Ils se lisent sur la chaîne du relevé.
+
+## 0 bis. Le catalogue des étalons : chercher avant de créer
+
+Les scènes du corpus (`tests/fixtures/facades/<nom>.json`) sont **les étalons** de Plan : la bibliothèque de façades de test, écrite
+une fois, versionnée, que lisent le banc (`banc.ts`, `calage-e5.ts`, `egout-sol.ts`, `mesures.ts`, garde-fou de la lecture), les
+tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre 2026, l'écran **Admin › Calibration** (section
+« Étalons de synthèse » : chaque scène rendue dans le navigateur, ouverte comme un cas, déroulée de É1 à É11, sans rien enregistrer).
+
+- **Une seule source par étalon** : son fichier JSON. Pas de copie en PNG, en cas du serveur ni en projet : tout se rend à la demande
+  depuis lui (`src/facade/banc/synthese.ts`), aux mêmes pixels partout (`tests/unit/facade/banc/etalons.test.ts`).
+- **Un identifiant stable** : le nom de la scène, qui est le nom de son fichier (`22-pignon-decentre-pierre`). On ne renomme pas un
+  étalon : on en ajoute un.
+- **La fiche** de chaque étalon dit ce qu'il couvre (prise, biais, vues, distorsion, focale, parement, pignon et son sommet, parties
+  basses, obstacles, ombres, ouvertures par type, détails, étapes É éprouvées). Elle se lit de la scène
+  (`facade/banc/etalons.ts::ficheEtalon`), jamais écrite à la main :
+
+  ```bash
+  npx tsx .claude/skills/facades/scripts/etalons.ts                 # le catalogue, en Markdown
+  npx tsx .claude/skills/facades/scripts/etalons.ts pignon haie     # ceux dont la fiche contient l'un des mots
+  npx tsx .claude/skills/facades/scripts/etalons.ts É4 --json       # les fiches, en JSON
+  ```
+
+- **La règle** : avant de fabriquer une scène, une photo, un cas de calibration ou un projet de test pour une façade, chercher dans le
+  catalogue ; prendre l'étalon qui couvre le cas. S'il n'y en a pas, **ajouter un étalon au corpus** (même format, numéro suivant,
+  §3 ci-dessous), jamais une scène ou un mur peint à côté dans un test ou un script. Un étalon ajouté entre au banc (tableau avant et
+  après dans la PR) et au garde-fou de la lecture (`scenes-ajoutees.json`, §5 quater).
+- Un test qui ne mesure qu'une fonction (un segment, une homographie) peut garder sa petite image peinte : la règle vise les murs et
+  bâtiments de test, pas les pixels d'essai d'un module.
 
 ## 3. Le corpus
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { detecterOrb, apparier, hamming, BITS } from '../../../../src/facade/vision/orb.js';
 import { ransacSimilitude, ajuster, appliquerSimilitude, composer, inverse, echelleDe, rotationDeg, type Paire, type Similitude } from '../../../../src/facade/vision/ransac.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { peindreElevation, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { peindreElevation, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 import type { Image } from '../../../../src/facade/vision/homographie.js';
 
 // ORB et RANSAC : des points d'interet decrits, apparies d'une elevation a l'autre, et la similitude qui les explique.

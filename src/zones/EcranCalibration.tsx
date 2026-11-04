@@ -18,6 +18,8 @@ import {
 } from '../facade/corpusReel.js';
 import { preparerPourLaMesure } from '../facade/releve/enchainement.js';
 import type { ResumeCasCalibration } from '../io/depotDemos.js';
+import type { ResumeEtalon } from '../facade/banc/etalons.js';
+import { ETAPES_FACADE } from '../model/etapeFacade.js';
 
 export interface DepsCalibration extends OutilsPhotos {
   lireCalibration: () => Promise<DocumentCalibration | null>;
@@ -31,6 +33,50 @@ export interface DepsCalibration extends OutilsPhotos {
   audits?: () => Promise<{ id: string; libelle: string }[]>;
   /** Les facades photographiees d'un audit, chacune deja en cas : photos, largeur du cadastre, hauteur du LiDAR. */
   facadesDAudit?: (id: string) => Promise<{ libelle: string; cas: CasStocke }[]>;
+  /**
+   * Les etalons de synthese (facade/banc/etalons.ts) : les scenes du banc des facades, rendues dans le navigateur, a ouvrir comme un cas,
+   * en lecture seule. Facultatifs : sans eux, la section n'est pas montree.
+   */
+  etalons?: () => Promise<ResumeEtalon[]>;
+  ouvrirEtalon?: (id: string) => Promise<CasStocke>;
+}
+
+const NUMEROS = new Map(ETAPES_FACADE.map((e) => [e.id, e.numero]));
+const metres = (v: number) => String(Math.round(v * 10) / 10).replace('.', ',') + ' m';
+
+/** Ce qu'un etalon met a l'epreuve, en clair : ses etapes, son pignon, ses parties basses, sa prise (le catalogue, facade/banc/etalons.ts). */
+function couverture(e: ResumeEtalon): string {
+  return [
+    e.etapes.map((id) => NUMEROS.get(id) ?? id).join(' '),
+    e.pignonM > 0 ? 'pignon de ' + metres(e.pignonM) + (Math.abs(e.pignonSommet - 0.5) > 0.01 ? ', décentré' : '') : null,
+    e.partiesBasses ? e.partiesBasses + ' partie' + (e.partiesBasses > 1 ? 's' : '') + ' basse' + (e.partiesBasses > 1 ? 's' : '') : null,
+    e.biaisDeg >= 10 ? 'biais de ' + Math.round(e.biaisDeg) + '°' : null,
+    e.distorsion ? 'grand-angle déformant' : null,
+    e.focaleConnue ? null : 'focale inconnue',
+    e.prise === 'coins' ? 'image d’origine des tests' : null,
+  ].filter(Boolean).join(' · ');
+}
+
+/**
+ * Les etalons de synthese, a cote des cas reels et jamais meles a eux : la liste se lit du corpus du depot (rien du serveur), un etalon
+ * s'ouvre comme un cas (ses photos rendues a l'ouverture) et ne s'enregistre pas.
+ */
+function ListeEtalons({ deps, ouvrir }: { deps: DepsCalibration; ouvrir: (e: ResumeEtalon) => void }) {
+  const [etalons, setEtalons] = useState<ResumeEtalon[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => { void deps.etalons?.().then(setEtalons, (e) => setMessage('Étalons illisibles : ' + ((e as Error).message || String(e)))); }, [deps]);
+  if (!deps.etalons || !deps.ouvrirEtalon) return null;
+  return (
+    <section className="calEtalons" aria-label="Étalons de synthèse">
+      <details data-controle="calibration.etalons">
+        <summary><h2 className="calTitre2">Étalons de synthèse{etalons ? ' (' + etalons.length + ')' : ''}</h2></summary>
+        <p className="calNote">Les scènes du banc des façades, sur lesquelles Plan juge le calage, les étapes É1 à É11 et la lecture de Claude : des photos de synthèse dont on connaît la vérité au centimètre. Ouvrez-en une pour la comparer à vos photos et la dérouler comme un cas. Elles se dessinent dans votre navigateur ; elles ne s’enregistrent pas et ne comptent pas dans la calibration.</p>
+        {message && <p className="arbMessage" role="alert">{message}</p>}
+        {etalons && <div className="calDefile"><table className="attrTable calTable calTableEtalons"><thead><tr><th scope="col">Étalon</th><th scope="col" className="calColDifficile">Ce qu’il a de difficile</th><th scope="col">Ce qu’il éprouve</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
+          <tbody>{etalons.map((e) => <tr key={e.id}><th scope="row" title={e.description}>{e.nom}</th><td className="calColDifficile">{e.difficultes.join(', ')}</td><td>{couverture(e)}</td><td>{e.photos}</td><td>{e.nbOuvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirEtalon" aria-label={'Ouvrir l’étalon ' + e.nom} onClick={() => ouvrir(e)}>Ouvrir</button></td></tr>)}</tbody></table></div>}
+      </details>
+    </section>
+  );
 }
 
 /**
@@ -174,7 +220,8 @@ function PanneauCalibration({ deps, resumes, doc, appliquer }: PropsPanneau) {
 export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibration; retour?: string }) {
   const [doc, setDoc] = useState<DocumentCalibration>({ format: FORMAT_CALIBRATION, version: 1, modifieLe: '', parametres: {}, historique: [] });
   const [resumes, setResumes] = useState<ResumeCasCalibration[]>([]);
-  const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke; chercher?: boolean } | null>(null);
+  const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke; chercher?: boolean; etalon?: ResumeEtalon } | null>(null);
+  const [rendu, setRendu] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const rafraichir = async () => {
@@ -187,6 +234,13 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
 
   const ouvrir = async (id: string) => {
     try { setEdition({ id, cas: lireCasStocke(await deps.lireCas(id)) }); setMessage(null); } catch (e) { setMessage('Cas illisible : ' + ((e as Error).message || String(e))); }
+  };
+  // Un etalon : ses photos se rendent a l'ouverture (une ou deux secondes), puis il se rejoue comme un cas tire d'un audit.
+  const ouvrirEtalon = async (e: ResumeEtalon) => {
+    if (!deps.ouvrirEtalon) return;
+    setRendu('Rendu des photos de « ' + e.nom + ' »…'); setMessage(null);
+    await new Promise((ok) => setTimeout(ok, 30));
+    try { setEdition({ id: null, cas: await deps.ouvrirEtalon(e.id), chercher: true, etalon: e }); } catch (err) { setMessage('Étalon illisible : ' + ((err as Error).message || String(err))); } finally { setRendu(null); }
   };
   const appliquer = async (parametres: Record<string, number>, r: ResultatCalibration | null) => {
     const maintenant = deps.maintenant().toISOString();
@@ -218,14 +272,16 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
       {message && <p className="arbMessage" role="alert">{message}</p>}
 
       {edition
-        ? <EditeurCasCalibration key={edition.id ?? 'nouveau'} cas={edition.cas} id={edition.id} outils={deps} chercherCoins={!!edition.chercher}
+        ? <EditeurCasCalibration key={edition.etalon?.id ?? edition.id ?? 'nouveau'} cas={edition.cas} id={edition.id} outils={deps} chercherCoins={!!edition.chercher}
+          {...(edition.etalon ? { etalon: edition.etalon } : {})}
           enregistrer={async (cas) => {
+            if (edition.etalon) return 'Un étalon de synthèse ne s’enregistre pas.';
             const id = edition.id ?? 'cas-' + deps.maintenant().getTime().toString(36);
             const e = await deps.enregistrerCas(id, cas);
             if (!e) await rafraichir();
             return e;
           }}
-          supprimer={edition.id ? async () => { const e = await deps.supprimerCas(edition.id as string); if (!e) await rafraichir(); return e; } : null}
+          supprimer={edition.id && !edition.etalon ? async () => { const e = await deps.supprimerCas(edition.id as string); if (!e) await rafraichir(); return e; } : null}
           fermer={() => setEdition(null)} />
         : <section className="calCas" aria-label="Cas de calibration">
           <h2 className="calTitre2">Cas de calibration</h2>
@@ -235,6 +291,8 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
             : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
               <tbody>{resumes.map((r) => <tr key={r.id}><th scope="row">{r.nom}</th><td>{r.statut === 'valide' ? 'Validé' : 'Brouillon'}</td><td>{r.photos}</td><td>{r.ouvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirCas" aria-label={'Ouvrir le cas ' + r.nom} onClick={() => { void ouvrir(r.id); }}>Ouvrir</button></td></tr>)}</tbody></table>}
         </section>}
+      {!edition && rendu && <p className="calNote" role="status">{rendu}</p>}
+      {!edition && <ListeEtalons deps={deps} ouvrir={(e) => { void ouvrirEtalon(e); }} />}
 
       <PanneauCalibration deps={deps} resumes={resumes} doc={doc} appliquer={appliquer} />
 

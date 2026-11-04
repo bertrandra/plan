@@ -25,7 +25,7 @@
 // « Justes à 2 % » : la meme pose, l'egout deplace de 2 % vers le haut et vers le bas (un bord encore juste) : combien il en accepte. Les scenes au grand-angle corrige (13, 14) rendent leurs
 // coins sur l'image corrigee de la distorsion : ils ne se comparent pas aux coins de la photo.
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, gabaritVrai, photographier, type PriseCamera, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
+import { coinsVrais, gabaritVrai, photographier, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.ts';
 import { appliquer, homographie, type P2 } from '../../../../src/facade/vision/homographie.ts';
 import { derouler } from '../../../../src/facade/releve/enchainement.ts';
 import { prisesDeLaFacade } from '../../../../src/facade/releve/prisesFacade.ts';

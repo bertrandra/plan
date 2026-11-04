@@ -3,7 +3,7 @@ import { calageFin, calageFinDuReleve, intersection, ligneParPoints, SEUIL_NOTE 
 import { biaisDepuisCap, incertitudeDuReleve, INCERTITUDE_BOUSSOLE_DEG, ECART_FOCALE_DEFAUT, type PriseReleve } from '../../../../src/facade/calage/calage.js';
 import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
 import { chargerCorpus, capteursSimules } from '../../../banc/facades/banc.js';
-import { photographier, stenope, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { photographier, stenope, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 
 // Le calage fin (spec-facades-calage-detection §6, lot L7) : sur une photo de synthese prise avec les
 // erreurs typiques d'un telephone, les coins se trouvent sur les aretes, au pixel pres ; un pied cache

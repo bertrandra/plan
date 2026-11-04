@@ -4829,6 +4829,40 @@ const POINTS = {
     const ok = !/Claude/.test(avant) && /vues? par Claude/.test(apres) && /1 seule, proposée décochée/.test(apres) && /IA \(réponse synthétique|IA \(Claude/.test(mur) && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 160) + ' »';
     return { ok, mesure: `É9 avant la lecture : ${court(avant)} ; après : ${court(apres)} ; É5 ouverte : ${court(mur.replace(/^.*?IA/, 'IA'))} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  129: async (page, f) => {
+    // Les etalons de synthese dans Admin › Calibrer la detection (facade/banc/etalons.ts) : les scenes du banc des facades, lues dans le
+    // paquet et rendues dans le navigateur, a cote des cas du serveur (routes `admin/…` simulees, aucun cas). Deplier la liste, ouvrir
+    // l'etalon 22 (pignon decentre) : ses photos se dessinent, il se rejoue des l'ouverture, sans rien enregistrer.
+    const ecrits = [];
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      if (route.request().method() !== 'GET') ecrits.push(route.request().method() + ' ' + u.pathname);
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [] });
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const capture = process.env.FUMEE_CAPTURE_ETALONS;
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('liste des etalons', async () => { await page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 20000 }); await page.locator('[data-controle="calibration.ouvrirEtalon"]').first().waitFor({ timeout: 10000 }); });
+    const lignes = await page.locator('[data-controle="calibration.ouvrirEtalon"]').count();
+    const titre = (await page.locator('.calEtalons summary').textContent()) || '';
+    const debords = [await deborde()];
+    if (capture) await page.locator('.calEtalons').screenshot({ path: capture + '-' + f.nom + '-liste.png' }).catch(() => {});
+    await etape('ouvrir l etalon 22', () => page.locator('[aria-label="Ouvrir l’étalon 22-pignon-decentre-pierre"]').click({ timeout: 5000 }));
+    await etape('editeur', () => page.locator('[aria-label="Étalon 22-pignon-decentre-pierre"]').waitFor({ timeout: 30000 }));
+    await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 120000 }));
+    const vignette = await page.locator('.calVignette img').first().evaluate((i) => i.naturalWidth).catch(() => 0);
+    const frise = await page.locator('.calFrise > li').count();
+    const sansEnregistrer = (await page.locator('[data-controle="calibration.enregistrerCas"], [data-controle="calibration.valide"], [data-controle="calibration.supprimerCas"]').count()) === 0;
+    const note = /Rien ne s’enregistre/.test((await page.locator('.calEtalonNote').textContent()) || '');
+    debords.push(await deborde());
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-ouvert.png', fullPage: true }).catch(() => {});
+    const ok = lignes === 27 && /\(27\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && !ecrits.length && !debords.some(Boolean);
+    return { ok, mesure: `${lignes} étalons listés (« ${titre.trim()} ») ; l’étalon 22 ouvert : photo de ${vignette} px, frise de ${frise} étapes, ${sansEnregistrer ? 'sans' : 'AVEC'} enregistrement, note ${note ? 'oui' : 'NON'} ; écritures au serveur : ${ecrits.join(', ') || 'aucune'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   }
 };
 
@@ -4880,7 +4914,8 @@ function pointsPour(nomClasse) {
   // 126 : « Confirmer le mur » (V1) dans l'audit et la calibration ; le doute herite du mur, qui tombe une fois le mur confirme.
   // 127 : V3, les ouvertures relues avant V4 (audit et calibration) ; la verite d'un cas ne se remplit plus de la detection.
   // 128 : la lecture de Claude dans l'enchainement de l'audit : la barre se refait apres elle (E5, E9).
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128];
+  // 129 : les etalons de synthese dans Admin › Calibration : les scenes du banc listees, l'une ouverte et rejouee, rien d'ecrit.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

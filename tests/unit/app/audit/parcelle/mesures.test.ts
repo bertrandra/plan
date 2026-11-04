@@ -97,7 +97,7 @@ describe('les mesures d une facade', () => {
 describe('les coins poses au doigt sur une photo', () => {
   it('se reportent sur les autres photos du mur, qui se croisent alors a la fusion', async () => {
     const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
-    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const { photographier, coinsVrais } = await import('../../../../../src/facade/banc/synthese.js');
     const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
     if (!s) throw new Error('scene absente');
     const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];
@@ -119,7 +119,7 @@ describe('les coins poses au doigt sur une photo', () => {
 describe('quatre reperes poses au doigt sur une photo', () => {
   it('redressent les photos entieres, sans coupe, puis le mur se cherche sur leur assemblage', async () => {
     const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
-    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const { photographier, coinsVrais } = await import('../../../../../src/facade/banc/synthese.js');
     const { homographie, appliquer } = await import('../../../../../src/facade/vision/homographie.js');
     const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
     if (!s) throw new Error('scene absente');
@@ -159,7 +159,7 @@ describe('quatre reperes poses au doigt sur une photo', () => {
 
   it('avec le mur ajuste a la main sur la photo redressee, il l emporte et se reporte sur l autre photo', async () => {
     const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
-    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const { photographier, coinsVrais } = await import('../../../../../src/facade/banc/synthese.js');
     const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
     if (!s) throw new Error('scene absente');
     const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];
@@ -186,7 +186,7 @@ describe('« Ajuster l’égout et le sol » sur la façade assemblée (CLAUDE.m
   // photo seule ; le mur tire revient sur chaque photo assemblee et la chaine le reprend tel quel.
   const preparer = async () => {
     const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
-    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const { photographier, coinsVrais } = await import('../../../../../src/facade/banc/synthese.js');
     const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
     if (!s) throw new Error('scene absente');
     const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];

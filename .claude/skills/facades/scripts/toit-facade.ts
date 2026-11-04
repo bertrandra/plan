@@ -7,7 +7,7 @@
 // Pour chaque scene a prise par camera : la forme et la hauteur retenues, et la verite du generateur (un pignon : deux pans, faitage
 // perpendiculaire au mur, a sa hauteur ; une rampe : un appentis ; une bande de tuiles : deux pans parallele, sans hauteur vraie).
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, formePignon, photographier, type PriseCamera } from '../../../../tests/banc/facades/synthese.ts';
+import { coinsVrais, formePignon, photographier, type PriseCamera } from '../../../../src/facade/banc/synthese.ts';
 import { analyserReleve, silhouetteEnPartsDuMur } from '../../../../src/facade/analyse.ts';
 import { gabaritDuHaut, gabaritSurLaPhoto } from '../../../../src/facade/gabaritMur.ts';
 

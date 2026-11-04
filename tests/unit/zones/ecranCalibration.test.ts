@@ -97,6 +97,32 @@ describe('l ecran de calibration', () => {
     expect(hote.querySelector('input[type="file"]')).toBeNull();
   });
 
+  it('montre les etalons de synthese a part ; un etalon s ouvre et se rejoue, sans rien enregistrer ni compter', async () => {
+    const etalon = { id: 'etalon-02-x', nom: '02-x', description: 'Un mur d’essai.', difficultes: ['enduit'], prise: 'camera' as const, photos: 1, biaisDeg: 0, focaleConnue: true, distorsion: false,
+      largeurM: 9, hauteurM: 5, parement: 'enduit' as const, soubassement: false, pignonM: 0, pignonSommet: 0.5, partiesBasses: 0, obstacles: [], ombres: [], balcons: 0,
+      ouvertures: { fenetre: 3 }, details: [], etapes: ['redressement', 'calage', 'ouvertures'] as IdEtape[], nbOuvertures: 3 };
+    const ouvrirEtalon = vi.fn(async () => ({ ...scene.cas, nom: '02-x', statut: 'brouillon' as const }));
+    const { deps, stock } = fausses({ etalons: async () => [etalon], ouvrirEtalon });
+    await monter(deps);
+    const section = hote.querySelector('[aria-label="Étalons de synthèse"]') as HTMLElement;
+    expect(section.textContent).toContain('Étalons de synthèse (1)');
+    expect(section.textContent).toContain('É3 É5 É9');
+    // Les cas reels et la mesure ne voient pas l'etalon : un seul cas, le cas du serveur.
+    expect(hote.querySelector('[aria-label="Cas de calibration"]')?.textContent).not.toContain('02-x');
+    await act(async () => { bouton('calibration.ouvrirEtalon')?.click(); await new Promise((ok) => setTimeout(ok, 60)); });
+    expect(ouvrirEtalon).toHaveBeenCalledWith('etalon-02-x');
+    expect(hote.querySelector('h2.calTitre2')?.textContent).toBe('Étalon de synthèse : 02-x');
+    expect(hote.textContent).toContain('Rien ne s’enregistre.');
+    expect(bouton('calibration.enregistrerCas')).toBeNull();
+    expect(bouton('calibration.supprimerCas')).toBeNull();
+    expect(hote.querySelector('[data-controle="calibration.valide"]')).toBeNull();
+    // Il se rejoue des l'ouverture, comme un cas tire d'un audit.
+    await attendreQue(() => !!hote.querySelector('.calFrise'));
+    expect(hote.querySelector('.calFrise')).not.toBeNull();
+    expect(deps.enregistrerCas).not.toHaveBeenCalled();
+    expect([...stock.keys()]).toEqual(['cas-a']);
+  });
+
   it('depuis un audit : chaque facade montre ses photos en vignettes au bout de sa ligne', async () => {
     const cas = { ...scene.cas, images: ['data:image/jpeg;base64,UN', 'data:image/jpeg;base64,DEUX'] };
     const { deps } = fausses({ audits: async () => [{ id: 'a1', libelle: 'Audit du 21 octobre' }], facadesDAudit: async () => [{ libelle: 'Maison · façade sud', cas }] });

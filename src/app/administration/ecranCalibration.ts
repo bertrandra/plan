@@ -22,6 +22,7 @@ import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
 import { creerClientAnalyse } from '../../io/analyseClaude.js';
 import { appelerEscaladeFacade, appelerLectureEnrichie, appelerRunFacade, avecSaLectureEnrichie, encodageUnique, type ContexteRun } from '../releve/runFacade.js';
 import { dessinerImageFacade } from '../../render/imageFacade.js';
+import { imageDeLEtalon, listerEtalons, ouvrirEtalon } from '../../io/etalonsFacades.js';
 
 /**
  * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de
@@ -61,6 +62,9 @@ export function demandeEcranCalibration(recherche: string): boolean {
 }
 
 async function decoder(url: string) {
+  // Une photo d'etalon de synthese : ses pixels rendus, tels quels (le JPEG montre n'est que pour l'oeil).
+  const etalon = imageDeLEtalon(url);
+  if (etalon) return etalon;
   const img = await chargerUrl(url);
   const { c } = canevasPour(img.naturalWidth, img.naturalHeight, Math.max(img.naturalWidth, img.naturalHeight));
   const ctx = c.getContext('2d', { willReadFrequently: true });
@@ -104,6 +108,9 @@ export function ouvrirEcranCalibration(): void {
     escaladerClaude: (d, run) => appelerEscaladeFacade(contexteRun, d, run, 'calibration'),
     prixEscalade: async () => (await claude.etat()).escaladeFacade ?? null,
     maintenant: () => new Date(),
+    // Les etalons de synthese : les scenes du banc des facades, rendues ici, ouvertes en lecture seule (facade/banc/etalons.ts).
+    etalons: listerEtalons,
+    ouvrirEtalon: (id) => ouvrirEtalon(id, (img) => versJpeg(img, 0.9)),
     // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
     audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')
       .map((a) => ({ id: a.id, libelle: [a.adresse ?? a.idu, (a.debut ?? a.recuLe).slice(0, 10), (a.photos ?? 0) + ' photos'].filter(Boolean).join(' · ') })),

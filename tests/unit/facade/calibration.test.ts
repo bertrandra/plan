@@ -5,7 +5,7 @@ import { reglagesDetection } from '../../../src/facade/regles/facades/detection.
 import { reglagesStructure } from '../../../src/facade/regles/facades/structure.js';
 import { poserSurchargesCalibrees, surchargesCalibrees } from '../../../src/facade/regles/facades/surcharges.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera } from '../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type PriseCamera } from '../../../src/facade/banc/synthese.js';
 
 // La calibration de la detection (facade/corpusReel.ts) : les surcharges posees, les bornes, la descente par coordonnee
 // sur des cas fabriques de scenes du banc.

@@ -10,7 +10,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, photographier } from '../../../../tests/banc/facades/synthese.ts';
+import { coinsVrais, photographier } from '../../../../src/facade/banc/synthese.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
 
 const [nom, dossier] = process.argv.slice(2);

@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Admin › Calibrer la détection : les **étalons de synthèse**. Les 27 scènes du banc des façades (celles sur lesquelles Plan juge le
+  calage, les étapes É1 à É11 et la lecture de Claude) sont listées à part des cas réels, avec ce que chacune éprouve (étapes, pignon,
+  parties basses, biais, vues). Une scène s'ouvre comme un cas : ses photos se dessinent dans le navigateur (les pixels du banc, au bit
+  près), et elle se déroule de É1 à É11 comme dans l'audit (GPS, boussole et EXIF d'un téléphone). Rien ne s'enregistre : ni le cas, ni sa
+  validation ; un étalon ne compte pas dans « Mesurer et calibrer ». Le paquet ne porte que les descriptions des scènes, chargées avec
+  l'écran de calibration.
+- Le catalogue des étalons (`npx tsx .claude/skills/facades/scripts/etalons.ts [mots]`) : la fiche de chaque scène, lue d'elle, pour
+  choisir un étalon existant avant de fabriquer une scène ou un projet de test (règle écrite dans `CLAUDE.md` et le skill `facades`).
+
+### Modifié
+
+- Le générateur des façades de synthèse passe de `tests/banc/facades/synthese.ts` à `src/facade/banc/synthese.ts`, sans changer une
+  ligne de calcul : le banc, `calage-e5.ts` (avec et sans capteurs) et `egout-sol.ts` donnent les mêmes tableaux, colonne des temps
+  exceptée. Aucune quantité ni aucun export ne change.
+
 ## [5.6.0] — 2026-11-03
 
 Version **mineure** au sens de `MD/RELEASE.md` : un mur peut porter plusieurs parties basses, au bout comme au milieu (#543, #546) ;
