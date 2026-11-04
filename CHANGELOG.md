@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.7.0] — 2026-11-04
+
+Version **mineure** au sens de `MD/RELEASE.md` : les étalons des façades entrent dans Admin › Calibration (#558), avec leurs projets de
+démonstration et la vérité de l'É5 (#559) ; la fumée et les tests passent sur les étalons (#560) ; l'É5 est « à confirmer » quand le mur
+continue sous le sol posé (#561, nouvel objectif `facades.enchainement.murSousLeSolMax`). Aucune quantité ni aucun export de la
+démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.6.0 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques. Schéma inchangé (13) : aucun ordre de la plateforme au-delà de celui de la 5.6.0. Fumée complète
+lancée en parallèle (Fumée de la nuit, run RUN_NUIT), livraison sans l'attendre par décision du propriétaire ; un point rouge donnera
+une 5.7.1 ; requêtes inchangées depuis la 5.6.0 (ni `deploy/` ni les descriptions des sujets, ni l'image envoyée à
+Claude : #561 ne change que le verdict de l'É5), vérifiées sans la mesure (run RUN_API).
+
 ### Corrigé
 
 - Façades, É5 (calage du mur) : une pose dont le sol tombe dans le mur (la matière du mur continue sous lui, sur l'appui des fenêtres
