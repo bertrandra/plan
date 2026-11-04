@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.9.0] — 2026-11-04
+
+Version **mineure** au sens de `MD/RELEASE.md` : une travée ouverte, ses poteaux et son garde-corps se posent aussi sur un corps fermé
+(#569) ; le point 132 de la fumée est accéléré, sans toucher au code de l'application (#570). Aucune quantité ni aucun export de la
+démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.8.0 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques. Schéma inchangé (14) : aucun ordre de la plateforme au-delà de celui de la 5.8.0 (backprod#253 et
+`setup.php`). Fumée complète lancée en parallèle (Fumée de la nuit, run 41916988940), livraison sans l'attendre par décision du
+propriétaire ; un point rouge donnera une 5.9.1 ; requêtes inchangées depuis la 5.8.0 (ni `deploy/` ni les descriptions des sujets, ni
+l'image envoyée à Claude : #569 ne touche que le Mode Toit et la Vue 3D), vérifiées sans la mesure (run 41916992945 : 9 sur 9, 0,030 $).
+
 ### Modifié
 
 - Fumée, point 132 (AE 101 au Mode Toit) : de 465 s à 83 s au bureau (large, clair, sans carte graphique). La mesure
@@ -34,6 +45,8 @@ plateforme (bertrandra/backprod#253, migration `Version20261104090000`) : appliq
 déposer cette livraison de Plan. Fumée complète lancée en parallèle (Fumée de la nuit, run 41892042656), livraison sans l'attendre par
 décision du propriétaire ; un point rouge donnera une 5.8.1 ; requêtes inchangées depuis la 5.7.0 (ni `deploy/` ni les descriptions des
 sujets, ni l'image envoyée à Claude : #564 ne change que ce que l'É3 dit), vérifiées sans la mesure (run 41892046252 : 9 sur 9, 0,036 $).
+Résultat de cette fumée : 569 passés sur 570 joués ; seul le point 132 (Mode Toit), en large et thème sombre, a dépassé son délai de
+400 s (trop lent au bureau, sans défaut de fonction : il passait dans les cinq autres couples), accéléré par #570 (5.9.0).
 
 **Schéma 14** : la plateforme doit l'accepter **avant** la livraison de Plan qui l'écrit (bertrandra/backprod#253, migration
 `Version20261104090000`, à appliquer en production d'abord). Un document n'est écrit au 14 que s'il porte une travée ou un bow-window sans
