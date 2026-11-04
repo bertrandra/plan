@@ -4,6 +4,7 @@ import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { mesurerFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import { rechercher } from '../../../../../src/facade/releve/serie.js';
+import { etalonPourLAudit } from '../../../../banc/facades/etalonAudit.js';
 import { facadesDuContour } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import { creerHistorique } from '../../../../../src/core/historique.js';
 import { serializeObjects, serializeMeasures } from '../../../../../src/io/serialisation.js';
@@ -11,32 +12,18 @@ import { normalizeObjects } from '../../../../../src/model/normalisation.js';
 import { CONFIANCE_MIN } from '../../../../../src/regles/decisions.js';
 import type { EtatApp } from '../../../../../src/core/state.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
-import type { CorpsToit, ObjetBrut, ObjetPlan, PtBrut, ReleveFacade } from '../../../../../src/model/types.js';
+import type { ObjetBrut, ObjetPlan, ReleveFacade } from '../../../../../src/model/types.js';
 
 // Les photos de l'audit alimentent les facades : la mesure d'une facade photographiee, aux coins trouves, pose
 // son releve sur le projet sans attendre « Valider » (un pas d'historique, annulable), et ne touche jamais un releve
 // fait a la main.
 
-const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
-const PTS = rect(5, 10, 15, 18);
-const CORPS: CorpsToit = { pts: PTS, posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
-
-/** Une photo de synthese : ciel, mur enduit beige, deux fenetres sombres, gazon (celle de mesures.test.ts). */
-function image() {
-  const L = 640, H = 480, data = new Uint8ClampedArray(L * H * 4);
-  for (let j = 0; j < H; j++) for (let i = 0; i < L; i++) {
-    let c = [205, 186, 152];
-    if (j < 60) c = [150, 190, 235];
-    else if (j > 420) c = [96, 140, 70];
-    else if ((i > 150 && i < 210 || i > 430 && i < 490) && j > 160 && j < 260) c = [40, 46, 54];
-    const k = (j * L + i) * 4;
-    data[k] = c[0] as number; data[k + 1] = c[1] as number; data[k + 2] = c[2] as number; data[k + 3] = 255;
-  }
-  return { data, largeur: L, hauteur: H };
-}
-const prise: PrisePhoto = { t: '2026-10-13T09:00:00Z', x: 10, y: 2, lat: null, lon: null, precisionM: 4, azimutDeg: 0, sourceAzimut: 'boussole', inclinaisonDeg: 5, roulisDeg: 0, champDeg: 67 };
-const PHOTO: PhotoCas = { type: 'image/jpeg', base64: 'AAAA', prise };
+// La maison photographiee : l'etalon 02 du catalogue (enduit, de face), son batiment de demonstration et sa photo de synthese, au lieu
+// d'un mur peint ici (CLAUDE.md, « chercher avant de creer »).
+const E = etalonPourLAudit('02');
+const PTS = E.pts;
+const PHOTO: PhotoCas = { type: 'image/jpeg', base64: 'AAAA', prise: E.photos[0]?.prise as PrisePhoto };
 /**
  * La recherche des coins, forcee a « trouves » : sur la photo de synthese le calage fin ne les trouve pas ; on lui
  * fait dire qu'il a trouve ceux que la prise de vue predit, pour jouer la mesure d'une photo reussie.
@@ -46,12 +33,12 @@ async function coinsTrouves(e: Parameters<typeof rechercher>[0]): Promise<Return
   if (!r.coins?.coins) return r;
   return { ...r, coins: { ...r.coins, trouve: true, note: 0.9, sources: ['trouve', 'trouve', 'trouve', 'trouve'] } };
 }
-const dependances = { pixels: async () => image(), chercherCoins: coinsTrouves, jpeg: () => 'data:image/jpeg;base64,TEXTURE', limites: () => [] };
+const dependances = { pixels: async () => E.pixels(), chercherCoins: coinsTrouves, jpeg: () => 'data:image/jpeg;base64,TEXTURE', limites: () => [] };
 
 function monter(avant: Partial<ObjetPlan> = {}) {
   const objets = normalizeObjects([
-    obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
-    obj('maison', { fonction: 'batiment', pts: PTS, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  ...avant }),
+    obj('parcelle', { fonction: 'terrain', pts: E.parcelle, cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
+    obj('maison', { fonction: 'batiment', pts: PTS, elevation: E.hauteur, batiment: { toit: E.toit, corpsToit: E.corps },  ...avant }),
   ] as ObjetBrut[]) as ObjetPlan[];
   const etat = { objects: objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
   const historique = creerHistorique(etat as never, {
@@ -73,8 +60,8 @@ function monter(avant: Partial<ObjetPlan> = {}) {
 
 /** Ce que la mesure de la photo de synthese donne : ses coins sont-ils trouves, et avec quelle confiance ? */
 async function mesureDeReference() {
-  const f = facadesDuContour(PTS, 6).find((x) => x.orientation === 'Sud');
-  return mesurerFacade('maison', f as NonNullable<typeof f>, { pts: PTS }, [PHOTO], dependances);
+  const f = facadesDuContour(PTS, E.hauteur).find((x) => x.orientation === 'Sud');
+  return mesurerFacade('maison', f as NonNullable<typeof f>, { pts: PTS, corpsToit: E.corps }, [PHOTO], dependances);
 }
 
 describe('les photos de l audit alimentent les facades', () => {
@@ -116,7 +103,8 @@ describe('les photos de l audit alimentent les facades', () => {
   it('ne touche jamais une facade que la personne a relevee a la main : la ligne reste une proposition decochee', async () => {
     const m = await mesureDeReference();
     expect(m.releve).not.toBeNull();
-    const main: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', ouvertures: [0, 1, 2, 3, 4].map((k) => ({ type: 'fenetre' as const, x: 1 + k, y: 1, l: 0.8, h: 1.4 })) };
+    // Deux ouvertures a la main, loin des six que montre la photo de l'etalon 02 : un desaccord que l'arbitrage voit.
+    const main: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', ouvertures: [0, 1].map((k) => ({ type: 'fenetre' as const, x: 1 + k, y: 1, l: 0.8, h: 1.4 })) };
     const t = monter({ batiment: { facades: [main] } });
     await t.v.lancer();
     expect(t.maison().batiment?.facades).toEqual([main]);

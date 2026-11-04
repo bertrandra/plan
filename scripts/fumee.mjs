@@ -96,6 +96,21 @@ function photosScene(nom) {
 
 
 
+/**
+ * Le cas de calibration d'un etalon du catalogue (casDeLEtalon : sa verite, son gabarit, ses photos et leur prise de vue), ecrit par
+ * .claude/skills/facades/scripts/cas.ts, une fois par passage. Un point qui sert un cas a la calibration part de lui, et n'y change que
+ * ce qu'il eprouve (CLAUDE.md, « chercher avant de creer »).
+ */
+const casRendus = new Map();
+function casEtalon(nom) {
+  if (!casRendus.has(nom)) {
+    const fichier = join(mkdtempSync(join(tmpdir(), 'fumee-cas-')), 'cas.json');
+    execFileSync('npx', ['tsx', '.claude/skills/facades/scripts/cas.ts', nom, fichier], { stdio: 'ignore' });
+    casRendus.set(nom, JSON.parse(readFileSync(fichier, 'utf8')).cas);
+  }
+  return JSON.parse(JSON.stringify(casRendus.get(nom)));
+}
+
 /** L'etat du plan, en JSON : ce qu'on compare avant et apres un geste. */
 const lireEtat = (page) => page.evaluate(() => {
   const e = window.__plan.etat();
@@ -2467,12 +2482,10 @@ const POINTS = {
     // composant du geste (quatre poignees : egout, sol, deux bouts) ; tirer un bout au clavier puis « Appliquer le calage et rejouer »
     // pose le mur a la main et rejoue depuis le calage. Revue des etapes, lot 5 : l'E3 montre chaque photo redressee comme l'assemblage
     // la prend (sa legende le dit) ; l'E6 se juge sur le haut qu'elle rend (son resume dit le nombre de points lus).
-    const { vues: [photo], coins, largeur, largeurPx } = photosScene('22-pignon-decentre-pierre');
-    const scene = JSON.parse(readFileSync('tests/fixtures/facades/22-pignon-decentre-pierre.json', 'utf8'));
-    const hauteur = scene.verite.hauteur, pignon = scene.synthese.mur.pignon;
-    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 22 · pignon décentré', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: hauteur,
-      gabarit: [{ u: 0, v: 1 }, { u: 0.4, v: 1 + pignon / hauteur }, { u: 1, v: 1 }], photos: [{ fichier: 'photo-1', coins: coins[0] }], ouvertures: [],
-      images: ['data:image/png;base64,' + photo.toString('base64')] };
+    const { largeurPx } = photosScene('22-pignon-decentre-pierre');
+    // Le cas de l'etalon 22 tel que le catalogue le donne (gabarit vrai, prise de vue, verite), sans ses ouvertures : ce point juge les
+    // etapes, pas la mesure contre la verite de l'E9.
+    const cas = { ...casEtalon('22-pignon-decentre-pierre'), nom: 'Synthèse 22 · pignon décentré', source: 'fumee', ouvertures: [] };
     await page.route(/\/admin\//, (route) => {
       const u = new URL(route.request().url());
       const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
@@ -2542,12 +2555,9 @@ const POINTS = {
     // dit la pose des deux angles de Claude et l'accord ; son calque (la pose de Claude en trait sombre) ; l'E9 dit ses boites
     // retrouvees par la detection et la boite seule, decochee ; toucher une boite dessine la division de son vitrage ; la note de version
     // dit l'IA et l'empreinte de ses regles ; rien ne debord. Aucun appel a `admin/claude/messages`.
-    const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
-    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
     const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
-    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 02 · enduit', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: scene.verite.hauteur,
-      photos: [{ fichier: 'photo-1', coins: coins[0] }], ouvertures: scene.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })), ia: [run],
-      images: ['data:image/png;base64,' + photo.toString('base64')] };
+    // Le cas de l'etalon 02 tel que le catalogue le donne (verite, gabarit, prise de vue), avec la reponse de Claude a rejouer.
+    const cas = { ...casEtalon('02-enduit-uni-face'), nom: 'Synthèse 02 · enduit', source: 'fumee', ia: [run] };
     let appels = 0;
     await page.route(/\/admin\//, (route) => {
       const u = new URL(route.request().url());
@@ -2600,12 +2610,9 @@ const POINTS = {
     // le modele de l'escalade et ses prix, `admin/claude/messages` rend une lecture SYNTHETIQUE qui voit de la pierre la ou le vote
     // voit de l'enduit. On mesure : le libelle du bouton (modele et cout annonce), UNE requete envoyee (usage `escalade`, la requete
     // en usage `facade`), l'E5 qui dit ce que l'escalade a tranche, le bouton grise ensuite (une seule escalade), rien ne deborde.
-    const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
-    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
     const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
-    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 02 · enduit', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: scene.verite.hauteur,
-      photos: [{ fichier: 'photo-1', coins: coins[0] }], ouvertures: scene.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })), ia: [run],
-      images: ['data:image/png;base64,' + photo.toString('base64')] };
+    // Le cas de l'etalon 02 tel que le catalogue le donne (verite, gabarit, prise de vue), avec la reponse de Claude a rejouer.
+    const cas = { ...casEtalon('02-enduit-uni-face'), nom: 'Synthèse 02 · enduit', source: 'fumee', ia: [run] };
     const sortie = { ...run.sorties[0], surface: { ...run.sorties[0].surface, principale: 'pierre' } };
     const demandes = [];
     await page.route(/\/admin\//, (route) => {
@@ -4660,11 +4667,14 @@ const POINTS = {
     await annuler(page);
     const defait = await murConfirmeLe();
     // La calibration : le meme bouton, la meme commande.
-    const s24 = photosScene('24-pignon-baie-dans-le-pignon');
     const sc = JSON.parse(readFileSync('tests/fixtures/facades/24-pignon-baie-dans-le-pignon.json', 'utf8'));
     const H = sc.verite.hauteur;
-    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 24 · mur de 5 m', statut: 'brouillon', source: 'fumee', largeurM: 5, hauteurM: H,
-      gabarit: [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }], photos: [{ fichier: 'photo-1', coins: s24.coins[0] }], ouvertures: [], images: ['data:image/png;base64,' + s24.vues[0].toString('base64')] };
+    // L'etalon 24 vu comme un mur de 5 m que le pignon d'un corps voisin prolonge (la variante « 24-voisin » de calage-e5.ts) : ses photos
+    // et sa prise de vue, la largeur et le gabarit du mur de 5 m, sans le cote ni le contour de 8 m qui n'iraient plus avec eux.
+    const e24 = casEtalon('24-pignon-baie-dans-le-pignon');
+    delete e24.facade; delete e24.contour;
+    const cas = { ...e24, nom: 'Synthèse 24 · mur de 5 m', source: 'fumee', largeurM: 5, hauteurM: H, gabarit: [{ u: 0, v: 1 }, { u: 0.8, v: 1 + 3.6 / H }, { u: 1.6, v: 1 }], ouvertures: [],
+      photos: e24.photos.map(({ prise: _p, ...p }) => p) };
     await page.route(/\/admin\//, (route) => {
       const u = new URL(route.request().url());
       const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
@@ -4706,7 +4716,7 @@ const POINTS = {
     // ouvertures gardees. La calibration : un cas de la scene 02 sans verite ; le rejeu ne la remplit plus de la detection ; l'E9 ouverte,
     // le meme geste : faite. Rien ne deborde.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
-    const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const facade = '.dialogueAuditParcelle .facadeAudit';
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .calEditeur')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     const capture = async (quoi, sel) => { if (process.env.FUMEE_CAPTURE_V3) await page.locator(sel).first().screenshot({ path: process.env.FUMEE_CAPTURE_V3 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
@@ -4745,9 +4755,9 @@ const POINTS = {
     await page.keyboard.press('Escape'); await page.waitForTimeout(300);
     await page.keyboard.press('Escape'); await page.waitForTimeout(300);
     // La calibration : un cas sans verite.
-    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
-    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 02 · sans vérité', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: scene.verite.hauteur,
-      photos: [{ fichier: 'photo-1', coins: coins[0], murALaMain: true }], ouvertures: [], images: ['data:image/png;base64,' + photo.toString('base64')] };
+    // L'etalon 02, sans sa verite (les ouvertures vides) et le mur pose a la main sur ses coins vrais.
+    const e02 = casEtalon('02-enduit-uni-face');
+    const cas = { ...e02, nom: 'Synthèse 02 · sans vérité', source: 'fumee', ouvertures: [], photos: e02.photos.map((p) => ({ ...p, murALaMain: true })) };
     await page.route(/\/admin\//, (route) => {
       const u = new URL(route.request().url());
       const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
