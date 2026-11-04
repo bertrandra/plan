@@ -12,9 +12,9 @@ Version **mineure** au sens de `MD/RELEASE.md` : une travée ouverte, ses poteau
 démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.8.0 ; preuve
 forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
 `glb-structure.json` sont identiques. Schéma inchangé (14) : aucun ordre de la plateforme au-delà de celui de la 5.8.0 (backprod#253 et
-`setup.php`). Fumée complète lancée en parallèle (Fumée de la nuit, run RUN_NUIT), livraison sans l'attendre par décision du
+`setup.php`). Fumée complète lancée en parallèle (Fumée de la nuit, run 41916988940), livraison sans l'attendre par décision du
 propriétaire ; un point rouge donnera une 5.9.1 ; requêtes inchangées depuis la 5.8.0 (ni `deploy/` ni les descriptions des sujets, ni
-l'image envoyée à Claude : #569 ne touche que le Mode Toit et la Vue 3D), vérifiées sans la mesure (run RUN_API).
+l'image envoyée à Claude : #569 ne touche que le Mode Toit et la Vue 3D), vérifiées sans la mesure (run 41916992945 : 9 sur 9, 0,030 $).
 
 ### Modifié
 
