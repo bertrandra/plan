@@ -245,8 +245,9 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
         const travees = abrites.flatMap((e) => {
           const cx = e.reduce((t, q) => t + q.x, 0) / e.length, cy = e.reduce((t, q) => t + q.y, 0) / e.length, sc = le({ x: cx, y: cy }), tc = travers({ x: cx, y: cy });
           if (sc < 0 || sc > L || tc < 0 || tc > W) return [];
-          const ss = e.map(le);
-          return [[Math.min(...ss) - POTEAU_ABRITE_M, Math.max(...ss) + POTEAU_ABRITE_M] as const];
+          const ss = e.map(le), a = Math.min(...ss), b = Math.max(...ss);
+          // L'avancee porte aussi le bout du toit qu'elle approche a moins d'un entraxe : pas de poteau entre elle et ce bout.
+          return [[a - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? -Infinity : a - POTEAU_ABRITE_M, L - b - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? Infinity : b + POTEAU_ABRITE_M] as const];
         });
         const abrite = (sp: number) => travees.some(([a, b]) => sp >= a && sp <= b);
         murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait, travees.length ? abrite : undefined).map((f) => f.map((q) => P(q.s, q.t, q.z))));

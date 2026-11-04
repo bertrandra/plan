@@ -4211,7 +4211,10 @@ const POINTS = {
         window.__posePhoto = [sc.camera.position.clone(), sc.controls.target.clone()];
       });
       await image3dStable(page, 2500);
+      // Pour l'image seulement : le panneau, les poignees et leurs cotes ne cachent pas la facade (au bureau, le panneau ne se replie pas).
+      const masque = await page.addStyleTag({ content: '.panneauToit, .poigneesToit, .navigateurToit, .planToit { visibility: hidden !important; }' });
       await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
+      await masque.evaluate((n) => n.remove());
       await replier();
     };
     await page.evaluate(() => window.__plan.executer('toit.modifier'));
@@ -4235,6 +4238,14 @@ const POINTS = {
     await poser('Corps', 'corps:decroche');
     const apresDecroche = await lire();
     const recule = apresDecroche.corps[apresDecroche.corps.length - 1];
+    // Le troncon entre les deux pignons est un toit plat : la partie reculee, coupee au bord de son pignon, puis « Toit plat ».
+    await lacher();
+    await etape('pastille de la partie reculee', () => page.locator('.puceToit[data-type="corps"][data-rang="' + (apresDecroche.corps.length - 1) + '"]').click({ timeout: 20000 }));
+    await etape('couper le corps', () => page.locator('[data-commande="toit.scinder"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await page.waitForTimeout(400);
+    const apresCoupe = await lire();
+    await poser('Toit', 'forme:plat');
+    const troncon = (await lire()).corps[apresCoupe.corps.length - 1];
     // L'auvent (le corps a un pan adosse au mur sud) : ouvert sur poteaux.
     const W = (c) => Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
     const rangAuvent = apresDecroche.corps.findIndex((c) => !c.saillie && !c.baie && c.posFaitage <= 0.01 && c.faitage - Math.min(...c.egouts) > 0.3 && W(c) < 3);
@@ -4281,9 +4292,10 @@ const POINTS = {
     const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
     const memesCorps = JSON.stringify(canon(defait.corps)) === JSON.stringify(canon(depart.corps));
     const ecart = depart.corps.map((c, k) => (JSON.stringify(c) === JSON.stringify(defait.corps[k]) ? null : k + ' : ' + Object.keys({ ...c, ...defait.corps[k] }).filter((x) => JSON.stringify(c[x]) !== JSON.stringify(defait.corps[k]?.[x])).join(','))).filter(Boolean);
-    const ok = apresDecroche.corps.length === depart.corps.length + 1 && !!recule && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
+    const plat = !!troncon && troncon.faitage - Math.min(...troncon.egouts) < 0.05 && apresCoupe.corps.length === depart.corps.length + 2;
+    const ok = apresDecroche.corps.length === depart.corps.length + 1 && !!recule && plat && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
       && Math.max(...bow.egouts) < 2.6 && !!galerie && valide.fige && memesCorps && sans;
-    return { ok, mesure: `${depart.corps.length} corps lus → ${apresDecroche.corps.length} après le décroché ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; galerie de retour ${galerie ? 'posée' : 'ABSENTE'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
+    return { ok, mesure: `${depart.corps.length} corps lus → ${apresDecroche.corps.length} après le décroché, ${apresCoupe.corps.length} après la coupe ; troncon entre les pignons ${plat ? 'plat' : 'PAS PLAT'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; galerie de retour ${galerie ? 'posée' : 'ABSENTE'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe

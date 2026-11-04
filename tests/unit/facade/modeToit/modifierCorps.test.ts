@@ -132,6 +132,14 @@ describe('decrocher, couper, reunir', () => {
     expect(reunis[0]!.pignons.map((g) => [g.pan, g.debut, g.fin]).sort()).toEqual([[0, 1, 3], [1, 7, 9]]);
   });
 
+  it('couper un corps garde le volume de son pignon entier : la coupe va au bord du pignon le plus proche du milieu', () => {
+    const c = { ...deuxPans(), pignons: [{ pan: 1 as const, debut: 0, fin: 3.7, faitage: 7, profondeur: 3 }] };
+    const l = scinderCorps([c], 0)!;
+    expect(l.map((k) => Math.round(repere(k.pts).L * 100) / 100).sort()).toEqual([3.7, 6.3]);
+    const avecPignon = l.find((k) => k.pignons.length)!;
+    expect(repere(avecPignon.pts).L).toBeCloseTo(3.7, 6);
+  });
+
   it('deux corps qui ne font pas un rectangle ne se reunissent pas', () => {
     const l = [deuxPans(), { ...deuxPans(), pts: rect(10, 1, 14, 6) }];
     expect(corpsAFusionner(l, 0)).toBeNull();

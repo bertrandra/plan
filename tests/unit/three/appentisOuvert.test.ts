@@ -25,6 +25,11 @@ describe('un appentis ouvert', () => {
     const abrites = facettesCorps(auvent(true), null, false, false, [bow]).murs.length;
     expect(tous).toBeGreaterThan(0);
     expect(abrites).toBeLessThan(tous);
+    // L'avancee pres du bout porte ce bout : aucun poteau entre elle et lui (AE 101 : le bow-window tient l'auvent a gauche).
+    const poteauxPres = (murs: { x: number; y: number; z: number }[][]) => murs.filter((f) => f.every((q) => Math.abs(q.y + 2.88) < 0.2) && f.some((q) => q.z === 0)).map((f) => Math.min(...f.map((q) => q.x)));
+    const pres = poteauxPres(facettesCorps(auvent(true), null, false, false, [rect(1, -1.5, 3, 0)]).murs);
+    expect(pres.length).toBeGreaterThan(0);
+    expect(pres.every((x) => x > 3)).toBe(true);
     // Sans avancee dessous, le dessin d'avant.
     expect(facettesCorps(auvent(true), null, false, false, []).murs.length).toBe(tous);
   });

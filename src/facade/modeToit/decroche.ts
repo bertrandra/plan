@@ -135,13 +135,19 @@ function allonger(a: CorpsToit, hautEnT0: boolean, d: number): CorpsToit {
     : { ...a, pts: [P(0, 0), P(r.L, 0), P(r.L, r.W + d), P(0, r.W + d)], posFaitage: centi(r.W + d) };
 }
 
-/** Coupe le corps `rang` en deux, en travers de son faitage, au milieu : un decroche sans recul. Chaque moitie se regle ensuite seule. */
+/**
+ * Coupe le corps `rang` en deux, en travers de son faitage : un decroche sans recul. La coupe se pose au bord d'un pignon, le plus proche
+ * du milieu (le volume du pignon reste entier, le reste se regle a part : le toit plat entre les deux pignons d'AE 101), sinon au milieu.
+ * Chaque partie se regle ensuite seule.
+ */
 export function scinderCorps(corps: readonly CorpsToit[], rang: number): CorpsToit[] | null {
   const c = corps[rang];
   if (!c || c.saillie || c.speciale || c.baie) return null;
   const r = repere(c.pts);
   if (r.L < 2 * PARTIE_MIN_M) return null;
-  return decrocherCorps(corps, rang, 0, 'droite', 0, r.L / 2);
+  const bords = c.pignons.flatMap((g) => [g.debut, g.fin]).filter((s) => s >= PARTIE_MIN_M && s <= r.L - PARTIE_MIN_M);
+  const coupe = bords.length ? bords.reduce((m, s) => (Math.abs(s - r.L / 2) < Math.abs(m - r.L / 2) ? s : m)) : r.L / 2;
+  return decrocherCorps(corps, rang, 0, 'droite', 0, coupe);
 }
 
 /** Deux corps a reunir : meme sens de faitage (a 2 degres pres), memes hauteurs (a 10 cm), et leur reunion est un rectangle. */
