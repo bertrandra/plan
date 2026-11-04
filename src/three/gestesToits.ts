@@ -17,12 +17,13 @@
 // Pur : pas de reseau, pas de DOM, pas d'historique (l'appelant empile l'instantane avant d'ecrire).
 
 import { enPoints } from '../model/formes.js';
-import { estFormeToit } from '../model/formeToit.js';
+import { estFormeToit, formeDuCorpsNommee } from '../model/formeToit.js';
 import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from './catalogueToits.js';
 import { angleDuPlusLongCote } from '../facade/toits/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
+import { decrocherCorps, raisonSansDecroche } from '../facade/modeToit/decroche.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
 import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, Toit, TypeLucarne } from '../model/types.js';
 import { champsBatiment } from '../model/champsFonction.js';
@@ -51,6 +52,9 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'corps:aile', famille: 'corps', libelle: 'Aile', exemple: 'appentis' },
   { id: 'corps:retour', famille: 'corps', libelle: 'Retour', exemple: 'deux-pans' },
   { id: 'corps:biaise', famille: 'corps', libelle: 'Biaise', exemple: 'croupes' },
+  // Le decroche : une partie du long mur regarde recule (facade/modeToit/decroche.ts) ; la droite vue de face, ou la gauche en option.
+  { id: 'corps:decroche', famille: 'corps', libelle: 'Décroché' },
+  { id: 'corps:decroche-gauche', famille: 'corps', libelle: 'Décroché, la gauche recule', cachee: true },
   ...formes.map((e) => ({ id: 'forme:' + e.id, famille: 'toit' as const, libelle: e.titre, exemple: e.id })),
   // Les trois pans : le quatre-pans avec une seule croupe, l'autre bout en pignon. Pas des vignettes a eux : des options sous celle du
   // quatre-pans (zones/vue3d/ModeToit.tsx, OPTIONS_PIECE).
@@ -79,7 +83,8 @@ const dixieme = (v: number) => Math.round(v * 10) / 10;
  * aussi en trois pans, la croupe a un seul bout du faitage (au debut, cote du premier mur de bout, ou a la fin), un pignon a l'autre.
  */
 export const OPTIONS_PIECE: Readonly<Record<string, readonly { id: string; libelle: string }[]>> = {
-  'forme:croupes': [{ id: 'forme:croupes-debut', libelle: 'Croupe au début' }, { id: 'forme:croupes-fin', libelle: 'Croupe à la fin' }]
+  'forme:croupes': [{ id: 'forme:croupes-debut', libelle: 'Croupe au début' }, { id: 'forme:croupes-fin', libelle: 'Croupe à la fin' }],
+  'corps:decroche': [{ id: 'corps:decroche-gauche', libelle: 'La gauche recule' }]
 };
 
 /** Une forme du catalogue a poser : son exemple, et le bout du faitage qui garde seul sa croupe (les trois pans). */
@@ -209,6 +214,17 @@ export function rangDuCorpsChoisi(corps: readonly CorpsToit[], rang: number | nu
   return c.saillie ? (corps[c.saillie.hote] ? c.saillie.hote : null) : (rang as number);
 }
 
+/**
+ * La piece de l'onglet « Toit » qui est deja en place : la forme du corps sur lequel une forme agirait (le corps choisi, ou le seul corps
+ * du batiment). Le catalogue la montre enfoncee : les memes vignettes posent une forme et disent celle du corps, que la personne change
+ * d'un toucher (decision du proprietaire, 4 novembre 2026). Null quand une forme remplacerait plusieurs corps.
+ */
+export function formeEnPlace(o: ObjetPlan, rangChoisi: number | null = null): string | null {
+  const corps = (o.batiment?.corpsToit ?? []).filter((c) => !c.saillie);
+  const c = corpsChoisi(o, rangChoisi) ?? (corps.length === 1 ? corps[0] : null);
+  return c ? 'forme:' + formeDuCorpsNommee(c) : null;
+}
+
 /** Le rectangle d'un corps, la longueur selon le grand cote : celui sur lequel une forme du catalogue le remplace. */
 function rectangleDuCorps(c: CorpsToit): PtBrut[] {
   const r = repere(c.pts), p = c.pts as PtBrut[];
@@ -225,6 +241,13 @@ export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoi
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
   const choisi = corpsChoisi(o, rangChoisi);
   if (p.famille === 'toit') return null;
+  if (id.startsWith('corps:decroche')) {
+    // Le decroche recule une partie du mur regarde : il lui faut une facade d'un corps (celle du corps choisi, s'il y en a un).
+    if (!facade || facade.rang === null) return 'Regardez d’abord la façade à décrocher : touchez son mur.';
+    const rang = rangDuCorpsChoisi(o.batiment?.corpsToit ?? [], rangChoisi);
+    if (rang !== null && rang !== facade.rang) return 'La façade regardée n’est pas celle du corps choisi.';
+    return raisonSansDecroche(o.batiment?.corpsToit ?? [], facade.rang, facade.mur);
+  }
   if (p.famille === 'corps') {
     const h = choisi ?? corpsPrincipal(o);
     if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
@@ -327,6 +350,12 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     if (estFormeToit(forme.e.id)) toit.forme = forme.e.id;
     toit.source = 'saisie';
     delete toit.pente;
+  } else if (prefixe === 'corps' && nom.startsWith('decroche')) {
+    const l = facade && facade.rang !== null && o.batiment?.corpsToit ? decrocherCorps(o.batiment.corpsToit, facade.rang, facade.mur, nom === 'decroche-gauche' ? 'gauche' : 'droite') : null;
+    if (!l) return false;
+    champsBatiment(o).corpsToit = l;
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
   } else if (prefixe === 'corps') {
     const hote = choisi ?? corpsPourPoser(o);
     const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.batiment?.corpsToit ?? []) : null;

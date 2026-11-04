@@ -9,7 +9,7 @@ import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '.
 import { modeToitActif, hauteurMurMesuree } from '../../model/toitMesure.js';
 import { ajouterToitMesure3d } from '../toitMesure3d.js';
 import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from '../toitCorps3d.js';
-import { separerBowWindows } from '../../facade/modeToit/saillies.js';
+import { empriseDeSaillie, separerBowWindows } from '../../facade/modeToit/saillies.js';
 import { corpsVisibles } from '../../facade/modeToit/facadesDesCorps.js';
 import { ajouterCheminees3d } from '../cheminees3d.js';
 import { ajouterTerrasses3d } from '../terrasse3d.js';
@@ -99,7 +99,8 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
   if (o.type === 'polygon' && corpsToit && surContour) {
     ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
   } else if (o.type === 'polygon' && corpsToit) {
-    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
+    // Un bow-window sous un appentis ouvert porte son toit : pas de poteau devant lui.
+    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts, bowWindows.map(empriseDeSaillie));
   }
   if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.batiment?.toit);
   // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui n'en porte pas ne pose rien de plus.
@@ -143,7 +144,9 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
         // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
         // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
         // Un appentis ouvert n'a pas de mur : pas de fenetre non plus.
-        ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit.filter((c) => !estAppentisOuvert(c)) } : {}) }
+        ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit.filter((c) => !estAppentisOuvert(c)) } : {}),
+        // Le soubassement s'interrompt sous un appentis ouvert : il n'a pas de mur.
+        ...(corpsToit?.some(estAppentisOuvert) ? { ouverts: corpsToit.filter(estAppentisOuvert) } : {}) }
     );
   }
 }

@@ -327,6 +327,31 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
   départ (`modeToit.ts::objetsHorsSession`, sur la sérialisation du projet) : une session abandonnée ne laisse aucune trace.
 - Test : `tests/unit/app/toits/sessionEnregistree.test.ts`. Vérifié en exécution (MD/spec-flux-batiment.md, point 14).
 
+### Modifier ce qui existe avec les gestes de l'ajout  *(4 novembre 2026, demande du propriétaire)*
+« Je veux pouvoir modifier un bâtiment avec les mêmes fonctions [que l'ajout]… Je prends la main pour dessiner la réalité. » Le cœur est
+la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, une saisie antérieure), pas l'ajout d'objets à côté.
+- **Un corps, même seul, est une pastille** : choisi, il se règle dans le même panneau que les éléments (`elements.ts::groupesDe`,
+  commande `toit.regler`) : **ouvert sur poteaux / fermé** et retrait pour un corps à un pan (préau, abri, carport accolé : sans prisme,
+  des poteaux, `estAppentisOuvert`) ; **pente** (15 à 55°, sur le pan bas ; le faîtage suit, les égouts restent) ; **sens du faîtage**
+  (dans la longueur ou la largeur, sur un deux-pans ou un quatre-pans sans rien de posé le long du faîtage) ; **débord** à l'égout
+  (`bords.debordEgoutM`, que la 3D lit désormais). La **forme** se change par les vignettes de l'onglet « Toit », qui disent celle en place
+  (enfoncée, « · en place »).
+- **Lucarne** : son type se change sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau changent de **pan**.
+- **Décroché** (onglet « Corps », sur la façade regardée, un long pan) : la partie droite (vue de face) recule de 50 cm, la gauche en
+  option ; coupée au bord du pignon qui avance s'il y en a un, sinon au milieu (`facade/modeToit/decroche.ts`). Le faîtage reste ;
+  pignons, lucarnes, éléments de façade vont à leur partie. Un appentis adossé au mur reste **un** corps, rive basse droite (une seule
+  gouttière), son mur haut recule jusqu'au mur reculé.
+- **Couper** un corps en deux (`toit.scinder`) et **réunir** deux corps alignés de mêmes hauteurs qui font un rectangle (`toit.fusionner`).
+- 3D : sous un appentis ouvert, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`) ; pas de poteau devant un
+  bow-window que son toit couvre.
+- Chaque réglage est un pas de la session (Ctrl+Z), « Valider » une étape du projet ; tout geste fige le toit (`toitFige`, la règle de
+  protection unique, niveau 1 de `model/protections.ts`) : la lecture automatique ne l'écrase plus. Le moteur ne change pas (AE 101 :
+  `identite.ts` identique).
+- Suite, avec le schéma 14 (une seule montée, une PR backprod) : un mur ouvert par **travées** (`{ de, a, nature: mur | poteaux |
+  garde-corps | ouvert }`), un bow-window **sans toit propre** ; le retour d'angle d'un auvent (deux corps liés, sinon un corps en L).
+- Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points 131 (étalon 25,
+  le garage en carport), 132 (AE 101 : décroché, auvent ouvert, bow-window dessous, retour du porche).
+
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
 

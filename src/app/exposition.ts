@@ -170,6 +170,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'toit.dupliquer': partout('vue3d'),
   'toit.supprimer': partout('vue3d'),
   'toit.tourner': partout('vue3d'),
+  'toit.scinder': partout('vue3d'),
+  'toit.fusionner': partout('vue3d'),
   'toit.plus': partout('vue3d'),
   'toit.moins': partout('vue3d'),
   'toit.regles': partout('vue3d'),

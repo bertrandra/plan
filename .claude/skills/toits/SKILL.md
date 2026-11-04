@@ -196,7 +196,10 @@ Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son
 mur haut. Pas de débord en reprise.
 Un appentis ouvert (`ouvert: true`) n'a pas de prisme (`estAppentisOuvert`, `scene.ts`) : des poteaux, et le mur
-du corps qui le porte derrière. Un appentis adossé à un autre corps n'a ni rive ni débord
+du corps qui le porte derrière ; sous lui, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`), et pas de poteau
+devant un bow-window que son toit couvre. Le débord réglé sur un corps (`bords.debordEgoutM`, `saillieRiveM`) remplace celui du dessin.
+La personne règle tout cela, et décroche, coupe ou réunit des corps, au Mode Toit (`MD/spec-mode-toit-3d.md`, « Modifier ce qui
+existe ») : des décisions figées (`toitFige`), jamais une règle du moteur. Un appentis adossé à un autre corps n'a ni rive ni débord
 au-delà de son mur haut (`appentisAdosse`) : son toit s'arrête au nu des murs ; ses fenêtres ne sont pas posées s'il est ouvert.
 
 ## 4 bis. La couleur des murs et des toits

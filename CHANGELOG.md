@@ -5,6 +5,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Mode Toit (Vue 3D) : **modifier ce qui existe avec les gestes de l'ajout** (demande du propriétaire, 4 novembre 2026). Un corps, même
+  seul, se choisit par sa pastille et se règle dans le même panneau : ouvert sur poteaux ou fermé, et le retrait des poteaux ou du mur,
+  pour un corps à un pan (préau, abri, garage en carport) ; pente ; sens du faîtage ; débord à l'égout. L'onglet « Toit » dit la forme
+  en place (vignette enfoncée). Une lucarne change de type sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau
+  changent de pan. Nouveau : « Décroché » (onglet « Corps ») recule de 50 cm une partie du long mur regardé, pignons, lucarnes et
+  éléments de façade suivant, l'appentis adossé gardant sa rive basse droite ; « Couper le corps en deux » et « Réunir avec le corps
+  voisin ». Chaque réglage est un pas de la session (Ctrl+Z), interdit en lecture seule, et fige le toit : la lecture automatique ne
+  l'écrase plus. Le moteur des toits ne change pas (AE 101 identique) ; aucun champ nouveau, schéma inchangé (13).
+- Fumée : points 131 (le garage de l'étalon 25 passé en carport, Ctrl+Z et Ctrl+Y, validé) et 132 (AE 101 retouché : décroché, auvent
+  ouvert, bow-window dessous, retour du porche) ; `FUMEE_ECHELLE` règle la densité des captures.
+
+### Corrigé
+
+- Vue 3D : sous un appentis ouvert, la photo d'un relevé, ses baies et le soubassement ne se posent plus dans le vide (un garage passé en
+  carport gardait sa porte peinte sur un mur absent) ; pas de poteau devant un bow-window que le toit de l'appentis couvre. Le débord
+  d'un corps lu ou réglé (`bords.debordEgoutM`, `saillieRiveM`) est enfin dessiné ; sans lui, le dessin d'avant (35 cm, 20 cm).
+
 ## [5.7.0] — 2026-11-04
 
 Version **mineure** au sens de `MD/RELEASE.md` : les étalons des façades entrent dans Admin › Calibration (#558), avec leurs projets de

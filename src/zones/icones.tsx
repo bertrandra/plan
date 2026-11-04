@@ -14,7 +14,7 @@ export type NomIcone =
   | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
-  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte';
+  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner';
 
 /** Les traces, chacun dans un repere de 24 × 24. */
 const TRACES: Record<NomIcone, React.ReactNode> = {
@@ -36,6 +36,9 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   pointDeVue: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
   dupliquer: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5.5a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2h3" /></>,
   supprimer: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  // Un corps coupe en deux, et deux corps reunis en un.
+  scinder: <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M12 3v18" strokeDasharray="2 2" /></>,
+  fusionner: <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M8 12h8M14 10l2 2-2 2M10 10l-2 2 2 2" /></>,
   reculer: <><rect x="4" y="4" width="11" height="11" rx="1" /><path d="M9 20h11V9" /></>,
   positionInitiale: <><path d="M4 12a8 8 0 108-8" /><path d="M4 4v5h5" /></>,
   cote: <><path d="M3 17L17 3l4 4L7 21z" /><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2" /></>,

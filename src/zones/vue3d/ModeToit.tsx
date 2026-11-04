@@ -9,7 +9,7 @@ import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
-import { OPTIONS_PIECE, piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
+import { OPTIONS_PIECE, formeEnPlace, piece, piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeSaillie, vueSurLeToit } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
@@ -47,6 +47,15 @@ function ImagePiece({ p }: { p: PieceCatalogue }) {
   return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
 }
 
+/**
+ * L'image d'un choix de l'inspecteur : le type d'une lucarne garde la vignette de la piece qui la pose (onglet « Sur le toit ») ; les
+ * autres choix ont leur trace.
+ */
+function ImageDuChoix({ groupe, valeur }: { groupe: string; valeur: string }) {
+  const p = groupe === 'lucarne' ? piece('sur:' + valeur) : undefined;
+  return p ? <span className="glyphe"><ImagePiece p={p} /></span> : <ImageChoix groupe={groupe} valeur={valeur} />;
+}
+
 /** Un bouton de la barre de session : une commande, une icone, son etat (grise avec sa raison, ou enfonce). */
 function BoutonToit({ commandes, id, icone, libelle, texte, presse, valider, miroir }: { commandes: RegistreCommandes; id: string; icone: NomIcone; libelle: string; texte?: string; presse?: boolean; valider?: boolean; miroir?: boolean }) {
   const e = commandes.etat(id);
@@ -82,7 +91,7 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
             <div key={g.groupe} className="groupeChoix" role="group" aria-label={g.groupe}>
               {g.valeurs.map((v) => (
                 <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle} aria-label={v.libelle}
-                  aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageChoix groupe={g.groupe} valeur={v.valeur} /></button>
+                  aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageDuChoix groupe={g.groupe} valeur={v.valeur} /></button>
               ))}
             </div>
           ))}
@@ -93,6 +102,8 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
                   disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="annuler" taille={20} /></button>
                 <button type="button" className="boutonToit miroir" data-commande="toit.tourner" data-sens="-1" aria-label="Tourner à droite" title="Tourner à droite (15°)"
                   disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="annuler" taille={20} /></button>
+                {bouton('toit.scinder', 'scinder', 'Couper le corps en deux')}
+                {bouton('toit.fusionner', 'fusionner', 'Réunir avec le corps voisin')}
               </>
             ) : (
               <>
@@ -153,6 +164,8 @@ export function ModeToit({ magasin, commandes }: Props) {
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
   const allumees = reglesAllumees(o);
   const pose = commandes.etat('toit.poser');
+  // La forme du corps sur lequel agirait une forme : sa vignette est enfoncee (le catalogue dit ce qui est en place).
+  const enPlace = o ? formeEnPlace(o, e.selection?.rang ?? null) : null;
   return (
     <>
     <NavigateurFacades magasin={magasin} commandes={commandes} />
@@ -199,7 +212,7 @@ export function ModeToit({ magasin, commandes }: Props) {
           const refusDe = (id: string) => (o ? raisonIndisponible(o, id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.');
           const refus = refusDe(p.id), options = OPTIONS_PIECE[p.id];
           const bouton = (
-            <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id}
+            <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id} aria-pressed={p.famille === 'toit' ? p.id === enPlace : undefined}
               disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
               onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>
               <span className="glyphe"><ImagePiece p={p} /></span>
@@ -215,7 +228,7 @@ export function ModeToit({ magasin, commandes }: Props) {
                 const r = refusDe(v.id);
                 return (
                   <button key={v.id} type="button" className="optionPiece" data-commande="toit.poser" data-piece={v.id}
-                    disabled={!!r || !pose.utilisable} title={'Trois pans : ' + v.libelle.toLowerCase() + ' du faîtage, un pignon à l’autre bout' + (r ? ' — ' + r : '')}
+                    disabled={!!r || !pose.utilisable} title={(p.id === 'forme:croupes' ? 'Trois pans : ' + v.libelle.toLowerCase() + ' du faîtage, un pignon à l’autre bout' : p.libelle + ' : ' + v.libelle.toLowerCase()) + (r ? ' — ' + r : '')}
                     onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>{v.libelle}</button>
                 );
               })}
