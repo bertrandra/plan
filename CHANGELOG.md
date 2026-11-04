@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Façades, É3 (redressement) : chaque photo dit si elle a une focale EXIF ou non, d'après ce que la chaîne a réellement pris (l'EXIF ;
+  sinon le champ lu sur les points de fuite, noté pour l'appareil, ou supposé à 67°). Dans Admin › Calibrer la détection, la vignette de
+  la photo et l'É3 ouverte disent « Avec EXIF (focale 26 mm éq.) » ou avertissent « Sans EXIF : focale supposée (67°). Le redressement
+  par les points de fuite peut être faux ; posez quatre repères » (une photo redressée par ses repères n'a que l'information). Quand l'É3
+  n'atteint pas son objectif, son résumé le dit pour chaque photo sans EXIF. Aucun calcul ne change.
+
 ## [5.7.0] — 2026-11-04
 
 Version **mineure** au sens de `MD/RELEASE.md` : les étalons des façades entrent dans Admin › Calibration (#558), avec leurs projets de

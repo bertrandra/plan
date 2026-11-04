@@ -267,10 +267,30 @@ const virgule = (v: number) => String(v).replace('.', ',');
 /** « Photo 2 : redressée automatiquement (verticales à 0,2°) », ou son motif d'echec. */
 function textePhoto(p: BilanPhotoRedressement): string {
   const nom = 'Photo ' + (p.rang + 1) + ' : ';
-  if (p.statut === 'echec') return nom + 'échec, ' + (p.motif ?? 'redressement impossible') + ' (la photo est gardée)';
+  const objectif = p.objectif ? ', ' + (p.objectif.source === 'exif' ? 'avec EXIF' : 'sans EXIF') : '';
+  if (p.statut === 'echec') return nom + 'échec, ' + (p.motif ?? 'redressement impossible') + ' (la photo est gardée' + objectif + ')';
   const verticales = p.verticaliteDeg === null ? '' : ' (verticales à ' + virgule(p.verticaliteDeg) + '°)';
-  if (p.statut === 'manuelle') return nom + 'redressée avec vos points' + verticales;
-  return nom + 'redressée automatiquement' + (p.coins === 'predit' ? ', coins calculés' : '') + verticales;
+  if (p.statut === 'manuelle') return nom + 'redressée avec vos points' + verticales + objectif;
+  return nom + 'redressée automatiquement' + (p.coins === 'predit' ? ', coins calculés' : '') + verticales + objectif;
+}
+
+/** La focale equivalente 24 x 36 d'un champ du grand cote (le grand cote d'un 24 x 36 fait 36 mm), arrondie au millimetre. */
+const focale35 = (champDeg: number) => Math.round(18 / Math.tan((champDeg * Math.PI) / 360));
+
+/**
+ * Ce que l'E3 dit de l'objectif d'une photo (demande du proprietaire, 4 novembre 2026) : l'EXIF lu, ou, faute d'EXIF, le champ que la
+ * chaine a pris (lu sur les points de fuite, note pour l'appareil, ou suppose). Sans EXIF, un avertissement : le redressement par les
+ * points de fuite peut etre faux. Une photo redressee par les reperes de la personne n'en a pas (les reperes ne dependent pas de la
+ * focale) : juste l'information. `court` : le mot de la vignette. Null sans objectif dit (un bilan d'avant, une image illisible).
+ */
+export function objectifDeLaPhoto(p: Pick<BilanPhotoRedressement, 'objectif'>, parReperes: boolean): { court: string; texte: string; alerte: boolean } | null {
+  const o = p.objectif;
+  if (!o) return null;
+  if (o.source === 'exif') return { court: 'Avec EXIF', texte: `Avec EXIF (focale ${focale35(o.champDeg)} mm éq.).`, alerte: false };
+  const champ = virgule(o.champDeg) + '°';
+  const prise = o.source === 'fuites' ? `champ lu sur ses points de fuite (${champ})` : o.source === 'appareil' ? `champ noté pour cet appareil (${champ})` : `focale supposée (${champ})`;
+  if (parReperes) return { court: 'Sans EXIF', texte: `Sans EXIF : ${prise} ; redressée par vos repères, qui ne dépendent pas de la focale.`, alerte: false };
+  return { court: 'Sans EXIF', texte: `Sans EXIF : ${prise}. Le redressement par les points de fuite peut être faux ; posez quatre repères.`, alerte: true };
 }
 
 /**
@@ -381,7 +401,13 @@ const redressement: Pas = async ({ e, o, s, obj }) => {
   if (!photos.length) return attend('une photo');
   const echecs = photos.filter((p) => p.statut === 'echec');
   const etat = selonLaPart(faites, photos.length, obj['facades.enchainement.redresseesMinPart']);
-  return { etat, resume: `${faites} photo${faites > 1 ? 's' : ''} redressée${faites > 1 ? 's' : ''} sur ${photos.length}` + (echecs.length ? ' : ' + echecs.map(textePhoto).join(' ; ') + '. ' + conseilDesEchecs(echecs) : ' : ' + photos.map(textePhoto).join(' ; ') + '.'), verite: null };
+  // Une etape en echec ou a confirmer sur une photo sans EXIF le dit : la focale supposee peut etre la cause (pas pour une photo que ses
+  // reperes redressent).
+  const sansExif = etat === 'ok' ? '' : photos.flatMap((p) => {
+    const d = objectifDeLaPhoto(p, (a.corrections[String(p.rang)]?.reperes?.length ?? 0) === 4);
+    return d?.alerte ? [' Photo ' + (p.rang + 1) + ' ' + d.texte.charAt(0).toLowerCase() + d.texte.slice(1)] : [];
+  }).join('');
+  return { etat, resume: `${faites} photo${faites > 1 ? 's' : ''} redressée${faites > 1 ? 's' : ''} sur ${photos.length}` + (echecs.length ? ' : ' + echecs.map(textePhoto).join(' ; ') + '. ' + conseilDesEchecs(echecs) : ' : ' + photos.map(textePhoto).join(' ; ') + '.') + sansExif, verite: null };
 };
 
 /** E4 : les photos redressees assemblees (ou fusionnees), partiellement, ou chacune seule ; une photo seule n'a rien a assembler. */

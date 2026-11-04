@@ -4871,8 +4871,25 @@ const POINTS = {
     const note = /Rien ne s’enregistre/.test((await page.locator('.calEtalonNote').textContent()) || '');
     debords.push(await deborde());
     if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-ouvert.png', fullPage: true }).catch(() => {});
-    const ok = lignes === 27 && /\(27\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && !ecrits.length && !debords.some(Boolean);
-    return { ok, mesure: `${lignes} étalons listés (« ${titre.trim()} ») ; l’étalon 22 ouvert : photo de ${vignette} px, frise de ${frise} étapes, ${sansEnregistrer ? 'sans' : 'AVEC'} enregistrement, note ${note ? 'oui' : 'NON'} ; écritures au serveur : ${ecrits.join(', ') || 'aucune'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    // L'etalon 22 a l'EXIF de sa prise : sa vignette le dit, sans alerte. L'etalon 00 (l'image d'origine des tests) n'en a pas : la vignette
+    // et l'E3 ouverte l'avertissent (demande du proprietaire, 4 novembre 2026).
+    const avecExif = ((await page.locator('.calVignettes .calObjectif').first().textContent().catch(() => '')) || '').trim();
+    const alerte22 = await page.locator('.calVignettes .calObjectif.alerte').count();
+    await etape('fermer', () => page.locator('[data-controle="calibration.fermerCas"]').click({ timeout: 5000 }));
+    await etape('ouvrir l etalon 00', async () => { await page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 5000 }); await page.locator('[aria-label="Ouvrir l’étalon 00-existante-enduit"]').click({ timeout: 5000 }); });
+    await etape('fin du rejeu de 00', () => page.waitForFunction(() => /^Étalon de synthèse : 00/.test(document.querySelector('.calEditeur h2')?.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calVignettes .calObjectif'), null, { timeout: 120000 }));
+    const vignette00 = ((await page.locator('.calVignettes .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();
+    await etape('etape E3', async () => { await page.locator('.calFrise button[data-etape="redressement"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte figcaption .calObjectif').first().waitFor({ timeout: 5000 }); });
+    const e3 = ((await page.locator('.calEtapeOuverte figcaption .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();
+    const visible = await page.locator('.calEtapeOuverte figcaption .calObjectif.alerte').first().isVisible().catch(() => false);
+    debords.push(await deborde());
+    if (capture) {
+      await page.locator('.calVignettes').screenshot({ path: capture + '-' + f.nom + '-exif-vignette.png' }).catch(() => {});
+      await page.locator('.calEtapeOuverte figcaption').first().screenshot({ path: capture + '-' + f.nom + '-exif-e3.png' }).catch(() => {});
+    }
+    const exif = /^Avec EXIF/.test(avecExif) && alerte22 === 0 && /^Sans EXIF : .*posez quatre repères\./.test(vignette00) && /^Sans EXIF : .*Le redressement par les points de fuite peut être faux ; posez quatre repères\./.test(e3) && visible;
+    const ok = lignes === 27 && /\(27\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && exif && !ecrits.length && !debords.some(Boolean);
+    return { ok, mesure: `${lignes} étalons listés (« ${titre.trim()} ») ; l’étalon 22 ouvert : photo de ${vignette} px, frise de ${frise} étapes, ${sansEnregistrer ? 'sans' : 'AVEC'} enregistrement, note ${note ? 'oui' : 'NON'}, vignette « ${avecExif.slice(0, 40)} » ; l’étalon 00 : vignette « ${vignette00.slice(0, 50)} », É3 « ${e3.slice(0, 110)} » ${visible ? '(visible)' : '(INVISIBLE)'} ; écritures au serveur : ${ecrits.join(', ') || 'aucune'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   130: async (page, f) => {
     // Le projet de demonstration d'un etalon (decision du proprietaire, 4 novembre 2026) : Admin › Calibrer la detection, « Créer le

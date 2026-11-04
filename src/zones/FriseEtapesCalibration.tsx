@@ -8,7 +8,8 @@ import { sontRelues } from '../model/auditParcelle.js';
 import type { OuvertureFacade } from '../model/types.js';
 import { useCallback, useState } from 'react';
 import { etapeFacade, LIBELLES_ETAT, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
-import { etapeDe, reperesDe, type Enchainement } from '../facade/releve/enchainement.js';
+import { etapeDe, objectifDeLaPhoto, reperesDe, type Enchainement } from '../facade/releve/enchainement.js';
+import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
 import type { ImagesEtapes } from '../facade/releve/imagesEtapes.js';
 import type { CasStocke } from '../facade/corpusReel.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -193,6 +194,16 @@ function RelectureDuCas({ rejeu, cas, relire }: { rejeu: Enchainement; cas: CasS
     : <div className="calLigne"><button type="button" className={relues ? 'secondary small' : 'small'} data-controle="calibration.relireOuvertures" onClick={() => setOuvert(true)}>Relire les ouvertures</button></div>;
 }
 
+/**
+ * L'objectif d'une photo tel que la chaine l'a pris (le bilan de l'E3 du dernier rejeu) : « Avec EXIF », ou « Sans EXIF » et son
+ * avertissement (un mot, une bordure d'alerte, le texte entier en infobulle et pour le lecteur d'ecran).
+ */
+export function MentionObjectif({ bilan, parReperes, complet = false }: { bilan: BilanPhotoRedressement | undefined; parReperes: boolean; complet?: boolean }) {
+  const d = bilan ? objectifDeLaPhoto(bilan, parReperes) : null;
+  if (!d) return null;
+  return <small className={'calObjectif' + (d.alerte ? ' alerte' : '')} data-objectif={bilan?.objectif?.source} title={d.texte}>{complet ? d.texte : <>{d.court}<span className="texteMasque">{d.texte.slice(d.court.length)}</span></>}</small>;
+}
+
 /** Les calques d'une etape : ce que l'automatique a vu, ce qui a ete retenu. */
 function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
   const { id, images: im, cas, dims, url, caler } = p;
@@ -208,7 +219,8 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
     {cas.images.map((u, k) => { const d = dims[k], r = reperesDe(cas.photos[k]), v = im.vues[k]; return <li key={k}><figure>
       {d ? <Calques url={u} l={d.l} h={d.h} libelle={'Photo ' + (k + 1) + (r ? ' et ses repères' : '')}>{r && <polygon className="calReperes" points={points(r)} vectorEffect="non-scaling-stroke" />}</Calques> : <img className="calEtape" src={u} alt={'Photo ' + (k + 1)} />}
       {v ? <Calques url={url(v.image)} l={v.image.largeur} h={v.image.hauteur} libelle={'Photo ' + (k + 1) + ' redressée entière, et le gabarit posé par ses coins'}>{v.silhouette && <polyline className="calMurLigne silhouette" points={points(v.silhouette)} vectorEffect="non-scaling-stroke" />}</Calques> : <p className="calNote">Elle ne se redresse pas : posez quatre repères.</p>}
-      <figcaption>Photo {k + 1}{r ? ', avec vos quatre repères' : ''} : tournée de face comme l’assemblage la prend ({r ? 'par vos repères' : 'par ses points de fuite, sinon par le mur retenu'}), entière, sans coupe ni échelle.</figcaption>
+      <figcaption>Photo {k + 1}{r ? ', avec vos quatre repères' : ''} : tournée de face comme l’assemblage la prend ({r ? 'par vos repères' : 'par ses points de fuite, sinon par le mur retenu'}), entière, sans coupe ni échelle.
+        {' '}<MentionObjectif bilan={p.rejeu.sorties.audit?.redressement.photos.find((b) => b.rang === k)} parReperes={!!r} complet /></figcaption>
     </figure></li>; })}
   </ul>;
   if (id === 'assemblage') return im.assemblage ? <Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="L’assemblage des photos redressées" /> : <p className="calNote">Aucune photo ne s’assemble.</p>;
