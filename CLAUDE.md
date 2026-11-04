@@ -186,7 +186,9 @@ d'y toucher.
   et audit, où une étape cachée garde son numéro) ; le propriétaire les désigne par ces numéros dans ses demandes.
 - **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur
   la photo ni déformé : le haut de toute la façade, tous corps du toit compris, en mètres ramenés à la hauteur du mur. Il se pose
-  entre l'égout, le sol et les bouts trouvés, et seule son échelle suit. Les repères ne disent que les directions ; la dimension
+  bas sur bas : son sol sur le sol trouvé, ses bouts sur les bouts trouvés, à une seule échelle tirée de la largeur (la même en
+  hauteur, `gabaritMur.ts::echelleDuGabarit`, décision du propriétaire, 4 novembre 2026) ; son égout tombe où cette échelle le met et ne
+  pose rien : il contrôle l'égout trouvé (l'écart se dit à l'É5, à confirmer au-delà de 3 % de la largeur). Les repères ne disent que les directions ; la dimension
   vient de ce calage. Aucune vue ne coupe la photo au mur. L'assemblage des photos redressées entières est l'image prise pour la
   suite (mur, détection, texture, toit), pour l'audit, le relevé et la calibration (`analyseMur.ts::analyserLeMur`). Avec
   plusieurs vues du mur entier, l'assemblage pose le mur et l'image du mur se compose par la fusion de ces mêmes photos (vote des
