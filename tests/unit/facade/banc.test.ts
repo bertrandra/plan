@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus, rejouerCorpus, rejouerScene, tableau, capteursSimules } from '../../banc/facades/banc.js';
-import { coinsVrais, formePignon, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../banc/facades/synthese.js';
+import { coinsVrais, formePignon, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../../src/facade/banc/synthese.js';
 import { apparier, recouvrement, mesurerDetection, erreurCoinsCm } from '../../banc/facades/mesure.js';
 import { coinsDuReleve, biaisDepuisCap } from '../../../src/facade/calage/calage.js';
 

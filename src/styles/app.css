@@ -2652,6 +2652,16 @@
   .calTable th[scope="row"]{ text-align:left; font-weight:600; overflow-wrap:anywhere; }
   .calParams ul{ columns:2 280px; margin:6px 0; padding:0; list-style:none; font-size:0.8rem; }
   .calParams li{ break-inside:avoid; min-height:28px; }
+  /* Les etalons de synthese (facade/banc/etalons.ts) : une section repliee, a part des cas reels, avec le chevron des sections. */
+  .calEtalons > details > summary{ display:flex; align-items:center; gap:8px; min-height:36px; cursor:pointer; list-style:none; }
+  .calEtalons > details > summary::-webkit-details-marker{ display:none; }
+  .calEtalons > details > summary::before{ content:'›'; display:inline-block; transition:transform .12s; font-size:1.1rem; line-height:1; color:var(--ink-soft); }
+  .calEtalons > details[open] > summary::before{ transform:rotate(90deg); }
+  .calEtalons > details > summary .calTitre2{ margin:0; }
+  /* Le tableau defile dans son cadre plutot que la page ; sous 720 px, les difficultes (dites a l'ouverture) laissent la place a ce qu'il eprouve. */
+  .calDefile{ max-width:100%; overflow-x:auto; }
+  .calTableEtalons td{ font-size:0.8rem; }
+  @media (max-width: 719px){ .calTableEtalons .calColDifficile{ display:none; } }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
   .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }
   /* La silhouette sur la toile : un repere, le trace d'une ouverture passe au travers. */

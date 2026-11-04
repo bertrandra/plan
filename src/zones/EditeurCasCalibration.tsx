@@ -173,6 +173,11 @@ interface Props {
    * l'ouverture, aux proportions du plan.
    */
   chercherCoins?: boolean;
+  /**
+   * Un etalon de synthese (facade/banc/etalons.ts) : une scene du banc, rendue a l'ouverture. Il se deroule comme un cas, mais rien ne
+   * s'enregistre : ni le cas, ni sa validation, ni une reponse de Claude.
+   */
+  etalon?: { description: string; difficultes: readonly string[] };
 }
 
 /** Une dimension du mur en metres ; une valeur nulle ou illisible ne s'ecrit pas. */
@@ -361,7 +366,15 @@ function PanneauClaude({ c, peutAppeler, occupe, rejouer, appeler, escalade }: {
   );
 }
 
-export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false }: Props) {
+/** Le titre de l'editeur ; pour un etalon, sa scene et ce qui ne s'enregistre pas. */
+function TitreDuCas({ nom, id, etalon }: { nom: string; id: string | null; etalon: Props['etalon'] }) {
+  return <>
+    <h2 className="calTitre2">{etalon ? 'Étalon de synthèse : ' + nom : id ? 'Cas : ' + nom : 'Nouveau cas'}</h2>
+    {etalon && <p className="calNote calEtalonNote">{etalon.description} Difficultés : {etalon.difficultes.join(', ')}. Une scène du banc des façades, dessinée dans votre navigateur : la vérité (dimensions, ouvertures, gabarit) est celle du banc ; la chaîne cherche le mur comme dans l’audit. Rien ne s’enregistre.</p>}
+  </>;
+}
+
+export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false, etalon }: Props) {
   const [cas, setCas] = useState<CasStocke>(depart);
   const casCourant = useRef(cas);
   casCourant.current = cas;
@@ -423,7 +436,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     const suite = { ...cas, ia: [...(cas.ia ?? []), r.run] };
     setCas(suite); claude.setChoisi(suite.ia.length - 1); claude.setModeIa(true);
     await rejouer(suite, 'calage', r.run);
-    setMessage((m) => 'Réponse enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m ? ' ' + m : ''));
+    setMessage((m) => 'Réponse enregistrée : ' + enteteDuRun(r.run) + (etalon ? '. Elle vit le temps de l’écran : un étalon ne s’enregistre pas.' : '. Enregistrez le cas pour la garder.') + (m ? ' ' + m : ''));
   };
   // L'escalade de la reponse choisie (la commande `facade.escalader`) : gardee dans ce run du cas, puis rejouee en IA.
   const escalader = async () => {
@@ -436,7 +449,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     const suite = { ...cas, ia: (cas.ia ?? []).map((x, i) => (i === claude.choisi ? r.run : x)) };
     setCas(suite); claude.setModeIa(true);
     await rejouer(suite, 'calage', r.run);
-    setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m2 ? ' ' + m2 : ''));
+    setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + (etalon ? '. Elle vit le temps de l’écran : un étalon ne s’enregistre pas.' : '. Enregistrez le cas pour la garder.') + (m2 ? ' ' + m2 : ''));
   };
   const prixEscalade = useEscalade(outils, escalader);
   // « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme et garde dans le cas (une entree, comme dans l'audit), puis le
@@ -476,16 +489,16 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, x0M: f.x0, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
   return (
-    <section className="calEditeur" aria-label={id ? 'Cas ' + cas.nom : 'Nouveau cas'}>
+    <section className="calEditeur" aria-label={etalon ? 'Étalon ' + cas.nom : id ? 'Cas ' + cas.nom : 'Nouveau cas'}>
       <BarreProgressionFacade etapes={enCours || occupe ? progression : (rejeu?.etapes ?? [])} enCours={enCours} ouverte={ouverte} ouvrable={() => true} commandes={outils.commandes ?? null} arreter={arreter} />
-      <h2 className="calTitre2">{id ? 'Cas : ' + cas.nom : 'Nouveau cas'}</h2>
+      <TitreDuCas nom={cas.nom} id={id} etalon={etalon} />
       <div className="calLigne">
         <label className="calChamp">Nom<input type="text" value={cas.nom} data-controle="calibration.nomCas" onChange={(e) => modifier((c) => ({ ...c, nom: e.target.value }))} placeholder="Maison de la rue X, façade sud" /></label>
         <NombreM libelle="Largeur du mur (m)" controle="calibration.largeurM" valeur={cas.largeurM} changer={(v) => { modifier((c) => ({ ...c, largeurM: v })); oublier(); }} />
         <NombreM libelle="Hauteur à l’égout (m)" controle="calibration.hauteurM" valeur={cas.hauteurM} changer={(v) => { modifier((c) => ({ ...c, hauteurM: v })); oublier(); }} />
       </div>
 
-      <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}, prise{cas.photos.length > 1 ? 's' : ''} dans l’audit. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
+      <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
       {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
@@ -501,10 +514,10 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
 
       {elevation && <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} />}
 
-      <label className="calCase"><input type="checkbox" checked={cas.statut === 'valide'} data-controle="calibration.valide" onChange={(e) => modifier((c) => ({ ...c, statut: e.target.checked ? 'valide' : 'brouillon' }))} /> J’ai relu les ouvertures sur la photo : ce cas compte dans la calibration</label>
+      {!etalon && <label className="calCase"><input type="checkbox" checked={cas.statut === 'valide'} data-controle="calibration.valide" onChange={(e) => modifier((c) => ({ ...c, statut: e.target.checked ? 'valide' : 'brouillon' }))} /> J’ai relu les ouvertures sur la photo : ce cas compte dans la calibration</label>}
       {message && <p className="arbMessage" role="alert">{message}</p>}
       <div className="calLigne">
-        <button type="button" data-controle="calibration.enregistrerCas" disabled={occupe} onClick={() => { void sauver(); }}>Enregistrer le cas</button>
+        {!etalon && <button type="button" data-controle="calibration.enregistrerCas" disabled={occupe} onClick={() => { void sauver(); }}>Enregistrer le cas</button>}
         <button type="button" className="secondary" data-controle="calibration.fermerCas" onClick={fermer}>Fermer</button>
         {supprimer && <button type="button" className="secondary danger" data-controle="calibration.supprimerCas" disabled={occupe} onClick={() => { if (window.confirm('Supprimer ce cas ? Le fichier est mis de côté sur le serveur.')) void supprimer().then((e) => { if (e) setMessage(e); else fermer(); }); }}>Supprimer</button>}
       </div>

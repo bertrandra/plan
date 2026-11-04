@@ -3,7 +3,7 @@ import { sansOmbres } from '../../../../src/facade/vision/sansOmbres.js';
 import { analyserReleve } from '../../../../src/facade/analyse.js';
 import type { Image } from '../../../../src/facade/vision/homographie.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 
 // Les facades sans ombres (Vue 3D) : sur les scenes du banc, la texture corrigee se rapproche de celle du meme mur sans ombres,
 // et un mur sans ombre (soubassement en pierre, meuliere) ne change presque pas.

@@ -77,7 +77,7 @@ describe('les ouvertures sous le pignon d un corps voisin', () => {
 describe('la detection pose les baies du pignon voisin sur son mur', () => {
   const lancer = async (voisines: { cote: number; ouvertures: OuvertureFacade[] }[]) => {
     const { chargerCorpus } = await import('../../../banc/facades/banc.js');
-    const { coinsVrais, photographier } = await import('../../../banc/facades/synthese.js');
+    const { coinsVrais, photographier } = await import('../../../../src/facade/banc/synthese.js');
     const { appliquer, homographie } = await import('../../../../src/facade/vision/homographie.js');
     const { prisesDeLaFacade } = await import('../../../../src/facade/releve/prisesFacade.js');
     const { derouler } = await import('../../../../src/facade/releve/enchainement.js');

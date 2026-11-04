@@ -5,7 +5,7 @@ import { detecterSegments } from '../../../../src/facade/vision/segments.js';
 import { appliquer, homographie, type P2 } from '../../../../src/facade/vision/homographie.js';
 import { appliquerSimilitude } from '../../../../src/facade/vision/ransac.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 
 // Le redressement par les points de fuite (sans les coins du mur) et l'assemblage des vues redressees, sur les scenes du banc :
 // les photos reelles de la calibration (Hardencourt, octobre 2026) ne montrent pas le mur entier, et le calage par les coins y

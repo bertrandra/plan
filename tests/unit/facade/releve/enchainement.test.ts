@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
-import { photographier, coinsVrais, gabaritVrai, type PriseCamera } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, gabaritVrai, type PriseCamera } from '../../../../src/facade/banc/synthese.js';
 import { appliquer, homographie } from '../../../../src/facade/vision/homographie.js';
 import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
 import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';

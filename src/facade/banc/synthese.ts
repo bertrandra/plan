@@ -10,6 +10,10 @@
 // deterministe : aucun tirage n'est sequentiel, tout passe par un hachage de la position et de la
 // graine. Le corpus ne porte donc pas d'images, et une scene se relit et se corrige a la main.
 //
+// Le generateur vit dans src/ (et non plus sous tests/banc/) depuis le 4 novembre 2026 : l'ecran Admin › Calibration rend les scenes
+// dans le navigateur, a la demande, comme etalons de synthese (facade/banc/etalons.ts). Le code n'a pas change : le banc, ses scripts
+// et les tests l'importent d'ici, et leurs images sont les memes au bit pres.
+//
 // Deux rendus :
 // - l'elevation parfaite du mur, vue de face a l'infini, a `pxParM` pixels par metre : ce que
 //   `detecterOuvertures` recevrait si le calage etait parfait ;
@@ -22,13 +26,13 @@
 // est le plan Y = 0, la rue du cote Y < 0. Les coordonnees photo sont continues : le pixel (i, j)
 // couvre [i, i + 1] x [j, j + 1], comme dans `redresser`.
 
-import { homographie, appliquer, type Image, type P2 } from '../../../src/facade/vision/homographie.js';
-import { focalePx } from '../../../src/facade/vision/cadrage.js';
-import { champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
-import type { DetailsOuverture, TypeOuverture } from '../../../src/model/types.js';
-import { gabaritDuHaut, type GabaritMur } from '../../../src/facade/gabaritMur.js';
-import { au } from '../../../src/util/tableaux.js';
-import { silhouetteDansLeCadre } from '../../../src/facade/analyse.js';
+import { homographie, appliquer, type Image, type P2 } from '../vision/homographie.js';
+import { focalePx } from '../vision/cadrage.js';
+import { champDepuisFocale35 } from '../vision/exif.js';
+import type { DetailsOuverture, TypeOuverture } from '../../model/types.js';
+import { gabaritDuHaut, type GabaritMur } from '../gabaritMur.js';
+import { au } from '../../util/tableaux.js';
+import { silhouetteDansLeCadre } from '../analyse.js';
 
 export type RGB = [number, number, number];
 
@@ -417,7 +421,7 @@ function dansForme(o: OuvertureVraie, X: number, Z: number): boolean {
 
 /**
  * Les details vrais d'une ouverture (lot G17), ce que le classement devrait lire (spec §11) : ses volets
- * (un tablier fermé aux neuf dixiemes ou plus compte comme ferme), sa forme, et ce qui est sous elle —
+ * (un tablier ferme aux neuf dixiemes ou plus compte comme ferme), sa forme, et ce qui est sous elle —
  * un balcon dont la dalle porte la baie (a 20 cm pres) et la deborde, ou un garde-corps seul. Une
  * ouverture qui porte ses `details` les impose.
  */

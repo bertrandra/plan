@@ -3,7 +3,7 @@ import { analyserVues, centreOptique, transfert, type VuePhoto } from '../../../
 import { analyserReleve } from '../../../src/facade/analyse.js';
 import { homographie } from '../../../src/facade/vision/homographie.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { photographier, coinsVrais, stenope, cacheDepuis, type PriseCamera, type SceneFacade } from '../../banc/facades/synthese.js';
+import { photographier, coinsVrais, stenope, cacheDepuis, type PriseCamera, type SceneFacade } from '../../../src/facade/banc/synthese.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';
 
 // La fusion de plusieurs vues d'une facade (spec-facades-calage-detection §8, lot L13) : le centre

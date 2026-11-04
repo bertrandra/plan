@@ -15,7 +15,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, formePignon, photographier, type PriseCamera } from '../../../../tests/banc/facades/synthese.ts';
+import { coinsVrais, formePignon, photographier, type PriseCamera } from '../../../../src/facade/banc/synthese.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
 import { appliquer, homographie, type Image, type P2 } from '../../../../src/facade/vision/homographie.ts';
 import { inverser } from '../../../../src/facade/vision/redressementFuites.ts';

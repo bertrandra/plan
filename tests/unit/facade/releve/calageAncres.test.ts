@@ -5,7 +5,7 @@ import { murSurLAssemblage, vuesDeFace } from '../../../../src/facade/releve/coi
 import { mosaiqueDesVues, rectanglesSurLesAretes, type Rect } from '../../../../src/facade/vision/mosaiqueFuites.js';
 import { detecterSegments } from '../../../../src/facade/vision/segments.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { gabaritVrai, photographier, type PriseCamera } from '../../../banc/facades/synthese.js';
+import { gabaritVrai, photographier, type PriseCamera } from '../../../../src/facade/banc/synthese.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
 

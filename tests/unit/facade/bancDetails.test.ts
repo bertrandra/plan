@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus, rejouerScene } from '../../banc/facades/banc.js';
-import { detailsVrais, peindreElevation, murSeul, type SceneFacade } from '../../banc/facades/synthese.js';
+import { detailsVrais, peindreElevation, murSeul, type SceneFacade } from '../../../src/facade/banc/synthese.js';
 import { mesurerDetails, cumulerDetails } from '../../banc/facades/mesure.js';
 
 // La justesse des details des ouvertures au banc de facades (lot G17) : la verite que la scene en dit,

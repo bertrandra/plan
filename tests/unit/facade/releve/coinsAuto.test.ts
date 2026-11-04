@@ -6,7 +6,7 @@ import { mosaiqueDesVues } from '../../../../src/facade/vision/mosaiqueFuites.js
 import { appliquerSimilitude } from '../../../../src/facade/vision/ransac.js';
 import { gabaritSurLaVue } from '../../../../src/facade/gabaritMur.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais } from '../../../../src/facade/banc/synthese.js';
 
 // Le report des coins poses sur une photo vers les autres photos du meme mur (les coins d'une photo seule : tests/unit/zones/chaine.test.ts).
 

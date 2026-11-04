@@ -7,7 +7,7 @@ import { prisesDeLaFacade } from '../../../src/facade/releve/prisesFacade.js';
 import { rechercher } from '../../../src/facade/releve/serie.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
-import { gabaritVrai, photographier, type PriseCamera } from '../../banc/facades/synthese.js';
+import { gabaritVrai, photographier, type PriseCamera } from '../../../src/facade/banc/synthese.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 // Le mur en L (MD/spec-releve-facade.md §6.2) : une partie basse dans l'alignement du mur (garage, extension). Le decrochement que la

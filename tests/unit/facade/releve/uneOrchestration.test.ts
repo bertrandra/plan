@@ -16,7 +16,7 @@ import type { PhotoCas, PrisePhoto } from '../../../../src/model/audit.js';
 import { murAConfirmer, relecture, type CorrectionRedressement, type MurConfirme, type OuverturesRelues } from '../../../../src/model/auditParcelle.js';
 import type { CorpsToit, PtBrut } from '../../../../src/model/types.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../banc/facades/synthese.js';
+import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
 
 // Calibration et audit : le meme code et la meme orchestration, l'audit n'en cache qu'une part (CLAUDE.md, decision du proprietaire du
 // 2 novembre 2026). Une facade passe par l'entree reelle de l'audit (mesurerFacade), devient un cas de calibration comme l'admin le

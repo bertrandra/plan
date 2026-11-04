@@ -35,7 +35,7 @@ import { focalePx as focaleParDefaut } from '../../../src/facade/vision/cadrage.
 import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calage/calageFin.js';
 import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
 import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/vision/distorsion.js';
-import { facadePeinte, gabaritVrai, peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, detailsVrais, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
+import { facadePeinte, gabaritVrai, peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, detailsVrais, type SceneFacade, type PriseCamera, type PriseCoins } from '../../../src/facade/banc/synthese.js';
 import { mesurerDetection, mesurerDetails, cumulerDetails, mediane, erreurCoinsCm, ATTRIBUTS_DETAILS, type MesureDetection, type MesureDetails } from './mesure.js';
 
 export const DOSSIER_CORPUS = fileURLToPath(new URL('../../fixtures/facades', import.meta.url));

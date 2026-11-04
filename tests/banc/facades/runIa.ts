@@ -7,7 +7,7 @@
 // comptes), pour faire tourner le rejeu, les tests et la mesure x1 contre x3 sans reseau ni cle. Elles portent `synthetique`. La
 // vraie mesure se fait avec la cle (.claude/skills/facades/scripts/ia-x1-x3.ts, workflow « Vérifier l'API Claude »).
 
-import { hache, coinsVrais, formePignon, photographier, type PriseCamera, type SceneFacade } from './synthese.js';
+import { hache, coinsVrais, formePignon, photographier, type PriseCamera, type SceneFacade } from '../../../src/facade/banc/synthese.js';
 import { appliquer, type Image, type P2 } from '../../../src/facade/vision/homographie.js';
 import { inverser } from '../../../src/facade/vision/redressementFuites.js';
 import { vuesDeFace } from '../../../src/facade/releve/coinsAuto.js';

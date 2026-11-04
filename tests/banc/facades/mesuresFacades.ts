@@ -12,7 +12,7 @@ import { mesurerFacade, resumeMesureFacade, type ContexteFacade, type MesureFaca
 import type { FichierAuditParcelle } from '../../../src/model/fichierAuditParcelle.js';
 import type { ResultatScene } from './banc.js';
 import { mediane } from './mesure.js';
-import type { SceneFacade } from './synthese.js';
+import type { SceneFacade } from '../../../src/facade/banc/synthese.js';
 
 export interface MesuresScene {
   nom: string;

@@ -309,6 +309,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // Admin › Calibrer la detection (zones/EcranCalibration.tsx, EditeurCasCalibration.tsx) : des photos de facades annotees, la mesure de la
   // detection sur elles et les reglages calibres, enregistres sur le serveur (data/admin/). Rien n'ecrit dans un projet.
   'calibration.ouvrirCas': etape(Z8, CALIBRATION, 'Ouvrir un cas de calibration', { repete: true }),
+  // Les etalons de synthese (facade/banc/etalons.ts) : les scenes du banc des facades, ouvertes comme un cas, en lecture seule.
+  'calibration.etalons': etape(Z8, CALIBRATION, 'Déplier la liste des étalons de synthèse : les scènes du banc des façades, à côté des cas réels'),
+  'calibration.ouvrirEtalon': etape(Z8, CALIBRATION, 'Ouvrir un étalon de synthèse : ses photos dessinées dans le navigateur, déroulées de É1 à É11 comme un cas, sans rien enregistrer', { repete: true }),
   'calibration.nomCas': etape(Z8, CALIBRATION, 'Nommer le cas'),
   'calibration.largeurM': etape(Z8, CALIBRATION, 'Largeur réelle du mur du cas'),
   'calibration.hauteurM': etape(Z8, CALIBRATION, 'Hauteur du mur du cas, à l’égout'),
