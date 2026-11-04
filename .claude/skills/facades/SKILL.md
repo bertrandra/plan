@@ -391,6 +391,10 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
 - Un test qui ne mesure qu'une fonction (un segment, une homographie) peut garder sa petite image peinte : la règle vise les murs et
   bâtiments de test, pas les pixels d'essai d'un module.
 
+- **L'objectif de chaque photo, à l'É3** (4 novembre 2026) : le bilan du redressement porte `objectif` (`exif`, `fuites`, `appareil`,
+  `defaut`, et le champ pris) ; la calibration avertit d'une photo sans EXIF (vignette, É3 ouverte). Les étalons 00 (image d'origine
+  des tests) et 09 (focale inconnue) sont sans EXIF : ils montrent l'avertissement (point de fumée 129).
+
 ## 3. Le corpus
 
 Une scène par fichier JSON dans `tests/fixtures/facades/`, rendue à la demande. Aucun tirage n'est

@@ -1,0 +1,63 @@
+import { describe, it, expect } from 'vitest';
+import { chargerCorpus } from '../../../banc/facades/banc.js';
+import { casDeLEtalon, coinsVraisDesPhotos, photosDeLEtalon } from '../../../../src/facade/banc/etalons.js';
+import { derouler, entreesDuCas, objectifDeLaPhoto } from '../../../../src/facade/releve/enchainement.js';
+import { rechercher } from '../../../../src/facade/releve/serie.js';
+import type { CasReel } from '../../../../src/facade/corpusReel.js';
+
+// L'E3 dit l'objectif de chaque photo, tel que la chaine l'a pris (demande du proprietaire, 4 novembre 2026) : l'EXIF, ou faute d'EXIF la
+// focale supposee, avec un avertissement (le redressement par les points de fuite peut etre faux) ; pas pour une photo que ses reperes
+// redressent. La donnee vient du bilan du redressement, l'ecran ne calcule rien.
+
+const o = { vue: 'calibration' as const, chercherCoins: async (e: Parameters<typeof rechercher>[0]) => rechercher(e) };
+const scene = (n: string) => chargerCorpus().find((x) => x.nom.startsWith(n))!;
+
+async function e3(cas: CasReel, images: Parameters<typeof entreesDuCas>[1]) {
+  const r = await derouler(entreesDuCas(cas, images), o);
+  return { etape: r.etapes.find((e) => e.id === 'redressement')!, bilans: r.sorties.audit!.redressement.photos };
+}
+
+describe('l objectif de chaque photo, a l E3', () => {
+  it('etalon 02, pris avec l EXIF : « avec EXIF », et la focale equivalente', async () => {
+    const s = scene('02'), ph = photosDeLEtalon(s);
+    const { etape, bilans } = await e3(casDeLEtalon(s, ph, ['p']), ph.map((p) => p.image));
+    expect(bilans[0]?.objectif?.source).toBe('exif');
+    expect(objectifDeLaPhoto(bilans[0]!, false)).toEqual({ court: 'Avec EXIF', texte: 'Avec EXIF (focale 26 mm éq.).', alerte: false });
+    expect(etape.resume).toContain('Photo 1 : redressée automatiquement');
+    expect(etape.resume).toContain(', avec EXIF');
+  }, 60000);
+
+  it('etalons 00 et 09, sans EXIF : la focale supposee, et l avertissement', async () => {
+    for (const n of ['00', '09']) {
+      const s = scene(n), ph = photosDeLEtalon(s);
+      const { etape, bilans } = await e3(casDeLEtalon(s, ph, ['p']), ph.map((p) => p.image));
+      expect(bilans[0]?.objectif?.source).not.toBe('exif');
+      const d = objectifDeLaPhoto(bilans[0]!, false)!;
+      expect(d.alerte).toBe(true);
+      expect(d.court).toBe('Sans EXIF');
+      expect(d.texte).toMatch(/^Sans EXIF : .*\. Le redressement par les points de fuite peut être faux ; posez quatre repères\.$/);
+      expect(etape.resume).toContain(', sans EXIF');
+    }
+  }, 60000);
+
+  it('sans EXIF mais redressee par ses reperes : l information seule, pas d avertissement', async () => {
+    const s = scene('00'), ph = photosDeLEtalon(s);
+    const cas = casDeLEtalon(s, ph, ['p']);
+    const avec = { ...cas, photos: cas.photos.map((p, k) => ({ ...p, reperes: coinsVraisDesPhotos(s)[k]! })) };
+    const { bilans } = await e3(avec, ph.map((p) => p.image));
+    const d = objectifDeLaPhoto(bilans[0]!, true)!;
+    expect(d.alerte).toBe(false);
+    expect(d.texte).toMatch(/^Sans EXIF : .* ; redressée par vos repères, qui ne dépendent pas de la focale\.$/);
+  }, 60000);
+
+  it('une E3 qui n atteint pas son objectif le dit d une photo sans EXIF : la focale supposee peut en etre la cause', async () => {
+    // La photo de l'etalon 00 (sans EXIF) et une seconde photo qui ne se lit pas : une sur deux redressee, l'E3 n'est pas faite.
+    const s = scene('00'), ph = photosDeLEtalon(s);
+    const cas = casDeLEtalon(s, ph, ['p']);
+    const deux = { ...cas, photos: [...cas.photos, { ...cas.photos[0]!, fichier: 'illisible' }] };
+    const { etape, bilans } = await e3(deux, [ph[0]!.image, null]);
+    expect(etape.etat).not.toBe('ok');
+    expect(bilans[0]?.objectif?.source).not.toBe('exif');
+    expect(etape.resume).toMatch(/ Photo 1 sans EXIF : .*\. Le redressement par les points de fuite peut être faux ; posez quatre repères\.$/);
+  }, 60000);
+});

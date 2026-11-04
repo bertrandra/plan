@@ -8,6 +8,7 @@
 // penchent font essayer les coins predits, puis les cotes ramenes sur le point de fuite des verticales. A partir de deux photos
 // redressees, elles sont fusionnees. Rien ne se perd : une photo qui doute reste, avec son motif, et sert faute de mieux.
 
+import { CHAMP_GRAND_COTE_DEFAUT } from '../vision/cadrage.js';
 import { detecterSegments } from '../vision/segments.js';
 import { focaleDeLaPhotoParFuites } from '../vision/redressementFuites.js';
 import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../vision/verticales.js';
@@ -69,6 +70,14 @@ function champDesFuites(image: Image): number | null {
   return f === null ? null : (2 * Math.atan(Math.max(image.largeur, image.hauteur) / 2 / f) * 180) / Math.PI;
 }
 
+/** L'objectif d'une photo tel que la chaine le prend : le champ de l'EXIF, sinon celui lu sur ses points de fuite, sinon le defaut. */
+function objectifDe(e: PhotoARedresser, champLu: number | null): NonNullable<BilanPhotoRedressement['objectif']> {
+  const champ = e.prise(champLu).champ;
+  // Sans EXIF, la prise prend le champ lu sur la photo, sinon celui note pour l'appareil, sinon celui d'un telephone (prisesFacade.ts).
+  const source = e.champConnu ? 'exif' : champLu !== null && Math.abs(champ - champLu) < 1e-9 ? 'fuites' : Math.abs(champ - CHAMP_GRAND_COTE_DEFAUT) < 1e-9 ? 'defaut' : 'appareil';
+  return { source, champDeg: Math.round(champ * 10) / 10 };
+}
+
 /** Une photo a redresser : son rang, son image, et sa prise de vue (le champ lu sur la photo la complete quand l'EXIF manque). */
 export interface PhotoARedresser {
   rang: number;
@@ -119,9 +128,9 @@ export interface PhotoRedressee {
 }
 
 /** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon ceux reportes d'une autre photo, sinon predits puis cherches sur les aretes. */
-async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, correction: CorrectionRedressement | undefined, predits: boolean, serie: CoinsSerie | null = null): Promise<PhotoPreparee> {
-  const { rang, image } = e;
-  const prise = e.prise(e.champConnu ? null : champDesFuites(image));
+async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, correction: CorrectionRedressement | undefined, predits: boolean, serie: CoinsSerie | null, champLu: number | null): Promise<PhotoPreparee> {
+  const { rang } = e;
+  const prise = e.prise(champLu);
   // Les coins predits tels quels : ramenes au bord du cadre (ce que fait l'ecran pour le doigt), ils ne seraient plus le mur, et
   // le redressement deformerait la photo au lieu de la redresser (un mur de 7 m photographie a 4 m deborde de l'image).
   const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, f.azimut), recherche: true };
@@ -149,8 +158,12 @@ function coinsSurLesVerticales(m: Morceau): P2[] | null {
 /** Le redressement d'une photo seule : son analyse, sa verticalite, le repli sur les coins calcules, son statut. */
 export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, correction: CorrectionRedressement | undefined, serie: CoinsSerie | null = null): Promise<PhotoRedressee> {
   const { rang } = e;
+  // Le champ lu sur les points de fuite quand l'EXIF manque : lu une fois pour tous les essais (le meme a chaque lecture), et dit au
+  // bilan avec sa source, pour que l'E3 dise la focale que la chaine a prise.
+  const champLu = e.champConnu ? null : champDesFuites(e.image);
+  const objectif = objectifDe(e, champLu);
   const juger = (p: PhotoPreparee) => quadrilatereSain(p.morceau.coins, { largeur: 0, hauteur: 0 }) ? { p, vert: verticaliteDesCoins(p.morceau.prise.photo.image, p.morceau.coins, f.largeur, f.hauteur) } : null;
-  const analyser = async (predits: boolean, s: CoinsSerie | null = null) => juger(await preparerPhoto(e, f, o, correction, predits, s));
+  const analyser = async (predits: boolean, s: CoinsSerie | null = null) => juger(await preparerPhoto(e, f, o, correction, predits, s, champLu));
   // Les coins trouves sur les aretes de la photo (le mur entier y est, au centimetre) d'abord ; sinon ceux reportes de la photo
   // du mur posee au doigt ; sinon les coins predits.
   // Une photo redressee par les reperes de la personne : le mur lu sur l'assemblage, d'abord.
@@ -163,7 +176,7 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   }
   // Des coins trouves qui ne forment pas un mur : les coins predits, plutot que rien.
   if (!essai && !correction?.coins) essai = await analyser(true).catch(() => null);
-  if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible' }, essai: null };
+  if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible', objectif }, essai: null };
   // Des coins poses au doigt, ou la photo redressee par les reperes de la personne : son redressement ne se discute pas. Le mur que
   // l'assemblage des reperes y a trouve, lui, garde le verdict de l'arbitre (`murCherche`) : l'E5 le juge comme un mur trouve.
   const parSesReperes = !!parReperes && essai === parReperes;
@@ -185,6 +198,7 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
     coinsPx: essai.p.morceau.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })),
     ...(parSesReperes && serie?.pose ? { murCherche: { pose: serie.pose, lu: serie.lu } } : {}),
     ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(seuilVerticalesDeg()).replace('.', ',') + '°) : placez les quatre coins à la main' }),
+    objectif,
   };
   return { bilan, essai };
 }

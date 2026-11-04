@@ -267,6 +267,14 @@ Chaque étape dit ce qui entre, ce que fait chaque chemin, qui arbitre, ce qui s
 - **Déterministe** : par les repères posés, sinon par les points de fuite (`vuesDeFace`, `redresserParFuites`).
 - **IA** : néant (la géométrie n'est pas son travail).
 - **Illustration** : chaque photo redressée, avec ses verticales et ses horizontales.
+- **L'objectif de chaque photo** (demande du propriétaire, 4 novembre 2026) : le bilan du redressement dit le champ que la chaîne a pris
+  et d'où il vient (`BilanPhotoRedressement.objectif` : `exif`, ou faute d'EXIF `fuites` — lu sur les points de fuite —, `appareil` —
+  noté pour le modèle — ou `defaut`, 67°). Le résumé de l'É3 dit, pour chaque photo, « avec EXIF » ou « sans EXIF » ; quand l'É3
+  n'atteint pas son objectif, il ajoute pour chaque photo sans EXIF « Photo n sans EXIF : focale supposée (67°). Le redressement par les
+  points de fuite peut être faux ; posez quatre repères. » La calibration le montre sous la vignette de chaque photo et dans l'É3
+  ouverte, en alerte (un mot, une bordure `--alerte`) ; une photo redressée par ses repères n'a que l'information (les repères ne
+  dépendent pas de la focale). Le texte vient de `enchainement.ts::objectifDeLaPhoto`, l'écran ne calcule rien. L'audit reçoit le même
+  bilan ; son É3 reste cachée (`cache`) et n'en montre rien de plus.
 
 ### É4 · Assemblage *(inchangé, §4 bis)*
 
