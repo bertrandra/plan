@@ -380,7 +380,7 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   après dans la PR) et au garde-fou de la lecture (`scenes-ajoutees.json`, §5 quater).
 - **Projets de démonstration** (4 novembre 2026) : huit étalons (02, 07, 16, 20, 22, 23, 25, 26) ont un projet, construit à la
   demande depuis l'étalon (« Créer le projet de démonstration », Admin › Calibration) : le bâtiment de la règle
-  `facade/banc/projetEtalon.ts` (deux pans à 40°, faîtage parallèle au mur, 9 m ; un pignon gardé ; les parties basses en corps), la
+  `facade/banc/projetEtalon.ts` (deux pans à 40°, faîtage parallèle au mur, 9 m ; un pignon gardé ; une partie basse en appentis adossé, rive haute sous l'égout haut ; sans lieu), la
   façade mesurée et validée par le chemin de l'audit (`app/administration/projetEtalon.ts`). Un projet de test pour une façade part de là.
 - **La vérité de l'É5** d'un étalon se porte à chaque rejeu sur l'assemblage de ce rejeu (`etalons.ts::calageVraiDuRejeu`, depuis les
   coins vrais) : aucune n'est écrite dans le corpus, elle dépend de la version de la chaîne.

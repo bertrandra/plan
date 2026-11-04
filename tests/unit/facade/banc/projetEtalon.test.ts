@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { aUnProjet, batimentDeLEtalon, ETALONS_AVEC_PROJET, PENTE_DEG, PROFONDEUR_M } from '../../../../src/facade/banc/projetEtalon.js';
+import { aUnProjet, batimentDeLEtalon, ETALONS_AVEC_PROJET, PENTE_DEG, PROFONDEUR_M, SOUS_EGOUT_M } from '../../../../src/facade/banc/projetEtalon.js';
 import { gabaritVrai } from '../../../../src/facade/banc/synthese.js';
 import { gabaritDesCorps } from '../../../../src/facade/gabaritMur.js';
 import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
@@ -41,5 +41,15 @@ describe('le batiment d un etalon', () => {
     expect(b('22').corps[0]!.posFaitage).toBeCloseTo(3.2, 6);
     expect(b('23').toit.forme).toBe('appentis');
     expect(b('26').corps.map((c) => c.egouts[0])).toEqual([2.6, 5.6, 2.9]);
+    // Une partie basse : un appentis adosse a la partie haute, sa rive basse sur le mur, sa rive haute au fond, sous l'egout haut.
+    for (const n of ['25', '26']) {
+      const e = batimentDeLEtalon(scenes.find((s) => s.nom.startsWith(n))!);
+      const H = e.hauteur;
+      for (const c of e.corps.filter((x) => x.egouts[0] < H)) {
+        expect(c.posFaitage).toBe(PROFONDEUR_M);
+        expect(c.faitage).toBeCloseTo(H - SOUS_EGOUT_M, 6);
+        expect(c.faitage).toBeLessThan(H);
+      }
+    }
   });
 });

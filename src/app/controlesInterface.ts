@@ -311,7 +311,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.ouvrirCas': etape(Z8, CALIBRATION, 'Ouvrir un cas de calibration', { repete: true }),
   // Les etalons de synthese (facade/banc/etalons.ts) : les scenes du banc des facades, ouvertes comme un cas, en lecture seule.
   'calibration.etalons': etape(Z8, CALIBRATION, 'Déplier la liste des étalons de synthèse : les scènes du banc des façades, à côté des cas réels'),
-  'calibration.creerProjetEtalon': etape(Z8, CALIBRATION, 'Créer le projet de démonstration d’un étalon : le bâtiment autour du mur (deux pans à 40°, 9 m de profondeur, le pignon gardé, les parties basses en volumes) et sa façade mesurée et validée comme dans l’audit, enregistré dans les démos de l’admin', { repete: true }),
+  'calibration.creerProjetEtalon': etape(Z8, CALIBRATION, 'Créer le projet de démonstration d’un étalon : le bâtiment autour du mur (deux pans à 40°, 9 m de profondeur, le pignon gardé, les parties basses en appentis adossés) et sa façade mesurée et validée comme dans l’audit, enregistré dans les démos de l’admin', { repete: true }),
   'calibration.ouvrirProjetEtalon': etape(Z8, CALIBRATION, 'Ouvrir le projet de démonstration d’un étalon qui vient d’être créé, dans l’atelier'),
   'calibration.ouvrirEtalon': etape(Z8, CALIBRATION, 'Ouvrir un étalon de synthèse : ses photos dessinées dans le navigateur, déroulées de É1 à É11 comme un cas, sans rien enregistrer', { repete: true }),
   'calibration.nomCas': etape(Z8, CALIBRATION, 'Nommer le cas'),
