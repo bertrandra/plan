@@ -16,6 +16,7 @@
 // FUMEE_QUALITE_3D=econome : le niveau de la Vue 3D pose dans le navigateur avant l'ouverture.
 // FUMEE_DELAI_POINT=150 : un point qui ne conclut pas en 150 s echoue, nomme, au lieu de pendre.
 // FUMEE_CAPTURES=dossier : la page de chaque point en echec, en PNG, pour la lire apres coup.
+// FUMEE_ECHELLE=2 : la densite de pixels des captures (deviceScaleFactor), 1 par defaut.
 // FUMEE_LOT=ci (ou l'argument `ci`) : le lot joue a chaque PR, avec ses reglages (LOTS, plus bas).
 
 import { createRequire } from 'node:module';
@@ -4072,6 +4073,237 @@ const POINTS = {
     const ok = silhouette === 1 && surLAile && /seulement/.test(indice) && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
     return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; poignées ${surLAile ? 'sur lui' : 'AILLEURS'} (faîtage dit ${faitageDit || '—'}, le sien ${faitageAile}) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  131: async (page, f) => {
+    // Modifier un batiment avec les memes gestes que l'ajout (decision du proprietaire, 4 novembre 2026) : le projet de demonstration de
+    // l'etalon 25 (une maison et son garage, un appentis adosse), Vue 3D, « Modifier la toiture », le garage choisi par sa pastille ; la
+    // vignette de sa forme est enfoncee dans l'onglet « Toit » ; « Ouvert : sur poteaux » le passe en carport (pas de prisme, des
+    // poteaux) ; Ctrl+Z et Ctrl+Y dans la session ; « Valider » : une etape d'historique, le toit fige ; un Ctrl+Z du projet le rend ferme.
+    let fichier = null;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url()), m = route.request().method();
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'GET') return json({ demos: fichier ? [{ id: '9', name: fichier.meta.name }] : [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'POST') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9', updatedAt: '2026-11-04T10:00:00Z' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && m === 'PUT') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && fichier) return json(fichier);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const capture = process.env.FUMEE_CAPTURE_APPENTIS;
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('liste des etalons', () => page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 20000 }));
+    await etape('creer le projet', () => page.locator('[aria-label="Créer le projet de démonstration de l’étalon 25-mur-en-l-garage"]').click({ timeout: 10000 }));
+    await etape('projet enregistre', () => page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').waitFor({ timeout: 120000 }));
+    const lien = await page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').getAttribute('href');
+    await etape('ouvrir le projet', () => page.goto(BASE + '/' + lien));
+    await etape('plan', () => page.waitForSelector('#stage svg', { timeout: 30000 }));
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    await etape('modifier la toiture', () => page.locator('#terrasse3dModifierToit').click({ timeout: 30000 }));
+    await page.locator('.panneauToit').waitFor({ timeout: 20000 });
+    // Le garage : le corps a un pan (son faitage sur un mur).
+    const lire = () => page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const corps = o.batiment?.corpsToit ?? [];
+      const W = (c) => Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
+      const rang = corps.findIndex((c) => !c.saillie && (c.posFaitage <= 0.01 || c.posFaitage >= W(c) - 0.01) && c.faitage - Math.min(...c.egouts) >= 0.3);
+      return { rang, ouvert: rang >= 0 ? corps[rang].ouvert ?? null : null, fige: !!o.batiment?.toitFige, n: corps.length };
+    });
+    const depart = await lire();
+    if (depart.rang < 0) return { ok: false, mesure: `aucun corps à un pan dans le projet de l’étalon (${depart.n} corps)` };
+    const libre = page.locator('[data-commande="toit.vueLibre"]');
+    if (await libre.isEnabled()) await libre.click();
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-avant.png' }).catch(() => {});
+    await etape('pastille du garage', () => page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').click({ timeout: 20000 }));
+    await page.waitForTimeout(300);
+    const choix = page.locator('.inspecteurToit [data-commande="toit.regler"][data-groupe="ouvert"]');
+    const nChoix = await choix.count();
+    const aucunEnfonce = (await page.locator('.inspecteurToit [data-groupe="ouvert"][aria-pressed="true"]').count()) === 0;
+    // L'onglet « Toit » dit la forme du corps choisi : la vignette « Un pan » est enfoncee.
+    await page.locator('.toitOnglet', { hasText: /^Toit$/ }).click();
+    const formeEnfoncee = await page.locator('.toitPiece[data-piece="forme:appentis"]').getAttribute('aria-pressed');
+    const autresEnfoncees = await page.locator('.toitPiece[aria-pressed="true"]').count();
+    await etape('ouvert sur poteaux', () => page.locator('.inspecteurToit [data-groupe="ouvert"][data-valeur="poteaux"]').click({ timeout: 10000 }));
+    await page.waitForFunction((r) => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[r]?.ouvert === true, depart.rang, { timeout: 20000 });
+    const enfonce = await page.locator('.inspecteurToit [data-groupe="ouvert"][data-valeur="poteaux"]').getAttribute('aria-pressed');
+    const retraits = await page.locator('.inspecteurToit [data-groupe="retrait"]').count();
+    // Le geste reste dans la session : le projet n'a encore rien a annuler.
+    const histoSession = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
+    await page.evaluate(() => window.__plan.executer('toit.selection'));
+    if (await libre.isEnabled()) await libre.click();
+    await image3dStable(page, 1500);
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-apres.png' }).catch(() => {});
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    const annule = await lire();
+    await page.keyboard.press('Control+y');
+    await page.waitForTimeout(400);
+    const retabli = await lire();
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    const histoApres = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(300);
+    const defait = await lire();
+    const sans = !(await deborde());
+    const ok = nChoix === 2 && aucunEnfonce && formeEnfoncee === 'true' && autresEnfoncees === 1 && enfonce === 'true' && retraits === 3 && !histoSession
+      && annule.ouvert === null && retabli.ouvert === true && valide.ouvert === true && valide.fige && histoApres && defait.ouvert === null && sans;
+    return { ok, mesure: `garage : corps ${depart.rang} sur ${depart.n}, ${nChoix} choix « ouvert » (${aucunEnfonce ? 'aucun enfoncé' : 'UN ENFONCÉ'} au départ) ; vignette « Un pan » ${formeEnfoncee === 'true' ? 'enfoncée' : 'NON ENFONCÉE'} (${autresEnfoncees} en tout) ; « sur poteaux » ${enfonce === 'true' ? 'enfoncé' : 'NON ENFONCÉ'}, ${retraits} retraits ; Ctrl+Z ${annule.ouvert === null ? 'rend le garage d’avant' : 'NE DÉFAIT RIEN'}, Ctrl+Y ${retabli.ouvert ? 'le rouvre' : 'NE REFAIT RIEN'} ; validé : ouvert ${valide.ouvert}, toit ${valide.fige ? 'figé' : 'NON FIGÉ'}, historique ${histoSession} → ${histoApres} ; Ctrl+Z du projet ${defait.ouvert === null ? 'le rend' : 'LE GARDE OUVERT'} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
+  132: async (page, f) => {
+    // AE 101 tel que le proprietaire le voit (decisions du 4 novembre 2026) : la maison lue par le moteur (corps sous les faits,
+    // tests/fixtures/toits/vesinet-ae101.json, la sortie automatique qu'identite.ts garde), puis retouchee dans le mode Toit avec les
+    // gestes de la personne : le corps principal en toit plat, ses deux pignons de facade gardes (un corps, un toit, jamais de trou) ;
+    // l'auvent reste un seul corps a la rive basse droite, ouvert sur poteaux ; un bow-window a gauche, sous l'auvent, qui le porte (aucun
+    // poteau devant lui ni a gauche) ; une galerie qui retourne sur le pignon est. Le recul de 50 cm du mur (un decroche de mur sous un
+    // toit continu) demande un champ nouveau : il vient avec le schema 14. « Valider » : une etape, le toit fige ; un Ctrl+Z du projet rend la maison lue.
+    // Les choix de l'inspecteur se touchent par leur evenement : le panneau se remet en page pendant que la camera se cadre sur
+    // l'element choisi, et un clic de pointeur attend une stabilite qui ne vient pas a temps sur une scene aussi chargee.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    const capture = process.env.FUMEE_CAPTURE_AE101;
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    const lire = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); return { corps: JSON.parse(JSON.stringify(o.batiment?.corpsToit ?? [])), fige: !!o.batiment?.toitFige }; });
+    const depart = await lire();
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await image3dStable(page, 3000);
+    // Le bouton de la scene (le meme que les points 97 et 98) ; sur cette scene chargee, un clic d'interface attend sa stabilite : la commande.
+    // La vue de la photo du proprietaire : debout devant la facade aux deux pignons, a 9 m, l'oeil a 1,6 m, le regard a mi-facade.
+    // Le batiment isole (ni cloture ni voisins devant lui) et le panneau replie : la vue de la photo, dans la session.
+    const vuePhoto = async (nom) => {
+      if (!capture) return;
+      await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
+      const replier = () => page.locator('.languetteToit').dispatchEvent('click');
+      await replier();
+      await page.evaluate(() => {
+        const sc = window.__plan.scene3d();
+        // La meme pose avant et apres : prise sur le corps principal d'avant les retouches.
+        if (window.__posePhoto) { const [p, t] = window.__posePhoto; sc.camera.position.set(p.x, p.y, p.z); sc.controls.target.set(t.x, t.y, t.z); sc.controls.update(); return; }
+        const o = window.__plan.etat().objects.find((x) => x.key === 'maison'), c = o.batiment.corpsToit[0];
+        const a = c.pts[2], b = c.pts[3], L = Math.hypot(b.x - a.x, b.y - a.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const n = { x: (b.y - a.y) / L, y: -(b.x - a.x) / L }, cen = { x: (c.pts[0].x + c.pts[2].x) / 2, y: (c.pts[0].y + c.pts[2].y) / 2 };
+        const s = (m.x - cen.x) * n.x + (m.y - cen.y) * n.y < 0 ? -1 : 1, sol = sc.hauteurSol ? sc.hauteurSol(m) : 0;
+        sc.camera.position.set(m.x + s * n.x * 9 - sc.cen.x, sol + 1.6, sc.cen.y - (m.y + s * n.y * 9));
+        sc.controls.target.set(m.x - sc.cen.x, sol + 4, sc.cen.y - m.y);
+        sc.controls.update();
+        window.__posePhoto = [sc.camera.position.clone(), sc.controls.target.clone()];
+      });
+      await image3dStable(page, 2500);
+      // Pour l'image seulement : le panneau, les poignees et leurs cotes ne cachent pas la facade (au bureau, le panneau ne se replie pas).
+      const masque = await page.addStyleTag({ content: '.panneauToit, .poigneesToit, .navigateurToit, .planToit { visibility: hidden !important; }' });
+      await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
+      await masque.evaluate((n) => n.remove());
+      await replier();
+    };
+    await page.evaluate(() => window.__plan.executer('toit.modifier'));
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    await page.evaluate(() => window.__plan.executer('toit.isoler'));
+    await vuePhoto('photo-avant');
+    const facade = async (rang, mur) => {
+      await page.evaluate(([r, m]) => document.querySelector('path.murNav[data-rang="' + r + '"][data-mur="' + m + '"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })), [rang, mur]);
+      await page.waitForTimeout(500);
+    };
+    const lacher = () => page.evaluate(() => window.__plan.executer('toit.selection'));
+    const poser = async (onglet, piece) => {
+      await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).dispatchEvent('click', {}, { timeout: 20000 }));
+      await etape('pièce ' + piece, () => page.locator('[data-piece="' + piece + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
+      await page.waitForTimeout(500);
+    };
+    // La facade aux deux pignons : le mur 2 du corps principal (le pan sud, ou le fait pose les deux pignons).
+    await facade(0, 2);
+    await image3dStable(page, 1500);
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-avant.png' }).catch(() => {});
+    // Le corps principal reste UN corps, UN toit : plat entre les deux pignons de la facade, qui restent poses dessus (« Toit plat »,
+    // corps choisi). Rien n'est coupe : un toit ne s'ouvre jamais.
+    await lacher();
+    await etape('pastille du corps principal', () => page.locator('.puceToit[data-type="corps"][data-rang="0"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await poser('Toit', 'forme:plat');
+    const apresPlat = await lire();
+    const principal = apresPlat.corps[0];
+    // L'auvent (le corps a un pan adosse au mur sud) : ouvert sur poteaux.
+    const W = (c) => Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
+    const rangAuvent = apresPlat.corps.findIndex((c) => !c.saillie && !c.baie && c.posFaitage <= 0.01 && c.faitage - Math.min(...c.egouts) > 0.3 && W(c) < 3);
+    await lacher();
+    await etape('pastille de l’auvent', () => page.locator('.puceToit[data-type="corps"][data-rang="' + rangAuvent + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('auvent ouvert', () => page.locator('.inspecteurToit [data-groupe="ouvert"][data-valeur="poteaux"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await page.waitForTimeout(300);
+    // Le bow-window, a gauche (la partie qui avance), sous l'auvent : toit plat, sous la rive de l'auvent.
+    await lacher();
+    await facade(0, 2);
+    await poser('Façade', 'facade:bow-window');
+    await etape('bow-window a pans', () => page.locator('.inspecteurToit [data-groupe="forme"][data-valeur="pans"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('bow-window toit plat', () => page.locator('.inspecteurToit [data-groupe="toit"][data-valeur="plat"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await page.waitForTimeout(300);
+    // Le bow-window va a gauche de la facade (sous le grand pignon) : sa poignee « Position », tiree vers la gauche jusqu'a ce que son
+    // milieu soit a moins de 2,2 m du bout du mur.
+    const centreBow = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit.find((c) => c.saillie?.genre === 'bow-window')?.saillie.centreM ?? null);
+    for (let k = 0; k < 6 && ((await centreBow()) ?? 0) > 2.2; k++) {
+      const pos = page.locator('[data-poignee="pos"] .pointPoignee').first();
+      const b = (await pos.count()) ? await pos.boundingBox() : null;
+      if (!b) break;
+      await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, -80, 0);
+      await page.waitForTimeout(400);
+    }
+    const haut = page.locator('[data-poignee="haut"] .pointPoignee').first();
+    const boite = (await haut.count()) ? await haut.boundingBox() : null;
+    if (boite) { await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height / 2 }, 0, 25); await page.waitForTimeout(400); }
+    // Le retour du porche sur le pignon est : une galerie sur le mur de bout est du corps principal.
+    await lacher();
+    await facade(0, 3);
+    await poser('Façade', 'facade:galerie');
+    await lacher();
+    await facade(0, 2);
+    await image3dStable(page, 2000);
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-apres.png' }).catch(() => {});
+    await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
+    await image3dStable(page, 1500);
+    if (capture) await page.screenshot({ path: capture + '-' + f.nom + '-apres-3d.png' }).catch(() => {});
+    await vuePhoto('photo-apres');
+    const fin = await lire();
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(300);
+    const defait = await lire();
+    const bow = fin.corps.find((c) => c.saillie?.genre === 'bow-window');
+    const galerie = fin.corps.find((c) => c.saillie?.genre === 'galerie');
+    const auvent = fin.corps[rangAuvent];
+    const auventAvant = depart.corps[rangAuvent];
+    const memeRive = auvent && auventAvant && JSON.stringify([auvent.pts[2], auvent.pts[3]]) === JSON.stringify([auventAvant.pts[2], auventAvant.pts[3]]);
+    const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
+    // Le meme corps, cle pour cle : l'annulation rend les valeurs, pas forcement l'ordre des cles.
+    const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
+    const memesCorps = JSON.stringify(canon(defait.corps)) === JSON.stringify(canon(depart.corps));
+    const ecart = depart.corps.map((c, k) => (JSON.stringify(c) === JSON.stringify(defait.corps[k]) ? null : k + ' : ' + Object.keys({ ...c, ...defait.corps[k] }).filter((x) => JSON.stringify(c[x]) !== JSON.stringify(defait.corps[k]?.[x])).join(','))).filter(Boolean);
+    const plat = !!principal && principal.faitage - Math.min(...principal.egouts) < 0.05 && principal.pignons.length === 2 && apresPlat.corps.length === depart.corps.length;
+    const ok = plat && auvent?.ouvert === true && memeRive && !!bow && bow.saillie.hote === 0 && bow.saillie.forme === 'pans'
+      && Math.max(...bow.egouts) < 2.6 && bow.saillie.centreM <= 2.2 && !!galerie && valide.fige && memesCorps && sans;
+    return { ok, mesure: `${depart.corps.length} corps lus, ${apresPlat.corps.length} après « Toit plat » ; corps principal ${plat ? 'plat, ses ' + principal.pignons.length + ' pignons gardés' : 'PAS PLAT OU PIGNONS PERDUS'} ; auvent (corps ${rangAuvent}) ${auvent?.ouvert ? 'ouvert' : 'NON OUVERT'}, rive basse ${memeRive ? 'inchangée' : 'DÉPLACÉE'} ; bow-window ${bow ? bow.saillie.forme + ' sur le corps ' + bow.saillie.hote + ', milieu à ' + bow.saillie.centreM.toFixed(2) + ' m du bout gauche, égout ' + Math.max(...bow.egouts).toFixed(2) + ' m' : 'ABSENT'} ; galerie de retour ${galerie ? 'posée' : 'ABSENTE'} ; validé ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${memesCorps ? 'rend la maison lue' : 'NE REND PAS la maison lue (' + defait.corps.length + ' corps ; ' + ecart.join(' | ') + ')'} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe
     // (processus, actions, coulisses), le choix d'un angle qui masque les autres, la recherche qui filtre, un lien vers l'ecran des regles ; rien ne deborde.
@@ -4990,7 +5222,9 @@ function pointsPour(nomClasse) {
   // 128 : la lecture de Claude dans l'enchainement de l'audit : la barre se refait apres elle (E5, E9).
   // 129 : les etalons de synthese dans Admin › Calibration : les scenes du banc listees, l'une ouverte et rejouee, rien d'ecrit.
   // 130 : le projet de demonstration d'un etalon : cree depuis la calibration, enregistre dans les demos, ouvert en plan et en 3D.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130];
+  // 131 : le mode Toit modifie ce qu'il sait poser : le garage de l'etalon 25 passe en appentis ouvert (carport), Ctrl+Z, valide.
+  // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
@@ -5020,7 +5254,7 @@ function parties() {
 async function jouer(navigateur, net, { f, theme, n }) {
   const contexte = await navigateur.newContext({
     viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile,
-    deviceScaleFactor: 1, colorScheme: theme, acceptDownloads: true
+    deviceScaleFactor: Number(process.env.FUMEE_ECHELLE) || 1, colorScheme: theme, acceptDownloads: true
   });
   await net.brancher(contexte);
   const page = await contexte.newPage();

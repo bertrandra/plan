@@ -17,7 +17,7 @@
 // Pur : pas de reseau, pas de DOM, pas d'historique (l'appelant empile l'instantane avant d'ecrire).
 
 import { enPoints } from '../model/formes.js';
-import { estFormeToit } from '../model/formeToit.js';
+import { estFormeToit, formeDuCorpsNommee } from '../model/formeToit.js';
 import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from './catalogueToits.js';
 import { angleDuPlusLongCote } from '../facade/toits/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitCorps.js';
@@ -209,6 +209,17 @@ export function rangDuCorpsChoisi(corps: readonly CorpsToit[], rang: number | nu
   return c.saillie ? (corps[c.saillie.hote] ? c.saillie.hote : null) : (rang as number);
 }
 
+/**
+ * La piece de l'onglet « Toit » qui est deja en place : la forme du corps sur lequel une forme agirait (le corps choisi, ou le seul corps
+ * du batiment). Le catalogue la montre enfoncee : les memes vignettes posent une forme et disent celle du corps, que la personne change
+ * d'un toucher (decision du proprietaire, 4 novembre 2026). Null quand une forme remplacerait plusieurs corps.
+ */
+export function formeEnPlace(o: ObjetPlan, rangChoisi: number | null = null): string | null {
+  const corps = (o.batiment?.corpsToit ?? []).filter((c) => !c.saillie);
+  const c = corpsChoisi(o, rangChoisi) ?? (corps.length === 1 ? corps[0] : null);
+  return c ? 'forme:' + formeDuCorpsNommee(c) : null;
+}
+
 /** Le rectangle d'un corps, la longueur selon le grand cote : celui sur lequel une forme du catalogue le remplace. */
 function rectangleDuCorps(c: CorpsToit): PtBrut[] {
   const r = repere(c.pts), p = c.pts as PtBrut[];
@@ -297,6 +308,28 @@ function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
 }
 
 /**
+ * Changer la forme d'un corps garde ce qui est pose dessus quand cela tient encore : ses pignons (un pignon de facade sur un toit plat
+ * aussi : AE 101, les deux pignons de la facade sud sur le toit plat entre eux), ses souches, et ses lucarnes, fenetres de toit et panneaux
+ * sur un toit en pente. Le corps garde son rectangle et son sens (sinon ce qui se compte le long du faitage n'a plus de place), et rien
+ * ne se garde sur un appentis, qui n'a pas de long pan a pignon. Decision du proprietaire, 4 novembre 2026 : modifier, pas remplacer.
+ */
+function gardeCeQuiEstPose(avant: CorpsToit, apres: CorpsToit): CorpsToit {
+  const neuf: CorpsToit = { ...apres };
+  if (avant.cheminees?.length) neuf.cheminees = avant.cheminees;
+  const r0 = repere(avant.pts), r1 = repere(apres.pts);
+  const memeSens = Math.abs(r0.u.x * r1.u.x + r0.u.y * r1.u.y) > 0.999 && Math.abs(r0.L - r1.L) < 0.05 && Math.abs(r0.W - r1.W) < 0.05;
+  const forme = formeDuCorps(apres);
+  if (!memeSens || forme === 'appentis') return neuf;
+  // Un pignon monte au moins un peu au-dessus de l'egout de son pan.
+  neuf.pignons = avant.pignons.map((g) => ({ ...g, faitage: Math.max(g.faitage, apres.egouts[g.pan] + 0.5) }));
+  if (forme !== 'plat') {
+    if (avant.lucarnes?.length) neuf.lucarnes = avant.lucarnes.map((l) => ({ ...l, faitageM: Math.min(l.faitageM, dixieme(apres.faitage - 0.1)) }));
+    if (avant.elementsToit?.length) neuf.elementsToit = avant.elementsToit;
+  }
+  return neuf;
+}
+
+/**
  * Ecrit le geste dans le batiment : rend vrai s'il a change quelque chose. Le toit est fige ensuite :
  * c'est la personne qui le regle. `facade` : celle que la personne regarde ; un pignon ou un element de mur s'y pose.
  */
@@ -312,7 +345,7 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const egout = Math.min(...choisi.egouts), montee = Math.max(1, choisi.faitage - egout);
     const [tel, ...autres] = corpsDepuisExemple(forme.e, rectangleDuCorps(choisi), egout, montee);
     if (!tel) return false;
-    const premier = trancherUneCroupe(tel, forme.seuleCroupe);
+    const premier = gardeCeQuiEstPose(choisi, trancherUneCroupe(tel, forme.seuleCroupe));
     const rang = o.batiment.corpsToit.indexOf(choisi);
     champsBatiment(o).corpsToit = [...o.batiment.corpsToit.slice(0, rang), premier, ...o.batiment.corpsToit.slice(rang + 1), ...autres];
     champsBatiment(o).modeToit = 'corps';

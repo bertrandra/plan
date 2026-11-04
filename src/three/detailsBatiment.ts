@@ -30,6 +30,7 @@ import { materiauCouverture, type ContexteCouverture } from '../model/couleurToi
 import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
+import { portionsOuvertesDuMur } from './toitCorps3d.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, carreauxDesDetails, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
@@ -88,6 +89,8 @@ export interface OptionsDetails {
    * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
    */
   corps?: readonly CorpsToit[];
+  /** Les appentis ouverts du batiment (des poteaux, pas de mur) : le soubassement ne court pas sous eux. */
+  ouverts?: readonly CorpsToit[];
   /** Le profil de facades retenu (facade/regles/facades/profils.ts) : ses dimensions quand `fenetres` n'en donne pas, et ses seuils. */
   profil?: ValeursFacades;
 }
@@ -327,7 +330,7 @@ function tournant(a: PtBrut, p: PtBrut, b: PtBrut): number {
  * relief, elle part du point le plus bas du sol sous le batiment (la partie enterree est cachee) et
  * monte a `HAUTEUR_SOUBASSEMENT_M` au-dessus du sol a chaque sommet : elle suit la pente.
  */
-function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: number): void {
+function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: number, ouverts: readonly CorpsToit[] = []): void {
   if (h < HAUTEUR_SOUBASSEMENT_M * 2 || contour.length < 3) return;
   const dehors = contourDecale(contour, SAILLIE_SOUBASSEMENT_M);
   const b = new Batisseur();
@@ -341,10 +344,22 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
       q2 = sommetDe(dehors, i + 1);
     const bas = ctx.base ?? 0;
     const haut = (r: PtBrut) => Math.min(h, (ctx.sol ? ctx.sol(r) : 0) + HAUTEUR_SOUBASSEMENT_M);
-    const hp = haut(p),
-      hq = haut(q);
-    b.quad(local(p2, bas), local(q2, bas), local(q2, hq), local(p2, hp));
-    b.quad(local(p2, hp), local(q2, hq), local(q, hq), local(p, hp));
+    // Sous un appentis ouvert, pas de mur : la bande s'interrompt (les portions fermees du cote seules).
+    const L = Math.hypot(q.x - p.x, q.y - p.y);
+    const ouvertes = ouverts.length ? portionsOuvertesDuMur({ gauche: p, droite: q, largeur: L }, ouverts) : [];
+    const bornes: [number, number][] = [];
+    let x = 0;
+    for (const [a, c] of ouvertes) { if (a > x + 0.01) bornes.push([x, a]); x = Math.max(x, c); }
+    if (L > x + 0.01) bornes.push([x, L]);
+    const le = (u: PtBrut, v: PtBrut, t: number): PtBrut => ({ x: u.x + (v.x - u.x) * t, y: u.y + (v.y - u.y) * t });
+    for (const [a, c] of ouvertes.length ? bornes : [[0, L] as [number, number]]) {
+      const ta = L > 0 ? a / L : 0, tc = L > 0 ? c / L : 1;
+      const pa = ta === 0 ? p : le(p, q, ta), qa = tc === 1 ? q : le(p, q, tc), pa2 = ta === 0 ? p2 : le(p2, q2, ta), qa2 = tc === 1 ? q2 : le(p2, q2, tc);
+      const hp = haut(pa),
+        hq = haut(qa);
+      b.quad(local(pa2, bas), local(qa2, bas), local(qa2, hq), local(pa2, hp));
+      b.quad(local(pa2, hp), local(qa2, hq), local(qa, hq), local(pa, hp));
+    }
   });
   b.groupe(0);
   const couleur = new THREE.Color(ctx.couleurMur).multiplyScalar(0.72);
@@ -580,7 +595,7 @@ export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h
   else if (toit) hautes.forEach((pts) => poserDebord(ctx, pts, toit, h, pres));
   poserAretes(ctx, volumes, contourHaut);
   if (!pres) return;
-  poserSoubassement(ctx, o.pts, h);
+  poserSoubassement(ctx, o.pts, h, options.ouverts);
   if (options.corps?.length) poserOuverturesDesCorps(ctx, o.pts, options.corps, options);
   else poserOuvertures(ctx, o.pts, volumes, h, options);
   // Pas de cheminee ici : une souche ne vient que des donnees (`corps.cheminees` : LiDAR, regles, audit,

@@ -10,7 +10,9 @@
 import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
-import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PignonToit, PtBrut, SaillieFacade } from '../../model/types.js';
+import { formeDuCorps } from '../regles/toits/faits.js';
+import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
+import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PignonToit, PtBrut, SaillieFacade, TypeLucarne } from '../../model/types.js';
 
 export type TypeElement = 'corps' | 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire';
 
@@ -29,8 +31,9 @@ const borne = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 /** Tous les elements du batiment, dans l'ordre ou on les presente : ce qui est pose sur une facade, puis ce qui est sur le toit. */
 export function listerElements(corps: readonly CorpsToit[]): ElementListe[] {
   const l: ElementListe[] = [];
-  // Les corps eux-memes, quand il y en a plusieurs : le principal d'abord, puis les autres dans l'ordre ou on les a poses.
-  if (rangsDeCorps(corps).length > 1) rangsDeCorps(corps).forEach((rang, n) => l.push({ cible: { type: 'corps', rang, i: 0 }, libelle: rang === rangPrincipal(corps) ? 'Corps principal' : 'Corps ' + (n + 1) }));
+  // Les corps eux-memes, meme un seul (il se modifie comme les autres : forme, pente, debord, ouvert) : le principal d'abord, puis les
+  // autres dans l'ordre ou on les a poses.
+  if (rangsDeCorps(corps).length >= 1) rangsDeCorps(corps).forEach((rang, n) => l.push({ cible: { type: 'corps', rang, i: 0 }, libelle: rang === rangPrincipal(corps) ? 'Corps principal' : 'Corps ' + (n + 1) }));
   corps.forEach((c, rang) => { if (c.saillie) l.push({ cible: { type: 'saillie', rang, i: 0 }, libelle: NOM_SAILLIE[c.saillie.genre] }); });
   corps.forEach((c, rang) => c.pignons.forEach((_, i) => l.push({ cible: { type: 'pignon', rang, i }, libelle: 'Pignon' })));
   corps.forEach((c, rang) => (c.lucarnes ?? []).forEach((x, i) => l.push({ cible: { type: 'lucarne', rang, i }, libelle: LIBELLES_LUCARNE[x.type] ?? 'Lucarne' })));
@@ -172,7 +175,93 @@ export interface GroupeChoix { groupe: string; valeurs: { valeur: string; libell
 /** Les avancees que l'inspecteur propose a un pignon, en metres (la poignee regle tout entre 0 et le maximum). */
 const SAILLIES_PIGNON = [0, 0.5, 1, 1.5];
 
-/** Les groupes de choix de l'element, dans l'ordre de la maquette : bow-window (forme, niveau, toit), galerie/appentis (ouvert, retrait), pignon (hauteur). */
+/**
+ * Les lucarnes du catalogue, dans l'ordre de l'onglet « Sur le toit » (three/catalogueToits.ts) : changer le type d'une lucarne posee
+ * offre les memes pieces que la poser. Le lanterneau va sur un toit plat, les autres sur un pan.
+ */
+export const TYPES_LUCARNE_EN_PENTE: readonly TypeLucarne[] = ['jacobine', 'capucine', 'chien-assis', 'rampante', 'meuniere', 'oeil-de-boeuf', 'outeau'];
+
+/** Un corps du toit, pas un element de facade, dont le toit n'a qu'un pan : ce que « ouvert / ferme » regle (comme l'inspecteur, ui/champs/facade.ts). */
+export const estCorpsAppentis = (c: CorpsToit | undefined): c is CorpsToit => !!c && !c.saillie && formeDuCorps(c) === 'appentis';
+
+/** Un pan plus etroit que cela n'en est pas un : un element ne s'y pose pas (le pan nul d'un appentis). */
+const PAN_MIN_M = 1;
+
+/** Les deux pans du corps ont-ils de quoi porter un element ? Pas un appentis, pas un toit plat. */
+function deuxPans(c: CorpsToit): boolean {
+  const W = repere(c.pts).W;
+  return formeDuCorps(c) !== 'plat' && c.posFaitage >= PAN_MIN_M && W - c.posFaitage >= PAN_MIN_M;
+}
+
+/** Le nom du pan d'un corps par l'orientation de sa pente (« Pan sud ») : sa normale sort du corps, vers -v pour le pan 0, +v pour le pan 1. */
+function nomDuPan(c: CorpsToit, pan: 0 | 1): string {
+  const r = repere(c.pts), n = pan === 0 ? { x: -r.v.x, y: -r.v.y } : r.v;
+  // Le plan a l'est vers +x et le nord vers +y : l'azimut se compte depuis le nord, dans le sens des aiguilles d'une montre.
+  return 'Pan ' + nomOrientation((Math.atan2(n.x, n.y) * 180) / Math.PI).toLowerCase();
+}
+
+/** Les pentes que l'inspecteur propose a un corps, en degres (la poignee du faitage regle tout le reste). */
+const PENTES_DEG = [15, 25, 35, 45, 55];
+/** Les debords a l'egout proposes, en metres : 0,35 m est celui du dessin quand rien n'est dit. */
+const DEBORDS_M = [0, 0.2, 0.35, 0.6];
+const DEBORD_DESSIN_M = 0.35;
+
+/** Le pan qui regle la pente : le seul d'un appentis, sinon celui de l'egout le plus bas. Sa largeur a plat, en metres. */
+function largeurDuPanBas(c: CorpsToit): number {
+  const W = repere(c.pts).W;
+  if (formeDuCorps(c) === 'appentis') return W;
+  return c.egouts[0] <= c.egouts[1] ? c.posFaitage : W - c.posFaitage;
+}
+
+/** Une pente droite se regle : pas un toit plat, pas un toit de revolution, pas un profil brise ou courbe (sa pente n'est pas une). */
+const penteReglable = (c: CorpsToit): boolean => !c.speciale && !c.profil && formeDuCorps(c) !== 'plat' && largeurDuPanBas(c) > 0.3;
+
+/** La pente du pan bas, en degres. */
+const penteDe = (c: CorpsToit): number => (Math.atan2(c.faitage - Math.min(...c.egouts), largeurDuPanBas(c)) * 180) / Math.PI;
+
+/**
+ * Le sens du faitage se change sur un corps a deux pans ou a croupes, faitage au milieu, sans rien de pose qui se compte le long du faitage
+ * (pignon, lucarne, fenetre de toit, element de facade) : tourne, tout cela serait a une place qui n'a plus de sens.
+ */
+function sensReglable(corps: readonly CorpsToit[], rang: number): boolean {
+  const c = corps[rang];
+  if (!c || c.saillie || c.speciale || c.profil || c.bouts || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length) return false;
+  if (corps.some((k) => k.saillie?.hote === rang)) return false;
+  const f = formeDuCorps(c), W = repere(c.pts).W;
+  return (f === 'deux-pans' || f === 'croupes') && Math.abs(c.posFaitage - W / 2) <= 0.05;
+}
+
+/** La pente `deg` sur le pan bas : le faitage monte ou descend, les egouts restent ; ce qui monte au faitage le suit. */
+function avecPente(c: CorpsToit, deg: number): CorpsToit {
+  const bas = Math.min(...c.egouts);
+  const faitage = centi(Math.max(bas + Math.tan((deg * Math.PI) / 180) * largeurDuPanBas(c), Math.max(...c.egouts) + 0.3));
+  const neuf: CorpsToit = { ...c, faitage, pignons: c.pignons.map((g) => (g.faitage >= c.faitage - 0.05 ? { ...g, faitage } : { ...g, faitage: Math.min(g.faitage, faitage) })) };
+  if (c.lucarnes) neuf.lucarnes = c.lucarnes.map((l) => ({ ...l, faitageM: Math.min(l.faitageM, centi(faitage - 0.1)) }));
+  return neuf;
+}
+
+/** Le faitage passe sur l'autre cote du rectangle : les sommets tournent d'un cran, le faitage reste au milieu, les hauteurs restent. */
+function avecSens(c: CorpsToit, sens: string): CorpsToit {
+  const r = repere(c.pts);
+  if ((sens === 'long') === (r.L >= r.W)) return c;
+  const neuf: CorpsToit = { ...c, pts: [c.pts[1], c.pts[2], c.pts[3], c.pts[0]] as PtBrut[], posFaitage: centi(r.L / 2) };
+  // Une croupe ne depasse pas la moitie du nouveau faitage.
+  if (c.croupes) neuf.croupes = [Math.min(c.croupes[0], r.W / 2), Math.min(c.croupes[1], r.W / 2)];
+  return neuf;
+}
+
+/** Le retrait d'un appentis : du mur ferme depuis le bord de l'egout, ou des poteaux d'un appentis ouvert. */
+function groupeRetrait(ouvert: boolean | undefined): GroupeChoix {
+  const quoi = ouvert ? 'Poteaux' : 'Mur';
+  return { groupe: 'retrait', valeurs: [{ valeur: '0', libelle: ouvert ? 'Poteaux au bord de l’égout' : 'Mur droit' }, { valeur: '0.5', libelle: quoi + ' reculé de 0,5 m' }, { valeur: '1', libelle: quoi + ' reculé de 1 m' }] };
+}
+
+/**
+ * Les groupes de choix de l'element, dans l'ordre de la maquette : bow-window (forme, niveau, toit), galerie/appentis (ouvert, retrait),
+ * pignon (hauteur), et ce que la pose a choisi et qui se change ensuite (decision du proprietaire, 4 novembre 2026 : « je veux pouvoir
+ * modifier un batiment avec les memes fonctions ») : un corps en appentis ouvert ou ferme, le type d'une lucarne, le pan qui porte une
+ * lucarne, une fenetre de toit ou un panneau.
+ */
 export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeChoix[] {
   const c = corps[t.rang];
   if (t.type === 'saillie' && c?.saillie) {
@@ -183,15 +272,42 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
     ];
     return [
       { groupe: 'ouvert', valeurs: [{ valeur: 'poteaux', libelle: 'Sur poteaux' }, { valeur: 'mur', libelle: 'Fermée' }] },
-      { groupe: 'retrait', valeurs: [{ valeur: '0', libelle: 'Mur droit' }, { valeur: '0.5', libelle: 'Mur reculé de 0,5 m' }, { valeur: '1', libelle: 'Mur reculé de 1 m' }] }
+      groupeRetrait(false)
     ];
+  }
+  if (t.type === 'corps' && c && !c.saillie) {
+    const l: GroupeChoix[] = [];
+    // Un corps a un pan (une aile, un garage, un appentis lu sur le LiDAR) s'ouvre sur poteaux : un preau, un abri, un carport accole.
+    if (estCorpsAppentis(c)) {
+      l.push({ groupe: 'ouvert', valeurs: [{ valeur: 'poteaux', libelle: 'Ouvert : sur poteaux, sans mur' }, { valeur: 'mur', libelle: 'Fermé : des murs jusqu’au sol' }] });
+      if (c.ouvert !== undefined) l.push(groupeRetrait(c.ouvert));
+    }
+    if (penteReglable(c)) l.push({ groupe: 'pente', valeurs: PENTES_DEG.map((v) => ({ valeur: String(v), libelle: 'Pente de ' + v + '°' })) });
+    if (sensReglable(corps, t.rang)) l.push({ groupe: 'sens', valeurs: [{ valeur: 'long', libelle: 'Faîtage dans la longueur' }, { valeur: 'court', libelle: 'Faîtage dans la largeur' }] });
+    if (!c.speciale) l.push({ groupe: 'debord', valeurs: DEBORDS_M.map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Sans débord' : 'Débord de ' + String(v).replace('.', ',') + ' m' })) });
+    return l;
   }
   if (t.type === 'pignon') return [
     { groupe: 'hauteur', valeurs: [{ valeur: 'faitage', libelle: 'Monte au faîtage' }, { valeur: 'bas', libelle: 'Plus bas que le faîtage' }] },
     { groupe: 'saillie', valeurs: [{ valeur: '0', libelle: 'Au nu du mur' }, { valeur: '0.5', libelle: 'Avance de 0,5 m' }, { valeur: '1', libelle: 'Avance de 1 m' }, { valeur: '1.5', libelle: 'Avance de 1,5 m' }] }
   ];
-  return [];
+  const l: GroupeChoix[] = [];
+  if (t.type === 'lucarne' && c && formeDuCorps(c) !== 'plat') l.push({ groupe: 'lucarne', valeurs: TYPES_LUCARNE_EN_PENTE.map((v) => ({ valeur: v, libelle: LIBELLES_LUCARNE[v] ?? v })) });
+  if ((t.type === 'lucarne' || t.type === 'fenetre-toit' || t.type === 'solaire') && c && deuxPans(c)) {
+    l.push({ groupe: 'pan', valeurs: ([0, 1] as const).map((p) => ({ valeur: String(p), libelle: nomDuPan(c, p) })) });
+  }
+  return l;
 }
+
+/** Le pan qui porte l'element pose sur le toit, ou null. */
+function panDe(c: CorpsToit, t: CibleElement): 0 | 1 | null {
+  if (t.type === 'lucarne') return c.lucarnes?.[t.i]?.pan ?? null;
+  if (t.type === 'fenetre-toit' || t.type === 'solaire') { const e = c.elementsToit?.[t.i]; return e && e.type === t.type ? e.pan : null; }
+  return null;
+}
+
+/** La valeur la plus proche de `r` parmi les retraits proposes : celle qui est enfoncee. */
+const retraitProche = (r: number): string => [0, 0.5, 1].reduce((m, v) => (Math.abs(v - r) < Math.abs(m - r) ? v : m), 0).toString();
 
 /** La valeur courante d'un groupe : celle qui est enfoncee dans l'inspecteur. */
 export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, groupe: string): string | null {
@@ -203,7 +319,18 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
     if (groupe === 'niveau') return s.niveau;
     if (groupe === 'toit') return s.toit;
     if (groupe === 'ouvert') return c.ouvert === false ? 'mur' : 'poteaux';
-    if (groupe === 'retrait') { const r = c.retraitM ?? 0; return [0, 0.5, 1].reduce((m, v) => (Math.abs(v - r) < Math.abs(m - r) ? v : m), 0).toString(); }
+    if (groupe === 'retrait') return retraitProche(c.retraitM ?? 0);
+  }
+  if (t.type === 'corps' && estCorpsAppentis(c)) {
+    // Sans indication (le dessin du toit seul, un corps lu sur le LiDAR) : aucun choix n'est enfonce, rien n'est suppose.
+    if (groupe === 'ouvert') return c.ouvert === true ? 'poteaux' : c.ouvert === false ? 'mur' : null;
+    if (groupe === 'retrait') return c.ouvert === undefined ? null : retraitProche(c.retraitM ?? 0);
+  }
+  if (t.type === 'corps' && !c.saillie) {
+    // La pente lue n'est enfoncee que si elle tombe sur un choix (a 2 degres pres) : rien n'est arrondi en silence.
+    if (groupe === 'pente') { const p = penteDe(c), v = PENTES_DEG.find((x) => Math.abs(x - p) <= 2); return v === undefined ? null : String(v); }
+    if (groupe === 'sens') { const r = repere(c.pts); return r.L >= r.W ? 'long' : 'court'; }
+    if (groupe === 'debord') { const d = c.bords?.debordEgoutM ?? DEBORD_DESSIN_M, v = DEBORDS_M.find((x) => Math.abs(x - d) <= 0.02); return v === undefined ? null : String(v); }
   }
   if (t.type === 'pignon' && groupe === 'hauteur') {
     const p = c.pignons[t.i];
@@ -213,7 +340,27 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
     const p = c.pignons[t.i], r = p?.saillieM ?? 0;
     return p ? SAILLIES_PIGNON.reduce((m, v) => (Math.abs(v - r) < Math.abs(m - r) ? v : m), 0).toString() : null;
   }
+  if (t.type === 'lucarne' && groupe === 'lucarne') return c.lucarnes?.[t.i]?.type ?? null;
+  if (groupe === 'pan') { const p = panDe(c, t); return p === null ? null : String(p); }
   return null;
+}
+
+/**
+ * Passe l'element sur l'autre pan du corps, a la meme place le long du faitage : ce qui se compte depuis l'egout est borne a la largeur
+ * du nouveau pan, une lucarne reste sous le faitage et au-dessus de son egout.
+ */
+function changerDePan(corps: readonly CorpsToit[], t: CibleElement, pan: 0 | 1): CorpsToit[] {
+  const c = corps[t.rang] as CorpsToit, W = repere(c.pts).W;
+  const largeur = pan === 0 ? c.posFaitage : W - c.posFaitage;
+  if (t.type === 'lucarne') {
+    const l = c.lucarnes?.[t.i];
+    if (!l || l.pan === pan) return corps.slice();
+    const faitageM = centi(borne(l.faitageM, Math.min(c.egouts[pan] + 0.6, c.faitage - 0.1), c.faitage - 0.1));
+    return avec(corps, t.rang, { ...c, lucarnes: remplace(c.lucarnes, t.i, { ...l, pan, faitageM, profondeurM: centi(Math.min(l.profondeurM, Math.max(largeur - 0.2, 0.3))) }) });
+  }
+  const e = c.elementsToit?.[t.i];
+  if (!e || e.type !== t.type || e.pan === pan) return corps.slice();
+  return avec(corps, t.rang, { ...c, elementsToit: remplace(c.elementsToit, t.i, { ...e, pan, dM: centi(borne(e.dM, 0.3, Math.max(largeur - 0.3, 0.3))) }) });
 }
 
 /** Ecrit le choix d'un groupe sur l'element. Rend la liste inchangee (copie) si la valeur n'a pas de sens. */
@@ -237,6 +384,17 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
       return avec(corps, t.rang, neuf);
     }
   }
+  if (t.type === 'corps' && estCorpsAppentis(c)) {
+    // Le corps garde son rectangle, son toit et ce qui est pose dessus : seul ce qui le porte change (poteaux ou murs).
+    if (groupe === 'ouvert' && (valeur === 'poteaux' || valeur === 'mur')) return avec(corps, t.rang, { ...c, ouvert: valeur === 'poteaux' });
+    if (groupe === 'retrait' && c.ouvert !== undefined && ['0', '0.5', '1'].includes(valeur)) return avec(corps, t.rang, { ...c, retraitM: Number(valeur) });
+  }
+  if (t.type === 'corps' && !c.saillie) {
+    if (groupe === 'pente' && penteReglable(c) && PENTES_DEG.includes(Number(valeur))) return avec(corps, t.rang, avecPente(c, Number(valeur)));
+    if (groupe === 'sens' && (valeur === 'long' || valeur === 'court') && sensReglable(corps, t.rang)) return avec(corps, t.rang, avecSens(c, valeur));
+    if (groupe === 'debord' && !c.speciale && DEBORDS_M.includes(Number(valeur))) return avec(corps, t.rang, { ...c, bords: { ...c.bords, debordEgoutM: Number(valeur) } });
+    return corps.slice();
+  }
   if (t.type === 'pignon' && groupe === 'saillie' && ['0', '0.5', '1', '1.5'].includes(valeur)) {
     const p = c.pignons[t.i];
     return p ? avec(corps, t.rang, { ...c, pignons: remplace(c.pignons, t.i, saillieDe(p, Number(valeur))) }) : corps.slice();
@@ -248,6 +406,12 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
     const faitage = valeur === 'bas' ? centi(Math.min(bas, c.faitage)) : c.faitage;
     return avec(corps, t.rang, { ...c, pignons: remplace(c.pignons, t.i, { ...p, faitage }) });
   }
+  if (t.type === 'lucarne' && groupe === 'lucarne' && (TYPES_LUCARNE_EN_PENTE as readonly string[]).includes(valeur)) {
+    // Le type seul change : la lucarne garde sa place, sa largeur et sa hauteur, que les poignees reglent.
+    const l = c.lucarnes?.[t.i];
+    return l ? avec(corps, t.rang, { ...c, lucarnes: remplace(c.lucarnes, t.i, { ...l, type: valeur as TypeLucarne }) }) : corps.slice();
+  }
+  if (groupe === 'pan' && (valeur === '0' || valeur === '1') && deuxPans(c)) return changerDePan(corps, t, valeur === '0' ? 0 : 1);
   return corps.slice();
 }
 

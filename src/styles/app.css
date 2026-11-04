@@ -177,7 +177,9 @@
   .panneauToit .puceToit{ min-height:32px; padding:2px 10px; font:inherit; font-size:.8rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:16px; cursor:pointer; }
   .panneauToit .puceToit[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .panneauToit .inspecteurToit{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .panneauToit .groupeChoix{ display:flex; gap:4px; }
+  .panneauToit .groupeChoix{ display:flex; gap:4px; flex-wrap:wrap; }
+  /* Le type d'une lucarne se choisit sur la vignette qui la pose (onglet « Sur le toit »). */
+  .panneauToit .groupeChoix .glyphe svg.chaineVignette{ width:40px; height:auto; }
   .panneauToit .boutonToit.danger{ color:var(--danger); }
   .panneauToit .titrePlateau{ margin:4px 0 0; font-size:.8rem; font-weight:600; color:var(--ink-soft); }
   .panneauToit .toitOnglets{ display:flex; gap:4px; }
@@ -186,6 +188,9 @@
   .panneauToit .toitCatalogue{ display:flex; align-items:flex-start; gap:6px; overflow-x:auto; padding-bottom:2px; }
   .panneauToit .toitPiece{ flex:0 0 auto; width:76px; min-height:76px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:4px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .toitPiece:disabled{ opacity:.35; cursor:not-allowed; }
+  /* La forme en place sur le corps : la vignette enfoncee, et le mot, la couleur ne portant jamais seule l'information. */
+  .panneauToit .toitPiece[aria-pressed="true"]{ background:var(--accent-light); color:var(--on-accent-light); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .panneauToit .toitPiece[aria-pressed="true"] .libelle::after{ content:" · en place"; }
   .panneauToit .toitPiece .glyphe svg.chaineVignette{ width:100%; max-width:56px; height:auto; }
   .panneauToit .toitPiece .libelle{ font-size:.68rem; line-height:1.1; text-align:center; }
   /* Une piece a variantes (le quatre-pans et ses trois pans) : la vignette, puis ses options en dessous, de la meme largeur. */

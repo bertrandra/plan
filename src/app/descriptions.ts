@@ -158,6 +158,8 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.dupliquer': 'Copie l’élément choisi à côté de lui, là où il y a de la place',
   'toit.supprimer': 'Retire l’élément choisi ; Ctrl+Z le rend',
   'toit.tourner': 'Tourne le corps choisi de 15 degrés autour de son centre ; ce qui est posé dessus le suit',
+  'toit.scinder': 'Coupe le corps choisi en deux, en travers de son faîtage : chaque moitié se règle ensuite seule',
+  'toit.fusionner': 'Réunit le corps choisi et son voisin aligné, de mêmes hauteurs, en un seul corps',
   'toit.plus': 'Agrandit l’élément choisi d’un cran',
   'toit.moins': 'Réduit l’élément choisi d’un cran'
 };

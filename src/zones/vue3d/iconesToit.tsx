@@ -1,7 +1,7 @@
 // Les images des choix du mode Toit (inspecteur contextuel) : un trace par valeur, en plan ou en coupe, dans un repere de 24 x 24.
 //
 // Une image dit la valeur sans mot : la forme d'un bow-window vue de dessus, son niveau vu de face, son toit vu de profil, des poteaux ou un mur,
-// un pignon qui monte ou non au faitage. Les retraits se lisent en chiffres (0, ½, 1 m).
+// un pignon qui monte ou non au faitage, le pan qui porte un element. Les retraits se lisent en chiffres (0, ½, 1 m).
 
 import type { ReactNode } from 'react';
 
@@ -23,12 +23,19 @@ const TRACES: Record<string, ReactNode> = {
   'ouvert:mur': <path d="M3 8h18v12H3z" />,
   // Le pignon : monte au faitage, ou plus bas.
   'hauteur:faitage': <path d="M3 20l9-15 9 15zM12 5v15" />,
-  'hauteur:bas': <path d="M3 20l9-9 9 9zM3 5h18" strokeDasharray="2 2" />
+  'hauteur:bas': <path d="M3 20l9-9 9 9zM3 5h18" strokeDasharray="2 2" />,
+  // Le pan qui porte l'element, vu en travers du faitage : celui du cote 0 a gauche, l'oppose a droite (le nom dit son orientation).
+  'pan:0': <><path d="M3 19l9-13 9 13" /><path d="M3 19l9-13v13z" fill="currentColor" opacity=".35" /></>,
+  'pan:1': <><path d="M3 19l9-13 9 13" /><path d="M21 19l-9-13v13z" fill="currentColor" opacity=".35" /></>,
+  // Le sens du faitage, vu de dessus : le rectangle du corps et son faitage, dans la longueur ou dans la largeur.
+  'sens:long': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M5 12h14" strokeWidth="2.4" /></>,
+  'sens:court': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M12 8.5v7" strokeWidth="2.4" /></>
 };
 
 /** L'image d'un choix, ou son texte quand il n'a pas de trace (les retraits : « 0 », « ½ », « 1 »). */
 export function ImageChoix({ groupe, valeur }: { groupe: string; valeur: string }) {
   const trace = TRACES[groupe + ':' + valeur];
-  if (!trace) return <span aria-hidden="true">{valeur === '0.5' ? '½' : valeur.replace('.', ',')}</span>;
+  // Les pentes se lisent en degres, les debords en metres.
+  if (!trace) return <span aria-hidden="true">{groupe === 'pente' ? valeur + '°' : valeur === '0.5' ? '½' : valeur.replace('.', ',')}</span>;
   return <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{trace}</svg>;
 }

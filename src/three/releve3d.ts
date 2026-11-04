@@ -29,6 +29,7 @@ import { garderLeJpeg } from './chargeurs.js';
 import { sansOmbres } from '../facade/vision/sansOmbres.js';
 import { poserCarreaux, vitreLue } from './carreaux3d.js';
 import { poserModenature } from './modenature3d.js';
+import { portionsOuvertesDuMur } from './toitCorps3d.js';
 import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -150,15 +151,45 @@ interface Habillage {
  * (LiDAR), la photo epouse la silhouette du mur : son egout, son pignon jusqu'au faitage, ses marches ; a
  * l'echelle (un metre de photo pour un metre de mur), et elle s'arrete ou la photo s'arrete.
  */
-function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartiesDuMur, corps: readonly CorpsToit[] | null = null) {
+function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartiesDuMur, corps: readonly CorpsToit[] | null = null, ouvertes: readonly [number, number][] = []) {
   const { pt } = repereMur(ctx, hab.f);
   const L = hab.f.largeur;
-  const contour = corps?.length ? silhouetteDuMur(hab.f, corps, hab.hauteurTexture, hauteur) : contourDuMur(L, hauteur, partie);
-  const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT));
-  const uv = contour.flatMap((q) => [q.x / L, Math.min(1, q.y / hab.hauteurTexture)]);
-  const m = maillage(sommets, trianguler(contour).flat(), hab.mat, uv);
-  m.name = 'releve-facade';
-  ctx.scene.add(m);
+  const entier = corps?.length ? silhouetteDuMur(hab.f, corps, hab.hauteurTexture, hauteur) : contourDuMur(L, hauteur, partie);
+  // Sous un appentis ouvert, il n'y a pas de mur : la photo se pose sur les seules portions fermees (la coordonnee de texture reste
+  // celle du mur entier, la photo ne glisse pas).
+  for (const contour of ouvertes.length ? portionsFermees(L, ouvertes).map(([a, b]) => entreAbscisses(entier, a, b)).filter((c) => c.length >= 3) : [entier]) {
+    const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT));
+    const uv = contour.flatMap((q) => [q.x / L, Math.min(1, q.y / hab.hauteurTexture)]);
+    const m = maillage(sommets, trianguler(contour).flat(), hab.mat, uv);
+    m.name = 'releve-facade';
+    ctx.scene.add(m);
+  }
+}
+
+/** Le complement des portions ouvertes dans [0, L] : les portions du mur ou il y a un mur. */
+function portionsFermees(L: number, ouvertes: readonly [number, number][]): [number, number][] {
+  const l: [number, number][] = [];
+  let x = 0;
+  for (const [a, b] of ouvertes) { if (a > x + 0.01) l.push([x, a]); x = Math.max(x, b); }
+  if (L > x + 0.01) l.push([x, L]);
+  return l;
+}
+
+/**
+ * Le contour d'un mur (x le long du mur, y en hauteur ; bas droit, haut fonction de x) coupe entre les abscisses a et b
+ * (Sutherland-Hodgman sur deux demi-plans verticaux : le contour reste simple).
+ */
+function entreAbscisses(contour: readonly { x: number; y: number }[], a: number, b: number): { x: number; y: number }[] {
+  const couper = (l: readonly { x: number; y: number }[], dedans: (x: number) => boolean, xc: number) => {
+    const sortie: { x: number; y: number }[] = [];
+    l.forEach((p, i) => {
+      const q = l[(i + 1) % l.length] as { x: number; y: number };
+      if (dedans(p.x)) sortie.push(p);
+      if (dedans(p.x) !== dedans(q.x)) { const t = (xc - p.x) / (q.x - p.x); sortie.push({ x: xc, y: p.y + t * (q.y - p.y) }); }
+    });
+    return sortie;
+  };
+  return couper(couper(contour, (x) => x >= a, a), (x) => x <= b, b);
 }
 
 /**
@@ -359,6 +390,9 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     // Avec les corps, les parties basses disent encore ce qui n'est pas du mur : une baie au-dessus de leur egout est dans le vide.
     const dansLeL = (l: OuvertureFacade[]) => (corps?.length && parties.length ? ouverturesDansLeMur(l, Infinity, parties) : l);
     const hMur = partie.length ? h : hauteurDuMur(f, volumes);
+    // Les portions du mur sous un appentis ouvert : ni photo, ni baie (un garage passe en carport).
+    const ouvertes = corps?.length ? portionsOuvertesDuMur(f, corps) : [];
+    const horsOuvert = (ov: OuvertureFacade) => !ouvertes.some(([a, b]) => ov.x + ov.l / 2 > a && ov.x + ov.l / 2 < b);
     // Le mur a pu changer depuis le releve (sommet deplace) : la photo s'etire sur sa nouvelle
     // largeur, les ouvertures gardent leur cote depuis la gauche et celles qui sortent sont omises.
     const photo = ctx.textures ? r.texture : null;
@@ -372,7 +406,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       poserEnCouche(mat, COUCHES_SOL.surMur);
       const hab = { f, mat, hauteurTexture: r.hauteurTexture || r.hauteur };
       habillages.push(hab);
-      plaquerTexture(ctx, hab, hMur, partie, corps);
+      plaquerTexture(ctx, hab, hMur, partie, corps, ouvertes);
     }
     // Le haut de la facade sous les corps du toit (le pignon jusqu'au faitage) : la detection y cherche aussi (facade/analyse.ts), une
     // baie de pignon (lucarne, oculus) s'y pose. Sans corps, ou sur un mur en L, le haut est l'egout.
@@ -381,7 +415,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     const sousEgout = (ov: OuvertureFacade) => ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01;
     // Une baie hors du mur, d'un cote comme de l'autre (sous le pignon d'un corps voisin qui prolonge la facade, que la detection lit
     // depuis le 2 novembre 2026, ou un mur raccourci depuis le releve) ne se pose pas sur lui : elle n'en est pas.
-    const posees = dansLeL(r.ouvertures.filter((ov) => ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01)));
+    const posees = dansLeL(r.ouvertures.filter((ov) => horsOuvert(ov) && ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01)));
     posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts) ; une baie de pignon borne son coffre
     // au haut de la facade au-dessus d'elle.

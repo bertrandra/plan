@@ -63,6 +63,37 @@ export function estAppentisOuvert(c: CorpsToit): boolean {
   return !estSpecial(c, W) && (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) && c.faitage - Math.min(...c.egouts) >= 0.05;
 }
 
+/** Un cote de corps passe sur un mur du contour quand ses deux bouts sont a moins de cela de la ligne du mur. */
+const SUR_LE_MUR_M = 0.3;
+
+/**
+ * Les portions d'un mur du contour (de `f.gauche` a `f.droite`) que couvre un appentis ouvert, en metres depuis la gauche et fondues :
+ * la, pas de mur. La photo d'un releve et ses baies ne s'y posent pas (three/releve3d.ts) : un garage passe en carport par la personne
+ * (decision du proprietaire, 4 novembre 2026) ne garde pas sa porte peinte dans le vide.
+ */
+export function portionsOuvertesDuMur(f: { gauche: PtBrut; droite: PtBrut; largeur: number }, corps: readonly CorpsToit[]): [number, number][] {
+  const L = f.largeur;
+  if (!(L > 0)) return [];
+  const ux = (f.droite.x - f.gauche.x) / L, uy = (f.droite.y - f.gauche.y) / L;
+  const le = (p: PtBrut) => (p.x - f.gauche.x) * ux + (p.y - f.gauche.y) * uy;
+  const ecart = (p: PtBrut) => Math.abs((p.x - f.gauche.x) * uy - (p.y - f.gauche.y) * ux);
+  const brutes: [number, number][] = [];
+  for (const c of corps) {
+    if (!estAppentisOuvert(c)) continue;
+    const surLeMur = c.pts.filter((p) => ecart(p) <= SUR_LE_MUR_M).map(le);
+    if (surLeMur.length < 2) continue;
+    const a = Math.max(0, Math.min(...surLeMur)), b = Math.min(L, Math.max(...surLeMur));
+    if (b - a > 0.05) brutes.push([a, b]);
+  }
+  brutes.sort((p, q) => p[0] - q[0]);
+  const fondues: [number, number][] = [];
+  for (const [a, b] of brutes) {
+    const der = fondues[fondues.length - 1];
+    if (der && a <= der[1] + 0.01) der[1] = Math.max(der[1], b); else fondues.push([a, b]);
+  }
+  return fondues;
+}
+
 /** Un appentis est adosse quand les deux bouts de son mur haut sont a moins de cela d'un mur d'un autre corps. */
 const ADOSSE_M = 0.05;
 
@@ -98,11 +129,12 @@ function consolesDAuvent(L: number, tMur: number, tBas: number, egout: number): 
 }
 
 /** Les poteaux d'un appentis ouvert, le long de son egout (`t` fixe) : quatre faces chacun, du sol a l'egout. */
-function poteauxDAppentis(L: number, t: number, egout: number, retrait: number = POTEAU_RETRAIT_M): { s: number; t: number; z: number }[][] {
+function poteauxDAppentis(L: number, t: number, egout: number, retrait: number = POTEAU_RETRAIT_M, sansPoteau: (s: number, t: number) => boolean = () => false): { s: number; t: number; z: number }[][] {
   const n = Math.max(2, Math.ceil(L / ENTRAXE_POTEAUX_M) + 1), h = POTEAU_COTE_M / 2;
   const faces: { s: number; t: number; z: number }[][] = [];
   for (let i = 0; i < n; i++) {
     const s = retrait + (i * (L - 2 * retrait)) / (n - 1);
+    if (sansPoteau(s, t)) continue;
     const c = [[s - h, t - h], [s + h, t - h], [s + h, t + h], [s - h, t + h]] as const;
     for (let k = 0; k < 4; k++) {
       const [a, b] = [c[k] as readonly [number, number], c[(k + 1) % 4] as readonly [number, number]];
@@ -113,10 +145,30 @@ function poteauxDAppentis(L: number, t: number, egout: number, retrait: number =
 }
 
 /**
+ * Les travees de la rive d'un appentis ouvert ou une avancee fermee (son centre dans le rectangle du corps) porte le toit : pas de poteau
+ * devant elle ; et quand elle approche un bout a moins d'un entraxe, elle porte aussi ce bout (aucun poteau entre elle et lui).
+ */
+function traveesAbritees(r: ReturnType<typeof repere>, abrites: readonly (readonly PtBrut[])[]): (readonly [number, number])[] {
+  const { L, W } = r;
+  const le = (q: PtBrut) => (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y, travers = (q: PtBrut) => (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y;
+  return abrites.flatMap((e) => {
+    const cx = e.reduce((t, q) => t + q.x, 0) / e.length, cy = e.reduce((t, q) => t + q.y, 0) / e.length, sc = le({ x: cx, y: cy }), tc = travers({ x: cx, y: cy });
+    if (sc < 0 || sc > L || tc < 0 || tc > W) return [];
+    const ss = e.map(le), a = Math.min(...ss), b = Math.max(...ss);
+    return [[a - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? -Infinity : a - POTEAU_ABRITE_M, L - b - POTEAU_ABRITE_M <= ENTRAXE_POTEAUX_M ? Infinity : b + POTEAU_ABRITE_M] as const];
+  });
+}
+
+/** Un poteau a moins de cela, le long de la rive, d'une avancee fermee sous le toit (un bow-window) ne se pose pas : le toit la couvre. */
+const POTEAU_ABRITE_M = 0.25;
+
+/**
  * Les facettes d'un corps dans le plan : les pans du toit (corps et pignons) et les murs qui montent
  * au-dessus de son prisme. Le debord (a l'egout, a la rive) n'existe que sur une facade du `contour`.
+ * `abrites` : les emprises des avancees fermees sous le toit (bow-windows) ; un appentis ouvert n'y pose pas de poteau (AE 101 : le
+ * toit de l'auvent couvre le bow-window, le porche ouvert s'arrete a lui ; decision du proprietaire, 4 novembre 2026).
  */
-export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = null, debord = true, adosse = false): { pans: S3[][]; murs: S3[][] } {
+export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = null, debord = true, adosse = false, abrites: readonly (readonly PtBrut[])[] = []): { pans: S3[][]; murs: S3[][] } {
   const r = repere(c.pts);
   const { L, W } = r;
   const p = c.posFaitage, F = c.faitage, [e0, e1] = c.egouts;
@@ -127,8 +179,10 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   const facade = (cote: 's0' | 'sL' | 't0' | 'tW') => debord && enFacade(r, contour, cote);
   // Un appentis adosse (appentisAdosse) n'a ni rive aux bouts ni debord au-dela de son mur haut, qui est celui de la maison.
   const hautEnT0 = c.posFaitage <= 0.01;
-  const dE0 = facade('t0') && !(adosse && hautEnT0) ? DEBORD_EGOUT_M : 0, dE1 = facade('tW') && !(adosse && !hautEnT0) ? DEBORD_EGOUT_M : 0;
-  const dR0 = facade('s0') && !adosse ? DEBORD_RIVE_M : 0, dRL = facade('sL') && !adosse ? DEBORD_RIVE_M : 0;
+  // Le debord regle sur le corps (`bords`, la personne au Mode Toit ou une lecture) l'emporte sur celui du dessin.
+  const debE = c.bords?.debordEgoutM ?? DEBORD_EGOUT_M, debR = c.bords?.saillieRiveM ?? DEBORD_RIVE_M;
+  const dE0 = facade('t0') && !(adosse && hautEnT0) ? debE : 0, dE1 = facade('tW') && !(adosse && !hautEnT0) ? debE : 0;
+  const dR0 = facade('s0') && !adosse ? debR : 0, dRL = facade('sL') && !adosse ? debR : 0;
   const pans: S3[][] = [], murs: S3[][] = [];
   const plat = !special && F - Math.min(e0, e1) < 0.05;
   // Un appentis : un seul pan, le faitage sur un mur (celui de la maison qui le porte).
@@ -200,7 +254,11 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
       if (c.ouvert === false) { const tm = tBas === 0 ? Math.min(c.retraitM ?? 0, W / 2) : W - Math.min(c.retraitM ?? 0, W / 2); murs.push([P(0, tm, 0), P(L, tm, 0), P(L, tm, eBas), P(0, tm, eBas)]); }
       // Un auvent (lot L1) tient sur deux consoles contre le mur, pas sur des poteaux.
       else if (c.saillie?.genre === 'auvent') murs.push(...consolesDAuvent(L, p <= 0.01 ? 0 : W, tBas, eBas).map((f) => f.map((q) => P(q.s, q.t, q.z))));
-      else murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait).map((f) => f.map((q) => P(q.s, q.t, q.z))));
+      else {
+        const travees = traveesAbritees(r, abrites);
+        const abrite = (sp: number) => travees.some(([a, b]) => sp >= a && sp <= b);
+        murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait, travees.length ? abrite : undefined).map((f) => f.map((q) => P(q.s, q.t, q.z))));
+      }
     }
   }
   // Le mur d'un pan plus haut que le prisme.
@@ -217,7 +275,7 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     const k = demi > 0 ? (pg.faitage - e) / demi : 0;
     // Le debord du pignon le long du mur, de chaque cote ; un pignon qui touche le bout du corps
     // s'y arrete, au nu du mur de bout (et de son debord quand ce bout est une facade).
-    const gauche = pg.debut <= 0.3 ? -dR0 : pg.debut - DEBORD_RIVE_M, droite = pg.fin >= L - 0.3 ? L + dRL : pg.fin + DEBORD_RIVE_M;
+    const gauche = pg.debut <= 0.3 ? -dR0 : pg.debut - debR, droite = pg.fin >= L - 0.3 ? L + dRL : pg.fin + debR;
     const zG = e - k * (pg.debut - gauche), zD = e - k * (droite - pg.fin);
     // Chaque pan du pignon s'arrete a sa noue : du pied du pignon au bout de son faitage.
     const piedG = pg.debut <= 0.3 ? gauche : pg.debut, piedD = pg.fin >= L - 0.3 ? droite : pg.fin;
@@ -230,6 +288,12 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
       murs.push([P(pg.debut, T(-av), bas), P(pg.fin, T(-av), bas), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage), P(pg.debut, T(-av), e)]);
       for (const s of [pg.debut, pg.fin]) murs.push([P(s, T(0), bas), P(s, T(-av), bas), P(s, T(-av), e), P(s, T(0), e)]);
     } else murs.push([P(pg.debut, T(0), e), P(pg.fin, T(0), e), P(sc, T(0), pg.faitage)]);
+    // Sur un toit plat, les noues du pignon ne retrouvent pas de pan : sous chacune, un mur la ferme jusqu'au toit (AE 101, les deux
+    // pignons de la facade sud sur le toit plat ; sans lui, le pignon etait ouvert par-derriere).
+    if (plat && pg.faitage - e > MUR_MIN_M) {
+      murs.push([P(piedG, T(0), e), P(sc, T(D), e), P(sc, T(D), pg.faitage)]);
+      murs.push([P(piedD, T(0), e), P(sc, T(D), pg.faitage), P(sc, T(D), e)]);
+    }
   }
   // L'acrotere d'un toit-terrasse : le muret qui borde le toit, de l'epaisseur d'un parpaing, dessine par ses faces et son dessus.
   const acro = plat ? c.terrasse?.acrotereM ?? 0 : 0;
@@ -444,9 +508,9 @@ export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: read
 }
 
 /** Pose les toits et les murs hauts des corps d'un batiment. `toitRef` porte la couleur de la couverture ; `contour` dit ou sont les facades. */
-export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null): { pans: number; murs: number } {
+export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null, abrites: readonly (readonly PtBrut[])[] = []): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
-  corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps)); pans.push(...f.pans); murs.push(...f.murs); });
+  corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps), abrites); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   ajouterElementsToit3d(ctx, corps);
   ajouterBordsToit3d(ctx, corps, contour);

@@ -12,6 +12,7 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
+import { corpsAFusionner, fusionnerCorps, scinderCorps } from '../../facade/modeToit/decroche.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
@@ -79,6 +80,32 @@ function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
   e.preventDefault();
   e.stopPropagation();
   if (y || e.shiftKey) d.mode.retablir(); else d.mode.annuler();
+}
+
+type Declarer = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void) => void;
+type Choisi = () => { t: { type: TypeElement; rang: number; i: number }; corps: NonNullable<ChampsBatiment['corpsToit']> } | null;
+
+/** Les gestes sur un corps choisi : le tourner, le couper en deux, le reunir a son voisin (decision du 4 novembre 2026). */
+function declarerGestesDesCorps(commande: Declarer, choisi: Choisi, mode: ReturnType<typeof creerModeToit>): void {
+  commande('toit.tourner', 'Tourner le corps', () => choisi()?.t.type === 'corps', (source) => {
+    const c = choisi(), sens = source?.dataset.sens === '-1' ? -1 : 1;
+    if (c && c.t.type === 'corps') mode.ecrire((x) => { champsBatiment(x).corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); champsBatiment(x).toitFige = true; });
+  });
+  // Couper un corps en deux, ou reunir deux corps alignes : la personne decoupe la maison comme elle est (decision du 4 novembre 2026).
+  commande('toit.scinder', 'Couper le corps en deux', () => { const c = choisi(); return c?.t.type === 'corps' && !!scinderCorps(c.corps, c.t.rang); }, () => {
+    const c = choisi(), l = c && c.t.type === 'corps' ? scinderCorps(c.corps, c.t.rang) : null;
+    if (!c || !l) return;
+    mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
+    mode.selectionner({ type: 'corps', rang: l.length - 1, i: 0 });
+  });
+  commande('toit.fusionner', 'Réunir avec le corps voisin', () => { const c = choisi(); return c?.t.type === 'corps' && corpsAFusionner(c.corps, c.t.rang) !== null; }, () => {
+    const c = choisi(), l = c && c.t.type === 'corps' ? fusionnerCorps(c.corps, c.t.rang) : null;
+    if (!c || !l) return;
+    const voisin = corpsAFusionner(c.corps, c.t.rang) as number;
+    mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
+    // Le voisin parti, le corps reuni descend d'un rang s'il etait apres lui.
+    mode.selectionner({ type: 'corps', rang: voisin < c.t.rang ? c.t.rang - 1 : c.t.rang, i: 0 });
+  });
 }
 
 export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
@@ -149,10 +176,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     mode.ecrire((x) => { champsBatiment(x).corpsToit = supprimerElement(c.corps, c.t); champsBatiment(x).toitFige = true; });
     mode.selectionner(null);
   });
-  commande('toit.tourner', 'Tourner le corps', () => choisi()?.t.type === 'corps', (source) => {
-    const c = choisi(), sens = source?.dataset.sens === '-1' ? -1 : 1;
-    if (c && c.t.type === 'corps') mode.ecrire((x) => { champsBatiment(x).corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); champsBatiment(x).toitFige = true; });
-  });
+  declarerGestesDesCorps(commande, choisi, mode);
   commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, 1); champsBatiment(x).toitFige = true; }); });
   commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, -1); champsBatiment(x).toitFige = true; }); });
 

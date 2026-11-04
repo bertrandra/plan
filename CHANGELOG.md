@@ -7,11 +7,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- Mode Toit (Vue 3D) : **modifier ce qui existe avec les gestes de l'ajout** (demande du propriétaire, 4 novembre 2026). Un corps, même
+  seul, se choisit par sa pastille et se règle dans le même panneau : ouvert sur poteaux ou fermé, et le retrait des poteaux ou du mur,
+  pour un corps à un pan (préau, abri, garage en carport) ; pente ; sens du faîtage ; débord à l'égout. L'onglet « Toit » dit la forme
+  en place (vignette enfoncée). Une lucarne change de type sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau
+  changent de pan. Changer la forme d'un corps garde ce qui est posé dessus quand cela tient (pignons, même sur un toit plat ; souches ;
+  lucarnes, fenêtres et panneaux sur un toit en pente). « Couper le corps en deux » (au bord d'un pignon, le volume du pignon restant
+  entier, sinon au milieu ; les deux parties gardent le même toit, bord à bord) et « Réunir avec le corps voisin ». Chaque réglage est un
+  pas de la session (Ctrl+Z), interdit en lecture seule, et fige le toit : la lecture automatique ne
+  l'écrase plus. Le moteur des toits ne change pas (AE 101 identique) ; aucun champ nouveau, schéma inchangé (13).
+- Fumée : points 131 (le garage de l'étalon 25 passé en carport, Ctrl+Z et Ctrl+Y, validé) et 132 (AE 101 retouché : corps principal en toit
+  plat sous ses deux pignons, auvent ouvert, bow-window dessous qui le porte, retour du porche) ; `FUMEE_ECHELLE` règle la densité des captures.
 - Façades, É3 (redressement) : chaque photo dit si elle a une focale EXIF ou non, d'après ce que la chaîne a réellement pris (l'EXIF ;
   sinon le champ lu sur les points de fuite, noté pour l'appareil, ou supposé à 67°). Dans Admin › Calibrer la détection, la vignette de
   la photo et l'É3 ouverte disent « Avec EXIF (focale 26 mm éq.) » ou avertissent « Sans EXIF : focale supposée (67°). Le redressement
   par les points de fuite peut être faux ; posez quatre repères » (une photo redressée par ses repères n'a que l'information). Quand l'É3
   n'atteint pas son objectif, son résumé le dit pour chaque photo sans EXIF. Aucun calcul ne change.
+
+### Corrigé
+
+- Vue 3D : sous un appentis ouvert, la photo d'un relevé, ses baies et le soubassement ne se posent plus dans le vide (un garage passé en
+  carport gardait sa porte peinte sur un mur absent) ; pas de poteau devant un bow-window que le toit de l'appentis couvre, ni entre lui et le bout de l'appentis
+  qu'il approche à moins d'un entraxe (il porte ce bout). Sur un toit plat, un pignon se ferme sous ses noues (il restait ouvert par-derrière). Le débord
+  d'un corps lu ou réglé (`bords.debordEgoutM`, `saillieRiveM`) est enfin dessiné ; sans lui, le dessin d'avant (35 cm, 20 cm).
 
 ## [5.7.0] — 2026-11-04
 
