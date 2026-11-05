@@ -50,20 +50,21 @@ describe('les bouts d un corps au Mode Toit', () => {
       .toEqual(facettesEtendues(c, 10, 6, { egout0: 0.35, egout1: 0.35, rive0: 0.2, rive1: 0.2 }, 4));
   });
 
-  it('porte la croupe en avant quand le faitage deborde : capuchon devant le mur, sous-face au pied, mur arrete au pied', () => {
+  it('porte la croupe en avant quand le faitage deborde, raccordee a l egout : la rive descend du pied de la croupe au coin de l egout', () => {
     const c = appliquerChoix(appliquerChoix([corps()], C, 'bout0', 'demi-croupe'), C, 'debordFaitage0', '1')[0]!;
     const zc = 4 + (c.bouts![0] as { hauteurPignonM: number }).hauteurPignonM;
     const { pans, murs } = facettesCorps(c);
     const p = tous(pans);
-    // Le toit avance d'un metre devant le mur de bout, au-dessus du pied de la croupe seulement.
+    // Le toit avance d'un metre devant le mur de bout, au pied de la croupe (a zc), et seulement la.
     expect(Math.min(...p.map((q) => q.x))).toBeCloseTo(-1, 6);
-    expect(Math.min(...p.filter((q) => q.x < -0.21).map((q) => q.z))).toBeGreaterThanOrEqual(zc - 1e-6);
-    // La sous-face, horizontale au pied, du mur au bord du capuchon.
-    const sous = murs.find((m) => m.every((q) => Math.abs(q.z - zc) < 1e-6));
-    expect(sous && Math.min(...sous.map((q) => q.x))).toBeCloseTo(-1, 6);
-    // Le mur de bout s'arrete au pied, sous le capuchon.
+    expect(Math.min(...p.filter((q) => q.x < -0.99).map((q) => q.z))).toBeCloseTo(zc, 6);
+    // Le coin de l'egout du pan 0 (debord de 35 cm, rive de 20 cm) est un sommet du toit : la rive descend du pied jusqu'a lui.
+    expect(p.some((q) => Math.abs(q.x + 0.2) < 1e-6 && Math.abs(q.y + 0.35) < 1e-6)).toBe(true);
+    // Plus de sous-face horizontale a part : aucun mur horizontal au pied.
+    expect(murs.some((m) => m.every((q) => Math.abs(q.z - zc) < 1e-6))).toBe(false);
+    // Le mur de bout monte sous la croupe, plus haut que son pied (la croupe passe au-dessus du mur a zc + g D).
     const mur0 = murs.find((m) => m.every((q) => Math.abs(q.x) < 1e-6) && m.some((q) => q.z < 4.01))!;
-    expect(Math.max(...mur0.map((q) => q.z))).toBeCloseTo(zc, 6);
+    expect(Math.max(...mur0.map((q) => q.z))).toBeGreaterThan(zc + 0.1);
   });
 
   it('entaille les pans sous un pignon traversant, et coupe la pointe du pignon en cul de geai', () => {
