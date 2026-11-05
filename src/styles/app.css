@@ -2687,6 +2687,8 @@
   .calReperes{ fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
   /* Le haut du mur et la silhouette sur une vue (calibration) : en trait plein. */
   .calMurLigne{ stroke:var(--accent); stroke-width:3; }
+  /* Le haut cache par la vegetation (E6) : une bande grisee et hachuree, non lue ; le trait d'alerte la borde. */
+  .calMasqueVegetation{ fill:var(--panel-2); fill-opacity:0.45; stroke:var(--alerte); stroke-width:2; stroke-dasharray:6 4; }
   /* La reprise a la main du mur sur la photo redressee : quatre lignes a tirer, une large zone de saisie invisible pour le doigt. */
   .ajusterMur{ margin:6px 0; }
   .ajusterMurPhoto{ display:block; width:100%; height:auto; max-height:60vh; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--panel-bg); touch-action:none; }

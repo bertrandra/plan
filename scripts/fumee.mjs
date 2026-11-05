@@ -5249,7 +5249,7 @@ const POINTS = {
       await page.locator('.calEtapeOuverte figcaption').first().screenshot({ path: capture + '-' + f.nom + '-exif-e3.png' }).catch(() => {});
     }
     const exif = /^Avec EXIF/.test(avecExif) && alerte22 === 0 && /^Sans EXIF : .*posez quatre repères\./.test(vignette00) && /^Sans EXIF : .*Le redressement par les points de fuite peut être faux ; posez quatre repères\./.test(e3) && visible;
-    const ok = lignes === 27 && /\(27\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && exif && !ecrits.length && !debords.some(Boolean);
+    const ok = lignes === 28 && /\(28\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && exif && !ecrits.length && !debords.some(Boolean);
     return { ok, mesure: `${lignes} étalons listés (« ${titre.trim()} ») ; l’étalon 22 ouvert : photo de ${vignette} px, frise de ${frise} étapes, ${sansEnregistrer ? 'sans' : 'AVEC'} enregistrement, note ${note ? 'oui' : 'NON'}, vignette « ${avecExif.slice(0, 40)} » ; l’étalon 00 : vignette « ${vignette00.slice(0, 50)} », É3 « ${e3.slice(0, 110)} » ${visible ? '(visible)' : '(INVISIBLE)'} ; écritures au serveur : ${ecrits.join(', ') || 'aucune'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   130: async (page, f) => {

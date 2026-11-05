@@ -28,6 +28,8 @@ interface EntreesBilan {
   silhouette: SilhouetteFacade | null;
   /** Le haut du mur lu sur la photo, en parts du mur et de l'egout (E6). */
   hautLu: readonly { u: number; v: number }[] | null;
+  /** Les troncons ou le haut est cache par du feuillage (E6) : une pointe du gabarit qui y tombe n'est pas lue. */
+  masques?: readonly { u0: number; u1: number }[];
   /** Le diagnostic de forme (E7) : ses troncons disent les corps que la facade porte. */
   diagnostic: DiagnosticForme | null;
   /** Les pointes que Claude voit (le mode « IA » de la calibration). */
@@ -49,9 +51,10 @@ const DEMI_FENETRE_U = 0.05;
  * Les pointes lues sur la photo : pour chaque pointe du gabarit, le plus haut du haut lu autour d'elle, s'il monte au-dessus de
  * l'egout (une pointe que la photo ne montre pas n'est pas lue) ; puis celles de Claude qui ne sont pas deja la.
  */
-function pointesLues(g: GabaritMur, hautLu: EntreesBilan['hautLu'], ia: EntreesBilan['pointesIa']): PointeLue[] {
+function pointesLues(g: GabaritMur, hautLu: EntreesBilan['hautLu'], ia: EntreesBilan['pointesIa'], masques: EntreesBilan['masques'] = []): PointeLue[] {
   const out: PointeLue[] = [];
   for (const p of hautLu?.length ? pointesDuGabarit(g) : []) {
+    if (masques.some((m) => p.u >= m.u0 && p.u <= m.u1)) continue;
     const pres = (hautLu ?? []).filter((q) => Math.abs(q.u - p.u) <= DEMI_FENETRE_U);
     const haut = pres.reduce<{ u: number; v: number } | null>((m, q) => (!m || q.v > m.v ? q : m), null);
     if (haut && haut.v > 1) out.push({ u: r3(haut.u), v: r3(haut.v), source: 'deterministe' });
@@ -71,7 +74,7 @@ export function bilanDeLaFacade(e: EntreesBilan): BilanFacade {
     ...(haut > 1 + 1e-6 ? { faitageM: r2(haut * e.hauteurM) } : {}),
     ...(Object.keys(ecart).length ? { ecartPhoto: ecart } : {}),
   };
-  const pointes = pointesLues(e.gabarit, e.hautLu, e.pointesIa);
+  const pointes = pointesLues(e.gabarit, e.hautLu, e.pointesIa, e.masques);
   const lu = !!e.silhouette && e.silhouette !== 'indetermine';
   const corps = (e.diagnostic?.troncons ?? []).map((t) => ({ mur: { gauche: { ...t.mur.gauche }, droite: { ...t.mur.droite } }, u0: r3(t.u0), u1: r3(t.u1) }));
   const forme: FormeFacade = {

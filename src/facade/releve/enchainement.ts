@@ -16,6 +16,7 @@
 // Ce que la calibration ajoute (la mesure contre la verite, la reponse enregistree de Claude rejouee, la texture sans ombres) LIT les
 // sorties communes et ne les change jamais : `tests/unit/facade/releve/uneOrchestration.test.ts` le prouve, etape par etape.
 
+import type { HautMasque } from '../analyse.js';
 import { descentesRetrouvees } from '../regles/facades/modenature.js';
 import { ETAPES_FACADE, libelleEtape, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
@@ -172,12 +173,12 @@ interface SortiesFacade {
    */
   calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication; echelleGabarit?: number } | null;
   /** E6 : le haut du mur lu, pose sur l'image prise pour la suite par les coins du mur (pixels). */
-  silhouette: { points: P2[] } | null;
+  silhouette: { points: P2[]; masques?: P2[][] } | null;
   /**
    * E6 : le haut lu ramene au mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic compare au gabarit ; E7 : le diagnostic
    * de forme, corps par corps (propositions de toit, alertes de hauteur).
    */
-  forme: { lue: { u: number; v: number }[] | null; diagnostic: DiagnosticForme | null } | null;
+  forme: { lue: { u: number; v: number }[] | null; diagnostic: DiagnosticForme | null; masque?: HautMasque | null } | null;
   /** E8, E9 : l'analyse du mur. */
   analyse: AnalyseDuMur | null;
   /** E8 : la texture sans les ombres de la photo (`illustrer`). */
@@ -607,18 +608,23 @@ function surfaceDeLIa(r: ObservationsFacade): string {
  * sur au moins `silhouetteColonnesMin` des colonnes) ; le mot de la bande au-dessus de l'egout n'est qu'une information. Sans elle, la
  * suite garde le gabarit du plan.
  */
-const silhouette: Pas = ({ s, obj }) => {
+const silhouette: Pas = ({ e, s, obj }) => {
   const m = s.audit?.mesure;
   if (!m) return attend('le mur posé (É5)');
-  s.forme = { lue: m.hautLu, diagnostic: null };
+  s.forme = { lue: m.hautLu, diagnostic: null, masque: m.hautMasque };
   // Le haut lu, pose sur l'image prise pour la suite par les coins du mur (il est en parts du mur, comme le gabarit).
   const pose = s.calage?.pose, points = pose && m.hautLu?.length ? gabaritSurLaPhoto(m.hautLu, pose.coins) : null;
-  s.silhouette = points ? { points } : null;
+  // Les troncons ou le feuillage cache le haut : des bandes, du dessous de l'egout au-dessus du gabarit, que l'illustration grise.
+  const plafond = Math.max(1, ...e.gabarit.map((p) => p.v)) + 0.3;
+  const masques = pose ? (m.hautMasque?.troncons ?? []).flatMap((t) => { const q = gabaritSurLaPhoto([{ u: t.u0, v: 0.9 }, { u: t.u1, v: 0.9 }, { u: t.u1, v: plafond }, { u: t.u0, v: plafond }], pose.coins); return q ? [q] : []; }) : [];
+  s.silhouette = points || masques.length ? { points: points ?? [], ...(masques.length ? { masques } : {}) } : null;
   const ia = formeDeLIa(s.ia?.reponse ?? null);
   const part = Math.round(obj['facades.enchainement.silhouetteColonnesMin'] * 100);
-  if (!m.hautLu?.length) return { etat: 'a-confirmer', resume: `Le haut du mur se lit sur moins de ${part} % des colonnes (hors cadre, caché) : la suite garde le gabarit du plan.` + ia, verite: null };
+  // Le haut cache par un arbre (4 novembre 2026) : ses colonnes ne sont pas lues, le gabarit du plan y est garde (E7, le bilan).
+  const vert = m.hautMasque ? ` Haut masqué par la végétation sur ${Math.round(m.hautMasque.part * 100)} % des colonnes${m.hautLu?.length ? ' : le gabarit du plan y est gardé' : ''}.` : '';
+  if (!m.hautLu?.length) return { etat: 'a-confirmer', resume: `Le haut du mur se lit sur moins de ${part} % des colonnes (hors cadre, caché) : la suite garde le gabarit du plan.` + vert + ia, verite: null };
   const mot = m.silhouette === 'indetermine' ? 'sans forme reconnue au-dessus de l’égout' : libelleSilhouette(m.silhouette);
-  return { etat: 'ok', resume: `Le haut lu sur la photo (${m.hautLu.length} points) : ${mot}.` + ia, verite: null };
+  return { etat: 'ok', resume: `Le haut lu sur la photo (${m.hautLu.length} points) : ${mot}.` + vert + ia, verite: null };
 };
 
 const MOTS_ELEMENT = { cheminee: 'une cheminée', lucarne: 'une lucarne' } as const;
@@ -713,7 +719,7 @@ const validation: Pas = ({ e, o, s }) => {
   const relues = e.prises.ouverturesRelues && sontRelues(e.prises.ouverturesRelues, m.releve.ouvertures) ? e.prises.ouverturesRelues.ouvertures : null;
   const partage = partageDuReleve(e, relues ?? s.ia?.accord?.ouvertures ?? m.releve.ouvertures);
   s.facade = bilanDeLaFacade({
-    largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: hautLuAuPlan(s),
+    largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: hautLuAuPlan(s), masques: s.forme?.masque?.troncons ?? [],
     silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? relues ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
     ...(s.ia?.reponse ? { pointesIa: s.ia.reponse.calage.pointes } : {}),
   });
@@ -736,8 +742,8 @@ const hautLuAuPlan = (s: SortiesFacade): { u: number; v: number }[] | null => {
 const PAS: Record<IdEtape, Pas> = {
   preparation, prises, redressement, assemblage, calage, silhouette,
   diagnostic: ({ e, o, s }) => {
-    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), s.ia?.reponse ?? null, o.objectifs, o.verite?.toit);
-    s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic };
+    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), s.ia?.reponse ?? null, o.objectifs, o.verite?.toit, s.forme?.masque?.troncons ?? []);
+    s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic, masque: s.forme?.masque ?? null };
     return r.etape;
   },
   texture, ouvertures,

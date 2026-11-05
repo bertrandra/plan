@@ -430,6 +430,12 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   observation n'est encore émise** : l'étape suivante compare à la silhouette du gabarit.
 - **Illustration** : le haut lu sur l'image, le gabarit posé par-dessus, les corps en couleurs distinctes, le mot retenu par corps et sa
   provenance.
+- **La végétation** (demande du propriétaire, 4 novembre 2026) : la végétation n'est ni mur ni toit. Une case de cinq pixels verte et
+  texturée (des feuilles au soleil et à l'ombre, des trous de ciel) est du feuillage, jamais du mur ; une peinture verte (colombage,
+  volet, rive) est un aplat et reste ce qu'elle est. Une colonne dont le haut lu est sous du feuillage (au moins
+  `vegetationPartMin` de la bande juste au-dessus) n'est pas lue : elle compte contre `silhouetteColonnesMin`, ses tronçons vont dans
+  `hautMasque`, l'É6 dit « Haut masqué par la végétation sur n % des colonnes », et l'É7 et le bilan (pointes) y gardent le gabarit.
+  L'affinage de l'égout et du sol de l'É5 n'en est pas touché. Étalon : `27-arbre-devant-pignon` ; cas réel : la façade sud d'AE 101.
 
 ### É7 · Diagnostic de forme (nouveau)
 

@@ -15,7 +15,7 @@ import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle,
 import { detecterFacade, type DetectionFacade, type OptionsDetection, type OuvertureDetectee } from './detection/detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toits/toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, enListe, ouverturesDansLeMur, partieHaute, type Decrochement, type PartiesDuMur } from './profil.js';
-import { silhouetteLue } from './vision/mosaiqueFuites.js';
+import { COLONNES_SILHOUETTE, silhouetteLue } from './vision/mosaiqueFuites.js';
 import { objectifsEnchainement } from './regles/facades/enchainement.js';
 import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
@@ -89,6 +89,11 @@ export interface ResultatAnalyse {
    * gabarit (lot F4, facade/regles/facades/diagnosticForme.ts). Null quand il ne se lit pas (moins de la moitie des colonnes).
    */
   hautLu?: { u: number; v: number }[] | null;
+  /**
+   * Le haut du mur cache par du feuillage (E6, 4 novembre 2026) : la part des colonnes de la silhouette ou il est sous un arbre, et
+   * leurs troncons le long du mur (u de 0 a 1). Ces colonnes ne sont pas lues : le gabarit du plan y est garde. Absent sans feuillage.
+   */
+  hautMasque?: HautMasque | null;
   /** La structure des ouvertures proposees (niveaux, travees, spec §10) ; `null` sans ouverture. */
   grille: GrilleFacade | null;
   /** Le toit que dit la silhouette du mur (le gabarit du plan et du LiDAR), sinon la bande : ce qui dessine le toit propose. */
@@ -441,17 +446,40 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
     toitLu,
     toitPropose,
     profilToit,
-    hautLu,
+    hautLu: hautLu.lue,
+    hautMasque: hautLu.masque,
     partiesBasses: [...parties],
   };
 }
 
-/** Le haut du mur sur l'elevation etendue (l'egout a la rangee `egout`, le sol en bas), en parts du mur ; null s'il ne se lit pas. */
-function lireLeHaut(r: { image: Image; vu: Uint8Array }, egout: number): { u: number; v: number }[] | null {
+/** Le haut du mur cache par du feuillage : la part des colonnes, et leurs troncons le long du mur (u de 0 a 1). */
+export interface HautMasque { part: number; troncons: { u0: number; u1: number }[] }
+
+/**
+ * Le haut du mur sur l'elevation etendue (l'egout a la rangee `egout`, le sol en bas), en parts du mur ; null s'il ne se lit pas. Un haut
+ * sous du feuillage ne se lit pas (mosaiqueFuites.ts::silhouetteDuMur, `vegetation`) : ses colonnes sont dites dans `masque`.
+ */
+function lireLeHaut(r: { image: Image; vu: Uint8Array }, egout: number): { lue: { u: number; v: number }[] | null; masque: HautMasque | null } {
   const L = r.image.largeur, H = r.image.hauteur;
-  if (!(H - egout > 0) || !(L > 0)) return null;
-  const lue = silhouetteLue(r, { x0: 0, x1: L, y0: egout, y1: H });
-  return lue ? lue.silhouette.map((p) => ({ u: Math.round((p.x / L) * 1e4) / 1e4, v: Math.round(((H - p.y) / (H - egout)) * 1e4) / 1e4 })) : null;
+  if (!(H - egout > 0) || !(L > 0)) return { lue: null, masque: null };
+  const compte = { masquees: [] as number[] };
+  const lue = silhouetteLue(r, { x0: 0, x1: L, y0: egout, y1: H }, true, compte);
+  return {
+    lue: lue ? lue.silhouette.map((p) => ({ u: Math.round((p.x / L) * 1e4) / 1e4, v: Math.round(((H - p.y) / (H - egout)) * 1e4) / 1e4 })) : null,
+    masque: compte.masquees.length ? { part: compte.masquees.length / COLONNES_SILHOUETTE, troncons: tronconsDesColonnes(compte.masquees.map((x) => x / L), 0.98 / COLONNES_SILHOUETTE) } : null,
+  };
+}
+
+/** Des colonnes voisines (au pas `pas`, en u) reunies en troncons, chacune elargie d'un demi-pas de part et d'autre. */
+function tronconsDesColonnes(us: readonly number[], pas: number): { u0: number; u1: number }[] {
+  const out: { u0: number; u1: number }[] = [];
+  const r4 = (v: number) => Math.round(v * 1e4) / 1e4;
+  for (const u of [...us].sort((a, b) => a - b)) {
+    const der = out[out.length - 1];
+    if (der && u - pas / 2 <= der.u1 + pas * 0.6) der.u1 = r4(Math.min(1, u + pas / 2));
+    else out.push({ u0: r4(Math.max(0, u - pas / 2)), u1: r4(Math.min(1, u + pas / 2)) });
+  }
+  return out;
 }
 
 /**

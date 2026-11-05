@@ -1,0 +1,174 @@
+{
+  "nom": "27-arbre-devant-pignon",
+  "description": "Mur pignon en enduit derrière un grand arbre : sa couronne, au feuillage troué de ciel, couvre la moitié gauche du pignon et dépasse au-dessus. Un bandeau et des volets peints en vert foncé sous le pignon (des aplats, pas du feuillage). Le haut lu ne doit pas monter dans l'arbre : les colonnes que le feuillage cache ne se lisent pas, la peinture verte reste du mur (É6, demande du propriétaire du 4 novembre 2026, d'après la façade d'AE 101).",
+  "difficultes": [
+    "pignon",
+    "arbre",
+    "vegetation",
+    "vert-peint",
+    "enduit"
+  ],
+  "verite": {
+    "largeur": 8,
+    "hauteur": 5.2,
+    "coins": [
+      {
+        "x": 379,
+        "y": 427.25
+      },
+      {
+        "x": 922.97,
+        "y": 406.27
+      },
+      {
+        "x": 948.76,
+        "y": 796.03
+      },
+      {
+        "x": 357.21,
+        "y": 785.98
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 0.9,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              34,
+              92,
+              62
+            ]
+          }
+        }
+      },
+      {
+        "type": "porte",
+        "x": 3.5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 5.8,
+        "y": 0.9,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              34,
+              92,
+              62
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 3.4,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              34,
+              92,
+              62
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 5.8,
+        "y": 3.4,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              34,
+              92,
+              62
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 27,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          222,
+          208,
+          184
+        ],
+        "taches": 6
+      },
+      "pignon": 3.6,
+      "bandeaux": [
+        {
+          "z": 4.95,
+          "h": 0.18,
+          "couleur": [
+            34,
+            92,
+            62
+          ]
+        },
+        {
+          "z": 2.55,
+          "h": 0.15,
+          "couleur": [
+            34,
+            92,
+            62
+          ]
+        }
+      ]
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 13,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 8,
+      "tangage": 12,
+      "bruit": 3,
+      "flou": 1
+    },
+    "devant": [
+      {
+        "type": "arbre",
+        "x": 0.3,
+        "z": 7.8,
+        "rayon": 3.2,
+        "l": 0.45,
+        "recul": 2.5
+      }
+    ]
+  }
+}
