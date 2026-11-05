@@ -2,6 +2,7 @@
 // l'avant et l'apres d'un audit, surligner ce que vise une proposition, l'epurer pour l'audit de la parcelle, trouver l'objet sous
 // le pointeur. L'etat qu'il faut pour cela (ce que chaque objet a pose, la derniere scene) vit ici, et seulement ici.
 
+import { demanderRendu } from './renduDemande.js';
 import { arbreDeLInstance } from './arbre3d.js';
 import { vue3d, rendre3d, cameraDeVue, type SceneVue3d } from './etat3d.js';
 import { COUCHE_APRES, COUCHE_AVANT, activerDeuxVues, couperDeuxVues } from './comparaison3d.js';
@@ -394,6 +395,8 @@ export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): 
   // Un batiment repose (l'apercu « Après » de l'audit) suit la vue epuree comme les autres.
   if (garderSeulement) appliquerEpure();
   rafraichirArbres(co.scene as THREE_NS.Scene, d.ground);
+  // Les objets remplaces se montrent a l'image suivante (three/renduDemande.ts).
+  demanderRendu(d.sc);
   return true;
 }
 

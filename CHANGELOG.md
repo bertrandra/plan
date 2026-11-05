@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Vue 3D : rendu à la demande (demande du propriétaire, 5 novembre 2026). Une vue immobile ne redessine plus à chaque image : la
+  boucle ne rend que quand la caméra bouge (amortissement compris), que la scène change, qu'un geste a lieu, qu'une animation tourne
+  (promenade, vent dans des arbres visibles) ou qu'un code le demande (`demanderRendu`). Un seul mécanisme, `three/renduDemande.ts`,
+  qui reprend celui de l'avant / après de l'audit ; une veille sur three.js (objets ajoutés ou retirés, matériaux, textures et tampons
+  marqués) et une empreinte de la scène toutes les 250 ms rattrapent ce qu'aucun chemin ne signale. Mesure (bureau, Chromium sans
+  écran, démonstration, vue immobile 10 s) : de 4 images par seconde et un cœur saturé à 0 image et 2 à 4 % de CPU. Aucune image ne
+  change ; seul le moment où elle est rendue. Nouveau point de fumée 135.
+
 ### Corrigé
 
 - Fumée, point 121 (textes du dossier) : la carte de situation (DP1) est servie fixe pendant le point. Elle vient du WMS de l'IGN à

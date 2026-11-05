@@ -4,6 +4,7 @@
 // Ce module aiguille ; le parasol, la terrasse (quand elle n'est pas la courante) et le bati ont chacun leur module sous
 // three/ouvrages/ (MD/spec-ouvrages.md, etape 6.6), qui partagent la pose sur le sol (three/ouvrages/pose.ts).
 
+import { demanderRendu } from './renduDemande.js';
 import { ajouterArbre3d, synchroniserArbres } from './arbre3d.js';
 import { ajouterEquipementJardin, ajouterVegetationBasse } from './jardin3d.js';
 import { natureDuJardin, plantationDe, vegetationVisible } from '../model/jardin.js';
@@ -105,6 +106,8 @@ export function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
 export function rafraichirArbres(scene: THREE_NS.Scene, ground: THREE_NS.Mesh): void {
   synchroniserArbres(scene, soleilDuProjet.lire().dateStr, visibleDansLaScene);
   appliquerOmbres(scene, ground);
+  // Des lots refaits se montrent a l'image suivante (three/renduDemande.ts).
+  if (vue3d.scene?.scene === scene) demanderRendu(vue3d.scene);
 }
 
 /**
