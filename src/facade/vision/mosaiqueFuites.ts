@@ -509,7 +509,7 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
       let R = 0, G = 0, B = 0, n = 0;
       for (let x = xa; x <= xb; x++) { const i = y * L + x; if (!m.vu[i]) continue; R += d[i * 4] ?? 0; G += d[i * 4 + 1] ?? 0; B += d[i * 4 + 2] ?? 0; n++; }
       const s = R + G + B + n;
-      const f = grainMur !== null && n > 0 && estFeuillage(d, y * L, xa, xb, m.vu, grainMur);
+      const f = grainMur !== null && n > 0 && estFeuillage(d, y * L, xa, xb, m.vu, grainMur, (y >= DECALAGE_FEUILLE ? y - DECALAGE_FEUILLE : y + DECALAGE_FEUILLE) * L);
       vus.push(n > 0);
       feuillage.push(f);
       mur.push(n > 0 && !f && Math.hypot(R / s - teinte.cr, G / s - teinte.cg) < ecart && s / n >= LUMIERE_MUR[0] * teinte.l && s / n <= LUMIERE_MUR[1] * teinte.l);
@@ -530,6 +530,11 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
     else if (haut !== null && haut > 0 && !auBord) hauts.push({ x: xc, y: yDebut + haut });
   }
   if (compte) compte.masquees = masquees;
+  // Le haut lu (E6) ne plonge pas dans un creux etroit : une colonne qui tombe sur un poteau peint (un colombage, AE 101), une fenetre
+  // haute ou une ombre de feuilles trouve le mur bien plus bas que ses voisines, et la mediane de cinq colonnes ne l'efface pas quand le
+  // poteau en couvre trois a cinq (8 % de la largeur au plus). Un haut de mur n'a pas de tel creux (une noue entre deux pignons est
+  // large) : ces colonnes ne sont pas lues. L'affinage de l'egout et du sol (`vegetation` faux) garde sa lecture.
+  if (vegetation) retirerLesCreux(hauts, w);
   // Le haut n'est lu que sur une part assez grande des colonnes (un reglage de l'E6, regles/facades/enchainement.json).
   if (hauts.length < objectifsEnchainement()['facades.enchainement.silhouetteColonnesMin'] * COLONNES_SILHOUETTE) return null;
   const med = (t: number[]) => { const u = [...t].sort((a, b) => a - b); return u[u.length >> 1] as number; };
@@ -572,7 +577,7 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
  * a l'ombre, des trous de ciel). Une peinture verte (un colombage, un volet, une rive) est un aplat : verte, mais pas texturee. Un
  * parement a grain (une brique, une meuliere) n'est pas vert. Le grain du mur est celui de ses bouts (grainDuMur).
  */
-function estFeuillage(d: Uint8ClampedArray, base: number, xa: number, xb: number, vu: Uint8Array, grain: { chroma: number; lumiere: number }): boolean {
+function estFeuillage(d: Uint8ClampedArray, base: number, xa: number, xb: number, vu: Uint8Array, grain: { chroma: number; lumiere: number }, voisine: number): boolean {
   let verts = 0, n = 0, crMin = 1, crMax = 0, cgMin = 1, cgMax = 0, sl = 0, sl2 = 0;
   for (let x = xa; x <= xb; x++) {
     const i = base + x;
@@ -583,9 +588,73 @@ function estFeuillage(d: Uint8ClampedArray, base: number, xa: number, xb: number
     sl += s / 3; sl2 += (s / 3) ** 2; n++;
   }
   if (n < 3 || verts < 2) return false;
+  // Le bord d'un aplat (un poteau peint sur l'enduit) melange deux teintes, mais le meme melange d'une rangee a l'autre ; le feuillage
+  // change en quelques rangees (une autre feuille, un trou de ciel). Une case pareille a celle de DECALAGE_FEUILLE rangees plus haut
+  // n'est pas du feuillage.
+  let ecart = 0, m = 0;
+  for (let x = xa; x <= xb; x++) {
+    const i = base + x, j = voisine + x;
+    if (!vu[i] || !vu[j]) continue;
+    for (let k = 0; k < 3; k++) ecart += Math.abs((d[i * 4 + k] ?? 0) - (d[j * 4 + k] ?? 0));
+    m += 3;
+  }
+  if (m && ecart / m < CHANGE_FEUILLE) return false;
   const moyenne = sl / n, ecartL = Math.sqrt(Math.max(0, sl2 / n - moyenne * moyenne)) / Math.max(1, moyenne);
   return Math.hypot(crMax - crMin, cgMax - cgMin) >= grain.chroma || ecartL >= grain.lumiere;
 }
+
+/** Un creux du haut lu : au plus tant de colonnes de suite, plus bas que leurs deux voisines lues de plus que cette part de la largeur. */
+const CREUX_COLONNES_MAX = 5, CREUX_PROFONDEUR = 0.05;
+
+/** Retire des hauts lus les creux etroits (CREUX_COLONNES_MAX colonnes au plus, sous leurs deux voisines de CREUX_PROFONDEUR de la largeur). */
+function retirerLesCreux(hauts: { x: number; y: number }[], w: number): void {
+  const seuil = CREUX_PROFONDEUR * w;
+  const garder = hauts.map(() => true);
+  for (let i = 1; i < hauts.length - 1; i++) {
+    for (let n = 1; n <= CREUX_COLONNES_MAX && i + n < hauts.length; n++) {
+      const avant = hauts[i - 1] as { y: number }, apres = hauts[i + n] as { y: number };
+      const creux = hauts.slice(i, i + n);
+      if (creux.every((p) => p.y > avant.y + seuil && p.y > apres.y + seuil)) { for (let j = i; j < i + n; j++) garder[j] = false; break; }
+    }
+  }
+  const restes = hauts.filter((_, i) => garder[i]);
+  hauts.length = 0;
+  hauts.push(...restes);
+}
+
+/**
+ * Le feuillage d'une image, case par case (cinq pixels d'une rangee) : un masque, 1 sur les pixels des cases vertes et texturees
+ * (estFeuillage, aux planchers du grain : la bande au-dessus de l'egout n'a pas de mur dont lire le grain). Ce qui le dit ne lit pas
+ * l'arbre comme un toit (analyse.ts, la bande du toit).
+ */
+export function feuillageDeLImage(img: Image, vu: Uint8Array): Uint8Array {
+  const { largeur: L, hauteur: H, donnees: d } = img;
+  const grain = { chroma: GRAIN_CHROMA_MIN, lumiere: GRAIN_LUMIERE_MIN };
+  const nc = Math.floor(L / 5);
+  const cases = new Uint8Array(nc * H);
+  for (let y = 0; y < H; y++) for (let c = 0; c < nc; c++) if (estFeuillage(d, y * L, 5 * c, 5 * c + 4, vu, grain, (y >= DECALAGE_FEUILLE ? y - DECALAGE_FEUILLE : Math.min(H - 1, y + DECALAGE_FEUILLE)) * L)) cases[y * nc + c] = 1;
+  // Une couronne a des amas de feuilles a l'ombre, d'un vert sombre presque uni : une case entouree de feuillage en est (au moins
+  // VOISINAGE_FEUILLAGE des cases autour d'elle, sur sept cases de large et dix-sept rangees de haut : la couronne entiere, ses amas
+  // au soleil compris, qu'un profil de toit prendrait sinon pour des tuiles).
+  const out = new Uint8Array(L * H);
+  for (let y = 0; y < H; y++)
+    for (let c = 0; c < nc; c++) {
+      let n = 0, f = 0;
+      for (let dy = -8; dy <= 8; dy++) for (let dc = -3; dc <= 3; dc++) {
+        const yy = y + dy, cc = c + dc;
+        if (yy < 0 || yy >= H || cc < 0 || cc >= nc) continue;
+        n++; f += cases[yy * nc + cc] ?? 0;
+      }
+      if (cases[y * nc + c] || f >= VOISINAGE_FEUILLAGE * n) out.fill(1, y * L + 5 * c, y * L + 5 * c + 5);
+    }
+  return out;
+}
+
+/** La part de feuillage autour d'une case qui en fait du feuillage (feuillageDeLImage). */
+const VOISINAGE_FEUILLAGE = 0.3;
+
+/** Le feuillage change d'une rangee a celle-ci plus loin, d'au moins tant de niveaux en moyenne (un aplat et son bord, non). */
+const DECALAGE_FEUILLE = 6, CHANGE_FEUILLE = 10;
 
 /** Ce qui separe deux canaux pour dire un pixel vert, en niveaux. */
 const VERT_FEUILLE = 6;

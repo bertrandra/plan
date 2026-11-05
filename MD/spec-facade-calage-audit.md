@@ -436,6 +436,11 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   `vegetationPartMin` de la bande juste au-dessus) n'est pas lue : elle compte contre `silhouetteColonnesMin`, ses tronçons vont dans
   `hautMasque`, l'É6 dit « Haut masqué par la végétation sur n % des colonnes », et l'É7 et le bilan (pointes) y gardent le gabarit.
   L'affinage de l'égout et du sol de l'É5 n'en est pas touché. Étalon : `27-arbre-devant-pignon` ; cas réel : la façade sud d'AE 101.
+  Suites (5 novembre 2026) : un creux étroit du haut lu (cinq colonnes au plus, sous ses deux voisines de 5 % de la largeur : un poteau
+  peint, une fenêtre haute) n'est pas lu ; le bord d'un aplat peint n'est pas du feuillage (le feuillage change d'une rangée à six rangées
+  plus haut, un aplat non) ; dans la bande au-dessus de l'égout, la couronne d'un arbre (`feuillageDeLImage`) est tenue pour non vue, et
+  ne se lit pas comme un toit. L'égout trop bas de l'étalon 27 à l'É5 ne vient pas de l'arbre mais de son bandeau vert sous l'égout du
+  pignon (sans le bandeau, l'É5 est juste ; sans l'arbre, toujours faux de 3,2 %) : un sujet de l'É5 à part.
 
 ### É7 · Diagnostic de forme (nouveau)
 
