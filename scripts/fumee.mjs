@@ -4087,6 +4087,80 @@ const POINTS = {
     const ok = silhouette === 1 && surLAile && /seulement/.test(indice) && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
     return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; poignées ${surLAile ? 'sur lui' : 'AILLEURS'} (faîtage dit ${faitageDit || '—'}, le sien ${faitageAile}) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  135: async (page, f) => {
+    // Le rendu a la demande de la Vue 3D (demande du proprietaire, 5 novembre 2026, three/renduDemande.ts) : une vue immobile ne
+    // redessine plus ; un geste, l'heure, un reglage, un changement de la scene hors de tout chemin connu redessinent, puis la vue se tait.
+    const vue = await POINTS[22](page);
+    if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
+    // Chaque appel de `render` du rendu de la scene affichee est compte (three.js le pose sur l'instance, pas sur le prototype) ;
+    // une scene rebatie a un rendu neuf, enveloppe a son tour a la lecture suivante.
+    const rendus = () => page.evaluate(() => {
+      const r = window.__plan.scene3d()?.renderer;
+      if (r && !r.__compte) {
+        const f = r.render.bind(r);
+        r.render = (...a) => { window.__rendus3d = (window.__rendus3d || 0) + 1; return f(...a); };
+        r.__compte = true;
+      }
+      return window.__rendus3d || 0;
+    });
+    await rendus();
+    const pendant = async (ms) => { const a = await rendus(); await page.waitForTimeout(ms); return (await rendus()) - a; };
+    // Le vent anime des arbres visibles : il est coupe, la vue doit alors se taire.
+    await page.evaluate(() => { const c = document.getElementById('terrasse3dVent'); if (c && c.checked) c.click(); });
+    // Le calme : une seconde sans aucun rendu, attendue au plus 20 s (les tuiles et les arbres finissent d'arriver).
+    const calme = async () => { for (let i = 0; i < 20; i++) if ((await pendant(1000)) === 0) return true; return false; };
+    const calme0 = await calme();
+    const immobile = await pendant(3000);
+    // Un geste : la rotation au glisser.
+    let geste = 0;
+    const box = await page.locator('#terrasse3dCanvasHost canvas').boundingBox();
+    const a0 = await rendus();
+    const cam0 = await page.evaluate(() => { const c = window.__plan.scene3d().camera.position; return [c.x, c.y, c.z].map((v) => v.toFixed(4)).join(','); });
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+      for (let i = 1; i <= 8; i++) { await page.mouse.move(box.x + box.width / 2 + i * 12, box.y + box.height / 2); await page.waitForTimeout(40); }
+      await page.mouse.up();
+    }
+    await page.waitForTimeout(500);
+    geste = (await rendus()) - a0;
+    const tourne = JSON.stringify(cam0) !== JSON.stringify(await page.evaluate(() => { const c = window.__plan.scene3d().camera.position; return [c.x, c.y, c.z].map((v) => v.toFixed(4)).join(','); }));
+    const calme1 = await calme();
+    // L'heure du soleil, par le curseur sous l'horloge.
+    await page.locator('#horloge3d').click({ force: true }); await page.waitForTimeout(150);
+    await calme();
+    const a1 = await rendus();
+    await page.evaluate(() => {
+      const c = document.getElementById('vue3dHeure');
+      if (!c) return;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(c, String(Number(c.value) === 9 * 60 ? 17 * 60 : 9 * 60));
+      c.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(500);
+    const heure = (await rendus()) - a1;
+    const calme2 = await calme();
+    // Un changement de la scene sans geste ni signal : une couleur changee, puis un objet pose, par un script.
+    const a2 = await rendus();
+    await page.evaluate(() => {
+      let m = null;
+      window.__plan.scene3d().scene.traverse((o) => { if (!m && o.isMesh && o.visible && o.material && o.material.color) m = o; });
+      if (m) m.material.color.offsetHSL(0.3, 0, 0);
+    });
+    await page.waitForTimeout(800);
+    const couleur = (await rendus()) - a2;
+    await calme();
+    const a3 = await rendus();
+    await page.evaluate(() => {
+      const T = window.THREE, sc = window.__plan.scene3d();
+      const cube = new T.Mesh(new T.BoxGeometry(1, 1, 1), new T.MeshBasicMaterial({ color: 0xff0000 }));
+      cube.position.copy(sc.controls.target);
+      sc.scene.add(cube);
+    });
+    await page.waitForTimeout(500);
+    const pose = (await rendus()) - a3;
+    const calme3 = await calme();
+    const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3;
+    return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'}` };
+  },
   131: async (page, f) => {
     // Modifier un batiment avec les memes gestes que l'ajout (decision du proprietaire, 4 novembre 2026) : le projet de demonstration de
     // l'etalon 25 (une maison et son garage, un appentis adosse), Vue 3D, « Modifier la toiture », le garage choisi par sa pastille ; la
@@ -5505,7 +5579,8 @@ function pointsPour(nomClasse) {
   // 133 : un corps ferme aux travees ouvertes : le garage de l'etalon 25 ouvert sur poteaux sur la rue, valide, Ctrl+Z.
   // 134 : le cul de geai et la queue de vache au mode Toit : un bout, son faitage qui deborde, la pointe d'un pignon, Ctrl+Z, valide.
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134];
+  // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

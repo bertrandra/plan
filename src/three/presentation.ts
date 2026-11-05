@@ -5,6 +5,7 @@
 // Rien de ceci ne touche au projet : ni annulation, ni « projet modifie », ni export. L'heure doree
 // regle le soleil de la vue, comme le curseur d'heure.
 
+import { animation } from './renduDemande.js';
 import type * as THREE_NS from 'three';
 import type { SceneVue3d } from './etat3d.js';
 import { leverEtCoucher } from '../geo/soleil.js';
@@ -390,9 +391,12 @@ export function lancerPromenade(sc: SceneVue3d, etapes: readonly EtapePromenade[
   if (etapes.length < 2 || typeof requestAnimationFrame !== 'function') return;
   const depart = performance.now();
   let raf = 0;
+  // Une animation declaree au rendu a la demande (three/renduDemande.ts) : chaque image est rendue jusqu'a l'arret.
+  const finAnimation = animation();
   const controles = sc.controls as unknown as { addEventListener?: (e: string, f: () => void) => void; removeEventListener?: (e: string, f: () => void) => void };
   const arreter = () => {
     cancelAnimationFrame(raf);
+    finAnimation();
     controles.removeEventListener?.('start', arreter);
     promenadeEnCours = null;
     fin();

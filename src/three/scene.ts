@@ -17,7 +17,7 @@ import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d } from './etat3d.js';
 import { cadreOmbres, monterRendu } from './rendu.js';
-import { imageAttendue } from './comparaison3d.js';
+import { imageAttendue, demanderRendu, installerVeille } from './renduDemande.js';
 import { placeEchelle, poserObjetsEchelle } from './objetsEchelle.js';
 import { accorderFocale } from './presentation.js';
 import { parametresQualite } from './qualite.js';
@@ -154,6 +154,8 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   const recul = terrain.serre ? distanceDeCadrage(extent / 2, w / h) / Math.sqrt(3) : extent * 0.9;
   camera.position.set(recul, recul + hCible, recul);
   const niveau = parametresQualite(vue3d.qualite);
+  // La veille du rendu a la demande, posee avant tout objet de la scene (three/renduDemande.ts).
+  installerVeille(THREE as unknown as typeof THREE_NS);
   const renderer = new THREE.WebGLRenderer({ antialias: niveau.anticrenelage, preserveDrawingBuffer: true });
   const glCtx3d = renderer.getContext && renderer.getContext();
   if (!glCtx3d || (glCtx3d.isContextLost && glCtx3d.isContextLost())) {
@@ -339,7 +341,17 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   retenirLaScene({ sc, co, obj, ground });
   // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
   const solCentre = sol ? sol.hauteur(cen) : 0;
-  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu || vue3d.renduCouvert) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); if (imageAttendue(sc)) rendre3d(sc); };
+  // Rendu a la demande (three/renduDemande.ts) : la boucle tourne a chaque image, mais ne rend que si
+  // quelque chose a change (camera, amortissement des controles, scene, geste, animation, vent).
+  const animate = () => {
+    sc.raf = requestAnimationFrame(animate);
+    if (vue3d.pauseRendu || vue3d.renduCouvert) return;
+    const bouge = controls.update();
+    if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre);
+    if (bouge || imageAttendue(sc, undefined, vue3d.vent)) rendre3d(sc);
+  };
+  // Un contexte WebGL perdu puis rendu a tout perdu de son image : la suivante est rendue.
+  renderer.domElement.addEventListener('webglcontextrestored', () => demanderRendu(sc));
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);

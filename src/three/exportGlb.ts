@@ -9,7 +9,7 @@
 
 import { retirerReliefsEcran } from './materiauxVivants.js';
 import { retirerOmbresEcran } from './releve3d.js';
-import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d.js';
+import { vue3d, glb, affichage3d, signaler3d, reglerVue3d, type PlanVuDeLa3d } from './etat3d.js';
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { garderLesJpegDeLaScene } from './chargeurs.js';
 import { allegerArbresPourExport } from './arbre3d.js';
@@ -109,7 +109,7 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
   signaler3d();
   // La boucle de rendu se tait pendant l'export : elle disputait le fil a l'exporteur, qui manquait
   // alors son delai sur un appareil lent (et sur le navigateur sans carte graphique de la fumee).
-  const restaurer = () => { vue3d.pauseRendu = false; affichage3d.generation = null; signaler3d(); };
+  const restaurer = () => { reglerVue3d({ pauseRendu: false }); affichage3d.generation = null; signaler3d(); };
 
   ensureThreeLoaded(() => {
     ensureGLTFExporterLoaded(() => {

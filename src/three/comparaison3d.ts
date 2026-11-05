@@ -17,12 +17,14 @@
 // bandeau du canevas a cote de lui, coupee en deux cote a cote ou l'une au-dessus de l'autre selon ce
 // qui laisse a chaque vue la forme la plus proche du 4:3.
 //
-// A l'arret, la boucle d'animation ne redessine plus a chaque image : seulement quand la camera a
-// bouge, et sinon toutes les DELAI_REPOS_MS (une texture arrivee entre-temps se montre ainsi).
+// A l'arret, la boucle d'animation ne redessine plus a chaque image : c'est le rendu a la demande de
+// toute la Vue 3D (three/renduDemande.ts), ne ici pour les deux vues puis generalise.
 
 import type * as THREE_NS from 'three';
 import { affichage3d, signaler3d, type SceneTroisBase, type Rect, type DeuxVues } from './etat3d.js';
+import { demanderRendu } from './renduDemande.js';
 export type { Rect, DeuxVues } from './etat3d.js';
+export { aRedessiner, DELAI_REPOS_MS } from './renduDemande.js';
 
 /** La couche des batiments tels qu'ils sont dans le projet, vue seulement dans « Avant ». */
 export const COUCHE_AVANT = 1;
@@ -30,8 +32,6 @@ export const COUCHE_AVANT = 1;
 export const COUCHE_APRES = 2;
 /** L'ecart entre les deux vues, en pixels CSS : un filet les separe (zones/vue3d/Vue3d.tsx). */
 export const ECART_VUES_PX = 4;
-/** A l'arret, une image toutes les… : de quoi montrer une texture arrivee, sans tourner a vide. */
-export const DELAI_REPOS_MS = 400;
 /**
  * Cote a cote l'emporte tant qu'il ne perd pas de plus de cela (en ecart de forme) : sur un ecran en
  * largeur, la zone libre est presque un 4:3 et les deux decoupes se valent, mais deux vues cote a cote
@@ -85,31 +85,8 @@ export function decouperEnDeux(zone: Rect, ecart = ECART_VUES_PX): DeuxVues {
 
 const memesVues = (a: DeuxVues | null, b: DeuxVues | null) => JSON.stringify(a) === JSON.stringify(b);
 
-/** Ce que les deux vues gardent en main : l'ecran pose dessus, la derniere image. */
-const etat: { panneau: RectFenetre | null; pose: number[] | null; t: number } = { panneau: null, pose: null, t: 0 };
-
-/** Ce qui fait l'image : la position, l'orientation et la focale de la camera, et la taille du canevas. */
-function poseDe(sc: SceneTroisBase): number[] {
-  const c = sc.camera, el = sc.renderer.domElement;
-  return [c.position.x, c.position.y, c.position.z, c.quaternion.x, c.quaternion.y, c.quaternion.z, c.quaternion.w, c.fov, c.zoom, el.clientWidth, el.clientHeight];
-}
-
-/**
- * Faut-il redessiner : la camera ou le canevas ont change depuis la derniere image, ou elle date de
- * plus de `delai` ms. Pure : le rendu a la demande se teste sans WebGL.
- */
-export function aRedessiner(derniere: readonly number[] | null, pose: readonly number[], depuisMs: number, delai = DELAI_REPOS_MS): boolean {
-  if (!derniere || depuisMs >= delai || derniere.length !== pose.length) return true;
-  return pose.some((v, i) => Math.abs(v - (derniere[i] as number)) > 1e-9);
-}
-
-const maintenant = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-
-/** La boucle d'animation de la Vue 3D : en deux vues, elle saute les images qui seraient identiques. */
-export function imageAttendue(sc: SceneTroisBase, t = maintenant()): boolean {
-  if (!sc.enDeux) return true;
-  return aRedessiner(etat.pose, poseDe(sc), t - etat.t);
-}
+/** Ce que les deux vues gardent en main : l'ecran pose dessus. */
+const etat: { panneau: RectFenetre | null } = { panneau: null };
 
 /** Les deux vues du canevas de cette scene, d'apres l'ecran pose dessus. */
 export function vuesDe(sc: SceneTroisBase): DeuxVues {
@@ -127,7 +104,7 @@ export function vuesDe(sc: SceneTroisBase): DeuxVues {
  * cadrages et les clics la lisent comme si la vue etait unique. Le rendu simple (`renderer.render`) :
  * l'occlusion de la qualite Soignee rend dans des cibles plein cadre, que le scissor ne decoupe pas.
  */
-export function rendreEnDeux(sc: SceneTroisBase, t = maintenant()): DeuxVues {
+export function rendreEnDeux(sc: SceneTroisBase): DeuxVues {
   const { renderer: r, camera: cam, scene } = sc;
   const el = r.domElement;
   const L = el.clientWidth || 1, H = el.clientHeight || 1;
@@ -160,8 +137,6 @@ export function rendreEnDeux(sc: SceneTroisBase, t = maintenant()): DeuxVues {
   cam.layers.mask = masque;
   cam.aspect = forme;
   cam.updateProjectionMatrix();
-  etat.pose = poseDe(sc);
-  etat.t = t;
   // Les etiquettes « Avant » et « Après » suivent les vues ; on ne le dit aux zones que s'il a change.
   if (!memesVues(affichage3d.comparaison, vues)) { affichage3d.comparaison = vues; signaler3d(); }
   return vues;
@@ -170,7 +145,7 @@ export function rendreEnDeux(sc: SceneTroisBase, t = maintenant()): DeuxVues {
 /** Passe cette scene en deux vues : tout rendu passe desormais par `rendreEnDeux` (etat3d.ts::rendre3d). */
 export function activerDeuxVues(sc: SceneTroisBase): void {
   sc.enDeux = () => { rendreEnDeux(sc); };
-  etat.pose = null;
+  demanderRendu(sc);
 }
 
 /** Revient a la vue unique : la camera reprend la forme du canevas, les etiquettes disparaissent. */
@@ -181,7 +156,7 @@ export function couperDeuxVues(sc: SceneTroisBase | null): void {
     sc.camera.aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
     sc.camera.updateProjectionMatrix();
   }
-  etat.pose = null;
+  demanderRendu(sc);
   if (affichage3d.comparaison) { affichage3d.comparaison = null; signaler3d(); }
 }
 
@@ -191,7 +166,7 @@ export function couperDeuxVues(sc: SceneTroisBase | null): void {
  */
 export function cadrerDeuxVues(panneau: RectFenetre | null, sc: SceneTroisBase | null): void {
   etat.panneau = panneau ? { left: panneau.left, top: panneau.top, right: panneau.right, bottom: panneau.bottom } : null;
-  etat.pose = null;
+  demanderRendu(sc);
   if (sc?.enDeux) sc.enDeux();
 }
 

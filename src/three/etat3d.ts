@@ -15,6 +15,7 @@ import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
 import { mesurerImage, perfActive } from './perf.js';
 import { reglerVent } from './vent.js';
+import { demanderRendu, imageRendue, pendantLeRendu } from './renduDemande.js';
 
 /** Ce que l'occlusion ajoute a la scene : un enchainement de passes a rendre a la place du rendu simple. */
 export interface Occlusion {
@@ -102,8 +103,10 @@ export function rendre3d(sc: SceneTroisBase): void {
     else sc.renderer.render(sc.scene, sc.camera);
   };
   // `?fps=on` : l'image est mesuree (three/perf.ts) ; sans lui, aucun compteur n'est touche.
-  if (perfActive()) mesurerImage(sc.renderer, rendu);
-  else rendu();
+  // Ce que three.js marque en rendant n'est pas un changement de la scene (three/renduDemande.ts).
+  pendantLeRendu(() => { if (perfActive()) mesurerImage(sc.renderer, rendu); else rendu(); });
+  // L'image est a jour : la boucle d'animation n'en rendra pas une autre sans raison.
+  imageRendue(sc);
 }
 
 /** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
@@ -366,8 +369,12 @@ export const hotes3d: { vue3d: HTMLElement | null; glb: HTMLElement | null } = {
 
 /** Ce que l'interface regle de la Vue 3D : ses preferences d'affichage, et ce qu'un autre tient le temps d'un geste. */
 export type ReglagesVue3d = Pick<typeof vue3d, 'tousLesObjets' | 'solEnCoupe' | 'platelageTranslucide' | 'objetsOpaques' | 'textures'
-  | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil' | 'renduCouvert'>;
-export function reglerVue3d(r: Partial<ReglagesVue3d>): void { Object.assign(vue3d, r); }
+  | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil' | 'renduCouvert' | 'pauseRendu'>;
+export function reglerVue3d(r: Partial<ReglagesVue3d>): void {
+  Object.assign(vue3d, r);
+  // Un reglage de la Vue 3D change ce qu'elle montre, ou la fait repartir (`renduCouvert`) : l'image suivante est rendue.
+  demanderRendu(vue3d.scene);
+}
 
 /** Ce que l'interface regle de la visionneuse : ouverte ou non, ses preferences, sa facon de montrer le soleil. */
 export type ReglagesGlb = Pick<typeof glb, 'ouvert' | 'filaire' | 'ombres' | 'fond' | 'lumiereAppoint'

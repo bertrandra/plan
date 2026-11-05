@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE_NS from 'three';
 import {
-  zoneLibre, decouperEnDeux, aRedessiner, rendreEnDeux, activerDeuxVues, couperDeuxVues, cadrerDeuxVues, imageAttendue,
+  zoneLibre, decouperEnDeux, aRedessiner, rendreEnDeux, activerDeuxVues, couperDeuxVues, cadrerDeuxVues,
   sousLePointeur, COUCHE_AVANT, COUCHE_APRES, ECART_VUES_PX, DELAI_REPOS_MS, type DeuxVues
 } from '../../../src/three/comparaison3d.js';
+import { imageAttendue, QUEUE_MS } from '../../../src/three/renduDemande.js';
 import { affichage3d, rendre3d, type SceneTroisBase } from '../../../src/three/etat3d.js';
 
 // L'avant et l'apres d'un audit en deux vues de la Vue 3D (three/comparaison3d.ts) : une seule
@@ -171,14 +172,15 @@ describe('le rendu a la demande', () => {
     expect(aRedessiner(pose, [1, 2, 3, 0, 0, 0, 1, 50, 1, 999, 600], 16)).toBe(true);
   });
 
-  it('ne retient pas la boucle d une vue unique', () => {
+  it('en deux vues, la boucle ne redessine que ce qui a change (three/renduDemande.ts)', () => {
     const { sc, camera } = fausseScene();
-    expect(imageAttendue(sc, 0)).toBe(true);
     activerDeuxVues(sc);
-    rendreEnDeux(sc, 1000);
-    expect(imageAttendue(sc, 1016)).toBe(false);
+    expect(imageAttendue(sc)).toBe(true);
+    rendre3d(sc);
+    const apres = performance.now() + QUEUE_MS + 1;
+    expect(imageAttendue(sc, apres)).toBe(false);
     camera.position.x += 1;
-    expect(imageAttendue(sc, 1032)).toBe(true);
+    expect(imageAttendue(sc, apres + 16)).toBe(true);
   });
 });
 
