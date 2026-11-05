@@ -34,6 +34,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Fumée, cocher une proposition de l'audit (points 117 à 119 et ceux qui cochent une ligne) : le script attend la fin de la mesure des
+  façades, que la lecture de Claude relance après l'accord, avant de chercher la ligne. Cherchée pendant la mesure, la liste se refaisait
+  sous elle et la recherche des niveaux à ouvrir restait suspendue 30 s (point 119, Fumée de la nuit de la 5.9.0, run 41916988940,
+  moyen clair ; reproduit en local une fois sur deux). Aucun délai allongé, aucune vérification retirée ; rien ne change dans
+  l'application.
 - Façades, É6 (silhouette lue), suites de la végétation :
   - le haut lu ne plonge plus au droit d'un poteau peint en haut du mur (le colombage vert du pignon gauche d'AE 101) : un creux de cinq
     colonnes au plus, plus bas que ses deux voisines de 5 % de la largeur, n'est pas lu (un haut de mur n'a pas de tel creux) ;
@@ -82,6 +87,8 @@ forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, le
 `setup.php`). Fumée complète lancée en parallèle (Fumée de la nuit, run 41916988940), livraison sans l'attendre par décision du
 propriétaire ; un point rouge donnera une 5.9.1 ; requêtes inchangées depuis la 5.8.0 (ni `deploy/` ni les descriptions des sujets, ni
 l'image envoyée à Claude : #569 ne touche que le Mode Toit et la Vue 3D), vérifiées sans la mesure (run 41916992945 : 9 sur 9, 0,030 $).
+Résultat de cette fumée : 575 passés sur 576 joués ; seul le point 119, en moyen et thème clair, a échoué (« cocher » au-delà de
+30 s) : une course du script de fumée, pas un défaut de l'application, corrigée par `claude/fumee-119-attente`.
 
 ### Modifié
 

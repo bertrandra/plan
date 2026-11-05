@@ -624,7 +624,17 @@ const ouvrirSesNiveaux = async (page, element) => {
   });
   for (const titre of fermes) await toucher(page.locator('details.niveauPropositions > summary', { hasText: titre }).first(), 10000);
 };
+/**
+ * La fin d'une mesure des facades dans l'ecran des propositions (« Mesure des façades sur vos photos… », PropositionsAudit.tsx) : la
+ * lecture de Claude, arrivee apres l'accord, refait la mesure de la facade (#551) et la liste se refait avec elle. Meme attente que
+ * « Valider », qui reste grise tant qu'elle tourne (points 117 a 119).
+ */
+const finDeLaMesure = (page) => page.waitForFunction(() => !/^Mesure des façades/.test(document.querySelector('.auditPropositions .detailPhoto')?.textContent || ''), null, { timeout: 90000 });
 const cocherLigne = async (page, texte) => {
+  // Cherchee pendant une mesure, la ligne trouvee est remplacee quand la liste se refait, et la lecture de ses niveaux (ouvrirSesNiveaux)
+  // restait suspendue 30 s alors que la nouvelle ligne etait la (point 119, Fumee de la nuit, run 41916988940, moyen clair ; reproduit
+  // en local une fois sur deux, la ligne presente et stable des la fin de la mesure). Apres la mesure, la liste ne bouge plus.
+  if (await page.locator('.auditPropositions').count()) await finDeLaMesure(page);
   const ligne = page.locator('.ligneProposition', { hasText: texte }).first();
   await ligne.waitFor({ state: 'attached', timeout: 30000 });
   await ouvrirSesNiveaux(page, ligne);
