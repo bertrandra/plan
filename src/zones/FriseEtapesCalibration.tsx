@@ -244,8 +244,9 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
   }
   if (id === 'silhouette') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">
     <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
+    {im.pose.masques.map((q, k) => <polygon key={'m' + k} className="calMasqueVegetation" points={points(q)} vectorEffect="non-scaling-stroke" />)}
     {im.pose.silhouette && <polyline className="calSilhouetteLue" points={points(im.pose.silhouette)} vectorEffect="non-scaling-stroke" />}
-  </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.</figcaption></figure> : null;
+  </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.{im.pose.masques.length ? ' Bandes hachurées : le haut caché par la végétation, non lu ; le gabarit y est gardé.' : ''}</figcaption></figure> : null;
   // La facade que lit la detection, entiere (pignons compris, rien n'est coupe a l'egout), fusionnee quand plusieurs vues se fondent,
   // en metres : la silhouette, seule zone ou la detection cherche, et les ouvertures dessus.
   if (id === 'ouvertures') { const f = im.facade; return f ? <figure><Calques url={url(f.image)} l={f.l} h={f.h} libelle="La façade entière lue par la détection, sa silhouette et les ouvertures proposées">

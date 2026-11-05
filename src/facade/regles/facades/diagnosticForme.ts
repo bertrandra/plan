@@ -127,6 +127,8 @@ export interface EntreesDiagnostic {
   hauteurMur: number;
   /** Le haut lu sur la photo : `u` de 0 a 1 le long du mur, `v` en hauteurs d'egout ; null quand il ne se lit pas. */
   lue: readonly { u: number; v: number }[] | null;
+  /** Les troncons du mur (u de 0 a 1) ou le haut est cache par du feuillage (E6) : rien n'y est lu, le gabarit y est garde. */
+  masques?: readonly { u0: number; u1: number }[];
   /** Les observations du run de Claude (le vote de ses passes), quand il y en a. */
   ia?: ObservationsFacade | null;
   objectifs?: Partial<Objectifs>;
@@ -445,7 +447,8 @@ export function diagnostiquerForme(e: EntreesDiagnostic): DiagnosticForme {
   const f = e.facade, H = e.hauteurMur;
   const g0 = gabaritDesCorps(f, e.corps, H);
   const troncons: TronconForme[] = f.largeur > 0 ? tronconsDeFace(silhouetteDeFace(f, e.corps)).map((t) => ({ corps: t.corps, cote: t.cote, mur: { gauche: t.gauche, droite: t.droite }, u0: r3(Math.max(0, t.x0 / f.largeur)), u1: r3(Math.min(1, t.x1 / f.largeur)) })).filter((t) => t.u1 - t.u0 >= 0.05) : [];
-  const lu = Array.from({ length: COLONNES }, (_, k) => (e.lue && e.lue.length >= 2 ? surLigne([...e.lue].sort((a, b) => a.u - b.u), uDe(k)) : null));
+  const cache = (u: number) => (e.masques ?? []).some((m) => u >= m.u0 && u <= m.u1);
+  const lu = Array.from({ length: COLONNES }, (_, k) => (e.lue && e.lue.length >= 2 && !cache(uDe(k)) ? surLigne([...e.lue].sort((a, b) => a.u - b.u), uDe(k)) : null));
   const lus = lu.filter((v): v is number => v !== null);
   // Sous l'egout, ou sous le haut d'un corps plus bas que le mur (un appentis au bout de la facade), le haut lu n'est plus le haut du mur.
   const sousEgout = lu.filter((v, k) => v !== null && v < Math.min(1, surLigne(g0, uDe(k)) ?? 1) - SOUS_EGOUT).length;

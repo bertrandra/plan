@@ -395,6 +395,12 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   `defaut`, et le champ pris) ; la calibration avertit d'une photo sans EXIF (vignette, É3 ouverte). Les étalons 00 (image d'origine
   des tests) et 09 (focale inconnue) sont sans EXIF : ils montrent l'avertissement (point de fumée 129).
 
+- **L'É6 et la végétation** (4 novembre 2026) : le haut lu (`analyse.ts::lireLeHaut`, `silhouetteDuMur` avec `vegetation`) ne lit pas
+  une colonne dont le haut est sous du feuillage (cases vertes et texturées, `estFeuillage` ; le grain du mur lu sur ses bouts ; une
+  peinture verte est un aplat) ; ses tronçons vont dans `hautMasque`, que l'É7 et le bilan sautent. L'affinage de l'égout et du sol
+  (`affinerEgoutEtSol`, l'É5 des repères) n'en est pas changé. Étalon 27 : l'arbre devant le pignon ; il n'a pas encore de plancher au
+  garde-fou de la lecture (`scenes-ajoutees.json`), à fixer au prochain run « Vérifier l'API Claude ».
+
 ## 3. Le corpus
 
 Une scène par fichier JSON dans `tests/fixtures/facades/`, rendue à la demande. Aucun tirage n'est

@@ -142,7 +142,13 @@ export type Ombre =
 
 export type Obstacle =
   | { type: 'voiture'; x: number; l: number; h?: number; /** distance au mur */ recul: number; couleur: RGB }
-  | { type: 'haie'; x: number; l: number; h: number; recul: number; couleur?: RGB };
+  | { type: 'haie'; x: number; l: number; h: number; recul: number; couleur?: RGB }
+  /**
+   * Un arbre devant le mur (etalon 27) : un tronc du sol a sa couronne, et une couronne de feuillage au bord irregulier, des feuilles
+   * au soleil et a l'ombre, et des trous ou l'on voit ce qu'il y a derriere (le mur, le ciel). `x`, `z` : le centre de la couronne,
+   * `rayon` en metres ; `l` : la largeur du tronc.
+   */
+  | { type: 'arbre'; x: number; z: number; rayon: number; l: number; recul: number };
 
 export interface PriseCamera {
   type: 'camera';
@@ -497,6 +503,7 @@ function lumiere(s: Synthese, v: Verite, X: number, Z: number): number {
 
 /** La teinte d'un obstacle (voiture, haie) dans son plan, ou `null` hors de sa silhouette. */
 export function couleurObstacle(o: Obstacle, X: number, Z: number, graine: number): RGB | null {
+  if (o.type === 'arbre') return couleurArbre(o, X, Z, graine);
   if (X < o.x || X >= o.x + o.l || Z < 0) return null;
   const u = X - o.x;
   if (o.type === 'haie') {
@@ -528,6 +535,27 @@ export function couleurObstacle(o: Obstacle, X: number, Z: number, graine: numbe
     if (u < g + 0.06 || u > d - 0.06 || h - Z < 0.06 || Math.abs(u - (g + d) / 2) < 0.04) return o.couleur;
     return melanger([42, 52, 62], [120, 135, 150], t / (h - 0.95));
   }
+  return null;
+}
+
+/**
+ * La teinte d'un arbre au point (X, Z) du plan ou il se tient, ou `null` hors de lui et dans les trous de sa couronne. Le feuillage est
+ * fait d'amas (un bruit lisse de 0,35 m) et de feuilles (un tirage par case de 4 cm) : au soleil un vert jaune clair, a l'ombre un vert
+ * sombre ; un quart des cases sont des trous. Le bord de la couronne ondule d'un cinquieme de son rayon.
+ */
+function couleurArbre(o: Extract<Obstacle, { type: 'arbre' }>, X: number, Z: number, graine: number): RGB | null {
+  if (Z < 0) return null;
+  const dx = X - o.x, dz = Z - o.z, d = Math.hypot(dx, dz);
+  const bord = o.rayon * (0.85 + 0.3 * bruitLisse(Math.atan2(dz, dx) * 2, 0, 0.5, graine + 101));
+  if (d < bord) {
+    const amas = bruitLisse(X, Z, 0.35, graine + 103);
+    const feuille = hache(Math.floor(X / 0.04), Math.floor(Z / 0.04), graine + 107);
+    if (feuille < 0.25 + 0.2 * (d / bord) * (d / bord)) return null;
+    const soleil = amas > 0.5 - 0.3 * (dz / o.rayon);
+    const base: RGB = soleil ? [150, 168, 82] : [46, 78, 40];
+    return decaler(base, (feuille - 0.5) * 50);
+  }
+  if (Math.abs(dx) < o.l / 2 && Z < o.z) return decaler([92, 72, 54], (hache(Math.floor(X / 0.05), Math.floor(Z / 0.05), graine + 109) - 0.5) * 30);
   return null;
 }
 

@@ -83,6 +83,11 @@
       "unite": "part",
       "pourquoi": "É6 : le haut du mur est lu quand la teinte du mur s'arrete nettement sur au moins cette part des colonnes de la silhouette (facade/vision/mosaiqueFuites.ts::silhouetteDuMur) ; en deca, la suite garde le gabarit du plan et l'É6 est a confirmer. C'est ce que l'É7 lit : l'etat de l'É6 se juge sur la meme ligne (revue des etapes, 3 novembre 2026). Valeur d'avant, reprise telle quelle (COLONNES_SILHOUETTE / 2)."
     },
+    "facades.enchainement.vegetationPartMin": {
+      "valeur": 0.5,
+      "unite": "part",
+      "pourquoi": "É6 : une colonne de la silhouette dont le haut lu est sous du feuillage n'est pas lue (le haut du mur y est cache, le gabarit du plan y est garde) quand au moins cette part des rangees de la bande juste au-dessus de ce haut (1,2 % de la largeur) sont du feuillage : des cases de cinq pixels vertes et texturees (facade/vision/mosaiqueFuites.ts::estFeuillage ; une peinture verte est un aplat, elle n'en est pas). Elle compte contre silhouetteColonnesMin. Pose le 4 novembre 2026 sur la facade sud d'AE 101 (le grand arbre devant le pignon gauche ; colombages et menuiseries peints en vert fonce) et sur l'etalon 27 (un arbre devant un pignon, bandeaux et volets verts) : la bande sous l'arbre est du feuillage a 79 %, le mur a 2 %, la rive peinte a 15 %, le ciel a 13 %. Le seuil est entre les deux."
+    },
     "facades.enchainement.bandeVueMin": {
       "valeur": 0.33,
       "unite": "part",

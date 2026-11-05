@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Façades, É6 (silhouette lue) : le haut lu ne monte plus dans un arbre. Des feuilles et des trous de ciel mêlés ont en moyenne la teinte
+  d'un enduit clair, et le haut lu grimpait dans le feuillage devant le pignon (façade sud d'AE 101). Une case de cinq pixels verte et
+  texturée est du feuillage ; une colonne dont le haut est sous du feuillage n'est pas lue (elle compte contre `silhouetteColonnesMin`),
+  l'É6 dit « Haut masqué par la végétation sur n % des colonnes », l'É7 et le bilan gardent le gabarit là. Une peinture verte
+  (colombages, volets, rives) est un aplat : elle reste du mur. Nouveau réglage `facades.enchainement.vegetationPartMin` (0,5).
+
+### Ajouté
+
+- Étalon 27 (`27-arbre-devant-pignon`) : un pignon derrière un arbre dont la couronne, trouée de ciel, couvre le haut du pignon, avec
+  bandeaux et volets peints en vert foncé. Le générateur sait peindre un arbre (`type: 'arbre'`) ; les 27 autres scènes ne bougent pas.
+
 ## [5.9.0] — 2026-11-04
 
 Version **mineure** au sens de `MD/RELEASE.md` : une travée ouverte, ses poteaux et son garde-corps se posent aussi sur un corps fermé

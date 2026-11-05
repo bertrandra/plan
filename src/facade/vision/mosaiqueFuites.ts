@@ -400,7 +400,7 @@ const AIMANT_ARETE = 0.012;
 const EGOUT_AU_DESSUS = 0.1;
 const EGOUT_AU_DESSOUS = 0.3;
 /** La silhouette se lit sur tant de colonnes, et cherche le haut du mur jusqu'a cette part de la largeur au-dessus du bord trouve. */
-const COLONNES_SILHOUETTE = 64;
+export const COLONNES_SILHOUETTE = 64;
 const SILHOUETTE_AU_DESSUS = 0.8;
 /** Le haut du mur dans une colonne : au moins cette part de pixels de mur sur les tant de pixels qui suivent (part de la largeur). */
 const PART_HAUT_MUR = 0.7;
@@ -489,24 +489,30 @@ function rangees(m: { image: Image; vu: Uint8Array }, x0: number, x1: number): R
  * une bande de tuiles, n'etant pas du mur, laisse la silhouette a l'egout. L'egout est la hauteur aux angles (la plus basse des deux :
  * sous une rampe, l'egout est le bas). Null quand trop de colonnes ne se lisent pas.
  */
-export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, teinte: { cr: number; cg: number; l: number }, ecart: number): { silhouette: { x: number; y: number }[]; egout: number; forme: 'droite' | 'pignon' | 'rampe' } | null {
+export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, teinte: { cr: number; cg: number; l: number }, ecart: number, vegetation = false, compte: { masquees: number[] } | null = null): { silhouette: { x: number; y: number }[]; egout: number; forme: 'droite' | 'pignon' | 'rampe'; masquees: number[] } | null {
   const { largeur: L, hauteur: H, donnees: d } = m.image;
   const w = r.x1 - r.x0;
   if (!(w > 0)) return null;
   const k = Math.max(3, Math.round(SUITE_HAUT_MUR * w));
   const yDebut = Math.max(0, Math.round(r.y0 - SILHOUETTE_AU_DESSUS * w)), yFin = Math.min(H - 1, Math.round(r.y1));
+  const grainMur = vegetation ? grainDuMur(m, r, teinte, ecart) : null;
   const hauts: { x: number; y: number }[] = [];
+  const masquees: number[] = [];
   for (let c = 0; c < COLONNES_SILHOUETTE; c++) {
     const xc = r.x0 + 0.01 * w + ((c + 0.5) / COLONNES_SILHOUETTE) * 0.98 * w;
     const xa = Math.max(0, Math.round(xc) - 2), xb = Math.min(L - 1, Math.round(xc) + 2);
-    // Une rangee de la colonne est du mur quand la moyenne de ses cinq pixels en a la teinte (le bruit d'un pixel ne compte pas).
-    const mur: boolean[] = [], vus: boolean[] = [];
+    // Une rangee de la colonne est du mur quand la moyenne de ses cinq pixels en a la teinte (le bruit d'un pixel ne compte pas) ; et,
+    // pour le haut lu (E6), quand elle n'est pas du feuillage : des feuilles et des trous de ciel melanges ont en moyenne la teinte d'un
+    // enduit clair, et le haut lu montait dans l'arbre (AE 101).
+    const mur: boolean[] = [], vus: boolean[] = [], feuillage: boolean[] = [];
     for (let y = yDebut; y <= yFin; y++) {
       let R = 0, G = 0, B = 0, n = 0;
       for (let x = xa; x <= xb; x++) { const i = y * L + x; if (!m.vu[i]) continue; R += d[i * 4] ?? 0; G += d[i * 4 + 1] ?? 0; B += d[i * 4 + 2] ?? 0; n++; }
       const s = R + G + B + n;
+      const f = grainMur !== null && n > 0 && estFeuillage(d, y * L, xa, xb, m.vu, grainMur);
       vus.push(n > 0);
-      mur.push(n > 0 && Math.hypot(R / s - teinte.cr, G / s - teinte.cg) < ecart && s / n >= LUMIERE_MUR[0] * teinte.l && s / n <= LUMIERE_MUR[1] * teinte.l);
+      feuillage.push(f);
+      mur.push(n > 0 && !f && Math.hypot(R / s - teinte.cr, G / s - teinte.cg) < ecart && s / n >= LUMIERE_MUR[0] * teinte.l && s / n <= LUMIERE_MUR[1] * teinte.l);
     }
     let haut: number | null = null;
     for (let i = 0; i + k <= mur.length; i++) {
@@ -517,8 +523,13 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
     }
     // Un haut colle au bord de ce que la photo a vu n'est pas le haut du mur, mais celui du cadre : la colonne ne dit rien.
     const auBord = haut !== null && vus.slice(Math.max(0, haut - k), haut).some((v) => !v);
-    if (haut !== null && haut > 0 && !auBord) hauts.push({ x: xc, y: yDebut + haut });
+    // Un haut sous du feuillage n'est pas le haut du mur, mais le bas de l'arbre qui le cache : la colonne ne se lit pas (le gabarit y est
+    // garde), et l'E6 le dit.
+    const sousLeFeuillage = haut !== null && haut > 0 && feuillage.slice(Math.max(0, haut - k), haut).filter(Boolean).length >= objectifsEnchainement()['facades.enchainement.vegetationPartMin'] * Math.min(k, haut);
+    if (sousLeFeuillage) masquees.push(xc);
+    else if (haut !== null && haut > 0 && !auBord) hauts.push({ x: xc, y: yDebut + haut });
   }
+  if (compte) compte.masquees = masquees;
   // Le haut n'est lu que sur une part assez grande des colonnes (un reglage de l'E6, regles/facades/enchainement.json).
   if (hauts.length < objectifsEnchainement()['facades.enchainement.silhouetteColonnesMin'] * COLONNES_SILHOUETTE) return null;
   const med = (t: number[]) => { const u = [...t].sort((a, b) => a - b); return u[u.length >> 1] as number; };
@@ -552,7 +563,70 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
     else nets.push(p);
   }
   nets.push(fin);
-  return { silhouette: nets, egout, forme };
+  return { silhouette: nets, egout, forme, masquees };
+}
+
+/**
+ * Une case de cinq pixels est du feuillage quand elle est a la fois verte et texturee : des pixels verts (le vert l'emporte sur le rouge
+ * et le bleu) et, entre ses pixels, une chromaticite ou une luminosite qui varient bien plus que sur le mur (des feuilles au soleil et
+ * a l'ombre, des trous de ciel). Une peinture verte (un colombage, un volet, une rive) est un aplat : verte, mais pas texturee. Un
+ * parement a grain (une brique, une meuliere) n'est pas vert. Le grain du mur est celui de ses bouts (grainDuMur).
+ */
+function estFeuillage(d: Uint8ClampedArray, base: number, xa: number, xb: number, vu: Uint8Array, grain: { chroma: number; lumiere: number }): boolean {
+  let verts = 0, n = 0, crMin = 1, crMax = 0, cgMin = 1, cgMax = 0, sl = 0, sl2 = 0;
+  for (let x = xa; x <= xb; x++) {
+    const i = base + x;
+    if (!vu[i]) continue;
+    const R = d[i * 4] ?? 0, G = d[i * 4 + 1] ?? 0, B = d[i * 4 + 2] ?? 0, s = R + G + B + 1;
+    if (G > R + VERT_FEUILLE && G > B + VERT_FEUILLE) verts++;
+    crMin = Math.min(crMin, R / s); crMax = Math.max(crMax, R / s); cgMin = Math.min(cgMin, G / s); cgMax = Math.max(cgMax, G / s);
+    sl += s / 3; sl2 += (s / 3) ** 2; n++;
+  }
+  if (n < 3 || verts < 2) return false;
+  const moyenne = sl / n, ecartL = Math.sqrt(Math.max(0, sl2 / n - moyenne * moyenne)) / Math.max(1, moyenne);
+  return Math.hypot(crMax - crMin, cgMax - cgMin) >= grain.chroma || ecartL >= grain.lumiere;
+}
+
+/** Ce qui separe deux canaux pour dire un pixel vert, en niveaux. */
+const VERT_FEUILLE = 6;
+/**
+ * Le grain d'un enduit lisse, lu sur AE 101 (4 novembre 2026) sur des cases de cinq pixels : l'ecart de chromaticite entre leurs pixels
+ * reste sous 0,011 et l'ecart de luminosite sous 0,08 (les ombres de feuilles sur le mur comprises), quand le feuillage atteint 0,034 et
+ * 0,126 en mediane. Une case texturee depasse le plus grand de ces planchers ou trois fois le grain median des bouts du mur.
+ */
+const GRAIN_CHROMA_MIN = 0.02, GRAIN_LUMIERE_MIN = 0.1;
+
+/**
+ * Le grain du mur sur ses bouts (les bandes de teinteDuMur), lu sur les seules cases qui ont sa teinte (un poteau peint, une plante au
+ * pied ne sont pas le mur) : la mediane des ecarts de ces cases, triplee, sur les planchers (le bord d'une fenetre ou d'un poteau, dans
+ * une case qui a encore la teinte du mur, ferait d'un decile haut le grain de tout le mur).
+ */
+function grainDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, teinte: { cr: number; cg: number }, ecart: number): { chroma: number; lumiere: number } {
+  const { largeur: L, hauteur: H, donnees: d } = m.image;
+  const w = r.x1 - r.x0, h = r.y1 - r.y0;
+  const chroma: number[] = [], lumiere: number[] = [];
+  for (let y = Math.max(0, Math.round(r.y0 + RANGS_TEINTE[0] * h)); y <= Math.min(H - 1, Math.round(r.y0 + RANGS_TEINTE[1] * h)); y += 2) {
+    for (const [a, b] of [[r.x0 + 0.01 * w, r.x0 + 0.06 * w], [r.x1 - 0.06 * w, r.x1 - 0.01 * w]] as const) {
+      for (let x0 = Math.max(0, Math.round(a)); x0 + 4 <= Math.min(L - 1, Math.round(b)); x0 += 5) {
+        let crMin = 1, crMax = 0, cgMin = 1, cgMax = 0, sl = 0, sl2 = 0, n = 0, sr = 0, sg = 0;
+        for (let x = x0; x < x0 + 5; x++) {
+          const i = y * L + x;
+          if (!m.vu[i]) continue;
+          const R = d[i * 4] ?? 0, G = d[i * 4 + 1] ?? 0, B = d[i * 4 + 2] ?? 0, s = R + G + B + 1;
+          crMin = Math.min(crMin, R / s); crMax = Math.max(crMax, R / s); cgMin = Math.min(cgMin, G / s); cgMax = Math.max(cgMax, G / s);
+          sl += s / 3; sl2 += (s / 3) ** 2; sr += R / s; sg += G / s; n++;
+        }
+        if (n < 3 || Math.hypot(sr / n - teinte.cr, sg / n - teinte.cg) >= ecart) continue;
+        const moyenne = sl / n;
+        chroma.push(Math.hypot(crMax - crMin, cgMax - cgMin)); lumiere.push(Math.sqrt(Math.max(0, sl2 / n - moyenne * moyenne)) / Math.max(1, moyenne));
+      }
+    }
+  }
+  const med = (t: number[]) => { if (!t.length) return 0; const u = [...t].sort((p, q) => p - q); return u[u.length >> 1] as number; };
+  // La luminosite reste a son plancher : les ombres de feuilles sur un enduit font varier la luminosite du mur, pas sa teinte, et une case
+  // de mur n'est jamais verte (estFeuillage le demande aussi).
+  void lumiere;
+  return { chroma: Math.max(GRAIN_CHROMA_MIN, 3 * med(chroma)), lumiere: GRAIN_LUMIERE_MIN };
 }
 
 /**
@@ -566,9 +640,9 @@ const ecartAdmisDuMur = (mur: { grain: number }): number => Math.max(ECART_CHROM
  * La silhouette du haut du mur lue a la teinte entre des bouts donnes, la meme lecture que celle qui affine l'egout (affinerEgoutEtSol),
  * sans rien poser : ce que l'image montre, a comparer au gabarit. Null quand la teinte du mur ou trop de colonnes ne se lisent pas.
  */
-export function silhouetteLue(m: { image: Image; vu: Uint8Array }, r: Rect): ReturnType<typeof silhouetteDuMur> {
+export function silhouetteLue(m: { image: Image; vu: Uint8Array }, r: Rect, vegetation = false, compte: { masquees: number[] } | null = null): ReturnType<typeof silhouetteDuMur> {
   const mur = matiereDuMur(m, r);
-  return mur ? silhouetteDuMur(m, r, mur, mur.ecart) : null;
+  return mur ? silhouetteDuMur(m, r, mur, mur.ecart, vegetation, compte) : null;
 }
 
 /**

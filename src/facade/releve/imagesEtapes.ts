@@ -19,7 +19,7 @@ export interface ImagesEtapes {
    * E5, E6, E9 : l'image prise pour la suite et le mur retenu dessus ; le contour du mur (le sol, puis le gabarit a l'echelle de la
    * facade entre ses coins), le haut lu sur l'image, et les ouvertures ramenees du mur sur elle.
    */
-  pose: { image: Image; coins: P2[]; contour: P2[]; silhouette: P2[] | null; proposees: P2[][]; devinees: P2[][] } | null;
+  pose: { image: Image; coins: P2[]; contour: P2[]; silhouette: P2[] | null; masques: P2[][]; proposees: P2[][]; devinees: P2[][] } | null;
   /**
    * E9 : la facade que lit la detection, en metres depuis son coin haut gauche (le sol en bas) : l'image redressee entiere, fusionnee
    * quand plusieurs vues se fondent, dans son cadre (la boite de la silhouette entiere et sa marge, la bande au-dessus de l'egout), sans
@@ -135,7 +135,7 @@ export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
     vues: vuesAvecGabarit(r, g),
     assemblage: pose ? { image: pose.image } : null,
     pose: pose && bd && bg ? {
-      image: pose.image, coins: pose.coins, contour: gabaritSurLaPhoto(contourDuGabarit(g), pose.coins) ?? [bg, bd], silhouette: s.silhouette?.points ?? null,
+      image: pose.image, coins: pose.coins, contour: gabaritSurLaPhoto(contourDuGabarit(g), pose.coins) ?? [bg, bd], silhouette: s.silhouette?.points.length ? s.silhouette.points : null, masques: s.silhouette?.masques ?? [],
       proposees: a ? versLImage(pose.coins, L, H, a.ouvertures) : [], devinees: a ? versLImage(pose.coins, L, H, a.devinees) : [],
     } : null,
     facade: a ? (() => {
