@@ -4220,7 +4220,25 @@ const POINTS = {
       sc.camera.position.set(oeil.x - sc.cen.x, z + 4, sc.cen.y - oeil.y);
       sc.controls.update();
     }, { rang: depart.rang, bout });
-    const photo = async (nom) => { if (!capture) return; await cadrer(0); await image3dStable(page, 2000); await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {}); };
+    // Devant le pignon pose sur le pan 0 : de trois quarts, sa pointe a hauteur d'oeil.
+    const cadrerPignon = () => page.evaluate(({ rang }) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison'), c = o.batiment.corpsToit[rang], sc = window.__plan.scene3d();
+      const g = c.pignons[c.pignons.length - 1], a = c.pts[0], b = c.pts[1], d = c.pts[3];
+      const L = Math.hypot(b.x - a.x, b.y - a.y), u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L }, W = Math.hypot(d.x - a.x, d.y - a.y), n = { x: (a.x - d.x) / W, y: (a.y - d.y) / W };
+      const s = (g.debut + g.fin) / 2, m = { x: a.x + u.x * s, y: a.y + u.y * s }, z = g.faitage - 1, oeil = { x: m.x + n.x * 10 + u.x * 6, y: m.y + n.y * 10 + u.y * 6 };
+      sc.controls.target.set(m.x - sc.cen.x, z, sc.cen.y - m.y);
+      sc.camera.position.set(oeil.x - sc.cen.x, z + 3, sc.cen.y - oeil.y);
+      sc.controls.update();
+    }, { rang: depart.rang });
+    const photo = async (nom, pignon = false) => {
+      if (!capture) return;
+      const libre3d = page.locator('[data-commande="toit.vueLibre"]');
+      if (await libre3d.isEnabled()) await libre3d.click();
+      await page.waitForTimeout(300);
+      await (pignon ? cadrerPignon() : cadrer(0));
+      await image3dStable(page, 2000);
+      await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
+    };
     const regler = (groupe, valeur) => etape(groupe + ' ' + valeur, async () => {
       await page.locator('.inspecteurToit [data-commande="toit.regler"][data-groupe="' + groupe + '"][data-valeur="' + valeur + '"]').click({ timeout: 10000 });
       await page.waitForFunction(({ g, v }) => document.querySelector('.inspecteurToit [data-groupe="' + g + '"][data-valeur="' + v + '"]')?.getAttribute('aria-pressed') === 'true', { g: groupe, v: valeur }, { timeout: 10000 });
@@ -4253,7 +4271,7 @@ const POINTS = {
     await etape('pastille du pignon', () => page.locator('.puceToit[data-type="pignon"][data-rang="' + depart.rang + '"][data-i="' + i + '"]').click({ timeout: 10000 }));
     await regler('pointe', 'demi-croupe');
     const pointe = await lire();
-    await photo('5-pignon-cul-de-geai');
+    await photo('5-pignon-cul-de-geai', true);
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(400);
     const pointeAnnulee = await lire();
