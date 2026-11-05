@@ -31,6 +31,8 @@ import { silhouetteDeFace, tronconsDeFace } from '../toits/silhouetteDesCorps.js
 import { boutAuMur, pignonsAuxPlaces, type PlacePignon } from '../toits/pignons.js';
 import { elementPoseSurLeMur } from '../toits/elementsDesMurs.js';
 import { repere } from '../../toits/toitCorps.js';
+import { corpsAvecBout, demiCroupeNeuve } from '../../toits/culDeGeai.js';
+import { boutsDuCorps } from '../../../model/formeToit.js';
 import { avisDesPointes, reglagesIa } from './ia.js';
 import { objectifsEnchainement, type Objectifs } from './enchainement.js';
 import { SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
@@ -40,7 +42,7 @@ import type { ObservationsFacade } from '../../../regles/facades/observations.js
 import type { CorpsToit, PignonToit } from '../../../model/types.js';
 
 /** Ce qu'une proposition change au corps (la taxonomie du §5 bis que le moteur sait poser). */
-export type NatureForme = 'ajouter-pignon' | 'retirer-pignon' | 'deplacer-pignon' | 'pignon-vers-croupe' | 'croupe-vers-pignon';
+export type NatureForme = 'ajouter-pignon' | 'retirer-pignon' | 'deplacer-pignon' | 'pignon-vers-croupe' | 'croupe-vers-pignon' | 'vers-demi-croupe' | 'demi-croupe-vers-pignon' | 'demi-croupe-vers-croupe' | 'pointe-en-demi-croupe';
 /** D'ou elle vient : le haut lu sur la photo (le deterministe), Claude, ou les deux d'accord. */
 export type ProvenanceForme = 'deterministe' | 'ia' | 'les-deux';
 
@@ -63,8 +65,10 @@ export interface PropositionForme {
   natures: NatureForme[];
   /** Un long pan : ses pignons apres la proposition, dans le repere du corps (`debut`, `fin` le long du faitage depuis `pts[0]`). */
   pignons: Pick<PignonToit, 'pan' | 'debut' | 'fin'>[] | null;
-  /** Un mur de bout : ce qui le ferme apres la proposition. */
-  bout: BoutFait | null;
+  /** Un mur de bout : ce qui le ferme apres la proposition (un cul de geai : `demi-croupe`, 5 novembre 2026). */
+  bout: BoutFait | 'demi-croupe' | null;
+  /** Un long pan : la pointe du pignon coupee en cul de geai, le pignon designe par sa place `a` le long du mur (metres depuis sa gauche). */
+  pointe?: { a: number };
   /** La place sur la facade, de 0 a 1 le long du mur. */
   u0: number;
   u1: number;
@@ -302,24 +306,102 @@ function diagnosticDuPan(ctx: Contexte, t: TronconForme, c: CorpsToit): Omit<Pro
   };
 }
 
-const boutDe = (c: CorpsToit, cote: number): BoutFait => ((c.croupes?.[cote === 3 ? 0 : 1] ?? 0) > 0 ? 'croupe' : 'pignon');
+const boutDe = (c: CorpsToit, cote: number): BoutFait | 'demi-croupe' => {
+  const b = boutsDuCorps(c)[cote === 3 ? 0 : 1];
+  return b.type === 'demi-croupe' ? 'demi-croupe' : b.type === 'croupe' && b.profondeurM > 0 ? 'croupe' : 'pignon';
+};
 
-/** Le mur de bout d'un corps : une croupe a la place de son pignon, ou l'inverse, si le haut lu l'explique mieux. */
+/** Les parts du pignon qu'un cul de geai essaye coupe, de la pointe (culDeGeai.ts) : le quart, le tiers, la moitie. */
+const PARTS_CUL_DE_GEAI = [0.25, 0.33, 0.5];
+
+/**
+ * Le mur de bout d'un corps : une croupe a la place de son pignon, ou l'inverse (un pignon a la place d'un cul de geai), si le haut lu
+ * l'explique mieux ; sinon, sur un pignon, peut-etre un cul de geai (`culDeGeaiAuBout`). Une croupe proposee hier le reste.
+ */
 function diagnosticDuBout(ctx: Contexte, t: TronconForme, c: CorpsToit): Omit<PropositionForme, 'provenance' | 'observation'> | null {
   if (sansFaitage(c)) return null;
   const e0 = ecartSur(ctx.lu, ctx.g0, t.u0, t.u1);
-  if (e0 === null || e0 < ctx.obj['facades.enchainement.diagnosticEcartMin']) return null;
-  const autre: BoutFait = boutDe(c, t.cote) === 'pignon' ? 'croupe' : 'pignon';
-  const corps = boutAuMur(c, t.cote, autre);
-  if (corps === c) return null;
-  const g = ctx.avec(t.corps, corps), e = ecartSur(ctx.lu, g, t.u0, t.u1);
-  if (e === null || (e0 - e) / e0 < ctx.obj['facades.enchainement.diagnosticGainMin']) return null;
-  return { corps: t.corps, cote: t.cote, mur: t.mur, natures: [autre === 'croupe' ? 'pignon-vers-croupe' : 'croupe-vers-pignon'], pignons: null, bout: autre, u0: r3(t.u0), u1: r3(t.u1), ecartAvant: r3(e0), ecartApres: r3(e), gain: r3((e0 - e) / e0), gabarit: g };
+  const actuel = boutDe(c, t.cote), gainMin = ctx.obj['facades.enchainement.diagnosticGainMin'];
+  const autre: BoutFait = actuel === 'croupe' ? 'pignon' : 'croupe';
+  let p: Omit<PropositionForme, 'provenance' | 'observation'> | null = null;
+  if (e0 !== null && e0 >= ctx.obj['facades.enchainement.diagnosticEcartMin']) {
+    const corps = boutAuMur(c, t.cote, autre);
+    const g = corps === c ? null : ctx.avec(t.corps, corps), e = g ? ecartSur(ctx.lu, g, t.u0, t.u1) : null;
+    if (g && e !== null && (e0 - e) / e0 >= gainMin) {
+      const nature: NatureForme = actuel === 'demi-croupe' ? (autre === 'croupe' ? 'demi-croupe-vers-croupe' : 'demi-croupe-vers-pignon') : autre === 'croupe' ? 'pignon-vers-croupe' : 'croupe-vers-pignon';
+      p = { corps: t.corps, cote: t.cote, mur: t.mur, natures: [nature], pignons: null, bout: autre, u0: r3(t.u0), u1: r3(t.u1), ecartAvant: r3(e0), ecartApres: r3(e), gain: r3((e0 - e) / e0), gabarit: g };
+    }
+  }
+  // Un pignon (pas une croupe proposee) dont la pointe se lit coupee : peut-etre un cul de geai.
+  return p ?? (actuel === 'pignon' ? culDeGeaiAuBout(ctx, t, c) : null);
+}
+
+/**
+ * Un cul de geai au bout d'un corps (5 novembre 2026) : vue de la rue, la pointe d'un pignon coupee par un petit pan se lit plus basse
+ * que celle du pignon, et aplatie (la petite croupe fuit vers le faitage). On le juge sur le haut du pignon seulement (le tiers haut de
+ * sa montee, autour de sa pointe : ailleurs, les rampes sont les memes), pour la coupe qui l'explique le mieux, si elle explique ce haut
+ * mieux du gain minimal. Le moteur relit la coupe sur la mesure (pignons.ts::boutAuMur).
+ */
+function culDeGeaiAuBout(ctx: Contexte, t: TronconForme, c: CorpsToit, parClaude = false): Omit<PropositionForme, 'provenance' | 'observation'> | null {
+  const r = repere(c.pts), emax = Math.max(...c.egouts), k = t.cote === 3 ? 0 : 1;
+  if (!(c.posFaitage > 0.3 && c.posFaitage < r.W - 0.3) || c.faitage - emax < 0.5) return null;
+  const pointe = pointesDuGabarit(ctx.g0).filter((q) => q.u >= t.u0 && q.u <= t.u1).sort((a, b) => b.v - a.v)[0];
+  if (!pointe) return null;
+  // Le haut du pignon : la ou le gabarit passe les deux tiers de sa montee (la ou un cul de geai le changerait).
+  const seuil = 1 + (2 / 3) * (pointe.v - 1), haut = Array.from({ length: COLONNES }, (_, k) => uDe(k)).filter((u) => u >= t.u0 && u <= t.u1 && (surLigne(ctx.g0, u) ?? 0) >= seuil);
+  if (haut.length < 3) return null;
+  const a = Math.min(...haut), b = Math.max(...haut);
+  const e0 = ecartSur(ctx.lu, ctx.g0, a, b), ecartMin = ctx.obj['facades.enchainement.diagnosticEcartMin'];
+  if (e0 === null || (!parClaude && e0 < ecartMin)) return null;
+  let best: { corps: CorpsToit; g: GabaritMur; e: number } | null = null;
+  for (const part of PARTS_CUL_DE_GEAI) {
+    const corps = corpsAvecBout(c, k, demiCroupeNeuve(emax, c.faitage, Math.min(c.posFaitage, r.W - c.posFaitage), part));
+    const g = ctx.avec(t.corps, corps), e = ecartSur(ctx.lu, g, a, b);
+    if (e !== null && (!best || e < best.e)) best = { corps, g, e };
+  }
+  if (!best) return null;
+  // Claude dit « demi-croupe » : vue de face, la pointe d'un cul de geai a presque le contour d'un pignon ; le haut lu ne la confirme pas
+  // toujours, il suffit qu'il ne la contredise pas (le cul de geai l'explique a l'ecart minimal pres). La proposition est de Claude.
+  if (parClaude) return best.e <= Math.max(e0, ecartMin) ? { corps: t.corps, cote: t.cote, mur: t.mur, natures: ['vers-demi-croupe'], pignons: null, bout: 'demi-croupe', u0: r3(a), u1: r3(b), ecartAvant: null, ecartApres: null, gain: null, gabarit: best.g } : null;
+  if ((e0 - best.e) / e0 < ctx.obj['facades.enchainement.diagnosticGainMin']) return null;
+  return { corps: t.corps, cote: t.cote, mur: t.mur, natures: ['vers-demi-croupe'], pignons: null, bout: 'demi-croupe', u0: r3(a), u1: r3(b), ecartAvant: r3(e0), ecartApres: r3(best.e), gain: r3((e0 - best.e) / e0), gabarit: best.g };
+}
+
+/**
+ * La pointe d'un pignon d'un long pan coupee en cul de geai (5 novembre 2026) : pour chaque pignon dont la pointe est sur le troncon, la
+ * coupe qui explique le mieux le haut lu, si elle l'explique mieux du gain minimal. Le pignon se designe par le milieu de sa place le
+ * long du mur ; le moteur relit la coupe sur la mesure (pignons.ts::avecPointesDesMurs).
+ */
+function diagnosticDesPointes(ctx: Contexte, t: TronconForme, c: CorpsToit): Omit<PropositionForme, 'provenance' | 'observation'> | null {
+  if (sansFaitage(c)) return null;
+  const pan: 0 | 1 = t.cote === 0 ? 0 : 1, rc = repereDuCorps(ctx.e.facade, c), gainMin = ctx.obj['facades.enchainement.diagnosticGainMin'];
+  let best: { ea: number; e: number; g: GabaritMur; s: number; u0: number; u1: number } | null = null;
+  c.pignons.forEach((g, i) => {
+    if (g.pan !== pan || g.pointe || g.faitage - c.egouts[pan] < 0.6) return;
+    const sc = (g.debut + g.fin) / 2, u = rc.u(sc);
+    if (u < t.u0 || u > t.u1) return;
+    // Le haut du pignon : la ou le gabarit passe les deux tiers de sa montee, autour de sa pointe (comme au bout d'un corps).
+    const v = surLigne(ctx.g0, u) ?? 1, seuil = 1 + (2 / 3) * (v - 1), ua = Math.min(rc.u(g.debut), rc.u(g.fin)), ub = Math.max(rc.u(g.debut), rc.u(g.fin));
+    const haut = Array.from({ length: COLONNES }, (_, k) => uDe(k)).filter((x) => x >= Math.max(t.u0, ua) && x <= Math.min(t.u1, ub) && (surLigne(ctx.g0, x) ?? 0) >= seuil);
+    if (haut.length < 3) return;
+    const u0 = Math.min(...haut), u1 = Math.max(...haut), ea = ecartSur(ctx.lu, ctx.g0, u0, u1);
+    if (ea === null || ea < ctx.obj['facades.enchainement.diagnosticEcartMin']) return;
+    for (const part of PARTS_CUL_DE_GEAI) {
+      const pointe = demiCroupeNeuve(c.egouts[pan], g.faitage, (g.fin - g.debut) / 2, part);
+      const corps: CorpsToit = { ...c, pignons: c.pignons.map((x, j) => (j === i ? { ...x, pointe } : x)) };
+      const gg = ctx.avec(t.corps, corps), e = ecartSur(ctx.lu, gg, u0, u1);
+      if (e !== null && (ea - e) / ea >= gainMin && (!best || e / ea < best.e / best.ea)) best = { ea, e, g: gg, s: sc, u0, u1 };
+    }
+  });
+  if (!best) return null;
+  const b = best as { ea: number; e: number; g: GabaritMur; s: number; u0: number; u1: number };
+  return { corps: t.corps, cote: t.cote, mur: t.mur, natures: ['pointe-en-demi-croupe'], pignons: null, bout: null, pointe: { a: surLeMur(ctx.e.facade, t.mur, rc.u(b.s)) }, u0: r3(b.u0), u1: r3(b.u1), ecartAvant: r3(b.ea), ecartApres: r3(b.e), gain: r3((b.ea - b.e) / b.ea), gabarit: b.g };
 }
 
 /** L'observation que le moteur relira (corpsSousContrainte) : les pignons du long pan, ou le bout du mur, le corps designe par son mur. */
 function observationDe(p: Omit<PropositionForme, 'provenance' | 'observation'>, c: CorpsToit, azimut: number): ObservationFait {
   if (p.bout) return { boutsDesMurs: [{ mur: p.mur, bout: p.bout }] };
+  if (p.pointe) return { pointesDesMurs: [{ mur: p.mur, a: p.pointe.a, pointe: 'demi-croupe' }] };
   const places = placesSurLeMur(c, p.mur, (p.pignons ?? []).map(({ debut, fin }) => ({ debut, fin })));
   return { pignons: [{ facade: { azimutDeg: Math.round(azimut) }, mur: p.mur, position: 'places', places, haut: 'faitage' }] };
 }
@@ -355,6 +437,36 @@ function propositionsDeLIa(ctx: Contexte, ts: readonly TronconForme[], ia: Obser
     if (!natures.length) continue;
     out.push({ corps: t.corps, cote: t.cote, mur: t.mur, natures, pignons: corps.pignons.filter((p) => p.pan === pan).map(({ pan: q, debut, fin }) => ({ pan: q, debut, fin })), bout: null, u0: r3(Math.max(t.u0, a.u - 0.1)), u1: r3(Math.min(t.u1, a.u + 0.1)), ecartAvant: null, ecartApres: null, gain: null, gabarit: ctx.avec(t.corps, corps) });
   }
+  if (ia.forme.bout === 'demi-croupe') out.push(...culsDeGeaiDeLIa(ctx, ts, constats));
+  return out;
+}
+
+/**
+ * Claude dit que la facade ferme le toit par une demi-croupe (un cul de geai) et le haut ne se lit pas (5 novembre 2026) : sur le mur de
+ * bout d'un corps qui ne l'a pas, le cul de geai coupe au tiers ; sur un long pan, la pointe de son seul pignon. Plusieurs pignons : on
+ * ne sait lequel, rien n'est propose (le Mode Toit).
+ */
+function culsDeGeaiDeLIa(ctx: Contexte, ts: readonly TronconForme[], constats: string[]): Omit<PropositionForme, 'provenance' | 'observation'>[] {
+  const out: Omit<PropositionForme, 'provenance' | 'observation'>[] = [];
+  for (const t of ts) {
+    const c = ctx.e.corps[t.corps];
+    if (!c || sansFaitage(c)) continue;
+    if (t.cote === 1 || t.cote === 3) {
+      if (boutDe(c, t.cote) === 'demi-croupe') continue;
+      const corps = boutAuMur(c, t.cote, 'demi-croupe');
+      if (corps !== c) out.push({ corps: t.corps, cote: t.cote, mur: t.mur, natures: ['vers-demi-croupe'], pignons: null, bout: 'demi-croupe', u0: r3(t.u0), u1: r3(t.u1), ecartAvant: null, ecartApres: null, gain: null, gabarit: ctx.avec(t.corps, corps) });
+      continue;
+    }
+    const pan: 0 | 1 = t.cote === 0 ? 0 : 1, rc = repereDuCorps(ctx.e.facade, c);
+    const ici = c.pignons.map((g, i) => ({ g, i })).filter(({ g }) => g.pan === pan && !g.pointe && g.faitage - c.egouts[pan] >= 0.6 && rc.u((g.debut + g.fin) / 2) >= t.u0 && rc.u((g.debut + g.fin) / 2) <= t.u1);
+    if (ici.length > 1) { constats.push('Claude voit une demi-croupe sur cette façade, mais le corps ' + (t.corps + 1) + ' y a plusieurs pignons : rien n’est proposé (le Mode Toit).'); continue; }
+    const x = ici[0];
+    if (!x) continue;
+    const pointe = demiCroupeNeuve(c.egouts[pan], x.g.faitage, (x.g.fin - x.g.debut) / 2);
+    const corps: CorpsToit = { ...c, pignons: c.pignons.map((q, j) => (j === x.i ? { ...q, pointe } : q)) };
+    const sc = (x.g.debut + x.g.fin) / 2;
+    out.push({ corps: t.corps, cote: t.cote, mur: t.mur, natures: ['pointe-en-demi-croupe'], pignons: null, bout: null, pointe: { a: surLeMur(ctx.e.facade, t.mur, rc.u(sc)) }, u0: r3(Math.max(t.u0, Math.min(rc.u(x.g.debut), rc.u(x.g.fin)))), u1: r3(Math.min(t.u1, Math.max(rc.u(x.g.debut), rc.u(x.g.fin)))), ecartAvant: null, ecartApres: null, gain: null, gabarit: ctx.avec(t.corps, corps) });
+  }
   return out;
 }
 
@@ -362,6 +474,8 @@ function propositionsDeLIa(ctx: Contexte, ts: readonly TronconForme[], ia: Obser
 function confirmeeParLIa(p: Omit<PropositionForme, 'provenance' | 'observation'>, ia: ObservationsFacade, pres: number): boolean {
   const pointes = ia.calage.pointes;
   const dans = (u: number) => u >= p.u0 - pres && u <= p.u1 + pres;
+  // Un cul de geai (bout ou pointe) : Claude dit « demi-croupe » pour ce que la facade ferme.
+  if (p.bout === 'demi-croupe' || p.pointe) return ia.forme.bout === 'demi-croupe';
   if (p.bout) return (p.bout === 'croupe' && ia.forme.silhouette === 'trapeze') || (p.bout === 'pignon' && ia.forme.silhouette === 'triangle');
   if (p.natures.includes('retirer-pignon') && !p.natures.includes('ajouter-pignon') && !p.natures.includes('deplacer-pignon')) return !pointes.some((q) => dans(q.u));
   return pointes.some((q) => dans(q.u));
@@ -461,12 +575,22 @@ export function diagnostiquerForme(e: EntreesDiagnostic): DiagnosticForme {
     for (const t of troncons) {
       const c = e.corps[t.corps];
       if (!c) continue;
-      const p = t.cote === 0 || t.cote === 2 ? diagnosticDuPan(ctx, t, c) : diagnosticDuBout(ctx, t, c);
+      // Sur un long pan, un pignon de plus ou de moins d'abord ; sinon, peut-etre la pointe d'un pignon coupee en cul de geai.
+      const p = t.cote === 0 || t.cote === 2 ? diagnosticDuPan(ctx, t, c) ?? diagnosticDesPointes(ctx, t, c) : diagnosticDuBout(ctx, t, c);
       if (p) bruts.push(p);
     }
   }
   const ia = e.ia ?? null;
   if (ia && !lue) bruts.push(...propositionsDeLIa(ctx, troncons, ia, constats));
+  // Claude voit un cul de geai et le haut se lit : sur un bout en pignon sans autre proposition, s'il ne contredit pas le haut lu.
+  if (ia && lue && ia.forme.bout === 'demi-croupe') {
+    for (const t of troncons) {
+      const c = e.corps[t.corps];
+      if (!c || (t.cote !== 1 && t.cote !== 3) || boutDe(c, t.cote) !== 'pignon' || bruts.some((p) => p.corps === t.corps && p.cote === t.cote)) continue;
+      const p = culDeGeaiAuBout(ctx, t, c, true);
+      if (p) bruts.push(p); else constats.push('Claude voit un cul de geai (demi-croupe) sur le corps ' + (t.corps + 1) + ', que le haut lu sur la photo contredit : rien n’est proposé.');
+    }
+  }
   if (ia) {
     for (const x of ia.calage.corps) constats.push(`Claude voit un autre volume de u ${f2(x.debut)} à ${f2(x.fin)} (le découpage par corps vient du plan).`);
     if (lue) for (const a of avisDesPointes(ia, pointesDuGabarit(g0).filter((p) => p.u >= 0 && p.u <= 1))) {
@@ -491,14 +615,16 @@ export function direElement(p: Pick<PropositionElement, 'element' | 'u' | 'prove
 const NATURES: Readonly<Record<NatureForme, string>> = {
   'ajouter-pignon': 'un pignon de plus', 'retirer-pignon': 'un pignon de moins', 'deplacer-pignon': 'un pignon déplacé ou élargi',
   'pignon-vers-croupe': 'une croupe à la place du pignon', 'croupe-vers-pignon': 'un pignon à la place de la croupe',
+  'vers-demi-croupe': 'un cul de geai (demi-croupe) à ce bout', 'demi-croupe-vers-pignon': 'un pignon à la place du cul de geai',
+  'demi-croupe-vers-croupe': 'une croupe à la place du cul de geai', 'pointe-en-demi-croupe': 'la pointe du pignon coupée en cul de geai (demi-croupe)',
 };
 const PROVENANCES: Readonly<Record<ProvenanceForme, string>> = { deterministe: 'le haut lu sur la photo', ia: 'Claude seul', 'les-deux': 'le haut lu sur la photo et Claude' };
 const pct = (x: number) => Math.round(x * 100) + ' %';
 
 /** Ce qu'une proposition change, en clair : « un pignon de plus (pignons de 0 à 3,7 m et de 6,23 à 9,91 m le long du faîtage) ». */
-export function direChangement(p: Pick<PropositionForme, 'natures' | 'pignons' | 'bout'>): string {
+export function direChangement(p: Pick<PropositionForme, 'natures' | 'pignons' | 'bout' | 'pointe'>): string {
   const quoi = [...new Set(p.natures)].map((n) => NATURES[n]).join(', ');
-  if (p.bout) return quoi;
+  if (p.bout || p.pointe) return quoi;
   const pg = p.pignons ?? [];
   return quoi + (pg.length ? ' (' + (pg.length > 1 ? 'pignons ' : 'pignon ') + pg.map((x) => 'de ' + f2(x.debut) + ' à ' + f2(x.fin) + ' m').join(' et ') + ' le long du faîtage)' : ' (plus aucun pignon sur ce pan)');
 }

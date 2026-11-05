@@ -83,7 +83,7 @@ export function ficheEtalon(s: SceneFacade): FicheEtalon {
   const details = sansDoublon(s.verite.ouvertures.flatMap((o) => {
     const r = o.rendu;
     return [r?.volets ? 'volets ' + r.volets.type : null, r?.forme ?? null, r?.ebrasement ? 'ebrasement' : null, r?.carreaux ? 'petits bois' : null].filter((x): x is string => !!x);
-  }).concat(y.balcons?.some((b) => b.gardeCorps) ? ['garde-corps'] : [], m.bandeaux?.length ? ['bandeau'] : [], m.toit ? ['bande de toit'] : [], m.degrade ? ['eclairage en degrade'] : []));
+  }).concat(y.balcons?.some((b) => b.gardeCorps) ? ['garde-corps'] : [], m.bandeaux?.length ? ['bandeau'] : [], m.toit ? ['bande de toit'] : [], m.degrade ? ['eclairage en degrade'] : [], m.pignonCoupe ? ['cul de geai (demi-croupe)' + (m.pignonCoupe.debordFaitageM ? ', faitage debordant' : '')] : []));
   const pignonM = m.pignon ?? 0, partiesBasses = partiesBassesSynthese(s).length, distorsion = cameras.some((p) => !!p.distorsion);
   const biaisDeg = Math.max(0, ...cameras.map((p) => Math.abs(p.biais ?? 0)));
   const etapes: IdEtape[] = ['redressement'];

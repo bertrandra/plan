@@ -24,7 +24,8 @@ import { faitDuBatiment } from '../../../regles/toits/faits.js';
 import { toitChoisiALaMain } from './constats.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { Proposition } from '../../../regles/decisions.js';
-import type { CorpsToit, ObjetPlan, PtBrut, ToitMesure } from '../../../model/types.js';
+import type { BoutToit, CorpsToit, ObjetPlan, PtBrut, ToitMesure } from '../../../model/types.js';
+import { boutsDuCorps } from '../../../model/formeToit.js';
 
 /** Pourquoi la ligne arrive decochee : la decision 10 de la spec, dite a la personne. */
 const RESERVE_FORME = 'Une forme de toit lue sur la photo se confirme toujours : cochez-la si la photo montre bien ce changement. Le moteur des toits la relit sur ce corps ; les hauteurs du LiDAR restent.';
@@ -36,6 +37,9 @@ function direPignons(c: CorpsToit, pan: 0 | 1): string {
   const pg = c.pignons.filter((p) => p.pan === pan);
   return pg.length ? pg.length + ' pignon' + (pg.length > 1 ? 's' : '') + ' (' + pg.map((p) => 'de ' + f2(p.debut) + ' à ' + f2(p.fin) + ' m').join(' et ') + ' le long du faîtage)' : 'aucun pignon sur ce pan';
 }
+
+/** Ce qui ferme un bout d'un corps, en clair. */
+const direBout = (b: BoutToit): string => (b.type === 'demi-croupe' ? 'un cul de geai (demi-croupe) à ce bout' : b.type === 'croupe' && b.profondeurM > 0 ? 'une croupe à ce bout' : 'un pignon à ce bout');
 
 /** Pourquoi une cheminee ou une lucarne arrive decochee (decision 10), et ce qui ne bouge pas. */
 const RESERVE_ELEMENT = 'Un élément du toit lu sur la photo se confirme toujours : cochez-le si la photo le montre bien. Le moteur des toits le pose sur ce corps ; ce que le toit porte déjà ne bouge pas.';
@@ -98,7 +102,7 @@ export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
         out.push({
           id: b.cle + ':forme:' + f.cote + ':' + k + ':' + p.cote, cible: { type: 'batiment', cle: b.cle },
           objet: 'Toit de ' + b.nom + ', corps ' + (k + 1) + ' (vu sur la ' + mur + ')', source: 'mesure',
-          avant: p.bout ? (avant.croupes?.[p.cote === 3 ? 0 : 1] ? 'une croupe à ce bout' : 'un pignon à ce bout') : direPignons(avant, pan),
+          avant: p.pointe ? 'la pointe du pignon en triangle' : p.bout ? direBout(boutsDuCorps(avant)[p.cote === 3 ? 0 : 1]) : direPignons(avant, pan),
           apres: direChangement(p) + ', ' + direPreuve(p),
           indices: [
             { texte: 'Le haut de la ' + mur + ', lu sur la photo, comparé à la silhouette que ce corps lui donne (le gabarit).', ...(m?.rangReleve !== null && m?.rangReleve !== undefined ? { photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } } : {}) },

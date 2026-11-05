@@ -1,0 +1,111 @@
+{
+  "nom": "28-cul-de-geai-enduit",
+  "description": "Mur pignon en enduit dont la pointe est coupée par un petit pan (un cul de geai : demi-croupe, nez de veau, bout rabattu, croupette) : le mur s'arrête en trapèze au tiers haut du pignon, la petite croupe en tuiles se voit au-dessus. Le plan le dessine en pignon : l'É7 doit proposer le cul de geai, pas une croupe (demande du propriétaire du 5 novembre 2026).",
+  "difficultes": [
+    "pignon",
+    "cul-de-geai",
+    "demi-croupe",
+    "enduit"
+  ],
+  "verite": {
+    "largeur": 8,
+    "hauteur": 5.2,
+    "coins": [
+      {
+        "x": 375.32,
+        "y": 424.82
+      },
+      {
+        "x": 921.24,
+        "y": 409.08
+      },
+      {
+        "x": 946.59,
+        "y": 794.68
+      },
+      {
+        "x": 352.99,
+        "y": 787.14
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 0.9,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "porte",
+        "x": 3.5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 5.8,
+        "y": 0.9,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 3.4,
+        "l": 1.1,
+        "h": 1.3
+      },
+      {
+        "type": "fenetre",
+        "x": 5.8,
+        "y": 3.4,
+        "l": 1.1,
+        "h": 1.3
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 28,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          226,
+          214,
+          192
+        ],
+        "taches": 5
+      },
+      "pignon": 3.6,
+      "pignonCoupe": {
+        "part": 0.33,
+        "toit": [
+          164,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 13,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 6,
+      "tangage": 12,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

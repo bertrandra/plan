@@ -410,6 +410,12 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   peinture verte est un aplat) ; ses tronçons vont dans `hautMasque`, que l'É7 et le bilan sautent. L'affinage de l'égout et du sol
   (`affinerEgoutEtSol`, l'É5 des repères) n'en est pas changé. Étalon 27 : l'arbre devant le pignon ; il n'a pas encore de plancher au
   garde-fou de la lecture (`scenes-ajoutees.json`), à fixer au prochain run « Vérifier l'API Claude ».
+- **Le cul de geai** (demi-croupe ; aussi nez de veau, bout rabattu, croupette ; 5 novembre 2026) : les étalons 28 (enduit, la pointe
+  coupée au tiers) et 29 (brique, coupée à moitié, faîtage débordant d'un mètre, de biais) peignent un pignon tronqué en trapèze et, au-
+  dessus, la petite croupe en tuiles, raccourcie comme vue de la rue (`synthese.ts`, `pignonCoupe`, `RACCOURCI_CROUPE`) ; leur gabarit
+  vrai est le trapèze. L'É7 (`diagnosticForme.ts::culDeGeaiAuBout`) juge un cul de geai sur le tiers haut du pignon : à l'étalon 28 il
+  le propose (gain 99 %) sur le pignon du projet ; à l'étalon 29 (mur à confirmer, haut lu jusqu'à la pointe) seulement avec Claude
+  (« demi-croupe »). Ni l'un ni l'autre n'a encore de plancher au garde-fou de la lecture, à fixer au prochain run « Vérifier l'API Claude ».
   Suites (5 novembre 2026) : les creux étroits du haut lu (un poteau peint) ne sont pas lus (`retirerLesCreux`) ; un aplat et son bord
   ne sont pas du feuillage (`CHANGE_FEUILLE`) ; la couronne d'un arbre dans la bande au-dessus de l'égout est tenue pour non vue
   (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É5 se posait sur le bas de son bandeau vert, pas sur l'arbre : le

@@ -9,6 +9,7 @@ import { repere } from '../toits/toitCorps.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
 import { boutsDuCorps } from '../../model/formeToit.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
+import { corpsAvecBout, demiCroupeNeuve } from '../toits/culDeGeai.js';
 import type { BoutToit, CorpsToit, DemiCroupe, PignonToit, ProfilPan } from '../../model/types.js';
 
 /** Un groupe de choix : son nom technique, ce qu'il dit a l'ecran, et ses valeurs (elements.ts, `GroupeChoix`). */
@@ -66,16 +67,6 @@ export const queueDeVacheReglable = (c: CorpsToit): boolean => deuxPansReglables
 
 /** La part du pignon que la demi-croupe coupe (de la pointe), sur un pignon d'egout `e` et de faitage `F`. */
 const partDe = (b: DemiCroupe, e: number, F: number): number => (F - Math.min(F, e + b.hauteurPignonM)) / Math.max(F - e, 1e-6);
-
-/**
- * Un cul de geai neuf sur un pignon d'egout `e`, de faitage `F`, dont les pans s'elevent de `F - e` sur `largeur` a plat : la pointe
- * coupee au tiers, la petite croupe a la pente des pans (le pied sur le mur, le faitage sans debord).
- */
-export function demiCroupeNeuve(e: number, F: number, largeur: number, part = 0.33, debordFaitageM = 0): DemiCroupe {
-  const coupe = (F - e) * part, k = (F - e) / Math.max(largeur, 0.5);
-  const b: DemiCroupe = { type: 'demi-croupe', profondeurM: centi(Math.max(0.3, coupe / Math.max(k, 0.2))), hauteurPignonM: centi(Math.max(0.1, F - e - coupe)) };
-  return debordFaitageM > 0 ? { ...b, debordFaitageM } : b;
-}
 
 /** La meme demi-croupe coupee a une autre part, la pente de la petite croupe gardee. */
 function avecPart(b: DemiCroupe, e: number, F: number, part: number): DemiCroupe {
@@ -163,20 +154,14 @@ export function valeurBout(c: CorpsToit, groupe: string, pignon: PignonToit | nu
   return String(proche(PARTS_COUPE, partDe(dc, e, F), 0.04) ?? '') || null;
 }
 
-/** Le corps avec ce bout ; les croupes suivent (un lecteur qui ne lit que `croupes` voit un pignon au bout en cul de geai). */
+/** Le corps avec ce bout : un pignon, une croupe a la pente des pans, ou un cul de geai (celui qu'il a deja, ou un neuf, regle). */
 function avecBout(c: CorpsToit, i: 0 | 1, type: string, regler: (b: DemiCroupe) => DemiCroupe = (b) => b): CorpsToit {
-  const r = repere(c.pts), bouts = [...boutsDuCorps(c)] as [BoutToit, BoutToit], avant = bouts[i];
+  const r = repere(c.pts), avant = boutsDuCorps(c)[i];
   const emax = Math.max(...c.egouts), largeur = Math.min(c.posFaitage, r.W - c.posFaitage);
-  if (type === 'pignon') bouts[i] = { type: 'pignon' };
-  else if (type === 'croupe') bouts[i] = avant.type === 'croupe' ? avant : { type: 'croupe', profondeurM: centi(Math.min(largeur, r.L / 2 - 0.1)) };
-  else if (type === 'demi-croupe') bouts[i] = regler(avant.type === 'demi-croupe' ? avant : demiCroupeNeuve(emax, c.faitage, largeur));
-  else return c;
-  const neuf: CorpsToit = { ...c };
-  const croupes = bouts.map((b) => (b.type === 'croupe' ? b.profondeurM : 0)) as [number, number];
-  if (croupes.some((h) => h > 0)) neuf.croupes = croupes; else delete neuf.croupes;
-  // Pignons et croupes seuls : `croupes` les dit, les bouts ne s'ecrivent pas (le dessin d'avant).
-  if (bouts.every((b) => b.type === 'pignon' || b.type === 'croupe')) delete neuf.bouts; else neuf.bouts = bouts;
-  return neuf;
+  if (type === 'pignon') return corpsAvecBout(c, i, { type: 'pignon' });
+  if (type === 'croupe') return corpsAvecBout(c, i, avant.type === 'croupe' ? avant : { type: 'croupe', profondeurM: centi(Math.min(largeur, r.L / 2 - 0.1)) });
+  if (type === 'demi-croupe') return corpsAvecBout(c, i, regler(avant.type === 'demi-croupe' ? avant : demiCroupeNeuve(emax, c.faitage, largeur)));
+  return c;
 }
 
 /** Le pan `n` en queue de vache de debord `d` (0 : l'egout redevient droit), ou avec sa pente adoucie a `deg`. */

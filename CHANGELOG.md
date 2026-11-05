@@ -22,6 +22,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - tout se fait dans la session du Mode Toit (Ctrl+Z, « Valider » fige le toit), et rien du moteur ne change : AE 101 identique.
   Schéma 15 (une seule montée, bertrandra/backprod à déployer d'abord) : `debordFaitageM` d'un bout en demi-croupe, `pointe` d'un pignon,
   `debordM` d'un pan en coyau. Seul un bâtiment qui en porte s'écrit au 15. Fumée : point 134.
+- Découverte du **cul de geai** (demi-croupe), en propositions décochées, jamais un changement silencieux du moteur (AE 101 identique) :
+  - **LiDAR** : la coupe du faîtage se lit au bout de chaque corps et au faîtage de chaque pignon traversant (`facade/toits/culDeGeai.ts`,
+    aux seuils de la lecture des formes) ; l'audit la propose sur ce corps ou ce pignon, et le moteur des toits la relit ;
+  - **É7** (diagnostic de forme) : sur un mur de bout en pignon, un cul de geai quand la pointe se lit coupée (jugé sur le tiers haut du
+    pignon) ; sur un long pan, la pointe d'un pignon coupée ; Claude qui dit « demi-croupe » le propose aussi, sans haut lu ou quand le
+    haut lu ne le contredit pas. Une croupe proposée hier le reste. Le moteur relit la coupe sur la mesure (`boutsDesMurs`
+    « demi-croupe », `pointesDesMurs`) ;
+  - **étalons 28 et 29** (cul de geai en enduit ; en brique, faîtage débordant, de biais) : l'É7 propose le cul de geai sur le 28 ; le 29
+    reste le cas difficile (mur à confirmer, il ne se propose qu'avec Claude). Bancs des façades inchangés sur les étalons d'avant.
 
 ### Corrigé
 
