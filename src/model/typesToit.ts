@@ -55,6 +55,11 @@ export interface PignonToit {
    * de la facade, le toit du pignon avance avec eux. Absente ou nulle, le pignon est au nu du mur.
    */
   saillieM?: number;
+  /**
+   * La pointe du pignon coupee par un petit pan (schema 15, demande du proprietaire du 5 novembre 2026) : un cul de geai, mesure depuis
+   * le mur du pignon (son egout est celui du pan du corps). Absente : la pointe en triangle, le dessin d'avant.
+   */
+  pointe?: DemiCroupe;
 }
 
 /** Le doute sur la toiture d'un batiment a cheval sur deux parcelles, et sa reponse (model/aCheval.ts). */
@@ -220,18 +225,29 @@ export type ProfilPan =
   | { type: 'droit' }
   /** La ligne de bris : a `largeurBrisisM` du mur, a `hauteurBrisM` au-dessus du sol. */
   | { type: 'brise'; largeurBrisisM: number; hauteurBrisM: number }
-  /** Le bas du pan, adouci sur `largeurM`, a `penteDeg`. */
-  | { type: 'coyau'; largeurM: number; penteDeg: number }
+  /**
+   * Le bas du pan, adouci sur `largeurM`, a `penteDeg`. `debordM` (schema 15) : la queue de vache, le debord de cet egout au-dela du mur,
+   * a la pente adoucie, sous-face fermee ; absent, le debord du corps (le dessin d'avant).
+   */
+  | { type: 'coyau'; largeurM: number; penteDeg: number; debordM?: number }
   /** L'ecart de l'arc a la corde, en metres. */
   | { type: 'courbe'; flecheM: number };
+
+/** Un bout en demi-croupe (cul de geai), sur un corps ou a la pointe d'un pignon (`PignonToit.pointe`). */
+export interface DemiCroupe { type: 'demi-croupe'; profondeurM: number; hauteurPignonM: number; debordFaitageM?: number }
 
 /** Ce qui ferme un bout du faitage (MD/spec-regles-toits.md §4). */
 export type BoutToit =
   | { type: 'pignon' }
   /** La distance a plat du mur de bout au bout du faitage, comme `croupes`. */
   | { type: 'croupe'; profondeurM: number }
-  /** Une courte croupe sur un petit pignon, haut de `hauteurPignonM` au-dessus de l'egout. */
-  | { type: 'demi-croupe'; profondeurM: number; hauteurPignonM: number }
+  /**
+   * Une courte croupe sur un petit pignon, haut de `hauteurPignonM` au-dessus de l'egout : le cul de geai (nez de veau, bout rabattu,
+   * croupette). `profondeurM` : la distance a plat du pied de la croupe au bout du faitage. `debordFaitageM` (schema 15) : le faitage
+   * depasse le mur de bout d'autant et porte la croupe en avant, son pied a cette distance devant le mur ; absent ou nul, le pied est sur
+   * le mur (le dessin d'avant).
+   */
+  | DemiCroupe
   /** Le brisis d'un Mansart au bout, large de `largeurM` a plat. */
   | { type: 'brisis'; largeurM: number }
   /** Un pignon a gradins : un mur, sans effet sur le toit. */

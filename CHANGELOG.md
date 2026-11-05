@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Mode Toit : **le cul de geai** (demande du propriétaire, 5 novembre 2026 ; aussi nez de veau, bout rabattu, croupette, demi-croupe) et
+  **la queue de vache** (un coyau qui déborde), dessinés sur un corps existant avec les mêmes boutons-images que les autres réglages :
+  - chaque bout du faîtage d'un corps à deux pans se choisit **pignon, croupe ou cul de geai** (« Bout nord », « Bout sud »…) ; un cul de
+    geai règle la **part du pignon coupée** (le quart, le tiers, la moitié) et le **débord du faîtage** au-delà du mur (0, 0,5 ou 1 m) :
+    à 0, le petit pan se pose sur le pignon tronqué en trapèze ; au-delà de la rive, le faîtage porte la croupe en avant (un capuchon,
+    l'arêtier qui descend en biais et revient vers le mur, une sous-face au pied, le mur arrêté au pied) ; le débord d'égout du corps
+    prolonge les pans et la croupe à leur pente ;
+  - la **pointe d'un pignon** (élément pignon d'une façade) se coupe de même : en triangle ou en cul de geai, avec sa part et son débord ;
+  - la **queue de vache** d'un pan : un débord de l'égout de 0,6, 0,9 ou 1,2 m, à la **pente adoucie** (10 à 25°, la cassure à 0,8 m du
+    mur au plus), sous-face fermée ; elle se pose sur un corps dont les bouts sont des pignons. La vignette « Coyau » du catalogue
+    s'appelle « Queue de vache (coyau) » et déborde de 0,9 m ; « Demi-croupe » s'appelle « Cul de geai » ;
+  - les pans d'un corps à cul de geai sont entaillés sous ses pignons traversants (comme ceux d'un deux-pans), un pan en coyau aussi ;
+  - tout se fait dans la session du Mode Toit (Ctrl+Z, « Valider » fige le toit), et rien du moteur ne change : AE 101 identique.
+  Schéma 15 (une seule montée, bertrandra/backprod à déployer d'abord) : `debordFaitageM` d'un bout en demi-croupe, `pointe` d'un pignon,
+  `debordM` d'un pan en coyau. Seul un bâtiment qui en porte s'écrit au 15. Fumée : point 134.
+
 ### Corrigé
 
 - Façades, É6 (silhouette lue), suites de la végétation :

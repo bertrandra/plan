@@ -203,6 +203,12 @@ fenêtres, ses pignons) ou porte un garde-corps entre les poteaux d'un appentis 
 sont liés (`boutsLies`) : arêtier, rive basse continue. La personne règle tout cela, et coupe ou réunit des corps (sans jamais ouvrir un toit), au Mode Toit (`MD/spec-mode-toit-3d.md`, « Modifier ce qui
 existe ») : des décisions figées (`toitFige`), jamais une règle du moteur. Un appentis adossé à un autre corps n'a ni rive ni débord
 au-delà de son mur haut (`appentisAdosse`) : son toit s'arrête au nu des murs ; ses fenêtres ne sont pas posées s'il est ouvert.
+**Cul de geai** (demi-croupe ; aussi nez de veau, bout rabattu, croupette ; libellé « Cul de geai » à l'écran, identifiants `demi-croupe`
+inchangés) et **queue de vache** (coyau qui déborde), schéma 15 : un bout de corps ou la pointe d'un pignon (`PignonToit.pointe`) en
+demi-croupe, son faîtage qui peut déborder le mur (`debordFaitageM` : la croupe portée en avant, un capuchon au-delà de la rive, sous-face
+au pied) ; le débord d'un pan en coyau (`ProfilPan.debordM`). Une règle de plan pour tous (`toitFormes.ts::coupeDemiCroupe`) ; les pans à
+cul de geai ou en coyau sont entaillés sous les pignons traversants (`entaillerPourPignons`). Posés au Mode Toit seulement
+(`facade/modeToit/bouts.ts`, `MD/spec-mode-toit-3d.md`) : le moteur n'en produit pas de lui-même hors de la lecture des formes (§5 bis).
 
 ## 4 bis. La couleur des murs et des toits
 

@@ -8,7 +8,7 @@
 // pignons et les cheminees (io/serialisation.ts).
 
 import { boutsDuCorps } from './formeToit.js';
-import type { BordsToit, BoutToit, ElementDeToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TraveeMur, TypeLucarne } from './types.js';
+import type { BordsToit, BoutToit, DemiCroupe, ElementDeToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TraveeMur, TypeLucarne } from './types.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -20,7 +20,11 @@ export function profilPanValide(v: unknown): ProfilPan | null {
   if (!objet(v)) return null;
   if (v.type === 'droit') return { type: 'droit' };
   if (v.type === 'brise' && positif(v.largeurBrisisM) && positif(v.hauteurBrisM)) return { type: 'brise', largeurBrisisM: v.largeurBrisisM, hauteurBrisM: v.hauteurBrisM };
-  if (v.type === 'coyau' && positif(v.largeurM) && positif(v.penteDeg) && v.penteDeg < 90) return { type: 'coyau', largeurM: v.largeurM, penteDeg: v.penteDeg };
+  if (v.type === 'coyau' && positif(v.largeurM) && positif(v.penteDeg) && v.penteDeg < 90) {
+    // La queue de vache (schema 15) : un debord de l'egout, borne ; mal forme, il est retire et le coyau reste.
+    const base = { type: 'coyau' as const, largeurM: v.largeurM, penteDeg: v.penteDeg };
+    return positif(v.debordM) && v.debordM <= DEBORD_QUEUE_DE_VACHE_MAX_M ? { ...base, debordM: v.debordM } : base;
+  }
   if (v.type === 'courbe' && positif(v.flecheM)) return { type: 'courbe', flecheM: v.flecheM };
   return null;
 }
@@ -28,13 +32,28 @@ export function profilPanValide(v: unknown): ProfilPan | null {
 /** L'avancee d'un pignon au-dela du mur ne depasse pas cette longueur, en metres (PignonToit.saillieM). */
 export const SAILLIE_PIGNON_MAX_M = 2.5;
 
+/** Le debord d'une queue de vache ne depasse pas cette longueur, en metres. */
+export const DEBORD_QUEUE_DE_VACHE_MAX_M = 2;
+/** Le debord du faitage d'un cul de geai, en metres (facade/toits/toitFormes.ts, DEBORD_FAITAGE_MAX_M). */
+const DEBORD_FAITAGE_LU_MAX_M = 2.5;
+
+/**
+ * Une demi-croupe (cul de geai) bien formee, sur un bout de corps ou a la pointe d'un pignon ; null sinon. Son debord de faitage (schema
+ * 15) n'est garde que positif et borne : nul, il ne s'ecrit pas (le dessin d'avant).
+ */
+export function demiCroupeValide(v: unknown): DemiCroupe | null {
+  if (!objet(v) || v.type !== 'demi-croupe' || !positif(v.profondeurM) || !positif(v.hauteurPignonM)) return null;
+  const base: DemiCroupe = { type: 'demi-croupe', profondeurM: v.profondeurM, hauteurPignonM: v.hauteurPignonM };
+  return positif(v.debordFaitageM) && v.debordFaitageM <= DEBORD_FAITAGE_LU_MAX_M ? { ...base, debordFaitageM: v.debordFaitageM } : base;
+}
+
 /** Un bout bien forme ; null sinon. Une croupe de profondeur nulle est un pignon, comme `croupes`. */
 export function boutToitValide(v: unknown): BoutToit | null {
   if (!objet(v)) return null;
   if (v.type === 'pignon') return { type: 'pignon' };
   if (v.type === 'redents') return { type: 'redents' };
   if (v.type === 'croupe' && positifOuNul(v.profondeurM)) return { type: 'croupe', profondeurM: v.profondeurM };
-  if (v.type === 'demi-croupe' && positif(v.profondeurM) && positif(v.hauteurPignonM)) return { type: 'demi-croupe', profondeurM: v.profondeurM, hauteurPignonM: v.hauteurPignonM };
+  if (v.type === 'demi-croupe') return demiCroupeValide(v);
   if (v.type === 'brisis' && positif(v.largeurM)) return { type: 'brisis', largeurM: v.largeurM };
   return null;
 }
@@ -96,6 +115,14 @@ export function lireChampsEtendus(c: Record<string, unknown>): void {
     if (l.length) c.lucarnes = l; else delete c.lucarnes;
   }
   if ('bords' in c) { const b = bordsValides(c.bords); if (b) c.bords = b; else delete c.bords; }
+  // La pointe d'un pignon en cul de geai (schema 15) : verifiee, retiree si elle est mal formee (le pignon garde sa pointe en triangle).
+  if (Array.isArray(c.pignons) && c.pignons.some((g) => objet(g) && 'pointe' in g)) {
+    c.pignons = c.pignons.map((g) => {
+      if (!objet(g) || !('pointe' in g)) return g;
+      const { pointe, ...reste } = g, p = demiCroupeValide(pointe);
+      return p ? { ...reste, pointe: p } : reste;
+    });
+  }
   if ('ouvert' in c && typeof c.ouvert !== 'boolean') delete c.ouvert;
   if ('retraitM' in c && !positifOuNul(c.retraitM)) delete c.retraitM;
   if ('travees' in c) {

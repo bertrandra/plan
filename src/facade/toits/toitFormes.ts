@@ -15,7 +15,7 @@
 
 import { couperDemiPlan } from './toit.js';
 import { signedArea } from '../../geometry/basic.js';
-import type { BoutToit, CorpsToit, ElementDeToit, Lucarne, PtBrut } from '../../model/types.js';
+import type { BoutToit, CorpsToit, DemiCroupe, ElementDeToit, Lucarne, PignonToit, PtBrut } from '../../model/types.js';
 
 import { estSpecial, facettesSpeciales, hauteurSpeciale, type Sommet, type Debords } from './toitSpeciaux.js';
 export type { Sommet, Debords };
@@ -69,12 +69,15 @@ function brisDe(c: CorpsForme, n: 0 | 1, W: number): { lb: number; hb: number } 
  */
 export function formeEtendue(c: CorpsForme, L: number, W: number): FormeEtendue | null {
   const p = c.posFaitage;
-  if (c.faitage - Math.min(...c.egouts) < 0.05 || !(p > 0.01 && p < W - 0.01) || c.pignons?.length) return null;
+  if (c.faitage - Math.min(...c.egouts) < 0.05 || !(p > 0.01 && p < W - 0.01)) return null;
   const bris: FormeEtendue['bris'] = [brisDe(c, 0, W), brisDe(c, 1, W)];
   const bouts = boutsDe(c);
   const brisis = bouts.filter((b) => b.type === 'brisis').length, demi = bouts.filter((b) => b.type === 'demi-croupe').length;
   const croupe = bouts.some((b) => b.type === 'croupe');
   if (!bris[0] && !bris[1] && !brisis && !demi) return null;
+  // Des pignons traversants : seulement sur des pans droits a demi-croupe (le dessin les entaille, `entaillerPourPignons`). Un pan brise
+  // ou un brisis avec des pignons reste au dessin d'avant (null), comme avant le 5 novembre 2026.
+  if (c.pignons?.length && (brisis || bris[0] || bris[1])) return null;
   if (brisis) return brisis === 2 && bris[0] && bris[1] && L > 0 ? { bris, bouts, famille: 'mansart' } : null;
   if (bris[0] || bris[1]) return !croupe && !demi ? { bris, bouts, famille: 'gambrel' } : null;
   return { bris, bouts, famille: 'demi-croupe' };
@@ -86,6 +89,19 @@ function hauteurPan(c: CorpsForme, W: number, n: 0 | 1, d: number, bris: { lb: n
   if (!bris || d <= bris.lb) return e + ((bris ? bris.hb : F) - e) * d / (bris ? bris.lb : largeur);
   return bris.hb + (F - bris.hb) * (d - bris.lb) / (largeur - bris.lb);
 }
+
+/**
+ * La coupe d'une demi-croupe (cul de geai) : la hauteur `zc` du pied de la petite croupe (le haut du pignon tronque), sa pente `g` (la
+ * montee par metre a plat, du pied vers le faitage), et le debord `D` du faitage devant le mur. `egout` : l'egout le plus haut des deux
+ * pans qu'elle coupe ; `F` : le faitage. Une seule regle pour le bout d'un corps et la pointe d'un pignon.
+ */
+export function coupeDemiCroupe(b: DemiCroupe, egout: number, F: number): { zc: number; g: number; D: number } {
+  const h = Math.max(b.profondeurM, MIN_M), zc = Math.min(egout + Math.max(b.hauteurPignonM, 0.1), F - 0.05);
+  return { zc, g: (F - zc) / h, D: Math.max(0, Math.min(DEBORD_FAITAGE_MAX_M, b.debordFaitageM ?? 0)) };
+}
+
+/** Le debord du faitage d'une demi-croupe ne depasse pas cette longueur, en metres (au-dela, c'est un auvent, pas un toit). */
+export const DEBORD_FAITAGE_MAX_M = 2.5;
 
 /** Les plans qui bornent le toit par le haut : ses pans (un par pente), puis ses bouts. */
 function plansDe(c: CorpsForme, L: number, W: number, f: FormeEtendue): Plan[] {
@@ -109,8 +125,9 @@ function plansDe(c: CorpsForme, L: number, W: number, f: FormeEtendue): Plan[] {
       const h = Math.max(b.profondeurM, MIN_M), g = (F - eT(p)) / h;
       plans.push(dep({ a: g, b: base.b, c: base.c }));
     } else if (b.type === 'demi-croupe') {
-      const h = Math.max(b.profondeurM, MIN_M), zc = Math.min(Math.max(e0, e1) + Math.max(b.hauteurPignonM, 0.1), F - 0.05);
-      plans.push(dep({ a: (F - zc) / h, b: 0, c: zc }));
+      // Le pied de la petite croupe est a zc, a D devant le mur (le faitage qui deborde la porte en avant) ; D nul : sur le mur.
+      const { zc, g, D } = coupeDemiCroupe(b, Math.max(e0, e1), F);
+      plans.push(dep({ a: g, b: 0, c: zc + g * D }));
     } else if (b.type === 'brisis') {
       const [b0, b1] = f.bris as [{ lb: number; hb: number }, { lb: number; hb: number }];
       const w = Math.max(b.largeurM, MIN_M);
@@ -153,32 +170,101 @@ function sansDoublons(poly: PtBrut[]): PtBrut[] {
   return out;
 }
 
-/** Les facettes planes du toit, dans le repere du corps. `debord` : l'egout (en t) et la rive (en s) que le dessin prolonge. */
+/** Les facettes d'un ensemble de plans sur une region convexe : la part ou chacun est le plus bas, coupee encore par `garder` (f <= 0). */
+function facettesMin(region: PtBrut[], plans: readonly Plan[], garder: (p: Plan) => readonly ((m: PtBrut) => number)[] = () => []): Sommet[][] {
+  const out: Sommet[][] = [];
+  plans.forEach((p, i) => {
+    let poly = region;
+    for (let j = 0; j < plans.length && poly.length >= 3; j++) {
+      if (j === i) continue;
+      const q = plans[j] as Plan;
+      poly = couperDemiPlan(poly, (m) => zDe(p, m.x, m.y) - zDe(q, m.x, m.y));
+    }
+    for (const f of garder(p)) if (poly.length >= 3) poly = couperDemiPlan(poly, f);
+    poly = sansDoublons(poly);
+    if (poly.length >= 3 && Math.abs(signedArea(poly)) > 1e-3) out.push(poly.map((m) => ({ s: m.x, t: m.y, z: zDe(p, m.x, m.y) })));
+  });
+  return out;
+}
 
+/** Une demi-croupe dont le faitage deborde plus loin que la rive : le pied de sa croupe, en avant du mur, et la rive qu'elle depasse. */
+interface Capuchon { send: number; dehors: -1 | 1; zc: number; D: number; rive: number }
+
+/** Les bouts en demi-croupe dont le faitage deborde au-dela de la rive : un capuchon en avant du pignon tronque. */
+function capuchons(c: CorpsForme, L: number, f: FormeEtendue, d: Debords): Capuchon[] {
+  const out: Capuchon[] = [];
+  ([0, 1] as const).forEach((i) => {
+    const b = f.bouts[i];
+    if (b.type !== 'demi-croupe') return;
+    const { zc, D } = coupeDemiCroupe(b, Math.max(...c.egouts), c.faitage), rive = i === 0 ? d.rive0 : d.rive1;
+    if (D > rive + 1e-6) out.push({ send: i === 0 ? 0 : L, dehors: i === 0 ? -1 : 1, zc, D, rive });
+  });
+  return out;
+}
+
+/**
+ * Les pans d'un corps entailles par ses pignons traversants, comme le dessin d'avant (three/toitCorps3d.ts, `pan`) : de chaque pignon,
+ * on retire la part du pan sous ses deux noues, du pied du pignon sur le mur (ou de la rive, quand il touche le bout du corps) jusqu'au
+ * bout de son faitage. Sans cela, le grand pan et son debord passaient sous le pignon et ressortaient devant son triangle. Chaque
+ * facette (plane, convexe) se coupe en morceaux convexes : la part hors de la noue gauche, puis la part hors de la noue droite.
+ */
+export function entaillerPourPignons(pans: readonly Sommet[][], pignons: readonly PignonToit[] | undefined, L: number, W: number, d: Pick<Debords, 'rive0' | 'rive1'>, largeurs: readonly [number, number]): Sommet[][] {
+  if (!pignons?.length) return pans.slice();
+  let morceaux: PtBrut[][] = [], plans: Plan[] = [];
+  const out: Sommet[][] = [];
+  for (const f of pans) {
+    const pl = f.length >= 3 ? planPar3(f[0] as Sommet, f[1] as Sommet, f[2] as Sommet) : null;
+    if (!pl) { out.push(f); continue; }
+    morceaux = [f.map((q) => ({ x: q.s, y: q.t }))];
+    plans = [pl];
+    for (const g of pignons) {
+      const largeur = largeurs[g.pan], D = Math.max(0.1, Math.min(largeur, g.profondeur)), sc = (g.debut + g.fin) / 2;
+      const a = g.debut <= 0.3 ? -d.rive0 : g.debut, b = g.fin >= L - 0.3 ? L + d.rive1 : g.fin;
+      if (!(sc - a > 1e-6 && b - sc > 1e-6)) continue;
+      // La distance au mur d'egout du pan du pignon, et les noues : d <= D (s - a) / (sc - a), d <= D (b - s) / (b - sc).
+      const dist = (m: PtBrut) => (g.pan === 0 ? m.y : W - m.y);
+      const noueG = (m: PtBrut) => dist(m) - (D * (m.x - a)) / (sc - a), noueD = (m: PtBrut) => dist(m) - (D * (b - m.x)) / (b - sc);
+      const suivants: PtBrut[][] = [];
+      for (const poly of morceaux) {
+        const hors1 = sansDoublons(couperDemiPlan(poly, (m) => -noueG(m)));
+        const hors2 = sansDoublons(couperDemiPlan(couperDemiPlan(poly, noueG), (m) => -noueD(m)));
+        for (const q of [hors1, hors2]) if (q.length >= 3 && Math.abs(signedArea(q)) > 1e-4) suivants.push(q);
+      }
+      morceaux = suivants;
+    }
+    const p0 = plans[0] as Plan;
+    for (const q of morceaux) out.push(q.map((m) => ({ s: m.x, t: m.y, z: zDe(p0, m.x, m.y) })));
+  }
+  return out;
+}
+
+/** Les facettes planes du toit, dans le repere du corps. `debord` : l'egout (en t) et la rive (en s) que le dessin prolonge. */
 export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords, bas: number): { pans: Sommet[][]; murs: Sommet[][] } | null {
   // Un toit a profil libre ou de revolution (toitSpeciaux.ts) : ni faitage ni plans a couper.
   const special = facettesSpeciales(c, L, W, d, bas);
-  if (special) return special;
+  if (special) return c.speciale ? special : { ...special, pans: entaillerPourPignons(special.pans, c.pignons, L, W, d, [c.posFaitage, W - c.posFaitage]) };
   const x = formeDe(c, L, W);
   if (!x) return null;
-  const { plans } = x;
+  const { plans, f } = x;
   // Les plans qui se confondent ne font qu'une facette.
   const uniques = plans.filter((p, i) => plans.findIndex((q) => Math.abs(q.a - p.a) + Math.abs(q.b - p.b) + Math.abs(q.c - p.c) < 1e-9) === i);
   const rect: PtBrut[] = [{ x: -d.rive0, y: -d.egout0 }, { x: L + d.rive1, y: -d.egout0 }, { x: L + d.rive1, y: W + d.egout1 }, { x: -d.rive0, y: W + d.egout1 }];
-  const pans: Sommet[][] = [];
-  uniques.forEach((p, i) => {
-    let poly = rect;
-    for (let j = 0; j < uniques.length && poly.length >= 3; j++) {
-      if (j === i) continue;
-      const q = uniques[j] as Plan;
-      poly = couperDemiPlan(poly, (m) => zDe(p, m.x, m.y) - zDe(q, m.x, m.y));
-    }
-    poly = sansDoublons(poly);
-    if (poly.length >= 3 && Math.abs(signedArea(poly)) > 1e-3) pans.push(poly.map((m) => ({ s: m.x, t: m.y, z: zDe(p, m.x, m.y) })));
-  });
-  // Les murs de bout : du prisme jusqu'au toit, la ou aucune croupe ne les couvre.
+  const pans: Sommet[][] = facettesMin(rect, uniques);
+  // Le capuchon d'une demi-croupe au faitage debordant (schema 15) : au-dela de la rive, le toit n'existe qu'au-dessus du pied de sa
+  // croupe ; dessous, une sous-face horizontale du mur jusqu'a son bord.
+  const caps = capuchons(c, L, f, d);
   const murs: Sommet[][] = [];
+  for (const k of caps) {
+    const s0 = k.send + k.dehors * k.rive, s1 = k.send + k.dehors * k.D;
+    const bande: PtBrut[] = [{ x: Math.min(s0, s1), y: -d.egout0 }, { x: Math.max(s0, s1), y: -d.egout0 }, { x: Math.max(s0, s1), y: W + d.egout1 }, { x: Math.min(s0, s1), y: W + d.egout1 }];
+    pans.push(...facettesMin(bande, uniques, (p) => [(m) => k.zc - zDe(p, m.x, m.y)]));
+    // La sous-face : entre les deux points ou les pans atteignent le pied de la croupe.
+    const [t0, t1] = ([0, 1] as const).map((n) => { const q = plans[n] as Plan; return Math.abs(q.b) > 1e-9 ? (k.zc - q.c) / q.b : n === 0 ? 0 : W; }) as [number, number];
+    if (t1 - t0 > 0.05) murs.push([{ s: k.send, t: t0, z: k.zc }, { s: s1, t: t0, z: k.zc }, { s: s1, t: t1, z: k.zc }, { s: k.send, t: t1, z: k.zc }]);
+  }
+  // Les murs de bout : du prisme jusqu'au toit, la ou aucune croupe ne les couvre ; sous un capuchon, jusqu'a son pied.
   for (const send of [0, L]) {
+    const cap = caps.find((k) => k.send === send);
     const ts = new Set<number>([0, W]);
     for (let i = 0; i < uniques.length; i++) for (let j = i + 1; j < uniques.length; j++) {
       const A = uniques[i] as Plan, B = uniques[j] as Plan;
@@ -186,7 +272,8 @@ export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords
       const t = -((A.a - B.a) * send + (A.c - B.c)) / (A.b - B.b);
       if (t > 1e-6 && t < W - 1e-6) ts.add(Math.round(t * 1e6) / 1e6);
     }
-    const prof = [...ts].sort((a, b) => a - b).map((t) => ({ s: send, t, z: Math.min(...uniques.map((p) => zDe(p, send, t))) }));
+    if (cap) for (const q of uniques) if (Math.abs(q.b) > 1e-9) { const t = (cap.zc - q.a * send - q.c) / q.b; if (t > 1e-6 && t < W - 1e-6) ts.add(Math.round(t * 1e6) / 1e6); }
+    const prof = [...ts].sort((a, b) => a - b).map((t) => ({ s: send, t, z: Math.min(cap ? cap.zc : Infinity, ...uniques.map((p) => zDe(p, send, t))) }));
     // Sans les sommets alignes : une facette de moins a trianguler.
     const nets = prof.filter((m, k) => {
       const a = prof[k - 1], b = prof[k + 1];
@@ -196,7 +283,57 @@ export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords
     const aire = mur.reduce((acc, m, k) => { const n = mur[(k + 1) % mur.length] as Sommet; return acc + (m.t * n.z - n.t * m.z); }, 0) / 2;
     if (Math.abs(aire) > 1e-3) murs.push(mur);
   }
-  return { pans, murs };
+  return { pans: entaillerPourPignons(pans, c.pignons, L, W, d, [c.posFaitage, W - c.posFaitage]), murs };
+}
+
+/** Un sommet dans le repere d'un pignon traversant : `s` le long du faitage du corps, `d` depuis le mur d'egout du pan qui le porte. */
+export interface SommetPignon { s: number; d: number; z: number }
+
+/** Ce qui situe un pignon dans son pan, tel que le dessin d'avant le calcule (three/toitCorps3d.ts) : ses bords, ses noues, son avancee. */
+export interface CadrePignon {
+  /** Ses rives le long du mur (debord compris), et le pied de chaque noue. */
+  gauche: number; droite: number; piedG: number; piedD: number; pied: number;
+  /** Sa profondeur (le bout de son faitage, depuis le mur d'egout). */
+  profondeur: number;
+  /** L'avancee de son mur devant le mur du corps (negative : recule), et le debord de l'egout devant lui. */
+  avance: number; debord: number;
+  /** Le bas de son mur quand il avance (le prisme). */
+  bas: number;
+}
+
+/**
+ * La pointe d'un pignon traversant coupee en demi-croupe (cul de geai, schema 15) : ses deux pans, la petite croupe, son mur (un trapeze,
+ * ou un pentagone quand le faitage du capuchon deborde) et, sous un capuchon, sa sous-face. Les memes plans que le bout d'un corps
+ * (`coupeDemiCroupe`) : le pied de la croupe au mur du pignon (ou a son debord devant), la croupe qui monte vers l'interieur.
+ */
+export function facettesPignonCoupe(g: Pick<PignonToit, 'debut' | 'fin' | 'faitage'>, e: number, pointe: DemiCroupe, k: CadrePignon): { pans: SommetPignon[][]; murs: SommetPignon[][] } {
+  const sc = (g.debut + g.fin) / 2, demi = (g.fin - g.debut) / 2, Fp = g.faitage;
+  const pente = demi > 0 ? (Fp - e) / demi : 0;
+  const { zc, g: gc, D } = coupeDemiCroupe(pointe, e, Fp);
+  const avant = -k.avance;
+  // Les plans dans (x = s, y = d) : le pan gauche, le pan droit, la croupe (qui monte de son pied, a D devant le mur, vers l'interieur).
+  const PL: Plan = { a: pente, b: 0, c: e - pente * g.debut }, PR: Plan = { a: -pente, b: 0, c: e + pente * g.fin };
+  const H: Plan = { a: 0, b: gc, c: zc - gc * (avant - D) };
+  const enS = (l: Sommet[][]): SommetPignon[][] => l.map((f) => f.map((q) => ({ s: q.s, d: q.t, z: q.z })));
+  const front = avant - k.debord;
+  const QL: PtBrut[] = [{ x: k.gauche, y: front }, { x: sc, y: front }, { x: sc, y: k.profondeur }, { x: k.piedG, y: k.pied }];
+  const QR: PtBrut[] = [{ x: sc, y: front }, { x: k.droite, y: front }, { x: k.piedD, y: k.pied }, { x: sc, y: k.profondeur }];
+  const pans = [...facettesMin(QL, [PL, H]), ...facettesMin(QR, [PR, H])];
+  const murs: Sommet[][] = [];
+  const capuchon = D > k.debord + 1e-6;
+  // Le haut du mur du pignon : le pied de la croupe, ou la croupe la ou elle passe sur le mur.
+  const haut = Math.min(Fp, capuchon ? zc : zc + gc * D);
+  const sL = pente > 0 ? g.debut + (haut - e) / pente : sc, sR = pente > 0 ? g.fin - (haut - e) / pente : sc;
+  if (capuchon) {
+    const bande: PtBrut[] = [{ x: k.gauche, y: avant - D }, { x: k.droite, y: avant - D }, { x: k.droite, y: front }, { x: k.gauche, y: front }];
+    pans.push(...facettesMin(bande, [PL, PR, H], (p) => [(m) => zc - zDe(p, m.x, m.y)]));
+    if (sR - sL > 0.05) murs.push([{ s: sL, t: avant, z: zc }, { s: sR, t: avant, z: zc }, { s: sR, t: avant - D, z: zc }, { s: sL, t: avant - D, z: zc }]);
+  }
+  const sommet = sR - sL > 1e-6 ? [{ s: sR, t: avant, z: haut }, { s: sL, t: avant, z: haut }] : [{ s: sc, t: avant, z: haut }];
+  murs.push(k.avance > 0
+    ? [{ s: g.debut, t: avant, z: k.bas }, { s: g.fin, t: avant, z: k.bas }, { s: g.fin, t: avant, z: e }, ...sommet, { s: g.debut, t: avant, z: e }]
+    : [{ s: g.debut, t: avant, z: e }, { s: g.fin, t: avant, z: e }, ...sommet]);
+  return { pans: enS(pans), murs: enS(murs) };
 }
 
 /* ------------------------------------------------------------------------------------------------

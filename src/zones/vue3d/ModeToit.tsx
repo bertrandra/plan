@@ -89,7 +89,7 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
       {selection && (
         <div className="inspecteurToit" role="group" aria-label="Réglages de l’élément">
           {groupes.map((g) => (
-            <div key={g.groupe} className="groupeChoix" role="group" aria-label={g.groupe}>
+            <div key={g.groupe} className="groupeChoix" role="group" aria-label={g.titre ?? g.groupe} title={g.titre}>
               {g.valeurs.map((v) => (
                 <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle} aria-label={v.libelle}
                   aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageDuChoix groupe={g.groupe} valeur={v.valeur} /></button>

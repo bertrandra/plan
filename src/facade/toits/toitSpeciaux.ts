@@ -158,7 +158,26 @@ function facettesProfilees(c: CorpsSpecial, L: number, W: number, d: Debords, ba
     const nets = haut.filter((q, i) => i === 0 || Math.hypot(q.t - (haut[i - 1] as Sommet).t, q.z - (haut[i - 1] as Sommet).z) > 1e-6);
     murs.push([{ s, t: 0, z: bas }, ...nets, { s, t: W, z: bas }]);
   }
+  murs.push(...sousFacesQueueDeVache(c, L, W, d, profils));
   return { pans, murs };
+}
+
+/**
+ * La sous-face d'une queue de vache (schema 15) : sous le debord d'un egout en coyau, un caisson ferme, horizontal au bord de l'egout, du
+ * bord au mur, et ses deux joues aux rives. Rien sans `debordM` : un coyau d'avant garde son dessin.
+ */
+function sousFacesQueueDeVache(c: CorpsSpecial, L: number, W: number, d: Debords, profils: readonly (PointProfil[] | null)[]): Sommet[][] {
+  const out: Sommet[][] = [];
+  ([0, 1] as const).forEach((n) => {
+    const pr = c.profil?.[n], p = profils[n], deb = n === 0 ? d.egout0 : d.egout1;
+    if (!pr || pr.type !== 'coyau' || !(pr.debordM && pr.debordM > 0) || !p || deb <= 0.01) return;
+    const bord = avecDebord(p, deb)[0] as PointProfil, e = (p[0] as PointProfil).z;
+    if (e - bord.z < 0.01) return;
+    const t = (x: number) => (n === 0 ? x : W - x), s0 = -d.rive0, s1 = L + d.rive1;
+    out.push([{ s: s0, t: t(-deb), z: bord.z }, { s: s1, t: t(-deb), z: bord.z }, { s: s1, t: t(0), z: bord.z }, { s: s0, t: t(0), z: bord.z }]);
+    for (const s of [s0, s1]) out.push([{ s, t: t(-deb), z: bord.z }, { s, t: t(0), z: bord.z }, { s, t: t(0), z: e }]);
+  });
+  return out;
 }
 
 
