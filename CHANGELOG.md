@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Fumée, point 121 (textes du dossier) : la carte de situation (DP1) est servie fixe pendant le point. Elle vient du WMS de l'IGN à
+  chaque export et n'entre au dossier que s'il répond en moins de 10 s : le nombre de pages suivait donc le réseau, et « la notice
+  ajoute une page » échouait une fois sur trois (19 → 19 quand la carte manquait au second export, 18 → 20 quand elle manquait au
+  premier ; Fumée de la nuit des 4 et 5 novembre 2026). La notice validée, elle, était toujours imprimée. Rien ne change dans
+  l'application ; le point exige en plus que la carte ait été demandée aux deux exports.
+
 ## [5.10.0] — 2026-11-05
 
 Version **mineure** au sens de `MD/RELEASE.md` : le Mode Toit dessine le cul de geai et la queue de vache (#577), que l'audit découvre
