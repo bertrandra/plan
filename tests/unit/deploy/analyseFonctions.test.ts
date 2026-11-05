@@ -137,7 +137,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('versionne le prompt et le schema de l analyse, et le schema tient les limites de la sortie structuree', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-analyse.md'));
-      expect(p.version).toBe(9);
+      expect(p.version).toBe(10);
       expect(p.texte).toMatch(/^# Rôle/);
       expect(p.texte).not.toMatch(/^version:/m);
       expect(SCHEMA.version).toBe(5);
@@ -150,14 +150,14 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
-      expect(p.version).toBe(2);
+      expect(p.version).toBe(3);
       expect(p.texte).toMatch(/^# Rôle/);
       const s = lireSchema('schema-facade.json');
       expect(s.version).toBe(2);
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, [])) expect(texte('prompt-facade.md'), t).toContain('`' + t + '`');
       // Le serveur sert ce couple pour l'usage `facade`, et garde celui de l'analyse pour les autres.
-      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([2, 2]);
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([3, 2]);
       // L'exemple du repli a la forme du schema : le serveur le ramene a lui-meme, sans rien ecarter ni completer.
       const exemple = (JSON.parse(texte('schema-facade.json')) as { exemple: object }).exemple;
       expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
@@ -494,8 +494,8 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
   describe('le brouillon des regles', () => {
     it('lit le prompt et le schema, garde leurs versions, refuse ce que le serveur ne saurait pas envoyer', () => {
       const b = php<Record<string, unknown>>('verifierBrouillonRegles', BROUILLON);
-      expect(b).toMatchObject({ format: 'plan-regles-brouillon', versionPrompt: 10, versionSchema: 6, etat: BROUILLON.etat });
-      expect(php('vueBrouillonRegles', b)).toEqual({ enregistreLe: b.enregistreLe, prompt: 10, schema: 6 });
+      expect(b).toMatchObject({ format: 'plan-regles-brouillon', versionPrompt: 11, versionSchema: 6, etat: BROUILLON.etat });
+      expect(php('vueBrouillonRegles', b)).toEqual({ enregistreLe: b.enregistreLe, prompt: 11, schema: 6 });
       expect(() => php('verifierBrouillonRegles', null)).toThrow(/illisible/);
       expect(() => php('verifierBrouillonRegles', { ...BROUILLON, prompt: 'sans en-tete' })).toThrow(/en-tete/);
       expect(() => php('verifierBrouillonRegles', { ...BROUILLON, prompt: '---\nversion: 10\n---\n  \n' })).toThrow(/vide/);

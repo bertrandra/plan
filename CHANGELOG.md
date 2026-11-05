@@ -6,6 +6,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Ajouté
+- Ce que lit Claude : la **demi-croupe** dit ses autres noms (cul de geai, nez de veau, bout rabattu, croupette ; décision du propriétaire,
+  5 novembre 2026), son faîtage qui peut déborder le pignon, et la pointe d'un pignon de façade coupée de même. L'identifiant reste
+  `demi-croupe`. Prompt de l'analyse version 10, run d'une façade version 3 (`deploy/prompt-analyse.md`, `deploy/prompt-facade.md`
+  régénérés) ; vérification sur la vraie API à la version suivante.
 
 - Mode Toit : **le cul de geai** (demande du propriétaire, 5 novembre 2026 ; aussi nez de veau, bout rabattu, croupette, demi-croupe) et
   **la queue de vache** (un coyau qui déborde), dessinés sur un corps existant avec les mêmes boutons-images que les autres réglages :
