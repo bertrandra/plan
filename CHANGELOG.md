@@ -12,6 +12,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   ajoute une page » échouait une fois sur trois (19 → 19 quand la carte manquait au second export, 18 → 20 quand elle manquait au
   premier ; Fumée de la nuit des 4 et 5 novembre 2026). La notice validée, elle, était toujours imprimée. Rien ne change dans
   l'application ; le point exige en plus que la carte ait été demandée aux deux exports.
+- Fumée, points 93 et 95 (Admin › Règles et Admin › « De l'IGN à ma maison ») : le point 93 lit la version du prompt livré et attend
+  celle-là plus un après une édition, au lieu de 10 écrit en dur (le prompt livré est passé de 9 à 10 avec #580) ; le point 95 attend
+  les formes du catalogue sous leurs noms d'aujourd'hui, « Cul de geai » et « Queue de vache (coyau) » (#577). Ils échouaient dans les
+  six couples de la Fumée de la nuit de la 5.10.0. Rien ne change dans l'application.
 
 ## [5.10.0] — 2026-11-05
 
@@ -27,6 +31,11 @@ identité), accepté par la plateforme (bertrandra/backprod#254, migration `Vers
 en production **avant** de déposer cette livraison de Plan. Fumée complète lancée en parallèle (Fumée de la nuit, run 42036871759),
 livraison sans l'attendre par décision du propriétaire ; un point rouge donnera une 5.10.1. Requêtes vérifiées contre l'API Claude avec
 la mesure des façades et les dix demandes de l'assistant, les prompts ayant changé (run 42036876498 : 9 sur 9, garde-fou de la lecture vert après sa relance unique (à la première passe, les carreaux justes ×3 au total 2 → 0, bruit déjà vu ; la relance seule : genre porte-fenêtre ×1 au total 6 → 5 et les pointes de la scène 28 1 → 0, dites à part), dix listes justes sur dix, 0,65 $ relance comprise ; planchers des étalons 27, 28 et 29 figés à cette première passe dans `scenes-ajoutees.json`).
+Résultat de cette fumée : 566 passés sur 582 joués. Rouges : les points 93 et 95 dans les six couples, deux attentes du script laissées en
+arrière par #580 (version du prompt livré écrite en dur) et #577 (formes du catalogue renommées « Cul de geai » et « Queue de vache
+(coyau) »), corrigées par `claude/fumee-93-95` ; le point 121 en compact sombre, moyen clair et large clair (la carte de situation du
+WMS de l'IGN, sans témoin, présente ou non selon le réseau : `claude/fumee-121-carte`) ; le point 114 une fois, en large sombre (machine
+lente). Aucun défaut de l'application.
 
 ### Ajouté
 - Ce que lit Claude : la **demi-croupe** dit ses autres noms (cul de geai, nez de veau, bout rabattu, croupette ; décision du propriétaire,
