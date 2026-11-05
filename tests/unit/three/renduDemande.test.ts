@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
 import {
   imageAttendue, imageRendue, demanderRendu, signalerActivite, animation, installerVeille, empreinteDe, pendantLeRendu,
-  ACTIVITE_MS, QUEUE_MS, EMPREINTE_MS, DELAI_REPOS_MS
+  ACTIVITE_MS, QUEUE_MS, EMPREINTE_MS, DELAI_REPOS_MS, IMAGES_PAR_SECONDE_VENT
 } from '../../../src/three/renduDemande.js';
 import { NOM_LOT_BRANCHES, NOM_LOT_FEUILLES } from '../../../src/three/arbre3d.js';
 import type { SceneTroisBase } from '../../../src/three/etat3d.js';
@@ -110,6 +110,36 @@ describe('le rendu a la demande (three/renduDemande.ts)', () => {
     expect(empreinteDe(scene).arbres).toBe(true);
     expect(imageAttendue(sc, plusTard(), true)).toBe(true);
     expect(imageAttendue(sc, plusTard(), false)).toBe(false);
+  });
+
+  it('le vent est plafonne a IMAGES_PAR_SECONDE_VENT, les gestes non (decision du 5 novembre 2026)', () => {
+    expect(IMAGES_PAR_SECONDE_VENT).toBe(30);
+    const { sc, scene } = fausseScene();
+    const lot = new T.InstancedMesh(new T.BoxGeometry(1, 1, 1), new T.MeshBasicMaterial(), 3);
+    lot.name = NOM_LOT_BRANCHES;
+    scene.add(lot);
+    /** Une seconde de boucle a `hz` images par seconde, `geste` a chaque image ou non : le nombre d'images rendues. */
+    const seconde = (hz: number, geste: boolean) => {
+      const t0 = plusTard();
+      rendre(sc, t0);
+      let n = 0;
+      for (let i = 1; i <= hz; i++) {
+        const t = t0 + (i * 1000) / hz;
+        if (geste) signalerActivite(t);
+        if (imageAttendue(sc, t, true)) { rendre(sc, t); n++; }
+      }
+      plusTard();
+      return n;
+    };
+    expect(seconde(60, false)).toBe(30);
+    for (const hz of [90, 120, 144, 165, 240]) {
+      const n = seconde(hz, false);
+      expect(n, hz + ' Hz').toBeLessThanOrEqual(IMAGES_PAR_SECONDE_VENT);
+      expect(n, hz + ' Hz').toBeGreaterThanOrEqual(25);
+    }
+    // Un geste rend chaque image, vent ou non.
+    expect(seconde(60, true)).toBe(60);
+    expect(seconde(120, true)).toBe(120);
   });
 
   it('reconnait les lots d arbres par leurs noms (three/arbre3d.ts)', () => {

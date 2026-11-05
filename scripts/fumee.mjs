@@ -139,6 +139,20 @@ async function image3dStable(page, max) {
   return derniere;
 }
 
+/**
+ * La bibliotheque d'essences du serveur simulee (un chene et un pin, tires des presets d'EZ-tree), page rechargee : les arbres du
+ * plan de demonstration se dessinent alors en lots d'instances (points 91 et 135).
+ */
+async function bibliothequeArbresSimulee(page) {
+  const preset = (n) => JSON.parse(readFileSync('node_modules/@dgreenheck/ez-tree/src/lib/presets/' + n + '.json', 'utf8'));
+  const biblio = { format: 'plan-arbres', version: 1, modifieLe: '2026-10-16T08:00:00.000Z', especes: [
+    { id: 'chene', nom: 'Chêne', caduc: true, natures: ['feuillu'], hauteurM: 14, diametreM: 10, reglages: preset('oak_small') },
+    { id: 'pin', nom: 'Pin', caduc: false, natures: ['conif'], hauteurM: 16, diametreM: 6, reglages: preset('pine_small') }] };
+  await page.route('**/admin/arbres', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(biblio) }));
+  await page.reload();
+  await page.waitForFunction(() => !!window.__plan, null, { timeout: 30000 });
+}
+
 /** Position a l'ecran (coordonnees de la page) d'un point du monde. */
 async function versPage(page, p) {
   return page.evaluate((p) => {
@@ -2394,13 +2408,7 @@ const POINTS = {
     // et un pin, tires des presets d'EZ-tree), la Vue 3D du plan de demonstration dessine ses arbres en
     // instances. On mesure : EZ-tree se charge, des lots `InstancedMesh` existent et couvrent tous les
     // arbres, un caduc perd ses feuilles en janvier et un persistant les garde, le cout du dessin.
-    const preset = (n) => JSON.parse(readFileSync('node_modules/@dgreenheck/ez-tree/src/lib/presets/' + n + '.json', 'utf8'));
-    const biblio = { format: 'plan-arbres', version: 1, modifieLe: '2026-10-16T08:00:00.000Z', especes: [
-      { id: 'chene', nom: 'Chêne', caduc: true, natures: ['feuillu'], hauteurM: 14, diametreM: 10, reglages: preset('oak_small') },
-      { id: 'pin', nom: 'Pin', caduc: false, natures: ['conif'], hauteurM: 16, diametreM: 6, reglages: preset('pine_small') }] };
-    await page.route('**/admin/arbres', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(biblio) }));
-    await page.reload();
-    await page.waitForFunction(() => !!window.__plan, null, { timeout: 30000 });
+    await bibliothequeArbresSimulee(page);
     // Un des arbres du plan prend le pin : deux lots d'essences differentes.
     await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'arbre'); if (o) { (o.arbre ??= {}).espece = 'pin'; window.__plan.toucher(o.key); } });
     await page.evaluate(() => window.__plan.executer('vue.3d'));
@@ -4090,6 +4098,8 @@ const POINTS = {
   135: async (page, f) => {
     // Le rendu a la demande de la Vue 3D (demande du proprietaire, 5 novembre 2026, three/renduDemande.ts) : une vue immobile ne
     // redessine plus ; un geste, l'heure, un reglage, un changement de la scene hors de tout chemin connu redessinent, puis la vue se tait.
+    // Les arbres du plan dessines par EZ-tree, pour le vent : plafonne a 30 images par seconde (decision du proprietaire, 5 novembre 2026).
+    await bibliothequeArbresSimulee(page);
     const vue = await POINTS[22](page);
     if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
     // Chaque appel de `render` du rendu de la scene affichee est compte (three.js le pose sur l'instance, pas sur le prototype) ;
@@ -4098,7 +4108,16 @@ const POINTS = {
       const r = window.__plan.scene3d()?.renderer;
       if (r && !r.__compte) {
         const f = r.render.bind(r);
-        r.render = (...a) => { window.__rendus3d = (window.__rendus3d || 0) + 1; return f(...a); };
+        // Les images (une par image du navigateur ou il y a eu au moins un rendu) se comptent aussi : en Normale, une image fait plusieurs
+        // `render` (les passes). `__neutre` saute le dessin lui-meme : le vent se mesure alors a ce que la boucle demande, pas a ce que
+        // le rendu logiciel arrive a tenir.
+        let vu = -1, n = 0;
+        const t = () => { n++; requestAnimationFrame(t); }; requestAnimationFrame(t);
+        r.render = (...a) => {
+          window.__rendus3d = (window.__rendus3d || 0) + 1;
+          if (vu !== n) { vu = n; window.__images3d = (window.__images3d || 0) + 1; }
+          return window.__neutre ? undefined : f(...a);
+        };
         r.__compte = true;
       }
       return window.__rendus3d || 0;
@@ -4158,8 +4177,24 @@ const POINTS = {
     await page.waitForTimeout(500);
     const pose = (await rendus()) - a3;
     const calme3 = await calme();
-    const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3;
-    return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'}` };
+    // Le vent coche, des arbres visibles : la vue s'anime, au plus 30 images par seconde (le dessin neutralise, sinon le rendu logiciel
+    // ne tient pas 30 images et le plafond ne se verrait pas).
+    const arbres = await page.evaluate(() => { let n = 0; window.__plan.scene3d().scene.traverse((o) => { if (/^arbres-(branches|feuilles)$/.test(o.name) && o.visible) n += o.count; }); return n; });
+    await page.evaluate(() => { const c = document.getElementById('terrasse3dVent'); if (c && !c.checked) c.click(); });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => { window.__neutre = true; });
+    await page.waitForTimeout(500);
+    const vent = await page.evaluate(async () => {
+      const a = window.__images3d || 0, t0 = performance.now();
+      let rafs = 0; const compter = () => { rafs++; if (performance.now() - t0 < 3000) requestAnimationFrame(compter); }; requestAnimationFrame(compter);
+      await new Promise((ok) => setTimeout(ok, 3000));
+      const s = (performance.now() - t0) / 1000;
+      return { parSeconde: ((window.__images3d || 0) - a) / s, raf: rafs / s };
+    });
+    await page.evaluate(() => { window.__neutre = false; const c = document.getElementById('terrasse3dVent'); if (c && c.checked) c.click(); });
+    const ventOk = arbres > 0 && vent.parSeconde > 5 && vent.parSeconde <= 31;
+    const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
+    return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
   131: async (page, f) => {
     // Modifier un batiment avec les memes gestes que l'ajout (decision du proprietaire, 4 novembre 2026) : le projet de demonstration de
@@ -5580,6 +5615,7 @@ function pointsPour(nomClasse) {
   // 134 : le cul de geai et la queue de vache au mode Toit : un bout, son faitage qui deborde, la pointe d'un pignon, Ctrl+Z, valide.
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
   // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
+  //       Vent coche, arbres visibles : au plus 30 images par seconde.
   const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;

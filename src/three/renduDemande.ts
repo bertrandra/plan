@@ -18,7 +18,8 @@
 //   une visibilite, une poignee deplacee) ;
 // - la pose de la camera (position, orientation, focale, taille du canevas : `aRedessiner`, celle qui
 //   servait deja a l'avant / apres) ;
-// - une animation : le vent dans des arbres visibles, ou une animation declaree (`animation`).
+// - une animation : le vent dans des arbres visibles (plafonne a IMAGES_PAR_SECONDE_VENT), ou une animation
+//   declaree (`animation`).
 // Et deux filets, parce qu'une image figee fausse coute plus qu'un rendu de trop :
 // - tant que des changements arrivent (QUEUE_MS apres le dernier), une image au moins toutes les
 //   DELAI_REPOS_MS : une texture qui se pose sans rien dire se montre ainsi ;
@@ -50,6 +51,18 @@ export const QUEUE_MS = 2000;
 export const ACTIVITE_MS = 600;
 /** L'intervalle de l'empreinte de la scene, le filet de ce qu'aucun chemin connu ne signale. */
 export const EMPREINTE_MS = 250;
+/**
+ * Le plafond du vent (decision du proprietaire, 5 novembre 2026) : coche par defaut, il anime les arbres
+ * visibles, mais ne demande pas plus de ces images par seconde. Les gestes, la camera et les autres
+ * changements restent a pleine cadence : seul le vent attend son tour. Le seul reglage du plafond.
+ */
+export const IMAGES_PAR_SECONDE_VENT = 30;
+/**
+ * L'ecart minimal entre deux images du vent. Deux millisecondes de tolerance : a 60 Hz, une image sur
+ * deux arrive 33,3 ms apres la precedente, parfois un peu moins (horloge du navigateur) ; sans marge,
+ * l'image sautee ferait tomber le vent a 20 images par seconde.
+ */
+export const PAS_VENT_MS = 1000 / IMAGES_PAR_SECONDE_VENT - 2;
 
 /** Ce que la boucle retient d'une scene : sa derniere image, et ce qui la rend perimee. */
 interface EtatRendu {
@@ -188,7 +201,8 @@ export function imageAttendue(sc: SceneTroisBase, t = maintenant(), vent = false
     e.arbres = arbres;
     if (empreinte !== e.empreinte) return true;
   }
-  if (vent && e.arbres) return true;
+  // Le vent anime les arbres visibles, au plus IMAGES_PAR_SECONDE_VENT fois par seconde.
+  if (vent && e.arbres && t - e.t >= PAS_VENT_MS) return true;
   // Le filet : tant que des changements arrivent, une image au moins toutes les DELAI_REPOS_MS.
   const delai = t - global.tChangement < QUEUE_MS ? DELAI_REPOS_MS : Infinity;
   return aRedessiner(e.pose, poseDe(sc), t - e.t, delai);

@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Vue 3D : le vent dans les arbres est plafonné à 30 images par seconde (décision du propriétaire, 5 novembre 2026). Il reste
+  coché par défaut ; avec des arbres visibles, la vue ne redessine plus à chaque image du navigateur, mais une image sur deux à
+  60 Hz. Les gestes, la caméra et tout autre changement restent à pleine cadence. Le plafond est un seul réglage,
+  `IMAGES_PAR_SECONDE_VENT` (`three/renduDemande.ts`). Mesure (démonstration avec trois arbres EZ-tree, dessin neutralisé pour lire
+  ce que la boucle demande) : 60 → 30 images par seconde. Le point de fumée 135 vérifie le plafond.
 - Vue 3D : rendu à la demande (demande du propriétaire, 5 novembre 2026). Une vue immobile ne redessine plus à chaque image : la
   boucle ne rend que quand la caméra bouge (amortissement compris), que la scène change, qu'un geste a lieu, qu'une animation tourne
   (promenade, vent dans des arbres visibles) ou qu'un code le demande (`demanderRendu`). Un seul mécanisme, `three/renduDemande.ts`,
