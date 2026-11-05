@@ -453,7 +453,7 @@ function noter(ctx: Contexte, G: Arete, D: Arete, Eg: Arete, Fp: Arete): Hypothe
   // Et un cote dont le dehors a la teinte du mur (la limite d'une ombre portee sur le mur, sous le
   // debord) le borde moins surement qu'un cote qui s'ouvre sur le toit ou le ciel.
   const cote = (c: number, k: Contraste) => ((c + k.ecart) / 2) * k.semblable * (0.5 + 0.5 * k.autre);
-  const kE = contraste(ctx.image, hg, hd, centre, teinte);
+  let kE = contraste(ctx.image, hg, hd, centre, teinte);
   // Un egout lu sur les aretes (ou predit) que les deux cotes depassent, le mur au-dessus de lui : une ligne dans le mur, pas l'egout
   // (COTES_AU_DESSUS_PART). L'egout par les bouts des cotes en est dispense : il est la ou ils s'arretent.
   if (Eg.nature !== 'bouts' && kE.autre < AUTRE_AU_DESSUS_MAX && auDessus(G, hg, bg) && auDessus(D, hd, bd)) return null;
@@ -462,6 +462,20 @@ function noter(ctx: Contexte, G: Arete, D: Arete, Eg: Arete, Fp: Arete): Hypothe
   // (scenes 05 et 25) ; quand la partie haute est plus etroite que les parties basses (scene 26), les cotes, ciel des deux bords au-dessus
   // des parties basses, gagnaient a un egout plus bas, et la limite de l'ombre l'emportait (25 cm sous l'egout, 2,1 % de la largeur).
   if (Eg.nature !== 'bouts' && kE.ombre >= OMBRE_PART_MIN) return null;
+  // Un egout sous une bande peinte que le mur surmonte (un bandeau vert sous le pignon de l'etalon 27) : le bas de la bande, pas l'egout.
+  // Au-dessus de lui, une autre matiere sur moins de BANDE_PART_MAX du cote, puis de nouveau le mur. Sous un egout, le toit ou le ciel
+  // continuent ; sous un pignon, le mur commence aussitot (la regle d'avant). Les bouts des cotes s'arretent souvent au bas de la bande.
+  const coteMin = Math.min(Math.hypot(bg.x - hg.x, bg.y - hg.y), Math.hypot(bd.x - hd.x, bd.y - hd.y));
+  if (bandeContreLeMur(ctx.image, hg, hd, centre, teinte, coteMin) !== null) return null;
+  if (Eg.nature === 'bouts' && bandeContreLeMur(ctx.image, hg, hd, centre, teinte, coteMin, false, true) !== null) return null;
+  // Et sous l'egout, la meme bande (le bandeau juste sous le vrai egout) : le dedans se juge sous elle, la ou le mur reprend.
+  const sousBande = kE.semblable < 1 ? bandeContreLeMur(ctx.image, hg, hd, centre, teinte, coteMin, true) : null;
+  if (sousBande !== null) {
+    const dx = (bg.x - hg.x) / Math.hypot(bg.x - hg.x, bg.y - hg.y), dy = (bg.y - hg.y) / Math.hypot(bg.x - hg.x, bg.y - hg.y);
+    const ex = (bd.x - hd.x) / Math.hypot(bd.x - hd.x, bd.y - hd.y), ey = (bd.y - hd.y) / Math.hypot(bd.x - hd.x, bd.y - hd.y);
+    const k = contraste(ctx.image, { x: hg.x + dx * sousBande, y: hg.y + dy * sousBande }, { x: hd.x + ex * sousBande, y: hd.y + ey * sousBande }, centre, teinte);
+    kE = { ...kE, semblable: Math.max(kE.semblable, k.semblable) };
+  }
   const soutien =
     (cote(cG, contraste(ctx.image, bg, hg, centre, teinte)) +
       cote(cD, contraste(ctx.image, hd, bd, centre, teinte)) +
@@ -767,6 +781,72 @@ function contraste(img: Image, a: P2, b: P2, centre: P2, mur: number[] | null): 
   return { ecart: mediane(ecarts), semblable: mediane(semblables), autre: mediane(autres), ombre: auMur ? ombres / auMur : 0 };
 }
 
+
+/**
+ * Une bande peinte dans le mur : au plus cette part de la hauteur du cote (un bandeau de 15 a 30 cm sur un mur de 5 m), une teinte qui
+ * n'est pas celle du mur, puis le mur (sa chromaticite a BANDE_CHROMA_MUR pres, sa luminosite dans BANDE_LUMIERE : une ardoise grise ou
+ * l'ombre d'un debord, plus sombres, ne le sont pas) sur BANDE_MUR_PX rangees au moins, sur trois troncons sur quatre.
+ */
+const BANDE_PART_MAX = 0.06;
+const BANDE_CHROMA_MUR = 0.05;
+const BANDE_LUMIERE: readonly [number, number] = [0.75, 1.33];
+const BANDE_MUR_PX = 3;
+/** La bande commence contre la droite, a cette part du cote pres. */
+const BANDE_ECART = 0.01;
+const BANDE_TRONCONS_MIN = 3;
+/**
+ * Un egout par les bouts des cotes se juge aussi contre chacun de ses coins, sur cette part de sa longueur : un cote s'arrete au bas de la
+ * bande, et l'horizontale tiree de ce haut seul (PENTE_EGOUT_BOUTS_DEG) ne longe la bande qu'a ce coin.
+ */
+const BANDE_BOUT = 0.1;
+
+/**
+ * D'un cote de la droite a-b (le dehors, oppose a `centre`, ou le dedans), une bande d'autre matiere, mince, puis le mur
+ * (BANDE_PART_MAX) : la distance ou le mur reprend, en pixels (la mediane des troncons), ou null.
+ */
+function bandeContreLeMur(img: Image, a: P2, b: P2, centre: P2, mur: number[], cote: number, dedans = false, auxBouts = false): number | null {
+  const L = Math.hypot(b.x - a.x, b.y - a.y), max = Math.round(BANDE_PART_MAX * cote);
+  if (!(L > 0) || max < 2) return null;
+  const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+  let nx = -uy, ny = ux;
+  if (((centre.x - a.x) * nx + (centre.y - a.y) * ny > 0) !== dedans) [nx, ny] = [-nx, -ny];
+  const lm = (mur[0] ?? 0) + (mur[1] ?? 0) + (mur[2] ?? 0);
+  // Quatre troncons, ou, aux bouts, les BANDE_BOUT de la droite contre chacun de ses deux coins.
+  const troncons: readonly (readonly [number, number])[] = auxBouts ? [[0, BANDE_BOUT], [1 - BANDE_BOUT, 1]] : [[0, 0.25], [0.25, 0.5], [0.5, 0.75], [0.75, 1]];
+  const rangee = (t: number, s: number): boolean | null => {
+    const [f0, f1] = troncons[t] as readonly [number, number];
+    const v = [0, 0, 0];
+    let n = 0;
+    for (let k = 0; k < 8; k++) {
+      const f = f0 + ((k + 0.5) / 8) * (f1 - f0);
+      const i = Math.floor(a.x + ux * L * f + nx * s), j = Math.floor(a.y + uy * L * f + ny * s);
+      if (i < 0 || j < 0 || i >= img.largeur || j >= img.hauteur) continue;
+      const o = (j * img.largeur + i) * 4;
+      for (let c = 0; c < 3; c++) v[c] = (v[c] ?? 0) + (img.donnees[o + c] ?? 0);
+      n++;
+    }
+    if (n < 4) return null;
+    const moy = v.map((x) => x / n), l = (moy[0] ?? 0) + (moy[1] ?? 0) + (moy[2] ?? 0);
+    return ecartChroma(moy, mur) < BANDE_CHROMA_MUR && l >= BANDE_LUMIERE[0] * lm && l <= BANDE_LUMIERE[1] * lm;
+  };
+  const reprises: number[] = [];
+  for (let t = 0; t < troncons.length; t++) {
+    // Contre la droite (a BANDE_ECART pres : une droite tiree d'un haut de cote passe a un ou deux pixels du bord), pas le mur, sur
+    // deux rangees au moins. Puis, avant `max`, le mur sur BANDE_MUR_PX rangees de suite.
+    const ecart = Math.max(3, Math.round(BANDE_ECART * cote));
+    let debut = 0;
+    for (let s = 1; s <= ecart && !debut; s++) if (rangee(t, s) === false && rangee(t, s + 1) === false) debut = s + 2;
+    if (!debut) continue;
+    let suite = 0;
+    for (let s = debut; s <= max + BANDE_MUR_PX; s++) {
+      const r = rangee(t, s);
+      suite = r ? suite + 1 : 0;
+      if (suite >= BANDE_MUR_PX) { reprises.push(s - BANDE_MUR_PX + 1); break; }
+      if (s > max && !suite) break;
+    }
+  }
+  return reprises.length >= (auxBouts ? 1 : BANDE_TRONCONS_MIN) ? mediane(reprises) : null;
+}
 
 /** Ecart de chromaticite au-dela duquel deux teintes ne sont plus la meme matiere. */
 const ECART_CHROMA_PLEIN = 0.25;

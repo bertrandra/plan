@@ -82,6 +82,18 @@ describe('calageFin', () => {
     r.coins?.forEach((c, i) => expect(ecartPx(c, coins[i]!)).toBeLessThan(0.02 * s.verite.largeur * px));
   }, LONG);
 
+  // Un bandeau vert peint sous le pignon (etalon 27, de 4,95 a 5,13 m, l'egout a 5,20 m) : son bord bas, la plus franche des horizontales,
+  // etait pris pour l'egout, 25 cm trop bas (5 novembre 2026). Avec l'arbre de l'etalon comme sans lui.
+  it.each([['avec', false], ['sans', true]] as const)('ne pose pas l egout sur le bas d un bandeau peint sous le pignon (etalon 27, %s l arbre)', (_, sansArbre) => {
+    const e = parNom('27-');
+    const s: SceneFacade = sansArbre ? { ...e, synthese: { ...e.synthese, devant: [] } } : e;
+    const { image, prise, coins } = releve(s);
+    const r = calageFinDuReleve(image, s.verite.largeur, s.verite.hauteur, prise);
+    expect(r.trouve).toBe(true);
+    const px = Math.hypot(coins[1]!.x - coins[0]!.x, coins[1]!.y - coins[0]!.y) / s.verite.largeur;
+    r.coins?.forEach((c, i) => expect(ecartPx(c, coins[i]!)).toBeLessThan(0.02 * s.verite.largeur * px));
+  }, LONG);
+
   it('predit le pied cache par une haie, et le marque comme tel', () => {
     const s = parNom('12-');
     const { image, prise, coins } = releve(s);
