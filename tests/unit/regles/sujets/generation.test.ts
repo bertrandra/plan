@@ -151,7 +151,8 @@ describe('le toit lu sur une façade (deploy/prompt-facade-toit.md, deploy/schem
   });
 
   it('ne touche ni au run ni a la lecture enrichie : leurs fichiers restent ceux de L1 (decision du proprietaire, rien de perdu)', () => {
-    expect(versionCourante(VERSIONS_PROMPT_FACADE).version).toBe(2);
+    // Le texte du run monte a 3 le 5 novembre 2026 (les autres noms de la demi-croupe) : le toit lu n'y est pour rien.
+    expect(versionCourante(VERSIONS_PROMPT_FACADE).version).toBe(3);
     expect(versionCourante(VERSIONS_SCHEMA_FACADE).version).toBe(2);
     expect(versionCourante(VERSIONS_PROMPT_FACADE_ENRICHIE).empreinte).toBe('b74229d1');
     expect(versionCourante(VERSIONS_SCHEMA_FACADE_ENRICHIE).empreinte).toBe('a4568ea5');

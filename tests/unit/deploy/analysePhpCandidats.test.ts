@@ -112,7 +112,7 @@ describe.skipIf(!php)('analyse.php, les cas candidats', () => {
     expect(r.candidats[0]).toMatchObject({
       id: 'cand-BATIMENT0000000000000001', cle: 'A', cleabs: 'BATIMENT0000000000000001', statut: 'propose', visees: ['mansart', 'lucarnes'],
       observation: { forme: 'mansart', profil: 'brise', bouts: ['brisis', 'brisis'], lucarnes: { nombre: 3, types: ['jacobine'] } },
-      source: { par: 'claude', usage: 'candidats', modele: 'claude-haiku-5-5', prompt: 9, schema: 5, le: '2026-10-14' },
+      source: { par: 'claude', usage: 'candidats', modele: 'claude-haiku-5-5', prompt: 10, schema: 5, le: '2026-10-14' },
       photos: [{ id: 'pa', url: 'https://panoramax.ign.fr/api/pictures/pa/hd.jpg', auteur: 'Contributeur de test', licence: 'CC-BY-SA-4.0' }],
     });
     expect(r.candidats[0]!.vote).toMatchObject({ passes: 3, forme: { valeur: 'mansart', accord: 1 }, contradictions: [] });

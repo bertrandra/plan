@@ -135,7 +135,7 @@ export const formeToit: DescriptionSujet = {
   vocabulaire: [
     { section: `Surfaces`, rang: 1, texte: `- **Versant** (ou pan) : surface inclinée plane qui reçoit et conduit l'eau.
 - **Croupe** : pan triangulaire ou trapézoïdal qui ferme le bout d'un toit, à la place d'un pignon.
-- **Demi-croupe** (croupette) : croupe qui ne descend pas jusqu'à l'égout ; un petit pignon dessous, la croupe au-dessus.
+- **Demi-croupe** (aussi cul de geai, nez de veau, bout rabattu, croupette) : croupe qui ne descend pas jusqu'à l'égout ; un petit pignon dessous, la croupe au-dessus. Son faîtage peut déborder le pignon et porter la croupe en avant.
 - **Brisis** : partie basse, très raide (60° à 80°), d'un toit brisé ; porte souvent les lucarnes.
 - **Terrasson** : partie haute, peu pentue (15° à 30°), d'un toit brisé.
 - **Toiture-terrasse** : toit plat (moins de 3° à 5°), souvent bordé d'un acrotère.
@@ -191,7 +191,7 @@ Reportez ce que vous lisez dans chaque entrée de \`facades\` : \`silhouette\` (
 - **deux-pans** : une arête ; la hauteur reste constante le long du faîtage jusqu'aux murs de bout, qui sont des pignons.
 - **croupes** : une arête raccourcie ; la hauteur baisse vers les deux bouts.
 - **pavillon** : un sommet et quatre arêtiers.
-- **demi-croupe** : aux bouts, le toit ne descend que sur le haut, puis un petit pignon vertical dessous.
+- **demi-croupe** (cul de geai, nez de veau, bout rabattu, croupette) : aux bouts, le toit ne descend que sur le haut, puis un petit pignon vertical dessous ; la pointe d'un pignon de façade peut être coupée de même.
 - **mansart** : sur la photo, des fenêtres verticales dans une pente très raide le long de tous les murs ; sur la carte, une bande étroite et raide le long de tous les murs, un dessus doux ou presque plat.
 - **gambrel** : la même bande raide, sur les deux longs côtés seulement ; les murs de bout montent sur toute la hauteur.
 - **toit-en-m** : deux arêtes parallèles et un creux au milieu ; **papillon** : un creux au milieu sans arêtes, plus haut sur les deux murs.

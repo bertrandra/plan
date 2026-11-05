@@ -97,13 +97,13 @@ describe('l ecran des regles', () => {
     expect(texte(hote, '[data-diff="ajoute"]').join('\n')).toContain('vu sur le versant sud');
     const tuiles = texte(hote, '.consTuile');
     expect(tuiles[4]).toContain('1 ligne change');
-    expect(tuiles[4]).toContain('version 10 à poser dans versions.ts');
-    expect(tuiles[1]).toContain('version 10');
+    expect(tuiles[4]).toContain('version 11 à poser dans versions.ts');
+    expect(tuiles[1]).toContain('version 11');
     expect(hote.querySelector('[data-sujet="couverture"]')?.textContent).toContain('Modifié');
     await cliquer(hote.querySelector('#reglOnglet-ecarts'));
     // La version de l'en-tete change avec le texte (5 -> 6), et la consigne d'avant disparait.
     expect(texte(hote, '.reglRetrait').join('\n')).toContain('- `couverture` : le matériau de couverture du corps principal.');
-    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 10');
+    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 11');
     await cliquer(bouton(hote, 'Revenir au livré'));
     expect(texte(hote, '.consTuile')[4]).toContain('Identique');
   });
@@ -228,7 +228,7 @@ describe('l ecran des regles', () => {
       await cliquer(enregistrer);
       await attendre();
       const envoi = vi.mocked(serveur.enregistrer).mock.calls[0]![0];
-      expect(envoi.prompt).toContain('version: 10');
+      expect(envoi.prompt).toContain('version: 11');
       expect(envoi.prompt).toContain('vu sur le versant sud');
       expect(JSON.parse(envoi.schema).version).toBe(5);
       expect(envoi.etat).toMatchObject({ exclus: [], liste: expect.any(Array) });
