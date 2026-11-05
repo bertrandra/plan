@@ -57,6 +57,63 @@
     "pointes en plus": 0,
     "parement juste": 1
    }
+  },
+  "27-arbre-devant-pignon": {
+   "source": {
+    "run": "42036876498",
+    "commit": "fa3dfc8a97f16efeedecdbe63ee34a0be966a0ad",
+    "date": "2026-11-05T13:33:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 4,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 1,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "28-cul-de-geai-enduit": {
+   "source": {
+    "run": "42036876498",
+    "commit": "fa3dfc8a97f16efeedecdbe63ee34a0be966a0ad",
+    "date": "2026-11-05T13:33:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 4,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 1,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "29-cul-de-geai-faitage-debordant": {
+   "source": {
+    "run": "42036876498",
+    "commit": "fa3dfc8a97f16efeedecdbe63ee34a0be966a0ad",
+    "date": "2026-11-05T13:33:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 4,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 0,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
   }
  }
 }

@@ -16,9 +16,9 @@ leur numéro de version, d'un octet plus long (à numéro inchangé, sept sur se
 fichiers texte au bit près et les PDF identiques une fois les décalages neutralisés ; `tests/fixtures/golden/EMPREINTES.md`) ;
 `projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. **Schéma 15** (migration 14 → 15
 identité), accepté par la plateforme (bertrandra/backprod#254, migration `Version20261105090000`) : appliquer backprod puis `setup.php`
-en production **avant** de déposer cette livraison de Plan. Fumée complète lancée en parallèle (Fumée de la nuit, run RUN_NUIT),
+en production **avant** de déposer cette livraison de Plan. Fumée complète lancée en parallèle (Fumée de la nuit, run 42036871759),
 livraison sans l'attendre par décision du propriétaire ; un point rouge donnera une 5.10.1. Requêtes vérifiées contre l'API Claude avec
-la mesure des façades et les dix demandes de l'assistant, les prompts ayant changé (RUN_API).
+la mesure des façades et les dix demandes de l'assistant, les prompts ayant changé (run 42036876498 : 9 sur 9, garde-fou de la lecture vert après sa relance unique (à la première passe, les carreaux justes ×3 au total 2 → 0, bruit déjà vu ; la relance seule : genre porte-fenêtre ×1 au total 6 → 5 et les pointes de la scène 28 1 → 0, dites à part), dix listes justes sur dix, 0,65 $ relance comprise ; planchers des étalons 27, 28 et 29 figés à cette première passe dans `scenes-ajoutees.json`).
 
 ### Ajouté
 - Ce que lit Claude : la **demi-croupe** dit ses autres noms (cul de geai, nez de veau, bout rabattu, croupette ; décision du propriétaire,
