@@ -451,7 +451,13 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Entrée** : la silhouette lue (É6) et le gabarit calculé (É1), posés sur le mur calé par les ancres seules (É5).
 - **Traitement** : l'écart entre les deux, **corps par corps**, rangé dans la taxonomie du §5 bis. On teste un petit nombre de variantes de
   toit du corps (un pignon de plus, un de moins, un pan à la place, une croupe) et l'on garde celles qui expliquent mieux l'image que le
-  toit calculé, avec le gain de chacune.
+  toit calculé, avec le gain de chacune. Depuis le 5 novembre 2026 (demande du propriétaire), aussi le **cul de geai** (demi-croupe) :
+  sur un mur de bout en pignon, la pointe coupée au quart, au tiers ou à la moitié, jugée sur le tiers haut du pignon (vue de la rue,
+  la petite croupe fuit et la pointe se lit plus basse et aplatie) ; sur un long pan, la pointe d'un de ses pignons coupée de même. Une
+  croupe proposée hier le reste (elle passe d'abord). Claude qui dit « demi-croupe » le propose sans haut lu, ou quand le haut lu ne le
+  contredit pas (la pointe d'un cul de geai a presque le contour d'un pignon). Le moteur relit la coupe sur la mesure LiDAR (`boutsDesMurs`
+  « demi-croupe », `pointesDesMurs`), décochée comme toute proposition ; à l'audit, la mesure seule propose aussi un cul de geai sur un
+  bout de corps ou une pointe de pignon que l'É7 ne propose pas (`culDeGeaiLidar.ts`). Étalons 28 et 29.
 - **Sortie** : une liste de **propositions de toit**, chacune avec son corps, sa nature, sa place (en parts du mur du corps), son gain
   d'explication, sa provenance (déterministe, IA, les deux), et des **alertes** (hauteur de pointe qui contredit le LiDAR).
 - **Illustration** : la silhouette de l'image, le gabarit calculé, et pour chaque proposition le gabarit **modifié**, avec le gain en

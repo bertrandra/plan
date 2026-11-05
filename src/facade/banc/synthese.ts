@@ -108,6 +108,12 @@ export interface Mur {
   /** Bande de toiture vue au-dessus de l'egout (mur gouttereau). */
   toit?: { hauteur: number; couleur: RGB };
   /**
+   * Un pignon coupe en cul de geai (demi-croupe, 5 novembre 2026) : le mur s'arrete a `part` du pignon sous sa pointe (un trapeze), et
+   * au-dessus, la petite croupe se voit en couleur de couverture `toit`. `debordFaitageM` : le faitage deborde et porte la croupe en
+   * avant ; sa sous-face jette une ombre sur le haut du mur. Le gabarit vrai est le trapeze (le haut du mur sous le toit).
+   */
+  pignonCoupe?: { part: number; toit: RGB; debordFaitageM?: number };
+  /**
    * Un mur en L (deux hauteurs d'egout dans le meme alignement : une partie basse, garage ou extension, de `debut` a `fin` metres
    * depuis la gauche, a son egout `hauteur`) : au-dessus, ni le mur haut ni son toit, le ciel, sauf la bande de toit de la partie basse.
    * La verite (`verite.hauteur`) est l'egout le plus haut, et le gabarit vrai suit la marche.
@@ -596,8 +602,16 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
       } else if (Z > v.hauteur) {
         mur = false;
         const pg = y.mur.pignon;
-        if (pg && Z <= v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5)) {
+        const coupe = y.mur.pignonCoupe, zc = pg && coupe ? v.hauteur + pg * (1 - coupe.part) : Infinity;
+        const pointe = pg ? v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5) : -Infinity;
+        if (pg && coupe && Z > zc) {
+          // La petite croupe du cul de geai, vue d'en bas : elle fuit vers le faitage, et sa pointe se voit plus bas que celle du pignon
+          // entier (RACCOURCI_CROUPE de sa hauteur, une prise a hauteur d'homme a une douzaine de metres). Des rangs de tuiles.
+          if (Z <= zc + RACCOURCI_CROUPE * (pointe - zc)) coul = (Z - zc) % 0.18 < 0.025 ? assombrir(coupe.toit, 0.7) : coupe.toit;
+        } else if (pg && Z <= pointe) {
           coul = couleurParement(p, X, Z, y.graine, assises);
+          // Sous un capuchon (le faitage deborde), l'ombre de sa sous-face sur le haut du mur.
+          if (coupe?.debordFaitageM && Z > zc - 0.3 * coupe.debordFaitageM) coul = assombrir(coul, 0.6);
           // Un pignon peut porter une baie (une lucarne, un oculus) : peinte comme celles du mur, sans l'eclairage du mur, que le
           // pignon n'a jamais eu (les scenes d'avant gardent leurs pixels).
           for (const ov of v.ouvertures) coul = couleurOuverture(ov, X, Z) ?? coul;
@@ -619,6 +633,9 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
   }
   return { largeur: L, hauteur: H, donnees: d };
 }
+
+/** La part de sa hauteur que la petite croupe d'un cul de geai garde, vue de la rue : elle fuit vers le faitage. */
+const RACCOURCI_CROUPE = 0.4;
 
 /** La hauteur du pignon en `u` (part de la largeur depuis la gauche), en part de sa hauteur : 1 au sommet `sommet`, 0 aux bouts. */
 export function formePignon(u: number, sommet: number): number {
@@ -651,7 +668,9 @@ export function gabaritVrai(s: SceneFacade): GabaritMur {
     const haut = [{ x: 0, y: H }, ...(a > e ? [{ x: a, y: H }, { x: a + e, y: pb.hauteur }] : [{ x: 0, y: pb.hauteur }]), ...(b < 1 - e ? [{ x: b, y: pb.hauteur }, { x: b + e, y: H }, { x: 1, y: H }] : [{ x: 1, y: pb.hauteur }])];
     return gabaritDuHaut(a > e ? haut : haut.slice(1), H);
   }
-  return gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg * formePignon(u, sommet) })));
+  // Un cul de geai : le haut du mur est le trapeze sous la petite croupe.
+  const plafond = s.synthese.mur.pignonCoupe ? 1 - s.synthese.mur.pignonCoupe.part : 1;
+  return gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg * Math.min(plafond, formePignon(u, sommet)) })));
 }
 
 /**

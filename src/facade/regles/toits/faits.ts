@@ -18,7 +18,7 @@ import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecart
 import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from '../../toits/toitLidar.js';
 import { appentisVers, avecAppentis } from './appentis.js';
 import { avecBaies, baiePosee } from './baies.js';
-import { avecBoutsDesMurs, avecPignons, pignonsManquants } from './pignons.js';
+import { avecBoutsDesMurs, avecPignons, avecPointesDesMurs, pignonsManquants } from './pignons.js';
 import { avecElementsDesMurs, avecElementsToitDesMurs } from './elementsDesMurs.js';
 import { avecSailliesDesMurs } from './sailliesDesMurs.js';
 import { signedArea } from '../../../geometry/basic.js';
@@ -173,7 +173,8 @@ export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: T
   // Les pignons d'une facade se posent sur le corps qui la porte, une fois le principal relu, et les bouts que montrent des murs de
   // bout sur le leur (lot F4) ; les appentis adosses se lisent ensuite sur la grille brute (la surface mesuree s'arrete au contour).
   // Les cheminees et lucarnes vues sur un mur se posent en dernier, sur le corps de ce mur tel qu'il est devenu (lot F7).
-  const principaux = avecBoutsDesMurs(f.observation.boutsDesMurs, avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour));
+  // Les bouts et les pointes de pignon vus en cul de geai se lisent sur la mesure (5 novembre 2026).
+  const principaux = avecPointesDesMurs(f.observation.pointesDesMurs, avecBoutsDesMurs(f.observation.boutsDesMurs, avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour), { m, contour }), { m, contour });
   // Les saillies vues sur un mur (lot L1) s'ajoutent a la fin : les rangs des corps d'avant ne bougent pas.
   // Les fenetres de toit et panneaux vus sur un mur (lot L2) se posent sur le pan de son corps, apres le reste : seuls ses elementsToit changent.
   return avecElementsToitDesMurs(f.observation.elementsToitDesMurs, avecSailliesDesMurs(f.observation.sailliesDesMurs, avecElementsDesMurs(f.observation.elementsDesMurs, avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille), contour, grille))));

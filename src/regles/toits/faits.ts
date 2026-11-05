@@ -82,7 +82,14 @@ export interface MurDesigne { gauche: { x: number; y: number }; droite: { x: num
  * Ce qui ferme le bout d'un corps, vu sur son mur de bout (lot F4 : une proposition de l'audit) : un triangle est un pignon, un
  * trapeze une croupe (MD/spec-facade-calage-audit.md §5 bis). Le corps se designe par ce mur, comme les pignons d'une facade.
  */
-export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait }
+export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait | 'demi-croupe' }
+
+/**
+ * La pointe d'un pignon traversant vue coupee en cul de geai sur un mur (une proposition de l'audit, 5 novembre 2026) : le pignon du
+ * corps que designe ce mur dont la place couvre `a` metres le long du mur depuis sa gauche vue de dehors. Le moteur lit la coupe sur
+ * la mesure, ou la pose au tiers (facade/regles/toits/pignons.ts::avecPointesDesMurs) ; elle ne s'ecrit jamais dans faits.json.
+ */
+export interface PointeDeMurFait { mur: MurDesigne; a: number; pointe: 'demi-croupe' }
 
 /**
  * Un element vu sur la ligne du haut d'un mur (lot F7 : une proposition de l'audit, MD/spec-facade-calage-audit.md §5 quater) : une
@@ -156,6 +163,8 @@ export interface ObservationFait {
   pignons?: PignonsFait[];
   /** Les bouts que montrent des murs de bout, chacun sur son corps (lot F4). */
   boutsDesMurs?: BoutDeMurFait[];
+  /** Les pointes de pignons vues coupees en cul de geai, chacune sur son pignon (5 novembre 2026). */
+  pointesDesMurs?: PointeDeMurFait[];
   /** Les cheminees et lucarnes que montrent des murs, chacune posee sur son corps (lot F7) ; ce qui est deja pose ne bouge pas. */
   elementsDesMurs?: ElementDeMurFait[];
   /** Les bay windows que le calcul pose sur les saillies du contour (spec §2.3). */

@@ -20,6 +20,7 @@ import type { RunJardin } from '../../../regles/jardin/observations.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeForme } from './formeFacades.js';
+import { propositionsCulsDeGeaiLidar } from './culDeGeaiLidar.js';
 import { propositionsAccords, propositionsDeClaude, propositionsDetails, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
 import { avecReserveDesNiveaux } from './niveauxClaude.js';
 import { avecPlacesApresForme } from './apresForme.js';
@@ -477,7 +478,10 @@ const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materia
 
 function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>, jardin: RunJardin | null = null, runs: Record<string, RunEnregistre> | null | undefined = null) {
   const e: EntreesPropositions = { ...entrees, accords, runs };
-  const deLAudit = [...propositionsDeLAudit(e), ...propositionsDeForme(e)];
+  // Les culs de geai que montre la seule mesure LiDAR (5 novembre 2026) : sur un corps ou un pignon que l'E7 ne propose pas deja.
+  const deForme = propositionsDeForme(e);
+  const deLaMesure = propositionsCulsDeGeaiLidar(e).filter((p) => !deForme.some((q) => q.effet.type === 'corpsDuToit' && p.effet.type === 'corpsDuToit' && q.cible.type === 'batiment' && p.cible.type === 'batiment' && q.cible.cle === p.cible.cle && q.effet.corps === p.effet.corps));
+  const deLAudit = [...propositionsDeLAudit(e), ...deForme, ...deLaMesure];
   // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
   const couleurLue = new Set(deLAudit.filter((p) => p.effet.type === 'couleurMurs').map((p) => cleDeLaCible(p.cible)));
   const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type) && !(p.effet.type === 'couleurMurs' && couleurLue.has(cleDeLaCible(p.cible)))) : [];
