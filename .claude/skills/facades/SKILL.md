@@ -410,6 +410,9 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   peinture verte est un aplat) ; ses tronçons vont dans `hautMasque`, que l'É7 et le bilan sautent. L'affinage de l'égout et du sol
   (`affinerEgoutEtSol`, l'É5 des repères) n'en est pas changé. Étalon 27 : l'arbre devant le pignon ; il n'a pas encore de plancher au
   garde-fou de la lecture (`scenes-ajoutees.json`), à fixer au prochain run « Vérifier l'API Claude ».
+  Suites (5 novembre 2026) : les creux étroits du haut lu (un poteau peint) ne sont pas lus (`retirerLesCreux`) ; un aplat et son bord
+  ne sont pas du feuillage (`CHANGE_FEUILLE`) ; la couronne d'un arbre dans la bande au-dessus de l'égout est tenue pour non vue
+  (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É5 se pose sur son bandeau vert, pas sur l'arbre.
 
 ## 3. Le corpus
 

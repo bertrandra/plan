@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Façades, É6 (silhouette lue), suites de la végétation :
+  - le haut lu ne plonge plus au droit d'un poteau peint en haut du mur (le colombage vert du pignon gauche d'AE 101) : un creux de cinq
+    colonnes au plus, plus bas que ses deux voisines de 5 % de la largeur, n'est pas lu (un haut de mur n'a pas de tel creux) ;
+  - le bord d'un aplat peint (un poteau sur l'enduit) n'est plus pris pour du feuillage : le feuillage change d'une rangée à l'autre,
+    le bord d'un aplat non ;
+  - la couronne d'un arbre ne se lit plus comme un toit dans la bande au-dessus de l'égout (étalon 27 : « une seule rampe » devient
+    « triangle ») ; une bande sans végétation garde sa lecture, et le toit proposé par l'audit avec elle.
+
 ### Modifié
 
 - Façades, É5 (calage du mur) : **le gabarit se pose bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre

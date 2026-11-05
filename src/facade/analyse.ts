@@ -15,7 +15,7 @@ import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle,
 import { detecterFacade, type DetectionFacade, type OptionsDetection, type OuvertureDetectee } from './detection/detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toits/toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, enListe, ouverturesDansLeMur, partieHaute, type Decrochement, type PartiesDuMur } from './profil.js';
-import { COLONNES_SILHOUETTE, silhouetteLue } from './vision/mosaiqueFuites.js';
+import { COLONNES_SILHOUETTE, feuillageDeLImage, silhouetteLue } from './vision/mosaiqueFuites.js';
 import { objectifsEnchainement } from './regles/facades/enchainement.js';
 import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
@@ -406,7 +406,11 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
   // Le toit se lit au-dessus de la partie haute seulement : au-dessus de la partie basse, la bande
   // montre le mur de la partie haute, pas une silhouette de toit.
   const haute = partieHaute(texture.largeur / pxParM, parties);
-  const bandeToit = haute ? colonnes(bande.image, bande.vu, Math.round(au(haute, 0) * pxParM), Math.round(au(haute, 1) * pxParM)) : bande;
+  const bandeEntiere = haute ? colonnes(bande.image, bande.vu, Math.round(au(haute, 0) * pxParM), Math.round(au(haute, 1) * pxParM)) : bande;
+  // La vegetation n'est ni mur ni toit (4 novembre 2026) : la couronne d'un arbre devant le haut ne se lit pas comme un toit. Ses pixels
+  // sont tenus pour non vus (le profil les prend pour du ciel) ; une bande sans feuillage garde sa lecture telle quelle.
+  const feuillage = feuillageDeLImage(bandeEntiere.image, bandeEntiere.vu);
+  const bandeToit = feuillage.includes(1) ? { image: bandeEntiere.image, vu: bandeEntiere.vu.map((v, i) => (feuillage[i] ? 0 : v)) } : bandeEntiere;
   const vusBande = bandeToit.vu.reduce((s, v) => s + v, 0);
 
   // Moins d'un tiers de la bande vu : le toit est hors cadre, on ne propose rien plutot que de
