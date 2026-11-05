@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Façades, É5 (calage du mur) : **le gabarit se pose bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre
+  2026 : « le positionnement du gabarit ne fonctionne pas »). Son sol sur le sol trouvé, ses bouts sur les bouts trouvés, une seule
+  échelle tirée de la largeur, la même en hauteur ; il ne se tend plus entre l'égout et le sol trouvés, ce qui faisait de la hauteur
+  du mur le levier de tout le haut (à AE 101, l'égout de l'appentis à 2,4 m, les pointes des pignons à 7,5 m : l'égout trouvé sur la
+  gouttière, 80 cm trop haut, montait la pointe de droite de 2,4 m). La même pose partout : l'image de l'É5 et des photos, la silhouette
+  que lit la détection, le toit par la silhouette, les parties basses, le diagnostic de forme (É7), le bilan et le geste « Ajuster
+  l'égout et le sol ». Son égout ne pose plus rien : il **contrôle l'égout trouvé**, l'écart se dit à l'É5 en centimètres, et l'É5 est
+  à confirmer au-delà de 3 % de la largeur. Banc : poses de l'É5 inchangées (43/49 justes, 344/344 fausses refusées, 83/86 justes à
+  2 %), une É5 « ok » sur un mur faux (13, repères) devenue à confirmer ; silhouette posée à 2 % 40/46 → 39/46 (pignons 11, 22 et 24
+  gagnés quand l'égout est trouvé à 1 ou 2 % près ; perdus 11, 13 et 15, assemblages étirés par une focale supposée ou une distorsion,
+  et 19, un bout faux : `MD/spec-facade-calage-audit.md` §4 É5).
+
 ### Corrigé
 
 - Façades, É6 (silhouette lue) : le haut lu ne monte plus dans un arbre. Des feuilles et des trous de ciel mêlés ont en moyenne la teinte

@@ -78,13 +78,19 @@ function dansLeCadre(c: CadreFacade, o: Pick<OuvertureDetectee, 'x' | 'y' | 'l' 
   return [{ x, y: haut }, { x: x + o.l, y: haut }, { x: x + o.l, y: bas }, { x, y: bas }];
 }
 
+/**
+ * La pose du gabarit sur le mur retenu (enchainement.ts, E5) : son bas sur le sol, a l'echelle de la largeur, en hauteurs du mur
+ * trouve (gabaritMur.ts::echelleDuGabarit). 1 sans mur pose.
+ */
+const echelleDe = (r: Enchainement): number => r.sorties.calage?.echelleGabarit ?? 1;
+
 /** Le gabarit pose sur chaque photo par les coins que la chaine a retenus, ramene sur sa vue redressee (par rang de photo). */
 function vuesAvecGabarit(r: Enchainement, g: GabaritMur): ImagesEtapes['vues'] {
   const vues = r.sorties.vues ?? [];
   const coins = r.sorties.calage?.photos ?? [];
   return vues.map((v, k) => {
     if (!v) return null;
-    const c = coins[k]?.coins, sil = c?.length === 4 ? gabaritSurLaPhoto(g, c) : null, versVue = inverser(v.versPhoto);
+    const c = coins[k]?.coins, sil = c?.length === 4 ? gabaritSurLaPhoto(g, c, echelleDe(r)) : null, versVue = inverser(v.versPhoto);
     return { image: v.image, silhouette: sil && versVue ? sil.map((q) => appliquer(versVue, q)) : null };
   });
 }
@@ -121,13 +127,13 @@ function calqueForme(r: Enchainement, pose: NonNullable<Enchainement['sorties'][
   const x = (u: number) => bg.x + (bd.x - bg.x) * u, w = Math.abs(bd.x - bg.x);
   return {
     troncons: d.troncons.map((t, k) => ({ x0: x(t.u0), x1: x(t.u1), y: Math.max(bd.y, bg.y) + (0.02 + 0.015 * (k % 2)) * w, corps: t.corps, cote: t.cote })),
-    propositions: d.propositions.map((p) => ({ contour: gabaritSurLaPhoto(contourDuGabarit(p.gabarit), pose.coins) ?? [], corps: p.corps, gain: p.gain })),
+    propositions: d.propositions.map((p) => ({ contour: gabaritSurLaPhoto(contourDuGabarit(p.gabarit), pose.coins, echelleDe(r)) ?? [], corps: p.corps, gain: p.gain })),
   };
 }
 
 /** Les images des etapes d'un rejeu. */
 export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
-  const s = r.sorties, g = e.gabarit, L = e.largeurM, H = e.hauteurM;
+  const s = r.sorties, g = e.gabarit, L = e.largeurM, H = e.hauteurM, k = echelleDe(r);
   const pose = s.calage?.pose ?? null;
   const a = s.analyse;
   const [, , bd, bg] = (pose?.coins ?? []) as P2[];
@@ -135,14 +141,14 @@ export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
     vues: vuesAvecGabarit(r, g),
     assemblage: pose ? { image: pose.image } : null,
     pose: pose && bd && bg ? {
-      image: pose.image, coins: pose.coins, contour: gabaritSurLaPhoto(contourDuGabarit(g), pose.coins) ?? [bg, bd], silhouette: s.silhouette?.points.length ? s.silhouette.points : null, masques: s.silhouette?.masques ?? [],
+      image: pose.image, coins: pose.coins, contour: gabaritSurLaPhoto(contourDuGabarit(g), pose.coins, k) ?? [bg, bd], silhouette: s.silhouette?.points.length ? s.silhouette.points : null, masques: s.silhouette?.masques ?? [],
       proposees: a ? versLImage(pose.coins, L, H, a.ouvertures) : [], devinees: a ? versLImage(pose.coins, L, H, a.devinees) : [],
     } : null,
     facade: a ? (() => {
       const c = cadreDe(a);
-      return { image: a.facade.image, l: c.l, h: c.h, x0: c.x0, contour: contourDuGabarit(g).map((q) => ({ x: c.x0 + q.u * c.lMur, y: c.h - q.v * c.hMur })), proposees: a.ouvertures.map((o) => dansLeCadre(c, o)), devinees: a.devinees.map((o) => dansLeCadre(c, o)) };
+      return { image: a.facade.image, l: c.l, h: c.h, x0: c.x0, contour: contourDuGabarit(g).map((q) => ({ x: c.x0 + q.u * c.lMur, y: c.h - q.v * k * c.hMur })), proposees: a.ouvertures.map((o) => dansLeCadre(c, o)), devinees: a.devinees.map((o) => dansLeCadre(c, o)) };
     })() : null,
-    texture: a ? { image: a.texture, sansOmbres: s.sansOmbres, contour: contourDuGabarit(g).map((q) => ({ x: q.u * L, y: a.hauteurTexture - q.v * H })), l: a.texture.largeur / a.pxParM, h: a.hauteurTexture } : null,
+    texture: a ? { image: a.texture, sansOmbres: s.sansOmbres, contour: contourDuGabarit(g).map((q) => ({ x: q.u * L, y: a.hauteurTexture - q.v * k * a.elevation.hauteur / a.pxParM })), l: a.texture.largeur / a.pxParM, h: a.hauteurTexture } : null,
     forme: calqueForme(r, pose),
     ia: calqueIa(r, e, pose),
   };

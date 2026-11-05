@@ -66,13 +66,15 @@ export function correctionApresRetour(avant: CorrectionRedressement | undefined)
  * rejouee), « Revenir à l'automatique » et « Annuler ». Rien n'est ecrit avant « Appliquer ». Avec plusieurs photos assemblees,
  * l'egout et le sol s'ajustent sur leur assemblage : le mur tire revient sur chacune (`appliquer`, ses coins par rang).
  */
-export function ReperesAudit({ photo, rang, depart, mur, gabarit, assemblage, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: {
+export function ReperesAudit({ photo, rang, depart, mur, gabarit, rapport = null, assemblage, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: {
   photo: PhotoCas; rang: number;
   /** Les reperes de depart : ceux deja poses, sinon les coins du mur que le calcul a retenus (un rectangle du mur, eux aussi). */
   depart: readonly P2[] | undefined;
   /** Les coins du mur sur la photo, trouves par la chaine ou deja ajustes a la main : le depart de « Ajuster l'égout et le sol ». */
   mur: readonly P2[] | undefined;
   gabarit?: GabaritMur | undefined;
+  /** La hauteur du mur du plan sur sa largeur : le gabarit se pose sur le sol, a l'echelle des bouts. */
+  rapport?: number | null | undefined;
   /** L'assemblage des photos de la facade et le mur que la chaine y a pose ; absent avec une photo. */
   assemblage?: AssemblageAAjuster | undefined;
   /** La largeur du mur lue sur le plan, en metres. */
@@ -109,7 +111,7 @@ export function ReperesAudit({ photo, rang, depart, mur, gabarit, assemblage, la
   return (
     <div className="reperesAudit">
       {lue && coins
-        ? <PoserReperes photo={lue} rang={rang} reperes={coins} changer={setCoins} mur={murAjuste?.coins ?? mur ?? null} gabarit={gabarit} charger={charger} ajusterMur={setMurAjuste}
+        ? <PoserReperes photo={lue} rang={rang} reperes={coins} changer={setCoins} mur={murAjuste?.coins ?? mur ?? null} gabarit={gabarit} rapport={rapport} charger={charger} ajusterMur={setMurAjuste}
             assemblage={assemblage} ajusterMurAssemble={setMurAssemble} suite="« Appliquer », puis la façade se rejoue" />
         : <div className="detailPhoto">Chargement de la photo…</div>}
       <label className="detailPhoto">
@@ -263,6 +265,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         garder={(o) => { setRelecture(false); setEnCours(true); void session.validation.relireOuvertures(cle, cote, o).finally(() => setEnCours(false)); }} annuler={() => setRelecture(false)} />}
       {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
         depart={correction?.reperes ?? correction?.coins ?? coinsPx} mur={correction?.coins ?? coinsPx} gabarit={mesure?.gabarit}
+        rapport={mesure?.facade && mesure.facade.dimensions.largeurM > 0 ? mesure.facade.dimensions.egoutM / mesure.facade.dimensions.largeurM : null}
         assemblage={mesure?.assemblage} echelleDepart={correction?.echelleLargeurM}
         appliquer={(c, autres) => corriger(rangReperes, c, autres)} retablir={() => retablir(rangReperes)} fermer={() => setRangReperes(null)} />}
       {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom}

@@ -244,6 +244,16 @@ chaque scène, comme le LiDAR le donnerait, **une fois le mur calé** (il n'entr
 gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et du sol trouvés. Le profil lu pour caler un sol caché a été essayé,
 puis retiré : il dégradait la rampe `23`.
 
+**La pose du gabarit : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 ; `gabaritMur.ts::echelleDuGabarit`,
+`MD/spec-facade-calage-audit.md` §4 É5) : son sol sur le sol trouvé, ses bouts sur les bouts trouvés, une seule échelle tirée de la
+largeur ; son égout ne pose plus rien, il contrôle l'égout trouvé (`ecartDEgout`, dit à l'É5, à confirmer au-delà de 3 %). Avant, tendu
+entre l'égout et le sol trouvés, il prenait la hauteur du mur pour levier (AE 101 : pointes à 3,15 fois l'égout, 2,4 m trop haut pour
+80 cm d'égout trouvé sur la gouttière de l'appentis). `egout-sol.ts` pose le gabarit comme la production ; la colonne « Silhouette »
+gagne là où l'égout est trouvé à 1 ou 2 % près sous un pignon (22, 24) et perd là où l'assemblage est étiré (focale supposée,
+distorsion : 11, 13, 15) ou un bout faux (19). Le test de la pose (`expliqueLaPhoto`, les colonnes « Poses fausses refusées » et
+« Justes à 2 % » de `calage-e5.ts`) juge toujours l'égout trouvé à la matière sous la silhouette accrochée à lui : le contrôle seul,
+essayé, acceptait 79 égouts à 2 % sur 86 au lieu de 83.
+
 **La détection dans la silhouette** (`facade/analyse.ts::detecterDansLaSilhouette`, `silhouetteDansLeCadre`, 2 novembre 2026,
 demande du propriétaire) : la détection lisait le mur coupé au sol et à l'égout et ne voyait jamais une baie de pignon. Elle lit
 désormais la façade redressée entière (fusionnée quand plusieurs vues se fondent : `ResultatAnalyse.facade`, le cadre de la texture
