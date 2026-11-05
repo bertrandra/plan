@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.10.0] — 2026-11-05
+
+Version **mineure** au sens de `MD/RELEASE.md` : le Mode Toit dessine le cul de geai et la queue de vache (#577), que l'audit découvre
+(LiDAR, É7 et Claude, en propositions décochées, #578) et que Claude lit sous leurs synonymes (#580 : prompts de l'analyse 9 → 10 et de
+la façade 2 → 3) ; l'É5 pose le gabarit bas sur bas, à l'échelle de la largeur (#573), et ne prend plus le bas d'un bandeau peint sous
+le pignon pour l'égout (#576) ; l'É6 ne lit plus le haut du mur dans un arbre ni au droit d'un poteau (#574, #575) ; la fumée coche une
+proposition après la mesure (#579). Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à
+leur numéro de version, d'un octet plus long (à numéro inchangé, sept sur sept au bit près ; au nouveau numéro, l'ancien remis, les
+fichiers texte au bit près et les PDF identiques une fois les décalages neutralisés ; `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. **Schéma 15** (migration 14 → 15
+identité), accepté par la plateforme (bertrandra/backprod#254, migration `Version20261105090000`) : appliquer backprod puis `setup.php`
+en production **avant** de déposer cette livraison de Plan. Fumée complète lancée en parallèle (Fumée de la nuit, run RUN_NUIT),
+livraison sans l'attendre par décision du propriétaire ; un point rouge donnera une 5.10.1. Requêtes vérifiées contre l'API Claude avec
+la mesure des façades et les dix demandes de l'assistant, les prompts ayant changé (RUN_API).
+
 ### Ajouté
 - Ce que lit Claude : la **demi-croupe** dit ses autres noms (cul de geai, nez de veau, bout rabattu, croupette ; décision du propriétaire,
   5 novembre 2026), son faîtage qui peut déborder le pignon, et la pointe d'un pignon de façade coupée de même. L'identifiant reste
