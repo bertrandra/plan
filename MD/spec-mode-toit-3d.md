@@ -377,9 +377,11 @@ de vache (coyau) »**, le bas de pan adouci qui déborde plus loin pour jeter l'
 - **La géométrie** (`facade/toits/toitFormes.ts`, une règle pour les deux, `coupeDemiCroupe`) : la petite croupe est un plan qui passe
   par le pied (le haut du pignon tronqué, `zc` = égout + `hauteurPignonM`) à `debordFaitageM` devant le mur, et monte vers l'intérieur
   jusqu'au faîtage, `profondeurM` plus loin. Débord nul : le pied est sur le mur, le mur de bout est un trapèze (le dessin d'avant).
-  Débord au-delà de la rive : un **capuchon** — le toit n'existe devant la rive qu'au-dessus du pied, une sous-face horizontale au pied
-  du mur au bord, le mur s'arrête au pied ; l'arêtier descend en biais et revient vers le mur. Le débord d'égout des pans continue la
-  croupe à sa pente. Les pans d'un corps à cul de geai (et d'un corps en coyau) sont entaillés sous ses pignons traversants
+  Débord au-delà de la rive : un **capuchon raccordé à l'égout** (retour du propriétaire, 5 novembre 2026 : « raccorder le bout du cul
+  de geai vers le bas de la toiture à l'égout ») — l'emprise du toit s'avance au pied de la croupe, et la rive de chaque long pan descend
+  en ligne du coin de ce pied jusqu'au coin de son égout (débord compris) ; ni marche ni sous-face horizontale à part : le dessous de
+  cette rive débordante est la sous-face, et le mur pignon monte sous le toit. Même raccord à la pointe d'un pignon (`facettesPignonCoupe`).
+  Le débord d'égout des pans continue la croupe à sa pente. Les pans d'un corps à cul de geai (et d'un corps en coyau) sont entaillés sous ses pignons traversants
   (`entaillerPourPignons`, les mêmes noues que le dessin d'avant).
 - **La queue de vache** d'un pan (`qdv0`, `qdv1`) : un profil `coyau` (cassure à 0,8 m du mur au plus, le tiers du pan au plus ; pente
   adoucie de 15° sous celle du pan, réglable de 10 à 25°, `penteCoyau`) et son débord `debordM` (0,6, 0,9, 1,2 m), qui l'emporte sur le
