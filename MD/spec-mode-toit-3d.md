@@ -363,6 +363,34 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   131 (étalon 25, le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, la partie droite du mur reculée de 50 cm, auvent
   ouvert avec garde-corps à droite et retour d'angle, bow-window sans toit propre dessous).
 
+### Le cul de geai et la queue de vache  *(5 novembre 2026, demande du propriétaire)*
+« Ajouter la demi-croupe, applicable aussi aux pignons, pour le dessiner et dans la découverte auto. » Le nom à l'écran est **« Cul de
+geai »** (le plus fréquent), avec ses autres noms dans l'infobulle : nez de veau, bout rabattu (cauchois), croupette, demi-croupe. Les
+identifiants techniques restent `demi-croupe` / `demi-croupes` (fichiers, `regles/`, schéma de lecture de Claude). Même lot : **« Queue
+de vache (coyau) »**, le bas de pan adouci qui déborde plus loin pour jeter l'eau.
+- **Un bout du faîtage** d'un corps à deux pans droits se choisit, dans le panneau du corps (`facade/modeToit/bouts.ts`, commande
+  `toit.regler`) : **pignon, croupe ou cul de geai** (`bout0`, `bout1`, nommés « Bout nord »… par l'orientation du bout). Un cul de geai
+  règle la **part coupée** (`coupe`, le quart, le tiers, la moitié du pignon ; la pente de la petite croupe gardée) et le **débord du
+  faîtage** (`debordFaitage`, 0, 0,5, 1 m). Un cul de geai neuf coupe le tiers, sa croupe à la pente des pans. `croupes` suit les bouts
+  (une croupe s'y écrit, un cul de geai y vaut 0), et des bouts tous en pignon ou en croupe ne s'écrivent pas.
+- **La pointe d'un pignon** (élément « Pignon ») : en triangle ou en cul de geai (`pointe`), avec sa part et son débord.
+- **La géométrie** (`facade/toits/toitFormes.ts`, une règle pour les deux, `coupeDemiCroupe`) : la petite croupe est un plan qui passe
+  par le pied (le haut du pignon tronqué, `zc` = égout + `hauteurPignonM`) à `debordFaitageM` devant le mur, et monte vers l'intérieur
+  jusqu'au faîtage, `profondeurM` plus loin. Débord nul : le pied est sur le mur, le mur de bout est un trapèze (le dessin d'avant).
+  Débord au-delà de la rive : un **capuchon** — le toit n'existe devant la rive qu'au-dessus du pied, une sous-face horizontale au pied
+  du mur au bord, le mur s'arrête au pied ; l'arêtier descend en biais et revient vers le mur. Le débord d'égout des pans continue la
+  croupe à sa pente. Les pans d'un corps à cul de geai (et d'un corps en coyau) sont entaillés sous ses pignons traversants
+  (`entaillerPourPignons`, les mêmes noues que le dessin d'avant).
+- **La queue de vache** d'un pan (`qdv0`, `qdv1`) : un profil `coyau` (cassure à 0,8 m du mur au plus, le tiers du pan au plus ; pente
+  adoucie de 15° sous celle du pan, réglable de 10 à 25°, `penteCoyau`) et son débord `debordM` (0,6, 0,9, 1,2 m), qui l'emporte sur le
+  débord du corps pour ce pan ; sous-face fermée. Le dessin d'un coyau ferme ses bouts en pignon : la queue de vache n'est proposée que
+  sur un corps aux bouts en pignon, et les bouts ne se règlent pas tant qu'un pan est en coyau.
+- **Schéma 15** (une seule montée ; bertrandra/backprod, migration `Version20261105090000`, déployée d'abord) : `debordFaitageM` d'un bout
+  en demi-croupe, `pointe` d'un pignon, `debordM` d'un profil `coyau`. Lus et bornés à la lecture (`corpsToitEtendu.ts`), retirés s'ils
+  sont mal formés. Seul un bâtiment qui en porte s'écrit au 15 ; migration 14 → 15 identité.
+- Le moteur ne change pas (AE 101 : `identite.ts` identique) : ce sont des décisions figées (`toitFige`).
+- Tests : `tests/unit/facade/modeToit/bouts.test.ts`, `tests/unit/model/migrations.test.ts`. Fumée : point 134.
+
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
 

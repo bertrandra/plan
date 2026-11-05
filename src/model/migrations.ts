@@ -143,6 +143,14 @@ export const MIGRATIONS: readonly Migration[] = [
     // 13 est un document 14 valide, relu a l'identique. Le 14 le distingue, pour qu'un lecteur 13 refuse le fichier plutot que de perdre
     // un mur recule ou un garde-corps, ou de rejeter le bow-window que la personne a pose sous son auvent.
     migrer: (d) => d
+  },
+  {
+    de: 14,
+    apporte: 'le cul de geai (demi-croupe) au faîtage débordant ou à la pointe d’un pignon, et la queue de vache (coyau qui déborde) à l’égout d’un pan',
+    // Trois champs facultatifs (`debordFaitageM` d'un bout en demi-croupe, `pointe` d'un pignon, `debordM` d'un pan en coyau), qui
+    // n'existaient pas avant : un document 14 est un document 15 valide, relu a l'identique. Le 15 les distingue, pour qu'un lecteur 14
+    // refuse le fichier plutot que de perdre un debord ou une pointe que la personne a dessines.
+    migrer: (d) => d
   }
 ];
 
@@ -230,6 +238,8 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     if (Array.isArray(brut.facades) && brut.facades.some(porteDesPartiesBasses)) s = Math.max(s, 13);
     // Un batiment modifie corps par corps (travees d'un mur, bow-window sans toit propre) : un lecteur 13 les perdrait.
     if (porteLesCorpsModifies(brut)) s = Math.max(s, 14);
+    // Un cul de geai a faitage debordant ou a la pointe d'un pignon, une queue de vache : un lecteur 14 les perdrait.
+    if (porteLesBoutsDessines(brut)) s = Math.max(s, 15);
   }
   return s;
 }
@@ -239,6 +249,16 @@ function porteLesCorpsModifies(brut: Record<string, unknown>): boolean {
   return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => {
     const k = c as { travees?: unknown; saillie?: { toit?: unknown } } | null;
     return !!k && ((Array.isArray(k.travees) && k.travees.length > 0) || k.saillie?.toit === 'aucun');
+  });
+}
+
+/** Un objet dont un corps porte un debord de faitage de demi-croupe, une pointe de pignon ou une queue de vache : schema 15. */
+function porteLesBoutsDessines(brut: Record<string, unknown>): boolean {
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => {
+    const k = c as { bouts?: unknown; pignons?: unknown; profil?: unknown } | null;
+    if (!k) return false;
+    const a = (l: unknown, f: (x: Record<string, unknown>) => boolean) => Array.isArray(l) && l.some((x) => !!x && typeof x === 'object' && f(x as Record<string, unknown>));
+    return a(k.bouts, (b) => b.debordFaitageM !== undefined) || a(k.pignons, (g) => g.pointe !== undefined) || a(k.profil, (p) => p.debordM !== undefined);
   });
 }
 

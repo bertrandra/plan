@@ -39,7 +39,7 @@ const un = (corps: Corps, plus: { t0?: number; w?: number; l?: number } = {}) =>
 const lucarne = (type: TypeLucarne): Lucarne => ({ type, pan: 1, debutM: 3.5, finM: 6.5, faitageM: 5.2, profondeurM: 1.4, source: 'observation' });
 const brise = { type: 'brise' as const, largeurBrisisM: 1.6, hauteurBrisM: 5 };
 const arc = (fleche: number) => ({ type: 'courbe' as const, flecheM: fleche });
-const coyau = { type: 'coyau' as const, largeurM: 1.4, penteDeg: 12 };
+const coyau = { type: 'coyau' as const, largeurM: 1.4, penteDeg: 12, debordM: 0.9 };
 const tourelle = (speciale: NonNullable<Corps['speciale']>, faitage: number): Corps => ({ posFaitage: 3, faitage, egouts: [3, 3], speciale });
 const appentis = (faitage: number): Corps => ({ posFaitage: 0, faitage, egouts: [3, 3] });
 
@@ -49,14 +49,14 @@ export const EXEMPLES_TOITS: readonly ExempleToit[] = [
   { id: 'pavillon', titre: 'Pavillon', aussi: 'pyramide', famille: 'toit', corps: [un({ posFaitage: 3.5, faitage: 7, egouts: [3, 3], croupes: [3.5, 3.5] }, { l: 7 })] },
   { id: 'appentis', titre: 'Un pan', aussi: 'appentis', famille: 'toit', corps: [un({ posFaitage: 0, faitage: 6, egouts: [3, 3] })] },
   { id: 'plat', titre: 'Toit plat', aussi: 'toit-terrasse', famille: 'toit', corps: [un({ posFaitage: 3.5, faitage: 3, egouts: [3, 3] })] },
-  { id: 'demi-croupes', titre: 'Demi-croupe', aussi: 'croupe meunière', famille: 'toit', corps: [un({ ...base, bouts: [{ type: 'demi-croupe', profondeurM: 1.6, hauteurPignonM: 2.6 }, { type: 'pignon' }] })] },
+  { id: 'demi-croupes', titre: 'Cul de geai', aussi: 'demi-croupe, nez de veau, bout rabattu, croupette, croupe meunière', famille: 'toit', corps: [un({ ...base, bouts: [{ type: 'demi-croupe', profondeurM: 1.6, hauteurPignonM: 2.6 }, { type: 'pignon' }] })] },
   { id: 'mansart', titre: 'Mansart', aussi: 'brisis aux quatre côtés', famille: 'toit', corps: [un({ ...base, profil: [brise, brise], bouts: [{ type: 'brisis', largeurM: 1.6 }, { type: 'brisis', largeurM: 1.6 }] })] },
   { id: 'asymetrique', titre: 'Asymétrique', aussi: 'saltbox', famille: 'toit', corps: [un({ posFaitage: 2.2, faitage: 7, egouts: [4, 1.8] })] },
   { id: 'deux-pans-decales', titre: 'Deux pans décalés', famille: 'toit', corps: [un({ posFaitage: 2.5, faitage: 6, egouts: [3, 3] }, { w: 5 }), un({ posFaitage: 2.5, faitage: 7.5, egouts: [3, 3] }, { t0: 5, w: 5 })] },
   { id: 'toit-en-m', titre: 'Toit en M', aussi: 'double pignon', famille: 'toit', corps: [un({ posFaitage: 2.5, faitage: 6.5, egouts: [3, 3] }, { w: 5 }), un({ posFaitage: 2.5, faitage: 6.5, egouts: [3, 3] }, { t0: 5, w: 5 })] },
   { id: 'papillon', titre: 'Papillon', aussi: 'en V', famille: 'toit', corps: [un({ posFaitage: 3.5, faitage: 3, egouts: [5, 5] })] },
   { id: 'gambrel', titre: 'Gambrel', aussi: 'toit brisé, à la hollandaise', famille: 'toit', corps: [un({ ...base, profil: [brise, brise], bouts: [{ type: 'pignon' }, { type: 'pignon' }] })] },
-  { id: 'coyau', titre: 'Coyau', aussi: 'toit retroussé', famille: 'toit', corps: [un({ ...base, profil: [coyau, coyau] })] },
+  { id: 'coyau', titre: 'Queue de vache (coyau)', aussi: 'coyau, toit retroussé, égout retroussé', famille: 'toit', corps: [un({ ...base, profil: [coyau, coyau] })] },
   { id: 'shed', titre: 'Shed', aussi: 'dents de scie', famille: 'toit', corps: [un(appentis(5.6), { w: 4 }), un(appentis(5.6), { t0: 4, w: 4 }), un(appentis(5.6), { t0: 8, w: 4 })] },
   { id: 'berceau', titre: 'Berceau', aussi: 'voûte', famille: 'toit', corps: [un({ posFaitage: 3.5, faitage: 6, egouts: [3, 3], profil: [arc(0.8), arc(0.8)] })] },
   { id: 'carene', titre: 'Carène', aussi: 'coque renversée', famille: 'toit', corps: [un({ posFaitage: 3.5, faitage: 6.8, egouts: [3, 3], profil: [arc(1.3), arc(1.3)], bouts: [{ type: 'croupe', profondeurM: 2.5 }, { type: 'croupe', profondeurM: 2.5 }] })] },

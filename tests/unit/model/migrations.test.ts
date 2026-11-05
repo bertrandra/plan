@@ -357,3 +357,37 @@ describe('la migration 13 -> 14 : les batiments modifies corps par corps', () =>
     expect(schemaMinimal(sous as unknown as ObjetAPlat[])).toBe(14);
   });
 });
+
+describe('la migration 14 -> 15 : le cul de geai et la queue de vache', () => {
+  const corps = (extra: Record<string, unknown> = {}) => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4], pignons: [], ecart: 0, ...extra });
+
+  it('lit un document de schema 14 tel quel ; un cul de geai sans debord reste sous 15', () => {
+    const d = { objects: [batiment({ corpsToit: [corps({ bouts: [{ type: 'demi-croupe', profondeurM: 1, hauteurPignonM: 2 }, { type: 'pignon' }] })] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 14)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 14)?.apporte).toMatch(/cul de geai/);
+    expect(schemaMinimal(relu(d.objects, 14) as unknown as ObjetAPlat[])).toBeLessThan(15);
+  });
+
+  it('s ecrit au 15 des qu un faitage deborde, qu un pignon a sa pointe coupee ou qu un pan a sa queue de vache, et les relit a l identique', () => {
+    const bouts = [{ type: 'demi-croupe', profondeurM: 1, hauteurPignonM: 2, debordFaitageM: 0.8 }, { type: 'pignon' }];
+    const pignons = [{ pan: 0, debut: 3, fin: 6, faitage: 6.5, profondeur: 3, pointe: { type: 'demi-croupe', profondeurM: 0.6, hauteurPignonM: 1.2 } }];
+    const profil = [{ type: 'coyau', largeurM: 0.8, penteDeg: 15, debordM: 0.9 }, { type: 'droit' }];
+    for (const extra of [{ bouts }, { pignons }, { profil }]) {
+      const avec = relu([batiment({ corpsToit: [corps(extra)] } as unknown as Partial<ObjetAPlat>)], 15);
+      const k = (avec[0]!.corpsToit as Record<string, unknown>[])[0]!;
+      for (const [cle, v] of Object.entries(extra)) expect(k[cle]).toEqual(v);
+      expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(15);
+      expect(relu(avec, 15)).toEqual(avec);
+    }
+    // Mal formes, ils sont retires a la lecture : la pointe redevient un triangle, le debord disparait, le coyau reste.
+    const illisible = relu([batiment({ corpsToit: [corps({
+      bouts: [{ type: 'demi-croupe', profondeurM: 1, hauteurPignonM: 2, debordFaitageM: -1 }, { type: 'pignon' }],
+      pignons: [{ ...pignons[0], pointe: { type: 'demi-croupe', profondeurM: 0 } }],
+      profil: [{ type: 'coyau', largeurM: 0.8, penteDeg: 15, debordM: 9 }, { type: 'droit' }]
+    })] } as unknown as Partial<ObjetAPlat>)], 15);
+    const k = (illisible[0]!.corpsToit as Record<string, unknown>[])[0]! as { bouts: Record<string, unknown>[]; pignons: Record<string, unknown>[]; profil: Record<string, unknown>[] };
+    expect(k.bouts[0]).not.toHaveProperty('debordFaitageM');
+    expect(k.pignons[0]).not.toHaveProperty('pointe');
+    expect(k.profil[0]).toEqual({ type: 'coyau', largeurM: 0.8, penteDeg: 15 });
+  });
+});

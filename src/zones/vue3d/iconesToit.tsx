@@ -31,13 +31,32 @@ const TRACES: Record<string, ReactNode> = {
   'pan:1': <><path d="M3 19l9-13 9 13" /><path d="M21 19l-9-13v13z" fill="currentColor" opacity=".35" /></>,
   // Le sens du faitage, vu de dessus : le rectangle du corps et son faitage, dans la longueur ou dans la largeur.
   'sens:long': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M5 12h14" strokeWidth="2.4" /></>,
-  'sens:court': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M12 8.5v7" strokeWidth="2.4" /></>
+  'sens:court': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M12 8.5v7" strokeWidth="2.4" /></>,
+  // Un bout du faitage, vu de face : le pignon en triangle, la croupe (un pan qui descend jusqu'a l'egout, le mur s'arrete a l'egout),
+  // le cul de geai (le pignon dont la pointe est coupee par un petit pan, plein).
+  'bout:pignon': <path d="M3 20V13l9-8 9 8v7z" />,
+  'bout:croupe': <><path d="M3 20v-7h18v7z" /><path d="M3 13l9-8 9 8z" fill="currentColor" opacity=".35" /></>,
+  'bout:demi-croupe': <><path d="M3 20v-7l5.4-4.8h7.2L21 13v7z" /><path d="M8.4 8.2L12 5l3.6 3.2z" fill="currentColor" opacity=".35" /></>,
+  'pointe:triangle': <path d="M3 20V13l9-8 9 8v7z" />,
+  'pointe:demi-croupe': <><path d="M3 20v-7l5.4-4.8h7.2L21 13v7z" /><path d="M8.4 8.2L12 5l3.6 3.2z" fill="currentColor" opacity=".35" /></>,
+  // L'egout d'un pan, vu en coupe : droit, sans queue de vache.
+  'qdv:0': <path d="M4 20V9M2 10l11-6 9 5" />
 };
+
+/** Le groupe d'une image : sans le rang du bout ou du pan qu'il regle (`bout0`, `qdv1`...). */
+const sansRang = (groupe: string): string => groupe.replace(/[01]$/, '');
+
+/** Les valeurs dites en chiffres : la part coupee d'un cul de geai, les debords en metres, les pentes en degres. */
+function texteDuChoix(groupe: string, valeur: string): string {
+  if (groupe === 'pente' || groupe === 'penteCoyau') return valeur + '°';
+  if (groupe === 'coupe') return valeur === '0.25' ? '¼' : valeur === '0.33' ? '⅓' : '½';
+  return valeur === '0.5' ? '½' : valeur.replace('.', ',');
+}
 
 /** L'image d'un choix, ou son texte quand il n'a pas de trace (les retraits : « 0 », « ½ », « 1 »). */
 export function ImageChoix({ groupe, valeur }: { groupe: string; valeur: string }) {
-  const trace = TRACES[groupe + ':' + valeur];
+  const g = sansRang(groupe), trace = TRACES[g + ':' + valeur];
   // Les pentes se lisent en degres, les debords en metres.
-  if (!trace) return <span aria-hidden="true">{groupe === 'pente' ? valeur + '°' : valeur === '0.5' ? '½' : valeur.replace('.', ',')}</span>;
+  if (!trace) return <span aria-hidden="true">{texteDuChoix(g, valeur)}</span>;
   return <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{trace}</svg>;
 }
