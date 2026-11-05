@@ -244,6 +244,16 @@ chaque scène, comme le LiDAR le donnerait, **une fois le mur calé** (il n'entr
 gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et du sol trouvés. Le profil lu pour caler un sol caché a été essayé,
 puis retiré : il dégradait la rampe `23`.
 
+**La pose du gabarit : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 ; `gabaritMur.ts::echelleDuGabarit`,
+`MD/spec-facade-calage-audit.md` §4 É5) : son sol sur le sol trouvé, ses bouts sur les bouts trouvés, une seule échelle tirée de la
+largeur ; son égout ne pose plus rien, il contrôle l'égout trouvé (`ecartDEgout`, dit à l'É5, à confirmer au-delà de 3 %). Avant, tendu
+entre l'égout et le sol trouvés, il prenait la hauteur du mur pour levier (AE 101 : pointes à 3,15 fois l'égout, 2,4 m trop haut pour
+80 cm d'égout trouvé sur la gouttière de l'appentis). `egout-sol.ts` pose le gabarit comme la production ; la colonne « Silhouette »
+gagne là où l'égout est trouvé à 1 ou 2 % près sous un pignon (22, 24) et perd là où l'assemblage est étiré (focale supposée,
+distorsion : 11, 13, 15) ou un bout faux (19). Le test de la pose (`expliqueLaPhoto`, les colonnes « Poses fausses refusées » et
+« Justes à 2 % » de `calage-e5.ts`) juge toujours l'égout trouvé à la matière sous la silhouette accrochée à lui : le contrôle seul,
+essayé, acceptait 79 égouts à 2 % sur 86 au lieu de 83.
+
 **La détection dans la silhouette** (`facade/analyse.ts::detecterDansLaSilhouette`, `silhouetteDansLeCadre`, 2 novembre 2026,
 demande du propriétaire) : la détection lisait le mur coupé au sol et à l'égout et ne voyait jamais une baie de pignon. Elle lit
 désormais la façade redressée entière (fusionnée quand plusieurs vues se fondent : `ResultatAnalyse.facade`, le cadre de la texture
@@ -394,6 +404,23 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
 - **L'objectif de chaque photo, à l'É3** (4 novembre 2026) : le bilan du redressement porte `objectif` (`exif`, `fuites`, `appareil`,
   `defaut`, et le champ pris) ; la calibration avertit d'une photo sans EXIF (vignette, É3 ouverte). Les étalons 00 (image d'origine
   des tests) et 09 (focale inconnue) sont sans EXIF : ils montrent l'avertissement (point de fumée 129).
+
+- **L'É6 et la végétation** (4 novembre 2026) : le haut lu (`analyse.ts::lireLeHaut`, `silhouetteDuMur` avec `vegetation`) ne lit pas
+  une colonne dont le haut est sous du feuillage (cases vertes et texturées, `estFeuillage` ; le grain du mur lu sur ses bouts ; une
+  peinture verte est un aplat) ; ses tronçons vont dans `hautMasque`, que l'É7 et le bilan sautent. L'affinage de l'égout et du sol
+  (`affinerEgoutEtSol`, l'É5 des repères) n'en est pas changé. Étalon 27 : l'arbre devant le pignon ; il n'a pas encore de plancher au
+  garde-fou de la lecture (`scenes-ajoutees.json`), à fixer au prochain run « Vérifier l'API Claude ».
+- **Le cul de geai** (demi-croupe ; aussi nez de veau, bout rabattu, croupette ; 5 novembre 2026) : les étalons 28 (enduit, la pointe
+  coupée au tiers) et 29 (brique, coupée à moitié, faîtage débordant d'un mètre, de biais) peignent un pignon tronqué en trapèze et, au-
+  dessus, la petite croupe en tuiles, raccourcie comme vue de la rue (`synthese.ts`, `pignonCoupe`, `RACCOURCI_CROUPE`) ; leur gabarit
+  vrai est le trapèze. L'É7 (`diagnosticForme.ts::culDeGeaiAuBout`) juge un cul de geai sur le tiers haut du pignon : à l'étalon 28 il
+  le propose (gain 99 %) sur le pignon du projet ; à l'étalon 29 (mur à confirmer, haut lu jusqu'à la pointe) seulement avec Claude
+  (« demi-croupe »). Ni l'un ni l'autre n'a encore de plancher au garde-fou de la lecture, à fixer au prochain run « Vérifier l'API Claude ».
+  Suites (5 novembre 2026) : les creux étroits du haut lu (un poteau peint) ne sont pas lus (`retirerLesCreux`) ; un aplat et son bord
+  ne sont pas du feuillage (`CHANGE_FEUILLE`) ; la couronne d'un arbre dans la bande au-dessus de l'égout est tenue pour non vue
+  (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É5 se posait sur le bas de son bandeau vert, pas sur l'arbre : le
+  calage fin écarte un égout que surmonte une bande mince puis le mur (`bandeContreLeMur`, aux quatre tronçons, et aux coins pour un
+  égout par les bouts), et juge le dedans d'un égout sous une telle bande là où le mur reprend.
 
 ## 3. Le corpus
 

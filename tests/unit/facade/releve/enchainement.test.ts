@@ -90,7 +90,10 @@ describe('l enchainement d une facade', () => {
     expect(im.facade?.l).toBeCloseTo(L * 1.06, 1);
     expect(im.facade?.x0).toBeCloseTo(L * 0.03, 1);
     expect(im.facade?.h).toBeGreaterThan(H + 1);
-    expect(Math.min(...(im.facade?.contour ?? []).map((q) => q.y))).toBeCloseTo((im.facade?.h ?? 0) - (r.sorties.analyse?.elevation.hauteur ?? 0) / (r.sorties.analyse?.pxParM ?? 1), 6);
+    // Le haut du gabarit pose sur le sol, a l'echelle de la largeur (`echelleGabarit` fois la hauteur du mur trouve).
+    const k = r.sorties.calage?.echelleGabarit ?? 1;
+    expect(Math.abs(k - 1)).toBeLessThan(0.03);
+    expect(Math.min(...(im.facade?.contour ?? []).map((q) => q.y))).toBeCloseTo((im.facade?.h ?? 0) - k * (r.sorties.analyse?.elevation.hauteur ?? 0) / (r.sorties.analyse?.pxParM ?? 1), 6);
     expect(im.facade?.proposees.length).toBe(r.sorties.analyse?.ouvertures.length);
   }, 60_000);
 
@@ -103,6 +106,27 @@ describe('l enchainement d une facade', () => {
     expect(prepare?.ouvertures.map((o) => [o.type, o.x, o.y, o.l, o.h].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v)))).toEqual(direct?.r.ouvertures.map((o) => [o.type, o.x, o.y, o.l, o.h].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v))));
     expect(prepare?.cas === cas).toBe(true);
     expect(etapeDe(r, 'calage').resume).toMatch(/^Mur posé à la main\./);
+  }, 60_000);
+
+  // Decision du proprietaire (4 novembre 2026) : le gabarit se pose sur le sol trouve, a l'echelle de la largeur ; son egout ne pose
+  // rien, il controle l'egout trouve. Un plan qui met l'egout 10 % plus bas que le mur pose : l'E5 le dit, a confirmer.
+  it('pose le gabarit sur le sol a l echelle de la largeur, et dit l ecart de son egout a l egout trouve', async () => {
+    const juste = await derouler(entreesDuCas(casDe(L, H, vrais, ph.focalePx), [ph.image]), CAL);
+    expect(etapeDe(juste, 'calage').etat).toBe('ok');
+    expect(etapeDe(juste, 'calage').resume).toMatch(/Gabarit posé sur le sol, à l’échelle de la largeur : son égout (sur l’égout trouvé|\d+ cm (sous|au-dessus de) l’égout trouvé \(\d+(,\d)? % de la largeur\))\./);
+    expect(juste.sorties.calage?.echelleGabarit).toBeCloseTo(1, 1);
+    const bas = await derouler(entreesDuCas(casDe(L, 0.9 * H, vrais, ph.focalePx), [ph.image]), CAL);
+    const e = etapeDe(bas, 'calage');
+    expect(e.etat).toBe('a-confirmer');
+    expect(e.resume).toMatch(/son égout \d+ cm sous l’égout trouvé \(\d+(,\d)? % de la largeur, au-delà de 3 %\) : l’égout trouvé, ou la hauteur du plan, est à confirmer\./);
+    expect(bas.sorties.calage?.echelleGabarit).toBeCloseTo(0.9, 1);
+    // Le gabarit montre sur le mur retenu : son bas sur le sol, son haut a 90 % de la hauteur trouvee.
+    const pose = bas.sorties.calage?.pose, im = imagesEtapes(bas, { largeurM: L, hauteurM: 0.9 * H, gabarit: GABARIT_RECTANGLE });
+    const [hg, hd, bd, bg] = pose?.coins ?? [];
+    const sol = ((bd?.y ?? 0) + (bg?.y ?? 0)) / 2, egout = ((hg?.y ?? 0) + (hd?.y ?? 0)) / 2;
+    const k = bas.sorties.calage?.echelleGabarit ?? 0;
+    expect(Math.abs(Math.min(...(im.pose?.contour ?? []).map((q) => q.y)) - (sol - k * (sol - egout)))).toBeLessThan(2);
+    expect(Math.max(...(im.pose?.contour ?? []).map((q) => q.y))).toBeCloseTo(Math.max(bd?.y ?? 0, bg?.y ?? 0), 0);
   }, 60_000);
 
   it('reprend depuis une etape avec les sorties des precedentes, et rend les memes cotes', async () => {

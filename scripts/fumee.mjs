@@ -4170,6 +4170,136 @@ const POINTS = {
       && annule.ouvert === null && retabli.ouvert === true && valide.ouvert === true && valide.fige && histoApres && defait.ouvert === null && sans;
     return { ok, mesure: `garage : corps ${depart.rang} sur ${depart.n}, ${nChoix} choix « ouvert » (${aucunEnfonce ? 'aucun enfoncé' : 'UN ENFONCÉ'} au départ) ; vignette « Un pan » ${formeEnfoncee === 'true' ? 'enfoncée' : 'NON ENFONCÉE'} (${autresEnfoncees} en tout) ; « sur poteaux » ${enfonce === 'true' ? 'enfoncé' : 'NON ENFONCÉ'}, ${retraits} retraits ; Ctrl+Z ${annule.ouvert === null ? 'rend le garage d’avant' : 'NE DÉFAIT RIEN'}, Ctrl+Y ${retabli.ouvert ? 'le rouvre' : 'NE REFAIT RIEN'} ; validé : ouvert ${valide.ouvert}, toit ${valide.fige ? 'figé' : 'NON FIGÉ'}, historique ${histoSession} → ${histoApres} ; Ctrl+Z du projet ${defait.ouvert === null ? 'le rend' : 'LE GARDE OUVERT'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  134: async (page, f) => {
+    // Le cul de geai et la queue de vache (demande du proprietaire, 5 novembre 2026) : le projet de demonstration de l'etalon 25, Vue 3D,
+    // « Modifier la toiture », le corps principal choisi : une queue de vache sur un pan (debord de 0,9 m), Ctrl+Z ; un bout en cul de
+    // geai, puis son faitage qui deborde de 1 m ; un pignon pose, sa pointe en cul de geai, Ctrl+Z (la pointe redevient un triangle),
+    // Ctrl+Y ; « Valider » : le toit fige, un Ctrl+Z du projet rend le toit d'avant. `FUMEE_CAPTURE_CDG=<prefixe>` enregistre la 3D
+    // a chaque pas (avec FUMEE_ECHELLE=2 pour des captures nettes).
+    let fichier = null;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url()), m = route.request().method();
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'GET') return json({ demos: fichier ? [{ id: '9', name: fichier.meta.name }] : [] });
+      if (u.pathname.endsWith('/admin/demos') && m === 'POST') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9', updatedAt: '2026-11-05T10:00:00Z' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && m === 'PUT') { fichier = JSON.parse(route.request().postData() || 'null'); return json({ id: '9' }); }
+      if (u.pathname.endsWith('/admin/demos/9') && fichier) return json(fichier);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const capture = process.env.FUMEE_CAPTURE_CDG;
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('liste des etalons', () => page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 20000 }));
+    await etape('creer le projet', () => page.locator('[aria-label="Créer le projet de démonstration de l’étalon 25-mur-en-l-garage"]').click({ timeout: 10000 }));
+    await etape('projet enregistre', () => page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').waitFor({ timeout: 120000 }));
+    const lien = await page.locator('[data-controle="calibration.ouvrirProjetEtalon"]').getAttribute('href');
+    await etape('ouvrir le projet', () => page.goto(BASE + '/' + lien));
+    await etape('plan', () => page.waitForSelector('#stage svg', { timeout: 30000 }));
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    await etape('modifier la toiture', () => page.locator('#terrasse3dModifierToit').click({ timeout: 30000 }));
+    await page.locator('.panneauToit').waitFor({ timeout: 20000 });
+    // Le corps principal : le plus grand a deux pans, faitage dedans.
+    const lire = () => page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const corps = o.batiment?.corpsToit ?? [];
+      const dim = (c) => [Math.hypot(c.pts[1].x - c.pts[0].x, c.pts[1].y - c.pts[0].y), Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y)];
+      let rang = -1, aire = 0;
+      corps.forEach((c, i) => { const [L, W] = dim(c); if (!c.saillie && c.posFaitage > 0.3 && c.posFaitage < W - 0.3 && L * W > aire) { aire = L * W; rang = i; } });
+      const c = corps[rang];
+      return { rang, n: corps.length, fige: !!o.batiment?.toitFige, bouts: c?.bouts ? JSON.stringify(c.bouts) : null, profil: c?.profil ? JSON.stringify(c.profil) : null, pointes: c ? c.pignons.filter((g) => g.pointe).length : 0, pignons: c?.pignons.length ?? 0 };
+    });
+    const depart = await lire();
+    if (depart.rang < 0) return { ok: false, mesure: `aucun corps à deux pans dans le projet de l’étalon (${depart.n} corps)` };
+    // La camera devant le bout 0 du corps, de trois quarts, un peu au-dessus : ce que la personne regarde pour juger un cul de geai.
+    const cadrer = (bout) => page.evaluate(({ rang, bout }) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison'), c = o.batiment.corpsToit[rang], sc = window.__plan.scene3d();
+      const [a, b, d] = bout === 0 ? [c.pts[0], c.pts[3], c.pts[1]] : [c.pts[1], c.pts[2], c.pts[0]];
+      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, L = Math.hypot(d.x - a.x, d.y - a.y), n = { x: (a.x - d.x) / L, y: (a.y - d.y) / L };
+      const w = { x: b.x - a.x, y: b.y - a.y }, lw = Math.hypot(w.x, w.y);
+      const z = c.faitage - 1, oeil = { x: m.x + n.x * 11 + (w.x / lw) * 7, y: m.y + n.y * 11 + (w.y / lw) * 7 };
+      sc.controls.target.set(m.x - sc.cen.x, z, sc.cen.y - m.y);
+      sc.camera.position.set(oeil.x - sc.cen.x, z + 4, sc.cen.y - oeil.y);
+      sc.controls.update();
+    }, { rang: depart.rang, bout });
+    // Devant le pignon pose sur le pan 0 : de trois quarts, sa pointe a hauteur d'oeil.
+    const cadrerPignon = () => page.evaluate(({ rang }) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison'), c = o.batiment.corpsToit[rang], sc = window.__plan.scene3d();
+      const g = c.pignons[c.pignons.length - 1], a = c.pts[0], b = c.pts[1], d = c.pts[3];
+      const L = Math.hypot(b.x - a.x, b.y - a.y), u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L }, W = Math.hypot(d.x - a.x, d.y - a.y), n = { x: (a.x - d.x) / W, y: (a.y - d.y) / W };
+      const s = (g.debut + g.fin) / 2, m = { x: a.x + u.x * s, y: a.y + u.y * s }, z = g.faitage - 1, oeil = { x: m.x + n.x * 10 + u.x * 6, y: m.y + n.y * 10 + u.y * 6 };
+      sc.controls.target.set(m.x - sc.cen.x, z, sc.cen.y - m.y);
+      sc.camera.position.set(oeil.x - sc.cen.x, z + 3, sc.cen.y - oeil.y);
+      sc.controls.update();
+    }, { rang: depart.rang });
+    const photo = async (nom, pignon = false) => {
+      if (!capture) return;
+      const libre3d = page.locator('[data-commande="toit.vueLibre"]');
+      if (await libre3d.isEnabled()) await libre3d.click();
+      await page.waitForTimeout(300);
+      await (pignon ? cadrerPignon() : cadrer(0));
+      await image3dStable(page, 2000);
+      await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
+    };
+    const regler = (groupe, valeur) => etape(groupe + ' ' + valeur, async () => {
+      await page.locator('.inspecteurToit [data-commande="toit.regler"][data-groupe="' + groupe + '"][data-valeur="' + valeur + '"]').click({ timeout: 10000 });
+      await page.waitForFunction(({ g, v }) => document.querySelector('.inspecteurToit [data-groupe="' + g + '"][data-valeur="' + v + '"]')?.getAttribute('aria-pressed') === 'true', { g: groupe, v: valeur }, { timeout: 10000 });
+    });
+    await photo('0-depart');
+    await etape('pastille du corps', () => page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').click({ timeout: 20000 }));
+    await page.waitForTimeout(300);
+    const groupes = await page.locator('.inspecteurToit .groupeChoix').evaluateAll((l) => l.map((g) => g.getAttribute('aria-label')));
+    // 1. La queue de vache sur le pan 0, puis Ctrl+Z.
+    await regler('qdv0', '0.9');
+    const qdv = await lire();
+    await photo('1-queue-de-vache');
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    const qdvAnnule = await lire();
+    // 2. Le bout 0 en cul de geai, sans debord, avec un debord d'egout de 0,6 m, puis le faitage qui deborde de 1 m.
+    await page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').click({ timeout: 10000 }).catch(() => {});
+    await regler('bout0', 'demi-croupe');
+    await photo('2-cul-de-geai');
+    await regler('debord', '0.6');
+    await photo('3-cul-de-geai-debord-egout');
+    await regler('debordFaitage0', '1');
+    const cdg = await lire();
+    await photo('4-cul-de-geai-debord-faitage');
+    // 3. Un pignon pose sur le corps choisi, sa pointe en cul de geai, Ctrl+Z puis Ctrl+Y.
+    await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).click();
+    await etape('poser un pignon', () => page.locator('.toitPiece[data-piece="sur:pignon"]').click({ timeout: 10000 }));
+    await page.waitForFunction((r) => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[r]?.pignons.length ?? 0) > 0, depart.rang, { timeout: 10000 });
+    const i = (await lire()).pignons - 1;
+    await etape('pastille du pignon', () => page.locator('.puceToit[data-type="pignon"][data-rang="' + depart.rang + '"][data-i="' + i + '"]').click({ timeout: 10000 }));
+    await regler('pointe', 'demi-croupe');
+    const pointe = await lire();
+    await photo('5-pignon-cul-de-geai', true);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    const pointeAnnulee = await lire();
+    await page.keyboard.press('Control+y');
+    await page.waitForTimeout(400);
+    const pointeRetablie = await lire();
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(300);
+    const defait = await lire();
+    const sans = !(await deborde());
+    const ok = groupes.some((g) => /^Bout /.test(g ?? '')) && /"debordM":0.9/.test(qdv.profil ?? '') && qdvAnnule.profil === depart.profil
+      && /demi-croupe/.test(cdg.bouts ?? '') && /"debordFaitageM":1/.test(cdg.bouts ?? '') && pointe.pointes === 1 && pointeAnnulee.pointes === 0 && pointeRetablie.pointes === 1
+      && valide.fige && valide.pointes === 1 && defait.bouts === depart.bouts && defait.pointes === 0 && sans;
+    return { ok, mesure: `corps ${depart.rang} sur ${depart.n} ; groupes : ${groupes.join(', ')} ; queue de vache ${qdv.profil ?? 'AUCUNE'}, Ctrl+Z ${qdvAnnule.profil === depart.profil ? 'la retire' : 'LA GARDE'} ; bouts ${cdg.bouts ?? 'AUCUN'} ; pointes ${pointe.pointes}, Ctrl+Z ${pointeAnnulee.pointes}, Ctrl+Y ${pointeRetablie.pointes} ; validé : toit ${valide.fige ? 'figé' : 'NON FIGÉ'} ; Ctrl+Z du projet ${defait.bouts === depart.bouts && defait.pointes === 0 ? 'rend le toit d’avant' : 'NE REND PAS LE TOIT D’AVANT'} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
   132: async (page, f) => {
     // AE 101 tel que le proprietaire le voit (decisions du 4 novembre 2026) : la maison lue par le moteur (corps sous les faits,
     // tests/fixtures/toits/vesinet-ae101.json, la sortie automatique qu'identite.ts garde), puis retouchee dans le mode Toit avec les
@@ -5259,7 +5389,7 @@ const POINTS = {
       await page.locator('.calEtapeOuverte figcaption').first().screenshot({ path: capture + '-' + f.nom + '-exif-e3.png' }).catch(() => {});
     }
     const exif = /^Avec EXIF/.test(avecExif) && alerte22 === 0 && /^Sans EXIF : .*posez quatre repères\./.test(vignette00) && /^Sans EXIF : .*Le redressement par les points de fuite peut être faux ; posez quatre repères\./.test(e3) && visible;
-    const ok = lignes === 27 && /\(27\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && exif && !ecrits.length && !debords.some(Boolean);
+    const ok = lignes === 30 && /\(30\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && exif && !ecrits.length && !debords.some(Boolean);
     return { ok, mesure: `${lignes} étalons listés (« ${titre.trim()} ») ; l’étalon 22 ouvert : photo de ${vignette} px, frise de ${frise} étapes, ${sansEnregistrer ? 'sans' : 'AVEC'} enregistrement, note ${note ? 'oui' : 'NON'}, vignette « ${avecExif.slice(0, 40)} » ; l’étalon 00 : vignette « ${vignette00.slice(0, 50)} », É3 « ${e3.slice(0, 110)} » ${visible ? '(visible)' : '(INVISIBLE)'} ; écritures au serveur : ${ecrits.join(', ') || 'aucune'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   130: async (page, f) => {
@@ -5363,8 +5493,9 @@ function pointsPour(nomClasse) {
   // 130 : le projet de demonstration d'un etalon : cree depuis la calibration, enregistre dans les demos, ouvert en plan et en 3D.
   // 131 : le mode Toit modifie ce qu'il sait poser : le garage de l'etalon 25 passe en appentis ouvert (carport), Ctrl+Z, valide.
   // 133 : un corps ferme aux travees ouvertes : le garage de l'etalon 25 ouvert sur poteaux sur la rue, valide, Ctrl+Z.
+  // 134 : le cul de geai et la queue de vache au mode Toit : un bout, son faitage qui deborde, la pointe d'un pignon, Ctrl+Z, valide.
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

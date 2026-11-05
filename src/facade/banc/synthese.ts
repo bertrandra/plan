@@ -108,6 +108,12 @@ export interface Mur {
   /** Bande de toiture vue au-dessus de l'egout (mur gouttereau). */
   toit?: { hauteur: number; couleur: RGB };
   /**
+   * Un pignon coupe en cul de geai (demi-croupe, 5 novembre 2026) : le mur s'arrete a `part` du pignon sous sa pointe (un trapeze), et
+   * au-dessus, la petite croupe se voit en couleur de couverture `toit`. `debordFaitageM` : le faitage deborde et porte la croupe en
+   * avant ; sa sous-face jette une ombre sur le haut du mur. Le gabarit vrai est le trapeze (le haut du mur sous le toit).
+   */
+  pignonCoupe?: { part: number; toit: RGB; debordFaitageM?: number };
+  /**
    * Un mur en L (deux hauteurs d'egout dans le meme alignement : une partie basse, garage ou extension, de `debut` a `fin` metres
    * depuis la gauche, a son egout `hauteur`) : au-dessus, ni le mur haut ni son toit, le ciel, sauf la bande de toit de la partie basse.
    * La verite (`verite.hauteur`) est l'egout le plus haut, et le gabarit vrai suit la marche.
@@ -142,7 +148,13 @@ export type Ombre =
 
 export type Obstacle =
   | { type: 'voiture'; x: number; l: number; h?: number; /** distance au mur */ recul: number; couleur: RGB }
-  | { type: 'haie'; x: number; l: number; h: number; recul: number; couleur?: RGB };
+  | { type: 'haie'; x: number; l: number; h: number; recul: number; couleur?: RGB }
+  /**
+   * Un arbre devant le mur (etalon 27) : un tronc du sol a sa couronne, et une couronne de feuillage au bord irregulier, des feuilles
+   * au soleil et a l'ombre, et des trous ou l'on voit ce qu'il y a derriere (le mur, le ciel). `x`, `z` : le centre de la couronne,
+   * `rayon` en metres ; `l` : la largeur du tronc.
+   */
+  | { type: 'arbre'; x: number; z: number; rayon: number; l: number; recul: number };
 
 export interface PriseCamera {
   type: 'camera';
@@ -497,6 +509,7 @@ function lumiere(s: Synthese, v: Verite, X: number, Z: number): number {
 
 /** La teinte d'un obstacle (voiture, haie) dans son plan, ou `null` hors de sa silhouette. */
 export function couleurObstacle(o: Obstacle, X: number, Z: number, graine: number): RGB | null {
+  if (o.type === 'arbre') return couleurArbre(o, X, Z, graine);
   if (X < o.x || X >= o.x + o.l || Z < 0) return null;
   const u = X - o.x;
   if (o.type === 'haie') {
@@ -528,6 +541,27 @@ export function couleurObstacle(o: Obstacle, X: number, Z: number, graine: numbe
     if (u < g + 0.06 || u > d - 0.06 || h - Z < 0.06 || Math.abs(u - (g + d) / 2) < 0.04) return o.couleur;
     return melanger([42, 52, 62], [120, 135, 150], t / (h - 0.95));
   }
+  return null;
+}
+
+/**
+ * La teinte d'un arbre au point (X, Z) du plan ou il se tient, ou `null` hors de lui et dans les trous de sa couronne. Le feuillage est
+ * fait d'amas (un bruit lisse de 0,35 m) et de feuilles (un tirage par case de 4 cm) : au soleil un vert jaune clair, a l'ombre un vert
+ * sombre ; un quart des cases sont des trous. Le bord de la couronne ondule d'un cinquieme de son rayon.
+ */
+function couleurArbre(o: Extract<Obstacle, { type: 'arbre' }>, X: number, Z: number, graine: number): RGB | null {
+  if (Z < 0) return null;
+  const dx = X - o.x, dz = Z - o.z, d = Math.hypot(dx, dz);
+  const bord = o.rayon * (0.85 + 0.3 * bruitLisse(Math.atan2(dz, dx) * 2, 0, 0.5, graine + 101));
+  if (d < bord) {
+    const amas = bruitLisse(X, Z, 0.35, graine + 103);
+    const feuille = hache(Math.floor(X / 0.04), Math.floor(Z / 0.04), graine + 107);
+    if (feuille < 0.25 + 0.2 * (d / bord) * (d / bord)) return null;
+    const soleil = amas > 0.5 - 0.3 * (dz / o.rayon);
+    const base: RGB = soleil ? [150, 168, 82] : [46, 78, 40];
+    return decaler(base, (feuille - 0.5) * 50);
+  }
+  if (Math.abs(dx) < o.l / 2 && Z < o.z) return decaler([92, 72, 54], (hache(Math.floor(X / 0.05), Math.floor(Z / 0.05), graine + 109) - 0.5) * 30);
   return null;
 }
 
@@ -568,8 +602,16 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
       } else if (Z > v.hauteur) {
         mur = false;
         const pg = y.mur.pignon;
-        if (pg && Z <= v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5)) {
+        const coupe = y.mur.pignonCoupe, zc = pg && coupe ? v.hauteur + pg * (1 - coupe.part) : Infinity;
+        const pointe = pg ? v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5) : -Infinity;
+        if (pg && coupe && Z > zc) {
+          // La petite croupe du cul de geai, vue d'en bas : elle fuit vers le faitage, et sa pointe se voit plus bas que celle du pignon
+          // entier (RACCOURCI_CROUPE de sa hauteur, une prise a hauteur d'homme a une douzaine de metres). Des rangs de tuiles.
+          if (Z <= zc + RACCOURCI_CROUPE * (pointe - zc)) coul = (Z - zc) % 0.18 < 0.025 ? assombrir(coupe.toit, 0.7) : coupe.toit;
+        } else if (pg && Z <= pointe) {
           coul = couleurParement(p, X, Z, y.graine, assises);
+          // Sous un capuchon (le faitage deborde), l'ombre de sa sous-face sur le haut du mur.
+          if (coupe?.debordFaitageM && Z > zc - 0.3 * coupe.debordFaitageM) coul = assombrir(coul, 0.6);
           // Un pignon peut porter une baie (une lucarne, un oculus) : peinte comme celles du mur, sans l'eclairage du mur, que le
           // pignon n'a jamais eu (les scenes d'avant gardent leurs pixels).
           for (const ov of v.ouvertures) coul = couleurOuverture(ov, X, Z) ?? coul;
@@ -591,6 +633,9 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
   }
   return { largeur: L, hauteur: H, donnees: d };
 }
+
+/** La part de sa hauteur que la petite croupe d'un cul de geai garde, vue de la rue : elle fuit vers le faitage. */
+const RACCOURCI_CROUPE = 0.4;
 
 /** La hauteur du pignon en `u` (part de la largeur depuis la gauche), en part de sa hauteur : 1 au sommet `sommet`, 0 aux bouts. */
 export function formePignon(u: number, sommet: number): number {
@@ -623,7 +668,9 @@ export function gabaritVrai(s: SceneFacade): GabaritMur {
     const haut = [{ x: 0, y: H }, ...(a > e ? [{ x: a, y: H }, { x: a + e, y: pb.hauteur }] : [{ x: 0, y: pb.hauteur }]), ...(b < 1 - e ? [{ x: b, y: pb.hauteur }, { x: b + e, y: H }, { x: 1, y: H }] : [{ x: 1, y: pb.hauteur }])];
     return gabaritDuHaut(a > e ? haut : haut.slice(1), H);
   }
-  return gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg * formePignon(u, sommet) })));
+  // Un cul de geai : le haut du mur est le trapeze sous la petite croupe.
+  const plafond = s.synthese.mur.pignonCoupe ? 1 - s.synthese.mur.pignonCoupe.part : 1;
+  return gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg * Math.min(plafond, formePignon(u, sommet)) })));
 }
 
 /**

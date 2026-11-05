@@ -24,7 +24,9 @@ import { murDuCorps } from './murDuCorps.js';
 import { hauteurToitMesure } from '../../../model/toitMesure.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
 import { au } from '../../../util/tableaux.js';
-import type { BoutDeMurFait, PignonsFait } from '../../../regles/toits/faits.js';
+import type { BoutDeMurFait, PignonsFait, PointeDeMurFait } from '../../../regles/toits/faits.js';
+import { corpsAvecBout, demiCroupeLueALaPointe, demiCroupeLueAuBout, demiCroupeNeuve } from '../../toits/culDeGeai.js';
+import { boutsDuCorps } from '../../../model/formeToit.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../../../model/types.js';
 
 /** Un pignon detecte est a un bout de la facade quand son bord commence a moins de cela du bout. */
@@ -164,13 +166,25 @@ export function pignonsAuxPlaces(c: CorpsToit, pan: 0 | 1, places: readonly Plac
  * Le bout d'un corps que montre son mur de bout (lot F4) : `croupe` pose une croupe a la pente des pans (la profondeur de la moitie
  * de la largeur, celle que le moteur essaie, faits.ts::candidatsDuSens), `pignon` la retire. Les hauteurs ne bougent pas. Le cote 3
  * est le bout `s = 0`, le cote 1 le bout `s = L` ; un long pan, un corps sans faitage, ou un corps plus large que long (des croupes
- * sur sa largeur se croiseraient), tel quel.
+ * sur sa largeur se croiseraient), tel quel. `demi-croupe` (le cul de geai, 5 novembre 2026) : la coupe que la mesure porte
+ * (culDeGeai.ts, lue en souple : la photo ou Claude l'ont vue), sinon la pointe coupee au tiers, la petite croupe a la pente des pans.
  */
-export function boutAuMur(c: CorpsToit, cote: number, bout: 'pignon' | 'croupe'): CorpsToit {
+export function boutAuMur(c: CorpsToit, cote: number, bout: 'pignon' | 'croupe' | 'demi-croupe', lecture: LectureMesure | null = null): CorpsToit {
   if ((cote !== 1 && cote !== 3) || sansFaitage(c)) return c;
   const r = repere(c.pts);
   if (bout === 'croupe' && r.L < r.W - 0.01) return c;
   const k = cote === 3 ? 0 : 1;
+  if (bout === 'demi-croupe' || c.bouts) {
+    // Un bout ecrit (un cul de geai ici ou a l'autre bout) : le corps garde ses bouts, celui-ci change (culDeGeai.ts::corpsAvecBout).
+    const avant = boutsDuCorps(c)[k];
+    if (avant.type === bout) return c;
+    if (bout === 'demi-croupe') {
+      if (!(c.posFaitage > 0.3 && c.posFaitage < r.W - 0.3) || c.faitage - Math.max(...c.egouts) < 0.5) return c;
+      const lue = lecture ? demiCroupeLueAuBout(c, k, lecture.m, lecture.contour, true) : null;
+      return corpsAvecBout(c, k, lue ?? demiCroupeNeuve(Math.max(...c.egouts), c.faitage, Math.min(c.posFaitage, r.W - c.posFaitage)));
+    }
+    return corpsAvecBout(c, k, bout === 'croupe' ? { type: 'croupe', profondeurM: cm(r.W / 2) } : { type: 'pignon' });
+  }
   const h = bout === 'croupe' ? cm(r.W / 2) : 0;
   const avant = c.croupes ?? [0, 0];
   if ((avant[k] ?? 0) === h) return c;
@@ -179,6 +193,9 @@ export function boutAuMur(c: CorpsToit, cote: number, bout: 'pignon' | 'croupe')
   delete sans.croupes;
   return croupes[0] > 0 || croupes[1] > 0 ? { ...c, croupes } : sans;
 }
+
+/** La surface mesuree et le contour, pour lire un cul de geai. */
+export interface LectureMesure { m: ToitMesure; contour: readonly PtBrut[] }
 
 /**
  * Le corps et le cote qui portent les pignons d'un fait : le mur designe, sinon le cote en facade qui regarde vers l'azimut, parmi les
@@ -220,14 +237,40 @@ export function avecPignons(pignons: readonly PignonsFait[] | undefined, corps: 
   return out;
 }
 
-/** Les corps avec les bouts que montrent leurs murs de bout (lot F4), chacun sur le corps retrouve par son mur. */
-export function avecBoutsDesMurs(bouts: readonly BoutDeMurFait[] | undefined, corps: CorpsToit[] | null): CorpsToit[] | null {
+/** Les corps avec les bouts que montrent leurs murs de bout (lot F4), chacun sur le corps retrouve par son mur ; `lecture` lit un cul de geai. */
+export function avecBoutsDesMurs(bouts: readonly BoutDeMurFait[] | undefined, corps: CorpsToit[] | null, lecture: LectureMesure | null = null): CorpsToit[] | null {
   if (!bouts?.length || !corps?.length) return corps;
   const out = [...corps];
   for (const b of bouts) {
     const m = murDuCorps(out, b.mur.gauche, b.mur.droite);
     const c = m ? out[m.corps] : undefined;
-    if (m && c) out[m.corps] = boutAuMur(c, m.cote, b.bout);
+    if (m && c) out[m.corps] = boutAuMur(c, m.cote, b.bout, lecture);
+  }
+  return out;
+}
+
+/**
+ * Les pointes de pignon vues coupees en cul de geai (5 novembre 2026) : sur le corps que designe le mur (un long pan), le pignon dont la
+ * place couvre `a` (a 25 cm pres) recoit la coupe que la mesure porte, sinon la pointe coupee au tiers. Un pignon deja coupe, ou aucun
+ * pignon a cette place, ne change pas : le moteur ne pose pas de pignon pour une pointe.
+ */
+export function avecPointesDesMurs(pointes: readonly PointeDeMurFait[] | undefined, corps: CorpsToit[] | null, lecture: LectureMesure | null = null): CorpsToit[] | null {
+  if (!pointes?.length || !corps?.length) return corps;
+  const out = [...corps];
+  for (const p of pointes) {
+    const m = murDuCorps(out, p.mur.gauche, p.mur.droite);
+    const c = m ? out[m.corps] : undefined;
+    if (!m || !c || (m.cote !== 0 && m.cote !== 2)) continue;
+    const pan: 0 | 1 = m.cote === 0 ? 0 : 1, r = repere(c.pts);
+    // La place `a` le long du mur (depuis sa gauche, quel que soit son sens), ramenee le long du faitage du corps.
+    const l = Math.hypot(p.mur.droite.x - p.mur.gauche.x, p.mur.droite.y - p.mur.gauche.y) || 1;
+    const q = { x: p.mur.gauche.x + ((p.mur.droite.x - p.mur.gauche.x) * p.a) / l, y: p.mur.gauche.y + ((p.mur.droite.y - p.mur.gauche.y) * p.a) / l };
+    const s = (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y;
+    const i = c.pignons.findIndex((g) => g.pan === pan && s >= g.debut - 0.25 && s <= g.fin + 0.25);
+    const g = c.pignons[i];
+    if (!g || g.pointe || g.faitage - c.egouts[pan] < 0.6) continue;
+    const pointe = (lecture ? demiCroupeLueALaPointe(c, g, lecture.m, lecture.contour, true) : null) ?? demiCroupeNeuve(c.egouts[pan], g.faitage, (g.fin - g.debut) / 2);
+    out[m.corps] = { ...c, pignons: c.pignons.map((x, j) => (j === i ? { ...x, pointe } : x)) };
   }
   return out;
 }

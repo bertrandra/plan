@@ -24,6 +24,7 @@ import type { CorpsToit, PtBrut, ToitMesure } from '../../model/types.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../regles/toits/reglages.js';
 import { cm, type Repere, repere, point, hauteurCorpsEn, type Grille, mesuresDans, corpsAvecPignons, meilleureCoupe } from './toitCorps/ajustement.js';
 import { hauteurGrille, corpsDepuisFormes, corpsDeReprise } from './toitCorps/reprise.js';
+import { coupeDemiCroupe } from './toitFormes.js';
 
 export { PAS_FAITAGE_M, PENTE_MAX_DEG, ECART_ABERRANT_M, DEPASSEMENT_GARDE_M, HAUTEUR_PLAT_M, PENTE_PLAT_DEG, PAN_MIN_M, GAIN_PAN_SUR_PLAT, SURPLUS_PIGNON_M, LARGEUR_PIGNON_MIN_M, LARGEUR_PIGNON_MAX_M, PROFONDEUR_PIGNON_MIN_M, TOLERANCE_FAITAGE_M, GAIN_COUPE, ECART_COUPE_MIN_M, DIFFERENCE_COUPE_M, LARGEUR_CORPS_MIN_M, MESURES_MIN, repere, point, hauteurCorps, planCroupe, hauteurCorpsEn, mesuresDans, empreintePignon, ajusterCorps, rectangleTourne, corpsImpose, detecterPignons, corpsAvecPignons, meilleureCoupe, type Repere, type Grille, type Mesure } from './toitCorps/ajustement.js';
 export { HAUTEUR_BATIE_M, contourEquerre, PART_VIDE_RECALAGE, DECALAGE_MAX_M, partVideSous, decalageSurMesure } from './toitCorps/recalage.js';
@@ -311,7 +312,10 @@ function hauteurAvecPignons(c: CorpsToit, r: Repere, s: number, t: number): numb
     const d = pg.pan === 0 ? t : r.W - t, demi = (pg.fin - pg.debut) / 2;
     if (s < pg.debut || s > pg.fin || d < 0 || d > pg.profondeur || demi <= 0) continue;
     const e = c.egouts[pg.pan];
-    z = Math.max(z, pg.faitage - ((pg.faitage - e) * Math.abs(s - (pg.debut + pg.fin) / 2)) / demi);
+    let zp = pg.faitage - ((pg.faitage - e) * Math.abs(s - (pg.debut + pg.fin) / 2)) / demi;
+    // Une pointe en demi-croupe (cul de geai) : la petite croupe monte de son pied, devant le mur du pignon, vers l'interieur.
+    if (pg.pointe) { const k = coupeDemiCroupe(pg.pointe, e, pg.faitage); zp = Math.min(zp, k.zc + k.g * (d + (pg.saillieM ?? 0) + k.D)); }
+    z = Math.max(z, zp);
   }
   return z;
 }

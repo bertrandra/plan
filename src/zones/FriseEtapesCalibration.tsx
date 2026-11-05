@@ -104,13 +104,13 @@ function vignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
  * L'option manuelle de l'E5 sur l'assemblage (MD/spec-facade-calage-audit.md §4 ter.2) : les deux bouts, l'egout et le sol a tirer
  * (zones/releve/AjusterMur.tsx, le seul composant de ce geste), puis le mur pose sur chaque photo et le cas rejoue depuis le calage.
  */
-function CalageALaMain({ image, url, coins, gabarit, caler }: { image: Image; url: string; coins: readonly P2[]; gabarit: GabaritMur; caler: (coins: P2[]) => void }) {
+function CalageALaMain({ image, url, coins, gabarit, rapport, caler }: { image: Image; url: string; coins: readonly P2[]; gabarit: GabaritMur; rapport: number | null; caler: (coins: P2[]) => void }) {
   const [depart, setDepart] = useState(0);
   const [ajuste, setAjuste] = useState<P2[] | null>(null);
   const charger = useCallback(async () => image, [image]);
   return <>
     <h4 className="calTitre3">À la main : tirer les bouts, l’égout et le sol</h4>
-    <AjusterMur key={depart} charger={charger} reperes={null} url={url} mur={coins} gabarit={gabarit} changer={(m) => setAjuste(m.coins)} />
+    <AjusterMur key={depart} charger={charger} reperes={null} url={url} mur={coins} gabarit={gabarit} rapport={rapport} changer={(m) => setAjuste(m.coins)} />
     <div className="calLigne">
       <button type="button" className="secondary small" data-controle="calibration.retablirCalage" onClick={() => { setAjuste(null); setDepart((d) => d + 1); }}>Revenir au mur retenu</button>
       <button type="button" className="small" data-controle="calibration.appliquerCalage" disabled={!ajuste} onClick={() => { if (ajuste) caler(ajuste); }}>Appliquer le calage et rejouer</button>
@@ -238,14 +238,15 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
         {ex && <> Score d’explication par la silhouette {note(ex.score)} (angles {note(ex.angles[0])} et {note(ex.angles[1])}, égout {note(ex.egout)}, sol {note(ex.sol)}).</>}
         {im.ia && <> Trait sombre : la pose des deux angles de Claude, mesurée sans rien changer ; ronds : ses pointes ; traits sous le mur : ses appentis, ses autres volumes, ce qui cache le mur.</>}
       </figcaption></figure>}
-      {pose && <CalageALaMain key={url(pose.image)} image={pose.image} url={url(pose.image)} coins={pose.coins} gabarit={g} caler={caler} />}
+      {pose && <CalageALaMain key={url(pose.image)} image={pose.image} url={url(pose.image)} coins={pose.coins} gabarit={g} rapport={cas.largeurM > 0 ? cas.hauteurM / cas.largeurM : null} caler={caler} />}
       {pose && p.commandes && <ConfirmerLeMur commandes={p.commandes} etat={etapeDe(p.rejeu, 'calage').etat} />}
     </>;
   }
   if (id === 'silhouette') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">
     <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
+    {im.pose.masques.map((q, k) => <polygon key={'m' + k} className="calMasqueVegetation" points={points(q)} vectorEffect="non-scaling-stroke" />)}
     {im.pose.silhouette && <polyline className="calSilhouetteLue" points={points(im.pose.silhouette)} vectorEffect="non-scaling-stroke" />}
-  </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.</figcaption></figure> : null;
+  </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.{im.pose.masques.length ? ' Bandes hachurées : le haut caché par la végétation, non lu ; le gabarit y est gardé.' : ''}</figcaption></figure> : null;
   // La facade que lit la detection, entiere (pignons compris, rien n'est coupe a l'egout), fusionnee quand plusieurs vues se fondent,
   // en metres : la silhouette, seule zone ou la detection cherche, et les ouvertures dessus.
   if (id === 'ouvertures') { const f = im.facade; return f ? <figure><Calques url={url(f.image)} l={f.l} h={f.h} libelle="La façade entière lue par la détection, sa silhouette et les ouvertures proposées">

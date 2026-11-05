@@ -25,8 +25,10 @@ interface Props {
   changer: (c: P2[]) => void;
   /** Les coins du mur sur la photo (trouves, ou deja ajustes a la main) : le depart de « Ajuster l'égout et le sol ». */
   mur: readonly P2[] | null;
-  /** Le gabarit du mur (le plan et le LiDAR) : la forme du haut, posee entre l'egout, le sol et les bouts. */
+  /** Le gabarit du mur (le plan et le LiDAR) : la forme du haut, posee sur le sol, entre les bouts. */
   gabarit?: GabaritMur | undefined;
+  /** La hauteur du mur du plan sur sa largeur : le gabarit se pose sur le sol, a l'echelle des bouts (AjusterMur). */
+  rapport?: number | null | undefined;
   /** Les pixels de la photo, pour la redresser entiere a l'ecran. */
   charger: () => Promise<Image | null>;
   ajusterMur: (m: MurAjuste) => void;
@@ -43,7 +45,7 @@ interface Props {
   children?: ReactNode;
 }
 
-export function PoserReperes({ photo, rang, reperes, changer, mur, gabarit, charger, ajusterMur, assemblage, ajusterMurAssemble, suite, children }: Props) {
+export function PoserReperes({ photo, rang, reperes, changer, mur, gabarit, rapport = null, charger, ajusterMur, assemblage, ajusterMurAssemble, suite, children }: Props) {
   const [ajuster, setAjuster] = useState(false);
   // L'assemblage tel qu'il etait a l'ouverture : un rejeu ou un geste qui le retire ne change pas l'image sous le doigt.
   const [fige, setFige] = useState<AssemblageAAjuster | null>(null);
@@ -66,12 +68,12 @@ export function PoserReperes({ photo, rang, reperes, changer, mur, gabarit, char
       </div>
       {ajuster && fige && <>
         <p className="detailPhoto">Sur la façade assemblée ({fige.retours.length} photos), tirez l’égout, le sol et les deux bouts s’ils sont mal placés : ils valent pour chacune de ces photos, et la silhouette du mur (le plan et le LiDAR) les suit sans changer de forme.</p>
-        <AjusterMur charger={chargerFige} reperes={null} url={fige.url} mur={murFige ?? fige.coins} {...(gabarit ? { gabarit } : {})}
+        <AjusterMur charger={chargerFige} reperes={null} url={fige.url} mur={murFige ?? fige.coins} {...(gabarit ? { gabarit } : {})} rapport={rapport}
           changer={(m) => { setMurFige(m.coins); ajusterMurAssemble?.(murAjusteSurLesPhotos(fige, m.coins)); }} />
       </>}
       {ajuster && !fige && <>
         <p className="detailPhoto">Sur la photo redressée, tirez l’égout, le sol et les deux bouts s’ils sont mal placés : la silhouette du mur (le plan et le LiDAR) les suit sans changer de forme.</p>
-        <AjusterMur charger={charger} reperes={reperes} mur={mur} {...(gabarit ? { gabarit } : {})} changer={ajusterMur} />
+        <AjusterMur charger={charger} reperes={reperes} mur={mur} {...(gabarit ? { gabarit } : {})} rapport={rapport} changer={ajusterMur} />
       </>}
     </div>
   );

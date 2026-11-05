@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { expliquer, expliqueLaPhoto, seuilsDuCalage } from '../../../../src/facade/releve/calageAncres.js';
+import { egoutControle, expliquer, expliqueLaPhoto, seuilsDuCalage } from '../../../../src/facade/releve/calageAncres.js';
 import { murSurLAssemblage, vuesDeFace } from '../../../../src/facade/releve/coinsAuto.js';
 import { mosaiqueDesVues, rectanglesSurLesAretes, type Rect } from '../../../../src/facade/vision/mosaiqueFuites.js';
 import { detecterSegments } from '../../../../src/facade/vision/segments.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { gabaritVrai, photographier, type PriseCamera } from '../../../../src/facade/banc/synthese.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
+import { gabaritSurLaVue } from '../../../../src/facade/gabaritMur.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
 
 // Le calage du mur par ses ancres (facade/releve/calageAncres.ts, MD/spec-facade-calage-audit.md §4 E5, §5, lot F1) : une pose se juge
@@ -45,7 +46,8 @@ describe('le score d explication d une pose du mur, sans le toit', () => {
 
   // L'E5 juge la pose retenue sur la silhouette du gabarit qu'elle pose (decision du proprietaire, 2 novembre 2026) : l'egout tout le long,
   // et les angles aux bouts de la silhouette. Sur un pignon, un egout 48 cm trop bas passait le test (scene 24 : 0,89). Un bord a plus de
-  // 3 % de la largeur du mur est faux (`calageEcartMaxPart`) : a 5 et 10 %, l'egout est refuse.
+  // 3 % de la largeur du mur est faux (`calageEcartMaxPart`) : a 5 et 10 %, l'egout est refuse. Depuis le 4 novembre 2026, le gabarit
+  // se pose sur le sol a l'echelle de la largeur : l'egout deplace s'ecarte aussi du sien, au-dela du controle de l'E5.
   it.each(['02-', '22-', '23-', '24-'])('avec le gabarit, refuse un egout deplace de 5 ou 10 %% de la largeur (scene %s)', (prefixe) => {
     const s = chargerCorpus().find((c) => c.nom.startsWith(prefixe))!;
     const { m, rapport } = assemblage(prefixe);
@@ -58,6 +60,8 @@ describe('le score d explication d une pose du mur, sans le toit', () => {
     for (const d of [-0.1, -0.05, 0.05, 0.1]) {
       const e = expliquer(m, segs, { ...r, y0: r.y0 + d * w }, rapport, m, g);
       expect(e.egout).toBeLessThan(seuils.egout);
+      expect(Math.abs(e.ecartEgout ?? 0)).toBeGreaterThan(seuils.ecartEgout ?? 1);
+      expect(egoutControle(e, seuils)).toBe(false);
       expect(expliqueLaPhoto(e, seuils)).toBe(false);
     }
   }, 60_000);
@@ -105,6 +109,25 @@ describe('le defaut d AE 101, facade sud, refait en synthese a partir de son eta
     expect(r.calage.aretes?.score).toBeLessThan(seuils.score);
     expect(Math.max(...ecarts(r, s.vrai))).toBeLessThan(0.03);
     expect(r.egout && r.cotes).toBe(true);
+  }, 60_000);
+
+  // Le constat du proprietaire (4 novembre 2026, « le positionnement du gabarit ne fonctionne pas ») : l'egout trouve sur la gouttiere de
+  // l'appentis, en avant du mur, est plus haut que celui du plan ; tendu entre lui et le sol, le gabarit montait les deux pignons trois
+  // fois plus (3,1 fois l'egout). Pose sur le sol a l'echelle de la largeur, il tombe sur eux, et l'ecart d'egout le dit.
+  it('un egout trouve trop haut ne monte plus les pignons : le gabarit se pose par le sol et la largeur, l ecart d egout le dit', () => {
+    const s = sceneAe101(etalon, 'buisson');
+    const w = s.vrai.x1 - s.vrai.x0, h = s.vrai.y1 - s.vrai.y0;
+    // L'egout trouve 9 % de la largeur trop haut (80 cm sur ses 8,96 m, l'ecart mesure sur la photo du constat).
+    const haut = { ...s.vrai, y0: s.vrai.y0 - 0.09 * w };
+    const pointe = (q: { x: number; y: number }[]) => Math.min(...q.map((p) => p.y));
+    const vraie = s.vrai.y1 - Math.max(...etalon.gabarit.map((p) => p.v)) * h;
+    expect(Math.abs(pointe(gabaritSurLaVue(etalon.gabarit, haut, rapport)) - vraie)).toBeLessThan(0.005 * w);
+    // Tendu entre l'egout et le sol trouves, il les montait de 3,15 fois l'erreur d'egout (plus de 25 % de la largeur).
+    expect(vraie - pointe(gabaritSurLaVue(etalon.gabarit, haut))).toBeGreaterThan(0.25 * w);
+    const e = expliquer(s, detecterSegments(s.image), haut, rapport, s, etalon.gabarit);
+    expect(e.ecartEgout).toBeCloseTo(0.09, 2);
+    expect(egoutControle(e, seuils)).toBe(false);
+    expect(egoutControle(expliquer(s, detecterSegments(s.image), s.vrai, rapport, s, etalon.gabarit), seuils)).toBe(true);
   }, 60_000);
 
   it('sans angle gauche lisible (un arbre devant), aucune pose n explique la photo : celle du plan seul, et aucun drapeau « trouve »', () => {

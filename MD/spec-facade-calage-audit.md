@@ -325,6 +325,39 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   - **La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit pour
     chercher les bouts du mur. Sur le mur de 5 m prolongé par un pignon voisin, elle prend le mur entier de 8 m pour un mur de 5 m ; l'É5
     le dit « à confirmer » (score 0,20) et la personne pose le mur (le chemin réel). Le gabarit juge la pose, il ne la cherche pas.
+- **La pose du gabarit sur le mur trouvé : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 : « le
+  contour du mur (rectangle) est top. Le positionnement du gabarit ne fonctionne pas. Utilise sol égout pour poser le gabarit. Position
+  bas sur bas et scale le gabarit sur la largeur du rectangle ») :
+  - **La règle** (`facade/gabaritMur.ts::echelleDuGabarit`, `gabaritSurLaVue`, `gabaritSurLaPhoto`) : le sol du gabarit (v = 0) sur le
+    sol trouvé, ses bouts sur `x0` et `x1`, une seule échelle, celle de la largeur (`x1 − x0` pixels pour la largeur du plan), la même
+    en hauteur. Son égout tombe à `rapport × (x1 − x0)` au-dessus du sol (`rapport` : hauteur du plan sur sa largeur) : il ne pose plus
+    rien. La pose est une échelle, lue une fois sur l'image où le mur est trouvé (l'assemblage, une vue de face : une photo de biais ne
+    dit pas ses proportions), rangée dans `SortiesFacade.calage.echelleGabarit`, et portée partout : l'image de l'É5 et de chaque photo
+    (`imagesEtapes.ts`), la silhouette que lisent la détection, le cadre de la façade, le toit par la silhouette et les parties basses
+    (`analyseMur.ts::analyserLeMur`, la même échelle, sur les mêmes coins), le diagnostic de forme (É7) et le bilan (le haut lu y est
+    ramené aux hauteurs du plan), et le geste à la main (`AjusterMur`, qui reçoit le rapport du plan). Sans proportions du plan ni
+    assemblage, la pose d'avant (entre l'égout et le sol).
+  - **Pourquoi la pose d'avant ne marchait pas** : le gabarit se tendait entre l'égout et le sol trouvés, si bien que la hauteur
+    trouvée servait de levier à tout le haut. À AE 101 (façade sud), l'égout du plan est celui de l'appentis de la galerie (2,4 m) et les
+    pointes des deux pignons sont à 3,15 fois lui (7,5 m) : l'égout trouvé sur la gouttière de l'appentis, en avant du mur, 80 cm au-dessus
+    de celui du plan à l'échelle de la largeur (8,9 % de la largeur, sur l'assemblage de la photo du constat), montait les pointes de
+    3,15 × 80 cm : la pointe de droite à y 188 au lieu de y 420 sur l'image (2,4 m trop haut), celle de gauche à y 211 au lieu de 340.
+    Posé sur le sol, le gabarit met la pointe de droite sur la vraie, à quelques pixels ; celle de gauche reste 90 px trop bas,
+    l'assemblage de deux photos n'ayant pas la même échelle des deux côtés (la photo, sans EXIF, est redressée à une focale supposée). Sur le banc, les pignons dont l'égout est trouvé à 1 ou 2 % près
+    gagnent : scènes 22 et 24 de 2,0 et 2,5 % à 0,6 et 0,9 % (`egout-sol.ts`, colonne « Silhouette »).
+  - **Ce qu'elle coûte** : elle croit l'assemblage à l'échelle dans les deux sens et la largeur trouvée. Là où une focale supposée ou une
+    distorsion étire l’assemblage de 1 à 4 % (scènes 11, 13, 15), ou quand un bout est faux (19, la haie : 4 % à gauche), le gabarit
+    s'en écarte d'autant, alors que la pose d'avant, accrochée à l'égout trouvé, l'absorbait. Banc `egout-sol.ts`, gabarit posé à 2 % :
+    40 sur 46 avant, 39 sur 46 après (médiane 0,4 → 0,5 %).
+  - **L'égout du gabarit contrôle l'égout trouvé** : l'écart des deux (`ecartDEgout`, en part de la largeur ; c'est l'écart des
+    proportions trouvées à celles du plan) se dit à l'É5 (« Gabarit posé sur le sol, à l'échelle de la largeur : son égout 80 cm sous
+    l'égout trouvé (8,9 % de la largeur, au-delà de 3 %) : l'égout trouvé, ou la hauteur du plan, est à confirmer. »), et l'É5 est **à
+    confirmer** au-delà de `calageEcartMaxPart` (3 %). Il n'entre pas dans le test de la pose (`expliqueLaPhoto`) : il mêle l'erreur de
+    l'égout et l'étirement de l'assemblage (jusqu'à 1,7 % de la largeur sur le banc), et à lui seul ne sépare pas un égout à 2 % d'un
+    égout à 5 % (essayé : 79 égouts à 2 % acceptés sur 86 au lieu de 83). L'égout trouvé se juge donc toujours à la matière, sous la
+    silhouette accrochée à lui et au sol (`calageAncres.ts::egoutParLaSilhouette`) : un test de l'égout trouvé, pas une pose ; le gabarit
+    posé sur le sol ne le voit pas, par construction (essayé aussi, accrochée à l'égout mais à l'échelle de la largeur : l'égout 5 % trop
+    bas de la scène 24 passait, 0,43 pour un seuil de 0,4).
 - **Ce qui est « à la main »** (revue des étapes, constat B1 ; décision du propriétaire, 3 novembre 2026) :
   - **Seul un mur tiré à la main** (des coins posés : « Ajuster l'égout et le sol », le calage à la main de la calibration) est « posé à la
     main ». Les **quatre repères** d'É3 ne font que redresser la photo : le mur que la chaîne cherche ensuite sur l'assemblage redressé par
@@ -397,13 +430,34 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   observation n'est encore émise** : l'étape suivante compare à la silhouette du gabarit.
 - **Illustration** : le haut lu sur l'image, le gabarit posé par-dessus, les corps en couleurs distinctes, le mot retenu par corps et sa
   provenance.
+- **La végétation** (demande du propriétaire, 4 novembre 2026) : la végétation n'est ni mur ni toit. Une case de cinq pixels verte et
+  texturée (des feuilles au soleil et à l'ombre, des trous de ciel) est du feuillage, jamais du mur ; une peinture verte (colombage,
+  volet, rive) est un aplat et reste ce qu'elle est. Une colonne dont le haut lu est sous du feuillage (au moins
+  `vegetationPartMin` de la bande juste au-dessus) n'est pas lue : elle compte contre `silhouetteColonnesMin`, ses tronçons vont dans
+  `hautMasque`, l'É6 dit « Haut masqué par la végétation sur n % des colonnes », et l'É7 et le bilan (pointes) y gardent le gabarit.
+  L'affinage de l'égout et du sol de l'É5 n'en est pas touché. Étalon : `27-arbre-devant-pignon` ; cas réel : la façade sud d'AE 101.
+  Suites (5 novembre 2026) : un creux étroit du haut lu (cinq colonnes au plus, sous ses deux voisines de 5 % de la largeur : un poteau
+  peint, une fenêtre haute) n'est pas lu ; le bord d'un aplat peint n'est pas du feuillage (le feuillage change d'une rangée à six rangées
+  plus haut, un aplat non) ; dans la bande au-dessus de l'égout, la couronne d'un arbre (`feuillageDeLImage`) est tenue pour non vue, et
+  ne se lit pas comme un toit. L'égout trop bas de l'étalon 27 à l'É5 ne vient pas de l'arbre mais de son bandeau vert sous l'égout du
+  pignon (sans le bandeau, l'É5 est juste ; sans l'arbre, toujours faux de 3,2 %) : un sujet de l'É5 à part, traité le même jour au
+  calage fin (`calageFin.ts::bandeContreLeMur`) : un égout candidat que surmonte une bande d'autre matière mince (6 % du côté au plus)
+  puis de nouveau le mur est le bas d'un bandeau, pas l'égout ; un égout par les bouts des côtés se juge aussi contre chacun de ses
+  coins (un côté s'arrête au bas de la bande) ; et le dedans d'un égout qui a la même bande sous lui se juge sous elle, là où le mur
+  reprend. L'étalon 27 passe de 25 cm trop bas à juste (avec l'arbre comme sans lui).
 
 ### É7 · Diagnostic de forme (nouveau)
 
 - **Entrée** : la silhouette lue (É6) et le gabarit calculé (É1), posés sur le mur calé par les ancres seules (É5).
 - **Traitement** : l'écart entre les deux, **corps par corps**, rangé dans la taxonomie du §5 bis. On teste un petit nombre de variantes de
   toit du corps (un pignon de plus, un de moins, un pan à la place, une croupe) et l'on garde celles qui expliquent mieux l'image que le
-  toit calculé, avec le gain de chacune.
+  toit calculé, avec le gain de chacune. Depuis le 5 novembre 2026 (demande du propriétaire), aussi le **cul de geai** (demi-croupe) :
+  sur un mur de bout en pignon, la pointe coupée au quart, au tiers ou à la moitié, jugée sur le tiers haut du pignon (vue de la rue,
+  la petite croupe fuit et la pointe se lit plus basse et aplatie) ; sur un long pan, la pointe d'un de ses pignons coupée de même. Une
+  croupe proposée hier le reste (elle passe d'abord). Claude qui dit « demi-croupe » le propose sans haut lu, ou quand le haut lu ne le
+  contredit pas (la pointe d'un cul de geai a presque le contour d'un pignon). Le moteur relit la coupe sur la mesure LiDAR (`boutsDesMurs`
+  « demi-croupe », `pointesDesMurs`), décochée comme toute proposition ; à l'audit, la mesure seule propose aussi un cul de geai sur un
+  bout de corps ou une pointe de pignon que l'É7 ne propose pas (`culDeGeaiLidar.ts`). Étalons 28 et 29.
 - **Sortie** : une liste de **propositions de toit**, chacune avec son corps, sa nature, sa place (en parts du mur du corps), son gain
   d'explication, sa provenance (déterministe, IA, les deux), et des **alertes** (hauteur de pointe qui contredit le LiDAR).
 - **Illustration** : la silhouette de l'image, le gabarit calculé, et pour chaque proposition le gabarit **modifié**, avec le gain en

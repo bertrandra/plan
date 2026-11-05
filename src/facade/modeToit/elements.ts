@@ -14,6 +14,7 @@ import { formeDuCorps } from '../regles/toits/faits.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
 import { RECULS_TRAVEE_M } from './travees.js';
+import { appliquerBout, groupesBoutsDuCorps, groupesPointe, valeurBout } from './bouts.js';
 
 export type TypeElement = 'corps' | 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire' | 'travee';
 
@@ -182,7 +183,7 @@ export function redimensionnerElement(corps: readonly CorpsToit[], t: CibleEleme
 }
 
 /** Un choix a image qui se regle sur l'element : le groupe (« forme », « niveau »…) et ses valeurs. */
-export interface GroupeChoix { groupe: string; valeurs: { valeur: string; libelle: string }[] }
+export interface GroupeChoix { groupe: string; valeurs: { valeur: string; libelle: string }[]; /** Ce que le groupe regle, dit a l'ecran (absent : le nom du groupe). */ titre?: string }
 
 /** Les avancees que l'inspecteur propose a un pignon, en metres (la poignee regle tout entre 0 et le maximum). */
 const SAILLIES_PIGNON = [0, 0.5, 1, 1.5];
@@ -297,6 +298,8 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
     if (penteReglable(c)) l.push({ groupe: 'pente', valeurs: PENTES_DEG.map((v) => ({ valeur: String(v), libelle: 'Pente de ' + v + '°' })) });
     if (sensReglable(corps, t.rang)) l.push({ groupe: 'sens', valeurs: [{ valeur: 'long', libelle: 'Faîtage dans la longueur' }, { valeur: 'court', libelle: 'Faîtage dans la largeur' }] });
     if (!c.speciale) l.push({ groupe: 'debord', valeurs: DEBORDS_M.map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Sans débord' : 'Débord de ' + String(v).replace('.', ',') + ' m' })) });
+    // Chaque bout du faitage (pignon, croupe, cul de geai) et la queue de vache de chaque pan (bouts.ts, schema 15).
+    l.push(...groupesBoutsDuCorps(c));
     return l;
   }
   if (t.type === 'travee') {
@@ -309,7 +312,9 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
   }
   if (t.type === 'pignon') return [
     { groupe: 'hauteur', valeurs: [{ valeur: 'faitage', libelle: 'Monte au faîtage' }, { valeur: 'bas', libelle: 'Plus bas que le faîtage' }] },
-    { groupe: 'saillie', valeurs: [{ valeur: '0', libelle: 'Au nu du mur' }, { valeur: '0.5', libelle: 'Avance de 0,5 m' }, { valeur: '1', libelle: 'Avance de 1 m' }, { valeur: '1.5', libelle: 'Avance de 1,5 m' }] }
+    { groupe: 'saillie', valeurs: [{ valeur: '0', libelle: 'Au nu du mur' }, { valeur: '0.5', libelle: 'Avance de 0,5 m' }, { valeur: '1', libelle: 'Avance de 1 m' }, { valeur: '1.5', libelle: 'Avance de 1,5 m' }] },
+    // Sa pointe : en triangle, ou coupee en cul de geai (schema 15).
+    ...(c && c.pignons[t.i] ? groupesPointe(c, c.pignons[t.i] as PignonToit) : [])
   ];
   const l: GroupeChoix[] = [];
   if (t.type === 'lucarne' && c && formeDuCorps(c) !== 'plat') l.push({ groupe: 'lucarne', valeurs: TYPES_LUCARNE_EN_PENTE.map((v) => ({ valeur: v, libelle: LIBELLES_LUCARNE[v] ?? v })) });
@@ -333,6 +338,8 @@ const retraitProche = (r: number): string => [0, 0.5, 1].reduce((m, v) => (Math.
 export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, groupe: string): string | null {
   const c = corps[t.rang];
   if (!c) return null;
+  const bout = (t.type === 'corps' || t.type === 'pignon') && !c.saillie ? valeurBout(c, groupe, t.type === 'pignon' ? c.pignons[t.i] ?? null : null) : undefined;
+  if (bout !== undefined) return bout;
   if (t.type === 'saillie' && c.saillie) {
     const s = c.saillie;
     if (groupe === 'forme') return s.forme;
@@ -393,6 +400,10 @@ function changerDePan(corps: readonly CorpsToit[], t: CibleElement, pan: 0 | 1):
 export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, groupe: string, valeur: string): CorpsToit[] {
   const c = corps[t.rang];
   if (!c) return corps.slice();
+  if ((t.type === 'corps' || t.type === 'pignon') && !c.saillie && /^(bout|coupe|debordFaitage|qdv|penteCoyau|pointe)[01]?$/.test(groupe)) {
+    const neuf = appliquerBout(c, groupe, valeur, t.type === 'pignon' ? t.i : null);
+    return neuf ? avec(corps, t.rang, neuf) : corps.slice();
+  }
   if (t.type === 'saillie' && c.saillie) {
     if (groupe === 'forme' && ['pans', 'rectangle', 'arc', 'conge'].includes(valeur)) return replacerSaillie(corps, t.rang, { forme: valeur as SaillieFacade['forme'] });
     if (groupe === 'niveau' && (valeur === 'rdc' || valeur === 'toit')) return replacerSaillie(corps, t.rang, { niveau: valeur, hauteurM: undefined });

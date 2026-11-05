@@ -21,6 +21,7 @@ import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { TypeOuverture } from '../../model/types.js';
 import type { IdEtape } from '../../model/etapeFacade.js';
 import { aUnProjet } from './projetEtalon.js';
+import type { Obstacle } from './synthese.js';
 import { coinsVrais, gabaritVrai, partiesBassesSynthese, photographier, type PriseCamera, type PriseCoins, type SceneFacade } from './synthese.js';
 
 /** L'identifiant d'un etalon : son nom de scene, precede de ce prefixe (jamais celui d'un cas du serveur, `cas-…`). */
@@ -52,7 +53,7 @@ export interface FicheEtalon {
   pignonSommet: number;
   /** Les parties basses du mur (un mur en L : une ; une partie haute au milieu : deux). */
   partiesBasses: number;
-  obstacles: ('voiture' | 'haie')[];
+  obstacles: Obstacle['type'][];
   ombres: ('debord' | 'quad' | 'arbre')[];
   balcons: number;
   /** Les ouvertures de la verite par type, et ce que leur rendu a de particulier (volets, cintre, ebrasement…). */
@@ -82,7 +83,7 @@ export function ficheEtalon(s: SceneFacade): FicheEtalon {
   const details = sansDoublon(s.verite.ouvertures.flatMap((o) => {
     const r = o.rendu;
     return [r?.volets ? 'volets ' + r.volets.type : null, r?.forme ?? null, r?.ebrasement ? 'ebrasement' : null, r?.carreaux ? 'petits bois' : null].filter((x): x is string => !!x);
-  }).concat(y.balcons?.some((b) => b.gardeCorps) ? ['garde-corps'] : [], m.bandeaux?.length ? ['bandeau'] : [], m.toit ? ['bande de toit'] : [], m.degrade ? ['eclairage en degrade'] : []));
+  }).concat(y.balcons?.some((b) => b.gardeCorps) ? ['garde-corps'] : [], m.bandeaux?.length ? ['bandeau'] : [], m.toit ? ['bande de toit'] : [], m.degrade ? ['eclairage en degrade'] : [], m.pignonCoupe ? ['cul de geai (demi-croupe)' + (m.pignonCoupe.debordFaitageM ? ', faitage debordant' : '')] : []));
   const pignonM = m.pignon ?? 0, partiesBasses = partiesBassesSynthese(s).length, distorsion = cameras.some((p) => !!p.distorsion);
   const biaisDeg = Math.max(0, ...cameras.map((p) => Math.abs(p.biais ?? 0)));
   const etapes: IdEtape[] = ['redressement'];

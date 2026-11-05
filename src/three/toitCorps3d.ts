@@ -11,7 +11,7 @@ import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, couperDemiPlan } from '../facade/toits/toit.js';
 import { trianguler } from '../geometry/triangulation.js';
 import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toits/toitCorps.js';
-import { facettesElementsToit, facettesEtendues, facettesLucarnes } from '../facade/toits/toitFormes.js';
+import { facettesElementsToit, facettesEtendues, facettesLucarnes, facettesPignonCoupe } from '../facade/toits/toitFormes.js';
 import { estSpecial } from '../facade/toits/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toits/toitCorps.js';
@@ -314,6 +314,12 @@ function murBasEnTravees(c: CorpsToit, L: number, W: number, tBas: number, eBas:
 /** Un poteau a moins de cela, le long de la rive, d'une avancee fermee sous le toit (un bow-window) ne se pose pas : le toit la couvre. */
 const POTEAU_ABRITE_M = 0.25;
 
+/** Le debord d'un egout : la queue de vache de son pan (un coyau qui deborde, schema 15) l'emporte sur celui du corps. */
+function debordDuPan(c: CorpsToit, n: 0 | 1, debE: number): number {
+  const pr = c.profil?.[n];
+  return pr?.type === 'coyau' && pr.debordM !== undefined ? pr.debordM : debE;
+}
+
 /**
  * Les facettes d'un corps dans le plan : les pans du toit (corps et pignons) et les murs qui montent
  * au-dessus de son prisme. Le debord (a l'egout, a la rive) n'existe que sur une facade du `contour`.
@@ -333,7 +339,7 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   const hautEnT0 = c.posFaitage <= 0.01;
   // Le debord regle sur le corps (`bords`, la personne au Mode Toit ou une lecture) l'emporte sur celui du dessin.
   const debE = c.bords?.debordEgoutM ?? DEBORD_EGOUT_M, debR = c.bords?.saillieRiveM ?? DEBORD_RIVE_M;
-  const dE0 = facade('t0') && !(adosse && hautEnT0) ? debE : 0, dE1 = facade('tW') && !(adosse && !hautEnT0) ? debE : 0;
+  const dE0 = facade('t0') && !(adosse && hautEnT0) ? debordDuPan(c, 0, debE) : 0, dE1 = facade('tW') && !(adosse && !hautEnT0) ? debordDuPan(c, 1, debE) : 0;
   // Un bout lie a un autre appentis (le retour d'un auvent a l'angle) : pas de rive ; le pan file jusqu'a la diagonale (`pan`).
   const dR0 = lies[0] ? 0 : facade('s0') && !adosse ? debR : 0, dRL = lies[1] ? 0 : facade('sL') && !adosse ? debR : 0;
   const pans: S3[][] = [], murs: S3[][] = [];
@@ -429,13 +435,20 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     const av = recul > 0 ? -recul : sa > 0.01 ? sa : 0;
     // Le pied des noues : sur le mur, ou sur le mur recule quand le pignon recule avec lui.
     const pied = recul > 0 ? recul : 0;
-    pans.push([P(gauche, T(-av - dE), zG), P(sc, T(-av - dE), pg.faitage), P(sc, T(D), pg.faitage), P(piedG, T(pied), pg.debut <= 0.3 ? zG : e)]);
-    pans.push([P(sc, T(-av - dE), pg.faitage), P(droite, T(-av - dE), zD), P(piedD, T(pied), pg.fin >= L - 0.3 ? zD : e), P(sc, T(D), pg.faitage)]);
-    if (av > 0) {
-      // La face avancee, du sol au sommet du triangle, et ses deux murs de cote jusqu'au mur de la maison.
-      murs.push([P(pg.debut, T(-av), bas), P(pg.fin, T(-av), bas), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage), P(pg.debut, T(-av), e)]);
-      for (const s of [pg.debut, pg.fin]) murs.push([P(s, T(0), bas), P(s, T(-av), bas), P(s, T(-av), e), P(s, T(0), e)]);
-    } else murs.push([P(pg.debut, T(-av), e), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage)]);
+    // Une pointe coupee en demi-croupe (cul de geai, schema 15) : ses pans, sa petite croupe et son mur tronque (facade/toits/toitFormes.ts).
+    if (pg.pointe && pg.faitage - e > 0.3) {
+      const x = facettesPignonCoupe(pg, e, pg.pointe, { gauche, droite, piedG, piedD, pied, profondeur: D, avance: av, debord: dE, bas });
+      pans.push(...x.pans.map((f) => f.map((q) => P(q.s, T(q.d), q.z))));
+      murs.push(...x.murs.map((f) => f.map((q) => P(q.s, T(q.d), q.z))));
+    } else {
+      pans.push([P(gauche, T(-av - dE), zG), P(sc, T(-av - dE), pg.faitage), P(sc, T(D), pg.faitage), P(piedG, T(pied), pg.debut <= 0.3 ? zG : e)]);
+      pans.push([P(sc, T(-av - dE), pg.faitage), P(droite, T(-av - dE), zD), P(piedD, T(pied), pg.fin >= L - 0.3 ? zD : e), P(sc, T(D), pg.faitage)]);
+      // Avance, sa face monte du sol au sommet du triangle.
+      murs.push(av > 0 ? [P(pg.debut, T(-av), bas), P(pg.fin, T(-av), bas), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage), P(pg.debut, T(-av), e)]
+        : [P(pg.debut, T(-av), e), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage)]);
+    }
+    // Les deux murs de cote d'un pignon qui avance, jusqu'au mur de la maison.
+    if (av > 0) for (const s of [pg.debut, pg.fin]) murs.push([P(s, T(0), bas), P(s, T(-av), bas), P(s, T(-av), e), P(s, T(0), e)]);
     // Sur un toit plat, les noues du pignon ne retrouvent pas de pan : sous chacune, un mur la ferme jusqu'au toit (AE 101, les deux
     // pignons de la facade sud sur le toit plat ; sans lui, le pignon etait ouvert par-derriere).
     if (plat && pg.faitage - e > MUR_MIN_M) {

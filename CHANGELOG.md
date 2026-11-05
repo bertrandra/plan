@@ -5,6 +5,33 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Mode Toit : **le cul de geai** (demande du propriétaire, 5 novembre 2026 ; aussi nez de veau, bout rabattu, croupette, demi-croupe) et
+  **la queue de vache** (un coyau qui déborde), dessinés sur un corps existant avec les mêmes boutons-images que les autres réglages :
+  - chaque bout du faîtage d'un corps à deux pans se choisit **pignon, croupe ou cul de geai** (« Bout nord », « Bout sud »…) ; un cul de
+    geai règle la **part du pignon coupée** (le quart, le tiers, la moitié) et le **débord du faîtage** au-delà du mur (0, 0,5 ou 1 m) :
+    à 0, le petit pan se pose sur le pignon tronqué en trapèze ; au-delà de la rive, le faîtage porte la croupe en avant (un capuchon,
+    l'arêtier qui descend en biais et revient vers le mur, une sous-face au pied, le mur arrêté au pied) ; le débord d'égout du corps
+    prolonge les pans et la croupe à leur pente ;
+  - la **pointe d'un pignon** (élément pignon d'une façade) se coupe de même : en triangle ou en cul de geai, avec sa part et son débord ;
+  - la **queue de vache** d'un pan : un débord de l'égout de 0,6, 0,9 ou 1,2 m, à la **pente adoucie** (10 à 25°, la cassure à 0,8 m du
+    mur au plus), sous-face fermée ; elle se pose sur un corps dont les bouts sont des pignons. La vignette « Coyau » du catalogue
+    s'appelle « Queue de vache (coyau) » et déborde de 0,9 m ; « Demi-croupe » s'appelle « Cul de geai » ;
+  - les pans d'un corps à cul de geai sont entaillés sous ses pignons traversants (comme ceux d'un deux-pans), un pan en coyau aussi ;
+  - tout se fait dans la session du Mode Toit (Ctrl+Z, « Valider » fige le toit), et rien du moteur ne change : AE 101 identique.
+  Schéma 15 (une seule montée, bertrandra/backprod à déployer d'abord) : `debordFaitageM` d'un bout en demi-croupe, `pointe` d'un pignon,
+  `debordM` d'un pan en coyau. Seul un bâtiment qui en porte s'écrit au 15. Fumée : point 134.
+- Découverte du **cul de geai** (demi-croupe), en propositions décochées, jamais un changement silencieux du moteur (AE 101 identique) :
+  - **LiDAR** : la coupe du faîtage se lit au bout de chaque corps et au faîtage de chaque pignon traversant (`facade/toits/culDeGeai.ts`,
+    aux seuils de la lecture des formes) ; l'audit la propose sur ce corps ou ce pignon, et le moteur des toits la relit ;
+  - **É7** (diagnostic de forme) : sur un mur de bout en pignon, un cul de geai quand la pointe se lit coupée (jugé sur le tiers haut du
+    pignon) ; sur un long pan, la pointe d'un pignon coupée ; Claude qui dit « demi-croupe » le propose aussi, sans haut lu ou quand le
+    haut lu ne le contredit pas. Une croupe proposée hier le reste. Le moteur relit la coupe sur la mesure (`boutsDesMurs`
+    « demi-croupe », `pointesDesMurs`) ;
+  - **étalons 28 et 29** (cul de geai en enduit ; en brique, faîtage débordant, de biais) : l'É7 propose le cul de geai sur le 28 ; le 29
+    reste le cas difficile (mur à confirmer, il ne se propose qu'avec Claude). Bancs des façades inchangés sur les étalons d'avant.
+
 ### Corrigé
 
 - Fumée, cocher une proposition de l'audit (points 117 à 119 et ceux qui cochent une ligne) : le script attend la fin de la mesure des
@@ -12,6 +39,43 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   sous elle et la recherche des niveaux à ouvrir restait suspendue 30 s (point 119, Fumée de la nuit de la 5.9.0, run 41916988940,
   moyen clair ; reproduit en local une fois sur deux). Aucun délai allongé, aucune vérification retirée ; rien ne change dans
   l'application.
+- Façades, É6 (silhouette lue), suites de la végétation :
+  - le haut lu ne plonge plus au droit d'un poteau peint en haut du mur (le colombage vert du pignon gauche d'AE 101) : un creux de cinq
+    colonnes au plus, plus bas que ses deux voisines de 5 % de la largeur, n'est pas lu (un haut de mur n'a pas de tel creux) ;
+  - le bord d'un aplat peint (un poteau sur l'enduit) n'est plus pris pour du feuillage : le feuillage change d'une rangée à l'autre,
+    le bord d'un aplat non ;
+  - la couronne d'un arbre ne se lit plus comme un toit dans la bande au-dessus de l'égout (étalon 27 : « une seule rampe » devient
+    « triangle ») ; une bande sans végétation garde sa lecture, et le toit proposé par l'audit avec elle.
+- Façades, É5 (calage du mur) : l'égout ne se pose plus sur le bord bas d'une bande peinte sous le pignon (étalon 27 : 25 cm trop
+  bas, avec l'arbre comme sans lui). Le calage fin écarte un égout que surmonte une bande d'une autre teinte, mince, puis de nouveau
+  le mur ; il juge celui qui a cette bande juste sous lui là où le mur reprend.
+
+### Modifié
+
+- Façades, É5 (calage du mur) : **le gabarit se pose bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre
+  2026 : « le positionnement du gabarit ne fonctionne pas »). Son sol sur le sol trouvé, ses bouts sur les bouts trouvés, une seule
+  échelle tirée de la largeur, la même en hauteur ; il ne se tend plus entre l'égout et le sol trouvés, ce qui faisait de la hauteur
+  du mur le levier de tout le haut (à AE 101, l'égout de l'appentis à 2,4 m, les pointes des pignons à 7,5 m : l'égout trouvé sur la
+  gouttière, 80 cm trop haut, montait la pointe de droite de 2,4 m). La même pose partout : l'image de l'É5 et des photos, la silhouette
+  que lit la détection, le toit par la silhouette, les parties basses, le diagnostic de forme (É7), le bilan et le geste « Ajuster
+  l'égout et le sol ». Son égout ne pose plus rien : il **contrôle l'égout trouvé**, l'écart se dit à l'É5 en centimètres, et l'É5 est
+  à confirmer au-delà de 3 % de la largeur. Banc : poses de l'É5 inchangées (43/49 justes, 344/344 fausses refusées, 83/86 justes à
+  2 %), une É5 « ok » sur un mur faux (13, repères) devenue à confirmer ; silhouette posée à 2 % 40/46 → 39/46 (pignons 11, 22 et 24
+  gagnés quand l'égout est trouvé à 1 ou 2 % près ; perdus 11, 13 et 15, assemblages étirés par une focale supposée ou une distorsion,
+  et 19, un bout faux : `MD/spec-facade-calage-audit.md` §4 É5).
+
+### Corrigé
+
+- Façades, É6 (silhouette lue) : le haut lu ne monte plus dans un arbre. Des feuilles et des trous de ciel mêlés ont en moyenne la teinte
+  d'un enduit clair, et le haut lu grimpait dans le feuillage devant le pignon (façade sud d'AE 101). Une case de cinq pixels verte et
+  texturée est du feuillage ; une colonne dont le haut est sous du feuillage n'est pas lue (elle compte contre `silhouetteColonnesMin`),
+  l'É6 dit « Haut masqué par la végétation sur n % des colonnes », l'É7 et le bilan gardent le gabarit là. Une peinture verte
+  (colombages, volets, rives) est un aplat : elle reste du mur. Nouveau réglage `facades.enchainement.vegetationPartMin` (0,5).
+
+### Ajouté
+
+- Étalon 27 (`27-arbre-devant-pignon`) : un pignon derrière un arbre dont la couronne, trouée de ciel, couvre le haut du pignon, avec
+  bandeaux et volets peints en vert foncé. Le générateur sait peindre un arbre (`type: 'arbre'`) ; les 27 autres scènes ne bougent pas.
 
 ## [5.9.0] — 2026-11-04
 

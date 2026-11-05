@@ -3,7 +3,7 @@
 
 import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../geometry/cotesVusDeDehors.js';
-import { type ResultatAnalyse } from '../analyse.js';
+import { type HautMasque, type ResultatAnalyse } from '../analyse.js';
 import { type ResultatFusion } from '../fusion.js';
 import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
 import type { MesureDistance } from './prise.js';
@@ -139,6 +139,8 @@ export interface ReleveDeLaSerie {
   silhouette: SilhouetteFacade;
   /** Le haut du mur lu a la matiere du mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic de forme compare au gabarit (F4). */
   hautLu: { u: number; v: number }[] | null;
+  /** Le haut du mur cache par du feuillage : la part des colonnes et leurs troncons (E6) ; null sans feuillage. */
+  hautMasque: HautMasque | null;
   /** La note du calage fin, de 0 a 1 ; null sans calage fin. */
   confiance: number | null;
   /** La hauteur a l'egout mesuree, quand les coins ont ete trouves ; des coins predits d'apres la hauteur connue la rendraient. */
@@ -175,6 +177,7 @@ export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>
     devinees: a.r.devinees.map(versOuvertureFacade),
     silhouette: silhouetteDeEstimation(a.r.toitLu),
     hautLu: a.r.hautLu ?? null,
+    hautMasque: a.r.hautMasque ?? null,
     confiance: calage.confiance ?? null,
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
     ecartLargeur: ecartDeLargeur(morceaux, f.largeur),

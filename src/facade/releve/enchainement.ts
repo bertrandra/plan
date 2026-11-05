@@ -16,10 +16,11 @@
 // Ce que la calibration ajoute (la mesure contre la verite, la reponse enregistree de Claude rejouee, la texture sans ombres) LIT les
 // sorties communes et ne les change jamais : `tests/unit/facade/releve/uneOrchestration.test.ts` le prouve, etape par etape.
 
+import type { HautMasque } from '../analyse.js';
 import { descentesRetrouvees } from '../regles/facades/modenature.js';
 import { ETAPES_FACADE, libelleEtape, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
-import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
+import { GABARIT_RECTANGLE, echelleDuGabarit, gabaritALEchelle, gabaritSurLaPhoto, pointesDuGabarit, rectDesCoins, type GabaritMur } from '../gabaritMur.js';
 import { murSousLeSol } from '../vision/mosaiqueFuites.js';
 import { murSurLesPhotos, vuesDeLAssemblage, type AssemblageDuMur, type RetourVersLaPhoto } from '../analyseMur.js';
 import type { RedressementFuites } from '../vision/redressementFuites.js';
@@ -28,7 +29,7 @@ import { libelleSilhouette } from '../../model/silhouetteFacade.js';
 import { sansOmbres } from '../vision/sansOmbres.js';
 import type { ResultatFusion } from '../fusion.js';
 import type { OuvertureDetectee } from '../detection/detection.js';
-import { expliquer, expliqueLaPhoto, seuilsDuCalage, type Explication } from './calageAncres.js';
+import { egoutControle, expliquer, expliqueLaPhoto, seuilsDuCalage, type Explication } from './calageAncres.js';
 import { detecterSegments } from '../vision/segments.js';
 import { redresserEtFusionner, VERSION_CHAINE_FACADES, type ResultatChaine } from './chaine.js';
 import { avisFusion, releveDeLaSerie, type ReleveDeLaSerie } from './analyseSerie.js';
@@ -167,16 +168,17 @@ interface SortiesFacade {
   /**
    * E5 : les coins retenus sur chaque photo (par rang) et leur origine, ce qui doute, le mur pose sur l'image prise pour la suite
    * (l'assemblage, une photo seule comprise), et ce que ce mur explique de cette image, juge sur la silhouette du gabarit qu'il pose
-   * (calageAncres.ts).
+   * (calageAncres.ts). `echelleGabarit` : la pose du gabarit sur ce mur, son bas sur le sol et a l'echelle de la largeur, en hauteurs du
+   * mur trouve (gabaritMur.ts::echelleDuGabarit ; 1 sans mur pose) : ce que les etapes suivantes et les images posent de lui.
    */
-  calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication } | null;
+  calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication; echelleGabarit?: number } | null;
   /** E6 : le haut du mur lu, pose sur l'image prise pour la suite par les coins du mur (pixels). */
-  silhouette: { points: P2[] } | null;
+  silhouette: { points: P2[]; masques?: P2[][] } | null;
   /**
    * E6 : le haut lu ramene au mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic compare au gabarit ; E7 : le diagnostic
    * de forme, corps par corps (propositions de toit, alertes de hauteur).
    */
-  forme: { lue: { u: number; v: number }[] | null; diagnostic: DiagnosticForme | null } | null;
+  forme: { lue: { u: number; v: number }[] | null; diagnostic: DiagnosticForme | null; masque?: HautMasque | null } | null;
   /** E8, E9 : l'analyse du mur. */
   analyse: AnalyseDuMur | null;
   /** E8 : la texture sans les ombres de la photo (`illustrer`). */
@@ -233,10 +235,7 @@ const sans = (resume: string): Omit<EtapeCalculee, 'id'> => ({ etat: 'saute', re
 const attend = (quoi: string): Omit<EtapeCalculee, 'id'> => ({ etat: 'a-venir', resume: 'Attend ' + quoi + '.', verite: null });
 
 /** Le mur pose (haut gauche, haut droit, bas droit, bas gauche) ramene a ses bouts, son egout et son sol. */
-function rectDeLaPose(coins: readonly P2[]): { x0: number; x1: number; y0: number; y1: number } {
-  const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2];
-  return { x0: (hg.x + bg.x) / 2, x1: (hd.x + bd.x) / 2, y0: (hg.y + hd.y) / 2, y1: (bd.y + bg.y) / 2 };
-}
+const rectDeLaPose = rectDesCoins;
 
 /** Le nombre de photos de la facade, lisibles ou non : les rangs vont de 0 a ce nombre moins un. */
 const nombreDePhotos = (p: PrisesFacade): number => Math.max(0, ...[...p.photos, ...p.illisibles].map((x) => x.rang + 1));
@@ -392,7 +391,8 @@ const redressement: Pas = async ({ e, o, s, obj }) => {
     imageRun: retenue ? imageRunDeLAudit(e, a, retenue) : null,
     assemblage, retours,
   };
-  s.calage = { photos: coinsRetenus(c, a, n), message: null, pose: retenue?.a.assemblage ?? null };
+  const pose = retenue?.a.assemblage ?? null;
+  s.calage = { photos: coinsRetenus(c, a, n), message: null, pose, echelleGabarit: pose ? echelleDuGabarit(e.hauteurM / e.largeurM, rectDesCoins(pose.coins)) : 1 };
   if (retenue) {
     const { r, fusion } = retenue.a;
     s.analyse = { elevation: r.elevation, facade: r.facade, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? resumeFusion(fusion) : null, assemblage: retenue.a.assemblage ?? null };
@@ -451,6 +451,20 @@ function explicationDe(pose: AssemblageDuMur, e: EntreesFacade): Explication {
 }
 
 const sc = (x: number) => dec(x, 2);
+
+/**
+ * Le controle de l'egout trouve par le gabarit, en clair (decision du proprietaire, 4 novembre 2026) : le gabarit se pose sur le sol, a
+ * l'echelle de la largeur, et son egout tombe ou cette echelle le met ; l'ecart a l'egout trouve, en centimetres sur le mur et en part
+ * de la largeur. Vide sans gabarit juge ou sans proportions du plan.
+ */
+function texteEgoutDuGabarit(ex: Explication, largeurM: number, seuil: number | null): string {
+  const d = ex.ecartEgout;
+  if (d === null || d === undefined) return '';
+  const cm = Math.round(Math.abs(d) * largeurM * 100);
+  const loin = seuil !== null && Math.abs(d) > seuil;
+  const ou = cm === 0 ? 'sur l’égout trouvé' : `${cm} cm ${d > 0 ? 'sous' : 'au-dessus de'} l’égout trouvé (${pc(Math.abs(d))} de la largeur${loin ? `, au-delà de ${pc(seuil)}` : ''})`;
+  return ` Gabarit posé sur le sol, à l’échelle de la largeur : son égout ${ou}` + (loin ? ' : l’égout trouvé, ou la hauteur du plan, est à confirmer.' : '.');
+}
 const px = (r: { x0: number; x1: number }) => `x de ${Math.round(r.x0)} à ${Math.round(r.x1)} (${Math.round(r.x1 - r.x0)} px)`;
 
 /** Ce que l'arbitre a retenu sur l'assemblage des reperes, en clair (calageAncres.ts::calerParLesAncres). */
@@ -517,9 +531,11 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Omit<EtapeCalculee, 'id'> => {
     // d'explication n'y suffit pas (le sol y pese peu) : etalon 00, une photo sans EXIF au teleobjectif, sol a 13 % de la largeur.
     const sous = murSousLeSol(pose, r);
     const solDansLeMur = sous !== null && sous > obj['facades.enchainement.murSousLeSolMax'];
-    const etat: EtatAffiche = !passe || solDansLeMur || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
+    // Le controle de l'egout trouve par le gabarit pose sur le sol, a l'echelle de la largeur (decision du proprietaire, 4 novembre 2026).
+    const seuils = seuilsDuCalage(obj), controle = egoutControle(ex, seuils);
+    const etat: EtatAffiche = !passe || !controle || solDansLeMur || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
     const sol = solDansLeMur ? ` Mais le mur continue sous le sol posé (${pc(sous)} de la bande sous lui) : le pied est plus bas, tirez le sol.` : '';
-    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + sol + dit, verite };
+    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + texteEgoutDuGabarit(ex, e.largeurM, seuils.ecartEgout ?? null) + sol + dit, verite };
   }
   return { etat: main || (m.coinsTrouves && !chercheDoute) ? 'ok' : 'a-confirmer', resume: origine + hauteur + dit, verite };
 };
@@ -592,18 +608,23 @@ function surfaceDeLIa(r: ObservationsFacade): string {
  * sur au moins `silhouetteColonnesMin` des colonnes) ; le mot de la bande au-dessus de l'egout n'est qu'une information. Sans elle, la
  * suite garde le gabarit du plan.
  */
-const silhouette: Pas = ({ s, obj }) => {
+const silhouette: Pas = ({ e, s, obj }) => {
   const m = s.audit?.mesure;
   if (!m) return attend('le mur posé (É5)');
-  s.forme = { lue: m.hautLu, diagnostic: null };
+  s.forme = { lue: m.hautLu, diagnostic: null, masque: m.hautMasque };
   // Le haut lu, pose sur l'image prise pour la suite par les coins du mur (il est en parts du mur, comme le gabarit).
   const pose = s.calage?.pose, points = pose && m.hautLu?.length ? gabaritSurLaPhoto(m.hautLu, pose.coins) : null;
-  s.silhouette = points ? { points } : null;
+  // Les troncons ou le feuillage cache le haut : des bandes, du dessous de l'egout au-dessus du gabarit, que l'illustration grise.
+  const plafond = Math.max(1, ...e.gabarit.map((p) => p.v)) + 0.3;
+  const masques = pose ? (m.hautMasque?.troncons ?? []).flatMap((t) => { const q = gabaritSurLaPhoto([{ u: t.u0, v: 0.9 }, { u: t.u1, v: 0.9 }, { u: t.u1, v: plafond }, { u: t.u0, v: plafond }], pose.coins); return q ? [q] : []; }) : [];
+  s.silhouette = points || masques.length ? { points: points ?? [], ...(masques.length ? { masques } : {}) } : null;
   const ia = formeDeLIa(s.ia?.reponse ?? null);
   const part = Math.round(obj['facades.enchainement.silhouetteColonnesMin'] * 100);
-  if (!m.hautLu?.length) return { etat: 'a-confirmer', resume: `Le haut du mur se lit sur moins de ${part} % des colonnes (hors cadre, caché) : la suite garde le gabarit du plan.` + ia, verite: null };
+  // Le haut cache par un arbre (4 novembre 2026) : ses colonnes ne sont pas lues, le gabarit du plan y est garde (E7, le bilan).
+  const vert = m.hautMasque ? ` Haut masqué par la végétation sur ${Math.round(m.hautMasque.part * 100)} % des colonnes${m.hautLu?.length ? ' : le gabarit du plan y est gardé' : ''}.` : '';
+  if (!m.hautLu?.length) return { etat: 'a-confirmer', resume: `Le haut du mur se lit sur moins de ${part} % des colonnes (hors cadre, caché) : la suite garde le gabarit du plan.` + vert + ia, verite: null };
   const mot = m.silhouette === 'indetermine' ? 'sans forme reconnue au-dessus de l’égout' : libelleSilhouette(m.silhouette);
-  return { etat: 'ok', resume: `Le haut lu sur la photo (${m.hautLu.length} points) : ${mot}.` + ia, verite: null };
+  return { etat: 'ok', resume: `Le haut lu sur la photo (${m.hautLu.length} points) : ${mot}.` + vert + ia, verite: null };
 };
 
 const MOTS_ELEMENT = { cheminee: 'une cheminée', lucarne: 'une lucarne' } as const;
@@ -698,7 +719,7 @@ const validation: Pas = ({ e, o, s }) => {
   const relues = e.prises.ouverturesRelues && sontRelues(e.prises.ouverturesRelues, m.releve.ouvertures) ? e.prises.ouverturesRelues.ouvertures : null;
   const partage = partageDuReleve(e, relues ?? s.ia?.accord?.ouvertures ?? m.releve.ouvertures);
   s.facade = bilanDeLaFacade({
-    largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: s.forme?.lue ?? null,
+    largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: hautLuAuPlan(s), masques: s.forme?.masque?.troncons ?? [],
     silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? relues ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
     ...(s.ia?.reponse ? { pointesIa: s.ia.reponse.calage.pointes } : {}),
   });
@@ -708,11 +729,21 @@ const validation: Pas = ({ e, o, s }) => {
   return sans('Bilan : ' + texteBilan(s.facade) + voisin + ' La calibration n’écrit pas de façade : elle se valide dans l’audit (V4).');
 };
 
+/**
+ * Le haut lu (E6, en hauteurs du mur trouve) ramene aux hauteurs du gabarit, celles du plan : le gabarit se pose sur le sol a l'echelle
+ * de la largeur (`echelleGabarit`), si bien que le diagnostic (E7) et le bilan comparent le haut lu au gabarit pose, et non tendu entre
+ * l'egout et le sol trouves.
+ */
+const hautLuAuPlan = (s: SortiesFacade): { u: number; v: number }[] | null => {
+  const lue = s.forme?.lue;
+  return lue ? [...gabaritALEchelle(lue, 1 / (s.calage?.echelleGabarit ?? 1))] : null;
+};
+
 const PAS: Record<IdEtape, Pas> = {
   preparation, prises, redressement, assemblage, calage, silhouette,
   diagnostic: ({ e, o, s }) => {
-    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, s.forme?.lue ?? null, s.ia?.reponse ?? null, o.objectifs, o.verite?.toit);
-    s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic };
+    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), s.ia?.reponse ?? null, o.objectifs, o.verite?.toit, s.forme?.masque?.troncons ?? []);
+    s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic, masque: s.forme?.masque ?? null };
     return r.etape;
   },
   texture, ouvertures,

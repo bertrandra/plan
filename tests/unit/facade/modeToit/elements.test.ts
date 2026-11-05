@@ -97,7 +97,7 @@ describe('les elements du toit', () => {
     expect(valeurDuGroupe(corps, pig, 'hauteur')).toBe('bas');
     corps = appliquerChoix(corps, pig, 'hauteur', 'faitage');
     expect(valeurDuGroupe(corps, pig, 'hauteur')).toBe('faitage');
-    expect(groupesDe(corps, pig).map((g) => g.groupe)).toEqual(['hauteur', 'saillie']);
+    expect(groupesDe(corps, pig).map((g) => g.groupe)).toEqual(['hauteur', 'saillie', 'pointe']);
     expect(valeurDuGroupe(corps, pig, 'saillie')).toBe('0');
     corps = appliquerChoix(corps, pig, 'saillie', '1');
     expect(corps[0]!.pignons[0]!.saillieM).toBe(1);
