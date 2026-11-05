@@ -440,7 +440,11 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   peint, une fenêtre haute) n'est pas lu ; le bord d'un aplat peint n'est pas du feuillage (le feuillage change d'une rangée à six rangées
   plus haut, un aplat non) ; dans la bande au-dessus de l'égout, la couronne d'un arbre (`feuillageDeLImage`) est tenue pour non vue, et
   ne se lit pas comme un toit. L'égout trop bas de l'étalon 27 à l'É5 ne vient pas de l'arbre mais de son bandeau vert sous l'égout du
-  pignon (sans le bandeau, l'É5 est juste ; sans l'arbre, toujours faux de 3,2 %) : un sujet de l'É5 à part.
+  pignon (sans le bandeau, l'É5 est juste ; sans l'arbre, toujours faux de 3,2 %) : un sujet de l'É5 à part, traité le même jour au
+  calage fin (`calageFin.ts::bandeContreLeMur`) : un égout candidat que surmonte une bande d'autre matière mince (6 % du côté au plus)
+  puis de nouveau le mur est le bas d'un bandeau, pas l'égout ; un égout par les bouts des côtés se juge aussi contre chacun de ses
+  coins (un côté s'arrête au bas de la bande) ; et le dedans d'un égout qui a la même bande sous lui se juge sous elle, là où le mur
+  reprend. L'étalon 27 passe de 25 cm trop bas à juste (avec l'arbre comme sans lui).
 
 ### É7 · Diagnostic de forme (nouveau)
 

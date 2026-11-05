@@ -412,7 +412,9 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   garde-fou de la lecture (`scenes-ajoutees.json`), à fixer au prochain run « Vérifier l'API Claude ».
   Suites (5 novembre 2026) : les creux étroits du haut lu (un poteau peint) ne sont pas lus (`retirerLesCreux`) ; un aplat et son bord
   ne sont pas du feuillage (`CHANGE_FEUILLE`) ; la couronne d'un arbre dans la bande au-dessus de l'égout est tenue pour non vue
-  (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É5 se pose sur son bandeau vert, pas sur l'arbre.
+  (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É5 se posait sur le bas de son bandeau vert, pas sur l'arbre : le
+  calage fin écarte un égout que surmonte une bande mince puis le mur (`bandeContreLeMur`, aux quatre tronçons, et aux coins pour un
+  égout par les bouts), et juge le dedans d'un égout sous une telle bande là où le mur reprend.
 
 ## 3. Le corpus
 

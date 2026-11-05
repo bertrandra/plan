@@ -32,6 +32,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     le bord d'un aplat non ;
   - la couronne d'un arbre ne se lit plus comme un toit dans la bande au-dessus de l'égout (étalon 27 : « une seule rampe » devient
     « triangle ») ; une bande sans végétation garde sa lecture, et le toit proposé par l'audit avec elle.
+- Façades, É5 (calage du mur) : l'égout ne se pose plus sur le bord bas d'une bande peinte sous le pignon (étalon 27 : 25 cm trop
+  bas, avec l'arbre comme sans lui). Le calage fin écarte un égout que surmonte une bande d'une autre teinte, mince, puis de nouveau
+  le mur ; il juge celui qui a cette bande juste sous lui là où le mur reprend.
 
 ### Modifié
 
