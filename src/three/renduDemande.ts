@@ -30,7 +30,17 @@
 // par un autre chemin (navigation, soleil) n'est pas rendue une seconde fois par la boucle.
 
 import type * as THREE_NS from 'three';
-import type { SceneTroisBase } from './etat3d.js';
+
+/**
+ * Ce que le rendu a la demande lit d'une scene : le sous-ensemble de `SceneTroisBase` (three/etat3d.ts)
+ * qu'il lui faut, ecrit ici pour qu'etat3d puisse l'importer sans cycle.
+ */
+export interface SceneTroisBase {
+  scene: THREE_NS.Scene;
+  camera: THREE_NS.PerspectiveCamera;
+  renderer: THREE_NS.WebGLRenderer;
+  cameraRendu?: THREE_NS.Camera | undefined;
+}
 
 /** Tant que des changements arrivent, une image au moins toutes les… : de quoi montrer une texture arrivee. */
 export const DELAI_REPOS_MS = 400;
