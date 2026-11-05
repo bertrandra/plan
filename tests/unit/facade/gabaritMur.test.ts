@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GABARIT_RECTANGLE, contourDuGabarit, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
+import { GABARIT_RECTANGLE, contourDuGabarit, ecartDEgout, echelleDuGabarit, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
 import { silhouetteDeFace } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
@@ -58,8 +58,32 @@ describe('le gabarit tire des corps du LiDAR', () => {
 
 describe('le gabarit pose', () => {
   const g = [{ u: 0, v: 1 }, { u: 0.4, v: 1.5 }, { u: 1, v: 1 }];
-  it('sur une vue de face, entre les bouts, l egout et le sol : seule l echelle suit', () => {
+  it('sans les proportions du plan, entre les bouts, l egout et le sol, comme avant', () => {
     expect(gabaritSurLaVue(g, { x0: 100, x1: 300, y0: 100, y1: 300 })).toEqual([{ x: 100, y: 100 }, { x: 180, y: 0 }, { x: 300, y: 100 }]);
+  });
+  // Decision du proprietaire (4 novembre 2026) : le bas du gabarit sur le sol trouve, ses bouts sur les bouts trouves, une seule echelle
+  // tiree de la largeur ; son egout tombe ou cette echelle le met, et l'egout trouve ne pose plus rien (il se controle).
+  const arrondi = (l: readonly { x: number; y: number }[]) => l.map((q) => ({ x: Math.round(q.x * 1e6) / 1e6, y: Math.round(q.y * 1e6) / 1e6 }));
+  it('sur une vue de face, par le sol et la largeur : la meme echelle en hauteur, l egout trouve ne pose rien', () => {
+    // Un mur de 10 m sur 2,5 m (rapport 0,25) trouve sur 200 px de large : 20 px/m, l'egout du plan a 50 px au-dessus du sol, quand
+    // l'egout trouve est a 200 px. Tendu entre l'egout et le sol, le pignon montait a 300 px au-dessus du sol au lieu de 75.
+    const r = { x0: 100, x1: 300, y0: 100, y1: 300 };
+    expect(echelleDuGabarit(0.25, r)).toBeCloseTo(0.25, 9);
+    expect(arrondi(gabaritSurLaVue(g, r, 0.25))).toEqual([{ x: 100, y: 250 }, { x: 180, y: 225 }, { x: 300, y: 250 }]);
+    expect(arrondi(gabaritSurLaVue(g, { ...r, y0: 150 }, 0.25))).toEqual(arrondi(gabaritSurLaVue(g, r, 0.25)));
+    // Le sol et les bouts, eux, le posent.
+    expect(arrondi(gabaritSurLaVue(g, { ...r, y1: 320 }, 0.25))[1]).toEqual({ x: 180, y: 245 });
+    expect(arrondi(gabaritSurLaVue(g, { ...r, x1: 500 }, 0.25))[1]).toEqual({ x: 260, y: 150 });
+    // Le controle : l'egout trouve est 150 px au-dessus du sien, 75 % de la largeur ; aux proportions du plan, aucun ecart et la pose d'avant.
+    expect(ecartDEgout(0.25, r)).toBeCloseTo(0.75, 9);
+    expect(ecartDEgout(1, r)).toBeCloseTo(0, 9);
+    expect(arrondi(gabaritSurLaVue(g, r, 1))).toEqual(gabaritSurLaVue(g, r));
+    expect(ecartDEgout(null, r)).toBeNull();
+    expect(echelleDuGabarit(null, r)).toBe(1);
+  });
+  it('sur une photo, a l echelle lue sur la vue de face ou le mur a ete trouve', () => {
+    const s = gabaritSurLaPhoto(g, [{ x: 100, y: 100 }, { x: 300, y: 100 }, { x: 300, y: 300 }, { x: 100, y: 300 }], 0.5)!;
+    expect(s).toEqual([{ x: 100, y: 200 }, { x: 180, y: 150 }, { x: 300, y: 200 }]);
   });
   it('ferme son contour sous ses propres bouts', () => {
     expect(contourDuGabarit([{ u: -0.2, v: 1 }, { u: 1.5, v: 1.2 }])).toEqual([{ u: -0.2, v: 0 }, { u: -0.2, v: 1 }, { u: 1.5, v: 1.2 }, { u: 1.5, v: 0 }]);

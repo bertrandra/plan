@@ -8,7 +8,7 @@
 // par quatre reperes poses aux coins de sa premiere ouverture), assemblees, puis le mur cherche aux proportions de la verite (ce que
 // donne le plan : largeur du cadastre, hauteur du LiDAR). L'ecart de chaque bord est en part de la largeur du mur ; « juste » : 2 % au
 // plus. Le gabarit vrai de la scene (son haut, pignon compris, comme le LiDAR le donnerait : facade/gabaritMur.ts) ne cale pas le mur :
-// il se pose ensuite entre les bords trouves ; « Silhouette » : le plus grand ecart, sur 21 colonnes, entre ce gabarit pose et le
+// il se pose ensuite sur le sol trouve, a l'echelle de la largeur ; « Silhouette » : le plus grand ecart, sur 21 colonnes, entre ce gabarit pose et le
 // vrai haut du mur. « Explication » : le score de la pose retenue sans le toit (facade/releve/calageAncres.ts) et d'ou elle vient
 // (aretes ; « autre » : une autre pose des aretes l'explique mieux ; « plan » : aucune, la pose du plan seul). `--images` ecrit
 // l'assemblage, la verite en vert et le mur trouve en rouge.
@@ -101,7 +101,8 @@ for (const s of chargerCorpus()) {
     // grand, sur 21 colonnes, entre elle et la ligne brisee posee, en part de la largeur du mur.
     const pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5;
     const vraie = Array.from({ length: 21 }, (_, i) => i / 20).map((u) => appliquerSimilitude(place, appliquer(versVue, appliquer(murVersPhoto, { x: u * L, y: H + pg * formePignon(u, sommet) }))));
-    const posee = gabaritSurLaVue(gabarit, r);
+    // Pose de production : le bas sur le sol trouve, a l'echelle de la largeur (gabaritMur.ts::echelleDuGabarit, 4 novembre 2026).
+    const posee = gabaritSurLaVue(gabarit, r, H / L);
     const surPosee = (x: number) => {
       if (!posee || posee.length < 2) return null;
       for (let i = 0; i + 1 < posee.length; i++) { const a = posee[i] as P2, b = posee[i + 1] as P2; if (x >= a.x - 1e-6 && x <= b.x + 1e-6) return a.y + ((b.y - a.y) * (x - a.x)) / Math.max(1e-9, b.x - a.x); }

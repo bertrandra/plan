@@ -4,7 +4,8 @@
 // en est le depart.
 //
 // Le haut du mur est le gabarit (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, un pignon, une rampe ou une ligne
-// droite. Sa forme ne bouge pas ; il se pose entre les lignes que l'on tire, et suit leur echelle. Les lignes sont horizontales et
+// droite. Sa forme ne bouge pas ; il se pose sur le sol que l'on tire, entre les deux bouts, a l'echelle de leur ecart (son egout tombe
+// ou cette echelle le met, decision du proprietaire, 4 novembre 2026 ; sans les proportions du plan, entre l'egout et le sol). Les lignes sont horizontales et
 // verticales sur la vue de face : elles ne se tirent que dans leur sens. Tout revient sur la photo par l'homographie du redressement :
 // les quatre coins du mur, que la chaine traite comme poses a la main (facade/releve/chaine.ts) ; le gabarit s'y repose. Sur
 // l'assemblage, l'image est deja de face : les coins rendus sont ceux de l'assemblage.
@@ -39,7 +40,7 @@ function murDeDepart(L: number, H: number, coins: readonly P2[] | null): MurVue 
 type Ligne = 'egout' | 'sol' | 'gauche' | 'droite';
 const NOMS: Record<Ligne, string> = { egout: 'Égout', sol: 'Sol', gauche: 'Bout gauche du mur', droite: 'Bout droit du mur' };
 
-export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE, changer, url }: {
+export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE, rapport = null, changer, url }: {
   /** Les pixels de la photo, lus a la demande (le decodage d'une photo coute). */
   charger: () => Promise<Image | null>;
   /**
@@ -53,6 +54,8 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
   mur: readonly P2[] | null;
   /** Le gabarit du mur (le plan et le LiDAR) : la forme de son haut, qui ne bouge pas ; un rectangle sans corps lu. */
   gabarit?: GabaritMur;
+  /** La hauteur du mur du plan sur sa largeur : le gabarit se pose sur le sol a l'echelle des bouts ; null, entre l'egout et le sol. */
+  rapport?: number | null;
   /** Le mur retenu, sur la photo, a chaque geste. */
   changer: (m: MurAjuste) => void;
 }) {
@@ -120,7 +123,8 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
   };
   // Les zones de saisie font 44 px a l'ecran, quel que soit le zoom de la photo.
   const saisie = 44 / echelle;
-  const haut = gabaritSurLaVue(gabarit, { x0: cadre.x0, x1: cadre.x1, y0: cadre.egout, y1: cadre.sol });
+  const rect = { x0: cadre.x0, x1: cadre.x1, y0: cadre.egout, y1: cadre.sol };
+  const haut = gabaritSurLaVue(gabarit, rect, rapport);
   const sommet = Math.min(cadre.egout, ...haut.map((p) => p.y));
   const ligne = (l: Ligne, x1: number, y1: number, x2: number, y2: number) => (
     <g key={l}>
@@ -133,7 +137,7 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
     <div className="ajusterMur">
       <svg ref={svg} className="ajusterMurPhoto" viewBox={`0 0 ${L} ${H}`} role="group" aria-label={(reperes ? 'Photo redressée entière' : 'Assemblage des photos') + ' : tirez l’égout, le sol et les bouts ; la silhouette du mur suit'}>
         <image href={vue.url} x={0} y={0} width={L} height={H} />
-        <polyline points={gabaritSurLaVue(contourDuGabarit(gabarit), { x0: cadre.x0, x1: cadre.x1, y0: cadre.egout, y1: cadre.sol }).map((p) => p.x + ',' + p.y).join(' ')} className="ajusterMurLigne silhouette" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+        <polyline points={gabaritSurLaVue(contourDuGabarit(gabarit), rect, rapport).map((p) => p.x + ',' + p.y).join(' ')} className="ajusterMurLigne silhouette" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {ligne('egout', cadre.x0, cadre.egout, cadre.x1, cadre.egout)}
         {ligne('sol', cadre.x0, cadre.sol, cadre.x1, cadre.sol)}
         {ligne('gauche', cadre.x0, sommet, cadre.x0, cadre.sol)}

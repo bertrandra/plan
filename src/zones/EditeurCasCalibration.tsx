@@ -132,14 +132,14 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
  * a la main de l'egout, du sol et des bouts sur l'assemblage du dernier rejeu quand cette photo y est avec d'autres, sinon sur la photo
  * redressee entiere : le geste partage avec l'audit (PoserReperes).
  */
-function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur, assemblage, ajusterMurAssemble, revenir }: {
-  photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void;
+function PlacerReperes({ photo, rang, p, gabarit, rapport, poser, retirer, charger, ajusterMur, assemblage, ajusterMurAssemble, revenir }: {
+  photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; rapport: number | null; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void;
   assemblage: AssemblageAAjuster | null; ajusterMurAssemble: (parPhoto: Map<number, P2[]>) => void; revenir: () => void;
 }) {
   const r = reperesDe(p);
   return (
     <PoserReperes photo={photo} rang={rang} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} changer={poser}
-      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} assemblage={assemblage} ajusterMurAssemble={ajusterMurAssemble} suite="« Rejouer »">
+      mur={p?.coins ?? null} gabarit={gabarit} rapport={rapport} charger={charger} ajusterMur={ajusterMur} assemblage={assemblage} ajusterMurAssemble={ajusterMurAssemble} suite="« Rejouer »">
       {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
       {p?.murALaMain && <button type="button" className="secondary small" data-controle="calibration.revenirMurCherche" onClick={revenir}>Revenir au mur cherché</button>}
     </PoserReperes>
@@ -516,7 +516,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} bilans={rejeu?.sorties.audit?.redressement.photos} photos={cas.photos} />
 
-      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
+      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} rapport={cas.largeurM > 0 ? cas.hauteurM / cas.largeurM : null} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
         assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} revenir={revenirAuMurCherche} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>

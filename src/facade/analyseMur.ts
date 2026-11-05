@@ -8,7 +8,7 @@ import { mosaiqueDesVues, vuesDeFace } from './vision/mosaiqueFuites.js';
 import { inverser, redresserParReperes, type RedressementFuites } from './vision/redressementFuites.js';
 import { appliquerSimilitude, inverse, IDENTITE as SIMILITUDE_IDENTITE, type Similitude } from './vision/ransac.js';
 import { appliquer, homographie, redresser, resolutionTexture, type Homographie } from './vision/homographie.js';
-import type { GabaritMur } from './gabaritMur.js';
+import { echelleDuGabarit, gabaritALEchelle, rectDesCoins, type GabaritMur } from './gabaritMur.js';
 import { analyserMosaique, type ResultatMosaique } from './vision/mosaique.js';
 import { analyserVues, type ResultatFusion } from './fusion.js';
 import { CHAMP_GRAND_COTE_DEFAUT, focalePx } from './vision/cadrage.js';
@@ -46,28 +46,34 @@ export interface AnalyseMur {
  * assembler (`morceaux`). Null quand rien ne se redresse.
  */
 export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur = 'morceaux'): AnalyseMur | null {
-  const a = analyserLeMurSansMarche(murSeul, photos, assemblage);
+  // Une photo seule, ou des vues du mur entier : l'assemblage des photos redressees entieres est l'image prise pour la suite
+  // (decision de l'utilisateur, 21 octobre 2026). Un mur en L aussi : sa marche est dans le gabarit.
+  const asm = photos.length && (photos.length === 1 || assemblage === 'vues') ? assemblerLeMur(photos) : null;
+  // La silhouette du haut du mur, en parts du mur, depuis la premiere photo qui en a une : chaque photo ramene le meme mur au meme
+  // rectangle, la silhouette vaut pour la fusion comme pour la photo seule. Elle se pose sur le mur trouve par son sol et a l'echelle de
+  // sa largeur (gabaritMur.ts::echelleDuGabarit, decision du proprietaire, 4 novembre 2026), lue sur l'assemblage, la vue de face ou le
+  // mur a ete trouve (une photo de biais ne dit pas ses proportions) ; sans assemblage, entre l'egout et le sol, comme avant.
+  const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
+  const enParts = avec ? silhouetteEnPartsDuMur(avec.coins, avec.silhouette) : null;
+  const k = asm ? echelleDuGabarit(murSeul.hauteur / murSeul.largeur, rectDesCoins(asm.coins)) : 1;
+  const silhouette = enParts ? gabaritALEchelle(enParts, k) : null;
+  const a = analyserLeMurSansMarche(murSeul, photos, assemblage, asm, silhouette ? [...silhouette] : null);
   if (!a || a.r.partiesBasses.length) return a;
   // Un mur a plusieurs hauteurs d'egout (une partie basse dans l'alignement, garage ou extension, a un bout ou a chacun) : ses marches
   // sont dans le gabarit, la silhouette du plan et du LiDAR posee sur la photo (facade/profil.ts::partiesBassesDuGabarit), a la hauteur
   // mesuree du mur. La detection et le calage les ont deja suivies (ils lisent la silhouette) ; elles s'ecrivent ici sur le releve, les
-  // memes pour l'audit, le releve et la calibration.
-  const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
-  const parties = avec ? partiesBassesDuGabarit(silhouetteEnPartsDuMur(avec.coins, avec.silhouette), murSeul.largeur, a.r.hauteur) : [];
+  // memes pour l'audit, le releve et la calibration. Les marches se lisent sur le gabarit lui-meme (sous son egout), leurs hauteurs a la
+  // pose (`k` fois celle du mur trouve).
+  const parties = enParts ? partiesBassesDuGabarit(enParts, murSeul.largeur, a.r.hauteur * k) : [];
   return parties.length ? { ...a, r: { ...a.r, partiesBasses: parties } } : a;
 }
 
-function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur): AnalyseMur | null {
+function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur, asm: AssemblageDuMur | null, silhouette: { u: number; v: number }[] | null): AnalyseMur | null {
   const p0 = photos[0];
   if (!p0) return null;
-  // La silhouette du haut du mur, en parts du mur, depuis la premiere photo qui en a une : chaque photo ramene le meme mur au meme
-  // rectangle, la silhouette vaut pour la fusion comme pour la photo seule.
-  const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
-  const mur = { ...murSeul, silhouette: avec ? silhouetteEnPartsDuMur(avec.coins, avec.silhouette) : null };
-  // Une photo seule, ou des vues du mur entier : l'assemblage des photos redressees entieres est l'image prise pour la suite
-  // (decision de l'utilisateur, 21 octobre 2026). Un mur en L aussi : sa marche est dans le gabarit (analyserLeMur).
+  const mur = { ...murSeul, silhouette };
   if (photos.length === 1 || assemblage === 'vues') {
-    const a = assemblerLeMur(photos);
+    const a = asm;
     // La hauteur se mesure sur la premiere photo dont la focale le permet ; l'estimation du plan sert de repli.
     const mesuree = photos.map((p) => (p.focalePx ? mesurerHauteur(p.coins, mur.largeur, p.focalePx, p.photo.largeur, p.photo.hauteur) : null)).find((h) => h !== null) ?? null;
     // Une photo seule : son assemblage et la photo elle-meme sont le meme plan, le mur pose par les memes coins. L'analyse la
