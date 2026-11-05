@@ -3835,7 +3835,7 @@ const POINTS = {
   93: async (page, f) => {
     // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les neuf sujets du depot, le
     // prompt livre a l'octet, puis une edition qui se voit tout de suite dans le prompt (une ligne change,
-    // version 10), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
+    // version livree + 1), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
     // « Reglages et faits » (un seuil change sur sa ligne, la ligne de version a ajouter), un sujet retire d'une
     // case, un sujet nouveau en brouillon (prompt, schema, controles), le brouillon qui survit a un rechargement,
     // « Revenir au livre », et les deux telechargements.
@@ -3863,6 +3863,9 @@ const POINTS = {
     const sujets = await page.locator('.reglSujet').count();
     const avant = await tuiles();
     const promptLivre = await page.locator('pre.reglSortie').textContent();
+    // La version que l'edition doit donner : celle du prompt livre, lue sur la page, plus un. Ecrite en dur (10), elle a rougi le point
+    // le jour ou le prompt livre est passe de 9 a 10 (#580, Fumee de la nuit de la 5.10.0, run 42036871759).
+    const versionEditee = Number((/version:\s*(\d+)/.exec(promptLivre || '') || [])[1]) + 1;
     // Edition : la consigne de la couverture, au clavier.
     await page.locator('[data-sujet="couverture"] button.small').click();
     const champ = page.locator('textarea[aria-label="Consignes (comment répondre) 1"]');
@@ -3870,13 +3873,13 @@ const POINTS = {
     const apresEdition = await tuiles();
     const promptEdite = await page.locator('pre.reglSortie').textContent();
     debords.push(await deborde());
-    // Le brouillon sur le serveur : enregistre (version 10, prompt edite), dit, puis retire.
+    // Le brouillon sur le serveur : enregistre (version livree + 1, prompt edite), dit, puis retire.
     const etatServeur = async () => ((await page.locator('p[role="status"]').first().textContent()) || '').replace(/\s+/g, ' ');
     const avantServeur = await etatServeur();
     await page.getByRole('button', { name: 'Enregistrer sur le serveur', exact: true }).click();
-    await page.waitForFunction(() => /prompt version 10/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
+    await page.waitForFunction((v) => new RegExp('prompt version ' + v + '\\b').test(document.querySelector('p[role="status"]')?.textContent || ''), versionEditee, { timeout: 10000 });
     const apresEnregistrement = await etatServeur();
-    const gardeAuServeur = !!surServeur && surServeur.prompt === 10 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
+    const gardeAuServeur = !!surServeur && surServeur.prompt === versionEditee && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
     await page.getByRole('button', { name: 'Retirer du serveur', exact: true }).click();
     await page.waitForFunction(() => /Aucun brouillon sur le serveur/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const retire = surServeur === null;
@@ -3917,8 +3920,8 @@ const POINTS = {
     const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le prompt' }).click()]);
     const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le schéma' }).click()]);
     const ok = sujets === 9 && /9 \/ 9/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
-      && /1 ligne change/.test(apresEdition[4] || '') && /version 10/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
-      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 10.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
+      && versionEditee > 1 && /1 ligne change/.test(apresEdition[4] || '') && new RegExp('version ' + versionEditee + '\\b').test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && /Aucun brouillon sur le serveur/.test(avantServeur) && new RegExp('prompt version ' + versionEditee + '\\b.*\\?regles=local').test(apresEnregistrement) && gardeAuServeur && retire
       && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && new RegExp('LECTURES_TOITS.*version: ' + versionLectureSuivante() + '.*formes: ').test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
       && apresRechargement === 10 && /9 \/ 9/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
@@ -3955,7 +3958,7 @@ const POINTS = {
   },
   95: async (page, f) => {
     // Admin › « De l'IGN a ma maison » (`?admin&ecran=chaine`) : le schema des sept etapes, les vingt-neuf vignettes 3D (toutes les formes
-    // du catalogue et toutes les lucarnes : gambrel, demi-croupe, papillon, coyau, berceau, tourelles, meuniere, rampante...), le filtre par mode qui attenue le reste, un lien vers l'ecran des regles,
+    // du catalogue et toutes les lucarnes : gambrel, cul de geai et queue de vache (la demi-croupe et le coyau, renommes par #577), papillon, berceau, tourelles, meuniere, rampante...), le filtre par mode qui attenue le reste, un lien vers l'ecran des regles,
     // et le renvoi d'une ligne vers sa cible ; rien ne deborde.
     await page.route(/\/admin\//, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
     await page.goto(BASE + '/?admin&ecran=chaine');
@@ -3978,7 +3981,7 @@ const POINTS = {
     const lues = await page.locator('.chaineLu').count();
     const perimees = await page.locator('ul.chaineErreur li').count();
     const sans = !(await deborde());
-    const formesVoulues = ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante', 'Papillon', 'Coyau', 'Berceau', 'Carène', 'Conique', 'Dôme', 'Impériale', 'Shed', 'Œil-de-bœuf', 'Outeau', 'Lanterneau'].every((m) => nomsVignettes.includes('Vue 3D : ' + m));
+    const formesVoulues = ['Gambrel', 'Cul de geai', 'Lucarne meunière', 'Lucarne rampante', 'Papillon', 'Queue de vache (coyau)', 'Berceau', 'Carène', 'Conique', 'Dôme', 'Impériale', 'Shed', 'Œil-de-bœuf', 'Outeau', 'Lanterneau'].every((m) => nomsVignettes.includes('Vue 3D : ' + m));
     const ok = etapes === 7 && vignettes >= 29 && formesVoulues && polygones > 400 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans && /Lu en direct des fichiers : prompt v\d+/.test(lecture) && seuils > 5 && lues > 5 && perimees === 0;
     return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; les formes du catalogue et les lucarnes ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; « ${lecture.slice(0, 60)}… », ${seuils} seuil(s) lus, ${lues} ligne(s) venues des données, ${perimees} ligne(s) périmée(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
