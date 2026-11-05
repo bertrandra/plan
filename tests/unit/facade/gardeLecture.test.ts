@@ -148,10 +148,11 @@ describe('le comparateur de la lecture des facades, contre les planchers', () =>
       expect(noms(comparerLecture(plancher, copie(), ajoutees))).toEqual(['99-nouvelle x3 scène mesurée']);
     });
 
-    it('le depot fige les planchers des scenes 24, 25 et 26, chacune a sa premiere mesure', () => {
+    it('le depot fige les planchers des scenes 24 a 29, chacune a sa premiere mesure', () => {
       const a = planchersAjoutes();
       expect(Object.fromEntries(Object.entries(a).map(([s, p]) => [s, p.source.run]))).toEqual({
         '24-pignon-baie-dans-le-pignon': '41610829374', '25-mur-en-l-garage': '41610829374', '26-partie-haute-au-milieu': '41699049779',
+        '27-arbre-devant-pignon': '42036876498', '28-cul-de-geai-enduit': '42036876498', '29-cul-de-geai-faitage-debordant': '42036876498',
       });
       for (const s of Object.keys(a)) expect(plancher.scenes[s]).toBeUndefined();
       expect(a['26-partie-haute-au-milieu']?.lignes['baies retrouvées (rappel)']).toBe(6);

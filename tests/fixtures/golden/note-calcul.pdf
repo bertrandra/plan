@@ -12,11 +12,11 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R >> /ExtGState << /GS0 8 0 R /GS1 9 0 R /GS2 10 0 R /GS3 11 0 R /GS4 12 0 R >> >> /Contents 5 0 R >>
 endobj
 5 0 obj
-<< /Length 6448 >>
+<< /Length 6450 >>
 stream
 BT /F1 16 Tf 0.150 0.120 0.080 rg 42.00 778.29 Td (Note de calcul de pre-dimensionnement) Tj ET
 BT /F1 11 Tf 0.150 0.120 0.080 rg 42.00 763.44 Td (Carport " Carport 1 " - projet Maison) Tj ET
-BT /F1 9 Tf 0.150 0.120 0.080 rg 42.00 751.29 Td (Etablie le 28/09/2026 par Plan interactif 5.9.0.) Tj ET
+BT /F1 9 Tf 0.150 0.120 0.080 rg 42.00 751.29 Td (Etablie le 28/09/2026 par Plan interactif 5.10.0.) Tj ET
 BT /F1 11.5 Tf 0.150 0.120 0.080 rg 42.00 725.76 Td (1. Ouvrage) Tj ET
 0.550 0.450 0.300 RG
 0.60 w
@@ -94,7 +94,7 @@ BT /F1 11.5 Tf 0.150 0.120 0.080 rg 42.00 81.74 Td (6. Appuis) Tj ET
 553.28 78.74 l
 h S
 BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 64.59 Td (- Pied de poteau le plus charge \(ELU\) : compression 5,3 kN, soulevement 1,8 kN, effort horizontal 0,8 kN \(pied) Tj ET
-BT /F1 7 Tf 0.450 0.420 0.380 rg 42.00 28.00 Td (Note de calcul - Carport Carport 1 - Plan interactif 5.9.0 - 28/09/2026 - page 1) Tj ET
+BT /F1 7 Tf 0.450 0.420 0.380 rg 42.00 28.00 Td (Note de calcul - Carport Carport 1 - Plan interactif 5.10.0 - 28/09/2026 - page 1) Tj ET
 
 endstream
 endobj
@@ -102,7 +102,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R >> /ExtGState << /GS0 8 0 R /GS1 9 0 R /GS2 10 0 R /GS3 11 0 R /GS4 12 0 R >> >> /Contents 7 0 R >>
 endobj
 7 0 obj
-<< /Length 2349 >>
+<< /Length 2350 >>
 stream
 BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 787.74 Td (articule\).) Tj ET
 BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 775.59 Td (- Plot en beton qui tient le soulevement et le renversement \(poids seul, coefficient 0,9\) : cube de 45 cm de) Tj ET
@@ -131,7 +131,7 @@ BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 593.04 Td (et doit etre repliee l'hiver.)
 BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 580.89 Td (- Faitage et aretiers d'un toit a quatre pans : non verifies, leur fonctionnement depend des assemblages.) Tj ET
 BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 568.74 Td (- Note de pre-dimensionnement, etablie avec les Eurocodes de premiere generation : elle ne remplace pas l'etude) Tj ET
 BT /F1 9 Tf 0.150 0.120 0.080 rg 50.00 556.59 Td (d'un bureau d'etudes.) Tj ET
-BT /F1 7 Tf 0.450 0.420 0.380 rg 42.00 28.00 Td (Note de calcul - Carport Carport 1 - Plan interactif 5.9.0 - 28/09/2026 - page 2) Tj ET
+BT /F1 7 Tf 0.450 0.420 0.380 rg 42.00 28.00 Td (Note de calcul - Carport Carport 1 - Plan interactif 5.10.0 - 28/09/2026 - page 2) Tj ET
 
 endstream
 endobj
@@ -151,7 +151,7 @@ endobj
 << /Type /ExtGState /ca 0.750 /CA 0.750 >>
 endobj
 13 0 obj
-<< /Producer (Plan interactif 5.9.0) /Creator (plan.html build 2026-10-30) /CreationDate (D:20260928232200) >>
+<< /Producer (Plan interactif 5.10.0) /Creator (plan.html build 2026-10-30) /CreationDate (D:20260928232200) >>
 endobj
 xref
 0 14
@@ -161,16 +161,16 @@ xref
 0000000121 00000 n 
 0000000191 00000 n 
 0000000398 00000 n 
-0000006898 00000 n 
-0000007105 00000 n 
-0000009506 00000 n 
-0000009564 00000 n 
-0000009622 00000 n 
-0000009681 00000 n 
-0000009740 00000 n 
-0000009799 00000 n 
+0000006900 00000 n 
+0000007107 00000 n 
+0000009509 00000 n 
+0000009567 00000 n 
+0000009625 00000 n 
+0000009684 00000 n 
+0000009743 00000 n 
+0000009802 00000 n 
 trailer
 << /Size 14 /Root 1 0 R /Info 13 0 R >>
 startxref
-9926
+9930
 %%EOF
