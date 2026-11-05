@@ -4805,6 +4805,13 @@ const POINTS = {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, trace: '20261030-100000-fumee',
         resultats: [{ id: d?.requetes?.[0]?.id ?? 'texte', statut: 'reussi', passe: 1, usage: 'texte', sortie: SORTIE, erreur: null, cout: 0.0021, synthetique: true }] }) });
     });
+    // La carte de situation (DP1) vient du WMS de l'IGN a chaque export, et n'entre au dossier que s'il repond en moins de 10 s
+    // (geo/carteSituation.ts) : sans temoin, le nombre de pages suivait le reseau, et « la notice ajoute une page » rougissait le point
+    // une fois sur trois (pages 19 -> 19 quand la carte manquait au second export, 18 -> 20 quand elle manquait au premier ; Fumee de la
+    // nuit des 4 et 5 novembre 2026). Une carte fixe, la meme aux deux exports : la page de la notice se compte seule.
+    const CARTE = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
+    let cartes = 0;
+    await page.route(/data\.geopf\.fr\/wms-r\?.*PLANIGNV2/, (route) => { cartes++; return route.fulfill({ status: 200, contentType: 'image/png', body: CARTE }); });
     const { PDFDocument } = await import('pdf-lib');
     const exporter = async () => PDFDocument.load(await telechargerOctets(page, () => page.evaluate(() => window.__plan.executer('export.declaration'))));
     const avant = await exporter();
@@ -4843,9 +4850,9 @@ const POINTS = {
     const ok = recues.length === 2 && recues.every((d) => d.usage === 'texte' && d.requetes?.[0]?.contenu?.[0]?.type === 'text' && /Faits du projet/.test(d.requetes[0].contenu[0].text))
       && !!brouillon && brouillon.synthetique === true && valide?.texte === corrige && /Texte validé le/.test(etatNotice)
       && points.some((p) => /^alerte : .*périmé/.test(p)) && points.some((p) => /^a-completer : Reste à compléter : la signature/.test(p)) && !points.some((p) => /« notice » n’est pas validé/.test(p))
-      && notice && !deborde && !!porteur && fichier.meta?.schemaVersion === 12;
+      && notice && cartes >= 2 && !deborde && !!porteur && fichier.meta?.schemaVersion === 12;
     return { ok, mesure: `${recues.length} demande(s) usage ${recues[0]?.usage} ; brouillon ${brouillon ? (brouillon.synthetique ? 'synthétique' : 'Claude') : 'ABSENT'}, validé ${valide?.texte === corrige ? 'tel que corrigé' : 'NON'} (« ${etatNotice.slice(0, 40)} ») ; `
-      + `relecture : ${points.join(' | ')} ; pages ${avant.getPageCount()} → ${apres.getPageCount()} ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, dossier ${porteur ? 'présent' : 'ABSENT'}` };
+      + `relecture : ${points.join(' | ')} ; pages ${avant.getPageCount()} → ${apres.getPageCount()} (carte de situation fixe, ${cartes} demande(s)) ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, dossier ${porteur ? 'présent' : 'ABSENT'}` };
   },
   122: async (page, f) => {
     // L'assistant en langue naturelle (lot L6) : la terrasse selectionnee, le menu Aide › « Demander a l'assistant… », une demande ;
