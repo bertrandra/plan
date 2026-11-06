@@ -185,6 +185,8 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.vueLibre', 'Vue 3D', enSession, () => { mode.voir('libre'); }, false);
   commande('toit.vueFacade', 'Vue de la façade', () => etatToit().aUneFacade, () => { mode.voir('facade'); }, false);
   commande('toit.vueDessus', 'Vue de dessus', enSession, () => { mode.voir('dessus'); }, false);
+  // Si l'on s'est perdu (trop loin, trop pres, ailleurs) : la camera revient sur le batiment entier. En vue de facade, le cadre est deja le sien.
+  commande('toit.recadrer', 'Recadrer le bâtiment', () => enSession() && etatToit().vue !== 'facade', () => { mode.recadrer(); }, false);
   commande('toit.voirValide', 'Voir le toit du projet', () => enSession() && (etatToit().change || etatToit().validee), () => { mode.voirValide(); }, false);
   commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
 

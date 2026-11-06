@@ -11,7 +11,7 @@
 export type NomIcone =
   | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
-  | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
+  | 'grille' | 'ajuster' | 'recadrer' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
   | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee'
@@ -55,6 +55,8 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   // Le toit d'avant les changements : la maison, une fleche de retour dedans.
   toitAvant: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M14.5 16h-5M9.5 16l2-2M9.5 16l2 2" /></>,
   ajuster: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
+  // La maison au milieu des coins du cadre : la camera revient sur le batiment (mode Toit).
+  recadrer: <><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5" /><path d="M7 12.5L12 8l5 4.5M8.5 11.5V16h7v-4.5" /></>,
   // Un objet plein au milieu de coins pointilles : ce qu'on garde, et ce qu'on met de cote.
   toit: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>,
   isoler: <><rect x="8" y="8" width="8" height="8" rx="1" /><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3" strokeDasharray="2 2" /></>,

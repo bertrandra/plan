@@ -15,9 +15,10 @@ import { facadeProche, facadesDuBatiment, facadeValideeDuMur, facadeVersLePoint,
 import { poseDeDessus, poseEnPerspective, type PointScene, type Reserve } from '../../three/poseFacade.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { poserCameraFacade, retirerCameraFacade } from '../../three/vueFacadeToit.js';
+import { admettreDistance, borner, bornesDeLOrbite, decentrer, liberer } from '../../three/orbiteModeToit.js';
 import { centroid } from '../../geometry/basic.js';
 import { majFantomes, viderFantomes } from '../../three/fantomes.js';
-import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d } from '../../three/etat3d.js';
+import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d, rendre3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { lectureToits } from '../../core/lectureToits.js';
 import { showToast } from '../../shell/dialogs.js';
@@ -57,6 +58,8 @@ export interface SessionToit {
   vuesDesPas?: { avant: VueSession[]; apres: VueSession[] };
   /** La vue au debut du glisser en cours : celle du pas qu'il empilera. */
   vueDuGlisser?: VueSession | null;
+  /** La plus grande distance qu'un cadrage du mode a demandee : la borne de l'orbite ne la refuse pas. */
+  distanceAdmise?: number;
 }
 
 /** Un mur designe par son corps et son rang : une facade se retrouve ainsi apres une annulation, qui refait les murs. */
@@ -311,8 +314,33 @@ function pointsDuCorps(o: ObjetPlan, rang: number): PointScene[] {
 function cadrerEnPerspective(points: readonly PointScene[]): void {
   const sc = vue3d.scene, depuis = poseCourante();
   if (!sc || !depuis || !points.length) return;
-  poserCamera(poseEnPerspective(points, depuis, sc.camera.fov, sc.camera.aspect, reserveDuPanneau()));
+  const reserve = reserveDuPanneau();
+  // L'image se decale vers la partie libre ; la cible reste le centre de ce qu'on cadre (l'orbite tourne autour).
+  decentrer(sc, reserve);
+  const pose = poseEnPerspective(points, depuis, sc.camera.fov, sc.camera.aspect, reserve);
+  admettre(sc, Math.hypot(pose.position.x - pose.cible.x, pose.position.y - pose.cible.y, pose.position.z - pose.cible.z));
+  poserCamera(pose);
   derniereVue = '';
+}
+
+/** Un cadrage du mode demande `d` metres de recul : l'orbite l'admet, pour toute la session. */
+function admettre(sc: NonNullable<typeof vue3d.scene>, d: number): void {
+  if (session) session.distanceAdmise = Math.max(session.distanceAdmise ?? 0, d * 1.05);
+  admettreDistance(sc, d);
+}
+
+/**
+ * Les bornes de l'orbite et le decalage de l'image du mode (three/orbiteModeToit.ts), sur la scene courante : a l'ouverture, et sur toute
+ * scene rebatie pendant la session (elle nait avec l'orbite libre de la Vue 3D).
+ */
+function poserLOrbiteDuMode(o: ObjetPlan | undefined): void {
+  const sc = vue3d.scene;
+  if (!sc || !o || !session) return;
+  const b = bornesDeLOrbite(pointsDuBatiment(o), altitudeDuBatiment(o));
+  // Un cadrage deja admis plus loin que la borne le reste (le panneau deplie, au telephone).
+  b.max = Math.max(b.max, session.distanceAdmise ?? 0);
+  borner(sc, b);
+  decentrer(sc, reserveDuPanneau());
 }
 
 /**
@@ -510,9 +538,21 @@ function facadeVisibleDe(o: ObjetPlan | undefined, rang: number, murs: FacadeVis
 }
 
 /** La vue d'un pas de la session (Ctrl+Z, Ctrl+Y) : la facade retrouvee par son corps et son mur parmi `murs`, l'element choisi, la camera. */
+/**
+ * La camera d'un pas revient-elle avec lui ? Seulement si ce que l'on regarde change : la vue (3D libre, facade, dessus), la facade ou
+ * l'element choisi (decision du proprietaire, 6 novembre 2026). Sinon la camera reste ou la personne l'a mise : un Ctrl+Z ne defait pas
+ * une orbite.
+ */
+export function laCameraSuitLePas(ici: Pick<VueSession, 'vue' | 'facade' | 'selection'>, v: Pick<VueSession, 'vue' | 'facade' | 'selection'>): boolean {
+  const memeMur = (a: MurDe | null, b: MurDe | null) => (!a && !b) || (!!a && !!b && a.rang === b.rang && a.mur === b.mur);
+  const memeChoix = (a: CibleElement | null, b: CibleElement | null) => (!a && !b) || memeCible(a, b);
+  return ici.vue !== v.vue || !memeMur(ici.facade, v.facade) || !memeChoix(ici.selection, v.selection);
+}
+
 function rendreLaVueDe(v: VueSession | undefined, murs: FacadeVisee[], reposerLaVue: () => void): void {
   const s = session;
   if (!s || !v) return;
+  const suit = laCameraSuitLePas({ vue: s.vue, facade: murDe(s.facade), selection: s.selection }, v);
   const trouve = (m: MurDe | null) => (m ? murs.find((f) => f.rang === m.rang && f.mur === m.mur) ?? null : null);
   s.selection = v.selection;
   s.derniere = trouve(v.derniere) ?? s.derniere;
@@ -520,9 +560,21 @@ function rendreLaVueDe(v: VueSession | undefined, murs: FacadeVisee[], reposerLa
   const f = v.vue === 'facade' ? trouve(v.facade) : null;
   s.vue = v.vue === 'facade' && !f ? 'libre' : v.vue;
   s.facade = f;
-  if (v.camera) poserCamera(v.camera);
+  if (suit && v.camera) poserCamera(v.camera);
   derniereVue = '';
   reposerLaVue();
+}
+
+/**
+ * Recadre le batiment entier (audit de la camera, 6 novembre 2026 : « si on se perd ») : en 3D libre, la camera revient sur lui, de la
+ * direction d'ou l'on regarde ; de dessus, la vue de dessus se repose ; devant une facade, rien (le cadre est deja le sien). Un reglage de
+ * camera : ni la selection ni la pile ne changent.
+ */
+function recadrerLeBatiment(o: ObjetPlan | undefined): void {
+  const s = session;
+  if (!s || !o || s.vue === 'facade') return;
+  if (s.vue === 'dessus') poserVueDeDessus(o);
+  else cadrerEnPerspective(pointsDuBatiment(o));
 }
 
 /** La camera de dessus, cadree sur le batiment `o` dans ce que le panneau laisse libre. */
@@ -531,7 +583,11 @@ function poserVueDeDessus(o: ObjetPlan): void {
   if (!sc) return;
   const pts = enPoints(o).pts as PtBrut[], xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
   const centre = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
-  poserCamera(poseDeDessus(centre, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), sc.cen, sc.camera.fov, sc.camera.aspect, reserveDuPanneau()));
+  const reserve = reserveDuPanneau();
+  decentrer(sc, reserve);
+  const pose = poseDeDessus(centre, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), sc.cen, sc.camera.fov, sc.camera.aspect, reserve, altitudeDuBatiment(o));
+  admettre(sc, pose.position.y - pose.cible.y);
+  poserCamera(pose);
 }
 
 /** Ctrl+Z, Ctrl+Y et « Revenir au depart » de la session : le toit change, et la vue de ce pas revient avec lui (`rendreLaVue`). */
@@ -558,6 +614,8 @@ function creerSurveillance(reposerLaVue: () => void, fantomes: () => void): () =
   return () => {
     const sc = vue3d.scene, s = session;
     if (!sc || !s) return;
+    // Le panneau replie, deplie ou remis en page : l'image se recentre dans ce qu'il laisse libre, la camera ne bouge pas.
+    if (decentrer(sc, reserveDuPanneau())) { rendre3d(sc); derniereVue = ''; }
     const p = sc.camera.position, t = sc.controls.target, el = sc.renderer.domElement;
     const cle = [p.x, p.y, p.z, t.x, t.y, t.z].map((v) => v.toFixed(2)).join() + (s.isole ? 'i' : '') + s.vue + (s.corpsIsole ?? '') + el.clientWidth + 'x' + el.clientHeight;
     if (cle === derniereVue) return;
@@ -571,8 +629,8 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
   objetsCourants = () => a.etat.objects;
   const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
   const reposerLaVue = creerReposeDeVue(batiment);
-  // Une scene neuve (un reglage de la Vue 3D la rebatit) n'a ni camera de facade ni epure : on les lui repose.
-  vueReposee = reposerLaVue;
+  // Une scene neuve (un reglage de la Vue 3D la rebatit) n'a ni camera de facade, ni epure, ni les bornes de l'orbite : on les lui repose.
+  vueReposee = () => { poserLOrbiteDuMode(batiment()); reposerLaVue(); };
   if (!abonne) abonne = !!abonnerSceneBatie(() => { if (session) vueReposee(); });
   const rebatir = rebatirEnGardantLaCamera(ctx, batiment);
 
@@ -585,11 +643,12 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     viderFantomes();
     if (veille !== null) { clearInterval(veille); veille = null; }
     session = null;
+    liberer(vue3d.scene);  // l'orbite libre de la Vue 3D, et l'image recentree : le panneau s'en va
     retirerEntreeHistorique();
     reposerLaVue();
     a.render();
     if (vue3d.scene) ctx.rebatir(cle);  // le batiment tel que la session le laisse ; le reste de la scene ne bouge pas
-    if (camera) poserCamera(camera);  // la camera d'avant le mode : on retrouve la scene comme on l'avait laissee
+    if (camera) { poserCamera(camera); if (vue3d.scene) rendre3d(vue3d.scene); }  // la camera d'avant le mode, comme on l'avait laissee
     // Le focus etait dans le panneau, qui disparait (ou nulle part) : il revient au bouton qui ouvre le mode, pas au corps de la page.
     const actif = typeof document === 'undefined' ? null : document.activeElement;
     if (!actif || actif === document.body || actif.closest('.panneauToit, .navigateurToit, .dialogueBoite')) focusDemande = Date.now();
@@ -607,6 +666,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false, validee: false, cameraAvantMode: poseCourante() };
       // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
       derniereVue = '';
+      poserLOrbiteDuMode(o);  // sous l'horizon, ni trop pres ni trop loin, autour du batiment (three/orbiteModeToit.ts)
       veille = setInterval(surveillerLaVue, FANTOMES_MS);
       poserEntreeHistorique();
       ctx.rafraichir();
@@ -707,6 +767,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       if (change) showToast(raison);
     },
 
+    recadrer(): void { recadrerLeBatiment(batiment()); ctx.rafraichir(); },
     hote: () => hotes3d.vue3d,
     ...vues.methodes
   };
@@ -851,6 +912,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       reposerLaVue();
       ctx.rafraichir();
     },
+
 
     /** Isole le corps de la facade courante : les autres corps du batiment disparaissent (etat d'affichage). */
     basculerCorpsIsole(): void {

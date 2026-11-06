@@ -7,6 +7,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Mode Toit, **la caméra tourne autour du bâtiment et ne se perd plus** (audit de la caméra, 6 novembre 2026).
+  - La cible de l'orbite est le centre du bâtiment (ou du corps choisi) : c'est l'image qui se décale vers la partie que le panneau laisse
+    libre (`setViewOffset`, `three/orbiteModeToit.ts`), plus la cible. Elle était à 8 m de la maison (11 m à la tablette), et 7 à 13 m
+    sous le sol au téléphone : une orbite d'un doigt de 120 px faisait glisser la maison de 100 px, et un pincement emmenait sous la terre.
+    Replier ou déplier le panneau recentre la maison sans bouger la caméra.
+  - Pendant une session, l'orbite est bornée : jamais sous l'horizon (85°), jamais à moins de 3 m de la cible ni au-delà de quatre fois
+    le bâtiment (un cadrage du mode qui demande plus de recul est admis) ; la cible reste au-dessus du sol et près du bâtiment, le glisser
+    à deux doigts (ou au bouton droit) se déplace dans le plan du sol ; le pincement retrouve la sensibilité d'origine (il emmenait de
+    64 m à 5 m d'un geste). La molette et les boutons + et − s'arrêtent à la borne. Hors du mode, la Vue 3D ne change pas.
+  - « Recadrer le bâtiment », dans la barre de la session : la caméra revient sur le bâtiment entier (en 3D libre, de la même direction ;
+    de dessus, la vue de dessus). La maison de la démonstration, sans corps, n'avait aucun moyen de revenir.
+  - Ctrl+Z et Ctrl+Y de la session ne rendent la caméra que si la vue, la façade ou l'élément choisi changent (décision du propriétaire) :
+    sinon elle reste où vous l'avez mise.
+  - Point de fumée 144. Ni le toit, ni Ctrl+Z du projet, ni « projet modifié », ni aucune quantité ou export ne changent.
 - Mode Toit, vue de façade (retour du propriétaire sur la 5.12.0 : « le zoom est trop fort, je ne peux pas atteindre une poignée, trop
   de décalage dans la perspective »).
   - Le cadre tient la façade du corps regardé (ou de celui qui porte l'élément choisi) et toutes les poignées de ce que l'on tire, à
