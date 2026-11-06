@@ -54,6 +54,9 @@ function NombreChoix({ n }: { n: NonNullable<Extract<Dialogue, { type: 'choix' }
 
 export function Dialogues() {
   const d = useSyncExternalStore(abonner, lire, lire);
+  // Le voile ne ferme que sur un toucher qui a commence sur lui : au doigt, le clic d'un toucher arrive apres sa levee, a l'endroit du
+  // doigt ; un dialogue ouvert par ce toucher (le point d'un decroche) se refermait aussitot sous lui.
+  const appuiSurVoile = useRef(false);
   const fermable = !!d && d.type !== 'erreurChargement';
   useEffect(() => {
     if (!fermable) return;
@@ -63,7 +66,8 @@ export function Dialogues() {
   }, [fermable]);
   if (!d) return null;
   return (
-    <div className="dialogueVoile" onClick={e => { if (fermable && e.target === e.currentTarget) dialogues.fermer(); }}>
+    <div className="dialogueVoile" onPointerDown={e => { appuiSurVoile.current = e.target === e.currentTarget; }}
+      onClick={e => { const surLui = appuiSurVoile.current; appuiSurVoile.current = false; if (fermable && surLui && e.target === e.currentTarget) dialogues.fermer(); }}>
       <div className={'dialogueBoite' + (d.type === 'erreurChargement' ? ' erreur' : '')} role={d.type === 'erreurChargement' ? 'alertdialog' : 'dialog'} aria-modal="true">
         {d.type === 'confirmation' && (
           <>

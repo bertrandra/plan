@@ -31,6 +31,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un dialogue ouvert par un toucher ne se referme plus aussitôt au doigt** : le clic d'un toucher arrive après sa levée, à l'endroit du
+  doigt, et tombait sur le voile du dialogue qui venait de s'ouvrir (le point d'un décroché, au téléphone). Le voile ne ferme plus que
+  sur un toucher commencé sur lui.
 - Barre d'outils : « Annuler » se redessine à l'ouverture et à la fermeture d'une session du mode Toit (sa clé de version ignorait la
   session ; la garde des zones le signalait).
 
