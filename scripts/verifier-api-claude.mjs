@@ -313,14 +313,15 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
 
 /**
  * Ce qui dit pourquoi une requete n'a pas ete lue : le statut, l'arret, l'erreur, les tokens de sortie, si la sortie structuree
- * etait demandee, et le debut du texte que le modele a ecrit (rendu par le serveur pour une sortie illisible ; ni cle ni en-tete).
+ * etait demandee, et le debut et la fin du texte que le modele a ecrit (rendus par le serveur pour une sortie illisible ; ni cle ni en-tete).
  */
 function diagnostic(x) {
   const e = x.erreur ?? {};
   return 'statut « ' + x.statut + ' », arrêt « ' + (x.arret ?? '-') + ' », tokens de sortie ' + (x.tokens?.sortie ?? '?')
     + (typeof x.structuree === 'boolean' ? ', sortie structurée ' + (x.structuree ? 'demandée' : x.refusFormat ? 'refusée par l’API (« ' + x.refusFormat + ' »), repli sans elle' : 'non demandée') : '') + '.\n'
     + 'Anthropic : ' + (e.type ?? '?') + ' : ' + (e.message ?? '(aucun message)')
-    + (typeof e.apercu === 'string' ? '\nDébut du texte rendu (' + e.apercu.length + ' caractères au plus 400) :\n' + e.apercu : '');
+    + (typeof e.apercu === 'string' ? '\nDébut du texte rendu (' + e.apercu.length + ' caractères au plus 400) :\n' + e.apercu : '')
+    + (typeof e.fin === 'string' ? '\nFin du texte rendu (400 caractères) :\n' + e.fin : '');
 }
 
 /** Ce qui manque a une sortie de la lecture enrichie pour avoir la forme du schema (deploy/schema-facade-enrichie.json) ; null si rien. */

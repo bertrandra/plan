@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Analyse d'une maison : une réponse de Claude n'est plus refusée pour un guillemet dans un texte libre** (`deploy/analyse-fonctions.php`).
+  L'analyse ne demande pas la sortie structurée (sa grammaire dépasse la limite de l'API) ; Haiku écrit alors parfois, dans un texte
+  libre (`vu`, `ecart`, `observe`…), un guillemet droit non échappé (`"un toit "deux-pans" probable"`), un retour à la ligne brut ou un
+  échappement que JSON ne connaît pas (`\'`), et tout l'objet était refusé (« Sortie non JSON. », vérification de l'API, run 42229208319).
+  En dernier recours, ces chaînes sont réparées avant la lecture : un guillemet ne ferme la chaîne que s'il est suivi de ce qui suit une
+  chaîne en JSON. Rien n'est deviné hors des chaînes (objet tronqué, clé sans guillemets, virgule manquante : toujours illisibles), et
+  la réponse passe ensuite par le schéma comme avant. Une sortie illisible donne aussi la fin de son texte (`fin`), que
+  `verifier-api-claude.mjs` imprime : le défaut d'une réponse est souvent après ses 400 premiers caractères. Le corps des requêtes ne change pas.
+
 ## [5.12.0] — 2026-11-06
 
 Version **mineure** au sens de `MD/RELEASE.md` : en Vue 3D, toucher un bâtiment de la parcelle, une terrasse, une pergola, un carport ou une
