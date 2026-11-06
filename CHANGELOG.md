@@ -13,7 +13,7 @@ quand quelque chose change (#586), et le vent des arbres est plafonné à 30 ima
 version (la date de build reste celle de la 5.10.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`,
 les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. Schéma inchangé (15) : aucun ordre de la plateforme
 au-delà de celui de la 5.10.0 (backprod#254 et `setup.php`). Requêtes inchangées depuis la 5.10.0 (ni `deploy/`, ni `regles/`, ni les
-descriptions des sujets, ni la chaîne des façades), vérifiées sans la mesure sur main, à la livraison.
+descriptions des sujets, ni la chaîne des façades), vérifiées sans la mesure sur main (run 42132341865 : 9 sur 9, 0,031 $).
 
 ### Modifié
 
