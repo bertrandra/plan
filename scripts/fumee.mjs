@@ -4279,6 +4279,22 @@ const POINTS = {
     await page.waitForTimeout(300);
     await toucher();
     const vide = (await choisie()) === null;
+    // Une maison voisine (un batiment de l'IGN hors de la parcelle du projet) : elle vaut le vide, la selection est lachee (decision du
+    // proprietaire, 6 novembre 2026). La maison d'abord choisie, puis la voisine touchee.
+    const voisine = await page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'batiment' && (o.voisinage || (o.bdtopo && !o.bdtopo.surParcellePrincipale)))?.key ?? null);
+    await viser(cles.maison);
+    await page.waitForTimeout(300);
+    await toucher();
+    const avantVoisine = await choisie();
+    let voisineVide = false;
+    if (voisine) {
+      await viser(voisine);
+      await page.waitForTimeout(300);
+      // Le rayon du milieu de l'image est bien sur la voisine (et pas sur le sol) : c'est elle qui est touchee.
+      const sousLeDoigt = await page.evaluate(async () => { const { moteur3d } = await import('/src/three/demande3d.ts'); return moteur3d()?.objetSousLePointeur({ x: 0, y: 0 }).cle ?? null; });
+      await toucher();
+      voisineVide = sousLeDoigt === voisine && avantVoisine === 'maison' && (await choisie()) === null;
+    }
     const intacte = (await page.evaluate(() => window.__plan.magasin().peutAnnuler)) === historique;
     // La meme selection que le plan : la piscine touchee, puis le plan ; l'inspecteur la decrit, l'explorateur la marque.
     await viser(cles.piscine);
@@ -4295,8 +4311,8 @@ const POINTS = {
     await page.waitForTimeout(300);
     const liste = await page.locator('.explorateurNom[data-key="' + cles.piscine + '"][aria-current="true"]').count();
     const memeSelection = !!nomPiscine && titre.includes(nomPiscine) && liste === 1;
-    const ok = resultats.every((r) => r.endsWith('✓')) && toiture && orbite && vide && intacte && memeSelection;
-    return { ok, mesure: `toucher : ${resultats.join(', ')} ; « Modifier la toiture » ${toiture ? 'allumé sur la maison' : 'ÉTEINT'} ; barre d'état « ${barre.slice(0, 40)} » ; glisser ${orbite ? 'ne choisit rien' : 'A CHOISI'} ; pelouse ${vide ? 'sélection lâchée' : 'SÉLECTION GARDÉE'} ; historique ${intacte ? 'intact' : 'CHANGÉ'} ; dans le plan : inspecteur ${titre.includes(nomPiscine) ? '« ' + nomPiscine + ' »' : 'SANS LA PISCINE'}, explorateur ${liste ? 'marqué' : 'NON MARQUÉ'}` };
+    const ok = resultats.every((r) => r.endsWith('✓')) && toiture && orbite && vide && voisineVide && intacte && memeSelection;
+    return { ok, mesure: `toucher : ${resultats.join(', ')} ; « Modifier la toiture » ${toiture ? 'allumé sur la maison' : 'ÉTEINT'} ; barre d'état « ${barre.slice(0, 40)} » ; glisser ${orbite ? 'ne choisit rien' : 'A CHOISI'} ; pelouse ${vide ? 'sélection lâchée' : 'SÉLECTION GARDÉE'} ; maison voisine ${voisineVide ? 'sélection lâchée' : voisine ? 'CHOISIE OU GARDÉE' : 'ABSENTE'} ; historique ${intacte ? 'intact' : 'CHANGÉ'} ; dans le plan : inspecteur ${titre.includes(nomPiscine) ? '« ' + nomPiscine + ' »' : 'SANS LA PISCINE'}, explorateur ${liste ? 'marqué' : 'NON MARQUÉ'}` };
   },
   138: async (page, f) => {
     // Les finitions du mode Toit (audit de la navigation, 6 novembre 2026, lot C). En Vue 3D, la terrasse choisie : « Modifier la toiture »
@@ -6005,7 +6021,8 @@ function pointsPour(nomClasse) {
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
   // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
   //       Vent coche, arbres visibles : au plus 30 images par seconde.
-  // 139 : choisir en touchant la Vue 3D : piscine, pergola, carport, terrasse et maison ; un glisser ne choisit rien, la pelouse lache.
+  // 139 : choisir en touchant la Vue 3D : piscine, pergola, carport, terrasse et maison ; un glisser ne choisit rien, la pelouse et une
+  //       maison voisine lachent la selection.
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
