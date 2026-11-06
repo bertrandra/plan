@@ -39,6 +39,19 @@ function CaseChoix({ c }: { c: NonNullable<Extract<Dialogue, { type: 'choix' }>[
   );
 }
 
+/** Le nombre d'un choix : saisi au clavier (ou au pave numerique du telephone), borne, dit a celui qui pose la question. */
+function NombreChoix({ n }: { n: NonNullable<Extract<Dialogue, { type: 'choix' }>['nombre']> }) {
+  const [texte, setTexte] = useState(String(n.valeur));
+  return (
+    <label className="dialogueNombre">
+      <span>{n.libelle}</span>
+      <input type="number" inputMode="numeric" data-controle="dialogue.nombre" min={n.min} max={n.max} step={1} value={texte} autoFocus
+        onChange={(e) => { setTexte(e.target.value); const v = Number(e.target.value.replace(',', '.')); if (Number.isFinite(v)) n.changer(Math.min(Math.max(v, n.min), n.max)); }} />
+      <span className="unite">{n.unite}</span>
+    </label>
+  );
+}
+
 export function Dialogues() {
   const d = useSyncExternalStore(abonner, lire, lire);
   const fermable = !!d && d.type !== 'erreurChargement';
@@ -69,6 +82,7 @@ export function Dialogues() {
             {d.points && d.points.length > 0 && (
               <ul className="dialoguePoints">{d.points.map((p) => <li key={p}>{p}</li>)}</ul>
             )}
+            {d.nombre && <NombreChoix key={d.titre + d.nombre.libelle} n={d.nombre} />}
             {d.case && <CaseChoix key={d.titre + d.case.libelle} c={d.case} />}
             {d.cases?.map(c => <CaseChoix key={d.titre + c.libelle} c={c} />)}
             <div className="dialogueBoutons">

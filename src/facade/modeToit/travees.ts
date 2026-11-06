@@ -12,6 +12,7 @@
 
 import { repere } from '../toits/toitCorps.js';
 import { murDuCorps } from './saillies.js';
+import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import type { CorpsToit, NatureTravee, PtBrut, TraveeMur } from '../../model/types.js';
 
 const centi = (v: number) => Math.round(v * 100) / 100;
@@ -107,6 +108,41 @@ export function segmentsDuMurBas(c: CorpsToit, parDefaut: NatureTravee): Segment
   }
   if (L > s + 0.01) out.push({ s0: s, s1: L, nature: parDefaut });
   return out;
+}
+
+/** Le recul que propose un decroche pose au point (en centimetres) : celui d'une travee posee par le catalogue. */
+export const RECUL_DECROCHE_CM = 50;
+/** Le plus court troncon que decroche un geste : en deca, ce n'est plus un decroche mais un pli du mur. */
+export const DECROCHE_MIN_M = 0.3;
+
+/**
+ * Un recul tire ou saisi, au centimetre, colle aux 5 cm ronds quand il en est a moins de 1,5 cm (une aimantation douce : 40 cm se prend sans
+ * viser, 42 cm reste possible), borne entre 0 et `RECUL_TRAVEE_MAX_M`.
+ */
+export function reculAimante(v: number): number {
+  const b = Math.min(Math.max(v, 0), RECUL_TRAVEE_MAX_M), rond = Math.round(b * 20) / 20;
+  return Math.abs(b - rond) < 0.015 ? rond : centi(b);
+}
+
+/**
+ * Le decroche pose au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a gauche
+ * de x cm ») : une travee de mur reculee de `reculM`, du point `x` (en metres depuis `pts[mur]`) jusqu'au bout du mur du cote choisi (vu de
+ * face, `gaucheAuDebut` : le debut du mur est a gauche), ou jusqu'au premier bord d'une autre travee ou d'un pignon de ce mur. Null : le
+ * point est dans une travee, ou ce qui reste fait moins de `DECROCHE_MIN_M`.
+ */
+export function traveeDecrochee(c: CorpsToit, mur: number, x: number, cote: 'gauche' | 'droite', reculM: number, gaucheAuDebut: boolean): TraveeMur | null {
+  const L = murDuCorps(c, mur).L, x0 = Math.min(Math.max(x, 0), L);
+  if (traveesDuMur(c, mur).some((t) => x0 > t.de + 1e-6 && x0 < t.a - 1e-6)) return null;
+  // Vers la droite vue de face : vers la fin du mur si son debut est a gauche, vers son debut sinon.
+  const versLaFin = (cote === 'droite') === gaucheAuDebut;
+  const s = repere(c.pts).L, pan = mur === 0 ? 0 : mur === 2 ? 1 : null;
+  // Les bords qui arretent le decroche : ceux des autres travees du mur et, sur un long pan, ceux de ses pignons (en metres du mur).
+  const bords = [...traveesDuMur(c, mur).flatMap((t) => [t.de, t.a]),
+    ...(pan === null ? [] : c.pignons.filter((g) => g.pan === pan).flatMap((g) => [g.debut, g.fin].map((v) => (mur === 0 ? v : s - v))))];
+  const fin = versLaFin ? Math.min(L, ...bords.filter((b) => b > x0 + 1e-6)) : Math.max(0, ...bords.filter((b) => b < x0 - 1e-6));
+  const [de, a] = versLaFin ? [x0, fin] : [fin, x0];
+  if (a - de < DECROCHE_MIN_M) return null;
+  return { mur, de: centi(de), a: centi(a), nature: 'mur', reculM: Math.max(reculAimante(reculM), 0.01) };
 }
 
 /** Les reculs qu'offre l'inspecteur, en metres. */

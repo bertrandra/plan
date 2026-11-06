@@ -56,7 +56,7 @@ describe('les travees d un mur (schema 14)', () => {
     expect(gc[0]!.travees![0]).toEqual({ mur: 0, de: 4, a: 10, nature: 'garde-corps' });
     expect(groupesDe(gc, t).map((g) => g.groupe)).toEqual(['nature']);
     expect(supprimerElement(corps, t)[0]).not.toHaveProperty('travees');
-    expect(poigneesDe(corps, t).map((p) => p.id)).toEqual(['gauche', 'droite']);
+    expect(poigneesDe(corps, t).map((p) => p.id)).toEqual(['gauche', 'droite', 'recul']);
     expect(glisser(corps, t, 'gauche', { long: -1 }).corps[0]!.travees![0]!.de).toBe(3);
   });
 

@@ -5,7 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Mode Toit, **le décroché au point** (demande du propriétaire : « je sélectionne un point sur l'égout et je recule à droite ou à gauche
+  de x cm, et une poignée pour ajuster »).
+  - Dans l'onglet Façade du catalogue, la pièce « Décroché » (commande `toit.decrocher`, « Décrocher ici ») attend un toucher sur l'égout
+    ou le mur de la façade regardée (mêmes conditions que la travée). Un petit choix demande la profondeur en centimètres (50 proposés, de
+    1 à 300) et le côté : « Reculer à droite » ou « Reculer à gauche ». Valider pose une travée de mur reculée, du point touché jusqu'au
+    bout du mur de ce côté, ou jusqu'au bord de la travée ou du pignon voisin. Même modèle (schéma 14, aucune migration) : le toit reste
+    continu. Échap (ou le retour du navigateur) lâche le geste ; un pas de Ctrl+Z de la session ; grisée avec sa raison en lecture seule.
+  - Une travée de mur a une nouvelle poignée de profondeur (« Recul du mur ») : elle règle le recul au centimètre, aimantée sur les 5 cm
+    ronds, de 0 à 3 m, avec sa cote (« recul 0,40 m »). En vue de façade, l'axe de profondeur, presque de bout, s'allonge à l'écran pour
+    rester réglable au doigt.
+  - Le groupe « Recul » de l'inspecteur du mode garde ses valeurs rapides et montre en plus la valeur libre courante quand elle n'en fait pas partie.
+  - Les dialogues de choix peuvent porter un champ numérique (`DialogueChoix.nombre`, `data-controle="dialogue.nombre"`).
+  - Point de fumée 142 (un décroché de 40 cm à droite puis à gauche, sur la démonstration et AE 101, la poignée tirée à 0,40 m, Ctrl+Z).
+- Mode Toit, **la vue de façade se rapproche au pincement et à la molette** (décision du propriétaire, 6 novembre 2026 : le cadre de la
+  façade et de ses poignées reste, sans bouton « Zoomer sur l'élément »). Devant une façade, l'orbite est suspendue : la molette déplaçait
+  la caméra de l'orbite, cachée, sans rien changer à l'image, et le pincement ne faisait rien. Ils zooment maintenant la caméra de façade
+  autour du point visé (les boutons +/− et le zoom au glisser autour du milieu), sans s'éloigner au-delà du cadre de départ ni s'approcher
+  en deçà d'environ 1 m de façade dans la partie libre (`three/poseFacade.ts::zoomerAutour`, `three/pincementFacade.ts`). Les deux doigts
+  font aussi glisser l'image ; un pincement ne touche rien. Le zoom n'est ni dans le projet ni dans la session : un Ctrl+Z ne le défait pas,
+  un recadrage devant le même mur le garde, une autre façade repart du cadre. Les poignées suivent et s'écartent de nouveau. Point de
+  fumée 143 (pincement au doigt, molette à la souris).
+
 ### Corrigé
+
+- Barre d'outils : « Annuler » se redessine à l'ouverture et à la fermeture d'une session du mode Toit (sa clé de version ignorait la
+  session ; la garde des zones le signalait).
 
 - Mode Toit, vue de façade (retour du propriétaire sur la 5.12.0 : « le zoom est trop fort, je ne peux pas atteindre une poignée, trop
   de décalage dans la perspective »).

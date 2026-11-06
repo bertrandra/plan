@@ -24,6 +24,7 @@ import type { Magasin } from '../magasin.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ChampsBatiment, ObjetPlan } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { brancherDecroche, type GesteDecroche } from './decroche.js';
 
 export interface ContexteToitCatalogue {
   /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
@@ -45,6 +46,13 @@ export function chargerGestesToits(): Promise<Gestes> {
   return chargementGestes;
 }
 
+/** Pourquoi la piece `id` n'a pas de sens sur la facade regardee de la session (null : elle en a). */
+function raisonDuCatalogue(o: ObjetPlan | undefined, id: string): string | null {
+  const s = sessionToit();
+  if (!o || !s) return null;
+  return gestes ? gestes.raisonIndisponible(o, id, s.facade ?? s.derniere, etatToit().selection?.rang ?? null) : 'Le catalogue du mode Toit se charge.';
+}
+
 export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.batiment?.toitFige;
 
 /** Le toucher et l'appui se distinguent d'un glisser (qui fait tourner la vue) au-dela de cette distance, en pixels. */
@@ -56,6 +64,7 @@ interface DepsClavier {
   mode: ReturnType<typeof creerModeToit>;
   cmd: RegistreCommandes;
   rafraichir: () => void;
+  decroche: GesteDecroche;
 }
 
 /**
@@ -70,7 +79,8 @@ function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
   if (cible && (cible.tagName === 'INPUT' || cible.tagName === 'TEXTAREA' || cible.tagName === 'SELECT')) return;
   if (e.key === 'Escape') {
     let prise = true;
-    if (saillieArmee()) { desarmerSaillie(); d.rafraichir(); } else prise = d.mode.echap(affichage3d.pleinePage3d);
+    if (d.decroche.arme()) d.decroche.desarmer();
+    else if (saillieArmee()) { desarmerSaillie(); d.rafraichir(); } else prise = d.mode.echap(affichage3d.pleinePage3d);
     if (prise) { e.preventDefault(); e.stopPropagation(); }
     return;
   }
@@ -244,6 +254,9 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       if (mur) mode.choisirFacade(mur.rang, mur.mur);
     });
 
+  // Le decroche au point (piece « Décroché » du catalogue) : le prochain toucher sur l'egout ou le mur donne son point.
+  const decroche = brancherDecroche(cmd, mode, batiment, () => raisonDuCatalogue(batiment(), 'facade:decroche'), ctx.rafraichir);
+
   // L'element de facade choisi dans le panneau du mode (bow-window, galerie, appentis) : le prochain toucher sur un mur de la scene l'y pose.
   // Le bouton etait dans l'inspecteur du plan, qui n'est pas montre en Vue 3D : il ne servait jamais (audit de la navigation).
   commande('toit.murSur3d', 'Choisir le mur dans la 3D',
@@ -270,32 +283,50 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     return true;
   };
 
-  // Le toucher (un clic, pas un glisser qui fait tourner la vue) sur la Vue 3D : l'element arme se pose, sinon la facade se choisit.
+  brancherToucherDeLaScene(enSession, mode, decroche, placerSurLeMurTouche);
   const doc = typeof document === 'undefined' ? null : document;
-  let appui: { x: number; y: number } | null = null;
+  doc?.addEventListener('keydown', (e) => { touchesDuMode(e, { enSession, aUnChoix: () => !!choisi(), mode, cmd, rafraichir: ctx.rafraichir, decroche }); }, true);
+
+  brancherSortiesDeSession(a, ctx, cmd, mode, decroche);
+}
+
+/**
+ * Le toucher (un clic, pas un glisser qui fait tourner la vue) sur la Vue 3D : le decroche arme prend son point, l'element arme se pose,
+ * sinon la facade se choisit.
+ */
+function brancherToucherDeLaScene(enSession: () => boolean, mode: ReturnType<typeof creerModeToit>, decroche: GesteDecroche,
+  placerSurLeMurTouche: (ndc: { x: number; y: number }) => boolean): void {
+  const doc = typeof document === 'undefined' ? null : document;
+  let appui: { x: number; y: number; id: number } | null = null;
   // Seul le canevas est la scene : le panneau du mode, le plan des facades, les poignees et les boutons de la Vue 3D sont poses
   // par-dessus, dans le meme hote ; un toucher sur eux choisissait aussi la facade qu'ils couvraient (audit du 6 novembre 2026).
   const surLaScene = (e: Event): boolean => { const h = hotes3d.vue3d, t = e.target; return !!h && t instanceof HTMLCanvasElement && h.contains(t); };
-  doc?.addEventListener('pointerdown', (e) => { if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); appui = enSession() && surLaScene(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
+  // Deux doigts a la fois (un pincement) ne touchent rien : le second annule le toucher du premier, jusqu'a ce que tous soient leves.
+  let doigts = 0;
+  doc?.addEventListener('pointerdown', (e) => {
+    if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice();
+    doigts = e.pointerType === 'touch' ? doigts + 1 : 1;
+    appui = enSession() && surLaScene(e) && doigts === 1 ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null;
+  }, true);
+  doc?.addEventListener('pointercancel', () => { doigts = 0; appui = null; }, true);
   doc?.addEventListener('pointerup', (e) => {
-    const debut = appui; appui = null;
+    doigts = Math.max(0, doigts - 1);
+    const debut = appui && appui.id === e.pointerId ? appui : null; appui = null;
     const hote = hotes3d.vue3d;
     if (!debut || !hote || !enSession() || Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > GLISSER_PX) return;
     const r = hote.getBoundingClientRect();
     const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) };
-    if (saillieArmee()) placerSurLeMurTouche(ndc);
+    if (decroche.arme()) decroche.placer(ndc);
+    else if (saillieArmee()) placerSurLeMurTouche(ndc);
     else mode.toucher(ndc);
   }, true);
-  doc?.addEventListener('keydown', (e) => { touchesDuMode(e, { enSession, aUnChoix: () => !!choisi(), mode, cmd, rafraichir: ctx.rafraichir }); }, true);
-
-  brancherSortiesDeSession(a, ctx, cmd, mode);
 }
 
 /**
  * Ce qui ferait sortir d'une session : quitter la Vue 3D, choisir un autre objet, le retour du navigateur. Une session modifiee ne se
  * perd plus en silence (audit du 6 novembre 2026) : la personne choisit d'abord.
  */
-function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes, mode: ReturnType<typeof creerModeToit>): void {
+function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes, mode: ReturnType<typeof creerModeToit>, decroche: GesteDecroche): void {
   const enSession = () => !!sessionToit();
   // Quitter la Vue 3D pendant une session : la commande attend la reponse (Valider, Abandonner, Rester), puis repart.
   cmd.retenir((id, source) => {
@@ -333,6 +364,7 @@ function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: R
   if (typeof window !== 'undefined') window.addEventListener('popstate', () => {
     if (!retourDuNavigateur() || !enSession()) return;
     if (dialogues.courant()) dialogues.fermer();
+    else if (decroche.arme()) decroche.desarmer();
     else if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); }
     else mode.echap();
     if (enSession()) poserEntreeHistorique();

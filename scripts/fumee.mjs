@@ -4200,6 +4200,268 @@ const POINTS = {
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
+  143: async (page, f) => {
+    // Le zoom de la vue de facade (decision du proprietaire, 6 novembre 2026 : le cadre de la facade et de ses poignees reste, on s'approche
+    // au pincement, et a la molette au bureau). AE 101, la facade du corps principal : au doigt (compact, moyen) un pincement, a la souris
+    // (large) la molette, autour du point vise, qui reste sous le doigt ou le curseur ; pas plus pres qu'un metre de facade a l'ecran, pas
+    // plus loin que le cadre de depart ; les poignees montrees restent sous le doigt ; un pas de Ctrl+Z de la session ne defait pas le zoom.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    await etape('ouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    });
+    await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(800);
+    // Le milieu du mur, a mi-hauteur de l'egout, et un metre plus loin le long du mur : ou ils tombent a l'ecran, par la camera de facade.
+    const viser = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d(), T = window.THREE, cam = sc.cameraRendu;
+      if (!cam) return null;
+      const c = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[0], a = c.pts[0], b = c.pts[1];
+      const L = Math.hypot(b.x - a.x, b.y - a.y), u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L }, z = Math.min(...c.egouts) / 2;
+      const h = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect();
+      cam.updateMatrixWorld(true);
+      const px = (q) => { const v = new T.Vector3(q.x - sc.cen.x, z, sc.cen.y - q.y).project(cam); return { x: h.left + ((v.x + 1) / 2) * h.width, y: h.top + ((1 - v.y) / 2) * h.height }; };
+      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, p0 = px(m), p1 = px({ x: m.x + u.x, y: m.y + u.y });
+      const p = document.querySelector('.panneauToit').getBoundingClientRect(), colonne = p.width < h.width * 0.6;
+      const libre = Math.min((colonne ? p.left : h.right) - h.left, (colonne ? h.bottom : p.top) - h.top);
+      return { x: p0.x, y: p0.y, pxm: Math.hypot(p1.x - p0.x, p1.y - p0.y), libre };
+    });
+    const prenables = () => page.evaluate(() => {
+      const h = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect();
+      return [...document.querySelectorAll('[data-poignee]')].map((g) => {
+        const r = (g.querySelector('.pointPoignee') ?? g).getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const dedans = x > h.left && x < h.right && y > h.top && y < h.bottom;
+        return !dedans || document.elementFromPoint(x, y)?.closest('[data-poignee]') === g;
+      });
+    });
+    const doigt = f.mobile;
+    // Rapprocher (s > 1) ou eloigner autour du point (x, y) : deux doigts qui s'ecartent ou se rapprochent, ou la molette.
+    const zoomer = async (x, y, s) => {
+      if (doigt) {
+        const e0 = 40, e1 = Math.max(8, Math.min(e0 * s, 160));
+        await doigts(page, [{ x: x - e0, y }, { x: x + e0, y }], [{ x: x - e1, y }, { x: x + e1, y }], 12);
+      } else {
+        await page.mouse.move(x, y);
+        for (let i = 0; i < 4; i++) await page.mouse.wheel(0, s > 1 ? -240 : 240);
+      }
+      await page.waitForTimeout(400);
+    };
+    const depart = await viser();
+    if (!depart) throw new Error('pas de vue de facade');
+    const facadeAvant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit));
+    await zoomer(depart.x, depart.y, 2);
+    const rapproche = await viser();
+    const autour = Math.hypot(rapproche.x - depart.x, rapproche.y - depart.y) < (doigt ? 6 : 3);
+    const prises = await prenables();
+    // Le pincement ni la molette ne touchent rien : la facade regardee et le batiment ne changent pas.
+    const intact = facadeAvant === await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit));
+    // Un pas de la session (couper puis rallumer les regles recadre la vue), puis Ctrl+Z : le zoom reste.
+    await page.evaluate(() => window.__plan.executer('toit.regles'));
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(600);
+    const apresAnnuler = await viser();
+    const garde = Math.abs(apresAnnuler.pxm - rapproche.pxm) / rapproche.pxm < 0.02;
+    // Au plus pres : environ un metre de facade dans la partie libre.
+    for (let i = 0; i < 8; i++) await zoomer(apresAnnuler.x, apresAnnuler.y, 3);
+    const pres = await viser();
+    const borneIn = pres.pxm <= pres.libre * 1.05 && pres.pxm >= pres.libre * 0.6;
+    for (let i = 0; i < 10; i++) await zoomer(pres.x, pres.y, 0.3);
+    const loin = await viser();
+    const borneOut = Math.abs(loin.pxm - depart.pxm) / depart.pxm < 0.01 && Math.hypot(loin.x - depart.x, loin.y - depart.y) < 2;
+    const ok = rapproche.pxm > depart.pxm * 1.3 && autour && prises.every(Boolean) && prises.length > 0 && intact && garde && borneIn && borneOut;
+    return { ok, mesure: `${doigt ? 'pincement' : 'molette'} : ${depart.pxm.toFixed(0)} → ${rapproche.pxm.toFixed(0)} px/m, point visé ${autour ? 'resté' : 'PARTI'} (${Math.hypot(rapproche.x - depart.x, rapproche.y - depart.y).toFixed(1)} px) ; poignées ${prises.filter(Boolean).length}/${prises.length} prenables ; bâtiment ${intact ? 'intact' : 'CHANGÉ'} ; Ctrl+Z ${garde ? 'garde' : 'DÉFAIT'} le zoom ; au plus près ${pres.pxm.toFixed(0)} px/m pour ${pres.libre.toFixed(0)} px libres ${borneIn ? '✓' : '✗'} ; au plus loin ${loin.pxm.toFixed(0)} px/m ${borneOut ? '= départ' : '≠ départ'}` };
+  },
+  142: async (page, f) => {
+    // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a
+    // gauche de x cm, et une poignee pour ajuster ») : sur la maison de la demonstration puis sur AE 101, en vue de la facade d'un long mur,
+    // la piece « Décroché » puis un toucher sur le mur ; 40 cm saisis, « Reculer à droite » : une travee du point au bout droit ; Ctrl+Z
+    // l'enleve ; « Reculer à gauche » a 50 cm, puis sa poignee de profondeur tiree jusqu'a « recul 0,40 m » ; Ctrl+Z rend 0,50 m.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    const travees = () => page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      return (o.batiment?.corpsToit ?? []).flatMap((c, rang) => (c.travees ?? []).map((t) => ({ rang, ...t })));
+    });
+    const ouvrir = async () => {
+      await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+      await page.evaluate(() => window.__plan.executer('vue.3d'));
+      await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+      await image3dStable(page, 3000);
+      await etape('ouvrir le mode', async () => {
+        await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+        await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+      });
+      await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+    };
+    // Le plus long mur d'un corps (0 ou 2) dont la piece « Décroché » s'allume une fois sa facade regardee.
+    const choisirLeMur = async () => {
+      const murs = await page.evaluate(() => {
+        const o = window.__plan.etat().objects.find((x) => x.key === 'maison'), cs = o.batiment?.corpsToit ?? [];
+        return [...document.querySelectorAll('path.murNav')].map((p) => ({ rang: p.dataset.rang, mur: Number(p.dataset.mur) }))
+          .filter((m) => m.rang !== '' && m.rang !== undefined && !cs[Number(m.rang)]?.saillie)
+          .map((m) => { const c = cs[Number(m.rang)], a = c.pts[m.mur], b = c.pts[(m.mur + 1) % c.pts.length]; return { ...m, L: Math.hypot(b.x - a.x, b.y - a.y) }; })
+          .sort((p, q) => q.L - p.L);
+      });
+      for (const m of murs) {
+        await page.evaluate((m) => document.querySelector('path.murNav[data-rang="' + m.rang + '"][data-mur="' + m.mur + '"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })), m);
+        await page.waitForTimeout(600);
+        // Un mur que cache un corps voisin (le mur haut d'un auvent) ne se touche pas : le suivant.
+        const k = { rang: Number(m.rang), mur: m.mur, L: m.L };
+        if (await page.locator('[data-piece="facade:decroche"]:not([disabled])').count() && await pointDuMur(k, 0.5)) return k;
+      }
+      return null;
+    };
+    // Un point de l'ecran sur le mur (ou son egout), a la fraction `t` de sa longueur : un rayon de la camera qui touche la maison la, sur
+    // la scene (pas sous le panneau ni une poignee).
+    const pointDuMur = (m, t) => page.evaluate(([m, t]) => {
+      const sc = window.__plan.scene3d(), T = window.THREE, o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const c = o.batiment.corpsToit[m.rang], a = c.pts[m.mur], b = c.pts[(m.mur + 1) % c.pts.length];
+      const P = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      // La camera qui fait l'image : l'oblique de la facade (une matrice posee a la main, ni perspective ni orthographique pour three).
+      const cam = sc.cameraRendu ?? sc.camera, h = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(), ray = new T.Raycaster();
+      cam.updateMatrixWorld(true);
+      for (let z = -2; z < 30; z += 0.25) {
+        const v = new T.Vector3(P.x - sc.cen.x, z, sc.cen.y - P.y).project(cam);
+        if (Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.95) continue;
+        const o0 = new T.Vector3(v.x, v.y, -1).unproject(cam), o1 = new T.Vector3(v.x, v.y, 1).unproject(cam);
+        ray.set(o0, o1.sub(o0).normalize());
+        const hit = ray.intersectObjects(sc.scene.children, true).find((i) => i.object.isMesh && i.object.visible);
+        if (!hit) continue;
+        const q = { x: hit.point.x + sc.cen.x, y: sc.cen.y - hit.point.z };
+        if (Math.hypot(q.x - P.x, q.y - P.y) > 0.35) continue;
+        const sx = h.left + ((v.x + 1) / 2) * h.width, sy = h.top + ((1 - v.y) / 2) * h.height;
+        if (document.elementFromPoint(sx, sy)?.tagName !== 'CANVAS') continue;
+        return { x: sx, y: sy, s: t * Math.hypot(b.x - a.x, b.y - a.y) };
+      }
+      return null;
+    }, [m, t]);
+    // La droite du mur, vue de face : la normale sort du corps, la droite est (-n.y, n.x) ; vrai si la travee est a droite du point.
+    const aDroite = (m, k, s) => page.evaluate(([m, k, s]) => {
+      const c = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[m.rang], n4 = c.pts.length;
+      const a = c.pts[m.mur], b = c.pts[(m.mur + 1) % n4], L = Math.hypot(b.x - a.x, b.y - a.y), u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+      const cx = c.pts.reduce((t, p) => t + p.x, 0) / n4, cy = c.pts.reduce((t, p) => t + p.y, 0) / n4;
+      let nn = { x: u.y, y: -u.x };
+      if ((a.x - cx) * nn.x + (a.y - cy) * nn.y < 0) nn = { x: -nn.x, y: -nn.y };
+      const versLaFin = u.x * -nn.y + u.y * nn.x > 0;
+      return ((k.de + k.a) / 2 > s) === versLaFin;
+    }, [m, k, s]);
+    const decrocher = async (m, cote, cm) => {
+      await page.locator('[data-piece="facade:decroche"]').click({ timeout: 10000 });
+      let p = null;
+      for (const t of [0.5, 0.42, 0.58, 0.35, 0.65]) { p = await pointDuMur(m, t); if (p) break; }
+      if (!p) throw new Error('aucun point du mur sous le doigt (corps ' + m.rang + ', mur ' + m.mur + ')');
+      await page.mouse.click(p.x, p.y);
+      const champ = page.locator('[data-controle="dialogue.nombre"]');
+      await champ.waitFor({ timeout: 5000 });
+      if (cm !== null) await champ.fill(String(cm));
+      await page.locator(cote === 'droite' ? '[data-controle="dialogue.principal"]' : '[data-controle="dialogue.secondaire"]').click();
+      await page.waitForTimeout(500);
+      return p;
+    };
+    const jouer = async (nom) => {
+      const m = await etape(nom + ' : choisir le mur', choisirLeMur);
+      if (!m) return { nom, ok: false, dit: nom + ' : aucun mur où décrocher' };
+      const avant = (await travees()).length;
+      const p1 = await etape(nom + ' : décroché à droite', () => decrocher(m, 'droite', 40));
+      const t1 = (await travees()).slice(avant);
+      const k1 = t1[0];
+      const bordDe = (k, x) => (Math.abs(k.de - x) < Math.abs(k.a - x) ? k.de : k.a);
+      const droiteOk = t1.length === 1 && k1.rang === m.rang && k1.mur === m.mur && k1.reculM === 0.4 && Math.abs(bordDe(k1, p1.s) - p1.s) < 0.6 && (await aDroite(m, k1, bordDe(k1, p1.s)));
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      const annule = (await travees()).length === avant;
+      const p2 = await etape(nom + ' : décroché à gauche', () => decrocher(m, 'gauche', null));
+      const t2 = (await travees()).slice(avant), k2 = t2[0];
+      const gaucheOk = t2.length === 1 && k2.reculM === 0.5 && Math.abs(bordDe(k2, p2.s) - p2.s) < 0.6 && !(await aDroite(m, k2, bordDe(k2, p2.s)));
+      // La poignee de profondeur : deux essais pour lire son sens a l'ecran, puis le geste qui la mene a 0,40 m.
+      const poignee = page.locator('[data-poignee="recul"] .pointPoignee').first();
+      const recul = async () => (await travees()).slice(avant)[0]?.reculM ?? null;
+      const tirer = async (dx, dy) => { const b = await poignee.boundingBox(); await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, dx, dy); await page.waitForTimeout(250); };
+      let r = await recul();
+      await etape(nom + ' : poignée de profondeur', async () => {
+        await poignee.waitFor({ timeout: 5000 });
+        await tirer(20, 0); const rx = (await recul()) - r; r = await recul();
+        await tirer(0, 20); const ry = (await recul()) - r; r = await recul();
+        // Le recul suit le deplacement le long de l'axe : sa pente par pixel, la direction de plus grande pente.
+        const g2 = rx * rx + ry * ry;
+        if (g2 < 1e-6) throw new Error('la poignée ne règle pas le recul');
+        for (let i = 0; i < 3 && Math.abs(r - 0.4) > 0.004; i++) {
+          const k = (0.4 - r) / g2;
+          await tirer(k * rx * 20, k * ry * 20);
+          r = await recul();
+        }
+      });
+      const cote = await page.evaluate(() => [...document.querySelectorAll('.cotePoignee, [data-cote], text')].some((e) => /recul 0,40 m/.test(e.textContent ?? '')));
+      const tireOk = r === 0.4;
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      const rendu = await recul();
+      // Ce qui reste de la session : defait jusqu'au depart, la session se ferme sans question.
+      const ok = droiteOk && annule && gaucheOk && tireOk && cote && rendu !== 0.4;
+      return { nom, ok, dit: `${nom} (corps ${m.rang}, mur ${m.mur}, ${m.L.toFixed(1)} m) : à droite ${droiteOk ? '✓' : '✗ ' + JSON.stringify(k1)} ; Ctrl+Z ${annule ? '✓' : '✗'} ; à gauche ${gaucheOk ? '✓' : '✗ ' + JSON.stringify(k2)} ; poignée ${r} m ${tireOk ? '✓' : '✗'}, cote ${cote ? '✓' : '✗'} ; Ctrl+Z → ${rendu} m` };
+    };
+    await ouvrir();
+    // La maison de la demonstration n'est pas decoupee en corps (son contour a quatorze cotes) : le decroche, comme la travee, se pose sur
+    // le mur d'un corps ; la piece le dit, grisee. La personne choisit d'abord une forme (onglet Toit, « Deux pans »), comme dans le mode.
+    const raisonDemo = await page.locator('[data-piece="facade:decroche"]').getAttribute('title');
+    const sansCorps = await page.evaluate(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length);
+    if (sansCorps) {
+      await etape('forme deux pans', async () => {
+        await page.getByRole('tab', { name: 'Toit', exact: true }).click({ timeout: 10000 });
+        await page.locator('[data-piece="forme:deux-pans"]').click({ timeout: 10000 });
+      });
+      await page.waitForTimeout(800);
+      await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+    }
+    const demo = await jouer('démonstration');
+    if (sansCorps) demo.dit = 'sans corps, la pièce dit « ' + (raisonDemo ?? '').replace(/^Décroché — /, '') + ' » ; après « Deux pans » : ' + demo.dit;
+    // Abandonner la session : la question (des changements) : « Abandonner » est sa reponse secondaire.
+    await page.evaluate(() => window.__plan.executer('toit.abandonner'));
+    await page.waitForTimeout(300);
+    if (await page.locator('[data-controle="dialogue.secondaire"]').count()) await page.locator('[data-controle="dialogue.secondaire"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    await image3dStable(page, 3000);
+    await etape('rouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    });
+    await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+    const ae = await jouer('AE 101');
+    return { ok: demo.ok && ae.ok, mesure: demo.dit + ' — ' + ae.dit };
+  },
   141: async (page, f) => {
     // La vue de facade du mode Toit (retour du proprietaire sur la 5.12.0 : « le zoom est trop fort, je ne peux pas atteindre une
     // poignee ») : AE 101 et ses cinq corps ; chaque facade de chaque corps, rien de choisi, puis chacun de ses pignons choisi. Chaque
@@ -6173,7 +6435,7 @@ function pointsPour(nomClasse) {
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
