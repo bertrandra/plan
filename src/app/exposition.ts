@@ -177,6 +177,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'toit.moins': partout('vue3d'),
   'toit.regles': partout('vue3d'),
   'toit.poser': partout('vue3d'),
+  'toit.decrocher': partout('vue3d'),
   'toit.murSur3d': partout('vue3d'),
   'toit.modifierEn3d': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
