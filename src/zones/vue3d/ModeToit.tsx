@@ -8,7 +8,7 @@ import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { enPoints } from '../../model/formes.js';
-import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
+import { abonnerImage, cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
 import { OPTIONS_PIECE, formeEnPlace, piece, piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeSaillie, vueSurLeToit } from '../../three/vueSaillie.js';
@@ -145,10 +145,8 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
 /** Le doigt qui invite a toucher le batiment, au-dessus de lui, tant que rien n'a ete touche. */
 function IndiceMain({ magasin }: { magasin: Magasin }) {
   const [, redessiner] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => redessiner((n) => n + 1), 150);
-    return () => clearInterval(id);
-  }, []);
+  // Il suit chaque image rendue (la camera de l'image meme), tant qu'il se montre.
+  useEffect(() => abonnerImage(() => { if (sessionToit()?.indice) redessiner((n) => n + 1); }), []);
   const s = sessionToit(), sc = vue3d.scene, hote = hotes3d.vue3d;
   if (!s || !s.indice || !sc || !hote) return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);

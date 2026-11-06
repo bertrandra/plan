@@ -114,7 +114,7 @@ function enMetres(dx: number, dy: number, axes: readonly Axe[], v: Partial<Recor
 
 interface Glisse {
   id: string; depart: CorpsToit[]; x0: number; y0: number; cible: CibleGlisser; poignee: Poignee; vecteurs: Partial<Record<Axe, Ecran>>;
-  /** Le doigt (ou la souris) qui tire, l'element qui le tient, et ou il est : un second doigt rend le geste a l'orbite (`rendreALOrbite`). */
+  /** Le doigt (ou la souris) qui tire, l'element qui le tient, et ou il est : un second doigt rend le geste a l orbite (`poserSurLaScene`). */
   pointeur: number; type: string; element: Element; x: number; y: number;
 }
 
@@ -205,9 +205,10 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const ancre = projeter(poignees[0]?.point as Point3, base);
   // Les poignees a l'ecran, ecartees si elles se recouvrent : chacune doit se prendre au doigt (deux zones de saisie bord a bord).
   const projetees = poignees.map((p) => projeter(p.point, base));
-  // Une poignee sous le panneau, ou hors de l'image, se ramene au bord de la partie libre : elle se prend, un trait la relie a son point.
+  // Une poignee sous le panneau se ramene au bord de la partie libre : elle se prend, un trait la relie a son point.
   const libres = bornesLibres(r);
-  const ramenees = projetees.map((q) => (q ? ramenerDansLeLibre(q, libres) : null));
+  // Hors de l'image, elle ne se montre pas : seule celle que le panneau (ou un bord) couvre se ramene.
+  const ramenees = projetees.map((q) => (q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height ? ramenerDansLeLibre(q, libres) : null));
   const ecartees = ecarterAEcran(ramenees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, libres);
   const places = ramenees.map((q, k) => (q ? ecartees[k] ?? q : null));
   // Une poignee derriere une surface du batiment (en 3D libre ou de dessus ; devant une facade, la vue est celle du mur) : estompee, elle
