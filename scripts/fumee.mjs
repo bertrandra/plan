@@ -4200,6 +4200,102 @@ const POINTS = {
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
+  138: async (page, f) => {
+    // Les finitions du mode Toit (audit de la navigation, 6 novembre 2026, lot C). En Vue 3D, la terrasse choisie : « Modifier la toiture »
+    // reste, grise, et dit quoi faire. Depuis le plan, la maison choisie, « Modifier la toiture en 3D » de l'inspecteur ouvre la Vue 3D et le
+    // mode. Deux pignons et un bow-window poses : les pastilles ont des noms tous differents ; le corps choisi, ses groupes ont un titre ; le
+    // bow-window choisi, « Choisir le mur dans la 3D » est dans le panneau ; « Vue de dessus » n'a pas l'icone du plein ecran ; un mur du
+    // plan des facades se prend au clavier ; au doigt, les vignettes grisees disent pourquoi sous le catalogue ; « Valider » rend le focus
+    // a « Modifier la toiture ».
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = [{ x: -8, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -8, y: -14 }];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.corpsToit; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+    });
+    // En Vue 3D, la terrasse choisie : le bouton reste, grise, avec sa raison.
+    await page.evaluate(() => window.__plan.selectionnerPremiere('terrasse'));
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 2000);
+    const grise = await page.evaluate(() => { const b = document.querySelector('#terrasse3dModifierToit'); return b ? b.getAttribute('aria-disabled') === 'true' && /bâtiment/.test(b.getAttribute('title') || '') : false; });
+    // Depuis le plan : la maison choisie, le bouton de l'inspecteur.
+    await page.evaluate(() => window.__plan.executer('vue.plan'));
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+    await inspecteur(page);
+    await ouvrirSection(page, 'releve');
+    await etape('Modifier la toiture en 3D', () => page.locator('#zoneInspecteur [data-cle="toit3d"] button').first().click({ timeout: 15000 }));
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille(null));
+    await etape('le mode ouvert depuis le plan', () => page.locator('.panneauToit').waitFor({ timeout: 60000 }));
+    const depuisLePlan = (await page.evaluate(() => window.__plan.magasin().vue)) === 'vue3d';
+    // Deux pignons et un bow-window.
+    const poser = async (onglet, piece) => etape('pièce ' + piece, async () => {
+      await page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).dispatchEvent('click');
+      await page.locator('[data-piece="' + piece + '"]').dispatchEvent('click', {}, { timeout: 20000 });
+      await page.waitForTimeout(400);
+      await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
+      await page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click');
+      await page.waitForTimeout(200);
+    });
+    await poser('Sur le toit', 'sur:pignon');
+    await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="2"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).dispatchEvent('click');
+    await page.locator('[data-piece="sur:pignon"]').dispatchEvent('click');
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
+    await page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click');
+    await poser('Façade', 'facade:bow-window');
+    const noms = await page.locator('.puceToit').allTextContents();
+    const pignons = noms.filter((n) => /^Pignon/.test(n));
+    const nomsUniques = pignons.length >= 2 && new Set(noms).size === noms.length;
+    // Le corps choisi : ses groupes ont un titre visible.
+    await page.locator('.puceToit[data-type="corps"]').first().dispatchEvent('click');
+    await page.waitForTimeout(300);
+    const titres = await page.locator('.inspecteurToit .titreGroupe').allTextContents();
+    // Le bow-window choisi : « Choisir le mur dans la 3D » est la, utilisable.
+    await page.locator('.puceToit[data-type="saillie"]').first().dispatchEvent('click');
+    await page.waitForTimeout(300);
+    const murSur3d = await page.locator('.panneauToit [data-commande="toit.murSur3d"]:not([disabled])').count();
+    // Les icones : « Vue de dessus » n'est pas le plein ecran ; tourner n'est pas annuler.
+    const icones = await page.evaluate(() => {
+      const trace = (sel) => document.querySelector(sel)?.innerHTML ?? '';
+      return trace('[data-commande="toit.vueDessus"] svg') !== trace('#terrasse3dFullPageBtn svg') && trace('[data-commande="toit.voirValide"] svg') !== trace('#terrasse3dModifierToit svg, [data-commande="toit.modifier"] svg');
+    });
+    // Un mur du plan des facades, au clavier.
+    await page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click');
+    const ouvrirPlan = page.locator('.navigateurToit .boutonNavigateur[aria-expanded="false"]');
+    if (await ouvrirPlan.count()) await ouvrirPlan.click();
+    const mur = page.locator('.navigateurToit path.murNav[data-rang="0"][data-mur="1"]');
+    const nomMur = (await mur.getAttribute('aria-label')) || '';
+    await mur.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    const clavier = /façade/.test(nomMur) && (await page.evaluate(() => window.__plan.magasin && document.querySelector('.panneauToit .designationToit')?.textContent || '')).includes('açade ');
+    // Au doigt : sous le catalogue, la raison de chaque vignette grisee.
+    let raisons = true;
+    if (f.nom !== 'large') {
+      await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).dispatchEvent('click');
+      await page.waitForTimeout(200);
+      raisons = await page.evaluate(() => {
+        const grises = [...document.querySelectorAll('.toitCatalogue .toitPiece[disabled]')].map((b) => (b.getAttribute('title') || '').split(' — ')[1]).filter(Boolean);
+        const ecrit = document.querySelector('.raisonsToit')?.textContent || '';
+        return grises.every((r) => ecrit.includes(r));
+      });
+    }
+    // « Valider » : le focus revient a « Modifier la toiture ».
+    await page.locator('[data-commande="toit.valider"]').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+    const focus = await page.evaluate(() => document.activeElement?.id === 'terrasse3dModifierToit');
+    const ok = grise && depuisLePlan && nomsUniques && titres.length >= 2 && murSur3d === 1 && icones && clavier && raisons && focus;
+    return { ok, mesure: `sans bâtiment : bouton ${grise ? 'grisé avec sa raison' : 'EFFACÉ OU MUET'} ; depuis le plan : ${depuisLePlan ? 'Vue 3D et mode ouverts' : 'ÉCHEC'} ; pastilles ${nomsUniques ? 'toutes différentes' : 'EN DOUBLE'} (${noms.join(', ')}) ; titres des groupes ${titres.join(', ') || 'AUCUN'} ; « Choisir le mur dans la 3D » ${murSur3d ? 'dans le panneau' : 'ABSENT'} ; icônes ${icones ? 'distinctes' : 'EN DOUBLE'} ; mur au clavier ${clavier ? '« ' + nomMur + ' »' : 'ÉCHEC'} ; raisons au doigt ${raisons ? 'écrites' : 'MANQUANTES'} ; focus après Valider ${focus ? 'sur « Modifier la toiture »' : 'PERDU'}` };
+  },
   137: async (page, f) => {
     // Le corps choisi au mode Toit (audit de la navigation, 6 novembre 2026, lot B), sur AE 101 et ses cinq corps : a l'entree, la camera
     // se cadre sur la maison, a cote du panneau ; la pastille « Corps 2 » cadre la camera sur ce corps, la ligne du panneau dit
@@ -5811,9 +5907,10 @@ function pointsPour(nomClasse) {
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
   // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
   //       Vent coche, arbres visibles : au plus 30 images par seconde.
+  // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -11,9 +11,37 @@ import { etatToit, facadesDeSession, mursVusSurPhoto, sessionToit } from '../../
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
-import type { FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
+import { orientationDe, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
+import { listerElements } from '../../facade/modeToit/elements.js';
 
 const MARGE_M = 1.2;
+/** Deux murs dont les bouts sont a moins de 5 cm l'un de l'autre (dans un sens ou dans l'autre) sont un seul mur, commun a deux corps. */
+const MEME_MUR_M = 0.05;
+
+const memeMur = (f: FacadeVisee, g: FacadeVisee): boolean => {
+  const pres = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y) < MEME_MUR_M;
+  return (pres(f.a, g.a) && pres(f.b, g.b)) || (pres(f.a, g.b) && pres(f.b, g.a));
+};
+
+/**
+ * Une arete par mur (audit de la navigation, 6 novembre 2026) : un mur commun a deux corps etait dessine deux fois, et celui du dessus
+ * prenait tous les touchers. Le garde celui du corps en evidence, sinon le premier ; `communAvec` nomme l'autre corps.
+ */
+function aretes(facades: readonly FacadeVisee[], prefere: number | null): { f: FacadeVisee; communAvec: number | null }[] {
+  const l: { f: FacadeVisee; communAvec: number | null }[] = [];
+  for (const f of facades) {
+    const k = l.findIndex((x) => memeMur(x.f, f));
+    if (k < 0) { l.push({ f, communAvec: null }); continue; }
+    const deja = l[k] as { f: FacadeVisee; communAvec: number | null };
+    l[k] = f.rang === prefere && deja.f.rang !== prefere ? { f, communAvec: deja.f.rang } : { f: deja.f, communAvec: f.rang };
+  }
+  return l;
+}
+
+/** Entree ou Espace sur un element du plan : le meme geste que le toucher (les murs et les corps se prennent au clavier). */
+const auClavier = (agir: (e: React.KeyboardEvent<SVGElement>) => void) => (e: React.KeyboardEvent<SVGElement>) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); agir(e); }
+};
 const f2 = (v: number) => (Math.round(v * 100) / 100).toString();
 
 /** Les sommets d'un corps, dans l'ordre : le debut de chaque mur. */
@@ -41,21 +69,27 @@ export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; co
   const corpsDesigne = etatToit().rangCorps ?? courante?.rang ?? null;
   const actif = commandes.etat('toit.facade').utilisable;
   const grands = [...polygones(facades)].sort((p, q) => aire(q[1]) - aire(p[1]));
-  const clic = (e: React.MouseEvent<SVGElement>) => { if (actif) commandes.executer('toit.facade', e.currentTarget as unknown as HTMLElement); };
+  const clic = (e: React.SyntheticEvent<SVGElement>) => { if (actif) commandes.executer('toit.facade', e.currentTarget as unknown as HTMLElement); };
+  const o = objets.find((x) => x.key === s.cle), corps = o?.batiment?.corpsToit ?? [];
+  const noms = new Map(listerElements(corps).filter((e) => e.cible.type === 'corps').map((e) => [e.cible.rang, e.libelle]));
+  const nomDe = (rang: number | null) => (rang === null ? 'Bâtiment' : noms.get(rang) ?? 'Corps');
   return (
     <div className={'navigateurToit' + (ouvert ? '' : ' replie')} role="group" aria-label="Façades du bâtiment" title="Choisir une façade">
       <button type="button" className="boutonNavigateur" aria-expanded={ouvert} aria-label={ouvert ? 'Replier le plan des façades' : 'Déplier le plan des façades'}
-        onClick={() => { setOuvert(!ouvert); }}><Icone nom={ouvert ? 'fermer' : 'ajuster'} taille={18} /></button>
+        onClick={() => { setOuvert(!ouvert); }}><Icone nom={ouvert ? 'fermer' : 'polygone'} taille={18} /></button>
       <svg viewBox={f2(x0) + ' ' + f2(y0) + ' ' + f2(x1 - x0) + ' ' + f2(y1 - y0)} preserveAspectRatio="xMidYMid meet">
         {grands.map(([rang, murs]) => (
           <polygon key={'c' + rang} className={'corpsNav' + (corpsDesigne === rang ? ' sur' : '')} data-commande="toit.facade" data-corps={rang ?? ''} onClick={clic}
+            role="button" tabIndex={0} aria-label={nomDe(rang) + ' : sa façade la plus visible'} onKeyDown={auClavier(clic)}
             points={murs.map((m) => f2(m.a.x) + ',' + f2(m.a.y)).join(' ')} />
         ))}
-        {facades.map((f) => {
+        {aretes(facades, corpsDesigne).map(({ f, communAvec }) => {
           const sur = !!courante && courante.rang === f.rang && courante.mur === f.mur;
           const photo = photos.has((f.rang ?? '') + ':' + f.mur);
+          const nom = nomDe(f.rang) + ', façade ' + orientationDe(f).toLowerCase() + (communAvec !== null ? ' (mur commun avec ' + nomDe(communAvec).toLowerCase() + ')' : '') + (photo ? ' — validée sur la photo' : '');
           return <path key={f.rang + ':' + f.mur} className={'murNav' + (sur ? ' sur' : '') + (photo ? ' photo' : '')} data-commande="toit.facade" data-rang={f.rang ?? ''} data-mur={f.mur} onClick={clic}
-            d={'M' + f2(f.a.x) + ' ' + f2(f.a.y) + 'L' + f2(f.b.x) + ' ' + f2(f.b.y)}>{photo && <title>Façade validée sur la photo</title>}</path>;
+            role="button" tabIndex={0} aria-label={nom} aria-pressed={sur} onKeyDown={auClavier(clic)}
+            d={'M' + f2(f.a.x) + ' ' + f2(f.a.y) + 'L' + f2(f.b.x) + ' ' + f2(f.b.y)}><title>{nom}</title></path>;
         })}
         {courante && <PointDeVue f={courante} />}
       </svg>

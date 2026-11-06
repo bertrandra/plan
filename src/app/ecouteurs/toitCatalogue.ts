@@ -9,13 +9,13 @@
 // `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
+import { estRetouchable, raisonDOuvrir, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, memeCible, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
-import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
-import { affichage3d, hotes3d } from '../../three/etat3d.js';
+import { armerSaillie, desarmerSaillie, saillieArmee } from '../../interaction/choixSaillie.js';
+import { affichage3d, hotes3d, vue3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { showToast } from '../../shell/dialogs.js';
@@ -92,6 +92,28 @@ function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
 type Declarer = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void) => void;
 type Choisi = () => { t: { type: TypeElement; rang: number; i: number }; corps: NonNullable<ChampsBatiment['corpsToit']> } | null;
 
+/** Le temps que la Vue 3D a pour s'ouvrir avant que « Modifier la toiture en 3D » renonce a ouvrir le mode. */
+const ATTENTE_VUE_3D_MS = 60000;
+
+/**
+ * « Modifier la toiture en 3D », depuis l'inspecteur d'un batiment (audit de la navigation, 6 novembre 2026) : la Vue 3D s'ouvre, puis le mode
+ * Toit sur le batiment choisi, des que la scene est la. Le mode ne vit que dans la Vue 3D (decision de la personne) : l'entree du plan y mene.
+ */
+function declarerEntreeEn3d(commande: (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit?: boolean, raisonInactive?: () => string | null) => void,
+  cmd: RegistreCommandes, ctx: ContexteToitCatalogue, actif: () => boolean, raison: () => string | null): void {
+  commande('toit.modifierEn3d', 'Modifier la toiture en 3D', actif, () => {
+    const prete = () => ctx.magasin.store.getState().vue === 'vue3d' && affichage3d.vue3d === 'pret' && !!vue3d.scene && !!hotes3d.vue3d;
+    if (prete()) { cmd.executer('toit.modifier'); return; }
+    if (ctx.magasin.store.getState().vue !== 'vue3d') cmd.executer('vue.3d');
+    const fin = Date.now() + ATTENTE_VUE_3D_MS;
+    const attendre = () => {
+      if (prete()) { cmd.executer('toit.modifier'); return; }
+      if (Date.now() < fin && ctx.magasin.store.getState().vue === 'vue3d') setTimeout(attendre, 200);
+    };
+    setTimeout(attendre, 200);
+  }, true, raison);
+}
+
 /** Les gestes sur un corps choisi : le tourner, le couper en deux, le reunir a son voisin (decision du 4 novembre 2026). */
 function declarerGestesDesCorps(commande: Declarer, choisi: Choisi, mode: ReturnType<typeof creerModeToit>): void {
   // Les gestes sur un corps choisi : le tourner, le couper, le reunir, lui faire retourner l'angle.
@@ -143,7 +165,8 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       chargerGestesToits().then(() => { if (!enSession()) mode.ouvrir(); }, (e: unknown) => {
         showToast('Le mode Toit n’a pas pu se charger (' + (e instanceof Error ? e.message : String(e)) + ').');
       });
-    }, true, () => (enSession() ? null : raisonNonRetouchable(selection())));
+    }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
+  declarerEntreeEn3d(commande, cmd, ctx, () => !enSession() && estRetouchable(selection()), () => (enSession() ? null : raisonDOuvrir(selection())));
   commande('toit.valider', 'Valider le toit',
     enSession, () => { mode.valider(); });
   commande('toit.abandonner', 'Abandonner les changements',
@@ -221,11 +244,13 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       if (mur) mode.choisirFacade(mur.rang, mur.mur);
     });
 
+  // L'element de facade choisi dans le panneau du mode (bow-window, galerie, appentis) : le prochain toucher sur un mur de la scene l'y pose.
+  // Le bouton etait dans l'inspecteur du plan, qui n'est pas montre en Vue 3D : il ne servait jamais (audit de la navigation).
   commande('toit.murSur3d', 'Choisir le mur dans la 3D',
-    enSession, () => {
-      const rang = reprendreSaillieVisee(), o = batiment();
-      if (rang === null || !o?.batiment?.corpsToit?.[rang]?.saillie) return;
-      armerSaillie(o.key, rang);
+    () => enSession() && etatToit().selection?.type === 'saillie', () => {
+      const t = etatToit().selection, o = batiment();
+      if (t?.type !== 'saillie' || !o?.batiment?.corpsToit?.[t.rang]?.saillie) return;
+      armerSaillie(o.key, t.rang);
       ctx.rafraichir();
       showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).');
     });

@@ -15,6 +15,7 @@ import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
 import { RECULS_TRAVEE_M } from './travees.js';
 import { appliquerBout, groupesBoutsDuCorps, groupesPointe, valeurBout } from './bouts.js';
+import { facadesDuBatiment, orientationDe } from './facadesDesCorps.js';
 
 export type TypeElement = 'corps' | 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire' | 'travee';
 
@@ -50,6 +51,45 @@ export function listerElements(corps: readonly CorpsToit[]): ElementListe[] {
   corps.forEach((c, rang) => (c.travees ?? []).forEach((x, i) => l.push({ cible: { type: 'travee', rang, i }, libelle: (x.reculM ?? 0) > 0 ? 'Mur reculé' : LIBELLES_TRAVEE[x.nature] })));
   return l;
 }
+
+/**
+ * Les pastilles, chacune nommee sans ambiguite (audit de la navigation, 6 novembre 2026) : un element dit son mur (« Pignon sud ») ou, pose
+ * sur le toit, le mur au pied de son pan ; sur un batiment a plusieurs corps, le corps qui le porte (« · corps 2 ») ; deux noms encore
+ * egaux se numerotent. Les corps gardent leur nom.
+ */
+export function libellesDesElements(corps: readonly CorpsToit[]): ElementListe[] {
+  const liste = listerElements(corps), murs = facadesDuBatiment(corps, []);
+  const nomsCorps = new Map(liste.filter((e) => e.cible.type === 'corps').map((e) => [e.cible.rang, e.libelle]));
+  const noms = liste.map((e) => {
+    if (e.cible.type === 'corps') return e.libelle;
+    const c = corps[e.cible.rang], pan = c ? panDe(c, e.cible) : null;
+    const m = facadeDeLElement(corps, e.cible) ?? (pan === null ? null : { rang: e.cible.rang, mur: pan === 1 ? 2 : 0 });
+    const f = m ? murs.find((x) => x.rang === m.rang && x.mur === m.mur) : undefined;
+    const porteur = m?.rang ?? (c?.saillie ? c.saillie.hote : e.cible.rang);
+    const nomCorps = nomsCorps.size > 1 ? nomsCorps.get(porteur) : undefined;
+    return e.libelle + (f ? ' ' + orientationDe(f).toLowerCase() : '') + (nomCorps ? ' · ' + nomCorps.charAt(0).toLowerCase() + nomCorps.slice(1) : '');
+  });
+  const total = new Map<string, number>(), vu = new Map<string, number>();
+  for (const n of noms) total.set(n, (total.get(n) ?? 0) + 1);
+  return liste.map((e, k) => {
+    const n = noms[k] as string;
+    if ((total.get(n) ?? 0) < 2) return { ...e, libelle: n };
+    const rang = (vu.get(n) ?? 0) + 1;
+    vu.set(n, rang);
+    return { ...e, libelle: n + ' ' + rang };
+  });
+}
+
+/** Ce que regle un groupe de choix, dit au-dessus de ses boutons : son titre, sinon celui de son nom. */
+export function titreDuGroupe(g: GroupeChoix): string {
+  return g.titre ?? TITRES_GROUPES[g.groupe] ?? g.groupe;
+}
+
+const TITRES_GROUPES: Record<string, string> = {
+  forme: 'Forme', niveau: 'Hauteur', toit: 'Toit propre', ouvert: 'Ouvert ou fermé', pente: 'Pente', sens: 'Sens du faîtage',
+  debord: 'Débord à l’égout', nature: 'Travée', recul: 'Recul sous le toit', hauteur: 'Hauteur du pignon', saillie: 'Avancée du pignon',
+  lucarne: 'Type de lucarne', pan: 'Pan', retrait: 'Retrait des poteaux'
+};
 
 export const memeCible = (a: CibleElement | null, b: CibleElement | null): boolean => !!a && !!b && a.type === b.type && a.rang === b.rang && a.i === b.i;
 

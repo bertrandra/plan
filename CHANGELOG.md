@@ -7,6 +7,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- Mode Toit, les finitions de la navigation (audit du 6 novembre 2026, lot C).
+  - Une entrée « Modifier la toiture en 3D » dans l'inspecteur d'un bâtiment (section « Façades et toit ») : elle ouvre la Vue 3D, puis le
+    mode Toit sur ce bâtiment. Le mode ne s'ouvrait que depuis un bouton de la Vue 3D, qui s'effaçait sans bâtiment choisi.
+  - Le bouton « Modifier la toiture » de la Vue 3D reste visible quand il ne peut pas servir, grisé avec sa raison (dans l'infobulle,
+    et au doigt dans un message) : aucun bâtiment choisi, un bâtiment voisin, la lecture seule. En lecture seule, il s'effaçait.
+  - À la sortie du mode (Valider, Abandonner, Échap), le focus revient au bouton « Modifier la toiture ».
+  - « Choisir le mur dans la 3D » est dans le panneau du mode, sur l'élément de façade choisi (bow-window, galerie, appentis) ; son
+    bouton de l'inspecteur du plan, toujours grisé (l'inspecteur n'est pas montré en Vue 3D), est retiré.
+  - Les pastilles se distinguent : « Pignon sud », « Pignon nord », et sur un bâtiment à plusieurs corps « Pignon sud · corps 2 » ;
+    deux noms encore égaux se numérotent. Chaque groupe de réglages dit ce qu'il règle au-dessus de ses boutons (« Pente », « Débord à
+    l'égout »…) : au doigt, il n'y avait que les images.
+  - Une icône par commande : « Tourner » n'a plus celle d'« Annuler », « Vue de dessus » plus celle du plein écran, « Voir le toit du
+    projet » plus celle de « Modifier la toiture ».
+  - Le plan des façades dessine un mur commun à deux corps une seule fois (il était dessiné deux fois, et le dessus prenait tous les
+    touchers) ; ses murs et ses corps se prennent au clavier (Tab, puis Entrée), chacun nommé (« Corps 2, façade sud »).
+  - Au téléphone et à la tablette, la raison qui grise des vignettes du catalogue s'écrit sous lui (l'infobulle n'existe pas au doigt).
+  - Point de fumée 138.
+
+### Modifié
+
 - Mode Toit : on voit et on sait sur quoi l'on travaille (audit de la navigation, 6 novembre 2026, lot B).
   - À l'entrée, la caméra se cadre sur la maison, dans la partie de la scène que le panneau laisse libre, vue de la même direction
     qu'avant ; la sortie rend la caméra d'avant le mode. La maison était souvent minuscule, ou cachée sous le panneau à la tablette.

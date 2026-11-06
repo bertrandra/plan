@@ -103,6 +103,9 @@
   .navigateurToit .murNav{ fill:none; stroke:var(--ink-soft); stroke-width:.5; stroke-linecap:round; cursor:pointer; vector-effect:non-scaling-stroke; stroke-width:3px; }
   .navigateurToit .murNav:hover{ stroke:var(--accent); }
   .navigateurToit .murNav.sur{ stroke:var(--accent); stroke-width:5px; }
+  /* Les murs et les corps du plan des facades se prennent au clavier : le focus se voit comme le survol, en plus epais. */
+  .navigateurToit .murNav:focus-visible{ outline:none; stroke:var(--accent); stroke-width:6px; }
+  .navigateurToit .corpsNav:focus-visible{ outline:none; opacity:1; stroke:var(--accent); stroke-width:2px; vector-effect:non-scaling-stroke; }
   /* Un mur dont la Facade a ete validee sur la photo (lot F5) : en tirets, le titre le dit (la couleur ne porte pas seule). */
   .navigateurToit .murNav.photo{ stroke-dasharray:6 3; }
   .navigateurToit .pointDeVueNav{ fill:var(--accent); opacity:.9; pointer-events:none; }
@@ -184,6 +187,11 @@
   .panneauToit .puceToit[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .panneauToit .inspecteurToit{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .panneauToit .groupeChoix{ display:flex; gap:4px; flex-wrap:wrap; }
+  /* Un groupe de reglages dit ce qu'il regle au-dessus de ses boutons-images (au doigt, pas d'infobulle) ; en petites capitales, comme
+     les en-tetes de section. */
+  .panneauToit .groupeReglage{ display:flex; flex-direction:column; gap:2px; }
+  .panneauToit .titreGroupe{ font-family:var(--sans); font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .panneauToit .raisonsToit{ margin:0; padding:0 0 0 2px; list-style:none; font-size:.74rem; color:var(--ink-soft); }
   /* Le type d'une lucarne se choisit sur la vignette qui la pose (onglet « Sur le toit »). */
   .panneauToit .groupeChoix .glyphe svg.chaineVignette{ width:40px; height:auto; }
   .panneauToit .boutonToit.danger{ color:var(--danger); }
