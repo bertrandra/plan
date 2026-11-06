@@ -19,7 +19,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     jusqu'à deux zones de saisie, dans la partie libre de l'image : chacune se prend au doigt.
   - Au téléphone, un petit élément du toit choisi se voit donc plus petit qu'avant (une fenêtre de toit de 0,8 m fait une quinzaine de
     pixels sur une façade de 12 m), mais ses poignées et celles du mur sont toutes atteignables.
-  - Point de fumée 140 (chaque poignée de chaque façade d'AE 101 atteignable) ; le point 124 suit (il mesurait le zoom sur l'élément).
+  - Point de fumée 141 (chaque poignée de chaque façade d'AE 101 atteignable) ; le point 124 suit (il mesurait le zoom sur l'élément).
+- Mode Toit, **un pignon qui ne monte pas au faîtage** se raccorde au pan du corps (retour du propriétaire, 6 novembre 2026 : « mauvais
+  raccord toit corps et pignon s'il n'est pas au faîtage ») : ses deux noues s'arrêtent là où son faîtage rencontre le pan (l'intersection
+  des plans), et le pan n'est entaillé que jusque-là ; il était entaillé jusqu'au faîtage du corps et laissait un trou au-dessus du
+  pignon. Un pignon au faîtage sort à l'identique ; AE 101 identique. Fumée : point 140 (un pignon rabaissé à mi-pan).
 - **Analyse d'une maison : une réponse de Claude n'est plus refusée pour un guillemet dans un texte libre** (`deploy/analyse-fonctions.php`).
   L'analyse ne demande pas la sortie structurée (sa grammaire dépasse la limite de l'API) ; Haiku écrit alors parfois, dans un texte
   libre (`vu`, `ecart`, `observe`…), un guillemet droit non échappé (`"un toit "deux-pans" probable"`), un retour à la ligne brut ou un
