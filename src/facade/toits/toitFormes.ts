@@ -203,12 +203,28 @@ function capuchons(c: CorpsForme, L: number, f: FormeEtendue, d: Debords): Capuc
 }
 
 /**
+ * Jusqu'ou montent les noues d'un pignon traversant, depuis le mur d'egout de son pan : la ou le faitage du pignon rencontre le pan du
+ * corps (l'intersection des plans : z = e + k d du pan et le faitage du pignon), et au plus sa profondeur. Un pignon qui monte au faitage
+ * du corps garde sa profondeur, le dessin d'avant au bit pres ; plus bas, ses noues s'arretent sur le pan (retour du proprietaire,
+ * 6 novembre 2026 : « mauvais raccord toit corps et pignon s'il n'est pas au faitage » ; le pan etait entaille jusqu'au faitage et
+ * laissait un trou au-dessus du pignon). Sur un toit plat, rien a rencontrer : la profondeur.
+ */
+export function profondeurDeNoue(c: Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts'>, g: Pick<PignonToit, 'pan' | 'faitage' | 'profondeur'>, W: number): number {
+  const largeur = g.pan === 0 ? c.posFaitage : W - c.posFaitage, e = c.egouts[g.pan];
+  const D = Math.max(0.1, Math.min(largeur, g.profondeur));
+  const montee = c.faitage - e;
+  if (largeur < 0.01 || montee < 0.05) return D;
+  const noue = ((g.faitage - e) * largeur) / montee;
+  return noue >= D ? D : Math.max(0.1, noue);
+}
+
+/**
  * Les pans d'un corps entailles par ses pignons traversants, comme le dessin d'avant (three/toitCorps3d.ts, `pan`) : de chaque pignon,
  * on retire la part du pan sous ses deux noues, du pied du pignon sur le mur (ou de la rive, quand il touche le bout du corps) jusqu'au
  * bout de son faitage. Sans cela, le grand pan et son debord passaient sous le pignon et ressortaient devant son triangle. Chaque
  * facette (plane, convexe) se coupe en morceaux convexes : la part hors de la noue gauche, puis la part hors de la noue droite.
  */
-export function entaillerPourPignons(pans: readonly Sommet[][], pignons: readonly PignonToit[] | undefined, L: number, W: number, d: Pick<Debords, 'rive0' | 'rive1'>, largeurs: readonly [number, number]): Sommet[][] {
+export function entaillerPourPignons(pans: readonly Sommet[][], pignons: readonly PignonToit[] | undefined, L: number, W: number, d: Pick<Debords, 'rive0' | 'rive1'>, largeurs: readonly [number, number], corps: Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts'> | null = null): Sommet[][] {
   if (!pignons?.length) return pans.slice();
   let morceaux: PtBrut[][] = [], plans: Plan[] = [];
   const out: Sommet[][] = [];
@@ -218,7 +234,7 @@ export function entaillerPourPignons(pans: readonly Sommet[][], pignons: readonl
     morceaux = [f.map((q) => ({ x: q.s, y: q.t }))];
     plans = [pl];
     for (const g of pignons) {
-      const largeur = largeurs[g.pan], D = Math.max(0.1, Math.min(largeur, g.profondeur)), sc = (g.debut + g.fin) / 2;
+      const largeur = largeurs[g.pan], D = corps ? profondeurDeNoue(corps, g, W) : Math.max(0.1, Math.min(largeur, g.profondeur)), sc = (g.debut + g.fin) / 2;
       const a = g.debut <= 0.3 ? -d.rive0 : g.debut, b = g.fin >= L - 0.3 ? L + d.rive1 : g.fin;
       if (!(sc - a > 1e-6 && b - sc > 1e-6)) continue;
       // La distance au mur d'egout du pan du pignon, et les noues : d <= D (s - a) / (sc - a), d <= D (b - s) / (b - sc).
@@ -242,7 +258,7 @@ export function entaillerPourPignons(pans: readonly Sommet[][], pignons: readonl
 export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords, bas: number): { pans: Sommet[][]; murs: Sommet[][] } | null {
   // Un toit a profil libre ou de revolution (toitSpeciaux.ts) : ni faitage ni plans a couper.
   const special = facettesSpeciales(c, L, W, d, bas);
-  if (special) return c.speciale ? special : { ...special, pans: entaillerPourPignons(special.pans, c.pignons, L, W, d, [c.posFaitage, W - c.posFaitage]) };
+  if (special) return c.speciale ? special : { ...special, pans: entaillerPourPignons(special.pans, c.pignons, L, W, d, [c.posFaitage, W - c.posFaitage], c) };
   const x = formeDe(c, L, W);
   if (!x) return null;
   const { plans, f } = x;
@@ -283,7 +299,7 @@ export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords
     const aire = mur.reduce((acc, m, k) => { const n = mur[(k + 1) % mur.length] as Sommet; return acc + (m.t * n.z - n.t * m.z); }, 0) / 2;
     if (Math.abs(aire) > 1e-3) murs.push(mur);
   }
-  return { pans: entaillerPourPignons(pans, c.pignons, L, W, d, [c.posFaitage, W - c.posFaitage]), murs };
+  return { pans: entaillerPourPignons(pans, c.pignons, L, W, d, [c.posFaitage, W - c.posFaitage], c), murs };
 }
 
 /** Un sommet dans le repere d'un pignon traversant : `s` le long du faitage du corps, `d` depuis le mur d'egout du pan qui le porte. */
