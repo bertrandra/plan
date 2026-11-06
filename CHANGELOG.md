@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.12.0] — 2026-11-06
+
+Version **mineure** au sens de `MD/RELEASE.md` : en Vue 3D, toucher un bâtiment de la parcelle, une terrasse, une pergola, un carport ou une
+piscine le sélectionne, et toucher dans le vide, ou sur une maison voisine, désélectionne (#595, #597). Aucune quantité ni aucun export de la démonstration ne change : les sept
+témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la 5.11.1 ; preuve forte, sept sur sept) ; `projet.json`,
+les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques, et le `.glb` du point 24 l'est à la 5.11.1 (géométrie
+et JSON au bit près, mêmes images ; la surbrillance de la sélection n'y entre pas ; `tests/fixtures/golden/EMPREINTES.md`). Schéma
+inchangé (15) : rien à déployer côté plateforme. Requêtes inchangées depuis la 5.11.1 (ni `deploy/`, ni `regles/`, ni les descriptions
+des sujets, ni la chaîne des façades), vérifiées sans la mesure sur main, à la livraison.
+
 ### Ajouté
 
 - Vue 3D : toucher un objet le choisit (demande du propriétaire, 6 novembre 2026). Un toucher ou un clic bref, sans glisser, sur un

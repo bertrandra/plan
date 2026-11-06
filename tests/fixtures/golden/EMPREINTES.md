@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, puis à la 5.11.1 le 6 novembre 2026.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, puis à la 5.12.0 le même jour.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `37cfc19c34299728f55f4b048a4e998c2049c79d8f78a5bad91ac36311b91d4f` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `a320bdc59788d14b78b6cde6546326bb27fb065d2835799c3ef8c941a1035f91` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `63435aba403c3e976382690390cb1e58b269ed07f5e4b62eb6d643b1ed2d9dd3` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `14d887c2c01972ab6d23370b86bea0af15c58436afbf25127c211b99de58eeaa` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `3e8867cdd420cf9bf4e72cd2d65bca9270a736c8bbbd269b07b3b1b5787bb8e2` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `e4237c0b04e2dc11520865de1c698e2a4ceb2492fccc37422d51db17f13fdb62` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `786efdb1e677e5b643b58cc46e73a1fec2517be4a6ae00b6f2657215a80b049b` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `cc373beaff6fed3424ffc26211f5dcb01ca7678ad22e435f28bb3d757b821277` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `a5abb42005ea6109c64aa45ca153affc3801defead3f44e239311e1d0e15a80d` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `b9dc298c6a3551b0987d1ba2148440a91a2ce0f9105934a14f61bdd60c317d1b` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `438ccab15d2690956482d89a50a182ac8deac5993f1061a8ba0ac543ab78b9ff` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `b33d3d4a16c77835ceb65a8fbaf5084d09f1629bf35ffe641c5b201b42c94595` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `0d901cf6baa13865a6fca20cd0b509bc7fcaf37b383a52c518d9b884a67913f5` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `aa1febc2a614d71b7a79d226a97ec89eeec75ee8c5cbde38efac51576e8f45f8` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -1239,3 +1239,28 @@ fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.p
 | `dossier.pdf` (normalisée) | `9662ec69…` | `cc373bea…` |
 | `dossier-piscine.pdf` (brute) | `1256bcea…` | `438ccab1…` |
 | `note-calcul.pdf` (brute) | `722562bd…` | `b33d3d4a…` |
+
+
+## Version 5.12.0 (6 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.11.1 (sélection au toucher en Vue 3D, #595, une maison voisine valant le vide, #597) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Les sept témoins passent à
+`5.12.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.12.0` → `5.11.1` remis dans les octets frais
+rend les fichiers de la 5.11.1 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`).
+
+**Le `.glb`**, parce que #595 retire la surbrillance de la sélection de l'export : le point 24 joué deux fois sur la 5.11.1 (a496c73a)
+et deux fois sur la 5.12.0 (main 2e830dc9, avec #597), au bureau, thème clair, réseau témoin, donne quatre fichiers de 11 715 284 octets, dont la structure est
+égale au témoin (1 143 nœuds, 955 mailles, 1 454 matériaux, 16 images, 3 954 accesseurs, 3 970 vues tampon). Les 3 954 vues tampon de
+géométrie sont identiques **au bit près** d'un fichier à l'autre, le JSON aussi, et les seize images sont les mêmes octets : seul leur
+ordre dans le tampon varie d'un export à l'autre, à la 5.11.1 comme à la 5.12.0 (elles s'encodent en parallèle).
+
+| Fixture | Empreinte 5.11.1 | Empreinte 5.12.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `37cfc19c…` | `14d887c2…` |
+| `plan.svg` (normalisée) | `a320bdc5…` | `3e8867cd…` |
+| `plan.dxf` (normalisée) | `63435aba…` | `e4237c0b…` |
+| `plan.pdf` (normalisée) | `786efdb1…` | `a5abb420…` |
+| `dossier.pdf` (normalisée) | `cc373bea…` | `b9dc298c…` |
+| `dossier-piscine.pdf` (brute) | `438ccab1…` | `0d901cf6…` |
+| `note-calcul.pdf` (brute) | `b33d3d4a…` | `aa1febc2…` |
