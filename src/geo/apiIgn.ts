@@ -211,7 +211,22 @@ export function empriseAutourAnneau(anneau: Anneau, proj: ProjecteurLocal, marge
     [lonMin-dLon, latMax+dLat], [lonMin-dLon, latMin-dLat]
   ]]};
 }
-export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string | null | undefined): Promise<FeatureGeoJSON[]> {
+/**
+ * Le code de commune sous lequel le cadastre range une parcelle. Paris, Lyon et Marseille sont
+ * des communes a arrondissements : la BAN rend le code de l'arrondissement (75119, 69382, 13202),
+ * le PCI d'API Carto range toutes leurs parcelles sous celui de la commune (75056, 69123, 13055,
+ * l'arrondissement va dans `code_arr`). Filtrer sur le code de l'arrondissement ne ramenait
+ * aucune parcelle (Zenith de Paris, 6 novembre 2026). Tout autre code passe tel quel.
+ */
+export function communeDuCadastre(code: string): string {
+  if(/^751(0[1-9]|1\d|20)$/.test(code)) return '75056';
+  if(/^6938[1-9]$/.test(code)) return '69123';
+  if(/^132(0[1-9]|1[0-6])$/.test(code)) return '13055';
+  return code;
+}
+
+export async function interrogerCadastre(geom: EmpriseGeoJSON, codeBrut: string | null | undefined): Promise<FeatureGeoJSON[]> {
+  const codeInsee = codeBrut ? communeDuCadastre(codeBrut) : codeBrut;
   let url = CADASTRE_URL + '?geom=' + encodeURIComponent(JSON.stringify(geom)) + '&_limit=60';
   if(codeInsee) url += '&code_insee=' + encodeURIComponent(codeInsee);
   const data = await fetchJSONReseau(url) as CollectionGeoJSON;

@@ -12,6 +12,11 @@ import { avertissementRayon } from './avertissementRayon.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
 import type { CaseIgn, EtatPosition, ImportCadastre as Controleur } from '../../app/cadastre/importCadastre.js';
+
+// La BAN dit le niveau d'une reponse en anglais (street, municipality, locality) : on le dit en
+// francais. Un niveau inconnu passe tel quel plutot que de disparaitre.
+const NIVEAUX_ADRESSE: Record<string, string> = { street: 'rue, sans numéro', municipality: 'commune', locality: 'lieu-dit' };
+function niveauAdresse(genre: string): string { return NIVEAUX_ADRESSE[genre] ?? genre; }
 import type { PtBrut } from '../../model/types.js';
 
 type Props = { importe: Controleur };
@@ -138,7 +143,7 @@ function Etape1({ importe }: Props) {
         <div className="suggestionsAdresse">
           {e.suggestions.map((s, i) => (
             <button key={i} type="button" data-controle="cadastre.suggestion" className="secondary" onClick={() => void importe.choisirAdresse(s)}>
-              {s.label + (s.genre && s.genre !== 'housenumber' ? '  (niveau ' + s.genre + ')' : '')}
+              {s.label + (s.genre && s.genre !== 'housenumber' ? '  (' + niveauAdresse(s.genre) + ')' : '')}
             </button>
           ))}
         </div>
@@ -200,7 +205,7 @@ function Etape2({ importe }: Props) {
           {geo.genre === 'position'
             ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + p.distance.toFixed(2) + ' m du bord')
             : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
-          {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && geo.genre !== 'position' && <><br /><i>{'Adresse resolue au niveau ' + geo.genre + ' : la parcelle proposee est approximative.'}</i></>}
+          {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && geo.genre !== 'position' && <><br /><i>{'Adresse imprécise (' + niveauAdresse(geo.genre) + ') : la parcelle proposée est approximative.'}</i></>}
           {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont a distance comparable : verifie le choix ci-dessous.</i></>}
         </div>
         <div className="titreListe">Autre parcelle ? (clic sur l'apercu ou dans la liste)</div>
