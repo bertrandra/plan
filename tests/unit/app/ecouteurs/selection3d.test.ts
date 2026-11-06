@@ -27,6 +27,20 @@ describe('choisir un objet au toucher de la Vue 3D', () => {
     expect(objetChoisi(objets, rayon('parasol', 'terrasse'))?.key).toBe('terrasse');
   });
 
+  it('une maison voisine (voisinage importe, ou batiment de l IGN hors de la parcelle du projet) ne se choisit pas : elle vaut le vide', () => {
+    const voisine = { ...objet('voisine', 'batiment'), bdtopo: { id: 'B1' } } as unknown as ObjetPlan;
+    const duVoisinage = { ...objet('voisinage', 'batiment'), voisinage: true } as unknown as ObjetPlan;
+    const surLaParcelle = { ...objet('importee', 'batiment'), bdtopo: { id: 'B2', surParcellePrincipale: true } } as unknown as ObjetPlan;
+    expect(estChoisiEn3d(voisine)).toBe(false);
+    expect(estChoisiEn3d(duVoisinage)).toBe(false);
+    expect(estChoisiEn3d(surLaParcelle)).toBe(true);
+    const tous = [...objets, voisine, duVoisinage, surLaParcelle];
+    const rayon = (cle: string) => () => ({ cle, point: null });
+    expect(objetChoisi(tous, rayon('voisine'))).toBeNull();
+    expect(objetChoisi(tous, rayon('voisinage'))).toBeNull();
+    expect(objetChoisi(tous, rayon('importee'))?.key).toBe('importee');
+  });
+
   it('le platelage de la terrasse courante (pose comme la scene, pas comme un objet) : le point touche dit la terrasse', () => {
     const vide = (point: { x: number; y: number } | null) => () => ({ cle: null, point });
     expect(objetChoisi(objets, vide({ x: 2, y: 2 }))?.key).toBe('terrasse');

@@ -7,7 +7,7 @@
 // Hors session, rien ne change. Quitter la Vue 3D ou choisir un autre objet pendant une session modifiee pose d'abord la question
 // (Valider, Abandonner, Rester : `quitterPuis`) ; une session sans changement se ferme sans rien demander.
 
-import { estBatiment, surParcelleDuProjet } from '../../model/fonctions.js';
+import { estBatiment, estChezUnVoisin } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, ecrireLeGeste, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
   type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
@@ -112,13 +112,8 @@ function restaurer(o: ObjetPlan, pas: Parameters<typeof restaurerSession>[1]): v
   toucher(o);
 }
 
-/**
- * Un batiment pose chez un voisin : le voisinage importe autour de la propriete, ou un batiment de l'IGN que l'import n'a pas pose sur
- * la parcelle du projet (une maison d'une parcelle mitoyenne de la propriete). `surParcellePrincipale` ne s'enregistre qu'a vrai
- * (io/serialisation.ts) : un batiment importe qui ne la porte pas est chez un voisin. Un batiment dessine (sans `bdtopo`) est celui
- * de la personne, ou qu'il soit.
- */
-const chezUnVoisin = (o: ObjetPlan): boolean => !!o.voisinage || (!!o.bdtopo && !surParcelleDuProjet(o));
+/** Un batiment pose chez un voisin (`model/fonctions.ts::estChezUnVoisin`) : le mode Toit ne le retouche pas. */
+const chezUnVoisin = estChezUnVoisin;
 
 /**
  * Un batiment que le mode Toit sait retoucher : un batiment du projet, pas d'un voisin. `locked` n'y entre pas : il protege le contour

@@ -18,12 +18,14 @@ des sujets, ni la chaîne des façades), vérifiées sans la mesure sur main, à
 ### Ajouté
 
 - Vue 3D : toucher un objet le choisit (demande du propriétaire, 6 novembre 2026). Un toucher ou un clic bref, sans glisser, sur un
-  bâtiment (ou une annexe), une terrasse, une pergola, un carport ou une piscine le sélectionne : la même sélection que dans le plan.
+  bâtiment de la parcelle (ou une annexe), une terrasse, une pergola, un carport ou une piscine le sélectionne : la même sélection que dans le plan.
   L'inspecteur, l'explorateur et « Modifier la toiture » la suivent (le bouton s'allume pour un bâtiment de la parcelle). Ce n'est pas
   une modification : ni Ctrl+Z, ni « projet modifié », et c'est permis en lecture seule.
   - Un arbre ou un parasol devant l'objet laisse passer le toucher. Un toucher dans le vide (sol, ciel) ou sur un objet qui ne se
     choisit pas en 3D (clôture, chemin, massif, mobilier) lâche la sélection, comme un clic dans le vide du plan (décision du
-    propriétaire). Une maison voisine est un bâtiment : elle se choisit, et « Modifier la toiture » dit pourquoi il ne s'ouvre pas.
+    propriétaire). Une maison voisine (le voisinage importé, un bâtiment de l'IGN hors de la parcelle du projet) vaut le vide : seuls les
+    bâtiments et annexes de la parcelle du projet se choisissent (décision du propriétaire) ; ce qui fait « chez un voisin » n'est écrit
+    qu'une fois, `model/fonctions.ts::estChezUnVoisin`, que le mode Toit lit aussi.
   - Un glisser (l'orbite), un pincement, un appui long ou le bouton droit ne choisissent rien. Le mode Toit, l'audit (promenade et
     audit de la parcelle), l'avant / après et la promenade de la Vue 3D gardent leurs propres touchers.
   - L'objet choisi se voit dans la scène : le trait renforcé de l'audit sur ses arêtes ; la terrasse courante, dont le platelage
