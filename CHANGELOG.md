@@ -15,7 +15,7 @@ dans l'inspecteur d'un bâtiment. Aucune quantité ni aucun export de la démons
 numéro de version (la date de build reste celle de la 5.11.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ;
 `projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. Schéma inchangé (15) : rien à
 déployer côté plateforme. Requêtes inchangées depuis la 5.11.0 (ni `deploy/`, ni `regles/`, ni les descriptions des sujets, ni la chaîne
-des façades), vérifiées sans la mesure sur main, à la livraison.
+des façades), vérifiées sans la mesure sur main (run 42213217158 : 9 sur 9, 0,035 $).
 
 ### Modifié
 
