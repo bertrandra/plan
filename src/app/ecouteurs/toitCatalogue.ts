@@ -301,16 +301,14 @@ function brancherToucherDeLaScene(enSession: () => boolean, mode: ReturnType<typ
   // Seul le canevas est la scene : le panneau du mode, le plan des facades, les poignees et les boutons de la Vue 3D sont poses
   // par-dessus, dans le meme hote ; un toucher sur eux choisissait aussi la facade qu'ils couvraient (audit du 6 novembre 2026).
   const surLaScene = (e: Event): boolean => { const h = hotes3d.vue3d, t = e.target; return !!h && t instanceof HTMLCanvasElement && h.contains(t); };
-  // Deux doigts a la fois (un pincement) ne touchent rien : le second annule le toucher du premier, jusqu'a ce que tous soient leves.
-  let doigts = 0;
+  // Deux doigts a la fois (un pincement) ne touchent rien : le second annule le toucher du premier. Un pointeur premier (la souris, le
+  // premier doigt pose) commence un nouveau geste : un doigt dont la levee s'est perdue ne bloque jamais les touchers suivants.
   doc?.addEventListener('pointerdown', (e) => {
     if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice();
-    doigts = e.pointerType === 'touch' ? doigts + 1 : 1;
-    appui = enSession() && surLaScene(e) && doigts === 1 ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null;
+    appui = enSession() && surLaScene(e) && e.isPrimary ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null;
   }, true);
-  doc?.addEventListener('pointercancel', () => { doigts = 0; appui = null; }, true);
+  doc?.addEventListener('pointercancel', () => { appui = null; }, true);
   doc?.addEventListener('pointerup', (e) => {
-    doigts = Math.max(0, doigts - 1);
     const debut = appui && appui.id === e.pointerId ? appui : null; appui = null;
     const hote = hotes3d.vue3d;
     if (!debut || !hote || !enSession() || Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > GLISSER_PX) return;
