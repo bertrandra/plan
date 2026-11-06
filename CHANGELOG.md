@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.13.0] — 2026-11-06
+
+Version **mineure** au sens de `MD/RELEASE.md` : Mode Toit, « Décrocher ici » et la poignée « Recul du mur » (#602), la vue de façade
+qui se rapproche à la molette et au pincement (#602) et cadre toutes ses poignées (#600), la caméra qui tourne autour du bâtiment, bornée,
+avec « Recadrer le bâtiment » (#603), et ses gestes (toucher, pincement sur une poignée, poignées cachées, tourner la vue, #604) ; le
+raccord d'un pignon qui ne monte pas au faîtage (#601) ; la réparation des chaînes d'une réponse de l'analyse (#599). Aucune quantité ni
+aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la
+5.12.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json`
+et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : rien à déployer côté plateforme. Le corps des
+requêtes à Claude ne change pas (#599 ne touche que la lecture de la réponse, dans `deploy/analyse-fonctions.php`) ; vérifiées sur main,
+à la livraison.
+
 ### Ajouté
 
 - Mode Toit, **le décroché au point** (demande du propriétaire : « je sélectionne un point sur l'égout et je recule à droite ou à gauche
