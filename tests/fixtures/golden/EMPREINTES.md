@@ -1243,14 +1243,14 @@ fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.p
 
 ## Version 5.12.0 (6 novembre 2026) — version mineure, seul le numéro bouge
 
-Ce qui est entré depuis la 5.11.1 (sélection au toucher en Vue 3D, #595) ne change aucune quantité ni aucun export de la démonstration :
+Ce qui est entré depuis la 5.11.1 (sélection au toucher en Vue 3D, #595, une maison voisine valant le vide, #597) ne change aucune quantité ni aucun export de la démonstration :
 `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Les sept témoins passent à
 `5.12.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.12.0` → `5.11.1` remis dans les octets frais
 rend les fichiers de la 5.11.1 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
 quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`).
 
 **Le `.glb`**, parce que #595 retire la surbrillance de la sélection de l'export : le point 24 joué deux fois sur la 5.11.1 (a496c73a)
-et deux fois sur la 5.12.0, au bureau, thème clair, réseau témoin, donne quatre fichiers de 11 715 284 octets, dont la structure est
+et deux fois sur la 5.12.0 (main 2e830dc9, avec #597), au bureau, thème clair, réseau témoin, donne quatre fichiers de 11 715 284 octets, dont la structure est
 égale au témoin (1 143 nœuds, 955 mailles, 1 454 matériaux, 16 images, 3 954 accesseurs, 3 970 vues tampon). Les 3 954 vues tampon de
 géométrie sont identiques **au bit près** d'un fichier à l'autre, le JSON aussi, et les seize images sont les mêmes octets : seul leur
 ordre dans le tampon varie d'un export à l'autre, à la 5.11.1 comme à la 5.12.0 (elles s'encodent en parallèle).
