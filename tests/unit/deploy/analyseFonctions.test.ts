@@ -391,6 +391,38 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(phpObjets('objetJsonDuTexte', 'Je ne vois pas de façade.')).toBeNull();
     });
 
+    it('lit l analyse d une maison dont un texte libre porte un guillemet droit, un retour a la ligne ou un echappement inconnu', () => {
+      // Run 42229208319 (6 novembre 2026) : 1 920 tokens, arret « end_turn », un objet bien forme sur ses 400 premiers caracteres
+      // (seuls journalises), et « Sortie non JSON ». Le texte exact n'est pas connu ; voici le plus plausible : sans sortie
+      // structuree, Haiku cite un terme entre guillemets droits dans un texte libre (`vu`, `observe`), non echappes.
+      const cite = 'image de test : un toit "deux-pans" probable, pignon dit "à redents"';
+      const objet = { ...SORTIE_ANALYSE, forme: { indices: [{ image: 1, vu: cite }], valeur: 'deux-pans' } };
+      const bon = JSON.stringify(objet);
+      const texte = bon.replace(JSON.stringify(cite), '"' + cite + '"');
+      expect(texte).not.toBe(bon);
+      expect(() => JSON.parse(texte)).toThrow();
+      expect(phpObjets('objetJsonDuTexte', texte)).toEqual(objet);
+      // Et par lireResultat, comme la verification de l'API : lue, plus « Sortie non JSON ».
+      expect(phpObjets('lireResultat', reussiTexte('a', USAGE_P1, texte), SCHEMA.schema)).toMatchObject({ statut: 'reussi', erreur: null });
+      // Un retour a la ligne brut et un `\'` dans une chaine ; une virgule apres un guillemet cite.
+      expect(phpObjets('objetJsonDuTexte', '{"vu": "ligne 1\nligne 2 \\\'ici\\\'", "n": 1}')).toEqual({ vu: "ligne 1\nligne 2 'ici'", n: 1 });
+      expect(phpObjets('objetJsonDuTexte', '{"vu": "un "pignon", vu de loin", "n": 2}')).toEqual({ vu: 'un "pignon", vu de loin', n: 2 });
+      // Ce qui n'est pas une chaine a reparer reste illisible : objet tronque, cle sans guillemets, virgule manquante.
+      expect(phpObjets('objetJsonDuTexte', bon.slice(0, -40))).toBeNull();
+      expect(phpObjets('objetJsonDuTexte', '{forme: "x"}')).toBeNull();
+      expect(phpObjets('objetJsonDuTexte', '{"a": "x" "b": "y"}')).toBeNull();
+      // La reparation ne touche que les chaines des objets : la prose autour reste telle quelle.
+      expect(php('chainesReparees', 'Il dit "oui" : {"a": "b \'c\'"}')).toBe('Il dit "oui" : {"a": "b \'c\'"}');
+    });
+
+    it('dit aussi la fin d un texte illisible plus long que l apercu', () => {
+      const texte = JSON.stringify(SORTIE_ANALYSE).slice(0, -1) + ' "fin"';
+      const e = phpObjets<{ erreur: { message: string; apercu: string; fin: string } }>('lireResultat', reussiTexte('a', USAGE_P1, texte), SCHEMA.schema).erreur;
+      expect(e.message).toBe('Sortie non JSON.');
+      expect(e.apercu).toBe(texte.slice(0, 400));
+      expect(e.fin).toBe(texte.slice(-400));
+    });
+
     it('demande la sortie structuree quand on la veut, et reconnait son refus par l API', () => {
       const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
       expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade', 'facade-enrichie', 'facade-toit', 'plu', 'jardin', 'texte', 'assistant']);
