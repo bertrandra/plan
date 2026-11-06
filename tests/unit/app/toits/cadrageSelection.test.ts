@@ -19,6 +19,7 @@ const session = (o: ObjetPlan, mur: number, selection: SessionToit['selection'])
   const f = facadesDuBatiment(o.batiment!.corpsToit, (o as unknown as { pts: PtBrut[] }).pts).find((x) => x.rang === 0 && x.mur === mur)!;
   return { cle: o.key, hist: creerHistorique(o), facade: f, derniere: f, vue: 'facade', corpsIsole: null, selection, indice: false, vueAvant: null, isole: false, validee: false };
 };
+const corps0 = (o: ObjetPlan) => o.batiment!.corpsToit!;
 const largeur = (pts: { x: number; z: number }[]) => Math.max(Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x)), Math.max(...pts.map((p) => p.z)) - Math.min(...pts.map((p) => p.z)));
 
 describe('la camera de facade et l element choisi', () => {
@@ -26,24 +27,26 @@ describe('la camera de facade et l element choisi', () => {
   // Une scene minimale : seuls son centre et l'absence de relief comptent ici.
   const scene = () => { vue3d.scene = { cen: { x: 0, y: 0 } } as unknown as typeof vue3d.scene; };
 
-  it('choisir la fenetre de toit cadre sur elle, devant le mur de son pan ; sans choix, le batiment entier', () => {
+  it('la fenetre de toit choisie : le cadre tient tout son corps, ses poignees et elle, pas elle seule (retour sur la 5.12.0)', () => {
     scene();
-    const o = maison(), corps = o.batiment!.corpsToit!, pan = corps[0]!.elementsToit![0]!.pan;
+    const o = maison(), corps = corps0(o), pan = corps[0]!.elementsToit![0]!.pan;
     const mur = pan === 1 ? 2 : 0;
     const fenetre = { type: 'fenetre-toit' as const, rang: 0, i: 0 };
-    const cadre = pointsDeLaVue(o, session(o, mur, fenetre));
-    expect(cadre).toEqual(emprisePourCadrer(corps, fenetre).map((p) => ({ x: p.x - 0, y: 0 + p.z, z: 0 - p.y })));
-    const entier = pointsDeLaVue(o, session(o, mur, null));
-    expect(largeur(cadre)).toBeLessThan(largeur(entier) / 2);
-    expect(largeur(cadre)).toBeGreaterThanOrEqual(2 * MARGE_CADRAGE_M);
+    const cadre = pointsDeLaVue(o, session(o, mur, fenetre)), entier = pointsDeLaVue(o, session(o, mur, null));
+    // Le corps entier, du pied au-dessus du faitage, est dans le cadre (le batiment n'a qu'un corps : autant que sans choix).
+    expect(largeur(cadre)).toBeGreaterThanOrEqual(largeur(entier) - 1e-9);
+    for (const p of emprisePourCadrer(corps, fenetre).filter((q) => q.z >= 0)) {
+      expect(Math.min(...cadre.map((q) => q.x))).toBeLessThanOrEqual(p.x + 1e-9 + MARGE_CADRAGE_M);
+    }
   });
 
-  it('devant une autre facade que celle de l element, ou un corps choisi : le batiment entier', () => {
+  it('une facade du contour (un batiment sans corps) : le batiment entier', () => {
     scene();
-    const o = maison(), pan = o.batiment!.corpsToit![0]!.elementsToit![0]!.pan;
-    const autre = pan === 1 ? 0 : 2, entier = pointsDeLaVue(o, session(o, autre, null));
-    expect(pointsDeLaVue(o, session(o, autre, { type: 'fenetre-toit', rang: 0, i: 0 }))).toEqual(entier);
-    expect(pointsDeLaVue(o, session(o, autre, { type: 'corps', rang: 0, i: 0 }))).toEqual(entier);
+    const o = { key: 'c', type: 'polygon', fonction: 'batiment', elevation: 4, pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }],
+      batiment: { toit: { forme: 'plat', hauteur: 0.3, angleFaitage: 0, source: 'saisie' } } } as unknown as ObjetPlan;
+    const f = facadesDuBatiment(undefined, (o as unknown as { pts: PtBrut[] }).pts)[0]!;
+    const s: SessionToit = { cle: o.key, hist: creerHistorique(o), facade: f, derniere: f, vue: 'facade', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false };
+    expect(pointsDeLaVue(o, s)).toHaveLength(8);
   });
 
   it('cadrer ne change ni le batiment ni l historique de la session (pas de Ctrl+Z, pas de « projet modifié »)', () => {

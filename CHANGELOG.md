@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Mode Toit, vue de façade (retour du propriétaire sur la 5.12.0 : « le zoom est trop fort, je ne peux pas atteindre une poignée, trop
+  de décalage dans la perspective »).
+  - Le cadre tient la façade du corps regardé (ou de celui qui porte l'élément choisi) et toutes les poignées de ce que l'on tire, à
+    64 px au moins des bords libres et du panneau, dans les trois classes d'écran. Un élément choisi (pignon, fenêtre de toit…) ne
+    remplit plus l'écran : il se zoomait seul, et les poignées du mur sortaient de l'image. Une seule règle,
+    `facade/modeToit/poignees.ts::pointsDuCadreDeFacade`, une seule caméra, `three/poseFacade.ts::cadreOblique` (au moins 5 m de côté).
+  - Le glissement de la vue oblique est divisé par deux (0,19 et 0,11 au lieu de 0,38 et 0,22 de la maquette) : le faîtage et ses
+    poignées ne glissent plus de plusieurs mètres loin du mur ; la Vue 3D libre ne change pas.
+  - Les poignées qui se recouvrent à l'écran (un mur court, un toit plat : faîtage, égout et longueur au même endroit) s'écartent
+    jusqu'à deux zones de saisie, dans la partie libre de l'image : chacune se prend au doigt.
+  - Au téléphone, un petit élément du toit choisi se voit donc plus petit qu'avant (une fenêtre de toit de 0,8 m fait une quinzaine de
+    pixels sur une façade de 12 m), mais ses poignées et celles du mur sont toutes atteignables.
+  - Point de fumée 140 (chaque poignée de chaque façade d'AE 101 atteignable) ; le point 124 suit (il mesurait le zoom sur l'élément).
+
 ## [5.12.0] — 2026-11-06
 
 Version **mineure** au sens de `MD/RELEASE.md` : en Vue 3D, toucher un bâtiment de la parcelle, une terrasse, une pergola, un carport ou une

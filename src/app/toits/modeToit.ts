@@ -23,7 +23,7 @@ import { lectureToits } from '../../core/lectureToits.js';
 import { showToast } from '../../shell/dialogs.js';
 import type * as THREE_NS from 'three';
 import { elementProche, lireElement, listerElements, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
-import { emprisePourCadrer, murDeCadrage, murLePlusVisible } from '../../facade/modeToit/poignees.js';
+import { murDeCadrage, murLePlusVisible, pointsDuCadreDeFacade } from '../../facade/modeToit/poignees.js';
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
 import { toucher } from '../../core/controleurObjets.js';
@@ -316,17 +316,15 @@ function cadrerEnPerspective(points: readonly PointScene[]): void {
 }
 
 /**
- * Ce que la camera de facade tient dans l'image : l'element choisi quand la facade regardee est la sienne (`murDeCadrage` : on zoome sur
- * lui, avec un peu de toit autour), sinon le batiment entier. Lacher l'element rend la facade entiere.
+ * Ce que la camera de facade tient dans l'image : la facade du corps regarde et toutes les poignees de ce que l'on tire, l'element choisi
+ * compris (`poignees.ts::pointsDuCadreDeFacade`, une seule regle) ; une facade du contour, le batiment entier.
  */
 export function pointsDeLaVue(o: ObjetPlan, s: SessionToit): PointScene[] {
-  const sc = vue3d.scene, corps = o.batiment?.corpsToit ?? [], t = s.selection, f = s.facade;
-  if (!sc || !t || !f || !corps.length) return pointsDuBatiment(o);
-  const m = murDeCadrage(corps, t, f);
-  const boite = m && m.rang === f.rang && m.mur === f.mur ? emprisePourCadrer(corps, t) : [];
-  if (!boite.length) return pointsDuBatiment(o);
+  const sc = vue3d.scene, corps = o.batiment?.corpsToit ?? [], f = s.facade;
+  const pts = sc && f && corps.length ? pointsDuCadreDeFacade(corps, f, s.selection) : [];
+  if (!sc || !pts.length) return pointsDuBatiment(o);
   const base = altitudeDuBatiment(o);
-  return boite.map((p) => ({ x: p.x - sc.cen.x, y: base + p.z, z: sc.cen.y - p.y }));
+  return pts.map((p) => ({ x: p.x - sc.cen.x, y: base + p.z, z: sc.cen.y - p.y }));
 }
 
 /** La camera et les reglages vus la derniere fois : tant qu'ils ne changent pas, les fantomes ne sont pas recalcules. */
