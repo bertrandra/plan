@@ -14,6 +14,7 @@ import { formeDuCorps } from '../regles/toits/faits.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
 import { RECULS_TRAVEE_M } from './travees.js';
+import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import { appliquerBout, groupesBoutsDuCorps, groupesPointe, valeurBout } from './bouts.js';
 import { facadesDuBatiment, orientationDe } from './facadesDesCorps.js';
 
@@ -347,7 +348,11 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
     if (!k) return [];
     const l: GroupeChoix[] = [{ groupe: 'nature', valeurs: (['mur', 'poteaux', 'garde-corps', 'ouvert'] as const).map((v) => ({ valeur: v, libelle: LIBELLES_NATURE[v] })) }];
     // Seul un mur plein recule sous le toit.
-    if (k.nature === 'mur') l.push({ groupe: 'recul', valeurs: RECULS_TRAVEE_M.map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Au nu du mur' : 'Reculé de ' + String(v).replace('.', ',') + ' m sous le toit' })) });
+    if (k.nature === 'mur') {
+      // Les valeurs rapides, et la valeur libre en place (un decroche de 40 cm) quand elle n'en fait pas partie : enfoncee, elle se voit.
+      const r = k.reculM ?? 0, libre = RECULS_TRAVEE_M.some((v) => Math.abs(v - r) <= 0.005) ? [] : [r];
+      l.push({ groupe: 'recul', valeurs: [...RECULS_TRAVEE_M, ...libre].sort((p, q) => p - q).map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Au nu du mur' : 'Reculé de ' + String(v).replace('.', ',') + ' m sous le toit' })) });
+    }
     return l;
   }
   if (t.type === 'pignon') return [
@@ -412,7 +417,7 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
     const k = c.travees?.[t.i];
     if (!k) return null;
     if (groupe === 'nature') return k.nature;
-    if (groupe === 'recul') { const r = k.reculM ?? 0, v = RECULS_TRAVEE_M.find((x) => Math.abs(x - r) <= 0.02); return v === undefined ? null : String(v); }
+    if (groupe === 'recul') { const r = k.reculM ?? 0, v = RECULS_TRAVEE_M.find((x) => Math.abs(x - r) <= 0.005); return String(v ?? r); }
   }
   if (groupe === 'pan') { const p = panDe(c, t); return p === null ? null : String(p); }
   return null;
@@ -496,8 +501,9 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
       // Le recul ne vaut que pour un mur plein : il part avec une autre nature.
       neuve = { mur: k.mur, de: k.de, a: k.a, nature: valeur, ...(valeur === 'mur' && k.reculM ? { reculM: k.reculM } : {}) };
     }
-    if (groupe === 'recul' && k.nature === 'mur' && RECULS_TRAVEE_M.includes(Number(valeur))) {
-      neuve = { mur: k.mur, de: k.de, a: k.a, nature: 'mur', ...(Number(valeur) > 0 ? { reculM: Number(valeur) } : {}) };
+    const r = Number(valeur);
+    if (groupe === 'recul' && k.nature === 'mur' && Number.isFinite(r) && r >= 0 && r <= RECUL_TRAVEE_MAX_M) {
+      neuve = { mur: k.mur, de: k.de, a: k.a, nature: 'mur', ...(r > 0 ? { reculM: r } : {}) };
     }
     if (neuve) return avec(corps, t.rang, { ...c, travees: remplace(c.travees, t.i, neuve) });
   }

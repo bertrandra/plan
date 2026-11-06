@@ -14,7 +14,7 @@ export type NomIcone =
   | 'grille' | 'ajuster' | 'recadrer' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
-  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee'
+  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee' | 'decroche'
   | 'tourner' | 'vueDessus' | 'toitAvant';
 
 /** Les traces, chacun dans un repere de 24 × 24. */
@@ -42,6 +42,7 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   fusionner: <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M8 12h8M14 10l2 2-2 2M10 10l-2 2 2 2" /></>,
   // Un auvent qui tourne a l'angle (vu de dessus) ; un mur en travees (vu de face).
   angle: <path d="M4 4h16v16M4 4v5h11v11h5M15 9l5-5" />,
+  decroche: <><path d="M3 20h18M3 6h18M3 6v14M21 6v14" /><path d="M12 6v14" /><path d="M12 13h6v7" strokeDasharray="2 2" /><path d="M15 10l3 3-3 3" /></>,
   travee: <><path d="M3 20h18M3 6h18M3 6v14M21 6v14" /><path d="M12 6v14M12 13h9" strokeDasharray="2 2" /></>,
   reculer: <><rect x="4" y="4" width="11" height="11" rx="1" /><path d="M9 20h11V9" /></>,
   positionInitiale: <><path d="M4 12a8 8 0 108-8" /><path d="M4 4v5h5" /></>,

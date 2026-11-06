@@ -16,6 +16,7 @@ import { facadeDeLElement, type CibleElement } from './elements.js';
 import { tourneVers } from '../../geometry/cotesVusDeDehors.js';
 import type { CorpsToit, ProfilPan, PtBrut } from '../../model/types.js';
 import { SAILLIE_PIGNON_MAX_M } from '../../model/corpsToitEtendu.js';
+import { reculAimante } from './travees.js';
 
 export type Axe = 'long' | 'vert' | 'prof';
 
@@ -74,6 +75,16 @@ export function monterCorps(c: CorpsToit, d: number): CorpsToit {
 export const SEUIL_AIMANT_M = 0.25;
 
 /** Colle `v` au premier candidat a moins du seuil ; sinon l'arrondit a 5 cm. Rend aussi le candidat colle (pour dessiner un guide). */
+/**
+ * Un axe de poignee a l'ecran (les pixels d'un metre sur cet axe), allonge a `minPx` s'il est plus court, dans la meme direction. La
+ * profondeur, vue de face par la camera oblique, ne fait qu'une quinzaine de pixels par metre : un pixel de doigt y valait 7 cm, et un
+ * recul de 40 cm ne se reglait pas (demande du proprietaire, novembre 2026). Allonge, un pixel vaut un centimetre ou moins.
+ */
+export function axeUtilisable(v: { x: number; y: number }, minPx: number): { x: number; y: number } {
+  const l = Math.hypot(v.x, v.y);
+  return l > 1e-6 && l < minPx ? { x: (v.x / l) * minPx, y: (v.y / l) * minPx } : v;
+}
+
 export function aimanter(v: number, candidats: readonly number[]): { v: number; colle: number | null } {
   for (const c of candidats) if (Math.abs(v - c) < SEUIL_AIMANT_M) return { v: c, colle: c };
   return { v: vingt(v), colle: null };
@@ -150,7 +161,9 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
     const z = egoutDeLaFacade(c, k.mur) / 2, d = -(k.reculM ?? 0);
     return [
       { id: 'gauche', point: P(k.de, d, z), axes: ['long'], libelle: 'Bord gauche' },
-      { id: 'droite', point: P(k.a, d, z), axes: ['long'], libelle: 'Bord droit' }
+      { id: 'droite', point: P(k.a, d, z), axes: ['long'], libelle: 'Bord droit' },
+      // La profondeur d'un decroche (un mur recule) : au milieu du troncon, plus haut que les bords, elle se tire vers la maison.
+      ...(k.nature === 'mur' ? [{ id: 'recul', point: P((k.de + k.a) / 2, d, z * 1.5), axes: ['prof'] as Axe[], libelle: 'Recul du mur' }] : [])
     ];
   }
   if (t.type === 'pignon') {
@@ -454,7 +467,9 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     // Les bords d'une travee se collent aux bords des autres travees du meme mur, aux bouts du mur, et restent dans le mur.
     const bordsT = [0, f.L, ...(c.travees ?? []).flatMap((x, j) => (j !== t.i && x.mur === k.mur ? [x.de, x.a] : []))];
     const colle = (v: number) => { const a = aimanter(v, bordsT); if (a.colle !== null) guides.push(a.colle); return a.v; };
-    const neuve = id === 'gauche' ? { ...k, de: centi(borne(colle(k.de + dl), 0, k.a - 0.3)) } : id === 'droite' ? { ...k, a: centi(borne(colle(k.a + dl), k.de + 0.3, f.L)) } : null;
+    // Tirer la profondeur vers la maison recule le mur, au centimetre, colle aux 5 cm ronds (travees.ts::reculAimante).
+    const neuve = id === 'gauche' ? { ...k, de: centi(borne(colle(k.de + dl), 0, k.a - 0.3)) } : id === 'droite' ? { ...k, a: centi(borne(colle(k.a + dl), k.de + 0.3, f.L)) }
+      : id === 'recul' && k.nature === 'mur' ? { ...k, reculM: reculAimante((k.reculM ?? 0) - dp) } : null;
     return neuve ? { corps: avec(depart, t.rang, { ...c, travees: remplace(c.travees, t.i, neuve) }), guides } : rien;
   }
   if (t.type === 'cheminee') {

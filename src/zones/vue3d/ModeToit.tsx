@@ -35,6 +35,9 @@ const vuesSurLeToit = new Map<string, ReturnType<typeof vueSurLeToit>>();
  * L'image d'une piece : la vignette du catalogue, celle de l'element de facade, ou (onglet « Sur le toit ») l'element cadre de pres sur
  * son toit, chacune calculee une fois.
  */
+/** Les pieces qui ne se posent pas d'un coup ont leur propre commande : le decroche attend le point touche sur l'egout ou le mur. */
+const COMMANDE_DE_PIECE: Record<string, string> = { 'facade:decroche': 'toit.decrocher' };
+
 function ImagePiece({ p }: { p: PieceCatalogue }) {
   const nom = p.id.replace(/^[a-z]+:/, '');
   if (p.famille === 'sur') {
@@ -44,6 +47,7 @@ function ImagePiece({ p }: { p: PieceCatalogue }) {
   }
   if (p.exemple) return <VignetteToit forme={p.exemple} />;
   if (p.id === 'facade:travee') return <Icone nom="travee" taille={40} />;
+  if (p.id === 'facade:decroche') return <Icone nom="decroche" taille={40} />;
   if (p.famille !== 'facade') return <Icone nom="polygone" />;
   if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeSaillie(nom));
   return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
@@ -242,11 +246,12 @@ export function ModeToit({ magasin, commandes }: Props) {
       <div className="toitCatalogue">
         {piecesDe(onglet).map((p) => {
           const refusDe = (id: string) => (o ? raisonIndisponible(o, id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.');
-          const refus = refusDe(p.id), options = OPTIONS_PIECE[p.id];
+          const refus = refusDe(p.id), options = OPTIONS_PIECE[p.id], idCommande = COMMANDE_DE_PIECE[p.id] ?? 'toit.poser';
+          const permise = idCommande === 'toit.poser' ? pose.utilisable : commandes.etat(idCommande).utilisable;
           const bouton = (
-            <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id} aria-pressed={p.famille === 'toit' ? p.id === enPlace : undefined}
-              disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
-              onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>
+            <button key={p.id} type="button" className="toitPiece" data-commande={idCommande} data-piece={p.id} aria-pressed={p.famille === 'toit' ? p.id === enPlace : undefined}
+              disabled={!!refus || !permise} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
+              onClick={(ev) => { commandes.executer(idCommande, ev.currentTarget); }}>
               <span className="glyphe"><ImagePiece p={p} /></span>
               <span className="libelle">{p.libelle}</span>
             </button>

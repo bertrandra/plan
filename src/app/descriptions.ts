@@ -146,6 +146,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.isoler': 'Masque le voisinage pour ne voir que ce bâtiment ; rebasculer le rend',
   'toit.regles': 'Allume ou coupe la lecture automatique du toit : coupée, le bâtiment reste comme vous l’avez réglé ; rallumée, Plan relit le toit (LiDAR, faits, profils) et remplace ce que vous aviez réglé',
   'toit.poser': 'Pose sur le bâtiment le geste du catalogue choisi (forme de toit, élément du toit, élément de façade) ; coupe les règles pour ce bâtiment',
+  'toit.decrocher': 'Décroche le mur de la façade regardée au point que vous touchez : le mur recule à gauche ou à droite de la profondeur choisie, sous le toit continu ; ses poignées règlent ensuite les bords et le recul',
   'toit.modifierEn3d': 'Ouvre la Vue 3D et le mode Toit sur le bâtiment sélectionné : corps, pentes, pignons et façades se règlent en images ; rien ne touche au projet avant la validation',
   'toit.murSur3d': 'Arme l’élément de façade choisi dans le mode Toit : le prochain toucher sur un mur du bâtiment, dans la vue 3D, l’y pose',
   'toit.facade': 'Choisit la façade du bâtiment que la scène cadre : un mur du plan en petit, ou un corps (sa façade la plus tournée vers la caméra)',

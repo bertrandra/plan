@@ -5,7 +5,7 @@
 // ne batit pas une seconde scene (une seule maintenance) : l'appelant epure la scene (`epurerVue3d`, le batiment seul) et pose ici la
 // camera de la maquette ; le fond prend celui de l'interface. Tout se defait a l'identique.
 
-import { cadreOblique, type PointScene, type Reserve } from './poseFacade.js';
+import { cadreOblique, deplacerZoom, projectionZoomee, zoomerAutour, ZOOM_NEUTRE, type CadreOblique, type PointScene, type Reserve, type ZoomFacade } from './poseFacade.js';
 import { rendre3d, type SceneVue3d } from './etat3d.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut } from '../model/types.js';
@@ -21,6 +21,43 @@ function fondDuTheme(): string {
   return getComputedStyle(document.documentElement).getPropertyValue('--stage-bg').trim() || FOND_DEFAUT;
 }
 
+/**
+ * Le zoom de la vue de facade, par scene : le cadre pose (sans zoom), le mur qu'il regarde et le zoom. Il survit a un recadrage devant le
+ * meme mur (un pas de Ctrl+Z, un element choisi, un glisser de poignee recadrent : la vue rapprochee reste) ; un autre mur, ou la camera
+ * retiree, le remet au cadre de depart.
+ */
+interface EtatZoom { mur: string; cadre: CadreOblique; zoom: ZoomFacade }
+const zooms = new WeakMap<SceneVue3d, EtatZoom>();
+const cleDuMur = (m: MurVise) => [m.a.x, m.a.y, m.b.x, m.b.y].map((v) => v.toFixed(3)).join();
+
+/** Pose la projection du cadre, zoomee, sur la camera de facade. */
+function appliquerZoom(sc: SceneVue3d, e: EtatZoom): void {
+  const cam = sc.cameraRendu;
+  if (!cam) return;
+  cam.projectionMatrix.set(...(projectionZoomee(e.cadre.projection, e.zoom) as Parameters<THREE_NS.Matrix4['set']>));
+  cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
+}
+
+/**
+ * Rapproche (`facteur` > 1) ou eloigne la vue de facade autour du point vise `ndc` ; `glisse` : le deplacement du milieu d'un pincement.
+ * Faux sans camera de facade (la molette et le pincement sont alors ceux de l'orbite).
+ */
+export function zoomerLaFacade(sc: SceneVue3d, facteur: number, ndc: { x: number; y: number }, glisse?: { x: number; y: number }): boolean {
+  const e = zooms.get(sc);
+  if (!sc.cameraRendu || !e) return false;
+  let z = zoomerAutour(e.zoom, facteur, ndc, e.cadre.zoomMax);
+  if (glisse) z = deplacerZoom(z, glisse);
+  e.zoom = z;
+  appliquerZoom(sc, e);
+  rendre3d(sc);
+  return true;
+}
+
+/** Le zoom courant de la vue de facade (le cadre de depart sans camera de facade). */
+export function zoomDeLaFacade(sc: SceneVue3d): ZoomFacade {
+  return sc.cameraRendu ? zooms.get(sc)?.zoom ?? ZOOM_NEUTRE : ZOOM_NEUTRE;
+}
+
 /** Le mur que la camera de facade regarde : ses bouts et sa normale sortante, dans le plan. */
 export interface MurVise { a: PtBrut; b: PtBrut; n: PtBrut }
 
@@ -34,15 +71,17 @@ export function poserCameraFacade(sc: SceneVue3d, mur: MurVise, points: readonly
   const cam = sc.cameraRendu ?? new THREE.Camera();
   cam.matrixAutoUpdate = false;
   cam.matrix.set(...(cadre.monde as Parameters<THREE_NS.Matrix4['set']>));
-  cam.projectionMatrix.set(...(cadre.projection as Parameters<THREE_NS.Matrix4['set']>));
-  cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
   cam.updateMatrixWorld(true);
+  const avant = sc.cameraRendu ? zooms.get(sc) : undefined, cle = cleDuMur(mur);
+  const e: EtatZoom = { mur: cle, cadre, zoom: avant?.mur === cle ? zoomerAutour(avant.zoom, 1, { x: 0, y: 0 }, cadre.zoomMax) : ZOOM_NEUTRE };
+  zooms.set(sc, e);
   if (!sc.cameraRendu) {
     fondsAvant.set(sc, sc.scene.background);
     // Le ciel est une sphere lointaine que la camera de facade ne voit pas : le fond de l'interface la remplace.
     sc.scene.background = new THREE.Color(fondDuTheme());
   }
   sc.cameraRendu = cam;
+  appliquerZoom(sc, e);
   sc.controls.enabled = false;
   rendre3d(sc);
 }
@@ -51,6 +90,7 @@ export function poserCameraFacade(sc: SceneVue3d, mur: MurVise, points: readonly
 export function retirerCameraFacade(sc: SceneVue3d): void {
   if (!sc.cameraRendu) return;
   sc.cameraRendu = undefined;
+  zooms.delete(sc);
   sc.scene.background = fondsAvant.get(sc) ?? null;
   fondsAvant.delete(sc);
   sc.controls.enabled = true;

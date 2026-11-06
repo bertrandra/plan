@@ -70,7 +70,10 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'facade:galerie', famille: 'facade', libelle: 'Galerie' },
   { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' },
   // Une travee du mur regarde (schema 14) : un mur recule sous le toit, ou, sous un appentis, un garde-corps entre ses poteaux.
-  { id: 'facade:travee', famille: 'facade', libelle: 'Travée' }
+  { id: 'facade:travee', famille: 'facade', libelle: 'Travée' },
+  // Un decroche au point touche (demande du proprietaire, novembre 2026) : la personne touche l'egout ou le mur, choisit le cote et la
+  // profondeur ; c'est une travee de mur reculee, comme la piece « Travee ».
+  { id: 'facade:decroche', famille: 'facade', libelle: 'Décroché' }
 ];
 
 export const piece = (id: string): PieceCatalogue | undefined => PIECES.find((p) => p.id === id);
@@ -240,12 +243,12 @@ export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoi
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
   const choisi = corpsChoisi(o, rangChoisi);
   if (p.famille === 'toit') return null;
-  if (id === 'facade:travee') {
-    // Une travee se pose sur le mur regarde d'un corps (celui du corps choisi, s'il y en a un).
-    if (!facade || facade.rang === null) return 'Regardez d’abord la façade où poser la travée : touchez son mur.';
+  if (id === 'facade:travee' || id === 'facade:decroche') {
+    // Une travee (ou un decroche) se pose sur le mur regarde d'un corps (celui du corps choisi, s'il y en a un).
+    if (!facade || facade.rang === null) return 'Regardez d’abord la façade où poser ' + (id === 'facade:travee' ? 'la travée' : 'le décroché') + ' : touchez son mur.';
     const corps = o.batiment?.corpsToit ?? [], rang = rangDuCorpsChoisi(corps, rangChoisi);
     if (rang !== null && rang !== facade.rang) return 'La façade regardée n’est pas celle du corps choisi.';
-    return corps[facade.rang]?.saillie ? 'Une travée se pose sur le mur d’un corps, pas sur un élément de façade.' : null;
+    return corps[facade.rang]?.saillie ? (id === 'facade:travee' ? 'Une travée' : 'Un décroché') + ' se pose sur le mur d’un corps, pas sur un élément de façade.' : null;
   }
   if (p.famille === 'corps') {
     const h = choisi ?? corpsPrincipal(o);
@@ -351,6 +354,8 @@ function gardeCeQuiEstPose(avant: CorpsToit, apres: CorpsToit): CorpsToit {
  */
 export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie | null, rangChoisi: number | null = null): boolean {
   if (raisonIndisponible(o, id, facade, rangChoisi)) return false;
+  // Le decroche ne se pose pas d'un coup : il attend le point touche (app/ecouteurs/toitCatalogue.ts, `toit.decrocher`).
+  if (id === 'facade:decroche') return false;
   const [prefixe = '', nom = ''] = id.split(':');
   const choisi = corpsChoisi(o, rangChoisi);
   if (prefixe === 'forme' && choisi && o.batiment?.corpsToit) {

@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
-import { cadreDe, cibleDesPoignees, cotesDe, ecarterAEcran, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
+import { axeUtilisable, cadreDe, cibleDesPoignees, cotesDe, ecarterAEcran, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
@@ -57,6 +57,8 @@ function TraitCorps({ pts }: { pts: readonly Ecran[] }) {
 
 /** Au-dessous de cette longueur d'axe a l'ecran (px par metre), l'axe est vu de face : il ne se glisse pas. */
 const AXE_MIN_PX = 6;
+/** Les pixels d'un metre de profondeur, au moins : un pixel de doigt pour un centimetre. */
+const PROFONDEUR_MIN_PX = 100;
 
 interface Ecran { x: number; y: number }
 
@@ -82,7 +84,8 @@ function vecteursEcran(p: Point3, axes: readonly Axe[], f: CadreFacade, base: nu
   if (!o) return res;
   for (const a of axes) {
     const d = direction(f, a), q = projeter({ x: p.x + d.x, y: p.y + d.y, z: p.z + d.z }, base);
-    if (q) res[a] = { x: q.x - o.x, y: q.y - o.y };
+    // La profondeur se voit en raccourci de face : son axe a l'ecran est allonge (`axeUtilisable`), pour se regler au centimetre.
+    if (q) res[a] = a === 'prof' ? axeUtilisable({ x: q.x - o.x, y: q.y - o.y }, PROFONDEUR_MIN_PX) : { x: q.x - o.x, y: q.y - o.y };
   }
   return res;
 }
