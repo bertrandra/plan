@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+- **Import depuis une adresse à Paris, Lyon et Marseille : aucune parcelle trouvée.** La Base Adresse Nationale rend le code de
+  l'arrondissement (75119 pour le Zénith de Paris), le cadastre range toutes les parcelles sous celui de la commune (75056, 69123,
+  13055). La recherche filtrait sur l'arrondissement et ne ramenait rien, avec ou sans numéro. Le code est ramené à la commune avant
+  la recherche (`geo/apiIgn.ts::communeDuCadastre`) : le nom de la rue et la ville suffisent de nouveau.
+- Les suggestions d'adresse disaient leur niveau en anglais (« niveau street », « niveau municipality ») : elles disent « rue, sans
+  numéro », « commune » ou « lieu-dit ».
+
 ## [5.13.0] — 2026-11-06
 
 Version **mineure** au sens de `MD/RELEASE.md` : Mode Toit, « Décrocher ici » et la poignée « Recul du mur » (#602), la vue de façade
