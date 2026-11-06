@@ -33,6 +33,39 @@ export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDe
   return { cible, position: { x: cible.x, y: hauteur, z: cible.z + hauteur * 0.02 } };
 }
 
+/** Le plus petit recul de la camera cadree en perspective : en deca, l'orbite bascule et la maison sort de l'image au moindre geste. */
+const RECUL_MIN_M = 6;
+
+/**
+ * La camera libre (en perspective) cadree sur `points` (le batiment ou l'un de ses corps, en coordonnees de la scene) : elle garde la
+ * direction d'ou l'on regarde (`depuis`, la pose actuelle), recule juste assez pour que la sphere qui les contient tienne dans la partie
+ * libre de l'image, et decale sa cible pour que les points se centrent dans cette partie (`reserve` : ce que le panneau recouvre).
+ * `fovDeg` : le champ vertical ; `aspect` : largeur / hauteur de l'image.
+ */
+export function poseEnPerspective(points: readonly PointScene[], depuis: PoseCamera, fovDeg: number, aspect: number, reserve?: Reserve): PoseCamera {
+  const n = points.length || 1;
+  const c = points.reduce((t, p) => ({ x: t.x + p.x / n, y: t.y + p.y / n, z: t.z + p.z / n }), { x: 0, y: 0, z: 0 });
+  const rayon = Math.max(1, ...points.map((p) => Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z)));
+  // La direction de la cible vers la camera ; degeneree (camera sur sa cible), on regarde du sud-est, en surplomb.
+  let d = { x: depuis.position.x - depuis.cible.x, y: depuis.position.y - depuis.cible.y, z: depuis.position.z - depuis.cible.z };
+  const l = Math.hypot(d.x, d.y, d.z);
+  d = l > 1e-6 ? { x: d.x / l, y: d.y / l, z: d.z / l } : { x: 0.577, y: 0.577, z: 0.577 };
+  const libreL = reserve ? Math.max(0.3, 1 - reserve.droite / reserve.largeur) : 1, libreH = reserve ? Math.max(0.3, 1 - reserve.bas / reserve.hauteur) : 1;
+  const t = Math.tan((fovDeg * Math.PI) / 360);
+  const demiAngle = Math.min(Math.atan(t * libreH), Math.atan(t * Math.max(aspect, 0.1) * libreL));
+  const distance = Math.max(RECUL_MIN_M, (rayon / Math.sin(demiAngle)) * 1.05);
+  // Les axes de l'image : la droite (horizontale) et le haut. Decaler la cible a droite pousse les points a gauche, vers le bas les monte.
+  let droite = { x: d.z, y: 0, z: -d.x };
+  const ld = Math.hypot(droite.x, droite.z);
+  droite = ld > 1e-6 ? { x: droite.x / ld, y: 0, z: droite.z / ld } : { x: 1, y: 0, z: 0 };
+  const avant = { x: -d.x, y: -d.y, z: -d.z };
+  const haut = { x: droite.y * avant.z - droite.z * avant.y, y: droite.z * avant.x - droite.x * avant.z, z: droite.x * avant.y - droite.y * avant.x };
+  const parPixel = reserve ? (2 * distance * t) / reserve.hauteur : 0;
+  const dx = reserve ? (reserve.droite / 2) * parPixel : 0, dy = reserve ? (reserve.bas / 2) * parPixel : 0;
+  const cible = { x: c.x + droite.x * dx - haut.x * dy, y: c.y + droite.y * dx - haut.y * dy, z: c.z + droite.z * dx - haut.z * dy };
+  return { cible, position: { x: cible.x + d.x * distance, y: cible.y + d.y * distance, z: cible.z + d.z * distance } };
+}
+
 /**
  * Le glissement de la projection oblique de la facade (maquette v8, `#cv-face` : K et M) : un metre en profondeur derriere le mur se voit
  * 0,38 m a droite et 0,22 m plus haut. Le mur reste a l'echelle et sans fuite (les cotes s'y lisent), le toit et le cote droit se voient

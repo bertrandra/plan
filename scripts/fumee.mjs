@@ -4072,7 +4072,9 @@ const POINTS = {
     await page.locator('[data-piece="corps:aile"]').click({ timeout: 30000 });
     await page.waitForFunction(() => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length ?? 0) >= 2, null, { timeout: 60000 });
     const rang = (await corps()).length - 1;
-    await page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]').click({ timeout: 30000 });
+    // L'aile posee est deja choisie ; retoucher sa pastille enfoncee la lacherait (audit de la navigation, lot B).
+    const puceAile = page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]');
+    if ((await puceAile.getAttribute('aria-pressed', { timeout: 30000 })) !== 'true') await puceAile.click({ timeout: 30000 });
     await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
     await page.waitForTimeout(800);
     const silhouette = await page.locator('.silhouetteCorpsToit .trait').count();
@@ -4081,6 +4083,8 @@ const POINTS = {
     const faitageDit = ((await page.locator('.cotesToit [data-cote="h"]').first().textContent({ timeout: 5000 }).catch(() => '')) || '').trim();
     const surLAile = faitageDit === faitageAile && (await page.locator('[data-poignee="egout"]').count()) === 1;
     const indice = (await page.locator('.panneauToit .indiceToit').allTextContents()).join(' ');
+    // La ligne « Corps · Façade » nomme le corps choisi (audit de la navigation, lot B) : le nom de sa pastille.
+    const nomAile = ((await page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]').textContent()) || '').trim();
     await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
     await page.locator('[data-piece="sur:cheminee"]').click({ timeout: 30000 });
     await page.waitForFunction((r) => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[r]?.cheminees?.length, rang, { timeout: 60000 });
@@ -4092,7 +4096,7 @@ const POINTS = {
     const deplacer = await page.locator('.poigneeToit.deplacer rect.pointPoignee').count();
     const rondes = await page.locator('.poigneeToit:not(.deplacer) circle.pointPoignee').count();
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
-    const ok = silhouette === 1 && surLAile && /seulement/.test(indice) && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
+    const ok = silhouette === 1 && surLAile && !!nomAile && indice.startsWith(nomAile + ' · ') && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
     return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; poignées ${surLAile ? 'sur lui' : 'AILLEURS'} (faîtage dit ${faitageDit || '—'}, le sien ${faitageAile}) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   135: async (page, f) => {
@@ -4195,6 +4199,110 @@ const POINTS = {
     const ventOk = arbres > 0 && vent.parSeconde > 5 && vent.parSeconde <= 31;
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
+  },
+  137: async (page, f) => {
+    // Le corps choisi au mode Toit (audit de la navigation, 6 novembre 2026, lot B), sur AE 101 et ses cinq corps : a l'entree, la camera
+    // se cadre sur la maison, a cote du panneau ; la pastille « Corps 2 » cadre la camera sur ce corps, la ligne du panneau dit
+    // « Corps 2 · … » et le plan des facades le met en evidence ; une facade du corps principal choisie sur ce plan : il devient le corps
+    // choisi ; « Bâtiment entier » lache le choix ; un reglage puis Ctrl+Z rendent le corps choisi et la camera d'avant ; au telephone, la
+    // barre de la session reste visible au bas du panneau defile, et un message ne la couvre pas ; la sortie rend la camera d'avant le mode.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    // La camera, et ou tombe le centre d'un corps (ou de la maison) a l'ecran, par rapport au panneau.
+    const camera = () => page.evaluate(() => { const sc = window.__plan.scene3d(); return { p: sc.camera.position.toArray(), t: sc.controls.target.toArray() }; });
+    const ecart = (a, b) => Math.hypot(...a.p.map((v, i) => v - b.p[i])) + Math.hypot(...a.t.map((v, i) => v - b.t[i]));
+    const centre = (rang) => page.evaluate((r) => {
+      const sc = window.__plan.scene3d(), o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const pts = r === null ? o.pts : o.batiment.corpsToit[r].pts;
+      const cx = pts.reduce((t, p) => t + p.x, 0) / pts.length, cy = pts.reduce((t, p) => t + p.y, 0) / pts.length;
+      const hote = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(), panneau = document.querySelector('.panneauToit').getBoundingClientRect();
+      const v = new THREE.Vector3(cx - sc.cen.x, 4, sc.cen.y - cy).project(sc.camera);
+      const x = hote.left + ((v.x + 1) / 2) * hote.width, y = hote.top + ((1 - v.y) / 2) * hote.height;
+      const dessous = x > panneau.left && x < panneau.right && y > panneau.top && y < panneau.bottom;
+      return { x, y, dessous, distance: Math.hypot(sc.camera.position.x - (cx - sc.cen.x), sc.camera.position.z - (sc.cen.y - cy)) };
+    }, rang);
+    const avantMode = await camera();
+    const loin = await page.evaluate(() => { const sc = window.__plan.scene3d(); return sc.camera.position.length(); });
+    await etape('ouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    });
+    await page.waitForTimeout(800);
+    const entree = await centre(null);
+    const cadreEntree = !entree.dessous && entree.distance < loin;
+    const designation = () => page.locator('.panneauToit .designationToit').textContent();
+    // La pastille « Corps 2 ».
+    const puce = (rang) => page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]');
+    const camAvantCorps = await camera();
+    await etape('pastille Corps 2', () => puce(1).dispatchEvent('click'));
+    await page.waitForTimeout(500);
+    const corps2 = await centre(1);
+    const ligneCorps2 = (await designation()) || '';
+    const nav2 = await page.locator('polygon.corpsNav.sur[data-corps="1"]').count();
+    const cadreCorps = ecart(camAvantCorps, await camera()) > 0.5 && !corps2.dessous && /^Corps 2 · /.test(ligneCorps2) && nav2 === 1;
+    // Une facade du corps principal choisie sur le plan des facades : le corps choisi suit.
+    await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="1"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(500);
+    const lignePrincipal = (await designation()) || '';
+    const suit = /^Corps principal · façade /.test(lignePrincipal) && (await puce(0).getAttribute('aria-pressed')) === 'true';
+    // « Bâtiment entier ».
+    await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
+    await etape('Bâtiment entier', () => page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click'));
+    await page.waitForTimeout(400);
+    const entier = (await page.locator('.puceToit[aria-pressed="true"]').allTextContents()).join('|') === 'Bâtiment entier';
+    // Un reglage sur le corps 2, la camera et le choix changes, puis Ctrl+Z : le corps 2 choisi et la camera du reglage reviennent.
+    await puce(1).dispatchEvent('click');
+    await page.waitForTimeout(400);
+    await etape('pente 45', () => page.locator('.inspecteurToit [data-groupe="pente"][data-valeur="45"]').dispatchEvent('click'));
+    await page.waitForTimeout(400);
+    const camReglage = await camera();
+    await page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click');
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { const sc = window.__plan.scene3d(); sc.camera.position.x += 15; sc.controls.update(); });
+    await page.locator('.panneauToit .titrePlateau').click();
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+    const annule = (await puce(1).getAttribute('aria-pressed')) === 'true' && ecart(camReglage, await camera()) < 0.5;
+    // Au telephone : le panneau defile jusqu'en bas, la barre de la session reste visible ; un message ne la couvre pas.
+    let telephone = true;
+    if (f.nom === 'compact') {
+      await page.evaluate(() => { const d = document.querySelector('.defilementToit'); d.scrollTop = d.scrollHeight; });
+      await page.waitForTimeout(300);
+      await page.evaluate(() => window.__plan.executer('toit.voirValide'));
+      await page.waitForTimeout(300);
+      await page.evaluate(() => window.__plan.executer('toit.voirValide'));
+      telephone = await page.evaluate(() => {
+        const b = document.querySelector('[data-commande="toit.valider"]').getBoundingClientRect(), d = document.querySelector('.panneauToit').getBoundingClientRect();
+        const visible = b.top >= d.top - 1 && b.bottom <= d.bottom + 1 && b.height > 0;
+        const t = document.querySelector('.notificationsToasts')?.getBoundingClientRect();
+        return visible && (!t || t.bottom <= d.top || t.top >= d.bottom);
+      });
+    }
+    // La sortie (Abandonner) rend la camera d'avant le mode.
+    await page.locator('[data-commande="toit.abandonner"]').dispatchEvent('click');
+    await page.waitForTimeout(300);
+    if (await page.locator('[data-controle="dialogue.secondaire"]').count()) await page.locator('[data-controle="dialogue.secondaire"]').click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    const sortie = ecart(avantMode, await camera()) < 0.5;
+    const ok = cadreEntree && cadreCorps && suit && entier && annule && telephone && sortie;
+    return { ok, mesure: `entrée : maison ${cadreEntree ? 'cadrée à côté du panneau' : 'PAS CADRÉE'} (${Math.round(entree.distance)} m) ; « Corps 2 » : ${cadreCorps ? 'cadré, « ' + ligneCorps2 + ' », en évidence sur le plan' : 'ÉCHEC (« ' + ligneCorps2 + ' », plan ' + nav2 + ')'} ; façade du principal : ${suit ? 'le corps suit' : 'LE CORPS NE SUIT PAS (« ' + lignePrincipal + ' »)'} ; « Bâtiment entier » ${entier ? 'lâche le choix' : 'NE LÂCHE PAS'} ; Ctrl+Z ${annule ? 'rend le corps 2 et la caméra' : 'NE REND PAS la vue'} ; téléphone ${telephone ? 'barre visible, message hors du panneau' : 'BARRE CACHÉE OU COUVERTE'} ; sortie ${sortie ? 'caméra d’avant rendue' : 'CAMÉRA PERDUE'}` };
   },
   136: async (page, f) => {
     // Une session du mode Toit ne se perd plus sans qu'on le demande (audit de la navigation, 6 novembre 2026). Une premiere session
@@ -4459,7 +4567,10 @@ const POINTS = {
     await page.waitForTimeout(400);
     const qdvAnnule = await lire();
     // 2. Le bout 0 en cul de geai, sans debord, avec un debord d'egout de 0,6 m, puis le faitage qui deborde de 1 m.
-    await page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').click({ timeout: 10000 }).catch(() => {});
+    // Ctrl+Z a rendu le corps choisi avec le pas (audit de la navigation, lot B) : retoucher sa pastille le lacherait.
+    if ((await page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').getAttribute('aria-pressed')) !== 'true') {
+      await page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').click({ timeout: 10000 }).catch(() => {});
+    }
     await regler('bout0', 'demi-croupe');
     await photo('2-cul-de-geai');
     await regler('debord', '0.6');
@@ -4472,7 +4583,9 @@ const POINTS = {
     await etape('poser un pignon', () => page.locator('.toitPiece[data-piece="sur:pignon"]').click({ timeout: 10000 }));
     await page.waitForFunction((r) => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[r]?.pignons.length ?? 0) > 0, depart.rang, { timeout: 10000 });
     const i = (await lire()).pignons - 1;
-    await etape('pastille du pignon', () => page.locator('.puceToit[data-type="pignon"][data-rang="' + depart.rang + '"][data-i="' + i + '"]').click({ timeout: 10000 }));
+    // Le pignon pose est deja choisi ; retoucher sa pastille enfoncee le lacherait (audit de la navigation, lot B).
+    const puce = page.locator('.puceToit[data-type="pignon"][data-rang="' + depart.rang + '"][data-i="' + i + '"]');
+    if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await etape('pastille du pignon', () => puce.click({ timeout: 10000 }));
     await regler('pointe', 'demi-croupe');
     const pointe = await lire();
     await photo('5-pignon-cul-de-geai', true);
@@ -5698,8 +5811,9 @@ function pointsPour(nomClasse) {
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
   // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
   //       Vent coche, arbres visibles : au plus 30 images par seconde.
+  // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
