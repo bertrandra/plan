@@ -9,13 +9,14 @@
 // `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
+import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
-import { hotes3d } from '../../three/etat3d.js';
+import { affichage3d, hotes3d } from '../../three/etat3d.js';
+import { dialogues } from '../../shell/dialogues.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { showToast } from '../../shell/dialogs.js';
 import type { Atelier } from '../atelier.js';
@@ -57,14 +58,20 @@ interface DepsClavier {
   rafraichir: () => void;
 }
 
-/** Les touches du mode : Echap (arme, selection, vue, abandon), Suppr / Retour arriere (supprime l'element choisi), Ctrl+Z / Ctrl+Y (ceux de la session). */
+/**
+ * Les touches du mode : Echap (arme, selection, vue, abandon), Suppr / Retour arriere (supprime l'element choisi), Ctrl+Z / Ctrl+Y (ceux de
+ * la session). Une touche, un effet : celle que le mode prend ne va pas plus loin (ni au dialogue qu'elle vient d'ouvrir, ni au plein
+ * ecran) ; un dialogue ouvert garde la sienne.
+ */
 function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
-  if (!d.enSession()) return;
+  if (!d.enSession() || dialogues.courant()) return;
   const cible = e.target as HTMLElement | null;
-  // Une saisie dans un champ garde ses propres touches (Ctrl+Z du champ, Echap du dialogue).
+  // Une saisie dans un champ garde ses propres touches (Echap du champ) ; son Ctrl+Z passe par `objet.annuler`, qui annule la session.
   if (cible && (cible.tagName === 'INPUT' || cible.tagName === 'TEXTAREA' || cible.tagName === 'SELECT')) return;
   if (e.key === 'Escape') {
-    if (saillieArmee()) { desarmerSaillie(); d.rafraichir(); } else d.mode.echap();
+    let prise = true;
+    if (saillieArmee()) { desarmerSaillie(); d.rafraichir(); } else prise = d.mode.echap(affichage3d.pleinePage3d);
+    if (prise) { e.preventDefault(); e.stopPropagation(); }
     return;
   }
   // Le corps principal reste : la commande le refuse sans rien ecrire.
@@ -240,9 +247,10 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   // Le toucher (un clic, pas un glisser qui fait tourner la vue) sur la Vue 3D : l'element arme se pose, sinon la facade se choisit.
   const doc = typeof document === 'undefined' ? null : document;
   let appui: { x: number; y: number } | null = null;
-  // Une poignee (zones/vue3d/PoigneesToit.tsx) garde son geste : ni toucher ni orbite.
-  const surPoignee = (e: Event) => !!(e.target as Element | null)?.closest?.('[data-poignee],[data-plan-corps]');
-  doc?.addEventListener('pointerdown', (e) => { if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) && !surPoignee(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
+  // Seul le canevas est la scene : le panneau du mode, le plan des facades, les poignees et les boutons de la Vue 3D sont poses
+  // par-dessus, dans le meme hote ; un toucher sur eux choisissait aussi la facade qu'ils couvraient (audit du 6 novembre 2026).
+  const surLaScene = (e: Event): boolean => { const h = hotes3d.vue3d, t = e.target; return !!h && t instanceof HTMLCanvasElement && h.contains(t); };
+  doc?.addEventListener('pointerdown', (e) => { if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); appui = enSession() && surLaScene(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
   doc?.addEventListener('pointerup', (e) => {
     const debut = appui; appui = null;
     const hote = hotes3d.vue3d;
@@ -254,12 +262,56 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   }, true);
   doc?.addEventListener('keydown', (e) => { touchesDuMode(e, { enSession, aUnChoix: () => !!choisi(), mode, cmd, rafraichir: ctx.rafraichir }); }, true);
 
-  // Quitter la Vue 3D ou choisir un autre objet met fin a la session : le toit revient, sans question.
+  brancherSortiesDeSession(a, ctx, cmd, mode);
+}
+
+/**
+ * Ce qui ferait sortir d'une session : quitter la Vue 3D, choisir un autre objet, le retour du navigateur. Une session modifiee ne se
+ * perd plus en silence (audit du 6 novembre 2026) : la personne choisit d'abord.
+ */
+function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes, mode: ReturnType<typeof creerModeToit>): void {
+  const enSession = () => !!sessionToit();
+  // Quitter la Vue 3D pendant une session : la commande attend la reponse (Valider, Abandonner, Rester), puis repart.
+  cmd.retenir((id, source) => {
+    if (!enSession() || !COMMANDES_QUI_QUITTENT.has(id)) return false;
+    quitterLaSessionPuis(mode, () => { cmd.executer(id, source); });
+    return true;
+  });
+
+  // Choisir un autre objet pendant une session modifiee : la selection revient au batiment, et la question est posee ; la reponse
+  // donnee, l'objet choisi le redevient. Sans changement, ou si le batiment n'est plus la (un autre projet ouvert), ou si la vue a
+  // change par un autre chemin qu'une commande, la session se ferme comme avant.
   let vueAvant = ctx.magasin.store.getState().vue, cleAvant = a.etat.selectedKey;
+  const choisir = (cle: string | null) => { a.etat.selectedKey = cle; a.etat.highlight = { type: null, index: null }; a.render(); };
   ctx.magasin.store.subscribe((s) => {
     const vue = s.vue, cle = a.etat.selectedKey;
     const change = vue !== vueAvant || cle !== cleAvant;
     vueAvant = vue; cleAvant = cle;
-    if (change && enSession() && (vue !== 'vue3d' || cle !== sessionToit()?.cle)) mode.arreterSansDemander('Mode Toit quitté : les changements ont été abandonnés.');
+    const session = sessionToit();
+    if (!change || !session || (vue === 'vue3d' && cle === session.cle)) return;
+    const present = a.etat.objects.some((o) => o.key === session.cle);
+    if (vue === 'vue3d' && present && etatToit().change) {
+      // Hors de l'ecouteur du magasin : rendre la selection redessine, et donc le notifie.
+      queueMicrotask(() => {
+        if (sessionToit() !== session) return;
+        choisir(session.cle);
+        quitterLaSessionPuis(mode, () => { choisir(cle); });
+      });
+      return;
+    }
+    mode.arreterSansDemander('Mode Toit quitté : les changements ont été abandonnés.');
+  });
+
+  // Le retour du navigateur (ou du telephone) vaut Echap pendant une session : l'entree posee a l'ouverture vient d'etre retiree,
+  // elle est remise tant que la session dure.
+  if (typeof window !== 'undefined') window.addEventListener('popstate', () => {
+    if (!retourDuNavigateur() || !enSession()) return;
+    if (dialogues.courant()) dialogues.fermer();
+    else if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); }
+    else mode.echap();
+    if (enSession()) poserEntreeHistorique();
   });
 }
+
+/** Les commandes qui quittent la Vue 3D : une session modifiee les retient le temps de sa question. */
+const COMMANDES_QUI_QUITTENT = new Set(['vue.plan', 'vue.visionneuse']);

@@ -23,6 +23,21 @@ describe('registre des commandes', () => {
     expect(r.etat('audit.parcelle')).toEqual({ utilisable: true });
   });
 
+  it('une garde retient une commande utilisable (une question d abord), puis se retire', () => {
+    const r = creerRegistre(), faite = vi.fn();
+    r.declarer(commande('vue.plan', faite));
+    let retenir = true;
+    const retirer = r.retenir((id) => id === 'vue.plan' && retenir);
+    expect(r.executer('vue.plan')).toBe(false);
+    expect(faite).not.toHaveBeenCalled();
+    retenir = false;
+    expect(r.executer('vue.plan')).toBe(true);
+    retenir = true;
+    retirer();
+    expect(r.executer('vue.plan')).toBe(true);
+    expect(faite).toHaveBeenCalledTimes(2);
+  });
+
   it('declare, retrouve et liste par groupe', () => {
     const r = creerRegistre();
     r.declarer(commande('objet.dupliquer'));

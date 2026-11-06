@@ -4,7 +4,8 @@
 // place — la scene 3D le montre tout de suite — sans toucher a l'historique du projet. `valider` remet d'abord le depart, empile
 // UNE etape d'historique du projet, puis ecrit l'etat final : un seul Ctrl+Z defait toute la session. `abandonner` remet le depart.
 //
-// Hors session, rien ne change. La session s'arrete d'elle-meme quand on quitte la Vue 3D ou qu'on selectionne autre chose.
+// Hors session, rien ne change. Quitter la Vue 3D ou choisir un autre objet pendant une session modifiee pose d'abord la question
+// (Valider, Abandonner, Rester : `quitterPuis`) ; une session sans changement se ferme sans rien demander.
 
 import { estBatiment, surParcelleDuProjet } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
@@ -274,6 +275,40 @@ let abonne = false;
 let epureParLeMode = false;
 export const modeToitCourant = (): ModeToit | null => pilote;
 
+/**
+ * L'entree d'historique du navigateur que pose une session : le bouton retour (navigateur, telephone) vaut Echap tant qu'elle dure,
+ * au lieu de quitter Plan et d'emporter les gestes non valides. Fermee autrement, la session retire son entree elle-meme.
+ */
+let entreePosee = false;
+let retourIgnore = false;
+const historiqueNavigateur = (): History | null => (typeof window === 'undefined' ? null : window.history);
+
+/** Pose l'entree de la session (une seule) : le prochain retour du navigateur revient ici. */
+export function poserEntreeHistorique(): void {
+  const h = historiqueNavigateur();
+  if (!h || entreePosee) return;
+  try { h.pushState(h.state, ''); entreePosee = true; } catch { /* historique indisponible : Echap reste */ }
+}
+
+/** Retire l'entree de la session, si elle est encore la ; le retour qu'elle provoque est ignore (`retourDuNavigateur`). */
+function retirerEntreeHistorique(): void {
+  const h = historiqueNavigateur();
+  if (!h || !entreePosee) return;
+  entreePosee = false;
+  retourIgnore = true;
+  try { h.back(); } catch { retourIgnore = false; }
+}
+
+/**
+ * Un retour du navigateur vient d'arriver : faux si c'est celui que la session a provoque en retirant son entree ; vrai si c'est la
+ * personne (son entree est alors consommee, a reposer si la session continue).
+ */
+export function retourDuNavigateur(): boolean {
+  if (retourIgnore) { retourIgnore = false; return false; }
+  entreePosee = false;
+  return true;
+}
+
 /** Le rythme maximal auquel un glisser reconstruit la scene : au-dela, seul le dernier etat compte. */
 const GLISSER_MS = 140;
 let dernierRebatir = 0;
@@ -372,6 +407,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     viderFantomes();
     if (veille !== null) { clearInterval(veille); veille = null; }
     session = null;
+    retirerEntreeHistorique();
     reposerLaVue();
     a.render();
     if (vue3d.scene) ctx.rebatir(cle);  // le batiment tel que la session le laisse ; le reste de la scene ne bouge pas
@@ -389,6 +425,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
       derniereVue = '';
       veille = setInterval(surveillerLaVue, FANTOMES_MS);
+      poserEntreeHistorique();
       ctx.rafraichir();
       showToast('Touchez un mur du bâtiment pour choisir sa façade.');
       return true;
@@ -465,19 +502,16 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       if (!s) return;
       const rendre = () => { if (o) restaurer(o, s.hist.pas[0] ?? {}); fermer(); };
       if (sansDemander || !aChange(s.hist)) { rendre(); return; }
-      dialogues.ouvrir({
-        type: 'choix', titre: 'Abandonner les changements ?', texte: 'Le toit reviendra comme il était à l’entrée du mode.',
-        principal: { libelle: 'Continuer', executer: () => {} },
-        secondaire: { libelle: 'Abandonner', executer: rendre }
-      });
+      demanderAbandon(rendre);
     },
 
-    /** Echap : lacher l'element arme est le travail de l'appelant ; ici, la facade, puis le mode. */
-    echap(): void {
-      if (!session) return;
-      if (session.selection) { session.selection = null; vues.methodes.cadrerSurLaSelection(); }
-      else if (session.vue !== 'libre') vues.quitterLaFacade();
-      else this.abandonner();
+    /** Echap : l'element choisi, la facade, puis le mode ; en plein ecran, la derniere marche reste a la Vue 3D. Vrai si la touche a servi. */
+    echap(pleinePage = false): boolean {
+      if (!session) return false;
+      if (session.selection) { session.selection = null; vues.methodes.cadrerSurLaSelection(); return true; }
+      if (session.vue !== 'libre') { vues.quitterLaFacade(); return true; }
+      if (!pleinePage) this.abandonner();
+      return !pleinePage;
     },
 
     /** Quitte le mode sans question : la Vue 3D se ferme, ou la selection change. */
@@ -648,3 +682,28 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
 }
 
 export type ModeToit = ReturnType<typeof creerModeToit>;
+
+/** La question avant d'abandonner une session modifiee (Retour, Echap) ; `rendre` remet le depart et ferme. */
+function demanderAbandon(rendre: () => void): void {
+  dialogues.ouvrir({
+    type: 'choix', titre: 'Abandonner les changements ?', texte: 'Le toit reviendra comme il était à l’entrée du mode.',
+    principal: { libelle: 'Continuer', executer: () => {} },
+    secondaire: { libelle: 'Abandonner', executer: rendre }
+  });
+}
+
+/**
+ * Quitter la session pour faire autre chose (une autre vue, un autre objet) : sans changement, elle se ferme et `suite` part ; avec
+ * des changements, la personne choisit d'abord — Valider, Abandonner, ou Rester (rien ne part).
+ */
+export function quitterLaSessionPuis(mode: Pick<ModeToit, 'valider' | 'abandonner'>, suite: () => void): void {
+  const s = session;
+  if (!s) { suite(); return; }
+  if (!aChange(s.hist)) { mode.abandonner(true); suite(); return; }
+  dialogues.ouvrir({
+    type: 'choix', titre: 'Quitter la modification de la toiture ?', texte: 'Vos changements du toit ne sont pas encore dans le projet.',
+    principal: { libelle: 'Valider', executer: () => { mode.valider(); suite(); } },
+    secondaire: { libelle: 'Abandonner', executer: () => { mode.abandonner(true); suite(); } },
+    tertiaire: { libelle: 'Rester', executer: () => {} }
+  });
+}

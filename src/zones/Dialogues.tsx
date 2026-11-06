@@ -72,6 +72,7 @@ export function Dialogues() {
             {d.case && <CaseChoix key={d.titre + d.case.libelle} c={d.case} />}
             {d.cases?.map(c => <CaseChoix key={d.titre + c.libelle} c={c} />)}
             <div className="dialogueBoutons">
+              {d.tertiaire && <button type="button" data-controle="dialogue.tertiaire" className="secondary" onClick={() => dialogues.repondreTertiaire()}>{d.tertiaire.libelle}</button>}
               <button type="button" data-controle="dialogue.secondaire" className="secondary" onClick={() => dialogues.repondreSecondaire()}>{d.secondaire.libelle}</button>
               <button type="button" data-controle="dialogue.principal" onClick={() => dialogues.repondre()}>{d.principal.libelle}</button>
             </div>
