@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, puis à la 5.12.0 le même jour.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, puis à la 5.13.0 le même jour encore.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `14d887c2c01972ab6d23370b86bea0af15c58436afbf25127c211b99de58eeaa` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `3e8867cdd420cf9bf4e72cd2d65bca9270a736c8bbbd269b07b3b1b5787bb8e2` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `e4237c0b04e2dc11520865de1c698e2a4ceb2492fccc37422d51db17f13fdb62` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `1546b1acabd79ea5bb90ee050e543d11546af66e8c6647fe2ed35d4db0c6cdaa` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `1fc288fa93e0746579d63cede29ab63780e5d23daf971dcfbb49f1e83365afc8` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `c984237351b48ce9f51774b1b4d94f84372e5556acdcf428978e88963918917e` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `a5abb42005ea6109c64aa45ca153affc3801defead3f44e239311e1d0e15a80d` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `b9dc298c6a3551b0987d1ba2148440a91a2ce0f9105934a14f61bdd60c317d1b` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `092374156a00a00545a05e333ea562fdb63f21bc88b7e6855895991fc557e126` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `2b9aca933b2467c2022dc0101f78e8f6c1e6fcafddced399ed0bb310d03d906a` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `0d901cf6baa13865a6fca20cd0b509bc7fcaf37b383a52c518d9b884a67913f5` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `aa1febc2a614d71b7a79d226a97ec89eeec75ee8c5cbde38efac51576e8f45f8` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `a6f890fd6f2aa8f52b958afad59acc4f5529024ede5dc0336b66d54e829bf646` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `4dbf5c7de3148987ec16e5aef7baa3e5e77dd629d0d3b26a0dd4f69891944dd3` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -1264,3 +1264,24 @@ ordre dans le tampon varie d'un export à l'autre, à la 5.11.1 comme à la 5.12
 | `dossier.pdf` (normalisée) | `cc373bea…` | `b9dc298c…` |
 | `dossier-piscine.pdf` (brute) | `438ccab1…` | `0d901cf6…` |
 | `note-calcul.pdf` (brute) | `b33d3d4a…` | `aa1febc2…` |
+
+## Version 5.13.0 (6 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.12.0 (réparation du JSON de l'analyse #599, cadrage de la vue de façade #600, raccord d'un pignon hors
+faîtage #601, « Décrocher ici » et zoom de la vue de façade #602, caméra du Mode Toit #603 et ses gestes #604) ne change aucune quantité
+ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne
+bougent pas. Avant le changement de numéro, main (365e3865) régénère les sept témoins de la 5.12.0 au bit près. Les sept témoins passent
+à `5.13.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.13.0` → `5.12.0` remis dans les octets frais
+rend les fichiers de la 5.12.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`) : le raccord d'un
+pignon hors faîtage (#601) laisse sortir à l'identique un pignon au faîtage.
+
+| Fixture | Empreinte 5.12.0 | Empreinte 5.13.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `14d887c2…` | `1546b1ac…` |
+| `plan.svg` (normalisée) | `3e8867cd…` | `1fc288fa…` |
+| `plan.dxf` (normalisée) | `e4237c0b…` | `c9842373…` |
+| `plan.pdf` (normalisée) | `a5abb420…` | `09237415…` |
+| `dossier.pdf` (normalisée) | `b9dc298c…` | `2b9aca93…` |
+| `dossier-piscine.pdf` (brute) | `0d901cf6…` | `a6f890fd…` |
+| `note-calcul.pdf` (brute) | `aa1febc2…` | `4dbf5c7d…` |
