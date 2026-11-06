@@ -67,6 +67,12 @@ export const estBati = (o: { fonction?: string | null | undefined }): boolean =>
  */
 export const surParcelleDuProjet = (o: { bdtopo?: unknown }): boolean =>
   (o.bdtopo as { surParcellePrincipale?: unknown } | null | undefined)?.surParcellePrincipale === true;
+/**
+ * Un objet chez un voisin : le voisinage importe autour de la propriete, ou un batiment de l'IGN que l'import n'a pas pose sur la parcelle
+ * du projet (une maison d'une parcelle mitoyenne). `surParcellePrincipale` ne s'enregistre qu'a vrai (io/serialisation.ts) : un batiment
+ * importe qui ne la porte pas est chez un voisin. Un objet dessine (sans `bdtopo`) est celui de la personne, ou qu'il soit.
+ */
+export const estChezUnVoisin = (o: { voisinage?: unknown; bdtopo?: unknown }): boolean => !!o.voisinage || (!!o.bdtopo && !surParcelleDuProjet(o));
 /** Une pergola ou un carport dont on sait calculer les pieces : un polygone. */
 export const estAbri = (o: ObjetPlan): boolean => aParticularite(o, 'abri');
 /** Une piscine dont on sait calculer le bassin : un polygone ou un cercle. */
@@ -109,10 +115,11 @@ export const estExistant = (o: { existant?: unknown }): boolean => o.existant ==
 /** Un arbre du plan : un toucher de la Vue 3D le traverse (app/ecouteurs/selection3d.ts), comme la prise de l'audit. */
 export const estArbre = (o: ObjetPlan): boolean => aParticularite(o, 'arbre');
 /**
- * Ce qu'un toucher de la Vue 3D choisit (demande du proprietaire, 6 novembre 2026) : un batiment ou une annexe, une terrasse, une
- * pergola ou un carport, une piscine. Le reste (cloture, chemin, mobilier, parcelle) ne se choisit que dans le plan ou la liste.
+ * Ce qu'un toucher de la Vue 3D choisit (demande du proprietaire, 6 novembre 2026) : un batiment ou une annexe de la parcelle du projet,
+ * une terrasse, une pergola ou un carport, une piscine. Le reste (cloture, chemin, mobilier, parcelle) ne se choisit que dans le plan ou
+ * la liste ; une maison voisine non plus : la toucher vaut le vide (decision du proprietaire, 6 novembre 2026).
  */
-export const estChoisiEn3d = (o: ObjetPlan): boolean => estBatiment(o) || estTerrasse(o) || estAbri(o) || estPiscine(o);
+export const estChoisiEn3d = (o: ObjetPlan): boolean => (estBatiment(o) && !estChezUnVoisin(o)) || estTerrasse(o) || estAbri(o) || estPiscine(o);
 
 /** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
 export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);
