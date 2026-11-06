@@ -14,8 +14,8 @@ raccord d'un pignon qui ne monte pas au faîtage (#601) ; la réparation des cha
 aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de la
 5.12.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json`
 et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : rien à déployer côté plateforme. Le corps des
-requêtes à Claude ne change pas (#599 ne touche que la lecture de la réponse, dans `deploy/analyse-fonctions.php`) ; vérifiées sur main,
-à la livraison.
+requêtes à Claude ne change pas (#599 ne touche que la lecture de la réponse, dans `deploy/analyse-fonctions.php`) ; vérifiées sans la mesure
+sur main (run 42284594440 : 9 sur 9, 0,031 $).
 
 ### Ajouté
 
