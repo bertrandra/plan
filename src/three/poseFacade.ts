@@ -71,7 +71,17 @@ export function poseEnPerspective(points: readonly PointScene[], depuis: PoseCam
  * 0,38 m a droite et 0,22 m plus haut. Le mur reste a l'echelle et sans fuite (les cotes s'y lisent), le toit et le cote droit se voient
  * quand meme : c'est ce qui rend lisibles un pignon, sa saillie, un bow-window.
  */
-export const OBLIQUE = { k: 0.38, m: 0.22 } as const;
+// La maquette posait 0,38 et 0,22 : sur une maison profonde, le faitage et ses poignees glissaient de plusieurs metres loin du mur, et la
+// facade se lisait de biais (retour du proprietaire sur la 5.12.0, « trop de decalage dans la perspective »). La moitie garde le toit et
+// le cote lisibles, le mur reste a l'echelle.
+export const OBLIQUE = { k: 0.19, m: 0.11 } as const;
+/**
+ * La marge, en pixels, entre ce que la camera de facade tient (la facade du corps et ses poignees) et le bord de la partie libre de l'image :
+ * une cible tactile (44 px) et la moitie d'une poignee, pour qu'aucune ne tombe sous le bord, le panneau ou un bouton de la scene.
+ */
+export const MARGE_FACADE_PX = 64;
+/** Le plus petit cote (en metres) que la camera de facade tient : en deca, une petite saillie remplirait l'ecran et ses poignees se colleraient. */
+export const CADRE_FACADE_MIN_M = 5;
 /** La profondeur, de part et d'autre du mur, que la camera de facade garde : bien plus que le plus grand batiment. */
 const PROFONDEUR_M = 200;
 
@@ -86,7 +96,7 @@ export interface CadreOblique { monde: number[]; projection: number[] }
  * que `points` (le batiment, en coordonnees de la scene) tiennent dans la partie libre de l'image (`reserve` : ce que le panneau recouvre).
  * `largeur`, `hauteur` : l'image, en pixels. La camera tourne avec le mur : une facade de biais se presente de face comme les autres.
  */
-export function cadreOblique(a: PtBrut, b: PtBrut, n: PtBrut, points: readonly PointScene[], cen: PtBrut, largeur: number, hauteur: number, reserve?: Reserve): CadreOblique {
+export function cadreOblique(a: PtBrut, b: PtBrut, n: PtBrut, points: readonly PointScene[], cen: PtBrut, largeur: number, hauteur: number, reserve?: Reserve, margePx = MARGE_FACADE_PX): CadreOblique {
   const { k, m } = OBLIQUE;
   // L'origine au pied du milieu du mur ; le dos de la camera vers l'exterieur, sa droite le long du mur, vue de dehors.
   const o = { x: (a.x + b.x) / 2 - cen.x, z: cen.y - (a.y + b.y) / 2 };
@@ -101,8 +111,9 @@ export function cadreOblique(a: PtBrut, b: PtBrut, n: PtBrut, points: readonly P
   if (!Number.isFinite(x0)) { x0 = -5; x1 = 5; y0 = 0; y1 = 6; }
   const W = Math.max(largeur, 1), H = Math.max(hauteur, 1);
   const libreL = reserve ? Math.max(W * 0.3, W - reserve.droite) : W, libreH = reserve ? Math.max(H * 0.3, H - reserve.bas) : H;
-  // Des pixels par metre : le batiment et sa marge tiennent dans la partie libre.
-  const s = Math.min(libreL / (Math.max(x1 - x0, 1) * MARGE), libreH / (Math.max(y1 - y0, 1) * MARGE));
+  // Des pixels par metre : ce qu'on tient, au moins `CADRE_FACADE_MIN_M` de cote, entre dans la partie libre a `margePx` de ses bords.
+  const marge = Math.min(margePx, libreL / 4, libreH / 4);
+  const s = Math.min((libreL - 2 * marge) / Math.max(x1 - x0, CADRE_FACADE_MIN_M), (libreH - 2 * marge) / Math.max(y1 - y0, CADRE_FACADE_MIN_M));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   const l = cx - libreL / 2 / s, r = l + W / s, t = cy + libreH / 2 / s, bas = t - H / s;
   const A = 2 / (r - l), B = 2 / (t - bas);

@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
-import { cadreDe, cibleDesPoignees, cotesDe, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
+import { cadreDe, cibleDesPoignees, cotesDe, ecarterAEcran, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
@@ -108,6 +108,18 @@ function enMetres(dx: number, dy: number, axes: readonly Axe[], v: Partial<Recor
 
 interface Glisse { id: string; depart: CorpsToit[]; x0: number; y0: number; cible: CibleGlisser; poignee: Poignee; vecteurs: Partial<Record<Axe, Ecran>> }
 
+/**
+ * La partie de l'image ou une poignee ecartee peut aller : hors du panneau du mode (colonne a droite ou bandeau en bas) et a une cible
+ * tactile des bords (le bandeau des vues, l'horloge et les boutons de la scene les bordent). En pixels du calque.
+ */
+function bornesLibres(hote: DOMRect): { x0: number; y0: number; x1: number; y1: number } {
+  const p = hotes3d.vue3d?.querySelector('.panneauToit')?.getBoundingClientRect();
+  const m = 2 * SAISIE_PX;
+  let x1 = hote.width - m, y1 = hote.height - m;
+  if (p && p.width > 0) { if (p.width < hote.width * 0.6) x1 = Math.min(x1, p.left - hote.left - m); else y1 = Math.min(y1, p.top - hote.top - m); }
+  return { x0: m, y0: m, x1: Math.max(m, x1), y1: Math.max(m, y1) };
+}
+
 export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
   useCle(magasin, 'poignées du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
@@ -154,6 +166,10 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const cotes: Cote[] = cotesDe(corps, cible);
   const base = altitudeDuBatiment(o);
   const ancre = projeter(poignees[0]?.point as Point3, base);
+  // Les poignees a l'ecran, ecartees si elles se recouvrent : chacune doit se prendre au doigt (deux zones de saisie bord a bord).
+  const projetees = poignees.map((p) => projeter(p.point, base));
+  const ecartees = ecarterAEcran(projetees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, bornesLibres(r));
+  const places = projetees.map((q, k) => (q ? ecartees[k] ?? q : null));
 
   const demarrer = (ev: React.PointerEvent<SVGGElement>, p: Poignee) => {
     ev.stopPropagation();
@@ -185,8 +201,8 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
         const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);
         return a && b ? <line key={g} className="guideToit" x1={a.x} y1={a.y} x2={b.x} y2={b.y} /> : null;
       })}
-      {poignees.map((p) => {
-        const q = projeter(p.point, base);
+      {poignees.map((p, k) => {
+        const q = places[k];
         if (!q) return null;
         return (
           <g key={p.id} className={'poigneeToit' + (DEPLACEMENTS.has(p.id) ? ' deplacer' : '')} data-poignee={p.id} transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle}

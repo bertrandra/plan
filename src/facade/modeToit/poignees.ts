@@ -503,6 +503,50 @@ export const CADRAGE_MIN_M = 3.5;
  * panneau : les memes que la 3D), sa souche (cheminee : sa section, du toit a son sommet), ou ses poignees (pignon, element de mur : elles
  * sont dans le plan de sa facade). Vide pour un corps ou un element disparu.
  */
+/**
+ * Ecarte a l'ecran les poignees qui se recouvrent (`ecart` : deux zones de saisie bord a bord) : sur un mur court ou un toit plat, le faitage,
+ * l'egout et la longueur tombaient sous le meme doigt et une seule se prenait (retour du proprietaire sur la 5.12.0). Dans l'ordre, chacune
+ * garde sa place si elle est libre, sinon prend la place libre la plus proche autour d'elle, dans `bornes` (la partie libre de l'image). Seule la place du dessin change : un glisser se
+ * lit sur les axes de la poignee, pas sur sa place.
+ */
+export function ecarterAEcran(points: readonly { x: number; y: number }[], ecart: number, bornes?: { x0: number; y0: number; x1: number; y1: number }): { x: number; y: number }[] {
+  const places: { x: number; y: number }[] = [];
+  const libre = (q: { x: number; y: number }) => places.every((a) => !(Math.hypot(q.x - a.x, q.y - a.y) < ecart - 1e-6));
+  for (const p of points) {
+    // Une poignee hors de l'image (NaN) ne pousse personne et ne bouge pas.
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || libre(p)) { places.push({ ...p }); continue; }
+    // Sinon, la place libre la plus proche autour d'elle : des couronnes de plus en plus larges, en partant du haut, puis en tournant.
+    let choisie: { x: number; y: number } | null = null;
+    for (let anneau = 1; anneau <= 6 && !choisie; anneau++) for (let k = 0; k < 12 && !choisie; k++) {
+      const t = -Math.PI / 2 + (k * Math.PI) / 6, q = { x: p.x + Math.cos(t) * ecart * anneau * 0.75, y: p.y + Math.sin(t) * ecart * anneau * 0.75 };
+      if (libre(q) && (!bornes || (q.x >= bornes.x0 && q.x <= bornes.x1 && q.y >= bornes.y0 && q.y <= bornes.y1))) choisie = q;
+    }
+    places.push(choisie ?? { ...p });
+  }
+  return places;
+}
+
+/**
+ * Ce que la camera de facade tient (retour du proprietaire sur la 5.12.0 : « le zoom est trop fort, je ne peux pas atteindre une
+ * poignee ») : le corps de la facade regardee (ou celui qui porte l'element choisi, et son porteur pour une saillie), du pied au-dessus du
+ * faitage, toutes les poignees de ce que l'on tire (`cibleDesPoignees`, le meme choix que le calque) et l'element choisi lui-meme. Jamais
+ * l'element seul : il se voyait de si pres que les poignees du mur sortaient de l'image. Vide pour une facade du contour (sans corps) :
+ * l'appelant cadre alors le batiment entier. Points du plan, `z` au-dessus du sol du batiment.
+ */
+export function pointsDuCadreDeFacade(corps: readonly CorpsToit[], facade: { rang: number | null; mur: number; a: PtBrut; b: PtBrut; n: PtBrut }, selection: CibleElement | null): Point3[] {
+  if (facade.rang === null || !corps[facade.rang]) return [];
+  // L'oeil devant la facade, a hauteur d'homme : ce que la camera oblique regarde.
+  const oeil = { x: (facade.a.x + facade.b.x) / 2 + facade.n.x * 50, y: (facade.a.y + facade.b.y) / 2 + facade.n.y * 50, z: OEIL_Z_M };
+  const cible = cibleDesPoignees(corps, selection, { dessus: false, facade, oeil });
+  const rangs = new Set<number>([cible?.rang ?? facade.rang]);
+  for (const r of [...rangs]) { const h = corps[r]?.saillie?.hote; if (h !== undefined && corps[h]) rangs.add(h); }
+  const pts: Point3[] = [];
+  for (const r of rangs) { const c = corps[r]; if (c) for (const p of c.pts) pts.push({ x: p.x, y: p.y, z: 0 }, { x: p.x, y: p.y, z: c.faitage + 0.5 }); }
+  if (cible) for (const q of poigneesDe(corps, cible)) pts.push(q.point);
+  if (selection) pts.push(...pointsDeLElement(corps, selection));
+  return pts;
+}
+
 export function pointsDeLElement(corps: readonly CorpsToit[], t: CibleElement): Point3[] {
   const c = corps[t.rang];
   if (!c || t.type === 'corps') return [];

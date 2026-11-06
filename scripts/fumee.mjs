@@ -4200,6 +4200,62 @@ const POINTS = {
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
+  141: async (page, f) => {
+    // La vue de facade du mode Toit (retour du proprietaire sur la 5.12.0 : « le zoom est trop fort, je ne peux pas atteindre une
+    // poignee ») : AE 101 et ses cinq corps ; chaque facade de chaque corps, rien de choisi, puis chacun de ses pignons choisi. Chaque
+    // poignee montree est dans la scene, hors du panneau, a une cible tactile (44 px) des bords libres, et c'est elle qui est sous le doigt.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    await etape('ouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    });
+    const mesurer = () => page.evaluate(() => {
+      const h = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(), p = document.querySelector('.panneauToit').getBoundingClientRect();
+      const colonne = p.width < h.width * 0.6, x1 = colonne ? p.left : h.right, y1 = colonne ? h.bottom : p.top;
+      return [...document.querySelectorAll('[data-poignee]')].map((g) => {
+        const r = (g.querySelector('.pointPoignee') ?? g).getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const sous = document.elementFromPoint(x, y)?.closest('[data-poignee]');
+        return { id: g.dataset.poignee, ok: sous === g && Math.min(x - h.left, x1 - x, y - h.top, y1 - y) >= 44 };
+      });
+    });
+    const murs = await page.evaluate(() => [...document.querySelectorAll('path.murNav')].map((p) => [p.dataset.rang, p.dataset.mur]));
+    const pignons = await page.evaluate(() => [...document.querySelectorAll('.puceToit[data-type="pignon"]')].map((b) => [b.dataset.rang, b.dataset.i]));
+    const echecs = [];
+    let vues = 0;
+    const lacher = () => page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click');
+    for (const [rang, mur] of murs) {
+      await lacher();
+      await page.evaluate(([r, m]) => document.querySelector('path.murNav[data-rang="' + r + '"][data-mur="' + m + '"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })), [rang, mur]);
+      await page.waitForTimeout(500);
+      for (const q of await mesurer()) { vues++; if (!q.ok) echecs.push(rang + ':' + mur + ' ' + q.id); }
+    }
+    for (const [rang, i] of pignons) {
+      await lacher();
+      await page.locator('.puceToit[data-type="pignon"][data-rang="' + rang + '"][data-i="' + i + '"]').dispatchEvent('click');
+      await page.waitForTimeout(600);
+      for (const q of await mesurer()) { vues++; if (!q.ok) echecs.push('pignon ' + rang + '.' + i + ' ' + q.id); }
+    }
+    const ok = vues >= 40 && echecs.length === 0;
+    return { ok, mesure: `${murs.length} façades, ${pignons.length} pignons : ${vues} poignées montrées, ${echecs.length ? 'NON ATTEIGNABLES : ' + echecs.join(', ') : 'toutes atteignables, à 44 px au moins des bords libres'}` };
+  },
   139: async (page, f) => {
     // Choisir en touchant la Vue 3D (demande du proprietaire, 6 novembre 2026) : une piscine, une pergola et un carport poses dans un coin
     // libre de la parcelle de la demonstration, a cote de sa maison et de sa terrasse. En Vue 3D, la camera au-dessus de chacun, un toucher
@@ -5577,8 +5633,9 @@ const POINTS = {
   124: async (page, f) => {
     // Mode Toit, ce qui est pose sur le toit se voit (2 novembre 2026, « les icônes des objets sur le toit sont trop petits, il faut zoomer
     // dessus ») : chaque piece de l'onglet « Sur le toit » a sa vignette 3D cadree sur l'element (plus le glyphe commun), d'au moins 44 px ;
-    // une fenetre de toit posee, lachee, puis choisie par sa pastille : la camera de facade se cadre sur elle (des pixels par metre au moins
-    // doubles de ceux de la facade entiere) ; lachee, la facade revient entiere. Le toit n'a pas bouge ; rien ne deborde.
+    // une fenetre de toit posee, lachee, puis choisie par sa pastille : elle se voit sur sa facade (au moins 12 px de large au telephone),
+    // et le cadre tient son corps et toutes ses poignees, plus jamais elle seule (retour du proprietaire sur la 5.12.0, « le zoom est trop fort, je ne peux
+    // pas atteindre une poignee ») ; lachee, la facade revient entiere. Le toit n'a pas bouge ; rien ne deborde.
     await page.evaluate(() => {
       const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
       o.pts = [{ x: -8, y: -20 }, { x: 4, y: -20 }, { x: 4, y: -12 }, { x: -8, y: -12 }];
@@ -5603,22 +5660,25 @@ const POINTS = {
     await page.locator('[data-piece="sur:fenetre-toit"]').click({ timeout: 30000 });
     await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
     const toit = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit));
-    // Les pixels par metre entre deux poignees dont l'ecart est connu en metres (le long du mur, que la camera oblique montre de face).
-    const parMetre = (a, b, m) => page.evaluate(([a, b, m]) => {
-      const c = (id) => { const r = document.querySelector('[data-poignee="' + id + '"] .pointPoignee')?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null; };
-      const p = c(a), q = c(b);
-      return p && q ? Math.hypot(p.x - q.x, p.y - q.y) / m : 0;
-    }, [a, b, m]);
+    // Les pixels par metre de la camera de facade, le long du mur : un metre sur son axe horizontal, projete. Plus par l'ecart de deux
+    // poignees, que le calque ecarte a l'ecran quand elles se recouvrent (5.12.1).
+    const parMetre = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d(), cam = sc?.cameraRendu;
+      if (!cam) return 0;
+      const p0 = new THREE.Vector3().setFromMatrixPosition(cam.matrixWorld), u = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0).normalize();
+      const a = p0.clone().project(cam), b = p0.clone().add(u).project(cam);
+      return (Math.abs(b.x - a.x) / 2) * sc.renderer.domElement.clientWidth;
+    });
     // Lachee : la facade entiere (12 m de mur ; la poignee de l'egout au quart, celle de la longueur au bout : 9 m).
     await page.evaluate(() => window.__plan.executer('toit.selection'));
     await page.waitForTimeout(800);
     const facadeAvant = await page.locator('[data-commande="toit.vueFacade"][aria-pressed="true"]').count();
-    const entier = await parMetre('egout', 'long', 9);
+    const entier = await parMetre();
     const avant = await toit();
     // Choisie par sa pastille : la taille se tire au bord de la fenetre (0,4 m de sa position, `poigneesDe`).
     await page.locator('.puceToit[data-type="fenetre-toit"]').click({ timeout: 30000 });
     await page.waitForTimeout(800);
-    const pres = await parMetre('pos', 'taille', 0.4);
+    const pres = await parMetre();
     const largeurPx = Math.round(pres * 0.8);
     const facadeChoisie = await page.locator('[data-commande="toit.vueFacade"][aria-pressed="true"]').count();
     // La scene est dessinee, panneau ouvert : une grille de points de l'image, sur la scene que le panneau laisse libre, ne tombe pas sur
@@ -5645,12 +5705,12 @@ const POINTS = {
     // Lachee de nouveau : la facade revient entiere.
     await page.evaluate(() => window.__plan.executer('toit.selection'));
     await page.waitForTimeout(800);
-    const retour = await parMetre('egout', 'long', 9);
+    const retour = await parMetre();
     const inchange = (await toit()) === avant;
     if (process.env.FUMEE_CAPTURE_ICONES) await page.screenshot({ path: `${process.env.FUMEE_CAPTURE_ICONES}-${f.nom}.png` });
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
-    const ok = pieces >= 13 && vignettes === pieces && plusPetite >= 44 && facadeAvant === 1 && facadeChoisie === 1 && entier > 0 && pres >= 2 * entier
-      && largeurPx >= 44 && surLeFond < 0.1 && Math.abs(retour - entier) <= 0.05 * entier && inchange && sans;
+    const ok = pieces >= 13 && vignettes === pieces && plusPetite >= 44 && facadeAvant === 1 && facadeChoisie === 1 && entier > 0 && pres >= entier * 0.95
+      && largeurPx >= 12 && surLeFond < 0.1 && Math.abs(retour - entier) <= 0.05 * entier && inchange && sans;
     const r = (v) => v.toFixed(1).replace('.', ',');
     return { ok, mesure: `${vignettes}/${pieces} vignettes 3D, la plus petite ${plusPetite} px ; façade entière ${r(entier)} px/m ; fenêtre de toit choisie ${r(pres)} px/m (${largeurPx} px de large), vue de la façade ${facadeChoisie ? 'oui' : 'NON'}, scène ${surLeFond < 0.1 ? 'dessinée' : 'ABSENTE'} panneau ouvert (${Math.round(surLeFond * 100)} % sur le fond) ; lâchée ${r(retour)} px/m ; toit ${inchange ? 'inchangé' : 'CHANGÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
@@ -6107,12 +6167,13 @@ function pointsPour(nomClasse) {
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
   // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
   //       Vent coche, arbres visibles : au plus 30 images par seconde.
+  // 141 : la vue de facade du mode Toit : chaque poignee de chaque facade d'AE 101 (et de ses pignons) atteignable au doigt.
   // 139 : choisir en touchant la Vue 3D : piscine, pergola, carport, terrasse et maison ; un glisser ne choisit rien, la pelouse et une
   //       maison voisine lachent la selection.
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
