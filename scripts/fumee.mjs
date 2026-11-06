@@ -4200,6 +4200,104 @@ const POINTS = {
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
+  139: async (page, f) => {
+    // Choisir en touchant la Vue 3D (demande du proprietaire, 6 novembre 2026) : une piscine, une pergola et un carport poses dans un coin
+    // libre de la parcelle de la demonstration, a cote de sa maison et de sa terrasse. En Vue 3D, la camera au-dessus de chacun, un toucher
+    // au milieu de la scene le choisit : la selection du plan (le nom dans la barre d'etat), le trait renforce dans la scene ; « Modifier
+    // la toiture » s'allume sur la maison. Un glisser (une orbite) ne choisit rien ; un toucher sur la pelouse lache la selection ; ni Ctrl+Z ni
+    // « projet modifie ».
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const poser = async (id) => etape('poser ' + id, async () => {
+      await page.evaluate((id) => window.__plan.executer(id), id);
+      await page.waitForTimeout(300);
+      const libre = await coinLibreDeLaParcelle(page);
+      if (!libre) throw new Error('aucun coin libre');
+      return page.evaluate((c) => {
+        const e = window.__plan.etat(), o = e.objects.find((x) => x.key === e.selectedKey);
+        if (o.type === 'circle') { o.center = { ...c.centre }; o.r = 0.75; } else o.pts = c.coins.map((q) => ({ ...q }));
+        window.__plan.toucher(o.key);
+        return o.key;
+      }, libre);
+    });
+    const cles = { piscine: await poser('objet.ajouter.piscine'), pergola: await poser('objet.ajouter.pergola'), carport: await poser('objet.ajouter.carport') };
+    cles.maison = 'maison';
+    cles.terrasse = 'terrasse';
+    await page.evaluate(() => window.__plan.selectionnerCle(null));
+    const historique = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    const toile = async () => page.locator('#terrasse3dCanvasHost canvas').boundingBox();
+    // La camera au-dessus d'un objet, presque a la verticale : le milieu de l'image est sur lui.
+    const viser = (cle) => page.evaluate((cle) => {
+      const sc = window.__plan.scene3d(), o = window.__plan.etat().objects.find((x) => x.key === cle);
+      // Un point de l'objet que rien d'autre ne couvre (une terrasse en L a son centre dehors), le plus pres de son centre.
+      const dans = (q, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a.y > q.y) !== (b.y > q.y) && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; };
+      const autres = window.__plan.etat().objects.filter((x) => x !== o && ['piscine', 'pergola', 'carport', 'terrasse', 'batiment', 'annexe'].includes(x.fonction));
+      const couvert = (q) => autres.some((x) => (x.type === 'circle' ? Math.hypot(x.center.x - q.x, x.center.y - q.y) < x.r : x.type === 'polygon' && dans(q, x.pts)));
+      const pts = o.type === 'circle' ? [o.center] : o.pts;
+      const mx = pts.reduce((t, p) => t + p.x, 0) / pts.length, my = pts.reduce((t, p) => t + p.y, 0) / pts.length;
+      let cx = mx, cy = my;
+      if (o.type === 'polygon') {
+        const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y), cand = [];
+        for (let i = 1; i < 30; i++) for (let j = 1; j < 30; j++) {
+          const q = { x: Math.min(...xs) + (i / 30) * (Math.max(...xs) - Math.min(...xs)), y: Math.min(...ys) + (j / 30) * (Math.max(...ys) - Math.min(...ys)) };
+          if (dans(q, pts) && !couvert(q)) cand.push(q);
+        }
+        cand.sort((p, q) => Math.hypot(p.x - mx, p.y - my) - Math.hypot(q.x - mx, q.y - my));
+        if (cand[0]) { cx = cand[0].x; cy = cand[0].y; }
+      }
+      const hauteur = cle === 'maison' ? 30 : 14;
+      sc.controls.target.set(cx - sc.cen.x, 0, sc.cen.y - cy);
+      sc.camera.position.set(cx - sc.cen.x, hauteur, sc.cen.y - cy + 0.5);
+      sc.controls.update();
+    }, cle);
+    const toucher = async () => { const b = await toile(); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(400); };
+    const choisie = () => page.evaluate(() => window.__plan.etat().selectedKey);
+    const resultats = [];
+    for (const nom of ['piscine', 'pergola', 'carport', 'terrasse', 'maison']) {
+      await viser(cles[nom]);
+      await page.waitForTimeout(300);
+      await toucher();
+      const ok = (await choisie()) === cles[nom];
+      // Le retour dans la scene : le trait renforce de l'objet, ou le contour surligne de la terrasse courante (son platelage n'est pas un objet).
+      const trait = await page.evaluate(() => { let vu = false; window.__plan.scene3d()?.scene.traverse((x) => { if (x.name === 'traitDePres' || (x.isLineSegments && x.renderOrder === 999)) vu = true; }); return vu; });
+      resultats.push(nom + (ok ? (trait ? ' ✓' : ' (sans trait)') : ' ✗ (' + ((await choisie()) ?? 'rien') + ')'));
+    }
+    const toiture = await page.evaluate(() => { const b = document.querySelector('#terrasse3dModifierToit'); return !!b && b.getAttribute('aria-disabled') !== 'true'; });
+    const barre = (await page.locator('#zoneEtat, .barreEtat').first().textContent().catch(() => '')) || '';
+    // Un glisser depuis le carport : la vue tourne, la selection (la maison) reste.
+    await viser(cles.carport);
+    await page.waitForTimeout(300);
+    const b = await toile();
+    await glisser(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, 80, 30);
+    await page.waitForTimeout(300);
+    const orbite = (await choisie()) === 'maison';
+    // Un toucher sur la pelouse (un coin libre) : la selection est lachee (decision du proprietaire, 6 novembre 2026).
+    const libre = await coinLibreDeLaParcelle(page);
+    await page.evaluate((c) => { const sc = window.__plan.scene3d(); sc.controls.target.set(c.centre.x - sc.cen.x, 0, sc.cen.y - c.centre.y); sc.camera.position.set(c.centre.x - sc.cen.x, 10, sc.cen.y - c.centre.y + 0.5); sc.controls.update(); }, libre);
+    await page.waitForTimeout(300);
+    await toucher();
+    const vide = (await choisie()) === null;
+    const intacte = (await page.evaluate(() => window.__plan.magasin().peutAnnuler)) === historique;
+    // La meme selection que le plan : la piscine touchee, puis le plan ; l'inspecteur la decrit, l'explorateur la marque.
+    await viser(cles.piscine);
+    await page.waitForTimeout(300);
+    await toucher();
+    await page.evaluate(() => window.__plan.executer('vue.plan'));
+    await page.waitForTimeout(500);
+    await inspecteur(page);
+    const nomPiscine = await page.evaluate((k) => window.__plan.etat().objects.find((o) => o.key === k)?.name ?? '', cles.piscine);
+    const titre = (await page.locator('#zoneInspecteur').first().textContent().catch(() => '')) || '';
+    // Au telephone, la liste des objets est une feuille : on l'ouvre pour la lire.
+    if (f.nom === 'compact') { await page.evaluate(() => window.__plan.ouvrirFeuille('objets')); await page.waitForTimeout(400); }
+    else await page.evaluate(() => { const p = document.querySelector('.explorateurPli[aria-expanded="false"]'); if (p) p.click(); });
+    await page.waitForTimeout(300);
+    const liste = await page.locator('.explorateurNom[data-key="' + cles.piscine + '"][aria-current="true"]').count();
+    const memeSelection = !!nomPiscine && titre.includes(nomPiscine) && liste === 1;
+    const ok = resultats.every((r) => r.endsWith('✓')) && toiture && orbite && vide && intacte && memeSelection;
+    return { ok, mesure: `toucher : ${resultats.join(', ')} ; « Modifier la toiture » ${toiture ? 'allumé sur la maison' : 'ÉTEINT'} ; barre d'état « ${barre.slice(0, 40)} » ; glisser ${orbite ? 'ne choisit rien' : 'A CHOISI'} ; pelouse ${vide ? 'sélection lâchée' : 'SÉLECTION GARDÉE'} ; historique ${intacte ? 'intact' : 'CHANGÉ'} ; dans le plan : inspecteur ${titre.includes(nomPiscine) ? '« ' + nomPiscine + ' »' : 'SANS LA PISCINE'}, explorateur ${liste ? 'marqué' : 'NON MARQUÉ'}` };
+  },
   138: async (page, f) => {
     // Les finitions du mode Toit (audit de la navigation, 6 novembre 2026, lot C). En Vue 3D, la terrasse choisie : « Modifier la toiture »
     // reste, grise, et dit quoi faire. Depuis le plan, la maison choisie, « Modifier la toiture en 3D » de l'inspecteur ouvre la Vue 3D et le
@@ -5907,10 +6005,11 @@ function pointsPour(nomClasse) {
   // 132 : AE 101 retouche par la personne : decroche de la facade aux deux pignons, auvent ouvert, bow-window dessous, retour du porche.
   // 135 : le rendu a la demande de la Vue 3D : immobile, aucun rendu ; un geste, l'heure, une couleur ou un objet pose par script redessinent.
   //       Vent coche, arbres visibles : au plus 30 images par seconde.
+  // 139 : choisir en touchant la Vue 3D : piscine, pergola, carport, terrasse et maison ; un glisser ne choisit rien, la pelouse lache.
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

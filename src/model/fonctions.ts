@@ -106,6 +106,14 @@ export const estPoseSurLeTerrain = (o: { cadastre?: unknown; bdtopo?: unknown })
  */
 export const estExistant = (o: { existant?: unknown }): boolean => o.existant === true;
 
+/** Un arbre du plan : un toucher de la Vue 3D le traverse (app/ecouteurs/selection3d.ts), comme la prise de l'audit. */
+export const estArbre = (o: ObjetPlan): boolean => aParticularite(o, 'arbre');
+/**
+ * Ce qu'un toucher de la Vue 3D choisit (demande du proprietaire, 6 novembre 2026) : un batiment ou une annexe, une terrasse, une
+ * pergola ou un carport, une piscine. Le reste (cloture, chemin, mobilier, parcelle) ne se choisit que dans le plan ou la liste.
+ */
+export const estChoisiEn3d = (o: ObjetPlan): boolean => estBatiment(o) || estTerrasse(o) || estAbri(o) || estPiscine(o);
+
 /** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
 export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);
 

@@ -7,6 +7,7 @@ import { arbreDeLInstance } from './arbre3d.js';
 import { vue3d, rendre3d, cameraDeVue, type SceneVue3d } from './etat3d.js';
 import { COUCHE_APRES, COUCHE_AVANT, activerDeuxVues, couperDeuxVues } from './comparaison3d.js';
 import { estMesh } from './gardes.js';
+import { HORS_EXPORT } from './primitives.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
@@ -225,6 +226,8 @@ export function surlignerDans3d(s: Surbrillance3d | null, aussi: readonly Surbri
       surbrillance.push(m);
     }
   }
+  // Des reperes d'ecran, pas le modele : un export (.glb) ne les emporte pas, quelle que soit la selection a ce moment.
+  for (const m of surbrillance) m.userData[HORS_EXPORT] = true;
   if (!s || !viser) { rendre3d(d.sc); return true; }
   // La camera vers la cible : meme distance, face au mur ou dans le meme angle.
   const { camera, controls } = d.sc;
