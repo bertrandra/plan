@@ -42,6 +42,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     64 m à 5 m d'un geste). La molette et les boutons + et − s'arrêtent à la borne. Hors du mode, la Vue 3D ne change pas.
   - « Recadrer le bâtiment », dans la barre de la session : la caméra revient sur le bâtiment entier (en 3D libre, de la même direction ;
     de dessus, la vue de dessus). La maison de la démonstration, sans corps, n'avait aucun moyen de revenir.
+  - À la tablette, la barre de la session tient en deux colonnes à gauche du panneau : en une seule, ses boutons faisaient la hauteur
+    du panneau et prenaient la scène (la scène gagne environ 170 px de haut).
   - Ctrl+Z et Ctrl+Y de la session ne rendent la caméra que si la vue, la façade ou l'élément choisi changent (décision du propriétaire) :
     sinon elle reste où vous l'avez mise.
   - Point de fumée 144. Ni le toit, ni Ctrl+Z du projet, ni « projet modifié », ni aucune quantité ou export ne changent.
