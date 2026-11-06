@@ -254,7 +254,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       if (mur) mode.choisirFacade(mur.rang, mur.mur);
     });
 
-  // Le decroche au point (piece « Décroché » du catalogue) : le prochain toucher sur l'egout ou le mur donne son point.
+  // Le decroche au point (piece « Decroche » du catalogue) : le prochain toucher sur l'egout ou le mur donne son point.
   const decroche = brancherDecroche(cmd, mode, batiment, () => raisonDuCatalogue(batiment(), 'facade:decroche'), ctx.rafraichir);
 
   // L'element de facade choisi dans le panneau du mode (bow-window, galerie, appentis) : le prochain toucher sur un mur de la scene l'y pose.

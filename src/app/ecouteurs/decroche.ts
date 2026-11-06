@@ -1,7 +1,7 @@
 // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a gauche
 // de x cm, et une poignee pour ajuster »).
 //
-// La piece « Décroché » du catalogue (onglet Façade) execute `toit.decrocher` : le prochain toucher sur la scene donne le point (sur
+// La piece « Decroche » du catalogue (onglet Facade) execute `toit.decrocher` : le prochain toucher sur la scene donne le point (sur
 // l'egout ou sur le mur de la facade regardee). Un petit choix demande alors le cote et la profondeur (en centimetres, 50 propose) ;
 // la reponse pose UNE travee de mur reculee (facade/modeToit/travees.ts::traveeDecrochee : schema 14, le toit reste continu), qui se
 // choisit : ses poignees (les deux bords, et la profondeur) la reglent ensuite. Un pas de la session (Ctrl+Z), comme tout geste du mode.

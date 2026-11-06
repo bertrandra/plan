@@ -72,7 +72,7 @@ export const PIECES: readonly PieceCatalogue[] = [
   // Une travee du mur regarde (schema 14) : un mur recule sous le toit, ou, sous un appentis, un garde-corps entre ses poteaux.
   { id: 'facade:travee', famille: 'facade', libelle: 'Travée' },
   // Un decroche au point touche (demande du proprietaire, novembre 2026) : la personne touche l'egout ou le mur, choisit le cote et la
-  // profondeur ; c'est une travee de mur reculee, comme la piece « Travée ».
+  // profondeur ; c'est une travee de mur reculee, comme la piece « Travee ».
   { id: 'facade:decroche', famille: 'facade', libelle: 'Décroché' }
 ];
 

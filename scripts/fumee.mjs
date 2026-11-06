@@ -4369,7 +4369,8 @@ const POINTS = {
       let p = null;
       for (const t of [0.5, 0.42, 0.58, 0.35, 0.65]) { p = await pointDuMur(m, t); if (p) break; }
       if (!p) throw new Error('aucun point du mur sous le doigt (corps ' + m.rang + ', mur ' + m.mur + ')');
-      await page.mouse.click(p.x, p.y);
+      // Au doigt en compact et en moyen (un vrai toucher), a la souris en large.
+      if (f.mobile) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
       const champ = page.locator('[data-controle="dialogue.nombre"]');
       await champ.waitFor({ timeout: 5000 });
       if (cm !== null) await champ.fill(String(cm));
