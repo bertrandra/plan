@@ -8,7 +8,6 @@
 import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import { designerFacade } from '../../interaction/choixFacade.js';
-import { saillieArmee, viserSaillie } from '../../interaction/choixSaillie.js';
 import { angleDuPlusLongCote, penteDeg, formesAuChoix, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toits/toit.js';
 import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';
@@ -268,14 +267,24 @@ function champsSaillies(c: ContexteChamps): Champ[] {
           lire: (cc) => cc.obj.batiment?.corpsToit?.[rang]?.retraitM ?? RETRAIT_GALERIE_M,
           ecrire: (cc, v) => { const k = cc.obj.batiment?.corpsToit?.[rang]; if (k) { k.retraitM = Math.min(Math.max(v, 0), 1); champsBatiment(cc.obj).toitFige = true; } }
         } satisfies Champ] : []),
-        { type: 'bouton', cle: 'mur3d', libelle: 'Mur dans la 3D', texte: () => (saillieArmee() ? 'Touchez un mur…' : 'Choisir le mur dans la 3D'), aide: 'Touchez ensuite un mur du bâtiment dans la vue 3D pour y poser l’élément (Échap pour annuler)',
-          agit: { commande: 'toit.murSur3d' }, executer: (cc) => { viserSaillie(rang); cc.executerCommande('toit.murSur3d'); } },
         { type: 'bouton', cle: 'retirer', libelle: 'Retirer', aide: 'Retirer cet élément (Ctrl+Z pour revenir)', agit: 'projet',
           executer: (cc) => { cc.pushHistory(cc.obj); champsBatiment(cc.obj).corpsToit = retirerSaillie(cc.obj.batiment?.corpsToit ?? [], rang); champsBatiment(cc.obj).toitFige = true; cc.render(); } }
       ]
     };
   });
 }
+
+/** Le mode Toit ne vit que dans la Vue 3D : depuis le plan, ce bouton y mene et l'ouvre sur ce batiment (audit de la navigation). */
+const champToit3d: Champ = {
+  type: 'bouton',
+  cle: 'toit3d',
+  libelle: '',
+  nom: 'Modifier la toiture en 3D',
+  texte: () => 'Modifier la toiture en 3D…',
+  explication: 'Ouvre la Vue 3D et le mode Toit sur ce bâtiment : corps, pentes, pignons et façades se règlent en images ; rien ne change avant « Valider ».',
+  agit: { commande: 'toit.modifierEn3d' },
+  executer: (cx) => cx.executerCommande('toit.modifierEn3d'),
+};
 
 /** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
 function champsDuToit(): Champ[] {
@@ -287,6 +296,7 @@ function champsDuToit(): Champ[] {
   const aPente = (cc: ContexteChamps) => !!cc.obj.batiment?.toit && cc.obj.batiment?.toit.forme !== 'plat' && unSeul(cc);
   const corps = (cc: ContexteChamps) => (cc.obj.batiment?.volumesToit?.length ?? 0) >= 2;
   return [
+    champToit3d,
     {
       type: 'choix',
       cle: 'toitMode',

@@ -4,6 +4,7 @@
 // poser ni valider, il demande. La facade choisie se dit dans l'indice ; tant qu'aucune ne l'est, l'indice invite a toucher un mur.
 
 import { useEffect, useState } from 'react';
+import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { enPoints } from '../../model/formes.js';
@@ -17,7 +18,7 @@ import { PoigneesToit } from './PoigneesToit.js';
 import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
-import { groupesDe, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/modeToit/elements.js';
+import { groupesDe, libellesDesElements, memeCible, titreDuGroupe, valeurDuGroupe, type CibleElement } from '../../facade/modeToit/elements.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -71,7 +72,7 @@ function BoutonToit({ commandes, id, icone, libelle, texte, presse, valider, mir
 
 /** Les elements du batiment, une pastille chacun, et l'inspecteur de celui qui est choisi : des boutons-images a choix exclusif, sans formulaire. */
 function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsToit[]; selection: CibleElement | null; commandes: RegistreCommandes }) {
-  const liste = listerElements(corps);
+  const liste = libellesDesElements(corps);
   if (!liste.length) return null;
   const groupes = selection ? groupesDe(corps, selection) : [];
   const bouton = (id: string, icone: NomIcone, libelle: string, danger = false) => (
@@ -91,21 +92,27 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
       </div>
       {selection && (
         <div className="inspecteurToit" role="group" aria-label="Réglages de l’élément">
+          {/* Chaque groupe dit ce qu'il regle, au-dessus de ses boutons-images : au doigt, il n'y a pas d'infobulle. */}
           {groupes.map((g) => (
-            <div key={g.groupe} className="groupeChoix" role="group" aria-label={g.titre ?? g.groupe} title={g.titre}>
-              {g.valeurs.map((v) => (
-                <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle} aria-label={v.libelle}
-                  aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageDuChoix groupe={g.groupe} valeur={v.valeur} /></button>
-              ))}
+            <div key={g.groupe} className="groupeReglage">
+              <span className="titreGroupe" aria-hidden="true">{titreDuGroupe(g)}</span>
+              <div className="groupeChoix" role="group" aria-label={titreDuGroupe(g)}>
+                {g.valeurs.map((v) => (
+                  <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle} aria-label={v.libelle}
+                    aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageDuChoix groupe={g.groupe} valeur={v.valeur} /></button>
+                ))}
+              </div>
             </div>
           ))}
-          <div className="groupeChoix" role="group" aria-label="actions">
+          <div className="groupeReglage">
+          <span className="titreGroupe" aria-hidden="true">Gestes</span>
+          <div className="groupeChoix" role="group" aria-label="Gestes">
             {selection.type === 'corps' ? (
               <>
                 <button type="button" className="boutonToit" data-commande="toit.tourner" data-sens="1" aria-label="Tourner à gauche" title="Tourner à gauche (15°)"
-                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="annuler" taille={20} /></button>
+                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="tourner" taille={20} /></button>
                 <button type="button" className="boutonToit miroir" data-commande="toit.tourner" data-sens="-1" aria-label="Tourner à droite" title="Tourner à droite (15°)"
-                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="annuler" taille={20} /></button>
+                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="tourner" taille={20} /></button>
                 {bouton('toit.scinder', 'scinder', 'Couper le corps en deux')}
                 <button type="button" className="boutonToit miroir" data-commande="toit.retour" data-cote="gauche" aria-label="Retour d’angle à gauche" title="Retour d’angle à gauche"
                   disabled={!commandes.etat('toit.retour').utilisable} onClick={(ev) => { commandes.executer('toit.retour', ev.currentTarget); }}><Icone nom="angle" taille={20} /></button>
@@ -118,9 +125,12 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
                 {bouton('toit.moins', 'moins', 'Réduire')}
                 {bouton('toit.plus', 'plus', 'Agrandir')}
                 {bouton('toit.dupliquer', 'dupliquer', 'Dupliquer')}
+                {/* Un element de facade (bow-window, galerie, appentis) change de mur au toucher d'un mur dans la scene. */}
+                {selection.type === 'saillie' && bouton('toit.murSur3d', 'deplacer', 'Choisir le mur dans la 3D')}
               </>
             )}
             {bouton('toit.supprimer', 'supprimer', selection.type === 'corps' ? 'Supprimer ce corps' : 'Supprimer', true)}
+          </div>
           </div>
         </div>
       )}
@@ -166,6 +176,7 @@ export function ModeToit({ magasin, commandes }: Props) {
   const [onglet, setOnglet] = useState<FamillePiece>('toit');
   // Sur telephone le panneau est une feuille : repliee, elle ne laisse que sa barre et la scene respire.
   const [replie, setReplie] = useState(false);
+  const tactile = useStore(magasin.store, (x) => x.classe) !== 'large';
   // Pendant une session, les messages passent en haut de l'ecran au telephone et a la tablette : en bas, ils couvraient la barre du mode.
   const enSession = !!sessionToit();
   useEffect(() => {
@@ -180,6 +191,12 @@ export function ModeToit({ magasin, commandes }: Props) {
   // La forme du corps sur lequel agirait une forme : sa vignette est enfoncee (le catalogue dit ce qui est en place).
   const enPlace = o ? formeEnPlace(o, e.selection?.rang ?? null) : null;
   const cible = corpsCible(o?.batiment?.corpsToit ?? [], e.selection);
+  // Les raisons qui grisent des vignettes de l'onglet ouvert, chacune une fois, avec les vignettes qu'elle grise.
+  const raisonsDuCatalogue = [...piecesDe(onglet).reduce((m, p) => {
+    const r = o ? raisonIndisponible(o, p.id, s.facade ?? s.derniere, e.selection?.rang ?? null) : null;
+    if (r) m.set(r, [...(m.get(r) ?? []), p.libelle]);
+    return m;
+  }, new Map<string, string[]>())];
   return (
     <>
     <NavigateurFacades magasin={magasin} commandes={commandes} />
@@ -201,8 +218,8 @@ export function ModeToit({ magasin, commandes }: Props) {
         <span className="separateurToit" aria-hidden="true" />
         <BoutonToit commandes={commandes} id="toit.vueLibre" icone="cube" libelle="Vue 3D" presse={e.vue === 'libre'} />
         <BoutonToit commandes={commandes} id="toit.vueFacade" icone="rectangle" libelle="Vue de la façade" presse={e.vue === 'facade'} />
-        <BoutonToit commandes={commandes} id="toit.vueDessus" icone="ajuster" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
-        <BoutonToit commandes={commandes} id="toit.voirValide" icone="toit" libelle="Voir le toit du projet (avant vos changements)" presse={e.validee} />
+        <BoutonToit commandes={commandes} id="toit.vueDessus" icone="vueDessus" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
+        <BoutonToit commandes={commandes} id="toit.voirValide" icone="toitAvant" libelle="Voir le toit du projet (avant vos changements)" presse={e.validee} />
         <BoutonToit commandes={commandes} id="toit.isolerCorps" icone="isoler" libelle="Isoler ce corps" presse={e.corpsIsole} />
         <span className="espaceToit" />
         <BoutonToit commandes={commandes} id="toit.valider" icone="coche" libelle="Valider" texte="Valider" valider />
@@ -250,6 +267,12 @@ export function ModeToit({ magasin, commandes }: Props) {
           );
         })}
       </div>
+      {/* Au doigt, l'infobulle n'existe pas : ce qui grise une vignette s'ecrit sous le catalogue, une ligne par raison (design-ui, §1 bis). */}
+      {tactile && raisonsDuCatalogue.length > 0 && (
+        <ul className="raisonsToit" aria-label="Pourquoi des vignettes sont grisées">
+          {raisonsDuCatalogue.map(([raison, noms]) => <li key={raison}>{noms.join(', ') + ' : ' + raison}</li>)}
+        </ul>
+      )}
       </div>
     </div>
     </>

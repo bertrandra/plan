@@ -134,6 +134,16 @@ export function raisonNonRetouchable(o: ObjetPlan | undefined): string | null {
 }
 
 /**
+ * Ce qui empeche d'ouvrir le mode Toit sur la selection `o`, a dire a la personne (le bouton reste, grise, avec cette raison) ; null :
+ * rien, il s'ouvre.
+ */
+export function raisonDOuvrir(o: ObjetPlan | undefined): string | null {
+  if (!o) return 'Choisissez d’abord un bâtiment de la parcelle, sur le plan ou dans la liste des objets.';
+  if (!estBatiment(o) || o.type !== 'polygon') return 'Le mode Toit retouche un bâtiment : choisissez-en un sur le plan ou dans la liste des objets.';
+  return raisonNonRetouchable(o);
+}
+
+/**
  * Le batiment `o` tel que le projet le tient pendant la session `s` : une copie, au depart de la session (ses champs du toit et son
  * elevation, `sessionToit.ts::photographier`). Le batiment du plan, lui, porte les gestes : la scene les montre.
  */
@@ -393,6 +403,17 @@ export function retourDuNavigateur(): boolean {
   return true;
 }
 
+/** La sortie du mode rend le focus au bouton « Modifier la toiture » : l'heure ou elle l'a demande (un focus ne se rend que tout de suite). */
+let focusDemande = 0;
+const FOCUS_DE_SORTIE_MS = 1500;
+
+/** Vrai une fois, juste apres la sortie du mode : le bouton qui l'ouvre reprend le focus (zones/vue3d/BoutonModifierToit.tsx). */
+export function prendreFocusDeSortie(): boolean {
+  const oui = focusDemande > 0 && Date.now() - focusDemande < FOCUS_DE_SORTIE_MS;
+  focusDemande = 0;
+  return oui;
+}
+
 /** Le rythme maximal auquel un glisser reconstruit la scene : au-dela, seul le dernier etat compte. */
 const GLISSER_MS = 140;
 let dernierRebatir = 0;
@@ -576,6 +597,9 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     a.render();
     if (vue3d.scene) ctx.rebatir(cle);  // le batiment tel que la session le laisse ; le reste de la scene ne bouge pas
     if (camera) poserCamera(camera);  // la camera d'avant le mode : on retrouve la scene comme on l'avait laissee
+    // Le focus etait dans le panneau, qui disparait (ou nulle part) : il revient au bouton qui ouvre le mode, pas au corps de la page.
+    const actif = typeof document === 'undefined' ? null : document.activeElement;
+    if (!actif || actif === document.body || actif.closest('.panneauToit, .navigateurToit, .dialogueBoite')) focusDemande = Date.now();
     ctx.rafraichir();
   };
 

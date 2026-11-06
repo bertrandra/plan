@@ -14,7 +14,8 @@ export type NomIcone =
   | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
-  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee';
+  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee'
+  | 'tourner' | 'vueDessus' | 'toitAvant';
 
 /** Les traces, chacun dans un repere de 24 × 24. */
 const TRACES: Record<NomIcone, React.ReactNode> = {
@@ -47,6 +48,12 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   cote: <><path d="M3 17L17 3l4 4L7 21z" /><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2" /></>,
   aligner: <><rect x="5" y="10" width="10" height="10" rx="1" /><path d="M9 4h10v10" /></>,
   grille: <><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17" /></>,
+  // Tourner un corps : un arc ferme presque, sa fleche au bout (l'annulation est un crochet, pas un tour).
+  tourner: <><path d="M19 12a7 7 0 11-2.05-4.95" /><path d="M19 4v4h-4" /></>,
+  // La vue de dessus : un toit a croupes vu d'en haut, son faitage et ses aretiers.
+  vueDessus: <><rect x="3.5" y="6" width="17" height="12" rx="1" /><path d="M3.5 6L9 12l-5.5 6M20.5 6L15 12l5.5 6M9 12h6" /></>,
+  // Le toit d'avant les changements : la maison, une fleche de retour dedans.
+  toitAvant: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M14.5 16h-5M9.5 16l2-2M9.5 16l2 2" /></>,
   ajuster: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
   // Un objet plein au milieu de coins pointilles : ce qu'on garde, et ce qu'on met de cote.
   toit: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>,
