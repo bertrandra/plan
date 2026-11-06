@@ -244,11 +244,13 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     const { camera, controls } = sc;
     // Le ciel : rien a viser, la molette rapproche de la cible comme avant.
     if (!molette.point) { repli(f); return; }
-    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera.
-    if (f > 1 && camera.position.distanceTo(controls.target) * f > camera.far * 0.5) return;
+    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera, ni des bornes de l'orbite (le mode Toit en pose).
+    if (f > 1 && camera.position.distanceTo(controls.target) * f > Math.min(camera.far * 0.5, controls.maxDistance ?? Infinity)) return;
     const pas = zoomVersPoint(camera.position, controls.target, molette.point, f);
     if (!pas) return;
     const cible = cibleALaHauteur(pas.camera, pas.cible, controls.target.y);
+    // En s'approchant, pas plus pres de la cible que l'orbite ne le permet : elle repousserait la camera, et le pas sauterait.
+    if (f < 1 && Math.hypot(pas.camera.x - cible.x, pas.camera.y - cible.y, pas.camera.z - cible.z) < (controls.minDistance ?? 0)) return;
     camera.position.set(pas.camera.x, pas.camera.y, pas.camera.z);
     controls.target.set(cible.x, cible.y, cible.z);
     controls.update();
@@ -278,9 +280,18 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     const { camera, controls } = vue3d.scene;
     const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
     offset.multiplyScalar(factor);
-    if (offset.length() < 0.3) return;
-    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera.
-    if (factor > 1 && offset.length() > camera.far * 0.5) return;
+    // Au plus pres permis, le pas s'arrete a la borne plutot que d'etre refuse (sauf s'il y est deja).
+    const plancher = Math.max(0.3, controls.minDistance ?? 0);
+    if (offset.length() < plancher) {
+      if (factor >= 1 || camera.position.distanceTo(controls.target) <= plancher + 1e-3) return;
+      offset.setLength(plancher);
+    }
+    // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera, ni des bornes de l'orbite (le mode Toit en pose).
+    const plafond = Math.min(camera.far * 0.5, controls.maxDistance ?? Infinity);
+    if (factor > 1 && offset.length() > plafond) {
+      if (camera.position.distanceTo(controls.target) >= plafond - 1e-3) return;
+      offset.setLength(plafond);
+    }
     camera.position.copy(controls.target).add(offset);
     controls.update();
     rendre3d(vue3d.scene);

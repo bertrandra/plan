@@ -163,6 +163,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'toit.vueLibre': partout('vue3d'),
   'toit.vueFacade': partout('vue3d'),
   'toit.vueDessus': partout('vue3d'),
+  'toit.recadrer': partout('vue3d'),
   'toit.isolerCorps': partout('vue3d'),
   'toit.voirValide': partout('vue3d'),
   'toit.selection': partout('vue3d'),

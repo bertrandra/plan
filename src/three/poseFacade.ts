@@ -19,18 +19,26 @@ const MARGE = 1.25;
 export interface Reserve { largeur: number; hauteur: number; droite: number; bas: number }
 
 /**
- * La camera au-dessus d'un batiment, presque a la verticale (un leger recul evite l'alignement degenere de l'orbite) : `etendue` est le plus grand
- * cote du batiment, `centre` son milieu dans le plan. `reserve` : ce que le panneau recouvre ; le batiment se cadre dans le reste.
+ * Le decalage de l'image qui centre l'axe de la camera dans la partie que le panneau laisse libre (audit de la camera du mode Toit,
+ * 6 novembre 2026) : la moitie de ce que le panneau recouvre, a droite et en bas, en pixels — les quatre derniers arguments de
+ * `PerspectiveCamera.setViewOffset(largeur, hauteur, x, y, largeur, hauteur)`. La cible de l'orbite reste ainsi au centre du batiment :
+ * c'est l'image qui se decale, pas le point autour duquel on tourne. Sans panneau, rien.
  */
-export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number, reserve?: Reserve): PoseCamera {
+export function decalageDeLaVue(reserve: Reserve | undefined): { x: number; y: number } {
+  return reserve ? { x: Math.max(0, reserve.droite) / 2, y: Math.max(0, reserve.bas) / 2 } : { x: 0, y: 0 };
+}
+
+/**
+ * La camera au-dessus d'un batiment, presque a la verticale (un leger recul evite l'alignement degenere de l'orbite) : `etendue` est le plus grand
+ * cote du batiment, `centre` son milieu dans le plan. `reserve` : ce que le panneau recouvre ; le batiment se cadre dans le reste, la cible
+ * reste en son centre (l'image est decalee par `decalageDeLaVue`). `sol` : l'altitude du sol sous le batiment.
+ */
+export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number, reserve?: Reserve, sol = 0): PoseCamera {
   const demiChamp = Math.tan((fovDeg * Math.PI) / 360);
   const libreL = reserve ? Math.max(0.3, 1 - reserve.droite / reserve.largeur) : 1, libreH = reserve ? Math.max(0.3, 1 - reserve.bas / reserve.hauteur) : 1;
   const hauteur = (Math.max(etendue, 4) / (2 * demiChamp * Math.min(Math.max(aspect * libreL, 0.3), libreH))) * MARGE + 2;
-  // De dessus, la droite de l'ecran est +x et le bas de l'ecran +z : decaler la camera vers la droite pousse le batiment vers la gauche, vers le bas vers le haut.
-  const parMetre = 1 / (2 * hauteur * demiChamp);
-  const dx = reserve ? (reserve.droite / reserve.hauteur / 2) / parMetre : 0, dz = reserve ? (reserve.bas / reserve.hauteur / 2) / parMetre : 0;
-  const cible = { x: centre.x - cen.x + dx, y: 0, z: cen.y - centre.y + dz };
-  return { cible, position: { x: cible.x, y: hauteur, z: cible.z + hauteur * 0.02 } };
+  const cible = { x: centre.x - cen.x, y: sol, z: cen.y - centre.y };
+  return { cible, position: { x: cible.x, y: sol + hauteur, z: cible.z + hauteur * 0.02 } };
 }
 
 /** Le plus petit recul de la camera cadree en perspective : en deca, l'orbite bascule et la maison sort de l'image au moindre geste. */
@@ -39,7 +47,8 @@ const RECUL_MIN_M = 6;
 /**
  * La camera libre (en perspective) cadree sur `points` (le batiment ou l'un de ses corps, en coordonnees de la scene) : elle garde la
  * direction d'ou l'on regarde (`depuis`, la pose actuelle), recule juste assez pour que la sphere qui les contient tienne dans la partie
- * libre de l'image, et decale sa cible pour que les points se centrent dans cette partie (`reserve` : ce que le panneau recouvre).
+ * libre de l'image (`reserve` : ce que le panneau recouvre). La cible est le centre des points : l'orbite tourne autour d'eux, et c'est
+ * l'image qui se decale vers la partie libre (`decalageDeLaVue`, pose par l'appelant).
  * `fovDeg` : le champ vertical ; `aspect` : largeur / hauteur de l'image.
  */
 export function poseEnPerspective(points: readonly PointScene[], depuis: PoseCamera, fovDeg: number, aspect: number, reserve?: Reserve): PoseCamera {
@@ -54,15 +63,7 @@ export function poseEnPerspective(points: readonly PointScene[], depuis: PoseCam
   const t = Math.tan((fovDeg * Math.PI) / 360);
   const demiAngle = Math.min(Math.atan(t * libreH), Math.atan(t * Math.max(aspect, 0.1) * libreL));
   const distance = Math.max(RECUL_MIN_M, (rayon / Math.sin(demiAngle)) * 1.05);
-  // Les axes de l'image : la droite (horizontale) et le haut. Decaler la cible a droite pousse les points a gauche, vers le bas les monte.
-  let droite = { x: d.z, y: 0, z: -d.x };
-  const ld = Math.hypot(droite.x, droite.z);
-  droite = ld > 1e-6 ? { x: droite.x / ld, y: 0, z: droite.z / ld } : { x: 1, y: 0, z: 0 };
-  const avant = { x: -d.x, y: -d.y, z: -d.z };
-  const haut = { x: droite.y * avant.z - droite.z * avant.y, y: droite.z * avant.x - droite.x * avant.z, z: droite.x * avant.y - droite.y * avant.x };
-  const parPixel = reserve ? (2 * distance * t) / reserve.hauteur : 0;
-  const dx = reserve ? (reserve.droite / 2) * parPixel : 0, dy = reserve ? (reserve.bas / 2) * parPixel : 0;
-  const cible = { x: c.x + droite.x * dx - haut.x * dy, y: c.y + droite.y * dx - haut.y * dy, z: c.z + droite.z * dx - haut.z * dy };
+  const cible = c;
   return { cible, position: { x: cible.x + d.x * distance, y: cible.y + d.y * distance, z: cible.z + d.z * distance } };
 }
 

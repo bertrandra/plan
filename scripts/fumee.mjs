@@ -4200,6 +4200,80 @@ const POINTS = {
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
+  144: async (page, f) => {
+    // L'orbite du mode Toit (audit de la camera, 6 novembre 2026) : la maison de la demonstration, Vue 3D, « Modifier la toiture ». La
+    // cible est le centre de la maison (l'image se decale vers la partie libre, pas la cible) : une orbite la laisse a sa place a l'ecran.
+    // On ne passe plus sous le sol (glisser vers le haut), ni a moins de 3 m (pincements ou molette), ni a plus de quelques fois la
+    // maison ; « Recadrer le bâtiment » ramene la camera ; la sortie rend la camera, l'orbite libre et l'image centree.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    const lire = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d(), o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const cx = o.pts.reduce((t, q) => t + q.x, 0) / o.pts.length, cy = o.pts.reduce((t, q) => t + q.y, 0) / o.pts.length;
+      const sol = (q) => (sc.hauteurSol ? sc.hauteurSol(q) : 0), p = sc.camera.position, t = sc.controls.target;
+      sc.camera.updateMatrixWorld();
+      const e = new THREE.Vector3(cx - sc.cen.x, sol({ x: cx, y: cy }) + 4, sc.cen.y - cy).project(sc.camera), r = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect();
+      return { pos: [p.x, p.y, p.z], dist: p.distanceTo(t), max: sc.controls.maxDistance, min: sc.controls.minDistance, decale: !!sc.camera.view?.enabled,
+        ecartCible: Math.hypot(t.x - (cx - sc.cen.x), t.z - (sc.cen.y - cy)), auDessus: p.y - sol({ x: p.x + sc.cen.x, y: sc.cen.y - p.z }),
+        ecran: { x: r.left + ((e.x + 1) / 2) * r.width, y: r.top + ((1 - e.y) / 2) * r.height } };
+    });
+    const avant = await lire();
+    await etape('ouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+      await page.waitForTimeout(600);
+    });
+    const libre = () => page.evaluate(() => {
+      const h = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(), p = document.querySelector('.panneauToit').getBoundingClientRect();
+      const colonne = p.width < h.width * 0.6;
+      return { x0: h.left, y0: h.top, x1: colonne ? p.left : h.right, y1: colonne ? h.bottom : p.top };
+    });
+    const z = await libre(), mesures = [], echecs = [];
+    const entree = await lire();
+    if (entree.ecartCible > 1) echecs.push('cible a ' + entree.ecartCible.toFixed(1) + ' m du centre');
+    const tactile = f.nom !== 'large';
+    const glisser1 = async (de, dx, dy) => {
+      if (tactile) await doigts(page, [de], [{ x: de.x + dx, y: de.y + dy }], 8);
+      else await glisser(page, de, dx, dy, 10);
+      await page.waitForTimeout(300);
+    };
+    await glisser1({ x: z.x0 + 40, y: z.y0 + 40 }, 120, 0);
+    const orb = await lire(), bouge = Math.hypot(orb.ecran.x - entree.ecran.x, orb.ecran.y - entree.ecran.y);
+    mesures.push('orbite : maison ' + Math.round(bouge) + ' px');
+    if (bouge > 20) echecs.push('la maison glisse de ' + Math.round(bouge) + ' px a l orbite');
+    await glisser1({ x: (z.x0 + z.x1) / 2, y: z.y1 - 30 }, 0, -(z.y1 - z.y0 - 60));
+    const bas = await lire();
+    mesures.push('au plus bas ' + bas.auDessus.toFixed(1) + ' m au-dessus du sol');
+    if (bas.auDessus <= 0) echecs.push('sous le sol');
+    const c = { x: (z.x0 + z.x1) / 2, y: (z.y0 + z.y1) / 2 };
+    const pincer = (de, a) => doigts(page, [{ x: c.x - de, y: c.y }, { x: c.x + de, y: c.y }], [{ x: c.x - a, y: c.y }, { x: c.x + a, y: c.y }], 6);
+    if (tactile) for (let k = 0; k < 3; k++) await pincer(25, 85);
+    else for (let k = 0; k < 40; k++) { await page.mouse.move(c.x, c.y); await page.mouse.wheel(0, -100); await page.waitForTimeout(10); }
+    await page.waitForTimeout(300);
+    const pres = await lire();
+    mesures.push('au plus pres ' + pres.dist.toFixed(1) + ' m');
+    if (pres.dist < 2.99 || pres.auDessus <= 0) echecs.push('trop pres (' + pres.dist.toFixed(2) + ' m) ou sous le sol');
+    if (tactile) for (let k = 0; k < 4; k++) await pincer(85, 25);
+    else for (let k = 0; k < 60; k++) { await page.mouse.wheel(0, 100); await page.waitForTimeout(10); }
+    await page.waitForTimeout(300);
+    const loin = await lire();
+    mesures.push('au plus loin ' + loin.dist.toFixed(0) + ' m (borne ' + loin.max.toFixed(0) + ')');
+    if (!(loin.dist <= loin.max + 0.01 && loin.max < 200)) echecs.push('trop loin');
+    await etape('recadrer', () => page.locator('[data-commande="toit.recadrer"]').click({ timeout: 20000 }));
+    await page.waitForTimeout(600);
+    const re = await lire();
+    const dansLeLibre = re.ecran.x > z.x0 && re.ecran.x < z.x1 && re.ecran.y > z.y0 && re.ecran.y < z.y1;
+    if (re.ecartCible > 1 || !dansLeLibre) echecs.push('Recadrer : la maison n est pas revenue');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(600);
+    const apres = await lire();
+    const rendue = (await page.locator('.panneauToit').count()) === 0 && apres.pos.every((v, i) => Math.abs(v - avant.pos[i]) < 1e-6) && !apres.decale && apres.min === 0 && apres.max === Infinity;
+    if (!rendue) echecs.push('sortie : camera, orbite ou image non rendues');
+    return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ECHECS : ' + echecs.join(', ') : ' ; recadrer et sortie conformes') };
+  },
   143: async (page, f) => {
     // Le zoom de la vue de facade (decision du proprietaire, 6 novembre 2026 : le cadre de la facade et de ses poignees reste, on s'approche
     // au pincement, et a la molette au bureau). AE 101, la facade du corps principal : au doigt (compact, moyen) un pincement, a la souris
@@ -6436,7 +6510,7 @@ function pointsPour(nomClasse) {
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

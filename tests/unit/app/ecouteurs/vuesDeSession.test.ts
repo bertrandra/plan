@@ -95,3 +95,16 @@ describe('le corps choisi au mode Toit', () => {
     expect(etatToit().selection).toEqual({ type: 'corps', rang: 0, i: 0 });
   });
 });
+
+describe('Ctrl+Z et Ctrl+Y ne rendent la camera que si ce qu on regarde change (decision du proprietaire, 6 novembre 2026)', () => {
+  it('meme vue, meme facade, meme element : la camera reste ; sinon elle revient', async () => {
+    const { laCameraSuitLePas } = await import('../../../../src/app/toits/modeToit.js');
+    const libre = { vue: 'libre' as const, facade: null, selection: null };
+    expect(laCameraSuitLePas(libre, libre)).toBe(false);
+    expect(laCameraSuitLePas(libre, { ...libre, vue: 'facade' })).toBe(true);
+    expect(laCameraSuitLePas(libre, { ...libre, selection: { type: 'corps', rang: 0, i: 0 } })).toBe(true);
+    const facade = { vue: 'facade' as const, facade: { rang: 0, mur: 1 }, selection: { type: 'corps' as const, rang: 0, i: 0 } };
+    expect(laCameraSuitLePas(facade, { ...facade, facade: { rang: 0, mur: 1 }, selection: { type: 'corps', rang: 0, i: 0 } })).toBe(false);
+    expect(laCameraSuitLePas(facade, { ...facade, facade: { rang: 0, mur: 2 } })).toBe(true);
+  });
+});
