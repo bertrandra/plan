@@ -54,7 +54,12 @@ export function estUnToucher(debut: { x: number; y: number; t: number }, fin: { 
   return doigts <= 1 && Math.hypot(fin.x - debut.x, fin.y - debut.y) <= TOUCHER_PX && fin.t - debut.t <= TOUCHER_MS;
 }
 
-export function brancherSelection3d(a: Atelier, magasin: Magasin, doc: Document | null = typeof document === 'undefined' ? null : document): void {
+/**
+ * Les touchers sur la scene de la Vue 3D : un geste bref et immobile, d'un seul doigt ou du bouton principal (`estUnToucher`), commence et
+ * fini sur le canevas. Un glisser (l'orbite), un pincement, un appui long, le bouton droit n'en sont pas. Les doigts sont suivis un a un :
+ * un pincement dont un doigt reste immobile n'est pas un toucher. Le mode Toit et la selection au toucher en ont un chacun.
+ */
+export function ecouterLesTouchers(doc: Document | null, auToucher: (e: PointerEvent) => void): void {
   const surLaScene = (e: Event): boolean => { const h = hotes3d.vue3d, t = e.target; return !!h && t instanceof HTMLCanvasElement && h.contains(t); };
   let debut: { x: number; y: number; t: number } | null = null, doigtsMax = 0;
   const doigts = new Set<number>();
@@ -71,6 +76,14 @@ export function brancherSelection3d(a: Atelier, magasin: Magasin, doc: Document 
     if (doigts.size > 0) return;
     debut = null;
     if (annule || !d || !estUnToucher(d, { x: e.clientX, y: e.clientY, t: Date.now() }, doigtsMax)) return;
+    auToucher(e);
+  };
+  doc?.addEventListener('pointerup', (e) => { lacher(e, false); }, true);
+  doc?.addEventListener('pointercancel', (e) => { lacher(e, true); }, true);
+}
+
+export function brancherSelection3d(a: Atelier, magasin: Magasin, doc: Document | null = typeof document === 'undefined' ? null : document): void {
+  ecouterLesTouchers(doc, (e) => {
     if (magasin.store.getState().vue !== 'vue3d' || toucherPrisAilleurs()) return;
     const toile = vue3d.scene?.renderer.domElement;
     if (!toile) return;
@@ -84,9 +97,7 @@ export function brancherSelection3d(a: Atelier, magasin: Magasin, doc: Document 
     a.etat.highlight = { type: null, index: null };
     a.rebuildSelector();
     a.render();
-  };
-  doc?.addEventListener('pointerup', (e) => { lacher(e, false); }, true);
-  doc?.addEventListener('pointercancel', (e) => { lacher(e, true); }, true);
+  });
 
   // Le trait de l'objet choisi : pose a chaque changement de la selection ou de la scene, retire hors de la Vue 3D et quand un autre
   // maitre du toucher a la main (le mode Toit dessine sa silhouette, l'audit son propre trait).

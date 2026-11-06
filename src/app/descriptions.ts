@@ -120,6 +120,8 @@ export const DESCRIPTIONS: Record<string, string> = {
   '3d.modeZoom': 'Le glisser rapproche ou éloigne la caméra',
   '3d.zoomAvant': 'Rapproche la caméra',
   '3d.zoomArriere': 'Éloigne la caméra',
+  '3d.tournerGauche': 'Tourne la vue de 15° autour de ce qu’elle regarde : la scène tourne vers la gauche (flèche gauche du clavier)',
+  '3d.tournerDroite': 'Tourne la vue de 15° autour de ce qu’elle regarde : la scène tourne vers la droite (flèche droite du clavier)',
   '3d.hauteurDesYeux': 'Place la caméra à hauteur d’yeux, debout sur la terrasse sélectionnée',
   '3d.enregistrerPng': 'Télécharge l’image de la vue 3D en PNG',
   '3d.heureDoree': 'Place le soleil à l’heure dorée du jour choisi, une cinquantaine de minutes avant son coucher',

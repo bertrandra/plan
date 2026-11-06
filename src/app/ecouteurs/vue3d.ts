@@ -32,6 +32,10 @@ import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } fro
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
   zoom3D: (facteur: number) => void;
+  /** Tourne la vue de `deg` degres autour de sa cible (positif : vers la gauche). */
+  tournerVue: (deg: number) => void;
+  /** La Vue 3D est l'ecran montre : les fleches du clavier la tournent. */
+  vue3dOuverte: () => boolean;
   setMode3D: (mode: Mode3D) => void;
   hauteurDesYeux: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
@@ -149,6 +153,9 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
 
 }
 
+/** Le pas des boutons « Tourner la vue » et des fleches du clavier, en degres. */
+export const PAS_TOURNER_VUE_DEG = 15;
+
 /** Le pas des boutons + et − de la Vue 3D : la distance a la cible divisee (ou multipliee) par deux. */
 export const FACTEUR_BOUTON_ZOOM = 0.5;
 
@@ -169,6 +176,16 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   // 0,8 / 1,25, il fallait une vingtaine de clics pour aller du voisinage entier a une maison.
   cam('terrasse3dZoomIn', '3d.zoomAvant', 'Zoom avant', () => ctx.zoom3D(FACTEUR_BOUTON_ZOOM));
   cam('terrasse3dZoomOut', '3d.zoomArriere', 'Zoom arrière', () => ctx.zoom3D(1 / FACTEUR_BOUTON_ZOOM));
+  cam('terrasse3dTournerGauche', '3d.tournerGauche', 'Tourner la vue à gauche', () => ctx.tournerVue(PAS_TOURNER_VUE_DEG));
+  cam('terrasse3dTournerDroite', '3d.tournerDroite', 'Tourner la vue à droite', () => ctx.tournerVue(-PAS_TOURNER_VUE_DEG));
+  // Les fleches gauche et droite tournent la vue, sur la Vue 3D, hors d'un champ ou d'une liste qui a les siennes.
+  window.addEventListener('keydown', (e) => {
+    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.ctrlKey || e.metaKey || e.altKey || !ctx.vue3dOuverte() || !vue3d.scene) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.closest('input, textarea, select, [contenteditable="true"], [role="tablist"], [role="radiogroup"], [role="slider"], [role="listbox"], [role="menu"], dialog') || t.isContentEditable)) return;
+    e.preventDefault();
+    cmd.executer(e.key === 'ArrowLeft' ? '3d.tournerGauche' : '3d.tournerDroite');
+  });
   cam('terrasse3dModeOrbit', '3d.modeOrbite', 'Orbite', () => ctx.setMode3D('orbit'));
   cam('terrasse3dModePan', '3d.modeDeplacement', 'Déplacement', () => ctx.setMode3D('pan'));
   cam('terrasse3dModeZoom', '3d.modeZoom', 'Zoom', () => ctx.setMode3D('zoom'));

@@ -36,7 +36,7 @@ function monter(ecrire = true) {
   const a = fauxAtelier({ objects: [terrasse], terrasseSelectedKey: 't' } as never);
   let plein = false;
   const ctx: ContexteVue3d = {
-    zoom3D: vi.fn(), setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
+    zoom3D: vi.fn(), tournerVue: vi.fn(), vue3dOuverte: () => true, setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
     setVue3dPleinePage: vi.fn((v: boolean) => { plein = v; }), setGlbViewerPleinePage: vi.fn(),
     vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn(),
     lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 })

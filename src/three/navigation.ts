@@ -234,6 +234,8 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     }
     molette.t = maintenant;
     const { camera, controls } = sc;
+    // L'orbite suspendue (une camera qui l'emporte, la vue de facade du mode Toit) : la molette ne deplace pas en silence une camera cachee.
+    if (controls.enabled === false) return;
     // Le ciel : rien a viser, la molette rapproche de la cible comme avant.
     if (!molette.point) { repli(f); return; }
     // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera, ni des bornes de l'orbite (le mode Toit en pose).
@@ -251,6 +253,20 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
   return { onMolette, oublier: () => { molette = null; } };
 }
 
+/**
+ * Tourne la camera de `deg` degres autour de la verticale de sa cible (positif : la scene tourne vers la gauche). Les boutons et les
+ * fleches du clavier font ainsi ce que fait le glisser (audit de la camera, 6 novembre 2026 : la vue ne se pilotait pas au clavier).
+ */
+function tournerVue(deg: number): void {
+  const sc = vue3d.scene;
+  if (!sc || sc.controls.enabled === false) return;
+  const { camera, controls } = sc;
+  const offset = new THREE.Vector3().subVectors(camera.position, controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), (deg * Math.PI) / 180);
+  camera.position.copy(controls.target).add(offset);
+  controls.update();
+  rendre3d(sc);
+}
+
 export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
@@ -265,6 +281,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   function zoom3D(factor: number): void {
     if (!vue3d.scene) return;
     const { camera, controls } = vue3d.scene;
+    // L'orbite suspendue : les boutons + et − et le zoom au glisser ne deplacent pas en silence la camera cachee.
+    if (controls.enabled === false) return;
     const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
     offset.multiplyScalar(factor);
     // Au plus pres permis, le pas s'arrete a la borne plutot que d'etre refuse (sauf s'il y est deja).
@@ -346,6 +364,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    */
   return {
     zoom3D,
+    tournerVue,
     applyMode3D,
     setMode3D(m: Mode3D) { mode3D = m; applyMode3D(); },
     resizeThreeScene,

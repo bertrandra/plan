@@ -109,10 +109,10 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
           <div className="groupeChoix" role="group" aria-label="Gestes">
             {selection.type === 'corps' ? (
               <>
-                <button type="button" className="boutonToit" data-commande="toit.tourner" data-sens="1" aria-label="Tourner à gauche" title="Tourner à gauche (15°)"
-                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="tourner" taille={20} /></button>
-                <button type="button" className="boutonToit miroir" data-commande="toit.tourner" data-sens="-1" aria-label="Tourner à droite" title="Tourner à droite (15°)"
-                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="tourner" taille={20} /></button>
+                <button type="button" className="boutonToit" data-commande="toit.tourner" data-sens="1" aria-label="Tourner le corps à gauche" title="Tourner le corps à gauche (15°)"
+                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="tournerCorps" taille={20} /></button>
+                <button type="button" className="boutonToit miroir" data-commande="toit.tourner" data-sens="-1" aria-label="Tourner le corps à droite" title="Tourner le corps à droite (15°)"
+                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="tournerCorps" taille={20} /></button>
                 {bouton('toit.scinder', 'scinder', 'Couper le corps en deux')}
                 <button type="button" className="boutonToit miroir" data-commande="toit.retour" data-cote="gauche" aria-label="Retour d’angle à gauche" title="Retour d’angle à gauche"
                   disabled={!commandes.etat('toit.retour').utilisable} onClick={(ev) => { commandes.executer('toit.retour', ev.currentTarget); }}><Icone nom="angle" taille={20} /></button>
