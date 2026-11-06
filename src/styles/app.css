@@ -145,12 +145,15 @@
   html[data-classe="compact"] .panneauToit .optionPiece, html[data-classe="moyen"] .panneauToit .optionPiece{ min-height:44px; }
   /* Tablette : la barre de la session est un rail vertical a gauche du panneau, les boutons restent sous le pouce. */
   html[data-classe="moyen"] .panneauToit{ right:64px; max-height:64%; }
-  html[data-classe="moyen"] .panneauToit .defilementToit{ display:grid; grid-template-columns:56px minmax(0,1fr); column-gap:8px; align-content:start; }
+  /* La barre de la session, en deux colonnes a gauche : en une seule, ses treize boutons faisaient la hauteur du panneau et
+     prenaient la scene (audit de la camera, 6 novembre 2026). */
+  html[data-classe="moyen"] .panneauToit .defilementToit{ display:grid; grid-template-columns:104px minmax(0,1fr); column-gap:8px; align-content:start; }
   html[data-classe="moyen"] .panneauToit .defilementToit > :not(.barreToit){ grid-column:2; }
-  html[data-classe="moyen"] .panneauToit .barreToit{ grid-column:1; grid-row:1 / span 12; flex-direction:column; flex-wrap:nowrap; align-items:center; }
+  html[data-classe="moyen"] .panneauToit .barreToit{ grid-column:1; grid-row:1 / span 12; display:grid; grid-template-columns:repeat(2, 48px); gap:4px; justify-content:center; align-content:start; }
+  html[data-classe="moyen"] .panneauToit .barreToit .boutonToit.valider{ grid-column:1 / -1; width:100%; }
   html[data-classe="moyen"] .panneauToit .barreToit .boutonToit.valider span{ display:none; }
-  html[data-classe="moyen"] .panneauToit .barreToit .espaceToit{ flex:0 0 4px; }
-  html[data-classe="moyen"] .panneauToit .barreToit .separateurToit{ width:auto; height:1px; align-self:stretch; margin:2px 0; }
+  html[data-classe="moyen"] .panneauToit .barreToit .espaceToit{ display:none; }
+  html[data-classe="moyen"] .panneauToit .barreToit .separateurToit{ grid-column:1 / -1; width:auto; height:1px; align-self:stretch; margin:2px 0; }
   /* Le mode Plan : les corps vus de dessus se choisissent d'un toucher. */
   .planToit{ position:absolute; left:0; top:0; z-index:3; pointer-events:none; overflow:visible; }
   .planToit .corpsPlan{ pointer-events:auto; cursor:pointer; fill:var(--accent-light); fill-opacity:.18; stroke:var(--accent); stroke-width:2px; }
