@@ -11,7 +11,10 @@ import { useEffect, useRef, useState } from 'react';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { axeUtilisable, cadreDe, cibleDesPoignees, cotesDe, ecarterAEcran, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
-import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
+import { abonnerImage, cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
+import { estCache } from '../../three/occultation.js';
+import { moteur3d } from '../../three/demande3d.js';
+import { ramenerDansLeLibre } from '../../facade/modeToit/poigneesLibres.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { PtBrut } from '../../model/types.js';
@@ -109,7 +112,24 @@ function enMetres(dx: number, dy: number, axes: readonly Axe[], v: Partial<Recor
   return res;
 }
 
-interface Glisse { id: string; depart: CorpsToit[]; x0: number; y0: number; cible: CibleGlisser; poignee: Poignee; vecteurs: Partial<Record<Axe, Ecran>> }
+interface Glisse {
+  id: string; depart: CorpsToit[]; x0: number; y0: number; cible: CibleGlisser; poignee: Poignee; vecteurs: Partial<Record<Axe, Ecran>>;
+  /** Le doigt (ou la souris) qui tire, l'element qui le tient, et ou il est : un second doigt rend le geste a l orbite (`poserSurLaScene`). */
+  pointeur: number; type: string; element: Element; x: number; y: number;
+}
+
+/**
+ * Un pointeur rejoue sur le canevas de la scene : l'orbite (OrbitControls) le prend comme s'il s'y etait pose, et suit ensuite ses
+ * mouvements sur le document. C'est ainsi qu'un pincement commence sur une poignee devient un pincement de la vue.
+ */
+function poserSurLaScene(pointeur: number, type: string, x: number, y: number, primaire: boolean): void {
+  const toile = vue3d.scene?.renderer.domElement;
+  if (!toile) return;
+  toile.dispatchEvent(new PointerEvent('pointerdown', { pointerId: pointeur, pointerType: type, clientX: x, clientY: y, isPrimary: primaire, button: 0, buttons: 1, bubbles: true }));
+}
+
+/** Les poignees cachees se cherchent par un rayon de l'oeil : un seul, reutilise. */
+let rayon: InstanceType<typeof THREE.Raycaster> | null = null;
 
 /**
  * La partie de l'image ou une poignee ecartee peut aller : hors du panneau du mode (colonne a droite ou bandeau en bas) et a une cible
@@ -130,20 +150,34 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const [guides, setGuides] = useState<number[]>([]);
   const glisse = useRef<Glisse | null>(null);
 
-  // La camera bouge, la session change : on redessine. Le calque lit la scene, il ne la possede pas.
+  // La camera bouge, la session change : on redessine. Le calque lit la scene, il ne la possede pas. Chaque image rendue le dit
+  // (`abonnerImage`) : les poignees suivent la camera de l'image meme, sans le retard d'un minuteur (audit de la camera, 6 novembre 2026).
   useEffect(() => {
     let derniere = '';
-    const id = setInterval(() => {
-      const sc = vue3d.scene;
-      if (!sc) return;
+    const desabonner = abonnerImage((sc) => {
+      if (!sessionToit() || sc !== vue3d.scene) return;
       // La camera qui fait l'image : celle de l'orbite, ou l'oblique de la facade (qui ne bouge qu'au recadrage).
       const cam = cameraDeVue(sc);
       const cle = [...cam.matrixWorld.elements, ...cam.projectionMatrix.elements].map((v) => v.toFixed(3)).join();
       if (cle !== derniere) { derniere = cle; redessiner((n) => n + 1); }
-    }, 100);
+    });
     const echap = (e: KeyboardEvent) => { if (e.key === 'Escape' && glisse.current) { glisse.current = null; modeToitCourant()?.annulerGlisser(); setGuides([]); e.stopPropagation(); } };
+    // Un second doigt pendant qu'une poignee est tiree : c'est un pincement, pas une retouche. Le glisser est annule (le toit revient a
+    // l'etat de la pile) et les deux doigts vont a l'orbite ; un second doigt pose sur une autre poignee ne la prend pas.
+    const second = (e: PointerEvent) => {
+      const g = glisse.current;
+      if (!g || e.pointerId === g.pointeur || !e.isTrusted) return;
+      glisse.current = null;
+      try { g.element.releasePointerCapture(g.pointeur); } catch { /* deja relache */ }
+      modeToitCourant()?.annulerGlisser();
+      setGuides([]);
+      poserSurLaScene(g.pointeur, g.type, g.x, g.y, true);
+      const t = e.target as Element | null;
+      if (!(t instanceof HTMLCanvasElement)) { e.stopPropagation(); e.preventDefault(); poserSurLaScene(e.pointerId, e.pointerType, e.clientX, e.clientY, false); }
+    };
+    document.addEventListener('pointerdown', second, true);
     window.addEventListener('keydown', echap, true);
-    return () => { clearInterval(id); window.removeEventListener('keydown', echap, true); };
+    return () => { desabonner(); document.removeEventListener('pointerdown', second, true); window.removeEventListener('keydown', echap, true); };
   }, []);
 
   const s = sessionToit(), e = etatToit();
@@ -171,18 +205,29 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const ancre = projeter(poignees[0]?.point as Point3, base);
   // Les poignees a l'ecran, ecartees si elles se recouvrent : chacune doit se prendre au doigt (deux zones de saisie bord a bord).
   const projetees = poignees.map((p) => projeter(p.point, base));
-  const ecartees = ecarterAEcran(projetees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, bornesLibres(r));
-  const places = projetees.map((q, k) => (q ? ecartees[k] ?? q : null));
+  // Une poignee sous le panneau se ramene au bord de la partie libre : elle se prend, un trait la relie a son point.
+  const libres = bornesLibres(r);
+  // Hors de l'image, elle reste ou elle est (on la retrouve en tournant) : seule celle que le panneau (ou un bord) couvre se ramene.
+  const ramenees = projetees.map((q) => (q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height ? ramenerDansLeLibre(q, libres) : q));
+  const ecartees = ecarterAEcran(ramenees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, libres);
+  const places = ramenees.map((q, k) => (q ? ecartees[k] ?? q : null));
+  // Une poignee derriere une surface du batiment, en 3D libre : estompee, elle ne se prend pas. Le rayon part de l'oeil de l'orbite vers
+  // son point. De dessus, les poignees sont celles du plan, posees au pied du corps sous son toit ; devant une facade, la vue est celle du mur.
+  const sc = vue3d.scene, racines = sc && !sc.cameraRendu && !plan ? moteur3d()?.racinesDe3d(s.cle) ?? [] : [];
+  rayon ??= racines.length ? new THREE.Raycaster() : null;
+  const cachees = poignees.map((p) => !!sc && !!rayon && racines.length > 0 && estCache(sc.camera, racines, { x: p.point.x - sc.cen.x, y: base + p.point.z, z: sc.cen.y - p.point.y }, rayon));
 
   const demarrer = (ev: React.PointerEvent<SVGGElement>, p: Poignee) => {
     ev.stopPropagation();
     ev.preventDefault();
     (ev.currentTarget as Element).setPointerCapture(ev.pointerId);
-    glisse.current = { id: p.id, depart: JSON.parse(JSON.stringify(corps)) as CorpsToit[], x0: ev.clientX, y0: ev.clientY, cible, poignee: p, vecteurs: vecteursEcran(p.point, p.axes, cadre, base) };
+    glisse.current = { id: p.id, depart: JSON.parse(JSON.stringify(corps)) as CorpsToit[], x0: ev.clientX, y0: ev.clientY, cible, poignee: p, vecteurs: vecteursEcran(p.point, p.axes, cadre, base),
+      pointeur: ev.pointerId, type: ev.pointerType, element: ev.currentTarget as Element, x: ev.clientX, y: ev.clientY };
   };
   const bouger = (ev: React.PointerEvent<SVGGElement>) => {
     const g = glisse.current;
-    if (!g) return;
+    if (!g || ev.pointerId !== g.pointeur) return;
+    g.x = ev.clientX; g.y = ev.clientY;
     const d = enMetres(ev.clientX - g.x0, ev.clientY - g.y0, g.poignee.axes, g.vecteurs);
     const res = glisser(g.depart, g.cible, g.id, d);
     modeToitCourant()?.apercu(res.corps, res.elevation);
@@ -190,7 +235,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     redessiner((n) => n + 1);
   };
   const finir = (ev: React.PointerEvent<SVGGElement>) => {
-    if (!glisse.current) return;
+    if (!glisse.current || ev.pointerId !== glisse.current.pointeur) return;
     glisse.current = null;
     (ev.currentTarget as Element).releasePointerCapture(ev.pointerId);
     modeToitCourant()?.finGlisser();
@@ -205,11 +250,15 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
         return a && b ? <line key={g} className="guideToit" x1={a.x} y1={a.y} x2={b.x} y2={b.y} /> : null;
       })}
       {poignees.map((p, k) => {
-        const q = places[k];
+        const q = places[k], vrai = projetees[k];
         if (!q) return null;
+        // Celle qu'on tire reste prise, meme si l'orbite la cache un instant.
+        const cachee = !!cachees[k] && glisse.current?.id !== p.id;
         return (
-          <g key={p.id} className={'poigneeToit' + (DEPLACEMENTS.has(p.id) ? ' deplacer' : '')} data-poignee={p.id} transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle}
-            onPointerDown={(ev) => demarrer(ev, p)} onPointerMove={bouger} onPointerUp={finir} onPointerCancel={finir}>
+          <g key={p.id} className={'poigneeToit' + (DEPLACEMENTS.has(p.id) ? ' deplacer' : '') + (cachee ? ' cachee' : '')} data-poignee={p.id} data-cachee={cachee ? '' : undefined}
+            transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle + (cachee ? ' (cachée par le toit : tournez autour du bâtiment)' : '')} aria-disabled={cachee || undefined}
+            onPointerDown={(ev) => { if (!cachee) demarrer(ev, p); }} onPointerMove={bouger} onPointerUp={finir} onPointerCancel={finir}>
+            {vrai && Math.hypot(vrai.x - q.x, vrai.y - q.y) > SAISIE_PX && <line className="renvoiPoignee" x1={0} y1={0} x2={vrai.x - q.x} y2={vrai.y - q.y} />}
             <title>{p.libelle}</title>
             <circle className="saisiePoignee" r={SAISIE_PX} />
             {DEPLACEMENTS.has(p.id) ? <>

@@ -143,6 +143,37 @@ function useCleVue3d(magasin: Magasin, commandes: RegistreCommandes, vues: Servi
   useCle(magasin, 'vue 3D', (s) => cleVue3d(s, commandes, vues));
 }
 
+/** Les boutons de la camera, en colonne sur la scene (Z4, la navigation seule). */
+function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: RegistreCommandes; magasin: Magasin; pleinePage: boolean }) {
+  const etatPlan = magasin.store.getState().etat;
+  const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
+  return (
+    <div id="terrasse3dZoomControls" className="commandes3d">
+      <Bouton3d commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" icone="pleinEcran" libelle={pleinePage ? 'Format normal' : 'Plein écran'}
+        titre={pleinePage ? 'Format normal (Échap)' : 'Plein écran'} actif={pleinePage} />
+      <div className="separateur3d"></div>
+      <Bouton3d commandes={commandes} id="3d.zoomAvant" domId="terrasse3dZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
+      <Bouton3d commandes={commandes} id="3d.zoomArriere" domId="terrasse3dZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />
+      <Bouton3d commandes={commandes} id="3d.tournerGauche" domId="terrasse3dTournerGauche" icone="tourner" libelle="Tourner la vue à gauche" titre="Tourner la vue à gauche (15°, flèche gauche)" />
+      <Bouton3d commandes={commandes} id="3d.tournerDroite" domId="terrasse3dTournerDroite" icone="tournerDroite" libelle="Tourner la vue à droite" titre="Tourner la vue à droite (15°, flèche droite)" />
+      <div className="separateur3d"></div>
+      <Bouton3d commandes={commandes} id="3d.modeOrbite" domId="terrasse3dModeOrbit" icone="orbite" libelle="Glisser pour tourner" titre="Tourner (glisser fait pivoter la vue) — mode par defaut" actif={affichage3d.mode === 'orbit'} />
+      <Bouton3d commandes={commandes} id="3d.modeDeplacement" domId="terrasse3dModePan" icone="deplacer" libelle="Glisser pour déplacer" titre="Deplacer (glisser translate la vue, un seul doigt suffit)" actif={affichage3d.mode === 'pan'} />
+      <Bouton3d commandes={commandes} id="3d.modeZoom" domId="terrasse3dModeZoom" icone="loupe" libelle="Glisser pour zoomer" titre="Zoom (glisser vers le haut rapproche, vers le bas eloigne)" actif={affichage3d.mode === 'zoom'} />
+      <div className="separateur3d"></div>
+      <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
+      <div className="separateur3d"></div>
+      <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
+      <BoutonModifierToit commandes={commandes} />
+      {commandes.etat('terrasse.isoler').utilisable && (
+        <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
+          titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
+          actif={magasin.store.getState().etat.isolement !== null} />
+      )}
+    </div>
+  );
+}
+
 export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   useEtat3d();
   useCleVue3d(magasin, commandes, vues);
@@ -152,7 +183,6 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   const etatPlan = magasin.store.getState().etat;
   // Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes, sous les reglages.
   const audit = etatPlan.audit;
-  const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
   // Les reglages de la terrasse (filaire, translucide, sol en coupe) ne se montrent que si c'est une
   // terrasse qui est selectionnee : sur un batiment ou la parcelle, ils ne disent rien.
   const selection = etatPlan.objects.find(o => o.key === etatPlan.selectedKey);
@@ -267,27 +297,7 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
             <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} info={affichage3d.soleilInfo} />
             <LigneDate ids={IDS_SOLEIL} soleil={vues.soleil3d} />
           </div>
-          <div id="terrasse3dZoomControls" className="commandes3d">
-            <Bouton3d commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" icone="pleinEcran" libelle={pleinePage ? 'Format normal' : 'Plein écran'}
-              titre={pleinePage ? 'Format normal (Échap)' : 'Plein écran'} actif={pleinePage} />
-            <div className="separateur3d"></div>
-            <Bouton3d commandes={commandes} id="3d.zoomAvant" domId="terrasse3dZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
-            <Bouton3d commandes={commandes} id="3d.zoomArriere" domId="terrasse3dZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />
-            <div className="separateur3d"></div>
-            <Bouton3d commandes={commandes} id="3d.modeOrbite" domId="terrasse3dModeOrbit" icone="orbite" libelle="Glisser pour tourner" titre="Tourner (glisser fait pivoter la vue) — mode par defaut" actif={affichage3d.mode === 'orbit'} />
-            <Bouton3d commandes={commandes} id="3d.modeDeplacement" domId="terrasse3dModePan" icone="deplacer" libelle="Glisser pour déplacer" titre="Deplacer (glisser translate la vue, un seul doigt suffit)" actif={affichage3d.mode === 'pan'} />
-            <Bouton3d commandes={commandes} id="3d.modeZoom" domId="terrasse3dModeZoom" icone="loupe" libelle="Glisser pour zoomer" titre="Zoom (glisser vers le haut rapproche, vers le bas eloigne)" actif={affichage3d.mode === 'zoom'} />
-            <div className="separateur3d"></div>
-            <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
-            <div className="separateur3d"></div>
-            <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
-            <BoutonModifierToit commandes={commandes} />
-            {commandes.etat('terrasse.isoler').utilisable && (
-              <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
-                titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
-                actif={magasin.store.getState().etat.isolement !== null} />
-            )}
-          </div>
+          <CommandesCamera commandes={commandes} magasin={magasin} pleinePage={pleinePage} />
         </div>
       </div>
     </div>

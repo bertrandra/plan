@@ -77,7 +77,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
   /** Un geste sur une vue ouverte : sans moteur, aucune vue n'est ouverte. */
   const siOuverte = (f: (n: Navigation3d) => void) => { const m = moteur3d(); if (m) f(navigation(m)); };
   const reglagesVue3d = brancherVue3d(atelier, {
-    zoom3D: (f) => siOuverte((n) => n.zoom3D(f)), setMode3D: (mode) => siOuverte((n) => n.setMode3D(mode)), buildThreeScene,
+    zoom3D: (f) => siOuverte((n) => n.zoom3D(f)), tournerVue: (deg) => siOuverte((n) => n.tournerVue(deg)),
+    vue3dOuverte: () => magasin.store.getState().vue === 'vue3d', setMode3D: (mode) => siOuverte((n) => n.setMode3D(mode)), buildThreeScene,
     createObjectDOM: d.createObjectDOM,
     hauteurDesYeux: () => siOuverte((n) => n.hauteurDesYeux()),
     setVue3dPleinePage: (a) => siOuverte((n) => n.setVue3dPleinePage(a)),

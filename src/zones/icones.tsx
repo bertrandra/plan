@@ -11,7 +11,7 @@
 export type NomIcone =
   | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
-  | 'grille' | 'ajuster' | 'recadrer' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
+  | 'grille' | 'ajuster' | 'recadrer' | 'tournerDroite' | 'tournerCorps' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
   | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee' | 'decroche'
@@ -51,6 +51,10 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   grille: <><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17" /></>,
   // Tourner un corps : un arc ferme presque, sa fleche au bout (l'annulation est un crochet, pas un tour).
   tourner: <><path d="M19 12a7 7 0 11-2.05-4.95" /><path d="M19 4v4h-4" /></>,
+  // La meme fleche dans l'autre sens : tourner la vue a droite (le bouton voisin tourne a gauche).
+  tournerDroite: <><path d="M5 12a7 7 0 102.05-4.95" /><path d="M5 4v4h4" /></>,
+  // Un corps (le bloc) et la fleche qui le tourne : tourner le corps, pas la vue (mode Toit).
+  tournerCorps: <><path d="M8 10.5l7.5-2 1.8 6.8-7.5 2z" /><path d="M4.5 13A8 8 0 0110 4.6" /><path d="M10 4.6L7.4 3.4M10 4.6l-1.1 2.6" /></>,
   // La vue de dessus : un toit a croupes vu d'en haut, son faitage et ses aretiers.
   vueDessus: <><rect x="3.5" y="6" width="17" height="12" rx="1" /><path d="M3.5 6L9 12l-5.5 6M20.5 6L15 12l5.5 6M9 12h6" /></>,
   // Le toit d'avant les changements : la maison, une fleche de retour dedans.

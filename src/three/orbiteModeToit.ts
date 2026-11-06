@@ -10,7 +10,7 @@
 // rappelle `borner`). Les bornes elles-memes sont pures et testees (`bornesDeLOrbite`, `correctionDeLaCible`).
 
 import { decalageDeLaVue, type PointScene, type Reserve } from './poseFacade.js';
-import type { SceneVue3d } from './etat3d.js';
+import { reglerVue3d, vue3d, type SceneVue3d } from './etat3d.js';
 
 /** La camera ne descend pas sous cet angle depuis la verticale : 85°, juste au-dessus de l'horizon de la cible. */
 export const POLAIRE_MAX_RAD = (85 * Math.PI) / 180;
@@ -64,6 +64,8 @@ interface Reglages { min: number; max: number; polaire: number; vitesse: number;
 interface Pose { reglages: Reglages; ecoute: () => void }
 const posees = new WeakMap<SceneVue3d, Pose>();
 let bornesCourantes: BornesOrbite | null = null;
+/** La focale tenue avant la session (la prise de vue de l'audit la tient aussi) : rendue a la fin. */
+let focaleAvant: boolean | null = null;
 
 /** Tient la cible dans les bornes, apres chaque mouvement de l'orbite : la camera suit du meme pas, la vue ne tourne pas. */
 function tenir(sc: SceneVue3d): void {
@@ -77,6 +79,9 @@ function tenir(sc: SceneVue3d): void {
 
 /** Pose les bornes `b` sur l'orbite de `sc` (une seule fois par scene : les reglages d'avant sont gardes pour `liberer`). */
 export function borner(sc: SceneVue3d, b: BornesOrbite): void {
+  // La focale ne suit plus la hauteur de la camera (45° en l'air, 55° pres du sol) : en tournant autour du batiment, l'impression de
+  // zoom changeait en descendant.
+  if (!bornesCourantes && focaleAvant === null) { focaleAvant = vue3d.focaleBloquee; reglerVue3d({ focaleBloquee: true }); }
   bornesCourantes = b;
   const c = sc.controls;
   if (!posees.has(sc)) {
@@ -105,6 +110,7 @@ export function admettreDistance(sc: SceneVue3d, d: number): void {
 /** Rend a l'orbite de `sc` ses reglages d'avant la session, et a la camera une image centree. */
 export function liberer(sc: SceneVue3d | null): void {
   bornesCourantes = null;
+  if (focaleAvant !== null) { reglerVue3d({ focaleBloquee: focaleAvant }); focaleAvant = null; }
   if (!sc) return;
   const p = posees.get(sc);
   if (p) {

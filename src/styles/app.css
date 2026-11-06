@@ -175,6 +175,10 @@
   .poigneesToit .guideToit{ stroke:var(--accent); stroke-width:1.5px; stroke-dasharray:6 4; }
   /* La poignee qui deplace l'element choisi : un carre plein a quatre fleches, distinct des poignees rondes qui etirent ou montent. */
   .poigneesToit .poigneeToit.deplacer{ cursor:move; }
+  /* Derriere une surface du batiment : estompee, elle ne se prend pas (le rayon de l'oeil, three/occultation.ts). */
+  .poigneesToit .poigneeToit.cachee{ pointer-events:none; opacity:.35; }
+  /* Ramenee dans la partie libre : un trait vers son vrai point. */
+  .poigneesToit .renvoiPoignee{ stroke:var(--accent); stroke-width:1.5px; stroke-dasharray:3 3; pointer-events:none; }
   .poigneesToit .poigneeToit.deplacer .pointPoignee{ fill:var(--accent); stroke:var(--panel-bg); stroke-width:2px; }
   .poigneesToit .poigneeToit.deplacer .flechesPoignee{ fill:var(--on-accent); pointer-events:none; }
   .poigneesToit .poigneeToit.deplacer:hover .pointPoignee{ fill:var(--ink); }
@@ -1898,6 +1902,10 @@
   html:not([data-classe="large"]) #terrasse3dWrap, html:not([data-classe="large"]) #glbViewerContent{ position:absolute; inset:0; margin:0 !important; }
   html:not([data-classe="large"]) .hote3d{ position:absolute; inset:0; height:auto !important; margin:0 !important; border:none; border-radius:0; }
   html:not([data-classe="large"]) .commandes3d{ top:calc(56px + 8px + 52px); right:10px; gap:6px; }
+  /* Au telephone, pendant une session du mode Toit, le panneau couvre le bas de la scene (52 % au plus) : la colonne de la camera
+     s'arrete au-dessus de lui et defile, chaque bouton reste atteignable (audit de la camera, 6 novembre 2026). */
+  html[data-mode-toit][data-classe="compact"] .commandes3d{ max-height:calc(48% - 56px - 8px - 52px - 8px); overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; scrollbar-width:none; }
+  html[data-mode-toit][data-classe="compact"] .commandes3d > *{ flex-shrink:0; }
   html:not([data-classe="large"]) .horloge3d{ top:calc(56px + 8px); left:10px; box-shadow:var(--ombre-flottante); }
   html:not([data-classe="large"]) .boutonReglagesFlottant{ position:absolute; top:calc(56px + 8px); right:10px; z-index:5; }
   html:not([data-classe="large"]) #glbViewerCanvasHost .commandes3d{ top:calc(56px + 8px); }

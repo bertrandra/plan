@@ -107,6 +107,8 @@ export function rendre3d(sc: SceneTroisBase): void {
   pendantLeRendu(() => { if (perfActive()) mesurerImage(sc.renderer, rendu); else rendu(); });
   // L'image est a jour : la boucle d'animation n'en rendra pas une autre sans raison.
   imageRendue(sc);
+  // Ce qui se pose sur l'image (les poignees du mode Toit) suit la camera de cette image meme, sans attendre.
+  apresImage.forEach((f) => { f(sc); });
 }
 
 /** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
@@ -402,5 +404,12 @@ const apresConstruction = new Set<() => void>();
  * Une Vue 3D vient d'etre batie (three/scene.ts, en fin de construction). Separe de `signaler3d` :
  * les zones n'ont rien a redessiner, seul ce qui pilote la camera (le mode audit) la reprend.
  */
+/**
+ * Ce qui suit chaque image rendue (une poignee posee sur la scene, l'indice du mode Toit) : appele juste apres le rendu, la camera de
+ * l'image a jour. Plus de minuteur qui sonde la camera, et toujours une image de retard.
+ */
+const apresImage = new Set<(sc: SceneTroisBase) => void>();
+export function abonnerImage(f: (sc: SceneTroisBase) => void): () => void { apresImage.add(f); return () => { apresImage.delete(f); }; }
+
 export function signalerSceneBatie(): void { apresConstruction.forEach(f => f()); }
 export function abonnerSceneBatie(f: () => void): () => void { apresConstruction.add(f); return () => { apresConstruction.delete(f); }; }

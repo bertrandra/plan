@@ -215,6 +215,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   // ---- Vue 3D ---------------------------------------------------------------------------------
   '3d.zoomAvant': partout('vue3d'),
   '3d.zoomArriere': partout('vue3d'),
+  '3d.tournerGauche': partout('vue3d'),
+  '3d.tournerDroite': partout('vue3d'),
   '3d.modeOrbite': partout('vue3d'),
   '3d.modeDeplacement': partout('vue3d'),
   '3d.modeZoom': partout('vue3d'),

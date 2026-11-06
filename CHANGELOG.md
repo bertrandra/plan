@@ -47,6 +47,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - Ctrl+Z et Ctrl+Y de la session ne rendent la caméra que si la vue, la façade ou l'élément choisi changent (décision du propriétaire) :
     sinon elle reste où vous l'avez mise.
   - Point de fumée 144. Ni le toit, ni Ctrl+Z du projet, ni « projet modifié », ni aucune quantité ou export ne changent.
+- Mode Toit, **les gestes de la caméra** (audit de la caméra, 6 novembre 2026, second lot).
+  - Le toucher qui choisit une façade (ou pose un élément, ou un décroché) est celui de la sélection au toucher : bref (450 ms),
+    immobile (6 px), d'un seul doigt ou du bouton principal (`selection3d.ts::ecouterLesTouchers`). Un clic droit bref (qui déplace la
+    vue), un appui long ou un pincement choisissaient une façade et faisaient sauter la caméra.
+  - Un second doigt posé pendant qu'une poignée est tirée en fait un pincement : le glisser est annulé (le toit revient à l'état de la
+    pile) et les deux doigts vont à l'orbite. Un pincement commencé près d'une poignée retouchait le toit.
+  - Une poignée qu'une surface du bâtiment cache (un rayon de l'œil vers elle, `three/occultation.ts`) s'estompe et ne se prend plus :
+    elle se dessinait par-dessus le toit qui la cache. Une poignée que le panneau couvre se ramène au bord de la partie libre, un trait
+    pointillé vers son point.
+  - Les poignées et l'indice suivent l'image même (`etat3d.ts::abonnerImage`, appelé après chaque rendu) : un minuteur de 100 ms les
+    faisait traîner derrière la caméra.
+  - « Tourner la vue à gauche » et « … à droite » (15°) dans la colonne de la caméra, et les flèches gauche et droite du clavier sur la
+    Vue 3D : la vue ne se pilotait pas au clavier. Les boutons qui tournent un corps disent « Tourner le corps à gauche / à droite » et
+    ont leur icône.
+  - Au téléphone, pendant une session, la colonne des boutons de la caméra s'arrête au-dessus du panneau et défile : les derniers
+    passaient sous lui.
+  - Pendant une session, la focale ne suit plus la hauteur de la caméra (45° en l'air, 55° près du sol) : en tournant autour du
+    bâtiment, l'impression de zoom changeait en descendant.
+  - Pas d'inertie (décision du propriétaire : l'orbite s'arrête net au lâcher). En vue de façade, la molette et les boutons + et − sont
+    ceux du zoom de la façade (#602).
+  - Point de fumée 145. Ni le toit, ni Ctrl+Z du projet, ni « projet modifié », ni aucune quantité ou export ne changent.
 - **Un dialogue ouvert par un toucher ne se referme plus aussitôt au doigt** : le clic d'un toucher arrive après sa levée, à l'endroit du
   doigt, et tombait sur le voile du dialogue qui venait de s'ouvrir (le point d'un décroché, au téléphone). Le voile ne ferme plus que
   sur un toucher commencé sur lui.

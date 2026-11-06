@@ -15,6 +15,7 @@ import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs
 import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, memeCible, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, saillieArmee } from '../../interaction/choixSaillie.js';
+import { ecouterLesTouchers } from './selection3d.js';
 import { affichage3d, hotes3d, vue3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { moteur3d } from '../../three/demande3d.js';
@@ -54,9 +55,6 @@ function raisonDuCatalogue(o: ObjetPlan | undefined, id: string): string | null 
 }
 
 export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.batiment?.toitFige;
-
-/** Le toucher et l'appui se distinguent d'un glisser (qui fait tourner la vue) au-dela de cette distance, en pixels. */
-const GLISSER_PX = 5;
 
 interface DepsClavier {
   enSession: () => boolean;
@@ -293,33 +291,24 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
 }
 
 /**
- * Le toucher (un clic, pas un glisser qui fait tourner la vue) sur la Vue 3D : le decroche arme prend son point, l'element arme se pose,
- * sinon la facade se choisit.
+ * Le toucher sur la Vue 3D : le decroche arme prend son point, l'element arme se pose, sinon la facade se choisit. Un toucher est bref,
+ * immobile, d'un seul doigt ou du bouton principal, sur le canevas (`ecouterLesTouchers`, le meme que la selection au toucher) : un clic
+ * droit (le deplacement), un appui long, un pincement n'en sont pas (audit de la camera, 6 novembre 2026). Le panneau, le plan des facades,
+ * les poignees et les boutons de la Vue 3D sont poses par-dessus, dans le meme hote : un toucher sur eux ne choisit rien.
  */
 function brancherToucherDeLaScene(enSession: () => boolean, mode: ReturnType<typeof creerModeToit>, decroche: GesteDecroche,
   placerSurLeMurTouche: (ndc: { x: number; y: number }) => boolean): void {
   const doc = typeof document === 'undefined' ? null : document;
-  let appui: { x: number; y: number; id: number } | null = null;
-  // Seul le canevas est la scene : le panneau du mode, le plan des facades, les poignees et les boutons de la Vue 3D sont poses
-  // par-dessus, dans le meme hote ; un toucher sur eux choisissait aussi la facade qu'ils couvraient (audit du 6 novembre 2026).
-  const surLaScene = (e: Event): boolean => { const h = hotes3d.vue3d, t = e.target; return !!h && t instanceof HTMLCanvasElement && h.contains(t); };
-  // Deux doigts a la fois (un pincement) ne touchent rien : le second annule le toucher du premier. Un pointeur premier (la souris, le
-  // premier doigt pose) commence un nouveau geste : un doigt dont la levee s'est perdue ne bloque jamais les touchers suivants.
-  doc?.addEventListener('pointerdown', (e) => {
-    if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice();
-    appui = enSession() && surLaScene(e) && e.isPrimary ? { x: e.clientX, y: e.clientY, id: e.pointerId } : null;
-  }, true);
-  doc?.addEventListener('pointercancel', () => { appui = null; }, true);
-  doc?.addEventListener('pointerup', (e) => {
-    const debut = appui && appui.id === e.pointerId ? appui : null; appui = null;
+  doc?.addEventListener('pointerdown', (e) => { if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); }, true);
+  ecouterLesTouchers(doc, (e) => {
     const hote = hotes3d.vue3d;
-    if (!debut || !hote || !enSession() || Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > GLISSER_PX) return;
+    if (!hote || !enSession()) return;
     const r = hote.getBoundingClientRect();
     const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) };
     if (decroche.arme()) decroche.placer(ndc);
     else if (saillieArmee()) placerSurLeMurTouche(ndc);
     else mode.toucher(ndc);
-  }, true);
+  });
 }
 
 /**

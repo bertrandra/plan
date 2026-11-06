@@ -259,6 +259,20 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
   return { onMolette, oublier: () => { molette = null; } };
 }
 
+/**
+ * Tourne la camera de `deg` degres autour de la verticale de sa cible (positif : la scene tourne vers la gauche). Les boutons et les
+ * fleches du clavier font ainsi ce que fait le glisser (audit de la camera, 6 novembre 2026 : la vue ne se pilotait pas au clavier).
+ */
+function tournerVue(deg: number): void {
+  const sc = vue3d.scene;
+  if (!sc || sc.controls.enabled === false) return;
+  const { camera, controls } = sc;
+  const offset = new THREE.Vector3().subVectors(camera.position, controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), (deg * Math.PI) / 180);
+  camera.position.copy(controls.target).add(offset);
+  controls.update();
+  rendre3d(sc);
+}
+
 /** Les canevas dont le pincement de facade est branche. */
 const pincements = new WeakMap<HTMLElement, () => void>();
 
@@ -361,6 +375,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    */
   return {
     zoom3D,
+    tournerVue,
     applyMode3D,
     setMode3D(m: Mode3D) { mode3D = m; applyMode3D(); },
     resizeThreeScene,

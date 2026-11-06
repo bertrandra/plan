@@ -4200,6 +4200,139 @@ const POINTS = {
     const ok = calme0 && immobile === 0 && geste > 0 && tourne && calme1 && heure > 0 && calme2 && couleur > 0 && pose > 0 && calme3 && ventOk;
     return { ok, mesure: `immobile 3 s : ${immobile} rendu(s)${calme0 ? '' : ' (JAMAIS CALME)'} ; geste ${geste} (caméra ${tourne ? 'tournée' : 'IMMOBILE'}), heure ${heure}, couleur changée ${couleur}, objet posé ${pose} rendu(s) ; retour au calme ${calme1 && calme2 && calme3 ? 'oui' : 'NON'} ; vent coché, ${arbres} arbre(s) : ${vent.parSeconde.toFixed(1)} images/s demandées (navigateur ${vent.raf.toFixed(0)} images/s, plafond 30)` };
   },
+  145: async (page, f) => {
+    // Les gestes de la camera du mode Toit (audit de la camera, 6 novembre 2026) : AE 101 et ses cinq corps, Vue 3D, « Modifier la
+    // toiture ». Un clic droit bref (au bureau) ou un appui long sur la maison ne choisit pas de facade, un toucher bref la choisit ; au
+    // doigt, un pincement commence sur une poignee zoome sans toucher au toit ; « Tourner la vue » (et la fleche gauche au bureau) tourne
+    // autour du corps choisi sans changer la distance, et les poignees suivent l'image meme ; apres un demi-tour, une poignee montree se
+    // prend ou se dit cachee, jamais sous le panneau ; les boutons de rotation du corps disent « Tourner le corps » ; au telephone, chaque
+    // bouton de la camera se prend.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    await etape('ouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+      await page.waitForTimeout(600);
+    });
+    const tactile = f.nom !== 'large', echecs = [], mesures = [];
+    const enFacade = () => page.evaluate(() => document.querySelector('[data-commande="toit.vueFacade"]')?.getAttribute('aria-pressed') === 'true');
+    const libre = async () => { await page.evaluate(() => window.__plan.executer('toit.vueLibre')); await page.waitForTimeout(400); };
+    const maison = await page.evaluate(() => {
+      const sc = window.__plan.scene3d(); sc.camera.updateMatrixWorld();
+      const t = sc.controls.target.clone().project(sc.camera), r = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect();
+      return { x: r.left + ((t.x + 1) / 2) * r.width, y: r.top + ((1 - t.y) / 2) * r.height };
+    });
+    const cdp = tactile ? await page.context().newCDPSession(page) : null;
+    const appuyer = async (ms) => {
+      if (cdp) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...maison, id: 0 }] }); await page.waitForTimeout(ms); await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
+      else { await page.mouse.move(maison.x, maison.y); await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up(); }
+      await page.waitForTimeout(700);
+    };
+    if (!tactile) {
+      await page.mouse.click(maison.x, maison.y, { button: 'right' });
+      await page.waitForTimeout(700);
+      if (await enFacade()) { echecs.push('clic droit : facade choisie'); await libre(); }
+    }
+    await appuyer(1200);
+    if (await enFacade()) { echecs.push('appui long : facade choisie'); await libre(); }
+    await appuyer(60);
+    if (!(await enFacade())) echecs.push('toucher bref : pas de facade');
+    await libre();
+    await page.locator('.puceToit[data-type="corps"][data-rang="0"]').dispatchEvent('click');
+    await page.waitForTimeout(900);
+    const poignees = () => page.evaluate(() => {
+      const p = document.querySelector('.panneauToit').getBoundingClientRect();
+      return [...document.querySelectorAll('.poigneeToit')].map((g) => {
+        const r = g.querySelector('.pointPoignee').getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+        return { id: g.dataset.poignee, t: g.getAttribute('transform'), cachee: g.hasAttribute('data-cachee'), sous: x > p.left && x < p.right && y > p.top && y < p.bottom,
+          prise: document.elementFromPoint(x, y)?.closest('[data-poignee]') === g, x, y };
+      });
+    });
+    const lireCam = () => page.evaluate(() => { const sc = window.__plan.scene3d(), p = sc.camera.position, t = sc.controls.target; return { az: Math.atan2(p.x - t.x, p.z - t.z), d: p.distanceTo(t), cible: [t.x, t.y, t.z] }; });
+    if (cdp) {
+      const ph = (await poignees()).find((p) => p.prise && !p.cachee);
+      if (!ph) echecs.push('aucune poignee a prendre');
+      else {
+        const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit)), d0 = (await lireCam()).d;
+        const A = (k) => ({ x: ph.x - 8 * k, y: ph.y - 5 * k, id: 0 }), B = (k) => ({ x: ph.x + 50 + 10 * k, y: ph.y + 40 + 5 * k, id: 1 });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [A(0)] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [A(1)] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [A(1), B(0)] });
+        for (let k = 2; k <= 8; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [A(k), B(k)] }); await page.waitForTimeout(40); }
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(900);
+        const apres = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit)), d1 = (await lireCam()).d;
+        mesures.push('pincement depuis la poignee : ' + d0.toFixed(1) + ' → ' + d1.toFixed(1) + ' m');
+        if (apres !== avant) echecs.push('le pincement a modifie le toit');
+        if (Math.abs(d1 - d0) < 1) echecs.push('le pincement n a pas zoome');
+        await page.locator('.puceToit[data-type="corps"][data-rang="0"]').dispatchEvent('click');
+        await page.waitForTimeout(300);
+        if (!(await page.locator('.puceToit[data-type="corps"][data-rang="0"][aria-pressed="true"]').count())) { await page.locator('.puceToit[data-type="corps"][data-rang="0"]').dispatchEvent('click'); await page.waitForTimeout(900); }
+      }
+    }
+    // Les poignees suivent l'image meme : un pas de rotation, et la poignee a bouge des que l'image est rendue.
+    const c0 = await lireCam(), p0 = await poignees();
+    const suit = await page.evaluate(async (t0) => {
+      window.__plan.executer('3d.tournerGauche');
+      await new Promise((ok) => setTimeout(ok, 30));
+      const g = document.querySelector('.poigneeToit');
+      return !!g && g.getAttribute('transform') !== t0;
+    }, p0[0]?.t ?? '');
+    if (!suit) echecs.push('les poignees ne suivent pas l image');
+    for (let k = 0; k < 11; k++) await page.evaluate(() => window.__plan.executer('3d.tournerGauche'));
+    await page.waitForTimeout(800);
+    const c1 = await lireCam();
+    const tour = Math.abs(((c1.az - c0.az + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+    mesures.push('12 « Tourner la vue » : ' + Math.round((tour * 180) / Math.PI) + '° , distance ' + c0.d.toFixed(1) + ' → ' + c1.d.toFixed(1) + ' m');
+    if (Math.abs(tour - Math.PI) > 0.05 || Math.abs(c1.d - c0.d) > 0.05) echecs.push('Tourner la vue : pas un demi-tour a distance egale');
+    const demi = await poignees();
+    const mauvaises = demi.filter((p) => p.sous || (!p.cachee && !p.prise));
+    mesures.push('demi-tour : ' + demi.length + ' poignees, ' + demi.filter((p) => p.cachee).length + ' cachee(s)');
+    if (mauvaises.length) echecs.push('poignees ni prenables ni dites cachees : ' + mauvaises.map((p) => p.id).join(', '));
+    if (!tactile) {
+      await page.evaluate(() => document.activeElement?.blur?.());
+      const a = await lireCam();
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForTimeout(300);
+      const b = await lireCam();
+      if (Math.abs(Math.abs(((b.az - a.az + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) - Math.PI / 12) > 0.02) echecs.push('fleche gauche : pas 15°');
+    }
+    const libelles = await page.locator('.inspecteurToit [data-commande="toit.tourner"]').evaluateAll((l) => l.map((b) => b.getAttribute('aria-label')));
+    if (libelles.length !== 2 || !libelles.every((t) => /^Tourner le corps/.test(t))) echecs.push('rotation du corps : ' + libelles.join(', '));
+    if (f.nom === 'compact') {
+      const caches = await page.evaluate(async () => {
+        const col = document.querySelector('#terrasse3dZoomControls'), res = [];
+        for (const b of col.querySelectorAll('button')) {
+          if (b.offsetParent === null) continue;
+          b.scrollIntoView({ block: 'nearest' });
+          await new Promise((ok) => setTimeout(ok, 50));
+          const r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (!b.contains(e) && !e?.closest('.poigneeToit')) res.push(b.getAttribute('aria-label'));
+        }
+        return res;
+      });
+      if (caches.length) echecs.push('boutons de la camera hors d atteinte : ' + caches.join(', '));
+    }
+    if (cdp) await cdp.detach();
+    return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ECHECS : ' + echecs.join(', ') : ' ; clic droit, appui long, toucher, boutons conformes') };
+  },
   144: async (page, f) => {
     // L'orbite du mode Toit (audit de la camera, 6 novembre 2026) : la maison de la demonstration, Vue 3D, « Modifier la toiture ». La
     // cible est le centre de la maison (l'image se decale vers la partie libre, pas la cible) : une orbite la laisse a sa place a l'ecran.
@@ -6510,7 +6643,7 @@ function pointsPour(nomClasse) {
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
