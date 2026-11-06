@@ -11,3 +11,5 @@ export {
   rafraichirVisionneuseGlb, remplacerFondGlb
 } from './glbViewer.js';
 export { capturerVue3d } from './capture.js';
+export { poserTraitDePres } from './traitDePres.js';
+export { demanderRendu } from './renduDemande.js';

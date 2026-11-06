@@ -3,6 +3,7 @@
 
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { brancherToitCatalogue } from '../ecouteurs/toitCatalogue.js';
+import { brancherSelection3d } from '../ecouteurs/selection3d.js';
 import { brancherToitsFond } from '../ecouteurs/toitsFond.js';
 import { brancherFaitsLocaux } from '../ecouteurs/faitsLocaux.js';
 import { vue3d } from '../../three/etat3d.js';
@@ -21,6 +22,9 @@ export function brancherLesToits(p: Plan, atelier: Atelier, ch: ReturnType<typeo
     rafraichir: () => magasin.notifier(),
     magasin
   }, commandes);
+  // Les touchers de la Vue 3D : ceux du mode Toit (au-dessus), et hors du mode, toucher un objet le choisit comme dans le plan
+  // (app/ecouteurs/selection3d.ts, qui se tait pendant une session du mode).
+  brancherSelection3d(atelier, magasin);
   brancherToitsFond(ch.toitsFond, commandes);
   // Un contour deforme remet son toit a lire (core/deformation.ts) : la lecture en fond le reprend tout de suite.
   lectureToits.surRelecture(() => ch.toitsFond.relancer());

@@ -72,7 +72,9 @@ function Objets({ etat, explorateur, commandes, apresSelection }: { etat: EtatAp
   // Le filtre d'ouverture est le terrain : c'est la parcelle qu'on regarde en arrivant, et un plan
   // importe du cadastre compte facilement 60 objets. Le filtre suit ensuite la selection : un objet
   // choisi sur le canevas hors de la categorie affichee y amene la liste.
-  const [filtre, setFiltre] = useState('terrain');
+  // Une liste qui se remonte (la tablette la refait en quittant la Vue 3D) part de la famille de l'objet choisi, s'il y en a un : un objet
+  // touche dans la Vue 3D doit s'y retrouver (demande du proprietaire, 6 novembre 2026).
+  const [filtre, setFiltre] = useState(() => { const s = listables.find(o => o.key === etat.selectedKey); return s ? famille(s) : 'terrain'; });
   const derniereSelection = useRef(etat.selectedKey);
   const selection = listables.find(o => o.key === etat.selectedKey);
   let filtreEffectif = familles.includes(filtre) ? filtre : 'tout';

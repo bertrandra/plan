@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- Vue 3D : toucher un objet le choisit (demande du propriétaire, 6 novembre 2026). Un toucher ou un clic bref, sans glisser, sur un
+  bâtiment (ou une annexe), une terrasse, une pergola, un carport ou une piscine le sélectionne : la même sélection que dans le plan.
+  L'inspecteur, l'explorateur et « Modifier la toiture » la suivent (le bouton s'allume pour un bâtiment de la parcelle). Ce n'est pas
+  une modification : ni Ctrl+Z, ni « projet modifié », et c'est permis en lecture seule.
+  - Un arbre ou un parasol devant l'objet laisse passer le toucher. Un toucher dans le vide (sol, ciel) ou sur un objet qui ne se
+    choisit pas en 3D (clôture, chemin, massif, mobilier) lâche la sélection, comme un clic dans le vide du plan (décision du
+    propriétaire). Une maison voisine est un bâtiment : elle se choisit, et « Modifier la toiture » dit pourquoi il ne s'ouvre pas.
+  - Un glisser (l'orbite), un pincement, un appui long ou le bouton droit ne choisissent rien. Le mode Toit, l'audit (promenade et
+    audit de la parcelle), l'avant / après et la promenade de la Vue 3D gardent leurs propres touchers.
+  - L'objet choisi se voit dans la scène : le trait renforcé de l'audit sur ses arêtes ; la terrasse courante, dont le platelage
+    n'est pas un objet de la scène, a son contour surligné.
+  - L'explorateur, quand il se remonte (la tablette le refait en quittant la Vue 3D), s'ouvre sur la famille de l'objet choisi.
+  - Point de fumée 139.
+
 ### Modifié
 
 - Mode Toit, les finitions de la navigation (audit du 6 novembre 2026, lot C).
