@@ -13,7 +13,7 @@ témoins ne bougent qu'à leur numéro de version (la date de build reste celle 
 les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques, et le `.glb` du point 24 l'est à la 5.11.1 (géométrie
 et JSON au bit près, mêmes images ; la surbrillance de la sélection n'y entre pas ; `tests/fixtures/golden/EMPREINTES.md`). Schéma
 inchangé (15) : rien à déployer côté plateforme. Requêtes inchangées depuis la 5.11.1 (ni `deploy/`, ni `regles/`, ni les descriptions
-des sujets, ni la chaîne des façades), vérifiées sans la mesure sur main, à la livraison.
+des sujets, ni la chaîne des façades), vérifiées sans la mesure sur main (run 42229356914 : 9 sur 9, 0,030 $ ; le premier passage, run 42229208319, s'était arrêté sur une réponse de l'analyse que le serveur n'a pas pu lire, « Sortie non JSON », sans requête changée depuis la 5.10.0 ; relancé une fois).
 
 ### Ajouté
 
