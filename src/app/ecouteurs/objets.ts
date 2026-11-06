@@ -18,6 +18,17 @@ import type { RegistreCommandes } from '../commandes.js';
 import { suivreLeContour } from '../../model/ouvrages/index.js';
 import { egoutRendable } from '../../model/protections.js';
 import { lectureToits } from '../../core/lectureToits.js';
+import { etatToit, modeToitCourant, sessionToit } from '../toits/modeToit.js';
+
+/**
+ * Annuler du projet. Pendant une session du mode Toit (app/toits/modeToit.ts), c'est celui de la session : le bouton du projet comme
+ * Ctrl+Z, meme depuis un champ ou une liste. Il defaisait sinon l'etape du projet d'avant la session, sous elle, et la validation
+ * ecrivait ensuite un melange des deux (audit du 6 novembre 2026). Sans geste a annuler dans la session, il est grise.
+ */
+function declarerAnnuler(a: Atelier, commande: (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean; sansDroit?: boolean }) => void): void {
+  commande('objet.annuler', 'Annuler', () => { const m = sessionToit() ? modeToitCourant() : null; if (m) m.annuler(); else a.undo(); },
+    { raccourci: 'Ctrl+Z', sansDroit: true, actif: () => !sessionToit() || etatToit().peutAnnuler });
+}
 
 export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   const selection = () => !!a.etat.selectedKey;
@@ -34,7 +45,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
     cmd.declarer({ id, libelle, groupe: 'objet', executer, ...reste, ...(sansDroit ? {} : { permission: PERMISSION_ECRITURE }) });
   };
 
-  commande('objet.annuler', 'Annuler', a.undo, { raccourci: 'Ctrl+Z', sansDroit: true });
+  declarerAnnuler(a, commande);
 
   // Des flèches explicites, et non `addEventListener('click', a.addNewObject)` : celui-ci passerait
   // l'événement en premier argument — un objet toujours vrai — et le polygone libre naîtrait en

@@ -34,6 +34,7 @@ import { EnteteFeuille } from './composants/Feuille.js';
 import { texteStatutCourt } from './statut.js';
 import { useCle, useMagasinZone } from './composants/abonnement.js';
 import { APP_VERSION, versionLongue } from '../model/version.js';
+import { sessionToit } from '../app/toits/modeToit.js';
 
 export interface PropsBarreApplication {
   magasin: Magasin;
@@ -488,9 +489,11 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   useCle(magasin, 'barre d\'application', (s) => {
     const c = contexteCourant()?.courant();
     return JSON.stringify([commandes.etat('projet.enregistrer'), s.etat.lectureSeule, Object.values(COMMANDE_DE_VUE).map((id) => commandes.effacee(id)),
-      commandes.effacee('objet.annuler'), enAdmin(), estAdministrateur(), c ? [c.user.display_name, c.user.email, c.tenant.name, c.tenant.slug] : null]);
+      commandes.effacee('objet.annuler'), commandes.etat('objet.annuler'), !!sessionToit(), enAdmin(), estAdministrateur(), c ? [c.user.display_name, c.user.email, c.tenant.name, c.tenant.slug] : null]);
   });
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
+  // Pendant une session du mode Toit, Annuler est celui de la session (app/ecouteurs/objets.ts).
+  const enSessionToit = !!sessionToit();
   const enregistrement = p.statut === 'enregistrement';
   // Comme toute commande : grise en lecture seule (le droit d'ecrire manque) ou sans projet ouvert,
   // au lieu d'un clic refuse sans un mot.
@@ -567,7 +570,8 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
             </span>
           </div>
           {!commandes.effacee('objet.annuler') && (
-            <button type="button" className="boutonIcone" data-commande="objet.annuler" aria-label="Annuler (Ctrl+Z)" disabled={!peutAnnuler}
+            <button type="button" className="boutonIcone" data-commande="objet.annuler" aria-label={enSessionToit ? 'Annuler le dernier geste sur la toiture (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
+              disabled={!(commandes.etat('objet.annuler').utilisable && (peutAnnuler || enSessionToit))}
               onClick={() => { commandes.executer('objet.annuler'); }}>
               <Icone nom="annuler" />
             </button>

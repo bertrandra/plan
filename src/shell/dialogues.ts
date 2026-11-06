@@ -53,6 +53,11 @@ export interface DialogueChoix {
   principal: { libelle: string; executer: () => void };
   secondaire: { libelle: string; executer: () => void };
   /**
+   * Une troisieme issue, la plus prudente, en premier des boutons : « Rester » quand on quitte un travail en cours. Elle ferme sans
+   * rien faire d'autre que `executer` ; Echap et le voile la valent (`abandonner`).
+   */
+  tertiaire?: { libelle: string; executer: () => void };
+  /**
    * Fermee sans reponse (Echap, le voile, ou une autre question qui la remplace) : celui qui
    * attendait la reponse n'attend pas pour rien.
    */
@@ -109,5 +114,13 @@ export const dialogues = {
     courant = null;
     publier();
     d.secondaire.executer();
+  },
+  /** Prend la troisieme issue d'un choix (« Rester »), puis le ferme. Sans elle, ne fait rien. */
+  repondreTertiaire(): void {
+    const d = courant;
+    if (d?.type !== 'choix' || !d.tertiaire) return;
+    courant = null;
+    publier();
+    d.tertiaire.executer();
   }
 };

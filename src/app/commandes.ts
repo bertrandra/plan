@@ -133,6 +133,11 @@ export interface RegistreCommandes {
   /** Vrai quand la commande doit disparaitre plutot que d'etre grisee. */
   effacee(id: string): boolean;
   lister(groupe?: GroupeCommande): Commande[];
+  /**
+   * Pose une garde devant les commandes : avant d'executer une commande utilisable, chaque garde peut la retenir (vrai), pour poser
+   * d'abord une question et la relancer ensuite (une session du mode Toit qu'on quitterait sans l'avoir validee). Rend de quoi la retirer.
+   */
+  retenir(garde: (id: string, source?: HTMLElement, cible?: Cible) => boolean): () => void;
 }
 
 /**
@@ -141,6 +146,7 @@ export interface RegistreCommandes {
  */
 export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (id: string, message: string) => void): RegistreCommandes {
   const commandes = new Map<string, Commande>();
+  const gardes = new Set<(id: string, source?: HTMLElement, cible?: Cible) => boolean>();
   const registre: RegistreCommandes = {
     declarer(c) {
       if (commandes.has(c.id)) throw new Error('Commande deja declaree : ' + c.id);
@@ -163,6 +169,8 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
       }
       // Une commande parametree sans sa cible ne devine rien : elle ne fait rien.
       if (c.parametre && !cible?.[c.parametre]) return false;
+      // Une garde qui retient la commande la relancera elle-meme apres sa question.
+      for (const g of gardes) if (g(id, source, cible)) return false;
       c.executer(source, cible);
       return true;
     },
@@ -189,7 +197,11 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
       const e = registre.etat(id);
       return !e.utilisable && e.raison === 'capacite';
     },
-    lister: (groupe) => [...commandes.values()].filter((c) => !groupe || c.groupe === groupe)
+    lister: (groupe) => [...commandes.values()].filter((c) => !groupe || c.groupe === groupe),
+    retenir(garde) {
+      gardes.add(garde);
+      return () => { gardes.delete(garde); };
+    }
   };
   return registre;
 }

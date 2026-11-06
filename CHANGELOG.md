@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- Mode Toit : une session ne se perd plus sans qu'on le demande (audit de la navigation, 6 novembre 2026).
+  - « Annuler » du projet (le bouton de la barre comme Ctrl+Z, même depuis une liste ou un champ) annule le dernier geste de la
+    session ; il défaisait l'étape du projet d'avant la session, sous elle, et « Valider » écrivait ensuite un mélange des deux. Sans
+    geste à annuler dans la session, il est grisé.
+  - Seule la scène compte comme un toucher de la scène : toucher le panneau du mode, le plan des façades ou les boutons de la Vue 3D
+    au-dessus de la maison choisissait aussi la façade qu'ils couvraient, avant le geste demandé.
+  - Quitter la Vue 3D (« Plan », « Visionneuse ») ou choisir un autre objet pendant une session modifiée pose d'abord la question :
+    « Valider », « Abandonner » ou « Rester ». La session était abandonnée en silence, avec un simple message. Sans changement, elle
+    se ferme sans rien demander, comme avant.
+  - Le bouton retour du navigateur ou du téléphone vaut Échap pendant une session : il ne quitte plus Plan.
+  - Échap a un seul effet : l'élément choisi, puis la façade, puis la question « Abandonner les changements ? », qui reste ouverte (elle
+    s'ouvrait et se refermait sur la même touche) ; Échap sur une question la referme sans rien faire d'autre ; en plein écran, la
+    dernière marche est la sortie du plein écran.
+  - Point de fumée 136.
+
 ## [5.11.0] — 2026-11-05
 
 Version **mineure** au sens de `MD/RELEASE.md` : le cul de geai se raccorde aux pans voisins (#585) ; la Vue 3D ne se redessine plus que
