@@ -130,6 +130,12 @@
   html[data-classe="compact"] .panneauToit .languetteToit{ display:flex; align-self:center; align-items:center; justify-content:center; min-width:64px; min-height:28px; padding:0; color:var(--ink-soft); background:transparent; border:0; cursor:pointer; }
   html[data-classe="compact"] .panneauToit.replie{ max-height:none; }
   html[data-classe="compact"] .panneauToit.replie .defilementToit > :not(.barreToit){ display:none; }
+  /* Au telephone, la barre de la session (Retour, Annuler, Valider) reste en haut du panneau quand il defile : on ne la cherche pas. */
+  html[data-classe="compact"] .panneauToit .barreToit{ position:sticky; top:0; z-index:1; background:var(--panel-bg); padding-bottom:4px; }
+  /* Pendant une session, au telephone et a la tablette, les messages passent en haut : en bas, ils couvraient la barre du mode. La,
+     ils sont sur la scene : le doigt les traverse, pour ne pas prendre la place d'une poignee (ils s'effacent seuls). */
+  html[data-mode-toit]:not([data-classe="large"]) .notificationsToasts{ bottom:auto; top:calc(var(--reserve-haut, 0px) + 72px); flex-direction:column; }
+  html[data-mode-toit]:not([data-classe="large"]) .notificationsToasts .toast{ pointer-events:none; opacity:.92; }
   html[data-classe="compact"] .panneauToit .toitPiece{ width:68px; min-height:68px; }
   html[data-classe="compact"] .panneauToit .toitPieceOptions{ width:68px; }
   /* Au doigt, les options des trois pans sont des cibles de 44 px comme les autres. */

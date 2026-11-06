@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Mode Toit : on voit et on sait sur quoi l'on travaille (audit de la navigation, 6 novembre 2026, lot B).
+  - À l'entrée, la caméra se cadre sur la maison, dans la partie de la scène que le panneau laisse libre, vue de la même direction
+    qu'avant ; la sortie rend la caméra d'avant le mode. La maison était souvent minuscule, ou cachée sous le panneau à la tablette.
+  - Choisir un corps (sa pastille) cadre la caméra sur lui en 3D libre, ou passe devant sa façade la plus visible en vue de façade.
+  - Une seule ligne dit ce qui est en cours, « Corps 2 · façade ouest · 6,50 m » ; le plan des façades met en évidence le même corps.
+    Choisir une façade d'un autre corps fait de lui le corps choisi : la façade regardée, la ligne, les poignées et les gestes
+    désignent toujours le même corps.
+  - Une pastille « Bâtiment entier » revient au bâtiment entier, et retoucher la pastille enfoncée d'un élément le lâche : au doigt,
+    seul Échap le faisait.
+  - Au téléphone, la barre de la session (Retour, Annuler, Valider) reste en haut du panneau quand il défile ; pendant une session, au
+    téléphone et à la tablette, les messages passent en haut de l'écran, au lieu de couvrir le panneau. Le message d'entrée
+    « Touchez un mur… » est retiré : la ligne du panneau le dit.
+  - Ctrl+Z et Ctrl+Y de la session rendent la vue du pas (la façade, l'élément choisi, la caméra) : la sélection est celle de l'état où
+    elle a été prise, jamais un rang qui désignerait un autre élément après l'annulation.
+  - Point de fumée 137 ; les points 98 et 134 suivent (la ligne du corps choisi, une pastille déjà enfoncée n'est pas retouchée).
+
 ### Corrigé
 
 - Mode Toit : une session ne se perd plus sans qu'on le demande (audit de la navigation, 6 novembre 2026).

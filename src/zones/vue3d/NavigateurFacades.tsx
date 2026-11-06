@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Icone } from '../icones.js';
-import { facadesDeSession, mursVusSurPhoto, sessionToit } from '../../app/toits/modeToit.js';
+import { etatToit, facadesDeSession, mursVusSurPhoto, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -37,6 +37,8 @@ export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; co
   const xs = facades.flatMap((f) => [f.a.x, f.b.x]), ys = facades.flatMap((f) => [f.a.y, f.b.y]);
   const x0 = Math.min(...xs) - MARGE_M, y0 = Math.min(...ys) - MARGE_M, x1 = Math.max(...xs) + MARGE_M, y1 = Math.max(...ys) + MARGE_M;
   const courante = s.facade ?? s.derniere;
+  // Le corps en evidence est celui des gestes (le choisi), le meme que nomme la ligne « Corps · Façade » du panneau.
+  const corpsDesigne = etatToit().rangCorps ?? courante?.rang ?? null;
   const actif = commandes.etat('toit.facade').utilisable;
   const grands = [...polygones(facades)].sort((p, q) => aire(q[1]) - aire(p[1]));
   const clic = (e: React.MouseEvent<SVGElement>) => { if (actif) commandes.executer('toit.facade', e.currentTarget as unknown as HTMLElement); };
@@ -46,7 +48,7 @@ export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; co
         onClick={() => { setOuvert(!ouvert); }}><Icone nom={ouvert ? 'fermer' : 'ajuster'} taille={18} /></button>
       <svg viewBox={f2(x0) + ' ' + f2(y0) + ' ' + f2(x1 - x0) + ' ' + f2(y1 - y0)} preserveAspectRatio="xMidYMid meet">
         {grands.map(([rang, murs]) => (
-          <polygon key={'c' + rang} className={'corpsNav' + (courante?.rang === rang ? ' sur' : '')} data-commande="toit.facade" data-corps={rang ?? ''} onClick={clic}
+          <polygon key={'c' + rang} className={'corpsNav' + (corpsDesigne === rang ? ' sur' : '')} data-commande="toit.facade" data-corps={rang ?? ''} onClick={clic}
             points={murs.map((m) => f2(m.a.x) + ',' + f2(m.a.y)).join(' ')} />
         ))}
         {facades.map((f) => {

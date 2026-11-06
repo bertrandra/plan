@@ -13,7 +13,7 @@ import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, poserEnt
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
-import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
+import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, memeCible, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
 import { affichage3d, hotes3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
@@ -169,8 +169,9 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   const choisi = () => { const t = etatToit().selection, o = batiment(); return t && o?.batiment?.corpsToit ? { t, o, corps: o.batiment?.corpsToit } : null; };
 
   commande('toit.selection', 'Choisir un élément', enSession, (source) => {
-    const d = source?.dataset;
-    mode.selectionner(d?.type ? { type: d.type as TypeElement, rang: Number(d.rang), i: Number(d.i) } : null);
+    const d = source?.dataset, cible = d?.type ? { type: d.type as TypeElement, rang: Number(d.rang), i: Number(d.i) } : null;
+    // Retoucher l'element deja choisi le lache : on revient au batiment entier, au doigt comme a la souris (sans cible : de meme).
+    mode.selectionner(cible && memeCible(etatToit().selection, cible) ? null : cible);
   }, false);
   commande('toit.regler', 'Régler l’élément', () => !!choisi(), (source) => {
     const c = choisi(), d = source?.dataset;

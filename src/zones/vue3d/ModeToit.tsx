@@ -9,7 +9,7 @@ import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
-import { OPTIONS_PIECE, formeEnPlace, piece, piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
+import { OPTIONS_PIECE, formeEnPlace, piece, piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeSaillie, vueSurLeToit } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
@@ -17,7 +17,7 @@ import { PoigneesToit } from './PoigneesToit.js';
 import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
-import { groupesDe, libelleElement, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/modeToit/elements.js';
+import { groupesDe, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/modeToit/elements.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -81,6 +81,9 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
   return (
     <div className="elementsToit">
       <div className="puces" role="group" aria-label="Éléments du bâtiment">
+        {/* Le batiment entier : les gestes reviennent a lui (retoucher la pastille enfoncee d'un element fait de meme). */}
+        <button type="button" className="puceToit" data-commande="toit.selection" aria-pressed={!selection}
+          onClick={(ev) => { commandes.executer('toit.selection', ev.currentTarget); }}>Bâtiment entier</button>
         {liste.map((e) => (
           <button key={e.cible.type + e.cible.rang + ':' + e.cible.i} type="button" className="puceToit" data-commande="toit.selection" data-type={e.cible.type} data-rang={e.cible.rang} data-i={e.cible.i}
             aria-pressed={memeCible(e.cible, selection)} onClick={(ev) => { commandes.executer('toit.selection', ev.currentTarget); }}>{e.libelle}</button>
@@ -150,12 +153,11 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
 }
 
 /** Ce sur quoi agissent les gestes du catalogue : le corps choisi (celui de l'element choisi) ; sans choix, la facade regardee. */
-function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): string {
+function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): string | null {
   if (corps.length < 2) return 'Les gestes s’appliquent au toit du bâtiment.';
-  if (!sel) return 'Sans corps choisi, les gestes vont au corps de la façade regardée, sinon au corps principal. Choisissez un corps pour n’agir que sur lui.';
-  const rang = rangDuCorpsChoisi(corps, sel.rang) ?? sel.rang;
-  const nom = libelleElement(corps, { type: 'corps', rang, i: 0 }) || 'le corps choisi';
-  return 'Les gestes s’appliquent seulement à : ' + nom.charAt(0).toLowerCase() + nom.slice(1) + '.';
+  // Un corps choisi se dit une fois, dans la ligne « Corps · Façade » du haut du panneau.
+  if (sel) return null;
+  return 'Sans corps choisi, les gestes vont au corps de la façade regardée, sinon au corps principal. Choisissez un corps pour n’agir que sur lui.';
 }
 
 export function ModeToit({ magasin, commandes }: Props) {
@@ -164,6 +166,12 @@ export function ModeToit({ magasin, commandes }: Props) {
   const [onglet, setOnglet] = useState<FamillePiece>('toit');
   // Sur telephone le panneau est une feuille : repliee, elle ne laisse que sa barre et la scene respire.
   const [replie, setReplie] = useState(false);
+  // Pendant une session, les messages passent en haut de l'ecran au telephone et a la tablette : en bas, ils couvraient la barre du mode.
+  const enSession = !!sessionToit();
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-mode-toit', enSession);
+    return () => { document.documentElement.removeAttribute('data-mode-toit'); };
+  }, [enSession]);
   const e = etatToit(), s = sessionToit();
   if (!e.actif || !s) return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
@@ -171,6 +179,7 @@ export function ModeToit({ magasin, commandes }: Props) {
   const pose = commandes.etat('toit.poser');
   // La forme du corps sur lequel agirait une forme : sa vignette est enfoncee (le catalogue dit ce qui est en place).
   const enPlace = o ? formeEnPlace(o, e.selection?.rang ?? null) : null;
+  const cible = corpsCible(o?.batiment?.corpsToit ?? [], e.selection);
   return (
     <>
     <NavigateurFacades magasin={magasin} commandes={commandes} />
@@ -198,7 +207,7 @@ export function ModeToit({ magasin, commandes }: Props) {
         <span className="espaceToit" />
         <BoutonToit commandes={commandes} id="toit.valider" icone="coche" libelle="Valider" texte="Valider" valider />
       </div>
-      <p className="indiceToit" role="status">{e.facade ?? 'Touchez un mur du bâtiment pour choisir sa façade.'}</p>
+      <p className="indiceToit designationToit" role="status">{e.designation}</p>
       <button type="button" className="toitRegles" data-commande="toit.regles" aria-pressed={allumees} disabled={!commandes.etat('toit.regles').utilisable}
         title={allumees ? 'Règles allumées : le toit se lit tout seul. Cliquez pour le régler vous-même.' : 'Règles coupées : le toit reste comme vous le réglez. Cliquez pour reprendre la lecture automatique.'}
         onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>
@@ -206,7 +215,7 @@ export function ModeToit({ magasin, commandes }: Props) {
       </button>
       <ElementsToit corps={o?.batiment?.corpsToit ?? []} selection={e.selection} commandes={commandes} />
       <h3 className="titrePlateau" id="titrePlateauToit">Ajouter un élément</h3>
-      <p className="indiceToit">{corpsCible(o?.batiment?.corpsToit ?? [], e.selection)}</p>
+      {cible && <p className="indiceToit">{cible}</p>}
       <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
         {ONGLETS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>
