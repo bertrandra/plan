@@ -303,7 +303,62 @@ function objetJsonDuTexte(string $texte) {
         $d = json_decode((string)preg_replace('/,\s*([}\]])/', '$1', $o));
         if (is_object($d)) return $d;
     }
+    // Tout dernier recours : les chaines reparees (chainesReparees), puis la virgule finale. Un objet qui ne se lit toujours pas
+    // n'est pas lu : rien n'est devine hors des chaines.
+    $objets = objetsEquilibres(chainesReparees($t));
+    for ($k = count($objets) - 1; $k >= 0; $k--) {
+        foreach ([$objets[$k], (string)preg_replace('/,\s*([}\]])/', '$1', $objets[$k])] as $o) { $d = json_decode($o); if (is_object($d)) return $d; }
+    }
     return null;
+}
+
+/**
+ * Le texte, ses chaines JSON reparees (dans les objets seulement, la prose autour reste telle quelle) : un guillemet droit DANS une
+ * chaine (`"vu":"un toit "deux-pans" probable"`), un retour a la ligne ou une tabulation bruts, un echappement que JSON ne connait pas
+ * (`\'`). Sans sortie structuree, Haiku en ecrit dans ses textes libres (`vu`, `ecart`, `observe`...) et json_decode refusait l'objet
+ * entier (« Sortie non JSON », verification de l'API du 6 novembre 2026, run 42229208319). Un guillemet ferme la chaine seulement s'il
+ * est suivi de ce qui suit une chaine en JSON : `:`, `}`, `]`, la fin, ou `,` puis le debut d'une valeur ou d'une cle ; sinon il est
+ * dans le texte et s'echappe. Rien n'est change hors des chaines : un objet tronque, une cle sans guillemets ou une virgule manquante
+ * restent illisibles.
+ */
+function chainesReparees(string $t): string {
+    $n = strlen($t);
+    $out = '';
+    $prof = 0; $chaine = false;
+    for ($i = 0; $i < $n; $i++) {
+        $c = $t[$i];
+        if ($chaine) {
+            if ($c === '\\') {
+                $s = $i + 1 < $n ? $t[$i + 1] : '';
+                if ($s !== '' && strpos('"\\/bfnrtu', $s) !== false) { $out .= $c . $s; $i++; }
+                // Un echappement inconnu (`\'`, `\é`) : le caractere seul, comme l'auteur l'a voulu.
+                continue;
+            }
+            if ($c === '"') {
+                $j = $i + 1;
+                while ($j < $n && strpos(" \t\r\n", $t[$j]) !== false) $j++;
+                $suite = $j < $n ? $t[$j] : '';
+                $ferme = $suite === '' || $suite === ':' || $suite === '}' || $suite === ']';
+                if ($suite === ',') {
+                    $k = $j + 1;
+                    while ($k < $n && strpos(" \t\r\n", $t[$k]) !== false) $k++;
+                    $ferme = $k < $n && strpos('"{[-0123456789tfn', $t[$k]) !== false;
+                }
+                if ($ferme) { $chaine = false; $out .= $c; } else $out .= '\\"';
+                continue;
+            }
+            if ($c === "\n") { $out .= '\\n'; continue; }
+            if ($c === "\r") { $out .= '\\r'; continue; }
+            if ($c === "\t") { $out .= '\\t'; continue; }
+            $out .= $c;
+            continue;
+        }
+        if ($c === '"' && $prof > 0) $chaine = true;
+        elseif ($c === '{') $prof++;
+        elseif ($c === '}' && $prof > 0) $prof--;
+        $out .= $c;
+    }
+    return $out;
 }
 
 /** Les objets `{…}` de premier niveau d'un texte, accolades comptees hors des chaines JSON. */
@@ -774,7 +829,9 @@ function lireResultat($ligne, $schema = null): array {
             // ecrit, rien de la requete.
             if ($sortie === null) $erreur = ['type' => 'sortie_illisible',
                                              'message' => $texte === null ? 'Aucun bloc de texte.' : (objetJsonDuTexte($texte) === null ? 'Sortie non JSON.' : 'Sortie hors du schéma.'),
-                                             'apercu' => mb_substr(trim((string)$texte), 0, 400)];
+                                             'apercu' => mb_substr(trim((string)$texte), 0, 400)]
+                // Et sa fin quand il est plus long : le debut d'un objet se lit souvent bien, son defaut est plus loin (run 42229208319).
+                                           + (mb_strlen(trim((string)$texte)) > 400 ? ['fin' => mb_substr(trim((string)$texte), -400)] : []);
         }
     } elseif ($type === 'errored') {
         $e = isset($r->error->error) && is_object($r->error->error) ? $r->error->error : ($r->error ?? new stdClass());
