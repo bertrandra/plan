@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.11.1] — 2026-11-06
+
+Version **corrective** : la navigation du Mode Toit, d'après l'audit du 6 novembre 2026 (session sûre #590, cadrage #591, finitions #592).
+Ce qui change à l'écran : retoucher une pastille enfoncée la lâche (au doigt, seul Échap le faisait) ; pendant une session, au
+téléphone et à la tablette, les messages passent en haut de l'écran et laissent le panneau utilisable ; « Modifier la toiture » reste
+visible, grisé avec sa raison, quand aucun bâtiment n'est choisi (il s'effaçait) ; une entrée « Modifier la toiture en 3D… » s'ajoute
+dans l'inspecteur d'un bâtiment. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur
+numéro de version (la date de build reste celle de la 5.11.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques. Schéma inchangé (15) : rien à
+déployer côté plateforme. Requêtes inchangées depuis la 5.11.0 (ni `deploy/`, ni `regles/`, ni les descriptions des sujets, ni la chaîne
+des façades), vérifiées sans la mesure sur main, à la livraison.
+
 ### Modifié
 
 - Mode Toit, les finitions de la navigation (audit du 6 novembre 2026, lot C).
