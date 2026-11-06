@@ -207,13 +207,13 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const projetees = poignees.map((p) => projeter(p.point, base));
   // Une poignee sous le panneau se ramene au bord de la partie libre : elle se prend, un trait la relie a son point.
   const libres = bornesLibres(r);
-  // Hors de l'image, elle ne se montre pas : seule celle que le panneau (ou un bord) couvre se ramene.
-  const ramenees = projetees.map((q) => (q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height ? ramenerDansLeLibre(q, libres) : null));
+  // Hors de l'image, elle reste ou elle est (on la retrouve en tournant) : seule celle que le panneau (ou un bord) couvre se ramene.
+  const ramenees = projetees.map((q) => (q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height ? ramenerDansLeLibre(q, libres) : q));
   const ecartees = ecarterAEcran(ramenees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, libres);
   const places = ramenees.map((q, k) => (q ? ecartees[k] ?? q : null));
-  // Une poignee derriere une surface du batiment (en 3D libre ou de dessus ; devant une facade, la vue est celle du mur) : estompee, elle
-  // ne se prend pas. Le rayon part de l'oeil de l'orbite vers son point.
-  const sc = vue3d.scene, racines = sc && !sc.cameraRendu ? moteur3d()?.racinesDe3d(s.cle) ?? [] : [];
+  // Une poignee derriere une surface du batiment, en 3D libre : estompee, elle ne se prend pas. Le rayon part de l'oeil de l'orbite vers
+  // son point. De dessus, les poignees sont celles du plan, posees au pied du corps sous son toit ; devant une facade, la vue est celle du mur.
+  const sc = vue3d.scene, racines = sc && !sc.cameraRendu && !plan ? moteur3d()?.racinesDe3d(s.cle) ?? [] : [];
   rayon ??= racines.length ? new THREE.Raycaster() : null;
   const cachees = poignees.map((p) => !!sc && !!rayon && racines.length > 0 && estCache(sc.camera, racines, { x: p.point.x - sc.cen.x, y: base + p.point.z, z: sc.cen.y - p.point.y }, rayon));
 

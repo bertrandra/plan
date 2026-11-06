@@ -71,14 +71,15 @@ export function ecouterLesTouchers(doc: Document | null, auToucher: (e: PointerE
     if (e.isPrimary) doigts.clear();
     doigts.add(e.pointerId);
     doigtsMax = Math.max(doigtsMax, doigts.size);
-    if (doigts.size === 1) { debut = { x: e.clientX, y: e.clientY, t: Date.now() }; doigtsMax = 1; }
+    // L'heure du geste lui-meme (`timeStamp`), pas celle ou il est traite : une image longue a rendre ne fait pas d'un toucher un appui long.
+    if (doigts.size === 1) { debut = { x: e.clientX, y: e.clientY, t: e.timeStamp }; doigtsMax = 1; }
   }, true);
   const lacher = (e: PointerEvent, annule: boolean) => {
     if (!doigts.delete(e.pointerId)) return;
     const d = debut;
     if (doigts.size > 0) return;
     debut = null;
-    if (annule || !d || !estUnToucher(d, { x: e.clientX, y: e.clientY, t: Date.now() }, doigtsMax)) return;
+    if (annule || !d || !estUnToucher(d, { x: e.clientX, y: e.clientY, t: e.timeStamp }, doigtsMax)) return;
     auToucher(e);
   };
   doc?.addEventListener('pointerup', (e) => { lacher(e, false); }, true);

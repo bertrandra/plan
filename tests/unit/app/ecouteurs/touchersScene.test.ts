@@ -16,7 +16,7 @@ function monter() {
   ecouterLesTouchers(cible, (e) => { touchers.push({ x: e.clientX, y: e.clientY }); });
   const pointeur = (type: string, id: number, x: number, y: number, bouton = 0) => {
     const e = new Event(type);
-    Object.defineProperties(e, { pointerId: { value: id }, clientX: { value: x }, clientY: { value: y }, button: { value: bouton }, target: { value: toile } });
+    Object.defineProperties(e, { pointerId: { value: id }, clientX: { value: x }, clientY: { value: y }, button: { value: bouton }, target: { value: toile }, timeStamp: { value: Date.now() } });
     (cible as unknown as EventTarget).dispatchEvent(e);
   };
   return { touchers, pointeur };
