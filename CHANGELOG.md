@@ -7,6 +7,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- Mode Toit, **un pignon qui ne monte pas au faîtage** se raccorde au pan du corps (retour du propriétaire, 6 novembre 2026 : « mauvais
+  raccord toit corps et pignon s'il n'est pas au faîtage ») : ses deux noues s'arrêtent là où son faîtage rencontre le pan (l'intersection
+  des plans), et le pan n'est entaillé que jusque-là ; il était entaillé jusqu'au faîtage du corps et laissait un trou au-dessus du
+  pignon. Un pignon au faîtage sort à l'identique ; AE 101 identique. Fumée : point 140 (un pignon rabaissé à mi-pan).
 - **Analyse d'une maison : une réponse de Claude n'est plus refusée pour un guillemet dans un texte libre** (`deploy/analyse-fonctions.php`).
   L'analyse ne demande pas la sortie structurée (sa grammaire dépasse la limite de l'API) ; Haiku écrit alors parfois, dans un texte
   libre (`vu`, `ecart`, `observe`…), un guillemet droit non échappé (`"un toit "deux-pans" probable"`), un retour à la ligne brut ou un

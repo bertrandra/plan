@@ -11,7 +11,7 @@ import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, couperDemiPlan } from '../facade/toits/toit.js';
 import { trianguler } from '../geometry/triangulation.js';
 import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toits/toitCorps.js';
-import { facettesElementsToit, facettesEtendues, facettesLucarnes, facettesPignonCoupe } from '../facade/toits/toitFormes.js';
+import { facettesElementsToit, facettesEtendues, facettesLucarnes, facettesPignonCoupe, profondeurDeNoue } from '../facade/toits/toitFormes.js';
 import { estSpecial } from '../facade/toits/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toits/toitCorps.js';
@@ -367,7 +367,7 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     let ouvert = false;
     if ((pignons[0]?.debut ?? Infinity) > 0.3) { contour.push({ s: lie0 ? -(largeur + dE) : h0 > 0 ? (-dE * h0) / largeur : -dR0, d: -dE }); ouvert = true; }
     for (const g of pignons) {
-      const sc = (g.debut + g.fin) / 2, D = Math.max(0.1, Math.min(largeur, g.profondeur));
+      const sc = (g.debut + g.fin) / 2, D = profondeurDeNoue(c, g, W);
       // La noue prolongee jusqu'au bord du debord, pour que l'entaille coupe aussi le debord.
       const ext = dE > 0 ? ((sc - g.debut) * dE) / D : 0;
       if (g.debut <= 0.3) contour.push({ s: -dR0, d: 0 });
@@ -416,10 +416,10 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   // Les pignons : deux pans perpendiculaires au faitage, du mur jusqu'a leurs noues, et leur triangle.
   for (const pg of c.pignons) {
     const e = c.egouts[pg.pan];
-    const largeur = pg.pan === 0 ? p : W - p;
     const dE = pg.pan === 0 ? dE0 : dE1;
     const T = (d: number) => (pg.pan === 0 ? d : W - d);
-    const D = Math.max(0.1, Math.min(largeur, pg.profondeur));
+    // Les noues s'arretent la ou le faitage du pignon rencontre le pan du corps (profondeurDeNoue), au plus sa profondeur.
+    const D = profondeurDeNoue(c, pg, W);
     const sc = (pg.debut + pg.fin) / 2, demi = (pg.fin - pg.debut) / 2;
     const k = demi > 0 ? (pg.faitage - e) / demi : 0;
     // Le debord du pignon le long du mur, de chaque cote ; un pignon qui touche le bout du corps
