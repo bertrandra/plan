@@ -20,6 +20,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - Au téléphone, un petit élément du toit choisi se voit donc plus petit qu'avant (une fenêtre de toit de 0,8 m fait une quinzaine de
     pixels sur une façade de 12 m), mais ses poignées et celles du mur sont toutes atteignables.
   - Point de fumée 140 (chaque poignée de chaque façade d'AE 101 atteignable) ; le point 124 suit (il mesurait le zoom sur l'élément).
+- **Analyse d'une maison : une réponse de Claude n'est plus refusée pour un guillemet dans un texte libre** (`deploy/analyse-fonctions.php`).
+  L'analyse ne demande pas la sortie structurée (sa grammaire dépasse la limite de l'API) ; Haiku écrit alors parfois, dans un texte
+  libre (`vu`, `ecart`, `observe`…), un guillemet droit non échappé (`"un toit "deux-pans" probable"`), un retour à la ligne brut ou un
+  échappement que JSON ne connaît pas (`\'`), et tout l'objet était refusé (« Sortie non JSON. », vérification de l'API, run 42229208319).
+  En dernier recours, ces chaînes sont réparées avant la lecture : un guillemet ne ferme la chaîne que s'il est suivi de ce qui suit une
+  chaîne en JSON. Rien n'est deviné hors des chaînes (objet tronqué, clé sans guillemets, virgule manquante : toujours illisibles), et
+  la réponse passe ensuite par le schéma comme avant. Une sortie illisible donne aussi la fin de son texte (`fin`), que
+  `verifier-api-claude.mjs` imprime : le défaut d'une réponse est souvent après ses 400 premiers caractères. Le corps des requêtes ne change pas.
 
 ## [5.12.0] — 2026-11-06
 
