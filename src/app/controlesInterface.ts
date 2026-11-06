@@ -185,6 +185,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'dialogue.secondaire': etape(Z8, DIALOGUE, 'Réponse secondaire d’un choix'),
   'dialogue.principal': etape(Z8, DIALOGUE, 'Réponse principale d’un choix'),
   'dialogue.tertiaire': etape(Z8, DIALOGUE, 'Troisième réponse d’un choix (« Rester »)'),
+  'dialogue.nombre': etape(Z8, DIALOGUE, 'Nombre d’un choix (la profondeur d’un décroché)'),
   'dialogue.case': etape(Z8, DIALOGUE, 'Option d’un choix (case à cocher)', { repete: true }),
   'dialogue.action': etape(Z8, DIALOGUE, 'Action d’un message'),
   // Premier pas (zones/PremierPas.tsx) : par quoi commencer, quand il n'y a aucun plan.

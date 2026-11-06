@@ -39,8 +39,24 @@ function CaseChoix({ c }: { c: NonNullable<Extract<Dialogue, { type: 'choix' }>[
   );
 }
 
+/** Le nombre d'un choix : saisi au clavier (ou au pave numerique du telephone), borne, dit a celui qui pose la question. */
+function NombreChoix({ n }: { n: NonNullable<Extract<Dialogue, { type: 'choix' }>['nombre']> }) {
+  const [texte, setTexte] = useState(String(n.valeur));
+  return (
+    <label className="dialogueNombre">
+      <span>{n.libelle}</span>
+      <input type="number" inputMode="numeric" data-controle="dialogue.nombre" min={n.min} max={n.max} step={1} value={texte} autoFocus
+        onChange={(e) => { setTexte(e.target.value); const v = Number(e.target.value.replace(',', '.')); if (Number.isFinite(v)) n.changer(Math.min(Math.max(v, n.min), n.max)); }} />
+      <span className="unite">{n.unite}</span>
+    </label>
+  );
+}
+
 export function Dialogues() {
   const d = useSyncExternalStore(abonner, lire, lire);
+  // Le voile ne ferme que sur un toucher qui a commence sur lui : au doigt, le clic d'un toucher arrive apres sa levee, a l'endroit du
+  // doigt ; un dialogue ouvert par ce toucher (le point d'un decroche) se refermait aussitot sous lui.
+  const appuiSurVoile = useRef(false);
   const fermable = !!d && d.type !== 'erreurChargement';
   useEffect(() => {
     if (!fermable) return;
@@ -50,7 +66,8 @@ export function Dialogues() {
   }, [fermable]);
   if (!d) return null;
   return (
-    <div className="dialogueVoile" onClick={e => { if (fermable && e.target === e.currentTarget) dialogues.fermer(); }}>
+    <div className="dialogueVoile" onPointerDown={e => { appuiSurVoile.current = e.target === e.currentTarget; }}
+      onClick={e => { const surLui = appuiSurVoile.current; appuiSurVoile.current = false; if (fermable && surLui && e.target === e.currentTarget) dialogues.fermer(); }}>
       <div className={'dialogueBoite' + (d.type === 'erreurChargement' ? ' erreur' : '')} role={d.type === 'erreurChargement' ? 'alertdialog' : 'dialog'} aria-modal="true">
         {d.type === 'confirmation' && (
           <>
@@ -69,6 +86,7 @@ export function Dialogues() {
             {d.points && d.points.length > 0 && (
               <ul className="dialoguePoints">{d.points.map((p) => <li key={p}>{p}</li>)}</ul>
             )}
+            {d.nombre && <NombreChoix key={d.titre + d.nombre.libelle} n={d.nombre} />}
             {d.case && <CaseChoix key={d.titre + d.case.libelle} c={d.case} />}
             {d.cases?.map(c => <CaseChoix key={d.titre + c.libelle} c={c} />)}
             <div className="dialogueBoutons">

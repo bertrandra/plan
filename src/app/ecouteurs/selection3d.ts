@@ -66,6 +66,9 @@ export function ecouterLesTouchers(doc: Document | null, auToucher: (e: PointerE
   doc?.addEventListener('pointerdown', (e) => {
     // Le bouton principal seul : le droit (ou deux doigts) deplace la vue.
     if (!surLaScene(e) || e.button !== 0) return;
+    // Un pointeur premier (la souris, le premier doigt pose) commence un nouveau geste : un doigt dont la levee s'est perdue ne bloque
+    // jamais les touchers suivants.
+    if (e.isPrimary) doigts.clear();
     doigts.add(e.pointerId);
     doigtsMax = Math.max(doigtsMax, doigts.size);
     if (doigts.size === 1) { debut = { x: e.clientX, y: e.clientY, t: Date.now() }; doigtsMax = 1; }

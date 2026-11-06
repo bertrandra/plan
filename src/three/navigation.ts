@@ -11,6 +11,8 @@
 
 import { au } from '../util/tableaux.js';
 import { sousLePointeur } from './comparaison3d.js';
+import { zoomerLaFacade } from './vueFacadeToit.js';
+import { brancherPincementFacade } from './pincementFacade.js';
 import { HAUTEUR_YEUX_M, vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, rendre3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type * as THREE_NS from 'three';
@@ -227,6 +229,12 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     e.stopImmediatePropagation();
     const f = facteurMolette(e.deltaY);
     if (f === 1) return;
+    // Devant une facade du mode Toit, la camera oblique se zoome autour du curseur (l'orbite est suspendue).
+    if (sc.cameraRendu) {
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      zoomerLaFacade(sc, 1 / f, { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) });
+      return;
+    }
     const maintenant = performance.now();
     if (!molette || maintenant - molette.t > GESTE_MOLETTE_MS || Math.hypot(e.clientX - molette.x, e.clientY - molette.y) > GESTE_MOLETTE_PX) {
       // En deux vues (avant / apres d'un audit), le point vise est celui de la vue sous le curseur.
@@ -234,8 +242,6 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     }
     molette.t = maintenant;
     const { camera, controls } = sc;
-    // L'orbite suspendue (une camera qui l'emporte, la vue de facade du mode Toit) : la molette ne deplace pas en silence une camera cachee.
-    if (controls.enabled === false) return;
     // Le ciel : rien a viser, la molette rapproche de la cible comme avant.
     if (!molette.point) { repli(f); return; }
     // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera, ni des bornes de l'orbite (le mode Toit en pose).
@@ -267,6 +273,9 @@ function tournerVue(deg: number): void {
   rendre3d(sc);
 }
 
+/** Les canevas dont le pincement de facade est branche. */
+const pincements = new WeakMap<HTMLElement, () => void>();
+
 export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
@@ -280,9 +289,9 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    */
   function zoom3D(factor: number): void {
     if (!vue3d.scene) return;
+    // Devant une facade : les boutons +/− et le zoom au glisser rapprochent la camera oblique, autour du milieu de l'image.
+    if (zoomerLaFacade(vue3d.scene, 1 / factor, { x: 0, y: 0 })) return;
     const { camera, controls } = vue3d.scene;
-    // L'orbite suspendue : les boutons + et − et le zoom au glisser ne deplacent pas en silence la camera cachee.
-    if (controls.enabled === false) return;
     const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
     offset.multiplyScalar(factor);
     // Au plus pres permis, le pas s'arrete a la borne plutot que d'etre refuse (sauf s'il y est deja).
@@ -332,6 +341,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     // En capture sur le canevas : appele avant l'ecouteur d'OrbitControls, pose sur le meme element.
     dom.removeEventListener('wheel', onMolette, { capture: true });
     dom.addEventListener('wheel', onMolette, { capture: true, passive: false });
+    // Le pincement de la vue de facade, une fois par canevas (il ne joue que devant une facade).
+    if (!pincements.has(dom)) pincements.set(dom, brancherPincementFacade(dom));
     oublierMolette();
     zoomDragActive = false;
     if (mode3D === 'zoom') {

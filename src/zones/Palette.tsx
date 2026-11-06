@@ -57,7 +57,8 @@ export function Palette({ magasin, commandes }: PropsPalette) {
   // palette ne se redessine que si l'un d'eux change, et pas cachee.
   useCle(magasin, 'palette', (s) => {
     const e = s.etat;
-    return JSON.stringify([GROUPES.map((g) => g.outils.map((o) => commandes.etat(o.id))), e.objects.find((o) => o.key === e.selectedKey)?.name]);
+    // Une session du mode Toit allume « Annuler » (elle annule la session) : sa presence fait partie de la cle.
+    return JSON.stringify([GROUPES.map((g) => g.outils.map((o) => commandes.etat(o.id))), e.objects.find((o) => o.key === e.selectedKey)?.name, !!sessionToit()]);
   }, 'palette');
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
   const classe = useStore(magasin.store, (s) => s.classe);

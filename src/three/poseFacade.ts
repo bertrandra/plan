@@ -90,7 +90,55 @@ const PROFONDEUR_M = 200;
 export interface PointScene { x: number; y: number; z: number }
 
 /** Les deux matrices de la camera de facade, par lignes (l'ordre de `Matrix4.set`) : sa pose dans la scene et sa projection oblique. */
-export interface CadreOblique { monde: number[]; projection: number[] }
+export interface CadreOblique {
+  monde: number[];
+  projection: number[];
+  /** Le zoom le plus fort permis devant cette facade (`ZOOM_FACADE_MIN_M`) : 1, le cadre de depart. */
+  zoomMax: number;
+}
+
+/** Le pincement et la molette rapprochent la vue de facade jusqu'a ce que cette largeur de facade, en metres, tienne la partie libre. */
+export const ZOOM_FACADE_MIN_M = 1;
+
+/**
+ * Le zoom de la vue de facade (decision du proprietaire, 6 novembre 2026 : le cadre de la facade et de ses poignees reste, on s'approche
+ * au pincement et a la molette) : l'image du cadre agrandie `k` fois et decalee de `tx`, `ty` (en coordonnees normalisees de l'image).
+ * Une preference de la vue : ni le projet ni la session ne la retiennent, un Ctrl+Z ne la defait pas.
+ */
+export interface ZoomFacade { k: number; tx: number; ty: number }
+export const ZOOM_NEUTRE: ZoomFacade = { k: 1, tx: 0, ty: 0 };
+
+/** Ne sort pas du cadre de depart : l'image zoomee reste dedans (|t| <= k - 1, en coordonnees normalisees). */
+function borner(k: number, tx: number, ty: number): ZoomFacade {
+  const j = Math.max(0, k - 1);
+  return { k, tx: Math.min(Math.max(tx, -j), j), ty: Math.min(Math.max(ty, -j), j) };
+}
+
+/**
+ * Zoome de `facteur` (plus grand que 1 : on s'approche) autour du point vise `c` (coordonnees normalisees de l'image) : ce point reste sous
+ * le doigt ou le curseur, tant que les bornes le permettent (entre le cadre de depart et `kMax`).
+ */
+export function zoomerAutour(z: ZoomFacade, facteur: number, c: { x: number; y: number }, kMax: number): ZoomFacade {
+  const k = Math.min(Math.max(z.k * facteur, 1), Math.max(1, kMax));
+  // Le point vise, dans l'image du cadre de depart : il garde sa place a l'ecran.
+  const px = (c.x - z.tx) / z.k, py = (c.y - z.ty) / z.k;
+  return borner(k, c.x - k * px, c.y - k * py);
+}
+
+/** Fait glisser l'image zoomee de `d` (coordonnees normalisees) : les deux doigts d'un pincement qui se deplacent. */
+export function deplacerZoom(z: ZoomFacade, d: { x: number; y: number }): ZoomFacade {
+  return borner(z.k, z.tx + d.x, z.ty + d.y);
+}
+
+/** La projection du cadre, zoomee : `Z · P` (lignes de la matrice, comme `Matrix4.set`). */
+export function projectionZoomee(p: readonly number[], z: ZoomFacade): number[] {
+  const q = [...p];
+  for (let j = 0; j < 4; j++) {
+    q[j] = z.k * (p[j] as number) + z.tx * (p[12 + j] as number);
+    q[4 + j] = z.k * (p[4 + j] as number) + z.ty * (p[12 + j] as number);
+  }
+  return q;
+}
 
 /**
  * La camera de facade : orthographique, alignee sur le mur `a`→`b` (normale sortante `n`, dans le plan), cisaillee par `OBLIQUE`, cadree pour
@@ -119,6 +167,7 @@ export function cadreOblique(a: PtBrut, b: PtBrut, n: PtBrut, points: readonly P
   const l = cx - libreL / 2 / s, r = l + W / s, t = cy + libreH / 2 / s, bas = t - H / s;
   const A = 2 / (r - l), B = 2 / (t - bas);
   return {
+    zoomMax: Math.max(1, Math.min(libreL, libreH) / (s * ZOOM_FACADE_MIN_M)),
     monde: [droite.x, 0, dos.x, o.x, 0, 1, 0, 0, droite.z, 0, dos.z, o.z, 0, 0, 0, 1],
     projection: [A, 0, -A * k, -(r + l) / (r - l), 0, B, -B * m, -(t + bas) / (t - bas), 0, 0, -1 / PROFONDEUR_M, 0, 0, 0, 0, 1]
   };
