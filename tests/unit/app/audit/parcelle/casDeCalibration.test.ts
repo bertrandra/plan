@@ -32,6 +32,16 @@ describe('les facades d un audit a calibrer', () => {
     expect(cas.photos.every((p) => p.coins.length === 4)).toBe(true);
   });
 
+  it('garde l origine du plan de l audit (le GPS de l EXIF s y projette) ; un fichier sans elle n en donne pas', () => {
+    const avec = { ...fichier, parcelle: { idu: 'x', adresse: null, origine: { lat: 48.89, lon: 2.16 } } } as unknown as FichierAuditParcelle;
+    const [f] = facadesACalibrer(avec);
+    expect(f?.origine).toEqual({ lat: 48.89, lon: 2.16 });
+    expect(casDepuisFacade(f as never).origine).toEqual({ lat: 48.89, lon: 2.16 });
+    const [g] = facadesACalibrer(fichier);
+    expect(g?.origine).toBeNull();
+    expect(casDepuisFacade(g as never).origine).toBeUndefined();
+  });
+
   it('reprend de l audit les reperes et le mur ajuste a la main, sinon les coins que la chaine avait lus, et le gabarit du mur', () => {
     const coins = [{ x: 10, y: 20 }, { x: 90, y: 20 }, { x: 90, y: 80 }, { x: 10, y: 80 }];
     const gabarit = [{ u: 0, v: 1 }, { u: 0.4, v: 1.6 }, { u: 1, v: 1 }];

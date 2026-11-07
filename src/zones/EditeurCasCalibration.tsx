@@ -24,6 +24,7 @@ import type { CalageVrai, CasStocke, OuvertureVraie } from '../facade/corpusReel
 import { calageVraiDuRejeu } from '../facade/banc/etalons.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
+import { texteDesPositions } from '../facade/releve/prisesFacade.js';
 import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSansLeMur, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
 import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
@@ -479,6 +480,12 @@ function DimensionsDuCas({ cas, modifier, oublier }: { cas: CasStocke; modifier:
   );
 }
 
+/** La provenance des positions tirees de l'EXIF (« Photo 2 : position tirée de l’EXIF… »), lue par le chemin du rejeu (entreesDuCas, sans images). */
+function PositionsExif({ cas }: { cas: CasStocke }) {
+  const t = texteDesPositions(entreesDuCas(cas, []).prises);
+  return t ? <p className="calNote">{t}</p> : null;
+}
+
 /** Le pied de l'editeur : ce que la personne fait du cas entier (valide, enregistrer, fermer, supprimer). */
 function PiedDuCas({ cas, etalon, message, occupe, modifier, sauver, fermer, supprimer }: { cas: CasStocke; etalon: boolean; message: string | null; occupe: boolean; modifier: (f: (c: CasStocke) => CasStocke) => void; sauver: () => void; fermer: () => void; supprimer: (() => void) | null }) {
   return (
@@ -597,6 +604,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
   const photosDuCas = <>
     <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Une photo se retire ici ; elle se prend dans l’audit.</p>
+    <PositionsExif cas={cas} />
     <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
   </>;
   // Les reperes de la photo choisie, et le mur repris a la main sur elle ou sur l'assemblage (E4, E5) : le geste partage avec l'audit.
