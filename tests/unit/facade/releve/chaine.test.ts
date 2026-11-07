@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { redresserEtFusionner } from '../../../../src/facade/releve/chaine.js';
+import { analyserLeMurPose, assemblerLesPhotos, coinsDesPhotos, vuesDesPhotos, type PhotoARedresser } from '../../../../src/facade/releve/chaine.js';
 import { priseDeLaPhoto } from '../../../../src/facade/releve/prisesFacade.js';
 import { analyserSerie } from '../../../../src/facade/releve/analyseSerie.js';
 import { rechercher, type Morceau } from '../../../../src/facade/releve/serie.js';
@@ -41,7 +41,11 @@ describe('les coins d une photo, par la chaine de tous', () => {
   it('garde des coins devines, sans rejeter, quand la photo ne montre pas de mur', async () => {
     const L = 640, H = 480;
     const image = { largeur: L, hauteur: H, donnees: new Uint8ClampedArray(L * H * 4).fill(128) };
-    const c = await redresserEtFusionner([{ rang: 0, image, prise: (champ) => priseDeLaPhoto({}, image, mur(9, 5), champ), champConnu: false }], mur(9, 5), bat(9), { chercherCoins: async (e) => rechercher(e) });
+    const entrees: PhotoARedresser[] = [{ rang: 0, image, prise: (champ) => priseDeLaPhoto({}, image, mur(9, 5), champ), champConnu: false }];
+    const o = { chercherCoins: async (e: Parameters<typeof rechercher>[0]) => rechercher(e) };
+    // Les temps de la chaine, comme l'orchestrateur les enchaine (E4, E5, E6, E7).
+    const coins = await coinsDesPhotos(entrees, mur(9, 5), o);
+    const c = analyserLeMurPose(entrees, mur(9, 5), bat(9), o, coins, assemblerLesPhotos(coins, vuesDesPhotos(coins)));
     expect(c.redressement.photos).toHaveLength(1);
     expect(c.redressement.photos[0]?.coins).not.toBe('trouve');
   }, 60000);

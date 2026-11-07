@@ -539,9 +539,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     modifier((c) => casAvecLeMur(c, parPhoto));
     setOrigines((o) => ({ ...o, ...Object.fromEntries([...parPhoto.keys()].map((i) => [i, 'main' as const])) })); oublier();
   };
-  // L'option manuelle de l'E7 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue entier : comme dans
-  // l'audit, un mur pose a la main est une entree de la chaine, qui redresse et assemble a l'E5.
-  const caler = (coins: P2[]) => { if (!rejeu) return; geste(); const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c); };
+  // L'option manuelle de l'E7 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue depuis l'E7, comme
+  // dans l'audit : les vues et l'assemblage restent, sauf quand le mur y entre (enchainement.ts::departDuRejeu, qui repart alors de l'E4).
+  const caler = (coins: P2[]) => { if (!rejeu) return; geste(); const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c, 'calage'); };
   // « Rappeler Claude » : le run sur l'image prise pour la suite par le rejeu (ce qu'elle ne montre pas en gris), enregistre avec le cas,
   // puis rejoue en IA.
   const texteDuCas = () => texteRunFacade({ etiquette: cas.nom, image: 'assemblage', pointes: rejeu?.sorties.preparation?.pointes ?? [], parement: cas.parement ?? null });

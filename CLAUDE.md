@@ -191,7 +191,13 @@ d'y toucher.
   É13 Toit (V2), É14 Validation (V4). V2 est à l'É13, où la coche se fait (l'avant/après) ; l'É10 est un diagnostic pur (décision
   du propriétaire, 7 novembre 2026). Dans l'audit, l'objectif et les coins sont cachés comme le redressement, la lecture de Claude tient en
   une ligne. Chaque étape rend ses **actions typées** (`code`, `claude`, `manuel`, et la vérité d'un cas en `mesure`, en lecture seule),
-  qui ne sortent que de `derouler`. Le groupe Image (É3 à É6) ne calcule qu'une fois, dans son premier pas : aucun calcul n'a bougé.
+  qui ne sortent que de `derouler`. Chaque étape calcule ce qu'elle montre (lot D, « Go » du propriétaire, 7 novembre 2026 ;
+  `VERSION_CHAINE_FACADES` 14) : É3 le champ de chaque photo, É4 ses coins (calage fin, replis, report du mur), É5 sa vue de face,
+  É6 la mosaïque des vues, É7 le mur posé sur elle et son analyse (redressée à l'échelle du plan, vues fondues, haut lu, détection,
+  texture), que É8 à É12 lisent. Un mur tiré à la main (V1) repart de l'É7 sans refaire le calage fin, les vues ni l'assemblage ; il
+  repart de l'É4 seulement quand le mur y entre (`chaine.ts::reporterLeMurTire` : mur retiré d'une photo, report sur une photo qu'il ne
+  couvre pas, photo dont la vue vient de ses coins, lue corrigée de la distorsion, ou qui changerait d'assemblage). Mêmes coins, mêmes
+  images qu'avant pour tout ce qui se rejoue en entier (banc, É7 de l'audit, AE 101, golden, plancher 5.1.0 inchangés).
   Les données portent l'identifiant d'une étape, jamais son numéro (`libelleEtape(id)` à l'écran et dans les textes). Pour relire ce
   qui cite les anciens numéros (`ANCIENS_NUMEROS`) :
 

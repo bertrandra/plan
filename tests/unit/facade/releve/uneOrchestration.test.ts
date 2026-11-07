@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { derouler, entreesDuCas, veriteDuCas, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
+import { derouler, entreesDuCas, murAjusteSurLesPhotos, veriteDuCas, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
+import type { P2 } from '../../../../src/facade/vision/homographie.js';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { mesurerFacade, type MesureFacade } from '../../../../src/app/audit/parcelle/mesures.js';
 import { casDepuisFacade, type FacadeACalibrer } from '../../../../src/app/audit/parcelle/casDeCalibration.js';
@@ -204,15 +205,40 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     expect(sansClaude.etapes.find((e) => e.id === 'calage')?.actions.find((a) => a.id === 'angles')?.etat).toBe('saute');
     const encore = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'lectureIa', precedent: sansClaude });
     expect(sorties(encore)).toEqual(sorties(await rejouer(x.cas, 'calibration')));
-    // « Rejouer depuis » l'E6 relance la chaine (son premier pas, l'E3), et ne relit pas l'ancienne.
+    // « Rejouer depuis » l'E6 refait l'assemblage (chaque etape calcule ce qu'elle montre, lot D), les E3 a E5 reprises : les memes sorties.
     const vus: string[] = [];
-    await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'assemblage', precedent: cal, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
-    expect(vus[0]).toBe('objectif');
+    const depuisE6 = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'assemblage', precedent: cal, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
+    expect(vus[0]).toBe('assemblage');
+    const toutX = await rejouer(x.cas, 'calibration');
+    expect(sorties(depuisE6)).toEqual(sorties(toutX));
+    expect(depuisE6.etapes).toEqual(toutX.etapes);
     // Une reponse lue sur un autre assemblage que celui du rejeu (sa taille) : l'E8 le dit.
     const ailleurs = await rejouer(x.cas, 'calibration').then(() => derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: { ...run, image: { largeur: run.image.largeur + 40, hauteur: run.image.hauteur } } }));
     expect(ailleurs.etapes.find((e) => e.id === 'lectureIa')?.resume).toMatch(/lue sur un autre assemblage \(\d+ × \d+ px ; celui de ce rejeu : \d+ × \d+ px\)/);
     expect(x.calibration.etapes.find((e) => e.id === 'lectureIa')?.resume).not.toMatch(/autre assemblage/);
   }, 360_000);
+
+  it('le mur tire a l E7 (V1, lot D) : la meme entree des deux cotes, et la calibration le rejoue depuis l E7 comme tout rejouer', async () => {
+    const s = scene('02-');
+    const prises = [s.synthese.prise as PriseCamera];
+    const avant = await lesDeux(s, prises, {});
+    // Le mur retenu, l'egout descendu de 2 % de la hauteur, ramene sur la photo comme l'ecran le fait (murAjusteSurLesPhotos).
+    const coins = avant.calibration.sorties.calage?.pose?.coins ?? [], retours = avant.calibration.sorties.audit?.retours ?? [];
+    expect(coins).toHaveLength(4);
+    const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2], dy = (bg.y - hg.y) * 0.02;
+    const parPhoto = murAjusteSurLesPhotos({ retours }, [{ x: hg.x, y: hg.y + dy }, { x: hd.x, y: hd.y + dy }, bd, bg]);
+    const corrections = Object.fromEntries([...parPhoto].map(([rang, c]) => [String(rang), { coins: c }]));
+    const x = await lesDeux(s, prises, corrections);
+    memesSorties(x);
+    expect(x.calibration.sorties.calage?.photos[0]?.origine).toBe('main');
+    // La calibration, depuis le rejeu d'avant le geste : l'E7 et la suite seulement, les memes etapes et sorties que tout rejouer.
+    const { images } = facadeDeLaScene(s, prises);
+    const vus: string[] = [];
+    const partiel = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins: async (e) => rechercher(e), verite: veriteDuCas(x.cas), illustrer: true, depuis: 'calage', precedent: avant.calibration, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
+    expect(vus[0]).toBe('calage');
+    expect(sorties(partiel)).toEqual(sorties(x.calibration));
+    expect(partiel.etapes).toEqual(x.calibration.etapes);
+  }, 240_000);
 
   it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {
     const s = scene('24-');

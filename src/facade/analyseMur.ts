@@ -4,7 +4,7 @@
 // le fusionnent et le cotent de meme.
 
 import { analyserReleve, cadreDeLaSilhouette, etendreAuCadre, finaliserReleve, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
-import { mosaiqueDesVues, vuesDeFace } from './vision/mosaiqueFuites.js';
+import { mosaiqueDesVues, vuesDeFace, type ResultatMosaique as ResultatMosaiqueFuites } from './vision/mosaiqueFuites.js';
 import { inverser, redresserParReperes, type RedressementFuites } from './vision/redressementFuites.js';
 import { appliquerSimilitude, inverse, IDENTITE as SIMILITUDE_IDENTITE, type Similitude } from './vision/ransac.js';
 import { appliquer, homographie, redresser, resolutionTexture, type Homographie } from './vision/homographie.js';
@@ -45,10 +45,11 @@ export interface AnalyseMur {
  * Analyse un mur : une photo, c'est le mur entier entre ses coins ; plusieurs, des vues a fondre (`vues`) ou des morceaux a
  * assembler (`morceaux`). Null quand rien ne se redresse.
  */
-export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur = 'morceaux'): AnalyseMur | null {
+export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur = 'morceaux', vuesFaites: VuesAssemblees | null = null): AnalyseMur | null {
   // Une photo seule, ou des vues du mur entier : l'assemblage des photos redressees entieres est l'image prise pour la suite
-  // (decision de l'utilisateur, 21 octobre 2026). Un mur en L aussi : sa marche est dans le gabarit.
-  const asm = photos.length && (photos.length === 1 || assemblage === 'vues') ? assemblerLeMur(photos) : null;
+  // (decision de l'utilisateur, 21 octobre 2026). Un mur en L aussi : sa marche est dans le gabarit. `vuesFaites` : les vues de face et
+  // leur mosaique deja faites (l'E5 et l'E6 de l'orchestrateur, facade/releve/enchainement.ts), les memes que celles qu'on referait ici.
+  const asm = photos.length && (photos.length === 1 || assemblage === 'vues') ? assemblerLeMur(photos, vuesFaites) : null;
   // La silhouette du haut du mur, en parts du mur, depuis la premiere photo qui en a une : chaque photo ramene le meme mur au meme
   // rectangle, la silhouette vaut pour la fusion comme pour la photo seule. Elle se pose sur le mur trouve par son sol et a l'echelle de
   // sa largeur (gabaritMur.ts::echelleDuGabarit, decision du proprietaire, 4 novembre 2026), lue sur l'assemblage, la vue de face ou le
@@ -104,8 +105,23 @@ function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMu
  * reperes qui ne se redresse pas par ses points de fuite se redresse par ses coins, un rectangle du mur eux aussi. Null sinon.
  */
 export function vuesDeLAssemblage(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): (RedressementFuites | null)[] {
-  return vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null))
-    .map((v, i) => v ?? (photos[i]?.coins.length === 4 ? redresserParReperes((photos[i] as { photo: Image }).photo, (photos[i] as { coins: readonly P2[] }).coins) : null));
+  return vuesDeLAssemblageDites(photos).vues;
+}
+
+/**
+ * Les vues de face (vuesDeLAssemblage), et pour chacune si elle vient des coins du mur (`parCoins`) : ni reperes ni points de fuite. Une
+ * telle vue change avec le mur ; les autres non (facade/releve/chaine.ts::reporterLeMurTire).
+ */
+export function vuesDeLAssemblageDites(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): { vues: (RedressementFuites | null)[]; parCoins: boolean[] } {
+  const parCoins = photos.map(() => false);
+  const vues = vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null)).map((v, i) => {
+    if (v) return v;
+    const p = photos[i];
+    if (p?.coins.length !== 4) return null;
+    parCoins[i] = true;
+    return redresserParReperes(p.photo, p.coins);
+  });
+  return { vues, parCoins };
 }
 
 /** L'assemblage des photos d'un mur, redressees entieres, et le mur pose dessus (ses coins, en pixels de l'assemblage). */
@@ -137,15 +153,35 @@ export function murSurLesPhotos(retours: readonly (RetourVersLaPhoto | null)[], 
 }
 
 /**
+ * Les vues de face des photos d'un mur (une par photo, null : elle ne se redresse pas) et leur mosaique (null : aucune ne s'assemble) :
+ * l'image de l'assemblage, sans le mur. Elles ne dependent pas des coins du mur, sauf pour une photo sans reperes que ses points de fuite
+ * ne redressent pas (vuesDeLAssemblage) : c'est ce qui permet de tirer le mur sans refaire l'assemblage.
+ */
+export interface VuesAssemblees {
+  vues: (RedressementFuites | null)[];
+  mosaique: ResultatMosaiqueFuites | null;
+}
+
+/** Les vues de face des photos (vuesDeLAssemblage) et leur mosaique, les deux premiers temps de l'assemblage. */
+export function assemblerLesVues(vues: readonly (RedressementFuites | null)[]): VuesAssemblees {
+  const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  return { vues: [...vues], mosaique: rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites)) : null };
+}
+
+/**
  * L'assemblage d'un mur (decision de l'utilisateur, 21 octobre 2026 : c'est l'image prise pour la suite) : chaque photo redressee
  * entiere (ses reperes, sinon ses points de fuite), les vues assemblees en une seule (facade/vision/mosaiqueFuites.ts), et le mur porte de
- * la premiere photo assemblee qui en a les coins. Null quand aucune photo ne s'assemble avec ses coins.
+ * la premiere photo assemblee qui en a les coins. Null quand aucune photo ne s'assemble avec ses coins. `faites` : les vues et leur
+ * mosaique deja faites pour ces photos (assemblerLesVues), reprises telles quelles ; seul le mur se pose alors.
  */
-export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): AssemblageDuMur | null {
-  const vues = vuesDeLAssemblage(photos);
+export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[], faites: VuesAssemblees | null = null): AssemblageDuMur | null {
+  const { vues, mosaique: m } = faites ?? assemblerLesVues(vuesDeLAssemblage(photos));
+  return m ? poserLeMurSurLesVues(photos, vues, m) : null;
+}
+
+/** Le mur pose sur la mosaique des vues : porte de la premiere photo assemblee qui en a les coins ; les retours vers chaque photo. */
+function poserLeMurSurLesVues(photos: readonly { coins: readonly P2[] }[], vues: readonly (RedressementFuites | null)[], m: ResultatMosaiqueFuites): AssemblageDuMur | null {
   const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-  const m = rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as NonNullable<(typeof vues)[number]>)) : null;
-  if (!m) return null;
   let coins: P2[] | null = null;
   for (const [k, i] of rangs.entries()) {
     const v = vues[i], place = m.places[k], c = photos[i]?.coins, inv = v ? inverser(v.versPhoto) : null;
@@ -154,14 +190,16 @@ export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly 
     break;
   }
   if (!coins) return null;
-  const aPart = new Map(m.groupes.aPart.map((a) => [rangs[a.vue] as number, a.motif]));
   const retours: (RetourVersLaPhoto | null)[] = photos.map(() => null);
   rangs.forEach((i, k) => { const v = vues[i], place = m.places[k]; if (v && place) retours[i] = { place, versPhoto: v.versPhoto }; });
-  return {
-    image: m.image, vu: m.vu, coins,
-    vues: photos.map((_, i) => (!vues[i] ? { assemblee: false, motif: 'pas assez de verticales pour redresser la photo' } : aPart.has(i) ? { assemblee: false, motif: aPart.get(i) ?? null } : { assemblee: true, motif: null })),
-    retours,
-  };
+  return { image: m.image, vu: m.vu, coins, vues: vuesDansLaMosaique(vues, m), retours };
+}
+
+/** Par photo : est-elle dans la mosaique de ses vues, et sinon pourquoi (elle ne se redresse pas, ou elle est restee a part). */
+export function vuesDansLaMosaique(vues: readonly (RedressementFuites | null)[], m: ResultatMosaiqueFuites): { assemblee: boolean; motif: string | null }[] {
+  const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  const aPart = new Map(m.groupes.aPart.map((a) => [rangs[a.vue] as number, a.motif]));
+  return vues.map((v, i) => (!v ? { assemblee: false, motif: 'pas assez de verticales pour redresser la photo' } : aPart.has(i) ? { assemblee: false, motif: aPart.get(i) ?? null } : { assemblee: true, motif: null }));
 }
 
 /**

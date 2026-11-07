@@ -17,7 +17,7 @@
 import type { ImageDuRun } from '../../../facade/releve/imageDuRun.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
-import { VERSION_CHAINE_FACADES } from '../../../facade/releve/chaine.js';
+import { murDesCorrections, VERSION_CHAINE_FACADES } from '../../../facade/releve/chaine.js';
 import { distanceAuMur, lecturePhoto, priseDeLaPhoto, prisesDeLaFacade } from '../../../facade/releve/prisesFacade.js';
 import { derouler, type AssemblageAAjuster, type Enchainement, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { surchargesCalibrees } from '../../../facade/regles/facades/surcharges.js';
@@ -179,6 +179,8 @@ interface GestesFacade {
 export interface RejeuFacade {
   entrees: string;
   gestes: GestesFacade;
+  /** Le mur tire a la main (les coins poses des corrections), par rang : un geste de l'E7 (V1), hors de l'empreinte des entrees. */
+  mur?: string;
   enchainement: Enchainement;
 }
 
@@ -186,25 +188,32 @@ export interface RejeuFacade {
 const empreintePhoto = (p: PhotoCas) => ({ ...p, base64: p.base64.length + ':' + fnv1a(p.base64) });
 
 /**
- * L'empreinte de ce qui entre dans l'enchainement hors gestes de validation : les photos, les corrections (reperes, mur tire, echelle),
- * le cote et le contour, le gabarit et les corps du toit, la version de la chaine et les valeurs calibrees de la detection. Les
- * facades voisines n'y sont pas : seules l'E12 et l'E14 les lisent (partageDuReleve), et un rejeu partiel repart au plus tard de l'E12.
+ * L'empreinte de ce qui entre dans l'enchainement hors gestes de validation : les photos, les corrections (reperes, echelle), le cote et
+ * le contour, le gabarit et les corps du toit, la version de la chaine et les valeurs calibrees de la detection. Le mur tire (les coins
+ * poses des corrections) n'y est pas : c'est un geste de l'E7 (`empreinteDuMur`), que l'orchestrateur pose sans refaire les vues ni
+ * l'assemblage quand il le peut (enchainement.ts::departDuRejeu). Les facades voisines n'y sont pas : seules l'E12 et l'E14 les lisent
+ * (partageDuReleve), et un rejeu partiel repart au plus tard de l'E12.
  */
-function empreinteDesEntrees(f: Facade, contour: readonly unknown[], photos: readonly PhotoCas[], corrections: object, gabarit: GabaritMur, corps: readonly CorpsToit[] | null | undefined): string {
-  return JSON.stringify({ f, contour, photos: photos.map(empreintePhoto), corrections, gabarit, corps: corps ?? null, chaine: VERSION_CHAINE_FACADES, surcharges: surchargesCalibrees() });
+function empreinteDesEntrees(f: Facade, contour: readonly unknown[], photos: readonly PhotoCas[], corrections: Readonly<Record<string, CorrectionRedressement>>, gabarit: GabaritMur, corps: readonly CorpsToit[] | null | undefined): string {
+  const sansLeMur = Object.fromEntries(Object.entries(corrections).flatMap(([rang, c]) => { const reste = { ...c }; delete reste.coins; return Object.keys(reste).length ? [[rang, reste]] : []; }));
+  return JSON.stringify({ f, contour, photos: photos.map(empreintePhoto), corrections: sansLeMur, gabarit, corps: corps ?? null, chaine: VERSION_CHAINE_FACADES, surcharges: surchargesCalibrees() });
 }
+
+/** Le mur tire a la main : les coins poses des corrections, par rang. */
+const empreinteDuMur = (corrections: Readonly<Record<string, CorrectionRedressement>>): string => JSON.stringify(murDesCorrections(corrections));
 
 /** Deux valeurs pareilles au JSON pres (un geste relu d'un fichier n'est pas le meme objet). */
 const pareil = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 /**
- * D'ou rejouer une facade dont seuls les gestes ont change : le calage pour le mur confirme (V1), la lecture de Claude pour une
+ * D'ou rejouer une facade dont seuls les gestes ont change : le calage pour le mur tire ou confirme (V1), la lecture de Claude pour une
  * reponse nouvelle, les ouvertures pour celles relues (V3) ; la plus tot des etapes touchees. Null : tout rejouer (les entrees ont
  * change, une autre version de la chaine, rien de garde, ou rien de change, ce qui ne devrait pas arriver).
  */
-function departDesGestes(precedent: RejeuFacade | null | undefined, entrees: string, gestes: GestesFacade): IdEtape | null {
+function departDesGestes(precedent: RejeuFacade | null | undefined, entrees: string, gestes: GestesFacade, mur: string): IdEtape | null {
   if (!precedent || precedent.entrees !== entrees || precedent.enchainement.versions.chaine !== VERSION_CHAINE_FACADES) return null;
   const touchees: IdEtape[] = [];
+  if (precedent.mur !== mur) touchees.push('calage');
   if (!pareil(precedent.gestes.murConfirme, gestes.murConfirme)) touchees.push('calage');
   if (!pareil(precedent.gestes.ia, gestes.ia)) touchees.push('lectureIa');
   if (!pareil(precedent.gestes.ouverturesRelues, gestes.ouverturesRelues)) touchees.push('ouvertures');
@@ -222,9 +231,10 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
 
 /**
  * La mesure d'une facade et son rejeu, a garder pour le suivant : avec `precedent` (le rejeu garde de cette facade), quand seuls le mur
- * confirme (V1), la lecture de Claude ou les ouvertures relues (V3) ont change, l'enchainement repart de l'etape touchee avec les sorties
- * gardees, sans refaire le groupe Image (calage fin, redressement, assemblage, fusion, detection) ; tout autre changement rejoue tout.
- * Les deux rendent la meme chose (tests/unit/facade/releve/uneOrchestration.test.ts).
+ * tire ou confirme (V1), la lecture de Claude ou les ouvertures relues (V3) ont change, l'enchainement repart de l'etape touchee avec les
+ * sorties gardees, sans refaire le calage fin ni les vues ni l'assemblage (un mur tire les refait seulement dans les cas que dit
+ * chaine.ts::reporterLeMurTire) ; tout autre changement rejoue tout. Les deux rendent la meme chose
+ * (tests/unit/facade/releve/rejeuPartielAudit.test.ts).
  */
 export async function releverFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, gestes: GestesFacade = {}, precedent: RejeuFacade | null = null): Promise<{ mesure: MesureFacade; rejeu: RejeuFacade }> {
   const charger = d.pixels ?? pixelsDePhoto;
@@ -244,7 +254,8 @@ export async function releverFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
   const entrees = empreinteDesEntrees(f, bat.pts, photos, corrections, gabarit, bat.corpsToit);
-  const depuis = departDesGestes(precedent, entrees, gestes);
+  const mur = empreinteDuMur(corrections);
+  const depuis = departDesGestes(precedent, entrees, gestes, mur);
   // L'enchainement de la facade, par l'orchestrateur : le meme que la calibration rejoue ; le releve et l'etat de chaque etape en sortent.
   const r = await derouler({
     largeurM: prises.facade.largeur, hauteurM: prises.facade.hauteur, gabarit, prises,
@@ -265,5 +276,5 @@ export async function releverFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun, ...(sortie.assemblage ? { assemblage: sortie.assemblage } : {}) } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   const accord = accordDeLaLecture(r.sorties.ia);
   const mesure: MesureFacade = { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace, ...(accord ? { accord } : {}) };
-  return { mesure, rejeu: { entrees, gestes: { murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, ia: gestes.ia ?? null }, enchainement: r } };
+  return { mesure, rejeu: { entrees, gestes: { murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, ia: gestes.ia ?? null }, mur, enchainement: r } };
 }
