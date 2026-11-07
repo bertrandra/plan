@@ -2817,7 +2817,7 @@ const POINTS = {
     // La validation d'une facade (V4, lot F5, MD/spec-facade-calage-audit.md §4 E11, §3.2, §3.3) : l'audit, « Photographier » la facade
     // de la maison (la scene 02 du banc), le calcul par l'orchestrateur ; la facade depliee de la liste dit son bilan (E11, a confirmer)
     // et porte « Valider la façade ». Le toucher ecrit la Facade dans le projet, en un pas d'historique : ses dimensions, sa forme, la
-    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E11 est faite, le bouton part. La 3D pose chaque ouverture dans un
+    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E14 est faite, le bouton part. La 3D pose chaque ouverture dans un
     // groupe nomme par son identifiant ; l'inspecteur dit la Facade et les ouvertures verifiees. Ctrl+Z defait la validation.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
@@ -2868,7 +2868,7 @@ const POINTS = {
     const ok = avantE9 === 'a-confirmer' && /Façade.*Mur de .*\(V4\)/.test(bilan) && !avant.some((x) => x.dimensions) && !!r.dimensions && !!r.forme && !!r.textureCalee
       && ids.length > 0 && ids.every((id, i) => id === 'o' + (i + 1)) && verifiees && apresE9 === 'ok' && boutonParti && groupes.length === ids.length
       && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
-    return { ok, mesure: `E11 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `É14 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   106: async (page, f) => {
     // Une cheminee proposee d'apres la photo, confirmee dans l'avant/apres, posee par le moteur sur le bon corps (lot F7,
