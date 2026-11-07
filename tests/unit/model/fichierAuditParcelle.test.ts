@@ -88,6 +88,18 @@ describe('le fichier de l audit de parcelle', () => {
     expect(second.propositions.map((p) => [p.id, p.decision])).toEqual(f.propositions.map((p) => [p.id, p.decision]));
   });
 
+  it('garde l optique d une photo, avec ou sans prise, a la relecture et dans la capture reprise (rien ne se perd)', () => {
+    const optique = {
+      focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'iPhone 13', source: { largeurPx: 4032, hauteurPx: 3024 }, reduite: { largeurPx: 1280, hauteurPx: 960 }, empreinte: 'sha256:00',
+      exif: { focale35: 26, modele: 'iPhone 13', focaleMm: 5.1, gps: { lat: 48.9, lon: 2.13, altitudeM: 40, capDeg: null, nordCap: null } },
+    };
+    const c = capture();
+    const sansPrise = { type: 'image/jpeg' as const, base64: 'BBBB', optique };
+    c.batiments.maison!.facades['0'] = { photos: [{ ...PHOTO, optique }, sansPrise] };
+    const relu = lireFichierAuditParcelle(JSON.parse(JSON.stringify(fichierAuditParcelle(entrees({ capture: c })))));
+    expect(captureDuFichier(relu).batiments.maison?.facades['0']?.photos).toEqual([{ ...PHOTO, optique }, sansPrise]);
+  });
+
   it('reprend en capture un fichier ecrit avant « Lancer l analyse » (une sauvegarde)', () => {
     const c = capture();
     c.finCapture = null;

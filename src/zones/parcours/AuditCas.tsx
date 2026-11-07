@@ -5,7 +5,7 @@
 // (app/audit/promenade.ts) : fermer ne perd rien, et il n'y a rien a valider.
 
 import { useEffect, useReducer, useState, type MouseEvent } from 'react';
-import { CATEGORIES_AUDIT, PHOTOS_PAR_CAS_MAX, PROBLEMES_AUDIT, problemesDe, type CasAudit, type CategorieAudit, type PhotoCas, type PrisePhoto } from '../../model/audit.js';
+import { CATEGORIES_AUDIT, PHOTOS_PAR_CAS_MAX, PROBLEMES_AUDIT, problemesDe, type CasAudit, type CategorieAudit, type OptiquePhoto, type PhotoCas, type PrisePhoto } from '../../model/audit.js';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { TEXTES_SANS_MUR, TEXTES_TOUCHER, type CouleursPhotos, type EtatCouleurPhoto } from '../../app/audit/couleurFacade.js';
 import type { Promenade } from '../../app/audit/promenade.js';
@@ -38,7 +38,7 @@ export function textePrise(p: PrisePhoto): string {
  * « Objectif 26 mm (69°), lu dans la photo · visée 4° vers le haut, penchée de 3° à droite » : ce que
  * la fiche dit de l'optique et de l'attitude. Vide pour une photo de version 1, qui ne les a pas.
  */
-export function texteOptique(p: PrisePhoto): string {
+export function texteOptique(p: Pick<PrisePhoto, 'focale35' | 'champDeg' | 'sourceFocale' | 'modeleAppareil' | 'inclinaisonDeg' | 'roulisDeg'>): string {
   const morceaux: string[] = [];
   if (p.sourceFocale && p.focale35 && p.champDeg) {
     const objectif = 'Objectif ' + Math.round(p.focale35) + ' mm (' + Math.round(p.champDeg) + '°)';
@@ -53,6 +53,20 @@ export function texteOptique(p: PrisePhoto): string {
     morceaux.push(visee);
   }
   return morceaux.join(' · ');
+}
+
+/**
+ * « Position dans la photo (EXIF) : 48,890120° N, 2,165230° E, altitude 45 m, vers 245° » : le GPS que l'appareil a ecrit,
+ * garde avec la photo et montre, mais qui ne situe pas la photo (la position du telephone, seule, le fait). Vide sans GPS.
+ */
+export function texteGpsExif(o: OptiquePhoto | undefined): string {
+  const g = o?.exif.gps;
+  if (!g) return '';
+  const deg = (v: number, pos: string, neg: string) => Math.abs(v).toFixed(6).replace('.', ',') + '° ' + (v >= 0 ? pos : neg);
+  let t = 'Position dans la photo (EXIF, gardée, non utilisée) : ' + deg(g.lat, 'N', 'S') + ', ' + deg(g.lon, 'E', 'O');
+  if (g.altitudeM !== null) t += ', altitude ' + Math.round(g.altitudeM) + ' m';
+  if (g.capDeg !== null) t += ', vers ' + Math.round(g.capDeg) + '°';
+  return t;
 }
 
 /** « Façade sud : #C9B49A, lue sur la photo » : ce que la fiche dit de la couleur d'une photo. */
@@ -179,7 +193,8 @@ export function AuditCas({ promenade, cle, retirer, prise, couleurs, fermer }: P
           <li key={i + ':' + ph.base64.length}>
             <img src={'data:image/jpeg;base64,' + ph.base64} alt={'Photo ' + (i + 1) + ' de ' + titreCas(c)} />
             {ph.prise && <div className="detailPhoto">{textePrise(ph.prise)}</div>}
-            {ph.prise && texteOptique(ph.prise) && <div className="detailPhoto">{texteOptique(ph.prise)}</div>}
+            {(() => { const o = ph.prise ?? (ph.optique?.sourceFocale === 'exif' ? ph.optique : undefined); const t = o ? texteOptique(o) : ''; return t ? <div className="detailPhoto">{t}</div> : null; })()}
+            {texteGpsExif(ph.optique) && <div className="detailPhoto">{texteGpsExif(ph.optique)}</div>}
             {(() => {
               const e = etatCouleur(ph);
               if (!e) return null;

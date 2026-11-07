@@ -801,6 +801,8 @@ function facadeParDefaut(L: number, H: number): Facade {
  */
 function priseDuCas(p: CasReel['photos'][number], image: Image | null): PrisePhoto | null {
   if (p.prise) return p.prise;
+  // Une photo sans position du telephone mais avec son optique : son objectif vient de l'optique (prisesFacade.ts::objectifDeLaPhoto).
+  if (p.optique) return null;
   if (!(p.focalePx && p.focalePx > 0) || !image) return null;
   const champDeg = (2 * Math.atan(Math.max(image.largeur, image.hauteur) / 2 / p.focalePx) * 180) / Math.PI;
   return { t: '', x: 0, y: 0, lat: null, lon: null, precisionM: null, azimutDeg: null, sourceAzimut: null, champDeg, sourceFocale: 'exif' };
@@ -820,7 +822,7 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
     const r = reperesDe(p);
     if (r || p.murALaMain) corrections[String(k)] = { ...(r ? { reperes: r } : {}), ...(p.murALaMain ? { coins: p.coins } : {}) };
   });
-  const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image) }; });
+  const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image), optique: p.optique ?? null }; });
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
     prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg }),

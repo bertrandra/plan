@@ -58,6 +58,65 @@ export type StatutCas = 'a_corriger' | 'corrige' | 'valide' | 'sans_suite';
  */
 export type SourceFocale = 'exif' | 'appareil' | 'defaut';
 
+/** La position que l'appareil a ecrite dans l'EXIF (IFD GPS), en degres WGS84. */
+export interface GpsExif {
+  lat: number;
+  lon: number;
+  /** L'altitude, en metres (negative sous le niveau de la mer) ; null si l'appareil ne l'a pas ecrite. */
+  altitudeM: number | null;
+  /** La direction de l'image (`GPSImgDirection`), en degres depuis le nord ; null si absente. */
+  capDeg: number | null;
+  /** Le nord de ce cap : `T` vrai, `M` magnetique ; null si non dit. */
+  nordCap: 'T' | 'M' | null;
+}
+
+/** Ce que l'EXIF dit de l'objectif et de la prise. */
+export interface ExifPhoto {
+  /** Focale equivalente 24x36, en millimetres. */
+  focale35: number | null;
+  /** Le modele d'appareil, tel que l'appareil l'ecrit (« iPhone 13 »). */
+  modele: string | null;
+  /** La focale reelle de l'objectif (`FocalLength`, 0x920A), en millimetres. */
+  focaleMm?: number | null;
+  /** Le zoom numerique (`DigitalZoomRatio`, 0xA404) ; 1 : pas de zoom (l'EXIF ecrit alors 0 ou 1). */
+  zoomNumerique?: number | null;
+  /** L'objectif (`LensModel`, 0xA434), tel que l'appareil l'ecrit (« iPhone 13 back dual wide camera 5.1mm f/1.6 »). */
+  objectif?: string | null;
+  /** La marque (`Make`, 0x010F). */
+  marque?: string | null;
+  /** L'orientation (`Orientation`, 0x0112, de 1 a 8) : le navigateur la redresse a la reduction. */
+  orientation?: number | null;
+  /** La date de la prise (`DateTimeOriginal`, 0x9003), telle qu'ecrite (« 2026:11:07 10:12:31 », heure locale de l'appareil). */
+  datePrise?: string | null;
+  /** Le decalage de cette heure (`OffsetTimeOriginal`, 0x9011, « +01:00 ») ; null si non ecrit. */
+  decalageHoraire?: string | null;
+  /** La position GPS de l'EXIF ; null si l'appareil n'en a pas ecrit. */
+  gps?: GpsExif | null;
+}
+
+/**
+ * L'optique d'une photo telle qu'elle a ete prise (audit de la calibration, lot A), rangee avec la photo des la premiere
+ * transformation, qu'il y ait une position du telephone ou non : ce qu'il faut pour rejouer la prise sans l'image d'origine.
+ * L'EXIF lu sur le fichier d'origine (la reduction l'efface), la focale retenue pour la chaine (la meme que `PrisePhoto` porte
+ * quand il y a une prise), la taille de la source et celle de la photo reduite, et l'empreinte du JPEG reduit. Facultative :
+ * une photo d'avant elle ne l'a pas, et se relit comme avant.
+ */
+export interface OptiquePhoto {
+  /** La focale retenue pour la chaine, son champ et d'ou elle vient : l'EXIF, l'appareil (appris), sinon le defaut. */
+  focale35: number;
+  champDeg: number;
+  sourceFocale: SourceFocale;
+  modeleAppareil: string | null;
+  /** L'EXIF du fichier d'origine, tel qu'il est lu (`facade/vision/exif.ts`) ; le GPS y est garde, il ne sert pas de position. */
+  exif: ExifPhoto;
+  /** La taille du fichier d'origine, apres son orientation (`exif.orientation`, appliquee a la reduction). */
+  source: { largeurPx: number; hauteurPx: number };
+  /** La taille de la photo reduite, celle du JPEG garde. */
+  reduite: { largeurPx: number; hauteurPx: number };
+  /** L'empreinte du JPEG reduit (`sha256:` et l'hexadecimal de ses octets) ; null quand le navigateur ne sait pas la calculer. */
+  empreinte: string | null;
+}
+
 /**
  * Ou et vers ou la photo a ete prise : la position de l'appareil (repere du plan et degres) et le cap
  * de sa boussole a cet instant. `deplacement` : sans boussole, le sens de la marche, a defaut.
@@ -94,7 +153,14 @@ export interface PrisePhoto {
 }
 
 /** Une photo prise sur place, reduite (environ 300 Ko), en base64, avec sa prise de vue. */
-export interface PhotoCas { type: 'image/jpeg'; base64: string; prise?: PrisePhoto }
+export interface PhotoCas {
+  type: 'image/jpeg';
+  base64: string;
+  /** La prise de vue du telephone (position, cap, attitude, et l'optique retenue) ; absente sans position. */
+  prise?: PrisePhoto;
+  /** L'optique de la photo, rangee meme sans position (OptiquePhoto) ; absente d'une photo d'avant elle. */
+  optique?: OptiquePhoto;
+}
 
 /** Les photos d'un cas de promenade, au plus (spec §5) : huit pesent deja environ 3,2 Mo. */
 export const PHOTOS_PAR_CAS_MAX = 8;
