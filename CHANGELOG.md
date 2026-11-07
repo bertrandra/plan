@@ -25,6 +25,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   téléphone ne s'applique pas à une photo sans prise ni EXIF, souvent importée d'un autre appareil). **Les photos sans GPS prises désormais se redressent donc avec la focale de leur EXIF : c'est
   voulu.** Les photos avec GPS, les étalons, le banc et le plancher de lecture 5.1.0 ne bougent pas ; une photo d'avant, sans optique,
   se relit comme avant.
+
+## [5.13.1] — 2026-11-07
+
+Version **corrective** : l'import depuis une adresse à Paris, Lyon ou Marseille trouve de nouveau ses parcelles (le code de
+l'arrondissement est ramené à celui de la commune), et les suggestions d'adresse disent leur niveau en français (#607). Aucune quantité
+ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de
+la 5.13.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : rien à déployer côté
+plateforme. Requêtes inchangées depuis la 5.13.0 (ni `deploy/`, ni `regles/`, ni les descriptions des sujets, ni la chaîne des
+façades), vérifiées sans la mesure sur main (run 42348548642 : 9 sur 9, 0,035 $).
+
+### Corrigé
 - **Import depuis une adresse à Paris, Lyon et Marseille : aucune parcelle trouvée.** La Base Adresse Nationale rend le code de
   l'arrondissement (75119 pour le Zénith de Paris), le cadastre range toutes les parcelles sous celui de la commune (75056, 69123,
   13055). La recherche filtrait sur l'arrondissement et ne ramenait rien, avec ou sans numéro. Le code est ramené à la commune avant
