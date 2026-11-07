@@ -6,6 +6,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Modifié
+- **Façades : chaque étape du groupe Image calcule ce qu'elle montre, et tirer le mur repart de l'É7** (audit de la calibration des
+  façades, lot D ; « Go » du propriétaire, 7 novembre 2026). Tout se calculait au premier pas du groupe Image (É3) ; la chaîne
+  (`facade/releve/chaine.ts`) se fait maintenant en temps, un par étape : É3 le champ de chaque photo, É4 ses coins (calage fin, replis,
+  report du mur), É5 sa vue de face, É6 la mosaïque des vues, É7 le mur posé sur elle et son analyse (une action `code` « analyser » de
+  plus à l'É7 ; É8 à É12 la lisent). Un mur tiré à la main (V1, « Ajuster l'égout et le sol », et les angles choisis du lot C2) entre à
+  l'É7 : les photos où il change s'y redressent par lui sans calage fin, les vues de face et l'assemblage du rejeu précédent restent.
+  Dans l'audit, le mur tiré sort de l'empreinte des entrées et devient un geste de l'É7 ; la calibration rejoue « Caler » depuis l'É7.
+  Tout repart de l'É4 seulement quand le mur entre dans l'É4 à l'É6 (`chaine.ts::reporterLeMurTire`) : mur retiré d'une photo, report du
+  mur sur une photo qu'il ne couvre pas, photo dont la vue de face vient de ses coins ou est lue corrigée de la distorsion, photo qui
+  changerait d'assemblage. Un rejeu partiel rend exactement un rejeu complet (`rejeuPartielAudit.test.ts`, `uneOrchestration.test.ts`,
+  qui comptent le calage fin, les coins de l'É4, l'assemblage de l'É6 et les mosaïques). Temps d'un geste dans l'audit : 02 (une photo)
+  1,18 → 0,85 s, 18 (deux) 3,62 → 2,51 s, 16 (trois) 4,68 → 3,37 s ; le reste est l'analyse du mur posé. Mêmes coins, mêmes images :
+  banc des façades et `calage-e5.ts` identiques (seuls les temps varient), AE 101 identique, empreintes golden et plancher de lecture 5.1.0
+  inchangés. `VERSION_CHAINE_FACADES` 13 → 14 (ce qu'un rejeu garde a changé de forme) ; les vérités de l'É7 des étalons se reposent seules
+  à chaque rejeu, celle d'AE 101 (posée sous la 9) reste telle quelle, comme aux montées précédentes.
 - **Une photo de façade sans position du téléphone se place désormais par le GPS de son EXIF** (décision du propriétaire, 7 novembre
   2026 ; c'est voulu). Une seule règle pour l'audit et la calibration (`facade/releve/prisesFacade.ts::positionDeLaPhoto`) : la
   position du téléphone quand la photo en a une, inchangée ; sinon le GPS de l'EXIF, projeté dans le repère du plan comme celle du

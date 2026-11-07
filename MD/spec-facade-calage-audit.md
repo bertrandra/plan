@@ -266,11 +266,15 @@ Chaque étape dit ce qui entre, ce que fait chaque chemin, qui arbitre, ce qui s
 - Les photos se prennent et se rangent **dans l'audit**, par côté du contour (`BatimentCapture.facades[rang].photos`). Voir §6.
 - **Sortie** : `PhotoCas` + prise (position, cap, attitude, focale), photos gardées sur l'appareil (`io/photosLocales.ts`).
 
-### É3 · Objectif *(son étape depuis le 7 novembre 2026 ; le calcul du groupe Image se fait ici, une fois)*
+### É3 · Objectif *(son étape depuis le 7 novembre 2026)*
 
-- **Déterministe** : le champ de chaque photo, l'EXIF lu, sinon les points de fuite, sinon noté pour l'appareil, sinon supposé (67°).
-  C'est le premier pas du groupe Image (É3 à É6) : `chaine.ts::redresserEtFusionner` y est appelée **une fois**, et les trois pas suivants
-  relisent ce qu'elle a rendu (aucun calcul déplacé, `VERSION_CHAINE_FACADES` inchangée). Rejouer depuis l'É4 ou l'É5 repart de l'É3.
+- **Déterministe** : le champ de chaque photo, l'EXIF lu, sinon les points de fuite, sinon noté pour l'appareil, sinon supposé (67°)
+  (`chaine.ts::champsDesPhotos`). **Chaque étape du groupe Image calcule ce qu'elle montre** (lot D, « Go » du propriétaire, 7 novembre
+  2026, `VERSION_CHAINE_FACADES` 14) : É3 le champ, É4 les coins (`coinsDesPhotos`), É5 les vues de face (`vuesDesPhotos`), É6 la
+  mosaïque (`assemblerLesPhotos`), É7 le mur posé et son analyse (`analyserLeMurPose`) ; elles remplacent `redresserEtFusionner`, qui faisait
+  tout d'un coup (mêmes coins, mêmes images qu'avant le découpage). Un rejeu demandé depuis l'une d'elles repart d'elle. Leurs états se lisent sur le
+  bilan du redressement, que l'É7 achève (l'assemblage tel que l'analyse l'a pris) : ils se relisent une fois l'É7 faite
+  (`relireLeGroupeImage`), sans rien recalculer.
 - **L'objectif de chaque photo** (demande du propriétaire, 4 novembre 2026) : le bilan du redressement dit le champ que la chaîne a pris
   et d'où il vient (`BilanPhotoRedressement.objectif` : `exif`, ou faute d'EXIF `fuites` — lu sur les points de fuite —, `appareil` —
   noté pour le modèle — ou `defaut`, 67°). Le résumé de l'É3 dit, pour chaque photo, « avec EXIF (focale n mm éq.) » ou « sans EXIF :
@@ -310,6 +314,24 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Déterministe** (existant) : le rectangle des arêtes aux proportions du plan, affiné par la teinte du mur. Le gabarit ne **pose** plus
   le mur : il n'est posé qu'une fois le mur trouvé. Il produit une pose **et un score d'explication** (§5), calculé sur les ancres
   indépendantes du toit.
+- **Son calcul** (lot D, 7 novembre 2026) : le mur posé sur la mosaïque de l'É6 (les coins de la première photo assemblée, portés sur
+  elle), le gabarit posé par les coins de chaque photo, puis l'analyse du mur posé en un appel, la même que le banc
+  (`analyseMur.ts::analyserLeMur` : redressée à l'échelle du plan, vues fondues, haut lu, détection, texture), que l'É8 à l'É12 lisent ;
+  le relevé, l'image du run et le bilan du redressement en sortent (`chaine.ts::analyserLeMurPose` ; action `code` analyser). L'analyse n'est pas répartie entre
+  l'É9, l'É11 et l'É12 : aucun geste après l'É7 ne la refait (V3 et Claude repartent sans calcul de l'É8 ou de l'É12), et la couper en
+  trois ferait une seconde chaîne à côté de celle du banc.
+- **Le mur tiré à la main repart d'ici** (lot D) : les coins posés (le mur tiré sur l'assemblage, ramené sur chaque photo) redressent
+  les photos où il change, sans calage fin ; leurs vues de face et l'assemblage restent ceux du rejeu précédent, parce qu'ils ne
+  dépendent pas du mur (`chaine.ts::reporterLeMurTire`, `enchainement.ts::departDuRejeu`). L'audit le traite comme un geste de l'É7 (hors
+  de l'empreinte des entrées, `mesures.ts`), la calibration aussi (« Ajuster l'égout et le sol », `caler`), et les angles choisis (lot C2)
+  se posent de même. **Tout repart de l'É4** quand le mur entre dans l'É4 à l'É6 : (1) il est retiré d'une photo (« Revenir à
+  l'automatique » : ses coins se cherchent de nouveau, le calage fin aussi) ; (2) un report du mur : le rejeu précédent en a fait un, ou
+  celui-ci le reporterait sur une photo qu'il ne couvre pas (des repères sans coins, des coins prédits) ; (3) une photo où il change ne se
+  redresse pas par lui, ou s'était redressée en échec (elle entrerait dans l'assemblage, ou en sortirait) ; (4) une photo où il change a sa
+  vue de face tirée de ses coins (ni repères ni points de fuite), ou lue sur l'image corrigée de la distorsion du grand-angle (le mur posé
+  se lit sur la photo d'origine). Un rejeu partiel rend exactement un rejeu complet (`rejeuPartielAudit.test.ts`,
+  `uneOrchestration.test.ts`). Temps d'un geste, audit, 3 scènes du banc : 02 (1 photo) 1,18 → 0,85 s ; 18 (2 photos) 3,62 → 2,51 s ;
+  16 (3 photos) 4,68 → 3,37 s ; le reste est l'analyse du mur posé.
 - **IA** (nouveau) : Claude lit l'assemblage et rend **quelques points, en parts du mur**, pas en pixels :
   - les deux **angles du mur** (gauche, droit), au niveau du sol et de l'égout si visibles ;
   - la **pointe de chaque pignon** (position horizontale, hauteur relative) ;
@@ -592,7 +614,7 @@ atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'ob
 |---|---|---|---|---|---|---|
 | **É1** Préparation | contour, corps du toit, LiDAR, cadastre | dimensions, gabarit, rapport, pointes attendues | un gabarit existe par côté (rectangle sinon) | `dimensions`, `forme.gabarit` | — (corriger le plan ailleurs) | `cache` |
 | **É2** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible (`photosMin` compte les lisibles ; illisible seule : à confirmer) | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
-| **É3** Objectif | photos, EXIF | le champ de chaque photo : EXIF, sinon points de fuite, sinon l'appareil, sinon supposé ; **le calcul du groupe Image, une fois** | chaque photo a un champ ; sans EXIF, à confirmer seulement si l'É5 échoue | le champ de chaque photo | poser 4 repères (ils ne dépendent pas de la focale) | `cache` |
+| **É3** Objectif | photos, EXIF | le champ de chaque photo : EXIF, sinon points de fuite, sinon l'appareil, sinon supposé | chaque photo a un champ ; sans EXIF, à confirmer seulement si l'É5 échoue | le champ de chaque photo | poser 4 repères (ils ne dépendent pas de la focale) | `cache` |
 | **É4** Coins du mur | photos, prises de vue, coins posés | posés au doigt, sinon trouvés, reportés, prédits | chaque photo a quatre coins (l'É7 juge le mur) | coins par photo et leur origine | poser les coins au doigt | `cache` |
 | **É5** Redressement | photos, repères | repères posés, sinon points de fuite, sinon les coins du mur retenu (§4 bis) | chaque photo redressée (verticales ≤ `verticalesMaxDeg`), ou son motif dit (illisible : la reprendre) | vues de face, celles que l'assemblage prend | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
 | **É6** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
@@ -828,8 +850,8 @@ façade, ce qui est fait, ce qui attend la personne.
   | `ouverture` | É12 | É12, É14 | calcul (la détection garde sa place) pour une boîte retrouvée ou une devinée confirmée ; rien pour une boîte proposée ou écartée |
 - **Les actions sortent de `derouler` et nulle part ailleurs** : elles se lisent sur les sorties que le pas vient d'écrire (des comptes et
   des références d'images déjà faites), sans calcul de plus.
-- **Aucun calcul n'a bougé** : `redresserEtFusionner` reste appelée une fois, dans le premier pas du groupe Image ; la lecture de Claude
-  fait, à l'É8, exactement ce que le calage et les ouvertures faisaient de sa réponse (mêmes fonctions, mêmes entrées) ; empreintes golden,
+- **Aucun calcul n'a bougé** (le 7 novembre 2026, à l'introduction des étapes ; le lot D a depuis réparti le calcul du groupe Image entre
+  les étapes, chacune calculant ce qu'elle montre, sans changer ni coin ni image, voir É3) : la lecture de Claude fait, à l'É8, exactement ce que le calage et les ouvertures faisaient de sa réponse (mêmes fonctions, mêmes entrées) ; empreintes golden,
   AE 101, banc des façades et plancher de lecture 5.1.0 inchangés ; `VERSION_CHAINE_FACADES` et `EMPREINTE_OBJECTIFS` aussi (l'empreinte
   ne lit que les valeurs des objectifs, les textes de `regles/facades/enchainement.json` ont changé de numéros seulement).
 - **L'écran** (lot suivant) montrera les actions ; ici la frise de la calibration a douze vignettes (É1, É3 à É13) et la barre ses huit

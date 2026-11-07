@@ -1,32 +1,44 @@
 import { describe, it, expect, vi } from 'vitest';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
-import { redresserEtFusionner, VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
+import { coinsDesPhotos, assemblerLesPhotos, VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
+import { mosaiqueDesVues } from '../../../../src/facade/vision/mosaiqueFuites.js';
+import { murAjusteSurLesPhotos } from '../../../../src/facade/releve/enchainement.js';
 import { releverFacade, type MesureFacade, type RejeuFacade } from '../../../../src/app/audit/parcelle/mesures.js';
 import { murAConfirmer, relecture, type CorrectionRedressement } from '../../../../src/model/auditParcelle.js';
 import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
 import type { IdEtape } from '../../../../src/model/etapeFacade.js';
 import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
 import type { PriseCamera, SceneFacade } from '../../../../src/facade/banc/synthese.js';
+import type { P2 } from '../../../../src/facade/vision/homographie.js';
 import { facadeDeLaScene, jpeg, scene, sorties } from './outilsOrchestration.js';
 
-// L'audit ne rejoue plus toute la chaine a chaque geste : quand seuls le mur confirme (V1), les ouvertures relues (V3) ou la lecture de
-// Claude changent, il repart de l'etape touchee avec les sorties de son rejeu precedent (`derouler`, `depuis` et `precedent`), comme la
-// calibration. Ce fichier prouve que ce rejeu partiel rend exactement ce que rend un rejeu complet (sorties, etats, resumes, actions,
-// mesure), et qu'il ne relance ni le calage fin (le worker) ni le groupe Image (redresserEtFusionner).
+// L'audit ne rejoue plus toute la chaine a chaque geste : quand seuls le mur tire ou confirme (V1), les ouvertures relues (V3) ou la
+// lecture de Claude changent, il repart de l'etape touchee avec les sorties de son rejeu precedent (`derouler`, `depuis` et `precedent`),
+// comme la calibration. Ce fichier prouve que ce rejeu partiel rend exactement ce que rend un rejeu complet (sorties, etats, resumes,
+// actions, mesure), et qu'il ne relance ni le calage fin (le worker) ni les coins de l'E4, ni l'assemblage de l'E6 (ni aucune mosaique).
 
-// redresserEtFusionner, enveloppee pour compter ses appels ; elle calcule comme avant.
+// Les temps de la chaine, enveloppes pour compter leurs appels ; ils calculent comme avant.
 vi.mock('../../../../src/facade/releve/chaine.js', async (charger) => {
   const m = await charger<typeof import('../../../../src/facade/releve/chaine.js')>();
-  return { ...m, redresserEtFusionner: vi.fn(m.redresserEtFusionner) };
+  return { ...m, coinsDesPhotos: vi.fn(m.coinsDesPhotos), assemblerLesPhotos: vi.fn(m.assemblerLesPhotos) };
 });
-const appelsChaine = () => vi.mocked(redresserEtFusionner).mock.calls.length;
+vi.mock('../../../../src/facade/vision/mosaiqueFuites.js', async (charger) => {
+  const m = await charger<typeof import('../../../../src/facade/vision/mosaiqueFuites.js')>();
+  return { ...m, mosaiqueDesVues: vi.fn(m.mosaiqueDesVues) };
+});
+const appelsChaine = () => vi.mocked(coinsDesPhotos).mock.calls.length;
+const appelsAssemblage = () => vi.mocked(assemblerLesPhotos).mock.calls.length;
+const appelsMosaique = () => vi.mocked(mosaiqueDesVues).mock.calls.length;
 
 type Releve = { mesure: MesureFacade; rejeu: RejeuFacade };
 type GestesFacade = RejeuFacade['gestes'];
 
 /** Une facade d'une scene par l'entree reelle de l'audit, le calage fin compte (le worker a l'ecran) ; les etapes commencees notees. */
-function auditDe(s: SceneFacade) {
-  const { f, contour, corps, images, photos } = facadeDeLaScene(s, [s.synthese.prise as PriseCamera]);
+const auditDe = (s: SceneFacade) => auditDesPrises(s, [s.synthese.prise as PriseCamera]);
+
+/** Une facade de plusieurs prises d'une scene, par l'entree reelle de l'audit (comme auditDe). */
+function auditDesPrises(s: SceneFacade, prises: readonly PriseCamera[]) {
+  const { f, contour, corps, images, photos } = facadeDeLaScene(s, prises);
   let worker = 0;
   let commencees: IdEtape[] = [];
   const d = {
@@ -54,6 +66,44 @@ function memes(partiel: Releve, complet: Releve): void {
   expect(sansDate(partiel.mesure)).toEqual(sansDate(complet.mesure));
   expect(partiel.rejeu.entrees).toBe(complet.rejeu.entrees);
   expect(partiel.rejeu.gestes).toEqual(complet.rejeu.gestes);
+  expect(partiel.rejeu.mur).toBe(complet.rejeu.mur);
+}
+
+/**
+ * Le mur tire sur l'image prise pour la suite (V1, « Ajuster l'égout et le sol »), comme l'ecran le fait : le mur retenu, l'egout descendu
+ * de `part` de la hauteur du mur, ramene sur chaque photo de l'image (murAjusteSurLesPhotos), en coins poses a la main.
+ */
+function murTire(r: Releve, part: number): Record<string, CorrectionRedressement> {
+  const s = r.rejeu.enchainement.sorties, coins = s.calage?.pose?.coins ?? [], retours = s.audit?.retours ?? [];
+  if (coins.length !== 4 || !retours.length) throw new Error('pas de mur a tirer');
+  const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2];
+  const dy = (bg.y - hg.y) * part;
+  const tire = [{ x: hg.x, y: hg.y + dy }, { x: hd.x, y: hd.y + dy }, bd, bg];
+  return Object.fromEntries([...murAjusteSurLesPhotos({ retours }, tire)].map(([rang, c]) => [String(rang), { coins: c }]));
+}
+
+/**
+ * Un geste qui touche le mur tire : le rejeu partiel depuis `precedent` et le complet rendent la meme chose. `depart` : l'etape d'ou le
+ * partiel repart ; depuis l'E7, ni le calage fin, ni les coins de l'E4, ni l'assemblage de l'E6, ni aucune mosaique.
+ */
+async function murPartielEtComplet(x: ReturnType<typeof auditDe>, corrections: Record<string, CorrectionRedressement>, precedent: Releve, depart: IdEtape): Promise<Releve> {
+  const [w, c, a, m] = [x.worker(), appelsChaine(), appelsAssemblage(), appelsMosaique()];
+  const t0 = performance.now();
+  const partiel = await x.relever({}, precedent.rejeu, corrections);
+  const tPartiel = performance.now() - t0;
+  expect(x.commencees()[0]).toBe(depart);
+  if (depart === 'calage') {
+    expect(x.worker()).toBe(w);
+    expect([appelsChaine(), appelsAssemblage(), appelsMosaique()]).toEqual([c, a, m]);
+  }
+  const t1 = performance.now();
+  const complet = await x.relever({}, null, corrections);
+  const tComplet = performance.now() - t1;
+  expect(x.commencees()[0]).toBe('preparation');
+  memes(partiel, complet);
+  // Le temps du geste, pour la PR (mesure, pas un seuil).
+  console.info(`mur tire, depuis ${depart} : ${Math.round(tPartiel)} ms ; tout rejouer : ${Math.round(tComplet)} ms`);
+  return partiel;
 }
 
 /**
@@ -61,11 +111,12 @@ function memes(partiel: Releve, complet: Releve): void {
  * partiel (pour enchainer un autre geste).
  */
 async function partielEtComplet(x: ReturnType<typeof auditDe>, gestes: GestesFacade, precedent: Releve, depart: IdEtape): Promise<Releve> {
-  const [w, c] = [x.worker(), appelsChaine()];
+  const [w, c, m] = [x.worker(), appelsChaine(), appelsMosaique()];
   const partiel = await x.relever(gestes, precedent.rejeu);
-  // Ni le calage fin (le worker) ni redresserEtFusionner : le groupe Image (E3 a E6) est repris tel quel.
+  // Ni le calage fin (le worker), ni les coins de l'E4, ni aucune mosaique : le groupe Image (E3 a E6) est repris tel quel.
   expect(x.worker()).toBe(w);
   expect(appelsChaine()).toBe(c);
+  expect(appelsMosaique()).toBe(m);
   expect(x.commencees()[0]).toBe(depart);
   expect(x.commencees()).not.toContain('objectif');
   const complet = await x.relever(gestes);
@@ -117,6 +168,39 @@ describe('audit des facades : le rejeu partiel apres V1, V3 ou une reponse de Cl
     // V1 et la reponse ensemble : depuis la plus tot des deux, l'E7.
     const mur = murAConfirmer((depart.mesure.redressement?.photos ?? []).map((p) => ({ rang: p.rang, coins: p.coinsPx ?? [] })), '2026-11-07T13:00:00.000Z');
     await partielEtComplet(x, { ia: run, murConfirme: mur }, depart, 'calage');
+  }, 480_000);
+
+  it('V1 : tirer le mur sur une photo seule repart de l E7, sans calage fin ni assemblage ; tire encore, puis retire (de l E4)', async () => {
+    const x = auditDe(scene('02-'));
+    const depart = await x.relever({});
+    const tire = await murPartielEtComplet(x, murTire(depart, 0.02), depart, 'calage');
+    expect(tire.mesure.redressement?.photos[0]?.coins).toBe('main');
+    expect(tire.mesure.etapes?.find((e) => e.id === 'calage')?.resume).toMatch(/^Mur posé à la main\./);
+    expect(tire.mesure.etapes?.find((e) => e.id === 'coins')?.resume).toMatch(/coins posés à la main/);
+    // Tire une seconde fois, depuis le rejeu partiel : depuis l'E7 encore.
+    const encore = await murPartielEtComplet(x, murTire(tire, -0.01), tire, 'calage');
+    // Retire (« Revenir à l'automatique ») : les coins se cherchent de nouveau, le calage fin aussi ; depuis l'E4, pas l'E3.
+    const w = x.worker();
+    const retire = await murPartielEtComplet(x, {}, encore, 'coins');
+    expect(x.worker()).toBeGreaterThan(w);
+    expect(retire.mesure.redressement?.photos[0]?.coins).not.toBe('main');
+  }, 480_000);
+
+  it('V1 : tirer le mur sur l assemblage de trois vues repart de l E7, les memes sorties que tout rejouer', async () => {
+    const s = scene('24-');
+    const p0 = s.synthese.prise as PriseCamera;
+    const x = auditDesPrises(s, [p0, { ...p0, biais: -22, distance: 12, tangage: 10 }, { ...p0, biais: 25, distance: 12, tangage: 8 }]);
+    const depart = await x.relever({});
+    expect(depart.rejeu.enchainement.sorties.audit?.assemblage?.retours.length).toBeGreaterThanOrEqual(2);
+    const tire = await murPartielEtComplet(x, murTire(depart, 0.02), depart, 'calage');
+    expect(tire.mesure.redressement?.photos.filter((p) => p.coins === 'main').length).toBeGreaterThanOrEqual(2);
+    // Puis V1 « Confirmer le mur » sur ce mur : depuis l'E7, le mur tire garde.
+    const mur = murAConfirmer((tire.mesure.redressement?.photos ?? []).map((p) => ({ rang: p.rang, coins: p.coinsPx ?? [] })), '2026-11-07T14:00:00.000Z');
+    const corrections = murTire(depart, 0.02);
+    const [w, c] = [x.worker(), appelsChaine()];
+    const confirme = await x.relever({ murConfirme: mur }, tire.rejeu, corrections);
+    expect([x.worker(), appelsChaine(), x.commencees()[0]]).toEqual([w, c, 'calage']);
+    expect(confirme.mesure.etapes?.find((e) => e.id === 'calage')?.etat).toBe('confirme');
   }, 480_000);
 
   it('tout autre changement rejoue tout : une correction, une autre version de la chaine, rien de garde', async () => {

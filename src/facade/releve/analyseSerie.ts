@@ -5,7 +5,7 @@ import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../geometry/cotesVusDeDehors.js';
 import { type HautMasque, type ResultatAnalyse } from '../analyse.js';
 import { type ResultatFusion } from '../fusion.js';
-import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
+import { analyserLeMur, type AssemblageDuMur, type VuesAssemblees } from '../analyseMur.js';
 import type { MesureDistance } from './prise.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../calage/calage.js';
 import { avecGrille, versOuvertureFacade } from '../detection/verification.js';
@@ -38,9 +38,9 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>
  * entier a fondre (`assemblage`). Dans les deux cas la hauteur se mesure (la largeur du plan donne l'echelle) ; `hauteurEstimee` (le
  * cadastre) ne sert que de depart et de repli. Ce que la fusion trouve a redire, l'orchestrateur le dit (`avisFusion`).
  */
-export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
+export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux', vuesFaites: VuesAssemblees | null = null): { r: ResultatAnalyse; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
   const mur = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
-  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage);
+  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage, vuesFaites);
   if (!a) return null;
   return { r: a.r, ...(a.assemblage ? { assemblage: a.assemblage } : {}), ...(a.fusion ? { fusion: a.fusion } : {}) };
 }

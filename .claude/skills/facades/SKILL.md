@@ -963,7 +963,10 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   É9 → É12, É10 → É13, É11 → É14 ; `model/etapeFacade.ts::ANCIENS_NUMEROS`) ; `EMPREINTES.md` et le `CHANGELOG.md` gardent les anciens.
 - **Les actions d'une étape** (même décision) : chaque étape rend, en plus de son état, ses actions typées (`code`, `claude`, `manuel`,
   `mesure`), leur état, ce qu'elles ont lu et rendu (une référence d'`ImagesEtapes`, des valeurs) ; `derouler` seul les rend. Le groupe
-  Image (É3 à É6) ne calcule qu'une fois, dans son premier pas : aucun calcul n'a bougé, `VERSION_CHAINE_FACADES` non plus. La
+  Image (É3 à É6) calculait alors une fois, dans son premier pas ; depuis le lot D (7 novembre 2026, `VERSION_CHAINE_FACADES` 14), chaque
+  étape calcule ce qu'elle montre (É3 champ, É4 coins, É5 vues de face, É6 mosaïque, É7 mur posé et analyse), sans changer ni coin ni
+  image (banc, `calage-e5.ts`, AE 101 identiques), et un mur tiré repart de l'É7 sauf quand il entre dans l'É4 à l'É6
+  (`chaine.ts::reporterLeMurTire`, alors de l'É4). La
   lecture de Claude (É8) rejoue la réponse enregistrée, jamais un appel ; sans elle, « mode déterministe », sautée. Les bancs ne lisent
   pas les actions. Chaque lecture de Claude est aussi une action `claude` de l'étape qu'elle concerne (É7 angles, É9 forme et pointes,
   É10 éléments du toit, É11 parement et ce qui cache, É12 boîtes), ses éléments un par un avec le statut du moteur et `vers` (ce qu'ils
