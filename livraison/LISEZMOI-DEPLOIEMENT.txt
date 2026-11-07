@@ -1,4 +1,4 @@
-Plan 5.13.1 (0a0d73c8) - deploiement Apache + PHP, sans Node.js
+Plan 5.14.0 (ed887b7e) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 Sur l'hebergement, trois choses voisines :
