@@ -108,10 +108,12 @@ export function casDepuisFacade(f: FacadeACalibrer, idu: string | null = null): 
   const photo = (k: number): PhotoReelle => {
     const c = f.corrections[String(k)], b = f.bilans.find((x) => x.rang === k);
     const coins = c?.coins?.length === 4 ? c.coins : b?.coinsPx?.length === 4 ? b.coinsPx : provisoires;
-    const prise = f.photos[k]?.prise;
+    const prise = f.photos[k]?.prise, optique = f.photos[k]?.optique;
     return {
       fichier: 'photo-' + (k + 1), coins: copie(coins),
       ...(prise ? { prise: { ...prise } } : {}),
+      // L'optique, meme sans prise : la calibration rejoue la focale de l'EXIF comme l'audit l'a lue.
+      ...(optique ? { optique: JSON.parse(JSON.stringify(optique)) as typeof optique } : {}),
       ...(c?.reperes?.length === 4 ? { reperes: copie(c.reperes) } : {}),
       ...(c?.coins?.length === 4 ? { murALaMain: true } : {}),
     };

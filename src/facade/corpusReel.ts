@@ -20,7 +20,7 @@ import { recouvrement } from './detection/voteVues.js';
 import { lireRunEnregistre, type RunEnregistre } from '../regles/facades/observations.js';
 import type { Image, P2 } from './vision/homographie.js';
 import type { CorpsToit, FormeToitSimple, PignonToit, PtBrut, TypeOuverture } from '../model/types.js';
-import type { PrisePhoto } from '../model/audit.js';
+import type { OptiquePhoto, PrisePhoto } from '../model/audit.js';
 import type { Facade } from '../geometry/cotesVusDeDehors.js';
 
 export const FORMAT_CAS_REEL = 'plan-facade-reelle';
@@ -46,6 +46,11 @@ export interface PhotoReelle {
    * l'audit l'a lue (enchainement.ts::entreesDuCas). Absente d'un cas d'avant : une photo sans capteurs, comme une photo importee.
    */
   prise?: PrisePhoto;
+  /**
+   * L'optique de la photo dans l'audit (EXIF, focale retenue, tailles, empreinte), gardee meme sans prise de vue : une photo sans
+   * position du telephone se rejoue avec la focale de son EXIF, comme dans l'audit. Absente d'un cas d'avant elle.
+   */
+  optique?: OptiquePhoto;
 }
 export interface CasReel {
   format: typeof FORMAT_CAS_REEL;
@@ -118,6 +123,8 @@ export interface ToitVraiCorps {
 
 const FORMES_VRAIES: readonly FormeToitSimple[] = ['plat', 'appentis', 'deux-pans', 'quatre-pans', 'croupes'];
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+/** Une optique se relit si son objectif se lit (le champ et sa source) : le reste n'est que garde. */
+const optiqueLisible = (o: unknown): o is OptiquePhoto => !!o && typeof o === 'object' && fini((o as OptiquePhoto).champDeg) && (o as OptiquePhoto).champDeg > 0 && ['exif', 'appareil', 'defaut'].includes((o as OptiquePhoto).sourceFocale);
 const point = (p: unknown): p is PtBrut => !!p && fini((p as PtBrut).x) && fini((p as PtBrut).y);
 
 /** Relit la vraie forme du toit d'un cas ; leve sur un corps mal decrit (une verite fausse ne se devine pas). */
@@ -156,7 +163,7 @@ export function lireCasReel(donnees: unknown): CasReel {
   delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia; delete reste.toit; delete reste.facade; delete reste.contour;
   // Le cote et le contour de l'audit, et la prise de chaque photo : relus s'ils se lisent, sinon le cas se rejoue sans eux (un cas d'avant).
   const facade = lireFacade(c.facade), contour = Array.isArray(c.contour) && c.contour.length >= 3 && c.contour.every(point) ? c.contour.map((p) => ({ x: p.x, y: p.y })) : null;
-  reste.photos = c.photos.map((p) => { const q = { ...p }; if (!q.prise || !point(q.prise)) delete q.prise; return q; });
+  reste.photos = c.photos.map((p) => { const q = { ...p }; if (!q.prise || !point(q.prise)) delete q.prise; if (!optiqueLisible(q.optique)) delete q.optique; return q; });
   // Une reponse enregistree illisible est laissee de cote, jamais inventee : les autres restent rejouables.
   const ia = Array.isArray(c.ia) ? c.ia.map(lireRunEnregistre).filter((x): x is RunEnregistre => x !== null) : [];
   if (typeof reste.parement !== 'string' || !reste.parement.trim()) delete reste.parement;
