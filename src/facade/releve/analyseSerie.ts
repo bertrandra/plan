@@ -139,7 +139,7 @@ export interface ReleveDeLaSerie {
   silhouette: SilhouetteFacade;
   /** Le haut du mur lu a la matiere du mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic de forme compare au gabarit (F4). */
   hautLu: { u: number; v: number }[] | null;
-  /** Le haut du mur cache par du feuillage : la part des colonnes et leurs troncons (E6) ; null sans feuillage. */
+  /** Le haut du mur cache par du feuillage : la part des colonnes et leurs troncons (E9) ; null sans feuillage. */
   hautMasque: HautMasque | null;
   /** La note du calage fin, de 0 a 1 ; null sans calage fin. */
   confiance: number | null;

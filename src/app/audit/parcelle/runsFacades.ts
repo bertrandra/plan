@@ -158,7 +158,7 @@ export function murDeLaTexture(t: Image, r: Pick<ReleveFacade, 'hauteur' | 'haut
 /**
  * L'accord du run de chaque facade avec sa detection, tel que l'enchainement de la facade l'a fait (decision 4 du proprietaire,
  * 3 novembre 2026 : Claude passe par la meme orchestration dans l'audit et la calibration) : la mesure refaite avec la lecture de Claude
- * (mesures.ts, `gestes.ia`) porte l'accord de ses boites (E9), sans calcul a cote. Une facade sans mesure faite avec cette lecture n'a
+ * (mesures.ts, `gestes.ia`) porte l'accord de ses boites (E8), sans calcul a cote. Une facade sans mesure faite avec cette lecture n'a
  * pas de resultat (l'appelant attend les mesures avant, analyseClaude.ts).
  */
 export function accordsDesMesures(runs: Record<string, RunEnregistre>, mesures: ReadonlyMap<string, MesureFacade>): Record<string, AccordFacadeCapture> {

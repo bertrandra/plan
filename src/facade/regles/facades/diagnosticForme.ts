@@ -1,4 +1,4 @@
-// Le diagnostic de forme d'une facade (MD/spec-facade-calage-audit.md §4 E7, §5 bis, §5 ter ; lot F4) : la silhouette de la
+// Le diagnostic de forme d'une facade (MD/spec-facade-calage-audit.md §4 E10, §5 bis, §5 ter ; lot F4) : la silhouette de la
 // facade derive du toit (gabaritDesCorps, la meme projection que le mode Toit) ; son ecart avec le haut lu sur la photo est donc
 // d'abord un diagnostic du TOIT CALCULE, corps par corps. Decisions de la personne : « la silhouette derive du toit ; son ecart avec
 // la photo est un diagnostic de toit » (9), « l'IA propose, le moteur tranche » (3), « toute proposition de toit venue de la photo est
@@ -24,7 +24,7 @@
 //   §5 quater) : proposee sur le corps du troncon, par son mur, et posee par le moteur une fois cochee (elementsDesMurs.ts) ; ce qui y
 //   est deja pose ne se propose pas, et ne bouge jamais ;
 // - ce que le moteur ne sait pas poser (un autre volume vu par Claude) est dit en constat, sans proposition.
-// Les seuils sont des objectifs de l'E7, dans regles/facades/enchainement.json. Pur.
+// Les seuils sont des objectifs de l'E10, dans regles/facades/enchainement.json. Pur.
 
 import { gabaritDesCorps, pointesDuGabarit, type GabaritMur } from '../../gabaritMur.js';
 import { silhouetteDeFace, tronconsDeFace } from '../toits/silhouetteDesCorps.js';
@@ -131,7 +131,7 @@ export interface EntreesDiagnostic {
   hauteurMur: number;
   /** Le haut lu sur la photo : `u` de 0 a 1 le long du mur, `v` en hauteurs d'egout ; null quand il ne se lit pas. */
   lue: readonly { u: number; v: number }[] | null;
-  /** Les troncons du mur (u de 0 a 1) ou le haut est cache par du feuillage (E6) : rien n'y est lu, le gabarit y est garde. */
+  /** Les troncons du mur (u de 0 a 1) ou le haut est cache par du feuillage (E9) : rien n'y est lu, le gabarit y est garde. */
   masques?: readonly { u0: number; u1: number }[];
   /** Les observations du run de Claude (le vote de ses passes), quand il y en a. */
   ia?: ObservationsFacade | null;

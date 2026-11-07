@@ -387,7 +387,7 @@ function declarerEscaladeFacade(cmd: RegistreCommandes, signaler: (m: string) =>
 }
 
 /**
- * La validation d'une facade (V4, MD/spec-facade-calage-audit.md §4 E11, lot F5) : le bouton sous la barre de la facade (`data-facade`)
+ * La validation d'une facade (V4, MD/spec-facade-calage-audit.md §4 E14, lot F5) : le bouton sous la barre de la facade (`data-facade`)
  * ecrit sa Facade dans le projet, en un pas d'historique (Ctrl+Z la defait). Grisee sur un audit relu en lecture seule (l'avant/apres
  * de l'admin) : il ne s'ecrit rien.
  */
@@ -411,7 +411,7 @@ function declarerValidationFacade(cmd: RegistreCommandes): void {
 
 /**
  * « Confirmer le mur » (V1, decision du proprietaire du 3 novembre 2026) : le bouton de la ligne du mur (`data-facade` de la facade qui
- * le porte) ecrit dans la capture le mur que la chaine a retenu, confirme par la personne ; la facade se rejoue, l'E5 est « confirme par
+ * le porte) ecrit dans la capture le mur que la chaine a retenu, confirme par la personne ; la facade se rejoue, l'E7 est « confirme par
  * vous » et le doute qu'elle passait aux etapes suivantes tombe. Le meme geste retire la confirmation. Rien n'ecrit dans le projet avant
  * V4, qui l'y ecrit avec la facade, en un pas d'historique. Grisee sur un audit relu en lecture seule. La calibration declare la meme
  * commande (app/administration/ecranCalibration.ts).

@@ -245,8 +245,8 @@ gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et du sol trou
 puis retiré : il dégradait la rampe `23`.
 
 **La pose du gabarit : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 ; `gabaritMur.ts::echelleDuGabarit`,
-`MD/spec-facade-calage-audit.md` §4 É5) : son sol sur le sol trouvé, ses bouts sur les bouts trouvés, une seule échelle tirée de la
-largeur ; son égout ne pose plus rien, il contrôle l'égout trouvé (`ecartDEgout`, dit à l'É5, à confirmer au-delà de 3 %). Avant, tendu
+`MD/spec-facade-calage-audit.md` §4 É7) : son sol sur le sol trouvé, ses bouts sur les bouts trouvés, une seule échelle tirée de la
+largeur ; son égout ne pose plus rien, il contrôle l'égout trouvé (`ecartDEgout`, dit à l'É7, à confirmer au-delà de 3 %). Avant, tendu
 entre l'égout et le sol trouvés, il prenait la hauteur du mur pour levier (AE 101 : pointes à 3,15 fois l'égout, 2,4 m trop haut pour
 80 cm d'égout trouvé sur la gouttière de l'appentis). `egout-sol.ts` pose le gabarit comme la production ; la colonne « Silhouette »
 gagne là où l'égout est trouvé à 1 ou 2 % près sous un pignon (22, 24) et perd là où l'assemblage est étiré (focale supposée,
@@ -281,36 +281,36 @@ de 0,83 à 1 ; les poses de travers (une moitié du mur, le mur décalé ou rent
 défaut d'AE 101 (un bloc de pignon retenu) se rejoue sans ses photos sur `tests/banc/facades/ae101.ts::sceneAe101`, tiré de l'étalon.
 Une photo serrée sur le mur sans rien autour n'explique pas ses angles : c'est voulu (un bord d'image ne dit pas où finit la matière).
 
-**Ce qui est « à la main » à l'É5** (revue des étapes, B1 ; décision du propriétaire, 3 novembre 2026) : seul un mur **tiré** à la main
+**Ce qui est « à la main » à l'É7** (revue des étapes, B1 ; décision du propriétaire, 3 novembre 2026) : seul un mur **tiré** à la main
 (des coins posés) l'est. Quatre repères ne font que redresser la photo : le mur cherché sur leur assemblage garde le verdict de l'arbitre
-(`BilanPhotoRedressement.murCherche` : pose retenue et `lu`) et l'É5 le juge comme un mur trouvé (plan seul ou `lu` faux : à confirmer).
+(`BilanPhotoRedressement.murCherche` : pose retenue et `lu`) et l'É7 le juge comme un mur trouvé (plan seul ou `lu` faux : à confirmer).
 Un mur tiré à la main que sa silhouette n'explique pas est à confirmer, jamais fait. `calage-e5.ts` rejoue chaque scène une seconde fois
 avec quatre repères aux coins de sa première ouverture (lignes « , repères »), et la scène 24 vue comme un mur de 5 m avec des repères
 posés sur les coins que la chaîne avait retenus (« 24-voisin, repères = coins de la chaîne ») : la ligne d'ensemble les compte.
 
-**Le doute hérité et « Confirmer le mur »** (décisions du propriétaire, 3 novembre 2026) : une É5 à confirmer rend à confirmer les
-étapes qui lisent le mur (É6 à É11) quand elles atteignent leur objectif (« Dépend du mur à confirmer (É5). », `EtapeCalculee.herite`).
+**Le doute hérité et « Confirmer le mur »** (décisions du propriétaire, 3 novembre 2026) : une É7 à confirmer rend à confirmer les
+étapes qui lisent le mur (É8 à É14) quand elles atteignent leur objectif (« Dépend du mur à confirmer (É7 Calage du mur). », `EtapeCalculee.herite`) ; la lecture de Claude (É8) en hérite aussi.
 « Confirmer le mur » (V1, commande `facade.confirmerMur`, audit et calibration) écrit le mur retenu comme une entrée (`MurConfirme`) :
-l'É5 est alors `confirme` (« confirmé par vous »), le doute hérité tombe, la note de la silhouette reste. Les gestes de la façade
+l'É7 est alors `confirme` (« confirmé par vous »), le doute hérité tombe, la note de la silhouette reste. Les gestes de la façade
 avant V4 (repères, mur tiré, échelle, confirmation) se défont par Ctrl+Z et se refont par Ctrl+Y, dans l'audit (`capture.ts::geste`)
 comme dans la calibration, sans toucher au projet (`app/clavierGestes.ts`).
 
-**V3 et l'É9** (décision 2 du propriétaire, 3 novembre 2026) : les ouvertures trouvées se relisent toujours avant V4 (« Relire les
-ouvertures », `RelireOuvertures.tsx`, audit et calibration) ; l'É9 n'est faite qu'après ce regard, tant que la détection est la même
+**V3 et l'É12** (décision 2 du propriétaire, 3 novembre 2026) : les ouvertures trouvées se relisent toujours avant V4 (« Relire les
+ouvertures », `RelireOuvertures.tsx`, audit et calibration) ; l'É12 n'est faite qu'après ce regard, tant que la détection est la même
 (`OuverturesRelues`, entrée de `prisesDeLaFacade`), et V4 écrit les ouvertures gardées. La vérité d'un cas ne se remplit plus de la
-détection. Les bancs ne relisent rien : l'état de l'É9 n'y entre pas.
+détection. Les bancs ne relisent rien : l'état de l'É12 n'y entre pas.
 
 **La lecture de Claude dans l'audit** (décision 4, 3 novembre 2026) : elle entre dans `derouler` comme dans la calibration
-(`mesures.ts`, `gestes.ia`) ; l'accord (É9), le diagnostic (É7) et le bilan (É11) en sortent, et l'audit les lit sans calcul à côté
+(`mesures.ts`, `gestes.ia`) ; l'accord (É12), le diagnostic (É10) et le bilan (É14) en sortent, et l'audit les lit sans calcul à côté
 (`runsFacades.ts::accordsDesMesures`, `formeFacades.ts`, `facadeValidee.ts`). Le banc déterministe ne la voit pas ; le garde-fou de la
 lecture (§5 quater) passe par `gardeLecture.ts`, inchangé. Les bancs ne confirment rien :
-`banc.ts`, `egout-sol.ts` et `calage-e5.ts` ne lisent pas les étapes qui en héritent (seul l'état de l'É5 compte dans `calage-e5.ts`).
+`banc.ts`, `egout-sol.ts` et `calage-e5.ts` ne lisent pas les étapes qui en héritent (seul l'état de l'É7 compte dans `calage-e5.ts`).
 
-**L'É5 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :
+**L'É7 de l'audit, de bout en bout** (`npx tsx .claude/skills/facades/scripts/calage-e5.ts [mots] [--json fichier]`, 2 novembre 2026) :
 chaque scène à prise par caméra passe par `enchainement.ts::derouler` (vue `audit`), une photo avec le GPS à 1 m, la boussole et l'EXIF,
 le gabarit vrai : les coins se cherchent comme sur place (le banc des façades, lui, pose les coins vrais). Par scène : l'écart de chaque coin
-retenu en cm sur le mur, l'égout signé, l'état de l'É5, son score et ses ancres, les **poses fausses refusées** (la pose retenue, juste,
-l'égout déplacé de ±5 et ±10 % de la largeur, un bout de ±5 % : au-delà des 3 % où un bord est faux ; combien le test de l'É5 en refuse)
+retenu en cm sur le mur, l'égout signé, l'état de l'É7, son score et ses ancres, les **poses fausses refusées** (la pose retenue, juste,
+l'égout déplacé de ±5 et ±10 % de la largeur, un bout de ±5 % : au-delà des 3 % où un bord est faux ; combien le test de l'É7 en refuse)
 et les **justes à 2 %** (l'égout déplacé de ±2 % : combien il en accepte). Deux variantes de la scène 24 : un mur de 5 m que le pignon d'un
 corps voisin prolonge jusqu'à 8 m (le gabarit déborde), coins cherchés puis posés à la main. Les scènes 13 et 14 (distorsion corrigée)
 rendent leurs coins sur l'image corrigée : non comparés. Au 2 novembre 2026, après le lot du calage des pignons : 22/23 poses justes,
@@ -318,12 +318,12 @@ aucun faux « ok », aucune pose juste refusée, 176/176 poses fausses refusées
 un faux « ok » — l'égout de 24 pris 48 cm trop bas, score 0,89 —, le mur de 5 m posé juste refusé à 0,52, 87/160 poses fausses refusées,
 37/40 à 2 % acceptées). Le seul faux qui reste est le mur de 5 m prolongé (la recherche ignore le gabarit), dit « à confirmer ».
 **La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit ; le
-gabarit juge la pose (l'É5), il ne la cherche pas. Sur ce mur, la personne pose le mur à la main.
+gabarit juge la pose (l'É7), il ne la cherche pas. Sur ce mur, la personne pose le mur à la main.
 
 **Les baies sous le pignon d'un corps voisin** (décision du propriétaire, 2 novembre 2026, `facade/releve/murVoisin.ts`) : une baie lue
 hors des cotes du mur, sous le pignon d'un corps voisin qui prolonge la façade, va sur la façade du côté du contour qui porte ce mur, s'il
 en a une (`detectee`, sans toucher au reste de cette façade ; V4 écrit les deux en un pas) ; sinon elle reste sur la façade photographiée
-et l'É9 dit « pas de façade sur ce mur : relevez-le pour les y poser ». Aucune façade n'est créée (elle effacerait les fenêtres
+et l'É12 dit « pas de façade sur ce mur : relevez-le pour les y poser ». Aucune façade n'est créée (elle effacerait les fenêtres
 automatiques du mur). `murVoisin.test.ts` le joue de bout en bout sur la scène 24 vue comme un mur de 5 m posé à la main.
 `--sans-capteurs` (photos importées, le point 100 de la fumée) : coins identiques à `main` sauf 21 (faux avant et après) et la variante du
 voisin ; les deux faux « ok » de `main` (08, 21) sont « à confirmer » ; 152/152 poses fausses refusées. La rampe 23 y reste fausse comme
@@ -333,18 +333,18 @@ sur `main` : sans boussole, l'horizontale n'est pas connue et la règle de la ra
 (`facade/profil.ts::partieBasseDuGabarit`, lue dans `analyserLeMur`, écrite sur le relevé). Le générateur peint un mur en L
 (`synthese.mur.partieBasse` : début, fin, hauteur, bande de toit ; au-dessus, le ciel) et `gabaritVrai` suit la marche. Scène
 `25-mur-en-l-garage` : chaîne de production 5/5, sans fausse ; calage fin 4/4 (le coin caché au-dessus du garage par l'horizontale du
-bout haut) ; É5 de l'audit « faite » à 0,99 (avant la lecture des angles sous le gabarit : « à confirmer », angle droit 0,38) ; partie
+bout haut) ; É7 de l'audit « faite » à 0,99 (avant la lecture des angles sous le gabarit : « à confirmer », angle droit 0,38) ; partie
 basse retrouvée à 6,5–10 m, égout 2,9 m.
 
 **La partie haute au milieu** (3 novembre 2026) : un mur a autant de parties basses que son gabarit en montre
 (`facade/profil.ts::partiesBassesDuGabarit`, `model/partiesBasses.ts` ; schéma 13 pour plusieurs). Le générateur en peint une liste
 (`synthese.mur.partiesBasses`). Scène `26-partie-haute-au-milieu` (appentis à 2,6 m, maison à 5,6 m, garage à 2,9 m, 12 m de mur) :
-chaîne de production 6/6 sans fausse ; É5 « faite » à 0,99, 8/8 poses fausses refusées ; parties basses à 0–3 m et 8,6–12 m. Avec
+chaîne de production 6/6 sans fausse ; É7 « faite » à 0,99, 8/8 poses fausses refusées ; parties basses à 0–3 m et 8,6–12 m. Avec
 l'ombre du débord (depuis le 3 novembre 2026, comme 05 et 25) : le calage fin prenait la limite de l'ombre pour l'égout (25 cm sous lui,
 2,1 % de la largeur) quand la partie haute fait moins de la moitié du mur, ses côtés gagnant à un égout plus bas ; il écarte maintenant
 un égout qui borde, là où il longe le mur, une bande du même mur plus sombre au-dessus de lui (`calageFin.ts`, `Contraste.ombre`) :
 coins à 0, 1, 3 et 0 cm. Sans capteurs
-(`calage-e5.ts --sans-capteurs`, la calibration), la recherche prend le garage pour le mur : l'É5 le dit « à confirmer » (chaque
+(`calage-e5.ts --sans-capteurs`, la calibration), la recherche prend le garage pour le mur : l'É7 le dit « à confirmer » (chaque
 partie basse jugée à son égout), et le mur posé à la main est « fait ».
 
 **Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
@@ -368,7 +368,7 @@ façade. Ils se lisent sur la chaîne du relevé.
 Les scènes du corpus (`tests/fixtures/facades/<nom>.json`) sont **les étalons** de Plan : la bibliothèque de façades de test, écrite
 une fois, versionnée, que lisent le banc (`banc.ts`, `calage-e5.ts`, `egout-sol.ts`, `mesures.ts`, garde-fou de la lecture), les
 tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre 2026, l'écran **Admin › Calibration** (section
-« Étalons de synthèse » : chaque scène rendue dans le navigateur, ouverte comme un cas, déroulée de É1 à É11, sans rien enregistrer).
+« Étalons de synthèse » : chaque scène rendue dans le navigateur, ouverte comme un cas, déroulée de É1 à É14, sans rien enregistrer).
 
 - **Une seule source par étalon** : son fichier JSON. Pas de copie en PNG, en cas du serveur ni en projet : tout se rend à la demande
   depuis lui (`src/facade/banc/synthese.ts`), aux mêmes pixels partout (`tests/unit/facade/banc/etalons.test.ts`).
@@ -381,7 +381,7 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   ```bash
   npx tsx .claude/skills/facades/scripts/etalons.ts                 # le catalogue, en Markdown
   npx tsx .claude/skills/facades/scripts/etalons.ts pignon haie     # ceux dont la fiche contient l'un des mots
-  npx tsx .claude/skills/facades/scripts/etalons.ts É4 --json       # les fiches, en JSON
+  npx tsx .claude/skills/facades/scripts/etalons.ts É6 --json       # les fiches, en JSON
   ```
 
 - **La règle** : avant de fabriquer une scène, une photo, un cas de calibration ou un projet de test pour une façade, chercher dans le
@@ -392,7 +392,7 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   demande depuis l'étalon (« Créer le projet de démonstration », Admin › Calibration) : le bâtiment de la règle
   `facade/banc/projetEtalon.ts` (deux pans à 40°, faîtage parallèle au mur, 9 m ; un pignon gardé ; une partie basse en appentis adossé, rive haute sous l'égout haut ; sans lieu), la
   façade mesurée et validée par le chemin de l'audit (`app/administration/projetEtalon.ts`). Un projet de test pour une façade part de là.
-- **La vérité de l'É5** d'un étalon se porte à chaque rejeu sur l'assemblage de ce rejeu (`etalons.ts::calageVraiDuRejeu`, depuis les
+- **La vérité de l'É7** d'un étalon se porte à chaque rejeu sur l'assemblage de ce rejeu (`etalons.ts::calageVraiDuRejeu`, depuis les
   coins vrais) : aucune n'est écrite dans le corpus, elle dépend de la version de la chaîne.
 - **Les prendre** : un test de l'audit qui veut une maison photographiée prend `tests/banc/facades/etalonAudit.ts::etalonPourLAudit('02')`
   (le bâtiment de la règle, la photo et sa prise de vue, une parcelle autour) ; un point de fumée qui sert un cas à la calibration part
@@ -401,24 +401,24 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
 - Un test qui ne mesure qu'une fonction (un segment, une homographie) peut garder sa petite image peinte : la règle vise les murs et
   bâtiments de test, pas les pixels d'essai d'un module.
 
-- **L'objectif de chaque photo, à l'É3** (4 novembre 2026) : le bilan du redressement porte `objectif` (`exif`, `fuites`, `appareil`,
-  `defaut`, et le champ pris) ; la calibration avertit d'une photo sans EXIF (vignette, É3 ouverte). Les étalons 00 (image d'origine
+- **L'objectif de chaque photo, à l'É3** (4 novembre 2026 ; son étape depuis le 7 novembre) : le bilan du redressement porte `objectif`
+  (`exif`, `fuites`, `appareil`, `defaut`, et le champ pris) ; la calibration avertit d'une photo sans EXIF (vignette, É3 ouverte). Les étalons 00 (image d'origine
   des tests) et 09 (focale inconnue) sont sans EXIF : ils montrent l'avertissement (point de fumée 129).
 
-- **L'É6 et la végétation** (4 novembre 2026) : le haut lu (`analyse.ts::lireLeHaut`, `silhouetteDuMur` avec `vegetation`) ne lit pas
+- **L'É9 et la végétation** (4 novembre 2026) : le haut lu (`analyse.ts::lireLeHaut`, `silhouetteDuMur` avec `vegetation`) ne lit pas
   une colonne dont le haut est sous du feuillage (cases vertes et texturées, `estFeuillage` ; le grain du mur lu sur ses bouts ; une
-  peinture verte est un aplat) ; ses tronçons vont dans `hautMasque`, que l'É7 et le bilan sautent. L'affinage de l'égout et du sol
-  (`affinerEgoutEtSol`, l'É5 des repères) n'en est pas changé. Étalon 27 : l'arbre devant le pignon ; il n'a pas encore de plancher au
+  peinture verte est un aplat) ; ses tronçons vont dans `hautMasque`, que l'É10 et le bilan sautent. L'affinage de l'égout et du sol
+  (`affinerEgoutEtSol`, l'É7 des repères) n'en est pas changé. Étalon 27 : l'arbre devant le pignon ; il n'a pas encore de plancher au
   garde-fou de la lecture (`scenes-ajoutees.json`), à fixer au prochain run « Vérifier l'API Claude ».
 - **Le cul de geai** (demi-croupe ; aussi nez de veau, bout rabattu, croupette ; 5 novembre 2026) : les étalons 28 (enduit, la pointe
   coupée au tiers) et 29 (brique, coupée à moitié, faîtage débordant d'un mètre, de biais) peignent un pignon tronqué en trapèze et, au-
   dessus, la petite croupe en tuiles, raccourcie comme vue de la rue (`synthese.ts`, `pignonCoupe`, `RACCOURCI_CROUPE`) ; leur gabarit
-  vrai est le trapèze. L'É7 (`diagnosticForme.ts::culDeGeaiAuBout`) juge un cul de geai sur le tiers haut du pignon : à l'étalon 28 il
+  vrai est le trapèze. L'É10 (`diagnosticForme.ts::culDeGeaiAuBout`) juge un cul de geai sur le tiers haut du pignon : à l'étalon 28 il
   le propose (gain 99 %) sur le pignon du projet ; à l'étalon 29 (mur à confirmer, haut lu jusqu'à la pointe) seulement avec Claude
   (« demi-croupe »). Ni l'un ni l'autre n'a encore de plancher au garde-fou de la lecture, à fixer au prochain run « Vérifier l'API Claude ».
   Suites (5 novembre 2026) : les creux étroits du haut lu (un poteau peint) ne sont pas lus (`retirerLesCreux`) ; un aplat et son bord
   ne sont pas du feuillage (`CHANGE_FEUILLE`) ; la couronne d'un arbre dans la bande au-dessus de l'égout est tenue pour non vue
-  (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É5 se posait sur le bas de son bandeau vert, pas sur l'arbre : le
+  (`feuillageDeLImage`, analyse.ts). L'égout de l'étalon 27 à l'É7 se posait sur le bas de son bandeau vert, pas sur l'arbre : le
   calage fin écarte un égout que surmonte une bande mince puis le mur (`bandeContreLeMur`, aux quatre tronçons, et aux coins pour un
   égout par les bouts), et juge le dedans d'un égout sous une telle bande là où le mur reprend.
 
@@ -872,7 +872,7 @@ serveur. Sa réponse devient des observations (`src/regles/facades/observations.
 décident (seuils : `regles/facades/ia.json`) : l'accord de ses angles avec la pose retenue (dans le cadre de l'image lue : dans
 l'audit, le mur retenu cadré, ramené sur l'assemblage par lui), pointes, boîtes cochées seulement si la détection les retrouve. Sa
 pose et ses zones de colombage ne sont pas candidates de l'arbitre (décision du propriétaire, 3 novembre 2026). Les options
-manuelles « désigner les pointes » (É6) et « recadrer » (É8), jamais écrites, sont retirées du contrat. Le banc déterministe ne la voit pas (aucune réponse) : il ne bouge pas.
+manuelles « désigner les pointes » (É9) et « recadrer » (É11), jamais écrites, sont retirées du contrat. Le banc déterministe ne la voit pas (aucune réponse) : il ne bouge pas.
 
 ```bash
 npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/mesure [mots]   # l'assemblage (≤ 1 024 px), le texte, la vérité
@@ -955,11 +955,19 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   **Seule exception acceptée** (propriétaire, 2 novembre 2026) : « Rappeler Claude » envoie l'assemblage en calibration et `imageRun` dans
   l'audit, parce que les références du plancher de lecture 5.1.0 (§5 quater) ont été lues sur l'assemblage. On ne l'aligne pas sans
   nouvelle décision et nouvelle référence.
-- **Les étapes s'appellent É1 à É11** (É1 Préparation, É2 Prises, É3 Redressement, É4 Assemblage, É5 Calage du mur, É6 Silhouette lue,
-  É7 Diagnostic de forme, É8 Texture, É9 Ouvertures, É10 Toit, É11 Validation ; `libelleEtape`), dans l'orchestrateur (et le texte
-  d'un rejeu, `reel.ts etalon`) et à l'écran ; le propriétaire les cite par ces numéros.
+- **Les étapes s'appellent É1 à É14** (décision du propriétaire, 7 novembre 2026 : É1 Préparation, É2 Prises, É3 Objectif, É4 Coins du
+  mur, É5 Redressement, É6 Assemblage, É7 Calage du mur (V1), É8 Lecture de Claude, É9 Silhouette lue, É10 Diagnostic de forme (V2),
+  É11 Texture, É12 Ouvertures (V3), É13 Toit, É14 Validation (V4) ; `libelleEtape`), dans l'orchestrateur (et le texte d'un rejeu,
+  `reel.ts etalon`) et à l'écran ; le propriétaire les cite par ces numéros. Jusqu'au 7 novembre 2026 il y en avait onze : ce skill est
+  réécrit dans les numéros neufs, même dans ses passages datés (ancienne É3 → É5, É4 → É6, É5 → É7, É6 → É9, É7 → É10, É8 → É11,
+  É9 → É12, É10 → É13, É11 → É14 ; `model/etapeFacade.ts::ANCIENS_NUMEROS`) ; `EMPREINTES.md` et le `CHANGELOG.md` gardent les anciens.
+- **Les actions d'une étape** (même décision) : chaque étape rend, en plus de son état, ses actions typées (`code`, `claude`, `manuel`,
+  `mesure`), leur état, ce qu'elles ont lu et rendu (une référence d'`ImagesEtapes`, des valeurs) ; `derouler` seul les rend. Le groupe
+  Image (É3 à É6) ne calcule qu'une fois, dans son premier pas : aucun calcul n'a bougé, `VERSION_CHAINE_FACADES` non plus. La
+  lecture de Claude (É8) rejoue la réponse enregistrée, jamais un appel ; sans elle, « mode déterministe », sautée. Les bancs ne lisent
+  pas les actions.
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
-  `facade/releve/enchainement.ts::derouler` (étapes É1 à É11, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
+  `facade/releve/enchainement.ts::derouler` (étapes É1 à É14, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
   images `imagesEtapes.ts`) ; la mesure des cas passe par `preparerPourLaMesure`, le même chemin. L'audit y est venu au lot F3 ; depuis F6,
   le relevé n'a plus de capture (c'est l'éditeur d'un mur relevé), les photos se prennent dans l'audit.
   `npx tsx … reel.ts etalon <cas.json>` rejoue un cas étape par étape avec la vérité d'un étalon (`tests/fixtures/facades-reel/etalons/`).

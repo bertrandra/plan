@@ -176,19 +176,32 @@ d'y toucher.
   (l'image prise pour la suite), l'audit envoie `imageRun` (la photo du relevé redressée jusqu'au haut de la façade). On la laisse : les
   références du plancher de lecture 5.1.0 (`tests/fixtures/facades/lecture-5.1.0/`, garde-fou de la lecture) ont été lues sur
   l'assemblage, et changer l'image de la calibration les rendrait incomparables. Ne pas « corriger » cet écart sans nouvelle décision.
+  Elle se lit sur l'action Claude de l'É8 (« Image lue : … ») : dite, jamais corrigée. L'appel à Claude n'est jamais fait par `derouler`
+  (audit : `analyseClaude.ts` ; calibration : « Rappeler Claude ») ; l'É8 rejoue la réponse enregistrée, « mode déterministe » sans elle.
 - **Les étalons de test des façades : chercher avant de créer** (demande du propriétaire, 4 novembre 2026). Les scènes du banc
   (`tests/fixtures/facades/<nom>.json`, rendues par `src/facade/banc/synthese.ts`) sont la bibliothèque unique des façades de test :
   un identifiant stable (le nom du fichier), une fiche de ce que chacune couvre (`facade/banc/etalons.ts::ficheEtalon`,
   `npx tsx .claude/skills/facades/scripts/etalons.ts [mots]`), lues par le banc, les tests, la fumée et Admin › Calibration (section
   « Étalons de synthèse », en lecture seule). Avant de créer une scène, une photo, un cas ou un projet de test pour une façade, chercher
   dans ce catalogue ; un nouvel étalon s'ajoute au corpus, au même format, jamais à côté (skill `facades`, §0 bis).
-- **Les étapes d'une façade s'appellent É1 à É11** (`model/etapeFacade.ts`, sans « bis »), dans l'orchestrateur et à l'écran (calibration
-  et audit, où une étape cachée garde son numéro) ; le propriétaire les désigne par ces numéros dans ses demandes.
+- **Les étapes d'une façade s'appellent É1 à É14** (décision du propriétaire, 7 novembre 2026 ; `model/etapeFacade.ts`, numéros continus,
+  sans « bis »), dans l'orchestrateur et à l'écran (calibration et audit, où une étape cachée garde son numéro) ; le propriétaire les
+  désigne par ces numéros dans ses demandes. É1 Préparation, É2 Prises, É3 Objectif, É4 Coins du mur, É5 Redressement, É6 Assemblage,
+  É7 Calage du mur (V1), É8 Lecture de Claude, É9 Silhouette lue, É10 Diagnostic de forme (V2), É11 Texture, É12 Ouvertures (V3),
+  É13 Toit, É14 Validation (V4). Dans l'audit, l'objectif et les coins sont cachés comme le redressement, la lecture de Claude tient en
+  une ligne. Chaque étape rend ses **actions typées** (`code`, `claude`, `manuel`, et la vérité d'un cas en `mesure`, en lecture seule),
+  qui ne sortent que de `derouler`. Le groupe Image (É3 à É6) ne calcule qu'une fois, dans son premier pas : aucun calcul n'a bougé.
+  Les données portent l'identifiant d'une étape, jamais son numéro (`libelleEtape(id)` à l'écran et dans les textes). Pour relire ce
+  qui cite les anciens numéros (`ANCIENS_NUMEROS`) :
+
+  | Avant le 7 novembre 2026 | É1 | É2 | — | — | É3 | É4 | É5 | — | É6 | É7 | É8 | É9 | É10 | É11 |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | Depuis | É1 | É2 | É3 | É4 | É5 | É6 | É7 | É8 | É9 | É10 | É11 | É12 | É13 | É14 |
 - **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur
   la photo ni déformé : le haut de toute la façade, tous corps du toit compris, en mètres ramenés à la hauteur du mur. Il se pose
   bas sur bas : son sol sur le sol trouvé, ses bouts sur les bouts trouvés, à une seule échelle tirée de la largeur (la même en
   hauteur, `gabaritMur.ts::echelleDuGabarit`, décision du propriétaire, 4 novembre 2026) ; son égout tombe où cette échelle le met et ne
-  pose rien : il contrôle l'égout trouvé (l'écart se dit à l'É5, à confirmer au-delà de 3 % de la largeur). Les repères ne disent que les directions ; la dimension
+  pose rien : il contrôle l'égout trouvé (l'écart se dit à l'É7, à confirmer au-delà de 3 % de la largeur). Les repères ne disent que les directions ; la dimension
   vient de ce calage. Aucune vue ne coupe la photo au mur. L'assemblage des photos redressées entières est l'image prise pour la
   suite (mur, détection, texture, toit), pour l'audit, le relevé et la calibration (`analyseMur.ts::analyserLeMur`). Avec
   plusieurs vues du mur entier, l'assemblage pose le mur et l'image du mur se compose par la fusion de ces mêmes photos (vote des
@@ -196,9 +209,9 @@ d'y toucher.
   La détection lit cette façade entière (fusionnée) et cherche dans la silhouette du gabarit, pignons compris, jamais coupée à
   l'égout ; une baie de pignon garde sa place au-dessus de l'égout (`analyse.ts::detecterDansLaSilhouette`). Une baie lue sous le pignon
   d'un corps voisin qui prolonge la façade va, à la validation V4, sur la façade du côté du contour qui porte ce mur s'il en a une (dans le
-  même pas d'historique, sans rien y changer d'autre) ; sinon elle reste là et l'É9 dit de relever ce mur. Aucune façade n'est créée pour
+  même pas d'historique, sans rien y changer d'autre) ; sinon elle reste là et l'É12 dit de relever ce mur. Aucune façade n'est créée pour
   elle (`facade/releve/murVoisin.ts`, décision du propriétaire, 2 novembre 2026). La recherche du mur reste « sans le toit » : le gabarit
-  juge la pose (É5), il ne la cherche pas.
+  juge la pose (É7), il ne la cherche pas.
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

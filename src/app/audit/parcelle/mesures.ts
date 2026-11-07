@@ -79,7 +79,7 @@ export interface MesureFacade {
    */
   imageRun?: ImageDuRun | null;
   /**
-   * Le diagnostic de forme de la facade (E7, lot F4) : ses troncons de corps, les propositions de toit (chacune sur son corps, par
+   * Le diagnostic de forme de la facade (E10, lot F4) : ses troncons de corps, les propositions de toit (chacune sur son corps, par
    * son mur), les alertes de hauteur. Derive, comme les etapes : il ne s'ecrit pas dans le fichier de l'audit.
    */
   diagnostic?: DiagnosticForme | null;
@@ -104,17 +104,17 @@ export interface MesureFacade {
   /** Le gabarit du mur (le plan et le LiDAR) pose sur les photos : la reprise a la main le montre tel quel. */
   gabarit?: GabaritMur;
   /**
-   * L'etat de chaque etape de l'enchainement de la facade (E1 a E11) et ce qu'elle a donne : la barre de progression et le mode discret
+   * L'etat de chaque etape de l'enchainement de la facade (E1 a E14) et ce qu'elle a donne : la barre de progression et le mode discret
    * de l'audit les lisent. Derive : il se recalcule a chaque rejeu ; absent d'une mesure lue dans un fichier d'audit.
    */
   etapes?: Pick<EtapeCalculee, 'id' | 'etat' | 'resume' | 'herite'>[];
   /**
-   * Le bilan de la facade (E11, lot F5) : la Facade que la validation V4 ecrira (dimensions, forme, pose de la texture, ouvertures
+   * Le bilan de la facade (E14, lot F5) : la Facade que la validation V4 ecrira (dimensions, forme, pose de la texture, ouvertures
    * numerotees). Derive, comme les etapes : absent d'une mesure lue dans un fichier d'audit, « Rejouer la façade » le refait.
    */
   facade?: BilanFacade;
   /**
-   * L'accord de la lecture de Claude avec les ouvertures du releve, tel que l'enchainement l'a fait (E9) quand la facade a ete mesuree
+   * L'accord de la lecture de Claude avec les ouvertures du releve, tel que l'enchainement l'a fait (E8) quand la facade a ete mesuree
    * avec elle : ce que l'audit garde et propose, sans le refaire a cote. Derive ; absent sans lecture de Claude.
    */
   accord?: AccordFacadeCapture;
@@ -193,7 +193,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   // L'enchainement de la facade, par l'orchestrateur : le meme que la calibration rejoue ; le releve et l'etat de chaque etape en sortent.
   const r = await derouler({
     largeurM: prises.facade.largeur, hauteurM: prises.facade.hauteur, gabarit, prises,
-    // Les corps du toit qui font le gabarit : le diagnostic de forme (E7) se fait corps par corps.
+    // Les corps du toit qui font le gabarit : le diagnostic de forme (E10) se fait corps par corps.
     toit: bat.corpsToit?.length ? { mur: { gauche: f.gauche, droite: f.droite }, corps: bat.corpsToit } : null,
     // Les facades deja relevees des autres murs : une ouverture lue sous le pignon d'un corps voisin y va (facade/releve/murVoisin.ts).
     voisines: (bat.facades ?? []).filter((r) => r.cote !== f.cote).map((r) => ({ cote: r.cote, ouvertures: r.ouvertures })),

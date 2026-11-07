@@ -502,7 +502,7 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
     const xc = r.x0 + 0.01 * w + ((c + 0.5) / COLONNES_SILHOUETTE) * 0.98 * w;
     const xa = Math.max(0, Math.round(xc) - 2), xb = Math.min(L - 1, Math.round(xc) + 2);
     // Une rangee de la colonne est du mur quand la moyenne de ses cinq pixels en a la teinte (le bruit d'un pixel ne compte pas) ; et,
-    // pour le haut lu (E6), quand elle n'est pas du feuillage : des feuilles et des trous de ciel melanges ont en moyenne la teinte d'un
+    // pour le haut lu (E9), quand elle n'est pas du feuillage : des feuilles et des trous de ciel melanges ont en moyenne la teinte d'un
     // enduit clair, et le haut lu montait dans l'arbre (AE 101).
     const mur: boolean[] = [], vus: boolean[] = [], feuillage: boolean[] = [];
     for (let y = yDebut; y <= yFin; y++) {
@@ -524,18 +524,18 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
     // Un haut colle au bord de ce que la photo a vu n'est pas le haut du mur, mais celui du cadre : la colonne ne dit rien.
     const auBord = haut !== null && vus.slice(Math.max(0, haut - k), haut).some((v) => !v);
     // Un haut sous du feuillage n'est pas le haut du mur, mais le bas de l'arbre qui le cache : la colonne ne se lit pas (le gabarit y est
-    // garde), et l'E6 le dit.
+    // garde), et l'E9 le dit.
     const sousLeFeuillage = haut !== null && haut > 0 && feuillage.slice(Math.max(0, haut - k), haut).filter(Boolean).length >= objectifsEnchainement()['facades.enchainement.vegetationPartMin'] * Math.min(k, haut);
     if (sousLeFeuillage) masquees.push(xc);
     else if (haut !== null && haut > 0 && !auBord) hauts.push({ x: xc, y: yDebut + haut });
   }
   if (compte) compte.masquees = masquees;
-  // Le haut lu (E6) ne plonge pas dans un creux etroit : une colonne qui tombe sur un poteau peint (un colombage, AE 101), une fenetre
+  // Le haut lu (E9) ne plonge pas dans un creux etroit : une colonne qui tombe sur un poteau peint (un colombage, AE 101), une fenetre
   // haute ou une ombre de feuilles trouve le mur bien plus bas que ses voisines, et la mediane de cinq colonnes ne l'efface pas quand le
   // poteau en couvre trois a cinq (8 % de la largeur au plus). Un haut de mur n'a pas de tel creux (une noue entre deux pignons est
   // large) : ces colonnes ne sont pas lues. L'affinage de l'egout et du sol (`vegetation` faux) garde sa lecture.
   if (vegetation) retirerLesCreux(hauts, w);
-  // Le haut n'est lu que sur une part assez grande des colonnes (un reglage de l'E6, regles/facades/enchainement.json).
+  // Le haut n'est lu que sur une part assez grande des colonnes (un reglage de l'E9, regles/facades/enchainement.json).
   if (hauts.length < objectifsEnchainement()['facades.enchainement.silhouetteColonnesMin'] * COLONNES_SILHOUETTE) return null;
   const med = (t: number[]) => { const u = [...t].sort((a, b) => a - b); return u[u.length >> 1] as number; };
   // Une colonne masquee (un arbre devant le pignon) ne casse pas la ligne : mediane glissante sur cinq colonnes.
@@ -732,7 +732,7 @@ export function matiereDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs
  * rangee de mur sous le toit, le sol la derniere au-dessus de ce qui n'est plus le mur (le gazon, le trottoir), cherche pres de la
  * hauteur que donne le plan (`rapport`) ; un bord trouve se colle a l'arete horizontale la plus proche. Un sol cache (haie sur toute
  * la largeur) tombe a la hauteur du plan, et se dit suppose. La silhouette rendue est celle lue sur l'image : le gabarit du plan et du
- * LiDAR ne pose pas le mur, il ne se pose qu'une fois le mur cale (MD/spec-facade-calage-audit.md §4 E5).
+ * LiDAR ne pose pas le mur, il ne se pose qu'une fois le mur cale (MD/spec-facade-calage-audit.md §4 E7).
  */
 export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null): MurLu {
   const w = r.x1 - r.x0, H = m.image.hauteur;

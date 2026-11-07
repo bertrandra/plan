@@ -5,8 +5,8 @@
 // Huit segments, chacun le pire etat de ses etapes ; chaque etat a une forme (coche, point d'exclamation, croix, tiret) et un mot,
 // pas seulement une couleur. Un segment ouvrable est un bouton lie a la commande `facade.etape` (son etape dans `data-etape`) : la
 // calibration les ouvre tous, l'audit seulement les points de validation et ce qui doute. Sous la barre, deux lignes : l'etape en
-// cours (ou ouverte), et le resultat de la derniere etape finie. Au telephone, un fin ruban et « E5 · Mur ». Les
-// etapes et les segments se disent par les numeros des etapes (E1 a E11), la poignee que le proprietaire emploie.
+// cours (ou ouverte), et le resultat de la derniere etape finie. Au telephone, un fin ruban et « E7-E8 · Mur ». Les
+// etapes et les segments se disent par les numeros des etapes (E1 a E14), la poignee que le proprietaire emploie.
 
 import { SEGMENTS_FACADE, etapeFacade, etatDuSegment, libelleEtape, numerosDuSegment, LIBELLES_ETAT, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../model/etapeFacade.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -55,7 +55,7 @@ const segmentDe = (id: IdEtape): SegmentFacade | undefined => SEGMENTS_FACADE.fi
 function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouverte: IdEtape | null): [string, string] {
   const finies = etapes.filter((e) => e.etat !== 'a-venir' && e.etat !== 'en-cours' && e.etat !== 'saute');
   const derniere = finies[finies.length - 1];
-  // Chaque etape se dit par son numero (E5 Calage du mur) : la poignee que le proprietaire emploie.
+  // Chaque etape se dit par son numero (E7 Calage du mur) : la poignee que le proprietaire emploie.
   if (enCours) return [`${libelleEtape(enCours)} (${segmentDe(enCours)?.nom ?? etapeFacade(enCours).nom}), en cours…`, derniere ? libelleEtape(derniere.id) + ' : ' + derniere.resume : ''];
   if (ouverte) {
     const e = etapes.find((x) => x.id === ouverte), def = etapeFacade(ouverte);
@@ -69,7 +69,7 @@ function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouver
 /**
  * L'etape qu'ouvre un segment : celle qui doute (en echec, puis a confirmer), sinon son point de validation, sinon la premiere. Le
  * segment « Forme » ouvre ainsi le diagnostic (V2) qui attend la personne, pas la silhouette lue qui a reussi (lot F4). Un doute herite
- * du mur (l'E5 a confirmer) ne compte pas ici : il se leve a l'E5, et le point de validation du segment reste ce qui attend la personne.
+ * du mur (l'E7 a confirmer) ne compte pas ici : il se leve a l'E7, et le point de validation du segment reste ce qui attend la personne.
  */
 function etapeAOuvrir(s: SegmentFacade, etapes: readonly EtapeAffichee[]): IdEtape {
   const propre = (id: IdEtape) => !etapes.find((e) => e.id === id)?.herite;
@@ -96,7 +96,7 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
         <ol className="barreFacadeSegments">
           {SEGMENTS_FACADE.map((s, k) => {
             const etat = etats[k] as EtatAffiche, icone = ICONES[etat];
-            // Le segment se dit par les numeros de ses etapes (E3-E4 Image) : dans l'audit, une etape cachee garde le sien.
+            // Le segment se dit par les numeros de ses etapes (E3-E6 Image) : dans l'audit, une etape cachee garde le sien.
             const texte = `${numerosDuSegment(s)} ${s.nom}, ${LIBELLES_ETAT[etat]}` + (s.validation ? ', point de validation ' + s.validation : '');
             const contenu = <>
               <span className="barreFacadeTrait" aria-hidden="true" />

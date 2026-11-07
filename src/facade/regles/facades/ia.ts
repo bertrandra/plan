@@ -7,7 +7,7 @@
 //   3 novembre 2026 : dans l'audit, Claude lit le mur retenu ; ses zones de colombage n'ecartent pas de pose non plus) ;
 // - « une pointe vue ailleurs ou plus haut que le plan est un diagnostic ou une alerte, jamais une correction » (decision 12) ;
 // - « une boite de l'IA n'est cochee que si la detection (ou la grille, par une baie devinee) la retrouve » (§8).
-// La chaine (l'E5 et l'E9 de l'enchainement, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
+// La chaine (l'E8 de l'enchainement, la lecture de Claude, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
 
 import fichierIa from '../../../../regles/facades/ia.json';
 import { voterAttribut } from '../../../model/analyseClaude.js';
@@ -184,7 +184,7 @@ export function escaladerObservations(vote: ObservationsFacade | null, esc: Obse
 }
 
 /* ------------------------------------------------------------------------------------------------
- * Ce que Plan en fait : une pose a confronter a la pose retenue (E5), des boites a accorder avec la detection (E9)
+ * Ce que Plan en fait : une pose a confronter a la pose retenue, des boites a accorder avec la detection (les deux a l'E8)
  * --------------------------------------------------------------------------------------------- */
 
 export interface RectIa { x0: number; x1: number; y0: number; y1: number }

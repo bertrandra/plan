@@ -5,7 +5,7 @@ import { derouler, entreesDuCas, objectifDeLaPhoto } from '../../../../src/facad
 import { rechercher } from '../../../../src/facade/releve/serie.js';
 import type { CasReel } from '../../../../src/facade/corpusReel.js';
 
-// L'E3 dit l'objectif de chaque photo, tel que la chaine l'a pris (demande du proprietaire, 4 novembre 2026) : l'EXIF, ou faute d'EXIF la
+// L'E3 (Objectif, son etape depuis le 7 novembre 2026 ; avant, une mention de l'ancienne E3, le redressement) dit l'objectif de chaque photo, tel que la chaine l'a pris (demande du proprietaire, 4 novembre 2026) : l'EXIF, ou faute d'EXIF la
 // focale supposee, avec un avertissement (le redressement par les points de fuite peut etre faux) ; pas pour une photo que ses reperes
 // redressent. La donnee vient du bilan du redressement, l'ecran ne calcule rien.
 
@@ -14,7 +14,7 @@ const scene = (n: string) => chargerCorpus().find((x) => x.nom.startsWith(n))!;
 
 async function e3(cas: CasReel, images: Parameters<typeof entreesDuCas>[1]) {
   const r = await derouler(entreesDuCas(cas, images), o);
-  return { etape: r.etapes.find((e) => e.id === 'redressement')!, bilans: r.sorties.audit!.redressement.photos };
+  return { etape: r.etapes.find((e) => e.id === 'objectif')!, redressement: r.etapes.find((e) => e.id === 'redressement')!, bilans: r.sorties.audit!.redressement.photos };
 }
 
 describe('l objectif de chaque photo, a l E3', () => {
@@ -23,20 +23,22 @@ describe('l objectif de chaque photo, a l E3', () => {
     const { etape, bilans } = await e3(casDeLEtalon(s, ph, ['p']), ph.map((p) => p.image));
     expect(bilans[0]?.objectif?.source).toBe('exif');
     expect(objectifDeLaPhoto(bilans[0]!, false)).toEqual({ court: 'Avec EXIF', texte: 'Avec EXIF (focale 26 mm éq.).', alerte: false });
-    expect(etape.resume).toContain('Photo 1 : redressée automatiquement');
-    expect(etape.resume).toContain(', avec EXIF');
+    expect(etape).toMatchObject({ etat: 'ok', resume: 'Photo 1 : avec EXIF (focale 26 mm éq.).' });
+    expect(etape.actions[0]).toMatchObject({ id: 'champ', type: 'code', apres: { valeurs: { exif: 1, suppose: 0 } } });
   }, 60000);
 
   it('etalons 00 et 09, sans EXIF : la focale supposee, et l avertissement', async () => {
     for (const n of ['00', '09']) {
       const s = scene(n), ph = photosDeLEtalon(s);
-      const { etape, bilans } = await e3(casDeLEtalon(s, ph, ['p']), ph.map((p) => p.image));
+      const { etape, redressement, bilans } = await e3(casDeLEtalon(s, ph, ['p']), ph.map((p) => p.image));
       expect(bilans[0]?.objectif?.source).not.toBe('exif');
       const d = objectifDeLaPhoto(bilans[0]!, false)!;
       expect(d.alerte).toBe(true);
       expect(d.court).toBe('Sans EXIF');
       expect(d.texte).toMatch(/^Sans EXIF : .*\. Le redressement par les points de fuite peut être faux ; posez quatre repères\.$/);
-      expect(etape.resume).toContain(', sans EXIF');
+      expect(etape.resume).toMatch(/^Photo 1 : sans EXIF : /);
+      // Sans EXIF mais bien redressee, l'etape ne demande rien (comme avant qu'elle ait la sienne) : l'audit la cache.
+      expect(etape.etat).toBe(redressement.etat === 'ok' ? 'ok' : 'a-confirmer');
     }
   }, 60000);
 
@@ -55,9 +57,10 @@ describe('l objectif de chaque photo, a l E3', () => {
     const s = scene('00'), ph = photosDeLEtalon(s);
     const cas = casDeLEtalon(s, ph, ['p']);
     const deux = { ...cas, photos: [...cas.photos, { ...cas.photos[0]!, fichier: 'illisible' }] };
-    const { etape, bilans } = await e3(deux, [ph[0]!.image, null]);
-    expect(etape.etat).not.toBe('ok');
+    const { etape, redressement, bilans } = await e3(deux, [ph[0]!.image, null]);
+    expect(redressement.etat).not.toBe('ok');
+    expect(etape.etat).toBe('a-confirmer');
     expect(bilans[0]?.objectif?.source).not.toBe('exif');
-    expect(etape.resume).toMatch(/ Photo 1 sans EXIF : .*\. Le redressement par les points de fuite peut être faux ; posez quatre repères\.$/);
+    expect(etape.resume).toMatch(/^Photo 1 : sans EXIF : .*\. Le redressement par les points de fuite peut être faux ; posez quatre repères\./);
   }, 60000);
 });

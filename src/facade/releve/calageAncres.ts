@@ -1,20 +1,20 @@
-// Le calage du mur par ses ancres (MD/spec-facade-calage-audit.md §4 E5, §5) : une pose du mur sur l'assemblage (ses bouts, son
+// Le calage du mur par ses ancres (MD/spec-facade-calage-audit.md §4 E7, §5) : une pose du mur sur l'assemblage (ses bouts, son
 // egout, son sol) se juge sur ce qui ne depend pas du toit. Les deux angles du mur sont des bords de sa matiere (du mur d'un cote, autre
 // chose de l'autre, sous l'egout), l'egout est une horizontale ou le haut de la matiere aux angles, le sol la fin de la matiere, et les
 // proportions sont celles du plan a 30 % pres. Le gabarit n'entre pas dans la recherche du mur (l'arbitre, calerParLesAncres) : il vient
 // du toit calcule, qui est ce que la photo met en question (§5 bis) ; s'en servir pour caler masquerait l'ecart que l'on cherche a voir.
 //
-// Il entre en revanche dans le jugement de la pose retenue (l'E5, `expliquer(…, gabarit)` ; demande du proprietaire, 2 novembre 2026) :
+// Il entre en revanche dans le jugement de la pose retenue (l'E7, `expliquer(…, gabarit)` ; demande du proprietaire, 2 novembre 2026) :
 // l'egout se juge sur toute la silhouette posee (la matiere du mur sous elle, pas au-dessus), et non plus a ses seuls angles. Sous un
 // pignon, l'egout n'est pas une arete et le mur continue au-dessus de lui : la matiere aux angles ne disait pas un egout pose 48 cm trop
 // bas (scene 24 du banc, score 0,89 pour la pose fausse comme pour la juste). Sur un mur rectangulaire, un egout deplace de 5 a 10 % de
 // la hauteur passait aussi le test (son poids est faible, et la bande lue aux angles pres d'eux) : le seuil de l'egout
 // (`egoutSilhouetteMin`) le refuse desormais. Et quand le pignon d'un corps voisin prolonge la facade au-dela d'un bout, ce bout n'est pas
 // un angle (la matiere y continue) : l'angle est au bout de la silhouette (le mur de 5 m de la scene 24, score 0,52). Un gabarit faux (le
-// LiDAR) rend alors une pose juste « a confirmer » : la direction prudente, et le diagnostic de forme (E7) dit l'ecart.
+// LiDAR) rend alors une pose juste « a confirmer » : la direction prudente, et le diagnostic de forme (E10) dit l'ecart.
 //
 // Le gabarit se pose sur le sol trouve, a l'echelle de la largeur (decision du proprietaire, 4 novembre 2026 ; gabaritMur.ts) : son egout
-// tombe ou cette echelle le met, et l'egout trouve se controle contre lui (`ecartEgout`, en part de la largeur ; l'E5 est a confirmer
+// tombe ou cette echelle le met, et l'egout trouve se controle contre lui (`ecartEgout`, en part de la largeur ; l'E7 est a confirmer
 // au-dela de `calageEcartMaxPart`). Ce controle n'entre pas dans le test de la pose (`expliqueLaPhoto`) : il melange l'erreur de l'egout
 // trouve et celle des proportions de l'assemblage (une focale supposee l'etire de 1 a 2 % de la largeur sur le banc), et a lui seul ne
 // separe pas un egout a 2 % d'un egout a 5 % (banc `calage-e5.ts` : 79 egouts a 2 % acceptes sur 86 au lieu de 83). L'egout trouve se
@@ -55,7 +55,7 @@ export interface Explication {
   silhouette: boolean;
   /**
    * Avec le gabarit : l'egout trouve moins celui du gabarit pose sur le sol a l'echelle de la largeur, en part de la largeur (positif :
-   * l'egout trouve est plus haut ; gabaritMur.ts::ecartDEgout), le controle de l'E5 (egoutControle). Absent sans gabarit ; null sans les
+   * l'egout trouve est plus haut ; gabaritMur.ts::ecartDEgout), le controle de l'E7 (egoutControle). Absent sans gabarit ; null sans les
    * proportions du plan.
    */
   ecartEgout?: number | null;
@@ -295,7 +295,7 @@ export const expliqueLaPhoto = (e: Explication, s: SeuilsCalage): boolean => e.s
 
 /**
  * Le controle de l'egout trouve par le gabarit pose (decision du proprietaire, 4 novembre 2026) : l'ecart entre les deux au plus
- * `ecartEgout` de la largeur. L'E5 en tient compte (a confirmer au-dela), pas le test de la pose. Vrai sans gabarit, sans seuil ou sans ecart.
+ * `ecartEgout` de la largeur. L'E7 en tient compte (a confirmer au-dela), pas le test de la pose. Vrai sans gabarit, sans seuil ou sans ecart.
  */
 export const egoutControle = (e: Explication, s: SeuilsCalage): boolean => s.ecartEgout === undefined || e.ecartEgout === null || e.ecartEgout === undefined || Math.abs(e.ecartEgout) <= s.ecartEgout;
 

@@ -71,7 +71,7 @@ export interface BilanPhotoRedressement {
   /**
    * L'objectif que la chaine a pris pour cette photo : le champ de son grand cote, en degres, et d'ou il vient (l'EXIF ; faute d'EXIF,
    * les points de fuite de la photo, le champ note pour l'appareil, ou celui d'un telephone suppose, CHAMP_GRAND_COTE_DEFAUT). Sans EXIF,
-   * le redressement par les points de fuite peut etre faux : l'E3 le dit. Absent d'un bilan d'avant, ou d'une photo qui ne se lit pas.
+   * le redressement par les points de fuite peut etre faux : l'E3 (l'objectif) le dit. Absent d'un bilan d'avant, ou d'une photo qui ne se lit pas.
    */
   objectif?: { source: 'exif' | 'fuites' | 'appareil' | 'defaut'; champDeg: number };
 }
@@ -92,8 +92,8 @@ export interface BilanRedressement {
 /**
  * Le mur confirme par la personne au point V1 (« Confirmer le mur », decision du proprietaire du 3 novembre 2026) : le mur que la
  * chaine avait retenu, ses coins sur chaque photo (par rang, en pixels de la photo), et le jour. Il survit au rejeu : tant que la
- * chaine retient le meme mur, l'E5 est « confirme par vous » et le doute qu'elle passait aux etapes suivantes tombe. Un autre mur
- * (une photo, des reperes ou un mur tire en plus) ne l'est plus : l'E5 retrouve son propre verdict, et le dit.
+ * chaine retient le meme mur, l'E7 est « confirme par vous » et le doute qu'elle passait aux etapes suivantes tombe. Un autre mur
+ * (une photo, des reperes ou un mur tire en plus) ne l'est plus : l'E7 retrouve son propre verdict, et le dit.
  */
 export interface MurConfirme {
   le: string;
@@ -121,7 +121,7 @@ export function murAConfirmer(retenus: readonly { rang: number; coins: readonly 
 /**
  * Les ouvertures relues par la personne au point V3 (« Relire les ouvertures », decision du proprietaire du 3 novembre 2026) : celles
  * que la detection avait trouvees (`detectees`, en metres, ce qu'elle a montre), celles que la personne a gardees, corrigees ou
- * ajoutees (`ouvertures`), et le jour. Tant que la detection rend les memes ouvertures, l'E9 est faite et V4 ecrit celles de la
+ * ajoutees (`ouvertures`), et le jour. Tant que la detection rend les memes ouvertures, l'E12 est faite et V4 ecrit celles de la
  * personne ; une autre detection (une photo, un mur change) les remet a relire.
  */
 export interface OuverturesRelues {

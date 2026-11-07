@@ -108,7 +108,7 @@ export interface Validation {
   /**
    * « Relire les ouvertures » (V3, decision du proprietaire du 3 novembre 2026) : les ouvertures que la personne a gardees, corrigees ou
    * ajoutees sur la detection de cette facade, ecrites dans la capture (elles survivent au rejeu tant que la detection est la meme), puis
-   * la facade se rejoue : l'E9 est faite, et V4 ecrira celles-la. Faux sans mesure, ou sur un audit relu en lecture seule.
+   * la facade se rejoue : l'E12 est faite, et V4 ecrira celles-la. Faux sans mesure, ou sur un audit relu en lecture seule.
    */
   relireOuvertures(cle: string, cote: number, gardees: readonly OuvertureFacade[]): Promise<boolean>;
   /** L'etape qui tourne pour cette facade (la barre de progression avance) ; null au repos. */
@@ -478,7 +478,7 @@ const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materia
 
 function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>, jardin: RunJardin | null = null, runs: Record<string, RunEnregistre> | null | undefined = null) {
   const e: EntreesPropositions = { ...entrees, accords, runs };
-  // Les culs de geai que montre la seule mesure LiDAR (5 novembre 2026) : sur un corps ou un pignon que l'E7 ne propose pas deja.
+  // Les culs de geai que montre la seule mesure LiDAR (5 novembre 2026) : sur un corps ou un pignon que l'E10 ne propose pas deja.
   const deForme = propositionsDeForme(e);
   const deLaMesure = propositionsCulsDeGeaiLidar(e).filter((p) => !deForme.some((q) => q.effet.type === 'corpsDuToit' && p.effet.type === 'corpsDuToit' && q.cible.type === 'batiment' && p.cible.type === 'batiment' && q.cible.cle === p.cible.cle && q.effet.corps === p.effet.corps));
   const deLAudit = [...propositionsDeLAudit(e), ...deForme, ...deLaMesure];

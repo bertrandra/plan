@@ -100,6 +100,12 @@ function memesSorties(x: Awaited<ReturnType<typeof lesDeux>>): void {
   const { audit, calibration, vueAudit } = x;
   // La vue de la calibration et celle de l'audit : chaque etape, de l'E1 a l'E10, rend la meme chose ; la verite n'est qu'un ajout.
   expect(etapes(calibration)).toEqual(etapes(vueAudit));
+  // Les actions aussi : les memes dans les deux vues. Ne different que les ajouts de la calibration (la mesure contre la verite, la
+  // texture sans ombres qu'elle seule illustre) et la fin (V4).
+  const ajout = (id: string, a: { id: string; type: string }) => a.type === 'mesure' || (id === 'texture' && a.id === 'sansOmbres') || (id === 'validation' && a.id === 'valider');
+  const actions = (r: Enchainement) => r.etapes.map((e) => ({ id: e.id, actions: e.actions.filter((a) => !ajout(e.id, a)) }));
+  expect(actions(calibration)).toEqual(actions(vueAudit));
+  expect(vueAudit.etapes.flatMap((e) => e.actions).some((a) => a.type === 'mesure')).toBe(false);
   expect(calibration.etapes.map((e) => e.id)).toEqual(ETAPES_FACADE.map((e) => e.id));
   const { ...sc } = sorties(calibration), { ...sa } = sorties(vueAudit);
   expect(sc).toEqual(sa);
@@ -170,9 +176,13 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
     memesSorties(x);
     expect(x.audit.accord?.bilan.boites).toBeGreaterThan(0);
-    // La barre de l'audit dit la lecture de Claude a l'E5 et a l'E9, comme la calibration.
-    expect(x.audit.etapes?.find((e) => e.id === 'calage')?.resume).toMatch(/IA \(réponse synthétique/);
-    expect(x.audit.etapes?.find((e) => e.id === 'ouvertures')?.resume).toMatch(/vues? par Claude/);
+    // La barre de l'audit dit la lecture de Claude a l'E8, comme la calibration, et nulle part ailleurs.
+    const e8 = x.audit.etapes?.find((e) => e.id === 'lectureIa')?.resume ?? '';
+    expect(e8).toMatch(/^IA \(réponse synthétique/);
+    expect(e8).toMatch(/vues? par Claude/);
+    // L'image lue est celle de l'assemblage (la reponse a ete faite comme « Rappeler Claude ») : l'exception acceptee, dite.
+    expect(e8).toMatch(/Image lue : l’assemblage/);
+    expect(x.audit.etapes?.find((e) => e.id === 'calage')?.resume).not.toMatch(/IA \(/);
     // Le bilan (ce que V4 ecrit) porte ses pointes quand il en voit.
     expect(x.audit.facade?.forme).toEqual(x.calibration.sorties.facade?.forme);
   }, 240_000);
@@ -191,9 +201,12 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
       tokens: { entree: 4000, sortie: 800 }, image: { largeur: img.largeur, hauteur: img.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
     const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
     memesSorties(x);
-    const e5 = x.audit.etapes?.find((e) => e.id === 'calage')?.resume ?? '';
-    expect(e5).toMatch(/IA \(réponse synthétique.*: accord\./);
-    expect(e5).not.toMatch(/divergent/);
+    const e8 = x.audit.etapes?.find((e) => e.id === 'lectureIa')?.resume ?? '';
+    expect(e8).toMatch(/IA \(réponse synthétique.*: accord\./);
+    expect(e8).not.toMatch(/divergent/);
+    // Lue sur l'image du run de l'audit : l'action de Claude le dit (l'exception acceptee, l'autre cote).
+    expect(e8).toMatch(/Image lue : celle du run de l’audit/);
+    expect(x.calibration.etapes.find((e) => e.id === 'lectureIa')?.actions.find((a) => a.id === 'run')?.claude).toEqual({ appel: 'run', rejouee: true, image: 'imageRun' });
     expect(x.calibration.sorties.ia?.ecart ?? 1).toBeLessThan(0.03);
     // Les boites sont dans le repere du mur, quelle que soit l'image : le meme accord a l'E9 que sur l'assemblage.
     expect(x.audit.accord?.bilan.retrouvees).toBeGreaterThan(0);

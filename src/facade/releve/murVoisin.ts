@@ -7,10 +7,10 @@
 //   moitie (elle y est deja). Rien d'autre de cette facade ne change : ni ses ouvertures verifiees, corrigees ou ajoutees, ni sa texture,
 //   ni ses dimensions (V4 ecrit les deux facades en un pas d'historique, app/audit/parcelle/validation.ts).
 // - Ce cote n'a pas de facade, ou aucun cote du contour ne porte ce mur (un corps qui deborde le contour) : la baie reste dans la facade
-//   photographiee, hors de ses cotes, et l'E9 le dit. Creer une facade sur ce mur effacerait toutes ses fenetres automatiques
+//   photographiee, hors de ses cotes, et l'E12 le dit. Creer une facade sur ce mur effacerait toutes ses fenetres automatiques
 //   (§3.3 : un mur qui a une facade objet n'en a plus) pour une ou deux baies vues : non (meme decision).
 //
-// Le meme calcul sert l'E9 et l'E11 (sur les facades du batiment que les entrees donnent) et V4 (sur celles du projet au moment de
+// Le meme calcul sert l'E12 et l'E14 (sur les facades du batiment que les entrees donnent) et V4 (sur celles du projet au moment de
 // valider). Pur.
 
 import { recouvrement, RECOUVREMENT_MEME_OUVERTURE } from '../../model/facadeObjet.js';
@@ -93,7 +93,7 @@ export function partagerSousLesVoisins(f: Facade, contour: readonly PtBrut[], ou
   return out;
 }
 
-/** Le partage en une phrase, pour l'E9 et l'E11 ; vide quand aucune ouverture n'est sous un corps voisin. */
+/** Le partage en une phrase, pour l'E12 et l'E14 ; vide quand aucune ouverture n'est sous un corps voisin. */
 export function texteDuPartage(p: PartageOuvertures, nomDuCote: (cote: number) => string): string {
   const n = (k: number) => k + ' ouverture' + (k > 1 ? 's' : '');
   const dits: string[] = [];

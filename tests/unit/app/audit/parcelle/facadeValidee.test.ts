@@ -299,8 +299,9 @@ describe('la lecture de Claude dans l enchainement de l audit (decision 4 du pro
     // La lecture arrive (le batch de l'analyse) : la facade se mesure de nouveau, avec elle.
     runs = { 'maison#0': { le: '2026-10-13T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1, sorties: [SORTIE_FACADE], cout: 0.001, tokens: { entree: 1000, sortie: 400 }, image: { largeur: 500, hauteur: 300 }, chaine: 13 } };
     await t.v.lancer();
-    expect(m()?.etapes?.find((e) => e.id === 'calage')?.resume).toMatch(/IA \(Claude, 2026-10-13/);
-    expect(m()?.etapes?.find((e) => e.id === 'ouvertures')?.resume).toMatch(/vues? par Claude/);
+    // La barre la dit a la lecture de Claude (E8), et seulement la.
+    expect(m()?.etapes?.find((e) => e.id === 'lectureIa')?.resume).toMatch(/^IA \(Claude, 2026-10-13.*vues? par Claude/);
+    expect(m()?.etapes?.find((e) => e.id === 'calage')?.resume).not.toMatch(/IA \(/);
     expect(m()?.accord?.bilan.boites).toBeGreaterThan(0);
     // V4 ecrit ce que la barre montre : la forme du bilan, les pointes de Claude comprises.
     if (m()?.etapes?.find((e) => e.id === 'calage')?.etat === 'a-confirmer') await t.v.confirmerMur('maison', 0);

@@ -86,7 +86,8 @@ export function ficheEtalon(s: SceneFacade): FicheEtalon {
   }).concat(y.balcons?.some((b) => b.gardeCorps) ? ['garde-corps'] : [], m.bandeaux?.length ? ['bandeau'] : [], m.toit ? ['bande de toit'] : [], m.degrade ? ['eclairage en degrade'] : [], m.pignonCoupe ? ['cul de geai (demi-croupe)' + (m.pignonCoupe.debordFaitageM ? ', faitage debordant' : '')] : []));
   const pignonM = m.pignon ?? 0, partiesBasses = partiesBassesSynthese(s).length, distorsion = cameras.some((p) => !!p.distorsion);
   const biaisDeg = Math.max(0, ...cameras.map((p) => Math.abs(p.biais ?? 0)));
-  const etapes: IdEtape[] = ['redressement'];
+  // Une prise sans EXIF eprouve l'objectif suppose (E3) : 00 et 09, l'avertissement de la calibration (point de fumee 129).
+  const etapes: IdEtape[] = cameras.some((p) => p.focaleConnue === false) ? ['objectif', 'redressement'] : ['redressement'];
   if (prises.length > 1) etapes.push('assemblage');
   etapes.push('calage');
   if (pignonM > 0 || partiesBasses > 0) etapes.push('silhouette', 'diagnostic');
@@ -168,7 +169,7 @@ export function casDeLEtalon(s: SceneFacade, photos: readonly PhotoEtalon[], fic
 }
 
 /**
- * Les coins vrais du mur sur chaque photo, a garder pour la verite de l'E5 : null pour une photo d'un objectif deformant (la chaine
+ * Les coins vrais du mur sur chaque photo, a garder pour la verite de l'E7 : null pour une photo d'un objectif deformant (la chaine
  * travaille sur l'image corrigee de la distorsion, ou les coins de la photo ne tombent plus, calage-e5.ts) ou sans coins.
  */
 export function coinsVraisDesPhotos(s: SceneFacade): (P2[] | null)[] {
@@ -176,7 +177,7 @@ export function coinsVraisDesPhotos(s: SceneFacade): (P2[] | null)[] {
 }
 
 /**
- * Le mur vrai sur l'image prise pour la suite par un rejeu (l'E5 de la calibration le compare a la pose retenue) : les coins vrais d'une
+ * Le mur vrai sur l'image prise pour la suite par un rejeu (l'E7 de la calibration le compare a la pose retenue) : les coins vrais d'une
  * photo assemblee, portes par le meme chemin que la chaine (photo -> vue de face -> assemblage, l'inverse de `retours`), comme
  * runIa.ts et egout-sol.ts le font sur leur assemblage. Il vaut pour cet assemblage-la, a cette version de la chaine : un autre (des
  * reperes poses, un mur tire) en demande un autre. Null sans photo assemblee qui ait ses coins vrais.

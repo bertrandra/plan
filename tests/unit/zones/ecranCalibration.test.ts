@@ -106,7 +106,7 @@ describe('l ecran de calibration', () => {
     await monter(deps);
     const section = hote.querySelector('[aria-label="Étalons de synthèse"]') as HTMLElement;
     expect(section.textContent).toContain('Étalons de synthèse (1)');
-    expect(section.textContent).toContain('É3 É5 É9');
+    expect(section.textContent).toContain('É5 É7 É12');
     // Les cas reels et la mesure ne voient pas l'etalon : un seul cas, le cas du serveur.
     expect(hote.querySelector('[aria-label="Cas de calibration"]')?.textContent).not.toContain('02-x');
     await act(async () => { bouton('calibration.ouvrirEtalon')?.click(); await new Promise((ok) => setTimeout(ok, 60)); });
@@ -204,8 +204,10 @@ describe('l ecran de calibration', () => {
     // Comme dans l'audit (le meme processus) : la photo grise garde des coins calcules, et c'est l'assemblage qui la laisse de cote ;
     // la barre le dit sur son segment « Image », en echec, et l'etape ouverte dit quel geste faire.
     expect(hote.querySelector('.barreFacadeSegment.echec')?.textContent).toMatch(/Image/);
+    await act(async () => { (hote.querySelector('.calFrise [data-etape="coins"]') as HTMLButtonElement).click(); });
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Photo 2 : coins prédits par la prise de vue/);
     await act(async () => { (hote.querySelector('.calFrise [data-etape="redressement"]') as HTMLButtonElement).click(); });
-    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Photo 2 : redressée automatiquement, coins calculés/);
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Photo 2 : redressée automatiquement/);
     await act(async () => { (hote.querySelector('.calFrise [data-etape="assemblage"]') as HTMLButtonElement).click(); });
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/^Photos indépendantes : aucun assemblage.* Reprenez la façade avec des chevauchements/);
   }, 60_000);
@@ -219,9 +221,9 @@ describe('l ecran de calibration', () => {
     await attendreQue(() => !!bouton('calibration.proposer'));
     // Le rejeu montre la barre de progression et la frise des etapes, chacune avec son etat.
     expect(hote.querySelectorAll('.barreFacade ol > li')).toHaveLength(8);
-    expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(9);
+    expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(12);
     expect(hote.querySelector('.barreFacadeSegment.echec')).toBeNull();
-    // Chaque etape se nomme par son numero, de É1 a É11, sans « bis » : sur sa vignette, sur son ecran ouvert, dans la barre (decision
+    // Chaque etape se nomme par son numero, de É1 a É14, sans « bis » : sur sa vignette, sur son ecran ouvert, dans la barre (decision
     // du proprietaire : il les cite par ces numeros).
     expect(ETAPES_FACADE.map((e) => e.numero)).toEqual(ETAPES_FACADE.map((_, k) => 'É' + (k + 1)));
     for (const li of [...hote.querySelectorAll('.calFrise > li')]) {
@@ -268,13 +270,13 @@ describe('l ecran de calibration', () => {
     expect(appelerClaude).toHaveBeenCalledWith(expect.objectContaining({ passes: 3, texte: expect.stringMatching(/^Façade : Synthèse 02\./) }));
     expect(hote.textContent).toContain('Réponse enregistrée : Claude, 2026-10-29, trois passes votées, claude-haiku-5-5, prompt v1, schéma v1, 0,0039 $');
     expect(bouton('calibration.modeIa')?.getAttribute('aria-pressed')).toBe('true');
-    // L'E5 dit l'accord de Claude, l'E9 ses boites retrouvees par la detection.
+    // L'E8 (la lecture de Claude) dit l'accord de ses angles et ses boites retrouvees par la detection, et l'image qu'il a lue.
     const ouvrir = async (id: string) => { await act(async () => { (hote.querySelector(`.calFrise [data-etape="${id}"]`) as HTMLButtonElement | null)?.click(); }); };
-    await ouvrir('calage');
+    await ouvrir('lectureIa');
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/IA \(Claude, 2026-10-29.*accord/);
-    expect(hote.querySelector('.calEtapeOuverte')?.textContent).toMatch(/IA : Claude, 2026-10-29.*règles [0-9a-f]{8}/);
-    await ouvrir('ouvertures');
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/3 ouvertures vues par Claude : 3 retrouvées par la détection/);
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Image lue : l’assemblage/);
+    expect(hote.querySelector('.calEtapeOuverte')?.textContent).toMatch(/IA : Claude, 2026-10-29.*règles [0-9a-f]{8}/);
     expect(hote.querySelectorAll('.calBoiteIa.cochee')).toHaveLength(3);
     await act(async () => { (hote.querySelector('.calBoiteIa') as SVGElement).dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(hote.querySelectorAll('.calCarreau').length).toBeGreaterThan(0);
@@ -287,7 +289,7 @@ describe('l ecran de calibration', () => {
     await attendreQue(() => /Escalade enregistrée/.test(hote.textContent ?? '') && !bouton('calibration.rejouer')?.disabled);
     expect(escaladerClaude).toHaveBeenCalledTimes(1);
     expect(hote.textContent).toContain('Escalade enregistrée : Claude, 2026-10-29, trois passes votées, claude-haiku-5-5, prompt v1, schéma v1, 0,0039 $, escaladée (claude-sonnet-5-5, 0,0261 $)');
-    await ouvrir('calage');
+    await ouvrir('lectureIa');
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Escalade \(claude-sonnet-5-5\) : elle l’emporte sur le parement\. Parement : pierre/);
     // Une seule escalade par reponse : le bouton le dit et se grise.
     expect([esc()?.textContent, esc()?.disabled]).toEqual(['Escaladée (claude-sonnet-5-5)', true]);

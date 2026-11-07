@@ -505,7 +505,7 @@ src/facade/modeToit/         layer 3 — the Mode Toit editor's pure code (sessi
   facades/{detection,structure,profils,surcharges,texture,conformite}.ts   facade settings and profiles
   facades/ia.ts              the rules that decide on the façade run's observations (lot F2): the ×3 vote, the wall pose candidate,
                              the half-timber zone that excludes poses lying inside it, the gable tips (diagnosis or alert, never a
-                             correction), the boxes ticked only when detection finds them. The É5 arbiter, É9 and the survey's help
+                             correction), the boxes ticked only when detection finds them. The É7 arbiter, É8 (Claude's reading) and the survey's help
                              apply these decisions
   rejeu.ts   conformite.ts   reconciliation.ts                replay an audit case, score it, reconcile
 src/regles/sujets/           layer 2 — what Claude reads, as data; assembled into deploy/ by `npm run regles:generer`
@@ -661,14 +661,14 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 | Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `facade/releve/chaine.ts::redresserEtFusionner` | 3 |
 | Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
 | Several views: the assemblage places the wall, the fusion of the same photos composes its image (voting, occlusion by parallax, best view per pixel) | `facade/analyseMur.ts::fondreLesVues`, `facade/fusion.ts::analyserVues` | 3 |
-| The façade's step-by-step chaining (É1 to É11): each step's state against its objective (`regles/facades/enchainement.json`), its outputs, replay from a step | `facade/releve/enchainement.ts::derouler`, contract `model/etapeFacade.ts` | 3 / 2 |
-| The shape diagnosis (É7, lot F4): the façade cut into body segments (`silhouetteDesCorps.ts::tronconsDeFace`), the top read on the photo against the template segment by segment, variants of ONE body's roof made by the roof engine (`pignons.ts::pignonsAuxPlaces`, `boutAuMur`), proposals addressed to the body by its wall, height alerts; the step functions of É7 and É10 | `facade/regles/facades/diagnosticForme.ts`, `facade/releve/etapesForme.ts` | 3 |
+| The façade's step-by-step chaining (É1 to É14, owner's decision of 7 November 2026): each step's state against its objective (`regles/facades/enchainement.json`), its typed actions (`code`, `claude`, `manuel`, the case's truth as a read-only `mesure`), its outputs, replay from a step; the Image group (É3 to É6) computes once, in its first step; É8 replays Claude's recorded answer, never calls it | `facade/releve/enchainement.ts::derouler`, contract `model/etapeFacade.ts` | 3 / 2 |
+| The shape diagnosis (É10, lot F4): the façade cut into body segments (`silhouetteDesCorps.ts::tronconsDeFace`), the top read on the photo against the template segment by segment, variants of ONE body's roof made by the roof engine (`pignons.ts::pignonsAuxPlaces`, `boutAuMur`), proposals addressed to the body by its wall, height alerts; the step functions of É10 and É13 | `facade/regles/facades/diagnosticForme.ts`, `facade/releve/etapesForme.ts` | 3 |
 | The audit's roof proposals from that diagnosis, re-read by the roof engine (`corpsSousContrainte`) and gated by the building's fact, always unchecked | `app/audit/parcelle/formeFacades.ts` | 7 |
-| The façade's balance sheet (É11, lot F5): the Façade the V4 validation writes — dimensions from plan and LiDAR (the photo only states its gap), shape (template, top read, peaks, body segments), the texture's pose, openings numbered | `facade/releve/bilanFacade.ts` | 3 |
+| The façade's balance sheet (É14, lot F5): the Façade the V4 validation writes — dimensions from plan and LiDAR (the photo only states its gap), shape (template, top read, peaks, body segments), the texture's pose, openings numbered | `facade/releve/bilanFacade.ts` | 3 |
 | The Façade and the façade object in the project file: read-time validators (an ill-formed field or unknown word is dropped, an old survey is returned as the same object), the merge that keeps the person's openings (verified, corrected, added) on a replay, stable ids | `model/facadeObjet.ts`, groups `facadeDimensions`, `facadeForme`, `facadeTexture`, `facadeOuvertures` and `ouvertureGardee` in `model/protections.ts` | 2 |
 | The V4 validation in the audit: the Façade written in one history step through the `releve` effect, depuisAudit dropped, openings verified | `app/audit/parcelle/facadeValidee.ts`, `validation.ts::validerFacade`, command `facade.valider` | 7 |
 | The images of each step (overlays computed, no React) | `facade/releve/imagesEtapes.ts`, `three/vueFacade3d.ts` | 3 / 4 |
-| The manual option of the wall fit (É5): ends, eave and ground dragged on a front view (a photo straightened by its landmarks, or the assemblage) — the only component of that gesture | `zones/releve/AjusterMur.tsx` | 6 |
+| The manual option of the wall fit (É7): ends, eave and ground dragged on a front view (a photo straightened by its landmarks, or the assemblage) — the only component of that gesture | `zones/releve/AjusterMur.tsx` | 6 |
 | The progress bar of the façade chaining (one component, calibration now, audit from F3) | `zones/composants/BarreProgressionFacade.tsx` | 6 |
 
 Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and

@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- Façades (audit et calibration) : l'enchaînement d'une façade passe de onze à **quatorze étapes**, numérotées sans « bis » (décision
+  du propriétaire du 7 novembre 2026) : É1 Préparation, É2 Prises, **É3 Objectif**, **É4 Coins du mur**, É5 Redressement (ex-É3),
+  É6 Assemblage (ex-É4), É7 Calage du mur (ex-É5, V1), **É8 Lecture de Claude**, É9 Silhouette lue (ex-É6), É10 Diagnostic de forme
+  (ex-É7, V2), É11 Texture (ex-É8), É12 Ouvertures (ex-É9, V3), É13 Toit (ex-É10), É14 Validation (ex-É11, V4). Chaque étape rend
+  ses **actions typées** (code, Claude, manuel, et la vérité d'un cas en mesure, en lecture seule), qui ne sortent que de l'orchestrateur.
+  **Aucun calcul ne change** : le groupe Image calcule une fois, dans son premier pas ; la lecture de Claude rejoue la réponse
+  enregistrée (« mode déterministe » sans elle) et dit l'image qu'il a lue, l'exception acceptée ; ses textes quittent le calage, la
+  silhouette et les ouvertures. Dans l'audit, l'objectif et les coins restent cachés, la lecture de Claude tient en une ligne ; la barre
+  garde huit segments (Image : É3 à É6, Mur : É7 et É8), la frise de la calibration montre douze étapes. Les numéros écrits en dur
+  viennent du contrat (`libelleEtape`). Un fichier d'audit ne porte aucune étape : rien à migrer.
+
 ## [5.13.1] — 2026-11-07
 
 Version **corrective** : l'import depuis une adresse à Paris, Lyon ou Marseille trouve de nouveau ses parcelles (le code de

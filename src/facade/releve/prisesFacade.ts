@@ -68,7 +68,7 @@ export interface PrisesFacade {
   jpeg: (img: Image) => string;
 }
 
-/** Le motif d'une photo dont l'image ne se decode pas : l'E3 le reconnait pour conseiller de la reprendre, pas d'y poser des reperes. */
+/** Le motif d'une photo dont l'image ne se decode pas : l'E5 le reconnait pour conseiller de la reprendre, pas d'y poser des reperes. */
 export const MOTIF_ILLISIBLE = 'image illisible';
 
 /** Une photo de la facade, a son rang : son image decodee (null : illisible) et sa prise de vue (null : importee, sans capteurs). */
