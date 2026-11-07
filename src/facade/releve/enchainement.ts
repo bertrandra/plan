@@ -55,6 +55,7 @@ import { bilanDeLaFacade, texteBilan, type BilanFacade } from './bilanFacade.js'
 import { partagerSousLesVoisins, texteDuPartage, type FacadeVoisine, type PartageOuvertures } from './murVoisin.js';
 import type { OuvertureFacade } from '../../model/types.js';
 import { nomFacade } from '../../geometry/cotesVusDeDehors.js';
+import { lectureSelonLesChoix, lireChoix, lireForcages, ouverturesSelonLesChoix, poseSelonLesChoix, sourceDe } from './choixSources.js';
 
 /** Ce qui entre dans l'enchainement : les dimensions et le gabarit du plan (E1), les photos et ce qui les accompagne (E2). */
 export interface EntreesFacade {
@@ -71,11 +72,12 @@ export interface EntreesFacade {
    */
   voisines?: readonly FacadeVoisine[];
   /**
-   * Les choix de source de la personne, element par element (`ChoixSource`) : lus et montres sur l'element (`choisie`), ils ne
-   * s'appliquent encore a aucun calcul (lot C). Absents : la source que retient le moteur.
+   * Les choix de source de la personne, element par element (`ChoixSource`, lot C2) : l'element choisi remplace la valeur du moteur pour
+   * les etapes qui le consomment (choixSources.ts). Absents : la source que retient le moteur, rien ne change. Seule la calibration en
+   * passe aujourd'hui (decision du proprietaire, 7 novembre 2026 : « pas encore » dans l'audit) ; le processus est le meme.
    */
   choix?: readonly ChoixSource[];
-  /** Les forcages de Claude (une etape, ou toutes) : lus sur chaque element vise, ils ne s'appliquent encore a aucun calcul (lot C). */
+  /** Les forcages de Claude (une etape, ou toutes) : Claude pour chaque element vise qu'il a lu, un choix par element l'emportant. */
   forcages?: readonly ForcageSource[];
 }
 
@@ -120,7 +122,15 @@ interface OptionsEnchainement {
    * retenu, sans le changer. Absente : le mode deterministe.
    */
   ia?: RunEnregistre | null;
+  /**
+   * Interne : ce rejeu pose le mur sur la pose que la personne a choisie pour les angles (lot C2, Claude ou ses valeurs), en mur pose a
+   * la main ; `derouler` le pose lui-meme, une seule fois. Absent : le mur du calcul.
+   */
+  poseChoisie?: 'claude' | 'manuel';
 }
+
+/** Ce que l'E7 dit d'un mur pose sur les angles choisis par la personne (lot C2). */
+const POSE_CHOISIE = { claude: 'Mur posé sur les angles de Claude (votre choix).', manuel: 'Mur posé sur vos angles (votre choix).' } as const;
 
 /** Une photo de l'audit redressee seule, entiere : son rang parmi les photos de la facade, et l'image en JPEG. */
 interface PhotoRedresseeDeLAudit { rang: number; image: string }
@@ -202,6 +212,11 @@ interface SortiesFacade {
   audit: SortieAudit | null;
   /** E14 : le bilan de la facade, la Facade que la validation V4 ecrira (lot F5). */
   facade: BilanFacade | null;
+  /**
+   * E12, seulement quand les choix de la personne changent les ouvertures (lot C2) : le releve et la liste du moteur d'avant les choix, d'ou
+   * un rejeu repart (le releve et l'accord, eux, portent les ouvertures choisies, que V3 relit et V4 ecrit). Absent : aucun choix n'a joue.
+   */
+  moteur?: { releve: NonNullable<SortieAudit['mesure']>['releve']; ouvertures: readonly OuvertureFacade[] };
 }
 
 /** Une etape calculee : son etat, ce qu'elle a donne en une phrase, et sa mesure contre la verite quand le cas en a une. */
@@ -414,6 +429,8 @@ async function chaineDuGroupeImage({ e, o, s }: Contexte): Promise<void> {
     imageRun: retenue ? imageRunDeLAudit(e, a, retenue) : null,
     assemblage, retours,
   };
+  // Un releve neuf : ce que des choix d'un rejeu precedent avaient change ne vaut plus pour lui.
+  delete s.moteur;
   const pose = retenue?.a.assemblage ?? null;
   s.calage = { photos: coinsRetenus(c, a, n), message: null, pose, echelleGabarit: pose ? echelleDuGabarit(e.hauteurM / e.largeurM, rectDesCoins(pose.coins)) : 1 };
   if (retenue) {
@@ -580,7 +597,7 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Resultat => {
   // Le mur des reperes que l'arbitre n'a pas lu (egout ou pied supposes) ou qu'il a pose d'apres le plan seul : il doute.
   const chercheDoute = !!cherche && (cherche.pose === 'plan-seul' || !cherche.lu);
   const note = m.confiance !== null ? ` (note du calage fin ${dec(m.confiance)})` : '';
-  const origine = main ? 'Mur posé à la main.'
+  const origine = main ? (o.poseChoisie ? POSE_CHOISIE[o.poseChoisie] : 'Mur posé à la main.')
     : cherche ? 'Mur cherché sur l’assemblage de vos repères' + POSE_CHERCHEE[cherche.pose] + (cherche.lu ? '.' : ', égout ou sol supposé.')
     : m.coinsTrouves ? `Coins du mur trouvés sur la photo${note}.` : 'Coins du mur prédits par la prise de vue, à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.';
   const hauteur = m.hauteurM !== null ? ` Hauteur à l’égout mesurée : ${dec(m.hauteurM)} m.` : '';
@@ -731,9 +748,31 @@ function partageDuReleve(e: EntreesFacade, ouvertures: readonly OuvertureFacade[
 /** Le nom d'un cote du contour dans une phrase : « sud (côté 3) ». */
 const nomDuCote = (e: EntreesFacade) => (cote: number): string => nomFacade(e.prises.facade.orientation, cote);
 
+/**
+ * Les choix de la personne poses sur les ouvertures (lot C2) : le releve et l'accord portent alors les ouvertures choisies (ce que V3
+ * relit, V4 ecrit, l'E14 compte), la liste du moteur gardee a part pour le rejeu suivant (`moteur`). Sans choix, rien ne bouge ; un choix
+ * retire rend la liste du moteur. Rend les cles des elements dont le choix a change une ouverture.
+ */
+function ouverturesChoisies(e: EntreesFacade, s: SortiesFacade): string[] {
+  const m = s.audit?.mesure;
+  if (!m || !s.audit) return [];
+  const releve = s.moteur?.releve ?? m.releve, accord = s.ia?.accord ?? null;
+  const base = s.moteur?.ouvertures ?? accord?.ouvertures ?? releve.ouvertures;
+  const r = ouverturesSelonLesChoix(e, accord, s.ia?.reponse ?? null, base, releve.ouvertures, m.devinees ?? s.analyse?.devinees ?? []);
+  if (!r) {
+    if (s.moteur) { s.audit = { ...s.audit, mesure: { ...m, releve }, }; if (s.ia?.accord) s.ia = { ...s.ia, accord: { ...s.ia.accord, ouvertures: [...base] } }; delete s.moteur; }
+    return [];
+  }
+  s.moteur = { releve, ouvertures: base };
+  s.audit = { ...s.audit, mesure: { ...m, releve: { ...releve, ouvertures: r.ouvertures } } };
+  if (s.ia?.accord) s.ia = { ...s.ia, accord: { ...s.ia.accord, ouvertures: r.ouvertures } };
+  return r.changees;
+}
+
 const ouvertures: Pas = ({ e, o, s, obj }) => {
   const a = s.analyse;
   if (!a) return attend(`le mur redressé (${libelleEtape('redressement')})`);
+  const choisies = ouverturesChoisies(e, s);
   const n = a.ouvertures.length, d = a.devinees.length;
   // L'accord des boites de Claude est fait a l'E8 (la lecture de Claude) : les ouvertures qu'il coche se lisent ici, sans le redire.
   const accord = s.ia?.accord ?? null;
@@ -748,8 +787,9 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   const propre: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
   const etat: EtatAffiche = relu ? 'ok' : propre === 'ok' ? 'a-confirmer' : propre;
   const k = relues?.ouvertures.length ?? 0;
-  const resume = relu ? `Ouvertures relues par vous ${jourEnClair(relues.le)} : ${k} gardée${k > 1 ? 's' : ''}. La détection : ` + detecte
-    : (relues ? `Les ouvertures relues ${jourEnClair(relues.le)} ne sont plus celles que la détection trouve : à relire. ` : '') + detecte + ' Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.';
+  const vosChoix = choisies.length ? ` Vos choix (Calcul, Claude, Manuel) changent ${pluriel(choisies.length, 'ouverture')} : ${detectees.length} à relire.` : '';
+  const resume = relu ? `Ouvertures relues par vous ${jourEnClair(relues.le)} : ${k} gardée${k > 1 ? 's' : ''}. La détection : ` + detecte + vosChoix
+    : (relues ? `Les ouvertures relues ${jourEnClair(relues.le)} ne sont plus celles que la détection trouve : à relire. ` : '') + detecte + vosChoix + ' Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.';
   const vraies = o.verite?.ouvertures;
   if (!vraies?.length) return { etat, resume, verite: null };
   const m = contreLaVerite(vraies, a.ouvertures);
@@ -784,10 +824,13 @@ const lectureIa: Pas = (c) => {
   // Ses boites accordees avec les ouvertures du releve que V4 ecrira, sur les aretes de l'elevation (decision 4 du proprietaire,
   // 3 novembre 2026 : une seule orchestration). Les descentes qu'il voit ne valent que la ou une verticale les confirme.
   const a = s.analyse, reponse = s.ia.reponse, rel = s.audit?.mesure;
+  // Le releve du moteur, d'avant les choix de la personne d'un rejeu precedent (l'E12 les repose sur l'accord refait ici).
+  const releve = s.moteur?.releve ?? rel?.releve;
+  if (s.moteur && s.audit?.mesure) { s.audit = { ...s.audit, mesure: { ...s.audit.mesure, releve: s.moteur.releve } }; delete s.moteur; }
   if (a) {
     const cartes = reponse ? cartesAretes(a.elevation, a.pxParM) : null;
-    const accord = reponse ? accorderOuvertures({ ouvertures: rel?.releve.ouvertures ?? a.ouvertures, decochees: rel?.devinees ?? a.devinees, observations: reponse, cartes, largeurM: rel?.releve.largeur ?? e.largeurM, hauteurM: rel?.releve.hauteur ?? e.hauteurM }) : null;
-    s.ia = { ...s.ia, accord, descentes: reponse ? descentesRetrouvees(reponse.modenature?.descentes ?? [], cartes, rel?.releve.largeur ?? e.largeurM) : [] };
+    const accord = reponse ? accorderOuvertures({ ouvertures: releve?.ouvertures ?? a.ouvertures, decochees: rel?.devinees ?? a.devinees, observations: reponse, cartes, largeurM: releve?.largeur ?? e.largeurM, hauteurM: releve?.hauteur ?? e.hauteurM }) : null;
+    s.ia = { ...s.ia, accord, descentes: reponse ? descentesRetrouvees(reponse.modenature?.descentes ?? [], cartes, releve?.largeur ?? e.largeurM) : [] };
   }
   const image = cadre ? 'imageRun' : 'assemblage';
   c.lecture = { angles: ia?.angles ?? null, pointes: ia?.pointes ?? '', image };
@@ -823,7 +866,7 @@ const validation: Pas = ({ e, o, s }) => {
   s.facade = bilanDeLaFacade({
     largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: hautLuAuPlan(s), masques: s.forme?.masque?.troncons ?? [],
     silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? relues ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
-    ...(s.ia?.reponse ? { pointesIa: s.ia.reponse.calage.pointes } : {}),
+    ...(s.ia?.reponse ? { pointesIa: lectureSelonLesChoix(e, s.ia.reponse, s.preparation?.pointes ?? []).reponse?.calage.pointes ?? s.ia.reponse.calage.pointes } : {}),
   });
   const ajoutes = partage?.ajouts.reduce((k, a) => k + a.ouvertures.length, 0) ?? 0;
   const voisin = ajoutes ? ` Et ${ajoutes} ouverture${ajoutes > 1 ? 's' : ''} sur la façade ${partage?.ajouts.map((a) => nomDuCote(e)(a.cote)).join(', ')}, dans le même pas.` : '';
@@ -844,7 +887,9 @@ const hautLuAuPlan = (s: SortiesFacade): { u: number; v: number }[] | null => {
 const PAS: Record<IdEtape, Pas> = {
   preparation, prises, objectif, coins, redressement, assemblage, calage, lectureIa, silhouette,
   diagnostic: ({ e, o, s }) => {
-    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), s.ia?.reponse ?? null, o.objectifs, o.verite?.toit, s.forme?.masque?.troncons ?? []);
+    // La lecture de Claude selon les choix de la personne (lot C2) : sans choix, la reponse telle quelle.
+    const l = lectureSelonLesChoix(e, s.ia?.reponse ?? null, s.preparation?.pointes ?? []);
+    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), l.reponse, o.objectifs, o.verite?.toit, s.forme?.masque?.troncons ?? [], l.pris);
     s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic, masque: s.forme?.masque ?? null };
     return r.etape;
   },
@@ -880,11 +925,8 @@ const partDuRun = (c: Contexte) => ({ appel: 'run' as const, rejouee: !!c.o.ia, 
 
 /** Un element lu par Claude : sa cle stable, sa famille, les etapes qui le consomment, ses trois valeurs, la source retenue, le choix lu. */
 function deClaude(c: Contexte, cle: string, famille: FamilleClaude, e: Omit<ElementAction, 'cle' | 'famille' | 'consommePar' | 'valeurs' | 'retenue' | 'choisie'>, calcul: ValeurElement | null, claude: ValeurElement | null, retenue: SourceElement | null): ElementAction {
-  const choisie = c.e.choix?.find((x) => x.cle === cle) ?? null, f = FAMILLES_CLAUDE[famille];
-  // Un forcage vise l'element quand il porte sur toutes les etapes, ou sur l'etape qui le montre ou le consomme.
-  const forcee = c.e.forcages?.find((x) => 'toutes' in x || x.etape === f.montreeA || f.consommePar.includes(x.etape)) ?? null;
-  const sansClaude = !choisie && !!forcee && claude === null;
-  const sourceLue: SourceElement | null = choisie ? choisie.source : forcee ? (claude === null ? 'calcul' : 'claude') : retenue;
+  // La meme lecture que celle qui s'applique au calcul (choixSources.ts) : ce que l'ecran dit est ce que le moteur a fait.
+  const { choisie, forcee, sansClaude, source: sourceLue } = sourceDe(c.e, cle, famille, claude !== null, retenue), f = FAMILLES_CLAUDE[famille];
   return { ...e, cle, famille, consommePar: f.consommePar, valeurs: { calcul, claude, manuel: choisie?.source === 'manuel' ? choisie.valeur ?? null : null }, retenue, choisie, forcee, sourceLue, ...(sansClaude ? { sansClaude } : {}) };
 }
 
@@ -1117,6 +1159,18 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
   // reprise d'un rejeu precedent garde les siennes (le calage les relit si l'E8 a ete refaite). Elles ne changent rien au calcul.
   const refaite = (id: IdEtape) => k0(id) >= debut || (id === 'calage' && k0('lectureIa') >= debut);
   const avecActions = etapes.map((x) => (refaite(x.id) ? { ...x, actions: actionsDeLEtape(x.id, x, c) } : x));
+  // Les angles du mur pris de Claude, ou poses par la personne (lot C2) : ils deviennent le mur pose a la main sur chaque photo de
+  // l'image prise pour la suite (une entree de la chaine, comme un mur tire), et le cas se rejoue entier une fois ; sans ce choix, rien.
+  const choisie = o.poseChoisie ? null : poseSelonLesChoix(e, c.s.ia?.pose ?? null);
+  const retours = c.s.audit?.retours ?? [];
+  if (choisie && c.s.calage?.pose && retours.length) {
+    const r = choisie.rect, coins = [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }];
+    const corrections = { ...e.prises.corrections };
+    for (const [rang, cs] of murAjusteSurLesPhotos({ retours }, coins)) corrections[String(rang)] = { ...corrections[String(rang)], coins: cs };
+    const reste = { ...o, poseChoisie: choisie.source };
+    delete reste.depuis; delete reste.precedent;
+    return derouler({ ...e, prises: { ...e.prises, corrections } }, reste);
+  }
   return { etapes: avecActions, sorties: c.s, versions: { chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS, ...(o.ia ? { ia: EMPREINTE_IA } : {}) } };
 }
 
@@ -1172,6 +1226,8 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
     prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg }),
+    // Les choix et les forcages de la personne (lot C2), gestes du cas comme ses reperes ; absents d'un cas d'avant : rien ne change.
+    ...(cas.choix?.length ? { choix: lireChoix(cas.choix) } : {}), ...(cas.forcages?.length ? { forcages: lireForcages(cas.forcages) } : {}),
   };
 }
 

@@ -186,6 +186,8 @@ interface PropsEtape {
   choixElement?: (x: ElementAction) => ReactNode;
   /** Ce que l'ecran ajoute sous une action de Claude (le forcage pour l'etape) ; absent : rien. */
   gesteAction?: Parameters<typeof ActionsEtape>[0]['geste'];
+  /** Le forcage de Claude pour cette etape (ou partout, a l'E8), sous ses actions ; absent : rien. */
+  forcage?: ReactNode;
 }
 
 /**
@@ -397,6 +399,7 @@ export function EtapeOuverte(p: PropsEtape) {
       {e?.verite && <p className={'calVerite' + (e.verite.juste ? ' juste' : ' faux')}>{e.verite.texte}</p>}
       {e && <ActionsEtape actions={e.actions} libelle={'Les actions de l’' + def.numero} image={imagesDesActions(p.images, p.cas.images, p.url)}
         {...(p.choixElement ? { extra: (x) => (x.famille ? p.choixElement?.(x) : null) } : {})} {...(p.gesteAction ? { geste: p.gesteAction } : {})} />}
+      {p.forcage}
       {p.rejeu && p.images && <CalquesDeLEtape {...p} rejeu={p.rejeu} images={p.images} />}
       {p.corps}
       <dl className="calContrat">

@@ -149,6 +149,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   // Defaire et refaire un geste sur la facade avant V4 (Ctrl+Z, Ctrl+Y) : sous sa barre, dans l'audit et dans la calibration.
   'facade.annulerGeste': partout('barreFacade'),
   'facade.retablirGeste': partout('barreFacade'),
+  // Les choix de source et le forcage de Claude (lot C2) : sous l'etape ouverte de la calibration, la ou l'element se montre.
+  'facade.choisirSource': partout('barreFacade'),
+  'facade.forcerClaude': partout('barreFacade'),
   // Un cas de calibration tire d'une facade de l'audit (lot F6) : dans la fiche de la facade de l'audit, pour l'administrateur, dans les trois classes.
   'facade.creerCas': partout('parcours'),
   // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.

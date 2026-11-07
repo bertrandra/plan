@@ -61,7 +61,7 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   // Le dialogue de la declaration prealable rend les champs de ui/champs/declaration.ts, son bouton compris.
   parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours'), 'src/ui/champs/declaration.ts'],
   // La barre de progression de la facade (calibration ; l'audit a venir, lot F3).
-  barreFacade: ['src/zones/composants/BarreProgressionFacade.tsx']
+  barreFacade: ['src/zones/composants/BarreProgressionFacade.tsx', 'src/zones/ChoixSourceCalibration.tsx']
 };
 
 describe('la carte d exposition des commandes', () => {

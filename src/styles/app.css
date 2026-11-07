@@ -2875,6 +2875,16 @@
   /* Les onglets de l'ecran de la calibration : les cas, puis les reglages, la mesure et l'historique, a part. */
   .actionsEtapeAudit{ margin:6px 0; font-size:0.78rem; }
   .actionsEtapeAudit > summary{ cursor:pointer; min-height:32px; display:flex; align-items:center; }
+  /* Les choix de la personne (lot C2) : Calcul, Claude, Manuel sous chaque element, le bouton enfonce est la source qui vaut. */
+  .choixSource{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:4px; }
+  .choixSource button[aria-pressed="true"]{ background:var(--ink); color:var(--on-ink); }
+  .choixDepart{ display:flex; flex-wrap:wrap; gap:4px; width:100%; }
+  .choixManuel{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px; width:100%; }
+  .choixManuel .calChamp input{ max-width:7rem; }
+  .choixForcage{ margin:6px 0; }
+  .choixForcage button[aria-pressed="true"]{ background:var(--ink); color:var(--on-ink); }
+  .choixAjouts{ margin:8px 0; }
+  @media (max-width: 1023px){ .choixSource button, .choixForcage button, .choixAjouts button{ min-height:44px; } }
   .calOnglets{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
   .calOnglets button[aria-selected="true"]{ background:var(--ink); color:var(--on-ink); }
   .famille-angles .pastilleCouleur{ background:var(--claude-angles); }

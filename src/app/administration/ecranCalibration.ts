@@ -18,7 +18,7 @@ import { lireFichierAuditParcelle } from '../../model/fichierAuditParcelle.js';
 import { casDepuisFacade, facadesACalibrer } from '../audit/parcelle/casDeCalibration.js';
 import { hoteDeZone } from '../../shell/dom.js';
 import { creerRegistre, type RegistreCommandes } from '../commandes.js';
-import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
+import { ETAPES_FACADE, type IdEtape, type SourceElement } from '../../model/etapeFacade.js';
 import { creerClientAnalyse } from '../../io/analyseClaude.js';
 import { appelerEscaladeFacade, appelerLectureEnrichie, appelerRunFacade, avecSaLectureEnrichie, encodageUnique, type ContexteRun } from '../releve/runFacade.js';
 import { dessinerImageFacade } from '../../render/imageFacade.js';
@@ -26,17 +26,24 @@ import { imageDeLEtalon, listerEtalons, ouvrirEtalon } from '../../io/etalonsFac
 import { creerProjetDeLEtalon } from './projetEtalon.js';
 import { chercherCoins } from '../releve/rechercheCoins.js';
 
+/** Ce que l'editeur ouvert fait d'un choix : la cle de l'element et la source (null : revenir a celle du moteur). */
+type EcouteChoix = (cle: string, source: SourceElement | null) => void;
+/** Ce que l'editeur ouvert fait d'un forcage : l'etape (ou toutes), pose ou retire. */
+type EcouteForcage = (cible: { etape: IdEtape } | { toutes: true }, oui: boolean) => void;
+
 /**
  * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de
  * progression et a la frise des etapes (MD/spec-facade-calage-audit.md §4 ter.5). L'etape vient de `data-etape` du bouton ; l'editeur
  * ouvert s'abonne a son ouverture.
  */
-function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void; ecouterConfirmerMur: (f: () => void) => () => void; ecouterGestes: (g: GestesDuCas) => () => void } {
+function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void; ecouterConfirmerMur: (f: () => void) => () => void; ecouterGestes: (g: GestesDuCas) => () => void; ecouterChoix: (f: EcouteChoix) => () => void; ecouterForcage: (f: EcouteForcage) => () => void } {
   const commandes = creerRegistre();
   let ouvrir: ((id: IdEtape) => void) | null = null;
   let escalader: (() => void) | null = null;
   let confirmer: (() => void) | null = null;
   let gestes: GestesDuCas | null = null;
+  let choisir: EcouteChoix | null = null;
+  let forcer: EcouteForcage | null = null;
   commandes.declarer({
     id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade',
     executer: (source) => { const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape); if (etape) ouvrir?.(etape.id); },
@@ -48,6 +55,21 @@ function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (
   // Ctrl+Z et Ctrl+Y sur les gestes du cas ouvert (reperes, mur tire, confirmation du mur) : les memes commandes que dans l'audit.
   commandes.declarer({ id: 'facade.annulerGeste', libelle: 'Annuler le dernier geste sur la façade', groupe: 'facade', actif: () => !!gestes?.peutAnnuler(), executer: () => { gestes?.annuler(); } });
   commandes.declarer({ id: 'facade.retablirGeste', libelle: 'Rétablir le geste sur la façade', groupe: 'facade', actif: () => !!gestes?.peutRetablir(), executer: () => { gestes?.retablir(); } });
+  // Les choix de la personne (lot C2) : Calcul, Claude ou Manuel pour un element (`data-cle`, `data-source` ; « moteur » retire le
+  // choix), et le forcage de Claude pour une etape (`data-etape`) ou pour toutes (`data-toutes`). Des gestes du cas, que Ctrl+Z defait.
+  commandes.declarer({
+    id: 'facade.choisirSource', libelle: 'Choisir la source d’un élément de la façade (Calcul, Claude, Manuel)', groupe: 'facade',
+    actif: () => !!choisir,
+    executer: (source) => { const cle = source?.dataset.cle, s = source?.dataset.source; if (cle && (s === 'calcul' || s === 'claude' || s === 'manuel' || s === 'moteur')) choisir?.(cle, s === 'moteur' ? null : s); },
+  });
+  commandes.declarer({
+    id: 'facade.forcerClaude', libelle: 'Forcer Claude pour une étape de la façade, ou pour toutes', groupe: 'facade',
+    actif: () => !!forcer,
+    executer: (source) => {
+      const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape)?.id, oui = source?.getAttribute('aria-pressed') !== 'true';
+      if (source?.dataset.toutes === 'oui') forcer?.({ toutes: true }, oui); else if (etape) forcer?.({ etape }, oui);
+    },
+  });
   brancherGestesFacade(typeof document === 'undefined' ? null : document, () => !!gestes, commandes);
   return {
     commandes,
@@ -55,6 +77,8 @@ function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (
     ecouterEscalade: (f) => { escalader = f; return () => { if (escalader === f) escalader = null; }; },
     ecouterConfirmerMur: (f) => { confirmer = f; return () => { if (confirmer === f) confirmer = null; }; },
     ecouterGestes: (g) => { gestes = g; return () => { if (gestes === g) gestes = null; }; },
+    ecouterChoix: (f) => { choisir = f; return () => { if (choisir === f) choisir = null; }; },
+    ecouterForcage: (f) => { forcer = f; return () => { if (forcer === f) forcer = null; }; },
   };
 }
 

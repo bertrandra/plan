@@ -44,13 +44,18 @@ const scene = (() => {
 })();
 
 /** Le registre de l'ecran, comme app/administration/ecranCalibration.ts le monte : ouvrir une etape, escalader la reponse rejouee. */
-function registre(): Pick<DepsCalibration, 'commandes' | 'ecouterEtape' | 'ecouterEscalade'> {
+function registre(): Pick<DepsCalibration, 'commandes' | 'ecouterEtape' | 'ecouterEscalade' | 'ecouterChoix' | 'ecouterForcage'> {
   const commandes = creerRegistre();
   let ouvrir: ((id: IdEtape) => void) | null = null;
   let escalader: (() => void) | null = null;
   commandes.declarer({ id: 'facade.etape', libelle: 'Ouvrir une étape', groupe: 'facade', executer: (s) => { if (s?.dataset.etape) ouvrir?.(s.dataset.etape as IdEtape); } });
   commandes.declarer({ id: 'facade.escalader', libelle: 'Escalader', groupe: 'facade', executer: () => { escalader?.(); } });
-  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { ouvrir = null; }; }, ecouterEscalade: (f) => { escalader = f; return () => { escalader = null; }; } };
+  // Les choix (lot C2), comme app/administration/ecranCalibration.ts les declare.
+  let choisir: Parameters<NonNullable<DepsCalibration['ecouterChoix']>>[0] | null = null, forcer: Parameters<NonNullable<DepsCalibration['ecouterForcage']>>[0] | null = null;
+  commandes.declarer({ id: 'facade.choisirSource', libelle: 'Choisir', groupe: 'facade', executer: (b) => { const c = b?.dataset.cle, x = b?.dataset.source; if (c && x) choisir?.(c, x === 'moteur' ? null : x as 'calcul'); } });
+  commandes.declarer({ id: 'facade.forcerClaude', libelle: 'Forcer', groupe: 'facade', executer: (b) => { const oui = b?.getAttribute('aria-pressed') !== 'true'; if (b?.dataset.toutes) forcer?.({ toutes: true }, oui); else if (b?.dataset.etape) forcer?.({ etape: b.dataset.etape as IdEtape }, oui); } });
+  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { ouvrir = null; }; }, ecouterEscalade: (f) => { escalader = f; return () => { escalader = null; }; },
+    ecouterChoix: (f) => { choisir = f; return () => { choisir = null; }; }, ecouterForcage: (f) => { forcer = f; return () => { forcer = null; }; } };
 }
 
 function fausses(plus: Partial<DepsCalibration> = {}) {
@@ -330,6 +335,49 @@ describe('l ecran de calibration', () => {
     // Le cas garde la reponse et son escalade, pour la rejouer sans reseau.
     expect(stock.get('cas-a')?.ia).toEqual([{ ...run, escalade }]);
   }, 60_000);
+
+  it('choisit la source d un element (Calcul, Claude, Manuel), force Claude, et range ces gestes avec le cas (lot C2)', async () => {
+    // Une reponse SYNTHETIQUE (pas Claude) enregistree avec le cas : ses angles et ses trois fenetres.
+    const sortie = { calage: { angles: { gauche: { x: 0.091, egout: 0.143, sol: 0.857, confiance: 'forte' }, droite: { x: 0.909, egout: 0.143, sol: 0.857, confiance: 'forte' } }, pointes: [], appentis: [], corps: [], cache: [] },
+      forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [], surface: { principale: 'enduit', zones: [], confiance: 'forte' }, confiance: 'forte',
+      ouvertures: [1, 4, 7].map((x) => ({ type: 'fenetre', u0: x / 9, u1: (x + 1) / 9, v0: 0.4, v1: 0.68, niveau: 0, travee: 'indetermine', confiance: 'forte', details: { volets: 'aucun', allege: 'pleine', forme: 'rect' }, carreaux: null })) };
+    const run = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1 as const, sorties: [sortie], cout: 0.001, tokens: { entree: 1, sortie: 1 }, image: { largeur: 1100, hauteur: 700 }, chaine: 10, synthetique: true };
+    const { deps, stock } = fausses();
+    stock.set('cas-a', { ...scene.cas, ia: [run] as unknown as RunEnregistre[] });
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('lectureIa');
+    await act(async () => { bouton('calibration.rejouer')?.click(); });
+    await attendreQue(rejeuFini);
+    await act(async () => { bouton('calibration.modeIa')?.click(); });
+    await attendreQue(() => rejeuFini() && !!hote.querySelector('[data-commande="facade.forcerClaude"]'));
+    // L'E8 : « Forcer Claude partout ».
+    const partout = () => hote.querySelector('[data-commande="facade.forcerClaude"][data-toutes]') as HTMLButtonElement;
+    expect(partout().getAttribute('aria-pressed')).toBe('false');
+    await act(async () => { partout().click(); });
+    await attendreQue(() => rejeuFini() && partout()?.getAttribute('aria-pressed') === 'true');
+    expect(partout().getAttribute('aria-pressed')).toBe('true');
+    // L'E12 : chaque boite a ses trois boutons ; Claude y est la source qui vaut (forcee), Manuel part du calcul et s'applique.
+    await ouvrirEtape('ouvertures');
+    const boite = () => hote.querySelector('.calEtapeOuverte [data-action="boites"] .elementAction') as HTMLElement;
+    expect([...boite().querySelectorAll('.choixSource > button')].map((b) => b.textContent)).toEqual(['Calcul', 'Claude', 'Manuel']);
+    expect(boite().querySelector('[data-source="claude"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(boite().textContent).toContain('(Claude forcé)');
+    await act(async () => { (boite().querySelector('[data-commande="facade.choisirSource"][data-source="calcul"]') as HTMLButtonElement).click(); });
+    await attendreQue(() => rejeuFini() && boite()?.querySelector('[data-source="calcul"]')?.getAttribute('aria-pressed') === 'true');
+    expect(boite().textContent).toContain('(votre choix)');
+    // Une ouverture ajoutee a la main.
+    await act(async () => { ([...hote.querySelectorAll('.choixAjouts button')].find((b) => b.textContent === 'Ajouter une ouverture') as HTMLButtonElement).click(); });
+    await act(async () => { (hote.querySelector('.choixAjouts [data-commande="facade.choisirSource"][data-source="manuel"]') as HTMLButtonElement).click(); });
+    await attendreQue(() => rejeuFini() && !!hote.querySelector('.choixAjouts .calListe li'));
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    const garde = stock.get('cas-a');
+    expect(garde?.forcages).toEqual([{ toutes: true, source: 'claude', le: expect.any(String) }]);
+    expect(garde?.choix?.map((c) => [c.cle, c.source])).toEqual([['ouverture:0', 'calcul'], ['ajout:0', 'manuel']]);
+    expect(garde?.choix?.[1]?.valeur).toEqual({ type: 'fenetre', x: 1, y: 1, l: 1, h: 1.2 });
+  }, 120_000);
 
   it('mesure les cas valides, cherche de meilleurs reglages et les applique', async () => {
     const { deps, docs } = fausses();

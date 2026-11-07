@@ -6,6 +6,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Ajouté
+- **Choisir Calcul, Claude ou Manuel, élément par élément, et forcer Claude** (audit de la calibration des façades, lot C2 ; décisions du
+  propriétaire du 7 novembre 2026). Dans Admin › Calibration, chaque élément lu par Claude a trois boutons dans l'étape qui le montre et à
+  l'É8 : Calcul, Claude, Manuel (Manuel part de la valeur du calcul ou de celle de Claude et se corrige champ par champ) ; l'É12 ajoute une
+  ouverture à la main. « Claude pour toute l'É… » dans chaque étape qui lit Claude, « Forcer Claude partout » à l'É8 ; un choix par élément
+  l'emporte, un élément que Claude n'a pas lu garde le calcul et le dit. Les boutons passent par deux commandes du registre
+  (`facade.choisirSource`, `facade.forcerClaude`, inscrites dans `app/exposition.ts`).
+- **L'effet** (`facade/releve/choixSources.ts`, entrées `choix` et `forcages` de `derouler`) : les ouvertures choisies remplacent celles du
+  moteur pour l'É12, V3 et le bilan de l'É14 ; les angles choisis posent le mur (É7) ; les pointes, le mot du haut, les autres volumes et
+  les éléments du toit choisis vont au diagnostic (É10) et au bilan ; un élément du toit pris de Claude l'est malgré le haut lu, le moteur
+  des toits le pose ou le refuse (`EntreesDiagnostic.pris`). Le parement, ses zones, ce qui cache le mur et les appentis : aucune étape ne
+  les consomme encore, le choix est rangé et l'écran le dit.
+- Rangés dans le cas de calibration (`CasReel.choix`, `.forcages`, facultatifs : un cas d'avant se relit tel quel, aucune migration),
+  rejoués, défaits par Ctrl+Z et refaits par Ctrl+Y comme les autres gestes du cas. **Seulement dans la calibration pour l'instant**
+  (décision du propriétaire : « Pas encore, je calibre ») : l'audit n'en passe pas et ne change pas, ni son fichier
+  (`VERSION_FICHIER_AUDIT_PARCELLE` inchangée) ni le schéma du projet. Le même processus : `uneOrchestration.test.ts` couvre les choix.
+- Sans choix ni forçage, rien ne change : banc des façades, `calage-e5.ts`, AE 101, empreintes golden et plancher de lecture 5.1.0
+  identiques. Point de fumée 147.
 - **L'écran de la calibration des façades est « étape → actions → avant/après »** (audit de la calibration, lot C1 ; décisions du
   propriétaire du 7 novembre 2026). Admin › Calibration montre les quatorze étapes (É1 à É14, É2 Prises et É14 Validation comprises,
   avant même le premier rejeu) ; l'étape ouverte montre ses actions, chacune avec son badge (Code, Claude, Manuel, Mesure), son état, son

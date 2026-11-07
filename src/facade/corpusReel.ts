@@ -8,6 +8,8 @@
 // Un cas = un mur : une ou plusieurs photos, leurs quatre coins, la largeur et la hauteur reelles, les ouvertures de la verite.
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
+import { lireChoix, lireForcages } from './releve/choixSources.js';
+import type { ChoixSource, ForcageSource } from '../model/etapeFacade.js';
 import type { MurConfirme, OuverturesRelues } from '../model/auditParcelle.js';
 import { lireGabarit } from './gabaritMur.js';
 import type { OuvertureDetectee } from './detection/detection.js';
@@ -92,6 +94,12 @@ export interface CasReel {
   /** Le parement du mur deja connu (vu sur place a l'audit), en clair : le run d'une facade le donne a Claude. */
   parement?: string;
   /**
+   * Les choix de la personne entre le calcul, Claude et sa valeur, element par element, et le forcage de Claude (lot C2) : des gestes,
+   * comme les reperes, rejoues par `derouler`. Facultatifs : un cas d'avant n'en a pas et se rejoue comme avant (aucune migration).
+   */
+  choix?: ChoixSource[];
+  forcages?: ForcageSource[];
+  /**
    * Le cote du contour dans le repere du plan, tel que l'audit l'a mesure, et le contour du batiment : avec la prise de vue de chaque
    * photo, ce sont les entrees de l'audit (prisesFacade.ts). Absents d'un cas d'avant : le mur seul, face au sud.
    */
@@ -167,11 +175,15 @@ export function lireCasReel(donnees: unknown): CasReel {
   // Une reponse enregistree illisible est laissee de cote, jamais inventee : les autres restent rejouables.
   const ia = Array.isArray(c.ia) ? c.ia.map(lireRunEnregistre).filter((x): x is RunEnregistre => x !== null) : [];
   if (typeof reste.parement !== 'string' || !reste.parement.trim()) delete reste.parement;
+  // Les choix et les forcages relus : un choix illisible est laisse de cote, jamais invente.
+  delete reste.choix; delete reste.forcages;
+  const choix = lireChoix(c.choix), forcages = lireForcages(c.forcages);
   return {
     ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}),
     ...(c.toit !== undefined ? { toit: lireToitDuCas(c.toit) } : {}),
     ...(c.calageVrai !== undefined ? { calageVrai: lireCalageVrai(c.calageVrai) } : {}), ...(c.toitVrai !== undefined ? { toitVrai: lireToitVrai(c.toitVrai) } : {}),
     ...(ia.length ? { ia } : {}), ...(facade ? { facade } : {}), ...(contour ? { contour } : {}),
+    ...(choix.length ? { choix } : {}), ...(forcages.length ? { forcages } : {}),
   };
 }
 

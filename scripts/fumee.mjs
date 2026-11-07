@@ -2697,6 +2697,79 @@ const POINTS = {
       && /Montrée à l’É12, consommée par É12, É14/.test(consommeOuverture) && boitesE12.length >= 3 && boitesE12.some((t) => /^retrouvée par la détection → ouverture \d+$/.test(t)) && relire === 1 && verite === 1 && !debords.some(Boolean);
     return { ok, mesure: `onglet des réglages ${reglages ? 'à part' : 'MÊLÉ'} ; frise de ${friseAvant} étapes ; badges : ${parEtape.map((e) => e.id + ' ' + e.badges.map((b) => b.trim()[0]).join('')).join(', ')} ; gestes : É2 ${e2} retirer, É3 ${e3} objectif, É5 ${e5} repère(s), É8 panneau ${e8Panneau} ; É8 : ${familles.length} familles (${familles.map((x) => x.classe?.replace('famille-', '')).join(', ')}), ${couleurs.size} couleurs, « ${consommeOuverture.trim().slice(0, 70)} » ; É12 : ${boitesE12.length} boîtes (« ${boitesE12[0] ?? ''} »), relire ${relire}, vérité ${verite} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  147: async (page, f) => {
+    // Choisir Calcul / Claude / Manuel et forcer Claude, dans la calibration seulement (lot C2, decisions du proprietaire du 7 novembre
+    // 2026 ; « pas encore » dans l'audit). Le cas de l'etalon 02 et sa reponse enregistree SYNTHETIQUE (pas Claude), en mode IA. On
+    // mesure : « Forcer Claude partout » a l'E8 s'enfonce, et l'E12 dit Claude force sur ses boites ; « Calcul » sur la premiere boite
+    // l'emporte (« votre choix ») ; une ouverture ajoutee a la main entre au releve (l'E12 dit « Vos choix … ») ; Ctrl+Z la retire et
+    // Ctrl+Y la remet ; l'E7, « Claude » sur les angles : le mur se pose sur eux ; rien ne deborde ; aucun appel a Claude.
+    const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
+    const cas = { ...casEtalon('02-enduit-uni-face'), nom: 'Synthèse 02 · enduit', source: 'fumee', ia: [run] };
+    let appels = 0;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/claude/messages')) { appels++; return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }); }
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-02', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: cas.ouvertures.length, updatedAt: '2026-11-07T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 });
+    const ouvrir = (id) => etape('etape ' + id, async () => { await page.locator(`.calFrise button[data-etape="${id}"]`).click({ timeout: 5000 }); await page.locator('.calEtapeOuverte > h3').waitFor({ timeout: 5000 }); });
+    const ajouts = () => page.locator('.calEtapeOuverte .choixAjouts .calListe li').count();
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    await ouvrir('lectureIa');
+    await etape('mode IA', () => page.locator('.calEtapeOuverte [data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu IA', finRejeu);
+    const partout = page.locator('.calEtapeOuverte [data-commande="facade.forcerClaude"][data-toutes]');
+    await etape('forcer partout', () => partout.click({ timeout: 10000 }));
+    await etape('fin du rejeu force', finRejeu);
+    await page.waitForFunction(() => document.querySelector('.calEtapeOuverte [data-commande="facade.forcerClaude"][data-toutes]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 30000 }).catch(() => {});
+    const force = await partout.getAttribute('aria-pressed');
+    const debords = [await deborde()];
+    await ouvrir('ouvertures');
+    const boite = page.locator('.calEtapeOuverte [data-action="boites"] .elementAction').first();
+    const boutons = await boite.locator('.choixSource > button').allTextContents();
+    const forcee = /\(Claude forcé\)/.test((await boite.textContent()) || '');
+    await etape('calcul', () => boite.locator('[data-commande="facade.choisirSource"][data-source="calcul"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu calcul', finRejeu);
+    await page.waitForFunction(() => /\(votre choix\)/.test(document.querySelector('.calEtapeOuverte [data-action="boites"] .elementAction')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const choisie = /\(votre choix\)/.test((await boite.textContent()) || '');
+    await etape('ajouter', () => page.locator('.calEtapeOuverte .choixAjouts button', { hasText: 'Ajouter une ouverture' }).click({ timeout: 5000 }));
+    await etape('appliquer', () => page.locator('.calEtapeOuverte .choixAjouts [data-commande="facade.choisirSource"][data-source="manuel"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu ajout', finRejeu);
+    await page.waitForFunction(() => !!document.querySelector('.calEtapeOuverte .choixAjouts .calListe li'), null, { timeout: 30000 }).catch(() => {});
+    const resumeAjout = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const apresAjout = await ajouts();
+    if (process.env.FUMEE_CAPTURE_CHOIX) await page.locator('.calEtapeOuverte').screenshot({ path: process.env.FUMEE_CAPTURE_CHOIX + '-' + f.nom + '-e12.png' }).catch(() => {});
+    debords.push(await deborde());
+    await page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+    await page.keyboard.press('Control+z');
+    await etape('fin du rejeu annule', finRejeu);
+    await page.waitForFunction(() => !document.querySelector('.calEtapeOuverte .choixAjouts .calListe li'), null, { timeout: 30000 }).catch(() => {});
+    const apresZ = await ajouts();
+    await page.keyboard.press('Control+y');
+    await etape('fin du rejeu retabli', finRejeu);
+    await page.waitForFunction(() => !!document.querySelector('.calEtapeOuverte .choixAjouts .calListe li'), null, { timeout: 30000 }).catch(() => {});
+    const apresY = await ajouts();
+    await ouvrir('calage');
+    const angles = page.locator('.calEtapeOuverte [data-action="angles"] .elementAction').first();
+    await etape('angles de Claude', async () => { await page.locator('.calEtapeOuverte [data-commande="facade.forcerClaude"][data-etape]').waitFor({ timeout: 5000 }); await angles.locator('[data-commande="facade.choisirSource"][data-source="claude"]').click({ timeout: 5000 }); });
+    await etape('fin du rejeu angles', finRejeu);
+    await page.waitForFunction(() => /^Mur posé sur les angles de Claude/.test(document.querySelector('.calEtapeOuverte .calResume')?.textContent || ''), null, { timeout: 60000 }).catch(() => {});
+    const resumeE7 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    debords.push(await deborde());
+    await page.unroute(/\/admin\//);
+    const ok = force === 'true' && boutons.join() === 'Calcul,Claude,Manuel' && forcee && choisie && apresAjout === 1 && /Vos choix \(Calcul, Claude, Manuel\) changent/.test(resumeAjout)
+      && apresZ === 0 && apresY === 1 && /^Mur posé sur les angles de Claude \(votre choix\)\./.test(resumeE7) && appels === 0 && !debords.some(Boolean);
+    return { ok, mesure: `É8 « Forcer Claude partout » ${force === 'true' ? 'enfoncé' : 'NON ENFONCÉ'} ; É12 : boutons ${boutons.join('/')}, ${forcee ? 'Claude forcé' : 'PAS forcé'}, « Calcul » ${choisie ? 'retenu (votre choix)' : 'NON RETENU'} ; ajout : ${apresAjout} (« ${(resumeAjout.match(/Vos choix[^.]*\./) || ['PAS de mention'])[0]} »), Ctrl+Z ${apresZ}, Ctrl+Y ${apresY} ; É7 « ${resumeE7.slice(0, 70)}… » ; appels ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
   103: async (page, f) => {
     // L'escalade d'une facade, a la demande (decision du proprietaire du 29 octobre 2026 : « trois lectures, et une escalade a la
     // demande »), dans Admin › Calibrer la detection : le cas de la scene 02 et sa reponse enregistree SYNTHETIQUE (pas Claude) ;
@@ -6724,7 +6797,8 @@ function pointsPour(nomClasse) {
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
   // 146 : l'ecran des etapes de la calibration (lot C1) : quatorze etapes, leurs actions et leurs badges, les gestes dans leur etape, les familles de Claude.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146];
+  // 147 : les choix Calcul / Claude / Manuel et le forcage de Claude (lot C2), dans la calibration seulement : effet, Ctrl+Z, Ctrl+Y.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

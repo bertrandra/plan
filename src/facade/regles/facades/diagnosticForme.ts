@@ -136,6 +136,12 @@ export interface EntreesDiagnostic {
   /** Les observations du run de Claude (le vote de ses passes), quand il y en a. */
   ia?: ObservationsFacade | null;
   objectifs?: Partial<Objectifs>;
+  /**
+   * Les elements du toit que la personne prend de Claude malgre le haut lu (lot C2, son choix dans la calibration) : proposes comme si
+   * Claude seul les voyait, poses par le moteur sur le corps du troncon, qui les refuse encore s'il ne peut pas les porter. Absents :
+   * la regle seule (un element que le haut lu ne confirme pas est un constat).
+   */
+  pris?: readonly { element: GenreElement; u: number }[];
 }
 
 /** Les colonnes lues le long du mur. */
@@ -536,7 +542,8 @@ function elementsDuHaut(ctx: Contexte, ts: readonly TronconForme[], props: reado
     const k = vus.findIndex((v) => x.u >= v.u0 - pres && x.u <= v.u1 + pres);
     const v = vus[k];
     if (v) { if (v.provenance === 'deterministe') vus[k] = { ...v, element: x.element, provenance: 'les-deux' }; continue; }
-    if (lue) { constats.push(`Claude voit ${GENRES[x.element]} à u ${f2(x.u)}, que le haut lu sur la photo ne confirme pas : rien n’est proposé.`); continue; }
+    const pris = ctx.e.pris?.some((p) => p.element === x.element && Math.abs(p.u - x.u) < 1e-9);
+    if (lue && !pris) { constats.push(`Claude voit ${GENRES[x.element]} à u ${f2(x.u)}, que le haut lu sur la photo ne confirme pas : rien n’est proposé.`); continue; }
     vus.push({ element: x.element, u0: x.u, u1: x.u, provenance: 'ia' });
   }
   const out: PropositionElement[] = [];
