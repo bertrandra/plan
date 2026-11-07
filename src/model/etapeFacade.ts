@@ -103,6 +103,14 @@ export type ValeurElement = Readonly<Record<string, string | number | boolean | 
  */
 export interface ChoixSource { cle: string; source: SourceElement; valeur?: ValeurElement; le: string }
 
+/**
+ * Le forcage de Claude par la personne (demande du proprietaire, 7 novembre 2026) : Claude pour toute une etape (les elements qu'elle
+ * montre ou consomme), ou pour toutes les etapes qui consomment une lecture de Claude. Un choix par element l'emporte sur un forcage ;
+ * un element que Claude n'a pas lu garde le calcul, et le dit (`sansClaude`). Par defaut rien n'est force. Type et lecture seulement :
+ * il ne s'applique encore a aucun calcul (lot C).
+ */
+export type ForcageSource = { etape: IdEtape; source: 'claude'; le: string } | { toutes: true; source: 'claude'; le: string };
+
 export interface ElementAction {
   /** L'identifiant stable de l'element dans la reponse de Claude (`pointe:2`, `ouverture:0`…) ; absent d'un element du seul calcul. */
   cle?: string;
@@ -115,6 +123,15 @@ export interface ElementAction {
   retenue?: SourceElement | null;
   /** Le choix de la personne, lu dans les entrees (`EntreesFacade.choix`) ; null : aucun, la valeur par defaut vaut. */
   choisie?: ChoixSource | null;
+  /** Le forcage de Claude qui vise cet element (`EntreesFacade.forcages`) ; null : aucun. */
+  forcee?: ForcageSource | null;
+  /**
+   * La source qui vaudrait, lue dans cet ordre : le choix de l'element, sinon le forcage (Claude, ou le calcul quand Claude ne l'a pas lu),
+   * sinon celle que retient le moteur. Une lecture : le calcul ne l'applique pas encore (lot C).
+   */
+  sourceLue?: SourceElement | null;
+  /** Vrai : un forcage de Claude vise cet element, mais Claude ne l'a pas lu ; le calcul est garde. */
+  sansClaude?: boolean;
   genre: 'ouverture' | 'boite' | 'pose' | 'pointe' | 'forme' | 'etendue' | 'element' | 'parement' | 'zone' | 'cache' | 'optique';
   statut: 'retrouvee' | 'devinee-confirmee' | 'proposee' | 'ecartee' | 'confirmee' | 'absente' | 'devinee'
     | 'accord' | 'divergent' | 'non-situe' | 'hauteur' | 'en-plus' | 'manquante' | 'retenu' | 'ecarte' | 'lu';

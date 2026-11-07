@@ -811,7 +811,7 @@ façade, ce qui est fait, ce qui attend la personne.
   (`ChoixSource` : `calcul` | `claude` | `manuel`, avec la valeur manuelle) est une entrée de `derouler` (`EntreesFacade.choix`), lue sur
   l'élément (`choisie`) ; elle ne s'applique encore à aucun calcul. Lot C : la ranger dans la capture (`FacadeCapturee`) et le cas
   (`CasReel`) comme champ facultatif (absent = la source du moteur : aucune migration, `VERSION_FICHIER_AUDIT_PARCELLE` inchangée), puis
-  son effet étape par étape.
+  son effet étape par étape. Le **forçage de Claude** (`ForcageSource` : `{ etape, source: 'claude' }` pour une étape, `{ toutes: true, source: 'claude' }` pour toutes celles qui consomment une lecture de Claude) est une entrée de même nature (`EntreesFacade.forcages`) : lu sur chaque élément visé (`forcee`), il donne `sourceLue` dans cet ordre : le choix de l'élément, sinon le forçage (Claude, ou le calcul quand Claude n'a pas lu l'élément, `sansClaude`), sinon la source du moteur. Par défaut rien n'est forcé ; rien ne s'applique encore au calcul (lot C).
 
   | Famille | Montrée à | Consommée par | Source retenue aujourd'hui |
   |---|---|---|---|

@@ -521,6 +521,18 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     expect(lue).toMatchObject({ choisie: choix[0], valeurs: { manuel: choix[0]?.valeur } });
     expect(avecChoix.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
     expect(avecChoix.etapes.map((x) => [x.id, x.etat, x.resume])).toEqual(r.etapes.map((x) => [x.id, x.etat, x.resume]));
+    // Le forcage de Claude (une etape, ou toutes) : lu sur les elements vises, le choix d'un element l'emporte, un element que Claude
+    // n'a pas lu garde le calcul et le dit ; aucun calcul ne change.
+    const forcees = await derouler({ ...entreesDuCas(cas, [ph.image]), choix, forcages: [{ etape: 'ouvertures', source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
+    const b12 = etapeDe(forcees, 'ouvertures').actions[1]?.elements ?? [];
+    expect(b12.find((x) => x.cle === seule)?.sourceLue).toBe('manuel');
+    expect(b12.filter((x) => x.cle !== seule).every((x) => x.sourceLue === 'claude' && x.forcee)).toBe(true);
+    expect(etapeDe(forcees, 'texture').actions.find((x) => x.id === 'surface')?.elements?.[0]?.forcee).toBeNull();
+    const toutes = await derouler({ ...entreesDuCas(cas, [ph.image]), forcages: [{ toutes: true, source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie) });
+    const pointes = etapeDe(toutes, 'silhouette').actions.find((x) => x.id === 'forme')?.elements?.filter((x) => x.famille === 'pointe') ?? [];
+    for (const x of pointes) expect([x.sourceLue, x.sansClaude ?? false]).toEqual(x.valeurs?.claude ? ['claude', false] : ['calcul', true]);
+    expect(toutes.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
+    expect(toutes.etapes.map((x) => [x.id, x.etat])).toEqual(r.etapes.map((x) => [x.id, x.etat]));
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(im.ia?.pose).not.toBeNull();

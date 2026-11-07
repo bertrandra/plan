@@ -41,8 +41,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   une action de l'étape qu'elle concerne (les angles au calage, la forme du haut et les pointes à la silhouette, les éléments du toit
   au diagnostic, le parement et ce qui cache le mur à la texture, les boîtes aux ouvertures), avec le statut décidé par le moteur et
   ce qu'elle confirme ; les boîtes écartées et le lien d'une boîte retrouvée sortent de l'accord, en lecture. Chaque élément de Claude a une clé, une
-  famille, les étapes qui le consomment, ses valeurs (calcul, Claude, la personne) et la source retenue ; le choix de la personne se lit,
-  sans encore rien changer. L'É3 montre l'optique rangée avec chaque photo.
+  famille, les étapes qui le consomment, ses valeurs (calcul, Claude, la personne) et la source retenue ; le choix de la personne et le forçage de Claude
+  (une étape, ou toutes) se lisent, sans encore rien changer. L'É3 montre l'optique rangée avec chaque photo.
 
 ## [5.13.1] — 2026-11-07
 

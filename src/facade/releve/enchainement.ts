@@ -24,7 +24,7 @@
 
 import type { HautMasque } from '../analyse.js';
 import { descentesRetrouvees } from '../regles/facades/modenature.js';
-import { ETAPES_FACADE, actionDe, etapeFacade, libelleEtape, type ActionEtape, type ChoixSource, type ElementAction, type FamilleClaude, type SourceElement, type ValeurElement, FAMILLES_CLAUDE, type EtatAffiche, type EtatEtape, type IdEtape, type TypeAction } from '../../model/etapeFacade.js';
+import { ETAPES_FACADE, actionDe, etapeFacade, libelleEtape, type ActionEtape, type ChoixSource, type ForcageSource, type ElementAction, type FamilleClaude, type SourceElement, type ValeurElement, FAMILLES_CLAUDE, type EtatAffiche, type EtatEtape, type IdEtape, type TypeAction } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, echelleDuGabarit, gabaritALEchelle, gabaritSurLaPhoto, pointesDuGabarit, rectDesCoins, type GabaritMur } from '../gabaritMur.js';
 import { murSousLeSol } from '../vision/mosaiqueFuites.js';
@@ -75,6 +75,8 @@ export interface EntreesFacade {
    * s'appliquent encore a aucun calcul (lot C). Absents : la source que retient le moteur.
    */
   choix?: readonly ChoixSource[];
+  /** Les forcages de Claude (une etape, ou toutes) : lus sur chaque element vise, ils ne s'appliquent encore a aucun calcul (lot C). */
+  forcages?: readonly ForcageSource[];
 }
 
 /** La verite d'un cas de calibration, pour la mesure de chaque etape (§7.3). */
@@ -878,8 +880,12 @@ const partDuRun = (c: Contexte) => ({ appel: 'run' as const, rejouee: !!c.o.ia, 
 
 /** Un element lu par Claude : sa cle stable, sa famille, les etapes qui le consomment, ses trois valeurs, la source retenue, le choix lu. */
 function deClaude(c: Contexte, cle: string, famille: FamilleClaude, e: Omit<ElementAction, 'cle' | 'famille' | 'consommePar' | 'valeurs' | 'retenue' | 'choisie'>, calcul: ValeurElement | null, claude: ValeurElement | null, retenue: SourceElement | null): ElementAction {
-  const choisie = c.e.choix?.find((x) => x.cle === cle) ?? null;
-  return { ...e, cle, famille, consommePar: FAMILLES_CLAUDE[famille].consommePar, valeurs: { calcul, claude, manuel: choisie?.source === 'manuel' ? choisie.valeur ?? null : null }, retenue, choisie };
+  const choisie = c.e.choix?.find((x) => x.cle === cle) ?? null, f = FAMILLES_CLAUDE[famille];
+  // Un forcage vise l'element quand il porte sur toutes les etapes, ou sur l'etape qui le montre ou le consomme.
+  const forcee = c.e.forcages?.find((x) => 'toutes' in x || x.etape === f.montreeA || f.consommePar.includes(x.etape)) ?? null;
+  const sansClaude = !choisie && !!forcee && claude === null;
+  const sourceLue: SourceElement | null = choisie ? choisie.source : forcee ? (claude === null ? 'calcul' : 'claude') : retenue;
+  return { ...e, cle, famille, consommePar: f.consommePar, valeurs: { calcul, claude, manuel: choisie?.source === 'manuel' ? choisie.valeur ?? null : null }, retenue, choisie, forcee, sourceLue, ...(sansClaude ? { sansClaude } : {}) };
 }
 
 /** E7 : les deux angles du mur selon Claude, contre le mur retenu (accord, divergence), tels que l'E8 les a mesures ; jamais candidats. */
