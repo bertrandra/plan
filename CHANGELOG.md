@@ -15,7 +15,8 @@ quantité ni aucun export de la démonstration ne change : les sept témoins ne 
 reste celle de la 5.13.1 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : l'optique est un champ
 facultatif des fichiers d'audit et des cas de calibration, pas du projet (`VERSION_FICHIER_AUDIT_PARCELLE` inchangée, 1) ; rien à
-déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+déployer côté plateforme. Requêtes vérifiées sans la mesure sur main (run 42367661806 : 9 sur 9, 0,031 $ ; #611 ne change que des
+commentaires de `regles/facades/enchainement.json`, aucun prompt ni schéma).
 
 ### Ajouté
 - **Choisir Calcul, Claude ou Manuel, élément par élément, et forcer Claude** (audit de la calibration des façades, lot C2 ; décisions du
