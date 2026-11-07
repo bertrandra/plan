@@ -5,8 +5,12 @@
 // qui l'efface. Quand l'EXIF manque (iOS en retire une partie selon les reglages), la focale retenue
 // pour ce modele lors d'une photo precedente sert ; sinon le champ par defaut du releve, annonce
 // comme une estimation.
+//
+// Tout ce que la reduction efface et que le rejeu demande (l'EXIF entier, la taille de la source et
+// de la photo reduite, l'empreinte du JPEG garde) se range dans `optique`, toujours, qu'il y ait une
+// position du telephone ou non : une photo sans GPS se rejoue avec la meme focale qu'une photo avec.
 
-import type { PhotoCas, PrisePhoto } from '../../model/audit.js';
+import type { OptiquePhoto, PhotoCas, PrisePhoto } from '../../model/audit.js';
 import { lireExif, champDepuisFocale35, focale35DepuisChamp, type ExifPhoto } from '../../facade/vision/exif.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/vision/cadrage.js';
 
@@ -26,8 +30,8 @@ export function dimensionsReduites(l: number, h: number, max = COTE_PHOTO_MAX_PX
 /** Le poids en octets d'une chaine base64. */
 export const octetsBase64 = (b64: string): number => Math.floor(b64.length * 3 / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
 
-/** L'optique d'une photo, telle qu'elle se range dans sa prise de vue. */
-export type OptiquePhoto = Required<Pick<PrisePhoto, 'focale35' | 'champDeg' | 'sourceFocale' | 'modeleAppareil'>>;
+/** La focale retenue pour une photo, telle qu'elle se range dans sa prise de vue et dans son optique. */
+export type OptiqueRetenue = Pick<OptiquePhoto, 'focale35' | 'champDeg' | 'sourceFocale' | 'modeleAppareil'>;
 
 /** Les focales apprises, par modele d'appareil. */
 export interface MemoireFocales {
@@ -72,7 +76,7 @@ const auDixieme = (v: number) => Math.round(v * 10) / 10;
  * La focale retenue pour une photo : celle de son EXIF (et on l'apprend pour ce modele), sinon celle
  * apprise pour ce modele, sinon le champ par defaut du releve (67 degres sur le grand cote).
  */
-export function optiqueDeLaPhoto(exif: ExifPhoto, memoire: MemoireFocales): OptiquePhoto {
+export function optiqueDeLaPhoto(exif: Pick<ExifPhoto, 'focale35' | 'modele'>, memoire: MemoireFocales): OptiqueRetenue {
   const modeleAppareil = exif.modele;
   if (exif.focale35 !== null) {
     if (modeleAppareil) memoire.retenir(modeleAppareil, exif.focale35);
@@ -88,14 +92,16 @@ export async function lireExifFichier(fichier: Blob): Promise<ExifPhoto> {
   try { return lireExif(await fichier.slice(0, OCTETS_EXIF_MAX).arrayBuffer()); } catch { return { focale35: null, modele: null }; }
 }
 
-/** Une photo reduite, et la taille de sa source. */
+/** Une photo reduite, la taille de sa source (orientation appliquee) et la sienne. */
 export interface PhotoReduite extends PhotoCas {
   source: { largeurPx: number; hauteurPx: number };
+  reduite: { largeurPx: number; hauteurPx: number };
 }
 
 /** Reduit un fichier image (l'appareil photo du telephone) en JPEG d'environ 300 Ko. */
 export async function reduirePhoto(fichier: Blob): Promise<PhotoReduite> {
-  const image = await createImageBitmap(fichier);
+  // L'orientation de l'EXIF est appliquee (c'est le defaut, dit ici pour qu'il ne change pas) : la photo gardee est droite.
+  const image = await createImageBitmap(fichier, { imageOrientation: 'from-image' });
   const source = { largeurPx: image.width, hauteurPx: image.height };
   const { l, h } = dimensionsReduites(image.width, image.height);
   const toile = document.createElement('canvas');
@@ -109,17 +115,47 @@ export async function reduirePhoto(fichier: Blob): Promise<PhotoReduite> {
     base64 = toile.toDataURL('image/jpeg', q).split(',')[1] ?? '';
     if (octetsBase64(base64) <= OCTETS_PHOTO_MAX) break;
   }
-  return { type: 'image/jpeg', base64, source };
+  return { type: 'image/jpeg', base64, source, reduite: { largeurPx: l, hauteurPx: h } };
+}
+
+/** L'empreinte du JPEG reduit : `sha256:` et l'hexadecimal de ses octets ; null sans Web Crypto (une page hors HTTPS). */
+export async function empreinteJpeg(base64: string): Promise<string | null> {
+  try {
+    if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+    const bin = atob(base64);
+    const octets = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) octets[i] = bin.charCodeAt(i);
+    const h = await crypto.subtle.digest('SHA-256', octets);
+    return 'sha256:' + [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  } catch { return null; }
+}
+
+/** L'optique rangee avec la photo : la focale retenue, l'EXIF lu, les deux tailles et l'empreinte. */
+export function optiqueRangee(exif: ExifPhoto, retenue: OptiqueRetenue, source: OptiquePhoto['source'], reduite: OptiquePhoto['reduite'], empreinte: string | null): OptiquePhoto {
+  return { ...retenue, exif: JSON.parse(JSON.stringify(exif)) as ExifPhoto, source: { ...source }, reduite: { ...reduite }, empreinte };
 }
 
 /**
  * La photo d'un cas, complete : l'optique lue sur le fichier d'origine, puis la reduction. `prise`
  * (position, cap, attitude) a ete relevee au retour de l'appareil photo ; sans position connue, la
- * photo n'a pas de prise de vue.
+ * photo n'a pas de prise de vue, mais elle garde son optique.
  */
 export async function preparerPhoto(fichier: Blob, prise: PrisePhoto | null, memoire: MemoireFocales = memoireFocalesLocale()): Promise<PhotoCas> {
-  const optique = optiqueDeLaPhoto(await lireExifFichier(fichier), memoire);
-  const { source, ...photo } = await reduirePhoto(fichier);
-  // La taille de la source se garde avec la prise : la reduction l'efface, comme l'EXIF.
-  return prise ? { ...photo, prise: { ...prise, ...optique, largeurSourcePx: source.largeurPx, hauteurSourcePx: source.hauteurPx } } : photo;
+  const exif = await lireExifFichier(fichier);
+  const retenue = optiqueDeLaPhoto(exif, memoire);
+  const { source, reduite, ...photo } = await reduirePhoto(fichier);
+  return photoPreparee(photo, prise, optiqueRangee(exif, retenue, source, reduite, await empreinteJpeg(photo.base64)));
+}
+
+/**
+ * La photo rangee : l'optique toujours ; la prise, quand il y en a une, porte la meme focale et la taille de la source (la
+ * chaine les y lit, comme avant). Le GPS de l'EXIF reste dans l'optique : il ne devient pas une prise de vue.
+ */
+export function photoPreparee(photo: Pick<PhotoCas, 'type' | 'base64'>, prise: PrisePhoto | null, optique: OptiquePhoto): PhotoCas {
+  const { focale35, champDeg, sourceFocale, modeleAppareil } = optique;
+  return {
+    ...photo,
+    ...(prise ? { prise: { ...prise, focale35, champDeg, sourceFocale, modeleAppareil, largeurSourcePx: optique.source.largeurPx, hauteurSourcePx: optique.source.hauteurPx } } : {}),
+    optique,
+  };
 }

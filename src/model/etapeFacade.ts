@@ -66,6 +66,7 @@ export interface TraceAction {
  * - Les angles du mur (E7) : `accord`, `divergent` (au-dela de l'ecart admis), `non-situe`.
  * - Les pointes (E9) : `accord`, `hauteur` (vue a une autre hauteur, celle du LiDAR gardee), `en-plus` (le plan n'en a pas), `manquante`.
  * - Les elements du toit (E10) : `retenu` (le diagnostic le propose), `ecarte` (le moteur ne le propose pas).
+ * - L'optique d'une photo (E3), rangee avec elle : `lu`, sa focale, son champ et d'ou elle vient (EXIF, appareil, defaut).
  * - Ce qui n'entre dans aucune decision (le mot du haut, le bout, les appentis, les autres volumes, ce qui cache le mur, le parement et
  *   ses zones) : `lu`.
  */
@@ -114,7 +115,7 @@ export interface ElementAction {
   retenue?: SourceElement | null;
   /** Le choix de la personne, lu dans les entrees (`EntreesFacade.choix`) ; null : aucun, la valeur par defaut vaut. */
   choisie?: ChoixSource | null;
-  genre: 'ouverture' | 'boite' | 'pose' | 'pointe' | 'forme' | 'etendue' | 'element' | 'parement' | 'zone' | 'cache';
+  genre: 'ouverture' | 'boite' | 'pose' | 'pointe' | 'forme' | 'etendue' | 'element' | 'parement' | 'zone' | 'cache' | 'optique';
   statut: 'retrouvee' | 'devinee-confirmee' | 'proposee' | 'ecartee' | 'confirmee' | 'absente' | 'devinee'
     | 'accord' | 'divergent' | 'non-situe' | 'hauteur' | 'en-plus' | 'manquante' | 'retenu' | 'ecarte' | 'lu';
   type: string;

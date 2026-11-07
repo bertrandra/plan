@@ -18,7 +18,7 @@ import type { ImageDuRun } from '../../../facade/releve/imageDuRun.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
 import { VERSION_CHAINE_FACADES } from '../../../facade/releve/chaine.js';
-import { distanceAuMur, priseDeLaPhoto, prisesDeLaFacade } from '../../../facade/releve/prisesFacade.js';
+import { distanceAuMur, lecturePhoto, priseDeLaPhoto, prisesDeLaFacade } from '../../../facade/releve/prisesFacade.js';
 import { derouler, type AssemblageAAjuster, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { DiagnosticForme } from '../../../facade/regles/facades/diagnosticForme.js';
@@ -186,7 +186,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   // Sans photo aussi, l'enchainement se deroule : l'E2 le dit (« Aucune photo… »), la suite attend ; rien ne se calcule a cote.
   // 1. Les entrees de la facade (facade/releve/prisesFacade.ts) : l'echelle corrigee a la main, les photos dans l'ordre du
   // redressement (la premiere avec une prise de vue d'abord), leur prise. La calibration relit un cas par la meme fonction.
-  const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, prise: p.prise ?? null }; }));
+  const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, ...lecturePhoto(p) }; }));
   const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, jpeg: d.jpeg });
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);

@@ -803,6 +803,27 @@ façade, ce qui est fait, ce qui attend la personne.
 
   Les boîtes écartées (hors du mur) et le lien d'une boîte retrouvée sortent de l'accord en lecture (`AccordIa.ecartees`,
   `BoiteAccordee.vers`, `facade/regles/facades/ia.ts`) : aucune décision du moteur ne change.
+- **Familles, consommateurs, trois valeurs, choix de la personne** (demande du propriétaire, 7 novembre 2026) : chaque élément lu par
+  Claude porte une **clé stable** dans la réponse (`angles`, `pointe:k`, `pointe-attendue:k`, `forme`, `appentis:k`, `corps:k`,
+  `element-toit:k`, `cache:k`, `parement`, `zone:k`, `ouverture:k`), une **famille** (`FAMILLES_CLAUDE`, sa couleur à l'écran, la même à
+  l'É8 et dans l'étape qui le montre), les **étapes qui le consomment**, ses **trois valeurs** (`valeurs.calcul`, `.claude`, `.manuel`) et
+  la **source que le moteur retient aujourd'hui** (`retenue`, la valeur par défaut, inchangée). Le **choix de la personne**
+  (`ChoixSource` : `calcul` | `claude` | `manuel`, avec la valeur manuelle) est une entrée de `derouler` (`EntreesFacade.choix`), lue sur
+  l'élément (`choisie`) ; elle ne s'applique encore à aucun calcul. Lot C : la ranger dans la capture (`FacadeCapturee`) et le cas
+  (`CasReel`) comme champ facultatif (absent = la source du moteur : aucune migration, `VERSION_FICHIER_AUDIT_PARCELLE` inchangée), puis
+  son effet étape par étape.
+
+  | Famille | Montrée à | Consommée par | Source retenue aujourd'hui |
+  |---|---|---|---|
+  | `angles` | É7 | É8 (mesure contre le mur) | calcul (jamais candidats) |
+  | `pointe` | É9 | É10, É14 | calcul (hauteur du LiDAR) ; Claude pour une pointe en plus |
+  | `forme` (mot, bout) | É9 | É10 | — (une lecture que le diagnostic pèse) |
+  | `appentis` | É9 | — | — |
+  | `corps` | É9 | É10 (un constat) | — |
+  | `element-toit` | É10 | É10 | Claude ou calcul selon la provenance de la proposition ; rien si écarté |
+  | `cache` | É11 | — | — |
+  | `parement`, `zone` | É11 | — | — |
+  | `ouverture` | É12 | É12, É14 | calcul (la détection garde sa place) pour une boîte retrouvée ou une devinée confirmée ; rien pour une boîte proposée ou écartée |
 - **Les actions sortent de `derouler` et nulle part ailleurs** : elles se lisent sur les sorties que le pas vient d'écrire (des comptes et
   des références d'images déjà faites), sans calcul de plus.
 - **Aucun calcul n'a bougé** : `redresserEtFusionner` reste appelée une fois, dans le premier pas du groupe Image ; la lecture de Claude

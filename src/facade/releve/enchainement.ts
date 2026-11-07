@@ -443,8 +443,12 @@ const objectif: Pas = async (c) => {
   const dits = b.photos.map((p) => ({ p, d: objectifDeLaPhoto(p, parReperes(e.prises, p.rang)) }));
   const alertes = dits.filter((x) => x.d?.alerte);
   const etat: EtatAffiche = alertes.length && etatDuRedressement(b, obj) !== 'ok' ? 'a-confirmer' : 'ok';
-  return { etat, resume: dits.map(({ p, d }) => 'Photo ' + (p.rang + 1) + ' : ' + (d ? d.texte.charAt(0).toLowerCase() + d.texte.slice(1) : 'objectif non dit (un bilan d’avant).')).join(' '), verite: null };
+  // L'optique rangee avec la photo (lot A : l'EXIF garde a la reduction, meme sans position du telephone) : d'ou vient sa focale.
+  const optique = (rang: number) => { const o = e.prises.optiques?.find((x) => x.rang === rang)?.optique; return o ? ` Optique rangée : ${o.focale35} mm éq. (${MOTS_FOCALE[o.sourceFocale]})${o.modeleAppareil ? ', ' + o.modeleAppareil : ''}.` : ''; };
+  return { etat, resume: dits.map(({ p, d }) => 'Photo ' + (p.rang + 1) + ' : ' + (d ? d.texte.charAt(0).toLowerCase() + d.texte.slice(1) : 'objectif non dit (un bilan d’avant).') + optique(p.rang)).join(' '), verite: null };
 };
+
+const MOTS_FOCALE = { exif: 'EXIF', appareil: 'noté pour l’appareil', defaut: 'supposée' } as const;
 
 const ORIGINES: Readonly<Record<OrigineCoins, string>> = { trouves: 'trouvés sur la photo', devines: 'prédits par la prise de vue', main: 'posés à la main', reperes: 'lus après vos repères' };
 
@@ -955,7 +959,10 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
   },
   objectif: (r, { e, s }) => {
     const photos = s.audit?.redressement.photos ?? [], compte = (src: string) => photos.filter((p) => p.objectif?.source === src).length;
-    return [act('objectif', 'champ', etatFini(r.etat), { texte: r.resume, avant: { image: 'photos' }, apres: { valeurs: { exif: compte('exif'), fuites: compte('fuites'), appareil: compte('appareil'), suppose: compte('defaut'), parReperes: photos.filter((p) => parReperes(e.prises, p.rang)).length } } })];
+    // L'optique de chaque photo qui en a une : la focale retenue, son champ, sa source, l'appareil (une lecture, la prise l'a deja lue).
+    const elements: ElementAction[] = (e.prises.optiques ?? []).map(({ rang, optique: o }) => ({ genre: 'optique', statut: 'lu', type: o.sourceFocale, rect: null,
+      details: { photo: rang + 1, focale35: o.focale35, champDeg: o.champDeg, sourceFocale: o.sourceFocale, appareil: o.modeleAppareil, largeurPx: o.source.largeurPx, hauteurPx: o.source.hauteurPx }, vers: null }));
+    return [act('objectif', 'champ', etatFini(r.etat), { texte: r.resume, avant: { image: 'photos' }, apres: { valeurs: { exif: compte('exif'), fuites: compte('fuites'), appareil: compte('appareil'), suppose: compte('defaut'), parReperes: photos.filter((p) => parReperes(e.prises, p.rang)).length } }, ...(elements.length ? { elements } : {}) })];
   },
   coins: (r, { s }) => {
     const o = (s.calage?.photos ?? []).map((p) => p.origine), compte = (x: OrigineCoins) => o.filter((y) => y === x).length;
@@ -1134,6 +1141,8 @@ function facadeParDefaut(L: number, H: number): Facade {
  */
 function priseDuCas(p: CasReel['photos'][number], image: Image | null): PrisePhoto | null {
   if (p.prise) return p.prise;
+  // Une photo sans position du telephone mais avec son optique : son objectif vient de l'optique (prisesFacade.ts::objectifDeLaPhoto).
+  if (p.optique) return null;
   if (!(p.focalePx && p.focalePx > 0) || !image) return null;
   const champDeg = (2 * Math.atan(Math.max(image.largeur, image.hauteur) / 2 / p.focalePx) * 180) / Math.PI;
   return { t: '', x: 0, y: 0, lat: null, lon: null, precisionM: null, azimutDeg: null, sourceAzimut: null, champDeg, sourceFocale: 'exif' };
@@ -1153,7 +1162,7 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
     const r = reperesDe(p);
     if (r || p.murALaMain) corrections[String(k)] = { ...(r ? { reperes: r } : {}), ...(p.murALaMain ? { coins: p.coins } : {}) };
   });
-  const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image) }; });
+  const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image), optique: p.optique ?? null }; });
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
     prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg }),

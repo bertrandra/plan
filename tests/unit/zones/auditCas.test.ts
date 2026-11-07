@@ -11,7 +11,7 @@ import type { CouleursPhotos, EtatCouleurPhoto } from '../../../src/app/audit/co
 const preparerPhoto = vi.fn(async (_f: Blob, prise: PrisePhoto | null): Promise<PhotoCas> => ({ type: 'image/jpeg', base64: 'NOUVELLE', ...(prise ? { prise } : {}) }));
 vi.mock('../../../src/app/audit/photo.js', () => ({ preparerPhoto: (f: Blob, p: PrisePhoto | null) => preparerPhoto(f, p) }));
 
-const { AuditCas, textePrise, texteOptique, texteCouleurPhoto } = await import('../../../src/zones/parcours/AuditCas.js');
+const { AuditCas, textePrise, texteOptique, texteGpsExif, texteCouleurPhoto } = await import('../../../src/zones/parcours/AuditCas.js');
 const { creerPromenade } = await import('../../../src/app/audit/promenade.js');
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -78,6 +78,18 @@ describe('le texte de prise sous une photo', () => {
     expect(texteOptique({ ...PRISE, inclinaisonDeg: 1, roulisDeg: -5 })).toBe('Objectif 26 mm (69°), lu dans la photo · visée d’aplomb, penchée de 5° à gauche');
     const v1: PrisePhoto = { t: PRISE.t, x: 1, y: 2, lat: null, lon: null, precisionM: 5, azimutDeg: 245, sourceAzimut: 'boussole' };
     expect(texteOptique(v1)).toBe('');
+  });
+
+  it('montre le GPS de l EXIF, garde et non utilise ; rien sans GPS ni optique', () => {
+    const optique = {
+      focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'iPhone 13', source: { largeurPx: 4032, hauteurPx: 3024 }, reduite: { largeurPx: 1280, hauteurPx: 960 }, empreinte: null,
+      exif: { focale35: 26, modele: 'iPhone 13', gps: { lat: 48.89012, lon: -2.16523, altitudeM: 45.5, capDeg: 245.25, nordCap: 'T' as const } },
+    };
+    expect(texteGpsExif(optique)).toBe('Position dans la photo (EXIF, gardée, non utilisée) : 48,890120° N, 2,165230° O, altitude 46 m, vers 245°');
+    expect(texteGpsExif({ ...optique, exif: { focale35: 26, modele: null, gps: null } })).toBe('');
+    expect(texteGpsExif(undefined)).toBe('');
+    // Sans prise, l'objectif se dit depuis l'optique.
+    expect(texteOptique(optique)).toBe('Objectif 26 mm (69°), lu dans la photo');
   });
 });
 

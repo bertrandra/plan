@@ -42,6 +42,18 @@ describe('l objectif de chaque photo, a l E3', () => {
     }
   }, 60000);
 
+  it('montre l optique rangee avec la photo (lot A) : sa focale, sa source, l appareil', async () => {
+    const s = scene('02'), ph = photosDeLEtalon(s);
+    const cas = casDeLEtalon(s, ph, ['p']);
+    const optique = { focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'iPhone 13', source: { largeurPx: 4032, hauteurPx: 3024 }, reduite: { largeurPx: 1280, hauteurPx: 960 }, empreinte: null,
+      exif: { focale35: 26, modele: 'iPhone 13', focaleMm: 5.1, gps: null } };
+    const avec = { ...cas, photos: cas.photos.map((p) => ({ ...p, optique })) } as CasReel;
+    const r = await derouler(entreesDuCas(avec, ph.map((p) => p.image)), o);
+    const e3 = r.etapes.find((e) => e.id === 'objectif')!;
+    expect(e3.resume).toMatch(/Optique rangée : 26 mm éq\. \(EXIF\), iPhone 13\./);
+    expect(e3.actions[0]?.elements?.[0]).toMatchObject({ genre: 'optique', statut: 'lu', type: 'exif', details: { photo: 1, focale35: 26, appareil: 'iPhone 13' } });
+  }, 60000);
+
   it('sans EXIF mais redressee par ses reperes : l information seule, pas d avertissement', async () => {
     const s = scene('00'), ph = photosDeLEtalon(s);
     const cas = casDeLEtalon(s, ph, ['p']);

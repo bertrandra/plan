@@ -5,6 +5,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+- **L'optique de chaque photo est gardée, avec ou sans position du téléphone** (audit de la calibration des façades, lot A). Dès la
+  réduction à 1 280 px, qui efface l'EXIF, la photo d'un cas ou d'un audit range une `optique` (`model/audit.ts::OptiquePhoto`) : la
+  focale retenue pour la chaîne (l'EXIF, sinon l'appareil, sinon le défaut), et ce que l'EXIF du fichier d'origine disait
+  (`facade/vision/exif.ts` : focale 24×36 et focale réelle, zoom numérique, objectif, marque et modèle, orientation appliquée, date de
+  prise de vue et son décalage, position GPS — latitude, longitude, altitude, cap s'il existe), la taille de la source et celle de la
+  photo réduite, et l'empreinte SHA-256 du JPEG réduit. De quoi rejouer une prise sans garder l'image d'origine. Le champ est facultatif :
+  un fichier d'audit, de promenade ou un cas de calibration d'avant se relit sans rien perdre, le format ne change pas de version, le
+  schéma du projet non plus (la photo n'entre pas dans le projet). Les cas de calibration tirés d'un audit la recopient.
+- Sous une photo de cas, la fiche montre l'objectif même sans prise de vue, et la position GPS de l'EXIF quand il y en a une.
+  **Ce GPS est gardé et montré, il n'est utilisé nulle part** : il ne situe pas la photo et ne remplace pas la position du téléphone.
+
+### Corrigé
+- **Une photo sans position GPS du téléphone perdait sa focale EXIF** (`app/audit/photo.ts::preparerPhoto` ne rangeait l'optique que dans
+  la prise de vue). Au rejeu, elle passait pour « sans EXIF » et se redressait avec le champ lu sur ses points de fuite. La chaîne lit
+  maintenant l'objectif de l'optique quand la prise manque (`facade/releve/prisesFacade.ts::objectifRange`), dans l'audit comme dans la
+  calibration : le même champ qu'avec GPS (sans prise, seulement une focale lue dans l'EXIF de la photo ; une focale apprise pour le
+  téléphone ne s'applique pas à une photo sans prise ni EXIF, souvent importée d'un autre appareil). **Les photos sans GPS prises désormais se redressent donc avec la focale de leur EXIF : c'est
+  voulu.** Les photos avec GPS, les étalons, le banc et le plancher de lecture 5.1.0 ne bougent pas ; une photo d'avant, sans optique,
+  se relit comme avant.
+
 ### Modifié
 
 - Façades (audit et calibration) : l'enchaînement d'une façade passe de onze à **quatorze étapes**, numérotées sans « bis » (décision
@@ -19,7 +40,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   viennent du contrat (`libelleEtape`). Un fichier d'audit ne porte aucune étape : rien à migrer. Chaque lecture de Claude est aussi
   une action de l'étape qu'elle concerne (les angles au calage, la forme du haut et les pointes à la silhouette, les éléments du toit
   au diagnostic, le parement et ce qui cache le mur à la texture, les boîtes aux ouvertures), avec le statut décidé par le moteur et
-  ce qu'elle confirme ; les boîtes écartées et le lien d'une boîte retrouvée sortent de l'accord, en lecture.
+  ce qu'elle confirme ; les boîtes écartées et le lien d'une boîte retrouvée sortent de l'accord, en lecture. Chaque élément de Claude a une clé, une
+  famille, les étapes qui le consomment, ses valeurs (calcul, Claude, la personne) et la source retenue ; le choix de la personne se lit,
+  sans encore rien changer. L'É3 montre l'optique rangée avec chaque photo.
 
 ## [5.13.1] — 2026-11-07
 
