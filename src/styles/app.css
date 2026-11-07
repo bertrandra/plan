@@ -11,6 +11,7 @@
     --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA; --trait-3d:#1E1812;
     --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
     --serie-1:#2A78D6; --serie-2:#EB6834; --serie-3:#1BAF7A;
+    --claude-angles:#2A6FC9; --claude-pointe:#C2410C; --claude-forme:#8A4FB8; --claude-appentis:#7A6A00; --claude-corps:#0E7C86; --claude-element:#B5326B; --claude-cache:#4F7A28; --claude-parement:#9C5B1F; --claude-zone:#5B5FC7; --claude-ouverture:#C62828;
     --camera-voile:rgba(20,16,11,0.62);
     /* Teinte d'alternance : une nuance de l'accent, assez faible pour guider l'oeil le long
        d'une ligne sans decouper le tableau en bandes. */
@@ -36,6 +37,7 @@
       --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426; --trait-3d:#120E0A;
       --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
       --serie-1:#3987E5; --serie-2:#D95926; --serie-3:#199E70;
+      --claude-angles:#6AA6F0; --claude-pointe:#F08A55; --claude-forme:#C39BE8; --claude-appentis:#D4C24A; --claude-corps:#4CC3CC; --claude-element:#F07AAE; --claude-cache:#8FC76A; --claude-parement:#D9A066; --claude-zone:#9DA0F2; --claude-ouverture:#F07A7A;
       --camera-voile:rgba(20,16,11,0.62);
       --zebra:rgba(224,181,100,0.06); --zebra-hover:rgba(224,181,100,0.13);
       --ombre:0 1px 3px rgba(0,0,0,0.35); --ombre-flottante:0 4px 14px rgba(0,0,0,0.4);
@@ -2730,11 +2732,12 @@
   .calCalage{ fill:var(--accent); fill-opacity:0.12; stroke:var(--accent); stroke-width:2; }
   /* Le mode « IA » de la calibration (lot F2) : ce que Claude rend, d'un trait sombre (l'encre), distinct du mur retenu (l'accent) et
      des poses ecartees (le danger) ; la forme le dit aussi (ronds pour ses pointes, tirets pour une boite seule), et la legende en mots. */
-  .calMurIa{ fill:none; stroke:var(--ink); stroke-width:2.5; stroke-dasharray:3 4; }
-  .calPointeIa{ fill:var(--ink); fill-opacity:0.35; stroke:var(--ink); stroke-width:2; }
-  .calEtendueIa{ stroke:var(--ink); stroke-width:4; }
-  .calEtendueIa.cache{ stroke-dasharray:4 4; }
-  .calBoiteIa{ fill:transparent; stroke:var(--ink); stroke-width:2.5; cursor:pointer; }
+  .calMurIa{ fill:none; stroke:var(--claude-angles); stroke-width:2.5; stroke-dasharray:3 4; }
+  .calPointeIa{ fill:var(--claude-pointe); fill-opacity:0.35; stroke:var(--claude-pointe); stroke-width:2; }
+  .calEtendueIa{ stroke:var(--claude-appentis); stroke-width:4; }
+  .calEtendueIa.corps{ stroke:var(--claude-corps); }
+  .calEtendueIa.cache{ stroke:var(--claude-cache); stroke-dasharray:4 4; }
+  .calBoiteIa{ fill:transparent; stroke:var(--claude-ouverture); stroke-width:2.5; cursor:pointer; }
   .calBoiteIa.seule{ stroke-dasharray:7 5; }
   .calBoiteIa.choisie{ stroke-width:4; }
   .calCarreau{ stroke:var(--ink); stroke-width:1.5; }
@@ -2839,6 +2842,62 @@
   .calContrat{ display:grid; grid-template-columns:max-content 1fr; gap:2px 10px; margin:8px 0; font-size:0.74rem; }
   .calContrat dt{ font-family:var(--sans); color:var(--ink-soft); }
   .calContrat dd{ margin:0; }
+  /* Les actions d'une etape (zones/composants/ActionsEtape.tsx, calibration et audit) : un badge par type, un mot et une forme (Code,
+     Claude, Manuel, Mesure), l'avant et l'apres cote a cote, puis les elements un par un. */
+  .actionsEtape{ display:grid; gap:8px; margin:8px 0; padding:0; list-style:none; }
+  .actionEtape{ min-width:0; padding:8px 10px; border:1px solid var(--border); border-left-width:4px; border-radius:var(--r-champ); background:var(--panel-bg); }
+  .actionEtape.claude{ border-left-style:dashed; }
+  .actionEtape.manuel{ border-left-color:var(--accent); }
+  .actionEtape.mesure{ border-left-style:dotted; }
+  .actionTete{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:0.8rem; }
+  .actionLibelle{ font-weight:600; }
+  .badgeAction{ padding:0 7px; border-radius:999px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--rule); background:var(--paper-deep); color:var(--ink); }
+  .badgeAction.claude{ border-style:dashed; }
+  .badgeAction.manuel{ background:var(--accent-light); color:var(--on-accent-light); border-color:var(--accent); }
+  .badgeAction.mesure{ border-style:dotted; }
+  .avantApres{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px; margin-top:6px; }
+  .traceAction{ margin:0; display:grid; gap:4px; min-width:0; }
+  .traceValeurs{ margin:0; font-size:0.72rem; color:var(--ink-soft); overflow-wrap:anywhere; }
+  .traceTitre{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .traceAction img{ display:block; width:100%; max-height:140px; object-fit:contain; border-radius:var(--r-champ); background:var(--paper-deep); }
+  .elementsAction{ display:grid; gap:4px; margin:6px 0 0; padding:0; list-style:none; }
+  .elementAction{ display:grid; gap:2px; padding:4px 8px; border-left:4px solid var(--rule); background:var(--panel-2); border-radius:0 var(--r-champ) var(--r-champ) 0; font-size:0.76rem; overflow-wrap:anywhere; }
+  .elementTete{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .elementStatut{ color:var(--ink-soft); }
+  .pastilleFamille{ display:inline-flex; align-items:center; gap:4px; font-family:var(--sans); font-size:0.66rem; }
+  .pastilleCouleur{ width:10px; height:10px; border-radius:999px; background:currentColor; }
+  .pastilleFamille.calcul{ padding:0 6px; border:1px solid var(--rule); border-radius:999px; color:var(--ink-soft); }
+  .calLectureFamilles{ margin:8px 0; }
+  .calFamille{ margin:6px 0; }
+  .calEnteteCas, .calPiedCas{ display:grid; gap:4px; }
+  .calPiedCas{ margin-top:10px; padding-top:8px; border-top:1px solid var(--hairline); }
+  .calVignetteFixe{ width:96px; height:72px; object-fit:contain; background:var(--paper-deep); border:1px solid var(--border); border-radius:var(--r-champ); }
+  /* Les onglets de l'ecran de la calibration : les cas, puis les reglages, la mesure et l'historique, a part. */
+  .actionsEtapeAudit{ margin:6px 0; font-size:0.78rem; }
+  .actionsEtapeAudit > summary{ cursor:pointer; min-height:32px; display:flex; align-items:center; }
+  .calOnglets{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .calOnglets button[aria-selected="true"]{ background:var(--ink); color:var(--on-ink); }
+  .famille-angles .pastilleCouleur{ background:var(--claude-angles); }
+  .elementAction.famille-angles{ border-left-color:var(--claude-angles); }
+  .famille-pointe .pastilleCouleur{ background:var(--claude-pointe); }
+  .elementAction.famille-pointe{ border-left-color:var(--claude-pointe); }
+  .famille-forme .pastilleCouleur{ background:var(--claude-forme); }
+  .elementAction.famille-forme{ border-left-color:var(--claude-forme); }
+  .famille-appentis .pastilleCouleur{ background:var(--claude-appentis); }
+  .elementAction.famille-appentis{ border-left-color:var(--claude-appentis); }
+  .famille-corps .pastilleCouleur{ background:var(--claude-corps); }
+  .elementAction.famille-corps{ border-left-color:var(--claude-corps); }
+  .famille-element .pastilleCouleur{ background:var(--claude-element); }
+  .elementAction.famille-element{ border-left-color:var(--claude-element); }
+  .famille-cache .pastilleCouleur{ background:var(--claude-cache); }
+  .elementAction.famille-cache{ border-left-color:var(--claude-cache); }
+  .famille-parement .pastilleCouleur{ background:var(--claude-parement); }
+  .elementAction.famille-parement{ border-left-color:var(--claude-parement); }
+  .famille-zone .pastilleCouleur{ background:var(--claude-zone); }
+  .elementAction.famille-zone{ border-left-color:var(--claude-zone); }
+  .famille-ouverture .pastilleCouleur{ background:var(--claude-ouverture); }
+  .elementAction.famille-ouverture{ border-left-color:var(--claude-ouverture); }
+  @media (max-width: 599px){ .calOnglets button, .actionEtape button{ min-height:44px; } }
   /* Le haut du mur lu a la teinte (E5) : un trait plus epais que le gabarit, d'une autre teinte (le mot de la legende le dit aussi). */
   .calSilhouetteLue{ fill:none; stroke:var(--alerte); stroke-width:3.5; }
   /* Le diagnostic de forme (E5 bis, lot F4) : le gabarit de chaque proposition en tirets de l'encre, sans voile (le gabarit du plan

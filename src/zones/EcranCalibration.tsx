@@ -241,6 +241,8 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
   const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke; chercher?: boolean; etalon?: ResumeEtalon & { coinsVrais: (P2[] | null)[] } } | null>(null);
   const [rendu, setRendu] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // Deux onglets (decision du proprietaire, 7 novembre 2026) : les cas et leurs etapes, puis, a part, les reglages, la mesure et l'historique.
+  const [onglet, setOnglet] = useState<'cas' | 'reglages'>('cas');
 
   const rafraichir = async () => {
     try { setResumes(await deps.lister()); } catch (e) { setMessage('Liste des cas illisible : ' + ((e as Error).message || String(e))); }
@@ -281,14 +283,29 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
         </div>
         <div className="palActions"><a className="palLien" href={retour}>← Retour à l’admin</a></div>
       </header>
+      <div className="calOnglets" role="tablist" aria-label="Calibration">
+        <button type="button" role="tab" id="calOngletCas" aria-controls="calPanneauCas" aria-selected={onglet === 'cas'} className={onglet === 'cas' ? 'small' : 'secondary small'} data-controle="calibration.ongletCas" onClick={() => setOnglet('cas')}>Cas et étalons</button>
+        <button type="button" role="tab" id="calOngletReglages" aria-controls="calPanneauReglages" aria-selected={onglet === 'reglages'} className={onglet === 'reglages' ? 'small' : 'secondary small'} data-controle="calibration.ongletReglages" onClick={() => setOnglet('reglages')}>Réglages, mesure et historique</button>
+      </div>
+      {message && <p className="arbMessage" role="alert">{message}</p>}
+      {onglet === 'reglages' && <div role="tabpanel" id="calPanneauReglages" aria-labelledby="calOngletReglages">
       <div className="palBarre" role="status">
         <p className="palEtatPalette">{nbCalibres ? `${nbCalibres} réglage${nbCalibres > 1 ? 's' : ''} calibré${nbCalibres > 1 ? 's' : ''} en usage` : 'Valeurs livrées en usage'}{doc.modifieLe && ` · calibré le ${doc.modifieLe.slice(0, 10)}`}</p>
         <div className="palBarreActions">
           <button type="button" className="secondary" data-controle="calibration.revenir" disabled={!nbCalibres} onClick={() => { if (window.confirm('Revenir aux valeurs livrées avec Plan ? L’historique est gardé.')) void appliquer({}, null); }}>Revenir aux valeurs livrées</button>
         </div>
       </div>
-      {message && <p className="arbMessage" role="alert">{message}</p>}
+      <PanneauCalibration deps={deps} resumes={resumes} doc={doc} appliquer={appliquer} />
 
+      {doc.historique.length > 0 && (
+        <section className="calHistorique" aria-label="Historique des calibrations">
+          <h2 className="calTitre2">Historique</h2>
+          <ul>{[...doc.historique].reverse().map((h) => <li key={h.t}>{h.t.slice(0, 16).replace('T', ' ')} · {h.casValides} cas · {h.modifications.length} réglage{h.modifications.length > 1 ? 's' : ''} · F1 {pc(h.avant.f1)} → {pc(h.apres.f1)}</li>)}</ul>
+        </section>
+      )}
+      </div>}
+
+      {onglet === 'cas' && <div role="tabpanel" id="calPanneauCas" aria-labelledby="calOngletCas">
       {edition
         ? <EditeurCasCalibration key={edition.etalon?.id ?? edition.id ?? 'nouveau'} cas={edition.cas} id={edition.id} outils={deps} chercherCoins={!!edition.chercher}
           {...(edition.etalon ? { etalon: edition.etalon } : {})}
@@ -311,15 +328,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
         </section>}
       {!edition && rendu && <p className="calNote" role="status">{rendu}</p>}
       {!edition && <ListeEtalons deps={deps} ouvrir={(e) => { void ouvrirEtalon(e); }} />}
-
-      <PanneauCalibration deps={deps} resumes={resumes} doc={doc} appliquer={appliquer} />
-
-      {doc.historique.length > 0 && (
-        <section className="calHistorique" aria-label="Historique des calibrations">
-          <h2 className="calTitre2">Historique</h2>
-          <ul>{[...doc.historique].reverse().map((h) => <li key={h.t}>{h.t.slice(0, 16).replace('T', ' ')} · {h.casValides} cas · {h.modifications.length} réglage{h.modifications.length > 1 ? 's' : ''} · F1 {pc(h.avant.f1)} → {pc(h.apres.f1)}</li>)}</ul>
-        </section>
-      )}
+      </div>}
     </main>
   );
 }

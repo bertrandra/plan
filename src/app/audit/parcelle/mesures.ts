@@ -107,7 +107,7 @@ export interface MesureFacade {
    * L'etat de chaque etape de l'enchainement de la facade (E1 a E14) et ce qu'elle a donne : la barre de progression et le mode discret
    * de l'audit les lisent. Derive : il se recalcule a chaque rejeu ; absent d'une mesure lue dans un fichier d'audit.
    */
-  etapes?: Pick<EtapeCalculee, 'id' | 'etat' | 'resume' | 'herite'>[];
+  etapes?: (Pick<EtapeCalculee, 'id' | 'etat' | 'resume' | 'herite'> & Partial<Pick<EtapeCalculee, 'actions'>>)[];
   /**
    * Le bilan de la facade (E14, lot F5) : la Facade que la validation V4 ecrira (dimensions, forme, pose de la texture, ouvertures
    * numerotees). Derive, comme les etapes : absent d'une mesure lue dans un fichier d'audit, « Rejouer la façade » le refait.
@@ -202,7 +202,8 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
   });
   const sortie = r.sorties.audit;
-  const etapes = r.etapes.map(({ id, etat, resume, herite }) => ({ id, etat, resume, ...(herite ? { herite } : {}) }));
+  // Les actions de chaque etape (lot C) : l'audit en montre ce que l'etape ouverte montre (discret.ts::actionsDansLAudit), sans calcul.
+  const etapes = r.etapes.map(({ id, etat, resume, herite, actions }) => ({ id, etat, resume, ...(herite ? { herite } : {}), ...(actions.length ? { actions } : {}) }));
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
   const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun, ...(sortie.assemblage ? { assemblage: sortie.assemblage } : {}) } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   const accord = accordDeLaLecture(r.sorties.ia);

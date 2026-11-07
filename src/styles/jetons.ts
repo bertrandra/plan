@@ -14,7 +14,9 @@ export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
   | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
-  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3';
+  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
+  | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
+  | 'claude-parement' | 'claude-zone' | 'claude-ouverture';
 
 export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
   clair: {
@@ -60,7 +62,20 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     // Le vert d'eau clair n'atteint pas 3:1 : chaque serie est toujours nommee a cote de sa couleur.
     'serie-1': '#2A78D6',
     'serie-2': '#EB6834',
-    'serie-3': '#1BAF7A'
+    'serie-3': '#1BAF7A',
+    // Les familles de ce que Claude lit d'une facade (model/etapeFacade.ts, FAMILLES_CLAUDE) : la meme couleur a l'E8 et dans l'etape
+    // qui montre l'element (calibration, audit). Toujours nommees a cote (la famille en mots) : la couleur ne porte rien seule. Chacune
+    // tient 3:1 sur les panneaux, pour un trait ou une pastille.
+    'claude-angles': '#2A6FC9',
+    'claude-pointe': '#C2410C',
+    'claude-forme': '#8A4FB8',
+    'claude-appentis': '#7A6A00',
+    'claude-corps': '#0E7C86',
+    'claude-element': '#B5326B',
+    'claude-cache': '#4F7A28',
+    'claude-parement': '#9C5B1F',
+    'claude-zone': '#5B5FC7',
+    'claude-ouverture': '#C62828'
   },
   sombre: {
     'ink': '#F1E7D0',
@@ -96,12 +111,22 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'camera-alerte': '#F2B38F',
     'serie-1': '#3987E5',
     'serie-2': '#D95926',
-    'serie-3': '#199E70'
+    'serie-3': '#199E70',
+    'claude-angles': '#6AA6F0',
+    'claude-pointe': '#F08A55',
+    'claude-forme': '#C39BE8',
+    'claude-appentis': '#D4C24A',
+    'claude-corps': '#4CC3CC',
+    'claude-element': '#F07AAE',
+    'claude-cache': '#8FC76A',
+    'claude-parement': '#D9A066',
+    'claude-zone': '#9DA0F2',
+    'claude-ouverture': '#F07A7A'
   }
 };
 
 /** Les familles de la palette, dans l'ordre ou l'ecran de la palette les montre. */
-export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes' | 'graphiques';
+export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes' | 'graphiques' | 'lectures';
 
 export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[] = [
   { id: 'texte', titre: 'Encres', idee: 'Ce qui se lit : le texte, et le texte posé sur une couleur pleine.' },
@@ -111,7 +136,8 @@ export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[
   { id: 'etats', titre: 'États', idee: 'Enregistré, alerte, danger : toujours accompagnés d’un mot ou d’une icône.' },
   { id: 'notifications', titre: 'Notifications', idee: 'Le toast, en négatif de la page.' },
   { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' },
-  { id: 'graphiques', titre: 'Graphiques', idee: 'Une couleur par série, toujours nommée à côté : la couleur ne porte jamais seule l’information.' }
+  { id: 'graphiques', titre: 'Graphiques', idee: 'Une couleur par série, toujours nommée à côté : la couleur ne porte jamais seule l’information.' },
+  { id: 'lectures', titre: 'Lectures de Claude', idee: 'Une couleur par famille de ce que Claude lit d’une façade, la même à l’É8 et dans l’étape qui la montre ; toujours nommée à côté.' }
 ];
 
 /**
@@ -152,7 +178,17 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' },
   'serie-1': { famille: 'graphiques', role: 'Première série (Claude Haiku)' },
   'serie-2': { famille: 'graphiques', role: 'Deuxième série (Claude Sonnet)' },
-  'serie-3': { famille: 'graphiques', role: 'Troisième série (Claude Opus)' }
+  'serie-3': { famille: 'graphiques', role: 'Troisième série (Claude Opus)' },
+  'claude-angles': { famille: 'lectures', role: 'Les deux angles du mur (lecture de Claude)' },
+  'claude-pointe': { famille: 'lectures', role: 'Une pointe du haut (lecture de Claude)' },
+  'claude-forme': { famille: 'lectures', role: 'Le mot du haut et son bout (lecture de Claude)' },
+  'claude-appentis': { famille: 'lectures', role: 'Un appentis (lecture de Claude)' },
+  'claude-corps': { famille: 'lectures', role: 'Un autre volume (lecture de Claude)' },
+  'claude-element': { famille: 'lectures', role: 'Une cheminée, une lucarne (lecture de Claude)' },
+  'claude-cache': { famille: 'lectures', role: 'Ce qui cache le mur (lecture de Claude)' },
+  'claude-parement': { famille: 'lectures', role: 'Le parement (lecture de Claude)' },
+  'claude-zone': { famille: 'lectures', role: 'Une zone du parement (lecture de Claude)' },
+  'claude-ouverture': { famille: 'lectures', role: 'Une boîte d’ouverture (lecture de Claude)' }
 };
 
 /**

@@ -2516,7 +2516,7 @@ const POINTS = {
     });
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
-    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 });
     await page.goto(BASE + '/?admin&ecran=calibration');
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
     await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
@@ -2552,6 +2552,8 @@ const POINTS = {
     await etape('etape cale', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
     const resumeCale = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     // « Revenir au mur cherché » (revue des etapes, lot 5) : le mur pose a la main s'en va, « Rejouer » le cherche de nouveau.
+    // Le geste est a l'E5 (les reperes et le mur ajuste de la photo), depuis le lot C : l'ecran est « etape -> actions -> avant/apres ».
+    await etape('etape E5 pour revenir', () => page.locator('.calFrise button[data-etape="redressement"]').click({ timeout: 5000 }));
     await etape('revenir au mur cherche', () => page.locator('[data-controle="calibration.revenirMurCherche"]').click({ timeout: 5000 }));
     const revenirApres = await page.locator('[data-controle="calibration.revenirMurCherche"]').count();
     await etape('rejouer apres retour', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
@@ -2563,8 +2565,8 @@ const POINTS = {
     const calage = poignees.join() === 'Égout,Sol,Bout gauche du mur,Bout droit du mur' && appliquerAvant && !appliquerApres && /Score d’explication par la silhouette \d,\d\d/.test(legende) && /^Mur posé à la main/.test(resumeCale);
     const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
     const ok = segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
-      && frise.length === 12 && frise.every((t) => etats.has(t)) && /^É7 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
-      && contrat >= 5 && /^É7 Calage du mur \(Mur\), /.test(ligne) && /^É7–É8 Mur, /.test(courant || '') && frise2.length === 12 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && lot5 && retour && !debords.some(Boolean);
+      && frise.length === 14 && frise.every((t) => etats.has(t)) && /^É7 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
+      && contrat >= 5 && /^É7 Calage du mur \(Mur\), /.test(ligne) && /^É7–É8 Mur, /.test(courant || '') && frise2.length === 14 && frise2[2] === frise[2] && frise2[3] === frise[3] && calage && lot5 && retour && !debords.some(Boolean);
     return { ok, mesure: `É5 « ${legendeE3.slice(0, 80)}… » ; É9 « ${resumeE6.slice(0, 70)}… » ; barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É7 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… », revenu au mur cherché : « ${resumeRetour.slice(0, 50)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   101: async (page, f) => {
@@ -2590,11 +2592,13 @@ const POINTS = {
     });
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
-    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 });
     await page.goto(BASE + '/?admin&ecran=calibration');
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
     await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
     await etape('fin du rejeu', finRejeu);
+    // Le panneau de Claude est le corps de l'E8 (lot C : l'ecran est « etape -> actions -> avant/apres »).
+    await etape('E8 pour le panneau', () => page.locator('.calFrise button[data-etape="lectureIa"]').click({ timeout: 5000 }));
     const entete = ((await page.locator('[data-controle="calibration.choisirRun"] option').first().textContent()) || '').trim();
     await etape('mode IA', () => page.locator('[data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
     await etape('fin du rejeu IA', finRejeu);
@@ -2622,6 +2626,75 @@ const POINTS = {
       && /ouvertures? vues? par Claude : \d+ retrouvées? par la détection, 1 seule, proposée décochée/.test(resume7) && cochees >= 3 && seules === 1 && vitrage.length > 5
       && appels === 0 && !debords.some(Boolean);
     return { ok, mesure: `réponse rejouée « ${entete} » ; É8 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; boîtes « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  146: async (page, f) => {
+    // L'ecran des etapes de la calibration (lot C1, decisions du proprietaire du 7 novembre 2026) : « etape -> actions -> avant/apres ».
+    // Le cas de l'etalon 02 et sa reponse enregistree SYNTHETIQUE (pas Claude), rejouee en mode IA. On mesure : la frise a ses quatorze
+    // etapes (E2 et E14 comprises) ; chaque etape ouverte montre ses actions, chacune avec un badge de type (Code, Claude, Manuel, Mesure) ;
+    // les gestes sont dans leur etape (les photos a l'E2, l'objectif a l'E3, les reperes a l'E5, le panneau de Claude a l'E8, la relecture
+    // V3 et l'annotation de la verite a l'E12) ; l'E8 range ce que Claude a lu par famille, chaque famille de sa couleur (un trait de
+    // couleur different d'une famille a l'autre) et dit l'etape qui la consomme ; l'E12 montre les boites de Claude a cote du calcul,
+    // meme couleur, avec leur statut ; les reglages et l'historique sont dans un onglet a part ; rien ne deborde.
+    const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
+    const cas = { ...casEtalon('02-enduit-uni-face'), nom: 'Synthèse 02 · enduit', source: 'fumee', ia: [run] };
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-02', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: cas.ouvertures.length, updatedAt: '2026-11-07T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 });
+    const ouvrir = (id) => etape('etape ' + id, async () => { await page.locator(`.calFrise button[data-etape="${id}"]`).click({ timeout: 5000 }); await page.locator('.calEtapeOuverte h3').waitFor({ timeout: 5000 }); });
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    // L'onglet des reglages : la mesure et l'historique, a part des cas.
+    await etape('onglet reglages', () => page.locator('[data-controle="calibration.ongletReglages"]').click({ timeout: 20000 }));
+    const reglages = (await page.locator('[data-controle="calibration.charger"]').count()) === 1 && (await page.locator('[data-controle="calibration.ouvrirCas"]').count()) === 0;
+    await etape('onglet cas', () => page.locator('[data-controle="calibration.ongletCas"]').click({ timeout: 5000 }));
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    const friseAvant = await page.locator('.calFrise > li').count();
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    await ouvrir('lectureIa');
+    await etape('mode IA', () => page.locator('.calEtapeOuverte [data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu IA', finRejeu);
+    const debords = [await deborde()];
+    // Chaque etape : ses actions et leurs badges.
+    const parEtape = [];
+    for (const id of ['preparation', 'prises', 'objectif', 'coins', 'redressement', 'assemblage', 'calage', 'lectureIa', 'silhouette', 'diagnostic', 'texture', 'ouvertures', 'toit', 'validation']) {
+      await ouvrir(id);
+      const badges = await page.locator('.calEtapeOuverte .actionEtape .badgeAction').allTextContents();
+      parEtape.push({ id, badges });
+    }
+    debords.push(await deborde());
+    const badgesOk = parEtape.every((e) => e.badges.length > 0 && e.badges.every((b) => ['Code', 'Claude', 'Manuel', 'Mesure'].includes(b.trim())));
+    // Les gestes dans leur etape.
+    await ouvrir('prises');
+    const e2 = await page.locator('.calEtapeOuverte [data-controle="calibration.retirerPhoto"]').count();
+    await ouvrir('objectif');
+    const e3 = await page.locator('.calEtapeOuverte .calVignettes .calObjectif').count();
+    await ouvrir('redressement');
+    const e5 = await page.locator('.calEtapeOuverte .releveCoinCible, .calEtapeOuverte [data-controle="reperes.ajusterMur"]').count();
+    await ouvrir('lectureIa');
+    const e8Panneau = await page.locator('.calEtapeOuverte [data-controle="calibration.modeIa"]').count();
+    const familles = await page.locator('.calEtapeOuverte .calLectureFamilles .calFamille').evaluateAll((l) => l.map((x) => ({ classe: [...x.classList].find((c) => c.startsWith('famille-')), couleur: getComputedStyle(x.querySelector('.elementAction') ?? x).borderLeftColor, texte: x.querySelector('.calNote')?.textContent ?? '' })));
+    const couleurs = new Set(familles.map((x) => x.couleur));
+    const consommeOuverture = familles.find((x) => x.classe === 'famille-ouverture')?.texte ?? '';
+    if (process.env.FUMEE_CAPTURE_ETAPES) await page.locator('.calEtapeOuverte').screenshot({ path: process.env.FUMEE_CAPTURE_ETAPES + '-' + f.nom + '-e8.png' }).catch(() => {});
+    debords.push(await deborde());
+    await ouvrir('ouvertures');
+    const boitesE12 = await page.locator('.calEtapeOuverte [data-action="boites"] .elementAction.famille-ouverture .elementStatut').allTextContents();
+    const relire = await page.locator('.calEtapeOuverte [data-controle="calibration.relireOuvertures"]').count();
+    const verite = await page.locator('.calEtapeOuverte [data-controle="calibration.proposer"]').count();
+    if (process.env.FUMEE_CAPTURE_ETAPES) await page.locator('.calEtapeOuverte').screenshot({ path: process.env.FUMEE_CAPTURE_ETAPES + '-' + f.nom + '-e12.png' }).catch(() => {});
+    debords.push(await deborde());
+    await page.unroute(/\/admin\//);
+    const ok = reglages && friseAvant === 14 && badgesOk && e2 >= 1 && e3 >= 1 && e5 >= 1 && e8Panneau === 1 && familles.length >= 2 && couleurs.size === familles.length
+      && /Montrée à l’É12, consommée par É12, É14/.test(consommeOuverture) && boitesE12.length >= 3 && boitesE12.some((t) => /^retrouvée par la détection → ouverture \d+$/.test(t)) && relire === 1 && verite === 1 && !debords.some(Boolean);
+    return { ok, mesure: `onglet des réglages ${reglages ? 'à part' : 'MÊLÉ'} ; frise de ${friseAvant} étapes ; badges : ${parEtape.map((e) => e.id + ' ' + e.badges.map((b) => b.trim()[0]).join('')).join(', ')} ; gestes : É2 ${e2} retirer, É3 ${e3} objectif, É5 ${e5} repère(s), É8 panneau ${e8Panneau} ; É8 : ${familles.length} familles (${familles.map((x) => x.classe?.replace('famille-', '')).join(', ')}), ${couleurs.size} couleurs, « ${consommeOuverture.trim().slice(0, 70)} » ; É12 : ${boitesE12.length} boîtes (« ${boitesE12[0] ?? ''} »), relire ${relire}, vérité ${verite} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   103: async (page, f) => {
     // L'escalade d'une facade, a la demande (decision du proprietaire du 29 octobre 2026 : « trois lectures, et une escalade a la
@@ -2651,12 +2724,13 @@ const POINTS = {
     });
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
-    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 });
     const bouton = page.locator('[data-commande="facade.escalader"]');
     await page.goto(BASE + '/?admin&ecran=calibration');
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
     await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
     await etape('fin du rejeu', finRejeu);
+    await etape('E8 pour le panneau', () => page.locator('.calFrise button[data-etape="lectureIa"]').click({ timeout: 5000 }));
     await etape('mode IA', () => page.locator('[data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
     await etape('fin du rejeu IA', finRejeu);
     await etape('bouton', () => bouton.waitFor({ timeout: 10000 }));
@@ -3130,10 +3204,10 @@ const POINTS = {
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
     const sansPhoto = (await page.locator('input[type="file"][accept^="image"], [data-controle="calibration.photo"], [data-controle="calibration.nouveauCas"]').count()) === 0;
     await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
-    await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 }));
+    await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 }));
     const frise = await page.locator('.calFrise > li').count();
     const ok = !!c && /^cas-/.test(id) && c.format === 'plan-facade-reelle' && c.images?.length === 1 && c.photos?.length === 1 && c.largeurM > 0 && /^Maison · façade /.test(c.nom)
-      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 12 && !deborde && !debordeCal;
+      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 14 && !deborde && !debordeCal;
     return { ok, mesure: `cas ${id ?? 'ABSENT'} : « ${c?.nom ?? ''} », ${c?.images?.length ?? 0} photo(s), ${c?.largeurM ?? '?'} × ${c?.hauteurM ?? '?'} m ; « ${toast.slice(0, 80)} » ; calibration : ${sansPhoto ? 'ni champ photo ni « Nouveau cas »' : 'CHAMP PHOTO'}, rejeu ${frise} étapes ; débordement ${deborde ? 'OUI' : 'non'}/${debordeCal ? 'OUI' : 'non'}` };
   },
   108: async (page, f) => {
@@ -6323,7 +6397,7 @@ const POINTS = {
       if (u.pathname.endsWith('/admin/calibration-cas/cas-24')) return json(cas);
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     });
-    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 120000 });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 });
     await page.goto(BASE + '/?admin&ecran=calibration');
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
     await etape('rejouer le cas', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
@@ -6406,7 +6480,7 @@ const POINTS = {
       if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     });
-    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 120000 });
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 });
     await page.goto(BASE + '/?admin&ecran=calibration');
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
     await etape('rejouer le cas', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
@@ -6506,8 +6580,10 @@ const POINTS = {
     if (capture) await page.locator('.calEtalons').screenshot({ path: capture + '-' + f.nom + '-liste.png' }).catch(() => {});
     await etape('ouvrir l etalon 22', () => page.locator('[aria-label="Ouvrir l’étalon 22-pignon-decentre-pierre"]').click({ timeout: 5000 }));
     await etape('editeur', () => page.locator('[aria-label="Étalon 22-pignon-decentre-pierre"]').waitFor({ timeout: 30000 }));
-    await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 120000 }));
-    const vignette = await page.locator('.calVignette img').first().evaluate((i) => i.naturalWidth).catch(() => 0);
+    await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 }));
+    // Les vignettes « avec / sans EXIF » sont a l'E3 depuis le lot C (l'ecran est « etape -> actions -> avant/apres »).
+    await etape('etape E3 de 22', async () => { await page.locator('.calFrise button[data-etape="objectif"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calVignettes .calObjectif').first().waitFor({ timeout: 5000 }); });
+    const vignette = await page.locator('.calVignettes img').first().evaluate((i) => i.naturalWidth).catch(() => 0);
     const frise = await page.locator('.calFrise > li').count();
     const sansEnregistrer = (await page.locator('[data-controle="calibration.enregistrerCas"], [data-controle="calibration.valide"], [data-controle="calibration.supprimerCas"]').count()) === 0;
     const note = /Rien ne s’enregistre/.test((await page.locator('.calEtalonNote').textContent()) || '');
@@ -6519,7 +6595,8 @@ const POINTS = {
     const alerte22 = await page.locator('.calVignettes .calObjectif.alerte').count();
     await etape('fermer', () => page.locator('[data-controle="calibration.fermerCas"]').click({ timeout: 5000 }));
     await etape('ouvrir l etalon 00', async () => { await page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 5000 }); await page.locator('[aria-label="Ouvrir l’étalon 00-existante-enduit"]').click({ timeout: 5000 }); });
-    await etape('fin du rejeu de 00', () => page.waitForFunction(() => /^Étalon de synthèse : 00/.test(document.querySelector('.calEditeur h2')?.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calVignettes .calObjectif'), null, { timeout: 120000 }));
+    await etape('fin du rejeu de 00', () => page.waitForFunction(() => /^Étalon de synthèse : 00/.test(document.querySelector('.calEditeur h2')?.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 }));
+    await etape('etape E3 de 00', async () => { await page.locator('.calFrise button[data-etape="objectif"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calVignettes .calObjectif').first().waitFor({ timeout: 5000 }); });
     const vignette00 = ((await page.locator('.calVignettes .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();
     await etape('etape E3', async () => { await page.locator('.calFrise button[data-etape="objectif"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calObjectif').first().waitFor({ timeout: 5000 }); });
     const e3 = ((await page.locator('.calEtapeOuverte .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();

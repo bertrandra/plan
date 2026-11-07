@@ -6,6 +6,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Ajouté
+- **L'écran de la calibration des façades est « étape → actions → avant/après »** (audit de la calibration, lot C1 ; décisions du
+  propriétaire du 7 novembre 2026). Admin › Calibration montre les quatorze étapes (É1 à É14, É2 Prises et É14 Validation comprises,
+  avant même le premier rejeu) ; l'étape ouverte montre ses actions, chacune avec son badge (Code, Claude, Manuel, Mesure), son état, son
+  avant et son après (une image déjà faite par le rejeu, des valeurs en clair), et ses éléments un par un
+  (`zones/composants/ActionsEtape.tsx`). Ce qui était hors étape va dans son étape : les photos à l'É2 (retirer) et à l'É6, les vignettes
+  « avec / sans EXIF » à l'É3, les repères et le mur ajusté de la photo à l'É4 et l'É5, le calage à la main et « Confirmer le mur » à l'É7,
+  le panneau de Claude (mode, réponse rejouée, rappel, escalade) à l'É8, la relecture V3 et l'annotation de la vérité des ouvertures à
+  l'É12 (deux sections nommées, sans doublon). Restent en en-tête le cas, ses dimensions, « Rejouer » et Ctrl+Z / Ctrl+Y ; en pied « validé »,
+  « Enregistrer », « Fermer », « Supprimer ». Les réglages, la mesure de calibration et l'historique ont leur onglet.
+- **Chaque élément lu par Claude a la couleur de sa famille** (`FAMILLES_CLAUDE` : angles, pointe, forme, appentis, corps, élément du
+  toit, cache, parement, zone, ouverture), dix jetons `--claude-*` (`styles/jetons.ts`, `app.css`, les huit modèles de palette ; une
+  famille « Lectures de Claude » dans l'écran de la palette). L'É8 range toute la lecture par famille et dit, pour chacune, l'étape qui la
+  montre et celles qui la consomment ; chaque étape qui la consomme la montre à côté du calcul, même couleur, avec son statut, ce qu'elle
+  confirme (`vers`), la source retenue (calques : la pose des angles à l'É7, les pointes et volumes à l'É9, les boîtes à l'É12). En lecture
+  seulement : aucun choix ne s'y fait encore.
+- L'audit lit les mêmes actions (`MesureFacade.etapes[].actions`, dérivées, jamais écrites dans le fichier), filtrées par le mode d'audit
+  de l'étape (`discret.ts::actionsDansLAudit` : l'É8 en une ligne, aucune mesure contre la vérité), sous l'étape ouverte depuis la barre,
+  dans un pli « Ce que l'É… a fait ». Aucun second aperçu.
+- **Aucun calcul ne change** : banc des façades, `calage-e5.ts`, AE 101, empreintes golden et plancher de lecture 5.1.0 identiques.
+  Point de fumée 146.
 - **L'optique de chaque photo est gardée, avec ou sans position du téléphone** (audit de la calibration des façades, lot A). Dès la
   réduction à 1 280 px, qui efface l'EXIF, la photo d'un cas ou d'un audit range une `optique` (`model/audit.ts::OptiquePhoto`) : la
   focale retenue pour la chaîne (l'EXIF, sinon l'appareil, sinon le défaut), et ce que l'EXIF du fichier d'origine disait

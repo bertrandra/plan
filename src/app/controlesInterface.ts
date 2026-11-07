@@ -317,6 +317,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // Admin › Calibrer la detection (zones/EcranCalibration.tsx, EditeurCasCalibration.tsx) : des photos de facades annotees, la mesure de la
   // detection sur elles et les reglages calibres, enregistres sur le serveur (data/admin/). Rien n'ecrit dans un projet.
   'calibration.ouvrirCas': etape(Z8, CALIBRATION, 'Ouvrir un cas de calibration', { repete: true }),
+  'calibration.ongletCas': etape(Z8, CALIBRATION, 'Montrer les cas et les étalons de la calibration, étape par étape'),
+  'calibration.ongletReglages': etape(Z8, CALIBRATION, 'Montrer, à part des cas, les réglages en usage, la mesure et la calibration, et l’historique'),
   // Les etalons de synthese (facade/banc/etalons.ts) : les scenes du banc des facades, ouvertes comme un cas, en lecture seule.
   'calibration.etalons': etape(Z8, CALIBRATION, 'Déplier la liste des étalons de synthèse : les scènes du banc des façades, à côté des cas réels'),
   'calibration.creerProjetEtalon': etape(Z8, CALIBRATION, 'Créer le projet de démonstration d’un étalon : le bâtiment autour du mur (deux pans à 40°, 9 m de profondeur, le pignon gardé, les parties basses en appentis adossés) et sa façade mesurée et validée comme dans l’audit, enregistré dans les démos de l’admin', { repete: true }),
@@ -369,6 +371,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle, depuis la liste, la prise ou les propositions (rien n’est perdu)'),
   'auditParcelle.rejouerFacade': etape(Z8, AUDIT_PARCELLE, 'Rejouer l’enchaînement d’une façade (l’orchestrateur) : ne remplace que ce qui est dérivé, jamais les photos ni vos corrections', { repete: true }),
   'auditParcelle.rejouerFacades': etape(Z8, AUDIT_PARCELLE, 'Rejouer l’enchaînement de toutes les façades photographiées de l’audit'),
+  'auditParcelle.actionsEtape': etape(Z8, AUDIT_PARCELLE, 'Déplier ce que l’étape ouverte de la façade a fait : ses actions (Code, Claude, Manuel), leur avant et leur après, en lecture', { repete: true }),
   'auditParcelle.relireOuvertures': etape(Z8, AUDIT_PARCELLE, 'Relire les ouvertures trouvées sur la façade (V3) : les garder, corriger, ajouter ou retirer avant de la valider', { repete: true }),
   'facade.garderOuvertures': etape(Z8, AUDIT_PARCELLE, `Garder les ouvertures relues (V3) : l’${num('ouvertures')} est faite, et la validation (V4) écrira celles-là ; Ctrl+Z défait ce geste avant V4`, { repete: true }),
   'facade.annulerRelecture': etape(Z8, AUDIT_PARCELLE, 'Fermer la relecture des ouvertures sans rien garder', { repete: true }),

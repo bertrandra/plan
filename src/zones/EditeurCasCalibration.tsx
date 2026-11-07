@@ -5,9 +5,12 @@
 // (facade/releve/enchainement.ts), le meme que l'audit, avec les memes entrees (ses photos et leurs prises de vue, les reperes et le mur
 // poses a la main) : les coins de chaque photo cherches comme dans l'audit, les photos redressees, assemblees et fondues, le gabarit
 // pose, le haut du mur lu, la texture, les ouvertures. Seules s'y ajoutent la mesure contre la verite et la reponse de Claude rejouee. La barre de progression (zones/composants/BarreProgressionFacade.tsx) et la frise des etapes
-// (FriseEtapesCalibration.tsx) lisent ses etats ; la calibration montre toutes les etapes. On annote ensuite les ouvertures sur le
-// mur redresse : la detection en propose, on retire les fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ;
-// un cas ne compte dans la calibration qu'une fois marque « relu sur la photo » (valide).
+// (FriseEtapesCalibration.tsx) lisent ses etats ; la calibration montre toutes les etapes. L'ecran est « etape -> actions -> avant/apres »
+// (decision du proprietaire, 7 novembre 2026) : rien hors d'une etape sinon l'en-tete (le cas, ses dimensions, rejouer) et le pied (valide,
+// enregistrer, supprimer). Les photos sont a l'E2 (et l'E6, qui en retire), leur objectif a l'E3, les reperes et le mur ajuste a l'E4 et
+// l'E5, le calage a la main et V1 a l'E7, le panneau de Claude a l'E8, la relecture V3 et l'annotation de la verite a l'E12. On annote
+// les ouvertures sur le mur redresse : la detection en propose, on retire les fausses et on trace les manquees. Rien n'est ecrit avant
+// « Enregistrer » ; un cas ne compte dans la calibration qu'une fois marque « relu sur la photo » (valide).
 
 import { COMMANDE_ANNULER_GESTE, COMMANDE_RETABLIR_GESTE } from '../app/clavierGestes.js';
 import { creerPileGestes } from '../util/pileGestes.js';
@@ -21,14 +24,13 @@ import type { CalageVrai, CasStocke, OuvertureVraie } from '../facade/corpusReel
 import { calageVraiDuRejeu } from '../facade/banc/etalons.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
-import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
 import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSansLeMur, derouler, entreesDuCas, etapeDe, originesDuCas, reperesDe, veriteDuCas, type AssemblageAAjuster, type Enchainement, type OrigineCoins } from '../facade/releve/enchainement.js';
 import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
 import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
 import { BarreProgressionFacade, COMMANDE_ESCALADE, type EtapeAffichee } from './composants/BarreProgressionFacade.js';
-import { EtapeOuverte, FriseEtapes, MentionObjectif } from './FriseEtapesCalibration.js';
+import { EtapeOuverte, FriseEtapes } from './FriseEtapesCalibration.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { libelleEscalade, type PrixEscalade, type ResultatRun } from '../app/releve/runFacade.js';
 import { passesDeProduction } from '../facade/regles/facades/ia.js';
@@ -146,8 +148,11 @@ function PlacerReperes({ photo, rang, p, gabarit, rapport, poser, retirer, charg
   );
 }
 
-/** Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer. */
-function VignettesDuCas({ images, courante, origines, choisir, retirer, bilans, photos }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; retirer: (k: number) => void; bilans: readonly BilanPhotoRedressement[] | undefined; photos: CasStocke['photos'] }) {
+/**
+ * Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer (E2, E6 ; sans `retirer`, au choix
+ * seulement : E4 et E5, ou l'on pose les reperes de la photo choisie). L'objectif de chaque photo (avec ou sans EXIF) se dit a l'E3.
+ */
+function VignettesDuCas({ images, courante, origines, choisir, retirer }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; retirer?: (k: number) => void }) {
   if (!images.length) return null;
   return (
     <ul className="calVignettes" aria-label="Photos du cas">
@@ -155,8 +160,7 @@ function VignettesDuCas({ images, courante, origines, choisir, retirer, bilans, 
             <li key={k} className={k === courante ? 'actif' : ''}>
               <button type="button" className="calVignette" data-controle="calibration.choisirPhoto" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
               {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
-              <MentionObjectif bilan={bilans?.find((b) => b.rang === k)} parReperes={!!reperesDe(photos[k])} />
-              <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirer(k)}>Retirer</button>
+              {retirer && <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirer(k)}>Retirer</button>}
             </li>
           ))}
         </ul>
@@ -199,8 +203,9 @@ function NombreM({ libelle, controle, valeur, changer }: { libelle: string; cont
 function AnnotationDuCas({ elevation, ouvertures, modifier }: { elevation: Elevation; ouvertures: readonly OuvertureVraie[]; modifier: (f: (c: CasStocke) => CasStocke) => void }) {
   const [choisie, setChoisie] = useState<number | null>(null);
   const [tracer, setTracer] = useState(false);
-  return <>
-      <p className="calNote">La façade redressée entière, fusionnée de ses vues quand il y en a plusieurs ; le contour est la silhouette du mur, pignons compris. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>
+  return <section className="calVeriteOuvertures" aria-label="La vérité du cas : ses ouvertures annotées">
+      <h4 className="calTitre3">La vérité du cas (mesure) : ses ouvertures annotées</h4>
+      <p className="calNote">Ce n’est pas la relecture (V3, plus haut) : la vérité est ce que la mesure de l’É12 compare à la détection. La façade redressée entière, fusionnée de ses vues quand il y en a plusieurs ; le contour est la silhouette du mur, pignons compris. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>
       <div className="calLigne">
         <button type="button" className="secondary" data-controle="calibration.proposer" onClick={() => { modifier((c) => ({ ...c, ouvertures: elevation.propositions.map((o) => ({ ...o })) })); setChoisie(null); }}>Partir de la détection ({elevation.propositions.length})</button>
         <button type="button" className={tracer ? '' : 'secondary'} aria-pressed={tracer} data-controle="calibration.tracer" onClick={() => setTracer((t) => !t)}>{tracer ? 'Tracé en cours : toucher pour défiler' : 'Tracer une ouverture'}</button>
@@ -209,7 +214,7 @@ function AnnotationDuCas({ elevation, ouvertures, modifier }: { elevation: Eleva
       <ToileAnnotation trace={tracer} elevation={elevation} ouvertures={ouvertures} choisie={choisie} choisir={setChoisie} ajouter={(o) => { modifier((c) => ({ ...c, ouvertures: [...c.ouvertures, o] })); setChoisie(ouvertures.length); }} />
       {choisie !== null && ouvertures[choisie] && <FicheOuverture o={ouvertures[choisie] as OuvertureVraie} modifier={(o) => modifier((c) => ({ ...c, ouvertures: c.ouvertures.map((x, i) => (i === choisie ? o : x)) }))} retirer={() => { modifier((c) => ({ ...c, ouvertures: c.ouvertures.filter((_, i) => i !== choisie) })); setChoisie(null); }} />}
       <p className="calNote">{ouvertures.length} ouverture{ouvertures.length > 1 ? 's' : ''} annotée{ouvertures.length > 1 ? 's' : ''}.</p>
-  </>;
+  </section>;
 }
 
 const pause = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
@@ -389,6 +394,43 @@ function TitreDuCas({ nom, id, etalon }: { nom: string; id: string | null; etalo
   </>;
 }
 
+/** Ce que l'editeur montre d'un rejeu : ses images, l'assemblage a ajuster, la facade a annoter (la detection en propose). */
+function useVuesDuRejeu(rejeu: Enchainement | null, cas: CasStocke, url: (img: Image) => string) {
+  const images = useMemo(() => (rejeu ? imagesEtapes(rejeu, { largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE }) : null), [rejeu, cas.largeurM, cas.hauteurM, cas.gabarit]);
+  const a = rejeu?.sorties.analyse;
+  const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu) : null), [rejeu]);
+  // La facade entiere que lit la detection (rien n'est coupe au sol ni a l'egout : un pignon peut porter une baie), et sa silhouette.
+  const f = images?.facade ?? null;
+  const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, x0M: f.x0, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
+  return { images, assemblageCourant, elevation };
+}
+
+/** Le nom du cas et les dimensions du mur (l'en-tete) : changer une dimension rend le rejeu caduc. */
+function DimensionsDuCas({ cas, modifier, oublier }: { cas: CasStocke; modifier: (f: (c: CasStocke) => CasStocke) => void; oublier: () => void }) {
+  return (
+        <div className="calLigne">
+          <label className="calChamp">Nom<input type="text" value={cas.nom} data-controle="calibration.nomCas" onChange={(e) => modifier((c) => ({ ...c, nom: e.target.value }))} placeholder="Maison de la rue X, façade sud" /></label>
+          <NombreM libelle="Largeur du mur (m)" controle="calibration.largeurM" valeur={cas.largeurM} changer={(v) => { modifier((c) => ({ ...c, largeurM: v })); oublier(); }} />
+          <NombreM libelle="Hauteur à l’égout (m)" controle="calibration.hauteurM" valeur={cas.hauteurM} changer={(v) => { modifier((c) => ({ ...c, hauteurM: v })); oublier(); }} />
+        </div>
+  );
+}
+
+/** Le pied de l'editeur : ce que la personne fait du cas entier (valide, enregistrer, fermer, supprimer). */
+function PiedDuCas({ cas, etalon, message, occupe, modifier, sauver, fermer, supprimer }: { cas: CasStocke; etalon: boolean; message: string | null; occupe: boolean; modifier: (f: (c: CasStocke) => CasStocke) => void; sauver: () => void; fermer: () => void; supprimer: (() => void) | null }) {
+  return (
+      <footer className="calPiedCas">
+        {!etalon && <label className="calCase"><input type="checkbox" checked={cas.statut === 'valide'} data-controle="calibration.valide" onChange={(e) => modifier((c) => ({ ...c, statut: e.target.checked ? 'valide' : 'brouillon' }))} /> J’ai relu les ouvertures sur la photo : ce cas compte dans la calibration</label>}
+        {message && <p className="arbMessage" role="alert">{message}</p>}
+        <div className="calLigne">
+          {!etalon && <button type="button" data-controle="calibration.enregistrerCas" disabled={occupe} onClick={sauver}>Enregistrer le cas</button>}
+          <button type="button" className="secondary" data-controle="calibration.fermerCas" onClick={fermer}>Fermer</button>
+          {supprimer && <button type="button" className="secondary danger" data-controle="calibration.supprimerCas" disabled={occupe} onClick={supprimer}>Supprimer</button>}
+        </div>
+      </footer>
+  );
+}
+
 export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false, etalon }: Props) {
   const [cas, setCas] = useState<CasStocke>(depart);
   const casCourant = useRef(cas);
@@ -496,46 +538,46 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOccupe(false);
     if (erreur) setMessage(erreur); else fermer();
   };
-  const images = useMemo(() => (rejeu ? imagesEtapes(rejeu, { largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE }) : null), [rejeu, cas.largeurM, cas.hauteurM, cas.gabarit]);
-  const a = rejeu?.sorties.analyse;
-  const assemblageCourant = useMemo(() => (rejeu ? assemblageDuRejeu(rejeu) : null), [rejeu]);
-  // La facade entiere que lit la detection (rien n'est coupe au sol ni a l'egout : un pignon peut porter une baie), et sa silhouette.
-  const f = images?.facade ?? null;
-  const elevation = useMemo<Elevation | null>(() => (a && f ? { url: url(f.image), largeurM: f.l, hauteurM: f.h, x0M: f.x0, contour: f.contour, propositions: a.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) } : null), [a, f, url]);
+  const { images, assemblageCourant, elevation } = useVuesDuRejeu(rejeu, cas, url);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
+  const photosDuCas = <>
+    <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Une photo se retire ici ; elle se prend dans l’audit.</p>
+    <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
+  </>;
+  // Les reperes de la photo choisie, et le mur repris a la main sur elle ou sur l'assemblage (E4, E5) : le geste partage avec l'audit.
+  const reperes = <>
+    <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} />
+    {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} rapport={cas.largeurM > 0 ? cas.hauteurM / cas.largeurM : null} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
+      assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} revenir={revenirAuMurCherche} />}
+    {!photo && <p className="calNote">Rejouez d’abord le cas : les repères se posent sur la photo, à ses dimensions.</p>}
+  </>;
+  const corps: Partial<Record<IdEtape, React.ReactNode>> = {
+    prises: photosDuCas,
+    coins: reperes,
+    redressement: reperes,
+    assemblage: photosDuCas,
+    lectureIa: <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
+      escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />,
+    ouvertures: elevation ? <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} /> : null,
+  };
   return (
     <section className="calEditeur" aria-label={etalon ? 'Étalon ' + cas.nom : id ? 'Cas ' + cas.nom : 'Nouveau cas'}>
-      <BarreProgressionFacade etapes={enCours || occupe ? progression : (rejeu?.etapes ?? [])} enCours={enCours} ouverte={ouverte} ouvrable={() => true} commandes={outils.commandes ?? null} arreter={arreter} />
-      <TitreDuCas nom={cas.nom} id={id} etalon={etalon} />
-      <div className="calLigne">
-        <label className="calChamp">Nom<input type="text" value={cas.nom} data-controle="calibration.nomCas" onChange={(e) => modifier((c) => ({ ...c, nom: e.target.value }))} placeholder="Maison de la rue X, façade sud" /></label>
-        <NombreM libelle="Largeur du mur (m)" controle="calibration.largeurM" valeur={cas.largeurM} changer={(v) => { modifier((c) => ({ ...c, largeurM: v })); oublier(); }} />
-        <NombreM libelle="Hauteur à l’égout (m)" controle="calibration.hauteurM" valeur={cas.hauteurM} changer={(v) => { modifier((c) => ({ ...c, hauteurM: v })); oublier(); }} />
-      </div>
+      {/* L'en-tete : la barre, le cas, ses dimensions, et ce qui vaut pour tout le cas (rejouer, defaire un geste). */}
+      <header className="calEnteteCas">
+        <BarreProgressionFacade etapes={enCours || occupe ? progression : (rejeu?.etapes ?? [])} enCours={enCours} ouverte={ouverte} ouvrable={() => true} commandes={outils.commandes ?? null} arreter={arreter} />
+        <TitreDuCas nom={cas.nom} id={id} etalon={etalon} />
+        <DimensionsDuCas cas={cas} modifier={modifier} oublier={oublier} />
+        <div className="calLigne">
+          <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
+          {outils.commandes && <BoutonsGestes commandes={outils.commandes} occupe={occupe} />}
+          <span className="calNote">Touchez une étape : ses actions (Code, Claude, Manuel, Mesure), leur avant et leur après, et vos gestes.</span>
+        </div>
+      </header>
 
-      <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Corrigez au doigt ce que la barre signale et relisez les ouvertures.</p>
-      <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} bilans={rejeu?.sorties.audit?.redressement.photos} photos={cas.photos} />
+      <FriseEtapes rejeu={rejeu} images={images} photos={cas.images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />
+      {ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} relire={relire} commandes={outils.commandes ?? null} corps={corps[ouverte] ?? null} />}
 
-      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} rapport={cas.largeurM > 0 ? cas.hauteurM / cas.largeurM : null} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant}
-        assemblage={assemblageCourant} ajusterMurAssemble={murAssemble} revenir={revenirAuMurCherche} />}
-      <div className="calLigne">
-        <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
-        {outils.commandes && <BoutonsGestes commandes={outils.commandes} occupe={occupe} />}
-      </div>
-      <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
-        escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />
-      {rejeu && <FriseEtapes rejeu={rejeu} images={images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />}
-      {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} relire={relire} commandes={outils.commandes ?? null} />}
-
-      {elevation && <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} />}
-
-      {!etalon && <label className="calCase"><input type="checkbox" checked={cas.statut === 'valide'} data-controle="calibration.valide" onChange={(e) => modifier((c) => ({ ...c, statut: e.target.checked ? 'valide' : 'brouillon' }))} /> J’ai relu les ouvertures sur la photo : ce cas compte dans la calibration</label>}
-      {message && <p className="arbMessage" role="alert">{message}</p>}
-      <div className="calLigne">
-        {!etalon && <button type="button" data-controle="calibration.enregistrerCas" disabled={occupe} onClick={() => { void sauver(); }}>Enregistrer le cas</button>}
-        <button type="button" className="secondary" data-controle="calibration.fermerCas" onClick={fermer}>Fermer</button>
-        {supprimer && <button type="button" className="secondary danger" data-controle="calibration.supprimerCas" disabled={occupe} onClick={() => { if (window.confirm('Supprimer ce cas ? Le fichier est mis de côté sur le serveur.')) void supprimer().then((e) => { if (e) setMessage(e); else fermer(); }); }}>Supprimer</button>}
-      </div>
+      <PiedDuCas cas={cas} etalon={!!etalon} message={message} occupe={occupe} modifier={modifier} sauver={() => { void sauver(); }} fermer={fermer} supprimer={supprimer ? () => { if (window.confirm('Supprimer ce cas ? Le fichier est mis de côté sur le serveur.')) void supprimer().then((e) => { if (e) setMessage(e); else fermer(); }); } : null} />
     </section>
   );
 }

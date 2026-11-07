@@ -18,7 +18,9 @@ import { RelireOuvertures } from '../releve/RelireOuvertures.js';
 import { sontRelues } from '../../model/auditParcelle.js';
 import { type MurAjuste } from '../releve/AjusterMur.js';
 import { auDixiemeDePixel, coinsParDefaut } from '../releve/commun.js';
-import { lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
+import { actionsDansLAudit, lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
+import { ActionsEtape } from '../composants/ActionsEtape.js';
+import { etapeFacade } from '../../model/etapeFacade.js';
 import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { etapesApresValidation } from '../../app/audit/parcelle/facadeValidee.js';
 import { lignesFacadeEnrichie } from '../../app/audit/parcelle/facadeEnrichie.js';
@@ -252,6 +254,8 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   const coinsPx = rangReperes !== null ? mesure?.redressement?.photos.find((p) => p.rang === rangReperes)?.coinsPx : undefined;
   const correction = rangReperes !== null ? saisie?.corrections?.[String(rangReperes)] : undefined;
   const run = session.analyse.runs()?.[facade] ?? null;
+  // Les actions de l'etape ouverte, les memes que la calibration montre, filtrees par son mode d'audit (la lecture de Claude en une ligne).
+  const actionsDisponibles = ouverte ? actionsDansLAudit(ouverte, mesure?.etapes?.find((e) => e.id === ouverte)?.actions) : [];
   return (
     <div className="facadeAudit" data-facade={facade} aria-label={'Enchaînement : ' + nom}>
       <BarreProgressionFacade etapes={etapes} enCours={tourne} ouverte={ouverte} ouvrable={ouvrableDansLAudit} commandes={commandes} arreter={tourne ? () => session.validation.arreterMesure() : null} />
@@ -261,6 +265,8 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} ouverte />}
         {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} />)}
       </ul>}
+      {ouverte && actionsDisponibles.length > 0 && <details className="actionsEtapeAudit" data-controle="auditParcelle.actionsEtape"><summary>{'Ce que l’' + etapeFacade(ouverte).numero + ' a fait'}</summary>
+        <ActionsEtape actions={actionsDisponibles} libelle={'Les actions de l’' + etapeFacade(ouverte).numero + ' : ' + nom} /></details>}
       {gestes && relecture && mesure?.releve && <RelireOuvertures key={mesure.releve.releveLe} releve={mesure.releve} depart={reluesValides} aujourdhui={new Date().toISOString().slice(0, 10)}
         garder={(o) => { setRelecture(false); setEnCours(true); void session.validation.relireOuvertures(cle, cote, o).finally(() => setEnCours(false)); }} annuler={() => setRelecture(false)} />}
       {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
