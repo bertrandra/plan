@@ -5,7 +5,8 @@
 //
 // - Ouvertures (E12, E14) : une boite retrouvee prise de Claude remplace la place de l'ouverture calculee qu'elle confirme ; une boite
 //   seulement proposee, prise, s'ajoute ; Manuel part de l'une ou de l'autre ; une ouverture ajoutee a la main (`ajout:k`) s'ajoute.
-// - Les angles du mur (E7) : la pose de Claude, ou celle de la personne, devient le mur pose a la main (une entree de la chaine).
+// - Les angles du mur (E7) : la pose de Claude, ou celle de la personne, devient le mur pose a la main (une entree de la chaine) ;
+//   « Forcer Claude partout » ne les couvre pas (un choix delibere de l'E7), et la lecture de Claude devient perimee (l'E8 le dit).
 // - Les pointes, le mot du haut, les autres volumes, les elements du toit (E9, E10 ; E14 pour les pointes) : la lecture que le
 //   diagnostic et le bilan recoivent, avec les elements que la personne prend malgre le haut lu (le moteur les pose, ou les refuse).
 // - Le parement, ses zones, ce qui cache le mur, les appentis : aucune etape ne les consomme encore ; le choix est range et dit.
@@ -34,7 +35,8 @@ interface SourceLue { source: SourceElement | null; choisie: ChoixSource | null;
  */
 export function sourceDe(e: ChoixEtForcages, cle: string, famille: FamilleClaude, claudeLu: boolean, retenue: SourceElement | null): SourceLue {
   const choisie = e.choix?.find((x) => x.cle === cle) ?? null, f = FAMILLES_CLAUDE[famille];
-  const forcee = e.forcages?.find((x) => 'toutes' in x || x.etape === f.montreeA || f.consommePar.includes(x.etape)) ?? null;
+  // « Forcer Claude partout » ne couvre pas les angles du mur : poser le mur sur Claude reste un choix delibere de l'E7.
+  const forcee = e.forcages?.find((x) => ('toutes' in x ? famille !== 'angles' : x.etape === f.montreeA || f.consommePar.includes(x.etape))) ?? null;
   const sansClaude = !choisie && !!forcee && !claudeLu;
   const source: SourceElement | null = choisie ? choisie.source : forcee ? (claudeLu ? 'claude' : 'calcul') : retenue;
   return { source, choisie, forcee, sansClaude };

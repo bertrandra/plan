@@ -536,8 +536,9 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     const toutes = await derouler({ ...entreesDuCas(cas, [ph.image]), forcages: [{ toutes: true, source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie) });
     const pointes = etapeDe(toutes, 'silhouette').actions.find((x) => x.id === 'forme')?.elements?.filter((x) => x.famille === 'pointe') ?? [];
     for (const x of pointes) expect([x.sourceLue, x.sansClaude ?? false]).toEqual(x.valeurs?.claude ? ['claude', false] : ['calcul', true]);
-    // Forcer Claude partout : le mur se pose sur ses angles (E7), et la boite proposee entre aux ouvertures.
-    expect(etapeDe(toutes, 'calage').resume).toMatch(/^Mur posé sur les angles de Claude \(votre choix\)\./);
+    // Forcer Claude partout : la boite proposee entre aux ouvertures ; les angles, non (la pose de Claude reste un choix de l'E7).
+    expect(etapeDe(toutes, 'calage').resume).toBe(etapeDe(r, 'calage').resume);
+    expect(etapeDe(toutes, 'calage').actions.find((x) => x.id === 'angles')?.elements?.[0]).toMatchObject({ forcee: null, sourceLue: 'calcul' });
     expect(toutes.sorties.audit?.mesure?.releve.ouvertures.length).toBeGreaterThan(r.sorties.audit?.mesure?.releve.ouvertures.length ?? 0);
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });

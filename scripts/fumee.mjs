@@ -2926,7 +2926,7 @@ const POINTS = {
     await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
     await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
-    // Le segment « Forme » (V2) : l'E7 dit sa proposition sous la barre.
+    // Le segment « Forme » (il doute : ses propositions, que V2 coche a l E13) : l'E7 dit sa proposition sous la barre.
     await etape('segment Forme', () => page.locator('.dialogueAuditParcelle .facadeAudit button[data-etape="diagnostic"]').click({ timeout: 10000 }));
     const forme = ((await page.locator('.dialogueAuditParcelle .barreFacadeLigne').first().textContent()) || '').trim();
     const lignes = await page.locator('.dialogueAuditParcelle .ligneEtapeAudit').allTextContents();

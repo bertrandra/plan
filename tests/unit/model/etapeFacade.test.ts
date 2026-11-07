@@ -11,7 +11,9 @@ describe('les etapes d une facade', () => {
     expect(new Set(ETAPES_FACADE.map((e) => e.id)).size).toBe(ETAPES_FACADE.length);
     for (const e of ETAPES_FACADE) for (const t of [e.nom, e.entrant, e.action, e.objectif, e.sortant]) expect(t.length, e.id).toBeGreaterThan(3);
     // Les quatre points de validation de l'audit (§4 ter.3), chacun sur son etape.
-    expect(ETAPES_FACADE.filter((e) => e.validation).map((e) => e.id + ':' + e.validation)).toEqual(['calage:V1', 'diagnostic:V2', 'ouvertures:V3', 'validation:V4']);
+    // V2 est a l'E13, ou la coche se fait (decision du proprietaire, 7 novembre 2026) : l'E10 est un diagnostic pur.
+    expect(ETAPES_FACADE.filter((e) => e.validation).map((e) => e.id + ':' + e.validation)).toEqual(['calage:V1', 'ouvertures:V3', 'toit:V2', 'validation:V4']);
+    expect([etapeFacade('diagnostic').modeAudit, etapeFacade('diagnostic').optionManuelle]).toEqual(['cache', null]);
     expect(() => etapeFacade('inconnue' as never)).toThrow(RangeError);
     // L'audit cache l'objectif et les coins comme le redressement ; la lecture de Claude y tient en une ligne.
     expect(['objectif', 'coins', 'redressement'].map((id) => etapeFacade(id as never).modeAudit)).toEqual(['cache', 'cache', 'cache']);

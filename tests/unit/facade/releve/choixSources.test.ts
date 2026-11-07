@@ -34,6 +34,9 @@ describe('la source d un element', () => {
     expect(sourceDe({ forcages }, 'pointe:0', 'pointe', true, 'calcul').source).toBe('calcul');
     expect(sourceDe({ forcages, choix: avecLeChoix(undefined, 'ouverture:0', 'calcul', LE) }, 'ouverture:0', 'ouverture', true, null).source).toBe('calcul');
     expect(sourceDe({ forcages: avecLeForcage(undefined, { toutes: true }, true, LE) }, 'pointe-attendue:0', 'pointe', false, 'calcul')).toMatchObject({ source: 'calcul', sansClaude: true });
+    // « Forcer Claude partout » ne couvre pas les angles du mur : la pose de Claude reste un choix delibere de l'E7.
+    expect(sourceDe({ forcages: avecLeForcage(undefined, { toutes: true }, true, LE) }, 'angles', 'angles', true, 'calcul').source).toBe('calcul');
+    expect(sourceDe({ forcages: avecLeForcage(undefined, { etape: 'calage' }, true, LE) }, 'angles', 'angles', true, 'calcul').source).toBe('claude');
   });
 
   it('poser, remplacer et retirer un choix ou un forcage ; relire un cas', () => {

@@ -554,7 +554,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: [...(cas.ia ?? []), r.run] };
     setCas(suite); claude.setChoisi(suite.ia.length - 1); claude.setModeIa(true);
-    await rejouer(suite, 'calage', r.run);
+    await rejouer(suite, 'lectureIa', r.run);
     setMessage((m) => 'Réponse enregistrée : ' + enteteDuRun(r.run) + (etalon ? '. Elle vit le temps de l’écran : un étalon ne s’enregistre pas.' : '. Enregistrez le cas pour la garder.') + (m ? ' ' + m : ''));
   };
   // L'escalade de la reponse choisie (la commande `facade.escalader`) : gardee dans ce run du cas, puis rejouee en IA.
@@ -567,7 +567,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOccupe(false); if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: (cas.ia ?? []).map((x, i) => (i === claude.choisi ? r.run : x)) };
     setCas(suite); claude.setModeIa(true);
-    await rejouer(suite, 'calage', r.run);
+    await rejouer(suite, 'lectureIa', r.run);
     setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + (etalon ? '. Elle vit le temps de l’écran : un étalon ne s’enregistre pas.' : '. Enregistrez le cas pour la garder.') + (m2 ? ' ' + m2 : ''));
   };
   const prixEscalade = useEscalade(outils, escalader);
@@ -611,7 +611,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     coins: reperes,
     redressement: reperes,
     assemblage: photosDuCas,
-    lectureIa: <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
+    lectureIa: <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'lectureIa', run); }} appeler={(n) => { void appeler(n); }}
       escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />,
     ouvertures: <>
       {outils.commandes && rejeu && <AjoutsOuvertures ajouts={(cas.choix ?? []).filter((c) => c.cle.startsWith('ajout:')).map((c) => ({ cle: c.cle, valeur: c.valeur }))} commandes={outils.commandes} occupe={occupe} poser={poser} />}

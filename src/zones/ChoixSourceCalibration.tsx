@@ -101,7 +101,7 @@ export function ForcerLEtape({ id, force, commandes, occupe }: { id: IdEtape; fo
 export function ForcerPartout({ force, commandes, occupe }: { force: boolean; commandes: Commandes; occupe: boolean }) {
   return <div className="calLigne choixForcage">
     <BoutonDeCommande commandes={commandes} id={COMMANDE_FORCER_CLAUDE} donnees={{ toutes: 'oui' }} presse={force} desactive={occupe}>Forcer Claude partout</BoutonDeCommande>
-    <span className="calNote">Pour toutes les étapes qui lisent Claude ; un choix par élément l’emporte.</span>
+    <span className="calNote">Pour toutes les étapes qui lisent Claude, sauf la pose du mur (É7, un choix à faire là) ; un choix par élément l’emporte.</span>
   </div>;
 }
 

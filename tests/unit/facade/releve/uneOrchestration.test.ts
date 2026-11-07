@@ -253,6 +253,22 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     const angles = await rejouer({ ...x.cas, choix: [{ cle: 'angles', source: 'claude', le }] }, 'calibration');
     expect(angles.etapes.find((e) => e.id === 'calage')?.resume).toMatch(/^Mur posé sur les angles de Claude \(votre choix\)\./);
     expect(angles.sorties.ia?.ecart ?? 1).toBeLessThan(0.01);
+    // La lecture de Claude a ete faite sur l'image d'avant la pose : l'E8 la dit perimee.
+    expect(angles.etapes.find((e) => e.id === 'lectureIa')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/elle est périmée ; rappelez Claude pour la refaire\.$/) });
+    // Une autre reponse rejouee depuis l'E8 : l'E7 garde son mur, ses angles se relisent sur lui ; sans reponse, plus rien de Claude.
+    const sansClaude = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: null, depuis: 'lectureIa', precedent: cal });
+    expect(sansClaude.sorties.ia).toBeNull();
+    expect(sansClaude.etapes.find((e) => e.id === 'calage')?.actions.find((a) => a.id === 'angles')?.etat).toBe('saute');
+    const encore = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'lectureIa', precedent: sansClaude });
+    expect(sorties(encore)).toEqual(sorties(await rejouer(x.cas, 'calibration')));
+    // « Rejouer depuis » l'E6 relance la chaine (son premier pas, l'E3), et ne relit pas l'ancienne.
+    const vus: string[] = [];
+    await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'assemblage', precedent: cal, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
+    expect(vus[0]).toBe('objectif');
+    // Une reponse lue sur un autre assemblage que celui du rejeu (sa taille) : l'E8 le dit.
+    const ailleurs = await rejouer(x.cas, 'calibration').then(() => derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: { ...run, image: { largeur: run.image.largeur + 40, hauteur: run.image.hauteur } } }));
+    expect(ailleurs.etapes.find((e) => e.id === 'lectureIa')?.resume).toMatch(/lue sur un autre assemblage \(\d+ × \d+ px ; celui de ce rejeu : \d+ × \d+ px\)/);
+    expect(x.calibration.etapes.find((e) => e.id === 'lectureIa')?.resume).not.toMatch(/autre assemblage/);
   }, 360_000);
 
   it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {

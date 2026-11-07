@@ -187,8 +187,9 @@ d'y toucher.
 - **Les étapes d'une façade s'appellent É1 à É14** (décision du propriétaire, 7 novembre 2026 ; `model/etapeFacade.ts`, numéros continus,
   sans « bis »), dans l'orchestrateur et à l'écran (calibration et audit, où une étape cachée garde son numéro) ; le propriétaire les
   désigne par ces numéros dans ses demandes. É1 Préparation, É2 Prises, É3 Objectif, É4 Coins du mur, É5 Redressement, É6 Assemblage,
-  É7 Calage du mur (V1), É8 Lecture de Claude, É9 Silhouette lue, É10 Diagnostic de forme (V2), É11 Texture, É12 Ouvertures (V3),
-  É13 Toit, É14 Validation (V4). Dans l'audit, l'objectif et les coins sont cachés comme le redressement, la lecture de Claude tient en
+  É7 Calage du mur (V1), É8 Lecture de Claude, É9 Silhouette lue, É10 Diagnostic de forme, É11 Texture, É12 Ouvertures (V3),
+  É13 Toit (V2), É14 Validation (V4). V2 est à l'É13, où la coche se fait (l'avant/après) ; l'É10 est un diagnostic pur (décision
+  du propriétaire, 7 novembre 2026). Dans l'audit, l'objectif et les coins sont cachés comme le redressement, la lecture de Claude tient en
   une ligne. Chaque étape rend ses **actions typées** (`code`, `claude`, `manuel`, et la vérité d'un cas en `mesure`, en lecture seule),
   qui ne sortent que de `derouler`. Le groupe Image (É3 à É6) ne calcule qu'une fois, dans son premier pas : aucun calcul n'a bougé.
   Les données portent l'identifiant d'une étape, jamais son numéro (`libelleEtape(id)` à l'écran et dans les textes). Pour relire ce

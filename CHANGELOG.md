@@ -55,6 +55,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   **Ce GPS est gardé et montré, il n'est utilisé nulle part** : il ne situe pas la photo et ne remplace pas la position du téléphone.
 
 ### Corrigé
+- Une réponse de Claude lue sur un autre assemblage que celui du rejeu (une photo retirée, des repères posés depuis) se dit à l'É8 avec
+  les deux tailles ; seule la version de la chaîne était comparée.
 - **Une photo sans position GPS du téléphone perdait sa focale EXIF** (`app/audit/photo.ts::preparerPhoto` ne rangeait l'optique que dans
   la prise de vue). Au rejeu, elle passait pour « sans EXIF » et se redressait avec le champ lu sur ses points de fuite. La chaîne lit
   maintenant l'objectif de l'optique quand la prise manque (`facade/releve/prisesFacade.ts::objectifRange`), dans l'audit comme dans la
@@ -64,6 +66,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se relit comme avant.
 
 ### Modifié
+- **V2 passe sur l'É13 « Toit »**, là où la coche se fait (décision du propriétaire, 7 novembre 2026) : l'É10 devient un diagnostic pur
+  (cachée dans l'audit, sans geste à elle ; elle se montre encore quand elle propose, comme toute étape qui doute), le segment « Toit » de
+  la barre porte V2. Quatorze étapes, aucune renumérotation ; aucun calcul ne change.
+- **L'É7 lit elle-même les angles de Claude** sur la réponse rejouée, au lieu de lire ce que l'É8 avait écrit après elle ; l'É8 reprend
+  cette lecture pour sa vue d'ensemble et la refait seulement si un rejeu repris depuis elle change de réponse. Mêmes fonctions, mêmes
+  entrées : rien ne change aux sorties. « Forcer Claude partout » ne couvre pas les angles du mur : poser le mur sur Claude reste un
+  choix de l'É7 ; un mur posé sur des angles choisis rend la lecture de Claude périmée, et l'É8 le dit (« rappelez Claude »).
+- Une réponse de Claude se rejoue depuis l'É8 (le mode IA, une réponse choisie, rappelée ou escaladée), plus depuis le calage ; un rejeu
+  sans réponse ne garde plus rien de la précédente. « Rejouer depuis » l'É6 relance la chaîne depuis l'É3, comme l'É4 et l'É5.
 
 - Façades (audit et calibration) : l'enchaînement d'une façade passe de onze à **quatorze étapes**, numérotées sans « bis » (décision
   du propriétaire du 7 novembre 2026) : É1 Préparation, É2 Prises, **É3 Objectif**, **É4 Coins du mur**, É5 Redressement (ex-É3),

@@ -262,7 +262,11 @@ const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, calage: nu
 /** Ce que la reponse rejouee a dit, garde le temps du rejeu pour les actions de l'E8 (ce n'est pas une sortie : rien ne la relit). */
 interface LectureDeLE8 { angles: string | null; pointes: string; image: 'imageRun' | 'assemblage' }
 
-interface Contexte { e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade; lecture?: LectureDeLE8 }
+interface Contexte {
+  e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade; lecture?: LectureDeLE8;
+  /** Ce que l'E7 a lu des angles de Claude dans ce rejeu (la reponse `run`) : l'E8 le reprend tel quel, sans le refaire. */
+  angles?: { run: RunEnregistre; avis: ReturnType<typeof avisDeLIa> | null };
+}
 /** Ce qu'un pas rend : l'etat, le resume, la verite ; ses actions se lisent ensuite sur les sorties (`ACTIONS`). */
 type Resultat = Omit<EtapeCalculee, 'id' | 'actions'>;
 type Pas = (c: Contexte) => Promise<Resultat> | Resultat;
@@ -570,6 +574,7 @@ const calage: Pas = (c) => {
   const m = s.audit?.mesure, b = s.audit?.redressement;
   if (!b?.photos.length) return attend('une photo');
   if (!m) return { etat: 'echec', resume: 'La photo ne montre pas le mur : coins introuvables. Posez quatre repères sur une photo, puis rejouez.', verite: null };
+  lireLesAngles(c);
   const juge = calageJuge(c);
   // Le mur confirme par la personne (V1) : tant que la chaine retient ce mur, l'E7 est « confirme par vous », sa propre note dite.
   const conf = e.prises.murConfirme;
@@ -580,6 +585,20 @@ const calage: Pas = (c) => {
   const note = juge.resume.replace(', à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.', '.').replace(' : à confirmer.', ' : noté, le mur reste celui que vous avez confirmé.');
   return { ...juge, etat: 'confirme', resume: `Mur confirmé par vous ${jourEnClair(conf.le)}. ` + note };
 };
+
+/**
+ * Les angles de Claude contre le mur retenu, lus par l'E7 elle-meme sur la reponse rejouee (`o.ia`), sans attendre l'E8 : l'accord de
+ * ses deux angles (une mesure, jamais candidate) que l'E7 montre a cote du calcul, et la base de « prendre la pose de Claude ». L'E8 le
+ * reprend pour sa vue d'ensemble. Sans reponse, il n'y a pas de lecture de Claude.
+ */
+function lireLesAngles(c: Contexte): void {
+  const { o, s, obj } = c;
+  if (!o.ia) { s.ia = null; return; }
+  const pose = s.calage?.pose ?? null, r = pose ? rectDeLaPose(pose.coins) : null;
+  const avis = r && pose ? avisDeLIa(o.ia, pose, r, s.preparation?.pointes ?? [], obj['facades.enchainement.calageEcartMaxPart'], cadreDuRun(o.ia, s.audit?.imageRun ?? null)) : null;
+  c.angles = { run: o.ia, avis };
+  s.ia = avis?.sortie ?? { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null };
+}
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 /** « le 3 novembre 2026 », d'apres une date ISO (le jour seul : l'heure ne dit rien ici). */
@@ -662,7 +681,10 @@ function avisDeLIa(run: RunEnregistre, image: AssemblageDuMur, retenue: RectIa, 
   const ecart = pose ? ecartDesPoses(pose, retenue) : null;
   const sortie: IaDuRejeu = { run, reponse, pose, ecart, accord: null };
   // Une reponse enregistree sous une autre version de la chaine a lu une autre image : ses angles se mesurent, mais c'est dit.
-  const autre = run.chaine !== VERSION_CHAINE_FACADES ? `, lue sur l’image de la chaîne ${run.chaine} (celle-ci est la ${VERSION_CHAINE_FACADES})` : '';
+  // Et une reponse lue sur un autre assemblage que celui de ce rejeu (une photo retiree, des reperes poses depuis) : sa taille le dit.
+  const autreImage = !cadre && (run.image.largeur !== image.image.largeur || run.image.hauteur !== image.image.hauteur)
+    ? `, lue sur un autre assemblage (${run.image.largeur} × ${run.image.hauteur} px ; celui de ce rejeu : ${image.image.largeur} × ${image.image.hauteur} px)` : '';
+  const autre = (run.chaine !== VERSION_CHAINE_FACADES ? `, lue sur l’image de la chaîne ${run.chaine} (celle-ci est la ${VERSION_CHAINE_FACADES})` : '') + autreImage;
   const tete = `IA (${enteteDuRun(run)}${autre}) : `;
   if (!reponse) return { sortie, texte: tete + 'aucune passe lisible.', angles: null, pointes: '' };
   const pointes = pointesDeLIa(reponse, attendues) + escaladeDeLIa(reponse);
@@ -787,7 +809,7 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   const propre: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
   const etat: EtatAffiche = relu ? 'ok' : propre === 'ok' ? 'a-confirmer' : propre;
   const k = relues?.ouvertures.length ?? 0;
-  const vosChoix = choisies.length ? ` Vos choix (Calcul, Claude, Manuel) changent ${pluriel(choisies.length, 'ouverture')} : ${detectees.length} à relire.` : '';
+  const vosChoix = choisies.length ? ` Vos choix (Calcul, Claude, Manuel) changent ${pluriel(choisies.length, 'ouverture')} ; les ${detectees.length} sont à relire (V3).` : '';
   const resume = relu ? `Ouvertures relues par vous ${jourEnClair(relues.le)} : ${k} gardée${k > 1 ? 's' : ''}. La détection : ` + detecte + vosChoix
     : (relues ? `Les ouvertures relues ${jourEnClair(relues.le)} ne sont plus celles que la détection trouve : à relire. ` : '') + detecte + vosChoix + ' Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.';
   const vraies = o.verite?.ouvertures;
@@ -813,14 +835,17 @@ const IMAGE_LUE = {
  */
 const lectureIa: Pas = (c) => {
   const { e, o, s, obj } = c;
-  if (!o.ia) return sans('Mode déterministe : aucune réponse de Claude à rejouer.');
+  // Sans reponse (le mode deterministe, choisi par un rejeu repris depuis ici) : plus rien de Claude dans ce rejeu.
+  if (!o.ia) { s.ia = null; return sans('Mode déterministe : aucune réponse de Claude à rejouer.'); }
   const m = s.audit?.mesure, b = s.audit?.redressement;
   if (!b?.photos.length) return attend('une photo');
   if (!m) return attend(`le mur posé (${libelleEtape('calage')})`);
-  const pose = s.calage?.pose ?? null, r = pose ? rectDeLaPose(pose.coins) : null, seuil = obj['facades.enchainement.calageEcartMaxPart'];
+  const seuil = obj['facades.enchainement.calageEcartMaxPart'];
   const cadre = cadreDuRun(o.ia, s.audit?.imageRun ?? null);
-  const ia = r ? avisDeLIa(o.ia, pose as AssemblageDuMur, r, s.preparation?.pointes ?? [], seuil, cadre) : null;
-  s.ia = ia?.sortie ?? { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null };
+  // Les angles, l'E7 les a lus dans ce rejeu ; un rejeu repris depuis ici (une autre reponse) les relit sur le mur de l'E7, sans lui.
+  if (c.angles?.run !== o.ia) lireLesAngles(c);
+  const ia = c.angles?.avis ?? null;
+  if (!s.ia) s.ia = { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null };
   // Ses boites accordees avec les ouvertures du releve que V4 ecrira, sur les aretes de l'elevation (decision 4 du proprietaire,
   // 3 novembre 2026 : une seule orchestration). Les descentes qu'il voit ne valent que la ou une verticale les confirme.
   const a = s.analyse, reponse = s.ia.reponse, rel = s.audit?.mesure;
@@ -837,10 +862,12 @@ const lectureIa: Pas = (c) => {
   const accord = s.ia.accord ?? null;
   const tete = ia?.texte ?? `IA (${enteteDuRun(o.ia)}) : ` + (reponse ? 'Claude ne situe pas les deux angles du mur.' : 'aucune passe lisible.');
   const boites = accord ? ' ' + (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' : '';
-  const resume = tete + formeDeLIa(reponse) + boites + ' ' + IMAGE_LUE[image];
+  // Le mur pose sur les angles choisis (lot C2) : la lecture a ete faite sur l'image d'avant cette pose ; elle est perimee, et le dit.
+  const perimee = o.poseChoisie ? ' Le mur est posé sur les angles choisis : cette lecture a été faite sur l’image d’avant, elle est périmée ; rappelez Claude pour la refaire.' : '';
+  const resume = tete + formeDeLIa(reponse) + boites + ' ' + IMAGE_LUE[image] + perimee;
   const diverge = s.ia.ecart !== null && s.ia.ecart > seuil;
-  // A confirmer : aucune passe lisible, ou ses angles et le mur retenu divergent (deux chemins). Des angles qu'il ne situe pas ne disent rien.
-  const etat: EtatAffiche = !reponse || diverge ? 'a-confirmer' : 'ok';
+  // A confirmer : aucune passe lisible, ou ses angles et le mur retenu divergent (deux chemins), ou la lecture perimee. Des angles qu'il ne situe pas ne disent rien.
+  const etat: EtatAffiche = !reponse || diverge || perimee ? 'a-confirmer' : 'ok';
   // Les boites de Claude se mesurent aussi : toutes, puis les cochees (celles que la detection retrouve) ; c'est la mesure x1 contre x3.
   const vraies = o.verite?.ouvertures;
   if (!vraies?.length || !accord) return { etat, resume, verite: null };
@@ -903,7 +930,7 @@ const PAS: Record<IdEtape, Pas> = {
  * premier pas (E3), ou elle est appelee ; sinon, de l'etape demandee.
  */
 function departDuRejeu(id: IdEtape): IdEtape {
-  return id === 'coins' || id === 'redressement' ? 'objectif' : id;
+  return id === 'coins' || id === 'redressement' || id === 'assemblage' ? 'objectif' : id;
 }
 
 /** Une action d'une etape : son contrat (model/etapeFacade.ts), son etat, et ce qu'elle a dit, lu et rendu. */
@@ -1066,7 +1093,6 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
     return [
       act('diagnostic', 'diagnostiquer', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'forme', valeurs: { propositions: n } } }),
       elementsDeClaude(c),
-      act('diagnostic', 'cocher', n ? 'a-confirmer' : 'saute', { manuel: { geste: etapeFacade('diagnostic').optionManuelle ?? '', fait: null } }),
     ];
   },
   texture: (r, c) => [
@@ -1116,7 +1142,7 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
         ...(relues ? { apres: { valeurs: { gardees: relues.ouvertures.length, le: relues.le.slice(0, 10) } } } : {}) }),
     ];
   },
-  toit: (r, { s }) => [act('toit', 'cocher', etatFini(r.etat), { manuel: { geste: 'cocher les propositions à l’avant/après de l’audit, ou ' + (etapeFacade('toit').optionManuelle ?? ''), fait: null }, apres: { valeurs: { propositions: (s.forme?.diagnostic?.propositions.length ?? 0) + (s.forme?.diagnostic?.elements.length ?? 0) } } })],
+  toit: (r, { s }) => [act('toit', 'cocher', etatFini(r.etat), { manuel: { geste: (etapeFacade('toit').optionManuelle ?? '') + ' (V2)', fait: null }, apres: { valeurs: { propositions: (s.forme?.diagnostic?.propositions.length ?? 0) + (s.forme?.diagnostic?.elements.length ?? 0) } } })],
   validation: (_r, { o, s }) => [
     act('validation', 'bilan', fait(!!s.facade), { apres: { valeurs: { ouvertures: s.facade?.ouvertures.length ?? 0 } } }),
     // La calibration n'ecrit rien : V4 ne s'y fait pas ; dans l'audit, la personne valide apres le rejeu (facadeValidee.ts).
@@ -1155,7 +1181,8 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
     etapes.push({ id: def.id, ...r, actions: [] });
     o.surEtape?.(def.id, r.etat, r.resume);
   }
-  // Les actions se lisent une fois le rejeu fini : le calage montre aussi les angles de Claude, que l'E8 mesure apres lui. Une etape
+  // Les actions se lisent une fois le rejeu fini : le calage montre les angles de Claude, qu'il lit lui-meme (relus par l'E8 quand un
+  // rejeu repris depuis elle change de reponse). Une etape
   // reprise d'un rejeu precedent garde les siennes (le calage les relit si l'E8 a ete refaite). Elles ne changent rien au calcul.
   const refaite = (id: IdEtape) => k0(id) >= debut || (id === 'calage' && k0('lectureIa') >= debut);
   const avecActions = etapes.map((x) => (refaite(x.id) ? { ...x, actions: actionsDeLEtape(x.id, x, c) } : x));
