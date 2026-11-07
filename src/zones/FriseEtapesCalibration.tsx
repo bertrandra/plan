@@ -1,13 +1,16 @@
-// Admin › Calibrer la detection : la frise des etapes d'un cas rejoue (MD/spec-facade-calage-audit.md §7.3), chacune avec sa
-// vignette et son etat, et l'etape ouverte en grand avec ses calques, son contrat et sa mesure contre la verite. Tout vient du rejeu
-// de l'orchestrateur (facade/releve/enchainement.ts) et de ses images (facade/releve/imagesEtapes.ts) : l'ecran ne calcule rien, il
-// change les images en adresses et dessine.
+// Admin › Calibrer la detection : la frise des etapes d'un cas rejoue (MD/spec-facade-calage-audit.md §7.3), les quatorze (E1 a E14),
+// chacune avec sa vignette et son etat, et l'etape ouverte en grand : « etape -> actions -> avant/apres » (decision du proprietaire,
+// 7 novembre 2026). Ses actions typees (Code, Claude, Manuel, Mesure ; zones/composants/ActionsEtape.tsx, le meme composant que
+// l'audit), ses calques, les gestes qui lui appartiennent (passes par l'editeur), son contrat. Tout vient du rejeu de l'orchestrateur
+// (facade/releve/enchainement.ts) et de ses images (facade/releve/imagesEtapes.ts) : l'ecran ne calcule rien, il change les images en
+// adresses et dessine.
 
 import { RelireOuvertures } from './releve/RelireOuvertures.js';
 import { sontRelues } from '../model/auditParcelle.js';
 import type { OuvertureFacade } from '../model/types.js';
-import { useCallback, useState } from 'react';
-import { etapeFacade, LIBELLES_ETAT, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
+import { useCallback, useState, type ReactNode } from 'react';
+import { ETAPES_FACADE, etapeFacade, FAMILLES_CLAUDE, LIBELLES_ETAT, type CleImageEtape, type ElementAction, type EtatAffiche, type FamilleClaude, type IdEtape } from '../model/etapeFacade.js';
+import { ActionsEtape, ElementsAction, PastilleFamille, type ImageDeLAction } from './composants/ActionsEtape.js';
 import { etapeDe, objectifDeLaPhoto, reperesDe, type Enchainement } from '../facade/releve/enchainement.js';
 import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
 import type { ImagesEtapes } from '../facade/releve/imagesEtapes.js';
@@ -71,8 +74,8 @@ function BoitesIa({ boites, l, rayon }: { boites: NonNullable<ImagesEtapes['ia']
   </>;
 }
 
-/** Les etapes de la frise : ce que le rejeu illustre (E2, l'entree, est dans l'editeur ; E14 n'est pas de la calibration). */
-const ETAPES_FRISE: readonly IdEtape[] = ['preparation', 'objectif', 'coins', 'redressement', 'assemblage', 'calage', 'lectureIa', 'silhouette', 'diagnostic', 'texture', 'ouvertures', 'toit'];
+/** Les etapes de la frise : les quatorze, E2 (les photos) et E14 (le bilan, que la calibration montre sans l'ecrire) comprises. */
+const ETAPES_FRISE: readonly IdEtape[] = ETAPES_FACADE.map((e) => e.id);
 
 const MOTS_COINS = { trouves: 'coins trouvés sur la photo', devines: 'coins prédits par la prise de vue, à vérifier', main: 'coins posés à la main', reperes: 'coins lus après vos repères' } as const;
 const MOTS_MODE = { cache: 'cachée (elle ne se montre que si elle échoue)', resume: 'en une ligne', valider: 'un point d’arrêt : la personne confirme' } as const;
@@ -90,9 +93,16 @@ function Calques({ url, l, h, libelle, children }: { url: string; l: number; h: 
   );
 }
 
-/** La vignette d'une etape dans la frise : son image principale, quand elle en a une. */
-function vignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
+/** La vignette d'une etape dans la frise : son image principale, quand elle en a une (une adresse : E2 montre la premiere photo). */
+function vignette(id: IdEtape, im: ImagesEtapes | null, photos: readonly string[], url: (img: Image) => string): string | null {
+  if (id === 'prises' || id === 'objectif' || id === 'coins') return photos[0] ?? null;
+  const i = imageDeLaVignette(id, im);
+  return i ? url(i) : null;
+}
+
+function imageDeLaVignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
   if (!im) return null;
+  if (id === 'validation') return im.texture?.image ?? im.facade?.image ?? null;
   if (id === 'redressement') return im.vues.find((v) => v)?.image ?? null;
   if (id === 'assemblage') return im.assemblage?.image ?? null;
   if (id === 'ouvertures') return im.facade?.image ?? im.pose?.image ?? null;
@@ -123,20 +133,22 @@ function CalageALaMain({ image, url, coins, gabarit, rapport, caler }: { image: 
 interface PropsFrise {
   rejeu: Enchainement | null;
   images: ImagesEtapes | null;
+  /** Les photos du cas (leurs adresses) : la vignette des etapes qui les lisent telles quelles. */
+  photos: readonly string[];
   ouverte: IdEtape | null;
   url: (img: Image) => string;
   commandes: Pick<RegistreCommandes, 'etat' | 'executer' | 'effacee'> | null;
 }
 
 /** La frise : une vignette par etape, son etat en mot et en forme ; la toucher l'ouvre (la commande `facade.etape`). */
-export function FriseEtapes({ rejeu, images, ouverte, url, commandes }: PropsFrise) {
+export function FriseEtapes({ rejeu, images, photos, ouverte, url, commandes }: PropsFrise) {
   const utilisable = !!commandes && !commandes.effacee(COMMANDE_ETAPE) && commandes.etat(COMMANDE_ETAPE).utilisable;
   return (
     <ol className="calFrise" aria-label="Les étapes du cas">
       {ETAPES_FRISE.map((id) => {
-        const def = etapeFacade(id), e = rejeu ? etapeDe(rejeu, id) : null, im = vignette(id, images);
+        const def = etapeFacade(id), e = rejeu ? etapeDe(rejeu, id) : null, im = vignette(id, images, photos, url);
         const contenu = <>
-          {im ? <img src={url(im)} alt="" /> : <span className="calFriseVide" aria-hidden="true" />}
+          {im ? <img src={im} alt="" /> : <span className="calFriseVide" aria-hidden="true" />}
           <span className="calFriseNom">{def.numero} · {def.nom}</span>
           <span className={'calFriseEtat ' + (e?.etat ?? 'a-venir')}>{LIBELLES_ETAT[e?.etat ?? 'a-venir']}</span>
         </>;
@@ -155,8 +167,9 @@ export function FriseEtapes({ rejeu, images, ouverte, url, commandes }: PropsFri
 
 interface PropsEtape {
   id: IdEtape;
-  rejeu: Enchainement;
-  images: ImagesEtapes;
+  /** Le dernier rejeu ; null avant le premier (l'etape montre alors son contrat et ses gestes, ceux des photos). */
+  rejeu: Enchainement | null;
+  images: ImagesEtapes | null;
   cas: CasStocke;
   dims: Readonly<Record<number, { l: number; h: number }>>;
   url: (img: Image) => string;
@@ -167,6 +180,12 @@ interface PropsEtape {
   relire?: (gardees: OuvertureFacade[]) => void;
   /** Le registre de l'ecran : « Confirmer le mur » (V1) passe par la commande `facade.confirmerMur`, comme dans l'audit. */
   commandes?: Pick<RegistreCommandes, 'etat' | 'executer' | 'effacee'> | null;
+  /** Les gestes que l'editeur range dans cette etape (les photos, les reperes, le panneau de Claude, l'annotation de la verite). */
+  corps?: ReactNode;
+  /** Ce que l'ecran ajoute sous un element de Claude (les choix de la personne) ; absent : en lecture. */
+  choixElement?: (x: ElementAction) => ReactNode;
+  /** Ce que l'ecran ajoute sous une action de Claude (le forcage pour l'etape) ; absent : rien. */
+  gesteAction?: Parameters<typeof ActionsEtape>[0]['geste'];
 }
 
 /**
@@ -200,14 +219,14 @@ function RelectureDuCas({ rejeu, cas, relire }: { rejeu: Enchainement; cas: CasS
  * L'objectif d'une photo tel que la chaine l'a pris (le bilan de l'E3 du dernier rejeu) : « Avec EXIF », ou « Sans EXIF » et son
  * avertissement (un mot, une bordure d'alerte, le texte entier en infobulle et pour le lecteur d'ecran).
  */
-export function MentionObjectif({ bilan, parReperes, complet = false }: { bilan: BilanPhotoRedressement | undefined; parReperes: boolean; complet?: boolean }) {
+function MentionObjectif({ bilan, parReperes, complet = false }: { bilan: BilanPhotoRedressement | undefined; parReperes: boolean; complet?: boolean }) {
   const d = bilan ? objectifDeLaPhoto(bilan, parReperes) : null;
   if (!d) return null;
   return <small className={'calObjectif' + (d.alerte ? ' alerte' : '')} data-objectif={bilan?.objectif?.source} title={d.texte}>{complet ? d.texte : <>{d.court}<span className="texteMasque">{d.texte.slice(d.court.length)}</span></>}</small>;
 }
 
 /** Les calques d'une etape : ce que l'automatique a vu, ce qui a ete retenu. */
-function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
+function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis' | 'rejeu' | 'images'> & { rejeu: Enchainement; images: ImagesEtapes }) {
   const { id, images: im, cas, dims, url, caler } = p;
   const g = cas.gabarit ?? GABARIT_RECTANGLE;
   if (id === 'preparation') {
@@ -217,9 +236,15 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
       <polygon className="calCalage" points={points(contour)} vectorEffect="non-scaling-stroke" />
     </svg><figcaption>Le gabarit du plan et du LiDAR : {metres(L)} m de large, {metres(H)} m à l’égout, {metres(haut)} m au plus haut.</figcaption></figure>;
   }
-  if (id === 'objectif') return <ul className="calListe" aria-label="Le champ de chaque photo">
-    {cas.images.map((_, k) => <li key={k}>Photo {k + 1} : <MentionObjectif bilan={p.rejeu.sorties.audit?.redressement.photos.find((b) => b.rang === k)} parReperes={!!reperesDe(cas.photos[k])} complet /></li>)}
-  </ul>;
+  // Les vignettes « avec / sans EXIF » sont a l'E3 (decision du proprietaire, 7 novembre 2026) : chaque photo, et l'objectif que la chaine a pris.
+  if (id === 'objectif') return <>
+    <ul className="calVignettes" aria-label="Les photos et leur objectif">
+      {cas.images.map((u, k) => <li key={k}><img className="calVignetteFixe" src={u} alt={'Photo ' + (k + 1)} /><MentionObjectif bilan={p.rejeu.sorties.audit?.redressement.photos.find((b) => b.rang === k)} parReperes={!!reperesDe(cas.photos[k])} /></li>)}
+    </ul>
+    <ul className="calListe" aria-label="Le champ de chaque photo">
+      {cas.images.map((_, k) => <li key={k}>Photo {k + 1} : <MentionObjectif bilan={p.rejeu.sorties.audit?.redressement.photos.find((b) => b.rang === k)} parReperes={!!reperesDe(cas.photos[k])} complet /></li>)}
+    </ul>
+  </>;
   if (id === 'coins') return <ul className="calGrille" aria-label="Chaque photo et les coins du mur retenus">
     {cas.images.map((u, k) => { const d = dims[k], c = p.rejeu.sorties.calage?.photos[k]; return <li key={k}><figure>
       {d ? <Calques url={u} l={d.l} h={d.h} libelle={'Photo ' + (k + 1) + ' et les coins du mur retenus'}>{c?.coins.length === 4 && <polygon className="calCalage" points={points(c.coins)} vectorEffect="non-scaling-stroke" />}</Calques> : <img className="calEtape" src={u} alt={'Photo ' + (k + 1)} />}
@@ -239,10 +264,11 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
     // Le mur que la chaine a pose (celui de l'audit), et ce que sa silhouette explique de l'image ; la pose de Claude se montre a l'E8.
     const ex = p.rejeu.sorties.calage?.explication, pose = im.pose;
     return <>
-      {pose && <figure><Calques url={url(pose.image)} l={pose.image.largeur} h={pose.image.hauteur} libelle="Le mur retenu sur l’image prise pour la suite (contour), comme dans l’audit">
+      {pose && <figure><Calques url={url(pose.image)} l={pose.image.largeur} h={pose.image.hauteur} libelle="Le mur retenu sur l’image prise pour la suite (contour), comme dans l’audit, et la pose des deux angles de Claude">
         <polygon className="calCalage" points={points(pose.contour)} vectorEffect="non-scaling-stroke" />
+        {im.ia?.pose && <rect className="calMurIa" x={im.ia.pose.x0} y={im.ia.pose.y0} width={im.ia.pose.x1 - im.ia.pose.x0} height={im.ia.pose.y1 - im.ia.pose.y0} vectorEffect="non-scaling-stroke" />}
       </Calques><figcaption>
-        Contour : le mur retenu par la chaîne de l’audit (coins posés à la main, sinon trouvés sur les photos, sinon prédits), le gabarit posé entre ses coins.
+        Contour : le mur retenu par la chaîne de l’audit (coins posés à la main, sinon trouvés sur les photos, sinon prédits), le gabarit posé entre ses coins.{im.ia?.pose ? ' Tirets (couleur des angles de Claude) : la pose de ses deux angles, à côté du calcul, jamais candidate.' : ''}
         {ex && <> Score d’explication par la silhouette {note(ex.score)} (angles {note(ex.angles[0])} et {note(ex.angles[1])}, égout {note(ex.egout)}, sol {note(ex.sol)}).</>}
       </figcaption></figure>}
       {pose && <CalageALaMain key={url(pose.image)} image={pose.image} url={url(pose.image)} coins={pose.coins} gabarit={g} rapport={cas.largeurM > 0 ? cas.hauteurM / cas.largeurM : null} caler={caler} />}
@@ -254,6 +280,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
     const pose = im.pose, f = im.facade;
     if (!im.ia) return <p className="calNote">Mode déterministe : aucune réponse de Claude à rejouer. « Rappeler Claude » en enregistre une.</p>;
     return <>
+      <LectureParFamille rejeu={p.rejeu} choixElement={p.choixElement} />
       {pose && <figure><Calques url={url(pose.image)} l={pose.image.largeur} h={pose.image.hauteur} libelle="Le mur retenu et la pose des deux angles de Claude">
         <polygon className="calCalage" points={points(pose.contour)} vectorEffect="non-scaling-stroke" />
         {im.ia.pose && <rect className="calMurIa" x={im.ia.pose.x0} y={im.ia.pose.y0} width={im.ia.pose.x1 - im.ia.pose.x0} height={im.ia.pose.y1 - im.ia.pose.y0} vectorEffect="non-scaling-stroke" />}
@@ -266,18 +293,22 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
       </Calques><figcaption>Les boîtes de Claude : pleines quand la détection les retrouve (cochées), en tirets quand elles sont seules (décochées) ; touchez-en une pour voir la division de son vitrage.</figcaption></figure>}
     </>;
   }
-  if (id === 'silhouette') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">
-    <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
-    {im.pose.masques.map((q, k) => <polygon key={'m' + k} className="calMasqueVegetation" points={points(q)} vectorEffect="non-scaling-stroke" />)}
-    {im.pose.silhouette && <polyline className="calSilhouetteLue" points={points(im.pose.silhouette)} vectorEffect="non-scaling-stroke" />}
-  </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.{im.pose.masques.length ? ' Bandes hachurées : le haut caché par la végétation, non lu ; le gabarit y est gardé.' : ''}</figcaption></figure> : null;
+  const poseS = im.pose;
+  if (id === 'silhouette') return poseS ? <figure><Calques url={url(poseS.image)} l={poseS.image.largeur} h={poseS.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">
+    <polygon className="calCalage" points={points(poseS.contour)} vectorEffect="non-scaling-stroke" />
+    {poseS.masques.map((q, k) => <polygon key={'m' + k} className="calMasqueVegetation" points={points(q)} vectorEffect="non-scaling-stroke" />)}
+    {poseS.silhouette && <polyline className="calSilhouetteLue" points={points(poseS.silhouette)} vectorEffect="non-scaling-stroke" />}
+    {im.ia?.pointes.map((q, k) => <circle key={'p' + k} className="calPointeIa" cx={q.x} cy={q.y} r={0.008 * poseS.image.largeur} vectorEffect="non-scaling-stroke" />)}
+    {im.ia?.etendues.filter((x) => x.quoi !== 'cache').map((x, k) => <line key={'t' + k} className={'calEtendueIa ' + x.quoi} x1={x.x0} x2={x.x1} y1={x.y} y2={x.y} vectorEffect="non-scaling-stroke" />)}
+  </Calques><figcaption>Contour : le gabarit du plan posé sur le mur retenu. Trait épais : le haut du mur lu à la teinte, entre les mêmes bouts.{im.ia ? ' Ronds et traits de couleur : les pointes, les appentis et les autres volumes que Claude lit, à côté du calcul.' : ''}{poseS.masques.length ? ' Bandes hachurées : le haut caché par la végétation, non lu ; le gabarit y est gardé.' : ''}</figcaption></figure> : null;
   // La facade que lit la detection, entiere (pignons compris, rien n'est coupe a l'egout), fusionnee quand plusieurs vues se fondent,
   // en metres : la silhouette, seule zone ou la detection cherche, et les ouvertures dessus.
   if (id === 'ouvertures') { const f = im.facade; return f ? <figure><Calques url={url(f.image)} l={f.l} h={f.h} libelle="La façade entière lue par la détection, sa silhouette et les ouvertures proposées">
     <polygon className="calMurLigne silhouette" points={points(f.contour)} vectorEffect="non-scaling-stroke" />
     {f.proposees.map((q, k) => <polygon key={'p' + k} className="calPropose" points={points(q)} vectorEffect="non-scaling-stroke" />)}
     {f.devinees.map((q, k) => <polygon key={'d' + k} className="calDevinee" points={points(q)} vectorEffect="non-scaling-stroke" />)}
-  </Calques><figcaption>La façade redressée entière{p.rejeu.sorties.analyse?.fusion ? ', fusionnée de ses vues' : ''}, telle que la lit la détection. Contour : la silhouette du mur (le gabarit du plan et du LiDAR, pignons compris), seule zone où les ouvertures se cherchent. Trait plein : les ouvertures trouvées ; pointillé : celles que la structure devine. Les boîtes de Claude se voient à l’{etapeFacade('lectureIa').numero}.</figcaption></figure> : null; }
+    {im.ia && <BoitesIa boites={im.ia.boites} l={f.l} rayon={0.008 * f.l} />}
+  </Calques><figcaption>La façade redressée entière{p.rejeu.sorties.analyse?.fusion ? ', fusionnée de ses vues' : ''}, telle que la lit la détection. Contour : la silhouette du mur (le gabarit du plan et du LiDAR, pignons compris), seule zone où les ouvertures se cherchent. Trait plein : les ouvertures trouvées ; pointillé : celles que la structure devine.{im.ia ? ' Couleur des boîtes de Claude, à côté du calcul : pleines quand la détection les retrouve, en tirets quand elles sont seules (touchez-en une pour son vitrage).' : ''}</figcaption></figure> : null; }
   if (id === 'texture' && im.texture) {
     const t = im.texture;
     const surSilhouette = (img: Image, cle: string, libelle: string) => <svg className="calEtape large" viewBox={`0 0 ${t.l} ${t.h}`} role="img" aria-label={libelle}>
@@ -306,6 +337,7 @@ function CalquesDeLEtape(p: Omit<PropsEtape, 'occupe' | 'rejouerDepuis'>) {
     <ToitVrai cas={cas} />
   </>;
   if (id === 'toit') return <ToitVrai cas={cas} />;
+  if (id === 'validation' && p.rejeu.sorties.facade) { const b = p.rejeu.sorties.facade; return <p className="calNote">Le bilan que l’audit écrirait à la validation (V4) : {b.ouvertures.length} ouverture{b.ouvertures.length > 1 ? 's' : ''}. La calibration n’écrit pas de façade.</p>; }
   return null;
 }
 
@@ -317,15 +349,56 @@ function ToitVrai({ cas }: { cas: CasStocke }) {
   </ul>;
 }
 
-/** L'etape ouverte en grand : son etat, ce qu'elle a donne, sa mesure contre la verite, ses calques, son contrat et le rejeu depuis elle. */
+/**
+ * Les images d'une etape en adresses, pour l'avant et l'apres de ses actions : celles que le rejeu a deja faites (`ImagesEtapes`), les
+ * photos du cas telles quelles. Aucune n'est calculee pour la montrer.
+ */
+function imagesDesActions(im: ImagesEtapes | null, photos: readonly string[], url: (img: Image) => string): ImageDeLAction {
+  return (cle: CleImageEtape) => {
+    const de = (i: Image | null | undefined, libelle: string) => (i ? { url: url(i), libelle } : null);
+    if (cle === 'photos') return photos[0] ? { url: photos[0], libelle: 'La première photo du mur' } : null;
+    if (!im) return null;
+    if (cle === 'vues') return de(im.vues.find((v) => v)?.image, 'Une photo redressée entière');
+    if (cle === 'assemblage') return de(im.assemblage?.image, 'L’assemblage des photos redressées');
+    if (cle === 'facade') return de(im.facade?.image, 'La façade que lit la détection');
+    if (cle === 'texture') return de(im.texture?.image, 'La texture calée sur le mur');
+    // La pose, la forme et la lecture de Claude se dessinent sur l'image prise pour la suite : leurs calques sont dans le corps de l'etape.
+    return de(im.pose?.image, cle === 'pose' ? 'Le mur retenu sur l’image prise pour la suite' : cle === 'forme' ? 'L’image où se lit la forme' : 'L’image que Claude a lue');
+  };
+}
+
+/**
+ * L'E8 : tout ce que Claude a lu, famille par famille, chaque element dans la couleur de sa famille, et l'etape qui le montre et celles
+ * qui le consomment (FAMILLES_CLAUDE). Les elements sont ceux que les actions Claude des etapes rendent : rien n'est relu ici.
+ */
+function LectureParFamille({ rejeu, choixElement }: { rejeu: Enchainement; choixElement?: ((x: ElementAction) => ReactNode) | undefined }) {
+  const elements = rejeu.etapes.flatMap((e) => e.actions).filter((a) => a.type === 'claude').flatMap((a) => a.elements ?? []).filter((x) => x.famille);
+  if (!elements.length) return null;
+  const familles = (Object.keys(FAMILLES_CLAUDE) as FamilleClaude[]).filter((f) => elements.some((x) => x.famille === f));
+  return <section className="calLectureFamilles" aria-label="Ce que Claude a lu, famille par famille">
+    <h4 className="calTitre3">Ce que Claude a lu, famille par famille</h4>
+    {familles.map((f) => <div key={f} className={'calFamille famille-' + f}>
+      <p className="calNote"><PastilleFamille famille={f} /> Montrée à l’{etapeFacade(FAMILLES_CLAUDE[f].montreeA).numero}{FAMILLES_CLAUDE[f].consommePar.length ? ', consommée par ' + FAMILLES_CLAUDE[f].consommePar.map((id) => etapeFacade(id).numero).join(', ') : ', consommée par aucune étape (une lecture)'}.</p>
+      <ElementsAction elements={elements.filter((x) => x.famille === f)} extra={choixElement ? (x) => choixElement(x) : undefined} />
+    </div>)}
+  </section>;
+}
+
+/**
+ * L'etape ouverte en grand : son etat, ce qu'elle a donne, ses actions (chacune avec son type, son avant et son apres), ses calques, les
+ * gestes qui lui appartiennent, son contrat et le rejeu depuis elle.
+ */
 export function EtapeOuverte(p: PropsEtape) {
-  const def = etapeFacade(p.id), e = etapeDe(p.rejeu, p.id);
+  const def = etapeFacade(p.id), e = p.rejeu ? etapeDe(p.rejeu, p.id) : null, etat = e?.etat ?? 'a-venir';
   return (
-    <section className={'calEtapeOuverte ' + e.etat} aria-label={'Étape ' + def.numero + ', ' + def.nom}>
-      <h3 className="calTitre2">{def.numero} · {def.nom} <span className={'calFriseEtat ' + e.etat}>{LIBELLES_ETAT[e.etat]}</span></h3>
-      <p className="calResume">{e.resume}</p>
-      {e.verite && <p className={'calVerite' + (e.verite.juste ? ' juste' : ' faux')}>{e.verite.texte}</p>}
-      <CalquesDeLEtape {...p} />
+    <section className={'calEtapeOuverte ' + etat} aria-label={'Étape ' + def.numero + ', ' + def.nom}>
+      <h3 className="calTitre2">{def.numero} · {def.nom} <span className={'calFriseEtat ' + etat}>{LIBELLES_ETAT[etat]}</span></h3>
+      <p className="calResume">{e?.resume ?? 'Pas encore calculée : « Rejouer » déroule le cas.'}</p>
+      {e?.verite && <p className={'calVerite' + (e.verite.juste ? ' juste' : ' faux')}>{e.verite.texte}</p>}
+      {e && <ActionsEtape actions={e.actions} libelle={'Les actions de l’' + def.numero} image={imagesDesActions(p.images, p.cas.images, p.url)}
+        {...(p.choixElement ? { extra: (x) => (x.famille ? p.choixElement?.(x) : null) } : {})} {...(p.gesteAction ? { geste: p.gesteAction } : {})} />}
+      {p.rejeu && p.images && <CalquesDeLEtape {...p} rejeu={p.rejeu} images={p.images} />}
+      {p.corps}
       <dl className="calContrat">
         <dt>Entrant</dt><dd>{def.entrant}</dd>
         <dt>Automatique</dt><dd>{def.action}</dd>
@@ -334,11 +407,11 @@ export function EtapeOuverte(p: PropsEtape) {
         {def.optionManuelle && <><dt>À la main</dt><dd>{def.optionManuelle}</dd></>}
         <dt>Dans l’audit</dt><dd>{MOTS_MODE[def.modeAudit]}{def.validation ? ' (' + def.validation + ')' : ''}</dd>
       </dl>
-      {p.id === 'ouvertures' && p.relire && <RelectureDuCas rejeu={p.rejeu} cas={p.cas} relire={p.relire} />}
-      <div className="calLigne">
+      {p.id === 'ouvertures' && p.relire && p.rejeu && <RelectureDuCas rejeu={p.rejeu} cas={p.cas} relire={p.relire} />}
+      {p.rejeu && <div className="calLigne">
         <button type="button" className="secondary" data-controle="calibration.rejouerDepuis" disabled={p.occupe} onClick={() => p.rejouerDepuis(p.id)}>Rejouer depuis cette étape</button>
-      </div>
-      <p className="calNote">Chaîne des façades, version {p.rejeu.versions.chaine} ; objectifs {p.rejeu.versions.objectifs}{p.rejeu.sorties.ia ? ` ; IA : ${enteteDuRun(p.rejeu.sorties.ia.run)}, règles ${p.rejeu.versions.ia ?? ''}` : ' ; mode déterministe'}.</p>
+      </div>}
+      {p.rejeu && <p className="calNote">Chaîne des façades, version {p.rejeu.versions.chaine} ; objectifs {p.rejeu.versions.objectifs}{p.rejeu.sorties.ia ? ` ; IA : ${enteteDuRun(p.rejeu.sorties.ia.run)}, règles ${p.rejeu.versions.ia ?? ''}` : ' ; mode déterministe'}.</p>}
     </section>
   );
 }

@@ -79,6 +79,12 @@ async function monter(deps: DepsCalibration) {
 const attendre = async (ms = 0) => { await act(async () => { await new Promise((ok) => setTimeout(ok, ms)); }); };
 /** Attend qu'une condition tienne (le calcul automatique dure plus ou moins selon la machine), 10 s au plus. */
 const attendreQue = async (ok: () => boolean) => { for (let t = 0; t < 100 && !ok(); t++) await attendre(100); };
+/** Ouvre une etape de la frise (l'ecran est « etape -> actions -> avant/apres » : les gestes sont dans leur etape). */
+const ouvrirEtape = async (id: IdEtape) => { await act(async () => { (hote.querySelector(`.calFrise [data-etape="${id}"]`) as HTMLButtonElement | null)?.click(); }); };
+/** Le rejeu est fini : le bouton « Rejouer » est revenu et la frise a des etats calcules. */
+const rejeuFini = () => bouton('calibration.rejouer')?.textContent === 'Rejouer' && !!hote.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)');
+/** L'onglet des reglages, de la mesure et de l'historique, a part des cas. */
+const onglet = async (c: 'calibration.ongletCas' | 'calibration.ongletReglages') => { await act(async () => { bouton(c)?.click(); }); };
 
 describe('l ecran de calibration', () => {
   it('liste les cas du serveur ; un cas ne nait que d une facade de l audit, aucune photo ne se prend ici', async () => {
@@ -86,10 +92,15 @@ describe('l ecran de calibration', () => {
     await monter(deps);
     expect(hote.textContent).toContain('Calibrer la détection');
     expect(hote.textContent).toContain('Synthèse 02');
-    expect(hote.textContent).toContain('Valeurs livrées en usage');
     expect(bouton('calibration.depuisAudit')).not.toBeNull();
     expect(hote.querySelector('[data-controle="calibration.nouveauCas"], input[type="file"]')).toBeNull();
+    // Les reglages, la mesure et l'historique sont dans un onglet a part.
+    expect(hote.textContent).not.toContain('Valeurs livrées en usage');
+    await onglet('calibration.ongletReglages');
+    expect(hote.textContent).toContain('Valeurs livrées en usage');
     expect(bouton('calibration.revenir')?.disabled).toBe(true);
+    expect(bouton('calibration.ouvrirCas')).toBeNull();
+    await onglet('calibration.ongletCas');
     // Le cas ouvert non plus : on y retire une photo, on n'en ajoute pas.
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
@@ -117,9 +128,10 @@ describe('l ecran de calibration', () => {
     expect(bouton('calibration.supprimerCas')).toBeNull();
     expect(hote.querySelector('[data-controle="calibration.valide"]')).toBeNull();
     // Il se rejoue des l'ouverture, comme un cas tire d'un audit.
-    await attendreQue(() => !!hote.querySelector('.calFrise'));
+    await attendreQue(rejeuFini);
     expect(hote.querySelector('.calFrise')).not.toBeNull();
-    // Sa photo n'a pas d'EXIF : la vignette le dit, en alerte (un mot, et le texte entier pour le lecteur d'ecran).
+    // Sa photo n'a pas d'EXIF : la vignette de l'E3 le dit, en alerte (un mot, et le texte entier pour le lecteur d'ecran).
+    await ouvrirEtape('objectif');
     const mention = hote.querySelector('.calVignettes .calObjectif') as HTMLElement;
     expect(mention.classList.contains('alerte')).toBe(true);
     expect(mention.textContent).toMatch(/^Sans EXIF : (focale supposée|champ lu).*posez quatre repères\.$/);
@@ -165,7 +177,10 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.choisirFacade')?.click(); await Promise.resolve(); });
     // Le cas se rejoue des l'ouverture, ses coins cherches ; la detection se propose (« Partir de la détection »), mais ne remplit plus
     // la verite d'elle-meme (decision du proprietaire, 3 novembre 2026) : l'E9 se comparerait a sa propre sortie.
-    await attendreQue(() => !!bouton('calibration.proposer'));
+    await attendreQue(rejeuFini);
+    await ouvrirEtape('ouvertures');
+    expect(bouton('calibration.proposer')).not.toBeNull();
+    await ouvrirEtape('prises');
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
     expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés|lus sur l’assemblage)/);
     expect(hote.textContent).not.toMatch(/[1-9]\d* ouvertures? annotée/);
@@ -198,7 +213,8 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.depuisAudit')?.click(); await Promise.resolve(); });
     await act(async () => { bouton('calibration.choisirAudit')?.click(); await Promise.resolve(); });
     await act(async () => { bouton('calibration.choisirFacade')?.click(); await Promise.resolve(); });
-    await attendreQue(() => /coins devinés, à vérifier/.test(hote.textContent ?? '') && hote.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer');
+    await attendreQue(rejeuFini);
+    await ouvrirEtape('prises');
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
     expect([...hote.querySelectorAll('[data-controle="calibration.originePhoto"]')].map((x) => x.textContent)).toEqual(['coins trouvés', 'coins devinés, à vérifier']);
     // Comme dans l'audit (le meme processus) : la photo grise garde des coins calcules, et c'est l'assemblage qui la laisse de cote ;
@@ -217,11 +233,13 @@ describe('l ecran de calibration', () => {
     await monter(deps);
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
+    // Avant le rejeu, la frise est la : ses quatorze etapes, a venir.
+    expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(14);
     await act(async () => { bouton('calibration.rejouer')?.click(); });
-    await attendreQue(() => !!bouton('calibration.proposer'));
+    await attendreQue(rejeuFini);
     // Le rejeu montre la barre de progression et la frise des etapes, chacune avec son etat.
     expect(hote.querySelectorAll('.barreFacade ol > li')).toHaveLength(8);
-    expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(12);
+    expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(14);
     expect(hote.querySelector('.barreFacadeSegment.echec')).toBeNull();
     // Chaque etape se nomme par son numero, de É1 a É14, sans « bis » : sur sa vignette, sur son ecran ouvert, dans la barre (decision
     // du proprietaire : il les cite par ces numeros).
@@ -231,7 +249,12 @@ describe('l ecran de calibration', () => {
       expect(li.textContent).toContain(def.numero + ' · ' + def.nom);
       await act(async () => { (li.querySelector('[data-etape]') as HTMLButtonElement).click(); });
       expect(hote.querySelector('.calEtapeOuverte h3')?.textContent?.startsWith(def.numero + ' · ' + def.nom)).toBe(true);
+      // Chaque etape montre ses actions, chacune avec son badge de type (Code, Claude, Manuel, Mesure).
+      const badges = [...hote.querySelectorAll('.calEtapeOuverte .actionEtape .badgeAction')].map((b) => b.textContent);
+      expect(badges.filter((b) => b !== 'Mesure').length).toBe(def.actions.filter((a) => a.type !== 'mesure').length);
+      expect(badges.every((b) => ['Code', 'Claude', 'Manuel', 'Mesure'].includes(b ?? ''))).toBe(true);
     }
+    await ouvrirEtape('ouvertures');
     const segments = [...hote.querySelectorAll('.barreFacadeSegment [aria-label]')].map((x) => x.getAttribute('aria-label') ?? '');
     SEGMENTS_FACADE.forEach((s, k) => expect(segments[k]).toContain(etapeFacade(s.etapes[0] as IdEtape).numero));
     expect(bouton('calibration.proposer')).not.toBeNull();
@@ -260,7 +283,8 @@ describe('l ecran de calibration', () => {
     await monter(deps);
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
-    // Sans reponse enregistree, le mode IA n'est pas propose ; on rappelle Claude.
+    // Le panneau de Claude est le corps de l'E8. Sans reponse enregistree, le mode IA n'est pas propose ; on rappelle Claude.
+    await ouvrirEtape('lectureIa');
     expect(bouton('calibration.modeIa')?.disabled).toBe(true);
     await act(async () => { bouton('calibration.rejouer')?.click(); });
     await attendreQue(() => !!bouton('calibration.rappelerClaude') && !bouton('calibration.rappelerClaude')?.disabled);
@@ -271,13 +295,21 @@ describe('l ecran de calibration', () => {
     expect(hote.textContent).toContain('Réponse enregistrée : Claude, 2026-10-29, trois passes votées, claude-haiku-5-5, prompt v1, schéma v1, 0,0039 $');
     expect(bouton('calibration.modeIa')?.getAttribute('aria-pressed')).toBe('true');
     // L'E8 (la lecture de Claude) dit l'accord de ses angles et ses boites retrouvees par la detection, et l'image qu'il a lue.
-    const ouvrir = async (id: string) => { await act(async () => { (hote.querySelector(`.calFrise [data-etape="${id}"]`) as HTMLButtonElement | null)?.click(); }); };
+    const ouvrir = ouvrirEtape;
     await ouvrir('lectureIa');
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/IA \(Claude, 2026-10-29.*accord/);
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/3 ouvertures vues par Claude : 3 retrouvées par la détection/);
     expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Image lue : l’assemblage/);
     expect(hote.querySelector('.calEtapeOuverte')?.textContent).toMatch(/IA : Claude, 2026-10-29.*règles [0-9a-f]{8}/);
     expect(hote.querySelectorAll('.calBoiteIa.cochee')).toHaveLength(3);
+    // Chaque element lu par Claude dans la couleur de sa famille, avec l'etape qui le consomme : les trois boites, consommees par l'E12 et l'E14.
+    const boites = [...hote.querySelectorAll('.calLectureFamilles .elementAction.famille-ouverture')];
+    expect(boites).toHaveLength(3);
+    expect(boites[0]?.textContent).toContain('Consommé par É12, É14');
+    // Et l'E12 les montre a cote du calcul, meme couleur, avec leur statut et l'ouverture qu'elles confirment.
+    await ouvrir('ouvertures');
+    expect([...hote.querySelectorAll('.calEtapeOuverte [data-action="boites"] .elementAction.famille-ouverture')].map((x) => x.querySelector('.elementStatut')?.textContent)).toEqual(['retrouvée par la détection → ouverture 1', 'retrouvée par la détection → ouverture 2', 'retrouvée par la détection → ouverture 3']);
+    await ouvrir('lectureIa');
     await act(async () => { (hote.querySelector('.calBoiteIa') as SVGElement).dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(hote.querySelectorAll('.calCarreau').length).toBeGreaterThan(0);
     expect(hote.querySelector('.calTexteIa')?.textContent).toBe('2 vantaux de 1 × 3 carreaux, petits bois fins, sans imposte, vitrage clair');
@@ -302,6 +334,7 @@ describe('l ecran de calibration', () => {
   it('mesure les cas valides, cherche de meilleurs reglages et les applique', async () => {
     const { deps, docs } = fausses();
     await monter(deps);
+    await onglet('calibration.ongletReglages');
     await act(async () => { bouton('calibration.charger')?.click(); });
     await attendre(100);
     expect(hote.textContent).toContain('Valeurs livrées');
@@ -330,6 +363,7 @@ describe('l ecran de calibration', () => {
     const { deps, docs } = fausses({ lireCalibration: async () => doc });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     await monter(deps);
+    await onglet('calibration.ongletReglages');
     expect(hote.textContent).toContain('1 réglage calibré en usage');
     expect(hote.textContent).toContain('F1 75 % → 85 %');
     await act(async () => { bouton('calibration.revenir')?.click(); await Promise.resolve(); });

@@ -56,6 +56,12 @@ const SERIES = {
   sombre: { 'serie-1': '#3987E5', 'serie-2': '#D95926', 'serie-3': '#199E70' }
 };
 
+/** Les familles des lectures de Claude ne bougent pas non plus : la meme couleur a l'E8 et dans l'etape, d'un modele a l'autre. */
+const LECTURES = {
+  clair: { 'claude-angles': '#2A6FC9', 'claude-pointe': '#C2410C', 'claude-forme': '#8A4FB8', 'claude-appentis': '#7A6A00', 'claude-corps': '#0E7C86', 'claude-element': '#B5326B', 'claude-cache': '#4F7A28', 'claude-parement': '#9C5B1F', 'claude-zone': '#5B5FC7', 'claude-ouverture': '#C62828' },
+  sombre: { 'claude-angles': '#6AA6F0', 'claude-pointe': '#F08A55', 'claude-forme': '#C39BE8', 'claude-appentis': '#D4C24A', 'claude-corps': '#4CC3CC', 'claude-element': '#F07AAE', 'claude-cache': '#8FC76A', 'claude-parement': '#D9A066', 'claude-zone': '#9DA0F2', 'claude-ouverture': '#F07A7A' }
+};
+
 /**
  * Les deux themes d'un modele. `n` : teinte et saturation des neutres (papiers, traits, encres) ;
  * `a` : l'accent ; `ok`, `danger`, `alerte` : les etats ; `ciel` : le fond de la Vue 3D. Le theme
@@ -114,7 +120,7 @@ function themes(m) {
   sombre['fond-3d'] = tsl(ciel.t, ciel.s * 0.4, 13);
   sombre['trait-3d'] = tsl(nS.t, nS.s * 0.5, 6);
 
-  return { clair: { ...clair, ...CAMERA, ...SERIES.clair, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CAMERA, ...SERIES.sombre, ...(m.forcer?.sombre ?? {}) } };
+  return { clair: { ...clair, ...CAMERA, ...SERIES.clair, ...LECTURES.clair, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CAMERA, ...SERIES.sombre, ...LECTURES.sombre, ...(m.forcer?.sombre ?? {}) } };
 }
 
 // --- Les modeles ----------------------------------------------------------------------------------
@@ -140,7 +146,8 @@ const MODELES = [
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
   'border', 'rule', 'hairline', 'relief', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
-  'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3'];
+  'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
+  'claude-angles', 'claude-pointe', 'claude-forme', 'claude-appentis', 'claude-corps', 'claude-element', 'claude-cache', 'claude-parement', 'claude-zone', 'claude-ouverture'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));
 
 mkdirSync(sortie, { recursive: true });

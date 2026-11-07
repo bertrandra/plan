@@ -8,7 +8,7 @@
 //   un geste sinon ; sautee (la lecture de Claude sans reponse), elle ne se montre pas.
 // - Les points de validation (V1 a V4) s'ouvrent toujours depuis la barre ; V4, la facade, se valide sous la barre (lot F5).
 
-import { etapeFacade, libelleEtape, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../../model/etapeFacade.js';
+import { etapeFacade, libelleEtape, type ActionEtape, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../../model/etapeFacade.js';
 
 /** Une etape telle que l'audit la lit : son etat et ce qu'elle a donne (`MesureFacade.etapes`). */
 interface EtapeLue { id: IdEtape; etat: EtatAffiche; resume: string; herite?: 'calage' }
@@ -69,4 +69,15 @@ export function ligneOuverte(etapes: readonly EtapeLue[], id: IdEtape): LigneDis
   const texte = libelleEtape(id) + ' : ' + (e?.resume ?? 'pas encore calculée.');
   const geste = doute(etat) || def.validation !== null;
   return { id, etat, texte, option: geste ? def.optionManuelle : null, surLaPhoto: geste && SUR_LA_PHOTO.includes(id) };
+}
+
+/**
+ * Les actions d'une etape ouverte depuis la barre, telles que l'audit les montre (lot C, decision du proprietaire du 7 novembre 2026) :
+ * les memes definitions que la calibration (`EtapeCalculee.actions`), filtrees par le mode d'audit de l'etape. La lecture de Claude (E8)
+ * tient en une ligne : aucune action. La mesure contre la verite n'est pas de l'audit (il n'a pas de verite). Le reste se montre tel quel,
+ * en lecture : les choix de la personne (Calcul, Claude, Manuel) restent dans la calibration (decision du proprietaire, « pas encore »).
+ */
+export function actionsDansLAudit(id: IdEtape, actions: readonly ActionEtape[] | undefined): ActionEtape[] {
+  if (!actions?.length || id === 'lectureIa') return [];
+  return actions.filter((a) => a.type !== 'mesure');
 }
