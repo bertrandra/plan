@@ -212,6 +212,65 @@ describe('calibration et audit : le meme processus, l audit n en cache qu une pa
     expect(x.audit.accord?.bilan.retrouvees).toBeGreaterThan(0);
   }, 360_000);
 
+  it('les choix de la personne (Calcul, Claude, Manuel) et le forcage de Claude (lot C2) : la meme entree, les memes sorties dans les deux vues', async () => {
+    // Le meme processus : les choix sont des entrees de derouler, lues de la meme facon pour la calibration et pour l'audit (qui n'en
+    // passe pas aujourd'hui, decision du proprietaire : « pas encore »). Sans choix, rien ne change ; avec, l'effet est le meme des deux cotes.
+    const s = scene('02-');
+    const c = casIaDeScene(s);
+    if (!c) throw new Error('pas de cas');
+    const run: RunEnregistre = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine)], cout: 0.0011,
+      tokens: { entree: 4000, sortie: 800 }, image: { largeur: c.image.largeur, hauteur: c.image.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
+    const { images } = facadeDeLaScene(s, [s.synthese.prise as PriseCamera]);
+    const chercherCoins = async (e: Parameters<typeof rechercher>[0]) => rechercher(e);
+    const rejouer = (cas: typeof x.cas, vue: 'audit' | 'calibration') => derouler(entreesDuCas(cas, images, jpeg), { vue, chercherCoins, ia: run });
+    // Des listes vides ne changent rien.
+    const vide = await rejouer({ ...x.cas, choix: [], forcages: [] }, 'calibration');
+    expect(sorties(vide)).toEqual(sorties(await rejouer(x.cas, 'calibration')));
+    // Claude force pour l'E12, et une ouverture ajoutee a la main.
+    const le = '2026-11-07T10:00:00.000Z';
+    const avec = { ...x.cas, forcages: [{ etape: 'ouvertures' as const, source: 'claude' as const, le }], choix: [{ cle: 'ajout:0', source: 'manuel' as const, le, valeur: { type: 'fenetre', x: 0.2, y: 3.5, l: 0.5, h: 0.5 } }] };
+    const [cal, aud] = [await rejouer(avec, 'calibration'), await rejouer(avec, 'audit')];
+    expect(etapes(cal)).toEqual(etapes(aud));
+    expect(sorties(cal)).toEqual(sorties(aud));
+    const avant = x.calibration.sorties.audit?.mesure?.releve.ouvertures ?? [], apres = cal.sorties.audit?.mesure?.releve.ouvertures ?? [];
+    // L'ouverture ajoutee, et chaque boite seulement proposee, prise de Claude par le forcage.
+    const proposees = x.calibration.sorties.ia?.accord?.boites.filter((b) => b.avec === null).length ?? 0;
+    expect(apres).toHaveLength(avant.length + 1 + proposees);
+    expect(apres.filter((o) => o.source === 'ajoutee')).toHaveLength(1);
+    // Ce que V4 ecrirait suit les choix, et le rejeu sans eux rend la liste du moteur.
+    expect(cal.sorties.facade?.ouvertures).toHaveLength(apres.length);
+    const elements = cal.etapes.find((e) => e.id === 'ouvertures')?.actions.find((a) => a.id === 'boites')?.elements ?? [];
+    expect(elements.length).toBeGreaterThan(0);
+    expect(elements.every((e) => e.forcee && (e.sourceLue === 'claude' || e.sansClaude))).toBe(true);
+    expect(sorties(await rejouer(x.cas, 'audit'))).toEqual(sorties(x.vueAudit));
+    // Rejouer depuis l'E12 sur ce rejeu (Ctrl+Z, un autre choix) : les choix ne s'appliquent pas deux fois.
+    const depuis = await derouler(entreesDuCas(avec, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'ouvertures', precedent: cal });
+    expect(sorties(depuis)).toEqual(sorties(cal));
+    const retire = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'ouvertures', precedent: cal });
+    expect(retire.sorties.audit?.mesure?.releve.ouvertures).toEqual(avant);
+    // Les angles pris de Claude (E7) : le mur se pose sur eux, en mur pose a la main, et l'E7 le dit.
+    const angles = await rejouer({ ...x.cas, choix: [{ cle: 'angles', source: 'claude', le }] }, 'calibration');
+    expect(angles.etapes.find((e) => e.id === 'calage')?.resume).toMatch(/^Mur posé sur les angles de Claude \(votre choix\)\./);
+    expect(angles.sorties.ia?.ecart ?? 1).toBeLessThan(0.01);
+    // La lecture de Claude a ete faite sur l'image d'avant la pose : l'E8 la dit perimee.
+    expect(angles.etapes.find((e) => e.id === 'lectureIa')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/elle est périmée ; rappelez Claude pour la refaire\.$/) });
+    // Une autre reponse rejouee depuis l'E8 : l'E7 garde son mur, ses angles se relisent sur lui ; sans reponse, plus rien de Claude.
+    const sansClaude = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: null, depuis: 'lectureIa', precedent: cal });
+    expect(sansClaude.sorties.ia).toBeNull();
+    expect(sansClaude.etapes.find((e) => e.id === 'calage')?.actions.find((a) => a.id === 'angles')?.etat).toBe('saute');
+    const encore = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'lectureIa', precedent: sansClaude });
+    expect(sorties(encore)).toEqual(sorties(await rejouer(x.cas, 'calibration')));
+    // « Rejouer depuis » l'E6 relance la chaine (son premier pas, l'E3), et ne relit pas l'ancienne.
+    const vus: string[] = [];
+    await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'assemblage', precedent: cal, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
+    expect(vus[0]).toBe('objectif');
+    // Une reponse lue sur un autre assemblage que celui du rejeu (sa taille) : l'E8 le dit.
+    const ailleurs = await rejouer(x.cas, 'calibration').then(() => derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: { ...run, image: { largeur: run.image.largeur + 40, hauteur: run.image.hauteur } } }));
+    expect(ailleurs.etapes.find((e) => e.id === 'lectureIa')?.resume).toMatch(/lue sur un autre assemblage \(\d+ × \d+ px ; celui de ce rejeu : \d+ × \d+ px\)/);
+    expect(x.calibration.etapes.find((e) => e.id === 'lectureIa')?.resume).not.toMatch(/autre assemblage/);
+  }, 360_000);
+
   it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {
     const s = scene('24-');
     const p0 = s.synthese.prise as PriseCamera;

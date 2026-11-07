@@ -612,7 +612,7 @@ L'audit ne déroule pas dix écrans. Il se tient à **quatre points d'arrêt**, 
 | Point | Après l'étape | Ce que la personne voit | Ce qu'elle fait |
 |---|---|---|---|
 | **V1 · Le mur** | É7 | l'assemblage, le mur posé, les angles | confirme (« Confirmer le mur » : l'É7 devient « confirmé par vous », le doute hérité tombe), ou tire un angle / l'égout / le sol ; **n'apparaît que si** les deux chemins divergent ou si le score est faible (sinon une ligne « Mur posé ✓ ») |
-| **V2 · Le toit** | É10 | l'avant/après de chaque proposition, par corps | coche les propositions qu'elle accepte (toujours demandé) |
+| **V2 · Le toit** | É13 (depuis le 7 novembre 2026 ; avant, É10) | l'avant/après de chaque proposition, par corps | coche les propositions qu'elle accepte (toujours demandé) |
 | **V3 · Les ouvertures** | É12 | la façade avec les boîtes **décochées** en évidence | accepte, retire ou corrige ; les cochées passent sans geste |
 | **V4 · La façade** | É14 | le bilan : dimensions, forme, texture, ouvertures | valide d'un geste |
 
@@ -678,10 +678,10 @@ façade, ce qui est fait, ce qui attend la personne.
   | 1 · Prise | É2 | — (c'est le geste) |
   | 2 · Image | É3 objectif, É4 coins, É5 redressement, É6 assemblage | — (caché, passe en résumé s'il échoue) |
   | 3 · Mur | É7 calage, É8 lecture de Claude | **V1** |
-  | 4 · Forme | É9 silhouette lue, É10 diagnostic | **V2** |
+  | 4 · Forme | É9 silhouette lue, É10 diagnostic (pur) | — |
   | 5 · Texture | É11 | — |
   | 6 · Ouvertures | É12 | **V3** |
-  | 7 · Toit | É13 | — (suit V2) |
+  | 7 · Toit | É13 | **V2** (décision du propriétaire, 7 novembre 2026 : la coche se fait là) |
   | 8 · Façade | É14 | **V4** |
 
   (É1, la préparation, est instantanée et n'a pas de segment.) Les points de validation sont marqués d'un **repère** sur leur segment.
@@ -812,6 +812,8 @@ façade, ce qui est fait, ce qui attend la personne.
   l'élément (`choisie`) ; elle ne s'applique encore à aucun calcul. Lot C : la ranger dans la capture (`FacadeCapturee`) et le cas
   (`CasReel`) comme champ facultatif (absent = la source du moteur : aucune migration, `VERSION_FICHIER_AUDIT_PARCELLE` inchangée), puis
   son effet étape par étape. Le **forçage de Claude** (`ForcageSource` : `{ etape, source: 'claude' }` pour une étape, `{ toutes: true, source: 'claude' }` pour toutes celles qui consomment une lecture de Claude) est une entrée de même nature (`EntreesFacade.forcages`) : lu sur chaque élément visé (`forcee`), il donne `sourceLue` dans cet ordre : le choix de l'élément, sinon le forçage (Claude, ou le calcul quand Claude n'a pas lu l'élément, `sansClaude`), sinon la source du moteur. Par défaut rien n'est forcé ; rien ne s'applique encore au calcul (lot C).
+
+  **Lot C2 (7 novembre 2026)** : choix et forçages s'appliquent (`facade/releve/choixSources.ts`, seule lecture de `choix` et `forcages`, la même pour les éléments montrés et pour le calcul). Ouvertures (É12, É14) : une boîte retrouvée prise de Claude (ou corrigée à la main) remplace la place de l'ouverture qu'elle confirme, une boîte proposée prise s'ajoute, une écartée ne se pose qu'à la main, `ajout:k` ajoute une ouverture ; le relevé et l'accord portent la liste choisie (V3 la relit, V4 l'écrit), celle du moteur gardée à part pour le rejeu (`SortiesFacade.moteur`). Angles (É7) : la pose de Claude ou de la personne devient le mur posé à la main sur chaque photo, `derouler` se rejoue une fois (« Mur posé sur les angles de Claude (votre choix). »). Pointes, mot du haut, autres volumes, éléments du toit : la lecture que reçoivent le diagnostic (É10) et le bilan (É14) ; un élément du toit pris de Claude l'est malgré le haut lu (`EntreesDiagnostic.pris`), posé ou refusé par le moteur. Parement, zones, ce qui cache, appentis : aucune étape ne les consomme, le choix est rangé et dit. Rangés dans le cas (`CasReel.choix`, `.forcages`, facultatifs, aucune migration), gestes du cas (Ctrl+Z). **Seulement dans la calibration** (décision du propriétaire, 7 novembre 2026 : « Pas encore, je calibre ») : l'audit n'en passe pas, `FacadeCapturee` ne les porte pas encore ; le processus est le même.
 
   | Famille | Montrée à | Consommée par | Source retenue aujourd'hui |
   |---|---|---|---|
@@ -1708,8 +1710,8 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
   autres volumes que Claude voit, et un haut lu qui passe sous l'égout (il ne lit pas le haut du mur : il ne sert pas).
 - **L'orchestrateur** : `EntreesFacade.toit` (le mur de la façade et les corps du toit), `SortiesFacade.forme` (le haut lu, le
   diagnostic) ; l'É10 (`etapesForme.ts::etapeDiagnostic`) dit les tronçons, l'écart, chaque proposition, chaque alerte et les
-  constats, à confirmer s'il y en a (le point V2, toujours demandé), et sa mesure contre la vraie forme du toit d'un cas ; l'É13
-  (`etapeToit`) dit les propositions à confirmer dans l'avant/après. Seule l'É14 reste « sautée » avec son lot (F5) ; un
+  constats, à confirmer s'il y en a, et sa mesure contre la vraie forme du toit d'un cas ; l'É13 (`etapeToit`, le point V2, toujours
+  demandé, depuis le 7 novembre 2026) dit les propositions à confirmer dans l'avant/après. Seule l'É14 reste « sautée » avec son lot (F5) ; un
   cas sans corps du toit saute l'É10 et l'É13, en le disant. Un segment de la barre s'ouvre sur l'étape qui doute, sinon son point
   de validation (« Forme » ouvre le diagnostic).
 - **L'audit** : `mesurerFacade` donne les corps du toit à l'orchestrateur ; la mesure garde le haut lu et le diagnostic (dérivés,

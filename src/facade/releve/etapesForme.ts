@@ -88,11 +88,11 @@ function contreLeToitVrai(d: DiagnosticForme, corps: readonly CorpsToit[], vrai:
  * propositions ou des alertes : a confirmer (le point de validation V2, toujours demande, decision 10) ; aucune : le toit calcule
  * explique la photo.
  */
-export function etapeDiagnostic(toit: ToitDeLaFacade | null, hauteurM: number, lue: readonly { u: number; v: number }[] | null, ia: ObservationsFacade | null, objectifs: Partial<Objectifs> | undefined, vrai: readonly ToitVraiCorps[] | undefined, masques: readonly { u0: number; u1: number }[] = []): { etape: Etape; diagnostic: DiagnosticForme | null } {
+export function etapeDiagnostic(toit: ToitDeLaFacade | null, hauteurM: number, lue: readonly { u: number; v: number }[] | null, ia: ObservationsFacade | null, objectifs: Partial<Objectifs> | undefined, vrai: readonly ToitVraiCorps[] | undefined, masques: readonly { u0: number; u1: number }[] = [], pris: readonly { element: 'cheminee' | 'lucarne'; u: number }[] = []): { etape: Etape; diagnostic: DiagnosticForme | null } {
   if (!toit?.corps.length) return { etape: { etat: 'saute', resume: 'Pas de corps du toit pour cette façade : le diagnostic se fait corps par corps, sur une façade de l’audit ou un cas qui porte ses corps.', verite: null }, diagnostic: null };
   const facade = facadeDuMur(toit.mur.gauche, toit.mur.droite, hauteurM);
   if (!facade) return { etape: { etat: 'saute', resume: 'Le mur de la façade est trop court pour un diagnostic.', verite: null }, diagnostic: null };
-  const d = diagnostiquerForme({ facade, corps: toit.corps, hauteurMur: hauteurM, lue, ia, ...(masques.length ? { masques } : {}), ...(objectifs ? { objectifs } : {}) });
+  const d = diagnostiquerForme({ facade, corps: toit.corps, hauteurMur: hauteurM, lue, ia, ...(masques.length ? { masques } : {}), ...(objectifs ? { objectifs } : {}), ...(pris.length ? { pris } : {}) });
   const troncons = d.troncons.map((t) => `${nomDuCorps(t.corps, t.cote)} de u ${dec(t.u0)} à ${dec(t.u1)}`).join(', ');
   const verite = vrai?.length ? contreLeToitVrai(d, toit.corps, vrai) : null;
   if (!d.lue && !ia) return { etape: { etat: 'saute', resume: `Tronçons : ${troncons}. Le haut du mur ne se lit pas et Claude n’a rien dit : rien à comparer au gabarit.` + (d.constats.length ? ' ' + d.constats.join(' ') : ''), verite }, diagnostic: d };

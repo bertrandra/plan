@@ -28,7 +28,9 @@ import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSans
 import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
-import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
+import { ETAPES_FACADE, type EtatAffiche, type IdEtape, type SourceElement, type ValeurElement } from '../model/etapeFacade.js';
+import { avecLeChoix, avecLeForcage, ETAPES_FORCABLES } from '../facade/releve/choixSources.js';
+import { AjoutsOuvertures, ChoixElement, ForcerLEtape, ForcerPartout } from './ChoixSourceCalibration.js';
 import { BarreProgressionFacade, COMMANDE_ESCALADE, type EtapeAffichee } from './composants/BarreProgressionFacade.js';
 import { EtapeOuverte, FriseEtapes } from './FriseEtapesCalibration.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -65,6 +67,10 @@ export interface OutilsPhotos {
   ecouterConfirmerMur?: (confirmer: () => void) => () => void;
   /** Brancher Ctrl+Z et Ctrl+Y de l'ecran (`facade.annulerGeste`, `facade.retablirGeste`) sur les gestes du cas ouvert. */
   ecouterGestes?: (g: GestesDuCas) => () => void;
+  /** S'abonner a la commande `facade.choisirSource` (lot C2) : la cle d'un element et sa source (null : celle du moteur). */
+  ecouterChoix?: (f: (cle: string, source: SourceElement | null) => void) => () => void;
+  /** S'abonner a la commande `facade.forcerClaude` (lot C2) : Claude pour une etape, ou pour toutes, pose ou retire. */
+  ecouterForcage?: (f: (cible: { etape: IdEtape } | { toutes: true }, oui: boolean) => void) => () => void;
 }
 
 /** Les gestes d'un cas ouvert, que les commandes de l'ecran defont et refont (Ctrl+Z, Ctrl+Y). */
@@ -405,6 +411,63 @@ function useVuesDuRejeu(rejeu: Enchainement | null, cas: CasStocke, url: (img: I
   return { images, assemblageCourant, elevation };
 }
 
+/**
+ * D'ou repart le rejeu apres un choix (lot C2) : de l'etape qui montre l'element, pour que ses actions disent le choix ; les angles du mur
+ * (et un forcage, qui peut les viser) repartent du debut, parce que la pose choisie redresse autrement.
+ */
+function depuisDuChoix(cle: string): IdEtape | null {
+  if (cle.startsWith('ouverture:') || cle.startsWith('ajout:')) return 'ouvertures';
+  if (cle.startsWith('element-toit:')) return 'diagnostic';
+  if (cle === 'parement' || cle.startsWith('zone:') || cle.startsWith('cache:')) return 'texture';
+  if (cle === 'angles') return null;
+  return 'silhouette';
+}
+
+/**
+ * Les choix et les forcages de la personne (lot C2), branches sur les commandes de l'ecran : chacun est un geste du cas (Ctrl+Z le
+ * defait), puis le cas se rejoue. `poser` range la valeur manuelle que la commande va appliquer.
+ */
+function useChoixDuCas(outils: OutilsPhotos, cas: { current: CasStocke }, geste: () => void, appliquer: (suite: CasStocke, depuis: IdEtape | null) => void) {
+  const brouillons = useRef<Record<string, ValeurElement>>({});
+  // Les gestes de ce rendu (le rejeu qu'ils appellent lit l'etat de l'editeur) : les commandes appellent toujours les derniers.
+  const choisir = (cle: string, source: SourceElement | null) => {
+    const valeur = source === 'manuel' ? brouillons.current[cle] : undefined;
+    if (source === 'manuel' && !valeur) return;
+    const suite = { ...cas.current, choix: avecLeChoix(cas.current.choix, cle, source, new Date().toISOString(), valeur) };
+    if (!suite.choix.length) delete (suite as Partial<CasStocke>).choix;
+    geste(); appliquer(suite, depuisDuChoix(cle));
+  };
+  const forcer = (cible: { etape: IdEtape } | { toutes: true }, oui: boolean) => {
+    const suite = { ...cas.current, forcages: avecLeForcage(cas.current.forcages, cible, oui, new Date().toISOString()) };
+    if (!suite.forcages.length) delete (suite as Partial<CasStocke>).forcages;
+    geste(); appliquer(suite, null);
+  };
+  const derniers = useRef({ choisir, forcer });
+  derniers.current = { choisir, forcer };
+  useEffect(() => outils.ecouterChoix?.((c, x) => derniers.current.choisir(c, x)), [outils]);
+  useEffect(() => outils.ecouterForcage?.((c, o) => derniers.current.forcer(c, o)), [outils]);
+  return { poser: (cle: string, v: ValeurElement) => { brouillons.current[cle] = v; } };
+}
+
+/** Le forcage de Claude que montre l'etape ouverte : partout a l'E8, pour l'etape dans celles qui lisent Claude, rien ailleurs. */
+function forcageDeLEtape(id: IdEtape, cas: CasStocke, commandes: NonNullable<OutilsPhotos['commandes']>, occupe: boolean) {
+  if (id === 'lectureIa') return <ForcerPartout force={!!cas.forcages?.some((f) => 'toutes' in f)} commandes={commandes} occupe={occupe} />;
+  return ETAPES_FORCABLES.includes(id) ? <ForcerLEtape id={id} force={!!cas.forcages?.some((f) => !('toutes' in f) && f.etape === id)} commandes={commandes} occupe={occupe} /> : null;
+}
+
+/** « Enregistrer le cas » : un nom et une photo exiges, puis le serveur ; l'editeur se ferme quand c'est fait. */
+async function sauverLeCas(cas: CasStocke, f: { enregistrer: (c: CasStocke) => Promise<string | null>; setMessage: (m: string | null) => void; setOccupe: (o: boolean) => void; fermer: () => void }) {
+  if (!cas.nom.trim()) { f.setMessage('Donnez un nom au cas (la maison, le côté).'); return; }
+  if (!cas.photos.length) { f.setMessage('Un cas a besoin d’au moins une photo : tirez-le d’une façade de l’audit.'); return; }
+  f.setOccupe(true);
+  const erreur = await f.enregistrer({ ...cas, nom: cas.nom.trim() });
+  f.setOccupe(false);
+  if (erreur) f.setMessage(erreur); else f.fermer();
+}
+
+/** Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent. */
+const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
+
 /** Le nom du cas et les dimensions du mur (l'en-tete) : changer une dimension rend le rejeu caduc. */
 function DimensionsDuCas({ cas, modifier, oublier }: { cas: CasStocke; modifier: (f: (c: CasStocke) => CasStocke) => void; oublier: () => void }) {
   return (
@@ -461,9 +524,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       if (!r.sorties.analyse) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».');
     } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
-  // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
-  const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
   const { geste, pile } = useGestesDuCas(outils, casCourant, (suite) => { setCas(suite); setOrigines(originesDuCas(suite)); void rejouer(suite); });
+  const { poser } = useChoixDuCas(outils, casCourant, geste, (suite, depuis) => { setCas(suite); void rejouer(suite, depuis); });
   const retirerPhoto = (k: number) => { pile.vider(); modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setCourante(0); oublier(); };
   // Le mur ajuste a la main sur la photo courante redressee : ses coins seuls (le gabarit s'y pose) ; il se reporte sur les autres photos.
   const murCourant = ({ coins }: MurAjuste) => {
@@ -492,7 +554,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: [...(cas.ia ?? []), r.run] };
     setCas(suite); claude.setChoisi(suite.ia.length - 1); claude.setModeIa(true);
-    await rejouer(suite, 'calage', r.run);
+    await rejouer(suite, 'lectureIa', r.run);
     setMessage((m) => 'Réponse enregistrée : ' + enteteDuRun(r.run) + (etalon ? '. Elle vit le temps de l’écran : un étalon ne s’enregistre pas.' : '. Enregistrez le cas pour la garder.') + (m ? ' ' + m : ''));
   };
   // L'escalade de la reponse choisie (la commande `facade.escalader`) : gardee dans ce run du cas, puis rejouee en IA.
@@ -505,7 +567,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOccupe(false); if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: (cas.ia ?? []).map((x, i) => (i === claude.choisi ? r.run : x)) };
     setCas(suite); claude.setModeIa(true);
-    await rejouer(suite, 'calage', r.run);
+    await rejouer(suite, 'lectureIa', r.run);
     setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + (etalon ? '. Elle vit le temps de l’écran : un étalon ne s’enregistre pas.' : '. Enregistrez le cas pour la garder.') + (m2 ? ' ' + m2 : ''));
   };
   const prixEscalade = useEscalade(outils, escalader);
@@ -530,14 +592,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const revenirAuMurCherche = () => { geste(); const suite = casSansLeMur(cas, courante, rejeu); setCas(suite); setOrigines(originesDuCas(suite)); oublier(); };
   // Un cas tire d'un audit se rejoue des l'ouverture, ses coins cherches : il n'y a rien a placer avant.
   useEffect(() => { if (chercherCoins) void rejouer(cas, null); }, []);
-  const sauver = async () => {
-    if (!cas.nom.trim()) { setMessage('Donnez un nom au cas (la maison, le côté).'); return; }
-    if (!cas.photos.length) { setMessage('Un cas a besoin d’au moins une photo : tirez-le d’une façade de l’audit.'); return; }
-    setOccupe(true);
-    const erreur = await enregistrer({ ...cas, nom: cas.nom.trim() });
-    setOccupe(false);
-    if (erreur) setMessage(erreur); else fermer();
-  };
+  const sauver = () => sauverLeCas(cas, { enregistrer, setMessage, setOccupe, fermer });
   const { images, assemblageCourant, elevation } = useVuesDuRejeu(rejeu, cas, url);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
   const photosDuCas = <>
@@ -556,10 +611,16 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     coins: reperes,
     redressement: reperes,
     assemblage: photosDuCas,
-    lectureIa: <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', run); }} appeler={(n) => { void appeler(n); }}
+    lectureIa: <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.calage?.pose} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'lectureIa', run); }} appeler={(n) => { void appeler(n); }}
       escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.calage?.pose }} />,
-    ouvertures: elevation ? <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} /> : null,
+    ouvertures: <>
+      {outils.commandes && rejeu && <AjoutsOuvertures ajouts={(cas.choix ?? []).filter((c) => c.cle.startsWith('ajout:')).map((c) => ({ cle: c.cle, valeur: c.valeur }))} commandes={outils.commandes} occupe={occupe} poser={poser} />}
+      {elevation && <AnnotationDuCas key={elevation.url} elevation={elevation} ouvertures={cas.ouvertures} modifier={modifier} />}
+    </>,
   };
+  // Les choix (lot C2), la ou l'element se montre, et le forcage de Claude de l'etape ouverte ; seulement dans la calibration.
+  const cmd = outils.commandes;
+  const forcage = cmd && ouverte && rejeu?.sorties.ia ? forcageDeLEtape(ouverte, cas, cmd, occupe) : null;
   return (
     <section className="calEditeur" aria-label={etalon ? 'Étalon ' + cas.nom : id ? 'Cas ' + cas.nom : 'Nouveau cas'}>
       {/* L'en-tete : la barre, le cas, ses dimensions, et ce qui vaut pour tout le cas (rejouer, defaire un geste). */}
@@ -575,7 +636,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       </header>
 
       <FriseEtapes rejeu={rejeu} images={images} photos={cas.images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />
-      {ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} relire={relire} commandes={outils.commandes ?? null} corps={corps[ouverte] ?? null} />}
+      {ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} relire={relire} commandes={outils.commandes ?? null} corps={corps[ouverte] ?? null}
+        forcage={forcage} {...(cmd ? { choixElement: (x) => <ChoixElement x={x} commandes={cmd} occupe={occupe} poser={poser} /> } : {})} />}
 
       <PiedDuCas cas={cas} etalon={!!etalon} message={message} occupe={occupe} modifier={modifier} sauver={() => { void sauver(); }} fermer={fermer} supprimer={supprimer ? () => { if (window.confirm('Supprimer ce cas ? Le fichier est mis de côté sur le serveur.')) void supprimer().then((e) => { if (e) setMessage(e); else fermer(); }); } : null} />
     </section>

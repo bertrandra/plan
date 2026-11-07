@@ -73,9 +73,9 @@ describe('une facade dans l audit discret', () => {
     monter(session(OK));
     expect(hote.querySelectorAll('.barreFacade .barreFacadeSegment')).toHaveLength(8);
     expect(lignes()).toEqual(['faite É7 Mur posé : Coins du mur trouvés sur la photo.', 'faite É12 Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
-    // Seuls les points de validation s'ouvrent : V1 (mur), V2 (forme, sur son diagnostic : lot F4), V3 (ouvertures), V4 (facade) ; ni la
-    // prise, ni l'image, ni la texture.
-    expect(ouvrables()).toEqual(['calage', 'diagnostic', 'ouvertures', 'validation']);
+    // Seuls les points de validation s'ouvrent : V1 (mur), V3 (ouvertures), V2 (le toit, a l'E13, ou la coche se fait : decision du
+    // proprietaire, 7 novembre 2026), V4 (facade) ; ni la prise, ni l'image, ni la forme qui a reussi, ni la texture.
+    expect(ouvrables()).toEqual(['calage', 'ouvertures', 'toit', 'validation']);
   });
 
   it('fait apparaitre une etape cachee des qu elle echoue, avec son geste de repli sur chaque photo', () => {

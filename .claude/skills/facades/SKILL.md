@@ -956,8 +956,8 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   l'audit, parce que les références du plancher de lecture 5.1.0 (§5 quater) ont été lues sur l'assemblage. On ne l'aligne pas sans
   nouvelle décision et nouvelle référence.
 - **Les étapes s'appellent É1 à É14** (décision du propriétaire, 7 novembre 2026 : É1 Préparation, É2 Prises, É3 Objectif, É4 Coins du
-  mur, É5 Redressement, É6 Assemblage, É7 Calage du mur (V1), É8 Lecture de Claude, É9 Silhouette lue, É10 Diagnostic de forme (V2),
-  É11 Texture, É12 Ouvertures (V3), É13 Toit, É14 Validation (V4) ; `libelleEtape`), dans l'orchestrateur (et le texte d'un rejeu,
+  mur, É5 Redressement, É6 Assemblage, É7 Calage du mur (V1), É8 Lecture de Claude, É9 Silhouette lue, É10 Diagnostic de forme,
+  É11 Texture, É12 Ouvertures (V3), É13 Toit (V2, depuis le 7 novembre 2026 : la coche se fait là), É14 Validation (V4) ; `libelleEtape`), dans l'orchestrateur (et le texte d'un rejeu,
   `reel.ts etalon`) et à l'écran ; le propriétaire les cite par ces numéros. Jusqu'au 7 novembre 2026 il y en avait onze : ce skill est
   réécrit dans les numéros neufs, même dans ses passages datés (ancienne É3 → É5, É4 → É6, É5 → É7, É6 → É9, É7 → É10, É8 → É11,
   É9 → É12, É10 → É13, É11 → É14 ; `model/etapeFacade.ts::ANCIENS_NUMEROS`) ; `EMPREINTES.md` et le `CHANGELOG.md` gardent les anciens.

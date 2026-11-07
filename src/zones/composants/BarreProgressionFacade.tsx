@@ -68,7 +68,7 @@ function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouver
 
 /**
  * L'etape qu'ouvre un segment : celle qui doute (en echec, puis a confirmer), sinon son point de validation, sinon la premiere. Le
- * segment « Forme » ouvre ainsi le diagnostic (V2) qui attend la personne, pas la silhouette lue qui a reussi (lot F4). Un doute herite
+ * segment « Forme » ouvre ainsi le diagnostic qui doute (ses propositions, que V2 coche a l'E13), pas la silhouette lue qui a reussi (lot F4). Un doute herite
  * du mur (l'E7 a confirmer) ne compte pas ici : il se leve a l'E7, et le point de validation du segment reste ce qui attend la personne.
  */
 function etapeAOuvrir(s: SegmentFacade, etapes: readonly EtapeAffichee[]): IdEtape {

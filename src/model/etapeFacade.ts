@@ -78,7 +78,9 @@ export interface TraceAction {
 export type FamilleClaude = 'angles' | 'pointe' | 'forme' | 'appentis' | 'corps' | 'element-toit' | 'cache' | 'parement' | 'zone' | 'ouverture';
 
 export const FAMILLES_CLAUDE: Readonly<Record<FamilleClaude, { libelle: string; montreeA: IdEtape; consommePar: readonly IdEtape[] }>> = {
-  angles: { libelle: 'Les deux angles du mur', montreeA: 'calage', consommePar: ['lectureIa'] },
+  // Les angles : l'E7 les lit elle-meme et peut prendre la pose de Claude (un choix delibere de l'E7, que « Forcer Claude partout » ne
+  // touche pas : decision du proprietaire, 7 novembre 2026).
+  angles: { libelle: 'Les deux angles du mur', montreeA: 'calage', consommePar: ['calage'] },
   pointe: { libelle: 'Une pointe du haut', montreeA: 'silhouette', consommePar: ['diagnostic', 'validation'] },
   forme: { libelle: 'Le mot du haut et son bout', montreeA: 'silhouette', consommePar: ['diagnostic'] },
   appentis: { libelle: 'Un appentis', montreeA: 'silhouette', consommePar: [] },
@@ -211,14 +213,14 @@ export const ETAPES_FACADE: readonly EtapeFacade[] = [
     actions: [claude('run', 'Run de la façade'), claude('enrichie', 'Lecture enrichie'), claude('toit', 'Lecture du toit'), code('angles', 'Accord de ses angles avec le mur retenu'), code('pointes', 'Ses pointes contre le gabarit'), code('boites', 'Ses boîtes accordées avec la détection'), VERITE] },
   { id: 'silhouette', numero: 'É9', nom: 'Silhouette lue', entrant: 'l’assemblage calé', action: 'le haut du mur lu à la teinte, entre les bouts retenus', objectif: 'la silhouette lue sur au moins la moitié des colonnes (le haut que le diagnostic lit) ; le mot de la bande au-dessus de l’égout n’est qu’une information', sortant: 'la silhouette lue', optionManuelle: null, modeAudit: 'cache', validation: null,
     actions: [code('lire', 'Haut du mur lu à la teinte'), claude('forme', 'Le haut selon Claude : le mot, le bout, les pointes, les appentis, les autres volumes')] },
-  { id: 'diagnostic', numero: 'É10', nom: 'Diagnostic de forme', entrant: 'la silhouette lue, le gabarit, les corps du toit, la lecture de Claude', action: 'les variantes du toit de chaque corps (un pignon de plus, de moins, déplacé, une croupe), faites par le moteur des toits', objectif: 'une proposition n’existe que si elle explique mieux l’image', sortant: 'les propositions de toit, les alertes de hauteur', optionManuelle: 'cocher ou décocher, ouvrir le Mode Toit', modeAudit: 'valider', validation: 'V2',
-    actions: [code('diagnostiquer', 'Variantes du toit de chaque corps'), claude('elements', 'Les éléments du toit que Claude voit (cheminée, lucarne)'), manuel('cocher', 'Cocher ou décocher les propositions (V2)'), VERITE] },
+  { id: 'diagnostic', numero: 'É10', nom: 'Diagnostic de forme', entrant: 'la silhouette lue, le gabarit, les corps du toit, la lecture de Claude', action: 'les variantes du toit de chaque corps (un pignon de plus, de moins, déplacé, une croupe), faites par le moteur des toits', objectif: 'une proposition n’existe que si elle explique mieux l’image', sortant: 'les propositions de toit, les alertes de hauteur', optionManuelle: null, modeAudit: 'cache', validation: null,
+    actions: [code('diagnostiquer', 'Variantes du toit de chaque corps'), claude('elements', 'Les éléments du toit que Claude voit (cheminée, lucarne)'), VERITE] },
   { id: 'texture', numero: 'É11', nom: 'Texture', entrant: 'l’assemblage calé', action: 'l’élévation calée, la fusion des vues, la version sans ombres', objectif: 'une texture posée sur le mur', sortant: 'la texture et la bande au-dessus de l’égout', optionManuelle: 'activer ou non « sans ombres »', modeAudit: 'cache', validation: null,
     actions: [code('texture', 'Texture calée sur le mur'), claude('surface', 'Le parement et ses zones selon Claude'), claude('cache', 'Ce qui cache le mur selon Claude (arbre, haie, voiture)'), code('sansOmbres', 'Texture sans ombres (pour l’écran)'), manuel('activerSansOmbres', 'Activer ou non « sans ombres »')] },
   { id: 'ouvertures', numero: 'É12', nom: 'Ouvertures', entrant: 'l’assemblage calé, les ouvertures relues (V3)', action: 'la détection, la structure, le vote entre les vues ; les ouvertures trouvées se relisent toujours avant V4', objectif: 'les ouvertures relues par la personne sur cette détection (V3), qui règle aussi les devinées ; rappel, précision et cotes contre la vérité, mesurés à côté', sortant: 'les ouvertures, celles que la personne a gardées', optionManuelle: 'relire les ouvertures : garder, ajouter, retirer, déplacer, redimensionner', modeAudit: 'resume', validation: 'V3',
     actions: [code('detecter', 'Ouvertures calculées : détection, structure et vote entre les vues'), claude('boites', 'Boîtes de Claude : retrouvées, seulement proposées, écartées'), code('voisins', 'Ouvertures sous le pignon d’un corps voisin'), manuel('relire', 'Relire les ouvertures (V3) : ajuster une ouverture calculée, prendre ou ajuster une boîte de Claude, en ajouter une'), VERITE] },
-  { id: 'toit', numero: 'É13', nom: 'Toit', entrant: 'les propositions du diagnostic, décochées', action: 'les propositions de toit et les éléments (cheminée, lucarne) remis à l’avant/après de l’audit, où le moteur des toits relit sur le corps concerné celles que la personne coche', objectif: 'sautée sans proposition ; sinon à confirmer, ce que le diagnostic propose compté (le moteur en écarte à l’avant/après : un refus, une forme identique), jamais faite ici', sortant: 'les propositions à cocher, le toit ajusté par le moteur une fois cochées', optionManuelle: 'le Mode Toit', modeAudit: 'valider', validation: null,
-    actions: [manuel('cocher', 'Cocher les propositions à l’avant/après de l’audit')] },
+  { id: 'toit', numero: 'É13', nom: 'Toit', entrant: 'les propositions du diagnostic, décochées', action: 'les propositions de toit et les éléments (cheminée, lucarne) remis à l’avant/après de l’audit, où le moteur des toits relit sur le corps concerné celles que la personne coche', objectif: 'sautée sans proposition ; sinon à confirmer, ce que le diagnostic propose compté (le moteur en écarte à l’avant/après : un refus, une forme identique), jamais faite ici', sortant: 'les propositions à cocher, le toit ajusté par le moteur une fois cochées', optionManuelle: 'cocher ou décocher les propositions à l’avant/après, ouvrir le Mode Toit', modeAudit: 'valider', validation: 'V2',
+    actions: [manuel('cocher', 'Cocher ou décocher les propositions à l’avant/après de l’audit (V2)')] },
   { id: 'validation', numero: 'É14', nom: 'Validation', entrant: 'tout ce qui précède', action: 'le bilan de la façade : ses dimensions, sa forme, la pose de sa texture, ses ouvertures', objectif: 'la personne a validé, en une étape d’historique', sortant: 'la Façade écrite (dimensions, forme, texture calée, ouvertures vérifiées)', optionManuelle: 'corriger n’importe quel sortant', modeAudit: 'valider', validation: 'V4',
     actions: [code('bilan', 'Bilan de la façade'), manuel('valider', 'Valider la façade (V4)')] },
 ];
@@ -268,10 +270,11 @@ export const SEGMENTS_FACADE: readonly SegmentFacade[] = [
   { numero: 1, nom: 'Prise', etapes: ['prises'], validation: null },
   { numero: 2, nom: 'Image', etapes: ['objectif', 'coins', 'redressement', 'assemblage'], validation: null },
   { numero: 3, nom: 'Mur', etapes: ['calage', 'lectureIa'], validation: 'V1' },
-  { numero: 4, nom: 'Forme', etapes: ['silhouette', 'diagnostic'], validation: 'V2' },
+  // V2 est a l'E13 (decision du proprietaire, 7 novembre 2026) : la coche se fait la, a l'avant/apres ; l'E10 est un diagnostic pur.
+  { numero: 4, nom: 'Forme', etapes: ['silhouette', 'diagnostic'], validation: null },
   { numero: 5, nom: 'Texture', etapes: ['texture'], validation: null },
   { numero: 6, nom: 'Ouvertures', etapes: ['ouvertures'], validation: 'V3' },
-  { numero: 7, nom: 'Toit', etapes: ['toit'], validation: null },
+  { numero: 7, nom: 'Toit', etapes: ['toit'], validation: 'V2' },
   { numero: 8, nom: 'Façade', etapes: ['validation'], validation: 'V4' },
 ];
 

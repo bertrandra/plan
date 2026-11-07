@@ -55,6 +55,7 @@ import { bilanDeLaFacade, texteBilan, type BilanFacade } from './bilanFacade.js'
 import { partagerSousLesVoisins, texteDuPartage, type FacadeVoisine, type PartageOuvertures } from './murVoisin.js';
 import type { OuvertureFacade } from '../../model/types.js';
 import { nomFacade } from '../../geometry/cotesVusDeDehors.js';
+import { lectureSelonLesChoix, lireChoix, lireForcages, ouverturesSelonLesChoix, poseSelonLesChoix, sourceDe } from './choixSources.js';
 
 /** Ce qui entre dans l'enchainement : les dimensions et le gabarit du plan (E1), les photos et ce qui les accompagne (E2). */
 export interface EntreesFacade {
@@ -71,11 +72,12 @@ export interface EntreesFacade {
    */
   voisines?: readonly FacadeVoisine[];
   /**
-   * Les choix de source de la personne, element par element (`ChoixSource`) : lus et montres sur l'element (`choisie`), ils ne
-   * s'appliquent encore a aucun calcul (lot C). Absents : la source que retient le moteur.
+   * Les choix de source de la personne, element par element (`ChoixSource`, lot C2) : l'element choisi remplace la valeur du moteur pour
+   * les etapes qui le consomment (choixSources.ts). Absents : la source que retient le moteur, rien ne change. Seule la calibration en
+   * passe aujourd'hui (decision du proprietaire, 7 novembre 2026 : « pas encore » dans l'audit) ; le processus est le meme.
    */
   choix?: readonly ChoixSource[];
-  /** Les forcages de Claude (une etape, ou toutes) : lus sur chaque element vise, ils ne s'appliquent encore a aucun calcul (lot C). */
+  /** Les forcages de Claude (une etape, ou toutes) : Claude pour chaque element vise qu'il a lu, un choix par element l'emportant. */
   forcages?: readonly ForcageSource[];
 }
 
@@ -120,7 +122,15 @@ interface OptionsEnchainement {
    * retenu, sans le changer. Absente : le mode deterministe.
    */
   ia?: RunEnregistre | null;
+  /**
+   * Interne : ce rejeu pose le mur sur la pose que la personne a choisie pour les angles (lot C2, Claude ou ses valeurs), en mur pose a
+   * la main ; `derouler` le pose lui-meme, une seule fois. Absent : le mur du calcul.
+   */
+  poseChoisie?: 'claude' | 'manuel';
 }
+
+/** Ce que l'E7 dit d'un mur pose sur les angles choisis par la personne (lot C2). */
+const POSE_CHOISIE = { claude: 'Mur posé sur les angles de Claude (votre choix).', manuel: 'Mur posé sur vos angles (votre choix).' } as const;
 
 /** Une photo de l'audit redressee seule, entiere : son rang parmi les photos de la facade, et l'image en JPEG. */
 interface PhotoRedresseeDeLAudit { rang: number; image: string }
@@ -202,6 +212,11 @@ interface SortiesFacade {
   audit: SortieAudit | null;
   /** E14 : le bilan de la facade, la Facade que la validation V4 ecrira (lot F5). */
   facade: BilanFacade | null;
+  /**
+   * E12, seulement quand les choix de la personne changent les ouvertures (lot C2) : le releve et la liste du moteur d'avant les choix, d'ou
+   * un rejeu repart (le releve et l'accord, eux, portent les ouvertures choisies, que V3 relit et V4 ecrit). Absent : aucun choix n'a joue.
+   */
+  moteur?: { releve: NonNullable<SortieAudit['mesure']>['releve']; ouvertures: readonly OuvertureFacade[] };
 }
 
 /** Une etape calculee : son etat, ce qu'elle a donne en une phrase, et sa mesure contre la verite quand le cas en a une. */
@@ -247,7 +262,11 @@ const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, calage: nu
 /** Ce que la reponse rejouee a dit, garde le temps du rejeu pour les actions de l'E8 (ce n'est pas une sortie : rien ne la relit). */
 interface LectureDeLE8 { angles: string | null; pointes: string; image: 'imageRun' | 'assemblage' }
 
-interface Contexte { e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade; lecture?: LectureDeLE8 }
+interface Contexte {
+  e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade; lecture?: LectureDeLE8;
+  /** Ce que l'E7 a lu des angles de Claude dans ce rejeu (la reponse `run`) : l'E8 le reprend tel quel, sans le refaire. */
+  angles?: { run: RunEnregistre; avis: ReturnType<typeof avisDeLIa> | null };
+}
 /** Ce qu'un pas rend : l'etat, le resume, la verite ; ses actions se lisent ensuite sur les sorties (`ACTIONS`). */
 type Resultat = Omit<EtapeCalculee, 'id' | 'actions'>;
 type Pas = (c: Contexte) => Promise<Resultat> | Resultat;
@@ -414,6 +433,8 @@ async function chaineDuGroupeImage({ e, o, s }: Contexte): Promise<void> {
     imageRun: retenue ? imageRunDeLAudit(e, a, retenue) : null,
     assemblage, retours,
   };
+  // Un releve neuf : ce que des choix d'un rejeu precedent avaient change ne vaut plus pour lui.
+  delete s.moteur;
   const pose = retenue?.a.assemblage ?? null;
   s.calage = { photos: coinsRetenus(c, a, n), message: null, pose, echelleGabarit: pose ? echelleDuGabarit(e.hauteurM / e.largeurM, rectDesCoins(pose.coins)) : 1 };
   if (retenue) {
@@ -553,6 +574,7 @@ const calage: Pas = (c) => {
   const m = s.audit?.mesure, b = s.audit?.redressement;
   if (!b?.photos.length) return attend('une photo');
   if (!m) return { etat: 'echec', resume: 'La photo ne montre pas le mur : coins introuvables. Posez quatre repères sur une photo, puis rejouez.', verite: null };
+  lireLesAngles(c);
   const juge = calageJuge(c);
   // Le mur confirme par la personne (V1) : tant que la chaine retient ce mur, l'E7 est « confirme par vous », sa propre note dite.
   const conf = e.prises.murConfirme;
@@ -563,6 +585,20 @@ const calage: Pas = (c) => {
   const note = juge.resume.replace(', à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.', '.').replace(' : à confirmer.', ' : noté, le mur reste celui que vous avez confirmé.');
   return { ...juge, etat: 'confirme', resume: `Mur confirmé par vous ${jourEnClair(conf.le)}. ` + note };
 };
+
+/**
+ * Les angles de Claude contre le mur retenu, lus par l'E7 elle-meme sur la reponse rejouee (`o.ia`), sans attendre l'E8 : l'accord de
+ * ses deux angles (une mesure, jamais candidate) que l'E7 montre a cote du calcul, et la base de « prendre la pose de Claude ». L'E8 le
+ * reprend pour sa vue d'ensemble. Sans reponse, il n'y a pas de lecture de Claude.
+ */
+function lireLesAngles(c: Contexte): void {
+  const { o, s, obj } = c;
+  if (!o.ia) { s.ia = null; return; }
+  const pose = s.calage?.pose ?? null, r = pose ? rectDeLaPose(pose.coins) : null;
+  const avis = r && pose ? avisDeLIa(o.ia, pose, r, s.preparation?.pointes ?? [], obj['facades.enchainement.calageEcartMaxPart'], cadreDuRun(o.ia, s.audit?.imageRun ?? null)) : null;
+  c.angles = { run: o.ia, avis };
+  s.ia = avis?.sortie ?? { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null };
+}
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 /** « le 3 novembre 2026 », d'apres une date ISO (le jour seul : l'heure ne dit rien ici). */
@@ -580,7 +616,7 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Resultat => {
   // Le mur des reperes que l'arbitre n'a pas lu (egout ou pied supposes) ou qu'il a pose d'apres le plan seul : il doute.
   const chercheDoute = !!cherche && (cherche.pose === 'plan-seul' || !cherche.lu);
   const note = m.confiance !== null ? ` (note du calage fin ${dec(m.confiance)})` : '';
-  const origine = main ? 'Mur posé à la main.'
+  const origine = main ? (o.poseChoisie ? POSE_CHOISIE[o.poseChoisie] : 'Mur posé à la main.')
     : cherche ? 'Mur cherché sur l’assemblage de vos repères' + POSE_CHERCHEE[cherche.pose] + (cherche.lu ? '.' : ', égout ou sol supposé.')
     : m.coinsTrouves ? `Coins du mur trouvés sur la photo${note}.` : 'Coins du mur prédits par la prise de vue, à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.';
   const hauteur = m.hauteurM !== null ? ` Hauteur à l’égout mesurée : ${dec(m.hauteurM)} m.` : '';
@@ -645,7 +681,10 @@ function avisDeLIa(run: RunEnregistre, image: AssemblageDuMur, retenue: RectIa, 
   const ecart = pose ? ecartDesPoses(pose, retenue) : null;
   const sortie: IaDuRejeu = { run, reponse, pose, ecart, accord: null };
   // Une reponse enregistree sous une autre version de la chaine a lu une autre image : ses angles se mesurent, mais c'est dit.
-  const autre = run.chaine !== VERSION_CHAINE_FACADES ? `, lue sur l’image de la chaîne ${run.chaine} (celle-ci est la ${VERSION_CHAINE_FACADES})` : '';
+  // Et une reponse lue sur un autre assemblage que celui de ce rejeu (une photo retiree, des reperes poses depuis) : sa taille le dit.
+  const autreImage = !cadre && (run.image.largeur !== image.image.largeur || run.image.hauteur !== image.image.hauteur)
+    ? `, lue sur un autre assemblage (${run.image.largeur} × ${run.image.hauteur} px ; celui de ce rejeu : ${image.image.largeur} × ${image.image.hauteur} px)` : '';
+  const autre = (run.chaine !== VERSION_CHAINE_FACADES ? `, lue sur l’image de la chaîne ${run.chaine} (celle-ci est la ${VERSION_CHAINE_FACADES})` : '') + autreImage;
   const tete = `IA (${enteteDuRun(run)}${autre}) : `;
   if (!reponse) return { sortie, texte: tete + 'aucune passe lisible.', angles: null, pointes: '' };
   const pointes = pointesDeLIa(reponse, attendues) + escaladeDeLIa(reponse);
@@ -731,9 +770,31 @@ function partageDuReleve(e: EntreesFacade, ouvertures: readonly OuvertureFacade[
 /** Le nom d'un cote du contour dans une phrase : « sud (côté 3) ». */
 const nomDuCote = (e: EntreesFacade) => (cote: number): string => nomFacade(e.prises.facade.orientation, cote);
 
+/**
+ * Les choix de la personne poses sur les ouvertures (lot C2) : le releve et l'accord portent alors les ouvertures choisies (ce que V3
+ * relit, V4 ecrit, l'E14 compte), la liste du moteur gardee a part pour le rejeu suivant (`moteur`). Sans choix, rien ne bouge ; un choix
+ * retire rend la liste du moteur. Rend les cles des elements dont le choix a change une ouverture.
+ */
+function ouverturesChoisies(e: EntreesFacade, s: SortiesFacade): string[] {
+  const m = s.audit?.mesure;
+  if (!m || !s.audit) return [];
+  const releve = s.moteur?.releve ?? m.releve, accord = s.ia?.accord ?? null;
+  const base = s.moteur?.ouvertures ?? accord?.ouvertures ?? releve.ouvertures;
+  const r = ouverturesSelonLesChoix(e, accord, s.ia?.reponse ?? null, base, releve.ouvertures, m.devinees ?? s.analyse?.devinees ?? []);
+  if (!r) {
+    if (s.moteur) { s.audit = { ...s.audit, mesure: { ...m, releve }, }; if (s.ia?.accord) s.ia = { ...s.ia, accord: { ...s.ia.accord, ouvertures: [...base] } }; delete s.moteur; }
+    return [];
+  }
+  s.moteur = { releve, ouvertures: base };
+  s.audit = { ...s.audit, mesure: { ...m, releve: { ...releve, ouvertures: r.ouvertures } } };
+  if (s.ia?.accord) s.ia = { ...s.ia, accord: { ...s.ia.accord, ouvertures: r.ouvertures } };
+  return r.changees;
+}
+
 const ouvertures: Pas = ({ e, o, s, obj }) => {
   const a = s.analyse;
   if (!a) return attend(`le mur redressé (${libelleEtape('redressement')})`);
+  const choisies = ouverturesChoisies(e, s);
   const n = a.ouvertures.length, d = a.devinees.length;
   // L'accord des boites de Claude est fait a l'E8 (la lecture de Claude) : les ouvertures qu'il coche se lisent ici, sans le redire.
   const accord = s.ia?.accord ?? null;
@@ -748,8 +809,9 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   const propre: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
   const etat: EtatAffiche = relu ? 'ok' : propre === 'ok' ? 'a-confirmer' : propre;
   const k = relues?.ouvertures.length ?? 0;
-  const resume = relu ? `Ouvertures relues par vous ${jourEnClair(relues.le)} : ${k} gardée${k > 1 ? 's' : ''}. La détection : ` + detecte
-    : (relues ? `Les ouvertures relues ${jourEnClair(relues.le)} ne sont plus celles que la détection trouve : à relire. ` : '') + detecte + ' Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.';
+  const vosChoix = choisies.length ? ` Vos choix (Calcul, Claude, Manuel) changent ${pluriel(choisies.length, 'ouverture')} ; les ${detectees.length} sont à relire (V3).` : '';
+  const resume = relu ? `Ouvertures relues par vous ${jourEnClair(relues.le)} : ${k} gardée${k > 1 ? 's' : ''}. La détection : ` + detecte + vosChoix
+    : (relues ? `Les ouvertures relues ${jourEnClair(relues.le)} ne sont plus celles que la détection trouve : à relire. ` : '') + detecte + vosChoix + ' Relisez-les (V3) : vérifiez, ajoutez ou retirez, avant de valider la façade.';
   const vraies = o.verite?.ouvertures;
   if (!vraies?.length) return { etat, resume, verite: null };
   const m = contreLaVerite(vraies, a.ouvertures);
@@ -773,31 +835,39 @@ const IMAGE_LUE = {
  */
 const lectureIa: Pas = (c) => {
   const { e, o, s, obj } = c;
-  if (!o.ia) return sans('Mode déterministe : aucune réponse de Claude à rejouer.');
+  // Sans reponse (le mode deterministe, choisi par un rejeu repris depuis ici) : plus rien de Claude dans ce rejeu.
+  if (!o.ia) { s.ia = null; return sans('Mode déterministe : aucune réponse de Claude à rejouer.'); }
   const m = s.audit?.mesure, b = s.audit?.redressement;
   if (!b?.photos.length) return attend('une photo');
   if (!m) return attend(`le mur posé (${libelleEtape('calage')})`);
-  const pose = s.calage?.pose ?? null, r = pose ? rectDeLaPose(pose.coins) : null, seuil = obj['facades.enchainement.calageEcartMaxPart'];
+  const seuil = obj['facades.enchainement.calageEcartMaxPart'];
   const cadre = cadreDuRun(o.ia, s.audit?.imageRun ?? null);
-  const ia = r ? avisDeLIa(o.ia, pose as AssemblageDuMur, r, s.preparation?.pointes ?? [], seuil, cadre) : null;
-  s.ia = ia?.sortie ?? { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null };
+  // Les angles, l'E7 les a lus dans ce rejeu ; un rejeu repris depuis ici (une autre reponse) les relit sur le mur de l'E7, sans lui.
+  if (c.angles?.run !== o.ia) lireLesAngles(c);
+  const ia = c.angles?.avis ?? null;
+  if (!s.ia) s.ia = { run: o.ia, reponse: observationsDuRun(o.ia), pose: null, ecart: null, accord: null };
   // Ses boites accordees avec les ouvertures du releve que V4 ecrira, sur les aretes de l'elevation (decision 4 du proprietaire,
   // 3 novembre 2026 : une seule orchestration). Les descentes qu'il voit ne valent que la ou une verticale les confirme.
   const a = s.analyse, reponse = s.ia.reponse, rel = s.audit?.mesure;
+  // Le releve du moteur, d'avant les choix de la personne d'un rejeu precedent (l'E12 les repose sur l'accord refait ici).
+  const releve = s.moteur?.releve ?? rel?.releve;
+  if (s.moteur && s.audit?.mesure) { s.audit = { ...s.audit, mesure: { ...s.audit.mesure, releve: s.moteur.releve } }; delete s.moteur; }
   if (a) {
     const cartes = reponse ? cartesAretes(a.elevation, a.pxParM) : null;
-    const accord = reponse ? accorderOuvertures({ ouvertures: rel?.releve.ouvertures ?? a.ouvertures, decochees: rel?.devinees ?? a.devinees, observations: reponse, cartes, largeurM: rel?.releve.largeur ?? e.largeurM, hauteurM: rel?.releve.hauteur ?? e.hauteurM }) : null;
-    s.ia = { ...s.ia, accord, descentes: reponse ? descentesRetrouvees(reponse.modenature?.descentes ?? [], cartes, rel?.releve.largeur ?? e.largeurM) : [] };
+    const accord = reponse ? accorderOuvertures({ ouvertures: releve?.ouvertures ?? a.ouvertures, decochees: rel?.devinees ?? a.devinees, observations: reponse, cartes, largeurM: releve?.largeur ?? e.largeurM, hauteurM: releve?.hauteur ?? e.hauteurM }) : null;
+    s.ia = { ...s.ia, accord, descentes: reponse ? descentesRetrouvees(reponse.modenature?.descentes ?? [], cartes, releve?.largeur ?? e.largeurM) : [] };
   }
   const image = cadre ? 'imageRun' : 'assemblage';
   c.lecture = { angles: ia?.angles ?? null, pointes: ia?.pointes ?? '', image };
   const accord = s.ia.accord ?? null;
   const tete = ia?.texte ?? `IA (${enteteDuRun(o.ia)}) : ` + (reponse ? 'Claude ne situe pas les deux angles du mur.' : 'aucune passe lisible.');
   const boites = accord ? ' ' + (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' : '';
-  const resume = tete + formeDeLIa(reponse) + boites + ' ' + IMAGE_LUE[image];
+  // Le mur pose sur les angles choisis (lot C2) : la lecture a ete faite sur l'image d'avant cette pose ; elle est perimee, et le dit.
+  const perimee = o.poseChoisie ? ' Le mur est posé sur les angles choisis : cette lecture a été faite sur l’image d’avant, elle est périmée ; rappelez Claude pour la refaire.' : '';
+  const resume = tete + formeDeLIa(reponse) + boites + ' ' + IMAGE_LUE[image] + perimee;
   const diverge = s.ia.ecart !== null && s.ia.ecart > seuil;
-  // A confirmer : aucune passe lisible, ou ses angles et le mur retenu divergent (deux chemins). Des angles qu'il ne situe pas ne disent rien.
-  const etat: EtatAffiche = !reponse || diverge ? 'a-confirmer' : 'ok';
+  // A confirmer : aucune passe lisible, ou ses angles et le mur retenu divergent (deux chemins), ou la lecture perimee. Des angles qu'il ne situe pas ne disent rien.
+  const etat: EtatAffiche = !reponse || diverge || perimee ? 'a-confirmer' : 'ok';
   // Les boites de Claude se mesurent aussi : toutes, puis les cochees (celles que la detection retrouve) ; c'est la mesure x1 contre x3.
   const vraies = o.verite?.ouvertures;
   if (!vraies?.length || !accord) return { etat, resume, verite: null };
@@ -823,7 +893,7 @@ const validation: Pas = ({ e, o, s }) => {
   s.facade = bilanDeLaFacade({
     largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: hautLuAuPlan(s), masques: s.forme?.masque?.troncons ?? [],
     silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: partage?.surLeMur ?? relues ?? m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM,
-    ...(s.ia?.reponse ? { pointesIa: s.ia.reponse.calage.pointes } : {}),
+    ...(s.ia?.reponse ? { pointesIa: lectureSelonLesChoix(e, s.ia.reponse, s.preparation?.pointes ?? []).reponse?.calage.pointes ?? s.ia.reponse.calage.pointes } : {}),
   });
   const ajoutes = partage?.ajouts.reduce((k, a) => k + a.ouvertures.length, 0) ?? 0;
   const voisin = ajoutes ? ` Et ${ajoutes} ouverture${ajoutes > 1 ? 's' : ''} sur la façade ${partage?.ajouts.map((a) => nomDuCote(e)(a.cote)).join(', ')}, dans le même pas.` : '';
@@ -844,7 +914,9 @@ const hautLuAuPlan = (s: SortiesFacade): { u: number; v: number }[] | null => {
 const PAS: Record<IdEtape, Pas> = {
   preparation, prises, objectif, coins, redressement, assemblage, calage, lectureIa, silhouette,
   diagnostic: ({ e, o, s }) => {
-    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), s.ia?.reponse ?? null, o.objectifs, o.verite?.toit, s.forme?.masque?.troncons ?? []);
+    // La lecture de Claude selon les choix de la personne (lot C2) : sans choix, la reponse telle quelle.
+    const l = lectureSelonLesChoix(e, s.ia?.reponse ?? null, s.preparation?.pointes ?? []);
+    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, hautLuAuPlan(s), l.reponse, o.objectifs, o.verite?.toit, s.forme?.masque?.troncons ?? [], l.pris);
     s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic, masque: s.forme?.masque ?? null };
     return r.etape;
   },
@@ -858,7 +930,7 @@ const PAS: Record<IdEtape, Pas> = {
  * premier pas (E3), ou elle est appelee ; sinon, de l'etape demandee.
  */
 function departDuRejeu(id: IdEtape): IdEtape {
-  return id === 'coins' || id === 'redressement' ? 'objectif' : id;
+  return id === 'coins' || id === 'redressement' || id === 'assemblage' ? 'objectif' : id;
 }
 
 /** Une action d'une etape : son contrat (model/etapeFacade.ts), son etat, et ce qu'elle a dit, lu et rendu. */
@@ -880,11 +952,8 @@ const partDuRun = (c: Contexte) => ({ appel: 'run' as const, rejouee: !!c.o.ia, 
 
 /** Un element lu par Claude : sa cle stable, sa famille, les etapes qui le consomment, ses trois valeurs, la source retenue, le choix lu. */
 function deClaude(c: Contexte, cle: string, famille: FamilleClaude, e: Omit<ElementAction, 'cle' | 'famille' | 'consommePar' | 'valeurs' | 'retenue' | 'choisie'>, calcul: ValeurElement | null, claude: ValeurElement | null, retenue: SourceElement | null): ElementAction {
-  const choisie = c.e.choix?.find((x) => x.cle === cle) ?? null, f = FAMILLES_CLAUDE[famille];
-  // Un forcage vise l'element quand il porte sur toutes les etapes, ou sur l'etape qui le montre ou le consomme.
-  const forcee = c.e.forcages?.find((x) => 'toutes' in x || x.etape === f.montreeA || f.consommePar.includes(x.etape)) ?? null;
-  const sansClaude = !choisie && !!forcee && claude === null;
-  const sourceLue: SourceElement | null = choisie ? choisie.source : forcee ? (claude === null ? 'calcul' : 'claude') : retenue;
+  // La meme lecture que celle qui s'applique au calcul (choixSources.ts) : ce que l'ecran dit est ce que le moteur a fait.
+  const { choisie, forcee, sansClaude, source: sourceLue } = sourceDe(c.e, cle, famille, claude !== null, retenue), f = FAMILLES_CLAUDE[famille];
   return { ...e, cle, famille, consommePar: f.consommePar, valeurs: { calcul, claude, manuel: choisie?.source === 'manuel' ? choisie.valeur ?? null : null }, retenue, choisie, forcee, sourceLue, ...(sansClaude ? { sansClaude } : {}) };
 }
 
@@ -1024,7 +1093,6 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
     return [
       act('diagnostic', 'diagnostiquer', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'forme', valeurs: { propositions: n } } }),
       elementsDeClaude(c),
-      act('diagnostic', 'cocher', n ? 'a-confirmer' : 'saute', { manuel: { geste: etapeFacade('diagnostic').optionManuelle ?? '', fait: null } }),
     ];
   },
   texture: (r, c) => [
@@ -1074,7 +1142,7 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
         ...(relues ? { apres: { valeurs: { gardees: relues.ouvertures.length, le: relues.le.slice(0, 10) } } } : {}) }),
     ];
   },
-  toit: (r, { s }) => [act('toit', 'cocher', etatFini(r.etat), { manuel: { geste: 'cocher les propositions à l’avant/après de l’audit, ou ' + (etapeFacade('toit').optionManuelle ?? ''), fait: null }, apres: { valeurs: { propositions: (s.forme?.diagnostic?.propositions.length ?? 0) + (s.forme?.diagnostic?.elements.length ?? 0) } } })],
+  toit: (r, { s }) => [act('toit', 'cocher', etatFini(r.etat), { manuel: { geste: (etapeFacade('toit').optionManuelle ?? '') + ' (V2)', fait: null }, apres: { valeurs: { propositions: (s.forme?.diagnostic?.propositions.length ?? 0) + (s.forme?.diagnostic?.elements.length ?? 0) } } })],
   validation: (_r, { o, s }) => [
     act('validation', 'bilan', fait(!!s.facade), { apres: { valeurs: { ouvertures: s.facade?.ouvertures.length ?? 0 } } }),
     // La calibration n'ecrit rien : V4 ne s'y fait pas ; dans l'audit, la personne valide apres le rejeu (facadeValidee.ts).
@@ -1113,10 +1181,23 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
     etapes.push({ id: def.id, ...r, actions: [] });
     o.surEtape?.(def.id, r.etat, r.resume);
   }
-  // Les actions se lisent une fois le rejeu fini : le calage montre aussi les angles de Claude, que l'E8 mesure apres lui. Une etape
+  // Les actions se lisent une fois le rejeu fini : le calage montre les angles de Claude, qu'il lit lui-meme (relus par l'E8 quand un
+  // rejeu repris depuis elle change de reponse). Une etape
   // reprise d'un rejeu precedent garde les siennes (le calage les relit si l'E8 a ete refaite). Elles ne changent rien au calcul.
   const refaite = (id: IdEtape) => k0(id) >= debut || (id === 'calage' && k0('lectureIa') >= debut);
   const avecActions = etapes.map((x) => (refaite(x.id) ? { ...x, actions: actionsDeLEtape(x.id, x, c) } : x));
+  // Les angles du mur pris de Claude, ou poses par la personne (lot C2) : ils deviennent le mur pose a la main sur chaque photo de
+  // l'image prise pour la suite (une entree de la chaine, comme un mur tire), et le cas se rejoue entier une fois ; sans ce choix, rien.
+  const choisie = o.poseChoisie ? null : poseSelonLesChoix(e, c.s.ia?.pose ?? null);
+  const retours = c.s.audit?.retours ?? [];
+  if (choisie && c.s.calage?.pose && retours.length) {
+    const r = choisie.rect, coins = [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }];
+    const corrections = { ...e.prises.corrections };
+    for (const [rang, cs] of murAjusteSurLesPhotos({ retours }, coins)) corrections[String(rang)] = { ...corrections[String(rang)], coins: cs };
+    const reste = { ...o, poseChoisie: choisie.source };
+    delete reste.depuis; delete reste.precedent;
+    return derouler({ ...e, prises: { ...e.prises, corrections } }, reste);
+  }
   return { etapes: avecActions, sorties: c.s, versions: { chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS, ...(o.ia ? { ia: EMPREINTE_IA } : {}) } };
 }
 
@@ -1172,6 +1253,8 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
     prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg }),
+    // Les choix et les forcages de la personne (lot C2), gestes du cas comme ses reperes ; absents d'un cas d'avant : rien ne change.
+    ...(cas.choix?.length ? { choix: lireChoix(cas.choix) } : {}), ...(cas.forcages?.length ? { forcages: lireForcages(cas.forcages) } : {}),
   };
 }
 

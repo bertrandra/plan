@@ -513,14 +513,19 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     }
     expect(boites.find((x) => x.statut === 'retrouvee')).toMatchObject({ retenue: 'calcul', valeurs: { calcul: expect.any(Object), claude: expect.any(Object) } });
     expect(boites.find((x) => x.statut === 'proposee')).toMatchObject({ retenue: null, valeurs: { calcul: null } });
-    // Le choix de la personne se lit sur l'element (une entree, comme un geste) ; il ne change encore aucun calcul (lot C).
+    // Le choix de la personne se lit sur l'element (une entree, comme un geste) ; depuis le lot C2, il change ce que l'E12 consomme.
     const seule = boites.find((x) => x.statut === 'proposee')?.cle ?? '';
     const choix = [{ cle: seule, source: 'manuel' as const, valeur: { type: 'fenetre', x: 1, y: 1, l: 1, h: 1 }, le: '2026-11-07' }];
     const avecChoix = await derouler({ ...entreesDuCas(cas, [ph.image]), choix }, { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
     const lue = etapeDe(avecChoix, 'ouvertures').actions[1]?.elements?.find((x) => x.cle === seule);
     expect(lue).toMatchObject({ choisie: choix[0], valeurs: { manuel: choix[0]?.valeur } });
-    expect(avecChoix.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
-    expect(avecChoix.etapes.map((x) => [x.id, x.etat, x.resume])).toEqual(r.etapes.map((x) => [x.id, x.etat, x.resume]));
+    // La boite seulement proposee, posee a la main : elle entre aux ouvertures (l'accord et le releve), les boites restent ce que le moteur a decide.
+    expect(avecChoix.sorties.ia?.accord?.boites).toEqual(r.sorties.ia?.accord?.boites);
+    expect(avecChoix.sorties.ia?.accord?.ouvertures).toHaveLength((r.sorties.ia?.accord?.ouvertures.length ?? 0) + 1);
+    expect(avecChoix.sorties.audit?.mesure?.releve.ouvertures).toEqual(avecChoix.sorties.ia?.accord?.ouvertures);
+    expect(etapeDe(avecChoix, 'ouvertures').resume).toMatch(/Vos choix \(Calcul, Claude, Manuel\) changent 1 ouverture/);
+    const avantE12 = (x: typeof r) => x.etapes.filter((e) => ['preparation', 'prises', 'objectif', 'coins', 'redressement', 'assemblage', 'calage', 'lectureIa', 'silhouette', 'diagnostic', 'texture'].includes(e.id)).map((e) => [e.id, e.etat, e.resume]);
+    expect(avantE12(avecChoix)).toEqual(avantE12(r));
     // Le forcage de Claude (une etape, ou toutes) : lu sur les elements vises, le choix d'un element l'emporte, un element que Claude
     // n'a pas lu garde le calcul et le dit ; aucun calcul ne change.
     const forcees = await derouler({ ...entreesDuCas(cas, [ph.image]), choix, forcages: [{ etape: 'ouvertures', source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
@@ -531,8 +536,10 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     const toutes = await derouler({ ...entreesDuCas(cas, [ph.image]), forcages: [{ toutes: true, source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie) });
     const pointes = etapeDe(toutes, 'silhouette').actions.find((x) => x.id === 'forme')?.elements?.filter((x) => x.famille === 'pointe') ?? [];
     for (const x of pointes) expect([x.sourceLue, x.sansClaude ?? false]).toEqual(x.valeurs?.claude ? ['claude', false] : ['calcul', true]);
-    expect(toutes.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
-    expect(toutes.etapes.map((x) => [x.id, x.etat])).toEqual(r.etapes.map((x) => [x.id, x.etat]));
+    // Forcer Claude partout : la boite proposee entre aux ouvertures ; les angles, non (la pose de Claude reste un choix de l'E7).
+    expect(etapeDe(toutes, 'calage').resume).toBe(etapeDe(r, 'calage').resume);
+    expect(etapeDe(toutes, 'calage').actions.find((x) => x.id === 'angles')?.elements?.[0]).toMatchObject({ forcee: null, sourceLue: 'calcul' });
+    expect(toutes.sorties.audit?.mesure?.releve.ouvertures.length).toBeGreaterThan(r.sorties.audit?.mesure?.releve.ouvertures.length ?? 0);
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(im.ia?.pose).not.toBeNull();

@@ -17,4 +17,13 @@ describe('les gestes d un cas de calibration', () => {
     expect(remis).toEqual(cas);
     expect(avecLesGestes(remis, gestesDuCas(apres))).toEqual(apres);
   });
+
+  it('defait et refait un choix de source et un forcage de Claude (lot C2), comme les autres gestes', () => {
+    const avant = gestesDuCas(cas);
+    const le = '2026-11-07T10:00:00.000Z';
+    const apres: CasStocke = { ...cas, choix: [{ cle: 'ouverture:0', source: 'claude', le }], forcages: [{ toutes: true, source: 'claude', le }] };
+    const remis = avecLesGestes(apres, avant);
+    expect(remis).toEqual(cas);
+    expect(avecLesGestes(remis, gestesDuCas(apres))).toEqual(apres);
+  });
 });
