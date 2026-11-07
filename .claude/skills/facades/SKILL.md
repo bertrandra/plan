@@ -965,7 +965,9 @@ sans que cela se voie (`MD/RELEASE.md` §8.2 bis).
   `mesure`), leur état, ce qu'elles ont lu et rendu (une référence d'`ImagesEtapes`, des valeurs) ; `derouler` seul les rend. Le groupe
   Image (É3 à É6) ne calcule qu'une fois, dans son premier pas : aucun calcul n'a bougé, `VERSION_CHAINE_FACADES` non plus. La
   lecture de Claude (É8) rejoue la réponse enregistrée, jamais un appel ; sans elle, « mode déterministe », sautée. Les bancs ne lisent
-  pas les actions.
+  pas les actions. Chaque lecture de Claude est aussi une action `claude` de l'étape qu'elle concerne (É7 angles, É9 forme et pointes,
+  É10 éléments du toit, É11 parement et ce qui cache, É12 boîtes), ses éléments un par un avec le statut du moteur et `vers` (ce qu'ils
+  confirment) ; `MD/spec-facade-calage-audit.md` §4 ter.7 en donne la table.
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
   `facade/releve/enchainement.ts::derouler` (étapes É1 à É14, état de chacune contre ses objectifs `regles/facades/enchainement.json`,
   images `imagesEtapes.ts`) ; la mesure des cas passe par `preparerPourLaMesure`, le même chemin. L'audit y est venu au lot F3 ; depuis F6,

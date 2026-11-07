@@ -789,6 +789,20 @@ façade, ce qui est fait, ce qui attend la personne.
   et l'image lue ; une action `manuel` dit le geste et s'il a été fait (`null` : le processus ne le voit pas). La **vérité** d'un cas est
   une action `mesure`, en lecture seule : elle ne se fait que si le cas en a une et ne change aucune sortie commune
   (`uneOrchestration.test.ts` compare aussi les actions des deux vues, la mesure et la texture sans ombres mises à part).
+- **Claude, étape par étape** (demande du propriétaire, 7 novembre 2026) : l'É8 garde la vue d'ensemble de la réponse (et l'image envoyée) ;
+  chaque étape où Claude lit quelque chose en montre **aussi** la part, comme une action `claude` à côté de son calcul, ses éléments un
+  par un (`ElementAction`) avec le statut que le moteur leur a donné et le lien (`vers`) vers ce qu'ils confirment :
+
+  | Étape | Le calcul montre | Claude montre (statut) | Gestes manuels : existants · à venir (lot C) |
+  |---|---|---|---|
+  | É7 Calage | le mur cherché, sa pose jugée (score, angles, égout) | ses deux angles (`accord`, `divergent`, `non-situe` ; jamais candidats) | tirer bouts, égout, sol ; confirmer (V1) · prendre la pose de Claude |
+  | É9 Silhouette | le haut lu à la teinte | le mot, le bout (`lu`) ; ses pointes (`accord`, `hauteur`, `en-plus`, `manquante`) ; appentis, autres volumes (`lu`) | — · ajuster le haut lu, prendre une pointe de Claude |
+  | É10 Diagnostic | les variantes de toit par corps | cheminées, lucarnes (`retenu` quand le diagnostic en propose une à sa place, `vers` ; `ecarte` sinon) | cocher, Mode Toit (V2) · prendre un élément écarté |
+  | É11 Texture | la texture calée (et sans ombres) | le parement et ses zones, ce qui cache le mur (`lu`) | « sans ombres » · corriger le parement, les zones, le masque |
+  | É12 Ouvertures | les ouvertures détectées et devinées (`confirmee` par une boîte, `absente`, `devinee`) | ses boîtes : type, détails, confiance, carreaux (`retrouvee` → `vers` l'ouverture qu'elle confirme, `devinee-confirmee`, `proposee`, `ecartee`) | relire (garder, ajouter, retirer, déplacer, redimensionner, V3) ; dans l'audit, une boîte seule arrive décochée à l'avant/après · prendre ou ajuster une boîte de Claude dans la relecture, ajouter depuis elle |
+
+  Les boîtes écartées (hors du mur) et le lien d'une boîte retrouvée sortent de l'accord en lecture (`AccordIa.ecartees`,
+  `BoiteAccordee.vers`, `facade/regles/facades/ia.ts`) : aucune décision du moteur ne change.
 - **Les actions sortent de `derouler` et nulle part ailleurs** : elles se lisent sur les sorties que le pas vient d'écrire (des comptes et
   des références d'images déjà faites), sans calcul de plus.
 - **Aucun calcul n'a bougé** : `redresserEtFusionner` reste appelée une fois, dans le premier pas du groupe Image ; la lecture de Claude

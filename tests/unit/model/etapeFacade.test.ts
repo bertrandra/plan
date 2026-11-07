@@ -18,13 +18,14 @@ describe('les etapes d une facade', () => {
     expect(etapeFacade('lectureIa').modeAudit).toBe('resume');
   });
 
-  it('portent chacune leurs actions typees, aux identifiants uniques ; Claude n a d actions qu a sa lecture', () => {
+  it('portent chacune leurs actions typees, aux identifiants uniques ; Claude a ses actions la ou il lit quelque chose', () => {
     for (const e of ETAPES_FACADE) {
       expect(e.actions.length, e.id).toBeGreaterThan(0);
       expect(new Set(e.actions.map((a) => a.id)).size, e.id).toBe(e.actions.length);
       for (const a of e.actions) expect(['code', 'claude', 'manuel', 'mesure']).toContain(a.type);
     }
-    expect(ETAPES_FACADE.filter((e) => e.actions.some((a) => a.type === 'claude')).map((e) => e.id)).toEqual(['lectureIa']);
+    // L'E8 garde la vue d'ensemble de la reponse ; chaque etape ou Claude lit quelque chose en montre la part, a cote de son calcul.
+    expect(ETAPES_FACADE.filter((e) => e.actions.some((a) => a.type === 'claude')).map((e) => e.id)).toEqual(['calage', 'lectureIa', 'silhouette', 'diagnostic', 'texture', 'ouvertures']);
     expect(etapeFacade('lectureIa').actions.filter((a) => a.type === 'claude').map((a) => a.id)).toEqual(['run', 'enrichie', 'toit']);
     // La verite d'un cas est une mesure, la ou une etape se mesure contre elle.
     expect(ETAPES_FACADE.filter((e) => e.actions.some((a) => a.type === 'mesure')).map((e) => e.id)).toEqual(['calage', 'lectureIa', 'diagnostic', 'ouvertures']);

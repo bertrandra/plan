@@ -16,7 +16,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   enregistrée (« mode déterministe » sans elle) et dit l'image qu'il a lue, l'exception acceptée ; ses textes quittent le calage, la
   silhouette et les ouvertures. Dans l'audit, l'objectif et les coins restent cachés, la lecture de Claude tient en une ligne ; la barre
   garde huit segments (Image : É3 à É6, Mur : É7 et É8), la frise de la calibration montre douze étapes. Les numéros écrits en dur
-  viennent du contrat (`libelleEtape`). Un fichier d'audit ne porte aucune étape : rien à migrer.
+  viennent du contrat (`libelleEtape`). Un fichier d'audit ne porte aucune étape : rien à migrer. Chaque lecture de Claude est aussi
+  une action de l'étape qu'elle concerne (les angles au calage, la forme du haut et les pointes à la silhouette, les éléments du toit
+  au diagnostic, le parement et ce qui cache le mur à la texture, les boîtes aux ouvertures), avec le statut décidé par le moteur et
+  ce qu'elle confirme ; les boîtes écartées et le lien d'une boîte retrouvée sortent de l'accord, en lecture.
 
 ## [5.13.1] — 2026-11-07
 

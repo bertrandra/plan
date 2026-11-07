@@ -24,7 +24,7 @@
 
 import type { HautMasque } from '../analyse.js';
 import { descentesRetrouvees } from '../regles/facades/modenature.js';
-import { ETAPES_FACADE, actionDe, etapeFacade, libelleEtape, type ActionEtape, type EtatAffiche, type EtatEtape, type IdEtape, type TypeAction } from '../../model/etapeFacade.js';
+import { ETAPES_FACADE, actionDe, etapeFacade, libelleEtape, type ActionEtape, type ElementAction, type EtatAffiche, type EtatEtape, type IdEtape, type TypeAction } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, echelleDuGabarit, gabaritALEchelle, gabaritSurLaPhoto, pointesDuGabarit, rectDesCoins, type GabaritMur } from '../gabaritMur.js';
 import { murSousLeSol } from '../vision/mosaiqueFuites.js';
@@ -47,7 +47,7 @@ import { estLeMurConfirme, sontRelues, type BilanPhotoRedressement, type BilanRe
 import type { PrisePhoto } from '../../model/audit.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie, type ToitVraiCorps } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
-import { accorderOuvertures, avisDesPointes, ecartDesPoses, EMPREINTE_IA, poseDeLIa, poseDeLIaSurLeMur, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
+import { accorderOuvertures, avisDesPointes, ecartDesPoses, EMPREINTE_IA, reglagesIa, poseDeLIa, poseDeLIaSurLeMur, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
 import { cartesAretes } from '../detection/recalageIa.js';
 import { etapeDiagnostic, etapeToit, type ToitDeLaFacade } from './etapesForme.js';
 import type { DiagnosticForme } from '../regles/facades/diagnosticForme.js';
@@ -859,6 +859,66 @@ function act(etape: IdEtape, id: string, etat: EtatEtape, plus: Omit<Partial<Act
 const etatFini = (e: EtatAffiche): EtatEtape => (e === 'a-venir' || e === 'en-cours' ? 'saute' : e);
 const fait = (oui: boolean): EtatEtape => (oui ? 'ok' : 'saute');
 
+/** L'image que la reponse rejouee a lue (une propriete du run, cadreDuRun) ; null sans reponse. */
+function imageLue(o: OptionsEnchainement, s: SortiesFacade): 'imageRun' | 'assemblage' | null {
+  return o.ia ? (cadreDuRun(o.ia, s.audit?.imageRun ?? null) ? 'imageRun' : 'assemblage') : null;
+}
+
+/** La part de la reponse rejouee que concerne une etape : l'appel du run, rejoue, et l'image qu'il a lue. */
+const partDuRun = (c: Contexte) => ({ appel: 'run' as const, rejouee: !!c.o.ia, image: imageLue(c.o, c.s) });
+
+/** E7 : les deux angles du mur selon Claude, contre le mur retenu (accord, divergence), tels que l'E8 les a mesures ; jamais candidats. */
+function anglesDeClaude(c: Contexte): ActionEtape {
+  const ia = c.s.ia, seuil = c.obj['facades.enchainement.calageEcartMaxPart'];
+  if (!ia?.reponse) return act('calage', 'angles', 'saute', { claude: partDuRun(c) });
+  const statut = ia.ecart === null || !ia.pose ? 'non-situe' : ia.ecart > seuil ? 'divergent' : 'accord';
+  return act('calage', 'angles', statut === 'divergent' ? 'a-confirmer' : statut === 'accord' ? 'ok' : 'saute', {
+    claude: partDuRun(c), avant: { image: 'pose' }, apres: { image: 'ia', valeurs: { ecart: ia.ecart } },
+    elements: [{ genre: 'pose', statut, type: 'angles', rect: null, details: ia.pose ? { x0: ia.pose.x0, x1: ia.pose.x1, y0: ia.pose.y0, y1: ia.pose.y1, ecart: ia.ecart } : {}, vers: null }],
+  });
+}
+
+/** E9 : le haut selon Claude : le mot, le bout, ses pointes jugees contre le gabarit (la regle des pointes), ses appentis et autres volumes. */
+function formeDeClaude(c: Contexte): ActionEtape {
+  const r = c.s.ia?.reponse;
+  if (!r) return act('silhouette', 'forme', 'saute', { claude: partDuRun(c) });
+  const pointes = avisDesPointes(r, c.s.preparation?.pointes ?? []);
+  const etendue = (genre: 'etendue', type: string) => (x: { debut: number; fin: number }): ElementAction => ({ genre, statut: 'lu', type, rect: null, details: { u0: x.debut, u1: x.fin }, vers: null });
+  const elements: ElementAction[] = [
+    { genre: 'forme', statut: 'lu', type: r.forme.silhouette, rect: null, details: { bout: r.forme.bout }, vers: null },
+    ...pointes.map((p): ElementAction => ({ genre: 'pointe', statut: p.avis, type: 'pointe', rect: null, details: { u: p.u, vue: p.vue ?? null, attendue: p.attendue ?? null }, vers: null })),
+    ...r.calage.appentis.map(etendue('etendue', 'appentis')), ...r.calage.corps.map(etendue('etendue', 'corps')),
+  ];
+  return act('silhouette', 'forme', pointes.some((p) => p.avis !== 'accord') ? 'a-confirmer' : 'ok', { claude: partDuRun(c), avant: { image: 'pose' }, apres: { image: 'ia' }, elements });
+}
+
+/** E10 : les elements du toit que Claude voit, retenus quand le diagnostic en propose un a sa place (sa provenance le dit), sinon ecartes. */
+function elementsDeClaude(c: Contexte): ActionEtape {
+  const r = c.s.ia?.reponse;
+  if (!r) return act('diagnostic', 'elements', 'saute', { claude: partDuRun(c) });
+  const props = c.s.forme?.diagnostic?.elements ?? [], pres = reglagesIa()['facades.ia.pointeEcartU'];
+  const elements = r.elements.map((x): ElementAction => {
+    const k = props.findIndex((p) => p.provenance !== 'deterministe' && p.element === x.element && x.u >= p.u0 - pres && x.u <= p.u1 + pres);
+    return { genre: 'element', statut: k >= 0 ? 'retenu' : 'ecarte', type: x.element, rect: null, details: { u: x.u, confiance: x.confiance }, vers: k >= 0 ? k : null };
+  });
+  return act('diagnostic', 'elements', !elements.length ? 'saute' : 'ok', { claude: partDuRun(c), avant: { image: 'pose' }, apres: { image: 'forme' }, elements });
+}
+
+/** E11 : le parement et ses zones (qui ne sont jamais candidates de l'arbitre), et ce qui cache le mur, selon Claude : des lectures. */
+function surfaceEtCacheDeClaude(c: Contexte): ActionEtape[] {
+  const r = c.s.ia?.reponse;
+  if (!r) return [act('texture', 'surface', 'saute', { claude: partDuRun(c) }), act('texture', 'cache', 'saute', { claude: partDuRun(c) })];
+  const surface: ElementAction[] = [
+    { genre: 'parement', statut: 'lu', type: r.surface.principale, rect: null, details: { confiance: r.surface.confiance }, vers: null },
+    ...r.surface.zones.map((z): ElementAction => ({ genre: 'zone', statut: 'lu', type: z.type, rect: null, details: { u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1 }, vers: null })),
+  ];
+  const cache = r.calage.cache.map((x): ElementAction => ({ genre: 'cache', statut: 'lu', type: x.quoi, rect: null, details: { u0: x.debut, u1: x.fin }, vers: null }));
+  return [
+    act('texture', 'surface', 'ok', { claude: partDuRun(c), apres: { image: 'texture' }, elements: surface }),
+    act('texture', 'cache', cache.length ? 'ok' : 'saute', { claude: partDuRun(c), apres: { image: 'ia' }, elements: cache }),
+  ];
+}
+
 /**
  * Les actions de chaque etape, lues sur les sorties que son pas vient d'ecrire (aucun calcul ici : des comptes et des references
  * d'images deja faites, `ImagesEtapes`). Une etape qui attend n'a pas d'action.
@@ -893,20 +953,22 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
     // Une photo retiree n'est plus une entree : le processus ne voit pas qu'elle l'a ete.
     act('assemblage', 'retirer', 'saute', { manuel: { geste: etapeFacade('assemblage').optionManuelle ?? '', fait: null } }),
   ],
-  calage: (r, { e, s, obj }) => {
+  calage: (r, c) => {
+    const { e, s, obj } = c;
     const m = s.audit?.mesure, b = s.audit?.redressement, main = !!b?.photos.some((p) => p.coins === 'main'), ex = s.calage?.explication;
     const cherche: EtatEtape = !m ? (b?.photos.length ? 'echec' : 'saute') : main ? 'saute' : m.coinsTrouves ? 'ok' : 'a-confirmer';
     const passe = ex ? expliqueLaPhoto(ex, seuilsDuCalage(obj)) : null;
     return [
       act('calage', 'chercher', cherche, { avant: { image: 'assemblage' }, apres: { image: 'pose', valeurs: { coinsTrouves: m?.coinsTrouves ?? false, hauteurM: m?.hauteurM ?? null } } }),
       act('calage', 'juger', ex ? (passe ? 'ok' : 'a-confirmer') : 'saute', { apres: { image: 'pose', valeurs: ex ? { score: ex.score, angleGauche: ex.angles[0], angleDroit: ex.angles[1], egout: ex.egout, ecartEgout: ex.ecartEgout ?? null } : {} } }),
+      anglesDeClaude(c),
       act('calage', 'tirer', fait(main), { manuel: { geste: etapeFacade('calage').optionManuelle ?? '', fait: main } }),
       act('calage', 'confirmer', r.etat === 'confirme' ? 'confirme' : e.prises.murConfirme ? 'a-confirmer' : 'saute', { manuel: { geste: 'confirmer le mur retenu (V1)', fait: r.etat === 'confirme' } }),
     ];
   },
   lectureIa: (r, { o, s, obj, lecture }) => {
     const run = o.ia ?? null, reponse = s.ia?.reponse ?? null, accord = s.ia?.accord ?? null;
-    const image = run ? lecture?.image ?? null : null;
+    const image = imageLue(o, s);
     const claude = (appel: 'run' | 'enrichie' | 'toit') => ({ appel, rejouee: !!run, image });
     const lecture2 = (l: RunEnregistre['enrichie'], appel: 'enrichie' | 'toit') => act('lectureIa', appel, !l ? 'saute' : l.erreur ? 'echec' : 'ok', { claude: claude(appel), ...(l ? { texte: l.erreur ?? `${l.modele}, prompt v${l.prompt}, ${pluriel(l.sorties.length, 'passe lisible', 'passes lisibles')}` } : {}) });
     if (!run) return [act('lectureIa', 'run', 'saute', { claude: claude('run'), texte: r.resume }), lecture2(undefined, 'enrichie'), lecture2(undefined, 'toit'), ...['angles', 'pointes', 'boites'].map((id) => act('lectureIa', id, 'saute'))];
@@ -918,26 +980,50 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
       act('lectureIa', 'boites', !accord ? 'saute' : accord.bilan.seules ? 'a-confirmer' : 'ok', { ...(accord ? { texte: (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' } : {}), avant: { image: 'facade' }, apres: { image: 'ia', valeurs: accord ? { boites: accord.bilan.boites, retrouvees: accord.bilan.retrouvees, seules: accord.bilan.seules } : {} } }),
     ];
   },
-  silhouette: (r, { s }) => [act('silhouette', 'lire', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'pose', valeurs: { points: s.audit?.mesure?.hautLu?.length ?? 0, masquee: s.forme?.masque?.part ?? 0 } } })],
-  diagnostic: (r, { s }) => {
+  silhouette: (r, c) => [act('silhouette', 'lire', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'pose', valeurs: { points: c.s.audit?.mesure?.hautLu?.length ?? 0, masquee: c.s.forme?.masque?.part ?? 0 } } }), formeDeClaude(c)],
+  diagnostic: (r, c) => {
+    const { s } = c;
     const n = (s.forme?.diagnostic?.propositions.length ?? 0) + (s.forme?.diagnostic?.elements.length ?? 0);
     return [
       act('diagnostic', 'diagnostiquer', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'forme', valeurs: { propositions: n } } }),
+      elementsDeClaude(c),
       act('diagnostic', 'cocher', n ? 'a-confirmer' : 'saute', { manuel: { geste: etapeFacade('diagnostic').optionManuelle ?? '', fait: null } }),
     ];
   },
-  texture: (r, { s }) => [
-    act('texture', 'texture', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'texture', valeurs: { pxParM: s.analyse?.pxParM ?? null, fusion: s.analyse?.fusion?.statut ?? null } } }),
-    act('texture', 'sansOmbres', fait(!!s.sansOmbres), { apres: { image: 'texture' } }, 'code'),
+  texture: (r, c) => [
+    act('texture', 'texture', etatFini(r.etat), { avant: { image: 'pose' }, apres: { image: 'texture', valeurs: { pxParM: c.s.analyse?.pxParM ?? null, fusion: c.s.analyse?.fusion?.statut ?? null } } }),
+    ...surfaceEtCacheDeClaude(c),
+    act('texture', 'sansOmbres', fait(!!c.s.sansOmbres), { apres: { image: 'texture' } }, 'code'),
     act('texture', 'activerSansOmbres', 'saute', { manuel: { geste: etapeFacade('texture').optionManuelle ?? '', fait: null } }),
   ],
-  ouvertures: (_r, { e, s }) => {
-    const a = s.analyse, relues = e.prises.ouverturesRelues, relu = !!relues && sontRelues(relues, s.audit?.mesure?.releve.ouvertures ?? []);
-    const partage = a ? partageDuReleve(e, s.ia?.accord?.ouvertures ?? s.audit?.mesure?.releve.ouvertures) : null, voisins = partage?.ajouts.reduce((k, x) => k + x.ouvertures.length, 0) ?? 0;
+  ouvertures: (_r, { e, o, s }) => {
+    const a = s.analyse, rel = s.audit?.mesure, relues = e.prises.ouverturesRelues, relu = !!relues && sontRelues(relues, rel?.releve.ouvertures ?? []);
+    const partage = a ? partageDuReleve(e, s.ia?.accord?.ouvertures ?? rel?.releve.ouvertures) : null, voisins = partage?.ajouts.reduce((k, x) => k + x.ouvertures.length, 0) ?? 0;
+    // Les ouvertures calculees, celles que l'accord de l'E8 a lues (le releve, sinon l'analyse), et les boites de Claude telles que la
+    // decision du moteur les a rangees (facade/regles/facades/ia.ts) : une lecture, rien n'est recalcule.
+    const calculees = rel?.releve.ouvertures ?? a?.ouvertures ?? [], devinees = rel?.devinees ?? a?.devinees ?? [];
+    const accord = s.ia?.accord ?? null;
+    const confirmees = new Set((accord?.boites ?? []).filter((x) => x.avec === 'detectee' && x.vers !== null).map((x) => x.vers));
+    const rect = (x: { x: number; y: number; l: number; h: number }) => ({ x: x.x, y: x.y, l: x.l, h: x.h });
+    const detailsDe = (d: OuvertureFacade['details']): Record<string, string> => Object.fromEntries(Object.entries(d ?? {}).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+    const elementsCalcules: ElementAction[] = [
+      ...calculees.map((x, k): ElementAction => ({ genre: 'ouverture', statut: !accord ? 'absente' : confirmees.has(k) ? 'confirmee' : 'absente', type: x.type, rect: rect(x), details: detailsDe(x.details) })),
+      ...devinees.map((x): ElementAction => ({ genre: 'ouverture', statut: 'devinee', type: x.type, rect: rect(x), details: detailsDe(x.details) })),
+    ];
+    const STATUT = { detectee: 'retrouvee', devinee: 'devinee-confirmee' } as const;
+    const boites: ElementAction[] = accord ? [
+      ...accord.boites.map((x): ElementAction => ({ genre: 'boite', statut: x.avec ? STATUT[x.avec] : 'proposee', type: x.ia.type, rect: rect(x.ouverture), details: { ...x.ia.details, confiance: x.ia.confiance }, carreaux: x.ia.carreaux as Readonly<Record<string, unknown>> | null, vers: x.vers })),
+      ...accord.ecartees.map((x): ElementAction => ({ genre: 'boite', statut: 'ecartee', type: x.type, rect: null, details: { ...x.details, confiance: x.confiance }, carreaux: x.carreaux as Readonly<Record<string, unknown>> | null, vers: null })),
+    ] : [];
+    const image = imageLue(o, s);
     return [
-      act('ouvertures', 'detecter', a ? 'ok' : 'saute', { avant: { image: 'facade' }, apres: { image: 'facade', valeurs: { trouvees: a?.ouvertures.length ?? 0, devinees: a?.devinees.length ?? 0 } } }),
+      act('ouvertures', 'detecter', a ? 'ok' : 'saute', { avant: { image: 'facade' }, apres: { image: 'facade', valeurs: { trouvees: calculees.length, devinees: devinees.length } }, elements: elementsCalcules }),
+      act('ouvertures', 'boites', !accord ? 'saute' : accord.bilan.seules ? 'a-confirmer' : 'ok', { claude: { appel: 'run', rejouee: !!o.ia, image },
+        ...(accord ? { texte: (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' } : {}), avant: { image: 'facade' },
+        apres: { image: 'ia', valeurs: accord ? { boites: accord.bilan.boites, retrouvees: accord.bilan.retrouvees, devineesConfirmees: accord.bilan.devineesConfirmees, proposees: accord.bilan.seules, ecartees: accord.bilan.ecartees } : {} }, elements: boites }),
       act('ouvertures', 'voisins', fait(voisins > 0), { apres: { valeurs: { versLesVoisins: voisins } } }),
-      act('ouvertures', 'relire', !a ? 'saute' : relu ? 'ok' : 'a-confirmer', { manuel: { geste: etapeFacade('ouvertures').optionManuelle ?? '', fait: relu } }),
+      act('ouvertures', 'relire', !a ? 'saute' : relu ? 'ok' : 'a-confirmer', { manuel: { geste: 'ajuster une ouverture calculée, prendre ou ajuster une boîte de Claude, en ajouter une, en retirer (V3)', fait: relu },
+        ...(relues ? { apres: { valeurs: { gardees: relues.ouvertures.length, le: relues.le.slice(0, 10) } } } : {}) }),
     ];
   },
   toit: (r, { s }) => [act('toit', 'cocher', etatFini(r.etat), { manuel: { geste: 'cocher les propositions à l’avant/après de l’audit, ou ' + (etapeFacade('toit').optionManuelle ?? ''), fait: null }, apres: { valeurs: { propositions: (s.forme?.diagnostic?.propositions.length ?? 0) + (s.forme?.diagnostic?.elements.length ?? 0) } } })],
@@ -968,6 +1054,7 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
   const debut = o.depuis && o.precedent ? ETAPES_FACADE.findIndex((x) => x.id === departDuRejeu(o.depuis as IdEtape)) : 0;
   const c: Contexte = { e, o, obj, s: debut > 0 && o.precedent ? { ...o.precedent.sorties } : { ...SORTIES_VIDES } };
   const etapes: EtapeCalculee[] = [];
+  const k0 = (id: IdEtape) => ETAPES_FACADE.findIndex((x) => x.id === id);
   for (const [k, def] of ETAPES_FACADE.entries()) {
     const avant = k < debut ? o.precedent?.etapes.find((x) => x.id === def.id) : undefined;
     if (avant) { etapes.push(avant); continue; }
@@ -975,10 +1062,14 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
     o.surEtape?.(def.id, 'en-cours');
     await o.rendreLaMain?.();
     const r = avecLeDouteDuMur(def.id, await PAS[def.id](c), etapes);
-    etapes.push({ id: def.id, ...r, actions: actionsDeLEtape(def.id, r, c) });
+    etapes.push({ id: def.id, ...r, actions: [] });
     o.surEtape?.(def.id, r.etat, r.resume);
   }
-  return { etapes, sorties: c.s, versions: { chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS, ...(o.ia ? { ia: EMPREINTE_IA } : {}) } };
+  // Les actions se lisent une fois le rejeu fini : le calage montre aussi les angles de Claude, que l'E8 mesure apres lui. Une etape
+  // reprise d'un rejeu precedent garde les siennes (le calage les relit si l'E8 a ete refaite). Elles ne changent rien au calcul.
+  const refaite = (id: IdEtape) => k0(id) >= debut || (id === 'calage' && k0('lectureIa') >= debut);
+  const avecActions = etapes.map((x) => (refaite(x.id) ? { ...x, actions: actionsDeLEtape(x.id, x, c) } : x));
+  return { etapes: avecActions, sorties: c.s, versions: { chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS, ...(o.ia ? { ia: EMPREINTE_IA } : {}) } };
 }
 
 /** L'etape calculee d'un rejeu. */

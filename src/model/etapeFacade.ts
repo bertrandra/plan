@@ -56,11 +56,40 @@ export interface TraceAction {
   valeurs?: Readonly<Record<string, string | number | boolean | null>>;
 }
 
+/**
+ * Un element qu'une action montre un par un : ce que le calcul a trouve, ou une part de la reponse de Claude, et son statut tel que le
+ * moteur l'a decide (jamais un avis de plus). `rect` : sa place sur le mur en metres (x depuis le bout gauche, y depuis le sol), ou null
+ * (une place en parts du mur va dans `details`, u le long du mur, v en hauteurs d'egout). `vers` : le rang de ce que l'element confirme
+ * dans la liste du calcul (l'ouverture calculee d'une boite, la proposition d'un element du toit) ; null : rien.
+ * - Les ouvertures (E12) : une boite `retrouvee` (cochee), `devinee-confirmee`, `proposee` (seule, decochee), `ecartee` (hors du mur) ;
+ *   une ouverture calculee `confirmee` par une boite, `absente` de sa lecture, ou `devinee`.
+ * - Les angles du mur (E7) : `accord`, `divergent` (au-dela de l'ecart admis), `non-situe`.
+ * - Les pointes (E9) : `accord`, `hauteur` (vue a une autre hauteur, celle du LiDAR gardee), `en-plus` (le plan n'en a pas), `manquante`.
+ * - Les elements du toit (E10) : `retenu` (le diagnostic le propose), `ecarte` (le moteur ne le propose pas).
+ * - Ce qui n'entre dans aucune decision (le mot du haut, le bout, les appentis, les autres volumes, ce qui cache le mur, le parement et
+ *   ses zones) : `lu`.
+ */
+export interface ElementAction {
+  genre: 'ouverture' | 'boite' | 'pose' | 'pointe' | 'forme' | 'etendue' | 'element' | 'parement' | 'zone' | 'cache';
+  statut: 'retrouvee' | 'devinee-confirmee' | 'proposee' | 'ecartee' | 'confirmee' | 'absente' | 'devinee'
+    | 'accord' | 'divergent' | 'non-situe' | 'hauteur' | 'en-plus' | 'manquante' | 'retenu' | 'ecarte' | 'lu';
+  type: string;
+  rect: { x: number; y: number; l: number; h: number } | null;
+  /** Ce que la boite (ou l'ouverture) dit en plus : volets, allege, forme, et pour une boite sa confiance. */
+  details?: Readonly<Record<string, string | number | boolean | null>>;
+  /** La division du vitrage que Claude lit (vantaux, colonnes, rangees, petits bois, imposte, vitrage), telle quelle. */
+  carreaux?: Readonly<Record<string, unknown>> | null;
+  vers?: number | null;
+}
+
 /** Les appels de Claude qu'une etape rejoue : le run de la facade, sa lecture enrichie (lot L1), le toit lu (lot L2). */
 export type AppelClaude = 'run' | 'enrichie' | 'toit';
 
 /**
  * Une action d'une etape calculee, telle que `derouler` la rend (et nulle part ailleurs) : son contrat, son etat, ce qu'elle a dit,
+ * ce qu'elle a lu et rendu. Une action `claude` d'une etape est la part de la reponse rejouee que cette etape concerne, a cote du calcul
+ * de l'etape, avec le statut que le moteur lui a donne ; l'E8 garde la vue d'ensemble de la reponse (et l'image envoyee).
+ *
  * ce qu'elle a lu et rendu. `claude` : l'appel concerne, rejoue depuis la reponse enregistree (`rejouee`), et l'image qu'il a lue
  * (l'assemblage en calibration, l'image du run dans l'audit : l'exception acceptee de CLAUDE.md, dite et jamais corrigee).
  * `manuel` : le geste, et s'il a ete fait (null : le processus ne le voit pas, un geste fait ailleurs, une photo retiree).
@@ -72,6 +101,8 @@ export interface ActionEtape extends ContratAction {
   apres?: TraceAction;
   claude?: { appel: AppelClaude; rejouee: boolean; image: 'assemblage' | 'imageRun' | null };
   manuel?: { geste: string; fait: boolean | null };
+  /** Les elements, un par un (les ouvertures calculees, les boites de Claude de l'E12). */
+  elements?: readonly ElementAction[];
 }
 
 /** Le contrat d'une etape (§4 ter.1). Des phrases pour les personnes ; les objectifs chiffres sont des reglages (regles/facades/enchainement.json). */
@@ -113,17 +144,17 @@ export const ETAPES_FACADE: readonly EtapeFacade[] = [
   { id: 'assemblage', numero: 'É6', nom: 'Assemblage', entrant: 'les vues de face', action: 'les vues assemblées (ORB et RANSAC de similitude)', objectif: 'toutes les vues assemblées', sortant: 'l’assemblage et ce qu’il montre', optionManuelle: 'retirer une photo, ou en prendre une autre qui recoupe le mur', modeAudit: 'cache', validation: null,
     actions: [code('assembler', 'Vues assemblées'), manuel('retirer', 'Retirer une photo')] },
   { id: 'calage', numero: 'É7', nom: 'Calage du mur', entrant: 'l’assemblage, le rapport du plan', action: 'les bouts, l’égout et le sol, par les arêtes puis la teinte du mur, cherchés sans le toit (les angles, l’égout, le sol) ; sur l’assemblage des repères, l’arbitre des poses retient une autre pose qui explique mieux la photo, sinon celle du plan seul, supposée ; la pose retenue jugée sur la silhouette du gabarit qu’elle pose (les angles à ses bouts, l’égout tout le long) ; les coins reportés sur chaque photo', objectif: 'une pose que sa silhouette explique (score d’explication, chaque angle et l’égout au seuil), un mur tiré à la main compris ; des repères ne font que redresser : le mur cherché sur leur assemblage se juge comme un mur trouvé, une pose du plan seul ou un égout ou un sol non lus restent à confirmer ; bouts, égout et sol à 3 % de la largeur contre la vérité', sortant: 'le mur sur l’assemblage', optionManuelle: 'tirer les bouts, l’égout et le sol', modeAudit: 'resume', validation: 'V1',
-    actions: [code('chercher', 'Mur cherché sur l’assemblage'), code('juger', 'Pose jugée sur la silhouette du gabarit'), manuel('tirer', 'Bouts, égout et sol tirés à la main'), manuel('confirmer', 'Confirmer le mur (V1)'), VERITE] },
+    actions: [code('chercher', 'Mur cherché sur l’assemblage'), code('juger', 'Pose jugée sur la silhouette du gabarit'), claude('angles', 'Les deux angles du mur selon Claude (jamais candidats)'), manuel('tirer', 'Bouts, égout et sol tirés à la main'), manuel('confirmer', 'Confirmer le mur (V1)'), VERITE] },
   { id: 'lectureIa', numero: 'É8', nom: 'Lecture de Claude', entrant: 'la réponse enregistrée de Claude (le run de la façade, sa lecture enrichie, le toit lu), le mur retenu, l’analyse du mur', action: 'la réponse rejouée, sans réseau ni coût : l’accord de ses deux angles avec la pose retenue (dans le cadre de l’image qu’il a lue), ses pointes contre le gabarit, ses boîtes accordées avec la détection ; sa pose n’est jamais candidate', objectif: 'une passe lisible, ses angles d’accord avec le mur retenu (3 % de la largeur) ; sautée sans réponse (mode déterministe)', sortant: 'la lecture de Claude : son accord, ses pointes, ses boîtes cochées ou seules', optionManuelle: null, modeAudit: 'resume', validation: null,
     actions: [claude('run', 'Run de la façade'), claude('enrichie', 'Lecture enrichie'), claude('toit', 'Lecture du toit'), code('angles', 'Accord de ses angles avec le mur retenu'), code('pointes', 'Ses pointes contre le gabarit'), code('boites', 'Ses boîtes accordées avec la détection'), VERITE] },
   { id: 'silhouette', numero: 'É9', nom: 'Silhouette lue', entrant: 'l’assemblage calé', action: 'le haut du mur lu à la teinte, entre les bouts retenus', objectif: 'la silhouette lue sur au moins la moitié des colonnes (le haut que le diagnostic lit) ; le mot de la bande au-dessus de l’égout n’est qu’une information', sortant: 'la silhouette lue', optionManuelle: null, modeAudit: 'cache', validation: null,
-    actions: [code('lire', 'Haut du mur lu à la teinte')] },
+    actions: [code('lire', 'Haut du mur lu à la teinte'), claude('forme', 'Le haut selon Claude : le mot, le bout, les pointes, les appentis, les autres volumes')] },
   { id: 'diagnostic', numero: 'É10', nom: 'Diagnostic de forme', entrant: 'la silhouette lue, le gabarit, les corps du toit, la lecture de Claude', action: 'les variantes du toit de chaque corps (un pignon de plus, de moins, déplacé, une croupe), faites par le moteur des toits', objectif: 'une proposition n’existe que si elle explique mieux l’image', sortant: 'les propositions de toit, les alertes de hauteur', optionManuelle: 'cocher ou décocher, ouvrir le Mode Toit', modeAudit: 'valider', validation: 'V2',
-    actions: [code('diagnostiquer', 'Variantes du toit de chaque corps'), manuel('cocher', 'Cocher ou décocher les propositions (V2)'), VERITE] },
+    actions: [code('diagnostiquer', 'Variantes du toit de chaque corps'), claude('elements', 'Les éléments du toit que Claude voit (cheminée, lucarne)'), manuel('cocher', 'Cocher ou décocher les propositions (V2)'), VERITE] },
   { id: 'texture', numero: 'É11', nom: 'Texture', entrant: 'l’assemblage calé', action: 'l’élévation calée, la fusion des vues, la version sans ombres', objectif: 'une texture posée sur le mur', sortant: 'la texture et la bande au-dessus de l’égout', optionManuelle: 'activer ou non « sans ombres »', modeAudit: 'cache', validation: null,
-    actions: [code('texture', 'Texture calée sur le mur'), code('sansOmbres', 'Texture sans ombres (pour l’écran)'), manuel('activerSansOmbres', 'Activer ou non « sans ombres »')] },
+    actions: [code('texture', 'Texture calée sur le mur'), claude('surface', 'Le parement et ses zones selon Claude'), claude('cache', 'Ce qui cache le mur selon Claude (arbre, haie, voiture)'), code('sansOmbres', 'Texture sans ombres (pour l’écran)'), manuel('activerSansOmbres', 'Activer ou non « sans ombres »')] },
   { id: 'ouvertures', numero: 'É12', nom: 'Ouvertures', entrant: 'l’assemblage calé, les ouvertures relues (V3)', action: 'la détection, la structure, le vote entre les vues ; les ouvertures trouvées se relisent toujours avant V4', objectif: 'les ouvertures relues par la personne sur cette détection (V3), qui règle aussi les devinées ; rappel, précision et cotes contre la vérité, mesurés à côté', sortant: 'les ouvertures, celles que la personne a gardées', optionManuelle: 'relire les ouvertures : garder, ajouter, retirer, déplacer, redimensionner', modeAudit: 'resume', validation: 'V3',
-    actions: [code('detecter', 'Détection, structure et vote entre les vues'), code('voisins', 'Ouvertures sous le pignon d’un corps voisin'), manuel('relire', 'Relire les ouvertures (V3)'), VERITE] },
+    actions: [code('detecter', 'Ouvertures calculées : détection, structure et vote entre les vues'), claude('boites', 'Boîtes de Claude : retrouvées, seulement proposées, écartées'), code('voisins', 'Ouvertures sous le pignon d’un corps voisin'), manuel('relire', 'Relire les ouvertures (V3) : ajuster une ouverture calculée, prendre ou ajuster une boîte de Claude, en ajouter une'), VERITE] },
   { id: 'toit', numero: 'É13', nom: 'Toit', entrant: 'les propositions du diagnostic, décochées', action: 'les propositions de toit et les éléments (cheminée, lucarne) remis à l’avant/après de l’audit, où le moteur des toits relit sur le corps concerné celles que la personne coche', objectif: 'sautée sans proposition ; sinon à confirmer, ce que le diagnostic propose compté (le moteur en écarte à l’avant/après : un refus, une forme identique), jamais faite ici', sortant: 'les propositions à cocher, le toit ajusté par le moteur une fois cochées', optionManuelle: 'le Mode Toit', modeAudit: 'valider', validation: null,
     actions: [manuel('cocher', 'Cocher les propositions à l’avant/après de l’audit')] },
   { id: 'validation', numero: 'É14', nom: 'Validation', entrant: 'tout ce qui précède', action: 'le bilan de la façade : ses dimensions, sa forme, la pose de sa texture, ses ouvertures', objectif: 'la personne a validé, en une étape d’historique', sortant: 'la Façade écrite (dimensions, forme, texture calée, ouvertures vérifiées)', optionManuelle: 'corriger n’importe quel sortant', modeAudit: 'valider', validation: 'V4',

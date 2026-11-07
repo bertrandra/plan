@@ -304,6 +304,11 @@ export interface BoiteAccordee {
   cochee: boolean;
   /** Ce qui la retrouve : une ouverture trouvee par la detection, une baie devinee par la structure, ou rien. */
   avec: 'detectee' | 'devinee' | null;
+  /**
+   * L'ouverture calculee qu'elle confirme : son rang dans `ouvertures` (une detectee) ou dans `decochees` (une devinee) tels qu'ils sont
+   * entres dans l'accord ; null pour une boite seule. Une lecture de la decision, pour l'ecran des ouvertures : rien ne la relit pour calculer.
+   */
+  vers: number | null;
 }
 
 /** Ce que l'accord a fait, compte : les boites de Claude, celles retrouvees, les devinees confirmees, les seules, les ecartees. */
@@ -317,6 +322,8 @@ export interface AccordIa {
   /** Claude ne retire rien : la liste reste vide (le releve la lit). */
   retirees: OuvertureFacade[];
   boites: BoiteAccordee[];
+  /** Les boites hors du mur, ecartees par l'accord (comptees dans `bilan.ecartees`) : gardees en lecture, pour les montrer. */
+  ecartees: OuvertureIa[];
   bilan: BilanAccord;
 }
 
@@ -328,6 +335,9 @@ export interface AccordIa {
  */
 export function accorderOuvertures(e: { ouvertures: readonly OuvertureFacade[]; decochees: readonly OuvertureFacade[]; observations: ObservationsFacade; cartes: CartesAretes | null; largeurM: number; hauteurM: number }, r: ReglagesIa = reglagesIa()): AccordIa {
   const ouvertures = e.ouvertures.map((o) => ({ ...o })), decochees = e.decochees.map((o) => ({ ...o }));
+  // Le rang d'entree de chaque decochee (la liste se vide a mesure que des boites confirment des devinees) : `vers` le dit.
+  const rangsDecochees = decochees.map((_, i) => i);
+  const ecartees: OuvertureIa[] = [];
   const bilan: BilanAccord = { boites: 0, retrouvees: 0, devineesConfirmees: 0, seules: 0, ecartees: 0, detailsAjoutes: 0 };
   const boites: BoiteAccordee[] = [];
   const seules: OuvertureFacade[] = [];
@@ -343,26 +353,27 @@ export function accorderOuvertures(e: { ouvertures: readonly OuvertureFacade[]; 
         if (Object.keys(d).length > Object.keys(o.details ?? {}).length) { o.details = d; bilan.detailsAjoutes++; }
       }
       bilan.retrouvees++;
-      boites.push({ ouverture: b, ia, cochee: true, avec: 'detectee' });
+      boites.push({ ouverture: b, ia, cochee: true, avec: 'detectee', vers: k });
       continue;
     }
     const j = decochees.findIndex((o) => o.source === 'devinee' && o.type === b.type && recouvrementM(o, b) >= r['facades.ia.devineeConfirmee']);
     if (j >= 0) {
       const [d] = decochees.splice(j, 1);
+      const [rang] = rangsDecochees.splice(j, 1);
       if (d) ouvertures.push(d);
       bilan.devineesConfirmees++;
-      boites.push({ ouverture: b, ia, cochee: true, avec: 'devinee' });
+      boites.push({ ouverture: b, ia, cochee: true, avec: 'devinee', vers: rang ?? null });
       continue;
     }
     const recalee = e.cartes ? recalerBoite(b, e.cartes) : b;
     const placee: OuvertureFacade = { ...b, x: r2(Math.max(0, recalee.x)), y: r2(recalee.y), l: r2(recalee.l), h: r2(recalee.h) };
     const dansLeMur = placee.x + placee.l <= e.largeurM + 0.05 && placee.y + placee.h <= e.hauteurM + 0.05 && placee.l >= r['facades.ia.baieMinM'] && placee.h >= r['facades.ia.baieMinM'];
-    if (!dansLeMur) { bilan.ecartees++; continue; }
+    if (!dansLeMur) { bilan.ecartees++; ecartees.push(ia); continue; }
     bilan.seules++;
     seules.push(placee);
-    boites.push({ ouverture: placee, ia, cochee: false, avec: null });
+    boites.push({ ouverture: placee, ia, cochee: false, avec: null, vers: null });
   }
-  return { ouvertures: ouvertures.sort((a, b) => a.x - b.x || a.y - b.y), decochees: [...decochees, ...seules], retirees: [], boites, bilan };
+  return { ouvertures: ouvertures.sort((a, b) => a.x - b.x || a.y - b.y), decochees: [...decochees, ...seules], retirees: [], boites, ecartees, bilan };
 }
 
 function meilleure(l: readonly OuvertureFacade[], b: OuvertureFacade, seuil: number): number {

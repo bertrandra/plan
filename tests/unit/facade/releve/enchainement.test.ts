@@ -486,6 +486,21 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     expect(a['angles:code']?.etat).toBe('ok');
     expect(a['boites:code']).toMatchObject({ etat: 'a-confirmer', apres: { image: 'ia', valeurs: { seules: 1 } } });
     expect(a['verite:mesure']?.texte).toBe(e8.verite?.texte);
+    // Chaque lecture de Claude est aussi montree dans l'etape qu'elle concerne, a cote du calcul, avec le statut du moteur.
+    const claudeDe = (id: IdEtape, action: string) => etapeDe(r, id).actions.find((x) => x.id === action && x.type === 'claude');
+    expect(claudeDe('calage', 'angles')).toMatchObject({ etat: 'ok', claude: { appel: 'run', rejouee: true }, elements: [{ genre: 'pose', statut: 'accord' }] });
+    expect(claudeDe('silhouette', 'forme')?.elements?.[0]).toMatchObject({ genre: 'forme', statut: 'lu', type: 'ligne-droite' });
+    expect(claudeDe('texture', 'surface')?.elements?.[0]).toMatchObject({ genre: 'parement', statut: 'lu' });
+    // L'E12 : les ouvertures calculees, et les boites de Claude rangees par le moteur, chacune avec ce qu'elle confirme.
+    const e12 = etapeDe(r, 'ouvertures');
+    expect(e12.actions.map((x) => x.id + ':' + x.type)).toEqual(['detecter:code', 'boites:claude', 'voisins:code', 'relire:manuel', 'verite:mesure']);
+    const calculees = e12.actions[0]?.elements ?? [], boites = e12.actions[1]?.elements ?? [];
+    expect(calculees.length).toBe(r.sorties.audit?.mesure?.releve.ouvertures.length);
+    expect(boites.filter((x) => x.statut === 'proposee')).toHaveLength(1);
+    const retrouvees = boites.filter((x) => x.statut === 'retrouvee');
+    expect(retrouvees.length).toBeGreaterThan(0);
+    for (const x of retrouvees) expect(calculees[x.vers ?? -1]?.statut).toBe('confirmee');
+    expect(boites.every((x) => x.carreaux !== undefined && typeof x.details?.confiance === 'string')).toBe(true);
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(im.ia?.pose).not.toBeNull();
