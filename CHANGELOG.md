@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.13.1] — 2026-11-07
+
+Version **corrective** : l'import depuis une adresse à Paris, Lyon ou Marseille trouve de nouveau ses parcelles (le code de
+l'arrondissement est ramené à celui de la commune), et les suggestions d'adresse disent leur niveau en français (#607). Aucune quantité
+ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de
+la 5.13.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : rien à déployer côté
+plateforme. Requêtes inchangées depuis la 5.13.0 (ni `deploy/`, ni `regles/`, ni les descriptions des sujets, ni la chaîne des
+façades), vérifiées sans la mesure sur main, à la livraison.
+
 ### Corrigé
 - **Import depuis une adresse à Paris, Lyon et Marseille : aucune parcelle trouvée.** La Base Adresse Nationale rend le code de
   l'arrondissement (75119 pour le Zénith de Paris), le cadastre range toutes les parcelles sous celui de la commune (75056, 69123,
