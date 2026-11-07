@@ -14,7 +14,8 @@ un mur tiré à la main repart de l'É7, un geste de l'audit en est plus rapide 
 ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de
 la 5.14.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : `origine` est un champ
-facultatif des cas de calibration, pas du projet ; rien à déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+facultatif des cas de calibration, pas du projet ; rien à déployer côté plateforme. Requêtes vérifiées sans la mesure sur main (run 42386812721 : 9 sur 9, 0,035 $ ; les deux réglages de #617
+ne partent pas à Claude, prompts et schémas inchangés).
 
 ### Modifié
 - **Façades : chaque étape du groupe Image calcule ce qu'elle montre, et tirer le mur repart de l'É7** (audit de la calibration des
