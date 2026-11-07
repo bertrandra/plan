@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { assemblageDuRejeu, casAvecLeMur, casCaleALaMain, casSansLeMur, derouler, murAjusteSurLesPhotos, entreesDuCas, etapeDe, originesDuCas, preparerPourLaMesure, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
-import { imagesEtapes } from '../../../../src/facade/releve/imagesEtapes.js';
+import { imagesEtapes, type ImagesEtapes } from '../../../../src/facade/releve/imagesEtapes.js';
+
+/** Deux types egaux (une verification a la compilation). */
+type Egal<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 import { vuesDeFace } from '../../../../src/facade/vision/mosaiqueFuites.js';
 import { rechercher } from '../../../../src/facade/releve/serie.js';
 import { prisesDeLaFacade } from '../../../../src/facade/releve/prisesFacade.js';
@@ -9,7 +12,7 @@ import { analyserLeMur } from '../../../../src/facade/analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto } from '../../../../src/facade/gabaritMur.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
 import { EMPREINTE_OBJECTIFS } from '../../../../src/facade/regles/facades/enchainement.js';
-import { ETAPES_FACADE, libelleEtape, type IdEtape } from '../../../../src/model/etapeFacade.js';
+import { ETAPES_FACADE, FAMILLES_CLAUDE, etapeFacade, libelleEtape, type CleImageEtape, type FamilleClaude, type IdEtape } from '../../../../src/model/etapeFacade.js';
 import { FORMAT_CAS_REEL, type CasStocke } from '../../../../src/facade/corpusReel.js';
 import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
 import { readFileSync } from 'node:fs';
@@ -61,7 +64,18 @@ describe('l enchainement d une facade', () => {
     // Une photo seule : rien a assembler (comme dans l'audit).
     expect(etats(r)).toMatchObject({ preparation: 'ok', prises: 'ok', redressement: 'ok', assemblage: 'saute', silhouette: 'ok', texture: 'ok', diagnostic: 'saute', toit: 'saute', validation: 'saute' });
     expect(['ok', 'a-confirmer']).toContain(etapeDe(r, 'calage').etat);
+    expect(etats(r)).toMatchObject({ objectif: 'ok', coins: 'ok', lectureIa: 'saute' });
+    expect(etapeDe(r, 'objectif').resume).toMatch(/^Photo 1 : avec EXIF \(focale \d+ mm éq\.\)\.$/);
     expect(r.etapes.every((e) => e.resume.length > 10)).toBe(true);
+    // Chaque etape rend ses actions, celles de son contrat et rien d'autre (la mesure contre la verite seulement avec une verite).
+    for (const e of r.etapes) {
+      expect(e.actions.length, e.id).toBeGreaterThan(0);
+      expect(e.actions.map((x) => x.id + ':' + x.type), e.id).toEqual(etapeFacade(e.id).actions.filter((x) => x.type !== 'mesure').map((x) => x.id + ':' + x.type));
+    }
+    // Les references d'image des actions sont les cles d'ImagesEtapes, plus les photos de la prise (une verification a la compilation).
+    const memesCles: Egal<CleImageEtape, keyof ImagesEtapes | 'photos'> = true;
+    expect(memesCles).toBe(true);
+    expect(etapeDe(r, 'redressement').actions[0]).toMatchObject({ type: 'code', etat: 'ok', avant: { image: 'photos' }, apres: { image: 'vues', valeurs: { redressees: 1, photos: 1 } } });
     // L'E11 (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrirait ; la calibration le montre sans rien ecrire.
     const f = r.sorties.facade;
     expect(f?.dimensions).toMatchObject({ largeurM: Math.round(L * 100) / 100, egoutM: Math.round(H * 100) / 100 });
@@ -74,7 +88,7 @@ describe('l enchainement d une facade', () => {
     expect(vus.slice(0, 4)).toEqual(['preparation:en-cours', 'preparation:ok', 'prises:en-cours', 'prises:ok']);
     expect(vus.filter((v) => v.endsWith(':en-cours'))).toHaveLength(ETAPES_FACADE.length);
     expect(r.versions).toEqual({ chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS });
-    // Le texte du rejeu nomme chaque etape par son numero, de É1 a É11 (« É5 Calage du mur : … »).
+    // Le texte du rejeu nomme chaque etape par son numero, de É1 a É14 (« É7 Calage du mur : … »).
     expect(r.etapes.map((x) => libelleEtape(x.id))).toEqual(ETAPES_FACADE.map((e, k) => 'É' + (k + 1) + ' ' + e.nom));
     expect(etapeDe(r, 'calage').resume.length).toBeGreaterThan(0);
     // Les images de chaque etape : la vue redressee, l'assemblage et le mur, le mur retenu, la texture.
@@ -238,7 +252,7 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
     const e = etapeDe(r, 'texture');
     expect(e.etat).toBe('a-confirmer');
     expect(e.herite).toBe('calage');
-    expect(e.resume).toMatch(/ Dépend du mur à confirmer \(É5\)\.$/);
+    expect(e.resume).toMatch(/ Dépend du mur à confirmer \(É7 Calage du mur\)\.$/);
     // L'E6 n'a pas lu le haut sur ce mur (moins de la moitie des colonnes) : son propre verdict, sans heritage.
     expect(etapeDe(r, 'silhouette')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/^Le haut du mur se lit sur moins de 50 % des colonnes/) });
     expect(etapeDe(r, 'silhouette').herite).toBeUndefined();
@@ -261,7 +275,7 @@ describe('le doute herite du mur, et « Confirmer le mur » (V1) (decisions du p
     expect(etapeDe(r, 'texture').etat).toBe('ok');
     for (const id of ['silhouette', 'texture'] as const) {
       expect(etapeDe(r, id).herite, id).toBeUndefined();
-      expect(etapeDe(r, id).resume, id).toBe(etapeDe(auto, id).resume.replace(' Dépend du mur à confirmer (É5).', ''));
+      expect(etapeDe(r, id).resume, id).toBe(etapeDe(auto, id).resume.replace(' Dépend du mur à confirmer (É7 Calage du mur).', ''));
     }
     // Le mur, ses sorties : rien d'autre ne change.
     expect(r.sorties.calage?.photos).toEqual(auto.sorties.calage?.photos);
@@ -453,13 +467,72 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
   const sortie = sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine) as { calage: { angles: Record<string, { x: number }> } };
   const cas = casDe(L, H, vrais, ph.focalePx, { ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
 
-  it('pose candidate a l E5 (accord), boites accordees a l E9, version et cout dits', async () => {
+  it('pose candidate a l E8 (accord), boites accordees, version et cout dits ; les textes de Claude ne sont qu a l E8', async () => {
     const r = await derouler(entreesDuCas(cas, [ph.image]), { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
-    expect(etapeDe(r, 'calage').resume).toMatch(/IA \(réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0011 \$\) : ses angles posent le mur .* accord/);
-    expect(etapeDe(r, 'silhouette').resume).toMatch(/Claude lit : ligne droite/);
-    expect(etapeDe(r, 'ouvertures').resume).toMatch(/ouvertures vues par Claude : \d+ retrouvées par la détection, 1 seule, proposée décochée/);
+    const e8 = etapeDe(r, 'lectureIa');
+    expect(e8.resume).toMatch(/^IA \(réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0011 \$\) : ses angles posent le mur .* accord/);
+    expect(e8.resume).toMatch(/Claude lit : ligne droite/);
+    expect(e8.resume).toMatch(/ouvertures vues par Claude : \d+ retrouvées par la détection, 1 seule, proposée décochée/);
+    // L'image qu'il a lue : ici l'assemblage, comme « Rappeler Claude » de la calibration (l'exception acceptee, dite).
+    expect(e8.resume).toMatch(/Image lue : l’assemblage .*l’exception acceptée/);
+    expect(e8.verite?.texte).toMatch(/^Boîtes de Claude contre la vérité \(\d+ ouvertures\) : rappel/);
+    for (const id of ['calage', 'silhouette', 'ouvertures', 'validation'] as IdEtape[]) expect(etapeDe(r, id).resume, id).not.toMatch(/IA \(|Claude/);
     expect(etapeDe(r, 'ouvertures').etat).toBe('a-confirmer');
-    expect(etapeDe(r, 'ouvertures').verite?.texte).toMatch(/Boîtes de Claude : rappel/);
+    expect(etapeDe(r, 'ouvertures').verite?.texte).not.toMatch(/Claude/);
+    // Ses actions : le run rejoue (sa lecture enrichie et son toit absents de cette reponse), l'accord des angles, les boites, la mesure.
+    const a = Object.fromEntries(e8.actions.map((x) => [x.id + ':' + x.type, x]));
+    expect(a['run:claude']).toMatchObject({ etat: 'ok', claude: { appel: 'run', rejouee: true, image: 'assemblage' } });
+    expect([a['enrichie:claude']?.etat, a['toit:claude']?.etat]).toEqual(['saute', 'saute']);
+    expect(a['angles:code']?.etat).toBe('ok');
+    expect(a['boites:code']).toMatchObject({ etat: 'a-confirmer', apres: { image: 'ia', valeurs: { seules: 1 } } });
+    expect(a['verite:mesure']?.texte).toBe(e8.verite?.texte);
+    // Chaque lecture de Claude est aussi montree dans l'etape qu'elle concerne, a cote du calcul, avec le statut du moteur.
+    const claudeDe = (id: IdEtape, action: string) => etapeDe(r, id).actions.find((x) => x.id === action && x.type === 'claude');
+    expect(claudeDe('calage', 'angles')).toMatchObject({ etat: 'ok', claude: { appel: 'run', rejouee: true }, elements: [{ genre: 'pose', statut: 'accord' }] });
+    expect(claudeDe('silhouette', 'forme')?.elements?.[0]).toMatchObject({ genre: 'forme', statut: 'lu', type: 'ligne-droite' });
+    expect(claudeDe('texture', 'surface')?.elements?.[0]).toMatchObject({ genre: 'parement', statut: 'lu' });
+    // L'E12 : les ouvertures calculees, et les boites de Claude rangees par le moteur, chacune avec ce qu'elle confirme.
+    const e12 = etapeDe(r, 'ouvertures');
+    expect(e12.actions.map((x) => x.id + ':' + x.type)).toEqual(['detecter:code', 'boites:claude', 'voisins:code', 'relire:manuel', 'verite:mesure']);
+    const calculees = e12.actions[0]?.elements ?? [], boites = e12.actions[1]?.elements ?? [];
+    expect(calculees.length).toBe(r.sorties.audit?.mesure?.releve.ouvertures.length);
+    expect(boites.filter((x) => x.statut === 'proposee')).toHaveLength(1);
+    const retrouvees = boites.filter((x) => x.statut === 'retrouvee');
+    expect(retrouvees.length).toBeGreaterThan(0);
+    for (const x of retrouvees) expect(calculees[x.vers ?? -1]?.statut).toBe('confirmee');
+    expect(boites.every((x) => x.carreaux !== undefined && typeof x.details?.confiance === 'string')).toBe(true);
+    // Chaque element de Claude : une cle stable, une famille (sa couleur), les etapes qui le consomment, trois valeurs, la source retenue.
+    const deClaude = r.etapes.flatMap((x) => x.actions).filter((x) => x.type === 'claude').flatMap((x) => x.elements ?? []);
+    expect(deClaude.length).toBeGreaterThan(5);
+    expect(new Set(deClaude.map((x) => x.cle)).size).toBe(deClaude.length);
+    for (const x of deClaude) {
+      expect(x.famille, x.cle).toBeDefined();
+      expect(x.consommePar).toEqual(FAMILLES_CLAUDE[x.famille as FamilleClaude].consommePar);
+      expect(x.valeurs?.manuel).toBeNull();
+      expect(x.choisie).toBeNull();
+    }
+    expect(boites.find((x) => x.statut === 'retrouvee')).toMatchObject({ retenue: 'calcul', valeurs: { calcul: expect.any(Object), claude: expect.any(Object) } });
+    expect(boites.find((x) => x.statut === 'proposee')).toMatchObject({ retenue: null, valeurs: { calcul: null } });
+    // Le choix de la personne se lit sur l'element (une entree, comme un geste) ; il ne change encore aucun calcul (lot C).
+    const seule = boites.find((x) => x.statut === 'proposee')?.cle ?? '';
+    const choix = [{ cle: seule, source: 'manuel' as const, valeur: { type: 'fenetre', x: 1, y: 1, l: 1, h: 1 }, le: '2026-11-07' }];
+    const avecChoix = await derouler({ ...entreesDuCas(cas, [ph.image]), choix }, { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
+    const lue = etapeDe(avecChoix, 'ouvertures').actions[1]?.elements?.find((x) => x.cle === seule);
+    expect(lue).toMatchObject({ choisie: choix[0], valeurs: { manuel: choix[0]?.valeur } });
+    expect(avecChoix.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
+    expect(avecChoix.etapes.map((x) => [x.id, x.etat, x.resume])).toEqual(r.etapes.map((x) => [x.id, x.etat, x.resume]));
+    // Le forcage de Claude (une etape, ou toutes) : lu sur les elements vises, le choix d'un element l'emporte, un element que Claude
+    // n'a pas lu garde le calcul et le dit ; aucun calcul ne change.
+    const forcees = await derouler({ ...entreesDuCas(cas, [ph.image]), choix, forcages: [{ etape: 'ouvertures', source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
+    const b12 = etapeDe(forcees, 'ouvertures').actions[1]?.elements ?? [];
+    expect(b12.find((x) => x.cle === seule)?.sourceLue).toBe('manuel');
+    expect(b12.filter((x) => x.cle !== seule).every((x) => x.sourceLue === 'claude' && x.forcee)).toBe(true);
+    expect(etapeDe(forcees, 'texture').actions.find((x) => x.id === 'surface')?.elements?.[0]?.forcee).toBeNull();
+    const toutes = await derouler({ ...entreesDuCas(cas, [ph.image]), forcages: [{ toutes: true, source: 'claude', le: '2026-11-07' }] }, { ...CAL, ia: run(sortie) });
+    const pointes = etapeDe(toutes, 'silhouette').actions.find((x) => x.id === 'forme')?.elements?.filter((x) => x.famille === 'pointe') ?? [];
+    for (const x of pointes) expect([x.sourceLue, x.sansClaude ?? false]).toEqual(x.valeurs?.claude ? ['claude', false] : ['calcul', true]);
+    expect(toutes.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
+    expect(toutes.etapes.map((x) => [x.id, x.etat])).toEqual(r.etapes.map((x) => [x.id, x.etat]));
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(im.ia?.pose).not.toBeNull();
@@ -470,13 +543,16 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     const loin = JSON.parse(JSON.stringify(sortie)) as typeof sortie;
     for (const a of Object.values(loin.calage.angles)) a.x += 0.1;
     const r = await derouler(entreesDuCas(cas, [ph.image]), { ...CAL, ia: run(loin) });
-    expect(etapeDe(r, 'calage').resume).toMatch(/les deux chemins divergent, à vérifier/);
+    expect(etapeDe(r, 'lectureIa')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/les deux chemins divergent, à vérifier/) });
     // Sans Claude, aucune version des regles de l'IA, aucune phrase de Claude.
     const sans = await derouler(entreesDuCas(cas, [ph.image]), CAL);
     expect(etapeDe(r, 'calage').etat).toBe(etapeDe(sans, 'calage').etat);
     expect(r.sorties.calage?.pose?.coins).toEqual(sans.sorties.calage?.pose?.coins);
     expect(sans.versions.ia).toBeUndefined();
     expect(etapeDe(sans, 'calage').resume).not.toMatch(/IA \(/);
+    // Sans reponse enregistree, la lecture de Claude est sautee (mode deterministe) : l'appel n'est jamais fait par l'orchestrateur.
+    expect(etapeDe(sans, 'lectureIa')).toMatchObject({ etat: 'saute', resume: expect.stringMatching(/^Mode déterministe/) });
+    expect(etapeDe(sans, 'lectureIa').actions.find((x) => x.id === 'run')).toMatchObject({ type: 'claude', etat: 'saute', claude: { rejouee: false } });
   }, 60_000);
 });
 

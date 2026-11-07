@@ -1,7 +1,7 @@
-// Les etapes de la forme de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 E7 et E10, lot F4) : le diagnostic de
+// Les etapes de la forme de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 E10 et E13, lot F4) : le diagnostic de
 // forme (facade/regles/facades/diagnosticForme.ts), corps par corps, et ce que le toit en attend. Des fonctions d'etape que seul
-// l'orchestrateur (enchainement.ts) appelle : il leur donne le haut lu (E6), les corps du toit (E1) et la reponse de Claude (E5).
-// L'E10 n'ecrit rien : une proposition ne s'applique qu'une fois cochee par la personne, dans l'avant/apres de l'audit, et c'est le
+// l'orchestrateur (enchainement.ts) appelle : il leur donne le haut lu (E9), les corps du toit (E1) et la reponse de Claude (E7).
+// L'E13 n'ecrit rien : une proposition ne s'applique qu'une fois cochee par la personne, dans l'avant/apres de l'audit, et c'est le
 // moteur des toits qui la relit (corpsSousContrainte). Pur.
 
 import { diagnostiquerForme, direAlerte, direChangement, direElement, direPreuve, type DiagnosticForme, type PropositionElement, type PropositionForme } from '../regles/facades/diagnosticForme.js';
@@ -84,7 +84,7 @@ function contreLeToitVrai(d: DiagnosticForme, corps: readonly CorpsToit[], vrai:
 }
 
 /**
- * E7 : le diagnostic de forme, corps par corps. Sans les corps du toit, rien ne se compare ; sans haut lu ni Claude, non plus. Des
+ * E10 : le diagnostic de forme, corps par corps. Sans les corps du toit, rien ne se compare ; sans haut lu ni Claude, non plus. Des
  * propositions ou des alertes : a confirmer (le point de validation V2, toujours demande, decision 10) ; aucune : le toit calcule
  * explique la photo.
  */
@@ -110,7 +110,7 @@ export function etapeDiagnostic(toit: ToitDeLaFacade | null, hauteurM: number, l
   };
 }
 
-/** E10 : ce que le toit attend des propositions. Rien ne s'ecrit ici : la personne coche, le moteur relit le corps concerne. */
+/** E13 : ce que le toit attend des propositions. Rien ne s'ecrit ici : la personne coche, le moteur relit le corps concerne. */
 export function etapeToit(d: DiagnosticForme | null): Etape {
   const n = (d?.propositions.length ?? 0) + (d?.elements.length ?? 0);
   if (!d || !n) return { etat: 'saute', resume: 'Aucune proposition de toit : le toit calculé reste, ses hauteurs aussi.', verite: null };

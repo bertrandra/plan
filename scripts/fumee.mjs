@@ -2524,9 +2524,9 @@ const POINTS = {
     const segments = await page.locator('.barreFacade ol > li').evaluateAll((ls) => ls.map((l) => ({ etat: l.className.replace('barreFacadeSegment', '').replace('courant', '').trim(), texte: l.querySelector('[aria-label]')?.getAttribute('aria-label') ?? '', forme: !!l.querySelector('svg, .barreFacadePastille') })));
     const frise = await page.locator('.calFrise > li .calFriseEtat').allTextContents();
     const debords = [await deborde()];
-    await etape('etape E3', async () => { await page.locator('.calFrise button[data-etape="redressement"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calGrille figcaption').first().waitFor({ timeout: 5000 }); });
+    await etape('etape E5', async () => { await page.locator('.calFrise button[data-etape="redressement"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calGrille figcaption').first().waitFor({ timeout: 5000 }); });
     const legendeE3 = (await page.locator('.calEtapeOuverte .calGrille figcaption').first().textContent()) || '';
-    await etape('etape E6', async () => { await page.locator('.calFrise button[data-etape="silhouette"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte h3', { hasText: 'É6' }).waitFor({ timeout: 5000 }); });
+    await etape('etape E9', async () => { await page.locator('.calFrise button[data-etape="silhouette"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte h3', { hasText: 'É9' }).waitFor({ timeout: 5000 }); });
     const resumeE6 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const lot5 = /tournée de face comme l’assemblage la prend/.test(legendeE3) && /^Le haut lu sur la photo \(\d+ points\)/.test(resumeE6);
     await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
@@ -2563,9 +2563,9 @@ const POINTS = {
     const calage = poignees.join() === 'Égout,Sol,Bout gauche du mur,Bout droit du mur' && appliquerAvant && !appliquerApres && /Score d’explication par la silhouette \d,\d\d/.test(legende) && /^Mur posé à la main/.test(resumeCale);
     const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
     const ok = segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
-      && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É5 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
-      && contrat >= 5 && /^É5 Calage du mur \(Mur\), /.test(ligne) && /^É5 Mur, /.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && lot5 && retour && !debords.some(Boolean);
-    return { ok, mesure: `É3 « ${legendeE3.slice(0, 80)}… » ; É6 « ${resumeE6.slice(0, 70)}… » ; barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É5 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… », revenu au mur cherché : « ${resumeRetour.slice(0, 50)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+      && frise.length === 12 && frise.every((t) => etats.has(t)) && /^É7 · Calage du mur/.test(titre) && /Sur l’assemblage : x de \d+ à \d+/.test(resume)
+      && contrat >= 5 && /^É7 Calage du mur \(Mur\), /.test(ligne) && /^É7–É8 Mur, /.test(courant || '') && frise2.length === 12 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && lot5 && retour && !debords.some(Boolean);
+    return { ok, mesure: `É5 « ${legendeE3.slice(0, 80)}… » ; É9 « ${resumeE6.slice(0, 70)}… » ; barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É7 : ${frise2.join(', ')} ; calage : « ${(legende.match(/Score d’explication par la silhouette [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… », revenu au mur cherché : « ${resumeRetour.slice(0, 50)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   101: async (page, f) => {
     // Admin › Calibrer la detection, le mode « IA » du rejeu (MD/spec-facade-calage-audit.md §7.2, §8, lot F2). Un cas du serveur simule :
@@ -2599,15 +2599,15 @@ const POINTS = {
     await etape('mode IA', () => page.locator('[data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
     await etape('fin du rejeu IA', finRejeu);
     await page.waitForTimeout(300);
-    await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
-    await etape('E5 ouverte', () => page.locator('.calEtapeOuverte .calMurIa').waitFor({ timeout: 10000 }));
+    // La lecture de Claude a son etape (E8, depuis le 7 novembre 2026) : ses angles et ses boites, et l'image qu'il a lue.
+    await etape('E8', () => page.locator('.calFrise button[data-etape="lectureIa"]').click({ timeout: 5000 }));
+    await etape('E8 ouverte', () => page.locator('.calEtapeOuverte .calMurIa').waitFor({ timeout: 10000 }));
     const resume4 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const note = (await page.locator('.calEtapeOuverte > .calNote').last().textContent()) || '';
     if (process.env.FUMEE_CAPTURE_F2_E4) await page.locator('.calEtapeOuverte figure').first().screenshot({ path: process.env.FUMEE_CAPTURE_F2_E4 });
     const debords = [await deborde()];
-    await etape('E9', () => page.locator('.calFrise button[data-etape="ouvertures"]').click({ timeout: 5000 }));
-    await etape('E9 ouverte', () => page.locator('.calEtapeOuverte .calBoiteIa').first().waitFor({ timeout: 10000 }));
-    const resume7 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    await etape('E8 boites', () => page.locator('.calEtapeOuverte .calBoiteIa').first().waitFor({ timeout: 10000 }));
+    const resume7 = resume4;
     const cochees = await page.locator('.calEtapeOuverte .calBoiteIa.cochee').count(), seules = await page.locator('.calEtapeOuverte .calBoiteIa.seule').count();
     // La boite dont le vitrage est dit : la premiere cochee qui a des carreaux lus (une fenetre a petits bois de la scene).
     await page.locator('.calEtapeOuverte .calBoiteIa.cochee').first().dispatchEvent('click');
@@ -2618,10 +2618,10 @@ const POINTS = {
     debords.push(await deborde());
     await page.unroute(/\/admin\//);
     const ok = /^réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0012 \$$/.test(entete)
-      && /IA \(réponse synthétique .*\) : ses angles posent le mur x de \d+ à \d+ .*(accord|divergent)/.test(resume4) && /IA : réponse synthétique.*règles [0-9a-f]{8}/.test(note)
+      && /IA \(réponse synthétique .*\) : ses angles posent le mur x de \d+ à \d+ .*(accord|divergent)/.test(resume4) && /Image lue : l’assemblage/.test(resume4) && /IA : réponse synthétique.*règles [0-9a-f]{8}/.test(note)
       && /ouvertures? vues? par Claude : \d+ retrouvées? par la détection, 1 seule, proposée décochée/.test(resume7) && cochees >= 3 && seules === 1 && vitrage.length > 5
       && appels === 0 && !debords.some(Boolean);
-    return { ok, mesure: `réponse rejouée « ${entete} » ; É5 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; É9 « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `réponse rejouée « ${entete} » ; É8 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; boîtes « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   103: async (page, f) => {
     // L'escalade d'une facade, a la demande (decision du proprietaire du 29 octobre 2026 : « trois lectures, et une escalade a la
@@ -2665,8 +2665,8 @@ const POINTS = {
     if (process.env.FUMEE_CAPTURE_F3_ESCALADE) await bouton.locator('xpath=..').screenshot({ path: process.env.FUMEE_CAPTURE_F3_ESCALADE.replace('{classe}', f.nom) });
     await etape('escalader', () => bouton.click({ timeout: 10000 }));
     await etape('escalade enregistree', () => page.waitForFunction(() => /Escalade enregistrée/.test(document.body.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer', null, { timeout: 90000 }));
-    await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
-    await etape('E5 ouverte', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
+    await etape('E8', () => page.locator('.calFrise button[data-etape="lectureIa"]').click({ timeout: 5000 }));
+    await etape('E8 ouverte', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
     const resume4 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
     const apres = ((await bouton.textContent()) || '').trim();
     const grise = await bouton.isDisabled();
@@ -2675,7 +2675,7 @@ const POINTS = {
     const d = demandes[0];
     const ok = /^Escalader vers claude-sonnet-5-5 \(≈ 0,\d{4} \$\)$/.test(avant) && demandes.length === 1 && d?.usage === 'escalade' && d?.requetes?.length === 1 && d.requetes[0]?.usage === 'facade'
       && /Escalade \(claude-sonnet-5-5\) : elle l’emporte sur le parement/.test(resume4) && apres === 'Escaladée (claude-sonnet-5-5)' && grise && !debords.some(Boolean);
-    return { ok, mesure: `bouton « ${avant} » ; ${demandes.length} demande(s), usage ${d?.usage}, requête ${d?.requetes?.map((q) => q.usage).join('/')} ; É5 « ${(resume4.match(/Escalade \(.*?\.(?= |$)/) || ['PAS d’escalade'])[0]} » ; ensuite « ${apres} »${grise ? ', grisé' : ', ACTIF'} ; débordement ${debords.map((x) => (x ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `bouton « ${avant} » ; ${demandes.length} demande(s), usage ${d?.usage}, requête ${d?.requetes?.map((q) => q.usage).join('/')} ; É8 « ${(resume4.match(/Escalade \(.*?\.(?= |$)/) || ['PAS d’escalade'])[0]} » ; ensuite « ${apres} »${grise ? ', grisé' : ', ACTIF'} ; débordement ${debords.map((x) => (x ? 'OUI' : 'non')).join('/')}` };
   },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
@@ -2817,7 +2817,7 @@ const POINTS = {
     // La validation d'une facade (V4, lot F5, MD/spec-facade-calage-audit.md §4 E11, §3.2, §3.3) : l'audit, « Photographier » la facade
     // de la maison (la scene 02 du banc), le calcul par l'orchestrateur ; la facade depliee de la liste dit son bilan (E11, a confirmer)
     // et porte « Valider la façade ». Le toucher ecrit la Facade dans le projet, en un pas d'historique : ses dimensions, sa forme, la
-    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E11 est faite, le bouton part. La 3D pose chaque ouverture dans un
+    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E14 est faite, le bouton part. La 3D pose chaque ouverture dans un
     // groupe nomme par son identifiant ; l'inspecteur dit la Facade et les ouvertures verifiees. Ctrl+Z defait la validation.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
@@ -2868,7 +2868,7 @@ const POINTS = {
     const ok = avantE9 === 'a-confirmer' && /Façade.*Mur de .*\(V4\)/.test(bilan) && !avant.some((x) => x.dimensions) && !!r.dimensions && !!r.forme && !!r.textureCalee
       && ids.length > 0 && ids.every((id, i) => id === 'o' + (i + 1)) && verifiees && apresE9 === 'ok' && boutonParti && groupes.length === ids.length
       && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
-    return { ok, mesure: `E11 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `É14 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   106: async (page, f) => {
     // Une cheminee proposee d'apres la photo, confirmee dans l'avant/apres, posee par le moteur sur le bon corps (lot F7,
@@ -3133,7 +3133,7 @@ const POINTS = {
     await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 }));
     const frise = await page.locator('.calFrise > li').count();
     const ok = !!c && /^cas-/.test(id) && c.format === 'plan-facade-reelle' && c.images?.length === 1 && c.photos?.length === 1 && c.largeurM > 0 && /^Maison · façade /.test(c.nom)
-      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 9 && !deborde && !debordeCal;
+      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 12 && !deborde && !debordeCal;
     return { ok, mesure: `cas ${id ?? 'ABSENT'} : « ${c?.nom ?? ''} », ${c?.images?.length ?? 0} photo(s), ${c?.largeurM ?? '?'} × ${c?.hauteurM ?? '?'} m ; « ${toast.slice(0, 80)} » ; calibration : ${sansPhoto ? 'ni champ photo ni « Nouveau cas »' : 'CHAMP PHOTO'}, rejeu ${frise} étapes ; débordement ${deborde ? 'OUI' : 'non'}/${debordeCal ? 'OUI' : 'non'}` };
   },
   108: async (page, f) => {
@@ -3418,8 +3418,8 @@ const POINTS = {
     const barre = '.dialogueAuditParcelle .facadeAudit';
     await page.locator(barre + ' .lectureClaude').waitFor({ timeout: 60000 }).catch(() => {});
     // La lecture de Claude entre dans l'enchainement de la facade (decision 4) : la facade se mesure de nouveau avec elle ; la barre le
-    // dit a l'E9. On valide la facade une fois cette mesure faite, comme la personne qui voit la barre se refaire.
-    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /É9.*par Claude/.test(l.textContent || '')) && !!document.querySelector(s + ' button[data-commande="facade.valider"]'), barre, { timeout: 180000 }).catch(() => {});
+    // dit a l'E8 (la lecture de Claude). On valide la facade une fois cette mesure faite, comme la personne qui voit la barre se refaire.
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /É8.*par Claude/.test(l.textContent || '')) && !!document.querySelector(s + ' button[data-commande="facade.valider"]'), barre, { timeout: 180000 }).catch(() => {});
     const lignes = await page.locator(barre + ' .lectureClaude .detailPhoto').allTextContents();
     const signal = await page.locator(barre + ' .lectureClaude .signalClaude').count();
     await capture('lecture');
@@ -3574,7 +3574,7 @@ const POINTS = {
     const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     const etats = (l) => l.map((e) => e || '?').join(' ');
     const ok = enTete && prise.length === 8 && prise[0] === 'ok' && segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte))
-      && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^É5 Calage du mur \(Mur\), /.test(sousLaBarre) && apresRejeu === 8
+      && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^É7 Calage du mur \(Mur\), /.test(sousLaBarre) && apresRejeu === 8
       && (f.nom !== 'compact' || /^É\d+(–É\d+)? · /.test(ruban)) && projet === avant && !debords.some(Boolean);
     return { ok, mesure: `prise : barre ${enTete ? 'en tête' : 'PAS en tête'} (${etats(prise)})${ruban ? ', ruban « ' + ruban + ' »' : ''} ; liste : ${etats(segments.map((x) => x.etat))}, ouvrables ${segments.filter((x) => x.bouton).length}/8 ${ouvrablesJustes ? '(points de validation et doutes)' : '(FAUX)'} ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 60) + ' »').join(', ') || 'AUCUNE'} ; Mur ouvert : « ${sousLaBarre.slice(0, 50)} » ; rejeu : ${apresRejeu} segments ; projet ${projet === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
@@ -6244,7 +6244,7 @@ const POINTS = {
   126: async (page, f) => {
     // « Confirmer le mur » (V1) et le doute herite du mur (decisions du proprietaire, 3 novembre 2026). L'audit : la scene 02 du banc sur
     // la facade de la maison, dont le mur reste a confirmer (la maison n'a pas les proportions de la scene) ; les etapes qui lisent ce
-    // mur et atteignent leur objectif le disent (« Dépend du mur à confirmer (É5) »). « Confirmer le mur » : la facade se rejoue, l'E5
+    // mur et atteignent leur objectif le disent (« Dépend du mur à confirmer (É7 Calage du mur) »). « Confirmer le mur » : la facade se rejoue, l'E5
     // est « confirmé par vous » (la note de la silhouette reste), plus aucune etape n'herite du doute. « Valider la façade » (V4) : la
     // Facade porte le jour de la confirmation ; Ctrl+Z la defait. « Retirer la confirmation du mur » : le doute revient. Puis la
     // calibration : le cas de la scene 24 vu comme un mur de 5 m (le pignon voisin le prolonge), l'E5 ouverte, le meme bouton, la meme
@@ -6267,12 +6267,12 @@ const POINTS = {
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
     await etape('bouton V1', () => page.locator(facade + ' button[data-commande="facade.confirmerMur"]').waitFor({ timeout: 30000 }));
     const avant = await lignes();
-    const heritees = avant.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length;
+    const heritees = avant.filter((l) => /Dépend du mur à confirmer \(É7 Calage du mur\)/.test(l)).length;
     await capture('doute', facade);
     const debords = [await deborde()];
     await etape('confirmer', () => toucher(page.locator(facade + ' button[data-commande="facade.confirmerMur"]')));
     await etape('rejeu', rejeu);
-    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^confirmé par vous É5/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^confirmé par vous É7/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
     const confirme = await lignes();
     const murConfirme = await segmentMur();
     await capture('confirme', facade);
@@ -6281,11 +6281,11 @@ const POINTS = {
     const projetAvant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     const ligneE5 = (re) => page.waitForFunction(([s, r]) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => new RegExp(r).test(l.textContent || '')), [facade, re], { timeout: 120000 });
     await page.keyboard.press('Control+z');
-    await etape('Ctrl+Z', () => ligneE5('^à confirmer É5'));
+    await etape('Ctrl+Z', () => ligneE5('^à confirmer É7'));
     const defaitParZ = await lignes();
     await capture('ctrlz', facade);
     await page.keyboard.press('Control+y');
-    await etape('Ctrl+Y', () => ligneE5('^confirmé par vous É5'));
+    await etape('Ctrl+Y', () => ligneE5('^confirmé par vous É7'));
     const projetZ = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     // Le meme geste retire la confirmation : le doute revient.
     const retirer = page.locator(facade + ' button[data-commande="facade.confirmerMur"]');
@@ -6293,12 +6293,12 @@ const POINTS = {
     await etape('retirer', () => toucher(retirer));
     await etape('rejeu 2', rejeu);
     // Le rejeu fini : la ligne du mur est de nouveau a confirmer (pendant le rejeu, la facade n'a pas de lignes).
-    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^à confirmer É5/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^à confirmer É7/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
     const retire = await lignes();
     // Confirme de nouveau, puis V4 : la Facade porte le jour de la confirmation ; Ctrl+Z la defait.
     await etape('reconfirmer', () => toucher(page.locator(facade + ' button[data-commande="facade.confirmerMur"]')));
     await etape('rejeu 3', rejeu);
-    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^confirmé par vous É5/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
+    await page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /^confirmé par vous É7/.test(l.textContent || '')), facade, { timeout: 120000 }).catch(() => {});
     await etape('valider', () => toucher(page.locator(facade + ' button[data-commande="facade.valider"]')));
     await page.waitForTimeout(1500);
     const ecrit = await murConfirmeLe();
@@ -6341,13 +6341,13 @@ const POINTS = {
     const calZ = (await page.locator('.calEtapeOuverte .calFriseEtat').first().textContent()) || '';
     await capture('calibration', '.calEtapeOuverte');
     debords.push(await deborde());
-    const e5 = (l) => l.find((x) => /É5/.test(x)) ?? '';
-    const ctrlz = defaitParZ.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && projetZ === projetAvant;
-    const ok = ctrlz && heritees > 0 && /^à confirmer/.test(e5(avant)) && /^confirmé par vous É5 Mur confirmé : Mur confirmé par vous le /.test(e5(confirme)) && !confirme.some((l) => /Dépend du mur/.test(l))
-      && /^É5 Mur, confirmé par vous/.test(murConfirme || '') && typeof ecrit === 'string' && defait === null && /Retirer la confirmation/.test(libelleRetirer)
-      && retire.filter((l) => /Dépend du mur à confirmer \(É5\)/.test(l)).length === heritees && calAvant === 'à confirmer' && calApres === 'confirmé par vous' && /^Mur confirmé par vous le /.test(calResume) && calZ === 'à confirmer' && !debords.some(Boolean);
+    const e5 = (l) => l.find((x) => /É7/.test(x)) ?? '';
+    const ctrlz = defaitParZ.filter((l) => /Dépend du mur à confirmer \(É7 Calage du mur\)/.test(l)).length === heritees && projetZ === projetAvant;
+    const ok = ctrlz && heritees > 0 && /^à confirmer/.test(e5(avant)) && /^confirmé par vous É7 Mur confirmé : Mur confirmé par vous le /.test(e5(confirme)) && !confirme.some((l) => /Dépend du mur/.test(l))
+      && /^É7–É8 Mur, confirmé par vous/.test(murConfirme || '') && typeof ecrit === 'string' && defait === null && /Retirer la confirmation/.test(libelleRetirer)
+      && retire.filter((l) => /Dépend du mur à confirmer \(É7 Calage du mur\)/.test(l)).length === heritees && calAvant === 'à confirmer' && calApres === 'confirmé par vous' && /^Mur confirmé par vous le /.test(calResume) && calZ === 'à confirmer' && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 110) + ' »';
-    return { ok, mesure: `audit : ${heritees} étape(s) héritent du doute ; Ctrl+Z ${defaitParZ.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau, Ctrl+Y reconfirmé, projet ${projetZ === projetAvant ? 'inchangé' : 'MODIFIÉ'} ; É5 ${court(e5(avant))} → ${court(e5(confirme))} (segment « ${murConfirme} »), ${confirme.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) après ; V4 : murConfirmeLe ${ecrit}, Ctrl+Z ${defait === null ? 'le défait' : 'NE le défait PAS'} ; « ${libelleRetirer} » : ${retire.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau ; calibration : É5 ${calAvant} → ${calApres} → Ctrl+Z ${calZ} ${court(calResume)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `audit : ${heritees} étape(s) héritent du doute ; Ctrl+Z ${defaitParZ.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau, Ctrl+Y reconfirmé, projet ${projetZ === projetAvant ? 'inchangé' : 'MODIFIÉ'} ; É7 ${court(e5(avant))} → ${court(e5(confirme))} (segment « ${murConfirme} »), ${confirme.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) après ; V4 : murConfirmeLe ${ecrit}, Ctrl+Z ${defait === null ? 'le défait' : 'NE le défait PAS'} ; « ${libelleRetirer} » : ${retire.filter((l) => /Dépend du mur/.test(l)).length} héritée(s) de nouveau ; calibration : É5 ${calAvant} → ${calApres} → Ctrl+Z ${calZ} ${court(calResume)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   127: async (page, f) => {
     // V3 (decision 2 du proprietaire, 3 novembre 2026) : les ouvertures trouvees se relisent toujours avant V4, l'E9 n'est faite qu'apres
@@ -6361,7 +6361,7 @@ const POINTS = {
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .calEditeur')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     const capture = async (quoi, sel) => { if (process.env.FUMEE_CAPTURE_V3) await page.locator(sel).first().screenshot({ path: process.env.FUMEE_CAPTURE_V3 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
     const ligne = (re) => page.waitForFunction(([s, r]) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => new RegExp(r).test(l.textContent || '')), [facade, re], { timeout: 120000 });
-    const e9 = () => page.evaluate((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].map((l) => l.textContent || '').find((t) => /É9/.test(t)) || '', facade);
+    const e9 = () => page.evaluate((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].map((l) => l.textContent || '').find((t) => /É12/.test(t)) || '', facade);
     await etape('ouvrir', () => ouvrirAuditParcelle(page));
     await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
@@ -6371,8 +6371,8 @@ const POINTS = {
     await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
     // V1 d'abord : sans le mur confirme, l'E9 herite son doute.
     const confirmer = page.locator(facade + ' button[data-commande="facade.confirmerMur"]');
-    if (await confirmer.count()) { await etape('confirmer', () => toucher(confirmer)); await etape('mur confirme', () => ligne('^confirmé par vous É5')); }
-    await etape('E9 a relire', () => ligne('^à confirmer É9 .*Relisez-les \\(V3\\)'));
+    if (await confirmer.count()) { await etape('confirmer', () => toucher(confirmer)); await etape('mur confirme', () => ligne('^confirmé par vous É7')); }
+    await etape('E9 a relire', () => ligne('^à confirmer É12 .*Relisez-les \\(V3\\)'));
     const avant = await e9();
     await etape('relire', () => toucher(page.locator(facade + ' button[data-controle="auditParcelle.relireOuvertures"]').first()));
     await etape('editeur', () => page.locator(facade + ' .relireOuvertures').waitFor({ timeout: 30000 }));
@@ -6380,13 +6380,13 @@ const POINTS = {
     await capture('relecture', facade + ' .relireOuvertures');
     const debords = [await deborde()];
     await etape('garder', () => toucher(page.locator(facade + ' button[data-controle="facade.garderOuvertures"]')));
-    await etape('E9 faite', () => ligne('^faite É9 .*Ouvertures relues par vous'));
+    await etape('E9 faite', () => ligne('^faite É12 .*Ouvertures relues par vous'));
     const relue = await e9();
     await capture('relue', facade);
     await page.keyboard.press('Control+z');
-    await etape('Ctrl+Z', () => ligne('^à confirmer É9 .*Relisez-les'));
+    await etape('Ctrl+Z', () => ligne('^à confirmer É12 .*Relisez-les'));
     await page.keyboard.press('Control+y');
-    await etape('Ctrl+Y', () => ligne('^faite É9 .*Ouvertures relues par vous'));
+    await etape('Ctrl+Y', () => ligne('^faite É12 .*Ouvertures relues par vous'));
     const ouvertures = () => page.evaluate(() => (window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? []).map((r) => r.ouvertures.length));
     await etape('valider', () => toucher(page.locator(facade + ' button[data-commande="facade.valider"]')));
     await page.waitForTimeout(1500);
@@ -6425,7 +6425,7 @@ const POINTS = {
     const ok = /Relisez-les \(V3\)/.test(avant) && /Ouvertures relues par vous le /.test(relue) && ecrites.includes(n(relue.replace(/^.*La détection : /, '')))
       && !annotees && calAvant === 'à confirmer' && calApres === 'faite' && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 120) + ' »';
-    return { ok, mesure: `audit : É9 ${court(avant)} → ${court(relue)} (éditeur : ${court(nb || '')}) ; Ctrl+Z à relire, Ctrl+Y relue ; V4 : ${ecrites.join('/')} ouverture(s) écrite(s) ; calibration : vérité ${annotees ? 'REMPLIE' : 'vide'} après le rejeu, É9 ${calAvant} → ${calApres} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `audit : É12 ${court(avant)} → ${court(relue)} (éditeur : ${court(nb || '')}) ; Ctrl+Z à relire, Ctrl+Y relue ; V4 : ${ecrites.join('/')} ouverture(s) écrite(s) ; calibration : vérité ${annotees ? 'REMPLIE' : 'vide'} après le rejeu, É12 ${calAvant} → ${calApres} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   128: async (page, f) => {
     // La lecture de Claude dans l'enchainement de l'audit (decision 4 du proprietaire, 3 novembre 2026) : la facade de la maison (la
@@ -6452,7 +6452,8 @@ const POINTS = {
     await simulerAnalyse(page, { facade: SORTIE, enrichie: ENRICHIE, toit: TOIT });
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const barre = '.dialogueAuditParcelle .facadeAudit';
-    const e9 = () => page.evaluate((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].map((l) => l.textContent || '').find((t) => /É9/.test(t)) || '', barre);
+    // La lecture de Claude se dit a l'E8, sa ligne (depuis le 7 novembre 2026 ; avant, a l'ancienne E9 des ouvertures).
+    const e9 = () => page.evaluate((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].map((l) => l.textContent || '').find((t) => /É8/.test(t)) || '', barre);
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     await etape('ouvrir', () => ouvrirAuditParcelle(page));
     await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
@@ -6470,15 +6471,16 @@ const POINTS = {
     await page.waitForTimeout(4000);
     await etape('retour liste', () => toucher(page.locator('.auditPropositions [data-controle="auditParcelle.liste"]').first()));
     await etape('deplier 2', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
-    await etape('E9 avec Claude', () => page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /É9.*par Claude/.test(l.textContent || '')), barre, { timeout: 180000 }));
+    await etape('E8 avec Claude', () => page.waitForFunction((s) => [...document.querySelectorAll(s + ' .ligneEtapeAudit')].some((l) => /É8.*par Claude/.test(l.textContent || '')), barre, { timeout: 180000 }));
     const apres = await e9();
     if (process.env.FUMEE_CAPTURE_IA) await page.locator(barre).screenshot({ path: process.env.FUMEE_CAPTURE_IA + '-' + f.nom + '-barre.png' }).catch(() => {});
-    await etape('segment Mur', () => page.locator(barre + ' button[data-etape="calage"]').click({ timeout: 10000 }));
+    // Le segment Mur (le calage et la lecture de Claude) ouvre l'etape qui doute, sinon le calage (V1).
+    await etape('segment Mur', () => page.locator(barre + ' .barreFacade button[aria-label^="É7–É8 Mur"]').click({ timeout: 10000 }));
     const mur = ((await page.locator(barre + ' .barreFacadeLigne').allTextContents()) || []).join(' ');
     const debords = [await deborde()];
-    const ok = !/Claude/.test(avant) && /vues? par Claude/.test(apres) && /1 seule, proposée décochée/.test(apres) && /IA \(réponse synthétique|IA \(Claude/.test(mur) && !debords.some(Boolean);
+    const ok = !/Claude/.test(avant) && /vues? par Claude/.test(apres) && /1 seule, proposée décochée/.test(apres) && /IA \(réponse synthétique|IA \(Claude/.test(apres) && /É7–É8|É7|É8/.test(mur) && !debords.some(Boolean);
     const court = (t) => '« ' + t.replace(/\s+/g, ' ').slice(0, 160) + ' »';
-    return { ok, mesure: `É9 avant la lecture : ${court(avant)} ; après : ${court(apres)} ; É5 ouverte : ${court(mur.replace(/^.*?IA/, 'IA'))} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `É8 avant la lecture : ${court(avant)} ; après : ${court(apres)} ; segment Mur ouvert : ${court(mur)} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   129: async (page, f) => {
     // Les etalons de synthese dans Admin › Calibrer la detection (facade/banc/etalons.ts) : les scenes du banc des facades, lues dans le
@@ -6519,13 +6521,13 @@ const POINTS = {
     await etape('ouvrir l etalon 00', async () => { await page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 5000 }); await page.locator('[aria-label="Ouvrir l’étalon 00-existante-enduit"]').click({ timeout: 5000 }); });
     await etape('fin du rejeu de 00', () => page.waitForFunction(() => /^Étalon de synthèse : 00/.test(document.querySelector('.calEditeur h2')?.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calVignettes .calObjectif'), null, { timeout: 120000 }));
     const vignette00 = ((await page.locator('.calVignettes .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();
-    await etape('etape E3', async () => { await page.locator('.calFrise button[data-etape="redressement"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte figcaption .calObjectif').first().waitFor({ timeout: 5000 }); });
-    const e3 = ((await page.locator('.calEtapeOuverte figcaption .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();
-    const visible = await page.locator('.calEtapeOuverte figcaption .calObjectif.alerte').first().isVisible().catch(() => false);
+    await etape('etape E3', async () => { await page.locator('.calFrise button[data-etape="objectif"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte .calObjectif').first().waitFor({ timeout: 5000 }); });
+    const e3 = ((await page.locator('.calEtapeOuverte .calObjectif.alerte').first().textContent().catch(() => '')) || '').trim();
+    const visible = await page.locator('.calEtapeOuverte .calObjectif.alerte').first().isVisible().catch(() => false);
     debords.push(await deborde());
     if (capture) {
       await page.locator('.calVignettes').screenshot({ path: capture + '-' + f.nom + '-exif-vignette.png' }).catch(() => {});
-      await page.locator('.calEtapeOuverte figcaption').first().screenshot({ path: capture + '-' + f.nom + '-exif-e3.png' }).catch(() => {});
+      await page.locator('.calEtapeOuverte .calListe').first().screenshot({ path: capture + '-' + f.nom + '-exif-e3.png' }).catch(() => {});
     }
     const exif = /^Avec EXIF/.test(avecExif) && alerte22 === 0 && /^Sans EXIF : .*posez quatre repères\./.test(vignette00) && /^Sans EXIF : .*Le redressement par les points de fuite peut être faux ; posez quatre repères\./.test(e3) && visible;
     const ok = lignes === 30 && /\(30\)/.test(titre) && vignette === 1280 && frise >= 9 && sansEnregistrer && note && exif && !ecrits.length && !debords.some(Boolean);

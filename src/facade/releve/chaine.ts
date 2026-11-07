@@ -159,7 +159,7 @@ function coinsSurLesVerticales(m: Morceau): P2[] | null {
 export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, correction: CorrectionRedressement | undefined, serie: CoinsSerie | null = null): Promise<PhotoRedressee> {
   const { rang } = e;
   // Le champ lu sur les points de fuite quand l'EXIF manque : lu une fois pour tous les essais (le meme a chaque lecture), et dit au
-  // bilan avec sa source, pour que l'E3 dise la focale que la chaine a prise.
+  // bilan avec sa source, pour que l'E3 (l'objectif) dise la focale que la chaine a prise.
   const champLu = e.champConnu ? null : champDesFuites(e.image);
   const objectif = objectifDe(e, champLu);
   const juger = (p: PhotoPreparee) => quadrilatereSain(p.morceau.coins, { largeur: 0, hauteur: 0 }) ? { p, vert: verticaliteDesCoins(p.morceau.prise.photo.image, p.morceau.coins, f.largeur, f.hauteur) } : null;
@@ -178,7 +178,7 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   if (!essai && !correction?.coins) essai = await analyser(true).catch(() => null);
   if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible', objectif }, essai: null };
   // Des coins poses au doigt, ou la photo redressee par les reperes de la personne : son redressement ne se discute pas. Le mur que
-  // l'assemblage des reperes y a trouve, lui, garde le verdict de l'arbitre (`murCherche`) : l'E5 le juge comme un mur trouve.
+  // l'assemblage des reperes y a trouve, lui, garde le verdict de l'arbitre (`murCherche`) : l'E7 le juge comme un mur trouve.
   const parSesReperes = !!parReperes && essai === parReperes;
   const manuelle = essai.p.coins === 'main' || parSesReperes;
   // Des verticales qui penchent : les points calcules d'apres la prise de vue valent parfois mieux que ceux cherches sur les aretes.

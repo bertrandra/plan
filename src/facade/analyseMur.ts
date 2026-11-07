@@ -100,7 +100,7 @@ function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMu
 }
 
 /**
- * Chaque photo vue de face, entiere, comme l'assemblage la prend (l'E3) : ses reperes, sinon ses points de fuite ; une photo sans
+ * Chaque photo vue de face, entiere, comme l'assemblage la prend (l'E5) : ses reperes, sinon ses points de fuite ; une photo sans
  * reperes qui ne se redresse pas par ses points de fuite se redresse par ses coins, un rectangle du mur eux aussi. Null sinon.
  */
 export function vuesDeLAssemblage(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): (RedressementFuites | null)[] {

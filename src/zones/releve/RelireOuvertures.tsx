@@ -1,6 +1,6 @@
 // Le point V3 de l'enchainement d'une facade (decision du proprietaire, 3 novembre 2026) : les ouvertures que la detection a trouvees,
 // sur l'elevation, a regarder avant V4 (garder, corriger, ajouter, retirer). Le meme editeur que celui d'un mur releve (EditionFacade),
-// dans l'audit (zones/parcours/FacadeAudit.tsx) et dans l'etape E9 ouverte de la calibration (zones/FriseEtapesCalibration.tsx) :
+// dans l'audit (zones/parcours/FacadeAudit.tsx) et dans l'etape E12 ouverte de la calibration (zones/FriseEtapesCalibration.tsx) :
 // « Garder ces ouvertures » rend celles que la personne a gardees, que l'ecran ecrit comme sa relecture (model/auditParcelle.ts).
 
 import type { OuvertureFacade, PartieBasse, ReleveFacade } from '../../model/types.js';

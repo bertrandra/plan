@@ -84,13 +84,13 @@ export interface ResultatAnalyse {
    */
   profilToit?: { x0M: number; x1M: number; hauteurs: number[] } | null;
   /**
-   * Le haut du mur lu sur l'image (la matiere du mur, comme l'E6 de la calibration : mosaiqueFuites.ts::silhouetteLue), jamais le
+   * Le haut du mur lu sur l'image (la matiere du mur, comme l'E9 de la calibration : mosaiqueFuites.ts::silhouetteLue), jamais le
    * gabarit : `u` de 0 a 1 le long du mur, `v` en hauteurs d'egout depuis le sol. Le diagnostic de forme de l'audit le compare au
    * gabarit (lot F4, facade/regles/facades/diagnosticForme.ts). Null quand il ne se lit pas (moins de la moitie des colonnes).
    */
   hautLu?: { u: number; v: number }[] | null;
   /**
-   * Le haut du mur cache par du feuillage (E6, 4 novembre 2026) : la part des colonnes de la silhouette ou il est sous un arbre, et
+   * Le haut du mur cache par du feuillage (E9, 4 novembre 2026) : la part des colonnes de la silhouette ou il est sous un arbre, et
    * leurs troncons le long du mur (u de 0 a 1). Ces colonnes ne sont pas lues : le gabarit du plan y est garde. Absent sans feuillage.
    */
   hautMasque?: HautMasque | null;

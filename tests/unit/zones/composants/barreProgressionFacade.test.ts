@@ -17,9 +17,12 @@ afterEach(() => { act(() => racine.unmount()); hote.remove(); });
 const etapes: EtapeAffichee[] = [
   { id: 'preparation', etat: 'ok', resume: 'Mur de 9 × 5 m.' },
   { id: 'prises', etat: 'ok', resume: '2 photos du mur.' },
+  { id: 'objectif', etat: 'ok', resume: 'Photo 1 : avec EXIF.' },
+  { id: 'coins', etat: 'ok', resume: 'Photo 1 : coins trouvés sur la photo.' },
   { id: 'redressement', etat: 'ok', resume: '2 photos redressées.' },
   { id: 'assemblage', etat: 'a-confirmer', resume: 'La photo 2 reste hors de l’assemblage.' },
   { id: 'calage', etat: 'echec', resume: 'Aucun mur sur l’assemblage.' },
+  { id: 'lectureIa', etat: 'saute', resume: 'Mode déterministe : aucune réponse de Claude à rejouer.' },
   { id: 'diagnostic', etat: 'saute', resume: 'Lot F4.' },
 ];
 
@@ -38,13 +41,13 @@ describe('la barre de progression de la facade', () => {
     expect(segments).toHaveLength(8);
     expect(segments.map((s) => s.className.replace('barreFacadeSegment ', '').replace(' courant', ''))).toEqual(['ok', 'a-confirmer', 'echec', 'a-venir', 'a-venir', 'a-venir', 'a-venir', 'a-venir']);
     const boutons = [...hote.querySelectorAll('button[data-commande="facade.etape"]')];
-    expect(boutons.map((b) => b.getAttribute('aria-label'))[2]).toBe('É5 Mur, en échec, point de validation V1');
+    expect(boutons.map((b) => b.getAttribute('aria-label'))[2]).toBe('É7–É8 Mur, en échec, point de validation V1');
     // Une forme par etat : la coche, le point d'exclamation, la croix ; un segment a venir n'a qu'une pastille.
     expect(segments[0]?.querySelector('svg')).not.toBeNull();
     expect(segments[5]?.querySelector('.barreFacadePastille')).not.toBeNull();
     // Le segment courant au repos : le premier qui demande un geste.
     expect(segments.findIndex((s) => s.getAttribute('aria-current') === 'step')).toBe(1);
-    expect(hote.querySelector('.barreFacadeRuban')?.textContent).toBe('É3–É4 · Image · à confirmer');
+    expect(hote.querySelector('.barreFacadeRuban')?.textContent).toBe('É3–É6 · Image · à confirmer');
   });
 
   it('ouvre une etape par la commande, et dit pourquoi elle echoue avec son geste de repli', () => {
@@ -53,13 +56,13 @@ describe('la barre de progression de la facade', () => {
     expect(ouvertes).toEqual(['calage']);
     monter({ ouverte: 'calage' as IdEtape });
     const lignes = [...hote.querySelectorAll('.barreFacadeLigne')].map((p) => p.textContent);
-    expect(lignes[0]).toBe('É5 Calage du mur (Mur), en échec');
+    expect(lignes[0]).toBe('É7 Calage du mur (Mur), en échec');
     expect(lignes[1]).toMatch(/^Aucun mur sur l’assemblage\. À la main : tirer les bouts, l’égout et le sol\.$/);
   });
 
   it('le segment « Forme » ouvre le diagnostic (V2) qui attend la personne, pas la silhouette qui ne doute que du mur', () => {
     const forme: EtapeAffichee[] = [...etapes.filter((e) => e.id !== 'calage' && e.id !== 'diagnostic'),
-      { id: 'calage', etat: 'a-confirmer', resume: 'Mur à confirmer.' }, { id: 'silhouette', etat: 'a-confirmer', resume: 'Triangle. Dépend du mur à confirmer (É5).', herite: 'calage' },
+      { id: 'calage', etat: 'a-confirmer', resume: 'Mur à confirmer.' }, { id: 'silhouette', etat: 'a-confirmer', resume: 'Triangle. Dépend du mur à confirmer (É7 Calage du mur).', herite: 'calage' },
       { id: 'diagnostic', etat: 'a-confirmer', resume: 'Un pignon de plus.' }];
     const { ouvertes } = monter({ etapes: forme });
     act(() => { (hote.querySelector('button[data-commande="facade.etape"][data-etape="diagnostic"]') as HTMLButtonElement | null)?.click(); });
@@ -69,16 +72,16 @@ describe('la barre de progression de la facade', () => {
   it('dit « confirmé par vous » d un mur confirme (V1), avec sa forme', () => {
     monter({ etapes: etapes.map((e) => (e.id === 'calage' ? { ...e, etat: 'confirme' as const, resume: 'Mur confirmé par vous.' } : e)) });
     const mur = hote.querySelector('button[data-commande="facade.etape"][data-etape="calage"]');
-    expect(mur?.getAttribute('aria-label')).toBe('É5 Mur, confirmé par vous, point de validation V1');
+    expect(mur?.getAttribute('aria-label')).toBe('É7–É8 Mur, confirmé par vous, point de validation V1');
     expect(hote.querySelectorAll('ol.barreFacadeSegments > li')[2]?.className).toMatch(/confirme/);
   });
 
   it('avance pendant un calcul, se dit en cours, et propose d arreter', () => {
     const arreter = vi.fn();
-    monter({ enCours: 'calage', arreter, etapes: etapes.slice(0, 4) });
+    monter({ enCours: 'calage', arreter, etapes: etapes.slice(0, 6) });
     const courant = hote.querySelector('li[aria-current="step"]');
     expect(courant?.className).toContain('en-cours');
-    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toBe('É5 Calage du mur (Mur), en cours…');
+    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toBe('É7 Calage du mur (Mur), en cours…');
     act(() => { (hote.querySelector('[data-controle="barreFacade.arreter"]') as HTMLButtonElement).click(); });
     expect(arreter).toHaveBeenCalledTimes(1);
   });

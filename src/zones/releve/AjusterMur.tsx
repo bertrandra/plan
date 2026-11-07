@@ -1,5 +1,5 @@
 // La reprise a la main du mur sur une image vue de face (MD/spec-releve-facade.md §6.1 bis) : l'egout, le sol et les deux bouts. C'est
-// l'option manuelle du calage du mur (E5, MD/spec-facade-calage-audit.md §4 ter.2), et le seul composant de ce geste : sur une photo
+// l'option manuelle du calage du mur (E7, MD/spec-facade-calage-audit.md §4 ter.2), et le seul composant de ce geste : sur une photo
 // tournee de face par ses reperes (l'audit), ou sur l'assemblage des vues, deja de face (la calibration). Le mur cherche automatiquement
 // en est le depart.
 //

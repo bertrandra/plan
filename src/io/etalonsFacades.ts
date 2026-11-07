@@ -45,7 +45,7 @@ export async function ouvrirEtalon(id: string, montrer: (img: Image) => string):
   // Un etalon ouvert a la fois : les pixels du precedent (quelques Mo par photo) sont laches.
   pixels.clear();
   const images = photos.map((p) => { const url = montrer(p.image); pixels.set(url, p.image); return url; });
-  // Les coins vrais de chaque photo : la verite de l'E5 se porte avec eux sur l'assemblage de chaque rejeu (etalons.ts::calageVraiDuRejeu).
+  // Les coins vrais de chaque photo : la verite de l'E7 se porte avec eux sur l'assemblage de chaque rejeu (etalons.ts::calageVraiDuRejeu).
   return { cas: { ...m.casDeLEtalon(s, photos, images.map((_, k) => 'photo-' + (k + 1))), images }, coinsVrais: m.coinsVraisDesPhotos(s) };
 }
 

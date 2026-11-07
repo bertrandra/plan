@@ -3,7 +3,7 @@
 // d'un batiment a un seul corps quand la mesure la porte nettement mieux (facade/regles/toits/catalogue.ts) ; elle ne regarde ni les
 // autres corps, ni la pointe d'un pignon traversant. Ici, chaque bout de chaque corps et chaque pignon est lu aux seuils stricts de la
 // lecture (facade/toits/culDeGeai.ts) ; ce qu'elle porte est PROPOSE, decoche, et c'est le moteur des toits qui le relit
-// (corpsSousContrainte, `boutsDesMurs` et `pointesDesMurs`), comme une proposition de l'E7. Rien n'est ecrit de notre main, et la sortie
+// (corpsSousContrainte, `boutsDesMurs` et `pointesDesMurs`), comme une proposition de l'E10. Rien n'est ecrit de notre main, et la sortie
 // automatique du moteur ne change pas (AE 101 identique). Pur.
 
 import { corpsProposesSousFait, corpsSousContrainte } from '../../../facade/regles/toits/faits.js';

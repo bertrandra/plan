@@ -24,9 +24,12 @@ type Etape = { id: IdEtape; etat: EtatAffiche; resume: string; herite?: 'calage'
 const OK: Etape[] = [
   { id: 'preparation', etat: 'ok', resume: 'Mur de 10 × 6 m.' },
   { id: 'prises', etat: 'ok', resume: '2 photos du mur.' },
+  { id: 'objectif', etat: 'ok', resume: 'Photo 1 : avec EXIF (focale 26 mm éq.). Photo 2 : avec EXIF (focale 26 mm éq.).' },
+  { id: 'coins', etat: 'ok', resume: 'Photo 1 : coins trouvés sur la photo ; Photo 2 : coins trouvés sur la photo.' },
   { id: 'redressement', etat: 'ok', resume: '2 photos redressées sur 2.' },
   { id: 'assemblage', etat: 'ok', resume: 'Fusionnée : 2 photos assemblées en une image.' },
   { id: 'calage', etat: 'ok', resume: 'Coins du mur trouvés sur la photo.' },
+  { id: 'lectureIa', etat: 'saute', resume: 'Mode déterministe : aucune réponse de Claude à rejouer.' },
   { id: 'silhouette', etat: 'ok', resume: 'Le haut lu sur la photo : un triangle.' },
   { id: 'diagnostic', etat: 'saute', resume: 'Pas de corps du toit pour cette façade.' },
   { id: 'texture', etat: 'ok', resume: 'Texture de 10 × 8 m.' },
@@ -69,7 +72,7 @@ describe('une facade dans l audit discret', () => {
   it('montre la barre de la calibration, et rien des etapes cachees qui ont reussi : le mur et les ouvertures en une ligne', () => {
     monter(session(OK));
     expect(hote.querySelectorAll('.barreFacade .barreFacadeSegment')).toHaveLength(8);
-    expect(lignes()).toEqual(['faite É5 Mur posé : Coins du mur trouvés sur la photo.', 'faite É9 Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
+    expect(lignes()).toEqual(['faite É7 Mur posé : Coins du mur trouvés sur la photo.', 'faite É12 Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
     // Seuls les points de validation s'ouvrent : V1 (mur), V2 (forme, sur son diagnostic : lot F4), V3 (ouvertures), V4 (facade) ; ni la
     // prise, ni l'image, ni la texture.
     expect(ouvrables()).toEqual(['calage', 'diagnostic', 'ouvertures', 'validation']);
@@ -78,7 +81,7 @@ describe('une facade dans l audit discret', () => {
   it('fait apparaitre une etape cachee des qu elle echoue, avec son geste de repli sur chaque photo', () => {
     const etapes = OK.map((e) => (e.id === 'assemblage' ? { ...e, etat: 'echec' as const, resume: 'Photos indépendantes : aucune fusion. Reprenez la façade avec des chevauchements entre les photos : un tiers de mur en commun.' } : e));
     const { ouvrir } = monter(session(etapes));
-    expect(lignes()[0]).toMatch(/^en échec É4 Assemblage : Photos indépendantes.* À la main : retirer une photo, ou en prendre une autre qui recoupe le mur\./);
+    expect(lignes()[0]).toMatch(/^en échec É6 Assemblage : Photos indépendantes.* À la main : retirer une photo, ou en prendre une autre qui recoupe le mur\./);
     expect([...hote.querySelectorAll('[data-controle="auditParcelle.placerCoins"]')].map((b) => b.textContent)).toEqual(['Repères, photo 1', 'Repères, photo 2']);
     // Le segment « Image » s'ouvre maintenant, sur l'etape qui echoue ; le toucher passe par la commande, avec la facade de la barre.
     expect(ouvrables()).toContain('assemblage');
@@ -98,7 +101,7 @@ describe('une facade dans l audit discret', () => {
 
   it('une etape ouverte depuis la barre n y repete pas son resultat, mais garde son geste', () => {
     monter(session(OK, { facade: 'maison#0', etape: 'calage' }));
-    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toMatch(/^É5 Calage du mur \(Mur\), faite/);
+    expect(hote.querySelector('.barreFacadeLigne')?.textContent).toMatch(/^É7 Calage du mur \(Mur\), faite/);
     expect(lignes()[0]).toBe('À la main : tirer les bouts, l’égout et le sol.Placer 4 repères'.replace('Placer 4 repères', 'Repères, photo 1Repères, photo 2'));
   });
 
@@ -129,7 +132,7 @@ describe('une facade dans l audit discret', () => {
     const bilan = { dimensions: { largeurM: 10, egoutM: 6 }, forme: { gabarit: [{ u: 0, v: 1 }, { u: 1, v: 1 }], source: 'plan' as const }, textureCalee: null, ouvertures: [] };
     const attend = OK.map((e) => (e.id === 'validation' ? { ...e, etat: 'a-confirmer' as const, resume: 'Mur de 10 × 6 m ; haut du plan ; sans texture ; 0 ouverture. Validez la façade pour l’écrire dans le projet (V4).' } : e));
     const { valider } = monter(session(attend, null, null, { facade: bilan }));
-    expect(lignes().at(-1)).toMatch(/^à confirmer É11 Validation : Mur de 10 × 6 m .* \(V4\)\. À la main : corriger n’importe quel sortant\.$/);
+    expect(lignes().at(-1)).toMatch(/^à confirmer É14 Validation : Mur de 10 × 6 m .* \(V4\)\. À la main : corriger n’importe quel sortant\.$/);
     const b = hote.querySelector('[data-commande="facade.valider"]') as HTMLButtonElement;
     expect([b.textContent, b.disabled]).toEqual(['Valider la façade', false]);
     act(() => b.click());
@@ -161,23 +164,23 @@ describe('« Appliquer » des quatre reperes (revue des etapes, B1)', () => {
 
 describe('« Confirmer le mur » (V1) et le doute herite du mur (decisions du proprietaire, 3 novembre 2026)', () => {
   const doute = OK.map((e): Etape => (e.id === 'calage' ? { ...e, etat: 'a-confirmer', resume: 'Coins du mur trouvés sur la photo. Sur l’assemblage : x de 1 à 9, que sa silhouette n’explique pas (score 0,4) : à confirmer.' }
-    : e.id === 'texture' || e.id === 'ouvertures' ? { ...e, etat: 'a-confirmer', resume: e.resume + ' Dépend du mur à confirmer (É5).', herite: 'calage' } : e));
+    : e.id === 'texture' || e.id === 'ouvertures' ? { ...e, etat: 'a-confirmer', resume: e.resume + ' Dépend du mur à confirmer (É7 Calage du mur).', herite: 'calage' } : e));
   it('le mur a confirmer porte « Confirmer le mur », par la commande ; une etape qui ne doute que du mur renvoie a lui', () => {
     const { confirmer } = monter(session(doute));
     const bouton = hote.querySelector<HTMLButtonElement>('[data-commande="facade.confirmerMur"]');
     expect(bouton?.textContent).toBe('Confirmer le mur');
     act(() => bouton?.click());
     expect(confirmer).toHaveBeenCalledWith('maison#0');
-    const texture = lignes().find((l) => /É8 Texture/.test(l));
-    expect(texture).toMatch(/Dépend du mur à confirmer \(É5\)\. À la main : confirmer le mur \(É5, V1\), ou le tirer à la main\.$/);
+    const texture = lignes().find((l) => /É11 Texture/.test(l));
+    expect(texture).toMatch(/Dépend du mur à confirmer \(É7 Calage du mur\)\. À la main : confirmer le mur \(É7, V1\), ou le tirer à la main\.$/);
     // Le geste d'une etape qui ne doute que du mur ne se fait pas sur la photo de cette etape.
     expect(hote.querySelectorAll('[data-controle="auditParcelle.placerCoins"]').length).toBe(2);
   });
   it('confirme, la ligne le dit (« confirmé par vous », jamais « faite ») et le bouton retire la confirmation', () => {
     const etapes = OK.map((e): Etape => (e.id === 'calage' ? { ...e, etat: 'confirme', resume: 'Mur confirmé par vous le 3 novembre 2026. Coins du mur trouvés sur la photo.' } : e));
     monter(session(etapes));
-    expect(lignes()[0]).toBe('confirmé par vous É5 Mur confirmé : Mur confirmé par vous le 3 novembre 2026. Coins du mur trouvés sur la photo.Retirer la confirmation du mur');
-    expect(hote.querySelector('.barreFacade [data-etape="calage"]')?.getAttribute('aria-label')).toMatch(/^É5 Mur, confirmé par vous, point de validation V1/);
+    expect(lignes()[0]).toBe('confirmé par vous É7 Mur confirmé : Mur confirmé par vous le 3 novembre 2026. Coins du mur trouvés sur la photo.Retirer la confirmation du mur');
+    expect(hote.querySelector('.barreFacade [data-etape="calage"]')?.getAttribute('aria-label')).toMatch(/^É7–É8 Mur, confirmé par vous, point de validation V1/);
   });
 });
 

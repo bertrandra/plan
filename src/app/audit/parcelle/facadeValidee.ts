@@ -1,4 +1,4 @@
-// La validation d'une facade dans l'audit (MD/spec-facade-calage-audit.md §4 E11, point V4, lot F5) : la personne valide d'un geste
+// La validation d'une facade dans l'audit (MD/spec-facade-calage-audit.md §4 E14, point V4, lot F5) : la personne valide d'un geste
 // le bilan de la facade (ses dimensions, sa forme, la pose de sa texture, ses ouvertures), et la Facade s'ecrit dans le projet, en un
 // pas d'historique (validation.ts::validerFacade). Ici, pur : ce qui s'ecrit, et ce que la barre en dit ensuite.
 //
@@ -36,7 +36,7 @@ function sourceDesDimensions(o: ObjetPlan): DimensionsFacade['source'] {
 
 /**
  * Les ouvertures que la facade montre et que V4 ecrit : celles que la personne a relues (V3), tant qu'elles valent pour cette detection ;
- * sinon celles de l'accord de Claude que l'enchainement a fait (E9 : les detections, ses details en plus, les devinees qu'il confirme ;
+ * sinon celles de l'accord de Claude que l'enchainement a fait (E8 : les detections, ses details en plus, les devinees qu'il confirme ;
  * decision 4, plus de calcul a cote) ; sinon celles du releve.
  */
 function ouverturesMontrees(m: MesureFacade, base: ReleveFacade, accord: AccordFacadeCapture | null, relues: OuverturesRelues | null = null): OuvertureFacade[] {
@@ -107,7 +107,7 @@ export function facadeAEcrire(o: ObjetPlan, m: MesureFacade, jour: string, accor
   const modenature = modenatureDeLIa(obs, mur, accord?.descentes ?? null);
   const appendices = appendicesDeLIa(obs, mur);
   const etat = etatDeLIa(obs, jour);
-  // Le mur confirme par la personne au point V1, tant que l'E5 le dit confirme : il s'ecrit avec le calage du releve.
+  // Le mur confirme par la personne au point V1, tant que l'E7 le dit confirme : il s'ecrit avec le calage du releve.
   const confirme = murConfirme && m.etapes?.find((e) => e.id === 'calage')?.etat === 'confirme' ? murConfirme.le : null;
   const r: ReleveFacade = {
     ...base, ouvertures,
@@ -132,7 +132,7 @@ export function facadeValideeDe(objets: readonly ObjetPlan[], cle: string, m: Me
   return r && r.dimensions && !r.depuisAudit && r.releveLe === m.releve.releveLe ? r : null;
 }
 
-/** Les etapes d'une mesure telles que la barre les montre : l'E11 faite quand la Facade de cette mesure est validee dans le projet. */
+/** Les etapes d'une mesure telles que la barre les montre : l'E14 faite quand la Facade de cette mesure est validee dans le projet. */
 export function etapesApresValidation<E extends Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>>(etapes: readonly E[], validee: ReleveFacade | null): E[] {
   if (!validee) return [...etapes];
   const n = validee.ouvertures.length;

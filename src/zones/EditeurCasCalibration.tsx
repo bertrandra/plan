@@ -248,7 +248,7 @@ function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, coinsVrais:
     };
     let cas = depart;
     let r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), ...precedent });
-    // Un etalon de synthese : le mur vrai se porte sur l'assemblage de ce rejeu (il en depend) ; s'il change, l'E5 et la suite se
+    // Un etalon de synthese : le mur vrai se porte sur l'assemblage de ce rejeu (il en depend) ; s'il change, l'E7 et la suite se
     // rejouent contre lui, les etapes d'avant reprises telles quelles.
     const vrai = coinsVrais ? calageVraiDuRejeu(r.sorties.calage?.pose, coinsVrais) : null;
     if (vrai && !memeMurVrai(vrai, cas.calageVrai)) {
@@ -414,7 +414,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       setCas(suite); setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
       const calees = r.sorties.calage?.photos;
       if (calees) setOrigines(Object.fromEntries(calees.flatMap((p, k) => (p.origine ? [[k, p.origine]] : []))));
-      // La verite du cas ne se remplit plus de la detection (decision du proprietaire, 3 novembre 2026) : l'E9 se comparerait a sa propre
+      // La verite du cas ne se remplit plus de la detection (decision du proprietaire, 3 novembre 2026) : l'E12 se comparerait a sa propre
       // sortie et dirait « objectifs atteints ». « Partir de la détection », plus bas, le fait d'un geste.
       if (!r.sorties.analyse) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».');
     } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
@@ -429,14 +429,14 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p, coins, murALaMain: true }; delete q.silhouette; return q; }) }));
     setOrigines((o) => ({ ...o, [courante]: 'main' })); oublier();
   };
-  // Le mur ajuste a la main sur l'assemblage du rejeu (depuis les reperes) : pose sur chaque photo assemblee, comme a l'E5.
+  // Le mur ajuste a la main sur l'assemblage du rejeu (depuis les reperes) : pose sur chaque photo assemblee, comme a l'E7.
   const murAssemble = (parPhoto: Map<number, P2[]>) => {
     geste();
     modifier((c) => casAvecLeMur(c, parPhoto));
     setOrigines((o) => ({ ...o, ...Object.fromEntries([...parPhoto.keys()].map((i) => [i, 'main' as const])) })); oublier();
   };
-  // L'option manuelle de l'E5 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue entier : comme dans
-  // l'audit, un mur pose a la main est une entree de la chaine, qui redresse et assemble a l'E3.
+  // L'option manuelle de l'E7 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis le cas se rejoue entier : comme dans
+  // l'audit, un mur pose a la main est une entree de la chaine, qui redresse et assemble a l'E5.
   const caler = (coins: P2[]) => { if (!rejeu) return; geste(); const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c); };
   // « Rappeler Claude » : le run sur l'image prise pour la suite par le rejeu (ce qu'elle ne montre pas en gris), enregistre avec le cas,
   // puis rejoue en IA.
@@ -468,7 +468,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   };
   const prixEscalade = useEscalade(outils, escalader);
   // « Confirmer le mur » (V1) : le mur que le rejeu a retenu, confirme et garde dans le cas (une entree, comme dans l'audit), puis le
-  // cas se rejoue depuis l'E5 ; deja confirme, le meme geste retire la confirmation.
+  // cas se rejoue depuis l'E7 ; deja confirme, le meme geste retire la confirmation.
   const relire = (gardees: OuvertureFacade[]) => { const suite = casRelu(cas, rejeu, gardees); if (suite) { geste(); setCas(suite); void rejouer(suite, 'ouvertures'); } };
   useConfirmerMur(outils, async () => {
     const suite = casConfirme(cas, rejeu);

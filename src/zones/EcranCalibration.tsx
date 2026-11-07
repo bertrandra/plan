@@ -39,7 +39,7 @@ export interface DepsCalibration extends OutilsPhotos {
    * en lecture seule. Facultatifs : sans eux, la section n'est pas montree.
    */
   etalons?: () => Promise<ResumeEtalon[]>;
-  /** Un etalon rendu : son cas, et les coins vrais de chaque photo (le mur vrai de l'E5 s'en deduit a chaque rejeu). */
+  /** Un etalon rendu : son cas, et les coins vrais de chaque photo (le mur vrai de l'E7 s'en deduit a chaque rejeu). */
   ouvrirEtalon?: (id: string) => Promise<{ cas: CasStocke; coinsVrais: (P2[] | null)[] }>;
   /**
    * « Créer le projet de démonstration » d'un etalon (app/administration/projetEtalon.ts) : le batiment autour du mur, sa facade mesuree
@@ -84,7 +84,7 @@ function ListeEtalons({ deps, ouvrir }: { deps: DepsCalibration; ouvrir: (e: Res
     <section className="calEtalons" aria-label="Étalons de synthèse">
       <details data-controle="calibration.etalons">
         <summary><h2 className="calTitre2">Étalons de synthèse{etalons ? ' (' + etalons.length + ')' : ''}</h2></summary>
-        <p className="calNote">Les scènes du banc des façades, sur lesquelles Plan juge le calage, les étapes É1 à É11 et la lecture de Claude : des photos de synthèse dont on connaît la vérité au centimètre. Ouvrez-en une pour la comparer à vos photos et la dérouler comme un cas. Elles se dessinent dans votre navigateur ; elles ne s’enregistrent pas et ne comptent pas dans la calibration.</p>
+        <p className="calNote">Les scènes du banc des façades, sur lesquelles Plan juge le calage, les étapes É1 à É14 et la lecture de Claude : des photos de synthèse dont on connaît la vérité au centimètre. Ouvrez-en une pour la comparer à vos photos et la dérouler comme un cas. Elles se dessinent dans votre navigateur ; elles ne s’enregistrent pas et ne comptent pas dans la calibration.</p>
         {message && <p className="arbMessage" role="alert">{message}</p>}
         {projet && ('enCours' in projet
           ? <p className="calNote" role="status">Construction du projet de « {projet.enCours} » : le bâtiment, puis la façade mesurée comme dans l’audit…</p>

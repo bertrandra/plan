@@ -88,6 +88,21 @@ describe('le fichier de l audit de parcelle', () => {
     expect(second.propositions.map((p) => [p.id, p.decision])).toEqual(f.propositions.map((p) => [p.id, p.decision]));
   });
 
+  it('n ecrit jamais les etapes d une facade, et relit un fichier d avant les quatorze etapes sans rien en garder', () => {
+    // Les etapes (E1 a E11 jusqu'au 7 novembre 2026, E1 a E14 depuis) se recalculent a chaque rejeu : une mesure qui en porte (en memoire)
+    // ne les ecrit pas, et un fichier qui en porterait (ecrit a la main, ou par un code d'avant) se relit sans elles.
+    const anciennes = ['preparation', 'prises', 'redressement', 'assemblage', 'calage', 'silhouette', 'diagnostic', 'texture', 'ouvertures', 'toit', 'validation'].map((id) => ({ id, etat: 'ok', resume: '…' }));
+    const mesure = { releve: null, rangReleve: 0, coinsTrouves: false, confiance: null, hauteurM: null, couleur: null, etapes: anciennes };
+    const f = fichierAuditParcelle(entrees({ mesures: new Map([['maison#0', mesure]]) }));
+    expect(JSON.stringify(f)).not.toContain('"etapes"');
+    const brut = JSON.parse(JSON.stringify(f)) as { batiments: { facades: { mesure?: Record<string, unknown> }[] }[] };
+    const m0 = brut.batiments[0]?.facades[0];
+    if (m0?.mesure) m0.mesure.etapes = anciennes;
+    const relu = lireFichierAuditParcelle(brut);
+    expect(mesuresDuFichier(relu)[0]).not.toHaveProperty('etapes');
+    expect(mesuresDuFichier(relu)[0]).toMatchObject({ cle: 'maison', cote: 0, coinsTrouves: false });
+  });
+
   it('garde l optique d une photo, avec ou sans prise, a la relecture et dans la capture reprise (rien ne se perd)', () => {
     const optique = {
       focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'iPhone 13', source: { largeurPx: 4032, hauteurPx: 3024 }, reduite: { largeurPx: 1280, hauteurPx: 960 }, empreinte: 'sha256:00',

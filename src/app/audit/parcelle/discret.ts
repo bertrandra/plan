@@ -2,9 +2,10 @@
 // facade. Il lit les etats que l'orchestrateur a calcules (facade/releve/enchainement.ts) et le mode d'audit de chaque etape (le
 // contrat, model/etapeFacade.ts) ; il ne calcule rien de la facade. La calibration lit les memes etats et montre tout.
 //
-// - Une etape cachee (`cache` : E1, E3, E4, E6, E8) ne se montre que si elle echoue ou doute : elle passe alors en resume, avec son
+// - Une etape cachee (`cache` : E1, E3 a E6, E9, E11) ne se montre que si elle echoue ou doute : elle passe alors en resume, avec son
 //   option manuelle. Une etape cachee qui a reussi ne s'ouvre pas.
-// - Une etape en resume (`resume` : E5, E9) tient en une ligne quand elle a reussi (« Mur posé »), et demande un geste sinon.
+// - Une etape en resume (`resume` : E7, E8, E12) tient en une ligne quand elle a reussi (« Mur posé », « Lecture de Claude »), et demande
+//   un geste sinon ; sautee (la lecture de Claude sans reponse), elle ne se montre pas.
 // - Les points de validation (V1 a V4) s'ouvrent toujours depuis la barre ; V4, la facade, se valide sous la barre (lot F5).
 
 import { etapeFacade, libelleEtape, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../../model/etapeFacade.js';
@@ -19,20 +20,20 @@ export interface LigneDiscrete {
   texte: string;
   /** Le geste de repli (le contrat de l'etape) ; null : rien a faire, l'etape a reussi. */
   option: string | null;
-  /** Le geste se fait sur une photo : poser quatre reperes, tirer les angles, l'egout et le sol (E3 a E5). */
+  /** Le geste se fait sur une photo : poser quatre reperes, tirer les angles, l'egout et le sol (E3 a E7). */
   surLaPhoto: boolean;
 }
 
 const DOUTE: readonly EtatAffiche[] = ['echec', 'a-confirmer'];
 /** Les etapes dont le geste de repli se fait sur une photo de la facade (les reperes, le mur a la main). */
-const SUR_LA_PHOTO: readonly IdEtape[] = ['redressement', 'assemblage', 'calage'];
+const SUR_LA_PHOTO: readonly IdEtape[] = ['objectif', 'coins', 'redressement', 'assemblage', 'calage'];
 /** Ce qu'une etape en resume dit d'elle quand elle a reussi : une ligne, et son resultat. */
-const REUSSIE: Partial<Record<IdEtape, string>> = { calage: 'Mur posé', ouvertures: 'Ouvertures' };
+const REUSSIE: Partial<Record<IdEtape, string>> = { calage: 'Mur posé', lectureIa: 'Lecture de Claude', ouvertures: 'Ouvertures' };
 /** Ce qu'une etape confirmee par la personne dit d'elle (V1) : jamais « pose », qui est le mot de l'automatique. */
 const CONFIRMEE: Partial<Record<IdEtape, string>> = { calage: 'Mur confirmé' };
 
-/** Le geste d'une etape qui ne doute que du mur (le doute herite de l'E5) : le sien n'y ferait rien, c'est le mur qu'il faut confirmer. */
-const OPTION_DU_MUR = 'confirmer le mur (É5, V1), ou le tirer à la main';
+/** Le geste d'une etape qui ne doute que du mur (le doute herite du calage) : le sien n'y ferait rien, c'est le mur qu'il faut confirmer. */
+const OPTION_DU_MUR = `confirmer le mur (${etapeFacade('calage').numero}, V1), ou le tirer à la main`;
 
 /** Une etape doute-t-elle (en echec, ou a confirmer) ? */
 const doute = (etat: EtatAffiche): boolean => DOUTE.includes(etat);

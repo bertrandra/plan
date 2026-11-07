@@ -80,9 +80,11 @@ export interface PrisesFacade {
   ouverturesRelues: OuverturesRelues | null;
   /** Une image en JPEG (`data:`) : le canevas du navigateur ; une chaine vide hors navigateur (la mesure, le banc). */
   jpeg: (img: Image) => string;
+  /** L'optique rangee avec chaque photo qui en a une, par rang : l'E3 (l'objectif) la montre ; la prise la lit deja (priseDeLaPhoto). */
+  optiques?: readonly { rang: number; optique: OptiquePhoto }[];
 }
 
-/** Le motif d'une photo dont l'image ne se decode pas : l'E3 le reconnait pour conseiller de la reprendre, pas d'y poser des reperes. */
+/** Le motif d'une photo dont l'image ne se decode pas : l'E5 le reconnait pour conseiller de la reprendre, pas d'y poser des reperes. */
 export const MOTIF_ILLISIBLE = 'image illisible';
 
 /**
@@ -111,5 +113,6 @@ export function prisesDeLaFacade(d: { facade: Facade; contour: readonly PtBrut[]
     if (!image) { illisibles.push({ rang: p.rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: MOTIF_ILLISIBLE }); continue; }
     photos.push({ rang: p.rang, image, prise: (champLu) => priseDeLaPhoto(p, image, facade, champLu), champConnu: objectifRange(p).sourceFocale === 'exif' });
   }
-  return { facade, contour: d.contour, photos, illisibles, corrections, murConfirme: d.murConfirme ?? null, ouverturesRelues: d.ouverturesRelues ?? null, jpeg: d.jpeg };
+  const optiques = d.photos.flatMap((p) => (p.optique ? [{ rang: p.rang, optique: p.optique }] : []));
+  return { facade, contour: d.contour, photos, illisibles, corrections, murConfirme: d.murConfirme ?? null, ouverturesRelues: d.ouverturesRelues ?? null, jpeg: d.jpeg, ...(optiques.length ? { optiques } : {}) };
 }

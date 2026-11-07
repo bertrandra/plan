@@ -72,17 +72,17 @@ export interface CasReel {
    */
   gabarit?: { u: number; v: number }[];
   /**
-   * Les corps du toit du plan (le LiDAR) qui font le gabarit, et le mur de la facade vu de dehors : le diagnostic de forme (E7,
-   * lot F4) se fait corps par corps. Importes d'un audit avec le gabarit ; absents d'un cas d'avant eux (l'E7 est alors sautee).
+   * Les corps du toit du plan (le LiDAR) qui font le gabarit, et le mur de la facade vu de dehors : le diagnostic de forme (E10,
+   * lot F4) se fait corps par corps. Importes d'un audit avec le gabarit ; absents d'un cas d'avant eux (l'E10 est alors sautee).
    */
   toit?: { mur: { gauche: PtBrut; droite: PtBrut }; corps: CorpsToit[] };
-  /** Le mur vrai sur l'assemblage des photos, pose a la main : la verite de l'etape du calage (E5). */
+  /** Le mur vrai sur l'assemblage des photos, pose a la main : la verite de l'etape du calage (E7). */
   calageVrai?: CalageVrai;
   /** Le mur confirme au point V1 (« Confirmer le mur ») : une entree, comme les reperes (model/auditParcelle.ts::MurConfirme). */
   murConfirme?: MurConfirme;
   /** Les ouvertures relues au point V3 (« Relire les ouvertures ») : une entree, comme le mur confirme. Pas la verite (`ouvertures`). */
   ouverturesRelues?: OuverturesRelues;
-  /** La vraie forme du toit, corps par corps, relue sur la photo : la verite du diagnostic de forme (E7) et du toit (E10). */
+  /** La vraie forme du toit, corps par corps, relue sur la photo : la verite du diagnostic de forme (E10) et du toit (E13). */
   toitVrai?: ToitVraiCorps[];
   /**
    * Les reponses de Claude au run de cette facade (MD/spec-facade-calage-audit.md §7.2, §8), de la plus ancienne a la plus recente :
@@ -215,7 +215,7 @@ export function juger(vraies: readonly OuvertureVraie[], trouvees: readonly Ouve
 
 const mediane = (l: number[]): number | null => { if (!l.length) return null; const s = [...l].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] as number; };
 
-/** Ce que l'analyse du mur rend (l'enchainement d'une facade, releve/enchainement.ts, E8 et E9) : l'elevation, la texture, les ouvertures, ce que la fusion en dit, l'assemblage pris. */
+/** Ce que l'analyse du mur rend (l'enchainement d'une facade, releve/enchainement.ts, E11 et E12) : l'elevation, la texture, les ouvertures, ce que la fusion en dit, l'assemblage pris. */
 export interface AnalyseDuMur {
   elevation: Image;
   /** La facade entiere redressee (fusionnee), dans le cadre de la texture, ses pixels vus et sa silhouette : ce que la detection lit. */

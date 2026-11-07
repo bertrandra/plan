@@ -23,6 +23,12 @@
 // app/administration/inventaireEcran.ts). Un controle porte par chaque feuille du telephone (`dansChaqueZone`)
 // s'affiche dans la zone que la feuille porte.
 
+import { ETAPES_FACADE, etapeFacade, libelleEtape, type IdEtape } from '../model/etapeFacade.js';
+
+/** Le numero d'une etape de facade (E1 a E14), lu dans son contrat : un texte ne l'ecrit jamais en dur. */
+const num = (id: IdEtape): string => etapeFacade(id).numero;
+const DE_E1_A_LA_FIN = `de ${num('preparation')} à ${ETAPES_FACADE[ETAPES_FACADE.length - 1]?.numero ?? ''}`;
+
 export type NatureControle = 'navigation' | 'affichage' | 'vue' | 'option' | 'sortie' | 'donnee' | 'parcours';
 
 export const NATURES: Record<NatureControle, string> = {
@@ -315,28 +321,28 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.etalons': etape(Z8, CALIBRATION, 'Déplier la liste des étalons de synthèse : les scènes du banc des façades, à côté des cas réels'),
   'calibration.creerProjetEtalon': etape(Z8, CALIBRATION, 'Créer le projet de démonstration d’un étalon : le bâtiment autour du mur (deux pans à 40°, 9 m de profondeur, le pignon gardé, les parties basses en appentis adossés) et sa façade mesurée et validée comme dans l’audit, enregistré dans les démos de l’admin', { repete: true }),
   'calibration.ouvrirProjetEtalon': etape(Z8, CALIBRATION, 'Ouvrir le projet de démonstration d’un étalon qui vient d’être créé, dans l’atelier'),
-  'calibration.ouvrirEtalon': etape(Z8, CALIBRATION, 'Ouvrir un étalon de synthèse : ses photos dessinées dans le navigateur, déroulées de É1 à É11 comme un cas, sans rien enregistrer', { repete: true }),
+  'calibration.ouvrirEtalon': etape(Z8, CALIBRATION, `Ouvrir un étalon de synthèse : ses photos dessinées dans le navigateur, déroulées ${DE_E1_A_LA_FIN} comme un cas, sans rien enregistrer`, { repete: true }),
   'calibration.nomCas': etape(Z8, CALIBRATION, 'Nommer le cas'),
   'calibration.largeurM': etape(Z8, CALIBRATION, 'Largeur réelle du mur du cas'),
   'calibration.hauteurM': etape(Z8, CALIBRATION, 'Hauteur du mur du cas, à l’égout'),
   'calibration.choisirPhoto': etape(Z8, CALIBRATION, 'Choisir la photo du cas à montrer', { repete: true }),
   'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas', { repete: true }),
   'reperes.ajusterMur': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Montrer l’image prise pour la suite (l’assemblage des photos de la façade, ou la photo redressée entière quand elle est seule) pour tirer à la main l’égout, le sol et les bouts du mur (le geste « quatre repères », le même dans l’audit et la calibration)', { repete: true }),
-  'calibration.appliquerCalage': etape(Z8, CALIBRATION, 'Appliquer le calage tiré à la main sur l’assemblage (É5 Calage du mur : bouts, égout, sol) : le mur posé sur chaque photo, puis le cas rejoué en entier, comme dans l’audit'),
+  'calibration.appliquerCalage': etape(Z8, CALIBRATION, `Appliquer le calage tiré à la main sur l’assemblage (${libelleEtape('calage')} : bouts, égout, sol) : le mur posé sur chaque photo, puis le cas rejoué en entier, comme dans l’audit`),
   'calibration.retablirCalage': etape(Z8, CALIBRATION, 'Revenir au mur retenu : les bouts, l’égout et le sol reprennent leur place'),
   'calibration.retirerReperes': etape(Z8, CALIBRATION, 'Retirer les quatre repères d’une photo : elle se redresse de nouveau par ses points de fuite'),
   'calibration.revenirMurCherche': etape(Z8, CALIBRATION, 'Retirer le mur posé à la main d’une photo (et des photos de son assemblage) : au rejeu, la chaîne cherche le mur de nouveau ; Ctrl+Z le remet'),
   'calibration.depuisAudit': etape(Z8, CALIBRATION, 'Créer un cas depuis un audit de parcelle reçu (photos, largeur du cadastre, hauteur du LiDAR)'),
   'calibration.choisirAudit': etape(Z8, CALIBRATION, 'Choisir l’audit dont tirer un cas', { repete: true }),
   'calibration.choisirFacade': etape(Z8, CALIBRATION, 'Choisir la façade photographiée qui devient le cas', { repete: true }),
-  'calibration.rejouer': etape(Z8, CALIBRATION, 'Rejouer le cas comme l’audit le traite, étape par étape, de É1 à É11 : É3 Redressement, É4 Assemblage, É5 Calage du mur, É6 Silhouette lue, É7 Diagnostic, É8 Texture, É9 Ouvertures, É10 Toit'),
+  'calibration.rejouer': etape(Z8, CALIBRATION, `Rejouer le cas comme l’audit le traite, étape par étape, ${DE_E1_A_LA_FIN} : ` + ETAPES_FACADE.slice(2, -1).map((e) => libelleEtape(e.id)).join(', ')),
   'calibration.modeDeterministe': etape(Z8, CALIBRATION, 'Rejouer le cas sans Claude : la chaîne déterministe seule'),
-  'calibration.modeIa': etape(Z8, CALIBRATION, 'Rejouer le cas avec une réponse de Claude enregistrée, sans réseau ni coût : ses deux angles (l’accord avec la pose retenue, à l’É5), ses pointes (le diagnostic, É7), ses boîtes et leurs carreaux (l’accord, É9)'),
+  'calibration.modeIa': etape(Z8, CALIBRATION, `Rejouer le cas avec une réponse de Claude enregistrée, sans réseau ni coût, à l’${libelleEtape('lectureIa')} : ses deux angles (l’accord avec la pose retenue), ses pointes (lues par le diagnostic, ${num('diagnostic')}), ses boîtes et leurs carreaux (l’accord avec la détection)`),
   'calibration.choisirRun': etape(Z8, CALIBRATION, 'Choisir la réponse de Claude que le mode IA rejoue (date, passes, modèle, versions du prompt et du schéma, coût)'),
   'calibration.rappelerClaude': etape(Z8, CALIBRATION, 'Rappeler Claude sur l’assemblage du cas, en trois passes votées (le réglage `facades.ia.passes`, la production), en disant son coût ; la réponse s’ajoute aux précédentes'),
   'calibration.rappelerClaude1': etape(Z8, CALIBRATION, 'Rappeler Claude en une passe, pour mesurer ce que le vote des trois apporte contre son coût'),
-  'calibration.relireOuvertures': etape(Z8, CALIBRATION, 'Relire les ouvertures que la détection a trouvées (V3), le même regard que dans l’audit : l’É9 n’est faite qu’après lui', { repete: true }),
-  'calibration.rejouerDepuis': etape(Z8, CALIBRATION, 'Rejouer le cas depuis l’étape ouverte (É1 à É11), avec ce que les précédentes ont donné'),
+  'calibration.relireOuvertures': etape(Z8, CALIBRATION, `Relire les ouvertures que la détection a trouvées (V3), le même regard que dans l’audit : l’${num('ouvertures')} n’est faite qu’après lui`, { repete: true }),
+  'calibration.rejouerDepuis': etape(Z8, CALIBRATION, `Rejouer le cas depuis l’étape ouverte (${num('preparation')} à ${ETAPES_FACADE[ETAPES_FACADE.length - 1]?.numero ?? ''}), avec ce que les précédentes ont donné`),
   'barreFacade.arreter': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Arrêter l’enchaînement de la façade en cours : les étapes restantes restent à venir'),
   'calibration.proposer': etape(Z8, CALIBRATION, 'Partir des ouvertures que la détection propose'),
   'calibration.originePhoto': etape(Z8, CALIBRATION, 'Lire d’où viennent les coins d’une photo ajoutée (trouvés, devinés à vérifier, posés à la main)', { repete: true }),
@@ -364,7 +370,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.rejouerFacade': etape(Z8, AUDIT_PARCELLE, 'Rejouer l’enchaînement d’une façade (l’orchestrateur) : ne remplace que ce qui est dérivé, jamais les photos ni vos corrections', { repete: true }),
   'auditParcelle.rejouerFacades': etape(Z8, AUDIT_PARCELLE, 'Rejouer l’enchaînement de toutes les façades photographiées de l’audit'),
   'auditParcelle.relireOuvertures': etape(Z8, AUDIT_PARCELLE, 'Relire les ouvertures trouvées sur la façade (V3) : les garder, corriger, ajouter ou retirer avant de la valider', { repete: true }),
-  'facade.garderOuvertures': etape(Z8, AUDIT_PARCELLE, 'Garder les ouvertures relues (V3) : l’É9 est faite, et la validation (V4) écrira celles-là ; Ctrl+Z défait ce geste avant V4', { repete: true }),
+  'facade.garderOuvertures': etape(Z8, AUDIT_PARCELLE, `Garder les ouvertures relues (V3) : l’${num('ouvertures')} est faite, et la validation (V4) écrira celles-là ; Ctrl+Z défait ce geste avant V4`, { repete: true }),
   'facade.annulerRelecture': etape(Z8, AUDIT_PARCELLE, 'Fermer la relecture des ouvertures sans rien garder', { repete: true }),
   'auditParcelle.placerCoins': etape(Z8, AUDIT_PARCELLE, 'Placer à la main quatre repères (un rectangle du mur) sur une photo : ils la redressent entière (erreur du redressement automatique)', { repete: true }),
   'auditParcelle.echelleMur': etape(Z8, AUDIT_PARCELLE, 'Corriger l’échelle : la largeur réelle du mur', { repete: true }),
