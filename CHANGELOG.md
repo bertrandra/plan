@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.14.0] — 2026-11-07
+
+Version **mineure** au sens de `MD/RELEASE.md` : façades, l'enchaînement passe à quatorze étapes aux actions typées (#611) ; l'écran
+de la calibration se lit « étape → actions → avant/après » (#612) et y permet de choisir Calcul, Claude ou Manuel élément par élément, ou
+de forcer Claude, V2 passant à l'É13 (#613, calibration seulement) ; un geste de l'audit ne rejoue plus que la fin de la chaîne (#614) ;
+l'optique EXIF de chaque photo est gardée, GPS compris, et une photo sans position du téléphone garde sa focale EXIF (#610). Aucune
+quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build
+reste celle de la 5.13.1 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : l'optique est un champ
+facultatif des fichiers d'audit et des cas de calibration, pas du projet (`VERSION_FICHIER_AUDIT_PARCELLE` inchangée, 1) ; rien à
+déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+
 ### Ajouté
 - **Choisir Calcul, Claude ou Manuel, élément par élément, et forcer Claude** (audit de la calibration des façades, lot C2 ; décisions du
   propriétaire du 7 novembre 2026). Dans Admin › Calibration, chaque élément lu par Claude a trois boutons dans l'étape qui le montre et à
