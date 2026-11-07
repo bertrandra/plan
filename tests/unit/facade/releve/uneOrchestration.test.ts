@@ -9,14 +9,10 @@ import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js'
 import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
 import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
 import { gabaritDesCorps, relief } from '../../../../src/facade/gabaritMur.js';
-import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import { ETAPES_FACADE } from '../../../../src/model/etapeFacade.js';
-import type { Image } from '../../../../src/facade/vision/homographie.js';
-import type { PhotoCas, PrisePhoto } from '../../../../src/model/audit.js';
 import { murAConfirmer, relecture, type CorrectionRedressement, type MurConfirme, type OuverturesRelues } from '../../../../src/model/auditParcelle.js';
-import type { CorpsToit, PtBrut } from '../../../../src/model/types.js';
-import { chargerCorpus } from '../../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
+import { coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
+import { facadeDeLaScene, jpeg, scene, sorties } from './outilsOrchestration.js';
 
 // Calibration et audit : le meme code et la meme orchestration, l'audit n'en cache qu'une part (CLAUDE.md, decision du proprietaire du
 // 2 novembre 2026). Une facade passe par l'entree reelle de l'audit (mesurerFacade), devient un cas de calibration comme l'admin le
@@ -24,55 +20,8 @@ import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '.
 // l'E1 a l'E10, rend la meme chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture), a la verite pres ; l'E11 ne
 // differe que par sa fin (V4 dans l'audit, rien d'ecrit en calibration).
 
-/** Une empreinte d'image (FNV-1a sur tous ses octets) : comparer des images entieres couterait des secondes a l'outil de test. */
-function empreinte(img: Image | null | undefined): string {
-  if (!img) return '-';
-  let h = 2166136261;
-  for (let i = 0; i < img.donnees.length; i++) { h ^= img.donnees[i] ?? 0; h = Math.imul(h, 16777619); }
-  return img.largeur + 'x' + img.hauteur + ':' + (h >>> 0).toString(16);
-}
-const jpeg = (img: Image) => 'jpeg:' + empreinte(img);
-
-/** Ce que chaque etape a rendu, les images en empreintes ; sans la date du releve (l'horloge) ni ce qui ne sert qu'a la verite. */
-function sorties(r: Enchainement) {
-  const s = r.sorties, a = s.analyse, m = s.audit?.mesure;
-  return {
-    preparation: s.preparation,
-    vues: s.vues?.map((v) => (v ? [empreinte(v.image), v.versPhoto] : null)),
-    calage: s.calage && { photos: s.calage.photos, pose: s.calage.pose && { image: empreinte(s.calage.pose.image), coins: s.calage.pose.coins, vues: s.calage.pose.vues }, explication: s.calage.explication },
-    silhouette: s.silhouette, forme: s.forme,
-    analyse: a && { elevation: empreinte(a.elevation), facade: empreinte(a.facade.image), texture: empreinte(a.texture), pxParM: a.pxParM, hauteurTexture: a.hauteurTexture, ouvertures: a.ouvertures, devinees: a.devinees, toitEstime: a.toitEstime, fusion: a.fusion && { statut: a.fusion.statut, masque: a.fusion.masque, vues: a.fusion.vues } },
-    audit: s.audit && { ...s.audit, mesure: m && { ...m, releve: { ...m.releve, releveLe: '' } } },
-    ia: s.ia && { pose: s.ia.pose, ecart: s.ia.ecart, accord: s.ia.accord, descentes: s.ia.descentes },
-    facade: s.facade,
-  };
-}
 /** L'etat et le resume de chaque etape de l'E1 a l'E10. */
 const etapes = (r: Enchainement | Pick<MesureFacade, 'etapes'>) => (r.etapes ?? []).filter((e) => e.id !== 'validation').map(({ id, etat, resume }) => ({ id, etat, resume }));
-
-/** Une prise de vue d'audit pour une camera du banc : le GPS a sa place (a 1 m pres), la boussole vers le mur, l'EXIF de sa focale. */
-function priseDe(p: PriseCamera, L: number): PrisePhoto {
-  const b = ((p.biais ?? 0) * Math.PI) / 180;
-  return {
-    t: '2026-11-02T10:00:00.000Z', x: L / 2 + p.distance * Math.sin(b), y: -p.distance * Math.cos(b), lat: null, lon: null, precisionM: 1,
-    azimutDeg: (360 - (p.biais ?? 0)) % 360, sourceAzimut: 'boussole', champDeg: (2 * Math.atan(18 / (p.focale35 ?? 26)) * 180) / Math.PI, sourceFocale: 'exif',
-  };
-}
-
-/**
- * La facade d'une scene, comme l'audit l'a sous la main : le cote sud d'un batiment de L x 10 m, un deux-pans dont le faitage est
- * perpendiculaire a la facade (un pignon, a la hauteur de celui de la scene), les photos avec leur prise de vue.
- */
-function facadeDeLaScene(s: SceneFacade, prises: readonly PriseCamera[]) {
-  const L = s.verite.largeur, H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0;
-  const contour: PtBrut[] = [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 10 }, { x: 0, y: 10 }];
-  const corps: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 0, y: 10 }, { x: L, y: 10 }, { x: L, y: 0 }], posFaitage: L / 2, faitage: H + pg, egouts: [H, H], pignons: [], ecart: 0 };
-  const f = facadesDuContour(contour, H).find((x) => x.normale.y < -0.9);
-  if (!f) throw new Error('pas de facade sud');
-  const images = prises.map((p) => { const ph = photographier(s, 100, p); if (!ph) throw new Error('prise impossible'); return ph.image; });
-  const photos: PhotoCas[] = prises.map((p, k) => ({ type: 'image/jpeg', base64: 'photo-' + k, prise: priseDe(p, L) }));
-  return { f, contour, corps, images, photos };
-}
 
 /** La facade passee par l'audit, le cas tire d'elle (enregistre, relu), et son rejeu avec chacune des deux vues. */
 async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], corrections: Record<string, CorrectionRedressement>, murConfirme: MurConfirme | null = null, ouverturesRelues: OuverturesRelues | null = null, ia: RunEnregistre | null = null) {
@@ -126,12 +75,6 @@ function memesSorties(x: Awaited<ReturnType<typeof lesDeux>>): void {
   // Avec la lecture de Claude : l'accord que l'audit garde est celui de l'E9 de l'enchainement, pas un calcul a cote.
   expect(audit.accord ?? null).toEqual(accordDeLaLecture(calibration.sorties.ia));
 }
-
-const scene = (prefixe: string) => {
-  const s = chargerCorpus().find((c) => c.nom.startsWith(prefixe));
-  if (!s) throw new Error('scene absente');
-  return s;
-};
 
 describe('calibration et audit : le meme processus, l audit n en cache qu une part', () => {
   it('une photo seule (le pignon et sa fenetre de comble) : les memes sorties a chaque etape', async () => {

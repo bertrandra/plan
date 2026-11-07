@@ -66,6 +66,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   se relit comme avant.
 
 ### Modifié
+- **Audit des façades : un geste ne rejoue plus toute la chaîne.** Quand seuls le mur confirmé (V1), les ouvertures relues (V3) ou la
+  lecture de Claude changent, la façade repart de l'étape touchée (É7, É12 ou É8) avec les sorties de son rejeu précédent, par le même
+  chemin que la calibration (`derouler`, `depuis` et `precedent` ; `mesures.ts::releverFacade`, `departDesGestes`) ; le calage fin, le
+  redressement, l'assemblage, la fusion et la détection ne sont pas refaits. Tout autre changement (photos, repères, mur tiré, gabarit,
+  version de la chaîne, valeurs calibrées) rejoue tout, comme avant. Sur les scènes du banc (Node), un geste V1 passe de 1,0–5,3 s à
+  0,13 s, un geste V3 de 1,0–5,2 s à moins de 5 ms. Les résultats ne changent pas : le rejeu partiel rend les mêmes sorties, états et
+  actions qu'un rejeu complet (`tests/unit/facade/releve/rejeuPartielAudit.test.ts`) ; `VERSION_CHAINE_FACADES` inchangée.
 - **V2 passe sur l'É13 « Toit »**, là où la coche se fait (décision du propriétaire, 7 novembre 2026) : l'É10 devient un diagnostic pur
   (cachée dans l'audit, sans geste à elle ; elle se montre encore quand elle propose, comme toute étape qui doute), le segment « Toit » de
   la barre porte V2. Quatorze étapes, aucune renumérotation ; aucun calcul ne change.

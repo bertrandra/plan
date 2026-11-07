@@ -17,7 +17,7 @@ import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, c
 import { propositionsDuJardin } from '../../regles/jardin.js';
 import { especesChargees } from '../../../model/especesArbre.js';
 import type { RunJardin } from '../../../regles/jardin/observations.js';
-import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
+import { releverFacade, type DependancesMesures, type MesureFacade, type RejeuFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeForme } from './formeFacades.js';
 import { propositionsCulsDeGeaiLidar } from './culDeGeaiLidar.js';
@@ -199,9 +199,19 @@ const signature = (photos: readonly PhotoCas[], corrections?: object, ...gestes:
 /** Ce qui distingue une lecture de Claude d'une autre : quand, et son escalade. Null : pas de lecture. */
 const lectureDe = (run: RunEnregistre | null): object | undefined => (run ? { le: run.le, escalade: run.escalade?.le ?? null } : undefined);
 
+/** Combien de rejeux de facade se gardent pour un rejeu partiel (chacun garde ses images de travail, plusieurs Mo). */
+const REJEUX_GARDES = 4;
+
 /** Les mesures des facades photographiees, faites une fois, l'une apres l'autre. */
 function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   const faites = new Map<string, { signature: string; mesure: MesureFacade }>();
+  // Le dernier rejeu de chaque facade mesuree ici (ses sorties, images comprises) : le suivant en repart quand seuls V1, V3 ou la
+  // lecture de Claude ont change (releverFacade). Les plus recents seulement, pour la memoire d'un telephone ; sans lui, tout se rejoue.
+  const rejeux = new Map<string, RejeuFacade>();
+  const garderRejeu = (cle: string, r: RejeuFacade) => {
+    rejeux.delete(cle); rejeux.set(cle, r);
+    for (const k of rejeux.keys()) { if (rejeux.size <= REJEUX_GARDES) break; rejeux.delete(k); }
+  };
   let etat: EtatMesures = { etat: 'attente' };
   let enCours: Promise<void> | null = null;
   let version = 0;
@@ -237,10 +247,10 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
           arrete: () => arret,
           rendreLaMain: () => new Promise<void>((ok) => { setTimeout(ok, 0); }),
         };
-        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null, facades: 'batiment' in bat ? bat.batiment?.facades ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections, x.gestes);
+        const { mesure: m, rejeu } = await releverFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null, facades: 'batiment' in bat ? bat.batiment?.facades ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections, x.gestes, rejeux.get(x.cle) ?? null);
         etape = null;
         // Une mesure arretee ne se garde pas : elle se refera a la demande (le rejeu, l'analyse).
-        if (!arret) { faites.set(x.cle, { signature: x.sig, mesure: m }); version++; }
+        if (!arret) { faites.set(x.cle, { signature: x.sig, mesure: m }); garderRejeu(x.cle, rejeu); version++; }
       }
       n++;
       if (arret) break;
@@ -273,7 +283,8 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
     /** Oublie les mesures de ces facades (leurs derives) et les refait ; les photos et les corrections ne bougent pas. */
     async rejouer(cle?: string, cote?: number): Promise<number> {
       const cibles = aMesurer().filter((x) => (cle === undefined || x.b.cle === cle) && (cote === undefined || x.f.cote === cote));
-      for (const x of cibles) faites.delete(x.cle);
+      // « Rejouer » refait tout, depuis les photos : le rejeu garde ne sert plus.
+      for (const x of cibles) { faites.delete(x.cle); rejeux.delete(x.cle); }
       if (cibles.length) { version++; await this.lancer(true); }
       publier();
       return cibles.length;
@@ -283,6 +294,8 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       for (const m of mesures) {
         const saisie = ctx.capture.lire().batiments[m.cle]?.facades[String(m.cote)];
         const photos = saisie?.photos ?? [];
+        // Une mesure venue d'ailleurs n'a pas de rejeu : le geste suivant sur cette facade rejoue tout.
+        rejeux.delete(cleMesure(m.cle, m.cote));
         if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos, saisie?.corrections, saisie?.murConfirme, saisie?.ouverturesRelues, lectureDe(ctx.analyse?.runs?.()?.[cleMesure(m.cle, m.cote)] ?? null)), mesure: m });
       }
       version++;

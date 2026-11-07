@@ -19,7 +19,9 @@ import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoA
 import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
 import { VERSION_CHAINE_FACADES } from '../../../facade/releve/chaine.js';
 import { distanceAuMur, lecturePhoto, priseDeLaPhoto, prisesDeLaFacade } from '../../../facade/releve/prisesFacade.js';
-import { derouler, type AssemblageAAjuster, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
+import { derouler, type AssemblageAAjuster, type Enchainement, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
+import { surchargesCalibrees } from '../../../facade/regles/facades/surcharges.js';
+import { fnv1a } from '../../../regles/toits/reglages.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { DiagnosticForme } from '../../../facade/regles/facades/diagnosticForme.js';
 import type { BilanFacade } from '../../../facade/releve/bilanFacade.js';
@@ -31,7 +33,7 @@ import type { Image } from '../../../facade/vision/homographie.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { AccordFacadeCapture, BilanRedressement, CorrectionRedressement, MurConfirme, OuverturesRelues } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
-import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
+import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../../../model/etapeFacade.js';
 import type { CorpsToit, ObjetPolygone, OuvertureFacade, ReleveFacade } from '../../../model/types.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import { accordDeLaLecture } from './accordLecture.js';
@@ -157,10 +159,6 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
 }
 
 
-/**
- * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
- * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
- */
 /** Les gestes de la personne aux points de validation, entrees de la chaine comme les corrections : le mur confirme (V1), les ouvertures relues (V3). */
 interface GestesFacade {
   murConfirme?: MurConfirme | null;
@@ -173,7 +171,62 @@ interface GestesFacade {
 }
 
 
+/**
+ * Le rejeu d'une facade garde avec sa mesure : ce qui l'a fait (l'empreinte de ses entrees hors gestes, et les gestes) et ce qu'il a
+ * rendu. Le rejeu suivant de la meme facade, quand seuls des gestes ont change, repart de l'etape touchee avec ces sorties, comme la
+ * calibration (`derouler`, `depuis` et `precedent`).
+ */
+export interface RejeuFacade {
+  entrees: string;
+  gestes: GestesFacade;
+  enchainement: Enchainement;
+}
+
+/** Une photo dans l'empreinte des entrees : son contenu resume (longueur et hachage) et tout ce qui l'accompagne. */
+const empreintePhoto = (p: PhotoCas) => ({ ...p, base64: p.base64.length + ':' + fnv1a(p.base64) });
+
+/**
+ * L'empreinte de ce qui entre dans l'enchainement hors gestes de validation : les photos, les corrections (reperes, mur tire, echelle),
+ * le cote et le contour, le gabarit et les corps du toit, la version de la chaine et les valeurs calibrees de la detection. Les
+ * facades voisines n'y sont pas : seules l'E12 et l'E14 les lisent (partageDuReleve), et un rejeu partiel repart au plus tard de l'E12.
+ */
+function empreinteDesEntrees(f: Facade, contour: readonly unknown[], photos: readonly PhotoCas[], corrections: object, gabarit: GabaritMur, corps: readonly CorpsToit[] | null | undefined): string {
+  return JSON.stringify({ f, contour, photos: photos.map(empreintePhoto), corrections, gabarit, corps: corps ?? null, chaine: VERSION_CHAINE_FACADES, surcharges: surchargesCalibrees() });
+}
+
+/** Deux valeurs pareilles au JSON pres (un geste relu d'un fichier n'est pas le meme objet). */
+const pareil = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/**
+ * D'ou rejouer une facade dont seuls les gestes ont change : le calage pour le mur confirme (V1), la lecture de Claude pour une
+ * reponse nouvelle, les ouvertures pour celles relues (V3) ; la plus tot des etapes touchees. Null : tout rejouer (les entrees ont
+ * change, une autre version de la chaine, rien de garde, ou rien de change, ce qui ne devrait pas arriver).
+ */
+function departDesGestes(precedent: RejeuFacade | null | undefined, entrees: string, gestes: GestesFacade): IdEtape | null {
+  if (!precedent || precedent.entrees !== entrees || precedent.enchainement.versions.chaine !== VERSION_CHAINE_FACADES) return null;
+  const touchees: IdEtape[] = [];
+  if (!pareil(precedent.gestes.murConfirme, gestes.murConfirme)) touchees.push('calage');
+  if (!pareil(precedent.gestes.ia, gestes.ia)) touchees.push('lectureIa');
+  if (!pareil(precedent.gestes.ouverturesRelues, gestes.ouverturesRelues)) touchees.push('ouvertures');
+  if (!touchees.length) return null;
+  return ETAPES_FACADE.find((e) => touchees.includes(e.id))?.id ?? null;
+}
+
+/**
+ * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
+ * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
+ */
 export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, gestes: GestesFacade = {}): Promise<MesureFacade> {
+  return (await releverFacade(cle, f, bat, photos, d, corrections, gestes)).mesure;
+}
+
+/**
+ * La mesure d'une facade et son rejeu, a garder pour le suivant : avec `precedent` (le rejeu garde de cette facade), quand seuls le mur
+ * confirme (V1), la lecture de Claude ou les ouvertures relues (V3) ont change, l'enchainement repart de l'etape touchee avec les sorties
+ * gardees, sans refaire le groupe Image (calage fin, redressement, assemblage, fusion, detection) ; tout autre changement rejoue tout.
+ * Les deux rendent la meme chose (tests/unit/facade/releve/uneOrchestration.test.ts).
+ */
+export async function releverFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null; facades?: readonly ReleveFacade[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}, gestes: GestesFacade = {}, precedent: RejeuFacade | null = null): Promise<{ mesure: MesureFacade; rejeu: RejeuFacade }> {
   const charger = d.pixels ?? pixelsDePhoto;
   const cache = new Map<number, Promise<Pixels | null>>();
   const images = (i: number) => {
@@ -190,6 +243,8 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, jpeg: d.jpeg });
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
+  const entrees = empreinteDesEntrees(f, bat.pts, photos, corrections, gabarit, bat.corpsToit);
+  const depuis = departDesGestes(precedent, entrees, gestes);
   // L'enchainement de la facade, par l'orchestrateur : le meme que la calibration rejoue ; le releve et l'etat de chaque etape en sortent.
   const r = await derouler({
     largeurM: prises.facade.largeur, hauteurM: prises.facade.hauteur, gabarit, prises,
@@ -200,6 +255,8 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   }, {
     vue: 'audit', chercherCoins: d.chercherCoins, ...(gestes.ia ? { ia: gestes.ia } : {}),
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
+    // Seuls des gestes ont change : repartir de l'etape touchee, les sorties d'avant prises du rejeu garde (le chemin de la calibration).
+    ...(depuis && precedent ? { depuis, precedent: precedent.enchainement } : {}),
   });
   const sortie = r.sorties.audit;
   // Les actions de chaque etape (lot C) : l'audit en montre ce que l'etape ouverte montre (discret.ts::actionsDansLAudit), sans calcul.
@@ -207,5 +264,6 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
   const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun, ...(sortie.assemblage ? { assemblage: sortie.assemblage } : {}) } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   const accord = accordDeLaLecture(r.sorties.ia);
-  return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace, ...(accord ? { accord } : {}) };
+  const mesure: MesureFacade = { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace, ...(accord ? { accord } : {}) };
+  return { mesure, rejeu: { entrees, gestes: { murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, ia: gestes.ia ?? null }, enchainement: r } };
 }
