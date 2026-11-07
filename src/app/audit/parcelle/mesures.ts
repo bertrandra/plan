@@ -130,6 +130,11 @@ export interface DependancesMesures {
   jpeg: (img: Image) => string;
   /** Les limites de parcelle, ou se tiennent les clotures (lecture de la couleur). */
   limites: () => readonly Obstacle[];
+  /**
+   * L'origine du plan (le calage du cadastre) : le GPS de l'EXIF d'une photo sans position du telephone s'y projette
+   * (prisesFacade.ts::positionDeLaPhoto, le meme chemin que la calibration). Absente : ce GPS ne sert pas.
+   */
+  origine?: () => { lat: number; lon: number } | null;
   /** A chaque etape commencee puis finie : la barre de progression de la facade avance. */
   surEtape?: (id: IdEtape, etat: EtatAffiche) => void;
   /** Vrai : la personne a demande d'arreter ; les etapes restantes restent a venir. */
@@ -240,7 +245,7 @@ export async function releverFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   // 1. Les entrees de la facade (facade/releve/prisesFacade.ts) : l'echelle corrigee a la main, les photos dans l'ordre du
   // redressement (la premiere avec une prise de vue d'abord), leur prise. La calibration relit un cas par la meme fonction.
   const lues = await Promise.all(photos.map(async (p, i) => { const img = await images(i); return { rang: i, image: img ? versImage(img) : null, ...lecturePhoto(p) }; }));
-  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, jpeg: d.jpeg });
+  const prises = prisesDeLaFacade({ facade: f, contour: bat.pts, photos: lues, corrections, murConfirme: gestes.murConfirme ?? null, ouverturesRelues: gestes.ouverturesRelues ?? null, jpeg: d.jpeg, origine: d.origine?.() ?? null });
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
   const entrees = empreinteDesEntrees(f, bat.pts, photos, corrections, gabarit, bat.corpsToit);

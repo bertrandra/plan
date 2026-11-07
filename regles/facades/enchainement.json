@@ -102,6 +102,16 @@
       "valeur": 0.02,
       "unite": "part",
       "pourquoi": "É11 : une part du mur cachee sur toutes les vues au-dela de cela rend la texture a confirmer (facade/releve/analyseSerie.ts::avisFusion) : aucune ouverture n'y est cherchee. Valeur d'avant, reprise telle quelle."
+    },
+    "facades.enchainement.distanceExifMaxM": {
+      "valeur": 40,
+      "unite": "m",
+      "pourquoi": "É2 : une photo sans position du telephone se place par le GPS de son EXIF (facade/releve/prisesFacade.ts::positionDeLaPhoto, decision du proprietaire, 7 novembre 2026). Une position EXIF a plus de cette distance du mur (le segment du cote du contour), ou derriere lui (dans le batiment), ne dit pas d'ou la photo a ete prise : elle est ignoree et l'É2 le dit. 40 m : une facade de rue se photographie de l'autre trottoir, rarement de plus de 30 m ; au-dela, le GPS s'est trompe ou la photo vient d'ailleurs. La parcelle n'est pas jugee : un cas de calibration ne la garde pas, et l'audit et la calibration doivent decider de meme. Pose sans cas reel valide (§5.6)."
+    },
+    "facades.enchainement.precisionExifM": {
+      "valeur": 8,
+      "unite": "m",
+      "pourquoi": "É2 : la precision supposee d'une position tiree du GPS de l'EXIF, que l'appareil n'annonce pas (le GPSHPositioningError est rarement ecrit). 8 m : le haut de l'erreur d'un GPS de telephone en ville (3 a 8 m, prisesFacade.ts::priseDeLaPhoto). Comme pour la position du telephone, la distance au mur ne sert que si elle depasse deux fois cette precision ; sinon le cadrage la suppose. Pose sans cas reel valide (§5.6)."
     }
   }
 }
