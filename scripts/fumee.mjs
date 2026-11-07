@@ -2648,13 +2648,14 @@ const POINTS = {
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
     const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 });
-    const ouvrir = (id) => etape('etape ' + id, async () => { await page.locator(`.calFrise button[data-etape="${id}"]`).click({ timeout: 5000 }); await page.locator('.calEtapeOuverte h3').waitFor({ timeout: 5000 }); });
+    const ouvrir = (id) => etape('etape ' + id, async () => { await page.locator(`.calFrise button[data-etape="${id}"]`).click({ timeout: 5000 }); await page.locator('.calEtapeOuverte > h3').waitFor({ timeout: 5000 }); });
     await page.goto(BASE + '/?admin&ecran=calibration');
     // L'onglet des reglages : la mesure et l'historique, a part des cas.
     await etape('onglet reglages', () => page.locator('[data-controle="calibration.ongletReglages"]').click({ timeout: 20000 }));
     const reglages = (await page.locator('[data-controle="calibration.charger"]').count()) === 1 && (await page.locator('[data-controle="calibration.ouvrirCas"]').count()) === 0;
     await etape('onglet cas', () => page.locator('[data-controle="calibration.ongletCas"]').click({ timeout: 5000 }));
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('frise avant le rejeu', () => page.locator('.calFrise > li').first().waitFor({ timeout: 10000 }));
     const friseAvant = await page.locator('.calFrise > li').count();
     await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
     await etape('fin du rejeu', finRejeu);
@@ -6722,7 +6723,8 @@ function pointsPour(nomClasse) {
   // 138 : les finitions du mode Toit : entrees (plan, sans batiment, lecture seule), noms, titres, icones, clavier, raisons, focus.
   // 137 : le corps choisi au mode Toit : cadrage, ligne « Corps · Façade », « Bâtiment entier », Ctrl+Z qui rend la vue, barre au telephone.
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145];
+  // 146 : l'ecran des etapes de la calibration (lot C1) : quatorze etapes, leurs actions et leurs badges, les gestes dans leur etape, les familles de Claude.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
