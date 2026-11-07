@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.15.0] — 2026-11-07
+
+Version **mineure** au sens de `MD/RELEASE.md` : façades, une photo sans position du téléphone se place par le GPS de son EXIF (à 8 m
+près, ignoré au-delà de 40 m du mur, derrière lui ou sans plan calé ; deux réglages de `regles/facades/enchainement.json`), et un cas de
+calibration garde l'origine du plan de l'audit pour le projeter de même (#617) ; chaque étape du groupe Image calcule ce qu'elle montre et
+un mur tiré à la main repart de l'É7, un geste de l'audit en est plus rapide (#618, `VERSION_CHAINE_FACADES` 13 → 14). Aucune quantité
+ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à leur numéro de version (la date de build reste celle de
+la 5.14.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : `origine` est un champ
+facultatif des cas de calibration, pas du projet ; rien à déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+
 ### Modifié
 - **Façades : chaque étape du groupe Image calcule ce qu'elle montre, et tirer le mur repart de l'É7** (audit de la calibration des
   façades, lot D ; « Go » du propriétaire, 7 novembre 2026). Tout se calculait au premier pas du groupe Image (É3) ; la chaîne
