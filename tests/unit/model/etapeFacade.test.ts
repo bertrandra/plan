@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ANCIENS_NUMEROS, ETAPES_FACADE, SEGMENTS_FACADE, actionDe, etapeFacade, etatDuSegment } from '../../../src/model/etapeFacade.js';
+import { ANCIENS_NUMEROS, ETAPES_FACADE, FAMILLES_CLAUDE, SEGMENTS_FACADE, actionDe, etapeFacade, etatDuSegment } from '../../../src/model/etapeFacade.js';
 
 // Le contrat des etapes de l'enchainement d'une facade (model/etapeFacade.ts, MD/spec-facade-calage-audit.md §4 ter).
 
@@ -31,6 +31,14 @@ describe('les etapes d une facade', () => {
     expect(ETAPES_FACADE.filter((e) => e.actions.some((a) => a.type === 'mesure')).map((e) => e.id)).toEqual(['calage', 'lectureIa', 'diagnostic', 'ouvertures']);
     expect(actionDe('calage', 'tirer').type).toBe('manuel');
     expect(() => actionDe('calage', 'inconnue')).toThrow(RangeError);
+  });
+
+  it('rangent chaque lecture de Claude dans une famille, montree dans une etape qui a une action Claude, consommee par des etapes connues', () => {
+    const ids = new Set(ETAPES_FACADE.map((e) => e.id));
+    for (const [f, d] of Object.entries(FAMILLES_CLAUDE)) {
+      expect(etapeFacade(d.montreeA).actions.some((a) => a.type === 'claude'), f).toBe(true);
+      expect(d.consommePar.every((id) => ids.has(id)), f).toBe(true);
+    }
   });
 
   it('gardent la table des anciens numeros (E1 a E11) pour relire ce qui les cite', () => {

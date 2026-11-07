@@ -12,7 +12,7 @@ import { analyserLeMur } from '../../../../src/facade/analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto } from '../../../../src/facade/gabaritMur.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
 import { EMPREINTE_OBJECTIFS } from '../../../../src/facade/regles/facades/enchainement.js';
-import { ETAPES_FACADE, etapeFacade, libelleEtape, type CleImageEtape, type IdEtape } from '../../../../src/model/etapeFacade.js';
+import { ETAPES_FACADE, FAMILLES_CLAUDE, etapeFacade, libelleEtape, type CleImageEtape, type FamilleClaude, type IdEtape } from '../../../../src/model/etapeFacade.js';
 import { FORMAT_CAS_REEL, type CasStocke } from '../../../../src/facade/corpusReel.js';
 import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
 import { readFileSync } from 'node:fs';
@@ -501,6 +501,26 @@ describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee 
     expect(retrouvees.length).toBeGreaterThan(0);
     for (const x of retrouvees) expect(calculees[x.vers ?? -1]?.statut).toBe('confirmee');
     expect(boites.every((x) => x.carreaux !== undefined && typeof x.details?.confiance === 'string')).toBe(true);
+    // Chaque element de Claude : une cle stable, une famille (sa couleur), les etapes qui le consomment, trois valeurs, la source retenue.
+    const deClaude = r.etapes.flatMap((x) => x.actions).filter((x) => x.type === 'claude').flatMap((x) => x.elements ?? []);
+    expect(deClaude.length).toBeGreaterThan(5);
+    expect(new Set(deClaude.map((x) => x.cle)).size).toBe(deClaude.length);
+    for (const x of deClaude) {
+      expect(x.famille, x.cle).toBeDefined();
+      expect(x.consommePar).toEqual(FAMILLES_CLAUDE[x.famille as FamilleClaude].consommePar);
+      expect(x.valeurs?.manuel).toBeNull();
+      expect(x.choisie).toBeNull();
+    }
+    expect(boites.find((x) => x.statut === 'retrouvee')).toMatchObject({ retenue: 'calcul', valeurs: { calcul: expect.any(Object), claude: expect.any(Object) } });
+    expect(boites.find((x) => x.statut === 'proposee')).toMatchObject({ retenue: null, valeurs: { calcul: null } });
+    // Le choix de la personne se lit sur l'element (une entree, comme un geste) ; il ne change encore aucun calcul (lot C).
+    const seule = boites.find((x) => x.statut === 'proposee')?.cle ?? '';
+    const choix = [{ cle: seule, source: 'manuel' as const, valeur: { type: 'fenetre', x: 1, y: 1, l: 1, h: 1 }, le: '2026-11-07' }];
+    const avecChoix = await derouler({ ...entreesDuCas(cas, [ph.image]), choix }, { ...CAL, ia: run(sortie), verite: veriteDuCas(cas) });
+    const lue = etapeDe(avecChoix, 'ouvertures').actions[1]?.elements?.find((x) => x.cle === seule);
+    expect(lue).toMatchObject({ choisie: choix[0], valeurs: { manuel: choix[0]?.valeur } });
+    expect(avecChoix.sorties.ia?.accord).toEqual(r.sorties.ia?.accord);
+    expect(avecChoix.etapes.map((x) => [x.id, x.etat, x.resume])).toEqual(r.etapes.map((x) => [x.id, x.etat, x.resume]));
     expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
     const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE });
     expect(im.ia?.pose).not.toBeNull();

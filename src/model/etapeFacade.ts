@@ -69,7 +69,51 @@ export interface TraceAction {
  * - Ce qui n'entre dans aucune decision (le mot du haut, le bout, les appentis, les autres volumes, ce qui cache le mur, le parement et
  *   ses zones) : `lu`.
  */
+/**
+ * Les familles des elements que Claude lit (demande du proprietaire, 7 novembre 2026) : une famille donne a l'ecran sa couleur, la meme
+ * a l'E8 et dans l'etape qui montre l'element. `montreeA` : l'etape ou il se montre a cote du calcul ; `consommePar` : les etapes de
+ * `derouler` qui le lisent pour decider (vide : une lecture que rien ne consomme encore, montree seulement).
+ */
+export type FamilleClaude = 'angles' | 'pointe' | 'forme' | 'appentis' | 'corps' | 'element-toit' | 'cache' | 'parement' | 'zone' | 'ouverture';
+
+export const FAMILLES_CLAUDE: Readonly<Record<FamilleClaude, { libelle: string; montreeA: IdEtape; consommePar: readonly IdEtape[] }>> = {
+  angles: { libelle: 'Les deux angles du mur', montreeA: 'calage', consommePar: ['lectureIa'] },
+  pointe: { libelle: 'Une pointe du haut', montreeA: 'silhouette', consommePar: ['diagnostic', 'validation'] },
+  forme: { libelle: 'Le mot du haut et son bout', montreeA: 'silhouette', consommePar: ['diagnostic'] },
+  appentis: { libelle: 'Un appentis', montreeA: 'silhouette', consommePar: [] },
+  corps: { libelle: 'Un autre volume', montreeA: 'silhouette', consommePar: ['diagnostic'] },
+  'element-toit': { libelle: 'Une cheminée, une lucarne', montreeA: 'diagnostic', consommePar: ['diagnostic'] },
+  cache: { libelle: 'Ce qui cache le mur', montreeA: 'texture', consommePar: [] },
+  parement: { libelle: 'Le parement', montreeA: 'texture', consommePar: [] },
+  zone: { libelle: 'Une zone du parement', montreeA: 'texture', consommePar: [] },
+  ouverture: { libelle: 'Une boîte d’ouverture', montreeA: 'ouvertures', consommePar: ['ouvertures', 'validation'] },
+};
+
+/** D'ou vient la valeur d'un element : le calcul de l'etape, Claude, ou la personne. */
+export type SourceElement = 'calcul' | 'claude' | 'manuel';
+
+/** Une valeur d'element, en clair (une place en parts du mur ou en metres, un type, des details). */
+export type ValeurElement = Readonly<Record<string, string | number | boolean | null>>;
+
+/**
+ * Le choix de la personne pour un element (un geste, donc une entree de `derouler`, comme les reperes ou le mur confirme) : la source
+ * qu'elle retient, et sa valeur manuelle quand elle part d'un calcul ou de Claude pour le corriger. Le type et sa lecture existent ; il
+ * ne s'applique encore a aucun calcul (lot C : son rangement dans la capture et le cas, puis son effet etape par etape).
+ */
+export interface ChoixSource { cle: string; source: SourceElement; valeur?: ValeurElement; le: string }
+
 export interface ElementAction {
+  /** L'identifiant stable de l'element dans la reponse de Claude (`pointe:2`, `ouverture:0`…) ; absent d'un element du seul calcul. */
+  cle?: string;
+  famille?: FamilleClaude;
+  /** Les etapes qui le consomment (`FAMILLES_CLAUDE`), recopiees pour la lecture. */
+  consommePar?: readonly IdEtape[];
+  /** Ses trois valeurs possibles : celle du calcul, celle de Claude, celle de la personne (null : il n'y en a pas). */
+  valeurs?: { calcul: ValeurElement | null; claude: ValeurElement | null; manuel: ValeurElement | null };
+  /** La source que le moteur retient aujourd'hui, la valeur par defaut (null : aucune, une lecture qui n'entre dans rien). */
+  retenue?: SourceElement | null;
+  /** Le choix de la personne, lu dans les entrees (`EntreesFacade.choix`) ; null : aucun, la valeur par defaut vaut. */
+  choisie?: ChoixSource | null;
   genre: 'ouverture' | 'boite' | 'pose' | 'pointe' | 'forme' | 'etendue' | 'element' | 'parement' | 'zone' | 'cache';
   statut: 'retrouvee' | 'devinee-confirmee' | 'proposee' | 'ecartee' | 'confirmee' | 'absente' | 'devinee'
     | 'accord' | 'divergent' | 'non-situe' | 'hauteur' | 'en-plus' | 'manquante' | 'retenu' | 'ecarte' | 'lu';

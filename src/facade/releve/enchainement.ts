@@ -24,7 +24,7 @@
 
 import type { HautMasque } from '../analyse.js';
 import { descentesRetrouvees } from '../regles/facades/modenature.js';
-import { ETAPES_FACADE, actionDe, etapeFacade, libelleEtape, type ActionEtape, type ElementAction, type EtatAffiche, type EtatEtape, type IdEtape, type TypeAction } from '../../model/etapeFacade.js';
+import { ETAPES_FACADE, actionDe, etapeFacade, libelleEtape, type ActionEtape, type ChoixSource, type ElementAction, type FamilleClaude, type SourceElement, type ValeurElement, FAMILLES_CLAUDE, type EtatAffiche, type EtatEtape, type IdEtape, type TypeAction } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
 import { GABARIT_RECTANGLE, echelleDuGabarit, gabaritALEchelle, gabaritSurLaPhoto, pointesDuGabarit, rectDesCoins, type GabaritMur } from '../gabaritMur.js';
 import { murSousLeSol } from '../vision/mosaiqueFuites.js';
@@ -70,6 +70,11 @@ export interface EntreesFacade {
    * voisin va sur celle du mur qui la porte (murVoisin.ts). Absentes (un cas de calibration) : aucune, elle reste sur ce mur.
    */
   voisines?: readonly FacadeVoisine[];
+  /**
+   * Les choix de source de la personne, element par element (`ChoixSource`) : lus et montres sur l'element (`choisie`), ils ne
+   * s'appliquent encore a aucun calcul (lot C). Absents : la source que retient le moteur.
+   */
+  choix?: readonly ChoixSource[];
 }
 
 /** La verite d'un cas de calibration, pour la mesure de chaque etape (§7.3). */
@@ -867,14 +872,23 @@ function imageLue(o: OptionsEnchainement, s: SortiesFacade): 'imageRun' | 'assem
 /** La part de la reponse rejouee que concerne une etape : l'appel du run, rejoue, et l'image qu'il a lue. */
 const partDuRun = (c: Contexte) => ({ appel: 'run' as const, rejouee: !!c.o.ia, image: imageLue(c.o, c.s) });
 
+/** Un element lu par Claude : sa cle stable, sa famille, les etapes qui le consomment, ses trois valeurs, la source retenue, le choix lu. */
+function deClaude(c: Contexte, cle: string, famille: FamilleClaude, e: Omit<ElementAction, 'cle' | 'famille' | 'consommePar' | 'valeurs' | 'retenue' | 'choisie'>, calcul: ValeurElement | null, claude: ValeurElement | null, retenue: SourceElement | null): ElementAction {
+  const choisie = c.e.choix?.find((x) => x.cle === cle) ?? null;
+  return { ...e, cle, famille, consommePar: FAMILLES_CLAUDE[famille].consommePar, valeurs: { calcul, claude, manuel: choisie?.source === 'manuel' ? choisie.valeur ?? null : null }, retenue, choisie };
+}
+
 /** E7 : les deux angles du mur selon Claude, contre le mur retenu (accord, divergence), tels que l'E8 les a mesures ; jamais candidats. */
 function anglesDeClaude(c: Contexte): ActionEtape {
   const ia = c.s.ia, seuil = c.obj['facades.enchainement.calageEcartMaxPart'];
   if (!ia?.reponse) return act('calage', 'angles', 'saute', { claude: partDuRun(c) });
   const statut = ia.ecart === null || !ia.pose ? 'non-situe' : ia.ecart > seuil ? 'divergent' : 'accord';
+  // Le mur retenu (le calcul, en pixels de l'image prise pour la suite) : la pose de Claude n'est jamais candidate, le calcul reste.
+  const pose = c.s.calage?.pose, retenu = pose?.coins.length === 4 ? rectDeLaPose(pose.coins) : null;
   return act('calage', 'angles', statut === 'divergent' ? 'a-confirmer' : statut === 'accord' ? 'ok' : 'saute', {
     claude: partDuRun(c), avant: { image: 'pose' }, apres: { image: 'ia', valeurs: { ecart: ia.ecart } },
-    elements: [{ genre: 'pose', statut, type: 'angles', rect: null, details: ia.pose ? { x0: ia.pose.x0, x1: ia.pose.x1, y0: ia.pose.y0, y1: ia.pose.y1, ecart: ia.ecart } : {}, vers: null }],
+    elements: [deClaude(c, 'angles', 'angles', { genre: 'pose', statut, type: 'angles', rect: null, details: ia.pose ? { x0: ia.pose.x0, x1: ia.pose.x1, y0: ia.pose.y0, y1: ia.pose.y1, ecart: ia.ecart } : {}, vers: null },
+      retenu ? { x0: retenu.x0, x1: retenu.x1, y0: retenu.y0, y1: retenu.y1 } : null, ia.pose ? { x0: ia.pose.x0, x1: ia.pose.x1, y0: ia.pose.y0, y1: ia.pose.y1 } : null, 'calcul')],
   });
 }
 
@@ -883,11 +897,19 @@ function formeDeClaude(c: Contexte): ActionEtape {
   const r = c.s.ia?.reponse;
   if (!r) return act('silhouette', 'forme', 'saute', { claude: partDuRun(c) });
   const pointes = avisDesPointes(r, c.s.preparation?.pointes ?? []);
-  const etendue = (genre: 'etendue', type: string) => (x: { debut: number; fin: number }): ElementAction => ({ genre, statut: 'lu', type, rect: null, details: { u0: x.debut, u1: x.fin }, vers: null });
+  const etendue = (famille: 'appentis' | 'corps') => (x: { debut: number; fin: number }, k: number): ElementAction =>
+    deClaude(c, famille + ':' + k, famille, { genre: 'etendue', statut: 'lu', type: famille, rect: null, details: { u0: x.debut, u1: x.fin }, vers: null }, null, { u0: x.debut, u1: x.fin }, null);
+  // Une pointe vue a la place d'une attendue garde la hauteur du LiDAR (le calcul) ; une pointe en plus ne pose rien (le diagnostic la
+  // lit) ; une attendue que Claude ne voit pas reste celle du plan. Les vues sont dans l'ordre de la reponse, les manquantes apres.
+  let vue = 0, manquante = 0;
   const elements: ElementAction[] = [
-    { genre: 'forme', statut: 'lu', type: r.forme.silhouette, rect: null, details: { bout: r.forme.bout }, vers: null },
-    ...pointes.map((p): ElementAction => ({ genre: 'pointe', statut: p.avis, type: 'pointe', rect: null, details: { u: p.u, vue: p.vue ?? null, attendue: p.attendue ?? null }, vers: null })),
-    ...r.calage.appentis.map(etendue('etendue', 'appentis')), ...r.calage.corps.map(etendue('etendue', 'corps')),
+    deClaude(c, 'forme', 'forme', { genre: 'forme', statut: 'lu', type: r.forme.silhouette, rect: null, details: { bout: r.forme.bout }, vers: null }, null, { silhouette: r.forme.silhouette, bout: r.forme.bout }, null),
+    ...pointes.map((p): ElementAction => {
+      const cle = p.avis === 'manquante' ? 'pointe-attendue:' + manquante++ : 'pointe:' + vue++;
+      const calcul = p.attendue !== null && p.attendue !== undefined ? { u: p.u, v: p.attendue } : null, claude = p.vue !== null && p.vue !== undefined ? { u: p.u, v: p.vue } : null;
+      return deClaude(c, cle, 'pointe', { genre: 'pointe', statut: p.avis, type: 'pointe', rect: null, details: { u: p.u, vue: p.vue ?? null, attendue: p.attendue ?? null }, vers: null }, calcul, claude, p.avis === 'en-plus' ? 'claude' : 'calcul');
+    }),
+    ...r.calage.appentis.map(etendue('appentis')), ...r.calage.corps.map(etendue('corps')),
   ];
   return act('silhouette', 'forme', pointes.some((p) => p.avis !== 'accord') ? 'a-confirmer' : 'ok', { claude: partDuRun(c), avant: { image: 'pose' }, apres: { image: 'ia' }, elements });
 }
@@ -897,9 +919,11 @@ function elementsDeClaude(c: Contexte): ActionEtape {
   const r = c.s.ia?.reponse;
   if (!r) return act('diagnostic', 'elements', 'saute', { claude: partDuRun(c) });
   const props = c.s.forme?.diagnostic?.elements ?? [], pres = reglagesIa()['facades.ia.pointeEcartU'];
-  const elements = r.elements.map((x): ElementAction => {
+  const elements = r.elements.map((x, i): ElementAction => {
     const k = props.findIndex((p) => p.provenance !== 'deterministe' && p.element === x.element && x.u >= p.u0 - pres && x.u <= p.u1 + pres);
-    return { genre: 'element', statut: k >= 0 ? 'retenu' : 'ecarte', type: x.element, rect: null, details: { u: x.u, confiance: x.confiance }, vers: k >= 0 ? k : null };
+    const p = k >= 0 ? props[k] : undefined;
+    return deClaude(c, 'element-toit:' + i, 'element-toit', { genre: 'element', statut: k >= 0 ? 'retenu' : 'ecarte', type: x.element, rect: null, details: { u: x.u, confiance: x.confiance }, vers: k >= 0 ? k : null },
+      p ? { element: p.element, u: p.u, u0: p.u0, u1: p.u1 } : null, { element: x.element, u: x.u }, p ? (p.provenance === 'ia' ? 'claude' : 'calcul') : null);
   });
   return act('diagnostic', 'elements', !elements.length ? 'saute' : 'ok', { claude: partDuRun(c), avant: { image: 'pose' }, apres: { image: 'forme' }, elements });
 }
@@ -909,10 +933,10 @@ function surfaceEtCacheDeClaude(c: Contexte): ActionEtape[] {
   const r = c.s.ia?.reponse;
   if (!r) return [act('texture', 'surface', 'saute', { claude: partDuRun(c) }), act('texture', 'cache', 'saute', { claude: partDuRun(c) })];
   const surface: ElementAction[] = [
-    { genre: 'parement', statut: 'lu', type: r.surface.principale, rect: null, details: { confiance: r.surface.confiance }, vers: null },
-    ...r.surface.zones.map((z): ElementAction => ({ genre: 'zone', statut: 'lu', type: z.type, rect: null, details: { u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1 }, vers: null })),
+    deClaude(c, 'parement', 'parement', { genre: 'parement', statut: 'lu', type: r.surface.principale, rect: null, details: { confiance: r.surface.confiance }, vers: null }, null, { principale: r.surface.principale }, null),
+    ...r.surface.zones.map((z, k): ElementAction => deClaude(c, 'zone:' + k, 'zone', { genre: 'zone', statut: 'lu', type: z.type, rect: null, details: { u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1 }, vers: null }, null, { type: z.type, u0: z.u0, u1: z.u1, v0: z.v0, v1: z.v1 }, null)),
   ];
-  const cache = r.calage.cache.map((x): ElementAction => ({ genre: 'cache', statut: 'lu', type: x.quoi, rect: null, details: { u0: x.debut, u1: x.fin }, vers: null }));
+  const cache = r.calage.cache.map((x, k): ElementAction => deClaude(c, 'cache:' + k, 'cache', { genre: 'cache', statut: 'lu', type: x.quoi, rect: null, details: { u0: x.debut, u1: x.fin }, vers: null }, null, { quoi: x.quoi, u0: x.debut, u1: x.fin }, null));
   return [
     act('texture', 'surface', 'ok', { claude: partDuRun(c), apres: { image: 'texture' }, elements: surface }),
     act('texture', 'cache', cache.length ? 'ok' : 'saute', { claude: partDuRun(c), apres: { image: 'ia' }, elements: cache }),
@@ -996,7 +1020,8 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
     act('texture', 'sansOmbres', fait(!!c.s.sansOmbres), { apres: { image: 'texture' } }, 'code'),
     act('texture', 'activerSansOmbres', 'saute', { manuel: { geste: etapeFacade('texture').optionManuelle ?? '', fait: null } }),
   ],
-  ouvertures: (_r, { e, o, s }) => {
+  ouvertures: (_r, c) => {
+    const { e, o, s } = c;
     const a = s.analyse, rel = s.audit?.mesure, relues = e.prises.ouverturesRelues, relu = !!relues && sontRelues(relues, rel?.releve.ouvertures ?? []);
     const partage = a ? partageDuReleve(e, s.ia?.accord?.ouvertures ?? rel?.releve.ouvertures) : null, voisins = partage?.ajouts.reduce((k, x) => k + x.ouvertures.length, 0) ?? 0;
     // Les ouvertures calculees, celles que l'accord de l'E8 a lues (le releve, sinon l'analyse), et les boites de Claude telles que la
@@ -1011,9 +1036,19 @@ const ACTIONS: Record<IdEtape, (r: Resultat, c: Contexte) => ActionEtape[]> = {
       ...devinees.map((x): ElementAction => ({ genre: 'ouverture', statut: 'devinee', type: x.type, rect: rect(x), details: detailsDe(x.details) })),
     ];
     const STATUT = { detectee: 'retrouvee', devinee: 'devinee-confirmee' } as const;
+    // La cle d'une boite : son rang dans la lecture de Claude (la reponse votee), stable d'un rejeu a l'autre de la meme reponse.
+    const lues = s.ia?.reponse?.ouvertures ?? [], cleDe = (ia: object) => 'ouverture:' + lues.indexOf(ia as never);
+    const place = (x: { type: string; x: number; y: number; l: number; h: number }) => ({ type: x.type, x: x.x, y: x.y, l: x.l, h: x.h });
+    // La source retenue : la detection garde sa place quand elle retrouve une boite (Claude n'apporte que ses details) ; une devinee
+    // confirmee reste la devinee ; une boite seule est proposee, decochee (personne ne la retient tant qu'on ne la coche pas).
     const boites: ElementAction[] = accord ? [
-      ...accord.boites.map((x): ElementAction => ({ genre: 'boite', statut: x.avec ? STATUT[x.avec] : 'proposee', type: x.ia.type, rect: rect(x.ouverture), details: { ...x.ia.details, confiance: x.ia.confiance }, carreaux: x.ia.carreaux as Readonly<Record<string, unknown>> | null, vers: x.vers })),
-      ...accord.ecartees.map((x): ElementAction => ({ genre: 'boite', statut: 'ecartee', type: x.type, rect: null, details: { ...x.details, confiance: x.confiance }, carreaux: x.carreaux as Readonly<Record<string, unknown>> | null, vers: null })),
+      ...accord.boites.map((x): ElementAction => {
+        const vers = x.vers === null ? undefined : x.avec === 'detectee' ? calculees[x.vers] : (rel?.devinees ?? a?.devinees ?? [])[x.vers];
+        return deClaude(c, cleDe(x.ia), 'ouverture', { genre: 'boite', statut: x.avec ? STATUT[x.avec] : 'proposee', type: x.ia.type, rect: rect(x.ouverture), details: { ...x.ia.details, confiance: x.ia.confiance }, carreaux: x.ia.carreaux as Readonly<Record<string, unknown>> | null, vers: x.vers },
+          vers ? place(vers) : null, place(x.ouverture), x.avec ? 'calcul' : null);
+      }),
+      ...accord.ecartees.map((x): ElementAction => deClaude(c, cleDe(x), 'ouverture', { genre: 'boite', statut: 'ecartee', type: x.type, rect: null, details: { ...x.details, confiance: x.confiance }, carreaux: x.carreaux as Readonly<Record<string, unknown>> | null, vers: null },
+        null, { type: x.type, u0: x.u0, u1: x.u1, v0: x.v0, v1: x.v1 }, null)),
     ] : [];
     const image = imageLue(o, s);
     return [
