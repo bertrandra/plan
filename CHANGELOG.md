@@ -13,7 +13,7 @@ ni aucun export de la démonstration ne change : les sept témoins ne bougent qu
 la 5.13.0 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15) : rien à déployer côté
 plateforme. Requêtes inchangées depuis la 5.13.0 (ni `deploy/`, ni `regles/`, ni les descriptions des sujets, ni la chaîne des
-façades), vérifiées sans la mesure sur main, à la livraison.
+façades), vérifiées sans la mesure sur main (run 42348548642 : 9 sur 9, 0,035 $).
 
 ### Corrigé
 - **Import depuis une adresse à Paris, Lyon et Marseille : aucune parcelle trouvée.** La Base Adresse Nationale rend le code de
