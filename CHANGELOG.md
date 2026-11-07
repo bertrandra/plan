@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+- **Une photo de façade sans position du téléphone se place désormais par le GPS de son EXIF** (décision du propriétaire, 7 novembre
+  2026 ; c'est voulu). Une seule règle pour l'audit et la calibration (`facade/releve/prisesFacade.ts::positionDeLaPhoto`) : la
+  position du téléphone quand la photo en a une, inchangée ; sinon le GPS de l'EXIF, projeté dans le repère du plan comme celle du
+  téléphone (même origine du cadastre), à une précision supposée de 8 m (`facades.enchainement.precisionExifM`). Il sert à tout ce que
+  sert la position : l'ordre des photos, la distance au mur (seulement au-delà de deux fois la précision, comme pour le téléphone) et le
+  cap. Il est ignoré, et la raison dite, derrière le mur, à plus de 40 m du mur (`facades.enchainement.distanceExifMaxM`, nouveau réglage
+  de `regles/facades/enchainement.json`) ou sans plan calé sur le cadastre ; son cap ne sert que rapporté au nord vrai (`T`), un cap
+  magnétique ou un nord non dit est ignoré et dit. L'É2 dit la provenance (« Photo 2 : position tirée de l’EXIF, à 8 m près. »), dans
+  l'audit comme dans la calibration, et la fiche du cas aussi (Admin › Calibration).
+- **Un cas de calibration garde l'origine du plan de l'audit** (`origine`, champ facultatif de `CasReel`, tiré de
+  `parcelle.origine` du fichier d'audit) : la calibration projette le GPS de l'EXIF comme l'audit. Un cas d'avant ne l'a pas et se rejoue
+  comme avant, sans migration ; l'É2 dit alors que ce GPS n'est pas utilisé. Une photo qui a la position du téléphone, ou ni position ni
+  GPS dans son EXIF, ne change pas : banc des façades, `calage-e5.ts` (avec et sans capteurs), plancher de lecture 5.1.0, AE 101 et
+  empreintes golden identiques à `main`. L'empreinte des objectifs de l'enchaînement (`EMPREINTE_OBJECTIFS`, affichée par la
+  calibration) change avec les deux réglages ; elle ne sert à aucune comparaison de réponses enregistrées.
+
 ## [5.14.0] — 2026-11-07
 
 Version **mineure** au sens de `MD/RELEASE.md` : façades, l'enchaînement passe à quatorze étapes aux actions typées (#611) ; l'écran

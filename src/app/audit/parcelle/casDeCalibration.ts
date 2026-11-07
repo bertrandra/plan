@@ -44,6 +44,8 @@ export interface FacadeACalibrer {
    */
   facade: Facade | null;
   contour: PtBrut[] | null;
+  /** L'origine du plan de l'audit (le calage du cadastre) : le GPS de l'EXIF d'une photo sans position s'y projette ; null : non gardee. */
+  origine?: { lat: number; lon: number } | null;
 }
 
 const arrondi = (v: number) => Math.round(v * 100) / 100;
@@ -89,7 +91,7 @@ export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer
         gabarit: gabaritLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur),
         toit: toitDuCas(entrees?.pts, sorties?.corps, f.cote),
         parement: b.vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, b.vu.murs).toLowerCase() : null,
-        ...coteDuCas(entrees?.pts, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur) });
+        ...coteDuCas(entrees?.pts, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur), origine: fichier.parcelle?.origine ? { lat: fichier.parcelle.origine.lat, lon: fichier.parcelle.origine.lon } : null });
     }
   }
   return out.sort((a, b) => b.photos.length - a.photos.length);
@@ -130,6 +132,8 @@ export function casDepuisFacade(f: FacadeACalibrer, idu: string | null = null): 
     ...(relief(f.gabarit) > 0 ? { gabarit: f.gabarit.map((p) => ({ u: p.u, v: p.v })) } : {}),
     ...(f.toit ? { toit: f.toit } : {}),
     ...(f.facade ? { facade: { ...f.facade, largeur: largeurM, hauteur: f.hauteurM } } : {}), ...(f.contour ? { contour: f.contour } : {}),
+    // L'origine du plan : la calibration projette le GPS de l'EXIF comme l'audit (prisesFacade.ts::positionDeLaPhoto).
+    ...(f.origine ? { origine: { ...f.origine } } : {}),
     photos: images.map((_, k) => photo(k)),
     ...(f.murConfirme ? { murConfirme: JSON.parse(JSON.stringify(f.murConfirme)) as MurConfirme } : {}),
     ...(f.ouverturesRelues ? { ouverturesRelues: JSON.parse(JSON.stringify(f.ouverturesRelues)) as OuverturesRelues } : {}),

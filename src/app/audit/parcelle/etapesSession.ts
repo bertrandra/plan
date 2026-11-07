@@ -14,6 +14,7 @@ import { fabriqueJardinNavigateur } from './jardinClaude.js';
 import { chercherCoins } from '../../releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
+import { origineDuPlan } from '../../ecouteurs/positionGps.js';
 import type { GrilleRelief } from '../../../model/relief.js';
 import type { ContexteAuditParcelle } from './typesSession.js';
 import type { IdEtape } from '../../../model/etapeFacade.js';
@@ -29,7 +30,7 @@ export function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours
   return creerValidation({
     etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant, apresValidation,
     projet: ctx.projet ?? PROJET_MUET,
-    mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
+    mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects), origine: () => origineDuPlan(ctx.etat.objects) },
     analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), accords: () => analyse().accords(), runs: () => analyse().runs(), jardin: () => analyse().jardin() },
   });
 }

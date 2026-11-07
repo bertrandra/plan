@@ -26,11 +26,17 @@ export interface DependancesPositionGps {
   signaler?: (message: string) => void;
 }
 
-/** La position dans le repere du plan, ou null si le plan n'est pas cale sur le cadastre. */
-export function positionDansLePlan(objets: readonly ObjetPlan[], g: PositionGps): PtBrut | null {
+/** L'origine du repere du plan (le calage du cadastre de la parcelle du projet), en degres ; null si le plan n'est pas cale. */
+export function origineDuPlan(objets: readonly ObjetPlan[]): { lat: number; lon: number } | null {
   const cad = parcelleDuProjet(objets as ObjetPlan[])?.cadastre as { origineLat?: unknown; origineLon?: unknown } | null | undefined;
   if (typeof cad?.origineLat !== 'number' || typeof cad.origineLon !== 'number') return null;
-  return projecteurLocal(cad.origineLat, cad.origineLon).versMetres(g.lon, g.lat);
+  return { lat: cad.origineLat, lon: cad.origineLon };
+}
+
+/** La position dans le repere du plan, ou null si le plan n'est pas cale sur le cadastre. */
+export function positionDansLePlan(objets: readonly ObjetPlan[], g: PositionGps): PtBrut | null {
+  const o = origineDuPlan(objets);
+  return o ? projecteurLocal(o.lat, o.lon).versMetres(g.lon, g.lat) : null;
 }
 
 const MESSAGES: Record<SansPosition['raison'], string> = {

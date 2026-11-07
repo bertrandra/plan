@@ -107,7 +107,10 @@ export interface OptiquePhoto {
   champDeg: number;
   sourceFocale: SourceFocale;
   modeleAppareil: string | null;
-  /** L'EXIF du fichier d'origine, tel qu'il est lu (`facade/vision/exif.ts`) ; le GPS y est garde, il ne sert pas de position. */
+  /**
+   * L'EXIF du fichier d'origine, tel qu'il est lu (`facade/vision/exif.ts`). Son GPS situe la photo d'une facade quand le telephone n'a
+   * pas donne de position (facade/releve/prisesFacade.ts::positionDeLaPhoto, depuis le 7 novembre 2026) ; il ne remplace jamais celle-ci.
+   */
   exif: ExifPhoto;
   /** La taille du fichier d'origine, apres son orientation (`exif.orientation`, appliquee a la reduction). */
   source: { largeurPx: number; hauteurPx: number };

@@ -105,6 +105,11 @@ export interface CasReel {
    */
   facade?: Facade;
   contour?: PtBrut[];
+  /**
+   * L'origine du repere du plan (le calage du cadastre de l'audit), en degres : elle projette le GPS de l'EXIF d'une photo sans position
+   * du telephone, comme l'audit l'a fait (prisesFacade.ts::positionDeLaPhoto). Absente d'un cas d'avant : son EXIF n'y situe rien.
+   */
+  origine?: { lat: number; lon: number };
 }
 
 /**
@@ -177,13 +182,17 @@ export function lireCasReel(donnees: unknown): CasReel {
   if (typeof reste.parement !== 'string' || !reste.parement.trim()) delete reste.parement;
   // Les choix et les forcages relus : un choix illisible est laisse de cote, jamais invente.
   delete reste.choix; delete reste.forcages;
+  // L'origine du plan, relue si elle se lit (des degres), sinon laissee : le GPS de l'EXIF ne se projette pas, comme dans un cas d'avant.
+  delete reste.origine;
+  const o = c.origine as Partial<{ lat: number; lon: number }> | undefined;
+  const origine = o && fini(o.lat) && fini(o.lon) && Math.abs(o.lat) <= 90 && Math.abs(o.lon) <= 180 ? { lat: o.lat, lon: o.lon } : null;
   const choix = lireChoix(c.choix), forcages = lireForcages(c.forcages);
   return {
     ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}),
     ...(c.toit !== undefined ? { toit: lireToitDuCas(c.toit) } : {}),
     ...(c.calageVrai !== undefined ? { calageVrai: lireCalageVrai(c.calageVrai) } : {}), ...(c.toitVrai !== undefined ? { toitVrai: lireToitVrai(c.toitVrai) } : {}),
     ...(ia.length ? { ia } : {}), ...(facade ? { facade } : {}), ...(contour ? { contour } : {}),
-    ...(choix.length ? { choix } : {}), ...(forcages.length ? { forcages } : {}),
+    ...(choix.length ? { choix } : {}), ...(forcages.length ? { forcages } : {}), ...(origine ? { origine } : {}),
   };
 }
 

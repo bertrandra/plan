@@ -41,7 +41,7 @@ import { redresserEtFusionner, VERSION_CHAINE_FACADES, type ResultatChaine } fro
 import { avisFusion, releveDeLaSerie, type ReleveDeLaSerie } from './analyseSerie.js';
 import { hautDeLImage, imageDuRunAvecLaBande, type ImageDuRun } from './imageDuRun.js';
 import { rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
-import { MOTIF_ILLISIBLE, prisesDeLaFacade, type PrisesFacade } from './prisesFacade.js';
+import { MOTIF_ILLISIBLE, prisesDeLaFacade, texteDesPositions, type PrisesFacade } from './prisesFacade.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import { estLeMurConfirme, sontRelues, type BilanPhotoRedressement, type BilanRedressement, type CorrectionRedressement, type PoseDuMurCherche } from '../../model/auditParcelle.js';
 import type { PrisePhoto } from '../../model/audit.js';
@@ -295,8 +295,10 @@ const prises: Pas = ({ e, obj }) => {
   const lisibles = e.prises.photos.length, illisibles = e.prises.illisibles.length, n = lisibles + illisibles;
   if (!n) return { etat: 'echec', resume: 'Aucune photo : prenez ou choisissez une photo du mur entier.', verite: null };
   const dont = illisibles ? ` (dont ${illisibles} illisible${illisibles > 1 ? 's' : ''})` : '';
+  // La provenance d'une position tiree de l'EXIF (prisesFacade.ts::positionDeLaPhoto) ; rien de plus quand le telephone l'a donnee.
+  const positions = texteDesPositions(e.prises, obj['facades.enchainement.precisionExifM']);
   return lisibles >= obj['facades.enchainement.photosMin']
-    ? { etat: 'ok', resume: `${n} photo${n > 1 ? 's' : ''} du mur${dont}.`, verite: null }
+    ? { etat: 'ok', resume: `${n} photo${n > 1 ? 's' : ''} du mur${dont}.` + (positions ? ' ' + positions : ''), verite: null }
     : { etat: 'a-confirmer', resume: `${n} photo${n > 1 ? 's' : ''} du mur, aucune lisible : reprenez une photo du mur entier.`, verite: null };
 };
 
@@ -1252,7 +1254,7 @@ export function entreesDuCas(cas: CasReel, images: readonly (Image | null)[], jp
   const photos = cas.photos.map((p, rang) => { const image = images[rang] ?? null; return { rang, image, prise: priseDuCas(p, image), optique: p.optique ?? null }; });
   return {
     largeurM: L, hauteurM: H, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
-    prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg }),
+    prises: prisesDeLaFacade({ facade, contour, photos, corrections, murConfirme: cas.murConfirme ?? null, ouverturesRelues: cas.ouverturesRelues ?? null, jpeg, origine: cas.origine ?? null }),
     // Les choix et les forcages de la personne (lot C2), gestes du cas comme ses reperes ; absents d'un cas d'avant : rien ne change.
     ...(cas.choix?.length ? { choix: lireChoix(cas.choix) } : {}), ...(cas.forcages?.length ? { forcages: lireForcages(cas.forcages) } : {}),
   };
