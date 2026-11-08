@@ -11,8 +11,9 @@ import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
+import { formeDuCorpsToit } from '../../model/formeToit.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
-import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
+import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeToit, Lucarne, NatureTravee, PignonToit, ProfilPan, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
 import { RECULS_TRAVEE_M } from './travees.js';
 import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import { appliquerBout, groupesBoutsDuCorps, groupesPointe, valeurBout } from './bouts.js';
@@ -274,15 +275,63 @@ const penteReglable = (c: CorpsToit): boolean => !c.speciale && !c.profil && for
 const penteDe = (c: CorpsToit): number => (Math.atan2(c.faitage - Math.min(...c.egouts), largeurDuPanBas(c)) * 180) / Math.PI;
 
 /**
- * Le sens du faitage se change sur un corps a deux pans ou a croupes, faitage au milieu, sans rien de pose qui se compte le long du faitage
- * (pignon, lucarne, fenetre de toit, element de facade) : tourne, tout cela serait a une place qui n'a plus de sens.
+ * Les formes sans sens de faitage : le toit plat (pas de faitage) et les toits de revolution (un axe vertical, rien a tourner). Toutes les
+ * autres ont un faitage, ou une noue (papillon), ou un mur haut (appentis) dont le sens se choisit (demande du proprietaire, 8 novembre
+ * 2026 : « Sur toit 2 pans je peux choisir l'axe. Meme chose sur les autres types de toit concernes. »).
+ */
+const FORMES_SANS_SENS: ReadonlySet<FormeToit> = new Set<FormeToit>(['plat', 'conique', 'polygonal', 'fleche', 'dome', 'imperiale']);
+
+/**
+ * Le sens du faitage se change sur tout corps qui en a un (deux pans, asymetrique, croupes, pavillon, un pan, cul de geai, Mansart,
+ * gambrel, coyau, berceau, carene, papillon), sans rien de pose qui se compte le long du faitage (pignon, lucarne, fenetre de toit,
+ * panneau) : tourne, tout cela serait a une place qui n'a plus de sens. Ce qui tient a un mur (travees, elements de facade) suit son mur.
  */
 function sensReglable(corps: readonly CorpsToit[], rang: number): boolean {
   const c = corps[rang];
-  if (!c || c.saillie || c.speciale || c.profil || c.bouts || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length) return false;
-  if (corps.some((k) => k.saillie?.hote === rang)) return false;
-  const f = formeDuCorps(c), W = repere(c.pts).W;
-  return (f === 'deux-pans' || f === 'croupes') && Math.abs(c.posFaitage - W / 2) <= 0.05;
+  if (!c || c.saillie || c.speciale || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length) return false;
+  return !FORMES_SANS_SENS.has(formeDuCorpsToit(c));
+}
+
+/**
+ * Le faitage passe sur l'autre cote du rectangle : les sommets tournent d'un cran (en avant vers la largeur, en arriere vers la longueur,
+ * pour qu'un aller-retour rende le corps tel quel), le meme rectangle, les memes hauteurs. Le faitage garde sa place relative en travers
+ * (au milieu, sur un mur pour un appentis) ; une croupe ou un cul de geai la meme part du faitage ; un pan courbe sa forme (sa fleche
+ * suit la largeur), un brisis ou un coyau sa largeur, bornee au pan. Ce qui tient a un mur de ce corps
+ * (ses travees, un element de facade pose dessus) garde son mur : seul le rang du mur change. Rien ne change si le sens est deja celui-la.
+ */
+function avecSens(corps: readonly CorpsToit[], rang: number, sens: 'long' | 'court'): CorpsToit[] {
+  const c = corps[rang] as CorpsToit, r = repere(c.pts);
+  if ((sens === 'long') === (r.L >= r.W)) return corps.slice();
+  const p = c.pts as PtBrut[], enAvant = sens === 'court';
+  const pts = (enAvant ? [p[1], p[2], p[3], p[0]] : [p[3], p[0], p[1], p[2]]) as PtBrut[];
+  // Le mur `m` (de pts[m] a pts[m + 1]) garde son point de depart : seul son rang change.
+  const mur = (m: number): number => (m + (enAvant ? 3 : 1)) % 4;
+  // La nouvelle largeur est l'ancienne longueur, et inversement.
+  const W2 = r.L, L2 = r.W, k = W2 / r.W;
+  const posFaitage = Math.abs(c.posFaitage - r.W / 2) <= 0.05 ? centi(W2 / 2) : c.posFaitage <= 0.01 ? 0 : c.posFaitage >= r.W - 0.01 ? W2 : centi(c.posFaitage * k);
+  const neuf: CorpsToit = { ...c, pts, posFaitage };
+  // Une croupe et un cul de geai prennent la meme part du faitage, comme le catalogue les met a l'echelle de la longueur : un pavillon
+  // reste un pavillon, et un aller-retour rend les memes bouts. Un brisis garde sa largeur (celle des pans du Mansart), borne au faitage.
+  const kL = L2 / r.L;
+  if (c.croupes) neuf.croupes = [centi(c.croupes[0] * kL), centi(c.croupes[1] * kL)];
+  if (c.bouts) {
+    const bout = (b: BoutToit): BoutToit => (b.type === 'croupe' || b.type === 'demi-croupe' ? { ...b, profondeurM: centi(b.profondeurM * kL) }
+      : b.type === 'brisis' ? { ...b, largeurM: Math.min(b.largeurM, centi(L2 / 2)) } : b);
+    neuf.bouts = [bout(c.bouts[0]), bout(c.bouts[1])];
+  }
+  if (c.profil) {
+    const pans = [posFaitage, W2 - posFaitage];
+    const pan = (q: ProfilPan, n: 0 | 1): ProfilPan => {
+      const borne = centi(Math.max((pans[n] as number) - 0.3, 0.3));
+      if (q.type === 'courbe') return { ...q, flecheM: centi(q.flecheM * k) };
+      if (q.type === 'brise') return { ...q, largeurBrisisM: Math.min(q.largeurBrisisM, borne) };
+      if (q.type === 'coyau') return { ...q, largeurM: Math.min(q.largeurM, borne) };
+      return q;
+    };
+    neuf.profil = [pan(c.profil[0], 0), pan(c.profil[1], 1)];
+  }
+  if (c.travees) neuf.travees = c.travees.map((t) => ({ ...t, mur: mur(t.mur) }));
+  return corps.map((x, i) => (i === rang ? neuf : x.saillie?.hote === rang ? { ...x, saillie: { ...x.saillie, mur: mur(x.saillie.mur) } } : x));
 }
 
 /** La pente `deg` sur le pan bas : le faitage monte ou descend, les egouts restent ; ce qui monte au faitage le suit. */
@@ -291,16 +340,6 @@ function avecPente(c: CorpsToit, deg: number): CorpsToit {
   const faitage = centi(Math.max(bas + Math.tan((deg * Math.PI) / 180) * largeurDuPanBas(c), Math.max(...c.egouts) + 0.3));
   const neuf: CorpsToit = { ...c, faitage, pignons: c.pignons.map((g) => (g.faitage >= c.faitage - 0.05 ? { ...g, faitage } : { ...g, faitage: Math.min(g.faitage, faitage) })) };
   if (c.lucarnes) neuf.lucarnes = c.lucarnes.map((l) => ({ ...l, faitageM: Math.min(l.faitageM, centi(faitage - 0.1)) }));
-  return neuf;
-}
-
-/** Le faitage passe sur l'autre cote du rectangle : les sommets tournent d'un cran, le faitage reste au milieu, les hauteurs restent. */
-function avecSens(c: CorpsToit, sens: string): CorpsToit {
-  const r = repere(c.pts);
-  if ((sens === 'long') === (r.L >= r.W)) return c;
-  const neuf: CorpsToit = { ...c, pts: [c.pts[1], c.pts[2], c.pts[3], c.pts[0]] as PtBrut[], posFaitage: centi(r.L / 2) };
-  // Une croupe ne depasse pas la moitie du nouveau faitage.
-  if (c.croupes) neuf.croupes = [Math.min(c.croupes[0], r.W / 2), Math.min(c.croupes[1], r.W / 2)];
   return neuf;
 }
 
@@ -473,7 +512,7 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
   }
   if (t.type === 'corps' && !c.saillie) {
     if (groupe === 'pente' && penteReglable(c) && PENTES_DEG.includes(Number(valeur))) return avec(corps, t.rang, avecPente(c, Number(valeur)));
-    if (groupe === 'sens' && (valeur === 'long' || valeur === 'court') && sensReglable(corps, t.rang)) return avec(corps, t.rang, avecSens(c, valeur));
+    if (groupe === 'sens' && (valeur === 'long' || valeur === 'court') && sensReglable(corps, t.rang)) return avecSens(corps, t.rang, valeur);
     if (groupe === 'debord' && !c.speciale && DEBORDS_M.includes(Number(valeur))) return avec(corps, t.rang, { ...c, bords: { ...c.bords, debordEgoutM: Number(valeur) } });
     return corps.slice();
   }
