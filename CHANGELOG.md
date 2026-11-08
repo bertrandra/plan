@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.18.0] — 2026-11-08
+
+Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, « Sens du faîtage » tourne désormais tout le toit d'un bâtiment à
+plusieurs corps d'un seul geste, et le mur haut d'un appentis se choisit (#628) ; un projet neuf ne demande plus « Mettre à jour le
+modèle ? » à sa création (#629, correctif). Un geste nouveau offert par l'interface : MINOR, pas PATCH. Rien ne change sans le geste :
+aucune quantité ni aucun export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de
+build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15), aucun champ de fichier
+nouveau, rien à déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+
 ### Ajouté
 - **Mode Toit : tout le toit tourne d'un coup, et le mur haut d'un appentis se choisit** (réponses du propriétaire, 8 novembre 2026 :
   « oui » aux deux questions). Sur un bâtiment à plusieurs corps, « Bâtiment entier » montre le même groupe « Sens du faîtage », pour
