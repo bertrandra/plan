@@ -26,6 +26,7 @@ import type { ObjetBrut, ObjetPlan, Mesure } from '../model/types.js';
 import type { RegistreCommandes } from './commandes.js';
 import type { Magasin } from './magasin.js';
 import { objetsHorsSession } from './toits/modeToit.js';
+import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -74,7 +75,8 @@ export interface Projet {
   ouvrir(id: string): void;
   /**
    * A l'ouverture : si le projet est d'un schema anterieur, propose de le mettre a jour — sauf si
-   * la personne a deja repondu « Garder tel quel » pour ce projet et ce schema.
+   * la personne a deja repondu « Garder tel quel » pour ce projet et ce schema, ou si cette version
+   * vient de le creer (io/modeleGarde.ts).
    */
   proposerMiseAJour(): void;
   /**
@@ -82,22 +84,6 @@ export interface Projet {
    * qu'elle a lu. Un echec s'affiche comme d'habitude (bandeau). Rend vrai si la plateforme l'a accepte.
    */
   enregistrerSansBruit(): Promise<boolean>;
-}
-
-/** Cle localStorage d'un refus de mise a jour : par projet, et pour le schema propose. */
-const cleRefus = (id: string) => 'planInteractif.modeleGarde.' + id;
-
-/** Retient « Garder tel quel » pour ce projet et ce schema, ou l'oublie (`null`). Sans stockage, la question reviendra. */
-function retenirRefus(id: string, schema: number | null): void {
-  try {
-    if (schema === null) localStorage.removeItem(cleRefus(id));
-    else localStorage.setItem(cleRefus(id), String(schema));
-  } catch { /* navigation privee, stockage plein : rien a retenir */ }
-}
-
-/** Vrai si la personne a deja garde ce projet tel quel, pour le schema que ce programme propose. */
-function refusRetenu(id: string): boolean {
-  try { return localStorage.getItem(cleRefus(id)) === String(SCHEMA_VERSION); } catch { return false; }
 }
 
 // Le schema ecrit est celui qui decrit le document, jamais sous celui ou le projet a ete monte
@@ -166,7 +152,7 @@ function declarerMiseAJour(cmd: RegistreCommandes, etat: EtatApp, courant: Proje
     etat.schemaProjet = SCHEMA_VERSION;
     const ok = await p.enregistrer('Modèle mis à jour : le projet est au schéma ' + SCHEMA_VERSION + '.');
     if (!ok) { etat.schemaProjet = avant; p.publier(); }
-    else if (courant) retenirRefus(courant.id, null);
+    else if (courant) retenirModeleGarde(courant.id, null);
   }
   const demander = () => { if (courant) ouvrirDialogueMiseAJour(courant.id, etat.schemaProjet, mettreAJour); };
   cmd.declarer({
@@ -177,7 +163,7 @@ function declarerMiseAJour(cmd: RegistreCommandes, etat: EtatApp, courant: Proje
     executer: demander
   });
   return () => {
-    if (!courant || !cmd.etat('projet.mettreAJourModele').utilisable || refusRetenu(courant.id)) return;
+    if (!courant || !cmd.etat('projet.mettreAJourModele').utilisable || modeleGarde(courant.id)) return;
     demander();
   };
 }
@@ -194,7 +180,7 @@ function ouvrirDialogueMiseAJour(id: string, de: number, mettreAJour: () => Prom
       'Tel quel, il reste lisible par les versions précédentes de Plan ; il sera mis à jour de lui-même le jour où vous y ajouterez un relevé.'
     ],
     principal: { libelle: 'Mettre à jour le modèle', executer: () => { void mettreAJour(); } },
-    secondaire: { libelle: 'Garder tel quel', executer: () => retenirRefus(id, SCHEMA_VERSION) }
+    secondaire: { libelle: 'Garder tel quel', executer: () => retenirModeleGarde(id, SCHEMA_VERSION) }
   });
 }
 
