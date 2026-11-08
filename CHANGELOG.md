@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+- **Mode Toit : tout le toit tourne d'un coup, et le mur haut d'un appentis se choisit** (réponses du propriétaire, 8 novembre 2026 :
+  « oui » aux deux questions). Sur un bâtiment à plusieurs corps, « Bâtiment entier » montre le même groupe « Sens du faîtage », pour
+  tout le toit (mêmes boutons, commande `toit.regler`, aucune commande nouvelle). Quand les corps pavent un rectangle (toit en M, deux
+  pans décalés, shed), la composition entière tourne d'un quart de tour sur son emprise : un M reste un M, un shed un shed, mêmes corps,
+  mêmes hauteurs, même emprise ; ses travées et ses éléments de façade gardent leur place sur le plan, sur le mur qui la porte après le
+  tour. Sinon (une maison en L, en T), chaque corps qui a un faîtage le tourne dans son rectangle, l'emprise reste ; un toit plat ou une
+  tourelle restent tels quels. Le groupe dit sous ses boutons ce qu'il fera. Quand un corps l'en empêche (un pignon, une lucarne, une
+  fenêtre de toit ou un panneau le long d'un faîtage ; une tourelle, une travée ou un élément de façade qui tomberait à cheval sur deux
+  corps après le tour d'une composition), le groupe est grisé et la raison s'écrit dessous, nommant le corps : rien ne tourne à moitié.
+  Sur un corps à un pan, « Mur haut » choisit lequel des deux murs longs porte le faîtage (nommés par leur orientation) : même
+  rectangle, égouts et profils des pans échangés, fenêtres de toit et panneaux suivent leur pan. Ctrl+Z dans la session, une étape
+  d'historique à la validation ; un aller-retour rend les corps. Rien ne change sans le geste : moteur des toits, AE 101 et témoins
+  golden identiques ; aucun champ de fichier nouveau (l'ordre des sommets et la place du faîtage). Point de fumée 150
+  (`facade/modeToit/sens.ts`, `tests/unit/facade/modeToit/sensToit.test.ts`).
+
 ### Corrigé
 - **Un projet neuf demandait « Mettre à jour le modèle ? »** (signalé par le propriétaire, 8 novembre 2026 : « À la création d'un
   nouveau projet j'ai la question pour mettre à jour la version du projet. »). Un projet s'écrit au plus petit schéma qui le décrit,

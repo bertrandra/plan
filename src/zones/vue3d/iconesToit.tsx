@@ -32,6 +32,9 @@ const TRACES: Record<string, ReactNode> = {
   // Le sens du faitage, vu de dessus : le rectangle du corps et son faitage, dans la longueur ou dans la largeur.
   'sens:long': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M5 12h14" strokeWidth="2.4" /></>,
   'sens:court': <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M12 8.5v7" strokeWidth="2.4" /></>,
+  // Le mur haut d'un appentis, vu en travers du faitage : le mur 0 a gauche, l'oppose a droite (le nom dit son orientation).
+  'murHaut:0': <path d="M4 20V5l16 8v7z" />,
+  'murHaut:2': <path d="M20 20V5L4 13v7z" />,
   // Un bout du faitage, vu de face : le pignon en triangle, la croupe (un pan qui descend jusqu'a l'egout, le mur s'arrete a l'egout),
   // le cul de geai (le pignon dont la pointe est coupee par un petit pan, plein).
   'bout:pignon': <path d="M3 20V13l9-8 9 8v7z" />,

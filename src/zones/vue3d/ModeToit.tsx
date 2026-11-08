@@ -18,7 +18,7 @@ import { PoigneesToit } from './PoigneesToit.js';
 import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
-import { groupesDe, libellesDesElements, memeCible, titreDuGroupe, valeurDuGroupe, type CibleElement } from '../../facade/modeToit/elements.js';
+import { groupesDe, groupesDuBatiment, libellesDesElements, memeCible, titreDuGroupe, valeurDuBatiment, valeurDuGroupe, type CibleElement, type GroupeChoix } from '../../facade/modeToit/elements.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -74,11 +74,39 @@ function BoutonToit({ commandes, id, icone, libelle, texte, presse, valider, mir
   );
 }
 
+/**
+ * Les groupes de choix de l'inspecteur, chacun sous son titre : des boutons-images a choix exclusif (`toit.regler`), celui en place
+ * enfonce. Un groupe qui ne s'applique pas est grise et dit pourquoi sous ses boutons (au doigt, il n'y a pas d'infobulle) ; son aide dit
+ * ce qu'il fait quand ce n'est pas evident.
+ */
+function GroupesReglage({ groupes, valeur, commandes }: { groupes: readonly GroupeChoix[]; valeur: (groupe: string) => string | null; commandes: RegistreCommandes }) {
+  const e = commandes.etat('toit.regler'), permise = e.utilisable, refus = !e.utilisable && 'message' in e ? e.message : null;
+  return (
+    <>
+      {groupes.map((g) => (
+        <div key={g.groupe} className="groupeReglage">
+          <span className="titreGroupe" aria-hidden="true">{titreDuGroupe(g)}</span>
+          <div className="groupeChoix" role="group" aria-label={titreDuGroupe(g)}>
+            {g.valeurs.map((v) => (
+              <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle + (g.raison ? ' — ' + g.raison : refus ? ' — ' + refus : '')} aria-label={v.libelle}
+                aria-pressed={valeur(g.groupe) === v.valeur} disabled={!!g.raison || !permise} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageDuChoix groupe={g.groupe} valeur={v.valeur} /></button>
+            ))}
+          </div>
+          {g.aide && !g.raison && <p className="aideGroupe">{g.aide}</p>}
+          {g.raison && <p className="raisonGroupe" role="note">{g.raison}</p>}
+        </div>
+      ))}
+    </>
+  );
+}
+
 /** Les elements du batiment, une pastille chacun, et l'inspecteur de celui qui est choisi : des boutons-images a choix exclusif, sans formulaire. */
 function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsToit[]; selection: CibleElement | null; commandes: RegistreCommandes }) {
   const liste = libellesDesElements(corps);
   if (!liste.length) return null;
   const groupes = selection ? groupesDe(corps, selection) : [];
+  // Rien de choisi : le batiment entier, dont tout le toit se regle d'un coup quand il a plusieurs corps (le sens du faitage).
+  const groupesBatiment = selection ? [] : groupesDuBatiment(corps);
   const bouton = (id: string, icone: NomIcone, libelle: string, danger = false) => (
     <button type="button" className={'boutonToit' + (danger ? ' danger' : '') + (insertionToit()?.commande === id ? ' arme' : '')} data-commande={id} aria-label={libelle} title={libelle}
       aria-pressed={id === 'toit.murSur3d' ? insertionToit()?.commande === id : undefined}
@@ -95,20 +123,15 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
             aria-pressed={memeCible(e.cible, selection)} onClick={(ev) => { commandes.executer('toit.selection', ev.currentTarget); }}>{e.libelle}</button>
         ))}
       </div>
+      {!selection && groupesBatiment.length > 0 && (
+        <div className="inspecteurToit" data-cible="batiment" role="group" aria-label="Réglages de tout le toit">
+          <GroupesReglage groupes={groupesBatiment} valeur={(g) => valeurDuBatiment(corps, g)} commandes={commandes} />
+        </div>
+      )}
       {selection && (
         <div className="inspecteurToit" role="group" aria-label="Réglages de l’élément">
           {/* Chaque groupe dit ce qu'il regle, au-dessus de ses boutons-images : au doigt, il n'y a pas d'infobulle. */}
-          {groupes.map((g) => (
-            <div key={g.groupe} className="groupeReglage">
-              <span className="titreGroupe" aria-hidden="true">{titreDuGroupe(g)}</span>
-              <div className="groupeChoix" role="group" aria-label={titreDuGroupe(g)}>
-                {g.valeurs.map((v) => (
-                  <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle} aria-label={v.libelle}
-                    aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageDuChoix groupe={g.groupe} valeur={v.valeur} /></button>
-                ))}
-              </div>
-            </div>
-          ))}
+          <GroupesReglage groupes={groupes} valeur={(g) => valeurDuGroupe(corps, selection, g)} commandes={commandes} />
           <div className="groupeReglage">
           <span className="titreGroupe" aria-hidden="true">Gestes</span>
           <div className="groupeChoix" role="group" aria-label="Gestes">

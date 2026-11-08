@@ -338,7 +338,13 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   jamais quand un pignon, une lucarne, une fenêtre de toit ou un panneau se compte le long du faîtage ; demande du propriétaire du
   8 novembre 2026). Un seul mécanisme : les sommets du rectangle tournent d'un cran (`elements.ts::avecSens`), le même rectangle, les
   mêmes hauteurs ; le faîtage garde sa place relative en travers, une croupe ou un cul de geai sa part du faîtage, un berceau sa forme,
-  un brisis ou un coyau sa largeur ; les travées et les éléments de façade gardent leur mur ; un aller-retour rend le corps tel quel ; **débord** à l'égout
+  un brisis ou un coyau sa largeur ; les travées et les éléments de façade gardent leur mur ; un aller-retour rend le corps tel quel ; **mur haut** d'un corps à un pan (l'un ou l'autre des deux murs longs, nommés par leur
+  orientation : le faîtage passe sur le mur opposé, égouts et profils échangés, ce qui est posé sur le pan le suit ; `sens.ts::avecMurHaut`) ;
+  **tout le toit** sous « Bâtiment entier », sur un bâtiment à plusieurs corps (réponses du propriétaire, 8 novembre 2026) : le même groupe
+  « Sens du faîtage » ; la composition entière tourne d'un quart de tour sur son emprise quand les corps pavent un rectangle (toit en M, deux
+  pans décalés, shed : chaque point lu en parts de l'emprise, (σ, τ) → (1 − τ, σ), l'inverse au retour ; travées et éléments de façade au mur
+  qui porte leur place), sinon chaque corps tourne dans son rectangle ; grisé avec la raison quand un corps l'empêche, jamais une partie du toit
+  en silence (`sens.ts::sensDuToit`, `tournerLeToit`) ; **débord** à l'égout
   (`bords.debordEgoutM`, que la 3D lit désormais). La **forme** se change par les vignettes de l'onglet « Toit », qui disent celle en place
   (enfoncée, « · en place »).
 - **Lucarne** : son type se change sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau changent de **pan**.

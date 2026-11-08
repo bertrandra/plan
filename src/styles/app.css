@@ -225,6 +225,8 @@
      les en-tetes de section. */
   .panneauToit .groupeReglage{ display:flex; flex-direction:column; gap:2px; }
   .panneauToit .titreGroupe{ font-family:var(--sans); font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .panneauToit .aideGroupe, .panneauToit .raisonGroupe{ margin:2px 0 0; max-width:42ch; font-size:.74rem; color:var(--ink-soft); }
+  .panneauToit .raisonGroupe{ font-style:italic; }
   .panneauToit .raisonsToit{ margin:0; padding:0 0 0 2px; list-style:none; font-size:.74rem; color:var(--ink-soft); }
   /* Le type d'une lucarne se choisit sur la vignette qui la pose (onglet « Sur le toit »). */
   .panneauToit .groupeChoix .glyphe svg.chaineVignette{ width:40px; height:auto; }
