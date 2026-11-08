@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+- **Mode Toit : le sens du faîtage se choisit sur chaque forme qui en a un** (demande du propriétaire, 8 novembre 2026 : « Sur toit
+  2 pans je peux choisir l'axe. Même chose sur les autres types de toit concernés. »). « Sens du faîtage » (dans la longueur, dans la
+  largeur) n'était proposé que sur un deux-pans ou un quatre-pans au faîtage centré, sans bouts réglés ni profil : un Mansart, un
+  gambrel, un cul de geai, une queue de vache, un berceau, une carène, un appentis, un asymétrique ou un papillon posés depuis le
+  catalogue restaient dans le sens du grand côté. Le même groupe, les mêmes boutons et la même donnée (l'ordre des sommets du rectangle
+  du corps) valent désormais pour toutes ces formes ; pas pour le toit plat ni pour les toits de révolution, qui n'ont pas de faîtage à
+  tourner, ni quand un pignon, une lucarne, une fenêtre de toit ou un panneau se compte le long du faîtage. Le faîtage garde sa place
+  relative en travers (au milieu, sur son mur pour un appentis), une croupe ou un cul de geai sa part du faîtage (un pavillon reste un
+  pavillon), un berceau sa forme, un brisis ou un coyau sa largeur ; les travées et les éléments de façade posés sur le corps gardent leur
+  mur. Un aller-retour rend le corps tel quel (avant, un deux-pans aux égouts différents revenait les égouts inversés). Ctrl+Z dans la
+  session, une étape d'historique à la validation, comme les autres réglages. Rien ne change sans le geste : moteur des toits, AE 101 et
+  témoins golden identiques ; aucun champ de fichier nouveau. Point de fumée 149 (`elements.ts::sensReglable`, `avecSens` ;
+  `tests/unit/facade/modeToit/sensFaitage.test.ts`).
+
 ## [5.16.0] — 2026-11-08
 
 Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, l'état « Modification » ou « Insertion » se lit d'un coup d'œil

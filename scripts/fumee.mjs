@@ -4770,6 +4770,118 @@ const POINTS = {
     verifier(projetApres.annuler === projetAvant.annuler && projetApres.statut === projetAvant.statut, 'projet : ' + JSON.stringify(projetAvant) + ' → ' + JSON.stringify(projetApres));
     return { ok: echecs.length === 0, mesure: echecs.length ? echecs.slice(0, 3).join(' ; ') : `Modification ↔ Insertion lisibles ; ${prises.filter((q) => q.prise).length} poignée(s) prenables en modification, ${estompees.length} estompée(s) en insertion ; Échap, second appui, « Annuler » et la pose ramènent « Modification » ; toit, historique et statut inchangés` };
   },
+  149: async (page, f) => {
+    // Le sens du faitage sur chaque forme qui en a un (demande du proprietaire, 8 novembre 2026 : « Sur toit 2 pans je peux choisir l'axe.
+    // Meme chose sur les autres types de toit concernes. ») : la maison de la demonstration posee sur un rectangle de 12 x 7 m, un seul corps
+    // a deux pans ; Vue 3D, « Modifier la toiture », le corps choisi ; pour chaque forme du catalogue posee sur lui (onglet Toit), le groupe
+    // « Sens du faîtage » est la ou il le doit (pas sur le toit plat), « Faîtage dans la largeur » tourne le faitage, Ctrl+Z le rend ;
+    // « Valider » puis un Ctrl+Z du projet rendent le toit d'avant. FUMEE_CAPTURE_AXE=<prefixe> enregistre la 3D avant et apres chaque sens.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const capture = process.env.FUMEE_CAPTURE_AXE;
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const R = [{ x: -6, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: -6, y: -13 }];
+      o.pts = R.map((p) => ({ ...p }));
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = [{ pts: R.map((p) => ({ ...p })), posFaitage: 3.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 }];
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    const lire = () => page.evaluate(() => {
+      const c = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[0];
+      const L = Math.hypot(c.pts[1].x - c.pts[0].x, c.pts[1].y - c.pts[0].y), W = Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y);
+      // L'axe du faitage, en degres modulo 180 : 0 le long du grand cote du rectangle (est-ouest), 90 en travers.
+      const ax = Math.round(((Math.atan2(c.pts[1].y - c.pts[0].y, c.pts[1].x - c.pts[0].x) * 180) / Math.PI + 180) % 180);
+      return { L: Math.round(L * 100) / 100, W: Math.round(W * 100) / 100, axe: ax, json: JSON.stringify(c) };
+    });
+    // Les cles triees : l'historique rend les memes valeurs, pas toujours dans le meme ordre.
+    const tout = () => page.evaluate(() => {
+      const trie = (v) => (Array.isArray(v) ? v.map(trie) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, trie(v[k])])) : v);
+      return JSON.stringify(trie(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit));
+    });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    const avant = await tout();
+    await etape('modifier la toiture', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    });
+    const choisir = async () => {
+      const puce = page.locator('.puceToit[data-type="corps"][data-rang="0"]');
+      if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await puce.click({ timeout: 10000 });
+      await page.waitForTimeout(300);
+    };
+    const photo = async (nom) => {
+      if (!capture) return;
+      const libre = page.locator('[data-commande="toit.vueLibre"]');
+      if (await libre.isEnabled()) await libre.click();
+      await image3dStable(page, 2000);
+      await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
+    };
+    const groupes = () => page.locator('.inspecteurToit .groupeChoix').evaluateAll((l) => l.map((g) => g.getAttribute('aria-label')));
+    const bouton = (v) => page.locator('.inspecteurToit [data-commande="toit.regler"][data-groupe="sens"][data-valeur="' + v + '"]');
+    // Les formes du catalogue, et celles qui n'ont pas de sens de faitage (un toit plat n'a pas de faitage).
+    const FORMES = ['deux-pans', 'croupes', 'appentis', 'demi-croupes', 'mansart', 'gambrel', 'coyau', 'berceau', 'carene', 'asymetrique', 'papillon', 'plat'];
+    const SANS_AXE = new Set(['plat']);
+    const lignes = [], echecs = [];
+    await choisir();
+    for (const forme of FORMES) {
+      await page.getByRole('tab', { name: 'Toit', exact: true }).click({ timeout: 10000 });
+      const piece = page.locator('[data-piece="forme:' + forme + '"]');
+      if (!(await piece.count())) { echecs.push(forme + ' : pièce absente'); continue; }
+      if ((await piece.getAttribute('aria-pressed')) !== 'true') await etape('forme ' + forme, () => piece.click({ timeout: 10000 }));
+      await page.waitForTimeout(500);
+      await choisir();
+      const g = await groupes(), a = await lire();
+      const offre = g.includes('Sens du faîtage');
+      if (SANS_AXE.has(forme)) {
+        if (offre) echecs.push(forme + ' : « Sens du faîtage » proposé'); else lignes.push(forme + ' sans sens ✓');
+        continue;
+      }
+      if (!offre) { echecs.push(forme + ' : pas de « Sens du faîtage » (' + g.join(', ') + ')'); await photo(forme + '-sans-sens'); continue; }
+      await photo(forme + '-long');
+      await etape(forme + ' : largeur', async () => {
+        await bouton('court').dispatchEvent('click', {}, { timeout: 10000 });
+        await page.waitForFunction(() => document.querySelector('.inspecteurToit [data-groupe="sens"][data-valeur="court"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 10000 });
+      });
+      const b = await lire();
+      await photo(forme + '-court');
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      const c = await lire();
+      await choisir();
+      const tourne = Math.abs(((b.axe - a.axe + 180) % 180) - 90) < 2 && b.L < b.W === a.L >= a.W;
+      const rendu = c.json === a.json;
+      if (!tourne || !rendu) echecs.push(forme + ' : axe ' + a.axe + '° → ' + b.axe + '°' + (rendu ? '' : ', Ctrl+Z ne rend pas le corps'));
+      else lignes.push(forme + ' ' + a.axe + '°→' + b.axe + '° ✓');
+    }
+    // Le dernier essai sur une forme a sens, garde : valider, puis un Ctrl+Z du projet rend le toit d'avant la session.
+    await page.getByRole('tab', { name: 'Toit', exact: true }).click({ timeout: 10000 });
+    await page.locator('[data-piece="forme:mansart"]').click({ timeout: 10000 });
+    await page.waitForTimeout(400);
+    await choisir();
+    await bouton('court').dispatchEvent('click', {}, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const garde = await lire();
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await page.evaluate(() => ({ fige: !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.toitFige, modifie: window.__plan.magasin().projet?.statut }));
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(400);
+    const defait = await tout();
+    if (garde.L >= garde.W) echecs.push('Mansart gardé : faîtage pas dans la largeur');
+    if (!valide.fige) echecs.push('validé : toit non figé');
+    if (defait !== avant) echecs.push('Ctrl+Z du projet ne rend pas le toit d’avant');
+    if (await deborde()) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; Mansart dans la largeur validé (toit ${valide.fige ? 'figé' : 'NON FIGÉ'}, projet ${valide.modifie ?? '?'}) ; Ctrl+Z du projet ${defait === avant ? 'rend le toit d’avant' : 'NE REND PAS'}` };
+  },
   142: async (page, f) => {
     // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a
     // gauche de x cm, et une poignee pour ajuster ») : sur la maison de la demonstration puis sur AE 101, en vue de la facade d'un long mur,
@@ -6924,7 +7036,8 @@ function pointsPour(nomClasse) {
   // 146 : l'ecran des etapes de la calibration (lot C1) : quatorze etapes, leurs actions et leurs badges, les gestes dans leur etape, les familles de Claude.
   // 147 : les choix Calcul / Claude / Manuel et le forcage de Claude (lot C2), dans la calibration seulement : effet, Ctrl+Z, Ctrl+Y.
   // 148 : le mode Toit, « Modification » ou « Insertion » d'un coup d'oeil : l'indicateur, la vignette enfoncee, les poignees estompees, le retour.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148];
+  // 149 : le sens du faitage au mode Toit sur chaque forme qui en a un (deux pans, croupes, un pan, cul de geai, Mansart...), pas sur le plat.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
