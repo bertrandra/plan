@@ -20,6 +20,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   témoins golden identiques ; aucun champ de fichier nouveau. Point de fumée 149 (`elements.ts::sensReglable`, `avecSens` ;
   `tests/unit/facade/modeToit/sensFaitage.test.ts`).
 
+### Corrigé
+- **Livraison : pdf-lib n'était pas versionné.** La règle `dist/` de `.gitignore` attrapait aussi
+  `livraison/assets/vendor/pdf-lib@1.17.1/dist/pdf-lib.min.js` (pdf-lib range son module sous `dist/`) : une livraison tirée de git
+  retombait sur jsDelivr pour l'export PDF. Une exception étroite (`!livraison/assets/vendor/**/dist/`) le fait suivre, et le fichier de
+  la livraison 5.16.0 est ajouté tel que le build de f7636f81 le produit (mêmes octets que `node_modules`, même empreinte SRI) ; c'était
+  le seul fichier de la livraison absent de git.
+- **Fumée, point 145 au bureau** (« toucher bref : pas de façade »). L'application n'était pas en cause : le script envoyait l'appui et
+  le lâcher sans leur heure, que le navigateur datait alors à leur réception. Le pointeur posé sur la maison demande une image de la Vue 3D,
+  qui prend près de deux secondes en rendu logiciel dans la grande classe ; l'appui n'était acquitté qu'après elle, et un toucher de
+  60 ms arrivait daté comme un appui de deux secondes (l'application juge la durée sur `timeStamp`, comme un vrai geste daté par le
+  système). L'appui et le lâcher portent maintenant l'heure du geste (`timestamp` des événements CDP), à la souris comme au doigt : le
+  clic droit et l'appui long restent refusés, le toucher bref choisit la façade.
+
 ## [5.16.0] — 2026-11-08
 
 Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, l'état « Modification » ou « Insertion » se lit d'un coup d'œil
