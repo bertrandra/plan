@@ -21,6 +21,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   golden identiques ; aucun champ de fichier nouveau (l'ordre des sommets et la place du faîtage). Point de fumée 150
   (`facade/modeToit/sens.ts`, `tests/unit/facade/modeToit/sensToit.test.ts`).
 
+### Corrigé
+- **Un projet neuf demandait « Mettre à jour le modèle ? »** (signalé par le propriétaire, 8 novembre 2026 : « À la création d'un
+  nouveau projet j'ai la question pour mettre à jour la version du projet. »). Un projet s'écrit au plus petit schéma qui le décrit,
+  pour rester lisible par les versions précédentes de Plan : la démonstration du premier pas, « Nouveau projet » et l'import cadastre
+  écrivaient donc un plan neuf à un schéma ancien (le 5 pour la démonstration), et sa première ouverture le prenait pour un projet
+  d'une version précédente. Un projet que cette version crée (ou remplit pour la première fois, le projet neuf de la plateforme) est
+  désormais retenu comme gardé tel quel pour le schéma du programme, au même endroit que « Garder tel quel » (`io/modeleGarde.ts`,
+  `io/api.ts::apiSave`) : pas de question à son ouverture sur cet appareil, et elle reviendra quand le schéma du programme montera.
+  Rien d'autre ne change : le schéma écrit reste le plus petit (la démonstration au 5, `contrat/plan-produit.json` inchangé), « Mettre
+  à jour le modèle » reste au menu Fichier, un projet d'une version précédente pose toujours la question et « Garder tel quel » est
+  toujours retenu. Point de fumée 151, et le point 12 vérifie le projet créé par l'import (`tests/unit/app/projetNeufModele.test.ts`).
+
 ## [5.17.0] — 2026-11-08
 
 Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, « Sens du faîtage » se choisit désormais sur chaque forme qui a un

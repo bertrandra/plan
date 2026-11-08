@@ -36,6 +36,7 @@ import {
   rayonDeLecture, RAYON_ETENDU_DEFAUT_M,
   RAYONS_RECHERCHE_M, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../../geo/apiIgn.js';
+import { retenirProjetNeuf } from '../../io/modeleGarde.js';
 import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { AdresseRecherchee, ImportCadastral } from '../../geo/cadastreObjets.js';
@@ -759,6 +760,9 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         // Enregistre sous sa forme ecrite (io/serialisation.ts) : relief compacte, voisinage allege —
         // en memoire, un voisinage de 200 m et son relief depassaient ce que la plateforme accepte.
         const cree = await ctx.apiSave({ ...(cible ? { id: cible.id } : {}), name: nom, objects: serializeObjects(objets), measures: [] });
+        // Cree par cette version, ou rempli pour la premiere fois (le projet neuf de la plateforme, au document vide) :
+        // pas de « Mettre a jour le modele ? » a sa premiere ouverture (io/modeleGarde.ts).
+        retenirProjetNeuf(cree.id);
         localStorage.setItem(ctx.cleDernierProjet, cree.id);
         location.href = ctx.withProjectParam(cree.id);
       } catch (err) {

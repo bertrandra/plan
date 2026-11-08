@@ -11,6 +11,7 @@
 // ecran dans les deux cas. Le depot traduit les codes de la plateforme dans ce vocabulaire-la.
 
 import { au } from '../util/tableaux.js';
+import { retenirProjetNeuf } from './modeleGarde.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
 /** Ce que Plan demande au depot des projets (io/depotPlateforme.ts l'ecrit pour la plateforme). */
@@ -122,8 +123,16 @@ export async function apiLoad(id: string): Promise<ProjetServeur> {
   return leDepot().ouvrir(id);
 }
 
+/**
+ * Enregistre un projet ; sans `id`, le cree. Un projet cree ici l'est par cette version : la question
+ * « Mettre a jour le modele ? » n'a pas a lui etre posee (io/modeleGarde.ts), quel que soit le chemin
+ * qui le cree (premier pas, « Nouveau projet », import cadastre).
+ */
 export async function apiSave(payload: unknown): Promise<{ id: string; updatedAt?: string }> {
-  return leDepot().enregistrer(payload as Parameters<DepotProjets['enregistrer']>[0]);
+  const charge = payload as Parameters<DepotProjets['enregistrer']>[0];
+  const r = await leDepot().enregistrer(charge);
+  if (!charge.id) retenirProjetNeuf(r.id);
+  return r;
 }
 
 export async function apiDelete(id: string): Promise<unknown> {

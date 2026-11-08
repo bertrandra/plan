@@ -25,7 +25,7 @@ import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, readdi
 import { execFileSync } from 'node:child_process';
 import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
+import { ouvrirDemo, simulerPlateforme, FORMATS, BASE } from './captures.mjs';
 import { choisirModeReseau, reseau, servirThreeLocal } from './fumee-reseau.mjs';
 
 const require = createRequire(import.meta.url);
@@ -1031,10 +1031,12 @@ const POINTS = {
     // La parcelle se nomme depuis l'ETAT, jamais depuis le texte du dialogue : celui-ci liste aussi
     // les mitoyennes, et la premiere qu'on y lit n'est pas forcement la principale.
     const c = pc && pc.cadastre;
+    // Le projet que l'import vient de creer ne demande pas « Mettre à jour le modèle ? » (point 151).
+    const question = await page.getByText('Mettre à jour le modèle ?', { exact: true }).waitFor({ timeout: 3000 }).then(() => true, () => false);
     return {
-      ok: !!c && etat.objects.length !== avant,
+      ok: !!c && etat.objects.length !== avant && !question,
       mesure: `« ${ADRESSE} » → ${c ? c.section + ' ' + c.numero + ' (' + c.idu + '), ' + c.contenanceM2 + ' m²' : 'AUCUNE parcelle cadastrée'}, `
-        + `${etat.objects.length} objets dont ${batiments} bâtiment(s)`
+        + `${etat.objects.length} objets dont ${batiments} bâtiment(s)${question ? ' ; « Mettre à jour le modèle ? » POSÉE au nouveau projet' : ''}`
     };
   },
   13: async (page, contexte) => {
@@ -5039,6 +5041,76 @@ const POINTS = {
     if (await deborde()) echecs.push('débordement');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; validé (${fige ? 'figé' : 'NON FIGÉ'}), Ctrl+Z du projet ${defait.json === avant.json ? 'rend le toit d’avant' : 'NE REND PAS'}` };
   },
+  151: async (page, f) => {
+    // Un projet neuf ne demande pas « Mettre a jour le modele ? » (signale par le proprietaire, 8 novembre 2026 : « À la création
+    // d'un nouveau projet j'ai la question pour mettre à jour la version du projet. »). Un projet s'ecrit au plus petit schema qui
+    // le decrit (model/migrations.ts) : la demonstration du premier pas et une copie partent donc a un schema ancien, et leur
+    // premiere ouverture posait la question. On mesure : la demonstration que ouvrirDemo vient de creer, rechargee ; « Nouveau
+    // projet » (la copie), ecrite au schema d'avant, puis rouverte ; dans les deux cas pas de question, et « Mettre a jour le
+    // modele » reste au menu Fichier (le projet est bien au schema d'avant). Le temoin : un projet enregistre au schema 1 par une
+    // version precedente pose toujours la question, et « Garder tel quel » ne la fait pas revenir au rechargement.
+    const SCHEMA = JSON.parse(readFileSync(new URL('../contrat/plan-produit.json', import.meta.url), 'utf8')).current_schema_version;
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const question = () => page.getByText('Mettre à jour le modèle ?', { exact: true });
+    const ouvert = async () => {
+      await page.waitForSelector('#stage svg', { timeout: 30000 });
+      // La question vient « une fois le plan a l'ecran » : on lui laisse le temps d'arriver.
+      await question().waitFor({ timeout: 3000 }).catch(() => {});
+      return { question: await question().count() > 0, enRetard: await page.evaluate(() => window.__plan.magasin().projet.schemaEnRetard) };
+    };
+    const ecrits = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && /\/api\/v1\/projects$/.test(r.url())) ecrits.push(JSON.parse(r.postData() || '{}').schema_version);
+    });
+    const echecs = [];
+    // Le premier pas, vu en entier : ouvrirDemo referme la question si elle vient, on le rejoue donc dans un contexte vierge
+    // (aucun projet, aucune memoire), sans rien refermer.
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const vierge = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+    const p0 = await vierge.newPage();
+    let premier;
+    try {
+      await simulerPlateforme(p0);
+      await p0.addInitScript(() => { window.__sansToitsFond = true; });
+      await etape('premier pas', () => p0.goto(BASE + '/'));
+      await etape('démonstration', () => p0.getByRole('button', { name: /d[ée]monstration/i }).click());
+      await p0.waitForSelector('#stage svg', { timeout: 30000 });
+      await p0.getByText('Mettre à jour le modèle ?', { exact: true }).waitFor({ timeout: 3000 }).catch(() => {});
+      premier = await p0.getByText('Mettre à jour le modèle ?', { exact: true }).count() > 0;
+    } finally { await vierge.close(); }
+    if (premier) echecs.push('démonstration du premier pas : question posée');
+    const demo = await page.evaluate(() => localStorage.getItem('planInteractif.lastProjectId'));
+    await etape('recharger la démonstration', () => page.reload());
+    const d = await ouvert();
+    if (d.question) echecs.push('démonstration rechargée : question posée');
+    // « Nouveau projet » : l'invite du nom, validee telle quelle.
+    await page.evaluate(() => window.__plan.executer('projet.nouveau'));
+    await etape('nom du projet', async () => { await page.locator('.dialogueBoite input').first().waitFor({ timeout: 10000 }); await page.keyboard.press('Enter'); });
+    await etape('ouvrir la copie', () => page.waitForURL((u) => /[?&]projet=/.test(String(u)) && !String(u).includes('projet=' + demo), { timeout: 15000 }));
+    const c = await ouvert();
+    if (c.question) echecs.push('nouveau projet rouvert : question posée');
+    if (!(ecrits[0] < SCHEMA)) echecs.push('copie écrite au schéma ' + ecrits[0] + ' (attendu : sous ' + SCHEMA + ')');
+    if (!c.enRetard) echecs.push('« Mettre à jour le modèle » absent du menu Fichier');
+    // Le temoin : un projet d'une version precedente, au schema 1 (le document de la demonstration, rendu par la plateforme).
+    const ancien = await etape('enregistrer un ancien projet', () => page.evaluate(async (id) => {
+      const base = 'http://plateforme.test/api/v1/projects';
+      const lu = await (await fetch(base + '/' + id)).json();
+      const r = await fetch(base, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Ancien', schema_version: 1, document: lu.document }) });
+      return (await r.json()).id;
+    }, demo));
+    await etape('ouvrir l’ancien projet', () => page.goto(BASE + '/?projet=' + ancien));
+    const a = await ouvert();
+    if (!a.question) echecs.push('ancien projet : PAS de question');
+    else await etape('Garder tel quel', () => page.getByRole('button', { name: 'Garder tel quel' }).click());
+    await page.reload();
+    const g = await ouvert();
+    if (g.question) echecs.push('ancien projet gardé tel quel : la question revient');
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    if (deborde) echecs.push('débordement');
+    const oui = (b) => (b ? 'question' : 'pas de question');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '')
+      + `démonstration du premier pas : ${oui(premier)}, rechargée : ${oui(d.question)} ; nouveau projet écrit au schéma ${ecrits[0]} (programme : ${SCHEMA}), rouvert : ${oui(c.question)}, ${c.enRetard ? '« Mettre à jour le modèle » au menu' : 'commande ABSENTE'} ; ancien projet (schéma 1) : ${oui(a.question)}, gardé tel quel puis rechargé : ${oui(g.question)}` };
+  },
   142: async (page, f) => {
     // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a
     // gauche de x cm, et une poignee pour ajuster ») : sur la maison de la demonstration puis sur AE 101, en vue de la facade d'un long mur,
@@ -6380,13 +6452,13 @@ const POINTS = {
     // On coche les deux, on lit la conformite, on annule une validation, et le projet exporte porte le reglement au schema 8.
     const imp = await POINTS[15](page, f);
     if (!imp.ok) return { ok: imp.ok, mesure: 'zonage préalable : ' + imp.mesure };
-    // Le projet cree par l'import est au schema 5 : Plan pose a l'ouverture la question « Mettre à jour le modèle ? », qui arrive
-    // quand elle veut et, ouverte, retient Ctrl+Z. On la laisse « tel quel » (le schema s'ecrira de lui-meme au 8 avec le reglement).
+    // Le projet cree par l'import est ecrit au plus petit schema qui le decrit ; cree par cette version, il ne pose plus « Mettre à jour
+    // le modèle ? » a son ouverture (point 151). Si elle venait quand meme, ouverte elle retiendrait Ctrl+Z : on la laisse « tel quel »
+    // (le schema s'ecrira de lui-meme au 8 avec le reglement).
     const garderTelQuel = async () => {
       const b = page.getByRole('button', { name: 'Garder tel quel' });
       if (await b.isVisible().catch(() => false)) { await b.click(); await page.waitForTimeout(200); }
     };
-    await page.getByRole('button', { name: 'Garder tel quel' }).waitFor({ timeout: 5000 }).catch(() => {});
     await garderTelQuel();
     const pdf = readFileSync(new URL('../tests/fixtures/plu/chatou-ul-extrait.pdf', import.meta.url));
     await page.route(/^https:\/\/data\.geopf\.fr\/annexes\/gpu\/documents\//, (route) => route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'access-control-allow-origin': '*' }, body: pdf }));
@@ -7195,7 +7267,8 @@ function pointsPour(nomClasse) {
   // 148 : le mode Toit, « Modification » ou « Insertion » d'un coup d'oeil : l'indicateur, la vignette enfoncee, les poignees estompees, le retour.
   // 149 : le sens du faitage au mode Toit sur chaque forme qui en a un (deux pans, croupes, un pan, cul de geai, Mansart...), pas sur le plat.
   // 150 : tout le toit tourne d'un coup (toit en M, deux pans decales, shed ; grise avec sa raison quand un corps l'empeche), le mur haut d'un appentis.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150];
+  // 151 : un projet neuf (la demonstration du premier pas, « Nouveau projet ») rouvert sans « Mettre à jour le modèle ? » ; un ancien la pose toujours.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
