@@ -13,7 +13,8 @@ couleur `insertion`, `on-insertion`, `insertion-bg` et modèles de la palette ; 
 défaut nouveaux : MINOR, pas PATCH. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à
 leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ;
 `projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma
-inchangé (15), rien à déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+inchangé (15), rien à déployer côté plateforme. Requêtes vérifiées sans la mesure sur main (run 42515479922 : 9 sur 9, 0,036 $ ;
+prompts et schémas inchangés).
 
 ### Modifié
 - **Mode Toit : « Modification » ou « Insertion », d'un coup d'œil** (retour du propriétaire, 8 novembre 2026 : « En mode 3D
