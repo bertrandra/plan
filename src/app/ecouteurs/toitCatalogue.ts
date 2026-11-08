@@ -25,7 +25,8 @@ import type { Magasin } from '../magasin.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ChampsBatiment, ObjetPlan } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
-import { brancherDecroche, type GesteDecroche } from './decroche.js';
+import { brancherDecroche, decrocheArme, type GesteDecroche } from './decroche.js';
+import { libellesDesElements } from '../../facade/modeToit/elements.js';
 
 export interface ContexteToitCatalogue {
   /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
@@ -52,6 +53,37 @@ function raisonDuCatalogue(o: ObjetPlan | undefined, id: string): string | null 
   const s = sessionToit();
   if (!o || !s) return null;
   return gestes ? gestes.raisonIndisponible(o, id, s.facade ?? s.derniere, etatToit().selection?.rang ?? null) : 'Le catalogue du mode Toit se charge.';
+}
+
+/**
+ * L'insertion en cours dans le mode Toit : une piece armee qui attend un toucher sur la scene pour se poser (le decroche au point, ou
+ * l'element de facade a replacer sur un mur). Null : la session est en modification (poignees, reglages, pieces posees d'un coup).
+ * L'indicateur d'etat, la vignette enfoncee, les poignees estompees et le curseur de pose la lisent (retour du proprietaire, 8 novembre
+ * 2026 : « j'ai du mal a distinguer si je suis en modif ou insertion »).
+ */
+export interface InsertionToit {
+  /** Le mot de l'etat : « Insertion » pour une piece nouvelle, « Placement » pour un element deja pose qui change de mur. */
+  nature: 'Insertion' | 'Placement';
+  /** Ce qui attend son toucher (« Décroché », le nom de l'element). */
+  piece: string;
+  /** Ou toucher, en mots. */
+  consigne: string;
+  /** La commande qui l'a armee (sa vignette ou son bouton est enfonce). */
+  commande: 'toit.decrocher' | 'toit.murSur3d';
+}
+
+/** Le batiment de la session, pose au branchement : l'indicateur nomme l'element arme. */
+let batimentDeLaSession: (() => ObjetPlan | undefined) | null = null;
+
+export function insertionToit(): InsertionToit | null {
+  const s = sessionToit();
+  if (!s) return null;
+  if (decrocheArme()) return { nature: 'Insertion', piece: 'Décroché', consigne: 'touchez l’égout ou le mur à l’endroit du décroché', commande: 'toit.decrocher' };
+  const a = saillieArmee();
+  if (!a || a.cle !== s.cle) return null;
+  const corps = batimentDeLaSession?.()?.batiment?.corpsToit ?? [];
+  const nom = libellesDesElements(corps).find((e) => e.cible.type === 'saillie' && e.cible.rang === a.rang)?.libelle ?? 'l’élément choisi';
+  return { nature: 'Placement', piece: nom, consigne: 'touchez un mur du bâtiment pour y poser l’élément', commande: 'toit.murSur3d' };
 }
 
 export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.batiment?.toitFige;
@@ -158,6 +190,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   const mode = creerModeToit(a, { rebatir: ctx.rebatirBatiment, rafraichir: ctx.rafraichir });
   const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
   const enSession = () => !!sessionToit();
+  batimentDeLaSession = batiment;
 
   // Les descriptions sont au glossaire (app/descriptions.ts).
   const commande = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit = true,
@@ -261,12 +294,20 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   // Le bouton etait dans l'inspecteur du plan, qui n'est pas montre en Vue 3D : il ne servait jamais (audit de la navigation).
   commande('toit.murSur3d', 'Choisir le mur dans la 3D',
     () => enSession() && etatToit().selection?.type === 'saillie', () => {
+      // Un second appui lache l'element arme (retour a la modification) ; la consigne est dite par l'indicateur d'etat du mode.
+      if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); return; }
       const t = etatToit().selection, o = batiment();
       if (t?.type !== 'saillie' || !o?.batiment?.corpsToit?.[t.rang]?.saillie) return;
+      decroche.desarmer();
       armerSaillie(o.key, t.rang);
       ctx.rafraichir();
-      showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).');
     });
+
+  // Quitter l'insertion sans rien poser : le bouton « Annuler » de l'indicateur d'etat (Echap et un second appui font de meme).
+  commande('toit.quitterInsertion', 'Annuler l’insertion', () => insertionToit() !== null, () => {
+    decroche.desarmer();
+    if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); }
+  }, false);
 
   /** Replace l'element arme sur le mur que la personne touche ; faux si le toucher ne dit rien (le ciel, un autre objet). */
   const placerSurLeMurTouche = (ndc: { x: number; y: number }): boolean => {

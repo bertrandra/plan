@@ -19,6 +19,7 @@ import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { PtBrut } from '../../model/types.js';
 import { silhouetteVersLOeil } from '../../facade/regles/toits/silhouetteDesCorps.js';
+import { insertionToit } from '../../app/ecouteurs/toitCatalogue.js';
 
 /** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */
 const RAYON_PX = 9, SAISIE_PX = 22;
@@ -140,7 +141,11 @@ function bornesLibres(hote: DOMRect): { x0: number; y0: number; x1: number; y1: 
   const m = 2 * SAISIE_PX;
   let x1 = hote.width - m, y1 = hote.height - m;
   if (p && p.width > 0) { if (p.width < hote.width * 0.6) x1 = Math.min(x1, p.left - hote.left - m); else y1 = Math.min(y1, p.top - hote.top - m); }
-  return { x0: m, y0: m, x1: Math.max(m, x1), y1: Math.max(m, y1) };
+  // L'indicateur d'etat du mode : au-dessus du panneau quand il est en bas (telephone, tablette), en haut de la scene sinon.
+  const i = hotes3d.vue3d?.querySelector('.etatToit')?.getBoundingClientRect();
+  let y0 = m;
+  if (i && i.width > 0) { if (p && p.width >= hote.width * 0.6) y1 = Math.min(y1, i.top - hote.top - m); else y0 = Math.max(y0, i.bottom - hote.top + m); }
+  return { x0: m, y0, x1: Math.max(m, x1), y1: Math.max(y0, y1) };
 }
 
 export function PoigneesToit({ magasin }: { magasin: Magasin }) {
@@ -242,8 +247,12 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     setGuides([]);
   };
 
+  // Pendant une insertion, un toucher pose la piece : il ne prend pas une poignee. Elles restent montrees, estompees, et le toucher les
+  // traverse jusqu'a la scene (app.css, `.enInsertion`) ; elles reviennent des que l'insertion se termine.
+  const enInsertion = !!insertionToit();
+
   return (
-    <svg className="poigneesToit" data-suit-la-camera="" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
+    <svg className={'poigneesToit' + (enInsertion ? ' enInsertion' : '')} data-suit-la-camera="" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
       {silhouette && <TraitCorps pts={silhouette} />}
       {guides.map((g) => {
         const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);
@@ -256,8 +265,9 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
         const cachee = !!cachees[k] && glisse.current?.id !== p.id;
         return (
           <g key={p.id} className={'poigneeToit' + (DEPLACEMENTS.has(p.id) ? ' deplacer' : '') + (cachee ? ' cachee' : '')} data-poignee={p.id} data-cachee={cachee ? '' : undefined}
-            transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle + (cachee ? ' (cachée par le toit : tournez autour du bâtiment)' : '')} aria-disabled={cachee || undefined}
-            onPointerDown={(ev) => { if (!cachee) demarrer(ev, p); }} onPointerMove={bouger} onPointerUp={finir} onPointerCancel={finir}>
+            transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle + (cachee ? ' (cachée par le toit : tournez autour du bâtiment)' : enInsertion ? ' (insertion en cours : terminez-la ou annulez-la)' : '')}
+            aria-disabled={cachee || enInsertion || undefined}
+            onPointerDown={(ev) => { if (!cachee && !enInsertion) demarrer(ev, p); }} onPointerMove={bouger} onPointerUp={finir} onPointerCancel={finir}>
             {vrai && Math.hypot(vrai.x - q.x, vrai.y - q.y) > SAISIE_PX && <line className="renvoiPoignee" x1={0} y1={0} x2={vrai.x - q.x} y2={vrai.y - q.y} />}
             <title>{p.libelle}</title>
             <circle className="saisiePoignee" r={SAISIE_PX} />

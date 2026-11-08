@@ -8,6 +8,7 @@
     --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3; --relief:#8C6B3F;
     --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
     --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
+    --insertion:#1F5FA8; --on-insertion:#FFFDF8; --insertion-bg:#E4EEF9;
     --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA; --trait-3d:#1E1812;
     --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
     --serie-1:#2A78D6; --serie-2:#EB6834; --serie-3:#1BAF7A;
@@ -34,6 +35,7 @@
       --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F; --relief:#C9A97A;
       --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
       --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
+      --insertion:#7DB4F0; --on-insertion:#1C1610; --insertion-bg:#1D2B3B;
       --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426; --trait-3d:#120E0A;
       --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
       --serie-1:#3987E5; --serie-2:#D95926; --serie-3:#199E70;
@@ -123,6 +125,29 @@
   .indiceMain{ position:absolute; z-index:4; pointer-events:none; color:var(--accent); transform:translate(-50%, -50%); filter:drop-shadow(0 1px 2px rgba(0,0,0,.35)); animation:battementToit 1.4s ease-in-out infinite; }
   @keyframes battementToit{ 0%,100%{ transform:translate(-50%, -50%); } 50%{ transform:translate(-50%, -62%); } }
   @media (prefers-reduced-motion: reduce){ .indiceMain{ animation:none; } }
+  /* L'etat de la session du mode Toit, d'un coup d'oeil (retour du proprietaire, 8 novembre 2026) : « Modification » sur le fond des
+     panneaux, « Insertion » (une piece armee qui attend son toucher) en plein de la couleur d'insertion, toujours dit en mots. Pose sur la
+     scene, hors du panneau : en haut au milieu au bureau, juste au-dessus du panneau au telephone et a la tablette (sa hauteur mesuree). */
+  .etatToit{ position:absolute; z-index:6; top:8px; left:176px; right:420px; margin:0 auto; width:fit-content; max-width:calc(100% - 596px); min-width:0;
+    display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; padding:6px 8px 6px 6px; font-family:var(--sans); font-size:.8rem; line-height:1.25;
+    color:var(--ink); background:var(--panel-bg); border:2px solid var(--rule); border-radius:var(--r-bouton); box-shadow:var(--ombre-flottante); }
+  .etatToit .badgeEtatToit{ display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-weight:700; letter-spacing:.02em;
+    color:var(--on-accent-light); background:var(--accent-light); white-space:nowrap; }
+  .etatToit .texteEtatToit{ color:var(--ink-soft); }
+  .etatToit[data-etat="insertion"]{ color:var(--on-insertion); background:var(--insertion); border-color:var(--insertion); }
+  .etatToit[data-etat="insertion"] .badgeEtatToit{ color:var(--insertion); background:var(--on-insertion); }
+  .etatToit[data-etat="insertion"] .texteEtatToit{ color:var(--on-insertion); }
+  .etatToit .annulerEtatToit{ min-height:32px; padding:2px 12px; font:inherit; font-weight:600; color:var(--insertion); background:var(--on-insertion); border:1px solid var(--on-insertion); border-radius:8px; cursor:pointer; }
+  html:not([data-classe="large"]) .etatToit{ top:auto; left:8px; right:64px; max-width:calc(100% - 72px); bottom:calc(var(--hauteur-panneau-toit, 52%) + 6px); }
+  html[data-classe="moyen"] .etatToit{ bottom:calc(var(--hauteur-panneau-toit, 64%) + 14px); }
+  html:not([data-classe="large"]) .etatToit .annulerEtatToit{ min-height:44px; }
+  /* Pendant l'insertion, la scene le dit aussi : un cadre de la couleur d'insertion, le curseur de pose au bureau ; les poignees, estompees,
+     ne se prennent pas (le toucher les traverse et pose la piece). La ligne « touchez un de ses murs » du panneau passe au second plan. */
+  html[data-insertion-toit] #terrasse3dCanvasHost::after{ content:""; position:absolute; inset:0; z-index:3; border:3px solid var(--insertion); pointer-events:none; }
+  /* !important : l'orbite de three.js (OrbitControls.cursorStyle) pose son curseur en style du canevas. */
+  html[data-insertion-toit] #terrasse3dCanvasHost canvas{ cursor:crosshair !important; }
+  .poigneesToit.enInsertion .poigneeToit{ pointer-events:none; opacity:.3; }
+  html[data-insertion-toit] .panneauToit .designationToit{ opacity:.5; }
   /* Sur telephone et tablette : le plan de facades se reduit, le panneau est un bandeau qui ne couvre pas plus de la moitie de la scene. */
   .panneauToit .languetteToit, .navigateurToit .boutonNavigateur{ display:none; }
   html[data-classe="compact"] .navigateurToit{ top:184px; width:104px; height:84px; padding:2px; }
@@ -214,6 +239,11 @@
   /* La forme en place sur le corps : la vignette enfoncee, et le mot, la couleur ne portant jamais seule l'information. */
   .panneauToit .toitPiece[aria-pressed="true"]{ background:var(--accent-light); color:var(--on-accent-light); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
   .panneauToit .toitPiece[aria-pressed="true"] .libelle::after{ content:" · en place"; }
+  /* La piece armee : enfoncee de la couleur d'insertion, et dite (« à poser ») ; un second appui la lache. */
+  .panneauToit .toitPiece.armee{ background:var(--insertion-bg); color:var(--ink); border:2px solid var(--insertion); box-shadow:inset 0 0 0 2px var(--insertion); }
+  .panneauToit .toitPiece.armee .libelle{ color:var(--insertion); font-weight:700; }
+  .panneauToit .toitPiece.armee .libelle::after{ content:" · à poser"; }
+  .panneauToit .boutonToit.arme{ background:var(--insertion-bg); border:2px solid var(--insertion); color:var(--insertion); }
   .panneauToit .toitPiece .glyphe svg.chaineVignette{ width:100%; max-width:56px; height:auto; }
   .panneauToit .toitPiece .libelle{ font-size:.68rem; line-height:1.1; text-align:center; }
   /* Une piece a variantes (le quatre-pans et ses trois pans) : la vignette, puis ses options en dessous, de la meme largeur. */

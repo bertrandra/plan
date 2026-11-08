@@ -91,6 +91,11 @@ function themes(m) {
   clair['danger-bg'] = tsl(danger.t, danger.s * 0.7, 97);
   clair.danger = lisible(danger.t, danger.s, 35, -1, [clair['danger-bg'], clair['panel-bg']], 4.5);
   clair.alerte = lisible(alerte.t, alerte.s, 45, -1, [clair['panel-bg']], 3);
+  // L'insertion du mode Toit : une teinte a part de l'accent (a 150 degres de lui), pour que « Insertion » ne se lise pas « Modification ».
+  const ti = ((m.insertion?.t ?? a.t + 150) % 360 + 360) % 360, si = m.insertion?.s ?? Math.max(40, Math.min(75, a.s + 20));
+  clair['on-insertion'] = clair['panel-bg'];
+  clair['insertion-bg'] = tsl(ti, si * 0.6, 93);
+  clair.insertion = lisible(ti, si, 40, -1, [clair['panel-bg'], clair['insertion-bg']], 4.5);
   clair['toast-bg'] = clair.ink; clair['on-toast'] = clair['panel-bg'];
   clair['fond-3d'] = tsl(ciel.t, ciel.s, 89);
   // Le trait de la facade vue de pres se pose sur la scene (des murs clairs) : sombre dans les deux themes.
@@ -116,6 +121,9 @@ function themes(m) {
   sombre['danger-bg'] = tsl(danger.t, danger.s * 0.4, 15);
   sombre.danger = lisible(danger.t, danger.s, 74, 1, [sombre['danger-bg'], sombre['panel-bg']], 4.5);
   sombre.alerte = lisible(alerte.t, alerte.s, 64, 1, [sombre['panel-bg']], 3);
+  sombre['on-insertion'] = sombre.paper;
+  sombre['insertion-bg'] = tsl(ti, si * 0.4, 17);
+  sombre.insertion = lisible(ti, si, 66, 1, [sombre['panel-bg'], sombre['insertion-bg'], sombre['on-insertion']], 4.5);
   sombre['toast-bg'] = sombre.ink; sombre['on-toast'] = sombre.paper;
   sombre['fond-3d'] = tsl(ciel.t, ciel.s * 0.4, 13);
   sombre['trait-3d'] = tsl(nS.t, nS.s * 0.5, 6);
@@ -146,7 +154,7 @@ const MODELES = [
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
   'border', 'rule', 'hairline', 'relief', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
-  'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
+  'insertion', 'on-insertion', 'insertion-bg', 'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
   'claude-angles', 'claude-pointe', 'claude-forme', 'claude-appentis', 'claude-corps', 'claude-element', 'claude-cache', 'claude-parement', 'claude-zone', 'claude-ouverture'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));
 

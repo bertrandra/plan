@@ -3,13 +3,13 @@
 // Le panneau n'existe que pendant une session (app/toits/modeToit.ts). Tout bouton est une commande du registre ; le panneau ne sait ni
 // poser ni valider, il demande. La facade choisie se dit dans l'indice ; tant qu'aucune ne l'est, l'indice invite a toucher un mur.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { enPoints } from '../../model/formes.js';
 import { abonnerImage, cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
-import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
+import { insertionToit, reglesAllumees, type InsertionToit } from '../../app/ecouteurs/toitCatalogue.js';
 import { OPTIONS_PIECE, formeEnPlace, piece, piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeSaillie, vueSurLeToit } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
@@ -80,7 +80,8 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
   if (!liste.length) return null;
   const groupes = selection ? groupesDe(corps, selection) : [];
   const bouton = (id: string, icone: NomIcone, libelle: string, danger = false) => (
-    <button type="button" className={'boutonToit' + (danger ? ' danger' : '')} data-commande={id} aria-label={libelle} title={libelle}
+    <button type="button" className={'boutonToit' + (danger ? ' danger' : '') + (insertionToit()?.commande === id ? ' arme' : '')} data-commande={id} aria-label={libelle} title={libelle}
+      aria-pressed={id === 'toit.murSur3d' ? insertionToit()?.commande === id : undefined}
       disabled={!commandes.etat(id).utilisable} onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}><Icone nom={icone} taille={20} /></button>
   );
   return (
@@ -164,6 +165,27 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
   );
 }
 
+/**
+ * L'etat de la session, d'un coup d'oeil (retour du proprietaire, 8 novembre 2026 : « j'ai du mal a distinguer si je suis en modif ou
+ * insertion ») : « Modification » (les poignees, les reglages, les pieces qui se posent d'un coup) ou « Insertion » d'une piece armee qui
+ * attend un toucher sur la scene, avec ou toucher et comment en sortir. Toujours en mots, jamais par la couleur seule ; pose sur la scene,
+ * hors du panneau, il ne defile pas avec lui et reste au-dessus de lui au telephone. Au doigt, pas d'Echap : le bouton « Annuler » le dit.
+ */
+function EtatSession({ insertion, commandes, clavier }: { insertion: InsertionToit | null; commandes: RegistreCommandes; clavier: boolean }) {
+  return (
+    <div className="etatToit" data-etat={insertion ? 'insertion' : 'modification'} role="status" aria-live="polite">
+      <span className="badgeEtatToit"><Icone nom={insertion ? 'plus' : 'deplacer'} taille={16} />{insertion ? insertion.nature + ' : ' + insertion.piece : 'Modification'}</span>
+      <span className="texteEtatToit">
+        {insertion ? '— ' + insertion.consigne + (clavier ? ' · Échap pour annuler' : '') : 'Tirez les poignées de l’élément choisi, ou choisissez une pièce à ajouter.'}
+      </span>
+      {insertion && (
+        <button type="button" className="annulerEtatToit" data-commande="toit.quitterInsertion" title="Quitter l’insertion sans rien poser (Échap)"
+          onClick={(ev) => { commandes.executer('toit.quitterInsertion', ev.currentTarget); }}>Annuler</button>
+      )}
+    </div>
+  );
+}
+
 /** Ce sur quoi agissent les gestes du catalogue : le corps choisi (celui de l'element choisi) ; sans choix, la facade regardee. */
 function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): string | null {
   if (corps.length < 2) return 'Les gestes s’appliquent au toit du bâtiment.';
@@ -185,6 +207,24 @@ export function ModeToit({ magasin, commandes }: Props) {
     document.documentElement.toggleAttribute('data-mode-toit', enSession);
     return () => { document.documentElement.removeAttribute('data-mode-toit'); };
   }, [enSession]);
+  // L'insertion en cours se lit aussi sur la scene : le curseur de pose, le cadre de la couleur d'insertion, les poignees estompees (app.css).
+  const insertion = enSession ? insertionToit() : null, enInsertion = !!insertion;
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-insertion-toit', enInsertion);
+    return () => { document.documentElement.removeAttribute('data-insertion-toit'); };
+  }, [enInsertion]);
+  // La hauteur du panneau, sur la scene : au telephone et a la tablette, l'indicateur d'etat se pose juste au-dessus de lui (app.css,
+  // `--hauteur-panneau-toit`), replie ou deplie.
+  const panneau = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const p = panneau.current, hote = hotes3d.vue3d;
+    if (!p || !hote || typeof ResizeObserver === 'undefined') return;
+    const poser = () => { hote.style.setProperty('--hauteur-panneau-toit', p.getBoundingClientRect().height + 'px'); };
+    poser();
+    const r = new ResizeObserver(poser);
+    r.observe(p);
+    return () => { r.disconnect(); hote.style.removeProperty('--hauteur-panneau-toit'); };
+  }, [enSession]);
   const e = etatToit(), s = sessionToit();
   if (!e.actif || !s) return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
@@ -205,7 +245,8 @@ export function ModeToit({ magasin, commandes }: Props) {
     <PlanToit magasin={magasin} commandes={commandes} />
     <IndiceMain magasin={magasin} />
     <PoigneesToit magasin={magasin} />
-    <div className={'panneauToit' + (replie ? ' replie' : '')} role="region" aria-label="Mode Toit">
+    <EtatSession insertion={insertion} commandes={commandes} clavier={!tactile} />
+    <div ref={panneau} className={'panneauToit' + (replie ? ' replie' : '')} role="region" aria-label="Mode Toit">
       <button type="button" className="languetteToit" aria-expanded={!replie} aria-label={replie ? 'Déployer le catalogue' : 'Replier le catalogue'}
         title={replie ? 'Déployer le catalogue' : 'Replier le catalogue'} onClick={() => { setReplie(!replie); }}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={20} /></button>
       {/* Ce qui defile, transparent, dans le panneau opaque qui ne defile pas : un defilement opaque pose sur la scene la faisait
@@ -246,9 +287,12 @@ export function ModeToit({ magasin, commandes }: Props) {
           const refusDe = (id: string) => (o ? raisonIndisponible(o, id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.');
           const refus = refusDe(p.id), options = OPTIONS_PIECE[p.id], idCommande = COMMANDE_DE_PIECE[p.id] ?? 'toit.poser';
           const permise = idCommande === 'toit.poser' ? pose.utilisable : commandes.etat(idCommande).utilisable;
+          // La piece armee (elle attend son toucher sur la scene) est enfoncee, de la couleur de l'insertion ; un second appui la lache.
+          const armee = insertion?.commande === idCommande;
           const bouton = (
-            <button key={p.id} type="button" className="toitPiece" data-commande={idCommande} data-piece={p.id} aria-pressed={p.famille === 'toit' ? p.id === enPlace : undefined}
-              disabled={!!refus || !permise} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
+            <button key={p.id} type="button" className={'toitPiece' + (armee ? ' armee' : '')} data-commande={idCommande} data-piece={p.id}
+              aria-pressed={p.famille === 'toit' ? p.id === enPlace : armee ? true : idCommande !== 'toit.poser' ? false : undefined}
+              disabled={!!refus || !permise} title={p.libelle + (refus ? ' — ' + refus : armee ? ' — touchez la scène pour poser ; appuyez de nouveau pour annuler' : '')} aria-label={p.libelle}
               onClick={(ev) => { commandes.executer(idCommande, ev.currentTarget); }}>
               <span className="glyphe"><ImagePiece p={p} /></span>
               <span className="libelle">{p.libelle}</span>
