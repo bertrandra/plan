@@ -13,7 +13,8 @@ modèle ? » à sa création (#629, correctif). Un geste nouveau offert par l'in
 aucune quantité ni aucun export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de
 build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15), aucun champ de fichier
-nouveau, rien à déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+nouveau, rien à déployer côté plateforme. Requêtes vérifiées sans la mesure sur main (run 42536319692 : 9 sur 9, 0,031 $ ;
+prompts et schémas inchangés).
 
 ### Ajouté
 - **Mode Toit : tout le toit tourne d'un coup, et le mur haut d'un appentis se choisit** (réponses du propriétaire, 8 novembre 2026 :
