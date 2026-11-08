@@ -4645,6 +4645,131 @@ const POINTS = {
     const ok = rapproche.pxm > depart.pxm * 1.3 && autour && prises.every(Boolean) && prises.length > 0 && intact && garde && borneIn && borneOut;
     return { ok, mesure: `${doigt ? 'pincement' : 'molette'} : ${depart.pxm.toFixed(0)} → ${rapproche.pxm.toFixed(0)} px/m, point visé ${autour ? 'resté' : 'PARTI'} (${Math.hypot(rapproche.x - depart.x, rapproche.y - depart.y).toFixed(1)} px) ; poignées ${prises.filter(Boolean).length}/${prises.length} prenables ; bâtiment ${intact ? 'intact' : 'CHANGÉ'} ; Ctrl+Z ${garde ? 'garde' : 'DÉFAIT'} le zoom ; au plus près ${pres.pxm.toFixed(0)} px/m pour ${pres.libre.toFixed(0)} px libres ${borneIn ? '✓' : '✗'} ; au plus loin ${loin.pxm.toFixed(0)} px/m ${borneOut ? '= départ' : '≠ départ'}` };
   },
+  148: async (page, f) => {
+    // Modification ou insertion : l'etat du mode Toit se lit d'un coup d'oeil (retour du proprietaire, 8 novembre 2026 : « En mode 3D
+    // batiment j'ai du mal a distinguer si je suis en modif ou insertion »). AE 101, Vue 3D, « Modifier la toiture », le corps principal
+    // choisi : l'indicateur dit « Modification », ses poignees se prennent. Onglet Facade, « Décroché » : l'indicateur dit « Insertion :
+    // Décroché », touchez…, Echap (au bureau), « Annuler » ; la vignette enfoncee ; les poignees estompees, et un toucher sur l'une d'elles ne la prend pas ; au
+    // bureau, le curseur de pose sur la scene ; au telephone, l'indicateur visible hors du panneau. Echap, un second appui sur la vignette,
+    // puis « Annuler » de l'indicateur ramenent « Modification » ; une pose (le dialogue du decroche, annule) aussi. Rien n'est ecrit :
+    // le toit, l'historique du projet et « projet modifie » ne bougent pas.
+    // FUMEE_CAPTURE_MODE=<prefixe> enregistre les deux etats, en vue 3D libre et en vue de facade (<prefixe>-<classe>-<etat>-<vue>.png).
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const capture = process.env.FUMEE_CAPTURE_MODE;
+    const ae101 = JSON.parse(readFileSync(new URL('../tests/fixtures/toits/vesinet-ae101.json', import.meta.url), 'utf8'));
+    await page.evaluate((d) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = d.contour.map((p) => ({ x: p.x, y: p.y }));
+      const n = o.pts.length;
+      o.vertexNames = Array.from({ length: n }, (_, i) => String.fromCharCode(65 + i)); o.segmentNames = Array(n).fill(''); o.frozenVertices = Array(n).fill(false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = JSON.parse(JSON.stringify(d.corpsAvecFaits));
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 2.6, angleFaitage: 16, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, ae101);
+    const corpsDuToit = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit));
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await image3dStable(page, 3000);
+    const projet = () => page.evaluate(() => { const m = window.__plan.magasin(); return { annuler: m.peutAnnuler, statut: m.projet?.statut }; });
+    const projetAvant = await projet();
+    await etape('ouvrir le mode', async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    });
+    const toitAvant = await corpsDuToit();
+    const photo = async (nom) => { if (capture) { await page.waitForTimeout(500); await page.screenshot({ path: `${capture}-${f.nom}-${nom}.png` }); } };
+    // L'indicateur : son etat, son texte, et s'il se voit (dans la fenetre, et c'est lui qui est sous son milieu, pas le panneau).
+    const indicateur = () => page.evaluate(() => {
+      const i = document.querySelector('.etatToit');
+      if (!i) return { etat: null, texte: '', visible: false };
+      const r = i.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const visible = r.width > 0 && r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth && !!document.elementFromPoint(x, y)?.closest('.etatToit');
+      return { etat: i.dataset.etat, texte: i.textContent.replace(/\s+/g, ' ').trim(), visible };
+    });
+    // Les poignees montrees : prenables (sous leur milieu, c'est elles) ou estompees et traversees par le toucher.
+    const poignees = () => page.evaluate(() => [...document.querySelectorAll('[data-poignee]')].map((g) => {
+      const p = g.querySelector('.pointPoignee') ?? g, r = p.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return { x, y, prise: getComputedStyle(g).pointerEvents !== 'none', opacite: Number(getComputedStyle(g).opacity), dessous: document.elementFromPoint(x, y)?.closest('[data-poignee]') === g };
+    }));
+    const piece = page.locator('[data-piece="facade:decroche"]');
+    const enfoncee = () => page.evaluate(() => document.querySelector('[data-piece="facade:decroche"]')?.getAttribute('aria-pressed') === 'true');
+    const curseur = () => page.evaluate(() => getComputedStyle(document.querySelector('#terrasse3dCanvasHost canvas')).cursor);
+    const echecs = [];
+    const verifier = (cond, dit) => { if (!cond) echecs.push(dit); };
+    const modification = async (quand) => {
+      await page.waitForTimeout(300);
+      const i = await indicateur();
+      verifier(i.etat === 'modification' && /Modification/.test(i.texte) && i.visible, quand + ' : indicateur ' + JSON.stringify(i));
+      verifier(!(await enfoncee()), quand + ' : vignette encore enfoncée');
+    };
+    const insertion = async (quand, vue) => {
+      await page.waitForTimeout(300);
+      const i = await indicateur();
+      verifier(i.etat === 'insertion' && /Insertion/.test(i.texte) && /Décroché/.test(i.texte) && /touchez/.test(i.texte) && (f.mobile || /Échap/.test(i.texte)) && /Annuler/.test(i.texte) && i.visible, quand + ' : indicateur ' + JSON.stringify(i));
+      verifier(await enfoncee(), quand + ' : vignette non enfoncée');
+      const p = await poignees();
+      verifier(p.every((q) => !q.prise && q.opacite < 0.6), quand + ' : poignées prenables pendant l’insertion');
+      if (!f.mobile) verifier((await curseur()) === 'crosshair', quand + ' : curseur ' + (await curseur()));
+      return p;
+    };
+
+    // Modification, en vue 3D libre : le corps principal choisi par sa pastille, ses poignees prenables.
+    await etape('corps principal', () => page.locator('.puceToit[data-type="corps"][data-rang="0"]').click());
+    await page.waitForTimeout(800);
+    await modification('corps choisi');
+    const prises = await poignees();
+    verifier(prises.length > 0 && prises.some((q) => q.prise && q.dessous), 'modification : aucune poignée prenable');
+    await photo('modification-libre');
+    await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+    // La vue de la facade du corps principal (la piece « Décroché » agit sur la facade regardee : sans elle, elle est grisee).
+    await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(1000);
+    await modification('vue de façade');
+    await photo('modification-facade');
+    await etape('décroché (façade)', () => piece.click({ timeout: 10000 }));
+    const estompees = await insertion('vue de façade');
+    await photo('insertion-facade');
+    // Un second appui sur la vignette quitte l'insertion.
+    await piece.click();
+    await modification('second appui');
+    // « Annuler » de l'indicateur.
+    await piece.click();
+    await insertion('réarmé');
+    const annuler = page.locator('.etatToit [data-commande="toit.quitterInsertion"]');
+    if (await annuler.count()) await annuler.click({ timeout: 5000 });
+    else { echecs.push('pas de bouton « Annuler » dans l’indicateur'); await page.keyboard.press('Escape'); }
+    await modification('« Annuler »');
+    // Un toucher sur une poignee pendant l'insertion : il va a la scene (la pose : le dialogue du decroche, ou rien hors du mur), jamais a
+    // la poignee ; le dialogue annule, retour a « Modification » (une pose desarme, comme avant).
+    await piece.click();
+    await page.waitForTimeout(300);
+    const cible = estompees.find((q) => q.x > 0 && q.y > 0);
+    if (cible) {
+      if (f.mobile) await page.touchscreen.tap(cible.x, cible.y); else await page.mouse.click(cible.x, cible.y);
+      await page.waitForTimeout(500);
+      const dialogue = await page.locator('[data-controle="dialogue.tertiaire"]').count();
+      if (dialogue) { await page.locator('[data-controle="dialogue.tertiaire"]').click(); await modification('pose annulée'); }
+      else { await page.keyboard.press('Escape'); await modification('Échap après un toucher hors du mur'); }
+    } else { await page.keyboard.press('Escape'); await modification('Échap (façade)'); }
+    // Insertion en vue 3D libre : la facade choisie reste celle du decroche.
+    await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
+    await page.waitForTimeout(1000);
+    await etape('décroché (3D libre)', () => piece.click({ timeout: 10000 }));
+    await insertion('3D libre');
+    await photo('insertion-libre');
+    await page.keyboard.press('Escape');
+    await modification('Échap (3D libre)');
+    verifier(await corpsDuToit() === toitAvant, 'le toit a changé');
+    await etape('abandonner', async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(300); await page.keyboard.press('Escape'); await page.waitForTimeout(600); });
+    const projetApres = await projet();
+    verifier(projetApres.annuler === projetAvant.annuler && projetApres.statut === projetAvant.statut, 'projet : ' + JSON.stringify(projetAvant) + ' → ' + JSON.stringify(projetApres));
+    return { ok: echecs.length === 0, mesure: echecs.length ? echecs.slice(0, 3).join(' ; ') : `Modification ↔ Insertion lisibles ; ${prises.filter((q) => q.prise).length} poignée(s) prenables en modification, ${estompees.length} estompée(s) en insertion ; Échap, second appui, « Annuler » et la pose ramènent « Modification » ; toit, historique et statut inchangés` };
+  },
   142: async (page, f) => {
     // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a
     // gauche de x cm, et une poignee pour ajuster ») : sur la maison de la demonstration puis sur AE 101, en vue de la facade d'un long mur,
@@ -6798,7 +6923,8 @@ function pointsPour(nomClasse) {
   // 136 : une session du mode Toit qui ne se perd pas : Annuler du projet, toucher sur le panneau, « Plan », Echap, retour du navigateur.
   // 146 : l'ecran des etapes de la calibration (lot C1) : quatorze etapes, leurs actions et leurs badges, les gestes dans leur etape, les familles de Claude.
   // 147 : les choix Calcul / Claude / Manuel et le forcage de Claude (lot C2), dans la calibration seulement : effet, Ctrl+Z, Ctrl+Y.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147];
+  // 148 : le mode Toit, « Modification » ou « Insertion » d'un coup d'oeil : l'indicateur, la vignette enfoncee, les poignees estompees, le retour.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

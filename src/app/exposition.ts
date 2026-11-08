@@ -183,6 +183,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'toit.poser': partout('vue3d'),
   'toit.decrocher': partout('vue3d'),
   'toit.murSur3d': partout('vue3d'),
+  // L'indicateur d'etat du mode Toit, sur la scene : « Annuler » quitte l'insertion en cours.
+  'toit.quitterInsertion': partout('vue3d'),
   'toit.modifierEn3d': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),

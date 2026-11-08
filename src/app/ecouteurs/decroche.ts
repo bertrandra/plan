@@ -16,11 +16,17 @@ import { champsBatiment } from '../../model/champsFonction.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { showToast } from '../../shell/dialogs.js';
+import { desarmerSaillie } from '../../interaction/choixSaillie.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 /** Ce que la scene et le clavier demandent au decroche : est-il arme, ou poser le point touche, le desarmer. */
 export interface GesteDecroche { arme: () => boolean; placer: (ndc: { x: number; y: number }) => boolean; desarmer: () => void }
+
+/** Le decroche de la session courante (un seul branchement par application) : l'indicateur d'etat du mode le lit. */
+let courant: GesteDecroche | null = null;
+/** Vrai quand la piece « Decroche » attend son point (l'insertion en cours). */
+export const decrocheArme = (): boolean => !!courant?.arme();
 
 /**
  * `raison` : pourquoi le decroche n'a pas de sens sur la facade regardee (celle du catalogue, `raisonIndisponible` de 'facade:decroche'),
@@ -36,9 +42,12 @@ export function brancherDecroche(cmd: RegistreCommandes, mode: Pick<ModeToit, 'e
     id: 'toit.decrocher', libelle: 'Décrocher ici', groupe: 'toit', permission: PERMISSION_ECRITURE,
     actif: () => !!sessionToit() && raison() === null, raisonInactive: () => (sessionToit() ? raison() : null),
     executer: () => {
+      // Un second appui sur la vignette armee la lache : retour a la modification (retour du proprietaire, 8 novembre 2026). La consigne
+      // (« touchez l'egout ou le mur ») est dite par l'indicateur d'etat du mode, tant que l'insertion dure : plus de message ephemere.
+      if (estArme()) { armePour = null; rafraichir(); return; }
+      desarmerSaillie();
       armePour = sessionToit();
       rafraichir();
-      showToast('Touchez l’égout ou le mur à l’endroit du décroché (Échap pour annuler).');
     }
   });
 
@@ -58,7 +67,7 @@ export function brancherDecroche(cmd: RegistreCommandes, mode: Pick<ModeToit, 'e
     if (fait) mode.selectionner({ type: 'travee', rang, i });
   };
 
-  return {
+  const geste: GesteDecroche = {
     arme: estArme,
     desarmer: () => { if (armePour) { armePour = null; rafraichir(); } },
     placer(ndc) {
@@ -86,4 +95,6 @@ export function brancherDecroche(cmd: RegistreCommandes, mode: Pick<ModeToit, 'e
       return true;
     }
   };
+  courant = geste;
+  return geste;
 }

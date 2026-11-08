@@ -13,7 +13,7 @@
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
-  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
+  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
   | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
   | 'claude-parement' | 'claude-zone' | 'claude-ouverture';
@@ -44,6 +44,11 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger': '#8E2A1C',
     'danger-bg': '#FBF1EE',
     'alerte': '#A8442F',
+    // L'insertion du mode Toit (une piece armee qui attend son toucher) : un bleu qui ne se confond pas avec le bois de l'accent, qui dit
+    // « modification » (retour du proprietaire, 8 novembre 2026). Toujours avec le mot « Insertion » : la couleur ne porte rien seule.
+    'insertion': '#1F5FA8',
+    'on-insertion': '#FFFDF8',
+    'insertion-bg': '#E4EEF9',
     'toast-bg': '#2B2117',
     'on-toast': '#FFFDF8',
     'fond-3d': '#DFE7EA',
@@ -101,6 +106,9 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger': '#F2A493',
     'danger-bg': '#3A1E18',
     'alerte': '#E08A6E',
+    'insertion': '#7DB4F0',
+    'on-insertion': '#1C1610',
+    'insertion-bg': '#1D2B3B',
     'toast-bg': '#F1E7D0',
     'on-toast': '#1C1610',
     'fond-3d': '#1F2426',
@@ -168,6 +176,9 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'alerte': { famille: 'etats', role: 'Bordure des alertes' },
   'danger': { famille: 'etats', role: 'Suppression, erreurs' },
   'danger-bg': { famille: 'etats', role: 'Fond d’une erreur' },
+  'insertion': { famille: 'etats', role: 'Insertion en cours (mode Toit) : indicateur, pièce armée, cadre de la scène' },
+  'on-insertion': { famille: 'etats', role: 'Texte sur la couleur d’insertion' },
+  'insertion-bg': { famille: 'etats', role: 'Fond doux de la pièce armée' },
   'toast-bg': { famille: 'notifications', role: 'Fond des notifications' },
   'on-toast': { famille: 'notifications', role: 'Texte des notifications' },
   'fond-3d': { famille: 'scenes', role: 'Ciel de la Vue 3D' },
@@ -258,6 +269,10 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['relief', 'stage-bg', 3],
   ['ok', 'panel-bg', 3],
   ['alerte', 'panel-bg', 3],
+  ['on-insertion', 'insertion', 4.5],
+  ['insertion', 'panel-bg', 4.5],
+  ['ink', 'insertion-bg', 4.5],
+  ['insertion', 'insertion-bg', 4.5],
   ['on-camera', 'camera-bg', 4.5],
   ['camera-ok', 'camera-bg', 4.5],
   ['camera-alerte', 'camera-bg', 4.5]

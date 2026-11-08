@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+- **Mode Toit : « Modification » ou « Insertion », d'un coup d'œil** (retour du propriétaire, 8 novembre 2026 : « En mode 3D
+  bâtiment j'ai du mal à distinguer si je suis en modif ou insertion »). Avant, rien ne séparait les deux états qu'un message de
+  quelques secondes : la vignette « Décroché » armée n'était pas enfoncée, les poignées restaient prenables (un toucher pouvait tirer une
+  poignée au lieu de poser la pièce), le curseur et le panneau ne changeaient pas, et la ligne du panneau invitait encore à « toucher un
+  mur pour choisir sa façade ». Un indicateur d'état permanent est posé sur la scène, hors du panneau (en haut au bureau, juste au-dessus
+  du panneau au téléphone et à la tablette) : « Modification — tirez les poignées de l'élément choisi, ou choisissez une pièce à ajouter »,
+  ou, en plein d'une couleur d'insertion propre (nouveaux jetons `insertion`, `on-insertion`, `insertion-bg`, et les modèles de la
+  palette), « Insertion : Décroché — touchez l'égout ou le mur à l'endroit du décroché · Échap pour annuler » avec un bouton « Annuler »
+  (commande `toit.quitterInsertion`) ; « Placement : <élément> » pour « Choisir le mur dans la 3D ». Pendant l'insertion : la vignette
+  armée enfoncée (« · à poser »), un cadre de la couleur d'insertion autour de la scène, le curseur de pose au bureau, les poignées
+  estompées que le toucher traverse. Échap, un second appui sur la vignette (ou sur « Choisir le mur dans la 3D ») et « Annuler »
+  ramènent à « Modification » ; une pose aussi, comme avant. Le message éphémère qui doublait la consigne est retiré. Rien ne change au
+  calcul, à la session ni à l'historique du projet : empreintes golden et AE 101 identiques. Point de fumée 148.
+
 ## [5.15.0] — 2026-11-07
 
 Version **mineure** au sens de `MD/RELEASE.md` : façades, une photo sans position du téléphone se place par le GPS de son EXIF (à 8 m
