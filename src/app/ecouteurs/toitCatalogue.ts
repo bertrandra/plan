@@ -13,7 +13,7 @@ import { estRetouchable, raisonDOuvrir, creerModeToit, etatToit, poserEntreeHist
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
-import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, memeCible, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
+import { appliquerAuBatiment, appliquerChoix, cibleAjoutee, groupesDuBatiment, dupliquerElement, facadeDeLElement, memeCible, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, saillieArmee } from '../../interaction/choixSaillie.js';
 import { ecouterLesTouchers } from './selection3d.js';
 import { affichage3d, hotes3d, vue3d } from '../../three/etat3d.js';
@@ -186,6 +186,24 @@ function declarerGestesDesCorps(commande: Declarer, choisi: Choisi, mode: Return
   });
 }
 
+/**
+ * Les choix en image de l'inspecteur (`toit.regler`) : sur l'element choisi ; sans rien de choisi (« Bâtiment entier »), les reglages de
+ * tout le toit, le sens du faitage de tous les corps d'un coup (reponses du proprietaire, 8 novembre 2026).
+ */
+function declarerReglage(commande: Declarer, choisi: Choisi, corpsDuBatiment: () => NonNullable<ChampsBatiment['corpsToit']> | null, mode: ReturnType<typeof creerModeToit>): void {
+  commande('toit.regler', 'Régler l’élément', () => !!choisi() || groupesDuBatiment(corpsDuBatiment() ?? []).some((g) => !g.raison), (source) => {
+    const c = choisi(), tout = corpsDuBatiment(), d = source?.dataset;
+    if (!d?.groupe || d.valeur === undefined) return;
+    const groupe = d.groupe, valeur = d.valeur;
+    if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = appliquerChoix(c.corps, c.t, groupe, valeur); champsBatiment(x).toitFige = true; });
+    else if (tout) {
+      // Le toit qui ne tourne pas entier ne change pas : rien a ecrire, rien a empiler.
+      const neufs = appliquerAuBatiment(tout, groupe, valeur);
+      if (JSON.stringify(neufs) !== JSON.stringify(tout)) mode.ecrire((x) => { champsBatiment(x).corpsToit = neufs; champsBatiment(x).toitFige = true; });
+    }
+  });
+}
+
 export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
   const mode = creerModeToit(a, { rebatir: ctx.rebatirBatiment, rafraichir: ctx.rafraichir });
   const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
@@ -239,10 +257,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     // Retoucher l'element deja choisi le lache : on revient au batiment entier, au doigt comme a la souris (sans cible : de meme).
     mode.selectionner(cible && memeCible(etatToit().selection, cible) ? null : cible);
   }, false);
-  commande('toit.regler', 'Régler l’élément', () => !!choisi(), (source) => {
-    const c = choisi(), d = source?.dataset;
-    if (c && d?.groupe && d.valeur !== undefined) mode.ecrire((x) => { champsBatiment(x).corpsToit = appliquerChoix(c.corps, c.t, d.groupe as string, d.valeur as string); champsBatiment(x).toitFige = true; });
-  });
+  declarerReglage(commande, choisi, () => (etatToit().selection ? null : batiment()?.batiment?.corpsToit ?? null), mode);
   commande('toit.dupliquer', 'Dupliquer l’élément', () => !!choisi(), () => {
     const c = choisi();
     if (!c) return;
