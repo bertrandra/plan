@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.16.0] — 2026-11-08
+
+Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, l'état « Modification » ou « Insertion » se lit d'un coup d'œil
+(indicateur d'état permanent sur la scène, nouvelle commande `toit.quitterInsertion` et son bouton « Annuler », nouveaux jetons de
+couleur `insertion`, `on-insertion`, `insertion-bg` et modèles de la palette ; #621). Une commande et des jetons de la palette par
+défaut nouveaux : MINOR, pas PATCH. Aucune quantité ni aucun export de la démonstration ne change : les sept témoins ne bougent qu'à
+leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma
+inchangé (15), rien à déployer côté plateforme. Requêtes vérifiées sur main, à la livraison.
+
 ### Modifié
 - **Mode Toit : « Modification » ou « Insertion », d'un coup d'œil** (retour du propriétaire, 8 novembre 2026 : « En mode 3D
   bâtiment j'ai du mal à distinguer si je suis en modif ou insertion »). Avant, rien ne séparait les deux états qu'un message de
