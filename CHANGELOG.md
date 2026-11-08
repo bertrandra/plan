@@ -21,6 +21,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   golden identiques ; aucun champ de fichier nouveau (l'ordre des sommets et la place du faîtage). Point de fumée 150
   (`facade/modeToit/sens.ts`, `tests/unit/facade/modeToit/sensToit.test.ts`).
 
+## [5.17.0] — 2026-11-08
+
+Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, « Sens du faîtage » se choisit désormais sur chaque forme qui a un
+faîtage à tourner (Mansart, gambrel, cul de geai, queue de vache, berceau, carène, appentis, asymétrique, papillon, en plus du
+deux-pans et du quatre-pans ; #624) ; pdf-lib suit dans la livraison versionnée et le point de fumée 145 date ses gestes (#625). Une
+fonction offerte sur des formes où elle ne l'était pas : MINOR, pas PATCH. Rien ne change sans le geste : aucune quantité ni aucun
+export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de build reste le 30 octobre
+2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (15), aucun champ de fichier
+nouveau, rien à déployer côté plateforme. Requêtes vérifiées sans la mesure sur main (run 42529079875 : 9 sur 9, 0,031 $ ;
+prompts et schémas inchangés).
+
 ### Modifié
 - **Mode Toit : le sens du faîtage se choisit sur chaque forme qui en a un** (demande du propriétaire, 8 novembre 2026 : « Sur toit
   2 pans je peux choisir l'axe. Même chose sur les autres types de toit concernés. »). « Sens du faîtage » (dans la longueur, dans la
