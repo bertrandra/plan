@@ -4896,6 +4896,149 @@ const POINTS = {
     if (await deborde()) echecs.push('débordement');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; Mansart dans la largeur validé (toit ${valide.fige ? 'figé' : 'NON FIGÉ'}, projet ${valide.modifie ?? '?'}) ; Ctrl+Z du projet ${defait === avant ? 'rend le toit d’avant' : 'NE REND PAS'}` };
   },
+  150: async (page, f) => {
+    // Tout le toit tourne d'un coup, et le mur haut d'un appentis se choisit (demande du proprietaire, 8 novembre 2026, « oui » aux deux
+    // questions) : la maison de la demonstration posee sur un rectangle de 12 x 7 m ; Vue 3D, « Modifier la toiture », « Bâtiment entier » ;
+    // pour le toit en M, les deux pans decales et le shed (onglet Toit, sans corps choisi) : « Sens du faîtage · tout le toit », « Faîtage
+    // dans la largeur » tourne la composition (memes corps, meme emprise, chaque faitage d'un quart de tour), Ctrl+Z la rend ; une fenetre de
+    // toit sur le corps 2 du M grise le groupe avec sa raison ; un pan : « Mur haut » de l'autre cote, Ctrl+Z ; « Valider » puis un Ctrl+Z du
+    // projet. FUMEE_CAPTURE_AXE2=<prefixe> enregistre la 3D et le panneau a chaque etape (le point se joue aussi sur une version d'avant, pour
+    // les captures : il note alors ce qui manque sans s'arreter).
+    const capture = process.env.FUMEE_CAPTURE_AXE2;
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const R = [{ x: -6, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: -6, y: -13 }];
+      o.pts = R.map((p) => ({ ...p }));
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = [{ pts: R.map((p) => ({ ...p })), posFaitage: 3.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 }];
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    // Les corps du toit : axe de chaque faitage (degres modulo 180, 0 est-ouest), emprise, et le JSON aux cles triees (l'historique rend les
+    // memes valeurs, pas toujours dans le meme ordre).
+    const lire = () => page.evaluate(() => {
+      const trie = (v) => (Array.isArray(v) ? v.map(trie) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, trie(v[k])])) : v);
+      const l = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit;
+      const p = l.flatMap((c) => c.pts), r = (v) => Math.round(v * 100) / 100;
+      return {
+        n: l.length,
+        axes: l.map((c) => Math.round(((Math.atan2(c.pts[1].y - c.pts[0].y, c.pts[1].x - c.pts[0].x) * 180) / Math.PI + 180) % 180)),
+        boite: [Math.min(...p.map((q) => q.x)), Math.min(...p.map((q) => q.y)), Math.max(...p.map((q) => q.x)), Math.max(...p.map((q) => q.y))].map(r).join(' '),
+        corps: l.map((c) => ({ pos: c.posFaitage, W: Math.hypot(c.pts[3].x - c.pts[0].x, c.pts[3].y - c.pts[0].y), egouts: c.egouts })),
+        json: JSON.stringify(trie(l))
+      };
+    });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await image3dStable(page, 3000);
+    const avant = await lire();
+    await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    const photo = async (nom) => {
+      if (!capture) return;
+      const libre = page.locator('[data-commande="toit.vueLibre"]');
+      if (await libre.isEnabled()) await libre.click();
+      await image3dStable(page, 2000);
+      await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
+    };
+    const batimentEntier = async () => {
+      const puce = page.locator('.puceToit[data-commande="toit.selection"]:not([data-type])');
+      if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await puce.click({ timeout: 10000 });
+      await page.waitForTimeout(300);
+    };
+    const choisirCorps = async (rang) => {
+      const puce = page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]');
+      if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await puce.click({ timeout: 10000 });
+      await page.waitForTimeout(300);
+    };
+    const poser = async (onglet, id) => {
+      await page.getByRole('tab', { name: onglet, exact: true }).click({ timeout: 10000 });
+      await page.locator('[data-piece="' + id + '"]').click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+    };
+    const groupeTout = (v) => page.locator('.inspecteurToit[data-cible="batiment"] [data-commande="toit.regler"][data-groupe="sens"][data-valeur="' + v + '"]');
+    const enfonce = async (loc) => (await loc.count()) > 0 && (await loc.getAttribute('aria-pressed')) === 'true';
+    const lignes = [], echecs = [];
+    for (const forme of ['toit-en-m', 'deux-pans-decales', 'shed']) {
+      await batimentEntier();
+      await poser('Toit', 'forme:' + forme);
+      await batimentEntier();
+      const a = await lire();
+      await photo(forme + '-avant');
+      if (a.n < 2) { echecs.push(forme + ' : ' + a.n + ' corps'); continue; }
+      if (!(await groupeTout('court').count())) { echecs.push(forme + ' : pas de « Sens du faîtage · tout le toit »'); continue; }
+      if (!(await enfonce(groupeTout('long')))) echecs.push(forme + ' : « dans la longueur » non enfoncé');
+      await groupeTout('court').click({ timeout: 10000 });
+      await page.waitForFunction(() => document.querySelector('.inspecteurToit[data-cible="batiment"] [data-groupe="sens"][data-valeur="court"]')?.getAttribute('aria-pressed') === 'true', null, { timeout: 10000 }).catch(() => {});
+      const b = await lire();
+      await photo(forme + '-apres');
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      const c = await lire();
+      const tourne = b.n === a.n && b.boite === a.boite && b.axes.every((x, i) => Math.abs(((x - (a.axes[i] ?? 0) + 180) % 180) - 90) < 2);
+      if (!tourne) echecs.push(forme + ' : axes ' + a.axes.join(',') + ' → ' + b.axes.join(',') + ', emprise ' + a.boite + ' → ' + b.boite);
+      else if (c.json !== a.json) echecs.push(forme + ' : Ctrl+Z ne rend pas les corps');
+      else lignes.push(forme + ' ' + a.axes.join(',') + '°→' + b.axes.join(',') + '° ✓');
+    }
+    // Un corps qui empeche tout le toit de tourner : une fenetre de toit sur le corps 2 du toit en M. Le groupe est grise, la raison dite.
+    await batimentEntier();
+    await poser('Toit', 'forme:toit-en-m');
+    await choisirCorps(1);
+    await poser('Sur le toit', 'sur:fenetre-toit');
+    await batimentEntier();
+    const raison = (await page.locator('.inspecteurToit[data-cible="batiment"] .raisonGroupe').allTextContents()).join(' ');
+    const grise = (await groupeTout('court').count()) > 0 && (await groupeTout('court').isDisabled());
+    await photo('bloque');
+    if (!grise || !/fenêtre de toit/.test(raison)) echecs.push('bloqué : ' + (grise ? 'grisé' : 'pas grisé') + ', raison « ' + raison + ' »');
+    else lignes.push('bloqué ✓ (« ' + raison.slice(0, 60) + '… »)');
+    // Un pan : le mur haut de l'autre cote, puis Ctrl+Z.
+    await batimentEntier();
+    await poser('Toit', 'forme:appentis');
+    await choisirCorps(0);
+    const ap = await lire();
+    await photo('appentis-avant');
+    const murHaut = (v) => page.locator('.inspecteurToit:not([data-cible]) [data-commande="toit.regler"][data-groupe="murHaut"][data-valeur="' + v + '"]');
+    let garde = null;
+    if (!(await murHaut('2').count())) echecs.push('appentis : pas de « Mur haut »');
+    else {
+      const actuel = (await enfonce(murHaut('0'))) ? '0' : '2', autre = actuel === '0' ? '2' : '0';
+      await murHaut(autre).click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const b = await lire();
+      await photo('appentis-apres');
+      const c0 = ap.corps[0], c1 = b.corps[0];
+      const bascule = Math.abs(c1.pos - (c0.W - c0.pos)) < 0.02 && c1.egouts[0] === c0.egouts[1] && c1.egouts[1] === c0.egouts[0] && b.axes[0] === ap.axes[0];
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      const c = await lire();
+      if (!bascule) echecs.push('appentis : faîtage ' + c0.pos + ' → ' + c1.pos + ' (largeur ' + Math.round(c0.W * 100) / 100 + ')');
+      else if (c.json !== ap.json) echecs.push('appentis : Ctrl+Z ne rend pas le corps');
+      else lignes.push('mur haut ' + actuel + '→' + autre + ' ✓');
+      // Garde : le mur haut change, valider, puis un Ctrl+Z du projet rend le toit d'avant la session.
+      await choisirCorps(0);
+      await murHaut(autre).click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      garde = await lire();
+    }
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const fige = await page.evaluate(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.toitFige);
+    const valide = await lire();
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(400);
+    const defait = await lire();
+    if (garde && valide.json !== garde.json) echecs.push('validé : le toit n’est pas celui de la session');
+    if (!fige) echecs.push('validé : toit non figé');
+    if (defait.json !== avant.json) echecs.push('Ctrl+Z du projet ne rend pas le toit d’avant');
+    if (await deborde()) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; validé (${fige ? 'figé' : 'NON FIGÉ'}), Ctrl+Z du projet ${defait.json === avant.json ? 'rend le toit d’avant' : 'NE REND PAS'}` };
+  },
   142: async (page, f) => {
     // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a
     // gauche de x cm, et une poignee pour ajuster ») : sur la maison de la demonstration puis sur AE 101, en vue de la facade d'un long mur,
@@ -7051,7 +7194,8 @@ function pointsPour(nomClasse) {
   // 147 : les choix Calcul / Claude / Manuel et le forcage de Claude (lot C2), dans la calibration seulement : effet, Ctrl+Z, Ctrl+Y.
   // 148 : le mode Toit, « Modification » ou « Insertion » d'un coup d'oeil : l'indicateur, la vignette enfoncee, les poignees estompees, le retour.
   // 149 : le sens du faitage au mode Toit sur chaque forme qui en a un (deux pans, croupes, un pan, cul de geai, Mansart...), pas sur le plat.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149];
+  // 150 : tout le toit tourne d'un coup (toit en M, deux pans decales, shed ; grise avec sa raison quand un corps l'empeche), le mur haut d'un appentis.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -18,12 +18,12 @@ const AE101 = JSON.parse(readFileSync(new URL('../../../fixtures/toits/vesinet-a
 describe('modifier un corps existant', () => {
   it('un corps a un pan passe ouvert sur poteaux, puis ferme ; rien n est enfonce tant que rien n est dit', () => {
     const l = [deuxPans(), appentis()], t = corpsDe(l);
-    expect(groupesDe(l, t).map((g) => g.groupe)).toEqual(['ouvert', 'pente', 'sens', 'debord']);
+    expect(groupesDe(l, t).map((g) => g.groupe)).toEqual(['ouvert', 'pente', 'sens', 'murHaut', 'debord']);
     expect(valeurDuGroupe(l, t, 'ouvert')).toBeNull();
     const ouvert = appliquerChoix(l, t, 'ouvert', 'poteaux');
     expect(ouvert[1]!.ouvert).toBe(true);
     expect(ouvert[1]!.pts).toEqual(l[1]!.pts);
-    expect(groupesDe(ouvert, t).map((g) => g.groupe)).toEqual(['ouvert', 'retrait', 'pente', 'sens', 'debord']);
+    expect(groupesDe(ouvert, t).map((g) => g.groupe)).toEqual(['ouvert', 'retrait', 'pente', 'sens', 'murHaut', 'debord']);
     expect(appliquerChoix(ouvert, t, 'retrait', '0.5')[1]!.retraitM).toBe(0.5);
     expect(appliquerChoix(ouvert, t, 'ouvert', 'mur')[1]!.ouvert).toBe(false);
     // La liste d'origine ne bouge pas : la session empile un instantane propre.

@@ -11,9 +11,9 @@ import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
-import { formeDuCorpsToit } from '../../model/formeToit.js';
+import { avecMurHaut, avecSens, murHautDe, murHautReglable, orientationDuMur, sensDuToit, sensReglable, tournerLeToit } from './sens.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
-import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeToit, Lucarne, NatureTravee, PignonToit, ProfilPan, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
+import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
 import { RECULS_TRAVEE_M } from './travees.js';
 import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import { appliquerBout, groupesBoutsDuCorps, groupesPointe, valeurBout } from './bouts.js';
@@ -90,7 +90,7 @@ export function titreDuGroupe(g: GroupeChoix): string {
 const TITRES_GROUPES: Record<string, string> = {
   forme: 'Forme', niveau: 'Hauteur', toit: 'Toit propre', ouvert: 'Ouvert ou fermé', pente: 'Pente', sens: 'Sens du faîtage',
   debord: 'Débord à l’égout', nature: 'Travée', recul: 'Recul sous le toit', hauteur: 'Hauteur du pignon', saillie: 'Avancée du pignon',
-  lucarne: 'Type de lucarne', pan: 'Pan', retrait: 'Retrait des poteaux'
+  lucarne: 'Type de lucarne', pan: 'Pan', retrait: 'Retrait des poteaux', murHaut: 'Mur haut'
 };
 
 export const memeCible = (a: CibleElement | null, b: CibleElement | null): boolean => !!a && !!b && a.type === b.type && a.rang === b.rang && a.i === b.i;
@@ -225,7 +225,16 @@ export function redimensionnerElement(corps: readonly CorpsToit[], t: CibleEleme
 }
 
 /** Un choix a image qui se regle sur l'element : le groupe (« forme », « niveau »…) et ses valeurs. */
-export interface GroupeChoix { groupe: string; valeurs: { valeur: string; libelle: string }[]; /** Ce que le groupe regle, dit a l'ecran (absent : le nom du groupe). */ titre?: string }
+export interface GroupeChoix {
+  groupe: string;
+  valeurs: { valeur: string; libelle: string }[];
+  /** Ce que le groupe regle, dit a l'ecran (absent : le nom du groupe). */
+  titre?: string;
+  /** Ce que fait le groupe, dit sous ses boutons quand ce n'est pas evident (tout le toit tourne-t-il entier, ou corps par corps ?). */
+  aide?: string;
+  /** Pourquoi le groupe ne s'applique pas : ses boutons sont grises et la raison s'ecrit sous eux (au doigt, pas d'infobulle). */
+  raison?: string;
+}
 
 /** Les avancees que l'inspecteur propose a un pignon, en metres (la poignee regle tout entre 0 et le maximum). */
 const SAILLIES_PIGNON = [0, 0.5, 1, 1.5];
@@ -274,66 +283,6 @@ const penteReglable = (c: CorpsToit): boolean => !c.speciale && !c.profil && for
 /** La pente du pan bas, en degres. */
 const penteDe = (c: CorpsToit): number => (Math.atan2(c.faitage - Math.min(...c.egouts), largeurDuPanBas(c)) * 180) / Math.PI;
 
-/**
- * Les formes sans sens de faitage : le toit plat (pas de faitage) et les toits de revolution (un axe vertical, rien a tourner). Toutes les
- * autres ont un faitage, ou une noue (papillon), ou un mur haut (appentis) dont le sens se choisit (demande du proprietaire, 8 novembre
- * 2026 : « Sur toit 2 pans je peux choisir l'axe. Meme chose sur les autres types de toit concernes. »).
- */
-const FORMES_SANS_SENS: ReadonlySet<FormeToit> = new Set<FormeToit>(['plat', 'conique', 'polygonal', 'fleche', 'dome', 'imperiale']);
-
-/**
- * Le sens du faitage se change sur tout corps qui en a un (deux pans, asymetrique, croupes, pavillon, un pan, cul de geai, Mansart,
- * gambrel, coyau, berceau, carene, papillon), sans rien de pose qui se compte le long du faitage (pignon, lucarne, fenetre de toit,
- * panneau) : tourne, tout cela serait a une place qui n'a plus de sens. Ce qui tient a un mur (travees, elements de facade) suit son mur.
- */
-function sensReglable(corps: readonly CorpsToit[], rang: number): boolean {
-  const c = corps[rang];
-  if (!c || c.saillie || c.speciale || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length) return false;
-  return !FORMES_SANS_SENS.has(formeDuCorpsToit(c));
-}
-
-/**
- * Le faitage passe sur l'autre cote du rectangle : les sommets tournent d'un cran (en avant vers la largeur, en arriere vers la longueur,
- * pour qu'un aller-retour rende le corps tel quel), le meme rectangle, les memes hauteurs. Le faitage garde sa place relative en travers
- * (au milieu, sur un mur pour un appentis) ; une croupe ou un cul de geai la meme part du faitage ; un pan courbe sa forme (sa fleche
- * suit la largeur), un brisis ou un coyau sa largeur, bornee au pan. Ce qui tient a un mur de ce corps
- * (ses travees, un element de facade pose dessus) garde son mur : seul le rang du mur change. Rien ne change si le sens est deja celui-la.
- */
-function avecSens(corps: readonly CorpsToit[], rang: number, sens: 'long' | 'court'): CorpsToit[] {
-  const c = corps[rang] as CorpsToit, r = repere(c.pts);
-  if ((sens === 'long') === (r.L >= r.W)) return corps.slice();
-  const p = c.pts as PtBrut[], enAvant = sens === 'court';
-  const pts = (enAvant ? [p[1], p[2], p[3], p[0]] : [p[3], p[0], p[1], p[2]]) as PtBrut[];
-  // Le mur `m` (de pts[m] a pts[m + 1]) garde son point de depart : seul son rang change.
-  const mur = (m: number): number => (m + (enAvant ? 3 : 1)) % 4;
-  // La nouvelle largeur est l'ancienne longueur, et inversement.
-  const W2 = r.L, L2 = r.W, k = W2 / r.W;
-  const posFaitage = Math.abs(c.posFaitage - r.W / 2) <= 0.05 ? centi(W2 / 2) : c.posFaitage <= 0.01 ? 0 : c.posFaitage >= r.W - 0.01 ? W2 : centi(c.posFaitage * k);
-  const neuf: CorpsToit = { ...c, pts, posFaitage };
-  // Une croupe et un cul de geai prennent la meme part du faitage, comme le catalogue les met a l'echelle de la longueur : un pavillon
-  // reste un pavillon, et un aller-retour rend les memes bouts. Un brisis garde sa largeur (celle des pans du Mansart), borne au faitage.
-  const kL = L2 / r.L;
-  if (c.croupes) neuf.croupes = [centi(c.croupes[0] * kL), centi(c.croupes[1] * kL)];
-  if (c.bouts) {
-    const bout = (b: BoutToit): BoutToit => (b.type === 'croupe' || b.type === 'demi-croupe' ? { ...b, profondeurM: centi(b.profondeurM * kL) }
-      : b.type === 'brisis' ? { ...b, largeurM: Math.min(b.largeurM, centi(L2 / 2)) } : b);
-    neuf.bouts = [bout(c.bouts[0]), bout(c.bouts[1])];
-  }
-  if (c.profil) {
-    const pans = [posFaitage, W2 - posFaitage];
-    const pan = (q: ProfilPan, n: 0 | 1): ProfilPan => {
-      const borne = centi(Math.max((pans[n] as number) - 0.3, 0.3));
-      if (q.type === 'courbe') return { ...q, flecheM: centi(q.flecheM * k) };
-      if (q.type === 'brise') return { ...q, largeurBrisisM: Math.min(q.largeurBrisisM, borne) };
-      if (q.type === 'coyau') return { ...q, largeurM: Math.min(q.largeurM, borne) };
-      return q;
-    };
-    neuf.profil = [pan(c.profil[0], 0), pan(c.profil[1], 1)];
-  }
-  if (c.travees) neuf.travees = c.travees.map((t) => ({ ...t, mur: mur(t.mur) }));
-  return corps.map((x, i) => (i === rang ? neuf : x.saillie?.hote === rang ? { ...x, saillie: { ...x.saillie, mur: mur(x.saillie.mur) } } : x));
-}
-
 /** La pente `deg` sur le pan bas : le faitage monte ou descend, les egouts restent ; ce qui monte au faitage le suit. */
 function avecPente(c: CorpsToit, deg: number): CorpsToit {
   const bas = Math.min(...c.egouts);
@@ -376,7 +325,9 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
       if (c.ouvert !== undefined) l.push(groupeRetrait(c.ouvert));
     }
     if (penteReglable(c)) l.push({ groupe: 'pente', valeurs: PENTES_DEG.map((v) => ({ valeur: String(v), libelle: 'Pente de ' + v + '°' })) });
-    if (sensReglable(corps, t.rang)) l.push({ groupe: 'sens', valeurs: [{ valeur: 'long', libelle: 'Faîtage dans la longueur' }, { valeur: 'court', libelle: 'Faîtage dans la largeur' }] });
+    if (sensReglable(corps, t.rang)) l.push({ groupe: 'sens', valeurs: VALEURS_SENS });
+    // Le mur haut d'un appentis : l'un ou l'autre des deux murs longs, nommes par leur orientation (demande du proprietaire, 8 novembre 2026).
+    if (murHautReglable(c)) l.push({ groupe: 'murHaut', valeurs: ([0, 2] as const).map((m) => ({ valeur: String(m), libelle: 'Mur haut côté ' + orientationDuMur(c, m) })) });
     if (!c.speciale) l.push({ groupe: 'debord', valeurs: DEBORDS_M.map((v) => ({ valeur: String(v), libelle: v === 0 ? 'Sans débord' : 'Débord de ' + String(v).replace('.', ',') + ' m' })) });
     // Chaque bout du faitage (pignon, croupe, cul de geai) et la queue de vache de chaque pan (bouts.ts, schema 15).
     l.push(...groupesBoutsDuCorps(c));
@@ -406,6 +357,34 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
     l.push({ groupe: 'pan', valeurs: ([0, 1] as const).map((p) => ({ valeur: String(p), libelle: nomDuPan(c, p) })) });
   }
   return l;
+}
+
+/** Les deux sens du faitage, sur un corps ou sur tout le toit : les memes boutons. */
+const VALEURS_SENS = [{ valeur: 'long', libelle: 'Faîtage dans la longueur' }, { valeur: 'court', libelle: 'Faîtage dans la largeur' }];
+
+/**
+ * Les groupes de choix du batiment entier, quand rien n'est choisi (« Bâtiment entier ») : le sens du faitage de tout le toit, sur un
+ * batiment a plusieurs corps (demande du proprietaire, 8 novembre 2026). Le meme groupe et les memes boutons que sur un corps ; il dit s'il
+ * tourne la composition entiere ou chaque corps, et, quand un corps l'en empeche, il est grise avec la raison. Vide sur un seul corps.
+ */
+export function groupesDuBatiment(corps: readonly CorpsToit[]): GroupeChoix[] {
+  const e = sensDuToit(corps);
+  if (!e) return [];
+  const aide = e.mode === 'composition'
+    ? 'Toute la composition tourne d’un quart de tour sur son emprise : les corps restent accolés comme avant (toit en M, shed…).'
+    : 'Chaque corps tourne son faîtage d’un quart de tour dans son rectangle ; un toit plat ou une tourelle restent tels quels.';
+  return [{ groupe: 'sens', titre: 'Sens du faîtage · tout le toit', valeurs: VALEURS_SENS, aide, ...(e.raison ? { raison: e.raison } : {}) }];
+}
+
+/** La valeur enfoncee d'un groupe du batiment entier. */
+export function valeurDuBatiment(corps: readonly CorpsToit[], groupe: string): string | null {
+  return groupe === 'sens' ? sensDuToit(corps)?.valeur ?? null : null;
+}
+
+/** Ecrit le choix d'un groupe sur le batiment entier : tout le toit tourne, ou rien (jamais une partie en silence). */
+export function appliquerAuBatiment(corps: readonly CorpsToit[], groupe: string, valeur: string): CorpsToit[] {
+  if (groupe === 'sens' && (valeur === 'long' || valeur === 'court')) return tournerLeToit(corps, valeur);
+  return corps.slice();
 }
 
 /** Le pan qui porte l'element pose sur le toit, ou null. */
@@ -441,6 +420,7 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
     // La pente lue n'est enfoncee que si elle tombe sur un choix (a 2 degres pres) : rien n'est arrondi en silence.
     if (groupe === 'pente') { const p = penteDe(c), v = PENTES_DEG.find((x) => Math.abs(x - p) <= 2); return v === undefined ? null : String(v); }
     if (groupe === 'sens') { const r = repere(c.pts); return r.L >= r.W ? 'long' : 'court'; }
+    if (groupe === 'murHaut' && murHautReglable(c)) return String(murHautDe(c));
     if (groupe === 'debord') { const d = c.bords?.debordEgoutM ?? DEBORD_DESSIN_M, v = DEBORDS_M.find((x) => Math.abs(x - d) <= 0.02); return v === undefined ? null : String(v); }
   }
   if (t.type === 'pignon' && groupe === 'hauteur') {
@@ -513,6 +493,7 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
   if (t.type === 'corps' && !c.saillie) {
     if (groupe === 'pente' && penteReglable(c) && PENTES_DEG.includes(Number(valeur))) return avec(corps, t.rang, avecPente(c, Number(valeur)));
     if (groupe === 'sens' && (valeur === 'long' || valeur === 'court') && sensReglable(corps, t.rang)) return avecSens(corps, t.rang, valeur);
+    if (groupe === 'murHaut' && (valeur === '0' || valeur === '2') && murHautReglable(c)) return avec(corps, t.rang, avecMurHaut(c, valeur === '0' ? 0 : 2));
     if (groupe === 'debord' && !c.speciale && DEBORDS_M.includes(Number(valeur))) return avec(corps, t.rang, { ...c, bords: { ...c.bords, debordEgoutM: Number(valeur) } });
     return corps.slice();
   }

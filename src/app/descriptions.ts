@@ -162,7 +162,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.voirValide': 'Montre le toit du projet tel qu’il est avant vos changements ; un geste, ou un second appui, ramène la session',
   'toit.isolerCorps': 'Ne montre que le corps de la façade courante, avec ce qui est posé dessus ; rebasculer rend tous les corps',
   'toit.selection': 'Choisit un élément du toit ou de la façade (bow-window, pignon, lucarne, cheminée, fenêtre de toit, solaire) : l’inspecteur du mode règle ce qui est choisi',
-  'toit.regler': 'Applique le choix en image de l’inspecteur (forme, niveau, toit, poteaux, retrait, hauteur du pignon) à l’élément choisi',
+  'toit.regler': 'Applique le choix en image de l’inspecteur (forme, niveau, toit, poteaux, retrait, hauteur du pignon, sens du faîtage, mur haut) à l’élément choisi, ou le sens du faîtage à tout le toit quand rien n’est choisi',
   'toit.dupliquer': 'Copie l’élément choisi à côté de lui, là où il y a de la place',
   'toit.supprimer': 'Retire l’élément choisi ; Ctrl+Z le rend',
   'toit.tourner': 'Tourne le corps choisi de 15 degrés autour de son centre ; ce qui est posé dessus le suit',
