@@ -333,7 +333,12 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
 - **Un corps, même seul, est une pastille** : choisi, il se règle dans le même panneau que les éléments (`elements.ts::groupesDe`,
   commande `toit.regler`) : **ouvert sur poteaux / fermé** et retrait pour un corps à un pan (préau, abri, carport accolé : sans prisme,
   des poteaux, `estAppentisOuvert`) ; **pente** (15 à 55°, sur le pan bas ; le faîtage suit, les égouts restent) ; **sens du faîtage**
-  (dans la longueur ou la largeur, sur un deux-pans ou un quatre-pans sans rien de posé le long du faîtage) ; **débord** à l'égout
+  (dans la longueur ou la largeur, sur toute forme qui a un faîtage, une noue ou un mur haut : deux pans, asymétrique, quatre pans,
+  pavillon, un pan, cul de geai, Mansart, gambrel, coyau, berceau, carène, papillon ; pas sur un toit plat ni sur un toit de révolution ;
+  jamais quand un pignon, une lucarne, une fenêtre de toit ou un panneau se compte le long du faîtage ; demande du propriétaire du
+  8 novembre 2026). Un seul mécanisme : les sommets du rectangle tournent d'un cran (`elements.ts::avecSens`), le même rectangle, les
+  mêmes hauteurs ; le faîtage garde sa place relative en travers, une croupe ou un cul de geai sa part du faîtage, un berceau sa forme,
+  un brisis ou un coyau sa largeur ; les travées et les éléments de façade gardent leur mur ; un aller-retour rend le corps tel quel ; **débord** à l'égout
   (`bords.debordEgoutM`, que la 3D lit désormais). La **forme** se change par les vignettes de l'onglet « Toit », qui disent celle en place
   (enfoncée, « · en place »).
 - **Lucarne** : son type se change sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau changent de **pan**.
