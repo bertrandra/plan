@@ -4387,10 +4387,24 @@ const POINTS = {
       const t = sc.controls.target.clone().project(sc.camera), r = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect();
       return { x: r.left + ((t.x + 1) / 2) * r.width, y: r.top + ((1 - t.y) / 2) * r.height };
     });
-    const cdp = tactile ? await page.context().newCDPSession(page) : null;
+    const session = await page.context().newCDPSession(page), cdp = tactile ? session : null;
+    // L'appui et le lacher portent l'heure du geste, comme un vrai evenement du systeme (`timestamp`, en secondes) : sans elle, le
+    // navigateur date l'evenement a sa reception, et l'appui n'est acquitte qu'une fois traite. En rendu logiciel, une image de la Vue 3D
+    // au bureau prend plus d'une seconde (le pointeur pose sur la maison la demande) : le lacher partait apres elle et un toucher de
+    // 60 ms se lisait comme un appui de deux secondes (l'application juge sur `timeStamp`, selection3d.ts::ecouterLesTouchers).
     const appuyer = async (ms) => {
-      if (cdp) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...maison, id: 0 }] }); await page.waitForTimeout(ms); await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
-      else { await page.mouse.move(maison.x, maison.y); await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up(); }
+      const t0 = Date.now() / 1000, t1 = t0 + ms / 1000;
+      if (cdp) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...maison, id: 0 }], timestamp: t0 });
+        await page.waitForTimeout(ms);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t1 });
+      } else {
+        const souris = (type, timestamp) => session.send('Input.dispatchMouseEvent', { type, x: maison.x, y: maison.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1, timestamp });
+        await page.mouse.move(maison.x, maison.y);
+        await souris('mousePressed', t0);
+        await page.waitForTimeout(ms);
+        await souris('mouseReleased', t1);
+      }
       await page.waitForTimeout(700);
     };
     if (!tactile) {
@@ -4478,7 +4492,7 @@ const POINTS = {
       });
       if (caches.length) echecs.push('boutons de la camera hors d atteinte : ' + caches.join(', '));
     }
-    if (cdp) await cdp.detach();
+    await session.detach();
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ECHECS : ' + echecs.join(', ') : ' ; clic droit, appui long, toucher, boutons conformes') };
   },
   144: async (page, f) => {
