@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f5c">
+<title>Façade redressée</title>
+<!-- Page autonome construite par outils/facade/construire.mjs (commit 2c37e23) : ne pas modifier a la main. -->
+<style>
+:root {
+  --fond: #f4f2ee; --carte: #ffffff; --texte: #1d2321; --discret: #5f6b67; --bord: #d9d5cd;
+  --accent: #1f6f5c; --accent-texte: #ffffff; --accent-doux: #e3f0ec;
+  --bon: #1d7a3e; --alerte: #a33a1c; --alerte-fond: #fbeae4; --champ: #fbfaf8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fond: #121615; --carte: #1b211f; --texte: #e7ece9; --discret: #9aa6a1; --bord: #2f3835;
+    --accent: #4fb89a; --accent-texte: #0d1513; --accent-doux: #1d332c;
+    --bon: #63c98a; --alerte: #f08a68; --alerte-fond: #3a221a; --champ: #151a19;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--fond); color: var(--texte);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+body.fige { overflow: hidden; }
+header { padding: 18px 16px 6px; max-width: 760px; margin: 0 auto; }
+h1 { font-size: 1.35rem; margin: 0 0 4px; }
+header p { margin: 0; color: var(--discret); font-size: .92rem; }
+main { max-width: 760px; margin: 0 auto; padding: 8px 16px 40px; display: grid; gap: 14px; }
+section { background: var(--carte); border: 1px solid var(--bord); border-radius: 14px; padding: 14px 16px 16px; }
+h2 { font-size: 1.05rem; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+h2 .num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-texte); font-size: .8rem; }
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 12px; }
+label { display: grid; gap: 4px; font-size: .88rem; color: var(--discret); }
+label b { color: var(--texte); font-weight: 600; }
+input[type=text], select {
+  font: inherit; color: var(--texte); background: var(--champ); border: 1px solid var(--bord);
+  border-radius: 10px; padding: 10px 12px; min-height: 44px; width: 100%;
+}
+input:focus-visible, select:focus-visible, button:focus-visible, .bouton:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.discret { color: var(--discret); font-size: .85rem; }
+details summary { cursor: pointer; color: var(--discret); font-size: .9rem; min-height: 32px; display: flex; align-items: center; }
+details .grille { margin-top: 8px; }
+button, .bouton {
+  font: inherit; font-weight: 600; border-radius: 10px; min-height: 44px; padding: 10px 16px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-texte); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-align: center;
+}
+button.second, .bouton.second { background: transparent; color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.petit { min-height: 40px; min-width: 40px; padding: 6px 10px; background: transparent; color: var(--accent); }
+.bouton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.rangee { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rangee > * { flex: 1 1 auto; }
+#photos { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.photo { display: grid; grid-template-columns: 72px 1fr; gap: 6px 12px; align-items: center; border: 1px solid var(--bord); border-radius: 12px; padding: 8px; }
+.photo img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; background: #000; }
+.photo-corps { display: grid; gap: 2px; min-width: 0; }
+.photo-corps .discret { overflow-wrap: anywhere; }
+.photo-actions { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.etat { font-size: .82rem; font-weight: 600; color: var(--alerte); }
+.etat.bon { color: var(--bon); }
+.msg { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; font-size: .9rem; background: var(--accent-doux); }
+.msg[data-ton=bon] { color: var(--bon); }
+.msg[data-ton=alerte] { color: var(--alerte); background: var(--alerte-fond); }
+#manque { color: var(--discret); font-size: .88rem; margin: 8px 0 0; }
+progress { width: 100%; height: 8px; margin-top: 10px; accent-color: var(--accent); }
+#resultat-cadre { margin-top: 12px; border-radius: 10px; overflow: auto; max-height: 75vh; background:
+  repeating-conic-gradient(#8883 0 25%, transparent 0 50%) 0 0 / 16px 16px; border: 1px solid var(--bord); }
+#resultat { display: block; width: 100%; height: auto; cursor: zoom-in; }
+#resultat-cadre.plein #resultat { width: auto; max-width: none; cursor: zoom-out; }
+#resultat-info p { margin: 8px 0 0; font-size: .9rem; }
+#resultat-info p.alerte { color: var(--alerte); }
+footer { text-align: center; color: var(--discret); font-size: .78rem; padding: 0 16px 24px; }
+
+/* L'editeur plein ecran : toujours sombre, la photo d'abord. */
+#editeur { position: fixed; inset: 0; z-index: 10; background: #111; color: #eee; display: grid; grid-template-rows: auto 1fr auto; }
+#editeur[hidden] { display: none; }
+#ed-haut { padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; font-size: .9rem; line-height: 1.35; background: #1b1b1b; }
+#toile { width: 100%; height: 100%; touch-action: none; display: block; }
+#ed-bas { background: #1b1b1b; padding: 8px 12px calc(env(safe-area-inset-bottom) + 10px); display: grid; gap: 8px; }
+#ed-mesure { font-size: .88rem; color: #ffc46b; min-height: 1.3em; }
+#ed-bas .rangee { flex-wrap: nowrap; }
+.pave { display: grid; grid-template-columns: repeat(5, 44px); gap: 6px; flex: 0 0 auto !important; }
+.pave button { min-width: 44px; padding: 0; background: #2a2a2a; border-color: #444; color: #eee; }
+#ed-bas .actions { display: flex; gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
+#ed-bas .actions button { flex: 1 1 0; max-width: 160px; }
+#ed-bas button.second { color: #eee; border-color: #555; }
+#ed-etalon[hidden] { display: none; }
+#ed-etalon { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#ed-etalon label { color: #bbb; }
+#ed-etalon input { background: #222; color: #eee; border-color: #444; }
+@media (max-width: 380px) { .pave { grid-template-columns: repeat(5, 40px); } .pave button { min-width: 40px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Façade redressée</h1>
+  <p>Photographiez un mur, posez ses coins : la page assemble vos photos et les redresse à l’échelle, à la résolution des photos. Tout se calcule sur l’appareil ; aucune image ne le quitte.</p>
+</header>
+<main>
+  <section aria-labelledby="t-mur">
+    <h2 id="t-mur"><span class="num">1</span>Le mur</h2>
+    <div class="grille">
+      <label><b>Largeur du mur (m)</b><input type="text" id="ch-largeur" inputmode="decimal" autocomplete="off" placeholder="ex. 9,40"></label>
+      <label><b>Hauteur à l’égout (m)</b><input type="text" id="ch-hauteur" inputmode="decimal" autocomplete="off" placeholder="mesurée"></label>
+    </div>
+    <p class="discret">La largeur met la photo à l’échelle. Laissez la hauteur vide : elle se mesure d’après la perspective des coins.</p>
+    <details>
+      <summary>Marges autour du mur</summary>
+      <div class="grille">
+        <label>Au-dessus de l’égout (m)<input type="text" id="ch-haut" inputmode="decimal" autocomplete="off" placeholder="auto"></label>
+        <label>De chaque côté (m)<input type="text" id="ch-cotes" inputmode="decimal" autocomplete="off"></label>
+        <label>Sous le pied du mur (m)<input type="text" id="ch-bas" inputmode="decimal" autocomplete="off"></label>
+      </div>
+      <p class="discret">Au-dessus de l’égout, la marge garde le pignon et le toit : ils sont dans le plan du mur, donc à la même échelle.</p>
+    </details>
+  </section>
+
+  <section aria-labelledby="t-photos">
+    <h2 id="t-photos"><span class="num">2</span>Les photos</h2>
+    <p class="discret" id="consigne-photos"></p>
+    <div class="rangee">
+      <label class="bouton">Prendre une photo<input type="file" id="prendre" accept="image/*" capture="environment"></label>
+      <label class="bouton second">Importer<input type="file" id="importer" accept="image/*" multiple></label>
+    </div>
+    <p class="msg" id="etat-photos" hidden></p>
+    <p class="discret" id="photos-vide">Aucune photo pour l’instant. Tenez le téléphone droit, le mur au centre ; un coin caché par un arbre se pose là où il serait.</p>
+    <ul id="photos"></ul>
+  </section>
+
+  <section aria-labelledby="t-objectif">
+    <h2 id="t-objectif"><span class="num">3</span>L’objectif</h2>
+    <div class="grille">
+      <label><b>Champ du grand côté (°)</b><input type="text" id="ch-champ" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <p class="discret" id="objectif-info"></p>
+    <div class="rangee">
+      <label class="bouton second">Étalonner avec une photo<input type="file" id="etalon-photo" accept="image/*"></label>
+      <button type="button" class="second" id="champ-defaut">Valeur par défaut (67°)</button>
+    </div>
+    <p class="discret">Le champ sert à mesurer la hauteur et la largeur de chaque photo. Pour l’étalonner : photographiez de face, à une distance mesurée, un objet de longueur connue placé au centre de l’image (un mètre déplié au sol, une porte de garage), puis posez ses deux extrémités.</p>
+  </section>
+
+  <section aria-labelledby="t-resultat">
+    <h2 id="t-resultat"><span class="num">4</span>Le résultat</h2>
+    <div class="grille">
+      <label><b>Résolution</b>
+        <select id="ch-qualite">
+          <option value="native">Celle des photos (la plus haute)</option>
+          <option value="moitie">Moitié</option>
+          <option value="leger">Légère (4 Mpx au plus)</option>
+        </select>
+      </label>
+    </div>
+    <div class="rangee" style="margin-top:12px"><button type="button" id="redresser">Assembler et redresser</button></div>
+    <p id="manque"></p>
+    <progress id="progres" max="1" value="0" hidden></progress>
+    <p class="msg" id="etat-resultat" hidden></p>
+    <div id="resultat-bloc" hidden>
+      <div id="resultat-cadre"><canvas id="resultat" aria-label="Façade redressée"></canvas></div>
+      <div id="resultat-info"></div>
+      <div class="rangee" style="margin-top:12px">
+        <button type="button" id="enregistrer">Enregistrer (JPEG)</button>
+        <button type="button" class="second" id="partager">Partager ou mettre dans Photos</button>
+        <button type="button" class="second" id="enregistrer-png">PNG (sans perte)</button>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>Chaîne de calibration du relevé de façade de Plan · commit 2c37e23</footer>
+
+<div id="editeur" hidden role="dialog" aria-modal="true" aria-labelledby="ed-consigne">
+  <div id="ed-haut"><span id="ed-consigne"></span><br><span style="color:#aaa">Glissez une poignée (une loupe apparaît) ; un doigt ailleurs déplace la vue, deux doigts zooment.</span></div>
+  <canvas id="toile"></canvas>
+  <div id="ed-bas">
+    <div id="ed-etalon" hidden>
+      <label>Distance à l’objet (m)<input type="text" id="et-distance" inputmode="decimal" autocomplete="off"></label>
+      <label>Longueur de l’objet (m)<input type="text" id="et-longueur" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <div id="ed-mesure" aria-live="polite"></div>
+    <div class="rangee">
+      <div class="pave" aria-label="Ajustement fin de la poignée">
+        <button type="button" id="pv-g" aria-label="Poignée vers la gauche">◀</button>
+        <button type="button" id="pv-h" aria-label="Poignée vers le haut">▲</button>
+        <button type="button" id="pv-b" aria-label="Poignée vers le bas">▼</button>
+        <button type="button" id="pv-d" aria-label="Poignée vers la droite">▶</button>
+        <button type="button" id="pv-suivant" aria-label="Poignée suivante">⟳</button>
+      </div>
+    </div>
+    <div class="rangee">
+      <button type="button" class="second" id="ed-cadrer" style="flex:0 0 auto">Tout voir</button>
+      <div class="actions">
+        <button type="button" class="second" id="ed-annuler">Annuler</button>
+        <button type="button" id="ed-valider">Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>"use strict";(()=>{function Te(e){let t=new DataView(e);if(t.byteLength<4||t.getUint16(0)!==65496)return null;let n=2;for(;n+4<=t.byteLength;){let r=t.getUint16(n),u=t.getUint16(n+2);if(r===65505&&n+10<=t.byteLength&&t.getUint32(n+4)===1165519206)return We(t,n+10);if((r&65280)!==65280||r===65498)return null;n+=2+u}return null}function We(e,t){if(t+8>e.byteLength)return null;let n=e.getUint16(t)===18761,r=i=>e.getUint16(i,n),u=i=>e.getUint32(i,n),o=(i,l)=>{if(i+2>e.byteLength)return null;let h=r(i);for(let d=0;d<h;d++){let x=i+2+d*12;if(x+12>e.byteLength)return null;if(r(x)===l)return r(x+2)===3?r(x+8):u(x+8)}return null},a=t+u(t+4),s=o(a,34665);if(s===null)return null;let m=o(t+s,41989);return m&&m>0?m:null}function we(e){return 2*Math.atan(36/2/e)*180/Math.PI}var Ye=e=>e*Math.PI/180,Ge=e=>e*180/Math.PI;function he(e,t,n=67){return Math.max(e,t)/2/Math.tan(Ye(n)/2)}function Qe(e,t){return Ge(2*Math.atan(e/2/t))}function Le(e,t,n,r){let u=n*e/t;return Qe(r,u)}var xt=1/3;function b(e,t){let n=e[t];if(n===void 0)throw new RangeError("Indice "+t+" hors du tableau ("+e.length+" element(s)).");return n}function Je(e,t){let n=t.length,r=e.map((u,o)=>[...u,b(t,o)]);for(let u=0;u<n;u++){let o=u;for(let s=u+1;s<n;s++)Math.abs(b(b(r,s),u))>Math.abs(b(b(r,o),u))&&(o=s);if(Math.abs(b(b(r,o),u))<1e-12)return null;[r[u],r[o]]=[b(r,o),b(r,u)];let a=b(r,u);for(let s=0;s<n;s++){if(s===u)continue;let m=b(r,s),i=b(m,u)/b(a,u);if(i!==0)for(let l=u;l<=n;l++)m[l]=b(m,l)-i*b(a,l)}}return r.map((u,o)=>b(u,n)/b(u,o))}function V(e,t){if(e.length!==4||t.length!==4)return null;let n=[],r=[];for(let o=0;o<4;o++){let{x:a,y:s}=b(e,o),{x:m,y:i}=b(t,o);n.push([a,s,1,0,0,0,-m*a,-m*s]),r.push(m),n.push([0,0,0,a,s,1,-i*a,-i*s]),r.push(i)}let u=Je(n,r);return!u||u.some(o=>!Number.isFinite(o))?null:[b(u,0),b(u,1),b(u,2),b(u,3),b(u,4),b(u,5),b(u,6),b(u,7),1]}function _(e,t){let n=e[6]*t.x+e[7]*t.y+e[8];return{x:(e[0]*t.x+e[1]*t.y+e[2])/n,y:(e[3]*t.x+e[4]*t.y+e[5])/n}}function Ke(e,t,n,r,u){if(t<-.5||n<-.5||t>e.largeur-.5||n>e.hauteur-.5)return!1;let o=Math.max(0,Math.min(e.largeur-1,Math.floor(t))),a=Math.max(0,Math.min(e.hauteur-1,Math.floor(n))),s=Math.min(e.largeur-1,o+1),m=Math.min(e.hauteur-1,a+1),i=Math.max(0,Math.min(1,t-o)),l=Math.max(0,Math.min(1,n-a)),h=e.donnees,d=e.largeur,x=(a*d+o)*4,M=(a*d+s)*4,y=(m*d+o)*4,f=(m*d+s)*4;for(let v=0;v<3;v++){let p=(h[x+v]??0)*(1-i)+(h[M+v]??0)*i,P=(h[y+v]??0)*(1-i)+(h[f+v]??0)*i;r[u+v]=p*(1-l)+P*l}return r[u+3]=255,!0}function te(e,t,n,r,u){let o=Math.max(1,Math.round(n*u)),a=Math.max(1,Math.round(r*u)),s=V([{x:0,y:0},{x:o,y:0},{x:o,y:a},{x:0,y:a}],t);if(!s)return null;let m=new Uint8ClampedArray(o*a*4),i=new Uint8Array(o*a),l=0,h=0,d=0,x=0;for(let y=0;y<a;y++)for(let f=0;f<o;f++){let v=_(s,{x:f+.5,y:y+.5}),p=(y*o+f)*4;Ke(e,v.x-.5,v.y-.5,m,p)&&(i[y*o+f]=1,l++,h+=m[p]??0,d+=m[p+1]??0,x+=m[p+2]??0)}if(l===0)return null;let M=[h/l,d/l,x/l];if(l<o*a)for(let y=0;y<o*a;y++)i[y]||(m[y*4]=b(M,0),m[y*4+1]=b(M,1),m[y*4+2]=b(M,2),m[y*4+3]=255);return{image:{largeur:o,hauteur:a,donnees:m},pxParM:u,couverture:l/(o*a),vu:i}}var Z=(e,t)=>[e[1]*t[2]-e[2]*t[1],e[2]*t[0]-e[0]*t[2],e[0]*t[1]-e[1]*t[0]],ee=(e,t)=>e[0]*t[0]+e[1]*t[1]+e[2]*t[2];function W(e,t,n,r){let u=v=>[v.x,v.y,1],o=u(b(e,0)),a=u(b(e,1)),s=u(b(e,2)),m=u(b(e,3)),i=ee(Z(a,s),m),l=ee(Z(m,s),a);if(Math.abs(i)<1e-12||Math.abs(l)<1e-12)return null;let h=ee(Z(o,s),m)/i,d=ee(Z(o,s),a)/l,x=[h*a[0]-o[0],h*a[1]-o[1],h*a[2]-o[2]],M=[d*m[0]-o[0],d*m[1]-o[1],d*m[2]-o[2]],y=v=>{let p=(v[0]-n*v[2])/t,P=(v[1]-r*v[2])/t;return p*p+P*P+v[2]*v[2]},f=Math.sqrt(y(x)/y(M));return Number.isFinite(f)&&f>0?f:null}var ne=1,re=60;function oe(e,t,n,r,u){if(!(t>0)||!(n>0))return null;let o=W(e,n,r/2,u/2);if(!o)return null;let a=t/o;return a>=ne&&a<=re?Math.round(a*100)/100:null}function Y(e){return Math.min(8,Math.max(3,.6*e))}function ue(e,t,n){let r=Math.max(1,Math.floor(e.image.largeur/n)),u=Math.max(1,Math.floor((e.image.hauteur-t)/n)),o=new Float32Array(r*u),a=new Float32Array(r*u);for(let m=0;m<u*n;m++)for(let i=0;i<r*n;i++){let l=(m+t)*e.image.largeur+i;if(!e.vu[l])continue;let h=e.image.donnees,d=Math.floor(m/n)*r+Math.floor(i/n);o[d]=(o[d]??0)+.299*(h[l*4]??0)+.587*(h[l*4+1]??0)+.114*(h[l*4+2]??0),a[d]=(a[d]??0)+1}let s=new Uint8Array(r*u);for(let m=0;m<r*u;m++){let i=a[m]??0;i>0&&(o[m]=(o[m]??0)/i,s[m]=1)}return{l:r,h:u,v:o,vu:s}}function Ce(e,t,n,r=1){let u=Math.min(e.l-n,t.l),o=Math.min(e.h,t.h);if(u<=0)return-1;let a=0,s=0,m=0,i=0,l=0,h=0;for(let y=0;y<o;y+=r)for(let f=0;f<u;f++){let v=y*e.l+f+n,p=y*t.l+f;if(!e.vu[v]||!t.vu[p])continue;let P=e.v[v]??0,A=t.v[p]??0;a++,s+=P,m+=A,i+=P*P,l+=A*A,h+=P*A}if(a<20)return-1;let d=h-s*m/a,x=i-s*s/a,M=l-m*m/a;return x>1e-9&&M>1e-9?d/Math.sqrt(x*M):-1}function Ie(e,t,n,r,u=.4,o=6){let a=Math.max(1,Math.round(r/10)),s=ue(e,n,a),m=ue(t,n,a),i=Math.max(2,Math.round(u*r/a)),l=[];for(let f=1;f<=s.l-i;f++)l[f]=Ce(s,m,f);let h=f=>l[f]??-2,d=[];for(let f=1;f<=s.l-i;f++)h(f)>=h(f-1)&&h(f)>=h(f+1)&&d.push(f);d.sort((f,v)=>h(v)-h(f));let x=ue(e,n,1),M=ue(t,n,1),y={dx:(d[0]??1)*a,score:-2};for(let f of d.slice(0,o))for(let v=Math.max(1,(f-1)*a);v<=Math.min(x.l-2,(f+1)*a);v++){let p=Ce(x,M,v,2);p>y.score&&(y={dx:v,score:p})}return y}var j=(e,t)=>Math.hypot(t.x-e.x,t.y-e.y),L=(e,t)=>{let n=e[t];if(!n)throw new RangeError("coin "+t);return n};function Ue(e){let t=(j(L(e,0),L(e,1))+j(L(e,3),L(e,2)))/2,n=(j(L(e,0),L(e,3))+j(L(e,1),L(e,2)))/2;return n>0?t/n:1}function et(e){return W(e.coins,e.focale,e.apercu.largeur/2,e.apercu.hauteur/2)??Ue(e.coins)}function Re(e,t,n){return V([{x:0,y:0},{x:e,y:0},{x:e,y:t},{x:0,y:t}],n)}function Be(e,t){let n=e.map(s=>t*et(s)),r=Math.min(100,1600/Math.max(t,...n)),u=[];for(let s=0;s<e.length;s++){let m=e[s],i=te(m.apercu,m.coins,n[s],t,r);if(!i)return null;u.push({image:i.image,vu:i.vu})}let o=[0],a=[];for(let s=1;s<u.length;s++){let{dx:m,score:i}=Ie(u[s-1],u[s],0,r);o.push(o[s-1]+m/r),a.push(i)}return{largeurs:n,positions:o,jointures:a}}function De(e){let{morceaux:t,largeur:n}=e;if(!t.length||!(n>0))return null;if(t.length===1){let s=t[0],m=e.hauteurConnue,i="saisie";if(!m){let l=oe(s.coins,n,s.focale,s.apercu.largeur,s.apercu.hauteur);l?(m=l,i="mesuree"):(m=n/Ue(s.coins),i="apparente")}return{hauteur:m,sourceHauteur:i,largeurs:[n],positions:[0],etirement:1,jointures:[]}}let r=s=>s.positions[s.positions.length-1]+s.largeurs[s.largeurs.length-1],u=e.hauteurConnue??3,o=e.hauteurConnue?"saisie":"mesuree",a=Be(t,u);if(!a)return null;if(!e.hauteurConnue){let s=u*n/r(a);s>=ne&&s<=re?(u=Math.round(s*100)/100,a=Be(t,u)??a):o="apparente"}return{hauteur:u,sourceHauteur:o,...a,etirement:n/r(a)}}function ke(e,t){let n=0;return t.forEach((r,u)=>{let o=e.largeurs[u]*e.etirement,a=(j(L(r,0),L(r,3))+j(L(r,1),L(r,2)))/2/e.hauteur,s=(j(L(r,0),L(r,1))+j(L(r,3),L(r,2)))/2/o;n=Math.max(n,Math.sqrt(a*s))}),n}function de(e,t,n,r){return{l:Math.max(1,Math.round((e+2*n.cotes)*r)),h:Math.max(1,Math.round((n.haut+t.hauteur+n.bas)*r))}}function He(e,t,n,r,u,o){let a=e.largeurs.length,s=e.largeurs[n],m=Re(s,e.hauteur,r);if(!m)return null;let i=n===0?-t.cotes/e.etirement:0,l=n===a-1?s+t.cotes/e.etirement:s,h=[{x:i,y:-t.haut},{x:l,y:-t.haut},{x:l,y:e.hauteur+t.bas},{x:i,y:e.hauteur+t.bas}].map(f=>_(m,f));if(h.some(f=>!Number.isFinite(f.x)||!Number.isFinite(f.y)))return{x0:0,y0:0,x1:u,y1:o};let d=Math.max(0,Math.floor(Math.min(...h.map(f=>f.x))-2)),x=Math.max(0,Math.floor(Math.min(...h.map(f=>f.y))-2)),M=Math.min(u,Math.ceil(Math.max(...h.map(f=>f.x))+2)),y=Math.min(o,Math.ceil(Math.max(...h.map(f=>f.y))+2));return M<=d||y<=x?null:{x0:d,y0:x,x1:M,y1:y}}function Fe(e,t,n,r,u,o){let{l:a,h:s}=de(e,t,n,r),m=t.largeurs.length,i=t.largeurs.map((M,y)=>Re(M,t.hauteur,u[y])),l=new Uint8ClampedArray(a*s*4),h=[0,0,0];function d(M,y,f){let v=(y-M.ox)*M.k-.5,p=(f-M.oy)*M.k-.5,P=M.image;if(v<-.5||p<-.5||v>P.largeur-.5||p>P.hauteur-.5)return!1;let A=Math.max(0,Math.min(P.largeur-1,Math.floor(v))),z=Math.max(0,Math.min(P.hauteur-1,Math.floor(p))),X=Math.min(P.largeur-1,A+1),H=Math.min(P.hauteur-1,z+1),R=Math.max(0,Math.min(1,v-A)),B=Math.max(0,Math.min(1,p-z)),I=P.donnees,F=P.largeur,S=(z*F+A)*4,J=(z*F+X)*4,K=(H*F+A)*4,q=(H*F+X)*4;for(let D=0;D<3;D++){let me=I[S+D]*(1-R)+I[J+D]*R,N=I[K+D]*(1-R)+I[q+D]*R;h[D]=me*(1-B)+N*B}return!0}function x(M,y){for(let f=M;f<Math.min(y,s);f++){let v=(f+.5)/r-n.haut;for(let p=0;p<a;p++){let P=((p+.5)/r-n.cotes)/t.etirement,A=0,z=0,X=0,H=0;for(let B=0;B<m;B++){let I=i[B];if(!I)continue;let F=t.largeurs[B],S=P-t.positions[B],J=B===0,K=B===m-1;if(!J&&S<0||!K&&S>F)continue;let q=_(I,{x:S,y:v});if(!(Number.isFinite(q.x)&&Number.isFinite(q.y)))continue;let D=I[6]*S+I[7]*v+I[8],me=I[6]*(F/2)+I[7]*(t.hauteur/2)+I[8];if(D*me<=0||!d(o[B],q.x,q.y))continue;let N=m===1?1:Math.max(.001,Math.min(J?1/0:S,K?1/0:F-S));A+=h[0]*N,z+=h[1]*N,X+=h[2]*N,H+=N}if(H<=0)continue;let R=(f*a+p)*4;l[R]=A/H,l[R+1]=z/H,l[R+2]=X/H,l[R+3]=255}}}return{largeur:a,hauteur:s,sortie:l,lignes:x}}var tt=2400,ze=16e6,_e=16384,Oe="facade.reglages.v1",T={champ:67,largeur:"",hauteur:"",haut:"",cotes:"0",bas:"0",qualite:"native"};try{Object.assign(T,JSON.parse(localStorage.getItem(Oe)??"{}"))}catch{}function G(){try{localStorage.setItem(Oe,JSON.stringify(T))}catch{}}var g=e=>document.getElementById(e),w=(e,t=2)=>e.toFixed(t).replace(".",","),$=e=>{let t=parseFloat(e.replace(",",".").trim());return Number.isFinite(t)?t:null},pe=()=>new Promise(e=>setTimeout(e,0)),nt=1,E=[];function C(e,t,n="info"){e.textContent=t,e.dataset.ton=n,e.hidden=!t}async function qe(e){let t=URL.createObjectURL(e),n=new Image;n.decoding="async",n.src=t,await n.decode();let r=n.naturalWidth,u=n.naturalHeight,o=Math.min(1,tt/Math.max(r,u)),a=document.createElement("canvas");a.width=Math.round(r*o),a.height=Math.round(u*o),a.getContext("2d").drawImage(n,0,0,a.width,a.height);let s=document.createElement("canvas"),m=160/Math.max(r,u);s.width=Math.round(r*m),s.height=Math.round(u*m),s.getContext("2d").drawImage(a,0,0,s.width,s.height);let i=null;try{i=Te(await e.slice(0,262144).arrayBuffer())}catch{i=null}return{id:nt++,nom:e.name,fichier:e,img:n,L:r,H:u,apercu:a,ak:o,vignette:s.toDataURL("image/jpeg",.7),coins:null,f35:i}}function Pe(e){return e.f35?we(e.f35):T.champ}function rt(e,t,n){let r=n===1?.15:.08,u=e.L*r,o=e.L*(1-r);n>1&&t===0&&(u=e.L*.2),n>1&&t===n-1&&(o=e.L*.8);let a=e.H*.3,s=e.H*.75;return[{x:u,y:a},{x:o,y:a},{x:o,y:s},{x:u,y:s}]}function ce(){let e=$(T.largeur),t=$(T.hauteur),n=$(T.haut);return{largeur:e&&e>0?e:null,hauteur:t&&t>0?t:null,marges:{haut:n!==null&&n>=0?n:e&&e>0?Y(e):3,cotes:Math.max(0,$(T.cotes)??0),bas:Math.max(0,$(T.bas)??0)}}}function ot(e){let t=g("ch-"+e);t.value=String(T[e]),t.addEventListener("input",()=>{T[e]=t.value,G(),Ne()})}function Ne(){let e=ce();g("ch-haut").placeholder=e.largeur?"auto : "+w(Y(e.largeur),1):"auto",ie()}function Q(){let e=g("photos");e.replaceChildren(),E.forEach((t,n)=>{let r=document.createElement("li");r.className="photo";let u=document.createElement("img");u.src=t.vignette,u.alt="Photo "+(n+1);let o=document.createElement("div");o.className="photo-corps";let a=document.createElement("strong");a.textContent=(E.length>1?`${n+1}. `:"")+(E.length===1?"Le mur entier":n===0?"Bord gauche":n===E.length-1?"Bord droit":"Milieu");let s=document.createElement("span");s.className="discret";let m=Pe(t);s.textContent=`${t.L} \xD7 ${t.H} px \xB7 ${t.f35?t.f35+" mm (EXIF), ":"r\xE9glage, "}${w(m,1)}\xB0`;let i=document.createElement("span");i.className=t.coins?"etat bon":"etat",i.textContent=t.coins?"Coins pos\xE9s":"Coins \xE0 poser",o.append(a,s,i);let l=document.createElement("div");l.className="photo-actions";let h=(d,x,M,y=!1)=>{let f=document.createElement("button");f.type="button",f.className="petit",f.textContent=d,f.title=x,f.setAttribute("aria-label",x),f.disabled=y,f.addEventListener("click",M),l.append(f)};h("Coins","Poser les coins de la photo "+(n+1),()=>xe(t)),E.length>1&&(h("\u25C0","D\xE9placer vers la gauche",()=>Se(n,-1),n===0),h("\u25B6","D\xE9placer vers la droite",()=>Se(n,1),n===E.length-1)),h("\u2715","Retirer la photo "+(n+1),()=>{E.splice(n,1),URL.revokeObjectURL(t.img.src),Q()}),r.append(u,o,l),u.addEventListener("click",()=>xe(t)),e.append(r)}),g("photos-vide").hidden=E.length>0,g("consigne-photos").textContent=E.length>1?"Plusieurs photos : de gauche \xE0 droite, chacune recouvrant la pr\xE9c\xE9dente d\u2019environ un tiers. Sur chacune, l\u2019\xE9gout en haut et le pied du mur en bas ; la premi\xE8re tient le coin gauche du mur, la derni\xE8re le coin droit.":"Une photo si tout le mur tient dans l\u2019image. Sinon, plusieurs photos de gauche \xE0 droite, en vous d\xE9calant le long du mur et en gardant un tiers de la photo pr\xE9c\xE9dente.",ie()}function Se(e,t){let n=e+t;n<0||n>=E.length||([E[e],E[n]]=[E[n],E[e]],Q())}async function ut(e){if(!e||!e.length)return;let t=g("etat-photos");C(t,"Lecture de la photo\u2026");let n=[];for(let r of Array.from(e))try{n.push(await qe(r))}catch{C(t,`\xAB ${r.name} \xBB n\u2019a pas pu \xEAtre lue (format non pris en charge ?).`,"alerte");return}E.push(...n),C(t,""),Q(),n.length===1&&xe(n[0])}var c=null,le=()=>g("toile"),at=["haut gauche","haut droit","bas droit","bas gauche"];function xe(e){let t=E.indexOf(e),n=E.length,r=(e.coins??rt(e,t,n)).map(o=>({x:o.x*e.ak,y:o.y*e.ak})),u="Posez les quatre coins du mur : l\u2019\xE9gout (ou l\u2019acrot\xE8re) en haut, le pied du mur en bas. Un coin cach\xE9 se pose l\xE0 o\xF9 il serait.";n>1&&(u=t===0?`Photo 1 sur ${n} : \xE0 gauche, le coin gauche du mur ; \xE0 droite, une verticale du mur pr\xE8s du bord de la photo. L\u2019\xE9gout en haut, le pied en bas.`:t===n-1?`Photo ${n} sur ${n} : \xE0 droite, le coin droit du mur ; \xE0 gauche, une verticale du mur pr\xE8s du bord. L\u2019\xE9gout en haut, le pied en bas.`:`Photo ${t+1} sur ${n} : deux verticales du mur pr\xE8s des bords de la photo, de l\u2019\xE9gout au pied.`),Ve(e,r,"coins",u,o=>{e.coins=o.map(a=>({x:a.x/e.ak,y:a.y/e.ak})),Q()})}function Ve(e,t,n,r,u){c={photo:e,pts:t,mode:n,sel:0,s:1,ox:0,oy:0,valider:u},g("editeur").hidden=!1,document.body.classList.add("fige"),g("ed-consigne").textContent=r,g("ed-etalon").hidden=n!=="etalon",be(),O(),U()}function ye(){c=null,g("editeur").hidden=!0,document.body.classList.remove("fige")}function be(){if(!c)return;let e=le(),t=e.getBoundingClientRect(),n=window.devicePixelRatio||1;e.width=Math.round(t.width*n),e.height=Math.round(t.height*n);let r=c.photo.apercu,u=Math.min(t.width/(r.width*1.3),t.height/(r.height*1.3));c.s=u,c.ox=(t.width-r.width*u)/2,c.oy=(t.height-r.height*u)/2}var Me=e=>({x:e.x*c.s+c.ox,y:e.y*c.s+c.oy}),k=null,ge=0;function U(){ge||(ge=requestAnimationFrame(()=>{if(ge=0,!c)return;let e=le(),t=e.getContext("2d"),n=e.width/e.getBoundingClientRect().width||1;t.setTransform(1,0,0,1,0,0),t.fillStyle="#111",t.fillRect(0,0,e.width,e.height),t.setTransform(n,0,0,n,0,0),t.imageSmoothingQuality="high",t.drawImage(c.photo.apercu,c.ox,c.oy,c.photo.apercu.width*c.s,c.photo.apercu.height*c.s);let r=c.pts.map(Me);if(t.lineWidth=1.5,c.mode==="coins"){t.setLineDash([6,6]),t.strokeStyle="rgba(255,255,255,.45)";for(let o=0;o<4;o++)st(t,r[o],r[(o+1)%4]);t.setLineDash([]);let u=["#ff9f1c","#ffffff","#2ec4f1","#ffffff"];for(let o=0;o<4;o++)t.strokeStyle=u[o],t.lineWidth=2.5,t.beginPath(),t.moveTo(r[o].x,r[o].y),t.lineTo(r[(o+1)%4].x,r[(o+1)%4].y),t.stroke()}else t.strokeStyle="#ff9f1c",t.lineWidth=2.5,t.beginPath(),t.moveTo(r[0].x,r[0].y),t.lineTo(r[1].x,r[1].y),t.stroke();r.forEach((u,o)=>{t.beginPath(),t.arc(u.x,u.y,o===c.sel?15:12,0,Math.PI*2),t.fillStyle=o===c.sel?"rgba(255,159,28,.35)":"rgba(0,0,0,.25)",t.fill(),t.strokeStyle=o===c.sel?"#ff9f1c":"#fff",t.lineWidth=2,t.stroke(),t.beginPath(),t.moveTo(u.x-5,u.y),t.lineTo(u.x+5,u.y),t.moveTo(u.x,u.y-5),t.lineTo(u.x,u.y+5),t.stroke()}),k&&it(t,c.pts[c.sel])}))}function st(e,t,n){let r=n.x-t.x,u=n.y-t.y,o=Math.hypot(r,u);if(o<1)return;let a=4e3/o;e.beginPath(),e.moveTo(t.x-r*a,t.y-u*a),e.lineTo(n.x+r*a,n.y+u*a),e.stroke()}function it(e,t){if(!c||!k)return;let n=le().getBoundingClientRect(),r=Math.min(80,n.width*.2),o=k.x>n.width/2?r+12:n.width-r-12,a=r+12,s=Math.min(8,Math.max(2.5,c.s*5));e.save(),e.beginPath(),e.arc(o,a,r,0,Math.PI*2),e.closePath(),e.fillStyle="#111",e.fill(),e.clip(),e.imageSmoothingEnabled=s<4,e.drawImage(c.photo.apercu,o-t.x*s,a-t.y*s,c.photo.apercu.width*s,c.photo.apercu.height*s),e.strokeStyle="rgba(255,159,28,.9)",e.lineWidth=1.5;let m=l=>({x:o+(l.x-t.x)*s,y:a+(l.y-t.y)*s}),i=c.pts.length;c.pts.forEach((l,h)=>{if(c.mode==="etalon"&&h===1)return;let d=m(l),x=m(c.pts[(h+1)%i]);e.beginPath(),e.moveTo(d.x,d.y),e.lineTo(x.x,x.y),e.stroke()}),e.strokeStyle="#fff",e.lineWidth=1,e.beginPath(),e.moveTo(o-r,a),e.lineTo(o-6,a),e.moveTo(o+6,a),e.lineTo(o+r,a),e.moveTo(o,a-r),e.lineTo(o,a-6),e.moveTo(o,a+6),e.lineTo(o,a+r),e.stroke(),e.restore(),e.beginPath(),e.arc(o,a,r,0,Math.PI*2),e.strokeStyle="#fff",e.lineWidth=2,e.stroke()}function O(){if(!c)return;let e=g("ed-mesure"),t=c.photo;if(c.mode==="coins"){let n=ce(),r="Poign\xE9e : "+at[c.sel];if(E.length===1&&n.largeur){let u=he(t.apercu.width,t.apercu.height,Pe(t)),o=oe(c.pts,n.largeur,u,t.apercu.width,t.apercu.height);e.textContent=r+(o?` \xB7 hauteur mesur\xE9e ${w(o)} m`:" \xB7 hauteur non mesurable avec ces coins")}else e.textContent=r}else{let n=Ee();e.textContent=n?`Champ du grand c\xF4t\xE9 : ${w(n,1)}\xB0`:"Saisissez la distance et la longueur."}}function Ee(){if(!c||c.mode!=="etalon")return null;let e=$(g("et-distance").value),t=$(g("et-longueur").value),n=c.pts[0],r=c.pts[1],u=Math.hypot(r.x-n.x,r.y-n.y)/c.photo.ak;if(!e||!t||e<=0||t<=0||u<4)return null;let o=Le(e,t,u,Math.max(c.photo.L,c.photo.H));return o>10&&o<150?o:null}function ct(){let e=le(),t=new Map,n=null,r=i=>{let l=e.getBoundingClientRect();return{x:i.clientX-l.left,y:i.clientY-l.top}},u=()=>{let[i,l]=[...t.values()];if(!i||!l||!c)return;let h={x:(i.x+l.x)/2,y:(i.y+l.y)/2};n={type:"pince",d0:Math.hypot(l.x-i.x,l.y-i.y),s0:c.s,m0:h,img:{x:(h.x-c.ox)/c.s,y:(h.y-c.oy)/c.s}},k=null};e.addEventListener("pointerdown",i=>{if(!c)return;e.setPointerCapture(i.pointerId);let l=r(i);if(t.set(i.pointerId,l),t.size===2)return u();if(t.size>2)return;let h=-1,d=i.pointerType==="mouse"?20:36;c.pts.forEach((x,M)=>{let y=Me(x),f=Math.hypot(y.x-l.x,y.y-l.y);f<d&&(d=f,h=M)}),h>=0?(c.sel=h,n={type:"poignee",k:h,depart:{...c.pts[h]},ecran:l},k=l,O()):n={type:"vue",ox:c.ox,oy:c.oy,ecran:l},U()}),e.addEventListener("pointermove",i=>{if(!c||!t.has(i.pointerId))return;let l=r(i);if(t.set(i.pointerId,l),!!n){if(n.type==="poignee")c.pts[n.k]={x:n.depart.x+(l.x-n.ecran.x)/c.s,y:n.depart.y+(l.y-n.ecran.y)/c.s},k=l,O();else if(n.type==="vue")c.ox=n.ox+l.x-n.ecran.x,c.oy=n.oy+l.y-n.ecran.y;else{let[h,d]=[...t.values()];if(!h||!d)return;let x={x:(h.x+d.x)/2,y:(h.y+d.y)/2},M=Math.min(40,Math.max(.02,n.s0*Math.hypot(d.x-h.x,d.y-h.y)/Math.max(1,n.d0)));c.s=M,c.ox=x.x-n.img.x*M,c.oy=x.y-n.img.y*M}U()}});let o=i=>{if(t.delete(i.pointerId),t.size===1&&n?.type==="pince"&&c){let[l]=[...t.values()];n={type:"vue",ox:c.ox,oy:c.oy,ecran:l}}else t.size===0&&(n=null,k=null);U()};e.addEventListener("pointerup",o),e.addEventListener("pointercancel",o),e.addEventListener("wheel",i=>{if(!c)return;i.preventDefault();let l=e.getBoundingClientRect(),h={x:i.clientX-l.left,y:i.clientY-l.top},d={x:(h.x-c.ox)/c.s,y:(h.y-c.oy)/c.s};c.s=Math.min(40,Math.max(.02,c.s*Math.exp(-i.deltaY*.0015))),c.ox=h.x-d.x*c.s,c.oy=h.y-d.y*c.s,U()},{passive:!1});let a=(i,l)=>{if(!c)return;let h=c.pts[c.sel],d=.5/c.s;c.pts[c.sel]={x:h.x+i*d,y:h.y+l*d},k=Me(c.pts[c.sel]),O(),U(),clearTimeout(s),s=window.setTimeout(()=>{k=null,U()},1200)},s=0,m=(i,l,h)=>{let d=g(i),x=0,M=()=>clearInterval(x);d.addEventListener("pointerdown",y=>{y.preventDefault(),a(l,h),clearInterval(x),x=window.setInterval(()=>a(l,h),90)}),d.addEventListener("pointerup",M),d.addEventListener("pointerleave",M),d.addEventListener("pointercancel",M)};m("pv-g",-1,0),m("pv-d",1,0),m("pv-h",0,-1),m("pv-b",0,1),g("pv-suivant").addEventListener("click",()=>{c&&(c.sel=(c.sel+1)%c.pts.length,O(),U())}),g("ed-cadrer").addEventListener("click",()=>{be(),U()}),g("ed-annuler").addEventListener("click",ye),g("ed-valider").addEventListener("click",()=>{if(c){if(c.mode==="etalon"&&!Ee()){O();return}c.valider(c.pts),ye()}});for(let i of["et-distance","et-longueur"])g(i).addEventListener("input",O);window.addEventListener("resize",()=>{c&&(be(),U())}),document.addEventListener("keydown",i=>{i.key==="Escape"&&c&&ye()})}function ae(){g("ch-champ").value=w(T.champ,1),g("objectif-info").textContent=`Focale \xE9quivalente ${w(36/2/Math.tan(T.champ*Math.PI/360),1)} mm (24\xD736). Une photo qui porte sa focale dans ses donn\xE9es EXIF l\u2019emporte.`,Q()}async function lt(e){let t=e?.[0];if(!t)return;let n;try{n=await qe(t)}catch{C(g("etat-photos"),"Photo illisible.","alerte");return}let r=n.apercu,u=[{x:r.width*.3,y:r.height*.5},{x:r.width*.7,y:r.height*.5}];Ve(n,u,"etalon","\xC9talonnage : posez les deux extr\xE9mit\xE9s de l\u2019objet de longueur connue, photographi\xE9 de face, au centre de l\u2019image.",()=>{let o=Ee();o&&(T.champ=Math.round(o*10)/10,G(),ae())})}function ie(){let e=ce(),t=[];e.largeur||t.push("la largeur du mur"),E.length?E.some(n=>!n.coins)&&t.push("les coins de chaque photo"):t.push("au moins une photo"),g("redresser").disabled=t.length>0||se,g("manque").textContent=t.length?"Il manque "+t.join(", ")+".":""}var se=!1,ve=null;function mt(e){let t=e.apercu,n=t.getContext("2d",{willReadFrequently:!0}).getImageData(0,0,t.width,t.height).data;return{apercu:{largeur:t.width,hauteur:t.height,donnees:n},coins:e.coins.map(r=>({x:r.x*e.ak,y:r.y*e.ak})),focale:he(t.width,t.height,Pe(e))}}function ht(e,t,n,r){let u=t+2*r.cotes,o=r.haut+n.hauteur+r.bas,a=Math.min(Math.sqrt(ze/(u*o)),_e/Math.max(u,o)),s=e;return T.qualite==="moitie"&&(s=e/2),T.qualite==="leger"&&(s=Math.min(e,Math.sqrt(4e6/(u*o)))),Math.max(10,Math.min(s,a))}function ft(e,t){let n=t.x1-t.x0,r=t.y1-t.y0,u=Math.min(1,Math.sqrt(ze/(n*r)),_e/Math.max(n,r)),o=document.createElement("canvas");o.width=Math.max(1,Math.round(n*u)),o.height=Math.max(1,Math.round(r*u));let a=o.getContext("2d",{willReadFrequently:!0});a.drawImage(e.img,t.x0,t.y0,n,r,0,0,o.width,o.height);let s=a.getImageData(0,0,o.width,o.height).data;return o.width=o.height=0,{image:{largeur:Math.round(n*u),hauteur:Math.round(r*u),donnees:s},ox:t.x0,oy:t.y0,k:Math.round(n*u)/n}}async function dt(){let e=ce();if(!e.largeur||se)return;let t=e.largeur;se=!0,ie();let n=g("etat-resultat"),r=g("progres");r.hidden=!1,r.value=0;try{C(n,"Calage des photos\u2026"),await pe();let u=E.map(mt),o=De({morceaux:u,largeur:t,hauteurConnue:e.hauteur});if(!o)throw new Error("Les coins ne forment pas un quadrilat\xE8re utilisable : v\xE9rifiez-les.");let a=E.map(p=>p.coins),s=ke(o,a),m=ht(s,t,o,e.marges),i=de(t,o,e.marges,m);C(n,`Redressement \xE0 ${Math.round(m)} px/m (${i.l} \xD7 ${i.h} px)\u2026`),await pe();let l=[];for(let p=0;p<E.length;p++){let P=E[p],A=He(o,e.marges,p,P.coins,P.L,P.H);if(!A)throw new Error(`La photo ${p+1} ne montre rien du mur avec ces coins.`);l.push(ft(P,A))}let h=Fe(t,o,e.marges,m,a,l),d=Math.max(8,Math.round(4e5/h.largeur));for(let p=0;p<h.hauteur;p+=d)h.lignes(p,p+d),r.value=Math.min(1,(p+d)/h.hauteur),await pe();l.length=0;let x=g("resultat");x.width=h.largeur,x.height=h.hauteur,x.getContext("2d").putImageData(new ImageData(h.sortie,h.largeur,h.hauteur),0,0),g("resultat-bloc").hidden=!1;let M=new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");ve={canvas:x,nom:`facade_${w(t)}x${w(o.hauteur)}m_${Math.round(m)}pxm_${M}`};let y={mesuree:"mesur\xE9e sur la photo",saisie:"saisie",apparente:"proportions apparentes (focale inconnue ou coins d\xE9g\xE9n\xE9r\xE9s) : \xE0 v\xE9rifier"}[o.sourceHauteur],f=[`Mur : ${w(t)} m \xD7 ${w(o.hauteur)} m (hauteur ${y}).`,`Image : ${h.largeur} \xD7 ${h.hauteur} px, ${Math.round(m)} px/m (1 px = ${w(100/m,1)} cm) ; r\xE9solution native des photos \u2248 ${Math.round(s)} px/m.`,`Le pied du mur est \xE0 ${w(e.marges.haut+o.hauteur)} m du haut de l\u2019image, l\u2019\xE9gout \xE0 ${w(e.marges.haut)} m${e.marges.cotes?`, le coin gauche \xE0 ${w(e.marges.cotes)} m du bord`:""}.`],v=o.jointures.map((p,P)=>({j:p,k:P})).filter(p=>p.j<.5);o.etirement&&Math.abs(o.etirement-1)>.06&&E.length>1&&f.push(`Attention : l\u2019assemblage a d\xFB \xEAtre \xE9tir\xE9 de ${w((o.etirement-1)*100,0)} % pour retrouver la largeur ; v\xE9rifiez les coins.`);for(let p of v)f.push(`Attention : les photos ${p.k+1} et ${p.k+2} se ressemblent mal sur leur partie commune (${w(p.j)}) ; reprenez-en une en gardant un tiers de mur en commun.`);g("resultat-info").replaceChildren(...f.map(p=>{let P=document.createElement("p");return P.textContent=p,p.startsWith("Attention")&&(P.className="alerte"),P})),C(n,"Fa\xE7ade redress\xE9e. Vous pouvez l\u2019enregistrer.","bon"),g("resultat-bloc").scrollIntoView({behavior:"smooth",block:"start"})}catch(u){C(n,u instanceof Error?u.message:"Le redressement a \xE9chou\xE9.","alerte")}finally{se=!1,r.hidden=!0,ie()}}function Xe(e){if(!ve)return Promise.resolve(null);let{canvas:t,nom:n}=ve,r=t;if(e==="image/jpeg"){r=document.createElement("canvas"),r.width=t.width,r.height=t.height;let u=r.getContext("2d");u.fillStyle="#fff",u.fillRect(0,0,r.width,r.height),u.drawImage(t,0,0)}return new Promise(u=>r.toBlob(o=>{r!==t&&(r.width=r.height=0),u(o?new File([o],n+(e==="image/png"?".png":".jpg"),{type:e}):null)},e,.92))}async function je(e){let t=g("etat-resultat");C(t,"Pr\xE9paration du fichier\u2026");let n=await Xe(e);if(!n)return C(t,"Le fichier n\u2019a pas pu \xEAtre produit (m\xE9moire insuffisante ?). Essayez une qualit\xE9 plus l\xE9g\xE8re.","alerte");let r=document.createElement("a");r.href=URL.createObjectURL(n),r.download=n.name,document.body.append(r),r.click(),r.remove(),setTimeout(()=>URL.revokeObjectURL(r.href),6e4),C(t,`\xAB ${n.name} \xBB enregistr\xE9 (${w(n.size/1048576,1)} Mo).`,"bon")}async function pt(){let e=g("etat-resultat"),t=await Xe("image/jpeg");if(!t)return C(e,"Le fichier n\u2019a pas pu \xEAtre produit.","alerte");try{await navigator.share({files:[t],title:"Fa\xE7ade redress\xE9e"}),C(e,"Partag\xE9e.","bon")}catch(n){n.name!=="AbortError"&&C(e,"Le partage a \xE9chou\xE9 : utilisez \xAB Enregistrer \xBB.","alerte")}}function yt(){for(let u of["largeur","hauteur","haut","cotes","bas"])ot(u);let e=g("ch-qualite");e.value=T.qualite,e.addEventListener("change",()=>{T.qualite=e.value,G()});let t=g("ch-champ");t.addEventListener("change",()=>{let u=$(t.value);u&&u>10&&u<150&&(T.champ=u,G()),ae()}),g("champ-defaut").addEventListener("click",()=>{T.champ=67,G(),ae()});for(let u of["prendre","importer"]){let o=g(u);o.addEventListener("change",async()=>{await ut(o.files),o.value=""})}let n=g("etalon-photo");n.addEventListener("change",async()=>{await lt(n.files),n.value=""}),g("redresser").addEventListener("click",dt),g("enregistrer").addEventListener("click",()=>je("image/jpeg")),g("enregistrer-png").addEventListener("click",()=>je("image/png"));let r=typeof navigator.canShare=="function"&&navigator.canShare({files:[new File([""],"a.jpg",{type:"image/jpeg"})]});g("partager").hidden=!r,g("partager").addEventListener("click",pt),g("resultat").addEventListener("click",()=>g("resultat-cadre").classList.toggle("plein")),ct(),ae(),Ne()}yt();})();
+</script>
+</body>
+</html>

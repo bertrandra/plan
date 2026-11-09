@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **`facade.html` : façade redressée, page autonome pour mobile.** Un fichier seul, sans réseau ni
+  serveur : on photographie un mur (une photo, ou plusieurs de gauche à droite), on pose ses coins
+  avec loupe et zoom, et la page assemble et redresse les photos à l'échelle, à la résolution des
+  photos (bornée à 16 Mpx, la limite d'un canevas iOS), puis enregistre le résultat en JPEG ou PNG
+  ou le partage vers Photos. Elle embarque la chaîne de calibration de `src/facade/` (EXIF, champ et
+  focale, étalonnage, proportions d'un rectangle en perspective, homographie, recalage des photos)
+  **sans la modifier** : sources et construction dans `outils/facade/`
+  (`node outils/facade/construire.mjs`, `--verifier` pour le banc synthétique). L'application n'est
+  pas touchée.
+
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m
   ailleurs — enregistrée dans la parcelle du projet avec sa source, sa date et sa précision, jamais

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f5c">
+<title>Façade redressée</title>
+<!-- Page autonome construite par outils/facade/construire.mjs (commit {{COMMIT}}) : ne pas modifier a la main. -->
+<style>
+:root {
+  --fond: #f4f2ee; --carte: #ffffff; --texte: #1d2321; --discret: #5f6b67; --bord: #d9d5cd;
+  --accent: #1f6f5c; --accent-texte: #ffffff; --accent-doux: #e3f0ec;
+  --bon: #1d7a3e; --alerte: #a33a1c; --alerte-fond: #fbeae4; --champ: #fbfaf8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fond: #121615; --carte: #1b211f; --texte: #e7ece9; --discret: #9aa6a1; --bord: #2f3835;
+    --accent: #4fb89a; --accent-texte: #0d1513; --accent-doux: #1d332c;
+    --bon: #63c98a; --alerte: #f08a68; --alerte-fond: #3a221a; --champ: #151a19;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--fond); color: var(--texte);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+body.fige { overflow: hidden; }
+header { padding: 18px 16px 6px; max-width: 760px; margin: 0 auto; }
+h1 { font-size: 1.35rem; margin: 0 0 4px; }
+header p { margin: 0; color: var(--discret); font-size: .92rem; }
+main { max-width: 760px; margin: 0 auto; padding: 8px 16px 40px; display: grid; gap: 14px; }
+section { background: var(--carte); border: 1px solid var(--bord); border-radius: 14px; padding: 14px 16px 16px; }
+h2 { font-size: 1.05rem; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+h2 .num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-texte); font-size: .8rem; }
+.grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 12px; }
+label { display: grid; gap: 4px; font-size: .88rem; color: var(--discret); }
+label b { color: var(--texte); font-weight: 600; }
+input[type=text], select {
+  font: inherit; color: var(--texte); background: var(--champ); border: 1px solid var(--bord);
+  border-radius: 10px; padding: 10px 12px; min-height: 44px; width: 100%;
+}
+input:focus-visible, select:focus-visible, button:focus-visible, .bouton:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.discret { color: var(--discret); font-size: .85rem; }
+details summary { cursor: pointer; color: var(--discret); font-size: .9rem; min-height: 32px; display: flex; align-items: center; }
+details .grille { margin-top: 8px; }
+button, .bouton {
+  font: inherit; font-weight: 600; border-radius: 10px; min-height: 44px; padding: 10px 16px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-texte); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-align: center;
+}
+button.second, .bouton.second { background: transparent; color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.petit { min-height: 40px; min-width: 40px; padding: 6px 10px; background: transparent; color: var(--accent); }
+.bouton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.rangee { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rangee > * { flex: 1 1 auto; }
+#photos { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.photo { display: grid; grid-template-columns: 72px 1fr; gap: 6px 12px; align-items: center; border: 1px solid var(--bord); border-radius: 12px; padding: 8px; }
+.photo img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; background: #000; }
+.photo-corps { display: grid; gap: 2px; min-width: 0; }
+.photo-corps .discret { overflow-wrap: anywhere; }
+.photo-actions { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.etat { font-size: .82rem; font-weight: 600; color: var(--alerte); }
+.etat.bon { color: var(--bon); }
+.msg { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; font-size: .9rem; background: var(--accent-doux); }
+.msg[data-ton=bon] { color: var(--bon); }
+.msg[data-ton=alerte] { color: var(--alerte); background: var(--alerte-fond); }
+#manque { color: var(--discret); font-size: .88rem; margin: 8px 0 0; }
+progress { width: 100%; height: 8px; margin-top: 10px; accent-color: var(--accent); }
+#resultat-cadre { margin-top: 12px; border-radius: 10px; overflow: auto; max-height: 75vh; background:
+  repeating-conic-gradient(#8883 0 25%, transparent 0 50%) 0 0 / 16px 16px; border: 1px solid var(--bord); }
+#resultat { display: block; width: 100%; height: auto; cursor: zoom-in; }
+#resultat-cadre.plein #resultat { width: auto; max-width: none; cursor: zoom-out; }
+#resultat-info p { margin: 8px 0 0; font-size: .9rem; }
+#resultat-info p.alerte { color: var(--alerte); }
+footer { text-align: center; color: var(--discret); font-size: .78rem; padding: 0 16px 24px; }
+
+/* L'editeur plein ecran : toujours sombre, la photo d'abord. */
+#editeur { position: fixed; inset: 0; z-index: 10; background: #111; color: #eee; display: grid; grid-template-rows: auto 1fr auto; }
+#editeur[hidden] { display: none; }
+#ed-haut { padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; font-size: .9rem; line-height: 1.35; background: #1b1b1b; }
+#toile { width: 100%; height: 100%; touch-action: none; display: block; }
+#ed-bas { background: #1b1b1b; padding: 8px 12px calc(env(safe-area-inset-bottom) + 10px); display: grid; gap: 8px; }
+#ed-mesure { font-size: .88rem; color: #ffc46b; min-height: 1.3em; }
+#ed-bas .rangee { flex-wrap: nowrap; }
+.pave { display: grid; grid-template-columns: repeat(5, 44px); gap: 6px; flex: 0 0 auto !important; }
+.pave button { min-width: 44px; padding: 0; background: #2a2a2a; border-color: #444; color: #eee; }
+#ed-bas .actions { display: flex; gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
+#ed-bas .actions button { flex: 1 1 0; max-width: 160px; }
+#ed-bas button.second { color: #eee; border-color: #555; }
+#ed-etalon[hidden] { display: none; }
+#ed-etalon { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#ed-etalon label { color: #bbb; }
+#ed-etalon input { background: #222; color: #eee; border-color: #444; }
+@media (max-width: 380px) { .pave { grid-template-columns: repeat(5, 40px); } .pave button { min-width: 40px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Façade redressée</h1>
+  <p>Photographiez un mur, posez ses coins : la page assemble vos photos et les redresse à l’échelle, à la résolution des photos. Tout se calcule sur l’appareil ; aucune image ne le quitte.</p>
+</header>
+<main>
+  <section aria-labelledby="t-mur">
+    <h2 id="t-mur"><span class="num">1</span>Le mur</h2>
+    <div class="grille">
+      <label><b>Largeur du mur (m)</b><input type="text" id="ch-largeur" inputmode="decimal" autocomplete="off" placeholder="ex. 9,40"></label>
+      <label><b>Hauteur à l’égout (m)</b><input type="text" id="ch-hauteur" inputmode="decimal" autocomplete="off" placeholder="mesurée"></label>
+    </div>
+    <p class="discret">La largeur met la photo à l’échelle. Laissez la hauteur vide : elle se mesure d’après la perspective des coins.</p>
+    <details>
+      <summary>Marges autour du mur</summary>
+      <div class="grille">
+        <label>Au-dessus de l’égout (m)<input type="text" id="ch-haut" inputmode="decimal" autocomplete="off" placeholder="auto"></label>
+        <label>De chaque côté (m)<input type="text" id="ch-cotes" inputmode="decimal" autocomplete="off"></label>
+        <label>Sous le pied du mur (m)<input type="text" id="ch-bas" inputmode="decimal" autocomplete="off"></label>
+      </div>
+      <p class="discret">Au-dessus de l’égout, la marge garde le pignon et le toit : ils sont dans le plan du mur, donc à la même échelle.</p>
+    </details>
+  </section>
+
+  <section aria-labelledby="t-photos">
+    <h2 id="t-photos"><span class="num">2</span>Les photos</h2>
+    <p class="discret" id="consigne-photos"></p>
+    <div class="rangee">
+      <label class="bouton">Prendre une photo<input type="file" id="prendre" accept="image/*" capture="environment"></label>
+      <label class="bouton second">Importer<input type="file" id="importer" accept="image/*" multiple></label>
+    </div>
+    <p class="msg" id="etat-photos" hidden></p>
+    <p class="discret" id="photos-vide">Aucune photo pour l’instant. Tenez le téléphone droit, le mur au centre ; un coin caché par un arbre se pose là où il serait.</p>
+    <ul id="photos"></ul>
+  </section>
+
+  <section aria-labelledby="t-objectif">
+    <h2 id="t-objectif"><span class="num">3</span>L’objectif</h2>
+    <div class="grille">
+      <label><b>Champ du grand côté (°)</b><input type="text" id="ch-champ" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <p class="discret" id="objectif-info"></p>
+    <div class="rangee">
+      <label class="bouton second">Étalonner avec une photo<input type="file" id="etalon-photo" accept="image/*"></label>
+      <button type="button" class="second" id="champ-defaut">Valeur par défaut (67°)</button>
+    </div>
+    <p class="discret">Le champ sert à mesurer la hauteur et la largeur de chaque photo. Pour l’étalonner : photographiez de face, à une distance mesurée, un objet de longueur connue placé au centre de l’image (un mètre déplié au sol, une porte de garage), puis posez ses deux extrémités.</p>
+  </section>
+
+  <section aria-labelledby="t-resultat">
+    <h2 id="t-resultat"><span class="num">4</span>Le résultat</h2>
+    <div class="grille">
+      <label><b>Résolution</b>
+        <select id="ch-qualite">
+          <option value="native">Celle des photos (la plus haute)</option>
+          <option value="moitie">Moitié</option>
+          <option value="leger">Légère (4 Mpx au plus)</option>
+        </select>
+      </label>
+    </div>
+    <div class="rangee" style="margin-top:12px"><button type="button" id="redresser">Assembler et redresser</button></div>
+    <p id="manque"></p>
+    <progress id="progres" max="1" value="0" hidden></progress>
+    <p class="msg" id="etat-resultat" hidden></p>
+    <div id="resultat-bloc" hidden>
+      <div id="resultat-cadre"><canvas id="resultat" aria-label="Façade redressée"></canvas></div>
+      <div id="resultat-info"></div>
+      <div class="rangee" style="margin-top:12px">
+        <button type="button" id="enregistrer">Enregistrer (JPEG)</button>
+        <button type="button" class="second" id="partager">Partager ou mettre dans Photos</button>
+        <button type="button" class="second" id="enregistrer-png">PNG (sans perte)</button>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>Chaîne de calibration du relevé de façade de Plan · commit {{COMMIT}}</footer>
+
+<div id="editeur" hidden role="dialog" aria-modal="true" aria-labelledby="ed-consigne">
+  <div id="ed-haut"><span id="ed-consigne"></span><br><span style="color:#aaa">Glissez une poignée (une loupe apparaît) ; un doigt ailleurs déplace la vue, deux doigts zooment.</span></div>
+  <canvas id="toile"></canvas>
+  <div id="ed-bas">
+    <div id="ed-etalon" hidden>
+      <label>Distance à l’objet (m)<input type="text" id="et-distance" inputmode="decimal" autocomplete="off"></label>
+      <label>Longueur de l’objet (m)<input type="text" id="et-longueur" inputmode="decimal" autocomplete="off"></label>
+    </div>
+    <div id="ed-mesure" aria-live="polite"></div>
+    <div class="rangee">
+      <div class="pave" aria-label="Ajustement fin de la poignée">
+        <button type="button" id="pv-g" aria-label="Poignée vers la gauche">◀</button>
+        <button type="button" id="pv-h" aria-label="Poignée vers le haut">▲</button>
+        <button type="button" id="pv-b" aria-label="Poignée vers le bas">▼</button>
+        <button type="button" id="pv-d" aria-label="Poignée vers la droite">▶</button>
+        <button type="button" id="pv-suivant" aria-label="Poignée suivante">⟳</button>
+      </div>
+    </div>
+    <div class="rangee">
+      <button type="button" class="second" id="ed-cadrer" style="flex:0 0 auto">Tout voir</button>
+      <div class="actions">
+        <button type="button" class="second" id="ed-annuler">Annuler</button>
+        <button type="button" id="ed-valider">Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>/*SCRIPT*/</script>
+</body>
+</html>

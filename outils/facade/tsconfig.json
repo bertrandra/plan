@@ -1,0 +1,6 @@
+{
+  // Verification de types de l'outil facade.html, hors de la configuration de l'application.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["."]
+}
