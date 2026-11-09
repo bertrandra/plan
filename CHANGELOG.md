@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.22.1] — 2026-11-09
+
+Version **corrective** au sens de `MD/RELEASE.md` : en Mode Toit, un mur posé sur une ligne y reste et un corps voisin l'arrête (#652) ;
+en calibration, la vérité de l'É7 ne reste plus en attente pour toujours, le refus d'un import se lit, un seul pincement de la façade est
+branché à la fois, une poignée ramenée hors de deux obstacles qui se touchent n'entre plus dans l'un d'eux (#651). Rien que des
+corrections, sans fonction nouvelle : PATCH (§2.1, « Bug fix with no change to computed values or exported bytes »). Aucune quantité ni
+aucun export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sur
+main, à la livraison.
+
 ### Corrigé
 
 - **Mode Toit : un mur posé sur une ligne y reste** (second audit du 9 novembre 2026, régression de la 5.21.0). Depuis qu'un pas de 5 cm
