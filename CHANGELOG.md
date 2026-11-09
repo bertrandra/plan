@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.22.0] — 2026-11-09
+
+Version **mineure** au sens de `MD/RELEASE.md` : la séquence des photos d'un cas de calibration se reprend (ajouter, retirer, ordonner,
+#646) ; un nouveau cas de calibration se crée depuis des photos importées, et la vérité de l'É7 se reporte quand la séquence change
+(#647) ; en Mode Toit, six défauts relevés par l'audit des gestes sont corrigés (#645), un pincement sur une poignée zoome et une poignée
+ne se pose plus sous ce qui flotte (#648) ; une annulation ne fait plus de travail inutile, la Vue 3D ne se rebâtit qu'une fois, le trait
+du retrait suit le mode corps, un mur photographié au rez-de-chaussée en retrait ne reçoit plus de fenêtres automatiques (#644). Des
+fonctions nouvelles offertes par l'interface (Admin › Calibrer la détection) : MINOR (§2.1, « New feature »), pas PATCH. Aucune quantité
+ni aucun export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
+la mesure sur main (run 42711251965 : 9 sur 9, 0,031 $ ; prompts et schémas inchangés).
+
 ### Ajouté
 - **La séquence des photos d'un cas de calibration se reprend** (demande du propriétaire, 9 novembre 2026 : « Dans calibration je peux
   uploader des photos. Supprimer, ajouter, ordonner la séquence des photos. »). À l'É2 d'un cas (Admin › Calibrer la détection) :
