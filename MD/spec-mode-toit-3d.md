@@ -477,6 +477,12 @@ Demande du propriétaire du 9 novembre 2026 (« je dois décaler le rez-de-chaus
   reculé (aucune derrière le bow-window), celles de l'étage et des pignons restent au nu ; le soubassement court au pied du mur reculé.
 - Plan : le contour reste celui de l'étage, en trait plein ; le mur reculé du rez-de-chaussée est un trait en tirets (à l'écran seulement,
   comme les ouvertures relevées : les exports gardent leur forme).
-- Hors de ce lot : la photo d'un relevé posée sur une façade en retrait (une seule surface aujourd'hui), une poignée pour tirer le recul,
-  la lecture de l'audit, un corps sur un contour de biais.
+- **La photo d'un relevé** (décision du propriétaire du 9 novembre 2026, `three/releve3d.ts`, `saillies.ts::retraitsSurLaFacade`,
+  `morceauxSousEtage`) : sur le mur du retrait, elle se coupe au dessous de l'étage ; le bas se pose sur le mur reculé, le haut reste au
+  nu, aux mêmes coordonnées de texture. Derrière le bow-window, rien (il cache ce mur) ; le bow-window garde son dessin, la photo ne s'y
+  pose pas (elle peut être d'avant lui). Sur le mur voisin raccourci au pied, la bande sous l'étage, à l'entrée du retrait, est vide. Le
+  dessous et les retours, que l'élévation ne voit pas, restent de la couleur du mur. Les ouvertures du relevé suivent la règle des
+  ouvertures automatiques (`profondeurDOuverture`).
+- Hors de ce lot : une poignée pour tirer le recul, la lecture de l'audit, un corps sur un contour de biais, la modénature lue d'un relevé
+  (bandeaux, soubassement, chaînes d'angle : elle reste au nu).
 

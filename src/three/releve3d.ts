@@ -30,6 +30,7 @@ import { sansOmbres } from '../facade/vision/sansOmbres.js';
 import { poserCarreaux, vitreLue } from './carreaux3d.js';
 import { poserModenature } from './modenature3d.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
+import { morceauxSousEtage, profondeurDOuverture, retraitsSurLaFacade, type RetraitRdc, type RetraitSurFacade } from '../facade/modeToit/saillies.js';
 import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -151,10 +152,24 @@ interface Habillage {
  * (LiDAR), la photo epouse la silhouette du mur : son egout, son pignon jusqu'au faitage, ses marches ; a
  * l'echelle (un metre de photo pour un metre de mur), et elle s'arrete ou la photo s'arrete.
  */
-function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartiesDuMur, corps: readonly CorpsToit[] | null = null, ouvertes: readonly [number, number][] = []) {
+function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartiesDuMur, corps: readonly CorpsToit[] | null = null, ouvertes: readonly [number, number][] = [], sousEtage: readonly RetraitSurFacade[] = []) {
   const { pt } = repereMur(ctx, hab.f);
   const L = hab.f.largeur;
   const entier = corps?.length ? silhouetteDuMur(hab.f, corps, hab.hauteurTexture, hauteur) : contourDuMur(L, hauteur, partie);
+  // Un rez-de-chaussee en retrait sous l'etage (schema 16, decision du proprietaire du 9 novembre 2026) : la photo se coupe au dessous de
+  // l'etage, le bas recule avec le mur du rez-de-chaussee, le haut reste au nu ; derriere un bow-window, rien. Memes coordonnees de texture
+  // que la photo entiere : chaque point du mur montre le meme pixel, seul le plan ou il se pose change.
+  if (sousEtage.length) {
+    const fermees = ouvertes.length ? portionsFermees(L, ouvertes) : [[0, L] as [number, number]];
+    for (const { contour, profondeurM } of morceauxSousEtage(entier, fermees, sousEtage)) {
+      const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT - profondeurM));
+      const uv = contour.flatMap((q) => [q.x / L, Math.min(1, q.y / hab.hauteurTexture)]);
+      const m = maillage(sommets, trianguler(contour).flat(), hab.mat, uv);
+      m.name = 'releve-facade';
+      ctx.scene.add(m);
+    }
+    return;
+  }
   // Sous un appentis ouvert, il n'y a pas de mur : la photo se pose sur les seules portions fermees (la coordonnee de texture reste
   // celle du mur entier, la photo ne glisse pas).
   for (const contour of ouvertes.length ? portionsFermees(L, ouvertes).map(([a, b]) => entreAbscisses(entier, a, b)).filter((c) => c.length >= 3) : [entier]) {
@@ -372,8 +387,18 @@ function hauteurDuHautEn(haut: readonly { x: number; y: number }[], x: number): 
   return b0.y;
 }
 
-/** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
-export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null): void {
+/** La facade `f` reculee de `profondeurM` derriere son plan (le mur d'un rez-de-chaussee en retrait) ; 0 : elle-meme. */
+function facadeReculee(f: Facade, profondeurM: number): Facade {
+  if (!profondeurM) return f;
+  const d = { x: -f.normale.x * profondeurM, y: -f.normale.y * profondeurM };
+  return { ...f, gauche: { x: f.gauche.x + d.x, y: f.gauche.y + d.y }, droite: { x: f.droite.x + d.x, y: f.droite.y + d.y } };
+}
+
+/**
+ * Habille un batiment de son releve. Ne fait rien s'il n'en a pas. `retraitsRdc` : les rez-de-chaussee en retrait sous l'etage (schema 16,
+ * `retraitsDuRdc`), dont la photo et les ouvertures du bas suivent le mur recule ; absents ou vides, le releve se pose comme avant.
+ */
+export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null, retraitsRdc: ReadonlyMap<CorpsToit, readonly RetraitRdc[]> | null = null): void {
   if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return;
   const { volumes, hautes } = volumesEtHautesDuBatiment(o.pts, h, o.batiment?.facades);
   const facades = facadesDuContour(o.pts, h);
@@ -393,6 +418,8 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     // Les portions du mur sous un appentis ouvert : ni photo, ni baie (un garage passe en carport).
     const ouvertes = corps?.length ? portionsOuvertesDuMur(f, corps) : [];
     const horsOuvert = (ov: OuvertureFacade) => !ouvertes.some(([a, b]) => ov.x + ov.l / 2 > a && ov.x + ov.l / 2 < b);
+    // Un rez-de-chaussee en retrait sur ce mur (schema 16) : ou la photo et les ouvertures du bas reculent. Vide sans lui.
+    const sousEtage = corps?.length && retraitsRdc?.size ? retraitsSurLaFacade(f, retraitsRdc, corps) : [];
     // Le mur a pu changer depuis le releve (sommet deplace) : la photo s'etire sur sa nouvelle
     // largeur, les ouvertures gardent leur cote depuis la gauche et celles qui sortent sont omises.
     const photo = ctx.textures ? r.texture : null;
@@ -406,7 +433,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       poserEnCouche(mat, COUCHES_SOL.surMur);
       const hab = { f, mat, hauteurTexture: r.hauteurTexture || r.hauteur };
       habillages.push(hab);
-      plaquerTexture(ctx, hab, hMur, partie, corps, ouvertes);
+      plaquerTexture(ctx, hab, hMur, partie, corps, ouvertes, sousEtage);
     }
     // Le haut de la facade sous les corps du toit (le pignon jusqu'au faitage) : la detection y cherche aussi (facade/analyse.ts), une
     // baie de pignon (lucarne, oculus) s'y pose. Sans corps, ou sur un mur en L, le haut est l'egout.
@@ -415,11 +442,17 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     const sousEgout = (ov: OuvertureFacade) => ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01;
     // Une baie hors du mur, d'un cote comme de l'autre (sous le pignon d'un corps voisin qui prolonge la facade, que la detection lit
     // depuis le 2 novembre 2026, ou un mur raccourci depuis le releve) ne se pose pas sur lui : elle n'en est pas.
-    const posees = dansLeL(r.ouvertures.filter((ov) => horsOuvert(ov) && ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01)));
-    posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
+    // Sous un etage qui avance, une baie du bas suit le mur recule, aucune derriere un bow-window ni a cheval sur le dessous de l'etage
+    // (profondeurDOuverture, comme la disposition automatique) ; sans retrait, toutes au nu.
+    const profondeur = (ov: OuvertureFacade) => (sousEtage.length ? profondeurDOuverture(ov, sousEtage) : 0);
+    const posees = dansLeL(r.ouvertures.filter((ov) => horsOuvert(ov) && profondeur(ov) !== null && ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01)));
+    const facadeDe = (ov: OuvertureFacade) => facadeReculee(f, profondeur(ov) ?? 0);
+    // Le haut du mur au-dessus d'une baie du bas d'un rez-de-chaussee en retrait : le dessous de l'etage.
+    const dessousEtage = (ov: OuvertureFacade) => (profondeur(ov) ? sousEtage.find((k) => ov.x < k.a && ov.x + ov.l > k.de)?.hauteurM : undefined);
+    posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), facadeDe(ov), ov, avecPhoto));
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts) ; une baie de pignon borne son coffre
     // au haut de la facade au-dessus d'elle.
-    poserDetailsOuvertures(ctx, posees.map((o) => ({ f, o, hMur: sousEgout(o) ? egoutEn(o.x + o.l / 2, hMur, partie) : hautEn(o.x + o.l / 2), cadre: SECTION_CADRE })));
+    poserDetailsOuvertures(ctx, posees.map((o) => ({ f: facadeDe(o), o, hMur: dessousEtage(o) ?? (sousEgout(o) ? egoutEn(o.x + o.l / 2, hMur, partie) : hautEn(o.x + o.l / 2)), cadre: SECTION_CADRE })));
     // La modenature lue et le store (lot L1) : rien sans elles.
     poserModenature(ctx, f, r, hMur, posees);
   });

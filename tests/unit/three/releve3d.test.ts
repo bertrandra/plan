@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ajouterReleve3d } from '../../../src/three/releve3d.js';
+import { corpsDeSaillie, retraitsDuRdc } from '../../../src/facade/modeToit/saillies.js';
 import type { CorpsToit, ObjetPolygone, OuvertureFacade } from '../../../src/model/types.js';
 
 // Un THREE minimal : chaque classe retient ce qu'on lui donne, la scene compte ce qu'on lui ajoute.
@@ -374,5 +375,53 @@ describe('ajouterReleve3d, partie basse au milieu', () => {
     expect(xs.some((x) => x < 4)).toBe(true);
     expect(xs.some((x) => x > 8)).toBe(true);
     expect(xs.every((x) => x <= 4 + 1e-9 || x >= 8 - 1e-9)).toBe(true);
+  });
+});
+
+describe('ajouterReleve3d, rez-de-chaussee en retrait sous l etage (schema 16)', () => {
+  // La maison de 10 x 6 m, egout a 5,5 m ; sa facade sur rue (cote 0, y = 0) photographiee ; un bow-window de 2,4 m au milieu, glisse
+  // sous l'etage (recul de 0,80 m, dessous de l'etage a 2,70 m).
+  const hote: CorpsToit = { pts: [p(0, 0), p(10, 0), p(10, 6), p(0, 6)], posFaitage: 3, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 };
+  const corps = [hote, corpsDeSaillie(hote, { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 })];
+  const ouvertures: OuvertureFacade[] = [
+    { type: 'fenetre', x: 1.2, y: 0.9, l: 1.2, h: 1.35, id: 'bas' }, { type: 'porte', x: 4.6, y: 0, l: 0.95, h: 2.15, id: 'porte' },
+    { type: 'fenetre', x: 1.2, y: 3.8, l: 1.2, h: 1.35, id: 'haut' },
+  ];
+  const objet = (): ObjetPolygone => ({ ...maison(), batiment: { facades: [{ cote: 0, largeur: 10, hauteur: 5.5, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 7, ouvertures, distance: 12, sourceDistance: 'cadrage', releveLe: '' }] } });
+  // La profondeur d'une maille derriere la facade (toLocal : z = -y), et ses hauteurs.
+  const ys = (m: Mesh) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 2).map((z) => -z);
+  const hs = (m: Mesh) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 1);
+
+  it('sans retrait, la photo est d un seul plan, comme avant', () => {
+    for (const r of [null, new Map()]) {
+      const { ajoutes, ctx } = scene();
+      ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], r);
+      const photo = ajoutes.filter((m) => m.name === 'releve-facade');
+      expect(photo).toHaveLength(1);
+      expect(ys(photo[0]!).every((y) => Math.abs(y + 0.01) < 1e-9)).toBe(true);
+      expect(ajoutes.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name)).toEqual(['ouverture:bas', 'ouverture:porte', 'ouverture:haut']);
+    }
+  });
+
+  it('coupe la photo au dessous de l etage : le bas sur le mur recule, aux memes coordonnees de texture, rien derriere le bow-window', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], retraitsDuRdc(corps));
+    const photo = ajoutes.filter((m) => m.name === 'releve-facade');
+    const bas = photo.filter((m) => ys(m).every((y) => Math.abs(y - 0.79) < 1e-6)), haut = photo.filter((m) => ys(m).every((y) => Math.abs(y + 0.01) < 1e-6));
+    expect(bas).toHaveLength(2);
+    expect(haut).toHaveLength(1);
+    expect(bas.every((m) => Math.max(...hs(m)) <= 2.7 + 1e-9)).toBe(true);
+    expect(Math.min(...hs(haut[0]!))).toBeCloseTo(2.7, 9);
+    // Chaque sommet montre le pixel qu'il montrait sur la photo entiere : u = x / 10, v = y / 7.
+    for (const m of photo) {
+      const pos = m.geometry.attributes.position!.array, uv = m.geometry.attributes.uv!.array;
+      for (let i = 0; i < pos.length / 3; i++) { expect(uv[2 * i]).toBeCloseTo(pos[3 * i]! / 10, 9); expect(uv[2 * i + 1]).toBeCloseTo(pos[3 * i + 1]! / 7, 9); }
+    }
+    // Les x du bas evitent le bow-window (3,8 a 6,2 m).
+    const xs = bas.flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    expect(xs.every((x) => x <= 3.8 + 1e-9 || x >= 6.2 - 1e-9)).toBe(true);
+    // La fenetre du bas suit le mur recule, la porte derriere le bow-window n'est pas posee, celle de l'etage reste au nu.
+    const groupes = ajoutes.filter((m) => m.name.startsWith('ouverture:')) as unknown as { name: string; enfants: Mesh[] }[];
+    expect(groupes.map((g) => g.name)).toEqual(['ouverture:bas', 'ouverture:haut']);
   });
 });

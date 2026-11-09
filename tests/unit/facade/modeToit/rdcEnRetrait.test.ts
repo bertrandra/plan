@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  accorderLesRetraits, corpsAuPied, corpsDeSaillie, facettesBowWindow, facettesEncorbellement, murDuCorps, replacerSaillie, retraitDuRdc, retraitsDuRdc
+  accorderLesRetraits, corpsAuPied, corpsDeSaillie, facettesBowWindow, facettesEncorbellement, morceauxSousEtage, murDuCorps, profondeurDOuverture, replacerSaillie, retraitDuRdc,
+  retraitsDuRdc, retraitsSurLaFacade
 } from '../../../../src/facade/modeToit/saillies.js';
 import { appliquerChoix, groupesDe, valeurDuGroupe, type CibleElement } from '../../../../src/facade/modeToit/elements.js';
 import { saillieValide } from '../../../../src/model/corpsToitEtendu.js';
@@ -113,5 +114,55 @@ describe('le rez-de-chaussee en retrait sous l etage', () => {
     expect(corps[1]!.saillie).not.toHaveProperty('rdcEnRetraitM');
     expect(groupesDe(corps, cible(1)).map((g) => g.groupe)).toEqual(['forme', 'niveau', 'rdc', 'toit']);
     expect(murDuCorps(corps[0]!, 0).L).toBe(10);
+  });
+});
+
+describe('la photo d un releve sur un rez-de-chaussee en retrait (decision du proprietaire, 9 novembre 2026)', () => {
+  // Les facades de la maison, vues de dehors : la rue (mur 0, y = 0) et le pignon est (mur 1, x = 10).
+  const rue = { gauche: { x: 0, y: 0 }, droite: { x: 10, y: 0 }, largeur: 10, normale: { x: 0, y: -1 } };
+  const est = { gauche: { x: 10, y: 0 }, droite: { x: 10, y: 6 }, largeur: 6, normale: { x: 1, y: 0 } };
+  const nord = { gauche: { x: 10, y: 6 }, droite: { x: 0, y: 6 }, largeur: 10, normale: { x: 0, y: 1 } };
+  const aire = (c: { x: number; y: number }[]) => Math.abs(c.reduce((t, q, i) => { const r = c[(i + 1) % c.length]!; return t + q.x * r.y - r.x * q.y; }, 0)) / 2;
+
+  it('lit le retrait sur la facade qui le porte : toute la largeur du mur, le recul, le dessous de l etage, le bow-window devant', () => {
+    const l = avecBows(bow({ rdcEnRetraitM: 0.8 }));
+    const r = retraitsSurLaFacade(rue, retraitsDuRdc(l));
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ de: 0, a: 10, hauteurM: 2.7 });
+    expect(r[0]!.profondeurM).toBeCloseTo(0.8, 9);
+    expect(r[0]!.devant).toEqual([[3.8, 6.2]]);
+    // Le pignon voisin, raccourci au pied : sous l'etage, son bout cote rue est l'entree du retrait, ouverte.
+    expect(retraitsSurLaFacade(est, retraitsDuRdc(l))).toEqual([{ de: 0, a: 0.8, profondeurM: 0, hauteurM: 2.7, devant: [[0, 0.8]] }]);
+    // Le mur d'en face n'en sait rien ; sans retrait, rien du tout.
+    expect(retraitsSurLaFacade(nord, retraitsDuRdc(l))).toEqual([]);
+    expect(retraitsSurLaFacade(rue, retraitsDuRdc(avecBows(bow())))).toEqual([]);
+    expect(retraitsSurLaFacade(rue, null)).toEqual([]);
+    // Un corps qui n'est pas dessine (un autre isole au Mode Toit) ne recule pas la photo.
+    expect(retraitsSurLaFacade(rue, retraitsDuRdc(l), [])).toEqual([]);
+  });
+
+  it('coupe la photo au dessous de l etage : le haut au nu, le bas recule, rien derriere le bow-window ; la photo entiere sinon', () => {
+    const l = avecBows(bow({ rdcEnRetraitM: 0.8 }));
+    const mur = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5.5 }, { x: 0, y: 5.5 }];
+    const m = morceauxSousEtage(mur, [[0, 10]], retraitsSurLaFacade(rue, retraitsDuRdc(l)));
+    const haut = m.filter((k) => k.profondeurM === 0), bas = m.filter((k) => k.profondeurM > 0);
+    expect(haut).toHaveLength(1);
+    expect(Math.min(...haut[0]!.contour.map((q) => q.y))).toBeCloseTo(2.7, 9);
+    expect(aire(haut[0]!.contour)).toBeCloseTo(10 * 2.8, 6);
+    expect(bas).toHaveLength(2);
+    expect(bas.every((k) => Math.abs(k.profondeurM - 0.8) < 1e-9 && Math.max(...k.contour.map((q) => q.y)) <= 2.7 + 1e-9)).toBe(true);
+    expect(bas.reduce((t, k) => t + aire(k.contour), 0)).toBeCloseTo((10 - 2.4) * 2.7, 6);
+    // Sous un appentis ouvert (portions fermees), la photo reste absente ou elle l'etait.
+    const ouvert = morceauxSousEtage(mur, [[0, 2], [8, 10]], retraitsSurLaFacade(rue, retraitsDuRdc(l)));
+    expect(ouvert.reduce((t, k) => t + aire(k.contour), 0)).toBeCloseTo(4 * 5.5, 6);
+  });
+
+  it('pose les baies du releve comme la disposition automatique : le bas sur le mur recule, rien derriere le bow-window ni a cheval', () => {
+    const r = retraitsSurLaFacade(rue, retraitsDuRdc(avecBows(bow({ rdcEnRetraitM: 0.8 }))));
+    expect(profondeurDOuverture({ x: 1.2, y: 0.9, l: 1.2, h: 1.35 }, r)).toBeCloseTo(0.8, 9);
+    expect(profondeurDOuverture({ x: 4.6, y: 0, l: 0.95, h: 2.15 }, r)).toBeNull();
+    expect(profondeurDOuverture({ x: 1.2, y: 3.8, l: 1.2, h: 1.35 }, r)).toBe(0);
+    expect(profondeurDOuverture({ x: 1.2, y: 2, l: 1.2, h: 1.35 }, r)).toBeNull();
+    expect(profondeurDOuverture({ x: 1.2, y: 0.9, l: 1.2, h: 1.35 }, [])).toBe(0);
   });
 });

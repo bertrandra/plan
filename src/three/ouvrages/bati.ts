@@ -99,7 +99,9 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
   if (o.type === 'polygon' && (o.batiment?.facades?.length || o.batiment?.toit || volumesToit)) {
     ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture,
       // Les carreaux d'une facade validee (lot F8) : en relief de pres, hors Econome, comme les baies en creux.
-      relief: vue3d.qualite !== 'econome' && dist(centre, co.centre) <= RELIEF_FENETRES_M }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null);
+      relief: vue3d.qualite !== 'econome' && dist(centre, co.centre) <= RELIEF_FENETRES_M }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null,
+      // Un rez-de-chaussee en retrait sous l'etage (schema 16) : la photo et les ouvertures du bas suivent le mur recule.
+      !surContour && retraitsRdc.size ? retraitsRdc : null);
   }
   if (o.type === 'polygon' && corpsToit && surContour) {
     ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
