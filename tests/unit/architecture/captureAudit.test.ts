@@ -8,8 +8,10 @@ import { CONTROLES } from '../../../src/app/controlesInterface.js';
 // releve est devenu l'editeur d'une facade deja relevee, la calibration lit les facades de l'audit. Ce test le tient sur le code : une
 // camera ouverte (`getUserMedia`) ou un champ fichier qui la demande (`capture`) n'existent que dans les ecrans de l'audit
 // (zones/parcours/). Un champ fichier qui prend une image aussi, a une exception pres : l'editeur d'un cas de la calibration importe des
-// photos dans un cas (demande du proprietaire, 9 novembre 2026 : « Dans calibration je peux uploader des photos »), sans camera. Une prise
-// de vue ajoutee ailleurs fait echouer la CI.
+// photos dans un cas (demande du proprietaire, 9 novembre 2026 : « Dans calibration je peux uploader des photos »), sans camera, et le
+// meme champ (`ChampDesPhotos`, exporte par l'editeur) cree un cas depuis des photos sur l'ecran de la calibration (reponse du
+// proprietaire, 9 novembre 2026 : « Nouveau cas depuis des photos » oui, la camera toujours dans l'audit seul). Une prise de vue ajoutee
+// ailleurs fait echouer la CI.
 
 const src = resolve(__dirname, '../../../src');
 const fichiers = (d: string): string[] => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? fichiers(p) : /\.tsx?$/.test(n) ? [p] : []; });
@@ -32,6 +34,18 @@ describe('aucun ecran de capture hors de l audit', () => {
     // La camera : l'audit seul. L'import d'une image : l'audit et l'editeur d'un cas de la calibration.
     expect(camera.filter((f) => !AUDIT.includes(f))).toEqual([]);
     expect([...new Set([...camera, ...importent])].sort()).toEqual([...AUDIT, ...CALIBRATION].sort());
+  });
+
+  it('le nouveau cas depuis des photos passe par le champ de l editeur, sans camera ni champ a lui', () => {
+    const ecran = readFileSync(join(src, 'zones/EcranCalibration.tsx'), 'utf8');
+    expect(ecran).toMatch(/<ChampDesPhotos controle="calibration\.fichiersNouveauCas"/);
+    expect(ecran).not.toMatch(/type="file"|getUserMedia|\bcapture\b\s*=/);
+    expect(CONTROLES).toHaveProperty('calibration.nouveauCasPhotos');
+    expect(CONTROLES).toHaveProperty('calibration.fichiersNouveauCas');
+    // Le champ partage : accept image, jamais capture.
+    const editeur = readFileSync(join(src, 'zones/EditeurCasCalibration.tsx'), 'utf8');
+    expect(editeur.match(/type="file"/g)).toHaveLength(1);
+    expect(editeur).not.toMatch(/\bcapture\s*=/);
   });
 
   it('le releve n a plus de commande ni de controle de capture ; la photo d un mur passe par l audit', () => {

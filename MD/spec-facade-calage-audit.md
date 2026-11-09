@@ -50,7 +50,10 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
 6. **Les photos se prennent et se rangent dans l'audit.** La calibration lit les façades de l'audit et en fait des cas ; elle ne prend
    plus de photos pour elle. *Depuis le 9 novembre 2026 (demande du propriétaire : « Dans calibration je peux uploader des photos. Supprimer,
    ajouter, ordonner la séquence des photos. »), elle importe des photos dans un cas ouvert, en retire et en change l'ordre, à l'É2
-   (`facade/photosDuCas.ts`) : un import de fichier préparé comme une photo de l'audit, jamais une caméra.*
+   (`facade/photosDuCas.ts`) : un import de fichier préparé comme une photo de l'audit, jamais une caméra. Réponses du propriétaire à la
+   PR #646 (9 novembre 2026) : un cas peut naître de photos importées (« Nouveau cas depuis des photos », sans contexte du plan : mur
+   rectangulaire face au sud, dimensions données à la main), toujours sans caméra ; quand la séquence change, la vérité de l'É7 se reporte
+   sur le nouvel assemblage par les photos qui la voient (un coin vu seulement sur des photos retirées part seul, et l'écran le dit).*
 7. **La Façade stocke** : ses **dimensions**, sa **forme** (gabarit et silhouette lue) et sa **texture** (l'image **calée** sur le mur).
 8. **Les fenêtres hors automatique sont dans la façade objet** : celles qui viennent de la photo, de Claude ou de la main. Les
    fenêtres automatiques ne sont pas stockées : la 3D les recalcule.

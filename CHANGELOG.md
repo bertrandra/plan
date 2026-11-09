@@ -17,6 +17,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   photos). Après chaque changement, le cas se rejoue en entier par le même enchaînement (`facade/photosDuCas.ts`). La calibration
   n'ouvre toujours pas de caméra : `captureAudit.test.ts` admet l'import d'images dans l'éditeur d'un cas, et lui seul hors de l'audit.
   Rien ne change pour un cas dont on ne touche pas les photos. Fumée : point 157.
+- **« Nouveau cas depuis des photos »** (réponse du propriétaire, 9 novembre 2026, à la PR #646). Sur l'écran Admin › Calibrer la
+  détection, des photos importées d'un fichier (huit au plus, sans caméra, préparées comme celles de l'audit, EXIF gardé) deviennent un
+  cas neuf, dans l'ordre choisi ; l'éditeur s'ouvre et le rejoue. Le cas n'a pas de contexte du plan (ni gabarit, ni corps du toit, ni
+  côté du contour, ni origine du repère) : il se rejoue comme un cas d'avant l'audit, mur rectangulaire face au sud, l'É10 sautée, le
+  GPS de l'EXIF non projeté ; la largeur et la hauteur du mur se donnent à la main (`facade/photosDuCas.ts::casDepuisLesPhotos`). Le
+  champ fichier est celui de l'éditeur (`ChampDesPhotos`) : `captureAudit.test.ts` le vérifie. Fumée : point 158.
+
+### Modifié
+- **La vérité de l'É7 d'un cas de calibration se reporte quand la séquence de ses photos change** (réponse du propriétaire,
+  9 novembre 2026), au lieu d'être effacée : ses quatre coins, ramenés de l'ancien assemblage sur chaque photo qui les voit (assemblage →
+  vue de face → photo), suivent leurs photos, puis se posent sur le nouvel assemblage au rejeu (`veriteSurLesPhotos`, `veriteSuivie`,
+  `veriteSurLAssemblage`). Un coin que seules des photos retirées voyaient part seul, et l'écran le dit (« … sans l'égout : il ne se
+  voyait que sur des photos retirées… ») ; sans ses deux bouts, la vérité est retirée et l'écran demande de la reposer. Un cas qu'on
+  enregistre avant le rejeu qui la reporte est refusé (« Rejouez d'abord le cas »). La vérité d'un étalon se recalcule toujours de ses
+  coins vrais. Sur les étalons 17 et 18, la vérité reportée tombe à moins de 1,5 % de la largeur du mur de celle que donnent leurs coins
+  vrais sur le nouvel assemblage (`tests/unit/facade/releve/reportVerite.test.ts`). `cas.ts --verite` sert un étalon comme un cas réel
+  qui porte sa vérité (point 158).
 
 ### Corrigé
 - **Un Ctrl+Z ne coûte plus deux sérialisations du plan quand la Vue 3D est fermée.** Depuis #640, chaque restauration du projet

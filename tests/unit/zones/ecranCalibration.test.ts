@@ -328,6 +328,67 @@ describe('l ecran de calibration', () => {
     confirmer.mockRestore();
   }, 60_000);
 
+  it('cree un cas depuis des photos importees (reponse du proprietaire, 9 novembre 2026) : sans camera, sans plan, rejoue et enregistre', async () => {
+    const optique = { focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'Téléphone', exif: { focale35: 26, modele: 'Téléphone' }, source: { largeurPx: 4000, hauteurPx: 3000 }, reduite: { largeurPx: 1100, hauteurPx: 700 }, empreinte: null };
+    let n = 0;
+    const importerPhoto = vi.fn(async (f: File) => { if (f.name === 'casse.jpg') throw new Error('illisible'); n++; return { type: 'image/jpeg' as const, base64: 'NEUF' + n, optique }; });
+    const { deps, stock } = fausses({ importerPhoto });
+    await monter(deps);
+    // Le champ du nouveau cas : des images, plusieurs, sans camera ; un fichier illisible est nomme, les autres entrent.
+    const champ = hote.querySelector('[data-controle="calibration.fichiersNouveauCas"]') as HTMLInputElement;
+    expect(champ.accept).toBe('image/*');
+    expect(champ.multiple).toBe(true);
+    expect(champ.hasAttribute('capture')).toBe(false);
+    expect(bouton('calibration.nouveauCasPhotos')?.textContent).toBe('Nouveau cas depuis des photos');
+    const fichiers = ['rue.jpg', 'casse.jpg', 'biais.jpg'].map((x) => new File([new Uint8Array([0xff, 0xd8])], x, { type: 'image/jpeg' }));
+    Object.defineProperty(champ, 'files', { configurable: true, value: fichiers });
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    // L'editeur s'ouvre sur le cas neuf et le rejoue de lui-meme, ses coins cherches comme dans l'audit.
+    await attendreQue(() => !!hote.querySelector('.calEditeur') && rejeuFini());
+    expect(hote.querySelector('.calEditeur h2')?.textContent).toBe('Nouveau cas');
+    expect(hote.querySelector('[role="alert"]')?.textContent).toContain('Illisible : casse.jpg.');
+    expect(hote.querySelectorAll('.calEtapeOuverte, .calFrise [data-etape="prises"] .calFriseEtat.echec').length).toBe(0);
+    // Un nom, les dimensions du mur a la main (sans plan autour), puis « Enregistrer le cas » : un cas de plus, ses photos dans l'ordre.
+    const nom = hote.querySelector('[data-controle="calibration.nomCas"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(nom, 'Maison importée'); nom.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    const neuf = [...stock.entries()].find(([id]) => id !== 'cas-a')?.[1] as CasStocke;
+    expect(neuf).toMatchObject({ nom: 'Maison importée', largeurM: 9, hauteurM: 5, statut: 'brouillon' });
+    expect(neuf.images).toEqual(['data:image/jpeg;base64,NEUF1', 'data:image/jpeg;base64,NEUF2']);
+    expect(neuf.photos.map((p) => [p.fichier, p.optique?.modeleAppareil, p.prise])).toEqual([['import-1', 'Téléphone', undefined], ['import-2', 'Téléphone', undefined]]);
+    expect(neuf.gabarit ?? neuf.toit ?? neuf.facade ?? neuf.origine).toBeUndefined();
+  }, 60_000);
+
+  it('reporte la verite de l E7 quand la sequence change (reponse du proprietaire, 9 novembre 2026) : ajouter, puis retirer, et le dit', async () => {
+    const importerPhoto = vi.fn(async () => ({ type: 'image/jpeg' as const, base64: 'AJOUT' }));
+    const { deps, stock } = fausses({ importerPhoto });
+    // Le cas porte une verite de l'E7 : le mur vrai sur l'assemblage de sa photo seule (la scene, mur a 100 px du bord).
+    stock.set('cas-a', { ...scene.cas, calageVrai: { x0: 100, x1: 1000, egout: 100, sol: 600, versionChaine: 14 } });
+    const confirmer = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('prises');
+    const champ = hote.querySelector('[data-controle="calibration.fichiersPhotos"]') as HTMLInputElement;
+    Object.defineProperty(champ, 'files', { configurable: true, value: [new File([new Uint8Array([0xff, 0xd8])], 'c.jpg', { type: 'image/jpeg' })] });
+    // Le cas n'a pas ete rejoue : l'assemblage d'ou vient la verite se refait (jusqu'a l'E7), puis le cas se rejoue sur deux photos.
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 2 && rejeuFini() && !!hote.querySelector('[role="alert"]'));
+    expect(hote.querySelector('[role="alert"]')?.textContent).toBe('La vérité de l’É7 (le mur vrai) est reportée sur le nouvel assemblage, par les photos qui la voient.');
+    // Retirer la photo d'origine : la verite avait ete posee sur l'assemblage de cette photo seule ; la photo ajoutee ne la portait pas.
+    await ouvrirEtape('prises');
+    await act(async () => { (hote.querySelectorAll('[aria-label="Photos du cas"] li')[0]?.querySelector('[data-controle="calibration.retirerPhoto"]') as HTMLButtonElement).click(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 1 && rejeuFini() && !!hote.querySelector('[role="alert"]'));
+    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/^La vérité de l’É7 \(le mur vrai\) est retirée : le bout gauche, le bout droit, l’égout et le sol ne se voyaient que sur des photos retirées/);
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    const sauve = stock.get('cas-a') as CasStocke;
+    expect(sauve.images).toEqual(['data:image/jpeg;base64,AJOUT']);
+    expect(sauve.calageVrai).toBeUndefined();
+    confirmer.mockRestore();
+  }, 60_000);
+
   it('rappelle Claude (le run d une facade), enregistre sa reponse avec son cout et ses versions, et la rejoue en mode IA', async () => {
     // Une reponse SYNTHETIQUE (pas Claude) : les angles du mur et ses trois fenetres, en parts de l'assemblage et du mur.
     const sortie = { calage: { angles: { gauche: { x: 0.091, egout: 0.143, sol: 0.857, confiance: 'forte' }, droite: { x: 0.909, egout: 0.143, sol: 0.857, confiance: 'forte' } }, pointes: [], appentis: [], corps: [], cache: [] },

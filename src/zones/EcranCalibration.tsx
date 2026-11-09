@@ -2,7 +2,7 @@
 //
 // L'administrateur y tire des cas des facades photographiees dans l'audit (« Créer un cas depuis cette façade » sous la barre d'une
 // facade de l'audit, ou un audit recu ; lot F6 : la calibration ne prend pas de photos ; depuis le 9 novembre 2026, elle en importe dans un
-// cas ouvert, en retire et les ordonne), annote leurs ouvertures
+// cas ouvert, en retire et les ordonne, et cree un cas depuis des photos importees, sans contexte du plan), annote leurs ouvertures
 // (EditeurCasCalibration), puis mesure la detection
 // sur ces cas (precision, rappel, fiabilite de la confiance) et lui fait chercher de meilleurs reglages
 // (facade/corpusReel.ts::calibrer). « Appliquer » ecrit les reglages sur le serveur (`admin/calibration`, data/admin/) ; chaque
@@ -11,8 +11,9 @@
 //
 // L'ecran ne parle ni au serveur ni au navigateur : tout lui vient de app/administration/ecranCalibration.ts, par `DepsCalibration`.
 
-import { useEffect, useState } from 'react';
-import { EditeurCasCalibration, type OutilsPhotos } from './EditeurCasCalibration.js';
+import { useEffect, useRef, useState } from 'react';
+import { ChampDesPhotos, EditeurCasCalibration, preparerLesPhotos, texteDesRefus, type OutilsPhotos } from './EditeurCasCalibration.js';
+import { casDepuisLesPhotos, PHOTOS_PAR_CAS_MAX } from '../facade/photosDuCas.js';
 import {
   CAS_MIN_CALIBRATION, FORMAT_CALIBRATION, PARAMETRES, bilan, calibrer, evaluerPrepare, fiabilite, lireCasStocke,
   type Bilan, type CasPrepare, type CasStocke, type DocumentCalibration, type ResultatCalibration,
@@ -95,6 +96,34 @@ function ListeEtalons({ deps, ouvrir }: { deps: DepsCalibration; ouvrir: (e: Res
             {e.projet && deps.creerProjetEtalon && <button type="button" className="secondary small" data-controle="calibration.creerProjetEtalon" aria-label={'Créer le projet de démonstration de l’étalon ' + e.nom} disabled={!!projet && 'enCours' in projet} onClick={() => { void creer(e); }}>Créer le projet de démonstration</button>}</td></tr>)}</tbody></table></div>}
       </details>
     </section>
+  );
+}
+
+/**
+ * « Nouveau cas depuis des photos » (reponse du proprietaire, 9 novembre 2026) : des fichiers importes, prepares comme les photos de
+ * l'audit (sans camera), deviennent un cas neuf, dans l'ordre choisi, sans contexte du plan (facade/photosDuCas.ts::casDepuisLesPhotos) :
+ * la largeur et la hauteur du mur se donnent dans l'editeur, qui s'ouvre et rejoue le cas, ses coins cherches comme dans l'audit.
+ */
+function NouveauCasDepuisDesPhotos({ deps, ouvrir, dire }: { deps: DepsCalibration; ouvrir: (cas: CasStocke) => void; dire: (m: string | null) => void }) {
+  const [occupe, setOccupe] = useState(false);
+  const champ = useRef<HTMLInputElement>(null);
+  const preparer = deps.importerPhoto;
+  if (!preparer) return null;
+  const creer = async (fichiers: File[]) => {
+    setOccupe(true); dire(null);
+    const { ajouts, illisibles } = await preparerLesPhotos(fichiers, preparer, { photos: [] }, PHOTOS_PAR_CAS_MAX);
+    setOccupe(false);
+    const refus = texteDesRefus(illisibles, fichiers.length - ajouts.length - illisibles.length);
+    if (!ajouts.length) { dire('Aucune photo lisible : le cas n’est pas créé.' + (refus ? ' ' + refus : '')); return; }
+    dire(refus);
+    ouvrir(casDepuisLesPhotos(ajouts));
+  };
+  return (
+    <div className="calNouveauCas">
+      <ChampDesPhotos controle="calibration.fichiersNouveauCas" entree={champ} importer={(l) => { void creer(l); }} />
+      <button type="button" className="secondary" data-controle="calibration.nouveauCasPhotos" disabled={occupe} onClick={() => champ.current?.click()}>{occupe ? 'Préparation des photos…' : 'Nouveau cas depuis des photos'}</button>
+      <span className="calNote">Jusqu’à {PHOTOS_PAR_CAS_MAX} photos d’un même mur, dans l’ordre où la chaîne les prendra ; leur EXIF est gardé. Sans plan autour : donnez la largeur et la hauteur du mur.</span>
+    </div>
   );
 }
 
@@ -280,7 +309,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
       <header className="palEntete">
         <div>
           <h1 className="palTitre">Calibrer la détection</h1>
-          <p className="palSous">Tirez des cas des façades photographiées dans l’audit, annotez leurs ouvertures, puis laissez Plan chercher les réglages qui font le mieux sur vos photos. Les réglages calibrés sont enregistrés sur le serveur (data/admin/calibration.json) et appliqués à chaque page ; les valeurs livrées avec Plan restent disponibles.</p>
+          <p className="palSous">Tirez des cas des façades photographiées dans l’audit, ou créez-en depuis vos photos, annotez leurs ouvertures, puis laissez Plan chercher les réglages qui font le mieux sur vos photos. Les réglages calibrés sont enregistrés sur le serveur (data/admin/calibration.json) et appliqués à chaque page ; les valeurs livrées avec Plan restent disponibles.</p>
         </div>
         <div className="palActions"><a className="palLien" href={retour}>← Retour à l’admin</a></div>
       </header>
@@ -321,9 +350,10 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
           fermer={() => setEdition(null)} />
         : <section className="calCas" aria-label="Cas de calibration">
           <h2 className="calTitre2">Cas de calibration</h2>
+          <NouveauCasDepuisDesPhotos deps={deps} ouvrir={(cas) => setEdition({ id: null, cas, chercher: true })} dire={setMessage} />
           <DepuisUnAudit deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: true })} />
           {resumes.length === 0
-            ? <p className="calNote">Aucun cas. Photographiez des façades variées dans l’audit (brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton), puis « Créer un cas depuis cette façade » sous leur barre. Une vingtaine de cas validés donnent des réglages fiables.</p>
+            ? <p className="calNote">Aucun cas. Photographiez des façades variées dans l’audit (brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton), puis « Créer un cas depuis cette façade » sous leur barre ; ou importez les photos d’un mur (« Nouveau cas depuis des photos »). Une vingtaine de cas validés donnent des réglages fiables.</p>
             : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
               <tbody>{resumes.map((r) => <tr key={r.id}><th scope="row">{r.nom}</th><td>{r.statut === 'valide' ? 'Validé' : 'Brouillon'}</td><td>{r.photos}</td><td>{r.ouvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirCas" aria-label={'Ouvrir le cas ' + r.nom} onClick={() => { void ouvrir(r.id); }}>Ouvrir</button></td></tr>)}</tbody></table>}
         </section>}
