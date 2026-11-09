@@ -20,7 +20,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   sur l'appareil si la page se recharge ; « Ajuster » (coins posés à la main, autre façade d'une
   photo d'angle) ; coutures qui suivent les zones semblables (plus de saillie en double) ;
   assemblage en hauteur ; correction de la distorsion des grands-angles non corrigés ; échelle
-  facultative, mesures et barre d'échelle ; calcul en arrière-plan ; journal copiable.
+  facultative, mesures et barre d'échelle ; calcul en arrière-plan ; journal copiable ; repérage
+  facultatif des fenêtres et portes (rectangles lisses sur un enduit rugueux), avec cotes, corrections
+  au doigt et export CSV.
 
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m

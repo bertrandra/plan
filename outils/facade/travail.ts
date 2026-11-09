@@ -9,7 +9,10 @@ ctx.onmessage = async (e: MessageEvent) => {
   try {
     const r = await (operations[op] as (a: never, p: (f: number, t: string) => void) => Promise<unknown>)(arg, (fraction, texte) => ctx.postMessage({ id, fraction, texte }));
     const transfert: Transferable[] = [];
-    if (r && typeof r === 'object' && 'sortie' in r) transfert.push((r as { sortie: Uint8ClampedArray }).sortie.buffer as ArrayBuffer);
+    if (r && typeof r === 'object' && 'sortie' in r) {
+      const x = r as { sortie: Uint8ClampedArray; vu: Uint8Array };
+      transfert.push(x.sortie.buffer as ArrayBuffer, x.vu.buffer as ArrayBuffer);
+    }
     ctx.postMessage({ id, ok: r }, transfert);
   } catch (err) {
     ctx.postMessage({ id, erreur: err instanceof Error ? err.message : String(err) });

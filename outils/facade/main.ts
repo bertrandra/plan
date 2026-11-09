@@ -5,7 +5,8 @@
 import { focale35mm, champDepuisFocale35 } from '../../src/facade/exif.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../src/facade/cadrage.js';
 import { versGris, regionUtile, type Gris, type P2, type Redressement, type Segment, type Source } from './auto.js';
-import { operations, type Analyse, type Placement, type ResultatRedressement } from './operations.js';
+import { operations, type Analyse, type Baie, type Placement, type ResultatBaies, type ResultatRedressement } from './operations.js';
+import { classer } from '../../src/facade/detection.js';
 import { editer } from './editeur.js';
 import * as stockage from './stockage.js';
 
@@ -604,7 +605,13 @@ async function restaurer() {
 
 /* ---------- la fusion ---------- */
 
-let dernier: { sortie: Uint8ClampedArray; l: number; h: number; nom: string } | null = null;
+let dernier: { sortie: Uint8ClampedArray; vu: Uint8Array; l: number; h: number; nom: string } | null = null;
+/** Les baies du resultat : reperees, puis corrigees au doigt ; en pixels de l'image. */
+let baies: Baie[] = [];
+/** Le sol (y en pixels de l'image), quand une porte l'a situe. */
+let solPx: number | null = null;
+/** Les baies ont-elles ete corrigees a la main (un nouveau reperage les effacerait) ? */
+let baiesCorrigees = false;
 
 async function fusionner() {
   if (occupe || !photos.length) return;
@@ -661,15 +668,18 @@ async function fusionner() {
       sources.push({ image: { largeur: dw, hauteur: dh, donnees: d }, ox: g.x0, oy: g.y0, k: dw / w });
     }
     const transfert = sources.filter((s): s is Source => !!s).map((s) => s.image.donnees.buffer as ArrayBuffer);
-    const rendu = await calcul.appeler<{ sortie: Uint8ClampedArray; l: number; h: number }>('rendre', { sources, px }, transfert, (f, t) => {
+    const rendu = await calcul.appeler<{ sortie: Uint8ClampedArray; vu: Uint8Array; l: number; h: number }>('rendre', { sources, px }, transfert, (f, t) => {
       message('etat-resultat', t);
       barre.value = 0.45 + 0.55 * f;
     });
     sources.length = 0;
     echelle = null;
+    baies = [];
+    solPx = null;
+    baiesCorrigees = false;
     const date = new Date();
     const z = (n: number) => String(n).padStart(2, '0');
-    dernier = { sortie: rendu.sortie, l: rendu.l, h: rendu.h, nom: `facade_${date.getFullYear()}${z(date.getMonth() + 1)}${z(date.getDate())}_${z(date.getHours())}${z(date.getMinutes())}` };
+    dernier = { sortie: rendu.sortie, vu: rendu.vu, l: rendu.l, h: rendu.h, nom: `facade_${date.getFullYear()}${z(date.getMonth() + 1)}${z(date.getDate())}_${z(date.getHours())}${z(date.getMinutes())}` };
     apercu();
     const lignes = [
       `${rendu.l} × ${rendu.h} px (${fr((rendu.l * rendu.h) / 1e6, 1)} Mpx), à ${Math.round((px / cadre.native) * 100)} % de la résolution des photos.`,
@@ -686,6 +696,8 @@ async function fusionner() {
     );
     majEchelle();
     $('resultat-bloc').hidden = false;
+    if ($<HTMLInputElement>('ch-ouvertures').checked) await reperer();
+    else majBaies();
     message('etat-resultat', 'Façade redressée. Vous pouvez l’enregistrer.', 'bon');
     $('resultat-bloc').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
@@ -722,7 +734,178 @@ function reduction(c: HTMLCanvasElement, maxi: number): number {
 }
 
 function apercu() {
-  if (dernier) reduction($<HTMLCanvasElement>('resultat'), 1600);
+  if (!dernier) return;
+  const c = $<HTMLCanvasElement>('resultat');
+  const k = reduction(c, 1600);
+  if (baies.length && $<HTMLInputElement>('ch-ouvertures').checked) dessinerBaies(c.getContext('2d')!, k);
+}
+
+const NOMS_BAIES: Record<string, string> = { fenetre: 'Fenêtre', 'porte-fenetre': 'Porte-fenêtre', porte: 'Porte', garage: 'Porte de garage' };
+const cm = (px: number) => (echelle ? String(Math.round((px / echelle) * 100)) : '—');
+
+/** Les cotes d'une baie, en metres (si l'echelle est connue). */
+function cotes(b: Baie) {
+  if (!echelle) return null;
+  const { x, y, l, h } = b.px;
+  return { l: l / echelle, h: h / echelle, x: x / echelle, appui: solPx !== null ? Math.max(0, (solPx - (y + h)) / echelle) : null };
+}
+
+/** Les baies et leurs cotes, sur un canevas a `k` fois la taille du resultat. */
+function dessinerBaies(ctx: CanvasRenderingContext2D, k: number) {
+  const u = Math.max(1.5, Math.min(ctx.canvas.width, ctx.canvas.height) * 0.0025);
+  ctx.save();
+  ctx.lineWidth = u * 1.6;
+  ctx.font = `600 ${Math.round(u * 9)}px system-ui, sans-serif`;
+  ctx.textBaseline = 'bottom';
+  baies.forEach((b, i) => {
+    const x = b.px.x * k,
+      y = b.px.y * k,
+      l = b.px.l * k,
+      h = b.px.h * k;
+    ctx.strokeStyle = '#ff9f1c';
+    ctx.strokeRect(x, y, l, h);
+    const t = echelle ? `${i + 1} · ${cm(b.px.l)} × ${cm(b.px.h)}` : String(i + 1);
+    const tw = ctx.measureText(t).width;
+    ctx.fillStyle = 'rgba(0,0,0,.72)';
+    ctx.fillRect(x, y - u * 11, tw + u * 4, u * 11);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(t, x + u * 2, y - u * 1.2);
+  });
+  ctx.restore();
+}
+
+/** Reperage automatique des baies (baies.ts, dans le Worker). Remplace la liste. */
+async function reperer() {
+  if (!dernier) return;
+  message('etat-resultat', 'Repérage des fenêtres et des portes…');
+  try {
+    // Copies : le resultat reste a la page pour l'apercu et l'enregistrement.
+    const r = await calcul.appeler<ResultatBaies>('ouvertures', { sortie: dernier.sortie.slice(), vu: dernier.vu.slice(), l: dernier.l, h: dernier.h, pxParM: echelle });
+    baies = r.baies;
+    solPx = r.solPx;
+    baiesCorrigees = false;
+    journal(`baies repérées : ${baies.length}${r.solTrouve ? ', sol situé' : ''}`);
+    message('etat-resultat', baies.length ? `${baies.length} baie(s) repérée(s). Vérifiez-les : ajoutez, recadrez ou retirez au besoin.` : 'Aucune baie repérée : ajoutez-les à la main.', baies.length ? 'bon' : 'info');
+  } catch (e) {
+    erreur(e);
+  }
+  majBaies();
+}
+
+/** Le tableau des baies (et l'apercu). */
+function majBaies() {
+  const coche = $<HTMLInputElement>('ch-ouvertures').checked;
+  $('bloc-baies').hidden = !coche;
+  const liste = $('liste-ouvertures');
+  liste.replaceChildren();
+  $('cotes-aide').hidden = !!echelle;
+  $<HTMLButtonElement>('exporter-cotes').disabled = !echelle || !baies.length;
+  if (coche && baies.length) {
+    const t = document.createElement('table');
+    const appui = echelle && solPx !== null;
+    t.innerHTML = `<thead><tr><th scope="col">N°</th><th scope="col">Baie</th><th scope="col">Largeur</th><th scope="col">Hauteur</th><th scope="col">Depuis la gauche</th>${appui ? '<th scope="col">Appui</th>' : ''}<th scope="col"><span class="sr">Actions</span></th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    baies.forEach((b, i) => {
+      const tr = document.createElement('tr');
+      const td = (v: string | HTMLElement) => {
+        const c = document.createElement('td');
+        if (typeof v === 'string') c.textContent = v;
+        else c.append(v);
+        tr.append(c);
+      };
+      td(String(i + 1));
+      const sel = document.createElement('select');
+      sel.className = 'petit-choix';
+      sel.ariaLabel = `Type de la baie ${i + 1}`;
+      for (const [v, n] of Object.entries(NOMS_BAIES)) sel.add(new Option(n, v, false, v === b.type));
+      sel.addEventListener('change', () => {
+        b.type = sel.value as Baie['type'];
+        baiesCorrigees = true;
+      });
+      td(sel);
+      const c = cotes(b);
+      td(c ? `${cm(b.px.l)} cm` : '—');
+      td(c ? `${cm(b.px.h)} cm` : '—');
+      td(c ? `${fr(c.x, 2)} m` : '—');
+      if (appui) td(c?.appui !== null && c ? `${fr(c.appui!, 2)} m` : '—');
+      const actions = document.createElement('span');
+      actions.className = 'actions-baie';
+      const bouton = (texte: string, titre: string, f: () => void) => {
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'petit';
+        x.textContent = texte;
+        x.title = x.ariaLabel = titre;
+        x.addEventListener('click', f);
+        actions.append(x);
+      };
+      bouton('Recadrer', `Recadrer la baie ${i + 1}`, () => void poserBaie(i));
+      bouton('✕', `Retirer la baie ${i + 1}`, () => {
+        baies.splice(i, 1);
+        baiesCorrigees = true;
+        journal(`baie ${i + 1} retirée`);
+        majBaies();
+      });
+      td(actions);
+      tb.append(tr);
+    });
+    t.append(tb);
+    liste.append(t);
+  }
+  apercu();
+}
+
+/** Ajouter (i absent) ou recadrer une baie : deux coins opposes poses au doigt sur le resultat. */
+async function poserBaie(i?: number) {
+  if (!dernier) return;
+  const c = document.createElement('canvas');
+  const k = reduction(c, 2400);
+  const b = i !== undefined ? baies[i] : undefined;
+  const depart = b
+    ? [
+        { x: b.px.x * k, y: b.px.y * k },
+        { x: (b.px.x + b.px.l) * k, y: (b.px.y + b.px.h) * k },
+      ]
+    : [
+        { x: c.width * 0.42, y: c.height * 0.4 },
+        { x: c.width * 0.58, y: c.height * 0.62 },
+      ];
+  const res = await editer({
+    image: c,
+    points: depart,
+    forme: 'rectangle',
+    noms: ['coin haut gauche', 'coin bas droit'],
+    consigne: 'Posez deux coins opposés de la baie (le vitrage ou le vantail, menuiserie non comprise).',
+    mesure: (p) => {
+      const l = Math.abs(p[1]!.x - p[0]!.x) / k,
+        h = Math.abs(p[1]!.y - p[0]!.y) / k;
+      return echelle ? `${cm(l)} × ${cm(h)} cm` : `${Math.round(l)} × ${Math.round(h)} px`;
+    },
+    verifier: (p) => (Math.abs(p[1]!.x - p[0]!.x) < 8 || Math.abs(p[1]!.y - p[0]!.y) < 8 ? 'Écartez davantage les deux coins.' : null),
+  });
+  c.width = c.height = 0;
+  if (!res) return;
+  const [p, q] = res.points as [P2, P2];
+  const px = { x: Math.min(p.x, q.x) / k, y: Math.min(p.y, q.y) / k, l: Math.abs(q.x - p.x) / k, h: Math.abs(q.y - p.y) / k };
+  const s = echelle ?? dernier.l / 12;
+  const auSol = solPx !== null ? (solPx - (px.y + px.h)) / s : 9;
+  const nouvelle: Baie = { type: b?.type ?? classer(auSol, px.l / s, px.h / s), x: 0, y: 0, l: 0, h: 0, carreaux: 0, px };
+  if (b && i !== undefined) baies[i] = nouvelle;
+  else baies.push(nouvelle);
+  baiesCorrigees = true;
+  journal(b ? `baie ${(i ?? 0) + 1} recadrée` : 'baie ajoutée');
+  majBaies();
+}
+
+/** Les cotes en CSV (separateur point-virgule, virgule decimale : ce qu'ouvre un tableur francais). */
+function cotesCsv(): File | null {
+  if (!echelle || !baies.length || !dernier) return null;
+  const lignes = [['N°', 'Type', 'Largeur (cm)', 'Hauteur (cm)', 'Depuis la gauche (m)', 'Appui (m)'].join(';')];
+  baies.forEach((b, i) => {
+    const c = cotes(b)!;
+    lignes.push([String(i + 1), NOMS_BAIES[b.type] ?? b.type, cm(b.px.l), cm(b.px.h), fr(c.x, 2), c.appui !== null ? fr(c.appui, 2) : ''].join(';'));
+  });
+  return new File(['﻿' + lignes.join('\r\n') + '\r\n'], `${dernier.nom}_cotes.csv`, { type: 'text/csv' });
 }
 
 /* ---------- l'echelle (facultative) et les mesures ---------- */
@@ -732,6 +915,7 @@ let echelle: number | null = null;
 
 function majEchelle() {
   const t = $('echelle-etat');
+
   $<HTMLButtonElement>('mesurer').disabled = !echelle;
   $('bloc-barre').hidden = !echelle;
   if (!echelle || !dernier) {
@@ -769,6 +953,9 @@ async function deuxPoints(mode: 'echelle' | 'mesure') {
   echelle = pleine(res.points) / res.valeur;
   journal(`échelle : ${fr(res.valeur, 2)} m = ${fr(pleine(res.points), 0)} px`);
   majEchelle();
+  // L'echelle affine le reperage (tailles admises) ; des baies corrigees a la main sont gardees.
+  if ($<HTMLInputElement>('ch-ouvertures').checked && !baiesCorrigees) await reperer();
+  else majBaies();
 }
 
 /** La barre d'echelle, dessinee en bas a gauche de l'image enregistree. */
@@ -805,6 +992,7 @@ function enFichier(type: 'image/jpeg' | 'image/png'): Promise<File | null> {
   c.height = h;
   const ctx = c.getContext('2d')!;
   ctx.putImageData(new ImageData(sortie as Uint8ClampedArray<ArrayBuffer>, l, h), 0, 0);
+  if (baies.length && $<HTMLInputElement>('ch-ouvertures').checked) dessinerBaies(ctx, 1);
   if (echelle && $<HTMLInputElement>('ch-barre').checked) dessinerBarre(ctx, l, h, echelle);
   const nomFinal = echelle ? `${nom}_${Math.round(echelle)}pxm` : nom;
   return new Promise((r) =>
@@ -831,6 +1019,11 @@ async function enregistrer(type: 'image/jpeg' | 'image/png') {
   message('etat-resultat', 'Préparation du fichier…');
   const f = await enFichier(type);
   if (!f) return message('etat-resultat', 'Le fichier n’a pas pu être produit (mémoire insuffisante ?). Essayez la résolution « Moitié ».', 'alerte');
+  await offrir(f);
+}
+
+/** Donne un fichier a l'utilisateur : par l'hote (page publiee) ou par un lien (page seule). */
+async function offrir(f: File) {
   const dl = await telechargements;
   if (dl) {
     try {
@@ -850,7 +1043,7 @@ async function enregistrer(type: 'image/jpeg' | 'image/png') {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
-  message('etat-resultat', `« ${f.name} » enregistré (${fr(f.size / 1_048_576, 1)} Mo).`, 'bon');
+  message('etat-resultat', `« ${f.name} » enregistré (${f.size < 1_048_576 ? fr(f.size / 1024, 0) + ' Ko' : fr(f.size / 1_048_576, 1) + ' Mo'}).`, 'bon');
 }
 
 async function partager() {
@@ -910,6 +1103,16 @@ function demarrer() {
   $('fusionner').addEventListener('click', fusionner);
   $('mettre-echelle').addEventListener('click', () => void deuxPoints('echelle'));
   $('mesurer').addEventListener('click', () => void deuxPoints('mesure'));
+  $('ch-ouvertures').addEventListener('change', () => {
+    if ($<HTMLInputElement>('ch-ouvertures').checked && !baies.length) void reperer();
+    else majBaies();
+  });
+  $('ajouter-baie').addEventListener('click', () => void poserBaie());
+  $('reperer-encore').addEventListener('click', () => void reperer());
+  $('exporter-cotes').addEventListener('click', () => {
+    const f = cotesCsv();
+    if (f) void offrir(f);
+  });
   $('tout-effacer').addEventListener('click', async () => {
     if (occupe) return;
     // Pas de confirm() (refuse dans une page publiee) : un second appui confirme.

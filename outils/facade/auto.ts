@@ -1352,6 +1352,8 @@ export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: nu
   const L = Math.max(1, Math.round((cadre.x1 - cadre.x0) * px)),
     Hh = Math.max(1, Math.round((cadre.y1 - cadre.y0) * px));
   const sortie = new Uint8ClampedArray(L * Hh * 4);
+  /** 1 la ou une photo a vu le mur : la detection des baies ignore le reste. */
+  const vu = new Uint8Array(L * Hh);
   const actives = reds.map((_, i) => i).filter((i) => T[i] && sources[i]);
   const inv = reds.map((_, i) => (T[i] ? inverser(T[i]!) : ID));
   const seul = actives.length === 1;
@@ -1436,6 +1438,7 @@ export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: nu
           sortie[o] = sortie[o + 1] = sortie[o + 2] = sortie[o + 3] = 255;
           continue;
         }
+        vu[Y * L + X] = 1;
         sortie[o] = sr / sw;
         sortie[o + 1] = sg / sw;
         sortie[o + 2] = sb / sw;
@@ -1443,5 +1446,5 @@ export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: nu
       }
     }
   }
-  return { largeur: L, hauteur: Hh, sortie, lignes };
+  return { largeur: L, hauteur: Hh, sortie, vu, lignes };
 }

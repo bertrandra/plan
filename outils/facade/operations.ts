@@ -24,6 +24,9 @@ import {
   type Sim,
   type Source,
 } from './auto.js';
+import { detecterBaies, type Baie, type ResultatBaies } from './baies.js';
+
+export type { Baie, ResultatBaies };
 
 export type Progres = (fraction: number, texte: string) => void;
 const pause = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -116,7 +119,7 @@ export const operations = {
     return { T, gains, cadre, liaisons };
   },
 
-  async rendre(e: { sources: (Source | null)[]; px: number }, progres: Progres): Promise<{ sortie: Uint8ClampedArray; l: number; h: number }> {
+  async rendre(e: { sources: (Source | null)[]; px: number }, progres: Progres): Promise<{ sortie: Uint8ClampedArray; vu: Uint8Array; l: number; h: number }> {
     if (!courant) throw new Error('rien à rendre : assemblez d’abord les photos');
     const { reds, T, gains, cadre, coutures } = courant;
     const rendu = preparerRendu(reds, T, gains, e.sources, cadre, e.px, coutures);
@@ -126,7 +129,12 @@ export const operations = {
       progres(Math.min(1, (y + pas) / rendu.hauteur), `Redressement : ${rendu.largeur} × ${rendu.hauteur} px…`);
       await pause();
     }
-    return { sortie: rendu.sortie, l: rendu.largeur, h: rendu.hauteur };
+    return { sortie: rendu.sortie, vu: rendu.vu, l: rendu.largeur, h: rendu.hauteur };
+  },
+
+  /** Les baies de la facade redressee (baies.ts) ; l'echelle, si elle est connue, affine les filtres de taille. */
+  async ouvertures(e: { sortie: Uint8ClampedArray; vu: Uint8Array; l: number; h: number; pxParM: number | null }): Promise<ResultatBaies> {
+    return detecterBaies({ largeur: e.l, hauteur: e.h, donnees: e.sortie }, e.vu, e.pxParM);
   },
 };
 

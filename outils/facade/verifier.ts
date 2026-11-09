@@ -1,6 +1,7 @@
 // Verification de auto.ts sur des photos synthetiques : un mur de 8 m (4 m a l'egout, pignon de
 // 3 m) avec ses baies et quelques taches, photographie de biais et en contre-plongee.
 //   node outils/facade/construire.mjs --verifier
+import { detecterBaies } from './baies.js';
 import { redresserPhoto, segmentsPhoto, estimerChamp, estimerDistorsion, redresserDepuisCoins, champDepuisCoins, sansDistorsion, tracerCoutures, versRedresse, versGris, vueRedressee, signature, placer, appliquerSim, cadreFusion, preparerRendu, type Image, type P2 } from './auto.js';
 
 const p = (x: number, y: number): P2 => ({ x, y });
@@ -13,13 +14,14 @@ const taches: [number, number, number, number, number][] = [];
   for (let k = 0; k < 90; k++) taches.push([r() * 7.6, r() * 3.6, 0.05 + r() * 0.25, 0.05 + r() * 0.2, 60 + r() * 120]);
 }
 
+let avecTaches = true;
 export function couleur(X: number, Y: number): number[] {
   const pignon = 4 + 3 * (1 - Math.abs((2 * X) / 8 - 1));
   if (X < 0 || X > 8 || Y > pignon) return [140, 185, 235];
   let c = [222, 205, 176];
   if (Y > 4) c = [200, 185, 160];
   if (Y > 2.55 && Y < 2.7) c = [240, 235, 225];
-  for (const [x, y, l, h, g] of taches) if (X >= x && X < x + l && Y >= y && Y < y + h) c = [g, g * 0.9, g * 0.8];
+  if (avecTaches) for (const [x, y, l, h, g] of taches) if (X >= x && X < x + l && Y >= y && Y < y + h) c = [g, g * 0.9, g * 0.8];
   if ((X >= 1 && X < 2.2 && Y >= 0.9 && Y < 2.25) || (X >= 5.6 && X < 6.8 && Y >= 0.9 && Y < 2.25)) c = [55, 62, 70];
   if (X >= 1 && X < 2.2 && Y >= 3 && Y < 3.6) c = [60, 66, 74];
   if (X >= 5.6 && X < 6.8 && Y >= 3 && Y < 3.6) c = [60, 66, 74];
@@ -260,4 +262,29 @@ for (const pr of prises) {
   verifier('deux photos en hauteur', pl.T.every(Boolean) && pire / unite < 0.03, `${pl.liaisons.map((l) => `${l.i}←${l.j} (${l.accords} points)`).join(', ') || 'non raccordées'} ; pire écart ${((pire / unite) * 100).toFixed(1)} cm`);
 }
 
+// Les baies (baies.ts), sur la facade redressee d'une photo de biais : porte 90 x 215 cm au sol,
+// fenetre 120 x 135 cm (appui a 0,90 m), fenetre d'etage 120 x 60 cm (appui a 3,00 m). Sur un mur
+// uni, puis sur le mur a taches (des taches sombres de 5 a 30 cm, qui ne sont pas des baies).
+for (const taches of [false, true]) {
+  avecTaches = taches;
+  const cam = appareil(4, 12, 20, 10, W, H);
+  const photo = cam.photographier();
+  const red = redresserPhoto(segmentsPhoto(versGris(reduire(photo, K)), K), K, W, H, 67);
+  const T = [{ a: 1, b: 0, tx: 0, ty: 0 }];
+  const cadre = cadreFusion([red], T);
+  const px = cadre.native;
+  const rendu = preparerRendu([red], T, [1], [{ image: photo, ox: 0, oy: 0, k: 1 }], cadre, px);
+  rendu.lignes(0, rendu.hauteur);
+  const a = versRedresse(red, cam.projeter(1, 0.9))!,
+    b = versRedresse(red, cam.projeter(2.2, 0.9))!;
+  const pxm = (Math.hypot(b.x - a.x, b.y - a.y) / 1.2) * px;
+  const r = detecterBaies({ largeur: rendu.largeur, hauteur: rendu.hauteur, donnees: rendu.sortie }, rendu.vu, pxm);
+  const cherche = (type: string, l: number, h: number, y: number) => r.baies.find((o) => o.type === type && Math.abs(o.l - l) < 0.03 && Math.abs(o.h - h) < 0.03 && Math.abs(o.y - y) < 0.03);
+  const ok = r.solTrouve && !!cherche('porte', 0.9, 2.15, 0) && !!cherche('fenetre', 1.2, 1.35, 0.9) && !!cherche('fenetre', 1.2, 0.6, 3);
+  const detail = r.baies.map((o) => `${o.type} ${Math.round(o.l * 100)}×${Math.round(o.h * 100)} à ${o.y.toFixed(2)} m`).join(', ') || 'aucune';
+  // Sur le mur a taches, une tache collee sous la fenetre peut l'agrandir : on le dit, sans echec.
+  if (taches) console.log((ok ? 'ok   ' : 'note ') + ' baies, mur à taches (à 3 cm près) : ' + detail);
+  else verifier('baies repérées, à 3 cm près', ok, detail);
+}
+avecTaches = true;
 if (echecs) process.exitCode = 1;

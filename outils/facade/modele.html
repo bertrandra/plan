@@ -99,6 +99,9 @@ html.fige, html.fige body { overflow: hidden; }
 .case input { width: 22px; height: 22px; accent-color: var(--accent); }
 #bloc-echelle { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bord); display: grid; gap: 8px; }
 #bloc-echelle h3 { margin: 0; font-size: .95rem; }
+/* Un tableau large defile dans son cadre : il n'elargit jamais la page (qu'un telephone dezoomerait). */
+#bloc-echelle > *, #bloc-baies > * { min-width: 0; }
+#bloc-baies { display: grid; gap: 8px; }
 #echelle-etat { margin: 0; font-size: .88rem; color: var(--discret); }
 /* L'editeur plein ecran : toujours sombre, la photo d'abord. */
 #editeur { position: fixed; inset: 0; z-index: 20; background: #111; color: #eee; display: grid; grid-template-rows: auto 1fr auto; }
@@ -117,6 +120,14 @@ html.fige, html.fige body { overflow: hidden; }
 #ed-plus:empty { display: none; }
 #ed-plus button { flex: 1 1 0; }
 #editeur button.second { color: #eee; border-color: #555; background: transparent; }
+.tableau { overflow-x: auto; position: relative; }
+.tableau table { border-collapse: collapse; width: 100%; font-size: .88rem; font-variant-numeric: tabular-nums; }
+.tableau th, .tableau td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bord); white-space: nowrap; }
+.tableau select.petit-choix { min-height: 36px; padding: 4px 6px; width: auto; font-size: .85rem; }
+.actions-baie { display: inline-flex; gap: 4px; }
+.actions-baie .petit { min-height: 36px; min-width: 36px; padding: 4px 8px; font-size: .85rem; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tableau th { color: var(--discret); font-weight: 600; font-size: .78rem; letter-spacing: .02em; }
 footer { text-align: center; color: var(--discret); font-size: .78rem; padding: 0 0 24px; }
 </style>
 </head>
@@ -164,6 +175,17 @@ footer { text-align: center; color: var(--discret); font-size: .78rem; padding: 
           <button type="button" class="second" id="mesurer" disabled>Mesurer</button>
         </div>
         <label class="case" id="bloc-barre" hidden><input type="checkbox" id="ch-barre" checked>Barre d’échelle sur l’image enregistrée</label>
+        <label class="case"><input type="checkbox" id="ch-ouvertures">Repérer les fenêtres et les portes</label>
+        <div id="bloc-baies" hidden>
+          <p class="discret" id="cotes-aide">Pour les cotes, posez une longueur connue.</p>
+          <div id="liste-ouvertures" class="tableau"></div>
+          <div class="rangee">
+            <button type="button" class="second" id="ajouter-baie">Ajouter une baie</button>
+            <button type="button" class="second" id="reperer-encore">Repérer à nouveau</button>
+            <button type="button" class="second" id="exporter-cotes" disabled>Exporter les cotes (CSV)</button>
+          </div>
+          <p class="discret">Les cotes sont celles du vitrage ou du vantail, menuiserie non comprise. Le repérage est une proposition : vérifiez-le.</p>
+        </div>
       </div>
     </div>
     <details>

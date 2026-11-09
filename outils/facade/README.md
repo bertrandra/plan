@@ -27,9 +27,19 @@ En plus :
 - **Photos gardées sur l'appareil** (IndexedDB) : elles reviennent si Safari recharge la page.
 - **Échelle facultative** : une longueur connue posée sur le résultat donne les px/m, puis des
   mesures et une barre d'échelle sur l'image enregistrée.
+- **Fenêtres et portes** (case à cocher, `baies.ts`) : sur la façade redressée, une vitre ou un
+  vantail est un rectangle aligné sur les axes et lisse, quand l'enduit et le feuillage sont
+  rugueux (écart type rapporté à la luminosité, à l'ombre comme au soleil). Les régions lisses (ou
+  sombres et grises) de teinte homogène qui sont des rectangles pleins plus sombres que leur
+  entourage deviennent des carreaux ; les carreaux voisins de même famille (gris avec gris, teinte
+  avec teinte) forment une baie, entourée de mur ou de menuiserie claire, bords recalés au pixel.
+  Type selon la règle de Plan (`classer`) une fois le sol situé par une porte. Cotes du vitrage ou
+  du vantail avec l'échelle ; ajout, recadrage, retrait, changement de type au doigt ; export CSV.
+  Le détecteur de Plan (`src/facade/detection.ts`) suppose un mur uni seul dans l'image : il ne
+  trouvait rien sur une façade à colombages.
 - **Calcul en arrière-plan** (Web Worker lancé depuis le texte embarqué), avec repli sur la page.
 
-Fichiers : `auto.ts` (calcul pur), `operations.ts` (les opérations, appelables par message),
+Fichiers : `auto.ts` (calcul pur), `baies.ts` (fenêtres et portes), `operations.ts` (les opérations, appelables par message),
 `travail.ts` (le Worker), `editeur.ts` (poignées, loupe), `stockage.ts` (IndexedDB), `main.ts`
 (l'interface), `modele.html`.
 

@@ -8,7 +8,7 @@ export interface OptionsEditeur {
   /** L'image a annoter (un canevas d'apercu) ; les points sont dans ses pixels. */
   image: HTMLCanvasElement;
   points: P2[];
-  forme: 'quad' | 'segment';
+  forme: 'quad' | 'segment' | 'rectangle';
   consigne: string;
   noms?: string[];
   /** Un champ numerique (la longueur d'une cote), s'il en faut un. */
@@ -137,6 +137,11 @@ export function editer(o: OptionsEditeur): Promise<ResultatEditeur | null> {
           ctx.lineTo(e[(k + 1) % 4]!.x, e[(k + 1) % 4]!.y);
           ctx.stroke();
         }
+      } else if (o.forme === 'rectangle') {
+        // Deux coins opposes d'un rectangle aligne sur l'image (redressee).
+        ctx.strokeStyle = '#ff9f1c';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(Math.min(e[0]!.x, e[1]!.x), Math.min(e[0]!.y, e[1]!.y), Math.abs(e[1]!.x - e[0]!.x), Math.abs(e[1]!.y - e[0]!.y));
       } else {
         ctx.strokeStyle = '#ff9f1c';
         ctx.lineWidth = 2.5;
@@ -193,7 +198,11 @@ export function editer(o: OptionsEditeur): Promise<ResultatEditeur | null> {
     ctx.lineWidth = 1.5;
     const L = (p: P2) => ({ x: cx + (p.x - q.x) * g, y: cy + (p.y - q.y) * g });
     const n = pts.length;
-    pts.forEach((p, k) => {
+    if (o.forme === 'rectangle') {
+      const a = L(pts[0]!),
+        b = L(pts[1]!);
+      ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    } else pts.forEach((p, k) => {
       if (o.forme === 'segment' && k === 1) return;
       const a = L(p),
         b = L(pts[(k + 1) % n]!);
