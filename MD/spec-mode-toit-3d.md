@@ -408,7 +408,7 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   6. Le **tracé IGN** (le contour du bâtiment) aimante à `AIMANT_MUR_M` (25 cm, comme les murs des autres corps) : un mur tiré se colle au
      côté parallèle qui le longe (`lignesIgn`), un corps déplacé s'y colle sur ses deux axes (`aimanterAuContour`, sans les 5 cm ronds une
      fois collé). Le côté du tracé s'éclaire (`.guideIgn`) et la bulle dit « collé au tracé IGN ». Aucune touche ne coupe l'aimant (il n'y
-     en a pas pour les autres). Tests : `pousserMur.test.ts`. Fumée : point 155.
+     en a pas pour les autres). Tests : `pousserMur.test.ts`. Fumée : point 156.
 
 ### Le cul de geai et la queue de vache  *(5 novembre 2026, demande du propriétaire)*
 « Ajouter la demi-croupe, applicable aussi aux pignons, pour le dessiner et dans la découverte auto. » Le nom à l'écran est **« Cul de

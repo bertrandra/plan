@@ -5294,7 +5294,7 @@ const POINTS = {
     const m = (v) => v.toFixed(2).replace('.', ',');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade sud à ${m(valide.sud)} (avant ${m(avant.sud)}) ; de dessus ${cotes.length} poignées de côté, de face les deux bouts et la façade, prenables ; corps validé de ${m(valide.ouest)} à ${m(valide.est)} m (avant ${m(avant.ouest)} à ${m(avant.est)}), aile à ${m(valide.aile)} ; projet ${etat.statut ?? '?'} ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
   },
-  155: async (page, f) => {
+  156: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 sur le redimensionnement au Mode Toit : la maison de la demonstration posee sur un
     // rectangle de 12 x 7 m (son trace IGN), coupee en deux corps a x = 1 (un mur commun), le corps est portant un pignon. Vue 3D,
     // « Modifier la toiture », de dessus : la maison entiere tient dans la partie libre de l'image (au telephone aussi) ; le mur commun tire
@@ -7859,9 +7859,9 @@ function pointsPour(nomClasse) {
   // 152 : le rez-de-chaussee en retrait sous l'etage, un bow-window glisse dessous : au Mode Toit, Ctrl+Z, valide ; le mur recule en tirets dans le plan.
   // 153 : la photo d'un releve sur ce rez-de-chaussee en retrait : coupee au dessous de l'etage, le bas recule avec le mur, le haut reste au nu.
   // 154 : un corps se redimensionne de chaque cote au Mode Toit, le cote oppose en place : quatre poignees de dessus, deux bouts et la facade de face.
-  // 155 : les reponses du 9 novembre 2026 : la maison entiere de dessus, le mur commun qui glisse, le trace IGN qui aimante, le pignon qui
+  // 156 : les reponses du 9 novembre 2026 : la maison entiere de dessus, le mur commun qui glisse, le trace IGN qui aimante, le pignon qui
   //       arrete un mur (et le dit), les deux bords d'un bow-window.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 156];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
