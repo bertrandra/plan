@@ -280,11 +280,102 @@ function majPhotos() {
       synchroniser();
       majPhotos();
     });
-    li.append(cadre, corps, x);
+    const poignee = document.createElement('button');
+    poignee.type = 'button';
+    poignee.className = 'poignee';
+    poignee.textContent = '≡';
+    poignee.title = 'Glisser pour changer l’ordre';
+    poignee.ariaLabel = `Photo ${i + 1} sur ${entrees.length} : glisser, ou flèches haut et bas, pour changer l’ordre`;
+    poignee.disabled = occupe || entrees.length < 2;
+    glisser(poignee, li, i);
+    li.append(poignee, cadre, corps, x);
     liste.append(li);
   });
+  $('consigne-ordre').hidden = entrees.length < 2;
   $('photos-vide').hidden = entrees.length > 0;
   $<HTMLButtonElement>('fusionner').disabled = occupe || !photos.length;
+}
+
+/** Deplace la photo `i` a la place `j` ; l'ordre est celui des photos de gauche a droite. */
+function deplacer(i: number, j: number) {
+  if (j === i || j < 0 || j >= entrees.length || occupe) return;
+  const [e] = entrees.splice(i, 1);
+  entrees.splice(j, 0, e!);
+  journal(`photo ${e!.id} déplacée en position ${j + 1}`);
+  synchroniser();
+  majPhotos();
+  (document.querySelectorAll<HTMLButtonElement>('#photos .poignee')[j])?.focus();
+}
+
+/**
+ * Le glisser au doigt : la ligne suit le doigt, les autres s'ecartent pour lui faire place, et
+ * l'ordre change au lacher. La poignee seule capte le geste (touch-action: none) : le reste de
+ * la ligne laisse defiler la page.
+ */
+function glisser(poignee: HTMLButtonElement, li: HTMLElement, i: number) {
+  poignee.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') deplacer(i, i - 1);
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') deplacer(i, i + 1);
+    else return;
+    e.preventDefault();
+  });
+  poignee.addEventListener('pointerdown', (ev) => {
+    if (occupe || entrees.length < 2) return;
+    ev.preventDefault();
+    poignee.setPointerCapture(ev.pointerId);
+    const items = Array.from($('photos').children) as HTMLElement[];
+    const rects = items.map((x) => x.getBoundingClientRect());
+    const r0 = rects[0]!,
+      r1 = rects[1];
+    const ecart = r1 ? r1.top - r0.bottom : 10;
+    const pas = rects[i]!.height + ecart;
+    const milieu = (j: number) => rects[j]!.top + rects[j]!.height / 2;
+    const y0 = ev.clientY;
+    const defil0 = scrollY;
+    let cible = i,
+      doigt = ev.clientY,
+      boucle = 0;
+    li.classList.add('glisse');
+    // Pres du haut ou du bas de l'ecran, la page defile d'elle-meme : la liste peut depasser l'ecran.
+    const defiler = () => {
+      const bord = 80,
+        v = doigt < bord ? -(bord - doigt) / 4 : doigt > innerHeight - bord ? (doigt - innerHeight + bord) / 4 : 0;
+      if (v) {
+        scrollBy(0, v);
+        placer();
+      }
+      boucle = requestAnimationFrame(defiler);
+    };
+    boucle = requestAnimationFrame(defiler);
+    const bouger = (e: PointerEvent) => {
+      doigt = e.clientY;
+      placer();
+    };
+    const placer = () => {
+      const dy = Math.max(rects[0]!.top - rects[i]!.top, Math.min(rects[rects.length - 1]!.bottom - rects[i]!.bottom, doigt - y0 + scrollY - defil0));
+      li.style.transform = `translateY(${dy}px)`;
+      const c = milieu(i) + dy;
+      cible = i;
+      while (cible + 1 < items.length && c >= milieu(cible + 1) - 2) cible++;
+      while (cible - 1 >= 0 && c <= milieu(cible - 1) + 2) cible--;
+      items.forEach((x, j) => {
+        if (j === i) return;
+        x.style.transform = j > i && j <= cible ? `translateY(${-pas}px)` : j < i && j >= cible ? `translateY(${pas}px)` : '';
+      });
+    };
+    const lacher = () => {
+      cancelAnimationFrame(boucle);
+      poignee.removeEventListener('pointermove', bouger);
+      poignee.removeEventListener('pointerup', lacher);
+      poignee.removeEventListener('pointercancel', lacher);
+      for (const x of items) x.style.transform = '';
+      li.classList.remove('glisse');
+      if (cible !== i) deplacer(i, cible);
+    };
+    poignee.addEventListener('pointermove', bouger);
+    poignee.addEventListener('pointerup', lacher);
+    poignee.addEventListener('pointercancel', lacher);
+  });
 }
 
 async function ajouter(fichiers: FileList | null, source: string) {
