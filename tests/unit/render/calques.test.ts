@@ -2,6 +2,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { dessinerCalqueParasols } from '../../../src/render/parasolOverlay.js';
 import { dessinerReleves } from '../../../src/render/releve.js';
+import { corpsDeSaillie } from '../../../src/facade/modeToit/saillies.js';
+import type { CorpsToit } from '../../../src/model/types.js';
 import { dessinerCotes } from '../../../src/render/measures.js';
 import type { EtatScene } from '../../../src/geometry/vue.js';
 import type { EtatApp } from '../../../src/core/state.js';
@@ -65,6 +67,18 @@ describe('releves de facade sur le plan', () => {
   });
   const etat = (objets: object[]) => ({ objects: objets, scene } as unknown as EtatApp);
   const versEcran = (p: { x: number; y: number }) => ({ x: p.x * 10, y: -p.y * 10 });
+
+  // Le plan et la Vue 3D disent le meme batiment : le mur recule ne se montre que quand le batiment se dessine par ses corps
+  // (audit des PR #621 a #641 ; three/ouvrages/bati.ts ne recule le pied qu'en mode « corps »).
+  it('montre le rez-de-chaussee en retrait en tirets, seulement quand le batiment se dessine par ses corps', () => {
+    const hote: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 };
+    const bow = corpsDeSaillie(hote, { genre: 'bow-window', hote: 0, mur: 0, centreM: 4, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 });
+    const avecCorps = (plus: object) => maison([], { batiment: { facades: [], corpsToit: [hote, bow], ...plus } });
+    const tirets = (o: object) => { const g = groupe(); dessinerReleves(g, etat([o]), versEcran, () => false); return g.querySelectorAll('line[data-retrait-rdc]').length; };
+    expect(tirets(avecCorps({}))).toBe(1);
+    // Toit simple choisi : la 3D pose le contour seul, sans bow-window ni recul ; le plan non plus.
+    expect(tirets(avecCorps({ modeToit: 'simple' }))).toBe(0);
+  });
 
   it('coupe une fenetre a 1,10 m : son tableau, ses deux joues et sa vitre', () => {
     const g = groupe();

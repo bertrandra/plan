@@ -284,4 +284,49 @@ describe('ce que la restauration a change (point 7)', () => {
     h.annuler();
     expect(recus).toEqual([[]]);
   });
+
+  // Audit des PR #621 a #641 : la comparaison serialise le plan deux fois (plus de 100 ms chacune sur un plan de 4 000 objets).
+  it('ne compare rien quand personne ne suit la restauration (Vue 3D fermee)', () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    let serialisations = 0;
+    let ouverte = false;
+    const recus: unknown[][] = [];
+    const h = creerHistorique(etat, {
+      ...ctx,
+      serializeObjects: (o: unknown[]) => { serialisations++; return ctx.serializeObjects(o); },
+      apresRestauration: (c) => { recus.push(c); },
+      suitLaRestauration: () => ouverte
+    });
+    h.empiler(etat.objects[1]!);
+    etat.objects[1]!.x = 5;
+    serialisations = 0;
+    h.annuler();
+    expect(serialisations).toBe(0);
+    expect(recus).toEqual([]);
+    expect(etat.objects[1]!.x).toBe(2);
+    // Ouverte : la comparaison se fait, et nomme l'objet change.
+    ouverte = true;
+    h.empiler(etat.objects[1]!);
+    etat.objects[1]!.x = 7;
+    serialisations = 0;
+    h.annuler();
+    expect(serialisations).toBe(2);
+    expect(recus.map((c) => (c as { cle: string }[]).map((x) => x.cle))).toEqual([['b']]);
+  });
+
+  it("ne previent personne quand l'appelant refait lui-meme la suite (sansSuite)", () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }]);
+    let serialisations = 0;
+    const recus: unknown[][] = [];
+    const h = creerHistorique(etat, {
+      ...ctx,
+      serializeObjects: (o: unknown[]) => { serialisations++; return ctx.serializeObjects(o); },
+      apresRestauration: (c) => { recus.push(c); },
+      suitLaRestauration: () => true
+    });
+    h.restaurer({ objects: [{ key: 'a', x: 3 }], measures: [] }, { sansSuite: true });
+    expect(etat.objects).toEqual([{ key: 'a', x: 3 }]);
+    expect(serialisations).toBe(0);
+    expect(recus).toEqual([]);
+  });
 });

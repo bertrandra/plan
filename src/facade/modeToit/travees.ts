@@ -12,6 +12,7 @@
 
 import { repere } from '../toits/toitCorps.js';
 import { murDuCorps } from './saillies.js';
+import { cotesSurLesCotes } from '../../geometry/facadeExterieure.js';
 import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import type { CorpsToit, NatureTravee, PtBrut, TraveeMur } from '../../model/types.js';
 
@@ -82,6 +83,25 @@ export function contourAvecReculs(c: CorpsToit): { pts: PtBrut[]; cotes: CotePie
   const p0 = pts[0] as PtBrut, pn = pts[pts.length - 1] as PtBrut;
   if (pts.length > 1 && Math.hypot(p0.x - pn.x, p0.y - pn.y) < 0.005) { pts.pop(); cotes.pop(); }
   return { pts, cotes };
+}
+
+/**
+ * Les cotes du pied `pied` qui doublent l'un des `cotes` du `contour` (les murs releves du batiment), lus sur le pied `nu` du meme corps :
+ * ses travees sans son rez-de-chaussee en retrait. Le mur recule sous l'etage est en retrait du contour (jusqu'a RECUL_TRAVEE_MAX_M,
+ * au-dela des 60 cm de cotesSurLesCotes) : il se reconnait par le mur dont il vient, pas par sa place. Un cote du pied est releve quand un
+ * cote du pied nu venu du meme mur, au meme recul et de meme nature, l'est. Le pied et le pied nu n'ont pas toujours autant de cotes (une
+ * travee au bout d'un mur que le retrait raccourcit tombe) : les rapprocher par leur rang faisait perdre le mur releve, qui recevait alors
+ * la grille des fenetres automatiques. Sans retrait (`pied === nu`), cotesSurLesCotes tel quel.
+ */
+export function cotesDuPiedSurLesCotes(pied: { pts: readonly PtBrut[]; cotes: readonly CotePied[] }, nu: { pts: readonly PtBrut[]; cotes: readonly CotePied[] },
+  contour: readonly PtBrut[], cotes: readonly number[]): number[] {
+  const surNu = cotesSurLesCotes(nu.pts, contour, cotes);
+  if (pied === nu) return surNu;
+  const lus = surNu.map((j) => nu.cotes[j]).filter((q): q is CotePied => !!q && q.mur >= 0);
+  return pied.cotes.map((_, i) => i).filter((i) => {
+    const q = pied.cotes[i] as CotePied;
+    return lus.some((l) => l.mur === q.mur && l.recul === q.recul && l.nature === q.nature);
+  });
 }
 
 /** Un troncon du mur bas d'un appentis, le long de son faitage (`s` du corps) : sa nature. */

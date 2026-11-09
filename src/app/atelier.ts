@@ -16,6 +16,7 @@
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { FormePiscine } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
+import type { OptionsRestauration } from '../core/historique.js';
 
 /**
  * L'état du plan, tel que le câblage le voit — **c'est `EtatApp`**, pas une forme à part.
@@ -46,7 +47,7 @@ export interface Atelier {
    * C'est pourquoi le parametre accepte `ObjetBrut`, pas `ObjetPlan` — un `ObjetPlan[]` deja complet
    * (le cas de `initialState()`) le satisfait aussi, puisque tous ses champs sont alors presents.
    */
-  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }) => void;
+  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }, options?: OptionsRestauration) => void;
 
   // ---- Redessiner -----------------------------------------------------------------------------
   render: () => void;

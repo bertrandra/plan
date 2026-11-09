@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { aDesTraveesOuvertes, contourAvecReculs, reculEn, segmentsDuMurBas, traveeNeuve } from '../../../../src/facade/modeToit/travees.js';
+import { aDesTraveesOuvertes, contourAvecReculs, cotesDuPiedSurLesCotes, reculEn, segmentsDuMurBas, traveeNeuve } from '../../../../src/facade/modeToit/travees.js';
 import { retourDAngle } from '../../../../src/facade/modeToit/decroche.js';
 import { appliquerChoix, groupesDe, listerElements, supprimerElement, valeurDuGroupe } from '../../../../src/facade/modeToit/elements.js';
 import { glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
 import { appliquerPiece } from '../../../../src/three/gestesToits.js';
 import { boutsLies, facettesCorps, piedEnTravees, portionsOuvertesDuMur } from '../../../../src/three/toitCorps3d.js';
-import { facettesBowWindow } from '../../../../src/facade/modeToit/saillies.js';
+import { corpsAuPied, corpsDeSaillie, facettesBowWindow, retraitsDuRdc } from '../../../../src/facade/modeToit/saillies.js';
 import type { CorpsToit, ObjetPlan, SaillieFacade } from '../../../../src/model/types.js';
 
 // Le schema 14 (decisions du proprietaire du 4 novembre 2026) : un mur en travees (un troncon recule sous un toit continu, un porche
@@ -127,5 +127,35 @@ describe('un corps ferme aux travees ouvertes (un garage devenu abri)', () => {
     const mur = { gauche: { x: -2, y: 0 }, droite: { x: 8, y: 0 }, largeur: 10 };
     expect(portionsOuvertesDuMur(mur, [c])).toEqual([[3, 5]]);
     expect(portionsOuvertesDuMur(mur, [garage()])).toEqual([]);
+  });
+});
+
+// Audit des PR #621 a #641 : un mur photographie dont le rez-de-chaussee recule sous l'etage, sur un corps en travees. Le retrait
+// raccourcit les murs voisins et une travee au bout de l'un tombe : le pied n'a plus autant de cotes que le pied nu, et le mur releve
+// n'etait plus reconnu (il recevait aussi les fenetres automatiques).
+describe('les murs releves sur le pied d un corps au rez-de-chaussee en retrait', () => {
+  const hote = (): CorpsToit => ({ ...maison(), egouts: [5.5, 5.5], faitage: 9, travees: [{ mur: 3, de: 5.5, a: 6, nature: 'mur', reculM: 0.3 }] });
+  const pieds = (rdcEnRetraitM: number) => {
+    const h = hote();
+    const bow = corpsDeSaillie(h, { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan', rdcEnRetraitM });
+    const r = retraitsDuRdc([h, bow]).get(h);
+    return { h, pied: contourAvecReculs(corpsAuPied(h, r)), nu: contourAvecReculs(h) };
+  };
+
+  it('reconnait le mur recule de 80 cm par le mur dont il vient, meme quand le pied perd une travee', () => {
+    const { h, pied, nu } = pieds(0.8);
+    expect(pied.pts.length).not.toBe(nu.pts.length);
+    const releves = cotesDuPiedSurLesCotes(pied, nu, h.pts, [0]);
+    expect(releves.map((i) => pied.cotes[i]!.mur)).toEqual([0]);
+    // Les autres murs ne sont pas releves.
+    expect(cotesDuPiedSurLesCotes(pied, nu, h.pts, [])).toEqual([]);
+  });
+
+  it('sans retrait, rend ce que lit cotesSurLesCotes sur le pied lui-meme', () => {
+    const h = hote(), pied = contourAvecReculs(h);
+    const releves = cotesDuPiedSurLesCotes(pied, pied, h.pts, [3]);
+    // Le mur 3 : ses deux troncons au nu ; le troncon recule de 30 cm aussi (a moins de 60 cm du contour) ; pas les retours.
+    expect(releves.map((i) => pied.cotes[i]).every((q) => q!.mur === 3)).toBe(true);
+    expect(releves.length).toBeGreaterThan(0);
   });
 });
