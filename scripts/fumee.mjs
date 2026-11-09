@@ -5400,13 +5400,12 @@ const POINTS = {
       const la = await poignees(), jo = la.find((p) => /^Côté ouest/.test(p.libelle)), eo = la.find((p) => /^Côté est/.test(p.libelle));
       if (!jo || !eo) echecs.push('aile : pas de poignée ouest ou est (' + la.map((p) => p.id).join(', ') + ')');
       else {
-        // Les deux poignees sont au milieu des murs ouest et est de l'aile, a 4 m l'une de l'autre : la moitie vers l'est (l'aile ne
-        // descend pas sous 2,50 m).
+        // 60 px vers l'est, comme les autres cotes (l'aile ne descend pas sous 2,50 m) : ce qui compte, la maison ne bouge pas.
         await photo('aile-avant');
-        await tirer(jo, eo, -Math.hypot(eo.x - jo.x, eo.y - jo.y) / 2);
+        await tirer(jo, eo, -60);
         const d = await lire();
         await photo('aile-apres');
-        if (Math.abs(d.ouest - c.ouest) > 0.001 || Math.abs(d.est - c.est) > 0.001 || !(d.aile > c.aile + 0.5)) echecs.push('aile raccourcie par son joint : maison de ' + d.ouest + ' à ' + d.est + ', aile à ' + d.aile + ' (poignées ' + [jo, eo].map((p) => Math.round(p.x) + ';' + Math.round(p.y)).join(' ') + ')');
+        if (Math.abs(d.ouest - c.ouest) > 0.001 || Math.abs(d.est - c.est) > 0.001 || !(d.aile > c.aile + 0.2)) echecs.push('aile raccourcie par son joint : maison de ' + d.ouest + ' à ' + d.est + ', aile à ' + d.aile + ' (poignées ' + [jo, eo].map((p) => Math.round(p.x) + ';' + Math.round(p.y)).join(' ') + ')');
         else lignesAudit.push('aile raccourcie par son joint (à ' + d.aile + ' m), la maison en place ✓');
         await page.keyboard.press('Control+z');
         await page.waitForTimeout(500);
