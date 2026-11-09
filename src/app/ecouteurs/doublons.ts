@@ -41,7 +41,8 @@ export function brancherDoublons(a: Atelier, ctx: { buildThreeScene: (obj: Objet
         const selection = a.etat.selectedKey;
         const retirees = new Set(courants.flatMap((g) => g.doublons.map((d) => d.key)));
         const garde = courants.find((g) => g.doublons.some((d) => d.key === selection))?.garde.key;
-        a.restoreState({ objects: serializeObjects(r.objets), measures: serializeMeasures(r.mesures) });
+        // La Vue 3D se rebatit une fois, ci-dessous, sur la selection retouchee : la restauration ne la refait pas.
+        a.restoreState({ objects: serializeObjects(r.objets), measures: serializeMeasures(r.mesures) }, { sansSuite: true });
         if (selection && retirees.has(selection)) a.etat.selectedKey = garde ?? a.etat.objects.find((o) => o.key === 'parcelle')?.key ?? null;
         a.markDirty();
         a.rebuildSelector();

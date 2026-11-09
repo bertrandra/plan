@@ -431,9 +431,10 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     const mur = /^mur([0-3])$/.exec(id);
     if (!mur) return rien;
     const m = Number(mur[1]), avance = m === 0 ? dp : m === 1 ? dl : m === 2 ? -dp : -dl;
-    // De dessus, le faitage se met dans le sens de la longueur tout seul tant que rien n'est pose dessus (comme avant ces poignees).
+    // De dessus, le faitage d'un corps seul se met dans le sens de la longueur tout seul tant que rien n'est pose dessus ; jamais celui
+    // d'un corps qui en touche un autre, ni celui que la personne a mis dans la largeur (corpsNeufs.ts::orienterFaitage).
     const res = pousserLeMur(depart, t.rang, m, avance, contour);
-    return { corps: orienterFaitage(res.corps, t.rang), guides, ...(res.aretes ? { aretes: res.aretes } : {}), ...(res.motif ? { motif: res.motif } : {}) };
+    return { corps: orienterFaitage(res.corps, t.rang, depart), guides, ...(res.aretes ? { aretes: res.aretes } : {}), ...(res.motif ? { motif: res.motif } : {}) };
   }
   if (t.type === 'facade') {
     if (id === 'haut') return { corps: avec(depart, t.rang, { ...c, faitage: centi(Math.max(c.faitage + dv, Math.max(...c.egouts) + 0.4)) }), guides };

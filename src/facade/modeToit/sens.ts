@@ -9,11 +9,12 @@
 // Pur : pas de DOM, pas de scene. Toutes les operations rendent une NOUVELLE liste de corps.
 
 import { point, repere, type Repere } from '../toits/toitCorps.js';
-import { murDuCorps, NOM_SAILLIE } from './saillies.js';
+import { murDuCorps, NOM_SAILLIE, retraitDuRdc } from './saillies.js';
 import { rangPrincipal, rangsDeCorps } from './corpsNeufs.js';
 import { formeDuCorpsToit } from '../../model/formeToit.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
+import { distancePointSegment } from '../../geometry/segments.js';
 import type { BoutToit, CorpsToit, FormeToit, ProfilPan, PtBrut } from '../../model/types.js';
 
 export type Sens = 'long' | 'court';
@@ -52,10 +53,41 @@ export function sensReglable(corps: readonly CorpsToit[], rang: number): boolean
   return !!c && aUnSens(c) && !obstacleAuSens(c);
 }
 
-/** Le sens d'un corps : son faitage dans la longueur de son rectangle, ou dans sa largeur. */
+/**
+ * Le sens d'un faitage d'axe `u` lu sur le plan, quand le rectangle n'a pas de grand cote (un corps, une composition carres) : « dans la
+ * longueur » quand il est plus pres de l'axe est-ouest (regle acceptee par le proprietaire pour la composition carree). Les deux bornes
+ * a 45 degres sont departagees (de -45 compris a 45 exclu, modulo 180) : un quart de tour change toujours la valeur, et les deux boutons
+ * restent l'inverse l'un de l'autre.
+ */
+function sensSurLePlan(u: PtBrut): Sens {
+  const a = (Math.atan2(u.y, u.x) * 180) / Math.PI, m = ((((a + 90) % 180) + 180) % 180) - 90;
+  return m >= -45 - 1e-6 && m < 45 - 1e-6 ? 'long' : 'court';
+}
+
+/**
+ * Le sens d'un corps : son faitage dans la longueur de son rectangle, ou dans sa largeur. Un corps carre (a TOLERANCE_M pres) n'a ni
+ * longueur ni largeur, et un quart de tour n'y change aucune dimension : son sens se lit sur le plan (`sensSurLePlan`), sinon « dans la
+ * largeur » le tournait sans que le bouton suive, et « dans la longueur » ne le ramenait plus.
+ */
 export function sensDuCorps(c: CorpsToit): Sens {
   const r = repere(c.pts);
+  if (Math.abs(r.L - r.W) <= TOLERANCE_M) return sensSurLePlan(r.u);
   return r.L >= r.W ? 'long' : 'court';
+}
+
+/** Un appentis est adosse quand les deux bouts de son mur haut sont a moins de cela d'un mur d'un autre corps (three/toitCorps3d.ts). */
+const ADOSSE_M = 0.05;
+
+/**
+ * L'appentis `rang` est-il adosse a un autre corps (une galerie, un porche contre la maison) : les deux bouts de son mur haut sur un mur de
+ * ce corps (la regle de three/toitCorps3d.ts::appentisAdosse). Il s'appuie sur la maison : tourner son faitage le decollerait d'elle.
+ */
+export function appentisAdosse(corps: readonly CorpsToit[], rang: number): boolean {
+  const c = corps[rang];
+  if (!c || c.saillie || formeDuCorps(c) !== 'appentis') return false;
+  const h = murDuCorps(c, murHautDe(c));
+  const surUnMur = (p: PtBrut, o: CorpsToit) => o.pts.some((q, i) => distancePointSegment(p, q, o.pts[(i + 1) % o.pts.length] as PtBrut) <= ADOSSE_M);
+  return corps.some((o, j) => j !== rang && !o.saillie && surUnMur(h.a, o) && surUnMur(h.b, o));
 }
 
 /**
@@ -228,6 +260,13 @@ function tournerComposition(corps: readonly CorpsToit[], k: Composition, enAvant
     const m = murDuCorps(hote, s.mur), d0 = s.centreM - s.largeurM / 2, d1 = s.centreM + s.largeurM / 2;
     const ou = murQuiPorte(neufs, { x: m.a.x + m.u.x * d0, y: m.a.y + m.u.y * d0 }, { x: m.a.x + m.u.x * d1, y: m.a.y + m.u.y * d1 }, m.n);
     if (!ou) return { raison: 'Tout le toit ne peut pas tourner : l’élément de façade (' + NOM_SAILLIE[s.genre].toLowerCase() + ') tomberait à cheval sur deux corps une fois la composition tournée. Déplacez-le, ou tournez les corps un par un.' };
+    // Un bow-window glisse sous l'etage recule le pied de tout le mur qui le porte (saillies.ts::corpsAuPied) : ce mur doit rester le meme
+    // troncon du plan, sinon le recul changerait de longueur en silence (audit du Mode Toit, 9 novembre 2026).
+    if (retraitDuRdc(s) > 0) {
+      const m2 = murDuCorps(neufs[ou.rang] as CorpsToit, ou.mur), pres = (p: PtBrut, q: PtBrut) => Math.hypot(p.x - q.x, p.y - q.y) <= TOLERANCE_M;
+      const meme = (pres(m.a, m2.a) && pres(m.b, m2.b)) || (pres(m.a, m2.b) && pres(m.b, m2.a));
+      if (!meme) return { raison: 'Tout le toit ne peut pas tourner : le rez-de-chaussée glissé sous l’étage derrière le bow-window reculerait sur un autre tronçon de mur une fois la composition tournée. Retirez ce retrait, ou tournez les corps un par un.' };
+    }
     neufs[i] = { ...x, saillie: { ...s, hote: ou.rang, mur: ou.mur, centreM: (ou.da + ou.db) / 2 } };
   }
   return { corps: neufs };
@@ -242,9 +281,15 @@ export interface SensDuToit {
   raison: string | null;
 }
 
+/**
+ * Les corps qui tournent quand chaque corps tourne dans son rectangle : ceux qui ont un faitage, sauf un appentis adosse a un autre corps,
+ * qui reste appuye sur lui (audit du Mode Toit, 9 novembre 2026 : tourne, il ne s'appuyait plus sur la maison).
+ */
+const tourneAvecLeToit = (corps: readonly CorpsToit[], i: number): boolean => aUnSens(corps[i] as CorpsToit) && !appentisAdosse(corps, i);
+
 /** Le corps qui dit le sens de tout le toit quand chaque corps tourne dans son rectangle : le principal, ou le premier dont le sens se lit. */
 function corpsDeReference(corps: readonly CorpsToit[]): number | null {
-  const lisible = (i: number) => { const c = corps[i] as CorpsToit, r = repere(c.pts); return aUnSens(c) && Math.abs(r.L - r.W) > TOLERANCE_M; };
+  const lisible = (i: number) => { const r = repere((corps[i] as CorpsToit).pts); return tourneAvecLeToit(corps, i) && Math.abs(r.L - r.W) > TOLERANCE_M; };
   const p = rangPrincipal(corps);
   if (p >= 0 && lisible(p)) return p;
   return rangsDeCorps(corps).find(lisible) ?? null;
@@ -262,13 +307,13 @@ export function sensDuToit(corps: readonly CorpsToit[]): SensDuToit | null {
     // Le sens de la composition : le faitage du principal le long du grand cote de l'emprise, ou en travers.
     // Une emprise carree n'a pas de grand cote, et le quart de tour n'y change aucune dimension : le sens se lit alors sur le plan (le
     // faitage du principal plus pres de l'axe est-ouest, « dans la longueur »), pour que les deux boutons restent l'inverse l'un de l'autre.
-    const valeur: Sens = Math.abs(k.L - k.W) > TOLERANCE_M ? (k.L >= k.W ? 'long' : 'court') : Math.abs(k.r.u.x) >= Math.abs(k.r.u.y) ? 'long' : 'court';
+    const valeur: Sens = Math.abs(k.L - k.W) > TOLERANCE_M ? (k.L >= k.W ? 'long' : 'court') : sensSurLePlan(k.r.u);
     const essai = tournerComposition(corps, k, valeur === 'long');
     return { mode: 'composition', valeur, raison: 'raison' in essai ? essai.raison : null };
   }
   const ref = corpsDeReference(corps);
   if (ref === null) return null;
-  const bloque = rangs.find((i) => aUnSens(corps[i] as CorpsToit) && obstacleAuSens(corps[i] as CorpsToit));
+  const bloque = rangs.find((i) => tourneAvecLeToit(corps, i) && obstacleAuSens(corps[i] as CorpsToit));
   const raison = bloque === undefined ? null
     : 'Tout le toit ne peut pas tourner : ' + nomDuCorps(corps, bloque) + ' porte ' + obstacleAuSens(corps[bloque] as CorpsToit) + ', qui n’aurait plus sa place une fois le faîtage tourné. Retirez cet élément, ou tournez les autres corps un par un.';
   return { mode: 'corps', valeur: sensDuCorps(corps[ref] as CorpsToit), raison };
@@ -277,7 +322,7 @@ export function sensDuToit(corps: readonly CorpsToit[]): SensDuToit | null {
 /**
  * Tout le toit dans ce sens, d'un coup : la composition entiere tourne d'un quart de tour sur son emprise quand les corps pavent un
  * rectangle (un toit en M reste un toit en M, un shed un shed) ; sinon chaque corps qui a un faitage le tourne dans son rectangle (l'emprise
- * du batiment reste ; un toit plat, une tourelle restent tels quels). Vers la largeur le tour va en avant, vers la longueur en arriere : un
+ * du batiment reste ; un toit plat, une tourelle, un appentis adosse a un autre corps restent tels quels). Vers la largeur le tour va en avant, vers la longueur en arriere : un
  * aller-retour rend les corps tels quels. Rien ne change (une copie) si le sens est deja celui-la, ou si le toit ne peut pas tourner
  * entier : jamais une partie du toit en silence.
  */
@@ -289,7 +334,9 @@ export function tournerLeToit(corps: readonly CorpsToit[], sens: Sens): CorpsToi
     const k = composition(corps), r = k ? tournerComposition(corps, k, enAvant) : null;
     return r && 'corps' in r ? r.corps : corps.slice();
   }
-  return rangsDeCorps(corps).reduce<CorpsToit[]>((l, i) => (aUnSens(l[i] as CorpsToit) ? quartDeTour(l, i, enAvant) : l), corps.slice());
+  // Qui tourne se decide sur les corps de depart : chacun tourne dans son rectangle, un appentis adosse le reste a ce qui le porte.
+  const tournent = rangsDeCorps(corps).filter((i) => tourneAvecLeToit(corps, i));
+  return tournent.reduce<CorpsToit[]>((l, i) => quartDeTour(l, i, enAvant), corps.slice());
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------

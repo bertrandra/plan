@@ -315,3 +315,53 @@ describe('un element de facade se tire par chacun de ses bords (decision du 9 no
     expect(c.centreM + c.largeurM / 2).toBeLessThanOrEqual(10);
   });
 });
+
+describe('audit du Mode Toit (9 novembre 2026) : ce qu un mur tire emmene, et le trace IGN sous le mur', () => {
+  const rect = (x0: number, y0: number, x1: number, y1: number): CorpsToit =>
+    ({ pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], posFaitage: (y1 - y0) / 2, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 });
+
+  it('raccourcir une aile par son joint ne deplace pas la maison : un corps plus long ne se laisse pas emmener', () => {
+    // La maison 12 x 8 m, une aile de 5 x 4 m collee a son mur est ; le mur 3 de l'aile est le joint.
+    const maison = rect(0, 0, 12, 8), aile = rect(12, 2, 17, 6), corps = [maison, aile];
+    expect(corpsColles(corps, 1, 3)).toEqual([]);
+    const r = pousserLeMur(corps, 1, 3, -1).corps;
+    expect(r[0]).toEqual(maison);
+    expect(Math.min(...r[1]!.pts.map((p) => p.x))).toBeCloseTo(13, 5);
+    expect(Math.max(...r[1]!.pts.map((p) => p.x))).toBe(17);
+    // Le mur de bout de la maison emmene toujours l'aile posee au bout (son joint plus court).
+    expect(corpsColles(corps, 0, 1)).toEqual([1]);
+  });
+
+  it('tirer le mur haut d un appentis adosse ne tire pas la maison', () => {
+    const maison = rect(0, 0, 12, 8);
+    // Un appentis au sud, mur haut (mur 0, y = 0) contre la maison.
+    const app: CorpsToit = { pts: [{ x: 10, y: 0 }, { x: 2, y: 0 }, { x: 2, y: -3 }, { x: 10, y: -3 }], posFaitage: 0, faitage: 4, egouts: [3, 3], pignons: [], ecart: 0 };
+    const corps = [maison, app];
+    expect(corpsColles(corps, 1, 0)).toEqual([]);
+    const r = pousserLeMur(corps, 1, 0, -0.5).corps;
+    expect(r[0]).toEqual(maison);
+    expect(r[1]!.pts.map((p) => p.y)).toEqual([-0.5, -0.5, -3, -3]);
+  });
+
+  it('le corps principal n est jamais emmene, meme par un corps aussi long que lui', () => {
+    const maison = rect(0, 0, 12, 8), annexe = rect(12, 0, 16, 8);
+    // Deux murs de meme longueur : un mur commun, qui glisse ; hors mur commun (le corps principal), rien n'est emmene.
+    expect(corpsColles([maison, annexe], 1, 3)).toEqual([]);
+  });
+
+  it('le cote du trace IGN sur lequel le mur est deja ne le retient pas : un pas de 5 a 25 cm compte', () => {
+    const c = rect(0, 0, 12, 8), ign = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
+    for (const d of [0.05, 0.1, 0.2, 0.25, -0.2]) {
+      const r = pousserLeMur([c], 0, 2, d, ign);
+      expect(repere(r.corps[0]!.pts).W).toBeCloseTo(8 + d, 5);
+      expect(r.colle).toBe(false);
+    }
+    // Un corps pose sur le trace se deplace aussi par petits pas.
+    const a = aimanterAuContour(c, 0.1, 0, ign);
+    expect(a.aretes).toEqual([]);
+    expect(glisser([c], { type: 'corps', rang: 0, i: 0 }, 'deplacer', { long: 0.1, prof: 0 }, ign).corps[0]!.pts[0]!.x).toBeCloseTo(0.1, 5);
+    // Le meme pour un autre corps aligne sur le mur : sa ligne, ou le mur est deja, ne le retient pas.
+    const voisin = rect(20, 8, 24, 12);
+    expect(repere(pousserLeMur([c, voisin], 0, 2, 0.1).corps[0]!.pts).W).toBeCloseTo(8.1, 5);
+  });
+});

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { corpsNeuf, deplacerCorps, orienterFaitage, rangPrincipal, rangsDeCorps, supprimerCorps, tournerCorps } from '../../../../src/facade/modeToit/corpsNeufs.js';
 import { pousserLeMur } from '../../../../src/facade/modeToit/pousserMur.js';
+import { glisser } from '../../../../src/facade/modeToit/poignees.js';
 import { corpsDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
 import { appliquerPiece, raisonIndisponible } from '../../../../src/three/gestesToits.js';
 import { listerElements } from '../../../../src/facade/modeToit/elements.js';
@@ -106,5 +107,39 @@ describe('les corps dans le plan', () => {
     // Un pignon ou un appentis garde son sens.
     expect(orienterFaitage([{ ...c, pignons: [{ pan: 0, debut: 0, fin: 3, faitage: 6, profondeur: 2 }] }], 0)[0]!.pts).toEqual(c.pts);
     expect(orienterFaitage([{ ...c, posFaitage: 0 }], 0)[0]!.pts).toEqual(c.pts);
+  });
+});
+
+describe('le faitage ne tourne pas en silence quand on tire un mur (audit du Mode Toit, 9 novembre 2026)', () => {
+  const deuxPans = (x0: number, x1: number, y1 = 7, plus: Partial<CorpsToit> = {}): CorpsToit =>
+    ({ pts: [{ x: x0, y: 0 }, { x: x1, y: 0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], posFaitage: y1 / 2, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0, ...plus });
+  const axe = (c: CorpsToit) => { const r = repere(c.pts); return Math.abs(r.u.x) > 0.9 ? 'x' : 'y'; };
+
+  it('un corps coupe en deux reste un toit continu quand son mur commun glisse', () => {
+    // Un deux-pans de 12 x 7 m coupe a x = 1 : le mur commun recule de 1 m, la premiere moitie (6 x 7 m) devient plus large que longue.
+    const corps = [deuxPans(-6, 1), deuxPans(1, 6)];
+    const r = glisser(corps, { type: 'corps', rang: 0, i: 0 }, 'mur1', { long: -1, prof: 0, vert: 0 }).corps;
+    expect(Math.max(...r[0]!.pts.map((p) => p.x))).toBeCloseTo(0, 5);
+    expect(axe(r[0]!)).toBe('x');
+    expect(axe(r[1]!)).toBe('x');
+  });
+
+  it('un corps qui touche un autre corps, ou que la personne a mis dans la largeur, garde son sens', () => {
+    const aile = deuxPans(10, 14, 4);
+    // Etire de 4 a 8 m de large : seul, il tournerait ; contre l'aile, non.
+    const seul = deuxPans(0, 6, 4);
+    expect(axe(orienterFaitage([deuxPans(0, 6, 8)], 0, [seul])[0]!)).toBe('y');
+    expect(axe(orienterFaitage([deuxPans(0, 10, 14), aile], 0, [deuxPans(0, 10, 4), aile])[0]!)).toBe('x');
+    // Mis dans la largeur avant le geste (10 x 6, faitage le long de y, sur 6 m) : un mur tire ne le remet pas dans la longueur.
+    const court: CorpsToit = { ...deuxPans(0, 10, 6), pts: [{ x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }, { x: 0, y: 0 }], posFaitage: 5 };
+    const r = glisser([court], { type: 'corps', rang: 0, i: 0 }, 'mur0', { long: 0, prof: 0.5, vert: 0 }).corps[0]!;
+    expect(axe(r)).toBe('y');
+  });
+
+  it('un quatre-pans qui tourne seul garde ses croupes, a la meme part du faitage', () => {
+    const c: CorpsToit = { ...deuxPans(0, 10, 8), croupes: [3, 3] };
+    const r = glisser([c], { type: 'corps', rang: 0, i: 0 }, 'mur2', { long: 0, prof: -4, vert: 0 }).corps[0]!;
+    expect(repere(r.pts).L).toBeCloseTo(12, 5);
+    expect(r.croupes).toEqual([3.6, 3.6]);
   });
 });

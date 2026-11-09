@@ -84,7 +84,9 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     signalerPile: (vide) => magasin.definirPeutAnnuler(!vide),
     rafraichirResultats: refreshTerrasseView,
     // La Vue 3D ouverte suit la restauration, objet par objet (app/vue3dRestauree.ts).
-    apresRestauration: (changes) => tardifs.vues?.apresRestauration(changes)
+    apresRestauration: (changes) => tardifs.vues?.apresRestauration(changes),
+    // Vue 3D fermee, la comparaison (deux serialisations du plan) ne sert a personne : elle ne se fait pas.
+    suitLaRestauration: () => tardifs.vues?.suitLaRestauration() ?? false
   });
   // Une ecriture nomme les objets qu'elle modifie sur place, quand elle les connait (core/controleurObjets.ts) ; sans objet, tout est neuf.
   const pushHistory = (...objets: object[]) => historique.empiler(...objets);
@@ -126,7 +128,7 @@ export function atelierDu(p: Plan): Atelier {
     // Le soleil du projet n'est pas un pas d'annulation : l'instantane restaure porte celui d'avant, et il est range de nouveau
     // sur la parcelle tel qu'il est a l'ecran (core/soleil.ts). L'ouverture d'un projet, elle, le relit (io/projet.ts).
     undo: () => { historique.annuler(); soleilDuProjet.ranger(etat.objects); },
-    restoreState: (i) => { historique.restaurer(i); soleilDuProjet.ranger(etat.objects); },
+    restoreState: (i, options) => { historique.restaurer(i, options); soleilDuProjet.ranger(etat.objects); },
     render: p.render, rebuildSelector: p.rebuildSelector,
     rebuildHandles: dessin.rebuildHandles, reapplyStackingOrder: dessin.reapplyStackingOrder,
     fitToObject: p.cadrage.cadrer, ...p.gestes

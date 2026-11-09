@@ -173,6 +173,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
      * quand ce qui a change se lit ailleurs que dans leur pose (app/vue3dRestauree.ts). Fermee, rien : elle se batira sur le plan
      * d'aujourd'hui a l'ouverture.
      */
+    /** Une Vue 3D est ouverte, qui suit les restaurations : sinon l'historique ne compare pas le plan d'avant et d'apres. */
+    suitLaRestauration: (): boolean => !!vue3d.scene,
     apresRestauration(changes: readonly ObjetChange[]): void {
       if (!vue3d.scene) return;
       const terrasse = terrasseCourante(etat);
