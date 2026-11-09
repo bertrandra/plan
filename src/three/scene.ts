@@ -48,7 +48,7 @@ import { ajouterPiscinesSeules, ajouterCloture, appliquerOmbres, rafraichirArbre
 export type { ContexteScene3d } from './typesScene.js';
 export { PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, ombrerSousLePlatelage, OPACITE_LAMES_ISOLEMENT, OPACITE_LAMES_TRANSLUCIDES } from './sceneTerrasse.js';
 export { DECALAGE_CHEMIN_M } from './sceneObjets.js';
-export { comparerObjets3d, surlignerDans3d, epurerVue3d, epurerLeTemps, visibilite3d, racinesDe3d, objetSousLePointeur, remplacerObjets3d, type Apres3d, type FormeSurlignee3d, type Surbrillance3d } from './sceneVivante.js';
+export { comparerObjets3d, surlignerDans3d, epurerVue3d, epurerLeTemps, visibilite3d, racinesDe3d, pose3d, objetSousLePointeur, remplacerObjets3d, type Apres3d, type FormeSurlignee3d, type Surbrillance3d } from './sceneVivante.js';
 
 /**
  * Le centre de la scene : la terrasse ; a defaut la parcelle, sinon le premier objet a sommets — la

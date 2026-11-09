@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerHistorique } from '../../../src/core/historique.js';
+import { creerHistorique, objetsChanges } from '../../../src/core/historique.js';
 import { LIMITE_HISTORIQUE } from '../../../src/core/history.js';
 
 // Ces tests figent le comportement ACTUEL de l'historique, parce qu'il va etre reecrit : ils
@@ -238,5 +238,50 @@ describe('la transaction (l assistant, lot L6) : plusieurs gestes, une etape d a
     h.transaction(() => { h.empiler(); etat.objects[0]!.x = 2; return true; });
     h.empiler(); etat.objects[0]!.x = 3;
     expect(h.pile.taille).toBe(2);
+  });
+});
+
+describe('ce que la restauration a change (point 7)', () => {
+  it('compare les objets par cle : ajoutes, retires, modifies ; l ordre ne compte pas', () => {
+    const avant = [{ key: 'a', x: 1 }, { key: 'b', x: 2 }, { key: 'c', x: 3 }];
+    const apres = [{ key: 'c', x: 3 }, { key: 'a', x: 9 }, { key: 'd', x: 4 }];
+    const ch = objetsChanges(avant, apres);
+    expect(ch.map((c) => c.cle).sort()).toEqual(['a', 'b', 'd']);
+    expect(ch.find((c) => c.cle === 'a')).toEqual({ cle: 'a', avant: { key: 'a', x: 1 }, apres: { key: 'a', x: 9 } });
+    expect(ch.find((c) => c.cle === 'b')?.apres).toBeNull();
+    expect(ch.find((c) => c.cle === 'd')?.avant).toBeNull();
+    expect(objetsChanges(avant, [...avant].reverse())).toEqual([]);
+  });
+
+  it('dit, apres une annulation, les seuls objets dont la donnee a bouge', () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    const recus: { cle: string }[][] = [];
+    const h = creerHistorique(etat, { ...ctx, apresRestauration: (c) => { recus.push(c); } });
+    h.empiler(etat.objects[1]!);
+    etat.objects[1]!.x = 5;
+    h.annuler();
+    expect(recus).toHaveLength(1);
+    expect(recus[0]!.map((c) => c.cle)).toEqual(['b']);
+    expect(etat.objects[1]!.x).toBe(2);
+  });
+
+  it('fait revenir un objet supprime, et le nomme', () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    const recus: { cle: string; avant: unknown; apres: unknown }[][] = [];
+    const h = creerHistorique(etat, { ...ctx, apresRestauration: (c) => { recus.push(c); } });
+    h.empiler();
+    etat.objects.splice(1, 1);
+    h.annuler();
+    expect(recus[0]).toEqual([{ cle: 'b', avant: null, apres: { key: 'b', x: 2 } }]);
+  });
+
+  it('ne nomme rien quand seule une cote a change', () => {
+    const { etat, ctx } = monter();
+    const recus: unknown[][] = [];
+    const h = creerHistorique(etat, { ...ctx, apresRestauration: (c) => { recus.push(c); } });
+    h.empiler();
+    etat.measures.push({ a: 1 });
+    h.annuler();
+    expect(recus).toEqual([[]]);
   });
 });
