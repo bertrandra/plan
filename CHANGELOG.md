@@ -20,6 +20,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   la session (Ctrl+Z), « Valider » une étape du projet, projet modifié ; au doigt comme à la souris, les poignées se prennent dans les
   trois classes d'écran. Rien ne change sans le geste : aucun champ de fichier nouveau, empreintes et AE 101 identiques. Fumée : point 154.
 
+### Modifié
+- **La photo d'une façade suit le rez-de-chaussée en retrait** (décision du propriétaire, 9 novembre 2026 ; suite de #632, qui la laissait
+  d'un seul plan). Sur un mur dont le rez-de-chaussée recule sous l'étage, la photo du relevé (ou de l'audit) se coupe en 3D au dessous de
+  l'étage (2,70 m par défaut) : la bande du bas se pose sur le mur reculé, celle du haut reste au nu de la façade, aux mêmes coordonnées
+  de texture (chaque point du mur montre le même pixel qu'avant, seul le plan change). Derrière le bow-window, rien : il cache ce mur et
+  rien ne s'y pose ; le bow-window garde son dessin (ses murs et ses vitres), la photo ne s'y pose pas. Au bout du mur voisin, raccourci
+  au pied, la bande sous l'étage est l'entrée du retrait : la photo de ce mur n'y est pas. Les ouvertures du relevé suivent la même règle
+  que celles de la disposition automatique : celles du bas sur le mur reculé (volets et coffres avec elles), aucune derrière le bow-window
+  ni à cheval sur le dessous de l'étage, celles de l'étage au nu. Le dessous de l'étage et ses retours restent de la couleur du mur. Sans
+  rez-de-chaussée en retrait, rien ne change : empreintes, AE 101, banc et chaîne des façades identiques ; pas de champ nouveau dans le
+  fichier. Fumée : point 153 (la photo de l'étalon 02, que `photos.ts` rend désormais aussi en élévation).
+
 ### Corrigé
 - **Mode Toit, vue de face d'un corps choisi** : ses poignées et sa silhouette se posaient sur le mur de derrière, vu au travers (l'œil
   de la caméra de façade était lu au milieu de la scène, la caméra n'étant posée que par sa matrice) ; elles sont sur le mur regardé.

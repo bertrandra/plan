@@ -89,8 +89,10 @@ function photosScene(nom) {
     const dossier = mkdtempSync(join(tmpdir(), 'fumee-facade-'));
     execFileSync('npx', ['tsx', '.claude/skills/facades/scripts/photos.ts', nom, dossier], { stdio: 'ignore' });
     const vues = readdirSync(dossier).filter((f) => /^vue-\d+\.png$/.test(f)).sort().map((f) => readFileSync(join(dossier, f)));
-    const { coins, largeur, largeurPx } = JSON.parse(readFileSync(join(dossier, 'coins.json'), 'utf8'));
-    photosRendues.set(nom, { vues, coins, largeur, largeurPx });
+    const { coins, largeur, largeurPx, hauteur, hauteurPeinte } = JSON.parse(readFileSync(join(dossier, 'coins.json'), 'utf8'));
+    // L'elevation de l'etalon vue de face : la photo redressee d'un releve, posee telle quelle sur un mur (point 153).
+    const elevation = existsSync(join(dossier, 'elevation.png')) ? readFileSync(join(dossier, 'elevation.png')) : null;
+    photosRendues.set(nom, { vues, coins, largeur, largeurPx, hauteur, hauteurPeinte, elevation });
   }
   return photosRendues.get(nom);
 }
@@ -5292,6 +5294,129 @@ const POINTS = {
     const m = (v) => v.toFixed(2).replace('.', ',');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade sud à ${m(valide.sud)} (avant ${m(avant.sud)}) ; de dessus ${cotes.length} poignées de côté, de face les deux bouts et la façade, prenables ; corps validé de ${m(valide.ouest)} à ${m(valide.est)} m (avant ${m(avant.ouest)} à ${m(avant.est)}), aile à ${m(valide.aile)} ; projet ${etat.statut ?? '?'} ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
   },
+  153: async (page, f) => {
+    // La photo d'un releve sur un rez-de-chaussee en retrait (decision du proprietaire, 9 novembre 2026) : la facade de l'etalon 02 (maison
+    // a etage, 10 x 5,80 m, deux fenetres et une porte en bas, trois fenetres en haut), sa photo redressee posee sur le mur sud d'une maison
+    // de 10 x 7 m ; au Mode Toit, un bow-window glisse sous l'etage (« à fleur de l'étage »), « Valider ». En 3D, la photo se coupe au
+    // dessous de l'etage (2,70 m) : la bande du bas recule avec le mur du rez-de-chaussee, celle du haut reste au nu ; rien derriere le
+    // bow-window (ni photo ni porte) ; les fenetres du bas suivent le mur recule. FUMEE_CAPTURE_PHOTO=<prefixe> enregistre deux vues 3D.
+    const capture = process.env.FUMEE_CAPTURE_PHOTO;
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const etalon = photosScene('02-enduit-uni-face');
+    if (!etalon.elevation) return { ok: false, mesure: 'pas d’élévation rendue pour l’étalon 02' };
+    const photo = 'data:image/png;base64,' + etalon.elevation.toString('base64');
+    const verite = JSON.parse(readFileSync(new URL('../tests/fixtures/facades/02-enduit-uni-face.json', import.meta.url), 'utf8')).verite;
+    await page.evaluate(({ photo, verite, hT }) => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const R = [{ x: -5, y: -20 }, { x: 5, y: -20 }, { x: 5, y: -13 }, { x: -5, y: -13 }];
+      o.pts = R.map((p) => ({ ...p }));
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      const b = (o.batiment ??= {});
+      delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = [{ pts: R.map((p) => ({ ...p })), posFaitage: 3.5, faitage: 9, egouts: [verite.hauteur, verite.hauteur], pignons: [], ecart: 0 }];
+      b.modeToit = 'corps';
+      o.elevation = verite.hauteur; b.toit = { forme: 'deux-pans', hauteur: 9 - verite.hauteur, angleFaitage: 0, source: 'saisie' };
+      const ouvertures = verite.ouvertures.map((v, i) => ({ type: v.type, x: v.x, y: v.y, l: v.l, h: v.h, id: 'o' + (i + 1) }));
+      b.facades = [{ cote: 0, largeur: verite.largeur, hauteur: verite.hauteur, hauteurTexture: hT, texture: photo, ouvertures, distance: 12, sourceDistance: 'cadrage', releveLe: '2026-11-09',
+        dimensions: { largeurM: verite.largeur, egoutM: verite.hauteur, source: 'saisie' } }];
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    }, { photo, verite, hT: etalon.hauteurPeinte });
+    // Les morceaux de la photo en 3D : leur profondeur devant la facade (le mur sud regarde vers +Z), leur bas, leur haut et leur
+    // largeur ; et ou sont les cadres des ouvertures du releve.
+    const lirePhoto = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const v = new window.THREE.Vector3(), morceaux = [], ouvertures = {};
+      let sol = Infinity;
+      sc?.scene?.traverse((o) => { if (o.name === 'releve-facade' || /^ouverture:/.test(o.name)) { const b = new window.THREE.Box3().setFromObject(o); if (!b.isEmpty()) sol = Math.min(sol, b.min.y); } });
+      sc?.scene?.traverse((o) => {
+        if (o.name === 'releve-facade') {
+          const p = o.geometry.attributes.position, b = { zmin: Infinity, zmax: -Infinity, ymin: Infinity, ymax: -Infinity, xmin: Infinity, xmax: -Infinity };
+          for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); b.zmin = Math.min(b.zmin, v.z); b.zmax = Math.max(b.zmax, v.z); b.ymin = Math.min(b.ymin, v.y); b.ymax = Math.max(b.ymax, v.y); b.xmin = Math.min(b.xmin, v.x); b.xmax = Math.max(b.xmax, v.x); }
+          morceaux.push(b);
+        }
+        if (/^ouverture:/.test(o.name)) { const b = new window.THREE.Box3().setFromObject(o); if (!b.isEmpty()) ouvertures[o.userData.ouverture] = { z: b.max.z, y: b.min.y }; }
+      });
+      const c = (x) => Math.round(x * 100) / 100;
+      return { morceaux: morceaux.map((b) => ({ z: c((b.zmin + b.zmax) / 2), bas: c(b.ymin - sol), haut: c(b.ymax - sol), largeur: c(b.xmax - b.xmin) })), ouvertures: Object.fromEntries(Object.entries(ouvertures).map(([k, b]) => [k, { z: c(b.z), y: c(b.y - sol) }])) };
+    });
+    const poserVue = (vue) => page.evaluate((vue) => {
+      const sc = window.__plan.scene3d();
+      let bow = null;
+      sc.scene.traverse((o) => { if (!bow && /bow/i.test(o.name)) bow = o; });
+      const boite = new window.THREE.Box3();
+      sc.scene.traverse((o) => { if (o.name === 'releve-facade') boite.expandByObject(o); });
+      const c = (bow ? new window.THREE.Box3().setFromObject(bow) : boite).getCenter(new window.THREE.Vector3());
+      sc.controls.target.set(c.x, c.y + 1.4, c.z);
+      if (vue === 'biais') sc.camera.position.set(c.x - 7, c.y + 1.2, c.z + 8);
+      else sc.camera.position.set(c.x + 0.01, c.y + 2.2, c.z + 8.5);
+      sc.controls.update?.(); sc.controls.dispatchEvent?.({ type: 'change' });
+    }, vue);
+    const echecs = [];
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'releve-facade') n++; }); return n > 0; }, null, { timeout: 30000 }).catch(() => {});
+    await image3dStable(page, 3000);
+    const droite = await lirePhoto();
+    if (droite.morceaux.length !== 1) echecs.push('façade droite : ' + droite.morceaux.length + ' morceaux de photo (un attendu)');
+    if (capture) {
+      for (const vue of ['biais', 'face']) { await poserVue(vue); await image3dStable(page, 2500); await page.screenshot({ path: capture + '-droite-' + f.nom + '-' + vue + '.png' }).catch(() => {}); }
+    }
+    await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
+    await page.getByRole('tab', { name: 'Façade', exact: true }).click({ timeout: 10000 });
+    await page.locator('[data-piece="facade:bow-window"]').click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    const puce = page.locator('.puceToit[data-type="saillie"]').first();
+    if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await puce.click({ timeout: 10000 });
+    await page.waitForTimeout(300);
+    await page.locator('.inspecteurToit [data-commande="toit.regler"][data-groupe="rdc"][data-valeur="aligne"]').click({ timeout: 10000 });
+    await page.waitForTimeout(400);
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const bow = await page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit.find((c) => c.saillie?.genre === 'bow-window')?.saillie ?? null);
+    if (!bow) echecs.push('pas de bow-window');
+    else if (bow.mur !== 0) echecs.push('bow-window sur le mur ' + bow.mur + ' (le mur relevé est le 0)');
+    await page.waitForTimeout(800);
+    await image3dStable(page, 3000);
+    const apres = await lirePhoto();
+    const recul = bow?.rdcEnRetraitM ?? 0;
+    const nu = droite.morceaux[0]?.z ?? 0;
+    const bas = apres.morceaux.filter((m) => m.z < nu - recul / 2), haut = apres.morceaux.filter((m) => Math.abs(m.z - nu) < 0.05);
+    const H = 2.7;
+    if (!bas.length) echecs.push('aucune bande de photo sur le mur reculé');
+    if (bas.some((m) => Math.abs(m.z - (nu - recul)) > 0.03)) echecs.push('bande du bas à ' + bas.map((m) => m.z).join(', ') + ' (attendue à ' + (nu - recul).toFixed(2) + ')');
+    if (bas.some((m) => m.haut > H + 0.03 || m.bas > 0.03)) echecs.push('bande du bas de ' + bas.map((m) => m.bas + '–' + m.haut).join(', ') + ' m');
+    if (!haut.length || haut.some((m) => m.bas < H - 0.03)) echecs.push('bande du haut de ' + haut.map((m) => m.bas + '–' + m.haut).join(', ') + ' m');
+    const largeurBas = bas.reduce((t, m) => t + m.largeur, 0);
+    if (bow && Math.abs(largeurBas - (verite.largeur - bow.largeurM)) > 0.05) echecs.push('bande du bas large de ' + largeurBas.toFixed(2) + ' m (le mur moins le bow-window : ' + (verite.largeur - bow.largeurM).toFixed(2) + ')');
+    // Les ouvertures : o1 et o3 (fenetres du bas) sur le mur recule, o2 (la porte, derriere le bow-window) absente, o4 a o6 au nu.
+    const ov = apres.ouvertures;
+    if (ov.o2) echecs.push('la porte derrière le bow-window est posée');
+    for (const id of ['o1', 'o3']) if (!ov[id] || Math.abs(ov[id].z - (droite.ouvertures[id]?.z ?? 0) + recul) > 0.03) echecs.push(id + ' pas sur le mur reculé');
+    for (const id of ['o4', 'o5', 'o6']) if (!ov[id] || Math.abs(ov[id].z - (droite.ouvertures[id]?.z ?? 0)) > 0.01) echecs.push(id + ' a quitté le nu');
+    if (capture) {
+      for (const vue of ['biais', 'face']) { await poserVue(vue); await image3dStable(page, 2500); await page.screenshot({ path: capture + '-retrait-' + f.nom + '-' + vue + '.png' }).catch(() => {}); }
+    }
+    // Un Ctrl+Z du projet : la facade droite et sa photo d'un seul morceau.
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    const sansBow = await page.waitForFunction(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit?.some((c) => c.saillie?.rdcEnRetraitM), null, { timeout: 10000 }).then(() => true, () => false);
+    if (!sansBow) echecs.push('Ctrl+Z du projet : le retrait reste');
+    // La Vue 3D ne se rebatit pas d'elle-meme a l'annulation du projet (hors de ce point) : on la rouvre depuis le plan.
+    await page.evaluate(() => window.__plan.executer('vue.plan'));
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'releve-facade') n++; }); return n === 1; }, null, { timeout: 15000 }).catch(() => {});
+    await image3dStable(page, 3000);
+    const defait = await lirePhoto();
+    const bowsRestes = await page.evaluate(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (/bow/i.test(o.name)) n++; }); return n; });
+    if (defait.morceaux.length !== 1 || Math.abs((defait.morceaux[0]?.z ?? 0) - nu) > 0.01) echecs.push('Ctrl+Z du projet : ' + defait.morceaux.length + ' morceaux, ' + bowsRestes + ' mailles de bow-window');
+    if (await deborde()) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade droite : ${droite.morceaux.length} morceau ; retrait de ${recul} m : ${bas.length} bande(s) du bas à ${bas.map((m) => m.z).join('/')} (${largeurBas.toFixed(2)} m de large, ${bas.map((m) => m.bas + '–' + m.haut).join(', ')} m), ${haut.length} du haut au nu ; ouvertures ${Object.keys(ov).sort().join(', ')} ; Ctrl+Z : ${defait.morceaux.length} morceau` };
+  },
   151: async (page, f) => {
     // Un projet neuf ne demande pas « Mettre a jour le modele ? » (signale par le proprietaire, 8 novembre 2026 : « À la création
     // d'un nouveau projet j'ai la question pour mettre à jour la version du projet. »). Un projet s'ecrit au plus petit schema qui
@@ -7520,8 +7645,9 @@ function pointsPour(nomClasse) {
   // 150 : tout le toit tourne d'un coup (toit en M, deux pans decales, shed ; grise avec sa raison quand un corps l'empeche), le mur haut d'un appentis.
   // 151 : un projet neuf (la demonstration du premier pas, « Nouveau projet ») rouvert sans « Mettre à jour le modèle ? » ; un ancien la pose toujours.
   // 152 : le rez-de-chaussee en retrait sous l'etage, un bow-window glisse dessous : au Mode Toit, Ctrl+Z, valide ; le mur recule en tirets dans le plan.
+  // 153 : la photo d'un releve sur ce rez-de-chaussee en retrait : coupee au dessous de l'etage, le bas recule avec le mur, le haut reste au nu.
   // 154 : un corps se redimensionne de chaque cote au Mode Toit, le cote oppose en place : quatre poignees de dessus, deux bouts et la facade de face.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 154];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

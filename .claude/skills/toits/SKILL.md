@@ -196,7 +196,8 @@ Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son
 mur haut. Pas de débord en reprise.
 Un bow-window glissé sous l'étage (`SaillieFacade.rdcEnRetraitM`, schéma 16) recule le pied du corps qui le porte sur tout ce mur
-(`corpsAuPied`), l'étage restant au nu (`facettesEncorbellement`) ; le moteur n'en pose jamais : absent, rien ne change.
+(`corpsAuPied`), l'étage restant au nu (`facettesEncorbellement`) ; le moteur n'en pose jamais : absent, rien ne change. La photo d'un
+relevé sur ce mur se coupe au dessous de l'étage, le bas reculé avec lui (`retraitsSurLaFacade`, `morceauxSousEtage`, `three/releve3d.ts`).
 Un appentis ouvert (`ouvert: true`) n'a pas de prisme (`estAppentisOuvert`, `scene.ts`) : des poteaux, et le mur
 du corps qui le porte derrière ; sous lui, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`), et pas de poteau
 devant un bow-window que son toit couvre. Le débord réglé sur un corps (`bords.debordEgoutM`, `saillieRiveM`) remplace celui du dessin.
