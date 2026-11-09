@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, puis à la 5.18.0 le même jour encore.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, puis à la 5.19.0 le 9 novembre 2026.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `32ac33c8d423f7b7ff6e340f97eb91bbd5d0faffc22c60e3f9a917b06c4e13a0` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `bf22728dbe59c3f0d85d76bc08ee88f832f92c743dcbff0f3153e9b1a310626b` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `d3a304b7e873e483d90a13a79a332f6079acff15e9c113e9a3931a8008191999` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `cfdb52f1e9799c4b94a866231d88257c373736e859e833856dc92162c0d14f2a` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `e31fafac932a179f96e5750345c8127213dfe8717d25686090a6d5fa1c7da87d` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `48d1a2b42fdce5a738f5682dbeb2495ca279e7f95e22b981f1c4a6b445bebdd7` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `502a5ac7b6aba0e1646f1caa1774e6a22f77930fee3098c20b49aa85b4a390aa` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `59bbf4d48982968c61c8f6b54cec21ce00a051d5c86c795c31c329eab2fab3d8` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `5ee2a9d5241c5e12638925b0ae6844ca8567fd5acbaa8e97c178681e04718762` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `821583921ef342c4296f5819ba0d3a621d988e0d550738309dc75af4c30767c1` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `f53b06f5c4c4a772d0e65f7593c129e662fa3465e707a767c2263677bebd56b7` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `c8f3a4e4a9d1d61f95dd11027fde73361811e8fe65b1fc54b5584b96b7653934` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `78cea0fb4e1b5e968bb67e006d11999769d4a8b3d1ba061c705ca432bc1c8b5a` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `31951b4a20146335cc9c911e0f3509ef1fcaa9b39ae82611e63a9c561017d798` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -1406,3 +1406,24 @@ numéro, main (076c953b) régénère les témoins de la 5.17.0 au bit près. Les
 | `dossier.pdf` (normalisée) | `fce0b0c1…` | `59bbf4d4…` |
 | `dossier-piscine.pdf` (brute) | `25d19576…` | `f53b06f5…` |
 | `note-calcul.pdf` (brute) | `4108dca8…` | `c8f3a4e4…` |
+
+## Version 5.19.0 (9 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.18.0 (le rez-de-chaussée d'un mur en retrait sous l'étage, pour glisser un bow-window dessous, #632 ;
+schéma 16, `SaillieFacade.rdcEnRetraitM`) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Le numéro de schéma écrit dans les témoins
+ne bouge pas non plus : un document s'écrit au plus petit schéma qui le décrit, et la démonstration ne porte aucun rez-de-chaussée en
+retrait. Avant le changement de numéro, main (63c15763) régénère les témoins de la 5.18.0 au bit près. Les sept témoins passent à
+`5.19.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.19.0` → `5.18.0` remis dans les octets frais
+rend les fichiers de la 5.18.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.18.0 | Empreinte 5.19.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `32ac33c8…` | `cfdb52f1…` |
+| `plan.svg` (normalisée) | `bf22728d…` | `e31fafac…` |
+| `plan.dxf` (normalisée) | `d3a304b7…` | `48d1a2b4…` |
+| `plan.pdf` (normalisée) | `502a5ac7…` | `5ee2a9d5…` |
+| `dossier.pdf` (normalisée) | `59bbf4d4…` | `82158392…` |
+| `dossier-piscine.pdf` (brute) | `f53b06f5…` | `78cea0fb…` |
+| `note-calcul.pdf` (brute) | `c8f3a4e4…` | `31951b4a…` |
