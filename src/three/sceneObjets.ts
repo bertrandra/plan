@@ -163,7 +163,9 @@ const SANS_VOLUME: readonly Ouvrage[] = [POINT_DE_VUE, LIMITE];
 /** Un objet du plan dans la scene, selon ce qu'il est : rien s'il est masque, la terrasse courante, un point de vue. */
 export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
   const { prim, ctx } = co;
-  if (objet === obj) return;
+  // La terrasse de la scene est posee a part. Par sa cle : apres une restauration du projet (Ctrl+Z), le plan porte une autre instance
+  // du meme objet que celle sur laquelle la scene a ete batie.
+  if (obj && objet.key === obj.key) return;
   if (ctx.objetMasque(objet)) return; // masque dans le plan = masque partout, voisinage compris
   // Un mode de diagnostic peint le batiment, murs et toit : une copie a sa couleur, sans texture ni
   // couleur de murs lue, que le reste de la pose prend comme un batiment ordinaire.

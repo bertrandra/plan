@@ -320,6 +320,17 @@ export function visibilite3d(): { visibles: string[]; masques: string[]; horsObj
   return { visibles, masques, horsObjetsVisibles: horsObjets.filter((r) => r.visible).length };
 }
 
+/**
+ * Ce que la Vue 3D ouverte a pose pour cet objet du plan : ses racines et leur boite, en coordonnees de la scene (null : rien de pose,
+ * ou rien de visible). Pour la fumee (scripts/fumee.mjs), qui mesure qu'un objet a ete repose, et ou.
+ */
+export function pose3d(cle: string): { racines: readonly THREE_NS.Object3D[]; boite: { min: number[]; max: number[] } | null } {
+  const racines = racinesDe3d(cle);
+  const b = new THREE.Box3();
+  racines.forEach((r) => b.expandByObject(r));
+  return { racines, boite: b.isEmpty() ? null : { min: b.min.toArray(), max: b.max.toArray() } };
+}
+
 /** Ce que la Vue 3D ouverte a pose pour cet objet du plan (le trait renforce de l'audit les parcourt). */
 export function racinesDe3d(cle: string): readonly THREE_NS.Object3D[] {
   return derniere && vue3d.scene && derniere.sc === vue3d.scene ? poseParObjet.get(cle) ?? [] : [];

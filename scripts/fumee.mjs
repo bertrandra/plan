@@ -5157,6 +5157,103 @@ const POINTS = {
     if (await deborde()) echecs.push('débordement');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `bow-window ${valide.saillie ? valide.saillie.largeurM + ' × ' + valide.saillie.profondeurM + ' m' : 'ABSENT'}, rez-de-chaussée en retrait de ${valide.saillie?.rdcEnRetraitM ?? '—'} m, bow-window à ${valide.egout} m ; validé (${fige ? 'figé' : 'NON FIGÉ'}) ; plan : ${tirets} trait en tirets ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
   },
+  155: async (page, f) => {
+    // L'annulation du projet se voit dans la Vue 3D ouverte (signale par l'agent de la PR #635, 9 novembre 2026). La maison posee sur un
+    // rectangle de 10 x 6 m, un toit a deux pans, puis « Réinitialiser la position » sur le plan (une etape du projet : elle revient a sa
+    // place du chargement) ; Vue 3D. Au Mode Toit, un panneau solaire pose sur le toit, « Valider » : la maison est reposee avec lui.
+    // Ctrl+Z du projet, la Vue 3D ouverte : la maison revient a sa pose d'avant (memes mailles, meme boite), reposee seule, sans rouvrir
+    // la vue ni rebatir la scene. Le projet n'a pas de « Rétablir » : la reprise est le geste refait (la validation), qui la repose comme
+    // la premiere fois ; Ctrl+Z encore. Un dernier Ctrl+Z defait le deplacement : la maison recule d'autant en 3D, et la pelouse de la
+    // parcelle, percee par son empreinte, est reposee avec elle.
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = [{ x: -8, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -8, y: -14 }];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.corpsToit; delete b.volumesToit; delete b.toitMesure;
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    const centre = () => page.evaluate(() => { const p = window.__plan.etat().objects.find((x) => x.key === 'maison').pts; return { x: p.reduce((t, q) => t + q.x, 0) / p.length, y: p.reduce((t, q) => t + q.y, 0) / p.length }; });
+    const c0 = await centre();
+    await page.evaluate(() => window.__plan.executer('objet.positionInitiale'));
+    const c1 = await centre();
+    const d = { x: c1.x - c0.x, y: c1.y - c0.y };
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.pose3d('maison')?.boite, null, { timeout: 30000 });
+    await image3dStable(page, 3000);
+    // La pose de la maison : ses mailles, sa boite (au centimetre), si ses racines sont celles de la derniere lecture retenue
+    // (`retenir`), et si la scene est encore celle de cette lecture.
+    const lire = (retenir) => page.evaluate((retenir) => {
+      const p = window.__plan.pose3d('maison');
+      let mailles = 0;
+      for (const r of p?.racines ?? []) r.traverse((x) => { if (x.isMesh) mailles++; });
+      const c = (v) => v.map((x) => Math.round(x * 100) / 100);
+      const memes = !!window.__racines155 && (p?.racines ?? []).every((r) => window.__racines155.includes(r));
+      const memeScene = window.__plan.scene3d()?.scene === window.__scene155;
+      if (retenir) { window.__racines155 = [...(p?.racines ?? [])]; window.__scene155 = window.__plan.scene3d()?.scene; }
+      return { mailles, boite: p?.boite ? { min: c(p.boite.min), max: c(p.boite.max) } : null, memes, memeScene };
+    }, retenir);
+    const pelouse = () => page.evaluate(() => window.__plan.pose3d('parcelle')?.racines?.[0]?.uuid ?? null);
+    const egales = (a, b) => !!a.boite && !!b.boite && a.mailles === b.mailles && JSON.stringify(a.boite) === JSON.stringify(b.boite);
+    const mailles = (n) => page.waitForFunction((n) => { let m = 0; for (const r of window.__plan.pose3d('maison')?.racines ?? []) r.traverse((x) => { if (x.isMesh) m++; }); return m === n; }, n, { timeout: 15000 }).catch(() => {});
+    const sansToitValide = () => page.waitForFunction(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length, null, { timeout: 15000 }).then(() => true, () => false);
+    const validerUnPanneau = async () => {
+      await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+      await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+      if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
+      await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click({ timeout: 10000 });
+      await page.locator('[data-piece="sur:solaire"]').click({ timeout: 30000 });
+      await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
+      await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+      await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+      await image3dStable(page, 3000);
+    };
+    const echecs = [];
+    const depart = await lire(true);
+    const pelouse0 = await pelouse();
+    await validerUnPanneau();
+    const valide = await lire(true);
+    if (egales(valide, depart) || valide.memes) echecs.push(`validé : la maison n'a pas été reposée en 3D (${valide.mailles} mailles, ${JSON.stringify(valide.boite)})`);
+    // Ctrl+Z du projet, au clavier, la Vue 3D ouverte.
+    await page.keyboard.press('Control+z');
+    if (!(await sansToitValide())) echecs.push('Ctrl+Z : le toit validé reste dans le projet');
+    await mailles(depart.mailles);
+    await image3dStable(page, 3000);
+    const annule = await lire(false);
+    if (!egales(annule, depart)) echecs.push(`Ctrl+Z : la maison en 3D n'est pas revenue (${annule.mailles} mailles, ${JSON.stringify(annule.boite)} ; avant : ${depart.mailles}, ${JSON.stringify(depart.boite)})`);
+    if (annule.memes) echecs.push('Ctrl+Z : la maison n’a pas été reposée');
+    if (!annule.memeScene) echecs.push('Ctrl+Z : la scène entière a été rebâtie (la maison seule devait l’être)');
+    // La reprise : la meme validation, refaite.
+    await validerUnPanneau();
+    const refait = await lire(true);
+    if (!egales(refait, valide)) echecs.push(`refait : ${refait.mailles} mailles, ${JSON.stringify(refait.boite)} (validé : ${valide.mailles}, ${JSON.stringify(valide.boite)})`);
+    await page.keyboard.press('Control+z');
+    await sansToitValide();
+    await mailles(depart.mailles);
+    await image3dStable(page, 3000);
+    const annule2 = await lire(true);
+    if (!egales(annule2, depart)) echecs.push(`second Ctrl+Z : ${annule2.mailles} mailles, ${JSON.stringify(annule2.boite)}`);
+    // Le dernier Ctrl+Z : le deplacement du plan. La maison recule de `d` (x du plan → x de la scene, y du plan → -z).
+    await page.keyboard.press('Control+z');
+    await page.waitForFunction((c) => { const p = window.__plan.etat().objects.find((x) => x.key === 'maison').pts; return Math.abs(p.reduce((t, q) => t + q.x, 0) / p.length - c.x) < 1e-6; }, c0, { timeout: 15000 }).catch(() => {});
+    await page.waitForFunction((x) => Math.abs((window.__plan.pose3d('maison')?.boite?.min[0] ?? x) - x) > 0.05, annule2.boite?.min[0] ?? 0, { timeout: 15000 }).catch(() => {});
+    await image3dStable(page, 3000);
+    const recule = await lire(false);
+    const pelouse1 = await pelouse();
+    const r2 = (x) => Math.round(x * 100) / 100;
+    const ecart = recule.boite && annule2.boite ? { x: r2(recule.boite.min[0] - annule2.boite.min[0]), z: r2(recule.boite.max[2] - annule2.boite.max[2]) } : null;
+    if (!ecart || Math.abs(ecart.x + d.x) > 0.05 || Math.abs(ecart.z - d.y) > 0.05) echecs.push(`Ctrl+Z du déplacement : la maison a bougé de ${JSON.stringify(ecart)} en 3D (attendu x ${(-d.x).toFixed(2)}, z ${d.y.toFixed(2)})`);
+    if (recule.memes) echecs.push('Ctrl+Z du déplacement : la maison n’a pas été reposée');
+    if (!recule.memeScene) echecs.push('Ctrl+Z du déplacement : la scène entière a été rebâtie');
+    if (pelouse0 && pelouse1 === pelouse0) echecs.push('Ctrl+Z du déplacement : la pelouse n’a pas été reposée');
+    if (await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width)) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') +
+      `maison : ${depart.mailles} mailles, ${valide.mailles} validée, ${annule.mailles} après Ctrl+Z (reposée seule : ${!annule.memes && annule.memeScene}), ${refait.mailles} refaite, ${annule2.mailles} après le second Ctrl+Z ; Ctrl+Z du déplacement de (${d.x.toFixed(2)}, ${d.y.toFixed(2)}) m : ${JSON.stringify(ecart)} en 3D, pelouse reposée : ${!!pelouse1 && pelouse1 !== pelouse0}` };
+  },
   154: async (page, f) => {
     // Redimensionner un corps de chaque cote, le cote oppose en place (demande du proprietaire, 9 novembre 2026 : « Les redimensionnements
     // d'un corps doivent pouvoir se faire de chaque côté pour éviter de changer la taille et recaler ensuite. ») : la maison de la
@@ -5404,11 +5501,7 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('objet.annuler'));
     const sansBow = await page.waitForFunction(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit?.some((c) => c.saillie?.rdcEnRetraitM), null, { timeout: 10000 }).then(() => true, () => false);
     if (!sansBow) echecs.push('Ctrl+Z du projet : le retrait reste');
-    // La Vue 3D ne se rebatit pas d'elle-meme a l'annulation du projet (hors de ce point) : on la rouvre depuis le plan.
-    await page.evaluate(() => window.__plan.executer('vue.plan'));
-    await page.waitForTimeout(500);
-    await page.evaluate(() => window.__plan.executer('vue.3d'));
-    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    // La Vue 3D ouverte suit l'annulation du projet (point 155) : la maison s'y repose, sans rouvrir la vue.
     await page.waitForFunction(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'releve-facade') n++; }); return n === 1; }, null, { timeout: 15000 }).catch(() => {});
     await image3dStable(page, 3000);
     const defait = await lirePhoto();
@@ -7647,7 +7740,8 @@ function pointsPour(nomClasse) {
   // 152 : le rez-de-chaussee en retrait sous l'etage, un bow-window glisse dessous : au Mode Toit, Ctrl+Z, valide ; le mur recule en tirets dans le plan.
   // 153 : la photo d'un releve sur ce rez-de-chaussee en retrait : coupee au dessous de l'etage, le bas recule avec le mur, le haut reste au nu.
   // 154 : un corps se redimensionne de chaque cote au Mode Toit, le cote oppose en place : quatre poignees de dessus, deux bouts et la facade de face.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154];
+  // 155 : un Ctrl+Z du projet, la Vue 3D ouverte : la validation du Mode Toit, puis un deplacement, defaits sans rouvrir la vue ni la rebatir.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
