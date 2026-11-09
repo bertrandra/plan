@@ -2722,6 +2722,9 @@
   .calGlisser[draggable="true"] .calVignette{ cursor:grab; }
   .calVignettes li.cible .calVignette{ outline:2px dashed var(--accent); outline-offset:2px; }
   .calAjoutPhotos{ align-self:center; max-width:12rem; }
+  /* « Nouveau cas depuis des photos » : le bouton et ce qu'il attend (l'ordre, les dimensions du mur), sur une ligne qui passe a la ligne. */
+  .calNouveauCas{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin:8px 0; }
+  .calNouveauCas .calNote{ flex:1 1 16rem; }
   .calToile{ width:100%; max-height:70vh; display:block; touch-action:none; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-2); }
   .calBaie{ fill:transparent; stroke:var(--accent); stroke-width:2; cursor:pointer; }
   .calBaie.choisie{ stroke:var(--danger); stroke-width:3; fill:var(--accent-light); fill-opacity:0.35; }

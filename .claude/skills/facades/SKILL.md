@@ -394,6 +394,9 @@ tests (`chargerCorpus`), la fumée (`photosScene(nom)`) et, depuis le 4 novembre
   façade mesurée et validée par le chemin de l'audit (`app/administration/projetEtalon.ts`). Un projet de test pour une façade part de là.
 - **La vérité de l'É7** d'un étalon se porte à chaque rejeu sur l'assemblage de ce rejeu (`etalons.ts::calageVraiDuRejeu`, depuis les
   coins vrais) : aucune n'est écrite dans le corpus, elle dépend de la version de la chaîne.
+  Celle d'un cas réel, quand la séquence de ses photos change, se reporte par ses photos sur le nouvel assemblage
+  (`photosDuCas.ts::veriteSurLesPhotos` → `veriteSuivie` → `veriteSurLAssemblage`) ; `scripts/cas.ts <scène> <fichier> --verite` sert un étalon
+  comme un cas réel qui porte la sienne (point de fumée 158).
 - **Les prendre** : un test de l'audit qui veut une maison photographiée prend `tests/banc/facades/etalonAudit.ts::etalonPourLAudit('02')`
   (le bâtiment de la règle, la photo et sa prise de vue, une parcelle autour) ; un point de fumée qui sert un cas à la calibration part
   de `casEtalon('<scène>')` de `scripts/fumee.mjs` (écrit par `scripts/cas.ts`) et n'y change que ce qu'il éprouve (points 100, 101,
