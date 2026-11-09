@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+- **La séquence des photos d'un cas de calibration se reprend** (demande du propriétaire, 9 novembre 2026 : « Dans calibration je peux
+  uploader des photos. Supprimer, ajouter, ordonner la séquence des photos. »). À l'É2 d'un cas (Admin › Calibrer la détection) :
+  « Ajouter des photos » importe des fichiers (huit photos au plus par cas, la limite du serveur), préparés comme une photo de l'audit
+  (l'EXIF lu avant la réduction à 1 280 px et rangé dans son optique, sans prise de vue) ; « Avancer » et « Reculer » sous chaque
+  vignette, ou la vignette glissée sur une autre à la souris, changent l'ordre (la chaîne prend les photos dans cet ordre : la première
+  mesure la hauteur, l'assemblage les suit) ; « Retirer » demande confirmation. Chaque photo emporte ses repères et son mur posé à la
+  main ; le mur confirmé (V1) suit un déplacement et, comme dans l'audit, est à refaire avec les ouvertures relues (V3) quand une photo
+  est retirée ; la vérité de l'É7, posée sur l'assemblage, ne vaut plus (celle d'un étalon se recalcule, ses coins vrais suivent ses
+  photos). Après chaque changement, le cas se rejoue en entier par le même enchaînement (`facade/photosDuCas.ts`). La calibration
+  n'ouvre toujours pas de caméra : `captureAudit.test.ts` admet l'import d'images dans l'éditeur d'un cas, et lui seul hors de l'audit.
+  Rien ne change pour un cas dont on ne touche pas les photos. Fumée : point 157.
+
 ### Corrigé
 - **Un Ctrl+Z ne coûte plus deux sérialisations du plan quand la Vue 3D est fermée.** Depuis #640, chaque restauration du projet
   (Ctrl+Z, « Réinitialiser tout », import, transaction refusée) comparait le plan d'avant et d'après pour la Vue 3D, même fermée : deux

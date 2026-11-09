@@ -1,7 +1,8 @@
 // L'ecran Admin › Calibrer la detection (`?admin&ecran=calibration`).
 //
 // L'administrateur y tire des cas des facades photographiees dans l'audit (« Créer un cas depuis cette façade » sous la barre d'une
-// facade de l'audit, ou un audit recu ; lot F6 : la calibration ne prend plus de photos pour elle), annote leurs ouvertures
+// facade de l'audit, ou un audit recu ; lot F6 : la calibration ne prend pas de photos ; depuis le 9 novembre 2026, elle en importe dans un
+// cas ouvert, en retire et les ordonne), annote leurs ouvertures
 // (EditeurCasCalibration), puis mesure la detection
 // sur ces cas (precision, rappel, fiabilite de la confiance) et lui fait chercher de meilleurs reglages
 // (facade/corpusReel.ts::calibrer). « Appliquer » ecrit les reglages sur le serveur (`admin/calibration`, data/admin/) ; chaque
