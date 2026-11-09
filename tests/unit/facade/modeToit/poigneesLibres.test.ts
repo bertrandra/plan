@@ -36,3 +36,17 @@ describe('une poignee sous le plan des facades', () => {
     expect(dansLeLibre({ x: 30, y: 300 }, b)).toBe(false);
   });
 });
+
+// Deux obstacles qui se chevauchent : la sortie du premier tombait dans le second, et celle du second dans le premier (une seule passe).
+describe('une poignee sous deux obstacles qui se touchent', () => {
+  const b = { x0: 44, y0: 44, x1: 900, y1: 600, obstacles: [{ x0: -14, y0: 42, x1: 180, y1: 206 }, { x0: -14, y0: 200, x1: 120, y1: 300 }] };
+  it('elle sort des deux, au point libre le plus proche', () => {
+    const r = ramenerDansLeLibre({ x: -20, y: 110 }, b);
+    expect(dansLeLibre(r, b)).toBe(true);
+    // Le coin rentrant des deux (76 px a droite, 96 en bas), plus pres que le bord droit du premier (136 px).
+    expect(r).toEqual({ x: 120, y: 206, ramene: true });
+  });
+  it('un seul obstacle a franchir : la meme sortie qu avant', () => {
+    expect(ramenerDansLeLibre({ x: 170, y: 120 }, b)).toEqual({ x: 180, y: 120, ramene: true });
+  });
+});

@@ -9,6 +9,7 @@
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
 import { libererRendu } from './rendu.js';
+import { debrancherPincementFacade } from './pincementFacade.js';
 import type * as THREE_NS from 'three';
 import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d, type SceneGlb } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
@@ -145,6 +146,8 @@ export function disposeThreeScene(){
     // driving iOS into killing the page ("Impossible de charger la page") - a step further than
     // the WebGL-context cap alone.
     if(vue3d.scene.controls && vue3d.scene.controls.dispose) vue3d.scene.controls.dispose();
+    // Le pincement de facade suit la fenetre et retient ce canevas : il part avec lui.
+    debrancherPincementFacade();
     libererRendu(vue3d.scene);
     disposeThreeSceneResources(vue3d.scene.scene);
     vue3d.scene.renderer.dispose();

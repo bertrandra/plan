@@ -217,3 +217,20 @@ export function texteDuReport(r: VeriteReportee | null): string | null {
   if (!r.perdus.length) return e7 + ' est reportée sur le nouvel assemblage, par les photos qui la voient.';
   return e7 + ' est reportée sur le nouvel assemblage, sans ' + liste(r.perdus.map(art)) + ' : ' + (r.perdus.length > 1 ? 'ils' : 'il') + pourquoi(r.perdus.length) + '.';
 }
+
+/** La verite de l'E7 en attente d'un rejeu (la sequence a change) : portee par les photos, deja perdue, ou rien. */
+export type VeriteEnAttente = VeriteSurLesPhotos | 'perdue' | null;
+
+/**
+ * Ce que devient la verite en attente au bout d'un rejeu : le mur vrai a poser sur le cas (`vrai`), ce que l'ecran en dit, et ce qui
+ * reste en attente une fois le cas pose (`reste`). Un rejeu arrete par la personne sans assemblage la garde pour le suivant ; un rejeu
+ * mene a son terme sans assemblage (les photos restantes ne s'assemblent pas) la perd : sinon elle attendrait un assemblage qui ne vient
+ * pas, et « Enregistrer le cas » le refuserait pour toujours.
+ */
+export function issueDeLaVerite(portee: VeriteEnAttente, pose: AssemblageDuMur | null | undefined, arrete: boolean): { vrai: CalageVrai | null; report: string | null; reste: VeriteEnAttente } {
+  if (!portee) return { vrai: null, report: null, reste: null };
+  if (portee === 'perdue') return { vrai: null, report: VERITE_SANS_ASSEMBLAGE, reste: null };
+  if (!pose) return arrete ? { vrai: null, report: null, reste: portee } : { vrai: null, report: VERITE_SANS_ASSEMBLAGE, reste: null };
+  const p = veriteSurLAssemblage(portee, pose);
+  return { vrai: p.vrai, report: texteDuReport(p), reste: null };
+}

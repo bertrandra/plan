@@ -12,7 +12,7 @@
 import { au } from '../util/tableaux.js';
 import { sousLePointeur } from './comparaison3d.js';
 import { zoomerLaFacade } from './vueFacadeToit.js';
-import { brancherPincementFacade } from './pincementFacade.js';
+import { pincerLaFacadeDe } from './pincementFacade.js';
 import { HAUTEUR_YEUX_M, vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, rendre3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type * as THREE_NS from 'three';
@@ -273,9 +273,6 @@ function tournerVue(deg: number): void {
   rendre3d(sc);
 }
 
-/** Les canevas dont le pincement de facade est branche. */
-const pincements = new WeakMap<HTMLElement, () => void>();
-
 export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
   let mode3D: Mode3D = 'orbit';
   let zoomDragActive = false, zoomDragLastY = 0;
@@ -341,8 +338,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     // En capture sur le canevas : appele avant l'ecouteur d'OrbitControls, pose sur le meme element.
     dom.removeEventListener('wheel', onMolette, { capture: true });
     dom.addEventListener('wheel', onMolette, { capture: true, passive: false });
-    // Le pincement de la vue de facade, une fois par canevas (il ne joue que devant une facade).
-    if (!pincements.has(dom)) pincements.set(dom, brancherPincementFacade(dom));
+    // Le pincement de la vue de facade, sur le canevas courant seul (il ne joue que devant une facade) : celui d'avant se debranche.
+    pincerLaFacadeDe(dom);
     oublierMolette();
     zoomDragActive = false;
     if (mode3D === 'zoom') {
