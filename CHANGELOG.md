@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.19.0] — 2026-11-09
+
+Version **mineure** au sens de `MD/RELEASE.md` : un bow-window peut glisser sous l'étage, dont le rez-de-chaussée recule (#632). Un
+geste nouveau et un champ facultatif du fichier, les anciens fichiers s'ouvrant toujours : MINOR (§2.1, « New optional field in the
+project JSON, old files still load »), comme les schémas 14 (5.8.0) et 15 (5.10.0). Rien ne change sans le geste : aucune quantité ni
+aucun export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de build reste le 30 octobre
+2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json`
+et `glb-structure.json` sont identiques ; AE 101 identique. **Schéma 16** (migration 15 → 16 identité ; seul un bâtiment qui porte un
+rez-de-chaussée en retrait s'écrit au 16), accepté par la plateforme (bertrandra/backprod#255, migration `Version20261109090000`) :
+appliquer backprod puis `setup.php` en production **avant** de déposer cette livraison de Plan, sinon l'enregistrement d'un projet au
+schéma 16 répond 422. La version ne porte que ce changement (`MD/RELEASE.md` §8.4). Requêtes vérifiées sur main, à la livraison.
+
 ### Ajouté
 - **Bow-window : le rez-de-chaussée en retrait sous l'étage** (demande du propriétaire, 9 novembre 2026 : « je dois décaler le
   rez-de-chaussée pour glisser en dessous une bay window jusqu'au premier étage »). Sur un bow-window, « Rez-de-chaussée en retrait »
@@ -16,8 +28,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   restent au nu. Dans le plan, le mur reculé est un trait en tirets sous le contour de l'étage (à l'écran seulement). Ctrl+Z dans la
   session, une étape d'historique à « Valider », projet modifié. Sans ce réglage, rien ne change : empreintes et AE 101 identiques.
   **Schéma 16** (`SaillieFacade.rdcEnRetraitM`, migration 15 → 16 identité) : seul un bâtiment qui en porte un s'écrit au 16 ; la
-  migration de la plateforme qui accepte 16 (bertrandra/backprod, branche `claude/plan-schema-16`) doit être en production avant toute
-  livraison de Plan qui le contient. Fumée : point 152.
+  migration de la plateforme qui accepte 16 (bertrandra/backprod#255, migration `Version20261109090000`) doit être en production avant
+  toute livraison de Plan qui le contient. Fumée : point 152.
 
 ## [5.18.0] — 2026-11-08
 

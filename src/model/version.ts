@@ -27,7 +27,7 @@
 
 import { dateFr } from '../util/format.js';
 
-export const APP_VERSION = '5.18.0';
+export const APP_VERSION = '5.19.0';
 // 2 depuis la 2.2.0 : un batiment peut porter `facades` et `toit` (releve de facade). Un fichier
 // qui n'en porte pas s'ouvre toujours dans la 2.1.x ; celui qui en porte y perdrait ces champs au
 // premier enregistrement, d'ou le refus (RELEASE.md §3.1).
@@ -88,7 +88,7 @@ export const APP_VERSION = '5.18.0';
 // 16 : le rez-de-chaussee en retrait sous l'etage (demande du proprietaire du 9 novembre 2026) : un bow-window glisse sous un etage qui
 // avance, le mur du rez-de-chaussee recule sur toute sa largeur (`SaillieFacade.rdcEnRetraitM`). Un lecteur 15 le perdrait au premier
 // enregistrement ; seul un batiment qui en porte un s'ecrit au 16. La migration 15 -> 16 est l'identite. La plateforme accepte 16 depuis
-// bertrandra/backprod (branche claude/plan-schema-16) : sa migration doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+// bertrandra/backprod#255 (migration Version20261109090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
 export const SCHEMA_VERSION = 16;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';

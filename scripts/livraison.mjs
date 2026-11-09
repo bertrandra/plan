@@ -92,8 +92,23 @@ cpSync(resolve(racine, 'data/admin/arbres.json'), resolve(sortie, 'data/admin/ar
 let commit = 'inconnu';
 try { commit = execSync('git rev-parse --short HEAD', { cwd: racine, encoding: 'utf8' }).trim(); } catch { /* hors git */ }
 
+// Le schema le plus recent que Plan ecrit, et ce que la plateforme doit avoir en production avant
+// le depot : sans sa migration, l'enregistrement d'un projet a ce schema repond 422 (RELEASE.md
+// §8.2). Une ligne par schema qui a demande un deploiement de backprod ; un schema absent de la
+// table ne dit rien de plus que son numero.
+const schemaCourant = contrat.current_schema_version;
+const ordrePlateforme = {
+  16: 'bertrandra/backprod#255 (migration Version20261109090000)'
+};
+const lignePlateforme = ordrePlateforme[schemaCourant]
+  ? `Schema des projets : ${schemaCourant}. AVANT de deposer ce paquet, la plateforme doit l'accepter :
+appliquer en production ${ordrePlateforme[schemaCourant]}, puis setup.php ;
+sinon l'enregistrement d'un projet au schema ${schemaCourant} repond 422.`
+  : `Schema des projets : ${schemaCourant}.`;
+
 writeFileSync(resolve(sortie, 'LISEZMOI-DEPLOIEMENT.txt'), `Plan ${version} (${commit}) - deploiement Apache + PHP, sans Node.js
 Plateforme : ${origine}
+${lignePlateforme}
 
 Sur l'hebergement, trois choses voisines :
    public_html/                 le site (le contenu de cette livraison, sauf data/)
