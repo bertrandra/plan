@@ -20,4 +20,5 @@ reste droit mais peut montrer un léger décalage aux jointures entre photos.
 node outils/facade/construire.mjs              # reconstruit facade.html
 node outils/facade/construire.mjs --verifier   # banc synthétique (une minute environ)
 npx tsc -p outils/facade --noEmit              # types
+node outils/facade/construire.mjs --artifact <fichier>   # variante sans squelette, pour claude.ai
 ```

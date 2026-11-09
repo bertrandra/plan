@@ -410,10 +410,30 @@ function enFichier(type: 'image/jpeg' | 'image/png'): Promise<File | null> {
   );
 }
 
+// Publiee sur claude.ai, la page vit dans un cadre qui bloque les liens de telechargement : elle
+// passe alors par la capacite `downloads` de l'hote. Ouverte seule, un lien suffit.
+interface Telechargements {
+  save(r: { filename: string; data: Blob }): Promise<unknown>;
+}
+const hote = (window as unknown as { claude?: { use?: (n: string) => Promise<unknown> } }).claude;
+const telechargements: Promise<Telechargements | null> = hote?.use ? hote.use('downloads').then((d) => (d as Telechargements | null) ?? null, () => null) : Promise.resolve(null);
+
 async function enregistrer(type: 'image/jpeg' | 'image/png') {
   message('etat-resultat', 'Préparation du fichier…');
   const f = await enFichier(type);
   if (!f) return message('etat-resultat', 'Le fichier n’a pas pu être produit (mémoire insuffisante ?). Essayez la résolution « Moitié ».', 'alerte');
+  const dl = await telechargements;
+  if (dl) {
+    try {
+      await dl.save({ filename: f.name, data: f });
+      message('etat-resultat', `« ${f.name} » enregistré (${fr(f.size / 1_048_576, 1)} Mo).`, 'bon');
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      message('etat-resultat', code === 'declined' ? 'Enregistrement annulé.' : 'L’enregistrement a échoué ; réessayez dans un instant.', code === 'declined' ? 'info' : 'alerte');
+    }
+    return;
+  }
+  if (hote) return message('etat-resultat', 'L’enregistrement n’est pas disponible ici : ouvrez la page dans claude.ai ou le fichier facade.html.', 'alerte');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(f);
   a.download = f.name;
@@ -473,7 +493,8 @@ function demarrer() {
   $('enregistrer').addEventListener('click', () => enregistrer('image/jpeg'));
   $('enregistrer-png').addEventListener('click', () => enregistrer('image/png'));
   let peutPartager = false;
-  try {
+  // Le partage natif est refuse dans le cadre d'une page publiee.
+  if (!hote) try {
     peutPartager = typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'a.jpg', { type: 'image/jpeg' })] });
   } catch {
     peutPartager = false;

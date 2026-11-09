@@ -29,6 +29,22 @@ const commit = (() => {
     return 'inconnu';
   }
 })();
-const html = modele.replace('/*SCRIPT*/', () => js).replaceAll('{{COMMIT}}', commit);
+const page = modele.replace('/*SCRIPT*/', () => js).replaceAll('{{COMMIT}}', commit);
+// Seule, la page porte elle-meme les marges des encoches du telephone.
+const html = page.replace('/*DOC*/', ':root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }');
 writeFileSync(resolve(racine, 'facade.html'), html);
 console.log('facade.html : ' + Math.round(html.length / 1024) + ' Ko (commit ' + commit + ')');
+
+// --artifact <fichier> : la meme page, sans son squelette, pour une publication sur claude.ai
+// (l'hote fournit doctype, head et marges des encoches).
+const i = process.argv.indexOf('--artifact');
+if (i > 0 && process.argv[i + 1]) {
+  const corps = page
+    .replace('/*DOC*/', '')
+    .replace(/^<!doctype html>\s*<html lang="fr">\s*<head>\s*/i, '')
+    .replace(/<meta charset="utf-8">\s*<meta name="viewport"[^>]*>\s*/, '')
+    .replace(/<\/head>\s*<body>\s*/, '')
+    .replace(/<\/body>\s*<\/html>\s*$/, '');
+  writeFileSync(resolve(process.argv[i + 1]), corps);
+  console.log('variante publiee : ' + process.argv[i + 1]);
+}
