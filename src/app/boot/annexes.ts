@@ -106,6 +106,8 @@ export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void 
     deuxVues: () => affichage3d.comparaison,
     // Ce que la Vue 3D montre des objets du plan (la vue epuree de l'audit de la parcelle).
     visibilite3d: () => moteur3d()?.visibilite3d() ?? null,
+    // Ce que la Vue 3D ouverte a pose pour un objet du plan : ses racines et leur boite (la fumee mesure qu'un objet y a ete repose).
+    pose3d: (cle: string) => moteur3d()?.pose3d(cle) ?? null,
     // Le rendu pour Claude, epure le temps d'un appel (le banc visuel : meme instance que l'application).
     // Sans moteur, aucune scene a epurer (three/demande3d.ts).
     epurerLeTemps: <T>(garder: (cle: string) => boolean, f: () => T): T => { const m = moteur3d(); return m ? m.epurerLeTemps(garder, f) : f(); },

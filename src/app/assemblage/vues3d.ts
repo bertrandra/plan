@@ -19,7 +19,9 @@ import { ortho } from '../../render/ortho.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
 import { controleurAudit } from '../audit/courant.js';
 import { chargerTexturePolyhaven, libererTexturesPartagees } from '../../three/chargeurs.js';
-import { glb, soleilVue3d, signaler3d, vue3d, affichage3d, reglerGlb, reglerSoleilVue3d, HAUTEUR_YEUX_M } from '../../three/etat3d.js';
+import { glb, soleilVue3d, signaler3d, vue3d, affichage3d, reglerGlb, reglerSoleilVue3d, HAUTEUR_YEUX_M, CLE_SANS_TERRASSE } from '../../three/etat3d.js';
+import { redessinApresRestauration } from '../vue3dRestauree.js';
+import type { ObjetChange } from '../../core/historique.js';
 import { avecMoteur3d, moteur3d, type Moteur3d } from '../../three/demande3d.js';
 import { brancherVue3d } from '../ecouteurs/vue3d.js';
 import { brancherBoutonsDeVue } from '../ecouteurs/modes.js';
@@ -165,7 +167,26 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     /** Ou est l'ecran pose sur la Vue 3D (pixels de la fenetre) : les deux vues l'evitent. */
     cadrerDeuxVues: (panneau: RectFenetre | null) => { moteur3d()?.cadrerDeuxVues(panneau, vue3d.scene); },
     allerAuPointDeVue: vues3d.allerAuPointDeVue,
-    refreshTerrasseView: () => modes.refreshTerrasseView()
+    refreshTerrasseView: () => modes.refreshTerrasseView(),
+    /**
+     * Le projet vient d'etre restaure (Ctrl+Z, « Réinitialiser tout ») : la Vue 3D ouverte repose les objets changes, ou se rebatit
+     * quand ce qui a change se lit ailleurs que dans leur pose (app/vue3dRestauree.ts). Fermee, rien : elle se batira sur le plan
+     * d'aujourd'hui a l'ouverture.
+     */
+    apresRestauration(changes: readonly ObjetChange[]): void {
+      if (!vue3d.scene) return;
+      const terrasse = terrasseCourante(etat);
+      const r = redessinApresRestauration(changes, {
+        terrasseDeLaScene: vue3d.dernierObjKey === CLE_SANS_TERRASSE ? null : vue3d.dernierObjKey,
+        terrasseCourante: terrasse?.key ?? null,
+        tousLesObjets: vue3d.tousLesObjets,
+        isolement: etat.isolement ?? null,
+        pelouse: etat.objects.some((o) => o.key === 'parcelle') ? 'parcelle' : null
+      });
+      if (r.faire === 'rien') return;
+      if (r.faire === 'remplacer' && moteur3d()?.remplacerObjets3d(r.cles, etat)) return;
+      buildThreeScene(terrasse || null);
+    }
   };
 }
 

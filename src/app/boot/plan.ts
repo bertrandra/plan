@@ -82,7 +82,9 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     // Le bouton Annuler est rendu par la palette d'apres `peutAnnuler` : l'historique signale.
     boutonAnnuler: () => null,
     signalerPile: (vide) => magasin.definirPeutAnnuler(!vide),
-    rafraichirResultats: refreshTerrasseView
+    rafraichirResultats: refreshTerrasseView,
+    // La Vue 3D ouverte suit la restauration, objet par objet (app/vue3dRestauree.ts).
+    apresRestauration: (changes) => tardifs.vues?.apresRestauration(changes)
   });
   // Une ecriture nomme les objets qu'elle modifie sur place, quand elle les connait (core/controleurObjets.ts) ; sans objet, tout est neuf.
   const pushHistory = (...objets: object[]) => historique.empiler(...objets);

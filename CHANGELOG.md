@@ -37,6 +37,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   un bandeau à cheval sur lui reste entier au nu (il marque le plancher de l'étage). Sans rez-de-chaussée en retrait, rien ne change :
   empreintes, AE 101, banc et chaîne des façades identiques ; pas de champ nouveau dans le fichier (schéma 16). Fumée : point 153.
 
+### Corrigé
+- **Un Ctrl+Z du projet se voit dans la Vue 3D ouverte** (signalé par l'agent de la PR #635, 9 novembre 2026). L'annulation rendait la
+  donnée (le plan, l'inspecteur, les résultats) mais laissait la scène 3D telle quelle : un toit validé au mode Toit, un bow-window, une
+  photo de relevé, une maison déplacée restaient affichés jusqu'à ce qu'on quitte et rouvre la Vue 3D. La restauration du projet
+  (`core/historique.ts`) dit maintenant quels objets elle a changés, en comparant le plan d'avant et le plan reposé objet par objet ; la
+  Vue 3D ouverte repose ces seuls objets, comme le fait déjà la validation du mode Toit (un bâtiment avec ses toits, saillies, façades et
+  photos, un arbre ; la pelouse de la parcelle avec un bâtiment qui bouge, apparaît ou disparaît), et se rebâtit, caméra gardée, quand le
+  changement se lit ailleurs que dans leur pose (la terrasse et ses piscines, la parcelle, son relief et sa clôture, le voisinage, un
+  objet isolé). Rien ne se refait quand l'annulation ne change qu'une cote. « Réinitialiser tout » en profite aussi. Les préférences
+  d'affichage (Filaire, cases de l'explorateur) restent hors de l'annulation. Le point de fumée 155 joue la validation du mode Toit puis
+  un déplacement, défaits la Vue 3D ouverte ; le point 153 ne rouvre plus la Vue 3D après son Ctrl+Z. Aucune quantité ni aucun export ne
+  change ; AE 101 identique.
+
 ## [5.20.0] — 2026-11-09
 
 Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, un corps se redimensionne de chaque côté, le côté opposé en place
