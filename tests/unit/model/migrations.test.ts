@@ -391,3 +391,24 @@ describe('la migration 14 -> 15 : le cul de geai et la queue de vache', () => {
     expect(k.profil[0]).toEqual({ type: 'coyau', largeurM: 0.8, penteDeg: 15 });
   });
 });
+
+describe('la migration 15 -> 16 : le rez-de-chaussee en retrait sous l etage', () => {
+  const hote = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 };
+  const saillie = { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan' };
+  const bow = (extra: Record<string, unknown> = {}) => ({ pts: [{ x: 3.8, y: 0.8 }, { x: 6.2, y: 0.8 }, { x: 6.2, y: 0 }, { x: 3.8, y: 0 }], posFaitage: 0, faitage: 2.7, egouts: [2.7, 2.7], pignons: [], ecart: 0, saillie: { ...saillie, ...extra } });
+
+  it('lit un document de schema 15 tel quel ; un bow-window sans retrait reste sous 16', () => {
+    const d = { objects: [batiment({ corpsToit: [hote, bow()] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 15)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 15)?.apporte).toMatch(/rez-de-chaussée en retrait/);
+    expect(schemaMinimal(relu(d.objects, 15) as unknown as ObjetAPlat[])).toBeLessThan(16);
+  });
+
+  it('s ecrit au 16 des qu un bow-window porte un rez-de-chaussee en retrait, et le relit a l identique', () => {
+    const avec = relu([batiment({ corpsToit: [hote, bow({ rdcEnRetraitM: 0.8 })] } as unknown as Partial<ObjetAPlat>)], 16);
+    const k = (avec[0]!.corpsToit as { saillie?: Record<string, unknown> }[])[1]!;
+    expect(k.saillie?.rdcEnRetraitM).toBe(0.8);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(16);
+    expect(relu(avec, 16)).toEqual(avec);
+  });
+});

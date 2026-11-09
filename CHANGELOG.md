@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+- **Bow-window : le rez-de-chaussée en retrait sous l'étage** (demande du propriétaire, 9 novembre 2026 : « je dois décaler le
+  rez-de-chaussée pour glisser en dessous une bay window jusqu'au premier étage »). Sur un bow-window, « Rez-de-chaussée en retrait »
+  (inspecteur, section des éléments de façade ; Mode Toit, groupe « Rez-de-chaussée ») recule le mur du rez-de-chaussée du corps qui le
+  porte, sur toute la largeur de ce mur ; l'étage reste où il est et avance au-dessus. Par défaut le recul est la saillie du bow-window
+  (son avant à fleur de l'étage), réglable de 0,10 à 3 m ; le bow-window monte du sol au dessous de l'étage (sa hauteur à l'égout,
+  2,70 m par défaut), sans toit propre. Deux bow-windows sur le même mur partagent un seul rez-de-chaussée, le plus grand recul. En 3D,
+  le dessous de l'étage est de la couleur du mur ; les ouvertures du bas et le soubassement suivent le mur reculé, celles de l'étage
+  restent au nu. Dans le plan, le mur reculé est un trait en tirets sous le contour de l'étage (à l'écran seulement). Ctrl+Z dans la
+  session, une étape d'historique à « Valider », projet modifié. Sans ce réglage, rien ne change : empreintes et AE 101 identiques.
+  **Schéma 16** (`SaillieFacade.rdcEnRetraitM`, migration 15 → 16 identité) : seul un bâtiment qui en porte un s'écrit au 16 ; la
+  migration de la plateforme qui accepte 16 (bertrandra/backprod, branche `claude/plan-schema-16`) doit être en production avant toute
+  livraison de Plan qui le contient. Fumée : point 152.
+
 ## [5.18.0] — 2026-11-08
 
 Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, « Sens du faîtage » tourne désormais tout le toit d'un bâtiment à

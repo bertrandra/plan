@@ -32,6 +32,7 @@ import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
 import { contourAvecReculs } from '../facade/modeToit/travees.js';
+import { corpsAuPied, murDuCorps, type RetraitRdc } from '../facade/modeToit/saillies.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, carreauxDesDetails, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
@@ -94,7 +95,15 @@ export interface OptionsDetails {
   ouverts?: readonly CorpsToit[];
   /** Le profil de facades retenu (facade/regles/facades/profils.ts) : ses dimensions quand `fenetres` n'en donne pas, et ses seuils. */
   profil?: ValeursFacades;
+  /**
+   * Les rez-de-chaussee en retrait sous l'etage (schema 16), par corps hote : les ouvertures du bas suivent le mur recule (aucune derriere un
+   * bow-window), celles de l'etage restent au nu de la facade ; le soubassement court au pied du mur recule.
+   */
+  retraitsRdc?: ReadonlyMap<CorpsToit, readonly RetraitRdc[]>;
 }
+
+/** Sur un cote du pied d'un corps dont le rez-de-chaussee recule : ce recul, la hauteur de l'etage, et les bow-windows devant le mur. */
+interface CoteSousEtage { reculM: number; hauteurM: number; devant: readonly (readonly [PtBrut, PtBrut])[] }
 
 // La disposition automatique vit dans facade/ouvertures.ts ; ses constantes restent lisibles d'ici.
 export { FENETRE, PORTE, ENTRAXE_FENETRES_M, niveaux, abscissesFenetres } from '../facade/ouvertures.js';
@@ -331,7 +340,41 @@ function tournant(a: PtBrut, p: PtBrut, b: PtBrut): number {
  * relief, elle part du point le plus bas du sol sous le batiment (la partie enterree est cachee) et
  * monte a `HAUTEUR_SOUBASSEMENT_M` au-dessus du sol a chaque sommet : elle suit la pente.
  */
-function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: number, ouverts: readonly CorpsToit[] = []): void {
+/** Un mur dont le rez-de-chaussee recule : sa ligne au nu de la facade (`a`, `b`), sa normale sortante, et son recul. */
+interface MurSousEtage { a: PtBrut; b: PtBrut; n: PtBrut; reculM: number }
+
+/** Les murs des corps dont le rez-de-chaussee recule sous l'etage (schema 16). */
+function mursSousEtage(retraits: ReadonlyMap<CorpsToit, readonly RetraitRdc[]> | undefined): MurSousEtage[] {
+  const l: MurSousEtage[] = [];
+  retraits?.forEach((rs, h) => rs.forEach((r) => { const m = murDuCorps(h, r.mur); l.push({ a: m.a, b: m.b, n: m.n, reculM: r.reculM }); }));
+  return l;
+}
+
+/**
+ * Les portions du cote `p -> q` qui passent sous un etage qui avance : dans la bande entre le nu de la facade et le mur recule (le nu
+ * lui-meme, et le bout des murs voisins). Le soubassement n'y est pas : il court au pied du mur recule.
+ */
+function portionsSousEtage(p: PtBrut, q: PtBrut, murs: readonly MurSousEtage[]): [number, number][] {
+  const L = Math.hypot(q.x - p.x, q.y - p.y);
+  if (!(L > 0)) return [];
+  const eps = 0.02, l: [number, number][] = [];
+  for (const m of murs) {
+    const Lm = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) || 1, u = { x: (m.b.x - m.a.x) / Lm, y: (m.b.y - m.a.y) / Lm };
+    // Le cote dans le repere du mur : `s` le long du mur, `d` vers l'interieur ; on le coupe a la bande (Liang-Barsky).
+    const s0 = (p.x - m.a.x) * u.x + (p.y - m.a.y) * u.y, ds = ((q.x - p.x) * u.x + (q.y - p.y) * u.y);
+    const d0 = -((p.x - m.a.x) * m.n.x + (p.y - m.a.y) * m.n.y), dd = -((q.x - p.x) * m.n.x + (q.y - p.y) * m.n.y);
+    let t0 = 0, t1 = 1;
+    for (const [v0, dv, lo, hi] of [[s0, ds, -eps, Lm + eps], [d0, dd, -eps, m.reculM + eps]] as const) {
+      if (Math.abs(dv) < 1e-9) { if (v0 < lo || v0 > hi) { t0 = 1; t1 = 0; } continue; }
+      const a = (lo - v0) / dv, b = (hi - v0) / dv;
+      t0 = Math.max(t0, Math.min(a, b)); t1 = Math.min(t1, Math.max(a, b));
+    }
+    if (t1 - t0 > 0.01 / L) l.push([t0 * L, t1 * L]);
+  }
+  return l;
+}
+
+function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: number, ouverts: readonly CorpsToit[] = [], sousEtage: readonly MurSousEtage[] = []): void {
   if (h < HAUTEUR_SOUBASSEMENT_M * 2 || contour.length < 3) return;
   const dehors = contourDecale(contour, SAILLIE_SOUBASSEMENT_M);
   const b = new Batisseur();
@@ -347,7 +390,9 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
     const haut = (r: PtBrut) => Math.min(h, (ctx.sol ? ctx.sol(r) : 0) + HAUTEUR_SOUBASSEMENT_M);
     // Sous un appentis ouvert, pas de mur : la bande s'interrompt (les portions fermees du cote seules).
     const L = Math.hypot(q.x - p.x, q.y - p.y);
-    const ouvertes = ouverts.length ? portionsOuvertesDuMur({ gauche: p, droite: q, largeur: L }, ouverts) : [];
+    // Un rez-de-chaussee en retrait (schema 16) : la bande quitte le nu de la facade, elle court au pied du mur recule (ci-dessous).
+    const ouvertes = [...(ouverts.length ? portionsOuvertesDuMur({ gauche: p, droite: q, largeur: L }, ouverts) : []), ...(sousEtage.length ? portionsSousEtage(p, q, sousEtage) : [])]
+      .sort((u, v) => u[0] - v[0]);
     const bornes: [number, number][] = [];
     let x = 0;
     for (const [a, c] of ouvertes) { if (a > x + 0.01) bornes.push([x, a]); x = Math.max(x, c); }
@@ -362,6 +407,14 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
       b.quad(local(pa2, hp), local(qa2, hq), local(qa, hq), local(pa, hp));
     }
   });
+  for (const m of sousEtage) {
+    // Au pied du mur recule, la meme bande, decollee de lui vers la rue.
+    const pa = { x: m.a.x - m.n.x * m.reculM, y: m.a.y - m.n.y * m.reculM }, qa = { x: m.b.x - m.n.x * m.reculM, y: m.b.y - m.n.y * m.reculM };
+    const pa2 = { x: pa.x + m.n.x * SAILLIE_SOUBASSEMENT_M, y: pa.y + m.n.y * SAILLIE_SOUBASSEMENT_M }, qa2 = { x: qa.x + m.n.x * SAILLIE_SOUBASSEMENT_M, y: qa.y + m.n.y * SAILLIE_SOUBASSEMENT_M };
+    const bas = ctx.base ?? 0, haut = (r: PtBrut) => Math.min(h, (ctx.sol ? ctx.sol(r) : 0) + HAUTEUR_SOUBASSEMENT_M);
+    b.quad(local(pa2, bas), local(qa2, bas), local(qa2, haut(qa)), local(pa2, haut(pa)));
+    b.quad(local(pa2, haut(pa)), local(qa2, haut(qa)), local(qa, haut(qa)), local(pa, haut(pa)));
+  }
   b.groupe(0);
   const couleur = new THREE.Color(ctx.couleurMur).multiplyScalar(0.72);
   ctx.scene.add(b.maillage([new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.95, side: THREE.DoubleSide })], 'batiment-soubassement'));
@@ -374,8 +427,11 @@ function poserSoubassement(ctx: ContexteDetails, contour: readonly PtBrut[], h: 
  */
 function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut[], corps: readonly CorpsToit[], options: OptionsDetails): void {
   corps.forEach((c, k) => {
-    // Le pied du corps : ses murs recules compris (schema 14) ; sans recul, son rectangle.
-    const pied = contourAvecReculs(c), pts = pied.pts;
+    // Le pied du corps : ses murs recules compris (schema 14), et son rez-de-chaussee en retrait sous l'etage (schema 16) ; sans recul, son
+    // rectangle. Les cotes du pied gardent le mur dont ils viennent : c'est lui qui dit s'ils donnent dehors.
+    const retraits = options.retraitsRdc?.get(c);
+    const pied = contourAvecReculs(corpsAuPied(c, retraits)), pts = pied.pts;
+    const piedNu = retraits ? contourAvecReculs(c) : pied;
     const dedans = centroid(c.pts);
     // Un mur recule est en facade quand le mur du corps dont il vient l'est (il est en retrait du contour, pas dedans) ; un retour de
     // recul ne porte pas de fenetre.
@@ -384,12 +440,15 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
       const q = pied.cotes[i];
       // Une travee ouverte n'a pas de mur : pas de fenetre.
       if (q && q.nature !== 'mur') return true;
-      if (!q || pts.length === c.pts.length) return !segmentEnFacade(au(pts, i), sommetDe(pts, i + 1), dedans, batiment);
+      if (!q || (pts.length === c.pts.length && !retraits)) return !segmentEnFacade(au(pts, i), sommetDe(pts, i + 1), dedans, batiment);
       return q.mur < 0 || !enFacadeMur[q.mur];
     });
     // Les murs releves du batiment se designent par leurs cotes du contour : le corps ecarte les siens
     // qui les doublent. Sans cela, le mur photographie recevait aussi la grille des fenetres automatiques.
-    const releves = options.cotesReleves?.length ? cotesSurLesCotes(pts, batiment, options.cotesReleves) : [];
+    const releves = options.cotesReleves?.length ? cotesSurLesCotes(piedNu.pts.length === pts.length ? piedNu.pts : pts, batiment, options.cotesReleves) : [];
+    // Les cotes du mur recule (pas les retours d'une travee) : ce que leurs ouvertures doivent savoir de l'etage qui avance.
+    const sousEtage = new Map<number, CoteSousEtage>();
+    if (retraits) pied.cotes.forEach((q, i) => { const r = retraits.find((x) => x.mur === q.mur); if (r && q.recul === 0) sousEtage.set(i, r); });
     const sansAutomatiques = [...new Set([...interieurs, ...releves])];
     const bas = Math.min(...c.egouts);
     const largeur = options.fenetres?.largeur, hauteur = options.fenetres?.hauteur;
@@ -397,7 +456,7 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
     const pignons = fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M);
     // Un mur commun se traite comme un mur releve : la disposition automatique ne le touche pas.
     poserOuvertures(ctx, pts, [{ pts, hauteur: bas, hauteursMurs: pied.cotes.map((q) => (q.mur >= 0 ? h[q.mur] ?? bas : bas)) }], bas, {
-      ...options, cotesReleves: sansAutomatiques, porte: k === 0,
+      ...options, cotesReleves: sansAutomatiques, porte: k === 0, ...(sousEtage.size ? { sousEtage } : {}),
       ouverturesHautes: (pts.length === c.pts.length ? pignons : pignons.map((f) => surLePied(c, pts, pied.cotes, f)).filter((f): f is Fenetre3d => !!f)).filter((f) => !sansAutomatiques.includes(f.cote)),
     });
   });
@@ -429,7 +488,23 @@ function surLePied(c: CorpsToit, pied: readonly PtBrut[], cotes: readonly { mur:
  * la liste reglee une par une. Un cadre clair, une vitre de la couleur demandee, un vantail bois :
  * trois groupes d'une seule maille.
  */
-function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volumes: readonly Volume[], h: number, options: OptionsDetails): void {
+/**
+ * La facade ou se pose une ouverture d'un cote dont le rez-de-chaussee recule sous l'etage : le mur recule pour une ouverture du bas (aucune
+ * derriere un bow-window : null), le nu de la facade pour une ouverture de l'etage (null pour une qui serait a cheval sur les deux).
+ */
+function facadeSousEtage(f: Facade, o: Fenetre3d, y: number, e: CoteSousEtage): Facade | null {
+  if (y + o.h <= e.hauteurM + 0.01) {
+    const ux = (f.droite.x - f.gauche.x) / f.largeur, uy = (f.droite.y - f.gauche.y) / f.largeur;
+    const le = (p: PtBrut) => (p.x - f.gauche.x) * ux + (p.y - f.gauche.y) * uy;
+    const derriere = e.devant.some(([a, b]) => o.x < Math.max(le(a), le(b)) && o.x + o.l > Math.min(le(a), le(b)));
+    return derriere ? null : f;
+  }
+  if (y < e.hauteurM - 0.01) return null;
+  const d = { x: f.normale.x * e.reculM, y: f.normale.y * e.reculM };
+  return { ...f, gauche: { x: f.gauche.x + d.x, y: f.gauche.y + d.y }, droite: { x: f.droite.x + d.x, y: f.droite.y + d.y } };
+}
+
+function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volumes: readonly Volume[], h: number, options: OptionsDetails & { sousEtage?: ReadonlyMap<number, CoteSousEtage> }): void {
   const facades = facadesDuContour(contour, h);
   // Un mur photographie garde les ouvertures de son releve (releve3d.ts) : la liste reglee a la
   // main n'y dessine rien, pas plus que la disposition automatique.
@@ -474,10 +549,14 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
     }
   };
   liste.forEach((o) => {
-    const f = facades.find((x) => x.cote === o.cote);
-    if (!f || o.x < 0 || o.x + o.l > f.largeur + 0.01 || o.l <= 0 || o.h <= 0) return;
-    const hMur = hauteurDuMur(f, volumes);
-    if (o.type === 'porte' || o.type === 'garage') {
+    const surLeCote = facades.find((x) => x.cote === o.cote);
+    if (!surLeCote || o.x < 0 || o.x + o.l > surLeCote.largeur + 0.01 || o.l <= 0 || o.h <= 0) return;
+    const hMur = hauteurDuMur(surLeCote, volumes);
+    const e = options.sousEtage?.get(o.cote);
+    const porte = o.type === 'porte' || o.type === 'garage';
+    const f = e ? facadeSousEtage(surLeCote, o, porte ? 0 : o.y, e) : surLeCote;
+    if (!f) return;
+    if (porte) {
       // Sur un sol en relief, la porte se pose sur le sol devant elle, pas sur celui du centre.
       const yp = ctx.sol ? Math.max(ctx.base ?? 0, Math.min(hMur - o.h - 0.3, ctx.sol(pointDeFacade(f, o.x + o.l / 2)))) : o.y;
       if (aUneForme(o.details)) forme(f, o, yp, portes, true);
@@ -630,7 +709,7 @@ export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h
   else if (toit) hautes.forEach((pts) => poserDebord(ctx, pts, toit, h, pres));
   poserAretes(ctx, volumes, contourHaut);
   if (!pres) return;
-  poserSoubassement(ctx, o.pts, h, options.ouverts);
+  poserSoubassement(ctx, o.pts, h, options.ouverts, mursSousEtage(options.retraitsRdc));
   if (options.corps?.length) poserOuverturesDesCorps(ctx, o.pts, options.corps, options);
   else poserOuvertures(ctx, o.pts, volumes, h, options);
   // Pas de cheminee ici : une souche ne vient que des donnees (`corps.cheminees` : LiDAR, regles, audit,

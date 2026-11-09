@@ -20,7 +20,8 @@ import { formeDuCorps } from '../../facade/regles/toits/faits.js';
 import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, OuvertureFacade, PoseCouverture, ReleveFacade, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
 import { libelleSilhouette } from '../../model/silhouetteFacade.js';
 import { ALERTE_ECART } from '../../facade/releve/bilanFacade.js';
-import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/modeToit/saillies.js';
+import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, RETRAIT_RDC_MIN_M, murDuCorps, replacerSaillie, retirerSaillie, retraitDuRdc } from '../../facade/modeToit/saillies.js';
+import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 import { champsBatiment } from '../../model/champsFonction.js';
@@ -247,15 +248,25 @@ function champsSaillies(c: ContexteChamps): Champ[] {
           { type: 'choix', cle: 'forme', libelle: 'Forme', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Pans coupés, rectangle, demi-cercle (arc) ou rectangle aux angles arrondis (congé)',
             options: () => [{ valeur: 'pans', libelle: 'Pans coupés' }, { valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Congé' }],
             lire: (cc) => lire(cc)?.forme ?? 'rectangle', ecrire: (cc, v) => { regler(cc, { forme: v as FormeSaillie }); } } satisfies Champ,
-          { type: 'choix', cle: 'niveau', libelle: 'Niveau', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Un étage de haut, ou jusqu’à l’égout de la maison ; choisir un niveau reprend sa hauteur (efface la hauteur réglée)',
+          { type: 'choix', cle: 'niveau', libelle: 'Niveau', visible: (cc) => !(retraitDuRdc(lire(cc)) > 0), historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Un étage de haut, ou jusqu’à l’égout de la maison ; choisir un niveau reprend sa hauteur (efface la hauteur réglée)',
             options: () => [{ valeur: 'rdc', libelle: 'Un étage' }, { valeur: 'toit', libelle: 'Jusqu’à l’égout de la maison' }],
             lire: (cc) => lire(cc)?.niveau ?? 'rdc', ecrire: (cc, v) => { regler(cc, { niveau: v === 'toit' ? 'toit' : 'rdc', hauteurM: undefined }); } } satisfies Champ,
           { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur à l’égout', unite: 'm', pas: 0.1, min: 1, max: HAUTEUR_BOW_MAX_M, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
             aide: 'La hauteur des murs du bow-window, du sol à son égout ; un niveau choisi la remplace',
-            note: (cc) => (lire(cc)?.hauteurM === undefined ? 'celle du niveau' : 'réglée'),
-            lire: (cc) => cc.obj.batiment?.corpsToit?.[rang]?.egouts[0] ?? 0, ecrire: (cc, v) => { regler(cc, { hauteurM: Math.min(Math.max(v, 1), HAUTEUR_BOW_MAX_M) }); } } satisfies Champ
+            note: (cc) => (retraitDuRdc(lire(cc)) > 0 ? 'le dessous de l’étage' : lire(cc)?.hauteurM === undefined ? 'celle du niveau' : 'réglée'),
+            lire: (cc) => cc.obj.batiment?.corpsToit?.[rang]?.egouts[0] ?? 0, ecrire: (cc, v) => { regler(cc, { hauteurM: Math.min(Math.max(v, 1), HAUTEUR_BOW_MAX_M) }); } } satisfies Champ,
+          // Le rez-de-chaussee en retrait sous l'etage (schema 16) : par defaut du recul de la saillie, l'avant du bow-window a fleur de l'etage.
+          { type: 'case', cle: 'rdcEnRetrait', libelle: 'Rez-de-chaussée en retrait', historique: true, effets: ['rendu', 'scene3d', 'inspecteur'],
+            aide: 'Le rez-de-chaussée recule sous l’étage, sur toute la largeur de ce mur ; le bow-window s’y glisse, du sol jusque sous l’étage',
+            lire: (cc) => retraitDuRdc(lire(cc)) > 0,
+            ecrire: (cc, v) => { const s = lire(cc); regler(cc, v ? { rdcEnRetraitM: s?.profondeurM ?? 0.8, niveau: 'rdc' } : { rdcEnRetraitM: undefined }); } } satisfies Champ,
+          { type: 'nombre', cle: 'retraitRdc', libelle: 'Retrait du rez-de-chaussée', unite: 'm', pas: 0.05, min: RETRAIT_RDC_MIN_M, max: RECUL_TRAVEE_MAX_M, decimales: 2, historique: true,
+            effets: ['rendu', 'scene3d', 'inspecteur'], visible: (cc) => retraitDuRdc(lire(cc)) > 0,
+            aide: 'De combien le mur du rez-de-chaussée recule sous l’étage ; égal à la saillie, l’avant du bow-window est à fleur de l’étage',
+            note: (cc) => { const s = lire(cc); return s && Math.abs(retraitDuRdc(s) - s.profondeurM) < 0.005 ? 'à fleur de l’étage' : ''; },
+            lire: (cc) => retraitDuRdc(lire(cc)), ecrire: (cc, v) => { regler(cc, { rdcEnRetraitM: Math.min(Math.max(v, RETRAIT_RDC_MIN_M), RECUL_TRAVEE_MAX_M) }); } } satisfies Champ
         ] : []),
-        { type: 'choix', cle: 'toit', libelle: 'Toit', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
+        { type: 'choix', cle: 'toit', libelle: 'Toit', visible: (cc) => !(retraitDuRdc(lire(cc)) > 0), historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
           options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }, { valeur: 'aucun', libelle: 'Aucun (sous un auvent)' }],
           lire: (cc) => lire(cc)?.toit ?? 'pan', ecrire: (cc, v) => { regler(cc, { toit: v === 'plat' ? 'plat' : v === 'pavillon' ? 'pavillon' : v === 'aucun' ? 'aucun' : 'pan' }); } },
         nombre('largeur', 'Largeur', 'largeurM', 0.6, murLong),
