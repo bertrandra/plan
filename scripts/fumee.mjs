@@ -5674,6 +5674,9 @@ const POINTS = {
     // pres du trace IGN : il s'y colle, le cote du trace s'eclaire et la bulle le dit ; le cote est du second corps tire vers le pignon
     // s'arrete a son bord, la raison ecrite, puis en notification ; de face, un bow-window pose : ses deux bords se tirent, l'autre en
     // place ; « Valider », un Ctrl+Z du projet. FUMEE_CAPTURE_MT5=<prefixe> enregistre chaque etape.
+    // Second audit du Mode Toit (9 novembre 2026) : le mur commun est a x = 1,03, comme un corps lu sur l'IGN (ses tailles ne sont pas des
+    // multiples de 5 cm) ; un toucher sur le cote ouest, pose sur le trace, ne l'en decolle pas. Puis une maison en T : le pignon du corps
+    // principal tire vers l'aile en travers s'arrete contre elle, et le dit.
     const capture = process.env.FUMEE_CAPTURE_MT5;
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
     await page.evaluate(() => {
@@ -5684,8 +5687,8 @@ const POINTS = {
       const b = (o.batiment ??= {});
       delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
       b.corpsToit = [
-        { pts: [{ x: -6, y: -20 }, { x: 1, y: -20 }, { x: 1, y: -13 }, { x: -6, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 },
-        { pts: [{ x: 1, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: 1, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], ecart: 0,
+        { pts: [{ x: -6, y: -20 }, { x: 1.03, y: -20 }, { x: 1.03, y: -13 }, { x: -6, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 },
+        { pts: [{ x: 1.03, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: 1.03, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], ecart: 0,
           pignons: [{ pan: 0, debut: 1.5, fin: 3.5, faitage: 7.5, profondeur: 3.5 }] }
       ];
       b.modeToit = 'corps';
@@ -5786,6 +5789,16 @@ const POINTS = {
         await page.waitForTimeout(500);
         if ((await lire()).json !== avant.json) echecs.push('Ctrl+Z ne rend pas les deux corps (mur commun reculé)');
       } else echecs.push('corps 1 : poignées perdues après Ctrl+Z');
+      // 1 ter. Un toucher (1,5 cm) sur le cote ouest, pose sur le trace : il y reste, au centimetre.
+      l0 = await poignees();
+      const oT = l0.find((p) => /^Côté ouest/.test(p.libelle)), eT = l0.find((p) => /^Côté est/.test(p.libelle));
+      if (oT && eT) {
+        await tirer(oT, eT, ppm * 0.015);
+        const t = await lire();
+        if (t.json !== avant.json) echecs.push('un toucher décolle le côté ouest du tracé : ouest à ' + t.o0 + ', mur commun à ' + t.e0);
+        else lignes.push('un toucher sur le tracé ne décolle rien ✓');
+        if (t.json !== avant.json) { await page.keyboard.press('Control+z'); await page.waitForTimeout(500); }
+      }
       // 2. Le cote ouest rentre de 50 cm, puis ressort de 40 : a 10 cm du trace IGN, il s'y colle, le trace s'eclaire.
       l0 = await poignees();
       const o2 = l0.find((p) => /^Côté ouest/.test(p.libelle)), e2 = l0.find((p) => /^Côté est/.test(p.libelle));
@@ -5818,8 +5831,8 @@ const POINTS = {
       const ppm1 = Math.hypot(est1.x - ouest1.x, est1.y - ouest1.y) / 5;
       const tenu = await tirer(est1, ouest1, -ppm1 * 3, async () => { await photo('pignon'); return { ...(await lire()), motif: (await page.locator('[data-motif]').textContent().catch(() => '')) ?? '' }; });
       const toast = await page.locator('.notificationsToasts .toast', { hasText: 'pignon' }).count();
-      if (Math.abs(tenu.e1 - 4.5) > 0.001 || tenu.pignons !== 1 || !/pignon empêche/.test(tenu.motif) || !toast) echecs.push('pignon : est à ' + tenu.e1 + ', ' + tenu.pignons + ' pignon(s), raison « ' + tenu.motif + ' », ' + toast + ' notification');
-      else lignes.push('arrêté au bord du pignon (x = 4,5), « ' + tenu.motif + ' » ✓');
+      if (Math.abs(tenu.e1 - (avant.o1 + 3.5)) > 0.001 || tenu.pignons !== 1 || !/pignon empêche/.test(tenu.motif) || !toast) echecs.push('pignon : est à ' + tenu.e1 + ', ' + tenu.pignons + ' pignon(s), raison « ' + tenu.motif + ' », ' + toast + ' notification');
+      else lignes.push('arrêté au bord du pignon (x = ' + tenu.e1 + '), « ' + tenu.motif + ' » ✓');
     }
     // 4. De face, un bow-window sur le mur sud du premier corps : ses deux bords se tirent, l'autre en place.
     await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
@@ -5857,6 +5870,39 @@ const POINTS = {
     await page.waitForTimeout(600);
     const defait = await lire();
     if (defait.json !== avant.json) echecs.push('Ctrl+Z du projet ne rend pas la maison d’avant');
+    // 5. Une maison en T : le corps principal (8 x 6 m, faitage est-ouest) et une aile en travers a l'est (4 x 8 m), plus longue que son
+    // pignon. Son pignon tire de 1 m vers l'aile s'arrete contre elle, la raison ecrite ; rien ne bouge.
+    await page.evaluate(() => {
+      const b = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment;
+      delete b.toitFige;
+      b.corpsToit = [
+        { pts: [{ x: -6, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -6, y: -14 }], posFaitage: 3, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 },
+        { pts: [{ x: 6, y: -21 }, { x: 6, y: -13 }, { x: 2, y: -13 }, { x: 2, y: -21 }], posFaitage: 2, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 }
+      ];
+      window.__plan.toucher('maison');
+      window.__plan.selectionnerCle('maison');
+    });
+    const avantT = await lire();
+    await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
+    await page.evaluate(() => window.__plan.executer('toit.vueDessus'));
+    await page.waitForTimeout(1500);
+    await image3dStable(page, 1500);
+    await choisir(0);
+    const lT = await poignees(), estT = lT.find((p) => /^Côté est/.test(p.libelle)), ouestT = lT.find((p) => /^Côté ouest/.test(p.libelle));
+    if (!estT || !ouestT) echecs.push('maison en T : pas de poignée est ou ouest');
+    else {
+      const ppmT = Math.hypot(estT.x - ouestT.x, estT.y - ouestT.y) / 8;
+      const tenuT = await tirer(estT, ouestT, ppmT, async () => { await photo('t-butee'); return { ...(await lire()), motif: (await page.locator('[data-motif]').textContent().catch(() => '')) ?? '' }; });
+      const apresT = await lire();
+      if (tenuT.json !== avantT.json || apresT.json !== avantT.json || !/corps voisin empêche/.test(tenuT.motif)) echecs.push('maison en T : pignon à x = ' + tenuT.e0 + ' (aile ' + tenuT.o1 + '–' + tenuT.e1 + '), raison « ' + tenuT.motif + ' »');
+      else lignes.push('maison en T : le pignon s’arrête contre l’aile, « ' + tenuT.motif + ' » ✓');
+    }
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 }).catch(() => echecs.push('maison en T : le mode Toit ne se quitte pas'));
+    const valideT = await lire();
+    if (valideT.json !== avantT.json) echecs.push('maison en T : validé, les corps ont bougé');
     if (await deborde()) echecs.push('débordement');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; validé (${fige ? 'figé' : 'NON FIGÉ'}) ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
   },

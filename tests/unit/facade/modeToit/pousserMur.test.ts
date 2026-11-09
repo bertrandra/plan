@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aimanterAuContour, appentisLies, arretDuMur, corpsColles, murCommun, pousserLeMur, MOTIF_AUTRE_CORPS, MOTIF_PIGNON, MOTIF_TRAVEE } from '../../../../src/facade/modeToit/pousserMur.js';
+import { aimanterAuContour, appentisLies, arretDuMur, collesEtButees, corpsColles, murCommun, pousserLeMur, MOTIF_AUTRE_CORPS, MOTIF_CORPS_VOISIN, MOTIF_PIGNON, MOTIF_TRAVEE } from '../../../../src/facade/modeToit/pousserMur.js';
 import { retourDAngle } from '../../../../src/facade/modeToit/decroche.js';
 import { boutsLies } from '../../../../src/three/toitCorps3d.js';
 import { glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
@@ -363,5 +363,74 @@ describe('audit du Mode Toit (9 novembre 2026) : ce qu un mur tire emmene, et le
     // Le meme pour un autre corps aligne sur le mur : sa ligne, ou le mur est deja, ne le retient pas.
     const voisin = rect(20, 8, 24, 12);
     expect(repere(pousserLeMur([c, voisin], 0, 2, 0.1).corps[0]!.pts).W).toBeCloseTo(8.1, 5);
+  });
+});
+
+describe('second audit du Mode Toit (9 novembre 2026) : un mur sur une ligne y reste, un corps voisin l arrete', () => {
+  const rect = (x0: number, y0: number, x1: number, y1: number): CorpsToit =>
+    ({ pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], posFaitage: (y1 - y0) / 2, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 });
+  // Un corps lu sur l'IGN : ni sa place ni sa taille ne sont des multiples de 5 cm, et il est pose sur le trace.
+  const lu = () => rect(0.03, 0, 10.03, 7.43);
+  const trace = [{ x: 0.03, y: 0 }, { x: 10.03, y: 0 }, { x: 10.03, y: 7.43 }, { x: 0.03, y: 7.43 }];
+
+  it('un toucher ne decolle pas un mur pose sur le trace ; un pas de 5 cm le deplace de 5 cm', () => {
+    for (const d of [0, 0.01, -0.02]) {
+      const r = pousserLeMur([lu()], 0, 2, d, trace);
+      expect(r.corps[0]).toEqual(lu());
+    }
+    expect(repere(pousserLeMur([lu()], 0, 2, 0.04, trace).corps[0]!.pts).W).toBeCloseTo(7.48, 5);
+    expect(repere(pousserLeMur([lu()], 0, 2, -0.05, trace).corps[0]!.pts).W).toBeCloseTo(7.38, 5);
+    // Contre le mur d'un autre corps, de meme.
+    const voisin = rect(12, 7.43, 16, 12);
+    expect(pousserLeMur([lu(), voisin], 0, 2, 0.01).corps[0]).toEqual(lu());
+  });
+
+  it('un mur a 3 cm du trace s y colle, du cote ou il va ; une ligne derriere le geste ne le ramene pas', () => {
+    const ign = [{ x: 0, y: 0 }, { x: 10.03, y: 0 }, { x: 10.03, y: 7.43 }, { x: 0, y: 7.43 }];
+    for (const d of [0.03, 0.05, 0.2]) {
+      const r = pousserLeMur([lu()], 0, 3, d, ign);
+      expect(r.corps[0]!.pts[0]!.x).toBeCloseTo(0, 5);
+      expect(r.colle).toBe(true);
+    }
+    // Le mur recule de 5 cm (vers l'interieur) : le cote du trace, derriere lui, ne le reprend pas.
+    const r = pousserLeMur([lu()], 0, 3, -0.05, ign);
+    expect(r.corps[0]!.pts[0]!.x).toBeCloseTo(0.08, 5);
+    expect(r.colle).toBe(false);
+  });
+
+  it('un corps pose sur le trace qu on deplace le long de lui y reste : le deplacement s arrondit, pas sa place', () => {
+    const cible = { type: 'corps' as const, rang: 0, i: 0 };
+    // Un tremblement de 2 cm en travers ne le decolle pas, le long il avance de 1 m pile.
+    const g = glisser([lu()], cible, 'deplacer', { long: 1, prof: 0.02 }, trace);
+    expect(g.corps[0]!.pts.map((p) => p.y)).toEqual([0, 0, 7.43, 7.43]);
+    expect(g.corps[0]!.pts[0]!.x).toBeCloseTo(1.03, 5);
+    expect(glisser([lu()], cible, 'deplacer', { long: 0.02, prof: -0.01 }, trace).corps[0]).toEqual(lu());
+    // Sans trace aussi : un corps de biais garde sa forme (ses coins ne s'arrondissent pas chacun).
+    const a = Math.PI / 7, biais: CorpsToit = { ...lu(), pts: lu().pts.map((p) => ({ x: Math.round((p.x * Math.cos(a) - p.y * Math.sin(a)) * 100) / 100, y: Math.round((p.x * Math.sin(a) + p.y * Math.cos(a)) * 100) / 100 })) };
+    const k = glisser([biais], cible, 'deplacer', { long: 0.5, prof: 0 }).corps[0]!;
+    expect(repere(k.pts).L).toBeCloseTo(repere(biais.pts).L, 1);
+    expect(repere(k.pts).W).toBeCloseTo(repere(biais.pts).W, 1);
+    expect(Math.hypot(k.pts[0]!.x - biais.pts[0]!.x, k.pts[0]!.y - biais.pts[0]!.y)).toBeCloseTo(0.5, 1);
+  });
+
+  it('maison en T : le pignon pousse vers l aile en travers s arrete contre elle, et le dit ; il s en ecarte librement', () => {
+    const maison = rect(0, 0, 10, 6);
+    const aile: CorpsToit = { pts: [{ x: 14, y: -2 }, { x: 14, y: 8 }, { x: 10, y: 8 }, { x: 10, y: -2 }], posFaitage: 2, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 };
+    const corps = [maison, aile];
+    expect(collesEtButees(corps, 0, 1)).toEqual({ colles: [], butees: [1] });
+    const r = pousserLeMur(corps, 0, 1, 1);
+    expect(r.corps).toEqual(corps);
+    expect(r.motif).toBe(MOTIF_CORPS_VOISIN);
+    const recul = pousserLeMur(corps, 0, 1, -1);
+    expect(Math.max(...recul.corps[0]!.pts.map((p) => p.x))).toBeCloseTo(9, 5);
+    expect(recul.corps[1]).toEqual(aile);
+    expect(recul.motif).toBeUndefined();
+    // L'aile tiree par son joint vers la maison (le corps principal) s'arrete aussi ; tiree vers l'exterieur, elle laisse la maison en place.
+    expect(pousserLeMur([rect(0, 0, 12, 8), rect(12, 2, 17, 6)], 1, 3, 1).motif).toBe(MOTIF_CORPS_VOISIN);
+    // Le mur haut d'un appentis adosse, pousse dans la maison, s'arrete contre elle.
+    const app: CorpsToit = { pts: [{ x: 10, y: 0 }, { x: 2, y: 0 }, { x: 2, y: -3 }, { x: 10, y: -3 }], posFaitage: 0, faitage: 4, egouts: [3, 3], pignons: [], ecart: 0 };
+    const ad = pousserLeMur([rect(0, 0, 12, 8), app], 1, 0, 0.5);
+    expect(ad.corps[1]).toEqual(app);
+    expect(ad.motif).toBe(MOTIF_CORPS_VOISIN);
   });
 });
