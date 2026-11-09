@@ -30,7 +30,7 @@ import { sansOmbres } from '../facade/vision/sansOmbres.js';
 import { poserCarreaux, vitreLue } from './carreaux3d.js';
 import { poserModenature } from './modenature3d.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
-import { morceauxSousEtage, profondeurDOuverture, retraitsSurLaFacade, type RetraitRdc, type RetraitSurFacade } from '../facade/modeToit/saillies.js';
+import { facesAvantDuBowWindow, morceauxSousEtage, profondeurDOuverture, retraitsSurLaFacade, type RetraitRdc, type RetraitSurFacade } from '../facade/modeToit/saillies.js';
 import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -179,6 +179,49 @@ function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, 
     m.name = 'releve-facade';
     ctx.scene.add(m);
   }
+}
+
+/** Le nom de la photo posee sur la face avant d'un bow-window glisse sous l'etage. */
+export const NOM_PHOTO_BOW_WINDOW = 'releve-facade-bow-window';
+
+/**
+ * La photo du releve sur la face avant des bow-windows glisses sous l'etage (decision du proprietaire, 9 novembre 2026) : la part de la
+ * photo qui est devant eux, aux memes coordonnees de texture le long de la facade (chaque point de la face montre le pixel du mur qu'il
+ * cache, vu de face), du sol a leur haut. Elle remplace leurs vitres dessinees sur cette face ; les retours, que la photo de face ne voit
+ * pas, gardent leur dessin, et sous l'etage il n'y a pas de toit propre. Rend les bow-windows habilles.
+ */
+function plaquerSurLesBowWindows(ctx: ContexteReleve3d, hab: Habillage, sousEtage: readonly RetraitSurFacade[]): CorpsToit[] {
+  const f = hab.f, L = f.largeur;
+  const ux = (f.droite.x - f.gauche.x) / L, uy = (f.droite.y - f.gauche.y) / L;
+  const u = (q: PtBrut) => Math.min(1, Math.max(0, ((q.x - f.gauche.x) * ux + (q.y - f.gauche.y) * uy) / L));
+  const habilles: CorpsToit[] = [];
+  for (const c of sousEtage.flatMap((r) => r.bows ?? [])) {
+    const top = Math.min(...c.egouts);
+    // Le milieu du cote contre le mur : la normale d'une face s'en eloigne (comme les vitres, saillies.ts::vitresBowWindow).
+    const mx = ((c.pts[0] as PtBrut).x + (c.pts[1] as PtBrut).x) / 2, my = ((c.pts[0] as PtBrut).y + (c.pts[1] as PtBrut).y) / 2;
+    const sommets: number[] = [], uv: number[] = [], indices: number[] = [];
+    for (const face of facesAvantDuBowWindow(c)) {
+      for (let k = 0; k + 1 < face.length; k++) {
+        const A = face[k] as PtBrut, B = face[k + 1] as PtBrut, l = Math.hypot(B.x - A.x, B.y - A.y);
+        if (l < 1e-6) continue;
+        let nx = (B.y - A.y) / l, ny = -(B.x - A.x) / l;
+        if ((A.x - mx) * nx + (A.y - my) * ny + (B.x - mx) * nx + (B.y - my) * ny < 0) { nx = -nx; ny = -ny; }
+        // 1 cm devant la face, comme la photo devant le mur.
+        const loin = (q: PtBrut) => ctx.toLocal({ x: q.x + nx * DECOLLEMENT, y: q.y + ny * DECOLLEMENT });
+        const a = loin(A), b = loin(B), i0 = sommets.length / 3;
+        sommets.push(a.x, 0, a.z, b.x, 0, b.z, b.x, top, b.z, a.x, top, a.z);
+        const v = Math.min(1, top / hab.hauteurTexture);
+        uv.push(u(A), 0, u(B), 0, u(B), v, u(A), v);
+        indices.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
+      }
+    }
+    if (!indices.length) continue;
+    const m = maillage(sommets, indices, hab.mat, uv);
+    m.name = NOM_PHOTO_BOW_WINDOW;
+    ctx.scene.add(m);
+    habilles.push(c);
+  }
+  return habilles;
 }
 
 /** Le complement des portions ouvertes dans [0, L] : les portions du mur ou il y a un mur. */
@@ -396,10 +439,12 @@ function facadeReculee(f: Facade, profondeurM: number): Facade {
 
 /**
  * Habille un batiment de son releve. Ne fait rien s'il n'en a pas. `retraitsRdc` : les rez-de-chaussee en retrait sous l'etage (schema 16,
- * `retraitsDuRdc`), dont la photo et les ouvertures du bas suivent le mur recule ; absents ou vides, le releve se pose comme avant.
+ * `retraitsDuRdc`), dont la photo, les ouvertures et la modenature du bas suivent le mur recule ; absents ou vides, le releve se pose comme
+ * avant. Rend les bow-windows dont la face avant a recu la photo (leurs vitres de cette face ne se dessinent pas).
  */
-export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null, retraitsRdc: ReadonlyMap<CorpsToit, readonly RetraitRdc[]> | null = null): void {
-  if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return;
+export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null, retraitsRdc: ReadonlyMap<CorpsToit, readonly RetraitRdc[]> | null = null): Set<CorpsToit> {
+  const bowsHabilles = new Set<CorpsToit>();
+  if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return bowsHabilles;
   const { volumes, hautes } = volumesEtHautesDuBatiment(o.pts, h, o.batiment?.facades);
   const facades = facadesDuContour(o.pts, h);
   const habillages: Habillage[] = [];
@@ -434,6 +479,8 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       const hab = { f, mat, hauteurTexture: r.hauteurTexture || r.hauteur };
       habillages.push(hab);
       plaquerTexture(ctx, hab, hMur, partie, corps, ouvertes, sousEtage);
+      // Devant le mur recule, la face avant des bow-windows recoit la part de la photo qui est devant eux.
+      if (sousEtage.length) for (const c of plaquerSurLesBowWindows(ctx, hab, sousEtage)) bowsHabilles.add(c);
     }
     // Le haut de la facade sous les corps du toit (le pignon jusqu'au faitage) : la detection y cherche aussi (facade/analyse.ts), une
     // baie de pignon (lucarne, oculus) s'y pose. Sans corps, ou sur un mur en L, le haut est l'egout.
@@ -453,15 +500,16 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts) ; une baie de pignon borne son coffre
     // au haut de la facade au-dessus d'elle.
     poserDetailsOuvertures(ctx, posees.map((o) => ({ f: facadeDe(o), o, hMur: dessousEtage(o) ?? (sousEgout(o) ? egoutEn(o.x + o.l / 2, hMur, partie) : hautEn(o.x + o.l / 2)), cadre: SECTION_CADRE })));
-    // La modenature lue et le store (lot L1) : rien sans elles.
-    poserModenature(ctx, f, r, hMur, posees);
+    // La modenature lue et le store (lot L1) : rien sans elles. Sous un etage qui avance, celle du bas suit le mur recule.
+    poserModenature(ctx, f, r, hMur, posees, sousEtage);
   });
   // Un toit par corps de batiment (model/volumesToit.ts), chacun a son egout ; sinon le toit coiffe
   // la partie haute, et la partie basse garde le toit plat de son prisme. `sansToit` : la surface
   // mesuree au LiDAR le remplace (three/toitMesure3d.ts), les murs et leurs ouvertures restent.
-  if (sansToit) return;
+  if (sansToit) return bowsHabilles;
   if (volumesToit) volumesToit.forEach((v) => poserToit(ctx, v.pts, toitDuVolume(v, o.batiment?.toit), v.egout ?? h, habillages));
   // Une partie basse au milieu du mur coupe la partie haute en deux : chacune a son toit.
   else if (o.batiment?.toit) { const toit = o.batiment.toit; volumes.slice(0, hautes).forEach((v) => poserToit(ctx, v.pts, toit, h, habillages)); }
+  return bowsHabilles;
 }
 

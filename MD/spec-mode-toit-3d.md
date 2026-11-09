@@ -497,10 +497,23 @@ Demande du propriétaire du 9 novembre 2026 (« je dois décaler le rez-de-chaus
   comme les ouvertures relevées : les exports gardent leur forme).
 - **La photo d'un relevé** (décision du propriétaire du 9 novembre 2026, `three/releve3d.ts`, `saillies.ts::retraitsSurLaFacade`,
   `morceauxSousEtage`) : sur le mur du retrait, elle se coupe au dessous de l'étage ; le bas se pose sur le mur reculé, le haut reste au
-  nu, aux mêmes coordonnées de texture. Derrière le bow-window, rien (il cache ce mur) ; le bow-window garde son dessin, la photo ne s'y
-  pose pas (elle peut être d'avant lui). Sur le mur voisin raccourci au pied, la bande sous l'étage, à l'entrée du retrait, est vide. Le
-  dessous et les retours, que l'élévation ne voit pas, restent de la couleur du mur. Les ouvertures du relevé suivent la règle des
-  ouvertures automatiques (`profondeurDOuverture`).
-- Hors de ce lot : une poignée pour tirer le recul, la lecture de l'audit, un corps sur un contour de biais, la modénature lue d'un relevé
-  (bandeaux, soubassement, chaînes d'angle : elle reste au nu).
+  nu, aux mêmes coordonnées de texture. Derrière le bow-window, rien (il cache ce mur). Sur le mur voisin raccourci au pied, la bande sous
+  l'étage, à l'entrée du retrait, est vide. Le dessous et les retours, que l'élévation ne voit pas, restent de la couleur du mur. Les
+  ouvertures du relevé suivent la règle des ouvertures automatiques (`profondeurDOuverture`).
+- **La photo sur la face avant du bow-window** (décision 6 du propriétaire, 9 novembre 2026 ; `saillies.ts::facesAvantDuBowWindow`,
+  `releve3d.ts::plaquerSurLesBowWindows`) : la part de la photo qui est devant le bow-window se pose sur sa face avant, aux mêmes
+  coordonnées de texture le long de la façade (chaque point de la face montre le pixel du mur qu'il cache, vu de face), du sol à son haut,
+  et remplace les vitres dessinées de ces faces. Les faces avant sont les suites de côtés de son emprise (le même regroupement que ses
+  vitres) qu'une photo prise de face voit : tournées de moins de 60° vers la rue (au-delà, la photo s'y étirerait plus du double). Le fond,
+  les pans coupés courants (une cinquantaine de degrés), l'arc sans ses bouts, en sont. Un retour d'équerre garde son dessin (couleur du
+  mur, vitres) : la photo ne le voit que par la tranche. Sous l'étage, le
+  bow-window n'a pas de toit propre, son dessus se ferme de la couleur du mur, et ses murs restent sous la photo. Seulement dans ce cas :
+  un bow-window sur une façade droite garde son dessin, la photo restant devant le mur (case « Texture » décochée : son dessin aussi).
+- **La modénature lue d'un relevé** (décision 7 du propriétaire, 9 novembre 2026 ; `saillies.ts::morceauxDuPave`, `modenature3d.ts`) :
+  la règle de la photo, pavé par pavé. Sous le dessous de l'étage, soubassement, bandeau, chaîne d'angle, encadrement, descente et store
+  reculent avec le mur du rez-de-chaussée ; au-dessus, ils restent au nu ; derrière le bow-window et à l'entrée du retrait, rien (la
+  photo de la face avant montre ce qu'elle voit, sans relief). Une chaîne ou une descente qui passe le dessous de l'étage est coupée là.
+  Un bandeau à cheval sur le dessous de l'étage reste entier, au nu : à cette hauteur il marque le plancher de l'étage, qui est au nu, et
+  le couper ferait deux lamelles de quelques centimètres sur deux plans.
+- Hors de ce lot : une poignée pour tirer le recul, la lecture de l'audit, un corps sur un contour de biais.
 

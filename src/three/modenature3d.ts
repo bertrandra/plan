@@ -11,6 +11,7 @@ import { Batisseur } from './batisseur.js';
 import { repereFacade, type ContexteDetailsOuvertures } from './detailsOuvertures.js';
 import { BANDEAU, CHAINE, CORNICHE, pave } from './fenetresRelief.js';
 import type { Facade } from '../geometry/cotesVusDeDehors.js';
+import { morceauxDuPave, type RetraitSurFacade } from '../facade/modeToit/saillies.js';
 import type { ModenatureFacade, OuvertureFacade, ParementFacade, ReleveFacade } from '../model/types.js';
 
 /** Les matieres de la modenature, et leur couleur : pierre claire, brique, enduit, tuile d'une genoise, zinc, toile d'un store. */
@@ -34,21 +35,27 @@ const matiereDuParement = (p: ParementFacade | undefined): Matiere => (p && p in
 
 /**
  * La modenature et les stores d'un releve sur son mur (`f`), de `hMur` metres a l'egout, avec les ouvertures posees (les bandeaux
- * s'interrompent au droit des baies). Rend le nombre de mailles ajoutees (0 ou 1).
+ * s'interrompent au droit des baies). Rend le nombre de mailles ajoutees (0 ou 1). `sousEtage` : les rez-de-chaussee en retrait sous
+ * l'etage sur ce mur (schema 16, decision du proprietaire du 9 novembre 2026) ; ce qui est sous le dessous de l'etage recule avec le mur du
+ * bas, rien derriere un bow-window, le reste au nu (`morceauxDuPave`). Vide : chaque pave tel quel, comme avant.
  */
-export function poserModenature(ctx: ContexteDetailsOuvertures, f: Facade, r: Pick<ReleveFacade, 'modenature' | 'appendices'>, hMur: number, baies: readonly OuvertureFacade[]): number {
+export function poserModenature(ctx: ContexteDetailsOuvertures, f: Facade, r: Pick<ReleveFacade, 'modenature' | 'appendices'>, hMur: number, baies: readonly OuvertureFacade[], sousEtage: readonly RetraitSurFacade[] = []): number {
   const m = r.modenature, stores = r.appendices ?? [];
   if (!m && !stores.length) return 0;
   const pt = repereFacade(ctx.toLocal, f);
   const b = new Batisseur();
   const parMatiere = new Map<Matiere, (() => void)[]>();
   const ajouter = (k: Matiere, x: () => void) => { const l = parMatiere.get(k) ?? []; l.push(x); parMatiere.set(k, l); };
-  if (m) poserLaModenature(m, f.largeur, hMur, baies, (k, x0, x1, y0, y1, s0, s1) => ajouter(k, () => pave(b, pt, x0, x1, y0, y1, s0, s1)));
+  const poser: Pave = sousEtage.length
+    // Chaque morceau sur son plan : la saillie se compte depuis le mur recule.
+    ? (k, x0, x1, y0, y1, s0, s1, entier) => { for (const q of morceauxDuPave({ x0, x1, y0, y1 }, sousEtage, entier)) ajouter(k, () => pave(b, pt, q.x0, q.x1, q.y0, q.y1, s0 - q.profondeurM, s1 - q.profondeurM)); }
+    : (k, x0, x1, y0, y1, s0, s1) => ajouter(k, () => pave(b, pt, x0, x1, y0, y1, s0, s1));
+  if (m) poserLaModenature(m, f.largeur, hMur, baies, poser);
   for (const s of stores) {
     const x0 = Math.max(0, s.xM), x1 = Math.min(f.largeur, s.xM + s.largeurM), y = Math.min(hMur, s.hauteurM), S = MODENATURE_3D.store;
     // Le caisson et la toile repliee dessous, d'un bout a l'autre du store.
-    ajouter('caisson', () => pave(b, pt, x0, x1, y - S.hauteur / 2, y, 0, S.saillie));
-    ajouter('toile', () => pave(b, pt, x0 + 0.02, x1 - 0.02, y - S.hauteur, y - S.hauteur / 2, S.saillie - 0.08, S.saillie - 0.02));
+    poser('caisson', x0, x1, y - S.hauteur / 2, y, 0, S.saillie);
+    poser('toile', x0 + 0.02, x1 - 0.02, y - S.hauteur, y - S.hauteur / 2, S.saillie - 0.08, S.saillie - 0.02);
   }
   if (!parMatiere.size) return 0;
   const matieres = [...parMatiere.keys()];
@@ -58,7 +65,8 @@ export function poserModenature(ctx: ContexteDetailsOuvertures, f: Facade, r: Pi
   return 1;
 }
 
-type Pave = (k: Matiere, x0: number, x1: number, y0: number, y1: number, s0: number, s1: number) => void;
+/** `entier` : un bandeau, qui ne se coupe pas au dessous d'un etage qui avance (`morceauxDuPave`). */
+type Pave = (k: Matiere, x0: number, x1: number, y0: number, y1: number, s0: number, s1: number, entier?: boolean) => void;
 
 /** Les paves de la modenature, chacun dans sa matiere : sous l'egout, aux bandeaux, aux angles, autour des baies, au pied, aux descentes. */
 function poserLaModenature(m: ModenatureFacade, L: number, H: number, baies: readonly OuvertureFacade[], pave: Pave): void {
@@ -76,8 +84,8 @@ function poserLaModenature(m: ModenatureFacade, L: number, H: number, baies: rea
     if (y1 > sousEgout - 0.05 || y0 < 0.1) continue;
     const coupes = baies.filter((o) => o.y < y1 && o.y + o.h > y0).map((o) => [o.x - e.largeur, o.x + o.l + e.largeur] as const).sort((a, c) => a[0] - c[0]);
     let x = 0;
-    for (const [a, c] of coupes) { if (a > x) pave('pierre', x, a, y0, y1, 0, BANDEAU.saillie); x = Math.max(x, c); }
-    if (x < L) pave('pierre', x, L, y0, y1, 0, BANDEAU.saillie);
+    for (const [a, c] of coupes) { if (a > x) pave('pierre', x, a, y0, y1, 0, BANDEAU.saillie, true); x = Math.max(x, c); }
+    if (x < L) pave('pierre', x, L, y0, y1, 0, BANDEAU.saillie, true);
   }
   if ((m.chaines === 'pierre' || m.chaines === 'brique') && L > 2 * CHAINE.long) {
     let k = 0;

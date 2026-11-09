@@ -193,6 +193,8 @@ export interface RetraitRdc {
   hauteurM: number;
   /** Les bow-windows glisses dessous : leur cote contre le mur recule (de `pts[0]` a `pts[1]`), ou ce mur n'a ni porte ni fenetre. */
   devant: [PtBrut, PtBrut][];
+  /** Ces bow-windows eux-memes (le dessin pose sur leur face avant la photo d'un releve du mur) ; rempli par `retraitsDuRdc`. */
+  bows?: CorpsToit[];
 }
 
 /**
@@ -206,7 +208,7 @@ export function retraitsDuRdc(corps: readonly CorpsToit[] | null | undefined): M
     if (!(r > 0) || !s || !h || h.saillie) return;
     const l = parHote.get(h) ?? [], deja = l.find((x) => x.mur === s.mur), hauteurM = Math.min(...c.egouts);
     const cote: [PtBrut, PtBrut] = [c.pts[0] as PtBrut, c.pts[1] as PtBrut];
-    if (deja) { deja.devant.push(cote); if (r > deja.reculM) { deja.reculM = r; deja.hauteurM = hauteurM; } } else l.push({ mur: s.mur, reculM: r, hauteurM, devant: [cote] });
+    if (deja) { deja.devant.push(cote); (deja.bows ??= []).push(c); if (r > deja.reculM) { deja.reculM = r; deja.hauteurM = hauteurM; } } else l.push({ mur: s.mur, reculM: r, hauteurM, devant: [cote], bows: [c] });
     parHote.set(h, l);
   });
   return parHote;
@@ -258,7 +260,11 @@ const ECART_SUR_FACADE_M = 0.6;
  * hauteur) : de `de` a `a` le long du mur, la facade du bas recule de `profondeurM` derriere le plan de la facade (le recul, plus l'ecart
  * du mur du corps a ce plan) jusqu'a `hauteurM`, le dessous de l'etage ; `devant`, les bow-windows glisses dessous.
  */
-export interface RetraitSurFacade { de: number; a: number; profondeurM: number; hauteurM: number; devant: [number, number][] }
+export interface RetraitSurFacade {
+  de: number; a: number; profondeurM: number; hauteurM: number; devant: [number, number][];
+  /** Les bow-windows glisses sous ce retrait (absent sur le mur voisin, dont la bande sous l'etage est l'entree du retrait). */
+  bows?: readonly CorpsToit[];
+}
 
 /** Ce qu'une facade du contour sait de son mur : ses bouts vus de dehors, sa largeur et sa normale sortante. */
 interface MurDeFacade { gauche: PtBrut; droite: PtBrut; largeur: number; normale: PtBrut }
@@ -289,7 +295,9 @@ export function retraitsSurLaFacade(f: MurDeFacade, retraits: ReadonlyMap<CorpsT
         const [de, a] = entre(m.a, m.b);
         if (a - de < 0.05) continue;
         const devant = r.devant.map(([p, q]): [number, number] => [Math.max(de, Math.min(x(p), x(q))), Math.min(a, Math.max(x(p), x(q)))]).filter(([p, q]) => q - p > 0.01);
-        l.push({ de, a, profondeurM: (derriere(m.a) + derriere(m.b)) / 2 + r.reculM, hauteurM, devant });
+        const vu: RetraitSurFacade = { de, a, profondeurM: (derriere(m.a) + derriere(m.b)) / 2 + r.reculM, hauteurM, devant };
+        if (r.bows?.length) vu.bows = r.bows;
+        l.push(vu);
         continue;
       }
       // Un mur voisin (un pignon) : le pied du corps (corpsAuPied) l'a raccourci du recul, au bout qui touche le mur recule. Sous
@@ -369,6 +377,32 @@ export function profondeurDOuverture(o: { x: number; y: number; l: number; h: nu
   if (!r) return 0;
   if (o.y + o.h <= r.hauteurM + 0.01) return r.devant.some(([p, q]) => o.x < q && o.x + o.l > p) ? null : r.profondeurM;
   return o.y < r.hauteurM - 0.01 ? null : 0;
+}
+
+/** Un pave de la modenature d'une facade (x le long du mur, y en hauteur) et le plan ou il se pose : `profondeurM` derriere le nu. */
+export interface MorceauDePave { x0: number; x1: number; y0: number; y1: number; profondeurM: number }
+
+/**
+ * Un pave de la modenature lue d'un releve (bandeau, soubassement, chaine d'angle, encadrement, descente, store) sous un etage qui avance
+ * (decision du proprietaire, 9 novembre 2026) : la meme regle que la photo (`morceauxSousEtage`). Sous le dessous de l'etage, le morceau
+ * recule avec le mur du rez-de-chaussee ; au-dessus, il reste au nu ; derriere un bow-window (et a l'entree du retrait, sur le mur voisin),
+ * rien. `entier` (un bandeau) : un pave a cheval sur le dessous de l'etage n'est pas coupe, il reste au nu en entier. Un bandeau a cette
+ * hauteur marque le plancher de l'etage, qui est au nu ; le couper ferait deux lamelles de quelques centimetres sur deux plans, que rien
+ * ne porte. Hors des retraits, le pave tel quel, au nu.
+ */
+export function morceauxDuPave(p: Omit<MorceauDePave, 'profondeurM'>, retraits: readonly RetraitSurFacade[], entier = false): MorceauDePave[] {
+  const l: MorceauDePave[] = [];
+  const garder = (x0: number, x1: number, y0: number, y1: number, profondeurM: number) => { if (x1 - x0 > 1e-6 && y1 - y0 > 1e-6) l.push({ x0, x1, y0, y1, profondeurM }); };
+  const dans = retraits.filter((r) => r.a > p.x0 + 1e-6 && r.de < p.x1 - 1e-6);
+  if (!dans.length) return [{ ...p, profondeurM: 0 }];
+  for (const [s, e] of sansLesTrous(p.x0, p.x1, dans.map((r) => [r.de, r.a] as const))) garder(s, e, p.y0, p.y1, 0);
+  for (const r of dans) {
+    const s = Math.max(p.x0, r.de), e = Math.min(p.x1, r.a), H = r.hauteurM;
+    if (entier && p.y0 < H - 1e-6 && p.y1 > H + 1e-6) { garder(s, e, p.y0, p.y1, 0); continue; }
+    garder(s, e, Math.max(p.y0, H), p.y1, 0);
+    if (p.y0 < H) for (const [s2, e2] of sansLesTrous(s, e, r.devant)) garder(s2, e2, p.y0, Math.min(p.y1, H), r.profondeurM);
+  }
+  return l.sort((u, v) => u.x0 - v.x0 || u.y0 - v.y0);
 }
 
 /** Un mur libre pour une saillie neuve : le plus long mur de l'hote qui n'en porte pas deja, sinon le plus long. */
@@ -465,25 +499,55 @@ const ANGLE_FACADE_RAD = (20 * Math.PI) / 180;
 const FENETRE_LARGEUR_M = 1.1, FENETRE_ENTRAXE_M = 1.6, FENETRE_MIN_M = 0.5, APPUI_M = 0.9, LINTEAU_MIN_M = 0.3, FENETRE_HAUT_MAX_M = 1.4, RELIEF_VITRE_M = 0.012;
 
 /**
- * Les vitres d'un bow-window : une ou plusieurs fenetres par facade (suite de cotes presque alignes, ou un arc entier),
- * posees contre le mur, a hauteur d'appui. Une facade trop courte n'en recoit pas ; l'arc en recoit plusieurs, qui suivent sa courbe.
+ * Ce qu'une photo prise de face voit d'une facade de bow-window : une facade tournee de moins de 60° vers la rue (sa corde a moins de 60°
+ * du mur de la maison). Le fond, et les pans coupes courants (une cinquantaine de degres), en sont ; un retour d'equerre non : la photo
+ * le voit par la tranche. Au-dela, la photo s'y etirerait plus du double.
  */
-export function vitresBowWindow(c: CorpsToit): Pt3[][] {
-  const top = Math.min(...c.egouts);
-  const bas = APPUI_M, haut = Math.min(top - LINTEAU_MIN_M, bas + FENETRE_HAUT_MAX_M);
-  if (haut - bas < 0.4) return [];
+const VU_DE_FACE_RAD = (60 * Math.PI) / 180;
+
+/**
+ * Les facades d'un bow-window, dans son emprise (`empriseDeSaillie`) : des suites de cotes dont la direction change peu (un arc entier en
+ * est une). `avant` : une photo prise de face la voit (`VU_DE_FACE_RAD`) ; un retour d'equerre, non.
+ */
+function facadesDuBowWindow(c: CorpsToit): { pts: PtBrut[]; avant: boolean }[] {
   const e = empriseDeSaillie(c);
-  // Les facades : des suites de cotes dont la direction change peu.
   const dir = (i: number) => Math.atan2((e[i + 1] as PtBrut).y - (e[i] as PtBrut).y, (e[i + 1] as PtBrut).x - (e[i] as PtBrut).x);
   const suites: number[][] = [];
   for (let i = 0; i < e.length - 1; i++) {
     const ecart = i > 0 ? Math.abs(Math.atan2(Math.sin(dir(i) - dir(i - 1)), Math.cos(dir(i) - dir(i - 1)))) : Infinity;
     if (ecart > ANGLE_FACADE_RAD) suites.push([i]); else (suites[suites.length - 1] as number[]).push(i);
   }
+  const r = repere(c.pts);
+  return suites.map((suite) => {
+    const pts = [e[suite[0] as number] as PtBrut, ...suite.map((i) => e[i + 1] as PtBrut)];
+    const A = pts[0] as PtBrut, B = pts[pts.length - 1] as PtBrut, l = Math.hypot(B.x - A.x, B.y - A.y);
+    const avant = l > 1e-6 && Math.abs((B.x - A.x) * r.u.x + (B.y - A.y) * r.u.y) / l >= Math.cos(VU_DE_FACE_RAD) - 1e-9;
+    return { pts, avant };
+  });
+}
+
+/**
+ * Les faces avant d'un bow-window (`facadesDuBowWindow`, `avant`) : ce qu'une photo prise de face voit de lui, le fond et les pans coupes.
+ * Sous un etage qui avance, la photo d'un releve du mur s'y pose (three/releve3d.ts, decision du proprietaire du 9 novembre 2026), a la
+ * place de leurs vitres dessinees ; les retours d'equerre gardent les leurs.
+ */
+export function facesAvantDuBowWindow(c: CorpsToit): PtBrut[][] {
+  return facadesDuBowWindow(c).filter((s) => s.avant).map((s) => s.pts);
+}
+
+/**
+ * Les vitres d'un bow-window : une ou plusieurs fenetres par facade (suite de cotes presque alignes, ou un arc entier),
+ * posees contre le mur, a hauteur d'appui. Une facade trop courte n'en recoit pas ; l'arc en recoit plusieurs, qui suivent sa courbe.
+ * `sansLesFacesAvant` : la photo d'un releve couvre les faces avant (sous un etage qui avance), seules les autres ont leurs vitres.
+ */
+export function vitresBowWindow(c: CorpsToit, sansLesFacesAvant = false): Pt3[][] {
+  const top = Math.min(...c.egouts);
+  const bas = APPUI_M, haut = Math.min(top - LINTEAU_MIN_M, bas + FENETRE_HAUT_MAX_M);
+  if (haut - bas < 0.4) return [];
   const vitres: Pt3[][] = [];
   const r = repere(c.pts);
-  for (const suite of suites) {
-    const pts = [e[suite[0] as number] as PtBrut, ...suite.map((i) => e[i + 1] as PtBrut)];
+  for (const { pts, avant } of facadesDuBowWindow(c)) {
+    if (sansLesFacesAvant && avant) continue;
     const cum = [0];
     for (let k = 1; k < pts.length; k++) cum.push((cum[k - 1] as number) + Math.hypot((pts[k] as PtBrut).x - (pts[k - 1] as PtBrut).x, (pts[k] as PtBrut).y - (pts[k - 1] as PtBrut).y));
     const total = cum[cum.length - 1] as number;
