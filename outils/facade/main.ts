@@ -43,8 +43,8 @@ interface Photo {
   champ: number;
   origineChamp: string;
   red: Redressement | null;
+  /** Calque transparent des lignes trouvees, pose sur la photo. */
   vignette: HTMLCanvasElement;
-  fond: HTMLCanvasElement;
 }
 
 /* ---------- reglages gardes sur l'appareil ---------- */
@@ -83,25 +83,39 @@ function message(id: string, texte: string, ton: 'info' | 'bon' | 'alerte' = 'in
 // Une erreur sur mobile ne doit pas passer en silence : elle s'affiche en haut de la page.
 function erreur(e: unknown) {
   const t = e instanceof Error ? e.message : String(e);
+  journal('erreur : ' + t);
   message('erreur', 'Erreur : ' + t + ' — si elle se répète, essayez la résolution « Légère ».', 'alerte');
 }
 window.addEventListener('error', (e) => erreur(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => erreur(e.reason));
 
-async function decoder(f: File): Promise<{ img: HTMLImageElement; url: string }> {
-  const url = URL.createObjectURL(f);
-  const img = new Image();
-  img.src = url;
-  try {
-    await img.decode();
-  } catch {
-    await new Promise<void>((ok, ko) => {
-      if (img.complete && img.naturalWidth) return ok();
-      img.onload = () => ok();
-      img.onerror = () => ko(new Error(`« ${f.name} » n’a pas pu être lue (format HEIC ? réglez l’appareil photo sur « Le plus compatible »)`));
-    });
-  }
-  return { img, url };
+/* ---------- le journal : ce qui s'est passe, lisible et copiable depuis la page ---------- */
+
+const t0 = performance.now();
+const lignesJournal: string[] = [];
+function journal(t: string) {
+  lignesJournal.push(`${((performance.now() - t0) / 1000).toFixed(1)} s  ${t}`);
+  const el = document.getElementById('journal-texte');
+  if (el) el.textContent = lignesJournal.join('\n');
+}
+
+/** Ouvre une photo. Le delai garde la page de rester muette si le decodage ne repond jamais. */
+function decoder(f: File, url = URL.createObjectURL(f)): Promise<{ img: HTMLImageElement; url: string }> {
+  return new Promise((ok, ko) => {
+    const img = new Image();
+    let fini = false;
+    const finir = (e?: Error) => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(minuterie);
+      if (e) ko(e);
+      else ok({ img, url });
+    };
+    const minuterie = setTimeout(() => finir(new Error(`la photo « ${f.name} » ne s’ouvre pas (délai dépassé)`)), 30_000);
+    img.onload = () => (img.naturalWidth ? finir() : finir(new Error(`la photo « ${f.name} » est vide`)));
+    img.onerror = () => finir(new Error(`« ${f.name} » n’a pas pu être lue (format HEIC ? réglez Réglages › Appareil photo › Formats sur « Le plus compatible »)`));
+    img.src = url;
+  });
 }
 
 /** Un canevas de travail, rendu aussitot : Safari limite la memoire totale des canevas. */
@@ -118,34 +132,58 @@ function pixels(img: HTMLImageElement, sx: number, sy: number, sw: number, sh: n
 
 /* ---------- les photos ---------- */
 
-async function charger(f: File): Promise<Photo> {
-  const { img, url } = await decoder(f);
-  try {
-    const L = img.naturalWidth,
-      H = img.naturalHeight;
-    const k = Math.min(1, ANALYSE_MAX / Math.max(L, H));
-    const l = Math.round(L * k),
-      h = Math.round(H * k);
-    const gris = versGris({ largeur: l, hauteur: h, donnees: pixels(img, 0, 0, L, H, l, h) });
-    const fond = document.createElement('canvas');
-    const kv = 240 / Math.max(L, H);
-    fond.width = Math.round(L * kv);
-    fond.height = Math.round(H * kv);
-    fond.getContext('2d')!.drawImage(img, 0, 0, fond.width, fond.height);
-    let f35: number | null = null;
-    try {
-      f35 = focale35mm(await f.slice(0, 262_144).arrayBuffer());
-    } catch {
-      f35 = null;
+/** Une photo dans la liste : visible des qu'elle est choisie, analysee ensuite. */
+interface Entree {
+  id: number;
+  fichier: File;
+  url: string;
+  etat: 'attente' | 'analyse' | 'prete' | 'erreur';
+  texte: string;
+  photo: Photo | null;
+}
+const entrees: Entree[] = [];
+
+/** `photos` : les seules photos analysees, dans l'ordre de la liste. */
+function synchroniser() {
+  photos.length = 0;
+  for (const e of entrees) if (e.photo) photos.push(e.photo);
+}
+
+async function charger(e: Entree): Promise<Photo> {
+  const f = e.fichier;
+  const debut = performance.now();
+  const { img } = await decoder(f, e.url);
+  const L = img.naturalWidth,
+    H = img.naturalHeight;
+  journal(`photo ${e.id} ouverte : ${L} × ${H} px en ${Math.round(performance.now() - debut)} ms`);
+  let k = Math.min(1, ANALYSE_MAX / Math.max(L, H));
+  let gris: Gris | null = null;
+  // Safari peut rendre un canevas vide sur une tres grande photo : on le voit, et on reessaie plus petit.
+  for (let essai = 0; essai < 3 && !gris; essai++) {
+    const l = Math.max(1, Math.round(L * k)),
+      h = Math.max(1, Math.round(H * k));
+    const g = versGris({ largeur: l, hauteur: h, donnees: pixels(img, 0, 0, L, H, l, h) });
+    let max = 0;
+    for (let i = 0; i < g.v.length; i += 97) if (g.v[i]! > max) max = g.v[i]!;
+    if (max > 2) gris = g;
+    else {
+      journal(`photo ${e.id} : pixels illisibles à ${l} × ${h}, nouvel essai plus petit`);
+      k /= 2;
     }
-    await attendre();
-    const segs = segmentsPhoto(gris, k);
-    const champEstime = f35 ? null : estimerChamp(segs, k, L, H);
-    const p: Photo = { id: suivant++, fichier: f, L, H, gris, k, segs, f35, champEstime, champ: CHAMP_GRAND_COTE_DEFAUT, origineChamp: '', red: null, vignette: document.createElement('canvas'), fond };
-    return p;
-  } finally {
-    URL.revokeObjectURL(url);
   }
+  if (!gris) throw new Error('le navigateur n’a pas pu lire les pixels de la photo');
+  let f35: number | null = null;
+  try {
+    f35 = focale35mm(await f.slice(0, 262_144).arrayBuffer());
+  } catch {
+    f35 = null;
+  }
+  journal(`photo ${e.id} : EXIF ${f35 ? f35 + ' mm (24×36)' : 'sans focale'}`);
+  await attendre();
+  const segs = segmentsPhoto(gris, k);
+  const champEstime = f35 ? null : estimerChamp(segs, k, L, H);
+  journal(`photo ${e.id} : ${segs.length} segments, champ estimé ${champEstime ? fr(champEstime) + '°' : '—'} (${Math.round(performance.now() - debut)} ms)`);
+  return { id: e.id, fichier: f, L, H, gris, k, segs, f35, champEstime, champ: CHAMP_GRAND_COTE_DEFAUT, origineChamp: '', red: null, vignette: document.createElement('canvas') };
 }
 
 /** Le champ de chaque photo : l'EXIF, sinon le reglage, sinon l'estimation commune aux photos. */
@@ -173,14 +211,15 @@ function choisirChamps() {
   }
 }
 
+/** Redresse une photo et trace ses lignes sur un calque transparent, pose sur la photo. */
 function redresser(p: Photo) {
   p.red = redresserPhoto(p.segs, p.k, p.L, p.H, p.champ);
   const v = p.vignette;
-  v.width = p.fond.width;
-  v.height = p.fond.height;
+  const kv = 240 / Math.max(p.L, p.H);
+  v.width = Math.round(p.L * kv);
+  v.height = Math.round(p.H * kv);
   const ctx = v.getContext('2d')!;
-  ctx.drawImage(p.fond, 0, 0);
-  const kv = v.width / p.L;
+  ctx.clearRect(0, 0, v.width, v.height);
   ctx.lineWidth = 1.5;
   for (const [segs, c] of [
     [p.red.verticales, '#2ec4f1'],
@@ -199,59 +238,92 @@ function redresser(p: Photo) {
 function majPhotos() {
   const liste = $('photos');
   liste.replaceChildren();
-  photos.forEach((p, i) => {
+  entrees.forEach((e, i) => {
     const li = document.createElement('li');
     li.className = 'photo';
-    p.vignette.className = 'vignette';
-    p.vignette.setAttribute('role', 'img');
-    p.vignette.setAttribute('aria-label', `Photo ${i + 1}, lignes détectées`);
+    const cadre = document.createElement('div');
+    cadre.className = 'vignette';
+    const im = document.createElement('img');
+    im.src = e.url;
+    im.alt = `Photo ${i + 1}`;
+    cadre.append(im);
+    const p = e.photo;
+    if (p) cadre.append(p.vignette);
     const corps = document.createElement('div');
     corps.className = 'photo-corps';
     const t = document.createElement('strong');
     t.textContent = `Photo ${i + 1}`;
     const a = document.createElement('span');
     a.className = 'discret';
-    a.textContent = `${p.L} × ${p.H} px · objectif ${fr(p.champ)}° ${p.origineChamp}`;
     const b = document.createElement('span');
-    const r = p.red;
-    b.className = r && !r.avis.length ? 'etat bon' : 'etat';
-    b.textContent = r ? (r.avis.length ? r.avis.join(' ; ') : `${r.verticales.length} verticales, ${r.horizontales.length} horizontales`) : '';
+    b.className = 'etat';
+    if (p) {
+      a.textContent = `${p.L} × ${p.H} px · objectif ${fr(p.champ)}° ${p.origineChamp}`;
+      const r = p.red;
+      b.className = r && !r.avis.length ? 'etat bon' : 'etat';
+      b.textContent = r ? (r.avis.length ? r.avis.join(' ; ') : `${r.verticales.length} verticales, ${r.horizontales.length} horizontales`) : '';
+    } else {
+      a.textContent = `${fr(e.fichier.size / 1_048_576, 1)} Mo`;
+      b.className = e.etat === 'erreur' ? 'etat' : 'etat attente';
+      b.textContent = e.texte;
+    }
     corps.append(t, a, b);
     const x = document.createElement('button');
     x.type = 'button';
     x.className = 'petit';
     x.textContent = '✕';
     x.title = x.ariaLabel = `Retirer la photo ${i + 1}`;
+    x.disabled = occupe;
     x.addEventListener('click', () => {
-      photos.splice(i, 1);
+      entrees.splice(i, 1);
+      URL.revokeObjectURL(e.url);
+      synchroniser();
       majPhotos();
     });
-    li.append(p.vignette, corps, x);
+    li.append(cadre, corps, x);
     liste.append(li);
   });
-  $('photos-vide').hidden = photos.length > 0;
+  $('photos-vide').hidden = entrees.length > 0;
   $<HTMLButtonElement>('fusionner').disabled = occupe || !photos.length;
 }
 
-async function ajouter(fichiers: FileList | null) {
-  if (!fichiers?.length || occupe) return;
+async function ajouter(fichiers: FileList | null, source: string) {
+  journal(`${source} : ${fichiers?.length ?? 0} fichier(s) reçu(s)${fichiers?.length ? ' — ' + Array.from(fichiers).map((f) => `${f.name || 'sans nom'} (${f.type || 'type inconnu'}, ${fr(f.size / 1_048_576, 1)} Mo)`).join(', ') : ''}`);
+  if (!fichiers?.length) {
+    message('etat-photos', 'Aucune photo n’est parvenue à la page.', 'alerte');
+    return;
+  }
+  // Les photos s'affichent tout de suite ; l'analyse suit.
+  const nouvelles: Entree[] = Array.from(fichiers).map((f) => ({ id: suivant++, fichier: f, url: URL.createObjectURL(f), etat: 'attente', texte: 'En attente d’analyse…', photo: null }));
+  entrees.push(...nouvelles);
+  majPhotos();
+  if (occupe) return;
   occupe = true;
   message('erreur', '');
   try {
-    const liste = Array.from(fichiers);
-    for (let i = 0; i < liste.length; i++) {
-      message('etat-photos', `Analyse de la photo ${i + 1} sur ${liste.length}…`);
+    for (let e = entrees.find((x) => x.etat === 'attente'); e; e = entrees.find((x) => x.etat === 'attente')) {
+      e.etat = 'analyse';
+      e.texte = 'Analyse des lignes…';
+      majPhotos();
       await attendre();
-      photos.push(await charger(liste[i]!));
+      try {
+        e.photo = await charger(e);
+        e.etat = 'prete';
+        e.texte = '';
+      } catch (err) {
+        e.etat = 'erreur';
+        e.texte = 'Erreur : ' + (err instanceof Error ? err.message : String(err));
+        journal(`photo ${e.id} : ${e.texte}`);
+      }
+      synchroniser();
     }
     choisirChamps();
     photos.forEach(redresser);
-    message('etat-photos', '');
-  } catch (e) {
-    message('etat-photos', '');
-    erreur(e);
+  } catch (err) {
+    erreur(err);
   } finally {
     occupe = false;
+    synchroniser();
     majPhotos();
   }
 }
@@ -456,14 +528,29 @@ async function partager() {
   }
 }
 
+/** Une FileList a partir d'un tableau (DataTransfer), ou le tableau tel quel. */
+function listeDe(t: File[]): FileList {
+  try {
+    const d = new DataTransfer();
+    for (const f of t) d.items.add(f);
+    return d.files;
+  } catch {
+    return t as unknown as FileList;
+  }
+}
+
 /* ---------- demarrage ---------- */
 
 function demarrer() {
   for (const id of ['prendre', 'importer']) {
     const input = $<HTMLInputElement>(id);
+    input.addEventListener('click', () => journal(`bouton « ${id === 'prendre' ? 'Prendre une photo' : 'Importer'} » touché`));
     input.addEventListener('change', async () => {
-      await ajouter(input.files);
+      const f = input.files;
+      // Copie avant de vider le champ : sur certains navigateurs, la liste se vide avec lui.
+      const copie = f ? Array.from(f) : [];
       input.value = '';
+      await ajouter(copie.length ? listeDe(copie) : f, id === 'prendre' ? 'appareil photo' : 'import');
     });
   }
   const obj = $<HTMLSelectElement>('ch-objectif'),
@@ -502,6 +589,20 @@ function demarrer() {
   $('partager').hidden = !peutPartager;
   $('partager').addEventListener('click', partager);
   $('resultat').addEventListener('click', () => $('resultat-cadre').classList.toggle('plein'));
+  $('journal-copier').addEventListener('click', async () => {
+    const texte = lignesJournal.join('\n');
+    try {
+      await navigator.clipboard.writeText(texte);
+      $('journal-copier').textContent = 'Copié';
+    } catch {
+      const r = document.createRange();
+      r.selectNodeContents($('journal-texte'));
+      const s = getSelection();
+      s?.removeAllRanges();
+      s?.addRange(r);
+    }
+  });
+  journal(`page prête · ${navigator.userAgent} · ${window.self !== window.top ? 'dans un cadre (page publiée)' : 'page seule'} · écran ${screen.width} × ${screen.height} × ${devicePixelRatio}`);
   majPhotos();
 }
 
