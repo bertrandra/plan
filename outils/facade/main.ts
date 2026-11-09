@@ -875,7 +875,7 @@ async function poserBaie(i?: number) {
     points: depart,
     forme: 'rectangle',
     noms: ['coin haut gauche', 'coin bas droit'],
-    consigne: 'Posez deux coins opposés de la baie (le vitrage ou le vantail, menuiserie non comprise).',
+    consigne: 'Posez deux coins opposés de la baie : le hors-tout de la menuiserie, cadre compris.',
     mesure: (p) => {
       const l = Math.abs(p[1]!.x - p[0]!.x) / k,
         h = Math.abs(p[1]!.y - p[0]!.y) / k;

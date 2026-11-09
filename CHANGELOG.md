@@ -21,8 +21,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   photo d'angle) ; coutures qui suivent les zones semblables (plus de saillie en double) ;
   assemblage en hauteur ; correction de la distorsion des grands-angles non corrigés ; échelle
   facultative, mesures et barre d'échelle ; calcul en arrière-plan ; journal copiable ; repérage
-  facultatif des fenêtres et portes (rectangles lisses sur un enduit rugueux), avec cotes, corrections
-  au doigt et export CSV.
+  facultatif des fenêtres et portes, avec cotes (hors tout de la menuiserie), corrections au doigt et
+  export CSV : trois détecteurs indépendants et un vote, départagés sur un banc de façades annotées
+  (`outils/facade/banc/`) — 0,86 sur 1 contre 0,34 pour le premier détecteur, 9 ouvertures sur 9 sur
+  la façade de référence.
 
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m
