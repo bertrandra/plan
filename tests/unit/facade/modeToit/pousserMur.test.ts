@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { corpsColles, pousserLeMur } from '../../../../src/facade/modeToit/pousserMur.js';
+import { aimanterAuContour, appentisLies, arretDuMur, corpsColles, murCommun, pousserLeMur, MOTIF_AUTRE_CORPS, MOTIF_PIGNON, MOTIF_TRAVEE } from '../../../../src/facade/modeToit/pousserMur.js';
+import { retourDAngle } from '../../../../src/facade/modeToit/decroche.js';
+import { boutsLies } from '../../../../src/three/toitCorps3d.js';
 import { glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
 import { corpsDeSaillie, murDuCorps } from '../../../../src/facade/modeToit/saillies.js';
 import { point, repere } from '../../../../src/facade/toits/toitCorps.js';
@@ -73,7 +75,8 @@ describe('pousser un mur d un corps, le mur oppose en place', () => {
   });
 
   it('borne a 2,5 m, sans ramener a 2,5 m un corps deja plus petit ; 5 cm ronds', () => {
-    const avant = corpsDeBase();
+    // Rien de pose dessus : seule la taille du corps borne le geste (un pignon ou une travee l'arretent avant, plus bas).
+    const avant: CorpsToit[] = [{ ...corpsDeBase()[0]!, pignons: [], travees: [], lucarnes: [], elementsToit: [] }];
     expect(repere(pousserLeMur(avant, 0, 3, -50).corps[0]!.pts).L).toBeCloseTo(2.5, 5);
     expect(repere(pousserLeMur(avant, 0, 0, -50).corps[0]!.pts).W).toBeCloseTo(2.5, 5);
     expect(repere(pousserLeMur(avant, 0, 1, 0.33).corps[0]!.pts).L).toBeCloseTo(10.35, 5);
@@ -85,12 +88,34 @@ describe('pousser un mur d un corps, le mur oppose en place', () => {
     expect(repere(pousserLeMur(petit, 0, 2, -9).corps[0]!.pts).W).toBeCloseTo(1.8, 5);
   });
 
-  it('ce qui ne tient plus est borne au corps, et une travee trop courte part', () => {
-    const avant = corpsDeBase();
-    // Le bout s = 0 recule de 4 m : le pignon (2 a 5 m) est rogne a 1 m, la travee du mur 0 (1 a 3 m) n'a plus de place.
-    const k = pousserLeMur(avant, 0, 3, -4).corps[0]!;
-    expect(k.pignons).toEqual([]);
-    expect(k.travees!.some((t) => t.mur === 0)).toBe(false);
+  it('le mur s arrete au bord d un pignon ou d une travee, et dit pourquoi (decision du 9 novembre 2026)', () => {
+    const avant = corpsDeBase(), c = avant[0]!;
+    // Le bout s = 0 recule de 4 m : la travee du mur 0 (1 a 3 m) l'arrete a 1 m, avant le pignon (2 a 5 m) ; rien ne disparait.
+    const r = pousserLeMur(avant, 0, 3, -4), k = r.corps[0]!;
+    expect(repere(k.pts).L).toBeCloseTo(9, 5);
+    expect(r.motif).toBe(MOTIF_TRAVEE);
+    expect(k.pignons).toEqual([{ ...c.pignons[0]!, debut: 1, fin: 4 }]);
+    expect(k.travees!.filter((t) => t.mur === 0)).toEqual([{ ...c.travees![0]!, de: 0, a: 2 }]);
+    // Sans la travee, c'est le pignon qui l'arrete, a son bord (2 m).
+    const sansTravee: CorpsToit[] = [{ ...c, travees: [] }];
+    const p = pousserLeMur(sansTravee, 0, 3, -4);
+    expect(repere(p.corps[0]!.pts).L).toBeCloseTo(8, 5);
+    expect(p.motif).toBe(MOTIF_PIGNON);
+    expect(p.corps[0]!.pignons[0]).toMatchObject({ debut: 0, fin: 3 });
+    // Un pignon deja contre le bout le suit, raccourci jusqu'a 1,4 m, puis le mur s'arrete.
+    const contre: CorpsToit[] = [{ ...c, travees: [], pignons: [{ ...c.pignons[0]!, debut: 0, fin: 3 }] }];
+    const q = pousserLeMur(contre, 0, 3, -4);
+    expect(q.corps[0]!.pignons[0]).toMatchObject({ debut: 0, fin: 1.4 });
+    expect(q.motif).toBe(MOTIF_PIGNON);
+    // Une travee d'angle (contre le mur tire) raccourcit jusqu'a 30 cm.
+    const angle: CorpsToit[] = [{ ...c, pignons: [], travees: [{ mur: 0, de: 0, a: 2, nature: 'mur', reculM: 0.5 }] }];
+    const t = pousserLeMur(angle, 0, 3, -4);
+    expect(t.corps[0]!.travees![0]).toMatchObject({ de: 0, a: 0.3 });
+    expect(arretDuMur(angle[0]!, 3)).toEqual({ d: -1.7, motif: MOTIF_TRAVEE });
+    // Un recul qui n'atteint rien ne dit rien ; avancer n'est jamais arrete.
+    expect(pousserLeMur(avant, 0, 3, -0.5).motif).toBeUndefined();
+    expect(pousserLeMur(avant, 0, 3, 3).motif).toBeUndefined();
+    // La lucarne reste bornee au corps, comme avant.
     expect(k.lucarnes![0]!.debutM).toBeGreaterThanOrEqual(0.1);
   });
 
@@ -151,5 +176,142 @@ describe('les poignees qui tirent un cote', () => {
     expect(glisser(avant, t, 'mur2', { prof: -1 }).corps[0]!.pts[2]!.y).toBeCloseTo(7, 5);
     expect(glisser(avant, t, 'mur1', { long: 1 }).corps[0]!.pts[1]!.x).toBeCloseTo(11, 5);
     expect(glisser(avant, t, 'mur3', { long: 1 }).corps[0]!.pts[0]!.x).toBeCloseTo(1, 5);
+  });
+});
+
+describe('un mur commun glisse entre deux corps (decision du 9 novembre 2026)', () => {
+  // Un corps coupe en deux a x = 6 : deux moities de 6 m de profondeur, le meme toit.
+  const coupe = (): CorpsToit[] => [
+    { pts: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 },
+    { pts: [{ x: 6, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 6, y: 6 }], posFaitage: 3, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 }
+  ];
+  const xs = (c: CorpsToit) => c.pts.map((p) => p.x);
+
+  it('l un grandit, l autre retrecit d autant : l emprise ne change pas', () => {
+    expect(murCommun(coupe(), 0, 1)).toEqual({ rang: 1, mur: 3 });
+    for (const delta of [1, -1.5]) {
+      const [a, b] = pousserLeMur(coupe(), 0, 1, delta).corps;
+      expect(Math.max(...xs(a!))).toBeCloseTo(6 + delta, 5);
+      expect(Math.min(...xs(b!))).toBeCloseTo(6 + delta, 5);
+      expect(Math.min(...xs(a!))).toBe(0);
+      expect(Math.max(...xs(b!))).toBe(10);
+    }
+    // Depuis l'autre corps, le meme mur glisse de la meme facon.
+    const [a2, b2] = pousserLeMur(coupe(), 1, 3, 1).corps;
+    expect(Math.max(...xs(a2!))).toBeCloseTo(5, 5);
+    expect(Math.min(...xs(b2!))).toBeCloseTo(5, 5);
+  });
+
+  it('l autre corps ne descend pas sous 2,5 m, et le dit ; ce qui est pose sur lui l arrete aussi', () => {
+    const r = pousserLeMur(coupe(), 0, 1, 5);
+    expect(Math.min(...xs(r.corps[1]!))).toBeCloseTo(7.5, 5);
+    expect(r.motif).toBe(MOTIF_AUTRE_CORPS);
+    // Une travee de l'autre corps a 50 cm du mur commun : le mur s'arrete a son bord.
+    const l = coupe();
+    l[1] = { ...l[1]!, travees: [{ mur: 0, de: 0.5, a: 2, nature: 'mur', reculM: 0.4 }] };
+    const t = pousserLeMur(l, 0, 1, 2);
+    expect(Math.max(...xs(t.corps[0]!))).toBeCloseTo(6.5, 5);
+    expect(t.motif).toBe(MOTIF_TRAVEE);
+  });
+
+  it('une aile plus courte posee au bout, ou un auvent adosse par son mur haut, est poussee comme avant', () => {
+    const aile: CorpsToit = { pts: [{ x: 10, y: 1 }, { x: 13, y: 1 }, { x: 13, y: 4 }, { x: 10, y: 4 }], posFaitage: 1.5, faitage: 6, egouts: [4, 4], pignons: [], ecart: 0 };
+    const l = [...coupe(), aile];
+    expect(murCommun(l, 1, 1)).toBeNull();
+    expect(pousserLeMur(l, 1, 1, 1).corps[2]!.pts[0]).toEqual({ x: 11, y: 1 });
+    // L'auvent le long de toute la facade sud (mur haut contre elle) : il suit la facade, sa profondeur gardee.
+    const auvent: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: -2 }, { x: 0, y: -2 }], posFaitage: 0, faitage: 3.2, egouts: [3.2, 2.4], pignons: [], ecart: 0 };
+    const m = [coupe()[0]!, auvent];
+    expect(murCommun(m, 0, 0)).toBeNull();
+    const k = pousserLeMur(m, 0, 0, 1).corps[1]!;
+    expect(k.pts.map((p) => p.y)).toEqual([-1, -1, -3, -3]);
+  });
+});
+
+describe('deux appentis lies a l angle gardent la meme largeur (decision du 9 novembre 2026)', () => {
+  const maison = (): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4], pignons: [], ecart: 0 });
+  // Un auvent de 3 m de profondeur : il peut retrecir sans passer sous 2,5 m.
+  const auvent = (): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: -3 }, { x: 0, y: -3 }], posFaitage: 0, faitage: 3.2, egouts: [3.2, 2.4], pignons: [], ecart: 0, ouvert: true });
+  const lies = () => retourDAngle([maison(), auvent()], 1, 'droite')!;
+
+  it('la rive basse de l un tiree, l autre suit : l aretier reste', () => {
+    const l = lies();
+    expect(appentisLies(l, 1).map((x) => x.rang)).toEqual([2]);
+    for (const delta of [0.75, -0.5]) {
+      const k = pousserLeMur(l, 1, 2, delta).corps;
+      expect(repere(k[1]!.pts).W).toBeCloseTo(3 + delta, 5);
+      expect(repere(k[2]!.pts).W).toBeCloseTo(3 + delta, 5);
+      expect(boutsLies(k[1]!, k).filter(Boolean)).toHaveLength(1);
+      expect(boutsLies(k[2]!, k).filter(Boolean)).toHaveLength(1);
+      // Depuis le retour, la meme chose.
+      const j = pousserLeMur(l, 2, 2, delta).corps;
+      expect(repere(j[1]!.pts).W).toBeCloseTo(3 + delta, 5);
+      expect(boutsLies(j[1]!, j).filter(Boolean)).toHaveLength(1);
+    }
+  });
+
+  it('le mur haut de l un tire : le coin de l aretier le suit, les deux restent lies', () => {
+    const l = lies();
+    const k = pousserLeMur(l, 1, 0, -0.5).corps;
+    expect(repere(k[1]!.pts).W).toBeCloseTo(2.5, 5);
+    expect(repere(k[2]!.pts).W).toBeCloseTo(2.5, 5);
+    expect(boutsLies(k[1]!, k).filter(Boolean)).toHaveLength(1);
+    expect(boutsLies(k[2]!, k).filter(Boolean)).toHaveLength(1);
+  });
+
+  it('un bout tire (la longueur) ne touche pas l autre ; sans retour, rien ne change', () => {
+    const l = lies();
+    const k = pousserLeMur(l, 1, 3, 1).corps;
+    expect(k[2]).toEqual(l[2]);
+    expect(appentisLies([maison(), auvent()], 1)).toEqual([]);
+  });
+});
+
+describe('le trace IGN aimante un mur tire et un corps deplace (decision du 9 novembre 2026)', () => {
+  const seul = (): CorpsToit[] => [{ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 }];
+  const ign = [{ x: -0.2, y: -0.3 }, { x: 10.4, y: -0.3 }, { x: 10.4, y: 6.1 }, { x: -0.2, y: 6.1 }];
+
+  it('a moins de 25 cm d un cote parallele du trace, le mur s y colle, et rend ce cote', () => {
+    const r = pousserLeMur(seul(), 0, 3, 0.1, ign);
+    expect(r.corps[0]!.pts[0]!.x).toBeCloseTo(-0.2, 5);
+    expect(r.colle).toBe(true);
+    expect(r.aretes).toEqual([{ a: ign[3], b: ign[0] }]);
+    const loin = pousserLeMur(seul(), 0, 3, 0.5, ign);
+    expect(loin.corps[0]!.pts[0]!.x).toBeCloseTo(-0.5, 5);
+    expect(loin.aretes).toBeUndefined();
+    // Sans trace, le geste d'avant.
+    expect(pousserLeMur(seul(), 0, 3, 0.1).corps[0]!.pts[0]!.x).toBeCloseTo(-0.1, 5);
+  });
+
+  it('un corps deplace pres du trace s y colle sur ses deux axes : ses coins vont aux coins du trace', () => {
+    const c = seul()[0]!;
+    const a = aimanterAuContour(c, 0.25, -0.2, ign);
+    expect(a.aretes).toHaveLength(2);
+    // Son mur est sur x = 10,4 (a 15 cm ; l'ouest est a 45 cm du sien), son mur sud sur y = -0,3.
+    expect(a.dy).toBeCloseTo(-0.3, 5);
+    expect(a.dx).toBeCloseTo(0.4, 5);
+    const k = glisser(seul(), { type: 'corps', rang: 0, i: 0 }, 'deplacer', { long: 0.25, prof: 0.2 }, ign);
+    expect(k.aretes).toHaveLength(2);
+    expect(k.corps[0]!.pts[1]).toEqual({ x: 10.4, y: -0.3 });
+    // Loin du trace, les 5 cm ronds d'avant.
+    expect(aimanterAuContour(c, 3, 3, ign).aretes).toEqual([]);
+  });
+});
+
+describe('un element de facade se tire par chacun de ses bords (decision du 9 novembre 2026)', () => {
+  it('le bord gauche d un bow-window se tire, le droit reste ; et l inverse ; nommes vus de dehors', () => {
+    const avant = corpsDeBase(), s = avant[1]!.saillie!, cible = { type: 'saillie', rang: 1, i: 0 } as const;
+    const g = s.centreM - s.largeurM / 2, d = s.centreM + s.largeurM / 2;
+    const p = poigneesDe(avant, cible);
+    expect(p.filter((q) => /^Bord (gauche|droit) \(le bord (droit|gauche) reste en place\)$/.test(q.libelle)).map((q) => q.id).sort()).toEqual(['gauche', 'larg']);
+    const a = glisser(avant, cible, 'gauche', { long: -0.5 }).corps[1]!.saillie!;
+    expect(a.centreM + a.largeurM / 2).toBeCloseTo(d, 5);
+    expect(a.centreM - a.largeurM / 2).toBeCloseTo(g - 0.5, 5);
+    const b = glisser(avant, cible, 'larg', { long: 0.6 }).corps[1]!.saillie!;
+    expect(b.centreM - b.largeurM / 2).toBeCloseTo(g, 5);
+    // Au-dela du bout du mur, le bord s'arrete au mur et l'autre ne bouge toujours pas.
+    const c = glisser(avant, cible, 'larg', { long: 9 }).corps[1]!.saillie!;
+    expect(c.centreM - c.largeurM / 2).toBeCloseTo(g, 5);
+    expect(c.centreM + c.largeurM / 2).toBeLessThanOrEqual(10);
   });
 });

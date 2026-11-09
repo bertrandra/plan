@@ -5,7 +5,9 @@
 // doigt en metres ; la geometrie (aimantation comprise) est celle de `glisser`, toujours rejouee a partir du corps de depart. Un glisser
 // reconstruit la scene a un rythme borne, et la session n'empile qu'UNE etape a la fin. Echap l'annule.
 //
-// Une bulle donne les cotes de l'element, des guides en pointille disent contre quel bord il s'est colle.
+// Une bulle donne les cotes de l'element, des guides en pointille disent contre quel bord il s'est colle ; un cote du trace IGN ou un mur
+// s'est colle s'eclaire, et la bulle le dit. Ce qui arrete un mur (un pignon, une travee) s'ecrit sous la bulle, puis en notification
+// au lacher : la personne sait pourquoi le mur ne va pas plus loin.
 
 import { useEffect, useRef, useState } from 'react';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
@@ -16,6 +18,9 @@ import { estCache } from '../../three/occultation.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { ramenerDansLeLibre } from '../../facade/modeToit/poigneesLibres.js';
 import type { Magasin } from '../../app/magasin.js';
+import { enPoints } from '../../model/formes.js';
+import { notifications } from '../../shell/notifications.js';
+import type { Arete } from '../../facade/modeToit/pousserMur.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { PtBrut } from '../../model/types.js';
 import { silhouetteVersLOeil } from '../../facade/regles/toits/silhouetteDesCorps.js';
@@ -163,11 +168,36 @@ function bornesLibres(hote: DOMRect): { x0: number; y0: number; x1: number; y1: 
   return { x0, y0, x1: Math.max(x0, x1), y1: Math.max(y0, y1) };
 }
 
+/** Les cotes du trace IGN ou le geste s'est colle, eclairees a la hauteur de l'egout du corps tire : la ou se voit le mur qui s'y colle. */
+function AretesIgn({ aretes, z, base }: { aretes: readonly Arete[]; z: number; base: number }) {
+  return <>{aretes.map((a, k) => {
+    const p1 = projeter({ ...a.a, z }, base), p2 = projeter({ ...a.b, z }, base);
+    return p1 && p2 ? <line key={'ign' + k} className="guideIgn" data-guide-ign="" x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} /> : null;
+  })}</>;
+}
+
+/** La bulle des cotes, ce qui l'a collee au trace IGN (en mots : la couleur ne porte rien seule) et, dessous, ce qui arrete le geste. */
+function BulleDesCotes({ x, y, cotes, ign, motif }: { x: number; y: number; cotes: readonly Cote[]; ign: boolean; motif: string | null }) {
+  return (
+    <foreignObject x={x} y={y} width={280} height={motif ? 96 : 34}>
+      <div className="cotesToit" role="status">
+        {cotes.map((c) => <span key={c.cle} className="coteToit" data-cote={c.cle}>{c.texte}</span>)}
+        {ign && <span className="coteToit coteIgn" data-cote="ign">collé au tracé IGN</span>}
+      </div>
+      {motif && <div className="motifToit" role="alert" data-motif="">{motif}</div>}
+    </foreignObject>
+  );
+}
+
 export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
   useCle(magasin, 'poignées du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
   const [, redessiner] = useState(0);
   const [guides, setGuides] = useState<number[]>([]);
+  // Les cotes du trace IGN ou le geste s'est colle, et ce qui l'a arrete : le temps du glisser.
+  const [aretes, setAretes] = useState<Arete[]>([]);
+  const [motif, setMotif] = useState<string | null>(null);
+  const dernierMotif = useRef<string | null>(null);
   const glisse = useRef<Glisse | null>(null);
 
   // La camera bouge, la session change : on redessine. Le calque lit la scene, il ne la possede pas. Chaque image rendue le dit
@@ -181,7 +211,8 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
       const cle = [...cam.matrixWorld.elements, ...cam.projectionMatrix.elements].map((v) => v.toFixed(3)).join();
       if (cle !== derniere) { derniere = cle; redessiner((n) => n + 1); }
     });
-    const echap = (e: KeyboardEvent) => { if (e.key === 'Escape' && glisse.current) { glisse.current = null; modeToitCourant()?.annulerGlisser(); setGuides([]); e.stopPropagation(); } };
+    const oublier = () => { setGuides([]); setAretes([]); setMotif(null); dernierMotif.current = null; };
+    const echap = (e: KeyboardEvent) => { if (e.key === 'Escape' && glisse.current) { glisse.current = null; modeToitCourant()?.annulerGlisser(); oublier(); e.stopPropagation(); } };
     // Un second doigt pendant qu'une poignee est tiree : c'est un pincement, pas une retouche. Le glisser est annule (le toit revient a
     // l'etat de la pile) et les deux doigts vont a l'orbite ; un second doigt pose sur une autre poignee ne la prend pas.
     const second = (e: PointerEvent) => {
@@ -190,7 +221,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
       glisse.current = null;
       try { g.element.releasePointerCapture(g.pointeur); } catch { /* deja relache */ }
       modeToitCourant()?.annulerGlisser();
-      setGuides([]);
+      oublier();
       poserSurLaScene(g.pointeur, g.type, g.x, g.y, true);
       const t = e.target as Element | null;
       if (!(t instanceof HTMLCanvasElement)) { e.stopPropagation(); e.preventDefault(); poserSurLaScene(e.pointerId, e.pointerType, e.clientX, e.clientY, false); }
@@ -206,6 +237,8 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
   const corps = o?.batiment?.corpsToit;
   if (!corps?.length) return null;
+  // Le trace IGN du batiment (son contour dans le plan) : un mur tire ou un corps deplace s'y colle.
+  const contour = o ? (enPoints(o).pts as PtBrut[]) : [];
   const f = s.facade ?? s.derniere;
   const oeil = oeilDeLaVue(altitudeDuBatiment(o));
   // Ce que tirent les poignees : de dessus, le corps choisi ; de face, l'element choisi devant sa facade, ou le corps choisi par le mur
@@ -249,9 +282,12 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     if (!g || ev.pointerId !== g.pointeur) return;
     g.x = ev.clientX; g.y = ev.clientY;
     const d = enMetres(ev.clientX - g.x0, ev.clientY - g.y0, g.poignee.axes, g.vecteurs);
-    const res = glisser(g.depart, g.cible, g.id, d);
+    const res = glisser(g.depart, g.cible, g.id, d, contour);
     modeToitCourant()?.apercu(res.corps, res.elevation);
     setGuides(res.guides);
+    setAretes(res.aretes ?? []);
+    setMotif(res.motif ?? null);
+    dernierMotif.current = res.motif ?? null;
     redessiner((n) => n + 1);
   };
   const finir = (ev: React.PointerEvent<SVGGElement>) => {
@@ -259,7 +295,9 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     glisse.current = null;
     (ev.currentTarget as Element).releasePointerCapture(ev.pointerId);
     modeToitCourant()?.finGlisser();
-    setGuides([]);
+    // Le mur arrete en fin de geste : la raison reste lisible apres le lacher.
+    if (dernierMotif.current) notifications.emettre('toast', dernierMotif.current);
+    setGuides([]); setAretes([]); setMotif(null); dernierMotif.current = null;
   };
 
   // Pendant une insertion, un toucher pose la piece : il ne prend pas une poignee. Elles restent montrees, estompees, et le toucher les
@@ -273,6 +311,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
         const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);
         return a && b ? <line key={g} className="guideToit" x1={a.x} y1={a.y} x2={b.x} y2={b.y} /> : null;
       })}
+      <AretesIgn aretes={aretes} z={Math.min(...(corps[cible.rang]?.egouts ?? [0]))} base={base} />
       {poignees.map((p, k) => {
         const q = places[k], vrai = projetees[k];
         if (!q) return null;
@@ -293,11 +332,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
           </g>
         );
       })}
-      {ancre && cotes.length > 0 && (
-        <foreignObject x={Math.max(4, Math.min(r.width - 284, ancre.x - 140))} y={Math.max(4, ancre.y - 62)} width={280} height={34}>
-          <div className="cotesToit" role="status">{cotes.map((c) => <span key={c.cle} className="coteToit" data-cote={c.cle}>{c.texte}</span>)}</div>
-        </foreignObject>
-      )}
+      {ancre && cotes.length > 0 && <BulleDesCotes x={Math.max(4, Math.min(r.width - 284, ancre.x - 140))} y={Math.max(4, ancre.y - 62)} cotes={cotes} ign={aretes.length > 0} motif={motif} />}
     </svg>
   );
 }

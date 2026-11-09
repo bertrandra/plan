@@ -23,7 +23,7 @@ describe('les poignees', () => {
   it('chaque element a ses poignees, dans le repere de sa facade', () => {
     const corps = avecTout();
     const ids = (t: Parameters<typeof poigneesDe>[1]) => poigneesDe(corps, t).map((p) => p.id);
-    expect(ids({ type: 'saillie', rang: 1, i: 0 })).toEqual(['pos', 'larg', 'prof', 'haut']);
+    expect(ids({ type: 'saillie', rang: 1, i: 0 })).toEqual(['pos', 'larg', 'prof', 'haut', 'gauche']);
     expect(ids({ type: 'pignon', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut', 'prof']);
     expect(ids({ type: 'lucarne', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut']);
     expect(ids({ type: 'cheminee', rang: 0, i: 0 })).toEqual(['pos']);
@@ -78,7 +78,7 @@ describe('glisser', () => {
     expect(corps[0]!.pignons[0]!.saillieM).toBeUndefined();
   });
 
-  it('une galerie a deux bords et un retrait de mur qui se tirent, un bow-window non', () => {
+  it('une galerie a deux bords et un retrait de mur qui se tirent, un bow-window ses deux bords seulement', () => {
     const o = maison();
     appliquerPiece(o, 'facade:galerie');
     const corps = o.batiment!.corpsToit!, rang = corps.findIndex((c) => c.saillie?.genre === 'galerie'), cible = { type: 'saillie', rang, i: 0 } as const;
@@ -95,7 +95,7 @@ describe('glisser', () => {
     expect(glisser(corps, cible, 'retrait', { prof: 9 }).corps[rang]!.retraitM).toBe(0);
     expect(cotesDe(r, cible).some((c) => c.cle === 'retrait')).toBe(true);
     const bow = avecTout();
-    expect(poigneesDe(bow, { type: 'saillie', rang: 1, i: 0 }).map((p) => p.id)).toEqual(['pos', 'larg', 'prof', 'haut']);
+    expect(poigneesDe(bow, { type: 'saillie', rang: 1, i: 0 }).map((p) => p.id)).toEqual(['pos', 'larg', 'prof', 'haut', 'gauche']);
   });
 
   it('deplace un pignon, le colle aux bords et le garde dans le corps', () => {
@@ -144,8 +144,10 @@ describe('glisser', () => {
     const e = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'long', { long: 2 }).corps;
     expect(repere(e[0]!.pts).L).toBeCloseTo(12, 1);
     expect(e[1]!.saillie).toBeDefined();
-    // Trop court : borne a 2,5 m.
-    expect(repere(glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'long', { long: -50 }).corps[0]!.pts).L).toBeCloseTo(2.5, 1);
+    // Trop court : le mur s'arrete au bord de ce qui est pose (decision du 9 novembre 2026), et dit pourquoi ; jamais sous 2,5 m.
+    const court = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'long', { long: -50 });
+    expect(repere(court.corps[0]!.pts).L).toBeGreaterThanOrEqual(2.5);
+    expect(court.motif).toMatch(/empêche d’aller plus loin/);
     // Une facade de bout change la largeur et garde le faitage au meme endroit relatif.
     const w = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 1 }, 'long', { long: 2 }).corps[0]!;
     expect(repere(w.pts).W).toBeCloseTo(8, 1);

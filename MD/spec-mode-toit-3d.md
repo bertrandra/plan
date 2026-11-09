@@ -154,7 +154,7 @@ La maquette est autonome (three.js r128 UMD, aucun réseau requis hors CDN). **T
   | Aucun élément (le corps) | **Tourner ⟲ ⟳** (± 15°), **Supprimer ce corps** (sauf le principal) |
 - **Poignées** (SVG, glisser) : élément de toit → taille ; **corps** → hauteur du faîtage (verticale), chaque bout de la façade (horizontale, l'autre bout reste en place ; jusqu'au 9 novembre 2026, le bout droit seul), la façade qui avance ou recule devant le mur opposé (« Avancer ou reculer la façade », voir « Redimensionner un corps de chaque côté »), hauteur à l'égout (verticale, au quart du mur sur la ligne d'égout de la façade : le corps entier monte ou descend, pente gardée ; 28 octobre 2026, voir « La hauteur à l'égout d'un corps ») ; **pignon** → position
   (aimantée aux bords et aux autres pignons, ±0,25 m), largeur (1,4 à 8 m, colle au bout du mur à ±0,25 m), hauteur du faîte (au moins 0,8 m au-dessus de l'égout, se « réduit » au faîtage à moins de 0,25 m),
-  saillie (0 à 2,5 m) ; **bow-window** → position (aimantée aux bords et au centre), largeur (1,2 à 6 m), saillie (0,2 à 1,5 m, 1,2 m max si « sous le premier étage ») ; **appentis/galerie** → bords gauche/droit (1,2 m
+  saillie (0 à 2,5 m) ; **bow-window** → position (aimantée aux bords et au centre), chaque bord, l'autre en place (1,2 à 6 m ; jusqu'au 9 novembre 2026, le bord droit seul), saillie (0,2 à 1,5 m, 1,2 m max si « sous le premier étage ») ; **appentis/galerie** → bords gauche/droit (1,2 m
   minimum entre les deux, colle au bout à 0,25 m), hauteur d'égout (1,6 m à égout de la maison − 0,9 m), déplacement entier, retrait. Pendant un glisser : chip de cotes + guides en pointillé.
   Un glisser = **un seul instantané** d'historique.
 - **Mode Plan** (`#svg3`) : poser, déplacer, étirer (une poignée au milieu de chaque mur, le mur opposé en place), tourner les corps ; lignes de faîtage dessinées par forme ; marqueurs des éléments posés ; chip largeur/profondeur/rotation. **Le faîtage se met
@@ -391,6 +391,24 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   tire pas ainsi : sa largeur et sa saillie ont leurs poignées.
 - Aucun champ de fichier ; la sortie du moteur ne change pas (AE 101 : `identite.ts` identique). Tests :
   `tests/unit/facade/modeToit/pousserMur.test.ts`. Fumée : point 154.
+- **Réponses du propriétaire du 9 novembre 2026** (même geste, `pousserMur.ts`) :
+  1. Un **mur commun** (`murCommun` : les deux murs sur la même ligne, tournés l'un vers l'autre, qui se recouvrent sur au moins
+     `PART_MUR_COMMUN` = 90 % du plus long ; ni l'un ni l'autre n'est le mur haut d'un appentis adossé) glisse entre les deux corps :
+     l'un grandit, l'autre rétrécit d'autant. Un corps plus court posé contre le mur (une aile au bout) est poussé (`corpsColles`).
+  2. Deux **appentis liés** à l'angle (`appentisLies`, la règle de `boutsLies`) : la rive basse tirée, l'autre suit de même ; le mur
+     haut tiré, l'autre suit par sa rive basse et par son bout sur le coin, qui se déplace avec lui. L'arêtier reste.
+  3. Un **bow-window** a ses deux poignées de bord (`gauche`, `larg`), l'autre bord en place, nommées vues de dehors (`gaucheEnDebut`) ;
+     la largeur va aux 2 cm et ne passe pas le bout du mur. Le champ « Largeur » de l'inspecteur du plan garde le milieu (« autour du
+     milieu ») : il est à côté de « Position sur le mur », qui est ce milieu.
+  4. Le mur **s'arrête au bord** d'un pignon ou d'une travée (`arretDuMur`) et le dit (`MOTIF_PIGNON`, `MOTIF_TRAVEE`, sous la bulle
+     puis en notification au lâcher) ; un élément déjà contre le mur tiré le suit jusqu'à sa taille minimale (1,4 m, 30 cm). Les mêmes
+     bornes valent pour l'autre corps d'un mur commun et pour un appentis lié.
+  5. La **vue de dessus** cadre le contour et tous les corps, débords et hauteur des toits compris (`poseDeDessus`, paramètre `haut`) ;
+     au téléphone, au-dessus de l'indicateur du mode (`reserveDuPanneau`).
+  6. Le **tracé IGN** (le contour du bâtiment) aimante à `AIMANT_MUR_M` (25 cm, comme les murs des autres corps) : un mur tiré se colle au
+     côté parallèle qui le longe (`lignesIgn`), un corps déplacé s'y colle sur ses deux axes (`aimanterAuContour`, sans les 5 cm ronds une
+     fois collé). Le côté du tracé s'éclaire (`.guideIgn`) et la bulle dit « collé au tracé IGN ». Aucune touche ne coupe l'aimant (il n'y
+     en a pas pour les autres). Tests : `pousserMur.test.ts`. Fumée : point 155.
 
 ### Le cul de geai et la queue de vache  *(5 novembre 2026, demande du propriétaire)*
 « Ajouter la demi-croupe, applicable aussi aux pignons, pour le dessiner et dans la découverte auto. » Le nom à l'écran est **« Cul de

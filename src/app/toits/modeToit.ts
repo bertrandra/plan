@@ -266,7 +266,10 @@ function reserveDuPanneau(): Reserve | undefined {
   if (!h.width || !h.height) return undefined;
   // Une colonne (plus etroite que la scene, qui en couvre la hauteur) ou un bandeau (pose en bas).
   if (p.width < h.width * 0.6) return { largeur: h.width, hauteur: h.height, droite: Math.max(0, h.right - p.left), bas: 0 };
-  return { largeur: h.width, hauteur: h.height, droite: 0, bas: Math.max(0, h.bottom - p.top) };
+  // Au telephone, l'indicateur du mode (« Modification ») est pose juste au-dessus du panneau : ce qu'on cadre s'arrete au-dessus de lui
+  // (9 novembre 2026, la vue de dessus cachait le bas de la maison sous lui).
+  const i = hote.querySelector('.etatToit')?.getBoundingClientRect(), haut = i && i.width > 0 && i.top >= h.top + h.height / 3 ? Math.min(p.top, i.top) : p.top;
+  return { largeur: h.width, hauteur: h.height, droite: 0, bas: Math.max(0, h.bottom - haut) };
 }
 
 /** Une facade choisie sur le contour (le batiment n'avait pas de corps) devient le mur du corps qui vient de naitre au meme endroit. */
@@ -577,15 +580,24 @@ function recadrerLeBatiment(o: ObjetPlan | undefined): void {
   else cadrerEnPerspective(pointsDuBatiment(o));
 }
 
-/** La camera de dessus, cadree sur le batiment `o` dans ce que le panneau laisse libre. */
+/** Le debord du toit au-dela des murs que la vue de dessus garde dans l'image, en metres (celui du dessin, a l'egout). */
+const DEBORD_CADRE_M = 0.35;
+
+/**
+ * La camera de dessus, cadree sur le batiment `o` dans ce que le panneau laisse libre : la maison entiere (decision du proprietaire, 9
+ * novembre 2026, au telephone : « la vue de dessus s'ouvre sur toute la maison, on zoome ensuite ») — son contour et tous ses corps (une
+ * aile qui depasse le contour, un element pose), debords compris, et la hauteur de ses toits, plus pres de la camera que le sol.
+ */
 function poserVueDeDessus(o: ObjetPlan): void {
   const sc = vue3d.scene;
   if (!sc) return;
-  const pts = enPoints(o).pts as PtBrut[], xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const corps = o.batiment?.corpsToit ?? [];
+  const pts = [...(enPoints(o).pts as PtBrut[]), ...corps.flatMap((c) => c.pts)], xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
   const centre = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
   const reserve = reserveDuPanneau();
   decentrer(sc, reserve);
-  const pose = poseDeDessus(centre, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), sc.cen, sc.camera.fov, sc.camera.aspect, reserve, altitudeDuBatiment(o));
+  const etendue = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) + 2 * DEBORD_CADRE_M;
+  const pose = poseDeDessus(centre, etendue, sc.cen, sc.camera.fov, sc.camera.aspect, reserve, altitudeDuBatiment(o), hauteurDe(o));
   admettre(sc, pose.position.y - pose.cible.y);
   poserCamera(pose);
 }
