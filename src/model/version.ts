@@ -85,7 +85,11 @@ export const APP_VERSION = '5.18.0';
 // demi-croupe (`PignonToit.pointe`), le debord d'un egout en coyau (`ProfilPan.debordM`, la queue de vache). Un lecteur 14 les perdrait
 // au premier enregistrement ; seul un batiment qui en porte s'ecrit au 15. La migration 14 -> 15 est l'identite. La plateforme accepte 15
 // depuis bertrandra/backprod (migration Version20261105090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
-export const SCHEMA_VERSION = 15;
+// 16 : le rez-de-chaussee en retrait sous l'etage (demande du proprietaire du 9 novembre 2026) : un bow-window glisse sous un etage qui
+// avance, le mur du rez-de-chaussee recule sur toute sa largeur (`SaillieFacade.rdcEnRetraitM`). Un lecteur 15 le perdrait au premier
+// enregistrement ; seul un batiment qui en porte un s'ecrit au 16. La migration 15 -> 16 est l'identite. La plateforme accepte 16 depuis
+// bertrandra/backprod (branche claude/plan-schema-16) : sa migration doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+export const SCHEMA_VERSION = 16;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;

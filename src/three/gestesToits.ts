@@ -25,7 +25,7 @@ import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
 import { coupeParDefaut, gaucheEnDebut } from '../facade/modeToit/decroche.js';
 import { traveeNeuve } from '../facade/modeToit/travees.js';
-import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
+import { DEFAUTS_SAILLIE, accorderLesRetraits, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
 import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, Toit, TypeLucarne } from '../model/types.js';
 import { champsBatiment } from '../model/champsFonction.js';
 
@@ -420,7 +420,8 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
     // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.
     const profondeurM = forme === 'arc' ? Math.min(largeurM / 2, 1.2) : d.profondeurM;
-    champsBatiment(o).corpsToit = [...o.batiment.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })];
+    // Sur un mur dont le rez-de-chaussee recule deja sous l'etage, le bow-window neuf s'y glisse aussi (`accorderLesRetraits`).
+    champsBatiment(o).corpsToit = accorderLesRetraits([...o.batiment.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })]);
     champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   }

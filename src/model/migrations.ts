@@ -151,6 +151,14 @@ export const MIGRATIONS: readonly Migration[] = [
     // n'existaient pas avant : un document 14 est un document 15 valide, relu a l'identique. Le 15 les distingue, pour qu'un lecteur 14
     // refuse le fichier plutot que de perdre un debord ou une pointe que la personne a dessines.
     migrer: (d) => d
+  },
+  {
+    de: 15,
+    apporte: 'le rez-de-chaussée en retrait sous l’étage, pour glisser un bow-window dessous',
+    // Un champ facultatif d'un bow-window (`rdcEnRetraitM`), qui n'existait pas avant : un document 15 est un document 16 valide, relu
+    // a l'identique. Le 16 le distingue, pour qu'un lecteur 15 refuse le fichier plutot que de perdre le retrait et de rendre la facade
+    // droite, le bow-window devant elle.
+    migrer: (d) => d
   }
 ];
 
@@ -240,6 +248,8 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     if (porteLesCorpsModifies(brut)) s = Math.max(s, 14);
     // Un cul de geai a faitage debordant ou a la pointe d'un pignon, une queue de vache : un lecteur 14 les perdrait.
     if (porteLesBoutsDessines(brut)) s = Math.max(s, 15);
+    // Un rez-de-chaussee en retrait sous l'etage : un lecteur 15 le perdrait.
+    if (porteUnRdcEnRetrait(brut)) s = Math.max(s, 16);
   }
   return s;
 }
@@ -250,6 +260,11 @@ function porteLesCorpsModifies(brut: Record<string, unknown>): boolean {
     const k = c as { travees?: unknown; saillie?: { toit?: unknown } } | null;
     return !!k && ((Array.isArray(k.travees) && k.travees.length > 0) || k.saillie?.toit === 'aucun');
   });
+}
+
+/** Un objet dont un bow-window porte un rez-de-chaussee en retrait : schema 16. */
+function porteUnRdcEnRetrait(brut: Record<string, unknown>): boolean {
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => (c as { saillie?: { rdcEnRetraitM?: unknown } } | null)?.saillie?.rdcEnRetraitM !== undefined);
 }
 
 /** Un objet dont un corps porte un debord de faitage de demi-croupe, une pointe de pignon ou une queue de vache : schema 15. */

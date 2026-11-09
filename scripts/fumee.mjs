@@ -5041,6 +5041,120 @@ const POINTS = {
     if (await deborde()) echecs.push('débordement');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; validé (${fige ? 'figé' : 'NON FIGÉ'}), Ctrl+Z du projet ${defait.json === avant.json ? 'rend le toit d’avant' : 'NE REND PAS'}` };
   },
+  152: async (page, f) => {
+    // Le rez-de-chaussee en retrait sous l'etage, pour glisser un bow-window dessous (demande du proprietaire, 9 novembre 2026 : « je dois
+    // décaler le rez-de-chaussée pour glisser en dessous une bay window jusqu'au premier étage ») : une maison a etage de 12 x 7 m, un corps ;
+    // Vue 3D, « Modifier la toiture », onglet Façade, un bow-window ; choisi, « Rez-de-chaussée » a fleur de l'etage ; Ctrl+Z puis de nouveau ;
+    // « Valider » ; dans le plan, le mur recule en tirets ; un Ctrl+Z du projet rend la maison d'avant. FUMEE_CAPTURE_BAY=<prefixe> enregistre
+    // la 3D et le plan.
+    const capture = process.env.FUMEE_CAPTURE_BAY;
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const R = [{ x: -6, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: -6, y: -13 }];
+      o.pts = R.map((p) => ({ ...p }));
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = [{ pts: R.map((p) => ({ ...p })), posFaitage: 3.5, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 }];
+      b.modeToit = 'corps';
+      o.elevation = 5.5; b.toit = { forme: 'deux-pans', hauteur: 3.5, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    const lire = () => page.evaluate(() => {
+      const trie = (v) => (Array.isArray(v) ? v.map(trie) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, trie(v[k])])) : v);
+      const l = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit;
+      const bow = l.find((c) => c.saillie?.genre === 'bow-window');
+      return { n: l.length, saillie: bow?.saillie ?? null, egout: bow ? Math.min(...bow.egouts) : null, json: JSON.stringify(trie(l)) };
+    });
+    const echecs = [];
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await image3dStable(page, 3000);
+    const avant = await lire();
+    await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
+    await page.getByRole('tab', { name: 'Façade', exact: true }).click({ timeout: 10000 });
+    await page.locator('[data-piece="facade:bow-window"]').click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    const pose = await lire();
+    if (!pose.saillie) echecs.push('pas de bow-window posé');
+    // La pastille du bow-window : choisie (un clic sur une pastille deja enfoncee la relache).
+    const choisirBow = async () => {
+      const puce = page.locator('.puceToit[data-type="saillie"]').first();
+      if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await puce.click({ timeout: 10000 });
+      await page.waitForTimeout(300);
+    };
+    await choisirBow();
+    const choix = (v) => page.locator('.inspecteurToit [data-commande="toit.regler"][data-groupe="rdc"][data-valeur="' + v + '"]');
+    const groupes = async () => page.locator('.inspecteurToit [data-commande="toit.regler"]').evaluateAll((l) => [...new Set(l.map((b) => b.getAttribute('data-groupe')))]);
+    const avantGroupes = await groupes();
+    if (!(await choix('aligne').count())) echecs.push('pas de groupe « Rez-de-chaussée » (groupes : ' + avantGroupes.join(', ') + ')');
+    else {
+      await choix('aligne').click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const a = await lire();
+      if (!(a.saillie?.rdcEnRetraitM > 0) || Math.abs(a.saillie.rdcEnRetraitM - a.saillie.profondeurM) > 0.005) echecs.push('retrait ' + a.saillie?.rdcEnRetraitM + ' pour une saillie de ' + a.saillie?.profondeurM);
+      if (Math.abs(a.egout - 2.7) > 0.01) echecs.push('bow-window à ' + a.egout + ' m');
+      if ((await choix('aligne').getAttribute('aria-pressed')) !== 'true') echecs.push('« à fleur de l’étage » non enfoncé');
+      const apresGroupes = await groupes();
+      if (apresGroupes.includes('niveau') || apresGroupes.includes('toit')) echecs.push('niveau et toit propre encore proposés');
+      // La vue de la facade du bow-window, celle que le mode Toit cadre quand on le choisit.
+      if (capture) {
+        await image3dStable(page, 2500);
+        await page.screenshot({ path: capture + '-' + f.nom + '-3d.png' }).catch(() => {});
+      }
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      if (JSON.stringify((await lire()).saillie) !== JSON.stringify(pose.saillie)) echecs.push('Ctrl+Z ne rend pas la façade droite');
+      await choisirBow();
+      await choix('aligne').click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+    }
+    const garde = await lire();
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    const fige = await page.evaluate(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.toitFige);
+    if (valide.json !== garde.json) echecs.push('validé : pas le toit de la session');
+    // Hors du mode, de biais (trois fois 15°) : l'etage qui avance au-dessus du bow-window.
+    if (capture) {
+      await page.evaluate(() => {
+        const sc = window.__plan.scene3d();
+        let bow = null;
+        sc.scene.traverse((o) => { if (!bow && /bow/i.test(o.name)) bow = o; });
+        if (!bow) return;
+        const c = new window.THREE.Box3().setFromObject(bow).getCenter(new window.THREE.Vector3());
+        sc.controls.target.set(c.x, c.y + 1.2, c.z);
+        sc.camera.position.set(c.x - 9, c.y + 1.5, c.z + 4);
+        sc.controls.update?.(); sc.controls.dispatchEvent?.({ type: 'change' });
+      });
+      await image3dStable(page, 2500);
+      await page.screenshot({ path: capture + '-' + f.nom + '-3d-biais.png' }).catch(() => {});
+    }
+    if (!fige) echecs.push('validé : toit non figé');
+    // Dans le plan : le contour de l'etage reste plein, le mur recule du rez-de-chaussee est en tirets.
+    await page.evaluate(() => window.__plan.executer('vue.plan'));
+    await page.waitForTimeout(800);
+    const tirets = await page.locator('line[data-retrait-rdc="maison"]').count();
+    if (tirets !== 1) echecs.push(tirets + ' trait(s) en tirets dans le plan');
+    if (capture) {
+      await page.evaluate(() => { window.__plan.selectionnerCle('maison'); window.__plan.executer('vue.ajuster'); });
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: capture + '-' + f.nom + '-plan.png' }).catch(() => {});
+    }
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(600);
+    const defait = await lire();
+    if (defait.json !== avant.json) echecs.push('Ctrl+Z du projet ne rend pas la maison d’avant');
+    const restants = await page.locator('line[data-retrait-rdc]').count();
+    if (restants) echecs.push('tirets restés après Ctrl+Z');
+    if (await deborde()) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `bow-window ${valide.saillie ? valide.saillie.largeurM + ' × ' + valide.saillie.profondeurM + ' m' : 'ABSENT'}, rez-de-chaussée en retrait de ${valide.saillie?.rdcEnRetraitM ?? '—'} m, bow-window à ${valide.egout} m ; validé (${fige ? 'figé' : 'NON FIGÉ'}) ; plan : ${tirets} trait en tirets ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
+  },
   151: async (page, f) => {
     // Un projet neuf ne demande pas « Mettre a jour le modele ? » (signale par le proprietaire, 8 novembre 2026 : « À la création
     // d'un nouveau projet j'ai la question pour mettre à jour la version du projet. »). Un projet s'ecrit au plus petit schema qui
@@ -7268,7 +7382,8 @@ function pointsPour(nomClasse) {
   // 149 : le sens du faitage au mode Toit sur chaque forme qui en a un (deux pans, croupes, un pan, cul de geai, Mansart...), pas sur le plat.
   // 150 : tout le toit tourne d'un coup (toit en M, deux pans decales, shed ; grise avec sa raison quand un corps l'empeche), le mur haut d'un appentis.
   // 151 : un projet neuf (la demonstration du premier pas, « Nouveau projet ») rouvert sans « Mettre à jour le modèle ? » ; un ancien la pose toujours.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151];
+  // 152 : le rez-de-chaussee en retrait sous l'etage, un bow-window glisse dessous : au Mode Toit, Ctrl+Z, valide ; le mur recule en tirets dans le plan.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -16,7 +16,7 @@ import { estSpecial } from '../facade/toits/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toits/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
-import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/modeToit/saillies.js';
+import { estBowWindow, facettesBowWindow, facettesEncorbellement, vitresBowWindow, type RetraitRdc } from '../facade/modeToit/saillies.js';
 import { aDesTraveesOuvertes, contourAvecReculs, murBasDeLAppentis, reculEn, segmentsDuMurBas } from '../facade/modeToit/travees.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
@@ -668,12 +668,17 @@ export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: read
   return { pans: pans.length, murs: murs.length };
 }
 
-/** Pose les toits et les murs hauts des corps d'un batiment. `toitRef` porte la couleur de la couverture ; `contour` dit ou sont les facades. */
-export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null, abrites: readonly (readonly PtBrut[])[] = []): { pans: number; murs: number } {
+/**
+ * Pose les toits et les murs hauts des corps d'un batiment. `toitRef` porte la couleur de la couverture ; `contour` dit ou sont les facades.
+ * `retraitsRdc` : les rez-de-chaussee en retrait sous l'etage (schema 16), dont l'etage qui avance se dessine en couleur de mur.
+ */
+export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null, abrites: readonly (readonly PtBrut[])[] = [], retraitsRdc: ReadonlyMap<CorpsToit, readonly RetraitRdc[]> = new Map()): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
   corps.forEach((c) => {
     const f = facettesCorps(c, contour, true, appentisAdosse(c, corps), abrites, boutsLies(c, corps));
     pans.push(...f.pans); murs.push(...f.murs);
+    const retraits = retraitsRdc.get(c);
+    if (retraits) murs.push(...facettesEncorbellement(c, retraits));
     // Un corps aux travees ouvertes n'a pas de prisme (scene.ts) : ses murs, ses poteaux et son plafond. Un appentis ouvert n'a pas de
     // mur ; ferme, sa rive basse est dessinee avec ses travees (`sousLAppentis`).
     if (aDesTraveesOuvertes(c) && c.ouvert !== true) murs.push(...piedEnTravees(c, c.ouvert === false && estUnAppentis(c) ? murBasDeLAppentis(c) : null));

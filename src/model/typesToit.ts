@@ -193,6 +193,13 @@ export interface SaillieFacade {
   hauteurM?: number | undefined;
   /** La couverture d'un auvent (lot L1) ; absente : celle du dessin d'un appentis. */
   couverture?: 'verre' | 'tuile' | 'zinc' | 'autre' | undefined;
+  /**
+   * Un bow-window glisse sous l'etage (schema 16, demande du proprietaire du 9 novembre 2026) : le rez-de-chaussee du mur qui le porte
+   * recule de cette longueur, en metres, sur toute la largeur de ce mur (le corps hote seul) ; l'etage reste au nu du mur et avance
+   * au-dessus. Le bow-window monte alors du sol au dessous de l'etage (sa hauteur a l'egout), sans toit propre. Absent : le dessin
+   * d'avant. Deux bow-windows sur le meme mur portent le meme recul (le plus grand), facade/modeToit/saillies.ts::accorderLesRetraits.
+   */
+  rdcEnRetraitM?: number | undefined;
 }
 
 /** Une bay window : le plan, la hauteur ou elle commence, son toit, et d'ou on le sait. */

@@ -14,6 +14,10 @@ const TRACES: Record<string, ReactNode> = {
   // Le niveau, vu de face : une maison de deux etages, la partie du bow-window pleine.
   'niveau:rdc': <><path d="M5 4h14v16H5zM5 12h14" /><path d="M5 12h14v8H5z" fill="currentColor" opacity=".35" /></>,
   'niveau:toit': <><path d="M5 4h14v16H5zM5 12h14" /><path d="M5 4h14v16H5z" fill="currentColor" opacity=".35" /></>,
+  // Le rez-de-chaussee, vu en coupe (la rue a droite) : la facade droite et le bow-window devant elle, ou le rez-de-chaussee recule sous
+  // l'etage qui avance, le bow-window glisse dessous.
+  'rdc:0': <><path d="M14 3v18M4 12h10" /><path d="M14 13h5v7h-5z" fill="currentColor" opacity=".35" /></>,
+  'rdc:aligne': <><path d="M19 3v9h-5v9M4 12h10" /><path d="M14 13h5v7h-5z" fill="currentColor" opacity=".35" /></>,
   // Le toit propre, vu de profil : le mur de la maison a gauche.
   'toit:pan': <path d="M4 20V6M4 6l14 8v6H4" />,
   'toit:plat': <path d="M4 20V6M4 12h14v8H4" />,

@@ -146,7 +146,7 @@ La maquette est autonome (three.js r128 UMD, aucun réseau requis hors CDN). **T
 - **Inspecteur contextuel** (`#insp`, pas de formulaire, **boutons-images à choix exclusif** `.sg`, `aria-pressed`) :
   | Sélection | Groupes |
   |---|---|
-  | Bow-window | **forme** (pans coupés · rectangle · arc de cercle · rectangle arrondi) ; **niveau** (sous le premier étage · monte jusqu'au toit) ; **toit** (un pan · plat · en pointe) |
+  | Bow-window | **forme** (pans coupés · rectangle · arc de cercle · rectangle arrondi) ; **niveau** (sous le premier étage · monte jusqu'au toit) ; **rez-de-chaussée** (façade droite · en retrait, l'étage à fleur du bow-window · ½ · 1 m ; schéma 16) ; **toit** (un pan · plat · en pointe) |
   | Appentis / galerie | **sur poteaux / fermée** ; **retrait** du mur (0 · ½ · 1 m) |
   | Pignon | **hauteur** (monte au faîtage · plus bas que le faîtage) |
   | Élément de toit | **taille − / +** (échelle 0,5 à 2,2, pas 0,15) |
@@ -455,3 +455,28 @@ npx tsx .claude/skills/toits/scripts/identite.ts                                
 - Ce que la fonction d'un objet lui donne est décrit une fois dans `src/model/fonctions.ts` (`estBatiment`, `estTerrasse`, `surParcelleDuProjet`…) : ne pas réécrire ces tests ailleurs.
 - Une décision de l'audit ne réécrit jamais une forme de toit de sa propre main (moteur de règles `corpsSousContrainte`) ; ce chantier est l'édition **manuelle**, elle fige (`toitFige`).
 - Ne pas créer de PR sans demande ; ne jamais pousser sur `main`.
+
+## Rez-de-chaussée en retrait sous l'étage (schéma 16)
+
+Demande du propriétaire du 9 novembre 2026 (« je dois décaler le rez-de-chaussée pour glisser en dessous une bay window jusqu'au premier
+étage ») et ses réponses du même jour.
+
+- Réglage **du bow-window** (`SaillieFacade.rdcEnRetraitM`, en mètres ; absent : la façade droite d'avant). Le mur du rez-de-chaussée du
+  corps qui porte le bow-window recule de cette longueur, **sur toute la largeur de ce mur** et sur ce corps seulement (un corps aligné
+  sur la même façade ne bouge pas) ; l'étage reste au nu du mur et avance au-dessus.
+- Par défaut, le recul est la saillie du bow-window : son avant tombe à fleur de l'étage. Il se règle de 0,10 à 3 m (inspecteur :
+  « Rez-de-chaussée en retrait », « Retrait du rez-de-chaussée » ; Mode Toit : groupe « Rez-de-chaussée », à fleur, ½, 1 m), et il laisse
+  au moins un mètre de pièce derrière lui.
+- La hauteur du rez-de-chaussée est la hauteur à l'égout du bow-window : 2,70 m par défaut, réglable sur lui (« Hauteur à l'égout »),
+  jamais au-dessus de l'égout de la maison. Le bow-window monte du sol au dessous de l'étage, sans toit propre (le choix du toit reste
+  écrit et revient quand le retrait est retiré) ; niveau et toit propre ne se proposent plus.
+- Deux bow-windows sur le même mur : **un seul rez-de-chaussée**, le plus grand recul ; l'autre s'adapte (même recul, même hauteur). Celui
+  que la personne règle mène (`accorderLesRetraits`).
+- 3D : le prisme du corps recule ; au-dessus, le mur de l'étage au nu de la façade, son dessous à plat **de la couleur du mur** (décision du
+  propriétaire), ses deux retours et le dessus de la bande sous le toit (`facettesEncorbellement`). Les ouvertures du bas suivent le mur
+  reculé (aucune derrière le bow-window), celles de l'étage et des pignons restent au nu ; le soubassement court au pied du mur reculé.
+- Plan : le contour reste celui de l'étage, en trait plein ; le mur reculé du rez-de-chaussée est un trait en tirets (à l'écran seulement,
+  comme les ouvertures relevées : les exports gardent leur forme).
+- Hors de ce lot : la photo d'un relevé posée sur une façade en retrait (une seule surface aujourd'hui), une poignée pour tirer le recul,
+  la lecture de l'audit, un corps sur un contour de biais.
+

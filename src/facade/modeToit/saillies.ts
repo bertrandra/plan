@@ -10,6 +10,7 @@
 // Pur : pas de reseau, pas de DOM.
 
 import { repere, point } from '../toits/toitCorps.js';
+import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import type { CorpsToit, FormeSaillie, GenreSaillie, PignonToit, PtBrut, SaillieFacade } from '../../model/types.js';
 
 /** Un point du dessin, `z` etant la hauteur au-dessus du sol du batiment. */
@@ -51,18 +52,36 @@ export function murDuCorps(h: CorpsToit, i: number): { a: PtBrut; b: PtBrut; L: 
   return { a, b, L, u, n };
 }
 
-/** Les reglages bornes : la saillie tient sur son mur, sans depasser ses bouts. */
+/** Le plus petit recul du rez-de-chaussee : en deca, la facade reste droite. */
+export const RETRAIT_RDC_MIN_M = 0.1;
+/** Ce qui reste au moins de la profondeur du corps hote sous un rez-de-chaussee en retrait : au-dela, il n'y a plus de piece. */
+const RESTE_SOUS_RETRAIT_M = 1;
+
+/** Le recul du rez-de-chaussee que porte un bow-window, en metres ; 0 : la facade droite (le dessin d'avant). */
+export const retraitDuRdc = (s: SaillieFacade | undefined): number => (s?.genre === 'bow-window' && (s.rdcEnRetraitM ?? 0) > 0 ? (s.rdcEnRetraitM as number) : 0);
+
+/** Les reglages bornes : la saillie tient sur son mur, sans depasser ses bouts ; un recul du rez-de-chaussee laisse une piece derriere lui. */
 export function bornerSaillie(h: CorpsToit, s: SaillieFacade): SaillieFacade {
   const { L } = murDuCorps(h, s.mur);
   const largeurM = centimetre(Math.min(Math.max(s.largeurM, 0.6), Math.max(0.6, L - 0.2)));
   const centreM = centimetre(Math.min(Math.max(s.centreM, largeurM / 2), Math.max(largeurM / 2, L - largeurM / 2)));
-  return { ...s, largeurM, centreM, profondeurM: centimetre(Math.min(Math.max(s.profondeurM, 0.3), 6)) };
+  const borne: SaillieFacade = { ...s, largeurM, centreM, profondeurM: centimetre(Math.min(Math.max(s.profondeurM, 0.3), 6)) };
+  const r = retraitDuRdc(s);
+  if (r > 0) {
+    // La profondeur du corps en travers du mur : celle de son mur voisin.
+    const max = Math.min(RECUL_TRAVEE_MAX_M, murDuCorps(h, s.mur + 1).L - RESTE_SOUS_RETRAIT_M);
+    if (max >= RETRAIT_RDC_MIN_M) borne.rdcEnRetraitM = centimetre(Math.min(Math.max(r, RETRAIT_RDC_MIN_M), max));
+    else delete borne.rdcEnRetraitM;
+  } else delete borne.rdcEnRetraitM;
+  return borne;
 }
 
 /** Le rectangle d'une saillie sur son mur : `pts[0]-pts[1]` le long du mur, `pts[0]-pts[3]` vers l'exterieur. */
 export function rectangleDeSaillie(h: CorpsToit, s: SaillieFacade): PtBrut[] {
   const { a, u, n } = murDuCorps(h, s.mur);
-  const p0 = { x: a.x + u.x * (s.centreM - s.largeurM / 2), y: a.y + u.y * (s.centreM - s.largeurM / 2) };
+  // Sous un etage qui avance, le bow-window part du mur recule du rez-de-chaussee.
+  const r = retraitDuRdc(s);
+  const p0 = { x: a.x + u.x * (s.centreM - s.largeurM / 2) - n.x * r, y: a.y + u.y * (s.centreM - s.largeurM / 2) - n.y * r };
   const p1 = { x: p0.x + u.x * s.largeurM, y: p0.y + u.y * s.largeurM };
   const d = s.profondeurM;
   return [p0, p1, { x: p1.x + n.x * d, y: p1.y + n.y * d }, { x: p0.x + n.x * d, y: p0.y + n.y * d }].map((q) => ({ x: centimetre(q.x), y: centimetre(q.y) }));
@@ -80,15 +99,19 @@ export function corpsDeSaillie(h: CorpsToit, brute: SaillieFacade): CorpsToit {
   const pts = rectangleDeSaillie(h, s);
   const d = s.profondeurM, L = s.largeurM;
   const haut = egoutBas(h);
-  // La hauteur propre l'emporte ; sinon un etage (sans depasser l'egout de la maison) ou l'egout de la maison.
-  const egout = s.hauteurM ?? (s.genre === 'galerie' ? Math.min(2.4, haut) : s.genre === 'auvent' ? Math.min(HAUTEUR_AUVENT_M, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut));
+  const sousEtage = retraitDuRdc(s) > 0;
+  // La hauteur propre l'emporte ; sinon un etage (sans depasser l'egout de la maison) ou l'egout de la maison. Sous un etage qui avance,
+  // le bow-window monte au dessous de l'etage : sa hauteur propre, sinon celle d'un rez-de-chaussee, jamais au-dessus de l'egout.
+  const egout = sousEtage ? Math.min(s.hauteurM ?? HAUTEUR_RDC_M, haut)
+    : s.hauteurM ?? (s.genre === 'galerie' ? Math.min(2.4, haut) : s.genre === 'auvent' ? Math.min(HAUTEUR_AUVENT_M, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut));
   let faitage = egout, posFaitage = 0, croupes: [number, number] | undefined;
-  if (s.toit === 'pan') {
+  // Sous l'etage, pas de toit propre : l'etage le couvre (le choix du toit reste ecrit, il revient quand le retrait est retire).
+  if (!sousEtage && s.toit === 'pan') {
     // Le pan monte contre le mur ; sous la pente d'une galerie ou d'un appentis (une vingtaine de degres), pas sous celle d'un bow-window.
     // Une marquise (auvent) est presque plate : une dalle mince qui penche a peine vers la rue.
     const montee = s.genre === 'bow-window' ? Math.min(1.2, d * 0.6) : s.genre === 'auvent' ? Math.min(0.15, d * 0.2) : Math.min(Math.max(haut - egout, 0.4), d * 0.4);
     faitage = dixieme(egout + montee);
-  } else if (s.toit === 'pavillon') {
+  } else if (!sousEtage && s.toit === 'pavillon') {
     faitage = dixieme(egout + Math.min(1.5, Math.min(L, d) * 0.5));
     posFaitage = centimetre(d / 2);
     const c = centimetre(Math.min(d / 2, L / 2 - 0.05));
@@ -106,13 +129,25 @@ export function corpsDeSaillie(h: CorpsToit, brute: SaillieFacade): CorpsToit {
 /** Les corps du batiment dont la saillie est celle d'un bow-window : ceux que dessine three/saillie3d.ts. */
 export const estBowWindow = (c: CorpsToit): boolean => c.saillie?.genre === 'bow-window';
 
-/** La saillie `rang` replacee sur son hote, ce qui la reecrit en entier ; les autres corps sont intacts. */
+/**
+ * La saillie `rang` replacee sur son hote, ce qui la reecrit en entier ; les autres corps sont intacts, sauf les bow-windows du meme mur
+ * quand un rez-de-chaussee y recule (`accorderLesRetraits`) : celui-ci mene si le changement regle son retrait, ou sa hauteur sous l'etage.
+ */
 export function replacerSaillie(corps: readonly CorpsToit[], rang: number, changement: Partial<SaillieFacade>): CorpsToit[] {
+  const l = placerSaillie(corps, rang, changement);
+  const s = l[rang]?.saillie;
+  const mene = 'rdcEnRetraitM' in changement || ('hauteurM' in changement && retraitDuRdc(s) > 0);
+  return accorderLesRetraits(l, mene ? rang : null);
+}
+
+/** La saillie `rang` replacee sur son hote, seule. */
+function placerSaillie(corps: readonly CorpsToit[], rang: number, changement: Partial<SaillieFacade>): CorpsToit[] {
   const c = corps[rang];
   if (!c?.saillie) return [...corps];
   const s: SaillieFacade = { ...c.saillie, ...changement };
-  // Un reglage mis a `undefined` est retire : la hauteur propre qui redevient celle du niveau.
+  // Un reglage mis a `undefined` est retire : la hauteur propre qui redevient celle du niveau, le rez-de-chaussee qui revient au nu du mur.
   if (s.hauteurM === undefined) delete s.hauteurM;
+  if (!(retraitDuRdc(s) > 0)) delete s.rdcEnRetraitM;
   const hote = corps[s.hote];
   if (!hote || s.hote === rang) return [...corps];
   const neuf = corpsDeSaillie(hote, s);
@@ -122,6 +157,96 @@ export function replacerSaillie(corps: readonly CorpsToit[], rang: number, chang
   if (c.cheminees) reste.cheminees = c.cheminees;
   if (c.retraitM !== undefined) reste.retraitM = c.retraitM;
   return corps.map((k, i) => (i === rang ? reste : k));
+}
+
+/**
+ * Un seul rez-de-chaussee par mur (decision du proprietaire du 9 novembre 2026) : les bow-windows poses sur le meme mur du meme corps
+ * portent le meme recul et passent sous le meme etage. Le recul est celui du bow-window `meneur` (celui que la personne vient de regler) ;
+ * sans meneur, le plus grand recul du mur, et la hauteur du bow-window qui le porte. Sans recul sur un mur, rien ne change : un fichier
+ * sans rez-de-chaussee en retrait garde ses corps, octet pour octet.
+ */
+export function accorderLesRetraits(corps: readonly CorpsToit[], meneur: number | null = null): CorpsToit[] {
+  const groupes = new Map<string, number[]>();
+  corps.forEach((c, i) => { if (c.saillie && estBowWindow(c)) { const k = c.saillie.hote + ':' + c.saillie.mur; groupes.set(k, [...(groupes.get(k) ?? []), i]); } });
+  let l = corps.slice();
+  for (const rangs of groupes.values()) {
+    if (rangs.length < 2) continue;
+    const recul = (i: number) => retraitDuRdc(l[i]?.saillie);
+    const ref = meneur !== null && rangs.includes(meneur) ? meneur : rangs.reduce((m, i) => (recul(i) > recul(m) ? i : m), rangs[0] as number);
+    const sRef = l[ref]?.saillie, r = recul(ref);
+    if (!sRef || (r === 0 && ref !== meneur)) continue;
+    for (const i of rangs) {
+      const s = l[i]?.saillie;
+      if (i === ref || !s) continue;
+      if (r === 0) { if (recul(i) > 0) l = placerSaillie(l, i, { rdcEnRetraitM: undefined }); continue; }
+      if (recul(i) === r && s.hauteurM === sRef.hauteurM) continue;
+      l = placerSaillie(l, i, { rdcEnRetraitM: r, hauteurM: sRef.hauteurM, niveau: 'rdc' });
+    }
+  }
+  return l;
+}
+
+/** Un rez-de-chaussee en retrait sous l'etage, sur le mur `mur` d'un corps hote : de combien il recule, et a quelle hauteur l'etage commence. */
+export interface RetraitRdc {
+  mur: number;
+  reculM: number;
+  hauteurM: number;
+  /** Les bow-windows glisses dessous : leur cote contre le mur recule (de `pts[0]` a `pts[1]`), ou ce mur n'a ni porte ni fenetre. */
+  devant: [PtBrut, PtBrut][];
+}
+
+/**
+ * Les rez-de-chaussee en retrait de chaque corps hote, lus sur ses bow-windows : un par mur, le plus grand recul, sous le dessous de
+ * l'etage (l'egout du bow-window qui le porte). La cle est le corps hote lui-meme : le dessin isole parfois un corps, et les rangs changent.
+ */
+export function retraitsDuRdc(corps: readonly CorpsToit[] | null | undefined): Map<CorpsToit, RetraitRdc[]> {
+  const parHote = new Map<CorpsToit, RetraitRdc[]>();
+  (corps ?? []).forEach((c) => {
+    const r = retraitDuRdc(c.saillie), s = c.saillie, h = s ? corps?.[s.hote] : undefined;
+    if (!(r > 0) || !s || !h || h.saillie) return;
+    const l = parHote.get(h) ?? [], deja = l.find((x) => x.mur === s.mur), hauteurM = Math.min(...c.egouts);
+    const cote: [PtBrut, PtBrut] = [c.pts[0] as PtBrut, c.pts[1] as PtBrut];
+    if (deja) { deja.devant.push(cote); if (r > deja.reculM) { deja.reculM = r; deja.hauteurM = hauteurM; } } else l.push({ mur: s.mur, reculM: r, hauteurM, devant: [cote] });
+    parHote.set(h, l);
+  });
+  return parHote;
+}
+
+/** Le corps hote avec ses murs du rez-de-chaussee recules : son pied (le prisme, ses fenetres du bas, son soubassement). */
+export function corpsAuPied(h: CorpsToit, retraits: readonly RetraitRdc[] | undefined): CorpsToit {
+  if (!retraits?.length) return h;
+  const pts = h.pts.map((p) => ({ ...p }));
+  for (const r of retraits) {
+    const { n } = murDuCorps(h, r.mur), k = h.pts.length;
+    for (const j of [r.mur % k, (r.mur + 1) % k]) { const p = pts[j] as PtBrut; pts[j] = { x: centimetre(p.x - n.x * r.reculM), y: centimetre(p.y - n.y * r.reculM) }; }
+  }
+  return { ...h, pts };
+}
+
+/**
+ * Ce que l'etage qui avance ajoute au corps hote, au-dessus de son pied recule. Le prisme du corps monte jusqu'a son egout le plus bas, et
+ * au-dessus, les murs hauts et les pignons restent au nu du rectangle (three/toitCorps3d.ts) : il reste, de la hauteur de l'etage a cet
+ * egout, le mur au nu de la facade, son dessous a plat (de la couleur du mur, decision du proprietaire du 9 novembre 2026), ses deux
+ * retours aux bouts et, a l'egout, le dessus de cette bande, sous le toit.
+ */
+export function facettesEncorbellement(h: CorpsToit, retraits: readonly RetraitRdc[] | undefined): Pt3[][] {
+  const faces: Pt3[][] = [];
+  const bas = Math.min(...h.egouts);
+  for (const r of retraits ?? []) {
+    const { a, b, n } = murDuCorps(h, r.mur);
+    const a2 = { x: a.x - n.x * r.reculM, y: a.y - n.y * r.reculM }, b2 = { x: b.x - n.x * r.reculM, y: b.y - n.y * r.reculM };
+    // Un etage qui commencerait au-dessus de l'egout : le mur entier recule, et le dessous se ferme a l'egout.
+    const H = Math.min(r.hauteurM, bas);
+    const Z = (q: PtBrut, z: number): Pt3 => ({ x: q.x, y: q.y, z });
+    faces.push([Z(a, H), Z(a2, H), Z(b2, H), Z(b, H)]);
+    if (bas - H > 0.01) {
+      faces.push([Z(a, H), Z(b, H), Z(b, bas), Z(a, bas)]);
+      faces.push([Z(a2, H), Z(a, H), Z(a, bas), Z(a2, bas)]);
+      faces.push([Z(b, H), Z(b2, H), Z(b2, bas), Z(b, bas)]);
+      faces.push([Z(a, bas), Z(b, bas), Z(b2, bas), Z(a2, bas)]);
+    }
+  }
+  return faces;
 }
 
 /** Un mur libre pour une saillie neuve : le plus long mur de l'hote qui n'en porte pas deja, sinon le plus long. */
@@ -173,7 +298,8 @@ export function facettesBowWindow(c: CorpsToit): { pans: Pt3[][]; murs: Pt3[][] 
   const deb = DEBORD_BOW_M;
   const large = (q: PtBrut): PtBrut => { const { s, t } = ST(q); return point(r, L / 2 + (s - L / 2) * ((L + 2 * deb) / L), t * ((d + deb) / d)); };
   const eT = e.map(large);
-  const toit = c.saillie?.toit ?? 'pan';
+  // Sous un etage qui avance (schema 16), l'etage le couvre : comme sans toit propre.
+  const toit = retraitDuRdc(c.saillie) > 0 ? 'aucun' : c.saillie?.toit ?? 'pan';
   // Sans toit propre (schema 14) : le toit d'un auvent le couvre ; ses murs se ferment a leur hauteur, sans debord ni couverture.
   if (toit === 'aucun') murs.push(e.map((q) => Z(q, top)));
   else if (toit === 'plat') pans.push(eT.map((q) => Z(q, top)));

@@ -8,7 +8,7 @@
 // Pur : pas de DOM, pas de scene.
 
 import { point, repere } from '../toits/toitCorps.js';
-import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
+import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, retraitDuRdc, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
 import { avecMurHaut, avecSens, murHautDe, murHautReglable, orientationDuMur, sensDuToit, sensReglable, tournerLeToit } from './sens.js';
@@ -90,8 +90,11 @@ export function titreDuGroupe(g: GroupeChoix): string {
 const TITRES_GROUPES: Record<string, string> = {
   forme: 'Forme', niveau: 'Hauteur', toit: 'Toit propre', ouvert: 'Ouvert ou fermé', pente: 'Pente', sens: 'Sens du faîtage',
   debord: 'Débord à l’égout', nature: 'Travée', recul: 'Recul sous le toit', hauteur: 'Hauteur du pignon', saillie: 'Avancée du pignon',
-  lucarne: 'Type de lucarne', pan: 'Pan', retrait: 'Retrait des poteaux', murHaut: 'Mur haut'
+  lucarne: 'Type de lucarne', pan: 'Pan', retrait: 'Retrait des poteaux', murHaut: 'Mur haut', rdc: 'Rez-de-chaussée'
 };
+
+/** Les reculs proposes du rez-de-chaussee sous l'etage, en plus de « a fleur de l'etage » (le recul egal a la saillie). */
+const RECULS_RDC_M = [0.5, 1];
 
 export const memeCible = (a: CibleElement | null, b: CibleElement | null): boolean => !!a && !!b && a.type === b.type && a.rang === b.rang && a.i === b.i;
 
@@ -307,11 +310,17 @@ function groupeRetrait(ouvert: boolean | undefined): GroupeChoix {
 export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeChoix[] {
   const c = corps[t.rang];
   if (t.type === 'saillie' && c?.saillie) {
-    if (c.saillie.genre === 'bow-window') return [
-      { groupe: 'forme', valeurs: [{ valeur: 'pans', libelle: 'Pans coupés' }, { valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Rectangle arrondi' }] },
-      { groupe: 'niveau', valeurs: [{ valeur: 'rdc', libelle: 'Sous le premier étage' }, { valeur: 'toit', libelle: 'Monte jusqu’au toit' }] },
-      { groupe: 'toit', valeurs: [{ valeur: 'pan', libelle: 'Toit à un pan' }, { valeur: 'plat', libelle: 'Toit plat' }, { valeur: 'pavillon', libelle: 'Toit en pointe' }, { valeur: 'aucun', libelle: 'Sans toit propre (sous un auvent)' }] }
-    ];
+    if (c.saillie.genre === 'bow-window') {
+      // Sous un etage qui avance (schema 16), le bow-window monte jusque sous l'etage, sans toit propre : ni niveau ni toit a choisir.
+      const sousEtage = retraitDuRdc(c.saillie) > 0;
+      return [
+        { groupe: 'forme', valeurs: [{ valeur: 'pans', libelle: 'Pans coupés' }, { valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Rectangle arrondi' }] },
+        ...(sousEtage ? [] : [{ groupe: 'niveau', valeurs: [{ valeur: 'rdc', libelle: 'Sous le premier étage' }, { valeur: 'toit', libelle: 'Monte jusqu’au toit' }] }]),
+        { groupe: 'rdc', valeurs: [{ valeur: '0', libelle: 'Façade droite' }, { valeur: 'aligne', libelle: 'Rez-de-chaussée en retrait, l’étage à fleur du bow-window' },
+          ...RECULS_RDC_M.map((m) => ({ valeur: String(m), libelle: 'Rez-de-chaussée en retrait de ' + String(m).replace('.', ',') + ' m' }))] },
+        ...(sousEtage ? [] : [{ groupe: 'toit', valeurs: [{ valeur: 'pan', libelle: 'Toit à un pan' }, { valeur: 'plat', libelle: 'Toit plat' }, { valeur: 'pavillon', libelle: 'Toit en pointe' }, { valeur: 'aucun', libelle: 'Sans toit propre (sous un auvent)' }] }])
+      ];
+    }
     return [
       { groupe: 'ouvert', valeurs: [{ valeur: 'poteaux', libelle: 'Sur poteaux' }, { valeur: 'mur', libelle: 'Fermée' }] },
       groupeRetrait(false)
@@ -408,6 +417,14 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
     if (groupe === 'forme') return s.forme;
     if (groupe === 'niveau') return s.niveau;
     if (groupe === 'toit') return s.toit;
+    if (groupe === 'rdc') {
+      // Un recul regle a la main (inspecteur) qui ne tombe sur aucun choix : rien n'est enfonce, rien n'est arrondi.
+      const r = retraitDuRdc(s);
+      if (r === 0) return '0';
+      if (Math.abs(r - s.profondeurM) < 0.005) return 'aligne';
+      const v = RECULS_RDC_M.find((m) => Math.abs(m - r) < 0.005);
+      return v === undefined ? null : String(v);
+    }
     if (groupe === 'ouvert') return c.ouvert === false ? 'mur' : 'poteaux';
     if (groupe === 'retrait') return retraitProche(c.retraitM ?? 0);
   }
@@ -472,6 +489,11 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
     if (groupe === 'forme' && ['pans', 'rectangle', 'arc', 'conge'].includes(valeur)) return replacerSaillie(corps, t.rang, { forme: valeur as SaillieFacade['forme'] });
     if (groupe === 'niveau' && (valeur === 'rdc' || valeur === 'toit')) return replacerSaillie(corps, t.rang, { niveau: valeur, hauteurM: undefined });
     if (groupe === 'toit' && (valeur === 'pan' || valeur === 'plat' || valeur === 'pavillon' || valeur === 'aucun')) return replacerSaillie(corps, t.rang, { toit: valeur });
+    if (groupe === 'rdc' && c.saillie.genre === 'bow-window') {
+      if (valeur === '0') return replacerSaillie(corps, t.rang, { rdcEnRetraitM: undefined });
+      const m = valeur === 'aligne' ? c.saillie.profondeurM : RECULS_RDC_M.find((x) => String(x) === valeur);
+      return m === undefined ? corps.slice() : replacerSaillie(corps, t.rang, { rdcEnRetraitM: m, niveau: 'rdc' });
+    }
     if (groupe === 'ouvert') {
       // Poteaux ou mur : la galerie est ouverte, l'appentis ferme ; le genre suit pour que le nom de la ligne reste juste.
       const ouvert = valeur === 'poteaux';

@@ -234,6 +234,37 @@ describe('ajouterDetailsBatiment', () => {
     }
   });
 
+  it('sous un etage qui avance : les ouvertures du bas sur le mur recule (aucune derriere le bow-window), celles de l etage au nu, le soubassement au pied', () => {
+    const corps = { pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [] } as unknown as CorpsToit;
+    const dessin = (retraitsRdc?: Map<CorpsToit, { mur: number; reculM: number; hauteurM: number; devant: [PtBrut, PtBrut][] }[]>) => {
+      const { ajoutes, ctx } = scene();
+      ajouterDetailsBatiment(ctx, { ...maison(), batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 6, { etages: 2, corps: [corps], sansToit: true, ...(retraitsRdc ? { retraitsRdc } : {}) });
+      return ajoutes;
+    };
+    // Les sommets d'une maille, dans le plan : (x, y du plan, hauteur).
+    const sommets = (m: Mesh | undefined) => { const a = m?.geometry.attributes.position?.array ?? []; const l: { x: number; y: number; z: number }[] = []; for (let i = 0; i < a.length; i += 3) l.push({ x: a[i]!, y: -a[i + 2]!, z: a[i + 1]! }); return l; };
+    const sud = (l: { x: number; y: number; z: number }[]) => l.filter((q) => q.y < 2 && q.x > 0.3 && q.x < 11.7);
+    const avant = sommets(dessin().find((m) => m.name === 'batiment-ouvertures'));
+    expect(sud(avant).every((q) => Math.abs(q.y) < 0.1)).toBe(true);
+    const apres = dessin(new Map([[corps, [{ mur: 0, reculM: 1, hauteurM: 2.7, devant: [[p(5, 1), p(7, 1)]] }]]]));
+    const ouv = sud(sommets(apres.find((m) => m.name === 'batiment-ouvertures')));
+    const bas = ouv.filter((q) => q.z < 2.7), haut = ouv.filter((q) => q.z > 2.7);
+    expect(bas.length).toBeGreaterThan(0);
+    expect(haut.length).toBeGreaterThan(0);
+    expect(bas.every((q) => Math.abs(q.y - 1) < 0.1)).toBe(true);
+    expect(haut.every((q) => Math.abs(q.y) < 0.1)).toBe(true);
+    // Rien derriere le bow-window, entre 5 et 7 m.
+    expect(bas.some((q) => q.x > 5.2 && q.x < 6.8)).toBe(false);
+    // Le soubassement court au pied du mur recule, plus au nu de la facade.
+    const soub = sommets(apres.find((m) => m.name === 'batiment-soubassement')), soubAvant = sommets(dessin().find((m) => m.name === 'batiment-soubassement'));
+    const auNu = (l: { y: number }[]) => l.filter((q) => q.y < 0.1).length;
+    expect(soub.some((q) => Math.abs(q.y - 1) < 0.05)).toBe(true);
+    expect(soubAvant.some((q) => Math.abs(q.y - 1) < 0.05)).toBe(false);
+    // Plus rien au nu de la facade : ni la bande du mur sud, ni le bout des murs voisins sous l'etage.
+    expect(auNu(soubAvant)).toBeGreaterThan(0);
+    expect(auNu(soub)).toBe(0);
+  });
+
   it('ne fait rien sans contour ni hauteur', () => {
     const { ajoutes, ctx } = scene();
     ajouterDetailsBatiment(ctx, { ...maison(), pts: [p(0, 0)] }, 6);

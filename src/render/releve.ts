@@ -7,8 +7,12 @@
 //
 // Sur une Facade validee (lot F5), une ouverture que la personne n'a pas encore verifiee (venue d'un rejeu apres la validation) a
 // ses tableaux en tirets : elle est a verifier. Chaque coupure porte l'identifiant de son ouverture (`data-ouverture`).
+//
+// Un rez-de-chaussee en retrait sous l'etage (schema 16, un bow-window glisse dessous) : le contour reste celui de l'etage, en trait plein ;
+// le mur recule du rez-de-chaussee est un trait en tirets (`data-retrait-rdc`), comme un etage en surplomb sur un plan d'architecte.
 
 import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
+import { murDuCorps, retraitsDuRdc } from '../facade/modeToit/saillies.js';
 import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
 import type { EtatApp } from '../core/state.js';
 import type { PtBrut, PtEcran } from '../model/types.js';
@@ -35,6 +39,18 @@ export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (
     groupe.appendChild(l);
   };
   const echelle = etat.scene.scale;
+  etat.objects.forEach((o) => {
+    if (o.type !== 'polygon' || masque(o) || !o.batiment?.corpsToit?.some((c) => c.saillie?.rdcEnRetraitM)) return;
+    retraitsDuRdc(o.batiment.corpsToit).forEach((rs, h) => rs.forEach((r) => {
+      const { a, b, n } = murDuCorps(h, r.mur), d = { x: -n.x * r.reculM, y: -n.y * r.reculM };
+      const l = document.createElementNS(NS, 'line');
+      const pa = versEcran({ x: a.x + d.x, y: a.y + d.y }), pb = versEcran({ x: b.x + d.x, y: b.y + d.y });
+      l.setAttribute('x1', String(pa.x)); l.setAttribute('y1', String(pa.y)); l.setAttribute('x2', String(pb.x)); l.setAttribute('y2', String(pb.y));
+      l.setAttribute('stroke', SVG_INK); l.setAttribute('stroke-width', '1.2'); l.setAttribute('stroke-dasharray', '5 3');
+      l.setAttribute('data-retrait-rdc', o.key);
+      groupe.appendChild(l);
+    }));
+  });
   etat.objects.forEach((o) => {
     if (o.type !== 'polygon' || !o.batiment?.facades?.length || masque(o)) return;
     const facades = facadesDuContour(o.pts, 0);

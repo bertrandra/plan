@@ -173,6 +173,9 @@ export function saillieValide(v: unknown): SaillieFacade | null {
   if (positif(v.hauteurM)) base.hauteurM = v.hauteurM;
   // La couverture d'un auvent (lot L1) : un mot connu, ou rien.
   if (genre === 'auvent' && (v.couverture === 'verre' || v.couverture === 'tuile' || v.couverture === 'zinc' || v.couverture === 'autre')) base.couverture = v.couverture;
+  // Le rez-de-chaussee en retrait sous l'etage (schema 16) : un bow-window seul, borne comme le recul d'une travee ; mal forme, il est
+  // retire et le bow-window reste devant le mur, comme avant.
+  if (genre === 'bow-window' && positif(v.rdcEnRetraitM) && v.rdcEnRetraitM <= RECUL_TRAVEE_MAX_M) base.rdcEnRetraitM = v.rdcEnRetraitM;
   return base;
 }
 

@@ -9,7 +9,7 @@ import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '.
 import { modeToitActif, hauteurMurMesuree } from '../../model/toitMesure.js';
 import { ajouterToitMesure3d } from '../toitMesure3d.js';
 import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from '../toitCorps3d.js';
-import { empriseDeSaillie, separerBowWindows } from '../../facade/modeToit/saillies.js';
+import { corpsAuPied, empriseDeSaillie, retraitsDuRdc, separerBowWindows, type RetraitRdc } from '../../facade/modeToit/saillies.js';
 import { aDesTraveesOuvertes, contourAvecReculs } from '../../facade/modeToit/travees.js';
 import { corpsVisibles } from '../../facade/modeToit/facadesDesCorps.js';
 import { ajouterCheminees3d } from '../cheminees3d.js';
@@ -55,6 +55,8 @@ export function volumesEnBati(o: ObjetPlan, diag: boolean, h: number, footprint:
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
   const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
   // Un bow-window n'a ni prisme ni fenetres comme un corps : il se dessine a part (ajouterBowWindows3d), a la forme de son plan.
+  // Les rez-de-chaussee en retrait sous l'etage (schema 16), lus sur toute la liste : le dessin peut isoler un corps.
+  const retraitsRdc = retraitsDuRdc(modeToit === 'corps' && corpsPermis ? o.batiment?.corpsToit : null);
   const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? corpsVisibles(o.batiment?.corpsToit, vue3d.corpsIsole?.cle === o.key ? vue3d.corpsIsole.rang : null) : null);
   const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
   // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
@@ -71,13 +73,13 @@ export function volumesEnBati(o: ObjetPlan, diag: boolean, h: number, footprint:
     // Un appentis ouvert n'a pas de prisme : des poteaux le portent, et le mur est celui du corps qui le porte.
     // Un mur en travees reculees (schema 14) : le pied du corps suit ses reculs, le toit reste celui du rectangle.
     // Un corps aux travees ouvertes (un garage devenu abri) n'a pas de prisme : ses murs et ses poteaux se dessinent a part (toitCorps3d.ts).
-    ? corpsToit.filter((c) => !estAppentisOuvert(c) && !aDesTraveesOuvertes(c)).map((c) => piedDuCorps(c))
+    ? corpsToit.filter((c) => !estAppentisOuvert(c) && !aDesTraveesOuvertes(c)).map((c) => piedDuCorps(c, retraitsRdc.get(c)))
     : toitMesure
     ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
     : volumesToit
     ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
     : o.type === 'polygon' && o.batiment?.facades?.some((r) => partiesBassesDu(r).length) ? volumesDuBatiment(o.pts, h, o.batiment?.facades) : [{ pts: footprint, hauteur: h }];
-  return { apparence, couleurMur, corpsToit, bowWindows, volumesToit, toitMesure, surContour, volumes, egoutDe };
+  return { apparence, couleurMur, corpsToit, bowWindows, volumesToit, toitMesure, surContour, volumes, egoutDe, retraitsRdc };
 }
 
 /** Ce que `volumesEnBati` a lu d'un objet. */
@@ -88,7 +90,7 @@ export type BatiEnVolumes = ReturnType<typeof volumesEnBati>;
  * plus bas du sol sous son emprise.
  */
 export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre: PtBrut, ySol: number, yBase: number, co: ContexteObjets): void {
-  const { apparence, couleurMur, corpsToit, bowWindows, volumesToit, toitMesure, surContour, volumes, egoutDe } = b;
+  const { apparence, couleurMur, corpsToit, bowWindows, volumesToit, toitMesure, surContour, volumes, egoutDe, retraitsRdc } = b;
   // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
   // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
   // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
@@ -103,7 +105,7 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
     ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
   } else if (o.type === 'polygon' && corpsToit) {
     // Un bow-window sous un appentis ouvert porte son toit : pas de poteau devant lui.
-    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts, bowWindows.map(empriseDeSaillie));
+    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts, bowWindows.map(empriseDeSaillie), retraitsRdc);
   }
   if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.batiment?.toit);
   // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui n'en porte pas ne pose rien de plus.
@@ -148,14 +150,20 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
         // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
         // Un appentis ouvert n'a pas de mur : pas de fenetre non plus.
         ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit.filter((c) => !estAppentisOuvert(c)) } : {}),
+        // Un rez-de-chaussee en retrait sous l'etage (schema 16) : ses ouvertures et son soubassement suivent le mur recule.
+        ...(corpsToit && !surContour && retraitsRdc.size ? { retraitsRdc } : {}),
         // Le soubassement s'interrompt sous un appentis ouvert : il n'a pas de mur.
         ...(corpsToit?.some((c) => estAppentisOuvert(c) || aDesTraveesOuvertes(c)) ? { ouverts: corpsToit.filter((c) => estAppentisOuvert(c) || aDesTraveesOuvertes(c)) } : {}) }
     );
   }
 }
 
-/** Le prisme d'un corps : son pied (ses murs recules compris) et la hauteur de chaque mur ; un retour de recul a l'egout le plus bas. */
-export function piedDuCorps(c: CorpsToit): { pts: PtBrut[]; hauteur: number; hauteursMurs: number[] } {
-  const bas = Math.min(...c.egouts), h = hauteursMursCorps(c), pied = contourAvecReculs(c);
+/**
+ * Le prisme d'un corps : son pied (ses murs recules compris) et la hauteur de chaque mur ; un retour de recul a l'egout le plus bas. Un
+ * rez-de-chaussee en retrait (schema 16) recule le mur entier du prisme ; l'etage qui avance au-dessus est dessine a part
+ * (three/toitCorps3d.ts, `facettesEncorbellement`).
+ */
+export function piedDuCorps(c: CorpsToit, retraits?: readonly RetraitRdc[]): { pts: PtBrut[]; hauteur: number; hauteursMurs: number[] } {
+  const bas = Math.min(...c.egouts), h = hauteursMursCorps(c), pied = contourAvecReculs(corpsAuPied(c, retraits));
   return { pts: pied.pts, hauteur: bas, hauteursMurs: pied.cotes.map((k) => (k.mur >= 0 ? h[k.mur] ?? bas : bas)) };
 }

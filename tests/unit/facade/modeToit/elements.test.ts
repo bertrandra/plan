@@ -75,7 +75,7 @@ describe('les elements du toit', () => {
   it('regle les groupes en images : forme, niveau, toit d un bow ; poteaux et retrait d une galerie ; hauteur d un pignon', () => {
     const o = avecTout();
     const bow: CibleElement = { type: 'saillie', rang: 1, i: 0 };
-    expect(groupesDe(o.batiment!.corpsToit!, bow).map((g) => g.groupe)).toEqual(['forme', 'niveau', 'toit']);
+    expect(groupesDe(o.batiment!.corpsToit!, bow).map((g) => g.groupe)).toEqual(['forme', 'niveau', 'rdc', 'toit']);
     let corps = appliquerChoix(o.batiment!.corpsToit!, bow, 'forme', 'arc');
     expect(valeurDuGroupe(corps, bow, 'forme')).toBe('arc');
     corps = appliquerChoix(corps, bow, 'toit', 'plat');
