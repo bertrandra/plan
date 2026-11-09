@@ -68,6 +68,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     l'axe est-ouest), comme pour une composition carrée.
   - **Tout le toit ne tourne plus sous un bow-window glissé sous l'étage quand son mur changerait de tronçon** : le recul du
     rez-de-chaussée, sur tout le mur qui le porte, passait d'un mur de 10 m à un mur de 5 m en silence. Le groupe est grisé avec la raison.
+- **Mode Toit au doigt : un pincement dont le second doigt se pose sur une poignée zoome, il ne tire plus la poignée.** Le cas inverse
+  (une poignée prise, puis un second doigt) était déjà un pincement ; celui-ci tirait la poignée sous le second doigt : devant une façade
+  au téléphone, la poignée « Avancer » (5.20.0) avançait le mur au lieu de rapprocher la vue (point 143 de la fumée, rouge en compact
+  depuis la 5.20.0). Le doigt va à la vue (`isPrimary` faux : un doigt était déjà posé), et le pincement de la vue de façade suit les
+  déplacements d'un doigt rendu à la vue depuis une poignée.
+- **Mode Toit : une poignée ne se pose plus sous ce qui flotte sur la scène.** Sur tablette, la poignée d’un bout du mur, ramenée au
+  bord gauche après un zoom, tombait sous le plan des façades déplié (point 143 en moyen) ; au téléphone, la poignée « Hauteur du faîte »
+  d'un pignon, écartée vers le haut, tombait sous le choix Plan / 3D / Visionneuse (point 141 en compact). Ni l'une ni l'autre ne se
+  prenaient. Le plan des façades et tout élément posé sur la scène qui couvre une poignée sont des obstacles de la partie libre
+  (`poigneesLibres.ts`) : la poignée en sort par le bord le plus proche, à une cible tactile, un trait la relie à son point. Rien ne change
+  au projet ni aux exports.
+- **Fumée de la nuit, point 144 (l'orbite du mode Toit) : il dépassait son délai de 400 s au bureau** (416 à 418 s en large sombre les
+  nuits du 7, 8 et 9 novembre 2026, 414 s en large clair le 8, 334 s le 9 ; run 42610777620). Ce n'est pas un défaut de l'application :
+  la molette avance d'un pas fixe par cran vers le point visé, et chaque événement du pointeur n'est acquitté qu'à l'image suivante, qui
+  coûte 2 à 4 s en qualité Normale sans carte graphique ; le point envoyait 100 crans et 40 déplacements du curseur sur place (166 s pour
+  les 40 premiers crans, 155 s pour les 60 suivants, mesurés). Le point passe la Vue 3D en Économe (la préférence de l'appareil, comme le
+  point 132 depuis #570 et le lot `ci`) et pose le curseur une fois : 164 à 169 s au bureau, les mêmes mesures (au plus près 5,5 m, au
+  plus loin 92 m pour une borne de 95 m). Les points 142 et 143, du même genre et à 277 à 307 s en large sombre la même nuit, passent
+  aussi en Économe : 100 à 120 s. Aucune vérification n'est retirée, le délai ne change pas ; le passage en Économe est une fonction
+  commune du script (`vue3dEconome`), reprise par le point 132.
 
 ## [5.21.0] — 2026-11-09
 

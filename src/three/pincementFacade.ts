@@ -34,12 +34,14 @@ export function brancherPincementFacade(dom: HTMLElement): () => void {
   };
   const haut = (e: PointerEvent) => { doigts.delete(e.pointerId); avant = mesure(); };
   dom.addEventListener('pointerdown', bas, true);
-  dom.addEventListener('pointermove', bouge, true);
+  // Les deplacements se suivent sur la fenetre : un doigt pose sur une poignee et rendu a la vue (zones/vue3d/PoigneesToit.tsx,
+  // `poserSurLaScene`) reste tenu par la poignee, ses deplacements ne passent pas par le canevas. Seuls comptent les doigts poses ici.
+  window.addEventListener('pointermove', bouge, true);
   window.addEventListener('pointerup', haut, true);
   window.addEventListener('pointercancel', haut, true);
   return () => {
     dom.removeEventListener('pointerdown', bas, true);
-    dom.removeEventListener('pointermove', bouge, true);
+    window.removeEventListener('pointermove', bouge, true);
     window.removeEventListener('pointerup', haut, true);
     window.removeEventListener('pointercancel', haut, true);
   };

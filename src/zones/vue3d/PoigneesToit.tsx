@@ -16,7 +16,7 @@ import { axeUtilisable, cadreDe, cibleDesPoignees, cotesDe, ecarterAEcran, gliss
 import { abonnerImage, cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { estCache } from '../../three/occultation.js';
 import { moteur3d } from '../../three/demande3d.js';
-import { ramenerDansLeLibre } from '../../facade/modeToit/poigneesLibres.js';
+import { ramenerDansLeLibre, type Bornes, type Rect } from '../../facade/modeToit/poigneesLibres.js';
 import type { Magasin } from '../../app/magasin.js';
 import { enPoints } from '../../model/formes.js';
 import { notifications } from '../../shell/notifications.js';
@@ -151,7 +151,7 @@ let rayon: InstanceType<typeof THREE.Raycaster> | null = null;
  * La partie de l'image ou une poignee ecartee peut aller : hors du panneau du mode (colonne a droite ou bandeau en bas) et a une cible
  * tactile des bords (le bandeau des vues, l'horloge et les boutons de la scene les bordent). En pixels du calque.
  */
-function bornesLibres(hote: DOMRect): { x0: number; y0: number; x1: number; y1: number } {
+function bornesLibres(hote: DOMRect): Bornes {
   const p = hotes3d.vue3d?.querySelector('.panneauToit')?.getBoundingClientRect();
   const m = 2 * SAISIE_PX;
   let x1 = hote.width - m, y1 = hote.height - m;
@@ -165,7 +165,61 @@ function bornesLibres(hote: DOMRect): { x0: number; y0: number; x1: number; y1: 
   let x0 = m;
   const b = hotes3d.vue3d?.querySelector('.navigateurToit .boutonNavigateur')?.getBoundingClientRect();
   if (b && b.width > 0 && b.right - hote.left < hote.width / 3) x0 = Math.max(x0, b.right - hote.left + SAISIE_PX);
-  return { x0, y0, x1: Math.max(x0, x1), y1: Math.max(y0, y1) };
+  // Deplie (tablette, bureau), le plan des facades se pose en haut a gauche sans en occuper tout le bord : une poignee ramenee au bord
+  // gauche tombait dessous et ne se prenait pas (point 143 en moyen, 9 novembre 2026). Il est un obstacle : elle en sort par le bord le
+  // plus proche, a une cible tactile.
+  const n = hotes3d.vue3d?.querySelector('.navigateurToit:not(.replie)')?.getBoundingClientRect();
+  const obstacles = n && n.width > 0 && n.height > 0
+    ? [{ x0: n.left - hote.left - SAISIE_PX, y0: n.top - hote.top - SAISIE_PX, x1: n.right - hote.left + SAISIE_PX, y1: n.bottom - hote.top + SAISIE_PX }]
+    : [];
+  return { x0, y0, x1: Math.max(x0, x1), y1: Math.max(y0, y1), obstacles };
+}
+
+/**
+ * Ou se posent les poignees a l'ecran (pixels du calque), de leurs points projetes. Une poignee sous le panneau se ramene au bord de la
+ * partie libre : elle se prend, un trait la relie a son point. Hors de l'image, elle reste ou elle est (on la retrouve en tournant) :
+ * seule celle que le panneau (ou un bord) couvre se ramene. Puis elles s'ecartent l'une de l'autre, d'une cible tactile.
+ */
+function placerALEcran(projetees: readonly ({ x: number; y: number } | null)[], r: DOMRect, hote: Element): ({ x: number; y: number } | null)[] {
+  const libres = bornesLibres(r);
+  const dansLImage = <T extends { x: number; y: number }>(q: T | null): q is T => !!q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height;
+  const placer = () => {
+    const ramenees = projetees.map((q) => (dansLImage(q) ? ramenerDansLeLibre(q, libres) : q));
+    const ecartees = ecarterAEcran(ramenees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, libres);
+    return ramenees.map((q, k) => (q ? ecartees[k] ?? q : null));
+  };
+  let places = placer();
+  // Ce qui flotte sur la scene sans etre a elle (au telephone, le choix Plan / 3D / Visionneuse sous la barre) couvrait une poignee
+  // ecartee vers le haut, qui ne se prenait plus (point 141 au telephone, 9 novembre 2026) : il devient un obstacle, et les poignees se
+  // replacent hors de lui. Deux fois au plus : un replacement peut en mener une sous un autre.
+  for (let tour = 0; tour < 2; tour++) {
+    const ajoutes = obstaclesSous(places.filter(dansLImage), r, hote);
+    if (!ajoutes.length) break;
+    libres.obstacles = [...(libres.obstacles ?? []), ...ajoutes];
+    places = placer();
+  }
+  return places;
+}
+
+/**
+ * Les elements poses sur la scene qui ne sont pas a elle et couvrent l'un de ces points (pixels du calque) : pour chacun, le plus grand
+ * de ses parents qui couvre encore le point sans contenir la scene (le groupe entier, pas le seul bouton touche), agrandi d'une cible
+ * tactile. Les elements sans pointeur (les notifications du mode Toit) ne couvrent rien : le doigt les traverse.
+ */
+function obstaclesSous(points: readonly { x: number; y: number }[], hote: DOMRect, scene: Element): Rect[] {
+  const vus = new Set<Element>(), res: Rect[] = [];
+  for (const q of points) {
+    const x = hote.left + q.x, y = hote.top + q.y;
+    let el = document.elementFromPoint(x, y);
+    if (!el || scene.contains(el)) continue;
+    const couvre = (e: Element) => { const b = e.getBoundingClientRect(); return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom; };
+    while (el.parentElement && !el.parentElement.contains(scene) && couvre(el.parentElement)) el = el.parentElement;
+    if (vus.has(el)) continue;
+    vus.add(el);
+    const b = el.getBoundingClientRect();
+    res.push({ x0: b.left - hote.left - SAISIE_PX, y0: b.top - hote.top - SAISIE_PX, x1: b.right - hote.left + SAISIE_PX, y1: b.bottom - hote.top + SAISIE_PX });
+  }
+  return res;
 }
 
 /** Les cotes du trace IGN ou le geste s'est colle, eclairees a la hauteur de l'egout du corps tire : la ou se voit le mur qui s'y colle. */
@@ -215,9 +269,17 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     const echap = (e: KeyboardEvent) => { if (e.key === 'Escape' && glisse.current) { glisse.current = null; modeToitCourant()?.annulerGlisser(); oublier(); e.stopPropagation(); } };
     // Un second doigt pendant qu'une poignee est tiree : c'est un pincement, pas une retouche. Le glisser est annule (le toit revient a
     // l'etat de la pile) et les deux doigts vont a l'orbite ; un second doigt pose sur une autre poignee ne la prend pas.
+    // L'inverse aussi (`isPrimary` faux : un doigt pose avant, ailleurs) : la poignee ne se prend pas, le doigt va a la vue (point 143 au
+    // telephone, 9 novembre 2026 : la poignee « Avancer » sous le second doigt tirait la facade au lieu de zoomer).
+    const pincementSurUnePoignee = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' || e.isPrimary || !e.isTrusted || !(e.target as Element | null)?.closest?.('[data-poignee]')) return;
+      e.stopPropagation(); e.preventDefault();
+      poserSurLaScene(e.pointerId, e.pointerType, e.clientX, e.clientY, false);
+    };
     const second = (e: PointerEvent) => {
       const g = glisse.current;
-      if (!g || e.pointerId === g.pointeur || !e.isTrusted) return;
+      if (!g) { pincementSurUnePoignee(e); return; }
+      if (e.pointerId === g.pointeur || !e.isTrusted) return;
       glisse.current = null;
       try { g.element.releasePointerCapture(g.pointeur); } catch { /* deja relache */ }
       modeToitCourant()?.annulerGlisser();
@@ -258,12 +320,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const ancre = projeter(poignees[0]?.point as Point3, base);
   // Les poignees a l'ecran, ecartees si elles se recouvrent : chacune doit se prendre au doigt (deux zones de saisie bord a bord).
   const projetees = poignees.map((p) => projeter(p.point, base));
-  // Une poignee sous le panneau se ramene au bord de la partie libre : elle se prend, un trait la relie a son point.
-  const libres = bornesLibres(r);
-  // Hors de l'image, elle reste ou elle est (on la retrouve en tournant) : seule celle que le panneau (ou un bord) couvre se ramene.
-  const ramenees = projetees.map((q) => (q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height ? ramenerDansLeLibre(q, libres) : q));
-  const ecartees = ecarterAEcran(ramenees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, libres);
-  const places = ramenees.map((q, k) => (q ? ecartees[k] ?? q : null));
+  const places = placerALEcran(projetees, r, hote);
   // Une poignee derriere une surface du batiment, en 3D libre : estompee, elle ne se prend pas. Le rayon part de l'oeil de l'orbite vers
   // son point. De dessus, les poignees sont celles du plan, posees au pied du corps sous son toit ; devant une facade, la vue est celle du mur.
   const sc = vue3d.scene, racines = sc && !sc.cameraRendu && !plan ? moteur3d()?.racinesDe3d(s.cle) ?? [] : [];

@@ -144,6 +144,21 @@ async function image3dStable(page, max) {
 }
 
 /**
+ * La Vue 3D en Économe, la preference de l'appareil (comme le lot `ci`), pour un point qui ne verifie rien de la qualite du rendu
+ * (camera, poignees, gestes, toit ecrit). Au bureau, sans carte graphique, une image de la parcelle en Normale coute plusieurs secondes
+ * et chaque evenement du pointeur en attend une : le point 132 y passait 465 s (mesure du 4 novembre 2026), le point 144 400 s et plus
+ * (nuits du 7 au 9 novembre 2026). Le choix passe par le menu de la Vue 3D, comme celui de la personne.
+ */
+async function vue3dEconome(page) {
+  await page.evaluate(() => {
+    const sel = document.querySelector('#terrasse3dQualite');
+    if (!sel || sel.value === 'econome') return;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'econome');
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+/**
  * La bibliotheque d'essences du serveur simulee (un chene et un pin, tires des presets d'EZ-tree), page rechargee : les arbres du
  * plan de demonstration se dessinent alors en lots d'instances (points 91 et 135).
  */
@@ -4688,6 +4703,8 @@ const POINTS = {
     await page.evaluate(() => window.__plan.selectionnerCle('maison'));
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    // Cent crans de molette, chacun acquitte a l'image suivante : en Normale, au bureau, 2 a 4 s chacun (vue3dEconome).
+    await etape('économe', () => vue3dEconome(page));
     await image3dStable(page, 3000);
     const lire = () => page.evaluate(() => {
       const sc = window.__plan.scene3d(), o = window.__plan.etat().objects.find((x) => x.key === 'maison');
@@ -4730,7 +4747,9 @@ const POINTS = {
     const c = { x: (z.x0 + z.x1) / 2, y: (z.y0 + z.y1) / 2 };
     const pincer = (de, a) => doigts(page, [{ x: c.x - de, y: c.y }, { x: c.x + de, y: c.y }], [{ x: c.x - a, y: c.y }, { x: c.x + a, y: c.y }], 6);
     if (tactile) for (let k = 0; k < 3; k++) await pincer(25, 85);
-    else for (let k = 0; k < 40; k++) { await page.mouse.move(c.x, c.y); await page.mouse.wheel(0, -100); await page.waitForTimeout(10); }
+    // Le curseur se pose une fois : chaque deplacement, meme sur place, attend lui aussi une image. Un cran rapproche d'un pas fixe vers
+    // le point vise (homothetie, three/navigation.ts) : la camera ne s'y arrete qu'a la borne, d'ou les quarante crans.
+    else { await page.mouse.move(c.x, c.y); for (let k = 0; k < 40; k++) { await page.mouse.wheel(0, -100); await page.waitForTimeout(10); } }
     await page.waitForTimeout(300);
     const pres = await lire();
     mesures.push('au plus pres ' + pres.dist.toFixed(1) + ' m');
@@ -4776,6 +4795,8 @@ const POINTS = {
     }, ae101);
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    // Pres de cent evenements de molette, chacun acquitte a l'image suivante : en Normale, au bureau, 280 s du point (vue3dEconome).
+    await etape('économe', () => vue3dEconome(page));
     await image3dStable(page, 3000);
     await etape('ouvrir le mode', async () => {
       await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
@@ -6084,6 +6105,8 @@ const POINTS = {
       await page.evaluate(() => window.__plan.selectionnerCle('maison'));
       await page.evaluate(() => window.__plan.executer('vue.3d'));
       await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+      // Chaque toucher et chaque glisser attend une image : en Normale, au bureau, 300 s du point (vue3dEconome).
+      await etape('économe', () => vue3dEconome(page));
       await image3dStable(page, 3000);
       await etape('ouvrir le mode', async () => {
         await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
@@ -7039,12 +7062,7 @@ const POINTS = {
     // La Vue 3D en Économe, la preference de l'appareil (comme le lot `ci`) : au bureau, sans carte graphique, une image de la parcelle
     // en Normale coute plusieurs secondes et chaque geste en attend une (mesure du 4 novembre 2026, 465 s) ; rien de ce que le point
     // verifie ne depend de la qualite du rendu.
-    await etape('économe', () => page.evaluate(() => {
-      const sel = document.querySelector('#terrasse3dQualite');
-      if (!sel || sel.value === 'econome') return;
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'econome');
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }));
+    await etape('économe', () => vue3dEconome(page));
     await etape('image stable', () => image3dStable(page, 3000));
     // Le bouton de la scene (le meme que les points 97 et 98) ; sur cette scene chargee, un clic d'interface attend sa stabilite : la commande.
     // La vue de la photo du proprietaire : debout devant la facade aux deux pignons, a 9 m, l'oeil a 1,6 m, le regard a mi-facade.
