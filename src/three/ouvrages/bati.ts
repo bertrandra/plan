@@ -96,8 +96,10 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
   // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
   // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
   const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.batiment?.toit ? penteDuToit(o.pts, o.batiment?.toit) : null, latitude: co.latitude, choix: o.batiment?.toit?.couverture ?? null } : undefined;
+  // Les bow-windows glisses sous l'etage dont la face avant a recu la photo du releve : leurs vitres de cette face ne se dessinent pas.
+  let bowsPhotographies: ReadonlySet<CorpsToit> = new Set();
   if (o.type === 'polygon' && (o.batiment?.facades?.length || o.batiment?.toit || volumesToit)) {
-    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture,
+    bowsPhotographies = ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture,
       // Les carreaux d'une facade validee (lot F8) : en relief de pres, hors Econome, comme les baies en creux.
       relief: vue3d.qualite !== 'econome' && dist(centre, co.centre) <= RELIEF_FENETRES_M }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null,
       // Un rez-de-chaussee en retrait sous l'etage (schema 16) : la photo et les ouvertures du bas suivent le mur recule.
@@ -109,7 +111,7 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
     // Un bow-window sous un appentis ouvert porte son toit : pas de poteau devant lui.
     ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts, bowWindows.map(empriseDeSaillie), retraitsRdc);
   }
-  if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.batiment?.toit);
+  if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.batiment?.toit, bowsPhotographies);
   // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui n'en porte pas ne pose rien de plus.
   if (o.type === 'polygon' && corpsToit?.some((c) => c.cheminees?.length || c.terrasse)) {
     const sol = co.sol;

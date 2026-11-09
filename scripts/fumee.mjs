@@ -5397,6 +5397,9 @@ const POINTS = {
     // de 10 x 7 m ; au Mode Toit, un bow-window glisse sous l'etage (« à fleur de l'étage »), « Valider ». En 3D, la photo se coupe au
     // dessous de l'etage (2,70 m) : la bande du bas recule avec le mur du rez-de-chaussee, celle du haut reste au nu ; rien derriere le
     // bow-window (ni photo ni porte) ; les fenetres du bas suivent le mur recule. FUMEE_CAPTURE_PHOTO=<prefixe> enregistre deux vues 3D.
+    // Decisions 6 et 7 du proprietaire (9 novembre 2026) : la part de la photo devant le bow-window se pose sur sa face avant (une maille
+    // `releve-facade-bow-window`, a la place des vitres de cette face) ; la modenature lue (soubassement, bandeaux, chaines d'angle) suit le
+    // mur recule sous l'etage, rien derriere le bow-window, et le bandeau a cheval sur le dessous de l'etage (2,70 m) reste au nu.
     const capture = process.env.FUMEE_CAPTURE_PHOTO;
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
     const etalon = photosScene('02-enduit-uni-face');
@@ -5415,7 +5418,10 @@ const POINTS = {
       o.elevation = verite.hauteur; b.toit = { forme: 'deux-pans', hauteur: 9 - verite.hauteur, angleFaitage: 0, source: 'saisie' };
       const ouvertures = verite.ouvertures.map((v, i) => ({ type: v.type, x: v.x, y: v.y, l: v.l, h: v.h, id: 'o' + (i + 1) }));
       b.facades = [{ cote: 0, largeur: verite.largeur, hauteur: verite.hauteur, hauteurTexture: hT, texture: photo, ouvertures, distance: 12, sourceDistance: 'cadrage', releveLe: '2026-11-09',
-        dimensions: { largeurM: verite.largeur, egoutM: verite.hauteur, source: 'saisie' } }];
+        dimensions: { largeurM: verite.largeur, egoutM: verite.hauteur, source: 'saisie' },
+        // Une modenature lue : soubassement, un bandeau sous les fenetres du bas, un a cheval sur le dessous de l'etage, un entre les
+        // niveaux, des chaines d'angle en pierre.
+        modenature: { soubassement: { hauteurM: 0.5, parement: 'pierre' }, bandeauxM: [1.6, 2.7, 3.4], chaines: 'pierre', source: 'ia' } }];
       window.__plan.toucher('maison');
       window.__plan.etat().measures.length = 0;
       window.__plan.selectionnerCle('maison');
@@ -5436,7 +5442,16 @@ const POINTS = {
         if (/^ouverture:/.test(o.name)) { const b = new window.THREE.Box3().setFromObject(o); if (!b.isEmpty()) ouvertures[o.userData.ouverture] = { z: b.max.z, y: b.min.y }; }
       });
       const c = (x) => Math.round(x * 100) / 100;
-      return { morceaux: morceaux.map((b) => ({ z: c((b.zmin + b.zmax) / 2), bas: c(b.ymin - sol), haut: c(b.ymax - sol), largeur: c(b.xmax - b.xmin) })), ouvertures: Object.fromEntries(Object.entries(ouvertures).map(([k, b]) => [k, { z: c(b.z), y: c(b.y - sol) }])) };
+      // La photo sur la face avant d'un bow-window, la modenature (ses sommets) et les vitres dessinees du bow-window (leur avant le plus loin).
+      const bowPhoto = [], modenature = [];
+      let vitresAvant = -Infinity;
+      sc?.scene?.traverse((o) => {
+        if (o.name === 'releve-facade-bow-window') { const b = new window.THREE.Box3().setFromObject(o); bowPhoto.push({ z: c(b.max.z), bas: c(b.min.y - sol), haut: c(b.max.y - sol), xmin: c(b.min.x), xmax: c(b.max.x), largeur: c(b.max.x - b.min.x) }); }
+        if (o.name === 'releve-modenature') { const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); modenature.push({ x: v.x, y: v.y - sol, z: v.z }); } }
+        if (o.name === 'bow-vitres') vitresAvant = Math.max(vitresAvant, new window.THREE.Box3().setFromObject(o).max.z);
+      });
+      return { morceaux: morceaux.map((b) => ({ z: c((b.zmin + b.zmax) / 2), bas: c(b.ymin - sol), haut: c(b.ymax - sol), largeur: c(b.xmax - b.xmin) })), ouvertures: Object.fromEntries(Object.entries(ouvertures).map(([k, b]) => [k, { z: c(b.z), y: c(b.y - sol) }])),
+        bowPhoto, modenature, vitresAvant: Number.isFinite(vitresAvant) ? c(vitresAvant) : null };
     });
     const poserVue = (vue) => page.evaluate((vue) => {
       const sc = window.__plan.scene3d();
@@ -5457,6 +5472,11 @@ const POINTS = {
     await image3dStable(page, 3000);
     const droite = await lirePhoto();
     if (droite.morceaux.length !== 1) echecs.push('façade droite : ' + droite.morceaux.length + ' morceaux de photo (un attendu)');
+    // Façade droite : la modenature au nu (le mur 1 cm derriere la photo, la saillie devant lui), pas de photo de bow-window.
+    const murNu = (droite.morceaux[0]?.z ?? 0) - 0.01;
+    if (!droite.modenature.length) echecs.push('façade droite : pas de modénature');
+    if (droite.modenature.some((q) => q.z < murNu - 0.01)) echecs.push('façade droite : modénature derrière le nu');
+    if (droite.bowPhoto.length) echecs.push('façade droite : une photo de bow-window');
     if (capture) {
       for (const vue of ['biais', 'face']) { await poserVue(vue); await image3dStable(page, 2500); await page.screenshot({ path: capture + '-droite-' + f.nom + '-' + vue + '.png' }).catch(() => {}); }
     }
@@ -5494,6 +5514,26 @@ const POINTS = {
     if (ov.o2) echecs.push('la porte derrière le bow-window est posée');
     for (const id of ['o1', 'o3']) if (!ov[id] || Math.abs(ov[id].z - (droite.ouvertures[id]?.z ?? 0) + recul) > 0.03) echecs.push(id + ' pas sur le mur reculé');
     for (const id of ['o4', 'o5', 'o6']) if (!ov[id] || Math.abs(ov[id].z - (droite.ouvertures[id]?.z ?? 0)) > 0.01) echecs.push(id + ' a quitté le nu');
+    // La photo sur les faces avant du bow-window (le fond a fleur de l'etage : au nu, 1 cm devant ; des pans coupes aussi, que voit une
+    // photo de face), du sol au dessous de l'etage, sur sa largeur ; les vitres dessinees qui restent (retours d'equerre) sont en arriere.
+    const bp = apres.bowPhoto[0];
+    if (apres.bowPhoto.length !== 1) echecs.push(apres.bowPhoto.length + ' photos sur le bow-window (une attendue)');
+    else {
+      if (Math.abs(bp.z - (nu - recul + (bow?.profondeurM ?? 0))) > 0.03) echecs.push('photo du bow-window à ' + bp.z + ' (attendue à ' + (nu - recul + (bow?.profondeurM ?? 0)).toFixed(2) + ')');
+      if (bp.bas > 0.03 || Math.abs(bp.haut - H) > 0.03) echecs.push('photo du bow-window de ' + bp.bas + ' à ' + bp.haut + ' m');
+      if (bow && Math.abs(bp.largeur - bow.largeurM) > 0.05) echecs.push('photo du bow-window large de ' + bp.largeur + ' m');
+    }
+    if (apres.vitresAvant !== null && bp && apres.vitresAvant > bp.z - 0.05) echecs.push('des vitres dessinées sur la face avant du bow-window');
+    // La modenature : sous l'etage (sous le bandeau a cheval, 2,64 m), sur le mur recule et rien devant le bow-window ; le bandeau a 2,70 m
+    // et ce qui est au-dessus, au nu.
+    // Le bandeau a cheval : ses sommets a 2,64 et 2,76 m (aucune assise de chaine ne s'y arrete) ; il n'est pas coupe en deux plans.
+    const devantBow = (q) => bp && q.x > bp.xmin + 0.02 && q.x < bp.xmax - 0.02;
+    const dessous = apres.modenature.filter((q) => q.y < 2.6), aCheval = apres.modenature.filter((q) => Math.abs(q.y - 2.64) < 0.01 || Math.abs(q.y - 2.76) < 0.01), dessus = apres.modenature.filter((q) => q.y > 2.8);
+    if (!dessous.length) echecs.push('pas de modénature sous l’étage');
+    if (dessous.some((q) => q.z > murNu - recul + 0.05 || q.z < murNu - recul - 0.01)) echecs.push('modénature sous l’étage hors du mur reculé');
+    if (dessous.some(devantBow)) echecs.push('modénature derrière le bow-window');
+    if (!aCheval.length || aCheval.some((q) => q.z < murNu - 0.01)) echecs.push('le bandeau à cheval sur le dessous de l’étage a quitté le nu');
+    if (!dessus.length || dessus.some((q) => q.z < murNu - 0.01)) echecs.push('la modénature de l’étage a quitté le nu');
     if (capture) {
       for (const vue of ['biais', 'face']) { await poserVue(vue); await image3dStable(page, 2500); await page.screenshot({ path: capture + '-retrait-' + f.nom + '-' + vue + '.png' }).catch(() => {}); }
     }
@@ -5507,8 +5547,9 @@ const POINTS = {
     const defait = await lirePhoto();
     const bowsRestes = await page.evaluate(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (/bow/i.test(o.name)) n++; }); return n; });
     if (defait.morceaux.length !== 1 || Math.abs((defait.morceaux[0]?.z ?? 0) - nu) > 0.01) echecs.push('Ctrl+Z du projet : ' + defait.morceaux.length + ' morceaux, ' + bowsRestes + ' mailles de bow-window');
+    if (defait.bowPhoto.length || defait.modenature.some((q) => q.z < murNu - 0.01)) echecs.push('Ctrl+Z du projet : photo de bow-window ou modénature reculée');
     if (await deborde()) echecs.push('débordement');
-    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade droite : ${droite.morceaux.length} morceau ; retrait de ${recul} m : ${bas.length} bande(s) du bas à ${bas.map((m) => m.z).join('/')} (${largeurBas.toFixed(2)} m de large, ${bas.map((m) => m.bas + '–' + m.haut).join(', ')} m), ${haut.length} du haut au nu ; ouvertures ${Object.keys(ov).sort().join(', ')} ; Ctrl+Z : ${defait.morceaux.length} morceau` };
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade droite : ${droite.morceaux.length} morceau ; retrait de ${recul} m : ${bas.length} bande(s) du bas à ${bas.map((m) => m.z).join('/')} (${largeurBas.toFixed(2)} m de large, ${bas.map((m) => m.bas + '–' + m.haut).join(', ')} m), ${haut.length} du haut au nu ; ouvertures ${Object.keys(ov).sort().join(', ')} ; face avant du bow-window (${bow?.forme ?? '?'}) : ${bp ? `photo à ${bp.z} (${bp.largeur} m, ${bp.bas}–${bp.haut} m)` : 'pas de photo'}, vitres ${apres.vitresAvant === null ? 'aucune' : 'jusqu’à ' + apres.vitresAvant} ; modénature : ${dessous.length} sommets sous l’étage, ${aCheval.length} au bandeau à cheval, ${dessus.length} à l’étage ; Ctrl+Z : ${defait.morceaux.length} morceau` };
   },
   151: async (page, f) => {
     // Un projet neuf ne demande pas « Mettre a jour le modele ? » (signale par le proprietaire, 8 novembre 2026 : « À la création

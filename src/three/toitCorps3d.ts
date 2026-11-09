@@ -783,11 +783,13 @@ export function ajouterBordsToit3d(ctx: ContexteToitCorps, corps: readonly Corps
 /**
  * Les bow-windows d'un batiment : leurs murs du sol a l'egout et leur toit propre (facade/modeToit/saillies.ts), a la
  * forme de leur plan (rectangle, arc, conge). Ils ne passent ni par le prisme du batiment ni par la liste des corps.
+ * `photographies` : ceux dont la face avant porte la photo d'un releve (sous un etage qui avance, three/releve3d.ts) ; cette face n'a
+ * pas de vitres dessinees, la photo les montre.
  */
-export function ajouterBowWindows3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined): { pans: number; murs: number } {
+export function ajouterBowWindows3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, photographies: ReadonlySet<CorpsToit> = new Set()): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
   const vitres: S3[][] = [];
-  corps.filter(estBowWindow).forEach((c) => { const f = facettesBowWindow(c); pans.push(...f.pans); murs.push(...f.murs); vitres.push(...vitresBowWindow(c)); });
+  corps.filter(estBowWindow).forEach((c) => { const f = facettesBowWindow(c); pans.push(...f.pans); murs.push(...f.murs); vitres.push(...vitresBowWindow(c, photographies.has(c))); });
   if (pans.length || murs.length) poserFacettes(ctx, pans, murs, toitRef, null);
   if (vitres.length) {
     const m = new THREE.Mesh(maille(vitres, ctx.toLocal, false), new THREE.MeshStandardMaterial({ color: COULEUR_VITRE_BOW, roughness: 0.25, metalness: 0.1, side: THREE.DoubleSide }));

@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+- **Sous un étage qui avance, la photo du relevé couvre la face avant du bow-window, et la modénature lue suit le mur reculé**
+  (décisions 6 et 7 du propriétaire, 9 novembre 2026 ; suite de #635). Quand un bow-window est glissé sous l'étage et que le mur porte une
+  photo de relevé, la part de la photo qui est devant lui se pose sur sa face avant, aux mêmes coordonnées le long de la façade (chaque
+  point montre le pixel du mur qu'il cache, vu de face), du sol à son haut ; elle remplace les vitres dessinées de ces faces. Les faces
+  avant sont celles qu'une photo prise de face voit, tournées de moins de 60° vers la rue : le fond, les pans coupés courants, l'arc sans
+  ses bouts. Un retour d'équerre garde son dessin (couleur du mur, vitres), que la photo ne voit que par la tranche ; le bow-window reste
+  sans toit propre sous l'étage (son dessus se ferme de la couleur du mur, ses murs restent sous la photo). Un
+  bow-window sur une façade droite garde le dessin d'aujourd'hui. La modénature lue (soubassement, bandeaux, chaînes d'angle,
+  encadrements, descentes, store) suit la même règle que la photo : sous le dessous de l'étage, sur le mur reculé ; au-dessus, au nu ;
+  derrière le bow-window et à l'entrée du retrait, rien. Une chaîne d'angle ou une descente qui passe le dessous de l'étage se coupe là ;
+  un bandeau à cheval sur lui reste entier au nu (il marque le plancher de l'étage). Sans rez-de-chaussée en retrait, rien ne change :
+  empreintes, AE 101, banc et chaîne des façades identiques ; pas de champ nouveau dans le fichier (schéma 16). Fumée : point 153.
+
 ### Corrigé
 - **Un Ctrl+Z du projet se voit dans la Vue 3D ouverte** (signalé par l'agent de la PR #635, 9 novembre 2026). L'annulation rendait la
   donnée (le plan, l'inspecteur, les résultats) mais laissait la scène 3D telle quelle : un toit validé au mode Toit, un bow-window, une
