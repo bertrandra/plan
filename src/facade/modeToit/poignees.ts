@@ -20,6 +20,7 @@ import { tourneVers } from '../../geometry/cotesVusDeDehors.js';
 import type { CorpsToit, ProfilPan, PtBrut } from '../../model/types.js';
 import { SAILLIE_PIGNON_MAX_M } from '../../model/corpsToitEtendu.js';
 import { reculAimante } from './travees.js';
+import { dansLeLibre, type Bornes } from './poigneesLibres.js';
 
 export type Axe = 'long' | 'vert' | 'prof';
 
@@ -553,7 +554,7 @@ export const CADRAGE_MIN_M = 3.5;
  * garde sa place si elle est libre, sinon prend la place libre la plus proche autour d'elle, dans `bornes` (la partie libre de l'image). Seule la place du dessin change : un glisser se
  * lit sur les axes de la poignee, pas sur sa place.
  */
-export function ecarterAEcran(points: readonly { x: number; y: number }[], ecart: number, bornes?: { x0: number; y0: number; x1: number; y1: number }): { x: number; y: number }[] {
+export function ecarterAEcran(points: readonly { x: number; y: number }[], ecart: number, bornes?: Bornes): { x: number; y: number }[] {
   const places: { x: number; y: number }[] = [];
   const libre = (q: { x: number; y: number }) => places.every((a) => !(Math.hypot(q.x - a.x, q.y - a.y) < ecart - 1e-6));
   for (const p of points) {
@@ -563,7 +564,7 @@ export function ecarterAEcran(points: readonly { x: number; y: number }[], ecart
     let choisie: { x: number; y: number } | null = null;
     for (let anneau = 1; anneau <= 6 && !choisie; anneau++) for (let k = 0; k < 12 && !choisie; k++) {
       const t = -Math.PI / 2 + (k * Math.PI) / 6, q = { x: p.x + Math.cos(t) * ecart * anneau * 0.75, y: p.y + Math.sin(t) * ecart * anneau * 0.75 };
-      if (libre(q) && (!bornes || (q.x >= bornes.x0 && q.x <= bornes.x1 && q.y >= bornes.y0 && q.y <= bornes.y1))) choisie = q;
+      if (libre(q) && (!bornes || dansLeLibre(q, bornes))) choisie = q;
     }
     places.push(choisie ?? { ...p });
   }
