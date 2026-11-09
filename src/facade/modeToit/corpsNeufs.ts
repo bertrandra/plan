@@ -15,7 +15,6 @@ export type GenreCorps = 'aile' | 'retour' | 'biaise';
 
 const centi = (v: number) => Math.round(v * 100) / 100;
 const vingt = (v: number) => Math.round(v * 20) / 20;
-const borne = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 
 /** Un pas de rotation d'un corps, en degres : celui de la maquette. */
 export const PAS_ROTATION_DEG = 15;
@@ -128,33 +127,14 @@ export function deplacerCorps(corps: readonly CorpsToit[], rang: number, dx: num
 }
 
 /**
- * Etire le corps le long de sa longueur (`L`, le sens du faitage) ou de sa largeur (`W`) en deplacant l'extremite loin de `pts[0]` : l'autre
- * extremite reste en place. Largeur et longueur restent entre 2,5 et 30 m ; le faitage garde sa place relative, ce qui est pose le long du
- * faitage reste dans le corps.
- */
-export function etirerCorps(corps: readonly CorpsToit[], rang: number, axe: 'L' | 'W', delta: number): CorpsToit[] {
-  const c = corps[rang];
-  if (!c || c.saillie) return corps.slice();
-  const r = repere(c.pts), actuelle = axe === 'L' ? r.L : r.W, nouvelle = borne(vingt(actuelle + delta), LONGUEUR_CORPS_MIN_M, LONGUEUR_CORPS_MAX_M);
-  const d = nouvelle - actuelle, v = axe === 'L' ? r.u : r.v;
-  // L'extremite de `pts[0]` a `pts[1]` (L) est portee par pts[1] et pts[2] ; celle de `pts[0]` a `pts[3]` (W), par pts[2] et pts[3].
-  const bouge = axe === 'L' ? [1, 2] : [2, 3];
-  const pts = c.pts.map((p, i) => (bouge.includes(i) ? { x: centi(p.x + v.x * d), y: centi(p.y + v.y * d) } : p));
-  let neuf: CorpsToit = { ...c, pts };
-  if (axe === 'W') neuf = { ...neuf, posFaitage: centi((c.posFaitage * nouvelle) / actuelle) };
-  else neuf = { ...neuf, pignons: c.pignons.map((g) => ({ ...g, debut: Math.min(g.debut, nouvelle - 1.4), fin: Math.min(g.fin, nouvelle) })).filter((g) => g.fin - g.debut >= 1.4),
-    ...(c.lucarnes ? { lucarnes: c.lucarnes.map((l) => ({ ...l, debutM: Math.min(l.debutM, nouvelle - 0.7), finM: Math.min(l.finM, nouvelle - 0.1) })) } : {}) };
-  return suivre(orienterFaitage(corps.map((k, i) => (i === rang ? neuf : k)), rang), rang);
-}
-
-/**
  * Le faitage dans le sens de la longueur, tout seul : un corps a deux pans, quatre pans ou pavillon, sans rien de pose dessus (ni pignon, ni
- * bow-window, ni lucarne), dont le faitage est au milieu, tourne son faitage le long du plus grand cote. Un appentis, un toit plat ou un corps
+ * bow-window, ni lucarne, ni travee), dont le faitage est au milieu, tourne son faitage le long du plus grand cote. Un appentis, un toit plat ou un corps
  * porteur garde le sien.
  */
 export function orienterFaitage(corps: readonly CorpsToit[], rang: number): CorpsToit[] {
   const c = corps[rang];
-  if (!c || c.saillie || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length || c.speciale || c.profil || c.bouts) return corps.slice();
+  // Des travees tiennent a leur mur par son rang : tourner les sommets les porterait sur un autre mur.
+  if (!c || c.saillie || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length || c.speciale || c.profil || c.bouts || c.travees?.length) return corps.slice();
   if (corps.some((k) => k.saillie && k.saillie.hote === rang)) return corps.slice();
   const r = repere(c.pts);
   if (!(c.posFaitage > 0.01 && c.posFaitage < r.W - 0.01) || Math.abs(c.posFaitage - r.W / 2) > 0.05 || c.faitage - Math.min(...c.egouts) < 0.3) return corps.slice();

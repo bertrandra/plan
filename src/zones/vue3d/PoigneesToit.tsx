@@ -32,6 +32,9 @@ const RAYON_DEPLACER_PX = 12;
 /** Les quatre fleches du deplacement, centrees sur la poignee. */
 const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-3 4.5 H-1 V1 H-4.5 V3 L-8 0 L-4.5 -3 V-1 H-1 V-4.5 H-3 Z';
 
+/** La distance de l'oeil devant le mur que regarde la camera de facade, en metres : assez pour voir ses voisins comme une personne dans la rue. */
+const OEIL_FACADE_M = 30;
+
 /**
  * L'oeil, la camera qui fait l'image : un point du plan, et sa hauteur au-dessus du sol du batiment (`base`, `altitudeDuBatiment`). C'est
  * lui que regarde le mur le plus visible du corps choisi, sa silhouette et ses poignees (facade/modeToit/poignees.ts::murLePlusVisible).
@@ -39,7 +42,14 @@ const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-
 function oeilDeLaVue(base: number): Oeil | null {
   const sc = vue3d.scene;
   if (!sc) return null;
-  const cam = cameraDeVue(sc).position;
+  // La camera de facade (three/vueFacadeToit.ts) est oblique, posee par sa matrice seule : sa `position` reste a l'origine de la scene, et
+  // l'oeil tombait au milieu de la parcelle, ou les poignees d'un corps choisi passaient sur son mur de derriere, vu au travers (9 novembre
+  // 2026). Son oeil est devant le mur qu'elle regarde, sur son dos (la troisieme colonne de sa matrice), a hauteur d'homme.
+  if (sc.cameraRendu) {
+    const e = sc.cameraRendu.matrixWorld.elements, x = (e[12] ?? 0) + (e[8] ?? 0) * OEIL_FACADE_M, z = (e[14] ?? 0) + (e[10] ?? 0) * OEIL_FACADE_M;
+    return { x: x + sc.cen.x, y: sc.cen.y - z };
+  }
+  const cam = sc.camera.position;
   return { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z, z: cam.y - base };
 }
 
@@ -145,7 +155,12 @@ function bornesLibres(hote: DOMRect): { x0: number; y0: number; x1: number; y1: 
   const i = hotes3d.vue3d?.querySelector('.etatToit')?.getBoundingClientRect();
   let y0 = m;
   if (i && i.width > 0) { if (p && p.width >= hote.width * 0.6) y1 = Math.min(y1, i.top - hote.top - m); else y0 = Math.max(y0, i.bottom - hote.top + m); }
-  return { x0: m, y0, x1: Math.max(m, x1), y1: Math.max(y0, y1) };
+  // Au telephone, le plan des facades replie est un bouton pose au bord gauche de la scene : une poignee ramenee au bord tombait dessous
+  // (le cote ouest d'un corps vu de dessus, 9 novembre 2026). Elle se pose a sa droite.
+  let x0 = m;
+  const b = hotes3d.vue3d?.querySelector('.navigateurToit .boutonNavigateur')?.getBoundingClientRect();
+  if (b && b.width > 0 && b.right - hote.left < hote.width / 3) x0 = Math.max(x0, b.right - hote.left + SAISIE_PX);
+  return { x0, y0, x1: Math.max(x0, x1), y1: Math.max(y0, y1) };
 }
 
 export function PoigneesToit({ magasin }: { magasin: Magasin }) {
@@ -279,7 +294,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
         );
       })}
       {ancre && cotes.length > 0 && (
-        <foreignObject x={Math.max(4, Math.min(r.width - 220, ancre.x - 100))} y={Math.max(4, ancre.y - 62)} width={200} height={34}>
+        <foreignObject x={Math.max(4, Math.min(r.width - 284, ancre.x - 140))} y={Math.max(4, ancre.y - 62)} width={280} height={34}>
           <div className="cotesToit" role="status">{cotes.map((c) => <span key={c.cle} className="coteToit" data-cote={c.cle}>{c.texte}</span>)}</div>
         </foreignObject>
       )}
