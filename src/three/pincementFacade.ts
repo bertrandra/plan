@@ -8,6 +8,25 @@ import { zoomerLaFacade } from './vueFacadeToit.js';
 
 interface Doigt { x: number; y: number }
 
+/**
+ * Le canevas dont le pincement est branche, un seul a la fois : chaque construction de la Vue 3D cree un canevas, et ses ecouteurs sur la
+ * fenetre (avec le canevas qu'ils retiennent) restaient branches apres sa demolition, un jeu de plus par reconstruction.
+ */
+let branche: { dom: HTMLElement; debrancher: () => void } | null = null;
+
+/** Branche le pincement sur le canevas de la Vue 3D, une fois ; celui d'un canevas precedent se debranche. */
+export function pincerLaFacadeDe(dom: HTMLElement): void {
+  if (branche?.dom === dom) return;
+  debrancherPincementFacade();
+  branche = { dom, debrancher: brancherPincementFacade(dom) };
+}
+
+/** Debranche le pincement (la scene est demolie). */
+export function debrancherPincementFacade(): void {
+  branche?.debrancher();
+  branche = null;
+}
+
 /** Branche le pincement sur le canevas de la Vue 3D ; rend de quoi le debrancher. */
 export function brancherPincementFacade(dom: HTMLElement): () => void {
   const doigts = new Map<number, Doigt>();

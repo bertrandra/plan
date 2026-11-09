@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  avecLesPhotos, casDepuisLesPhotos, nomLibre, photoDeplacee, photoImportee, PHOTOS_PAR_CAS_MAX, sansLaPhoto, suivreLesRangs, suivreListe, texteDuReport,
-  veriteSuivie, veriteSurLAssemblage, veriteSurLesPhotos,
+  avecLesPhotos, casDepuisLesPhotos, issueDeLaVerite, nomLibre, photoDeplacee, photoImportee, PHOTOS_PAR_CAS_MAX, sansLaPhoto, suivreLesRangs, suivreListe, texteDuReport,
+  veriteSuivie, veriteSurLAssemblage, veriteSurLesPhotos, VERITE_SANS_ASSEMBLAGE,
 } from '../../../src/facade/photosDuCas.js';
 import { entreesDuCas } from '../../../src/facade/releve/enchainement.js';
 import { GABARIT_RECTANGLE } from '../../../src/facade/gabaritMur.js';
@@ -153,6 +153,25 @@ describe('la verite de l E7 quand la sequence change', () => {
     expect(veriteSurLAssemblage(veriteSuivie(v, [1]), assemblage([null])).vrai).toBeNull();
     expect(veriteSurLesPhotos({ x0: 0, x1: 1, versionChaine: 14 }, null, [])).toBeNull();
     expect(texteDuReport(null)).toBeNull();
+  });
+});
+
+// Au bout d'un rejeu, la verite en attente se pose, se perd ou attend encore (revue du 9 novembre 2026) : elle n'attendait qu'un
+// assemblage, et un rejeu fini sans assemblage la laissait en attente pour toujours (« Enregistrer le cas » refuse a jamais).
+describe('la verite en attente au bout d un rejeu', () => {
+  const v = veriteSurLesPhotos({ x0: 10, x1: 90, egout: 20, sol: 90, versionChaine: 14 }, assemblage([{ tx: 0, ty: 0 }]), tailles(1))!;
+  it('un assemblage : elle s y pose, et plus rien n attend', () => {
+    expect(issueDeLaVerite(v, assemblage([{ tx: 5, ty: 0 }]), false)).toEqual({ vrai: { x0: 15, x1: 95, egout: 20, sol: 90, versionChaine: 14 }, report: 'La vérité de l’É7 (le mur vrai) est reportée sur le nouvel assemblage, par les photos qui la voient.', reste: null });
+  });
+  it('un rejeu mene a son terme sans assemblage : elle est perdue, et l ecran le dit', () => {
+    expect(issueDeLaVerite(v, null, false)).toEqual({ vrai: null, report: VERITE_SANS_ASSEMBLAGE, reste: null });
+  });
+  it('un rejeu arrete par la personne avant l E7 : elle attend le suivant', () => {
+    expect(issueDeLaVerite(v, null, true)).toEqual({ vrai: null, report: null, reste: v });
+  });
+  it('deja perdue, ou rien en attente', () => {
+    expect(issueDeLaVerite('perdue', null, true)).toEqual({ vrai: null, report: VERITE_SANS_ASSEMBLAGE, reste: null });
+    expect(issueDeLaVerite(null, assemblage([{ tx: 0, ty: 0 }]), false)).toEqual({ vrai: null, report: null, reste: null });
   });
 });
 

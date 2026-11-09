@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranCalibration, type DepsCalibration } from '../../../src/zones/EcranCalibration.js';
+import { preparerLesPhotos, texteDesRefus } from '../../../src/zones/EditeurCasCalibration.js';
+import { VERITE_SANS_ASSEMBLAGE } from '../../../src/facade/photosDuCas.js';
 import { FORMAT_CAS_REEL, type CasStocke, type DocumentCalibration } from '../../../src/facade/corpusReel.js';
 import type { Image } from '../../../src/facade/vision/homographie.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
@@ -389,6 +391,69 @@ describe('l ecran de calibration', () => {
     confirmer.mockRestore();
   }, 60_000);
 
+  it('le refus d un import se lit apres le rejeu, a cote du report de la verite (revue du 9 novembre 2026)', async () => {
+    const importerPhoto = vi.fn(async (f: File) => { if (f.name === 'casse.jpg') throw new Error('illisible'); return { type: 'image/jpeg' as const, base64: 'AJOUT' }; });
+    const { deps, stock } = fausses({ importerPhoto });
+    stock.set('cas-a', { ...scene.cas, calageVrai: { x0: 100, x1: 1000, egout: 100, sol: 600, versionChaine: 14 } });
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('prises');
+    const champ = hote.querySelector('[data-controle="calibration.fichiersPhotos"]') as HTMLInputElement;
+    Object.defineProperty(champ, 'files', { configurable: true, value: ['c.jpg', 'casse.jpg'].map((n) => new File([new Uint8Array([0xff, 0xd8])], n, { type: 'image/jpeg' })) });
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 2 && rejeuFini() && /Illisible/.test(hote.querySelector('[role="alert"]')?.textContent ?? ''));
+    // Le rejeu ecrit le report de la verite ; le refus de l'import s'y ajoute au lieu d'etre efface par lui.
+    expect(hote.querySelector('[role="alert"]')?.textContent).toBe('La vérité de l’É7 (le mur vrai) est reportée sur le nouvel assemblage, par les photos qui la voient. Illisible : casse.jpg.');
+  }, 60_000);
+
+  it('une verite qu aucun rejeu ne posera est perdue, et le cas s enregistre (revue du 9 novembre 2026)', async () => {
+    // La photo ajoutee ne se decode en rien (une image vide) : seule, le rejeu va a son terme sans assemblage.
+    const aplat = { largeur: 0, hauteur: 0, donnees: new Uint8ClampedArray(0) } as Image;
+    const importerPhoto = vi.fn(async () => ({ type: 'image/jpeg' as const, base64: 'APLAT' }));
+    const { deps, stock } = fausses({ importerPhoto, decoder: async (u: string) => (u.endsWith('APLAT') ? aplat : scene.image) });
+    stock.set('cas-a', { ...scene.cas, calageVrai: { x0: 100, x1: 1000, egout: 100, sol: 600, versionChaine: 14 } });
+    const confirmer = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('prises');
+    const champ = hote.querySelector('[data-controle="calibration.fichiersPhotos"]') as HTMLInputElement;
+    Object.defineProperty(champ, 'files', { configurable: true, value: [new File([new Uint8Array([0xff, 0xd8])], 'a.jpg', { type: 'image/jpeg' })] });
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 2 && rejeuFini() && !!hote.querySelector('[role="alert"]'));
+    // Retirer la photo d'origine : le rejeu va a son terme sur l'image vide seule, sans assemblage ; la verite reportee ne se pose
+    // nulle part, l'ecran le dit, et « Enregistrer le cas » enregistre au lieu de reclamer un rejeu.
+    await ouvrirEtape('prises');
+    await act(async () => { (hote.querySelectorAll('[aria-label="Photos du cas"] li')[0]?.querySelector('[data-controle="calibration.retirerPhoto"]') as HTMLButtonElement).click(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 1 && rejeuFini() && !!hote.querySelector('[role="alert"]'));
+    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/^La vérité de l’É7 \(le mur vrai\) est retirée/);
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    expect(hote.querySelector('[role="alert"]')?.textContent ?? '').not.toMatch(/Rejouez d’abord/);
+    const sauve = stock.get('cas-a') as CasStocke;
+    expect(sauve.images).toEqual(['data:image/jpeg;base64,APLAT']);
+    expect(sauve.calageVrai).toBeUndefined();
+    confirmer.mockRestore();
+  }, 60_000);
+
+  it('toutes les photos retirees : la verite est perdue tout de suite, et l ecran demande une photo, pas un rejeu', async () => {
+    const { deps, stock } = fausses();
+    stock.set('cas-a', { ...scene.cas, calageVrai: { x0: 100, x1: 1000, egout: 100, sol: 600, versionChaine: 14 } });
+    const confirmer = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('prises');
+    await act(async () => { (hote.querySelectorAll('[aria-label="Photos du cas"] li')[0]?.querySelector('[data-controle="calibration.retirerPhoto"]') as HTMLButtonElement).click(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 0 && !!hote.querySelector('[role="alert"]'));
+    expect(hote.querySelector('[role="alert"]')?.textContent).toBe(VERITE_SANS_ASSEMBLAGE);
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/^Un cas a besoin d’au moins une photo/);
+    confirmer.mockRestore();
+  }, 60_000);
+
   it('rappelle Claude (le run d une facade), enregistre sa reponse avec son cout et ses versions, et la rejoue en mode IA', async () => {
     // Une reponse SYNTHETIQUE (pas Claude) : les angles du mur et ses trois fenetres, en parts de l'assemblage et du mur.
     const sortie = { calage: { angles: { gauche: { x: 0.091, egout: 0.143, sol: 0.857, confiance: 'forte' }, droite: { x: 0.909, egout: 0.143, sol: 0.857, confiance: 'forte' } }, pointes: [], appentis: [], corps: [], cache: [] },
@@ -536,5 +601,21 @@ describe('l ecran de calibration', () => {
     expect(docs[0]?.parametres).toEqual({});
     expect(docs[0]?.historique).toHaveLength(1);
     expect(hote.textContent).toContain('Valeurs livrées en usage');
+  });
+});
+
+// Les fichiers d'un import, jusqu'a la limite du cas en photos lues : un illisible ne prend pas la place d'un lisible (revue du 9 novembre
+// 2026 : les premiers fichiers seuls etaient essayes, et un lisible apres un illisible se disait « de trop » alors qu'il restait de la place).
+describe('les fichiers d un import', () => {
+  it('remplissent la place avec des photos lues ; les suivants sont de trop', async () => {
+    const fichiers = ['casse.jpg', 'a.jpg', 'b.jpg', 'c.jpg'].map((n) => new File([new Uint8Array([0xff, 0xd8])], n, { type: 'image/jpeg' }));
+    const lus: string[] = [];
+    const preparer = async (f: File) => { lus.push(f.name); if (f.name === 'casse.jpg') throw new Error('illisible'); return { type: 'image/jpeg' as const, base64: f.name }; };
+    const { ajouts, illisibles } = await preparerLesPhotos(fichiers, preparer, { photos: [] }, 2);
+    expect(ajouts.map((a) => a.image)).toEqual(['data:image/jpeg;base64,a.jpg', 'data:image/jpeg;base64,b.jpg']);
+    expect(illisibles).toEqual(['casse.jpg']);
+    // Le dernier n'est pas lu : la place est prise.
+    expect(lus).toEqual(['casse.jpg', 'a.jpg', 'b.jpg']);
+    expect(texteDesRefus(illisibles, fichiers.length - ajouts.length - illisibles.length)).toBe('Illisible : casse.jpg. 1 photo de trop : un cas en garde 8 au plus.');
   });
 });
