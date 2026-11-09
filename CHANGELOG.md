@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.20.0] — 2026-11-09
+
+Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, un corps se redimensionne de chaque côté, le côté opposé en place
+(#636) ; la photo d'un relevé suit le rez-de-chaussée en retrait sous l'étage (#635). Un geste nouveau offert par l'interface : MINOR
+(§2.1, « New feature »), pas PATCH. Rien ne change sans le geste ni sans rez-de-chaussée en retrait : aucune quantité ni aucun export de
+la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la 5.19.0
+reste à accepter en production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` **avant** de
+déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sur main, à la livraison.
+
 ### Ajouté
 - **Mode Toit : un corps se redimensionne de chaque côté, le côté opposé en place** (demande du propriétaire, 9 novembre 2026 : « Les
   redimensionnements d'un corps doivent pouvoir se faire de chaque côté pour éviter de changer la taille et recaler ensuite. »). Vue de
