@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+- **Mode Toit : un corps se redimensionne de chaque côté, le côté opposé en place** (demande du propriétaire, 9 novembre 2026 : « Les
+  redimensionnements d'un corps doivent pouvoir se faire de chaque côté pour éviter de changer la taille et recaler ensuite. »). Vue de
+  dessus, le corps choisi : une poignée au milieu de chacun de ses quatre murs (« Côté sud (le côté nord reste en place) »…), au lieu des
+  deux d'avant (la longueur par le bout est, la largeur par le côté nord). Vue de face : les deux bouts de la façade se tirent, chacun
+  l'autre restant en place, et une poignée « Avancer ou reculer la façade » la pousse vers la rue ou la rentre, le mur opposé en place ;
+  la bulle des cotes dit aussi la profondeur du corps. Ce qui est posé reste à sa place dans le plan : pignons, lucarnes, fenêtres de toit
+  et panneaux le long du faîtage, travées et éléments de façade (bow-window, galerie, appentis posés) sur leur mur, cheminées ; ce qui
+  est sur le mur tiré le suit ; le faîtage garde sa place relative en travers. Un corps collé contre le mur tiré (une aile posée au
+  bout, la moitié d'un corps coupé) est poussé avec lui : le joint reste fermé. Le mur se colle, à 25 cm près, à la ligne d'un mur
+  parallèle d'un autre corps (un guide en pointillé de face). Dimension aux 5 cm, entre 2,5 et 30 m ; ce qui ne tient plus est borné au
+  corps (une travée de moins de 30 cm, un pignon de moins de 1,4 m s'en vont, comme avec les autres gestes). Un glisser est un pas de
+  la session (Ctrl+Z), « Valider » une étape du projet, projet modifié ; au doigt comme à la souris, les poignées se prennent dans les
+  trois classes d'écran. Rien ne change sans le geste : aucun champ de fichier nouveau, empreintes et AE 101 identiques. Fumée : point 154.
+
 ### Modifié
 - **La photo d'une façade suit le rez-de-chaussée en retrait** (décision du propriétaire, 9 novembre 2026 ; suite de #632, qui la laissait
   d'un seul plan). Sur un mur dont le rez-de-chaussée recule sous l'étage, la photo du relevé (ou de l'audit) se coupe en 3D au dessous de
@@ -16,6 +31,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   ni à cheval sur le dessous de l'étage, celles de l'étage au nu. Le dessous de l'étage et ses retours restent de la couleur du mur. Sans
   rez-de-chaussée en retrait, rien ne change : empreintes, AE 101, banc et chaîne des façades identiques ; pas de champ nouveau dans le
   fichier. Fumée : point 153 (la photo de l'étalon 02, que `photos.ts` rend désormais aussi en élévation).
+
+### Corrigé
+- **Mode Toit, vue de face d'un corps choisi** : ses poignées et sa silhouette se posaient sur le mur de derrière, vu au travers (l'œil
+  de la caméra de façade était lu au milieu de la scène, la caméra n'étant posée que par sa matrice) ; elles sont sur le mur regardé.
+- **Mode Toit, au téléphone** : une poignée ramenée au bord gauche de la scène tombait sous le bouton du plan des façades ; elle se pose
+  à sa droite.
+- **Mode Toit** : la façade d'un élément de façade (bow-window, galerie, appentis posés) n'offre plus la poignée « Longueur de la
+  façade », qui en changeait le rectangle sans sa largeur ; sa largeur et sa saillie se tirent par l'élément. Le faîtage ne se tourne
+  plus tout seul de dessus sur un corps qui porte des travées (elles auraient changé de mur).
 
 ## [5.19.0] — 2026-11-09
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { corpsNeuf, deplacerCorps, etirerCorps, orienterFaitage, rangPrincipal, rangsDeCorps, supprimerCorps, tournerCorps } from '../../../../src/facade/modeToit/corpsNeufs.js';
+import { corpsNeuf, deplacerCorps, orienterFaitage, rangPrincipal, rangsDeCorps, supprimerCorps, tournerCorps } from '../../../../src/facade/modeToit/corpsNeufs.js';
+import { pousserLeMur } from '../../../../src/facade/modeToit/pousserMur.js';
 import { corpsDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
 import { appliquerPiece, raisonIndisponible } from '../../../../src/three/gestesToits.js';
 import { listerElements } from '../../../../src/facade/modeToit/elements.js';
@@ -79,10 +80,11 @@ describe('les corps dans le plan', () => {
     const t = tournerCorps(corps, 1, 90);
     expect(aire(t[1]!)).toBeCloseTo(aire(aile), 1);
     expect(t[1]!.pts[0]).not.toEqual(aile.pts[0]);
-    const e = etirerCorps(corps, 1, 'L', 2);
+    // Etirer : le bout s = L (mur 1) ou le cote t = W (mur 2) avance, l'autre reste (facade/modeToit/pousserMur.ts).
+    const e = pousserLeMur(corps, 1, 1, 2).corps;
     expect(repere(e[1]!.pts).L).toBeCloseTo(7, 1);
-    expect(repere(etirerCorps(corps, 1, 'L', -50)[1]!.pts).L).toBeCloseTo(2.5, 1);
-    expect(repere(etirerCorps(corps, 1, 'W', 1)[1]!.pts).W).toBeCloseTo(4, 1);
+    expect(repere(pousserLeMur(corps, 1, 1, -50).corps[1]!.pts).L).toBeCloseTo(2.5, 1);
+    expect(repere(pousserLeMur(corps, 1, 2, 1).corps[1]!.pts).W).toBeCloseTo(4, 1);
   });
 
   it('retire un corps et ce qui est pose dessus, jamais le principal', () => {

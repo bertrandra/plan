@@ -10,7 +10,10 @@
 import { hauteurDuToitEn, point, repere } from '../toits/toitCorps.js';
 import { facettesElementsToit, facettesLucarnes, type Sommet } from '../toits/toitFormes.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
-import { deplacerCorps, etirerCorps, rangPrincipal } from './corpsNeufs.js';
+import { deplacerCorps, orienterFaitage, rangPrincipal } from './corpsNeufs.js';
+import { pousserLeMur } from './pousserMur.js';
+import { orientationDuMur } from './sens.js';
+import { gaucheEnDebut } from './decroche.js';
 import { orientationDuCorps } from './planCorps.js';
 import { facadeDeLElement, type CibleElement } from './elements.js';
 import { tourneVers } from '../../geometry/cotesVusDeDehors.js';
@@ -120,23 +123,35 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
   if (!c || !f) return [];
   const P = (s: number, prof: number, z: number) => sur(f, s, prof, z);
   if (t.type === 'corps') {
-    // Le mode Plan : se deplacer dans le plan, etirer la longueur (faitage) et la largeur. Les poignees qui etirent sont sur les bords
-    // du corps a la hauteur de son egout, la ou le mode Plan dessine sa silhouette (le haut des facades) : au faitage, la perspective
-    // les sortait de son trait. Celle qui deplace reste au milieu du faitage.
+    // Le mode Plan : se deplacer dans le plan, et une poignee au milieu de chaque mur qui l'avance ou le recule, le mur oppose en place
+    // (demande du proprietaire, 9 novembre 2026 : redimensionner de chaque cote, sans recaler ensuite). Les poignees des murs sont sur
+    // les bords du corps a la hauteur de son egout, la ou le mode Plan dessine sa silhouette (le haut des facades) : au faitage, la
+    // perspective les sortait de son trait. Celle qui deplace reste au milieu du faitage.
     const r = repere(c.pts), W = r.W, egout = Math.min(...c.egouts);
+    const cote = (m: number): string => 'Côté ' + orientationDuMur(c, m) + ' (le côté ' + orientationDuMur(c, (m + 2) % 4) + ' reste en place)';
     return [
       { id: 'deplacer', point: P(f.L / 2, -W / 2, c.faitage), axes: ['long', 'prof'], libelle: 'Déplacer le corps' },
-      { id: 'etirerL', point: P(f.L, -W / 2, egout), axes: ['long'], libelle: 'Longueur du corps' },
-      { id: 'etirerW', point: P(f.L / 2, -W, egout), axes: ['prof'], libelle: 'Largeur du corps' }
+      { id: 'mur0', point: P(f.L / 2, 0, egout), axes: ['prof'], libelle: cote(0) },
+      { id: 'mur1', point: P(f.L, -W / 2, egout), axes: ['long'], libelle: cote(1) },
+      { id: 'mur2', point: P(f.L / 2, -W, egout), axes: ['prof'], libelle: cote(2) },
+      { id: 'mur3', point: P(0, -W / 2, egout), axes: ['long'], libelle: cote(3) }
     ];
   }
   if (t.type === 'facade') {
     // L'egout se tire au quart du mur, sur la ligne d'egout de cette facade : au milieu, il couvrirait la poignee du faitage d'un toit plat.
     // Une saillie posee sur un mur a sa propre hauteur a l'egout (son element), pas celle-ci.
+    // Chaque bout de la facade se tire, l'autre bout restant en place, et la facade elle-meme avance ou recule devant le mur oppose (a
+    // mi-hauteur, au tiers du mur : au milieu, elle tomberait sous la poignee du faitage d'un toit plat). Un element de facade (bow-window,
+    // galerie, appentis pose) a ses propres poignees de largeur et de saillie : sa facade n'a que celle du faitage.
+    if (c.saillie) return [{ id: 'haut', point: P(f.L / 2, 0, c.faitage), axes: ['vert'], libelle: 'Hauteur du faîtage' }];
+    const bas = Math.min(...c.egouts), gauche = gaucheEnDebut(c, t.mur);
+    const bout = (debut: boolean) => 'Bout ' + (debut === gauche ? 'gauche' : 'droit') + ' de la façade (le bout ' + (debut === gauche ? 'droit' : 'gauche') + ' reste en place)';
     return [
       { id: 'haut', point: P(f.L / 2, 0, c.faitage), axes: ['vert'], libelle: 'Hauteur du faîtage' },
-      { id: 'long', point: P(f.L, 0, Math.min(...c.egouts)), axes: ['long'], libelle: 'Longueur de la façade' },
-      ...(c.saillie ? [] : [{ id: 'egout', point: P(f.L / 4, 0, egoutDeLaFacade(c, t.mur)), axes: ['vert'] as Axe[], libelle: 'Hauteur à l’égout' }])
+      { id: 'long', point: P(f.L, 0, bas), axes: ['long'], libelle: bout(false) },
+      { id: 'debut', point: P(0, 0, bas), axes: ['long'], libelle: bout(true) },
+      { id: 'egout', point: P(f.L / 4, 0, egoutDeLaFacade(c, t.mur)), axes: ['vert'], libelle: 'Hauteur à l’égout' },
+      { id: 'avancer', point: P((2 * f.L) / 3, 0, egoutDeLaFacade(c, t.mur) / 2), axes: ['prof'], libelle: 'Avancer ou reculer la façade (le mur opposé reste en place)' }
     ];
   }
   if (t.type === 'saillie' && c.saillie) {
@@ -316,7 +331,9 @@ export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
   if (!c) return [];
   if (t.type === 'facade') {
     const m = murDuCorps(c, t.mur);
-    return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }, ...(c.saillie ? [] : [{ cle: 'egout', texte: 'égout ' + fr(egoutDeLaFacade(c, t.mur)) }])];
+    // La profondeur du corps derriere la facade : ce que change la poignee qui l'avance ou la recule.
+    return [{ cle: 'w', texte: fr(m.L) }, ...(c.saillie ? [] : [{ cle: 'prof', texte: 'prof. ' + fr(murDuCorps(c, t.mur + 1).L) }]), { cle: 'h', texte: fr(c.faitage) },
+      ...(c.saillie ? [] : [{ cle: 'egout', texte: 'égout ' + fr(egoutDeLaFacade(c, t.mur)) }])];
   }
   if (t.type === 'corps') { const r = repere(c.pts); return [{ cle: 'w', texte: fr(r.L) }, { cle: 'prof', texte: fr(r.W) }, { cle: 'h', texte: fr(c.faitage) }, { cle: 'rot', texte: Math.round(orientationDuCorps(c)) + '°' }]; }
   if (t.type === 'saillie' && c.saillie) return [{ cle: 'w', texte: fr(c.saillie.largeurM) }, { cle: 'prof', texte: fr(c.saillie.profondeurM) }, { cle: 'h', texte: fr(Math.min(...c.egouts)) }, ...(c.saillie.genre !== 'bow-window' && (c.retraitM ?? 0) > 0.02 ? [{ cle: 'retrait', texte: fr(c.retraitM ?? 0) }] : [])];
@@ -346,13 +363,6 @@ function bordsVoisins(corps: readonly CorpsToit[], t: CibleGlisser, L: number): 
   } else if (t.type === 'pignon') c.pignons.forEach((g, i) => { if (i !== t.i) bords.push(g.debut, g.fin); });
   else if (t.type === 'lucarne') (c.lucarnes ?? []).forEach((l, i) => { if (i !== t.i) bords.push(l.debutM, l.finM); });
   return bords;
-}
-
-/** Les vertices d'un corps qui suivent le bout d'un mur quand on etire sa facade : ceux du bout `mur + 1` et `mur + 2`. */
-function etirer(c: CorpsToit, mur: number, delta: number): CorpsToit {
-  const m = murDuCorps(c, mur);
-  const pts = c.pts.map((p, i) => (i === (mur + 1) % 4 || i === (mur + 2) % 4 ? { x: centi(p.x + m.u.x * delta), y: centi(p.y + m.u.y * delta) } : p));
-  return { ...c, pts };
 }
 
 /**
@@ -399,28 +409,23 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
 
   if (t.type === 'corps') {
     if (id === 'deplacer') return { corps: deplacerCorps(depart, t.rang, f.u.x * dl + f.n.x * dp, f.u.y * dl + f.n.y * dp), guides };
-    if (id === 'etirerL') return { corps: etirerCorps(depart, t.rang, 'L', dl), guides };
-    // Le bord t = W recule vers l'exterieur du mur 0 : un deplacement vers l'exterieur (prof positif) retrecit la largeur.
-    if (id === 'etirerW') return { corps: etirerCorps(depart, t.rang, 'W', -dp), guides };
-    return rien;
+    // Les axes sont ceux du mur 0 : sa normale sort par le mur 0 (le mur 2 avance quand elle recule), son sens va vers le mur 1.
+    const mur = /^mur([0-3])$/.exec(id);
+    if (!mur) return rien;
+    const m = Number(mur[1]), avance = m === 0 ? dp : m === 1 ? dl : m === 2 ? -dp : -dl;
+    // De dessus, le faitage se met dans le sens de la longueur tout seul tant que rien n'est pose dessus (comme avant ces poignees).
+    return { corps: orienterFaitage(pousserLeMur(depart, t.rang, m, avance).corps, t.rang), guides };
   }
   if (t.type === 'facade') {
     if (id === 'haut') return { corps: avec(depart, t.rang, { ...c, faitage: centi(Math.max(c.faitage + dv, Math.max(...c.egouts) + 0.4)) }), guides };
     if (id === 'egout' && !c.saillie) return glisserEgout(depart, t.rang, t.mur, dv);
-    if (id === 'long') {
-      const m = murDuCorps(c, t.mur), nouvelle = borne(vingt(m.L + dl), 2.5, 30);
-      let neuf = etirer(c, t.mur, nouvelle - m.L);
-      // Une facade de bout (cote impair) change la largeur du corps : le faitage garde sa place relative. Une facade longue (cote pair)
-      // change sa longueur : ce qui est pose le long du faitage reste dans le corps.
-      if (t.mur % 2 === 1) neuf = { ...neuf, posFaitage: centi((c.posFaitage * nouvelle) / m.L) };
-      else {
-        const L2 = nouvelle;
-        neuf = { ...neuf, pignons: c.pignons.map((g) => ({ ...g, debut: Math.min(g.debut, L2 - 1.4), fin: Math.min(g.fin, L2) })).filter((g) => g.fin - g.debut >= 1.4),
-          ...(c.lucarnes ? { lucarnes: c.lucarnes.map((l) => ({ ...l, debutM: Math.min(l.debutM, L2 - 0.7), finM: Math.min(l.finM, L2 - 0.1) })) } : {}) };
-      }
-      const hotes = avec(depart, t.rang, neuf);
-      // Ce qui est pose sur ce corps reste sur son mur, borne par la nouvelle longueur.
-      return { corps: hotes.map((k, i) => (k.saillie && k.saillie.hote === t.rang ? replacerSaillie(hotes, i, {})[i] as CorpsToit : k)), guides };
+    // Un bout de la facade (le mur voisin) ou la facade elle-meme glisse, le cote oppose en place (facade/modeToit/pousserMur.ts) ; un
+    // bout colle a la ligne d'un mur d'un autre corps y dessine un guide.
+    if (!c.saillie && (id === 'long' || id === 'debut' || id === 'avancer')) {
+      const m = id === 'long' ? (t.mur + 1) % 4 : id === 'debut' ? (t.mur + 3) % 4 : t.mur;
+      const res = pousserLeMur(depart, t.rang, m, id === 'long' ? dl : id === 'debut' ? -dl : dp);
+      if (res.colle && id !== 'avancer') guides.push(id === 'debut' ? 0 : murDuCorps(res.corps[t.rang] as CorpsToit, t.mur).L);
+      return { corps: res.corps, guides };
     }
     return rien;
   }

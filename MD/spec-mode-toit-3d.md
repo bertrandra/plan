@@ -152,12 +152,12 @@ La maquette est autonome (three.js r128 UMD, aucun réseau requis hors CDN). **T
   | Élément de toit | **taille − / +** (échelle 0,5 à 2,2, pas 0,15) |
   | Tous (sauf appentis/galerie pour « dupliquer ») | **Dupliquer**, **Supprimer** (danger) |
   | Aucun élément (le corps) | **Tourner ⟲ ⟳** (± 15°), **Supprimer ce corps** (sauf le principal) |
-- **Poignées** (SVG, glisser) : élément de toit → taille ; **corps** → hauteur du faîtage (verticale), longueur de la façade (horizontale, on garde le bout gauche en place), hauteur à l'égout (verticale, au quart du mur sur la ligne d'égout de la façade : le corps entier monte ou descend, pente gardée ; 28 octobre 2026, voir « La hauteur à l'égout d'un corps ») ; **pignon** → position
+- **Poignées** (SVG, glisser) : élément de toit → taille ; **corps** → hauteur du faîtage (verticale), chaque bout de la façade (horizontale, l'autre bout reste en place ; jusqu'au 9 novembre 2026, le bout droit seul), la façade qui avance ou recule devant le mur opposé (« Avancer ou reculer la façade », voir « Redimensionner un corps de chaque côté »), hauteur à l'égout (verticale, au quart du mur sur la ligne d'égout de la façade : le corps entier monte ou descend, pente gardée ; 28 octobre 2026, voir « La hauteur à l'égout d'un corps ») ; **pignon** → position
   (aimantée aux bords et aux autres pignons, ±0,25 m), largeur (1,4 à 8 m, colle au bout du mur à ±0,25 m), hauteur du faîte (au moins 0,8 m au-dessus de l'égout, se « réduit » au faîtage à moins de 0,25 m),
   saillie (0 à 2,5 m) ; **bow-window** → position (aimantée aux bords et au centre), largeur (1,2 à 6 m), saillie (0,2 à 1,5 m, 1,2 m max si « sous le premier étage ») ; **appentis/galerie** → bords gauche/droit (1,2 m
   minimum entre les deux, colle au bout à 0,25 m), hauteur d'égout (1,6 m à égout de la maison − 0,9 m), déplacement entier, retrait. Pendant un glisser : chip de cotes + guides en pointillé.
   Un glisser = **un seul instantané** d'historique.
-- **Mode Plan** (`#svg3`) : poser, déplacer, étirer, tourner les corps ; lignes de faîtage dessinées par forme ; marqueurs des éléments posés ; chip largeur/profondeur/rotation. **Le faîtage se met
+- **Mode Plan** (`#svg3`) : poser, déplacer, étirer (une poignée au milieu de chaque mur, le mur opposé en place), tourner les corps ; lignes de faîtage dessinées par forme ; marqueurs des éléments posés ; chip largeur/profondeur/rotation. **Le faîtage se met
   dans le sens de la longueur tout seul** tant que le corps n'a ni pignon, ni appentis, ni bow (`autoDir`).
 - **Vignettes d'ajout de corps** : positions candidates calculées (`emplacement`) : *Aile* à droite du dernier corps (3 m de large) ; *Retour* en équerre à l'arrière du principal
   (3 × 5 m, 3 emplacements testés) ; *Biaise* tournée de 35° devant (4 × 3,2 m) ; bornes de la scène `LARGEUR_MAX 17,2` × `PROF_MAX 13`.
@@ -373,6 +373,24 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
 - Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `travees.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points
   131 (étalon 25, le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, la partie droite du mur reculée de 50 cm, auvent
   ouvert avec garde-corps à droite et retour d'angle, bow-window sans toit propre dessous).
+
+### Redimensionner un corps de chaque côté  *(9 novembre 2026, demande du propriétaire)*
+« Les redimensionnements d'un corps doivent pouvoir se faire de chaque côté pour éviter de changer la taille et recaler ensuite. »
+- Un seul geste, `facade/modeToit/pousserMur.ts::pousserLeMur(corps, rang, mur, delta)` : le mur `mur` glisse sur sa normale sortante, le
+  mur opposé reste. Vue de dessus, quatre poignées `mur0` à `mur3` au milieu des murs, nommées par leur orientation ; vue de face, `long`
+  et `debut` (les deux bouts, nommés gauche et droit vu de dehors) et `avancer` (la façade elle-même, à mi-hauteur au tiers du mur).
+- Ce qui est posé garde sa place dans le plan : pignons, lucarnes, fenêtres de toit et panneaux le long du faîtage (décalés quand le bout
+  `s = 0` bouge), travées et éléments de façade sur leur mur (décalés sur le mur qui part du mur tiré), cheminées ; ce qui est sur le mur
+  tiré le suit. Le faîtage garde sa place relative en travers (au milieu, sur un mur pour un appentis) ; un pignon ou une lucarne qui
+  allait au faîtage y va encore ; une croupe garde sa longueur, bornée au faîtage ; un brisis ou un coyau sa largeur, bornée au pan.
+- Un corps collé contre le mur tiré (un de ses murs sur la ligne, tourné vers lui, sur plus de 10 cm) est poussé avec lui, de proche en
+  proche (`corpsColles`) ; un corps qui chevauche ou à l'écart ne bouge pas. Le mur se colle à la ligne d'un mur parallèle d'un autre
+  corps à 25 cm près.
+- Dimension aux 5 cm, entre 2,5 et 30 m (un corps déjà hors de ces bornes n'y est pas ramené d'un toucher). De dessus, le faîtage se
+  met encore dans la longueur tout seul (`orienterFaitage`), sauf sur un corps qui porte des travées. Un élément de façade posé ne se
+  tire pas ainsi : sa largeur et sa saillie ont leurs poignées.
+- Aucun champ de fichier ; la sortie du moteur ne change pas (AE 101 : `identite.ts` identique). Tests :
+  `tests/unit/facade/modeToit/pousserMur.test.ts`. Fumée : point 154.
 
 ### Le cul de geai et la queue de vache  *(5 novembre 2026, demande du propriétaire)*
 « Ajouter la demi-croupe, applicable aussi aux pignons, pour le dessiner et dans la découverte auto. » Le nom à l'écran est **« Cul de

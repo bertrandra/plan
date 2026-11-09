@@ -28,15 +28,17 @@ describe('les poignees', () => {
     expect(ids({ type: 'lucarne', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut']);
     expect(ids({ type: 'cheminee', rang: 0, i: 0 })).toEqual(['pos']);
     expect(ids({ type: 'solaire', rang: 0, i: 1 })).toEqual(['pos', 'taille']);
-    expect(ids({ type: 'facade', rang: 0, i: 0, mur: 0 })).toEqual(['haut', 'long', 'egout']);
+    expect(ids({ type: 'facade', rang: 0, i: 0, mur: 0 })).toEqual(['haut', 'long', 'debut', 'egout', 'avancer']);
+    expect(ids({ type: 'corps', rang: 0, i: 0 })).toEqual(['deplacer', 'mur0', 'mur1', 'mur2', 'mur3']);
+    // La facade d'un element de facade : sa largeur et sa saillie se tirent par l'element, pas par elle.
+    expect(ids({ type: 'facade', rang: 1, i: 0, mur: 0 })).toEqual(['haut']);
     expect(ids({ type: 'pignon', rang: 0, i: 9 })).toEqual([]);
   });
 
   it('vue de dessus, les poignees qui etirent un corps sont sur ses bords a la hauteur de son egout, ou le plan trace sa silhouette', () => {
     const corps = avecTout(), c = corps[0]!;
     const p = Object.fromEntries(poigneesDe(corps, { type: 'corps', rang: 0, i: 0 }).map((q) => [q.id, q.point]));
-    expect(p.etirerL!.z).toBeCloseTo(Math.min(...c.egouts), 5);
-    expect(p.etirerW!.z).toBeCloseTo(Math.min(...c.egouts), 5);
+    for (const id of ['mur0', 'mur1', 'mur2', 'mur3']) expect(p[id]!.z).toBeCloseTo(Math.min(...c.egouts), 5);
     expect(p.deplacer!.z).toBeCloseTo(c.faitage, 5);
   });
 
