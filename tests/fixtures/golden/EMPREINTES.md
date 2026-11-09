@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, puis à la 5.20.0 le même jour.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, à la 5.20.0 le même jour, puis à la 5.21.0 le même jour encore.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `bcc9d92e0796538d02ba07faebe20a0bc09141712c8386374a2794f2fce8aac1` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `7eb9a98a0a51f0a9f558e6354b0d91cd416cff1f3fe9db0361d8a7cb34e62966` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `66b145496cda1924215328a5c0942700397cfa5da45524a031ac06c736271116` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `c9a08d14f69f1849bf67161def9931b588403417956da889c3bab1488d771138` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `a88a45f0a169439c4724d2d95fddfbc3406ad8bea0f89b7edf06bfb76c38c295` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `e42b2e334207a8058cede9e5ac407af2b988ad366ad54101d65d54253e9474c5` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `aebacde22a64accb46066673e7aa407fe2cf1fe00746617cbe7df388ef8114a7` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `ede957d0c36b61dac4ab9cf83f343218c07c7e9ba9b9d43ab113fd88969329bc` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `bc7c876cbdcb74a8f7f25d884bc99a51b3d125573e14c5e9167294d83846eba3` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `9f6b746cd0f5aba66e999b7b7d09a41c384535740345ec088e24b84c53dbd8a9` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `b4dd829b04f35c4bf8f606e9c47df7a0b6aacd38fbfdbb5caa7ae93509cbd615` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `53dd1805ec5bc6abc61b7b0732a7d81b5663b9287799cc4a7ce9b1c87cd37d0f` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `fadf90c9cb6a6eed26667b7eb78d87683d5c71d337cad759137af1ff7262e5eb` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `026d7034f25fc3427d24e44a6b2378b134b6b95833b252e88fbc012687bcbccb` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -1447,3 +1447,24 @@ octets frais rend les fichiers de la 5.19.0 **au bit près**, tailles identiques
 | `dossier.pdf` (normalisée) | `82158392…` | `ede957d0…` |
 | `dossier-piscine.pdf` (brute) | `78cea0fb…` | `b4dd829b…` |
 | `note-calcul.pdf` (brute) | `31951b4a…` | `53dd1805…` |
+
+## Version 5.21.0 (9 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.20.0 (sous un étage qui avance, la photo du relevé couvre la face avant du bow-window et la modénature lue
+suit le mur reculé, #639 ; un Ctrl+Z du projet se voit dans la Vue 3D ouverte, #640 ; en mode Toit, mur commun, appentis liés, arrêt au
+pignon, aimant du tracé IGN, bords d'un bow-window, vue de dessus entière, #641) ne change aucune quantité ni aucun export de la
+démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Aucun champ
+de fichier nouveau, schéma inchangé (16). Avant le changement de numéro, main (46c6ee45) régénère les témoins de la 5.20.0 au bit près.
+Les sept témoins passent à `5.21.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.21.0` → `5.20.0` remis
+dans les octets frais rend les fichiers de la 5.20.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte,
+deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.20.0 | Empreinte 5.21.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `bcc9d92e…` | `c9a08d14…` |
+| `plan.svg` (normalisée) | `7eb9a98a…` | `a88a45f0…` |
+| `plan.dxf` (normalisée) | `66b14549…` | `e42b2e33…` |
+| `plan.pdf` (normalisée) | `aebacde2…` | `bc7c876c…` |
+| `dossier.pdf` (normalisée) | `ede957d0…` | `9f6b746c…` |
+| `dossier-piscine.pdf` (brute) | `b4dd829b…` | `fadf90c9…` |
+| `note-calcul.pdf` (brute) | `53dd1805…` | `026d7034…` |
