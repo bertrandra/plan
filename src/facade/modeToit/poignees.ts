@@ -422,10 +422,11 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
   if (t.type === 'corps') {
     if (id === 'deplacer') {
       const vx = f.u.x * dl + f.n.x * dp, vy = f.u.y * dl + f.n.y * dp;
-      // Pres du trace IGN, le corps s'y colle par ses murs (decision du proprietaire, 9 novembre 2026).
-      const a = contour ? aimanterAuContour(c, vx, vy, contour) : null;
-      if (a?.aretes.length) return { corps: deplacerCorps(depart, t.rang, a.dx, a.dy, false), guides, aretes: a.aretes };
-      return { corps: deplacerCorps(depart, t.rang, vx, vy), guides };
+      // Pres du trace IGN, le corps s'y colle par ses murs (decision du proprietaire, 9 novembre 2026) ; sinon le deplacement, sur les axes
+      // du corps, tombe aux 5 cm ronds. Pas sa place : un corps pose sur le trace en etait decolle des quelques centimetres qui separaient
+      // ses coins de la grille, et les coins d'un corps de biais, arrondis chacun, le deformaient.
+      const a = aimanterAuContour(c, vx, vy, contour ?? []);
+      return { corps: deplacerCorps(depart, t.rang, a.dx, a.dy, false), guides, ...(a.aretes.length ? { aretes: a.aretes } : {}) };
     }
     // Les axes sont ceux du mur 0 : sa normale sort par le mur 0 (le mur 2 avance quand elle recule), son sens va vers le mur 1.
     const mur = /^mur([0-3])$/.exec(id);
