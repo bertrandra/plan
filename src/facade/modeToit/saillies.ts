@@ -249,6 +249,128 @@ export function facettesEncorbellement(h: CorpsToit, retraits: readonly RetraitR
   return faces;
 }
 
+/** Un mur de corps se lit sur une facade du contour comme cotesSurLesCotes (geometry/facadeExterieure.ts) : a 10° et 60 cm pres. */
+const ANGLE_SUR_FACADE_RAD = (10 * Math.PI) / 180;
+const ECART_SUR_FACADE_M = 0.6;
+
+/**
+ * Un rez-de-chaussee en retrait vu sur une facade du contour (le repere d'une photo de releve : x depuis la gauche vue de dehors, y en
+ * hauteur) : de `de` a `a` le long du mur, la facade du bas recule de `profondeurM` derriere le plan de la facade (le recul, plus l'ecart
+ * du mur du corps a ce plan) jusqu'a `hauteurM`, le dessous de l'etage ; `devant`, les bow-windows glisses dessous.
+ */
+export interface RetraitSurFacade { de: number; a: number; profondeurM: number; hauteurM: number; devant: [number, number][] }
+
+/** Ce qu'une facade du contour sait de son mur : ses bouts vus de dehors, sa largeur et sa normale sortante. */
+interface MurDeFacade { gauche: PtBrut; droite: PtBrut; largeur: number; normale: PtBrut }
+
+/**
+ * Les rez-de-chaussee en retrait (`retraitsDuRdc`) qui tombent sur la facade `f` : le mur du corps hote parallele a elle, du meme cote,
+ * a moins de 60 cm de son plan et qui la recouvre. `hotes` : les corps dessines (un corps isole au Mode Toit laisse les autres). Vide
+ * sans retrait : la photo de la facade reste d'un seul plan, comme avant le schema 16.
+ */
+export function retraitsSurLaFacade(f: MurDeFacade, retraits: ReadonlyMap<CorpsToit, readonly RetraitRdc[]> | null | undefined, hotes?: readonly CorpsToit[] | null): RetraitSurFacade[] {
+  const l: RetraitSurFacade[] = [];
+  if (!retraits?.size || !(f.largeur > 0)) return l;
+  const L = f.largeur, ux = (f.droite.x - f.gauche.x) / L, uy = (f.droite.y - f.gauche.y) / L;
+  const x = (q: PtBrut) => (q.x - f.gauche.x) * ux + (q.y - f.gauche.y) * uy;
+  // La profondeur d'un point derriere le plan de la facade (positive vers l'interieur).
+  const derriere = (q: PtBrut) => -((q.x - f.gauche.x) * f.normale.x + (q.y - f.gauche.y) * f.normale.y);
+  retraits.forEach((rs, h) => {
+    if (hotes && !hotes.includes(h)) return;
+    const bas = Math.min(...h.egouts);
+    const surLaFacade = (p: PtBrut, q: PtBrut, n: PtBrut) => n.x * f.normale.x + n.y * f.normale.y >= Math.cos(ANGLE_SUR_FACADE_RAD)
+      && Math.abs(derriere(p)) <= ECART_SUR_FACADE_M && Math.abs(derriere(q)) <= ECART_SUR_FACADE_M;
+    const entre = (p: PtBrut, q: PtBrut): [number, number] => [Math.max(0, Math.min(x(p), x(q))), Math.min(L, Math.max(x(p), x(q)))];
+    for (const r of rs) {
+      // Le meme dessous que l'etage qui avance (facettesEncorbellement) : jamais au-dessus de l'egout du corps.
+      const hauteurM = Math.min(r.hauteurM, bas);
+      const m = murDuCorps(h, r.mur);
+      if (m.L > 0 && surLaFacade(m.a, m.b, m.n)) {
+        const [de, a] = entre(m.a, m.b);
+        if (a - de < 0.05) continue;
+        const devant = r.devant.map(([p, q]): [number, number] => [Math.max(de, Math.min(x(p), x(q))), Math.min(a, Math.max(x(p), x(q)))]).filter(([p, q]) => q - p > 0.01);
+        l.push({ de, a, profondeurM: (derriere(m.a) + derriere(m.b)) / 2 + r.reculM, hauteurM, devant });
+        continue;
+      }
+      // Un mur voisin (un pignon) : le pied du corps (corpsAuPied) l'a raccourci du recul, au bout qui touche le mur recule. Sous
+      // l'etage, la bande de ce bout est l'entree du retrait, ouverte : la photo et les baies n'y sont pas ; au-dessus, l'etage reste au nu.
+      for (const [k, auDebut] of [[r.mur + 1, true], [r.mur - 1, false]] as const) {
+        const w = murDuCorps(h, k);
+        if (!(w.L > r.reculM) || !surLaFacade(w.a, w.b, w.n)) continue;
+        const coin = auDebut ? w.a : w.b, sens = auDebut ? 1 : -1;
+        const [de, a] = entre(coin, { x: coin.x + w.u.x * sens * r.reculM, y: coin.y + w.u.y * sens * r.reculM });
+        if (a - de > 0.01) l.push({ de, a, profondeurM: 0, hauteurM, devant: [[de, a]] });
+      }
+    }
+  });
+  return l.sort((p, q) => p.de - q.de);
+}
+
+/** Un point d'un mur, dans son plan : x le long du mur, y en hauteur. */
+interface P2 { x: number; y: number }
+
+/** Le polygone `l` coupe au demi-plan `garde` (Sutherland-Hodgman) ; `coupe` donne le point ou un cote franchit sa limite. */
+function couper(l: readonly P2[], garde: (p: P2) => boolean, coupe: (p: P2, q: P2) => P2): P2[] {
+  const sortie: P2[] = [];
+  l.forEach((p, i) => {
+    const q = l[(i + 1) % l.length] as P2;
+    if (garde(p)) sortie.push(p);
+    if (garde(p) !== garde(q)) sortie.push(coupe(p, q));
+  });
+  return sortie;
+}
+const entreX = (l: readonly P2[], a: number, b: number): P2[] => {
+  const en = (xc: number) => (p: P2, q: P2): P2 => ({ x: xc, y: p.y + ((xc - p.x) * (q.y - p.y)) / (q.x - p.x) });
+  return couper(couper(l, (p) => p.x >= a, en(a)), (p) => p.x <= b, en(b));
+};
+const coteY = (l: readonly P2[], H: number, dessous: boolean): P2[] =>
+  couper(l, (p) => (dessous ? p.y <= H : p.y >= H), (p, q) => ({ x: p.x + ((H - p.y) * (q.x - p.x)) / (q.y - p.y), y: H }));
+
+/** Les portions de [de, a] hors des intervalles `trous` (tries ou non). */
+function sansLesTrous(de: number, a: number, trous: readonly (readonly [number, number])[]): [number, number][] {
+  const l: [number, number][] = [];
+  let x = de;
+  for (const [p, q] of [...trous].sort((u, v) => u[0] - v[0])) { if (p > x + 0.01) l.push([x, Math.min(p, a)]); x = Math.max(x, q); }
+  if (a > x + 0.01) l.push([x, a]);
+  return l.filter(([p, q]) => q - p > 0.01);
+}
+
+/**
+ * La photo d'une facade relevee, decoupee par ses rez-de-chaussee en retrait (decision du proprietaire, 9 novembre 2026) : sur la
+ * longueur d'un retrait, ce qui est sous le dessous de l'etage recule avec le mur du bas (`profondeurM`), ce qui est au-dessus reste au
+ * nu ; derriere un bow-window, rien (le bow-window la cache, et rien ne s'y pose). Ailleurs, la photo reste au nu. Chaque morceau garde
+ * le contour du mur entier comme repere : x et y sont ceux de la photo, elle ne glisse pas. `fermees` : les portions du mur ou il y a un
+ * mur (sous un appentis ouvert, il n'y en a pas).
+ */
+export function morceauxSousEtage(contour: readonly P2[], fermees: readonly (readonly [number, number])[], retraits: readonly RetraitSurFacade[]): { contour: P2[]; profondeurM: number }[] {
+  const l: { contour: P2[]; profondeurM: number }[] = [];
+  const garder = (c: P2[], profondeurM: number) => { if (c.length >= 3) l.push({ contour: c, profondeurM }); };
+  for (const [p, q] of fermees) {
+    // Hors des retraits : la photo au nu, comme avant.
+    for (const [s, e] of sansLesTrous(p, q, retraits.map((r) => [r.de, r.a] as const))) garder(entreX(contour, s, e), 0);
+    for (const r of retraits) {
+      const s = Math.max(p, r.de), e = Math.min(q, r.a);
+      if (e - s <= 0.01) continue;
+      const bande = entreX(contour, s, e);
+      garder(coteY(bande, r.hauteurM, false), 0);
+      for (const [s2, e2] of sansLesTrous(s, e, r.devant)) garder(coteY(entreX(contour, s2, e2), r.hauteurM, true), r.profondeurM);
+    }
+  }
+  return l;
+}
+
+/**
+ * Ou se pose une ouverture d'une facade relevee sous un etage qui avance, comme celles de la disposition automatique
+ * (three/detailsBatiment.ts) : sous le dessous de l'etage, sur le mur recule (`profondeurM`), sauf derriere un bow-window (null) ; au-dessus,
+ * au nu (0) ; a cheval sur les deux, nulle part (null). Hors des retraits, au nu.
+ */
+export function profondeurDOuverture(o: { x: number; y: number; l: number; h: number }, retraits: readonly RetraitSurFacade[]): number | null {
+  const r = retraits.find((k) => o.x < k.a - 0.01 && o.x + o.l > k.de + 0.01);
+  if (!r) return 0;
+  if (o.y + o.h <= r.hauteurM + 0.01) return r.devant.some(([p, q]) => o.x < q && o.x + o.l > p) ? null : r.profondeurM;
+  return o.y < r.hauteurM - 0.01 ? null : 0;
+}
+
 /** Un mur libre pour une saillie neuve : le plus long mur de l'hote qui n'en porte pas deja, sinon le plus long. */
 export function murLibre(corps: readonly CorpsToit[], hote: number): number {
   const h = corps[hote] as CorpsToit;

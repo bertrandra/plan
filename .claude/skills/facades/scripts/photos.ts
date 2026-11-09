@@ -6,11 +6,13 @@
 //   npx tsx .claude/skills/facades/scripts/photos.ts <scene> <dossier>
 //
 // Ecrit <dossier>/vue-0.png, vue-1.png… et <dossier>/coins.json : la largeur et la hauteur du mur, la
-// largeur de chaque photo en pixels et ses coins vrais (HG, HD, BD, BG).
+// largeur de chaque photo en pixels et ses coins vrais (HG, HD, BD, BG). Ecrit aussi <dossier>/elevation.png,
+// l'elevation de l'etalon vue de face, du sol au haut peint (`hauteurPeinte`, dans coins.json) : la photo
+// redressee d'un releve, telle qu'un point de fumee la pose sur un mur sans repasser par la chaine.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
-import { coinsVrais, photographier } from '../../../../src/facade/banc/synthese.ts';
+import { coinsVrais, hauteurPeinte, peindreElevation, photographier } from '../../../../src/facade/banc/synthese.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
 
 const [nom, dossier] = process.argv.slice(2);
@@ -34,5 +36,6 @@ const coins = prises.map((p, k) => {
   largeurPx.push(ph.image.largeur);
   return coinsVrais(s, p);
 });
-writeFileSync(join(dossier, 'coins.json'), JSON.stringify({ scene: s.nom, largeur: s.verite.largeur, hauteur: s.verite.hauteur, largeurPx, coins }, null, 2));
+writeFileSync(join(dossier, 'elevation.png'), png(peindreElevation(s, px, false)));
+writeFileSync(join(dossier, 'coins.json'), JSON.stringify({ scene: s.nom, largeur: s.verite.largeur, hauteur: s.verite.hauteur, hauteurPeinte: hauteurPeinte(s), largeurPx, coins }, null, 2));
 console.log(`${s.nom} : ${prises.length} vue(s) ecrite(s) dans ${dossier}`);
