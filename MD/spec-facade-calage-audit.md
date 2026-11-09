@@ -48,7 +48,9 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
 5. **La calibration rejoue chaque scénario avec une illustration de chaque étape, déterministe et IA.** Elle devient l'écran où l'on
    voit pourquoi un calage a réussi ou échoué.
 6. **Les photos se prennent et se rangent dans l'audit.** La calibration lit les façades de l'audit et en fait des cas ; elle ne prend
-   plus de photos pour elle.
+   plus de photos pour elle. *Depuis le 9 novembre 2026 (demande du propriétaire : « Dans calibration je peux uploader des photos. Supprimer,
+   ajouter, ordonner la séquence des photos. »), elle importe des photos dans un cas ouvert, en retire et en change l'ordre, à l'É2
+   (`facade/photosDuCas.ts`) : un import de fichier préparé comme une photo de l'audit, jamais une caméra.*
 7. **La Façade stocke** : ses **dimensions**, sa **forme** (gabarit et silhouette lue) et sa **texture** (l'image **calée** sur le mur).
 8. **Les fenêtres hors automatique sont dans la façade objet** : celles qui viennent de la photo, de Claude ou de la main. Les
    fenêtres automatiques ne sont pas stockées : la 3D les recalcule.

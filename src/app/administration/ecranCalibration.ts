@@ -25,6 +25,7 @@ import { dessinerImageFacade } from '../../render/imageFacade.js';
 import { imageDeLEtalon, listerEtalons, ouvrirEtalon } from '../../io/etalonsFacades.js';
 import { creerProjetDeLEtalon } from './projetEtalon.js';
 import { chercherCoins } from '../releve/rechercheCoins.js';
+import { preparerPhoto } from '../audit/photo.js';
 
 /** Ce que l'editeur ouvert fait d'un choix : la cle de l'element et la source (null : revenir a celle du moteur). */
 type EcouteChoix = (cle: string, source: SourceElement | null) => void;
@@ -122,6 +123,9 @@ export function ouvrirEcranCalibration(): void {
     supprimerCas: async (id) => { try { await supprimerCasCalibration(f, id); return null; } catch (e) { return message(e); } },
     decoder,
     elevationEnUrl: (img) => versJpeg(img, 0.9),
+    // Une photo importee dans un cas (demande du proprietaire, 9 novembre 2026) : preparee comme une photo de l'audit (l'EXIF range dans
+    // l'optique avant la reduction a 1 280 px), sans prise de vue : rien n'a ete mesure par le telephone.
+    importerPhoto: (fichier) => preparerPhoto(fichier, null),
     ...registreDeLEcran(),
     // « Rappeler Claude » : le run d'une facade par le serveur de l'analyse, sous la session de l'administrateur (son cookie).
     // Les deux requetes d'une facade, en meme temps, sur la meme image (decision du proprietaire du 30 octobre 2026) : le run, puis sa
