@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.21.0] — 2026-11-09
+
+Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, un mur commun glisse entre deux corps, deux appentis liés gardent la même
+largeur, le mur s'arrête au bord d'un pignon ou d'une travée, le tracé IGN aimante, un bow-window se tire par chacun de ses bords et la vue
+de dessus s'ouvre sur toute la maison (#641) ; sous un étage qui avance, la photo du relevé couvre la face avant du bow-window et la
+modénature lue suit le mur reculé (#639) ; un Ctrl+Z du projet se voit dans la Vue 3D ouverte (#640, correctif). Des gestes nouveaux
+offerts par l'interface : MINOR (§2.1, « New feature »), pas PATCH. Rien ne change sans le geste ni sans rez-de-chaussée en retrait : aucune
+quantité ni aucun export de la démonstration ne change, les sept témoins ne bougent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sur
+main, à la livraison.
+
 ### Modifié
 - **Mode Toit : le redimensionnement d'un corps suit les réponses du propriétaire du 9 novembre 2026.** Rien ne change sans le geste :
   aucune quantité ni aucun export, aucun champ de fichier (schéma 16), AE 101 identique.
