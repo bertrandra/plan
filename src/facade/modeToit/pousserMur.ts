@@ -23,7 +23,7 @@
 
 import { repere } from '../toits/toitCorps.js';
 import { murDuCorps, replacerSaillie } from './saillies.js';
-import { LONGUEUR_CORPS_MAX_M, LONGUEUR_CORPS_MIN_M } from './corpsNeufs.js';
+import { LONGUEUR_CORPS_MAX_M, LONGUEUR_CORPS_MIN_M, rangPrincipal } from './corpsNeufs.js';
 import { DECROCHE_MIN_M } from './travees.js';
 import type { CorpsToit, PtBrut } from '../../model/types.js';
 
@@ -72,25 +72,36 @@ function posFaitageRelative(posFaitage: number, W: number, W2: number): number {
 /**
  * Les corps colles contre le mur `mur` du corps `rang`, du cote ou il avance : un de leurs murs est sur sa ligne, tourne vers lui, et le
  * longe sur plus de 10 cm. De proche en proche : un corps colle a un corps pousse est pousse aussi (trois bandes d'un toit en M).
+ *
+ * Seul un corps pose au bout suit (une aile au bout d'un corps, son mur contre lui pas plus long que le mur tire) : un corps plus long
+ * porte celui qu'on tire, il ne se laisse pas emmener. Raccourcir une aile par son joint deplacait toute la maison (audit du Mode Toit,
+ * 9 novembre 2026). Pour la meme raison, le corps principal ne bouge jamais ainsi, ni le corps sur lequel s'appuie le mur haut d'un
+ * appentis : tirer ce mur haut ne tire pas la maison.
  */
 export function corpsColles(corps: readonly CorpsToit[], rang: number, mur: number): number[] {
   const c = corps[rang];
   if (!c) return [];
-  const fronts = [murDuCorps(c, mur)], pris = new Set<number>([rang]), res: number[] = [];
+  const principal = rangPrincipal(corps);
+  const fronts: { rang: number; mur: number }[] = [{ rang, mur }], pris = new Set<number>([rang]), res: number[] = [];
   for (let k = 0; k < fronts.length; k++) {
-    const f = fronts[k] as ReturnType<typeof murDuCorps>;
+    const fr = fronts[k] as { rang: number; mur: number }, porteur = corps[fr.rang] as CorpsToit;
+    // Le mur haut d'un appentis s'appuie sur le corps qui le porte : il ne le pousse pas.
+    if (mursDAppentis(porteur)?.haut === fr.mur) continue;
+    const f = murDuCorps(porteur, fr.mur);
     corps.forEach((o, j) => {
-      if (pris.has(j) || o.saillie || o.pts.length !== 4) return;
+      if (pris.has(j) || j === principal || o.saillie || o.pts.length !== 4) return;
       for (let m = 0; m < 4; m++) {
         const w = murDuCorps(o, m);
         if (ps(w.n, f.n) > -0.999 || Math.abs(ps(moins(w.a, f.a), f.n)) > CONTACT_M) continue;
         // Le recouvrement le long du mur : les bouts de l'autre mur, comptes depuis le debut de celui-ci.
         const s1 = ps(moins(w.a, f.a), f.u), s2 = ps(moins(w.b, f.a), f.u);
         if (Math.min(f.L, Math.max(s1, s2)) - Math.max(0, Math.min(s1, s2)) <= 0.1) continue;
+        // Un mur plus long que le front : ce corps porte celui qu'on tire, il reste.
+        if (w.L > f.L + CONTACT_M) continue;
         pris.add(j);
         res.push(j);
         // Son mur oppose devient a son tour un front.
-        fronts.push(murDuCorps(o, (m + 2) % 4));
+        fronts.push({ rang: j, mur: (m + 2) % 4 });
         return;
       }
     });
@@ -98,14 +109,15 @@ export function corpsColles(corps: readonly CorpsToit[], rang: number, mur: numb
   return res;
 }
 
-/** Les lignes des murs paralleles au mur `f` des autres corps, en distance signee le long de sa normale : ou il peut se coller. */
+/** Les lignes des murs paralleles au mur `f` des autres corps, en distance signee le long de sa normale : ou il peut se coller (pas celle ou il est). */
 function lignesParalleles(corps: readonly CorpsToit[], exclus: ReadonlySet<number>, f: ReturnType<typeof murDuCorps>): number[] {
   const l: number[] = [];
   corps.forEach((o, j) => {
     if (exclus.has(j) || o.saillie) return;
     for (let m = 0; m < o.pts.length; m++) {
-      const w = murDuCorps(o, m);
-      if (Math.abs(pv(w.u, f.u)) < 0.02) l.push(ps(moins(w.a, f.a), f.n));
+      const w = murDuCorps(o, m), x = ps(moins(w.a, f.a), f.n);
+      // La ligne sur laquelle le mur est deja (un corps voisin aligne, l'aile contre laquelle il bute) ne l'attire pas.
+      if (Math.abs(pv(w.u, f.u)) < 0.02 && Math.abs(x) > CONTACT_M) l.push(x);
     }
   });
   return l;
@@ -214,7 +226,10 @@ function bornesDuMur(c: CorpsToit, m: number, k: number, autre: boolean): Bornes
   return k > 0 ? { lo: eLo / k, hi: eHi / k, ...(motif ? { motifLo: motif } : {}) } : { lo: eHi / k, hi: eLo / k, ...(motif ? { motifHi: motif } : {}) };
 }
 
-/** Les cotes du trace IGN paralleles au mur `f`, qui le longent, en distance signee le long de sa normale. */
+/**
+ * Les cotes du trace IGN paralleles au mur `f`, qui le longent, en distance signee le long de sa normale ; sauf celui sur lequel le mur
+ * est deja (a CONTACT_M pres), qui le ramenait a sa place a chaque petit pas.
+ */
 function lignesIgn(contour: readonly PtBrut[], f: ReturnType<typeof murDuCorps>): { x: number; arete: Arete }[] {
   const l: { x: number; arete: Arete }[] = [];
   contour.forEach((a, i) => {
@@ -222,7 +237,10 @@ function lignesIgn(contour: readonly PtBrut[], f: ReturnType<typeof murDuCorps>)
     if (L < 0.1 || Math.abs(pv({ x: (b.x - a.x) / L, y: (b.y - a.y) / L }, f.u)) >= 0.02) return;
     const s1 = ps(moins(a, f.a), f.u), s2 = ps(moins(b, f.a), f.u);
     if (Math.min(f.L, Math.max(s1, s2)) - Math.max(0, Math.min(s1, s2)) <= 0.1) return;
-    l.push({ x: ps(moins(a, f.a), f.n), arete: { a, b } });
+    // Le cote sur lequel le mur est deja ne l'attire pas : sinon tout pas de moins de 25 cm le ramenait la, sans rien dire.
+    const x = ps(moins(a, f.a), f.n);
+    if (Math.abs(x) <= CONTACT_M) return;
+    l.push({ x, arete: { a, b } });
   });
   return l;
 }

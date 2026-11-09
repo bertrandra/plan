@@ -5,7 +5,7 @@ import { corpsDepuisExemple } from '../../../../src/three/gestesToits.js';
 import { EXEMPLES_TOITS } from '../../../../src/three/catalogueToits.js';
 import { formeDuCorpsToit } from '../../../../src/model/formeToit.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
-import { murDuCorps } from '../../../../src/facade/modeToit/saillies.js';
+import { corpsDeSaillie, murDuCorps } from '../../../../src/facade/modeToit/saillies.js';
 import type { CorpsToit, PtBrut } from '../../../../src/model/types.js';
 
 // Tout le toit d'un batiment a plusieurs corps tourne d'un coup, et le mur haut d'un appentis se choisit (demande du proprietaire,
@@ -210,5 +210,37 @@ describe('le mur haut d un appentis', () => {
     expect(retour[0]?.pts).toEqual(c.pts);
     expect(retour[0]?.posFaitage).toBeCloseTo(c.posFaitage, 6);
     expect(retour[0]?.egouts).toEqual(c.egouts);
+  });
+});
+
+describe('audit du Mode Toit (9 novembre 2026) : tout le toit qui tourne', () => {
+  const deuxPans = (x0: number, y0: number, x1: number, y1: number): CorpsToit =>
+    ({ pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], posFaitage: (y1 - y0) / 2, faitage: 8, egouts: [5.5, 5.5], pignons: [], ecart: 0 });
+
+  it('un appentis adosse par son mur haut reste appuye sur la maison quand chaque corps tourne', () => {
+    const maison = deuxPans(0, 0, 12, 8);
+    // Un appentis au sud, mur haut (mur 0, y = 0) contre la maison.
+    const app: CorpsToit = { pts: [{ x: 9, y: 0 }, { x: 3, y: 0 }, { x: 3, y: -3 }, { x: 9, y: -3 }], posFaitage: 0, faitage: 4.5, egouts: [3, 3], pignons: [], ecart: 0 };
+    const l = [maison, app];
+    expect(sensDuToit(l)).toEqual({ mode: 'corps', valeur: 'long', raison: null });
+    const t = tournerLeToit(l, 'court');
+    expect(axe(t[0]!)).toBe(90);
+    expect(t[1]).toEqual(app);
+    memesCorps(tournerLeToit(t, 'long'), l);
+    expect(groupesDuBatiment(l)[0]!.aide).toContain('appentis adossé');
+  });
+
+  it('un bow-window glisse sous l etage : la composition ne tourne pas si son mur changeait de troncon, et le dit', () => {
+    // Un toit en M : deux bandes de 10 x 4 m ; le bow-window, sous l'etage, sur le mur sud de la premiere.
+    const a = deuxPans(0, 0, 10, 4), b = deuxPans(0, 4, 10, 8);
+    const bow = corpsDeSaillie(a, { genre: 'bow-window', hote: 0, mur: 0, centreM: 3, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 });
+    const l = [a, b, bow];
+    const e = sensDuToit(l)!;
+    expect(e.mode).toBe('composition');
+    expect(e.raison).toContain('rez-de-chaussée glissé sous l’étage');
+    expect(tournerLeToit(l, 'court')).toEqual(l);
+    // Sans retrait, le bow-window va au mur qui porte sa place, comme avant.
+    const sans = [a, b, corpsDeSaillie(a, { ...bow.saillie!, rdcEnRetraitM: undefined })];
+    expect(sensDuToit(sans)!.raison).toBeNull();
   });
 });

@@ -343,8 +343,10 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   **tout le toit** sous « Bâtiment entier », sur un bâtiment à plusieurs corps (réponses du propriétaire, 8 novembre 2026) : le même groupe
   « Sens du faîtage » ; la composition entière tourne d'un quart de tour sur son emprise quand les corps pavent un rectangle (toit en M, deux
   pans décalés, shed : chaque point lu en parts de l'emprise, (σ, τ) → (1 − τ, σ), l'inverse au retour ; travées et éléments de façade au mur
-  qui porte leur place), sinon chaque corps tourne dans son rectangle ; grisé avec la raison quand un corps l'empêche, jamais une partie du toit
-  en silence (`sens.ts::sensDuToit`, `tournerLeToit`) ; **débord** à l'égout
+  qui porte leur place), sinon chaque corps tourne dans son rectangle, sauf un appentis adossé à un autre corps, qui reste appuyé sur lui ;
+  grisé avec la raison quand un corps l'empêche (ou qu'un bow-window glissé sous l'étage changerait de tronçon de mur), jamais une partie
+  du toit en silence (`sens.ts::sensDuToit`, `tournerLeToit`) ; un corps carré lit son sens sur le plan (dans la longueur quand son
+  faîtage est plus près de l'axe est-ouest, `sensDuCorps`), comme la composition carrée ; **débord** à l'égout
   (`bords.debordEgoutM`, que la 3D lit désormais). La **forme** se change par les vignettes de l'onglet « Toit », qui disent celle en place
   (enfoncée, « · en place »).
 - **Lucarne** : son type se change sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau changent de **pan**.
@@ -384,10 +386,15 @@ la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, u
   tiré le suit. Le faîtage garde sa place relative en travers (au milieu, sur un mur pour un appentis) ; un pignon ou une lucarne qui
   allait au faîtage y va encore ; une croupe garde sa longueur, bornée au faîtage ; un brisis ou un coyau sa largeur, bornée au pan.
 - Un corps collé contre le mur tiré (un de ses murs sur la ligne, tourné vers lui, sur plus de 10 cm) est poussé avec lui, de proche en
-  proche (`corpsColles`) ; un corps qui chevauche ou à l'écart ne bouge pas. Le mur se colle à la ligne d'un mur parallèle d'un autre
+  proche (`corpsColles`) ; un corps qui chevauche ou à l'écart ne bouge pas. Seul un corps posé au bout est emmené (son mur contre lui pas
+  plus long que le mur tiré) ; jamais le corps principal, ni le corps sur lequel s'appuie le mur haut d'un appentis tiré (audit du
+  9 novembre 2026). Le mur ne se colle pas à la ligne (d'un corps, du tracé IGN) sur laquelle il est déjà. Le mur se colle à la ligne d'un mur parallèle d'un autre
   corps à 25 cm près.
 - Dimension aux 5 cm, entre 2,5 et 30 m (un corps déjà hors de ces bornes n'y est pas ramené d'un toucher). De dessus, le faîtage se
-  met encore dans la longueur tout seul (`orienterFaitage`), sauf sur un corps qui porte des travées. Un élément de façade posé ne se
+  met encore dans la longueur tout seul (`orienterFaitage`), sauf sur un corps qui porte des travées ; depuis l'audit du 9 novembre 2026,
+  seulement pour un **corps seul** (il ne touche aucun autre corps, ni avant ni après le geste : un corps coupé en deux, une aile, un
+  appentis adossé font partie d'une composition) dont le faîtage était nettement dans la longueur (un sens choisi « dans la largeur » ou
+  un carré gardent le leur), et ses croupes gardent leur part du faîtage. Le sens se choisit par « Sens du faîtage ». Un élément de façade posé ne se
   tire pas ainsi : sa largeur et sa saillie ont leurs poignées.
 - Aucun champ de fichier ; la sortie du moteur ne change pas (AE 101 : `identite.ts` identique). Tests :
   `tests/unit/facade/modeToit/pousserMur.test.ts`. Fumée : point 154.

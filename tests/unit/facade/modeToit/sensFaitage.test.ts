@@ -114,3 +114,22 @@ describe('le sens du faitage, forme par forme', () => {
     expect(groupesDe([exemple('jacobine')], t).map((g) => g.groupe)).not.toContain('sens');
   });
 });
+
+describe('un corps carre (audit du Mode Toit, 9 novembre 2026)', () => {
+  it('les deux boutons restent l inverse l un de l autre : le sens se lit sur le plan', () => {
+    const carre: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 9 }, { x: 0, y: 9 }], posFaitage: 4.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 };
+    let l = [carre];
+    expect(valeurDuGroupe(l, t, 'sens')).toBe('long');
+    l = appliquerChoix(l, t, 'sens', 'court');
+    expect(axe(l[0]!)).toBe(90);
+    expect(valeurDuGroupe(l, t, 'sens')).toBe('court');
+    l = appliquerChoix(l, t, 'sens', 'long');
+    expect(valeurDuGroupe(l, t, 'sens')).toBe('long');
+    expect(l[0]).toEqual(carre);
+    // Tourne de 45° exactement : un quart de tour change encore la valeur.
+    const biais: CorpsToit = { ...carre, pts: [{ x: 0, y: 0 }, { x: 3, y: 3 }, { x: 0, y: 6 }, { x: -3, y: 3 }], posFaitage: 2.12 };
+    const v = valeurDuGroupe([biais], t, 'sens');
+    const autre = v === 'long' ? 'court' : 'long';
+    expect(valeurDuGroupe(appliquerChoix([biais], t, 'sens', autre), t, 'sens')).toBe(autre);
+  });
+});
