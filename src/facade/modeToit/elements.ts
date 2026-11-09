@@ -11,7 +11,7 @@ import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, retraitDuRdc, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
-import { avecMurHaut, avecSens, murHautDe, murHautReglable, orientationDuMur, sensDuToit, sensReglable, tournerLeToit } from './sens.js';
+import { avecMurHaut, avecSens, murHautDe, murHautReglable, orientationDuMur, sensDuCorps, sensDuToit, sensReglable, tournerLeToit } from './sens.js';
 import { nomOrientation } from '../../geometry/cotesVusDeDehors.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, NatureTravee, PignonToit, PtBrut, SaillieFacade, TraveeMur, TypeLucarne } from '../../model/types.js';
 import { RECULS_TRAVEE_M } from './travees.js';
@@ -381,7 +381,7 @@ export function groupesDuBatiment(corps: readonly CorpsToit[]): GroupeChoix[] {
   if (!e) return [];
   const aide = e.mode === 'composition'
     ? 'Toute la composition tourne d’un quart de tour sur son emprise : les corps restent accolés comme avant (toit en M, shed…).'
-    : 'Chaque corps tourne son faîtage d’un quart de tour dans son rectangle ; un toit plat ou une tourelle restent tels quels.';
+    : 'Chaque corps tourne son faîtage d’un quart de tour dans son rectangle ; un toit plat, une tourelle ou un appentis adossé à un autre corps restent tels quels.';
   return [{ groupe: 'sens', titre: 'Sens du faîtage · tout le toit', valeurs: VALEURS_SENS, aide, ...(e.raison ? { raison: e.raison } : {}) }];
 }
 
@@ -436,7 +436,7 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
   if (t.type === 'corps' && !c.saillie) {
     // La pente lue n'est enfoncee que si elle tombe sur un choix (a 2 degres pres) : rien n'est arrondi en silence.
     if (groupe === 'pente') { const p = penteDe(c), v = PENTES_DEG.find((x) => Math.abs(x - p) <= 2); return v === undefined ? null : String(v); }
-    if (groupe === 'sens') { const r = repere(c.pts); return r.L >= r.W ? 'long' : 'court'; }
+    if (groupe === 'sens') return sensDuCorps(c);
     if (groupe === 'murHaut' && murHautReglable(c)) return String(murHautDe(c));
     if (groupe === 'debord') { const d = c.bords?.debordEgoutM ?? DEBORD_DESSIN_M, v = DEBORDS_M.find((x) => Math.abs(x - d) <= 0.02); return v === undefined ? null : String(v); }
   }

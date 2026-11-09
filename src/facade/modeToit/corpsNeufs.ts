@@ -128,23 +128,57 @@ export function deplacerCorps(corps: readonly CorpsToit[], rang: number, dx: num
   return suivre(corps.map((k, i) => (i === rang ? { ...k, pts } : k)), rang);
 }
 
+/** A moins de cette distance (en metres), deux corps se touchent : un mur sur la ligne de l'autre, ou l'un dans l'autre. */
+const CONTACT_CORPS_M = 0.05;
+
+/** Les deux rectangles se touchent-ils ou se chevauchent-ils ? Separation sur les axes de leurs murs (deux convexes), a 5 cm pres. */
+export function corpsSeTouchent(a: CorpsToit, b: CorpsToit): boolean {
+  for (const c of [a, b]) {
+    for (let i = 0; i < c.pts.length; i++) {
+      const p = c.pts[i] as PtBrut, q = c.pts[(i + 1) % c.pts.length] as PtBrut, L = Math.hypot(q.x - p.x, q.y - p.y);
+      if (L < 1e-9) continue;
+      const n = { x: (q.y - p.y) / L, y: -(q.x - p.x) / L }, proj = (k: CorpsToit) => k.pts.map((r) => r.x * n.x + r.y * n.y);
+      const pa = proj(a), pb = proj(b);
+      if (Math.min(...pb) - Math.max(...pa) > CONTACT_CORPS_M || Math.min(...pa) - Math.max(...pb) > CONTACT_CORPS_M) return false;
+    }
+  }
+  return true;
+}
+
+/** Le corps `rang` touche-t-il un autre corps du batiment (hors ce qui est pose sur une facade) ? */
+const toucheUnAutreCorps = (corps: readonly CorpsToit[], rang: number): boolean =>
+  corps.some((k, i) => i !== rang && !k.saillie && corps[rang] !== undefined && corpsSeTouchent(corps[rang] as CorpsToit, k));
+
 /**
- * Le faitage dans le sens de la longueur, tout seul : un corps a deux pans, quatre pans ou pavillon, sans rien de pose dessus (ni pignon, ni
- * bow-window, ni lucarne, ni travee), dont le faitage est au milieu, tourne son faitage le long du plus grand cote. Un appentis, un toit plat ou un corps
- * porteur garde le sien.
+ * Le faitage dans le sens de la longueur, tout seul, quand un mur tire de dessus rend le corps plus large que long : un corps a deux pans,
+ * quatre pans ou pavillon, sans rien de pose dessus (ni pignon, ni bow-window, ni lucarne, ni travee), dont le faitage est au milieu,
+ * tourne son faitage le long du plus grand cote. Un appentis, un toit plat ou un corps porteur garde le sien. Ses croupes gardent la meme
+ * part du faitage (comme le sens du faitage choisi, sens.ts::reechelonner) : un quatre-pans reste un quatre-pans.
+ *
+ * Depuis que la personne choisit le sens du faitage (le groupe « sens » de l'inspecteur), ce n'est plus qu'une commodite d'etirement, et
+ * elle ne joue que pour un corps seul (audit du Mode Toit, 9 novembre 2026) :
+ * - le corps ne touche aucun autre corps, ni avant (`avant`, les corps de depart du geste) ni apres : un corps coupe en deux, une aile, un
+ *   appentis adosse font partie d'une composition dont les faitages se repondent ; tourner l'un en silence changeait un toit continu en
+ *   toits croises ;
+ * - son faitage etait nettement dans la longueur avant le geste : un corps que la personne a mis « dans la largeur », ou un corps carre
+ *   (dont le sens se lit sur le plan), garde le sens qu'elle a choisi.
  */
-export function orienterFaitage(corps: readonly CorpsToit[], rang: number): CorpsToit[] {
+export function orienterFaitage(corps: readonly CorpsToit[], rang: number, avant?: readonly CorpsToit[]): CorpsToit[] {
   const c = corps[rang];
   // Des travees tiennent a leur mur par son rang : tourner les sommets les porterait sur un autre mur.
   if (!c || c.saillie || c.pignons.length || c.lucarnes?.length || c.elementsToit?.length || c.speciale || c.profil || c.bouts || c.travees?.length) return corps.slice();
   if (corps.some((k) => k.saillie && k.saillie.hote === rang)) return corps.slice();
+  if (toucheUnAutreCorps(corps, rang) || (avant && toucheUnAutreCorps(avant, rang))) return corps.slice();
+  const c0 = avant?.[rang];
+  if (c0) { const r0 = repere(c0.pts); if (!(r0.L > r0.W + CONTACT_CORPS_M)) return corps.slice(); }
   const r = repere(c.pts);
   if (!(c.posFaitage > 0.01 && c.posFaitage < r.W - 0.01) || Math.abs(c.posFaitage - r.W / 2) > 0.05 || c.faitage - Math.min(...c.egouts) < 0.3) return corps.slice();
   if (!(r.W > r.L * 1.15)) return corps.slice();
   // Le faitage passe sur l'autre cote : les sommets tournent d'un cran, la largeur devient l'ancienne longueur.
   const pts = [c.pts[1], c.pts[2], c.pts[3], c.pts[0]] as PtBrut[];
   const neuf: CorpsToit = { ...c, pts, posFaitage: centi(r.L / 2) };
-  if (c.croupes) delete neuf.croupes;
+  // Le faitage passe de la longueur L a la longueur W : chaque croupe en garde la meme part.
+  if (c.croupes) { const k = r.W / r.L; neuf.croupes = [centi(c.croupes[0] * k), centi(c.croupes[1] * k)]; }
   return corps.map((k, i) => (i === rang ? neuf : k));
 }
 

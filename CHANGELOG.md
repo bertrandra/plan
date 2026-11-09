@@ -5,6 +5,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+- **Mode Toit : six défauts relevés par l'audit des gestes du 9 novembre 2026 (PR #621 à #641).** Rien ne change sans le geste : aucune
+  quantité ni aucun export, aucun champ de fichier (schéma 16), AE 101 identique, empreintes golden inchangées.
+  - **Tirer un mur ne tourne plus le faîtage d'un corps qui en touche un autre.** Le mur commun d'un corps coupé en deux qui glisse
+    rendait une moitié plus large que longue, et son faîtage tournait tout seul : le toit continu devenait deux toits croisés. Le faîtage
+    ne se remet plus seul dans la longueur que pour un corps seul (il ne touche aucun autre corps, ni avant ni après le geste) dont le
+    faîtage était dans la longueur ; un corps mis « dans la largeur » par « Sens du faîtage » garde ce sens. Un quatre-pans qui tourne
+    ainsi garde ses croupes, à la même part du faîtage, au lieu de les perdre.
+  - **Raccourcir une aile par son joint ne déplace plus la maison.** Un corps collé au mur tiré n'est emmené que s'il est posé au bout
+    (son mur contre lui n'est pas plus long que le mur tiré) ; le corps principal ne l'est jamais, ni la maison sur laquelle s'appuie le
+    mur haut d'un appentis qu'on tire.
+  - **Le tracé IGN ne retient plus un mur qui est déjà dessus** : un pas de 5 à 25 cm le ramenait à sa place sans rien dire. Le côté
+    (ou le mur d'un autre corps) sur lequel le mur est déjà n'attire plus ; il en va de même pour un corps déplacé.
+  - **« Sens du faîtage · tout le toit » laisse appuyé un appentis adossé** : quand chaque corps tourne dans son rectangle, un appentis
+    dont le mur haut s'appuie sur un autre corps ne tourne pas (il ne s'appuyait plus sur la maison) ; l'aide du groupe le dit.
+  - **Un corps carré se retourne avec les deux boutons** : « Faîtage dans la largeur » le tournait, mais le bouton restait « dans la
+    longueur » et ne le ramenait plus. Sur un carré, le sens se lit sur le plan (dans la longueur quand le faîtage est plus près de
+    l'axe est-ouest), comme pour une composition carrée.
+  - **Tout le toit ne tourne plus sous un bow-window glissé sous l'étage quand son mur changerait de tronçon** : le recul du
+    rez-de-chaussée, sur tout le mur qui le porte, passait d'un mur de 10 m à un mur de 5 m en silence. Le groupe est grisé avec la raison.
+
 ## [5.21.0] — 2026-11-09
 
 Version **mineure** au sens de `MD/RELEASE.md` : en mode Toit, un mur commun glisse entre deux corps, deux appentis liés gardent la même

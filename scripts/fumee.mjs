@@ -4990,6 +4990,27 @@ const POINTS = {
       else if (c.json !== a.json) echecs.push(forme + ' : Ctrl+Z ne rend pas les corps');
       else lignes.push(forme + ' ' + a.axes.join(',') + '°→' + b.axes.join(',') + '° ✓');
     }
+    // Audit du Mode Toit (9 novembre 2026) : une aile (un appentis adosse au bout de la maison, son mur haut contre elle) ; « dans la
+    // largeur » sur le batiment entier tourne la maison, l'aile reste appuyee sur elle, telle quelle ; Ctrl+Z.
+    await batimentEntier();
+    await poser('Toit', 'forme:deux-pans');
+    await choisirCorps(0);
+    await poser('Corps', 'corps:aile');
+    await batimentEntier();
+    const ad = await lire();
+    if (ad.n !== 2 || !(await groupeTout('court').count())) echecs.push('aile adossée : ' + ad.n + ' corps, ' + ((await groupeTout('court').count()) ? '' : 'pas de ') + 'groupe « tout le toit »');
+    else {
+      await groupeTout('court').click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      const at = await lire();
+      await photo('aile-adossee');
+      const aileAvant = JSON.stringify(JSON.parse(ad.json)[1]), aileApres = JSON.stringify(JSON.parse(at.json)[1]);
+      if (Math.abs(((at.axes[0] - ad.axes[0] + 180) % 180) - 90) >= 2 || aileApres !== aileAvant) echecs.push('aile adossée : maison ' + ad.axes[0] + '°→' + at.axes[0] + '°, aile ' + (aileApres === aileAvant ? 'gardée' : 'tournée'));
+      else lignes.push('aile adossée gardée, la maison tournée ' + ad.axes[0] + '°→' + at.axes[0] + '° ✓');
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(400);
+      if ((await lire()).json !== ad.json) echecs.push('aile adossée : Ctrl+Z ne rend pas les corps');
+    }
     // Un corps qui empeche tout le toit de tourner : une fenetre de toit sur le corps 2 du toit en M. Le groupe est grise, la raison dite.
     await batimentEntier();
     await poser('Toit', 'forme:toit-en-m');
@@ -5040,6 +5061,35 @@ const POINTS = {
     if (garde && valide.json !== garde.json) echecs.push('validé : le toit n’est pas celui de la session');
     if (!fige) echecs.push('validé : toit non figé');
     if (defait.json !== avant.json) echecs.push('Ctrl+Z du projet ne rend pas le toit d’avant');
+    // Audit du Mode Toit (9 novembre 2026) : un corps carre de 7 x 7 m ; « dans la largeur » le tourne et s'enfonce, « dans la longueur »
+    // le ramene et s'enfonce (le sens d'un carre se lit sur le plan).
+    await page.evaluate(() => {
+      const b = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment;
+      b.corpsToit = [{ pts: [{ x: -3.5, y: -20 }, { x: 3.5, y: -20 }, { x: 3.5, y: -13 }, { x: -3.5, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 }];
+      delete b.toitFige;
+      window.__plan.toucher('maison');
+    });
+    await page.waitForTimeout(600);
+    const carre = await lire();
+    await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    await choisirCorps(0);
+    const sensCorps = (v) => page.locator('.inspecteurToit:not([data-cible]) [data-commande="toit.regler"][data-groupe="sens"][data-valeur="' + v + '"]');
+    if (!(await sensCorps('court').count())) echecs.push('carré : pas de « Sens du faîtage »');
+    else {
+      const l0 = await enfonce(sensCorps('long'));
+      await sensCorps('court').click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const c1 = await lire(), court = await enfonce(sensCorps('court'));
+      await photo('carre-court');
+      await sensCorps('long').click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const c2 = await lire(), long = await enfonce(sensCorps('long'));
+      if (!l0 || !court || !long || c1.axes[0] !== 90 || c2.json !== carre.json) echecs.push('carré : « longueur » ' + l0 + ', « largeur » ' + court + ' (axe ' + c1.axes[0] + '°), « longueur » ' + long + ', ' + (c2.json === carre.json ? 'rendu' : 'NON RENDU'));
+      else lignes.push('carré : les deux boutons se suivent (0°→90°→0°) ✓');
+    }
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
     if (await deborde()) echecs.push('débordement');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; validé (${fige ? 'figé' : 'NON FIGÉ'}), Ctrl+Z du projet ${defait.json === avant.json ? 'rend le toit d’avant' : 'NE REND PAS'}` };
   },
@@ -5288,7 +5338,7 @@ const POINTS = {
       const xs = (c) => c.pts.map((p) => p.x);
       return { ouest: Math.min(...xs(l[0])), est: Math.max(...xs(l[0])), sud: Math.min(...l[0].pts.map((p) => p.y)), aile: Math.min(...xs(l[1])), json: JSON.stringify(trie(l)) };
     });
-    const echecs = [];
+    const echecs = [], lignesAudit = [];
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
     await image3dStable(page, 3000);
@@ -5338,6 +5388,31 @@ const POINTS = {
       await page.waitForTimeout(500);
       const c = await lire();
       if (c.json !== a.json) echecs.push('Ctrl+Z de la session ne rend pas l’est et l’aile');
+      // Audit du Mode Toit (9 novembre 2026) : l'aile raccourcie par son joint (son cote ouest, contre la maison) ; la maison ne bouge pas.
+      const choisirRang = async (rang) => {
+        const pc = page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]');
+        if ((await pc.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await pc.click({ timeout: 10000 });
+        await page.waitForTimeout(400);
+      };
+      await choisirRang(1);
+      // Choisi, le corps se cadre (la camera bouge) : les poignees se lisent une fois l'image posee.
+      await image3dStable(page, 1500);
+      const la = await poignees(), jo = la.find((p) => /^Côté ouest/.test(p.libelle)), eo = la.find((p) => /^Côté est/.test(p.libelle));
+      if (!jo || !eo) echecs.push('aile : pas de poignée ouest ou est (' + la.map((p) => p.id).join(', ') + ')');
+      else {
+        // Les deux poignees sont au milieu des murs ouest et est de l'aile, a 4 m l'une de l'autre : la moitie vers l'est (l'aile ne
+        // descend pas sous 2,50 m).
+        await photo('aile-avant');
+        await tirer(jo, eo, -Math.hypot(eo.x - jo.x, eo.y - jo.y) / 2);
+        const d = await lire();
+        await photo('aile-apres');
+        if (Math.abs(d.ouest - c.ouest) > 0.001 || Math.abs(d.est - c.est) > 0.001 || !(d.aile > c.aile + 0.5)) echecs.push('aile raccourcie par son joint : maison de ' + d.ouest + ' à ' + d.est + ', aile à ' + d.aile + ' (poignées ' + [jo, eo].map((p) => Math.round(p.x) + ';' + Math.round(p.y)).join(' ') + ')');
+        else lignesAudit.push('aile raccourcie par son joint (à ' + d.aile + ' m), la maison en place ✓');
+        await page.keyboard.press('Control+z');
+        await page.waitForTimeout(500);
+        if ((await lire()).json !== c.json) echecs.push('Ctrl+Z ne rend pas l’aile');
+      }
+      await choisirRang(0);
     } else echecs.push('de dessus : pas de poignée « Côté ouest » ou « Côté est »');
     // De face, le mur sud du corps.
     await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
@@ -5389,7 +5464,7 @@ const POINTS = {
     if (defait.json !== avant.json) echecs.push('Ctrl+Z du projet ne rend pas la maison d’avant');
     if (await deborde()) echecs.push('débordement');
     const m = (v) => v.toFixed(2).replace('.', ',');
-    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade sud à ${m(valide.sud)} (avant ${m(avant.sud)}) ; de dessus ${cotes.length} poignées de côté, de face les deux bouts et la façade, prenables ; corps validé de ${m(valide.ouest)} à ${m(valide.est)} m (avant ${m(avant.ouest)} à ${m(avant.est)}), aile à ${m(valide.aile)} ; projet ${etat.statut ?? '?'} ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + (lignesAudit.length ? lignesAudit.join(' ; ') + ' ; ' : '') + `façade sud à ${m(valide.sud)} (avant ${m(avant.sud)}) ; de dessus ${cotes.length} poignées de côté, de face les deux bouts et la façade, prenables ; corps validé de ${m(valide.ouest)} à ${m(valide.est)} m (avant ${m(avant.ouest)} à ${m(avant.est)}), aile à ${m(valide.aile)} ; projet ${etat.statut ?? '?'} ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
   },
   156: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 sur le redimensionnement au Mode Toit : la maison de la demonstration posee sur un
@@ -5424,7 +5499,9 @@ const POINTS = {
       const l = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit;
       const xs = (c) => c.pts.map((p) => p.x);
       const bow = l.find((c) => c.saillie?.genre === 'bow-window')?.saillie ?? null;
-      return { o0: Math.min(...xs(l[0])), e0: Math.max(...xs(l[0])), o1: Math.min(...xs(l[1])), e1: Math.max(...xs(l[1])), pignons: l[1].pignons.length,
+      // L'axe du faitage de chaque corps (pts[0] -> pts[1]) : 'x' est-ouest, 'y' nord-sud.
+      const axe = (c) => (Math.abs(c.pts[1].x - c.pts[0].x) >= Math.abs(c.pts[1].y - c.pts[0].y) ? 'x' : 'y');
+      return { o0: Math.min(...xs(l[0])), e0: Math.max(...xs(l[0])), o1: Math.min(...xs(l[1])), e1: Math.max(...xs(l[1])), pignons: l[1].pignons.length, axes: axe(l[0]) + axe(l[1]),
         bow: bow ? { g: bow.centreM - bow.largeurM / 2, d: bow.centreM + bow.largeurM / 2 } : null, json: JSON.stringify(trie(l)) };
     });
     const echecs = [], lignes = [];
@@ -5496,6 +5573,19 @@ const POINTS = {
       await page.keyboard.press('Control+z');
       await page.waitForTimeout(500);
       if ((await lire()).json !== avant.json) echecs.push('Ctrl+Z ne rend pas les deux corps');
+      // 1 bis. Audit du Mode Toit (9 novembre 2026) : le mur commun recule de 1 m, le corps 1 devient plus large que long ; son faitage ne
+      // tourne pas (le toit reste continu, pas deux toits croises).
+      const lr = await poignees(), estR = lr.find((p) => /^Côté est/.test(p.libelle)), ouestR = lr.find((p) => /^Côté ouest/.test(p.libelle));
+      if (estR && ouestR) {
+        await tirer(estR, ouestR, -ppm);
+        const r = await lire();
+        await photo('mur-commun-recule');
+        if (!(r.e0 < avant.e0 - 0.5) || Math.abs(r.o1 - r.e0) > 0.001 || r.axes !== avant.axes) echecs.push('mur commun reculé : corps 1 ' + r.o0 + '→' + r.e0 + ', faîtages ' + avant.axes + ' → ' + r.axes);
+        else lignes.push('mur commun reculé à x = ' + r.e0 + ', les faîtages gardés (' + r.axes + ') ✓');
+        await page.keyboard.press('Control+z');
+        await page.waitForTimeout(500);
+        if ((await lire()).json !== avant.json) echecs.push('Ctrl+Z ne rend pas les deux corps (mur commun reculé)');
+      } else echecs.push('corps 1 : poignées perdues après Ctrl+Z');
       // 2. Le cote ouest rentre de 50 cm, puis ressort de 40 : a 10 cm du trace IGN, il s'y colle, le trace s'eclaire.
       l0 = await poignees();
       const o2 = l0.find((p) => /^Côté ouest/.test(p.libelle)), e2 = l0.find((p) => /^Côté est/.test(p.libelle));
@@ -5510,6 +5600,14 @@ const POINTS = {
       if (!(rentre.o0 > -5.8 && rentre.o0 < -5.3)) echecs.push('ouest rentré à ' + rentre.o0);
       if (Math.abs(tenu.o0 + 6) > 0.001 || !tenu.guide || !tenu.mot) echecs.push('tracé IGN : ouest à ' + tenu.o0 + ', ' + tenu.guide + ' trait éclairé, ' + tenu.mot + ' mot dans la bulle');
       else lignes.push('collé au tracé IGN (x = −6, trait éclairé, « collé au tracé IGN ») ✓');
+      // 2 bis. Audit du Mode Toit (9 novembre 2026) : sur le trace, le cote ouest rentre de 15 cm ; le trace ne le retient pas.
+      const o4 = (await poignees()).find((p) => /^Côté ouest/.test(p.libelle)), e4 = (await poignees()).find((p) => /^Côté est/.test(p.libelle));
+      if (o4 && e4) {
+        await tirer(o4, e4, -ppm * 0.15);
+        const pas = await lire();
+        if (!(pas.o0 > -5.97 && pas.o0 < -5.75)) echecs.push('petit pas depuis le tracé : ouest à ' + pas.o0);
+        else lignes.push('un pas de 15 cm depuis le tracé (ouest à ' + pas.o0 + ') ✓');
+      }
     }
     // 3. Le cote est du second corps vers son pignon : il s'arrete au bord du pignon, et le dit.
     await choisir(1);
