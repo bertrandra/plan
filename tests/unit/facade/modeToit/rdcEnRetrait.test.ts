@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  accorderLesRetraits, corpsAuPied, corpsDeSaillie, facettesBowWindow, facettesEncorbellement, morceauxSousEtage, murDuCorps, profondeurDOuverture, replacerSaillie, retraitDuRdc,
-  retraitsDuRdc, retraitsSurLaFacade
+  accorderLesRetraits, corpsAuPied, corpsDeSaillie, facesAvantDuBowWindow, facettesBowWindow, facettesEncorbellement, morceauxDuPave, morceauxSousEtage, murDuCorps,
+  profondeurDOuverture, replacerSaillie, retraitDuRdc, retraitsDuRdc, retraitsSurLaFacade, vitresBowWindow, type RetraitSurFacade
 } from '../../../../src/facade/modeToit/saillies.js';
 import { appliquerChoix, groupesDe, valeurDuGroupe, type CibleElement } from '../../../../src/facade/modeToit/elements.js';
 import { saillieValide } from '../../../../src/model/corpsToitEtendu.js';
@@ -54,7 +54,7 @@ describe('le rez-de-chaussee en retrait sous l etage', () => {
   it('recule le pied du corps hote sur toute la largeur du mur ; l etage reste au nu de la facade', () => {
     const l = avecBows(bow({ rdcEnRetraitM: 0.8 }));
     const r = retraitsDuRdc(l).get(l[0]!);
-    expect(r).toEqual([{ mur: 0, reculM: 0.8, hauteurM: 2.7, devant: [[l[1]!.pts[0], l[1]!.pts[1]]] }]);
+    expect(r).toEqual([{ mur: 0, reculM: 0.8, hauteurM: 2.7, devant: [[l[1]!.pts[0], l[1]!.pts[1]]], bows: [l[1]] }]);
     const pied = corpsAuPied(l[0]!, r);
     expect(pied.pts).toEqual([{ x: 0, y: 0.8 }, { x: 10, y: 0.8 }, { x: 10, y: 6 }, { x: 0, y: 6 }]);
     // Le corps lui-meme ne bouge pas (le toit, les murs hauts restent sur son rectangle).
@@ -131,6 +131,8 @@ describe('la photo d un releve sur un rez-de-chaussee en retrait (decision du pr
     expect(r[0]).toMatchObject({ de: 0, a: 10, hauteurM: 2.7 });
     expect(r[0]!.profondeurM).toBeCloseTo(0.8, 9);
     expect(r[0]!.devant).toEqual([[3.8, 6.2]]);
+    // Le bow-window lui-meme, pour poser la photo sur sa face avant.
+    expect(r[0]!.bows).toEqual([l[1]]);
     // Le pignon voisin, raccourci au pied : sous l'etage, son bout cote rue est l'entree du retrait, ouverte.
     expect(retraitsSurLaFacade(est, retraitsDuRdc(l))).toEqual([{ de: 0, a: 0.8, profondeurM: 0, hauteurM: 2.7, devant: [[0, 0.8]] }]);
     // Le mur d'en face n'en sait rien ; sans retrait, rien du tout.
@@ -164,5 +166,73 @@ describe('la photo d un releve sur un rez-de-chaussee en retrait (decision du pr
     expect(profondeurDOuverture({ x: 1.2, y: 3.8, l: 1.2, h: 1.35 }, r)).toBe(0);
     expect(profondeurDOuverture({ x: 1.2, y: 2, l: 1.2, h: 1.35 }, r)).toBeNull();
     expect(profondeurDOuverture({ x: 1.2, y: 0.9, l: 1.2, h: 1.35 }, [])).toBe(0);
+  });
+});
+
+describe('la photo sur la face avant du bow-window et la modenature sous l etage (decisions du proprietaire, 9 novembre 2026)', () => {
+  const aPlat = (q: readonly { y: number }[]) => q.every((v) => Math.abs(v.y - (q[0] as { y: number }).y) < 1e-6);
+
+  it('les faces avant : ce que voit une photo prise de face (le fond, les pans coupes, l arc sans ses bouts) ; pas un retour d equerre', () => {
+    const rect = corpsDeSaillie(maison(), bow({ forme: 'rectangle', rdcEnRetraitM: 0.8 }));
+    const fr = facesAvantDuBowWindow(rect);
+    expect(fr).toHaveLength(1);
+    // Le fond du bow-window, a fleur de l'etage (y = 0), de 3,8 a 6,2 m.
+    expect(fr[0]!.map((q) => [Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100]).sort((a, b) => a[0]! - b[0]!)).toEqual([[3.8, 0], [6.2, 0]]);
+    // Des pans coupes : le fond et les deux pans, tournes de 37° vers la rue (0,60 m sur 0,80 m).
+    const pans = facesAvantDuBowWindow(corpsDeSaillie(maison(), bow({ forme: 'pans', rdcEnRetraitM: 0.8 })));
+    expect(pans).toHaveLength(3);
+    expect(pans.filter(aPlat)).toHaveLength(1);
+    // Des pans tres profonds (1,50 m sur 0,60 m, 68°) : la photo les verrait par la tranche, seul le fond en est.
+    expect(facesAvantDuBowWindow(corpsDeSaillie(maison(), bow({ forme: 'pans', profondeurM: 1.5, rdcEnRetraitM: 1.5 })))).toHaveLength(1);
+    const arc = facesAvantDuBowWindow(corpsDeSaillie(maison(), bow({ forme: 'arc', rdcEnRetraitM: 0.8 })));
+    expect(arc).toHaveLength(1);
+    // Les douze cotes de l'arc, moins ceux des bouts, qui tournent de plus de 20° (une demi-ellipse aplatie) : ils sont des retours.
+    expect(arc[0]!.length).toBe(11);
+  });
+
+  it('les vitres : sans la face avant quand la photo la couvre, les retours gardent les leurs ; sinon, celles d avant', () => {
+    const rect = corpsDeSaillie(maison(), bow({ forme: 'rectangle', rdcEnRetraitM: 0.8 }));
+    const toutes = vitresBowWindow(rect), sansAvant = vitresBowWindow(rect, true);
+    expect(vitresBowWindow(rect, false)).toEqual(toutes);
+    // Le fond (2,4 m) a deux fenetres, chaque retour (0,8 m) la sienne.
+    expect(toutes).toHaveLength(4);
+    expect(sansAvant).toHaveLength(2);
+    // Aucune vitre restante n'est sur le fond (y = 0) : elles sont sur les retours, entre le mur recule et le fond.
+    expect(sansAvant.every((v) => v.every((q) => q.y > 0.05))).toBe(true);
+    expect(vitresBowWindow(corpsDeSaillie(maison(), bow({ forme: 'arc', rdcEnRetraitM: 0.8 })), true)).toEqual([]);
+    const pans = corpsDeSaillie(maison(), bow({ forme: 'pans', rdcEnRetraitM: 0.8 }));
+    expect(vitresBowWindow(pans).length).toBeGreaterThan(0);
+    expect(vitresBowWindow(pans, true)).toEqual([]);
+  });
+
+  // Un retrait sur la facade de la rue : tout le mur (0 a 10 m), 0,80 m derriere le nu, l'etage a 2,70 m, un bow-window de 3,8 a 6,2 m.
+  const r: RetraitSurFacade = { de: 0, a: 10, profondeurM: 0.8, hauteurM: 2.7, devant: [[3.8, 6.2]] };
+
+  it('un pave sous l etage recule avec le mur du bas, rien derriere le bow-window ; au-dessus, au nu ; hors retrait, tel quel', () => {
+    // Le soubassement (0 a 0,5 m) sur toute la largeur : deux morceaux reculs, le bow-window entre eux.
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 0, y1: 0.5 }, [r])).toEqual([
+      { x0: 0, x1: 3.8, y0: 0, y1: 0.5, profondeurM: 0.8 }, { x0: 6.2, x1: 10, y0: 0, y1: 0.5, profondeurM: 0.8 },
+    ]);
+    // Une chaine d'angle qui monte au-dela du dessous de l'etage : coupee, le bas recule, le haut au nu.
+    expect(morceauxDuPave({ x0: 0, x1: 0.42, y0: 2.4, y1: 3 }, [r])).toEqual([
+      { x0: 0, x1: 0.42, y0: 2.4, y1: 2.7, profondeurM: 0.8 }, { x0: 0, x1: 0.42, y0: 2.7, y1: 3, profondeurM: 0 },
+    ]);
+    // Une genoise sous l'egout : au nu, entiere.
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 5.36, y1: 5.5 }, [r])).toEqual([{ x0: 0, x1: 10, y0: 5.36, y1: 5.5, profondeurM: 0 }]);
+    // Sans retrait, ou un retrait qui ne le croise pas : le pave tel quel.
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 0, y1: 0.5 }, [])).toEqual([{ x0: 0, x1: 10, y0: 0, y1: 0.5, profondeurM: 0 }]);
+    expect(morceauxDuPave({ x0: 0, x1: 3, y0: 0, y1: 0.5 }, [{ ...r, de: 4, a: 10 }])).toEqual([{ x0: 0, x1: 3, y0: 0, y1: 0.5, profondeurM: 0 }]);
+    // Sur le mur voisin, l'entree du retrait (profondeur 0, toute la bande devant) : rien sous l'etage, le haut au nu.
+    expect(morceauxDuPave({ x0: 0, x1: 0.42, y0: 2.4, y1: 3 }, [{ de: 0, a: 0.8, profondeurM: 0, hauteurM: 2.7, devant: [[0, 0.8]] }])).toEqual([
+      { x0: 0, x1: 0.42, y0: 2.7, y1: 3, profondeurM: 0 },
+    ]);
+  });
+
+  it('un bandeau a cheval sur le dessous de l etage reste entier au nu ; plus bas, il recule ; plus haut, au nu', () => {
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 2.64, y1: 2.76 }, [r], true)).toEqual([{ x0: 0, x1: 10, y0: 2.64, y1: 2.76, profondeurM: 0 }]);
+    // Le meme pave, qui n'est pas un bandeau, se coupe.
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 2.64, y1: 2.76 }, [r])).toHaveLength(3);
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 1.44, y1: 1.56 }, [r], true).map((m) => m.profondeurM)).toEqual([0.8, 0.8]);
+    expect(morceauxDuPave({ x0: 0, x1: 10, y0: 3.94, y1: 4.06 }, [r], true)).toEqual([{ x0: 0, x1: 10, y0: 3.94, y1: 4.06, profondeurM: 0 }]);
   });
 });

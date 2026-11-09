@@ -197,7 +197,9 @@ seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis débo
 mur haut. Pas de débord en reprise.
 Un bow-window glissé sous l'étage (`SaillieFacade.rdcEnRetraitM`, schéma 16) recule le pied du corps qui le porte sur tout ce mur
 (`corpsAuPied`), l'étage restant au nu (`facettesEncorbellement`) ; le moteur n'en pose jamais : absent, rien ne change. La photo d'un
-relevé sur ce mur se coupe au dessous de l'étage, le bas reculé avec lui (`retraitsSurLaFacade`, `morceauxSousEtage`, `three/releve3d.ts`).
+relevé sur ce mur se coupe au dessous de l'étage, le bas reculé avec lui (`retraitsSurLaFacade`, `morceauxSousEtage`, `three/releve3d.ts`) ;
+la part devant le bow-window se pose sur sa face avant, à la place de ses vitres (`facesAvantDuBowWindow`), et la modénature lue suit la
+même règle (`morceauxDuPave` : un bandeau à cheval sur le dessous de l'étage reste au nu).
 Un appentis ouvert (`ouvert: true`) n'a pas de prisme (`estAppentisOuvert`, `scene.ts`) : des poteaux, et le mur
 du corps qui le porte derrière ; sous lui, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`), et pas de poteau
 devant un bow-window que son toit couvre. Le débord réglé sur un corps (`bords.debordEgoutM`, `saillieRiveM`) remplace celui du dessin.

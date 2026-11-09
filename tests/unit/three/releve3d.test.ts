@@ -424,4 +424,67 @@ describe('ajouterReleve3d, rez-de-chaussee en retrait sous l etage (schema 16)',
     const groupes = ajoutes.filter((m) => m.name.startsWith('ouverture:')) as unknown as { name: string; enfants: Mesh[] }[];
     expect(groupes.map((g) => g.name)).toEqual(['ouverture:bas', 'ouverture:haut']);
   });
+  it('pose la photo sur la face avant du bow-window, aux memes coordonnees de texture ; sans retrait ni photo, rien', () => {
+    const { ajoutes, ctx } = scene();
+    const habilles = ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], retraitsDuRdc(corps));
+    expect([...habilles]).toEqual([corps[1]]);
+    const bow = ajoutes.filter((m) => m.name === 'releve-facade-bow-window');
+    expect(bow).toHaveLength(1);
+    // Le fond du bow-window, a fleur de l'etage (y = 0), la photo 1 cm devant ; du sol au dessous de l'etage, de 3,8 a 6,2 m.
+    expect(ys(bow[0]!).every((y) => Math.abs(y + 0.01) < 1e-6)).toBe(true);
+    expect(Math.min(...hs(bow[0]!))).toBe(0);
+    expect(Math.max(...hs(bow[0]!))).toBeCloseTo(2.7, 9);
+    const pos = bow[0]!.geometry.attributes.position!.array, uv = bow[0]!.geometry.attributes.uv!.array;
+    expect(Math.min(...pos.filter((_, i) => i % 3 === 0))).toBeCloseTo(3.8, 6);
+    expect(Math.max(...pos.filter((_, i) => i % 3 === 0))).toBeCloseTo(6.2, 6);
+    // Chaque sommet montre le pixel du mur qu'il cache, vu de face : u = x / 10, v = y / 7.
+    for (let i = 0; i < pos.length / 3; i++) { expect(uv[2 * i]).toBeCloseTo(pos[3 * i]! / 10, 9); expect(uv[2 * i + 1]).toBeCloseTo(pos[3 * i + 1]! / 7, 9); }
+    // Le meme mur droit, ou sans photo (case « Texture » decochee) : pas de photo sur le bow-window.
+    const droit = scene();
+    expect(ajouterReleve3d(droit.ctx, objet(), 5.5, null, true, [hote], null).size).toBe(0);
+    expect(droit.ajoutes.some((m) => m.name === 'releve-facade-bow-window')).toBe(false);
+    const sansPhoto = scene();
+    expect(ajouterReleve3d({ ...sansPhoto.ctx, textures: false }, objet(), 5.5, null, true, [hote], retraitsDuRdc(corps)).size).toBe(0);
+    expect(sansPhoto.ajoutes.some((m) => m.name === 'releve-facade-bow-window')).toBe(false);
+  });
+
+  it('sur un bow-window a pans coupes, la photo couvre le fond et les deux pans, que voit une photo de face', () => {
+    const pans = [hote, corpsDeSaillie(hote, { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 })];
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], retraitsDuRdc(pans));
+    const bow = ajoutes.filter((m) => m.name === 'releve-facade-bow-window');
+    expect(bow).toHaveLength(1);
+    const pos = bow[0]!.geometry.attributes.position!.array, uv = bow[0]!.geometry.attributes.uv!.array;
+    // Trois faces, quatre sommets chacune ; du mur recule (y = 0,8) au fond (y = 0), de 3,8 a 6,2 m.
+    expect(pos.length / 3).toBe(12);
+    expect(Math.max(...ys(bow[0]!))).toBeGreaterThan(0.75);
+    expect(Math.min(...pos.filter((_, i) => i % 3 === 0))).toBeCloseTo(3.8, 1);
+    // Le pixel du mur qu'il cache, vu de face (au centimetre du decollement pres).
+    for (let i = 0; i < pos.length / 3; i++) expect(uv[2 * i]).toBeCloseTo(pos[3 * i]! / 10, 2);
+  });
+
+  it('la modenature lue suit le mur recule sous l etage, rien derriere le bow-window ; un bandeau a cheval reste au nu', () => {
+    const modenature = { soubassement: { hauteurM: 0.5, parement: 'pierre' as const }, bandeauxM: [1.5, 2.7, 4.6], chaines: 'pierre' as const, source: 'ia' as const };
+    const avec = (r: Map<CorpsToit, never> | ReturnType<typeof retraitsDuRdc> | null) => {
+      const { ajoutes, ctx } = scene();
+      const o = objet();
+      o.batiment!.facades![0]!.modenature = modenature;
+      ajouterReleve3d(ctx, o, 5.5, null, true, [hote], r);
+      const m = ajoutes.find((k) => k.name === 'releve-modenature')!;
+      const a = m.geometry.attributes.position!.array;
+      return Array.from({ length: a.length / 3 }, (_, i) => ({ x: a[3 * i]!, h: a[3 * i + 1]!, y: -a[3 * i + 2]! }));
+    };
+    const droit = avec(null), recule = avec(retraitsDuRdc(corps));
+    // Sans retrait, tout au nu (la saillie devant le mur, y <= 0).
+    expect(droit.every((q) => q.y <= 1e-9)).toBe(true);
+    // Sous l'etage (sous le bandeau a cheval, 2,64 m), tout est sur le mur recule (0,80 m derriere, saillie comprise) et rien devant le
+    // bow-window (de 3,8 a 6,2 m).
+    const dessous = recule.filter((q) => q.h < 2.64 - 1e-6);
+    expect(dessous.length).toBeGreaterThan(0);
+    expect(dessous.every((q) => q.y >= 0.75 && q.y <= 0.8 + 1e-9)).toBe(true);
+    expect(dessous.some((q) => q.x > 3.8 + 1e-6 && q.x < 6.2 - 1e-6)).toBe(false);
+    // Le bandeau a 2,70 m, a cheval sur le dessous de l'etage : entier, au nu ; celui de l'etage aussi.
+    expect(recule.filter((q) => Math.abs(q.h - 2.64) < 1e-6).every((q) => q.y <= 1e-9)).toBe(true);
+    expect(recule.filter((q) => q.h > 2.76).every((q) => q.y <= 1e-9)).toBe(true);
+  });
 });
