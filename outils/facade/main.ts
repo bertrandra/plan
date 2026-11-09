@@ -1,51 +1,60 @@
-// facade.html : l'interface. Une page, quatre cartes (le mur, les photos, l'objectif, le resultat)
-// et un editeur plein ecran pour poser les coins. Le calcul est dans calcul.ts.
+// facade.html : l'interface. On prend (ou importe) ses photos, la page fait le reste : objectif lu
+// dans l'EXIF (ou estime), redressement automatique de chaque photo, fusion, rendu a la resolution
+// des photos, enregistrement. Le calcul est dans auto.ts.
 
 import { focale35mm, champDepuisFocale35 } from '../../src/facade/exif.js';
-import { focalePx, etalonnerChamp, CHAMP_GRAND_COTE_DEFAUT } from '../../src/facade/cadrage.js';
-import { mesurerHauteur } from '../../src/facade/analyse.js';
-import { caler, hauteurBande, preparerRendu, regionUtile, resolutionNative, tailleSortie, type Calage, type Marges, type Morceau, type P2, type Source } from './calcul.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../../src/facade/cadrage.js';
+import {
+  segmentsPhoto,
+  estimerChamp,
+  redresserPhoto,
+  versGris,
+  vueRedressee,
+  signature,
+  placer,
+  cadreFusion,
+  preparerRendu,
+  regionUtile,
+  type Gris,
+  type Redressement,
+  type Segment,
+  type Source,
+} from './auto.js';
 
-/** Plus grand cote d'un apercu : celui de Plan (spec-releve-facade §6). */
-const APERCU_MAX = 2400;
-/** Surface maximale d'un canevas sur iOS (4096 x 4096) : la photo et le resultat la respectent. */
+/** Plus grand cote de l'apercu d'analyse. */
+const ANALYSE_MAX = 1200;
+/** Surface maximale d'un canevas sur iOS (4096 x 4096). */
 const SURFACE_MAX = 16_000_000;
 const COTE_MAX = 16_384;
+/** Memoire des photos pleine resolution tenues ensemble pendant le rendu. */
+const SOURCES_MAX = 40_000_000;
+const GRAND_ANGLE = 108;
 
 interface Photo {
   id: number;
-  nom: string;
   fichier: File;
-  img: HTMLImageElement;
-  /** Taille de la photo d'origine, orientee. */
   L: number;
   H: number;
-  apercu: HTMLCanvasElement;
-  /** Facteur photo -> apercu. */
-  ak: number;
-  vignette: string;
-  /** Coins dans la photo d'origine : haut gauche, haut droit, bas droit, bas gauche. */
-  coins: P2[] | null;
+  gris: Gris;
+  k: number;
+  segs: Segment[];
   f35: number | null;
+  champEstime: number | null;
+  champ: number;
+  origineChamp: string;
+  red: Redressement | null;
+  vignette: HTMLCanvasElement;
+  fond: HTMLCanvasElement;
 }
 
 /* ---------- reglages gardes sur l'appareil ---------- */
 
-interface Reglages {
-  champ: number;
-  largeur: string;
-  hauteur: string;
-  haut: string;
-  cotes: string;
-  bas: string;
-  qualite: string;
-}
-const CLE = 'facade.reglages.v1';
-const reglages: Reglages = { champ: CHAMP_GRAND_COTE_DEFAUT, largeur: '', hauteur: '', haut: '', cotes: '0', bas: '0', qualite: 'native' };
+const CLE = 'facade.reglages.v2';
+const reglages = { objectif: 'auto', champ: String(CHAMP_GRAND_COTE_DEFAUT), qualite: 'native' };
 try {
   Object.assign(reglages, JSON.parse(localStorage.getItem(CLE) ?? '{}'));
 } catch {
-  /* stockage indisponible : les valeurs par defaut suffisent */
+  /* stockage indisponible */
 }
 function garder() {
   try {
@@ -55,109 +64,137 @@ function garder() {
   }
 }
 
-/* ---------- petits outils ---------- */
+/* ---------- outils ---------- */
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const fr = (v: number, n = 2) => v.toFixed(n).replace('.', ',');
-const nombre = (s: string): number | null => {
-  const v = parseFloat(s.replace(',', '.').trim());
-  return Number.isFinite(v) ? v : null;
-};
+const fr = (v: number, n = 0) => v.toFixed(n).replace('.', ',');
 const attendre = () => new Promise<void>((r) => setTimeout(r, 0));
-let suivant = 1;
 const photos: Photo[] = [];
+let suivant = 1;
+let occupe = false;
 
-function message(el: HTMLElement, texte: string, ton: 'info' | 'bon' | 'alerte' = 'info') {
+function message(id: string, texte: string, ton: 'info' | 'bon' | 'alerte' = 'info') {
+  const el = $(id);
   el.textContent = texte;
   el.dataset.ton = ton;
   el.hidden = !texte;
 }
 
-/* ---------- chargement des photos ---------- */
+// Une erreur sur mobile ne doit pas passer en silence : elle s'affiche en haut de la page.
+function erreur(e: unknown) {
+  const t = e instanceof Error ? e.message : String(e);
+  message('erreur', 'Erreur : ' + t + ' — si elle se répète, essayez la résolution « Légère ».', 'alerte');
+}
+window.addEventListener('error', (e) => erreur(e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => erreur(e.reason));
 
-async function charger(fichier: File): Promise<Photo> {
-  const url = URL.createObjectURL(fichier);
+async function decoder(f: File): Promise<{ img: HTMLImageElement; url: string }> {
+  const url = URL.createObjectURL(f);
   const img = new Image();
-  img.decoding = 'async';
   img.src = url;
-  await img.decode();
-  // naturalWidth/Height sont ceux de l'image orientee (EXIF Orientation applique par le navigateur).
-  const L = img.naturalWidth,
-    H = img.naturalHeight;
-  const ak = Math.min(1, APERCU_MAX / Math.max(L, H));
-  const apercu = document.createElement('canvas');
-  apercu.width = Math.round(L * ak);
-  apercu.height = Math.round(H * ak);
-  apercu.getContext('2d')!.drawImage(img, 0, 0, apercu.width, apercu.height);
-  const v = document.createElement('canvas');
-  const vk = 160 / Math.max(L, H);
-  v.width = Math.round(L * vk);
-  v.height = Math.round(H * vk);
-  v.getContext('2d')!.drawImage(apercu, 0, 0, v.width, v.height);
-  let f35: number | null = null;
   try {
-    f35 = focale35mm(await fichier.slice(0, 262_144).arrayBuffer());
+    await img.decode();
   } catch {
-    f35 = null;
+    await new Promise<void>((ok, ko) => {
+      if (img.complete && img.naturalWidth) return ok();
+      img.onload = () => ok();
+      img.onerror = () => ko(new Error(`« ${f.name} » n’a pas pu être lue (format HEIC ? réglez l’appareil photo sur « Le plus compatible »)`));
+    });
   }
-  return { id: suivant++, nom: fichier.name, fichier, img, L, H, apercu, ak, vignette: v.toDataURL('image/jpeg', 0.7), coins: null, f35 };
+  return { img, url };
 }
 
-function champDe(p: Photo): number {
-  return p.f35 ? champDepuisFocale35(p.f35) : reglages.champ;
+/** Un canevas de travail, rendu aussitot : Safari limite la memoire totale des canevas. */
+function pixels(img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, dw: number, dh: number) {
+  const c = document.createElement('canvas');
+  c.width = dw;
+  c.height = dh;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+  const d = ctx.getImageData(0, 0, dw, dh).data;
+  c.width = c.height = 0;
+  return d;
 }
 
-/** Coins proposes : un rectangle centre, la photo de gauche tient le coin gauche, etc. */
-function coinsProposes(p: Photo, i: number, n: number): P2[] {
-  const mx = n === 1 ? 0.15 : 0.08;
-  let x0 = p.L * mx,
-    x1 = p.L * (1 - mx);
-  if (n > 1 && i === 0) x0 = p.L * 0.2;
-  if (n > 1 && i === n - 1) x1 = p.L * 0.8;
-  const y0 = p.H * 0.3,
-    y1 = p.H * 0.75;
-  return [
-    { x: x0, y: y0 },
-    { x: x1, y: y0 },
-    { x: x1, y: y1 },
-    { x: x0, y: y1 },
-  ];
+/* ---------- les photos ---------- */
+
+async function charger(f: File): Promise<Photo> {
+  const { img, url } = await decoder(f);
+  try {
+    const L = img.naturalWidth,
+      H = img.naturalHeight;
+    const k = Math.min(1, ANALYSE_MAX / Math.max(L, H));
+    const l = Math.round(L * k),
+      h = Math.round(H * k);
+    const gris = versGris({ largeur: l, hauteur: h, donnees: pixels(img, 0, 0, L, H, l, h) });
+    const fond = document.createElement('canvas');
+    const kv = 240 / Math.max(L, H);
+    fond.width = Math.round(L * kv);
+    fond.height = Math.round(H * kv);
+    fond.getContext('2d')!.drawImage(img, 0, 0, fond.width, fond.height);
+    let f35: number | null = null;
+    try {
+      f35 = focale35mm(await f.slice(0, 262_144).arrayBuffer());
+    } catch {
+      f35 = null;
+    }
+    await attendre();
+    const segs = segmentsPhoto(gris, k);
+    const champEstime = f35 ? null : estimerChamp(segs, k, L, H);
+    const p: Photo = { id: suivant++, fichier: f, L, H, gris, k, segs, f35, champEstime, champ: CHAMP_GRAND_COTE_DEFAUT, origineChamp: '', red: null, vignette: document.createElement('canvas'), fond };
+    return p;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
-/* ---------- la carte du mur ---------- */
-
-function lireMur(): { largeur: number | null; hauteur: number | null; marges: Marges } {
-  const largeur = nombre(reglages.largeur);
-  const hauteur = nombre(reglages.hauteur);
-  const haut = nombre(reglages.haut);
-  return {
-    largeur: largeur && largeur > 0 ? largeur : null,
-    hauteur: hauteur && hauteur > 0 ? hauteur : null,
-    marges: {
-      haut: haut !== null && haut >= 0 ? haut : largeur && largeur > 0 ? hauteurBande(largeur) : 3,
-      cotes: Math.max(0, nombre(reglages.cotes) ?? 0),
-      bas: Math.max(0, nombre(reglages.bas) ?? 0),
-    },
-  };
+/** Le champ de chaque photo : l'EXIF, sinon le reglage, sinon l'estimation commune aux photos. */
+function choisirChamps() {
+  const estimes = photos.map((p) => p.champEstime).filter((c): c is number => c !== null).sort((a, b) => a - b);
+  const median = estimes.length ? estimes[Math.floor(estimes.length / 2)]! : null;
+  const regle = parseFloat(reglages.champ.replace(',', '.'));
+  for (const p of photos) {
+    if (p.f35) {
+      p.champ = champDepuisFocale35(p.f35);
+      p.origineChamp = `${p.f35} mm (EXIF)`;
+    } else if (reglages.objectif === 'auto' && median) {
+      p.champ = median;
+      p.origineChamp = 'estimé sur les photos';
+    } else if (reglages.objectif === 'grand-angle') {
+      p.champ = GRAND_ANGLE;
+      p.origineChamp = 'grand-angle 0,5×';
+    } else if (reglages.objectif === 'valeur' && regle > 20 && regle < 150) {
+      p.champ = regle;
+      p.origineChamp = 'réglage';
+    } else {
+      p.champ = CHAMP_GRAND_COTE_DEFAUT;
+      p.origineChamp = 'par défaut (objectif 1×)';
+    }
+  }
 }
 
-function lierChamp(id: keyof Reglages) {
-  const el = $<HTMLInputElement>('ch-' + id);
-  el.value = String(reglages[id]);
-  el.addEventListener('input', () => {
-    (reglages as unknown as Record<string, string>)[id] = el.value;
-    garder();
-    majMur();
-  });
+function redresser(p: Photo) {
+  p.red = redresserPhoto(p.segs, p.k, p.L, p.H, p.champ);
+  const v = p.vignette;
+  v.width = p.fond.width;
+  v.height = p.fond.height;
+  const ctx = v.getContext('2d')!;
+  ctx.drawImage(p.fond, 0, 0);
+  const kv = v.width / p.L;
+  ctx.lineWidth = 1.5;
+  for (const [segs, c] of [
+    [p.red.verticales, '#2ec4f1'],
+    [p.red.horizontales, '#ff9f1c'],
+  ] as [Segment[], string][]) {
+    ctx.strokeStyle = c;
+    ctx.beginPath();
+    for (const s of segs) {
+      ctx.moveTo(s.x1 * kv, s.y1 * kv);
+      ctx.lineTo(s.x2 * kv, s.y2 * kv);
+    }
+    ctx.stroke();
+  }
 }
-
-function majMur() {
-  const m = lireMur();
-  $<HTMLInputElement>('ch-haut').placeholder = m.largeur ? 'auto : ' + fr(hauteurBande(m.largeur), 1) : 'auto';
-  majResultatPossible();
-}
-
-/* ---------- la liste des photos ---------- */
 
 function majPhotos() {
   const liste = $('photos');
@@ -165,605 +202,150 @@ function majPhotos() {
   photos.forEach((p, i) => {
     const li = document.createElement('li');
     li.className = 'photo';
-    const im = document.createElement('img');
-    im.src = p.vignette;
-    im.alt = 'Photo ' + (i + 1);
+    p.vignette.className = 'vignette';
+    p.vignette.setAttribute('role', 'img');
+    p.vignette.setAttribute('aria-label', `Photo ${i + 1}, lignes détectées`);
     const corps = document.createElement('div');
     corps.className = 'photo-corps';
-    const titre = document.createElement('strong');
-    titre.textContent = (photos.length > 1 ? `${i + 1}. ` : '') + (photos.length === 1 ? 'Le mur entier' : i === 0 ? 'Bord gauche' : i === photos.length - 1 ? 'Bord droit' : 'Milieu');
-    const info = document.createElement('span');
-    info.className = 'discret';
-    const champ = champDe(p);
-    info.textContent = `${p.L} × ${p.H} px · ${p.f35 ? p.f35 + ' mm (EXIF), ' : 'réglage, '}${fr(champ, 1)}°`;
-    const etat = document.createElement('span');
-    etat.className = p.coins ? 'etat bon' : 'etat';
-    etat.textContent = p.coins ? 'Coins posés' : 'Coins à poser';
-    corps.append(titre, info, etat);
-    const actions = document.createElement('div');
-    actions.className = 'photo-actions';
-    const bouton = (texte: string, titreB: string, fn: () => void, desactive = false) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'petit';
-      b.textContent = texte;
-      b.title = titreB;
-      b.setAttribute('aria-label', titreB);
-      b.disabled = desactive;
-      b.addEventListener('click', fn);
-      actions.append(b);
-    };
-    bouton('Coins', 'Poser les coins de la photo ' + (i + 1), () => ouvrirEditeur(p));
-    if (photos.length > 1) {
-      bouton('◀', 'Déplacer vers la gauche', () => deplacer(i, -1), i === 0);
-      bouton('▶', 'Déplacer vers la droite', () => deplacer(i, 1), i === photos.length - 1);
-    }
-    bouton('✕', 'Retirer la photo ' + (i + 1), () => {
+    const t = document.createElement('strong');
+    t.textContent = `Photo ${i + 1}`;
+    const a = document.createElement('span');
+    a.className = 'discret';
+    a.textContent = `${p.L} × ${p.H} px · objectif ${fr(p.champ)}° ${p.origineChamp}`;
+    const b = document.createElement('span');
+    const r = p.red;
+    b.className = r && !r.avis.length ? 'etat bon' : 'etat';
+    b.textContent = r ? (r.avis.length ? r.avis.join(' ; ') : `${r.verticales.length} verticales, ${r.horizontales.length} horizontales`) : '';
+    corps.append(t, a, b);
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'petit';
+    x.textContent = '✕';
+    x.title = x.ariaLabel = `Retirer la photo ${i + 1}`;
+    x.addEventListener('click', () => {
       photos.splice(i, 1);
-      URL.revokeObjectURL(p.img.src);
       majPhotos();
     });
-    li.append(im, corps, actions);
-    im.addEventListener('click', () => ouvrirEditeur(p));
+    li.append(p.vignette, corps, x);
     liste.append(li);
   });
   $('photos-vide').hidden = photos.length > 0;
-  $('consigne-photos').textContent =
-    photos.length > 1
-      ? 'Plusieurs photos : de gauche à droite, chacune recouvrant la précédente d’environ un tiers. Sur chacune, l’égout en haut et le pied du mur en bas ; la première tient le coin gauche du mur, la dernière le coin droit.'
-      : 'Une photo si tout le mur tient dans l’image. Sinon, plusieurs photos de gauche à droite, en vous décalant le long du mur et en gardant un tiers de la photo précédente.';
-  majResultatPossible();
-}
-
-function deplacer(i: number, sens: number) {
-  const j = i + sens;
-  if (j < 0 || j >= photos.length) return;
-  [photos[i], photos[j]] = [photos[j]!, photos[i]!];
-  majPhotos();
+  $<HTMLButtonElement>('fusionner').disabled = occupe || !photos.length;
 }
 
 async function ajouter(fichiers: FileList | null) {
-  if (!fichiers || !fichiers.length) return;
-  const etat = $('etat-photos');
-  message(etat, 'Lecture de la photo…');
-  const nouvelles: Photo[] = [];
-  for (const f of Array.from(fichiers)) {
-    try {
-      nouvelles.push(await charger(f));
-    } catch {
-      message(etat, `« ${f.name} » n’a pas pu être lue (format non pris en charge ?).`, 'alerte');
-      return;
-    }
-  }
-  photos.push(...nouvelles);
-  message(etat, '');
-  majPhotos();
-  // Une seule photo ajoutee : on enchaine sur ses coins.
-  if (nouvelles.length === 1) ouvrirEditeur(nouvelles[0]!);
-}
-
-/* ---------- l'editeur plein ecran (coins, ou segment d'etalonnage) ---------- */
-
-interface Edition {
-  photo: Photo;
-  /** Poignees dans l'apercu. */
-  pts: P2[];
-  mode: 'coins' | 'etalon';
-  sel: number;
-  s: number;
-  ox: number;
-  oy: number;
-  valider: (pts: P2[]) => void;
-}
-let ed: Edition | null = null;
-const toile = () => $<HTMLCanvasElement>('toile');
-const NOMS = ['haut gauche', 'haut droit', 'bas droit', 'bas gauche'];
-
-function ouvrirEditeur(p: Photo) {
-  const i = photos.indexOf(p),
-    n = photos.length;
-  const coins = (p.coins ?? coinsProposes(p, i, n)).map((q) => ({ x: q.x * p.ak, y: q.y * p.ak }));
-  let consigne = 'Posez les quatre coins du mur : l’égout (ou l’acrotère) en haut, le pied du mur en bas. Un coin caché se pose là où il serait.';
-  if (n > 1)
-    consigne =
-      i === 0
-        ? `Photo 1 sur ${n} : à gauche, le coin gauche du mur ; à droite, une verticale du mur près du bord de la photo. L’égout en haut, le pied en bas.`
-        : i === n - 1
-          ? `Photo ${n} sur ${n} : à droite, le coin droit du mur ; à gauche, une verticale du mur près du bord. L’égout en haut, le pied en bas.`
-          : `Photo ${i + 1} sur ${n} : deux verticales du mur près des bords de la photo, de l’égout au pied.`;
-  demarrerEdition(p, coins, 'coins', consigne, (pts) => {
-    p.coins = pts.map((q) => ({ x: q.x / p.ak, y: q.y / p.ak }));
-    majPhotos();
-  });
-}
-
-function demarrerEdition(p: Photo, pts: P2[], mode: Edition['mode'], consigne: string, valider: (pts: P2[]) => void) {
-  ed = { photo: p, pts, mode, sel: 0, s: 1, ox: 0, oy: 0, valider };
-  $('editeur').hidden = false;
-  document.body.classList.add('fige');
-  $('ed-consigne').textContent = consigne;
-  $('ed-etalon').hidden = mode !== 'etalon';
-  cadrer();
-  majMesure();
-  dessiner();
-}
-
-function fermerEditeur() {
-  ed = null;
-  $('editeur').hidden = true;
-  document.body.classList.remove('fige');
-}
-
-/** Ajuste la vue : toute la photo, avec une marge pour attraper un coin hors cadre. */
-function cadrer() {
-  if (!ed) return;
-  const c = toile();
-  const r = c.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  c.width = Math.round(r.width * dpr);
-  c.height = Math.round(r.height * dpr);
-  const a = ed.photo.apercu;
-  const s = Math.min(r.width / (a.width * 1.3), r.height / (a.height * 1.3));
-  ed.s = s;
-  ed.ox = (r.width - a.width * s) / 2;
-  ed.oy = (r.height - a.height * s) / 2;
-}
-
-const versEcran = (q: P2) => ({ x: q.x * ed!.s + ed!.ox, y: q.y * ed!.s + ed!.oy });
-
-let loupe: { x: number; y: number } | null = null;
-let demande = 0;
-function dessiner() {
-  if (demande) return;
-  demande = requestAnimationFrame(() => {
-    demande = 0;
-    if (!ed) return;
-    const c = toile();
-    const ctx = c.getContext('2d')!;
-    const dpr = c.width / c.getBoundingClientRect().width || 1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, c.width, c.height);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(ed.photo.apercu, ed.ox, ed.oy, ed.photo.apercu.width * ed.s, ed.photo.apercu.height * ed.s);
-    const e = ed.pts.map(versEcran);
-    ctx.lineWidth = 1.5;
-    if (ed.mode === 'coins') {
-      // Les cotes prolonges, en pointilles : ils aident a suivre une arete du mur.
-      ctx.setLineDash([6, 6]);
-      ctx.strokeStyle = 'rgba(255,255,255,.45)';
-      for (let k = 0; k < 4; k++) prolonger(ctx, e[k]!, e[(k + 1) % 4]!);
-      ctx.setLineDash([]);
-      const couleurs = ['#ff9f1c', '#ffffff', '#2ec4f1', '#ffffff'];
-      for (let k = 0; k < 4; k++) {
-        ctx.strokeStyle = couleurs[k]!;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(e[k]!.x, e[k]!.y);
-        ctx.lineTo(e[(k + 1) % 4]!.x, e[(k + 1) % 4]!.y);
-        ctx.stroke();
-      }
-    } else {
-      ctx.strokeStyle = '#ff9f1c';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(e[0]!.x, e[0]!.y);
-      ctx.lineTo(e[1]!.x, e[1]!.y);
-      ctx.stroke();
-    }
-    e.forEach((q, k) => {
-      ctx.beginPath();
-      ctx.arc(q.x, q.y, k === ed!.sel ? 15 : 12, 0, Math.PI * 2);
-      ctx.fillStyle = k === ed!.sel ? 'rgba(255,159,28,.35)' : 'rgba(0,0,0,.25)';
-      ctx.fill();
-      ctx.strokeStyle = k === ed!.sel ? '#ff9f1c' : '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(q.x - 5, q.y);
-      ctx.lineTo(q.x + 5, q.y);
-      ctx.moveTo(q.x, q.y - 5);
-      ctx.lineTo(q.x, q.y + 5);
-      ctx.stroke();
-    });
-    if (loupe) dessinerLoupe(ctx, ed.pts[ed.sel]!);
-  });
-}
-
-function prolonger(ctx: CanvasRenderingContext2D, a: P2, b: P2) {
-  const dx = b.x - a.x,
-    dy = b.y - a.y;
-  const n = Math.hypot(dx, dy);
-  if (n < 1) return;
-  const k = 4000 / n;
-  ctx.beginPath();
-  ctx.moveTo(a.x - dx * k, a.y - dy * k);
-  ctx.lineTo(b.x + dx * k, b.y + dy * k);
-  ctx.stroke();
-}
-
-/** La loupe : la region autour de la poignee, grossie, dans un coin oppose au doigt. */
-function dessinerLoupe(ctx: CanvasRenderingContext2D, q: P2) {
-  if (!ed || !loupe) return;
-  const r = toile().getBoundingClientRect();
-  const R = Math.min(80, r.width * 0.2);
-  const gauche = loupe.x > r.width / 2;
-  const cx = gauche ? R + 12 : r.width - R - 12,
-    cy = R + 12;
-  const g = Math.min(8, Math.max(2.5, ed.s * 5));
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.fillStyle = '#111';
-  ctx.fill();
-  ctx.clip();
-  ctx.imageSmoothingEnabled = g < 4;
-  ctx.drawImage(ed.photo.apercu, cx - q.x * g, cy - q.y * g, ed.photo.apercu.width * g, ed.photo.apercu.height * g);
-  // Les cotes de la figure, dans la loupe aussi.
-  ctx.strokeStyle = 'rgba(255,159,28,.9)';
-  ctx.lineWidth = 1.5;
-  const L = (p: P2) => ({ x: cx + (p.x - q.x) * g, y: cy + (p.y - q.y) * g });
-  const n = ed.pts.length;
-  ed.pts.forEach((p, k) => {
-    if (ed!.mode === 'etalon' && k === 1) return;
-    const a = L(p),
-      b = L(ed!.pts[(k + 1) % n]!);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  });
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx - R, cy);
-  ctx.lineTo(cx - 6, cy);
-  ctx.moveTo(cx + 6, cy);
-  ctx.lineTo(cx + R, cy);
-  ctx.moveTo(cx, cy - R);
-  ctx.lineTo(cx, cy - 6);
-  ctx.moveTo(cx, cy + 6);
-  ctx.lineTo(cx, cy + R);
-  ctx.stroke();
-  ctx.restore();
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-}
-
-/** Mesure en direct : la hauteur que donnent ces coins (une photo), ou le champ (etalonnage). */
-function majMesure() {
-  if (!ed) return;
-  const m = $('ed-mesure');
-  const p = ed.photo;
-  if (ed.mode === 'coins') {
-    const mur = lireMur();
-    const nom = 'Poignée : ' + NOMS[ed.sel];
-    if (photos.length === 1 && mur.largeur) {
-      const f = focalePx(p.apercu.width, p.apercu.height, champDe(p));
-      const h = mesurerHauteur(ed.pts, mur.largeur, f, p.apercu.width, p.apercu.height);
-      m.textContent = nom + (h ? ` · hauteur mesurée ${fr(h)} m` : ' · hauteur non mesurable avec ces coins');
-    } else m.textContent = nom;
-  } else {
-    const champ = champEtalon();
-    m.textContent = champ ? `Champ du grand côté : ${fr(champ, 1)}°` : 'Saisissez la distance et la longueur.';
-  }
-}
-
-function champEtalon(): number | null {
-  if (!ed || ed.mode !== 'etalon') return null;
-  const d = nombre($<HTMLInputElement>('et-distance').value),
-    t = nombre($<HTMLInputElement>('et-longueur').value);
-  const a = ed.pts[0]!,
-    b = ed.pts[1]!;
-  const px = Math.hypot(b.x - a.x, b.y - a.y) / ed.photo.ak;
-  if (!d || !t || d <= 0 || t <= 0 || px < 4) return null;
-  const c = etalonnerChamp(d, t, px, Math.max(ed.photo.L, ed.photo.H));
-  return c > 10 && c < 150 ? c : null;
-}
-
-function installerEditeur() {
-  const c = toile();
-  const doigts = new Map<number, P2>();
-  let geste:
-    | { type: 'poignee'; k: number; depart: P2; ecran: P2 }
-    | { type: 'vue'; ox: number; oy: number; ecran: P2 }
-    | { type: 'pince'; d0: number; s0: number; m0: P2; img: P2 }
-    | null = null;
-  const pos = (e: PointerEvent): P2 => {
-    const r = c.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  };
-  const debutPince = () => {
-    const [a, b] = [...doigts.values()];
-    if (!a || !b || !ed) return;
-    const m0 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    geste = { type: 'pince', d0: Math.hypot(b.x - a.x, b.y - a.y), s0: ed.s, m0, img: { x: (m0.x - ed.ox) / ed.s, y: (m0.y - ed.oy) / ed.s } };
-    loupe = null;
-  };
-  c.addEventListener('pointerdown', (e) => {
-    if (!ed) return;
-    c.setPointerCapture(e.pointerId);
-    const p = pos(e);
-    doigts.set(e.pointerId, p);
-    if (doigts.size === 2) return debutPince();
-    if (doigts.size > 2) return;
-    // La poignee la plus proche, dans un rayon genereux pour le doigt.
-    let k = -1,
-      best = e.pointerType === 'mouse' ? 20 : 36;
-    ed.pts.forEach((q, i) => {
-      const s = versEcran(q);
-      const d = Math.hypot(s.x - p.x, s.y - p.y);
-      if (d < best) {
-        best = d;
-        k = i;
-      }
-    });
-    if (k >= 0) {
-      ed.sel = k;
-      geste = { type: 'poignee', k, depart: { ...ed.pts[k]! }, ecran: p };
-      loupe = p;
-      majMesure();
-    } else geste = { type: 'vue', ox: ed.ox, oy: ed.oy, ecran: p };
-    dessiner();
-  });
-  c.addEventListener('pointermove', (e) => {
-    if (!ed || !doigts.has(e.pointerId)) return;
-    const p = pos(e);
-    doigts.set(e.pointerId, p);
-    if (!geste) return;
-    if (geste.type === 'poignee') {
-      // Deplacement relatif : la poignee suit le doigt sans se cacher dessous.
-      ed.pts[geste.k] = { x: geste.depart.x + (p.x - geste.ecran.x) / ed.s, y: geste.depart.y + (p.y - geste.ecran.y) / ed.s };
-      loupe = p;
-      majMesure();
-    } else if (geste.type === 'vue') {
-      ed.ox = geste.ox + p.x - geste.ecran.x;
-      ed.oy = geste.oy + p.y - geste.ecran.y;
-    } else {
-      const [a, b] = [...doigts.values()];
-      if (!a || !b) return;
-      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      const s = Math.min(40, Math.max(0.02, (geste.s0 * Math.hypot(b.x - a.x, b.y - a.y)) / Math.max(1, geste.d0)));
-      ed.s = s;
-      ed.ox = m.x - geste.img.x * s;
-      ed.oy = m.y - geste.img.y * s;
-    }
-    dessiner();
-  });
-  const fin = (e: PointerEvent) => {
-    doigts.delete(e.pointerId);
-    if (doigts.size === 1 && geste?.type === 'pince' && ed) {
-      const [p] = [...doigts.values()];
-      geste = { type: 'vue', ox: ed.ox, oy: ed.oy, ecran: p! };
-    } else if (doigts.size === 0) {
-      geste = null;
-      loupe = null;
-    }
-    dessiner();
-  };
-  c.addEventListener('pointerup', fin);
-  c.addEventListener('pointercancel', fin);
-  c.addEventListener(
-    'wheel',
-    (e) => {
-      if (!ed) return;
-      e.preventDefault();
-      const r = c.getBoundingClientRect();
-      const m = { x: e.clientX - r.left, y: e.clientY - r.top };
-      const img = { x: (m.x - ed.ox) / ed.s, y: (m.y - ed.oy) / ed.s };
-      ed.s = Math.min(40, Math.max(0.02, ed.s * Math.exp(-e.deltaY * 0.0015)));
-      ed.ox = m.x - img.x * ed.s;
-      ed.oy = m.y - img.y * ed.s;
-      dessiner();
-    },
-    { passive: false },
-  );
-  // Le pave fin : un demi-pixel d'ecran par appui, pour finir a la loupe.
-  const pousser = (dx: number, dy: number) => {
-    if (!ed) return;
-    const q = ed.pts[ed.sel]!;
-    const pas = 0.5 / ed.s;
-    ed.pts[ed.sel] = { x: q.x + dx * pas, y: q.y + dy * pas };
-    loupe = versEcran(ed.pts[ed.sel]!);
-    majMesure();
-    dessiner();
-    clearTimeout(minuterieLoupe);
-    minuterieLoupe = window.setTimeout(() => {
-      loupe = null;
-      dessiner();
-    }, 1200);
-  };
-  let minuterieLoupe = 0;
-  const repeter = (id: string, dx: number, dy: number) => {
-    const b = $(id);
-    let t = 0;
-    const arret = () => clearInterval(t);
-    b.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      pousser(dx, dy);
-      clearInterval(t);
-      t = window.setInterval(() => pousser(dx, dy), 90);
-    });
-    b.addEventListener('pointerup', arret);
-    b.addEventListener('pointerleave', arret);
-    b.addEventListener('pointercancel', arret);
-  };
-  repeter('pv-g', -1, 0);
-  repeter('pv-d', 1, 0);
-  repeter('pv-h', 0, -1);
-  repeter('pv-b', 0, 1);
-  $('pv-suivant').addEventListener('click', () => {
-    if (!ed) return;
-    ed.sel = (ed.sel + 1) % ed.pts.length;
-    majMesure();
-    dessiner();
-  });
-  $('ed-cadrer').addEventListener('click', () => {
-    cadrer();
-    dessiner();
-  });
-  $('ed-annuler').addEventListener('click', fermerEditeur);
-  $('ed-valider').addEventListener('click', () => {
-    if (!ed) return;
-    if (ed.mode === 'etalon' && !champEtalon()) {
-      majMesure();
-      return;
-    }
-    ed.valider(ed.pts);
-    fermerEditeur();
-  });
-  for (const id of ['et-distance', 'et-longueur']) $(id).addEventListener('input', majMesure);
-  window.addEventListener('resize', () => {
-    if (!ed) return;
-    cadrer();
-    dessiner();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && ed) fermerEditeur();
-  });
-}
-
-/* ---------- l'objectif ---------- */
-
-function majObjectif() {
-  $<HTMLInputElement>('ch-champ').value = fr(reglages.champ, 1);
-  $('objectif-info').textContent = `Focale équivalente ${fr(36 / 2 / Math.tan((reglages.champ * Math.PI) / 360), 1)} mm (24×36). Une photo qui porte sa focale dans ses données EXIF l’emporte.`;
-  majPhotos();
-}
-
-async function etalonner(fichiers: FileList | null) {
-  const f = fichiers?.[0];
-  if (!f) return;
-  let p: Photo;
+  if (!fichiers?.length || occupe) return;
+  occupe = true;
+  message('erreur', '');
   try {
-    p = await charger(f);
-  } catch {
-    message($('etat-photos'), 'Photo illisible.', 'alerte');
-    return;
-  }
-  const a = p.apercu;
-  const pts = [
-    { x: a.width * 0.3, y: a.height * 0.5 },
-    { x: a.width * 0.7, y: a.height * 0.5 },
-  ];
-  demarrerEdition(p, pts, 'etalon', 'Étalonnage : posez les deux extrémités de l’objet de longueur connue, photographié de face, au centre de l’image.', () => {
-    const c = champEtalon();
-    if (c) {
-      reglages.champ = Math.round(c * 10) / 10;
-      garder();
-      majObjectif();
+    const liste = Array.from(fichiers);
+    for (let i = 0; i < liste.length; i++) {
+      message('etat-photos', `Analyse de la photo ${i + 1} sur ${liste.length}…`);
+      await attendre();
+      photos.push(await charger(liste[i]!));
     }
-  });
+    choisirChamps();
+    photos.forEach(redresser);
+    message('etat-photos', '');
+  } catch (e) {
+    message('etat-photos', '');
+    erreur(e);
+  } finally {
+    occupe = false;
+    majPhotos();
+  }
 }
 
-/* ---------- le resultat ---------- */
+/* ---------- la fusion ---------- */
 
-function majResultatPossible() {
-  const mur = lireMur();
-  const manque: string[] = [];
-  if (!mur.largeur) manque.push('la largeur du mur');
-  if (!photos.length) manque.push('au moins une photo');
-  else if (photos.some((p) => !p.coins)) manque.push('les coins de chaque photo');
-  $<HTMLButtonElement>('redresser').disabled = manque.length > 0 || calcul;
-  $('manque').textContent = manque.length ? 'Il manque ' + manque.join(', ') + '.' : '';
-}
+let dernier: { sortie: Uint8ClampedArray; l: number; h: number; nom: string } | null = null;
 
-let calcul = false;
-let dernier: { canvas: HTMLCanvasElement; nom: string } | null = null;
-
-function morceauDe(p: Photo): Morceau {
-  const a = p.apercu;
-  const donnees = a.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, a.width, a.height).data;
-  return {
-    apercu: { largeur: a.width, hauteur: a.height, donnees },
-    coins: p.coins!.map((q) => ({ x: q.x * p.ak, y: q.y * p.ak })),
-    focale: focalePx(a.width, a.height, champDe(p)),
-  };
-}
-
-function resolutionChoisie(native: number, largeur: number, cal: Calage, marges: Marges): number {
-  const l = largeur + 2 * marges.cotes,
-    h = marges.haut + cal.hauteur + marges.bas;
-  const plafond = Math.min(Math.sqrt(SURFACE_MAX / (l * h)), COTE_MAX / Math.max(l, h));
-  let px = native;
-  if (reglages.qualite === 'moitie') px = native / 2;
-  if (reglages.qualite === 'leger') px = Math.min(native, Math.sqrt(4_000_000 / (l * h)));
-  return Math.max(10, Math.min(px, plafond));
-}
-
-/** Les pixels utiles de la photo d'origine, a pleine resolution (bornee par le canevas). */
-function sourceDe(p: Photo, region: { x0: number; y0: number; x1: number; y1: number }): Source {
-  const w = region.x1 - region.x0,
-    h = region.y1 - region.y0;
-  const k = Math.min(1, Math.sqrt(SURFACE_MAX / (w * h)), COTE_MAX / Math.max(w, h));
-  const c = document.createElement('canvas');
-  c.width = Math.max(1, Math.round(w * k));
-  c.height = Math.max(1, Math.round(h * k));
-  const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  ctx.drawImage(p.img, region.x0, region.y0, w, h, 0, 0, c.width, c.height);
-  const donnees = ctx.getImageData(0, 0, c.width, c.height).data;
-  c.width = c.height = 0;
-  return { image: { largeur: Math.round(w * k), hauteur: Math.round(h * k), donnees }, ox: region.x0, oy: region.y0, k: Math.round(w * k) / w };
-}
-
-async function redresser() {
-  const mur = lireMur();
-  if (!mur.largeur || calcul) return;
-  const largeur = mur.largeur;
-  calcul = true;
-  majResultatPossible();
-  const etat = $('etat-resultat');
+async function fusionner() {
+  if (occupe || !photos.length) return;
+  occupe = true;
+  majPhotos();
+  message('erreur', '');
   const barre = $<HTMLProgressElement>('progres');
   barre.hidden = false;
   barre.value = 0;
+  const etape = async (t: string, v: number) => {
+    message('etat-resultat', t);
+    barre.value = v;
+    await attendre();
+  };
   try {
-    message(etat, 'Calage des photos…');
-    await attendre();
-    const morceaux = photos.map(morceauDe);
-    const cal = caler({ morceaux, largeur, hauteurConnue: mur.hauteur });
-    if (!cal) throw new Error('Les coins ne forment pas un quadrilatère utilisable : vérifiez-les.');
-    const coinsPleins = photos.map((p) => p.coins!);
-    const native = resolutionNative(cal, coinsPleins);
-    const px = resolutionChoisie(native, largeur, cal, mur.marges);
-    const taille = tailleSortie(largeur, cal, mur.marges, px);
-    message(etat, `Redressement à ${Math.round(px)} px/m (${taille.l} × ${taille.h} px)…`);
-    await attendre();
-    const sources: Source[] = [];
-    for (let i = 0; i < photos.length; i++) {
-      const p = photos[i]!;
-      const region = regionUtile(cal, mur.marges, i, p.coins!, p.L, p.H);
-      if (!region) throw new Error(`La photo ${i + 1} ne montre rien du mur avec ces coins.`);
-      sources.push(sourceDe(p, region));
+    choisirChamps();
+    photos.forEach(redresser);
+    majPhotos();
+    const reds = photos.map((p) => p.red!);
+    let T = reds.map((_, i) => (i === 0 ? { a: 1, b: 0, tx: 0, ty: 0 } : null));
+    let gains = reds.map(() => 1);
+    if (photos.length > 1) {
+      // Vues de travail a ~900 px, a la meme echelle d'une photo a l'autre (meme focale relative).
+      const cs = reds.map((r) => 900 / Math.max(r.boite.x1 - r.boite.x0, r.boite.y1 - r.boite.y0) / r.cam.f).sort((a, b) => a - b);
+      const c = cs[Math.floor(cs.length / 2)]!;
+      const vues = [];
+      const sigs = [];
+      for (let i = 0; i < photos.length; i++) {
+        await etape(`Points homologues, photo ${i + 1} sur ${photos.length}…`, (0.3 * i) / photos.length);
+        const r = reds[i]!;
+        const fa = Math.min(r.cam.f * c, 1200 / Math.max(r.boite.x1 - r.boite.x0, r.boite.y1 - r.boite.y0));
+        const v = vueRedressee(r, photos[i]!.gris, photos[i]!.k, fa);
+        vues.push(v);
+        sigs.push(signature(v));
+      }
+      await etape('Assemblage des photos…', 0.3);
+      const pl = placer(vues, sigs);
+      T = pl.T;
+      gains = pl.gains;
     }
-    const rendu = preparerRendu(largeur, cal, mur.marges, px, coinsPleins, sources);
-    const pas = Math.max(8, Math.round(400_000 / rendu.largeur));
+    const exclues = T.map((t, i) => (t ? -1 : i)).filter((i) => i >= 0);
+    const cadre = cadreFusion(reds, T);
+    const lw = cadre.x1 - cadre.x0,
+      lh = cadre.y1 - cadre.y0;
+    const plafond = Math.min(Math.sqrt(SURFACE_MAX / (lw * lh)), COTE_MAX / Math.max(lw, lh));
+    let px = cadre.native;
+    if (reglages.qualite === 'moitie') px /= 2;
+    if (reglages.qualite === 'leger') px = Math.min(px, Math.sqrt(4_000_000 / (lw * lh)));
+    px = Math.min(px, plafond);
+    // Les photos d'origine, pleine resolution, sur la seule region utile.
+    const regions = reds.map((r, i) => (T[i] ? regionUtile(r) : null));
+    const total = regions.reduce((a, g) => a + (g ? (g.x1 - g.x0) * (g.y1 - g.y0) : 0), 0);
+    const kTotal = Math.min(1, Math.sqrt(SOURCES_MAX / Math.max(1, total)));
+    const sources: (Source | null)[] = [];
+    for (let i = 0; i < photos.length; i++) {
+      const g = regions[i];
+      if (!g) {
+        sources.push(null);
+        continue;
+      }
+      await etape(`Lecture pleine résolution, photo ${i + 1}…`, 0.35 + (0.1 * i) / photos.length);
+      const w = g.x1 - g.x0,
+        h = g.y1 - g.y0;
+      const k = Math.min(kTotal, Math.sqrt(SURFACE_MAX / (w * h)), COTE_MAX / Math.max(w, h));
+      const dw = Math.max(1, Math.round(w * k)),
+        dh = Math.max(1, Math.round(h * k));
+      const { img, url } = await decoder(photos[i]!.fichier);
+      const d = pixels(img, g.x0, g.y0, w, h, dw, dh);
+      URL.revokeObjectURL(url);
+      sources.push({ image: { largeur: dw, hauteur: dh, donnees: d }, ox: g.x0, oy: g.y0, k: dw / w });
+    }
+    const rendu = preparerRendu(reds, T, gains, sources, cadre, px);
+    const pas = Math.max(4, Math.round(300_000 / rendu.largeur));
     for (let y = 0; y < rendu.hauteur; y += pas) {
       rendu.lignes(y, y + pas);
-      barre.value = Math.min(1, (y + pas) / rendu.hauteur);
-      await attendre();
+      await etape(`Redressement : ${rendu.largeur} × ${rendu.hauteur} px…`, 0.45 + 0.55 * Math.min(1, (y + pas) / rendu.hauteur));
     }
     sources.length = 0;
-    const canvas = $<HTMLCanvasElement>('resultat');
-    canvas.width = rendu.largeur;
-    canvas.height = rendu.hauteur;
-    canvas.getContext('2d')!.putImageData(new ImageData(rendu.sortie, rendu.largeur, rendu.hauteur), 0, 0);
-    $('resultat-bloc').hidden = false;
-    const date = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
-    dernier = { canvas, nom: `facade_${fr(largeur)}x${fr(cal.hauteur)}m_${Math.round(px)}pxm_${date}` };
-    const source = { mesuree: 'mesurée sur la photo', saisie: 'saisie', apparente: 'proportions apparentes (focale inconnue ou coins dégénérés) : à vérifier' }[cal.sourceHauteur];
+    const date = new Date();
+    const z = (n: number) => String(n).padStart(2, '0');
+    dernier = { sortie: rendu.sortie, l: rendu.largeur, h: rendu.hauteur, nom: `facade_${date.getFullYear()}${z(date.getMonth() + 1)}${z(date.getDate())}_${z(date.getHours())}${z(date.getMinutes())}` };
+    apercu();
     const lignes = [
-      `Mur : ${fr(largeur)} m × ${fr(cal.hauteur)} m (hauteur ${source}).`,
-      `Image : ${rendu.largeur} × ${rendu.hauteur} px, ${Math.round(px)} px/m (1 px = ${fr(100 / px, 1)} cm) ; résolution native des photos ≈ ${Math.round(native)} px/m.`,
-      `Le pied du mur est à ${fr(mur.marges.haut + cal.hauteur)} m du haut de l’image, l’égout à ${fr(mur.marges.haut)} m${mur.marges.cotes ? `, le coin gauche à ${fr(mur.marges.cotes)} m du bord` : ''}.`,
+      `${rendu.largeur} × ${rendu.hauteur} px (${fr((rendu.largeur * rendu.hauteur) / 1e6, 1)} Mpx), à ${Math.round((px / cadre.native) * 100)} % de la résolution des photos.`,
+      photos.length > 1 ? `${photos.length - exclues.length} photo(s) assemblée(s) sur ${photos.length}.` : 'Une photo, redressée.',
     ];
-    const faibles = cal.jointures.map((j, k) => ({ j, k })).filter((x) => x.j < 0.5);
-    if (cal.etirement && Math.abs(cal.etirement - 1) > 0.06 && photos.length > 1) lignes.push(`Attention : l’assemblage a dû être étiré de ${fr((cal.etirement - 1) * 100, 0)} % pour retrouver la largeur ; vérifiez les coins.`);
-    for (const f of faibles) lignes.push(`Attention : les photos ${f.k + 1} et ${f.k + 2} se ressemblent mal sur leur partie commune (${fr(f.j)}) ; reprenez-en une en gardant un tiers de mur en commun.`);
+    for (const i of exclues) lignes.push(`Attention : la photo ${i + 1} n’a pas pu être raccordée aux autres (pas assez de détails communs) ; elle est laissée de côté. Gardez environ un tiers de mur en commun d’une photo à l’autre.`);
     $('resultat-info').replaceChildren(
       ...lignes.map((t) => {
         const p = document.createElement('p');
@@ -772,35 +354,54 @@ async function redresser() {
         return p;
       }),
     );
-    message(etat, 'Façade redressée. Vous pouvez l’enregistrer.', 'bon');
+    $('resultat-bloc').hidden = false;
+    message('etat-resultat', 'Façade redressée. Vous pouvez l’enregistrer.', 'bon');
     $('resultat-bloc').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (err) {
-    message(etat, err instanceof Error ? err.message : 'Le redressement a échoué.', 'alerte');
+  } catch (e) {
+    message('etat-resultat', '');
+    erreur(e);
   } finally {
-    calcul = false;
+    occupe = false;
     barre.hidden = true;
-    majResultatPossible();
+    majPhotos();
   }
 }
 
-/** Le resultat en fichier. JPEG : les zones que les photos n'ont pas vues passent en blanc. */
+/** Apercu a l'ecran : une image reduite, pour ne pas tenir un second canevas geant. */
+function apercu() {
+  if (!dernier) return;
+  const { sortie, l, h } = dernier;
+  const k = Math.min(1, 1600 / Math.max(l, h));
+  const c = $<HTMLCanvasElement>('resultat');
+  c.width = Math.max(1, Math.round(l * k));
+  c.height = Math.max(1, Math.round(h * k));
+  const im = new ImageData(c.width, c.height);
+  for (let y = 0; y < c.height; y++) {
+    const sy = Math.min(h - 1, Math.floor((y + 0.5) / k));
+    for (let x = 0; x < c.width; x++) {
+      const sx = Math.min(l - 1, Math.floor((x + 0.5) / k));
+      const o = (y * c.width + x) * 4,
+        s = (sy * l + sx) * 4;
+      im.data[o] = sortie[s]!;
+      im.data[o + 1] = sortie[s + 1]!;
+      im.data[o + 2] = sortie[s + 2]!;
+      im.data[o + 3] = 255;
+    }
+  }
+  c.getContext('2d')!.putImageData(im, 0, 0);
+}
+
 function enFichier(type: 'image/jpeg' | 'image/png'): Promise<File | null> {
   if (!dernier) return Promise.resolve(null);
-  const { canvas, nom } = dernier;
-  let source = canvas;
-  if (type === 'image/jpeg') {
-    source = document.createElement('canvas');
-    source.width = canvas.width;
-    source.height = canvas.height;
-    const ctx = source.getContext('2d')!;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, source.width, source.height);
-    ctx.drawImage(canvas, 0, 0);
-  }
+  const { sortie, l, h, nom } = dernier;
+  const c = document.createElement('canvas');
+  c.width = l;
+  c.height = h;
+  c.getContext('2d')!.putImageData(new ImageData(sortie as Uint8ClampedArray<ArrayBuffer>, l, h), 0, 0);
   return new Promise((r) =>
-    source.toBlob(
+    c.toBlob(
       (b) => {
-        if (source !== canvas) source.width = source.height = 0;
+        c.width = c.height = 0;
         r(b ? new File([b], nom + (type === 'image/png' ? '.png' : '.jpg'), { type }) : null);
       },
       type,
@@ -810,10 +411,9 @@ function enFichier(type: 'image/jpeg' | 'image/png'): Promise<File | null> {
 }
 
 async function enregistrer(type: 'image/jpeg' | 'image/png') {
-  const etat = $('etat-resultat');
-  message(etat, 'Préparation du fichier…');
+  message('etat-resultat', 'Préparation du fichier…');
   const f = await enFichier(type);
-  if (!f) return message(etat, 'Le fichier n’a pas pu être produit (mémoire insuffisante ?). Essayez une qualité plus légère.', 'alerte');
+  if (!f) return message('etat-resultat', 'Le fichier n’a pas pu être produit (mémoire insuffisante ?). Essayez la résolution « Moitié ».', 'alerte');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(f);
   a.download = f.name;
@@ -821,45 +421,24 @@ async function enregistrer(type: 'image/jpeg' | 'image/png') {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
-  message(etat, `« ${f.name} » enregistré (${fr(f.size / 1_048_576, 1)} Mo).`, 'bon');
+  message('etat-resultat', `« ${f.name} » enregistré (${fr(f.size / 1_048_576, 1)} Mo).`, 'bon');
 }
 
 async function partager() {
-  const etat = $('etat-resultat');
+  message('etat-resultat', 'Préparation du fichier…');
   const f = await enFichier('image/jpeg');
-  if (!f) return message(etat, 'Le fichier n’a pas pu être produit.', 'alerte');
+  if (!f) return message('etat-resultat', 'Le fichier n’a pas pu être produit.', 'alerte');
   try {
     await navigator.share({ files: [f], title: 'Façade redressée' });
-    message(etat, 'Partagée.', 'bon');
+    message('etat-resultat', 'Partagée.', 'bon');
   } catch (e) {
-    if ((e as Error).name !== 'AbortError') message(etat, 'Le partage a échoué : utilisez « Enregistrer ».', 'alerte');
+    message('etat-resultat', (e as Error).name === 'AbortError' ? '' : 'Le partage a échoué : utilisez « Enregistrer ».', 'alerte');
   }
 }
 
 /* ---------- demarrage ---------- */
 
 function demarrer() {
-  for (const id of ['largeur', 'hauteur', 'haut', 'cotes', 'bas'] as const) lierChamp(id);
-  const q = $<HTMLSelectElement>('ch-qualite');
-  q.value = reglages.qualite;
-  q.addEventListener('change', () => {
-    reglages.qualite = q.value;
-    garder();
-  });
-  const champ = $<HTMLInputElement>('ch-champ');
-  champ.addEventListener('change', () => {
-    const v = nombre(champ.value);
-    if (v && v > 10 && v < 150) {
-      reglages.champ = v;
-      garder();
-    }
-    majObjectif();
-  });
-  $('champ-defaut').addEventListener('click', () => {
-    reglages.champ = CHAMP_GRAND_COTE_DEFAUT;
-    garder();
-    majObjectif();
-  });
   for (const id of ['prendre', 'importer']) {
     const input = $<HTMLInputElement>(id);
     input.addEventListener('change', async () => {
@@ -867,21 +446,42 @@ function demarrer() {
       input.value = '';
     });
   }
-  const et = $<HTMLInputElement>('etalon-photo');
-  et.addEventListener('change', async () => {
-    await etalonner(et.files);
-    et.value = '';
-  });
-  $('redresser').addEventListener('click', redresser);
+  const obj = $<HTMLSelectElement>('ch-objectif'),
+    champ = $<HTMLInputElement>('ch-champ'),
+    qual = $<HTMLSelectElement>('ch-qualite');
+  obj.value = reglages.objectif;
+  champ.value = reglages.champ;
+  qual.value = reglages.qualite;
+  const majChamp = () => {
+    $('bloc-champ').hidden = obj.value !== 'valeur';
+  };
+  majChamp();
+  const appliquer = () => {
+    reglages.objectif = obj.value;
+    reglages.champ = champ.value;
+    reglages.qualite = qual.value;
+    garder();
+    majChamp();
+    choisirChamps();
+    photos.forEach(redresser);
+    majPhotos();
+  };
+  obj.addEventListener('change', appliquer);
+  champ.addEventListener('change', appliquer);
+  qual.addEventListener('change', appliquer);
+  $('fusionner').addEventListener('click', fusionner);
   $('enregistrer').addEventListener('click', () => enregistrer('image/jpeg'));
   $('enregistrer-png').addEventListener('click', () => enregistrer('image/png'));
-  const peutPartager = typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'a.jpg', { type: 'image/jpeg' })] });
+  let peutPartager = false;
+  try {
+    peutPartager = typeof navigator.canShare === 'function' && navigator.canShare({ files: [new File([''], 'a.jpg', { type: 'image/jpeg' })] });
+  } catch {
+    peutPartager = false;
+  }
   $('partager').hidden = !peutPartager;
   $('partager').addEventListener('click', partager);
   $('resultat').addEventListener('click', () => $('resultat-cadre').classList.toggle('plein'));
-  installerEditeur();
-  majObjectif();
-  majMur();
+  majPhotos();
 }
 
 demarrer();

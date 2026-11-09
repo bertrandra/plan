@@ -8,14 +8,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ### Ajouté
 
 - **`facade.html` : façade redressée, page autonome pour mobile.** Un fichier seul, sans réseau ni
-  serveur : on photographie un mur (une photo, ou plusieurs de gauche à droite), on pose ses coins
-  avec loupe et zoom, et la page assemble et redresse les photos à l'échelle, à la résolution des
-  photos (bornée à 16 Mpx, la limite d'un canevas iOS), puis enregistre le résultat en JPEG ou PNG
-  ou le partage vers Photos. Elle embarque la chaîne de calibration de `src/facade/` (EXIF, champ et
-  focale, étalonnage, proportions d'un rectangle en perspective, homographie, recalage des photos)
-  **sans la modifier** : sources et construction dans `outils/facade/`
-  (`node outils/facade/construire.mjs`, `--verifier` pour le banc synthétique). L'application n'est
-  pas touchée.
+  serveur, et **sans aucune saisie** : on prend ses photos (une, ou plusieurs de gauche à droite),
+  la page lit l'objectif dans l'EXIF (grand-angle 0,5× compris ; à défaut, elle l'estime par les
+  points de fuite), trouve les verticales et les horizontales de la façade, redresse chaque photo,
+  assemble les photos par points homologues et rend le résultat à la résolution des photos (bornée
+  à 16 Mpx, limite d'un canevas iOS) ; JPEG, PNG ou partage vers Photos. Elle embarque `src/facade/`
+  (EXIF, focale) **sans le modifier** ; le redressement automatique et la fusion sont dans
+  `outils/facade/` (`node outils/facade/construire.mjs`, `--verifier` pour le banc synthétique).
+  L'application n'est pas touchée.
 
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m
