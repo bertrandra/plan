@@ -19,7 +19,18 @@ if (process.argv.includes('--verifier')) {
   process.exit(0);
 }
 
-const r = await build({ entryPoints: [resolve(ici, 'main.ts')], bundle: true, format: 'iife', target: ['es2020', 'safari14'], minify: true, write: false, logLevel: 'warning' });
+// Le Web Worker du calcul, embarque comme texte dans la page (lance depuis une URL blob:).
+const travail = await build({ entryPoints: [resolve(ici, 'travail.ts')], bundle: true, format: 'iife', target: ['es2020', 'safari14'], minify: true, write: false, logLevel: 'warning' });
+const r = await build({
+  entryPoints: [resolve(ici, 'main.ts')],
+  bundle: true,
+  format: 'iife',
+  target: ['es2020', 'safari14'],
+  minify: true,
+  write: false,
+  logLevel: 'warning',
+  define: { __TRAVAIL__: JSON.stringify(travail.outputFiles[0].text) },
+});
 const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const modele = readFileSync(resolve(ici, 'modele.html'), 'utf8');
 const commit = (() => {

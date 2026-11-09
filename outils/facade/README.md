@@ -11,10 +11,30 @@ serveur, aucune saisie : on prend ses photos, on touche « Redresser et fusionne
    l'appareil face au mur ; le cadre retenu est celui des lignes trouvées.
 3. **Fusion** : deux vues redressées d'un même mur ne diffèrent que d'une similitude ; coins de
    Harris, descripteurs cherchés à neuf échelles, RANSAC. Fondu progressif et gain par photo.
-4. **Rendu** : chaque pixel est repris sur la photo d'origine, à pleine résolution (16 Mpx au plus).
+4. **Coutures** : chaque jointure entre deux photos suit le chemin où elles se ressemblent le plus
+   (programmation dynamique sur la bande commune), adoucie sur quelques pixels ; une saillie (porche,
+   pignon) n'apparaît donc pas en double. Les photos s'assemblent côte à côte ou l'une au-dessus de
+   l'autre.
+5. **Rendu** : chaque pixel est repris sur la photo d'origine, à pleine résolution (16 Mpx au plus).
 
-Limite : un seul plan est redressé exactement ; ce qui avance ou recule (porche, pignon en saillie)
-reste droit mais peut montrer un léger décalage aux jointures entre photos.
+En plus :
+
+- **Repli manuel** (« Ajuster ») : quatre coins d'un rectangle du mur posés au doigt, avec loupe ;
+  ou « Autre façade » sur une photo d'angle ; ou retour à l'automatique. Sans EXIF, les coins
+  donnent aussi l'objectif.
+- **Grand-angle non corrigé** (certains Android) : la distorsion radiale est estimée sur la photo
+  (celle qui rend les droites du bâtiment le plus concourantes) et corrigée ; un iPhone rend 0.
+- **Photos gardées sur l'appareil** (IndexedDB) : elles reviennent si Safari recharge la page.
+- **Échelle facultative** : une longueur connue posée sur le résultat donne les px/m, puis des
+  mesures et une barre d'échelle sur l'image enregistrée.
+- **Calcul en arrière-plan** (Web Worker lancé depuis le texte embarqué), avec repli sur la page.
+
+Fichiers : `auto.ts` (calcul pur), `operations.ts` (les opérations, appelables par message),
+`travail.ts` (le Worker), `editeur.ts` (poignées, loupe), `stockage.ts` (IndexedDB), `main.ts`
+(l'interface), `modele.html`.
+
+Limite : un seul plan est redressé exactement ; ce qui avance ou recule reste droit mais n'est pas
+à la même échelle que le mur.
 
 ```bash
 node outils/facade/construire.mjs              # reconstruit facade.html

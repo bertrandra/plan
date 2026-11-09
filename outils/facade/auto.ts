@@ -388,6 +388,12 @@ export interface Redressement {
   cam: Camera;
   largeurPhoto: number;
   hauteurPhoto: number;
+  /**
+   * Distorsion radiale (modele de division, rayon rapporte a la demi-diagonale) : 0 pour un
+   * objectif corrige par le telephone - le cas de l'iPhone. Un grand-angle Android non corrige
+   * courbe les droites vers les bords ; ce parametre les redresse.
+   */
+  lambda: number;
   /** Cadre du mur dans le plan redresse (coordonnees normalisees, x vers la droite, y vers le bas). */
   boite: { x0: number; y0: number; x1: number; y1: number };
   /** Pixels de la photo d'origine par unite du plan redresse, au milieu du mur. */
@@ -396,9 +402,49 @@ export interface Redressement {
   verticales: Segment[];
   horizontales: Segment[];
   avis: string[];
+  /** Comment le redressement a ete obtenu. */
+  mode: 'auto' | 'autre-facade' | 'coins';
+  /** Coins du mur sur la photo (haut gauche, haut droit, bas droit, bas gauche), pleine resolution. */
+  coins: P2[];
 }
 
-export function versRedresse(r: Redressement, p: P2): P2 | null {
+const demiDiagonale = (L: number, H: number) => Math.hypot(L, H) / 2;
+
+/** Pixel de la photo -> pixel sans distorsion. */
+export function sansDistorsion(lambda: number, L: number, H: number, p: P2): P2 {
+  if (!lambda) return p;
+  const rn = demiDiagonale(L, H);
+  const dx = (p.x - L / 2) / rn,
+    dy = (p.y - H / 2) / rn;
+  const s = 1 / (1 + lambda * (dx * dx + dy * dy));
+  return { x: L / 2 + dx * s * rn, y: H / 2 + dy * s * rn };
+}
+
+/** Pixel sans distorsion -> pixel de la photo (inverse du modele de division). */
+export function avecDistorsion(lambda: number, L: number, H: number, p: P2): P2 | null {
+  if (!lambda) return p;
+  const rn = demiDiagonale(L, H);
+  const dx = (p.x - L / 2) / rn,
+    dy = (p.y - H / 2) / rn;
+  const ru = Math.hypot(dx, dy);
+  if (ru < 1e-9) return p;
+  const disc = 1 - 4 * lambda * ru * ru;
+  if (disc < 0) return null;
+  const rd = (1 - Math.sqrt(disc)) / (2 * lambda * ru);
+  if (!(rd > 0)) return null;
+  const s = rd / ru;
+  return { x: L / 2 + dx * s * rn, y: H / 2 + dy * s * rn };
+}
+
+const redresserSeg = (lambda: number, L: number, H: number, s: Segment): Segment => {
+  if (!lambda) return s;
+  const a = sansDistorsion(lambda, L, H, { x: s.x1, y: s.y1 }),
+    b = sansDistorsion(lambda, L, H, { x: s.x2, y: s.y2 });
+  return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, long: Math.hypot(b.x - a.x, b.y - a.y) };
+};
+
+export function versRedresse(r: Redressement, p0: P2): P2 | null {
+  const p = sansDistorsion(r.lambda, r.largeurPhoto, r.hauteurPhoto, p0);
   const x = (p.x - r.cam.cx) / r.cam.f,
     y = (p.y - r.cam.cy) / r.cam.f;
   const [h, v, n] = r.R as [V3, V3, V3];
@@ -414,7 +460,7 @@ export function versPhoto(r: Redressement, q: P2): P2 | null {
     Y = h[1] * q.x + v[1] * q.y + n[1],
     Z = h[2] * q.x + v[2] * q.y + n[2];
   if (Z <= 1e-6) return null;
-  return { x: r.cam.f * (X / Z) + r.cam.cx, y: r.cam.f * (Y / Z) + r.cam.cy };
+  return avecDistorsion(r.lambda, r.largeurPhoto, r.hauteurPhoto, { x: r.cam.f * (X / Z) + r.cam.cx, y: r.cam.f * (Y / Z) + r.cam.cy });
 }
 
 function quantile(t: number[], q: number): number {
@@ -422,21 +468,25 @@ function quantile(t: number[], q: number): number {
   return s[Math.min(s.length - 1, Math.max(0, Math.round(q * (s.length - 1))))]!;
 }
 
-/**
- * Le redressement d'une photo. `gris` est un apercu de la photo, a `k` fois sa resolution ;
- * `champ` le champ du grand cote de la photo, en degres.
- */
+/** Les segments d'une photo, depuis son apercu `gris` a `k` fois sa resolution, en pixels pleine resolution. */
 export function segmentsPhoto(gris: Gris, k: number): Segment[] {
   return detecterSegments(gris).map((s) => ({ x1: s.x1 / k, y1: s.y1 / k, x2: s.x2 / k, y2: s.y2 / k, long: s.long / k }));
 }
 
 const focaleDe = (largeur: number, hauteur: number, champ: number) => Math.max(largeur, hauteur) / 2 / Math.tan((champ * Math.PI) / 360);
+const champDeFocale = (largeur: number, hauteur: number, f: number) => (2 * Math.atan(Math.max(largeur, hauteur) / 2 / f) * 180) / Math.PI;
 
 function lignesPhoto(segs: Segment[], k: number, cam: Camera): Ligne[] {
   const ls = lignes(segs, cam);
   // Les tolerances sont en pixels de l'apercu, ou les segments ont ete trouves.
   for (const l of ls) l.tol = Math.min(0.04, Math.max(0.008, 1.5 / (l.seg.long * k)));
   return ls;
+}
+
+/** f^2 depuis deux points de fuite orthogonaux, en pixels relatifs au centre ; null s'il n'a pas de sens. */
+function focaleOrthogonale(vx: number, vy: number, hx: number, hy: number): number | null {
+  const f2 = -(vx * hx + vy * hy);
+  return f2 > 0 ? Math.sqrt(f2) : null;
 }
 
 /**
@@ -484,31 +534,108 @@ export function estimerChamp(segs: Segment[], k: number, largeurPhoto: number, h
   // Points de fuite dans l'image ; une fuite trop lointaine (vue de face, d'aplomb) ne dit rien.
   const v = fv.d;
   if (Math.abs(v[2]) < 0.05 || Math.abs(d[2]) < 0.05) return null;
-  const vx = (f0 * v[0]) / v[2],
-    vy = (f0 * v[1]) / v[2],
-    hx = (f0 * d[0]) / d[2],
-    hy = (f0 * d[1]) / d[2];
-  const f2 = -(vx * hx + vy * hy);
-  if (!(f2 > 0)) return null;
-  const champ = (2 * Math.atan(Math.max(largeurPhoto, hauteurPhoto) / 2 / Math.sqrt(f2)) * 180) / Math.PI;
+  const f = focaleOrthogonale((f0 * v[0]) / v[2], (f0 * v[1]) / v[2], (f0 * d[0]) / d[2], (f0 * d[1]) / d[2]);
+  if (!f) return null;
+  const champ = champDeFocale(largeurPhoto, hauteurPhoto, f);
   return champ > 35 && champ < 125 ? champ : null;
 }
 
-export function redresserPhoto(segs: Segment[], k: number, largeurPhoto: number, hauteurPhoto: number, champ: number): Redressement {
-  const f = focaleDe(largeurPhoto, hauteurPhoto, champ);
-  const cam: Camera = { f, cx: largeurPhoto / 2, cy: hauteurPhoto / 2 };
+/** Ce que les droites de la photo disent, pour une distorsion et une focale donnees. */
+function fuites(segs: Segment[], k: number, cam: Camera, facade: number) {
   const ls = lignesPhoto(segs, k, cam);
-  const avis: string[] = [];
   const fv = fuiteVerticale(ls);
-  let v: V3 = [0, 1, 0];
-  if (fv) v = fv.d;
-  else avis.push('verticales introuvables : la photo est supposée prise d’aplomb');
-  const fh = fuiteHorizontale(ls, v, new Set(fv?.accords ?? []));
-  let h: V3 = unitaire(croix(v, [0, 0, 1])) ?? [1, 0, 0];
+  const v: V3 = fv ? fv.d : [0, 1, 0];
+  const exclus = new Set(fv?.accords ?? []);
+  let fh = fuiteHorizontale(ls, v, exclus);
+  let autre = false;
+  if (facade === 1 && fh) {
+    // L'autre facade : la deuxieme famille d'horizontales, une fois la premiere ecartee.
+    for (const l of fh.accords) exclus.add(l);
+    const f2 = fuiteHorizontale(ls, v, exclus);
+    if (f2 && Math.abs(scal(f2.d, fh.d)) < Math.cos((15 * Math.PI) / 180)) {
+      fh = f2;
+      autre = true;
+    }
+  }
+  const poids = (fv?.accords.reduce((a, l) => a + l.w, 0) ?? 0) + (fh?.accords.reduce((a, l) => a + l.w, 0) ?? 0);
+  return { fv, fh, v, autre, poids };
+}
+
+/**
+ * La distorsion d'un grand-angle non corrige, estimee sur la photo : celle qui rend les droites du
+ * batiment les plus concourantes. Une photo d'objectif corrige (tout iPhone) rend 0.
+ */
+export function estimerDistorsion(segs: Segment[], k: number, largeurPhoto: number, hauteurPhoto: number, champ: number): number {
+  if (champ < 80) return 0;
+  const cam: Camera = { f: focaleDe(largeurPhoto, hauteurPhoto, champ), cx: largeurPhoto / 2, cy: hauteurPhoto / 2 };
+  const longs = segs.filter((s) => s.long * k > 25);
+  const score = (lambda: number) => fuites(longs.map((s) => redresserSeg(lambda, largeurPhoto, hauteurPhoto, s)), k, cam, 0).poids;
+  const s0 = score(0);
+  let best = 0,
+    bestS = s0;
+  for (let l = -0.4; l <= 0.1001; l += 0.05) {
+    const s = score(l);
+    if (s > bestS) [best, bestS] = [l, s];
+  }
+  for (let l = best - 0.04; l <= best + 0.0401; l += 0.01) {
+    const s = score(l);
+    if (s > bestS) [best, bestS] = [l, s];
+  }
+  // Un gain marginal ne justifie pas de deformer la photo.
+  return bestS > s0 * 1.08 ? Math.round(best * 100) / 100 : 0;
+}
+
+/** Les cadres, la densite : ce qui suit la rotation, quel que soit le moyen de l'avoir trouvee. */
+function finir(red: Redressement, b: { x0: number; y0: number; x1: number; y1: number }): Redressement {
+  const { largeurPhoto: L, hauteurPhoto: H } = red;
+  const bord: P2[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    for (const p of [
+      { x: t * L, y: 0 },
+      { x: t * L, y: H },
+      { x: 0, y: t * H },
+      { x: L, y: t * H },
+    ]) {
+      const q = versRedresse(red, p);
+      if (q) bord.push(q);
+    }
+  }
+  if (bord.length && red.mode !== 'coins') {
+    b.x0 = Math.max(b.x0, Math.min(...bord.map((q) => q.x)));
+    b.x1 = Math.min(b.x1, Math.max(...bord.map((q) => q.x)));
+    b.y0 = Math.max(b.y0, Math.min(...bord.map((q) => q.y)));
+    b.y1 = Math.min(b.y1, Math.max(...bord.map((q) => q.y)));
+  }
+  red.boite = b;
+  const ds: number[] = [];
+  const e = 1e-4;
+  for (let i = 1; i < 6; i++)
+    for (let j = 1; j < 6; j++) {
+      const q = { x: b.x0 + ((b.x1 - b.x0) * i) / 6, y: b.y0 + ((b.y1 - b.y0) * j) / 6 };
+      const p = versPhoto(red, q),
+        px = versPhoto(red, { x: q.x + e, y: q.y }),
+        py = versPhoto(red, { x: q.x, y: q.y + e });
+      if (!p || !px || !py) continue;
+      const det = ((px.x - p.x) * (py.y - p.y) - (px.y - p.y) * (py.x - p.x)) / (e * e);
+      ds.push(Math.sqrt(Math.abs(det)));
+    }
+  if (ds.length) red.densite = quantile(ds, 0.5);
+  red.coins = [
+    { x: b.x0, y: b.y0 },
+    { x: b.x1, y: b.y0 },
+    { x: b.x1, y: b.y1 },
+    { x: b.x0, y: b.y1 },
+  ].map((q) => versPhoto(red, q) ?? { x: L / 2, y: H / 2 });
+  return red;
+}
+
+/** Repere orthonorme depuis les directions verticale et horizontale du mur. */
+function repere(v0: V3, h0: V3): V3[] {
+  let v = v0;
+  if (v[1] < 0) v = [-v[0], -v[1], -v[2]];
+  let h = h0;
   if (h[0] < 0) h = [-h[0], -h[1], -h[2]];
-  if (fh) h = fh.d;
-  else avis.push('horizontales introuvables : la photo est supposée prise de face');
-  // Repere orthonorme : h orthogonal a v, normale = h x v (vers le mur).
   const hv = scal(h, v);
   h = unitaire([h[0] - hv * v[0], h[1] - hv * v[1], h[2] - hv * v[2]]) ?? [1, 0, 0];
   let n = croix(h, v);
@@ -516,35 +643,50 @@ export function redresserPhoto(segs: Segment[], k: number, largeurPhoto: number,
     h = [-h[0], -h[1], -h[2]];
     n = croix(h, v);
   }
+  return [h, v, n];
+}
+
+export interface OptionsRedressement {
+  /** 0 : la facade la mieux vue ; 1 : l'autre (photo d'angle). */
+  facade?: number;
+  /** Distorsion radiale deja estimee. */
+  lambda?: number;
+}
+
+/** Le redressement automatique d'une photo, d'apres ses segments. */
+export function redresserPhoto(segs0: Segment[], k: number, largeurPhoto: number, hauteurPhoto: number, champ: number, o: OptionsRedressement = {}): Redressement {
+  const lambda = o.lambda ?? 0;
+  const f = focaleDe(largeurPhoto, hauteurPhoto, champ);
+  const cam: Camera = { f, cx: largeurPhoto / 2, cy: hauteurPhoto / 2 };
+  const segs = segs0.map((s) => redresserSeg(lambda, largeurPhoto, hauteurPhoto, s));
+  const avis: string[] = [];
+  const { fv, fh, v, autre } = fuites(segs, k, cam, o.facade ?? 0);
+  if (!fv) avis.push('verticales introuvables : la photo est supposée prise d’aplomb');
+  let h: V3 = unitaire(croix(v, [0, 0, 1])) ?? [1, 0, 0];
+  if (fh) h = fh.d;
+  else avis.push('horizontales introuvables : la photo est supposée prise de face');
+  if (o.facade === 1 && !autre) avis.push('pas d’autre façade trouvée sur cette photo');
+  // Les segments a dessiner restent ceux de la photo (avec sa distorsion).
+  const origine = new Map(segs.map((s, i) => [s, segs0[i]!]));
   const red: Redressement = {
-    R: [h, v, n],
+    R: repere(v, h),
     cam,
     largeurPhoto,
     hauteurPhoto,
+    lambda,
     boite: { x0: -0.5, y0: -0.5, x1: 0.5, y1: 0.5 },
     densite: f,
-    verticales: fv?.accords.map((l) => l.seg) ?? [],
-    horizontales: fh?.accords.map((l) => l.seg) ?? [],
+    verticales: fv?.accords.map((l) => origine.get(l.seg) ?? l.seg) ?? [],
+    horizontales: fh?.accords.map((l) => origine.get(l.seg) ?? l.seg) ?? [],
     avis,
+    mode: autre ? 'autre-facade' : 'auto',
+    coins: [],
   };
-  // Ce que la photo voit du plan redresse : son pourtour, ramene dans le plan.
-  const bord: P2[] = [];
-  for (let i = 0; i <= 40; i++) {
-    const t = i / 40;
-    for (const p of [
-      { x: t * largeurPhoto, y: 0 },
-      { x: t * largeurPhoto, y: hauteurPhoto },
-      { x: 0, y: t * hauteurPhoto },
-      { x: largeurPhoto, y: t * hauteurPhoto },
-    ]) {
-      const q = versRedresse(red, p);
-      if (q) bord.push(q);
-    }
-  }
-  // Le mur : la ou sont ses lignes (1er et 99e centiles, et de la marge au-dessus pour les pignons des extremites des segments retenus).
+  // Le mur : la ou sont ses lignes (1er et 99e centiles des extremites des segments retenus), avec
+  // une marge, double au-dessus pour les pignons.
   const xs: number[] = [],
     ys: number[] = [];
-  for (const s of [...red.verticales, ...red.horizontales])
+  for (const s of [...(fv?.accords ?? []), ...(fh?.accords ?? [])].map((l) => origine.get(l.seg) ?? l.seg))
     for (const p of [
       { x: s.x1, y: s.y1 },
       { x: s.x2, y: s.y2 },
@@ -567,28 +709,77 @@ export function redresserPhoto(segs: Segment[], k: number, largeurPhoto: number,
     const e = (0.4 * Math.max(largeurPhoto, hauteurPhoto)) / f;
     b = { x0: c.x - e, x1: c.x + e, y0: c.y - e, y1: c.y + e };
   }
-  if (bord.length) {
-    b.x0 = Math.max(b.x0, Math.min(...bord.map((q) => q.x)));
-    b.x1 = Math.min(b.x1, Math.max(...bord.map((q) => q.x)));
-    b.y0 = Math.max(b.y0, Math.min(...bord.map((q) => q.y)));
-    b.y1 = Math.min(b.y1, Math.max(...bord.map((q) => q.y)));
-  }
-  red.boite = b;
-  // Densite : pixels de la photo par unite du plan, mediane sur le cadre.
-  const ds: number[] = [];
-  const e = 1e-4;
-  for (let i = 1; i < 6; i++)
-    for (let j = 1; j < 6; j++) {
-      const q = { x: b.x0 + ((b.x1 - b.x0) * i) / 6, y: b.y0 + ((b.y1 - b.y0) * j) / 6 };
-      const p = versPhoto(red, q),
-        px = versPhoto(red, { x: q.x + e, y: q.y }),
-        py = versPhoto(red, { x: q.x, y: q.y + e });
-      if (!p || !px || !py) continue;
-      const det = ((px.x - p.x) * (py.y - p.y) - (px.y - p.y) * (py.x - p.x)) / (e * e);
-      ds.push(Math.sqrt(Math.abs(det)));
-    }
-  if (ds.length) red.densite = quantile(ds, 0.5);
-  return red;
+  return finir(red, b);
+}
+
+/** Droite (homogene) par deux pixels, relatifs au centre et a la focale. */
+const droite = (cam: Camera, a: P2, b: P2): V3 | null => unitaire(croix([(a.x - cam.cx) / cam.f, (a.y - cam.cy) / cam.f, 1], [(b.x - cam.cx) / cam.f, (b.y - cam.cy) / cam.f, 1]));
+
+/**
+ * Le champ que donnent quatre coins poses a la main, quand la photo n'a pas d'EXIF : les cotes
+ * gauche et droit fuient vers les verticales, le haut et le bas vers les horizontales.
+ */
+export function champDepuisCoins(coins: P2[], largeurPhoto: number, hauteurPhoto: number, lambda = 0): number | null {
+  const c = coins.map((p) => sansDistorsion(lambda, largeurPhoto, hauteurPhoto, p));
+  const cam: Camera = { f: 1, cx: largeurPhoto / 2, cy: hauteurPhoto / 2 };
+  const [hg, hd, bd, bg] = c as [P2, P2, P2, P2];
+  const vp = (a: P2, b: P2, p: P2, q: P2) => {
+    const l1 = croix([a.x - cam.cx, a.y - cam.cy, 1], [b.x - cam.cx, b.y - cam.cy, 1]);
+    const l2 = croix([p.x - cam.cx, p.y - cam.cy, 1], [q.x - cam.cx, q.y - cam.cy, 1]);
+    const x = croix(l1, l2);
+    return Math.abs(x[2]) < 1e-9 ? null : { x: x[0] / x[2], y: x[1] / x[2] };
+  };
+  const v = vp(hg, bg, hd, bd),
+    h = vp(hg, hd, bg, bd);
+  if (!v || !h) return null;
+  const diag = Math.max(largeurPhoto, hauteurPhoto);
+  // Une fuite tres lointaine (cote presque parallele) ne mesure rien.
+  if (Math.hypot(v.x, v.y) > 30 * diag || Math.hypot(h.x, h.y) > 30 * diag) return null;
+  const f = focaleOrthogonale(v.x, v.y, h.x, h.y);
+  if (!f) return null;
+  const champ = champDeFocale(largeurPhoto, hauteurPhoto, f);
+  return champ > 35 && champ < 125 ? champ : null;
+}
+
+/** Le redressement par quatre coins poses a la main (haut gauche, haut droit, bas droit, bas gauche). */
+export function redresserDepuisCoins(coins: P2[], largeurPhoto: number, hauteurPhoto: number, champ: number, lambda = 0): Redressement | null {
+  const f = focaleDe(largeurPhoto, hauteurPhoto, champ);
+  const cam: Camera = { f, cx: largeurPhoto / 2, cy: hauteurPhoto / 2 };
+  const c = coins.map((p) => sansDistorsion(lambda, largeurPhoto, hauteurPhoto, p));
+  const [hg, hd, bd, bg] = c as [P2, P2, P2, P2];
+  const gauche = droite(cam, hg, bg),
+    droit = droite(cam, hd, bd),
+    haut = droite(cam, hg, hd),
+    bas = droite(cam, bg, bd);
+  if (!gauche || !droit || !haut || !bas) return null;
+  const v = unitaire(croix(gauche, droit)),
+    h = unitaire(croix(haut, bas));
+  if (!v || !h || Math.abs(scal(v, h)) > 0.6) return null;
+  const seg = (a: P2, b: P2): Segment => ({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, long: Math.hypot(b.x - a.x, b.y - a.y) });
+  const [o0, o1, o2, o3] = coins as [P2, P2, P2, P2];
+  const red: Redressement = {
+    R: repere(v, h),
+    cam,
+    largeurPhoto,
+    hauteurPhoto,
+    lambda,
+    boite: { x0: 0, y0: 0, x1: 1, y1: 1 },
+    densite: f,
+    verticales: [seg(o0, o3), seg(o1, o2)],
+    horizontales: [seg(o0, o1), seg(o3, o2)],
+    avis: [],
+    mode: 'coins',
+    coins: [],
+  };
+  const q = coins.map((p) => versRedresse(red, p));
+  if (q.some((x) => !x)) return null;
+  const xs = q.map((x) => x!.x),
+    ys = q.map((x) => x!.y);
+  const b = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  if (!(b.x1 - b.x0 > 1e-6 && b.y1 - b.y0 > 1e-6)) return null;
+  const r = finir(red, b);
+  r.coins = coins.map((p) => ({ ...p }));
+  return r;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -1011,12 +1202,153 @@ export function cadreFusion(reds: Redressement[], T: (Sim | null)[]): Cadre {
   return { x0, y0, x1, y1, native };
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * Coutures entre photos
+ * --------------------------------------------------------------------------------------------- */
+
+/**
+ * Qui fournit chaque pixel : une grille basse resolution du cadre de fusion, ou chaque photo a un
+ * poids de 0 a 1. Les poids viennent de coutures tracees la ou deux photos se ressemblent le plus
+ * (un aplat d'enduit plutot qu'un porche en saillie, qui ne tombe pas au meme endroit sur les
+ * deux), puis adoucies sur quelques pixels.
+ */
+export interface Coutures {
+  l: number;
+  h: number;
+  /** Cases de la grille par unite du plan de reference. */
+  pas: number;
+  poids: (Float32Array | null)[];
+}
+
+/** Une couture qui suit la plus faible difference : programmation dynamique sur la bande commune. */
+function couture(cout: Float32Array, l: number, h: number): Int32Array {
+  // Une colonne x par ligne y, qui ne saute que d'une case d'une ligne a l'autre.
+  const E = new Float32Array(l * h),
+    D = new Int8Array(l * h);
+  for (let x = 0; x < l; x++) E[x] = cout[x]!;
+  for (let y = 1; y < h; y++)
+    for (let x = 0; x < l; x++) {
+      let m = E[(y - 1) * l + x]!,
+        d = 0;
+      if (x > 0 && E[(y - 1) * l + x - 1]! < m) [m, d] = [E[(y - 1) * l + x - 1]!, -1];
+      if (x + 1 < l && E[(y - 1) * l + x + 1]! < m) [m, d] = [E[(y - 1) * l + x + 1]!, 1];
+      E[y * l + x] = m + cout[y * l + x]!;
+      D[y * l + x] = d;
+    }
+  const s = new Int32Array(h);
+  let x = 0;
+  for (let i = 1; i < l; i++) if (E[(h - 1) * l + i]! < E[(h - 1) * l + x]!) x = i;
+  for (let y = h - 1; y >= 0; y--) {
+    s[y] = x;
+    x += D[y * l + x]!;
+  }
+  return s;
+}
+
+export function tracerCoutures(vues: Vue[], T: (Sim | null)[], gains: number[], cadre: Cadre, cases = 700): Coutures {
+  const lw = cadre.x1 - cadre.x0,
+    lh = cadre.y1 - cadre.y0;
+  const pas = cases / Math.max(lw, lh);
+  const l = Math.max(2, Math.round(lw * pas)),
+    h = Math.max(2, Math.round(lh * pas));
+  const n = vues.length;
+  // Le gris de chaque photo sur la grille (NaN la ou elle ne voit rien).
+  const gris: (Float32Array | null)[] = vues.map((v, i) => {
+    const S = T[i];
+    if (!S) return null;
+    const inv = inverser(S);
+    const g = new Float32Array(l * h).fill(NaN);
+    const b = v.red.boite;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < l; x++) {
+        const q = appliquerSim(inv, { x: cadre.x0 + (x + 0.5) / pas, y: cadre.y0 + (y + 0.5) / pas });
+        const X = (q.x - b.x0) * v.fa - 0.5,
+          Y = (q.y - b.y0) * v.fa - 0.5;
+        const xi = Math.round(X),
+          yi = Math.round(Y);
+        if (xi < 0 || yi < 0 || xi >= v.g.l || yi >= v.g.h || !v.valide[yi * v.g.l + xi]) continue;
+        g[y * l + x] = bilin(v.g, X, Y) * gains[i]!;
+      }
+    return g;
+  });
+  const etiquette = new Int16Array(l * h).fill(-1);
+  for (let b = 0; b < n; b++) {
+    const gb = gris[b];
+    if (!gb) continue;
+    // La bande commune avec ce qui est deja pose, et ce que b voit seul.
+    let ox0 = l,
+      ox1 = -1,
+      oy0 = h,
+      oy1 = -1,
+      sx = 0,
+      sy = 0,
+      ns = 0,
+      cx = 0,
+      cy = 0,
+      nc = 0;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < l; x++) {
+        const i = y * l + x;
+        if (Number.isNaN(gb[i]!)) continue;
+        if (etiquette[i]! >= 0) {
+          ox0 = Math.min(ox0, x);
+          ox1 = Math.max(ox1, x);
+          oy0 = Math.min(oy0, y);
+          oy1 = Math.max(oy1, y);
+          cx += x;
+          cy += y;
+          nc++;
+        } else {
+          sx += x;
+          sy += y;
+          ns++;
+        }
+      }
+    if (!nc) {
+      for (let i = 0; i < l * h; i++) if (!Number.isNaN(gb[i]!) && etiquette[i]! < 0) etiquette[i] = b;
+      continue;
+    }
+    if (!ns) continue; // b ne voit rien de plus : on garde ce qui est pose.
+    // Bande haute et etroite (photos cote a cote) : couture verticale ; sinon horizontale.
+    const verticale = oy1 - oy0 >= ox1 - ox0;
+    const versPlus = verticale ? sx / ns > cx / nc : sy / ns > cy / nc;
+    const U = verticale ? ox1 - ox0 + 1 : oy1 - oy0 + 1,
+      V = verticale ? oy1 - oy0 + 1 : ox1 - ox0 + 1;
+    const idx = (u: number, w: number) => (verticale ? (oy0 + w) * l + ox0 + u : (oy0 + u) * l + ox0 + w);
+    const cout = new Float32Array(U * V);
+    for (let w = 0; w < V; w++)
+      for (let u = 0; u < U; u++) {
+        const i = idx(u, w);
+        const e = etiquette[i]!;
+        const ga = e >= 0 ? gris[e]![i]! : NaN;
+        const c = Number.isNaN(gb[i]!) || Number.isNaN(ga) ? 1e4 : Math.abs(ga - gb[i]!) + 0.5;
+        cout[w * U + u] = c;
+      }
+    const s = couture(cout, U, V);
+    for (let w = 0; w < V; w++)
+      for (let u = 0; u < U; u++) {
+        const i = idx(u, w);
+        if (Number.isNaN(gb[i]!) || etiquette[i]! < 0) continue;
+        if (versPlus ? u >= s[w]! : u <= s[w]!) etiquette[i] = b;
+      }
+    for (let i = 0; i < l * h; i++) if (!Number.isNaN(gb[i]!) && etiquette[i]! < 0) etiquette[i] = b;
+  }
+  // Masques adoucis : une jointure franche se verrait, une large fondrait la saillie en double.
+  const poids = vues.map((_, i) => {
+    if (!gris[i]) return null;
+    const m = new Float32Array(l * h);
+    for (let k = 0; k < l * h; k++) m[k] = etiquette[k] === i ? 1 : 0;
+    return flou({ l, h, v: m }, 1.5).v;
+  });
+  return { l, h, pas, poids };
+}
+
 /**
  * Le rendu : chaque pixel de sortie va chercher son point sur chaque photo qui le voit. Dans un
  * recouvrement, chaque photo pese d'autant plus qu'on s'eloigne de son bord. Ce qu'aucune photo n'a
  * vu reste blanc.
  */
-export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: number[], sources: (Source | null)[], cadre: Cadre, px: number) {
+export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: number[], sources: (Source | null)[], cadre: Cadre, px: number, cout: Coutures | null = null) {
   const L = Math.max(1, Math.round((cadre.x1 - cadre.x0) * px)),
     Hh = Math.max(1, Math.round((cadre.y1 - cadre.y0) * px));
   const sortie = new Uint8ClampedArray(L * Hh * 4);
@@ -1024,6 +1356,10 @@ export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: nu
   const inv = reds.map((_, i) => (T[i] ? inverser(T[i]!) : ID));
   const seul = actives.length === 1;
   const acc = [0, 0, 0];
+  const grilles: (Gris | null)[] = reds.map((_, i) => {
+    const p = cout?.poids[i];
+    return p && cout ? { l: cout.l, h: cout.h, v: p } : null;
+  });
 
   function echantillon(s: Source, X: number, Y: number): boolean {
     const x = (X - s.ox) * s.k - 0.5,
@@ -1054,7 +1390,14 @@ export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: nu
         let sr = 0,
           sg = 0,
           sb = 0,
-          sw = 0;
+          sw = 0,
+          cr = 0,
+          cg = 0,
+          cb = 0,
+          cw = 0;
+        // Case de la grille des coutures (interpolee).
+        const gx = cout ? (xr - cadre.x0) * cout.pas - 0.5 : 0,
+          gy = cout ? (yr - cadre.y0) * cout.pas - 0.5 : 0;
         for (const i of actives) {
           const r = reds[i]!,
             b = r.boite;
@@ -1074,7 +1417,20 @@ export function preparerRendu(reds: Redressement[], T: (Sim | null)[], gains: nu
           sg += acc[1]! * g;
           sb += acc[2]! * g;
           sw += w;
+          const gm = grilles[i];
+          if (gm && !seul) {
+            const wc = bilin(gm, gx, gy);
+            if (wc > 1e-3) {
+              const gc = gains[i]! * wc;
+              cr += acc[0]! * gc;
+              cg += acc[1]! * gc;
+              cb += acc[2]! * gc;
+              cw += wc;
+            }
+          }
         }
+        // Les coutures decident ; au bord de la grille, ou rien n'a ete decide, le fondu reprend.
+        if (cw > 0.05) [sr, sg, sb, sw] = [cr, cg, cb, cw];
         const o = (Y * L + X) * 4;
         if (sw <= 0) {
           sortie[o] = sortie[o + 1] = sortie[o + 2] = sortie[o + 3] = 255;

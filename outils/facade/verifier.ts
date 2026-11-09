@@ -1,7 +1,7 @@
 // Verification de auto.ts sur des photos synthetiques : un mur de 8 m (4 m a l'egout, pignon de
 // 3 m) avec ses baies et quelques taches, photographie de biais et en contre-plongee.
 //   node outils/facade/construire.mjs --verifier
-import { redresserPhoto, segmentsPhoto, estimerChamp, versRedresse, versGris, vueRedressee, signature, placer, appliquerSim, cadreFusion, preparerRendu, type Image, type P2 } from './auto.js';
+import { redresserPhoto, segmentsPhoto, estimerChamp, estimerDistorsion, redresserDepuisCoins, champDepuisCoins, sansDistorsion, tracerCoutures, versRedresse, versGris, vueRedressee, signature, placer, appliquerSim, cadreFusion, preparerRendu, type Image, type P2 } from './auto.js';
 
 const p = (x: number, y: number): P2 => ({ x, y });
 
@@ -28,7 +28,7 @@ export function couleur(X: number, Y: number): number[] {
 }
 
 /** Appareil devant le mur (plan Z = 0, X a droite, Y en haut), lacet et tangage en degres. */
-export function appareil(cx: number, distance: number, lacet: number, tangage: number, W: number, H: number, champ = 67) {
+export function appareil(cx: number, distance: number, lacet: number, tangage: number, W: number, H: number, champ = 67, lambda = 0) {
   const f = Math.max(W, H) / 2 / Math.tan((champ * Math.PI) / 360);
   const a = (lacet * Math.PI) / 180,
     b = (tangage * Math.PI) / 180;
@@ -54,7 +54,8 @@ export function appareil(cx: number, distance: number, lacet: number, tangage: n
           [0.25, 0.75],
           [0.75, 0.75],
         ]) {
-          const r = rayon(x + ox!, y + oy!);
+          const u = sansDistorsion(lambda, W, H, { x: x + ox!, y: y + oy! });
+          const r = rayon(u.x, u.y);
           let c = [140, 185, 235];
           const tm = r[2]! > 0 ? distance / r[2]! : Infinity;
           const ts = r[1]! < 0 ? -1.5 / r[1]! : Infinity;
@@ -71,6 +72,17 @@ export function appareil(cx: number, distance: number, lacet: number, tangage: n
     return { largeur: W, hauteur: H, donnees: d };
   }
   return { f, projeter, photographier };
+}
+
+/** Le point d'image d'un point du mur, avec la distorsion de l'objectif (inverse numerique). */
+function projeterDeforme(cam: ReturnType<typeof appareil>, lambda: number, W: number, H: number, X: number, Y: number): P2 {
+  const u = cam.projeter(X, Y);
+  let d = { ...u };
+  for (let i = 0; i < 30; i++) {
+    const e = sansDistorsion(lambda, W, H, d);
+    d = { x: d.x + (u.x - e.x), y: d.y + (u.y - e.y) };
+  }
+  return d;
 }
 
 /** Un apercu reduit, comme la page le fabrique (moyenne par blocs). */
@@ -174,7 +186,8 @@ for (const pr of prises) {
   verifier('trois photos, cohérence', pire / unite < 0.03, `pire écart ${((pire / unite) * 100).toFixed(1)} cm`);
   const cadre = cadreFusion(reds, pl.T);
   const px = Math.min(cadre.native, Math.sqrt(4e6 / ((cadre.x1 - cadre.x0) * (cadre.y1 - cadre.y0))));
-  const rendu = preparerRendu(reds, pl.T, pl.gains, photos.map((im) => ({ image: im, ox: 0, oy: 0, k: 1 })), cadre, px);
+  const coutures = tracerCoutures(vues, pl.T, pl.gains, cadre);
+  const rendu = preparerRendu(reds, pl.T, pl.gains, photos.map((im) => ({ image: im, ox: 0, oy: 0, k: 1 })), cadre, px, coutures);
   rendu.lignes(0, rendu.hauteur);
   // Le rendu, compare au mur : on cale l'echelle sur deux reperes et on lit l'ecart moyen.
   const s = px * unite,
@@ -192,6 +205,59 @@ for (const pr of prises) {
       ecart += Math.abs(rendu.sortie[o]! - couleur(Xm, Ym)[0]!);
       n++;
     }
-  verifier('trois photos, rendu', n > 1000 && ecart / n < 20, `${rendu.largeur} × ${rendu.hauteur} px, écart moyen ${(ecart / n).toFixed(1)} niveaux sur ${n} points`);
+  verifier('trois photos, rendu (avec coutures)', n > 1000 && ecart / n < 20, `${rendu.largeur} × ${rendu.hauteur} px, écart moyen ${(ecart / n).toFixed(1)} niveaux sur ${n} points`);
 }
+
+// Coins poses a la main : le redressement ne depend plus des lignes trouvees.
+{
+  const cam = appareil(4, 9, 25, 12, W, H);
+  const coins = [p(1, 2.25), p(6.8, 2.25), p(6.8, 0.9), p(1, 0.9)].map((q) => cam.projeter(q.x, q.y));
+  const red = redresserDepuisCoins(coins, W, H, 67)!;
+  const e = ecartForme(reperes.map((q) => versRedresse(red, cam.projeter(q.x, q.y))!), reperes);
+  verifier('coins posés à la main', e < 0.004, `écart de forme ${(e * 100).toFixed(2)} %`);
+  const champ = champDepuisCoins(coins, W, H);
+  verifier('  champ mesuré sur les coins', champ !== null && Math.abs(champ - 67) < 2, champ ? champ.toFixed(1) + '° pour 67°' : 'aucun');
+}
+
+// Grand-angle non corrige (Android) : la distorsion est estimee, puis le redressement est juste.
+{
+  const lambda = -0.18,
+    champ = 100;
+  const cam = appareil(4, 6, 15, 8, W, H, champ, lambda);
+  const photo = cam.photographier();
+  const segs = segmentsPhoto(versGris(reduire(photo, K)), K);
+  const est = estimerDistorsion(segs, K, W, H, champ);
+  verifier('grand-angle, distorsion estimée', Math.abs(est - lambda) < 0.06, `${est} pour ${lambda}`);
+  const sans = redresserPhoto(segs, K, W, H, champ);
+  const avec = redresserPhoto(segs, K, W, H, champ, { lambda: est });
+  const forme = (r: typeof avec) => ecartForme(reperes.map((q) => versRedresse(r, projeterDeforme(cam, lambda, W, H, q.x, q.y))!), reperes);
+  verifier('grand-angle, redressement corrigé', forme(avec) < forme(sans) && forme(avec) < 0.01, `écart ${(forme(avec) * 100).toFixed(2)} % (sans correction ${(forme(sans) * 100).toFixed(2)} %)`);
+}
+
+// Deux photos l'une au-dessus de l'autre (mur trop haut pour le recul) : assemblees en hauteur.
+{
+  const cams = [appareil(4, 4.5, 0, 0, W, H), appareil(4, 4.5, 0, 32, W, H)];
+  const photos = cams.map((c) => c.photographier());
+  const gris = photos.map((ph) => versGris(reduire(ph, K)));
+  const reds = gris.map((g) => redresserPhoto(segmentsPhoto(g, K), K, W, H, 67));
+  const c = Math.min(...reds.map((r) => 900 / Math.max(r.boite.x1 - r.boite.x0, r.boite.y1 - r.boite.y0) / r.cam.f));
+  const vues = reds.map((r, i) => vueRedressee(r, gris[i]!, K, r.cam.f * c));
+  const pl = placer(vues, vues.map((x) => signature(x)));
+  let pire = 0;
+  for (const q of reperes) {
+    const vus = cams
+      .map((cm, i) => {
+        const im = cm.projeter(q.x, q.y);
+        if (im.x < 0 || im.y < 0 || im.x > W || im.y > H || !pl.T[i]) return null;
+        const r = versRedresse(reds[i]!, im);
+        return r ? appliquerSim(pl.T[i]!, r) : null;
+      })
+      .filter((x): x is P2 => !!x);
+    for (const a of vus) for (const b of vus) pire = Math.max(pire, Math.hypot(a.x - b.x, a.y - b.y));
+  }
+  const ref = reperes.map((q) => versRedresse(reds[0]!, cams[0]!.projeter(q.x, q.y))!);
+  const unite = Math.hypot(ref[1]!.x - ref[0]!.x, ref[1]!.y - ref[0]!.y) / 1.2;
+  verifier('deux photos en hauteur', pl.T.every(Boolean) && pire / unite < 0.03, `${pl.liaisons.map((l) => `${l.i}←${l.j} (${l.accords} points)`).join(', ') || 'non raccordées'} ; pire écart ${((pire / unite) * 100).toFixed(1)} cm`);
+}
+
 if (echecs) process.exitCode = 1;
