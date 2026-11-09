@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Note un detecteur de baies sur un jeu d'images annotees.
 //
-//   node evaluer.mjs <detecteur.ts> <dossier-du-jeu> [--images <dossier>] [--seul <texte>] [--json <fichier>]
+//   node evaluer.mjs <detecteur.ts> <dossier-du-jeu> [--images <dossier>] [--seul <texte>] [--json <fichier>] [--budget <facteur>]
 //
 // Le detecteur est un fichier TypeScript qui exporte
 //   detecterBaies(img: { largeur, hauteur, donnees: Uint8ClampedArray RGBA }, vu: Uint8Array | null, pxParM: number | null)
@@ -48,6 +48,8 @@ if (!detecteur || !jeu) {
 const dossierImages = opt('--images');
 const seul = opt('--seul');
 const sortieJson = opt('--json');
+// Le budget de temps vaut pour un detecteur ; le vote en lance trois (--budget 3).
+const budget = Number(opt('--budget') ?? 1) || 1;
 
 // Le detecteur, assemble avec ses dependances.
 const paquet = resolve(tmpdir(), `detecteur-${process.pid}.mjs`);
@@ -293,7 +295,7 @@ console.log('');
 for (const [g, v] of Object.entries(parGroupe))
   console.log(`${g.padEnd(7)} ${String(v.images).padStart(3)} images   note ${v.note.toFixed(3)}   rappel ${(100 * v.rappel).toFixed(0)} %   precision ${(100 * v.precision).toFixed(0)} %   F1 pixels ${v.fPix.toFixed(2)}   temps max ${Math.round(v.msMax)} ms`);
 console.log(`NOTE GLOBALE ${globale.toFixed(4)}`);
-const lent = lignes.filter((x) => x.ms > 100 * x.mpx + 500);
-if (lent.length) console.log('TROP LENT (plus de 100 ms par megapixel + 500 ms) : ' + lent.map((x) => `${x.nom} ${Math.round(x.ms)} ms`).join(', '));
+const lent = lignes.filter((x) => x.ms > budget * (100 * x.mpx + 500));
+if (lent.length) console.log(`TROP LENT (plus de ${budget} x (100 ms par megapixel + 500 ms)) : ` + lent.map((x) => `${x.nom} ${Math.round(x.ms)} ms`).join(', '));
 if (dossierImages) console.log(`Apercus dans ${dossierImages} : vert = ouverture trouvee, jaune = manquee, orange = difficile, bleu pointille = zone ignoree ; rouge = detection juste, magenta = fausse detection, gris = doublon ou ignoree.`);
 if (sortieJson) writeFileSync(sortieJson, JSON.stringify({ globale, parGroupe, lignes }, null, 1));
