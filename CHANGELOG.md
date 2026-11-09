@@ -15,7 +15,8 @@ aucun export de la démonstration ne change, les sept témoins ne bougent qu'à 
 et `glb-structure.json` sont identiques ; AE 101 identique. **Schéma 16** (migration 15 → 16 identité ; seul un bâtiment qui porte un
 rez-de-chaussée en retrait s'écrit au 16), accepté par la plateforme (bertrandra/backprod#255, migration `Version20261109090000`) :
 appliquer backprod puis `setup.php` en production **avant** de déposer cette livraison de Plan, sinon l'enregistrement d'un projet au
-schéma 16 répond 422. La version ne porte que ce changement (`MD/RELEASE.md` §8.4). Requêtes vérifiées sur main, à la livraison.
+schéma 16 répond 422. La version ne porte que ce changement (`MD/RELEASE.md` §8.4). Requêtes vérifiées sans la mesure sur main
+(run 42601258533 : 9 sur 9, 0,031 $ ; prompts et schémas inchangés).
 
 ### Ajouté
 - **Bow-window : le rez-de-chaussée en retrait sous l'étage** (demande du propriétaire, 9 novembre 2026 : « je dois décaler le

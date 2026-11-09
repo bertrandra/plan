@@ -1,5 +1,8 @@
-Plan 5.18.0 (561afd3b) - deploiement Apache + PHP, sans Node.js
+Plan 5.19.0 (3ec3a3e8) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
+Schema des projets : 16. AVANT de deposer ce paquet, la plateforme doit l'accepter :
+appliquer en production bertrandra/backprod#255 (migration Version20261109090000), puis setup.php ;
+sinon l'enregistrement d'un projet au schema 16 repond 422.
 
 Sur l'hebergement, trois choses voisines :
    public_html/                 le site (le contenu de cette livraison, sauf data/)
