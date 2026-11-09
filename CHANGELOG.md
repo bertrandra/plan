@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Mode Toit : un mur posé sur une ligne y reste** (second audit du 9 novembre 2026, régression de la 5.21.0). Depuis qu'un pas de 5 cm
+  compte à partir du tracé IGN, un mur posé sur le tracé ou sur le mur d'un autre corps s'en décollait au moindre toucher : la taille du
+  corps s'arrondissait aux 5 cm, et un corps lu sur l'IGN (taille au centimètre) bougeait de quelques centimètres sans qu'on le tire ; un
+  corps déplacé voyait ses coins arrondis à la grille, un corps de biais se déformait ; un mur à 3 cm du tracé ne s'y collait plus.
+  Désormais le **déplacement** s'arrondit aux 5 cm, pas la taille ni la place, et un geste de moins de 2,5 cm ne bouge rien ; une ligne
+  à quelques centimètres reste où se coller, du côté où va le geste (une ligne derrière lui ne le ramène plus en arrière).
+- **Mode Toit : un mur ne traverse plus un corps voisin qui ne se laisse pas emmener.** Le pignon d'une maison en T tiré vers l'aile en
+  travers (plus longue que lui), l'aile tirée par son joint vers la maison, le mur haut d'un appentis poussé dans la maison : le mur
+  passait dans l'autre corps. Il s'arrête contre lui et le dit (« Le corps voisin empêche d’aller plus loin. ») ; il s'en écarte
+  toujours librement (raccourcir une aile par son joint laisse la maison en place). La fumée 156 joue les deux cas.
+
 ## [5.22.0] — 2026-11-09
 
 Version **mineure** au sens de `MD/RELEASE.md` : la séquence des photos d'un cas de calibration se reprend (ajouter, retirer, ordonner,
