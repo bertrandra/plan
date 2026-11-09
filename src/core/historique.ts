@@ -43,7 +43,8 @@
 // objet ailleurs que dans le plan (la Vue 3D ouverte) ne doit refaire que ceux dont la donnee a bouge :
 // le plan d'avant et le plan repose se comparent objet par objet, par leur forme serialisee.
 // Sans ce signal, un Ctrl+Z fait la Vue 3D ouverte rendait la donnee et laissait la scene telle quelle
-// (signale le 9 novembre 2026).
+// (signale le 9 novembre 2026). La comparaison ne se fait que si quelqu'un l'ecoute maintenant (`suitLaRestauration` : la Vue 3D est
+// ouverte), et pas quand l'appelant refait lui-meme la Vue 3D apres ses retouches (`sansSuite`) : elle serialise le plan deux fois.
 
 import { au } from '../util/tableaux.js';
 import { egalProfond } from '../util/egalite.js';
@@ -82,6 +83,21 @@ export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = M
    * d'apres (`null` : absent de ce cote). Vide quand rien d'un objet n'a bouge (une cote seule).
    */
   apresRestauration?: (changes: ObjetChange[]) => void;
+  /**
+   * Dit si `apresRestauration` a quelqu'un a prevenir maintenant (la Vue 3D ouverte). Sans lui, la comparaison ne se fait pas : elle
+   * serialise le plan deux fois (plus d'une seconde sur un plan de quelques milliers d'objets, au telephone), pour un signal que
+   * personne n'ecoute quand la Vue 3D est fermee. Absent : toujours.
+   */
+  suitLaRestauration?: () => boolean;
+}
+
+/** Comment restaurer. */
+export interface OptionsRestauration {
+  /**
+   * L'appelant refait lui-meme ce qui suit le plan (la Vue 3D) une fois ses propres retouches faites : la restauration ne compare
+   * rien et ne previent personne. Sinon la Vue 3D se rebatirait deux fois, une par la restauration, une par l'appelant.
+   */
+  sansSuite?: boolean;
 }
 
 /** Un objet qu'une restauration a change : sa cle, et sa forme serialisee avant et apres (`null` : ajoute ou retire). */
@@ -207,9 +223,10 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     return true;
   }
 
-  function restaurer(snap: Instantane): void {
-    // Ce qu'etait le plan, pour dire ensuite ce que la restauration a change (point 7) ; seulement si quelqu'un l'ecoute.
-    const avant = ctx.apresRestauration ? ctx.serializeObjects(etat.objects) : null;
+  function restaurer(snap: Instantane, options: OptionsRestauration = {}): void {
+    // Ce qu'etait le plan, pour dire ensuite ce que la restauration a change (point 7) ; seulement si quelqu'un l'ecoute, maintenant.
+    const suivre = !!ctx.apresRestauration && !options.sansSuite && (ctx.suitLaRestauration?.() ?? true);
+    const avant = suivre ? ctx.serializeObjects(etat.objects) : null;
     modifications++;
     toucherTout();
     etat.objects.forEach(ctx.detruireVue);

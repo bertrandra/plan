@@ -46,6 +46,13 @@ describe('projet.supprimerVoisinage', () => {
     expect(cmd.etat('projet.supprimerVoisinage').utilisable).toBe(false);
   });
 
+  // La Vue 3D ouverte se rebatit une fois, par la commande : la restauration ne la refait pas (audit des PR #621 a #641).
+  it('demande a la restauration de ne pas refaire la Vue 3D, qu\'elle rebatit elle-meme', () => {
+    const { a, cmd } = monter();
+    cmd.executer('projet.supprimerVoisinage');
+    expect(a.restoreState).toHaveBeenCalledWith(expect.anything(), { sansSuite: true });
+  });
+
   it('ne touche a rien si la personne renonce', () => {
     const { a, cmd } = monter();
     ui.confirmer = false;

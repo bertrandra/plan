@@ -51,7 +51,8 @@ export function brancherVoisinage(a: Atelier, ctx: ContexteVoisinage, cmd: Regis
     partants.forEach(cle => oublierLObjet(reste, cle));
     const mesures = reste.measures;
     const selection = a.etat.selectedKey;
-    a.restoreState({ objects: serializeObjects(restants), measures: serializeMeasures(mesures) });
+    // La Vue 3D se rebatit une fois, ci-dessous, sur la selection retouchee : la restauration ne la refait pas.
+    a.restoreState({ objects: serializeObjects(restants), measures: serializeMeasures(mesures) }, { sansSuite: true });
     if (selection && partants.has(selection)) a.etat.selectedKey = a.etat.objects.find(o => o.key === 'parcelle')?.key ?? null;
     a.markDirty();
     a.rebuildSelector();
