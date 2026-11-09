@@ -6,6 +6,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Corrigé
+- **Un Ctrl+Z ne coûte plus deux sérialisations du plan quand la Vue 3D est fermée.** Depuis #640, chaque restauration du projet
+  (Ctrl+Z, « Réinitialiser tout », import, transaction refusée) comparait le plan d'avant et d'après pour la Vue 3D, même fermée : deux
+  sérialisations complètes de plus. La comparaison ne se fait plus que si une Vue 3D ouverte la suit (`suitLaRestauration`). Mesuré
+  sur la restauration seule (Node, sans DOM) : démo 2 (1 346 objets) 255 → 54 ms, démo 3 (4 001 objets) 382 → 97 ms ; Vue 3D ouverte,
+  inchangé (le redessin objet par objet de #640 reste).
+- **« Supprimer le voisinage », « Fusionner les doublons » et l'ouverture d'un projet ne rebâtissent plus la Vue 3D deux fois.** La
+  restauration la rebâtissait déjà, puis la commande la rebâtissait de nouveau (trois fois pour un projet venu du cadastre). La commande,
+  qui la rebâtit après ses retouches (sélection, lieu, soleil, affichage), demande une restauration sans suite (`sansSuite`) ; Vue 3D
+  fermée, rien ne change.
+- **Le plan ne montre plus le rez-de-chaussée en retrait d'un bâtiment dessiné hors de ses corps.** En toit simple, en volumes ou tel
+  que mesuré, la Vue 3D ne pose ni le bow-window ni le recul ; le trait en tirets du plan suit maintenant la même règle.
+- **Un mur photographié au rez-de-chaussée en retrait ne reçoit plus de fenêtres automatiques** quand le retrait fait tomber une
+  travée d'un mur voisin : le mur reculé se reconnaît par le mur dont il vient, plus par son rang (`cotesDuPiedSurLesCotes`).
 - **Mode Toit : six défauts relevés par l'audit des gestes du 9 novembre 2026 (PR #621 à #641).** Rien ne change sans le geste : aucune
   quantité ni aucun export, aucun champ de fichier (schéma 16), AE 101 identique, empreintes golden inchangées.
   - **Tirer un mur ne tourne plus le faîtage d'un corps qui en touche un autre.** Le mur commun d'un corps coupé en deux qui glisse

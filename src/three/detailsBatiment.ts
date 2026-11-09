@@ -22,7 +22,7 @@ import { volumesEtHautesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
 import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
-import { segmentEnFacade, cotesSurLesCotes } from '../geometry/facadeExterieure.js';
+import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
 import type { ValeursFacades } from '../regles/facades/reglages.js';
 import { plansDuToit, profondeurToit, uvDuPan, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toits/toit.js';
@@ -31,7 +31,7 @@ import { dessinCouverture, textureCouverture, matiereCouverture } from './couver
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
-import { contourAvecReculs } from '../facade/modeToit/travees.js';
+import { contourAvecReculs, cotesDuPiedSurLesCotes } from '../facade/modeToit/travees.js';
 import { corpsAuPied, murDuCorps, type RetraitRdc } from '../facade/modeToit/saillies.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
@@ -445,7 +445,8 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
     });
     // Les murs releves du batiment se designent par leurs cotes du contour : le corps ecarte les siens
     // qui les doublent. Sans cela, le mur photographie recevait aussi la grille des fenetres automatiques.
-    const releves = options.cotesReleves?.length ? cotesSurLesCotes(piedNu.pts.length === pts.length ? piedNu.pts : pts, batiment, options.cotesReleves) : [];
+    // Le mur recule sous l'etage se reconnait par le mur dont il vient (facade/modeToit/travees.ts::cotesDuPiedSurLesCotes).
+    const releves = options.cotesReleves?.length ? cotesDuPiedSurLesCotes(pied, piedNu, batiment, options.cotesReleves) : [];
     // Les cotes du mur recule (pas les retours d'une travee) : ce que leurs ouvertures doivent savoir de l'etage qui avance.
     const sousEtage = new Map<number, CoteSousEtage>();
     if (retraits) pied.cotes.forEach((q, i) => { const r = retraits.find((x) => x.mur === q.mur); if (r && q.recul === 0) sousEtage.set(i, r); });
