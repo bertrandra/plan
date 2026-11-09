@@ -44,8 +44,8 @@ import type { Photo } from '../ui/releve/camera.js';
 import type { OuvertureFacade, TypeOuverture } from '../model/types.js';
 import type { PhotoCas } from '../model/audit.js';
 import {
-  avecLesPhotos, nomLibre, photoDeplacee, photoImportee, PHOTOS_PAR_CAS_MAX, sansLaPhoto, suivreLesRangs, suivreListe, texteDuReport, veriteSuivie,
-  veriteSurLAssemblage, veriteSurLesPhotos, VERITE_SANS_ASSEMBLAGE, type PhotoImportee, type SuiteDesPhotos, type VeriteSurLesPhotos,
+  avecLesPhotos, nomLibre, photoDeplacee, photoImportee, PHOTOS_PAR_CAS_MAX, sansLaPhoto, suivreLesRangs, suivreListe, veriteSuivie,
+  issueDeLaVerite, veriteSurLesPhotos, VERITE_SANS_ASSEMBLAGE, type PhotoImportee, type SuiteDesPhotos, type VeriteEnAttente, type VeriteSurLesPhotos,
 } from '../facade/photosDuCas.js';
 import { Icone } from './icones.js';
 
@@ -183,7 +183,9 @@ export function ChampDesPhotos({ controle, entree, importer }: { controle: strin
  */
 export async function preparerLesPhotos(fichiers: readonly File[], preparer: (f: File) => Promise<PhotoCas>, cas: Pick<CasStocke, 'photos'>, place: number): Promise<{ ajouts: PhotoImportee[]; illisibles: string[] }> {
   const ajouts: PhotoImportee[] = [], noms: string[] = [], illisibles: string[] = [];
-  for (const f of fichiers.slice(0, Math.max(0, place))) {
+  // Jusqu'a la limite en photos lues : un fichier illisible ne prend pas la place d'un lisible qui le suit.
+  for (const f of fichiers) {
+    if (ajouts.length >= place) break;
     // Le nom se prend une fois la photo lue : un fichier illisible n'en consomme pas.
     try { const p = await preparer(f), nom = nomLibre(cas, noms); noms.push(nom); ajouts.push(photoImportee(p, nom)); } catch { illisibles.push(f.name); }
   }
@@ -302,7 +304,7 @@ const rang = (id: IdEtape) => ETAPES_FACADE.findIndex((e) => e.id === id);
  * cherches comme dans l'audit (un mur pose a la main reste). Les coins retenus sont gardes avec le cas, pour memoire (les reperes
  * proposes, le mur a ajuster) ; ils ne sont pas une entree du rejeu suivant. Rejouer depuis une etape reprend les sorties des precedentes.
  */
-function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, vrais: { readonly current: readonly (P2[] | null)[] | null }, aPorter: { current: VeriteSurLesPhotos | 'perdue' | null }) {
+function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, vrais: { readonly current: readonly (P2[] | null)[] | null }, aPorter: { current: VeriteEnAttente }) {
   const [rejeu, setRejeu] = useState<Enchainement | null>(null);
   const [progression, setProgression] = useState<EtapeAffichee[]>([]);
   const [enCours, setEnCours] = useState<IdEtape | null>(null);
@@ -328,16 +330,20 @@ function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, vrais: { re
     // Un etalon de synthese : le mur vrai se porte sur l'assemblage de ce rejeu (il en depend) ; s'il change, l'E7 et la suite se
     // rejouent contre lui, les etapes d'avant reprises telles quelles.
     const coinsVrais = vrais.current, pose = r.sorties.calage?.pose;
-    let vrai = coinsVrais ? calageVraiDuRejeu(pose, coinsVrais) : null, report: string | null = null;
     // Un cas dont la sequence a change : sa verite, portee par ses photos, se pose sur ce nouvel assemblage, une fois (reponse du
-    // proprietaire, 9 novembre 2026). Un rejeu arrete avant l'E7 la garde pour le suivant.
-    const portee = aPorter.current;
-    if (!coinsVrais && portee === 'perdue') { aPorter.current = null; report = VERITE_SANS_ASSEMBLAGE; }
-    else if (!coinsVrais && portee && portee !== 'perdue' && pose) { const p = veriteSurLAssemblage(portee, pose); aPorter.current = null; vrai = p.vrai; report = texteDuReport(p); }
+    // proprietaire, 9 novembre 2026). Un rejeu arrete par la personne avant l'E7 la garde pour le suivant ; mene a son terme sans
+    // assemblage, il la perd et le dit (photosDuCas.ts::issueDeLaVerite).
+    const issue = coinsVrais ? null : issueDeLaVerite(aPorter.current, pose, arret.current);
+    const vrai = coinsVrais ? calageVraiDuRejeu(pose, coinsVrais) : (issue?.vrai ?? null);
+    let report = issue?.report ?? null;
     if (vrai && !memeMurVrai(vrai, cas.calageVrai)) {
       cas = { ...cas, calageVrai: vrai };
-      r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), depuis: 'calage', precedent: r });
+      // Le mur vrai est deja pose sur le cas : un echec de la mesure contre lui ne le perd pas, il se dit.
+      try { r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), depuis: 'calage', precedent: r }); }
+      catch (e) { report = [report, 'La mesure contre ce mur vrai n’a pas abouti (' + ((e as Error).message || String(e)) + ') : il reste avec le cas ; « Rejouer » la refait.'].filter(Boolean).join(' '); }
     }
+    // La verite ne quitte l'attente qu'ici, avec le cas qui la porte (ou perdue) : un rejeu qui echoue plus tot la garde.
+    if (issue) aPorter.current = issue.reste;
     setRejeu(r); setProgression(r.etapes); setEnCours(null);
     return { cas: casApresRejeu(cas, r), r, images, report };
   };
@@ -585,7 +591,7 @@ function PhotosDuCas({ cas, courante, origines, choisir, sequence }: { cas: CasS
 interface EtatSequence {
   cas: CasStocke; courante: number; outils: OutilsPhotos; coinsVrais: { current: readonly (P2[] | null)[] | null };
   /** La verite de l'E7 attachee aux photos, en attente du rejeu qui la pose sur le nouvel assemblage. */
-  aPorter: { current: VeriteSurLesPhotos | 'perdue' | null };
+  aPorter: { current: VeriteEnAttente };
   /** La verite du cas ramenee sur ses photos, depuis l'assemblage d'ou elle vient (celui du rejeu, refait jusqu'a l'E7 s'il est oublie). */
   veriteDesPhotos: (c: CasStocke) => Promise<VeriteSurLesPhotos | null>;
   rejouer: (c: CasStocke, depuis: IdEtape | null) => Promise<void>; oublier: () => void; vider: () => void;
@@ -600,12 +606,16 @@ interface EtatSequence {
  */
 function useSequenceDesPhotos(e: EtatSequence) {
   const { cas, courante, outils } = e;
-  const sequence = async (s: SuiteDesPhotos, suivante: number) => {
+  const sequence = async (s: SuiteDesPhotos, suivante: number): Promise<void> => {
+    const reste = s.cas.photos.length > 0;
+    let perdue = false;
     // La verite de l'E7 (un cas reel ; celle d'un etalon se recalcule de ses coins vrais) : attachee aux photos avant que le rejeu d'avant
-    // ne soit oublie, elle suit leurs rangs. Deja en attente (deux gestes avant un rejeu), elle suit encore.
+    // ne soit oublie, elle suit leurs rangs. Deja en attente (deux gestes avant un rejeu), elle suit encore. Plus aucune photo : aucun
+    // rejeu ne viendra la poser, elle est perdue (sinon « Enregistrer le cas » attendrait ce rejeu pour toujours).
     if (!e.coinsVrais.current) {
       const enAttente = e.aPorter.current;
-      if (enAttente && enAttente !== 'perdue') e.aPorter.current = veriteSuivie(enAttente, s.ordre);
+      if (!reste) { perdue = !!enAttente || !!cas.calageVrai; e.aPorter.current = null; }
+      else if (enAttente && enAttente !== 'perdue') e.aPorter.current = veriteSuivie(enAttente, s.ordre);
       else if (!enAttente && cas.calageVrai) {
         e.setOccupe(true);
         const v = await e.veriteDesPhotos(cas).catch(() => null);
@@ -617,7 +627,9 @@ function useSequenceDesPhotos(e: EtatSequence) {
     e.setCas(s.cas); e.setDims((d) => suivreLesRangs(d, s.ordre)); e.setOrigines((o) => suivreLesRangs(o, s.ordre));
     if (e.coinsVrais.current) e.coinsVrais.current = suivreListe(e.coinsVrais.current, s.ordre, null);
     e.setCourante(Math.max(0, Math.min(suivante, s.cas.photos.length - 1)));
-    if (s.cas.photos.length) void e.rejouer(s.cas, null);
+    // Le rejeu attendu : ce qu'on dit apres lui (un import refuse) ne s'efface pas sous son message.
+    if (reste) return e.rejouer(s.cas, null);
+    if (perdue) e.setMessage(VERITE_SANS_ASSEMBLAGE);
   };
   const retirerPhoto = (k: number) => {
     if (!window.confirm('Retirer la photo ' + (k + 1) + ' du cas ? Le cas se rejoue sans elle ; rien n’est enregistré avant « Enregistrer le cas ».')) return;
@@ -656,6 +668,12 @@ function veriteDuCasSurSesPhotos(outils: OutilsPhotos, url: (img: Image) => stri
   };
 }
 
+/** Un rejeu qui echoue : la verite en attente le reste, le prochain rejeu la pose (et « Enregistrer le cas » l'attend). */
+function rejeuImpossible(e: unknown, enAttente: VeriteEnAttente): string {
+  const attend = enAttente && enAttente !== 'perdue' ? ' La vérité de l’' + etapeFacade('calage').numero + ' attend toujours : elle se reportera au prochain rejeu.' : '';
+  return 'Rejeu impossible : ' + ((e as Error).message || String(e)) + attend;
+}
+
 export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false, etalon }: Props) {
   const [cas, setCas] = useState<CasStocke>(depart);
   const casCourant = useRef(cas);
@@ -669,7 +687,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const url = useAdresses(outils);
   // Les coins vrais d'un etalon suivent ses photos quand la sequence change (une photo importee n'en a pas) ; le rejeu les lit au moment.
   const coinsVrais = useRef<readonly (P2[] | null)[] | null>(etalon?.coinsVrais ?? null);
-  const aPorter = useRef<VeriteSurLesPhotos | 'perdue' | null>(null); // la verite de l'E7 portee par les photos, jusqu'au rejeu (sequence changee)
+  const aPorter = useRef<VeriteEnAttente>(null); // la verite de l'E7 portee par les photos, jusqu'au rejeu (sequence changee)
   const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, url, coinsVrais, aPorter);
   const claude = useClaude(cas);
   const modifier = (f: (c: CasStocke) => CasStocke) => setCas((c) => f(c));
@@ -688,7 +706,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       // sortie et dirait « objectifs atteints ». « Partir de la détection », plus bas, le fait d'un geste.
       const dits = [report, r.sorties.analyse ? null : 'Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».'].filter(Boolean);
       if (dits.length) setMessage(dits.join(' '));
-    } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
+    } catch (e) { setMessage(rejeuImpossible(e, aPorter.current)); } finally { setOccupe(false); }
   };
   const { geste, pile } = useGestesDuCas(outils, casCourant, (suite) => { setCas(suite); setOrigines(originesDuCas(suite)); void rejouer(suite); });
   const { poser } = useChoixDuCas(outils, casCourant, geste, (suite, depuis) => { setCas(suite); void rejouer(suite, depuis); });

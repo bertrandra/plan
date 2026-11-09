@@ -36,6 +36,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   qui porte sa vérité (point 158).
 
 ### Corrigé
+- **Un cas de calibration dont la vérité de l'É7 ne se reporte pas s'enregistre** (revue du 9 novembre 2026). La vérité portée par
+  les photos n'attendait qu'un rejeu qui assemble : si le rejeu allait à son terme sans assemblage (les photos restantes ne
+  s'assemblent pas), ou si toutes les photos étaient retirées, « Enregistrer le cas » répondait pour toujours « Rejouez d'abord le
+  cas… », même pour le nom ou le statut. Un rejeu mené à son terme sans assemblage la perd maintenant et le dit (« La vérité de l'É7
+  (le mur vrai) est retirée… »), comme le retrait de la dernière photo ; un rejeu arrêté par la personne la garde pour le suivant.
+  Elle ne quitte l'attente qu'avec le cas qui la porte : un rejeu qui échoue la garde et le dit, et si la mesure contre le mur
+  reporté échoue, le mur reste avec le cas (`facade/photosDuCas.ts::issueDeLaVerite`). Le refus d'un import (« Illisible : … »,
+  « N photos de trop ») se lit après le rejeu, à côté de son message, au lieu d'être effacé par lui ; et un fichier illisible ne prend
+  plus la place d'une photo lisible qui le suit (les fichiers sont lus jusqu'à la limite du cas en photos lues).
+- **Vue 3D : le pincement de la façade ne s'accumule plus sur la fenêtre** (revue du 9 novembre 2026). Chaque reconstruction de la
+  Vue 3D crée un canevas, et le pincement du mode Toit branchait sur la fenêtre trois écouteurs par canevas sans jamais les retirer :
+  autant de jeux que de reconstructions, chacun retenant son ancien canevas. Un seul canevas est branché à la fois, et la démolition
+  de la scène le débranche (`three/pincementFacade.ts`).
+- **Mode Toit : une poignée ramenée hors de deux obstacles qui se touchent ne tombe plus dans l'un d'eux.** La sortie se cherchait
+  obstacle par obstacle, en une passe : sortie du premier, elle pouvait entrer dans le second, et l'inverse. Le point libre le plus
+  proche se cherche alors parmi les croisements des bords (`facade/modeToit/poigneesLibres.ts`) ; avec un seul obstacle, la sortie
+  est celle d'avant.
 - **Un Ctrl+Z ne coûte plus deux sérialisations du plan quand la Vue 3D est fermée.** Depuis #640, chaque restauration du projet
   (Ctrl+Z, « Réinitialiser tout », import, transaction refusée) comparait le plan d'avant et d'après pour la Vue 3D, même fermée : deux
   sérialisations complètes de plus. La comparaison ne se fait plus que si une Vue 3D ouverte la suit (`suitLaRestauration`). Mesuré
