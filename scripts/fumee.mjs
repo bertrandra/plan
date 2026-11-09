@@ -106,13 +106,15 @@ function photosScene(nom) {
  * ce qu'il eprouve (CLAUDE.md, « chercher avant de creer »).
  */
 const casRendus = new Map();
-function casEtalon(nom) {
-  if (!casRendus.has(nom)) {
+function casEtalon(nom, verite = false) {
+  // `verite` : le cas porte la verite de l'E7, posee sur l'assemblage de son rejeu (cas.ts --verite), comme un cas reel du serveur.
+  const cle = nom + (verite ? ' --verite' : '');
+  if (!casRendus.has(cle)) {
     const fichier = join(mkdtempSync(join(tmpdir(), 'fumee-cas-')), 'cas.json');
-    execFileSync('npx', ['tsx', '.claude/skills/facades/scripts/cas.ts', nom, fichier], { stdio: 'ignore' });
-    casRendus.set(nom, JSON.parse(readFileSync(fichier, 'utf8')).cas);
+    execFileSync('npx', ['tsx', '.claude/skills/facades/scripts/cas.ts', nom, fichier, ...(verite ? ['--verite'] : [])], { stdio: 'ignore' });
+    casRendus.set(cle, JSON.parse(readFileSync(fichier, 'utf8')).cas);
   }
-  return JSON.parse(JSON.stringify(casRendus.get(nom)));
+  return JSON.parse(JSON.stringify(casRendus.get(cle)));
 }
 
 /** L'etat du plan, en JSON : ce qu'on compare avant et apres un geste. */
@@ -2715,6 +2717,184 @@ const POINTS = {
     const ok = reglages && friseAvant === 14 && badgesOk && e2 >= 1 && e3 >= 1 && e5 >= 1 && e8Panneau === 1 && familles.length >= 2 && couleurs.size === familles.length
       && /Montrée à l’É12, consommée par É12, É14/.test(consommeOuverture) && boitesE12.length >= 3 && boitesE12.some((t) => /^retrouvée par la détection → ouverture \d+$/.test(t)) && relire === 1 && verite === 1 && !debords.some(Boolean);
     return { ok, mesure: `onglet des réglages ${reglages ? 'à part' : 'MÊLÉ'} ; frise de ${friseAvant} étapes ; badges : ${parEtape.map((e) => e.id + ' ' + e.badges.map((b) => b.trim()[0]).join('')).join(', ')} ; gestes : É2 ${e2} retirer, É3 ${e3} objectif, É5 ${e5} repère(s), É8 panneau ${e8Panneau} ; É8 : ${familles.length} familles (${familles.map((x) => x.classe?.replace('famille-', '')).join(', ')}), ${couleurs.size} couleurs, « ${consommeOuverture.trim().slice(0, 70)} » ; É12 : ${boitesE12.length} boîtes (« ${boitesE12[0] ?? ''} »), relire ${relire}, vérité ${verite} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  157: async (page, f) => {
+    // La sequence des photos d'un cas de calibration (demande du proprietaire, 9 novembre 2026 : « Dans calibration je peux uploader des
+    // photos. Supprimer, ajouter, ordonner la séquence des photos. »). Le cas de l'etalon 16 (trois vues, voiture devant) reduit a sa
+    // premiere photo ; ses deux autres vues importees par le champ fichier (« Ajouter des photos ») ; la derniere avancee d'un rang (au
+    // bureau, glissee ensuite sur la premiere) ; la deuxieme retiree, apres confirmation ; « Enregistrer le cas ». On mesure : trois puis
+    // deux photos, dans l'ordre voulu ; chaque changement rejoue le cas en entier, sans echec ; le cas enregistre (PUT) garde cet ordre,
+    // et l'optique des photos importees (taille de la source et de la reduite, focale retenue), sans prise de vue ; rien ne deborde.
+    const { vues } = photosScene('16-vues-voiture-devant');
+    const complet = casEtalon('16-vues-voiture-devant');
+    const cas = { ...complet, nom: 'Synthèse 16 · voiture devant', source: 'fumee', images: complet.images.slice(0, 1), photos: complet.photos.slice(0, 1) };
+    let envoye = null;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-16', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: cas.ouvertures.length, updatedAt: '2026-11-09T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-16')) {
+        if (route.request().method() === 'PUT') { envoye = JSON.parse(route.request().postData() || 'null'); return json({ id: 'cas-16' }); }
+        return json(cas);
+      }
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = async () => {
+      await page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Calcul…', null, { timeout: 3000 }).catch(() => {});
+      await page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 });
+    };
+    const sources = () => page.locator('.calEtapeOuverte [aria-label="Photos du cas"] img').evaluateAll((l) => l.map((i) => i.getAttribute('src') || ''));
+    const echecs = () => page.locator('.calFrise .calFriseEtat.echec, .barreFacadeSegment.echec').count();
+    const ligne = (k) => page.locator('.calEtapeOuverte [aria-label="Photos du cas"] > li').nth(k);
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    await etape('E2', async () => { await page.locator('.calFrise button[data-etape="prises"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte [aria-label="Photos du cas"]').waitFor({ timeout: 5000 }); });
+    const [p0] = await sources();
+    const champ = page.locator('.calEtapeOuverte input[data-controle="calibration.fichiersPhotos"]');
+    const sansCamera = (await champ.getAttribute('capture')) === null && (await champ.getAttribute('accept')) === 'image/*';
+    await etape('importer deux photos', () => champ.setInputFiles([{ name: 'vue-1.png', mimeType: 'image/png', buffer: vues[1] }, { name: 'vue-2.png', mimeType: 'image/png', buffer: vues[2] }]));
+    await etape('trois vignettes', () => page.waitForFunction(() => document.querySelectorAll('.calEtapeOuverte [aria-label="Photos du cas"] img').length === 3, null, { timeout: 30000 }));
+    await etape('rejeu apres import', finRejeu);
+    const apresImport = await sources();
+    const [, a, b] = apresImport;
+    const echecsImport = await echecs();
+    const debords = [await deborde()];
+    // Ordonner : la troisieme avancee d'un rang (doigt, clavier), puis, au bureau, glissee sur la premiere.
+    await etape('avancer', () => ligne(2).locator('[data-controle="calibration.avancerPhoto"]').click({ timeout: 5000 }));
+    await etape('rejeu apres avancer', finRejeu);
+    const apresAvancer = await sources();
+    let apresGlisser = null;
+    if (f.nom === 'large') {
+      await etape('glisser', () => ligne(1).locator('[data-controle="calibration.glisserPhoto"]').dragTo(ligne(0).locator('[data-controle="calibration.glisserPhoto"]'), { timeout: 5000 }));
+      await etape('rejeu apres glisser', finRejeu);
+      apresGlisser = await sources();
+    }
+    if (process.env.FUMEE_CAPTURE_CALPHOTOS) await page.locator('.calEtapeOuverte').screenshot({ path: process.env.FUMEE_CAPTURE_CALPHOTOS + '-' + f.nom + '.png' }).catch(() => {});
+    debords.push(await deborde());
+    // Retirer la deuxieme, apres confirmation (la partie accepte chaque dialogue ; on lit sa question).
+    let question = '';
+    page.once('dialog', (d) => { question = d.message(); });
+    await etape('retirer', () => ligne(1).locator('[data-controle="calibration.retirerPhoto"]').click({ timeout: 5000 }));
+    await etape('rejeu apres retrait', finRejeu);
+    const apresRetrait = await sources();
+    const echecsFin = await echecs();
+    debords.push(await deborde());
+    await etape('enregistrer', () => page.locator('[data-controle="calibration.enregistrerCas"]').click({ timeout: 5000 }));
+    await etape('PUT', () => page.waitForFunction(() => !document.querySelector('[data-controle="calibration.enregistrerCas"]'), null, { timeout: 10000 }));
+    await page.unroute(/\/admin\//);
+    const attenduAvancer = [p0, b, a];
+    const attenduGlisser = f.nom === 'large' ? [b, p0, a] : attenduAvancer;
+    const attenduFin = [attenduGlisser[0], attenduGlisser[2]];
+    const importees = (envoye?.photos ?? []).filter((p) => /^import-/.test(p.fichier));
+    const optiques = importees.every((p) => p.optique && p.optique.source?.largeurPx > 0 && p.optique.reduite?.largeurPx > 0 && p.optique.reduite.largeurPx <= 1280 && p.optique.champDeg > 0 && !p.prise);
+    const ok = sansCamera && apresImport.length === 3 && apresImport[0] === p0 && /^data:image\/jpeg;base64,/.test(a || '') && /^data:image\/jpeg;base64,/.test(b || '')
+      && JSON.stringify(apresAvancer) === JSON.stringify(attenduAvancer) && (apresGlisser === null || JSON.stringify(apresGlisser) === JSON.stringify(attenduGlisser))
+      && /^Retirer la photo 2 du cas \?/.test(question) && JSON.stringify(apresRetrait) === JSON.stringify(attenduFin)
+      && envoye && JSON.stringify(envoye.images) === JSON.stringify(attenduFin) && envoye.photos.length === 2 && importees.length >= 1 && optiques
+      && echecsImport === 0 && echecsFin === 0 && !debords.some(Boolean);
+    const nom = (s) => (s === p0 ? 'P1' : s === a ? 'A' : s === b ? 'B' : '?');
+    return { ok, mesure: `champ sans caméra ${sansCamera ? 'oui' : 'NON'} ; importées : ${apresImport.map(nom).join(' ')} ; avancée : ${apresAvancer.map(nom).join(' ')}${apresGlisser ? ' ; glissée : ' + apresGlisser.map(nom).join(' ') : ''} ; question « ${question.slice(0, 40)}… » ; retirée : ${apresRetrait.map(nom).join(' ')} ; enregistré : ${envoye ? envoye.images.map(nom).join(' ') + ', ' + importees.length + ' importée(s), optique ' + (optiques ? 'gardée' : 'MANQUANTE') + ' (' + importees.map((p) => p.optique?.sourceFocale + ' ' + p.optique?.source?.largeurPx + ' px').join(', ') + ')' : 'RIEN'} ; échecs ${echecsImport}/${echecsFin} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  158: async (page, f) => {
+    // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
+    // 18-deux-vues-voiture-haie importees par le champ fichier de l'ecran (sans camera) deviennent un cas neuf, sans contexte du plan ;
+    // l'editeur s'ouvre et le rejoue ; un nom, la largeur et la hauteur du mur a la main, « Rejouer », « Enregistrer le cas ». (2) La verite
+    // de l'E7 reportee : le cas de l'etalon 18 servi comme un cas reel qui porte sa verite (cas.ts --verite), « Rejouer », la seconde photo
+    // avancee au premier rang, puis la seconde retiree, « Enregistrer le cas ». On mesure : le cas neuf enregistre (PUT) a ses deux photos
+    // dans l'ordre importe, en JPEG reduit, leur optique sans prise de vue, ni gabarit, ni cote du contour, les dimensions donnees ; chaque
+    // geste rejoue le cas sans echec ; l'ecran dit la verite reportee ; le cas enregistre garde une verite, posee sur le nouvel assemblage
+    // (pas celle d'avant) ; rien ne deborde.
+    const { vues } = photosScene('18-deux-vues-voiture-haie');
+    const reel = { ...casEtalon('18-deux-vues-voiture-haie', true), nom: 'Synthèse 18 · deux vues', source: 'fumee' };
+    const envois = new Map();
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-18', nom: reel.nom, statut: 'brouillon', photos: 2, ouvertures: reel.ouvertures.length, updatedAt: '2026-11-09T10:00:00Z' }] });
+      const m = u.pathname.match(/\/admin\/calibration-cas\/([^/]+)$/);
+      if (m) {
+        if (route.request().method() === 'PUT') { envois.set(m[1], JSON.parse(route.request().postData() || 'null')); return json({ id: m[1] }); }
+        if (m[1] === 'cas-18') return json(reel);
+      }
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = async () => {
+      await page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Calcul…', null, { timeout: 5000 }).catch(() => {});
+      await page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 });
+    };
+    const echecs = () => page.locator('.calFrise .calFriseEtat.echec, .barreFacadeSegment.echec').count();
+    const alerte = async () => ((await page.locator('.calPiedCas [role="alert"]').textContent().catch(() => '')) || '').trim();
+    const ligne = (k) => page.locator('.calEtapeOuverte [aria-label="Photos du cas"] > li').nth(k);
+    const e2 = () => etape('E2', async () => { await page.locator('.calFrise button[data-etape="prises"]').click({ timeout: 5000 }); await page.locator('.calEtapeOuverte [aria-label="Photos du cas"]').waitFor({ timeout: 5000 }); });
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    // (1) Le cas neuf.
+    const champ = page.locator('input[data-controle="calibration.fichiersNouveauCas"]');
+    await etape('champ du nouveau cas', () => champ.waitFor({ state: 'attached', timeout: 20000 }));
+    const sansCamera = (await champ.getAttribute('capture')) === null && (await champ.getAttribute('accept')) === 'image/*' && (await champ.getAttribute('multiple')) !== null;
+    const libelle = ((await page.locator('[data-controle="calibration.nouveauCasPhotos"]').textContent()) || '').trim();
+    const debords = [await deborde()];
+    await etape('importer deux photos', () => champ.setInputFiles([{ name: 'vue-1.png', mimeType: 'image/png', buffer: vues[0] }, { name: 'vue-2.png', mimeType: 'image/png', buffer: vues[1] }]));
+    await etape('editeur du cas neuf', () => page.locator('.calEditeur').waitFor({ timeout: 30000 }));
+    await etape('rejeu du cas neuf', finRejeu);
+    const titre = ((await page.locator('.calEditeur h2').first().textContent()) || '').trim();
+    const echecsNeuf = await echecs();
+    await e2();
+    const vignettesNeuf = await page.locator('.calEtapeOuverte [aria-label="Photos du cas"] img').count();
+    if (process.env.FUMEE_CAPTURE_CALCAS) await page.locator('.calEditeur').screenshot({ path: process.env.FUMEE_CAPTURE_CALCAS + '-neuf-' + f.nom + '.png' }).catch(() => {});
+    debords.push(await deborde());
+    await etape('nom', () => page.locator('[data-controle="calibration.nomCas"]').fill('Maison importée'));
+    await etape('largeur', () => page.locator('[data-controle="calibration.largeurM"]').fill('11'));
+    await etape('hauteur', () => page.locator('[data-controle="calibration.hauteurM"]').fill('5.8'));
+    await etape('rejouer le cas neuf', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 5000 }));
+    await etape('rejeu aux dimensions', finRejeu);
+    const echecsDims = await echecs();
+    await etape('enregistrer le cas neuf', () => page.locator('[data-controle="calibration.enregistrerCas"]').click({ timeout: 5000 }));
+    await etape('PUT du cas neuf', () => page.waitForFunction(() => !document.querySelector('.calEditeur'), null, { timeout: 10000 }));
+    const neuf = [...envois.entries()].find(([id]) => id !== 'cas-18')?.[1] ?? null;
+    // (2) La verite reportee.
+    await etape('ouvrir le cas reel', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer le cas reel', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('rejeu du cas reel', finRejeu);
+    await e2();
+    const [p1, p2] = await page.locator('.calEtapeOuverte [aria-label="Photos du cas"] img').evaluateAll((l) => l.map((i) => i.getAttribute('src') || ''));
+    await etape('avancer', () => ligne(1).locator('[data-controle="calibration.avancerPhoto"]').click({ timeout: 5000 }));
+    await etape('rejeu apres avancer', finRejeu);
+    const ditAvancer = await alerte();
+    const echecsAvancer = await echecs();
+    await e2();
+    const ordre = await page.locator('.calEtapeOuverte [aria-label="Photos du cas"] img').evaluateAll((l) => l.map((i) => i.getAttribute('src') || ''));
+    if (process.env.FUMEE_CAPTURE_CALCAS) await page.locator('.calEditeur').screenshot({ path: process.env.FUMEE_CAPTURE_CALCAS + '-verite-' + f.nom + '.png' }).catch(() => {});
+    debords.push(await deborde());
+    let question = '';
+    page.once('dialog', (d) => { question = d.message(); });
+    await etape('retirer', () => ligne(1).locator('[data-controle="calibration.retirerPhoto"]').click({ timeout: 5000 }));
+    await etape('rejeu apres retrait', finRejeu);
+    const ditRetrait = await alerte();
+    const echecsRetrait = await echecs();
+    debords.push(await deborde());
+    await etape('enregistrer le cas reel', () => page.locator('[data-controle="calibration.enregistrerCas"]').click({ timeout: 5000 }));
+    await etape('PUT du cas reel', () => page.waitForFunction(() => !document.querySelector('.calEditeur'), null, { timeout: 10000 }));
+    const sauve = envois.get('cas-18') ?? null;
+    await page.unroute(/\/admin\//);
+    const avant = reel.calageVrai, apres = sauve?.calageVrai;
+    const reporte = /^La vérité de l’É7 \(le mur vrai\) est reportée sur le nouvel assemblage/;
+    const ok = sansCamera && libelle === 'Nouveau cas depuis des photos' && titre === 'Nouveau cas' && vignettesNeuf === 2
+      && neuf && neuf.nom === 'Maison importée' && neuf.largeurM === 11 && neuf.hauteurM === 5.8 && neuf.images.length === 2 && neuf.images.every((x) => /^data:image\/jpeg;base64,/.test(x))
+      && JSON.stringify(neuf.photos.map((p) => p.fichier)) === '["import-1","import-2"]' && neuf.photos.every((p) => p.optique?.reduite?.largeurPx > 0 && !p.prise)
+      && !neuf.gabarit && !neuf.facade && !neuf.contour && !neuf.toit
+      && JSON.stringify(ordre) === JSON.stringify([p2, p1]) && reporte.test(ditAvancer) && /^Retirer la photo 2 du cas \?/.test(question) && reporte.test(ditRetrait)
+      && sauve && sauve.images.length === 1 && sauve.images[0] === p2 && avant && apres && apres.x1 > apres.x0 && apres.versionChaine === avant.versionChaine && JSON.stringify(apres) !== JSON.stringify(avant)
+      && echecsNeuf + echecsDims + echecsAvancer + echecsRetrait === 0 && !debords.some(Boolean);
+    const cv = (v) => (v ? `${v.x0}–${v.x1}, égout ${v.egout ?? '—'}, sol ${v.sol ?? '—'}` : 'AUCUNE');
+    return { ok, mesure: `champ sans caméra ${sansCamera ? 'oui' : 'NON'} ; « ${libelle} » ; « ${titre} », ${vignettesNeuf} vignette(s) ; enregistré : ${neuf ? `« ${neuf.nom} » ${neuf.largeurM} × ${neuf.hauteurM} m, ${neuf.photos.map((p) => p.fichier).join(' ')}, plan ${neuf.gabarit || neuf.facade ? 'PRÉSENT' : 'aucun'}` : 'RIEN'} ; ordre ${JSON.stringify(ordre) === JSON.stringify([p2, p1]) ? 'inversé' : 'FAUX'} ; avancer « ${ditAvancer.slice(0, 80)} » ; retirer « ${ditRetrait.slice(0, 80)} » ; vérité ${cv(avant)} → ${cv(apres)} ; échecs ${echecsNeuf}/${echecsDims}/${echecsAvancer}/${echecsRetrait} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   147: async (page, f) => {
     // Choisir Calcul / Claude / Manuel et forcer Claude, dans la calibration seulement (lot C2, decisions du proprietaire du 7 novembre
@@ -8070,7 +8250,9 @@ function pointsPour(nomClasse) {
   // 155 : un Ctrl+Z du projet, la Vue 3D ouverte : la validation du Mode Toit, puis un deplacement, defaits sans rouvrir la vue ni la rebatir.
   // 156 : les reponses du 9 novembre 2026 : la maison entiere de dessus, le mur commun qui glisse, le trace IGN qui aimante, le pignon qui
   //       arrete un mur (et le dit), les deux bords d'un bow-window.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156];
+  // 157 : la sequence des photos d'un cas de calibration : deux photos importees, une avancee (et glissee au bureau), une retiree, rejeu, PUT.
+  // 158 : un cas neuf depuis des photos importees (sans plan, dimensions a la main), et la verite de l'E7 reportee quand la sequence change.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

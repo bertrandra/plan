@@ -10,7 +10,7 @@ import { ETAPES_FACADE, SEGMENTS_FACADE, etapeFacade, type IdEtape } from '../..
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../src/regles/facades/observations.js';
 
 // L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un cas tire d'une facade d'un audit
-// (la calibration ne prend plus de photos pour elle, lot F6), la mesure et la calibration sur un cas fabrique d'une scene du banc, et
+// (la calibration ne prend pas de photos, lot F6 ; elle en importe dans un cas ouvert quand l'ecran le lui permet, 9 novembre 2026), la mesure et la calibration sur un cas fabrique d'une scene du banc, et
 // l'application des reglages.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -106,7 +106,7 @@ describe('l ecran de calibration', () => {
     expect(bouton('calibration.revenir')?.disabled).toBe(true);
     expect(bouton('calibration.ouvrirCas')).toBeNull();
     await onglet('calibration.ongletCas');
-    // Le cas ouvert non plus : on y retire une photo, on n'en ajoute pas.
+    // Le cas ouvert non plus, sans import branche (`importerPhoto`) : on y retire et ordonne les photos, on n'en ajoute pas.
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
     expect(bouton('calibration.enregistrerCas')).not.toBeNull();
@@ -189,7 +189,7 @@ describe('l ecran de calibration', () => {
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
     expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés|lus sur l’assemblage)/);
     expect(hote.textContent).not.toMatch(/[1-9]\d* ouvertures? annotée/);
-    expect(hote.textContent).toContain('1 photo, prise dans l’audit.');
+    expect(hote.textContent).toContain('1 photo, dans l’ordre où la chaîne les prend');
     // Sans nom, l'enregistrement est refuse avec un mot clair.
     const nom = hote.querySelector('[data-controle="calibration.nomCas"]') as HTMLInputElement;
     await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(nom, ' '); nom.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -271,6 +271,122 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
     await attendre(10);
     expect(stock.get('cas-a')?.ouvertures).toHaveLength(3);
+  }, 60_000);
+
+  it('reprend la sequence des photos d un cas (demande du proprietaire, 9 novembre 2026) : importer, ordonner, retirer, rejouer, enregistrer', async () => {
+    const optique = (n: number) => ({ focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'Téléphone ' + n, exif: { focale35: 26, modele: 'Téléphone ' + n }, source: { largeurPx: 4000, hauteurPx: 3000 }, reduite: { largeurPx: 1100, hauteurPx: 700 }, empreinte: null });
+    const importees: string[] = [];
+    // L'import prepare chaque fichier comme l'audit (app/audit/photo.ts::preparerPhoto) : ici, un faux qui rend son optique.
+    const importerPhoto = vi.fn(async (f: File) => { importees.push(f.name); return { type: 'image/jpeg' as const, base64: 'IMPORT' + importees.length, optique: optique(importees.length) }; });
+    const { deps, stock } = fausses({ importerPhoto });
+    const confirmer = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('prises');
+    const vignettes = () => [...hote.querySelectorAll('[aria-label="Photos du cas"] img')].map((i) => i.getAttribute('src'));
+    const rangee = (k: number, c: string) => hote.querySelectorAll(`[aria-label="Photos du cas"] li`)[k]?.querySelector(`[data-controle="${c}"]`) as HTMLButtonElement;
+    // Un champ fichier qui accepte des images, plusieurs a la fois, sans camera.
+    const champ = hote.querySelector('[data-controle="calibration.fichiersPhotos"]') as HTMLInputElement;
+    expect(champ.accept).toBe('image/*');
+    expect(champ.multiple).toBe(true);
+    expect(champ.hasAttribute('capture')).toBe(false);
+    expect(bouton('calibration.ajouterPhotos')).not.toBeNull();
+    // Deux photos importees : a la fin de la sequence, puis le cas se rejoue en entier, de lui-meme.
+    const fichiers = ['a.jpg', 'b.jpg'].map((n) => new File([new Uint8Array([0xff, 0xd8])], n, { type: 'image/jpeg' }));
+    Object.defineProperty(champ, 'files', { configurable: true, value: fichiers });
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    await attendreQue(() => vignettes().length === 3 && rejeuFini());
+    expect(importerPhoto).toHaveBeenCalledTimes(2);
+    expect(vignettes()).toEqual(['data:image/jpeg;base64,SCENE', 'data:image/jpeg;base64,IMPORT1', 'data:image/jpeg;base64,IMPORT2']);
+    expect(rejeuFini()).toBe(true);
+    // Ordonner : « Avancer » la troisieme deux fois ; au premier rang, « Avancer » est grise, au dernier, « Reculer ».
+    await ouvrirEtape('prises');
+    await act(async () => { rangee(2, 'calibration.avancerPhoto').click(); });
+    await attendreQue(rejeuFini);
+    await ouvrirEtape('prises');
+    await act(async () => { rangee(1, 'calibration.avancerPhoto').click(); });
+    await attendreQue(rejeuFini);
+    await ouvrirEtape('prises');
+    expect(vignettes()).toEqual(['data:image/jpeg;base64,IMPORT2', 'data:image/jpeg;base64,SCENE', 'data:image/jpeg;base64,IMPORT1']);
+    expect(rangee(0, 'calibration.avancerPhoto').disabled).toBe(true);
+    expect(rangee(2, 'calibration.reculerPhoto').disabled).toBe(true);
+    // Retirer : apres confirmation ; refuse, rien ne bouge.
+    confirmer.mockReturnValueOnce(false);
+    await act(async () => { rangee(1, 'calibration.retirerPhoto').click(); });
+    expect(vignettes()).toHaveLength(3);
+    await act(async () => { rangee(1, 'calibration.retirerPhoto').click(); });
+    await attendreQue(rejeuFini);
+    expect(confirmer).toHaveBeenCalledTimes(2);
+    expect(vignettes()).toEqual(['data:image/jpeg;base64,IMPORT2', 'data:image/jpeg;base64,IMPORT1']);
+    // Enregistre : les photos dans le nouvel ordre, l'optique (l'EXIF) des photos importees gardee, sans prise de vue.
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    const sauve = stock.get('cas-a') as CasStocke;
+    expect(sauve.images).toEqual(['data:image/jpeg;base64,IMPORT2', 'data:image/jpeg;base64,IMPORT1']);
+    expect(sauve.photos.map((p) => [p.fichier, p.optique?.modeleAppareil, p.prise])).toEqual([['import-2', 'Téléphone 2', undefined], ['import-1', 'Téléphone 1', undefined]]);
+    confirmer.mockRestore();
+  }, 60_000);
+
+  it('cree un cas depuis des photos importees (reponse du proprietaire, 9 novembre 2026) : sans camera, sans plan, rejoue et enregistre', async () => {
+    const optique = { focale35: 26, champDeg: 69.4, sourceFocale: 'exif' as const, modeleAppareil: 'Téléphone', exif: { focale35: 26, modele: 'Téléphone' }, source: { largeurPx: 4000, hauteurPx: 3000 }, reduite: { largeurPx: 1100, hauteurPx: 700 }, empreinte: null };
+    let n = 0;
+    const importerPhoto = vi.fn(async (f: File) => { if (f.name === 'casse.jpg') throw new Error('illisible'); n++; return { type: 'image/jpeg' as const, base64: 'NEUF' + n, optique }; });
+    const { deps, stock } = fausses({ importerPhoto });
+    await monter(deps);
+    // Le champ du nouveau cas : des images, plusieurs, sans camera ; un fichier illisible est nomme, les autres entrent.
+    const champ = hote.querySelector('[data-controle="calibration.fichiersNouveauCas"]') as HTMLInputElement;
+    expect(champ.accept).toBe('image/*');
+    expect(champ.multiple).toBe(true);
+    expect(champ.hasAttribute('capture')).toBe(false);
+    expect(bouton('calibration.nouveauCasPhotos')?.textContent).toBe('Nouveau cas depuis des photos');
+    const fichiers = ['rue.jpg', 'casse.jpg', 'biais.jpg'].map((x) => new File([new Uint8Array([0xff, 0xd8])], x, { type: 'image/jpeg' }));
+    Object.defineProperty(champ, 'files', { configurable: true, value: fichiers });
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    // L'editeur s'ouvre sur le cas neuf et le rejoue de lui-meme, ses coins cherches comme dans l'audit.
+    await attendreQue(() => !!hote.querySelector('.calEditeur') && rejeuFini());
+    expect(hote.querySelector('.calEditeur h2')?.textContent).toBe('Nouveau cas');
+    expect(hote.querySelector('[role="alert"]')?.textContent).toContain('Illisible : casse.jpg.');
+    expect(hote.querySelectorAll('.calEtapeOuverte, .calFrise [data-etape="prises"] .calFriseEtat.echec').length).toBe(0);
+    // Un nom, les dimensions du mur a la main (sans plan autour), puis « Enregistrer le cas » : un cas de plus, ses photos dans l'ordre.
+    const nom = hote.querySelector('[data-controle="calibration.nomCas"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(nom, 'Maison importée'); nom.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    const neuf = [...stock.entries()].find(([id]) => id !== 'cas-a')?.[1] as CasStocke;
+    expect(neuf).toMatchObject({ nom: 'Maison importée', largeurM: 9, hauteurM: 5, statut: 'brouillon' });
+    expect(neuf.images).toEqual(['data:image/jpeg;base64,NEUF1', 'data:image/jpeg;base64,NEUF2']);
+    expect(neuf.photos.map((p) => [p.fichier, p.optique?.modeleAppareil, p.prise])).toEqual([['import-1', 'Téléphone', undefined], ['import-2', 'Téléphone', undefined]]);
+    expect(neuf.gabarit ?? neuf.toit ?? neuf.facade ?? neuf.origine).toBeUndefined();
+  }, 60_000);
+
+  it('reporte la verite de l E7 quand la sequence change (reponse du proprietaire, 9 novembre 2026) : ajouter, puis retirer, et le dit', async () => {
+    const importerPhoto = vi.fn(async () => ({ type: 'image/jpeg' as const, base64: 'AJOUT' }));
+    const { deps, stock } = fausses({ importerPhoto });
+    // Le cas porte une verite de l'E7 : le mur vrai sur l'assemblage de sa photo seule (la scene, mur a 100 px du bord).
+    stock.set('cas-a', { ...scene.cas, calageVrai: { x0: 100, x1: 1000, egout: 100, sol: 600, versionChaine: 14 } });
+    const confirmer = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    await ouvrirEtape('prises');
+    const champ = hote.querySelector('[data-controle="calibration.fichiersPhotos"]') as HTMLInputElement;
+    Object.defineProperty(champ, 'files', { configurable: true, value: [new File([new Uint8Array([0xff, 0xd8])], 'c.jpg', { type: 'image/jpeg' })] });
+    // Le cas n'a pas ete rejoue : l'assemblage d'ou vient la verite se refait (jusqu'a l'E7), puis le cas se rejoue sur deux photos.
+    await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 2 && rejeuFini() && !!hote.querySelector('[role="alert"]'));
+    expect(hote.querySelector('[role="alert"]')?.textContent).toBe('La vérité de l’É7 (le mur vrai) est reportée sur le nouvel assemblage, par les photos qui la voient.');
+    // Retirer la photo d'origine : la verite avait ete posee sur l'assemblage de cette photo seule ; la photo ajoutee ne la portait pas.
+    await ouvrirEtape('prises');
+    await act(async () => { (hote.querySelectorAll('[aria-label="Photos du cas"] li')[0]?.querySelector('[data-controle="calibration.retirerPhoto"]') as HTMLButtonElement).click(); });
+    await attendreQue(() => hote.querySelectorAll('[aria-label="Photos du cas"] img').length === 1 && rejeuFini() && !!hote.querySelector('[role="alert"]'));
+    expect(hote.querySelector('[role="alert"]')?.textContent).toMatch(/^La vérité de l’É7 \(le mur vrai\) est retirée : le bout gauche, le bout droit, l’égout et le sol ne se voyaient que sur des photos retirées/);
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    const sauve = stock.get('cas-a') as CasStocke;
+    expect(sauve.images).toEqual(['data:image/jpeg;base64,AJOUT']);
+    expect(sauve.calageVrai).toBeUndefined();
+    confirmer.mockRestore();
   }, 60_000);
 
   it('rappelle Claude (le run d une facade), enregistre sa reponse avec son cout et ses versions, et la rejoue en mode IA', async () => {

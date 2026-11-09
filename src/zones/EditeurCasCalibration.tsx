@@ -1,7 +1,8 @@
 // Admin › Calibrer la detection : un cas = une facade photographiee et annotee (facade/corpusReel.ts).
 //
-// Les photos d'un cas viennent d'une facade de l'audit (« Créer un cas depuis cette façade », ou un audit recu) : la calibration n'en
-// prend plus pour elle (lot F6) ; on peut seulement en retirer une. Le cas se rejoue par l'orchestrateur de la facade
+// Les photos d'un cas viennent d'une facade de l'audit (« Créer un cas depuis cette façade », ou un audit recu) ; la calibration ne prend
+// pas de photo (pas de camera, lot F6), mais depuis le 9 novembre 2026 (demande du proprietaire) elle en importe dans un cas, en retire et
+// en change l'ordre, a l'E2 (facade/photosDuCas.ts). Le cas se rejoue par l'orchestrateur de la facade
 // (facade/releve/enchainement.ts), le meme que l'audit, avec les memes entrees (ses photos et leurs prises de vue, les reperes et le mur
 // poses a la main) : les coins de chaque photo cherches comme dans l'audit, les photos redressees, assemblees et fondues, le gabarit
 // pose, le haut du mur lu, la texture, les ouvertures. Seules s'y ajoutent la mesure contre la verite et la reponse de Claude rejouee. La barre de progression (zones/composants/BarreProgressionFacade.tsx) et la frise des etapes
@@ -29,7 +30,7 @@ import { assemblageDuRejeu, casApresRejeu, casAvecLeMur, casCaleALaMain, casSans
 import { murAConfirmer, relecture } from '../model/auditParcelle.js';
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
-import { ETAPES_FACADE, type EtatAffiche, type IdEtape, type SourceElement, type ValeurElement } from '../model/etapeFacade.js';
+import { ETAPES_FACADE, etapeFacade, libelleEtape, type EtatAffiche, type IdEtape, type SourceElement, type ValeurElement } from '../model/etapeFacade.js';
 import { avecLeChoix, avecLeForcage, ETAPES_FORCABLES } from '../facade/releve/choixSources.js';
 import { AjoutsOuvertures, ChoixElement, ForcerLEtape, ForcerPartout } from './ChoixSourceCalibration.js';
 import { BarreProgressionFacade, COMMANDE_ESCALADE, type EtapeAffichee } from './composants/BarreProgressionFacade.js';
@@ -41,6 +42,12 @@ import { texteRunFacade, type RunEnregistre } from '../regles/facades/observatio
 import { enteteDuRun } from '../facade/releve/enchainement.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { OuvertureFacade, TypeOuverture } from '../model/types.js';
+import type { PhotoCas } from '../model/audit.js';
+import {
+  avecLesPhotos, nomLibre, photoDeplacee, photoImportee, PHOTOS_PAR_CAS_MAX, sansLaPhoto, suivreLesRangs, suivreListe, texteDuReport, veriteSuivie,
+  veriteSurLAssemblage, veriteSurLesPhotos, VERITE_SANS_ASSEMBLAGE, type PhotoImportee, type SuiteDesPhotos, type VeriteSurLesPhotos,
+} from '../facade/photosDuCas.js';
+import { Icone } from './icones.js';
 
 /** Ce que l'editeur demande au navigateur : decoder une photo, montrer une elevation ; et l'ecran, ses commandes. */
 export interface OutilsPhotos {
@@ -72,6 +79,12 @@ export interface OutilsPhotos {
   ecouterChoix?: (f: (cle: string, source: SourceElement | null) => void) => () => void;
   /** S'abonner a la commande `facade.forcerClaude` (lot C2) : Claude pour une etape, ou pour toutes, pose ou retire. */
   ecouterForcage?: (f: (cible: { etape: IdEtape } | { toutes: true }, oui: boolean) => void) => () => void;
+  /**
+   * Preparer une photo importee dans un cas (demande du proprietaire, 9 novembre 2026), comme l'audit prepare les siennes
+   * (app/audit/photo.ts::preparerPhoto) : l'EXIF lu avant la reduction et range dans l'optique, la photo reduite a 1 280 px, sans prise
+   * de vue (le telephone n'a rien mesure). Absent : on ne peut qu'en retirer et les ordonner.
+   */
+  importerPhoto?: (fichier: File) => Promise<PhotoCas>;
 }
 
 /** Les gestes d'un cas ouvert, que les commandes de l'ecran defont et refont (Ctrl+Z, Ctrl+Y). */
@@ -156,20 +169,72 @@ function PlacerReperes({ photo, rang, p, gabarit, rapport, poser, retirer, charg
 }
 
 /**
- * Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer (E2, E6 ; sans `retirer`, au choix
- * seulement : E4 et E5, ou l'on pose les reperes de la photo choisie). L'objectif de chaque photo (avec ou sans EXIF) se dit a l'E3.
+ * Un import de photos, sans camera (pas d'attribut capture) : les photos se prennent dans l'audit, la calibration importe des fichiers.
+ * Le meme champ sert a ajouter des photos a un cas ouvert (E2) et a creer un cas depuis des photos (l'ecran, EcranCalibration.tsx) ; le
+ * bouton qui l'ouvre est a cote, chez l'appelant (`entree.current.click()`).
  */
-function VignettesDuCas({ images, courante, origines, choisir, retirer }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; retirer?: (k: number) => void }) {
-  if (!images.length) return null;
+export function ChampDesPhotos({ controle, entree, importer }: { controle: string; entree: React.RefObject<HTMLInputElement | null>; importer: (fichiers: File[]) => void }) {
+  return <input ref={entree} type="file" accept="image/*" multiple hidden data-controle={controle} onChange={(e) => { const l = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (l.length) importer(l); }} />;
+}
+
+/**
+ * Des fichiers prepares comme les photos de l'audit (`preparer`), sous des noms libres dans le cas, dans la limite de `place` ; les
+ * illisibles nommes, sans arreter les autres.
+ */
+export async function preparerLesPhotos(fichiers: readonly File[], preparer: (f: File) => Promise<PhotoCas>, cas: Pick<CasStocke, 'photos'>, place: number): Promise<{ ajouts: PhotoImportee[]; illisibles: string[] }> {
+  const ajouts: PhotoImportee[] = [], noms: string[] = [], illisibles: string[] = [];
+  for (const f of fichiers.slice(0, Math.max(0, place))) {
+    // Le nom se prend une fois la photo lue : un fichier illisible n'en consomme pas.
+    try { const p = await preparer(f), nom = nomLibre(cas, noms); noms.push(nom); ajouts.push(photoImportee(p, nom)); } catch { illisibles.push(f.name); }
+  }
+  return { ajouts, illisibles };
+}
+
+/** Ce que l'ecran dit des fichiers qui ne sont pas entres (illisibles, ou au-dela de la limite d'un cas) ; null : tous sont entres. */
+export function texteDesRefus(illisibles: readonly string[], deTrop: number): string | null {
+  const dits = [illisibles.length ? 'Illisible' + (illisibles.length > 1 ? 's' : '') + ' : ' + illisibles.join(', ') + '.' : '', deTrop > 0 ? deTrop + ' photo' + (deTrop > 1 ? 's' : '') + ' de trop : un cas en garde ' + PHOTOS_PAR_CAS_MAX + ' au plus.' : ''].filter(Boolean);
+  return dits.length ? dits.join(' ') : null;
+}
+
+/** Les gestes sur la sequence des photos d'un cas (E2, E6) : retirer, deplacer, ajouter des photos importees. */
+interface GestesSequence { retirer: (k: number) => void; deplacer: (de: number, vers: number) => void; importer: ((fichiers: File[]) => void) | null; plein: boolean; occupe: boolean }
+
+/**
+ * Les photos du cas, en vignettes : la courante, l'origine de ses coins ; a l'E2 et a l'E6, la sequence se reprend (demande du
+ * proprietaire, 9 novembre 2026) : glisser une vignette sur une autre (souris), « Avancer » et « Reculer » (doigt, clavier), « Retirer »,
+ * et « Ajouter des photos ». Sans `sequence`, au choix seulement (E4 et E5, ou l'on pose les reperes de la photo choisie). L'objectif de
+ * chaque photo (avec ou sans EXIF) se dit a l'E3.
+ */
+function VignettesDuCas({ images, courante, origines, choisir, sequence }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; sequence?: GestesSequence }) {
+  const [tiree, setTiree] = useState<number | null>(null);
+  const n = images.length;
+  const importer = sequence?.importer, champ = useRef<HTMLInputElement>(null);
+  const ajout = sequence && importer ? <li className="calAjoutPhotos">
+    <ChampDesPhotos controle="calibration.fichiersPhotos" entree={champ} importer={importer} />
+    <button type="button" className="secondary small" data-controle="calibration.ajouterPhotos" disabled={sequence.plein || sequence.occupe} title={sequence.plein ? 'Un cas garde ' + PHOTOS_PAR_CAS_MAX + ' photos au plus : retirez-en une pour en ajouter.' : undefined} onClick={() => champ.current?.click()}>Ajouter des photos</button>
+    {sequence.plein && <small className="calNote">{PHOTOS_PAR_CAS_MAX} photos au plus : retirez-en une pour en ajouter.</small>}
+  </li> : null;
+  if (!n && !ajout) return null;
+  const vignette = (u: string, k: number) => <button type="button" className="calVignette" data-controle="calibration.choisirPhoto" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} draggable={false} /></button>;
   return (
     <ul className="calVignettes" aria-label="Photos du cas">
           {images.map((u, k) => (
-            <li key={k} className={k === courante ? 'actif' : ''}>
-              <button type="button" className="calVignette" data-controle="calibration.choisirPhoto" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
+            <li key={k} className={(k === courante ? 'actif' : '') + (tiree !== null && tiree !== k ? ' cible' : '')}>
+              {sequence
+                ? <div className="calGlisser" data-controle="calibration.glisserPhoto" draggable={!sequence.occupe}
+                  onDragStart={(e) => { setTiree(k); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(k)); }}
+                  onDragOver={(e) => { if (tiree !== null) e.preventDefault(); }} onDragEnd={() => setTiree(null)}
+                  onDrop={(e) => { e.preventDefault(); const de = tiree ?? Number(e.dataTransfer.getData('text/plain')); setTiree(null); if (Number.isInteger(de) && de !== k) sequence.deplacer(de, k); }}>{vignette(u, k)}</div>
+                : vignette(u, k)}
               {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
-              {retirer && <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirer(k)}>Retirer</button>}
+              {sequence && <div className="calGestesPhoto" role="group" aria-label={'Photo ' + (k + 1) + ' dans la séquence'}>
+                <button type="button" className="secondary small" data-controle="calibration.avancerPhoto" aria-label={'Avancer la photo ' + (k + 1) + ' dans la séquence'} title="Avancer d’un rang" disabled={k === 0 || sequence.occupe} onClick={() => sequence.deplacer(k, k - 1)}><Icone nom="chevronGauche" taille={18} /></button>
+                <button type="button" className="secondary small" data-controle="calibration.reculerPhoto" aria-label={'Reculer la photo ' + (k + 1) + ' dans la séquence'} title="Reculer d’un rang" disabled={k === n - 1 || sequence.occupe} onClick={() => sequence.deplacer(k, k + 1)}><Icone nom="chevronDroite" taille={18} /></button>
+                <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} disabled={sequence.occupe} onClick={() => sequence.retirer(k)}>Retirer</button>
+              </div>}
             </li>
           ))}
+          {ajout}
         </ul>
   );
 }
@@ -237,12 +302,12 @@ const rang = (id: IdEtape) => ETAPES_FACADE.findIndex((e) => e.id === id);
  * cherches comme dans l'audit (un mur pose a la main reste). Les coins retenus sont gardes avec le cas, pour memoire (les reperes
  * proposes, le mur a ajuster) ; ils ne sont pas une entree du rejeu suivant. Rejouer depuis une etape reprend les sorties des precedentes.
  */
-function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, coinsVrais: readonly (P2[] | null)[] | null = null) {
+function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, vrais: { readonly current: readonly (P2[] | null)[] | null }, aPorter: { current: VeriteSurLesPhotos | 'perdue' | null }) {
   const [rejeu, setRejeu] = useState<Enchainement | null>(null);
   const [progression, setProgression] = useState<EtapeAffichee[]>([]);
   const [enCours, setEnCours] = useState<IdEtape | null>(null);
   const arret = useRef(false);
-  const lancer = async (depart: CasStocke, depuis: IdEtape | null, ia: RunEnregistre | null = null): Promise<{ cas: CasStocke; r: Enchainement; images: Image[] }> => {
+  const lancer = async (depart: CasStocke, depuis: IdEtape | null, ia: RunEnregistre | null = null): Promise<{ cas: CasStocke; r: Enchainement; images: Image[]; report: string | null }> => {
     arret.current = false;
     // Rendre la main un instant : la barre doit s'afficher avant que le redressement, long sur un telephone, occupe le fil.
     await pause(30);
@@ -262,13 +327,19 @@ function useRejeu(outils: OutilsPhotos, url: (img: Image) => string, coinsVrais:
     let r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), ...precedent });
     // Un etalon de synthese : le mur vrai se porte sur l'assemblage de ce rejeu (il en depend) ; s'il change, l'E7 et la suite se
     // rejouent contre lui, les etapes d'avant reprises telles quelles.
-    const vrai = coinsVrais ? calageVraiDuRejeu(r.sorties.calage?.pose, coinsVrais) : null;
+    const coinsVrais = vrais.current, pose = r.sorties.calage?.pose;
+    let vrai = coinsVrais ? calageVraiDuRejeu(pose, coinsVrais) : null, report: string | null = null;
+    // Un cas dont la sequence a change : sa verite, portee par ses photos, se pose sur ce nouvel assemblage, une fois (reponse du
+    // proprietaire, 9 novembre 2026). Un rejeu arrete avant l'E7 la garde pour le suivant.
+    const portee = aPorter.current;
+    if (!coinsVrais && portee === 'perdue') { aPorter.current = null; report = VERITE_SANS_ASSEMBLAGE; }
+    else if (!coinsVrais && portee && portee !== 'perdue' && pose) { const p = veriteSurLAssemblage(portee, pose); aPorter.current = null; vrai = p.vrai; report = texteDuReport(p); }
     if (vrai && !memeMurVrai(vrai, cas.calageVrai)) {
       cas = { ...cas, calageVrai: vrai };
       r = await derouler(entreesDuCas(cas, images, url), { ...options, verite: veriteDuCas(cas), depuis: 'calage', precedent: r });
     }
     setRejeu(r); setProgression(r.etapes); setEnCours(null);
-    return { cas: casApresRejeu(cas, r), r, images };
+    return { cas: casApresRejeu(cas, r), r, images, report };
   };
   return { rejeu, setRejeu, progression, enCours, lancer, arreter: () => { arret.current = true; } };
 }
@@ -457,17 +528,17 @@ function forcageDeLEtape(id: IdEtape, cas: CasStocke, commandes: NonNullable<Out
 }
 
 /** « Enregistrer le cas » : un nom et une photo exiges, puis le serveur ; l'editeur se ferme quand c'est fait. */
-async function sauverLeCas(cas: CasStocke, f: { enregistrer: (c: CasStocke) => Promise<string | null>; setMessage: (m: string | null) => void; setOccupe: (o: boolean) => void; fermer: () => void }) {
+async function sauverLeCas(cas: CasStocke, f: { enregistrer: (c: CasStocke) => Promise<string | null>; setMessage: (m: string | null) => void; setOccupe: (o: boolean) => void; fermer: () => void; veriteEnAttente: boolean }) {
   if (!cas.nom.trim()) { f.setMessage('Donnez un nom au cas (la maison, le côté).'); return; }
-  if (!cas.photos.length) { f.setMessage('Un cas a besoin d’au moins une photo : tirez-le d’une façade de l’audit.'); return; }
+  // La verite de l'E7 attend le rejeu pour se poser sur le nouvel assemblage : enregistrer avant la perdrait.
+  if (f.veriteEnAttente) { f.setMessage('Rejouez d’abord le cas : la vérité de l’' + etapeFacade('calage').numero + ' se reporte sur le nouvel assemblage au rejeu.'); return; }
+  if (!cas.photos.length) { f.setMessage('Un cas a besoin d’au moins une photo : ajoutez-en une à l’' + libelleEtape('prises') + ', ou tirez le cas d’une façade de l’audit.'); return; }
   f.setOccupe(true);
   const erreur = await f.enregistrer({ ...cas, nom: cas.nom.trim() });
   f.setOccupe(false);
   if (erreur) f.setMessage(erreur); else f.fermer();
 }
 
-/** Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent. */
-const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
 
 /** Le nom du cas et les dimensions du mur (l'en-tete) : changer une dimension rend le rejeu caduc. */
 function DimensionsDuCas({ cas, modifier, oublier }: { cas: CasStocke; modifier: (f: (c: CasStocke) => CasStocke) => void; oublier: () => void }) {
@@ -501,6 +572,90 @@ function PiedDuCas({ cas, etalon, message, occupe, modifier, sauver, fermer, sup
   );
 }
 
+/** L'E2 (et l'E6) : la sequence des photos du cas, ce qu'elle veut dire pour la chaine, et ses gestes. */
+function PhotosDuCas({ cas, courante, origines, choisir, sequence }: { cas: CasStocke; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; sequence: GestesSequence }) {
+  return <>
+    <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}, dans l’ordre où la chaîne les prend : la première mesure la hauteur, l’assemblage les suit. Pour changer l’ordre : « Avancer » et « Reculer », ou, à la souris, une vignette glissée sur une autre{sequence.importer ? ' ; « Ajouter des photos » en importe (leur EXIF est gardé)' : ''}. Chaque changement rejoue le cas depuis l’{etapeFacade('preparation').numero}.</p>
+    <PositionsExif cas={cas} />
+    <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={choisir} sequence={sequence} />
+  </>;
+}
+
+/** Ce que la sequence des photos change dans l'editeur ouvert. */
+interface EtatSequence {
+  cas: CasStocke; courante: number; outils: OutilsPhotos; coinsVrais: { current: readonly (P2[] | null)[] | null };
+  /** La verite de l'E7 attachee aux photos, en attente du rejeu qui la pose sur le nouvel assemblage. */
+  aPorter: { current: VeriteSurLesPhotos | 'perdue' | null };
+  /** La verite du cas ramenee sur ses photos, depuis l'assemblage d'ou elle vient (celui du rejeu, refait jusqu'a l'E7 s'il est oublie). */
+  veriteDesPhotos: (c: CasStocke) => Promise<VeriteSurLesPhotos | null>;
+  rejouer: (c: CasStocke, depuis: IdEtape | null) => Promise<void>; oublier: () => void; vider: () => void;
+  setCas: (c: CasStocke) => void; setDims: React.Dispatch<React.SetStateAction<Record<number, { l: number; h: number }>>>;
+  setOrigines: React.Dispatch<React.SetStateAction<Record<number, OrigineCoins>>>; setCourante: (k: number) => void; setOccupe: (o: boolean) => void; setMessage: React.Dispatch<React.SetStateAction<string | null>>;
+}
+
+/**
+ * La sequence des photos (E2, E6 ; facade/photosDuCas.ts) : ce qui est range par rang suit les photos. Les gestes d'avant (Ctrl+Z) sont
+ * rapportes aux rangs et ne se defont plus, comme dans l'audit (capture.ts) ; le rejeu ne vaut plus : le cas se rejoue en entier, de
+ * l'E1, sur la nouvelle sequence (le meme enchainement que « Rejouer »).
+ */
+function useSequenceDesPhotos(e: EtatSequence) {
+  const { cas, courante, outils } = e;
+  const sequence = async (s: SuiteDesPhotos, suivante: number) => {
+    // La verite de l'E7 (un cas reel ; celle d'un etalon se recalcule de ses coins vrais) : attachee aux photos avant que le rejeu d'avant
+    // ne soit oublie, elle suit leurs rangs. Deja en attente (deux gestes avant un rejeu), elle suit encore.
+    if (!e.coinsVrais.current) {
+      const enAttente = e.aPorter.current;
+      if (enAttente && enAttente !== 'perdue') e.aPorter.current = veriteSuivie(enAttente, s.ordre);
+      else if (!enAttente && cas.calageVrai) {
+        e.setOccupe(true);
+        const v = await e.veriteDesPhotos(cas).catch(() => null);
+        e.aPorter.current = v ? veriteSuivie(v, s.ordre) : 'perdue';
+        e.setOccupe(false);
+      }
+    }
+    e.vider(); e.oublier();
+    e.setCas(s.cas); e.setDims((d) => suivreLesRangs(d, s.ordre)); e.setOrigines((o) => suivreLesRangs(o, s.ordre));
+    if (e.coinsVrais.current) e.coinsVrais.current = suivreListe(e.coinsVrais.current, s.ordre, null);
+    e.setCourante(Math.max(0, Math.min(suivante, s.cas.photos.length - 1)));
+    if (s.cas.photos.length) void e.rejouer(s.cas, null);
+  };
+  const retirerPhoto = (k: number) => {
+    if (!window.confirm('Retirer la photo ' + (k + 1) + ' du cas ? Le cas se rejoue sans elle ; rien n’est enregistré avant « Enregistrer le cas ».')) return;
+    void sequence(sansLaPhoto(cas, k), courante > k ? courante - 1 : courante === k ? 0 : courante);
+  };
+  const deplacerPhoto = (de: number, vers: number) => { const s = photoDeplacee(cas, de, vers); if (s.cas !== cas) void sequence(s, vers); };
+  const preparer = outils.importerPhoto;
+  const importer = preparer ? async (fichiers: File[]) => {
+    e.setOccupe(true); e.setMessage(null);
+    const { ajouts, illisibles } = await preparerLesPhotos(fichiers, preparer, cas, PHOTOS_PAR_CAS_MAX - cas.photos.length);
+    e.setOccupe(false);
+    const s = avecLesPhotos(cas, ajouts), refusees = fichiers.length - ajouts.length - illisibles.length + s.refusees;
+    if (ajouts.length) await sequence(s, cas.photos.length);
+    const dit = texteDesRefus(illisibles, refusees);
+    // Apres le rejeu (qui ecrit le sien, le report de la verite) : les deux se lisent.
+    if (dit) e.setMessage((m) => (m ? m + ' ' : '') + dit);
+  } : null;
+  return { retirerPhoto, deplacerPhoto, importer };
+}
+
+/**
+ * La verite du cas sur ses photos, depuis l'assemblage du rejeu ; oublie (un geste depuis), l'assemblage se refait jusqu'a l'E7, sans
+ * rien montrer : le meme enchainement, arrete apres le calage.
+ */
+function veriteDuCasSurSesPhotos(outils: OutilsPhotos, url: (img: Image) => string, rejeu: Enchainement | null) {
+  return async (c: CasStocke): Promise<VeriteSurLesPhotos | null> => {
+    if (!c.calageVrai) return null;
+    const imgs = await Promise.all(c.images.map((u) => outils.decoder(u)));
+    let pose = rejeu?.sorties.calage?.pose;
+    if (!pose) {
+      let cale = false;
+      const r = await derouler(entreesDuCas(c, imgs, url), { vue: 'calibration', chercherCoins: async (x) => rechercher(x), rendreLaMain: () => pause(0), surEtape: (id, etat) => { if (id === 'calage' && etat !== 'en-cours') cale = true; }, arrete: () => cale });
+      pose = r.sorties.calage?.pose;
+    }
+    return veriteSurLesPhotos(c.calageVrai, pose, imgs.map((i) => ({ l: i.largeur, h: i.hauteur })));
+  };
+}
+
 export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false, etalon }: Props) {
   const [cas, setCas] = useState<CasStocke>(depart);
   const casCourant = useRef(cas);
@@ -512,7 +667,10 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [origines, setOrigines] = useState<Record<number, OrigineCoins>>(() => originesDuCas(depart));
   const [ouverte, setOuverte] = useState<IdEtape | null>(null);
   const url = useAdresses(outils);
-  const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, url, etalon?.coinsVrais ?? null);
+  // Les coins vrais d'un etalon suivent ses photos quand la sequence change (une photo importee n'en a pas) ; le rejeu les lit au moment.
+  const coinsVrais = useRef<readonly (P2[] | null)[] | null>(etalon?.coinsVrais ?? null);
+  const aPorter = useRef<VeriteSurLesPhotos | 'perdue' | null>(null); // la verite de l'E7 portee par les photos, jusqu'au rejeu (sequence changee)
+  const { rejeu, setRejeu, progression, enCours, lancer, arreter } = useRejeu(outils, url, coinsVrais, aPorter);
   const claude = useClaude(cas);
   const modifier = (f: (c: CasStocke) => CasStocke) => setCas((c) => f(c));
   // Un geste sur les photos rend le rejeu caduc : ses sorties ne valent plus pour ce cas.
@@ -522,18 +680,19 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const rejouer = async (depart: CasStocke = cas, depuis: IdEtape | null = null, ia: RunEnregistre | null = claude.run) => {
     setOccupe(true); setMessage(null);
     try {
-      const { cas: suite, r, images } = await lancer(depart, depuis, ia);
+      const { cas: suite, r, images, report } = await lancer(depart, depuis, ia);
       setCas(suite); setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
       const calees = r.sorties.calage?.photos;
       if (calees) setOrigines(Object.fromEntries(calees.flatMap((p, k) => (p.origine ? [[k, p.origine]] : []))));
       // La verite du cas ne se remplit plus de la detection (decision du proprietaire, 3 novembre 2026) : l'E12 se comparerait a sa propre
       // sortie et dirait « objectifs atteints ». « Partir de la détection », plus bas, le fait d'un geste.
-      if (!r.sorties.analyse) setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».');
+      const dits = [report, r.sorties.analyse ? null : 'Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Rejouer ».'].filter(Boolean);
+      if (dits.length) setMessage(dits.join(' '));
     } catch (e) { setMessage('Rejeu impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
   const { geste, pile } = useGestesDuCas(outils, casCourant, (suite) => { setCas(suite); setOrigines(originesDuCas(suite)); void rejouer(suite); });
   const { poser } = useChoixDuCas(outils, casCourant, geste, (suite, depuis) => { setCas(suite); void rejouer(suite, depuis); });
-  const retirerPhoto = (k: number) => { pile.vider(); modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setCourante(0); oublier(); };
+  const { retirerPhoto, deplacerPhoto, importer } = useSequenceDesPhotos({ cas, courante, outils, coinsVrais, aPorter, veriteDesPhotos: veriteDuCasSurSesPhotos(outils, url, rejeu), rejouer, oublier, vider: () => pile.vider(), setCas, setDims, setOrigines, setCourante, setOccupe, setMessage });
   // Le mur ajuste a la main sur la photo courante redressee : ses coins seuls (le gabarit s'y pose) ; il se reporte sur les autres photos.
   const murCourant = ({ coins }: MurAjuste) => {
     geste();
@@ -599,14 +758,10 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const revenirAuMurCherche = () => { geste(); const suite = casSansLeMur(cas, courante, rejeu); setCas(suite); setOrigines(originesDuCas(suite)); oublier(); };
   // Un cas tire d'un audit se rejoue des l'ouverture, ses coins cherches : il n'y a rien a placer avant.
   useEffect(() => { if (chercherCoins) void rejouer(cas, null); }, []);
-  const sauver = () => sauverLeCas(cas, { enregistrer, setMessage, setOccupe, fermer });
+  const sauver = () => sauverLeCas(cas, { enregistrer, setMessage, setOccupe, fermer, veriteEnAttente: aPorter.current !== null && aPorter.current !== 'perdue' });
   const { images, assemblageCourant, elevation } = useVuesDuRejeu(rejeu, cas, url);
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
-  const photosDuCas = <>
-    <p className="calNote">{cas.photos.length} photo{cas.photos.length > 1 ? 's' : ''}{etalon ? ' de synthèse' : ', prise' + (cas.photos.length > 1 ? 's' : '') + ' dans l’audit'}. Une photo se retire ici ; elle se prend dans l’audit.</p>
-    <PositionsExif cas={cas} />
-    <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
-  </>;
+  const photosDuCas = <PhotosDuCas cas={cas} courante={courante} origines={origines} choisir={setCourante} sequence={{ retirer: retirerPhoto, deplacer: deplacerPhoto, importer: importer ? (l) => { void importer(l); } : null, plein: cas.photos.length >= PHOTOS_PAR_CAS_MAX, occupe }} />;
   // Les reperes de la photo choisie, et le mur repris a la main sur elle ou sur l'assemblage (E4, E5) : le geste partage avec l'audit.
   const reperes = <>
     <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} />
