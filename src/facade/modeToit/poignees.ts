@@ -11,7 +11,7 @@ import { hauteurDuToitEn, point, repere } from '../toits/toitCorps.js';
 import { facettesElementsToit, facettesLucarnes, type Sommet } from '../toits/toitFormes.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, orienterFaitage, rangPrincipal } from './corpsNeufs.js';
-import { pousserLeMur } from './pousserMur.js';
+import { aimanterAuContour, pousserLeMur, type Arete } from './pousserMur.js';
 import { orientationDuMur } from './sens.js';
 import { gaucheEnDebut } from './decroche.js';
 import { orientationDuCorps } from './planCorps.js';
@@ -155,18 +155,20 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
     ];
   }
   if (t.type === 'saillie' && c.saillie) {
-    const s = c.saillie, top = Math.min(...c.egouts);
+    const s = c.saillie, top = Math.min(...c.egouts), h = corps[s.hote];
+    // Chaque bord se tire, l'autre en place (decision du proprietaire, 9 novembre 2026, bow-window compris) : `gauche` au debut du mur,
+    // `larg` a sa fin, nommes gauche et droit vus de dehors.
+    const aGauche = h ? gaucheEnDebut(h, s.mur) : true;
+    const bord = (debut: boolean) => 'Bord ' + (debut === aGauche ? 'gauche' : 'droit') + ' (le bord ' + (debut === aGauche ? 'droit' : 'gauche') + ' reste en place)';
     const l: Poignee[] = [
       { id: 'pos', point: P(s.centreM, s.profondeurM, c.faitage), axes: ['long'], libelle: 'Position' },
-      { id: 'larg', point: P(s.centreM + s.largeurM / 2, 0, top), axes: ['long'], libelle: 'Largeur' },
+      { id: 'larg', point: P(s.centreM + s.largeurM / 2, 0, top), axes: ['long'], libelle: bord(false) },
       { id: 'prof', point: P(s.centreM, s.profondeurM, top / 2), axes: ['prof'], libelle: 'Saillie' },
-      { id: 'haut', point: P(s.centreM - s.largeurM / 2, s.profondeurM, top), axes: ['vert'], libelle: 'Hauteur à l’égout' }
+      { id: 'haut', point: P(s.centreM - s.largeurM / 2, s.profondeurM, top), axes: ['vert'], libelle: 'Hauteur à l’égout' },
+      { id: 'gauche', point: P(s.centreM - s.largeurM / 2, 0, top), axes: ['long'], libelle: bord(true) }
     ];
-    // Une galerie ou un appentis a deux bords qui se tirent chacun, et le retrait de son mur (les poteaux reculent vers la maison).
-    if (s.genre !== 'bow-window') l.push(
-      { id: 'gauche', point: P(s.centreM - s.largeurM / 2, 0, top), axes: ['long'], libelle: 'Bord gauche' },
-      { id: 'retrait', point: P(s.centreM, Math.max(0.1, s.profondeurM - (c.retraitM ?? 0)), 0.4), axes: ['prof'], libelle: 'Retrait du mur' }
-    );
+    // Une galerie ou un appentis a aussi le retrait de son mur (les poteaux reculent vers la maison).
+    if (s.genre !== 'bow-window') l.push({ id: 'retrait', point: P(s.centreM, Math.max(0.1, s.profondeurM - (c.retraitM ?? 0)), 0.4), axes: ['prof'], libelle: 'Retrait du mur' });
     return l;
   }
   if (t.type === 'travee') {
@@ -369,7 +371,13 @@ function bordsVoisins(corps: readonly CorpsToit[], t: CibleGlisser, L: number): 
  * Ce que rend un glisser : les nouveaux corps, les positions collees (pour les guides) et, quand l'egout du corps principal a change,
  * sa nouvelle hauteur a l'egout : l'elevation du batiment, que lisent l'inspecteur, les releves et le prisme hors du mode corps.
  */
-export interface ResultatGlisser { corps: CorpsToit[]; guides: number[]; elevation?: number }
+export interface ResultatGlisser {
+  corps: CorpsToit[]; guides: number[]; elevation?: number;
+  /** Les cotes du trace IGN ou un mur ou un corps s'est colle : l'ecran les eclaire. */
+  aretes?: Arete[];
+  /** Ce qui a arrete le geste (un pignon, une travee, l'autre corps a sa taille minimale), dit a la personne. */
+  motif?: string;
+}
 
 /**
  * La hauteur a l'egout d'un corps : le corps entier monte ou descend (`monterCorps`), pente gardee, et ce qui est pose sur ses murs
@@ -389,8 +397,11 @@ function glisserEgout(depart: readonly CorpsToit[], rang: number, mur: number, d
   return rang === rangPrincipal(depart) ? { corps, guides: [], elevation: egoutHote } : { corps, guides: [] };
 }
 
-/** Le deplacement `d` applique a la cible, a partir des corps de depart. Rend les nouveaux corps et les positions collees (pour les guides). */
-export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: string, d: Deplacement): ResultatGlisser {
+/**
+ * Le deplacement `d` applique a la cible, a partir des corps de depart. Rend les nouveaux corps et les positions collees (pour les guides).
+ * `contour` : le trace IGN du batiment (son contour dans le plan), ou un mur tire et un corps deplace se collent aussi.
+ */
+export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: string, d: Deplacement, contour?: readonly PtBrut[]): ResultatGlisser {
   const c = depart[t.rang], f = cadreDe(depart, t);
   const rien = { corps: depart.slice(), guides: [] as number[] };
   if (!c || !f) return rien;
@@ -408,13 +419,20 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
   };
 
   if (t.type === 'corps') {
-    if (id === 'deplacer') return { corps: deplacerCorps(depart, t.rang, f.u.x * dl + f.n.x * dp, f.u.y * dl + f.n.y * dp), guides };
+    if (id === 'deplacer') {
+      const vx = f.u.x * dl + f.n.x * dp, vy = f.u.y * dl + f.n.y * dp;
+      // Pres du trace IGN, le corps s'y colle par ses murs (decision du proprietaire, 9 novembre 2026).
+      const a = contour ? aimanterAuContour(c, vx, vy, contour) : null;
+      if (a?.aretes.length) return { corps: deplacerCorps(depart, t.rang, a.dx, a.dy, false), guides, aretes: a.aretes };
+      return { corps: deplacerCorps(depart, t.rang, vx, vy), guides };
+    }
     // Les axes sont ceux du mur 0 : sa normale sort par le mur 0 (le mur 2 avance quand elle recule), son sens va vers le mur 1.
     const mur = /^mur([0-3])$/.exec(id);
     if (!mur) return rien;
     const m = Number(mur[1]), avance = m === 0 ? dp : m === 1 ? dl : m === 2 ? -dp : -dl;
     // De dessus, le faitage se met dans le sens de la longueur tout seul tant que rien n'est pose dessus (comme avant ces poignees).
-    return { corps: orienterFaitage(pousserLeMur(depart, t.rang, m, avance).corps, t.rang), guides };
+    const res = pousserLeMur(depart, t.rang, m, avance, contour);
+    return { corps: orienterFaitage(res.corps, t.rang), guides, ...(res.aretes ? { aretes: res.aretes } : {}), ...(res.motif ? { motif: res.motif } : {}) };
   }
   if (t.type === 'facade') {
     if (id === 'haut') return { corps: avec(depart, t.rang, { ...c, faitage: centi(Math.max(c.faitage + dv, Math.max(...c.egouts) + 0.4)) }), guides };
@@ -423,9 +441,9 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     // bout colle a la ligne d'un mur d'un autre corps y dessine un guide.
     if (!c.saillie && (id === 'long' || id === 'debut' || id === 'avancer')) {
       const m = id === 'long' ? (t.mur + 1) % 4 : id === 'debut' ? (t.mur + 3) % 4 : t.mur;
-      const res = pousserLeMur(depart, t.rang, m, id === 'long' ? dl : id === 'debut' ? -dl : dp);
+      const res = pousserLeMur(depart, t.rang, m, id === 'long' ? dl : id === 'debut' ? -dl : dp, contour);
       if (res.colle && id !== 'avancer') guides.push(id === 'debut' ? 0 : murDuCorps(res.corps[t.rang] as CorpsToit, t.mur).L);
-      return { corps: res.corps, guides };
+      return { corps: res.corps, guides, ...(res.aretes ? { aretes: res.aretes } : {}), ...(res.motif ? { motif: res.motif } : {}) };
     }
     return rien;
   }
@@ -433,9 +451,15 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     const s = c.saillie, h = depart[s.hote];
     if (!h) return rien;
     if (id === 'pos') { const demi = s.largeurM / 2, bas = collerElement(s.centreM + dl - demi, s.largeurM); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, centreM: bas + demi })), guides }; }
-    if (id === 'larg') { const droite = coller(s.centreM + s.largeurM / 2 + dl), gauche = s.centreM - s.largeurM / 2, w = borne(droite - gauche, 1.2, 6); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: gauche + w / 2 })), guides }; }
+    // Un bord tire, l'autre en place : la largeur reste dans le mur depuis le bord fixe (bornerSaillie recentrerait sinon l'element, et
+    // le bord fixe bougerait).
+    // La largeur tombe aux 2 cm : sa moitie reste au centimetre, et le milieu (arrondi au centimetre par bornerSaillie) ne decale pas le
+    // bord fixe d'un demi-centimetre.
+    const wMax = (fixe: number) => Math.max(1.2, Math.min(6, fixe, f.L - 0.2));
+    const pair = (w: number) => Math.round(w * 50) / 50;
+    if (id === 'larg') { const droite = coller(s.centreM + s.largeurM / 2 + dl), gauche = s.centreM - s.largeurM / 2, w = pair(borne(droite - gauche, 1.2, wMax(f.L - gauche))); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: gauche + w / 2 })), guides }; }
     if (id === 'gauche') {
-      const droite = s.centreM + s.largeurM / 2, gauche = coller(s.centreM - s.largeurM / 2 + dl), w = borne(droite - gauche, 1.2, 6);
+      const droite = s.centreM + s.largeurM / 2, gauche = coller(s.centreM - s.largeurM / 2 + dl), w = pair(borne(droite - gauche, 1.2, wMax(droite)));
       return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: droite - w / 2 })), guides };
     }
     if (id === 'retrait') {

@@ -168,4 +168,12 @@ describe('le navigateur et les vues du mode', () => {
     expect(Math.abs(petit.position.z)).toBeLessThan(petit.position.y * 0.05);
     expect(grand.position.y).toBeGreaterThan(petit.position.y);
   });
+
+  it('la camera de dessus tient le toit a sa hauteur : la maison entiere, ses toits compris (decision du 9 novembre 2026)', () => {
+    // Le haut du toit est plus pres de la camera que le sol : a 9 m de faitage, elle monte d'autant, et le toit tient dans le meme champ.
+    const sol = poseDeDessus({ x: 0, y: 0 }, 12, { x: 0, y: 0 }, 50, 0.5), toit = poseDeDessus({ x: 0, y: 0 }, 12, { x: 0, y: 0 }, 50, 0.5, undefined, 0, 9);
+    expect(toit.position.y - 9).toBeCloseTo(sol.position.y - 2, 5);
+    // Sans hauteur, comme avant.
+    expect(poseDeDessus({ x: 0, y: 0 }, 12, { x: 0, y: 0 }, 50, 0.5, undefined, 0).position).toEqual(sol.position);
+  });
 });

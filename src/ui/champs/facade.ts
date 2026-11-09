@@ -233,8 +233,8 @@ function champsSaillies(c: ContexteChamps): Champ[] {
     };
     const genre = lire(c)?.genre ?? 'bow-window';
     const bow = genre === 'bow-window';
-    const nombre = (cle: string, libelle: string, cle2: 'largeurM' | 'profondeurM' | 'centreM', min: number, max: (cc: ContexteChamps) => number): Champ => ({
-      type: 'nombre', cle, libelle, unite: 'm', pas: 0.1, min, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
+    const nombre = (cle: string, libelle: string, cle2: 'largeurM' | 'profondeurM' | 'centreM', min: number, max: (cc: ContexteChamps) => number, aide?: string, note?: string): Champ => ({
+      type: 'nombre', cle, libelle, unite: 'm', pas: 0.1, min, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'], ...(aide ? { aide } : {}), ...(note ? { note: () => note } : {}),
       lire: (cc) => lire(cc)?.[cle2] ?? 0, ecrire: (cc, v) => { regler(cc, { [cle2]: Math.min(v, max(cc)) }); }
     });
     const murLong = (cc: ContexteChamps) => { const s = lire(cc); const h = s ? cc.obj.batiment?.corpsToit?.[s.hote] : undefined; return h && s ? murDuCorps(h, s.mur).L : 10; };
@@ -269,7 +269,9 @@ function champsSaillies(c: ContexteChamps): Champ[] {
         { type: 'choix', cle: 'toit', libelle: 'Toit', visible: (cc) => !(retraitDuRdc(lire(cc)) > 0), historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
           options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }, { valeur: 'aucun', libelle: 'Aucun (sous un auvent)' }],
           lire: (cc) => lire(cc)?.toit ?? 'pan', ecrire: (cc, v) => { regler(cc, { toit: v === 'plat' ? 'plat' : v === 'pavillon' ? 'pavillon' : v === 'aucun' ? 'aucun' : 'pan' }); } },
-        nombre('largeur', 'Largeur', 'largeurM', 0.6, murLong),
+        // Le chiffre change la largeur autour du milieu, qui est la « Position sur le mur » juste dessous : l'element ne quitte pas sa
+        // place ; tirer un bord seul, l'autre en place, se fait par ses poignees au Mode Toit (decision du proprietaire, 9 novembre 2026).
+        nombre('largeur', 'Largeur', 'largeurM', 0.6, murLong, 'La largeur change autour du milieu (la position sur le mur) ; pour tirer un seul bord, l’autre restant en place, utilisez ses poignées au Mode Toit', 'autour du milieu'),
         nombre('saillie', 'Saillie', 'profondeurM', 0.3, () => 6),
         nombre('position', 'Position sur le mur', 'centreM', 0, murLong),
         ...(genre === 'galerie' ? [{

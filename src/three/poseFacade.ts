@@ -31,12 +31,13 @@ export function decalageDeLaVue(reserve: Reserve | undefined): { x: number; y: n
 /**
  * La camera au-dessus d'un batiment, presque a la verticale (un leger recul evite l'alignement degenere de l'orbite) : `etendue` est le plus grand
  * cote du batiment, `centre` son milieu dans le plan. `reserve` : ce que le panneau recouvre ; le batiment se cadre dans le reste, la cible
- * reste en son centre (l'image est decalee par `decalageDeLaVue`). `sol` : l'altitude du sol sous le batiment.
+ * reste en son centre (l'image est decalee par `decalageDeLaVue`). `sol` : l'altitude du sol sous le batiment. `haut` : la hauteur de ses
+ * toits au-dessus du sol (2 m sans elle) : le toit est plus pres de la camera que le sol, il se cadre a sa hauteur, sinon il deborde.
  */
-export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number, reserve?: Reserve, sol = 0): PoseCamera {
+export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number, reserve?: Reserve, sol = 0, haut = 2): PoseCamera {
   const demiChamp = Math.tan((fovDeg * Math.PI) / 360);
   const libreL = reserve ? Math.max(0.3, 1 - reserve.droite / reserve.largeur) : 1, libreH = reserve ? Math.max(0.3, 1 - reserve.bas / reserve.hauteur) : 1;
-  const hauteur = (Math.max(etendue, 4) / (2 * demiChamp * Math.min(Math.max(aspect * libreL, 0.3), libreH))) * MARGE + 2;
+  const hauteur = (Math.max(etendue, 4) / (2 * demiChamp * Math.min(Math.max(aspect * libreL, 0.3), libreH))) * MARGE + Math.max(2, haut);
   const cible = { x: centre.x - cen.x, y: sol, z: cen.y - centre.y };
   return { cible, position: { x: cible.x, y: sol + hauteur, z: cible.z + hauteur * 0.02 } };
 }

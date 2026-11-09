@@ -5391,6 +5391,177 @@ const POINTS = {
     const m = (v) => v.toFixed(2).replace('.', ',');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `façade sud à ${m(valide.sud)} (avant ${m(avant.sud)}) ; de dessus ${cotes.length} poignées de côté, de face les deux bouts et la façade, prenables ; corps validé de ${m(valide.ouest)} à ${m(valide.est)} m (avant ${m(avant.ouest)} à ${m(avant.est)}), aile à ${m(valide.aile)} ; projet ${etat.statut ?? '?'} ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
   },
+  156: async (page, f) => {
+    // Les reponses du proprietaire du 9 novembre 2026 sur le redimensionnement au Mode Toit : la maison de la demonstration posee sur un
+    // rectangle de 12 x 7 m (son trace IGN), coupee en deux corps a x = 1 (un mur commun), le corps est portant un pignon. Vue 3D,
+    // « Modifier la toiture », de dessus : la maison entiere tient dans la partie libre de l'image (au telephone aussi) ; le mur commun tire
+    // glisse entre les deux corps (l'un grandit, l'autre retrecit, l'emprise ne change pas), Ctrl+Z ; le cote ouest rentre puis ressort
+    // pres du trace IGN : il s'y colle, le cote du trace s'eclaire et la bulle le dit ; le cote est du second corps tire vers le pignon
+    // s'arrete a son bord, la raison ecrite, puis en notification ; de face, un bow-window pose : ses deux bords se tirent, l'autre en
+    // place ; « Valider », un Ctrl+Z du projet. FUMEE_CAPTURE_MT5=<prefixe> enregistre chaque etape.
+    const capture = process.env.FUMEE_CAPTURE_MT5;
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const R = [{ x: -6, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: -6, y: -13 }];
+      o.pts = R.map((p) => ({ ...p }));
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.toitMesure; delete b.toitFige;
+      b.corpsToit = [
+        { pts: [{ x: -6, y: -20 }, { x: 1, y: -20 }, { x: 1, y: -13 }, { x: -6, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 },
+        { pts: [{ x: 1, y: -20 }, { x: 6, y: -20 }, { x: 6, y: -13 }, { x: 1, y: -13 }], posFaitage: 3.5, faitage: 8, egouts: [5, 5], ecart: 0,
+          pignons: [{ pan: 0, debut: 1.5, fin: 3.5, faitage: 7.5, profondeur: 3.5 }] }
+      ];
+      b.modeToit = 'corps';
+      o.elevation = 5; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    const lire = () => page.evaluate(() => {
+      const trie = (v) => (Array.isArray(v) ? v.map(trie) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, trie(v[k])])) : v);
+      const l = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit;
+      const xs = (c) => c.pts.map((p) => p.x);
+      const bow = l.find((c) => c.saillie?.genre === 'bow-window')?.saillie ?? null;
+      return { o0: Math.min(...xs(l[0])), e0: Math.max(...xs(l[0])), o1: Math.min(...xs(l[1])), e1: Math.max(...xs(l[1])), pignons: l[1].pignons.length,
+        bow: bow ? { g: bow.centreM - bow.largeurM / 2, d: bow.centreM + bow.largeurM / 2 } : null, json: JSON.stringify(trie(l)) };
+    });
+    const echecs = [], lignes = [];
+    const photo = async (nom) => { if (capture) { await image3dStable(page, 1200); await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {}); } };
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await image3dStable(page, 3000);
+    const avant = await lire();
+    await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 60000 });
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
+    await page.evaluate(() => window.__plan.executer('toit.vueDessus'));
+    await page.waitForTimeout(1500);
+    await image3dStable(page, 1500);
+    // La maison entiere dans la partie libre de l'image : les coins des corps, au sol et au faitage (debords compris), projetes.
+    const cadre = await page.evaluate(() => {
+      const sc = window.__plan.scene3d(), T = window.THREE, cam = sc.cameraRendu ?? sc.camera, el = sc.renderer.domElement.getBoundingClientRect();
+      const l = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit;
+      const hote = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(), p = document.querySelector('.panneauToit')?.getBoundingClientRect();
+      let libre = { x0: hote.left, y0: hote.top, x1: hote.right, y1: hote.bottom };
+      if (p && p.width > 0 && p.height > 0) { if (p.width < hote.width * 0.6) libre.x1 = Math.min(libre.x1, p.left); else libre.y1 = Math.min(libre.y1, p.top); }
+      // Au telephone, l'indicateur du mode est pose au-dessus du panneau : la maison ne passe pas dessous.
+      const i = document.querySelector('.etatToit')?.getBoundingClientRect();
+      if (i && i.width > 0 && i.top > hote.top + hote.height / 3) libre.y1 = Math.min(libre.y1, i.top);
+      const hors = [];
+      for (const c of l) for (const q of c.pts) for (const z of [0, c.faitage]) for (const [dx, dy] of [[0.35, 0.35], [-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35]]) {
+        const v = new T.Vector3(q.x + dx - sc.cen.x, z, sc.cen.y - q.y - dy).project(cam);
+        const x = el.left + ((v.x + 1) / 2) * el.width, y = el.top + ((1 - v.y) / 2) * el.height;
+        if (x < libre.x0 - 2 || x > libre.x1 + 2 || y < libre.y0 - 2 || y > libre.y1 + 2) hors.push(Math.round(x) + ';' + Math.round(y));
+      }
+      return { hors, libre: [libre.x0, libre.y0, libre.x1, libre.y1].map(Math.round) };
+    });
+    await photo('dessus');
+    if (cadre.hors.length) echecs.push('de dessus : ' + cadre.hors.length + ' coin(s) hors de la partie libre ' + cadre.libre.join(',') + ' (' + cadre.hors.slice(0, 4).join(' ') + ')');
+    else lignes.push('de dessus : la maison entière dans l’image ✓');
+    const choisir = async (rang) => {
+      const puce = page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]');
+      if ((await puce.getAttribute('aria-pressed', { timeout: 10000 })) !== 'true') await puce.click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+    };
+    const poignees = () => page.evaluate(() => [...document.querySelectorAll('[data-poignee]')].map((g) => {
+      const r = (g.querySelector('.pointPoignee') ?? g).getBoundingClientRect();
+      return { id: g.dataset.poignee, libelle: g.getAttribute('aria-label') ?? '', x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }));
+    // Tire une poignee de `m` metres (negatif : vers le corps), en pixels mesures sur l'ecran ; `tenir` : avant de lacher, ce qu'on lit.
+    const tirer = async (p, de, px, tenir) => {
+      const l = Math.hypot(p.x - de.x, p.y - de.y) || 1, ux = (p.x - de.x) / l, uy = (p.y - de.y) / l;
+      await page.mouse.move(p.x, p.y);
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i++) await page.mouse.move(p.x + (ux * px * i) / 10, p.y + (uy * px * i) / 10);
+      await page.waitForTimeout(300);
+      const lu = tenir ? await tenir() : null;
+      await page.mouse.up();
+      await page.waitForTimeout(400);
+      return lu;
+    };
+    // 1. Le mur commun glisse entre les deux corps.
+    await choisir(0);
+    let l0 = await poignees();
+    const est = l0.find((p) => /^Côté est/.test(p.libelle)), ouest = l0.find((p) => /^Côté ouest/.test(p.libelle));
+    const ppm = est && ouest ? Math.hypot(est.x - ouest.x, est.y - ouest.y) / 7 : 0;
+    if (!est || !ouest) echecs.push('corps 1 : pas de poignée est ou ouest (' + l0.map((p) => p.id).join(', ') + ')');
+    else {
+      await tirer(est, ouest, ppm * 1.5);
+      const a = await lire();
+      await photo('mur-commun');
+      if (!(a.e0 > avant.e0 + 0.5) || Math.abs(a.o1 - a.e0) > 0.001 || Math.abs(a.e1 - avant.e1) > 0.001 || Math.abs(a.o0 - avant.o0) > 0.001) echecs.push('mur commun : corps 1 ' + a.o0 + '→' + a.e0 + ', corps 2 ' + a.o1 + '→' + a.e1);
+      else lignes.push('mur commun glissé à x = ' + a.e0 + ' (corps 2 de ' + a.o1 + ' à ' + a.e1 + ') ✓');
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(500);
+      if ((await lire()).json !== avant.json) echecs.push('Ctrl+Z ne rend pas les deux corps');
+      // 2. Le cote ouest rentre de 50 cm, puis ressort de 40 : a 10 cm du trace IGN, il s'y colle, le trace s'eclaire.
+      l0 = await poignees();
+      const o2 = l0.find((p) => /^Côté ouest/.test(p.libelle)), e2 = l0.find((p) => /^Côté est/.test(p.libelle));
+      await tirer(o2, e2, -ppm * 0.5);
+      const rentre = await lire();
+      const o3 = (await poignees()).find((p) => /^Côté ouest/.test(p.libelle)), e3 = (await poignees()).find((p) => /^Côté est/.test(p.libelle));
+      // Ressort jusqu'a 10 cm du trace (a l'estime des pixels) : dans les 25 cm de l'aimant.
+      const tenu = await tirer(o3, e3, ppm * Math.max(0.05, rentre.o0 + 6 - 0.1), async () => {
+        await photo('ign');
+        return { ...(await lire()), guide: await page.locator('[data-guide-ign]').count(), mot: await page.locator('.coteIgn').count() };
+      });
+      if (!(rentre.o0 > -5.8 && rentre.o0 < -5.3)) echecs.push('ouest rentré à ' + rentre.o0);
+      if (Math.abs(tenu.o0 + 6) > 0.001 || !tenu.guide || !tenu.mot) echecs.push('tracé IGN : ouest à ' + tenu.o0 + ', ' + tenu.guide + ' trait éclairé, ' + tenu.mot + ' mot dans la bulle');
+      else lignes.push('collé au tracé IGN (x = −6, trait éclairé, « collé au tracé IGN ») ✓');
+    }
+    // 3. Le cote est du second corps vers son pignon : il s'arrete au bord du pignon, et le dit.
+    await choisir(1);
+    const l1 = await poignees();
+    const est1 = l1.find((p) => /^Côté est/.test(p.libelle)), ouest1 = l1.find((p) => /^Côté ouest/.test(p.libelle));
+    if (!est1 || !ouest1) echecs.push('corps 2 : pas de poignée est ou ouest');
+    else {
+      const ppm1 = Math.hypot(est1.x - ouest1.x, est1.y - ouest1.y) / 5;
+      const tenu = await tirer(est1, ouest1, -ppm1 * 3, async () => { await photo('pignon'); return { ...(await lire()), motif: (await page.locator('[data-motif]').textContent().catch(() => '')) ?? '' }; });
+      const toast = await page.locator('.notificationsToasts .toast', { hasText: 'pignon' }).count();
+      if (Math.abs(tenu.e1 - 4.5) > 0.001 || tenu.pignons !== 1 || !/pignon empêche/.test(tenu.motif) || !toast) echecs.push('pignon : est à ' + tenu.e1 + ', ' + tenu.pignons + ' pignon(s), raison « ' + tenu.motif + ' », ' + toast + ' notification');
+      else lignes.push('arrêté au bord du pignon (x = 4,5), « ' + tenu.motif + ' » ✓');
+    }
+    // 4. De face, un bow-window sur le mur sud du premier corps : ses deux bords se tirent, l'autre en place.
+    await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(1200);
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
+    await page.getByRole('tab', { name: 'Façade', exact: true }).click({ timeout: 10000 });
+    await page.locator('[data-piece="facade:bow-window"]').click({ timeout: 10000 });
+    await page.waitForTimeout(600);
+    const puceBow = page.locator('.puceToit[data-type="saillie"]').first();
+    if ((await puceBow.getAttribute('aria-pressed', { timeout: 10000 }).catch(() => null)) !== 'true') await puceBow.click({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(800);
+    const b0 = await lire(), lb = await poignees();
+    const bg = lb.find((p) => p.id === 'gauche'), bd = lb.find((p) => p.id === 'larg');
+    await photo('bow');
+    if (!b0.bow || !bg || !bd) echecs.push('bow-window : ' + (b0.bow ? 'poignées ' + lb.map((p) => p.id).join(', ') : 'pas posé'));
+    else {
+      const ppmB = Math.hypot(bd.x - bg.x, bd.y - bg.y) / (b0.bow.d - b0.bow.g);
+      await tirer(bg, bd, ppmB * 0.5);
+      const a = await lire();
+      if (!(a.bow.g < b0.bow.g - 0.2) || Math.abs(a.bow.d - b0.bow.d) > 0.001) echecs.push('bow-window, bord ' + (/gauche/.test(bg.libelle) ? 'gauche' : 'droit') + ' : ' + b0.bow.g + '–' + b0.bow.d + ' → ' + a.bow.g + '–' + a.bow.d);
+      const bd2 = (await poignees()).find((p) => p.id === 'larg'), bg2 = (await poignees()).find((p) => p.id === 'gauche');
+      await tirer(bd2, bg2, ppmB * 0.5);
+      const b = await lire();
+      if (!(b.bow.d > a.bow.d + 0.2) || Math.abs(b.bow.g - a.bow.g) > 0.001) echecs.push('bow-window, l’autre bord : ' + a.bow.g + '–' + a.bow.d + ' → ' + b.bow.g + '–' + b.bow.d);
+      else lignes.push('bow-window de ' + b0.bow.g.toFixed(2) + '–' + b0.bow.d.toFixed(2) + ' à ' + b.bow.g.toFixed(2) + '–' + b.bow.d.toFixed(2) + ', un bord à la fois ✓');
+    }
+    const garde = await lire();
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    const fige = await page.evaluate(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.toitFige);
+    if (valide.json !== garde.json) echecs.push('validé : pas le toit de la session');
+    if (!fige) echecs.push('validé : toit non figé');
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(600);
+    const defait = await lire();
+    if (defait.json !== avant.json) echecs.push('Ctrl+Z du projet ne rend pas la maison d’avant');
+    if (await deborde()) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + lignes.join(' ; ') + ` ; validé (${fige ? 'figé' : 'NON FIGÉ'}) ; Ctrl+Z du projet ${defait.json === avant.json ? 'rend la maison d’avant' : 'NE REND PAS'}` };
+  },
   153: async (page, f) => {
     // La photo d'un releve sur un rez-de-chaussee en retrait (decision du proprietaire, 9 novembre 2026) : la facade de l'etalon 02 (maison
     // a etage, 10 x 5,80 m, deux fenetres et une porte en bas, trois fenetres en haut), sa photo redressee posee sur le mur sud d'une maison
@@ -7782,7 +7953,9 @@ function pointsPour(nomClasse) {
   // 153 : la photo d'un releve sur ce rez-de-chaussee en retrait : coupee au dessous de l'etage, le bas recule avec le mur, le haut reste au nu.
   // 154 : un corps se redimensionne de chaque cote au Mode Toit, le cote oppose en place : quatre poignees de dessus, deux bouts et la facade de face.
   // 155 : un Ctrl+Z du projet, la Vue 3D ouverte : la validation du Mode Toit, puis un deplacement, defaits sans rouvrir la vue ni la rebatir.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155];
+  // 156 : les reponses du 9 novembre 2026 : la maison entiere de dessus, le mur commun qui glisse, le trace IGN qui aimante, le pignon qui
+  //       arrete un mur (et le dit), les deux bords d'un bow-window.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -6,6 +6,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Modifié
+- **Mode Toit : le redimensionnement d'un corps suit les réponses du propriétaire du 9 novembre 2026.** Rien ne change sans le geste :
+  aucune quantité ni aucun export, aucun champ de fichier (schéma 16), AE 101 identique.
+  - **Un mur commun glisse entre deux corps.** Quand deux corps partagent un mur (leurs murs se confondent sur au moins 90 % du plus
+    long : un corps coupé en deux, les deux moitiés d'un toit en M), tirer ce mur le fait glisser entre eux : l'un grandit, l'autre
+    rétrécit d'autant, l'emprise totale ne change pas. Une aile posée au bout (plus courte que le mur), ou un auvent adossé par son mur
+    haut, est poussée comme avant. L'autre corps ne descend pas sous 2,50 m (« L'autre corps ne peut pas être plus petit que 2,50 m. »).
+  - **Deux appentis liés à l'angle gardent la même largeur** : tirer la rive basse (ou le mur haut) de l'un change la largeur de l'autre,
+    et l'arêtier du retour d'angle reste.
+  - **Le mur s'arrête au bord d'un pignon ou d'une travée**, au lieu de les faire disparaître, et dit pourquoi (« Le pignon empêche
+    d'aller plus loin : retirez-le d'abord. », sous la bulle des cotes puis en notification) ; un pignon ou une travée déjà contre le mur
+    tiré le suit, raccourci jusqu'à sa taille minimale (1,40 m, 30 cm), puis le mur s'arrête.
+  - **Le tracé IGN aimante** : un mur tiré se colle, à 25 cm près, au côté parallèle du contour du bâtiment, et un corps déplacé s'y
+    colle par ses murs (ses coins vont aux coins du tracé). Le côté du tracé s'éclaire et la bulle dit « collé au tracé IGN ».
+  - **Un bow-window se tire par chacun de ses bords**, l'autre en place, comme une galerie ou un appentis posés ; les poignées de bord
+    sont nommées « Bord gauche » et « Bord droit » vues de dehors. Le champ « Largeur » de l'inspecteur garde le milieu (la position sur
+    le mur) et le dit (« autour du milieu »).
+  - **La vue de dessus s'ouvre sur toute la maison**, au téléphone aussi : son contour et tous ses corps (une aile qui dépasse, un
+    élément posé), débords et hauteur des toits compris, au-dessus de l'indicateur « Modification » ; on zoome ensuite.
 - **Sous un étage qui avance, la photo du relevé couvre la face avant du bow-window, et la modénature lue suit le mur reculé**
   (décisions 6 et 7 du propriétaire, 9 novembre 2026 ; suite de #635). Quand un bow-window est glissé sous l'étage et que le mur porte une
   photo de relevé, la part de la photo qui est devant lui se pose sur sa face avant, aux mêmes coordonnées le long de la façade (chaque

@@ -119,10 +119,12 @@ export function tournerCorps(corps: readonly CorpsToit[], rang: number, deg: num
 }
 
 /** Deplace le corps de `(dx, dy)` metres dans le plan, arrondi a 5 cm. */
-export function deplacerCorps(corps: readonly CorpsToit[], rang: number, dx: number, dy: number): CorpsToit[] {
+export function deplacerCorps(corps: readonly CorpsToit[], rang: number, dx: number, dy: number, arrondi = true): CorpsToit[] {
   const c = corps[rang];
   if (!c || c.saillie) return corps.slice();
-  const pts = c.pts.map((p) => ({ x: centi(vingt(p.x + dx)), y: centi(vingt(p.y + dy)) }));
+  // Colle a une ligne (le trace IGN, facade/modeToit/pousserMur.ts::aimanterAuContour), le corps y reste au centimetre : les 5 cm ronds
+  // l'en decolleraient.
+  const pts = c.pts.map((p) => (arrondi ? { x: centi(vingt(p.x + dx)), y: centi(vingt(p.y + dy)) } : { x: centi(p.x + dx), y: centi(p.y + dy) }));
   return suivre(corps.map((k, i) => (i === rang ? { ...k, pts } : k)), rang);
 }
 

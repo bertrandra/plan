@@ -29,6 +29,16 @@ describe('les elements de facade dans l inspecteur', () => {
     expect(galerie.champs.map((x) => x.cle)).toContain('retrait');
   });
 
+  it('la largeur en chiffres change autour du milieu, et le dit (decision du 9 novembre 2026)', () => {
+    const c = contexte();
+    appliquerPiece(c.obj, 'facade:bow-rectangle');
+    const l = lignes(c)[0] as ChampLigne, largeur = sous<ChampNombre>(l, 'largeur'), avant = c.obj.batiment!.corpsToit![1]!.saillie!.centreM;
+    expect(largeur.note?.(c)).toBe('autour du milieu');
+    expect(largeur.aide).toMatch(/poignées au Mode Toit/);
+    largeur.ecrire(c, 3.2);
+    expect(c.obj.batiment!.corpsToit![1]!.saillie!.centreM).toBeCloseTo(avant, 5);
+  });
+
   it('changer la forme ou la largeur replace l element et fige le toit', () => {
     const c = contexte();
     appliquerPiece(c.obj, 'facade:bow-rectangle');

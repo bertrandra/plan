@@ -215,6 +215,11 @@
   .poigneesToit .silhouetteCorpsToit .trait{ fill:var(--accent); fill-opacity:.14; stroke:var(--accent); stroke-width:3.5px; stroke-linejoin:round; }
   .poigneesToit .cotesToit{ display:inline-flex; gap:4px; padding:3px 6px; background:var(--panel-bg); border:1px solid var(--rule); border-radius:12px; font-size:.78rem; color:var(--ink); box-shadow:0 1px 6px rgba(0,0,0,.18); }
   .poigneesToit .coteToit{ white-space:nowrap; }
+  /* Le cote du trace IGN ou un mur ou un corps s'est colle : un trait plein, plus epais que les guides, et la bulle le dit en mots. */
+  .poigneesToit .guideIgn{ stroke:var(--accent); stroke-width:4px; stroke-linecap:round; opacity:.9; pointer-events:none; }
+  .poigneesToit .coteIgn{ font-weight:600; }
+  /* Ce qui arrete un mur (un pignon, une travee) : sous la bulle, borde comme une alerte. */
+  .poigneesToit .motifToit{ margin-top:4px; padding:4px 8px; background:var(--panel-bg); border:1px solid var(--alerte); border-radius:var(--r-champ); font-size:.74rem; line-height:1.25; color:var(--ink); box-shadow:0 1px 6px rgba(0,0,0,.18); }
   .panneauToit .elementsToit{ display:flex; flex-direction:column; gap:6px; }
   .panneauToit .puces{ display:flex; gap:4px; flex-wrap:wrap; }
   .panneauToit .puceToit{ min-height:32px; padding:2px 10px; font:inherit; font-size:.8rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:16px; cursor:pointer; }
