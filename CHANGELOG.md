@@ -16,8 +16,8 @@ quantité ni aucun export de la démonstration ne change, les sept témoins ne b
 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
 nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
-`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sur
-main, à la livraison.
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
+la mesure sur main (run 42644762644 : 9 sur 9, 0,031 $ ; prompts et schémas inchangés).
 
 ### Modifié
 - **Mode Toit : le redimensionnement d'un corps suit les réponses du propriétaire du 9 novembre 2026.** Rien ne change sans le geste :
