@@ -26,6 +26,10 @@ import { reglagesStructure, type ValeursStructure } from '../regles/facades/stru
 import { allege, bandeHaute, classer, classerAvecIndices, estVitree, formeDeTache, lamesHorizontales } from './classement.js';
 import { completer, regulariser, structurer, type EvaluerZone } from './structure.js';
 import { avecEbrasements } from './detectionEbrasements.js';
+import { detecterBaies as voterLesBaies } from './baies/vote.js';
+
+// TEMPORAIRE (mesure avant/apres) : le moteur des boites.
+export const essai = { moteur: 'baies' as 'baies' | 'taches', affiner: true, volets: true };
 
 export type { TypeOuverture };
 export { classer };
@@ -352,8 +356,56 @@ function detecterBrutes(img: Image, pxParM: number, vu: Uint8Array | null, rg: V
   const disjoint = (t: Tache) => retenus.every(({ tache: u }) => t.x1 < u.x0 || u.x1 < t.x0 || t.y1 < u.y0 || u.y1 < t.y0);
   retenus.push(...candidats(R, carteCandidats(R, F, ombre, true), G, rg, true).filter((c) => disjoint(c.tache)));
   // La baie de maconnerie va jusqu'au nu du mur : la face d'ebrasement visible d'un cote lui appartient (detectionEbrasements.ts).
+  if (essai.moteur === 'baies') return { ouvertures: finaliser(ouverturesDuVote(img, pxParM, vu, R, F, retenus, rg, G.franc), rg), R, F };
   const brutes = retenus.map((c) => avecEbrasements(mesurer(img, pxParM, vu, R, F, c, rg, G.franc), R, F, rg));
   return { ouvertures: finaliser(brutes, rg), R, F };
+}
+
+/** Le recouvrement (intersection sur union) de deux boites en pixels. */
+function recouvrement(a: BoitePx, b: BoitePx): number {
+  const w = Math.min(a.X1, b.X1) - Math.max(a.X0, b.X0),
+    h = Math.min(a.Y1, b.Y1) - Math.max(a.Y0, b.Y0);
+  if (w <= 0 || h <= 0) return 0;
+  const i = w * h;
+  return i / ((a.X1 - a.X0) * (a.Y1 - a.Y0) + (b.X1 - b.X0) * (b.Y1 - b.Y0) - i);
+}
+
+/** La confiance d'une baie du vote : le nombre de detecteurs d'accord (un, deux ou trois), et la part de la boite vue sur la photo. */
+function confianceDuVote(voix: number, vue: number): number {
+  const base = voix >= 3 ? 0.92 : voix === 2 ? 0.8 : 0.6;
+  return base * (0.8 + 0.2 * vue);
+}
+
+/**
+ * Les ouvertures de l'elevation lues par les trois detecteurs et leur vote (`baies/`) : une boite par baie,
+ * le hors-tout de la menuiserie. Ce que la lecture des taches sait en plus reste : la baie separee de ses volets
+ * battants, ses details (volets, coffre, lames, allege), et la forme (cintre, rond) d'une tache qui la recouvre.
+ */
+function ouverturesDuVote(img: Image, pxParM: number, vu: Uint8Array | null, R: Reduite, F: FondDuMur, taches: Candidat[], rg: ValeursDetection & ValeursStructure, franc: number): Mesuree[] {
+  const f = pxParM / PX_PAR_M;
+  const H = img.hauteur;
+  const Fp: FondPx = { fond: F.fond, seuil: F.seuil, l: R.l, h: R.h, f, franc };
+  const connues = taches.map((c) => ({ c, boite: versElevation(c.tache, pxParM, H, R.h) }));
+  return voterLesBaies(img, vu, pxParM).baies.map((baie): Mesuree => {
+    let boite: BoitePx = { X0: Math.round(baie.px.x), X1: Math.round(baie.px.x + baie.px.l), Y0: Math.round(baie.px.y), Y1: Math.round(baie.px.y + baie.px.h) };
+    const proche = connues.map((k) => ({ ...k, r: recouvrement(boite, k.boite) })).sort((a, b) => b.r - a.r)[0];
+    const forme = proche && proche.r >= 0.5 ? proche.c.forme : 'rect';
+    const entre = essai.volets ? baieEntreVolets(img, vu, boite, pxParM, rg) : null;
+    if (entre) boite = { ...boite, ...entre };
+    const affinee = essai.affiner ? affiner(img, Fp, boite, entre ? { gauche: true, droite: true } : {}) : boite;
+    const { boite: fin, details, vitree } = lireDetails(img, Fp, affinee, pxParM, rg, { forme } as Candidat, !!entre);
+    return {
+      type: 'fenetre',
+      x: fin.X0 / pxParM,
+      l: (fin.X1 - fin.X0) / pxParM,
+      y: (H - fin.Y1) / pxParM,
+      h: (fin.Y1 - fin.Y0) / pxParM,
+      confiance: Math.round(Math.max(0, Math.min(1, confianceDuVote(baie.carreaux, partVue(vu, img.largeur, fin)))) * 100) / 100,
+      source: 'detectee',
+      ...(Object.keys(details).length ? { details } : {}),
+      vitree,
+    };
+  });
 }
 
 /**
