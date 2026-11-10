@@ -610,6 +610,8 @@ let dernier: { sortie: Uint8ClampedArray; vu: Uint8Array; l: number; h: number; 
 let baies: Baie[] = [];
 /** Le sol (y en pixels de l'image), quand une porte l'a situe. */
 let solPx: number | null = null;
+/** Pixels par metre que le reperage a estimes sur la structure, faute de longueur connue. */
+let echelleEstimee: number | null = null;
 /** Les baies ont-elles ete corrigees a la main (un nouveau reperage les effacerait) ? */
 let baiesCorrigees = false;
 
@@ -676,6 +678,7 @@ async function fusionner() {
     echelle = null;
     baies = [];
     solPx = null;
+    echelleEstimee = null;
     baiesCorrigees = false;
     const date = new Date();
     const z = (n: number) => String(n).padStart(2, '0');
@@ -774,15 +777,28 @@ function dessinerBaies(ctx: CanvasRenderingContext2D, k: number) {
   ctx.restore();
 }
 
+/**
+ * Le sol suit les corrections : une porte recadree, retiree ou declaree le deplace. Sans cela les
+ * appuis resteraient mesures depuis une porte coupee en bas, et n'existeraient jamais quand le
+ * reperage n'a pas situe le sol.
+ */
+function resituerSol() {
+  const bas = baies.filter((b) => b.type !== 'fenetre').map((b) => b.px.y + b.px.h);
+  solPx = bas.length ? Math.max(...bas) : null;
+}
+
 /** Reperage automatique des baies (baies.ts, dans le Worker). Remplace la liste. */
 async function reperer() {
   if (!dernier) return;
   message('etat-resultat', 'Repérage des fenêtres et des portes…');
   try {
-    // Copies : le resultat reste a la page pour l'apercu et l'enregistrement.
-    const r = await calcul.appeler<ResultatBaies>('ouvertures', { sortie: dernier.sortie.slice(), vu: dernier.vu.slice(), l: dernier.l, h: dernier.h, pxParM: echelle });
+    // Pas de copie : postMessage clone deja ce qu'on ne lui transfere pas, et sans Worker le
+    // detecteur ne modifie pas ses entrees. A 16 Mpx, une copie de plus pese 77 Mo sur un telephone.
+    const r = await calcul.appeler<ResultatBaies>('ouvertures', { sortie: dernier.sortie, vu: dernier.vu, l: dernier.l, h: dernier.h, pxParM: echelle });
     baies = r.baies;
     solPx = r.solPx;
+    const estimees = r.baies.filter((b) => b.l > 0).map((b) => b.px.l / b.l).sort((a, b) => a - b);
+    echelleEstimee = r.echelleConnue ? null : (estimees[estimees.length >> 1] ?? null);
     baiesCorrigees = false;
     journal(`baies repérées : ${baies.length}${r.solTrouve ? ', sol situé' : ''}`);
     message('etat-resultat', baies.length ? `${baies.length} baie(s) repérée(s). Vérifiez-les : ajoutez, recadrez ou retirez au besoin.` : 'Aucune baie repérée : ajoutez-les à la main.', baies.length ? 'bon' : 'info');
@@ -821,6 +837,12 @@ function majBaies() {
       sel.addEventListener('change', () => {
         b.type = sel.value as Baie['type'];
         baiesCorrigees = true;
+        // Declarer une porte situe le sol : les appuis de tout le tableau changent.
+        const avant = solPx;
+        resituerSol();
+        if (solPx === avant) return;
+        majBaies();
+        liste.querySelectorAll<HTMLSelectElement>('select')[i]?.focus();
       });
       td(sel);
       const c = cotes(b);
@@ -843,6 +865,7 @@ function majBaies() {
       bouton('✕', `Retirer la baie ${i + 1}`, () => {
         baies.splice(i, 1);
         baiesCorrigees = true;
+        if (b.type !== 'fenetre') resituerSol();
         journal(`baie ${i + 1} retirée`);
         majBaies();
       });
@@ -887,11 +910,18 @@ async function poserBaie(i?: number) {
   if (!res) return;
   const [p, q] = res.points as [P2, P2];
   const px = { x: Math.min(p.x, q.x) / k, y: Math.min(p.y, q.y) / k, l: Math.abs(q.x - p.x) / k, h: Math.abs(q.y - p.y) / k };
-  const s = echelle ?? dernier.l / 12;
-  const auSol = solPx !== null ? (solPx - (px.y + px.h)) / s : 9;
-  const nouvelle: Baie = { type: b?.type ?? classer(auSol, px.l / s, px.h / s), x: 0, y: 0, l: 0, h: 0, carreaux: 0, px };
+  const s = echelle ?? echelleEstimee ?? dernier.l / 12;
+  // Sol inconnu : une baie haute comme une porte, et la plus basse de toutes, est au sol.
+  const bas = (o: Baie['px']) => o.y + o.h;
+  const laPlusBasse = baies.every((o) => o === b || bas(o.px) <= bas(px) + 0.25 * s);
+  const auSol = solPx !== null ? (solPx - bas(px)) / s : laPlusBasse ? 0 : 9;
+  // Une fenetre recadree jusqu'au sol (une porte que le reperage avait coupee) devient une porte.
+  const propose = classer(auSol, px.l / s, px.h / s);
+  const type = b && !(b.type === 'fenetre' && propose !== 'fenetre') ? b.type : propose;
+  const nouvelle: Baie = { type, x: 0, y: 0, l: 0, h: 0, carreaux: 0, px };
   if (b && i !== undefined) baies[i] = nouvelle;
   else baies.push(nouvelle);
+  if (type !== 'fenetre' || (b && b.type !== 'fenetre')) resituerSol();
   baiesCorrigees = true;
   journal(b ? `baie ${(i ?? 0) + 1} recadrée` : 'baie ajoutée');
   majBaies();
