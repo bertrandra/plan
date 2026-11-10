@@ -9,6 +9,13 @@
 // une baie de ses volets battants, et aligne ce qui devrait l'etre : les linteaux d'un meme niveau
 // sont a la meme hauteur sur une maison, pas a 3 cm pres.
 //
+// Les boites viennent d'abord d'un vote entre trois detecteurs independants (`baies/` : des rectangles
+// d'aretes notes, les mailles fermees de la menuiserie, les travees et leurs repetitions) : sur de vraies
+// photos, la lecture des taches ci-dessus ne trouvait que 1 baie sur 9 sur la facade de reference, le vote
+// 9 sur 9. Les taches restent pour ce que le vote ne sait pas : separer une baie de ses volets battants,
+// lire ses details et sa forme, et garder une baie nette sur un mur uni que deux detecteurs sur trois ratent
+// (`ouverturesRetenues`). La structure (niveaux, travees, devinees) et le classement sont ceux d'avant.
+//
 // C'est une proposition : l'utilisateur la corrige au doigt avant de valider. Elle doit surtout ne
 // pas inventer - une detection qui propose trois fausses fenetres coute plus de gestes qu'une
 // detection qui en oublie une. Chaque ouverture porte sa confiance (spec §9, fusion des indices).
@@ -28,8 +35,10 @@ import { completer, regulariser, structurer, type EvaluerZone } from './structur
 import { avecEbrasements } from './detectionEbrasements.js';
 import { detecterBaies as voterLesBaies } from './baies/vote.js';
 
-// TEMPORAIRE (mesure avant/apres) : le moteur des boites.
-export const essai = { moteur: 'baies' as 'baies' | 'taches', affiner: true, volets: true, union: 0.92, prefere: 0.3 };
+/** Une tache de la lecture d'avant reste a cote du vote a partir de cette confiance (voir `ouverturesRetenues`). */
+const CONFIANCE_TACHE_SURE = 0.92;
+/** Une boite du vote est ecartee quand cette part d'elle est dans une tache sure. */
+const PART_DANS_TACHE_SURE = 0.15;
 
 export type { TypeOuverture };
 export { classer };
@@ -357,19 +366,22 @@ function detecterBrutes(img: Image, pxParM: number, vu: Uint8Array | null, rg: V
   retenus.push(...candidats(R, carteCandidats(R, F, ombre, true), G, rg, true).filter((c) => disjoint(c.tache)));
   // La baie de maconnerie va jusqu'au nu du mur : la face d'ebrasement visible d'un cote lui appartient (detectionEbrasements.ts).
   const brutes = retenus.map((c) => avecEbrasements(mesurer(img, pxParM, vu, R, F, c, rg, G.franc), R, F, rg));
-  if (essai.moteur === 'baies') {
-    const duVote = ouverturesDuVote(img, pxParM, vu, R, F, retenus, rg, G.franc);
-    // Les taches que le vote n'a pas vues restent si elles sont sures (une baie nette sur un mur uni, que deux detecteurs sur trois ratent).
-    const H = img.hauteur;
-    const px = (o: Mesuree): BoitePx => ({ X0: o.x * pxParM, X1: (o.x + o.l) * pxParM, Y0: H - (o.y + o.h) * pxParM, Y1: H - o.y * pxParM });
-    const sures = brutes.filter((o) => o.confiance >= essai.union);
-    // Une tache sure l'emporte sur la boite du vote qu'elle recouvre : son pourtour est net, la boite du vote peut avoir pris un volet ou un cadre en plus.
-    const gardees = essai.prefere ? duVote.filter((v) => sures.every((o) => recouvrement(px(v), px(o)) < essai.prefere)) : duVote;
-    const pris = gardees.map(px);
-    const en_plus = sures.filter((o) => pris.every((b) => recouvrement(b, px(o)) < 0.2));
-    return { ouvertures: finaliser([...gardees, ...en_plus], rg), R, F };
-  }
-  return { ouvertures: finaliser(brutes, rg), R, F };
+  return { ouvertures: finaliser(ouverturesRetenues(brutes, ouverturesDuVote(img, pxParM, vu, R, F, retenus, rg, G.franc), img, pxParM), rg), R, F };
+}
+
+/**
+ * Les ouvertures du vote, et celles de la lecture des taches que le vote n'a pas vues quand elles sont sures :
+ * une baie nette sur un mur uni, que deux detecteurs sur trois ratent (une porte de la facade d'origine des tests).
+ * Une tache sure l'emporte sur la boite du vote qui s'y enfonce : son pourtour est net, la boite du vote
+ * peut avoir pris un volet ou un cadre en plus. Sur de vraies photos les taches sures sont rares et le vote decide.
+ */
+function ouverturesRetenues(taches: Mesuree[], duVote: Mesuree[], img: Image, pxParM: number): Mesuree[] {
+  const H = img.hauteur;
+  const px = (o: Mesuree): BoitePx => ({ X0: o.x * pxParM, X1: (o.x + o.l) * pxParM, Y0: H - (o.y + o.h) * pxParM, Y1: H - o.y * pxParM });
+  const sures = taches.filter((o) => o.confiance >= CONFIANCE_TACHE_SURE);
+  const gardees = duVote.filter((v) => sures.every((o) => partDans(px(v), px(o)) < PART_DANS_TACHE_SURE));
+  const pris = gardees.map(px);
+  return [...gardees, ...sures.filter((o) => pris.every((b) => recouvrement(b, px(o)) < 0.2))];
 }
 
 /** Le recouvrement (intersection sur union) de deux boites en pixels. */
@@ -379,6 +391,13 @@ function recouvrement(a: BoitePx, b: BoitePx): number {
   if (w <= 0 || h <= 0) return 0;
   const i = w * h;
   return i / ((a.X1 - a.X0) * (a.Y1 - a.Y0) + (b.X1 - b.X0) * (b.Y1 - b.Y0) - i);
+}
+
+/** La part de la boite `a` qui est dans la boite `b`. */
+function partDans(a: BoitePx, b: BoitePx): number {
+  const w = Math.min(a.X1, b.X1) - Math.max(a.X0, b.X0),
+    h = Math.min(a.Y1, b.Y1) - Math.max(a.Y0, b.Y0);
+  return w > 0 && h > 0 ? (w * h) / ((a.X1 - a.X0) * (a.Y1 - a.Y0)) : 0;
 }
 
 /** La confiance d'une baie du vote : le nombre de detecteurs d'accord (un, deux ou trois), et la part de la boite vue sur la photo. */
@@ -401,9 +420,9 @@ function ouverturesDuVote(img: Image, pxParM: number, vu: Uint8Array | null, R: 
     let boite: BoitePx = { X0: Math.round(baie.px.x), X1: Math.round(baie.px.x + baie.px.l), Y0: Math.round(baie.px.y), Y1: Math.round(baie.px.y + baie.px.h) };
     const proche = connues.map((k) => ({ ...k, r: recouvrement(boite, k.boite) })).sort((a, b) => b.r - a.r)[0];
     const forme = proche && proche.r >= 0.5 ? proche.c.forme : 'rect';
-    const entre = essai.volets ? baieEntreVolets(img, vu, boite, pxParM, rg) : null;
+    const entre = baieEntreVolets(img, vu, boite, pxParM, rg);
     if (entre) boite = { ...boite, ...entre };
-    const affinee = essai.affiner ? affiner(img, Fp, boite, entre ? { gauche: true, droite: true } : {}) : boite;
+    const affinee = affiner(img, Fp, boite, entre ? { gauche: true, droite: true } : {});
     const { boite: fin, details, vitree } = lireDetails(img, Fp, affinee, pxParM, rg, { forme } as Candidat, !!entre);
     return {
       type: 'fenetre',
