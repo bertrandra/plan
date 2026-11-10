@@ -38,6 +38,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Fumée : les points 61 et 114 attendent leur toast, l'installation de Chromium ne bloque plus une tâche.** La fumée de la nuit
+  (run 42761089682, main 5a2c9be2) : **61** rouge au bureau en sombre (« toast NON ») et **114** au bureau en clair (toast vide, le cas
+  pourtant créé). Les deux lisaient leur toast d'un coup, sans l'attendre : le 61 comptait « Capture terminée » après le clic, qui ne
+  revient qu'une fois l'écran des propositions bâti (6,4 s sous un processeur ralenti six fois, quand le toast, paru à 0,8 s, s'efface à
+  6,5 s) ; le 114 lisait le sien dès que le serveur simulé avait reçu le cas, avant que la page n'ait sa réponse (avec une réponse
+  retardée de 1,5 s, rien ; puis le toast). Ils notent les toasts avant le geste et attendent le leur, au même texte exigé.
+  Deux tâches (compact et moyen, clair) n'ont joué aucun point : `apt-get`, pour les dépendances de Chromium, a attendu 2 h 30 un miroir
+  d'Ubuntu muet, jusqu'au délai de la tâche. L'installation est maintenant bornée à cinq minutes par essai, reprise trois fois, dans la
+  fumée de la nuit comme dans la CI. Aucun défaut de l'application.
 - **Fumée : le point 114 suit l'import de photos de la calibration.** Il exigeait un écran de calibration sans aucun champ photo (lot F6),
   règle changée par le propriétaire le 9 novembre 2026 (« Ajouter des photos », « Nouveau cas depuis des photos », #647) : la fumée de la
   nuit (run 42722898224) l'a vu rouge dans les trois classes et les deux thèmes, seul échec. Il vérifie maintenant ce qui reste vrai : la

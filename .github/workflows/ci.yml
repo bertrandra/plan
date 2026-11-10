@@ -86,9 +86,20 @@ jobs:
       - run: npm ci
       - name: Playwright et Chromium
         # Hors du paquet : le script resout `playwright` par NODE_PATH, comme sur un poste.
+        # Chaque essai est borne et repris : le 10 novembre 2026, apt-get (les dependances de Chromium) a attendu 2 h 30 un miroir
+        # d'Ubuntu muet (run 42761089682 de la fumee de la nuit : deux taches annulees par leur delai sans avoir joue un point).
+        # `timeout` signale tout son groupe de processus (sudo, apt-get) ; le pas lui-meme est borne en dernier recours.
+        timeout-minutes: 20
+        shell: bash
         run: |
+          set -euo pipefail
           npm install -g "playwright@${PLAYWRIGHT_VERSION}"
-          playwright install --with-deps chromium
+          for essai in 1 2 3; do
+            if timeout -k 30 300 playwright install --with-deps chromium; then exit 0; fi
+            echo "Essai ${essai} : Playwright et Chromium pas installes en 5 min, on reprend."
+            sleep 15
+          done
+          echo "Playwright et Chromium pas installes apres trois essais."; exit 1
       - name: Serveur de developpement
         shell: bash
         run: |
