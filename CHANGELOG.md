@@ -5,6 +5,37 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **`facade.html` : façade redressée, page autonome pour mobile.** Un fichier seul, sans réseau ni
+  serveur, et **sans aucune saisie** : on prend ses photos (une, ou plusieurs de gauche à droite),
+  la page lit l'objectif dans l'EXIF (grand-angle 0,5× compris ; à défaut, elle l'estime par les
+  points de fuite), trouve les verticales et les horizontales de la façade, redresse chaque photo,
+  assemble les photos par points homologues et rend le résultat à la résolution des photos (bornée
+  à 16 Mpx, limite d'un canevas iOS) ; JPEG, PNG ou partage vers Photos. Elle embarque `src/facade/`
+  (EXIF, focale) **sans le modifier** ; le redressement automatique et la fusion sont dans
+  `outils/facade/` (`node outils/facade/construire.mjs`, `--verifier` pour le banc synthétique).
+  L'application n'est pas touchée.
+  Ensuite : la photo s'affiche dès qu'elle est prise ; ordre des photos au doigt ; photos gardées
+  sur l'appareil si la page se recharge ; « Ajuster » (coins posés à la main, autre façade d'une
+  photo d'angle) ; coutures qui suivent les zones semblables (plus de saillie en double) ;
+  assemblage en hauteur ; correction de la distorsion des grands-angles non corrigés ; échelle
+  facultative, mesures et barre d'échelle ; calcul en arrière-plan ; journal copiable ; repérage
+  facultatif des fenêtres et portes, avec cotes (hors tout de la menuiserie), corrections au doigt
+  (le sol, donc les hauteurs d'appui, suit une porte déclarée, recadrée ou retirée à la main) et
+  export CSV : trois détecteurs indépendants et un vote, départagés sur un banc de façades annotées
+  (`outils/facade/banc/`). Les quatre fichiers ont été relus, vérifiés et corrigés un par un, et le
+  vote réécrit (accord par recouvrement, réunion des parties d'une baie, filtre de ce qui est posé
+  au sol, sol situé par la porte) : 0,87 sur 1 sur 221 images contre 0,81 pour le premier vote et
+  0,34 pour le premier détecteur ; sur la façade de référence, 9 ouvertures sur 9, plus de fausse
+  baie dans la balustrade, porte et porte-fenêtre entières, baie vitrée avec ses impostes. Le vote
+  a été relu et contrôlé à son tour : sol non annoncé quand le résultat le contredit, temps borné,
+  entrées mal formées tolérées ; sur l'élévation que la page tire de trois photos, 36 fausses baies
+  → 5 sur treize variantes. Le banc mesure maintenant sur 221 images (boîtes rangées, vote rejoué).
+  Le test complet est gardé pour être rejoué ou étendu à un nouveau jeu d'images : méthode, règles de
+  décision et résultats de référence dans `outils/facade/banc/PROTOCOLE.md`, annotations des jeux et
+  scripts qui les remontent au bit près, résultats image par image (`banc/resultats/`).
+
 ### Corrigé
 
 - **Fumée : le point 114 suit l'import de photos de la calibration.** Il exigeait un écran de calibration sans aucun champ photo (lot F6),
