@@ -29,7 +29,7 @@ import { avecEbrasements } from './detectionEbrasements.js';
 import { detecterBaies as voterLesBaies } from './baies/vote.js';
 
 // TEMPORAIRE (mesure avant/apres) : le moteur des boites.
-export const essai = { moteur: 'baies' as 'baies' | 'taches', affiner: true, volets: true };
+export const essai = { moteur: 'baies' as 'baies' | 'taches', affiner: true, volets: true, union: 0.92, prefere: 0.3 };
 
 export type { TypeOuverture };
 export { classer };
@@ -356,8 +356,19 @@ function detecterBrutes(img: Image, pxParM: number, vu: Uint8Array | null, rg: V
   const disjoint = (t: Tache) => retenus.every(({ tache: u }) => t.x1 < u.x0 || u.x1 < t.x0 || t.y1 < u.y0 || u.y1 < t.y0);
   retenus.push(...candidats(R, carteCandidats(R, F, ombre, true), G, rg, true).filter((c) => disjoint(c.tache)));
   // La baie de maconnerie va jusqu'au nu du mur : la face d'ebrasement visible d'un cote lui appartient (detectionEbrasements.ts).
-  if (essai.moteur === 'baies') return { ouvertures: finaliser(ouverturesDuVote(img, pxParM, vu, R, F, retenus, rg, G.franc), rg), R, F };
   const brutes = retenus.map((c) => avecEbrasements(mesurer(img, pxParM, vu, R, F, c, rg, G.franc), R, F, rg));
+  if (essai.moteur === 'baies') {
+    const duVote = ouverturesDuVote(img, pxParM, vu, R, F, retenus, rg, G.franc);
+    // Les taches que le vote n'a pas vues restent si elles sont sures (une baie nette sur un mur uni, que deux detecteurs sur trois ratent).
+    const H = img.hauteur;
+    const px = (o: Mesuree): BoitePx => ({ X0: o.x * pxParM, X1: (o.x + o.l) * pxParM, Y0: H - (o.y + o.h) * pxParM, Y1: H - o.y * pxParM });
+    const sures = brutes.filter((o) => o.confiance >= essai.union);
+    // Une tache sure l'emporte sur la boite du vote qu'elle recouvre : son pourtour est net, la boite du vote peut avoir pris un volet ou un cadre en plus.
+    const gardees = essai.prefere ? duVote.filter((v) => sures.every((o) => recouvrement(px(v), px(o)) < essai.prefere)) : duVote;
+    const pris = gardees.map(px);
+    const en_plus = sures.filter((o) => pris.every((b) => recouvrement(b, px(o)) < 0.2));
+    return { ouvertures: finaliser([...gardees, ...en_plus], rg), R, F };
+  }
   return { ouvertures: finaliser(brutes, rg), R, F };
 }
 
