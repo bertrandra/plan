@@ -1061,7 +1061,7 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   const brutes = choisis.map((c) => ({ ...recaler(img, t, c), parties: c.parties })).filter((b) => b.x1 - b.x0 >= 2 && b.y1 - b.y0 >= 2);
   // Sans echelle : la largeur mediane des baies trouvees vaut a peu pres un metre (0,9 a 1,2 m sur
   // la maison comme sur les immeubles du jeu) ; a defaut de baies, 12 m dans la largeur de l'image.
-  let s0 = echelleConnue ? pxParM! : W / 12;
+  let s0 = echelleConnue ? (pxParM as number) : W / 12;
   if (!echelleConnue && brutes.length >= 3) {
     const largeurs = brutes.map((b) => b.x1 - b.x0).sort((a, b) => a - b);
     s0 = borne((largeurs[Math.floor(largeurs.length / 2)] as number) / 1.05, W / 40, W / 4);
@@ -1070,7 +1070,7 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   const portes = brutes.filter((b) => (b.y1 - b.y0) / s0 >= 1.8);
   const solY = portes.length ? Math.max(...brutes.map((b) => b.y1)) : null;
   const solTrouve = solY !== null && portes.some((p) => Math.abs(p.y1 - solY) < 0.25 * s0);
-  const sol = solTrouve ? solY! : H;
+  const sol = solTrouve ? (solY as number) : H;
   const cm = (v: number): number => Math.round(v * 100) / 100;
   const baies: Baie[] = brutes
     .map((b) => {
