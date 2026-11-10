@@ -41,8 +41,8 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 9 novembre 2026 a la version 5.22.0 (numero seul, preuve forte dans EMPREINTES.md).
-  // Avant : le meme jour a la 5.21.0, a la 5.20.0 et a la 5.19.0, le 8 novembre a la 5.18.0, a la 5.17.0 et a la 5.16.0, le 7 novembre a la 5.15.0, a la 5.14.0 et a la 5.13.1, le 6 novembre a la 5.13.0, a la 5.12.0 et a la 5.11.1, le 5 novembre a la 5.11.0, a la 5.10.0, le 4 novembre a la 5.9.0, a la 5.8.0 et a la 5.7.0, le 3 novembre a la 5.6.0 et a la 5.5.0, le 30 octobre a la 5.4.1, a la 5.4.0, a la 5.3.0 et a la 5.2.0, le 30 octobre a la 5.1.0, le 29 octobre a la 5.0.0, le 28 octobre a la 4.0.0, le 25 octobre a la 3.0.0, le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
+  // Recapturees le 9 novembre 2026 a la version 5.22.1 (numero seul, preuve forte dans EMPREINTES.md).
+  // Avant : le meme jour a la 5.22.0, a la 5.21.0, a la 5.20.0 et a la 5.19.0, le 8 novembre a la 5.18.0, a la 5.17.0 et a la 5.16.0, le 7 novembre a la 5.15.0, a la 5.14.0 et a la 5.13.1, le 6 novembre a la 5.13.0, a la 5.12.0 et a la 5.11.1, le 5 novembre a la 5.11.0, a la 5.10.0, le 4 novembre a la 5.9.0, a la 5.8.0 et a la 5.7.0, le 3 novembre a la 5.6.0 et a la 5.5.0, le 30 octobre a la 5.4.1, a la 5.4.0, a la 5.3.0 et a la 5.2.0, le 30 octobre a la 5.1.0, le 29 octobre a la 5.0.0, le 28 octobre a la 4.0.0, le 25 octobre a la 3.0.0, le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
   // parce qu'un document s'ecrit au plus petit schema qui le decrit et que le temoin n'avait pas de
   // releve. Le 30, la maison du temoin a recu son toit a croupes (MD/spec-toit-ign.md) : `projet.json`
   // gagne ce toit et le schema 3, `plan.svg` le schema 3 ; les quatre autres ne bougent pas. Le seul ecart avec les empreintes de la 1.0.0 est le numero de version — et, depuis la
@@ -52,12 +52,12 @@ describe('phase 1 - echafaudage', () => {
   // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': 'b89705c2d2c4f05ca904782be283ec66c58ae070df5ccd5343e41e0c26188251',
-      'plan.svg': '52ec45e69a2f479ec6176495900b9b0e7d56b9656fd5b31089adf7fbe51dd649',
-      'plan.dxf': '236df3939b34ac09ca95ee0af849187aec5b8a9f118f48cc8add5d47ce31ac3b',
+      'resume.txt': '3d2037992da9cf11d0c3b57a0dd4890a9f11f6f3e6ba9b83115b28937cd5e080',
+      'plan.svg': '30a6116263b03ebe2e3088fdda82ea1405450bc30a2d83ca5bea3df3ce4e7ad6',
+      'plan.dxf': 'dd286a55bcb231e0a6a540b58d5cb438067d17b6ffa25c3a23acdd62e1e27150',
       'projet.json': 'da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2',
-      'plan.pdf': '293cb272257e5583c22e0cba51c004a3ee8d436603781712a1a33c2ba7ed5bdf',
-      'dossier.pdf': '941f0509c4b1ab85f120a7e0beab2d18d1ee91b5816ea7344586e18842341b63'
+      'plan.pdf': 'cc245b0834d1c5d715751e3f0acd3514451167ad1bff697c27dbe7dd4bb0be82',
+      'dossier.pdf': '671e61610ba4b79b312ebd4e80d2bdb75305bee1507c81d4a0583592e3f35f80'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un
