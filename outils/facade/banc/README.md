@@ -72,6 +72,20 @@ huit familles d'images (l'entraînement, ses miroirs, demi-résolutions, images 
 réduites à 70 %, 40 autres façades d'immeubles), 221 images, notes regroupées par groupe. Les boîtes
 de chaque détecteur y sont rangées une fois, et le vote rejoué dessus.
 
+Les outils :
+
+```bash
+# 1. Ranger les boites d'une version d'un detecteur sur chaque famille (3 minutes pour 221 images)
+node outils/facade/banc/ranger.mjs outils/facade/baies/mailles.ts M entrainement=<jeu> miroir=<jeu-miroir> ...
+# 2. Rejouer un vote sur une combinaison de boites rangees (une seconde) : notes par famille, puis la mesure large
+node outils/facade/banc/rejouer.mjs outils/facade/baies.ts P M T entrainement miroir ... --detail
+```
+
+`decliner.py` fabrique une famille de variantes d'un échantillon (rognages de 1 à 7 px, miroir,
+réductions, image assombrie) ; `reporter.py` reporte une annotation posée à la main sur une autre
+élévation de la même façade (points homologues, homographie) — c'est ainsi que l'élévation produite
+par la page dans un navigateur (bouton « PNG ») est entrée dans le banc, annotée à 2 px près.
+
 | Version | Mesure large | Maison (39 vues) : note, justes / fausses / manquées | Immeubles (168) | Jeu tenu à l'écart | Jeu final | Images de la page |
 |---|---|---|---|---|---|---|
 | vote d'origine, détecteurs d'origine | 0,81 | 0,83 — 275 / 66 / 26 | 0,73 | 0,80 | 0,76 | 0,84 |
