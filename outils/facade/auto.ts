@@ -1,7 +1,7 @@
 // Calcul de facade.html : redressement automatique et fusion, sans aucune mesure saisie.
 //
 // Pour chaque photo :
-//   1. la focale vient de l'EXIF (src/facade/exif.ts, src/facade/cadrage.ts) - 26 mm, 13 mm pour
+//   1. la focale vient de l'EXIF (src/facade/vision/exif.ts, src/facade/vision/cadrage.ts) - 26 mm, 13 mm pour
 //      le grand-angle 0,5x ... - ou, a defaut, du reglage ;
 //   2. les segments de droite de l'image (une detection par croissance de regions de meme
 //      orientation du gradient, a la maniere de LSD) ;
@@ -17,7 +17,7 @@
 //
 // Pas de DOM ici : tout se verifie sous Node (outils/facade/verifier.ts).
 
-import type { Image } from '../../src/facade/homographie.js';
+import type { Image } from '../../src/facade/vision/homographie.js';
 
 export type { Image };
 export interface P2 {

@@ -3,7 +3,7 @@
 Page unique pour téléphone, construite à la racine du dépôt (`facade.html`). Aucun réseau, aucun
 serveur, aucune saisie : on prend ses photos, on touche « Redresser et fusionner », on enregistre.
 
-1. **Objectif** : champ lu dans l'EXIF (`FocalLengthIn35mmFilm`, via `src/facade/exif.ts`) ; 0,5×
+1. **Objectif** : champ lu dans l'EXIF (`FocalLengthIn35mmFilm`, via `src/facade/vision/exif.ts`) ; 0,5×
    donne environ 108°. Sans EXIF (photo transférée par une messagerie), il est estimé : les points
    de fuite des verticales et des horizontales du mur, orthogonales, vérifient (v − c)·(h − c) = −f².
 2. **Redressement** (`auto.ts`) : segments de droite (croissance de régions de même orientation du

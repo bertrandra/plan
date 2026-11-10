@@ -2,11 +2,11 @@
 // dans l'EXIF (ou estime), redressement automatique de chaque photo, fusion, rendu a la resolution
 // des photos, enregistrement. Le calcul est dans auto.ts.
 
-import { focale35mm, champDepuisFocale35 } from '../../src/facade/exif.js';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../src/facade/cadrage.js';
+import { lireExif, champDepuisFocale35 } from '../../src/facade/vision/exif.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../../src/facade/vision/cadrage.js';
 import { versGris, regionUtile, type Gris, type P2, type Redressement, type Segment, type Source } from './auto.js';
 import { operations, type Analyse, type Baie, type Placement, type ResultatBaies, type ResultatRedressement } from './operations.js';
-import { classer } from '../../src/facade/detection.js';
+import { classer } from '../../src/facade/detection/classement.js';
 import { editer } from './editeur.js';
 import * as stockage from './stockage.js';
 
@@ -220,7 +220,7 @@ async function charger(e: Entree): Promise<Photo> {
   if (!gris) throw new Error('le navigateur n’a pas pu lire les pixels de la photo');
   let f35: number | null = null;
   try {
-    f35 = focale35mm(await f.slice(0, 262_144).arrayBuffer());
+    f35 = lireExif(await f.slice(0, 262_144).arrayBuffer()).focale35;
   } catch {
     f35 = null;
   }

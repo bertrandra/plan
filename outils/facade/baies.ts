@@ -103,7 +103,8 @@
 // recadrer, retirer une baie et d'en changer le type.
 
 import type { Image } from './auto.js';
-import { classer, type TypeOuverture } from '../../src/facade/detection.js';
+import { classer } from '../../src/facade/detection/classement.js';
+import type { TypeOuverture } from '../../src/model/typesReleve.js';
 import { detecterBaies as parPropositions } from './baies/propositions.js';
 import { detecterBaies as parMailles } from './baies/mailles.js';
 import { detecterBaies as parTravees } from './baies/travees.js';

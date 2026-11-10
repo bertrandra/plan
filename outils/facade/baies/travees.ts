@@ -55,7 +55,8 @@
 // la page permet d'ajouter, recadrer, retirer une baie et d'en changer le type.
 
 import type { Image } from '../auto.js';
-import { classer, type TypeOuverture } from '../../../src/facade/detection.js';
+import { classer } from '../../../src/facade/detection/classement.js';
+import type { TypeOuverture } from '../../../src/model/typesReleve.js';
 
 export interface Baie {
   type: TypeOuverture;
