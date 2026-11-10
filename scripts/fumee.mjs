@@ -567,6 +567,15 @@ async function seulementLesMesures(page) {
   await page.locator('.accordAnalyse').waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
 }
 const toastVu = (page, motif) => page.evaluate((m) => (window.__toastsVus || []).find((t) => new RegExp(m).test(t)) ?? '', motif);
+/**
+ * Le toast attendu, une fois paru (`noterToasts` pose avant le geste) : il suit une reponse du serveur ou un rendu, et la Vue 3D
+ * logicielle peut tenir le fil plus longtemps que le toast ne reste a l'ecran. Le lire tout de suite, ou le compter dans le DOM,
+ * le manque sur une machine lente (points 61 et 114, nuit du 10 novembre 2026). Rend '' si rien ne parait dans le delai.
+ */
+async function attendreToast(page, motif, delai = 30000) {
+  await page.waitForFunction((m) => (window.__toastsVus || []).some((t) => new RegExp(m).test(t)), motif, { timeout: delai }).catch(() => {});
+  return toastVu(page, motif);
+}
 
 /**
  * Les routes `admin/claude/…` de l'analyse par Claude (deploy/analyse.php), simulees (lot L17) :
@@ -1748,10 +1757,11 @@ const POINTS = {
     const compteur = (await page.locator('.compteurAudit').textContent())?.trim() ?? '';
     const lancer = page.locator('[data-controle="auditParcelle.lancer"]');
     const actif = await lancer.isEnabled();
+    await noterToasts(page);
     if (actif) await lancer.click();
-    const toast = await page.locator('.toast', { hasText: 'Capture terminée' }).count();
+    const toast = actif ? await attendreToast(page, '^Capture terminée') : '';
     const ok = /^Vous êtes devant la façade .* de Maison, \d+,\d m — 0 photo$/.test(titre) && surlignee && /^Photo rangée sur la façade .* de Maison \(1 photo\)\.$/.test(range)
-      && titreApres !== titre && /^1 façade sur/.test(compteur) && actif && toast === 1;
+      && titreApres !== titre && /^1 façade sur/.test(compteur) && actif && /^Capture terminée : elle est gardée sur cet appareil/.test(toast);
     return { ok, mesure: `« ${titre} » ; surlignée en 3D ${surlignee ? 'oui' : 'NON'} ; « ${range || 'RIEN'} » ; après « Ce n’est pas cette façade » : « ${titreApres} » ; « ${compteur} » ; Lancer ${actif ? 'actif' : 'GRISÉ'} ; toast ${toast ? 'oui' : 'NON'}` };
   },
   84: async (page) => {
@@ -3470,7 +3480,7 @@ const POINTS = {
     await etape('creer un cas', () => bouton.click({ timeout: 30000 }));
     for (let i = 0; i < 60 && !cas.size; i++) await page.waitForTimeout(500);
     const [id, c] = [...cas.entries()][0] ?? [null, null];
-    const toast = await toastVu(page, '^Cas de calibration créé');
+    const toast = await attendreToast(page, '^Cas de calibration créé');
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     await page.goto(BASE + '/?admin&ecran=calibration');
