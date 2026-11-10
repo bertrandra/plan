@@ -37,6 +37,8 @@ import { detecterBaies as voterLesBaies } from './baies/vote.js';
 
 /** Une tache de la lecture d'avant reste a cote du vote a partir de cette confiance (voir `ouverturesRetenues`). */
 const CONFIANCE_TACHE_SURE = 0.92;
+/** ... ou a partir de celle-ci quand la tache est un arc ou un cercle. */
+const CONFIANCE_TACHE_EN_FORME = 0.7;
 /** Une boite du vote est ecartee quand cette part d'elle est dans une tache sure. */
 const PART_DANS_TACHE_SURE = 0.15;
 
@@ -378,7 +380,8 @@ function detecterBrutes(img: Image, pxParM: number, vu: Uint8Array | null, rg: V
 function ouverturesRetenues(taches: Mesuree[], duVote: Mesuree[], img: Image, pxParM: number): Mesuree[] {
   const H = img.hauteur;
   const px = (o: Mesuree): BoitePx => ({ X0: o.x * pxParM, X1: (o.x + o.l) * pxParM, Y0: H - (o.y + o.h) * pxParM, Y1: H - o.y * pxParM });
-  const sures = taches.filter((o) => o.confiance >= CONFIANCE_TACHE_SURE);
+  // Une tache en arc ou ronde (un oeil-de-boeuf) a une forme que les detecteurs ne cherchent pas : elle reste a une confiance plus basse.
+  const sures = taches.filter((o) => o.confiance >= CONFIANCE_TACHE_SURE || (o.details?.forme !== undefined && o.confiance >= CONFIANCE_TACHE_EN_FORME));
   const gardees = duVote.filter((v) => sures.every((o) => partDans(px(v), px(o)) < PART_DANS_TACHE_SURE));
   const pris = gardees.map(px);
   return [...gardees, ...sures.filter((o) => pris.every((b) => recouvrement(b, px(o)) < 0.2))];
