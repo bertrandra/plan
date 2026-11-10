@@ -133,7 +133,7 @@ mailles, travées, puis `vote.ts`), repris de `outils/facade/` (la page autonome
 protocole `PROTOCOLE.md`). Les taches gardent les volets battants, les détails, la forme et les baies nettes que le vote rate
 (`ouverturesRetenues` : confiance de 0,92, ou 0,7 pour un arc ou un cercle). Le banc de synthèse ci-dessous est la **mesure
 d'origine** de cette détection ; les images réelles se jugent sur le banc de `outils/facade/banc/` (une façade annotée à la main, des
-immeubles du jeu CMP). Sur la maison de référence la lecture des taches trouvait 1 baie sur 9 ; le vote 9 sur 9.
+immeubles du jeu CMP). Sur la maison de référence (façade fusionnée) la lecture des taches ne trouvait aucune des 9 ouvertures ; le vote 9 sur 9.
 
 - **Aucun `!`, aucune fonction de plus de 150 lignes** dans ces fichiers (lint). Ils sont issus d'un outil où ces règles ne valaient pas :
   les `!` ont été remplacés mécaniquement (`as number`, ou `au`), sorties vérifiées identiques sur 327 images, puis les trois fonctions

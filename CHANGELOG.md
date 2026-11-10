@@ -14,8 +14,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   sait de plus reste : séparer une baie de ses volets battants, lire ses détails et sa forme (cintre, rond), garder une baie nette sur un
   mur uni que deux détecteurs sur trois ratent (`detection.ts::ouverturesRetenues`), puis la structure (niveaux, travées, devinées) et le
   classement, inchangés. Sur de vraies photos de la maison de référence (annotées à la main, 15 vues) la lecture des taches trouvait
-  1 baie sur 9 sur la façade fusionnée (note 0,04) et 1 sur 9 sur l'élévation que produit `facade.html` ; le vote en trouve 9 sur 9
-  (0,92 et 0,88 sur treize variantes). Banc de synthèse, chaîne du relevé : précision 95 → 93 %, rappel 94 → 95 %, cotes 1 cm,
+  aucune des 9 ouvertures sur la façade fusionnée (note 0,04) et 1 sur 9 sur l'élévation que produit `facade.html` (0,18 sur treize
+  variantes) ; le moteur actuel en trouve 9 sur 9 sur la façade fusionnée (0,91) et 0,88 sur ces treize variantes. Banc de synthèse, chaîne du relevé : précision 95 → 93 %, rappel 94 → 95 %, cotes 1 cm,
   1,5 correction par façade (inchangé) ; le banc d'origine (`00`, `01`) reste à 100 %. Les scènes avec voiture ou haie devant
   s'améliorent (`07`, `16`, `18`, `19`, `23`, `27`) ; `29` (cul de geai, 4 fausses baies sur le toit), `03`, `10` et `20` baissent.
   Environ 1,4 fois plus lent par façade. La version de la chaîne passe à 15 (les ouvertures proposées changent, pas les coins ni les
