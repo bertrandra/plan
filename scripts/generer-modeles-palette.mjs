@@ -4,7 +4,7 @@
 //   node scripts/generer-modeles-palette.mjs
 //
 // Chaque modele est decrit par quelques teintes (les neutres, l'accent, les etats, le ciel) ; le
-// script en deduit les 29 jetons des deux themes, comme jetons.ts les organise, puis **pousse chaque
+// script en deduit les 30 jetons des deux themes, comme jetons.ts les organise, puis **pousse chaque
 // couleur de texte jusqu'au contraste exige** (PAIRES_CONTRASTE) : un modele ne peut pas rendre
 // l'interface illisible. tests/unit/styles/modeles.test.ts le verifie sur les fichiers ecrits.
 //
@@ -48,6 +48,21 @@ function lisible(t, s, l, sens, fonds, min) {
 const CAMERA = { 'camera-bg': '#14100B', 'on-camera': '#FFFDF8', 'camera-ok': '#8FD49B', 'camera-alerte': '#F2B38F' };
 
 /**
+ * Les series des graphiques ne bougent pas non plus : leur ordre et leurs valeurs ont ete passes au
+ * validateur du skill dataviz (ecart pour les daltoniens), qu'une teinte derivee du modele perdrait.
+ */
+const SERIES = {
+  clair: { 'serie-1': '#2A78D6', 'serie-2': '#EB6834', 'serie-3': '#1BAF7A' },
+  sombre: { 'serie-1': '#3987E5', 'serie-2': '#D95926', 'serie-3': '#199E70' }
+};
+
+/** Les familles des lectures de Claude ne bougent pas non plus : la meme couleur a l'E8 et dans l'etape, d'un modele a l'autre. */
+const LECTURES = {
+  clair: { 'claude-angles': '#2A6FC9', 'claude-pointe': '#C2410C', 'claude-forme': '#8A4FB8', 'claude-appentis': '#7A6A00', 'claude-corps': '#0E7C86', 'claude-element': '#B5326B', 'claude-cache': '#4F7A28', 'claude-parement': '#9C5B1F', 'claude-zone': '#5B5FC7', 'claude-ouverture': '#C62828' },
+  sombre: { 'claude-angles': '#6AA6F0', 'claude-pointe': '#F08A55', 'claude-forme': '#C39BE8', 'claude-appentis': '#D4C24A', 'claude-corps': '#4CC3CC', 'claude-element': '#F07AAE', 'claude-cache': '#8FC76A', 'claude-parement': '#D9A066', 'claude-zone': '#9DA0F2', 'claude-ouverture': '#F07A7A' }
+};
+
+/**
  * Les deux themes d'un modele. `n` : teinte et saturation des neutres (papiers, traits, encres) ;
  * `a` : l'accent ; `ok`, `danger`, `alerte` : les etats ; `ciel` : le fond de la Vue 3D. Le theme
  * sombre peut avoir ses propres neutres (`nSombre`), et chaque valeur peut etre forcee (`forcer`).
@@ -61,6 +76,8 @@ function themes(m) {
   clair['panel-bg'] = tsl(n.t, n.s * 0.7, 99); clair['panel-2'] = clair.paper;
   clair['segment-bg'] = clair['stage-bg']; clair['input-bg'] = clair['panel-bg'];
   clair.border = tsl(n.t, n.s * 0.7, 85); clair.rule = tsl(n.t, n.s * 0.6, 79); clair.hairline = tsl(n.t, n.s * 0.6, 90);
+  // Les courbes de niveau : la teinte de l'accent, assourdie, lisible sur le canevas (3 : un trait, pas du texte).
+  clair.relief = lisible(a.t, a.s * 0.6, 40, -1, [clair['stage-bg']], 3);
   const fondsTexte = [clair.paper, clair['panel-bg'], clair['panel-2'], clair['input-bg'], clair['stage-bg']];
   clair.ink = lisible(n.t, Math.min(n.s, 35), 14, -1, fondsTexte, 4.5);
   clair['ink-soft'] = lisible(n.t, Math.min(n.s, 25) + 5, 38, -1, fondsTexte, 4.5);
@@ -74,8 +91,15 @@ function themes(m) {
   clair['danger-bg'] = tsl(danger.t, danger.s * 0.7, 97);
   clair.danger = lisible(danger.t, danger.s, 35, -1, [clair['danger-bg'], clair['panel-bg']], 4.5);
   clair.alerte = lisible(alerte.t, alerte.s, 45, -1, [clair['panel-bg']], 3);
+  // L'insertion du mode Toit : une teinte a part de l'accent (a 150 degres de lui), pour que « Insertion » ne se lise pas « Modification ».
+  const ti = ((m.insertion?.t ?? a.t + 150) % 360 + 360) % 360, si = m.insertion?.s ?? Math.max(40, Math.min(75, a.s + 20));
+  clair['on-insertion'] = clair['panel-bg'];
+  clair['insertion-bg'] = tsl(ti, si * 0.6, 93);
+  clair.insertion = lisible(ti, si, 40, -1, [clair['panel-bg'], clair['insertion-bg']], 4.5);
   clair['toast-bg'] = clair.ink; clair['on-toast'] = clair['panel-bg'];
   clair['fond-3d'] = tsl(ciel.t, ciel.s, 89);
+  // Le trait de la facade vue de pres se pose sur la scene (des murs clairs) : sombre dans les deux themes.
+  clair['trait-3d'] = tsl(n.t, n.s * 0.5, 9);
 
   const sombre = {};
   sombre.paper = tsl(nS.t, nS.s * 0.6, 8); sombre['paper-deep'] = tsl(nS.t, nS.s * 0.6, 10);
@@ -83,6 +107,7 @@ function themes(m) {
   sombre['panel-bg'] = tsl(nS.t, nS.s * 0.6, 12); sombre['panel-2'] = tsl(nS.t, nS.s * 0.6, 15);
   sombre['segment-bg'] = sombre.paper; sombre['input-bg'] = sombre['panel-2'];
   sombre.border = tsl(nS.t, nS.s * 0.5, 21); sombre.rule = tsl(nS.t, nS.s * 0.5, 26); sombre.hairline = tsl(nS.t, nS.s * 0.5, 17);
+  sombre.relief = lisible(a.t, a.s * 0.5, 65, 1, [sombre['stage-bg']], 3);
   const fondsSombres = [sombre.paper, sombre['panel-bg'], sombre['panel-2'], sombre['input-bg'], sombre['stage-bg']];
   sombre.ink = lisible(nS.t, Math.min(nS.s + 10, 45), 88, 1, fondsSombres, 4.5);
   sombre['ink-soft'] = lisible(nS.t, Math.min(nS.s, 30), 66, 1, fondsSombres, 4.5);
@@ -96,10 +121,14 @@ function themes(m) {
   sombre['danger-bg'] = tsl(danger.t, danger.s * 0.4, 15);
   sombre.danger = lisible(danger.t, danger.s, 74, 1, [sombre['danger-bg'], sombre['panel-bg']], 4.5);
   sombre.alerte = lisible(alerte.t, alerte.s, 64, 1, [sombre['panel-bg']], 3);
+  sombre['on-insertion'] = sombre.paper;
+  sombre['insertion-bg'] = tsl(ti, si * 0.4, 17);
+  sombre.insertion = lisible(ti, si, 66, 1, [sombre['panel-bg'], sombre['insertion-bg'], sombre['on-insertion']], 4.5);
   sombre['toast-bg'] = sombre.ink; sombre['on-toast'] = sombre.paper;
   sombre['fond-3d'] = tsl(ciel.t, ciel.s * 0.4, 13);
+  sombre['trait-3d'] = tsl(nS.t, nS.s * 0.5, 6);
 
-  return { clair: { ...clair, ...CAMERA, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CAMERA, ...(m.forcer?.sombre ?? {}) } };
+  return { clair: { ...clair, ...CAMERA, ...SERIES.clair, ...LECTURES.clair, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CAMERA, ...SERIES.sombre, ...LECTURES.sombre, ...(m.forcer?.sombre ?? {}) } };
 }
 
 // --- Les modeles ----------------------------------------------------------------------------------
@@ -124,8 +153,9 @@ const MODELES = [
 
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
-  'border', 'rule', 'hairline', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
-  'toast-bg', 'on-toast', 'fond-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte'];
+  'border', 'rule', 'hairline', 'relief', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte',
+  'insertion', 'on-insertion', 'insertion-bg', 'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
+  'claude-angles', 'claude-pointe', 'claude-forme', 'claude-appentis', 'claude-corps', 'claude-element', 'claude-cache', 'claude-parement', 'claude-zone', 'claude-ouverture'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));
 
 mkdirSync(sortie, { recursive: true });

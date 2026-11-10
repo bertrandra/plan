@@ -1,18 +1,18 @@
-// Le tableau d'optimisation de la structure, montre dans l'inspecteur (Z5) sous le bouton qui le
-// demande. Une ligne par strategie de construction, chacune a son meilleur entraxe ; la configuration
+// Le tableau d'optimisation de la structure, montre dans l'onglet Optimisation du tiroir (Z6) sous le
+// bouton qui le demande. Une ligne par strategie de construction, chacune a son meilleur entraxe ; la configuration
 // actuelle est toujours montree, meme quand elle n'est pas la meilleure de sa famille.
 //
 // Le calcul vit dans `engine/optimisation.ts`. « Appliquer » passe par le service des resultats :
 // c'est une saisie, elle s'annule et marque le projet modifie.
 
 import { enLectureSeule } from '../../app/acces.js';
-import { shoelace } from '../../geometry/basic.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { ESSENCE_PRICES, estPlots, SOLIVE_PRICE, VIS_PRICE } from '../../engine/constantes.js';
-import { maxEntraxeLameCm, sectionLambourde } from '../../engine/portees.js';
+import { maxEntraxeLameCm, sectionLambourde } from '../../engine/bois/portees.js';
 import { evaluerStructure, optimiserParametres } from '../../engine/optimisation.js';
 import { prixPlotUnite } from '../../engine/prix.js';
 import { lamesAngleOf, prixUnitaire } from '../../engine/structure.js';
+import { surfaceNetteTerrasse } from '../../engine/ouvrages/terrasse.js';
 import { aDesSommets } from '../../model/formes.js';
 import type { CandidatStructure } from '../../engine/structure.js';
 import type { Resultats } from '../../app/resultats.js';
@@ -63,7 +63,7 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   const actuel = evaluerStructure(obj, c,
     surPlots ? prixPlotUnite(c) : prixUnitaire(c, 'vis', VIS_PRICE),
     prixUnitaire(c, 'bois', SOLIVE_PRICE),
-    lamesAngleOf(obj), shoelace(obj.pts) || 1, objets);
+    lamesAngleOf(obj), surfaceNetteTerrasse(obj.pts, objets) || 1, objets);
   const gain = actuel.cout - meilleur.cout;
 
   return (

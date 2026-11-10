@@ -1,0 +1,107 @@
+// Le navigateur de facades du mode Toit (MD/spec-mode-toit-3d.md, etape 2) : le plan du batiment en petit, un cote de corps par facade.
+//
+// Chaque corps est un polygone, chaque mur une arete que l'on touche pour choisir la facade ; toucher l'interieur d'un corps prend sa
+// facade la plus tournee vers la camera. La facade courante est en evidence, avec un triangle qui dit d'ou l'on regarde. Le plan est
+// celui du batiment, nord en haut (l'axe y du plan va vers le bas de l'ecran). Un mur qui porte une Facade validee (lot F5) est en
+// tirets, et le dit : sa forme a ete vue sur la photo.
+
+import { useState } from 'react';
+import { Icone } from '../icones.js';
+import { etatToit, facadesDeSession, mursVusSurPhoto, sessionToit } from '../../app/toits/modeToit.js';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
+import type { Magasin } from '../../app/magasin.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
+import { orientationDe, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
+import { listerElements } from '../../facade/modeToit/elements.js';
+
+const MARGE_M = 1.2;
+/** Deux murs dont les bouts sont a moins de 5 cm l'un de l'autre (dans un sens ou dans l'autre) sont un seul mur, commun a deux corps. */
+const MEME_MUR_M = 0.05;
+
+const memeMur = (f: FacadeVisee, g: FacadeVisee): boolean => {
+  const pres = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y) < MEME_MUR_M;
+  return (pres(f.a, g.a) && pres(f.b, g.b)) || (pres(f.a, g.b) && pres(f.b, g.a));
+};
+
+/**
+ * Une arete par mur (audit de la navigation, 6 novembre 2026) : un mur commun a deux corps etait dessine deux fois, et celui du dessus
+ * prenait tous les touchers. Le garde celui du corps en evidence, sinon le premier ; `communAvec` nomme l'autre corps.
+ */
+function aretes(facades: readonly FacadeVisee[], prefere: number | null): { f: FacadeVisee; communAvec: number | null }[] {
+  const l: { f: FacadeVisee; communAvec: number | null }[] = [];
+  for (const f of facades) {
+    const k = l.findIndex((x) => memeMur(x.f, f));
+    if (k < 0) { l.push({ f, communAvec: null }); continue; }
+    const deja = l[k] as { f: FacadeVisee; communAvec: number | null };
+    l[k] = f.rang === prefere && deja.f.rang !== prefere ? { f, communAvec: deja.f.rang } : { f: deja.f, communAvec: f.rang };
+  }
+  return l;
+}
+
+/** Entree ou Espace sur un element du plan : le meme geste que le toucher (les murs et les corps se prennent au clavier). */
+const auClavier = (agir: (e: React.KeyboardEvent<SVGElement>) => void) => (e: React.KeyboardEvent<SVGElement>) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); agir(e); }
+};
+const f2 = (v: number) => (Math.round(v * 100) / 100).toString();
+
+/** Les sommets d'un corps, dans l'ordre : le debut de chaque mur. */
+function polygones(facades: readonly FacadeVisee[]): Map<number | null, FacadeVisee[]> {
+  const par = new Map<number | null, FacadeVisee[]>();
+  for (const f of facades) par.set(f.rang, [...(par.get(f.rang) ?? []), f]);
+  return par;
+}
+
+export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
+  // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
+  useCle(magasin, 'façades du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
+  // Sur telephone le plan se replie en un bouton : il ne couvre la scene que si on l'ouvre.
+  const [ouvert, setOuvert] = useState(() => typeof document === 'undefined' || document.documentElement.dataset.classe !== 'compact');
+  const s = sessionToit();
+  if (!s) return null;
+  const objets = magasin.store.getState().etat.objects;
+  const facades = facadesDeSession(objets);
+  if (!facades.length) return null;
+  const photos = mursVusSurPhoto(objets);
+  const xs = facades.flatMap((f) => [f.a.x, f.b.x]), ys = facades.flatMap((f) => [f.a.y, f.b.y]);
+  const x0 = Math.min(...xs) - MARGE_M, y0 = Math.min(...ys) - MARGE_M, x1 = Math.max(...xs) + MARGE_M, y1 = Math.max(...ys) + MARGE_M;
+  const courante = s.facade ?? s.derniere;
+  // Le corps en evidence est celui des gestes (le choisi), le meme que nomme la ligne « Corps · Façade » du panneau.
+  const corpsDesigne = etatToit().rangCorps ?? courante?.rang ?? null;
+  const actif = commandes.etat('toit.facade').utilisable;
+  const grands = [...polygones(facades)].sort((p, q) => aire(q[1]) - aire(p[1]));
+  const clic = (e: React.SyntheticEvent<SVGElement>) => { if (actif) commandes.executer('toit.facade', e.currentTarget as unknown as HTMLElement); };
+  const o = objets.find((x) => x.key === s.cle), corps = o?.batiment?.corpsToit ?? [];
+  const noms = new Map(listerElements(corps).filter((e) => e.cible.type === 'corps').map((e) => [e.cible.rang, e.libelle]));
+  const nomDe = (rang: number | null) => (rang === null ? 'Bâtiment' : noms.get(rang) ?? 'Corps');
+  return (
+    <div className={'navigateurToit' + (ouvert ? '' : ' replie')} role="group" aria-label="Façades du bâtiment" title="Choisir une façade">
+      <button type="button" className="boutonNavigateur" aria-expanded={ouvert} aria-label={ouvert ? 'Replier le plan des façades' : 'Déplier le plan des façades'}
+        onClick={() => { setOuvert(!ouvert); }}><Icone nom={ouvert ? 'fermer' : 'polygone'} taille={18} /></button>
+      <svg viewBox={f2(x0) + ' ' + f2(y0) + ' ' + f2(x1 - x0) + ' ' + f2(y1 - y0)} preserveAspectRatio="xMidYMid meet">
+        {grands.map(([rang, murs]) => (
+          <polygon key={'c' + rang} className={'corpsNav' + (corpsDesigne === rang ? ' sur' : '')} data-commande="toit.facade" data-corps={rang ?? ''} onClick={clic}
+            role="button" tabIndex={0} aria-label={nomDe(rang) + ' : sa façade la plus visible'} onKeyDown={auClavier(clic)}
+            points={murs.map((m) => f2(m.a.x) + ',' + f2(m.a.y)).join(' ')} />
+        ))}
+        {aretes(facades, corpsDesigne).map(({ f, communAvec }) => {
+          const sur = !!courante && courante.rang === f.rang && courante.mur === f.mur;
+          const photo = photos.has((f.rang ?? '') + ':' + f.mur);
+          const nom = nomDe(f.rang) + ', façade ' + orientationDe(f).toLowerCase() + (communAvec !== null ? ' (mur commun avec ' + nomDe(communAvec).toLowerCase() + ')' : '') + (photo ? ' — validée sur la photo' : '');
+          return <path key={f.rang + ':' + f.mur} className={'murNav' + (sur ? ' sur' : '') + (photo ? ' photo' : '')} data-commande="toit.facade" data-rang={f.rang ?? ''} data-mur={f.mur} onClick={clic}
+            role="button" tabIndex={0} aria-label={nom} aria-pressed={sur} onKeyDown={auClavier(clic)}
+            d={'M' + f2(f.a.x) + ' ' + f2(f.a.y) + 'L' + f2(f.b.x) + ' ' + f2(f.b.y)}><title>{nom}</title></path>;
+        })}
+        {courante && <PointDeVue f={courante} />}
+      </svg>
+    </div>
+  );
+}
+
+const aire = (murs: readonly FacadeVisee[]): number => Math.abs(murs.reduce((t, m) => t + m.a.x * m.b.y - m.b.x * m.a.y, 0)) / 2;
+
+/** Le triangle devant le milieu de la facade courante : on la regarde de ce cote. */
+function PointDeVue({ f }: { f: FacadeVisee }) {
+  const mx = (f.a.x + f.b.x) / 2, my = (f.a.y + f.b.y) / 2, tx = -f.n.y, ty = f.n.x;
+  const pt = (d: number, l: number) => f2(mx + f.n.x * d + tx * l) + ',' + f2(my + f.n.y * d + ty * l);
+  return <polygon className="pointDeVueNav" points={pt(0.25, 0) + ' ' + pt(1.4, 0.7) + ' ' + pt(1.4, -0.7)} />;
+}

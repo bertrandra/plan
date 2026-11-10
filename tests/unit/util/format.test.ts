@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nombreFr, formatHeureMin, slugFichier, horodatageFichier } from '../../../src/util/format.js';
+import { nombreFr, formatHeureMin, slugFichier, horodatageFichier, tailleFichier } from '../../../src/util/format.js';
 import { escapeHtml, escapeXml } from '../../../src/util/escape.js';
 
 describe('nombreFr', () => {
@@ -69,5 +69,14 @@ describe('echappement', () => {
   });
   it('echappe l esperluette avant le reste, sans double echappement', () => {
     expect(escapeXml('&lt;')).toBe('&amp;lt;');
+  });
+});
+
+describe('tailleFichier', () => {
+  it('ecrit les Ko en entier et les Mo au dixieme, a la francaise', () => {
+    expect(tailleFichier(300)).toBe('1 Ko');
+    expect(tailleFichier(820 * 1024)).toBe('820 Ko');
+    expect(tailleFichier(1.44 * 1024 * 1024)).toBe('1,4 Mo');
+    expect(tailleFichier(2.5 * 1024 * 1024)).toBe('2,5 Mo');
   });
 });

@@ -9,10 +9,14 @@
 // (l'objet et ses voisins), pour qu'un glisser qui redessine a chaque image ne le relance pas.
 
 import { computeBOM } from '../engine/bom.js';
+import { solDuProjet } from '../engine/sol.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { estPlots } from '../engine/constantes.js';
 import type { ObjetPlan, LigneBom } from '../model/types.js';
+import { estTerrasse } from '../model/fonctions.js';
+import { cleDuPlanLu } from './clePlan.js';
+import { litUneTerrasse } from '../core/lectures.js';
 
 export interface ResumeChiffrage {
   /** Fourchette estimee, en euros, comme « Estime : X € – Y € » sous la table du BOM. */
@@ -33,13 +37,15 @@ export interface ResumeChiffrage {
 
 let cache: { cle: string; resume: ResumeChiffrage } | null = null;
 
+// La cle : la version de ce que lit une terrasse, que tient le controleur des objets (ui/clePlan.ts, core/lectures.ts).
+
 export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChiffrage | null {
-  if (obj.fonction !== 'terrasse' || obj.type !== 'polygon') return null;
-  const cle = JSON.stringify(objets);
+  if (!estTerrasse(obj)) return null;
+  const cle = cleDuPlanLu(objets, litUneTerrasse);
   if (cache && cache.cle === cle + obj.key) return cache.resume;
   const c = ensureConstruction(obj);
   const couches = computeTerrasseLayers(obj, objets);
-  const lignes: LigneBom[] = computeBOM(obj, couches);
+  const lignes: LigneBom[] = computeBOM(obj, couches, solDuProjet(objets));
   let bas = 0, haut = 0, reel = 0, auMoinsUnReel = false;
   for (const l of lignes) {
     bas += (l.prixBas || 0) * l.qte;

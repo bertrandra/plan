@@ -10,20 +10,24 @@ import { ortho, restaurerOrthoDuProjet, type ContexteOrtho } from '../render/ort
 import { serializeObjects, serializeMeasures, type MesureSerialisee } from './serialisation.js';
 import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
+import { soleilDuProjet } from '../core/soleil.js';
 import { idMesure } from '../model/cles.js';
 import { referencesDeCote, type ObjetCotable } from '../model/mesures.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetValide } from './validation.js';
 import type { ObjetSerialise } from '../model/creation.js';
+import type { OptionsRestauration } from '../core/historique.js';
 
 /** Ce que l'application de l'import — de fichier ou de cadastre — demande au reste du programme. */
 export interface ContexteImportProjet extends ContexteOrtho {
   pushHistory: () => void;
   /** Voir la note du meme nom dans app/atelier.ts : `objects` passe par `normalizeObjects` en route. */
-  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }) => void;
+  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }, options?: OptionsRestauration) => void;
   rebuildSelector: () => void;
   fitToObject: (obj: ObjetPlan) => void;
+  /** Cadre toutes les parcelles affichees, avec la respiration d'une parcelle seule. */
+  cadrerTerrains?: () => void;
   syncLieuTitre: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
 }
@@ -83,8 +87,9 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
 
   // restoreState fait deja la demolition/reconstruction complete du DOM SVG (meme chemin que
   // l'undo et que "Reinitialiser tout") : le refaire a la main ici laisserait forcement
-  // trainer un type de noeud le jour ou l'objet en gagne un nouveau.
-  ctx.restoreState({ objects: objsBase.concat(ajoutes), measures: mesuresFinales });
+  // trainer un type de noeud le jour ou l'objet en gagne un nouveau. La Vue 3D ouverte, elle, ne se rebatit qu'une fois, a la fin
+  // (restaurerAffichageDuProjet), sur le lieu, le soleil et l'affichage restitues : la restauration ne la refait pas.
+  ctx.restoreState({ objects: objsBase.concat(ajoutes), measures: mesuresFinales }, { sansSuite: true });
 
   const lieu = valide.meta && valide.meta.lieu;
   const latitude = lieu ? lieu.latitude : undefined, longitude = lieu ? lieu.longitude : undefined;
@@ -102,10 +107,17 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   ctx.render();
   // Le cadrage par defaut suit le terrain importe : une propriete de 2 400 m2 et une terrasse de
   // 20 m2 n'ont pas la meme echelle, garder le cadrage precedent afficherait un plan hors champ.
-  if(parcelle) ctx.fitToObject(parcelle);
+  // Un plan venu du cadastre est cadre sur toutes ses parcelles affichees (son voisinage visible
+  // compris) : le masquage du voisinage est donc restitue avant le cadrage.
+  if(parcelle && ctx.cadrerTerrains && parcelle.cadastre){
+    restaurerAffichageDuProjet(etat, ctx, { sans3d: true });
+    ctx.cadrerTerrains();
+  } else if(parcelle) ctx.fitToObject(parcelle);
   // Le fond orthophoto fait partie des reglages du projet : un plan importe avec le fond actif
   // le retrouve actif, cale sur SA parcelle (les tuiles precedentes ne valent plus rien).
   ortho.tuiles = [];
+  ortho.tuilesLarges = [];
+  ortho.couverture = null;
   restaurerOrthoDuProjet(ctx);
   restaurerAffichageDuProjet(etat, ctx);
   ctx.markDirty();
@@ -120,16 +132,21 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   showToast(msg);
 }
 
-export function restaurerAffichageDuProjet(etat: EtatApp, ctx: ContexteImportProjet): void {
+/** `sans3d` : la Vue 3D ouverte n'est pas rebatie, un second appel le fera (l'import, qui restitue l'affichage avant de cadrer). */
+export function restaurerAffichageDuProjet(etat: EtatApp, ctx: ContexteImportProjet, options: { sans3d?: boolean } = {}): void {
   const p = ctx.trouverParcelleCloture();
   const a = p && p.affichage;
   etat.voisinageVisible = !(a && a.voisinage === false);
-  etat.grilleVisible = !(a && a.grille === false);
+  // La grille ne se montre que si le projet l'a demandee : masquee par defaut.
+  etat.grilleVisible = !!(a && a.grille === true);
+  // Le soleil du projet (core/soleil.ts) : celui que le fichier a enregistre, sinon celui du jour. Le plan, la Vue 3D et la
+  // visionneuse le relisent au rendu et a la reconstruction qui suivent.
+  soleilDuProjet.restaurer(etat.objects);
   // Restituer l'etat ne suffit pas : le plan a deja ete dessine avec les valeurs precedentes
   // (l'import rend avant de restaurer les reglages). Sans ce rendu, un projet enregistre grille
   // masquee se rouvrait avec le bouton eteint... et la grille bien visible.
   ctx.rebuildSelector();   // le voisinage masque ne doit pas figurer dans les categories
   ctx.syncLieuTitre();     // la parcelle a pu changer de position (import, actualisation)
   ctx.render();
-  if(vue3d.scene) ctx.buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
+  if(vue3d.scene && !options.sans3d) ctx.buildThreeScene(etat.objects.find(o=>o.key===etat.terrasseSelectedKey) || null);
 }

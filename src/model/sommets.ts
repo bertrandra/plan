@@ -10,7 +10,7 @@
 
 import { au } from '../util/tableaux.js';
 import { projectOntoSegment } from '../geometry/segments.js';
-import type { PtBrut } from '../model/types.js';
+import type { PtBrut } from './types.js';
 
 export interface FormeASommets {
   type?: string;

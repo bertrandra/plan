@@ -9,9 +9,9 @@
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { clipLineToPolygon } from '../geometry/polygon.js';
-import { calculerPiscine, centrePiscine, fr, type PiscineCalculee } from '../engine/piscine.js';
-import { retirerOuvertures } from '../engine/structure.js';
-import { estPiscine } from '../model/fonctions.js';
+import { calculerPiscine, centrePiscine, fr, type PiscineCalculee, plageCalculee } from '../engine/piscine.js';
+import { retirerOuvertures } from '../engine/ouvrages/terrasse.js';
+import { estPiscine, visibleEnIsolement } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 export interface EtatCalquePiscines {
@@ -70,13 +70,14 @@ export function dessinerCalquePiscines(groupe: SVGElement, etat: EtatCalquePisci
   groupe.innerHTML = '';
   const scene = etat.scene;
   etat.objects
-    .filter(o => estPiscine(o) && !o.hidden && (etat.isolement == null || o.key === etat.isolement))
+    .filter(o => estPiscine(o) && !o.hidden && visibleEnIsolement(o, etat.objects, etat.isolement))
     .forEach(o => {
       const calc = calculerPiscine(o);
       if (!calc) return;
       const r = calc.reglages;
       // De l'exterieur vers l'interieur : la plage, les margelles, les parois.
-      if (r.plage !== 'aucune') {
+      // Une plage « terrasse du plan » est un objet a part : le plan la dessine comme toute terrasse.
+      if (plageCalculee(r.plage)) {
         anneau(groupe, scene, calc.plageExt, calc.margelleExt, r.couleurPlage, '#6b5a44', r.plage === 'dallage' ? 0.75 : 0.55);
         if (r.plage === 'terrasse-bois') lamesPlage(groupe, scene, calc);
         calc.plageBois?.poteauxPositions.forEach(p => {

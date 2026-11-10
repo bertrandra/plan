@@ -10,10 +10,12 @@
 
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
+import { chargement } from '../shell/chargement.js';
 import { PremierPas, type Choix, type Empechement } from '../zones/PremierPas.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { peutEcrire, droitsCourants } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 
 /**
@@ -31,12 +33,7 @@ export function empechementCourant(): Empechement | null {
 
 /** L'element qui porte l'ecran. Cree a la demande : la plupart des sessions n'en ont pas besoin. */
 function conteneur(): HTMLElement {
-  let e = document.getElementById('zonePremierPas');
-  if (!e) {
-    e = document.createElement('div');
-    e.id = 'zonePremierPas';
-    document.body.appendChild(e);
-  }
+  const e = hoteDeZone('zonePremierPas');
   return e;
 }
 
@@ -50,10 +47,14 @@ function conteneur(): HTMLElement {
  */
 export function demanderPremierPas(projetsEtrangers: boolean): Promise<Choix> {
   return new Promise<Choix>((resoudre) => {
+    // L'ecran attend la personne : la roue du chargement s'efface devant lui, et revient apres le
+    // choix, le temps de creer et d'ouvrir le plan.
+    chargement(false);
     const racine: Root = createRoot(conteneur());
     const fermer = () => {
       racine.unmount();
       document.getElementById('zonePremierPas')?.remove();
+      chargement(true);
     };
     racine.render(createElement(PremierPas, {
       empechement: empechementCourant(),

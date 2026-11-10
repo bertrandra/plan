@@ -83,21 +83,37 @@ try {
       noter('en-tete ' + entete, attendu.test(v), v || 'absent');
     }
 
-    // La politique doit nommer le programme par l'empreinte du script en ligne servi.
+    // Le programme : servi a cote de la page (assets/plan-<empreinte>.js, deploy/scripts-page.mjs),
+    // sous un type JavaScript — avec `nosniff`, un autre type et le navigateur ne l'execute pas.
+    const html = page.toString('utf8');
+    const appele = /<script[^>]*\ssrc="(?:\.\/)?(assets\/plan-[0-9a-f]+\.js)"/.exec(html);
+    if (appele) {
+      try {
+        const p = await demander('/' + appele[1]);
+        const type = p.entetes.get('content-type') || '';
+        noter('le programme est servi', p.statut === 200 && /javascript/.test(type),
+          p.statut === 200 ? appele[1] + ' (' + (type || 'sans type') + ')' : 'HTTP ' + p.statut + ' sur ' + appele[1] + ' : dossier assets/ de cette livraison absent ?');
+      } catch (e) {
+        noter('le programme est servi', false, String(e).slice(0, 120));
+      }
+    }
+
+    // La politique doit couvrir le programme : `'self'` pour le fichier, ou l'empreinte d'un script
+    // reste en ligne (une page d'avant le 10 octobre 2026).
     const csp = r.entetes.get('content-security-policy') || '';
     cspServie = csp;
     if (!csp) {
       noter('politique de contenu', false, 'absente');
     } else {
-      const html = page.toString('utf8');
+      const scripts = csp.split(';').find((d) => d.trim().startsWith('script-src')) || '';
       const m = /<script(?![^>]*\ssrc=)(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/.exec(html);
-      const empreinte = m ? createHash('sha256').update(m[1], 'utf8').digest('base64') : null;
-      const nomme = empreinte ? csp.includes("'sha256-" + empreinte + "'") : false;
-      noter('politique de contenu', nomme,
-        nomme ? 'nomme le script servi par son empreinte'
-              : (/unsafe-inline/.test(csp.split('script-src')[1] || '')
-                  ? "script-src autorise 'unsafe-inline' : la protection est desactivee"
-                  : "l'empreinte de la politique ne correspond pas au script servi — .htaccess d'un autre build"));
+      const empreinte = m && m[1] ? createHash('sha256').update(m[1], 'utf8').digest('base64') : null;
+      const couvert = empreinte ? scripts.includes("'sha256-" + empreinte + "'") : /'self'/.test(scripts);
+      noter('politique de contenu', couvert && !/unsafe-inline/.test(scripts),
+        /unsafe-inline/.test(scripts) ? "script-src autorise 'unsafe-inline' : la protection est desactivee"
+          : couvert ? (empreinte ? 'nomme le script en ligne par son empreinte' : "script-src 'self' couvre le programme servi")
+            : empreinte ? "l'empreinte de la politique ne correspond pas au script en ligne servi — .htaccess d'un autre build"
+              : "script-src sans 'self' : le programme servi est refuse");
     }
   }
 } catch (e) {
@@ -146,6 +162,36 @@ try {
 }
 
 // ---------------------------------------------------------------------------------------------
+// 1 quater. La vitrine lit sa demo.
+//
+// `?mode=demo&file=1` lit `admin/vitrine/1` : sans session, sans cookie, et de toute origine —
+// l'<iframe> de la plateforme est en bac a sable, donc d'origine `null`, ce que `Origin: null`
+// reproduit ici. Quand cette route ne repond pas un plan en JSON, la vitrine retombe sur la
+// demonstration integree : la cause se lit dans la reponse (un fichier illisible, un admin non
+// configure) — ou dans sa forme, quand une protection anti-robots de l'hebergeur repond sa page
+// HTML a la place d'admin.php.
+// ---------------------------------------------------------------------------------------------
+try {
+  const r = await demander('/admin/vitrine/1', { headers: { Accept: 'application/json', Origin: 'null' } });
+  const type = r.entetes.get('content-type') || '';
+  const texte = await r.corps.text();
+  let corps = null;
+  try { corps = JSON.parse(texte); } catch { corps = null; }
+  const ok = r.statut === 200 && !!corps && Array.isArray(corps.objects) && corps.objects.length > 0;
+  let detail;
+  if (ok) detail = corps.objects.length + ' objet(s), ' + (corps.meta?.name || 'sans nom');
+  else if (corps?.error) detail = 'HTTP ' + r.statut + ' ' + corps.error.code + ' : ' + corps.error.message;
+  else if (/html/i.test(type) || /<html/i.test(texte)) detail = 'HTTP ' + r.statut + " : une page HTML repond a la place d'admin.php — protection anti-robots de l'hebergeur (SiteGround), ou page d'erreur ; la vitrine montre alors la demonstration integree";
+  else if (r.statut === 200) detail = 'HTTP 200 mais pas un plan : ' + (texte.length ? texte.slice(0, 80) : 'corps vide (fichier illisible par PHP ? droits)');
+  else detail = 'HTTP ' + r.statut;
+  noter('la vitrine lit sa demo (admin/vitrine/1)', ok, detail);
+  const acao = r.entetes.get('access-control-allow-origin');
+  noter("la demo se lit depuis l'iframe en bac a sable", acao === '*', 'Access-Control-Allow-Origin ' + (acao || 'absent : la page encadree ne verra ni la demo ni la raison'));
+} catch (e) {
+  noter('la vitrine lit sa demo (admin/vitrine/1)', false, String(e).slice(0, 120));
+}
+
+// ---------------------------------------------------------------------------------------------
 // 2. Ce qui ne doit plus etre la du tout.
 //
 // Depuis la 2.0.0 les projets vivent chez la plateforme : `api.php` et `data/` ont disparu du
@@ -173,7 +219,7 @@ if (page) {
   // L'origine est stockee seule dans le paquet : les chemins du contrat s'y ajoutent a
   // l'execution. On la reconnait en ecartant les origines tierces que le programme nomme par
   // ailleurs — IGN, BAN, les deux CDN, les textures.
-  const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org))$/;
+  const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org))$/;
   const origine = [...new Set((html.match(/"https:\/\/[a-z0-9.-]+"/g) || []).map((s) => s.slice(1, -1)))]
     .find((o) => !TIERCES.test(o));
   const csp = cspServie;

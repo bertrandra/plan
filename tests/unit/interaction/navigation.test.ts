@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  zoomerAutourDe, zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe,
+  zoomerAutourDe, zoomMolette, debutPincement, pincer, deplacer, milieuDe, cadrerSur, empriseDe, plancherPourEmprise,
   ZOOM_MIN, ZOOM_MAX, FACTEUR_MOLETTE
 } from '../../../src/interaction/navigation.js';
-import { creerScene, versEcran, versMonde } from '../../../src/geometry/vue.js';
+import { creerScene, versEcran, versMonde, type EtatScene } from '../../../src/geometry/vue.js';
 
 // La transformation de vue est le seul etat que les golden files ne surveillent pas : un export
 // est recalcule dans son propre repere. C'est exactement la qu'une regression est passee (deux
@@ -167,5 +167,27 @@ describe('cadrage', () => {
     const s = cadrerSur(scene(), { minX: 0, maxX: 0.001, minY: 0, maxY: 0.001 });
     expect(s.scale).toBe(400);
     expect(s.scale).toBeGreaterThan(ZOOM_MAX);
+  });
+});
+
+describe('le plancher du zoom d un plan', () => {
+  it('reste ZOOM_MIN pour une parcelle, et descend pour qu un grand voisinage tienne avec de l espace autour', () => {
+    expect(plancherPourEmprise(scene(), null)).toBe(ZOOM_MIN);
+    expect(plancherPourEmprise(scene(), { minX: 0, maxX: 30, minY: 0, maxY: 20 })).toBe(ZOOM_MIN);
+    // 450 m sur 800 px : la moitie de la scene, 400 px, pour 450 m.
+    const p = plancherPourEmprise(scene(), { minX: -225, maxX: 225, minY: -100, maxY: 100 });
+    expect(p).toBeCloseTo(400 / 450, 6);
+  });
+
+  it('borne la molette, le pincement et le cadrage au plancher du plan', () => {
+    const s: EtatScene = { ...scene(), zoomMin: 0.5 };
+    let z = s;
+    for (let k = 0; k < 80; k++) z = zoomMolette(z, { x: 400, y: 300 }, 1);
+    expect(z.scale).toBeCloseTo(0.5, 9);
+    expect(z.zoomMin).toBe(0.5);
+    const c = cadrerSur(s, { minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 });
+    expect(c.scale).toBeCloseTo(0.5, 9);
+    // Sans plancher propre, ZOOM_MIN, comme avant.
+    expect(cadrerSur(scene(), { minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 }).scale).toBe(ZOOM_MIN);
   });
 });

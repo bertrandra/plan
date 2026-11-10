@@ -1,0 +1,128 @@
+{
+  "nom": "13-grand-angle-distorsion-forte",
+  "description": "Photo à l'ultra grand-angle (13 mm) prise à 5 m, que le téléphone n'a pas corrigée : un barillet de 15 % au coin courbe les côtés du mur. Focale et distance connues.",
+  "difficultes": [
+    "grand-angle",
+    "distorsion"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 277.92,
+        "y": 233.08
+      },
+      {
+        "x": 1053.48,
+        "y": 186.71
+      },
+      {
+        "x": 1134.99,
+        "y": 698.18
+      },
+      {
+        "x": 217.34,
+        "y": 677.87
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.2,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 4.5,
+        "y": 3.8,
+        "l": 1.1,
+        "h": 1.35
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 13,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          222,
+          212,
+          196
+        ],
+        "taches": 5
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 5,
+      "focale35": 13,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 5,
+      "tangage": 9,
+      "bruit": 3,
+      "flou": 1,
+      "distorsion": -0.15
+    }
+  }
+}

@@ -6,15 +6,17 @@
 // qui restent ecrits et tenus a jour pour les lecteurs qui ne connaissent qu'eux.
 //
 // Rien ici ne connait le contour autrement que par la longueur de ses cotes : la geometrie d'un
-// cote (son repere gauche-droite vu de dehors) vit dans `facade/geometrie.ts`, au-dessus.
+// cote (son repere gauche-droite vu de dehors) vit dans `geometry/cotesVusDeDehors.ts`.
 
 import { dist } from '../geometry/basic.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { au } from '../util/tableaux.js';
+import { citer, libelleOuMot, motConnu, signalerMotInconnu } from '../shell/motsInconnus.js';
 import type {
   Cloture, CoteCloture, ReglageCloture, TypeCloture, ParementMur, EssenceHaie, Portail,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan, PtBrut,
 } from './types.js';
+import type { PositionPortail, TypeCloture as TypeClotureVue } from './clotureVue.js';
 
 export const COULEUR_CLOTURE_DEFAUT = '#6b4a2a';
 export const HAUTEUR_CLOTURE_DEFAUT = 1.8;
@@ -50,9 +52,9 @@ export const LIBELLES_MATERIAU_PORTAIL: Record<MateriauPortail, string> = {
   aluminium: 'Aluminium', pvc: 'PVC', bois: 'Bois', fer: 'Fer forgé',
 };
 
-/** La couleur qu'un materiau de portail donne quand on y passe. */
+/** La couleur qu'un materiau de portail donne quand on y passe : l'aluminium est blanc (RAL 9016), comme le portail neuf. */
 export const COULEUR_PAR_MATERIAU: Record<MateriauPortail, string> = {
-  aluminium: '#2f3237', pvc: '#f2f0ea', bois: '#8a5a2b', fer: '#1f1f1f',
+  aluminium: '#f4f4f2', pvc: '#f2f0ea', bois: '#8a5a2b', fer: '#1f1f1f',
 };
 
 const EPAISSEUR_PALISSADE = 0.05;
@@ -74,6 +76,27 @@ export function hauteurTotale(r: ReglageCloture): number {
   if (r.type === 'aucune') return 0;
   return Math.max(0, r.hauteur) + (r.soubassement ? Math.max(0, r.soubassement.hauteur) : 0);
 }
+
+/**
+ * Le type d'un reglage tel qu'il se dessine. Il se lit dans le fichier, tel quel (`clotureDe` rend la cloture de l'objet) : un
+ * fichier d'une version plus recente peut porter un type que cette version ne connait pas, et `DEFAUTS_PAR_TYPE` ne rendait rien
+ * (la Vue 3D et l'inspecteur plantaient). Hors catalogue : la palissade, le type d'une cloture neuve, signalee une fois par mot.
+ */
+export function typeDessine(r: Pick<ReglageCloture, 'type'>): TypeCloture {
+  if (motConnu(LIBELLES_TYPE_CLOTURE, r.type)) return r.type;
+  signalerMotInconnu('Clôture inconnue (' + citer(r.type) + '), dessinée en palissade bois.');
+  return 'palissade';
+}
+
+/** Le reglage tel qu'il se dessine : lui-meme, ou une copie en palissade si son type est hors catalogue. La donnee ne change pas. */
+export function reglageDessine(r: ReglageCloture): ReglageCloture {
+  const type = typeDessine(r);
+  return type === r.type ? r : { ...r, type };
+}
+
+/** Le libelle d'un type de cloture, ou le mot lu s'il est hors catalogue. */
+const minuscules = (l: string): string => l.toLowerCase();
+export const libelleTypeCloture = (type: unknown): string => libelleOuMot(LIBELLES_TYPE_CLOTURE, type);
 
 /** Le reglage par defaut tel qu'il se deduit des anciens champs d'une parcelle. */
 function defautDesAnciensChamps(p: ObjetPlan): ReglageCloture {
@@ -142,7 +165,7 @@ export function retirerCote(cl: Cloture, cote: number): void {
  * mais on respecte une couleur choisie.
  */
 export function changerType(r: ReglageCloture, type: TypeCloture): void {
-  const avant = DEFAUTS_PAR_TYPE[r.type];
+  const avant = DEFAUTS_PAR_TYPE[typeDessine(r)];
   const apres = DEFAUTS_PAR_TYPE[type];
   if (r.hauteur === avant.hauteur || !(r.hauteur > 0)) r.hauteur = apres.hauteur || r.hauteur;
   if (!r.couleur || r.couleur === avant.couleur) r.couleur = apres.couleur || COULEUR_CLOTURE_DEFAUT;
@@ -190,17 +213,50 @@ export function nouveauPortail(nature: Portail['nature'], cote: number, longueur
 }
 
 /**
- * Le cote ou poser un acces quand on n'en a pas choisi : celui qui est sur rue, sinon le plus long.
+ * La cloture d'une parcelle qu'on vient d'importer (MD/spec-cloture.md §2.2) : une palissade bois de
+ * 1,8 m sur tout le contour, et un portail en aluminium blanc, ouvrant vers l'interieur, au milieu du cote d'acces - celui que
+ * le plan devine sur rue (`devine`, geo/coteRue.ts), sinon le plus long. Un point de depart a
+ * corriger, pas un releve : on le voit sur le plan et en 3D, on le change dans l'inspecteur.
  */
-export function coteDAcces(cl: Cloture, pts: readonly PtBrut[]): number {
+export function clotureDImport(pts: readonly PtBrut[], devine: number | null): Cloture {
+  const cl: Cloture = {
+    active: true,
+    defaut: { type: 'palissade', hauteur: HAUTEUR_CLOTURE_DEFAUT, couleur: COULEUR_CLOTURE_DEFAUT, texture: null },
+    cotes: [],
+    portails: [],
+  };
+  if (pts.length >= 3) {
+    const cote = coteDAcces(cl, pts, devine);
+    const longueur = longueurDuCote(pts, cote);
+    // Un cote trop court pour un portail de 3,50 m n'en recoit pas : on ne pose pas un portail plus large que sa limite.
+    if (longueur >= 4) cl.portails.push(nouveauPortail('portail', cote, longueur));
+  }
+  return cl;
+}
+
+/**
+ * Le cote ou poser un acces quand on n'en a pas choisi : celui qui est dit sur rue, sinon celui
+ * que le plan devine sur rue (geo/coteRue.ts, passe par l'appelant), sinon le plus long des cotes
+ * que l'utilisateur n'a pas dits separatifs ou mitoyens (le plus long tout court s'il les a tous dits).
+ * Les chemins de creation passent par geo/coteRue.ts::coteDuNouvelAcces, qui fournit `devine`.
+ */
+export function coteDAcces(cl: Cloture, pts: readonly PtBrut[], devine: number | null = null): number {
   const rue = cl.cotes.find(c => c.limite === 'rue' && coteValide(pts, c.cote));
   if (rue) return rue.cote;
-  let meilleur = 0, max = -1;
-  for (let i = 0; i < pts.length; i++) {
-    const l = longueurDuCote(pts, i);
-    if (l > max) { max = l; meilleur = i; }
-  }
-  return meilleur;
+  if (devine !== null && coteValide(pts, devine)) return devine;
+  // Un cote dit separatif ne recoit pas le portail par defaut : c'est le voisin qui est derriere.
+  const ditVoisin = (i: number) => cl.cotes.some(c => c.cote === i && (c.limite === 'separative' || !!c.mitoyenne));
+  const plusLong = (garder: (i: number) => boolean): number => {
+    let meilleur = -1, max = -1;
+    for (let i = 0; i < pts.length; i++) {
+      if (!garder(i)) continue;
+      const l = longueurDuCote(pts, i);
+      if (l > max) { max = l; meilleur = i; }
+    }
+    return meilleur;
+  };
+  const libre = plusLong(i => !ditVoisin(i));
+  return libre >= 0 ? libre : Math.max(0, plusLong(() => true));
 }
 
 /** Les acces d'un cote, valides sur ce contour, de gauche a droite. */
@@ -356,16 +412,81 @@ export function coteLePlusProche(pts: readonly PtBrut[], p: PtBrut): { cote: num
 export function resumeReglage(r: ReglageCloture): string {
   if (r.type === 'aucune') return 'Aucune';
   const m = (v: number) => v.toFixed(2).replace('.', ',') + ' m';
-  const detail = r.type === 'mur' ? LIBELLES_PAREMENT[r.parement || 'enduit'].toLowerCase()
-    : r.type === 'haie' ? LIBELLES_ESSENCE[r.essence || 'laurier'].toLowerCase()
+  const detail = r.type === 'mur' ? libelleOuMot(LIBELLES_PAREMENT, r.parement || 'enduit', minuscules)
+    : r.type === 'haie' ? libelleOuMot(LIBELLES_ESSENCE, r.essence || 'laurier', minuscules)
     : r.type === 'grillage' ? (r.grillage || 'rigide')
     : (r.lames || 'verticales');
   const sous = r.soubassement ? ` · muret ${m(r.soubassement.hauteur)}` : '';
-  return `${LIBELLES_TYPE_CLOTURE[r.type]} ${m(r.hauteur)} · ${detail}${sous}`;
+  return `${libelleTypeCloture(r.type)} ${m(r.hauteur)} · ${detail}${sous}`;
 }
 
 /** « Portail 3,50 m · à 4,20 m ». */
 export function resumeAcces(a: Portail): string {
   const m = (v: number) => v.toFixed(2).replace('.', ',') + ' m';
-  return `${a.nature === 'portail' ? 'Portail' : 'Portillon'} ${m(a.largeur)} · ${LIBELLES_OUVERTURE_PORTAIL[a.ouverture].toLowerCase()} · à ${m(a.x)}`;
+  return `${a.nature === 'portail' ? 'Portail' : 'Portillon'} ${m(a.largeur)} · ${libelleOuMot(LIBELLES_OUVERTURE_PORTAIL, a.ouverture, minuscules)} · à ${m(a.x)}`;
+}
+
+// ---- Les decisions qui touchent la cloture (l'audit, l'import du cadastre) : elles passent par ici (etape 6.6). ----
+
+/** La position d'un portail le long de son cote, vu de la rue (la convention de `Portail.x`). */
+export function abscisseDuPortail(position: PositionPortail | undefined, longueur: number, largeur: number, x: number): number {
+  const cm = (v: number) => Math.round(v * 100) / 100;
+  const marge = Math.min(0.5, Math.max(0, (longueur - largeur) / 2));
+  if (position === 'gauche') return cm(marge);
+  if (position === 'droite') return cm(Math.max(0, longueur - largeur - marge));
+  if (position === 'centre') return cm(Math.max(0, (longueur - largeur) / 2));
+  return x;
+}
+
+/** Le muret pose sous une cloture quand on en a vu un : 50 cm d'enduit, comme on en voit le plus. */
+const SOUBASSEMENT_VU = { hauteur: 0.5, parement: 'enduit' as const };
+
+/**
+ * Ce que l'audit a vu d'une cloture sur rue, pose sur le cote `cote` de la parcelle : sa nature, sa hauteur, son muret. Le cote
+ * devient la limite sur rue et la cloture est active. Une decision de l'audit (regles/decisions.ts) passe par ici.
+ */
+export function reglerCoteVuDeLaRue(p: ObjetPlan & { pts: PtBrut[] }, cote: number, type: TypeClotureVue, hauteurM?: number, soubassement?: boolean): void {
+  const cl = clotureDe(p, true);
+  const r = reglerCote(cl, cote);
+  if (r.type !== type) changerType(r, type);
+  if (hauteurM !== undefined && hauteurM > 0) r.hauteur = hauteurM;
+  if (soubassement === false) r.soubassement = null;
+  else if (soubassement === true && r.type !== 'mur') r.soubassement = r.soubassement ?? { ...SOUBASSEMENT_VU };
+  r.limite = 'rue';
+  cl.active = true;
+  synchroniserAnciensChamps(p);
+}
+
+/**
+ * Ce que l'audit a vu d'un acces sur le cote `cote` : un portail, un portillon, ou aucun (les acces du cote partent). Un acces
+ * deja la change de nature plutot que d'en ajouter un ; sa position et sa largeur suivent ce qui a ete vu.
+ */
+export function poserAccesVuDeLaRue(p: ObjetPlan & { pts: PtBrut[] }, cote: number, nature: Portail['nature'] | 'aucun', position?: PositionPortail, largeurM?: number): void {
+  const cl = clotureDe(p, true);
+  if (nature === 'aucun') {
+    cl.portails = cl.portails.filter((a) => a.cote !== cote);
+  } else {
+    const longueur = longueurDuCote(p.pts, cote);
+    const surLeCote = accesDuCote(cl, cote);
+    let a = surLeCote.find((x) => x.nature === nature) ?? surLeCote[0];
+    if (!a) { a = nouveauPortail(nature, cote, longueur); cl.portails.push(a); }
+    if (a.nature !== nature) {
+      // Un portail devenu portillon (ou l'inverse) prend l'ouverture de sa nature ; le reste est garde.
+      const neuf = nouveauPortail(nature, cote, longueur);
+      a.nature = nature; a.ouverture = neuf.ouverture; a.largeur = neuf.largeur; a.motorise = neuf.motorise;
+    }
+    if (largeurM !== undefined && largeurM > 0) a.largeur = largeurM;
+    a.x = abscisseDuPortail(position, longueur, a.largeur, a.x);
+  }
+  cl.active = true;
+  synchroniserAnciensChamps(p);
+}
+
+/**
+ * La cloture d'une parcelle qu'on vient d'importer du cadastre, posee sur elle : l'acces sur le cote `devine` (celui de la rue,
+ * geo/coteRue.ts), les anciens champs tenus a jour.
+ */
+export function poserClotureDImport(p: ObjetPlan & { pts: PtBrut[] }, devine: number | null): void {
+  p.cloture = clotureDImport(p.pts, devine);
+  synchroniserAnciensChamps(p);
 }

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "essai-yvelines",
+    "quand": { "departements": ["78"] },
+    "surcharges": { "SEUIL_MARCHE_M": 1.2, "DEPASSEMENT_VEGETATION_M": 5 },
+    "pourquoi": "Profil d'essai des tests (tests/unit/model/profilsToits.test.ts) : jamais livre.",
+    "cas": ["essai/a", "essai/b"]
+  },
+  {
+    "id": "essai-yvelines-mitoyen",
+    "quand": { "departements": ["78"], "mitoyennete": "forte" },
+    "surcharges": { "SEUIL_MARCHE_M": 1.5 },
+    "pourquoi": "Plus precis que essai-yvelines : il l'emporte sur SEUIL_MARCHE_M, pas sur le reste.",
+    "cas": ["essai/c", "essai/d"]
+  },
+  {
+    "id": "essai-nord",
+    "quand": { "departements": ["59", "62"] },
+    "surcharges": { "SEUIL_MARCHE_M": 0.6 },
+    "pourquoi": "Meme precision que essai-yvelines sur le meme seuil, mais jamais sur le meme batiment.",
+    "cas": ["essai/e", "essai/f"]
+  }
+]

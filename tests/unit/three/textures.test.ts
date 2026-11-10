@@ -130,8 +130,9 @@ describe('qui a le droit de detruire une texture', () => {
 });
 
 describe('ce que la source doit continuer de dire', () => {
-  // La scene et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde.
-  const scene = ['scene.ts', 'primitives.ts']
+  // La scene, ses parties (sceneTerrasse, sceneObjets, sceneVivante, ouvrages/) et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde ;
+  // un arbre n'en demande plus (three/arbre3d.ts : EZ-tree porte ses images).
+  const scene = ['scene.ts', 'sceneTerrasse.ts', 'sceneObjets.ts', 'sceneVivante.ts', 'primitives.ts', 'arbre3d.ts', 'ouvrages/pose.ts', 'ouvrages/parasol.ts', 'ouvrages/terrasse.ts', 'ouvrages/bati.ts']
     .map((f) => readFileSync(resolve(__dirname, '../../../src/three/' + f), 'utf8')).join('\n');
   const sansCommentaires = scene.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -147,8 +148,8 @@ describe('ce que la source doit continuer de dire', () => {
     const appels = sansCommentaires.match(/chargerTexture(?:Polyhaven)?\([^)]*\)/g) || [];
     const avecCarreau = appels.filter((a) => a.includes('METRES_PAR_CARREAU'));
     const sansCarreau = appels.filter((a) => !a.includes('METRES_PAR_CARREAU'));
-    expect(avecCarreau.length, 'prisme et ruban : leurs UV sont des metres').toBe(2);
-    expect(sansCarreau.length, 'toile de parasol et feuillage : leurs UV sont normalises').toBe(2);
+    expect(avecCarreau.length, 'prisme et rubans (plat ou drape) : leurs UV sont des metres').toBe(2);
+    expect(sansCarreau.length, 'toile de parasol : ses UV sont normalises (les arbres viennent d\'EZ-tree et ne demandent plus de texture)').toBe(1);
   });
 
   it('la demolition de scene epargne ce qu elle a emprunte', () => {

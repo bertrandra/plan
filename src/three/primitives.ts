@@ -2,13 +2,13 @@
 // sol, une piece de bois coupee a son contour, une bande mitree, une vis, un plot.
 //
 // Chacune pose ses meshes dans la scene qu'on lui donne, en passant par `versLocal` : le plan est en
-// metres, Y vers le nord ; la 3D en metres, Y vers le HAUT et Z vers le sud. Les courbes et rubans
-// des chemins sont calcules en coordonnees du plan, sans Three, et vivent ici a cote.
+// metres, Y vers le nord ; la 3D en metres, Y vers le HAUT et Z vers le sud. La courbe et le ruban
+// des chemins sont de la geometrie du plan : geometry/courbe.ts et geometry/ruban.ts.
 
 import { dist } from '../geometry/basic.js';
 import { sommetDe } from '../geometry/anneau.js';
-import { lineLineIntersect } from '../geometry/segments.js';
-import { empriseLame } from '../engine/lames.js';
+import { ribbonChemin } from '../geometry/ruban.js';
+import { empriseLame, empriseLameTrouee } from '../engine/lames.js';
 import { METRES_PAR_CARREAU } from './chargeurs.js';
 import type * as THREE_NS from 'three';
 import type { PtBrut } from '../model/types.js';
@@ -42,10 +42,73 @@ export function poserEnCouche(mat: THREE_NS.Material, couche: number): void {
   mat.polygonOffsetUnits = -4 * couche;
 }
 
+/**
+ * Ce qui est pose a plat au sol (le sol vert, le terrain, l'orthophoto, les chemins) ne se dessine
+ * pas la ou un bassin a marque le tampon de gabarit (three/piscine3d.ts) : c'est ce qui perce le
+ * sol au droit du plan d'eau. Sans bassin, le gabarit reste a 0 et le test laisse tout passer. Rien
+ * de vertical ne recoit ce test : un mur devant la piscine masquerait sinon sa propre photo.
+ */
+export function percerSol(mat: THREE_NS.Material): void {
+  mat.stencilWrite = true;
+  mat.stencilRef = 1;
+  // Le masque d'ecriture reste ouvert (les operations « garder » n'ecrivent rien) : ferme, il
+  // empecherait aussi l'effacement du tampon entre deux images, et les trous des images precedentes
+  // resteraient au sol quand la camera bouge.
+  mat.stencilFunc = THREE.NotEqualStencilFunc;
+  mat.stencilZPass = THREE.KeepStencilOp;
+  mat.stencilZFail = THREE.KeepStencilOp;
+  mat.stencilFail = THREE.KeepStencilOp;
+}
+
+/** Marque des objets qui ne projettent pas d'ombre (un gabarit, l'eau) : `appliquerOmbres` les saute. */
+export const SANS_OMBRE = 'sansOmbre';
+/** Marque d'un gabarit qui perce le sol : l'export GLB le retire (il n'a de sens que pour ce rendu). */
+export const GABARIT_SOL = 'gabaritSol';
+/** Marque d'un objet propre a l'ecran (la position GPS de l'appareil) : l'export GLB le retire aussi. */
+export const HORS_EXPORT = 'horsExport';
+/**
+ * Marque de l'inverse : un objet cache a l'ecran, montre le temps d'un export. Les baies a plat d'un
+ * batiment proche, quand l'ecran les montre en creux (three/fenetresRelief.ts) : le .glb, lui, garde
+ * celles d'avant, et son empreinte golden ne bouge pas.
+ */
+export const EXPORT_SEULEMENT = 'exportSeulement';
+
+/** Un polygone du plan, a plat, en y = 0. */
+export function polygoneAPlat(pts: PtBrut[], versLocal: VersLocal): THREE_NS.BufferGeometry {
+  const shape = new THREE.Shape();
+  pts.forEach((q, i) => { const p = versLocal(q); if (i === 0) shape.moveTo(p.x, -p.z); else shape.lineTo(p.x, -p.z); });
+  shape.closePath();
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+
+/**
+ * Perce le sol sur un contour : le contour est dessine avant tout le reste (ordre de rendu tres
+ * bas), sans couleur ni profondeur, et marque ses pixels a 1 dans le tampon de gabarit ; ce qui est
+ * pose a plat au sol ne s'y dessine pas (`percerSol`). On voit alors ce qui est dessous : un bassin,
+ * ou l'assise d'une terrasse quand le sol est en coupe.
+ */
+export function gabaritSol(scene: THREE_NS.Object3D, versLocal: VersLocal, contour: PtBrut[]): void {
+  const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
+  mat.stencilWrite = true;
+  mat.stencilRef = 1;
+  mat.stencilFunc = THREE.AlwaysStencilFunc;
+  mat.stencilZPass = THREE.ReplaceStencilOp;
+  mat.stencilZFail = THREE.ReplaceStencilOp;
+  mat.stencilFail = THREE.ReplaceStencilOp;
+  const m = new THREE.Mesh(polygoneAPlat(contour, versLocal), mat);
+  m.position.y = 0.001;
+  m.renderOrder = -100;
+  m.userData[SANS_OMBRE] = true;
+  m.userData[GABARIT_SOL] = true;
+  scene.add(m);
+}
+
 export type CouleurTrois = string | number;
 
 /** Un anneau mitre produit par `engine/layers.ts` : deux polygones paralleles. */
-export interface AnneauMitre { ext: PtBrut[]; int: PtBrut[] }
+export interface AnneauMitre { ext: PtBrut[]; int: PtBrut[]; /** Les cotes a poser ; absent : tous. */ actifs?: boolean[] | undefined }
 
 /**
  * Les deux textures d'un objet : le dessus qu'on voit a plat, et les faces verticales.
@@ -53,12 +116,25 @@ export interface AnneauMitre { ext: PtBrut[]; int: PtBrut[] }
  * `unknown` pour chacune : la forme complete de l'enregistrement Poly Haven appartient au selecteur
  * de texture ; la 3D n'en lit que l'URL, par `urlTexture`.
  */
+/** Les textures d'un objet : une texture choisie ({ url }), ou une texture dessinee (THREE.Texture). */
 export interface TexturesObjet { horizontale?: unknown; vertical?: unknown }
 
 /** L'URL d'une texture, si elle en a une. */
 export function urlTexture(ref: unknown): string | undefined {
   const r = ref as { url?: string } | null | undefined;
   return r && r.url ? r.url : undefined;
+}
+
+/**
+ * La texture a poser : une texture choisie ({ url }) - les UV valent des metres reels, la repetition
+ * posee par le chargeur cale une image sur METRES_PAR_CARREAU m quelle que soit la taille de l'objet,
+ * c'est ce qui permet le partage - ou une texture dessinee (le materiau des murs,
+ * three/textureMur.ts), qui porte deja sa repetition.
+ */
+function carteDe(texRef: unknown, chargerTexture: (url: string, repetition?: number) => THREE_NS.Texture): THREE_NS.Texture | undefined {
+  const url = urlTexture(texRef);
+  if (url) return chargerTexture(url, 1 / METRES_PAR_CARREAU);
+  return (texRef as { isTexture?: boolean } | null | undefined)?.isTexture ? (texRef as THREE_NS.Texture) : undefined;
 }
 
 /**
@@ -79,59 +155,6 @@ export type VersLocal = (p: PtBrut) => { x: number; z: number };
  */
 export function versLocalDepuis(cen: PtBrut): VersLocal {
   return (p) => ({ x: p.x - cen.x, z: cen.y - p.y });
-}
-
-// Meme algorithme que pathD (Catmull-Rom -> Bezier cubique, cf. rendu 2D du plan) mais evalue
-// directement en coordonnees plan : c'est la MEME courbe, echantillonnee en une polyligne dense.
-// Sans ca, un chemin en mode courbe se rendrait en 3D comme la ligne brisee de ses points.
-export function courbePolyligne(pts: PtBrut[], curve?: boolean, segsParTroncon = 12): PtBrut[] {
-  const premier = pts[0];
-  if (pts.length < 3 || !curve || !premier) return pts.slice();
-  const borne = (i: number) => sommetDe(pts, Math.max(0, Math.min(pts.length - 1, i)));
-  const out: PtBrut[] = [premier];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = borne(i - 1), p1 = borne(i), p2 = borne(i + 1), p3 = borne(i + 2);
-    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
-    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
-    for (let k = 1; k <= segsParTroncon; k++) {
-      const t = k / segsParTroncon, mt = 1 - t;
-      out.push({
-        x: mt * mt * mt * p1.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * p2.x,
-        y: mt * mt * mt * p1.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * p2.y
-      });
-    }
-  }
-  return out;
-}
-
-// Un chemin est une largeur reelle, pas un trait : chaque bord est decale perpendiculairement au
-// trace d'une demi-largeur. Aux sommets interieurs les deux bords adjacents sont mitres par
-// intersection ; aux extremites, un seul segment voisin, un simple decalage suffit.
-export function ribbonChemin(pts: PtBrut[], largeur: number): PtBrut[] | null {
-  const n = pts.length;
-  if (n < 2 || !(largeur > 0)) return null;
-  const demi = largeur / 2;
-  const segs = pts.slice(0, -1).map((a, i) => {
-    const b = sommetDe(pts, i + 1);
-    const ex = b.x - a.x, ey = b.y - a.y; const L = Math.hypot(ex, ey) || 1;
-    return { ux: ex / L, uy: ey / L, nx: -ey / L, ny: ex / L };
-  });
-  const seg = (i: number) => sommetDe(segs, i);
-  function bord(p: PtBrut, i: number, sens: number): PtBrut {
-    if (i === 0) return { x: p.x + seg(0).nx * demi * sens, y: p.y + seg(0).ny * demi * sens };
-    if (i === n - 1) return { x: p.x + seg(n - 2).nx * demi * sens, y: p.y + seg(n - 2).ny * demi * sens };
-    const s1 = seg(i - 1), s2 = seg(i);
-    const o1 = { x: p.x + s1.nx * demi * sens, y: p.y + s1.ny * demi * sens };
-    const o2 = { x: p.x + s2.nx * demi * sens, y: p.y + s2.ny * demi * sens };
-    const inter = lineLineIntersect(o1, { x: s1.ux, y: s1.uy }, o2, { x: s2.ux, y: s2.uy });
-    // Un virage tres serre pousse le mitre tres loin : au-dela d'une distance raisonnable on
-    // retombe sur un simple biseau (moyenne des deux bords), qui reste proche du trace.
-    if (!inter || dist(inter, p) > demi * 4) return { x: (o1.x + o2.x) / 2, y: (o1.y + o2.y) / 2 };
-    return inter;
-  }
-  const gauche = pts.map((p, i) => bord(p, i, 1));
-  const droite = pts.map((p, i) => bord(p, i, -1));
-  return gauche.concat(droite.reverse());
 }
 
 // Approxime un cercle du plan par un polygone regulier, au RAYON REEL (contrairement a
@@ -169,25 +192,116 @@ function uvDeroule(pts2d: { x: number; y: number }[]) {
   };
 }
 
+/** La plus grande maille d'un ruban drape : celle de la grille LiDAR la plus fine (50 cm). */
+export const PAS_DRAPE_M = 0.5;
+
+/**
+ * La geometrie d'un ruban drape sur le sol : entre les deux bords mitres de `ribbonChemin`, des
+ * quadrilateres recoupes en mailles d'au plus `pas` metres en long comme en travers, chaque sommet a
+ * `sol(p) + decalage`. `null` si le trace ne fait pas de ruban.
+ */
+export function geometrieRubanDrape(trace: PtBrut[], largeur: number, versLocal: VersLocal, sol: (p: PtBrut) => number, decalage: number, pas = PAS_DRAPE_M): THREE_NS.BufferGeometry | null {
+  const ruban = ribbonChemin(trace, largeur);
+  const n = trace.length;
+  if (!ruban || ruban.length !== 2 * n) return null;
+  const gauche = ruban.slice(0, n), droite = ruban.slice(n).reverse();
+  const positions: number[] = [], uv: number[] = [];
+  const sommet = (p: PtBrut) => { const l = versLocal(p); positions.push(l.x, sol(p) + decalage, l.z); uv.push(l.x, -l.z); };
+  const mix = (a: PtBrut, b: PtBrut, t: number): PtBrut => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const travers = Math.max(1, Math.ceil(largeur / pas));
+  for (let i = 0; i < n - 1; i++) {
+    const g0 = sommetDe(gauche, i), g1 = sommetDe(gauche, i + 1), d0 = sommetDe(droite, i), d1 = sommetDe(droite, i + 1);
+    const long = Math.max(1, Math.ceil(Math.max(dist(g0, g1), dist(d0, d1)) / pas));
+    for (let a = 0; a < long; a++) for (let b = 0; b < travers; b++) {
+      const coin = (ta: number, tb: number) => mix(mix(g0, g1, ta), mix(d0, d1, ta), tb);
+      const p00 = coin(a / long, b / travers), p10 = coin((a + 1) / long, b / travers);
+      const p01 = coin(a / long, (b + 1) / travers), p11 = coin((a + 1) / long, (b + 1) / travers);
+      [p00, p01, p11, p00, p11, p10].forEach(sommet);
+    }
+  }
+  if (!positions.length) return null;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Monte chaque sommet d'une forme a plat (deja tournee, y = 0) a la hauteur du sol sous lui.
+ * ShapeGeometry ne garde que les sommets du contour : chacun retrouve son point du plan par ses
+ * coordonnees locales, plutot que par un ordre que la triangulation ne garantit pas.
+ */
+export function poserSommetsSurSol(geo: THREE_NS.BufferGeometry, poly: PtBrut[], versLocal: VersLocal, sol: (p: PtBrut) => number): void {
+  const locaux = poly.map(q => ({ q, l: versLocal(q) }));
+  const pos = geo.getAttribute('position');
+  for (let k = 0; k < pos.count; k++) {
+    const x = pos.getX(k), z = pos.getZ(k);
+    let proche = locaux[0];
+    locaux.forEach(c => { if (proche && Math.abs(c.l.x - x) + Math.abs(c.l.z - z) < Math.abs(proche.l.x - x) + Math.abs(proche.l.z - z)) proche = c; });
+    if (proche) pos.setY(k, sol(proche.q));
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+}
+
 /** Ce que les briques demandent : la scene, le repere, et le chargeur de textures partagees. */
 export interface ContextePrimitives {
-  scene: THREE_NS.Scene;
+  /** La scene, ou un groupe : celui d'une terrasse decaissee, descendu dans sa fouille. */
+  scene: THREE_NS.Object3D;
   versLocal: VersLocal;
   chargerTexture: (url: string, repetition?: number) => THREE_NS.Texture;
 }
 
-export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePrimitives) {
+/**
+ * Le materiau d'un ruban pose au sol (un chemin) : sa couleur, sa texture a l'echelle du carreau
+ * (ses coordonnees de texture sont des metres), et sa couche (COUCHES_SOL), percee au droit d'un bassin.
+ */
+function materiauRuban(color: CouleurTrois, opacity: number | undefined, texRef: unknown, couche: number | undefined, chargerTexture: ContextePrimitives['chargerTexture']): THREE_NS.MeshStandardMaterial {
+  const mat = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
+  appliquerOpacite(mat, opacity);
+  const urlTex = urlTexture(texRef);
+  if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
+  if (couche) { poserEnCouche(mat, couche); percerSol(mat); }
+  return mat;
+}
+
+type ArgsRubanDrape = [trace: PtBrut[], largeur: number, color: CouleurTrois, decalage: number, opacity: number | undefined, texRef: unknown, couche: number, sol: (p: PtBrut) => number];
+
+/**
+ * Un ruban drape sur le sol en relief (un chemin) : les deux bords de `ribbonChemin`, recoupes en
+ * mailles d'au plus PAS_DRAPE_M, chaque sommet a la hauteur du sol sous lui plus `decalage`. Les
+ * coordonnees de texture sont celles du ruban plat (metres du plan, centres sur la scene).
+ */
+function ajouterRubanDrape({ scene, versLocal, chargerTexture }: ContextePrimitives, ...[trace, largeur, color, decalage, opacity, texRef, couche, sol]: ArgsRubanDrape): THREE_NS.Mesh | null {
+  const geo = geometrieRubanDrape(trace, largeur, versLocal, sol, decalage);
+  if (!geo) return null;
+  const mesh = new THREE.Mesh(geo, materiauRuban(color, opacity, texRef, couche, chargerTexture));
+  scene.add(mesh);
+  return mesh;
+}
+
+export function creerPrimitives(contexte: ContextePrimitives) {
+  const { scene, versLocal, chargerTexture } = contexte;
   // Extrude une emprise du plan vers le haut. ExtrudeGeometry construit en XY et pousse selon +Z :
   // la forme est posee en (x, -z) puis tournee d'un quart de tour autour de X. Non biseautee, elle
   // construit TOUJOURS le groupe 0 = les deux capuchons (horizontaux apres la rotation) puis le
   // groupe 1 = les faces laterales (verticales) — d'ou le tableau de materiaux dans cet ordre.
   // `opacity` : undefined pour les pieces de la terrasse (toujours pleines).
-  function addPrism(footprint: PtBrut[] | null | undefined, yBase: number, height: number, color: CouleurTrois, filaire?: boolean, opacity?: number, textures?: TexturesObjet | null): void {
+  // `trous` : les anneaux interieurs qui percent l'emprise de part en part (le bassin d'une terrasse
+  // de piscine) ; ExtrudeGeometry remet lui-meme leur sens de parcours a l'oppose du contour.
+  function addPrism(footprint: PtBrut[] | null | undefined, yBase: number, height: number, color: CouleurTrois, filaire?: boolean, opacity?: number, textures?: TexturesObjet | null, trous: PtBrut[][] = []): void {
     if (!footprint || footprint.length < 3 || height <= 0) return;
     const pts2d = footprint.map(p => { const l = versLocal(p); return { x: l.x, y: -l.z }; });
     const shape = new THREE.Shape();
     pts2d.forEach((p, i) => { if (i === 0) shape.moveTo(p.x, p.y); else shape.lineTo(p.x, p.y); });
     shape.closePath();
+    trous.filter(t => t.length >= 3).forEach(t => {
+      const trou = new THREE.Path();
+      t.forEach((p, i) => { const l = versLocal(p); if (i === 0) trou.moveTo(l.x, -l.z); else trou.lineTo(l.x, -l.z); });
+      trou.closePath();
+      shape.holes.push(trou);
+    });
     const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, UVGenerator: uvDeroule(pts2d) });
     geo.rotateX(-Math.PI / 2);
     let objet;
@@ -199,10 +313,8 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
       const faire = (texRef: unknown) => {
         const mat = new THREE.MeshStandardMaterial({ color });
         appliquerOpacite(mat, opacity);
-        const urlTex = urlTexture(texRef);
-        // Les UV valent des metres reels : la repetition posee par le chargeur cale une image sur
-        // METRES_PAR_CARREAU m quelle que soit la taille de l'objet — c'est ce qui permet le partage.
-        if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
+        const carte = carteDe(texRef, chargerTexture);
+        if (carte) mat.map = carte;
         return mat;
       };
       objet = textures && (textures.horizontale || textures.vertical)
@@ -225,28 +337,33 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   // Ruban plat au sol (chemin non sureleve, le cas courant) : une forme remplie, sans extrusion,
   // posee legerement au-dessus du sol, et rangee dans sa couche (`couche`, voir COUCHES_SOL) : quelques
   // millimetres ne suffisent pas a eviter le scintillement vu de loin.
-  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number): void {
-    if (!poly || poly.length < 3) return;
+  // `sol` : la hauteur du sol en relief en un point du plan (three/relief3d.ts) ; chaque sommet du
+  // ruban monte alors a cette hauteur plus `yLevel`. Entre deux sommets le ruban reste plan : un
+  // long chemin droit sur un sol bombe peut passer dessous par endroits — un trait au sol n'a pas
+  // d'epaisseur a offrir, et subdiviser un ruban mitre demanderait une triangulation a part.
+  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number, sol?: (p: PtBrut) => number): THREE_NS.Mesh | null {
+    if (!poly || poly.length < 3) return null;
     const shape = new THREE.Shape();
     poly.forEach((q, i) => { const p = versLocal(q); if (i === 0) shape.moveTo(p.x, -p.z); else shape.lineTo(p.x, -p.z); });
     shape.closePath();
     const geo = new THREE.ShapeGeometry(shape);
     geo.rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
-    appliquerOpacite(mat, opacity);
-    const urlTex = urlTexture(texRef);
-    // ShapeGeometry pousse les coordonnees locales brutes (des metres) comme UV : meme echelle.
-    if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
-    if (couche) poserEnCouche(mat, couche);
+    if (sol) poserSommetsSurSol(geo, poly, versLocal, sol);
+    // ShapeGeometry pousse les coordonnees locales brutes (des metres) comme UV : l'echelle du carreau.
+    const mat = materiauRuban(color, opacity, texRef, couche, chargerTexture);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
     scene.add(mesh);
+    return mesh;
   }
 
   // Une piece de bois, coupee au contour dans lequel elle s'arrete plutot qu'a 90 degres.
-  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null, opacity?: number): void {
+  // `trous` : une lame qui s'arrete sur un bassin ou une tremie y est coupee a sa forme.
+  function addBeam(a: PtBrut, b: PtBrut, yBase: number, sectionH: number, sectionW: number, color: CouleurTrois, poly: PtBrut[] | null | undefined, filaire?: boolean, textures?: TexturesObjet | null, opacity?: number, trous: PtBrut[][] = []): void {
     if (dist(a, b) < 0.02) return;
-    addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, opacity, textures);
+    if (!trous.length) { addPrism(empriseLame(a, b, sectionW, poly), yBase, sectionH, color, filaire, opacity, textures); return; }
+    const e = empriseLameTrouee(a, b, sectionW, poly, trous);
+    addPrism(e.contour, yBase, sectionH, color, filaire, opacity, textures, e.trous);
   }
 
   // Une bande perimetrale mitree : chaque cote devient le quadrilatere entre les deux anneaux, et les
@@ -256,25 +373,30 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
     const n = Math.min(bande.ext.length, bande.int.length);
     const ext = bande.ext.slice(0, n), int = bande.int.slice(0, n);
     ext.forEach((e, i) => {
+      if (bande.actifs && bande.actifs[i] === false) return;
       addPrism([e, sommetDe(ext, i + 1), sommetDe(int, i + 1), sommetDe(int, i)], yBase, height, color, false, undefined, textures);
     });
   }
 
   // Une vis se dessine SOUS le plan de sol, puisque c'est la qu'elle est. Seule sa tete reglable,
   // quand on la fait depasser, monte au-dessus du sol et porte la structure.
-  function addPost(p: PtBrut, profondeur: number, hTete: number, radius: number, color: CouleurTrois): void {
+  // `yBase` : le sol de CETTE vis (MD/spec-relief.md §6), compte dans le repere ou l'on pose. Sur un
+  // sol en pente il est sous le niveau de la structure, et la tete est d'autant plus longue : le fut
+  // enterre part de `yBase` vers le bas, la tete monte de `yBase` a `hTete`. A zero, rien ne change.
+  function addPost(p: PtBrut, profondeur: number, hTete: number, radius: number, color: CouleurTrois, yBase = 0): void {
     const P = versLocal(p);
     if (profondeur > 0) {
       const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.5, profondeur, 10), new THREE.MeshStandardMaterial({ color }));
-      mesh.position.set(P.x, -profondeur / 2, P.z);
+      mesh.position.set(P.x, yBase - profondeur / 2, P.z);
       scene.add(mesh);
     }
-    if (hTete > 0) {
-      const fut = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.8, radius * 0.8, hTete, 10), new THREE.MeshStandardMaterial({ color: 0xb8c2ce }));
-      fut.position.set(P.x, hTete / 2, P.z);
+    const longueurTete = hTete - yBase;
+    if (longueurTete > 0) {
+      const fut = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.8, radius * 0.8, longueurTete, 10), new THREE.MeshStandardMaterial({ color: 0xb8c2ce }));
+      fut.position.set(P.x, yBase + longueurTete / 2, P.z);
       scene.add(fut);
       // La platine qui recoit la solive, plaquee sous le dessous de la structure.
-      const ep = Math.min(0.012, hTete * 0.35);
+      const ep = Math.min(0.012, longueurTete * 0.35);
       const pl = new THREE.Mesh(new THREE.BoxGeometry(radius * 3.4, ep, radius * 3.4), new THREE.MeshStandardMaterial({ color: 0x8a96a8 }));
       pl.position.set(P.x, hTete - ep / 2, P.z);
       scene.add(pl);
@@ -283,23 +405,27 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
 
   // Un plot : base large evasee posee sur l'assise, fut etroit, tete plate sous la lambourde. La
   // base porte la surface d'assise reglee dans Construction, en cm².
-  function addPlot(p: PtBrut, yTop: number, color: CouleurTrois, surfaceAssiseCm2: number): void {
+  // `yBase` : le sol de CE plot (MD/spec-relief.md §6). Sur un sol en pente, le pied descend sous le
+  // niveau de la structure et le fut s'allonge d'autant ; la tete reste a `yTop`. A zero, rien ne change.
+  function addPlot(p: PtBrut, yTop: number, color: CouleurTrois, surfaceAssiseCm2: number, yBase = 0): void {
     const P = versLocal(p);
-    if (yTop <= 0) return;
+    const hauteur = yTop - yBase;
+    if (hauteur <= 0) return;
     const rBase = Math.sqrt(surfaceAssiseCm2 / Math.PI) / 100;
-    const hBase = Math.min(0.03, yTop * 0.3);
-    const hTete = Math.min(0.02, yTop * 0.2);
+    const hBase = Math.min(0.03, hauteur * 0.3);
+    const hTete = Math.min(0.02, hauteur * 0.2);
     const mat = new THREE.MeshStandardMaterial({ color });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.72, rBase, hBase, 14), mat);
-    base.position.set(P.x, hBase / 2, P.z); scene.add(base);
-    const futH = Math.max(0.005, yTop - hBase - hTete);
+    base.position.set(P.x, yBase + hBase / 2, P.z); scene.add(base);
+    const futH = Math.max(0.005, hauteur - hBase - hTete);
     const fut = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.3, rBase * 0.34, futH, 12), mat);
-    fut.position.set(P.x, hBase + futH / 2, P.z); scene.add(fut);
+    fut.position.set(P.x, yBase + hBase + futH / 2, P.z); scene.add(fut);
     const tete = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.55, rBase * 0.55, hTete, 14), mat);
     tete.position.set(P.x, yTop - hTete / 2, P.z); scene.add(tete);
   }
 
-  return { addPrism, addGroundOutline, addRibbonFlat, addBeam, addBande, addPost, addPlot };
+  const addRubanDrape = (...a: ArgsRubanDrape) => ajouterRubanDrape(contexte, ...a);
+  return { addPrism, addGroundOutline, addRibbonFlat, addRubanDrape, addBeam, addBande, addPost, addPlot };
 }
 
 export type Primitives = ReturnType<typeof creerPrimitives>;

@@ -6,17 +6,29 @@
 // a `Construction` sans descripteur (ou sans mention explicite de l'endroit qui l'edite) est une
 // erreur de compilation. C'est la garantie que D-12 demandait.
 //
-// Les sections reprennent la structure de l'ouvrage, du sol vers la finition, et les notes qui
-// accompagnent chaque champ sont celles du metier : ce que vaut la portee calculee, quand un plot
-// sort du domaine du DTU, combien de vis la grille compte.
+// Comme pour une piscine (ui/champs/piscine.ts), la terrasse se regle par etapes numerotees, dans
+// l'ordre ou l'on decide : 1. l'implantation et le niveau fini (decaissement, trous), 2. la
+// fondation et son assise, 3. les lames, 4. la structure qui les porte, 5. les appuis et leurs
+// charges, 6. les finitions du tour ; les parametres de calcul, replies, a la fin. L'optimisation
+// est un resultat : elle est au tiroir, a cote de la nomenclature (zones/resultats/). Chaque etape
+// ne montre que ce qui a un sens apres les choix precedents : pas d'assise sous des vis, pas de
+// solives sous des lambourdes posees sur plots. Les notes qui accompagnent chaque
+// champ sont celles du metier : ce que vaut la portee calculee, quand un plot sort du domaine du
+// DTU, combien de vis la grille compte.
 
 import { au } from '../../util/tableaux.js';
+import { appuisEnHauteur, type AppuisEnHauteur } from '../../engine/hauteurs.js';
+import { solDuProjet } from '../../engine/sol.js';
 import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
-import { CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, findSpaZones, zoneToucheTerrasse } from '../../engine/structure.js';
-import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
+import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
+import { objetsQuiPercent } from '../../engine/ouvrages/liens.js';
+import { buildVisGrid, findSpaZones, ouverturesDe, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
+import { surfaceNetteTerrasse } from '../../engine/ouvrages/terrasse.js';
+import { dalleEnFouille, decaissementPoseMm, hauteurFinieMm, hauteurStructureMm } from '../../engine/hauteurs.js';
+import { estTrou } from '../../model/fonctions.js';
+import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/bois/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 
@@ -30,10 +42,29 @@ interface Lecture {
   nomsEquip: string;
   surfM2: number;
   spanAppui: number;
+  /** Sur un sol en pente (MD/spec-relief.md §6) : la hauteur de chaque appui ; `null` sur un terrain plat. */
+  pente: AppuisEnHauteur | null;
 }
+
+/**
+ * Ce que les champs de la construction relisent, une fois par rendu de l'inspecteur (MD/roadmap-architecture.md, etape 2.1) : chaque
+ * champ (sa note, sa visibilite, son etat) appelait `lire`, et chaque appel refaisait la grille des vis, les zones de spa et la
+ * hauteur des appuis sur le relief, des dizaines de fois par rendu. Le contexte est neuf a chaque rendu ; l'empreinte (contour,
+ * construction, nombre d'objets) fait qu'une ecriture faite dans le meme contexte relit des valeurs a jour.
+ */
+const lectures = new WeakMap<ContexteChamps, { empreinte: string; lecture: Lecture }>();
 
 function lire(cx: ContexteChamps): Lecture {
   const c = cx.construction();
+  const empreinte = JSON.stringify([aDesSommets(cx.obj) ? cx.obj.pts : null, c, cx.objets.length]);
+  const deja = lectures.get(cx);
+  if (deja && deja.empreinte === empreinte) return deja.lecture;
+  const lecture = calculerLecture(cx, c);
+  lectures.set(cx, { empreinte, lecture });
+  return lecture;
+}
+
+function calculerLecture(cx: ContexteChamps, c: Construction): Lecture {
   const obj = cx.obj;
   const plots = estPlots(c);
   const grille = (aDesSommets(obj) && obj.pts.length >= 3) ? buildVisGrid(obj, null, cx.objets) : [];
@@ -45,8 +76,9 @@ function lire(cx: ContexteChamps): Lecture {
     visCount: grille.length,
     visSpa: grille.filter(p => p.role === 'spa').length,
     nomsEquip: zonesEquip.map(z => z.nom).join(', '),
-    surfM2: shoelace(sommetsDe(obj)) || 1,
-    spanAppui: porteeAppuiM(c)
+    surfM2: (obj.type === 'polygon' ? surfaceNetteTerrasse(obj.pts, cx.objets) : shoelace(sommetsDe(obj))) || 1,
+    spanAppui: porteeAppuiM(c),
+    pente: appuisEnHauteur(obj, grille, solDuProjet(cx.objets))
   };
 }
 
@@ -68,6 +100,9 @@ const nombre = (cle: keyof Construction, libelle: string, opts: { pas: number; m
   });
 };
 const alerte = (l: Lecture) => l.plots ? 'plots' : 'vis';
+/** Le plot le plus haut : celui d'aval sur un sol en pente, sinon la hauteur reglee. */
+const plotLePlusHautCm = (l: Lecture): number => (l.pente ? Math.round(l.pente.maxMm / 10) : (l.c.hauteurPlot || 10));
+const teteLaPlusHauteCm = (l: Lecture): number => (l.pente ? Math.round(l.pente.maxMm / 10) : (l.c.depassementVis || 0));
 
 /** Ou se regle une propriete de `Construction` quand ce n'est pas ici. */
 type Ailleurs = { ailleurs: 'onglet BOM' | 'onglet Chantier' | 'onglet Implantation' | 'Vue 3D' | 'calcul' };
@@ -77,7 +112,7 @@ type Ailleurs = { ailleurs: 'onglet BOM' | 'onglet Chantier' | 'onglet Implantat
  * la liste soit complete : ajouter une propriete au modele sans passer ici ne compile pas.
  */
 export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ | Ailleurs } = {
-  // ---- Fondation et appuis ------------------------------------------------------------------
+  // ---- Fondation, assise et appuis (etapes 2 et 5) -------------------------------------------
   typePose: reglage({
     type: 'choix', cle: 'typePose', libelle: 'Type de pose',
     options: () => [{ valeur: 'vis-fondation', libelle: 'Sur vis de fondation' }, { valeur: 'plots', libelle: 'Sur plots réglables' }],
@@ -125,6 +160,26 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   supportDecaissement: nombre('supportDecaissement', 'Décaissement / concassé', { pas: 5, min: 0, unite: 'cm', defaut: 15, visible: l => l.plots,
     actif: l => !!(SUPPORT_TYPES[l.c.supportType ?? ''] ?? SUPPORT_TYPES.concasse)?.concasse,
     aide: 'Épaisseur de concassé compacté sous les plots', note: () => 'usage : 15 cm minimum sur sol meuble' }),
+  // Le niveau fini : le dessus des lames par rapport au terrain naturel. Il ne se montre qu'une fois
+  // impose (case « Imposer le niveau fini », plus bas) ; plus bas que la structure, il decaisse.
+  niveauFini: {
+    type: 'nombre', cle: 'niveauFini', libelle: 'Niveau fini / terrain', unite: 'cm', pas: 1, min: 0, max: 200, decimales: 1,
+    historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Hauteur du dessus des lames au-dessus du terrain naturel. Plus bas que ce que la structure donne posée sur le terrain, la terrasse se pose dans un décaissement.',
+    visible: (cx) => niveauImpose(cx),
+    note: (cx) => noteNiveauFini(cx),
+    lire: (cx) => cx.construction().niveauFini ?? 0,
+    ecrire: (cx, v) => { if (!(v >= 0 && v <= 200)) return false; cx.construction().niveauFini = Math.round(v * 10) / 10; }
+  },
+  plotsDansEmprise: {
+    type: 'case', cle: 'plotsDansEmprise', libelle: 'Plots dans l\'emprise', historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Le cadre recule du bord d\'un rayon d\'embase : l\'embase des plots de rive reste sous la terrasse, les lames débordent du cadre d\'autant.',
+    visible: (cx) => lire(cx).plots,
+    note: (cx) => { const c = cx.construction(); const r = Math.sqrt((c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2) / Math.PI);
+      return c.plotsDansEmprise ? 'cadre en retrait de ' + r.toFixed(1).replace('.', ',') + ' cm : les lames débordent, rien ne dépasse' : 'cadre au bord : l\'embase des plots de rive dépasse de la terrasse'; },
+    lire: (cx) => !!cx.construction().plotsDansEmprise,
+    ecrire: (cx, v) => { const c = cx.construction(); if (v) c.plotsDansEmprise = true; else delete c.plotsDansEmprise; }
+  },
   plotSurfaceAssise: nombre('plotSurfaceAssise', 'Surface d\'assise du plot', { pas: 10, min: 50, unite: 'cm²', defaut: PLOT_ASSISE_MIN_CM2, visible: l => l.plots,
     aide: 'Surface d\'assise du plot au contact du support',
     note: l => ((l.c.plotSurfaceAssise ?? 0) < PLOT_ASSISE_MIN_CM2 ? '⚠ sous les ' : 'mini NF DTU 51.4 : ') + PLOT_ASSISE_MIN_CM2 + ' cm²' }),
@@ -221,6 +276,19 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     note: () => 'planche sur chant qui fait le tour, suspendue sous les lames, cache la structure',
     lire: (cx) => !!cx.construction().avecLameRive, ecrire: (cx, v) => { cx.construction().avecLameRive = v; }
   }),
+  // Les cotes sans lame de rive se cochent cote par cote (finitions, `champsRiveParCote`) ; ici, le resume.
+  cotesSansRive: {
+    type: 'lecture', cle: 'cotesSansRive', libelle: 'Côtés sans rive', visible: (cx) => !!cx.construction().avecLameRive,
+    valeur: (cx) => { const sans = cx.construction().cotesSansRive ?? []; const noms = cx.obj.type === 'polygon' ? cx.obj.segmentNames : [];
+      return sans.length ? sans.map(i => noms?.[i] || 'Côté ' + (i + 1)).join(', ') : 'aucun : la rive fait tout le tour'; }
+  },
+  riveOuvertures: {
+    type: 'case', cle: 'riveOuvertures', libelle: 'Rive autour des trous', historique: true, effets: ['terrasse', 'scene3d'],
+    aide: 'Une lame de rive pendue dans chaque trou de la terrasse (arbre, trappe), à l\'aplomb de son bord. Pas autour d\'un bassin : ses margelles le bordent.',
+    visible: (cx) => !!cx.construction().avecLameRive && cx.obj.type === 'polygon' && objetsQuiPercent(cx.obj.pts, cx.objets).some(x => estTrou(x.objet)),
+    lire: (cx) => !!cx.construction().riveOuvertures,
+    ecrire: (cx, v) => { const c = cx.construction(); if (v) c.riveOuvertures = true; else delete c.riveOuvertures; }
+  },
   hauteurLameRive: nombre('hauteurLameRive', 'Hauteur lame de rive', { pas: 10, min: 50, unite: 'mm', defaut: 200, actif: l => !!l.c.avecLameRive,
     aide: 'Hauteur de l\'habillage, mesurée depuis le dessus des lames vers le bas' }),
   avecLamePlat: reglage({
@@ -283,7 +351,25 @@ const chargeParPlot: Champ = {
   type: 'lecture', cle: 'chargeParPlot', libelle: 'Charge par plot', visible: (cx) => lire(cx).plots,
   valeur: (cx) => { const l = lire(cx); const ch = chargePlot(l.c, l.visCount, l.surfM2);
     return ch.charge.toFixed(0) + ' kg — ' + ch.tributaire.toFixed(2) + ' m² repris · ' + ch.pression.toFixed(2) + ' kg/cm² sur ' + ch.assise + ' cm²' +
-      ((SUPPORT_TYPES[l.c.supportType ?? ''] || {}).dalles ? '' : (l.c.supportType === 'dalle' ? ' — sur dalle, sans objet' : ' — sur concassé, vérifier le poinçonnement')); }
+      noteAssise(l.c.supportType); }
+};
+const niveauImpose = (cx: ContexteChamps): boolean => cx.construction().niveauFini !== undefined && cx.construction().niveauFini !== null;
+
+/** Ce que le niveau demande donne : un decaissement, ou une structure trop basse pour l'atteindre. */
+function noteNiveauFini(cx: ContexteChamps): string {
+  const d = decaissementPoseMm(cx.obj), s = hauteurStructureMm(cx.obj), n = (cx.construction().niveauFini ?? 0) * 10;
+  if (d > 0) return 'décaissement de ' + (d / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm';
+  if (n > s + 0.5) return '⚠ posée sur le terrain, la structure n\'arrive qu\'à ' + (s / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm : relevez les plots ou la tête de vis';
+  return 'posée sur le terrain, sans décaissement';
+}
+
+/** Ce que la pression sous un plot veut dire, selon ce sur quoi il repose. */
+function noteAssise(cle: string | undefined): string {
+  const t = SUPPORT_TYPES[cle ?? ''];
+  if (t?.dalles) return '';
+  if (cle === 'dalle' || t?.dalleBeton) return ' — sur dalle, sans objet';
+  if (t?.massifs) return ' — sur massif béton de ' + Math.round(MASSIF_COTE_M * 100) + ' cm, sans objet';
+  return ' — sur concassé, vérifier le poinçonnement';
 };
 
 // Un equipement lourd sur plots : on laisse passer, mais on dit clairement pourquoi c'est douteux.
@@ -293,50 +379,112 @@ const alertes: Champ[] = [
     texte: (cx) => { const l = lire(cx); return '⚠ Équipement lourd sur plots' + (l.nomsEquip ? ' — ' + l.nomsEquip : '') + '. Les ' + l.visSpa + ' appuis de la zone sont resserrés comme en mode vis, mais un plot n\'est pas ancré et reporte sa charge sur une assise qui peut tasser de façon différentielle. Un spa rempli et occupé, c\'est 1,5 à 2 t sur 3 à 4 m², et une cuve ou un bac maçonné sont du même ordre. La solution du métier est une dalle béton dédiée, fondée pour elle-même, le platelage étant construit autour. Le chiffrage décrit un ouvrage que je ne recommande pas en l\'état.'; }
   },
   {
-    type: 'alerte', cle: 'alertePlot', libelle: '', nom: 'Alerte : plot hors du NF DTU 51.4', visible: (cx) => { const l = lire(cx); return l.plots && (l.c.hauteurPlot || 10) > PLOT_HAUTEUR_DTU_CM; },
-    texte: (cx) => { const h = cx.construction().hauteurPlot || 10; return 'Hauteur de plot ' + h + ' cm : au-delà de ' + PLOT_HAUTEUR_DTU_CM + ' cm le plot réglable sort du domaine du NF DTU 51.4' + (h > PLOT_HAUTEUR_MAX_CM ? ', et au-delà d\'1 m c\'est le platelage entier qui en sort.' : '.'); }
+    type: 'alerte', cle: 'alertePlot', libelle: '', nom: 'Alerte : plot hors du NF DTU 51.4', visible: (cx) => { const l = lire(cx); return l.plots && plotLePlusHautCm(l) > PLOT_HAUTEUR_DTU_CM; },
+    texte: (cx) => { const l = lire(cx); const h = plotLePlusHautCm(l); return (l.pente ? 'Sol en pente : le plot d\'aval fait ' + h + ' cm (' + Math.round(l.pente.minMm / 10) + ' cm au point haut)' : 'Hauteur de plot ' + h + ' cm') + ' : au-delà de ' + PLOT_HAUTEUR_DTU_CM + ' cm le plot réglable sort du domaine du NF DTU 51.4' + (h > PLOT_HAUTEUR_MAX_CM ? ', et au-delà d\'1 m c\'est le platelage entier qui en sort.' : '.') + (l.pente ? ' Des poteaux sur massifs, comme la plage d\'une piscine, sont la solution du métier en aval.' : ''); }
   },
   // Une tete qui depasse trop transforme la vis en poteau : la charge n'arrive plus dans l'axe du
   // sol mais au bout d'un bras de levier, et c'est le sol autour du fut qui encaisse.
   {
-    type: 'alerte', cle: 'alerteVis', libelle: '', nom: 'Alerte : dépassement de tête de vis', visible: (cx) => { const l = lire(cx); return !l.plots && (l.c.depassementVis || 0) > VIS_DEPASSEMENT_USUEL_CM; },
-    texte: (cx) => { const dep = cx.construction().depassementVis || 0; return 'Dépassement de tête ' + dep + ' cm : au-delà de ' + VIS_DEPASSEMENT_USUEL_CM + ' cm on sort de la course des têtes réglables du commerce' + (dep > VIS_DEPASSEMENT_MAX_CM ? ', et à ' + dep + ' cm ce n\'est plus une tête mais un poteau : il faut alors un contreventement et une vérification du moment en pied, que ce calcul ne couvre pas.' : ', et la longueur enterrée doit rester nettement supérieure à la partie hors sol.'); }
+    type: 'alerte', cle: 'alerteVis', libelle: '', nom: 'Alerte : dépassement de tête de vis', visible: (cx) => { const l = lire(cx); return !l.plots && teteLaPlusHauteCm(l) > VIS_DEPASSEMENT_USUEL_CM; },
+    texte: (cx) => { const l = lire(cx); const dep = teteLaPlusHauteCm(l); return (l.pente ? 'Sol en pente : la tête de vis d\'aval sort de ' + dep + ' cm (' + Math.round(l.pente.minMm / 10) + ' cm au point haut)' : 'Dépassement de tête ' + dep + ' cm') + ' : au-delà de ' + VIS_DEPASSEMENT_USUEL_CM + ' cm on sort de la course des têtes réglables du commerce' + (dep > VIS_DEPASSEMENT_MAX_CM ? ', et à ' + dep + ' cm ce n\'est plus une tête mais un poteau : il faut alors un contreventement et une vérification du moment en pied, que ce calcul ne couvre pas.' : ', et la longueur enterrée doit rester nettement supérieure à la partie hors sol.'); }
   }
 ];
 
-/** Ce que l'optimisation demande au module des panneaux, sans DOM ici. */
-/** L'ouverture du bloc d'optimisation : un pli de l'interface (app/resultats.ts), pas une donnee du projet. */
-export interface ContexteOptimisation { visible: () => boolean }
+/**
+ * Une case par cote du contour : lame de rive ou non. Le cote se met en evidence sur le plan au
+ * survol, comme dans la section Cotes. Sans contexte (un test, un inventaire), pas de cote.
+ */
+function champsRiveParCote(c?: ContexteChamps): Champ[] {
+  if (!c || c.obj.type !== 'polygon') return [];
+  const noms = c.obj.segmentNames ?? [];
+  // Cote par cote, la rive se replie : le reglage general (avec ou sans, sa hauteur) reste ouvert.
+  return c.obj.pts.map((_, i): Champ => ({
+    type: 'case', cle: 'rive' + i, libelle: 'Rive · ' + (noms[i] || 'Côté ' + (i + 1)), historique: true, effets: ['terrasse', 'scene3d'], repli: 'Rive côté par côté',
+    aide: 'Décocher pour ne pas poser de lame de rive sur ce côté (contre un mur, une marche, une jardinière)',
+    visible: (cx) => !!cx.construction().avecLameRive,
+    surbrillance: (cx) => cx.etat.highlight.type === 'segment' && cx.etat.highlight.index === i,
+    lire: (cx) => !(cx.construction().cotesSansRive ?? []).includes(i),
+    ecrire: (cx, v) => {
+      const k = cx.construction();
+      const sans = new Set(k.cotesSansRive ?? []);
+      if (v) sans.delete(i); else sans.add(i);
+      if (sans.size) k.cotesSansRive = [...sans].sort((a, b) => a - b); else delete k.cotesSansRive;
+    }
+  }));
+}
 
-export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] {
-  const fondation: Section = {
-    id: 'fondation', titre: 'Fondation et appuis',
+/** Les etapes de la terrasse, dans l'ordre ou l'on decide (voir l'en-tete). */
+export function sectionsConstruction(c?: ContexteChamps): Section[] {
+  // Le niveau fini d'abord : il fixe le decaissement, donc ce qui reste de hauteur aux appuis. Puis
+  // ce qui interrompt le platelage : un bassin, un trou (arbre conserve, trappe). Chacun est un
+  // objet du plan, qu'on deplace et qu'on retaille comme les autres ; la terrasse s'arrete a son bord.
+  const implantation: Section = {
+    id: 'implantation', titre: 'Terrasse · 1. Implantation et niveau',
     champs: [
-      champ('typePose'), champ('hauteurVis'), champ('depassementVis'), champ('hauteurPlot'), champ('plotModele'), champ('plotAvecSolives'),
-      champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise'), champ('chargeNormale'), champ('chargeSpa'),
-      champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),
+      {
+        type: 'case', cle: 'poseDecaissee', libelle: 'Imposer le niveau fini', historique: true, effets: ['terrasse', 'scene3d'],
+        aide: 'Fixer la hauteur du dessus des lames par rapport au terrain naturel : de plain-pied (0 cm), au ras d\'un seuil ou des margelles d\'une piscine. La terrasse se pose alors dans le décaissement qu\'il faut.',
+        note: (cx) => niveauImpose(cx) ? 'niveau imposé'
+          : (dalleEnFouille(cx.construction()) ? 'dalle en fond de fouille, plots au ras du sol' : 'posée sur le terrain') + ', dessus à ' + (hauteurFinieMm(cx.obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm',
+        lire: (cx) => niveauImpose(cx),
+        ecrire: (cx, v) => { const c = cx.construction(); if (v) c.niveauFini = 0; else delete c.niveauFini; }
+      },
+      champ('niveauFini'),
+      {
+        type: 'lecture', cle: 'decaissementPose', libelle: 'Décaissement de pose', visible: (cx) => decaissementPoseMm(cx.obj) > 0,
+        valeur: (cx) => {
+          const obj = cx.obj;
+          if (obj.type !== 'polygon') return '—';
+          const m3 = volumeDecaissementPose({ pts: obj.pts, construction: cx.construction() }, ouverturesDe(obj.pts, cx.objets));
+          return (decaissementPoseMm(obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm, ' + m3.toFixed(2).replace('.', ',') + ' m³ de terre à évacuer — chiffré au BOM';
+        }
+      },
+      {
+        type: 'lecture', cle: 'listeOuvertures', libelle: 'Ouvertures',
+        valeur: (cx) => {
+          const liste = cx.obj.type === 'polygon' ? objetsQuiPercent(cx.obj.pts, cx.objets) : [];
+          return liste.length ? liste.map(x => x.objet.name + ' (' + shoelace(x.contour).toFixed(2) + ' m²)').join(' · ') : 'Aucune — la terrasse est pleine';
+        }
+      },
+      {
+        type: 'bouton', cle: 'ajouterTrou', libelle: '', nom: 'Ajouter un trou dans la terrasse', texte: () => 'Ajouter un trou',
+        explication: 'Un trou de 1,20 × 1,20 m au centre de la terrasse : tirez ses coins à la forme voulue. Les pièces s\'arrêtent à son bord sur un chevêtre.',
+        agit: { commande: 'terrasse.ajouterTrou' }, executer: (cx) => cx.executerCommande('terrasse.ajouterTrou')
+      }
+    ]
+  };
+  // Le systeme de fondation decide de tout ce qui suit : une vis est fondee (hors gel par sa
+  // profondeur), un plot est pose et demande une assise.
+  const fondation: Section = {
+    id: 'fondation', titre: '2. Fondation et assise',
+    champs: [
+      champ('typePose'), champ('hauteurVis'), champ('depassementVis'), champ('hauteurPlot'), champ('plotModele'),
+      champ('supportType'), champ('supportDecaissement'), champ('plotSurfaceAssise')
+    ]
+  };
+  // Les lames avant la structure : leur epaisseur borne l'entraxe de ce qui les porte.
+  const lames: Section = {
+    id: 'lames', titre: '3. Lames et sens de pose',
+    champs: [champ('segmentReference'), champ('sensPose'), champ('essenceBois'), champ('coefRaideurLame'), champ('largeurLame'), champ('epaisseurLame')]
+  };
+  // Sur plots, la structure simple (lambourdes sur plots) ou double (solives dessous) d'abord : les
+  // solives n'existent que dans la seconde.
+  const structure: Section = {
+    id: 'structure', titre: '4. Structure porteuse',
+    champs: [champ('plotAvecSolives'), champ('soliveEntraxe'), champ('soliveSection'), champ('avecLambourde'), champ('lambourdeSection'), champ('lambourdeEntraxe')]
+  };
+  // Les appuis en dernier : leur entraxe se deduit de la portee de la structure et des charges.
+  const appuis: Section = {
+    id: 'appuis', titre: '5. Appuis et charges',
+    champs: [
+      champ('chargeNormale'), champ('chargeSpa'), champ('visModeAuto'), champ('plotEntraxeAuto'), champ('visEntraxe'), champ('plotEntraxe'),
+      champ('plotsDansEmprise'), chargeParPlot, champ('visEntraxeZoneSpa'), champ('visMargeZoneSpa'),
       ...alertes
     ]
   };
-  const structure: Section = {
-    id: 'structure', titre: 'Structure porteuse',
-    champs: [champ('soliveEntraxe'), champ('soliveSection'), champ('avecLambourde'), champ('lambourdeSection'), champ('lambourdeEntraxe')]
-  };
-  const lames: Section = {
-    id: 'lames', titre: 'Lames et sens de pose',
-    champs: [champ('segmentReference'), champ('sensPose'), champ('essenceBois'), champ('coefRaideurLame'), champ('largeurLame'), champ('epaisseurLame')]
-  };
   const finitions: Section = {
-    id: 'finitions', titre: 'Finitions du tour',
-    champs: [champ('avecLameRive'), champ('hauteurLameRive'), champ('avecLamePlat')]
-  };
-  // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement.
-  const optimisation: Section = {
-    id: 'optimisation', titre: 'Optimisation',
-    champs: [
-      { type: 'bouton', cle: 'optimiser', libelle: '', nom: 'Optimisation des paramètres (afficher ou masquer)', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', agit: { commande: 'terrasse.optimisation' }, executer: (cx) => cx.executerCommande('terrasse.optimisation') },
-      { type: 'optimisation', cle: 'resultat', libelle: '', nom: 'Tableau d’optimisation' }
-    ]
+    id: 'finitions', titre: '6. Finitions du tour',
+    champs: [champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]
   };
   const parametres: Section = {
     id: 'parametres', titre: 'Paramètres de calcul', repliee: true,
@@ -361,5 +509,5 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation): Section[] 
       { type: 'lecture', cle: 'prixVis', libelle: 'Prix indicatifs', visible: (cx) => !lire(cx).plots, valeur: () => 'vis ' + VIS_PRICE.bas + '-' + VIS_PRICE.haut + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · visserie ' + VISSERIE_PRICE.bas + '-' + VISSERIE_PRICE.haut + ' €/m² · rive ' + LAME_RIVE_PRICE.bas + '-' + LAME_RIVE_PRICE.haut + ' €/ml — utilisés tant qu\'aucun prix réel n\'est saisi' }
     ]
   };
-  return [fondation, structure, lames, finitions, optimisation, parametres];
+  return [implantation, fondation, lames, structure, appuis, finitions, parametres];
 }

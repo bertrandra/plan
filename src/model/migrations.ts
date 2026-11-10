@@ -25,12 +25,15 @@
 // l'ecriture, qu'il est desormais de la forme courante.
 
 import { SCHEMA_VERSION } from './version.js';
-import { toitBdTopo, COUCHE_BATIMENT_BDTOPO } from './toitBdTopo.js';
-import type { ObjetBrut, PtBrut } from './types.js';
+import { aPlat } from './champsFonction.js';
+// La migration 2 -> 3 lit sa copie figee (model/fige/toitSchema3.ts) : l'algorithme d'aujourd'hui peut changer sans elle.
+import { toitBdTopoSchema3, COUCHE_BATIMENT_BDTOPO } from './fige/toitSchema3.js';
+import type { ObjetAPlat, PtBrut } from './types.js';
+import { porteDesPartiesBasses } from './partiesBasses.js';
 
 /** Un document de projet, tel qu'il est lu ou ecrit : la forme de `projet.json`. */
 export interface DocumentBrut {
-  objects: ObjetBrut[];
+  objects: ObjetAPlat[];
   measures?: unknown[];
 }
 
@@ -58,22 +61,152 @@ export const MIGRATIONS: readonly Migration[] = [
     de: 2,
     apporte: 'un toit pour chaque bâtiment importé de l’IGN, déduit de la BD TOPO et posé sur son contour réel (MD/spec-toit-ign.md)',
     migrer: (d) => ({ ...d, objects: d.objects.map(poserToitBdTopo) })
+  },
+  {
+    de: 3,
+    apporte: 'le relief du terrain lu à l’IGN, rangé sur la parcelle avec sa source et sa précision (MD/spec-relief.md)',
+    // Le schema 4 n'ajoute qu'un champ facultatif a la parcelle : un document 3 est deja un
+    // document 4 valide. La migration existe pour que la chaine soit complete.
+    migrer: (d) => d
+  },
+  {
+    de: 4,
+    apporte: 'la piscine, la pergola, la clôture, les corps et volumes mesurés du toit, les fenêtres et le voisinage en 3D, et la calibration qui a produit un relevé de façade',
+    // Ces champs s'ecrivaient deja au 4 (CHAMPS_DEPUIS) : un document 4 est un document 5 valide. Le 5 les distingue, pour
+    // qu'un lecteur 4 refuse le fichier plutot que de les perdre.
+    migrer: (d) => d
+  },
+  {
+    de: 5,
+    apporte: 'la forme retouchée à la main d’un objet de l’IGN, la hauteur à l’égout choisie d’un bâtiment et le soleil du projet (date et heure)',
+    // Ces champs s'ecrivaient au 5 apres sa premiere livraison (CHAMPS_DEPUIS) : un document 5 est un document 6 valide. Le 6 les
+    // distingue, pour qu'un lecteur 5 d'avant refuse le fichier plutot que de les perdre.
+    migrer: (d) => d
+  },
+  {
+    de: 6,
+    apporte: 'la façade validée d’un relevé : ses dimensions, sa forme, son parement, la pose de sa texture, et ses ouvertures vérifiées (avec leurs carreaux)',
+    // Ces champs sont facultatifs et n'existaient pas avant (lot F5) : un document 6 est un document 7 valide, relu a l'identique.
+    // Le 7 les distingue, pour qu'un lecteur 6 refuse le fichier plutot que de les perdre a la premiere reecriture d'une facade. Un
+    // releve d'avant garde aussi `calage.contourDecaleM`, que plus rien n'ecrit ni ne lit (l'ecart de largeur est dans
+    // `dimensions.ecartPhoto`, ecrit a la validation) : il passe tel quel, sans etre converti.
+    migrer: (d) => d
+  },
+  {
+    de: 7,
+    apporte: 'le règlement de la zone du PLU lu pour le projet : sa source, sa lecture par Claude, et ses règles proposées ou vérifiées par vous',
+    // Un champ facultatif de la parcelle (`reglementPlu`, lot L4), qui n'existait pas avant : un document 7 est un document 8 valide.
+    // Le 8 le distingue, pour qu'un lecteur 7 refuse le fichier plutot que de perdre des faits du PLU que la personne a verifies.
+    migrer: (d) => d
+  },
+  {
+    de: 8,
+    apporte: 'le jardin : les plates-bandes et les massifs plantés (leur végétation en 3D, leur mini-arbre), les équipements du jardin (regard, éclairage, robinet) et les ouvrages existants',
+    // Des champs facultatifs, qui n'existaient pas avant (lot L3) : un document 8 est un document 9 valide, relu a l'identique. Le 9
+    // les distingue, pour qu'un lecteur 8 refuse le fichier plutot que de les perdre a la premiere ecriture.
+    migrer: (d) => d
+  },
+  {
+    de: 9,
+    apporte: 'la façade enrichie : la couleur et la matière des menuiseries, les garde-corps, la modénature lue, le store, l’auvent, l’état du bâti signalé, et le perron, l’unité extérieure et la boîte aux lettres',
+    // Des champs facultatifs, qui n'existaient pas avant (lot L1) : un document 9 est un document 10 valide, relu a l'identique. Le 10
+    // les distingue, pour qu'un lecteur 9 refuse le fichier plutot que de les perdre (une Facade se reecrit en entier) ou de lire un
+    // perron comme un spa qui charge la terrasse.
+    migrer: (d) => d
+  },
+  {
+    de: 10,
+    apporte: 'le toit enrichi : le motif de pose de la couverture (en losange, en écaille), le bac acier, la membrane et la toiture végétalisée, ce qui couvre le faîtage et la gouttière',
+    // La seule migration qui transforme depuis le schema 3 (lot L2) : la grande ardoise en losange n'est plus un materiau, c'est une
+    // ardoise posee en losange (model/couvertureLue.ts). Meme texture, meme `.glb` ; le reste est facultatif et n'existait pas avant.
+    migrer: (d) => ({ ...d, objects: d.objects.map(relireArdoiseLosange) })
+  },
+  {
+    de: 11,
+    apporte: 'les textes du dossier de déclaration préalable (rédigés avec Claude, validés par vous) et ses photographies de l’environnement proche et lointain',
+    // Un champ facultatif de la parcelle (`dossier`, lot L5), qui n'existait pas avant : un document 11 est un document 12 valide, relu
+    // a l'identique. Le 12 le distingue, pour qu'un lecteur 11 refuse le fichier plutot que de perdre un texte que la personne a valide.
+    migrer: (d) => d
+  },
+  {
+    de: 12,
+    apporte: 'les murs à plusieurs hauteurs d’égout : une partie basse à chaque bout (un garage et un appentis de part et d’autre de la maison), lues sur le plan et le LiDAR',
+    // Un champ facultatif d'un releve (`partiesBasses`), qui n'existait pas avant : un document 12 est un document 13 valide, relu a
+    // l'identique (un mur en L garde sa `partieBasse`, memes nombres). Le 13 le distingue, pour qu'un lecteur 12 refuse le fichier
+    // plutot que de perdre une partie basse et de rendre une autre surface de mur.
+    migrer: (d) => d
+  },
+  {
+    de: 13,
+    apporte: 'les bâtiments modifiés corps par corps : un mur en travées (un tronçon reculé sous un toit continu, un porche ouvert sur poteaux avec garde-corps), un bow-window sans toit propre sous un auvent',
+    // Deux champs facultatifs d'un corps (`travees`, et la valeur `aucun` du toit d'une saillie), qui n'existaient pas avant : un document
+    // 13 est un document 14 valide, relu a l'identique. Le 14 le distingue, pour qu'un lecteur 13 refuse le fichier plutot que de perdre
+    // un mur recule ou un garde-corps, ou de rejeter le bow-window que la personne a pose sous son auvent.
+    migrer: (d) => d
+  },
+  {
+    de: 14,
+    apporte: 'le cul de geai (demi-croupe) au faîtage débordant ou à la pointe d’un pignon, et la queue de vache (coyau qui déborde) à l’égout d’un pan',
+    // Trois champs facultatifs (`debordFaitageM` d'un bout en demi-croupe, `pointe` d'un pignon, `debordM` d'un pan en coyau), qui
+    // n'existaient pas avant : un document 14 est un document 15 valide, relu a l'identique. Le 15 les distingue, pour qu'un lecteur 14
+    // refuse le fichier plutot que de perdre un debord ou une pointe que la personne a dessines.
+    migrer: (d) => d
+  },
+  {
+    de: 15,
+    apporte: 'le rez-de-chaussée en retrait sous l’étage, pour glisser un bow-window dessous',
+    // Un champ facultatif d'un bow-window (`rdcEnRetraitM`), qui n'existait pas avant : un document 15 est un document 16 valide, relu
+    // a l'identique. Le 16 le distingue, pour qu'un lecteur 15 refuse le fichier plutot que de perdre le retrait et de rendre la facade
+    // droite, le bow-window devant elle.
+    migrer: (d) => d
   }
 ];
 
+/** Un toit d'avant le schema 11 qui portait la grande ardoise en losange : une ardoise posee en losange (une pose deja dite reste). */
+function toitRelu(t: unknown): unknown {
+  const toit = t as { couverture?: unknown; pose?: unknown } | null | undefined;
+  if (!toit || typeof toit !== 'object' || toit.couverture !== 'ardoise-losange') return t;
+  return { ...toit, couverture: 'ardoise', pose: toit.pose ?? 'losange' };
+}
+
+/** La migration 10 -> 11 d'un objet : son toit et ceux de ses volumes. Un objet sans grande ardoise en losange est rendu tel quel. */
+function relireArdoiseLosange(o: ObjetAPlat): ObjetAPlat {
+  const volumes = (o as { volumesToit?: unknown }).volumesToit;
+  const toit = toitRelu(o.toit);
+  const vols = Array.isArray(volumes) && volumes.some((v) => (v as { toit?: { couverture?: unknown } } | null)?.toit?.couverture === 'ardoise-losange')
+    ? volumes.map((v) => (v && typeof v === 'object' ? { ...(v as object), toit: toitRelu((v as { toit?: unknown }).toit) } : v)) : volumes;
+  if (toit === o.toit && vols === volumes) return o;
+  return { ...o, ...(toit !== o.toit ? { toit } : {}), ...(vols !== volumes ? { volumesToit: vols } : {}) } as ObjetAPlat;
+}
+
+/**
+ * Le schema a partir duquel chaque champ facultatif d'un objet s'ecrit : un lecteur plus ancien ne le connait pas et l'efface au
+ * premier enregistrement. Les champs venus apres le relief s'ecrivent au 5 : un lecteur 4 refuse le fichier plutot que de les
+ * perdre ; ceux venus apres la premiere livraison du 5 (retouche, egout choisi, soleil) s'ecrivent au 6. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
+ */
+export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
+  facades: 2, toit: 2,
+  relief: 4,
+  piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
+  retoucheMain: 6, egoutChoisi: 6, soleil: 6,
+  reglementPlu: 8,
+  plantation: 9, vegetation3d: 9, nature: 9, existant: 9,
+  dossier: 12,
+};
+
 /**
  * Un batiment importe de la BD TOPO avant le schema 3 n'a pas de toit : il recoit celui que l'import
- * lui donnerait aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
+ * lui donnait le jour ou le schema 3 a ete fige (model/fige/toitSchema3.ts), et non celui d'aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
  * estimee (pente de tuile, regle 3) jusqu'a la prochaine actualisation, qui la lit.
  */
-function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
+function poserToitBdTopo(o: ObjetAPlat): ObjetAPlat {
   const b = o.bdtopo as { couche?: unknown; altitudeToitM?: unknown; altitudeToitMaxM?: unknown; constructionLegere?: unknown } | null | undefined;
   const pts = (o as { pts?: unknown }).pts;
   if (o.toit || !b || b.couche !== COUCHE_BATIMENT_BDTOPO || o.type !== 'polygon' || !Array.isArray(pts) || pts.length < 3) return o;
   const nombre = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {
     ...o,
-    toit: toitBdTopo(pts as PtBrut[], {
+    toit: toitBdTopoSchema3(pts as PtBrut[], {
       altitudeToitMinM: nombre(b.altitudeToitM),
       altitudeToitMaxM: nombre(b.altitudeToitMaxM),
       constructionLegere: b.constructionLegere === true
@@ -82,18 +215,117 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
 }
 
 /**
- * Le plus petit schema qui decrit ces objets : 3 des qu'un toit est a croupes (un lecteur 2 le
- * dessinerait en quatre pans sur l'enveloppe, faux sur un L), 2 des qu'un batiment porte un releve
- * ou un toit.
+ * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 6 pour la retouche, l'egout choisi et
+ * le soleil, 5 pour les champs venus apres le relief ; 7 pour un releve qui porte sa Facade validee, `porteLaFacade`),
+ * 4 pour le relief, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
+ * faux sur un L).
  */
-export function schemaMinimal(objets: readonly ObjetBrut[]): number {
-  if (objets.some((o) => o.toit?.forme === 'croupes')) return 3;
-  const releve = objets.some((o) => (Array.isArray(o.facades) && o.facades.length > 0) || !!o.toit);
-  return releve ? 2 : 1;
+export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
+  let s = 1;
+  for (const objet of objets) {
+    // Les objets de la memoire rangent ces champs dans leurs sous-objets : le schema se lit sur leur forme a plat.
+    const o = aPlat(objet) as ObjetAPlat;
+    const brut = o as Record<string, unknown>;
+    for (const [champ, depuis] of Object.entries(CHAMPS_DEPUIS)) {
+      const v = brut[champ];
+      // Une liste vide de facades ne dit rien ; tout autre champ pose compte.
+      if (v === undefined || v === null || (champ === 'facades' && (!Array.isArray(v) || !v.length))) continue;
+      s = Math.max(s, depuis);
+    }
+    // Un releve qui garde la calibration de sa detection (etape 1.4) : un lecteur 4 l'effacerait.
+    if (Array.isArray(brut.facades) && brut.facades.some((f) => !!f && typeof f === 'object' && 'calibration' in f)) s = Math.max(s, 5);
+    // La Facade d'un releve valide (lot F5) : un lecteur 6 la perdrait a la premiere reecriture du mur.
+    if (Array.isArray(brut.facades) && brut.facades.some(porteLaFacade)) s = Math.max(s, 7);
+    // Un toit a croupes : un lecteur 2 le dessinerait en quatre pans sur l'enveloppe, faux sur un L.
+    if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
+    // La facade enrichie (lot L1) : un lecteur 9 la perdrait, ou lirait un perron comme un spa.
+    if (porteLaFacadeEnrichie(brut)) s = Math.max(s, 10);
+    // Le toit enrichi (lot L2) : un lecteur 10 perdrait la pose et les bords, et ne connaitrait pas les couvertures nouvelles.
+    if (porteLeToitEnrichi(brut)) s = Math.max(s, 11);
+    // Un mur a plusieurs parties basses : un lecteur 12 perdrait la liste et rendrait une autre surface de mur.
+    if (Array.isArray(brut.facades) && brut.facades.some(porteDesPartiesBasses)) s = Math.max(s, 13);
+    // Un batiment modifie corps par corps (travees d'un mur, bow-window sans toit propre) : un lecteur 13 les perdrait.
+    if (porteLesCorpsModifies(brut)) s = Math.max(s, 14);
+    // Un cul de geai a faitage debordant ou a la pointe d'un pignon, une queue de vache : un lecteur 14 les perdrait.
+    if (porteLesBoutsDessines(brut)) s = Math.max(s, 15);
+    // Un rez-de-chaussee en retrait sous l'etage : un lecteur 15 le perdrait.
+    if (porteUnRdcEnRetrait(brut)) s = Math.max(s, 16);
+  }
+  return s;
+}
+
+/** Un objet dont un corps porte des travees, ou une saillie sans toit propre : schema 14. */
+function porteLesCorpsModifies(brut: Record<string, unknown>): boolean {
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => {
+    const k = c as { travees?: unknown; saillie?: { toit?: unknown } } | null;
+    return !!k && ((Array.isArray(k.travees) && k.travees.length > 0) || k.saillie?.toit === 'aucun');
+  });
+}
+
+/** Un objet dont un bow-window porte un rez-de-chaussee en retrait : schema 16. */
+function porteUnRdcEnRetrait(brut: Record<string, unknown>): boolean {
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => (c as { saillie?: { rdcEnRetraitM?: unknown } } | null)?.saillie?.rdcEnRetraitM !== undefined);
+}
+
+/** Un objet dont un corps porte un debord de faitage de demi-croupe, une pointe de pignon ou une queue de vache : schema 15. */
+function porteLesBoutsDessines(brut: Record<string, unknown>): boolean {
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => {
+    const k = c as { bouts?: unknown; pignons?: unknown; profil?: unknown } | null;
+    if (!k) return false;
+    const a = (l: unknown, f: (x: Record<string, unknown>) => boolean) => Array.isArray(l) && l.some((x) => !!x && typeof x === 'object' && f(x as Record<string, unknown>));
+    return a(k.bouts, (b) => b.debordFaitageM !== undefined) || a(k.pignons, (g) => g.pointe !== undefined) || a(k.profil, (p) => p.debordM !== undefined);
+  });
+}
+
+/** Les couvertures venues avec le lot L2, et les bords d'un corps. */
+const COUVERTURES_11: readonly unknown[] = ['bac-acier', 'membrane', 'vegetale'];
+const BORDS_11: readonly string[] = ['faitage', 'gouttiere'];
+const toit11 = (t: unknown): boolean => { const x = t as { pose?: unknown; couverture?: unknown } | null | undefined; return !!x && typeof x === 'object' && (x.pose !== undefined || COUVERTURES_11.includes(x.couverture)); };
+
+/** Un objet qui porte un champ du lot L2 : schema 11. */
+function porteLeToitEnrichi(brut: Record<string, unknown>): boolean {
+  if (toit11(brut.toit)) return true;
+  if (Array.isArray(brut.volumesToit) && brut.volumesToit.some((v) => toit11((v as { toit?: unknown } | null)?.toit))) return true;
+  return Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => { const b = (c as { bords?: Record<string, unknown> } | null)?.bords; return !!b && BORDS_11.some((k) => b[k] !== undefined); });
+}
+
+/** Les champs d'une Facade et d'une ouverture venus avec le lot L1, les genres de saillie et les natures d'equipement aussi. */
+const CHAMPS_FACADE_10: readonly string[] = ['modenature', 'appendices', 'etat'];
+const DETAILS_10: readonly string[] = ['menuiserie', 'gardeCorps'];
+const NATURES_10: readonly string[] = ['perron', 'unite-exterieure', 'boite-aux-lettres'];
+
+/** Un objet qui porte un champ du lot L1 : schema 10. */
+function porteLaFacadeEnrichie(brut: Record<string, unknown>): boolean {
+  if (typeof brut.nature === 'string' && NATURES_10.includes(brut.nature)) return true;
+  if (Array.isArray(brut.corpsToit) && brut.corpsToit.some((c) => { const sa = (c as { saillie?: { genre?: unknown; couverture?: unknown } } | null)?.saillie; return !!sa && (sa.genre === 'auvent' || sa.couverture !== undefined); })) return true;
+  if (!Array.isArray(brut.facades)) return false;
+  return brut.facades.some((f) => {
+    if (!f || typeof f !== 'object') return false;
+    const r = f as Record<string, unknown>;
+    if (CHAMPS_FACADE_10.some((k) => r[k] !== undefined)) return true;
+    return Array.isArray(r.ouvertures) && r.ouvertures.some((o) => { const d = (o as { details?: Record<string, unknown> } | null)?.details; return !!d && DETAILS_10.some((k) => d[k] !== undefined); });
+  });
+}
+
+/** Les champs d'un releve venus avec la Facade (lot F5), et ceux d'une ouverture de la facade objet. */
+const CHAMPS_FACADE_7: readonly string[] = ['dimensions', 'forme', 'surface', 'textureCalee'];
+const CHAMPS_OUVERTURE_7: readonly string[] = ['id', 'verifieeLe'];
+
+/** Un releve qui porte la Facade, ou une ouverture de la facade objet (identifiant, verification, carreaux) : schema 7. */
+function porteLaFacade(f: unknown): boolean {
+  if (!f || typeof f !== 'object') return false;
+  const r = f as Record<string, unknown>;
+  if (CHAMPS_FACADE_7.some((k) => r[k] !== undefined)) return true;
+  return Array.isArray(r.ouvertures) && r.ouvertures.some((o) => {
+    if (!o || typeof o !== 'object') return false;
+    const ov = o as Record<string, unknown>;
+    const d = ov.details as Record<string, unknown> | undefined;
+    return CHAMPS_OUVERTURE_7.some((k) => ov[k] !== undefined) || (!!d && typeof d === 'object' && d.carreaux !== undefined);
+  });
 }
 
 /** Le schema a ecrire : celui qui decrit le document, jamais sous celui ou le projet a ete monte. */
-export function schemaAEcrire(objets: readonly ObjetBrut[], plancher: number | null | undefined): number {
+export function schemaAEcrire(objets: readonly ObjetAPlat[], plancher: number | null | undefined): number {
   return Math.min(SCHEMA_VERSION, Math.max(schemaMinimal(objets), plancher ?? 1));
 }
 

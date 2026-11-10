@@ -20,6 +20,11 @@ export interface EtatScene {
   /** Taille utile de la scene, en pixels : la fenetre moins les marges. */
   W: number;
   H: number;
+  /**
+   * Le plancher du zoom pour ce plan, en pixels par metre : `ZOOM_MIN` d'ordinaire, plus bas quand
+   * les parcelles affichees (un voisinage de 200 m) ne tiendraient pas dans la scene sans lui.
+   */
+  zoomMin?: number;
 }
 
 export function creerScene(): EtatScene {

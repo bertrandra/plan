@@ -11,7 +11,8 @@ import type { EtatApp } from '../../core/state.js';
 import type { Lieu } from '../../model/lieu.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Magasin } from '../magasin.js';
-import { estTerrain } from '../../model/fonctions.js';
+import { estTerrain, visibleEnIsolement } from '../../model/fonctions.js';
+import { soleilDuProjet } from '../../core/soleil.js';
 
 export interface Affichage {
   /** La parcelle qui porte la cloture, le lieu et les reglages : `parcelle`, sinon le premier terrain. */
@@ -20,7 +21,7 @@ export interface Affichage {
   libelleLieu(): string;
   /** Le lieu dans la barre d'application : il suit la parcelle (import, actualisation). */
   syncLieuTitre(): void;
-  /** Date, heure et lieu, pour les ombres des parasols. */
+  /** Le soleil du projet (date, heure) et le lieu, pour les ombres des parasols : le meme que la 3D. */
   contexteSoleilParasol(): ContexteSoleil;
   /** Terrain au sens large : la parcelle principale et les parcelles voisines importees. */
   estTerrain(o: ObjetPlan): boolean;
@@ -37,20 +38,21 @@ export function creerAffichage(etat: EtatApp, magasin: Magasin, markDirty: () =>
     syncLieuTitre() { magasin.definirLieu(trouverParcelleCloture() ? libelleLieu() : ''); },
     contexteSoleilParasol() {
       const lieu = lieuActuel();
-      return { dateStr: etat.parasol.dateStr, minutes: etat.parasol.minutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
+      return { ...soleilDuProjet.lire(), lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
     },
     estTerrain,
     // Masquer le voisinage ne touche pas au `hidden` de chaque objet : sinon decocher puis recocher
     // effacerait les objets que l'utilisateur avait masques lui-meme.
-    // Une terrasse isolee (app/isolement.ts) masque tout le reste, a l'affichage seulement : le
-    // `hidden` des objets n'est pas touche, et sortir de l'isolement rend le plan tel qu'il etait.
-    objetMasque: (o) => !!o.hidden || !!(o.voisinage && !etat.voisinageVisible) || (etat.isolement !== null && o.key !== etat.isolement),
+    // Un objet isole (app/isolement.ts) masque tout le reste sauf ses associes (la terrasse d'une
+    // piscine), a l'affichage seulement : le `hidden` des objets n'est pas touche, et sortir de
+    // l'isolement rend le plan tel qu'il etait.
+    objetMasque: (o) => !!o.hidden || !!(o.voisinage && !etat.voisinageVisible) || !visibleEnIsolement(o, etat.objects, etat.isolement),
     // Rien n'est ecrit tant que tout est aux valeurs par defaut : un projet qui n'y a jamais touche ne
     // gagne pas le champ, et le rechargement ne le fait pas passer en « modifications non enregistrees ».
     enregistrerAffichage() {
       const p = trouverParcelleCloture();
       if (!p) return;
-      const auxDefauts = etat.voisinageVisible && etat.grilleVisible;
+      const auxDefauts = etat.voisinageVisible && !etat.grilleVisible;
       if (!p.affichage || typeof p.affichage !== 'object') {
         if (auxDefauts) return;
         p.affichage = {};

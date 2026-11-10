@@ -11,6 +11,7 @@
 // suivre. Les fonctions qui le font (`rendu`, `rafraichir la terrasse`, `reconstruire la 3D`) sont
 // fournies par le contexte.
 
+import type { CarteToit } from './carteToit.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut, Construction, TextureAppliquee } from '../../model/types.js';
 import type { Pointage } from '../../interaction/outilMesure.js';
@@ -61,7 +62,7 @@ export interface ContexteChamps {
   executerCommande: (id: string) => void;
   /** La commande est-elle utilisable (droits, quota, contexte) ? Un bouton qui la declenche se grise sinon. */
   commandeUtilisable: (id: string) => boolean;
-  pushHistory: () => void;
+  pushHistory: (...objets: object[]) => void;
   render: () => void;
   toast: (message: string) => void;
 }
@@ -85,9 +86,26 @@ interface ChampBase {
   surbrillance?: (c: ContexteChamps) => boolean;
   /** Empiler un instantane avant d'ecrire. */
   historique?: boolean;
+  /**
+   * Le champ deforme le contour de l'objet (angle, longueur, rayon, mode rectangle) : sur un objet venu du cadastre ou de l'IGN
+   * pas encore retouche, l'ecriture attend l'accord de la personne (interaction/retoucheTerrain.ts, app/inspecteur.ts).
+   */
+  retouche?: boolean;
   /** `false` pour un reglage d'affichage qui ne modifie pas le projet. */
   sale?: boolean;
+  /**
+   * Un reglage d'affichage (`sale: false`) que le projet garde : sans annulation et permis en lecture
+   * seule comme les autres, il marque pourtant le projet a enregistrer, hors lecture seule - sinon
+   * le reglage se perdait a la reouverture (le relief, les courbes de niveau).
+   */
+  enregistre?: boolean;
   effets?: Effet[];
+  /**
+   * Le titre du pli ou le champ se range, ferme a l'ouverture : ce qui sert rarement a la conception
+   * (les textures, la cloture cote par cote, les reglages techniques du relief). Des champs voisins
+   * du meme `repli` vont dans le meme pli ; le champ reste monte et se lit d'un clic.
+   */
+  repli?: string;
 }
 
 export interface ChampTexte extends ChampBase {
@@ -117,7 +135,8 @@ export interface ChampCase extends ChampBase {
 
 export interface ChampChoix extends ChampBase {
   type: 'choix';
-  options: (c: ContexteChamps) => { valeur: string; libelle: string }[];
+  /** `groupe` : le titre sous lequel la liste deroulante range l'option (options voisines du meme groupe) ; absent : hors groupe. */
+  options: (c: ContexteChamps) => { valeur: string; libelle: string; groupe?: string }[];
   lire: (c: ContexteChamps) => string;
   ecrire: (c: ContexteChamps, v: string) => void;
 }
@@ -163,7 +182,7 @@ export interface ChampBouton extends ChampBase {
   texte?: (c: ContexteChamps) => string;
   explication?: string;
   /**
-   * Sur quoi le bouton agit — obligatoire, pour qu'aucun bouton n'echappe aux droits (app/ecritures.ts) :
+   * Sur quoi le bouton agit — obligatoire, pour qu'aucun bouton n'echappe aux droits (app/administration/ecritures.ts) :
    *   - `{ commande }` : il declenche cette commande du registre, qui porte droits et annulation ; le
    *     bouton se grise quand elle n'est pas utilisable ;
    *   - `projet` : il ecrit le projet lui-meme et empile son propre instantane ; grise et refuse en
@@ -179,9 +198,10 @@ export interface ChampAlerte extends ChampBase {
   texte: (c: ContexteChamps) => string;
 }
 
-/** Le tableau d'optimisation de la structure (zones/resultats/Optimisation.tsx), sous son bouton. */
-export interface ChampOptimisation extends ChampBase {
-  type: 'optimisation';
+/** Une carte des hauteurs mesurees et du decoupage d'un toit (ui/champs/carteToit.ts), sur toute la largeur. */
+export interface ChampCarte extends ChampBase {
+  type: 'carte';
+  carte: (c: ContexteChamps) => CarteToit | null;
 }
 
 /** Plusieurs commandes sur une ligne : un cote, son nom, sa longueur, son bouton. */
@@ -192,7 +212,7 @@ export interface ChampLigne extends ChampBase {
 
 export type Champ =
   | ChampTexte | ChampNombre | ChampCase | ChampChoix | ChampCouleur | ChampDate | ChampCurseur
-  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampOptimisation | ChampLigne;
+  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampCarte | ChampLigne;
 
 export interface Section {
   id: string;
@@ -206,4 +226,19 @@ export interface Section {
 /** Les champs de la section, ceux qui se montrent. */
 export function champsVisibles(section: Section, c: ContexteChamps): Champ[] {
   return section.champs.filter(ch => !ch.visible || ch.visible(c));
+}
+
+/** Une suite de champs a montrer : ouverte (`repli` absent), ou rangee dans un pli ferme. */
+export interface GroupeChamps { repli: string | null; champs: Champ[] }
+
+/** Les champs ranges dans l'ordre, les voisins d'un meme pli ensemble. */
+export function groupesDeChamps(champs: readonly Champ[]): GroupeChamps[] {
+  const out: GroupeChamps[] = [];
+  for (const ch of champs) {
+    const repli = ch.repli ?? null;
+    const dernier = out[out.length - 1];
+    if (dernier && dernier.repli === repli) dernier.champs.push(ch);
+    else out.push({ repli, champs: [ch] });
+  }
+  return out;
 }

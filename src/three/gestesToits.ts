@@ -1,0 +1,445 @@
+// Le catalogue du toit (palette, groupe « Toit ») : ce que la personne pose d'un geste sur un batiment.
+//
+// Trois familles, comme la palette les montre :
+//   - `toit`   : la forme du toit, prise dans le catalogue que la 3D sait dessiner (facade/catalogueToits.ts) ;
+//   - `sur`    : ce qui se pose sur le toit (lucarnes du catalogue, cheminee, pignon) ;
+//   - `facade` : ce qui tient a un mur et touche au toit (appentis ouvert : galerie, porche ; ferme).
+//
+// Les images de la palette sont les vignettes de ce meme catalogue (`vueIsometrique`) : elles viennent du
+// code de la 3D, pas d'un dessin a part. Une forme choisie est le corps de reference du catalogue, remis a
+// l'echelle du batiment (son rectangle, son egout, la hauteur de son toit).
+//
+// Ce module ne sait ni dessiner ni interroger l'ecran : il ecrit dans l'objet, avec le vocabulaire du
+// modele (`Toit`, `CorpsToit`, `Lucarne`, `Cheminee`, `PignonToit`), et dit quand un geste n'a pas de
+// sens. Un geste est une decision de la personne : il fige le toit (`toitFige`), la lecture automatique
+// ne le reprend plus tant qu'elle n'a pas ete rallumee (app/ecouteurs/toitCatalogue.ts).
+//
+// Pur : pas de reseau, pas de DOM, pas d'historique (l'appelant empile l'instantane avant d'ecrire).
+
+import { enPoints } from '../model/formes.js';
+import { estFormeToit, formeDuCorpsNommee } from '../model/formeToit.js';
+import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from './catalogueToits.js';
+import { angleDuPlusLongCote } from '../facade/toits/toit.js';
+import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitCorps.js';
+import { formeDuCorps } from '../facade/regles/toits/faits.js';
+import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
+import { coupeParDefaut, gaucheEnDebut } from '../facade/modeToit/decroche.js';
+import { traveeNeuve } from '../facade/modeToit/travees.js';
+import { DEFAUTS_SAILLIE, accorderLesRetraits, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
+import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, Toit, TypeLucarne } from '../model/types.js';
+import { champsBatiment } from '../model/champsFonction.js';
+
+export type FamillePiece = 'corps' | 'toit' | 'sur' | 'facade';
+
+export interface PieceCatalogue {
+  /** Stable : `famille:nom`. C'est la valeur que la palette passe a la commande. */
+  id: string;
+  famille: FamillePiece;
+  libelle: string;
+  /** L'exemple du catalogue (facade/catalogueToits.ts) dont la vignette est l'image de la piece ; absent : un glyphe. */
+  exemple?: string;
+  /** Pas proposee par la palette : un ancien identifiant que `appliquerPiece` comprend encore (les trois formes de bow-window d'avant). */
+  cachee?: true;
+}
+
+/** Les tourelles ne se posent pas sur un batiment entier : le catalogue les garde, la palette non. */
+const TOURELLES = new Set(['conique', 'polygonal', 'fleche', 'dome', 'imperiale']);
+
+const formes = EXEMPLES_TOITS.filter((e) => e.famille === 'toit' && !TOURELLES.has(e.id));
+const lucarnes = EXEMPLES_TOITS.filter((e) => e.famille === 'lucarne');
+
+export const PIECES: readonly PieceCatalogue[] = [
+  // Les corps (mode Plan) : leur vignette est la forme de toit qu'ils prennent a la pose.
+  { id: 'corps:aile', famille: 'corps', libelle: 'Aile', exemple: 'appentis' },
+  { id: 'corps:retour', famille: 'corps', libelle: 'Retour', exemple: 'deux-pans' },
+  { id: 'corps:biaise', famille: 'corps', libelle: 'Biaise', exemple: 'croupes' },
+  ...formes.map((e) => ({ id: 'forme:' + e.id, famille: 'toit' as const, libelle: e.titre, exemple: e.id })),
+  // Les trois pans : le quatre-pans avec une seule croupe, l'autre bout en pignon. Pas des vignettes a eux : des options sous celle du
+  // quatre-pans (zones/vue3d/ModeToit.tsx, OPTIONS_PIECE).
+  { id: 'forme:croupes-debut', famille: 'toit', libelle: 'Trois pans, croupe au début du faîtage', exemple: 'croupes', cachee: true },
+  { id: 'forme:croupes-fin', famille: 'toit', libelle: 'Trois pans, croupe à la fin du faîtage', exemple: 'croupes', cachee: true },
+  { id: 'sur:pignon', famille: 'sur', libelle: 'Pignon' },
+  { id: 'sur:cheminee', famille: 'sur', libelle: 'Cheminée' },
+  { id: 'sur:fenetre-toit', famille: 'sur', libelle: 'Fenêtre de toit' },
+  { id: 'sur:solaire', famille: 'sur', libelle: 'Solaire' },
+  ...lucarnes.map((e) => ({ id: 'sur:' + e.id, famille: 'sur' as const, libelle: e.titre.replace(/^Lucarne /, ''), exemple: e.id })),
+  { id: 'facade:bow-window', famille: 'facade', libelle: 'Bow-window' },
+  { id: 'facade:bow-rectangle', famille: 'facade', libelle: 'Bow-window', cachee: true },
+  { id: 'facade:bow-arc', famille: 'facade', libelle: 'Bow en arc', cachee: true },
+  { id: 'facade:bow-conge', famille: 'facade', libelle: 'Bow arrondi', cachee: true },
+  { id: 'facade:galerie', famille: 'facade', libelle: 'Galerie' },
+  { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' },
+  // Une travee du mur regarde (schema 14) : un mur recule sous le toit, ou, sous un appentis, un garde-corps entre ses poteaux.
+  { id: 'facade:travee', famille: 'facade', libelle: 'Travée' },
+  // Un decroche au point touche (demande du proprietaire, novembre 2026) : la personne touche l'egout ou le mur, choisit le cote et la
+  // profondeur ; c'est une travee de mur reculee, comme la piece « Travee ».
+  { id: 'facade:decroche', famille: 'facade', libelle: 'Décroché' }
+];
+
+export const piece = (id: string): PieceCatalogue | undefined => PIECES.find((p) => p.id === id);
+export const piecesDe = (famille: FamillePiece): PieceCatalogue[] => PIECES.filter((p) => p.famille === famille && !p.cachee);
+
+const dixieme = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Les options d'une piece du catalogue : d'autres pieces qui en sont des variantes, montrees sous sa vignette. Le quatre-pans se pose
+ * aussi en trois pans, la croupe a un seul bout du faitage (au debut, cote du premier mur de bout, ou a la fin), un pignon a l'autre.
+ */
+export const OPTIONS_PIECE: Readonly<Record<string, readonly { id: string; libelle: string }[]>> = {
+  'forme:croupes': [{ id: 'forme:croupes-debut', libelle: 'Croupe au début' }, { id: 'forme:croupes-fin', libelle: 'Croupe à la fin' }]
+};
+
+/** Une forme du catalogue a poser : son exemple, et le bout du faitage qui garde seul sa croupe (les trois pans). */
+function formeAPoser(nom: string): { e: ExempleToit; seuleCroupe: 0 | 1 | null } | null {
+  const variante = /^croupes-(debut|fin)$/.exec(nom);
+  const e = EXEMPLES_TOITS.find((x) => x.id === (variante ? 'croupes' : nom));
+  return e ? { e, seuleCroupe: variante ? (variante[1] === 'debut' ? 0 : 1) : null } : null;
+}
+
+/** Le corps d'un quatre-pans devenu trois pans : la croupe du bout `garde` reste, l'autre bout redevient un pignon. */
+function trancherUneCroupe(c: CorpsToit, garde: 0 | 1 | null): CorpsToit {
+  if (garde === null || !c.croupes) return c;
+  const h = c.croupes[garde];
+  return { ...c, croupes: garde === 0 ? [h, 0] : [0, h] };
+}
+const aire = (c: CorpsToit): number => { const r = repere(c.pts); return r.L * r.W; };
+
+/** Le corps qui porte ce que l'on pose : le plus grand, sans compter ce qui est pose sur une facade. */
+export const corpsPrincipal = (o: ObjetPlan): CorpsToit | null => {
+  const l = (o.batiment?.corpsToit ?? []).filter((c) => !c.saillie);
+  return l.length ? l.reduce((a, b) => (aire(b) > aire(a) ? b : a)) : null;
+};
+
+/** Le rectangle du batiment, la longueur selon le faitage (le grand cote) : celui sur lequel se pose le toit. */
+function rectangleDuBatiment(o: ObjetPlan): PtBrut[] | null {
+  const pts = enPoints(o).pts as PtBrut[] | undefined;
+  if (!pts || pts.length < 3) return null;
+  const rect = boiteOrientee(pts);
+  const r = repere(rect);
+  return r.L < r.W ? [rect[1] as PtBrut, rect[2] as PtBrut, rect[3] as PtBrut, rect[0] as PtBrut] : rect;
+}
+
+/** L'egout du batiment, et ce qu'il monte jusqu'au faitage : la hauteur que le catalogue remet a l'echelle. */
+function hauteursDuBatiment(o: ObjetPlan): { egout: number; montee: number } {
+  const c = corpsPrincipal(o);
+  const egout = c ? Math.min(...c.egouts) : (o.elevation ?? 3);
+  const montee = c ? Math.max(1, c.faitage - egout) : (o.batiment?.toit?.hauteur ?? 2.5);
+  return { egout, montee };
+}
+
+/**
+ * Le corps de reference d'un exemple du catalogue, remis a l'echelle du batiment : son emprise (longueur
+ * et largeur), son egout et la montee de son toit. Les distances le long du faitage suivent la longueur, celles
+ * en travers la largeur, les hauteurs la montee. Plusieurs corps (un toit en M, un shed) se repartissent
+ * sur le rectangle comme dans l'exemple.
+ */
+export function corpsDepuisExemple(e: ExempleToit, rect: readonly PtBrut[], egout: number, montee: number): CorpsToit[] {
+  const r: Repere = repere(rect);
+  const modeles = corpsDeLExemple(e);
+  const L0 = Math.max(LONGUEUR_M, ...e.corps.map((c) => c.l ?? LONGUEUR_M));
+  const W0 = Math.max(LARGEUR_M, ...e.corps.map((c) => (c.t0 ?? 0) + (c.w ?? LARGEUR_M)));
+  const kL = r.L / L0, kW = r.W / W0;
+  return modeles.map((m, i) => {
+    const item = e.corps[i] as NonNullable<ExempleToit['corps'][number]>;
+    const t0 = item.t0 ?? 0, w = item.w ?? LARGEUR_M, l = item.l ?? LONGUEUR_M;
+    const bas = Math.min(...m.egouts);
+    const kH = montee / Math.max(0.5, Math.abs(m.faitage - bas) || 4);
+    const haut = (z: number) => dixieme(egout + (z - bas) * kH);
+    const pts = [[0, t0], [l, t0], [l, t0 + w], [0, t0 + w]].map(([s, t]) => point(r, (s as number) * kL, (t as number) * kW));
+    const profil = m.profil?.map((p): ProfilPan => (p.type === 'brise' ? { ...p, largeurBrisisM: dixieme(p.largeurBrisisM * kW), hauteurBrisM: haut(p.hauteurBrisM) }
+      : p.type === 'coyau' ? { ...p, largeurM: dixieme(p.largeurM * kW) } : p.type === 'courbe' ? { ...p, flecheM: dixieme(p.flecheM * kW) } : p)) as CorpsToit['profil'];
+    const bouts = m.bouts?.map((b): BoutToit => (b.type === 'croupe' ? { ...b, profondeurM: dixieme(b.profondeurM * kL) }
+      : b.type === 'demi-croupe' ? { ...b, profondeurM: dixieme(b.profondeurM * kL), hauteurPignonM: dixieme(b.hauteurPignonM * kH) }
+        : b.type === 'brisis' ? { ...b, largeurM: dixieme(b.largeurM * kL) } : b)) as CorpsToit['bouts'];
+    const luc = m.lucarnes?.map((x): Lucarne => ({ ...x, debutM: dixieme(x.debutM * kL), finM: dixieme(x.finM * kL), faitageM: haut(x.faitageM), profondeurM: dixieme(x.profondeurM * kW) }));
+    const neuf: CorpsToit = {
+      ...m, pts,
+      posFaitage: dixieme(m.posFaitage * kW),
+      faitage: haut(m.faitage),
+      egouts: [haut(m.egouts[0]), haut(m.egouts[1])],
+      ...(m.croupes ? { croupes: [dixieme(m.croupes[0] * kL), dixieme(m.croupes[1] * kL)] as [number, number] } : {}),
+      ...(profil ? { profil } : {}), ...(bouts ? { bouts } : {}), ...(luc ? { lucarnes: luc } : {})
+    };
+    return neuf;
+  });
+}
+
+/**
+ * Un corps tire du toit simple d'un batiment : le rectangle qui englobe le contour, la longueur selon le
+ * faitage. C'est ce qui permet de poser une cheminee ou une lucarne sur un batiment lu seulement sur la
+ * BD TOPO (un toit, pas de corps) : le catalogue n'oblige pas a passer d'abord par la lecture LiDAR.
+ */
+export function corpsDepuisToitSimple(o: ObjetPlan): CorpsToit | null {
+  const rect = rectangleDuBatiment(o);
+  if (!rect) return null;
+  const r = repere(rect);
+  const egout = o.elevation ?? 3;
+  const haut = o.batiment?.toit?.hauteur ?? 2.5;
+  const forme = o.batiment?.toit?.forme ?? 'deux-pans';
+  const plat = forme === 'plat';
+  return { pts: rect, posFaitage: forme === 'appentis' ? 0 : r.W / 2, faitage: plat ? egout : dixieme(egout + haut), egouts: [egout, egout], pignons: [], ecart: 0 };
+}
+
+/** Le contour est-il a peu pres son rectangle englobant ? Sinon un corps unique ne le decrit pas (une maison en L, en U). */
+function contourRectangulaire(o: ObjetPlan): boolean {
+  const pts = enPoints(o).pts as PtBrut[] | undefined;
+  const rect = pts && pts.length >= 3 ? boiteOrientee(pts) : null;
+  if (!pts || !rect) return false;
+  const aire = (l: readonly PtBrut[]) => Math.abs(l.reduce((t, q, i) => { const r = l[(i + 1) % l.length] as PtBrut; return t + q.x * r.y - r.x * q.y; }, 0)) / 2;
+  return aire(pts) >= 0.9 * aire(rect);
+}
+
+/** Le corps sur lequel poser, cree depuis le toit simple s'il n'y en a pas encore. Null : pas de contour, ou un contour que le rectangle decrit mal. */
+function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
+  const deja = corpsPrincipal(o);
+  if (deja) return deja;
+  if (!contourRectangulaire(o)) return null;
+  const c = corpsDepuisToitSimple(o);
+  if (!c) return null;
+  champsBatiment(o).corpsToit = [c];
+  return c;
+}
+
+/**
+ * Le corps choisi dans la session (`rang`) : celui sur lequel agit tout geste du toit. Un element de facade (une saillie) renvoie au
+ * corps qui le porte. Null sans choix, ou quand le rang ne designe plus de corps.
+ */
+export function corpsChoisi(o: ObjetPlan, rang: number | null | undefined): CorpsToit | null {
+  const r = rangDuCorpsChoisi(o.batiment?.corpsToit ?? [], rang);
+  return r === null ? null : o.batiment?.corpsToit?.[r] ?? null;
+}
+
+/** Le rang du corps sur lequel agit un geste quand `rang` est choisi : une saillie renvoie a son hote. Null sans corps a ce rang. */
+export function rangDuCorpsChoisi(corps: readonly CorpsToit[], rang: number | null | undefined): number | null {
+  const c = rang === null || rang === undefined ? undefined : corps[rang];
+  if (!c) return null;
+  return c.saillie ? (corps[c.saillie.hote] ? c.saillie.hote : null) : (rang as number);
+}
+
+/**
+ * La piece de l'onglet « Toit » qui est deja en place : la forme du corps sur lequel une forme agirait (le corps choisi, ou le seul corps
+ * du batiment). Le catalogue la montre enfoncee : les memes vignettes posent une forme et disent celle du corps, que la personne change
+ * d'un toucher (decision du proprietaire, 4 novembre 2026). Null quand une forme remplacerait plusieurs corps.
+ */
+export function formeEnPlace(o: ObjetPlan, rangChoisi: number | null = null): string | null {
+  const corps = (o.batiment?.corpsToit ?? []).filter((c) => !c.saillie);
+  const c = corpsChoisi(o, rangChoisi) ?? (corps.length === 1 ? corps[0] : null);
+  return c ? 'forme:' + formeDuCorpsNommee(c) : null;
+}
+
+/** Le rectangle d'un corps, la longueur selon le grand cote : celui sur lequel une forme du catalogue le remplace. */
+function rectangleDuCorps(c: CorpsToit): PtBrut[] {
+  const r = repere(c.pts), p = c.pts as PtBrut[];
+  return r.L < r.W ? [p[1] as PtBrut, p[2] as PtBrut, p[3] as PtBrut, p[0] as PtBrut] : [...p];
+}
+
+/**
+ * Pourquoi ce geste n'a pas de sens ici ; null quand il en a. `rangChoisi` : le corps choisi dans la session ; tout geste n'agit que
+ * sur lui (decision de l'utilisateur, 21 octobre 2026). Sans choix, la facade regardee, sinon le corps principal.
+ */
+export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoisie | null, rangChoisi: number | null = null): string | null {
+  const p = piece(id);
+  if (!p) return 'Geste inconnu.';
+  if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
+  const choisi = corpsChoisi(o, rangChoisi);
+  if (p.famille === 'toit') return null;
+  if (id === 'facade:travee' || id === 'facade:decroche') {
+    // Une travee (ou un decroche) se pose sur le mur regarde d'un corps (celui du corps choisi, s'il y en a un).
+    if (!facade || facade.rang === null) return 'Regardez d’abord la façade où poser ' + (id === 'facade:travee' ? 'la travée' : 'le décroché') + ' : touchez son mur.';
+    const corps = o.batiment?.corpsToit ?? [], rang = rangDuCorpsChoisi(corps, rangChoisi);
+    if (rang !== null && rang !== facade.rang) return 'La façade regardée n’est pas celle du corps choisi.';
+    return corps[facade.rang]?.saillie ? (id === 'facade:travee' ? 'Une travée' : 'Un décroché') + ' se pose sur le mur d’un corps, pas sur un élément de façade.' : null;
+  }
+  if (p.famille === 'corps') {
+    const h = choisi ?? corpsPrincipal(o);
+    if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
+    if (h && !corpsNeuf(h, id.split(':')[1] as GenreCorps, o.batiment?.corpsToit ?? [])) return 'Pas de place contre ce corps.';
+    return null;
+  }
+  // Un contour en L ou en U n'est pas un seul corps : on ne le remplace pas en silence par son rectangle englobant.
+  if (!choisi && !corpsPrincipal(o) && !contourRectangulaire(o)) return 'Le toit de ce bâtiment n’est pas encore découpé en corps : choisissez d’abord sa forme.';
+  if (id === 'sur:pignon') {
+    // Le pignon se pose sur le corps choisi (sinon celui de la facade regardee) : un long pan (les murs 0 et 2), d'un toit qui dresse un pignon.
+    const c = choisi ?? corpsDeLaFacade(o, facade) ?? corpsPrincipal(o) ?? corpsDepuisToitSimple(o);
+    if (c && formeDuCorps(c) === 'appentis') return 'Un appentis n’a pas de pignon sur son long pan.';
+    if (facade && facade.rang !== null && corpsDeLaFacade(o, facade) === c && facade.mur % 2 === 1) return RAISON_PAS_DE_PIGNON;
+    return c && !c.speciale && FORMES_SANS_PIGNON.has(formeDuCorps(c)) ? RAISON_PAS_DE_PIGNON : null;
+  }
+  if (p.famille === 'sur') return null;
+  // Facade : un element se pose sur un mur du corps principal ; ce corps se deduit du toit simple au besoin.
+  return null;
+}
+
+const toitDe = (o: ObjetPlan): Toit => {
+  const b = champsBatiment(o);
+  return (b.toit ??= { forme: 'deux-pans', hauteur: 2.5, angleFaitage: angleDuPlusLongCote(enPoints(o).pts as PtBrut[]), source: 'saisie' });
+};
+
+function lucarneSur(c: CorpsToit, type: TypeLucarne): Lucarne {
+  const r = repere(c.pts);
+  const deja = (c.lucarnes ?? []).filter((l) => l.pan === 0).length;
+  const centre = (r.L * (deja + 1)) / (deja + 2);
+  const demi = type === 'chien-assis' ? 0.75 : type === 'oeil-de-boeuf' ? 0.4 : 0.7;
+  const egout = c.egouts[0];
+  return {
+    type, pan: 0, debutM: dixieme(centre - demi), finM: dixieme(centre + demi),
+    faitageM: dixieme(Math.min(c.faitage - 0.2, egout + (c.faitage - egout) * 0.5 + 1)), profondeurM: 1.2, source: 'observation'
+  };
+}
+
+function chemineeSur(c: CorpsToit): Cheminee {
+  const r = repere(c.pts);
+  const n = c.cheminees?.length ?? 0;
+  const p = point(r, r.L * Math.max(0.1, 0.7 - 0.25 * n), c.posFaitage);
+  return { x: dixieme(p.x), y: dixieme(p.y), largeurM: 0.7, profondeurM: 0.7, sommetM: dixieme(c.faitage + 0.8), position: 'faitage', source: 'observation' };
+}
+
+/** Une fenetre de toit ou un panneau solaire, au milieu du pan 0 ; le suivant se range a cote du precedent. */
+function elementSur(c: CorpsToit, type: 'fenetre-toit' | 'solaire'): ElementDeToit {
+  const r = repere(c.pts);
+  const deja = (c.elementsToit ?? []).filter((e) => e.pan === 0).length;
+  return { type, pan: 0, sM: dixieme((r.L * (deja + 1)) / (deja + 2)), dM: dixieme(Math.max(c.posFaitage, 0.5) / 2) };
+}
+
+/** La facade que la personne a choisie dans le mode Toit : le corps (null : le contour seul) et son mur. */
+export interface FacadeChoisie { rang: number | null; mur: number }
+
+const RAISON_PAS_DE_PIGNON = 'Pas de pignon sur cette façade.';
+/** Les formes dont le toit ne dresse pas de pignon sur son long pan : plat, papillon et pavillon n'ont pas de faitage qui y mene. */
+const FORMES_SANS_PIGNON = new Set(['plat', 'papillon', 'pavillon']);
+
+/** Le corps de la facade choisie ; null sans facade ou sans corps a ce rang. */
+function corpsDeLaFacade(o: ObjetPlan, facade?: FacadeChoisie | null): CorpsToit | null {
+  return facade && facade.rang !== null ? o.batiment?.corpsToit?.[facade.rang] ?? null : null;
+}
+
+function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
+  const r = repere(c.pts);
+  const largeur = Math.min(3.2, r.L / 2);
+  const sur = c.pignons.some((p) => p.pan === pan && p.debut < largeur * 0.9);
+  const debut = sur ? r.L - largeur : 0;
+  return { pan, debut: dixieme(debut), fin: dixieme(debut + largeur), faitage: c.faitage, profondeur: dixieme(Math.max(c.posFaitage, r.W - c.posFaitage)) };
+}
+
+/**
+ * Changer la forme d'un corps garde ce qui est pose dessus quand cela tient encore : ses pignons (un pignon de facade sur un toit plat
+ * aussi : AE 101, les deux pignons de la facade sud sur le toit plat entre eux), ses souches, et ses lucarnes, fenetres de toit et panneaux
+ * sur un toit en pente. Le corps garde son rectangle et son sens (sinon ce qui se compte le long du faitage n'a plus de place), et rien
+ * ne se garde sur un appentis, qui n'a pas de long pan a pignon. Decision du proprietaire, 4 novembre 2026 : modifier, pas remplacer.
+ */
+function gardeCeQuiEstPose(avant: CorpsToit, apres: CorpsToit): CorpsToit {
+  const neuf: CorpsToit = { ...apres };
+  if (avant.cheminees?.length) neuf.cheminees = avant.cheminees;
+  const r0 = repere(avant.pts), r1 = repere(apres.pts), cos = r0.u.x * r1.u.x + r0.u.y * r1.u.y;
+  const forme = formeDuCorps(apres);
+  // Le faitage tourne : le mur qui portait les pignons n'est plus un long pan, rien de ce qui s'y comptait n'a plus de place.
+  if (Math.abs(cos) < 0.999 || forme === 'appentis') return neuf;
+  // Le mur porteur existe encore : chaque pignon garde sa place relative le long de lui (et son pan, retourne si le sens l'est).
+  const k = r1.L / r0.L, rel = (s: number) => (cos > 0 ? s * k : r1.L - s * k);
+  neuf.pignons = avant.pignons.map((g) => {
+    const a = rel(g.debut), b = rel(g.fin), pan = (cos > 0 ? g.pan : g.pan === 0 ? 1 : 0) as 0 | 1;
+    return { ...g, pan, debut: dixieme(Math.min(a, b)), fin: dixieme(Math.max(a, b)), faitage: Math.max(g.faitage, apres.egouts[pan] + 0.5) };
+  });
+  const memeSens = cos > 0.999 && Math.abs(r0.L - r1.L) < 0.05 && Math.abs(r0.W - r1.W) < 0.05;
+  if (forme !== 'plat' && memeSens) {
+    if (avant.lucarnes?.length) neuf.lucarnes = avant.lucarnes.map((l) => ({ ...l, faitageM: Math.min(l.faitageM, dixieme(apres.faitage - 0.1)) }));
+    if (avant.elementsToit?.length) neuf.elementsToit = avant.elementsToit;
+  }
+  return neuf;
+}
+
+/**
+ * Ecrit le geste dans le batiment : rend vrai s'il a change quelque chose. Le toit est fige ensuite :
+ * c'est la personne qui le regle. `facade` : celle que la personne regarde ; un pignon ou un element de mur s'y pose.
+ */
+export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie | null, rangChoisi: number | null = null): boolean {
+  if (raisonIndisponible(o, id, facade, rangChoisi)) return false;
+  // Le decroche ne se pose pas d'un coup : il attend le point touche (app/ecouteurs/toitCatalogue.ts, `toit.decrocher`).
+  if (id === 'facade:decroche') return false;
+  const [prefixe = '', nom = ''] = id.split(':');
+  const choisi = corpsChoisi(o, rangChoisi);
+  if (prefixe === 'forme' && choisi && o.batiment?.corpsToit) {
+    // Une forme sur le corps choisi : lui seul change, a son emprise et a ses hauteurs. Il garde son rang (les saillies qui le
+    // designent le suivent) ; les corps de plus que la forme demande s'ajoutent a la fin.
+    const forme = formeAPoser(nom);
+    if (!forme) return false;
+    const egout = Math.min(...choisi.egouts), montee = Math.max(1, choisi.faitage - egout);
+    const [tel, ...autres] = corpsDepuisExemple(forme.e, rectangleDuCorps(choisi), egout, montee);
+    if (!tel) return false;
+    const premier = gardeCeQuiEstPose(choisi, trancherUneCroupe(tel, forme.seuleCroupe));
+    const rang = o.batiment.corpsToit.indexOf(choisi);
+    champsBatiment(o).corpsToit = [...o.batiment.corpsToit.slice(0, rang), premier, ...o.batiment.corpsToit.slice(rang + 1), ...autres];
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
+  } else if (prefixe === 'forme') {
+    const rect = rectangleDuBatiment(o), forme = formeAPoser(nom);
+    if (!rect || !forme) return false;
+    const { egout, montee } = hauteursDuBatiment(o);
+    champsBatiment(o).corpsToit = corpsDepuisExemple(forme.e, rect, egout, montee).map((c, i) => (i === 0 ? trancherUneCroupe(c, forme.seuleCroupe) : c));
+    champsBatiment(o).modeToit = 'corps';
+    const toit = toitDe(o);
+    if (estFormeToit(forme.e.id)) toit.forme = forme.e.id;
+    toit.source = 'saisie';
+    delete toit.pente;
+  } else if (id === 'facade:travee') {
+    const c = facade && facade.rang !== null ? o.batiment?.corpsToit?.[facade.rang] : undefined;
+    if (!c || !facade) return false;
+    // Sur un long mur, la travee part du bord du pignon qui avance (sinon du milieu) ; sur un mur de bout, du milieu.
+    const coupe = facade.mur % 2 === 0 ? coupeParDefaut(c, facade.mur, 'droite') : repere(c.pts).W / 2;
+    c.travees = [...(c.travees ?? []), traveeNeuve(c, facade.mur, coupe, gaucheEnDebut(c, facade.mur))];
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
+  } else if (prefixe === 'corps') {
+    const hote = choisi ?? corpsPourPoser(o);
+    const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.batiment?.corpsToit ?? []) : null;
+    if (!hote || !neuf || !o.batiment?.corpsToit) return false;
+    champsBatiment(o).corpsToit = [...o.batiment.corpsToit, neuf];
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
+  } else if (prefixe === 'sur') {
+    // Sur le corps choisi ; sans choix, un pignon va sur le corps de la facade regardee, du cote de son mur, le reste sur le corps principal.
+    const c = choisi ?? (nom === 'pignon' ? corpsDeLaFacade(o, facade) : null) ?? corpsPourPoser(o);
+    if (!c) return false;
+    if (nom === 'cheminee') c.cheminees = [...(c.cheminees ?? []), chemineeSur(c)];
+    else if (nom === 'fenetre-toit' || nom === 'solaire') c.elementsToit = [...(c.elementsToit ?? []), elementSur(c, nom)];
+    else if (nom === 'pignon') c.pignons = [...c.pignons, pignonSur(c, facade?.mur === 2 && c === corpsDeLaFacade(o, facade) ? 1 : 0)];
+    else c.lucarnes = [...(c.lucarnes ?? []), lucarneSur(c, nom as TypeLucarne)];
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
+  } else {
+    // Un element de mur va sur le corps choisi ; sans choix, sur le corps de la facade regardee (pas sur un element deja pose), sinon le
+    // corps principal. Sur le mur de cette facade quand elle est a ce corps, sinon sur un mur libre.
+    const surFacade = corpsDeLaFacade(o, facade), hote = choisi ?? (surFacade && !surFacade.saillie ? surFacade : corpsPourPoser(o));
+    if (!hote || !o.batiment?.corpsToit) return false;
+    const rang = o.batiment?.corpsToit.indexOf(hote);
+    const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
+    const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' ? 'rectangle' : genre === 'bow-window' ? 'pans' : 'rectangle';
+    const d = DEFAUTS_SAILLIE[genre];
+    const mur = hote === surFacade && facade ? facade.mur : murLibre(o.batiment?.corpsToit, rang);
+    const { L } = murDuCorps(hote, mur);
+    const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
+    // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.
+    const profondeurM = forme === 'arc' ? Math.min(largeurM / 2, 1.2) : d.profondeurM;
+    // Sur un mur dont le rez-de-chaussee recule deja sous l'etage, le bow-window neuf s'y glisse aussi (`accorderLesRetraits`).
+    champsBatiment(o).corpsToit = accorderLesRetraits([...o.batiment.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })]);
+    champsBatiment(o).modeToit = 'corps';
+    toitDe(o).source = 'saisie';
+  }
+  champsBatiment(o).toitFige = true;
+  return true;
+}
+
+/**
+ * Rallume la lecture automatique : le batiment redevient lisible par le LiDAR, les faits et les profils
+ * (regles/). Ce que la personne avait regle est remplace a la prochaine lecture : l'appelant previent et
+ * empile l'instantane avant.
+ */
+export function reprendreLectureAuto(o: ObjetPlan): void {
+  delete o.batiment?.toitFige;
+  delete o.batiment?.toitLidarLu;
+  if (o.batiment?.toit?.source === 'saisie') o.batiment.toit.source = 'bdtopo';
+  delete o.batiment?.corpsToit;
+  delete o.batiment?.volumesToit;
+  delete o.batiment?.toitMesure;
+  delete o.batiment?.modeToit;
+}

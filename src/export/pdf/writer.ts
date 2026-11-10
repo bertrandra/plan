@@ -39,14 +39,16 @@ export function pdfEscape(s: unknown): string {
 }
 
 // Date au format attendu par le dictionnaire /Info d'un PDF : D:AAAAMMJJHHMMSS, heure locale.
-export function horodatagePdfInfo(): string {
-  const d = new Date();
+export function horodatagePdfInfo(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2,'0');
   return 'D:' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate())
     + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
 }
 
-export function assemblerPDF(pages: PagePdf[]): string {
+/** Ce que porte le dictionnaire /Info : la version et le build du programme, l'heure de creation ; par defaut, ceux du programme en cours. */
+export interface InfoPdf { appVersion?: string; buildAt?: string; maintenant?: Date }
+
+export function assemblerPDF(pages: PagePdf[], info: InfoPdf = {}): string {
   // Numerotation : 1 Catalog, 2 Pages, 3 Font, puis (Page, Contenu) par page, puis les etats
   // graphiques d'opacite. Tout est calcule, rien n'est fige : le nombre de pages varie.
   const opacites = [1, 0.5, 0.35, 0.9, 0.75];
@@ -70,8 +72,8 @@ export function assemblerPDF(pages: PagePdf[]): string {
   // aucune des numerotations calculees plus haut. Chaines en ASCII pur : un PDF sans encodage
   // declare rend le reste illisible.
   const numInfo = objs.length + 1;
-  objs.push('<< /Producer (Plan interactif ' + APP_VERSION + ') /Creator (plan.html build ' + BUILD_AT
-    + ') /CreationDate (' + horodatagePdfInfo() + ') >>');
+  objs.push('<< /Producer (Plan interactif ' + (info.appVersion ?? APP_VERSION) + ') /Creator (plan.html build ' + (info.buildAt ?? BUILD_AT)
+    + ') /CreationDate (' + horodatagePdfInfo(info.maintenant) + ') >>');
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
   objs.forEach((corps,i)=>{ offsets.push(pdf.length); pdf += (i+1) + ' 0 obj\n' + corps + '\nendobj\n'; });
@@ -96,8 +98,24 @@ export function pdfTexte(x: number, y: number, taille: number, txt: unknown, cou
   return s + '(' + pdfEscape(txt) + ') Tj ET\n';
 }
 
-export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rgb01 | null, contour?: Rgb01 | null, epaisseur?: number, opacite?: number): string {
-  let s = '';
+/**
+ * Un gabarit de decoupe : tout le plan sauf les `trous` (en points PDF), en regle pair-impair
+ * (`W* n`). Ce qui est peint ensuite, jusqu'au `Q` qui le leve, ne se dessine pas dans les trous —
+ * qu'ils soient tout entiers dans la forme ou a cheval sur son bord. Vide sans trou.
+ */
+export function pdfDecoupeTrous(trous: { x: number; y: number }[][]): string {
+  if(!trous.length) return '';
+  let s = 'q\n-100000 -100000 m 100000 -100000 l 100000 100000 l -100000 100000 l h\n';
+  trous.forEach(t=>{
+    t.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
+    s += 'h\n';
+  });
+  return s + 'W* n\n';
+}
+
+/** Un polygone ferme. `trous` (en points PDF) le percent : voir `pdfDecoupeTrous`. */
+export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rgb01 | null, contour?: Rgb01 | null, epaisseur?: number, opacite?: number, trous: { x: number; y: number }[][] = []): string {
+  let s = pdfDecoupeTrous(trous);
   if(opacite !== undefined && opacite < 1) s += '/GS' + (opacite <= 0.4 ? 2 : (opacite <= 0.55 ? 1 : (opacite <= 0.8 ? 4 : 3))) + ' gs\n';
   if(remplissage) s += remplissage[0].toFixed(3) + ' ' + remplissage[1].toFixed(3) + ' ' + remplissage[2].toFixed(3) + ' rg\n';
   if(contour) s += contour[0].toFixed(3) + ' ' + contour[1].toFixed(3) + ' ' + contour[2].toFixed(3) + ' RG\n';
@@ -105,6 +123,8 @@ export function pdfPolygone(ptsPdf: { x: number; y: number }[], remplissage?: Rg
   ptsPdf.forEach((p,i)=>{ s += p.x.toFixed(2) + ' ' + p.y.toFixed(2) + ' ' + (i===0 ? 'm' : 'l') + '\n'; });
   s += 'h ' + (remplissage && contour ? 'B' : (remplissage ? 'f' : 'S')) + '\n';
   if(opacite !== undefined && opacite < 1) s += '/GS0 gs\n';
+  // Le `Q` leve le gabarit et rend aussi l'etat graphique d'avant (couleurs, opacite).
+  if(trous.length) s += 'Q\n';
   return s;
 }
 

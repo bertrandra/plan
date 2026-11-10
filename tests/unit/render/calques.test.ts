@@ -2,6 +2,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { dessinerCalqueParasols } from '../../../src/render/parasolOverlay.js';
 import { dessinerReleves } from '../../../src/render/releve.js';
+import { corpsDeSaillie } from '../../../src/facade/modeToit/saillies.js';
+import type { CorpsToit } from '../../../src/model/types.js';
 import { dessinerCotes } from '../../../src/render/measures.js';
 import type { EtatScene } from '../../../src/geometry/vue.js';
 import type { EtatApp } from '../../../src/core/state.js';
@@ -40,7 +42,7 @@ describe('calque des parasols', () => {
   });
 
   it('relie le mat deporte au centre de la toile', () => {
-    calque([parasol({ matDeporte: true })]);
+    calque([parasol({ parasol: { matDeporte: true } })]);
     expect(mats.querySelectorAll('line')).toHaveLength(1);
   });
 
@@ -61,16 +63,42 @@ describe('releves de facade sur le plan', () => {
   const groupe = () => { const g = document.createElementNS(NS, 'g') as SVGGElement; svg.appendChild(g); return g; };
   const maison = (ouvertures: object[], plus: object = {}) => ({
     key: 'm', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }],
-    facades: [{ cote: 0, ouvertures }], ...plus
+    batiment: { facades: [{ cote: 0, ouvertures }] }, ...plus
   });
   const etat = (objets: object[]) => ({ objects: objets, scene } as unknown as EtatApp);
   const versEcran = (p: { x: number; y: number }) => ({ x: p.x * 10, y: -p.y * 10 });
+
+  // Le plan et la Vue 3D disent le meme batiment : le mur recule ne se montre que quand le batiment se dessine par ses corps
+  // (audit des PR #621 a #641 ; three/ouvrages/bati.ts ne recule le pied qu'en mode « corps »).
+  it('montre le rez-de-chaussee en retrait en tirets, seulement quand le batiment se dessine par ses corps', () => {
+    const hote: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 };
+    const bow = corpsDeSaillie(hote, { genre: 'bow-window', hote: 0, mur: 0, centreM: 4, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 });
+    const avecCorps = (plus: object) => maison([], { batiment: { facades: [], corpsToit: [hote, bow], ...plus } });
+    const tirets = (o: object) => { const g = groupe(); dessinerReleves(g, etat([o]), versEcran, () => false); return g.querySelectorAll('line[data-retrait-rdc]').length; };
+    expect(tirets(avecCorps({}))).toBe(1);
+    // Toit simple choisi : la 3D pose le contour seul, sans bow-window ni recul ; le plan non plus.
+    expect(tirets(avecCorps({ modeToit: 'simple' }))).toBe(0);
+  });
 
   it('coupe une fenetre a 1,10 m : son tableau, ses deux joues et sa vitre', () => {
     const g = groupe();
     dessinerReleves(g, etat([maison([{ type: 'fenetre', x: 1, y: 0.9, l: 1.2, h: 1.25 }])]), versEcran, () => false);
     expect(g.querySelectorAll('line')).toHaveLength(4);
     expect(g.querySelectorAll('path')).toHaveLength(0);
+  });
+
+  it('sur une Facade validee, met en tirets les tableaux d une ouverture pas encore verifiee, et nomme chaque coupure (lot F5)', () => {
+    const g = groupe();
+    const fen = (x: number, plus: object) => ({ type: 'fenetre', x, y: 0.9, l: 1.2, h: 1.25, ...plus });
+    const m = maison([fen(1, { id: 'o1', verifieeLe: '2026-10-29' }), fen(4, { id: 'o2' })]);
+    m.batiment.facades[0] = { ...m.batiment.facades[0]!, dimensions: { largeurM: 8, egoutM: 3, source: 'lidar' } } as never;
+    dessinerReleves(g, etat([m]), versEcran, () => false);
+    expect([...g.querySelectorAll('line[data-ouverture]')].map((l) => l.getAttribute('data-ouverture'))).toEqual(['o1', 'o2']);
+    expect(g.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
+    // Sans Facade validee (un releve d'avant), rien ne change : pas de tirets.
+    const h = groupe();
+    dessinerReleves(h, etat([maison([fen(1, {}), fen(4, {})])]), versEcran, () => false);
+    expect(h.querySelectorAll('line[stroke-dasharray]')).toHaveLength(0);
   });
 
   it('dessine une porte avec son arc d ouverture', () => {

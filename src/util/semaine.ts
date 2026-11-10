@@ -1,6 +1,6 @@
 // Le curseur « semaine » qui accompagne la date, dans la Vue 3D comme dans la visionneuse GLB.
 //
-// Les deux vues reglent leur soleil separement, mais avec la meme convention. Elle tenait en deux
+// Les deux vues reglent le meme soleil (celui du projet), chacune avec son curseur, et avec la meme convention. Elle tenait en deux
 // morceaux dupliques dans chaque ecouteur ; la voici en un seul endroit.
 
 import { lireDate } from './date.js';

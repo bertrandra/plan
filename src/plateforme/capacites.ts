@@ -50,7 +50,7 @@ export const CAPACITES = {
   cadastre: {
     code: 'plan.cadastre',
     libelle: 'Import cadastral et bati IGN',
-    commandes: ['projet.depuisAdresse', 'projet.actualiserIgn'],
+    commandes: ['projet.depuisAdresse', 'projet.actualiserIgn', 'projet.actualiser', 'projet.lireRues'],
     origines: ['https://api-adresse.data.gouv.fr', 'https://apicarto.ign.fr', 'https://data.geopf.fr']
   },
   ortho: {
@@ -59,11 +59,23 @@ export const CAPACITES = {
     commandes: ['affichage.orthophoto', 'affichage.orthoOpacite', 'affichage.orthoParcelleOpacite'],
     origines: ['https://data.geopf.fr']
   },
+  relief: {
+    code: 'plan.relief',
+    libelle: 'Relief du terrain (IGN)',
+    // Les trois commandes du relief (MD/spec-relief.md §8), declarees par app/ecouteurs/relief.ts.
+    // Sans la capacite, elles disparaissent et la page ne parle pas a data.geopf.fr pour le relief ;
+    // un projet qui porte deja une grille la garde et l'affiche : la capacite porte sur la lecture.
+    // Accordee en dur a tous les comptes depuis le 7 octobre 2026 (CAPACITES_FORCEES, app/acces.ts),
+    // tant que backprod ne la declare pas.
+    commandes: ['relief.lire', 'relief.actualiser', 'relief.supprimer'],
+    origines: ['https://data.geopf.fr']
+  },
   plu: {
     code: 'plan.plu',
     libelle: "Regles d'urbanisme (PLU)",
-    commandes: ['plu.interroger'],
-    origines: ['https://apicarto.ign.fr']
+    commandes: ['plu.interroger', 'plu.lireReglement', 'plu.validerFait'],
+    // data.geopf.fr : le PDF du reglement (lot L4), deja dans la CSP pour la BD TOPO et les tuiles.
+    origines: ['https://apicarto.ign.fr', 'https://data.geopf.fr']
   },
   terrasse: {
     code: 'plan.terrasse',
@@ -81,7 +93,7 @@ export const CAPACITES = {
     // disparaissent, et three.js n'est jamais demande au CDN — le seul vrai gain reseau de la table.
     // Les commandes internes a la Vue 3D et a la visionneuse ne sont joignables qu'une fois dedans.
     commandes: ['vue.3d', 'vue.visionneuse', 'export.glb'],
-    origines: ['https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net', 'https://api.polyhaven.com', 'https://cdn.polyhaven.com', 'https://dl.polyhaven.org']
+    origines: ['https://cdn.jsdelivr.net', 'https://api.polyhaven.com', 'https://cdn.polyhaven.com', 'https://dl.polyhaven.org']
   },
   exportDxf: {
     code: 'plan.export.dxf',

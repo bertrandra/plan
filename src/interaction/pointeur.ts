@@ -16,9 +16,11 @@
 //   double-tap objet ne se declenchait jamais au doigt. On l'accepte donc quel que soit l'element
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
-import { parcelleDuProjet } from '../model/fonctions.js';
+import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
+import { toucherForme } from '../core/controleurObjets.js';
+import { apresDeformation } from '../core/deformation.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
-import { facadesDuContour } from '../facade/geometrie.js';
+import { facadesDuContour } from '../geometry/cotesVusDeDehors.js';
 import { appliquerGlisser, type GlisserEnCours } from './drag.js';
 import { decalageDeSaisie, glisserAcces } from './glisserAcces.js';
 import type { DebutPincement } from './navigation.js';
@@ -26,7 +28,9 @@ import { contourDeContrainte } from './editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './navigation.js';
 import { estRectangle } from '../geometry/rect.js';
 import { mesure } from './outilMesure.js';
-import { definirCibleAlignement } from './outilAlignement.js';
+import { definirCibleAlignement, MESSAGE_TERRAIN_REEL } from './outilAlignement.js';
+import { avecAccordDeRetouche, MESSAGE_RETOUCHE_PERMISE } from './retoucheTerrain.js';
+import { retoucheADemander } from '../model/retouche.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
@@ -49,14 +53,32 @@ export interface ContextePointeur {
   toWorld: (p: PtEcran) => PtBrut;
   render: () => void;
   rebuildSelector: () => void;
-  pushHistory: () => void;
+  /** Prend le pas d'annulation ; `objets` : ceux que l'ecriture qui suit modifie sur place (core/controleurObjets.ts). */
+  pushHistory: (...objets: object[]) => void;
   sendObjectBackward: (obj: ObjetPlan) => void;
   insertPointOnSegment: (obj: ObjetPlan, segIndex: number, clickWorld: PtBrut) => void;
   /** Le projet a change (pose d'un acces de la cloture par clic). */
-  markDirty: () => void;
+  markDirty: (...objets: object[]) => void;
   /** Apres la pose d'un acces : la Vue 3D se reconstruit si elle est ouverte. */
   apresAcces: () => void;
+  /**
+   * Le cote cible de l'outil « Aligner » est designe : l'objet selectionne pivote aussitot pour lui
+   * devenir parallele. Absent : la cible est seulement retenue.
+   */
+  aligner?: () => void;
+  /** Dit a la personne pourquoi un geste n'a pas lieu. */
+  signaler?: (message: string) => void;
+  /** La question avant de retoucher un objet venu du cadastre ou de l'IGN (interaction/retoucheTerrain.ts) ; par defaut le dialogue Z8. */
+  confirmer?: (message: string, oui: () => void) => void;
+  /**
+   * La vue a change (zoom, deplacement) depuis `avant` : sur un grand plan, un apercu tout de suite et
+   * un rendu au repos (render/apercuVue.ts). Absent : un rendu complet.
+   */
+  vueChangee?: (avant: EtatApp['scene']) => void;
 }
+
+/** La vue vient de changer : l'apercu du contexte, sinon un rendu complet. */
+const vueChangee = (ctx: ContextePointeur, avant: EtatApp['scene']): void => { if (ctx.vueChangee) ctx.vueChangee(avant); else ctx.render(); };
 
 /**
  * La cle de l'objet et l'indice du sommet ou du cote qu'un element du plan porte dans son dataset
@@ -88,11 +110,11 @@ function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePoint
     const a = clotureDe(parcelle).portails[pointage.indice ?? -1];
     const f = facadesDuContour(parcelle.pts, 0).find(x=>x.cote===proche.cote);
     if(!a || !f) return;
-    ctx.pushHistory();
+    ctx.pushHistory(parcelle);
     poserAcces(a, f, w);
     synchroniserAnciensChamps(parcelle);
     mesure.pointage = null;
-    ctx.markDirty();
+    ctx.markDirty(parcelle);
     ctx.render();
     ctx.apresAcces();
     return;
@@ -103,6 +125,7 @@ function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePoint
       definirCibleAlignement(picked);
       mesure.pointage = null;
       ctx.render();
+      if(ctx.aligner) ctx.aligner();
     } else {
       mesure.ref = picked;
       mesure.pointage = null;
@@ -141,6 +164,8 @@ interface EtatPointeur {
   clicCote: DernierClic;
   clicSommet: DernierClic;
   clicObjet: DernierClicObjet;
+  /** Le contour au debut d'un glisser de sommet ou de cote : a la fin, ce qui en depend suit (core/deformation.ts). */
+  contourAvant: PtBrut[] | null;
 }
 
 const CLIC_VIDE: DernierClic = {key:null, index:null, time:0};
@@ -185,11 +210,13 @@ function surObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap, w: PtBrut)
   }
   const obj = objetDe(etat, key);
   if(!obj || obj.locked) return 'rien'; // verrouille : se selectionne et se lit, mais ne bouge pas
+  // Pose sur le terrain reel (cadastre, IGN) : il se selectionne, il ne se deplace pas (interaction/outilAlignement.ts).
+  if(estPoseSurLeTerrain(obj)){ ctx.signaler?.(MESSAGE_TERRAIN_REEL); return 'rien'; }
   // Lecture seule : on selectionne, on regarde, on exporte — on ne deplace rien. Le refus est ici,
   // avant l'historique, pour qu'aucun pas d'annulation ne soit empile pour un geste qui n'aura pas lieu.
   if(etat.lectureSeule) return 'rien';
   etat.highlight = {type:null, index:null};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = obj.type==='circle'
     ? {type:'circleMove', obj, startWorld:w, startCenter:{...obj.center}, moved:false}
     : {type:'shapeMove', obj, startWorld:w, startPts: obj.pts.map(q=>({...q})), moved:false};
@@ -211,6 +238,23 @@ function surAcces(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   return 'suite';
 }
 
+/**
+ * Un glisser qui deformerait un objet venu du cadastre ou de l'IGN, pas encore retouche : la question se pose a l'appui, avant le
+ * geste (une confirmation asynchrone ne peut pas interrompre un glisser en route). Rend `true` quand le glisser peut commencer ;
+ * sinon l'appui est avale, et apres « Confirmer » la personne tire de nouveau.
+ */
+function glisserPermis(p: EtatPointeur, obj: ObjetPlan): boolean {
+  const { ctx } = p;
+  if(!retoucheADemander(obj)) return true;
+  // L'appui qui pose la question n'est pas le premier clic d'un double-clic : le suivant, apres la reponse, commence un glisser.
+  p.clicSommet = CLIC_VIDE; p.clicCote = CLIC_VIDE;
+  avecAccordDeRetouche(obj, { markDirty: ctx.markDirty, confirmer: ctx.confirmer }, () => {
+    ctx.signaler?.(MESSAGE_RETOUCHE_PERMISE);
+    ctx.render();
+  });
+  return false;
+}
+
 /** Un sommet : le geler au double-clic, ou commencer a le tirer. */
 function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   const { etat, ctx } = p;
@@ -223,15 +267,17 @@ function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   if(p.clicSommet.key===ds.key && p.clicSommet.index===idx && (nowTp-p.clicSommet.time)<400){
     p.clicSommet = CLIC_VIDE;
     const gel = obj.frozenVertices;
-    if(gel){ ctx.pushHistory(); gel[idx] = !gel[idx]; ctx.render(); }
+    if(gel){ ctx.pushHistory(obj); gel[idx] = !gel[idx]; ctx.render(); }
     return 'avale';
   }
   p.clicSommet = {key:ds.key, index:idx, time:nowTp};
   // Un coin gele ne bouge pas, SAUF en mode rectangle ou il redimensionne la forme entiere.
   if(obj.frozenVertices?.[idx] && !estRectangle(obj)) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'vertex', index:idx};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = {type:'point', obj, idx, startWorld:w, startPt:{...sommetDe(obj.pts, idx)}};
+  p.contourAvant = obj.pts.map(q=>({...q}));
   return 'suite';
 }
 
@@ -252,9 +298,11 @@ function surCote(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   p.clicCote = {key:ds.key, index:i, time:nowT};
   // Idem pour un cote : gele = fixe, sauf en mode rectangle ou il se translate.
   if((obj.frozenVertices?.[i] || obj.frozenVertices?.[j]) && !estRectangle(obj)) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'segment', index:i};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = {type:'edge', obj, i, j, startWorld:w, startA:{...sommetDe(obj.pts, i)}, startB:{...sommetDe(obj.pts, j)}};
+  p.contourAvant = obj.pts.map(q=>({...q}));
   return 'suite';
 }
 
@@ -265,8 +313,9 @@ function surRayon(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   const obj = objetDe(etat, ds.key);
   if(!obj || obj.type !== 'circle' || obj.locked) return 'rien';
   if(etat.lectureSeule) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:null, index:null};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = {type:'radius', obj, startWorld:w};
   return 'suite';
 }
@@ -311,8 +360,9 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
   svg.addEventListener('wheel', e=>{
     e.preventDefault();
     const rect = stage.getBoundingClientRect();
+    const avant = etat.scene;
     etat.scene = zoomMolette(etat.scene, {x:e.clientX-rect.left, y:e.clientY-rect.top}, e.deltaY);
-    ctx.render();
+    vueChangee(ctx, avant);
   }, {passive:false});
 
   const activePointers = new Map<number, PtEcran>();
@@ -336,11 +386,13 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
     activePointers.set(e.pointerId, stageRel(e));
     if(activePointers.size===2 && pinchState){
       const [a, b] = [...activePointers.values()];
+      const avant = etat.scene;
       if(a && b) etat.scene = pincer(etat.scene, pinchState, a, b);
-      ctx.render();
+      vueChangee(ctx, avant);
     } else if(activePointers.size===3 && panState){
+      const avant = etat.scene;
       etat.scene = deplacer(etat.scene, panState.origin0, panState.avg0, milieuDe([...activePointers.values()]));
-      ctx.render();
+      vueChangee(ctx, avant);
     }
   });
   const clearMulti = (e: PointerEvent): void => {
@@ -359,7 +411,7 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
  * la meme distinction que dans le DOM, et elle evite qu'un pincement soit pris pour un glisser.
  */
 export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: EtatApp, ctx: ContextePointeur): void {
-  const p: EtatPointeur = { etat, ctx, geste: null, clicCote: CLIC_VIDE, clicSommet: CLIC_VIDE, clicObjet: CLIC_OBJET_VIDE };
+  const p: EtatPointeur = { etat, ctx, geste: null, clicCote: CLIC_VIDE, clicSommet: CLIC_VIDE, clicObjet: CLIC_OBJET_VIDE, contourAvant: null };
   const worldFromEvent = (e: PointerEvent): PtBrut => {
     const rect = stage.getBoundingClientRect();
     return ctx.toWorld({x:e.clientX-rect.left, y:e.clientY-rect.top});
@@ -399,8 +451,9 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     if(geste.type === 'pan'){
       const rect = stage.getBoundingClientRect();
       const cur = {x:e.clientX-rect.left, y:e.clientY-rect.top};
+      const avant = etat.scene;
       etat.scene = deplacer(etat.scene, geste.startOrigin, geste.startScreen, cur);
-      ctx.render();
+      vueChangee(ctx, avant);
       return;
     }
     if(geste.type === 'acces'){
@@ -413,14 +466,17 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       const avant = { cote: a.cote, x: a.x };
       const essai = { ...a };
       if(!glisserAcces(essai, parcelle.pts, worldFromEvent(e), geste.decalage)) return;
-      if(!geste.moved){ ctx.pushHistory(); geste.moved = true; }
+      if(!geste.moved){ ctx.pushHistory(parcelle); geste.moved = true; }
       a.cote = essai.cote; a.x = essai.x;
-      if(a.cote !== avant.cote || a.x !== avant.x){ ctx.markDirty(); ctx.render(); }
+      if(a.cote !== avant.cote || a.x !== avant.x){ ctx.markDirty(parcelle); ctx.render(); }
       return;
     }
     // Tout le calcul du glisser vit dans interaction/drag.ts ; ici, la position du pointeur en
     // metres et le contour dans lequel l'objet doit rester.
     appliquerGlisser(geste, worldFromEvent(e), contourDeContrainte(etat.objects, geste.obj));
+    // A chaque image, seule la forme de l'objet glisse a change : le plan ne redessine que lui, et ce qui ne lit pas sa forme (les
+    // attributs des objets : l'explorateur, les barres) garde sa cle (core/controleurObjets.ts).
+    toucherForme(geste.obj);
     ctx.render();
   });
   window.addEventListener('pointerup', ()=>{
@@ -435,6 +491,12 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       p.geste = null;
       return;
     }
+    if(geste && (geste.type==='point' || geste.type==='edge') && p.contourAvant){
+      // Un sommet ou un cote tire (un rectangle redimensionne) : les releves, les cotes et le toit lu suivent le contour deforme.
+      const dire = apresDeformation(etat, geste.obj as ObjetPlan, p.contourAvant);
+      if(dire) ctx.signaler?.(dire);
+    }
+    p.contourAvant = null;
     if(geste && (geste.type==='shapeMove' || geste.type==='circleMove') && !geste.moved){
       // Un simple clic (sans glisser) sur l'objet deja selectionne : il se deselectionne.
       etat.selectedKey = null;

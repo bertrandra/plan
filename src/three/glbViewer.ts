@@ -8,13 +8,18 @@
 // materiaux ni les textures deja televersees sur la carte graphique. Sans le parcours explicite qui
 // suit, rouvrir la Vue 3D dix fois laisse dix scenes en memoire video.
 
+import { libererRendu } from './rendu.js';
+import { debrancherPincementFacade } from './pincementFacade.js';
 import type * as THREE_NS from 'three';
 import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d, type SceneGlb } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
+import { chargerExemple, ECHELLE_LUMIERE } from './bibliotheque.js';
+import { preparerEzTree } from './ezTree.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 import { ensureGLTFLoaderLoaded, estTexturePartagee } from './chargeurs.js';
 import { estMesh, estLumiere, estTexture } from './gardes.js';
+import { soleilDuProjet } from '../core/soleil.js';
 
 /**
  * Le point de vue a rendre a la scene rechargee : ou est la camera, et ce qu'elle regarde.
@@ -80,27 +85,21 @@ export function attendreTexturesPretes(scene: THREE_NS.Object3D, delaiMaxMs: num
 }
 
 export function ensureThreeLoaded(cb: () => void): void {
-  if(chargement.three && THREE && THREE.OrbitControls){ cb(); return; }
-  const s1 = document.createElement('script');
-  s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-  s1.onload = () => {
-    const s2 = document.createElement('script');
-    s2.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
-    s2.onload = () => { chargement.three = true; cb(); };
-    s2.onerror = () => showErrBanner('Impossible de charger les controles 3D (connexion internet requise pour cette fonctionnalite).');
-    document.head.appendChild(s2);
-  };
-  s1.onerror = () => showErrBanner('Impossible de charger la bibliotheque 3D (connexion internet requise pour cette fonctionnalite).');
-  document.head.appendChild(s1);
+  if (chargement.three && window.THREE && window.THREE.OrbitControls) { cb(); return; }
+  // La bibliotheque, puis ses controles ; une erreur de `cb` ne doit pas passer pour une erreur de reseau.
+  // Puis EZ-tree, s'il y a des essences d'arbres a dessiner : il ne leve jamais, hors ligne les arbres restent simplifies.
+  chargerExemple('controls/OrbitControls.js', ['OrbitControls']).then(preparerEzTree).then(
+    () => { chargement.three = true; cb(); },
+    () => showErrBanner('Impossible de charger la bibliotheque 3D (connexion internet requise pour cette fonctionnalite).')
+  );
 }
 
 export function ensureGLTFExporterLoaded(cb: () => void): void {
-  if(chargement.exporteurGltf && THREE && THREE.GLTFExporter){ cb(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js';
-  s.onload = () => { chargement.exporteurGltf = true; cb(); };
-  s.onerror = () => showErrBanner('Impossible de charger l\'exporteur GLB (connexion internet requise pour cette fonctionnalite).');
-  document.head.appendChild(s);
+  if (chargement.exporteurGltf && window.THREE && window.THREE.GLTFExporter) { cb(); return; }
+  chargerExemple('exporters/GLTFExporter.js', ['GLTFExporter']).then(
+    () => { chargement.exporteurGltf = true; cb(); },
+    () => showErrBanner('Impossible de charger l\'exporteur GLB (connexion internet requise pour cette fonctionnalite).')
+  );
 }
 
 export function disposeThreeSceneResources(scene: THREE_NS.Scene | null | undefined): void {
@@ -147,6 +146,9 @@ export function disposeThreeScene(){
     // driving iOS into killing the page ("Impossible de charger la page") - a step further than
     // the WebGL-context cap alone.
     if(vue3d.scene.controls && vue3d.scene.controls.dispose) vue3d.scene.controls.dispose();
+    // Le pincement de facade suit la fenetre et retient ce canevas : il part avec lui.
+    debrancherPincementFacade();
+    libererRendu(vue3d.scene);
     disposeThreeSceneResources(vue3d.scene.scene);
     vue3d.scene.renderer.dispose();
     // iOS Safari caps the number of *live* WebGL contexts a page may hold at once (historically
@@ -184,9 +186,20 @@ export function fondGlbViewer(){
   return new THREE.Color(0xdfe7ea);
 }
 
+/**
+ * Le fond de la visionneuse ouverte, remplace a chaud par celui que `glb.fond` demande. L'ancien est **libere s'il s'agit d'une
+ * texture** — le damier en est une : `traverse()` ne visite pas l'arriere-plan, il ne fait pas partie du graphe d'objets, donc rien
+ * d'autre ne le libererait et il fuirait comme n'importe quelle texture.
+ */
+export function remplacerFondGlb(): void {
+  if (!glb.scene) return;
+  if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
+  glb.scene.scene.background = fondGlbViewer();
+}
+
 /** Recale la position du curseur « semaine » de la visionneuse sur sa date. */
 export function syncSemaineGlb(): void {
-  glb.semaineAffichee = anneeEtSemaineDepuisDate(glb.dateStr).semaine;
+  glb.semaineAffichee = anneeEtSemaineDepuisDate(soleilDuProjet.lire().dateStr).semaine;
 }
 
 /**
@@ -226,11 +239,12 @@ export function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee, ctx:
   });
 }
 
-// Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : les deux vues se reglent
-// separement, mais elles eclairent avec le meme soleil.
+// Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : la date et l'heure sont le
+// soleil du projet (core/soleil.ts), le meme que le plan et la Vue 3D ; l'intensite et l'appoint
+// restent a la visionneuse.
 export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
   if(!glb.scene) return;
-  reglerSoleil(glb.scene, glb, ctx.lieuActuel());
+  reglerSoleil(glb.scene, { ...soleilDuProjet.lire(), intensiteSoleil: glb.intensiteSoleil, lumiereAppoint: glb.lumiereAppoint }, ctx.lieuActuel());
   glb.scene.renderer.render(glb.scene.scene, glb.scene.camera);
 }
 
@@ -249,7 +263,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
   const w = (tailleHost && tailleHost.w) || host.clientWidth || 600;
   const h = (tailleHost && tailleHost.h) || host.clientHeight || 420;
   const loader = new THREE.GLTFLoader();
-  loader.parse(exporte.buffer, '', (gltf)=>{
+  loader.parse(exporte.buffer, '', (gltf: { scene: THREE_NS.Group })=>{
     const scene = new THREE.Scene();
     scene.background = fondGlbViewer();
     // GLTFExporter embarque les lumieres directionnelles de la scene source dans le .glb (via
@@ -258,7 +272,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     // le curseur date/heure : a minuit, ce soleil fige continuait d'eclairer la scene. On les
     // retire donc a l'import - ici l'eclairage doit venir uniquement des lumieres reglables.
     const lumieresDuFichier: THREE_NS.Object3D[] = [];
-    gltf.scene.traverse(o=>{ if(estLumiere(o)) lumieresDuFichier.push(o); });
+    gltf.scene.traverse((o: THREE_NS.Object3D)=>{ if(estLumiere(o)) lumieresDuFichier.push(o); });
     lumieresDuFichier.forEach(l=>{ if(l.parent) l.parent.remove(l); });
     scene.add(gltf.scene);
 
@@ -287,6 +301,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     }
     renderer.setSize(w,h);
     renderer.shadowMap.enabled = glb.ombres;
+    renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.appendChild(renderer.domElement);
 
@@ -294,11 +309,11 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     controls.target.copy(camaraAConserver ? camaraAConserver.cible : centre);
     controls.update();
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5 * ECHELLE_LUMIERE);
     scene.add(hemiLight);
     // Position/intensite/couleur initiales sans importance : appliquerLumiereGlb() ci-dessous les
     // pose selon le curseur "coucher de soleil / plein soleil" juste apres construction.
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.75 * ECHELLE_LUMIERE);
     if(glb.ombres){
       dirLight.castShadow = true;
       dirLight.shadow.mapSize.set(2048, 2048);
@@ -311,7 +326,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
       scene.add(dirLight.target);
     }
     scene.add(dirLight);
-    const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
+    const dirFill = new THREE.DirectionalLight(0xffffff, 0.3 * ECHELLE_LUMIERE);
     dirFill.position.set(centre.x - rayon*1.6, centre.y + rayon*2.2, centre.z - rayon*1.0);
     scene.add(dirFill);
 
@@ -339,7 +354,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     affichage3d.indicationGlb = 'Terrasse : ' + (exporte.nomTerrasse||'') + ' — modele genere le ' + exporte.date.toLocaleString();
     affichage3d.glb = 'pret';
     signaler3d();
-  }, (err)=>{
+  }, (err: { message?: string } | null)=>{
     // Le modele illisible n'est pas montre : on revient a « aucun modele », d'ou le regenerer.
     affichage3d.glb = 'vide';
     signaler3d();

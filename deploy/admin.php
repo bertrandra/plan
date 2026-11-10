@@ -1,8 +1,7 @@
 <?php
 // L'admin des demos pour un hebergement Apache + PHP, sans Node (MD/spec-demos-admin.md).
 //
-// Meme contrat que buildsg/demosAdmin.mjs, route pour route : la page ne sait pas lequel lui
-// repond. `.htaccess` renvoie `admin/<chemin>` ici, avec `?chemin=<chemin>`.
+// `.htaccess` renvoie `admin/<chemin>` ici, avec `?chemin=<chemin>`.
 //
 //   GET    admin/session          200 si la session est ouverte, 401 sinon
 //   POST   admin/session          {motDePasse} -> ouvre la session (cookie)
@@ -10,9 +9,16 @@
 //   GET    admin/demos            {demos: [{id, name, updatedAt}]}
 //   POST   admin/demos            cree la demo au premier numero libre
 //   GET|PUT|DELETE admin/demos/<id>
-//   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/controleurs.ts)
+//   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/administration/controleurs.ts)
 //   GET    admin/palette          la palette de l'interface, SANS session : chaque page l'applique
 //   PUT    admin/palette          la remplace (session ; styles/paletteServeur.ts)
+//   GET    admin/arbres           la bibliotheque d'essences d'arbres, SANS session : la 3D la lit
+//   PUT    admin/arbres           la remplace (session ; model/especesArbre.ts)
+//   GET    admin/calibration      les reglages de la detection des ouvertures calibres, SANS session : chaque page les applique
+//   PUT    admin/calibration      les remplace (session ; facade/corpusReel.ts)
+//   GET    admin/calibration-cas  la liste des cas de calibration : photos de facades annotees (session)
+//   GET|PUT|DELETE admin/calibration-cas/<id>   un cas, avec ses photos (session)
+//   GET    admin/sauvegarde       une archive zip de tout le dossier des donnees (session ; donnees.php)
 //   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
 //                                 publique montre (`?mode=demo&file=<id>`)
 //
@@ -53,19 +59,39 @@ function erreur(int $statut, string $code, string $message): void {
 // Cherchee d'abord hors du dossier publie — a cote de la racine web (public_html/), ce qui vaut
 // aussi quand Plan est dans un sous-dossier —, puis a cote du dossier de Plan, puis a cote de ce fichier.
 $config = null;
+$fichierConfig = null;
 $racineWeb = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
 foreach ([getenv('PLAN_ADMIN_CONFIG') ?: null, $racineWeb !== '' ? dirname($racineWeb) . '/plan-admin-config.php' : null,
           dirname(__DIR__) . '/plan-admin-config.php', __DIR__ . '/admin-config.php'] as $f) {
-    if ($f && is_file($f)) { $config = require $f; break; }
+    if ($f && is_file($f)) { $config = require $f; $fichierConfig = $f; break; }
 }
 $motDePasse = is_array($config) ? (string)($config['motDePasse'] ?? '') : '';
-if ($motDePasse === '' || $motDePasse === 'A-CHANGER') erreur(404, 'NOT_FOUND', 'Introuvable');
-$dossier = rtrim((string)($config['dossierDemos'] ?? (__DIR__ . '/demos')), '/');
-if (!is_dir($dossier) && !@mkdir($dossier, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier des demos impossible a creer.');
+$chemin = trim((string)($_GET['chemin'] ?? ''), '/');
+// La vitrine (`vitrine/<id>`, plus bas) est publique : ses refus se disent, et se lisent de toute
+// origine — la plateforme l'encadre dans un <iframe> en bac a sable, dont l'origine est `null`
+// tant qu'il ne porte pas `allow-same-origin` ; sans cet en-tete sur CHAQUE reponse de la route,
+// la page n'y voit ni la demo ni la raison de son absence, et montre la demonstration integree
+// sans que personne ne sache pourquoi. Sans risque : la route est publique par construction, et
+// aucun cookie n'y est lu ni pose.
+$vitrine = preg_match('#^vitrine/#', $chemin) === 1;
+if ($vitrine) header('Access-Control-Allow-Origin: *');
+if ($motDePasse === '' || $motDePasse === 'A-CHANGER') {
+    // Sans configuration, l'admin n'existe pas (404 partout) — mais la vitrine, elle, dit pourquoi
+    // elle ne peut pas lire sa demo : c'est le premier oubli d'une mise en ligne.
+    if ($vitrine) erreur(404, 'NOT_CONFIGURED', 'Admin non configuré : plan-admin-config.php absent, ou mot de passe « A-CHANGER ». La vitrine ne peut pas lire ses démos.');
+    erreur(404, 'NOT_FOUND', 'Introuvable');
+}
+// Les donnees vivent dans data/, a cote de public_html/ (donnees.php) : les demos dans data/demos/,
+// la palette, les controleurs et les echecs de connexion dans data/admin/.
+require __DIR__ . '/donnees.php';
+$donnees = dossiersDonnees($config, $racineWeb, __DIR__, $fichierConfig);
+migrerDonnees($donnees);
+$dossier = $donnees['demos'];
+if (!is_dir($dossier) && !@mkdir($dossier, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier des demos impossible a creer (droits du dossier parent) : ' . $dossier . '.');
+if (!is_dir($donnees['admin'])) @mkdir($donnees['admin'], 0750, true);
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $lecture = $methode === 'GET' || $methode === 'HEAD';
-$chemin = trim((string)($_GET['chemin'] ?? ''), '/');
 
 if (!$lecture && ($_SERVER['HTTP_X_PLAN_ADMIN'] ?? '') !== '1') erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
 
@@ -74,16 +100,16 @@ if (!$lecture && ($_SERVER['HTTP_X_PLAN_ADMIN'] ?? '') !== '1') erreur(403, 'FOR
 // session, et avant elle — ni cookie pose, ni session ouverte pour un visiteur. Une demo est faite
 // pour etre montree ; ce qu'elle ne doit pas etre, c'est modifiable, et rien ici n'ecrit.
 if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
-    // Lisible de toute origine : la plateforme encadre la vitrine dans un <iframe> en bac a sable,
-    // dont l'origine est `null` tant qu'il ne porte pas `allow-same-origin`. Sans cet en-tete, la
-    // page n'y lit pas sa propre demo et montre la demonstration integree. Sans risque : la reponse
-    // est publique par construction, et aucun cookie n'y est lu ni pose.
-    header('Access-Control-Allow-Origin: *');
+    // `Access-Control-Allow-Origin: *` est deja pose plus haut, pour toutes les reponses de la route.
     if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
     $id = rawurldecode($m[1]);
     if (!preg_match(ID_VALIDE, $id)) erreur(400, 'BAD_ID', 'Identifiant de démo invalide.');
     $f = $dossier . '/' . $id . '.json';
     if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune démo « ' . $id . ' ».');
+    // Present mais illisible (droits du fichier) : `is_file` passe, `readfile` echouait, et la
+    // reponse etait un 200 au corps vide — la vitrine retombait en silence sur la demonstration
+    // integree. Le dire, c'est la seule facon de le voir.
+    if (!is_readable($f)) erreur(500, 'UNREADABLE', 'Démo « ' . $id . ' » présente mais illisible : droits du fichier (PHP doit pouvoir le lire — 644, même utilisateur que le site).');
     // Une minute de cache : la page d'accueil qui l'encadre ne redemande pas le fichier a chaque
     // visite, et une demo reenregistree se voit vite.
     header('Cache-Control: public, max-age=60');
@@ -99,8 +125,36 @@ if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
 if ($chemin === 'palette' && $lecture) {
     // Lisible de toute origine, comme la vitrine plus haut : la vitrine encadree en bac a sable la lit.
     header('Access-Control-Allow-Origin: *');
-    $f = $dossier . '/.palette.json';
+    $f = $donnees['palette'];
     if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
+    header('Cache-Control: no-cache');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
+
+// --- Les essences d'arbres ----------------------------------------------------------------------
+// La bibliotheque d'EZ-tree (model/especesArbre.ts) : la 3D de chaque page en a besoin pour dessiner
+// les arbres, donc lisible sans session. Seule l'ecriture, plus bas, demande la session.
+if ($chemin === 'arbres' && $lecture) {
+    header('Access-Control-Allow-Origin: *');
+    $f = $donnees['arbres'];
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune bibliothèque d’arbres enregistrée.');
+    header('Cache-Control: no-cache');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
+
+// --- Les reglages calibres de la detection --------------------------------------------------------
+// Les valeurs que l'admin a calibrees sur ses photos (facade/regles/facades/surcharges.ts) : chaque page les applique au
+// demarrage, donc lisibles sans session. Seule l'ecriture, plus bas, demande la session.
+if ($chemin === 'calibration' && $lecture) {
+    header('Access-Control-Allow-Origin: *');
+    $f = $donnees['calibration'];
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune calibration enregistrée.');
     header('Cache-Control: no-cache');
     header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
     http_response_code(200);
@@ -123,9 +177,8 @@ function sessionValide(): bool {
     return isset($_SESSION['admin']) && is_int($_SESSION['admin']) && $_SESSION['admin'] > time();
 }
 
-/** Les echecs recents, par adresse, dans un fichier du dossier des demos. Verrouille. */
-function echecs(string $dossier, string $ip, bool $ajouter, bool $effacer): int {
-    $f = $dossier . '/.echecs.json';
+/** Les echecs recents, par adresse, dans un fichier des reglages de l'admin. Verrouille. */
+function echecs(string $f, string $ip, bool $ajouter, bool $effacer): int {
     $h = fopen($f, 'c+');
     if (!$h) return 0;
     flock($h, LOCK_EX);
@@ -149,7 +202,7 @@ if ($chemin === 'session') {
     }
     if ($methode === 'POST') {
         $ip = trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['REMOTE_ADDR'] ?? '')))[0]);
-        if (echecs($dossier, $ip, false, false) >= ECHECS_MAX) erreur(429, 'TOO_MANY_ATTEMPTS', 'Trop d’essais. Réessayez dans dix minutes.');
+        if (echecs($donnees['echecs'], $ip, false, false) >= ECHECS_MAX) erreur(429, 'TOO_MANY_ATTEMPTS', 'Trop d’essais. Réessayez dans dix minutes.');
         $corps = json_decode((string)file_get_contents('php://input', false, null, 0, 4096), true);
         $donne = is_array($corps) ? (string)($corps['motDePasse'] ?? '') : '';
         // Un mot de passe range sous forme de hachage (password_hash) ou en clair.
@@ -157,10 +210,10 @@ if ($chemin === 'session') {
             ? password_verify($donne, $motDePasse)
             : hash_equals(hash('sha256', $motDePasse), hash('sha256', $donne));
         if (!$bon) {
-            echecs($dossier, $ip, true, false);
+            echecs($donnees['echecs'], $ip, true, false);
             erreur(401, 'BAD_PASSWORD', 'Mot de passe refusé.');
         }
-        echecs($dossier, $ip, false, true);
+        echecs($donnees['echecs'], $ip, false, true);
         session_regenerate_id(true);
         $_SESSION['admin'] = time() + DUREE_SESSION;
         repondre(200, ['admin' => true]);
@@ -177,6 +230,99 @@ if ($chemin === 'session') {
 if (!sessionValide()) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
 // La session n'est plus ecrite : la liberer laisse passer les requetes paralleles.
 session_write_close();
+
+// --- La sauvegarde ------------------------------------------------------------------------------
+// Tout le dossier des donnees en une archive zip (`GET admin/sauvegarde`, menu Admin > Telecharger
+// une sauvegarde des donnees) : « je ne jette rien » ne vaut que si une copie existe ailleurs.
+// L'archive se construit dans un fichier temporaire, se sert par morceaux puis s'efface : des Mo de
+// photos ne passent jamais par la memoire de PHP. Rien hors du dossier : ni la configuration (le mot
+// de passe, la cle de Claude), ni la cible d'un lien symbolique, qui n'est jamais suivi.
+if ($chemin === 'sauvegarde') {
+    if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    if (!class_exists('ZipArchive')) erreur(501, 'ZIP_MISSING', 'Sauvegarde impossible : l’extension PHP « zip » (ZipArchive) manque sur ce serveur. Activez-la dans les réglages PHP de l’hébergeur (chez SiteGround : Site Tools › Devs › PHP Manager › PHP Extensions), puis réessayez.');
+    $racineDonnees = realpath($donnees['racine']);
+    if ($racineDonnees === false || !is_dir($racineDonnees)) erreur(404, 'NOT_FOUND', 'Dossier des données introuvable : ' . $donnees['racine'] . '.');
+    $nomArchive = 'plan-data-' . date('Y-m-d-Hi') . '.zip';
+    if ($methode === 'HEAD') {
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $nomArchive . '"');
+        http_response_code(200);
+        exit;
+    }
+    // Quelques minutes pour des centaines de Mo ; une archive qui depasse est une archive a refaire.
+    @set_time_limit(600);
+    // Le fichier temporaire doit s'effacer meme si le navigateur coupe en route.
+    ignore_user_abort(true);
+    $configReelle = $fichierConfig !== null ? realpath($fichierConfig) : false;
+    $fichiers = [];
+    $dossiersVides = [];
+    $octets = 0;
+    $liensIgnores = 0;
+    // Parcours a la main plutot que RecursiveDirectoryIterator : chaque entree est jugee ici, et un
+    // lien symbolique (fichier ou dossier) est ecarte avant toute lecture.
+    $aVisiter = [''];
+    while ($aVisiter) {
+        $rel = array_pop($aVisiter);
+        $abs = $racineDonnees . ($rel === '' ? '' : '/' . $rel);
+        $noms = @scandir($abs);
+        if ($noms === false) continue;
+        $vide = true;
+        foreach ($noms as $n) {
+            if ($n === '.' || $n === '..') continue;
+            $vide = false;
+            $sousRel = $rel === '' ? $n : $rel . '/' . $n;
+            $sousAbs = $racineDonnees . '/' . $sousRel;
+            if (is_link($sousAbs)) { $liensIgnores++; continue; }
+            $reel = realpath($sousAbs);
+            // Garde-fou : rien dont le chemin reel sorte du dossier des donnees.
+            if ($reel === false || !str_starts_with($reel, $racineDonnees . '/')) continue;
+            if (is_dir($reel)) { $aVisiter[] = $sousRel; continue; }
+            if (!is_file($reel) || !is_readable($reel)) continue;
+            // La configuration ne part jamais, meme posee par erreur dans le dossier des donnees.
+            if (($configReelle !== false && $reel === $configReelle) || preg_match('/admin-config(\.exemple)?\.php$/', $n)) continue;
+            $fichiers[$sousRel] = $reel;
+            $octets += (int)filesize($reel);
+        }
+        if ($vide && $rel !== '') $dossiersVides[] = $rel;
+    }
+    ksort($fichiers, SORT_STRING);
+    $tmp = tempnam(sys_get_temp_dir(), 'plan-sauvegarde-');
+    if ($tmp === false) erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : pas de fichier temporaire (dossier temporaire de PHP plein ou interdit).');
+    register_shutdown_function(function () use ($tmp) { if (is_file($tmp)) @unlink($tmp); });
+    $zip = new ZipArchive();
+    if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : archive zip impossible a ouvrir.');
+    // L'archive se depose telle quelle : son dossier data/ prend la place de celui du serveur.
+    $manifeste = ['format' => 'plan-sauvegarde', 'version' => 1, 'le' => gmdate('Y-m-d\TH:i:s\Z'), 'disposition' => $donnees['disposition'],
+                  'racine' => $donnees['racine'], 'fichiers' => count($fichiers), 'octets' => $octets, 'liensIgnores' => $liensIgnores, 'php' => PHP_VERSION];
+    $zip->addFromString('sauvegarde.json', (string)json_encode($manifeste, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+    foreach ($dossiersVides as $rel) $zip->addEmptyDir('data/' . $rel);
+    foreach ($fichiers as $rel => $reel) {
+        // addFile ne lit le fichier qu'a la fermeture, par morceaux. Les images sont deja compressees :
+        // les recompresser couterait du temps pour rien.
+        if (!$zip->addFile($reel, 'data/' . $rel)) { $zip->close(); erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : ' . $rel . ' ne s’ajoute pas à l’archive.'); }
+        if (preg_match('/\.(jpe?g|png|webp|gif|avif|zip|glb)$/i', $rel)) $zip->setCompressionName('data/' . $rel, ZipArchive::CM_STORE);
+    }
+    if (!$zip->close()) erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : l’archive ne se termine pas (disque plein ?).');
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $nomArchive . '"');
+    header('Content-Length: ' . (string)filesize($tmp));
+    header('X-Plan-Sauvegarde: fichiers=' . count($fichiers) . '; octets=' . $octets);
+    http_response_code(200);
+    $h = fopen($tmp, 'rb');
+    if ($h) {
+        while (!feof($h)) {
+            $morceau = fread($h, 1 << 20);
+            if ($morceau === false) break;
+            echo $morceau;
+            flush();
+            if (connection_aborted()) break;
+        }
+        fclose($h);
+    }
+    @unlink($tmp);
+    exit;
+}
 
 // --- Les fichiers -------------------------------------------------------------------------------
 function fichier(string $dossier, string $id): string { return $dossier . '/' . $id . '.json'; }
@@ -199,8 +345,30 @@ function lireDocument(): array {
     return $d;
 }
 
+/**
+ * Un verrou exclusif le temps de $faire, sur un fichier voisin `<cible>.verrou` : deux requetes qui ecrivent le meme document (ou
+ * cherchent le meme numero libre) passent l'une apres l'autre, et la copie `.bak` est bien celle d'avant chaque ecriture. Le verrou
+ * tombe avec la requete, meme quand erreur() la termine. Un seul verrou par requete : flock ne se reprend pas sur un autre descripteur.
+ */
+function sousVerrou(string $cible, callable $faire) {
+    $dir = dirname($cible);
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    $h = @fopen($cible . '.verrou', 'c');
+    if (!$h || !flock($h, LOCK_EX)) erreur(500, 'SERVER_ERROR', 'Écriture impossible (verrou).');
+    try {
+        return $faire();
+    } finally {
+        flock($h, LOCK_UN); fclose($h);
+    }
+}
+
+/** Ecrit une demo : version precedente gardee en `.bak`, ecriture atomique. Sous le verrou du dossier (appelant). */
 function ecrire(string $dossier, string $id, array $document): void {
-    $f = fichier($dossier, $id);
+    ecrireFichier(fichier($dossier, $id), $document);
+}
+
+/** Ecrit un document JSON : version precedente gardee en `.bak`, ecriture atomique (fichier temporaire puis renommage). */
+function ecrireFichier(string $f, array $document): void {
     if (is_file($f)) copy($f, $f . '.bak');
     $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
     $texte = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -208,6 +376,11 @@ function ecrire(string $dossier, string $id, array $document): void {
         @unlink($tmp);
         erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
     }
+}
+
+/** Ecrit un document JSON hors demos, sous son verrou : dossier cree au besoin, version precedente gardee en `.bak`, ecriture atomique. */
+function ecrireAtomique(string $f, array $document): void {
+    sousVerrou($f, fn() => ecrireFichier($f, $document));
 }
 
 if ($chemin === 'demos') {
@@ -221,18 +394,22 @@ if ($chemin === 'demos') {
     }
     if ($methode === 'POST') {
         $document = lireDocument();
-        $n = 1;
-        while (file_exists(fichier($dossier, (string)$n)) || file_exists(fichier($dossier, (string)$n) . '.bak')) $n++;
-        ecrire($dossier, (string)$n, $document);
+        // Le numero libre se cherche et se prend sous le verrou du dossier : deux ajouts simultanes ne prennent pas le meme.
+        $n = sousVerrou($dossier . '/.demos', function () use ($dossier, $document) {
+            $n = 1;
+            while (file_exists(fichier($dossier, (string)$n)) || file_exists(fichier($dossier, (string)$n) . '.bak')) $n++;
+            ecrire($dossier, (string)$n, $document);
+            return $n;
+        });
         repondre(201, resume($dossier, (string)$n));
     }
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
 }
 
-// L'arbre des controleurs de l'ecran (app/controleurs.ts) : un seul document, a part des demos.
+// L'arbre des controleurs de l'ecran (app/administration/controleurs.ts) : un seul document, a part des demos.
 // Le point en tete le garde hors de la liste des demos.
 if ($chemin === 'controleurs') {
-    $f = $dossier . '/.controleurs.json';
+    $f = $donnees['controleurs'];
     if ($lecture) {
         if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun registre des contrôleurs enregistré.');
         http_response_code(200);
@@ -246,13 +423,7 @@ if ($chemin === 'controleurs') {
         if (!is_array($d) || ($d['format'] ?? null) !== 'plan-controleurs' || !isset($d['arbre']) || !is_array($d['arbre'])) {
             erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas un registre des contrôleurs.');
         }
-        if (is_file($f)) copy($f, $f . '.bak');
-        $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
-        $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
-            @unlink($tmp);
-            erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-        }
+        ecrireAtomique($f, $d);
         repondre(200, ['decouvertLe' => $d['decouvertLe'] ?? null]);
     }
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
@@ -261,7 +432,7 @@ if ($chemin === 'controleurs') {
 // La palette, en ecriture : un document `plan-palette` dont chaque couleur est `#RRGGBB`.
 if ($chemin === 'palette') {
     if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-    $f = $dossier . '/.palette.json';
+    $f = $donnees['palette'];
     $texte = (string)file_get_contents('php://input', false, null, 0, 65537);
     if (strlen($texte) > 65536) erreur(413, 'TOO_LARGE', 'Palette trop grosse (64 Ko au plus).');
     $d = json_decode($texte, true);
@@ -275,14 +446,97 @@ if ($chemin === 'palette') {
         }
     }
     if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une palette (couleurs #RRGGBB, thèmes clair et sombre).');
-    if (is_file($f)) copy($f, $f . '.bak');
-    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
-    $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
-        @unlink($tmp);
-        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-    }
+    ecrireAtomique($f, $d);
     repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les essences d'arbres, en ecriture : un document `plan-arbres`, des essences a identifiant [a-z0-9-] et reglages.
+if ($chemin === 'arbres') {
+    if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $f = $donnees['arbres'];
+    $texte = (string)file_get_contents('php://input', false, null, 0, 524289);
+    if (strlen($texte) > 524288) erreur(413, 'TOO_LARGE', 'Bibliothèque trop grosse (512 Ko au plus).');
+    $d = json_decode($texte, true);
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-arbres' && isset($d['especes']) && is_array($d['especes']) && count($d['especes']) <= 200;
+    if ($valide) {
+        $ids = [];
+        foreach ($d['especes'] as $e) {
+            if (!is_array($e) || !isset($e['id']) || !is_string($e['id']) || !preg_match('/^[a-z0-9][a-z0-9-]{0,39}$/', $e['id']) || isset($ids[$e['id']])
+                || !isset($e['reglages']) || !is_array($e['reglages'])) { $valide = false; break; }
+            $ids[$e['id']] = true;
+        }
+    }
+    if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une bibliothèque d’arbres (essences avec identifiant [a-z0-9-] et réglages).');
+    ecrireAtomique($f, $d);
+    repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les reglages calibres de la detection, en ecriture : un document `plan-calibration`, des reglages `facades.<detection|structure>.<nom>` numeriques.
+if ($chemin === 'calibration') {
+    if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $f = $donnees['calibration'];
+    $texte = (string)file_get_contents('php://input', false, null, 0, 262145);
+    if (strlen($texte) > 262144) erreur(413, 'TOO_LARGE', 'Calibration trop grosse (256 Ko au plus).');
+    $d = json_decode($texte, true);
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-calibration' && isset($d['parametres']) && is_array($d['parametres']) && count($d['parametres']) <= 200
+        && (!isset($d['historique']) || (is_array($d['historique']) && count($d['historique']) <= 200));
+    if ($valide) {
+        foreach ($d['parametres'] as $nom => $v) {
+            if (!is_string($nom) || !preg_match('/^facades\.(detection|structure)\.[A-Za-z0-9]{1,40}$/', $nom) || !(is_int($v) || is_float($v)) || !is_finite((float)$v)) { $valide = false; break; }
+        }
+    }
+    if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une calibration (réglages facades.detection.* ou facades.structure.* numériques).');
+    ecrireAtomique($f, $d);
+    repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les cas de calibration : une facade photographiee, annotee a la main (facade/corpusReel.ts), photos comprises (data:image/jpeg).
+if ($chemin === 'calibration-cas' || preg_match('#^calibration-cas/([^/]+)$#', $chemin, $mc)) {
+    $dossierCas = $donnees['calibrationCas'];
+    if ($chemin === 'calibration-cas') {
+        if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $cas = [];
+        foreach (@scandir($dossierCas) ?: [] as $n) {
+            if (!str_ends_with($n, '.json') || !preg_match(ID_VALIDE, substr($n, 0, -5))) continue;
+            $c = json_decode((string)@file_get_contents($dossierCas . '/' . $n), true);
+            if (!is_array($c)) continue;
+            $cas[] = ['id' => substr($n, 0, -5), 'nom' => is_string($c['nom'] ?? null) ? $c['nom'] : substr($n, 0, -5), 'statut' => ($c['statut'] ?? '') === 'valide' ? 'valide' : 'brouillon',
+                'photos' => is_array($c['photos'] ?? null) ? count($c['photos']) : 0, 'ouvertures' => is_array($c['ouvertures'] ?? null) ? count($c['ouvertures']) : 0,
+                'updatedAt' => gmdate('Y-m-d\TH:i:s.000\Z', (int)filemtime($dossierCas . '/' . $n))];
+        }
+        usort($cas, fn($a, $b) => strnatcmp($a['id'], $b['id']));
+        repondre(200, ['cas' => $cas]);
+    }
+    $id = rawurldecode($mc[1]);
+    if (!preg_match(ID_VALIDE, $id)) erreur(400, 'BAD_ID', 'Identifiant de cas invalide.');
+    $f = $dossierCas . '/' . $id . '.json';
+    if ($lecture) {
+        if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun cas « ' . $id . ' ».');
+        header('Cache-Control: no-store');
+        http_response_code(200);
+        if ($methode !== 'HEAD') readfile($f);
+        exit;
+    }
+    if ($methode === 'PUT') {
+        $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
+        if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier trop gros (25 Mo au plus).');
+        $d = json_decode($texte, true);
+        $n = is_array($d) && is_array($d['photos'] ?? null) ? count($d['photos']) : 0;
+        $valide = is_array($d) && ($d['format'] ?? null) === 'plan-facade-reelle' && ($d['version'] ?? null) === 1 && is_string($d['nom'] ?? null) && $n >= 1 && $n <= 8
+            && is_array($d['images'] ?? null) && count($d['images']) === $n && is_array($d['ouvertures'] ?? null) && count($d['ouvertures']) <= 100;
+        if ($valide) foreach ($d['images'] as $im) { if (!is_string($im) || !str_starts_with($im, 'data:image/')) { $valide = false; break; } }
+        if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas un cas de calibration (nom, 1 à 8 photos avec leur image, ouvertures).');
+        if (!is_dir($dossierCas) && !@mkdir($dossierCas, 0775, true) && !is_dir($dossierCas)) erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+        ecrireAtomique($f, $d);
+        repondre(200, ['id' => $id]);
+    }
+    if ($methode === 'DELETE') {
+        if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun cas « ' . $id . ' ».');
+        // Rien ne s'efface pour de bon : le fichier est renomme, on le retrouve a la main.
+        rename($f, $f . '.supprime-' . gmdate('Y-m-d\TH-i-s'));
+        repondre(200, new stdClass());
+    }
+    erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
 }
 
 if (preg_match('#^demos/([^/]+)$#', $chemin, $m)) {
@@ -297,7 +551,8 @@ if (preg_match('#^demos/([^/]+)$#', $chemin, $m)) {
         exit;
     }
     if ($methode === 'PUT') {
-        ecrire($dossier, $id, lireDocument());
+        $document = lireDocument();
+        sousVerrou($dossier . '/.demos', fn() => ecrire($dossier, $id, $document));
         repondre(200, resume($dossier, $id));
     }
     if ($methode === 'DELETE') {

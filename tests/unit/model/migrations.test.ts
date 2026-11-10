@@ -2,11 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { MIGRATIONS, schemaMinimal, schemaAEcrire, migrationsDepuis, migrer } from '../../../src/model/migrations.js';
 import { SCHEMA_VERSION } from '../../../src/model/version.js';
 import { DEMO_OBJECTS, DEMO_TEMOIN_OBJECTS } from '../../../src/model/demo.js';
-import type { ObjetBrut } from '../../../src/model/types.js';
+import { normalizeObjects } from '../../../src/model/normalisation.js';
+import { serializeObjects } from '../../../src/io/serialisation.js';
+import type { ObjetAPlat, ObjetPlan } from '../../../src/model/types.js';
+import { readFileSync } from 'node:fs';
 
-const batiment = (extra: Partial<ObjetBrut> = {}): ObjetBrut =>
-  ({ key: 'b', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }], ...extra } as ObjetBrut);
-const releve = { cote: 0 } as unknown as NonNullable<ObjetBrut['facades']>[number];
+const temoin5 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-5.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+
+const temoin6 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-6.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+const golden = JSON.parse(readFileSync(new URL('../../fixtures/golden/projet.json', import.meta.url), 'utf8')) as { meta: { schemaVersion: number }; objects: unknown[] };
+
+/** Un document lu (migre, normalise) puis reecrit, comme l'ouvrir et l'enregistrer sans y toucher. */
+const relu = (objets: unknown[], schema: number | undefined) =>
+  serializeObjects(normalizeObjects(migrer({ objects: structuredClone(objets) as ObjetAPlat[] }, schema).objects) as unknown as ObjetPlan[]) as unknown as Record<string, unknown>[];
+
+const batiment = (extra: Partial<ObjetAPlat> = {}): ObjetAPlat =>
+  ({ key: 'b', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }], ...extra } as ObjetAPlat);
+const releve = { cote: 0 } as unknown as NonNullable<ObjetAPlat['facades']>[number];
 
 describe('la chaine des migrations', () => {
   it('mene sans trou de 1 au schema du programme', () => {
@@ -25,23 +41,151 @@ describe('la chaine des migrations', () => {
     expect(migrer(structuredClone(d), 1)).toEqual(d);
     expect(migrer(structuredClone(d), undefined)).toEqual(d);
   });
+
+  it('lit un document de schema 4 tel quel (4 -> 5 ne fait que distinguer les champs venus apres le relief)', () => {
+    const d = { objects: [batiment({ piscine: {}, corpsToit: [] } as Partial<ObjetAPlat>)], measures: [] };
+    expect(migrer(structuredClone(d), 4)).toEqual(d);
+    expect(schemaAEcrire(d.objects, 4)).toBe(5);
+  });
+
+  it('lit un document de schema 5 tel quel (5 -> 6 ne fait que distinguer la retouche, l egout choisi et le soleil)', () => {
+    // Le temoin (tests/fixtures/migrations/schema-5.json) : un fichier ecrit au 5 avec les trois champs venus apres sa livraison.
+    const d = { objects: temoin5.objects as unknown as ObjetAPlat[], measures: temoin5.measures };
+    const lu = migrer(structuredClone(d), temoin5.meta.schemaVersion);
+    expect(lu).toEqual(d);
+    expect(schemaMinimal(lu.objects)).toBe(6);
+    // Lu puis reecrit : les trois champs restent, et le document s'ecrit au 6.
+    const memoire = normalizeObjects(structuredClone(lu.objects)) as unknown as ObjetPlan[];
+    expect(memoire[1]!.batiment?.egoutChoisi).toBe('saisie');
+    const reecrit = serializeObjects(memoire) as unknown as Record<string, unknown>[];
+    expect(reecrit[0]).toMatchObject({ soleil: { dateStr: '2026-06-21', minutes: 900 }, retoucheMain: { date: '2026-10-27' } });
+    expect(reecrit[1]).toMatchObject({ egoutChoisi: 'saisie', retoucheMain: { date: '2026-10-27' } });
+    expect(reecrit[2]).toMatchObject({ egoutChoisi: 'audit' });
+    expect(schemaMinimal(memoire)).toBe(6);
+    expect(schemaAEcrire(reecrit as unknown as ObjetAPlat[], 5)).toBe(6);
+  });
+});
+
+describe('la migration 6 -> 7 : la Facade d un releve valide (lot F5)', () => {
+  it('lit un document de schema 6 tel quel : son releve, ses ouvertures, son calage ancien compris', () => {
+    // Le temoin (tests/fixtures/migrations/schema-6.json) : un releve pose par l'audit, avant la Facade, avec l'ecart du contour que
+    // le calage portait (`contourDecaleM`, que plus rien n'ecrit ni ne lit).
+    const d = { objects: temoin6.objects as unknown as ObjetAPlat[], measures: temoin6.measures };
+    expect(migrer(structuredClone(d), temoin6.meta.schemaVersion)).toEqual(d);
+    expect(schemaMinimal(d.objects)).toBe(6);
+    // Lu puis reecrit : le releve revient a l'identique, et le document s'ecrit toujours au 6.
+    const reecrit = relu(temoin6.objects, 6);
+    expect(reecrit[1]!.facades).toEqual((temoin6.objects[1] as { facades: unknown }).facades);
+    expect(schemaAEcrire(reecrit as unknown as ObjetAPlat[], 6)).toBe(6);
+    // Relu une seconde fois, rien ne bouge plus.
+    expect(relu(reecrit, 6)).toEqual(reecrit);
+  });
+
+  it('relit a l identique les anciens fichiers : le temoin dore, la demonstration, les temoins des schemas 5 et 6', () => {
+    // projet.json (tests/fixtures/golden/) est ecrit par Plan : lu puis reecrit, il revient octet pour octet.
+    expect(JSON.stringify(relu(golden.objects, golden.meta.schemaVersion))).toBe(JSON.stringify(golden.objects));
+    // La demonstration et les temoins ne sont pas sous la forme ecrite (des cles par defaut s'ajoutent a la premiere ecriture) : leur
+    // relecture est un point fixe, au schema qui les decrit (la demonstration reste au 5, que la plateforme accepte deja).
+    for (const [objets, schema] of [[DEMO_OBJECTS, 5], [temoin5.objects, 6], [temoin6.objects, 6]] as const) {
+      const une = relu(objets as unknown[], schema);
+      expect(relu(une, schema)).toEqual(une);
+      expect(schemaMinimal(une as unknown as ObjetAPlat[])).toBe(schema);
+    }
+  });
+
+  it('s ecrit au 7 des qu un releve porte sa Facade, ou une ouverture son identifiant, sa verification ou ses carreaux', () => {
+    const avec = (r: Record<string, unknown>) => [batiment({ facades: [{ ...releve, ouvertures: [], ...r }] } as Partial<ObjetAPlat>)];
+    for (const champ of ['dimensions', 'forme', 'surface', 'textureCalee']) expect(schemaMinimal(avec({ [champ]: {} })), champ).toBe(7);
+    const ov = { type: 'fenetre', x: 1, y: 1, l: 1, h: 1 };
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, id: 'o1' }] }))).toBe(7);
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, verifieeLe: '2026-10-29' }] }))).toBe(7);
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, details: { carreaux: { source: 'ia', vantaux: 2 } } }] }))).toBe(7);
+    // Le releve d'avant reste au 2 ; ses details d'avant (le vitrage vu par l'analyse) n'en changent rien.
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, details: { vitrage: 'petits-bois' } }] }))).toBe(2);
+    // En memoire, les facades vivent dans le sous-objet `batiment` : elles comptent tout autant.
+    expect(schemaMinimal([{ ...batiment(), batiment: { facades: [{ ...releve, ouvertures: [], dimensions: {} }] } } as unknown as ObjetAPlat])).toBe(7);
+  });
+});
+
+const temoin8 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-8.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+
+describe('la migration 8 -> 9 : le jardin (lot L3 ; le 8 est celui du lot L4)', () => {
+  it('lit un document de schema 8 tel quel : un massif d avant et un spa restent ce qu ils etaient, au schema qui les decrit', () => {
+    const d = { objects: temoin8.objects as unknown as ObjetAPlat[], measures: temoin8.measures };
+    expect(migrer(structuredClone(d), 7)).toEqual(d);
+    expect(migrer(structuredClone(d), 8)).toEqual(d);
+    const reecrit = relu(temoin8.objects, 8);
+    expect(reecrit[1]!.plantation).toBeUndefined();
+    expect(reecrit[2]!.nature).toBeUndefined();
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(1);
+    expect(relu(reecrit, 8)).toEqual(reecrit);
+  });
+
+  it('s ecrit au 9 des qu un objet porte une plantation, son retrait de vegetation, une nature d equipement ou la marque existant', () => {
+    for (const [champ, v] of [['plantation', { type: 'fleurs', source: 'main' }], ['vegetation3d', false], ['nature', 'regard'], ['existant', true]] as const) {
+      expect(schemaMinimal([batiment({ [champ]: v } as Partial<ObjetAPlat>)]), champ).toBe(9);
+    }
+  });
+});
+
+const temoin9 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-9.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+
+describe('la migration 9 -> 10 : la facade enrichie (lot L1)', () => {
+  it('lit un document de schema 9 tel quel : une Facade validee, un bow-window et un spa restent, au schema qui les decrit', () => {
+    const d = { objects: temoin9.objects as unknown as ObjetAPlat[], measures: temoin9.measures };
+    expect(migrer(structuredClone(d), 9)).toEqual(d);
+    const reecrit = relu(temoin9.objects, 9);
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(7);
+    expect(relu(reecrit, 9)).toEqual(reecrit);
+  });
+
+  it('s ecrit au 10 des qu une ouverture, un mur, une saillie ou un equipement porte un champ du lot, et le relit a l identique', () => {
+    const [, b] = structuredClone(temoin9.objects) as Record<string, unknown>[];
+    const f = (b!.facades as Record<string, unknown>[])[0]!;
+    const ouv = (f.ouvertures as Record<string, Record<string, unknown>>[])[0]!;
+    const cas: [string, () => unknown][] = [
+      ['menuiserie', () => { ouv.details!.menuiserie = { materiau: 'bois', couleur: '#5e7d5e', source: 'ia' }; }],
+      ['gardeCorps', () => { ouv.details!.gardeCorps = { type: 'fer-forge', hauteurM: 1, couleur: '#2e3033', source: 'ia' }; }],
+      ['modenature', () => { f.modenature = { egout: 'genoise', rangsGenoise: 2, bandeauxM: [3], descentesM: [9.8], source: 'ia' }; }],
+      ['appendices', () => { f.appendices = [{ nature: 'store', xM: 5, largeurM: 2, hauteurM: 2.9, source: 'ia' }]; }],
+      ['etat', () => { f.etat = [{ nature: 'fissure', zone: { u0: 0.8, u1: 0.82, v0: 0.2, v1: 0.5 }, confiance: 0.6, vuLe: '2026-10-30' }]; }],
+    ];
+    for (const [champ, poser] of cas) {
+      poser();
+      expect(schemaMinimal(relu([b], 10) as unknown as ObjetAPlat[]), champ).toBe(10);
+    }
+    const reecrit = relu([b], 10);
+    expect(relu(reecrit, 10)).toEqual(reecrit);
+    const fr = (reecrit[0]!.facades as Record<string, unknown>[])[0]!;
+    expect(fr.modenature).toEqual({ egout: 'genoise', rangsGenoise: 2, bandeauxM: [3], descentesM: [9.8], source: 'ia' });
+    expect(fr.etat).toHaveLength(1);
+    const auvent = { genre: 'auvent', hote: 0, mur: 0, centreM: 5, largeurM: 1.6, profondeurM: 0.9, forme: 'rectangle', niveau: 'rdc', toit: 'pan', couverture: 'verre' };
+    expect(schemaMinimal([batiment({ corpsToit: [{ pts: [], saillie: auvent }] } as unknown as Partial<ObjetAPlat>)])).toBe(10);
+    for (const nature of ['perron', 'unite-exterieure', 'boite-aux-lettres']) expect(schemaMinimal([batiment({ nature } as Partial<ObjetAPlat>)]), nature).toBe(10);
+    expect(schemaMinimal([batiment({ nature: 'regard' } as Partial<ObjetAPlat>)])).toBe(9);
+  });
 });
 
 describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
   const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
-  const ign = (extra: Partial<ObjetBrut> = {}, bdtopo: Record<string, unknown> = {}) =>
+  const ign = (extra: Partial<ObjetAPlat> = {}, bdtopo: Record<string, unknown> = {}) =>
     batiment({ pts: rect, bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'B1', altitudeToitM: 52.1, ...bdtopo }, ...extra });
 
+  // Le rectangle de 10 x 6 m est allonge : deux pans a pignons dans son axe (spec-toit-ign §4, regle 7).
   it('pose un toit estime sur un batiment importe avant le schema 3', () => {
     const lu = migrer({ objects: [ign()] }, 2);
-    expect(lu.objects[0]!.toit).toMatchObject({ forme: 'croupes', source: 'bdtopo', estime: true });
+    expect(lu.objects[0]!.toit).toMatchObject({ forme: 'deux-pans', source: 'bdtopo', estime: true });
     expect(lu.objects[0]!.toit!.hauteur).toBeCloseTo(3 * Math.tan((35 * Math.PI) / 180), 2);
     // Depuis le schema 1 aussi : la chaine passe par 2.
-    expect(migrer({ objects: [ign()] }, 1).objects[0]!.toit!.forme).toBe('croupes');
+    expect(migrer({ objects: [ign()] }, 1).objects[0]!.toit!.forme).toBe('deux-pans');
   });
 
   it('lit la hauteur quand elle est enregistree, et laisse plat une construction legere', () => {
-    expect(migrer({ objects: [ign({}, { altitudeToitMaxM: 55.1 })] }, 2).objects[0]!.toit).toEqual({ forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' });
+    expect(migrer({ objects: [ign({}, { altitudeToitMaxM: 55.1 })] }, 2).objects[0]!.toit).toEqual({ forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' });
     expect(migrer({ objects: [ign({}, { constructionLegere: true })] }, 2).objects[0]!.toit!.forme).toBe('plat');
   });
 
@@ -69,9 +213,23 @@ describe('le schema qu un document ecrit', () => {
     expect(schemaMinimal([batiment({ facades: [] })])).toBe(1);
   });
 
-  it('est 3 pour la demonstration, dont la maison porte un toit a croupes : la plateforme doit accepter 3', () => {
-    expect(schemaMinimal(DEMO_OBJECTS)).toBe(3);
+  it('est 5 pour la demonstration, dont les batiments portent leurs corps de toit, et 3 pour son temoin (maison a croupes) : la plateforme doit accepter 5', () => {
+    expect(schemaMinimal(DEMO_OBJECTS)).toBe(5);
     expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(3);
+  });
+
+  it('est 5 des qu un objet porte un champ venu apres le relief (piscine, pergola, cloture, corps du toit…) : un lecteur 4 le perdrait', () => {
+    for (const champ of ['piscine', 'pergola', 'cloture', 'corpsToit', 'volumesToit', 'toitMesure', 'fenetres3d', 'voisinage3d', 'ruesVoisinage']) {
+      expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetAPlat>)]), champ).toBe(5);
+    }
+  });
+
+  it('est 6 des qu un objet porte un champ venu apres la premiere livraison du 5 (retouche, egout choisi, soleil) : un lecteur 5 le perdrait', () => {
+    expect(schemaMinimal([batiment({ retoucheMain: { date: '2026-10-27' } } as Partial<ObjetAPlat>)])).toBe(6);
+    expect(schemaMinimal([batiment({ egoutChoisi: 'saisie' } as Partial<ObjetAPlat>)])).toBe(6);
+    expect(schemaMinimal([batiment({ soleil: { dateStr: '2026-06-21', minutes: 900 } } as Partial<ObjetAPlat>)])).toBe(6);
+    // En memoire, l'egout choisi vit dans le sous-objet `batiment` : il compte tout autant.
+    expect(schemaMinimal([{ ...batiment(), batiment: { egoutChoisi: 'audit' } } as unknown as ObjetAPlat])).toBe(6);
   });
 
   it('est 3 des qu un toit est a croupes', () => {
@@ -80,7 +238,7 @@ describe('le schema qu un document ecrit', () => {
 
   it('est 2 des qu un batiment porte un releve ou un toit', () => {
     expect(schemaMinimal([batiment({ facades: [releve] })])).toBe(2);
-    expect(schemaMinimal([batiment({ toit: { forme: 'plat' } as unknown as NonNullable<ObjetBrut['toit']> })])).toBe(2);
+    expect(schemaMinimal([batiment({ toit: { forme: 'plat' } as unknown as NonNullable<ObjetAPlat['toit']> })])).toBe(2);
   });
 
   it('ne redescend jamais sous le plancher d un projet mis a jour', () => {
@@ -92,5 +250,165 @@ describe('le schema qu un document ecrit', () => {
 
   it('ne depasse jamais le schema du programme', () => {
     expect(schemaAEcrire([batiment()], SCHEMA_VERSION + 3)).toBe(SCHEMA_VERSION);
+  });
+});
+
+describe('la migration 10 -> 11 : le toit enrichi (lot L2)', () => {
+  const losange = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise-losange', couleur: '#5a6068' };
+  const doc = () => [batiment({ toit: losange, volumesToit: [{ pts: [], toit: { ...losange } }] } as unknown as Partial<ObjetAPlat>), batiment({ key: 'c', toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile-plate' } } as unknown as Partial<ObjetAPlat>)];
+
+  it('relit la grande ardoise en losange comme une ardoise posee en losange, le reste a l identique', () => {
+    const lu = migrer({ objects: structuredClone(doc()) }, 10).objects as unknown as Record<string, Record<string, unknown>>[];
+    expect(lu[0]!.toit).toEqual({ ...losange, couverture: 'ardoise', pose: 'losange' });
+    expect((lu[0]!.volumesToit as unknown as { toit: unknown }[])[0]!.toit).toEqual({ ...losange, couverture: 'ardoise', pose: 'losange' });
+    // Un toit sans grande ardoise en losange est rendu tel quel (le meme objet).
+    expect(lu[1]).toEqual(doc()[1]);
+    // Au schema 11, rien ne se relit : la migration ne s'applique qu'aux documents d'avant.
+    expect(migrer({ objects: structuredClone(doc()) }, 11).objects).toEqual(doc());
+  });
+
+  it('s ecrit au 11 des qu un toit porte une pose, une couverture nouvelle, ou un corps un faitage ou une gouttiere ; et se relit a l identique', () => {
+    const reecrit = relu(doc(), 10);
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(11);
+    expect(relu(reecrit, 11)).toEqual(reecrit);
+    expect(schemaMinimal([batiment({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couverture: 'vegetale' } } as unknown as Partial<ObjetAPlat>)])).toBe(11);
+    expect(schemaMinimal([batiment({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couverture: 'zinc' } } as unknown as Partial<ObjetAPlat>)])).toBe(2);
+    const corps = { pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }], posFaitage: 2, faitage: 8, egouts: [6, 6], pignons: [], ecart: 0, bords: { faitage: 'zinc', gouttiere: 'pendante' } };
+    const avecBords = relu([batiment({ corpsToit: [corps] } as unknown as Partial<ObjetAPlat>)], 11);
+    expect((avecBords[0]!.corpsToit as { bords?: unknown }[])[0]!.bords).toEqual({ faitage: 'zinc', gouttiere: 'pendante' });
+    expect(schemaMinimal(avecBords as unknown as ObjetAPlat[])).toBe(11);
+    expect(schemaMinimal([batiment({ corpsToit: [{ ...corps, bords: { debordEgoutM: 0.4 } }] } as unknown as Partial<ObjetAPlat>)])).toBe(5);
+  });
+});
+
+describe('la migration 11 -> 12 : les textes et les photographies du dossier (lot L5)', () => {
+  const parcelle = (extra: Record<string, unknown> = {}): ObjetAPlat => ({ key: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 9 }], ...extra } as unknown as ObjetAPlat);
+  const dossier = {
+    textes: [{ piece: 'notice', valide: { texte: 'Notice validée.', le: '2026-10-30', entrees: 'a'.repeat(64) } }],
+    photos: [{ piece: 'DP7', image: null, photoLocale: 'pabc', source: 'audit', largeur: 4, hauteur: 3, choisieLe: '2026-10-30' }],
+  };
+
+  it('lit un document de schema 11 tel quel : la migration est l identite', () => {
+    const d = { objects: [parcelle(), batiment()] };
+    expect(migrer(structuredClone(d), 11)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 11)?.apporte).toMatch(/textes du dossier/);
+  });
+
+  it('s ecrit au 12 des que la parcelle porte un dossier, et le relit a l identique ; sans dossier, rien ne change', () => {
+    expect(schemaMinimal([parcelle()])).toBe(1);
+    const avec = relu([parcelle({ dossier })], 12);
+    expect(avec[0]!.dossier).toEqual(dossier);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(12);
+    expect(relu(avec, 12)).toEqual(avec);
+    // Un dossier qui ne se lit pas est retire a la lecture : le fichier garde sa forme d'avant.
+    expect(relu([parcelle({ dossier: { textes: [{ piece: 'inconnue' }] } })], 12)[0]).not.toHaveProperty('dossier');
+  });
+});
+
+describe('la migration 12 -> 13 : les murs a plusieurs parties basses', () => {
+  const facade = (extra: Record<string, unknown>) => ({ cote: 0, largeur: 12, hauteur: 5.6, texture: null, ouvertures: [], distance: null, sourceDistance: null, releveLe: '2026-11-03', ...extra });
+  const deux = [{ debut: 0, fin: 3, hauteur: 2.6 }, { debut: 8.6, fin: 12, hauteur: 2.9 }];
+
+  it('lit un document de schema 12 tel quel : un mur en L garde sa partie basse, au schema qui le decrit', () => {
+    const d = { objects: [batiment({ facades: [facade({ partieBasse: { debut: 6.5, fin: 12, hauteur: 2.9 } })] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 12)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 12)?.apporte).toMatch(/partie basse à chaque bout/);
+    const reecrit = relu(d.objects, 12);
+    expect((reecrit[0]!.facades as Record<string, unknown>[])[0]).toEqual(d.objects[0]!.facades![0]);
+    expect(schemaMinimal(reecrit as unknown as ObjetAPlat[])).toBe(2);
+  });
+
+  it('s ecrit au 13 des qu un mur porte plusieurs parties basses, et les relit a l identique ; une liste illisible est retiree', () => {
+    const avec = relu([batiment({ facades: [facade({ partieBasse: null, partiesBasses: deux })] } as unknown as Partial<ObjetAPlat>)], 13);
+    expect((avec[0]!.facades as Record<string, unknown>[])[0]!.partiesBasses).toEqual(deux);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(13);
+    expect(relu(avec, 13)).toEqual(avec);
+    // Rangee a la lecture : de gauche a droite, sans recouvrement.
+    const desordre = relu([batiment({ facades: [facade({ partiesBasses: [deux[1], { debut: 0, fin: 9, hauteur: 2.6 }] })] } as unknown as Partial<ObjetAPlat>)], 13);
+    expect((desordre[0]!.facades as Record<string, unknown>[])[0]!.partiesBasses).toEqual([{ debut: 0, fin: 9, hauteur: 2.6 }, { debut: 9, fin: 12, hauteur: 2.9 }]);
+    const illisible = relu([batiment({ facades: [facade({ partiesBasses: [{ debut: 'a' }] })] } as unknown as Partial<ObjetAPlat>)], 13);
+    expect((illisible[0]!.facades as Record<string, unknown>[])[0]).not.toHaveProperty('partiesBasses');
+    expect(schemaMinimal(illisible as unknown as ObjetAPlat[])).toBe(2);
+  });
+});
+
+describe('la migration 13 -> 14 : les batiments modifies corps par corps', () => {
+  const corps = (extra: Record<string, unknown> = {}) => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4], pignons: [], ecart: 0, ...extra });
+
+  it('lit un document de schema 13 tel quel, au schema qui le decrit', () => {
+    const d = { objects: [batiment({ corpsToit: [corps()] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 13)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 13)?.apporte).toMatch(/travées/);
+    expect(schemaMinimal(relu(d.objects, 13) as unknown as ObjetAPlat[])).toBeLessThan(14);
+  });
+
+  it('s ecrit au 14 des qu un corps porte des travees ou un bow-window sans toit propre, et les relit a l identique', () => {
+    const travees = [{ mur: 2, de: 3.7, a: 10, nature: 'mur', reculM: 0.5 }, { mur: 0, de: 0, a: 4, nature: 'garde-corps' }];
+    const avec = relu([batiment({ corpsToit: [corps({ travees })] } as unknown as Partial<ObjetAPlat>)], 14);
+    expect((avec[0]!.corpsToit as Record<string, unknown>[])[0]!.travees).toEqual(travees);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(14);
+    expect(relu(avec, 14)).toEqual(avec);
+    // Une travee mal formee est retiree a la lecture : le corps garde sa forme d'avant.
+    const illisible = relu([batiment({ corpsToit: [corps({ travees: [{ mur: 7, de: 0, a: 1, nature: 'mur' }, { mur: 0, de: 2, a: 1, nature: 'mur' }] })] } as unknown as Partial<ObjetAPlat>)], 14);
+    expect((illisible[0]!.corpsToit as Record<string, unknown>[])[0]).not.toHaveProperty('travees');
+    const bow = { genre: 'bow-window', hote: 0, mur: 2, centreM: 2, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'aucun' };
+    const sous = relu([batiment({ corpsToit: [corps(), corps({ saillie: bow })] } as unknown as Partial<ObjetAPlat>)], 14);
+    expect(((sous[0]!.corpsToit as Record<string, unknown>[])[1]!.saillie as Record<string, unknown>).toit).toBe('aucun');
+    expect(schemaMinimal(sous as unknown as ObjetAPlat[])).toBe(14);
+  });
+});
+
+describe('la migration 14 -> 15 : le cul de geai et la queue de vache', () => {
+  const corps = (extra: Record<string, unknown> = {}) => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4], pignons: [], ecart: 0, ...extra });
+
+  it('lit un document de schema 14 tel quel ; un cul de geai sans debord reste sous 15', () => {
+    const d = { objects: [batiment({ corpsToit: [corps({ bouts: [{ type: 'demi-croupe', profondeurM: 1, hauteurPignonM: 2 }, { type: 'pignon' }] })] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 14)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 14)?.apporte).toMatch(/cul de geai/);
+    expect(schemaMinimal(relu(d.objects, 14) as unknown as ObjetAPlat[])).toBeLessThan(15);
+  });
+
+  it('s ecrit au 15 des qu un faitage deborde, qu un pignon a sa pointe coupee ou qu un pan a sa queue de vache, et les relit a l identique', () => {
+    const bouts = [{ type: 'demi-croupe', profondeurM: 1, hauteurPignonM: 2, debordFaitageM: 0.8 }, { type: 'pignon' }];
+    const pignons = [{ pan: 0, debut: 3, fin: 6, faitage: 6.5, profondeur: 3, pointe: { type: 'demi-croupe', profondeurM: 0.6, hauteurPignonM: 1.2 } }];
+    const profil = [{ type: 'coyau', largeurM: 0.8, penteDeg: 15, debordM: 0.9 }, { type: 'droit' }];
+    for (const extra of [{ bouts }, { pignons }, { profil }]) {
+      const avec = relu([batiment({ corpsToit: [corps(extra)] } as unknown as Partial<ObjetAPlat>)], 15);
+      const k = (avec[0]!.corpsToit as Record<string, unknown>[])[0]!;
+      for (const [cle, v] of Object.entries(extra)) expect(k[cle]).toEqual(v);
+      expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(15);
+      expect(relu(avec, 15)).toEqual(avec);
+    }
+    // Mal formes, ils sont retires a la lecture : la pointe redevient un triangle, le debord disparait, le coyau reste.
+    const illisible = relu([batiment({ corpsToit: [corps({
+      bouts: [{ type: 'demi-croupe', profondeurM: 1, hauteurPignonM: 2, debordFaitageM: -1 }, { type: 'pignon' }],
+      pignons: [{ ...pignons[0], pointe: { type: 'demi-croupe', profondeurM: 0 } }],
+      profil: [{ type: 'coyau', largeurM: 0.8, penteDeg: 15, debordM: 9 }, { type: 'droit' }]
+    })] } as unknown as Partial<ObjetAPlat>)], 15);
+    const k = (illisible[0]!.corpsToit as Record<string, unknown>[])[0]! as { bouts: Record<string, unknown>[]; pignons: Record<string, unknown>[]; profil: Record<string, unknown>[] };
+    expect(k.bouts[0]).not.toHaveProperty('debordFaitageM');
+    expect(k.pignons[0]).not.toHaveProperty('pointe');
+    expect(k.profil[0]).toEqual({ type: 'coyau', largeurM: 0.8, penteDeg: 15 });
+  });
+});
+
+describe('la migration 15 -> 16 : le rez-de-chaussee en retrait sous l etage', () => {
+  const hote = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 };
+  const saillie = { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan' };
+  const bow = (extra: Record<string, unknown> = {}) => ({ pts: [{ x: 3.8, y: 0.8 }, { x: 6.2, y: 0.8 }, { x: 6.2, y: 0 }, { x: 3.8, y: 0 }], posFaitage: 0, faitage: 2.7, egouts: [2.7, 2.7], pignons: [], ecart: 0, saillie: { ...saillie, ...extra } });
+
+  it('lit un document de schema 15 tel quel ; un bow-window sans retrait reste sous 16', () => {
+    const d = { objects: [batiment({ corpsToit: [hote, bow()] } as unknown as Partial<ObjetAPlat>)] };
+    expect(migrer(structuredClone(d), 15)).toEqual(d);
+    expect(MIGRATIONS.find((m) => m.de === 15)?.apporte).toMatch(/rez-de-chaussée en retrait/);
+    expect(schemaMinimal(relu(d.objects, 15) as unknown as ObjetAPlat[])).toBeLessThan(16);
+  });
+
+  it('s ecrit au 16 des qu un bow-window porte un rez-de-chaussee en retrait, et le relit a l identique', () => {
+    const avec = relu([batiment({ corpsToit: [hote, bow({ rdcEnRetraitM: 0.8 })] } as unknown as Partial<ObjetAPlat>)], 16);
+    const k = (avec[0]!.corpsToit as { saillie?: Record<string, unknown> }[])[1]!;
+    expect(k.saillie?.rdcEnRetraitM).toBe(0.8);
+    expect(schemaMinimal(avec as unknown as ObjetAPlat[])).toBe(16);
+    expect(relu(avec, 16)).toEqual(avec);
   });
 });

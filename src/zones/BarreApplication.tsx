@@ -11,21 +11,30 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
-import { contexteCourant, sessionCourante, enAdmin } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
+import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
-import { useEffect } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
+import { reliefDe, affichageRelief } from '../model/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { voisinage3dDe } from '../model/voisinage3d.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { Vue } from '../app/modes.js';
+import type { EtatApp } from '../core/state.js';
+import { lectureToits } from '../core/lectureToits.js';
+import { LECTURE_MURS_EN_FOND } from '../app/toits/mursFond.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { texteStatutCourt } from './statut.js';
+import { useCle, useMagasinZone } from './composants/abonnement.js';
 import { APP_VERSION, versionLongue } from '../model/version.js';
+import { sessionToit } from '../app/toits/modeToit.js';
 
 export interface PropsBarreApplication {
   magasin: Magasin;
@@ -52,10 +61,34 @@ function fermer(e: React.SyntheticEvent<HTMLElement>): void {
 
 interface PropsMenu { magasin: Magasin; commandes: RegistreCommandes }
 
+// Un menu ferme ne se voit pas : ses entrees ne relisent pas l'etat de leur commande a chaque rendu du plan (celui des doublons
+// cherche dans tout le plan), elles gardent le dernier lu et le relisent a l'ouverture. Le clic, lui, reverifie toujours
+// (`commandes.executer`). Hors d'un menu, une entree relit a chaque rendu.
+const MenuOuvert = createContext(true);
+
+function Deroulant({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
+  const [ouvert, poserOuvert] = useState(false);
+  return (
+    <details className="menu" id={id} onToggle={(e) => poserOuvert(e.currentTarget.open)}>
+      <summary>{titre}</summary>
+      <MenuOuvert.Provider value={ouvert}>{children}</MenuOuvert.Provider>
+    </details>
+  );
+}
+
+function useEtatCommande(commandes: RegistreCommandes, id: string): ReturnType<RegistreCommandes['etat']> {
+  const ouvert = useContext(MenuOuvert);
+  const lu = useRef<ReturnType<RegistreCommandes['etat']> | null>(null);
+  // L'entree ne se redessine que si l'etat de sa commande change ; menu ferme, elle ne le relit pas.
+  useCle(useMagasinZone(), 'commande ' + id, () => (ouvert || !lu.current ? JSON.stringify(commandes.etat(id)) : 'ferme'));
+  if (ouvert || !lu.current) lu.current = commandes.etat(id);
+  return lu.current;
+}
+
 /** Une entree de menu qui execute une commande, grisee si la commande ne l'est pas. */
 function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes: RegistreCommandes; id: string; libelle: string; idDom?: string; apres?: () => void; raccourci?: string }) {
   const c = commandes.obtenir(id);
-  const etat = commandes.etat(id);
+  const etat = useEtatCommande(commandes, id);
   // Effacee plutot que grisee quand l'organisation n'a pas achete la fonction (spec §4.2).
   if (!etat.utilisable && etat.raison === 'capacite') return null;
   // Un quota atteint laisse l'entree cliquable : le clic dit la limite (app/limiteProjets.ts).
@@ -71,6 +104,16 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
       </button>
     </li>
   );
+}
+
+/**
+ * Au doigt, l'infobulle n'existe pas : la raison d'un refus s'ecrit sous l'entree (une permission
+ * manquante, ou ce qu'il faut faire d'abord). Rien sur bureau, ou l'infobulle la porte.
+ */
+function RefusAuDoigt({ commandes, id, tactile }: { commandes: RegistreCommandes; id: string; tactile: boolean }) {
+  const etat = useEtatCommande(commandes, id);
+  if (!tactile || etat.utilisable || etat.raison === 'capacite' || !('message' in etat)) return null;
+  return <li className="refusMenu" role="note">{etat.message}</li>;
 }
 
 /** Une case a cocher de reglage, non controlee : la commande qui s'en sert la lit par son identifiant. */
@@ -96,10 +139,12 @@ function EchellePdf({ magasin }: { magasin: Magasin }) {
 }
 
 function MenuFichier({ magasin, commandes }: PropsMenu) {
+  // La lecture des toits et des murs en tache de fond : le menu suit son etat sans attendre un rendu du plan.
+  const toitsFond = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
   const p = useStore(magasin.store, (s) => s.projet);
+  const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
   return (
-    <details className="menu" id="menuFichier">
-      <summary>Fichier</summary>
+    <Deroulant id="menuFichier" titre="Fichier">
       <ul role="menu">
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
@@ -108,6 +153,16 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         {p.apiDisponible && <li className="separateur" role="separator" />}
         <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
+        <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
+        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
+        <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
+        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons…" />
+        <li className="separateur" role="separator" />
+        {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
+        <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
+        <RefusAuDoigt commandes={commandes} id="audit.parcelle" tactile={tactile} />
+        {/* Un audit fait ailleurs (l'administrateur pour un client, §15) : repris a ses propositions. */}
+        <Entree commandes={commandes} id="audit.importerParcelle" libelle="Importer un audit de parcelle…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
         <Case magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" />
@@ -117,14 +172,13 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="fichier.exporterJson" libelle="Exporter le projet (JSON)" idDom="exportJsonBtn" />
         <Case magasin={magasin} option="exportSansParcelle" idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
 function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiroir }) {
   return (
-    <details className="menu" id="menuExporter">
-      <summary>Exporter</summary>
+    <Deroulant id="menuExporter" titre="Exporter">
       <ul role="menu">
         <Entree commandes={commandes} id="export.resume" libelle="Résumé à copier" apres={() => tiroir.activer('resume')} />
         <li className="separateur" role="separator" />
@@ -137,30 +191,43 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
         <Entree commandes={commandes} id="export.pdf" libelle="PDF du plan" idDom="exportPdfBtn" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.dossier" libelle="Dossier PDF des terrasses" idDom="dossierPdfBtn" />
-        <Entree commandes={commandes} id="export.declaration" libelle="Déclaration préalable (cerfa)" idDom="declarationBtn" />
+        {/* Le dialogue de la declaration : qui declare, l'adresse, puis le cerfa 13703 et ses pieces. */}
+        <Entree commandes={commandes} id="export.ouvrirDeclaration" libelle="Déclaration préalable…" idDom="declarationBtn" />
         <Case magasin={magasin} option="dossierEquipements" idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Inclure l'emprise des équipements" titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
         <li className="menuAide">Les terrasses du dossier se cochent dans l'explorateur.</li>
         <Entree commandes={commandes} id="export.dossierPiscine" libelle="Dossier mairie de la piscine (PDF)" idDom="dossierPiscineBtn" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.glb" libelle="GLB (scène 3D)" idDom="exportGlbBtn" />
       </ul>
-    </details>
+    </Deroulant>
   );
+}
+
+/** Les bascules du menu Affichage : identifiant, libelle, cochee, visible. */
+function basculesAffichage(etat: EtatApp, commandes: RegistreCommandes): [string, string, boolean, boolean][] {
+  const aDuVoisinage = etat.objects.some((o) => o.voisinage);
+  const relief = reliefDe(etat.objects);
+  const parcelle = parcelleDuProjet(etat.objects);
+  // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
+  // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
+  return ([
+    ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
+    ['affichage.grille', 'Grille', etat.grilleVisible, true],
+    ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
+    // Le sol en relief (3D) et les courbes de niveau (plan), chacun sa bascule ; une fois le relief lu.
+    ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
+    ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
+    ['affichage.rues', 'Noms des rues', !!parcelle && voisinage3dDe(parcelle).rues.afficher, !!parcelle],
+    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
+    // La position GPS de l'appareil, suivie dans la Vue 3D : decochee par defaut, jamais enregistree.
+    ['affichage.positionGps', 'Ma position (3D)', etat.positionGps, true]
+  ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
 }
 
 /** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
 function MenuAffichage({ magasin, commandes }: PropsMenu) {
-  useStore(magasin.store, (s) => s.version);
-  const etat = magasin.store.getState().etat;
-  const aDuVoisinage = etat.objects.some((o) => o.voisinage);
-  // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
-  // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
-  const bascules: [string, string, boolean, boolean][] = ([
-    ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
-    ['affichage.grille', 'Grille', etat.grilleVisible, true],
-    ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
-    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true]
-  ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
+  useCle(magasin, 'menu Affichage', (s) => JSON.stringify([basculesAffichage(s.etat, commandes), ortho.opacite, ortho.parcelleOpacite]));
+  const bascules = basculesAffichage(magasin.store.getState().etat, commandes);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
@@ -171,8 +238,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     </li>
   );
   return (
-    <details className="menu" id="menuAffichage">
-      <summary>Affichage</summary>
+    <Deroulant id="menuAffichage" titre="Affichage">
       <ul role="menu">
         {bascules.filter(([, , , visible]) => visible).map(([id, libelle, coche]) => (
           <li key={id} role="menuitemcheckbox" aria-checked={coche}>
@@ -184,18 +250,18 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
         {curseur('affichage.orthoOpacite', 'orthoOpacite', 'orthoOpaciteTexte', 'Photo', Math.round(ortho.opacite * 100), 20, 'Opacité de la photo aérienne elle-même')}
         {curseur('affichage.orthoParcelleOpacite', 'orthoParcelleOpacite', 'orthoParcelleOpaciteTexte', 'Remplissage parcelle', Math.round(ortho.parcelleOpacite * 100), 0, 'Remplissage du terrain par-dessus la photo : à 100 % la parcelle masque exactement ce qu\'on veut voir')}
         <Entree commandes={commandes} id="affichage.orthoParcelleDefaut" libelle="Remplissage conseillé (15 %)" idDom="orthoParcelleDefaut" />
+        <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger la photo aérienne" />
         <li className="menuAide">Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
-function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
-  useStore(magasin.store, (s) => s.version);
+function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes: RegistreCommandes; tiroir: Tiroir }) {
+  useCle(magasin, 'menu Aide', () => String(tiroir.onglets().some(o => o.id === 'methode')));
   const methode = tiroir.onglets().some(o => o.id === 'methode');
   return (
-    <details className="menu" id="menuAide">
-      <summary>Aide</summary>
+    <Deroulant id="menuAide" titre="Aide">
       <ul role="menu">
         <li role="menuitem">
           <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
@@ -205,23 +271,37 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
         <li role="menuitem">
           <button type="button" data-controle="aide.version" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
         </li>
+        {/* L'assistant en langue naturelle (lot L6) : il ouvre son dialogue (Z8). */}
+        <Entree commandes={commandes} id="assistant.demander" libelle="Demander à l’assistant…" />
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
 /**
- * Le menu Admin : les deux ecrans secondaires de l'admin, l'arbre des controleurs et la palette de
- * l'interface. Il n'existe qu'en admin des demos (`enAdmin`) : hors admin, ces ecrans demandent le
- * mot de passe, et un menu qui y mene n'aurait rien a offrir. Chaque ecran a son bouton de retour.
+ * Le menu Admin : les ecrans secondaires de l'admin des demos (l'arbre des controleurs, la palette
+ * de l'interface, la consommation de Claude, la conformite) et le mode audit (MD/spec-audit.md). Les ecrans
+ * n'existent qu'en admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode
+ * audit est ouvert aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a
+ * son bouton de retour. La consommation et la conformite passent par le registre (`admin.consommation`,
+ * `admin.conformite`), comme le catalogue des audits de parcelle recus (`admin.auditsParcelle`), qui
+ * s'ouvre en Z8 sur le projet en cours (il y rouvre un audit). Avec
+ * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`). La sauvegarde
+ * (`admin.sauvegarde`) telecharge tout le dossier des donnees du serveur en une archive zip.
  */
-export function MenuAdmin() {
-  if (!enAdmin()) return null;
+export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
+  const demos = enAdmin();
+  if (!demos && !estAdministrateur()) return null;
   const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
   return (
-    <details className="menu" id="menuAdmin">
-      <summary>Admin</summary>
+    <Deroulant id="menuAdmin" titre="Admin">
       <ul role="menu">
+        <li role="menuitem">
+          <button type="button" data-controle="admin.audit" onClick={aller(demos ? '?admin&mode=audit' : '?mode=audit')}>
+            <span className="coche" aria-hidden="true" />Mode audit (promenade)
+          </button>
+        </li>
+        {demos && <>
         <li role="menuitem">
           <button type="button" data-controle="admin.controleurs" onClick={aller('?admin&ecran=controleurs')}>
             <span className="coche" aria-hidden="true" />Contrôleurs de l’écran
@@ -232,8 +312,36 @@ export function MenuAdmin() {
             <span className="coche" aria-hidden="true" />Palette de l’interface
           </button>
         </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.arbres" onClick={aller('?admin&ecran=arbres')}>
+            <span className="coche" aria-hidden="true" />Arbres (bibliothèque)
+          </button>
+        </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.calibration" onClick={aller('?admin&ecran=calibration')}>
+            <span className="coche" aria-hidden="true" />Calibrer la détection
+          </button>
+        </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.chaine" onClick={aller('?admin&ecran=chaine')}>
+            <span className="coche" aria-hidden="true" />De l’IGN à ma maison
+          </button>
+        </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.principes" onClick={aller('?admin&ecran=principes')}>
+            <span className="coche" aria-hidden="true" />Les principes de Plan
+          </button>
+        </li>
+        <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
+        <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
+        <Entree commandes={commandes} id="admin.regles" libelle="Règles" />
+        <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits" />
+        <Entree commandes={commandes} id="admin.sauvegarde" libelle="Télécharger une sauvegarde des données" />
+        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons du projet…" />
+        </>}
+        {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
@@ -343,13 +451,13 @@ function CompteurProjets({ quota }: { quota: { utilise: number; limite: number |
 
 /**
  * L'admin des demos n'a pas de plateforme : pas de compte a nommer, mais une session a fermer
- * (app/porteAdmin.ts). Meme place que « Se deconnecter » de la plateforme, et meme precaution :
+ * (app/administration/porteAdmin.ts). Meme place que « Se deconnecter » de la plateforme, et meme precaution :
  * un plan non enregistre se demande avant de partir.
  */
 function SortieAdmin({ magasin }: { magasin: Magasin }) {
   const sortir = () => {
     const partir = () => {
-      void import('../app/porteAdmin.js').then(({ quitterAdmin }) => quitterAdmin()).then((refus) => { if (refus) showErrBanner(refus); });
+      void import('../app/administration/porteAdmin.js').then(({ quitterAdmin }) => quitterAdmin()).then((refus) => { if (refus) showErrBanner(refus); });
     };
     if (magasin.store.getState().etat.dirty) {
       showConfirm('Cette démo porte des modifications non enregistrées. Se déconnecter maintenant les perd. Continuer ?', partir);
@@ -376,8 +484,16 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   const classe = useStore(magasin.store, (s) => s.classe);
   const feuille = useStore(magasin.store, (s) => s.feuille);
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
-  useStore(magasin.store, (s) => s.version);
+  // Ce que la barre lit du plan : l'etat de « Enregistrer », la lecture seule, les vues et Annuler offerts ou non, et qui est
+  // connecte (le compte et le menu Admin). Les entrees des menus suivent chacune leur commande.
+  useCle(magasin, 'barre d\'application', (s) => {
+    const c = contexteCourant()?.courant();
+    return JSON.stringify([commandes.etat('projet.enregistrer'), s.etat.lectureSeule, Object.values(COMMANDE_DE_VUE).map((id) => commandes.effacee(id)),
+      commandes.effacee('objet.annuler'), commandes.etat('objet.annuler'), !!sessionToit(), enAdmin(), estAdministrateur(), c ? [c.user.display_name, c.user.email, c.tenant.name, c.tenant.slug] : null]);
+  });
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
+  // Pendant une session du mode Toit, Annuler est celui de la session (app/ecouteurs/objets.ts).
+  const enSessionToit = !!sessionToit();
   const enregistrement = p.statut === 'enregistrement';
   // Comme toute commande : grise en lecture seule (le droit d'ecrire manque) ou sans projet ouvert,
   // au lieu d'un clic refuse sans un mot.
@@ -433,8 +549,8 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <MenuFichier magasin={magasin} commandes={commandes} />
       <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAffichage magasin={magasin} commandes={commandes} />
-      <MenuAide magasin={magasin} tiroir={tiroir} />
-      <MenuAdmin />
+      <MenuAide magasin={magasin} commandes={commandes} tiroir={tiroir} />
+      <MenuAdmin commandes={commandes} />
     </>
   );
 
@@ -454,7 +570,8 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
             </span>
           </div>
           {!commandes.effacee('objet.annuler') && (
-            <button type="button" className="boutonIcone" data-commande="objet.annuler" aria-label="Annuler (Ctrl+Z)" disabled={!peutAnnuler}
+            <button type="button" className="boutonIcone" data-commande="objet.annuler" aria-label={enSessionToit ? 'Annuler le dernier geste sur la toiture (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
+              disabled={!(commandes.etat('objet.annuler').utilisable && (peutAnnuler || enSessionToit))}
               onClick={() => { commandes.executer('objet.annuler'); }}>
               <Icone nom="annuler" />
             </button>

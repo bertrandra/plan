@@ -9,13 +9,19 @@
 // pour ecrire dans l'une en croyant lire l'autre.
 
 import { fusionnerAnneaux, chainerSegments, type LimiteBrute } from '../geometry/rings.js';
+import { idusCadastraux } from '../model/cadastre.js';
 import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
-import { hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
+import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
+import { especeParNature } from '../model/especesArbre.js';
+import { poserClotureDImport } from '../model/cloture.js';
+import { coteDuNouvelAcces } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
+import { volumesParDefaut } from '../model/volumesToit.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
-import type { PtBrut, ObjetPlan, ZonagePlu, Toit } from '../model/types.js';
-import type { Anneau } from './apiIgn.js';
+import type { ChampsBatiment, PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
+import type { Anneau } from './geojson.js';
+import { estOuvrage, TERRAIN, LIMITE } from '../model/ouvrages/index.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
 export interface ParcelleCadastrale {
@@ -60,6 +66,13 @@ export interface AdresseRecherchee {
   ville: string;
   lon: number;
   lat: number;
+  /**
+   * Le point d'adresse de la BAN, quand il differe du point de recherche : a l'import depuis la
+   * position de l'appareil, la parcelle se cherche sous l'appareil (`lon`, `lat`, souvent dans le
+   * jardin) mais le point de l'adresse la plus proche est sur la voirie, devant la porte. C'est lui
+   * que la parcelle range comme point d'adresse (geo/coteRue.ts y devine le cote sur rue).
+   */
+  pointAdresse?: { lon: number; lat: number };
 }
 
 /** Le projecteur local monde <-> degres, tel que `geo/projection.ts` le rend. */
@@ -86,6 +99,11 @@ export interface ImportCadastral {
   /** Rayon de recherche des voisines, en metres. */
   rayon?: number;
   voisinesRetenues: () => ParcelleCadastrale[];
+  /**
+   * Les parcelles voisines connues, retenues ou non : celles qu'on n'importe pas disent tout de meme
+   * quels cotes sont mitoyens, pour poser le portail neuf cote rue (geo/coteRue.ts).
+   */
+  voisinesConnues?: () => ParcelleCadastrale[];
   importerBatiments?: boolean;
   batiments: ObjetBdTopo[];
   importerHaies?: boolean;
@@ -95,9 +113,18 @@ export interface ImportCadastral {
   importerArbres?: boolean;
   /** Zonage PLU de la parcelle principale, pose tel quel sur l'objet parcelle. */
   plu?: ZonagePlu | null;
+  /**
+   * Le voisinage etendu choisi a l'etape 3 : tout ce qui est dans un rayon de 100 ou 200 m. Il
+   * arrive marque « voisinage » (l'oeil de l'explorateur le masque d'un coup) ; `visible` faux le
+   * pose masque a l'ouverture du plan.
+   */
+  voisinageEtendu?: { parcelles: ParcelleCadastrale[]; batiments: ObjetBdTopo[]; visible: boolean } | null;
 }
 
 /** Ce que chaque morceau de l'import partage : le recalage sur l'origine, la date, les cles prises. */
+/** Ce qu'il faut pour poser une forme IGN dans le plan : le recalage, les cles libres, la date de lecture. */
+type ContexteForme = Pick<ContexteImport, 'dec' | 'cleUnique' | 'recupereLe'>;
+
 interface ContexteImport {
   importe: ImportCadastral;
   /** Un point du repere local, recale sur l'origine (le sommet le plus au nord), au millimetre. */
@@ -125,8 +152,9 @@ function metaCadastre(x: ContexteImport, c: ParcelleCadastrale, principaleOuNon:
   };
   if(principaleOuNon && importe.geo){
     info.adresse = importe.geo.label;
-    info.adresseLon = importe.geo.lon;
-    info.adresseLat = importe.geo.lat;
+    const point = importe.geo.pointAdresse ?? importe.geo;
+    info.adresseLon = point.lon;
+    info.adresseLat = point.lat;
     info.adresseScore = importe.geo.score;
     info.rayonM = importe.rayon;
     // Posee par `construireCandidats` sur toute principale ; sans elle, pas de distance a dire.
@@ -147,6 +175,39 @@ function formeCommune(pts: PtBrut[]) {
   };
 }
 
+/** Une apparence au plan : remplissage, son opacite, trait. */
+export interface ApparenceIgn { fill: string; fillOpacity: number; stroke: string }
+
+/**
+ * Les apparences que l'import donne a ce qu'il pose (et que l'actualisation du voisinage reprend) :
+ * « Actualiser le projet » (app/cadastre/actualiserProjet.ts) y ramene les objets importes. Les constructeurs
+ * ci-dessous et ceux du voisinage (app/cadastre/actualisationIgn.ts) les lisent ici : une seule source.
+ */
+export const APPARENCES_IGN = {
+  parcelle: { fill: '#FBF3D9', fillOpacity: 1, stroke: '#3B2E1F' },
+  parcelleVoisine: { fill: '#EFE8D5', fillOpacity: 0.45, stroke: '#8A7B63' },
+  limite: { fill: '#8A7B63', fillOpacity: 1, stroke: '#8A7B63' },
+  batimentPropriete: { fill: '#D9B694', fillOpacity: 0.92, stroke: '#7A4A2A' },
+  batimentVoisin: { fill: '#CFC3B4', fillOpacity: 0.6, stroke: '#8A7B63' },
+  haie: { fill: '#7FA86B', fillOpacity: 0.8, stroke: '#3F5C33' },
+  vegetation: { fill: '#A9BE8E', fillOpacity: 0.55, stroke: '#4A6B32' },
+  arbreEstime: { fill: '#6E8B4E', fillOpacity: 0.7, stroke: '#3F5C33' }
+} as const satisfies Record<string, ApparenceIgn>;
+
+/** L'apparence qu'un objet importe avait a l'import ; `null` pour un objet dessine a la main. */
+export function apparenceIgnParDefaut(o: { key?: string; fonction?: string; cadastre?: unknown; bdtopo?: unknown; voisinage?: boolean }): ApparenceIgn | null {
+  const b = o.bdtopo as { couche?: unknown; surParcellePrincipale?: unknown } | null | undefined;
+  const couche = typeof b?.couche === 'string' ? b.couche : null;
+  if (o.key === 'parcelle' && o.cadastre) return APPARENCES_IGN.parcelle;
+  if (o.cadastre && estOuvrage(o, TERRAIN)) return APPARENCES_IGN.parcelleVoisine;
+  if (estOuvrage(o, LIMITE) && typeof o.key === 'string' && o.key.startsWith('limite-')) return APPARENCES_IGN.limite;
+  if (couche === 'BDTOPO_V3:batiment') return b?.surParcellePrincipale === true ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin;
+  if (couche === 'BDTOPO_V3:haie') return APPARENCES_IGN.haie;
+  if (couche === 'BDTOPO_V3:zone_de_vegetation') return APPARENCES_IGN.vegetation;
+  if (couche === 'estimation') return APPARENCES_IGN.arbreEstime;
+  return null;
+}
+
 /** La parcelle du terrain : le contour fusionne de la propriete, et sa fiche cadastrale. */
 function objetParcelle(x: ContexteImport, ptsFusion: PtBrut[], nord: PtBrut, parcellesFusionnees: ParcelleCadastrale[]): ObjetPlan {
   const { importe } = x;
@@ -164,7 +225,7 @@ function objetParcelle(x: ContexteImport, ptsFusion: PtBrut[], nord: PtBrut, par
   return Object.assign({
     key:'parcelle', type:'polygon' as const,
     name:'Parcelle ' + parcellesFusionnees.map(libelleParcelle).join(' + '),
-    fill:'#FBF3D9', fillOpacity:1, stroke:'#3B2E1F',
+    ...APPARENCES_IGN.parcelle,
     showDims:true,
     // Le lieu (course du soleil, parasol, Vue 3D) se prend au centre de la parcelle, pas au point
     // d'adresse : celui-ci est sur la voirie.
@@ -186,7 +247,7 @@ function limitesInternes(x: ContexteImport, limites: LimiteBrute[]): ObjetPlan[]
     x.clesPrises.add(cle);
     return {
       key:cle, type:'path' as const, name:'Limite cadastrale ' + (i+1),
-      fill:'#8A7B63', fillOpacity:1, stroke:'#8A7B63',
+      ...APPARENCES_IGN.limite,
       pts,
       vertexNames: pts.map((_,k)=>'Point ' + (k+1)),
       segmentNames: pts.slice(0,-1).map((_,k)=>'Cote ' + (k+1)),
@@ -211,7 +272,7 @@ function parcellesVoisines(x: ContexteImport, parcellesFusionnees: ParcelleCadas
     x.clesPrises.add(cle);
     return Object.assign({
       key:cle, type:'polygon' as const, name: libelleParcelle(c),
-      fill:'#EFE8D5', fillOpacity:0.45, stroke:'#8A7B63',
+      ...APPARENCES_IGN.parcelleVoisine,
       // Les cotes de trois voisines par-dessus le plan le rendent illisible : la parcelle principale
       // garde ses dimensions, les voisines sont un decor de reference.
       showDims:false,
@@ -225,10 +286,10 @@ interface OptionsFormeIgn {
   cle: string;
   hauteur: number;
   opacite?: number;
-  extra?: { locked?: boolean; bdtopo?: unknown; toit?: Toit };
+  extra?: { locked?: boolean; bdtopo?: unknown; batiment?: ChampsBatiment };
 }
 
-function formeIgn(x: ContexteImport, pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn): ObjetPlan {
+function formeIgn(x: ContexteForme, pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn): ObjetPlan {
   return Object.assign({
     key: x.cleUnique(opts.cle), type:'polygon' as const, name: nom,
     fill, fillOpacity: opts.opacite !== undefined ? opts.opacite : 0.9, stroke,
@@ -253,46 +314,100 @@ const identifiant = (id: string | undefined) => (id || '').replace(/[^a-z0-9]+/g
  */
 function batiments(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean, parcellesFusionnees: ParcelleCadastrale[]): ObjetPlan[] {
   const iduPropriete = new Set(parcellesFusionnees.map(p=>p.idu));
-  return x.importe.batiments.filter(retenu).map(b=>{
-    const p = b.props || {};
-    const surPrincipale = [...b.parcelles].some(idu=>iduPropriete.has(idu));
-    const usage = p.usage_1 || p.nature || 'Batiment';
-    const pts = b.pts.map(x.dec);
-    return formeIgn(x, pts, 'batiment',
-      usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
-      surPrincipale ? '#D9B694' : '#CFC3B4', surPrincipale ? '#7A4A2A' : '#8A7B63', {
-        cle: 'bati-' + identifiant(b.id),
-        hauteur: hauteurBatiment(p),
-        opacite: surPrincipale ? 0.92 : 0.6,
-        extra: {
-          locked: !surPrincipale,
-          // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un.
-          toit: toitBdTopo(pts, attributsToitBdTopo(p)),
-          bdtopo: {
-            couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
-            nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,
-            hauteurM: nombreFr(p.hauteur), hauteurRetenueM: hauteurBatiment(p),
-            nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
-            altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
-            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit),
-            constructionLegere: String(p.construction_legere) === 'True',
-            etat: p.etat_de_l_objet || null, dateApparition: p.date_d_apparition || null,
-            identifiantRnb: p.identifiants_rnb || null,
-            surParcellePrincipale: surPrincipale,
-            recupereLe: x.recupereLe
-          }
+  return x.importe.batiments.filter(retenu).map(b=>objetBatiment(x, b, [...b.parcelles].some(idu=>iduPropriete.has(idu))));
+}
+
+/** Un batiment BD TOPO tel qu'il entre dans le plan ; hors de la propriete, verrouille. */
+function objetBatiment(x: ContexteForme, b: ObjetBdTopo, surPrincipale: boolean): ObjetPlan {
+  const p = b.props || {};
+  const usage = p.usage_1 || p.nature || 'Batiment';
+  const pts = b.pts.map(x.dec);
+  // Le toit deduit de la BD TOPO (MD/spec-toit-ign.md) : tout batiment importe en a un ; sur la
+  // parcelle du projet, un toit par corps de batiment quand le contour se decoupe (§11).
+  const toit = toitBdTopo(pts, attributsToitBdTopo(p));
+  const volumes = surPrincipale ? volumesParDefaut(pts, toit) : null;
+  return formeIgn(x, pts, 'batiment',
+    usage + (p.nombre_d_etages ? ' (' + p.nombre_d_etages + ' niv.)' : ''),
+    (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).fill,
+    (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).stroke, {
+      cle: 'bati-' + identifiant(b.id),
+      hauteur: hauteurBatiment(p),
+      opacite: (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).fillOpacity,
+      extra: {
+        locked: !surPrincipale,
+        batiment: { toit, ...(volumes ? { volumesToit: volumes } : {}) },
+        bdtopo: {
+          couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
+          nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,
+          hauteurM: nombreFr(p.hauteur), hauteurRetenueM: hauteurBatiment(p),
+          nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
+          altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
+          altitudeToitMaxM: nombreFr(p.altitude_maximale_toit),
+          constructionLegere: String(p.construction_legere) === 'True',
+          // Les materiaux des fichiers fonciers : la couleur des murs quand aucune photo ne la montre (model/couleurMur.ts).
+          ...materiauxBdTopo(p),
+          etat: p.etat_de_l_objet || null, dateApparition: p.date_d_apparition || null,
+          identifiantRnb: p.identifiants_rnb || null,
+          surParcellePrincipale: surPrincipale,
+          recupereLe: x.recupereLe
         }
-      });
+      }
+    });
+}
+
+/**
+ * Un batiment de la propriete, tel qu'un import d'aujourd'hui le pose : « Fichier › Actualiser le
+ * projet » supprime ceux de la parcelle et les recree ainsi. `b.pts` est deja dans le repere du plan.
+ */
+export function batimentDeLaPropriete(b: ObjetBdTopo, cleUnique: (base: string) => string, recupereLe: string): ObjetPlan {
+  const dec = (p: PtBrut) => ({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 });
+  return objetBatiment({ dec, cleUnique, recupereLe }, b, true);
+}
+
+/**
+ * Ce que le voisinage prend en plus : verrouille, marque, et sans nom affiche — des centaines de
+ * references cadastrales et d'usages de batiments par-dessus le plan le rendaient illisible.
+ * L'etiquette reste a portee, par la case « Nom » de l'explorateur.
+ */
+export const SANS_NOM_VOISINAGE = { locked: true, voisinage: true, showName: false } as const;
+
+/**
+ * Le voisinage etendu : les parcelles et le bati du disque qui ne sont pas deja dans le plan,
+ * marques « voisinage » et verrouilles, comme un decor de reference.
+ */
+function voisinageEtendu(x: ContexteImport, deja: ObjetPlan[]): ObjetPlan[] {
+  const v = x.importe.voisinageEtendu;
+  if(!v) return [];
+  const iduPris = new Set(deja.flatMap(idusCadastraux));
+  iduPris.add(x.importe.principale.idu);
+  const idsPris = new Set(deja.flatMap(o=>{ const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id ? [id] : []; }));
+  const out: ObjetPlan[] = [];
+  v.parcelles.forEach(c=>{
+    if(iduPris.has(c.idu)) return;
+    iduPris.add(c.idu);
+    out.push(Object.assign({
+      key: x.cleUnique(('parcelle-' + libelleParcelle(c)).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'')),
+      type:'polygon' as const, name: libelleParcelle(c),
+      ...APPARENCES_IGN.parcelleVoisine,
+      showDims:false,
+      cadastre: metaCadastre(x, c, false)
+    }, formeCommune(c.pts.map(x.dec)), SANS_NOM_VOISINAGE));
   });
+  if(x.importe.importerBatiments) v.batiments.forEach(b=>{
+    if(b.id && idsPris.has(b.id)) return;
+    if(b.id) idsPris.add(b.id);
+    out.push(Object.assign(objetBatiment(x, b, false), SANS_NOM_VOISINAGE));
+  });
+  return out;
 }
 
 function haies(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPlan[] {
   return x.importe.haies.filter(retenu).map(h=>{
     const p = h.props || {};
     const haut = nombreFr(p.hauteur) || 2;
-    return formeIgn(x, h.pts.map(x.dec), 'massif', 'Haie', '#7FA86B', '#3F5C33', {
+    return formeIgn(x, h.pts.map(x.dec), 'massif', 'Haie', APPARENCES_IGN.haie.fill, APPARENCES_IGN.haie.stroke, {
       cle: 'haie-' + identifiant(h.id),
-      hauteur: haut, opacite: 0.8,
+      hauteur: haut, opacite: APPARENCES_IGN.haie.fillOpacity,
       extra: { bdtopo: { couche:'BDTOPO_V3:haie', id:h.id, cleabs:p.cleabs || null,
                          nature:p.nature || 'Haie', hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
                          recupereLe: x.recupereLe } }
@@ -307,9 +422,9 @@ function vegetation(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): Obj
     // (chaine, ou absente) est connue de `hauteurVegetation` et de l'usage en nom d'objet ici.
     const nature = p.nature as string | undefined;
     const haut = hauteurVegetation(nature);
-    return formeIgn(x, v.pts.map(x.dec), 'massif', nature || 'Vegetation', '#A9BE8E', '#4A6B32', {
+    return formeIgn(x, v.pts.map(x.dec), 'massif', nature || 'Vegetation', APPARENCES_IGN.vegetation.fill, APPARENCES_IGN.vegetation.stroke, {
       cle: 'vegetation-' + identifiant(v.id),
-      hauteur: haut, opacite: 0.55,
+      hauteur: haut, opacite: APPARENCES_IGN.vegetation.fillOpacity,
       extra: { bdtopo: { couche:'BDTOPO_V3:zone_de_vegetation', id:v.id, cleabs:p.cleabs || null,
                          nature:p.nature || null, hauteurRetenueM: haut, hauteurM: null,
                          recupereLe: x.recupereLe } }
@@ -320,17 +435,20 @@ function vegetation(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): Obj
 /** Des arbres estimes, repartis dans les zones de vegetation : un ordre de grandeur du couvert. */
 function arbres(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPlan[] {
   return x.importe.vegetation.filter(retenu).flatMap(v=>{
-    const haut = hauteurVegetation((v.props && v.props.nature) as string | undefined);
+    const nature = (v.props && v.props.nature) as string | undefined;
+    const haut = hauteurVegetation(nature);
+    // L'essence suit la nature de la zone (celle de la bibliotheque dont un mot figure dans la nature) ; sans bibliotheque, aucune.
+    const espece = especeParNature(nature);
     return arbresEstimes(v.pts, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES).map((a, i)=>{
       const c2 = x.dec(a);
       return {
         key: x.cleUnique('arbre-' + (v.id || 'veg').replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '-' + (i+1)),
         type:'circle' as const, name:'Arbre (estime)',
-        fill:'#6E8B4E', fillOpacity:0.7, stroke:'#3F5C33',
+        ...APPARENCES_IGN.arbreEstime,
         center:{x:c2.x, y:c2.y}, r: 2.5,
         showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'arbre', matiere:'', priority:3, locked:false,
-        elevation: haut, diametreArbre: 5,
+        elevation: haut, arbre: { diametre: 5, ...(espece ? { espece: espece.id } : {}) },
         bdtopo: { couche:'estimation', origine: v.id, estime:true, hauteurRetenueM: haut, recupereLe: x.recupereLe }
       };
     });
@@ -388,9 +506,20 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
     objets.push(...vegetation(x, retenu));
     if(importe.importerArbres) objets.push(...arbres(x, retenu));
   }
+  objets.push(...voisinageEtendu(x, objets));
   // Le zonage PLU se range sur la parcelle : c'est elle qu'il qualifie, et il suit le projet.
   const parcelle = objets[0];
   if(importe.plu && parcelle) parcelle.plu = importe.plu;
+  // Le voisinage etendu pose masque : la bascule « Voisinage » le retrouve a l'ouverture.
+  if(importe.voisinageEtendu && !importe.voisinageEtendu.visible && parcelle) parcelle.affichage = { ...(parcelle.affichage || {}), voisinage: false };
+  // Une parcelle neuve est close : palissade bois de 1,8 m, portail alu blanc cote rue (model/cloture.ts).
+  // Le cote sur rue se devine une fois les voisines posees, qui disent ce qui est mitoyen ; les
+  // voisines connues mais non retenues le disent aussi, sans entrer dans le plan.
+  if(parcelle && parcelle.type === 'polygon'){
+    const fusionnees = new Set([principale.idu, ...parcellesFusionnees.map(p=>p.idu)]);
+    const connues = (importe.voisinesConnues ? importe.voisinesConnues() : []).filter(c=>!fusionnees.has(c.idu)).map(c=>c.pts.map(x.dec));
+    poserClotureDImport(parcelle, coteDuNouvelAcces(parcelle, objets, connues));
+  }
   return objets;
 }
 

@@ -17,7 +17,15 @@
 // sommet a ete ajoute sans que `frozenVertices` suive donnerait sinon un tableau plus court que
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
-import type { ObjetBrut, ObjetAPoints } from './types.js';
+import { lireNatureEquipement, lirePlantation } from './jardin.js';
+import { facadeLue } from './facadeObjet.js';
+import { deplierRelief } from './relief.js';
+import { rangerChampsAPlat } from './champsFonction.js';
+import type { ChampsBatiment, ObjetBrut, ObjetAPoints } from './types.js';
+import { lireChampsEtendus } from './corpsToitEtendu.js';
+import { soleilEnregistre } from './soleilProjet.js';
+import { reglementPluEnregistre } from '../regles/plu/faits.js';
+import { dossierEnregistre } from '../regles/textes/dossier.js';
 
 /**
  * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
@@ -32,6 +40,8 @@ import type { ObjetBrut, ObjetAPoints } from './types.js';
 export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)[] {
   return raw.map(o => {
     const c: ObjetBrut = { ...o };
+    // Un objet lu porte ses champs a plat (fichier, historique) : ils vont dans leurs sous-objets (model/champsFonction.ts).
+    rangerChampsAPlat(c as Record<string, unknown>);
     if (c.type === 'circle') {
       // La validation (io/validation.ts) ecarte un cercle sans centre avant d'arriver ici.
       if (!c.center) throw new Error('Cercle sans centre : ' + String(c.key ?? c.name ?? '?'));
@@ -50,14 +60,48 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.cadastre) c.cadastre = JSON.parse(JSON.stringify(c.cadastre));
     if (c.bdtopo) c.bdtopo = JSON.parse(JSON.stringify(c.bdtopo));
     if (c.plu) c.plu = JSON.parse(JSON.stringify(c.plu));
+    // Le reglement du PLU lu pour le projet (lot L4) : relu et copie s'il se lit, retire sinon.
+    if (c.reglementPlu !== undefined) { const r = reglementPluEnregistre(c.reglementPlu); if (r) c.reglementPlu = r; else delete c.reglementPlu; }
+    // Les textes et les photographies du dossier (lot L5) : relus et copies s'ils se lisent, retires sinon.
+    if (c.dossier !== undefined) { const d = dossierEnregistre(c.dossier); if (d) c.dossier = d; else delete c.dossier; }
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
     if (c.declaration) c.declaration = JSON.parse(JSON.stringify(c.declaration));
-    if (c.facades) c.facades = JSON.parse(JSON.stringify(c.facades));
-    if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
+    // Le soleil du projet : relu s'il se lit, retire sinon (un fichier abime retombe sur le defaut).
+    if (c.soleil !== undefined) { const s = soleilEnregistre(c.soleil); if (s) c.soleil = s; else delete c.soleil; }
+    // Les sous-objets d'une fonction (model/typesFonctions.ts) sont copies en entier : le clone ne partage rien avec la source.
+    if (c.batiment) {
+      const b = JSON.parse(JSON.stringify(c.batiment)) as ChampsBatiment;
+      // Un corps enregistre sans pignons (io/serialisation.ts) n'en a pas : la liste vide revient. Ses
+      // champs etendus (profil, bouts, lucarnes, bords) sont verifies, et retires s'ils sont mal formes.
+      if (b.corpsToit) b.corpsToit = b.corpsToit.map((k) => {
+        const copie = { ...k, pignons: k.pignons ?? [] };
+        lireChampsEtendus(copie as unknown as Record<string, unknown>);
+        return copie;
+      });
+      // La Facade et la facade objet d'un releve valide (V4, lot F5) : verifiees, retirees si elles sont mal formees ; un releve
+      // d'avant, qui n'en porte pas, reste le meme objet.
+      if (Array.isArray(b.facades)) b.facades = b.facades.map(facadeLue);
+      if (b.verifieSurPlace) b.verifieSurPlace = { date: String(b.verifieSurPlace.date) };
+      if (b.toitFige) b.toitFige = true; else delete b.toitFige;
+      // La hauteur a l'egout choisie : l'une des deux sources connues, sinon rien.
+      if (b.egoutChoisi !== 'saisie' && b.egoutChoisi !== 'audit') delete b.egoutChoisi;
+      c.batiment = b;
+    }
+    // Le marque d'une retouche a la main (model/retouche.ts) : sa date seule ; nul ou absent, il n'y en a pas.
+    if (c.retoucheMain) c.retoucheMain = { date: String(c.retoucheMain.date) }; else delete c.retoucheMain;
+    if (c.arbre) c.arbre = JSON.parse(JSON.stringify(c.arbre));
+    if (c.parasol) c.parasol = { ...c.parasol };
     if (c.pergola) c.pergola = JSON.parse(JSON.stringify(c.pergola));
     if (c.cloture) c.cloture = JSON.parse(JSON.stringify(c.cloture));
+    // Une grille enregistree compacte (`zCode`) retrouve ici ses altitudes en clair (model/relief.ts).
+    if (c.relief) c.relief = deplierRelief(JSON.parse(JSON.stringify(c.relief)));
     if (c.piscine) c.piscine = JSON.parse(JSON.stringify(c.piscine));
+    // La plantation d'un massif, le retrait de sa vegetation et la nature d'un equipement (lot L3) : leurs valeurs connues, ou rien.
+    if (c.plantation !== undefined) { const m = lirePlantation(c.plantation); if (m) c.plantation = m; else delete c.plantation; }
+    if (c.vegetation3d !== undefined && c.vegetation3d !== false) delete c.vegetation3d;
+    if (c.nature !== undefined) { const n = lireNatureEquipement(c.nature); if (n) c.nature = n; else delete c.nature; }
+    if (c.existant !== undefined && c.existant !== true) delete c.existant;
     return c as T & ObjetBrut;
   });
 }

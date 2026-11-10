@@ -1,0 +1,217 @@
+{
+  "le": "2026-10-29T12:00:00.000Z",
+  "modele": "synthetique",
+  "prompt": 1,
+  "schema": 1,
+  "passes": 1,
+  "synthetique": true,
+  "note": "REPONSE SYNTHETIQUE (tests/banc/facades/runIa.ts::sortieSynthetique, scene 02 du banc, passe ou la fenetre inventee apparait) : ce n'est pas une reponse de Claude. Elle sert a la fumee (point 101) et aux captures du mode IA de la calibration.",
+  "sorties": [
+    {
+      "calage": {
+        "angles": {
+          "gauche": {
+            "x": 0.22,
+            "egout": 0.292,
+            "sol": 0.747,
+            "confiance": "moyenne"
+          },
+          "droite": {
+            "x": 0.795,
+            "egout": 0.287,
+            "sol": 0.751,
+            "confiance": "moyenne"
+          }
+        },
+        "pointes": [],
+        "appentis": [],
+        "corps": [],
+        "cache": []
+      },
+      "forme": {
+        "silhouette": "ligne-droite",
+        "bout": "sans-objet"
+      },
+      "surface": {
+        "principale": "enduit",
+        "zones": [],
+        "confiance": "moyenne"
+      },
+      "elements": [],
+      "ouvertures": [
+        {
+          "type": "fenetre",
+          "u0": 0.117,
+          "u1": 0.246,
+          "v0": 0.163,
+          "v1": 0.415,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "moyenne",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": 2,
+            "colonnes": 1,
+            "rangees": 3,
+            "petitsBois": "fins",
+            "imposte": "aucune",
+            "vitrage": "clair"
+          }
+        },
+        {
+          "type": "porte",
+          "u0": 0.433,
+          "u1": 0.54,
+          "v0": 0.029,
+          "v1": 0.376,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "moyenne",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": "indetermine",
+            "colonnes": 1,
+            "rangees": 1,
+            "petitsBois": "aucun",
+            "imposte": "indetermine",
+            "vitrage": "clair"
+          }
+        },
+        {
+          "type": "fenetre",
+          "u0": 0.736,
+          "u1": 0.845,
+          "v0": 0.146,
+          "v1": 0.362,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "moyenne",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": 2,
+            "colonnes": 1,
+            "rangees": 3,
+            "petitsBois": "fins",
+            "imposte": "aucune",
+            "vitrage": "clair"
+          }
+        },
+        {
+          "type": "fenetre",
+          "u0": 0.113,
+          "u1": 0.24,
+          "v0": 0.658,
+          "v1": 0.869,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "moyenne",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": 2,
+            "colonnes": 1,
+            "rangees": 3,
+            "petitsBois": "fins",
+            "imposte": "aucune",
+            "vitrage": "clair"
+          }
+        },
+        {
+          "type": "fenetre",
+          "u0": 0.447,
+          "u1": 0.545,
+          "v0": 0.675,
+          "v1": 0.893,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "moyenne",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": 2,
+            "colonnes": 1,
+            "rangees": 3,
+            "petitsBois": "fins",
+            "imposte": "aucune",
+            "vitrage": "clair"
+          }
+        },
+        {
+          "type": "fenetre",
+          "u0": 0.722,
+          "u1": 0.841,
+          "v0": 0.649,
+          "v1": 0.874,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "moyenne",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": "indetermine",
+            "colonnes": 1,
+            "rangees": 1,
+            "petitsBois": "aucun",
+            "imposte": "indetermine",
+            "vitrage": "clair"
+          }
+        },
+        {
+          "type": "fenetre",
+          "u0": 0.005,
+          "u1": 0.06,
+          "v0": 0.03,
+          "v1": 0.2,
+          "niveau": "indetermine",
+          "travee": "indetermine",
+          "confiance": "faible",
+          "details": {
+            "volets": "indetermine",
+            "allege": "indetermine",
+            "forme": "rect"
+          },
+          "carreaux": {
+            "vantaux": "indetermine",
+            "colonnes": 1,
+            "rangees": 1,
+            "petitsBois": "aucun",
+            "imposte": "indetermine",
+            "vitrage": "clair"
+          }
+        }
+      ],
+      "confiance": "moyenne"
+    }
+  ],
+  "cout": 0.0012,
+  "tokens": {
+    "entree": 4200,
+    "sortie": 900
+  },
+  "image": {
+    "largeur": 1305,
+    "hauteur": 942
+  },
+  "chaine": 10
+}

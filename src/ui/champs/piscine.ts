@@ -2,8 +2,9 @@
 //
 // Le projet se construit par etapes, dans l'ordre ou l'on decide : 1. l'implantation et la
 // structure du bassin, 2. ses profondeurs, 3. ses abords (margelles, plage), 4. ses equipements
-// (filtration, lumiere, traitement, chauffage), 5. la securite et l'urbanisme ; puis ce que le
-// moteur en tire (engine/piscine.ts) : 6. le metrage et le chiffrage, et les prix, replies. Chaque
+// (filtration, lumiere, traitement, chauffage), 5. la securite et l'urbanisme. Ce que le moteur en
+// tire (engine/piscine.ts) — le metrage et le chiffrage, les prix, le volume, les distances aux
+// limites, la taxe — est au tiroir des resultats, dans l'onglet Piscine. Chaque
 // etape ne montre que ce qui a un sens apres les choix precedents : pas de pente sur un bassin
 // rond, pas d'essence sans plage en bois, pas de hauteur hors-sol sur un bassin enterre.
 //
@@ -13,16 +14,22 @@
 import {
   calculerPiscine, chiffrerPiscine, fr, LIBELLE_CHAUFFAGE, LIBELLE_FOND, LIBELLE_IMPLANTATION, LIBELLE_LOCAL, LIBELLE_PLAGE,
   LIBELLE_REGIME, LIBELLE_REVETEMENT, LIBELLE_SECURITE, LIBELLE_STRUCTURE, LIBELLE_TRAITEMENT, piscineDe, prixSaisi,
-  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, type ReglagesPiscine
+  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, motInconnuPiscine, texteMotInconnuPiscine, type ChampFermePiscine, type ReglagesPiscine
 } from '../../engine/piscine.js';
-import { ESSENCE_PRICES } from '../../engine/constantes.js';
+import { ESSENCE_PRICES } from '../../engine/bois/essences.js';
+import { terrasseDeLaPiscine, terrasseHote } from '../../engine/ouvrages/liens.js';
 import { euros } from '../chiffrage.js';
-import type { Piscine, StructurePiscine } from '../../model/types.js';
-import type { Champ, ContexteChamps, Effet, Section } from './types.js';
+import type { Piscine, PlagePiscine, StructurePiscine } from '../../model/types.js';
+import type { Champ, ChampChoix, ContexteChamps, Effet, Section } from './types.js';
 
 const EFFETS: Effet[] = ['rendu', 'scene3d', 'inspecteur', 'terrasse'];
 
 const reglages = (c: ContexteChamps): ReglagesPiscine => piscineDe(c.obj);
+/** Les libelles du menu Plage : plus explicites que ceux des documents. */
+const LIBELLE_PLAGE_MENU: Record<PlagePiscine, string> = {
+  aucune: LIBELLE_PLAGE.aucune, terrasse: 'Terrasse bois du plan (sur plots, coins libres)', dallage: LIBELLE_PLAGE.dallage,
+  'terrasse-bois': 'Plage bois calculée (projet antérieur)'
+};
 /** Ecrit un reglage dans l'objet, en creant `piscine` au premier reglage touche. */
 function poser<K extends keyof Piscine>(c: ContexteChamps, cle: K, v: Piscine[K]): void {
   c.obj.piscine = { ...(c.obj.piscine || {}), [cle]: v };
@@ -32,14 +39,28 @@ const fondPente = (c: ContexteChamps) => reglages(c).fond !== 'plat';
 const horsSol = (c: ContexteChamps) => reglages(c).implantation !== 'enterree';
 const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: c.obj.segmentNames?.[i] || ('Côté ' + (i + 1)) })) : [];
 
-function choix<K extends keyof Piscine & string>(cle: K, libelle: string, libelles: Record<string, string>, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+/**
+ * Un menu d'un reglage a vocabulaire ferme, quand le fichier y porte un mot inconnu (une version plus recente) : la piscine se
+ * calcule sur la valeur par defaut (piscineDe), et le menu montre le mot lu plutot que ce defaut ; le reprendre n'ecrit rien.
+ */
+function avecMotInconnu(ch: ChampChoix, cle: ChampFermePiscine): ChampChoix {
+  const lu = (c: ContexteChamps) => motInconnuPiscine(c.obj, cle);
   return {
+    ...ch,
+    options: (c) => { const mot = lu(c); return mot === null ? ch.options(c) : [...ch.options(c), { valeur: mot, libelle: texteMotInconnuPiscine(cle, mot, reglages(c)) }]; },
+    lire: (c) => lu(c) ?? ch.lire(c),
+    ecrire: (c, v) => { if (v !== lu(c)) ch.ecrire(c, v); },
+  };
+}
+
+function choix<K extends ChampFermePiscine>(cle: K, libelle: string, libelles: Record<string, string>, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+  return avecMotInconnu({
     type: 'choix', cle, libelle, effets: EFFETS, ...(aide ? { aide } : {}), ...(visible ? { visible } : {}),
     options: () => Object.entries(libelles).map(([valeur, l]) => ({ valeur, libelle: l })),
     lire: (c) => String(reglages(c)[cle]), ecrire: (c, v) => poser(c, cle, v as Piscine[K])
-  };
+  }, cle);
 }
-function nombre<K extends keyof Piscine & string>(cle: K, libelle: string, unite: string, min: number, max: number, pas: number, decimales: number, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
+function nombre<K extends keyof Piscine & keyof ReglagesPiscine & string>(cle: K, libelle: string, unite: string, min: number, max: number, pas: number, decimales: number, aide?: string, visible?: (c: ContexteChamps) => boolean): Champ {
   const facteur = unite === 'cm' ? 100 : 1;
   return {
     type: 'nombre', cle, libelle, unite, min, max, pas, decimales, effets: EFFETS, ...(aide ? { aide } : {}), ...(visible ? { visible } : {}),
@@ -56,20 +77,26 @@ const sectionImplantation: Section = {
   champs: [
     choix('implantation', 'Implantation', LIBELLE_IMPLANTATION, 'Enterrée : parois au ras du sol. Semi-enterrée ou hors-sol : les parois dépassent du sol'),
     nombre('hauteurHorsSol', 'Hauteur hors du sol', 'm', 0.1, 2.5, 0.05, 2, 'Du sol fini au haut des parois', horsSol),
-    {
+    avecMotInconnu({
       type: 'choix', cle: 'structure', libelle: 'Structure', effets: EFFETS,
       aide: 'Coque : livrée d\'une pièce et posée à la grue. Maçonnerie : radier et blocs à bancher, toute forme. Kit : panneaux assemblés, surtout hors-sol',
       options: () => Object.entries(LIBELLE_STRUCTURE).map(([valeur, libelle]) => ({ valeur, libelle })),
       lire: (c) => reglages(c).structure,
       // Le revetement suit la structure tant qu'on ne l'a pas choisi : une coque n'a pas de liner.
       ecrire: (c, v) => { const p: Piscine = { ...(c.obj.piscine || {}), structure: v as StructurePiscine }; delete p.revetement; c.obj.piscine = p; }
-    },
-    {
+    }, 'structure'),
+    avecMotInconnu({
       type: 'choix', cle: 'revetement', libelle: 'Revêtement', effets: EFFETS, visible: (c) => reglages(c).structure !== 'coque',
       options: (c) => REVETEMENTS_PAR_STRUCTURE[reglages(c).structure].map(v => ({ valeur: v, libelle: LIBELLE_REVETEMENT[v] })),
       lire: (c) => reglages(c).revetement, ecrire: (c, v) => poser(c, 'revetement', v as Piscine['revetement'])
-    },
-    couleur('couleurEau', 'Couleur de l\'eau')
+    }, 'revetement'),
+    couleur('couleurEau', 'Couleur de l\'eau'),
+    {
+      type: 'bouton', cle: 'centrerSurTerrasse', libelle: '', nom: 'Centrer la piscine sur sa terrasse',
+      visible: (c) => !!terrasseHote(c.obj, c.objets), texte: () => 'Centrer sur la terrasse',
+      explication: 'Déplace le bassin pour que son centre tombe au centre de sa terrasse ; la terrasse ne bouge pas.',
+      agit: { commande: 'objet.centrerSurTerrasse' }, executer: (c) => c.executerCommande('objet.centrerSurTerrasse')
+    }
   ]
 };
 
@@ -93,28 +120,66 @@ const sectionProfondeurs: Section = {
       aide: 'La part de la longueur du bassin, côté grand bain, prise par la descente et la fosse',
       lire: (c) => Math.round(reglages(c).partFosse * 100), ecrire: (c, v) => { if (!(v >= 20 && v <= 70)) return false; poser(c, 'partFosse', v / 100); }
     },
+    // Un rappel court : le detail (plan d'eau, parois) est dans l'onglet Piscine du tiroir.
     {
       type: 'lecture', cle: 'volume', libelle: 'Volume d\'eau',
-      valeur: (c) => { const calc = calculerPiscine(c.obj); return calc ? fr(calc.volume, 1) + ' m³ · plan d\'eau ' + fr(calc.surface, 1) + ' m² · parois ' + fr(calc.hauteurParoi) + ' m' : '—'; }
+      valeur: (c) => { const calc = calculerPiscine(c.obj); return calc ? fr(calc.volume, 1) + ' m³' : '—'; }
     }
   ]
 };
 
 const sectionAbords: Section = {
   id: 'abordsPiscine', titre: '3. Abords',
-  explication: 'Margelles sur les parois, puis une plage de même largeur tout autour. Une plage en bois a sa structure et ses fondations propres : rien ne s\'appuie sur le bassin.',
+  explication: 'Margelles sur les parois, puis la plage. Une plage en bois est une terrasse du plan, posée sur plots autour du bassin : vous en tirez les coins, elle se chiffre comme toute terrasse, et le bassin la perce. Rien ne s\'appuie sur le bassin.',
   champs: [
     { type: 'case', cle: 'margelle', libelle: 'Margelles', effets: EFFETS, lire: (c) => reglages(c).margelle, ecrire: (c, v) => poser(c, 'margelle', v) },
     nombre('largeurMargelle', 'Largeur des margelles', 'cm', 20, 100, 1, 0, undefined, (c) => reglages(c).margelle),
     couleur('couleurMargelle', 'Couleur des margelles', (c) => reglages(c).margelle),
-    choix('plage', 'Plage', LIBELLE_PLAGE, 'Ce qui entoure le bassin au-delà des margelles'),
-    nombre('largeurPlage', 'Largeur de la plage', 'm', 0.3, 10, 0.1, 1, 'La même tout autour du bassin', (c) => reglages(c).plage !== 'aucune'),
+    avecMotInconnu({
+      type: 'choix', cle: 'plage', libelle: 'Plage', aide: 'Ce qui entoure le bassin au-delà des margelles', effets: EFFETS,
+      // La plage en bois calculee par la piscine (jusqu'a la 2.2.0) n'est plus proposee : elle reste
+      // dans la liste d'un projet qui l'a, pour s'afficher et se chiffrer comme avant.
+      options: (c) => (['aucune', 'terrasse', 'dallage', 'terrasse-bois'] as PlagePiscine[])
+        .filter(v => v !== 'terrasse-bois' || reglages(c).plage === 'terrasse-bois')
+        .map(v => ({ valeur: v, libelle: LIBELLE_PLAGE_MENU[v] })),
+      lire: (c) => reglages(c).plage,
+      ecrire: (c, v) => {
+        poser(c, 'plage', v as PlagePiscine);
+        // Choisir la terrasse la pose aussitot autour du bassin, si elle n'existe pas encore.
+        if (v === 'terrasse' && !terrasseDeLaPiscine(c.obj, c.objets)) c.executerCommande('objet.terrassePiscine');
+      }
+    }, 'plage'),
     {
+      // Un projet d'avant la terrasse du plan : sa plage en bois est calculee par la piscine, ni
+      // selectionnable ni retaillable. Le bouton la remplace par une vraie terrasse, meme largeur et
+      // meme essence ; les quantites changent alors, c'est pourquoi rien ne se fait sans le geste.
+      type: 'bouton', cle: 'convertirPlage', libelle: '', nom: 'Transformer la plage en terrasse du plan',
+      visible: (c) => reglages(c).plage === 'terrasse-bois',
+      texte: () => 'Transformer en terrasse du plan',
+      explication: 'Cette plage est calculée par la piscine : elle ne se sélectionne pas et ne se retaille pas. Transformée, elle devient une terrasse sur plots, liée au bassin, que vous pouvez sélectionner, retailler et isoler.',
+      agit: { commande: 'objet.terrassePiscine' }, executer: (c) => c.executerCommande('objet.terrassePiscine')
+    },
+    {
+      type: 'lecture', cle: 'terrassePlage', libelle: 'Terrasse', visible: (c) => reglages(c).plage === 'terrasse',
+      valeur: (c) => {
+        const calc = calculerPiscine(c.obj, c.objets);
+        const t = calc?.terrasseAssociee;
+        return t && calc ? '« ' + t.nom + ' » — ' + fr(calc.surfacePlage, 1) + ' m² de platelage autour des margelles' : 'Pas encore posée';
+      }
+    },
+    {
+      type: 'bouton', cle: 'boutonTerrassePlage', libelle: '', nom: 'Créer ou sélectionner la terrasse de la plage', visible: (c) => reglages(c).plage === 'terrasse',
+      texte: (c) => terrasseDeLaPiscine(c.obj, c.objets) ? 'Sélectionner la terrasse' : 'Poser la terrasse autour du bassin',
+      agit: { commande: 'objet.terrassePiscine' }, executer: (c) => c.executerCommande('objet.terrassePiscine')
+    },
+    nombre('largeurPlage', 'Largeur de la plage', 'm', 0.3, 10, 0.1, 1, 'La même tout autour du bassin ; pour une terrasse, celle qu\'elle aura à sa pose',
+      (c) => { const r = reglages(c); return plageCalculee(r.plage) || (r.plage === 'terrasse' && !terrasseDeLaPiscine(c.obj, c.objets)); }),
+    avecMotInconnu({
       type: 'choix', cle: 'essencePlage', libelle: 'Essence des lames', effets: EFFETS, visible: (c) => reglages(c).plage === 'terrasse-bois',
       options: () => Object.entries(ESSENCE_PRICES).filter(([k]) => k !== 'autre').map(([valeur, e]) => ({ valeur, libelle: e.label })),
       lire: (c) => reglages(c).essencePlage, ecrire: (c, v) => poser(c, 'essencePlage', v)
-    },
-    couleur('couleurPlage', 'Couleur de la plage', (c) => reglages(c).plage !== 'aucune'),
+    }, 'essencePlage'),
+    couleur('couleurPlage', 'Couleur de la plage', (c) => plageCalculee(reglages(c).plage)),
     {
       type: 'lecture', cle: 'structurePlage', libelle: 'Structure de la plage', visible: (c) => reglages(c).plage === 'terrasse-bois',
       valeur: (c) => {
@@ -150,11 +215,16 @@ const sectionSecurite: Section = {
   champs: [
     choix('securite', 'Dispositif de sécurité', LIBELLE_SECURITE),
     { type: 'lecture', cle: 'regime', libelle: 'Autorisation', valeur: (c) => { const calc = calculerPiscine(c.obj, c.objets); return calc ? LIBELLE_REGIME[calc.regime] + (calc.secteurProtege ? ' · secteur protégé' : '') : '—'; } },
+    // Un rappel court : les distances a chaque limite et le calcul de la taxe sont dans l'onglet Piscine du tiroir.
     {
-      type: 'lecture', cle: 'distances', libelle: 'Distances aux limites',
-      valeur: (c) => { const d = calculerPiscine(c.obj, c.objets)?.distances ?? []; return d.length ? d.map(x => x.nom + ' ' + fr(x.distance) + ' m').join(' · ') : 'pas de parcelle dans le plan'; }
+      type: 'lecture', cle: 'rappelUrbanisme', libelle: 'Limites et taxe',
+      valeur: (c) => {
+        const calc = calculerPiscine(c.obj, c.objets);
+        if (!calc) return '—';
+        const proche = calc.distances.length ? Math.min(...calc.distances.map(x => x.distance)) : null;
+        return (proche === null ? 'pas de parcelle' : 'limite la plus proche à ' + fr(proche) + ' m') + ' · taxe ' + fr(calc.taxeAmenagementBase, 0) + ' € de base';
+      }
     },
-    { type: 'lecture', cle: 'taxe', libelle: 'Taxe d\'aménagement', valeur: (c) => { const calc = calculerPiscine(c.obj); return calc ? fr(calc.taxeAmenagementBase, 0) + ' € de base (' + TAXE_AMENAGEMENT_M2 + ' €/m²) × taux communal et départemental' : '—'; } },
     {
       type: 'bouton', cle: 'dossierMairie', libelle: '', nom: 'Dossier mairie (PDF)', texte: () => 'Dossier mairie (PDF)',
       explication: 'Plan de situation, plan de masse coté, coupe, aide au remplissage du cerfa, note de calcul.',
@@ -162,6 +232,27 @@ const sectionSecurite: Section = {
     }
   ]
 };
+
+/**
+ * Ce que le moteur tire du bassin, hors chiffrage : le volume et ses dimensions, les distances a
+ * chaque limite, la taxe d'amenagement. Des resultats : l'onglet Piscine du tiroir les montre.
+ */
+export function sectionResultatsPiscine(): Section {
+  return {
+    id: 'resultatsPiscine', titre: 'Bassin et urbanisme',
+    champs: [
+      {
+        type: 'lecture', cle: 'volume', libelle: 'Volume d\'eau',
+        valeur: (cx) => { const calc = calculerPiscine(cx.obj); return calc ? fr(calc.volume, 1) + ' m³ · plan d\'eau ' + fr(calc.surface, 1) + ' m² · parois ' + fr(calc.hauteurParoi) + ' m' : '—'; }
+      },
+      {
+        type: 'lecture', cle: 'distances', libelle: 'Distances aux limites',
+        valeur: (cx) => { const d = calculerPiscine(cx.obj, cx.objets)?.distances ?? []; return d.length ? d.map(x => x.nom + ' ' + fr(x.distance) + ' m').join(' · ') : 'pas de parcelle dans le plan'; }
+      },
+      { type: 'lecture', cle: 'taxe', libelle: 'Taxe d\'aménagement', valeur: (cx) => { const calc = calculerPiscine(cx.obj); return calc ? fr(calc.taxeAmenagementBase, 0) + ' € de base (' + TAXE_AMENAGEMENT_M2 + ' €/m²) × taux communal et départemental' : '—'; } }
+    ]
+  };
+}
 
 /** `'12,5 m³'`, `'3 u'`, `'1 forfait'`. */
 const quantite = (qte: number, unite: string): string => (unite === 'u' || unite === 'forfait' ? String(Math.round(qte)) : fr(qte, 1)) + ' ' + unite;
@@ -171,7 +262,7 @@ export function sectionChiffragePiscine(c: ContexteChamps): Section {
   const calc = calculerPiscine(c.obj, c.objets);
   const champs: Champ[] = [];
   if (calc) {
-    const ch = chiffrerPiscine(calc);
+    const ch = chiffrerPiscine(calc, c.obj);
     ch.lignes.forEach(l => champs.push({
       type: 'lecture', cle: 'chiffrage-' + l.poste, libelle: l.label,
       valeur: () => quantite(l.qte, l.unite) + ' · ' + (l.prixReel !== null && l.prixReel !== undefined ? euros(l.prixReel) + ' (prix saisi)' : euros(l.prixBas * l.qte) + ' – ' + euros(l.prixHaut * l.qte))
@@ -185,8 +276,8 @@ export function sectionChiffragePiscine(c: ContexteChamps): Section {
     champs.push({ type: 'alerte', cle: 'chiffrage-vide', libelle: '', nom: 'Alerte : contour inutilisable', texte: () => 'Le bassin doit avoir au moins trois coins et plus d\'un demi-mètre carré pour être calculé.' });
   }
   return {
-    id: 'chiffragePiscine', titre: '6. Métrage et chiffrage',
-    explication: 'Ordres de grandeur TTC fourniture et pose, par poste et dans l\'ordre du chantier. Les prix se règlent dans la section Prix ; la note de calcul est dans le tiroir des résultats.',
+    id: 'chiffragePiscine', titre: 'Métrage et chiffrage',
+    explication: 'Ordres de grandeur TTC fourniture et pose, par poste et dans l\'ordre du chantier. Les prix se règlent dans la section Prix ; la note de calcul a son onglet.',
     champs
   };
 }
@@ -196,7 +287,7 @@ export function sectionPrixPiscine(c: ContexteChamps): Section {
   const calc = calculerPiscine(c.obj, c.objets);
   const champs: Champ[] = [];
   if (calc) {
-    chiffrerPiscine(calc).lignes.forEach(l => champs.push({
+    chiffrerPiscine(calc, c.obj).lignes.forEach(l => champs.push({
       type: 'nombre', cle: 'prix-' + l.poste, libelle: l.label, unite: '€/' + l.unite, pas: 1, min: 0, decimales: 0, effets: ['inspecteur'],
       note: (cx) => prixSaisi(reglages(cx), l.poste) !== undefined ? 'saisi' : 'indicatif ' + euros(l.prixBas) + ' – ' + euros(l.prixHaut),
       lire: (cx) => prixSaisi(reglages(cx), l.poste) ?? Math.round((l.prixBas + l.prixHaut) / 2),
@@ -210,7 +301,16 @@ export function sectionPrixPiscine(c: ContexteChamps): Section {
   };
 }
 
-/** Les sections propres a une piscine, dans l'ordre des etapes. */
-export function sectionsPiscine(c: ContexteChamps): Section[] {
-  return [sectionImplantation, sectionProfondeurs, sectionAbords, sectionEquipements, sectionSecurite, sectionChiffragePiscine(c), sectionPrixPiscine(c)];
+/**
+ * Les sections propres a une piscine dans l'inspecteur, dans l'ordre des etapes. Le metrage, le
+ * chiffrage, les prix, le volume, les distances et la taxe sont des resultats : l'onglet Piscine du
+ * tiroir les rend (`sectionsResultatsPiscine`).
+ */
+export function sectionsPiscine(): Section[] {
+  return [sectionImplantation, sectionProfondeurs, sectionAbords, sectionEquipements, sectionSecurite];
+}
+
+/** Ce que l'onglet Piscine du tiroir montre, dans l'ordre : le bassin et l'urbanisme, le chiffrage, les prix. */
+export function sectionsResultatsPiscine(c: ContexteChamps): Section[] {
+  return [sectionResultatsPiscine(), sectionChiffragePiscine(c), sectionPrixPiscine(c)];
 }

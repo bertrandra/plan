@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lieuDeParcelle, libelleLieuTexte } from '../../../src/model/lieu.js';
+import { lieuDeParcelle, libelleLieuTexte, coordonneesDuLieu } from '../../../src/model/lieu.js';
 import { LIEU_DEFAUT } from '../../../src/model/defaults.js';
 
 describe('lieu de la parcelle', () => {
@@ -45,5 +45,15 @@ describe('libelle du lieu', () => {
   it('complete les decimales manquantes', () => {
     expect(libelleLieuTexte({ nom: 'Ici', latitude: 48.1, longitude: 2 }))
       .toBe('📍 Ici — 48,1000° N, 2,0000° E');
+  });
+});
+
+describe('coordonneesDuLieu', () => {
+  it('lit le lieu sans rien ecrire sur la parcelle', () => {
+    const p: { latitude?: number; longitude?: number; nomLieu?: string } = {};
+    expect(coordonneesDuLieu(p)).toEqual({ latitude: LIEU_DEFAUT.latitude, longitude: LIEU_DEFAUT.longitude });
+    expect(p).toEqual({});
+    expect(coordonneesDuLieu(null)).toEqual({ latitude: LIEU_DEFAUT.latitude, longitude: LIEU_DEFAUT.longitude });
+    expect(coordonneesDuLieu({ latitude: -20.88, longitude: 55.45 })).toEqual({ latitude: -20.88, longitude: 55.45 });
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { cameraDepuisPointDeVue, creerNavigation3d, HAUTEUR_YEUX_M } from '../../../src/three/navigation.js';
+import { cameraDepuisPointDeVue, creerNavigation3d, HAUTEUR_YEUX_M, facteurMolette, FACTEUR_MOLETTE_3D, zoomVersPoint, cibleALaHauteur, ZOOM_DISTANCE_MIN_M } from '../../../src/three/navigation.js';
 import { vue3d, glb, cleDeVue, CLE_SANS_TERRASSE } from '../../../src/three/etat3d.js';
+import { FACTEUR_MOLETTE } from '../../../src/interaction/navigation.js';
 
 // Le calcul etait ecrit deux fois — une pour la Vue 3D, une pour la visionneuse GLB. Ces tests
 // fixent la conversion plan → repere local de la scene, qui est la partie qu'on ne devine pas.
@@ -208,5 +209,45 @@ describe('D-15 — la liste des points de vue', () => {
     expect(i, 'la commande a ete renommee').toBeGreaterThan(0);
     const bloc = source.slice(i, source.indexOf('showToast(', i));
     expect(bloc).toContain('signaler3d()');
+  });
+});
+
+// La molette de la Vue 3D zoome vers ce que montre le curseur (une maison au loin), pas vers le
+// centre de la parcelle : une homothetie de centre le point vise, puis la cible ramenee au sol.
+describe('le zoom a la molette vers le point vise', () => {
+  it('chaque evenement rapproche ou eloigne du meme rapport, quelle que soit sa taille, comme en 2D', () => {
+    expect(facteurMolette(-120)).toBeCloseTo(1 / FACTEUR_MOLETTE_3D, 12);
+    expect(facteurMolette(-3)).toBe(facteurMolette(-120));
+    expect(facteurMolette(-5000)).toBe(facteurMolette(-120));
+    expect(facteurMolette(2)).toBe(FACTEUR_MOLETTE_3D);
+    expect(facteurMolette(0)).toBe(1);
+    expect(FACTEUR_MOLETTE_3D).toBe(FACTEUR_MOLETTE);
+  });
+
+  it('garde le point vise sur le meme rayon de la camera, et la direction de la vue', () => {
+    const camera = { x: 100, y: 60, z: 100 }, cible = { x: 0, y: 0, z: 0 }, point = { x: 40, y: 0, z: -30 };
+    const pas = zoomVersPoint(camera, cible, point, 0.5)!;
+    const dir = (a: typeof camera, b: typeof camera) => { const d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z); return [(b.x - a.x) / d, (b.y - a.y) / d, (b.z - a.z) / d]; };
+    // Le rayon camera -> point ne tourne pas : le point reste sous le curseur.
+    dir(pas.camera, point).forEach((v, i) => expect(v).toBeCloseTo(dir(camera, point)[i]!, 9));
+    // La ligne de visee ne tourne pas non plus.
+    dir(pas.camera, pas.cible).forEach((v, i) => expect(v).toBeCloseTo(dir(camera, cible)[i]!, 9));
+    expect(Math.hypot(pas.camera.x - point.x, pas.camera.y - point.y, pas.camera.z - point.z)).toBeCloseTo(Math.hypot(60, 60, 130) / 2, 9);
+  });
+
+  it('ne rapproche pas a moins du minimum, mais eloigne toujours', () => {
+    const point = { x: 0, y: 0, z: 0 };
+    expect(zoomVersPoint({ x: 0, y: 0.6, z: 0 }, point, point, 0.5)).toBeNull();
+    expect(zoomVersPoint({ x: 0, y: ZOOM_DISTANCE_MIN_M * 4, z: 0 }, point, point, 0.5)).not.toBeNull();
+    expect(zoomVersPoint({ x: 0, y: 0.6, z: 0 }, point, point, 2)!.camera.y).toBeCloseTo(1.2, 9);
+  });
+
+  it('ramene la cible au sol le long de la ligne de visee, sans toucher une vue vers le haut', () => {
+    const camera = { x: 10, y: 10, z: 0 };
+    expect(cibleALaHauteur(camera, { x: -20, y: -20, z: 0 }, 0)).toEqual({ x: 0, y: 0, z: 0 });
+    expect(cibleALaHauteur(camera, { x: 5, y: 5, z: 0 }, 0)).toEqual({ x: 0, y: 0, z: 0 });
+    expect(cibleALaHauteur(camera, { x: 0, y: 12, z: 0 }, 0)).toEqual({ x: 0, y: 12, z: 0 });
+    // Camera sous la hauteur demandee : rien a ramener.
+    expect(cibleALaHauteur({ x: 0, y: -1, z: 0 }, { x: 1, y: -2, z: 0 }, 0)).toEqual({ x: 1, y: -2, z: 0 });
   });
 });

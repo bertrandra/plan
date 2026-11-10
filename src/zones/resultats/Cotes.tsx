@@ -6,9 +6,15 @@
 // toute modification passe par le service, s'annule et marque le projet modifie.
 
 import { mesure } from '../../interaction/outilMesure.js';
+import { deniveleCote, geometrieMesure, reliefDesCotes, texteDenivele } from '../../render/measures.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
-import type { Resultats } from '../../app/resultats.js';
+import type { LigneProfil, Resultats } from '../../app/resultats.js';
+import { cleDuPlanLu } from '../../ui/clePlan.js';
+import { estTerrain } from '../../model/fonctions.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
+import type { Magasin } from '../../app/magasin.js';
+import { memo as memoReact } from 'react';
+import { useCle, cleEtat, cleDesCotes } from '../composants/abonnement.js';
 
 /**
  * Le brouillon d'une cote : reference, origine, coins, puis l'ajout. Chaque geste est une commande
@@ -42,37 +48,79 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
   );
 }
 
-export function Cotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes }) {
+/** Ce qu'une ligne du tableau calcule : ses deux longueurs, son denivele et la ligne du profil. */
+interface LigneCalculee { g: ReturnType<Resultats['geometrieCote']>; d: ReturnType<typeof deniveleCote> | null; ligne: LigneProfil | null }
+
+// Les lignes se reprennent tant que le plan n'a pas change (ui/clePlan.ts) : le denivele lit le relief sous la cote.
+let memo: { cle: string; relief: boolean; lignes: Map<string, LigneCalculee> } = { cle: '', relief: false, lignes: new Map() };
+
+/**
+ * Le tableau des cotes posees : ce qui se calcule (longueurs, denivele sur le relief, ligne du profil). Il ne suit le plan que tiroir
+ * visible (`version`, sa cle : zones/composants/abonnement.ts) ; cache, il garde ce qu'il montrait et se refait a l'ouverture. Le brouillon,
+ * au-dessus, reste vivant : ses boutons servent feuille fermee.
+ */
+const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes; version: string }) {
   const cotes = resultats.etat.measures;
+  const objets = resultats.etat.objects;
   // Les gestes sur une cote existante modifient le projet : grises sans le droit d'ecrire.
   const ecrire = commandes.etat('mesure.supprimer').utilisable;
+  // Les objets que les cotes visent, et les terrains (le relief du denivele) : ce que le tableau lit du plan.
+  const visees = new Set(cotes.flatMap((m) => [m.refObjKey, m.targetObjKey]));
+  const cle = cleDuPlanLu(objets, (o) => visees.has(o.key) || estTerrain(o)) + '|' + [...visees].join(',');
+  // Avec un relief, chaque cote dit son denivele et peut donner sa ligne au profil du sol (§5.2, §5.4).
+  if (memo.cle !== cle) memo = { cle, relief: !!reliefDesCotes(objets), lignes: new Map() };
+  const relief = memo.relief;
+  const calculer = (m: (typeof cotes)[number]): LigneCalculee => {
+    const k = JSON.stringify(m);
+    let r = memo.lignes.get(k);
+    if (!r) {
+      const mode = m.displayMode || 'along';
+      // La geometrie complete, pour le denivele et la ligne du profil : les deux bouts de la cote.
+      const geo = relief ? geometrieMesure(objets, m) : null;
+      r = { g: resultats.geometrieCote(m), d: geo ? deniveleCote(objets, geo, mode) : null,
+        ligne: geo ? (mode === 'along' ? { a: geo.A, b: geo.foot } : { a: geo.foot, b: geo.p }) : null };
+      memo.lignes.set(k, r);
+    }
+    return r;
+  };
+  return (
+    <table className="attrTable" id="measureResultsTable"><tbody>
+      <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th>{relief && <th>Dénivelé</th>}<th>Affichage</th><th>Afficher</th>{relief && <th>Profil</th>}<th></th></tr>
+      {cotes.map(m => {
+        const { g, d, ligne } = calculer(m);
+        const mode = m.displayMode || 'along';
+        return (
+          <tr key={m.id} data-instance={m.id}>
+            <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
+            <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
+            <td><button type="button" data-commande="mesure.inverserOrigine" disabled={!ecrire} className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
+              onClick={() => commandes.executer('mesure.inverserOrigine', undefined, { cote: m.id })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
+            <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
+            <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
+            {relief && <td>{d === null ? '—' : texteDenivele(d)}</td>}
+            <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
+              onClick={() => commandes.executer('mesure.valeurAffichee', undefined, { cote: m.id })}>
+              {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
+            <td><input type="checkbox" data-commande="mesure.afficher" disabled={!ecrire} checked={!!m.show} aria-label="Afficher sur le plan"
+              onChange={() => commandes.executer('mesure.afficher', undefined, { cote: m.id })} /></td>
+            {relief && <td><button type="button" data-controle="cote.profil" className="secondary small" disabled={!ligne} title="Montrer le profil du sol le long de cette cote, dans l’onglet Profil"
+              onClick={() => { if (ligne) resultats.profiler(ligne); }}>Profil</button></td>}
+            <td><button type="button" data-commande="mesure.supprimer" disabled={!ecrire} className="secondary small" onClick={() => commandes.executer('mesure.supprimer', undefined, { cote: m.id })}>Supprimer</button></td>
+          </tr>
+        );
+      })}
+    </tbody></table>
+  );
+});
+
+export function Cotes({ magasin, resultats, commandes }: { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }) {
+  // Le tableau ne se refait que si les objets que les cotes visent, les cotes ou le droit d'ecrire changent, tiroir visible.
+  const version = useCle(magasin, 'tableau des cotes', (s) => cleEtat(s) + cleDesCotes(s) + commandes.etat('mesure.supprimer').utilisable, 'resultats');
   return (
     <>
       <div className="sectionTitle">Mesure</div>
       <Brouillon resultats={resultats} commandes={commandes} />
-      <table className="attrTable" id="measureResultsTable"><tbody>
-        <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th><th>Affichage</th><th>Afficher</th><th></th></tr>
-        {cotes.map(m => {
-          const g = resultats.geometrieCote(m);
-          const mode = m.displayMode || 'along';
-          return (
-            <tr key={m.id} data-instance={m.id}>
-              <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
-              <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
-              <td><button type="button" data-commande="mesure.inverserOrigine" disabled={!ecrire} className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
-                onClick={() => commandes.executer('mesure.inverserOrigine', undefined, { cote: m.id })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
-              <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
-              <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
-              <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
-                onClick={() => commandes.executer('mesure.valeurAffichee', undefined, { cote: m.id })}>
-                {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
-              <td><input type="checkbox" data-commande="mesure.afficher" disabled={!ecrire} checked={!!m.show} aria-label="Afficher sur le plan"
-                onChange={() => commandes.executer('mesure.afficher', undefined, { cote: m.id })} /></td>
-              <td><button type="button" data-commande="mesure.supprimer" disabled={!ecrire} className="secondary small" onClick={() => commandes.executer('mesure.supprimer', undefined, { cote: m.id })}>Supprimer</button></td>
-            </tr>
-          );
-        })}
-      </tbody></table>
+      <TableCotes resultats={resultats} commandes={commandes} version={version} />
       <div className="controls">
         <BoutonCommande commandes={commandes} id="mesure.recalculer" className="secondary small">Recalculer les mesures</BoutonCommande>
         <BoutonCommande commandes={commandes} id="mesure.effacer" className="secondary small">Effacer les mesures</BoutonCommande>

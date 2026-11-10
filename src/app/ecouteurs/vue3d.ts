@@ -10,10 +10,11 @@
 // Une case cochée coûte donc une reconstruction complète, ce qui est assumé — la scène est petite, et
 // une reconstruction évite toute une classe de bugs d'état résiduel.
 
-import { vue3d, glb, signaler3d } from '../../three/etat3d.js';
+import { vue3d, glb, signaler3d, rendre3d, reglerVue3d } from '../../three/etat3d.js';
+import { soleilDuProjet } from '../../core/soleil.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
-import { nomFichierTerrasse } from '../../three/exportGlb.js';
+import { nomFichierTerrasse } from '../../three/nomFichier.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { nouveauPointDeVue } from '../../model/creation.js';
 import { cleObjet } from '../../model/cles.js';
@@ -22,11 +23,19 @@ import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
-import { estTerrasse } from '../../model/fonctions.js';
+import { estTerrasse, estPointDeVue } from '../../model/fonctions.js';
+import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, promenadeActive, terrainDuTour, tourDeLaMaison, composerPromenade } from '../../three/presentation.js';
+import { moteur3d } from '../../three/demande3d.js';
+import type { PointDeVue } from '../../three/etat3d.js';
+import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } from '../../three/qualite.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
   zoom3D: (facteur: number) => void;
+  /** Tourne la vue de `deg` degres autour de sa cible (positif : vers la gauche). */
+  tournerVue: (deg: number) => void;
+  /** La Vue 3D est l'ecran montre : les fleches du clavier la tournent. */
+  vue3dOuverte: () => boolean;
   setMode3D: (mode: Mode3D) => void;
   hauteurDesYeux: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
@@ -38,6 +47,7 @@ export interface ContexteVue3d {
   glbViewerPleinePage: () => boolean;
   resizeThreeScene: () => void;
   resizeGlbViewerScene: () => void;
+  lieuActuel: () => { latitude: number; longitude: number };
 }
 
 /** Les cases du panneau de la Vue 3D (zones/vue3d/) : ce qu'il y a dans la scène. */
@@ -50,10 +60,104 @@ export interface ReglagesVue3d {
   filaire(): boolean;
   basculerFilaire(actif: boolean): void;
   basculerTousLesObjets(actif: boolean): void;
+  basculerSolEnCoupe(actif: boolean): void;
+  basculerPlatelageTranslucide(actif: boolean): void;
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
+  /** Les ombres de la photo estompees sur les facades relevees : une preference d'affichage, sans effet sur l'export. */
+  basculerFacadesSansOmbres(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
+  /** Une voiture et une silhouette pour l'echelle : preference d'affichage de la session, decochee par defaut. */
+  basculerObjetsEchelle(actif: boolean): void;
+  /** Le vent dans les arbres : une preference d'affichage, sans reconstruction (les uniformes suivent l'image). */
+  basculerVent(actif: boolean): void;
+  /**
+   * Le niveau de qualite (three/qualite.ts) : preference de l'appareil, rangee dans le navigateur.
+   * Choisir un niveau remet la case « Ombres » a ce qu'il propose ; elle reste libre ensuite.
+   */
+  choisirQualite(q: Qualite3d): void;
 }
+
+const CLE_QUALITE = 'plan.qualite3d';
+
+/**
+ * Le niveau de cet appareil : celui choisi la derniere fois, sinon celui que l'appareil laisse
+ * attendre (decision V1). Le stockage peut manquer (navigation privee) : on retombe sur la detection.
+ */
+function qualiteDeLAppareil(): Qualite3d {
+  try {
+    const v = localStorage.getItem(CLE_QUALITE);
+    if (estQualite3d(v)) return v;
+  } catch { /* stockage indisponible : la detection suffit */ }
+  if (typeof navigator === 'undefined') return 'normale';
+  const media = (q: string) => typeof matchMedia === 'function' && matchMedia(q).matches;
+  return qualiteParDefaut({
+    coeurs: navigator.hardwareConcurrency,
+    memoireGo: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+    tactile: media('(pointer: coarse)') && !media('(any-pointer: fine)')
+  });
+}
+
+/**
+ * La presentation (R6, three/presentation.ts) : heure doree, capture HD, promenade. Trois gestes pour
+ * montrer le projet : ni annulation, ni « projet modifie », permis en lecture seule. L'heure doree
+ * regle le soleil du projet : comme son curseur, elle marque le projet a enregistrer (core/soleil.ts).
+ */
+function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes, terrasseCourante: () => ObjetPlan | undefined): void {
+  const cam = (_idDom: string, id: string, libelle: string, executer: () => void) => cmd.declarer({ id, libelle, groupe: '3d', executer });
+  cam('terrasse3dHeureDoree', '3d.heureDoree', 'Heure dorée', () => {
+    const m = minutesHeureDoree(soleilDuProjet.lire().dateStr, ctx.lieuActuel());
+    if (m === null) { showToast('Heure dorée : le soleil ne se couche pas ce jour-là, ou la date est illisible.'); return; }
+    // Le soleil du projet : la lumiere, le plan et l'enregistrement suivent par son ecouteur (app/ecouteurs/soleil.ts).
+    soleilDuProjet.regler({ minutes: m });
+  });
+  cam('terrasse3dCaptureHd', '3d.captureHd', 'Capture HD', () => {
+    const sc = vue3d.scene;
+    if (!sc) { showErrBanner('Vue 3D pas encore chargee.'); return; }
+    void capturerHd(sc, () => rendre3d(sc)).then((blob) => {
+      if (!blob) { showErrBanner('Capture HD : l’image n’a pas pu être produite (définition trop grande pour cet appareil ?).'); return; }
+      const obj = terrasseCourante();
+      telechargerBlob('vue3d_hd_' + nomFichierTerrasse(obj && obj.name) + '.png', blob);
+    });
+  });
+  /**
+   * Les points de vue du plan, dans l'ordre de leur creation, puis le tour de la maison quand la
+   * parcelle le permet (three/presentation.ts), en coordonnees de la scene. Recalcule a chaque
+   * lancement : la scene, le plan et ses points de vue ont pu changer.
+   */
+  const etapesPromenade = () => {
+    // Une scene ouverte : le moteur est la (three/demande3d.ts).
+    const sc = vue3d.scene, m = moteur3d();
+    if (!sc || !m) return [];
+    const vues = a.etat.objects.filter(estPointDeVue).map((o) => {
+      const c = m.cameraDepuisPointDeVue(o as PointDeVue, sc.cen);
+      return { position: c.position, cible: c.cible };
+    });
+    const terrain = terrainDuTour(a.etat.objects);
+    const tour = terrain ? tourDeLaMaison(terrain, sc.cen, sc.hauteurSol) : null;
+    const maison = terrain ? terrain.maison.map((p) => ({ x: p.x - sc.cen.x, z: sc.cen.y - p.y })) : [];
+    return composerPromenade(vues, tour, maison);
+  };
+  cmd.declarer({
+    id: '3d.promenade', libelle: 'Promenade', groupe: '3d',
+    // Il faut deux etapes pour se promener : deux points de vue, ou le tour de la maison.
+    actif: () => promenadeActive() || etapesPromenade().length >= 2,
+    executer: () => {
+      if (promenadeActive()) { arreterPromenade(); return; }
+      const sc = vue3d.scene;
+      if (!sc) return;
+      lancerPromenade(sc, etapesPromenade(), () => signaler3d());
+      signaler3d();
+    }
+  });
+
+}
+
+/** Le pas des boutons « Tourner la vue » et des fleches du clavier, en degres. */
+export const PAS_TOURNER_VUE_DEG = 15;
+
+/** Le pas des boutons + et − de la Vue 3D : la distance a la cible divisee (ou multipliee) par deux. */
+export const FACTEUR_BOUTON_ZOOM = 0.5;
 
 export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): ReglagesVue3d {
   // Les boutons sont dans le panneau (zones/vue3d/Vue3d.tsx) : des commandes sans element a lier.
@@ -61,12 +165,27 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     cmd.declarer({ id, libelle, groupe: '3d', executer, ...(permission ? { permission } : {}) });
   const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey && estTerrasse(o));
 
+  reglerVue3d({ qualite: qualiteDeLAppareil() });
+  reglerVue3d({ ombres: parametresQualite(vue3d.qualite).ombresParDefaut });
+
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
   const reconstruire = () => { if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); };
 
   // ---- Déplacer la caméra ---------------------------------------------------------------------
-  cam('terrasse3dZoomIn', '3d.zoomAvant', 'Zoom avant', () => ctx.zoom3D(0.8));
-  cam('terrasse3dZoomOut', '3d.zoomArriere', 'Zoom arrière', () => ctx.zoom3D(1.25));
+  // Un clic divise ou double la distance a la cible (decision de l'utilisateur, octobre 2026) : a
+  // 0,8 / 1,25, il fallait une vingtaine de clics pour aller du voisinage entier a une maison.
+  cam('terrasse3dZoomIn', '3d.zoomAvant', 'Zoom avant', () => ctx.zoom3D(FACTEUR_BOUTON_ZOOM));
+  cam('terrasse3dZoomOut', '3d.zoomArriere', 'Zoom arrière', () => ctx.zoom3D(1 / FACTEUR_BOUTON_ZOOM));
+  cam('terrasse3dTournerGauche', '3d.tournerGauche', 'Tourner la vue à gauche', () => ctx.tournerVue(PAS_TOURNER_VUE_DEG));
+  cam('terrasse3dTournerDroite', '3d.tournerDroite', 'Tourner la vue à droite', () => ctx.tournerVue(-PAS_TOURNER_VUE_DEG));
+  // Les fleches gauche et droite tournent la vue, sur la Vue 3D, hors d'un champ ou d'une liste qui a les siennes.
+  window.addEventListener('keydown', (e) => {
+    if ((e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || e.ctrlKey || e.metaKey || e.altKey || !ctx.vue3dOuverte() || !vue3d.scene) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.closest('input, textarea, select, [contenteditable="true"], [role="tablist"], [role="radiogroup"], [role="slider"], [role="listbox"], [role="menu"], dialog') || t.isContentEditable)) return;
+    e.preventDefault();
+    cmd.executer(e.key === 'ArrowLeft' ? '3d.tournerGauche' : '3d.tournerDroite');
+  });
   cam('terrasse3dModeOrbit', '3d.modeOrbite', 'Orbite', () => ctx.setMode3D('orbit'));
   cam('terrasse3dModePan', '3d.modeDeplacement', 'Déplacement', () => ctx.setMode3D('pan'));
   cam('terrasse3dModeZoom', '3d.modeZoom', 'Zoom', () => ctx.setMode3D('zoom'));
@@ -81,7 +200,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
    */
   cam('terrasse3dSavePng', '3d.enregistrerPng', 'Enregistrer en PNG', () => {
     if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargee.'); return; }
-    vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera); // capture le tout dernier etat
+    rendre3d(vue3d.scene); // capture le tout dernier etat
     // `renderer.domElement` vient d'une scene Three non typee (SceneTrois = Record<string, any>) :
     // le type du callback ne peut pas s'en deduire. `Blob | null` est celui de la vraie API canvas.
     vue3d.scene.renderer.domElement.toBlob((blob: Blob | null) => {
@@ -109,7 +228,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     const dx = controls.target.x - camera.position.x, dz = controls.target.z - camera.position.z;
     const dl = Math.hypot(dx, dz) || 1;
     a.pushHistory();
-    const n = a.etat.objects.filter(o => o.fonction === 'camera').length + 1;
+    const n = a.etat.objects.filter(estPointDeVue).length + 1;
     const { obj: newObj } = nouveauPointDeVue(
       { x: planX, y: planY }, cleObjet('path', a.etat), n,
       { x: dx / dl, y: -dz / dl }, camera.position.y
@@ -125,6 +244,8 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
   // Il ajoute un objet au plan : en lecture seule, le geste est refuse comme toute ecriture (D-17).
   }, PERMISSION_ECRITURE);
+
+  brancherPresentation(a, ctx, cmd, terrasseCourante);
 
   // ---- Plein page, pour les deux vues ----------------------------------------------------------
   cam('terrasse3dFullPageBtn', '3d.pleinePage', 'Plein écran', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));
@@ -157,17 +278,29 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
       signaler3d();
       if (vue3d.scene) ctx.buildThreeScene(obj);
     },
-    basculerTousLesObjets: (actif) => preference(() => { vue3d.tousLesObjets = actif; }),
-    basculerOpaques: (actif) => preference(() => { vue3d.objetsOpaques = actif; }),
+    basculerTousLesObjets: (actif) => preference(() => { reglerVue3d({ tousLesObjets: actif }); }),
+    /** Le sol perce sous la terrasse : herisson, dalle, massifs ou futs de vis, a leur profondeur. */
+    basculerSolEnCoupe: (actif) => preference(() => { reglerVue3d({ solEnCoupe: actif }); }),
+    /** Les lames translucides, comme pour une terrasse isolee : les plots se voient sur leur assise. */
+    basculerPlatelageTranslucide: (actif) => preference(() => { reglerVue3d({ platelageTranslucide: actif }); }),
+    basculerOpaques: (actif) => preference(() => { reglerVue3d({ objetsOpaques: actif }); }),
     /**
      * Cochée par défaut. La décocher revient à la couleur unie du plan sans avoir à retirer la
      * texture de chaque objet un par un — pratique pour comparer les deux rendus.
      */
-    basculerTextures: (actif) => preference(() => { vue3d.textures = actif; }),
+    basculerTextures: (actif) => preference(() => { reglerVue3d({ textures: actif }); }),
+    basculerFacadesSansOmbres: (actif) => preference(() => { reglerVue3d({ facadesSansOmbres: actif }); }),
     /**
      * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
      * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
      */
-    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; })
+    basculerOmbres: (actif) => preference(() => { reglerVue3d({ ombres: actif }); }),
+    basculerObjetsEchelle: (actif) => preference(() => { reglerVue3d({ objetsEchelle: actif }); }),
+    basculerVent: (actif) => { reglerVue3d({ vent: actif }); signaler3d(); },
+    choisirQualite: (q) => preference(() => {
+      reglerVue3d({ qualite: q });
+      reglerVue3d({ ombres: parametresQualite(q).ombresParDefaut });
+      try { localStorage.setItem(CLE_QUALITE, q); } catch { /* stockage indisponible : le choix vaut pour la session */ }
+    })
   };
 }

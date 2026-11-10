@@ -16,6 +16,7 @@
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { FormePiscine } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
+import type { OptionsRestauration } from '../core/historique.js';
 
 /**
  * L'état du plan, tel que le câblage le voit — **c'est `EtatApp`**, pas une forme à part.
@@ -37,8 +38,8 @@ export interface Atelier {
   initialMeasures: () => Mesure[];
 
   // ---- Historique -----------------------------------------------------------------------------
-  pushHistory: () => void;
-  markDirty: () => void;
+  pushHistory: (...objets: object[]) => void;
+  markDirty: (...objets: object[]) => void;
   undo: () => void;
   /**
    * Remplace le plan par un instantane, **avant normalisation** : `core/history.ts` fait passer
@@ -46,7 +47,7 @@ export interface Atelier {
    * C'est pourquoi le parametre accepte `ObjetBrut`, pas `ObjetPlan` — un `ObjetPlan[]` deja complet
    * (le cas de `initialState()`) le satisfait aussi, puisque tous ses champs sont alors presents.
    */
-  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }) => void;
+  restoreState: (instantane: { objects: ObjetBrut[]; measures: Partial<Mesure>[] }, options?: OptionsRestauration) => void;
 
   // ---- Redessiner -----------------------------------------------------------------------------
   render: () => void;
@@ -63,7 +64,15 @@ export interface Atelier {
   addNewPergola: () => void;
   addNewCarport: () => void;
   addNewPiscine: (forme: FormePiscine) => void;
+  /** Une terrasse neuve au centre de la parcelle, sur plots (model/creation.ts). */
+  addNewTerrasse: () => void;
   addNewViewpoint: () => void;
+  /** Pose une terrasse sur plots autour de la piscine, liee a elle, et la selectionne. */
+  addTerrassePiscine: (piscine: ObjetPlan) => void;
+  /** Pose un trou au centre de la terrasse, et le selectionne. */
+  addTrouTerrasse: (terrasse: ObjetPlan) => void;
+  /** Selectionne un objet existant. */
+  selectObject: (key: string) => void;
   duplicateSelectedObject: () => void;
   deleteSelectedObject: () => void;
   sendObjectBackward: (obj: ObjetPlan) => void;

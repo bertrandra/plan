@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerHistorique } from '../../../src/core/historique.js';
+import { creerHistorique, objetsChanges } from '../../../src/core/historique.js';
 import { LIMITE_HISTORIQUE } from '../../../src/core/history.js';
 
 // Ces tests figent le comportement ACTUEL de l'historique, parce qu'il va etre reecrit : ils
@@ -194,5 +194,139 @@ describe('ce qui manque, et qu on veut voir changer', () => {
     h.annuler();
     expect(etat.objects[0]!.x).toBe(1);
     expect('retablir' in h).toBe(false);
+  });
+});
+
+describe('la transaction (l assistant, lot L6) : plusieurs gestes, une etape d annulation', () => {
+  it('empile un seul instantane, celui d avant, et Ctrl+Z rend l etat d avant tous les gestes', () => {
+    const { etat, h } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    const avant = JSON.stringify(etat.objects);
+    const ok = h.transaction(() => {
+      h.empiler(); etat.objects[0]!.x = 10;
+      const empiler = h.preparer(); etat.objects[1]!.x = 20; empiler();
+      h.empiler(); etat.objects.push({ key: 'c', x: 3 });
+      return true;
+    });
+    expect(ok).toBe(true);
+    expect(h.pile.taille).toBe(1);
+    expect(etat.dirty).toBe(true);
+    h.annuler();
+    expect(JSON.stringify(etat.objects)).toBe(avant);
+    expect(h.pile.vide).toBe(true);
+  });
+
+  it('n empile rien quand rien n a change', () => {
+    const { h } = monter();
+    expect(h.transaction(() => true)).toBe(true);
+    expect(h.pile.vide).toBe(true);
+  });
+
+  it('defait tout, sans rien empiler, quand un geste est refuse en route (ou leve)', () => {
+    for (const echec of [() => false, () => { throw new Error('refus'); }]) {
+      const { etat, h } = monter([{ key: 'a', x: 1 }]);
+      const avant = JSON.stringify(etat.objects);
+      const ok = h.transaction(() => { h.empiler(); etat.objects[0]!.x = 5; return (echec as () => boolean)(); });
+      expect(ok).toBe(false);
+      expect(JSON.stringify(etat.objects)).toBe(avant);
+      expect(h.pile.vide).toBe(true);
+      expect(etat.dirty).toBe(false);
+    }
+  });
+
+  it('rend la main a l historique ordinaire ensuite : un geste apres la transaction empile le sien', () => {
+    const { etat, h } = monter();
+    h.transaction(() => { h.empiler(); etat.objects[0]!.x = 2; return true; });
+    h.empiler(); etat.objects[0]!.x = 3;
+    expect(h.pile.taille).toBe(2);
+  });
+});
+
+describe('ce que la restauration a change (point 7)', () => {
+  it('compare les objets par cle : ajoutes, retires, modifies ; l ordre ne compte pas', () => {
+    const avant = [{ key: 'a', x: 1 }, { key: 'b', x: 2 }, { key: 'c', x: 3 }];
+    const apres = [{ key: 'c', x: 3 }, { key: 'a', x: 9 }, { key: 'd', x: 4 }];
+    const ch = objetsChanges(avant, apres);
+    expect(ch.map((c) => c.cle).sort()).toEqual(['a', 'b', 'd']);
+    expect(ch.find((c) => c.cle === 'a')).toEqual({ cle: 'a', avant: { key: 'a', x: 1 }, apres: { key: 'a', x: 9 } });
+    expect(ch.find((c) => c.cle === 'b')?.apres).toBeNull();
+    expect(ch.find((c) => c.cle === 'd')?.avant).toBeNull();
+    expect(objetsChanges(avant, [...avant].reverse())).toEqual([]);
+  });
+
+  it('dit, apres une annulation, les seuls objets dont la donnee a bouge', () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    const recus: { cle: string }[][] = [];
+    const h = creerHistorique(etat, { ...ctx, apresRestauration: (c) => { recus.push(c); } });
+    h.empiler(etat.objects[1]!);
+    etat.objects[1]!.x = 5;
+    h.annuler();
+    expect(recus).toHaveLength(1);
+    expect(recus[0]!.map((c) => c.cle)).toEqual(['b']);
+    expect(etat.objects[1]!.x).toBe(2);
+  });
+
+  it('fait revenir un objet supprime, et le nomme', () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    const recus: { cle: string; avant: unknown; apres: unknown }[][] = [];
+    const h = creerHistorique(etat, { ...ctx, apresRestauration: (c) => { recus.push(c); } });
+    h.empiler();
+    etat.objects.splice(1, 1);
+    h.annuler();
+    expect(recus[0]).toEqual([{ cle: 'b', avant: null, apres: { key: 'b', x: 2 } }]);
+  });
+
+  it('ne nomme rien quand seule une cote a change', () => {
+    const { etat, ctx } = monter();
+    const recus: unknown[][] = [];
+    const h = creerHistorique(etat, { ...ctx, apresRestauration: (c) => { recus.push(c); } });
+    h.empiler();
+    etat.measures.push({ a: 1 });
+    h.annuler();
+    expect(recus).toEqual([[]]);
+  });
+
+  // Audit des PR #621 a #641 : la comparaison serialise le plan deux fois (plus de 100 ms chacune sur un plan de 4 000 objets).
+  it('ne compare rien quand personne ne suit la restauration (Vue 3D fermee)', () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }, { key: 'b', x: 2 }]);
+    let serialisations = 0;
+    let ouverte = false;
+    const recus: unknown[][] = [];
+    const h = creerHistorique(etat, {
+      ...ctx,
+      serializeObjects: (o: unknown[]) => { serialisations++; return ctx.serializeObjects(o); },
+      apresRestauration: (c) => { recus.push(c); },
+      suitLaRestauration: () => ouverte
+    });
+    h.empiler(etat.objects[1]!);
+    etat.objects[1]!.x = 5;
+    serialisations = 0;
+    h.annuler();
+    expect(serialisations).toBe(0);
+    expect(recus).toEqual([]);
+    expect(etat.objects[1]!.x).toBe(2);
+    // Ouverte : la comparaison se fait, et nomme l'objet change.
+    ouverte = true;
+    h.empiler(etat.objects[1]!);
+    etat.objects[1]!.x = 7;
+    serialisations = 0;
+    h.annuler();
+    expect(serialisations).toBe(2);
+    expect(recus.map((c) => (c as { cle: string }[]).map((x) => x.cle))).toEqual([['b']]);
+  });
+
+  it("ne previent personne quand l'appelant refait lui-meme la suite (sansSuite)", () => {
+    const { etat, ctx } = monter([{ key: 'a', x: 1 }]);
+    let serialisations = 0;
+    const recus: unknown[][] = [];
+    const h = creerHistorique(etat, {
+      ...ctx,
+      serializeObjects: (o: unknown[]) => { serialisations++; return ctx.serializeObjects(o); },
+      apresRestauration: (c) => { recus.push(c); },
+      suitLaRestauration: () => true
+    });
+    h.restaurer({ objects: [{ key: 'a', x: 3 }], measures: [] }, { sansSuite: true });
+    expect(etat.objects).toEqual([{ key: 'a', x: 3 }]);
+    expect(serialisations).toBe(0);
+    expect(recus).toEqual([]);
   });
 });

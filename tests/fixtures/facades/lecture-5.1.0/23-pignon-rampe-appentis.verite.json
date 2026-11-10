@@ -1,0 +1,1 @@
+{"nom":"23-pignon-rampe-appentis","image":{"largeur":1024,"hauteur":802},"graine":23,"verite":{"mur":{"x0":226.6505727163132,"x1":676.7342427627327,"y0":413.5918800878277,"y1":618.2920962990743},"largeurM":6,"hauteurM":2.7,"pointes":[],"ouvertures":[{"type":"fenetre","x":0.9,"y":0.95,"l":1,"h":1.1,"carreaux":null},{"type":"porte","x":3.6,"y":0,"l":0.9,"h":2.1,"carreaux":null}]}}

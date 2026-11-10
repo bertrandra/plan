@@ -10,6 +10,11 @@
 import type { PtBrut, ObjetPlan } from '../model/types.js';
 import { enPoints } from '../model/formes.js';
 import type { CoteCible } from '../geometry/alignement.js';
+import { suivreLeContour } from '../model/ouvrages/index.js';
+import { estPoseSurLeTerrain } from '../model/fonctions.js';
+
+/** Le refus de deplacer ou de tourner ce qui est pose sur le terrain reel, dit a la personne. */
+export const MESSAGE_TERRAIN_REEL = 'Cet objet vient du cadastre ou de l’IGN : il reste à sa place réelle (IGN, LiDAR, photo aérienne, relief, soleil). Il ne se déplace ni ne tourne.';
 
 /** Un cote designe sur le plan : la cle de l'objet et l'indice du cote. */
 export interface CoteDesigne {
@@ -28,6 +33,19 @@ export function definirCibleAlignement(v: CoteDesigne | null): void {
   cible = v;
 }
 
+// La distance au trait que l'outil « Aligner » doit laisser, telle que saisie dans son bandeau (zones/Surimpression.tsx) : le
+// brouillon d'un geste, pas une donnee du plan. Vide : l'objet tourne sans se deplacer.
+let distanceSaisie = '';
+
+/** La distance saisie pour le prochain alignement, en metres, comme tapee. */
+export function distanceAlignement(): string {
+  return distanceSaisie;
+}
+
+export function definirDistanceAlignement(v: string): void {
+  distanceSaisie = v;
+}
+
 /** Ce dont l'alignement a besoin du reste du programme. */
 export interface ContexteAlignement {
   /** Coordonnees du cote de reference designe. */
@@ -37,7 +55,7 @@ export interface ContexteAlignement {
   nearestSegmentIndex: (obj: ObjetPlan, cible: CoteCible) => number;
   alignerSurCote: (pts: PtBrut[], idx: number, cible: CoteCible, distance: number | null) => PtBrut[];
   pointInPolygon: (p: PtBrut, poly: PtBrut[]) => boolean;
-  pushHistory: () => void;
+  pushHistory: (...objets: object[]) => void;
   rebuildHandles: (obj: ObjetPlan) => void;
   render: () => void;
   showToast: (message: string) => void;
@@ -50,9 +68,10 @@ export interface ContexteAlignement {
  * Trois garde-fous, dans cet ordre, et chacun pour une raison differente :
  *
  * 1. **Un objet verrouille ne bouge pas.** Le verrou existe pour ca.
- * 2. **Une parcelle issue du cadastre porte l'orientation reelle du terrain.** La faire tourner
- *    decale le nord du plan — donc l'ombre des parasols et la Vue 3D — sans que rien ne le signale.
- *    On previent, mais on laisse faire : c'est peut-etre exactement ce qu'on veut.
+ * 2. **Ce qui vient du cadastre ou de l'IGN ne tourne pas** (`estPoseSurLeTerrain`). Une parcelle porte l'orientation reelle du terrain, et tout ce qui est pose sur
+ *    le terrain la lit a sa place : l'actualisation IGN (qui la remettrait), la lecture des toits au LiDAR, la photo aerienne,
+ *    le relief, les rues, le PLU, le soleil (le nord reel), le voisinage, l'audit sur place. On refuse, en le disant
+ *    (decision du 27 octobre 2026, MD/spec-ouvrages.md).
  * 3. **Le resultat doit rester dans le contour de contrainte.** On calcule d'abord, on verifie
  *    ensuite, et on n'enregistre dans l'historique **qu'apres** : un alignement refuse ne doit pas
  *    laisser un pas d'annulation vide derriere lui.
@@ -65,7 +84,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
   const ref = cibleAlignement();
   if (!ref) return;
   if (obj.locked) { ctx.showToast('Objet verrouille.'); return; }
-  if (obj.cadastre) ctx.showToast('Attention : cette parcelle vient du cadastre. La faire tourner desaligne le plan du nord reel (ombres, Vue 3D).');
+  if (estPoseSurLeTerrain(obj)) { ctx.showToast(MESSAGE_TERRAIN_REEL); return; }
   const target = ctx.measureSegCoords(ref);
   if (!target) return;
   const idx = ctx.nearestSegmentIndex(obj, target);
@@ -79,7 +98,8 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
     ctx.showToast('Le resultat sortirait de la parcelle - alignement annule.');
     return;
   }
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
+  suivreLeContour(obj, forme.pts, newPts);
   forme.pts = newPts;
   ctx.rebuildHandles(obj);
   ctx.render();

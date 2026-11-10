@@ -1,0 +1,544 @@
+# Spec : le mode Toit dans la Vue 3D
+
+Document de reprise. Il permet de lancer, dans une **session neuve** (autre compte Claude compris), le chantier « mode Toit » sans rien
+connaître de la conversation qui l'a préparé. Tout ce qui a été décidé, tout ce qui existe déjà dans le dépôt, tout ce qui reste à faire, et
+la façon de le vérifier, est ici.
+
+Lire d'abord : `CLAUDE.md` (règles du dépôt), `README.md`, `MD/architecture.md`, `MD/spec-ecran-toit-facade.md` (les huit versions de la maquette, la
+v8 est la référence), puis ce fichier. Charger les skills `design-ui` (toute IHM) et `toits` (tout ce qui touche aux toits, `identite.ts`).
+
+---
+
+## 1. Intention
+
+Pour la personne qui configure sa maison (référence : AE 101, 2 allée des Limites, Le Vésinet) : **choisir la forme du toit en images, ajouter ce qui se pose
+dessus ou sur la façade, le placer, le régler, tout annuler — sans formulaire, avec le moins de mots possible.** « Je vois, je clique, je sélectionne, je
+positionne, je redimensionne, j'annule tout. »
+
+Ce n'est **pas** un modèle métier : les règles de toit vivent déjà dans Plan (`regles/toits/`, lecture LiDAR, faits, profils). Ce chantier est
+**la meilleure IHM possible** pour retoucher ce que les règles ont lu, ou pour décrire un bâtiment que le LiDAR ne sait pas lire.
+
+### Décisions de la personne (à ne pas rediscuter)
+
+1. L'outil (« Règles » et catalogue du toit) est **utilisable en 3D et uniquement en 3D** : il s'active par une option de la Vue 3D, il n'est plus dans la palette du plan.
+2. Les fonctions UX sont **celles de la maquette v8** (`MD/maquettes/toit-ihm-ae101.html`), toutes, **sauf le plan de coupe** (mode « Coupe ») : exclu.
+3. On **adapte la Vue 3D existante** (une seule scène, une seule maintenance). On ne crée pas une seconde vue 3D.
+4. **Règles = « Lecture automatique ON/OFF »** : coupée, le bâtiment est figé (`toitFige`) et aucune lecture ne le réécrit ; rallumée, Plan relit le toit et remplace
+   ce qui avait été réglé.
+5. **Catalogue : les trois familles** (Toit, Sur le toit, Façade) en images, plus l'onglet Corps. Le modèle s'étend au besoin.
+6. **Toutes les façades**, y compris celles qui ne sont pas perpendiculaires (bâtiment polygone, corps tourné d'un angle quelconque).
+7. **Les corps de toit peuvent se superposer.**
+8. Une façade est **un côté de corps** (4 par corps). Un élément posé sur un mur (pignon, galerie, bow-window…) peut **couper la façade en morceaux** : la vue
+   la traite d'un seul tenant.
+9. **Un bâtiment qui en cache un autre** : ce qui cache perd son volume et ne garde que son **contour en pointillé** (la transparence seule était « illisible »).
+   Un œil « Isoler » masque tout le reste.
+10. Titre du plateau : **« Ajouter un élément »**. Le **pignon** est rangé dans « Sur le toit » (pas dans « Façade »).
+11. Un bow-window a sa **propre hauteur** (« Hauteur à l'égout ») en plus des niveaux **« Un étage »** et **« Jusqu'à l'égout de la maison »**.
+12. Textes de l'interface en français, avec accents, vouvoiement. Commentaires de code en français **sans accents**, qui disent pourquoi.
+
+---
+
+## 2. Ce qui existe déjà (livré, fusionné dans `main`, PR #374)
+
+### 2.1 Modèle (`src/model/types.ts`)
+
+- `ObjetPlan.toitFige?: boolean` : « Règles coupées » pour ce bâtiment. Protégé de la relecture : `app/toits/toitsLidar.ts::toitAAjuster` (`if (o.toitFige) return false`),
+  `app/cadastre/actualisationIgn.ts` (`garde`). Sérialisé par `io/serialisation.ts` (`if (o.toitFige) out.toitFige = true`), normalisé par `model/normalisation.ts`.
+- `CorpsToit` (déjà : `pts` rectangle, `posFaitage`, `faitage`, `egouts`, `pignons`, `croupes`, `profil`, `bouts`, `lucarnes`, `cheminees`, `terrasse`, `speciale`,
+  `ouvert`) a reçu :
+  - `retraitM?: number` : recul des poteaux d'un appentis ouvert depuis le bord de l'égout (absent = 12 cm, le dessin d'avant) ;
+  - `saillie?: SaillieFacade` : cet élément est posé sur un mur d'un autre corps ;
+  - **`baie?: BaieToit`** : ajouté par `main` en parallèle (PR #372, bay window **lue dans le cadastre**, forme/pose/source). **Les deux notions coexistent et ne sont pas unifiées** :
+    `baie` = lue (cadastre, `source`), `saillie` = posée à la main. À réconcilier plus tard si besoin (§7, question 3).
+- `SaillieFacade` : `genre` (`'bow-window' | 'galerie' | 'appentis'`), `hote` (rang du corps porteur dans `corpsToit`), `mur` (côté `pts[mur]→pts[mur+1]` de l'hôte),
+  `centreM` (milieu le long du mur depuis `pts[mur]`), `largeurM`, `profondeurM`, `forme` (`'rectangle' | 'arc' | 'conge'`), `niveau` (`'rdc' | 'toit'`), `toit`
+  (`'pan' | 'pavillon' | 'plat'`), `hauteurM?: number | undefined` (hauteur à l'égout réglée ; absente = celle du niveau).
+  Validation à la lecture : `model/corpsToitEtendu.ts::saillieValide` (et `retraitM`).
+- **Un élément posé est un corps du toit** : son rectangle `pts` est **toujours calculé** (`rectangleDeSaillie`), jamais déplacé à la main.
+
+### 2.2 Géométrie pure — `src/facade/modeToit/saillies.ts` (couche `facade`, sans three ni DOM)
+
+`murDuCorps(h, i)` (bouts, longueur, vecteur, normale sortante), `bornerSaillie`, `rectangleDeSaillie`, `corpsDeSaillie(hote, saillie)` (rectangle + hauteurs + toit propre ;
+galerie = appentis ouvert `retraitM 0,3`, appentis = fermé), `estBowWindow`, `separerBowWindows`, `replacerSaillie(corps, rang, changement)`, `murLibre`, `empriseDeSaillie`
+(rectangle / demi-ellipse 12 pas / congé 4 pas par coin), `facettesBowWindow` (murs du sol à l'égout sauf le mur de la maison, toit propre **avec débord 20 cm**),
+`vitresBowWindow` (fenêtres : une par entraxe 1,6 m, 1,1 m de large, appui 0,9 m, linteau 0,3 m sous l'égout, un quadrilatère par côté), `retirerSaillie`, `murLePlusProche`,
+`NOM_SAILLIE`, constantes (`HAUTEUR_RDC_M` 2,7, `DEBORD_BOW_M` 0,2, `HAUTEUR_BOW_MAX_M` 12, `RETRAIT_GALERIE_M` 0,3, `DEFAUTS_SAILLIE`).
+
+### 2.3 Gestes et vignettes — couche `three` (les deux dépendent de `three/catalogueToits.ts`, déplacé là par `main`)
+
+- `src/three/gestesToits.ts` : `PIECES` (formes du catalogue sauf tourelles, `sur:pignon`, `sur:cheminee`, lucarnes, `facade:bow-rectangle|bow-arc|bow-conge|galerie|appentis-ferme`),
+  `piecesDe(famille)`, `raisonIndisponible(o, id)`, `appliquerPiece(o, id)`, `reprendreLectureAuto(o)`, `corpsPrincipal`, `corpsDepuisExemple` (remet un corps du catalogue à l'échelle du
+  bâtiment : rectangle englobant, égout, montée du toit), `corpsDepuisToitSimple`. Garde-fou : un contour **en L / en U sans corps** (aire < 90 % de son rectangle
+  englobant) refuse les gestes qui s'ajoutent et demande d'abord la forme du toit.
+- `src/three/vueSaillie.ts` : `vueDeSaillie(nom)` = vignette isométrique d'un élément de façade calculée par les mêmes fonctions que la 3D (`vueIsometrique(exemple, plus)`).
+- `src/three/toitCorps3d.ts` : `ajouterBowWindows3d` (murs, toit, vitres), `poteauxDAppentis` lit `retraitM`. `src/three/scene.ts` (`ajouterUnObjet`) sépare les bow-windows des
+  corps ordinaires par `separerBowWindows` : **pas de prisme ni de fenêtres de maison pour eux**. ⚠ `ajouterUnObjet` est à 148 lignes pour une limite eslint de 150 :
+  toute addition doit sortir du code dans une fonction voisine.
+
+### 2.4 Commandes (`src/app/ecouteurs/toitCatalogue.ts`, branché dans `src/app/boot.ts`, groupe `toit` de `GroupeCommande`)
+
+- `toit.regles` : bascule Règles (sur un bâtiment, ou sur tous ceux de la parcelle du projet si la parcelle est sélectionnée). Empile l'historique, `markDirty`, toast.
+- `toit.poser` : pose la pièce nommée par `data-piece` du bouton qui l'a déclenchée (`source.dataset.piece`). Un élément de façade posé est **armé**.
+- `toit.murSur3d` : arme l'élément visé (`viserSaillie(rang)` puis la commande). Le **toucher suivant** sur le bâtiment dans la Vue 3D replace l'élément sur le mur le plus proche
+  (`murLePlusProche`). Écouteurs `pointerdown/up` sur `hotes3d.vue3d` (un déplacement de plus de 5 px n'est pas un toucher), Échap désarme. `src/facade/choixSaillie.ts` porte l'état armé.
+- `batimentsVises(objets, cle)` et `reglesAllumees(batiments)` (exportés) : ce que la palette lit.
+- Exposition obligatoire dans `src/app/exposition.ts` (`'toit.regles'`, `'toit.poser'` : `outil()` ; `'toit.murSur3d'` : `partout('inspecteur')`) et description dans la déclaration.
+
+### 2.5 Interface actuelle (à **déplacer** dans le mode Toit, étape 1 et 3)
+
+- `src/zones/Palette.tsx` : `GroupeToit` (interrupteur « Règles allumées/coupées » `aria-pressed`, onglets Toit / Sur le toit / Façade, vignettes `VignetteToit` et `VignetteVue`
+  de `src/zones/EcranChaine.tsx`, raison d'indisponibilité en infobulle et, au doigt, sous le groupe). CSS dans `src/styles/app.css` (`.paletteToit`, `.toitRegles`, `.toitOnglets`,
+  `.toitCatalogue`, `.toitPiece`).
+- `src/ui/champs/facade.ts` : `sectionReleve` → `champsSaillies(c)` : **une ligne par élément** (mur, forme, niveau, hauteur à l'égout, toit, largeur, saillie, position, retrait
+  de galerie, « Choisir le mur dans la 3D », Retirer). Chaque écriture appelle `replacerSaillie` et fige le toit. `indicesAppentis` ignore les éléments à `saillie`.
+- Tests : `tests/unit/three/gestesToits.test.ts`, `tests/unit/facade/saillies.test.ts`, `tests/unit/ui/champsSaillies.test.ts`.
+
+### 2.6 Autres briques réutilisables
+
+- **Toucher en 3D** : `three/scene.ts::objetSousLePointeur(ndc, retenir?)` → `{ cle, point (repère du plan) }` ; `hotes3d.vue3d` (`three/etat3d.ts`).
+- **Caméra de face** : `app/audit/parcelle/vuePrise.ts` (`cadreDe`, `poseFace`, `distanceFace`, `poseOrbite`, `OEIL_M`, `CHAMP_VISIBLE_DEG`) — la vue en élévation devant une façade
+  existe déjà pour l'audit. `three/navigation.ts` (orbite, zoom molette).
+- **Isoler** : commande `terrasse.isoler` (`three/etat3d.ts`, `Vue3d.tsx` : `libIsoler`), logique `model/fonctions.ts::visibleEnIsolement`.
+- **Façades d'un contour** : `facade/geometrie.ts::facadesDuContour`, `facade/choix.ts` (façade désignée), `geometry/facadeExterieure.ts` (`segmentEnFacade`).
+- **Historique** : `atelier.pushHistory/markDirty/render`, `core/historique.ts` (Ctrl+Z).
+- **Catalogue 3D** : `three/catalogueToits.ts` (`EXEMPLES_TOITS`, `corpsDeLExemple`, `vueIsometrique`), affiché aussi dans Admin › Chaîne.
+- **Fiches de règles** : `src/regles/`, `src/facade/regles/`, `deploy/prompt-analyse.md` **générés** — ne jamais les éditer à la main (`npm run regles:generer`).
+
+---
+
+## 3. La maquette v8 : inventaire complet (`MD/maquettes/toit-ihm-ae101.html`, ouvrable dans un navigateur)
+
+La maquette est autonome (three.js r128 UMD, aucun réseau requis hors CDN). **Trois écrans** :
+
+### Écran A — la 3D du terrain (`#vue3d`)
+- Bascule **Dessus / 3D** (`#v-top`, `#v-3d`).
+- On touche un bâtiment : surlignage (arêtes d'accent + lueur), barre d'action `#abar` : **« Modifier cette façade »** (crayon) pour le bâtiment du projet, **cadenas** (« Maison voisine,
+  non modifiable ») pour un voisin, et **œil « Isoler ce bâtiment »** (`#a-eye`, `aria-pressed`).
+- Occlusion : le bâtiment choisi est visé par des rayons (3 × 2 × 2 points de son volume) ; le premier autre bâtiment touché devient **fantôme** (contour pointillé, `setGhost(1)`),
+  ou disparaît si on isole (`setGhost(2)`). Le bâtiment choisi reste touchable à travers lui. Recalculé à chaque mouvement de caméra.
+- **Indice « main »** (`#hint3`) au-dessus du bâtiment tant que rien n'a été touché ; disparaît au premier geste.
+- Un toucher mémorise le point touché (`lastHit`) : « Modifier » ouvre l'écran B sur **la façade la plus proche de ce point** (`facadeProche`).
+- Un toucher est un appui-relâché de moins de 6 px.
+
+### Écran B — l'éditeur de façade (`#scene`)
+- **Barre** `.bar` : Retour (`#b-retour`), titre (icône + « Façade »), **Annuler / Rétablir / Revenir au départ (annulable)** (`#b-undo`, `#b-redo`, `#b-reset`), **Valider** (`#b-ok`,
+  toast « Façade validée »), séparateur, **thème clair/sombre** (`#b-theme`, reconstruit la 3D). Ctrl+Z, Ctrl+Maj+Z, Ctrl+Y, Suppr/Retour arrière (supprime la sélection), Échap
+  (annule le glisser en cours, sinon désélectionne ; ferme la boîte de dialogue ; quitte la 3D).
+- **Retour avec des changements** → dialogue modal `#dlg` « **Abandonner les changements ?** » : Abandonner (danger) / Continuer (focus par défaut).
+- **Scène** : la façade choisie, vue **oblique alignée sur le mur** (`#cv-face`, canvas three.js, caméra orthographique à matrice de projection oblique), **la maison tourne** pour que la
+  façade choisie fasse face, quel que soit l'angle du corps. Au-dessus : un **calque SVG** (`#svg`, `#ov`) porte les **poignées**, les **guides** (`.guide`) et le **chip** de cotes (`#chip`).
+- **Sélecteur de vue** (`#fm`, à gauche) : **Plan** (`#fm-plan`), **Façade** (`#fm-face`), ~~Coupe~~ (`#fm-coupe`, **exclu**), **3D** (`#fm-3d`, ouvre l'écran C), **Isoler ce corps** (`#fm-eye`, visible
+  en Façade seulement : masque les autres corps).
+- **Navigateur** (`#nav`, en haut à droite) : **le plan en petit** ; chaque corps est un polygone, **chaque côté de corps est une arête cliquable** ; la façade courante est en évidence (`.ne.on`) avec
+  un **repère de point de vue** (triangle `.nv` devant le milieu du côté). Cliquer une arête choisit cette façade ; cliquer un corps prend sa façade la plus proche de la vue actuelle (`bestSide`).
+- **Chip de cotes** (`.chip`, bulle posée au-dessus de la sélection) : pastilles `puce(clé, valeur)` — largeur, angle, hauteur, saillie (« prof »), retrait, rotation.
+  Sans sélection : largeur / angle / hauteur de la façade ; avec un pignon : largeur, angle du pan (`atan2(apex − égout, largeur/2)`), hauteur du faîte, saillie ; bow-window : largeur, saillie, hauteur ;
+  appentis/galerie : largeur, angle, saillie, retrait (si > 2 cm).
+- **Indice « main »** (`#hint`) sur le corps principal tant que rien n'a été fait.
+- **Plateau** (`#tray`, titre **« Ajouter un élément »**) : quatre onglets `role="tab"` à images :
+  - **Corps** : *Aile*, *Retour*, *Biaise* (grisés si aucun emplacement libre : `emplacement(k)`).
+  - **Toit** : 10 formes dans l'ordre `plat, appentis (« Un pan »), deux-pans, croupes, pavillon, demi-croupe, mansart, brisé, papillon, berceau`, la forme courante `aria-pressed`.
+  - **Sur le toit** : *Pignon* (grisé avec la raison « Pas de pignon sur cette façade » si la façade n'a pas de profil à pignon ou n'est pas un côté long), puis les éléments de toit
+    *Cheminée* (0,75 m), *Jacobine* (1,5 m), *Chien-assis* (1,5 m), *Fenêtre de toit* (« velux », 1 m), *Solaire* (2,55 m).
+  - **Façade** : *Appentis*, *Galerie*, *Bow-window*.
+  Toutes les images sont **calculées par le même dessin que la scène** (pas des icônes dessinées à part). Un geste = toucher l'image. Ajouter un corps passe en mode Plan ; ajouter un pignon
+  passe en Façade + onglet « Sur le toit » ; un bow-window / appentis / galerie passe en Façade + onglet « Façade ».
+- **Inspecteur contextuel** (`#insp`, pas de formulaire, **boutons-images à choix exclusif** `.sg`, `aria-pressed`) :
+  | Sélection | Groupes |
+  |---|---|
+  | Bow-window | **forme** (pans coupés · rectangle · arc de cercle · rectangle arrondi) ; **niveau** (sous le premier étage · monte jusqu'au toit) ; **rez-de-chaussée** (façade droite · en retrait, l'étage à fleur du bow-window · ½ · 1 m ; schéma 16) ; **toit** (un pan · plat · en pointe) |
+  | Appentis / galerie | **sur poteaux / fermée** ; **retrait** du mur (0 · ½ · 1 m) |
+  | Pignon | **hauteur** (monte au faîtage · plus bas que le faîtage) |
+  | Élément de toit | **taille − / +** (échelle 0,5 à 2,2, pas 0,15) |
+  | Tous (sauf appentis/galerie pour « dupliquer ») | **Dupliquer**, **Supprimer** (danger) |
+  | Aucun élément (le corps) | **Tourner ⟲ ⟳** (± 15°), **Supprimer ce corps** (sauf le principal) |
+- **Poignées** (SVG, glisser) : élément de toit → taille ; **corps** → hauteur du faîtage (verticale), chaque bout de la façade (horizontale, l'autre bout reste en place ; jusqu'au 9 novembre 2026, le bout droit seul), la façade qui avance ou recule devant le mur opposé (« Avancer ou reculer la façade », voir « Redimensionner un corps de chaque côté »), hauteur à l'égout (verticale, au quart du mur sur la ligne d'égout de la façade : le corps entier monte ou descend, pente gardée ; 28 octobre 2026, voir « La hauteur à l'égout d'un corps ») ; **pignon** → position
+  (aimantée aux bords et aux autres pignons, ±0,25 m), largeur (1,4 à 8 m, colle au bout du mur à ±0,25 m), hauteur du faîte (au moins 0,8 m au-dessus de l'égout, se « réduit » au faîtage à moins de 0,25 m),
+  saillie (0 à 2,5 m) ; **bow-window** → position (aimantée aux bords et au centre), chaque bord, l'autre en place (1,2 à 6 m ; jusqu'au 9 novembre 2026, le bord droit seul), saillie (0,2 à 1,5 m, 1,2 m max si « sous le premier étage ») ; **appentis/galerie** → bords gauche/droit (1,2 m
+  minimum entre les deux, colle au bout à 0,25 m), hauteur d'égout (1,6 m à égout de la maison − 0,9 m), déplacement entier, retrait. Pendant un glisser : chip de cotes + guides en pointillé.
+  Un glisser = **un seul instantané** d'historique.
+- **Mode Plan** (`#svg3`) : poser, déplacer, étirer (une poignée au milieu de chaque mur, le mur opposé en place), tourner les corps ; lignes de faîtage dessinées par forme ; marqueurs des éléments posés ; chip largeur/profondeur/rotation. **Le faîtage se met
+  dans le sens de la longueur tout seul** tant que le corps n'a ni pignon, ni appentis, ni bow (`autoDir`).
+- **Vignettes d'ajout de corps** : positions candidates calculées (`emplacement`) : *Aile* à droite du dernier corps (3 m de large) ; *Retour* en équerre à l'arrière du principal
+  (3 × 5 m, 3 emplacements testés) ; *Biaise* tournée de 35° devant (4 × 3,2 m) ; bornes de la scène `LARGEUR_MAX 17,2` × `PROF_MAX 13`.
+- ~~**Mode Coupe**~~ (`#svg2`, profil du toit avec l'angle) : **exclu de ce chantier**.
+
+### Écran C — la 3D de l'ensemble modifié
+Bouton 3D du sélecteur de vue ; Échap revient. La 3D montre la maison **validée** (`committedStr`) dans son terrain (parcelle, 3 voisins), pas la session en cours.
+
+### Données d'exemple de la maquette (AE 101)
+Corps principal 9,9 × 7 m deux-pans (égout 4,6, hauteur 2,9), deux pignons de 3,7 m au faîtage, une galerie sur poteaux (retrait 0,5), une cheminée ; aile gauche en appentis avec un bow-window
+(2,2 m, saillie 0,65, pans coupés) ; aile droite en croupes ; un retour (3 × 5 m, sens perpendiculaire) qui entre dans le toit ; une aile biaise tournée de 35°.
+
+---
+
+## 4. Architecture cible
+
+### 4.1 Une scène, deux caméras
+
+- **La Vue 3D reste la seule scène** (`three/scene.ts`, `affichage3d`, `vue3d` de `three/etat3d.ts`, `zones/vue3d/Vue3d.tsx`). Le mode Toit change **seulement la caméra** (perspective libre →
+  **orthographique oblique alignée sur un mur**, comme `#cv-face` de la maquette : matrice de projection oblique personnalisée, la maison tournée pour que le mur choisi fasse face) et superpose
+  un **calque SVG** pour poignées, guides et cotes. Les points SVG se placent par **projection de points 3D** par la caméra ; le toucher d'un élément passe par le rayon
+  (`objetSousLePointeur`, ou un lancer de rayon dédié aux éléments d'un bâtiment).
+- **Contraintes de couches** (`tests/unit/architecture.test.ts`) : `util/shell → geometry → model → engine/geo/facade → core/io/render/export/three/interaction → ui → app/zones`. Ce qui dépend du catalogue 3D
+  (`three/catalogueToits.ts`) vit dans `three/` ; la géométrie pure (placement, emprises, hauteurs) reste dans `facade/regles/toits/`. Un module `ui/` ne peut pas importer `app/`.
+- **Session d'édition** : à l'entrée, copie profonde des champs de toit du bâtiment (`corpsToit`, `toit`, `modeToit`, `toitFige`, `volumesToit`) ; toutes les retouches se font sur cette copie
+  avec **un historique de session** (annuler / rétablir / revenir au départ). **Valider** écrit la copie dans le projet en **un seul** instantané (`pushHistory`) + `markDirty`, fige le toit
+  (`toitFige`). **Abandonner** jette la copie. Pendant la session, la scène 3D montre la copie (comme `modelFaces` de la maquette), le reste du projet est en lecture seule.
+- **Réglage d'affichage** : l'activation du mode est un réglage d'affichage (pas de Ctrl+Z, pas de « projet modifié », permis en lecture seule — comme « Filaire »). La **validation**, elle, modifie
+  le projet : refusée en lecture seule.
+- **Commandes** (registre `app/commandes.ts`, `permission: PERMISSION_ECRITURE` pour celles qui écrivent) : prévoir au minimum `toit.modifier` (entrer), `toit.valider`, `toit.abandonner`,
+  `toit.annulerSession`, `toit.retablirSession`, `toit.depart`, `toit.facade` (choisir une façade, paramètre), `toit.isoler`, plus celles de §2.4. **Chaque commande s'inscrit dans
+  `app/exposition.ts` pour les trois classes** (`compact`, `moyen`, `large`) et porte une description ; `tests/unit/app/exposition.test.ts` lit le code source : l'identifiant doit
+  **apparaître littéralement** (`'toit.valider'`) dans le fichier de l'emplacement choisi (par exemple `src/zones/vue3d/Vue3d.tsx` pour `vue3d`), et les identifiants de commande doivent être
+  des chaînes littérales `id: '…'` dans `src/app/`.
+- **Contrôles** : tout `data-controle` est inventorié (`app/controlesInterface.ts`) et testé (`tests/unit/app/controlesInterface.test.ts`) : classer chaque nouveau contrôle (nature, zone, `ecrit`).
+
+- **Ce que la scène montre en façade** : le bâtiment seul (`epurerVue3d`, l'épure de l'audit), jamais la terrasse ni le jardin. Le mode ne passe **jamais** le
+  bâtiment à `buildThreeScene` (qui le prendrait pour la terrasse) : il redessine le bâtiment seul (`remplacerObjets3d`), ou la scène autour de la terrasse
+  courante. Un pignon, un élément de mur se posent sur la façade regardée et ouvrent sa vue.
+
+### 4.2 Modèle à étendre (étape 3 et 5)
+
+- **Éléments de toit** : ajouter `fenetre-toit` (velux, 1 m) et `solaire` (panneau, 2,55 m) à côté de `Lucarne`/`Cheminee` ; échelle `s` (0,5 à 2,2). Dessin 3D (`three/toitCorps3d.ts`, `facade/toits/toitFormes.ts`).
+  Ils doivent se **relire à l'identique** d'un fichier ancien (champ facultatif, validé dans `model/corpsToitEtendu.ts`, compacté à l'écriture).
+- **Pignon enrichi** : `PignonToit` a `pan`, `debut`, `fin`, `faitage`, `profondeur` ; ajouter ce que la maquette règle : **largeur, position, hauteur du faîte (monte au faîtage / plus bas), saillie** (déjà `profondeur`).
+  « Pas de pignon sur un appentis » (règle existante, skill `toits`) ; « pas de pignon sur une façade sans profil à pignon / sur un côté court ».
+- **Retrait de galerie à trois valeurs** : 0 / ½ / 1 m (le champ `retraitM` existe).
+- **Éléments sur un mur quelconque** : `SaillieFacade.hote` peut viser n'importe quel corps non-saillie (déjà vrai), `murLibre` choisit le plus long mur sans élément.
+- **Corps à poser** (étape 5) : une *Aile*, un *Retour*, une *Biaise* sont des `CorpsToit` ordinaires avec rotation libre (les `pts` suivent la rotation : rectangle tourné) ; les corps **se superposent**
+  (le plus haut l'emporte dans le dessin, c'est déjà le cas des rectangles maximaux). Ne pas casser la lecture LiDAR : un bâtiment posé à la main est `toitFige`.
+- **Bay window du cadastre (`baie`)** : ne pas la supprimer ; décider avec la personne (§7) s'il faut convertir `baie` en `saillie` à l'ouverture.
+
+### 4.3 AE 101 ne bouge pas
+`npx tsx .claude/skills/toits/scripts/identite.ts` doit afficher `AE 101 : corps identiques` après chaque étape. Les empreintes `tests/fixtures/golden/` ne doivent pas bouger (sinon : événement de version majeure,
+`MD/RELEASE.md`, `EMPREINTES.md`).
+
+---
+
+## 5. Les étapes
+
+Chaque étape est **livrable seule** : CI verte, CHANGELOG (`## [Non publié]`, Ajouté/Modifié/Corrigé, en français), fumée sur les points touchés, PR vers `main`, merge (commit de merge, pas de squash).
+Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
+
+### Étape 1 — Le mode Toit et le choix de façade  *(livrée : PR « mode Toit, étape 1 »)*
+
+> Écarts de mise en œuvre : la caméra de façade est l'**oblique orthographique** de la maquette (`three/poseFacade.ts::cadreOblique`, `three/vueFacadeToit.ts`, posée en `cameraRendu` sur la scène de la Vue 3D) — elle a d'abord été une perspective en élévation dans la scène de la terrasse, ce qui était faux (§4.1) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/toits/modeToit.ts` (session), `src/facade/modeToit/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
+**Livrable :** un bouton « Modifier la toiture » dans les commandes de la Vue 3D, actif sur un bâtiment **du projet** sélectionné (les voisins : cadenas, infobulle « Maison voisine, non modifiable »).
+- Écran A de la maquette : surlignage du bâtiment choisi, barre d'action (Modifier · Isoler), contours en pointillé pour ce qui cache le bâtiment choisi (`setGhost` : maille masquée + `LineSegments`/`EdgesGeometry` en `LineDashedMaterial`),
+  œil « Isoler ce bâtiment » (réutiliser `terrasse.isoler`), indice « main ».
+- Choix de la façade : toucher un mur (`facadeProche` : le côté de corps le plus proche du point touché ; calculer sur **tous** les corps, façades de biais comprises).
+- Caméra oblique de façade sur la même scène ; la maison tourne pour que la façade choisie fasse face (`viewFor` de la maquette) ; retour à la 3D par un bouton et par Échap.
+- Session d'édition (copie), Valider (un instantané), Abandonner (dialogue « Abandonner les changements ? » en Z8, `shell/dialogues.ts` + `zones/Dialogues.tsx`), Annuler/Rétablir/Revenir au départ de session, raccourcis.
+- Le groupe « Toit » (Règles + catalogue) **sort de la palette du plan** et n'existe que dans le mode ; `GroupeToit` de `Palette.tsx` est repris, pas réécrit ; `exposition.ts` mis à jour.
+- Mode activé = réglage d'affichage ; lecture seule : on peut regarder, pas valider.
+**Critères :** entrer / sortir ne modifie pas le projet ; abandon = projet identique au bit près ; valider = 1 seul Ctrl+Z ; trois classes d'écran ; thème clair et sombre.
+**Tests :** machine à états de session (unitaire pur), `facadeProche` sur un rectangle, un L, un corps tourné ; exposition ; contrôles.
+
+### Étape 2 — Le navigateur de façades et les vues  *(livrée : PR « mode Toit, étape 2 »)*
+
+> Code : `src/zones/vue3d/NavigateurFacades.tsx`, `src/three/fantomes.ts` (contours en pointillé : rayons de la caméra vers 12 points du bâtiment, le premier autre bâtiment touché est masqué et remplacé par ses arêtes en `LineDashedMaterial`), `src/facade/modeToit/facadesDesCorps.ts` (`corpsVisibles`, `facadeVersLePoint`), `vue3d.corpsIsole` dans `three/etat3d.ts`. Commandes `toit.facade`, `toit.vueLibre`, `toit.vueFacade`, `toit.vueDessus`, `toit.isolerCorps`. Le mode « Plan » (poser et tourner des corps) reste à l'étape 5 ; la vue « Dessus » de l'étape 2 est une caméra, pas encore un éditeur.
+- Plan en petit en haut à droite, chaque côté de corps cliquable, façade courante en évidence, repère de point de vue ; clic sur un corps = sa façade la plus proche de la vue (`bestSide`).
+- Sélecteur de vue : Façade · Plan · 3D (ouvre la 3D de l'ensemble validé), œil « Isoler ce corps » (Façade seulement).
+- Un bâtiment qui en cache un autre dans la façade : contour pointillé, le choisi reste touchable à travers.
+**Critères :** toutes les façades d'un polygone et d'un corps tourné sont atteignables ; AE 101 (4 corps) naviguable.
+
+### Étape 3 — Le plateau « Ajouter un élément » et l'inspecteur contextuel  *(livrée : PR « mode Toit, étape 3 »)*
+
+> Code : `src/facade/modeToit/elements.ts` (liste, sélection par toucher, suppression, duplication, taille, choix en groupes — pur, testé), `src/zones/vue3d/iconesToit.tsx` (images des choix), `ModeToit.tsx` (pastilles et inspecteur), commandes `toit.selection|regler|dupliquer|supprimer|plus|moins`, `ElementDeToit` (`elementsToit`) et `facettesElementsToit` (fenêtre de toit 0,8 × 1,2 m, solaire 2,55 × 1,1 m). Écarts : l'onglet **Corps** (étape 5) et la saillie d'un pignon (avancée au-delà du mur, livrée ensuite avec sa poignée) n'y étaient pas encore ; la largeur et la position d'un pignon se réglaient par − + en attendant les poignées.
+- Plateau à quatre onglets d'images (Corps · Toit · Sur le toit · Façade) avec les vignettes calculées par le dessin 3D (§2.3), états `aria-pressed` / désactivé avec raison.
+- Inspecteur contextuel **en boutons-images à choix exclusif** (jamais de formulaire) : tableau du §3. La ligne `champsSaillies` actuelle de l'inspecteur du plan reste (réglages fins en chiffres) ; l'inspecteur du mode en est la version « images ».
+- Extensions de modèle du §4.2 : fenêtre de toit, solaire, pignon enrichi, retrait à trois valeurs. Dessin 3D, validation à la lecture, compactage à l'écriture, tests d'aller-retour de fichier ancien.
+- Dupliquer, supprimer, taille − +.
+**Critères :** un fichier ancien se relit identique ; les nouvelles pièces se dessinent en 3D et dans leur vignette ; AE 101 identique.
+
+### Étape 4 — Les poignées sur la façade  *(livrée : PR « mode Toit, étape 4 »)*
+
+> Code : `src/facade/modeToit/poignees.ts` (poignées, cotes, `glisser`, aimantation — pur, testé), `src/zones/vue3d/PoigneesToit.tsx` (calque SVG, projection, conversion doigt → mètres sur les axes de la poignée), `modeToit.ts` (`apercu`, `finGlisser`, `annulerGlisser`). Les poignées se calent par projection d'axes, par la caméra qui fait l'image (`cameraDeVue`) ; la saillie d'un pignon (avancée au-delà du mur) est modélisée depuis (`PignonToit.saillieM`, 0 à 2,5 m : triangle, murs de côté et égout avancent ; inspecteur 0 · ½ · 1 · 1,5 m, poignée « Saillie » sur la face avancée).
+- Calque SVG sur la scène (projection de points 3D), poignées du §3 (hauteur de façade, longueur de façade, pignon, bow-window, appentis/galerie, taille d'un élément) ; chip de cotes ; guides ; aimantation à 0,25 m.
+- Un glisser = un instantané de session. Échap annule le glisser. Cibles tactiles ≥ 44 px au doigt.
+- **Commencer par le bow-window** (déjà modélisé) pour valider la chaîne projection → poignée → écriture → redessin, puis généraliser.
+**Critères :** poignée sous le doigt et à la souris, cotes justes au centimètre, aimantation, pas d'écriture au simple survol.
+
+> Conformité (relecture après l'étape 6) : le titre « Ajouter un élément », Suppr / Retour arrière (suppriment l'élément choisi), les poignées de bord gauche et de retrait d'une galerie ou d'un appentis, et le motif « Pas de pignon sur cette façade. » (côté court, toit plat, papillon ou pavillon ; le pignon se pose sur la façade choisie) sont livrés. Livrés ensuite : lignes de faîtage, marqueurs d'éléments et cote de rotation du mode Plan (`facade/modeToit/planCorps.ts`, `PlanToit.tsx`) ; le toit du projet (écran C de la maquette) est le bouton « Voir le toit du projet » (`toit.voirValide` : la scène montre le départ de la session, un geste ramène la session) ; sur téléphone la feuille se replie et le plan des façades devient un bouton, sur tablette la barre est un rail vertical.
+
+### Étape 5 — Les corps et le mode Plan  *(livrée : PR « mode Toit, étape 5 »)*
+
+> Code : `src/facade/modeToit/corpsNeufs.ts` (poser, déplacer, étirer, tourner, supprimer, `orienterFaitage` — pur, testé), onglet `Corps` de `ModeToit.tsx`, `PlanToit.tsx` (polygones de la vue de dessus), poignées `deplacer` / `etirerL` / `etirerW` dans `poignees.ts`, commande `toit.tourner`. Écarts : le « mode Plan » est la vue de dessus de la Vue 3D (pas un second dessin) ; les lignes de faîtage par forme et les marqueurs d'éléments de la maquette ne sont pas dessinés dans le calque.
+- Onglet Corps : *Aile*, *Retour*, *Biaise* (emplacements candidats §3), rotation ± 15°, suppression (sauf le principal), déplacement/étirement dans le plan, **superposition** admise, faîtage dans le sens de la longueur (`autoDir`).
+- Mode Plan (en petit dans le navigateur et en grand) avec lignes de faîtage par forme et marqueurs des éléments posés.
+**Critères :** rotation libre, façades de biais éditables, AE 101 (multi-corps) refait à la main possible ; contour en L/U décrit par corps.
+
+### Étape 6 — Finitions, mobile, livraison  *(livrée : PR « mode Toit, étape 6 »)*
+- Thème sombre complet, indice « main » (disparaît au premier geste), toast « Façade validée », trois classes d'écran (téléphone : le plateau passe en feuille, le navigateur se replie ; tablette : rail).
+- Fumée pilotée sur tous les points touchés (§6), mise à jour de `tests/CHECKLIST-FUMEE.md` (nouveaux points), `MD/spec-ihm-zones.md` si une commande change de zone, `MD/spec-ecran-toit-facade.md` (renvoi vers cette spec), CHANGELOG.
+- Livraison depuis `main` : `BACKPROD_API_URL=https://www.raillard.org npm run livraison` dans un worktree à part (`git worktree add --detach /tmp/livraison-wt origin/main`, lien `node_modules`), `livraison.zip` ignoré par git.
+
+### Après l'étape 6 — Le corps choisi  *(21 octobre 2026, décision de la personne)*
+- **Un geste n'agit que sur le corps choisi.** Une forme du catalogue, un corps, un élément du toit ou de façade vont sur le corps choisi
+  (le corps lui-même, ou celui qui porte l'élément choisi ; une saillie renvoie à son corps porteur).
+  - Une forme ne remplace que ce corps, à son emprise et à ses hauteurs. Il garde son rang, et les corps en plus s'ajoutent à la fin.
+  - Sans choix, rien ne change : le corps de la façade regardée, sinon le corps principal.
+  - Le code : `gestesToits.ts::corpsChoisi`, paramètre `rangChoisi` de `raisonIndisponible` et `appliquerPiece`.
+  - Le panneau le dit sous « Ajouter un élément » (`ModeToit.tsx::corpsCible`).
+- **Sa silhouette se trace, lisible.** Un corps choisi montre sa silhouette en vue libre ou de façade : ~~son mur le plus tourné vers la
+  caméra~~ son mur le plus visible (29 octobre 2026, ci-dessous), du pied au haut sous son toit, pignon compris. C'est un trait épais sur un halo clair, avec un voile léger
+  (`PoigneesToit.tsx::silhouetteAEcran`, `TraitCorps`). De dessus, le plan le montre déjà.
+  - La même silhouette (`silhouetteDesCorps.ts::silhouetteDuCorps`) fait le gabarit des façades de l'audit, du relevé et de la
+    calibration : projetée sur le plan du mur, vue de face, tous corps compris (`silhouetteDeFace` ; 28 octobre 2026).
+- **La poignée de déplacement se distingue.** `deplacer` (le corps) et `pos` (un élément le long de son mur) sont des carrés pleins à
+  quatre flèches ; les poignées qui étirent ou montent restent rondes.
+- **Les poignées sont sur le corps choisi** (28 octobre 2026, signalé par la personne : « suite à la sélection d'un corps, les
+  poignées ne sont pas sur le bon corps »). De face, un corps choisi se réglait par la façade courante, celle d'un autre corps
+  peut-être, pendant que sa silhouette se traçait sur lui. La cible se décide une fois (`poignees.ts::cibleDesPoignees`) : le mur du
+  corps choisi ~~le plus tourné vers la caméra~~ le plus visible (29 octobre 2026, ci-dessous), celui de sa silhouette (`silhouetteVersLOeil(c, oeil, mur)`), qui garde son dessin et
+  sa couleur ; poignées, cotes et bulle le suivent. De dessus, le corps choisi, comme avant.
+- **Le mur montré est le plus visible** (29 octobre 2026, signalé sur le pignon de l'aile « Corps 2 » : le mur le plus tourné vers la
+  caméra était derrière l'autre corps). `poignees.ts::murLePlusVisible` : parmi les murs tournés vers l'œil (la caméra, avec sa hauteur
+  au-dessus du sol du bâtiment), celui dont la plus grande part se voit (`partVisibleDuMur` : 40 points du pied au haut du mur, chacun
+  caché si la vue vers l'œil passe sous le toit d'un autre corps) ; à 15 % près, le plus tourné vers l'œil, et un mur vu à moins de
+  15° (de chant) ne l'emporte pas sur un mur de face. Sans rien qui cache, c'est le mur le plus tourné, comme avant. La silhouette
+  (`silhouetteVersLOeil(c, oeil, mur)`) reçoit ce mur et garde son dessin et sa couleur ; le toucher d'un corps dans le navigateur
+  (`modeToit.ts::choisirFacadeDuCorps`) suit la même règle. Test : `tests/unit/facade/modeToit/murVisible.test.ts`. La zone se redessine bien à chaque choix
+  (le choix passe par `magasin.notifier()`, sa clé est la version) : c'était la cible, pas une clé périmée.
+- Fumée : point 98.
+
+### La hauteur à l'égout d'un corps  *(28 octobre 2026, besoin du propriétaire)*
+« Hauteur bâtiment 3,5 m dans l'IGN, le LiDAR lit 8 m, la 3D affiche 8. Si c'est une erreur, je dois pouvoir rectifier la valeur à la main. »
+- **Une poignée par corps, de face** : « Hauteur à l'égout » (`id: 'egout'`, axe vertical), au quart du mur, sur l'égout de la façade
+  regardée (celui de son pan sur un long côté, le plus bas sur un bout) ; au milieu, elle couvrirait celle du faîtage d'un toit plat.
+  Pas sur une saillie (bow-window, galerie, appentis), qui a déjà la sienne. La bulle dit « égout x m ».
+- **Le corps entier se déplace en hauteur, pente gardée** (décision du propriétaire, « garder la pente ») : égouts, faîtage, pignons,
+  lucarnes, souches, ligne de bris d'un Mansart, édicules montent ou descendent ensemble (`poignees.ts::monterCorps`). C'est une
+  hauteur mal lue que l'on corrige, pas une forme : la poignée du faîtage règle la pente à part. L'égout tiré s'arrondit à 5 cm ; le
+  plus bas reste entre 1,5 m (`EGOUT_MIN_M`, celui d'`ajusterCorps`) et 40 m (`EGOUT_MAX_M`, la borne de la lecture LiDAR). Ce qui
+  est posé sur ses murs se repose sur lui ; une galerie ou un appentis à hauteur propre ne passe pas au-dessus de son égout.
+- **Le corps principal porte l'élévation** : son égout le plus bas devient `elevation` et pose `egoutChoisi: 'saisie'`, comme le champ
+  « Élévation » de l'inspecteur. La session du mode garde `elevation` et `egoutChoisi` dans ses instantanés (`sessionToit.ts`) :
+  annuler, abandonner et Échap les rendent. Comme tout geste du mode, la poignée pose `toitFige` (`sessionToit.ts::ecrireLeGeste`) ;
+  « Valider » en fait une étape d'historique.
+- Clavier : comme les autres poignées du mode, elle ne se prend qu'au pointeur (souris, doigt) ; le champ « Élévation » de
+  l'inspecteur reste le chemin au clavier pour le corps principal.
+- Tests : `tests/unit/facade/modeToit/poignees.test.ts`, `tests/unit/app/toits/poigneeEgout.test.ts`. Fumée : point 97.
+
+### Ce qui s'enregistre pendant une session  *(29 octobre 2026)*
+- Les gestes écrivent le bâtiment en place, sans marquer le projet ; rien de la session n'entre dans le projet avant « Valider ». Un
+  enregistrement parti pendant la session (l'enregistrement seul de la lecture des toits en fond, ou Ctrl+S) écrit le bâtiment à son
+  départ (`modeToit.ts::objetsHorsSession`, sur la sérialisation du projet) : une session abandonnée ne laisse aucune trace.
+- Test : `tests/unit/app/toits/sessionEnregistree.test.ts`. Vérifié en exécution (MD/spec-flux-batiment.md, point 14).
+
+### Modifier ce qui existe avec les gestes de l'ajout  *(4 novembre 2026, demande du propriétaire)*
+« Je veux pouvoir modifier un bâtiment avec les mêmes fonctions [que l'ajout]… Je prends la main pour dessiner la réalité. » Le cœur est
+la **modification** de ce qui est déjà là (corps lus sur le LiDAR, un fait, une saisie antérieure), pas l'ajout d'objets à côté.
+- **Un corps, même seul, est une pastille** : choisi, il se règle dans le même panneau que les éléments (`elements.ts::groupesDe`,
+  commande `toit.regler`) : **ouvert sur poteaux / fermé** et retrait pour un corps à un pan (préau, abri, carport accolé : sans prisme,
+  des poteaux, `estAppentisOuvert`) ; **pente** (15 à 55°, sur le pan bas ; le faîtage suit, les égouts restent) ; **sens du faîtage**
+  (dans la longueur ou la largeur, sur toute forme qui a un faîtage, une noue ou un mur haut : deux pans, asymétrique, quatre pans,
+  pavillon, un pan, cul de geai, Mansart, gambrel, coyau, berceau, carène, papillon ; pas sur un toit plat ni sur un toit de révolution ;
+  jamais quand un pignon, une lucarne, une fenêtre de toit ou un panneau se compte le long du faîtage ; demande du propriétaire du
+  8 novembre 2026). Un seul mécanisme : les sommets du rectangle tournent d'un cran (`elements.ts::avecSens`), le même rectangle, les
+  mêmes hauteurs ; le faîtage garde sa place relative en travers, une croupe ou un cul de geai sa part du faîtage, un berceau sa forme,
+  un brisis ou un coyau sa largeur ; les travées et les éléments de façade gardent leur mur ; un aller-retour rend le corps tel quel ; **mur haut** d'un corps à un pan (l'un ou l'autre des deux murs longs, nommés par leur
+  orientation : le faîtage passe sur le mur opposé, égouts et profils échangés, ce qui est posé sur le pan le suit ; `sens.ts::avecMurHaut`) ;
+  **tout le toit** sous « Bâtiment entier », sur un bâtiment à plusieurs corps (réponses du propriétaire, 8 novembre 2026) : le même groupe
+  « Sens du faîtage » ; la composition entière tourne d'un quart de tour sur son emprise quand les corps pavent un rectangle (toit en M, deux
+  pans décalés, shed : chaque point lu en parts de l'emprise, (σ, τ) → (1 − τ, σ), l'inverse au retour ; travées et éléments de façade au mur
+  qui porte leur place), sinon chaque corps tourne dans son rectangle, sauf un appentis adossé à un autre corps, qui reste appuyé sur lui ;
+  grisé avec la raison quand un corps l'empêche (ou qu'un bow-window glissé sous l'étage changerait de tronçon de mur), jamais une partie
+  du toit en silence (`sens.ts::sensDuToit`, `tournerLeToit`) ; un corps carré lit son sens sur le plan (dans la longueur quand son
+  faîtage est plus près de l'axe est-ouest, `sensDuCorps`), comme la composition carrée ; **débord** à l'égout
+  (`bords.debordEgoutM`, que la 3D lit désormais). La **forme** se change par les vignettes de l'onglet « Toit », qui disent celle en place
+  (enfoncée, « · en place »).
+- **Lucarne** : son type se change sur les vignettes qui la posent ; lucarne, fenêtre de toit et panneau changent de **pan**.
+- **Changer la forme** d'un corps garde ce qui est posé dessus quand cela tient : ses pignons (même sur un toit plat : AE 101, la façade
+  sud aux deux pignons sur un toit plat, où le pignon se ferme sous ses noues), ses souches, ses lucarnes et éléments de toit sur une pente.
+- **Un corps, un toit, jamais de trou** (retour du propriétaire, 4 novembre 2026) : un mur qui recule de 50 cm sous un toit continu (le
+  décroché d'AE 101) n'est pas un corps coupé. Le modèle ne sait pas reculer un tronçon de mur sans couper le corps : c'est un champ du
+  schéma 14 : une travée de mur reculée (ci-dessous). La pièce « Décroché » essayée ici est retirée.
+- **Couper** un corps en deux (`toit.scinder`, au bord d'un pignon sinon au milieu ; les deux parties gardent le même toit, bord à bord) et **réunir** deux corps alignés de mêmes hauteurs qui font un rectangle (`toit.fusionner`).
+- 3D : sous un appentis ouvert, ni photo de relevé, ni baie, ni soubassement (`portionsOuvertesDuMur`) ; pas de poteau devant un
+  bow-window que son toit couvre, ni entre lui et le bout qu'il approche à moins d'un entraxe.
+- Chaque réglage est un pas de la session (Ctrl+Z), « Valider » une étape du projet ; tout geste fige le toit (`toitFige`, la règle de
+  protection unique, niveau 1 de `model/protections.ts`) : la lecture automatique ne l'écrase plus. Le moteur ne change pas (AE 101 :
+  `identite.ts` identique).
+- Schéma 14 (une seule montée, bertrandra/backprod#253 déployée d'abord) : un mur en **travées** (`CorpsToit.travees`, `{ mur, de, a,
+  nature: mur | poteaux | garde-corps | ouvert, reculM }`, `facade/modeToit/travees.ts`) — le recul d'un tronçon de mur sous un toit
+  continu (le pied du corps, ses fenêtres et ses pignons reculent, le toit ne bouge pas), un porche ouvert avec garde-corps sur la rive
+  basse d'un appentis ; un bow-window **sans toit propre** (`SaillieFacade.toit = 'aucun'`). Le **retour d'angle** d'un auvent
+  (`decroche.ts::retourDAngle`) : deux corps liés sans champ nouveau (`toitCorps3d.ts::boutsLies` : murs hauts qui se rejoignent en équerre,
+  même largeur et mêmes hauteurs), les pans coupés sur la diagonale (un arêtier), un poteau à l'angle. Changer la forme d'un corps
+  replace ses pignons à leur place relative quand il change de dimensions sans tourner.
+- Une travée ouverte (poteaux, garde-corps, rien) agit aussi sur un **corps fermé** (un garage devenu abri ouvert ; décision du
+  propriétaire, 4 novembre 2026) : le corps n'a plus de prisme mais ses murs, mur par mur (`toitCorps3d.ts::piedEnTravees`) ; sur la
+  partie ouverte, des poteaux à ses bouts et à entraxe, un garde-corps s'il en a un ; un plafond sous le toit. Ni relevé, ni baie, ni
+  fenêtre, ni soubassement sur elle (`portionsOuvertesDuMur`). Fumée : point 133.
+- Tests : `tests/unit/facade/modeToit/modifierCorps.test.ts`, `travees.test.ts`, `tests/unit/three/appentisOuvert.test.ts`. Fumée : points
+  131 (étalon 25, le garage en carport), 132 (AE 101 : toit plat sous les deux pignons, la partie droite du mur reculée de 50 cm, auvent
+  ouvert avec garde-corps à droite et retour d'angle, bow-window sans toit propre dessous).
+
+### Redimensionner un corps de chaque côté  *(9 novembre 2026, demande du propriétaire)*
+« Les redimensionnements d'un corps doivent pouvoir se faire de chaque côté pour éviter de changer la taille et recaler ensuite. »
+- Un seul geste, `facade/modeToit/pousserMur.ts::pousserLeMur(corps, rang, mur, delta)` : le mur `mur` glisse sur sa normale sortante, le
+  mur opposé reste. Vue de dessus, quatre poignées `mur0` à `mur3` au milieu des murs, nommées par leur orientation ; vue de face, `long`
+  et `debut` (les deux bouts, nommés gauche et droit vu de dehors) et `avancer` (la façade elle-même, à mi-hauteur au tiers du mur).
+- Ce qui est posé garde sa place dans le plan : pignons, lucarnes, fenêtres de toit et panneaux le long du faîtage (décalés quand le bout
+  `s = 0` bouge), travées et éléments de façade sur leur mur (décalés sur le mur qui part du mur tiré), cheminées ; ce qui est sur le mur
+  tiré le suit. Le faîtage garde sa place relative en travers (au milieu, sur un mur pour un appentis) ; un pignon ou une lucarne qui
+  allait au faîtage y va encore ; une croupe garde sa longueur, bornée au faîtage ; un brisis ou un coyau sa largeur, bornée au pan.
+- Un corps collé contre le mur tiré (un de ses murs sur la ligne, tourné vers lui, sur plus de 10 cm) est poussé avec lui, de proche en
+  proche (`corpsColles`) ; un corps qui chevauche ou à l'écart ne bouge pas. Seul un corps posé au bout est emmené (son mur contre lui pas
+  plus long que le mur tiré) ; jamais le corps principal, ni le corps sur lequel s'appuie le mur haut d'un appentis tiré (audit du
+  9 novembre 2026). Le mur ne se colle pas à la ligne (d'un corps, du tracé IGN) sur laquelle il est déjà. Le mur se colle à la ligne d'un mur parallèle d'un autre
+  corps à 25 cm près.
+- Dimension aux 5 cm, entre 2,5 et 30 m (un corps déjà hors de ces bornes n'y est pas ramené d'un toucher). De dessus, le faîtage se
+  met encore dans la longueur tout seul (`orienterFaitage`), sauf sur un corps qui porte des travées ; depuis l'audit du 9 novembre 2026,
+  seulement pour un **corps seul** (il ne touche aucun autre corps, ni avant ni après le geste : un corps coupé en deux, une aile, un
+  appentis adossé font partie d'une composition) dont le faîtage était nettement dans la longueur (un sens choisi « dans la largeur » ou
+  un carré gardent le leur), et ses croupes gardent leur part du faîtage. Le sens se choisit par « Sens du faîtage ». Un élément de façade posé ne se
+  tire pas ainsi : sa largeur et sa saillie ont leurs poignées.
+- Aucun champ de fichier ; la sortie du moteur ne change pas (AE 101 : `identite.ts` identique). Tests :
+  `tests/unit/facade/modeToit/pousserMur.test.ts`. Fumée : point 154.
+- **Réponses du propriétaire du 9 novembre 2026** (même geste, `pousserMur.ts`) :
+  1. Un **mur commun** (`murCommun` : les deux murs sur la même ligne, tournés l'un vers l'autre, qui se recouvrent sur au moins
+     `PART_MUR_COMMUN` = 90 % du plus long ; ni l'un ni l'autre n'est le mur haut d'un appentis adossé) glisse entre les deux corps :
+     l'un grandit, l'autre rétrécit d'autant. Un corps plus court posé contre le mur (une aile au bout) est poussé (`corpsColles`).
+  2. Deux **appentis liés** à l'angle (`appentisLies`, la règle de `boutsLies`) : la rive basse tirée, l'autre suit de même ; le mur
+     haut tiré, l'autre suit par sa rive basse et par son bout sur le coin, qui se déplace avec lui. L'arêtier reste.
+  3. Un **bow-window** a ses deux poignées de bord (`gauche`, `larg`), l'autre bord en place, nommées vues de dehors (`gaucheEnDebut`) ;
+     la largeur va aux 2 cm et ne passe pas le bout du mur. Le champ « Largeur » de l'inspecteur du plan garde le milieu (« autour du
+     milieu ») : il est à côté de « Position sur le mur », qui est ce milieu.
+  4. Le mur **s'arrête au bord** d'un pignon ou d'une travée (`arretDuMur`) et le dit (`MOTIF_PIGNON`, `MOTIF_TRAVEE`, sous la bulle
+     puis en notification au lâcher) ; un élément déjà contre le mur tiré le suit jusqu'à sa taille minimale (1,4 m, 30 cm). Les mêmes
+     bornes valent pour l'autre corps d'un mur commun et pour un appentis lié.
+  5. La **vue de dessus** cadre le contour et tous les corps, débords et hauteur des toits compris (`poseDeDessus`, paramètre `haut`) ;
+     au téléphone, au-dessus de l'indicateur du mode (`reserveDuPanneau`).
+  6. Le **tracé IGN** (le contour du bâtiment) aimante à `AIMANT_MUR_M` (25 cm, comme les murs des autres corps) : un mur tiré se colle au
+     côté parallèle qui le longe (`lignesIgn`), un corps déplacé s'y colle sur ses deux axes (`aimanterAuContour`, sans les 5 cm ronds une
+     fois collé). Le côté du tracé s'éclaire (`.guideIgn`) et la bulle dit « collé au tracé IGN ». Aucune touche ne coupe l'aimant (il n'y
+     en a pas pour les autres). Tests : `pousserMur.test.ts`. Fumée : point 156.
+
+### Le cul de geai et la queue de vache  *(5 novembre 2026, demande du propriétaire)*
+« Ajouter la demi-croupe, applicable aussi aux pignons, pour le dessiner et dans la découverte auto. » Le nom à l'écran est **« Cul de
+geai »** (le plus fréquent), avec ses autres noms dans l'infobulle : nez de veau, bout rabattu (cauchois), croupette, demi-croupe. Les
+identifiants techniques restent `demi-croupe` / `demi-croupes` (fichiers, `regles/`, schéma de lecture de Claude). Même lot : **« Queue
+de vache (coyau) »**, le bas de pan adouci qui déborde plus loin pour jeter l'eau.
+- **Un bout du faîtage** d'un corps à deux pans droits se choisit, dans le panneau du corps (`facade/modeToit/bouts.ts`, commande
+  `toit.regler`) : **pignon, croupe ou cul de geai** (`bout0`, `bout1`, nommés « Bout nord »… par l'orientation du bout). Un cul de geai
+  règle la **part coupée** (`coupe`, le quart, le tiers, la moitié du pignon ; la pente de la petite croupe gardée) et le **débord du
+  faîtage** (`debordFaitage`, 0, 0,5, 1 m). Un cul de geai neuf coupe le tiers, sa croupe à la pente des pans. `croupes` suit les bouts
+  (une croupe s'y écrit, un cul de geai y vaut 0), et des bouts tous en pignon ou en croupe ne s'écrivent pas.
+- **La pointe d'un pignon** (élément « Pignon ») : en triangle ou en cul de geai (`pointe`), avec sa part et son débord.
+- **La géométrie** (`facade/toits/toitFormes.ts`, une règle pour les deux, `coupeDemiCroupe`) : la petite croupe est un plan qui passe
+  par le pied (le haut du pignon tronqué, `zc` = égout + `hauteurPignonM`) à `debordFaitageM` devant le mur, et monte vers l'intérieur
+  jusqu'au faîtage, `profondeurM` plus loin. Débord nul : le pied est sur le mur, le mur de bout est un trapèze (le dessin d'avant).
+  Débord au-delà de la rive : un **capuchon raccordé à l'égout** (retour du propriétaire, 5 novembre 2026 : « raccorder le bout du cul
+  de geai vers le bas de la toiture à l'égout ») — l'emprise du toit s'avance au pied de la croupe, et la rive de chaque long pan descend
+  en ligne du coin de ce pied jusqu'au coin de son égout (débord compris) ; ni marche ni sous-face horizontale à part : le dessous de
+  cette rive débordante est la sous-face, et le mur pignon monte sous le toit. Même raccord à la pointe d'un pignon (`facettesPignonCoupe`).
+  Le débord d'égout des pans continue la croupe à sa pente. Les pans d'un corps à cul de geai (et d'un corps en coyau) sont entaillés sous ses pignons traversants
+  (`entaillerPourPignons`, les mêmes noues que le dessin d'avant).
+- **La queue de vache** d'un pan (`qdv0`, `qdv1`) : un profil `coyau` (cassure à 0,8 m du mur au plus, le tiers du pan au plus ; pente
+  adoucie de 15° sous celle du pan, réglable de 10 à 25°, `penteCoyau`) et son débord `debordM` (0,6, 0,9, 1,2 m), qui l'emporte sur le
+  débord du corps pour ce pan ; sous-face fermée. Le dessin d'un coyau ferme ses bouts en pignon : la queue de vache n'est proposée que
+  sur un corps aux bouts en pignon, et les bouts ne se règlent pas tant qu'un pan est en coyau.
+- **Schéma 15** (une seule montée ; bertrandra/backprod, migration `Version20261105090000`, déployée d'abord) : `debordFaitageM` d'un bout
+  en demi-croupe, `pointe` d'un pignon, `debordM` d'un profil `coyau`. Lus et bornés à la lecture (`corpsToitEtendu.ts`), retirés s'ils
+  sont mal formés. Seul un bâtiment qui en porte s'écrit au 15 ; migration 14 → 15 identité.
+- Le moteur ne change pas (AE 101 : `identite.ts` identique) : ce sont des décisions figées (`toitFige`).
+- Tests : `tests/unit/facade/modeToit/bouts.test.ts`, `tests/unit/model/migrations.test.ts`. Fumée : point 134.
+
+### Hors périmètre
+Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
+
+---
+
+## 6. Comment vérifier
+
+```bash
+npm run typecheck && npm run lint && npm run cliquet && npm run gate:client && npm test    # ce que lance la CI
+npx tsx .claude/skills/toits/scripts/identite.ts                                           # AE 101 identique
+```
+
+- **Pièges de CI** : `max-lines-per-function` 150 (voir `scene.ts::ajouterUnObjet`) ; `tests/unit/app/exposition.test.ts` (ids littéraux + emplacement qui nomme la commande) ; `tests/unit/app/descriptions.test.ts` (chaque commande a une
+  description) ; `tests/unit/architecture.test.ts` (couches) ; `controlesInterface.test.ts` (contrôles classés) ; `exactOptionalPropertyTypes` : un champ optionnel mis à `undefined` doit être déclaré `x?: T | undefined`.
+- **Fumée pilotée** :
+  ```bash
+  BACKPROD_API_URL=http://plateforme.test npx vite --port 5199 --strictPort    # en arrière-plan
+  NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 1 22   # points ; FUMEE_CLASSES=large FUMEE_THEMES=light pour aller vite
+  ```
+  Points utiles : 1 (plan, trois classes), 22 (Vue 3D). Les points 41 et 45 de `tests/CHECKLIST-FUMEE.md` (relevé de façade) **ne sont pas joués** par le script. Arrêter le serveur par
+  `ps aux | grep "[v]ite --port 5199"` puis `kill` — **jamais `pkill -f`** (tue aussi le shell qui le lance).
+- **Essai réel dans un navigateur** (ce qui a servi à valider le bow-window) : un script `.mjs` Playwright (`NODE_PATH=$(npm root -g)`, `chromium` avec `--use-gl=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`),
+  `import('/…/scripts/captures.mjs')` pour `ouvrirDemo(page)` (la démonstration **éditable**, `?mode=demo` est en lecture seule) et `import('/…/scripts/fumee-reseau.mjs')` pour `servirThreeLocal(page)`.
+  Poignées de test exposées en dev par `window.__plan` : `executer(id)` (sans élément source : pour une commande qui lit `source.dataset`, **cliquer le vrai bouton** du DOM), `etat()`, `selectionnerCle(cle)`,
+  `scene3d()` (`camera`, `controls`, `cen` : plan.x = v.x + cen.x ; plan.y = cen.y − v.z), `magasin()`, `ouvrirFeuille`, `ouvrirResultats`. Pour regarder un objet précis : placer `controls.target` et
+  `camera.position` puis `controls.update()`, et viser un point par `Vector3.project(camera)` → pixels du `#terrasse3dCanvasHost`. Dans la démonstration, `maison` est le bâtiment du projet (contour de 14 sommets :
+  pour un essai simple, remplacer `pts` par un rectangle, vider `facades`, `corpsToit`, `segmentNames` et les `measures`, sinon l'inspecteur lève des « Indice N hors du tableau » sans rapport avec le chantier).
+- La Vue 3D se charge en modules ES depuis jsDelivr (`three` 0.186.1) : tester hors ligne exige `servirThreeLocal`.
+
+## 7. Questions ouvertes (à poser à la personne avant l'étape concernée)
+
+1. **Éléments de toit** : confirmer les dimensions et le dessin de la *fenêtre de toit* et du *solaire* (la maquette ne donne que leur largeur 1 m / 2,55 m).
+2. **Plan de coupe** : exclu ici ; sera-t-il demandé plus tard ? (Le profil par pan existe déjà : `ProfilPan`.)
+3. **`baie` (cadastre) et `saillie` (main)** : les unifier à l'ouverture (une `baie` devient une `saillie` modifiable) ou garder deux notions ?
+4. **Le contour en L/U** : proposer le découpage en corps automatiquement (`rectanglesDuContour`) à l'entrée du mode, ou laisser la personne poser ses corps (étape 5) ?
+5. ~~**Voisins** : le mode Toit reste réservé aux bâtiments de la parcelle du projet (`surParcelleDuProjet`) — confirmer.~~ — tranché le
+   29 octobre 2026 : il ne s'ouvre pas sur un bâtiment du voisinage ni sur un bâtiment de l'IGN importé hors de la parcelle du projet
+   (`modeToit.ts::estRetouchable`) ; un bâtiment dessiné s'ouvre, et `locked` (le contour) n'y entre pas. Le bouton « Modifier la
+   toiture » se grise sur la maison d'un voisin et dit pourquoi.
+6. **Mobile** : sur téléphone, le glisser sert à tourner la vue ; les poignées exigent un mode « Modifier » explicite — confirmer l'ergonomie (deux doigts pour la vue, un doigt pour la poignée ?).
+7. **Livraison** : à quelle étape faire la première livraison zip ?
+
+## 8. Rappels de méthode (CLAUDE.md, extraits utiles)
+
+- Messages de commit en français : un titre court, puis le pourquoi. Fin de message : lignes d'attribution demandées par la session.
+- Un nombre produit hier doit être reproductible aujourd'hui : une modification qui change une quantité ou un export est un événement de version majeure ; les empreintes golden le vérifient.
+- Un bouton est une liaison vers une commande du registre et lit `commandes.etat(id)` : effacé si `capacite`, grisé avec la raison sinon ; jamais `obtenir(id).actif` seul.
+- Un champ de l'inspecteur est un descripteur de `ui/champs/` (`sale: false` = réglage d'affichage ; un bouton déclare `agit`).
+- Ce que la fonction d'un objet lui donne est décrit une fois dans `src/model/fonctions.ts` (`estBatiment`, `estTerrasse`, `surParcelleDuProjet`…) : ne pas réécrire ces tests ailleurs.
+- Une décision de l'audit ne réécrit jamais une forme de toit de sa propre main (moteur de règles `corpsSousContrainte`) ; ce chantier est l'édition **manuelle**, elle fige (`toitFige`).
+- Ne pas créer de PR sans demande ; ne jamais pousser sur `main`.
+
+## Rez-de-chaussée en retrait sous l'étage (schéma 16)
+
+Demande du propriétaire du 9 novembre 2026 (« je dois décaler le rez-de-chaussée pour glisser en dessous une bay window jusqu'au premier
+étage ») et ses réponses du même jour.
+
+- Réglage **du bow-window** (`SaillieFacade.rdcEnRetraitM`, en mètres ; absent : la façade droite d'avant). Le mur du rez-de-chaussée du
+  corps qui porte le bow-window recule de cette longueur, **sur toute la largeur de ce mur** et sur ce corps seulement (un corps aligné
+  sur la même façade ne bouge pas) ; l'étage reste au nu du mur et avance au-dessus.
+- Par défaut, le recul est la saillie du bow-window : son avant tombe à fleur de l'étage. Il se règle de 0,10 à 3 m (inspecteur :
+  « Rez-de-chaussée en retrait », « Retrait du rez-de-chaussée » ; Mode Toit : groupe « Rez-de-chaussée », à fleur, ½, 1 m), et il laisse
+  au moins un mètre de pièce derrière lui.
+- La hauteur du rez-de-chaussée est la hauteur à l'égout du bow-window : 2,70 m par défaut, réglable sur lui (« Hauteur à l'égout »),
+  jamais au-dessus de l'égout de la maison. Le bow-window monte du sol au dessous de l'étage, sans toit propre (le choix du toit reste
+  écrit et revient quand le retrait est retiré) ; niveau et toit propre ne se proposent plus.
+- Deux bow-windows sur le même mur : **un seul rez-de-chaussée**, le plus grand recul ; l'autre s'adapte (même recul, même hauteur). Celui
+  que la personne règle mène (`accorderLesRetraits`).
+- 3D : le prisme du corps recule ; au-dessus, le mur de l'étage au nu de la façade, son dessous à plat **de la couleur du mur** (décision du
+  propriétaire), ses deux retours et le dessus de la bande sous le toit (`facettesEncorbellement`). Les ouvertures du bas suivent le mur
+  reculé (aucune derrière le bow-window), celles de l'étage et des pignons restent au nu ; le soubassement court au pied du mur reculé.
+- Plan : le contour reste celui de l'étage, en trait plein ; le mur reculé du rez-de-chaussée est un trait en tirets (à l'écran seulement,
+  comme les ouvertures relevées : les exports gardent leur forme).
+- **La photo d'un relevé** (décision du propriétaire du 9 novembre 2026, `three/releve3d.ts`, `saillies.ts::retraitsSurLaFacade`,
+  `morceauxSousEtage`) : sur le mur du retrait, elle se coupe au dessous de l'étage ; le bas se pose sur le mur reculé, le haut reste au
+  nu, aux mêmes coordonnées de texture. Derrière le bow-window, rien (il cache ce mur). Sur le mur voisin raccourci au pied, la bande sous
+  l'étage, à l'entrée du retrait, est vide. Le dessous et les retours, que l'élévation ne voit pas, restent de la couleur du mur. Les
+  ouvertures du relevé suivent la règle des ouvertures automatiques (`profondeurDOuverture`).
+- **La photo sur la face avant du bow-window** (décision 6 du propriétaire, 9 novembre 2026 ; `saillies.ts::facesAvantDuBowWindow`,
+  `releve3d.ts::plaquerSurLesBowWindows`) : la part de la photo qui est devant le bow-window se pose sur sa face avant, aux mêmes
+  coordonnées de texture le long de la façade (chaque point de la face montre le pixel du mur qu'il cache, vu de face), du sol à son haut,
+  et remplace les vitres dessinées de ces faces. Les faces avant sont les suites de côtés de son emprise (le même regroupement que ses
+  vitres) qu'une photo prise de face voit : tournées de moins de 60° vers la rue (au-delà, la photo s'y étirerait plus du double). Le fond,
+  les pans coupés courants (une cinquantaine de degrés), l'arc sans ses bouts, en sont. Un retour d'équerre garde son dessin (couleur du
+  mur, vitres) : la photo ne le voit que par la tranche. Sous l'étage, le
+  bow-window n'a pas de toit propre, son dessus se ferme de la couleur du mur, et ses murs restent sous la photo. Seulement dans ce cas :
+  un bow-window sur une façade droite garde son dessin, la photo restant devant le mur (case « Texture » décochée : son dessin aussi).
+- **La modénature lue d'un relevé** (décision 7 du propriétaire, 9 novembre 2026 ; `saillies.ts::morceauxDuPave`, `modenature3d.ts`) :
+  la règle de la photo, pavé par pavé. Sous le dessous de l'étage, soubassement, bandeau, chaîne d'angle, encadrement, descente et store
+  reculent avec le mur du rez-de-chaussée ; au-dessus, ils restent au nu ; derrière le bow-window et à l'entrée du retrait, rien (la
+  photo de la face avant montre ce qu'elle voit, sans relief). Une chaîne ou une descente qui passe le dessous de l'étage est coupée là.
+  Un bandeau à cheval sur le dessous de l'étage reste entier, au nu : à cette hauteur il marque le plancher de l'étage, qui est au nu, et
+  le couper ferait deux lamelles de quelques centimètres sur deux plans.
+- Hors de ce lot : une poignée pour tirer le recul, la lecture de l'audit, un corps sur un contour de biais.
+

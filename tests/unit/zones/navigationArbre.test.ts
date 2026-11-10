@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aplatir, type Noeud } from '../../../src/app/controleurs.js';
+import { aplatir, type Noeud } from '../../../src/app/administration/controleurs.js';
 import { ancetres, filtrer, ouvrablesSous, profondeurMax } from '../../../src/zones/navigationArbre.js';
 
 // La navigation dans l'arbre des controleurs : niveaux, filtres, branches.

@@ -1,6 +1,6 @@
 {
   "name": "plan-interactif",
-  "version": "2.2.0",
+  "version": "5.22.1",
   "private": true,
   "type": "module",
   "description": "Plan de masse interactif : edition 2D, vue 3D, import cadastral IGN, exports SVG/DXF/PDF/GLB.",
@@ -17,19 +17,23 @@
     "lint": "eslint src tests",
     "cliquet": "node scripts/cliquet.mjs",
     "verifier-deploiement": "node scripts/verifier-deploiement.mjs",
-    "buildsg": "node scripts/generer-buildsg.mjs",
-    "build:siteground": "npm ci --prefix buildsg --no-audit --no-fund && npm run build --prefix buildsg",
     "gate:client": "node scripts/generer-client.mjs --verifier",
     "contrat": "node scripts/extraire-contrat.mjs",
     "verifier-paquet": "node scripts/verifier-paquet.mjs",
-    "livraison": "node scripts/livraison.mjs"
+    "livraison": "node scripts/livraison.mjs",
+    "carte-paquet": "node scripts/carte-paquet.mjs MD/carte-paquet.md",
+    "essayer-paquet": "node scripts/essayer-paquet.mjs",
+    "verifier:api-claude": "node scripts/verifier-api-claude.mjs",
+    "regles:generer": "npx tsx scripts/generer-prompt-analyse.ts",
+    "regles:verifier": "npx tsx scripts/generer-prompt-analyse.ts --verifier"
   },
   "devDependencies": {
+    "@dgreenheck/ez-tree": "1.1.0",
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/three": "0.128.0",
+    "@types/three": "0.186.0",
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "@vitejs/plugin-react": "^4.7.0",
@@ -38,10 +42,9 @@
     "jsdom": "^25.0.1",
     "pdf-lib": "^1.17.1",
     "prettier": "^3.4.2",
-    "three": "0.128.0",
+    "three": "0.186.1",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
-    "vite-plugin-singlefile": "^2.0.3",
     "vitest": "^2.1.8"
   },
   "dependencies": {

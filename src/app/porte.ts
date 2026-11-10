@@ -19,6 +19,8 @@ import { Porte } from '../zones/Porte.js';
 import { creerSession, EchecPlateforme, type Session } from '../plateforme/session.js';
 import { creerContexte, fermetureDe, type Contexte, type Fermeture, type ServiceContexte } from '../plateforme/contexte.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
+import { chargement } from '../shell/chargement.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 export interface Acces {
   session: Session;
@@ -29,12 +31,7 @@ export interface Acces {
 
 /** L'element qui porte la porte. Cree a la demande : une page sans plateforme n'en a pas besoin. */
 function conteneur(): HTMLElement {
-  let e = document.getElementById('zonePorte');
-  if (!e) {
-    e = document.createElement('div');
-    e.id = 'zonePorte';
-    document.body.appendChild(e);
-  }
+  const e = hoteDeZone('zonePorte');
   return e;
 }
 
@@ -54,6 +51,8 @@ export async function franchirLaPorte(): Promise<Acces> {
   const contexte = creerContexte(session);
 
   function afficher(fermeture: Fermeture): void {
+    // La porte attend la personne : la roue du chargement (index.html) ne doit pas tourner devant elle.
+    chargement(false);
     racine ||= createRoot(conteneur());
     racine.render(createElement(Porte, { fermeture, ouvrir, reessayer: () => { void demarrer(); }, plateforme: BACKPROD_API_URL }));
   }

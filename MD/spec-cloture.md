@@ -134,7 +134,7 @@ Règles :
   projet qui n'en a pas garde au bit près la forme d'avant.
 - **Valeurs par défaut** par type (`model/cloture.ts`) : palissade 1,80 m brun, grillage 1,50 m
   gris rigide, haie 1,80 m vert épaisseur 0,60 m, mur 1,80 m enduit épaisseur 0,20 m. Un portail
-  naît à 3,50 × 1,60 m, deux battants vers l'intérieur, droit, plein, aluminium gris anthracite,
+  naît à 3,50 × 1,60 m, deux battants vers l'intérieur, droit, plein, aluminium blanc (RAL 9016, `#f4f4f2`),
   avec deux piliers de 0,30 m ; un portillon à 1,00 × 1,60 m, un battant.
 - **Cohérence** : un accès dont `x + largeur` dépasse la longueur du côté, ou un coulissant sans
   place de refoulement, reste enregistré mais signalé par une alerte ; la 3D et le plan le tronquent
@@ -142,6 +142,61 @@ Règles :
   au-delà du dernier côté sont ignorées à la lecture, jamais effacées.
 
 ---
+
+### 2.1 Le côté sur rue deviné (`geo/coteRue.ts`)
+
+**Une seule règle** pour tous les chemins qui créent un accès (`coteDuNouvelAcces`) : la clôture
+d'un import (depuis une adresse, la position de l'appareil ou le mode audit), les boutons « Ajouter
+un portail » et « Ajouter un portillon » de l'inspecteur, le portail vu sur place par un audit de la
+parcelle quand le projet n'en a pas encore. Un accès déjà posé n'est jamais déplacé.
+
+Un accès neuf se pose sur le côté **dit** sur rue (`limite: 'rue'`). Quand aucun côté ne l'est, le
+plan **devine** (`devinerCoteRue`), parmi les côtés **non mitoyens** (tous, s'ils le sont tous) :
+
+1. **Le point d'adresse** de la BAN, posé sur la voirie devant la porte, que l'import range sur la
+   parcelle (`cadastre.adresseLat/Lon`, projeté depuis le point de calage) : le côté le plus proche,
+   si le point est hors de la parcelle et à moins de 30 m (`DISTANCE_ADRESSE_MAX_M`). Un point dans
+   la parcelle (adresse résolue au bâtiment) ou trop loin (résolue à la rue, à la commune) ne dit
+   rien. À l'import depuis la position de l'appareil, le point rangé est celui de **l'adresse la plus
+   proche** (géocodage inverse, `pointAdresse`), pas celui de l'appareil, qui est dans le jardin.
+2. Sinon, **les rues lues** à la BD TOPO (`ruesVoisinage`, « Lire le nom des rues ») : le côté dont
+   le milieu est le plus près de l'axe d'une rue, à moins de 20 m (`DISTANCE_RUE_MAX_M`) ; la rue de
+   l'adresse d'abord, au coin de deux rues.
+3. Sinon, **le plus long des côtés sans voisine**.
+4. Sans rien de tout cela : rien n'est deviné, le plus long côté sert (comme avant), en évitant ceux
+   que l'utilisateur a dits séparatifs ou mitoyens.
+
+Un côté est **mitoyen** (`cotesMitoyens`) quand il partage au moins 1 m de limite avec une parcelle
+voisine (`FRONTIERE_MITOYENNE_M`, la règle de `model/mitoyennete.ts`), mesuré à 50 cm de tolérance
+**sans son premier ni son dernier mètre** : la voisine d'un côté sur rue le touche à chaque coin
+(près d'un mètre sur AE 101). Ce que l'utilisateur a dit d'un côté l'emporte : « sur rue » le rend
+libre, « séparative » ou « mitoyenne » mitoyen. Les voisines comptées sont celles du plan, et à
+l'import celles que le cadastre a rendues même non cochées (`voisinesConnues`) ; en mode audit, les
+parcelles lues autour du point.
+
+L'inspecteur le dit : l'explication du bouton « Ajouter un portail » nomme le côté et sa raison
+(devant le point d'adresse, le long de la rue « … », le plus long des côtés sans voisine, ou rien ne
+dit encore où est la rue), et le champ « Limite » d'un côté non précisé note « devinée : sur rue »
+ou « devinée : séparative ». Un carport neuf s'en approche aussi (`MD/spec-placement.md`).
+
+### 2.2 La clôture d'une parcelle importée (`clotureDImport`)
+
+À la création d'un projet par import cadastral (depuis une adresse ou la position GPS), **la
+parcelle du projet** — elle seule, pas les parcelles voisines — naît close
+(`geo/cadastreObjets.ts`, une fois les voisines posées) :
+
+- une **palissade bois de 1,80 m** sur tout le contour (`active: true`, défaut `palissade`,
+  `HAUTEUR_CLOTURE_DEFAUT`, `COULEUR_CLOTURE_DEFAUT`) ;
+- un **portail en aluminium blanc** (`nouveauPortail('portail', …)`, 3,50 × 1,60 m, deux battants
+  **ouvrant vers l'intérieur de la parcelle**, motorisé) au milieu du côté d'accès (§2.1 : dit ou deviné sur rue, sinon le plus long) ; aucun
+  portail sur un contour dont le côté d'accès fait moins de 4 m.
+
+C'est un point de départ à corriger, pas un relevé : il se voit sur le plan et en 3D, et se règle
+dans les sections « Clôture » et « Portails et portillons ». L'actualisation IGN d'un projet
+existant n'y touche pas, ni un projet ouvert depuis un fichier.
+
+L'aluminium d'un portail est thermolaqué : en 3D, à peine métallique (0,1, le fer forgé 0,4). Une
+face verticale à l'ombre du soleil de l'étude paraît grise, comme la clôture et les façades.
 
 ## 3. Inspecteur (Z5)
 
@@ -223,6 +278,24 @@ Remplace la bande unique de `scene.ts`. Pour chaque côté dont le réglage n'es
 Les mailles sont nommées (`cloture-troncon`, `cloture-pilier`, `cloture-vantail`) pour les tests de
 structure, comme celles du relevé.
 
+### 4.1 Les clôtures du voisinage (`three/clotureVoisinage.ts`)
+
+Un groupe de la section **« Voisinage (3D) »** de la parcelle du projet (`MD/spec-toit-ign.md` §6.4) :
+afficher (coché par défaut : sans elles, les parcelles voisines ne se distinguaient pas en 3D), le
+type (palissade, grillage, haie ou mur, à la hauteur du type) et la couleur. Ce sont des préférences
+d'affichage rangées sur la parcelle du projet : rien n'est écrit sur les parcelles voisines, qui ne
+portent ni clôture ni lieu (décision produit). Par défaut un **grillage** — 1,5 m, gris vert clair,
+translucide (30 %), sans ombre portée ; les autres types sont pleins — sur les limites des parcelles
+voisines visibles :
+
+- chaque limite une fois (sommets arrondis à 20 cm, sens fixe pour que deux panneaux confondus
+  soient éclairés pareil) ;
+- pas sur une limite commune avec la parcelle du projet quand celle-ci a sa clôture ;
+- sur un sol en relief, en panneaux de 3 m au plus qui suivent la pente ;
+- **une seule maille** (`cloture-voisinage`) pour tout le voisinage : deux mille parcelles en
+  panneaux séparés ne tiendraient pas ;
+- avec le reste du plan seulement (« Afficher tous les objets »), pas en isolement.
+
 ---
 
 ## 5. Plan à l'écran (`render/cloture.ts`)
@@ -249,6 +322,7 @@ clôture active. Rien ne change dans les exports (§1.1).
 | `tests/unit/three/cloture3d.test.ts` | nombre de mailles par type, piliers et vantaux, rien sans clôture active |
 | `tests/unit/render/cloture.test.ts` | tronçons, coupure, arcs d'un battant, course d'un coulissant |
 | `tests/unit/ui/champsCloture.test.ts` | sections visibles sur la parcelle du projet seule, champs par type, écritures |
+| `tests/unit/geo/coteRue.test.ts` | côtés mitoyens (1 m hors coins, ce que l'utilisateur a dit), côté sur rue deviné (point d'adresse, rues lues, sans voisine), et AE 101 réelle (`tests/fixtures/cloture/`) sur chaque chemin de création |
 | `tests/unit/echafaudage.test.ts` | les six empreintes ne bougent pas |
 
 ---

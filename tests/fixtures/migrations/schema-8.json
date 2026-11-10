@@ -1,0 +1,17 @@
+{
+  "meta": { "id": "temoin-8", "name": "Témoin du schéma 8", "appVersion": "5.0.0", "schemaVersion": 8 },
+  "objects": [
+    {
+      "key": "parcelle", "type": "polygon", "name": "Parcelle", "fonction": "terrain",
+      "pts": [{ "x": 0, "y": 0 }, { "x": 30, "y": 0 }, { "x": 30, "y": 20 }, { "x": 0, "y": 20 }]
+    },
+    {
+      "key": "massif-1", "type": "polygon", "name": "Massif", "fonction": "massif", "elevation": 0.6,
+      "pts": [{ "x": 2, "y": 2 }, { "x": 6, "y": 2 }, { "x": 6, "y": 4 }, { "x": 2, "y": 4 }]
+    },
+    {
+      "key": "spa-1", "type": "circle", "name": "Spa", "fonction": "equipement", "center": { "x": 20, "y": 10 }, "r": 1
+    }
+  ],
+  "measures": []
+}

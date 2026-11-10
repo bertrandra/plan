@@ -17,13 +17,20 @@ import { dist, centroid, angleInterieurDeg, shoelace } from '../geometry/basic.j
 import { geometrieMesure, ancrageHorsContour, type Mesure } from '../render/measures.js';
 import type { ObjetPlan, ObjetPolygone, ObjetChemin, ObjetCercle, PtBrut } from '../model/types.js';
 import { enPoints } from '../model/formes.js';
+import { trousDeTerrasse, surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
+import { estTerrasse } from '../model/fonctions.js';
+import { estCourbe, tronconsBezier } from '../geometry/courbe.js';
+import { largeurChemin, surfaceChemin } from '../model/ouvrages/index.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_EXPORT } from '../model/etiquettes.js';
-import { pdfEscape, horodatagePdfInfo, hexToRgb01 } from './pdf/writer.js';
+import { pdfEscape, horodatagePdfInfo, hexToRgb01, pdfDecoupeTrous } from './pdf/writer.js';
+import { dateFr } from '../util/format.js';
 /** Ce que la mise en page doit savoir en plus des objets : de quoi remplir le cartouche. */
 export interface MetaPdf {
   appVersion: string;
   buildAt: string;
   montrerNord: boolean;
+  /** L'heure de l'export (« genere le », /CreationDate) ; l'horloge par defaut. */
+  maintenant?: Date;
 }
 
 /** La mise en page du plan : ce que chaque morceau dessine doit savoir pour placer un point. */
@@ -65,20 +72,12 @@ function emprise(objets: ObjetPlan[], mesures: MesurePdf[]) {
 }
 
 /** Le trace d'un chemin, comme `pathD` a l'ecran : des segments, ou Catmull-Rom -> Bezier cubique. */
-function pdfPathD(m: MisePage, pts: PtBrut[], curve?: boolean): string {
+export function pdfPathD(m: Pick<MisePage, 'toPdf'>, pts: PtBrut[], curve?: boolean): string {
   const s = pts.map(m.toPdf);
-  const cmds: string[] = [];
-  if(!curve || s.length<3){
-    s.forEach((p,i)=>{ cmds.push(p.x.toFixed(2)+' '+p.y.toFixed(2)+' '+(i===0?'m':'l')); });
-    return cmds.join('\n')+'\n';
-  }
-  cmds.push(au(s, 0).x.toFixed(2)+' '+au(s, 0).y.toFixed(2)+' m');
-  for(let i=0;i<s.length-1;i++){
-    const p0=au(s, Math.max(0,i-1)), p1=au(s, i), p2=au(s, i+1), p3=au(s, Math.min(s.length-1,i+2));
-    const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
-    const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
-    cmds.push(c1.x.toFixed(2)+' '+c1.y.toFixed(2)+' '+c2.x.toFixed(2)+' '+c2.y.toFixed(2)+' '+p2.x.toFixed(2)+' '+p2.y.toFixed(2)+' c');
-  }
+  const f = (p: PtBrut) => p.x.toFixed(2)+' '+p.y.toFixed(2);
+  if(!estCourbe(s, curve)) return s.map((p,i)=>f(p)+' '+(i===0?'m':'l')).join('\n')+'\n';
+  const cmds: string[] = [f(au(s, 0))+' m'];
+  for(const b of tronconsBezier(s)) cmds.push(f(b.c1)+' '+f(b.c2)+' '+f(b.p2)+' c');
   return cmds.join('\n')+'\n';
 }
 
@@ -98,13 +97,16 @@ function etiquetteCote(pa: { x: number; y: number }, pb: { x: number; y: number 
   return 'BT /F1 7 Tf 0.07 0.13 0.06 rg '+mx.toFixed(2)+' '+my.toFixed(2)+' Td ('+pdfEscape(texte)+') Tj ET\n';
 }
 
-function dessinerPolygone(m: MisePage, obj: ObjetPolygone): string {
-  let c = couleursPleines(m, obj);
+function dessinerPolygone(m: MisePage, obj: ObjetPolygone, trous: PtBrut[][]): string {
+  // Une terrasse percee (bassin, tremie) : un gabarit la decoupe, leve juste apres son trace.
+  let c = pdfDecoupeTrous(trous.map(t=>t.map(p=>m.toPdf(p))));
+  c += couleursPleines(m, obj);
   obj.pts.forEach((p,i)=>{
     const pp = m.toPdf(p);
     c += pp.x.toFixed(2)+' '+pp.y.toFixed(2)+' '+(i===0?'m':'l')+'\n';
   });
   c += 'h B\n';
+  if(trous.length) c += 'Q\n';
   c += '/'+m.gsName(1)+' gs\n';
   const n = obj.pts.length;
   for(let i=0;i<n;i++){
@@ -124,7 +126,7 @@ function dessinerPolygone(m: MisePage, obj: ObjetPolygone): string {
 function dessinerChemin(m: MisePage, obj: ObjetChemin): string {
   const [sr,sg,sb] = hexToRgb01(obj.stroke);
   let c = sr.toFixed(3)+' '+sg.toFixed(3)+' '+sb.toFixed(3)+' RG\n';
-  c += Math.max(0.5,(obj.width||1)*m.ptsPerMeter).toFixed(2)+' w\n';
+  c += Math.max(0.5,largeurChemin(obj)*m.ptsPerMeter).toFixed(2)+' w\n';
   c += pdfPathD(m, obj.pts, !!obj.curve);
   c += 'S\n1 w\n';
   for(let i=0;i<obj.pts.length-1;i++){
@@ -158,8 +160,8 @@ function dessinerCercle(m: MisePage, obj: ObjetCercle): string {
   return c;
 }
 
-function dessinerObjet(m: MisePage, obj: ObjetPlan): string {
-  let c = obj.type==='polygon' ? dessinerPolygone(m, obj) : obj.type==='path' ? dessinerChemin(m, obj) : dessinerCercle(m, obj);
+function dessinerObjet(m: MisePage, obj: ObjetPlan, objets: ObjetPlan[]): string {
+  let c = obj.type==='polygon' ? dessinerPolygone(m, obj, trousDeTerrasse(obj, objets)) : obj.type==='path' ? dessinerChemin(m, obj) : dessinerCercle(m, obj);
   if(obj.showName){
     const cen = (obj.type==='polygon'||obj.type==='path') ? centroid(obj.pts) : obj.center;
     const cp = m.toPdf(cen);
@@ -202,7 +204,7 @@ function habillage(m: MisePage, cadre: { margin: number; drawW: number; drawH: n
   }
   c += '0.23 0.18 0.12 rg\n';
   c += 'BT /F1 14 Tf '+margin.toFixed(2)+' '+(pageH-margin-16).toFixed(2)+' Td (Plan interactif - Parcelle AE 101) Tj ET\n';
-  c += 'BT /F1 9 Tf '+margin.toFixed(2)+' '+(pageH-margin-34).toFixed(2)+' Td (Echelle 1/'+scaleDenom+' - genere le '+new Date().toLocaleDateString('fr-FR')+' - Plan interactif v'+meta.appVersion+') Tj ET\n';
+  c += 'BT /F1 9 Tf '+margin.toFixed(2)+' '+(pageH-margin-34).toFixed(2)+' Td (Echelle 1/'+scaleDenom+' - genere le '+dateFr(meta.maintenant ?? new Date())+' - Plan interactif v'+meta.appVersion+') Tj ET\n';
   // Une longueur ronde, de taille raisonnable sur le papier quelle que soit l'echelle.
   const barMeters = niceStep(120/m.ptsPerMeter);
   const barPts = barMeters*m.ptsPerMeter;
@@ -220,9 +222,10 @@ function pageSurfaces(objets: ObjetPlan[], margin: number, pageW: number): { con
   const sParcelleSurf = pcObjSurf ? shoelace(enPoints(pcObjSurf).pts) : 0;
   const surfRows = objets.map(o=>{
     let s;
-    if(o.type==='polygon') s = shoelace(o.pts);
+    // Une terrasse percee compte sans son trou (bassin, tremie) : c'est la surface qu'on pose.
+    if(o.type==='polygon') s = estTerrasse(o) ? surfaceNetteTerrasse(o.pts, objets) : shoelace(o.pts);
     else if(o.type==='circle') s = Math.PI*o.r*o.r;
-    else { let L=0; for(let i=0;i<o.pts.length-1;i++) L+=dist(au(o.pts, i),au(o.pts, i+1)); s = L*(o.width||1); }
+    else s = surfaceChemin(o);
     return {name:o.name, key:o.key, s};
   });
   let totalHors = 0;
@@ -281,7 +284,7 @@ function assemblerPdf(pages: { content: string; w: number; h: number }[], opacit
   // declare rend le reste illisible.
   const numInfo = objs.length + 1;
   objs.push('<< /Producer (Plan interactif ' + meta.appVersion + ') /Creator (plan.html build ' + meta.buildAt
-    + ') /CreationDate (' + horodatagePdfInfo() + ') >>');
+    + ') /CreationDate (' + horodatagePdfInfo(meta.maintenant) + ') >>');
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
   objs.forEach((body,i)=>{
@@ -321,7 +324,7 @@ export function construirePDF(
   };
 
   const content = '1 w\n'
-    + objets.map(o => dessinerObjet(mise, o)).join('')
+    + objets.map(o => dessinerObjet(mise, o, objets)).join('')
     + dessinerCotes(mise, objets, mesures)
     + habillage(mise, { margin, drawW, drawH, pageH }, scaleDenom, meta);
   const surfaces = pageSurfaces(objets, margin, pageW);

@@ -1,0 +1,132 @@
+# Verification des requetes du serveur PHP contre la VRAIE API Claude (scripts/verifier-api-claude.mjs).
+#
+# Manuelle seulement (onglet Actions, « Vérifier l'API Claude », Run workflow) : elle coute quelques
+# centimes et demande la cle de test. Jamais sur une PR ni un push : une PR d'un fork n'a pas acces
+# aux secrets, et la CI `verifier` ne demande pas le reseau. A lancer avant une livraison
+# (CLAUDE.md, circuit d'une modification, point 5).
+name: Vérifier l'API Claude
+
+on:
+  workflow_dispatch:
+    inputs:
+      modele:
+        description: "Modèle à essayer à la place des modèles par défaut du serveur (vide : ceux du serveur)"
+        required: false
+        default: ""
+      plafond:
+        description: "Plafond de dépense de la vérification, en dollars (0.50 pour la mesure des façades et l’assistant : une passe en coûte environ 0.27)"
+        required: false
+        default: "0.05"
+      mesure_facades:
+        description: "Mesurer aussi le run d'une façade x1 contre x3 sur les scènes de synthèse du banc, et la confronter aux planchers de 5.1.0 (garde-fou de la lecture ; ~88 requêtes, quelques centimes)"
+        type: boolean
+        required: false
+        default: false
+      mesure_assistant:
+        description: "Jouer aussi les dix demandes de référence de l'assistant (lot L6) et juger chaque liste (10 requêtes, environ un centime)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verifier-api:
+    runs-on: ubuntu-latest
+    # 45 minutes depuis le lot L2 : la mesure des facades envoie trois requetes par facade (run, lecture enrichie, toit lu), et sa
+    # relance unique, toutes les scenes quand une ligne du total est sous le plancher, en renvoie autant ; a 30, la relance etait coupee.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: PHP et son extension curl
+        run: |
+          php -v
+          php -m | grep -qx curl || { echo "extension curl absente"; exit 1; }
+      # La mesure des facades (lot F2) : les dependances et les images de synthese, AVANT que la cle n'entre dans l'environnement
+      # (aucun script de paquet ne la voit).
+      - name: Preparer la mesure des facades (sans la cle)
+        if: ${{ inputs.mesure_facades }}
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer mesure-facades
+      # Les dix demandes de reference de l'assistant (lot L6) : chaque requete, catalogue genere sur la demonstration, AVANT la cle.
+      - name: Preparer les demandes de reference de l'assistant (sans la cle)
+        if: ${{ inputs.mesure_assistant }}
+        run: |
+          [ -d node_modules ] || npm ci --no-audit --no-fund
+          npx tsx scripts/assistant-reference.ts --preparer mesure-assistant
+      - name: Requetes du serveur contre l'API Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
+          MODELE: ${{ inputs.modele }}
+          PLAFOND: ${{ inputs.plafond }}
+          MESURE: ${{ inputs.mesure_facades }}
+          ASSISTANT: ${{ inputs.mesure_assistant }}
+        run: |
+          set -euo pipefail
+          args=(--plafond "$PLAFOND")
+          if [ -n "$MODELE" ]; then args+=(--modele "$MODELE"); fi
+          if [ "$MESURE" = "true" ]; then args+=(--facades mesure-facades); fi
+          if [ "$ASSISTANT" = "true" ]; then args+=(--assistant mesure-assistant); fi
+          # Le journal (ni cle ni en-tete) garde la ligne de l'escalade pour le garde-fou de la lecture.
+          node scripts/verifier-api-claude.mjs "${args[@]}" | tee journal-api.txt
+      - name: Le tableau x1 contre x3 (sans la cle)
+        if: ${{ inputs.mesure_facades }}
+        run: npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer mesure-facades | tee -a "$GITHUB_STEP_SUMMARY"
+      # Le garde-fou de la lecture (skill facades §5 quater, MD/RELEASE.md §8.2 bis) : chaque ligne jugee contre son plancher, le pire de
+      # trois mesures de main (tests/fixtures/facades/lecture-5.1.0/reference.json). Une ligne sous le plancher peut etre le bruit d'un
+      # appel : les scenes en cause sont relancees UNE fois ; si la ligne est sous le plancher aux deux mesures, c'est une regression et le
+      # job finit rouge. Aucune marge ailleurs.
+      # Avec un autre modele que celui du serveur (`modele` rempli : un banc des modeles, MD/banc-modeles-facades.md), le garde-fou ne
+      # juge pas : ses planchers sont ceux de Haiku. Sans lui, ni relance ni second jugement.
+      - name: Garde-fou de la lecture, contre les planchers 5.1.0 (sans la cle)
+        id: garde
+        if: ${{ inputs.mesure_facades && inputs.modele == '' }}
+        run: |
+          set -o pipefail
+          npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer mesure-facades --journal journal-api.txt --a-relancer mesure-relance | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Relance unique des scenes sous le plancher
+        if: ${{ inputs.mesure_facades && steps.garde.outputs.relance == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
+          MODELE: ${{ inputs.modele }}
+          PLAFOND: ${{ inputs.plafond }}
+        run: |
+          set -euo pipefail
+          args=(--plafond "$PLAFOND" --facades mesure-relance)
+          if [ -n "$MODELE" ]; then args+=(--modele "$MODELE"); fi
+          node scripts/verifier-api-claude.mjs "${args[@]}" | tee journal-relance.txt
+      - name: Garde-fou de la lecture apres la relance (sans la cle)
+        if: ${{ inputs.mesure_facades && steps.garde.outputs.relance == 'true' }}
+        run: |
+          set -o pipefail
+          npx tsx .claude/skills/facades/scripts/garde-lecture.ts --comparer mesure-facades --journal journal-api.txt --relance mesure-relance --journal-relance journal-relance.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      # Chaque liste de l'assistant jugee contre les listes admises (tests/fixtures/assistant/demandes.json) : rouge si une est fausse.
+      # Toujours, apres le garde-fou des facades : l'un rouge ne saute pas l'autre.
+      - name: Les demandes de reference de l'assistant, jugees (sans la cle)
+        if: ${{ always() && inputs.mesure_assistant }}
+        run: |
+          set -o pipefail
+          npx tsx scripts/assistant-reference.ts --evaluer mesure-assistant | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Reponses de l'assistant
+        if: ${{ always() && inputs.mesure_assistant }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesure-assistant
+          path: mesure-assistant/*.json
+      - name: Reponses de la mesure des facades
+        if: ${{ always() && inputs.mesure_facades }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesure-facades-x1-x3
+          path: |
+            mesure-facades/*.reponses.json
+            mesure-facades/*.verite.json
+            mesure-relance/*.reponses.json
+            mesure-relance/*.verite.json
+            journal-api.txt
+            journal-relance.txt

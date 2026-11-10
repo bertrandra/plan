@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { couleurToitDepuisPixels, couvertureRepli, materiauCouverture, COULEURS_TOIT_REPLI, PIXELS_MIN } from '../../../src/model/couleurToit.js';
+import { couleurToitDepuisPixels, couvertureRepli, materiauCouverture, couvertureGrise, couleurToitPlat, COULEURS_TOIT_REPLI, PIXELS_MIN } from '../../../src/model/couleurToit.js';
 
 type Rgb = [number, number, number];
 /** `n` pixels opaques de la couleur `c`, en RGBA a plat. */
@@ -70,5 +70,66 @@ describe('tuile ou ardoise en 3D (spec-toit-ign §6.2)', () => {
     expect(materiauCouverture({ couleur: '#2E4A62' })).toBe('ardoise');
     expect(materiauCouverture({})).toBe('tuile');
     expect(materiauCouverture(null)).toBe('tuile');
+  });
+});
+
+describe('le modele de couverture : materiau des fichiers fonciers, pente, latitude (spec-toit-ign §6.2)', () => {
+  const rouge = { couleur: COULEURS_TOIT_REPLI.rouge, origineCouleur: 'rouge' };
+  const gris = { couleur: COULEURS_TOIT_REPLI.gris, origineCouleur: 'gris' };
+  it('le materiau connu l emporte sur la couleur', () => {
+    expect(materiauCouverture(rouge, { materiauxToiture: '20' })).toBe('ardoise');
+    expect(materiauCouverture(rouge, { materiauxToiture: '30' })).toBe('zinc');
+    // Une tuile que la photo voyait grise reste une tuile.
+    expect(materiauCouverture(gris, { materiauxToiture: '10' })).toBe('tuile');
+    // Inconnu : la couleur decide, comme avant.
+    expect(materiauCouverture(gris, { materiauxToiture: '90' })).toBe('ardoise');
+  });
+  it('la pente choisit la tuile : plate sur un toit raide, canal sur un toit peu pentu du Midi', () => {
+    expect(materiauCouverture(rouge, { pente: 45 })).toBe('tuile-plate');
+    expect(materiauCouverture(rouge, { pente: 33 })).toBe('tuile');
+    expect(materiauCouverture(rouge, { pente: 18, latitude: 43.9 })).toBe('tuile-canal');
+    expect(materiauCouverture(rouge, { pente: 18, latitude: 50.6 })).toBe('tuile');
+    expect(materiauCouverture(rouge, { pente: null })).toBe('tuile');
+    // La pente ne touche ni l'ardoise ni le zinc.
+    expect(materiauCouverture(gris, { pente: 45 })).toBe('ardoise');
+  });
+  it('un toit-terrasse est en gravillons ; ardoise et zinc sont des couvertures grises', () => {
+    expect(materiauCouverture(rouge, {}, true)).toBe('terrasse');
+    expect(couvertureGrise('zinc')).toBe(true);
+    expect(couvertureGrise('ardoise')).toBe(true);
+    expect(couvertureGrise('tuile-plate')).toBe(false);
+  });
+});
+
+describe('la couleur d un toit-terrasse', () => {
+  it('garde la teinte lue, mais ne se rabat jamais sur une tuile', () => {
+    // Une membrane gris-beige uniforme : lue telle quelle.
+    const lue = couleurToitDepuisPixels(grain([150, 145, 135], 400), true);
+    expect(lue.origine).toBe('orthophoto');
+    // Une photo trop rouge et trop brouillee, qu'un toit en pente prendrait pour une tuile : grise ici.
+    const brouillee = [...pixels([170, 60, 40], 150), ...pixels([40, 160, 40], 150), ...pixels([90, 90, 200], 150)];
+    expect(couleurToitDepuisPixels(brouillee).origine).not.toBe('orthophoto');
+    expect(couleurToitDepuisPixels(brouillee, true)).toEqual({ couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' });
+    expect(couleurToitDepuisPixels([], true)).toEqual({ couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' });
+  });
+
+  it('en 3D : la couleur lue ou choisie, grise si Plan l avait rabattue sur une tuile', () => {
+    expect(couleurToitPlat({ couleur: '#998877', origineCouleur: 'orthophoto' })).toBe('#998877');
+    expect(couleurToitPlat({ couleur: '#123456' })).toBe('#123456');
+    expect(couleurToitPlat({ couleur: COULEURS_TOIT_REPLI.rouge, origineCouleur: 'rouge' })).toBe(COULEURS_TOIT_REPLI.gris);
+    expect(couleurToitPlat({ couleur: COULEURS_TOIT_REPLI.brun, origineCouleur: 'brun' })).toBe(COULEURS_TOIT_REPLI.gris);
+    expect(couleurToitPlat({})).toBe(COULEURS_TOIT_REPLI.gris);
+    expect(couleurToitPlat(null)).toBe(COULEURS_TOIT_REPLI.gris);
+  });
+});
+
+describe('le materiau choisi dans l inspecteur', () => {
+  it('l emporte sur les fichiers fonciers, la couleur et la pente, sauf sur un toit plat', () => {
+    expect(materiauCouverture({ origineCouleur: 'gris' }, { materiauxToiture: '2', choix: 'tuile-plate' })).toBe('tuile-plate');
+    expect(materiauCouverture(null, { pente: 50, choix: 'zinc' })).toBe('zinc');
+    expect(materiauCouverture(null, { pente: 50, choix: 'bac-acier' })).toBe('bac-acier');
+    expect(materiauCouverture(null, { choix: 'vegetale' }, true)).toBe('terrasse');
+    expect(materiauCouverture(null, { choix: 'ardoise' }, true)).toBe('terrasse');
+    expect(materiauCouverture(null, { materiauxToiture: '2', choix: null })).toBe('ardoise');
   });
 });

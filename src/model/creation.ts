@@ -16,11 +16,13 @@
 // panneaux et la Vue 3D lisent pour les traiter a part.
 
 import { au } from '../util/tableaux.js';
-import { centroid } from '../geometry/basic.js';
+import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
-import type { PtBrut, ObjetPlan, ObjetBrut } from './types.js';
+import type { PtBrut, ObjetPlan, ObjetAPlat, Construction, Mesure } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
+import { centreSouhaite, type NatureOuvrage } from './placement.js';
+import { estOuvrage, oublierLObjet, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE, type NatureAbri } from './ouvrages/index.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -36,6 +38,8 @@ export interface EtatCreation {
   terrasseSelectedKey: string | null;
   /** Consomme par `cleObjet` a chaque objet neuf. */
   newObjCounter: number;
+  /** Les cotes du plan : celles qui s'appuient sur un objet supprime partent avec lui. */
+  measures?: Mesure[];
 }
 
 /** La section de l'inspecteur que la creation designe : les cotes d'une forme libre, l'objet d'un rectangle. */
@@ -121,27 +125,25 @@ export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse:
       center: { x: c.x, y: c.y }, r: 1.5, // 3 m de diametre, taille courante d'un parasol de terrasse
       showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
       constrained: true, fonction: 'parasol', matiere: '', priority: 4, locked: false,
-      hauteurParasol: 2.2,
-      terrasseLieeKey: (terrasse && estTerrasse(terrasse)) ? terrasse.key : null
+      parasol: { hauteur: 2.2, terrasseLieeKey: (terrasse && estTerrasse(terrasse)) ? terrasse.key : null },
+      
     },
     onglet: 'objet'
   };
 }
 
 /** Ce qu'une pergola et un carport ont de propre a la creation : le nom, la taille, la couleur. */
-const ABRIS = {
+const ABRIS: Record<NatureAbri, { nom: string; demiL: number; demiH: number; fill: string; stroke: string }> = {
   pergola: { nom: 'Pergola', demiL: 2, demiH: 1.5, fill: '#d9c3a0', stroke: '#6b4a2a' },
   // Une place de voiture : 3 m de large sur 5 m de profondeur.
   carport: { nom: 'Carport', demiL: 1.5, demiH: 2.5, fill: '#c9ccce', stroke: '#4a4f54' }
-} as const;
-
-export type NatureAbri = keyof typeof ABRIS;
+};
 
 /**
  * Pergola ou carport : un rectangle, en mode rectangle comme « + Rectangle ». Sa `fonction` fait que
  * l'inspecteur y ajoute la structure (poteaux, cadre, contrefiches, toit), le metrage et le
  * chiffrage, et que la Vue 3D la construit piece par piece — le meme code pour les deux ouvrages
- * (engine/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
+ * (engine/abri/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
  * le plan dessine les poteaux et les chevrons par-dessus, et ce qui est dessous doit rester lisible.
  */
 export function nouvelAbri(nature: NatureAbri, c: PtBrut, key: string, numero: number): ObjetNeuf {
@@ -194,6 +196,49 @@ export function nouvellePiscine(forme: FormePiscine, c: PtBrut, key: string, num
   };
 }
 
+/**
+ * Terrasse posee autour d'une piscine : un polygone libre (coins non tenus), pour qu'on en tire
+ * chaque coin a la forme voulue. Le bassin la perce de lui-meme (engine/structure.ts, ouvertures) ;
+ * le contour et la construction sont calcules par l'appelant, qui connait le moteur.
+ */
+export function nouvelleTerrasse(pts: PtBrut[], key: string, nom: string, construction: Construction): ObjetNeuf {
+  const n = pts.length;
+  return {
+    obj: {
+      key, type: 'polygon', name: nom, fill: '#DDBC7E', fillOpacity: 0.68, stroke: '#8B6B3D',
+      pts: pts.map(p => ({ x: p.x, y: p.y })),
+      vertexNames: Array.from({ length: n }, (_, i) => 'Coin ' + (i + 1)),
+      segmentNames: Array.from({ length: n }, (_, i) => 'Cote ' + (i + 1)),
+      frozenVertices: Array.from({ length: n }, () => false),
+      showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
+      constrained: true, fonction: 'terrasse', matiere: '', priority: 1, locked: false,
+      construction
+    },
+    onglet: 'segments'
+  };
+}
+
+/**
+ * Trou dans une terrasse (fonction `tremie`) : la terrasse s'arrete a son bord sur un chevetre,
+ * comme autour d'un bassin — un arbre conserve, une trappe de visite, un regard. Polygone libre de
+ * 1,2 x 1,2 m, pose au centre de la terrasse ; ses coins se tirent ensuite a la forme voulue.
+ */
+export function nouveauTrou(c: PtBrut, key: string, numero: number): ObjetNeuf {
+  const d = 0.6;
+  return {
+    obj: {
+      key, type: 'polygon', name: 'Trou ' + numero, fill: '#f4efe4', fillOpacity: 0.85, stroke: '#4a2f18',
+      pts: [{ x: c.x - d, y: c.y - d }, { x: c.x + d, y: c.y - d }, { x: c.x + d, y: c.y + d }, { x: c.x - d, y: c.y + d }],
+      vertexNames: ['Coin 1', 'Coin 2', 'Coin 3', 'Coin 4'],
+      segmentNames: ['Cote 1', 'Cote 2', 'Cote 3', 'Cote 4'],
+      frozenVertices: [false, false, false, false],
+      showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
+      constrained: true, fonction: 'tremie', matiere: '', priority: 4, locked: false
+    },
+    onglet: 'segments'
+  };
+}
+
 /** La longueur du segment qui porte la direction d'un point de vue, en metres. */
 const VISEE_M = 2;
 
@@ -230,7 +275,7 @@ export function nouveauPointDeVue(
  * Un objet passe par la serialisation : des donnees pures, sans element SVG. Non decrit plus
  * finement ici — la forme exacte appartient a `io/serialisation.ts` et a sa liste blanche.
  */
-export type ObjetSerialise = ObjetBrut & { key: string };
+export type ObjetSerialise = ObjetAPlat & { key: string };
 
 /** Ce que la creation doit pouvoir faire au plan et a l'interface. */
 export interface ContexteCreation {
@@ -250,8 +295,67 @@ export interface ContexteCreation {
   normalizeObjects: (bruts: ObjetSerialise[]) => ObjetPlan[];
   showToast: (message: string) => void;
   showConfirm: (message: string, oui: () => void) => void;
+  /** Le cote sur rue de la parcelle, devine (geo/coteRue.ts) : un carport neuf s'en approche. Absent : pas de rue connue. */
+  coteRue?: () => number | null;
   /** L'horloge qui date les cles d'objets (voir `model/cles.ts`). `Date.now` par defaut. */
   horloge?: () => number;
+}
+
+/** Deux segments se croisent-ils (hors contact en un bout) ? */
+function seCroisent(a: PtBrut, b: PtBrut, c: PtBrut, d: PtBrut): boolean {
+  const o = (p: PtBrut, q: PtBrut, r: PtBrut) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+}
+
+/** Deux polygones se recouvrent-ils ? Un sommet de l'un dans l'autre, ou deux cotes qui se croisent. */
+function seRecouvrent(p: PtBrut[], q: PtBrut[]): boolean {
+  if (p.some(s => pointInPolygon(s, q)) || q.some(s => pointInPolygon(s, p))) return true;
+  return p.some((a, i) => q.some((c, j) => seCroisent(a, au(p, (i + 1) % p.length), c, au(q, (j + 1) % q.length))));
+}
+
+/**
+ * Le rectangle de `largeur` x `profondeur` le plus proche de `centre` qui tient dans la parcelle sans
+ * recouvrir un objet pose (maison, annexe, terrasse, piscine, massif, arbre...) : un ouvrage neuf
+ * naît la ou on le voit, pas sous la maison. On cherche sur une grille de 50 cm ; sans place libre,
+ * le rectangle reste centre sur `centre`.
+ */
+export function rectangleLibre(objets: ObjetPlan[], centre: PtBrut, largeur: number, profondeur: number): PtBrut[] {
+  const rect = (c: PtBrut) => [{ x: c.x - largeur / 2, y: c.y - profondeur / 2 }, { x: c.x + largeur / 2, y: c.y - profondeur / 2 },
+    { x: c.x + largeur / 2, y: c.y + profondeur / 2 }, { x: c.x - largeur / 2, y: c.y + profondeur / 2 }];
+  const parcelle = objets.find(o => o.key === 'parcelle');
+  const contour = parcelle ? enPoints(parcelle).pts : null;
+  // Les obstacles : tout ce qui occupe le sol, sauf le terrain lui-meme, les traces (chemins,
+  // limites, points de vue) et le voisinage. Un cercle compte pour son carre.
+  const obstacles = objets.filter(o => !o.voisinage && o.key !== 'parcelle' && !estOuvrage(o, TERRAIN) && o.type !== 'path')
+    .map(o => o.type === 'circle'
+      ? [{ x: o.center.x - o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y + o.r }, { x: o.center.x - o.r, y: o.center.y + o.r }]
+      : o.pts)
+    .filter(pts => pts.length >= 3);
+  const libre = (r: PtBrut[]) => (!contour || r.every(s => pointInPolygon(s, contour))) && !obstacles.some(ob => seRecouvrent(r, ob));
+  if (libre(rect(centre)) || !contour) return rect(centre);
+  const xs = contour.map(p => p.x), ys = contour.map(p => p.y);
+  const candidats: PtBrut[] = [];
+  for (let x = Math.min(...xs); x <= Math.max(...xs); x += 0.5) {
+    for (let y = Math.min(...ys); y <= Math.max(...ys); y += 0.5) candidats.push({ x, y });
+  }
+  candidats.sort((a, b) => Math.hypot(a.x - centre.x, a.y - centre.y) - Math.hypot(b.x - centre.x, b.y - centre.y));
+  const c = candidats.find(k => libre(rect(k)));
+  return rect(c ?? centre);
+}
+
+/**
+ * Une terrasse neuve (bouton Terrasse de la palette) : 4 x 3 m a la place libre la plus proche de
+ * `centre`, coins libres — on en tire les coins a la forme voulue, ou on coche « Mode rectangle ».
+ * La construction vient de l'appelant, qui connait le moteur : sur plots, plots dans l'emprise.
+ */
+export function terrasseNeuve(objets: ObjetPlan[], centre: PtBrut, key: string, construction: Construction): ObjetNeuf {
+  const n = objets.filter(o => estTerrasse(o)).length + 1;
+  return nouvelleTerrasse(rectangleLibre(objets, centre, 4, 3), key, 'Terrasse ' + n, construction);
+}
+
+/** La place d'un ouvrage neuf (model/placement.ts), ou `null` quand aucune regle ne s'applique. */
+function placeDUnOuvrage(etat: EtatCreation, ctx: ContexteCreation, nature: NatureOuvrage, largeur: number, profondeur: number): PtBrut | null {
+  return centreSouhaite(nature, { objets: etat.objects, terrasseSelectedKey: etat.terrasseSelectedKey, coteRue: ctx.coteRue ? ctx.coteRue() : null }, largeur, profondeur);
 }
 
 export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
@@ -265,6 +369,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
   function cle(prefixe: string) {
     return cleObjet(prefixe, etat, { horloge: ctx.horloge });
   }
+
+  const place = (nature: NatureOuvrage, largeur: number, profondeur: number) => placeDUnOuvrage(etat, ctx, nature, largeur, profondeur) ?? centreParcelle();
 
   /** Les sept gestes de l'insertion, dans l'ordre — aucun n'est facultatif. */
   function inserer({ obj }: ObjetNeuf) {
@@ -295,34 +401,60 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
 
     ajouterParasol() {
       ctx.pushHistory();
-      // Pose au centre de la terrasse plutot que de la parcelle : sinon il naît loin de l'endroit ou
-      // on veut l'utiliser.
       const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey)
                 || etat.objects.find(o => o.key === 'parcelle');
-      const c = terr ? centroid(enPoints(terr).pts) : { x: 0, y: 0 };
-      const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
+      const c = place('parasol', 3, 3);
+      const n = etat.objects.filter(o => estOuvrage(o, PARASOL)).length + 1;
       inserer(nouveauParasol(c, cle('circle'), n, terr));
     },
 
     ajouterAbri(nature: NatureAbri) {
       ctx.pushHistory();
-      // Une pergola se pose sur la terrasse s'il y en a une, comme le parasol ; un carport abrite une
-      // voiture, pas une terrasse : il naît au centre de la parcelle.
-      const terr = nature === 'pergola' ? terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey) : undefined;
-      const c = terr ? centroid(enPoints(terr).pts) : centreParcelle();
+      // Une pergola sur la terrasse, comme le parasol ; un carport pres de la rue, a la place libre la plus proche.
+      const a = ABRIS[nature];
+      const c = nature === 'carport' ? centroid(rectangleLibre(etat.objects, place('carport', 2 * a.demiL, 2 * a.demiH), 2 * a.demiL, 2 * a.demiH)) : place('pergola', 2 * a.demiL, 2 * a.demiH);
       const n = etat.objects.filter(o => o.fonction === nature).length + 1;
       inserer(nouvelAbri(nature, c, cle('obj'), n));
     },
 
+    ajouterTerrasse(construction: Construction) { ctx.pushHistory(); inserer(terrasseNeuve(etat.objects, place('terrasse', 4, 3), cle('obj'), construction)); },
+
     ajouterPiscine(forme: FormePiscine) {
       ctx.pushHistory();
-      const n = etat.objects.filter(o => o.fonction === 'piscine').length + 1;
-      inserer(nouvellePiscine(forme, centreParcelle(), cle(forme === 'ronde' ? 'circle' : 'obj'), n));
+      const n = etat.objects.filter(o => estOuvrage(o, PISCINE)).length + 1;
+      const c = centroid(rectangleLibre(etat.objects, place('piscine', 8, 4), 8, 4));
+      inserer(nouvellePiscine(forme, c, cle(forme === 'ronde' ? 'circle' : 'obj'), n));
+    },
+
+    /**
+     * La terrasse qui sert de plage a une piscine : creee autour d'elle, liee par `terrasseKey`, et
+     * selectionnee pour qu'on en tire les coins tout de suite. Un seul instantane pour les deux
+     * objets : Ctrl+Z defait le tout.
+     */
+    ajouterTerrasseAutour(piscine: ObjetPlan, pts: PtBrut[], construction: Construction) {
+      ctx.pushHistory();
+      const neuf = nouvelleTerrasse(pts, cle('obj'), 'Terrasse de ' + piscine.name, construction);
+      piscine.piscine = { ...(piscine.piscine || {}), plage: 'terrasse', terrasseKey: neuf.obj.key };
+      inserer(neuf);
+    },
+
+    /** Un trou au centre de la terrasse donnee, selectionne. */
+    ajouterTrou(terrasse: ObjetPlan) {
+      ctx.pushHistory();
+      const n = etat.objects.filter(o => estOuvrage(o, TREMIE)).length + 1;
+      inserer(nouveauTrou(centroid(enPoints(terrasse).pts), cle('obj'), n));
+    },
+
+    /** Selectionne un objet existant (la terrasse d'une piscine), sans toucher au plan. */
+    selectionner(key: string) {
+      etat.selectedKey = key;
+      ctx.rebuildSelector();
+      ctx.render();
     },
 
     ajouterPointDeVue() {
       ctx.pushHistory();
-      const n = etat.objects.filter(o => o.fonction === 'camera').length + 1;
+      const n = etat.objects.filter(o => estOuvrage(o, POINT_DE_VUE)).length + 1;
       inserer(nouveauPointDeVue(centreParcelle(), cle('path'), n));
     },
 
@@ -343,6 +475,8 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       plain.key = cle('dup');
       plain.name = src.name + ' (copie)';
       const clone = au(ctx.normalizeObjects([plain]), 0);
+      // La copie d'une piscine n'emporte pas la terrasse de l'original : chacune pose la sienne.
+      if (clone.piscine?.terrasseKey) delete clone.piscine.terrasseKey;
       if (clone.type === 'circle') clone.center.x -= 5;
       else clone.pts.forEach(p => { p.x -= 5; });
       inserer({ obj: clone, onglet: 'objet' });
@@ -363,10 +497,10 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       if (obj.locked) { ctx.showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
       ctx.showConfirm('Supprimer definitivement "' + obj.name + '" ?', () => {
         ctx.pushHistory();
-        // Le demontage oublie aussi l'entree de la carte des vues, que la suppression laissait
-        // derriere elle.
+        // La carte des vues oublie l'objet, et tout ce qui le tenait par sa cle (cotes, plage, parasol, toit a cheval : l'historique a touche tout).
         ctx.detruireVue(obj);
         etat.objects.splice(idx, 1);
+        oublierLObjet(etat, obj.key);
         etat.selectedKey = null;
         ctx.rebuildSelector();
         ctx.render();

@@ -13,6 +13,7 @@ import { brancherVue3d, type ContexteVue3d } from '../../../../src/app/ecouteurs
 import { brancherVisionneuse, type ContexteVisionneuse } from '../../../../src/app/ecouteurs/visionneuse.js';
 import { vue3d, glb, affichage3d } from '../../../../src/three/etat3d.js';
 import { fauxAtelier, droits } from './faux.js';
+import { soleilDuProjet } from '../../../../src/core/soleil.js';
 import type { ObjetPlan } from '../../../../src/model/types.js';
 
 // La Vue 3D et la visionneuse (app/ecouteurs/vue3d.ts, visionneuse.ts) : la camera, les captures, le
@@ -35,9 +36,10 @@ function monter(ecrire = true) {
   const a = fauxAtelier({ objects: [terrasse], terrasseSelectedKey: 't' } as never);
   let plein = false;
   const ctx: ContexteVue3d = {
-    zoom3D: vi.fn(), setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
+    zoom3D: vi.fn(), tournerVue: vi.fn(), vue3dOuverte: () => true, setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
     setVue3dPleinePage: vi.fn((v: boolean) => { plein = v; }), setGlbViewerPleinePage: vi.fn(),
-    vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn()
+    vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn(),
+    lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 })
   };
   const cmd = creerRegistre(droits(ecrire));
   const reglages = brancherVue3d(a, ctx, cmd);
@@ -53,8 +55,8 @@ describe('Vue 3D', () => {
   it('commande la camera par son contexte', () => {
     const { ctx, cmd } = monter();
     cmd.executer('3d.zoomAvant'); cmd.executer('3d.zoomArriere');
-    expect(ctx.zoom3D).toHaveBeenNthCalledWith(1, 0.8);
-    expect(ctx.zoom3D).toHaveBeenNthCalledWith(2, 1.25);
+    expect(ctx.zoom3D).toHaveBeenNthCalledWith(1, 0.5);
+    expect(ctx.zoom3D).toHaveBeenNthCalledWith(2, 2);
     cmd.executer('3d.modeOrbite'); cmd.executer('3d.modeDeplacement'); cmd.executer('3d.modeZoom');
     expect((ctx.setMode3D as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])).toEqual(['orbit', 'pan', 'zoom']);
     cmd.executer('3d.hauteurDesYeux');
@@ -127,7 +129,7 @@ describe('Vue 3D', () => {
 describe('visionneuse', () => {
   function monterVis() {
     const a = fauxAtelier({ objects: [terrasse], terrasseSelectedKey: 't' } as never);
-    const ctx: ContexteVisionneuse = { genererGlb: vi.fn(), rafraichir: vi.fn(), appliquerLumiere: vi.fn(), hauteurFinieMm: () => 300, hauteurYeuxM: 1.6 };
+    const ctx: ContexteVisionneuse = { genererGlb: vi.fn(), rafraichir: vi.fn(), appliquerLumiere: vi.fn(), remplacerFond: vi.fn(), hauteurFinieMm: () => 300, hauteurYeuxM: 1.6 };
     const cmd = creerRegistre(droits(true));
     return { ctx, cmd, reglages: brancherVisionneuse(a, ctx, cmd) };
   }
@@ -161,5 +163,29 @@ describe('visionneuse', () => {
     expect(glb.filaire).toBe(true);
     expect(ctx.rafraichir).toHaveBeenCalledTimes(1);
     glb.ouvert = false; glb.filaire = false; glb.ombres = true;
+  });
+});
+
+describe('la presentation (R6)', () => {
+  it('l heure doree place le soleil du projet avant son coucher, sans pas d annulation', () => {
+    const { a, cmd } = monter();
+    soleilDuProjet.regler({ dateStr: '2026-06-21', minutes: 12 * 60 });
+    const vu: number[] = [];
+    const fin = soleilDuProjet.abonner(() => vu.push(soleilDuProjet.lire().minutes));
+    cmd.executer('3d.heureDoree');
+    fin();
+    // Au Vesinet le 21 juin, le soleil se couche vers 21 h 58 : l'heure doree commence vers 21 h.
+    const m = soleilDuProjet.lire().minutes;
+    expect(m).toBeGreaterThan(20 * 60 + 40);
+    expect(m).toBeLessThan(21 * 60 + 30);
+    // L'ecouteur du soleil (app/ecouteurs/soleil.ts) est prevenu : c'est lui qui eclaire la 3D et marque a enregistrer.
+    expect(vu).toEqual([m]);
+    expect(a.pushHistory).not.toHaveBeenCalled();
+    expect(a.markDirty).not.toHaveBeenCalled();
+  });
+
+  it('la promenade demande deux points de vue', () => {
+    const { cmd } = monter();
+    expect(cmd.etat('3d.promenade').utilisable).toBe(false);
   });
 });

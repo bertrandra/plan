@@ -12,6 +12,7 @@
 
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
+import { attente } from '../../shell/attente.js';
 import type { ProjetValide } from '../../io/validation.js';
 import type { RegistreCommandes } from '../commandes.js';
 
@@ -34,7 +35,7 @@ export interface ContexteFichiers {
  *
  * `surSucces` reçoit le contenu ; les erreurs de lecture passent par `messageErreur`.
  */
-function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSucces: (contenu: string) => void): void {
+function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSucces: (contenu: string) => void, surEchec?: () => void): void {
   const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
@@ -45,11 +46,38 @@ function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSuc
   reader.onerror = () => {
     showToast(messageErreur);
     input.value = '';
+    surEchec?.();
   };
   reader.readAsText(file);
 }
 
+const ATTENTE_OUVERTURE = 'ouverture-projet';
+
+/** Rend la main au navigateur le temps d'une image (la roue s'y dessine), puis lance `f`. */
+function apresUneImage(f: () => void): void {
+  if (typeof requestAnimationFrame === 'undefined') { f(); return; }
+  requestAnimationFrame(() => { setTimeout(f, 0); });
+}
+
 export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes): void {
+  /** Le projet lu : verifie, puis pose ; un fichier refuse laisse le plan courant intact. */
+  function ouvrirLeProjetLu(contenu: string, remplacer: boolean): void {
+    let valide;
+    try {
+      valide = ctx.validerProjetJSON(JSON.parse(contenu));
+    } catch (err) {
+      // Le plan courant reste intact : rien n'a été touché avant la validation.
+      //
+      // Et un fichier trop récent n'est pas illisible — il est refusé volontairement. Le dire
+      // autrement enverrait l'utilisateur chercher une corruption qui n'existe pas.
+      const e = err as Error & { motif?: string };
+      showToast((e.motif === 'schema' ? 'Import refuse : ' : 'Import annule - fichier illisible : ') + (e.message || e));
+      return;
+    }
+    try { ctx.appliquerProjetImporte(valide, remplacer); }
+    catch (err) { showErrBanner('Echec de l\'import JSON : ' + ((err as Error).message || err)); }
+  }
+
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
 
   // Les trois commandes sont des entrees du menu Fichier (zones/BarreApplication.tsx) ; seuls les
@@ -82,21 +110,15 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
     }
     // Lu avant la lecture du fichier : la case peut changer pendant que le disque répond.
     const remplacer = ctx.remplacerImportJson();
+    // La roue, sans message, le temps de lire, verifier et poser le projet : quatre mille objets
+    // prennent plusieurs secondes, pendant lesquelles la page paraissait figee.
+    attente.poser(ATTENTE_OUVERTURE, '');
     lireFichierTexte(this, 'Erreur de lecture du fichier JSON.', contenu => {
-      let valide;
-      try {
-        valide = ctx.validerProjetJSON(JSON.parse(contenu));
-      } catch (err) {
-        // Le plan courant reste intact : rien n'a été touché avant la validation.
-        //
-        // Et un fichier trop récent n'est pas illisible — il est refusé volontairement. Le dire
-        // autrement enverrait l'utilisateur chercher une corruption qui n'existe pas.
-        const e = err as Error & { motif?: string };
-        showToast((e.motif === 'schema' ? 'Import refuse : ' : 'Import annule - fichier illisible : ') + (e.message || e));
-        return;
-      }
-      try { ctx.appliquerProjetImporte(valide, remplacer); }
-      catch (err) { showErrBanner('Echec de l\'import JSON : ' + ((err as Error).message || err)); }
-    });
+      // Une image d'abord : le travail qui suit est d'un seul tenant, la roue doit etre dessinee avant.
+      apresUneImage(() => {
+        try { ouvrirLeProjetLu(contenu, remplacer); }
+        finally { attente.poser(ATTENTE_OUVERTURE, null); }
+      });
+    }, () => attente.poser(ATTENTE_OUVERTURE, null));
   });
 }

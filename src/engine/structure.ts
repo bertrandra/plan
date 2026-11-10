@@ -5,15 +5,16 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { au } from '../util/tableaux.js';
-import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
-import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
+import { centroid, dist, pointInPolygon, shoelace } from '../geometry/basic.js';
+import { aireCommune, clipLineToPolygon, offsetZone, ringSegments, safeOffset } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { estPlots } from './constantes.js';
+import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
+import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
-import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
-import { calculerPiscine } from './piscine.js';
-import { estPiscine } from '../model/fonctions.js';
+import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './bois/portees.js';
+import { objetsQuiPercent } from './ouvrages/liens.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
+import { equipementPorte } from '../model/jardin.js';
 
 /**
  * Ce qu'une etude de structure a besoin de connaitre d'une terrasse : son contour et ses parametres.
@@ -93,26 +94,6 @@ export function subdivideSegment(a: PtBrut, b: PtBrut, maxGap: number, includeEn
   if(includeEnd) out.push({x:b.x, y:b.y});
   return out;
 }
-// Signed area: the sign carries the winding direction, which is what tells a shrunk outline
-// apart from one that has folded through itself. (Defined once, near renderAttrTable() above -
-// removed the duplicate that used to live here, same implementation under a different param name.)
-// Insetting by more than a shape can take folds it inside out. Sometimes it comes back with
-// the winding reversed, which is easy to spot - but on a very narrow shape it can wrap right
-// around and return a polygon LARGER than the original, which looks perfectly plausible and
-// silently poisons everything clipped against it. Both are caught here by comparing signed
-// areas, and the raw outline is used instead.
-export function safeOffset(poly: PtBrut[], distM: number): PtBrut[] {
-  if(Math.abs(distM) < 1e-9) return poly.map(p=>({...p}));
-  const off = polygonOffset(poly, distM);
-  const a0 = signedArea(poly), a1 = signedArea(off);
-  const grew = Math.abs(a1) > Math.abs(a0);
-  const ok = off.length>=3
-          && off.every(p=>isFinite(p.x)&&isFinite(p.y))
-          && Math.sign(a1)===Math.sign(a0)
-          && (distM>0 ? (!grew && Math.abs(a1) > 0.02*Math.abs(a0))
-                      : ( grew && Math.abs(a1) < 25*Math.abs(a0)));
-  return ok ? off : poly.map(p=>({...p}));
-}
 export const VIS_ROLE_RANK: Record<string, number> = { spa:3, rive:2, courant:1 };
 // Two screws a handspan apart are one screw once you are on site: keep whichever carries the
 // more demanding role, so a perimeter screw is never dropped in favour of a field one.
@@ -161,7 +142,8 @@ export function findSpaZones(margeCm: number | undefined, objets: ObjetPlan[]): 
   const marge = (margeCm||0)/100;
   const zones: ZoneEquipement[] = [];
   objets.forEach(o=>{
-    if(o.fonction !== 'equipement') return;
+    // Un regard, un eclairage ou un robinet (model/jardin.ts) ne charge pas la terrasse : seul l'equipement d'avant (un spa) compte.
+    if(!equipementPorte(o)) return;
     const fp = empriseEquipement(o);
     if(!fp) return;
     const poly = offsetZone(fp, marge);
@@ -239,7 +221,13 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const cadreW = plotSimple ? dimsSection(sectionLambourde(c)).b/1000 : soliveW;
   const perim = poly.reduce((s,p,i)=>s+dist(p, au(poly, (i+1)%n)), 0) || 1;
-  const cadreOff = Math.min(cadreW/2, 0.4 * 2*shoelace(poly)/perim);
+  // Plots dans l'emprise (terrasse creee depuis la 2.2) : le cadre recule d'un rayon d'embase, pour
+  // que l'embase d'un plot de rive ne depasse pas du bord ; les lames debordent d'autant.
+  const enRetrait = estPlots(c) && !!c.plotsDansEmprise;
+  const rayonEmbase = Math.sqrt((c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2) / Math.PI) / 100;
+  const cadreOff = Math.min(enRetrait ? Math.max(cadreW/2, rayonEmbase) : cadreW/2, 0.4 * 2*shoelace(poly)/perim);
+  // En retrait, solives et lambourdes s'arretent sur le cadre, pas au bord des lames.
+  const clipStructure = enRetrait ? safeOffset(poly, cadreOff) : null;
   const cadre = ringSegments(safeOffset(poly, cadreOff));
 
   // Avec des plots sans solives, la couche qui porte les lames est un lit de lambourdes a
@@ -250,10 +238,10 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
   const soliveAngle = avecLamb ? lamesAngle : (lamesAngle+90);
   const solives = plotSimple
     ? []
-    : generateSpanningLines(poly, soliveAngle, Math.max(0.1,(c.soliveEntraxe||40)/100));
+    : generateSpanningLines(poly, soliveAngle, Math.max(0.1,(c.soliveEntraxe||40)/100), clipStructure);
   const entraxeLamb = plotSimple ? maxEntraxeLameCm(c) : (c.lambourdeEntraxe||40);
   const lambourdes = avecLamb
-    ? generateSpanningLines(poly, lamesAngle+90, Math.max(0.1, entraxeLamb/100))
+    ? generateSpanningLines(poly, lamesAngle+90, Math.max(0.1, entraxeLamb/100), clipStructure)
     : [];
 
   // A spa is a tonne or more standing on a couple of square metres. Where the solives are
@@ -286,16 +274,20 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
       }
     });
   }
-  // Un bassin dans la terrasse est une ouverture : les pieces s'arretent a son bord, un chevetre
+  // Un bassin ou un trou de terrasse (fonction `tremie`) est une ouverture : les pieces s'arretent a son bord, un chevetre
   // en fait le tour (de la section du cadre, dans la liste du cadre pour que les appuis, le debit,
   // l'implantation et le chantier le traitent comme une rive) et les lames s'y coupent (layers.ts).
   // Rien de tout cela n'existe sans bassin : les cles ne sont posees qu'alors, pour que le resultat
   // d'une terrasse sans piscine reste identique a l'oracle (tests/unit/engine/moteur-oracle.test.ts).
   const trous = ouverturesDe(poly, objets);
+  // En retrait, les pieces s'arretent aussi sur le chevetre, pas au bord du bassin.
+  const trousStructure = enRetrait ? trous.map(t => safeOffset(t, -cadreOff)) : trous;
   const avecTrous = trous.length ? {
     trous,
-    chevetres: trous.flatMap(t => ringSegments(safeOffset(t, -cadreOff))),
-    solives: retirerOuvertures(solives, trous), lambourdes: retirerOuvertures(lambourdes, trous), solivesSpa: retirerOuvertures(solivesSpa, trous)
+    // Le chevetre ne borde le bassin que la ou la terrasse existe : un bassin a cheval sur son
+    // bord n'a pas de piece dans le vide.
+    chevetres: trous.flatMap(t => ringSegments(safeOffset(t, -cadreOff)).flatMap(seg => couperAuContour(seg, poly))),
+    solives: retirerOuvertures(solives, trousStructure), lambourdes: retirerOuvertures(lambourdes, trousStructure), solivesSpa: retirerOuvertures(solivesSpa, trousStructure)
   } : null;
   if (avecTrous) avecTrous.chevetres.forEach(s => cadre.push(s));
   // Les pieces qui reposent sur les appuis : les solives quand il y en a, les lambourdes en
@@ -311,15 +303,45 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
  * s'arrete.
  */
 export function ouverturesDe(poly: PtBrut[], objets: ObjetPlan[]): PtBrut[][] {
-  const trous: PtBrut[][] = [];
-  objets.forEach(o => {
-    if(!estPiscine(o)) return;
-    const calc = calculerPiscine(o);
-    if(!calc) return;
-    const t = calc.margelleExt;
-    if(t.some(p => pointInPolygon(p, poly)) || poly.some(p => pointInPolygon(p, t))) trous.push(t);
+  return objetsQuiPercent(poly, objets).map(x => x.contour);
+}
+
+/** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */
+export function empriseDalle(poly: PtBrut[]): PtBrut[] {
+  return safeOffset(poly, -DALLE_DEBORD_M);
+}
+
+/** La surface de la dalle : son emprise, moins les bassins et trous qui la percent. */
+export function surfaceDalle(poly: PtBrut[], trous: PtBrut[][]): number {
+  const e = empriseDalle(poly);
+  return shoelace(e) - trous.reduce((s, t) => s + aireCommune(t, e), 0);
+}
+
+/**
+ * Le volume de terre du decaissement de pose (niveau fini impose, engine/hauteurs.ts), en m³ en
+ * place : la profondeur sur l'emprise de la terrasse — celle de la dalle, debord compris, quand il y
+ * en a une —, moins les bassins et trous qui la percent.
+ */
+export function volumeDecaissementPose(obj: { pts: PtBrut[]; construction?: Construction }, trous: PtBrut[][]): number {
+  const d = decaissementPoseMm(obj) / 1000;
+  if(!(d > 0)) return 0;
+  const c = ensureConstruction(obj);
+  const t = estPlots(c) ? supportDe(c.supportType) : null;
+  const emprise = t && (t.dalleBeton || c.supportType === 'dalle') ? empriseDalle(obj.pts) : obj.pts;
+  return (shoelace(emprise) - trous.reduce((s, tr) => s + aireCommune(tr, emprise), 0)) * d;
+}
+
+/** La part d'un segment qui est dans le polygone (morceaux de moins de 5 cm ignores). */
+export function couperAuContour(seg: Segment, poly: PtBrut[]): Segment[] {
+  const L = dist(seg.a, seg.b);
+  if(L < 1e-6) return [];
+  const dir = { x:(seg.b.x-seg.a.x)/L, y:(seg.b.y-seg.a.y)/L };
+  const t = (p: PtBrut) => (p.x-seg.a.x)*dir.x + (p.y-seg.a.y)*dir.y;
+  const at = (d: number): PtBrut => ({ x:seg.a.x+dir.x*d, y:seg.a.y+dir.y*d });
+  return clipLineToPolygon(seg.a, dir, poly).flatMap(m => {
+    const t0 = Math.max(0, Math.min(t(m.a), t(m.b))), t1 = Math.min(L, Math.max(t(m.a), t(m.b)));
+    return t1 - t0 > 0.05 ? [{ a:at(t0), b:at(t1) }] : [];
   });
-  return trous;
 }
 
 /** Retire de chaque piece ce qui traverse une ouverture ; une piece entierement dedans disparait. */

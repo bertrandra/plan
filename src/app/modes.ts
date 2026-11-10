@@ -15,8 +15,7 @@
 // sous-onglet, et le rafraichissement des panneaux de la terrasse.
 
 import { el } from '../shell/dom.js';
-import { glb, chargement, affichage3d, signaler3d } from '../three/etat3d.js';
-import { libererTexturesPartagees } from '../three/chargeurs.js';
+import { glb, chargement, signaler3d, poserAffichage3d, reglerGlb } from '../three/etat3d.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
 
 /** Ce que l'utilisateur regarde. Trois vues, un seul bouton allume. */
@@ -33,6 +32,8 @@ export interface ContexteModes {
   ensureThreeLoaded: (cb: () => void) => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   disposeThreeScene: () => void;
+  /** Rend a la carte graphique les textures partagees entre les scenes (three/chargeurs.ts). */
+  libererTexturesPartagees: () => void;
   render: () => void;
   /** Les panneaux du tiroir a remplir pour la terrasse courante. */
   rendrePanneauxTerrasse: (obj: ObjetPlan) => void;
@@ -78,8 +79,8 @@ export function creerModes(ctx: ContexteModes) {
       // ici, aucune scene 3D n'est vivante — la visionneuse a ete fermee en tete de fonction, et
       // la Vue 3D vient d'etre demolie. Le faire dans `disposeThreeScene` aurait vide le cache a
       // chaque case cochee, puisque reconstruire une scene commence par demolir la precedente.
-      libererTexturesPartagees();
-      affichage3d.vue3d = 'ferme';
+      ctx.libererTexturesPartagees();
+      poserAffichage3d({ vue3d: 'ferme' });
       signaler3d();
       ctx.render();
     } else {
@@ -95,15 +96,17 @@ export function creerModes(ctx: ContexteModes) {
    */
   function construireVue3d(): void {
     const obj = ctx.terrasseCourante() || null;
-    if (!chargement.three) { affichage3d.vue3d = 'chargement'; signaler3d(); }
+    if (!chargement.three) { poserAffichage3d({ vue3d: 'chargement' }); signaler3d(); }
     ctx.ensureThreeLoaded(() => {
-      ctx.rendreMaintenant(() => { affichage3d.vue3d = 'pret'; signaler3d(); });
+      // Le moteur et three.js se chargent (AD-10) : revenu au plan entre-temps, il n'y a plus de scene a construire.
+      if (vueCourante !== 'vue3d') return;
+      ctx.rendreMaintenant(() => { poserAffichage3d({ vue3d: 'pret' }); signaler3d(); });
       ctx.buildThreeScene(obj);
     });
   }
 
   function ouvrirVisionneuse(): void {
-    glb.ouvert = true;
+    reglerGlb({ ouvert: true });
     appliquerVue('visionneuse');
     afficher(ZONES_PLAN, false);
     ctx.preparerVisionneuse();
@@ -111,7 +114,7 @@ export function creerModes(ctx: ContexteModes) {
 
   function fermerVisionneuse(): void {
     if (!glb.ouvert) return;
-    glb.ouvert = false;
+    reglerGlb({ ouvert: false });
     // Avant de cacher le panneau : sinon la reouverture repartirait directement en plein page.
     ctx.quitterPleinPageVisionneuse();
     ctx.disposeGlbViewerScene();

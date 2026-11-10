@@ -6,7 +6,7 @@
 
 import { useLayoutEffect } from 'react';
 import { useStore } from 'zustand';
-import { affichage3d, glb, hotes3d } from '../../three/etat3d.js';
+import { affichage3d, glb, poserHote3d } from '../../three/etat3d.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { Icone } from '../icones.js';
 import { useEtat3d } from './Vue3d.js';
@@ -71,14 +71,17 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
               <BoutonCommande commandes={commandes} id="visionneuse.regenerer" domId="glbViewerRegenBtn" className="objbtn small" enCours={enCours}>
                 <Icone nom="positionInitiale" taille={20} /> Régénérer depuis le plan
               </BoutonCommande>
+              <BoutonCommande commandes={commandes} id="visionneuse.ar" domId="glbViewerArBtn" className="objbtn small" enCours={enCours}>
+                <Icone nom="cube" taille={20} /> Voir chez vous (réalité augmentée)
+              </BoutonCommande>
             </div>
             <LigneIntensite ids={IDS_SOLEIL} soleil={soleil} />
             <div id="glbViewerHint" className="hint">{affichage3d.indicationGlb}</div>
             <div className="hint">Glisser = tourner, molette = zoom, clic droit + glisser = deplacer. Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
           </div>
         </div>
-        <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} />
-        <div id="glbViewerCanvasHost" className="hote3d hoteVisionneuse" ref={(el) => { hotes3d.glb = el; }}
+        <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} />
+        <div id="glbViewerCanvasHost" className="hote3d hoteVisionneuse" ref={(el) => { poserHote3d('glb', el); }}
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
           <div className="commandes3d">
             <Bouton3d commandes={commandes} id="visionneuse.zoomAvant" domId="glbViewerZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />

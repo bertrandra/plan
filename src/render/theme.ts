@@ -25,8 +25,8 @@ export const themeSombre =
 
 /** Les encres d'origine, par theme : les valeurs de `styles/jetons.ts`. */
 const ORIGINE = themeSombre
-  ? { ink: '#F1E7D0', rule: '#4A3F30', paper: '#1C1610', accent: '#E0B564', panel: '#262017', onInk: '#1C1610' }
-  : { ink: '#2B2117', rule: '#D9CDB2', paper: '#F7F2E7', accent: '#7A5C31', panel: '#FFFDF8', onInk: '#FFFDF8' };
+  ? { ink: '#F1E7D0', rule: '#4A3F30', paper: '#1C1610', accent: '#E0B564', panel: '#262017', onInk: '#1C1610', relief: '#C9A97A' }
+  : { ink: '#2B2117', rule: '#D9CDB2', paper: '#F7F2E7', accent: '#7A5C31', panel: '#FFFDF8', onInk: '#FFFDF8', relief: '#8C6B3F' };
 
 export let SVG_INK = ORIGINE.ink;
 export let SVG_GRID_MAJOR = ORIGINE.rule;
@@ -40,12 +40,14 @@ export let SVG_POIGNEE_FOND = ORIGINE.panel;
 /** Les longueurs des cotes d'un objet selectionne : texte clair dans une pastille d'encre. */
 export let SVG_PASTILLE = ORIGINE.ink;
 export let SVG_PASTILLE_TEXTE = ORIGINE.onInk;
+/** Les courbes de niveau du relief (render/relief.ts) : un brun discret, sous les objets. */
+export let SVG_RELIEF = ORIGINE.relief;
 
 /** L'evenement qui demande a l'atelier de redessiner le plan apres un changement d'encres. */
 export const EVENEMENT_ENCRES = 'plan:encres';
 
 /** Les jetons dont le plan tire ses encres, dans le theme affiche. */
-export type JetonsEncres = Record<'ink' | 'rule' | 'paper' | 'accent' | 'panel-bg' | 'on-ink', string>;
+export type JetonsEncres = Record<'ink' | 'rule' | 'paper' | 'accent' | 'panel-bg' | 'on-ink' | 'relief', string>;
 
 /**
  * Reprend les encres du plan dans une palette (les couleurs d'un theme, `#RRGGBB`) ; sans
@@ -59,6 +61,7 @@ export function poserEncres(j?: JetonsEncres): void {
   SVG_POIGNEE_FOND = j?.['panel-bg'] ?? ORIGINE.panel;
   SVG_PASTILLE = j?.ink ?? ORIGINE.ink;
   SVG_PASTILLE_TEXTE = j?.['on-ink'] ?? ORIGINE.onInk;
+  SVG_RELIEF = j?.relief ?? ORIGINE.relief;
 }
 
 /** Les decimales a l'ecran s'ecrivent a la francaise ; les exports gardent le point (empreintes). */

@@ -10,6 +10,34 @@ const commande = (id: string, executer: Commande['executer'] = () => {}, extra: 
   ({ id, libelle: id, groupe: 'objet', executer, ...extra });
 
 describe('registre des commandes', () => {
+  it('dit ce qu il faut faire d abord quand le contexte refuse et que la commande le sait', () => {
+    const r = creerRegistre();
+    let pret = false;
+    r.declarer(commande('audit.parcelle', () => {}, { actif: () => pret, raisonInactive: () => (pret ? null : 'Importez d’abord la parcelle depuis son adresse.') }));
+    r.declarer(commande('objet.dupliquer', () => {}, { actif: () => false }));
+    expect(r.etat('audit.parcelle')).toEqual({ utilisable: false, raison: 'contexte', message: 'Importez d’abord la parcelle depuis son adresse.' });
+    // Sans raison : grisee sans un mot, comme avant.
+    expect(r.etat('objet.dupliquer')).toEqual({ utilisable: false, raison: 'contexte' });
+    expect(r.effacee('audit.parcelle')).toBe(false);
+    pret = true;
+    expect(r.etat('audit.parcelle')).toEqual({ utilisable: true });
+  });
+
+  it('une garde retient une commande utilisable (une question d abord), puis se retire', () => {
+    const r = creerRegistre(), faite = vi.fn();
+    r.declarer(commande('vue.plan', faite));
+    let retenir = true;
+    const retirer = r.retenir((id) => id === 'vue.plan' && retenir);
+    expect(r.executer('vue.plan')).toBe(false);
+    expect(faite).not.toHaveBeenCalled();
+    retenir = false;
+    expect(r.executer('vue.plan')).toBe(true);
+    retenir = true;
+    retirer();
+    expect(r.executer('vue.plan')).toBe(true);
+    expect(faite).toHaveBeenCalledTimes(2);
+  });
+
   it('declare, retrouve et liste par groupe', () => {
     const r = creerRegistre();
     r.declarer(commande('objet.dupliquer'));

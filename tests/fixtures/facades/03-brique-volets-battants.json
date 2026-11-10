@@ -1,0 +1,160 @@
+{
+  "nom": "03-brique-volets-battants",
+  "description": "Façade en brique, volets battants verts ouverts contre le mur, porte-fenêtre et porte bleue au rez-de-chaussée, prise légèrement de biais.",
+  "difficultes": [
+    "brique",
+    "volets-battants",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 9,
+    "hauteur": 5.6,
+    "coins": [
+      {
+        "x": 307.76,
+        "y": 250.23
+      },
+      {
+        "x": 1031.88,
+        "y": 194.46
+      },
+      {
+        "x": 1051.21,
+        "y": 701.55
+      },
+      {
+        "x": 293.97,
+        "y": 679.25
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "porte-fenetre",
+        "x": 1,
+        "y": 0,
+        "l": 1.4,
+        "h": 2.2
+      },
+      {
+        "type": "porte",
+        "x": 4.1,
+        "y": 0,
+        "l": 0.9,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            40,
+            60,
+            90
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              70,
+              112,
+              92
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1.1,
+        "y": 3.7,
+        "l": 1.2,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              70,
+              112,
+              92
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4,
+        "y": 3.7,
+        "l": 1.1,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              70,
+              112,
+              92
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.6,
+        "y": 3.7,
+        "l": 1.2,
+        "h": 1.3,
+        "rendu": {
+          "volets": {
+            "type": "battants",
+            "couleur": [
+              70,
+              112,
+              92
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 3,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "brique",
+        "couleur": [
+          168,
+          82,
+          58
+        ],
+        "joint": [
+          205,
+          195,
+          180
+        ]
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          88,
+          90,
+          100
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 11,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 12,
+      "tangage": 5,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

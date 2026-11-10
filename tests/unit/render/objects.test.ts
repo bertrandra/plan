@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { creerDomObjet, reconstruirePoignees, positionnerObjet, OPACITE_ISOLEMENT, type ObjetRendu, type ContextePositionnement } from '../../../src/render/objects.js';
+import { creerDomObjet, reconstruirePoignees, positionnerObjet, replacerObjet, dependDeLEchelle, matriceDuRepere, OPACITE_ISOLEMENT, type ObjetRendu,
+  type ContextePositionnement } from '../../../src/render/objects.js';
 import { vue, detruireVue } from '../../../src/render/vues.js';
 import type { EtatScene } from '../../../src/geometry/vue.js';
 
@@ -74,12 +75,48 @@ describe('reconstruirePoignees', () => {
 });
 
 describe('positionnerObjet', () => {
-  it('place le contour a l echelle et l etiquette au centre', () => {
+  it('place le contour en metres sous le repere, son trait a l ecran, et l etiquette au centre, en pixels', () => {
     const p = carre();
     creerDomObjet(racine, p, scene);
     positionnerObjet(p, ctx());
-    expect(vue(p).el?.getAttribute('points')).toBe('100,200 140,200 140,160 100,160');
+    expect(vue(p).el?.getAttribute('points')).toBe('0,0 4,0 4,4 0,4');
+    // Sans calque des objets, la forme porte elle-meme le repere : (0,0) en (100,200), un metre pour dix pixels, y vers le bas.
+    expect(vue(p).el?.getAttribute('transform')).toBe('matrix(10,0,0,-10,100,200)');
+    expect(vue(p).el?.getAttribute('vector-effect')).toBe('non-scaling-stroke');
     expect([vue(p).nameEl?.getAttribute('x'), vue(p).nameEl?.getAttribute('y'), vue(p).nameEl?.textContent]).toEqual(['120', '180', 'Terrasse']);
+    expect(vue(p).nameEl?.hasAttribute('transform')).toBe(false);
+  });
+
+  it('dans le calque des objets, la forme n a rien a porter et ce qui est en pixels porte l inverse du repere', () => {
+    const groupe = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    racine.appendChild(groupe);
+    const p = carre();
+    creerDomObjet(groupe, p, scene);
+    positionnerObjet(p, ctx({ groupe }));
+    expect(vue(p).el?.hasAttribute('transform')).toBe(false);
+    expect(vue(p).nameEl?.getAttribute('transform')).toBe('matrix(0.1,0,0,-0.1,-10,20)');
+    expect(matriceDuRepere(scene)).toBe('matrix(10,0,0,-10,100,200)');
+    // Sorti du calque (un parasol devant ses ombres) : la forme porte le repere, le nom plus rien.
+    racine.appendChild(vue(p).el!); racine.appendChild(vue(p).nameEl!);
+    replacerObjet(p, { scene, groupe });
+    expect(vue(p).el?.getAttribute('transform')).toBe('matrix(10,0,0,-10,100,200)');
+    expect(vue(p).nameEl?.hasAttribute('transform')).toBe(false);
+  });
+
+  it('un zoom replace la forme et le nom sans toucher aux sommets', () => {
+    const p = carre('terrasse', { showDims: false });
+    creerDomObjet(racine, p, scene);
+    positionnerObjet(p, ctx());
+    const zoom = { ...scene, scale: 20 } as EtatScene;
+    replacerObjet(p, { scene: zoom });
+    expect(vue(p).el?.getAttribute('points')).toBe('0,0 4,0 4,4 0,4');
+    expect(vue(p).el?.getAttribute('transform')).toBe('matrix(20,0,0,-20,100,200)');
+    expect([vue(p).nameEl?.getAttribute('x'), vue(p).nameEl?.getAttribute('y')]).toEqual(['140', '160']);
+    // Ce qu'il montre a ses sommets depend de l'echelle : un zoom le replace en entier.
+    expect(dependDeLEchelle(p, { selectionnee: false, pointageSommets: false, pointageCotes: false })).toBe(false);
+    expect(dependDeLEchelle(carre(), { selectionnee: false, pointageSommets: false, pointageCotes: false })).toBe(true);
+    expect(dependDeLEchelle(p, { selectionnee: true, pointageSommets: false, pointageCotes: false })).toBe(true);
+    expect(dependDeLEchelle(rond(), { selectionnee: false, pointageSommets: true, pointageCotes: false })).toBe(false);
   });
 
   it('montre poignees et cotes a la selection seulement, un coin fige plus gros', () => {
@@ -133,5 +170,9 @@ describe('positionnerObjet', () => {
     positionnerObjet(c, ctx({ selectionnee: true }));
     expect([vue(c).radiusHandle?.getAttribute('cx'), vue(c).radiusHandle?.getAttribute('cy')]).toEqual(['135', '180']);
     expect(vue(c).el?.style.cursor).toBe('move');
+    // Le cercle en metres sous le repere.
+    expect([vue(c).el?.getAttribute('cx'), vue(c).el?.getAttribute('cy'), vue(c).el?.getAttribute('r')]).toEqual(['2', '2', '1.5']);
+    positionnerObjet(c, ctx());
+    expect(vue(c).radiusHandle?.style.display).toBe('none');
   });
 });

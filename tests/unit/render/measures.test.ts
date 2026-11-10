@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, distanceSortiePolygone } from '../../../src/render/measures.js';
+import { geometrieMesure, coordonneesCote, coordonneesPoint, ancrageHorsContour, distanceSortiePolygone, deniveleCote, texteDenivele, dessinerCotes } from '../../../src/render/measures.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
 
 // Une terrasse carree de 10 m, et un point a coter.
@@ -106,5 +107,46 @@ describe('ancrage des etiquettes de cote', () => {
   it('rend aussi la direction suivie, pour orienter le trait de rappel', () => {
     const a = ancrageHorsContour({ x: 10, y: 0 }, parcelle, 2, { x: 1, y: 0 });
     expect(Math.hypot(a.dirX, a.dirY)).toBeCloseTo(1, 9);
+  });
+});
+
+describe('le denivele d une cote avec un relief (MD/spec-relief.md §5.2)', () => {
+  // Une grille plane z = 100 + 0,1·y sur 0..12 m : le sol monte de 10 cm par metre vers le nord.
+  const grille = () => {
+    const nx = 14, ny = 14, z: number[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) z.push(Math.round((100 + 0.1 * (12.5 - j)) * 100) / 100);
+    return { source: 'rge-alti' as const, couche: 'c', dateLecture: '2026-10-06', origine: 't', precision: 'p', systemeAltimetrique: 'NGF-IGN69', pas: 1, x0: -0.5, y0: 12.5, nx, ny, z, zRef: 100 };
+  };
+  const avecRelief = [{ ...objets[0], relief: grille() }, ...objets.slice(1)] as Parameters<typeof geometrieMesure>[0];
+
+  it('est nul sans relief : rien ne change pour un plan plat', () => {
+    const g = geometrieMesure(objets, mesure())!;
+    expect(deniveleCote(objets, g, 'perp')).toBeNull();
+    expect(deniveleCote(objets, g, 'along')).toBeNull();
+  });
+
+  it('mesure la hauteur du sol du pied de la perpendiculaire au point, et de l origine au pied', () => {
+    const g = geometrieMesure(avecRelief, mesure())!;
+    // Perpendiculaire : du pied (4, 0) au point (4, 7) : +0,70 m. Le long : de A (0, 0) au pied (4, 0) : 0.
+    expect(deniveleCote(avecRelief, g, 'perp')).toBeCloseTo(0.7, 6);
+    expect(deniveleCote(avecRelief, g, 'along')).toBeCloseTo(0, 6);
+    expect(texteDenivele(0.7)).toBe('Δ +0,70 m');
+    expect(texteDenivele(-1.234)).toBe('Δ −1,23 m');
+  });
+
+  it('rend null des qu un bout sort de la grille', () => {
+    const loin = [...avecRelief, { key: 'loin', type: 'polygon', pts: [{ x: 4, y: 40 }] }];
+    const g = geometrieMesure(loin, mesure({ targetObjKey: 'loin' }))!;
+    expect(deniveleCote(loin, g, 'perp')).toBeNull();
+  });
+
+  it('ecrit le denivele sur l etiquette de la cote, et seulement avec un relief', () => {
+    const dessiner = (objs: Parameters<typeof geometrieMesure>[0]) => {
+      const groupe = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      dessinerCotes(groupe, { scene: { scale: 10, origine: { x: 0, y: 0 }, W: 400, H: 400 }, objets: objs, mesures: [{ ...mesure(), show: true, displayMode: 'perp' }], brouillonRef: null, brouillonCibles: [] });
+      return groupe.querySelector('text')?.textContent;
+    };
+    expect(dessiner(objets)).toBe('⊥ 7,00 m');
+    expect(dessiner(avecRelief)).toBe('⊥ 7,00 m · Δ +0,70 m');
   });
 });

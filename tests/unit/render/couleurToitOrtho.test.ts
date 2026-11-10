@@ -32,7 +32,7 @@ describe('la couleur des toits sur l orthophoto (spec-toit-ign §6.1)', () => {
 
   it('laisse le toit tel quel quand l orthophoto ne repond pas', async () => {
     const toit: Toit = { ...croupes };
-    const bilan = await couleursToitsDepuisOrtho([{ pts: maison, toit }], proj, 1);
+    const bilan = await couleursToitsDepuisOrtho([{ pts: maison, batiment: { toit } }], proj, 1);
     expect(bilan).toEqual({ lus: 0, replis: 0 });
     expect(toit.couleur).toBeUndefined();
   });

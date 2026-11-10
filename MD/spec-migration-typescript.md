@@ -735,6 +735,14 @@ so the existing user-facing French error strings survive unchanged.
 
 ### 8.3 three.js r128
 
+> **Mise à jour du 16 octobre 2026 : three.js 0.186.1.** Les builds UMD et `examples/js` n'existent plus
+> (modules ES seulement, depuis la r160). L'option A tient toujours — la bibliothèque n'est pas
+> empaquetée — mais elle passe par `import()` et une table d'import inline dans `index.html`
+> (`src/three/bibliotheque.ts`, qui pose `window.THREE`). Pour garder le rendu : gestion des couleurs
+> coupée, sortie linéaire, lumières × π, courbe de film inchangée (passe de sortie en Soignée). La
+> CSP ne nomme plus que jsDelivr. Mesures et écarts de l'export : `tests/fixtures/golden/EMPREINTES.md`.
+> Le texte ci-dessous décrit la r128 d'origine.
+
 Currently: four `<script>` tags injected at runtime (`three.min.js` r128 from cdnjs, then `OrbitControls.js`, `GLTFExporter.js`, `GLTFLoader.js` from jsDelivr `examples/js/`), all attaching to the `THREE` global, gated by `ensureThreeLoaded()` / `ensureGLTFExporterLoaded()` / `ensureGLTFLoaderLoaded()`.
 
 Two viable options:

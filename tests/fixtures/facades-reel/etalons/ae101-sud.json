@@ -1,0 +1,37 @@
+{
+  "format": "plan-etalon-facade",
+  "version": 1,
+  "nom": "AE 101 · façade sud",
+  "pourquoi": "Le cas d'etalon de l'etape du calage (MD/spec-facade-calage-audit.md §2 et §7.1) : la facade sud d'AE 101 (2 allee des Limites, Le Vesinet), deux pignons et l'appentis de la galerie. Ce fichier porte la verite du cas, pas ses photos : une photo est une donnee personnelle, elle reste sur l'appareil et sur le serveur des audits (tests/fixtures/facades-reel/LISEZMOI.md). Le cas se rejoue en le tirant de l'audit (Admin › Calibrer la detection, « Creer un cas depuis un audit ») puis `reel.ts etalon <cas.json>`, qui lui pose cette verite.",
+  "source": { "idu": "78650000AE0101", "cleabs": "BATIMENT0000000322509182", "cote": 6, "orientation": "Sud", "fixture": "tests/fixtures/toits/vesinet-ae101.json (corpsAvecFaits)" },
+  "largeurM": 8.96,
+  "hauteurM": 2.4,
+  "gabarit": [
+    { "u": -0.0951, "v": 2.0863 }, { "u": 0.1041, "v": 3.1234 }, { "u": 0.1151, "v": 3.1519 }, { "u": 0.3142, "v": 2.1074 }, { "u": 0.3253, "v": 2.0881 },
+    { "u": 0.5908, "v": 2.0893 }, { "u": 0.6019, "v": 2.0982 }, { "u": 0.801, "v": 3.1426 }, { "u": 0.812, "v": 3.1327 }, { "u": 1.0112, "v": 2.0912 }
+  ],
+  "calageVrai": { "x0": 140, "x1": 750, "versionChaine": 9 },
+  "constat": {
+    "le": "2026-10-29",
+    "versionChaine": 9,
+    "murCherche": { "x0": 451, "x1": 752 },
+    "texte": "Sur la mosaique reelle, le calage automatique retient un mur de 302 px (x de 451 a 752) au lieu d'environ 610 px (x de 140 a 750) : un seul bloc de pignon. Les bouts, l'egout et le sol sont faux ensemble, et les drapeaux « trouve » restent vrais."
+  },
+  "toitVrai": [
+    {
+      "nom": "Corps principal",
+      "mur": { "gauche": { "x": -4.754, "y": -23.356 }, "droite": { "x": 3.818, "y": -20.762 } },
+      "forme": "deux-pans",
+      "pignons": [
+        { "pan": 1, "debut": 0, "fin": 3.7, "faitage": 7.6 },
+        { "pan": 1, "debut": 6.21, "fin": 9.91, "faitage": 7.6 }
+      ]
+    },
+    {
+      "nom": "Appentis de la galerie",
+      "mur": { "gauche": { "x": -5.26, "y": -24.7 }, "droite": { "x": 4.28, "y": -22.02 } },
+      "forme": "appentis",
+      "egoutM": 2.4
+    }
+  ]
+}

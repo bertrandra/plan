@@ -166,7 +166,48 @@
       "typezone": "U"
      }
     ]
-   }
+   },
+   "cloture": {
+    "active": true,
+    "defaut": {
+     "type": "palissade",
+     "hauteur": 1.8,
+     "couleur": "#6b4a2a",
+     "texture": null
+    },
+    "cotes": [],
+    "portails": [
+     {
+      "nature": "portail",
+      "cote": 0,
+      "x": 15.75,
+      "largeur": 3.5,
+      "hauteur": 1.6,
+      "ouverture": "battant-2",
+      "sens": "interieur",
+      "refoulement": "droite",
+      "petitVantail": "aucun",
+      "forme": "droit",
+      "fleche": 0.3,
+      "remplissage": "plein",
+      "materiau": "aluminium",
+      "couleur": "#f4f4f2",
+      "texture": null,
+      "piliers": {
+       "largeur": 0.3,
+       "hauteur": 1.8,
+       "parement": "enduit",
+       "chapeau": true
+      },
+      "retrait": 0,
+      "motorise": true
+     }
+    ]
+   },
+   "clotureActive": true,
+   "clotureHauteur": 1.8,
+   "clotureCouleur": "#6b4a2a",
+   "clotureTexture": null
   },
   {
    "key": "limite-1",

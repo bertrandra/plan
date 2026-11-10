@@ -13,6 +13,7 @@
 // Rien de cela n'entre dans les ombres : le disque ne porte pas d'ombre et ne la recoit pas ; c'est
 // `dirLight` qui eclaire, a sa vraie place.
 
+import { ECHELLE_LUMIERE } from './bibliotheque.js';
 import type * as THREE_NS from 'three';
 
 /** La vraie hauteur multipliee par ceci, puis bornee : le soleil reste dans le champ. */
@@ -82,9 +83,9 @@ export function appliquerSoleilVitrine(
   if (fond && (fond as THREE_NS.Color).isColor) (fond as THREE_NS.Color).set(CIEL_JOUR).lerp(new THREE.Color(CIEL_COUCHANT), t);
   sc.hemiLight.color.set(0xffffff).lerp(new THREE.Color(AMBIANTE_COUCHANT), t);
   sc.hemiLight.groundColor.set(0x4a3c2a).lerp(new THREE.Color(SOL_COUCHANT), t);
-  if (t > 0 && sc.hemiLight.visible) sc.hemiLight.intensity = Math.max(sc.hemiLight.intensity, AMBIANTE_COUCHANT_INTENSITE * t);
+  if (t > 0 && sc.hemiLight.visible) sc.hemiLight.intensity = Math.max(sc.hemiLight.intensity, AMBIANTE_COUCHANT_INTENSITE * ECHELLE_LUMIERE * t);
   sc.dirFill.color.set(0xffffff).lerp(new THREE.Color(APPOINT_COUCHANT), t);
-  if (t > 0 && sc.dirFill.visible) sc.dirFill.intensity = Math.max(sc.dirFill.intensity, APPOINT_COUCHANT_INTENSITE * t);
+  if (t > 0 && sc.dirFill.visible) sc.dirFill.intensity = Math.max(sc.dirFill.intensity, APPOINT_COUCHANT_INTENSITE * ECHELLE_LUMIERE * t);
 
   let disque = sc.scene.getObjectByName(MARQUE) as THREE_NS.Mesh | undefined;
   if (!o.soleil) { if (disque) disque.visible = false; return; }

@@ -2,12 +2,14 @@
 import { describe, it, expect, vi } from 'vitest';
 
 const confirmations: string[] = [];
+const bandeaux: string[] = [];
 vi.mock('../../../../src/shell/dialogs.js', () => ({
-  showToast: () => {}, showErrBanner: () => {},
+  showToast: () => {}, showErrBanner: (m: string) => { bandeaux.push(m); },
   showConfirm: (m: string, oui: () => void) => { confirmations.push(m); oui(); }
 }));
 
 import { creerRegistre } from '../../../../src/app/commandes.js';
+import { entrerEnAdmin } from '../../../../src/app/acces.js';
 import { brancherDivers, type ContexteDivers } from '../../../../src/app/ecouteurs/divers.js';
 import { fauxAtelier, droits } from './faux.js';
 import type { Resultats } from '../../../../src/app/resultats.js';
@@ -92,5 +94,28 @@ describe('commandes diverses', () => {
     vi.advanceTimersByTime(200);
     expect(m.ctx.redimensionnerLePlan).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+
+  it('telechargent la sauvegarde des donnees par un lien, apres avoir verifie la session admin', async () => {
+    expect(monter().cmd.etat('admin.sauvegarde').utilisable).toBe(false);
+    entrerEnAdmin();
+    const clics: string[] = [];
+    const clic = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { clics.push(this.getAttribute('href') ?? ''); });
+    const session = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', session);
+    const m = monter();
+    expect(m.cmd.executer('admin.sauvegarde')).toBe(true);
+    await vi.waitFor(() => expect(clics).toEqual(['admin/sauvegarde']));
+    expect(session).toHaveBeenCalledWith('admin/session', expect.anything());
+    expect(document.querySelector('a[download]')).toBeNull();
+    // Session expiree : rien ne se telecharge, et le bandeau dit quoi faire.
+    bandeaux.length = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
+    m.cmd.executer('admin.sauvegarde');
+    await vi.waitFor(() => expect(bandeaux).toHaveLength(1));
+    expect(bandeaux[0]).toContain('Rechargez la page');
+    expect(clics).toHaveLength(1);
+    clic.mockRestore();
+    vi.unstubAllGlobals();
   });
 });

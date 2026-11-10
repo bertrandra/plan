@@ -1,0 +1,254 @@
+import { describe, it, expect } from 'vitest';
+import { derouler, entreesDuCas, murAjusteSurLesPhotos, veriteDuCas, type Enchainement } from '../../../../src/facade/releve/enchainement.js';
+import type { P2 } from '../../../../src/facade/vision/homographie.js';
+import { rechercher } from '../../../../src/facade/releve/serie.js';
+import { mesurerFacade, type MesureFacade } from '../../../../src/app/audit/parcelle/mesures.js';
+import { casDepuisFacade, type FacadeACalibrer } from '../../../../src/app/audit/parcelle/casDeCalibration.js';
+import { lireCasReel } from '../../../../src/facade/corpusReel.js';
+import { accordDeLaLecture } from '../../../../src/app/audit/parcelle/accordLecture.js';
+import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
+import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
+import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
+import { gabaritDesCorps, relief } from '../../../../src/facade/gabaritMur.js';
+import { ETAPES_FACADE } from '../../../../src/model/etapeFacade.js';
+import { murAConfirmer, relecture, type CorrectionRedressement, type MurConfirme, type OuverturesRelues } from '../../../../src/model/auditParcelle.js';
+import { coinsVrais, type PriseCamera, type SceneFacade } from '../../../../src/facade/banc/synthese.js';
+import { facadeDeLaScene, jpeg, scene, sorties } from './outilsOrchestration.js';
+
+// Calibration et audit : le meme code et la meme orchestration, l'audit n'en cache qu'une part (CLAUDE.md, decision du proprietaire du
+// 2 novembre 2026). Une facade passe par l'entree reelle de l'audit (mesurerFacade), devient un cas de calibration comme l'admin le
+// cree (casDepuisFacade, enregistre puis relu), et se rejoue avec la vue de la calibration et avec celle de l'audit : chaque etape, de
+// l'E1 a l'E10, rend la meme chose (coins, assemblage, gabarit, haut lu, analyse, ouvertures, texture), a la verite pres ; l'E11 ne
+// differe que par sa fin (V4 dans l'audit, rien d'ecrit en calibration).
+
+/** L'etat et le resume de chaque etape de l'E1 a l'E10. */
+const etapes = (r: Enchainement | Pick<MesureFacade, 'etapes'>) => (r.etapes ?? []).filter((e) => e.id !== 'validation').map(({ id, etat, resume }) => ({ id, etat, resume }));
+
+/** La facade passee par l'audit, le cas tire d'elle (enregistre, relu), et son rejeu avec chacune des deux vues. */
+async function lesDeux(s: SceneFacade, prises: readonly PriseCamera[], corrections: Record<string, CorrectionRedressement>, murConfirme: MurConfirme | null = null, ouverturesRelues: OuverturesRelues | null = null, ia: RunEnregistre | null = null) {
+  const { f, contour, corps, images, photos } = facadeDeLaScene(s, prises);
+  const chercherCoins = async (e: Parameters<typeof rechercher>[0]) => rechercher(e);
+  // L'entree reelle de l'audit (app/audit/parcelle/mesures.ts) : ce que la personne obtient sur place.
+  const audit = await mesurerFacade('b1', f, { pts: contour, corpsToit: [corps] }, photos, {
+    pixels: async (b64) => { const im = images[Number(b64.slice(6))]; return im ? { largeur: im.largeur, hauteur: im.hauteur, data: im.donnees } : null; },
+    chercherCoins, jpeg, limites: () => [],
+  }, corrections, { murConfirme, ouverturesRelues, ia });
+  // Le cas, tel que l'admin le cree depuis la facade de l'audit, enregistre puis relu.
+  const fc: FacadeACalibrer = {
+    cle: 'b1', nom: 'Maison', cote: f.cote, orientation: f.orientation, largeurM: f.largeur, hauteurM: f.hauteur, sourceHauteur: 'lidar', photos, corrections,
+    ...(murConfirme ? { murConfirme } : {}), ...(ouverturesRelues ? { ouverturesRelues } : {}), bilans: audit.redressement?.photos ?? [], gabarit: gabaritDesCorps(f, [corps], f.hauteur), toit: { mur: { gauche: f.gauche, droite: f.droite }, corps: [corps] }, parement: null, facade: f, contour,
+  };
+  const cas = lireCasReel(JSON.parse(JSON.stringify({ ...casDepuisFacade(fc), ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) })));
+  // La lecture de Claude, quand il y en a une : la meme dans les deux vues (decision 4 : elle entre dans l'enchainement de l'audit aussi).
+  const avecIa = ia ? { ia } : {};
+  const calibration = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'calibration', chercherCoins, verite: veriteDuCas(cas), illustrer: true, ...avecIa });
+  const vueAudit = await derouler(entreesDuCas(cas, images, jpeg), { vue: 'audit', chercherCoins, ...avecIa });
+  return { audit, cas, calibration, vueAudit, gabarit: fc.gabarit };
+}
+
+function memesSorties(x: Awaited<ReturnType<typeof lesDeux>>): void {
+  const { audit, calibration, vueAudit } = x;
+  // La vue de la calibration et celle de l'audit : chaque etape, de l'E1 a l'E10, rend la meme chose ; la verite n'est qu'un ajout.
+  expect(etapes(calibration)).toEqual(etapes(vueAudit));
+  // Les actions aussi : les memes dans les deux vues. Ne different que les ajouts de la calibration (la mesure contre la verite, la
+  // texture sans ombres qu'elle seule illustre) et la fin (V4).
+  const ajout = (id: string, a: { id: string; type: string }) => a.type === 'mesure' || (id === 'texture' && a.id === 'sansOmbres') || (id === 'validation' && a.id === 'valider');
+  const actions = (r: Enchainement) => r.etapes.map((e) => ({ id: e.id, actions: e.actions.filter((a) => !ajout(e.id, a)) }));
+  expect(actions(calibration)).toEqual(actions(vueAudit));
+  expect(vueAudit.etapes.flatMap((e) => e.actions).some((a) => a.type === 'mesure')).toBe(false);
+  expect(calibration.etapes.map((e) => e.id)).toEqual(ETAPES_FACADE.map((e) => e.id));
+  const { ...sc } = sorties(calibration), { ...sa } = sorties(vueAudit);
+  expect(sc).toEqual(sa);
+  // L'E11 : le meme bilan (la Facade que V4 ecrirait) ; seule la fin differe.
+  expect(calibration.sorties.facade).toEqual(vueAudit.sorties.facade);
+  expect(calibration.etapes.find((e) => e.id === 'validation')?.resume).toMatch(/La calibration n’écrit pas de façade/);
+  expect(vueAudit.etapes.find((e) => e.id === 'validation')?.resume).toMatch(/Validez la façade pour l’écrire dans le projet \(V4\)\.$/);
+  // L'entree reelle de l'audit rend ce que la calibration a rejoue, etape par etape.
+  expect(etapes(audit)).toEqual(etapes(calibration));
+  const m = calibration.sorties.audit?.mesure;
+  expect(audit.releve && { ...audit.releve, releveLe: '' }).toEqual(m && { ...m.releve, releveLe: '' });
+  expect([audit.rangReleve, audit.coinsTrouves, audit.confiance, audit.hauteurM, audit.silhouette, audit.hautLu, audit.devinees]).toEqual([m?.rangReleve, m?.coinsTrouves, m?.confiance, m?.hauteurM, m?.silhouette, m?.hautLu, m?.devinees]);
+  expect(audit.redressement).toEqual(calibration.sorties.audit?.redressement);
+  expect(audit.redressees).toEqual(calibration.sorties.audit?.redressees);
+  expect(audit.imageRun).toEqual(calibration.sorties.audit?.imageRun);
+  expect(audit.assemblage ?? null).toEqual(calibration.sorties.audit?.assemblage ?? null);
+  expect(audit.facade).toEqual(calibration.sorties.facade);
+  // Avec la lecture de Claude : l'accord que l'audit garde est celui de l'E9 de l'enchainement, pas un calcul a cote.
+  expect(audit.accord ?? null).toEqual(accordDeLaLecture(calibration.sorties.ia));
+}
+
+describe('calibration et audit : le meme processus, l audit n en cache qu une part', () => {
+  it('une photo seule (le pignon et sa fenetre de comble) : les memes sorties a chaque etape', async () => {
+    const s = scene('24-');
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {});
+    expect(relief(x.gabarit)).toBeGreaterThan(0.5);
+    expect(x.cas.photos[0]?.prise?.sourceAzimut).toBe('boussole');
+    expect(x.cas.facade?.cote).toBe(0);
+    memesSorties(x);
+    // La verite ne se mesure que dans la calibration, en plus : l'etat et le resume des etapes n'en dependent pas.
+    expect(x.calibration.etapes.find((e) => e.id === 'ouvertures')?.verite?.texte).toMatch(/^Contre la vérité \(6 ouvertures\)/);
+    expect(x.vueAudit.etapes.every((e) => e.verite === null)).toBe(true);
+  }, 240_000);
+
+  it('le mur confirme au point V1 (« Confirmer le mur ») : la meme entree, les memes sorties, l E5 confirmee des deux cotes', async () => {
+    const s = scene('24-');
+    const avant = await lesDeux(s, [s.synthese.prise as PriseCamera], {});
+    const mur = murAConfirmer((avant.audit.redressement?.photos ?? []).map((p) => ({ rang: p.rang, coins: p.coinsPx ?? [] })), '2026-11-03T10:00:00.000Z');
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, mur);
+    expect(x.cas.murConfirme).toEqual(mur);
+    memesSorties(x);
+    expect(x.audit.etapes?.find((e) => e.id === 'calage')?.etat).toBe('confirme');
+    expect(x.calibration.etapes.find((e) => e.id === 'calage')?.etat).toBe('confirme');
+  }, 240_000);
+
+  it('les ouvertures relues au point V3 : la meme entree, les memes sorties, l E9 faite des deux cotes et le bilan sur les gardees', async () => {
+    const s = scene('24-');
+    const avant = await lesDeux(s, [s.synthese.prise as PriseCamera], {});
+    const detectees = avant.audit.releve?.ouvertures ?? [];
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, relecture(detectees, detectees.slice(1), '2026-11-03T10:00:00.000Z'));
+    memesSorties(x);
+    expect(x.audit.facade?.ouvertures).toHaveLength(detectees.length - 1);
+  }, 240_000);
+
+  it('avec la lecture de Claude (decision 4) : les memes sorties a chaque etape, accord, diagnostic et bilan (ses pointes) compris', async () => {
+    const s = scene('02-');
+    const c = casIaDeScene(s);
+    if (!c) throw new Error('pas de cas');
+    // Une reponse SYNTHETIQUE tiree de la verite de la scene (tests/banc/facades/runIa.ts), pas Claude.
+    const run: RunEnregistre = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine)], cout: 0.0011,
+      tokens: { entree: 4000, sortie: 800 }, image: { largeur: c.image.largeur, hauteur: c.image.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
+    memesSorties(x);
+    expect(x.audit.accord?.bilan.boites).toBeGreaterThan(0);
+    // La barre de l'audit dit la lecture de Claude a l'E8, comme la calibration, et nulle part ailleurs.
+    const e8 = x.audit.etapes?.find((e) => e.id === 'lectureIa')?.resume ?? '';
+    expect(e8).toMatch(/^IA \(réponse synthétique/);
+    expect(e8).toMatch(/vues? par Claude/);
+    // L'image lue est celle de l'assemblage (la reponse a ete faite comme « Rappeler Claude ») : l'exception acceptee, dite.
+    expect(e8).toMatch(/Image lue : l’assemblage/);
+    expect(x.audit.etapes?.find((e) => e.id === 'calage')?.resume).not.toMatch(/IA \(/);
+    // Le bilan (ce que V4 ecrit) porte ses pointes quand il en voit.
+    expect(x.audit.facade?.forme).toEqual(x.calibration.sorties.facade?.forme);
+  }, 240_000);
+
+  it('avec la lecture de Claude faite sur l image du run de l audit (le mur cadre) : ses angles reviennent sur l assemblage, accord', async () => {
+    // Regression de la decision 4 (#551) : les angles d'un run de l'audit sont aux bords de son image (le mur redresse et cadre, du sol
+    // au-dessus du haut) ; lus en parts de l'assemblage, ils posaient le mur sur toute sa largeur et l'E5 disait « les deux chemins
+    // divergent ». Ils reviennent par le mur retenu et l'egout de l'image du run.
+    const s = scene('02-');
+    const c = casIaDeScene(s);
+    if (!c) throw new Error('pas de cas');
+    const sans = await lesDeux(s, [s.synthese.prise as PriseCamera], {});
+    const img = sans.audit.imageRun;
+    if (!img) throw new Error('pas d image du run');
+    const run: RunEnregistre = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine, { egoutPart: img.egoutPart })], cout: 0.0011,
+      tokens: { entree: 4000, sortie: 800 }, image: { largeur: img.largeur, hauteur: img.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
+    memesSorties(x);
+    const e8 = x.audit.etapes?.find((e) => e.id === 'lectureIa')?.resume ?? '';
+    expect(e8).toMatch(/IA \(réponse synthétique.*: accord\./);
+    expect(e8).not.toMatch(/divergent/);
+    // Lue sur l'image du run de l'audit : l'action de Claude le dit (l'exception acceptee, l'autre cote).
+    expect(e8).toMatch(/Image lue : celle du run de l’audit/);
+    expect(x.calibration.etapes.find((e) => e.id === 'lectureIa')?.actions.find((a) => a.id === 'run')?.claude).toEqual({ appel: 'run', rejouee: true, image: 'imageRun' });
+    expect(x.calibration.sorties.ia?.ecart ?? 1).toBeLessThan(0.03);
+    // Les boites sont dans le repere du mur, quelle que soit l'image : le meme accord a l'E9 que sur l'assemblage.
+    expect(x.audit.accord?.bilan.retrouvees).toBeGreaterThan(0);
+  }, 360_000);
+
+  it('les choix de la personne (Calcul, Claude, Manuel) et le forcage de Claude (lot C2) : la meme entree, les memes sorties dans les deux vues', async () => {
+    // Le meme processus : les choix sont des entrees de derouler, lues de la meme facon pour la calibration et pour l'audit (qui n'en
+    // passe pas aujourd'hui, decision du proprietaire : « pas encore »). Sans choix, rien ne change ; avec, l'effet est le meme des deux cotes.
+    const s = scene('02-');
+    const c = casIaDeScene(s);
+    if (!c) throw new Error('pas de cas');
+    const run: RunEnregistre = { le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine)], cout: 0.0011,
+      tokens: { entree: 4000, sortie: 800 }, image: { largeur: c.image.largeur, hauteur: c.image.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true };
+    const x = await lesDeux(s, [s.synthese.prise as PriseCamera], {}, null, null, run);
+    const { images } = facadeDeLaScene(s, [s.synthese.prise as PriseCamera]);
+    const chercherCoins = async (e: Parameters<typeof rechercher>[0]) => rechercher(e);
+    const rejouer = (cas: typeof x.cas, vue: 'audit' | 'calibration') => derouler(entreesDuCas(cas, images, jpeg), { vue, chercherCoins, ia: run });
+    // Des listes vides ne changent rien.
+    const vide = await rejouer({ ...x.cas, choix: [], forcages: [] }, 'calibration');
+    expect(sorties(vide)).toEqual(sorties(await rejouer(x.cas, 'calibration')));
+    // Claude force pour l'E12, et une ouverture ajoutee a la main.
+    const le = '2026-11-07T10:00:00.000Z';
+    const avec = { ...x.cas, forcages: [{ etape: 'ouvertures' as const, source: 'claude' as const, le }], choix: [{ cle: 'ajout:0', source: 'manuel' as const, le, valeur: { type: 'fenetre', x: 0.2, y: 3.5, l: 0.5, h: 0.5 } }] };
+    const [cal, aud] = [await rejouer(avec, 'calibration'), await rejouer(avec, 'audit')];
+    expect(etapes(cal)).toEqual(etapes(aud));
+    expect(sorties(cal)).toEqual(sorties(aud));
+    const avant = x.calibration.sorties.audit?.mesure?.releve.ouvertures ?? [], apres = cal.sorties.audit?.mesure?.releve.ouvertures ?? [];
+    // L'ouverture ajoutee, et chaque boite seulement proposee, prise de Claude par le forcage.
+    const proposees = x.calibration.sorties.ia?.accord?.boites.filter((b) => b.avec === null).length ?? 0;
+    expect(apres).toHaveLength(avant.length + 1 + proposees);
+    expect(apres.filter((o) => o.source === 'ajoutee')).toHaveLength(1);
+    // Ce que V4 ecrirait suit les choix, et le rejeu sans eux rend la liste du moteur.
+    expect(cal.sorties.facade?.ouvertures).toHaveLength(apres.length);
+    const elements = cal.etapes.find((e) => e.id === 'ouvertures')?.actions.find((a) => a.id === 'boites')?.elements ?? [];
+    expect(elements.length).toBeGreaterThan(0);
+    expect(elements.every((e) => e.forcee && (e.sourceLue === 'claude' || e.sansClaude))).toBe(true);
+    expect(sorties(await rejouer(x.cas, 'audit'))).toEqual(sorties(x.vueAudit));
+    // Rejouer depuis l'E12 sur ce rejeu (Ctrl+Z, un autre choix) : les choix ne s'appliquent pas deux fois.
+    const depuis = await derouler(entreesDuCas(avec, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'ouvertures', precedent: cal });
+    expect(sorties(depuis)).toEqual(sorties(cal));
+    const retire = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'ouvertures', precedent: cal });
+    expect(retire.sorties.audit?.mesure?.releve.ouvertures).toEqual(avant);
+    // Les angles pris de Claude (E7) : le mur se pose sur eux, en mur pose a la main, et l'E7 le dit.
+    const angles = await rejouer({ ...x.cas, choix: [{ cle: 'angles', source: 'claude', le }] }, 'calibration');
+    expect(angles.etapes.find((e) => e.id === 'calage')?.resume).toMatch(/^Mur posé sur les angles de Claude \(votre choix\)\./);
+    expect(angles.sorties.ia?.ecart ?? 1).toBeLessThan(0.01);
+    // La lecture de Claude a ete faite sur l'image d'avant la pose : l'E8 la dit perimee.
+    expect(angles.etapes.find((e) => e.id === 'lectureIa')).toMatchObject({ etat: 'a-confirmer', resume: expect.stringMatching(/elle est périmée ; rappelez Claude pour la refaire\.$/) });
+    // Une autre reponse rejouee depuis l'E8 : l'E7 garde son mur, ses angles se relisent sur lui ; sans reponse, plus rien de Claude.
+    const sansClaude = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: null, depuis: 'lectureIa', precedent: cal });
+    expect(sansClaude.sorties.ia).toBeNull();
+    expect(sansClaude.etapes.find((e) => e.id === 'calage')?.actions.find((a) => a.id === 'angles')?.etat).toBe('saute');
+    const encore = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'lectureIa', precedent: sansClaude });
+    expect(sorties(encore)).toEqual(sorties(await rejouer(x.cas, 'calibration')));
+    // « Rejouer depuis » l'E6 refait l'assemblage (chaque etape calcule ce qu'elle montre, lot D), les E3 a E5 reprises : les memes sorties.
+    const vus: string[] = [];
+    const depuisE6 = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: run, depuis: 'assemblage', precedent: cal, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
+    expect(vus[0]).toBe('assemblage');
+    const toutX = await rejouer(x.cas, 'calibration');
+    expect(sorties(depuisE6)).toEqual(sorties(toutX));
+    expect(depuisE6.etapes).toEqual(toutX.etapes);
+    // Une reponse lue sur un autre assemblage que celui du rejeu (sa taille) : l'E8 le dit.
+    const ailleurs = await rejouer(x.cas, 'calibration').then(() => derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins, ia: { ...run, image: { largeur: run.image.largeur + 40, hauteur: run.image.hauteur } } }));
+    expect(ailleurs.etapes.find((e) => e.id === 'lectureIa')?.resume).toMatch(/lue sur un autre assemblage \(\d+ × \d+ px ; celui de ce rejeu : \d+ × \d+ px\)/);
+    expect(x.calibration.etapes.find((e) => e.id === 'lectureIa')?.resume).not.toMatch(/autre assemblage/);
+  }, 360_000);
+
+  it('le mur tire a l E7 (V1, lot D) : la meme entree des deux cotes, et la calibration le rejoue depuis l E7 comme tout rejouer', async () => {
+    const s = scene('02-');
+    const prises = [s.synthese.prise as PriseCamera];
+    const avant = await lesDeux(s, prises, {});
+    // Le mur retenu, l'egout descendu de 2 % de la hauteur, ramene sur la photo comme l'ecran le fait (murAjusteSurLesPhotos).
+    const coins = avant.calibration.sorties.calage?.pose?.coins ?? [], retours = avant.calibration.sorties.audit?.retours ?? [];
+    expect(coins).toHaveLength(4);
+    const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2], dy = (bg.y - hg.y) * 0.02;
+    const parPhoto = murAjusteSurLesPhotos({ retours }, [{ x: hg.x, y: hg.y + dy }, { x: hd.x, y: hd.y + dy }, bd, bg]);
+    const corrections = Object.fromEntries([...parPhoto].map(([rang, c]) => [String(rang), { coins: c }]));
+    const x = await lesDeux(s, prises, corrections);
+    memesSorties(x);
+    expect(x.calibration.sorties.calage?.photos[0]?.origine).toBe('main');
+    // La calibration, depuis le rejeu d'avant le geste : l'E7 et la suite seulement, les memes etapes et sorties que tout rejouer.
+    const { images } = facadeDeLaScene(s, prises);
+    const vus: string[] = [];
+    const partiel = await derouler(entreesDuCas(x.cas, images, jpeg), { vue: 'calibration', chercherCoins: async (e) => rechercher(e), verite: veriteDuCas(x.cas), illustrer: true, depuis: 'calage', precedent: avant.calibration, surEtape: (id, etat) => { if (etat === 'en-cours') vus.push(id); } });
+    expect(vus[0]).toBe('calage');
+    expect(sorties(partiel)).toEqual(sorties(x.calibration));
+    expect(partiel.etapes).toEqual(x.calibration.etapes);
+  }, 240_000);
+
+  it('trois vues d un pignon, la premiere posee a la main : les memes sorties a chaque etape', async () => {
+    const s = scene('24-');
+    const p0 = s.synthese.prise as PriseCamera;
+    const prises: PriseCamera[] = [p0, { ...p0, biais: -22, distance: 12, tangage: 10 }, { ...p0, biais: 25, distance: 12, tangage: 8 }];
+    const vrais = coinsVrais(s, p0);
+    if (!vrais) throw new Error('coins impossibles');
+    const x = await lesDeux(s, prises, { 0: { coins: vrais } });
+    memesSorties(x);
+    expect(x.calibration.sorties.audit?.redressement.photos).toHaveLength(3);
+    expect(x.calibration.sorties.calage?.photos[0]?.origine).toBe('main');
+  }, 240_000);
+});

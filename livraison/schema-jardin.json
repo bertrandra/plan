@@ -1,0 +1,340 @@
+{
+  "format": "plan-schema-jardin",
+  "version": 1,
+  "note": "Sortie de la lecture du jardin par Claude (lot L3). Positions en part de l'image (x, y depuis le haut gauche), etendue en part de son cote : Claude ne voit ni les pixels ni les metres, Plan les convertit par le geo-referencement de l'image. Vocabulaire ferme ; le genre d'un arbre est une liste fermee que le moteur rapproche de la bibliotheque d'essences de l'administrateur. Le fichier porte un `exemple` de reponse (un jardin invente), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (29 octobre 2026).",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "objets",
+      "confiance"
+    ],
+    "properties": {
+      "objets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "genre",
+            "points",
+            "etendue",
+            "arbre",
+            "nature",
+            "indices",
+            "certitude"
+          ],
+          "properties": {
+            "genre": {
+              "type": "string",
+              "enum": [
+                "arbre",
+                "haie",
+                "cloture",
+                "portail",
+                "muret",
+                "bordure",
+                "chemin",
+                "terrasse",
+                "piscine",
+                "potager",
+                "plate-bande",
+                "regard",
+                "eclairage",
+                "robinet"
+              ]
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "etendue": {
+              "type": "number"
+            },
+            "arbre": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "genre",
+                "taille",
+                "persistant"
+              ],
+              "properties": {
+                "genre": {
+                  "type": "string",
+                  "enum": [
+                    "chene",
+                    "pin",
+                    "peuplier",
+                    "hetre",
+                    "charme",
+                    "bouleau",
+                    "erable",
+                    "frene",
+                    "platane",
+                    "tilleul",
+                    "marronnier",
+                    "noyer",
+                    "robinier",
+                    "saule",
+                    "cerisier",
+                    "pommier",
+                    "poirier",
+                    "prunier",
+                    "olivier",
+                    "magnolia",
+                    "lilas",
+                    "laurier",
+                    "houx",
+                    "buis",
+                    "thuya",
+                    "if",
+                    "cypres",
+                    "cedre",
+                    "epicea",
+                    "sapin",
+                    "sequoia",
+                    "eucalyptus",
+                    "palmier",
+                    "autre-feuillu",
+                    "autre-conifere",
+                    "indetermine",
+                    "sans-objet"
+                  ]
+                },
+                "taille": {
+                  "type": "string",
+                  "enum": [
+                    "petit",
+                    "moyen",
+                    "grand",
+                    "tres-grand",
+                    "indetermine"
+                  ]
+                },
+                "persistant": {
+                  "type": "string",
+                  "enum": [
+                    "oui",
+                    "non",
+                    "indetermine"
+                  ]
+                }
+              }
+            },
+            "nature": {
+              "type": "string",
+              "enum": [
+                "grillage",
+                "palissade",
+                "mur",
+                "gravier",
+                "dalles",
+                "bois",
+                "beton",
+                "pelouse",
+                "fleurs",
+                "arbustes",
+                "vivaces",
+                "mixte",
+                "sans-objet",
+                "indetermine"
+              ]
+            },
+            "indices": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "image",
+                  "vu"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "integer"
+                  },
+                  "vu": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "certitude": {
+              "type": "string",
+              "enum": [
+                "forte",
+                "moyenne",
+                "faible"
+              ]
+            }
+          }
+        }
+      },
+      "confiance": {
+        "type": "string",
+        "enum": [
+          "faible",
+          "moyenne",
+          "forte"
+        ]
+      }
+    }
+  },
+  "exemple": {
+    "objets": [
+      {
+        "genre": "arbre",
+        "points": [
+          {
+            "x": 0.31,
+            "y": 0.22
+          }
+        ],
+        "etendue": 0.12,
+        "arbre": {
+          "genre": "bouleau",
+          "taille": "moyen",
+          "persistant": "non"
+        },
+        "nature": "sans-objet",
+        "indices": [
+          {
+            "image": 1,
+            "vu": "houppier clair et léger, ombre allongée"
+          }
+        ],
+        "certitude": "moyenne"
+      },
+      {
+        "genre": "haie",
+        "points": [
+          {
+            "x": 0.08,
+            "y": 0.1
+          },
+          {
+            "x": 0.08,
+            "y": 0.9
+          }
+        ],
+        "etendue": 0.03,
+        "arbre": {
+          "genre": "sans-objet",
+          "taille": "indetermine",
+          "persistant": "indetermine"
+        },
+        "nature": "sans-objet",
+        "indices": [
+          {
+            "image": 1,
+            "vu": "bande vert sombre continue le long de la limite ouest"
+          }
+        ],
+        "certitude": "forte"
+      },
+      {
+        "genre": "chemin",
+        "points": [
+          {
+            "x": 0.5,
+            "y": 0.95
+          },
+          {
+            "x": 0.5,
+            "y": 0.62
+          }
+        ],
+        "etendue": 0.04,
+        "arbre": {
+          "genre": "sans-objet",
+          "taille": "indetermine",
+          "persistant": "indetermine"
+        },
+        "nature": "gravier",
+        "indices": [
+          {
+            "image": 1,
+            "vu": "allée claire du portail à la maison"
+          }
+        ],
+        "certitude": "forte"
+      },
+      {
+        "genre": "plate-bande",
+        "points": [
+          {
+            "x": 0.62,
+            "y": 0.7
+          },
+          {
+            "x": 0.78,
+            "y": 0.7
+          },
+          {
+            "x": 0.78,
+            "y": 0.76
+          },
+          {
+            "x": 0.62,
+            "y": 0.76
+          }
+        ],
+        "etendue": 0,
+        "arbre": {
+          "genre": "sans-objet",
+          "taille": "indetermine",
+          "persistant": "indetermine"
+        },
+        "nature": "fleurs",
+        "indices": [
+          {
+            "image": 1,
+            "vu": "bande de terre et de couleurs au bord de la pelouse"
+          }
+        ],
+        "certitude": "moyenne"
+      },
+      {
+        "genre": "regard",
+        "points": [
+          {
+            "x": 0.44,
+            "y": 0.58
+          }
+        ],
+        "etendue": 0,
+        "arbre": {
+          "genre": "sans-objet",
+          "taille": "indetermine",
+          "persistant": "indetermine"
+        },
+        "nature": "sans-objet",
+        "indices": [
+          {
+            "image": 1,
+            "vu": "petit carré gris au pied de la façade"
+          }
+        ],
+        "certitude": "faible"
+      }
+    ],
+    "confiance": "moyenne"
+  },
+  "consigne": "Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour un jardin inventé : ses valeurs ne sont pas à recopier, la réponse dit ce que l’image 1 montre, et la liste `objets` a autant d’entrées que vous voyez d’objets (aucune s’il n’y en a pas). Tous les nombres sont des parts de l’image, comme expliqué plus haut : jamais des pixels ni des mètres."
+}

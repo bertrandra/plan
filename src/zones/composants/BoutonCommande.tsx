@@ -3,6 +3,7 @@
 // le contexte ne s'y prete pas. Les trois refus de la palette, pour un bouton de panneau.
 
 import type { RegistreCommandes } from '../../app/commandes.js';
+import { useCommandes } from './abonnement.js';
 
 interface Props {
   commandes: RegistreCommandes;
@@ -15,6 +16,8 @@ interface Props {
 }
 
 export function BoutonCommande({ commandes, id, className, children, enCours, domId }: Props) {
+  // Le bouton suit sa commande : il se redessine quand elle change, pas a chaque rendu du plan.
+  useCommandes(commandes, id);
   if (commandes.effacee(id)) return null;
   const etat = commandes.etat(id);
   const message = 'message' in etat ? etat.message : undefined;

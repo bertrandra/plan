@@ -9,11 +9,82 @@ import './styles/app.css';
 // quand c'est le chargement de app/boot.ts qui casse. En phase 1, faute de l'avoir isole, main.ts
 // portait une copie du bandeau ; la phase 5 l'a rendue inutile.
 import { showErrBanner, showProjectLoadError } from './shell/dialogs.js';
+import { chargement, finChargementApresRendu } from './shell/chargement.js';
 
 function texteErreur(err: unknown): string {
   const e = err as { message?: string; stack?: string } | null;
   const base = e && e.message ? e.message : String(err);
   return base + (e && e.stack ? '\n' + e.stack : '');
+}
+
+/**
+ * Les ecrans secondaires de l'admin, une fois sa porte franchie : chacun prend toute la page.
+ * Rend vrai si l'adresse en demandait un (il est alors ouvert).
+ */
+async function ouvrirEcranAdmin(): Promise<boolean> {
+  // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
+  // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
+  // lance la decouverte (app/administration/ecranControleurs.ts).
+  const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/administration/ecranControleurs.js');
+  if (demandeEcranControleurs(location.search)) {
+    document.documentElement.dataset.ecran = 'controleurs';
+    await ouvrirEcranControleurs();
+    return true;
+  }
+  // L'ecran de la consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
+  // le journal du serveur, ses tarifs et ses plafonds. Plan ne demarre pas dessous.
+  const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/administration/ecranConsommation.js');
+  if (demandeEcranConsommation(location.search)) {
+    document.documentElement.dataset.ecran = 'consommation';
+    ouvrirEcranConsommation();
+    return true;
+  }
+  // L'ecran des indicateurs de conformite (`?admin&ecran=conformite`, MD/spec-regles-toits.md
+  // 13.5) : le corpus du depot et les audits recus, rejoues. Plan ne demarre pas dessous.
+  const { demandeEcranConformite, ouvrirEcranConformite } = await import('./app/administration/ecranConformite.js');
+  if (demandeEcranConformite(location.search)) {
+    document.documentElement.dataset.ecran = 'conformite';
+    ouvrirEcranConformite();
+    return true;
+  }
+  // L'ecran des regles (`?admin&ecran=regles`, MD/architecture.md 5.2.4) : les sujets de l'audit et le
+  // prompt de Claude qu'ils composent, en direct. Plan ne demarre pas dessous.
+  const { demandeEcranRegles, ouvrirEcranRegles } = await import('./app/administration/ecranRegles.js');
+  if (demandeEcranRegles(location.search)) {
+    document.documentElement.dataset.ecran = 'regles';
+    ouvrirEcranRegles();
+    return true;
+  }
+  // L'ecran de la chaine (`?admin&ecran=chaine`) : de l'IGN a ma maison, de bout en bout. Plan ne demarre pas dessous.
+  const { demandeEcranChaine, ouvrirEcranChaine } = await import('./app/administration/ecranChaine.js');
+  if (demandeEcranChaine(location.search)) {
+    document.documentElement.dataset.ecran = 'chaine';
+    ouvrirEcranChaine();
+    return true;
+  }
+  // L'ecran des principes (`?admin&ecran=principes`) : processus, actions et coulisses de chaque principe. Plan ne demarre pas dessous.
+  const { demandeEcranPrincipes, ouvrirEcranPrincipes } = await import('./app/administration/ecranPrincipes.js');
+  if (demandeEcranPrincipes(location.search)) {
+    document.documentElement.dataset.ecran = 'principes';
+    ouvrirEcranPrincipes();
+    return true;
+  }
+  // L'ecran des arbres (`?admin&ecran=arbres`, MD/spec-arbres-3d.md) : la bibliotheque d'essences
+  // generees par EZ-tree. Plan ne demarre pas dessous.
+  const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/administration/ecranArbres.js');
+  if (demandeEcranArbres(location.search)) {
+    document.documentElement.dataset.ecran = 'arbres';
+    await ouvrirEcranArbres();
+    return true;
+  }
+  // L'ecran de calibration de la detection (`?admin&ecran=calibration`) : photos annotees, mesure, reglages calibres.
+  const { demandeEcranCalibration, ouvrirEcranCalibration } = await import('./app/administration/ecranCalibration.js');
+  if (demandeEcranCalibration(location.search)) {
+    document.documentElement.dataset.ecran = 'calibration';
+    ouvrirEcranCalibration();
+    return true;
+  }
+  return false;
 }
 
 // L'import est dynamique pour une raison de comportement, pas de style : dans le fichier
@@ -27,12 +98,19 @@ async function demarrer(): Promise<void> {
     if (new URLSearchParams(location.search).has('version')) {
       const { afficherDescription } = await import('./app/version.js');
       afficherDescription();
+      chargement(false);
       return;
     }
 
     // La palette de l'interface enregistree sur le serveur (app/paletteServeur.ts) : chargee sans
     // attendre, posee sur la page des qu'elle arrive. Sans elle, les couleurs d'origine.
     void import('./app/paletteServeur.js').then(({ chargerPaletteServeur }) => chargerPaletteServeur());
+
+    // Les essences d'arbres du serveur (io/arbresServeur.ts) : lues sans attendre ; la 3D et
+    // l'inspecteur les prennent des qu'elles sont la. Sans elles, les arbres sont simplifies.
+    void import('./io/arbresServeur.js').then(({ chargerEspecesServeur }) => chargerEspecesServeur());
+    // Les reglages de la detection calibres par l'admin (io/calibrationServeur.ts) : poses des qu'ils arrivent.
+    void import('./io/calibrationServeur.js').then(({ chargerCalibrationServeur }) => chargerCalibrationServeur());
 
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.
@@ -45,7 +123,8 @@ async function demarrer(): Promise<void> {
       // `file=<id>` : une demo de l'admin ; absente ou illisible, la demonstration integree.
       const demo = vitrine.fichier ? await chargerDemoVitrine(vitrine.fichier) : null;
       const { boot, graineVitrine } = await import('./app/boot.js');
-      boot(graineVitrine(demo), { vitrine });
+      boot(await graineVitrine(demo), { vitrine });
+      finChargementApresRendu();
       return;
     }
 
@@ -54,33 +133,44 @@ async function demarrer(): Promise<void> {
     // Ouvrir, Enregistrer, Nouveau et Supprimer passent par le meme depot que d'habitude, pose
     // sur ces fichiers ; le reste de l'atelier ne sait pas la difference.
     // L'ecran de la palette (`?palette`) est un ecran de l'admin : meme porte, meme mot de passe.
-    const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
-    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
+    const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/administration/porteAdmin.js');
+    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/administration/ecranPalette.js');
     if (demandeAdmin(location.search) || demandeEcranPalette(location.search)) {
       await franchirLaPorteAdmin();
       if (demandeEcranPalette(location.search)) {
         document.documentElement.dataset.ecran = 'palette';
         await ouvrirEcranPalette();
+        chargement(false);
         return;
       }
-      // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
-      // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
-      // lance la decouverte (app/ecranControleurs.ts).
-      const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
-      if (demandeEcranControleurs(location.search)) {
-        document.documentElement.dataset.ecran = 'controleurs';
-        await ouvrirEcranControleurs();
+      // Les ecrans secondaires de l'admin (controleurs, consommation, conformite, regles) : Plan ne demarre
+      // pas dessous.
+      if (await ouvrirEcranAdmin()) {
+        chargement(false);
         return;
       }
       const { entrerEnAdmin } = await import('./app/acces.js');
       entrerEnAdmin();
+      // Le mode audit depuis le menu Admin (`?admin&mode=audit`) : meme demarrage qu'apres la porte
+      // de la plateforme, sans le depot des demos, donc sans rien enregistrer.
+      const { lireDemandeAudit } = await import('./app/audit/demande.js');
+      const auditAdmin = lireDemandeAudit(location.search);
+      if (auditAdmin) {
+        const { boot, graineAudit } = await import('./app/boot.js');
+        boot(graineAudit(), { audit: auditAdmin });
+        document.title = 'Audit — Plan';
+        finChargementApresRendu();
+        return;
+      }
       const { creerDepotDemos } = await import('./io/depotDemos.js');
       const { definirDepot } = await import('./io/api.js');
       definirDepot(creerDepotDemos((entree, init) => fetch(entree, init)), { demos: true });
       const { boot, loadInitialProject } = await import('./app/boot.js');
       try {
+        chargement(true);
         const seed = await loadInitialProject();
         boot(seed);
+        finChargementApresRendu();
         const { showToast } = await import('./shell/dialogs.js');
         document.title = 'Admin démo — ' + (seed.meta?.name ?? 'Plan');
         showToast('Admin des démos : « Enregistrer » réécrit le fichier de démo ' + (seed.meta ? '« ' + seed.meta.id + ' »' : '') + ' sur le serveur.');
@@ -100,15 +190,37 @@ async function demarrer(): Promise<void> {
     // boot, parce que le registre des commandes se construit pendant cet import.
     const { poserAcces } = await import('./app/acces.js');
     poserAcces(acces.session, acces.contexte);
+    // Le mode audit (MD/spec-audit.md), reserve a l'administrateur : un plan vide qui suit la
+    // promenade, sans depot de projets, donc sans rien enregistrer.
+    const { lireDemandeAudit } = await import('./app/audit/demande.js');
+    const audit = lireDemandeAudit(location.search);
+    // Relu aussi hors audit : le menu Admin (son entree « Mode audit ») se montre a l'administrateur.
+    const { confirmerAdministrateur } = await import('./app/acces.js');
+    const administrateur = await confirmerAdministrateur();
+    if (audit && administrateur) {
+      const { boot, graineAudit } = await import('./app/boot.js');
+      boot(graineAudit(), { audit });
+      document.title = 'Audit — Plan';
+      finChargementApresRendu();
+      return;
+    }
     // Le depot des projets, pose ici parce que c'est ici que la session existe : io/ ne remonte pas
     // vers app/ pour aller la chercher (spec-connexion-plateforme §16, etape 4).
     const { creerDepotPlateforme } = await import('./io/depotPlateforme.js');
     const { definirDepot } = await import('./io/api.js');
     definirDepot(creerDepotPlateforme(acces.session));
     const { boot, loadInitialProject } = await import('./app/boot.js');
+    if (audit) {
+      const { showToast } = await import('./shell/dialogs.js');
+      showToast('Le mode audit est réservé aux administrateurs : le plan s’ouvre normalement.');
+    }
     try {
+      // Apres la porte (qui a retire la roue pour se montrer), la lecture du projet la remet : un
+      // plan lourd met plusieurs secondes a arriver et a se dessiner.
+      chargement(true);
       const seed = await loadInitialProject();
       boot(seed);
+      finChargementApresRendu();
     } catch (err) {
       // Echec classe par apiList()/apiLoad() (reseau, serveur, projet absent, JSON illisible)
       // avec un vrai projet en jeu : ecran de reprise plutot qu'un bandeau d'erreur brut.

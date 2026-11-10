@@ -15,7 +15,7 @@ import { DESCRIPTIONS } from './descriptions.js';
 
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
-  | '3d' | 'visionneuse' | 'plu' | 'facade';
+  | '3d' | 'visionneuse' | 'plu' | 'facade' | 'toit' | 'relief' | 'audit' | 'admin' | 'assistant';
 
 /**
  * Ce que la plateforme accorde, vu du registre.
@@ -57,7 +57,9 @@ export const DROITS_OUVERTS: Droits = {
 export type EtatCommande =
   | { utilisable: true }
   | { utilisable: false; raison: 'inconnue' | 'contexte' }
-  | { utilisable: false; raison: 'capacite' | 'permission' | 'quota'; message: string };
+  | { utilisable: false; raison: 'capacite' | 'permission' | 'quota'; message: string }
+  /** Le contexte ne s'y prete pas, mais la personne peut y remedier : la commande le dit (`raisonInactive`). */
+  | { utilisable: false; raison: 'contexte'; message: string };
 
 export const PHRASE_PERMISSION = "Un administrateur de votre organisation peut vous donner ce droit.";
 export const PHRASE_CAPACITE = "Cette fonction n'est pas comprise dans l'abonnement de votre organisation.";
@@ -79,6 +81,12 @@ export interface Commande {
   description?: string;
   /** Absente : toujours active. */
   actif?: () => boolean;
+  /**
+   * Quand `actif` la refuse et que la personne peut y remedier, ce qu'il faut faire (« Importez
+   * d'abord la parcelle depuis son adresse. ») : la commande reste grisee, la phrase s'affiche comme
+   * celle d'un droit manquant. Absente, ou `null` : grisee sans un mot (rien de selectionne).
+   */
+  raisonInactive?: () => string | null;
   /** La fonction que l'organisation doit avoir achetee. Absente : offerte avec le produit. */
   capacite?: string;
   /** Le droit que la personne doit tenir. Absente : aucun droit particulier. */
@@ -101,6 +109,13 @@ export interface Commande {
    */
   ecrit?: 'projet' | 'affichage';
   /**
+   * L'assistant en langue naturelle (lot L6, app/assistant/) peut la proposer : un geste synchrone, sans dialogue, sans fichier ni
+   * reseau, que « Appliquer » execute dans une transaction de l'historique. Absente : l'assistant ne la connait pas (son catalogue
+   * se genere de ce drapeau, jamais d'une liste ecrite a part). `bascule` : l'etat actuel d'une bascule d'affichage, que le catalogue
+   * dit ; sans lui, « affichez la grille » la masquerait quand elle l'est deja.
+   */
+  assistant?: { bascule?: () => boolean };
+  /**
    * `source` est l'element qui a declenche la commande, pour celles qui changent son etat ; `cible`,
    * ce sur quoi porte une commande parametree.
    */
@@ -118,6 +133,11 @@ export interface RegistreCommandes {
   /** Vrai quand la commande doit disparaitre plutot que d'etre grisee. */
   effacee(id: string): boolean;
   lister(groupe?: GroupeCommande): Commande[];
+  /**
+   * Pose une garde devant les commandes : avant d'executer une commande utilisable, chaque garde peut la retenir (vrai), pour poser
+   * d'abord une question et la relancer ensuite (une session du mode Toit qu'on quitterait sans l'avoir validee). Rend de quoi la retirer.
+   */
+  retenir(garde: (id: string, source?: HTMLElement, cible?: Cible) => boolean): () => void;
 }
 
 /**
@@ -126,6 +146,7 @@ export interface RegistreCommandes {
  */
 export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (id: string, message: string) => void): RegistreCommandes {
   const commandes = new Map<string, Commande>();
+  const gardes = new Set<(id: string, source?: HTMLElement, cible?: Cible) => boolean>();
   const registre: RegistreCommandes = {
     declarer(c) {
       if (commandes.has(c.id)) throw new Error('Commande deja declaree : ' + c.id);
@@ -148,6 +169,8 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
       }
       // Une commande parametree sans sa cible ne devine rien : elle ne fait rien.
       if (c.parametre && !cible?.[c.parametre]) return false;
+      // Une garde qui retient la commande la relancera elle-meme apres sa question.
+      for (const g of gardes) if (g(id, source, cible)) return false;
       c.executer(source, cible);
       return true;
     },
@@ -164,14 +187,21 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
           if (reste !== null && reste <= 0) return { utilisable: false, raison: 'quota', message: droits.phraseQuota?.(quota) ?? PHRASE_QUOTA };
         }
       }
-      if (c.actif && !c.actif()) return { utilisable: false, raison: 'contexte' };
+      if (c.actif && !c.actif()) {
+        const message = c.raisonInactive?.() ?? null;
+        return message ? { utilisable: false, raison: 'contexte', message } : { utilisable: false, raison: 'contexte' };
+      }
       return { utilisable: true };
     },
     effacee(id) {
       const e = registre.etat(id);
       return !e.utilisable && e.raison === 'capacite';
     },
-    lister: (groupe) => [...commandes.values()].filter((c) => !groupe || c.groupe === groupe)
+    lister: (groupe) => [...commandes.values()].filter((c) => !groupe || c.groupe === groupe),
+    retenir(garde) {
+      gardes.add(garde);
+      return () => { gardes.delete(garde); };
+    }
   };
   return registre;
 }

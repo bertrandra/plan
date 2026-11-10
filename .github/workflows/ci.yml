@@ -33,6 +33,9 @@ jobs:
         run: npm run cliquet
       - name: Client de la plateforme a jour
         run: npm run gate:client
+      - name: PHP present (les tests du serveur sautent sans lui)
+        # Le serveur n'existe qu'en PHP (deploy/) : ses tests ne doivent jamais sauter en silence ici.
+        run: php -v
       - name: Tests (couches, cycles, oracle du moteur, empreintes)
         run: npm test
       - name: Build
@@ -43,8 +46,70 @@ jobs:
           BACKPROD_API_URL: http://plateforme.test
       - name: Aucun secret dans le fichier livre
         run: npm run verifier-paquet
-      - name: Budget du fichier livre (FF-5, 5 Mo)
+      - name: Budget du paquet livre (FF-5, 5 Mo)
+        # La page ne porte plus le programme : il est en morceaux dans dist/assets/plan-<empreinte>.js,
+        # avec sa feuille de style (vite.config.ts, AD-10). Le budget porte sur la page, tous ses
+        # morceaux (ceux charges a la demande compris) et la feuille de style, qui etait dans la page.
+        shell: bash
         run: |
-          taille=$(stat -c %s dist/index.html)
-          echo "dist/index.html : $taille octets"
-          test "$taille" -le 5242880
+          set -euo pipefail
+          shopt -s nullglob
+          scripts=(dist/assets/*.js dist/assets/*.css)
+          if [ ${#scripts[@]} -eq 0 ]; then echo "aucun script dans dist/assets/"; exit 1; fi
+          total=0
+          for f in dist/index.html "${scripts[@]}"; do
+            taille=$(stat -c %s "$f")
+            echo "$f : $taille octets"
+            total=$((total + taille))
+          done
+          echo "total : $total octets (limite 5242880)"
+          test "$total" -le 5242880
+
+  # La fumee pilotee, en petit : le lot `ci` de scripts/fumee.mjs (douze points du coeur : plan,
+  # inspecteur, chiffrage, export, fichier, Vue 3D, reseau rejoue, audit, admin), au bureau en theme
+  # clair, Vue 3D en Econome. Job a part, en parallele de `verifier` : il ne le ralentit pas. Chaque
+  # point a son delai (FUMEE_DELAI_POINT) : un point qui pend echoue sous son nom, bien avant la
+  # coupure du job.
+  fumee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # La version deja employee en local (`npm root -g`) : la fumee ne suit pas une version flottante.
+      PLAYWRIGHT_VERSION: 1.56.1
+      FUMEE_CAPTURES: fumee-captures
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Playwright et Chromium
+        # Hors du paquet : le script resout `playwright` par NODE_PATH, comme sur un poste.
+        run: |
+          npm install -g "playwright@${PLAYWRIGHT_VERSION}"
+          playwright install --with-deps chromium
+      - name: Serveur de developpement
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$FUMEE_CAPTURES"
+          BACKPROD_API_URL=http://plateforme.test nohup npx vite --port 5199 --strictPort > "$FUMEE_CAPTURES/vite.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:5199/; then echo "Vite repond apres ${i} s"; exit 0; fi
+            sleep 1
+          done
+          echo "Vite ne repond pas sur le port 5199"; cat "$FUMEE_CAPTURES/vite.log"; exit 1
+      - name: Fumee, lot ci
+        shell: bash
+        run: |
+          set -o pipefail
+          NODE_PATH="$(npm root -g)" node scripts/fumee.mjs http://localhost:5199 ci 2>&1 | tee "$FUMEE_CAPTURES/journal.txt"
+      - name: Captures et journaux de la fumee
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fumee-captures
+          path: fumee-captures/
+          if-no-files-found: ignore
+          retention-days: 14

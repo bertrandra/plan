@@ -6,8 +6,11 @@
 // se construit à partir des objets visibles, donc elle se **reconstruit** au lieu de se redessiner.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho } from '../../render/ortho.js';
+import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, rechargerOrthophoto } from '../../render/ortho.js';
+import { showToast } from '../../shell/dialogs.js';
 import { vue3d } from '../../three/etat3d.js';
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { voisinage3dDe, reglerVoisinage3d } from '../../model/voisinage3d.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -22,16 +25,20 @@ export interface ContexteAffichage {
   buildThreeScene: (obj: ObjetPlan | null) => void;
 }
 
+/** La commande qui lit les rues a l'IGN (app/ecouteurs/voisinage.ts). */
+const LIRE_RUES = 'projet.lireRues';
+
 export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: RegistreCommandes): void {
   // Chaque bascule est une commande qui inverse l'etat ; le menu Affichage de la barre
   // d'application (zones/) l'execute et se coche d'apres l'etat. Les curseurs du fond orthophoto
   // sont des commandes qui lisent leur curseur (`source`).
-  cmd.declarer({ id: 'affichage.nord', libelle: 'Flèche Nord', groupe: 'affichage', executer: () => {
+  // Les trois bascules synchrones sont proposables par l'assistant (lot L6), avec leur etat : le catalogue dit si elles sont affichees.
+  cmd.declarer({ id: 'affichage.nord', libelle: 'Flèche Nord', groupe: 'affichage', assistant: { bascule: () => !!a.etat.showNorth }, executer: () => {
     a.etat.showNorth = !a.etat.showNorth;
     a.render();
   } });
 
-  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', ecrit: 'affichage', executer: () => {
+  cmd.declarer({ id: 'affichage.voisinage', libelle: 'Voisinage', groupe: 'affichage', ecrit: 'affichage', assistant: { bascule: () => !!a.etat.voisinageVisible }, executer: () => {
     a.etat.voisinageVisible = !a.etat.voisinageVisible;
     // Editer un objet qu'on vient de masquer n'aurait pas de sens : la selection revient sur la
     // parcelle, ou a defaut sur le premier objet reste visible.
@@ -51,16 +58,34 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
   } });
 
-  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', executer: () => {
+  // Le nom des rues, sur le plan et au sol de la 3D : le meme reglage que la case de la section
+  // Voisinage (3D), range sur la parcelle du projet. La premiere fois, les rues se lisent a l'IGN.
+  cmd.declarer({ id: 'affichage.rues', libelle: 'Noms des rues', groupe: 'affichage', ecrit: 'affichage',
+    actif: () => !!parcelleDuProjet(a.etat.objects),
+    executer: () => {
+      const p = parcelleDuProjet(a.etat.objects);
+      if (!p) return;
+      const montrer = !voisinage3dDe(p).rues.afficher;
+      reglerVoisinage3d(p, (x) => { x.rues.afficher = montrer; });
+      if (montrer && !p.ruesVoisinage && cmd.etat(LIRE_RUES).utilisable) cmd.executer(LIRE_RUES);
+      a.render();
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+    } });
+
+  cmd.declarer({ id: 'affichage.grille', libelle: 'Grille', groupe: 'affichage', ecrit: 'affichage', assistant: { bascule: () => !!a.etat.grilleVisible }, executer: () => {
     a.etat.grilleVisible = !a.etat.grilleVisible;
     ctx.enregistrerAffichage();
     a.render();
   } });
 
   // `void` : la bascule télécharge des tuiles, donc elle est asynchrone. Rien n'attend son résultat
-  // — c'est elle qui redessine quand elle a fini.
+  // — c'est elle qui redessine le plan quand elle a fini. La 3D, elle, ne lit les tuiles qu'en se
+  // construisant : ouverte, elle se reconstruit une fois la bascule faite (sans cela, la photo
+  // n'apparaissait ou ne disparaissait qu'apres un aller-retour par le plan 2D).
   cmd.declarer({ id: 'affichage.orthophoto', libelle: 'Fond orthophoto', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: () => {
-    void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho());
+    void basculerOrthophoto(!ortho.actif, ctx.ctxOrtho()).then(() => {
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+    });
   } });
 
   const valeurDe = (source: HTMLElement | undefined) => parseInt((source as HTMLInputElement | undefined)?.value ?? '', 10);
@@ -89,4 +114,17 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     a.render();
     enregistrerConfigOrtho(ctx.ctxOrtho());
   } });
+
+  // Une photo mal chargee (tuiles manquantes, reseau coupe en route) ne se reparait qu'en eteignant
+  // puis rallumant le fond, ce qui ne relisait rien : les tuiles restaient en cache. Ici tout est
+  // oublie et relu, couche fine et couche large du paysage.
+  cmd.declarer({ id: 'affichage.orthoRecharger', libelle: 'Recharger la photo aérienne', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code,
+    actif: () => ortho.actif && !ortho.chargement,
+    executer: () => {
+      void rechargerOrthophoto(ctx.ctxOrtho()).then((r) => {
+        const n = ortho.tuiles.length + ortho.tuilesLarges.length;
+        showToast('Photo aérienne rechargée : ' + n + ' tuile' + (n > 1 ? 's' : '') + (r && !r.exact ? ' (calage approximatif)' : ''));
+        if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+      }).catch((e: unknown) => { showToast('Photo aérienne indisponible : ' + ((e as Error)?.message || 'réessayez plus tard.')); });
+    } });
 }

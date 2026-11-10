@@ -1,0 +1,204 @@
+{
+  "format": "plan-assistant-reference",
+  "version": 1,
+  "note": "Les dix demandes de reference de l'assistant (lot L6, MD/spec-lecture-ia-elargie.md §7) : sur la demonstration, l'objet selectionne, la demande, et les listes admises. Les etapes se comparent dans n'importe quel ordre ; une etape `commande` se compare par son identifiant, une etape `champ` par son objet, sa cle et sa valeur (un nombre a 1e-6 pres). `questions` : true, il en faut au moins une ; false, aucune ; absent, peu importe. `grisees` (dans une liste admise) : les rangs des etapes que Plan doit griser ; toutes les autres doivent etre utilisables. `sansChiffre` : ni prix ni montant dans la reponse.",
+  "demandes": [
+    {
+      "id": "01-lames-douglas",
+      "selection": "terrasse",
+      "demande": "Passez les lames de la terrasse en douglas.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "champ": {
+                "objet": "terrasse",
+                "cle": "lames.essenceBois",
+                "valeur": "douglas"
+              }
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "02-grille",
+      "selection": "terrasse",
+      "demande": "Affichez la grille.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "commande": "affichage.grille"
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "03-nord-voisinage",
+      "selection": "terrasse",
+      "demande": "Cachez la flèche du nord et les maisons des voisins.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "commande": "affichage.nord"
+            },
+            {
+              "commande": "affichage.voisinage"
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "04-dupliquer",
+      "selection": "terrasse",
+      "demande": "Faites-moi une copie de cette terrasse.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "commande": "objet.dupliquer"
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "05-piscine-ronde",
+      "selection": "parcelle",
+      "demande": "Ajoutez une piscine ronde.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "commande": "objet.ajouter.piscineRonde"
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "06-spa-jacuzzi",
+      "selection": "spa",
+      "demande": "Renommez le spa en Jacuzzi et surélevez-le de 40 cm.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "champ": {
+                "objet": "spa",
+                "cle": "objet.name",
+                "valeur": "Jacuzzi"
+              }
+            },
+            {
+              "champ": {
+                "objet": "spa",
+                "cle": "objet.elevation",
+                "valeur": 0.4
+              }
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "07-cloture-grillage",
+      "selection": "parcelle",
+      "demande": "Je veux une clôture en grillage d'un mètre cinquante.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "champ": {
+                "objet": "parcelle",
+                "cle": "cloture.type",
+                "valeur": "grillage"
+              }
+            },
+            {
+              "champ": {
+                "objet": "parcelle",
+                "cle": "cloture.hauteur",
+                "valeur": 1.5
+              }
+            }
+          ],
+          "questions": false
+        }
+      ]
+    },
+    {
+      "id": "08-autre-objet",
+      "selection": "terrasse",
+      "demande": "Renommez le chêne en « Vieux chêne ».",
+      "attendu": [
+        {
+          "etapes": [],
+          "questions": true
+        }
+      ]
+    },
+    {
+      "id": "09-hors-projet",
+      "selection": "terrasse",
+      "demande": "Combien coûterait une terrasse de 25 m² ?",
+      "attendu": [
+        {
+          "etapes": [],
+          "questions": true
+        },
+        {
+          "etapes": [
+            {
+              "commande": "objet.ajouter.terrasse"
+            }
+          ],
+          "questions": true
+        }
+      ],
+      "sansChiffre": true
+    },
+    {
+      "id": "10-lecture-seule",
+      "selection": "terrasse",
+      "lectureSeule": true,
+      "demande": "Affichez la grille et passez les lames en composite.",
+      "attendu": [
+        {
+          "etapes": [
+            {
+              "commande": "affichage.grille"
+            },
+            {
+              "champ": {
+                "objet": "terrasse",
+                "cle": "lames.essenceBois",
+                "valeur": "composite"
+              }
+            }
+          ],
+          "grisees": [
+            1
+          ]
+        },
+        {
+          "etapes": [
+            {
+              "commande": "affichage.grille"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

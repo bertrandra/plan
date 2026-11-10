@@ -3,18 +3,22 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Le fond orthophoto telecharge des tuiles : on le remplace par son etat et des espions.
 const orthoEspions = vi.hoisted(() => ({
-  ortho: { actif: false, opacite: 0.85, parcelleOpacite: 0.15 },
-  basculer: vi.fn(async () => {}), placer: vi.fn(), enregistrer: vi.fn()
+  ortho: { actif: false, opacite: 0.85, parcelleOpacite: 0.15, chargement: false, tuiles: [] as unknown[], tuilesLarges: [] as unknown[] },
+  basculer: vi.fn(async () => {}), placer: vi.fn(), enregistrer: vi.fn(),
+  recharger: vi.fn(async () => ({ z: 19, nb: 4, total: 4, exact: true })), toast: vi.fn()
 }));
+vi.mock('../../../../src/shell/dialogs.js', () => ({ showToast: orthoEspions.toast, showErrBanner: () => {} }));
 vi.mock('../../../../src/render/ortho.js', () => ({
   ortho: orthoEspions.ortho,
-  basculerOrthophoto: orthoEspions.basculer, placerOrthophoto: orthoEspions.placer, enregistrerConfigOrtho: orthoEspions.enregistrer
+  basculerOrthophoto: orthoEspions.basculer, placerOrthophoto: orthoEspions.placer, enregistrerConfigOrtho: orthoEspions.enregistrer,
+  rechargerOrthophoto: orthoEspions.recharger
 }));
 
 import { creerRegistre, type Droits } from '../../../../src/app/commandes.js';
 import { brancherAffichage, type ContexteAffichage } from '../../../../src/app/ecouteurs/affichage.js';
 import { brancherBoutonsDeVue } from '../../../../src/app/ecouteurs/modes.js';
 import { fauxAtelier } from './faux.js';
+import { vue3d } from '../../../../src/three/etat3d.js';
 import type { ObjetPlan } from '../../../../src/model/types.js';
 
 // L'affichage (app/ecouteurs/affichage.ts) et les boutons de vue (modes.ts) : des bascules qui ne
@@ -85,6 +89,57 @@ describe('affichage', () => {
     const sans = monter(sansOrtho).cmd;
     for (const id of ['affichage.orthophoto', 'affichage.orthoOpacite', 'affichage.orthoParcelleOpacite']) expect(sans.effacee(id), id).toBe(true);
     expect(sans.effacee('affichage.grille')).toBe(false);
+  });
+
+  it('reconstruit la 3D ouverte une fois le fond bascule, pas avant ; rien sans 3D', async () => {
+    let finir = () => {};
+    orthoEspions.basculer.mockImplementationOnce(() => new Promise<void>((r) => { finir = r; }));
+    vue3d.scene = {} as never;
+    try {
+      const { ctx, cmd } = monter();
+      cmd.executer('affichage.orthophoto');
+      expect(ctx.buildThreeScene).not.toHaveBeenCalled();
+      finir();
+      await Promise.resolve(); await Promise.resolve();
+      expect(ctx.buildThreeScene).toHaveBeenCalledTimes(1);
+    } finally { vue3d.scene = null; }
+    const sans3d = monter();
+    sans3d.cmd.executer('affichage.orthophoto');
+    await Promise.resolve(); await Promise.resolve();
+    expect(sans3d.ctx.buildThreeScene).not.toHaveBeenCalled();
+  });
+});
+
+describe('photo aerienne et noms des rues', () => {
+  it('recharge la photo allumee, le dit, et reconstruit la 3D ouverte', async () => {
+    orthoEspions.ortho.actif = false;
+    const { cmd, ctx } = monter();
+    expect(cmd.etat('affichage.orthoRecharger').utilisable).toBe(false);
+    orthoEspions.ortho.actif = true;
+    orthoEspions.ortho.tuiles = [{}, {}];
+    orthoEspions.ortho.tuilesLarges = [{}];
+    vue3d.scene = {} as never;
+    try {
+      cmd.executer('affichage.orthoRecharger');
+      await Promise.resolve(); await Promise.resolve();
+      expect(orthoEspions.recharger).toHaveBeenCalledTimes(1);
+      expect(orthoEspions.toast).toHaveBeenCalledWith('Photo aérienne rechargée : 3 tuiles');
+      expect(ctx.buildThreeScene).toHaveBeenCalledTimes(1);
+    } finally { vue3d.scene = null; orthoEspions.ortho.actif = false; }
+    expect(monter(sansOrtho).cmd.effacee('affichage.orthoRecharger')).toBe(true);
+  });
+
+  it('montre les noms des rues, et les lit a l IGN la premiere fois', () => {
+    const { a, cmd } = monter();
+    const lire = vi.fn();
+    cmd.declarer({ id: 'projet.lireRues', libelle: 'Lire les rues', groupe: 'projet', executer: lire });
+    const p = a.etat.objects.find((o) => o.key === 'parcelle')!;
+    cmd.executer('affichage.rues');
+    expect(p.voisinage3d?.rues?.afficher).toBe(true);
+    expect(lire).toHaveBeenCalledTimes(1);
+    cmd.executer('affichage.rues');
+    expect(p.voisinage3d?.rues?.afficher).toBe(false);
+    expect(lire).toHaveBeenCalledTimes(1);
   });
 });
 

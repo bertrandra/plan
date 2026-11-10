@@ -1,12 +1,12 @@
 // La section « Note de calcul » d'une pergola ou d'un carport (ui/champs/).
 //
 // Les hypotheses (regions de neige et de vent, altitude, terrain, materiau) se reglent ici ; les
-// resultats sont ceux d'engine/noteCalcul.ts, piece par piece, avec la section qui suffit quand
+// resultats sont ceux d'engine/abri/noteCalcul.ts, piece par piece, avec la section qui suffit quand
 // celle en place ne passe pas. La note complete, avec ses combinaisons et ses limites, sort en PDF
 // par la commande `export.noteCalcul`.
 
-import { hypothesesDe, noteDeCalcul, SK200, TERRAINS, VB0, ZONES_NEIGE, type NoteCalcul, type VerifPiece } from '../../engine/noteCalcul.js';
-import { libelleSection, LIBELLE_ROLE, pergolaDe } from '../../engine/pergola.js';
+import { hypothesesDe, noteDeCalcul, SK200, TERRAINS, VB0, ZONES_NEIGE, type NoteCalcul, type VerifPiece } from '../../engine/abri/noteCalcul.js';
+import { libelleSection, LIBELLE_ROLE, pergolaDe } from '../../engine/abri/pergola.js';
 import type { CategorieTerrain, HypothesesCalcul, ZoneNeige } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
@@ -107,12 +107,23 @@ function lignesResultats(n: NoteCalcul): Champ[] {
   return champs;
 }
 
-/** La note de calcul d'un abri : ses hypotheses, puis ses resultats. */
+/** Le pli de la note : ses hypotheses et ses verifications, piece par piece. */
+const PLI_NOTE = 'Hypothèses et vérifications';
+
+/**
+ * La note de calcul d'un abri, repliee : ce qui manque pour l'obtenir et les pieces insuffisantes
+ * restent en vue, avec le bouton du PDF ; les hypotheses et les verifications se lisent d'un clic.
+ */
 export function sectionNoteCalcul(c: ContexteChamps): Section {
   const n = noteDeCalcul(c.obj);
+  const tous = [...CHAMPS_HYPOTHESES, ...(n ? lignesResultats(n) : [])];
+  const enVue = (ch: Champ) => ch.type === 'alerte' || ch.type === 'bouton';
+  const manque = tous.filter(ch => enVue(ch) && ch.cle === 'calcul-manque');
+  const plies = tous.filter(ch => !enVue(ch)).map((ch): Champ => ({ ...ch, repli: PLI_NOTE }));
+  const apres = tous.filter(ch => enVue(ch) && ch.cle !== 'calcul-manque');
   return {
     id: 'noteCalcul', titre: 'Note de calcul',
     explication: 'Pré-dimensionnement selon NF EN 1990, 1991, 1995 et 1999 et leurs annexes nationales. Il ne vérifie ni les assemblages ni le sol, et ne remplace pas l\'étude d\'un bureau d\'études : la note PDF détaille ses limites.',
-    champs: [...CHAMPS_HYPOTHESES, ...(n ? lignesResultats(n) : [])]
+    champs: [...manque, ...plies, ...apres]
   };
 }

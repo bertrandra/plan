@@ -18,12 +18,15 @@ import { resumerChiffrage, euros } from '../ui/chiffrage.js';
 import { ESSENCE_PRICES } from '../engine/constantes.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { Icone } from './icones.js';
+import { useCle, cleEtatEtObjets } from './composants/abonnement.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
 import { estTerrasse } from '../model/fonctions.js';
+import { largeurChemin, longueurChemin } from '../model/ouvrages/index.js';
+import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 
 /** L'essence des lames d'une terrasse, comme la nomenclature la nomme. */
 const essenceDe = (o: ObjetPlan) => (ESSENCE_PRICES[ensureConstruction(o).essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label.toLowerCase() ?? '';
@@ -39,12 +42,10 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
     liste.push(['Rayon', nombre(o.r) + ' m']);
     liste.push(['Surface', nombre(Math.PI * o.r * o.r) + ' m²']);
   } else if (o.type === 'path') {
-    let L = 0;
-    o.pts.forEach((p, i) => { const q = o.pts[i - 1]; if (q) L += Math.hypot(p.x - q.x, p.y - q.y); });
-    liste.push(['Longueur', nombre(L) + ' m']);
-    if (o.width) liste.push(['Largeur', nombre(o.width) + ' m']);
+    liste.push(['Longueur', nombre(longueurChemin(o)) + ' m']);
+    liste.push(['Largeur', nombre(largeurChemin(o)) + ' m']);
   } else {
-    liste.push(['Surface', nombre(shoelace(o.pts)) + ' m²']);
+    liste.push(['Surface', nombre(estTerrasse(o) ? surfaceNetteTerrasse(o.pts, objets) : shoelace(o.pts)) + ' m²']);
   }
   if (estTerrasse(o)) {
     liste.push(['Hauteur finie', nombre(hauteurFinieMm(o) / 10, 1).replace(/,0$/, '') + ' cm']);
@@ -55,7 +56,8 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
 }
 
 export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: PropsFeuilleSelection) {
-  useStore(magasin.store, (s) => s.version);
+  // L'objet choisi et ses chiffres (ils lisent aussi les objets qui le percent : la version de l'ensemble), et ses deux commandes.
+  useCle(magasin, 'feuille de sélection', (s) => cleEtatEtObjets(s) + JSON.stringify(['objet.dupliquer', 'objet.supprimer'].map((id) => [commandes.effacee(id), commandes.etat(id)])));
   const classe = useStore(magasin.store, (s) => s.classe);
   const vue = useStore(magasin.store, (s) => s.vue);
   const feuille = useStore(magasin.store, (s) => s.feuille);

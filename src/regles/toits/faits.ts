@@ -1,0 +1,445 @@
+// Les faits des toits : regles/toits/faits.json (MD/spec-regles-toits.md §5, §9).
+//
+// Un fait est une verite observee sur UN batiment (sa cle BD TOPO, `cleabs`) : ce que vous avez vu sur
+// le terrain, dans le vocabulaire du §2 et du §7 de la spec. Il ne se code jamais dans une regle (un
+// `if cleabs ==` est un fait) : il vit ici, dans le depot, relu par la CI. Le fichier est importe,
+// donc compile dans le fichier livre : un toit calcule hier se recalcule a l'identique, sans reseau.
+// Son empreinte entre dans la version de lecture des toits (app/toits/toitsLidar.ts) : un fait ajoute ou
+// change relit les toits deja lus.
+//
+// Ce module lit et verifie le fichier, et tient les faits en vigueur : ceux du depot, ou, le temps
+// d'une seance, ceux d'un fichier essaye par l'administrateur (`?regles=local`, §9.2), jamais
+// enregistres. L'application d'un fait a un toit est dans facade/regles/toits/faits.ts.
+
+import fichier from '../../../regles/toits/faits.json';
+import { fnv1a } from './reglages.js';
+import { FORMES_TOIT_SIMPLES } from '../../model/formeToit.js';
+import type { FormeToitSimple } from '../../model/types.js';
+
+/** Ce qui ferme un bout du faitage : un mur pignon, ou une croupe. */
+export type BoutFait = 'pignon' | 'croupe';
+
+/** Une fourchette de hauteurs, en metres au-dessus du sol. */
+export interface Fourchette { min?: number; max?: number }
+
+/**
+ * Le sens du faitage observe. `long` : par rapport au plus long cote du contour (`parallele` ou
+ * `perpendiculaire`) ; `azimut` : un azimut (0 = nord, sens horaire, modulo 180), celui que donne
+ * la photo prise face a la facade - un faitage « perpendiculaire a la rue » s'ecrit ainsi, la rue
+ * n'etant pas dans le calcul.
+ */
+export type FaitageFait =
+  | { par: 'long'; sens: 'parallele' | 'perpendiculaire'; toleranceDeg?: number }
+  | { par: 'azimut'; azimutDeg: number; toleranceDeg?: number };
+
+/**
+ * Un appentis adosse le long d'une facade (spec §5.1) : un porche, une galerie couverte, un auvent
+ * que le contour BD TOPO ne contient pas. La facade se designe par l'azimut de sa normale sortante
+ * (0 = nord, sens horaire : 180 pour la facade sud), comme on la nomme sur place. `longueur: 'toute'` :
+ * sur tout le cote du corps qui porte cette facade. Les cotes absentes sont lues sur la mesure
+ * (facade/regles/toits/appentis.ts) ; celles que le fait donne l'emportent.
+ */
+export interface AppentisFait {
+  facade: { azimutDeg: number; toleranceDeg?: number };
+  longueur: 'toute';
+  /** La saillie du pan, du mur a l'egout, a plat, en metres. */
+  profondeurM?: number;
+  /** L'egout, au bord bas, en metres au-dessus du sol. */
+  egoutM?: number;
+  /** La hauteur du pan contre le mur (sa rive de tete), en metres au-dessus du sol. */
+  hautM?: number;
+}
+
+/**
+ * Les pignons d'une facade (spec §5.1) : des pignons traversants qui coupent le
+ * pan de cette facade, sur le corps qui la porte, comme les deux pignons de la facade sud d'AE 101. La facade se designe comme
+ * pour un appentis (l'azimut de sa normale sortante). `position: 'bouts'` : un pignon a chaque bout
+ * de la facade. `haut: 'faitage'` : ils montent jusqu'au point haut du faitage du corps (dit par le
+ * proprietaire) ; sans lui, leur hauteur est lue sur la mesure. `largeurM`, quand le fait la donne,
+ * l'emporte ; sinon la largeur se lit sur la mesure, puis celle de l'autre pignon de la facade.
+ */
+export interface PignonsFait {
+  facade: { azimutDeg: number; toleranceDeg?: number };
+  /**
+   * Le mur du corps qui porte ces pignons (lot F4 : une proposition de l'audit, MD/spec-facade-calage-audit.md §5 ter) : il l'emporte
+   * sur l'azimut, et designe n'importe quel corps, retrouve par son mur (murDuCorps) quelle que soit la renumerotation des corps.
+   * Absent (un fait du depot) : le cote de corps en facade du contour qui regarde vers l'azimut, le plus long.
+   */
+  mur?: MurDesigne;
+  /** `bouts` : un pignon a chaque bout de la facade. `places` : exactement les pignons de `places` (lot F4). */
+  position: 'bouts' | 'places';
+  /** Les pignons que montre ce mur, de `de` a `a` metres le long du mur depuis sa gauche vue de dehors (`position: 'places'`). */
+  places?: { de: number; a: number }[];
+  haut?: 'faitage';
+  /** La largeur de chaque pignon le long de la facade, en metres ; donnee, elle l'emporte sur la mesure. */
+  largeurM?: number;
+}
+
+/** Un mur de corps, par ses deux bouts dans le plan, vus de dehors (de gauche a droite). */
+export interface MurDesigne { gauche: { x: number; y: number }; droite: { x: number; y: number } }
+
+/**
+ * Ce qui ferme le bout d'un corps, vu sur son mur de bout (lot F4 : une proposition de l'audit) : un triangle est un pignon, un
+ * trapeze une croupe (MD/spec-facade-calage-audit.md §5 bis). Le corps se designe par ce mur, comme les pignons d'une facade.
+ */
+export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait | 'demi-croupe' }
+
+/**
+ * La pointe d'un pignon traversant vue coupee en cul de geai sur un mur (une proposition de l'audit, 5 novembre 2026) : le pignon du
+ * corps que designe ce mur dont la place couvre `a` metres le long du mur depuis sa gauche vue de dehors. Le moteur lit la coupe sur
+ * la mesure, ou la pose au tiers (facade/regles/toits/pignons.ts::avecPointesDesMurs) ; elle ne s'ecrit jamais dans faits.json.
+ */
+export interface PointeDeMurFait { mur: MurDesigne; a: number; pointe: 'demi-croupe' }
+
+/**
+ * Un element vu sur la ligne du haut d'un mur (lot F7 : une proposition de l'audit, MD/spec-facade-calage-audit.md §5 quater) : une
+ * cheminee ou une lucarne, sur le corps que designe ce mur, a `a` metres le long du mur depuis sa gauche vue de dehors (son milieu).
+ * Le moteur la pose (facade/regles/toits/elementsVus.ts::avecElementsDesMurs) ; il ne s'ecrit jamais dans faits.json.
+ */
+export interface ElementDeMurFait { mur: MurDesigne; element: 'cheminee' | 'lucarne'; a: number }
+
+/**
+ * Une fenetre de toit ou un champ de panneaux solaires vu sur le pan au-dessus d'un mur (lot L2 de MD/spec-lecture-ia-elargie.md : une
+ * proposition de l'audit), sur le corps que designe ce mur : de `de` a `a` metres le long du mur depuis sa gauche vue de dehors, son
+ * milieu a `hauteurM` metres au-dessus du sol sur la photo redressee. Le moteur le pose sur le pan de ce mur (sM du long du mur, dM de la
+ * hauteur par la pente du pan : facade/regles/toits/elementsDesMurs.ts::elementToitPoseSurLeMur) ; il ne s'ecrit jamais dans faits.json.
+ */
+export interface ElementToitDeMurFait { mur: MurDesigne; element: 'fenetre-toit' | 'solaire'; de: number; a: number; hauteurM: number }
+
+/**
+ * Une saillie vue sur un mur (lot L1 de MD/spec-lecture-ia-elargie.md : une proposition de l'audit) : un bow-window, une galerie, un
+ * auvent ou un appentis, sur le corps que designe ce mur, de `de` a `a` metres le long du mur depuis sa gauche vue de dehors. Le moteur
+ * la pose (facade/regles/toits/sailliesDesMurs.ts) avec la profondeur par defaut de son genre (une vue de face ne la montre pas,
+ * decision 4) ; il ne s'ecrit jamais dans faits.json.
+ */
+export interface SaillieDeMurFait {
+  mur: MurDesigne;
+  genre: 'bow-window' | 'galerie' | 'auvent' | 'appentis';
+  de: number;
+  a: number;
+  forme: 'pans' | 'rectangle' | 'arc' | 'conge';
+  niveau: 'rdc' | 'toit';
+  toit: 'pan' | 'pavillon' | 'plat';
+  /** Le bas de son toit, en metres au-dessus du sol ; absent : celui de son niveau. */
+  hauteurM?: number;
+  couverture?: 'verre' | 'tuile' | 'zinc' | 'autre';
+}
+
+/**
+ * Une bay window (spec §2.3) : une avancee de facade que le contour cadastral porte (AE 101 : 2,3 x 0,6 m cote est). La facade se
+ * designe par l'azimut de sa normale sortante, comme pour un appentis ; `largeurM` departage deux saillies sur une meme facade.
+ * `toit: 'propre'` : un toit a elle, plat (`hauteurM`) ou en appentis (`hautM` contre le mur, `egoutM` au bord) ; les cotes absentes sont
+ * lues sur la mesure. `'couverte'` : cachee sous le toit d'un appentis voisin, aucun toit a elle. `'traversante'` : son mur monte au toit
+ * du corps et le traverse ; elle se dit, mais n'est pas encore dessinee.
+ */
+export interface BaieFait {
+  facade: { azimutDeg: number; toleranceDeg?: number };
+  largeurM?: number;
+  forme: 'rectangle' | 'arc' | 'conge';
+  congeM?: number;
+  pose: 'sous-premier-etage' | 'toute-hauteur';
+  toit: 'propre' | 'traversante' | 'couverte';
+  toitForme?: 'plat' | 'appentis';
+  hauteurM?: number;
+  hautM?: number;
+  egoutM?: number;
+}
+
+/** Ce que vous avez vu : chaque assertion absente n'est pas imposee (spec §7.1). */
+export interface ObservationFait {
+  /**
+   * La forme du corps principal (le plus grand), ou les formes admises : une forme simple, la seule
+   * que le calcul sache produire (les formes du catalogue, model/formeToit.ts, viendront avec leur regle).
+   */
+  forme?: FormeToitSimple[];
+  faitage?: FaitageFait;
+  bouts?: [BoutFait, BoutFait];
+  corps?: { min?: number; max?: number };
+  egout?: Fourchette;
+  faitageM?: Fourchette;
+  /** Les appentis adosses que le calcul ajoute aux corps lus (spec §5.1). */
+  appentis?: AppentisFait[];
+  /** Les pignons traversants d'une facade, sur le corps qui la porte (spec §5.1 ; lot F4 : n'importe quel corps, par son mur). */
+  pignons?: PignonsFait[];
+  /** Les bouts que montrent des murs de bout, chacun sur son corps (lot F4). */
+  boutsDesMurs?: BoutDeMurFait[];
+  /** Les pointes de pignons vues coupees en cul de geai, chacune sur son pignon (5 novembre 2026). */
+  pointesDesMurs?: PointeDeMurFait[];
+  /** Les cheminees et lucarnes que montrent des murs, chacune posee sur son corps (lot F7) ; ce qui est deja pose ne bouge pas. */
+  elementsDesMurs?: ElementDeMurFait[];
+  /** Les bay windows que le calcul pose sur les saillies du contour (spec §2.3). */
+  baies?: BaieFait[];
+  /** Les saillies que montrent des murs, chacune posee sur son corps (lot L1) ; ce qui y est deja pose ne bouge pas. */
+  sailliesDesMurs?: SaillieDeMurFait[];
+  /** Les fenetres de toit et panneaux solaires que montrent des murs, chacun pose sur le pan de son corps (lot L2) ; ce qui y est deja pose ne bouge pas. */
+  elementsToitDesMurs?: ElementToitDeMurFait[];
+}
+
+/** Les dimensions d'un fait en remplacement : la mesure n'en dit rien de juste. */
+export interface DimensionsFait {
+  egoutM: number;
+  /** Absent : un toit plat a l'egout. */
+  faitageM?: number;
+  /** Un appentis : l'azimut vers lequel le pan monte (vers son mur haut). */
+  hautVersDeg?: number;
+}
+
+export interface FaitToit {
+  observation: ObservationFait;
+  application: 'contrainte' | 'remplacement';
+  dimensions?: DimensionsFait;
+  /** D'ou il vient : le fichier de promenade et le cas, une photo, ou une observation dite en mots. Sans effet sur le calcul. */
+  preuve?: { promenade?: string; cas?: string; photo?: boolean; observation?: string };
+  adresse?: string;
+  historique?: { t: string; texte: string }[];
+}
+
+/** Les faits, par cle BD TOPO. */
+export type FaitsToits = Readonly<Record<string, FaitToit>>;
+
+/** Un fichier de faits illisible : le message dit quel fait et pourquoi. */
+export class FaitsToitsIllisibles extends Error {}
+
+const FORMES = FORMES_TOIT_SIMPLES;
+const BOUTS: readonly BoutFait[] = ['pignon', 'croupe'];
+
+const estNombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+function fourchette(v: unknown, quoi: string): Fourchette | undefined {
+  if (v === undefined) return undefined;
+  const f = v as { min?: unknown; max?: unknown } | null;
+  if (!f || typeof f !== 'object' || (f.min !== undefined && !estNombre(f.min)) || (f.max !== undefined && !estNombre(f.max))) throw new FaitsToitsIllisibles(quoi + ' : une fourchette { min, max } en metres');
+  return { ...(f.min !== undefined ? { min: f.min as number } : {}), ...(f.max !== undefined ? { max: f.max as number } : {}) };
+}
+
+function faitage(v: unknown, quoi: string): FaitageFait | undefined {
+  if (v === undefined) return undefined;
+  const f = v as { par?: unknown; sens?: unknown; azimutDeg?: unknown; toleranceDeg?: unknown } | null;
+  const tol = f?.toleranceDeg;
+  if (tol !== undefined && !estNombre(tol)) throw new FaitsToitsIllisibles(quoi + '.faitage.toleranceDeg : un nombre de degres');
+  const t = tol !== undefined ? { toleranceDeg: tol as number } : {};
+  if (f?.par === 'long' && (f.sens === 'parallele' || f.sens === 'perpendiculaire')) return { par: 'long', sens: f.sens, ...t };
+  if (f?.par === 'azimut' && estNombre(f.azimutDeg)) return { par: 'azimut', azimutDeg: f.azimutDeg, ...t };
+  throw new FaitsToitsIllisibles(quoi + '.faitage : { par: "long", sens: "parallele" | "perpendiculaire" } ou { par: "azimut", azimutDeg } (la rue n\'est pas dans le calcul : ecrire l\'azimut de la photo)');
+}
+
+const positif = (v: unknown): v is number => estNombre(v) && v > 0;
+
+function unAppentis(v: unknown, quoi: string): AppentisFait {
+  const a = v as { facade?: { azimutDeg?: unknown; toleranceDeg?: unknown }; longueur?: unknown; profondeurM?: unknown; egoutM?: unknown; hautM?: unknown } | null;
+  if (!a || typeof a !== 'object' || !a.facade || !estNombre(a.facade.azimutDeg) || (a.facade.toleranceDeg !== undefined && !positif(a.facade.toleranceDeg))) throw new FaitsToitsIllisibles(quoi + ' : { facade: { azimutDeg }, longueur: "toute" } (l\'azimut de la normale sortante de la facade : 180 pour la facade sud)');
+  // Seule la longueur entiere de la facade se decrit pour l'instant : une partie demanderait de dire ou elle commence.
+  if (a.longueur !== undefined && a.longueur !== 'toute') throw new FaitsToitsIllisibles(quoi + '.longueur : "toute" (une partie de facade ne se decrit pas encore)');
+  for (const k of ['profondeurM', 'egoutM', 'hautM'] as const) if (a[k] !== undefined && !positif(a[k])) throw new FaitsToitsIllisibles(quoi + '.' + k + ' : un nombre de metres positif');
+  if (estNombre(a.egoutM) && estNombre(a.hautM) && a.hautM <= a.egoutM) throw new FaitsToitsIllisibles(quoi + ' : un appentis monte vers le mur (hautM au-dessus de egoutM)');
+  return {
+    facade: { azimutDeg: a.facade.azimutDeg, ...(a.facade.toleranceDeg !== undefined ? { toleranceDeg: a.facade.toleranceDeg as number } : {}) },
+    longueur: 'toute',
+    ...(a.profondeurM !== undefined ? { profondeurM: a.profondeurM as number } : {}),
+    ...(a.egoutM !== undefined ? { egoutM: a.egoutM as number } : {}),
+    ...(a.hautM !== undefined ? { hautM: a.hautM as number } : {}),
+  };
+}
+
+function appentis(v: unknown, quoi: string): AppentisFait[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || !v.length) throw new FaitsToitsIllisibles(quoi + ' : une liste d\'appentis');
+  return v.map((a, i) => unAppentis(a, quoi + '[' + i + ']'));
+}
+
+function desPignons(v: unknown, quoi: string): PignonsFait[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || !v.length) throw new FaitsToitsIllisibles(quoi + ' : une liste de pignons par facade');
+  return v.map((x, i) => {
+    const q = quoi + '[' + i + ']';
+    const p = x as { facade?: { azimutDeg?: unknown; toleranceDeg?: unknown }; position?: unknown; haut?: unknown; largeurM?: unknown } | null;
+    if (!p || typeof p !== 'object' || !p.facade || !estNombre(p.facade.azimutDeg) || (p.facade.toleranceDeg !== undefined && !positif(p.facade.toleranceDeg))) throw new FaitsToitsIllisibles(q + ' : { facade: { azimutDeg }, position: "bouts" } (l\'azimut de la normale sortante de la facade : 180 pour la facade sud)');
+    // Seuls les pignons aux deux bouts se decrivent pour l'instant : ailleurs, il faudrait dire ou.
+    if (p.position !== 'bouts') throw new FaitsToitsIllisibles(q + '.position : "bouts" (un pignon a chaque bout de la facade)');
+    if (p.haut !== undefined && p.haut !== 'faitage') throw new FaitsToitsIllisibles(q + '.haut : "faitage" (jusqu\'au point haut du faitage du corps), ou absent');
+    if (p.largeurM !== undefined && !positif(p.largeurM)) throw new FaitsToitsIllisibles(q + '.largeurM : un nombre de metres positif');
+    return {
+      facade: { azimutDeg: p.facade.azimutDeg, ...(p.facade.toleranceDeg !== undefined ? { toleranceDeg: p.facade.toleranceDeg as number } : {}) },
+      position: 'bouts' as const,
+      ...(p.haut === 'faitage' ? { haut: 'faitage' as const } : {}),
+      ...(p.largeurM !== undefined ? { largeurM: p.largeurM as number } : {}),
+    };
+  });
+}
+
+function desBaies(v: unknown, quoi: string): BaieFait[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || !v.length) throw new FaitsToitsIllisibles(quoi + ' : une liste de bay windows');
+  return v.map((x, i) => {
+    const q = quoi + '[' + i + ']';
+    const b = x as Record<string, unknown> & { facade?: { azimutDeg?: unknown; toleranceDeg?: unknown } } | null;
+    if (!b || typeof b !== 'object' || !b.facade || !estNombre(b.facade.azimutDeg) || (b.facade.toleranceDeg !== undefined && !positif(b.facade.toleranceDeg))) throw new FaitsToitsIllisibles(q + ' : { facade: { azimutDeg }, forme, pose, toit } (l\'azimut de la normale sortante de la face de la bay window)');
+    if (b.forme !== 'rectangle' && b.forme !== 'arc' && b.forme !== 'conge') throw new FaitsToitsIllisibles(q + '.forme : rectangle, arc ou conge');
+    if (b.pose !== 'sous-premier-etage' && b.pose !== 'toute-hauteur') throw new FaitsToitsIllisibles(q + '.pose : sous-premier-etage ou toute-hauteur');
+    if (b.toit !== 'propre' && b.toit !== 'traversante' && b.toit !== 'couverte') throw new FaitsToitsIllisibles(q + '.toit : propre, traversante ou couverte');
+    // Une traversante demande un dessin de pignon que le calcul n'a pas : mieux vaut refuser que la poser sans son toit.
+    if (b.toit === 'traversante') throw new FaitsToitsIllisibles(q + '.toit : traversante n\'est pas encore dessinee (propre ou couverte)');
+    if (b.toit === 'propre' && b.toitForme !== undefined && b.toitForme !== 'plat' && b.toitForme !== 'appentis') throw new FaitsToitsIllisibles(q + '.toitForme : plat ou appentis');
+    if (b.congeM !== undefined && (b.forme !== 'conge' || !positif(b.congeM))) throw new FaitsToitsIllisibles(q + '.congeM : un rayon positif, pour la forme conge');
+    for (const k of ['largeurM', 'hauteurM', 'hautM', 'egoutM'] as const) if (b[k] !== undefined && !positif(b[k])) throw new FaitsToitsIllisibles(q + '.' + k + ' : un nombre de metres positif');
+    if (b.toit !== 'propre' && (b.toitForme !== undefined || b.hauteurM !== undefined || b.hautM !== undefined || b.egoutM !== undefined)) throw new FaitsToitsIllisibles(q + ' : une bay window couverte n\'a pas de toit a elle, sans cote de toit');
+    if (estNombre(b.egoutM) && estNombre(b.hautM) && b.hautM <= b.egoutM) throw new FaitsToitsIllisibles(q + ' : un appentis monte vers le mur (hautM au-dessus de egoutM)');
+    return {
+      facade: { azimutDeg: b.facade.azimutDeg, ...(b.facade.toleranceDeg !== undefined ? { toleranceDeg: b.facade.toleranceDeg as number } : {}) },
+      ...(b.largeurM !== undefined ? { largeurM: b.largeurM as number } : {}),
+      forme: b.forme, ...(b.congeM !== undefined ? { congeM: b.congeM as number } : {}), pose: b.pose, toit: b.toit,
+      ...(b.toitForme !== undefined ? { toitForme: b.toitForme as 'plat' | 'appentis' } : {}),
+      ...(b.hauteurM !== undefined ? { hauteurM: b.hauteurM as number } : {}),
+      ...(b.hautM !== undefined ? { hautM: b.hautM as number } : {}),
+      ...(b.egoutM !== undefined ? { egoutM: b.egoutM as number } : {}),
+    };
+  });
+}
+
+function observation(v: unknown, quoi: string): ObservationFait {
+  const o = v as Record<string, unknown> | null;
+  if (!o || typeof o !== 'object') throw new FaitsToitsIllisibles(quoi + ' : sans observation');
+  const formes = o.forme === undefined ? undefined : Array.isArray(o.forme) ? o.forme : [o.forme];
+  if (formes && (!formes.length || formes.some((x) => !FORMES.includes(x as FormeToitSimple)))) throw new FaitsToitsIllisibles(quoi + '.forme : ' + FORMES.join(', ') + ' (les autres formes du catalogue ne se calculent pas encore)');
+  const bouts = o.bouts as unknown[] | undefined;
+  if (bouts !== undefined && (!Array.isArray(bouts) || bouts.length !== 2 || bouts.some((b) => !BOUTS.includes(b as BoutFait)))) throw new FaitsToitsIllisibles(quoi + '.bouts : deux bouts parmi pignon, croupe');
+  const corps = o.corps as { min?: unknown; max?: unknown } | undefined;
+  if (corps !== undefined && ((corps.min !== undefined && !(Number.isInteger(corps.min) && (corps.min as number) >= 1)) || (corps.max !== undefined && !(Number.isInteger(corps.max) && (corps.max as number) >= 1)))) throw new FaitsToitsIllisibles(quoi + '.corps : { min, max } entiers, au moins 1');
+  const f = faitage(o.faitage, quoi), eg = fourchette(o.egout, quoi + '.egout'), fm = fourchette(o.faitageM, quoi + '.faitageM');
+  const ap = appentis(o.appentis, quoi + '.appentis');
+  const pg = desPignons(o.pignons, quoi + '.pignons');
+  const bw = desBaies(o.baies, quoi + '.baies');
+  return {
+    ...(formes ? { forme: formes as FormeToitSimple[] } : {}),
+    ...(f ? { faitage: f } : {}),
+    ...(bouts ? { bouts: bouts as [BoutFait, BoutFait] } : {}),
+    ...(corps ? { corps: { ...(corps.min !== undefined ? { min: corps.min as number } : {}), ...(corps.max !== undefined ? { max: corps.max as number } : {}) } } : {}),
+    ...(eg ? { egout: eg } : {}),
+    ...(fm ? { faitageM: fm } : {}),
+    ...(ap ? { appentis: ap } : {}),
+    ...(pg ? { pignons: pg } : {}),
+    ...(bw ? { baies: bw } : {}),
+  };
+}
+
+function dimensions(v: unknown, obs: ObservationFait, quoi: string): DimensionsFait {
+  const d = v as { egoutM?: unknown; faitageM?: unknown; hautVersDeg?: unknown } | null;
+  if (!d || !estNombre(d.egoutM) || (d.faitageM !== undefined && !estNombre(d.faitageM)) || (d.hautVersDeg !== undefined && !estNombre(d.hautVersDeg))) throw new FaitsToitsIllisibles(quoi + ' : un remplacement donne ses dimensions { egoutM, faitageM, hautVersDeg }');
+  if (obs.forme?.length !== 1) throw new FaitsToitsIllisibles(quoi + ' : un remplacement dit une seule forme');
+  if (obs.forme[0] !== 'plat' && !(estNombre(d.faitageM) && d.faitageM > d.egoutM)) throw new FaitsToitsIllisibles(quoi + ' : un toit en pente a son faitage au-dessus de son egout');
+  return { egoutM: d.egoutM, ...(d.faitageM !== undefined ? { faitageM: d.faitageM as number } : {}), ...(d.hautVersDeg !== undefined ? { hautVersDeg: d.hautVersDeg as number } : {}) };
+}
+
+/** Un fait du fichier, verifie ; `cle` sert au message. */
+function lireFait(cle: string, v: unknown): FaitToit {
+  const f = v as Record<string, unknown> | null;
+  const quoi = 'regles/toits/faits.json, ' + cle;
+  if (!f || typeof f !== 'object') throw new FaitsToitsIllisibles(quoi + ' : un objet');
+  const application = f.application ?? 'contrainte';
+  if (application !== 'contrainte' && application !== 'remplacement') throw new FaitsToitsIllisibles(quoi + '.application : contrainte ou remplacement');
+  const obs = observation(f.observation, quoi);
+  const out: FaitToit = { observation: obs, application };
+  if (application === 'remplacement') out.dimensions = dimensions(f.dimensions, obs, quoi);
+  if (f.preuve && typeof f.preuve === 'object') out.preuve = f.preuve as NonNullable<FaitToit['preuve']>;
+  if (typeof f.adresse === 'string') out.adresse = f.adresse;
+  if (Array.isArray(f.historique)) out.historique = f.historique as NonNullable<FaitToit['historique']>;
+  return out;
+}
+
+/**
+ * Les faits d'un fichier, verifies : format, vocabulaire ferme, dimensions d'un remplacement. Leve
+ * FaitsToitsIllisibles au premier fait abime : mieux vaut refuser le fichier que lire un toit avec un
+ * fait a moitie compris. Exportee pour les tests et le mode d'essai.
+ */
+export function lireFaitsToits(donnees: unknown): FaitsToits {
+  const f = donnees as { format?: unknown; faits?: unknown } | null;
+  if (!f || typeof f !== 'object' || f.format !== 'plan-faits-toits' || !f.faits || typeof f.faits !== 'object' || Array.isArray(f.faits)) throw new FaitsToitsIllisibles('regles/toits/faits.json : format inconnu (attendu : « plan-faits-toits »)');
+  const out: Record<string, FaitToit> = {};
+  for (const [cle, v] of Object.entries(f.faits as Record<string, unknown>)) {
+    if (!/^BATIMENT\d{16}$/.test(cle)) throw new FaitsToitsIllisibles('regles/toits/faits.json : ' + cle + ' n\'est pas une cle BD TOPO (BATIMENT suivi de seize chiffres)');
+    out[cle] = lireFait(cle, v);
+  }
+  return out;
+}
+
+/** Les faits livres avec le code. */
+export const FAITS_TOITS_LIVRES: FaitsToits = lireFaitsToits(fichier as unknown);
+
+/**
+ * L'empreinte de ce qui change un toit : l'observation, l'application et les dimensions de chaque
+ * fait, par cle triee. La preuve, l'adresse et l'historique n'y entrent pas : les reecrire ne relit
+ * aucun toit.
+ */
+export function empreinteFaitsToits(faits: FaitsToits): string {
+  const lignes = Object.keys(faits).sort().map((k) => { const f = faits[k] as FaitToit; return k + '=' + JSON.stringify([f.application, f.observation, f.dimensions ?? null]); });
+  return fnv1a('faits\n' + lignes.join('\n'));
+}
+
+/** L'empreinte d'un fichier sans fait : celle des lectures d'avant les faits. */
+export const EMPREINTE_FAITS_VIDE = empreinteFaitsToits({});
+/** L'empreinte des faits livres. */
+export const EMPREINTE_FAITS_TOITS = empreinteFaitsToits(FAITS_TOITS_LIVRES);
+
+/** Les faits d'un fichier essaye par l'administrateur (`?regles=local`), le temps de la seance ; null : ceux du depot. */
+let essai: FaitsToits | null = null;
+
+/**
+ * Essaie des faits venus du poste, a la place de ceux du depot, sans les enregistrer nulle part :
+ * pour voir un fait sur un vrai projet avant d'ouvrir une PR (spec §9.2). `null` revient aux faits
+ * livres.
+ */
+export function essayerFaitsToits(faits: FaitsToits | null): void { essai = faits; }
+
+/** Les faits en vigueur : ceux de l'essai, sinon ceux du depot. */
+export const faitsEnVigueur = (): FaitsToits => essai ?? FAITS_TOITS_LIVRES;
+
+/** Un essai de faits est-il en cours ? */
+export const essaiDeFaits = (): boolean => essai !== null;
+
+/**
+ * La cle d'un batiment lue par l'essai : un fait de l'essai, ou un fait du depot que l'essai retire.
+ * Son toit lu pendant l'essai n'est pas celui du depot : il sera relu a la prochaine ouverture.
+ */
+export function cleToucheeParEssai(cle: string | null): boolean {
+  return !!essai && !!cle && (cle in essai || cle in FAITS_TOITS_LIVRES);
+}
+
+/** La cle BD TOPO d'un batiment (`bdtopo.cleabs`), ou null. */
+export function cleDuBatiment(o: { bdtopo?: unknown }): string | null {
+  const c = (o.bdtopo as { cleabs?: unknown } | null | undefined)?.cleabs;
+  return typeof c === 'string' && c ? c : null;
+}
+
+/** Le fait en vigueur sur ce batiment, ou null. */
+export function faitDuBatiment(o: { bdtopo?: unknown }, faits: FaitsToits = faitsEnVigueur()): FaitToit | null {
+  const cle = cleDuBatiment(o);
+  return (cle && Object.prototype.hasOwnProperty.call(faits, cle) ? faits[cle] : null) ?? null;
+}
+
+/**
+ * Au-dela de ce nombre de faits qui disent la meme chose, une regle ou un reglage se cache derriere :
+ * le skill regles-toits le signale (spec §10). Cinq : assez pour ne pas crier au premier doublon,
+ * assez peu pour ne pas laisser un seuil mal place se corriger batiment par batiment.
+ */
+export const FAITS_SEMBLABLES_MAX = 5;
+
+/** Ce qu'un fait dit, en mots courts : la forme, le sens du faitage, les bouts. Deux faits de meme signature disent la meme chose. */
+export function signatureFait(f: FaitToit): string {
+  const o = f.observation;
+  // Un fait qui ne dit qu'un appentis adosse ou des pignons de facade ne dit rien de la forme : inutile de le rappeler.
+  const forme = o.forme ? [...o.forme].sort().join('|') : (o.appentis || o.pignons || o.baies) && !o.faitage && !o.bouts ? '' : 'forme ?';
+  const sens = o.faitage ? (o.faitage.par === 'long' ? 'faitage ' + o.faitage.sens + ' au long cote' : 'faitage a azimut') : '';
+  const bouts = o.bouts ? 'bouts ' + [...o.bouts].sort().join('+') : '';
+  const adosses = o.appentis ? o.appentis.length + ' appentis adosse(s)' : '';
+  const pignons = o.pignons ? 'pignons aux bouts de ' + o.pignons.length + ' facade(s)' : '';
+  const baies = o.baies ? o.baies.length + ' bay window(s)' : '';
+  return [forme, sens, bouts, adosses, pignons, baies, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
+}
+
+/** Les faits comptes par signature, les plus nombreux d'abord ; `signal` au-dela de FAITS_SEMBLABLES_MAX. */
+export function compterFaitsParForme(faits: FaitsToits): { signature: string; nombre: number; cles: string[]; signal: boolean }[] {
+  const groupes = new Map<string, string[]>();
+  for (const [cle, f] of Object.entries(faits)) { const s = signatureFait(f); groupes.set(s, [...(groupes.get(s) ?? []), cle]); }
+  return [...groupes].map(([signature, cles]) => ({ signature, nombre: cles.length, cles: cles.sort(), signal: cles.length > FAITS_SEMBLABLES_MAX }))
+    .sort((a, b) => b.nombre - a.nombre || a.signature.localeCompare(b.signature));
+}

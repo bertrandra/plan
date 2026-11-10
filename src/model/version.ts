@@ -25,15 +25,73 @@
 // Le SCHEMA du projet, lui, ne bouge pas : un fichier enregistre par l'ancienne version s'ouvre
 // dans la nouvelle, et l'inverse aussi. La rupture porte sur l'artefact livre, pas sur les donnees.
 
-export const APP_VERSION = '2.2.0';
+import { dateFr } from '../util/format.js';
+
+export const APP_VERSION = '5.22.1';
 // 2 depuis la 2.2.0 : un batiment peut porter `facades` et `toit` (releve de facade). Un fichier
 // qui n'en porte pas s'ouvre toujours dans la 2.1.x ; celui qui en porte y perdrait ces champs au
 // premier enregistrement, d'ou le refus (RELEASE.md §3.1).
 // 3 : un toit peut etre `croupes` (MD/spec-toit-ign.md), pose sur le squelette droit du contour ;
 // la migration 2 -> 3 en donne un a chaque batiment BD TOPO qui n'en avait pas.
-export const SCHEMA_VERSION = 3;
+// 4 : la parcelle peut porter `relief`, la grille d'altitudes lue a l'IGN (MD/spec-relief.md) ; un
+// lecteur 3 la perdrait au premier enregistrement. La migration 3 -> 4 est l'identite.
+// 5 : les champs venus apres le relief (piscine, pergola, cloture, corps et volumes du toit, toit mesure, fenetres et voisinage
+// en 3D, rues) ; ils s'ecrivaient au 4, qu'un lecteur 4 aurait perdus (migrations.ts, CHAMPS_DEPUIS). La migration 4 -> 5 est
+// l'identite. Un releve y garde aussi la calibration de sa detection (`calibration`, etape 1.4). La plateforme doit accepter 5
+// avant le depot (contrat/SOURCE-PRODUIT.md).
+// 6 : les champs venus apres le premier schema 5 livre (4.0.0) : la retouche a la main d'un objet de l'IGN (`retoucheMain`), la
+// hauteur a l'egout choisie (`egoutChoisi`) et le soleil du projet (`soleil`, sur la parcelle). Ils s'ecrivaient au 5, qu'un
+// lecteur 5 d'avant aurait perdus. La migration 5 -> 6 est l'identite ; la plateforme accepte 6 depuis bertrandra/backprod#242.
+// 7 : la Facade d'un releve valide (MD/spec-facade-calage-audit.md §3.4, lot F5) : ses dimensions, sa forme, son parement, la pose de
+// sa texture, et ses ouvertures en objets (identifiant, date de verification, carreaux). Un lecteur 6 les garderait a la lecture,
+// mais les perdrait des que la facade se reecrit (le releve d'un mur refait, la mesure de l'audit posee d'office) : une ouverture
+// verifiee redeviendrait deplacable. La migration 6 -> 7 est l'identite ; la plateforme doit accepter 7 avant le depot.
+// 8 : le reglement de la zone du PLU lu pour le projet (lot L4 de la lecture IA elargie) : `reglementPlu` sur la parcelle, sa source, la
+// lecture de Claude et ses faits proposes ou valides. Un lecteur 7 le perdrait au premier enregistrement (la serialisation est une liste
+// blanche). La migration 7 -> 8 est l'identite ; un projet sans lecture du PLU s'ecrit toujours au plus petit schema qui le decrit.
+// La plateforme accepte deja 7 a 12 (contrat de la plateforme) : rien a deployer chez elle avant le depot.
+// 9 : le jardin (lot L3 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.4) : la plantation d'un massif (`plantation` : son
+// type, plate-bande ou massif, son mini-arbre), le retrait de sa vegetation en 3D (`vegetation3d`), la nature d'un equipement (`nature` :
+// regard, eclairage, robinet) et la marque `existant`. Un lecteur 8 les perdrait au premier enregistrement (la serialisation est une
+// liste blanche), et un regard redeviendrait un spa qui charge la terrasse. La migration 8 -> 9 est l'identite ; la plateforme accepte
+// deja les schemas 7 a 12.
+// 10 : la facade enrichie (lot L1 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.2) : la menuiserie et le garde-corps d'une
+// ouverture (`details.menuiserie`, `details.gardeCorps`), la modenature lue d'un mur, ce qu'il porte (un store) et l'etat du bati signale
+// (`modenature`, `appendices`, `etat`), le genre `auvent` d'une saillie et sa `couverture`, les natures d'equipement `perron`,
+// `unite-exterieure` et `boite-aux-lettres`. Un lecteur 9 les perdrait au premier enregistrement (une Facade se reecrit en entier), et
+// lirait un perron comme un spa qui charge la terrasse. La migration 9 -> 10 est l'identite ; la plateforme accepte deja 7 a 12.
+// 11 : le toit enrichi (lot L2 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.3, §4.9) : le motif de pose de la couverture
+// (`Toit.pose` : droite, losange, ecaille), les couvertures `bac-acier`, `membrane` et `vegetale`, et ce qui couvre le faitage et la
+// gouttiere d'un corps (`bords.faitage`, `bords.gouttiere`). La migration 10 -> 11 relit la grande ardoise en losange
+// (`ardoise-losange`) comme une ardoise posee en losange : meme texture, meme `.glb`. Un lecteur 10 perdrait la pose et les bords au
+// premier enregistrement. La plateforme accepte deja 7 a 12.
+// 12 : le dossier de declaration prealable (lot L5 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §4.6) : les textes de ses
+// pieces (`dossier.textes` : le brouillon de Claude et le texte valide par la personne, que l'export imprime) et ses photographies DP7 et
+// DP8 (`dossier.photos`), sur la parcelle. Un lecteur 11 les perdrait au premier enregistrement (la serialisation est une liste
+// blanche). La migration 11 -> 12 est l'identite ; la plateforme accepte deja 7 a 12.
+// 13 : un mur a plusieurs parties basses (MD/spec-releve-facade.md §6.2) : une partie haute au milieu, une partie basse a chaque bout
+// (une maison entre un garage et un appentis), lues sur le gabarit du plan et du LiDAR. Le releve les range dans `partiesBasses`
+// (model/partiesBasses.ts) ; un mur en L (une seule partie basse) s'ecrit toujours dans `partieBasse`, comme avant. Un lecteur 12 perdrait
+// la liste au premier enregistrement, et lirait le mur sans ses parties basses (surface, volumes, 3D) : seul un fichier qui en porte une
+// s'ecrit au 13. La migration 12 -> 13 est l'identite. La plateforme accepte 13 depuis bertrandra/backprod#252 (migration
+// Version20261103090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+// 14 : un batiment modifie corps par corps au Mode Toit (MD/spec-mode-toit-3d.md, decision du proprietaire du 4 novembre 2026) : les
+// travees d'un mur (`CorpsToit.travees` : un troncon recule sous un toit continu, un porche ouvert sur poteaux avec garde-corps) et le
+// bow-window sans toit propre sous un auvent (`SaillieFacade.toit = 'aucun'`). Un lecteur 13 les perdrait au premier enregistrement ;
+// seul un batiment qui en porte s'ecrit au 14. La migration 13 -> 14 est l'identite. La plateforme accepte 14 depuis
+// bertrandra/backprod#253 (migration Version20261104090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+// 15 : le cul de geai et la queue de vache dessines au Mode Toit (demande du proprietaire du 5 novembre 2026) : le faitage d'une
+// demi-croupe qui deborde le mur et porte la croupe en avant (`BoutToit.debordFaitageM`), la pointe d'un pignon traversant coupee en
+// demi-croupe (`PignonToit.pointe`), le debord d'un egout en coyau (`ProfilPan.debordM`, la queue de vache). Un lecteur 14 les perdrait
+// au premier enregistrement ; seul un batiment qui en porte s'ecrit au 15. La migration 14 -> 15 est l'identite. La plateforme accepte 15
+// depuis bertrandra/backprod (migration Version20261105090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+// 16 : le rez-de-chaussee en retrait sous l'etage (demande du proprietaire du 9 novembre 2026) : un bow-window glisse sous un etage qui
+// avance, le mur du rez-de-chaussee recule sur toute sa largeur (`SaillieFacade.rdcEnRetraitM`). Un lecteur 15 le perdrait au premier
+// enregistrement ; seul un batiment qui en porte un s'ecrit au 16. La migration 15 -> 16 est l'identite. La plateforme accepte 16 depuis
+// bertrandra/backprod#255 (migration Version20261109090000) : elle doit etre appliquee en production avant une livraison de Plan qui l'ecrit.
+export const SCHEMA_VERSION = 16;
 export const API_VERSION = 'v1';
-export const BUILD_AT = '2026-09-28';
+export const BUILD_AT = '2026-10-30';
 export const BUILD_SHA: string | null = null;
 
 export function versionLongue(): string {
@@ -41,6 +99,6 @@ export function versionLongue(): string {
 }
 
 /** Ligne d'identification portee par les exports texte (SVG, DXF, resume, PDF). */
-export function signatureExport(): string {
-  return 'Plan interactif ' + APP_VERSION + ' — ' + new Date().toLocaleDateString('fr-FR');
+export function signatureExport(maintenant: Date = new Date()): string {
+  return 'Plan interactif ' + APP_VERSION + ' — ' + dateFr(maintenant);
 }

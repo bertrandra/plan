@@ -1,0 +1,23 @@
+{
+  "meta": { "id": "temoin-9", "name": "Témoin du schéma 9", "appVersion": "5.1.0", "schemaVersion": 9 },
+  "objects": [
+    { "key": "parcelle", "type": "polygon", "name": "Parcelle", "fonction": "terrain", "pts": [{ "x": 0, "y": 0 }, { "x": 30, "y": 0 }, { "x": 30, "y": 20 }, { "x": 0, "y": 20 }] },
+    { "key": "bati-1", "type": "polygon", "name": "Maison", "fonction": "batiment", "elevation": 6, "pts": [{ "x": 5, "y": 5 }, { "x": 15, "y": 5 }, { "x": 15, "y": 13 }, { "x": 5, "y": 13 }],
+      "toit": { "forme": "deux-pans", "hauteur": 3, "angleFaitage": 0, "source": "lidar" },
+      "corpsToit": [
+        { "pts": [{ "x": 5, "y": 5 }, { "x": 15, "y": 5 }, { "x": 15, "y": 13 }, { "x": 5, "y": 13 }], "posFaitage": 4, "faitage": 9, "egouts": [6, 6], "ecart": 0 },
+        { "pts": [{ "x": 6, "y": 5 }, { "x": 8.4, "y": 5 }, { "x": 8.4, "y": 4.2 }, { "x": 6, "y": 4.2 }], "posFaitage": 0, "faitage": 3.2, "egouts": [2.7, 2.7], "ecart": 0,
+          "saillie": { "genre": "bow-window", "hote": 0, "mur": 0, "centreM": 2.2, "largeurM": 2.4, "profondeurM": 0.8, "forme": "rectangle", "niveau": "rdc", "toit": "pan" } }
+      ],
+      "facades": [{ "cote": 0, "largeur": 10, "hauteur": 6, "texture": null, "releveLe": "2026-10-29T09:00:00.000Z", "distance": 9, "sourceDistance": "gps",
+        "ouvertures": [
+          { "type": "fenetre", "x": 3, "y": 3.6, "l": 1.2, "h": 1.4, "source": "detectee", "id": "o1", "verifieeLe": "2026-10-29",
+            "details": { "volets": "battants", "allege": "garde-corps", "couleurVolets": "#5b7a99", "carreaux": { "vantaux": 2, "grille": { "colonnes": 1, "rangees": 3 }, "source": "ia" } } }
+        ],
+        "dimensions": { "largeurM": 10, "egoutM": 6, "source": "lidar" },
+        "forme": { "gabarit": [{ "u": 0, "v": 1 }, { "u": 1, "v": 1 }], "source": "plan" },
+        "surface": { "principale": "enduit", "source": "ia" } }] },
+    { "key": "spa-1", "type": "circle", "name": "Spa", "fonction": "equipement", "center": { "x": 20, "y": 10 }, "r": 1 }
+  ],
+  "measures": []
+}

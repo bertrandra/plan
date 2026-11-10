@@ -26,7 +26,7 @@ function fichiers(dossier: string): string[] {
  * `surClic` qui prennent l'element avant l'identifiant.
  */
 function commandesDeclarees(): string[] {
-  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade).[A-Za-z0-9.]+)'/g;
+  const motif = /(?:\bid:\s*|\bcommande\(|\bvue\(|\b(?:cam|vis|surClic)\('[^']+',\s*)'((?:objet|projet|fichier|export|vue|affichage|mesure|terrasse|3d|visionneuse|cloture|plu|facade|toit|relief|audit|admin|assistant).[A-Za-z0-9.]+)'/g;
   const ids = new Set<string>();
   for (const f of fichiers('src/app').filter((f) => f.endsWith('.ts'))) {
     const texte = lire(f);
@@ -47,15 +47,21 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   menuExporter: ['src/zones/BarreApplication.tsx'],
   menuAffichage: ['src/zones/BarreApplication.tsx'],
   menuAide: ['src/zones/BarreApplication.tsx'],
+  menuAdmin: ['src/zones/BarreApplication.tsx'],
   surimpression: ['src/zones/Surimpression.tsx'],
   selection: ['src/zones/FeuilleSelection.tsx'],
   inspecteur: ['src/zones/Inspecteur.tsx', ...fichiers('src/ui/champs')],
   explorateur: ['src/zones/Explorateur.tsx'],
   tiroir: ['src/zones/Resultats.tsx', ...fichiers('src/zones/resultats')],
-  vue3d: ['src/zones/vue3d/Vue3d.tsx'],
+  // Les reglages de la Vue 3D rendent aussi les champs du voisinage (ui/champs/voisinage3d.ts).
+  vue3d: [...fichiers('src/zones/vue3d').filter((f) => f.endsWith('.tsx')).filter((f) => !/Visionneuse/.test(f)), 'src/ui/champs/voisinage3d.ts'],
   visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
   clavier: ['src/app/clavier.ts'],
-  premierPas: ['src/app/boot.ts']
+  premierPas: ['src/app/boot.ts'],
+  // Le dialogue de la declaration prealable rend les champs de ui/champs/declaration.ts, son bouton compris.
+  parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours'), 'src/ui/champs/declaration.ts'],
+  // La barre de progression de la facade (calibration ; l'audit a venir, lot F3).
+  barreFacade: ['src/zones/composants/BarreProgressionFacade.tsx', 'src/zones/ChoixSourceCalibration.tsx']
 };
 
 describe('la carte d exposition des commandes', () => {

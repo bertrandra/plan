@@ -1,0 +1,395 @@
+// Z4, les poignees du mode Toit (MD/spec-mode-toit-3d.md, etape 4) : ce qu'on attrape sur la scene pour deplacer, etirer ou monter l'element choisi.
+//
+// Un calque SVG par-dessus la scene : chaque poignee est un point 3D que la camera projette a l'ecran (facade/modeToit/poignees.ts les
+// nomme). Glisser une poignee demande a l'ecran ce que vaut un metre sur chacun de ses axes, a cet endroit, et convertit le deplacement du
+// doigt en metres ; la geometrie (aimantation comprise) est celle de `glisser`, toujours rejouee a partir du corps de depart. Un glisser
+// reconstruit la scene a un rythme borne, et la session n'empile qu'UNE etape a la fin. Echap l'annule.
+//
+// Une bulle donne les cotes de l'element, des guides en pointille disent contre quel bord il s'est colle ; un cote du trace IGN ou un mur
+// s'est colle s'eclaire, et la bulle le dit. Ce qui arrete un mur (un pignon, une travee) s'ecrit sous la bulle, puis en notification
+// au lacher : la personne sait pourquoi le mur ne va pas plus loin.
+
+import { useEffect, useRef, useState } from 'react';
+import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
+import { axeUtilisable, cadreDe, cibleDesPoignees, cotesDe, ecarterAEcran, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
+import { abonnerImage, cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
+import { estCache } from '../../three/occultation.js';
+import { moteur3d } from '../../three/demande3d.js';
+import { ramenerDansLeLibre, type Bornes, type Rect } from '../../facade/modeToit/poigneesLibres.js';
+import type { Magasin } from '../../app/magasin.js';
+import { enPoints } from '../../model/formes.js';
+import { notifications } from '../../shell/notifications.js';
+import type { Arete } from '../../facade/modeToit/pousserMur.js';
+import type { CorpsToit } from '../../model/types.js';
+import type { PtBrut } from '../../model/types.js';
+import { silhouetteVersLOeil } from '../../facade/regles/toits/silhouetteDesCorps.js';
+import { insertionToit } from '../../app/ecouteurs/toitCatalogue.js';
+
+/** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */
+const RAYON_PX = 9, SAISIE_PX = 22;
+/**
+ * Les poignees qui deplacent l'element choisi (le corps entier, ou l'element le long de son mur) : un carre plus grand, plein, a
+ * quatre fleches, distinct des poignees rondes qui etirent ou montent.
+ */
+const DEPLACEMENTS = new Set(['deplacer', 'pos']);
+const RAYON_DEPLACER_PX = 12;
+/** Les quatre fleches du deplacement, centrees sur la poignee. */
+const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-3 4.5 H-1 V1 H-4.5 V3 L-8 0 L-4.5 -3 V-1 H-1 V-4.5 H-3 Z';
+
+/** La distance de l'oeil devant le mur que regarde la camera de facade, en metres : assez pour voir ses voisins comme une personne dans la rue. */
+const OEIL_FACADE_M = 30;
+
+/**
+ * L'oeil, la camera qui fait l'image : un point du plan, et sa hauteur au-dessus du sol du batiment (`base`, `altitudeDuBatiment`). C'est
+ * lui que regarde le mur le plus visible du corps choisi, sa silhouette et ses poignees (facade/modeToit/poignees.ts::murLePlusVisible).
+ */
+function oeilDeLaVue(base: number): Oeil | null {
+  const sc = vue3d.scene;
+  if (!sc) return null;
+  // La camera de facade (three/vueFacadeToit.ts) est oblique, posee par sa matrice seule : sa `position` reste a l'origine de la scene, et
+  // l'oeil tombait au milieu de la parcelle, ou les poignees d'un corps choisi passaient sur son mur de derriere, vu au travers (9 novembre
+  // 2026). Son oeil est devant le mur qu'elle regarde, sur son dos (la troisieme colonne de sa matrice), a hauteur d'homme.
+  if (sc.cameraRendu) {
+    const e = sc.cameraRendu.matrixWorld.elements, x = (e[12] ?? 0) + (e[8] ?? 0) * OEIL_FACADE_M, z = (e[14] ?? 0) + (e[10] ?? 0) * OEIL_FACADE_M;
+    return { x: x + sc.cen.x, y: sc.cen.y - z };
+  }
+  const cam = sc.camera.position;
+  return { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z, z: cam.y - base };
+}
+
+/**
+ * La silhouette d'un corps a l'ecran : son mur `mur`, du pied au haut sous son toit (pignon compris), projete dans le calque. Null sans
+ * scene, ou quand un point tombe derriere la camera.
+ */
+function silhouetteAEcran(c: CorpsToit | undefined, base: number, oeil: PtBrut, mur: number): Ecran[] | null {
+  if (!c || !vue3d.scene) return null;
+  const pts = silhouetteVersLOeil(c, oeil, mur)?.map((q) => projeter(q, base));
+  return pts?.every((q): q is Ecran => q !== null) ? pts : null;
+}
+
+/** Le trait de la silhouette du corps choisi : un halo clair sous un trait epais, lisible sur la photo comme sur le crepi. */
+function TraitCorps({ pts }: { pts: readonly Ecran[] }) {
+  const d = pts.map((q) => q.x + ',' + q.y).join(' ');
+  return <g className="silhouetteCorpsToit"><polygon className="halo" points={d} /><polygon className="trait" points={d} /></g>;
+}
+
+/** Au-dessous de cette longueur d'axe a l'ecran (px par metre), l'axe est vu de face : il ne se glisse pas. */
+const AXE_MIN_PX = 6;
+/** Les pixels d'un metre de profondeur, au moins : un pixel de doigt pour un centimetre. */
+const PROFONDEUR_MIN_PX = 100;
+
+interface Ecran { x: number; y: number }
+
+/**
+ * Projette un point de la scene (plan + hauteur) dans le calque, en pixels ; null derriere la camera ou sans scene. `base` : l'altitude d'ou se
+ * comptent les hauteurs du batiment (le relief, `altitudeDuBatiment`). La camera est celle qui fait l'image : l'oblique devant une facade.
+ */
+function projeter(p: Point3, base: number): Ecran | null {
+  const sc = vue3d.scene, hote = hotes3d.vue3d;
+  if (!sc || !hote) return null;
+  const v = new THREE.Vector3(p.x - sc.cen.x, base + p.z, sc.cen.y - p.y).project(cameraDeVue(sc));
+  if (v.z > 1) return null;
+  const r = hote.getBoundingClientRect();
+  return { x: ((v.x + 1) / 2) * r.width, y: ((1 - v.y) / 2) * r.height };
+}
+
+/** La direction 3D d'un axe de la facade, unitaire. */
+const direction = (f: CadreFacade, a: Axe): Point3 => (a === 'long' ? { x: f.u.x, y: f.u.y, z: 0 } : a === 'prof' ? { x: f.n.x, y: f.n.y, z: 0 } : { x: 0, y: 0, z: 1 });
+
+/** Ce que vaut un metre sur chaque axe de la poignee, en pixels de l'ecran, la ou elle est. */
+function vecteursEcran(p: Point3, axes: readonly Axe[], f: CadreFacade, base: number): Partial<Record<Axe, Ecran>> {
+  const o = projeter(p, base), res: Partial<Record<Axe, Ecran>> = {};
+  if (!o) return res;
+  for (const a of axes) {
+    const d = direction(f, a), q = projeter({ x: p.x + d.x, y: p.y + d.y, z: p.z + d.z }, base);
+    // La profondeur se voit en raccourci de face : son axe a l'ecran est allonge (`axeUtilisable`), pour se regler au centimetre.
+    if (q) res[a] = a === 'prof' ? axeUtilisable({ x: q.x - o.x, y: q.y - o.y }, PROFONDEUR_MIN_PX) : { x: q.x - o.x, y: q.y - o.y };
+  }
+  return res;
+}
+
+/** Le deplacement du doigt, en metres sur les axes de la poignee : un axe se projette, deux se resolvent ensemble (sauf s'ils se confondent a l'ecran). */
+function enMetres(dx: number, dy: number, axes: readonly Axe[], v: Partial<Record<Axe, Ecran>>): Deplacement {
+  const utiles = axes.filter((a) => { const e = v[a]; return !!e && Math.hypot(e.x, e.y) >= AXE_MIN_PX; });
+  const res: Deplacement = {};
+  if (utiles.length === 2) {
+    const a = v[utiles[0] as Axe] as Ecran, b = v[utiles[1] as Axe] as Ecran, det = a.x * b.y - a.y * b.x;
+    if (Math.abs(det) > 0.35 * Math.hypot(a.x, a.y) * Math.hypot(b.x, b.y)) {
+      res[utiles[0] as Axe] = (dx * b.y - dy * b.x) / det;
+      res[utiles[1] as Axe] = (a.x * dy - a.y * dx) / det;
+      return res;
+    }
+    // Les deux axes se confondent a l'ecran : le plus long a l'ecran porte le geste.
+    utiles.sort((p, q) => Math.hypot((v[q] as Ecran).x, (v[q] as Ecran).y) - Math.hypot((v[p] as Ecran).x, (v[p] as Ecran).y));
+    utiles.length = 1;
+  }
+  for (const a of utiles) { const e = v[a] as Ecran; res[a] = (dx * e.x + dy * e.y) / (e.x * e.x + e.y * e.y); }
+  return res;
+}
+
+interface Glisse {
+  id: string; depart: CorpsToit[]; x0: number; y0: number; cible: CibleGlisser; poignee: Poignee; vecteurs: Partial<Record<Axe, Ecran>>;
+  /** Le doigt (ou la souris) qui tire, l'element qui le tient, et ou il est : un second doigt rend le geste a l orbite (`poserSurLaScene`). */
+  pointeur: number; type: string; element: Element; x: number; y: number;
+}
+
+/**
+ * Un pointeur rejoue sur le canevas de la scene : l'orbite (OrbitControls) le prend comme s'il s'y etait pose, et suit ensuite ses
+ * mouvements sur le document. C'est ainsi qu'un pincement commence sur une poignee devient un pincement de la vue.
+ */
+function poserSurLaScene(pointeur: number, type: string, x: number, y: number, primaire: boolean): void {
+  const toile = vue3d.scene?.renderer.domElement;
+  if (!toile) return;
+  toile.dispatchEvent(new PointerEvent('pointerdown', { pointerId: pointeur, pointerType: type, clientX: x, clientY: y, isPrimary: primaire, button: 0, buttons: 1, bubbles: true }));
+}
+
+/** Les poignees cachees se cherchent par un rayon de l'oeil : un seul, reutilise. */
+let rayon: InstanceType<typeof THREE.Raycaster> | null = null;
+
+/**
+ * La partie de l'image ou une poignee ecartee peut aller : hors du panneau du mode (colonne a droite ou bandeau en bas) et a une cible
+ * tactile des bords (le bandeau des vues, l'horloge et les boutons de la scene les bordent). En pixels du calque.
+ */
+function bornesLibres(hote: DOMRect): Bornes {
+  const p = hotes3d.vue3d?.querySelector('.panneauToit')?.getBoundingClientRect();
+  const m = 2 * SAISIE_PX;
+  let x1 = hote.width - m, y1 = hote.height - m;
+  if (p && p.width > 0) { if (p.width < hote.width * 0.6) x1 = Math.min(x1, p.left - hote.left - m); else y1 = Math.min(y1, p.top - hote.top - m); }
+  // L'indicateur d'etat du mode : au-dessus du panneau quand il est en bas (telephone, tablette), en haut de la scene sinon.
+  const i = hotes3d.vue3d?.querySelector('.etatToit')?.getBoundingClientRect();
+  let y0 = m;
+  if (i && i.width > 0) { if (p && p.width >= hote.width * 0.6) y1 = Math.min(y1, i.top - hote.top - m); else y0 = Math.max(y0, i.bottom - hote.top + m); }
+  // Au telephone, le plan des facades replie est un bouton pose au bord gauche de la scene : une poignee ramenee au bord tombait dessous
+  // (le cote ouest d'un corps vu de dessus, 9 novembre 2026). Elle se pose a sa droite.
+  let x0 = m;
+  const b = hotes3d.vue3d?.querySelector('.navigateurToit .boutonNavigateur')?.getBoundingClientRect();
+  if (b && b.width > 0 && b.right - hote.left < hote.width / 3) x0 = Math.max(x0, b.right - hote.left + SAISIE_PX);
+  // Deplie (tablette, bureau), le plan des facades se pose en haut a gauche sans en occuper tout le bord : une poignee ramenee au bord
+  // gauche tombait dessous et ne se prenait pas (point 143 en moyen, 9 novembre 2026). Il est un obstacle : elle en sort par le bord le
+  // plus proche, a une cible tactile.
+  const n = hotes3d.vue3d?.querySelector('.navigateurToit:not(.replie)')?.getBoundingClientRect();
+  const obstacles = n && n.width > 0 && n.height > 0
+    ? [{ x0: n.left - hote.left - SAISIE_PX, y0: n.top - hote.top - SAISIE_PX, x1: n.right - hote.left + SAISIE_PX, y1: n.bottom - hote.top + SAISIE_PX }]
+    : [];
+  return { x0, y0, x1: Math.max(x0, x1), y1: Math.max(y0, y1), obstacles };
+}
+
+/**
+ * Ou se posent les poignees a l'ecran (pixels du calque), de leurs points projetes. Une poignee sous le panneau se ramene au bord de la
+ * partie libre : elle se prend, un trait la relie a son point. Hors de l'image, elle reste ou elle est (on la retrouve en tournant) :
+ * seule celle que le panneau (ou un bord) couvre se ramene. Puis elles s'ecartent l'une de l'autre, d'une cible tactile.
+ */
+function placerALEcran(projetees: readonly ({ x: number; y: number } | null)[], r: DOMRect, hote: Element): ({ x: number; y: number } | null)[] {
+  const libres = bornesLibres(r);
+  const dansLImage = <T extends { x: number; y: number }>(q: T | null): q is T => !!q && q.x >= 0 && q.y >= 0 && q.x <= r.width && q.y <= r.height;
+  const placer = () => {
+    const ramenees = projetees.map((q) => (dansLImage(q) ? ramenerDansLeLibre(q, libres) : q));
+    const ecartees = ecarterAEcran(ramenees.map((q) => q ?? { x: NaN, y: NaN }), 2 * SAISIE_PX, libres);
+    return ramenees.map((q, k) => (q ? ecartees[k] ?? q : null));
+  };
+  let places = placer();
+  // Ce qui flotte sur la scene sans etre a elle (au telephone, le choix Plan / 3D / Visionneuse sous la barre) couvrait une poignee
+  // ecartee vers le haut, qui ne se prenait plus (point 141 au telephone, 9 novembre 2026) : il devient un obstacle, et les poignees se
+  // replacent hors de lui. Deux fois au plus : un replacement peut en mener une sous un autre.
+  for (let tour = 0; tour < 2; tour++) {
+    const ajoutes = obstaclesSous(places.filter(dansLImage), r, hote);
+    if (!ajoutes.length) break;
+    libres.obstacles = [...(libres.obstacles ?? []), ...ajoutes];
+    places = placer();
+  }
+  return places;
+}
+
+/**
+ * Les elements poses sur la scene qui ne sont pas a elle et couvrent l'un de ces points (pixels du calque) : pour chacun, le plus grand
+ * de ses parents qui couvre encore le point sans contenir la scene (le groupe entier, pas le seul bouton touche), agrandi d'une cible
+ * tactile. Les elements sans pointeur (les notifications du mode Toit) ne couvrent rien : le doigt les traverse.
+ */
+function obstaclesSous(points: readonly { x: number; y: number }[], hote: DOMRect, scene: Element): Rect[] {
+  const vus = new Set<Element>(), res: Rect[] = [];
+  for (const q of points) {
+    const x = hote.left + q.x, y = hote.top + q.y;
+    let el = document.elementFromPoint(x, y);
+    if (!el || scene.contains(el)) continue;
+    const couvre = (e: Element) => { const b = e.getBoundingClientRect(); return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom; };
+    while (el.parentElement && !el.parentElement.contains(scene) && couvre(el.parentElement)) el = el.parentElement;
+    if (vus.has(el)) continue;
+    vus.add(el);
+    const b = el.getBoundingClientRect();
+    res.push({ x0: b.left - hote.left - SAISIE_PX, y0: b.top - hote.top - SAISIE_PX, x1: b.right - hote.left + SAISIE_PX, y1: b.bottom - hote.top + SAISIE_PX });
+  }
+  return res;
+}
+
+/** Les cotes du trace IGN ou le geste s'est colle, eclairees a la hauteur de l'egout du corps tire : la ou se voit le mur qui s'y colle. */
+function AretesIgn({ aretes, z, base }: { aretes: readonly Arete[]; z: number; base: number }) {
+  return <>{aretes.map((a, k) => {
+    const p1 = projeter({ ...a.a, z }, base), p2 = projeter({ ...a.b, z }, base);
+    return p1 && p2 ? <line key={'ign' + k} className="guideIgn" data-guide-ign="" x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} /> : null;
+  })}</>;
+}
+
+/** La bulle des cotes, ce qui l'a collee au trace IGN (en mots : la couleur ne porte rien seule) et, dessous, ce qui arrete le geste. */
+function BulleDesCotes({ x, y, cotes, ign, motif }: { x: number; y: number; cotes: readonly Cote[]; ign: boolean; motif: string | null }) {
+  return (
+    <foreignObject x={x} y={y} width={280} height={motif ? 96 : 34}>
+      <div className="cotesToit" role="status">
+        {cotes.map((c) => <span key={c.cle} className="coteToit" data-cote={c.cle}>{c.texte}</span>)}
+        {ign && <span className="coteToit coteIgn" data-cote="ign">collé au tracé IGN</span>}
+      </div>
+      {motif && <div className="motifToit" role="alert" data-motif="">{motif}</div>}
+    </foreignObject>
+  );
+}
+
+export function PoigneesToit({ magasin }: { magasin: Magasin }) {
+  // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
+  useCle(magasin, 'poignées du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
+  const [, redessiner] = useState(0);
+  const [guides, setGuides] = useState<number[]>([]);
+  // Les cotes du trace IGN ou le geste s'est colle, et ce qui l'a arrete : le temps du glisser.
+  const [aretes, setAretes] = useState<Arete[]>([]);
+  const [motif, setMotif] = useState<string | null>(null);
+  const dernierMotif = useRef<string | null>(null);
+  const glisse = useRef<Glisse | null>(null);
+
+  // La camera bouge, la session change : on redessine. Le calque lit la scene, il ne la possede pas. Chaque image rendue le dit
+  // (`abonnerImage`) : les poignees suivent la camera de l'image meme, sans le retard d'un minuteur (audit de la camera, 6 novembre 2026).
+  useEffect(() => {
+    let derniere = '';
+    const desabonner = abonnerImage((sc) => {
+      if (!sessionToit() || sc !== vue3d.scene) return;
+      // La camera qui fait l'image : celle de l'orbite, ou l'oblique de la facade (qui ne bouge qu'au recadrage).
+      const cam = cameraDeVue(sc);
+      const cle = [...cam.matrixWorld.elements, ...cam.projectionMatrix.elements].map((v) => v.toFixed(3)).join();
+      if (cle !== derniere) { derniere = cle; redessiner((n) => n + 1); }
+    });
+    const oublier = () => { setGuides([]); setAretes([]); setMotif(null); dernierMotif.current = null; };
+    const echap = (e: KeyboardEvent) => { if (e.key === 'Escape' && glisse.current) { glisse.current = null; modeToitCourant()?.annulerGlisser(); oublier(); e.stopPropagation(); } };
+    // Un second doigt pendant qu'une poignee est tiree : c'est un pincement, pas une retouche. Le glisser est annule (le toit revient a
+    // l'etat de la pile) et les deux doigts vont a l'orbite ; un second doigt pose sur une autre poignee ne la prend pas.
+    // L'inverse aussi (`isPrimary` faux : un doigt pose avant, ailleurs) : la poignee ne se prend pas, le doigt va a la vue (point 143 au
+    // telephone, 9 novembre 2026 : la poignee « Avancer » sous le second doigt tirait la facade au lieu de zoomer).
+    const pincementSurUnePoignee = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' || e.isPrimary || !e.isTrusted || !(e.target as Element | null)?.closest?.('[data-poignee]')) return;
+      e.stopPropagation(); e.preventDefault();
+      poserSurLaScene(e.pointerId, e.pointerType, e.clientX, e.clientY, false);
+    };
+    const second = (e: PointerEvent) => {
+      const g = glisse.current;
+      if (!g) { pincementSurUnePoignee(e); return; }
+      if (e.pointerId === g.pointeur || !e.isTrusted) return;
+      glisse.current = null;
+      try { g.element.releasePointerCapture(g.pointeur); } catch { /* deja relache */ }
+      modeToitCourant()?.annulerGlisser();
+      oublier();
+      poserSurLaScene(g.pointeur, g.type, g.x, g.y, true);
+      const t = e.target as Element | null;
+      if (!(t instanceof HTMLCanvasElement)) { e.stopPropagation(); e.preventDefault(); poserSurLaScene(e.pointerId, e.pointerType, e.clientX, e.clientY, false); }
+    };
+    document.addEventListener('pointerdown', second, true);
+    window.addEventListener('keydown', echap, true);
+    return () => { desabonner(); document.removeEventListener('pointerdown', second, true); window.removeEventListener('keydown', echap, true); };
+  }, []);
+
+  const s = sessionToit(), e = etatToit();
+  if (!s || !e.actif || e.validee) return null;
+  const plan = e.vue === 'dessus';
+  const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
+  const corps = o?.batiment?.corpsToit;
+  if (!corps?.length) return null;
+  // Le trace IGN du batiment (son contour dans le plan) : un mur tire ou un corps deplace s'y colle.
+  const contour = o ? (enPoints(o).pts as PtBrut[]) : [];
+  const f = s.facade ?? s.derniere;
+  const oeil = oeilDeLaVue(altitudeDuBatiment(o));
+  // Ce que tirent les poignees : de dessus, le corps choisi ; de face, l'element choisi devant sa facade, ou le corps choisi par le mur
+  // ou se trace sa silhouette (jamais la facade d'un autre corps) ; sans choix, la facade courante (facade/modeToit/poignees.ts).
+  const cible: CibleGlisser | null = oeil ? cibleDesPoignees(corps, e.selection, { dessus: plan, facade: f, oeil }) : null;
+  // Le corps choisi : sa silhouette, sur le mur de ses poignees, tracee lisible (de dessus, le plan le montre deja).
+  const silhouette = !plan && oeil && e.selection?.type === 'corps' && cible?.type === 'facade' ? silhouetteAEcran(corps[e.selection.rang], altitudeDuBatiment(o), oeil, cible.mur) : null;
+  const seule = () => (silhouette ? <svg className="poigneesToit" data-suit-la-camera="" width="100%" height="100%" aria-hidden="true"><TraitCorps pts={silhouette} /></svg> : null);
+  if (!cible) return seule();
+  const cadre = cadreDe(corps, cible);
+  const poignees = poigneesDe(corps, cible);
+  const hote = hotes3d.vue3d;
+  if (!cadre || !poignees.length || !hote) return seule();
+  const r = hote.getBoundingClientRect();
+  const cotes: Cote[] = cotesDe(corps, cible);
+  const base = altitudeDuBatiment(o);
+  const ancre = projeter(poignees[0]?.point as Point3, base);
+  // Les poignees a l'ecran, ecartees si elles se recouvrent : chacune doit se prendre au doigt (deux zones de saisie bord a bord).
+  const projetees = poignees.map((p) => projeter(p.point, base));
+  const places = placerALEcran(projetees, r, hote);
+  // Une poignee derriere une surface du batiment, en 3D libre : estompee, elle ne se prend pas. Le rayon part de l'oeil de l'orbite vers
+  // son point. De dessus, les poignees sont celles du plan, posees au pied du corps sous son toit ; devant une facade, la vue est celle du mur.
+  const sc = vue3d.scene, racines = sc && !sc.cameraRendu && !plan ? moteur3d()?.racinesDe3d(s.cle) ?? [] : [];
+  rayon ??= racines.length ? new THREE.Raycaster() : null;
+  const cachees = poignees.map((p) => !!sc && !!rayon && racines.length > 0 && estCache(sc.camera, racines, { x: p.point.x - sc.cen.x, y: base + p.point.z, z: sc.cen.y - p.point.y }, rayon));
+
+  const demarrer = (ev: React.PointerEvent<SVGGElement>, p: Poignee) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    (ev.currentTarget as Element).setPointerCapture(ev.pointerId);
+    glisse.current = { id: p.id, depart: JSON.parse(JSON.stringify(corps)) as CorpsToit[], x0: ev.clientX, y0: ev.clientY, cible, poignee: p, vecteurs: vecteursEcran(p.point, p.axes, cadre, base),
+      pointeur: ev.pointerId, type: ev.pointerType, element: ev.currentTarget as Element, x: ev.clientX, y: ev.clientY };
+  };
+  const bouger = (ev: React.PointerEvent<SVGGElement>) => {
+    const g = glisse.current;
+    if (!g || ev.pointerId !== g.pointeur) return;
+    g.x = ev.clientX; g.y = ev.clientY;
+    const d = enMetres(ev.clientX - g.x0, ev.clientY - g.y0, g.poignee.axes, g.vecteurs);
+    const res = glisser(g.depart, g.cible, g.id, d, contour);
+    modeToitCourant()?.apercu(res.corps, res.elevation);
+    setGuides(res.guides);
+    setAretes(res.aretes ?? []);
+    setMotif(res.motif ?? null);
+    dernierMotif.current = res.motif ?? null;
+    redessiner((n) => n + 1);
+  };
+  const finir = (ev: React.PointerEvent<SVGGElement>) => {
+    if (!glisse.current || ev.pointerId !== glisse.current.pointeur) return;
+    glisse.current = null;
+    (ev.currentTarget as Element).releasePointerCapture(ev.pointerId);
+    modeToitCourant()?.finGlisser();
+    // Le mur arrete en fin de geste : la raison reste lisible apres le lacher.
+    if (dernierMotif.current) notifications.emettre('toast', dernierMotif.current);
+    setGuides([]); setAretes([]); setMotif(null); dernierMotif.current = null;
+  };
+
+  // Pendant une insertion, un toucher pose la piece : il ne prend pas une poignee. Elles restent montrees, estompees, et le toucher les
+  // traverse jusqu'a la scene (app.css, `.enInsertion`) ; elles reviennent des que l'insertion se termine.
+  const enInsertion = !!insertionToit();
+
+  return (
+    <svg className={'poigneesToit' + (enInsertion ? ' enInsertion' : '')} data-suit-la-camera="" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
+      {silhouette && <TraitCorps pts={silhouette} />}
+      {guides.map((g) => {
+        const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);
+        return a && b ? <line key={g} className="guideToit" x1={a.x} y1={a.y} x2={b.x} y2={b.y} /> : null;
+      })}
+      <AretesIgn aretes={aretes} z={Math.min(...(corps[cible.rang]?.egouts ?? [0]))} base={base} />
+      {poignees.map((p, k) => {
+        const q = places[k], vrai = projetees[k];
+        if (!q) return null;
+        // Celle qu'on tire reste prise, meme si l'orbite la cache un instant.
+        const cachee = !!cachees[k] && glisse.current?.id !== p.id;
+        return (
+          <g key={p.id} className={'poigneeToit' + (DEPLACEMENTS.has(p.id) ? ' deplacer' : '') + (cachee ? ' cachee' : '')} data-poignee={p.id} data-cachee={cachee ? '' : undefined}
+            transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle + (cachee ? ' (cachée par le toit : tournez autour du bâtiment)' : enInsertion ? ' (insertion en cours : terminez-la ou annulez-la)' : '')}
+            aria-disabled={cachee || enInsertion || undefined}
+            onPointerDown={(ev) => { if (!cachee && !enInsertion) demarrer(ev, p); }} onPointerMove={bouger} onPointerUp={finir} onPointerCancel={finir}>
+            {vrai && Math.hypot(vrai.x - q.x, vrai.y - q.y) > SAISIE_PX && <line className="renvoiPoignee" x1={0} y1={0} x2={vrai.x - q.x} y2={vrai.y - q.y} />}
+            <title>{p.libelle}</title>
+            <circle className="saisiePoignee" r={SAISIE_PX} />
+            {DEPLACEMENTS.has(p.id) ? <>
+              <rect className="pointPoignee" x={-RAYON_DEPLACER_PX} y={-RAYON_DEPLACER_PX} width={2 * RAYON_DEPLACER_PX} height={2 * RAYON_DEPLACER_PX} rx={4} />
+              <path className="flechesPoignee" d={FLECHES} />
+            </> : <circle className="pointPoignee" r={RAYON_PX} />}
+          </g>
+        );
+      })}
+      {ancre && cotes.length > 0 && <BulleDesCotes x={Math.max(4, Math.min(r.width - 284, ancre.x - 140))} y={Math.max(4, ancre.y - 62)} cotes={cotes} ign={aretes.length > 0} motif={motif} />}
+    </svg>
+  );
+}

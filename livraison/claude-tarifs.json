@@ -1,0 +1,39 @@
+{
+  "format": "plan-claude-tarifs",
+  "unite": "dollars US par million de tokens",
+  "note": "Un changement de prix ajoute une ligne datee (depuis) et ne reecrit jamais une ligne passee : un cout d'hier reste celui d'hier. remiseBatch multiplie chaque prix de la ligne, cache compris (les remises se cumulent). auDela : les prix d'une requete dont le prompt (entree, ecriture et lecture du cache) depasse le seuil.",
+  "lignes": [
+    {
+      "modele": "claude-haiku-5-5",
+      "depuis": "2026-10-13",
+      "verifieLe": "2026-10-13",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "entree": 0.1,
+      "ecritureCache5m": 0.125,
+      "ecritureCache1h": 0.2,
+      "lectureCache": 0.01,
+      "sortie": 0.5,
+      "remiseBatch": 0.5,
+      "auDela": {
+        "seuil": 100000,
+        "entree": 0.5,
+        "ecritureCache5m": 0.625,
+        "ecritureCache1h": 1,
+        "lectureCache": 0.05,
+        "sortie": 2.5
+      }
+    },
+    {
+      "modele": "claude-sonnet-5-5",
+      "depuis": "2026-10-13",
+      "verifieLe": "2026-10-13",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "entree": 2,
+      "ecritureCache5m": 2.5,
+      "ecritureCache1h": 4,
+      "lectureCache": 0.1,
+      "sortie": 10,
+      "remiseBatch": 0.5
+    }
+  ]
+}

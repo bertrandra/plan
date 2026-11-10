@@ -1,0 +1,122 @@
+{
+  "format": "plan-reglages-structure",
+  "version": 1,
+  "pourquoi": "Les reglages nommes de la structure d'une facade (niveaux, travees, garde-corps : MD/spec-facades-calage-detection.md §10), lus par facade/regles/facades/structure.ts. Memes regles que detection.json.",
+  "reglages": {
+    "facades.structure.niveauRecouvrementMin": {
+      "valeur": 0.5,
+      "unite": "part",
+      "pourquoi": "Deux baies sont du meme niveau si leurs hauteurs se recouvrent sur cette part de la plus basse : une porte et une fenetre du rez-de-chaussee n'ont pas le meme appui, mais elles partagent l'etage."
+    },
+    "facades.structure.traveeM": {
+      "valeur": 0.1,
+      "unite": "m",
+      "pourquoi": "Ecart maximal entre les centres de deux baies d'une meme travee, d'une rangee a l'autre : une travee de maconnerie est montee a l'aplomb."
+    },
+    "facades.structure.egaliserM": {
+      "valeur": 0.05,
+      "unite": "m",
+      "pourquoi": "Une baie a moins de cet ecart de la mediane de sa travee (largeur) ou de sa rangee (hauteur, meme type) en prend la valeur : la mesure tremble de quelques centimetres, la menuiserie non."
+    },
+    "facades.structure.gardeFouM": {
+      "valeur": 0.1,
+      "unite": "m",
+      "pourquoi": "La regularisation ne deplace jamais un bord de plus de cet ecart de sa mesure : au-dela, la mesure l'emporte, une facade peut etre irreguliere."
+    },
+    "facades.structure.symetrieM": {
+      "valeur": 0.1,
+      "unite": "m",
+      "pourquoi": "Travees symetriques autour du milieu de la facade a cet ecart pres : la facade est marquee symetrique, ce qui aide a completer et ne deplace rien."
+    },
+    "facades.structure.etageMinM": {
+      "valeur": 2.5,
+      "unite": "m",
+      "pourquoi": "Hauteur d'etage minimale entre deux linteaux successifs : en dessous, deux rangees de baies ne sont pas deux niveaux d'une maison."
+    },
+    "facades.structure.etageMaxM": {
+      "valeur": 3.2,
+      "unite": "m",
+      "pourquoi": "Hauteur d'etage maximale entre deux linteaux successifs : au-dela, une rangee manque peut-etre, ou la facade n'est pas reguliere."
+    },
+    "facades.structure.cacheMin": {
+      "valeur": 0.5,
+      "unite": "part",
+      "pourquoi": "Part d'un croisement de la grille cachee sur toutes les vues (masque d'occlusion) au-dessus de laquelle la zone est dite cachee : une baie peut s'y trouver sans qu'on la voie."
+    },
+    "facades.structure.murNetMin": {
+      "valeur": 0.8,
+      "unite": "part",
+      "pourquoi": "Part d'un croisement vu qui ressemble au fond du mur au-dessus de laquelle la zone est nettement « mur » : on n'y devine jamais de baie."
+    },
+    "facades.structure.devineeCocheeMin": {
+      "valeur": 0.6,
+      "unite": "rapport",
+      "pourquoi": "Confiance d'une baie devinee a partir de laquelle elle est proposee cochee ; en dessous, elle reste en pointille, decochee, a garder d'une touche."
+    },
+    "facades.classement.coffreMinM": {
+      "valeur": 0.12,
+      "unite": "m",
+      "pourquoi": "Hauteur minimale d'un coffre de volet roulant (ou d'une bande de mur) retiree du haut d'une baie : en dessous, c'est le dormant."
+    },
+    "facades.classement.coffreMaxM": {
+      "valeur": 0.32,
+      "unite": "m",
+      "pourquoi": "Hauteur maximale d'un coffre de volet roulant : au-dela, la bande fait partie de la baie (une imposte, un vitrage)."
+    },
+    "facades.classement.coffreUniMax": {
+      "valeur": 0.35,
+      "unite": "rapport",
+      "pourquoi": "Un coffre est uni dans sa largeur : ses aretes verticales valent au plus cette part de celles de la baie en dessous (meneau, dormant, petits bois)."
+    },
+    "facades.classement.coupureMin": {
+      "valeur": 30,
+      "unite": "niveaux",
+      "pourquoi": "Ecart de teinte minimal entre la bande du haut et la baie, de part et d'autre de la coupure : une arete franche separe le coffre (ou le mur) du dormant."
+    },
+    "facades.classement.balconDebordMinM": {
+      "valeur": 0.15,
+      "unite": "m",
+      "pourquoi": "Un balcon deborde des tableaux de la baie d'au moins cet ecart de chaque cote ; un appui de fenetre, non."
+    },
+    "facades.classement.balconPartMin": {
+      "valeur": 0.6,
+      "unite": "part",
+      "pourquoi": "Part de la largeur d'une bande sous l'appui qui s'ecarte du fond du mur pour y lire une dalle de balcon."
+    },
+    "facades.classement.parementBruitMax": {
+      "valeur": 0.3,
+      "unite": "part",
+      "pourquoi": "Part du mur a cote d'une baie, a mi-hauteur, qui s'ecarte du fond au-dela de laquelle le parement (brique, pierre) est trop heurte pour y lire une dalle ou des barreaux : on ne dit rien."
+    },
+    "facades.classement.barreauxMin": {
+      "valeur": 4,
+      "unite": "nombre",
+      "pourquoi": "Nombre minimal de barreaux reguliers (aretes verticales a pas constant) dans le bas d'une baie pour y lire un garde-corps."
+    },
+    "facades.classement.persiennesLamesMin": {
+      "valeur": 8,
+      "unite": "nombre",
+      "pourquoi": "Nombre minimal de lames horizontales a pas regulier (3 a 12 cm) dans une baie pour la dire fermee par des persiennes."
+    },
+    "facades.classement.vitreeRapportMin": {
+      "valeur": 1.2,
+      "unite": "rapport",
+      "pourquoi": "Une grande baie au sol est vitree (porte-fenetre) si ses aretes verticales l'emportent de ce rapport sur les horizontales (meneau, dormant) ; une porte de garage a des rainures horizontales."
+    },
+    "facades.classement.cintrePartMax": {
+      "valeur": 0.45,
+      "unite": "part",
+      "pourquoi": "Remplissage maximal des deux coins du haut d'une baie pour la dire cintree, quand le haut du milieu est plein."
+    },
+    "facades.classement.cintreBordPart": {
+      "valeur": 0.08,
+      "unite": "part",
+      "pourquoi": "Part de la largeur, pres de chaque tableau, ou l'arc d'un cintre peut etre raide (un plein cintre est vertical a sa naissance) : au-dela, une marche franche dans le haut de la tache n'est pas un arc."
+    },
+    "facades.classement.cintreMarcheMaxPart": {
+      "valeur": 0.1,
+      "unite": "part",
+      "pourquoi": "Plus grand saut du haut de la tache d'une colonne a la suivante, en part de sa hauteur, hors des bords : une baie posee sur une haie plus large qu'elle forme un T, pas un cintre (lot G17, scenes 07 et 17 du banc)."
+    }
+  }
+}

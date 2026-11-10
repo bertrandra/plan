@@ -219,3 +219,19 @@ describe('appliquerGlisser', () => {
     });
   });
 });
+
+describe('glisser un batiment', () => {
+  it('son toit le suit, corps et cheminees compris (MD/spec-ouvrages.md, etape 6.3)', () => {
+    const pts = [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 4 }, { x: 0, y: 4 }];
+    const obj = { type: 'polygon', fonction: 'batiment', pts: pts.map((p) => ({ ...p })), frozenVertices: [false, false, false, false],
+      batiment: { corpsToit: [{ pts: pts.map((p) => ({ ...p })), posFaitage: 2, faitage: 6, egouts: [3, 3], pignons: [], ecart: 0,
+        cheminees: [{ x: 1, y: 1, largeurM: 0.4, profondeurM: 0.4, sommetM: 7, position: 'pan', source: 'observation' }] }] } } as unknown as FormeGlissable;
+    appliquerGlisser({ type: 'shapeMove', obj, startWorld: { x: 0, y: 0 }, startPts: obj.pts.map((p) => ({ ...p })) } as GlisserEnCours, { x: 2, y: 1 }, null);
+    appliquerGlisser({ type: 'shapeMove', obj, startWorld: { x: 0, y: 0 }, startPts: pts.map((p) => ({ ...p })) } as GlisserEnCours, { x: 3, y: 1 }, null);
+    const corps = (obj as unknown as { batiment: { corpsToit: { pts: { x: number; y: number }[]; cheminees: { x: number; y: number }[] }[] } }).batiment.corpsToit[0]!;
+    expect(obj.pts[0]).toEqual({ x: 3, y: 1 });
+    expect(corps.pts[0]).toEqual({ x: 3, y: 1 });
+    expect(corps.cheminees[0]).toMatchObject({ x: 4, y: 2 });
+  });
+});
+

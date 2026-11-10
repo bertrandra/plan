@@ -13,6 +13,7 @@
 //
 // Aucune de ces fonctions ne touche au plan ni au rendu.
 
+import { chargement } from './chargement.js';
 import { notifications } from './notifications.js';
 import { dialogues } from './dialogues.js';
 
@@ -21,6 +22,7 @@ const BOITE = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:2
 
 /** Le bandeau rouge des erreurs de programme : celui que voit un developpeur, pas une invite. */
 export function showErrBanner(msg: string): void {
+  chargement(false);
   const texte = 'Erreur JS: ' + msg;
   if (notifications.aUnAbonne()) { notifications.emettre('erreur', texte); return; }
   const box = document.createElement('div');
@@ -54,6 +56,7 @@ const RAISONS: Record<string, string> = {
  * un serveur momentanement absent ne doit jamais ressembler a un projet perdu.
  */
 export function showProjectLoadError(err: { reason?: string } | null): void {
+  chargement(false);
   const titre = 'Chargement du projet impossible';
   // Sans `err`, l'indice vaut `null`/`undefined` : la recherche echoue et le repli s'applique.
   const texte = (RAISONS[(err && err.reason) as string] || 'Une erreur est survenue lors du chargement du projet.') +

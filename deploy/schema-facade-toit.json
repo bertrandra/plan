@@ -1,0 +1,148 @@
+{
+  "format": "plan-schema-facade-toit",
+  "version": 1,
+  "note": "Sortie du toit lu sur une facade par Claude (lot L2). Des mots d'un vocabulaire ferme, indetermine partout ; les elements du pan en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol, au-dessus de 1). Plat, sans union ni champ facultatif : la sortie structuree l'accepte seul (avec la lecture enrichie, sa grammaire etait trop grosse, essai du 30 octobre 2026). Le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (30 octobre 2026).",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "toit",
+      "elements"
+    ],
+    "properties": {
+      "toit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "couverture",
+          "pose",
+          "debord",
+          "faitage",
+          "gouttiere",
+          "confiance"
+        ],
+        "properties": {
+          "couverture": {
+            "type": "string",
+            "enum": [
+              "tuile-plate",
+              "tuile-canal",
+              "tuile-mecanique",
+              "ardoise",
+              "zinc",
+              "bac-acier",
+              "membrane",
+              "gravillons",
+              "vegetale",
+              "indetermine"
+            ]
+          },
+          "pose": {
+            "type": "string",
+            "enum": [
+              "droite",
+              "losange",
+              "ecaille",
+              "indetermine"
+            ]
+          },
+          "debord": {
+            "type": "string",
+            "enum": [
+              "aucun",
+              "faible",
+              "fort",
+              "indetermine"
+            ]
+          },
+          "faitage": {
+            "type": "string",
+            "enum": [
+              "tuiles",
+              "zinc",
+              "crete",
+              "indetermine"
+            ]
+          },
+          "gouttiere": {
+            "type": "string",
+            "enum": [
+              "pendante",
+              "nantaise",
+              "aucune",
+              "indetermine"
+            ]
+          },
+          "confiance": {
+            "$ref": "#/$defs/confiance"
+          }
+        }
+      },
+      "elements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "element",
+            "u0",
+            "u1",
+            "v",
+            "confiance"
+          ],
+          "properties": {
+            "element": {
+              "type": "string",
+              "enum": [
+                "fenetre-toit",
+                "solaire"
+              ]
+            },
+            "u0": {
+              "type": "number"
+            },
+            "u1": {
+              "type": "number"
+            },
+            "v": {
+              "type": "number"
+            },
+            "confiance": {
+              "$ref": "#/$defs/confiance"
+            }
+          }
+        }
+      }
+    },
+    "$defs": {
+      "confiance": {
+        "type": "string",
+        "enum": [
+          "forte",
+          "moyenne",
+          "faible",
+          "indetermine"
+        ]
+      }
+    }
+  },
+  "exemple": {
+    "toit": {
+      "couverture": "ardoise",
+      "pose": "droite",
+      "debord": "faible",
+      "faitage": "zinc",
+      "gouttiere": "pendante",
+      "confiance": "moyenne"
+    },
+    "elements": [
+      {
+        "element": "fenetre-toit",
+        "u0": 0.62,
+        "u1": 0.71,
+        "v": 1.35,
+        "confiance": "moyenne"
+      }
+    ]
+  }
+}

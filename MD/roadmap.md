@@ -3,6 +3,8 @@
 **Version:** 1.0 — proposal for review
 **Horizon model:** H1 run · H2 grow · H3 transform
 **Companions:** `architecture.md`, `spec-migration-typescript.md`, `spec-ihm-zones.md`, `spec-connexion-plateforme.md`, `spec-data-strategy.md`, `RELEASE.md`
+**Chantiers en cours :** `roadmap-toits-fond.md` (toits du voisinage lus sur le LiDAR en tâche de fond — fait et reste à faire)
+; `plan-mise-en-oeuvre-audit.md` (audit de la parcelle et promenade, moteur des façades, règles des toits — lots et ordre)
 
 ---
 
@@ -343,6 +345,12 @@ Scored on value, effort and risk to the product's core promise. Rendering is the
 | **Dossier narrative** — generate the *méthode* and *chantier* prose | Low-medium | Low | Low | Opportunistic |
 | **Assistant over the project** — *"why is the joist spacing 40 cm here?"* | Medium | Medium | Low — it explains the engine, it does not replace it | H4 |
 | **Site photo → existing conditions** | Medium | High | High | Not before H4 |
+
+*29 October 2026.* The owner launched the AI reading of the whole site and dossier at once: façade and roof details read in the
+façade run, the garden from the aerial and garden photos, the PLU rules read from the zone's PDF, DP texts drafted and reviewed, and
+the natural-language assistant (the first row above). Scope, classification against the existing model, lots L0 to L6, costs and
+risks: [`spec-lecture-ia-elargie.md`](spec-lecture-ia-elargie.md). Same discipline as the façades: the AI proposes, the rules
+decide, the person confirms.
 
 ---
 

@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette, lireArbres, enregistrerArbres, lireCalibration, enregistrerCalibration, listerCasCalibration, lireCasCalibration, enregistrerCasCalibration, supprimerCasCalibration } from '../../../src/io/depotDemos.js';
 
-// admin.php, l'admin des demos sans Node (deploy/admin.php), contre le depot de la page : memes
-// scenarios que buildsg/demosAdmin.mjs. Lance par le serveur integre de PHP ; saute si PHP manque.
+// admin.php, l'admin des demos (deploy/admin.php), contre le depot de la page. Lance par le serveur
+// integre de PHP ; saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
@@ -53,7 +53,8 @@ describe.skipIf(!php)('admin.php', () => {
     const port = await portLibre();
     base = 'http://127.0.0.1:' + port;
     serveur = spawn('php', ['-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
-      env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), PLAN_ADMIN_CONFIG: config },
+      // Quatre processus : les requetes simultanees le sont vraiment (le verrou des ecritures se voit).
+      env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), PLAN_ADMIN_CONFIG: config, PHP_CLI_SERVER_WORKERS: '4' },
       stdio: 'ignore'
     });
     for (let i = 0; i < 50; i++) {
@@ -70,10 +71,31 @@ describe.skipIf(!php)('admin.php', () => {
     fs.rmSync(demos, { recursive: true, force: true });
   });
 
-  it('sans mot de passe configure, rien n existe', async () => {
+  it('sans mot de passe configure, rien n existe — sauf la vitrine, qui dit pourquoi', async () => {
     configurer('A-CHANGER');
     expect((await navigateur('admin/session')).status).toBe(404);
     expect(await sessionAdmin(navigateur)).toBe(null);
+    // La vitrine ne lit pas sa demo, et le dit, de toute origine : l'<iframe> en bac a sable le voit.
+    const v = await fetch(base + '/admin/vitrine/1');
+    expect(v.status).toBe(404);
+    expect((await v.json()).error.code).toBe('NOT_CONFIGURED');
+    expect(v.headers.get('access-control-allow-origin')).toBe('*');
+  });
+
+  // Root lit tout, droits ou pas : ce cas ne s'eprouve qu'en utilisateur ordinaire (la CI l'est).
+  it.skipIf(process.getuid?.() === 0)('dit qu une demo presente est illisible (droits du fichier)', async () => {
+    fs.mkdirSync(demos, { recursive: true });
+    const f = path.join(demos, '1.json');
+    fs.writeFileSync(f, JSON.stringify(PLAN));
+    fs.chmodSync(f, 0o000);
+    try {
+      const r = await fetch(base + '/admin/vitrine/1');
+      expect(r.status).toBe(500);
+      expect((await r.json()).error.code).toBe('UNREADABLE');
+      expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    } finally {
+      fs.chmodSync(f, 0o644);
+    }
   });
 
   it('refuse sans session, sans en-tete, et un mauvais mot de passe', async () => {
@@ -81,6 +103,12 @@ describe.skipIf(!php)('admin.php', () => {
     expect((await navigateur('admin/session', { method: 'POST', body: JSON.stringify({ motDePasse: 'secret-admin' }) })).status).toBe(403);
     expect(await connecterAdmin(navigateur, 'faux')).toBe('Mot de passe refusé.');
     expect(await sessionAdmin(navigateur)).toBe(false);
+  });
+
+  it('refuse un identifiant qui sortirait du dossier, et la page dit non si le serveur ne repond pas', async () => {
+    expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null);
+    expect((await navigateur('admin/demos/..%2Fsecret')).status).toBe(400);
+    expect(await deconnecterAdmin((async () => { throw new Error('reseau'); }) as never)).toBe(false);
   });
 
   it('pose un cookie HttpOnly, SameSite=Strict, limite a admin/', async () => {
@@ -113,6 +141,15 @@ describe.skipIf(!php)('admin.php', () => {
     expect(fs.readdirSync(demos).some((n) => n.startsWith('2.json.supprime-'))).toBe(true);
     await expect(depot.ouvrir('9')).rejects.toMatchObject({ reason: 'notfound' });
     expect((await navigateur('admin/demos/..%2Fconfig')).status).toBe(400);
+  });
+
+  it('deux ajouts simultanes ne prennent pas le meme numero : chacun garde sa demo', async () => {
+    await connecterAdmin(navigateur, 'secret-admin');
+    const depot = creerDepotDemos(navigateur);
+    const noms = Array.from({ length: 12 }, (_, i) => 'Simultanée ' + i);
+    const crees = await Promise.all(noms.map((name) => depot.enregistrer({ name, objects: PLAN.objects as never })));
+    expect(new Set(crees.map((c) => c.id)).size).toBe(noms.length);
+    expect((await depot.lister()).map((d) => d.name).sort()).toEqual([...noms].sort());
   });
 
   it('enregistre et relit le registre des controleurs, hors de la liste des demos', async () => {
@@ -173,5 +210,60 @@ describe.skipIf(!php)('admin.php', () => {
     await expect(enregistrerPalette(navigateur, { format: 'plan-palette', couleurs: { clair: { accent: 'rouge' } } })).rejects.toMatchObject({ reason: 'server' });
     await expect(enregistrerPalette(navigateur, { couleurs: {} })).rejects.toMatchObject({ reason: 'server' });
     expect(await lirePalette(navigateur)).toEqual(palette);
+  });
+
+  it('sert la bibliotheque d arbres sans session, et ne l ecrit qu avec la session', async () => {
+    
+    expect(await lireArbres(navigateur)).toBe(null);
+    const arbres = { format: 'plan-arbres', version: 1, modifieLe: '2026-10-16T08:00:00.000Z', especes: [{ id: 'chene', nom: 'Chêne', caduc: true, reglages: { seed: 1, branch: { levels: 3 } } }] };
+    await expect(enregistrerArbres(navigateur, arbres)).rejects.toThrow(/session admin/);
+    await connecterAdmin(navigateur, 'secret-admin');
+    await enregistrerArbres(navigateur, arbres);
+    const r = await fetch(base + '/admin/arbres');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    expect(await r.json()).toEqual(arbres);
+    // Un identifiant hors [a-z0-9-], un doublon ou un document d'un autre format sont refuses.
+    await expect(enregistrerArbres(navigateur, { ...arbres, especes: [{ id: 'Chêne', reglages: { a: 1 } }] })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerArbres(navigateur, { ...arbres, especes: [arbres.especes[0], arbres.especes[0]] })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerArbres(navigateur, { format: 'plan-palette', especes: [] })).rejects.toMatchObject({ reason: 'server' });
+    expect(await lireArbres(navigateur)).toEqual(arbres);
+  });
+  it('sert la calibration sans session ; les cas de calibration (avec leurs photos) ne se lisent et ne s ecrivent qu avec elle', async () => {
+    
+    expect(await lireCalibration(navigateur)).toBe(null);
+    const calib = { format: 'plan-calibration', version: 1, modifieLe: '2026-10-17T08:00:00.000Z', parametres: { 'facades.detection.areteNette': 0.7 }, historique: [] };
+    await expect(enregistrerCalibration(navigateur, calib)).rejects.toThrow(/session admin/);
+    await expect(listerCasCalibration(navigateur)).rejects.toThrow(/session admin/);
+    await connecterAdmin(navigateur, 'secret-admin');
+    await enregistrerCalibration(navigateur, calib);
+    const r = await fetch(base + '/admin/calibration');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    expect(await r.json()).toEqual(calib);
+    await expect(enregistrerCalibration(navigateur, { ...calib, parametres: { 'autre.nom': 1 } })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCalibration(navigateur, { ...calib, parametres: { 'facades.detection.areteNette': 'x' } })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCalibration(navigateur, { format: 'plan-arbres', parametres: {} })).rejects.toMatchObject({ reason: 'server' });
+    expect(await lireCalibration(navigateur)).toEqual(calib);
+
+    expect(await listerCasCalibration(navigateur)).toEqual([]);
+    const coins = [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 5 }, { x: 0, y: 5 }];
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Maison nord', statut: 'valide', largeurM: 9, hauteurM: 5, photos: [{ fichier: 'p0', coins }], images: ['data:image/jpeg;base64,AAAA'], ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1.2 }] };
+    await expect(enregistrerCasCalibration(navigateur, 'cas 1', cas)).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCasCalibration(navigateur, 'cas1', { ...cas, images: [] })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCasCalibration(navigateur, 'cas1', { ...cas, images: ['pas une image'] })).rejects.toMatchObject({ reason: 'server' });
+    await enregistrerCasCalibration(navigateur, 'cas1', cas);
+    const liste = await listerCasCalibration(navigateur);
+    expect(liste).toHaveLength(1);
+    expect(liste[0]).toMatchObject({ id: 'cas1', nom: 'Maison nord', statut: 'valide', photos: 1, ouvertures: 1 });
+    expect(await lireCasCalibration(navigateur, 'cas1')).toEqual(cas);
+    // Les photos ne se lisent pas sans session.
+    cookie = '';
+    expect((await fetch(base + '/admin/calibration-cas/cas1')).status).toBe(401);
+    await connecterAdmin(navigateur, 'secret-admin');
+    await supprimerCasCalibration(navigateur, 'cas1');
+    expect(await listerCasCalibration(navigateur)).toEqual([]);
   });
 });

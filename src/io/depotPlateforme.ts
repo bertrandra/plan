@@ -21,9 +21,11 @@
 
 import { schemaMinimal, migrer } from '../model/migrations.js';
 import { EchecPlateforme, type Session } from '../plateforme/session.js';
-import type { ProjetResume, ProjetServeur, MotifEchec } from './api.js';
+import type { MotifEchec, DepotProjets } from './api.js';
+export type { DepotProjets } from './api.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 import { phraseLimite } from '../plateforme/quotaProjets.js';
+import { magasinPhotos, sortirLesPhotos, rentrerLesPhotos, type MagasinPhotos } from './photosLocales.js';
 
 /** Le document tel que Plan l'ecrit et le relit. La plateforme ne le regarde pas. */
 interface DocumentPlan {
@@ -61,12 +63,28 @@ function traduire(e: unknown, quoi: string): Error & { reason: MotifEchec } {
   if (e && typeof e === 'object' && 'reason' in e) return e as Error & { reason: MotifEchec };
   if (e instanceof EchecPlateforme && e.erreur.code === 'UNSUPPORTED_SCHEMA_VERSION') return refusDeSchema(e, quoi);
   if (e instanceof EchecPlateforme && e.erreur.code === 'QUOTA_EXCEEDED') return refusDeQuota(e);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'PAYLOAD_TOO_LARGE') return refusDeTaille(e, quoi);
+  if (e instanceof EchecPlateforme && e.erreur.code === 'EMBEDDED_ASSET_REJECTED') return refusDActif(e, quoi);
   if (e instanceof EchecPlateforme) {
     const motif: MotifEchec = e.erreur.statut === 404 ? 'notfound' : 'server';
     const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
     return echec(quoi + ' : ' + e.erreur.code + ref, motif);
   }
   return echec(quoi + ' : ' + ((e as Error).message || String(e)), 'network');
+}
+
+/**
+ * La plateforme refuse un document qui embarque un contenu : une URI `data:`, ou une chaine de plus
+ * de 64 Kio (`422 EMBEDDED_ASSET_REJECTED`, avec `details.path` et `details.reason`). Le chemin est
+ * dit : c'est lui qui designe le champ fautif, sans quoi l'erreur ne se diagnostique pas.
+ */
+function refusDActif(e: EchecPlateforme, quoi: string): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const chemin = typeof d.path === 'string' ? d.path : null;
+  const taille = typeof d.size_bytes === 'number' ? ' (' + Math.round(d.size_bytes / 1024) + ' Kio)' : '';
+  const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
+  return echec(quoi + ' : la plateforme refuse un contenu embarque dans le document'
+    + (chemin ? ', champ « ' + chemin + ' »' + taille : '') + ' — EMBEDDED_ASSET_REJECTED' + ref, 'server');
 }
 
 /**
@@ -97,14 +115,38 @@ function refusDeSchema(e: EchecPlateforme, quoi: string): Error & { reason: Moti
     + ' à « project_schema_versions » du produit Plan. Rien n’est perdu : le plan reste ouvert ici.' + ref, 'server');
 }
 
-export interface DepotProjets {
-  lister(): Promise<ProjetResume[]>;
-  ouvrir(id: string): Promise<ProjetServeur>;
-  enregistrer(charge: { id?: string; name?: string; objects: ObjetBrut[]; measures?: Mesure[]; meta?: unknown }): Promise<{ id: string; updatedAt?: string }>;
-  supprimer(id: string): Promise<unknown>;
+/** Un nombre d'octets en Mo, a la francaise : « 2,4 Mo ». */
+const enMo = (octets: number) => (octets / 1048576).toFixed(1).replace('.', ',') + ' Mo';
+
+/**
+ * La plateforme refuse un document trop gros (`413 PAYLOAD_TOO_LARGE`, `details.limit` quand elle
+ * le donne). Le code brut n'aide personne : la phrase dit ce qui pese, et comment alleger.
+ */
+function refusDeTaille(e: EchecPlateforme, quoi: string): Error & { reason: MotifEchec } {
+  const d = e.erreur.details;
+  const limite = typeof d.limit === 'number' ? ' (limite : ' + enMo(d.limit) + ')' : '';
+  const ref = e.erreur.requestId ? ' (' + e.erreur.requestId + ')' : '';
+  return echec(quoi + ' refusé : le projet est trop volumineux pour la plateforme' + limite
+    + '. Ce qui pèse le plus : le voisinage étendu et le relief sur toutes les parcelles. Masquer ne suffit pas :'
+    + ' supprimez une partie du voisinage, ou baissez « Points max » dans la section Relief de la parcelle, puis « Actualiser le relief ».'
+    + ' Rien n’est perdu : le plan reste ouvert ici.' + ref, 'server');
 }
 
-export function creerDepotPlateforme(session: Session): DepotProjets {
+/** Une marque que JSON.stringify ne produit jamais ailleurs : elle tient la place des objets deja ecrits. */
+const MARQUE_OBJETS = '\u0000objets-ecrits\u0000';
+
+/** Le corps en JSON, les objets du document remplaces par leur JSON deja ecrit (un Blob, sans recopie). */
+export function avecObjetsEcrits(corps: Record<string, unknown>, objetsJson: Blob): Blob {
+  const document = { ...(corps.document as Record<string, unknown>), objects: MARQUE_OBJETS };
+  const texte = JSON.stringify({ ...corps, document });
+  const marque = JSON.stringify(MARQUE_OBJETS);
+  const i = texte.indexOf(marque);
+  return new Blob([texte.slice(0, i), objetsJson, texte.slice(i + marque.length)], { type: 'application/json' });
+}
+
+export function creerDepotPlateforme(session: Session, magasin?: MagasinPhotos): DepotProjets {
+  // Le magasin des photos de releve : celui du navigateur, sauf celui qu'on passe (les tests).
+  const photos = () => magasin ?? magasinPhotos();
   return {
     async lister() {
       try {
@@ -136,8 +178,10 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
         // Un document ancien est lu dans la forme courante : le programme n'en connait qu'une.
         const schema = p.schema_version ?? 1;
         const lu = migrer(d, schema);
+        // Les photos de releve, gardees sur cet appareil (io/photosLocales.ts), reviennent ici.
+        const { objets } = await rentrerLesPhotos(lu.objects || [], photos());
         return {
-          objects: lu.objects || [],
+          objects: objets,
           schemaVersion: schema,
           ...(lu.measures ? { measures: lu.measures } : {}),
           // `meta` est ce que la barre de projet affiche : on le reconstruit depuis les colonnes de
@@ -149,22 +193,29 @@ export function creerDepotPlateforme(session: Session): DepotProjets {
     },
 
     async enregistrer(charge) {
-      const { id, name, ...reste } = charge;
-      const document: DocumentPlan = reste;
+      const { id, name, objetsJson, ...reste } = charge;
+      // Les photos de releve ne partent pas : la plateforme refuse les contenus embarques
+      // (EMBEDDED_ASSET_REJECTED). Elles restent sur cet appareil, le document n'en porte que la cle.
+      const sortie = Array.isArray(reste.objects) ? await sortirLesPhotos(reste.objects, photos()) : null;
+      if (sortie?.perdues) console.warn('Plan : ' + sortie.perdues + ' photo(s) de releve non gardee(s) sur cet appareil (stockage du navigateur indisponible).');
+      const document: DocumentPlan = sortie ? { ...reste, objects: sortie.objets } : reste;
       // Le schema vient de l'appelant quand il le connait (le projet ouvert, peut-etre mis a jour) ;
       // sinon — la demonstration creee au premier pas — c'est le plus petit qui decrit le document.
       const schema = typeof document.schemaVersion === 'number' ? document.schemaVersion : schemaMinimal(document.objects);
+      // Les objets deja ecrits partent tels quels, sauf si des photos viennent d'en etre sorties.
+      const ecrits = objetsJson !== undefined && (!sortie || sortie.sorties === 0) ? objetsJson : null;
+      const envoi = (corps: Record<string, unknown>) => (ecrits === null ? { corps } : { corpsEcrit: avecObjetsEcrits(corps, ecrits) });
       try {
         if (id) {
           const p = await session.appeler<ResumeApi>('updateProject', {
             params: { projectId: id },
             // PATCH, et non PUT : le contrat le dit, et l'etape 0 l'a corrige dans la specification.
-            corps: { ...(name !== undefined ? { name } : {}), schema_version: schema, document }
+            ...envoi({ ...(name !== undefined ? { name } : {}), schema_version: schema, document })
           });
           return { id: p.id, updatedAt: p.updated_at };
         }
         const p = await session.appeler<ResumeApi>('createProject', {
-          corps: { name: name || 'Projet sans nom', schema_version: schema, document }
+          ...envoi({ name: name || 'Projet sans nom', schema_version: schema, document })
         });
         return { id: p.id, updatedAt: p.updated_at };
       } catch (e) { throw traduire(e, 'enregistrement du projet'); }

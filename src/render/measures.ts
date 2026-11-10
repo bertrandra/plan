@@ -12,7 +12,8 @@ import { dist, centroid } from '../geometry/basic.js';
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_LABEL_HALO, aLaVirgule } from './theme.js';
-import type { PtBrut, Mesure } from '../model/types.js';
+import { zLocal } from '../model/relief.js';
+import type { PtBrut, Mesure, Relief } from '../model/types.js';
 
 /**
  * Ce qu'une cote a besoin de connaitre d'un objet : sa cle, et de quoi retrouver sa geometrie.
@@ -21,8 +22,34 @@ import type { PtBrut, Mesure } from '../model/types.js';
  * poser une cote dans un test sans fabriquer un objet complet. Ce fichier declarait pour cela sa
  * propre interface **nommee `ObjetPlan`**, homonyme de celle du modele et differente d'elle — deux
  * verites sous un seul nom. Le nom dit maintenant ce qui est demande.
+ *
+ * `relief` : la grille d'altitudes de la parcelle du projet, quand elle en porte une ; c'est elle
+ * qui donne le denivele entre les deux bouts d'une cote (MD/spec-relief.md §5.2).
  */
-export type ObjetCote = { key: string; type?: string | undefined; pts?: readonly PtBrut[] | undefined; center?: PtBrut | undefined };
+export type ObjetCote = { key: string; type?: string | undefined; pts?: readonly PtBrut[] | undefined; center?: PtBrut | undefined; relief?: Relief | null | undefined };
+
+/** Le relief du plan : celui de la parcelle du projet, s'il a ete lu. */
+export function reliefDesCotes(objets: ObjetCote[]): Relief | null {
+  return (objets.find(o => o.key === 'parcelle') ?? objets.find(o => o.relief))?.relief ?? null;
+}
+
+/**
+ * Le denivele d'une cote, signe, en metres : la hauteur du sol au point mesure moins celle au pied
+ * de la perpendiculaire (`perp`), ou celle du pied moins celle de l'origine (`along`). `null` sans
+ * relief, ou des qu'un des deux bouts sort de la grille.
+ */
+export function deniveleCote(objets: ObjetCote[], g: GeometrieMesure, mode: string | undefined): number | null {
+  const r = reliefDesCotes(objets);
+  if (!r) return null;
+  const [depuis, vers] = mode === 'along' ? [g.A, g.foot] : [g.foot, g.p];
+  const z0 = zLocal(r, depuis.x, depuis.y), z1 = zLocal(r, vers.x, vers.y);
+  return z0 === null || z1 === null ? null : z1 - z0;
+}
+
+/** « Δ +0,42 m » : le denivele d'une cote tel que l'etiquette et le tableau l'ecrivent. */
+export function texteDenivele(d: number): string {
+  return 'Δ ' + (d < 0 ? '−' : '+') + aLaVirgule(Math.abs(d).toFixed(2)) + ' m';
+}
 
 export type { Mesure };
 
@@ -209,7 +236,9 @@ export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
     t.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); t.setAttribute('font-size','11');
     t.setAttribute('fill',SVG_MEASURE_TEXT); t.setAttribute('font-weight','700');
     t.setAttribute('paint-order','stroke'); t.setAttribute('stroke',SVG_LABEL_HALO); t.setAttribute('stroke-width','4');
-    t.textContent = prefix + aLaVirgule(value.toFixed(2))+' m';
+    // Avec un relief, l'etiquette dit aussi le denivele entre les deux bouts de la cote (§5.2).
+    const d = deniveleCote(ctx.objets, g, m.displayMode);
+    t.textContent = prefix + aLaVirgule(value.toFixed(2))+' m' + (d === null ? '' : ' · ' + texteDenivele(d));
     groupe.appendChild(t);
   });
 

@@ -44,7 +44,7 @@ describe('commandes d objet', () => {
     cmd.executer('objet.ajouter.polygone'); cmd.executer('objet.ajouter.rectangle');
     expect(a.addNewObject).toHaveBeenNthCalledWith(1, false);
     expect(a.addNewObject).toHaveBeenNthCalledWith(2, true);
-    for (const [id, m] of [['objet.ajouter.chemin', 'addNewPath'], ['objet.ajouter.cercle', 'addNewCircle'], ['objet.ajouter.parasol', 'addNewParasol'], ['objet.ajouter.pergola', 'addNewPergola'], ['objet.ajouter.carport', 'addNewCarport'], ['objet.ajouter.pointDeVue', 'addNewViewpoint']] as const) {
+    for (const [id, m] of [['objet.ajouter.chemin', 'addNewPath'], ['objet.ajouter.cercle', 'addNewCircle'], ['objet.ajouter.terrasse', 'addNewTerrasse'], ['objet.ajouter.parasol', 'addNewParasol'], ['objet.ajouter.pergola', 'addNewPergola'], ['objet.ajouter.carport', 'addNewCarport'], ['objet.ajouter.pointDeVue', 'addNewViewpoint']] as const) {
       cmd.executer(id);
       expect(a[m]).toHaveBeenCalledTimes(1);
     }
@@ -103,5 +103,109 @@ describe('commandes d objet', () => {
     cmd.executer('projet.reinitialiser');
     expect(a.pushHistory).toHaveBeenCalledTimes(1);
     expect(a.restoreState).toHaveBeenCalledWith({ objects: initiaux, measures: [] });
+  });
+
+  it('posent la terrasse d une piscine, ou la selectionnent si elle existe', () => {
+    const piscine = poly('p', [[2, 2], [6, 2], [6, 4], [2, 4]], { fonction: 'piscine', name: 'Piscine 1' });
+    const a = fauxAtelier({ objects: [poly('parcelle', [[0, 0], [10, 0], [10, 10]]), piscine, poly('a', [[0, 0], [1, 0], [1, 1]])], selectedKey: 'a' });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    expect(cmd.etat('objet.terrassePiscine').utilisable).toBe(false);
+    a.etat.selectedKey = 'p';
+    cmd.executer('objet.terrassePiscine');
+    expect(a.addTerrassePiscine).toHaveBeenCalledWith(piscine);
+    expect(toasts.at(-1)).toMatch(/Tirez ses coins/);
+    const t = poly('t', [[0, 0], [8, 0], [8, 6], [0, 6]], { fonction: 'terrasse' });
+    a.etat.objects.push(t);
+    piscine.piscine = { plage: 'terrasse', terrasseKey: 't' };
+    cmd.executer('objet.terrassePiscine');
+    expect(a.selectObject).toHaveBeenCalledWith('t');
+    expect(a.addTerrassePiscine).toHaveBeenCalledTimes(1);
+  });
+
+  it('ajoutent un trou a la terrasse selectionnee, ou a la terrasse courante', () => {
+    const t = poly('t', [[0, 0], [8, 0], [8, 6], [0, 6]], { fonction: 'terrasse' });
+    const a = fauxAtelier({ objects: [poly('parcelle', [[0, 0], [10, 0], [10, 10]]), t], selectedKey: 'parcelle', terrasseSelectedKey: null });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    expect(cmd.etat('terrasse.ajouterTrou').utilisable).toBe(false);
+    a.etat.terrasseSelectedKey = 't';
+    expect(cmd.etat('terrasse.ajouterTrou').utilisable).toBe(true);
+    a.etat.selectedKey = 't';
+    cmd.executer('terrasse.ajouterTrou');
+    expect(a.addTrouTerrasse).toHaveBeenCalledWith(t);
+    // En lecture seule, ni l'une ni l'autre.
+    const lecture = creerRegistre(droits(false));
+    brancherObjets(a, lecture);
+    expect(lecture.executer('terrasse.ajouterTrou')).toBe(false);
+  });
+});
+
+describe('centrer une piscine ou un trou sur sa terrasse', () => {
+  const terrasse = poly('t', [[0, 0], [10, 0], [10, 6], [0, 6]], { fonction: 'terrasse' });
+  const trou = poly('trou', [[1, 1], [2, 1], [2, 2], [1, 2]], { fonction: 'tremie' });
+  const rond = { ...cercle('rond', 2, 2), fonction: 'tremie' } as ObjetPlan;
+  const monterAvec = (selection: string, ...objets: ObjetPlan[]) => {
+    const a = fauxAtelier({ objects: JSON.parse(JSON.stringify([terrasse, ...objets])), selectedKey: selection });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    return { a, cmd };
+  };
+
+  it('deplace le trou au centre de la terrasse, en un geste annulable', () => {
+    const { a, cmd } = monterAvec('trou', trou);
+    expect(cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(true);
+    cmd.executer('objet.centrerSurTerrasse');
+    const t = a.objByKey('trou')!;
+    expect(t.type === 'polygon' && t.pts).toEqual([{ x: 4.5, y: 2.5 }, { x: 5.5, y: 2.5 }, { x: 5.5, y: 3.5 }, { x: 4.5, y: 3.5 }]);
+    expect(a.pushHistory).toHaveBeenCalledTimes(1);
+    expect(a.markDirty).toHaveBeenCalled();
+    // Deja centre : plus rien a faire, la commande se grise.
+    expect(cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+  });
+
+  it('centre un trou rond par son centre', () => {
+    const { a, cmd } = monterAvec('rond', rond);
+    cmd.executer('objet.centrerSurTerrasse');
+    const r = a.objByKey('rond')!;
+    expect(r.type === 'circle' && r.center).toEqual({ x: 5, y: 3 });
+  });
+
+  it('se grise hors d une terrasse, pour un autre objet, ou un objet verrouille', () => {
+    const dehors = poly('dehors', [[20, 20], [21, 20], [21, 21]], { fonction: 'tremie' });
+    expect(monterAvec('dehors', dehors).cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+    expect(monterAvec('t').cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+    expect(monterAvec('trou', { ...trou, locked: true } as ObjetPlan).cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
+  });
+});
+
+describe('rendre au calcul la hauteur a l egout choisie (objet.rendreEgout)', () => {
+  const maison = (batiment: Record<string, unknown>, plus: Partial<ObjetPlan> = {}) =>
+    poly('m', [[0, 0], [8, 0], [8, 6], [0, 6]], { fonction: 'batiment', bdtopo: { id: 'B1' }, elevation: 5.4, batiment, ...plus } as Partial<ObjetPlan>);
+  function avec(o: ObjetPlan) {
+    const a = fauxAtelier({ objects: [o], selectedKey: 'm' });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    return { a, cmd };
+  }
+
+  it('leve la marque et remet le toit a lire, en une etape d annulation ; la hauteur reste jusqu a la lecture', () => {
+    const o = maison({ egoutChoisi: 'saisie', toitLidarLu: 7, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' } });
+    const { a, cmd } = avec(o);
+    expect(cmd.etat('objet.rendreEgout').utilisable).toBe(true);
+    expect(cmd.executer('objet.rendreEgout')).toBe(true);
+    expect(o.batiment?.egoutChoisi).toBeUndefined();
+    expect(o.batiment?.toitLidarLu).toBeNull();
+    expect(o.elevation).toBe(5.4);
+    expect(a.pushHistory).toHaveBeenCalledTimes(1);
+    expect(toasts.at(-1)).toContain('redevient automatique');
+  });
+
+  it('se grise quand aucune lecture ne pourrait la reprendre : pas de marque, toit fige, batiment dessine', () => {
+    expect(avec(maison({ toitLidarLu: 7 })).cmd.etat('objet.rendreEgout').utilisable).toBe(false);
+    expect(avec(maison({ egoutChoisi: 'saisie', toitFige: true })).cmd.etat('objet.rendreEgout').utilisable).toBe(false);
+    expect(avec(maison({ egoutChoisi: 'saisie' }, { bdtopo: undefined } as Partial<ObjetPlan>)).cmd.etat('objet.rendreEgout').utilisable).toBe(false);
+    // Validee par l'audit, elle se rend aussi.
+    expect(avec(maison({ egoutChoisi: 'audit' })).cmd.etat('objet.rendreEgout').utilisable).toBe(true);
   });
 });

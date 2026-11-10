@@ -414,6 +414,43 @@ en mode local (aucun appel réseau sauf le GLB, qui charge Three.js).
   réseau ajoute, 9 / 9 / 707 / 716. `octetsTotal` reste celui d'avant, que le point 24 ne vérifie
   pas : **à refermer** comme plus haut, sous `RECAPTURER_GLB=1` avec le réseau.
 
+  **8 octobre 2026 — `glb-structure.json` recapturé pour de bon, avec le réseau, et deux causes
+  démêlées.** Le point 24 sous `RECAPTURER_GLB=1`, serveur de développement, three.js r128 depuis
+  le paquet npm, les huit images de Poly Haven depuis le réseau : **3 533 024 octets, 292 nœuds,
+  289 mailles, 434 matériaux, 9 textures et 9 images, 965 accesseurs, 974 vues tampon, 1 scène.**
+  Les cinq autres combinaisons de classe et de thème rendent les mêmes compteurs.
+
+  Le témoin précédent était **en retard sur `main`** : mesuré le même jour, par le même point, sur
+  `origin/main` (`b838542`, avant ce changement), l'export rend déjà 283 nœuds, 280 mailles,
+  421 matériaux et 905 accesseurs — ce sont les poteaux et la toile de la pergola, la plage et le
+  bassin de la piscine, la clôture pièce par pièce, arrivés depuis le 2 octobre sans recapture
+  (tous annoncés dans le CHANGELOG, aucun n'étant une quantité). **La part du changement du jour**,
+  les détails des bâtiments en 3D (`three/detailsBatiment.ts`, spec-toit-ign §6.3), est la
+  différence : **+9 nœuds et +9 mailles** (pour les deux bâtiments de la démonstration : un débord
+  de toit, une gouttière, deux soubassements, deux lots d'ouvertures, une cheminée, et deux lots
+  d'arêtes exportés en lignes, mode 1), **+13 matériaux** (chaque lot a les siens), **+60
+  accesseurs** et autant de vues tampon. Le débord fait une maille à 28 primitives (dessus et
+  dessous par côté de la maison, qui en a quatorze), les ouvertures une maille à trois (cadres,
+  vitres, vantail). Les images ne bougent pas : rien de nouveau n'est photographié.
+
+  Le point 24 vérifie désormais ces compteurs-ci ; `octetsTotal` est pour la première fois
+  mesuré, pas additionné.
+
+  **Le même jour, plus tard — plus de trait sur le toit : seul `octetsTotal` bouge.** Les arêtes
+  du toit (faîtage, arêtiers, noues) ne sont plus tracées : les pans se lisent par la lumière, et le
+  trait sombre faisait paraître la couverture dessinée. Les arêtes des murs restent, dans la même
+  maille de lignes : **aucun compteur ne bouge** (292 / 289 / 434 / 9 / 9 / 965 / 974 / 1, mêmes
+  valeurs dans les six combinaisons du point 24), et l'export perd **1 540 octets**, les sommets de
+  ces segments : **3 531 484 octets**, recapturé sous `RECAPTURER_GLB=1`.
+
+  **Encore le même jour — angles adoucis, toits-terrasses, soubassement sur relief : seul
+  `octetsTotal` bouge.** Plus de trait à l'égout, et plus de trait aux sommets presque alignés : la
+  maison de la démonstration garde ses mailles de lignes, avec moins de sommets. Le toit-terrasse
+  ajoute une maille aux seuls bâtiments à toit plat, et la démonstration n'en a pas ; le soubassement
+  ne change qu'avec un relief, qu'elle n'a pas ; les clôtures du voisinage sont décochées par
+  défaut. **Aucun compteur ne bouge** (mêmes valeurs dans les six combinaisons du point 24) ;
+  l'export fait **3 530 956 octets**, recapturé sous `RECAPTURER_GLB=1`.
+
 Ce dossier est la **phase 0** de [`../../../MD/spec-migration-typescript.md`](../../../MD/spec-migration-typescript.md) §4
 et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 
@@ -421,18 +458,116 @@ et le gel exigé par [`../../../MD/RELEASE.md`](../../../MD/RELEASE.md) §2.3.
 est un changement MAJEUR, pas une correction (RELEASE.md §2.1). Elle a tenu sans exception pendant
 toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'on l'a décidé.
 
+
+  **9 octobre 2026 — des arbres en 3D : `glb-structure.json` et `cadastre-objets.json`
+  recapturés.** Les trois arbres de la démonstration ne sont plus une sphère sur un prisme mais un
+  tronc, des branches et sept lobes chacun (`three/arbre3d.ts`, `MD/spec-arbres-3d.md`). Le point
+  24 sous `RECAPTURER_GLB=1` rend **2 527 476 octets, 334 nœuds, 325 mailles, 431 matériaux,
+  6 textures et 6 images, 1 133 accesseurs, 1 139 vues tampon** : +42 nœuds et +36 mailles (trois
+  troncs, dix-huit branches, vingt et un lobes, moins les trois sphères et trois prismes), −3
+  matériaux, textures et images (les prismes des arbres portaient chacun une texture, le tronc n'en
+  porte plus — d'où le million d'octets en moins), et les accesseurs des couleurs par sommet. Le
+  point 24 fixe désormais la date de l'étude au 21 juin avant l'export : un caduc est nu de
+  novembre à mars, et le témoin ne doit pas dépendre du jour où la fumée se joue. Le témoin de
+  l'import cadastral (`cadastre-objets.json`, `RECAPTURER_CADASTRE=1`) gagne `portArbre` et
+  `essenceArbre` sur chacun des trois arbres estimés ; rien d'autre ne bouge. Aucune quantité ni
+  aucun export de chiffrage n'est touché.
+
+
+  **10 octobre 2026 — des feuilles de près : `glb-structure.json` recapturé.** Les arbres portent
+  de petites feuilles instanciées (`three/feuilles.ts`, spec-arbres-3d §3.1), que l'export convertit
+  en mailles ordinaires. Le point 24 sous `RECAPTURER_GLB=1` rend **2 944 160 octets, 337 nœuds,
+  328 mailles, 434 matériaux, 6 textures et 6 images, 1 145 accesseurs, 1 151 vues tampon** :
+  +3 nœuds, +3 mailles et +3 matériaux (une maille `arbre-feuilles-cuites` par arbre), +12
+  accesseurs et vues tampon (position, normale, couleur, indices), +416 684 octets dont 412 776
+  de géométrie pour 2 457 feuilles. Mesuré le même jour sur `origin/main` (4a3a02d) : 2 527 476
+  octets, les compteurs du témoin précédent. Un premier essai donnait 4,4 Mo : la liste des mailles
+  et leurs matrices vivaient dans `userData`, que l'exporteur écrit dans le JSON du fichier ; elles
+  en sont sorties, et un test le garde.
+
+
+  **10 octobre 2026, plus tard — `cadastre-objets.json` recapturé : la parcelle importée naît
+  close.** `objetsDepuisCadastre` pose sur la parcelle du projet une clôture (`cloture` : palissade
+  bois de 1,80 m, active, un portail en aluminium blanc `#f4f4f2` au milieu du côté 0, deviné sur
+  rue par le point d'adresse) et les quatre anciens champs qui la suivent (`clotureActive`,
+  `clotureHauteur`, `clotureCouleur`, `clotureTexture`) : +42 lignes, rien d'autre ne bouge. Les
+  six exports de la démonstration et le GLB ne bougent pas (la démonstration n'est pas un import,
+  et n'a pas de portail).
+
+
+  **11 octobre 2026 — `glb-structure.json` recapturé : la démonstration actualisée, et les arbres
+  en dôme.** Deux causes, mesurées séparément.
+  - **La démonstration affichée a changé le 11 octobre** (actualisée, voisinage étendu à 100 m :
+    147 objets au lieu de 35, `src/model/demo-projet.json`). Le point 24 se joue sur elle, et son
+    témoin aurait dû être recapturé ce jour-là : il ne l'a pas été. Mesuré sur `origin/main`
+    (7e1d4ef, avant les arbres) : **12 220 108 octets, 1 183 nœuds, 995 mailles, 1 458 matériaux,
+    16 textures et 16 images, 3 407 accesseurs, 3 423 vues tampon**, contre 337 / 328 / 434 / 6 /
+    1 145 / 1 151 au témoin. Tout l'écart des compteurs vient de là (58 bâtiments en corps et
+    pignons, 55 parcelles, le relief et son maillage secondaire, le gazon).
+  - **Les arbres se dessinent en « Dôme » par défaut** (`three/houppiers3d.ts`, `styleArbre`) : les
+    mêmes sept lobes que le dessin d'origine, sans toupet, en sphères de 22 × 16 au lieu de 14 × 10.
+    Les compteurs ne bougent pas ; le fichier gagne 249 988 octets de géométrie (**12 470 096
+    octets**).
+  Aucun export de chiffrage n'est touché : les six empreintes de la démonstration témoin
+  (`?temoin`) restent identiques.
+
+  **16 octobre 2026 — three.js r128 → 0.186.1 : `glb-structure.json` recapturé.** Mesuré sur la même
+  démonstration, `origin/main` (r128) contre cette branche (0.186.1), le point 24 :
+  - **Inchangés** : 1 183 nœuds, 995 mailles, 1 458 matériaux, 16 textures, 16 images, 1 scène, les
+    1 543 primitives et leurs attributs (positions, normales, coordonnées de texture, couleurs).
+  - **+728 accesseurs et +728 vues tampon (3 407 → 4 135, 3 423 → 4 151)** : des indices. Pour une
+    maille à plusieurs matériaux dont la géométrie n'est pas indexée, l'exporteur r128 écrivait chaque
+    primitive **sans indices** — chaque matériau dessinait donc *toute* la maille ; le 0.186.1 force
+    les indices et découpe par groupe. L'export est plus juste ; l'écart de compteur ne dit pas autre
+    chose (et c'est lui, non une régression, qui fait bouger le témoin).
+  - **+1 extension** : `EXT_materials_bump` (les cartes de relief, ignorées par la r128).
+  - **Octets : 12 470 096 → 12 624 552** (+154 456 : les indices et l'extension). Les images JPEG
+    restent des JPEG : la r128 les rangeait en `RGBFormat` et l'exporteur les réécrivait en JPEG,
+    le 0.186.1 les passerait en PNG (20,6 Mo) sans `userData.mimeType` (`garderLeJpeg`,
+    `three/chargeurs.ts`).
+  - L'en-tête `asset.generator` devient `THREE.GLTFExporter r186`.
+  Aucun autre export ne bouge : les six empreintes texte restent identiques. Les octets du .glb
+  téléchargé changent sans qu'aucun format ne casse ni qu'aucune quantité bouge : au plus une version
+  mineure (`MD/RELEASE.md`), annoncée au CHANGELOG ; `APP_VERSION` n'est pas touchée ici.
+
+  **16 octobre 2026 — les arbres d'EZ-tree : `glb-structure.json` et `cadastre-objets.json` recapturés.**
+  Les anciens dessins d'arbres (lobes, dôme, touffes, taillé, maquette, feuilles instanciées) sont
+  supprimés ; un arbre est généré par EZ-tree d'après une essence de la bibliothèque du serveur
+  (`MD/spec-arbres-3d.md`). Le témoin se capture **sans bibliothèque** (la fumée n'en simule pas au
+  point 24), donc avec le *repli* : un tronc et une boule.
+  - `glb-structure.json` : le point 24 rend **1 144 nœuds, 956 mailles, 1 455 matériaux, 16 textures
+    et 16 images, 3 958 accesseurs, 3 974 vues tampon, 11 717 344 octets** (avant : 1 183 / 995 / 1 458 /
+    16 / 16 / 4 135 / 4 151, 12 624 552 octets) : −39 nœuds, −39 mailles (un arbre n'a plus ses
+    branches ni ses lobes, mais un tronc et une boule), −3 matériaux, −177 accesseurs.
+  - `cadastre-objets.json` : les trois arbres estimés de l'import n'écrivent plus `portArbre` ni
+    `essenceArbre` (six lignes) ; ils portent `especeArbre` quand une bibliothèque est chargée, aucun
+    ici. `projet.json` et les quatre autres empreintes ne bougent pas.
+  - Avec une bibliothèque de deux essences (un chêne et un pin d'EZ-tree, `oak_small`, `pine_small`),
+    mesuré le même jour sur la démonstration : **15 355 592 octets**, 1 140 nœuds, 954 mailles, 22
+    textures. Les arbres y sont des lots `InstancedMesh` (extension `EXT_mesh_gpu_instancing`,
+    obligatoire pour qui lit le fichier : la visionneuse de Plan et model-viewer la lisent) ; l'écorce
+    n'emporte que sa couleur, les cartes de relief et d'occlusion sont retirées le temps de l'export.
+    Le reste du poids vient des textures d'EZ-tree (écorce et feuilles) : environ 1,8 Mo par essence.
+
 ## Les fichiers
+
+Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
+`tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, à la 5.20.0 le même jour, à la 5.21.0 le même jour encore, à la 5.22.0, toujours le 9 novembre, puis à la 5.22.1 le même jour.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `272fa9085871800393d3f84cc34116494ecb41c0d42345e204e5fe4e90695b32` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `66338527a82421908df0c1fa1ca861e71f933c7f45593806f7fd6f1c76cbca4e` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `5375cf2da7f69d02862fb2dca9502db894c1f20ea2957462f5476a9fd4ab16ba` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 462 | `7433e2c2a5d9b8c9e2315e9bb715463629ce9e7d8cd58169d7e01b7793260859` |
-| [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `3d2037992da9cf11d0c3b57a0dd4890a9f11f6f3e6ba9b83115b28937cd5e080` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `30a6116263b03ebe2e3088fdda82ea1405450bc30a2d83ca5bea3df3ce4e7ad6` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `dd286a55bcb231e0a6a540b58d5cb438067d17b6ffa25c3a23acdd62e1e27150` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `cc245b0834d1c5d715751e3f0acd3514451167ad1bff697c27dbe7dd4bb0be82` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `671e61610ba4b79b312ebd4e80d2bdb75305bee1507c81d4a0583592e3f35f80` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
+| [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `87f88897f37583cc317809a71eaf8afada8fe45fea8f7680c107010998001c53` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `bda5a09130752e882c44e130bdd051e844afd46b0e2b2d9bb7f6f3655fda7a5b` (brut) |
+| [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
 
@@ -537,6 +672,24 @@ coin », « Dimension » et « Angle » sur **tous** les objets de la table d'af
 
 Relevé identique sur `dist/index.html` et sur le témoin figé `legacy/plan_interactif.html`.
 
+**Le relief non plus** (`MD/spec-relief.md`, 6 octobre 2026). Le jeu de démonstration n'est pas
+calé par le cadastre et ne porte aucune grille d'altitudes : `plan.svg` n'a pas de groupe
+`relief-courbes`, le plan de masse n'a pas de courbes de niveau, le dossier n'a pas de pièce DP3,
+et la coupe de la piscine trace un terrain plat. Ces branches ne font bouger aucune empreinte ;
+`tests/unit/export/relief.test.ts` les vérifie sur une grille plane fabriquée, et vérifie qu'un
+projet sans relief écrit le même `plan.svg` et le même nombre de pages qu'avant.
+
+**Phase 2 : le témoin « projet avec relief »** (`relief-moteur.json`, 6 octobre 2026). Dès qu'un
+projet porte un relief, le moteur compte sur le sol en pente (`MD/spec-relief.md` §6) : les plots
+par gamme, les têtes de vis, les poteaux d'une pergola jusqu'à leur sol, la fouille d'une piscine
+cellule par cellule, le remblai de nivellement, les poteaux d'une plage par hauteur. Ces nombres
+n'existent dans aucun témoin d'avant : `relief-moteur.json` les fige sur une grille plane à 8 %
+vers l'est (terrasse sur plots, terrasse sur vis, pergola, piscine hors-sol avec plage), et
+`tests/unit/engine/relief-oracle.test.ts` exige l'égalité stricte. Le recapturer après un changement
+voulu : `REECRIRE_TEMOIN_RELIEF=1 npx vitest run tests/unit/engine/relief-oracle.test.ts`, et le
+dire ici. **Un projet sans relief ne bouge pas** : `moteur-terrasses.json` et les six empreintes
+restent identiques (`solDuProjet` rend `null`, chaque appelant garde son chemin d'avant).
+
 ## Comparer deux imports cadastraux
 
 L'import depuis une adresse ne peut pas être figé ici : il dépend des services IGN en ligne. Il se
@@ -569,7 +722,8 @@ stable dans le temps, ce sont les quatre objets, la parcelle AC 530 de 418 m² e
 objet. C'est le fichier à regarder en premier quand une empreinte bouge : il dit **quel nombre** a
 changé, là où le SHA-256 dit seulement que quelque chose a changé.
 
-Emprise totale hors parcelle de référence : **408,4 m² (56,5 % de la parcelle)**.
+Emprise totale hors parcelle de référence : **409,1 m² (56,6 % de la parcelle)** depuis le 27 octobre 2026 (408,4 m²,
+56,5 % auparavant : les chemins courbes, voir « Chemins » plus bas).
 
 ## Regénérées à chaque `npm test` (28 septembre 2026)
 
@@ -618,3 +772,742 @@ développement du dépôt :
 4. Comparer : `perl -0777 -pe '<les trois substitutions>' fichier | sha256sum`.
 
 Toute divergence se compare d'abord à `quantites-demo.txt`, ensuite au diff de l'export lui-même.
+
+## Piscine, pergola et note de calcul (25 octobre 2026)
+
+L'audit d'architecture a relevé des exports et des calculs qu'aucune empreinte ne gardait : le dossier de mairie d'une piscine,
+la note de calcul d'un abri, les calculs de la piscine et de la pergola (le plan témoin n'a ni l'une ni l'autre).
+`tests/unit/export/empreintesPiscinePergola.test.ts` les régénère depuis le code et compare leur SHA-256 **brut** : la version, le
+build et l'heure se passent en paramètre (`MetaDossierPiscine`, `MetaNote` : `buildAt`, `maintenant`/`date`), rien n'est à
+neutraliser. `REECRIRE_EMPREINTES=1` les recapture, ce qui se dit ici.
+
+Capturés après le changement du même jour : les chiffres du dossier piscine ne passent plus par `toLocaleString('fr-FR')`, qui
+séparait les milliers par U+202F, un caractère que la police du PDF (WinAnsi) n'a pas (`util/format.ts::chiffreFrGroupe`, une
+espace simple). Le témoin porte une taxe d'aménagement de « 8 000 EUR » pour vérifier ce cas. Aucune empreinte existante ne bouge.
+
+## Ce que devient un ancien fichier (25 octobre 2026)
+
+Deux chemins changent les nombres d'un ancien fichier sans numéro de schéma : les valeurs que le moteur pose quand un champ de
+construction manque (`engine/construction.ts::ensureConstruction`), et la migration 2 → 3, qui donne à un bâtiment BD TOPO le toit
+que l'algorithme d'aujourd'hui calcule (`model/migrations.ts`). Ils ne sont pas encore figés par schéma ; deux témoins font au moins
+qu'un changement ne passe pas en silence (`tests/unit/model/anciensFichiers.test.ts`) :
+
+| Fixture | Ce qu'elle fige |
+|---|---|
+| [`defauts-construction.json`](defauts-construction.json) | la construction posée sur un objet sans construction, et sur une construction vide |
+| [`migration-2-3.json`](migration-2-3.json) | le toit donné par la migration à trois bâtiments BD TOPO (rectangle mesuré, L sans mesure, construction légère) |
+
+S'ils bougent, c'est un événement de version (`MD/RELEASE.md`) : le dire ici, puis `REECRIRE_EMPREINTES=1`.
+
+
+## Version 3.0.0 (25 octobre 2026)
+
+Les témoins régénérés depuis le code (`regeneration.test.ts`, `empreintesPiscinePergola.test.ts`) passent de `2.2.0`, build du
+28 septembre, à `3.0.0`, build du 25 octobre (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis
+`REECRIRE_EMPREINTES=1`). Deux substitutions de longueur constante ; l'heure de l'export reste le 28 septembre à 23 h 22.
+
+**La preuve forte, sept sur sept.** `3.0.0` → `2.2.0` et `2026-10-25` → `2026-09-28` remis dans les octets frais rendent les
+anciens fichiers **au bit près** pour `plan.svg`, `plan.dxf`, `resume.txt`, `dossier-piscine.pdf` et `note-calcul.pdf` ; tailles
+identiques à l'octet. Pour `plan.pdf` et `dossier.pdf`, capturés au navigateur, une seule ligne diffère : la seconde de
+`/CreationDate` (`232241`/`232242` au navigateur, `232200` pour l'horloge du test), que la neutralisation d'EMPREINTES.md
+efface déjà. Occurrences du numéro : une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`,
+neuf dans `dossier-piscine.pdf`. `projet.json` (entrée du témoin, pas un export régénéré) garde `2.2.0`.
+
+Les témoins du moteur, du relief, de la piscine et de la pergola, des valeurs par défaut et de la migration 2 → 3 ne portent pas
+de version et ne bougent pas.
+
+
+## Chemins : une largeur par défaut, une surface sur la courbe (27 octobre 2026) — version majeure
+
+Deux décisions du propriétaire, qui changent des nombres exportés (`MD/RELEASE.md` §2.1 : version majeure) :
+
+- **La largeur d'un chemin sans largeur écrite vaut 1 m partout** (`model/ouvrages/surfaces.ts::largeurChemin`). Le dossier PDF
+  (`dimensionsObjet`, l'épaisseur du trait du plan de masse) et le dossier piscine lisaient 0,5 m ; l'inspecteur, le résumé, le
+  PDF du plan, le SVG et la 3D lisaient 1 m.
+- **La surface d'un chemin se compte sur le tracé dessiné** (`surfaceChemin` = `longueurTrace` × largeur) : la courbe d'un chemin
+  courbe, échantillonnée à 32 cordes par segment, et non plus ses segments droits. La « longueur totale » du résumé, de
+  l'inspecteur et de la feuille de sélection suit.
+
+La courbe elle-même n'a pas bougé : mise en commun dans `geometry/courbe.ts`, elle redonne au bit près le `d` du SVG (`plan.svg`
+inchangé, quatre chemins courbes), les opérateurs du PDF et les points de la 3D (oracle des anciennes copies dans
+`tests/unit/geometry/courbe.test.ts`).
+
+**Ce qui bouge sur le témoin.** Ses chemins ont tous une largeur écrite : seule la seconde décision le touche.
+
+| Chemin | Surface avant | Surface après | Longueur totale avant | après |
+|---|---:|---:|---:|---:|
+| Chemin Arrière (courbe, 11 points) | 26,84 m² | 27,37 m² | 44,54 m | 45,43 m |
+| Chemin ZigZag (courbe, 7 points) | 10,78 m² | 10,96 m² | 21,47 m | 21,83 m |
+| Chemin Table (courbe, 4 points) | 3,40 m² | 3,40 m² | 6,76 m | 6,78 m |
+| Chemin Buandrie (courbe, 3 points) | 1,00 m² | 1,02 m² | 1,98 m | 2,03 m |
+| Abri de jardin Chemin (droit) | 0,94 m² | inchangé | — | — |
+
+Emprise totale hors parcelle : 408,4 m² (56,5 %) → 409,1 m² (56,6 %) ; au PDF du plan, 408,37 → 409,11 m², et la part du
+Chemin Arrière 3,7 % → 3,8 %.
+
+- `resume.txt` : huit lignes (trois surfaces, l'emprise totale, quatre longueurs totales), mêmes 15 323 octets ; empreinte
+  normalisée `058fea61…`. `quantites-demo.txt` suit, mêmes huit nombres.
+- `plan.pdf` : six textes de la page des surfaces, mêmes 16 162 octets (aucun décalage de la table `xref`) ; empreinte
+  normalisée `db3bc8b6…`. Régénéré par `SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, comme à la 3.0.0.
+- **Inchangés** : `plan.svg`, `plan.dxf`, `dossier.pdf` (aucun chemin du témoin n'est compté parmi les objets posés sur une terrasse, et tous ont une largeur),
+  `dossier-piscine.pdf`, `note-calcul.pdf`, et tous les témoins du moteur.
+
+Un ancien projet peut donc montrer un autre nombre dans le résumé, le PDF du plan et le dossier PDF (surface d'un chemin courbe ;
+surface et trait d'un chemin sans largeur, au dossier PDF et au dossier piscine).
+
+
+## Version 4.0.0 (28 octobre 2026)
+
+Version majeure (`MD/RELEASE.md` §2.1) : les chemins (plus haut), la DP2 au point le plus haut et les annexes lues au LiDAR changent
+des nombres exportés de projets enregistrés. **Aucun de ces trois changements ne bouge un témoin** : les nombres des chemins du
+témoin ont été recapturés le 27 octobre (section précédente), aucun témoin ne porte de DP2, et le témoin n'est pas géolocalisé (rien
+n'y est lu au LiDAR, ses annexes comprises). Le schéma de ses documents reste celui qui le décrit : 3 pour `plan.svg`.
+
+Les sept témoins régénérés depuis le code (`regeneration.test.ts`, `empreintesPiscinePergola.test.ts`) passent de `3.0.0`, build du
+25 octobre, à `4.0.0`, build du 28 octobre (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis
+`REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/empreintesPiscinePergola.test.ts`). L'heure de l'export reste le
+28 septembre à 23 h 22.
+
+**La preuve forte, sept sur sept.** `4.0.0` → `3.0.0` et `2026-10-28` → `2026-10-25` remis dans les octets frais rendent les
+anciens fichiers **au bit près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`,
+`dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` — sans exception cette fois : `dossier.pdf`, capturé au navigateur à la
+3.0.0, avait été régénéré depuis le code depuis, et sa seconde de `/CreationDate` est celle de l'horloge du test. Occurrences du
+numéro : une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans
+`dossier-piscine.pdf` ; la date de build, une fois dans chacun des quatre PDF, nulle part dans les fichiers texte.
+
+| Fixture | Empreinte 3.0.0 | Empreinte 4.0.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `058fea61…` | `5189d35d…` |
+| `plan.svg` (normalisée) | `29a67cbd…` | `f8195550…` |
+| `plan.dxf` (normalisée) | `7b37c0be…` | `359afede…` |
+| `plan.pdf` (normalisée) | `db3bc8b6…` | `92470176…` |
+| `dossier.pdf` (normalisée) | `5b2d62c8…` | `d112446e…` |
+| `dossier-piscine.pdf` (brute) | `3680d403…` | `97b491ea…` |
+| `note-calcul.pdf` (brute) | `2b4e47ba…` | `51d69163…` |
+
+Ne bougent pas : `projet.json` (entrée du témoin, garde `2.2.0`), `glb-structure.json`, `quantites-demo.txt`, et les témoins du
+moteur, du relief, de la piscine et de la pergola, des valeurs par défaut et de la migration 2 → 3, qui ne portent pas de version.
+Le schéma 6 a son propre témoin, hors de ce dossier : `tests/fixtures/migrations/schema-5.json` (un document 5 se lit tel quel et
+s'écrit au 6).
+
+
+## Version 5.0.0 — la cheminée d'office retirée (29 octobre 2026) — changement d'export, version majeure
+
+La Vue 3D posait une cheminée que personne n'avait vue : sur tout toit simple ou en volumes en pente de plus de 40 m², à moins de
+120 m du centre de la scène, `poserCheminee` (`three/detailsBatiment.ts`) dessinait une boîte de 0,5 × 1,1 × 0,5 m au tiers du
+faîtage (`MD/spec-flux-batiment.md`, point 12). Elle est retirée : une souche ne vient plus que des données (`corps.cheminees` :
+LiDAR, règles, audit, Mode Toit), dessinée par `three/cheminees3d.ts`. Le `.glb` exporté d'un projet enregistré perd donc une
+maille par bâtiment concerné : c'est un changement d'un artefact exporté (`MD/RELEASE.md` §2.1), annoncé comme **version majeure**.
+
+**Ce qui bouge : `glb-structure.json`, calculé, pas recapturé.** Sur la démonstration du point 24 (`DEMO_OBJECTS`), un seul bâtiment
+portait la cheminée d'office : la Maison (toit simple à croupes saisi, 152 m², au centre de la scène). Les 58 voisins en corps n'ont
+aucune souche dans leurs données ; les voisins en toit simple sont plats, sans toit, ou sous 40 m². Relevé par un script sur
+`DEMO_OBJECTS` (`modeToitActif`, `toitDessine`, aire), et l'effet d'une telle maille mesuré par `GLTFExporter` 0.186.1 sous Node
+(une `BoxGeometry` et son `MeshStandardMaterial` de plus : +1 nœud, +1 maille, +1 matériau, +4 accesseurs — position, normale,
+coordonnées de texture, indices — et +4 vues tampon). Le témoin passe donc de **1 144 / 956 / 1 455 / 16 / 16 / 3 958 / 3 974** à
+**1 143 nœuds, 955 mailles, 1 454 matériaux, 16 textures et 16 images, 3 954 accesseurs, 3 970 vues tampon**, 1 scène.
+`octetsTotal` reste celui du 16 octobre (11 717 344, environ 1,8 Ko de trop), que le point 24 ne vérifie pas. **À refermer** par le
+point 24 sous `RECAPTURER_GLB=1` : si les compteurs mesurés diffèrent de ceux-ci, la Maison n'était pas en toit simple dans la
+partie jouée, et le témoin se reprend sur la mesure, en le disant ici.
+
+**Ne bougent pas** : les six empreintes texte et PDF, `projet.json`, `quantites-demo.txt`, les témoins du moteur, du relief, de la
+piscine et de la pergola, des valeurs par défaut et de la migration (`echafaudage.test.ts`, `tests/unit/export/` : verts sans
+recapture). Le plan 2D, le dossier et les quantités ne dessinent ni ne comptent de cheminée.
+
+**Refermé le 29 octobre 2026 par le point 24.** La fumée complète sur `main` (`88435d79`, au bureau, thème clair, réseau témoin,
+`RECAPTURER_GLB=1`) a mesuré exactement les compteurs calculés plus haut : 1 143 nœuds, 955 mailles, 1 454 matériaux, 16 textures et
+16 images, 3 954 accesseurs, 3 970 vues tampon. Le témoin est donc repris sur la mesure, et `octetsTotal` passe de 11 717 344 à
+**11 709 376** (7 968 octets de moins : la boîte, son matériau et ses quatre tampons). SHA-256 de `glb-structure.json` :
+`6b876e99…`.
+
+**Les sept témoins régénérés passent à `5.0.0`, build du 29 octobre** (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`,
+puis `REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/empreintesPiscinePergola.test.ts`). **La preuve forte, sept sur sept** :
+`5.0.0` → `4.0.0` et `2026-10-29` → `2026-10-28` remis dans les octets frais rendent les anciens fichiers **au bit près**, tailles
+identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et
+`note-calcul.pdf`. Occurrences du numéro : une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`,
+neuf dans `dossier-piscine.pdf` ; la date de build, une fois dans chacun des quatre PDF.
+
+| Fixture | Empreinte 4.0.0 | Empreinte 5.0.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `5189d35d…` | `ac809671…` |
+| `plan.svg` (normalisée) | `f8195550…` | `2617981e…` |
+| `plan.dxf` (normalisée) | `359afede…` | `938a92b1…` |
+| `plan.pdf` (normalisée) | `92470176…` | `7067837b…` |
+| `dossier.pdf` (normalisée) | `d112446e…` | `9ef721fc…` |
+| `dossier-piscine.pdf` (brute) | `97b491ea…` | `37085b8b…` |
+| `note-calcul.pdf` (brute) | `51d69163…` | `009ac14e…` |
+| `glb-structure.json` (brute) | `3fe6a020…` (calculé) | `6b876e99…` (mesuré) |
+
+
+## Version 5.1.0 (30 octobre 2026) — version mineure, seuls le numéro et la date bougent
+
+Ce qui est entré depuis la 5.0.0 (façades F0 à F8, lecture du PLU, jardin, trace des requêtes Claude, pause du rendu 3D sous la
+liste de l'audit) ne change aucune quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`,
+`quantites-demo.txt` et `glb-structure.json` ne bougent pas. Les sept témoins régénérés passent à `5.1.0`, build du 30 octobre
+(`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis `REECRIRE_EMPREINTES=1 npx vitest run
+tests/unit/export/empreintesPiscinePergola.test.ts`). **La preuve forte, sept sur sept** : `5.1.0` → `5.0.0` et `2026-10-30` →
+`2026-10-29` remis dans les octets frais rendent les fichiers de la 5.0.0 **au bit près**, tailles identiques à l'octet, pour
+`resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf`. Occurrences du numéro :
+une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf` ; la date
+de build, une fois dans chacun des quatre PDF. Le numéro garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.0.0 | Empreinte 5.1.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `ac809671…` | `d7cc3983…` |
+| `plan.svg` (normalisée) | `2617981e…` | `5ae8897b…` |
+| `plan.dxf` (normalisée) | `938a92b1…` | `115a53c6…` |
+| `plan.pdf` (normalisée) | `7067837b…` | `b242d65e…` |
+| `dossier.pdf` (normalisée) | `9ef721fc…` | `c6095e19…` |
+| `dossier-piscine.pdf` (brute) | `37085b8b…` | `4864772b…` |
+| `note-calcul.pdf` (brute) | `009ac14e…` | `0aeef0a2…` |
+
+
+## Version 5.2.0 (30 octobre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.1.0 (façade enrichie, lot L1 ; garde-fou de la lecture des façades ; banc des modèles) ne change aucune
+quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et
+`glb-structure.json` ne bougent pas. Les sept témoins régénérés passent à `5.2.0` ; la date de build reste celle de la 5.1.0
+(`2026-10-30`, même jour) et ne bouge donc pas (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis
+`REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/empreintesPiscinePergola.test.ts`). **La preuve forte, sept sur sept** :
+`5.2.0` → `5.1.0` remis dans les octets frais rend les fichiers de la 5.1.0 **au bit près**, tailles identiques à l'octet, pour
+`resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf`. Occurrences du numéro :
+une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant
+que de `5.1.0` dans les témoins d'avant. Le numéro garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.1.0 | Empreinte 5.2.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `d7cc3983…` | `a141dd01…` |
+| `plan.svg` (normalisée) | `5ae8897b…` | `ff55b142…` |
+| `plan.dxf` (normalisée) | `115a53c6…` | `6fd21150…` |
+| `plan.pdf` (normalisée) | `b242d65e…` | `d430b090…` |
+| `dossier.pdf` (normalisée) | `c6095e19…` | `a9f33b7e…` |
+| `dossier-piscine.pdf` (brute) | `4864772b…` | `d8358fdf…` |
+| `note-calcul.pdf` (brute) | `0aeef0a2…` | `ad8a39d5…` |
+
+
+## Version 5.3.0 (30 octobre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.2.0 (toit enrichi, lot L2 : la couverture, sa pose, le débord, le faîtage, la gouttière, les fenêtres de
+toit et panneaux lus sur la façade ; schéma 11) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas (la maison du témoin n'a ni ardoise en
+losange ni toit lu ; point 24 de la fumée). Les sept témoins régénérés passent à `5.3.0` ; la date de build reste `2026-10-30`, celle de
+la 5.2.0. **La preuve forte, sept sur sept** : `5.3.0` → `5.2.0` remis dans les octets frais rend les fichiers de la 5.2.0 **au bit
+près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et
+`note-calcul.pdf` (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans
+`dossier-piscine.pdf`, autant que de `5.2.0` avant).
+
+| Fixture | Empreinte 5.2.0 | Empreinte 5.3.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `a141dd01…` | `3b70c52b…` |
+| `plan.svg` (normalisée) | `ff55b142…` | `e505da0e…` |
+| `plan.dxf` (normalisée) | `6fd21150…` | `1b63239a…` |
+| `plan.pdf` (normalisée) | `d430b090…` | `b738a01f…` |
+| `dossier.pdf` (normalisée) | `a9f33b7e…` | `c198c37c…` |
+| `dossier-piscine.pdf` (brute) | `d8358fdf…` | `cc7ed833…` |
+| `note-calcul.pdf` (brute) | `ad8a39d5…` | `90bab857…` |
+
+
+## Version 5.4.0 (30 octobre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.3.0 (textes et relecture du dossier, lot L5, schéma 12 ; assistant en langue naturelle, lot L6) ne change
+aucune quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et
+`glb-structure.json` ne bougent pas, et `dossier.pdf` non plus, puisque le témoin ne porte aucun texte validé (sans texte validé, le
+dossier n'a pas de page de notice, lot L5). Les sept témoins régénérés passent à `5.4.0` ; la date de build reste `2026-10-30`, celle
+de la 5.3.0. **La preuve forte, sept sur sept** : `5.4.0` → `5.3.0` remis dans les octets frais rend les fichiers de la 5.3.0 **au bit
+près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et
+`note-calcul.pdf` (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans
+`dossier-piscine.pdf`, autant que de `5.3.0` avant).
+
+| Fixture | Empreinte 5.3.0 | Empreinte 5.4.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `3b70c52b…` | `1467cf70…` |
+| `plan.svg` (normalisée) | `e505da0e…` | `efee002a…` |
+| `plan.dxf` (normalisée) | `1b63239a…` | `781168cd…` |
+| `plan.pdf` (normalisée) | `b738a01f…` | `38960bd1…` |
+| `dossier.pdf` (normalisée) | `c198c37c…` | `f7ca4db3…` |
+| `dossier-piscine.pdf` (brute) | `cc7ed833…` | `2a922dc0…` |
+| `note-calcul.pdf` (brute) | `90bab857…` | `93fb35b1…` |
+
+
+## Version 5.4.1 (30 octobre 2026) — version corrective, seul le numéro bouge
+
+Ce qui est entré depuis la 5.4.0 (texte du plafond dans le workflow « Vérifier l'API Claude », #527 ; valeurs inconnues de la pergola,
+de l'abri, des clôtures, des murs 3D et de l'audit, #528, puis de la piscine, #529 ; « Ajuster l'égout et le sol » sur la façade
+assemblée, #530) ne change aucune quantité ni aucun export de la démonstration, dont toutes les valeurs sont connues :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Les sept témoins régénérés
+passent à `5.4.1` ; la date de build reste `2026-10-30`, celle de la 5.4.0. **La preuve forte, sept sur sept** : `5.4.1` → `5.4.0` remis
+dans les octets frais rend les fichiers de la 5.4.0 **au bit près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`,
+`plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` (une occurrence par fichier texte, deux dans
+`plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de `5.4.0` avant). Le numéro
+garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.4.0 | Empreinte 5.4.1 |
+|---|---|---|
+| `resume.txt` (normalisée) | `1467cf70…` | `e7f4d197…` |
+| `plan.svg` (normalisée) | `efee002a…` | `28526fb1…` |
+| `plan.dxf` (normalisée) | `781168cd…` | `6599adb1…` |
+| `plan.pdf` (normalisée) | `38960bd1…` | `eca61637…` |
+| `dossier.pdf` (normalisée) | `f7ca4db3…` | `a1e9286c…` |
+| `dossier-piscine.pdf` (brute) | `2a922dc0…` | `87da672e…` |
+| `note-calcul.pdf` (brute) | `93fb35b1…` | `6f31e864…` |
+
+
+## Version 5.5.0 (3 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.4.1 (détection sur la façade fusionnée entière, pignons compris, #533 ; calibration et audit en une seule
+orchestration, cadre de la silhouette plus 3 %, #534 ; étapes nommées É1 à É11, #535 ; vignettes et cadrage des objets du toit en Mode
+Toit, #536 ; calage É5 sur les pignons, #537 ; vue de la façade au téléphone, #538 ; ouvertures sous le pignon d'un corps voisin, #539 ;
+murs en L, #540) ne change aucune quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`,
+`quantites-demo.txt` et `glb-structure.json` ne bougent pas, et les sept témoins régénérés au numéro de la 5.4.1 sont identiques au bit
+près à ceux de la 5.4.1. Les sept témoins passent à `5.5.0` ; la date de build reste `2026-10-30`, celle de la 5.4.1 (la faire suivre
+le jour aurait fait bouger les quatre PDF au-delà de leur numéro). **La preuve forte, sept sur sept** : `5.5.0` → `5.4.1` remis dans
+les octets frais rend les fichiers de la 5.4.1 **au bit près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`,
+`plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` (une occurrence par fichier texte, deux dans `plan.pdf`, quatre
+dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de `5.4.1` avant). Le numéro garde sa longueur :
+`octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.4.1 | Empreinte 5.5.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `e7f4d197…` | `5d494329…` |
+| `plan.svg` (normalisée) | `28526fb1…` | `0417eba3…` |
+| `plan.dxf` (normalisée) | `6599adb1…` | `8e85e952…` |
+| `plan.pdf` (normalisée) | `eca61637…` | `a585d2d7…` |
+| `dossier.pdf` (normalisée) | `a1e9286c…` | `54352b55…` |
+| `dossier-piscine.pdf` (brute) | `87da672e…` | `21507d37…` |
+| `note-calcul.pdf` (brute) | `6f31e864…` | `558564dc…` |
+
+
+## Version 5.6.0 (3 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.5.0 (plusieurs parties basses d'un mur, schéma 13, #543 ; partie basse au milieu du mur, #546 ; égout
+sous l'ombre du débord, #547 ; revue des étapes des façades É1 à É11, #544 et #548 à #554 : « Confirmer le mur », Ctrl+Z des gestes de
+la façade, ouvertures relues avant V4, lecture de Claude par l'enchaînement de l'audit, « Revenir au mur cherché », faux désaccord de
+Claude à l'É5) ne change aucune quantité ni aucun export de la démonstration : `projet.json` (toujours écrit au schéma 3, le plus petit qui le
+décrit), `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas, et les sept témoins régénérés au
+numéro de la 5.5.0 sont identiques au bit près à ceux de la 5.5.0. Les sept témoins passent à `5.6.0` ; la date de build reste
+`2026-10-30`, celle de la 5.5.0 (la faire suivre le jour aurait fait bouger les quatre PDF au-delà de leur numéro). **La preuve forte,
+sept sur sept** : `5.6.0` → `5.5.0` remis dans les octets frais rend les fichiers de la 5.5.0 **au bit près**, tailles identiques à
+l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` (une
+occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`,
+autant que de `5.5.0` avant). Le numéro garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.5.0 | Empreinte 5.6.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `5d494329…` | `20ad8b83…` |
+| `plan.svg` (normalisée) | `0417eba3…` | `0de141b7…` |
+| `plan.dxf` (normalisée) | `8e85e952…` | `de148374…` |
+| `plan.pdf` (normalisée) | `a585d2d7…` | `ccc4151f…` |
+| `dossier.pdf` (normalisée) | `54352b55…` | `14b762c6…` |
+| `dossier-piscine.pdf` (brute) | `21507d37…` | `b43566d9…` |
+| `note-calcul.pdf` (brute) | `558564dc…` | `f63c8e00…` |
+
+
+## Version 5.7.0 (4 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.6.0 (étalons des façades dans Admin › Calibration, #558 ; projets de démonstration des étalons et vérité
+de l'É5, #559 ; fumée et tests sur les étalons, #560 ; É5 « à confirmer » quand le mur continue sous le sol posé, réglage
+`facades.enchainement.murSousLeSolMax`, #561) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas, et les sept témoins régénérés au numéro de
+la 5.6.0 sont identiques au bit près à ceux de la 5.6.0. Les sept témoins passent à `5.7.0` ; la date de build reste `2026-10-30`, celle
+de la 5.6.0 (la faire suivre le jour aurait fait bouger les quatre PDF au-delà de leur numéro). **La preuve forte, sept sur sept** :
+`5.7.0` → `5.6.0` remis dans les octets frais rend les fichiers de la 5.6.0 **au bit près**, tailles identiques à l'octet, pour
+`resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` (une occurrence par
+fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de
+`5.6.0` avant). Le numéro garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.6.0 | Empreinte 5.7.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `20ad8b83…` | `1b40af49…` |
+| `plan.svg` (normalisée) | `0de141b7…` | `50aee011…` |
+| `plan.dxf` (normalisée) | `de148374…` | `1dea2a74…` |
+| `plan.pdf` (normalisée) | `ccc4151f…` | `fc4c370c…` |
+| `dossier.pdf` (normalisée) | `14b762c6…` | `5363ac05…` |
+| `dossier-piscine.pdf` (brute) | `b43566d9…` | `5a5557cd…` |
+| `note-calcul.pdf` (brute) | `f63c8e00…` | `c78fec59…` |
+
+
+## Version 5.8.0 (4 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.7.0 (l'objectif de chaque photo dit à l'É3, EXIF ou non, #564 ; Mode Toit, modifier l'existant, #565 ;
+travées d'un mur, bow-window sans toit propre, retour d'angle et pignons replacés, schéma 14, #566) ne change aucune quantité ni aucun
+export de la démonstration : `projet.json` (toujours écrit au schéma 3, le plus petit qui le décrit), `moteur-piscine-pergola.json`,
+`quantites-demo.txt` et `glb-structure.json` ne bougent pas, et les sept témoins régénérés au numéro de la 5.7.0 sont identiques au bit
+près à ceux de la 5.7.0. Les sept témoins passent à `5.8.0` ; la date de build reste `2026-10-30`, celle de la 5.7.0 (la faire suivre
+le jour aurait fait bouger les quatre PDF au-delà de leur numéro). **La preuve forte, sept sur sept** : `5.8.0` → `5.7.0` remis dans
+les octets frais rend les fichiers de la 5.7.0 **au bit près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`,
+`plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` (une occurrence par fichier texte, deux dans `plan.pdf`, quatre
+dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de `5.7.0` avant). Le numéro garde sa longueur :
+`octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.7.0 | Empreinte 5.8.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `1b40af49…` | `f11555ce…` |
+| `plan.svg` (normalisée) | `50aee011…` | `b99dc008…` |
+| `plan.dxf` (normalisée) | `1dea2a74…` | `33ac0419…` |
+| `plan.pdf` (normalisée) | `fc4c370c…` | `0c71fa96…` |
+| `dossier.pdf` (normalisée) | `5363ac05…` | `87485be5…` |
+| `dossier-piscine.pdf` (brute) | `5a5557cd…` | `e331b9b9…` |
+| `note-calcul.pdf` (brute) | `c78fec59…` | `389cfd7a…` |
+
+
+## Version 5.9.0 (4 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.8.0 (travées ouvertes, poteaux et garde-corps sur un corps fermé, #569 ; point 132 de la fumée accéléré,
+#570, sans toucher `src/`) ne change aucune quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`,
+`quantites-demo.txt` et `glb-structure.json` ne bougent pas, et les sept témoins régénérés au numéro de la 5.8.0 sont identiques au bit
+près à ceux de la 5.8.0. Les sept témoins passent à `5.9.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** :
+`5.9.0` → `5.8.0` remis dans les octets frais rend les fichiers de la 5.8.0 **au bit près**, tailles identiques à l'octet, pour
+`resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` (une occurrence par
+fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de
+`5.8.0` avant). Le numéro garde sa longueur : `octetsTotal` du `.glb` ne bouge pas.
+
+| Fixture | Empreinte 5.8.0 | Empreinte 5.9.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `f11555ce…` | `5c5edc16…` |
+| `plan.svg` (normalisée) | `b99dc008…` | `c0ce4eea…` |
+| `plan.dxf` (normalisée) | `33ac0419…` | `fa9a80b3…` |
+| `plan.pdf` (normalisée) | `0c71fa96…` | `aedc8ad7…` |
+| `dossier.pdf` (normalisée) | `87485be5…` | `a594ffa8…` |
+| `dossier-piscine.pdf` (brute) | `e331b9b9…` | `230488f7…` |
+| `note-calcul.pdf` (brute) | `389cfd7a…` | `dfd4dc9c…` |
+
+
+## Version 5.10.0 (5 novembre 2026) — version mineure, seul le numéro bouge, d'un octet plus long
+
+Ce qui est entré depuis la 5.9.0 (É5 : gabarit posé bas sur bas, échelle par la largeur, #573, et égout hors du bandeau sous un pignon,
+#576 ; É6 : le haut lu ne monte plus dans un arbre, #574 et #575 ; Mode Toit : cul de geai et queue de vache, schéma 15, #577 ;
+découverte du cul de geai, #578 ; fumée, #579 ; synonymes du cul de geai dans ce que lit Claude, #580) ne change aucune quantité ni
+aucun export de la démonstration : `projet.json` (toujours écrit au schéma 3), `moteur-piscine-pergola.json`, `quantites-demo.txt` et
+`glb-structure.json` ne bougent pas (le `.glb` ne porte pas le numéro de Plan). La date de build reste `2026-10-30`.
+
+**Le numéro change de longueur** (`5.9.0` → `5.10.0`, un octet de plus), donc la preuve se fait en deux temps, comme aux ruptures de
+longueur d'avant (1.1.0, 1.2.0-alpha.1) :
+
+- **à numéro inchangé** (`5.9.0`), sur `main` (1d34644f), les sept témoins régénérés sont **identiques au bit près** aux fichiers de
+  la 5.9.0, sept sur sept ;
+- **après le passage à `5.10.0`**, `5.10.0` → `5.9.0` remis dans les octets frais rend `resume.txt`, `plan.svg` et `plan.dxf` **au bit
+  près** (une occurrence chacun) ; les quatre PDF grandissent d'un octet par occurrence du numéro (2 dans `plan.pdf`, 4 dans
+  `dossier.pdf` et `note-calcul.pdf`, 9 dans `dossier-piscine.pdf`, autant que de `5.9.0` avant) et, l'ancien numéro remis puis les
+  décalages `xref`, `startxref` et les longueurs de flux neutralisés, sont **identiques** à ceux de la 5.9.0 : aucune ligne ne diffère.
+
+| Fixture | Empreinte 5.9.0 | Empreinte 5.10.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `5c5edc16…` | `3e96796c…` |
+| `plan.svg` (normalisée) | `c0ce4eea…` | `cb4d2dc0…` |
+| `plan.dxf` (normalisée) | `fa9a80b3…` | `b1fc4da7…` |
+| `plan.pdf` (normalisée) | `aedc8ad7…` | `3dc9482d…` |
+| `dossier.pdf` (normalisée) | `a594ffa8…` | `fa1c8a02…` |
+| `dossier-piscine.pdf` (brute) | `230488f7…` | `46e5c170…` |
+| `note-calcul.pdf` (brute) | `dfd4dc9c…` | `eb53aa20…` |
+
+
+## Version 5.11.0 (5 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.10.0 (raccord du cul de geai, #585 ; Vue 3D rendue à la demande, #586 ; vent plafonné à 30 images par
+seconde, #587 ; fumée, points 93, 95 et 121, #583 et #584) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Les sept témoins passent à `5.11.0` ; la date
+de build reste `2026-10-30`. Le numéro garde sa longueur, la preuve forte revient : **`5.11.0` → `5.10.0` remis dans les octets frais
+rend les fichiers de la 5.10.0 au bit près, sept sur sept**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans
+`plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de `5.10.0` avant).
+
+| Fixture | Empreinte 5.10.0 | Empreinte 5.11.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `3e96796c…` | `57e75001…` |
+| `plan.svg` (normalisée) | `cb4d2dc0…` | `aee455d5…` |
+| `plan.dxf` (normalisée) | `b1fc4da7…` | `ca38a504…` |
+| `plan.pdf` (normalisée) | `3dc9482d…` | `9f929430…` |
+| `dossier.pdf` (normalisée) | `fa1c8a02…` | `9662ec69…` |
+| `dossier-piscine.pdf` (brute) | `46e5c170…` | `1256bcea…` |
+| `note-calcul.pdf` (brute) | `eb53aa20…` | `722562bd…` |
+
+
+## Version 5.11.1 (6 novembre 2026) — correctif, seul le numéro bouge
+
+Ce qui est entré depuis la 5.11.0 (navigation du Mode Toit : session sûre, #590 ; cadrage, #591 ; finitions, #592) ne change aucune
+quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json`
+ne bougent pas. Les sept témoins passent à `5.11.1` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.11.1`
+→ `5.11.0` remis dans les octets frais rend les fichiers de la 5.11.0 **au bit près**, tailles identiques à l'octet (une occurrence par
+fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`, autant que de
+`5.11.0` avant).
+
+| Fixture | Empreinte 5.11.0 | Empreinte 5.11.1 |
+|---|---|---|
+| `resume.txt` (normalisée) | `57e75001…` | `37cfc19c…` |
+| `plan.svg` (normalisée) | `aee455d5…` | `a320bdc5…` |
+| `plan.dxf` (normalisée) | `ca38a504…` | `63435aba…` |
+| `plan.pdf` (normalisée) | `9f929430…` | `786efdb1…` |
+| `dossier.pdf` (normalisée) | `9662ec69…` | `cc373bea…` |
+| `dossier-piscine.pdf` (brute) | `1256bcea…` | `438ccab1…` |
+| `note-calcul.pdf` (brute) | `722562bd…` | `b33d3d4a…` |
+
+
+## Version 5.12.0 (6 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.11.1 (sélection au toucher en Vue 3D, #595, une maison voisine valant le vide, #597) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Les sept témoins passent à
+`5.12.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.12.0` → `5.11.1` remis dans les octets frais
+rend les fichiers de la 5.11.1 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`).
+
+**Le `.glb`**, parce que #595 retire la surbrillance de la sélection de l'export : le point 24 joué deux fois sur la 5.11.1 (a496c73a)
+et deux fois sur la 5.12.0 (main 2e830dc9, avec #597), au bureau, thème clair, réseau témoin, donne quatre fichiers de 11 715 284 octets, dont la structure est
+égale au témoin (1 143 nœuds, 955 mailles, 1 454 matériaux, 16 images, 3 954 accesseurs, 3 970 vues tampon). Les 3 954 vues tampon de
+géométrie sont identiques **au bit près** d'un fichier à l'autre, le JSON aussi, et les seize images sont les mêmes octets : seul leur
+ordre dans le tampon varie d'un export à l'autre, à la 5.11.1 comme à la 5.12.0 (elles s'encodent en parallèle).
+
+| Fixture | Empreinte 5.11.1 | Empreinte 5.12.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `37cfc19c…` | `14d887c2…` |
+| `plan.svg` (normalisée) | `a320bdc5…` | `3e8867cd…` |
+| `plan.dxf` (normalisée) | `63435aba…` | `e4237c0b…` |
+| `plan.pdf` (normalisée) | `786efdb1…` | `a5abb420…` |
+| `dossier.pdf` (normalisée) | `cc373bea…` | `b9dc298c…` |
+| `dossier-piscine.pdf` (brute) | `438ccab1…` | `0d901cf6…` |
+| `note-calcul.pdf` (brute) | `b33d3d4a…` | `aa1febc2…` |
+
+## Version 5.13.0 (6 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.12.0 (réparation du JSON de l'analyse #599, cadrage de la vue de façade #600, raccord d'un pignon hors
+faîtage #601, « Décrocher ici » et zoom de la vue de façade #602, caméra du Mode Toit #603 et ses gestes #604) ne change aucune quantité
+ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne
+bougent pas. Avant le changement de numéro, main (365e3865) régénère les sept témoins de la 5.12.0 au bit près. Les sept témoins passent
+à `5.13.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.13.0` → `5.12.0` remis dans les octets frais
+rend les fichiers de la 5.12.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`) : le raccord d'un
+pignon hors faîtage (#601) laisse sortir à l'identique un pignon au faîtage.
+
+| Fixture | Empreinte 5.12.0 | Empreinte 5.13.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `14d887c2…` | `1546b1ac…` |
+| `plan.svg` (normalisée) | `3e8867cd…` | `1fc288fa…` |
+| `plan.dxf` (normalisée) | `e4237c0b…` | `c9842373…` |
+| `plan.pdf` (normalisée) | `a5abb420…` | `09237415…` |
+| `dossier.pdf` (normalisée) | `b9dc298c…` | `2b9aca93…` |
+| `dossier-piscine.pdf` (brute) | `0d901cf6…` | `a6f890fd…` |
+| `note-calcul.pdf` (brute) | `aa1febc2…` | `4dbf5c7d…` |
+
+## Version 5.13.1 (7 novembre 2026) — version corrective, seul le numéro bouge
+
+Ce qui est entré depuis la 5.13.0 (#607 : à Paris, Lyon et Marseille, le code de l'arrondissement ramené à celui de la commune avant la
+recherche des parcelles ; niveaux des suggestions d'adresse en français) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Avant le changement de numéro,
+main (f760310f) régénère les témoins de la 5.13.0 au bit près. Les sept témoins passent à `5.13.1` ; la date de build reste `2026-10-30`.
+**La preuve forte, sept sur sept** : `5.13.1` → `5.13.0` remis dans les octets frais rend les fichiers de la 5.13.0 **au bit près**,
+tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`,
+neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.13.0 | Empreinte 5.13.1 |
+|---|---|---|
+| `resume.txt` (normalisée) | `1546b1ac…` | `0ce9cf7f…` |
+| `plan.svg` (normalisée) | `1fc288fa…` | `49fbca3a…` |
+| `plan.dxf` (normalisée) | `c9842373…` | `36a16eff…` |
+| `plan.pdf` (normalisée) | `09237415…` | `479194e0…` |
+| `dossier.pdf` (normalisée) | `2b9aca93…` | `0bd4383e…` |
+| `dossier-piscine.pdf` (brute) | `a6f890fd…` | `21983e0f…` |
+| `note-calcul.pdf` (brute) | `4dbf5c7d…` | `2e40047b…` |
+
+## Version 5.14.0 (7 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.13.1 (optique EXIF gardée avec chaque photo #610, quatorze étapes et actions typées #611, écran de la
+calibration en étapes #612, choix Calcul / Claude / Manuel dans la calibration #613, rejeu partiel de l'audit #614) ne change aucune
+quantité ni aucun export de la démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json`
+ne bougent pas. Avant le changement de numéro, main (4e4d4a5c) régénère les témoins de la 5.13.1. Les sept témoins passent à `5.14.0` ;
+la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.14.0` → `5.13.1` remis dans les octets frais rend les
+fichiers de la 5.13.1 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans
+`dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.13.1 | Empreinte 5.14.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `0ce9cf7f…` | `d34c851e…` |
+| `plan.svg` (normalisée) | `49fbca3a…` | `5ebc8e53…` |
+| `plan.dxf` (normalisée) | `36a16eff…` | `01cb2552…` |
+| `plan.pdf` (normalisée) | `479194e0…` | `b8e03160…` |
+| `dossier.pdf` (normalisée) | `0bd4383e…` | `d144578c…` |
+| `dossier-piscine.pdf` (brute) | `21983e0f…` | `0785c86d…` |
+| `note-calcul.pdf` (brute) | `2e40047b…` | `3a2f2c35…` |
+
+## Version 5.15.0 (7 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.14.0 (GPS de l'EXIF en position de secours d'une photo de façade, deux réglages de l'enchaînement et
+l'origine du plan dans les cas de calibration #617 ; chaque étape du groupe Image calcule ce qu'elle montre, le mur tiré repart de l'É7,
+`VERSION_CHAINE_FACADES` 13 → 14 #618) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Avant le changement de numéro, main
+(ab450c3a) régénère les témoins de la 5.14.0. Les sept témoins passent à `5.15.0` ; la date de build reste `2026-10-30`. **La preuve
+forte, sept sur sept** : `5.15.0` → `5.14.0` remis dans les octets frais rend les fichiers de la 5.14.0 **au bit près**, tailles
+identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans
+`dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.14.0 | Empreinte 5.15.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `d34c851e…` | `cc3cc419…` |
+| `plan.svg` (normalisée) | `5ebc8e53…` | `719da384…` |
+| `plan.dxf` (normalisée) | `01cb2552…` | `22de83f6…` |
+| `plan.pdf` (normalisée) | `b8e03160…` | `cea3d123…` |
+| `dossier.pdf` (normalisée) | `d144578c…` | `d5688943…` |
+| `dossier-piscine.pdf` (brute) | `0785c86d…` | `a4de4fc0…` |
+| `note-calcul.pdf` (brute) | `3a2f2c35…` | `b52042f7…` |
+
+## Version 5.16.0 (8 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.15.0 (mode Toit : « Modification » ou « Insertion » lisible d'un coup d'œil, indicateur d'état, jetons
+de couleur `insertion`, commande `toit.quitterInsertion`, #621) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Avant le changement de
+numéro, main (9339d0f1) régénère les témoins de la 5.15.0 au bit près. Les sept témoins passent à `5.16.0` ; la date de build reste
+`2026-10-30`. **La preuve forte, sept sur sept** : `5.16.0` → `5.15.0` remis dans les octets frais rend les fichiers de la 5.15.0
+**au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et
+`note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.15.0 | Empreinte 5.16.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `cc3cc419…` | `25ed6bdc…` |
+| `plan.svg` (normalisée) | `719da384…` | `a4c8a61a…` |
+| `plan.dxf` (normalisée) | `22de83f6…` | `ffeb0dfe…` |
+| `plan.pdf` (normalisée) | `cea3d123…` | `5c9471a8…` |
+| `dossier.pdf` (normalisée) | `d5688943…` | `842f1f2e…` |
+| `dossier-piscine.pdf` (brute) | `a4de4fc0…` | `514f4f46…` |
+| `note-calcul.pdf` (brute) | `b52042f7…` | `d3e3437d…` |
+
+## Version 5.17.0 (8 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.16.0 (mode Toit : le sens du faîtage se choisit sur chaque forme qui en a un, #624 ; pdf-lib versionné
+dans la livraison et geste daté du point de fumée 145, #625) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Avant le changement de
+numéro, main (dc8e06b6) régénère les témoins de la 5.16.0 au bit près. Les sept témoins passent à `5.17.0` ; la date de build reste
+`2026-10-30`. **La preuve forte, sept sur sept** : `5.17.0` → `5.16.0` remis dans les octets frais rend les fichiers de la 5.16.0
+**au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et
+`note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.16.0 | Empreinte 5.17.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `25ed6bdc…` | `949121a9…` |
+| `plan.svg` (normalisée) | `a4c8a61a…` | `7f9d9167…` |
+| `plan.dxf` (normalisée) | `ffeb0dfe…` | `4181abaf…` |
+| `plan.pdf` (normalisée) | `5c9471a8…` | `3898824d…` |
+| `dossier.pdf` (normalisée) | `842f1f2e…` | `fce0b0c1…` |
+| `dossier-piscine.pdf` (brute) | `514f4f46…` | `25d19576…` |
+| `note-calcul.pdf` (brute) | `d3e3437d…` | `4108dca8…` |
+
+## Version 5.18.0 (8 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.17.0 (mode Toit : tout le toit tourne d'un coup et le mur haut d'un appentis se choisit, #628 ; un projet
+neuf ne demande plus « Mettre à jour le modèle ? » à sa création, #629) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Avant le changement de
+numéro, main (076c953b) régénère les témoins de la 5.17.0 au bit près. Les sept témoins passent à `5.18.0` ; la date de build reste
+`2026-10-30`. **La preuve forte, sept sur sept** : `5.18.0` → `5.17.0` remis dans les octets frais rend les fichiers de la 5.17.0
+**au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et
+`note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.17.0 | Empreinte 5.18.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `949121a9…` | `32ac33c8…` |
+| `plan.svg` (normalisée) | `7f9d9167…` | `bf22728d…` |
+| `plan.dxf` (normalisée) | `4181abaf…` | `d3a304b7…` |
+| `plan.pdf` (normalisée) | `3898824d…` | `502a5ac7…` |
+| `dossier.pdf` (normalisée) | `fce0b0c1…` | `59bbf4d4…` |
+| `dossier-piscine.pdf` (brute) | `25d19576…` | `f53b06f5…` |
+| `note-calcul.pdf` (brute) | `4108dca8…` | `c8f3a4e4…` |
+
+## Version 5.19.0 (9 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.18.0 (le rez-de-chaussée d'un mur en retrait sous l'étage, pour glisser un bow-window dessous, #632 ;
+schéma 16, `SaillieFacade.rdcEnRetraitM`) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Le numéro de schéma écrit dans les témoins
+ne bouge pas non plus : un document s'écrit au plus petit schéma qui le décrit, et la démonstration ne porte aucun rez-de-chaussée en
+retrait. Avant le changement de numéro, main (63c15763) régénère les témoins de la 5.18.0 au bit près. Les sept témoins passent à
+`5.19.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.19.0` → `5.18.0` remis dans les octets frais
+rend les fichiers de la 5.18.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.18.0 | Empreinte 5.19.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `32ac33c8…` | `cfdb52f1…` |
+| `plan.svg` (normalisée) | `bf22728d…` | `e31fafac…` |
+| `plan.dxf` (normalisée) | `d3a304b7…` | `48d1a2b4…` |
+| `plan.pdf` (normalisée) | `502a5ac7…` | `5ee2a9d5…` |
+| `dossier.pdf` (normalisée) | `59bbf4d4…` | `82158392…` |
+| `dossier-piscine.pdf` (brute) | `f53b06f5…` | `78cea0fb…` |
+| `note-calcul.pdf` (brute) | `c8f3a4e4…` | `31951b4a…` |
+
+## Version 5.20.0 (9 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.19.0 (la photo d'un relevé suit le rez-de-chaussée en retrait, #635 ; en mode Toit, un corps se
+redimensionne de chaque côté, le côté opposé en place, #636) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Aucun champ de fichier
+nouveau, schéma inchangé (16). Avant le changement de numéro, main (1fc94b71) régénère les témoins de la 5.19.0 au bit près. Les sept
+témoins passent à `5.20.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.20.0` → `5.19.0` remis dans les
+octets frais rend les fichiers de la 5.19.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans
+`plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.19.0 | Empreinte 5.20.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `cfdb52f1…` | `bcc9d92e…` |
+| `plan.svg` (normalisée) | `e31fafac…` | `7eb9a98a…` |
+| `plan.dxf` (normalisée) | `48d1a2b4…` | `66b14549…` |
+| `plan.pdf` (normalisée) | `5ee2a9d5…` | `aebacde2…` |
+| `dossier.pdf` (normalisée) | `82158392…` | `ede957d0…` |
+| `dossier-piscine.pdf` (brute) | `78cea0fb…` | `b4dd829b…` |
+| `note-calcul.pdf` (brute) | `31951b4a…` | `53dd1805…` |
+
+## Version 5.21.0 (9 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.20.0 (sous un étage qui avance, la photo du relevé couvre la face avant du bow-window et la modénature lue
+suit le mur reculé, #639 ; un Ctrl+Z du projet se voit dans la Vue 3D ouverte, #640 ; en mode Toit, mur commun, appentis liés, arrêt au
+pignon, aimant du tracé IGN, bords d'un bow-window, vue de dessus entière, #641) ne change aucune quantité ni aucun export de la
+démonstration : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Aucun champ
+de fichier nouveau, schéma inchangé (16). Avant le changement de numéro, main (46c6ee45) régénère les témoins de la 5.20.0 au bit près.
+Les sept témoins passent à `5.21.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.21.0` → `5.20.0` remis
+dans les octets frais rend les fichiers de la 5.20.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte,
+deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.20.0 | Empreinte 5.21.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `bcc9d92e…` | `c9a08d14…` |
+| `plan.svg` (normalisée) | `7eb9a98a…` | `a88a45f0…` |
+| `plan.dxf` (normalisée) | `66b14549…` | `e42b2e33…` |
+| `plan.pdf` (normalisée) | `aebacde2…` | `bc7c876c…` |
+| `dossier.pdf` (normalisée) | `ede957d0…` | `9f6b746c…` |
+| `dossier-piscine.pdf` (brute) | `b4dd829b…` | `fadf90c9…` |
+| `note-calcul.pdf` (brute) | `53dd1805…` | `026d7034…` |
+
+## Version 5.22.0 (9 novembre 2026) — version mineure, seul le numéro bouge
+
+Ce qui est entré depuis la 5.21.0 (une annulation sans travail inutile, un seul rebâtissage de la Vue 3D, le trait du retrait en mode
+corps, un mur photographié reconnu par le mur dont il vient, #644 ; six défauts du Mode Toit relevés par l'audit, #645 ; la séquence des
+photos d'un cas de calibration se reprend, #646 ; un nouveau cas de calibration depuis des photos, la vérité de l'É7 reportée, #647 ; le
+pincement sur une poignée et les poignées hors de ce qui flotte, #648) ne change aucune quantité ni aucun export de la démonstration :
+`projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Aucun champ de fichier nouveau,
+schéma inchangé (16). Avant le changement de numéro, main (a1f7d1be) régénère les témoins de la 5.21.0 au bit près. Les sept témoins
+passent à `5.22.0` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.22.0` → `5.21.0` remis dans les octets
+frais rend les fichiers de la 5.21.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans
+`plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.21.0 | Empreinte 5.22.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `c9a08d14…` | `b89705c2…` |
+| `plan.svg` (normalisée) | `a88a45f0…` | `52ec45e6…` |
+| `plan.dxf` (normalisée) | `e42b2e33…` | `236df393…` |
+| `plan.pdf` (normalisée) | `bc7c876c…` | `293cb272…` |
+| `dossier.pdf` (normalisée) | `9f6b746c…` | `941f0509…` |
+| `dossier-piscine.pdf` (brute) | `fadf90c9…` | `bbd6fff8…` |
+| `note-calcul.pdf` (brute) | `026d7034…` | `3ef2bf4b…` |
+
+## Version 5.22.1 (9 novembre 2026) — correctifs, seul le numéro bouge
+
+Ce qui est entré depuis la 5.22.0 (calibration : la vérité de l'É7 ne reste plus en attente pour toujours, le refus d'un import se lit,
+un seul pincement de la façade branché à la fois, une poignée ramenée hors de deux obstacles qui se touchent, #651 ; Mode Toit : un mur
+posé sur une ligne y reste, un corps voisin l'arrête, #652) ne change aucune quantité ni aucun export de la démonstration : `projet.json`,
+`moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Aucun champ de fichier nouveau, schéma
+inchangé (16). Avant le changement de numéro, main (1a00f76b) régénère les témoins de la 5.22.0 au bit près. Les sept témoins passent à
+`5.22.1` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.22.1` → `5.22.0` remis dans les octets frais
+rend les fichiers de la 5.22.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf`,
+quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`). AE 101 identique (`identite.ts`).
+
+| Fixture | Empreinte 5.22.0 | Empreinte 5.22.1 |
+|---|---|---|
+| `resume.txt` (normalisée) | `b89705c2…` | `3d203799…` |
+| `plan.svg` (normalisée) | `52ec45e6…` | `30a61162…` |
+| `plan.dxf` (normalisée) | `236df393…` | `dd286a55…` |
+| `plan.pdf` (normalisée) | `293cb272…` | `cc245b08…` |
+| `dossier.pdf` (normalisée) | `941f0509…` | `671e6161…` |
+| `dossier-piscine.pdf` (brute) | `bbd6fff8…` | `87f88897…` |
+| `note-calcul.pdf` (brute) | `3ef2bf4b…` | `bda5a091…` |

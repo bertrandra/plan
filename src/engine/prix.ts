@@ -4,10 +4,10 @@
 // chez bom, qui les lisait en retour, et les modules tournaient en rond. Ce module ne depend que des
 // constantes et des portees.
 
-import { essenceDe, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele } from './constantes.js';
-import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './portees.js';
+import { DALLE_BETON_EP_M, essenceDe, MASSIF_COTE_M, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele, type TypeSupport } from './constantes.js';
+import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './bois/portees.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
-import type { Debit } from './debit.js';
+import { parseLongueurs, type Debit } from './bois/debit.js';
 import type { Construction } from '../model/types.js';
 
 /** Les trois produits achetes a la barre, chacun avec son propre carnet de prix. */
@@ -85,19 +85,53 @@ export function achatPlots(c: Construction, n: number){
   const m = plotModele(c);
   return { modele:m, unites:n, cout:n*prixPlotUnite(c) };
 }
+
+/** Un lot de plots d'un meme modele, quand le sol en pente en demande plusieurs. */
+export interface LotPlots { modele: ReturnType<typeof plotModele>; unites: number; cout: number }
+
+/**
+ * Les plots a acheter quand chaque appui a sa hauteur (MD/spec-relief.md §6) : le modele le moins
+ * cher qui couvre chaque hauteur, un lot par modele. Un modele impose par la construction vaut
+ * pour tous, comme sur un sol plat. Les hauteurs au-dela de la plus grande gamme prennent la plus
+ * grande gamme et sont comptees `horsGamme` : l'inspecteur et le chiffrage les signalent.
+ */
+export function achatPlotsParHauteur(c: Construction, hauteursMm: readonly number[]){
+  const impose = c.plotModele && c.plotModele !== 'auto' ? plotModele(c) : null;
+  const lots = new Map<string, LotPlots>();
+  let horsGamme = 0;
+  hauteursMm.forEach(h => {
+    const m = impose ?? plotModele({ hauteurPlot: h / 10 });
+    if (!impose && h / 10 > m.max + 1e-9) horsGamme++;
+    const p = valeurEnregistree(c.prixPlots, m.cle);
+    const prix = (p !== undefined && p !== null && isFinite(p) && p >= 0) ? p : m.prix;
+    const lot = lots.get(m.cle) ?? { modele: m, unites: 0, cout: 0 };
+    lot.unites++; lot.cout += prix;
+    lots.set(m.cle, lot);
+  });
+  const liste = [...lots.values()].sort((a, b) => a.modele.min - b.modele.min);
+  const unites = liste.reduce((s, l) => s + l.unites, 0);
+  const cout = liste.reduce((s, l) => s + l.cout, 0);
+  return { lots: liste, unites, cout, horsGamme, label: liste.map(l => l.unites + ' × ' + l.modele.label).join(', ') };
+}
 // Ce qu'il faut sous les plots. Une vis fait sa propre fondation ; un plot repose sur une assise
 // qu'il faut preparer, et ce poste pese lourd dans un devis de terrasse sur plots.
-export function computeAssise(c: Construction, surfM2: number, nbPlots: number){
+export function computeAssise(c: Construction, surfM2: number, nbPlots: number, perimetreM = 0, surfDalleM2 = surfM2){
   // Une vis fait sa propre fondation : pas d'assise, donc aucun de ces postes. Le garde est ici
   // plutot que chez chaque appelant, sinon il finit par manquer quelque part.
-  if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle, geotextileM2:0, concasseM3:0, dallesU:0 };
+  if(!estPlots(c)) return { type:SUPPORT_TYPES.dalle as TypeSupport, geotextileM2:0, concasseM3:0, dallesU:0, betonM3:0, treillisM2:0, coffrageMl:0, massifsU:0 };
   const t = supportDe(c.supportType);
   const ep = Math.max(0, c.supportDecaissement||15)/100;
   return {
     type:t,
     geotextileM2: t.geotextile ? surfM2*1.1 : 0,        // +10% de recouvrement des les
     concasseM3:   t.concasse   ? surfM2*ep  : 0,
-    dallesU:      t.dalles     ? nbPlots    : 0
+    dallesU:      t.dalles     ? nbPlots    : 0,
+    // La dalle a couler : son beton, un treillis avec ses recouvrements, le coffrage de sa rive. Les
+    // massifs : un cube de beton sous chaque plot.
+    betonM3:      t.dalleBeton ? surfDalleM2*DALLE_BETON_EP_M : t.massifs ? nbPlots*MASSIF_COTE_M**3 : 0,
+    treillisM2:   t.dalleBeton ? surfDalleM2*1.15 : 0,
+    coffrageMl:   t.dalleBeton ? perimetreM  : 0,
+    massifsU:     t.massifs    ? nbPlots     : 0
   };
 }
 // Charge reprise par un plot et pression sur son assise - le poinconnement n'existe pas en mode
@@ -111,19 +145,13 @@ export function chargePlot(c: Construction, nbPlots: number, surfM2: number){
 }
 // What a cut-list actually costs, at the per-length prices in force.
 export function coutDebit(c: Construction, debit: Debit, cle: ProduitBarre): number {
+  // Les longueurs dans l'ordre croissant : l'ordre des clefs d'un objet suit leur forme ("3" avant "2.5"), et une somme en
+  // virgule flottante depend de son ordre.
   return Object.entries(debit.achats)
+    .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
     .reduce((s,[L, n])=>s + n*prixBarre(c, cle, parseFloat(L)), 0);
 }
 export const LONGUEURS_BOIS_DEFAUT = [5, 4, 3, 2.5, 2];
-// "3, 2.5, 2" -> [3, 2.5, 2], longest first. Tolerates commas, semicolons, spaces and the
-// French decimal comma, because that is how the figure gets pasted off a merchant's page.
-export function parseLongueurs(raw: unknown, defauts: number[]): number[] {
-  const list: number[] = (raw || "").toString().split(/[;\s]+|,(?![0-9])/)
-    .map(s=>parseFloat(s.replace(',','.')))
-    .filter(v=>isFinite(v) && v>0.2);
-  const uniq = [...new Set(list)].sort((a,b)=>b-a);
-  return uniq.length ? uniq : defauts.slice();
-}
 export function longueursDispo(c: Construction): number[] { return parseLongueurs(c.longueursLames, LONGUEURS_LAMES_DEFAUT); }
 export function longueursBois(c: Construction): number[] { return parseLongueurs(c.longueursBois, LONGUEURS_BOIS_DEFAUT); }
 export function longueursLambourde(c: Construction): number[] { return parseLongueurs(c.longueursLambourde, LONGUEURS_BOIS_DEFAUT); }

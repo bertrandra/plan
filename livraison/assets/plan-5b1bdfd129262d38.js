@@ -1,0 +1,1 @@
+const o="https://www.raillard.org",p="plan";function c(e,t={}){const n=e.replace(/\{(\w+)\}/g,(s,a)=>{const r=t[a];if(r===void 0||r==="")throw new Error("adresse : parametre « "+a+" » manquant pour "+e);return encodeURIComponent(r)});return o.replace(/\/+$/,"")+n}export{p as B,o as a,c as b};

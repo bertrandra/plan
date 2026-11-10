@@ -1,0 +1,369 @@
+import { describe, it, expect, vi } from 'vitest';
+import {
+  angleAutour, cadreDe, capDeLaVue, champComplet, champPourLaFacade, distanceFace, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, poseFace, poseOrbite, posePieton, reculLibre, suiviPieton,
+  TRAIT_NUL_M, TRAIT_PLEIN_M,
+  CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, ELEVATION_ORBITE_DEG, PRECISION_ORBITE_MAX_M, ZONE_MORTE_ORBITE_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
+} from '../../../../../src/app/audit/parcelle/vuePrise.js';
+import type { Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
+
+// La Vue 3D de « Photographier en marchant » (app/audit/parcelle/vuePrise.ts) : a hauteur d'homme,
+// un peu vers le haut, derriere vous, et qui suit votre position et votre cap.
+
+const facade = (gauche: { x: number; y: number }, droite: { x: number; y: number }): Facade =>
+  ({ cote: 0, gauche, droite, largeur: Math.hypot(droite.x - gauche.x, droite.y - gauche.y), hauteur: 6, normale: { x: 0, y: -1 }, azimut: 180, orientation: 'Sud' } as Facade);
+
+describe('la pose a hauteur d\'homme', () => {
+  it('se tient derriere vous dans l\'axe du cap, a hauteur des yeux, et regarde un peu vers le haut', () => {
+    const p = posePieton({ x: 10, y: 3 }, 0);
+    expect(p.oeil.x).toBeCloseTo(10);
+    expect(p.oeil.y).toBeCloseTo(3 - RECUL_PIETON_M);
+    expect(p.hauteurOeil).toBe(OEIL_M);
+    expect(p.vise.y).toBeGreaterThan(3);
+    const montee = Math.atan2(p.hauteurVise - p.hauteurOeil, p.vise.y - p.oeil.y) * 180 / Math.PI;
+    expect(montee).toBeCloseTo(REGARD_HAUT_DEG, 5);
+  });
+
+  it('tourne avec le cap : vers l\'est, la camera est a l\'ouest de vous', () => {
+    const p = posePieton({ x: 0, y: 0 }, 90);
+    expect(p.oeil.x).toBeCloseTo(-RECUL_PIETON_M);
+    expect(p.oeil.y).toBeCloseTo(0);
+    expect(p.vise.x).toBeGreaterThan(0);
+  });
+});
+
+describe('ce que l essai d AE 101 a corrige', () => {
+  const sud = facade({ x: 5, y: 10 }, { x: 15, y: 10 });
+  it('ne recule pas au travers d un mur ou d une cloture derriere vous', () => {
+    const cloture = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: -1 }, { x: 0, y: -1 }];
+    expect(reculLibre({ x: 10, y: 3 }, 0, 1, [cloture])).toBeCloseTo(3 - MARGE_MUR_M, 6);
+    expect(reculLibre({ x: 10, y: 3 }, 0, 1, [])).toBe(RECUL_PIETON_M);
+    const p = posePieton({ x: 10, y: 3 }, 0, null, [cloture]);
+    expect(p.oeil.y).toBeCloseTo(MARGE_MUR_M, 6);
+  });
+
+  it('avec une facade visee, regarde vers le haut de son milieu, dans l axe du cap', () => {
+    const p = posePieton({ x: 10, y: 3 }, 0, sud);
+    expect(p.oeil.x).toBeCloseTo(10);
+    expect(p.vise.x).toBeCloseTo(10);
+    expect(p.vise.y).toBeCloseTo(10);
+    expect(p.hauteurVise).toBeGreaterThan(sud.hauteur / 2);
+    expect(p.hauteurVise).toBeLessThan(sud.hauteur);
+  });
+
+  it('elargit le champ pour que la partie au-dessus de l ecran de prise garde le sien', () => {
+    expect(champComplet(800, 0)).toBeCloseTo(CHAMP_VISIBLE_DEG, 6);
+    const c = champComplet(800, 300);
+    expect(c).toBeGreaterThan(CHAMP_VISIBLE_DEG);
+    // La partie visible (500 px sur 1 100 de champ complet) garde CHAMP_VISIBLE_DEG.
+    const visible = 2 * Math.atan(Math.tan((c * Math.PI) / 360) * 500 / 1100) * 180 / Math.PI;
+    expect(visible).toBeCloseTo(CHAMP_VISIBLE_DEG, 6);
+  });
+});
+
+describe('le cap de la vue', () => {
+  const sud = facade({ x: 5, y: 10 }, { x: 15, y: 10 });
+  it('suit les capteurs quand ils en donnent un', () => {
+    expect(capDeLaVue({ x: 10, y: 3 }, 45, sud)).toBe(45);
+  });
+  it('dos a la facade visee, la regarde quand meme : la vue epuree ne montrait que le ciel', () => {
+    expect(capDeLaVue({ x: 10, y: 3 }, 180, sud)).toBeCloseTo(0);
+    expect(capDeLaVue({ x: 10, y: 3 }, 120, null)).toBe(120);
+  });
+  it('sans boussole ni marche, regarde la facade visee', () => {
+    expect(capDeLaVue({ x: 10, y: 3 }, null, sud)).toBeCloseTo(0);
+    expect(capDeLaVue({ x: 10, y: 20 }, null, sud)).toBeCloseTo(180);
+  });
+  it('sans rien, regarde le nord', () => {
+    expect(capDeLaVue({ x: 10, y: 3 }, null, null)).toBe(0);
+  });
+});
+
+describe('la facade touchee', () => {
+  const lignes = [
+    { cote: 0, statut: 'aPhotographier', facade: facade({ x: 5, y: 10 }, { x: 15, y: 10 }) },
+    { cote: 1, statut: 'aPhotographier', facade: facade({ x: 15, y: 10 }, { x: 15, y: 20 }) },
+    { cote: 2, statut: 'mitoyenne', facade: facade({ x: 15, y: 20 }, { x: 5, y: 20 }) },
+  ];
+  it('est celle dont le mur passe le plus pres du doigt', () => {
+    expect(facadeTouchee(lignes, { x: 14.5, y: 16 })?.cote).toBe(1);
+    expect(facadeTouchee(lignes, { x: 8, y: 10.2 })?.cote).toBe(0);
+  });
+  it('n\'est jamais une facade mitoyenne', () => {
+    expect(facadeTouchee(lignes, { x: 9, y: 19.9 })?.cote).not.toBe(2);
+    expect(facadeTouchee([lignes[2]!], { x: 9, y: 19.9 })).toBeNull();
+  });
+});
+
+describe('le suivi pendant la prise', () => {
+  it('pose la camera a chaque position tant que l\'ecran est ouvert, et pas apres', () => {
+    const poser = vi.fn(() => true);
+    const s = suiviPieton({ poser }, () => 0);
+    expect(s.suivre({ x: 0, y: 0 }, 0, null)).toBe(false);
+    s.activer(true);
+    expect(s.suivre({ x: 0, y: 0 }, 0, null)).toBe(true);
+    expect(s.suivre({ x: 0, y: 1 }, 30, null)).toBe(true);
+    expect(poser).toHaveBeenCalledTimes(2);
+    s.activer(false);
+    expect(s.suivre({ x: 0, y: 2 }, 30, null)).toBe(false);
+  });
+
+  it('rend la camera quand l ecran se ferme, et coupe le glissement sous le doigt', () => {
+    const vue = { poser: vi.fn(() => true), liberer: vi.fn(), arreter: vi.fn(), cadrer: vi.fn() };
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.cadrer({ haut: 600, gauche: 16 });
+    expect(vue.cadrer).toHaveBeenCalledWith({ haut: 600, gauche: 16 });
+    s.lacher();
+    expect(vue.arreter).toHaveBeenCalled();
+    s.activer(false);
+    expect(vue.liberer).toHaveBeenCalledTimes(1);
+    s.activer(false);
+    expect(vue.liberer).toHaveBeenCalledTimes(1);
+  });
+
+  it('attend apres un geste du doigt, puis reprend tout seul', () => {
+    let t = 1000;
+    const poser = vi.fn(() => true);
+    const s = suiviPieton({ poser }, () => t);
+    s.activer(true);
+    s.lacher();
+    expect(s.suivre({ x: 0, y: 0 }, 0, null)).toBe(false);
+    expect(s.suivre({ x: 0, y: 0 }, 0, null, true)).toBe(true);
+    t += PAUSE_GESTE_MS + 1;
+    expect(s.suivre({ x: 0, y: 0 }, 0, null)).toBe(true);
+  });
+});
+
+describe('la vue d ensemble, pour choisir une facade (second essai d AE 101)', () => {
+  const maison = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
+  it('cadre les contours donnes : leur centre et leur rayon', () => {
+    const c = cadreDe([maison], 9, null);
+    expect(c?.centre).toEqual({ x: 6, y: 4 });
+    expect(c?.rayon).toBeCloseTo(Math.hypot(6, 4), 6);
+    expect(cadreDe([], 9, 0)).toBeNull();
+  });
+
+  it('regarde le batiment d en haut, en grand angle, et de plus loin sur un ecran etroit', () => {
+    const c = { centre: { x: 6, y: 4 }, rayon: 7.2, hauteur: 9, azimutDeg: 0 };
+    const large = poseEnsemble(c, 0, 1.6), etroit = poseEnsemble(c, 0, 0.7);
+    expect(large.champ).toBe(CHAMP_ENSEMBLE_DEG);
+    expect(large.vise).toEqual(c.centre);
+    // Regard vers le nord : la camera est au sud du batiment, assez haut.
+    expect(large.oeil.x).toBeCloseTo(6, 6);
+    expect(large.oeil.y).toBeLessThan(4);
+    const recul = 4 - large.oeil.y;
+    const montee = Math.atan2(large.hauteurOeil - large.hauteurVise, recul) * 180 / Math.PI;
+    expect(montee).toBeCloseTo(ELEVATION_ENSEMBLE_DEG, 6);
+    // La sphere qui entoure le batiment tient dans la partie visible.
+    const d = Math.hypot(recul, large.hauteurOeil - large.hauteurVise);
+    expect(Math.asin(Math.hypot(c.rayon, c.hauteur / 2) / d) * 180 / Math.PI).toBeLessThan(CHAMP_ENSEMBLE_DEG / 2);
+    expect(4 - etroit.oeil.y).toBeGreaterThan(recul);
+  });
+
+  it('tourne avec la direction du regard : vers l ouest, la camera est a l est', () => {
+    const p = poseEnsemble({ centre: { x: 0, y: 0 }, rayon: 5, hauteur: 6, azimutDeg: null }, 270, 1);
+    expect(p.oeil.x).toBeGreaterThan(0);
+    expect(p.oeil.y).toBeCloseTo(0, 6);
+  });
+
+  it('garde la direction de la camera quand on ne lui en donne pas (le doigt l a tournee)', () => {
+    const vue = { poser: vi.fn<(pose: unknown) => boolean>(() => true), azimut: () => 90, rapportVisible: () => 1 };
+    const s = suiviPieton(vue, () => 0);
+    expect(s.ensemble({ centre: { x: 0, y: 0 }, rayon: 5, hauteur: 6, azimutDeg: null })).toBe(false);
+    s.activer(true);
+    expect(s.ensemble({ centre: { x: 0, y: 0 }, rayon: 5, hauteur: 6, azimutDeg: null })).toBe(true);
+    const pose = vue.poser.mock.calls[0]?.[0] as { oeil: { x: number; y: number } };
+    expect(pose.oeil.x).toBeLessThan(0);
+  });
+});
+
+describe('la vue a hauteur d homme montre la facade entiere', () => {
+  it('elargit le champ pour une facade large et proche, jamais au-dela du maximum', () => {
+    const sud = facade({ x: 0, y: 10 }, { x: 10, y: 10 });
+    expect(champPourLaFacade({ x: 5, y: -30 }, sud, 0.7)).toBe(CHAMP_VISIBLE_DEG);
+    const proche = champPourLaFacade({ x: 5, y: 2 }, sud, 0.7);
+    expect(proche).toBeGreaterThan(CHAMP_VISIBLE_DEG);
+    expect(proche).toBeLessThanOrEqual(CHAMP_PIETON_MAX_DEG);
+    expect(champPourLaFacade({ x: 5, y: 9 }, sud, 0.7)).toBe(CHAMP_PIETON_MAX_DEG);
+    // Sans mesure de l'ecran, la pose garde le champ par defaut.
+    expect(posePieton({ x: 5, y: 2 }, 0, sud).champ).toBeUndefined();
+    expect(posePieton({ x: 5, y: 2 }, 0, sud, [], 0.7).champ).toBeGreaterThan(CHAMP_VISIBLE_DEG);
+  });
+});
+
+describe('ce que l ecran de l audit cache de la vue', () => {
+  const canevas = { left: 0, right: 1000, bottom: 800, width: 1000, height: 800 };
+  it('une carte en bas cache le bas, un panneau a droite cache la droite', () => {
+    expect(partieCachee(canevas, null)).toEqual({ bas: 0, droite: 0 });
+    expect(partieCachee(canevas, { haut: 600, gauche: 180 })).toEqual({ bas: 200, droite: 0 });
+    expect(partieCachee(canevas, { haut: 64, gauche: 620 })).toEqual({ bas: 0, droite: 380 });
+  });
+  it('jamais plus de 60 % de la vue', () => {
+    expect(partieCachee(canevas, { haut: 0, gauche: 0 }).bas).toBe(480);
+    expect(partieCachee(canevas, { haut: 0, gauche: 460 }).droite).toBe(540);
+  });
+});
+
+describe('le trait renforce de pres (demande du 15 octobre)', () => {
+  const sud = facade({ x: 0, y: 10 }, { x: 10, y: 10 });
+  const a = (d: number) => forceDuTrait({ x: 5, y: 10 - d }, { x: 5, y: 4 - d }, sud, null);
+  it('est plein en deca du seuil, nul au-dela du second, et s attenue entre les deux', () => {
+    expect(a(TRAIT_PLEIN_M)).toBe(1);
+    expect(a(2)).toBe(1);
+    expect(a(TRAIT_NUL_M)).toBe(0);
+    expect(a(20)).toBe(0);
+    expect(a((TRAIT_PLEIN_M + TRAIT_NUL_M) / 2)).toBeCloseTo(0.5, 6);
+    // Plus on recule, plus il s'attenue : jamais de saut.
+    let avant = 1;
+    for (let d = TRAIT_PLEIN_M; d <= TRAIT_NUL_M; d += 0.25) {
+      const f = a(d);
+      expect(f).toBeLessThanOrEqual(avant + 1e-12);
+      expect(avant - f).toBeLessThan(0.12);
+      avant = f;
+    }
+  });
+  it('est plein quand la facade deborde du champ le plus large, meme de plus loin', () => {
+    const longue = facade({ x: -30, y: 10 }, { x: 40, y: 10 });
+    expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, null)).toBeLessThan(1);
+    expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, 0.7)).toBe(1);
+  });
+});
+
+describe('la vue fixee sur une facade choisie (16 octobre)', () => {
+  const cadre = { centre: { x: 0, y: 0 }, rayon: 6, hauteur: 8, azimutDeg: null };
+
+  it('l angle ou vous etes autour du batiment se compte depuis le nord, sens horaire', () => {
+    expect(angleAutour(cadre.centre, { x: 0, y: -10 }, 4)).toBeCloseTo(180, 6);
+    expect(angleAutour(cadre.centre, { x: 10, y: 0 }, 4)).toBeCloseTo(90, 6);
+    expect(angleAutour(cadre.centre, { x: -10, y: 0 }, null)).toBeCloseTo(270, 6);
+  });
+
+  it('n en dit rien sans position, trop imprecise, ou sur le centre : le doigt tourne alors la vue', () => {
+    expect(angleAutour(cadre.centre, null, 4)).toBeNull();
+    expect(angleAutour(cadre.centre, { x: 10, y: 0 }, PRECISION_ORBITE_MAX_M + 1)).toBeNull();
+    expect(angleAutour(cadre.centre, { x: 0.5, y: 0.5 }, 4)).toBeNull();
+  });
+
+  it('la pose en orbite regarde le centre d un peu haut, du cote du regard, le batiment entier dans le champ', () => {
+    const p = poseOrbite(cadre, 180, 1);
+    // Regard vers le sud : la camera est au nord.
+    expect(p.oeil.x).toBeCloseTo(0, 6);
+    expect(p.oeil.y).toBeGreaterThan(0);
+    expect(p.vise).toEqual(cadre.centre);
+    const recul = p.oeil.y;
+    expect(Math.atan2(p.hauteurOeil - p.hauteurVise, recul) * 180 / Math.PI).toBeCloseTo(ELEVATION_ORBITE_DEG, 6);
+    const d = Math.hypot(recul, p.hauteurOeil - p.hauteurVise);
+    expect(Math.asin(Math.hypot(cadre.rayon, cadre.hauteur / 2) / d) * 180 / Math.PI).toBeLessThan((p.champ ?? 0) / 2);
+  });
+
+  // Le mur sud d'un batiment de 12 m sur 8, centre a l'origine : de dehors, la gauche est a l'ouest.
+  const murSud = facade({ x: -6, y: -4 }, { x: 6, y: -4 });
+  const batiment = { centre: { x: 0, y: 0 }, rayon: 7.2, hauteur: 8, azimutDeg: null };
+
+  it('l elevation se pose sur la perpendiculaire du mur, a hauteur d homme, regard horizontal', () => {
+    const d = distanceFace(batiment, murSud, 1);
+    const p = poseFace(batiment, 0, d);
+    // Mur sud, regard plein nord : la camera est au sud, au droit du centre, et ne monte ni ne descend.
+    expect(p.oeil.x).toBeCloseTo(0, 6);
+    expect(p.oeil.y).toBeCloseTo(-d, 6);
+    expect(p.hauteurOeil).toBeCloseTo(OEIL_M, 6);
+    expect(p.hauteurVise).toBeCloseTo(p.hauteurOeil, 6);
+    expect(p.vise).toEqual(batiment.centre);
+    // La facade (12 m x 8 m) tient en largeur et en hauteur dans le champ, a cette distance.
+    const dMur = d - 4;
+    expect(Math.atan(6 / dMur) * 180 / Math.PI).toBeLessThan(Math.atan(Math.tan(CHAMP_VISIBLE_DEG * Math.PI / 360)) * 180 / Math.PI);
+    expect(Math.atan((8 - OEIL_M) / dMur) * 180 / Math.PI).toBeLessThan(CHAMP_VISIBLE_DEG / 2);
+  });
+
+  it('une vue plus etroite (telephone debout) recule plus pour la meme facade', () => {
+    expect(distanceFace(batiment, murSud, 0.5)).toBeGreaterThan(distanceFace(batiment, murSud, 1.5));
+  });
+
+  it('avec une facade choisie, la camera arrive de face, se fige a l horizontale et garde sa distance en tournant', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    expect(s.orbite(batiment, 0, 0, true, false, murSud)).toBe(true);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(true, Math.PI / 2);
+    const d = distanceFace(batiment, murSud, 1);
+    expect(Math.hypot(cote(vue).x, cote(vue).y)).toBeCloseTo(d, 6);
+    // Un pas de 90 degres autour du batiment : la camera pivote sur son axe, a la meme distance.
+    expect(s.orbite(batiment, 0, 90, false, false, murSud)).toBe(true);
+    expect(Math.hypot(cote(vue).x, cote(vue).y)).toBeCloseTo(d, 6);
+  });
+
+  const montre = () => {
+    let az = 0;
+    const vue = { poser: vi.fn<(pose: { oeil: { x: number; y: number } }) => boolean>(() => true), azimut: () => az, rapportVisible: () => 1, verrouiller: vi.fn(), arreter: vi.fn() };
+    return { vue, regard: (a: number) => { az = a; } };
+  };
+  const cote = (v: ReturnType<typeof montre>['vue']) => v.poser.mock.calls.at(-1)?.[0].oeil as { x: number; y: number };
+
+  it('tourne du meme angle que vous autour du batiment, au dela de la zone morte, et se verrouille sur l axe', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    expect(s.orbite(cadre, 180, 180, true)).toBe(false);
+    s.activer(true);
+    expect(s.orbite(cadre, 180, 180, true)).toBe(true);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(true, expect.closeTo(Math.PI / 2 - (ELEVATION_ORBITE_DEG * Math.PI) / 180, 6));
+    expect(cote(vue).y).toBeGreaterThan(0);
+    // Un tremblement du GPS ne fait rien.
+    const n = vue.poser.mock.calls.length;
+    expect(s.orbite(cadre, 180, 180 + ZONE_MORTE_ORBITE_DEG / 2, false)).toBe(false);
+    expect(vue.poser).toHaveBeenCalledTimes(n);
+    // Un quart de tour : de 180 a 90 pour vous, le regard va de 180 a 90 (est), la camera passe a l'ouest.
+    expect(s.orbite(cadre, 180, 90, false)).toBe(true);
+    expect(cote(vue).x).toBeLessThan(-3);
+    expect(Math.abs(cote(vue).y)).toBeLessThan(1e-6);
+  });
+
+  it('les petits pas s ajoutent : le repere ne bouge qu avec la vue', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.orbite(cadre, 180, 180, true);
+    expect(s.orbite(cadre, 180, 180 - ZONE_MORTE_ORBITE_DEG * 0.6, false)).toBe(false);
+    expect(s.orbite(cadre, 180, 180 - ZONE_MORTE_ORBITE_DEG * 1.2, false)).toBe(true);
+  });
+
+  it('sans angle (pas de GPS sur), la boussole ne redessine pas la vue ; forcee, elle la repose', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.orbite(cadre, 90, null, true);
+    const n = vue.poser.mock.calls.length;
+    expect(s.orbite(cadre, 90, null, false)).toBe(false);
+    expect(vue.poser).toHaveBeenCalledTimes(n);
+    expect(s.orbite(cadre, 90, null, false, true)).toBe(true);
+  });
+
+  it('un doigt prend la main, puis la rotation repart de son regard sans compter les pas de la pause', () => {
+    let t = 0;
+    const { vue, regard } = montre();
+    const s = suiviPieton(vue, () => t);
+    s.activer(true);
+    s.orbite(cadre, 180, 180, true);
+    s.lacher();
+    regard(270);
+    expect(s.orbite(cadre, 180, 90, false)).toBe(false);
+    t = PAUSE_GESTE_MS + 1;
+    expect(s.orbite(cadre, 180, 45, false)).toBe(true);
+    // Regard vers l'ouest : la camera est a l'est.
+    expect(cote(vue).x).toBeGreaterThan(3);
+    expect(Math.abs(cote(vue).y)).toBeLessThan(1e-6);
+  });
+
+  it('quitter l orbite libere l axe ; une autre facade repart de son regard', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.orbite(cadre, 180, 180, true);
+    s.orbite(cadre, 90, 180, true);
+    expect(cote(vue).x).toBeLessThan(-3);
+    s.suivre({ x: 0, y: 5 }, 0, null);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(false);
+    s.orbite(cadre, 0, null, true);
+    s.activer(false);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(false);
+  });
+});

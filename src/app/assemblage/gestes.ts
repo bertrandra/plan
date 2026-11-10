@@ -4,65 +4,90 @@
 // Le calcul vit dans interaction/, model/ et geometry/ ; ces gestes y ajoutent ce que ces modules ne
 // connaissent pas : l'historique, les poignees a refaire, le rendu.
 
+import { ouvrageDeclare, estOuvrage, POINT_DE_VUE } from '../../model/ouvrages/index.js';
+import { coteRueDevine } from '../../geo/coteRue.js';
 import { sommetDe } from '../../geometry/anneau.js';
 import { pointInPolygon } from '../../geometry/basic.js';
 import { projectOntoSegment, nearestSegmentIndex } from '../../geometry/segments.js';
 import { alignerSurCote } from '../../geometry/alignement.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from '../../interaction/editing.js';
-import { alignerObjetParRotation } from '../../interaction/outilAlignement.js';
+import { alignerObjetParRotation, distanceAlignement } from '../../interaction/outilAlignement.js';
 import { insererSommet, supprimerSommet, minimumSommets } from '../../model/sommets.js';
 import { creerCreation, type FormePiscine } from '../../model/creation.js';
+import { constructionTerrasseNeuve } from '../../engine/construction.js';
+import { constructionDeLaPlage, contourTerrasseAutour } from '../../engine/ouvrages/piscine.js';
 import { enPoints } from '../../model/formes.js';
 import { reculerObjet } from '../../render/empilement.js';
 import { detruireVue } from '../../render/vues.js';
 import { serializeObjects } from '../../io/serialisation.js';
-import { distanceAlignementSaisie } from '../../ui/champs/objet.js';
 import { showConfirm, showToast } from '../../shell/dialogs.js';
+import { avecAccordDeRetouche } from '../../interaction/retoucheTerrain.js';
+import { apresDeformation } from '../../core/deformation.js';
 import { aPoints, normaliserEnObjetsDuPlan } from './formes.js';
 import type { Mesures } from './mesures.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 
 export interface DependancesGestes {
-  pushHistory: () => void;
+  pushHistory: (...objets: object[]) => void;
   render: () => void;
   rebuildSelector: () => void;
   rebuildHandles: (obj: ObjetPlan) => void;
   createObjectDOM: (obj: ObjetPlan) => void;
   reapplyStackingOrder: () => void;
+  /** Le projet a change sans pas d'annulation (le marque d'une retouche a la main, interaction/retoucheTerrain.ts). */
+  markDirty: (...objets: object[]) => void;
+  /** La question avant de retoucher un objet venu du cadastre ou de l'IGN ; par defaut le dialogue Z8. */
+  confirmer?: (message: string, oui: () => void) => void;
   mesures: Mesures;
 }
 
 export function creerGestes(etat: EtatApp, d: DependancesGestes) {
   const contour = (obj: ObjetPlan) => contourDeContrainte(etat.objects, aPoints(obj));
+  const accord = { markDirty: d.markDirty, confirmer: d.confirmer };
   // La naissance et la mort d'un objet vivent dans model/creation.ts.
   const creation = () => creerCreation(etat, {
     pushHistory: d.pushHistory, createObjectDOM: d.createObjectDOM, rebuildHandles: d.rebuildHandles,
     reapplyStackingOrder: d.reapplyStackingOrder, rebuildSelector: d.rebuildSelector, render: d.render,
-    detruireVue, serializeObjects, showToast, showConfirm, normalizeObjects: normaliserEnObjetsDuPlan
+    detruireVue, serializeObjects, showToast, showConfirm, normalizeObjects: normaliserEnObjetsDuPlan,
+    // Le cote sur rue devine (point d'adresse, voisines) : un carport neuf s'en approche.
+    coteRue: () => { const p = etat.objects.find(o => o.key === 'parcelle'); return p ? coteRueDevine(p, etat.objects) : null; }
   });
+  /** Apres une deformation du contour : rangs recomptes, toit a relire (core/deformation.ts) ; un toit protege qui reste se dit. */
+  const deforme = <R>(obj: ObjetPlan, geste: () => R): R => {
+    const avant = enPoints(obj).pts.map((p) => ({ ...p }));
+    const r = geste();
+    const dire = apresDeformation(etat, obj, avant);
+    if (dire) showToast(dire);
+    return r;
+  };
   return {
-    applyAngleEdit: (obj: ObjetPlan, i: number, angle: number) => editerAngle(aPoints(obj), i, angle, contour(obj)),
-    applyLengthEdit: (obj: ObjetPlan, i: number, longueur: number) => editerLongueur(aPoints(obj), i, longueur, contour(obj)),
+    applyAngleEdit: (obj: ObjetPlan, i: number, angle: number) => deforme(obj, () => editerAngle(aPoints(obj), i, angle, contour(obj))),
+    applyLengthEdit: (obj: ObjetPlan, i: number, longueur: number) => deforme(obj, () => editerLongueur(aPoints(obj), i, longueur, contour(obj))),
     insertPointOnSegment(obj: ObjetPlan, segIndex: number, clic: PtBrut) {
       // Un point de vue a exactement 2 points (position, direction) : un 3e casserait sa lecture.
-      if (obj.locked || obj.fonction === 'camera') return;
+      if (obj.locked || estOuvrage(obj, POINT_DE_VUE)) return;
       const pts = enPoints(obj).pts;
       const nouveau = projectOntoSegment(clic, sommetDe(pts, segIndex), sommetDe(pts, segIndex + 1));
       const borne = contour(obj);
       if (borne && !pointInPolygon(nouveau, borne)) return;
-      d.pushHistory();
-      insererSommet(aPoints(obj), segIndex, clic);
-      d.rebuildHandles(obj);
-      d.render();
+      // Venu du cadastre ou de l'IGN : la retouche demande d'abord l'accord (interaction/retoucheTerrain.ts).
+      avecAccordDeRetouche(obj, accord, () => {
+        d.pushHistory(obj);
+        deforme(obj, () => insererSommet(aPoints(obj), segIndex, clic));
+        d.rebuildHandles(obj);
+        d.render();
+      });
     },
     deleteVertex(obj: ObjetPlan, idx: number) {
       // Une forme garde toujours assez de sommets pour rester valide.
       if (obj.locked || enPoints(obj).pts.length <= minimumSommets(obj.type)) return;
-      d.pushHistory();
-      supprimerSommet(aPoints(obj), idx);
-      d.rebuildHandles(obj);
-      d.render();
+      avecAccordDeRetouche(obj, accord, () => {
+        d.pushHistory(obj);
+        deforme(obj, () => supprimerSommet(aPoints(obj), idx));
+        d.rebuildHandles(obj);
+        d.render();
+      });
     },
     // La selection est conservee : le recul reste visible et le geste se repete sans re-selectionner.
     sendObjectBackward(obj: ObjetPlan) {
@@ -72,7 +97,9 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       d.render();
     },
     alignObjectByRotation(obj: ObjetPlan) {
-      alignerObjetParRotation(obj, etat, distanceAlignementSaisie(), {
+      // L'outil « Aligner » de la palette tourne la forme ; avec une distance saisie dans son bandeau, il la pose aussi a cette
+      // distance du trait. Sans distance, la forme ne se deplace pas.
+      alignerObjetParRotation(obj, etat, distanceAlignement(), {
         measureSegCoords: d.mesures.measureSegCoords, alignerSurCote, pointInPolygon,
         nearestSegmentIndex: (o, cible) => nearestSegmentIndex(aPoints(o), cible),
         contourDeContrainte: contour,
@@ -86,7 +113,16 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     addNewPergola: () => creation().ajouterAbri('pergola'),
     addNewCarport: () => creation().ajouterAbri('carport'),
     addNewPiscine: (forme: FormePiscine) => creation().ajouterPiscine(forme),
+    addNewTerrasse: () => creation().ajouterTerrasse(constructionTerrasseNeuve()),
     addNewViewpoint: () => creation().ajouterPointDeVue(),
+    addTerrassePiscine: (piscine: ObjetPlan) => {
+      const pts = contourTerrasseAutour(piscine);
+      if (!pts) return;
+      // Lames et margelles au meme niveau des la creation (engine/piscine.ts).
+      creation().ajouterTerrasseAutour(piscine, pts, constructionDeLaPlage(piscine));
+    },
+    addTrouTerrasse: (terrasse: ObjetPlan) => creation().ajouterTrou(terrasse),
+    selectObject: (key: string) => creation().selectionner(key),
     duplicateSelectedObject: () => creation().dupliquer(),
     deleteSelectedObject: () => creation().supprimer()
   };
@@ -98,8 +134,8 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
  * personne ne le pense comme « un chemin ». La fonction prime sur le type quand elle parle mieux.
  */
 export function libelleTypeObjet(obj: ObjetPlan): string {
-  if (obj.fonction === 'camera') return 'Point de vue';
-  if (obj.fonction === 'parasol') return 'Parasol';
+  const ouv = ouvrageDeclare(obj.fonction);
+  if (ouv?.nommeParSaFonction) return ouv.libelle;
   return obj.type === 'polygon' ? 'Polygone' : (obj.type === 'path' ? 'Chemin' : 'Cercle');
 }
 

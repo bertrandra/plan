@@ -20,8 +20,14 @@
 // nature « objet » qui les signalait a ete retiree avec le dernier d'entre eux.
 //
 // La zone declaree est celle ou le controle s'affiche ; la decouverte le verifie (ecarts de zone,
-// app/inventaireEcran.ts). Un controle porte par chaque feuille du telephone (`dansChaqueZone`)
+// app/administration/inventaireEcran.ts). Un controle porte par chaque feuille du telephone (`dansChaqueZone`)
 // s'affiche dans la zone que la feuille porte.
+
+import { ETAPES_FACADE, etapeFacade, libelleEtape, type IdEtape } from '../model/etapeFacade.js';
+
+/** Le numero d'une etape de facade (E1 a E14), lu dans son contrat : un texte ne l'ecrit jamais en dur. */
+const num = (id: IdEtape): string => etapeFacade(id).numero;
+const DE_E1_A_LA_FIN = `de ${num('preparation')} à ${ETAPES_FACADE[ETAPES_FACADE.length - 1]?.numero ?? ''}`;
 
 export type NatureControle = 'navigation' | 'affichage' | 'vue' | 'option' | 'sortie' | 'donnee' | 'parcours';
 
@@ -59,14 +65,19 @@ export interface Ecriture { annulable: boolean; droits: 'commande' | 'lectureSeu
 const SAISIE: Ecriture = { annulable: true, droits: 'lectureSeule' };
 
 const Z1 = 'Z1 Barre d’application', Z3 = 'Z3 Explorateur', Z4 = 'Z4 Vues 3D', Z5 = 'Z5 Inspecteur', Z6 = 'Z6 Résultats';
-const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Relevé de façade', FEUILLES = 'Feuilles (téléphone)';
+const Z8 = 'Z8 Dialogues', Z9 = 'Z9 Notifications', RELEVE = 'Éditeur de façade', FEUILLES = 'Feuilles (téléphone)';
 const SELECTION = 'Z4 Barre de sélection', NAVIGATION = 'Navigation (téléphone)';
 
 /** Une etape d'un ecran qui ne s'ouvre qu'a la demande : on ne la voit pas tant qu'il est ferme. */
 const etape = (zone: string, ouvertPar: string, libelle: string, plus: Partial<ControleInterface> = {}): ControleInterface =>
   ({ libelle, zone, nature: 'parcours', ouvertPar, ...plus });
-const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.relever';
+const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.modifier';
 const DIALOGUE = 'toute commande qui pose une question';
+const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
+const AUDIT_PARCELLE = 'audit.parcelle';
+const CATALOGUE_AUDITS = 'admin.auditsParcelle';
+const CALIBRATION = 'Admin › Calibrer la détection (?admin&ecran=calibration)';
+const CE_QUE_JE_VOIS = 'audit.parcelle, ou la fiche d’un bâtiment (mode audit)';
 
 /** Les reglages d'une vue 3D, la meme liste pour la Vue 3D et pour la visionneuse. */
 function reglagesVue(vue: 'vue3d' | 'visionneuse', nom: string): Record<string, ControleInterface> {
@@ -95,7 +106,12 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir' },
   'aide.version': { libelle: 'Version', zone: Z1, nature: 'sortie' },
   'projet.choisir': { libelle: 'Choisir le projet à ouvrir', zone: Z1, nature: 'navigation', description: 'Ouvre un autre projet (ou une autre démo, en admin) ; le projet courant n’est pas modifié' },
+  'admin.audit': { libelle: 'Mode audit (promenade)', zone: Z1, nature: 'navigation', description: 'Ouvre le mode audit : promenade GPS en Vue 3D, bâtiments à noter, fichier partagé (administrateur seulement)' },
   'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
+  'admin.chaine': { libelle: 'De l’IGN à ma maison', zone: Z1, nature: 'navigation', description: 'Ouvre le schéma de bout en bout : sources, polygone, corps de toit, objets 3D, textures, réconciliation et audit (admin des démos seulement)' },
+  'admin.principes': { libelle: 'Les principes de Plan', zone: Z1, nature: 'navigation', description: 'Ouvre l’écran des principes : processus, actions et ce qui se passe derrière, avec sommaire et recherche (admin des démos seulement)' },
+  'admin.calibration': { libelle: 'Calibrer la détection', zone: Z1, nature: 'navigation', description: 'Ouvre l’écran de calibration de la détection des ouvertures : photos annotées, mesure, réglages enregistrés sur le serveur (admin des démos seulement)' },
+  'admin.arbres': { libelle: 'Arbres (bibliothèque)', zone: Z1, nature: 'navigation', description: 'Ouvre la bibliothèque d’essences d’arbres générées par EZ-tree (admin des démos seulement)' },
   'admin.palette': { libelle: 'Palette de l’interface', zone: Z1, nature: 'navigation', description: 'Ouvre la palette : couleurs, variables CSS, typographie (admin des démos seulement)' },
   'admin.seDeconnecter': { libelle: 'Se déconnecter de l’admin des démos', zone: Z1, nature: 'navigation', description: 'Ferme la session admin ; le mot de passe sera redemandé' },
   'barre.projetEtMenus': { libelle: 'Projet et menus (tablette, téléphone)', zone: Z1, nature: 'navigation', description: 'Ouvre la feuille Projet, qui porte les menus du bureau' },
@@ -113,10 +129,20 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // ---- Z4 : les vues 3D --------------------------------------------------------------------------
   ...reglagesVue('vue3d', 'Vue 3D'),
   'vue3d.tousLesObjets': { libelle: 'Afficher tous les objets du plan (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.solEnCoupe': { libelle: 'Sol en coupe : assise et fondations (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.platelageTranslucide': { libelle: 'Platelage translucide : voir les plots (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.facadesSansOmbres': { libelle: 'Façades sans ombres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Estompe les ombres de la photo sur les façades relevées ; jamais exporté' },
+  'vue3d.vent': { libelle: 'Vent dans les arbres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Les arbres bougent au vent ; jamais exporté' },
+  'vue3d.objetsEchelle': { libelle: 'Objets d’échelle (Vue 3D)', zone: Z4, nature: 'vue', description: 'Une voiture et une silhouette, pour l’échelle ; jamais exportées' },
+  'vue3d.qualite': { libelle: 'Qualité (Vue 3D)', zone: Z4, nature: 'vue', description: 'Économe, Normale ou Soignée : ce que la scène se permet en ombres, lissage et effets, propre à cet appareil' },
+  'vue3d.tiroir': { libelle: 'Déplier ou replier les réglages (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Le tiroir des réglages, replié sur son titre par défaut, sur bureau' },
+  'vue3d.horloge': { libelle: 'Horloge : régler l’heure et la date (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Ouvre sous l’horloge du canevas le curseur d’heure et la date' },
   ...reglagesVue('visionneuse', 'visionneuse'),
   'visionneuse.fond': { libelle: 'Fond (visionneuse)', zone: Z4, nature: 'vue' },
+  'visionneuse.arVoir': { libelle: 'Voir chez vous : lancer la réalité augmentée (model-viewer)', zone: Z4, nature: 'vue' },
+  'visionneuse.arFermer': { libelle: 'Fermer la réalité augmentée', zone: Z4, nature: 'navigation' },
 
   // ---- Z5 : l'inspecteur -------------------------------------------------------------------------
   'inspecteur.replier': { libelle: 'Replier ou déplier l’inspecteur', zone: Z5, nature: 'navigation' },
@@ -137,6 +163,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'chantier.cadence': { libelle: 'Cadence d’un poste (heures par unité)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'implantation.echelle': { libelle: 'Échelle du plan d’implantation', zone: Z6, nature: 'donnee', ecrit: SAISIE },
   'implantation.imprimer': { libelle: 'Imprimer le plan d’implantation', zone: Z6, nature: 'sortie' },
+  // Le profil du sol (MD/spec-relief.md §5.4) : la ligne vient d'une cote, ou de la pente proposee.
+  'cote.profil': { libelle: 'Profil du sol le long de cette cote', zone: Z6, nature: 'sortie', repete: true, description: 'Prend les deux bouts de la cote comme ligne du profil et ouvre l’onglet Profil' },
+  'profil.sensPente': { libelle: 'Profil dans le sens de la pente', zone: Z6, nature: 'affichage', description: 'Revient à la ligne que Plan propose : la plus grande pente par le point de référence' },
 
   // ---- Feuilles et notifications : les cadres communs ------------------------------------------
   'feuille.hauteur': { libelle: 'Hauteur de la feuille (glisser la poignée)', zone: FEUILLES, nature: 'navigation', repete: true, dansChaqueZone: true },
@@ -144,6 +173,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
 
   // ---- Barre de sélection et navigation du bas (tablette, téléphone) ------------------------------
   'selection.deselectionner': { libelle: 'Désélectionner', zone: SELECTION, nature: 'navigation' },
+  'objet.aligner.distance': { libelle: 'Distance au trait de l’outil Aligner', zone: SELECTION, nature: 'option', description: 'Vide : l’objet tourne seulement ; un nombre : il se pose aussi à cette distance du côté désigné' },
   'selection.proprietes': { libelle: 'Propriétés de l’objet sélectionné', zone: SELECTION, nature: 'navigation', description: 'Ouvre l’inspecteur' },
   'selection.resultats': { libelle: 'Chiffrage ou résultats de l’objet sélectionné', zone: SELECTION, nature: 'navigation', description: 'Ouvre le tiroir des résultats' },
   'navigation.objets': { libelle: 'Objets', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille de l’explorateur' },
@@ -160,6 +190,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'dialogue.confirmer': etape(Z8, DIALOGUE, 'Confirmer (action irréversible)'),
   'dialogue.secondaire': etape(Z8, DIALOGUE, 'Réponse secondaire d’un choix'),
   'dialogue.principal': etape(Z8, DIALOGUE, 'Réponse principale d’un choix'),
+  'dialogue.tertiaire': etape(Z8, DIALOGUE, 'Troisième réponse d’un choix (« Rester »)'),
+  'dialogue.nombre': etape(Z8, DIALOGUE, 'Nombre d’un choix (la profondeur d’un décroché)'),
+  'dialogue.case': etape(Z8, DIALOGUE, 'Option d’un choix (case à cocher)', { repete: true }),
   'dialogue.action': etape(Z8, DIALOGUE, 'Action d’un message'),
   // Premier pas (zones/PremierPas.tsx) : par quoi commencer, quand il n'y a aucun plan.
   'premierPas.adresse': etape(Z8, 'démarrage sans projet', 'Partir d’une adresse'),
@@ -177,16 +210,224 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.importerVoisine': etape(Z8, IMPORT, 'Importer une parcelle voisine', { repete: true }),
   'cadastre.principale': etape(Z8, IMPORT, 'En faire la parcelle principale', { repete: true }),
   'cadastre.coucheIgn': etape(Z8, IMPORT, 'Couche BD TOPO à importer (bâti, végétation…)', { repete: true }),
+  'cadastre.relief': etape(Z8, IMPORT, 'Lire le relief du terrain à la création du plan'),
+  'cadastre.reliefToutes': etape(Z8, IMPORT, 'Relief sur toutes les parcelles importées'),
+  'cadastre.voisinageEtendu': etape(Z8, IMPORT, 'Ajouter le voisinage étendu', { repete: true }),
+  'cadastre.rayon': etape(Z8, IMPORT, 'Rayon du voisinage étendu, de 10 à 1 500 m', { repete: true }),
+  'cadastre.afficherEtendu': etape(Z8, IMPORT, 'Afficher le voisinage étendu (aperçu et ouverture du plan)', { repete: true }),
+  'cadastre.importDirect': etape(Z8, IMPORT, 'Import direct, sans les étapes 2 et 3'),
+  'cadastre.maPosition': etape(Z8, IMPORT, 'Utiliser ma position (GPS) pour trouver la parcelle'),
+  'cadastre.ajuster': etape(Z8, IMPORT, 'Ajuster l’import direct (étapes 2 et 3)'),
+  'cadastre.creerDirect': etape(Z8, IMPORT, 'Créer le projet depuis le résumé de l’import direct', { ecrit: { annulable: false, droits: 'commande' } }),
   'cadastre.cocherMitoyennes': etape(Z8, IMPORT, 'Cocher toutes les mitoyennes'),
   'cadastre.toutDecocher': etape(Z8, IMPORT, 'Tout décocher'),
   'cadastre.retour': etape(Z8, IMPORT, 'Retour à l’étape précédente'),
   'cadastre.nomProjet': etape(Z8, IMPORT, 'Nom du projet'),
   'cadastre.creerProjet': etape(Z8, IMPORT, 'Créer (ou remplir) le projet', { ecrit: { annulable: false, droits: 'commande' } }),
   // Actualiser IGN (zones/parcours/Actualisation.tsx).
+  // Le mode audit (zones/parcours/AuditCas.tsx, AuditFin.tsx) : la fiche s'ouvre d'un appui long sur
+  // un batiment de la Vue 3D, ou depuis la liste des cas.
+  'audit.categorie': etape(Z8, FICHE_AUDIT, 'Catégorie du problème noté', { repete: true }),
+  'audit.probleme': etape(Z8, FICHE_AUDIT, 'Problème constaté (plusieurs possibles)', { repete: true }),
+  'audit.note': etape(Z8, FICHE_AUDIT, 'Note sur le bâtiment'),
+  'audit.ceQueJeVois': etape(Z8, FICHE_AUDIT, 'Déplier « Ce que je vois » (facultatif)'),
+  'audit.photo': etape(Z8, FICHE_AUDIT, 'Prendre une photo du bâtiment (huit au plus)', { repete: true }),
+  'audit.retirerPhoto': etape(Z8, FICHE_AUDIT, 'Retirer une photo', { repete: true }),
+  'audit.toucherPhoto': etape(Z8, FICHE_AUDIT, 'Toucher la façade sur une photo dont la couleur n’a pas été lue', { repete: true }),
+  'audit.toucherFacade': etape(Z8, FICHE_AUDIT, 'Point touché sur la façade de la photo : sa couleur est lue autour'),
+  'audit.toucherPlusTard': etape(Z8, FICHE_AUDIT, 'Remettre à plus tard le toucher de la façade'),
+  'audit.retirerMarque': etape(Z8, FICHE_AUDIT, 'Retirer la marque du bâtiment'),
+  'audit.fermerCas': etape(Z8, FICHE_AUDIT, 'Fermer la fiche'),
+  'audit.modifier': etape(Z8, 'audit.cas', 'Modifier la fiche d’un bâtiment noté', { repete: true }),
+  'audit.retirer': etape(Z8, 'audit.cas', 'Retirer un bâtiment de la liste', { repete: true }),
+  'audit.continuer': etape(Z8, 'audit.cas', 'Continuer la promenade'),
+  'audit.partager': etape(Z8, 'audit.cas', 'Partager le fichier de la promenade'),
+  // L'audit de la parcelle, phase 1 (zones/parcours/AuditParcelle.tsx) : la liste de controle et
+  // l'ecran de prise. Rien n'ecrit dans le projet : la capture vit dans le brouillon de l'appareil.
+  'auditParcelle.prise': etape(Z8, AUDIT_PARCELLE, 'Photographier en marchant : l’écran de prise sur la Vue 3D'),
+  'auditParcelle.voirFacade': etape(Z8, AUDIT_PARCELLE, 'Montrer les photos d’une façade', { repete: true }),
+  'auditParcelle.photographierFacade': etape(Z8, AUDIT_PARCELLE, 'Photographier cette façade (choisie dans la liste)', { repete: true }),
+  'auditParcelle.inaccessible': etape(Z8, AUDIT_PARCELLE, 'Marquer une façade inaccessible, ou la rendre à la liste', { repete: true }),
+  'auditParcelle.retirerPhoto': etape(Z8, AUDIT_PARCELLE, 'Retirer une photo de la capture', { repete: true }),
+  'auditParcelle.noter': etape(Z8, AUDIT_PARCELLE, 'Noter une ligne (toit, cheminées, terrasse, matériaux, clôture, portail)', { repete: true }),
+  'auditParcelle.photoToit': etape(Z8, AUDIT_PARCELLE, 'Photo du toit, rangée sur le bâtiment', { repete: true }),
+  'auditParcelle.typeCloture': etape(Z8, AUDIT_PARCELLE, 'Type de la clôture côté rue', { repete: true }),
+  'auditParcelle.hauteurCloture': etape(Z8, AUDIT_PARCELLE, 'Hauteur de la clôture côté rue, en mètres'),
+  'auditParcelle.soubassement': etape(Z8, AUDIT_PARCELLE, 'Soubassement de la clôture', { repete: true }),
+  'auditParcelle.photoCloture': etape(Z8, AUDIT_PARCELLE, 'Photo de la clôture côté rue'),
+  'auditParcelle.naturePortail': etape(Z8, AUDIT_PARCELLE, 'Portail, portillon, ou aucun', { repete: true }),
+  'auditParcelle.positionPortail': etape(Z8, AUDIT_PARCELLE, 'Position du portail le long de la limite', { repete: true }),
+  'auditParcelle.largeurPortail': etape(Z8, AUDIT_PARCELLE, 'Largeur du portail, en mètres'),
+  'auditParcelle.photoPortail': etape(Z8, AUDIT_PARCELLE, 'Photo du portail'),
+  'auditParcelle.completer': etape(Z8, AUDIT_PARCELLE, 'Compléter une capture terminée'),
+  // Les phases 2 et 3 (zones/parcours/PropositionsAudit.tsx) : les mesures deviennent des
+  // propositions, montrees avant et apres dans la Vue 3D ; seul « Valider » ecrit dans le projet.
+  'auditParcelle.propositions': etape(Z8, AUDIT_PARCELLE, 'Voir les propositions de l’audit, sur la Vue 3D'),
+  'auditParcelle.avantApres': etape(Z8, AUDIT_PARCELLE, 'Vue 3D avant ou après les propositions cochées (sans modifier le projet)', { repete: true }),
+  'auditParcelle.retenirSource': etape(Z8, AUDIT_PARCELLE, 'Retenir le groupe de sources que l’on juge juste', { repete: true }),
+  'auditParcelle.forcerValeur': etape(Z8, AUDIT_PARCELLE, 'Forcer une valeur pour un attribut', { repete: true }),
+  'auditParcelle.reprendreChoix': etape(Z8, AUDIT_PARCELLE, 'Reprendre le choix du moteur', { repete: true }),
+  'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
+  'auditParcelle.voirLigne': etape(Z8, AUDIT_PARCELLE, 'Voir dans la 3D ce que vise une proposition : surlignée dans les deux vues, la caméra tournée vers elle, montrée dans « Après » même décochée', { repete: true }),
+  'auditParcelle.replier': etape(Z8, AUDIT_PARCELLE, 'Replier ou déplier la liste des propositions : la parcelle se voit en grand (affichage seul)', { repete: true }),
+  'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),
+  'auditParcelle.reinitialiser': etape(Z8, AUDIT_PARCELLE, 'Réinitialiser mes décisions : défaire les cases et les choix de sources, tout revient à ce que le moteur propose (aperçu seul, rien n’est écrit)', { repete: true }),
+  // Le fichier de l'audit (§15) : partage pour le corpus (case cochee par defaut, revocable), et le
+  // fichier lui-meme pour l'administrateur. Ni l'un ni l'autre n'ecrit dans le projet.
+  'auditParcelle.partagerCorpus': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (décocher le retire du serveur)', { repete: true }),
+  'auditParcelle.fichier': etape(Z8, AUDIT_PARCELLE, 'Fichier de l’audit : le partager ou le télécharger (administrateur)'),
+  // Admin › Audits de parcelle (zones/parcours/AuditsParcelle.tsx) : les audits recus sur le serveur.
+  // Rien n'ecrit dans le projet : « Ouvrir » reprend l'audit dans sa session, comme un import.
+  'auditsParcelle.avantApres': etape(Z8, CATALOGUE_AUDITS, 'Voir l’avant et l’après d’un audit reçu sur la Vue 3D de ce projet (même parcelle), en lecture seule', { repete: true }),
+  'auditsParcelle.retour': etape(Z8, AUDIT_PARCELLE, 'Revenir aux audits reçus depuis leur avant et après'),
+  'auditsParcelle.ouvrir': etape(Z8, CATALOGUE_AUDITS, 'Ouvrir dans ce projet un audit reçu (même parcelle), à la phase où il en était', { repete: true }),
+  'auditsParcelle.telecharger': etape(Z8, CATALOGUE_AUDITS, 'Télécharger le fichier d’un audit reçu, tel qu’il est arrivé', { repete: true }),
+  'auditsParcelle.retirer': etape(Z8, CATALOGUE_AUDITS, 'Retirer un audit reçu du serveur (demande confirmation)', { repete: true }),
+  'auditsParcelle.confirmerRetrait': etape(Z8, CATALOGUE_AUDITS, 'Confirmer le retrait d’un audit reçu : il quitte le serveur', { repete: true }),
+  'auditsParcelle.garder': etape(Z8, CATALOGUE_AUDITS, 'Garder l’audit reçu (renoncer au retrait)', { repete: true }),
+  'auditsParcelle.relire': etape(Z8, CATALOGUE_AUDITS, 'Relire la liste des audits reçus'),
+  'auditsParcelle.fermer': etape(Z8, CATALOGUE_AUDITS, 'Fermer le catalogue des audits reçus'),
+  // Les donnees, la conclusion, les analyses et les rejeux d'un audit (spec-audit 15.4, 15.5). Rien
+  // n'ecrit dans le projet ; un rejeu part chez Claude sous les plafonds de l'analyse.
+  'auditsParcelle.details': etape(Z8, CATALOGUE_AUDITS, 'Voir les données, la conclusion et les analyses d’un audit reçu', { repete: true }),
+  'auditsParcelle.deposer': etape(Z8, CATALOGUE_AUDITS, 'Ajouter au serveur un fichier d’audit du poste (parcelle ou promenade)'),
+  'auditsParcelle.modeleRejeu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le modèle du prochain rejeu', { repete: true }),
+  'auditsParcelle.essaiRejeu': etape(Z8, CATALOGUE_AUDITS, 'Rejouer avec le prompt du brouillon des règles (Admin › Règles) au lieu du prompt livré', { repete: true }),
+  'auditsParcelle.remesurer': etape(Z8, CATALOGUE_AUDITS, 'Relancer l’analyse des photos de façade d’un audit stocké : ses photos repassent par les mesures d’aujourd’hui et se poussent sur les façades du projet', { repete: true }),
+  'auditsParcelle.confirmerRejeu': etape(Z8, CATALOGUE_AUDITS, 'Confirmer le rejeu de l’analyse par Claude (appel facturé)', { repete: true }),
+  'auditsParcelle.annulerRejeu': etape(Z8, CATALOGUE_AUDITS, 'Renoncer au rejeu de l’analyse par Claude', { repete: true }),
+  'auditsParcelle.rejouer': etape(Z8, CATALOGUE_AUDITS, 'Demander le rejeu de l’analyse par Claude d’un audit stocké, avec le prompt actuel (ou celui du brouillon des règles) et le modèle choisi ; il se confirme avant de partir', { repete: true }),
+  'auditsParcelle.comparerAvec': etape(Z8, CATALOGUE_AUDITS, 'Comparer les réponses de l’analyse ouverte à celles d’une autre analyse du même audit', { repete: true }),
+  'auditsParcelle.relireAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Relire les analyses d’un audit, et suivre celles en cours', { repete: true }),
+  'auditsParcelle.exporterAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Exporter en CSV la comparaison des analyses d’un audit', { repete: true }),
+  'auditsParcelle.voirAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Voir une analyse en entier : ce qui est parti chez Claude et ce qu’il a rendu', { repete: true }),
+  'auditsParcelle.exporterAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Exporter une analyse en JSON (entrant, sortant, résumé)', { repete: true }),
+  'auditsParcelle.fermerAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Refermer le détail d’une analyse', { repete: true }),
+  // Les donnees d'analyse (lot L0, MD/spec-lecture-ia-elargie.md 4.8) : l'export a travers les audits, et le rejeu d'une facade
+  // depuis son image gardee. Rien n'ecrit dans le projet ; le rejeu part chez Claude sous les plafonds de l'analyse.
+  'auditsParcelle.exportDu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le premier jour de l’export des données d’analyse'),
+  'auditsParcelle.exportAu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le dernier jour de l’export des données d’analyse'),
+  'auditsParcelle.exportUsage': etape(Z8, CATALOGUE_AUDITS, 'Limiter l’export des données d’analyse à un usage (analyse, façade, escalade, rejeu…)'),
+  'auditsParcelle.exportModele': etape(Z8, CATALOGUE_AUDITS, 'Limiter l’export des données d’analyse à un modèle'),
+  'auditsParcelle.exporterDonneesJson': etape(Z8, CATALOGUE_AUDITS, 'Exporter en JSON les données d’analyse de la période : chaque requête à Claude de tous les audits et hors audit, sa sortie et sa réponse brute, et chaque proposition avec sa décision'),
+  'auditsParcelle.exporterDonneesCsv': etape(Z8, CATALOGUE_AUDITS, 'Exporter en CSV (tableur français) les données d’analyse de la période : une ligne par requête et par proposition'),
+  'auditsParcelle.rejouerFacade': etape(Z8, CATALOGUE_AUDITS, 'Rejouer le run d’une façade depuis son image gardée : les mêmes octets et le même texte, avec le prompt et le modèle d’aujourd’hui (appel facturé)', { repete: true }),
+  // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
+  // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
+  // Admin › Calibrer la detection (zones/EcranCalibration.tsx, EditeurCasCalibration.tsx) : des photos de facades annotees, la mesure de la
+  // detection sur elles et les reglages calibres, enregistres sur le serveur (data/admin/). Rien n'ecrit dans un projet.
+  'calibration.ouvrirCas': etape(Z8, CALIBRATION, 'Ouvrir un cas de calibration', { repete: true }),
+  'calibration.ongletCas': etape(Z8, CALIBRATION, 'Montrer les cas et les étalons de la calibration, étape par étape'),
+  'calibration.ongletReglages': etape(Z8, CALIBRATION, 'Montrer, à part des cas, les réglages en usage, la mesure et la calibration, et l’historique'),
+  // Les etalons de synthese (facade/banc/etalons.ts) : les scenes du banc des facades, ouvertes comme un cas, en lecture seule.
+  'calibration.etalons': etape(Z8, CALIBRATION, 'Déplier la liste des étalons de synthèse : les scènes du banc des façades, à côté des cas réels'),
+  'calibration.creerProjetEtalon': etape(Z8, CALIBRATION, 'Créer le projet de démonstration d’un étalon : le bâtiment autour du mur (deux pans à 40°, 9 m de profondeur, le pignon gardé, les parties basses en appentis adossés) et sa façade mesurée et validée comme dans l’audit, enregistré dans les démos de l’admin', { repete: true }),
+  'calibration.ouvrirProjetEtalon': etape(Z8, CALIBRATION, 'Ouvrir le projet de démonstration d’un étalon qui vient d’être créé, dans l’atelier'),
+  'calibration.ouvrirEtalon': etape(Z8, CALIBRATION, `Ouvrir un étalon de synthèse : ses photos dessinées dans le navigateur, déroulées ${DE_E1_A_LA_FIN} comme un cas, sans rien enregistrer`, { repete: true }),
+  'calibration.nomCas': etape(Z8, CALIBRATION, 'Nommer le cas'),
+  'calibration.largeurM': etape(Z8, CALIBRATION, 'Largeur réelle du mur du cas'),
+  'calibration.hauteurM': etape(Z8, CALIBRATION, 'Hauteur du mur du cas, à l’égout'),
+  'calibration.choisirPhoto': etape(Z8, CALIBRATION, 'Choisir la photo du cas à montrer', { repete: true }),
+  'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas (après confirmation) : le cas se rejoue sans elle', { repete: true }),
+  'calibration.avancerPhoto': etape(Z8, CALIBRATION, 'Avancer une photo d’un rang dans la séquence du cas : la chaîne prend les photos dans cet ordre, le cas se rejoue', { repete: true }),
+  'calibration.reculerPhoto': etape(Z8, CALIBRATION, 'Reculer une photo d’un rang dans la séquence du cas : la chaîne prend les photos dans cet ordre, le cas se rejoue', { repete: true }),
+  'calibration.glisserPhoto': etape(Z8, CALIBRATION, 'Glisser une photo du cas sur une autre, à la souris : elle prend sa place dans la séquence, le cas se rejoue', { repete: true }),
+  'calibration.ajouterPhotos': etape(Z8, CALIBRATION, 'Ajouter des photos au cas, importées d’un fichier (huit au plus) : préparées comme dans l’audit, leur EXIF gardé dans leur optique ; le cas se rejoue'),
+  'calibration.fichiersPhotos': etape(Z8, CALIBRATION, 'Le choix des fichiers des photos à ajouter au cas (sans caméra : les photos se prennent dans l’audit)'),
+  'calibration.nouveauCasPhotos': etape(Z8, CALIBRATION, 'Créer un cas depuis des photos importées d’un fichier (huit au plus, dans l’ordre choisi) : préparées comme dans l’audit, sans contexte du plan (largeur et hauteur du mur données à la main) ; le cas s’ouvre et se rejoue'),
+  'calibration.fichiersNouveauCas': etape(Z8, CALIBRATION, 'Le choix des fichiers des photos d’un nouveau cas (sans caméra : un import, jamais une prise de vue)'),
+  'reperes.ajusterMur': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Montrer l’image prise pour la suite (l’assemblage des photos de la façade, ou la photo redressée entière quand elle est seule) pour tirer à la main l’égout, le sol et les bouts du mur (le geste « quatre repères », le même dans l’audit et la calibration)', { repete: true }),
+  'calibration.appliquerCalage': etape(Z8, CALIBRATION, `Appliquer le calage tiré à la main sur l’assemblage (${libelleEtape('calage')} : bouts, égout, sol) : le mur posé sur chaque photo, puis le cas rejoué en entier, comme dans l’audit`),
+  'calibration.retablirCalage': etape(Z8, CALIBRATION, 'Revenir au mur retenu : les bouts, l’égout et le sol reprennent leur place'),
+  'calibration.retirerReperes': etape(Z8, CALIBRATION, 'Retirer les quatre repères d’une photo : elle se redresse de nouveau par ses points de fuite'),
+  'calibration.revenirMurCherche': etape(Z8, CALIBRATION, 'Retirer le mur posé à la main d’une photo (et des photos de son assemblage) : au rejeu, la chaîne cherche le mur de nouveau ; Ctrl+Z le remet'),
+  'calibration.depuisAudit': etape(Z8, CALIBRATION, 'Créer un cas depuis un audit de parcelle reçu (photos, largeur du cadastre, hauteur du LiDAR)'),
+  'calibration.choisirAudit': etape(Z8, CALIBRATION, 'Choisir l’audit dont tirer un cas', { repete: true }),
+  'calibration.choisirFacade': etape(Z8, CALIBRATION, 'Choisir la façade photographiée qui devient le cas', { repete: true }),
+  'calibration.rejouer': etape(Z8, CALIBRATION, `Rejouer le cas comme l’audit le traite, étape par étape, ${DE_E1_A_LA_FIN} : ` + ETAPES_FACADE.slice(2, -1).map((e) => libelleEtape(e.id)).join(', ')),
+  'calibration.modeDeterministe': etape(Z8, CALIBRATION, 'Rejouer le cas sans Claude : la chaîne déterministe seule'),
+  'calibration.modeIa': etape(Z8, CALIBRATION, `Rejouer le cas avec une réponse de Claude enregistrée, sans réseau ni coût, à l’${libelleEtape('lectureIa')} : ses deux angles (l’accord avec la pose retenue), ses pointes (lues par le diagnostic, ${num('diagnostic')}), ses boîtes et leurs carreaux (l’accord avec la détection)`),
+  'calibration.choisirRun': etape(Z8, CALIBRATION, 'Choisir la réponse de Claude que le mode IA rejoue (date, passes, modèle, versions du prompt et du schéma, coût)'),
+  'calibration.rappelerClaude': etape(Z8, CALIBRATION, 'Rappeler Claude sur l’assemblage du cas, en trois passes votées (le réglage `facades.ia.passes`, la production), en disant son coût ; la réponse s’ajoute aux précédentes'),
+  'calibration.rappelerClaude1': etape(Z8, CALIBRATION, 'Rappeler Claude en une passe, pour mesurer ce que le vote des trois apporte contre son coût'),
+  'calibration.relireOuvertures': etape(Z8, CALIBRATION, `Relire les ouvertures que la détection a trouvées (V3), le même regard que dans l’audit : l’${num('ouvertures')} n’est faite qu’après lui`, { repete: true }),
+  'calibration.rejouerDepuis': etape(Z8, CALIBRATION, `Rejouer le cas depuis l’étape ouverte (${num('preparation')} à ${ETAPES_FACADE[ETAPES_FACADE.length - 1]?.numero ?? ''}), avec ce que les précédentes ont donné`),
+  'barreFacade.arreter': etape(Z8, AUDIT_PARCELLE + ', ou ' + CALIBRATION, 'Arrêter l’enchaînement de la façade en cours : les étapes restantes restent à venir'),
+  'calibration.proposer': etape(Z8, CALIBRATION, 'Partir des ouvertures que la détection propose'),
+  'calibration.originePhoto': etape(Z8, CALIBRATION, 'Lire d’où viennent les coins d’une photo ajoutée (trouvés, devinés à vérifier, posés à la main)', { repete: true }),
+  'calibration.tracer': etape(Z8, CALIBRATION, 'Basculer le tracé d’ouvertures sur le mur redressé (coupé : le doigt fait défiler la page)'),
+  'calibration.viderBaies': etape(Z8, CALIBRATION, 'Effacer toutes les ouvertures annotées'),
+  'calibration.retirerBaie': etape(Z8, CALIBRATION, 'Retirer l’ouverture choisie', { repete: true }),
+  'calibration.valide': etape(Z8, CALIBRATION, 'Marquer le cas relu sur la photo : il compte dans la calibration'),
+  'calibration.enregistrerCas': etape(Z8, CALIBRATION, 'Enregistrer le cas sur le serveur'),
+  'calibration.fermerCas': etape(Z8, CALIBRATION, 'Fermer le cas sans rien changer de plus'),
+  'calibration.supprimerCas': etape(Z8, CALIBRATION, 'Supprimer le cas (le fichier est mis de côté sur le serveur)'),
+  'calibration.charger': etape(Z8, CALIBRATION, 'Charger les cas validés : redressement fait une fois'),
+  'calibration.calibrer': etape(Z8, CALIBRATION, 'Chercher de meilleurs réglages de détection sur les cas validés'),
+  'calibration.reglageCalibre': etape(Z8, CALIBRATION, 'Choisir les réglages que la calibration cherche', { repete: true }),
+  'calibration.ecarter': etape(Z8, CALIBRATION, 'Écarter les réglages proposés par la calibration'),
+  'calibration.appliquer': etape(Z8, CALIBRATION, 'Appliquer les réglages proposés : enregistrés sur le serveur, pris par chaque page'),
+  'calibration.revenir': etape(Z8, CALIBRATION, 'Revenir aux valeurs livrées avec Plan (l’historique est gardé)'),
+  'auditParcelle.confirmerObservation': etape(Z8, AUDIT_PARCELLE, 'Je confirme (case) : une observation de Claude sur le toit devient ce que vous avez vu (« Ce que je vois »), relue ensuite par le moteur des toits ; décochée, elle rend ce qu’il y avait', { repete: true }),
+  'auditParcelle.reinitialiserConfirmations': etape(Z8, AUDIT_PARCELLE, 'Réinitialiser mes confirmations : défaire tous les « Je confirme » faits sur les observations de Claude (« Ce que je vois » retrouve ce qu’il disait)', { repete: true }),
+  'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),
+  'auditParcelle.sansAnalyse': etape(Z8, AUDIT_PARCELLE, 'Seulement les mesures : ne pas envoyer les photos'),
+  'auditParcelle.partagerAudit': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (cochée par défaut)'),
+  'auditParcelle.retirerAccord': etape(Z8, AUDIT_PARCELLE, 'Retirer l’accord : plus aucune photo ne part, les propositions de Claude sont retirées'),
+  'auditParcelle.relancerAnalyse': etape(Z8, AUDIT_PARCELLE, 'Relancer l’analyse par Claude (photos changées, ou envoi échoué)'),
+  'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle, depuis la liste, la prise ou les propositions (rien n’est perdu)'),
+  'auditParcelle.rejouerFacade': etape(Z8, AUDIT_PARCELLE, 'Rejouer l’enchaînement d’une façade (l’orchestrateur) : ne remplace que ce qui est dérivé, jamais les photos ni vos corrections', { repete: true }),
+  'auditParcelle.rejouerFacades': etape(Z8, AUDIT_PARCELLE, 'Rejouer l’enchaînement de toutes les façades photographiées de l’audit'),
+  'auditParcelle.actionsEtape': etape(Z8, AUDIT_PARCELLE, 'Déplier ce que l’étape ouverte de la façade a fait : ses actions (Code, Claude, Manuel), leur avant et leur après, en lecture', { repete: true }),
+  'auditParcelle.relireOuvertures': etape(Z8, AUDIT_PARCELLE, 'Relire les ouvertures trouvées sur la façade (V3) : les garder, corriger, ajouter ou retirer avant de la valider', { repete: true }),
+  'facade.garderOuvertures': etape(Z8, AUDIT_PARCELLE, `Garder les ouvertures relues (V3) : l’${num('ouvertures')} est faite, et la validation (V4) écrira celles-là ; Ctrl+Z défait ce geste avant V4`, { repete: true }),
+  'facade.annulerRelecture': etape(Z8, AUDIT_PARCELLE, 'Fermer la relecture des ouvertures sans rien garder', { repete: true }),
+  'auditParcelle.placerCoins': etape(Z8, AUDIT_PARCELLE, 'Placer à la main quatre repères (un rectangle du mur) sur une photo : ils la redressent entière (erreur du redressement automatique)', { repete: true }),
+  'auditParcelle.echelleMur': etape(Z8, AUDIT_PARCELLE, 'Corriger l’échelle : la largeur réelle du mur', { repete: true }),
+  'auditParcelle.appliquerCoins': etape(Z8, AUDIT_PARCELLE, 'Appliquer les quatre repères placés : la photo se redresse entière, l’égout et le sol sont cherchés ensuite', { repete: true }),
+  'auditParcelle.retablirCoins': etape(Z8, AUDIT_PARCELLE, 'Revenir au redressement automatique de cette photo (ses repères et le mur tiré s’en vont, la largeur tapée pour l’échelle reste)', { repete: true }),
+  'auditParcelle.annulerCoins': etape(Z8, AUDIT_PARCELLE, 'Fermer la pose des coins sans rien changer', { repete: true }),
+  'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
+  'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
+  'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),
+  'auditParcelle.verrouiller': etape(Z8, AUDIT_PARCELLE, 'Verrouiller un bâtiment pour la prise (annexe sur la parcelle) : seul lui est visé', { repete: true }),
+  'auditParcelle.suivrePosition': etape(Z8, AUDIT_PARCELLE, 'Revenir à la façade reconnue par la position'),
+  'auditParcelle.photo': etape(Z8, AUDIT_PARCELLE, 'Prendre une photo, rangée sur la façade visée', { repete: true }),
+  // « Ce que je vois » (zones/parcours/CeQueJeVois.tsx), partage par l'audit de la parcelle et la
+  // fiche de la promenade : toucher un choix retenu le retire.
+  'vu.forme': etape(Z8, CE_QUE_JE_VOIS, 'Forme du toit', { repete: true }),
+  'vu.autresFormes': etape(Z8, CE_QUE_JE_VOIS, 'Montrer les autres formes de toit'),
+  'vu.sensFaitage': etape(Z8, CE_QUE_JE_VOIS, 'Sens du faîtage par rapport à la rue', { repete: true }),
+  'vu.bouts': etape(Z8, CE_QUE_JE_VOIS, 'Bouts du toit (pignons, croupes)', { repete: true }),
+  'vu.lucarnes': etape(Z8, CE_QUE_JE_VOIS, 'Nombre de lucarnes', { repete: true }),
+  'vu.appentis': etape(Z8, CE_QUE_JE_VOIS, 'Appentis ouvert ou fermé', { repete: true }),
+  'vu.panLucarnes': etape(Z8, CE_QUE_JE_VOIS, 'Pan des lucarnes', { repete: true }),
+  'vu.cheminees': etape(Z8, CE_QUE_JE_VOIS, 'Nombre de cheminées', { repete: true }),
+  'vu.positionCheminee': etape(Z8, CE_QUE_JE_VOIS, 'Position d’une cheminée', { repete: true }),
+  'vu.materiauCheminee': etape(Z8, CE_QUE_JE_VOIS, 'Matériau d’une cheminée', { repete: true }),
+  'vu.couronnement': etape(Z8, CE_QUE_JE_VOIS, 'Couronnement d’une cheminée', { repete: true }),
+  'vu.accessible': etape(Z8, CE_QUE_JE_VOIS, 'Toiture-terrasse accessible ou non', { repete: true }),
+  'vu.revetement': etape(Z8, CE_QUE_JE_VOIS, 'Revêtement de la toiture-terrasse', { repete: true }),
+  'vu.acrotere': etape(Z8, CE_QUE_JE_VOIS, 'Hauteur de l’acrotère, à vue', { repete: true }),
+  'vu.gardeCorps': etape(Z8, CE_QUE_JE_VOIS, 'Garde-corps de la terrasse', { repete: true }),
+  'vu.edicules': etape(Z8, CE_QUE_JE_VOIS, 'Nombre d’édicules sur la terrasse', { repete: true }),
+  'vu.murs': etape(Z8, CE_QUE_JE_VOIS, 'Matériau des murs', { repete: true }),
+  'vu.couverture': etape(Z8, CE_QUE_JE_VOIS, 'Matériau de la couverture', { repete: true }),
   'actualisation.portee': etape(Z8, ACTUALISER, 'Portée : la parcelle ou tout le plan', { repete: true }),
   'actualisation.voisinage': etape(Z8, ACTUALISER, 'Actualiser aussi le voisinage'),
+  'actualisation.rayon': etape(Z8, ACTUALISER, 'Portée du voisinage : parcelles adjacentes, ou tout dans un rayon', { repete: true }),
+  'actualisation.rayonM': etape(Z8, ACTUALISER, 'Rayon du voisinage, de 10 à 1 500 m'),
   'actualisation.couche': etape(Z8, ACTUALISER, 'Couche du voisinage (bâti, végétation, arbres)', { repete: true }),
+  'actualisation.relief': etape(Z8, ACTUALISER, 'Relire le relief du terrain'),
+  'actualisation.reliefToutes': etape(Z8, ACTUALISER, 'Relief sur toutes les parcelles du plan'),
+  'actualisation.reprendre': etape(Z8, ACTUALISER, 'Reprendre la version de l’IGN d’un objet retouché à la main', { repete: true }),
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
+  // La declaration prealable (zones/parcours/Declaration.tsx) : ses champs sont ceux de ui/champs/declaration.ts.
+  'declaration.fermer': etape(Z8, 'export.ouvrirDeclaration', 'Fermer la déclaration préalable'),
+  // L'assistant (lot L6, zones/parcours/Assistant.tsx) : la demande se saisit, ses boutons sont des commandes (`assistant.envoyer`,
+  // `assistant.appliquer`) ; la saisie ne touche pas au projet, la liste ne s'applique que par sa commande.
+  'assistant.demande': etape(Z8, 'assistant.demander', 'Demander (la demande à l’assistant)'),
+  'assistant.fermer': etape(Z8, 'assistant.demander', 'Fermer l’assistant'),
   'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser', { ecrit: { annulable: true, droits: 'commande' } }),
   // Choix d'une texture (zones/parcours/ChoixTexture.tsx).
   'texture.fermer': etape(Z8, TEXTURE, 'Fermer le choix de texture'),
@@ -196,30 +437,17 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'texture.annuler': etape(Z8, TEXTURE, 'Annuler le choix de texture'),
   'texture.enregistrer': etape(Z8, TEXTURE, 'Enregistrer la texture', { ecrit: { annulable: true, droits: 'lectureSeule' } }),
 
-  // ---- Le releve de facade (zones/Releve.tsx), ecran plein --------------------------------------
-  'releve.fermer': etape(RELEVE, RELEVER, 'Fermer le relevé'),
-  'releve.choisirMur': etape(RELEVE, RELEVER, 'Choisir le mur à relever', { repete: true }),
-  'releve.objectif': etape(RELEVE, RELEVER, 'Objectif de l’appareil (grand-angle ou principal)', { repete: true }),
-  'releve.champObjectif': etape(RELEVE, RELEVER, 'Champ de l’objectif (degrés)'),
-  'releve.retour': etape(RELEVE, RELEVER, 'Retour'),
-  'releve.declencher': etape(RELEVE, RELEVER, 'Prendre la photo'),
-  'releve.importerPhoto': etape(RELEVE, RELEVER, 'Importer une photo', { repete: true }),
-  'releve.realiteAugmentee': etape(RELEVE, RELEVER, 'Mesure en réalité augmentée'),
-  'releve.niveau': etape(RELEVE, RELEVER, 'Niveau à bulle'),
-  'releve.vignette': etape(RELEVE, RELEVER, 'Choisir une photo du relevé', { repete: true }),
-  'releve.retirerPhoto': etape(RELEVE, RELEVER, 'Retirer une photo', { repete: true }),
-  'releve.formeMur': etape(RELEVE, RELEVER, 'Forme du mur (droit, décroché à gauche ou à droite)', { repete: true }),
-  'releve.cote': etape(RELEVE, RELEVER, 'Cote en centimètres (largeur, hauteur, allège…)', { repete: true }),
-  'releve.reprendre': etape(RELEVE, RELEVER, 'Reprendre la photo'),
-  'releve.ajouterPhoto': etape(RELEVE, RELEVER, 'Ajouter une photo'),
-  'releve.analyser': etape(RELEVE, RELEVER, 'Analyser'),
+  // ---- L'editeur d'une facade relevee (zones/Releve.tsx, lot F6), ecran plein : la capture est dans l'audit -------------------
+  'releve.fermer': etape(RELEVE, RELEVER, 'Fermer l’éditeur de la façade'),
+  'releve.cote': etape(RELEVE, RELEVER, 'Cote en centimètres (depuis la gauche, appui, largeur, hauteur, décrochement…)', { repete: true }),
   'releve.typeOuverture': etape(RELEVE, RELEVER, 'Type d’une ouverture (fenêtre, porte…)', { repete: true }),
   'releve.retirerOuverture': etape(RELEVE, RELEVER, 'Retirer une ouverture', { repete: true }),
+  'releve.verifierOuverture': etape(RELEVE, RELEVER, 'Ouverture vérifiée sur la photo : plus aucun rejeu ne la déplace', { repete: true }),
   'releve.ajouterOuverture': etape(RELEVE, RELEVER, 'Ajouter une ouverture'),
-  'releve.appliquerToit': etape(RELEVE, RELEVER, 'Appliquer le toit relevé au bâtiment'),
-  'releve.formeToit': etape(RELEVE, RELEVER, 'Forme du toit'),
-  'releve.faitage': etape(RELEVE, RELEVER, 'Hauteur du faîtage'),
-  'releve.hauteur': etape(RELEVE, RELEVER, 'Hauteur du mur'),
-  'releve.revoir': etape(RELEVE, RELEVER, 'Revoir le relevé'),
-  'releve.valider': etape(RELEVE, RELEVER, 'Valider le relevé', { ecrit: { annulable: true, droits: 'commande' } })
+  'releve.ajouterDansGrille': etape(RELEVE, RELEVER, 'Ajouter une baie au croisement libre de la grille'),
+  'releve.memeTailleTravee': etape(RELEVE, RELEVER, 'Même taille pour la travée'),
+  'releve.memeHauteurNiveau': etape(RELEVE, RELEVER, 'Même hauteur pour le niveau'),
+  'releve.garderDevinee': etape(RELEVE, RELEVER, 'Garder une baie devinée par la grille (en pointillé)', { repete: true }),
+  'releve.annuler': etape(RELEVE, RELEVER, 'Fermer sans rien écrire'),
+  'releve.valider': etape(RELEVE, RELEVER, 'Valider la façade modifiée', { ecrit: { annulable: true, droits: 'commande' } })
 };

@@ -1,0 +1,119 @@
+{
+ "regle": "Plancher d’une scène entrée au banc après la référence 5.1.0 : ses lignes ×3 à sa première mesure (décision du propriétaire, 3 novembre 2026). Elle ne compte pas dans les totaux, jugés sur les scènes du corpus de référence.",
+ "scenes": {
+  "24-pignon-baie-dans-le-pignon": {
+   "source": {
+    "run": "41610829374",
+    "commit": "680b28a139f64b42216a02abc903b7cfb8c49763",
+    "date": "2026-11-03T09:24:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 6,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 5,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 1,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "25-mur-en-l-garage": {
+   "source": {
+    "run": "41610829374",
+    "commit": "680b28a139f64b42216a02abc903b7cfb8c49763",
+    "date": "2026-11-03T09:24:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 3,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 1,
+    "pointes justes": 0,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "26-partie-haute-au-milieu": {
+   "source": {
+    "run": "41699049779",
+    "commit": "558b7249a7f730ad361cfb0c55c95ff74841c3b3",
+    "date": "2026-11-03T18:59:43Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 6,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 3,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 2,
+    "genre garage retrouvé": 1,
+    "pointes justes": 0,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "27-arbre-devant-pignon": {
+   "source": {
+    "run": "42036876498",
+    "commit": "fa3dfc8a97f16efeedecdbe63ee34a0be966a0ad",
+    "date": "2026-11-05T13:33:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 4,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 1,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "28-cul-de-geai-enduit": {
+   "source": {
+    "run": "42036876498",
+    "commit": "fa3dfc8a97f16efeedecdbe63ee34a0be966a0ad",
+    "date": "2026-11-05T13:33:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 4,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 1,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  },
+  "29-cul-de-geai-faitage-debordant": {
+   "source": {
+    "run": "42036876498",
+    "commit": "fa3dfc8a97f16efeedecdbe63ee34a0be966a0ad",
+    "date": "2026-11-05T13:33:56Z",
+    "note": "Première mesure de la scène (première passe du run, avant toute relance), rejouée par tests/banc/facades/gardeLecture.ts sur l’artefact mesure-facades-x1-x3."
+   },
+   "lignes": {
+    "baies retrouvées (rappel)": 5,
+    "baies en trop (précision)": 0,
+    "genre fenetre retrouvé": 4,
+    "genre porte-fenetre retrouvé": 0,
+    "genre porte retrouvé": 1,
+    "genre garage retrouvé": 0,
+    "pointes justes": 0,
+    "pointes en plus": 0,
+    "parement juste": 1
+   }
+  }
+ }
+}

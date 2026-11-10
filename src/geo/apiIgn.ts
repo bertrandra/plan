@@ -19,10 +19,8 @@ import type { PtBrut, ZoneUrba, PrescriptionPlu, InformationPlu, ServitudePlu, Z
 import type { ParcelleCadastrale, ObjetBdTopo, AdresseRecherchee } from './cadastreObjets.js';
 import type { ProjecteurLocal } from './projection.js';
 
-/** Une position GeoJSON : `[lon, lat]`, parfois suivie de l'altitude — jamais moins de deux nombres. */
-export type Position = [number, number, ...number[]];
-/** Un anneau de coordonnees GeoJSON, non ferme cote appli. */
-export type Anneau = Position[];
+import type { Anneau } from './geojson.js';
+export type { Position, Anneau } from './geojson.js';
 
 /** Une geometrie GeoJSON telle que la rendent API Carto et le WFS — Polygon ou MultiPolygon. */
 export interface GeometrieGeoJSON {
@@ -68,7 +66,14 @@ export interface BboxDeg {
 //   2. API Carto IGNORE les parametres qu'il ne connait pas (?lon=&lat= n'existe pas) au lieu
 //      de renvoyer une erreur : la requete degenere en vidage national, en 200 OK, a l'autre
 //      bout de la France. D'ou les garde-fous de interrogerCadastre().
-export const BAN_URL = 'https://api-adresse.data.gouv.fr/search/';
+//   3. L'API Adresse (api-adresse.data.gouv.fr) est depreciee depuis le 31 janvier 2026 (en-tetes
+//      `Deprecation` et `Sunset`) et renvoie vers le geocodage de la Geoplateforme, meme format
+//      de reponse. Elle repondait encore, mais par intermittence sans en-tete CORS : le navigateur
+//      rejetait alors le geocodage inverse de « Utiliser ma position » (11 octobre 2026). On
+//      interroge directement la Geoplateforme.
+export const BAN_URL = 'https://data.geopf.fr/geocodage/search';
+/** Le geocodage inverse de la BAN : l'adresse la plus proche d'un point. */
+export const BAN_INVERSE_URL = 'https://data.geopf.fr/geocodage/reverse';
 export const CADASTRE_URL = 'https://apicarto.ign.fr/api/cadastre/parcelle';
 export const RESEAU_TIMEOUT_MS = 8000;
 export const RAYONS_RECHERCHE_M = [12, 25, 50];
@@ -149,6 +154,27 @@ export function anneauVersPts(anneau: Anneau, proj: ProjecteurLocal, simplifier:
   return pts.map(p=>({ x:Math.round(p.x*1000)/1000, y:Math.round(p.y*1000)/1000 }));
 }
 
+/**
+ * L'adresse la plus proche d'un point (geocodage inverse de la BAN), ou `null` si la BAN n'en
+ * connait pas. Le point rendu est celui de l'adresse ; l'appelant garde le sien s'il est plus juste.
+ */
+export async function geocoderInverseBAN(lon: number, lat: number): Promise<AdresseRecherchee | null> {
+  const url = BAN_INVERSE_URL + '?lon=' + lon.toFixed(6) + '&lat=' + lat.toFixed(6) + '&limit=1';
+  const data = await fetchJSONReseau(url) as CollectionGeoJSON;
+  const f = data && data.features && data.features[0];
+  if (!f) return null;
+  const pt = f.geometry?.coordinates as [number, number] | undefined;
+  return {
+    label: (f.properties && f.properties.label as string) || '',
+    score: (f.properties && f.properties.score as number) || 0,
+    genre: (f.properties && f.properties.type as string) || '',
+    citycode: (f.properties && f.properties.citycode as string) || '',
+    ville: (f.properties && f.properties.city as string) || '',
+    lon: pt ? pt[0] : lon,
+    lat: pt ? pt[1] : lat
+  };
+}
+
 export async function geocoderBAN(texte: string, autocomplete: boolean): Promise<AdresseRecherchee[]> {
   const url = BAN_URL + '?q=' + encodeURIComponent(texte) + '&limit=5' + (autocomplete ? '&autocomplete=1' : '');
   const data = await fetchJSONReseau(url) as CollectionGeoJSON;
@@ -185,7 +211,22 @@ export function empriseAutourAnneau(anneau: Anneau, proj: ProjecteurLocal, marge
     [lonMin-dLon, latMax+dLat], [lonMin-dLon, latMin-dLat]
   ]]};
 }
-export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string | null | undefined): Promise<FeatureGeoJSON[]> {
+/**
+ * Le code de commune sous lequel le cadastre range une parcelle. Paris, Lyon et Marseille sont
+ * des communes a arrondissements : la BAN rend le code de l'arrondissement (75119, 69382, 13202),
+ * le PCI d'API Carto range toutes leurs parcelles sous celui de la commune (75056, 69123, 13055,
+ * l'arrondissement va dans `code_arr`). Filtrer sur le code de l'arrondissement ne ramenait
+ * aucune parcelle (Zenith de Paris, 6 novembre 2026). Tout autre code passe tel quel.
+ */
+export function communeDuCadastre(code: string): string {
+  if(/^751(0[1-9]|1\d|20)$/.test(code)) return '75056';
+  if(/^6938[1-9]$/.test(code)) return '69123';
+  if(/^132(0[1-9]|1[0-6])$/.test(code)) return '13055';
+  return code;
+}
+
+export async function interrogerCadastre(geom: EmpriseGeoJSON, codeBrut: string | null | undefined): Promise<FeatureGeoJSON[]> {
+  const codeInsee = codeBrut ? communeDuCadastre(codeBrut) : codeBrut;
   let url = CADASTRE_URL + '?geom=' + encodeURIComponent(JSON.stringify(geom)) + '&_limit=60';
   if(codeInsee) url += '&code_insee=' + encodeURIComponent(codeInsee);
   const data = await fetchJSONReseau(url) as CollectionGeoJSON;
@@ -199,6 +240,201 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
     if(etrangere) throw new Error('Reponse incoherente du service cadastre (commune ' + etrangere.properties?.code_insee + ' au lieu de ' + codeInsee + ').');
   }
   return features;
+}
+
+// ---- Voisinage etendu : tout ce qui est dans un rayon, en plusieurs requetes ----------------
+// Un rayon de 500 m, c'est jusqu'a un kilometre carre : des centaines de parcelles et de batiments,
+// bien au-dela d'une page du service. API Carto pagine par `_start` (1 000 par page au plus), le
+// WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
+// qu'une page est pleine et qu'on n'a pas atteint le plafond.
+/**
+ * Le rayon du voisinage etendu se regle au curseur, de 10 a 1 500 m par pas de 10. On lit le
+ * disque par paliers (200, 500, 1 000, 1 500 m) : le palier qui couvre le curseur est lu une
+ * fois, puis filtre au rayon choisi, et le compte suit le curseur sans attendre le reseau tant qu'il
+ * reste sous le palier lu. Lire d'emblee le plus grand disque (sept kilometres carres, des dizaines
+ * de milliers d'objets) pour un curseur a 50 m aurait ete un gaspillage. Un kilometre et demi
+ * (decision de l'utilisateur, octobre 2026) : au-dela, le plan, la Vue 3D et l'enregistrement
+ * s'alourdissent pour un voisinage que personne ne regarde ; cinq kilometres etaient permis avant.
+ */
+export const RAYON_ETENDU_MIN_M = 10;
+export const RAYON_ETENDU_MAX_M = 1500;
+export const RAYON_ETENDU_PAS_M = 10;
+/** Le rayon propose d'abord : de quoi voir la rue, sans charger le quartier. */
+export const RAYON_ETENDU_DEFAUT_M = 50;
+/** Les paliers de lecture du disque, du plus petit au plus grand (le dernier est le maximum du curseur). */
+export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000, 1500];
+/**
+ * Au-dela de ce rayon, le plan s'alourdit vite (des centaines de parcelles et de batiments, chacun
+ * avec sa geometrie) : l'interface previent que l'enregistrement sur la plateforme peut etre refuse.
+ */
+export const RAYON_LEGER_M = 200;
+/** Un rayon ramene dans les bornes du curseur, au pas pres. */
+export function rayonEtenduValide(r: number): number {
+  const v = Math.round((Number.isFinite(r) ? r : RAYON_ETENDU_DEFAUT_M) / RAYON_ETENDU_PAS_M) * RAYON_ETENDU_PAS_M;
+  return Math.min(RAYON_ETENDU_MAX_M, Math.max(RAYON_ETENDU_MIN_M, v));
+}
+/** Le palier de lecture qui couvre un rayon du curseur : le plus petit des paliers qui lui est superieur ou egal. */
+export function rayonDeLecture(rayonM: number): number {
+  return RAYONS_LECTURE_M.find(p => p >= rayonM) ?? RAYON_ETENDU_MAX_M;
+}
+/**
+ * Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus
+ * proches d'abord. Vingt mille (decision de l'utilisateur, octobre 2026) : a dix mille, un voisinage
+ * de deux kilometres au Vesinet s'arretait avant le rayon demande ; a deux mille, le paysage
+ * s'arretait net a quelques centaines de metres.
+ */
+export const MAX_OBJETS_RAYON = 20000;
+/**
+ * Combien d'entites on lit au plus par famille avant de garder les `MAX_OBJETS_RAYON` plus
+ * proches : le service rend les pages dans un ordre quelconque, et lire davantage que ce qu'on garde
+ * rend « les plus proches » a peu pres vrai. Le double du plafond, pas plus : quarante mille entites
+ * sont deja quarante pages par famille, et au-dela la lecture elle-meme deviendrait le prix. Au-dela
+ * d'un kilometre, la lecture par disques croissants (`disquesDeLecture`) fait le reste.
+ */
+export const PLAFOND_LECTURE = MAX_OBJETS_RAYON * 2;
+export function plafondLecture(rayonM: number): number {
+  return rayonM > RAYON_LEGER_M ? PLAFOND_LECTURE : MAX_OBJETS_RAYON;
+}
+/**
+ * Au-dela de ce rayon, une famille se lit en disques croissants (les paliers de lecture) et la
+ * lecture s'arrete au premier disque qui remplit le plafond. Le service rend ses pages dans un
+ * ordre quelconque : lire dix mille objets au hasard d'un disque qui en compte quarante mille,
+ * puis garder les deux mille plus proches, laisserait des trous pres de la parcelle.
+ */
+export const RAYON_PROGRESSIF_M = 1000;
+
+/** Les disques a lire pour un rayon : lui seul jusqu'a `RAYON_PROGRESSIF_M`, les paliers croissants au-dela. */
+export function disquesDeLecture(rayonM: number): number[] {
+  if (rayonM <= RAYON_PROGRESSIF_M) return [rayonM];
+  return [...RAYONS_LECTURE_M.filter(p => p >= RAYON_PROGRESSIF_M && p < rayonM), rayonM];
+}
+
+/**
+ * Les objets d'une famille a moins de `rayonM` de `centre`, du plus proche au plus loin, plafonnes
+ * a `MAX_OBJETS_RAYON` : `lire(r)` rend ce que le service donne pour le disque de rayon `r`. Un
+ * disque plus petit que demande qui remplit deja le plafond suffit : `tronque` le dit.
+ */
+export async function lireAuPlusPres<T extends { pts: PtBrut[] }>(rayonM: number, centre: PtBrut, lire: (r: number) => Promise<T[]>): Promise<{ elements: T[]; tronque: boolean }> {
+  const disques = disquesDeLecture(rayonM);
+  for (const r of disques) {
+    const dedans = (await lire(r)).filter(e => dansLeRayon(e.pts, centre, r));
+    if (dedans.length < MAX_OBJETS_RAYON && r < rayonM) continue;
+    dedans.sort((a, b) => distanceAuCentre(a.pts, centre) - distanceAuCentre(b.pts, centre));
+    return { elements: dedans.slice(0, MAX_OBJETS_RAYON), tronque: dedans.length > MAX_OBJETS_RAYON || r < rayonM };
+  }
+  return { elements: [], tronque: false };
+}
+
+const PAGE_CADASTRE = 1000;
+const PAGE_WFS = 2000;
+
+/** Un sommet au moins a moins de `rayonM` du centre : l'objet touche le disque. */
+export function dansLeRayon(pts: readonly PtBrut[], centre: PtBrut, rayonM: number): boolean {
+  return pts.some(p => Math.hypot(p.x - centre.x, p.y - centre.y) <= rayonM);
+}
+
+/** La distance du centre au sommet le plus proche : l'ordre « les plus proches d'abord ». */
+export function distanceAuCentre(pts: readonly PtBrut[], centre: PtBrut): number {
+  return pts.reduce((d, p) => Math.min(d, Math.hypot(p.x - centre.x, p.y - centre.y)), Infinity);
+}
+
+/**
+ * Les parcelles d'une emprise, page par page, jusqu'a `maxTotal`. Pas de filtre de commune : un
+ * rayon de 500 m traverse les limites communales. Le garde-fou du vidage national est ici la
+ * geometrie : une parcelle dont le premier sommet est a plus d'un kilometre de l'emprise trahit
+ * un parametre ignore, et la reponse entiere est refusee.
+ */
+export async function interrogerCadastreEtendu(geom: EmpriseGeoJSON, maxTotal: number): Promise<FeatureGeoJSON[]> {
+  const anneau = geom.coordinates[0] as Anneau;
+  const lons = anneau.map(c => c[0]), lats = anneau.map(c => c[1]);
+  const marge = 0.015;   // ~1 km
+  const lonMin = Math.min(...lons) - marge, lonMax = Math.max(...lons) + marge, latMin = Math.min(...lats) - marge, latMax = Math.max(...lats) + marge;
+  const out: FeatureGeoJSON[] = [];
+  // La page suivante commence la ou celle-ci s'arrete : un service qui rend moins que demande ne
+  // fait pas sauter de parcelles.
+  for (let start = 0; out.length < maxTotal; start = out.length) {
+    const url = CADASTRE_URL + '?geom=' + encodeURIComponent(JSON.stringify(geom)) + '&_limit=' + PAGE_CADASTRE + '&_start=' + start;
+    const data = await fetchJSONReseau(url) as CollectionGeoJSON;
+    const features = (data && data.features) || [];
+    for (const f of features) {
+      const premier = anneauExterieur(f.geometry)?.[0];
+      if (premier && (premier[0] < lonMin || premier[0] > lonMax || premier[1] < latMin || premier[1] > latMax)) {
+        throw new Error('Reponse incoherente du service cadastre (parcelle hors de l\'emprise demandee).');
+      }
+    }
+    out.push(...features);
+    if (pageFinale(features.length, out.length, data)) break;
+  }
+  return out.slice(0, maxTotal);
+}
+
+/**
+ * La derniere page : vide, ou plus courte que demandee, ou le total annonce est atteint. Le total
+ * (`totalFeatures` chez API Carto, `numberMatched` au WFS) n'est pas obligatoire : on s'en sert
+ * quand il est la, et la page courte suffit sinon.
+ */
+function pageFinale(recus: number, cumul: number, data: CollectionGeoJSON | null | undefined): boolean {
+  if (recus === 0) return true;
+  const total = (data as { totalFeatures?: unknown; numberMatched?: unknown } | null | undefined);
+  const annonce = typeof total?.totalFeatures === 'number' ? total.totalFeatures : typeof total?.numberMatched === 'number' ? total.numberMatched : null;
+  return annonce !== null ? cumul >= annonce : false;
+}
+
+/** Les entites BD TOPO d'une emprise, page par page (`STARTINDEX`), jusqu'a `maxTotal`. */
+export async function interrogerWfsEtendu(couche: string, bbox: BboxDeg, maxTotal: number): Promise<FeatureGeoJSON[]> {
+  const bboxParam = [bbox.latMin, bbox.lonMin, bbox.latMax, bbox.lonMax, 'urn:ogc:def:crs:EPSG::4326'].join(',');
+  const out: FeatureGeoJSON[] = [];
+  for (let start = 0; out.length < maxTotal; start = out.length) {
+    const url = WFS_URL + '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature'
+      + '&TYPENAMES=' + encodeURIComponent(couche)
+      + '&SRSNAME=EPSG:4326&BBOX=' + encodeURIComponent(bboxParam)
+      + '&OUTPUTFORMAT=application/json&COUNT=' + PAGE_WFS + '&STARTINDEX=' + start;
+    const data = await fetchJSONReseau(url) as CollectionGeoJSON;
+    const features = (data && data.features) || [];
+    out.push(...features);
+    if (pageFinale(features.length, out.length, data)) break;
+  }
+  return out.slice(0, maxTotal);
+}
+
+/** Ce que rend la lecture d'un voisinage etendu : les parcelles et le bati du disque, du plus proche au plus loin. */
+export interface VoisinageRayon {
+  rayonM: number;
+  parcelles: Candidate[];
+  batiments: ElementIgn[];
+  /** Vrai si une famille depassait le plafond et a ete coupee aux plus proches. */
+  tronque: boolean;
+}
+
+/**
+ * Les parcelles et les batiments a moins de `rayonM` de `centre` (repere local de `proj`), en
+ * plusieurs requetes : l'emprise est le carre du disque, ce qui ne touche pas le disque est ecarte,
+ * le reste trie du plus proche au plus loin et plafonne a `MAX_OBJETS_RAYON` par famille.
+ * `exclus` : les identifiants cadastraux a ne pas rendre (la parcelle du projet).
+ */
+export async function lireVoisinageRayon(centre: PtBrut, proj: ProjecteurLocal, rayonM: number, simplifier: boolean, exclus: ReadonlySet<string> = new Set()): Promise<VoisinageRayon> {
+  const centreDeg = proj.versDegres(centre.x, centre.y);
+  const bboxDe = (r: number): BboxDeg => ({ lonMin: centreDeg.lon - r / proj.kx, lonMax: centreDeg.lon + r / proj.kx, latMin: centreDeg.lat - r / proj.ky, latMax: centreDeg.lat + r / proj.ky });
+  const [parcelles, batiments] = await Promise.all([
+    lireAuPlusPres(rayonM, centre, async r => construireCandidats(await interrogerCadastreEtendu(empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, r), plafondLecture(r)), proj, centre, simplifier).filter(c => !exclus.has(c.idu))),
+    lireAuPlusPres(rayonM, centre, async r => construireElementsIgn(await interrogerWfsEtendu(COUCHE_BATIMENT, bboxDe(r), plafondLecture(r)).catch((): FeatureGeoJSON[] => []), proj, simplifier, 'batiment'))
+  ]);
+  return { rayonM, parcelles: parcelles.elements, batiments: batiments.elements, tronque: parcelles.tronque || batiments.tronque };
+}
+
+/**
+ * Le meme voisinage, ramene a un rayon plus petit : ce qui touche encore le disque, dans l'ordre
+ * (deja du plus proche au plus loin). `exclus` retire ce qui est deja dans le plan, pour compter
+ * seulement ce qui arrivera.
+ */
+export function filtrerVoisinageRayon(v: VoisinageRayon, centre: PtBrut, rayonM: number, exclus: { idus?: ReadonlySet<string>; ids?: ReadonlySet<string> } = {}): VoisinageRayon {
+  const r = Math.min(rayonM, v.rayonM);
+  return {
+    rayonM: r,
+    parcelles: v.parcelles.filter(c => dansLeRayon(c.pts, centre, r) && !exclus.idus?.has(c.idu)),
+    batiments: v.batiments.filter(b => dansLeRayon(b.pts, centre, r) && !(b.id && exclus.ids?.has(b.id))),
+    tronque: v.tronque
+  };
 }
 
 /** Une parcelle candidate : la fiche cadastrale, plus sa position par rapport au point cherche. */

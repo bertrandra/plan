@@ -1,22 +1,22 @@
-// Les commandes du releve de facade (spec-releve-facade §4, app/).
+// Les commandes d'une facade relevee (spec-releve-facade §4, MD/spec-facade-calage-audit.md §6, lot F6).
 //
-// Deux commandes, declenchees depuis la section « Facades et toit » de l'inspecteur : relever un
-// mur (le dialogue de prise de vue), et retirer le releve d'un mur. Le mur vise est designe juste
-// avant par le bouton de sa ligne (facade/choix.ts) ; sans designation, le dialogue commence par le
-// faire choisir sur le contour du batiment.
+// Deux commandes, declenchees depuis la section « Facades et toit » de l'inspecteur : modifier le releve d'un mur (l'editeur,
+// zones/Releve.tsx), et le retirer. Le mur vise est designe juste avant par le bouton de sa ligne (interaction/choixFacade.ts). La
+// photo d'un mur se prend dans l'audit de la parcelle (`facade.photographier`, app/audit/parcelle/commande.ts) : le releve n'a plus
+// de capture.
 //
-// Un batiment verrouille se releve quand meme : le verrou fige sa position sur le plan, pas ce
-// qu'on sait de ses murs.
+// Un batiment verrouille se modifie quand meme : le verrou fige sa position sur le plan, pas ce qu'on sait de ses murs.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { reprendreFacadeDesignee } from '../../facade/choix.js';
+import { reprendreFacadeDesignee } from '../../interaction/choixFacade.js';
 import { vue3d } from '../../three/etat3d.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { RegistreCommandes } from '../commandes.js';
-import type { ServiceReleve } from '../releve.js';
+import type { ServiceReleve } from '../releve/releve.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { estBatiment } from '../../model/fonctions.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 export interface ContexteCommandesFacade {
   etat: EtatApp;
@@ -33,15 +33,15 @@ export function brancherFacade(ctx: ContexteCommandesFacade, cmd: RegistreComman
   };
 
   cmd.declarer({
-    id: 'facade.relever',
-    libelle: 'Relever une façade',
-    description: "Photographier un mur du bâtiment : Plan le redresse, en retrouve les ouvertures, leurs dimensions et la forme du toit.",
+    id: 'facade.modifier',
+    libelle: 'Modifier la façade',
     groupe: 'facade',
     permission: PERMISSION_ECRITURE,
-    actif: () => !!batiment(),
+    actif: () => !!batiment()?.batiment?.facades?.length,
     executer: () => {
       const o = batiment();
-      if (o) ctx.releve.ouvrir(o.key, reprendreFacadeDesignee());
+      const cote = reprendreFacadeDesignee();
+      if (o && cote !== null) ctx.releve.ouvrir(o.key, cote);
     },
   });
 
@@ -50,14 +50,15 @@ export function brancherFacade(ctx: ContexteCommandesFacade, cmd: RegistreComman
     libelle: 'Retirer le relevé',
     groupe: 'facade',
     permission: PERMISSION_ECRITURE,
-    actif: () => !!batiment()?.facades?.length,
+    actif: () => !!batiment()?.batiment?.facades?.length,
     executer: () => {
       const o = batiment();
       const cote = reprendreFacadeDesignee();
       if (!o || cote === null) return;
       ctx.pushHistory();
-      o.facades = (o.facades || []).filter((r) => r.cote !== cote);
-      if (!o.facades.length) delete o.facades;
+      const b = champsBatiment(o);
+      b.facades = (b.facades || []).filter((r) => r.cote !== cote);
+      if (!b.facades.length) delete b.facades;
       ctx.render();
       if (vue3d.scene) ctx.buildThreeScene(terrasseCourante(ctx.etat) || null);
     },

@@ -4,8 +4,18 @@
 // relevee devient une interruption du trait (un segment de la couleur du fond) bornee par deux
 // tableaux, et une porte recoit son arc de debattement vers l'interieur. Seul le plan a l'ecran
 // les montre : l'export SVG garde sa forme, figee par son empreinte.
+//
+// Sur une Facade validee (lot F5), une ouverture que la personne n'a pas encore verifiee (venue d'un rejeu apres la validation) a
+// ses tableaux en tirets : elle est a verifier. Chaque coupure porte l'identifiant de son ouverture (`data-ouverture`).
+//
+// Un rez-de-chaussee en retrait sous l'etage (schema 16, un bow-window glisse dessous) : le contour reste celui de l'etage, en trait plein ;
+// le mur recule du rez-de-chaussee est un trait en tirets (`data-retrait-rdc`), comme un etage en surplomb sur un plan d'architecte.
+// Seulement quand le batiment se dessine par ses corps, comme en Vue 3D (three/ouvrages/bati.ts) : en toit simple, en volumes ou tel que
+// mesure, ni le bow-window ni le recul ne se posent, et le plan ne montrerait pas un mur que la 3D n'a pas.
 
-import { facadesDuContour, pointDeFacade } from '../facade/geometrie.js';
+import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
+import { murDuCorps, retraitsDuRdc } from '../facade/modeToit/saillies.js';
+import { modeToitActif } from '../model/toitMesure.js';
 import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
 import type { EtatApp } from '../core/state.js';
 import type { PtBrut, PtEcran } from '../model/types.js';
@@ -16,10 +26,13 @@ const COUPE = 1.1;
 
 export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (p: PtBrut) => PtEcran, masque: (o: EtatApp['objects'][number]) => boolean): void {
   while (groupe.firstChild) groupe.removeChild(groupe.firstChild);
-  // Toujours au-dessus des objets, crees apres le groupe.
-  groupe.parentNode?.appendChild(groupe);
-  const ligne = (a: PtEcran, b: PtEcran, couleur: string, epaisseur: number) => {
+  // Toujours au-dessus des objets, crees apres le groupe : remis au bout s'il n'y est pas (le deplacer quand il y est deja ferait
+  // refaire son style au navigateur pour rien).
+  if (groupe.parentNode && groupe.parentNode.lastChild !== groupe) groupe.parentNode.appendChild(groupe);
+  const ligne = (a: PtEcran, b: PtEcran, couleur: string, epaisseur: number, tirets = false, id?: string) => {
     const l = document.createElementNS(NS, 'line');
+    if (tirets) l.setAttribute('stroke-dasharray', '2 2');
+    if (id) l.setAttribute('data-ouverture', id);
     l.setAttribute('x1', String(a.x));
     l.setAttribute('y1', String(a.y));
     l.setAttribute('x2', String(b.x));
@@ -30,9 +43,21 @@ export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (
   };
   const echelle = etat.scene.scale;
   etat.objects.forEach((o) => {
-    if (o.type !== 'polygon' || !o.facades?.length || masque(o)) return;
+    if (o.type !== 'polygon' || masque(o) || !o.batiment?.corpsToit?.some((c) => c.saillie?.rdcEnRetraitM) || modeToitActif(o.batiment) !== 'corps') return;
+    retraitsDuRdc(o.batiment.corpsToit).forEach((rs, h) => rs.forEach((r) => {
+      const { a, b, n } = murDuCorps(h, r.mur), d = { x: -n.x * r.reculM, y: -n.y * r.reculM };
+      const l = document.createElementNS(NS, 'line');
+      const pa = versEcran({ x: a.x + d.x, y: a.y + d.y }), pb = versEcran({ x: b.x + d.x, y: b.y + d.y });
+      l.setAttribute('x1', String(pa.x)); l.setAttribute('y1', String(pa.y)); l.setAttribute('x2', String(pb.x)); l.setAttribute('y2', String(pb.y));
+      l.setAttribute('stroke', SVG_INK); l.setAttribute('stroke-width', '1.2'); l.setAttribute('stroke-dasharray', '5 3');
+      l.setAttribute('data-retrait-rdc', o.key);
+      groupe.appendChild(l);
+    }));
+  });
+  etat.objects.forEach((o) => {
+    if (o.type !== 'polygon' || !o.batiment?.facades?.length || masque(o)) return;
     const facades = facadesDuContour(o.pts, 0);
-    o.facades.forEach((r) => {
+    o.batiment?.facades.forEach((r) => {
       const f = facades.find((x) => x.cote === r.cote);
       if (!f) return;
       // Les tableaux : 20 cm de mur, vers l'interieur.
@@ -43,10 +68,11 @@ export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (
         if (ov.y > COUPE || ov.y + ov.h < COUPE) return;
         const a = pointDeFacade(f, ov.x),
           b = pointDeFacade(f, ov.x + ov.l);
-        ligne(versEcran(a), versEcran(b), SVG_LABEL_HALO, 3.4);
-        // Les deux tableaux, perpendiculaires au mur.
-        ligne(versEcran(a), versEcran({ x: a.x + dedans.x, y: a.y + dedans.y }), SVG_INK, 1.2);
-        ligne(versEcran(b), versEcran({ x: b.x + dedans.x, y: b.y + dedans.y }), SVG_INK, 1.2);
+        ligne(versEcran(a), versEcran(b), SVG_LABEL_HALO, 3.4, false, ov.id);
+        // Les deux tableaux, perpendiculaires au mur ; en tirets sur une Facade validee, pour une ouverture pas encore verifiee.
+        const aVerifier = !!r.dimensions && !ov.verifieeLe;
+        ligne(versEcran(a), versEcran({ x: a.x + dedans.x, y: a.y + dedans.y }), SVG_INK, 1.2, aVerifier);
+        ligne(versEcran(b), versEcran({ x: b.x + dedans.x, y: b.y + dedans.y }), SVG_INK, 1.2, aVerifier);
         if (ov.type === 'fenetre' || ov.type === 'porte-fenetre') {
           // La vitre : un trait fin au milieu du tableau.
           const m = { x: dedans.x / 2, y: dedans.y / 2 };

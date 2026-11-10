@@ -137,6 +137,34 @@ describe('ajouterCloture3d', () => {
     expect(Math.min(...xsGlisse)).toBeCloseTo(5 + 3.5, 2);
   });
 
+  it('sur un sol en relief, chaque panneau se pose sur le sol : du plus bas sous ses bouts au sol en son milieu plus sa hauteur', () => {
+    // Le sol monte de 10 cm par metre vers l'est : les deux cotes est-ouest sont en pente, les deux
+    // autres de niveau.
+    const sol = (p: PtBrut) => 0.1 * p.x;
+    const { ctx, prismes } = contexte();
+    ctx.sol = sol;
+    ajouterCloture3d(ctx, parcelle());
+    const poteau = (q: Prisme) => Math.max(...q.pts.map(pt => pt.x)) - Math.min(...q.pts.map(pt => pt.x)) < 0.2 && Math.max(...q.pts.map(pt => pt.y)) - Math.min(...q.pts.map(pt => pt.y)) < 0.2;
+    const bandes = prismes.filter(p => !poteau(p));
+    // 20 m en 8 panneaux de 2,5 m, 10 m en 4, deux fois chacun.
+    expect(bandes).toHaveLength(2 * 8 + 2 * 4);
+    bandes.forEach(b => {
+      // Les deux premiers points sont sur l'alignement ; les deux autres, a l'interieur, sont mitres aux angles.
+      const xs = b.pts.slice(0, 2).map(pt => pt.x);
+      const milieu = ((xs[0] ?? 0) + (xs[1] ?? 0)) / 2;
+      // Le haut est a 1,80 m au-dessus du sol au milieu du panneau ; le bas n'est jamais au-dessus du sol a ses bouts.
+      expect(b.base + b.h).toBeCloseTo(0.1 * milieu + 1.8, 6);
+      expect(b.base).toBeLessThanOrEqual(0.1 * Math.min(...xs) + 1e-9);
+    });
+    const enPente = bandes.filter(b => Math.abs(b.h - (1.8 + 0.125)) < 1e-6);
+    expect(enPente).toHaveLength(16);
+    // Un poteau se pose sur son propre sol : son haut est a 1,85 m au-dessus du sol en son centre.
+    prismes.filter(poteau).forEach(p => {
+      const xs = p.pts.map(pt => pt.x);
+      expect(p.base + p.h).toBeCloseTo(0.1 * (Math.min(...xs) + Math.max(...xs)) / 2 + 1.85, 6);
+    });
+  });
+
   it('semi-ajoure : un soubassement plein par vantail ; chapeau de gendarme : un profil courbe', () => {
     const p = parcelle();
     const cl = clotureDe(p, true);

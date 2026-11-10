@@ -35,3 +35,18 @@ export function on<K extends keyof HTMLElementEventMap>(
   cible.addEventListener(evenement, gestionnaire as EventListener);
   return () => cible.removeEventListener(evenement, gestionnaire as EventListener);
 }
+
+/**
+ * L'element de la page qui recoit un ecran monte a part (les ecrans de l'admin, la porte, le premier pas) : celui de cet `id`,
+ * cree au bout du corps de la page s'il n'existe pas. Douze modules de app/ l'ecrivaient chacun a la main (audit d'architecture,
+ * 25 octobre 2026).
+ */
+export function hoteDeZone(id: string): HTMLElement {
+  let hote = document.getElementById(id);
+  if (!hote) {
+    hote = document.createElement('div');
+    hote.id = id;
+    document.body.appendChild(hote);
+  }
+  return hote;
+}

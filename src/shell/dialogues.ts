@@ -42,8 +42,31 @@ export interface DialogueChoix {
   texte: string;
   /** Une liste courte sous le texte (ce qu'apporte une version, par exemple). */
   points?: string[];
+  /**
+   * Une case a cocher sous la liste, pour une option de la reponse principale (« Recalculer aussi… »).
+   * Celui qui pose la question garde l'etat : `changer` lui dit chaque bascule, `cochee` est l'etat
+   * de depart. La zone la dessine et n'en sait pas plus.
+   */
+  case?: { libelle: string; cochee: boolean; changer: (cochee: boolean) => void };
+  /**
+   * Un nombre a saisir avec la reponse (la profondeur d'un decroche, en centimetres) : meme contrat que la case, celui qui pose la question
+   * garde la valeur ; `changer` lui dit chaque saisie valide, bornee a `min`..`max`.
+   */
+  nombre?: { libelle: string; valeur: number; min: number; max: number; unite: string; changer: (v: number) => void };
+  /** D'autres cases sous la premiere, une par objet par exemple (« Reprendre la version de l'IGN pour… ») : meme contrat. */
+  cases?: { libelle: string; cochee: boolean; changer: (cochee: boolean) => void }[];
   principal: { libelle: string; executer: () => void };
   secondaire: { libelle: string; executer: () => void };
+  /**
+   * Une troisieme issue, la plus prudente, en premier des boutons : « Rester » quand on quitte un travail en cours. Elle ferme sans
+   * rien faire d'autre que `executer` ; Echap et le voile la valent (`abandonner`).
+   */
+  tertiaire?: { libelle: string; executer: () => void };
+  /**
+   * Fermee sans reponse (Echap, le voile, ou une autre question qui la remplace) : celui qui
+   * attendait la reponse n'attend pas pour rien.
+   */
+  abandonner?: () => void;
 }
 
 export type Dialogue = DialogueConfirmation | DialogueInvite | DialogueErreurChargement | DialogueChoix;
@@ -65,14 +88,18 @@ export const dialogues = {
   },
   /** Ouvre un dialogue ; s'il y en avait un, il est remplace — une question a la fois. */
   ouvrir(d: Dialogue): void {
+    const avant = courant;
     courant = d;
     publier();
+    if (avant?.type === 'choix' && avant !== d) avant.abandonner?.();
   },
   /** Ferme sans repondre : Echap, le voile, Annuler. */
   fermer(): void {
-    if (!courant) return;
+    const d = courant;
+    if (!d) return;
     courant = null;
     publier();
+    if (d.type === 'choix') d.abandonner?.();
   },
   /** Repond au dialogue courant, puis le ferme. Une invite vide ne repond pas ; un choix prend le principal. */
   repondre(valeur?: string): void {
@@ -92,5 +119,13 @@ export const dialogues = {
     courant = null;
     publier();
     d.secondaire.executer();
+  },
+  /** Prend la troisieme issue d'un choix (« Rester »), puis le ferme. Sans elle, ne fait rien. */
+  repondreTertiaire(): void {
+    const d = courant;
+    if (d?.type !== 'choix' || !d.tertiaire) return;
+    courant = null;
+    publier();
+    d.tertiaire.executer();
   }
 };

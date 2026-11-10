@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  nouvelObjet, nouveauChemin, nouveauCercle, nouveauParasol, nouveauPointDeVue, creerCreation
+  nouvelObjet, nouveauChemin, nouveauCercle, nouveauParasol, nouveauPointDeVue, creerCreation, rectangleLibre
 } from '../../../src/model/creation.js';
 import type { EtatCreation, ContexteCreation } from '../../../src/model/creation.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
@@ -48,7 +48,7 @@ describe('les primitives detournees', () => {
     expect(obj.type).toBe('circle');
     expect(obj.fonction).toBe('parasol');
     expect(enCercle(obj).r).toBe(1.5);
-    expect(obj.hauteurParasol).toBe(2.2);
+    expect(obj.parasol?.hauteur).toBe(2.2);
   });
 
   it('le point de vue est un chemin, reconnu a sa fonction', () => {
@@ -74,14 +74,14 @@ describe('les primitives detournees', () => {
 describe('rattachement du parasol', () => {
   it('retient la terrasse qu on lui donne', () => {
     const t: ObjetPlan = { key: 't1', name: 'Terrasse', fonction: 'terrasse', type: 'polygon', pts: [] };
-    expect(nouveauParasol(CENTRE, 'k', 1, t).obj.terrasseLieeKey).toBe('t1');
+    expect(nouveauParasol(CENTRE, 'k', 1, t).obj.parasol?.terrasseLieeKey).toBe('t1');
   });
 
   it('ne se rattache pas a la parcelle faute de terrasse', () => {
     // Sans terrasse, le repli est la parcelle : elle sert de position, pas de rattachement.
     const p: ObjetPlan = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain', type: 'polygon', pts: [] };
-    expect(nouveauParasol(CENTRE, 'k', 1, p).obj.terrasseLieeKey).toBeNull();
-    expect(nouveauParasol(CENTRE, 'k', 1, undefined).obj.terrasseLieeKey).toBeNull();
+    expect(nouveauParasol(CENTRE, 'k', 1, p).obj.parasol?.terrasseLieeKey).toBeNull();
+    expect(nouveauParasol(CENTRE, 'k', 1, undefined).obj.parasol?.terrasseLieeKey).toBeNull();
   });
 });
 
@@ -223,7 +223,7 @@ describe('un parasol naît sur sa terrasse', () => {
     const { c, etat } = monter([parcelle, terrasse]);
     c.ajouterParasol();
     expect(enCercle(etat.objects[2]!).center).toEqual({ x: 12, y: 12 });
-    expect(etat.objects[2]!.terrasseLieeKey).toBe('t1');
+    expect(etat.objects[2]!.parasol?.terrasseLieeKey).toBe('t1');
   });
 
   it('prefere la terrasse selectionnee', () => {
@@ -231,14 +231,14 @@ describe('un parasol naît sur sa terrasse', () => {
     const { c, etat } = monter([parcelle, terrasse, autre]);
     etat.terrasseSelectedKey = 't2';
     c.ajouterParasol();
-    expect(etat.objects[3]!.terrasseLieeKey).toBe('t2');
+    expect(etat.objects[3]!.parasol?.terrasseLieeKey).toBe('t2');
   });
 
   it('retombe sur la parcelle quand il n y a aucune terrasse', () => {
     const { c, etat } = monter([parcelle]);
     c.ajouterParasol();
     expect(enCercle(etat.objects[1]!).center).toEqual({ x: 50, y: 50 });
-    expect(etat.objects[1]!.terrasseLieeKey).toBeNull();
+    expect(etat.objects[1]!.parasol?.terrasseLieeKey).toBeNull();
   });
 
   it('numerote a partir des parasols deja poses', () => {
@@ -317,11 +317,73 @@ describe('supprimer', () => {
     expect(appels).toContain('vue detruite');
   });
 
+  it('nettoie ce qui tenait l objet par sa cle : ses cotes, la plage d une piscine', () => {
+    const { c, etat } = monter([carre, { key: 'p', name: 'Piscine', fonction: 'piscine', type: 'polygon', pts: [], piscine: { plage: 'terrasse', terrasseKey: 'a' } } as ObjetTest]);
+    const e = etat as EtatCreation;
+    e.measures = [{ id: 'm1', refObjKey: 'a', refSegIndex: 0, startEnd: 'B', targetObjKey: 'p', targetPtIndex: 0 }, { id: 'm2', refObjKey: 'p', refSegIndex: 0, startEnd: 'B', targetObjKey: 'p', targetPtIndex: 1 }];
+    etat.selectedKey = 'a';
+    c.supprimer();
+    expect(e.measures.map((m) => m.id)).toEqual(['m2']);
+    expect(etat.objects[0]?.piscine?.terrasseKey).toBeUndefined();
+  });
+
   it('ne touche a rien tant que la confirmation n a pas repondu', () => {
     const { etat, ctx, appels } = monter([carre]);
     etat.selectedKey = 'a';
     creerCreation(etat, { ...ctx, showConfirm: () => {} }).supprimer();
     expect(etat.objects).toHaveLength(1);
     expect(appels).not.toContain('historique');
+  });
+});
+
+describe('poser une terrasse', () => {
+  it('naît de 4 x 3 m au centre de la parcelle, coins libres, avec la construction donnee', () => {
+    const { c, etat, appels } = monter();
+    const construction = { typePose: 'plots', plotsDansEmprise: true } as ObjetPlan['construction'];
+    c.ajouterTerrasse(construction!);
+    const t = etat.objects[1]!;
+    expect(appels).toEqual(['historique', 'dom', 'poignees', 'empilement', 'selecteur', 'rendu']);
+    expect([t.fonction, t.name, etat.selectedKey]).toEqual(['terrasse', 'Terrasse 1', t.key]);
+    expect(sommetsDe(t)).toEqual([{ x: 0, y: 0.5 }, { x: 4, y: 0.5 }, { x: 4, y: 3.5 }, { x: 0, y: 3.5 }]);
+    expect(t.frozenVertices).toEqual([false, false, false, false]);
+    expect(t.construction).toBe(construction);
+  });
+
+  it('numerote d apres les terrasses deja dans le plan', () => {
+    const { c, etat } = monter();
+    c.ajouterTerrasse({}); c.ajouterTerrasse({});
+    expect(etat.objects.slice(1).map(o => o.name)).toEqual(['Terrasse 1', 'Terrasse 2']);
+  });
+});
+
+describe('la place d un ouvrage neuf', () => {
+  const carre = (x0: number, y0: number, x1: number, y1: number) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  const parcelle = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain', type: 'polygon', pts: carre(0, 0, 20, 20) } as ObjetPlan;
+  const maison = { key: 'm', name: 'Maison', fonction: 'batiment', type: 'polygon', pts: carre(6, 6, 14, 14) } as ObjetPlan;
+
+  it('reste au centre quand la place est libre', () => {
+    expect(rectangleLibre([parcelle], { x: 10, y: 10 }, 4, 3)).toEqual(carre(8, 8.5, 12, 11.5));
+  });
+
+  it('sort de sous la maison, au plus pres du centre, sans quitter la parcelle', () => {
+    const r = rectangleLibre([parcelle, maison], { x: 10, y: 10 }, 4, 3);
+    // Le plus proche du centre : contre un mur de la maison, sur sa profondeur (1,5 + 4 = 5,5 m).
+    expect(r.every(p => p.x > 0 && p.x < 20 && p.y > 0 && p.y < 20)).toBe(true);
+    const cx = (r[0]!.x + r[1]!.x) / 2, cy = (r[0]!.y + r[2]!.y) / 2;
+    expect(Math.min(Math.abs(cx - 10), Math.abs(cy - 10))).toBe(0);
+    expect(Math.max(Math.abs(cx - 10), Math.abs(cy - 10))).toBe(5.5);
+  });
+
+  it('evite aussi un arbre (un cercle), et ignore le voisinage', () => {
+    const arbre = { key: 'a', name: 'Chene', fonction: 'arbre', type: 'circle', center: { x: 10, y: 10 }, r: 1 } as ObjetPlan;
+    const r = rectangleLibre([parcelle, arbre], { x: 10, y: 10 }, 4, 3);
+    expect(r).not.toEqual(carre(8, 8.5, 12, 11.5));
+    const voisin = { ...maison, key: 'v', voisinage: true } as ObjetPlan;
+    expect(rectangleLibre([parcelle, voisin], { x: 10, y: 10 }, 4, 3)).toEqual(carre(8, 8.5, 12, 11.5));
+  });
+
+  it('reste centre faute de place', () => {
+    const pleine = { ...maison, pts: carre(-1, -1, 21, 21) } as ObjetPlan;
+    expect(rectangleLibre([parcelle, pleine], { x: 10, y: 10 }, 4, 3)).toEqual(carre(8, 8.5, 12, 11.5));
   });
 });

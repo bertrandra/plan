@@ -1,17 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { brancherFacade } from '../../../../src/app/ecouteurs/facade.js';
-import { designerFacade } from '../../../../src/facade/choix.js';
+import { designerFacade } from '../../../../src/interaction/choixFacade.js';
 import { droits } from './faux.js';
 import type { EtatApp } from '../../../../src/core/state.js';
-import type { ServiceReleve } from '../../../../src/app/releve.js';
+import type { ServiceReleve } from '../../../../src/app/releve/releve.js';
 
-// Les commandes de facade (app/ecouteurs/facade.ts) : relever un mur d'un batiment, retirer un
+// Les commandes de facade (app/ecouteurs/facade.ts) : modifier le releve d'un mur (l'editeur, lot F6), retirer un
 // releve en un pas annulable ; ni l'une ni l'autre sans le droit d'ecrire.
 
 function monter(selection: string, ecrire = true) {
   const etat = { selectedKey: selection, objects: [
-    { key: 'maison', type: 'polygon', fonction: 'batiment', facades: [{ cote: 0 }, { cote: 2 }] },
+    { key: 'maison', type: 'polygon', fonction: 'batiment', batiment: { facades: [{ cote: 0 }, { cote: 2 }] } },
     { key: 'garage', type: 'polygon', fonction: 'annexe' },
     { key: 'terrasse', type: 'polygon', fonction: 'terrasse' }
   ] } as unknown as EtatApp;
@@ -19,20 +19,21 @@ function monter(selection: string, ecrire = true) {
   const ctx = { etat, releve, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn() };
   const cmd = creerRegistre(droits(ecrire));
   brancherFacade(ctx, cmd);
-  return { ctx, cmd, maison: etat.objects[0] as unknown as { facades?: { cote: number }[] } };
+  return { ctx, cmd, maison: (etat.objects[0] as unknown as { batiment: { facades?: { cote: number }[] } }).batiment };
 }
 
 describe('facades', () => {
-  it('relevent un mur d un batiment ou d une annexe, sur le mur designe', () => {
-    expect(monter('terrasse').cmd.etat('facade.relever').utilisable).toBe(false);
-    expect(monter('garage').cmd.etat('facade.relever').utilisable).toBe(true);
+  it('ouvrent l editeur sur le mur designe d un batiment qui a un releve, et sur lui seul', () => {
+    expect(monter('terrasse').cmd.etat('facade.modifier').utilisable).toBe(false);
+    // Sans releve, rien a modifier : la photo se prend dans l'audit.
+    expect(monter('garage').cmd.etat('facade.modifier').utilisable).toBe(false);
     const { ctx, cmd } = monter('maison');
     designerFacade(2);
-    cmd.executer('facade.relever');
+    cmd.executer('facade.modifier');
     expect(ctx.releve.ouvrir).toHaveBeenCalledWith('maison', 2);
-    // La designation ne vaut qu'une fois.
-    cmd.executer('facade.relever');
-    expect(ctx.releve.ouvrir).toHaveBeenLastCalledWith('maison', null);
+    // La designation ne vaut qu'une fois : sans mur designe, l'editeur ne s'ouvre pas.
+    cmd.executer('facade.modifier');
+    expect(ctx.releve.ouvrir).toHaveBeenCalledTimes(1);
   });
 
   it('retirent le releve du mur designe en un pas annulable, et la liste quand elle est vide', () => {
@@ -59,7 +60,7 @@ describe('facades', () => {
     const { ctx, cmd } = monter('maison', false);
     designerFacade(0);
     expect(cmd.executer('facade.retirer')).toBe(false);
-    expect(cmd.executer('facade.relever')).toBe(false);
+    expect(cmd.executer('facade.modifier')).toBe(false);
     expect(ctx.pushHistory).not.toHaveBeenCalled();
     designerFacade(null);
   });

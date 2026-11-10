@@ -9,6 +9,16 @@ photo, toit redéfini par chaque façade, LiDAR désactivé
 
 ---
 
+> **Depuis le lot F6 (29 octobre 2026, [`spec-facade-calage-audit.md`](spec-facade-calage-audit.md) §6, §9 bis F6) : le relevé
+> n'a plus de capture.** Les photos d'une façade se prennent, se redressent, s'assemblent et se rangent **dans l'audit de la
+> parcelle** ([`spec-audit.md`](spec-audit.md) §12), par la même chaîne (§6, inchangé). Le relevé est devenu l'**éditeur** d'une
+> façade déjà relevée (§4) : corriger, ajouter, retirer, vérifier ses ouvertures et la partie basse d'un mur en L. Le choix du mur et
+> sa boussole, la méthode, la photo de rue (§4.3), la visée et la distance au mur (§5), les coins posés au doigt, la vérification de
+> la hauteur et le toit lu qui remplaçait celui du bâtiment (§8.3) sont **partis avec la capture** : ces sections restent comme
+> l'histoire de ce que faisait le relevé, pas comme ce que Plan fait. Un relevé d'avant se rouvre et s'édite sans rien perdre (§10).
+
+---
+
 ## 1. Ce que fait la fonction
 
 On sélectionne un bâtiment sur le plan, on choisit une de ses façades, et le téléphone la
@@ -59,20 +69,20 @@ se décalant le long du mur quand on manque de recul, ou reculer ; une alerte qu
 | Couche | Fichier | Rôle |
 |---|---|---|
 | `facade/` (niveau 3, pur) | `geometrie.ts` | les façades d'un contour : gauche vue de dehors, normale, azimut, nom |
-| | `cadrage.ts` | focale, distance par la taille apparente, consignes de distance et d'aplomb |
+| | `cadrage.ts` | focale, plan de prise (la distance par la taille apparente et les consignes de la visée sont parties au lot F6) |
 | | `homographie.ts` | homographie à quatre points, redressement bilinéaire |
 | | `detection.ts` | ouvertures sur l'élévation, affinage au centimètre, classement |
 | | `toit.ts` | plans du toit, pans et pignons, lecture de la silhouette, correction de fuite |
 | | `analyse.ts` | l'enchaînement complet photo → relevé ; coins proposés |
 | | `exif.ts` | focale 24×36 d'un JPEG importé |
 | | `choix.ts` | le mur désigné avant d'ouvrir le relevé |
-| `ui/releve/` (niveau 5) | `camera.ts`, `profondeur.ts` | caméra, fichiers, JPEG ; WebXR, inclinaison ; LiDAR natif (désactivé) |
+| `ui/releve/` (niveau 5) | `camera.ts` | canevas, image brute et JPEG (la caméra, `profondeur.ts` et `panoramax.ts` sont partis au lot F6) |
 | `ui/champs/facade.ts` | | la section « Façades et toit » de l'inspecteur |
 | `render/releve.ts` | | les ouvertures sur le plan à l'écran |
 | `three/releve3d.ts` | | façades texturées, encadrements, pans et pignons |
-| `app/releve.ts`, `app/ecouteurs/facade.ts` | | le service qui écrit dans le projet ; les deux commandes |
-| `zones/Releve.tsx` | | le parcours plein écran (Z8) : l'enchaînement des cinq temps |
-| `zones/releve/` | | chaque temps et ses outils : `ChoixMur`, `capteurs` et `Visee`, `Coins`, `EtapeCoins`, `Elevation` et `EtapeResultat` ; sans React, `serie` (coins proposés, consignes) et `analyse` (analyser une série, écrire le relevé d'un mur), testés seuls |
+| `app/releve/releve.ts`, `app/ecouteurs/facade.ts` | | le service de l'éditeur, qui écrit l'édition dans le projet (`releveEdite`) ; `facade.modifier` et `facade.retirer` (`facade.photographier` est dans `app/audit/parcelle/commande.ts`) |
+| `zones/Releve.tsx` | | l'éditeur plein écran (Z8), depuis le lot F6 |
+| `zones/releve/` | | `EditionFacade` (l'élévation, la fiche d'une ouverture, les gestes de la grille, la partie basse), `Elevation`, `ouvertures` ; `PoserReperes`, `Coins` et `AjusterMur`, les gestes à la main de l'audit et de la calibration (§6.1 bis). Sans React, `facade/releve/serie.ts` et `analyseSerie.ts` (la série de l'audit, écrire le relevé d'un mur), testés seuls |
 | `native/ios/` | | le module natif, hors de l'application web |
 
 Le calcul (`facade/`) ne touche ni au DOM ni au réseau : tout se teste sous Node, sur des images
@@ -104,52 +114,88 @@ sol. Tout le relevé s'exprime dans ce repère.
 
 ### 4.1 Entrée
 
-L'inspecteur (Z5) d'un bâtiment porte une section **« Façades et toit »** : un bouton « Relever une
-façade… », puis une ligne par mur — orientation, nom du côté, longueur, nombre d'ouvertures
-relevées — avec **Relever** (ou **Refaire**) et **Retirer**. Suivent les champs du toit : forme,
-hauteur du faîtage (avec la pente calculée), direction du faîtage, couleur de la couverture.
+L'inspecteur (Z5) d'un bâtiment porte une section **« Façades et toit »** : un bouton « Photographier
+les façades… », puis une ligne par mur — orientation, nom du côté, longueur, nombre d'ouvertures
+relevées — avec **Photographier**, **Modifier** (un mur relevé) et **Retirer**. Suivent les champs du
+toit : forme, hauteur du faîtage (avec la pente calculée), direction du faîtage, couleur de la
+couverture.
 
-Deux commandes, groupe `facade`, permission `projects.write`, placées `inspecteur` dans les trois
+Trois commandes, groupe `facade`, permission `projects.write`, placées `inspecteur` dans les trois
 classes d'écran (`app/exposition.ts`) :
 
 | Commande | Active quand | Effet |
 |---|---|---|
-| `facade.relever` | un bâtiment est sélectionné (même verrouillé : le verrou fige la position, pas ce qu'on sait des murs) | ouvre le parcours, sur le mur désigné ou sur le choix du mur |
+| `facade.photographier` | un bâtiment de la parcelle du projet est sélectionné ; grisée avec sa raison sans parcelle cadastrale, ou hors de la parcelle | ouvre l'audit de la parcelle sur l'écran de prise, la façade désignée choisie ; sans mur désigné, l'écran de prise suit la position (lot F6) |
+| `facade.modifier` | le bâtiment a au moins un relevé (même verrouillé : le verrou fige la position, pas ce qu'on sait des murs) | ouvre l'éditeur sur le relevé du mur désigné (§4.2) |
 | `facade.retirer` | le bâtiment a au moins un relevé | retire le relevé du mur désigné ; Ctrl+Z le rend |
 
 Une commande ne prend pas d'argument : le bouton d'une ligne **désigne** d'abord son mur
 (`facade/choix.ts`), puis exécute la commande, qui le reprend — le même schéma que la cible
 d'alignement.
 
-### 4.2 Les cinq temps (`zones/Releve.tsx`, `zones/releve/`)
+### 4.2 L'éditeur (`zones/Releve.tsx`, `zones/releve/EditionFacade.tsx`, lot F6)
 
-Plein écran, dans les trois classes, fermable par Échap ou la croix. **Rien n'est écrit dans le
-plan avant « Valider »** : fermer ne laisse aucune trace.
+Plein écran, dans les trois classes, fermable par Échap, la croix ou « Annuler ». **Rien n'est écrit dans le plan avant « Valider
+la façade »** : fermer ne laisse aucune trace. L'éditeur montre :
 
-1. **Choisir le mur** — le contour du bâtiment, nord en haut, chaque côté une cible de 44 px, et la
-   même liste en boutons. Sauté si l'inspecteur a désigné le mur.
-2. **Se placer** — la caméra arrière, la distance **mesurée** au mur et sa source, ce qu'elle
-   permet (« une photo suffit », « 3 photos, de gauche à droite », ou l'alerte « reculez à au moins
-   Y m »), une alerte quand rien ne mesure, l'aplomb du téléphone, le choix de l'objectif (0,5× / 1×).
-   La hauteur à cadrer est l'égout estimé plus, sur un pignon d'un toit déjà connu, son triangle.
-   Le déclencheur, et « Importer » pour une photo déjà prise. Voir §5.
-3. **Placer les coins** — la photo (ou chaque photo de la série, en vignettes, §6.1), avec une marge tout autour : les quatre coins du mur (égout en
-   haut, pied du mur en bas) sont proposés d'après la distance (§5.4), et se déplacent au doigt
-   avec une **loupe**. Un coin caché ou hors cadre se place là où il serait. La largeur vient du
-   plan ; la hauteur ne se saisit pas, elle se mesure d'après ces coins.
-4. **Analyse** — une seconde environ (§6 à §8).
-5. **Vérifier** — la façade redressée à l'échelle, chaque ouverture un cadre qu'on déplace, qu'on
-   redimensionne par ses coins, dont on change la nature et les cotes au centimètre, qu'on retire ;
-   « Ajouter une ouverture ». La **hauteur mesurée**, à côté de celle du bâtiment jusqu'ici
-   (cadastre, ou relevé d'une autre façade), corrigeable : la
-   façade s'étire alors en hauteur, ouvertures, partie basse, bande du pignon et toit compris (la
-   largeur, elle, est celle du plan). Le toit lu sur la façade, avec sa pente et, sur un pignon, la
-   hauteur de la façade au faîtage ; « Remplacer le toit du bâtiment par celui-ci » part cochée.
-   **Valider** écrit le tout en **un seul pas d'historique**.
+- la façade redressée à l'échelle (la texture du relevé ; sur un appareil qui n'a pas la photo, le mur nu et une note), chaque
+  ouverture un cadre qu'on déplace, qu'on redimensionne par ses coins, dont on change la nature et les cotes au centimètre, qu'on
+  retire ; « Ajouter dans la grille » (au croisement libre le plus proche, §10.5 de la spec des façades), « Ajouter une ouverture » ;
+  « Même taille pour la travée », « Même hauteur pour le niveau » ;
+- une baie devinée (source `devinee`) garde sa case « Garder cette baie devinée » : décochée, elle passe au pointillé et ne s'écrit
+  pas ; une touche la rend ;
+- « **Vérifiée sur la photo** » : la date du jour sur l'ouverture (`verifieeLe`) ; plus aucun rejeu de l'audit ne la déplace ni ne
+  la retire ([`spec-facade-calage-audit.md`](spec-facade-calage-audit.md) §3.3) ; décochée, la date part ;
+- la précision des cotes (un pixel de la photo au mur), et la partie basse d'un mur en L (§6.2), corrigeable.
+
+**Valider la façade** écrit l'édition en **un seul pas d'historique** (`app/releve/releve.ts::releveEdite`) : les corrections se
+tracent contre les ouvertures du relevé (§12 de la spec des façades : une retouche `corrigee`, un ajout `ajoutee`, un retrait), et
+s'ajoutent à celles déjà tracées ; la grille se recalcule ; une ouverture nouvelle d'une façade validée reçoit son identifiant
+(`numeroterOuvertures`) ; `depuisAudit` tombe (la mesure suivante de l'audit ne remplacera plus le relevé d'office). Tout le reste —
+la photo, le calage, la Façade validée (dimensions, forme, pose de la texture), les seuils de la détection — est gardé tel quel.
+Quand rien n'a changé, rien ne s'écrit, pas même un pas d'historique.
+
+*Avant le lot F6*, le relevé était un parcours de capture en six temps (choisir le mur et sa boussole, la méthode, se placer avec la
+caméra guidée, placer les coins, l'analyse, vérifier la hauteur et le toit) : la prise est dans l'audit, et la vérification de la
+hauteur et du toit lu sur la photo passe par l'audit (le diagnostic de forme, lot F4) et le Mode Toit.
+
+### 4.3 La photo de rue (Panoramax) — partie au lot F6
+
+Panoramax est le commun des photos de rue libres (OpenStreetMap France, IGN) : une API STAC
+(`geo/panoramax.ts`, `https://api.panoramax.xyz/api/search`) rend, dans une emprise, chaque photo
+avec sa position, le cap de la vue (`view:azimuth`), le champ de l'objectif (40 à 120° pour une
+photo plate, 360 pour un panoramique équirectangulaire), ses images (`hd`, `sd`, `thumb`), sa date,
+son auteur et sa licence.
+
+- **Recherche** : une emprise de 80 m autour du milieu du mur (le plan est calé sur
+  `cadastre.origineLat/Lon`, le milieu du mur se projette en degrés par `projecteurLocal`).
+- **Tri** (`classerFaceAuMur`) : une photo montre le mur si elle est **devant** lui (du côté de sa
+  normale, à moins de 75° de l'aplomb), à **moins de 60 m**, et — photo plate — si le mur tient dans
+  son champ. Un panoramique voit tout autour de lui : seule la distance compte. Les plus proches et
+  les plus de face d'abord ; douze au plus sont montrées (`PhotosRue`), avec leur distance, l'angle,
+  l'année, l'auteur et la licence.
+- **Mise en image** (`ui/releve/panoramax.ts`) : la photo `hd` est téléchargée par `fetch` (CORS
+  ouvert sur les serveurs Panoramax). Plate, elle est lue comme une photo importée, son champ du
+  grand côté déduit du champ horizontal annoncé (`champGrandCote`). Panoramique, elle est
+  **recadrée vers le mur** (`facade/vision/panorama.ts`, `recadrerEquirectangulaire`) : une photo plate de
+  65° de champ, horizon au milieu, à la définition du panoramique (sans l'agrandir, 2 000 px au
+  plus) ; seule la bande utile du panoramique est lue à pleine définition (`bandeEquirectangulaire`),
+  un panoramique de 8 000 px coûterait 130 Mo en entier.
+- **Distance** : celle de la photo au milieu du mur, source `rue` (§5.1) ; elle propose les coins
+  comme une mesure. Le champ est celui annoncé (plate) ou celui du recadrage (panoramique).
+- **Hôtes permis** (`HOTES_PANORAMAX`, vérifiés contre la CSP livrée) : `api.panoramax.xyz`,
+  `panoramax.openstreetmap.fr`, `panoramax.ign.fr`, plus le stockage S3 (OVH) vers lequel l'instance
+  IGN redirige ses images (`HOTES_REDIRECTION_PANORAMAX`). Une photo servie ailleurs n'est pas
+  proposée.
+
+Limites : la couverture de Panoramax est partielle (dense en ville, lacunaire ailleurs) et les
+photos ont parfois plusieurs années ; un mur loin de la rue, derrière une haie, n'y est pas visible
+— c'est le cas de la maison de la démonstration, à 60 m de l'Allée des Limites. La page le dit, et
+les deux autres méthodes restent là.
 
 ---
 
-## 5. La distance au mur
+## 5. La distance au mur — partie au lot F6 avec la visée
 
 ### 5.1 Les sources (`ui/releve/profondeur.ts`)
 
@@ -158,6 +204,7 @@ plan avant « Valider »** : fermer ne laisse aucune trace.
 | ~~**LiDAR**~~ | module natif iOS (`native/ios/`) — **désactivé** | médiane d'une fenêtre 7 × 7 au centre de la carte de profondeur ARKit, dix fois par seconde ; une mesure de confiance < 1 est ignorée |
 | **Réalité augmentée** | Chrome Android (WebXR `immersive-ar` + `hit-test`) | rayon depuis le centre de l'écran jusqu'au premier plan touché ; distance horizontale |
 | **Cadrage** | partout | la largeur réelle du mur (plan) et la place qu'elle occupe dans l'image |
+| **Photo de rue** (`rue`) | Panoramax (§4.3) | la distance de la position de la photo au milieu du mur |
 
 **Le LiDAR est désactivé** (`LIDAR_ACTIF = false`). Safari n'y donne pas accès, et le module natif
 qui l'apportait ne change pas l'essentiel : le LiDAR d'un iPhone ne porte qu'à **5 m environ**. Or
@@ -171,7 +218,7 @@ visée AR et la photo à focale exacte.
 WebXR n'a pas pu être essayé sur un appareil pendant le développement : le code est écrit contre
 son API documentée.
 
-### 5.2 Le cadrage (`facade/cadrage.ts`)
+### 5.2 Le cadrage (`facade/vision/cadrage.ts`)
 
 Modèle du sténopé : un objet de `T` mètres qui occupe `p` pixels est à `d = T · f / p`, avec la
 focale en pixels `f = (grand côté / 2) / tan(champ / 2)`. Deux repères glissent sur la vidéo :
@@ -184,7 +231,7 @@ dans la visée, et le réglage reste sur l'appareil (`localStorage`, jamais dans
 
 ### 5.3 La focale exacte, quand on la connaît
 
-- Photo importée : la balise EXIF `FocalLengthIn35mmFilm` donne le champ (`facade/exif.ts`).
+- Photo importée : la balise EXIF `FocalLengthIn35mmFilm` donne le champ (`facade/vision/exif.ts`).
 - Module natif (désactivé, §5.1) : les intrinsèques ARKit donnaient la focale en pixels, livrée
   avec la photo.
 
@@ -194,7 +241,7 @@ hauteur mesurée d'une photo prise de biais (de face, les proportions n'en dépe
 ### 5.4 La distance mesurée, et ce qu'elle permet
 
 Il n'y a **pas de distance cible** : on mesure où l'on est, et Plan calcule ce que cette distance
-permet (`planDePrise`, `consignePrise` dans `facade/cadrage.ts`). L'image couvre
+permet (`planDePrise`, `consignePrise` dans `facade/vision/cadrage.ts`). L'image couvre
 `d · largeurPx / f` × `d · hauteurPx / f` mètres de mur ; d'où trois cas :
 
 | À cette distance | Consigne |
@@ -207,7 +254,7 @@ La géométrie de l'image est celle de la vidéo dans la page ; dans le module n
 celle que le module envoie avec chaque mesure (taille de la photo livrée et focale).
 
 Le plan de prise vise la **hauteur à cadrer** : l'égout estimé (cadastre) et, si le mur est un
-pignon du toit déjà connu, son triangle (`hauteurPignon`, `facade/toit.ts`) — sans lui, ni la
+pignon du toit déjà connu, son triangle (`hauteurPignon`, `facade/toits/toit.ts`) — sans lui, ni la
 hauteur de la façade au faîtage ni le toit ne se lisent.
 
 **Sans mesure, une alerte.** Si aucun capteur ne répond — tout iPhone, puisque le LiDAR est
@@ -229,7 +276,7 @@ Sur iOS, la permission se demande par un geste (« Activer le niveau »).
 
 À 3 m, l'objectif principal (≈ 67° sur le grand côté) voit 4 m de mur ; le grand-angle d'un
 téléphone (13 mm équivalent, ≈ 108°) en voit 8. La page ne reçoit pourtant que « la caméra
-arrière » : elle va chercher le grand-angle elle-même (`facade/objectifs.ts`,
+arrière » : elle va chercher le grand-angle elle-même (`facade/vision/objectifs.ts`,
 `ui/releve/camera.ts`) :
 
 | Téléphone | Comment | Champ retenu |
@@ -255,7 +302,7 @@ celui dont ARKit aligne la carte de profondeur LiDAR.
 
 ---
 
-## 6. Le redressement (`facade/homographie.ts`, `facade/analyse.ts`)
+## 6. Le redressement (`facade/vision/homographie.ts`, `facade/analyse.ts`)
 
 ### 6.0 La hauteur du mur, mesurée
 
@@ -298,7 +345,7 @@ dans le plan du mur, il est donc redressé à la même échelle.
 ### 6.1 Plusieurs photos pour un mur
 
 Sans recul, on photographie le mur par morceaux qui se recouvrent, de gauche à droite
-(`facade/mosaique.ts`). Chaque morceau est un rectangle du mur — de l'égout au pied, entre deux
+(`facade/vision/mosaique.ts`). Chaque morceau est un rectangle du mur — de l'égout au pied, entre deux
 verticales : la première photo tient le coin gauche, la dernière le coin droit, celles du milieu
 deux verticales quelconques près des bords de l'image.
 
@@ -329,6 +376,167 @@ biais de −3 à +4°), les ouvertures sont retrouvées à 1–2 cm.
 
 **Limite.** À courte distance et téléphone d'aplomb, le haut de l'image s'arrête souvent sous le
 pignon : le toit n'est alors pas proposé (§8.2), plutôt que deviné.
+
+### 6.1 bis Les quatre repères de l'audit : redresser d'abord, chercher le mur ensuite (octobre 2026)
+
+À l'audit de la parcelle, « Placer 4 repères » ne demande plus les coins du mur. Les quatre points sont **n'importe quel
+rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, sur une même horizontale, et deux en bas
+(`CorrectionRedressement.reperes`). Ils ne disent que deux choses : la direction des verticales et celle des horizontales du mur.
+
+1. **Redresser, sans couper ni mettre à l'échelle.**
+   - Le haut et le bas des repères se croisent au point de fuite horizontal ; la gauche et la droite au point de fuite vertical
+     (`facade/vision/redressementFuites.ts::fuitesDesReperes`). Une paire parallèle donne un point à l'infini.
+   - La photo **entière** est tournée de face par ces deux points (`redresserParReperes`, la rotation K R K⁻¹ de
+     `redresserParFuites`). La focale se lit sur les repères quand elle le peut, sinon c'est celle de la photo, sinon celle d'un téléphone.
+   - L'image garde la surface de la photo. Rien n'est coupé au mur : seule la part trop étirée près de la ligne de fuite part.
+   - L'échelle n'est pas définie à cette étape. Elle vient de la largeur de la façade (la parcelle) et de la hauteur à l'égout
+     (le LiDAR, ou le dessin à la main).
+2. **Assembler.** Les photos du mur, redressées de face (par leurs repères, sinon par leurs points de fuite), s'assemblent par
+   ORB et une similitude (`facade/vision/mosaiqueFuites.ts`).
+3. **Chercher le mur, automatiquement d'abord.** Sur l'assemblage, sans coupe, on cherche l'égout, le sol et les deux bouts du
+   mur (`rectangleSurLesAretes` aux proportions largeur parcelle / hauteur LiDAR, sinon `rectangleDuMur`). On les reporte ensuite
+   dans chaque photo (`facade/releve/coinsAuto.ts::coinsAutoDeSerie`, `facade/releve/chaine.ts::reporterLeMur`).
+   - Sur une photo à repères, ce mur l'emporte sur les coins trouvés sur ses arêtes ; la photo est marquée « redressée avec vos points ».
+   - Les photos aux coins prédits le reçoivent aussi.
+   - L'élévation métrique (détection, texture, toit) se calcule ensuite sur l'assemblage entier, le mur posé par ces coins
+     (`facade/analyseMur.ts::analyserLeMur`, plus bas) : rien n'est coupé au mur.
+
+Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
+rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, à 5 quand la silhouette dit le toit, à 6 avec le gabarit, à 7 quand l’audit et le relevé passent par l’assemblage, à 8 quand plusieurs vues assemblées se fondent, et à 9 quand une photo seule se redresse en une passe.
+
+Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
+
+**L'égout et le sol sur l'assemblage.** Les arêtes trouvent les bouts du mur, mais elles prenaient le haut d'une bande de tuiles
+pour l'égout (la limite du toit et du ciel est la plus franche des horizontales). Elles prenaient aussi un bandeau d'étage pour le sol
+quand une haie ou une voiture cache le pied. Les deux bords s'affinent donc par la matière du mur
+(`facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol`) :
+- La teinte du mur se lit le long de ses bouts, qui sont sûrs. Son milieu peut être pris par des fenêtres à volets.
+- L'écart de teinte admis suit le grain du parement (brique, meulière). Une ombre de même teinte reste du mur.
+- L'égout est la transition « pas du mur » → « mur » la plus haute près du bord des arêtes. Sans transition franche (un pignon), le
+  bord des arêtes reste.
+- Le sol est la transition « mur » → « pas du mur » à ±12 % de la hauteur du plan. Sans elle, il tombe à cette hauteur, et se dit
+  supposé.
+- Un bord trouvé se colle à l'arête horizontale la plus proche.
+
+Mesure : `npx tsx .claude/skills/facades/scripts/egout-sol.ts` sur les 20 scènes à prise par caméra, par points de fuite puis par
+repères. Un bord est juste à 2 % de la largeur du mur près.
+
+| | Avant | Après |
+|---|--:|--:|
+| Égout juste | 8/40 | **37/40** |
+| Sol juste | 24/40 | **37/40** |
+| Bouts justes | 78/80 | 78/80 |
+
+**La silhouette du haut du mur.** L'égout n'est pas toujours une ligne : un pignon fait un triangle, l'appentis une rampe. Le haut du
+mur se lit donc colonne par colonne, sur l'assemblage (`facade/vision/mosaiqueFuites.ts::silhouetteDuMur`). C'est la première rangée qui
+a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du mur, laisse la silhouette à l'égout.
+- Une colonne dont le haut touche le bord du cadre ne dit rien. Une médiane sur cinq colonnes passe un arbre devant le pignon.
+- La ligne brisée est simplifiée (Douglas-Peucker), et deux sommets presque confondus se fondent.
+- **L'égout** est la hauteur aux angles, la droite des colonnes du bout prolongée jusqu'à eux. Sous une rampe, c'est le plus bas des
+  deux. Une silhouette droite garde la règle par transition, moins sensible à un dévers du redressement.
+- Cette lecture sert à **chercher** l'égout. La silhouette retenue, elle, est le gabarit (ci-dessous) ; la silhouette lue ne reste
+  que là où il n'y a pas de gabarit (le relevé).
+
+**Le gabarit : la silhouette par contrainte** (décision de l'utilisateur, 21 octobre 2026). La silhouette du mur ne se lit pas sur la
+photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur.ts`).
+- **Sa forme : la silhouette du Mode Toit, vue de face** (demande du propriétaire, 28 octobre 2026 : « dans le Mode Toit, en 3D,
+  la silhouette des façades est parfaite ; utilise la même méthode pour la calibration et le dessin de la façade »).
+  `silhouetteDesCorps.ts::silhouetteDeFace` la calcule, `gabaritMur.ts::gabaritDesCorps` la ramène à la hauteur du mur.
+  - Chaque corps du toit donne le mur qui fait face à la façade (à 60° près), tel que le Mode Toit le trace
+    (`silhouetteDuCorps`, la même que `silhouetteVersLOeil` : pied, haut sous son toit, pignon, croupe, rampe d'un appentis).
+  - Ces murs sont projetés sur le plan de la façade ; le plus haut l'emporte, ce qui est derrière un plus haut ne se voit pas.
+    Un corps plus haut en retrait se voit donc au-dessus d'un plus bas devant ; une aile qui avance de plus d'un mètre n'en est pas.
+  - Le mur d'un corps dans le plan de la façade (à `MUR_CORPS_DISTANCE_M` près) se voit **entier**, même au-delà du côté du
+    contour : `u` sort alors de 0..1. Sur une maison en L, le côté du contour au nu du pignon s'arrête au coin de l'aile ; le
+    pignon, lui, continue au-dessus de son toit, et c'est ce que montre la photo.
+  - Les hauteurs sont en mètres, ramenées à la hauteur du mur que pose la chaîne (`v` = 1 à son égout, 0 au sol) : un corps plus
+    bas descend sous 1. La ligne garde ses sommets à 2 cm près. Sans corps, un rectangle.
+  - Avant : une marche en profondeur le long du seul côté du contour (`hautDeLaFacade`, retirée). Le pignon d'une maison en L s'y
+    coupait au coin de l'aile, en demi-triangle étiré sur toute la façade ; un mur de quelques dizaines de centimètres prenait des
+    pointes. Une première version, encore avant, lisait le long d'un seul corps et se ramenait à l'angle le plus bas du mur : sur
+    AE 101, le gabarit de la façade ouest montait à 2,4 fois la hauteur, et celui de la façade nord ignorait le grand corps
+    derrière l'annexe.
+  - Le contour se ferme sous les bouts du gabarit (`contourDuGabarit`) : ajuster l'égout et le sol, la façade complète, l'image
+    posée et la vue 3D de la calibration.
+- **Sa pose.** On la pose sur l'image redressée, entre les bouts, l'égout et le sol trouvés, **une fois le mur calé** : depuis le lot
+  F1 (29 octobre 2026), le gabarit n'entre plus dans la recherche du mur (`affinerEgoutEtSol` n'a plus de paramètre `gabarit`), qui se
+  juge sans le toit (`facade/releve/calageAncres.ts`, `MD/spec-facade-calage-audit.md` §4 É5). Seule son échelle suit ce calage. Les repères ne disent que les directions ; la dimension vient de ce calage.
+- **Le profil.** Le profil lu sur l'image a été essayé pour caler le sol d'un pied caché : il le dégradait (rampe `23` : hauteur
+  6 % trop basse). Le sol garde la hauteur du plan.
+- **Dans la chaîne.** L'audit tire le gabarit des corps du bâtiment (`mesures.ts`, `gabaritDesCorps`) et le passe à la chaîne
+  (`OutilsChaine.gabarit`). Chaque photo reçoit le gabarit posé par ses coins (`gabaritSurLaPhoto`) ; sans gabarit, aucune
+  silhouette (la bande au-dessus de l'égout lit le toit) : elle ne se lit jamais sur la photo. Un cas de calibration importé d'un audit porte le gabarit du cas figé (`CasReel.gabarit`).
+- **Elle dit le toit.** La silhouette de chaque photo (le gabarit posé), ramenée au rectangle du mur
+  (`analyse.ts::silhouetteEnPartsDuMur` : `u` le long du mur, `v` = 1 à l'égout). Quand elle s'élève de plus de 0,3 m au-dessus de
+  l'égout, son profil, à l'échelle de la hauteur du mur, est celui que `classerProfil` classe : forme et hauteur du pignon viennent de
+  la silhouette, plus de la bande au-dessus de l'égout. Plate (un mur gouttereau), elle ne dit rien du toit qu'on voit derrière : la
+  bande le lit, comme avant ; un mur en L aussi. `classerProfil` reconnaît un pignon **décentré** (sommet balayé de 20 à 80 % du mur,
+  le centre l'emporte à égalité), qu'il prenait pour une croupe. `.claude/skills/facades/scripts/toit-facade.ts` compare les deux
+  lectures : pignons justes (forme, hauteur à 10 %) 1/3 par la bande, 3/3 par la silhouette (`11` sous l'ombre d'un arbre, lu plat
+  par la bande ; `22` décentré ; `23` appentis), murs gouttereaux inchangés. Avec le gabarit, la forme du toit proposé est celle du LiDAR ; l'avis de la photo
+  que l'audit arbitre contre lui reste la seule lecture de la bande (`ResultatAnalyse.toitLu`), sans quoi le LiDAR voterait deux fois.
+
+Le banc a deux scènes de pignon de plus : `22` (décentré, en pierre, de biais) et `23` (la rampe d'un appentis, une haie devant).
+Le générateur sait poser le sommet d'un pignon où l'on veut (`pignonSommet`).
+
+| Sur 44 lectures (22 scènes) | Après l'affinage par la teinte | Avec la silhouette lue | Avec le gabarit |
+|---|--:|--:|--:|
+| Égout juste | 41/44 | **44/44** | 44/44 |
+| Sol juste | 43/44 | 43/44 | 43/44 |
+| Silhouette à 2 % (21 colonnes) | — | 39/42 | 39/44 |
+
+Avec le gabarit, l'écart de la silhouette est celui de l'égout et du sol trouvés : la forme est juste par construction. Restent le
+pignon sous l'ombre d'un arbre (`11`) et le grand-angle à forte distorsion (`13`).
+
+**La reprise à la main.** « Ajuster l'égout et le sol » (audit : écran des repères ; calibration : photo courante) montre la photo
+redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
+- Le gabarit se pose entre ces lignes. Sa forme ne change pas ; il suit leur échelle. Il n'y a pas de sommet à tirer.
+- Tout part du mur trouvé. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
+- L'écran de calibration trace le gabarit en surimpression : sur les photos redressées entières, sur l'assemblage, sur la façade
+  complète et sur l'image posée sur la façade.
+- **L'assemblage est l'image prise pour la suite** (audit, relevé et calibration ; décision de l'utilisateur, 21 octobre 2026). Ce sont les photos
+  redressées entières et assemblées (étape 3), avec le mur porté des coins de la première photo (`analyseMur.ts::assemblerLeMur`).
+  - Le mur et la bande au-dessus de l'égout s'y redressent à l'échelle du plan (`analyserLAssemblage`), le pignon entier ; ce que
+    l'assemblage ne montre pas reste hors champ.
+  - La détection, la texture et le toit en partent. C'est `analyseMur.ts::analyserLeMur`, commun à tous, pour une photo seule ou
+    des vues du mur entier. Les repères posés à la main redressent leur photo ; une photo que ses points de fuite ne redressent pas
+    l'est par ses coins. La hauteur se mesure sur la première photo dont la focale le permet.
+  - **Plusieurs vues dans l'assemblage** (`analyseMur.ts::fondreLesVues`) : l'assemblage pose le mur, reporté sur chaque photo ;
+    l'image du mur se compose par la fusion de ces mêmes photos (`fusion.ts::analyserVues`) : la vue la mieux vue pixel par pixel,
+    la médiane à trois vues, ce qui est devant le mur écarté par la parallaxe et masqué (hachuré au relevé) quand il le cache sur
+    toutes, les baies votées entre les vues. Même cadre que l'assemblage seul (le mur et la bande au-dessus de l'égout). Des vues
+    qui ne se recalent pas entre elles laissent l'assemblage seul faire l'image. Sur les quatre scènes du banc à vues (`16` à `19`,
+    coins vrais) : précision des baies 63–83 % → 86–100 %, rappel 67–83 % → 100 %.
+  - Sans assemblage, la fusion des photos entre leurs coins ; un mur à deux hauteurs d'égout (décrochement) et des morceaux
+    d'un long mur gardent leur analyse.
+  - La chaîne compte comme fusionnées les photos de l'assemblage ; une photo restée à part le dit (`analyserSerie`, avis).
+  - L'assemblage n'écarte pas un obstacle vu sur une seule photo, comme le faisait la fusion par médiane.
+- **Les étapes de la calibration** (révisées le 21 octobre 2026 avec l'utilisateur) :
+  - 1. les repères sur chaque photo, ou les points de fuite ;
+  - 2. chaque photo redressée entière, sans coupe ni échelle ;
+  - 3. l'assemblage, l'égout et le sol cherchés, la silhouette posée ;
+  - 4. **la façade complète** : l'assemblage de l'étape 3, entier et tel quel, pris pour l'analyse. La silhouette y est remise à
+    l'échelle de la façade, entre les coins du mur ramenés de la photo. *(Depuis le lot F0 du 29 octobre 2026, ces étapes sont celles
+    de l'orchestrateur, `facade/releve/enchainement.ts` : la calibration les montre dans sa barre de progression et sa frise,
+    `MD/spec-facade-calage-audit.md` §4 ter et §7.3.)* ;
+  - 5. **tirer les bouts, l'égout et le sol** sur la façade fusionnée entière, sans rognage (`zones/releve/AjusterMur.tsx`, le même
+    composant que sur une photo redressée). *(Jusqu'au lot F1 du 29 octobre 2026, « caler la silhouette » le faisait proportions
+    verrouillées, avec une poignée qui étirait la photo en hauteur (`CalageSilhouette.tsx`, supprimé) : l'égout tiré librement fait
+    le même travail, et le gabarit ne pose plus le mur, `MD/spec-facade-calage-audit.md` §4 É5.)* ;
+  - 7. les ouvertures proposées, ramenées sur la même image : trouvées en trait plein, devinées en pointillé (d'une autre teinte) ;
+  - 8. la texture collée sur sa silhouette, telle que photographiée et sans les ombres de la photo ;
+  - 9. **la vue 3D face à la façade** (`zones/VueFacade3d.tsx`) : le mur en volume, à la forme de la silhouette, la texture sur sa
+    face. La caméra est devant, perpendiculaire, à mi-hauteur. three.js se charge à la demande ; sans WebGL, l'étape le dit.
+  - Les anciennes étapes « le mur reporté sur chaque photo » et « la silhouette et le toit » sont retirées.
+  - « Appliquer le calage et rejouer » rend les coins du mur sur l'assemblage. Ils sont reportés sur chaque photo assemblée comme un
+    mur posé à la main, puis le cas se rejoue depuis le calage.
+- Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
+  à côté des `reperes`).
+- La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui
+  n'ont que des repères.
+
+Le relevé garde pour l'instant ses quatre coins du mur.
 
 ### 6.2 Un mur à deux hauteurs d'égout (en L)
 
@@ -361,9 +569,78 @@ Sur les images de test (mur de 10 m, partie haute à 6 m, garage à 3 m, vu de b
 décrochement et l'égout bas sont retrouvés exacts au centimètre ; dans l'application, avec des
 poignées posées au doigt, 4,99 m pour 5,00 et 3,00 m pour 3,00.
 
+**Depuis le 2 novembre 2026, la marche vient du plan et du LiDAR, pas de la photo.** Le geste « En L »
+est parti avec la capture du relevé (lot F6 de `MD/spec-facade-calage-audit.md`) : plus rien ne posait
+de décrochement, et la chaîne de l'audit et de la calibration le passait toujours à `null` ; un mur en L
+de l'audit s'écrivait sans partie basse. Or son gabarit (le haut de la façade sous les corps du LiDAR,
+`facade/gabaritMur.ts`) porte déjà la marche, et la chaîne la suit : la détection cherche dans la
+silhouette (rien au-dessus du garage), le calage pose le rectangle englobant (le coin caché par
+l'horizontale du bout haut), l'É5 lit chaque angle sous le haut du gabarit à ce bout.
+
+- **La partie basse** se lit sur le gabarit (`facade/profil.ts::partieBasseDuGabarit`), à la hauteur
+  mesurée du mur, dans `analyserLeMur` : la même pour l'audit, le relevé et la calibration. Depuis un
+  bout, la plus longue suite de colonnes à 50 cm au moins sous l'égout, sur un mètre au moins, quand
+  l'autre partie atteint l'égout ; son égout est le plus bas de son haut. Rien sur un rectangle, un
+  pignon, une rampe, un pignon voisin qui déborde, ni quand les deux bouts descendent (une partie haute
+  au milieu : le relevé ne décrit qu'une partie basse). Elle s'écrit sur le relevé, que la personne
+  corrige dans l'éditeur comme avant.
+- **Deux façades ou une avec une marche** : le contour en décide, comme pour tout mur. Une partie basse
+  dans l'alignement est sur le même côté du contour : une façade, avec sa partie basse. Une partie basse
+  en retrait ou en avancée est un autre côté du contour : sa propre façade.
+- **La 3D** : avec les corps du toit, le L est déjà le leur (un prisme et une silhouette par corps) ;
+  la partie basse n'y écarte plus qu'une baie au-dessus de son égout, dans le vide. Sans corps, elle
+  coupe le bâtiment en deux volumes, comme ci-dessus.
+- **La photo** ne pose plus de décrochement : `Decrochement`, `coinsEnglobants` et
+  `mesurerPartieBasse` restent pour `analyserReleve` (le banc, les tests), sans appelant dans l'application.
+- Banc : scène `25-mur-en-l-garage` (maison à étage, garage dans l'alignement, vue de biais).
+
+**Depuis le 3 novembre 2026, un mur a autant de parties basses que son gabarit en montre.** Une maison
+entre un garage et un appentis, dans le même alignement, a sa partie haute au milieu et une partie basse à
+chaque bout ; le relevé n'en décrivait qu'une, à un bout, et ce mur s'écrivait sans aucune.
+
+- **La lecture** (`facade/profil.ts::partiesBassesDuGabarit`) : chaque suite de colonnes à 50 cm au moins
+  sous l'égout, sur un mètre au moins, quand une autre partie du mur atteint l'égout ; de gauche à droite.
+  Une à un bout (le mur en L, comme avant), une à chaque bout, et une au milieu quand le gabarit y descend
+  (un corps bas entre deux corps hauts). Rien quand le mur entier est sous l'égout.
+- **Le modèle** (`model/partiesBasses.ts`) : une partie basse s'écrit toujours dans `partieBasse`, comme
+  depuis le schéma 2 ; plusieurs dans `partiesBasses` (triées, sans recouvrement), `partieBasse` nulle.
+  Seul un fichier qui porte un tel mur s'écrit au schéma 13 : un fichier d'avant garde sa forme, son schéma
+  et ses nombres. Tout lecteur passe par `partiesBassesDu` ; la mise à l'échelle par
+  `partiesBassesTransformees`, qui garde la forme rangée.
+- **Ce qui les lit** : la surface du mur (chacune retirée), l'égout en un point, le contour du mur (la photo
+  plaquée en 3D), les baies dans le vide au-dessus d'elles (écartées), la bande du toit (lue sur la plus
+  large partie haute), l'éditeur (une carte par partie : décrochement, ou début et fin au milieu, et égout
+  bas), et les volumes du bâtiment : la partie haute, puis une partie basse à chaque bout, chacune à la
+  profondeur de son pignon. Une partie basse au milieu est un volume à part (décision du propriétaire, 3 novembre
+  2026) : la tranche du contour entre les perpendiculaires à la façade à son début et à sa fin, sur toute la
+  profondeur du bâtiment (elle n'a pas de pignon dont prendre la direction). La partie haute se coupe alors
+  en deux, de part et d'autre, chacune avec son toit et son débord ; les fenêtres automatiques, le plan et la
+  3D suivent ces volumes (`facade/profil.ts::volumesEtHautesDuBatiment`). Une partie basse seule d'un relevé
+  d'avant finit au bout du mur au centimètre près : elle n'est lue au milieu que si elle s'arrête à plus de
+  50 cm de chaque bout, et garde ses volumes.
+- **L'É5** : quand aucun bout du gabarit ne monte à l'égout, les rangées du haut sont le ciel aux deux bouts ;
+  la teinte du mur s'y lit alors sous le haut de chaque bout, comme ses angles (la pose juste de la scène 26
+  passait de 0,19 à 1,00). Et l'égout se juge aussi sur les seules colonnes à sa hauteur (le moins bon des
+  deux) : sous une partie haute plus étroite que les parties basses, un égout décalé de 60 cm passait la
+  moyenne. Sans bout à l'égout, chaque partie basse doit aussi s'expliquer à la sienne : la calibration sans
+  capteurs prend le garage de la scène 26 pour le mur entier (la recherche ne lit pas le gabarit), et l'É5 le
+  disait « fait » (0,81, comme sur `main`) ; il est « à confirmer » (égout 0), et le mur posé à la main est
+  « fait » (0,99). Un rectangle, un pignon, le mur en L de la scène 25 : au bit près comme avant.
+- Banc : scène `26-partie-haute-au-milieu` (appentis, maison à étage, garage, vue de biais), avec l'ombre du
+  débord depuis le 3 novembre 2026 : le calage fin ne prend plus la limite de l'ombre pour l'égout quand la
+  partie haute est étroite (`facade/calage/calageFin.ts`, un égout qui borde au-dessus de lui une bande du
+  même mur plus sombre est écarté).
+
 ---
 
-## 7. Les ouvertures (`facade/detection.ts`)
+## 7. Les ouvertures (`facade/detection/detection.ts`)
+
+> **Évolution prévue** (13 octobre 2026) : l'audit devient le moteur des façades. Le calage des photos
+> (§5, §6) et la détection des ouvertures ci-dessous sont repris et améliorés dans
+> [`spec-facades-calage-detection.md`](spec-facades-calage-detection.md). On y trouve les coins trouvés
+> par les points de fuite, la fusion de plusieurs vues, la teinte locale, les profils de contours, la
+> structure en niveaux et travées, le renfort de Claude et un banc de mesure. Ce paragraphe décrit la
+> méthode d'aujourd'hui.
 
 Un mur est une grande surface à peu près uniforme ; une baie s'en détache.
 
@@ -387,7 +664,7 @@ posés au doigt.
 
 ---
 
-## 8. Le toit (`facade/toit.ts`)
+## 8. Le toit (`facade/toits/toit.ts`)
 
 ### 8.1 Le modèle
 
@@ -425,7 +702,11 @@ projette plus bas qu'il n'est. `corrigerFuite` remonte la hauteur apparente avec
 mesurée et la demi-largeur du bâtiment. Moins d'un tiers de la bande vu : aucun toit n'est proposé,
 plutôt que de conclure à un toit plat.
 
-### 8.3 Chaque façade redéfinit le toit
+### 8.3 Chaque façade redéfinit le toit — jusqu'au lot F6
+
+*Depuis le lot F6, l'éditeur ne touche plus au toit* : la forme lue sur la photo passe par le diagnostic de forme de l'audit, qui
+propose une correction du toit corps par corps, relue par le moteur après confirmation (lot F4), ou par le Mode Toit. Ce qui suit
+décrit le relevé d'avant.
 
 Le bâtiment par défaut est le contour du cadastre extrudé à la hauteur du cadastre, avec le toit
 qu'on lui connaît (ou aucun). **Chaque façade relevée le redéfinit** : sa hauteur à l'égout mesurée
@@ -457,12 +738,19 @@ Le bâtiment reste le prisme de `scene.ts` ; le relevé l'habille :
 exactement ses mailles, donc la structure du GLB (fumée, point 24). Un bâtiment relevé s'exporte en
 GLB avec sa texture, puisque l'export prend la scène vivante.
 
+**Une ouverture de la façade objet est un objet de la scène** (lot F5, 29 octobre 2026) : son encadrement et sa vitre vont dans
+un groupe nommé par son identifiant (`ouverture:o3`, `userData` : l'identifiant et `verifiee`). Une ouverture sans identifiant (un
+relevé d'avant la validation V4) reste posée dans la scène comme avant : la 3D d'un projet sans Façade validée ne change pas, et la
+démonstration n'en a pas (`glb-structure.json` inchangé). Les carreaux (`details.carreaux`) ne se dessinent pas encore (lot F8).
+
 ### 9.2 Le plan (`render/releve.ts`)
 
 Convention d'architecte, **coupe à 1,10 m** : les baies qui la traversent coupent le trait du mur,
 bornées par leurs tableaux ; une fenêtre a son trait de vitre, une porte son vantail et son arc de
 débattement. Les baies de l'étage n'y sont pas. **Seul le plan à l'écran** les montre : l'export
-SVG garde sa forme, figée par son empreinte.
+SVG garde sa forme, figée par son empreinte. Sur une **Façade validée** (lot F5), une ouverture que la personne
+n'a pas encore vérifiée (venue d'un rejeu coché après la validation) a ses tableaux en tirets ; chaque coupure porte
+l'identifiant de son ouverture (`data-ouverture`).
 
 ---
 
@@ -473,6 +761,7 @@ interface ReleveFacade {
   cote: number;               // indice du côté : de pts[cote] à pts[cote + 1]
   largeur: number; hauteur: number;
   texture: string | null;     // data:image/jpeg;base64,… — l'élévation redressée
+  photoLocale?: string;       // la clé de la photo gardée sur l'appareil (§10.1)
   hauteurTexture?: number;    // au-delà de hauteur : la bande du pignon
   ouvertures: { type, x, y, l, h }[];
   distance: number | null; sourceDistance: 'lidar' | 'webxr' | 'cadrage' | null;
@@ -487,14 +776,82 @@ interface ReleveFacade {
 - **`SCHEMA_VERSION` passe de 1 à 2** (`RELEASE.md` §3.1 : toute évolution de la forme persistée).
   Un fichier de schéma 1 s'ouvre sans migration (les champs sont facultatifs) ; un fichier de
   schéma 2 est refusé par la `2.1.0`, qui en perdrait les relevés au premier enregistrement.
-- Poids : 60 à 120 Ko de JPEG par façade (qualité 0,82, 1 024 px au plus). La plateforme refuse un
-  document trop gros (413) : une dizaine de façades reste loin de cette limite, mais ce sera la
-  première à surveiller si les relevés se multiplient (§11).
+- Poids : 60 à 120 Ko de JPEG par façade (qualité 0,82, 1 024 px au plus). Depuis le 10 octobre
+  2026, la photo ne part plus dans le document de la plateforme (§10.1) : seuls les fichiers JSON
+  exportés et la mémoire du navigateur la portent.
 - La hauteur d'égout **mesurée** sur la photo (§6.0), ou corrigée à la main, remplace l'élévation
   du bâtiment (celle du cadastre). `sourceDistance` peut encore valoir `lidar` dans un projet relevé
   en `2.2.0` ; plus aucun relevé ne l'écrit.
 
+### 10.0 La Façade et la façade objet (lot F5, 29 octobre 2026, schéma 7)
+
+`MD/spec-facade-calage-audit.md` §3.2 à §3.4 : la façade **validée** (le point V4 de l'audit, « Valider la façade », commande
+`facade.valider`) garde ce que la photo a servi à vérifier, sans rien prendre à la photo de ce qui revient au plan et au LiDAR.
+
+```ts
+interface ReleveFacade {
+  // … inchangé, plus, tous facultatifs :
+  dimensions?: { largeurM; egoutM; faitageM?; source: 'cadastre' | 'lidar' | 'ign' | 'saisie'; ecartPhoto?: { largeur?; egout? } };
+  forme?: { gabarit: { u; v }[]; silhouetteLue?; bout?; pointes?: { u; v; source }[]; corps?: { mur; u0; u1 }[]; source };
+  surface?: { principale; zones?; source };          // le parement lu par Claude
+  textureCalee?: { pxParM; cadre: { x0; y0; x1; y1 }; sansOmbres? };   // le mur sur l'image calée
+}
+interface OuvertureFacade {
+  // … inchangé, plus : id? (stable : `o1`, `o2`…), verifieeLe? (AAAA-MM-JJ), details.carreaux? (vantaux, grille, petits bois,
+  // imposte, vitrage ; lus par Claude, dessinés en 3D au lot F8)
+}
+```
+
+- **Écrits à la validation V4** seulement, en un pas d'historique : le relevé (posé d'office par l'audit, sinon celui de la mesure),
+  le bilan de l'É11 (`facade/releve/bilanFacade.ts`), la source des dimensions lue sur la hauteur du bâtiment
+  (`model/protections.ts`), les carreaux que l'accord du run a lus, le parement du run ; chaque ouverture numérotée et vérifiée ;
+  `depuisAudit` tombe.
+- **Lus à la lecture d'un fichier** par `model/facadeObjet.ts::facadeLue` : un champ mal formé ou un mot inconnu est retiré, un
+  relevé d'avant revient tel quel (le même objet).
+- **Un rejeu ne déplace pas une ouverture vérifiée** : écrit sur un mur, un relevé neuf garde les ouvertures que la personne a
+  posées, corrigées ou vérifiées, et n'ajoute pas la détection qui en recouvre une de plus de moitié (`releveReecrit`).
+- **Lus par** la 3D (§9.1), le plan (§9.2), l'inspecteur (la ligne du mur : « Façade », ses dimensions et leur source, sa forme
+  lue, sa texture, son parement, l'écart de la photo en alerte au-delà de 10 % ; « Ouvertures », par niveau, et celles qui sont
+  vérifiées) et le Mode Toit (le mur d'un corps qui porte une Façade validée est en tirets dans le navigateur, et la barre dit
+  « vue sur la photo (triangle, 2 pointes) »).
+- **Schéma 7** : un lecteur 6 garderait ces champs à la lecture, mais les perdrait à la première réécriture du mur ; un projet qui
+  n'en porte pas reste au plus petit schéma qui le décrit. `calage.contourDecaleM` n'est plus écrit : l'écart de la largeur vue est
+  `dimensions.ecartPhoto.largeur`, en part ; un fichier d'avant le garde tel quel.
+
 ---
+
+### 10.1 La photo reste sur l'appareil (10 octobre 2026)
+
+La plateforme refuse qu'un document embarque un contenu : toute URI `data:`, toute chaîne de plus de
+64 Kio (`422 EMBEDDED_ASSET_REJECTED`, backprod `DocumentPolicy`) — les grosses pièces n'ont pas leur
+place dans la base, et elle n'a pas encore de stockage de fichiers. Le premier enregistrement d'un
+bâtiment relevé avec photo aurait donc été refusé.
+
+À l'enregistrement sur la plateforme (`io/depotPlateforme.ts`), chaque photo sort du document
+(`io/photosLocales.ts::sortirLesPhotos`) : elle est rangée dans le navigateur (IndexedDB, base
+`plan-photos`), sous une clé tirée de son contenu (`cleDePhoto`), et le relevé enregistré porte
+`texture: null` et `photoLocale: <clé>`. La page, elle, garde sa photo : seul le document envoyé
+change. À l'ouverture (`rentrerLesPhotos`), la photo revient du navigateur quand il l'a.
+
+- **Sur le même appareil**, rien ne change pour la personne : la photo est là.
+- **Sur un autre appareil**, le relevé garde ses mesures, ses ouvertures et le toit qu'il a proposé,
+  sans la photo ; la 3D montre les vitres et les vantaux, comme « Texture » décochée. L'inspecteur
+  le dit sur la ligne du mur : « photo restée sur l'appareil du relevé ».
+- **Stockage du navigateur indisponible** (navigation privée stricte) : le projet s'enregistre quand
+  même, sans la photo, et la console le dit.
+- L'**export JSON**, un fichier de la personne, garde la photo : il ne passe pas par ici. La
+  **démonstration de l'admin** (fichiers JSON sur le serveur de Plan) non plus.
+
+Quand la plateforme aura son stockage de fichiers (son jalon M7), la photo y montera et `photoLocale`
+deviendra la référence de ce fichier.
+
+### 10.2 Un relevé d'avant, dans l'éditeur (lot F6)
+
+Le fichier ne change pas de forme : un relevé fait par l'ancienne capture (sa distance et sa source — `lidar`, `webxr`, `cadrage`,
+`rue` —, ses coins et leur source, son calage d'avant avec `contourDecaleM`, ses corrections) ou posé par l'audit se rouvre dans
+l'éditeur tel quel. Rouvert et validé sans geste, il ne s'écrit pas ; édité, il garde tout ce que l'éditeur ne touche pas, et un
+relevé sans Façade validée reste au schéma 6 (`tests/unit/app/releve/releve.test.ts`, sur le témoin
+`tests/fixtures/migrations/schema-6.json` : rouvert, édité, réécrit, relu, octet pour octet). F6 ne touche pas au schéma.
 
 ## 11. Limites connues et suites
 
@@ -512,6 +869,8 @@ interface ReleveFacade {
 | Toit redéfini par la dernière façade | une façade vue depuis l'égout (faîtage corrigé de sa fuite) remplace un toit lu, plus sûrement, sur un pignon | décocher la case ; ou combiner les lectures de plusieurs façades |
 | Module natif non compilé | écrit sous Windows, sans Xcode ; désactivé depuis la 1.1 | le compiler et le signer (`native/ios/README.md`) s'il est rallumé |
 | WebXR non essayé | aucun appareil Android ARCore disponible pendant le développement | le dérouler sur un téléphone Android |
+| Photo de rue : couverture et âge | Panoramax ne couvre pas tout, et une photo de 2018 montre le mur d'alors ; un mur en retrait n'est pas visible de la rue | la page le dit, les deux autres méthodes restent ; l'auteur et la licence ne sont pas encore gardés dans le relevé |
+| Boussole non essayée sur appareil | le cap est lu contre l'API documentée (`webkitCompassHeading`, `deviceorientationabsolute`) | le dérouler au téléphone ; une boussole mal étalonnée se trompe d'un mur, d'où « proposé, pas choisi » |
 
 ---
 
@@ -540,6 +899,12 @@ interface ReleveFacade {
   120 × 120 et 90 × 216 pour 120 × 135, 120 × 120 et 90 × 215 ; correction à 6,00 m puis retour,
   cotes rendues à l'identique ; validation : élévation 5,20 m, toit à deux pans remplacé. La visée
   n'annonce plus le LiDAR ; le canal natif n'est plus appelé.
+- **Lot F6 (29 octobre 2026)** : l'éditeur sous jsdom (`tests/unit/zones/editeurFacade.test.ts` : la baie devinée, les gestes de la
+  grille, la vérification, Annuler et Échap), son service (`tests/unit/app/releve/releve.test.ts` : rien ne s'écrit sans geste, un
+  pas d'historique, un relevé d'avant rouvert et édité sans perte), aucune capture hors de l'audit
+  (`tests/unit/architecture/captureAudit.test.ts`) ; fumée 112 (de « Photographier » dans l'inspecteur à l'éditeur), 113 (deux vues
+  dans l'audit), 114 (un cas de calibration tiré de l'audit). Les points de fumée de la capture (54, 58, 59, 65, 67, 68, 71, 80,
+  81, 82) sont retirés (`tests/CHECKLIST-FUMEE.md`).
 - **Empreintes** : les six artefacts du jeu de démonstration, recapturés à la `2.2.0` ; l'ancien
   numéro, l'ancienne date de build et l'ancien numéro de schéma remis dans les octets frais rendent
   les six empreintes de la `2.0.2` au bit près (`tests/fixtures/golden/EMPREINTES.md`).

@@ -84,9 +84,11 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
     });
   }
   // Pied du mat : au centre pour un parasol droit, en bord de toile pour un deporte. Redessine
-  // par-dessus tout le reste (le groupe est remis en fin de svg juste avant).
+  // par-dessus tout le reste : le plan range ses calques ensuite (app/assemblage/dessin.ts, `poserEnQueue`). Le groupe n'est pose
+  // en fin de svg que s'il n'y est pas encore : le deplacer a chaque dessin (un zoom) defaisait cet ordre, que le plan refaisait
+  // alors en deplacant tous les calques du dessus, et le navigateur refaisait leur style.
   groupeMats.innerHTML = '';
-  racine.appendChild(groupeMats);
+  if(!groupeMats.parentNode) racine.appendChild(groupeMats);
   parasols.forEach(par=>{
     const m = positionMat(par);
     const s = versEcran(scene, m);
@@ -95,7 +97,7 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
     c.setAttribute('fill', '#3f2d18');
     c.setAttribute('stroke', '#fff'); c.setAttribute('stroke-width', '1.5');
     groupeMats.appendChild(c);
-    if(par.matDeporte){
+    if(par.parasol?.matDeporte){
       // Un trait relie le pied au centre de la toile : sans lui, sur un deporte, on ne voit pas
       // a quel parasol appartient ce pied quand plusieurs se chevauchent.
       const sc = versEcran(scene, enCercle(par).center);

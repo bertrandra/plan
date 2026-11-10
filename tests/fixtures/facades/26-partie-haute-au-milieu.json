@@ -1,0 +1,184 @@
+{
+  "nom": "26-partie-haute-au-milieu",
+  "description": "Partie haute au milieu : une maison à étage (égout à 5,6 m) entre un appentis à gauche (égout à 2,6 m) et un garage à droite (égout à 2,9 m), dans le même alignement, enduit, l'ombre du débord sous l'égout haut, photographiée de biais : au-dessus de chaque partie basse, sa bande de tuiles puis le ciel ; les deux coins hauts du rectangle englobant n'ont pas d'arête.",
+  "difficultes": [
+    "partie-haute-au-milieu",
+    "mur-en-l",
+    "enduit",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 12,
+    "hauteur": 5.6,
+    "coins": [
+      {
+        "x": 312.91,
+        "y": 347.4
+      },
+      {
+        "x": 1024.63,
+        "y": 306.98
+      },
+      {
+        "x": 1041.28,
+        "y": 680.29
+      },
+      {
+        "x": 300.94,
+        "y": 664.3
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "porte",
+        "x": 1,
+        "y": 0,
+        "l": 0.9,
+        "h": 2,
+        "rendu": {
+          "couleur": [
+            70,
+            88,
+            104
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 3.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 6,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "couleur": [
+            92,
+            58,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 3.6,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 6.4,
+        "y": 3.6,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "garage",
+        "x": 9.1,
+        "y": 0,
+        "l": 2.4,
+        "h": 2.1,
+        "rendu": {
+          "couleur": [
+            120,
+            118,
+            112
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 26,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          226,
+          214,
+          192
+        ],
+        "taches": 6
+      },
+      "toit": {
+        "hauteur": 1.2,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      },
+      "partiesBasses": [
+        {
+          "debut": 0,
+          "fin": 3,
+          "hauteur": 2.6,
+          "toit": {
+            "hauteur": 0.6,
+            "couleur": [
+              150,
+              72,
+              52
+            ]
+          }
+        },
+        {
+          "debut": 8.6,
+          "fin": 12,
+          "hauteur": 2.9,
+          "toit": {
+            "hauteur": 0.7,
+            "couleur": [
+              150,
+              72,
+              52
+            ]
+          }
+        }
+      ]
+    },
+    "ombres": [
+      {
+        "type": "debord",
+        "hauteur": 0.25,
+        "facteur": 0.8
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 15,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 12,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

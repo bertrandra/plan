@@ -1,0 +1,198 @@
+{
+  "format": "plan-assistant-reponses",
+  "source": "API Claude, workflow « Vérifier l'API Claude », run 41050741385 du 30 octobre 2026 (prompt v1, schéma v1, catalogue v1)",
+  "reponses": {
+    "01-lames-douglas": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "terrasse",
+            "champ": "lames.essenceBois",
+            "valeur": "douglas",
+            "pourquoi": "Remplace l'essence des lames de la terrasse sélectionnée par du douglas."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00012053,
+      "structuree": true
+    },
+    "02-grille": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "affichage.grille",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "La grille est masquée actuellement ; cette bascule l'affiche comme demandé."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00011513,
+      "structuree": true
+    },
+    "03-nord-voisinage": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "affichage.nord",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Masque la flèche du Nord, qui est affichée."
+          },
+          {
+            "genre": "commande",
+            "commande": "affichage.voisinage",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Masque les objets importés des parcelles voisines, qui sont affichés."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00014693,
+      "structuree": true
+    },
+    "04-dupliquer": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "objet.dupliquer",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Crée une copie de la terrasse sélectionnée, décalée à côté."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00011553,
+      "structuree": true
+    },
+    "05-piscine-ronde": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "objet.ajouter.piscineRonde",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Ajoute une piscine ronde au projet, à sa taille par défaut, et la sélectionne."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00045227,
+      "structuree": true
+    },
+    "06-spa-jacuzzi": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "spa",
+            "champ": "objet.name",
+            "valeur": "Jacuzzi",
+            "pourquoi": "Renomme l'objet sélectionné en Jacuzzi."
+          },
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "spa",
+            "champ": "objet.elevation",
+            "valeur": "0.4",
+            "pourquoi": "Surélève le spa de 40 cm, soit 0.4 m, dans l'unité du champ (m) et dans ses bornes (au moins 0 m)."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00044227,
+      "structuree": true
+    },
+    "07-cloture-grillage": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "parcelle",
+            "champ": "cloture.type",
+            "valeur": "grillage",
+            "pourquoi": "Passe le type de clôture de la parcelle en grillage, comme demandé."
+          },
+          {
+            "genre": "champ",
+            "commande": "",
+            "objet": "parcelle",
+            "champ": "cloture.hauteur",
+            "valeur": "1.5",
+            "pourquoi": "Règle la hauteur de la clôture à 1,50 m, dans l'unité du champ (m) et entre ses bornes (0,1 à 6 m)."
+          }
+        ],
+        "questions": []
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.0001572,
+      "structuree": true
+    },
+    "08-autre-objet": {
+      "sortie": {
+        "etapes": [],
+        "questions": [
+          "Sélectionnez « Chêne » puis redemandez."
+        ]
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00014523,
+      "structuree": true
+    },
+    "09-hors-projet": {
+      "sortie": {
+        "etapes": [],
+        "questions": [
+          "Je ne peux pas chiffrer le coût : Plan calcule le chiffrage lui-même. Voulez-vous que je règle la terrasse sélectionnée à une surface de 25 m² ? Plan ne propose pas de champ de surface directe : indiquez les dimensions souhaitées (longueur et largeur en mètres) pour que je vous propose les réglages."
+        ]
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00014283,
+      "structuree": true
+    },
+    "10-lecture-seule": {
+      "sortie": {
+        "etapes": [
+          {
+            "genre": "commande",
+            "commande": "affichage.grille",
+            "objet": "",
+            "champ": "",
+            "valeur": "",
+            "pourquoi": "Affiche la grille, qui est actuellement masquée."
+          }
+        ],
+        "questions": [
+          "Le champ « Essence de bois » des lames est grisé : Plan est en lecture seule à cet écran, donc le passage en composite ne peut pas être fait ici. Voulez-vous que je prépare seulement l'affichage de la grille, ou souhaitez-vous ouvrir le projet dans un écran où ce champ est modifiable ?"
+        ]
+      },
+      "modele": "claude-haiku-5-5",
+      "cout": 0.00087457,
+      "structuree": true
+    }
+  }
+}

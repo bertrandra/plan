@@ -1,0 +1,288 @@
+// Z8, l'audit de la parcelle : une facade photographiee, dans l'enchainement de la facade (MD/spec-facade-calage-audit.md §4 ter.3,
+// §4 ter.5, §6 ; lot F3). En haut, la barre de progression, la meme que celle de la calibration (zones/composants/
+// BarreProgressionFacade.tsx) : elle lit les etats que l'orchestrateur a calcules pour la mesure de la facade, et n'ouvre que les
+// points de validation et ce qui doute. Dessous, le mode discret (app/audit/parcelle/discret.ts) : une etape cachee qui a reussi ne
+// se montre pas ; une etape qui echoue ou doute se dit en une ligne, avec son geste de repli (les quatre repères sur une photo, le
+// mur tire a la main). « Rejouer la façade » rejoue l'orchestrateur ; les photos et les corrections ne bougent pas. Quand Claude a lu
+// la facade (trois passes votees), une ligne le dit avec son cout, et « Escalader » (la commande `facade.escalader`, a la demande
+// seulement) annonce le sien. Le point V4 (lot F5) : « Valider la façade » (la commande `facade.valider`) ecrit sa Facade dans le
+// projet ; validee, l'E14 de la barre est faite. Pour l'administrateur, « Créer un cas depuis cette façade » (la commande
+// `facade.creerCas`, lot F6) en fait un cas de calibration : la calibration ne prend plus de photos, elle lit celles de l'audit.
+
+import { useCallback, useEffect, useState } from 'react';
+import { BarreProgressionFacade, COMMANDE_CONFIRMER_MUR, COMMANDE_ESCALADE, COMMANDE_VALIDER } from '../composants/BarreProgressionFacade.js';
+import { BoutonCommande } from '../composants/BoutonCommande.js';
+import { enAdmin } from '../../app/acces.js';
+import { PoserReperes } from '../releve/PoserReperes.js';
+import { RelireOuvertures } from '../releve/RelireOuvertures.js';
+import { sontRelues } from '../../model/auditParcelle.js';
+import { type MurAjuste } from '../releve/AjusterMur.js';
+import { auDixiemeDePixel, coinsParDefaut } from '../releve/commun.js';
+import { actionsDansLAudit, lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
+import { ActionsEtape } from '../composants/ActionsEtape.js';
+import { etapeFacade } from '../../model/etapeFacade.js';
+import { cleMesure } from '../../app/audit/parcelle/mesures.js';
+import { etapesApresValidation } from '../../app/audit/parcelle/facadeValidee.js';
+import { lignesFacadeEnrichie } from '../../app/audit/parcelle/facadeEnrichie.js';
+import { lignesToitDeLaFacade } from '../../app/audit/parcelle/facadeToit.js';
+import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
+import { LIBELLES_ETAT } from '../../model/etapeFacade.js';
+import { enteteDuRun } from '../../facade/releve/enchainement.js';
+import { COMMANDE_ANNULER_GESTE, COMMANDE_RETABLIR_GESTE } from '../../app/clavierGestes.js';
+import { libelleEscalade, type PrixEscalade } from '../../app/releve/runFacade.js';
+import type { RunEnregistre } from '../../regles/facades/observations.js';
+import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
+import type { P2 } from '../../facade/vision/homographie.js';
+import type { Photo } from '../../ui/releve/camera.js';
+import type { CorrectionRedressement } from '../../model/auditParcelle.js';
+import type { PhotoCas } from '../../model/audit.js';
+import type { GabaritMur } from '../../facade/gabaritMur.js';
+import type { AssemblageAAjuster } from '../../facade/releve/enchainement.js';
+
+/** Un repere ne compte deplace qu'au-dela de ce nombre de pixels de la photo : l'arrondi au dixieme ne deplace rien. */
+const REPERE_DEPLACE_PX = 0.5;
+
+/**
+ * La correction qu'« Appliquer » ecrit. Les reperes n'y vont que si la personne les a deplaces : ouvrir « Placer 4 repères » (qui part
+ * des coins du mur retenus) puis appliquer sans y toucher ne doit pas faire passer la photo par le chemin des reperes (revue des
+ * etapes, B1), ni redresser autrement qu'en calibration pour le meme geste. Des reperes deja poses restent dans la capture : la
+ * correction de la photo s'y fond (`corriger`).
+ */
+export function correctionAAppliquer(coins: readonly P2[], depart: readonly P2[] | undefined, coinsAjustes: P2[] | undefined, echelle: number | undefined): CorrectionRedressement {
+  const deplaces = !depart || depart.length !== coins.length || coins.some((c, k) => Math.hypot(c.x - (depart[k] as P2).x, c.y - (depart[k] as P2).y) > REPERE_DEPLACE_PX);
+  return { ...(deplaces ? { reperes: auDixiemeDePixel(coins) } : {}), ...(coinsAjustes ? { coins: coinsAjustes } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) };
+}
+
+/**
+ * Ce que « Revenir à l'automatique » laisse de la correction d'une photo : la largeur reelle tapee pour l'echelle, qui n'est pas un
+ * geste du redressement et ne se perd pas sans le dire (revue des etapes) ; null quand il n'en reste rien.
+ */
+export function correctionApresRetour(avant: CorrectionRedressement | undefined): CorrectionRedressement | null {
+  return avant?.echelleLargeurM ? { echelleLargeurM: avant.echelleLargeurM } : null;
+}
+
+/**
+ * Les quatre repères de l'audit sur une photo : le geste partage (PoserReperes), et ce que l'audit y ajoute — la largeur reelle du
+ * mur pour l'echelle, « Appliquer » (la correction va dans la capture : elle prime sur le calcul et survit au rejeu, puis la facade est
+ * rejouee), « Revenir à l'automatique » et « Annuler ». Rien n'est ecrit avant « Appliquer ». Avec plusieurs photos assemblees,
+ * l'egout et le sol s'ajustent sur leur assemblage : le mur tire revient sur chacune (`appliquer`, ses coins par rang).
+ */
+export function ReperesAudit({ photo, rang, depart, mur, gabarit, rapport = null, assemblage, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: {
+  photo: PhotoCas; rang: number;
+  /** Les reperes de depart : ceux deja poses, sinon les coins du mur que le calcul a retenus (un rectangle du mur, eux aussi). */
+  depart: readonly P2[] | undefined;
+  /** Les coins du mur sur la photo, trouves par la chaine ou deja ajustes a la main : le depart de « Ajuster l'égout et le sol ». */
+  mur: readonly P2[] | undefined;
+  gabarit?: GabaritMur | undefined;
+  /** La hauteur du mur du plan sur sa largeur : le gabarit se pose sur le sol, a l'echelle des bouts. */
+  rapport?: number | null | undefined;
+  /** L'assemblage des photos de la facade et le mur que la chaine y a pose ; absent avec une photo. */
+  assemblage?: AssemblageAAjuster | undefined;
+  /** La largeur du mur lue sur le plan, en metres. */
+  largeurPlanM: number | null;
+  echelleDepart: number | undefined;
+  /** La correction de cette photo, et le mur tire sur l'assemblage ramene sur les autres photos assemblees (par rang). */
+  appliquer: (c: CorrectionRedressement, autres: ReadonlyMap<number, P2[]>) => void;
+  retablir: () => void;
+  fermer: () => void;
+}) {
+  const url = 'data:image/jpeg;base64,' + photo.base64;
+  const [dims, setDims] = useState<{ l: number; h: number } | null>(null);
+  const [coins, setCoins] = useState<P2[] | null>(null);
+  const [largeur, setLargeur] = useState(echelleDepart ? String(echelleDepart).replace('.', ',') : '');
+  // Le mur repris a la main sur la photo redressee : null tant que la personne n'y a pas touche (la chaine le cherche seule).
+  const [murAjuste, setMurAjuste] = useState<MurAjuste | null>(null);
+  // Le mur repris sur l'assemblage, ramene sur chaque photo assemblee : null tant que la personne n'y a pas touche.
+  const [murAssemble, setMurAssemble] = useState<Map<number, P2[]> | null>(null);
+  const coinsAjustes = murAssemble ? murAssemble.get(rang) : murAjuste?.coins;
+  const autres = new Map([...(murAssemble ?? [])].filter(([r]) => r !== rang));
+  const charger = useCallback(async () => { const p = await pixelsDePhoto(photo.base64); return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: Uint8ClampedArray.from(p.data) } : null; }, [photo.base64]);
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => {
+      setDims({ l: img.naturalWidth, h: img.naturalHeight });
+      setCoins((c) => c ?? (depart && depart.length === 4 ? depart.map((p) => ({ ...p })) : coinsParDefaut(img.naturalWidth, img.naturalHeight)));
+    };
+    img.src = url;
+  }, [url, depart]);
+  const largeurM = Number(largeur.replace(',', '.'));
+  const echelle = largeur.trim() && Number.isFinite(largeurM) && largeurM > 0 ? largeurM : undefined;
+  const faux = largeur.trim() !== '' && echelle === undefined;
+  const lue: Photo | null = dims ? { image: { largeur: dims.l, hauteur: dims.h, donnees: new Uint8ClampedArray(0) }, url, champ: null, focalePx: null } : null;
+  return (
+    <div className="reperesAudit">
+      {lue && coins
+        ? <PoserReperes photo={lue} rang={rang} reperes={coins} changer={setCoins} mur={murAjuste?.coins ?? mur ?? null} gabarit={gabarit} rapport={rapport} charger={charger} ajusterMur={setMurAjuste}
+            assemblage={assemblage} ajusterMurAssemble={setMurAssemble} suite="« Appliquer », puis la façade se rejoue" />
+        : <div className="detailPhoto">Chargement de la photo…</div>}
+      <label className="detailPhoto">
+        {'Largeur réelle du mur (m), pour l’échelle' + (largeurPlanM ? ' — le plan donne ' + String(Math.round(largeurPlanM * 100) / 100).replace('.', ',') : '') + ' : '}
+        <input type="text" inputMode="decimal" value={largeur} aria-invalid={faux} onChange={(e) => setLargeur(e.target.value)} data-controle="auditParcelle.echelleMur" />
+      </label>
+      {faux && <div className="erreurParcours" role="alert">Écrivez un nombre de mètres, par exemple 9,5.</div>}
+      <div className="piedDialogue">
+        <button type="button" className="secondary small" data-controle="auditParcelle.retablirCoins" onClick={() => { retablir(); fermer(); }}>Revenir à l’automatique</button>
+        <button type="button" className="secondary small" data-controle="auditParcelle.annulerCoins" onClick={fermer}>Annuler</button>
+        <button type="button" className="small" data-controle="auditParcelle.appliquerCoins" disabled={!coins || faux}
+          onClick={() => { if (coins) { appliquer(correctionAAppliquer(coins, depart, coinsAjustes, echelle), autres); fermer(); } }}>Appliquer</button>
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  session: SessionAuditParcelle;
+  commandes: RegistreCommandes;
+  cle: string;
+  cote: number;
+  /** « Façade sud de Maison » */
+  nom: string;
+  largeurPlanM: number;
+  /** Faux sur l'ecran de prise : la barre et ce qui doute, sans les gestes (ils se font depuis la liste). */
+  gestes?: boolean;
+}
+
+/**
+ * Une ligne du mode discret : l'etape, ce qu'elle a donne, et son geste de repli ; sur une photo, un bouton par photo. L'etape ouverte
+ * depuis la barre (`ouverte`) : la barre dit deja son resultat, la ligne n'en garde que le geste.
+ */
+function Ligne({ l, rangs, nom, placer, gestes, commandes, relire, ouverte = false }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; commandes: RegistreCommandes; relire?: (() => void) | undefined; ouverte?: boolean }) {
+  // V1 : le mur que la chaine a pose se confirme ici (« Confirmer le mur »), et le meme geste retire la confirmation.
+  const confirmer = gestes && l.id === 'calage' && (l.etat === 'a-confirmer' || l.etat === 'confirme');
+  // V3 : les ouvertures trouvees se relisent toujours avant V4 (decision du proprietaire, 3 novembre 2026).
+  const relireIci = gestes && l.id === 'ouvertures' && !!relire;
+  if (ouverte && !l.option && !confirmer && !relireIci) return null;
+  return (
+    <li className={'ligneEtapeAudit ' + l.etat + (ouverte ? ' ouverte' : '')}>
+      {!ouverte && <><span className="etatEtapeAudit">{LIBELLES_ETAT[l.etat]}</span> {l.texte}</>}
+      {l.option && <span className="optionEtapeAudit">{(ouverte ? '' : ' ') + 'À la main : ' + l.option + '.'}</span>}
+      {gestes && l.surLaPhoto && rangs.length > 0 && <span className="actionsAudit">
+        {rangs.map((r) => <button key={r} type="button" className={l.etat === 'echec' ? 'small' : 'secondary small'} data-controle="auditParcelle.placerCoins" aria-label={'Placer quatre repères sur la photo ' + (r + 1) + ' : ' + nom} onClick={() => placer(r)}>{rangs.length > 1 ? 'Repères, photo ' + (r + 1) : 'Placer 4 repères'}</button>)}
+      </span>}
+      {relireIci && <span className="actionsAudit"><button type="button" className={l.etat === 'ok' ? 'secondary small' : 'small'} data-controle="auditParcelle.relireOuvertures" aria-label={'Relire les ouvertures : ' + nom} onClick={relire}>Relire les ouvertures</button></span>}
+      {confirmer && <span className="actionsAudit"><BoutonDeLaFacade commandes={commandes} id={COMMANDE_CONFIRMER_MUR} className={l.etat === 'confirme' ? 'secondary small' : 'small'}>{l.etat === 'confirme' ? 'Retirer la confirmation du mur' : 'Confirmer le mur'}</BoutonDeLaFacade></span>}
+    </li>
+  );
+}
+
+/**
+ * Un bouton lie a une commande de la facade dont l'etat suit la capture de l'audit (les gestes, la confirmation du mur), pas le magasin :
+ * il se lit a chaque rendu de la facade, comme « Valider la façade ». BoutonCommande, abonne au magasin, garderait la cle d'avant le geste
+ * (la fumee le relevait : « son affichage a change sans que sa cle change »).
+ */
+function BoutonDeLaFacade({ commandes, id, className, children }: { commandes: RegistreCommandes; id: string; className: string; children: string }) {
+  if (commandes.effacee(id)) return null;
+  const etat = commandes.etat(id);
+  return <button type="button" className={className} data-commande={id} disabled={!etat.utilisable} title={'message' in etat ? etat.message : undefined} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>{children}</button>;
+}
+
+/** Le point V4 : la Facade a valider (son bilan, l'E14), et le bouton qui l'ecrit dans le projet. */
+function ValiderFacade({ commandes, nom }: { commandes: RegistreCommandes; nom: string }) {
+  const etat = commandes.etat(COMMANDE_VALIDER);
+  if (commandes.effacee(COMMANDE_VALIDER)) return null;
+  const raison = etat && 'message' in etat ? etat.message : null;
+  return (
+    <button type="button" className="small" data-commande={COMMANDE_VALIDER} disabled={!etat?.utilisable} aria-label={'Valider la façade : ' + nom}
+      title={raison ?? 'Écrire ses dimensions, sa forme, sa texture calée et ses ouvertures vérifiées dans le projet (Ctrl+Z la défait)'}
+      onClick={(e) => { commandes.executer(COMMANDE_VALIDER, e.currentTarget); }}>Valider la façade</button>
+  );
+}
+
+/** La lecture de Claude d'une facade : ses passes, son modele, son cout ; et l'escalade, a la demande, son cout annonce. */
+function LectureClaude({ run, prix, commandes, nom, lignes }: { run: RunEnregistre; prix: PrixEscalade | null; commandes: RegistreCommandes; nom: string; lignes: readonly { texte: string; signal?: true }[] }) {
+  const etat = commandes.etat(COMMANDE_ESCALADE);
+  const efface = commandes.effacee(COMMANDE_ESCALADE);
+  const raison = run.escalade ? 'Déjà escaladée : une seule escalade par lecture.' : etat && 'message' in etat ? etat.message : null;
+  return (
+    <div className="lectureClaude">
+      <p className="detailPhoto">{'Lue par ' + enteteDuRun(run) + '.'}</p>
+      {/* La facade enrichie (lot L1) et le toit lu (lot L2) : ce que Claude lit de plus ; l'etat du mur et le debord sont des signaux, sans case (decision 8). */}
+      {lignes.map((l, i) => <p key={i} className={'detailPhoto' + (l.signal ? ' signalClaude' : '')} {...(l.signal ? { role: 'note' } : {})}>{l.texte}</p>)}
+      {!efface && <button type="button" className="secondary small" data-commande={COMMANDE_ESCALADE} disabled={!!run.escalade || !etat?.utilisable} aria-label={libelleEscalade(run, prix) + ' : ' + nom}
+        title={raison ?? 'Une lecture de plus, par un modèle plus fin ; le moteur la pèse contre le vote des passes'} onClick={(e) => { commandes.executer(COMMANDE_ESCALADE, e.currentTarget); }}>{libelleEscalade(run, prix)}</button>}
+    </div>
+  );
+}
+
+export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, gestes = true }: Props) {
+  const [enCours, setEnCours] = useState(false);
+  const [rangReperes, setRangReperes] = useState<number | null>(null);
+  const [relecture, setRelecture] = useState(false);
+  const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
+  const saisie = session.capture.lire().batiments[cle]?.facades[String(cote)];
+  // Validee (V4), la Facade de cette mesure est dans le projet : l'E14 de la barre est faite.
+  const validee = session.validation.facadeValidee(cle, cote);
+  const etapes = etapesApresValidation(mesure?.etapes ?? [], validee);
+  const facade = cle + '#' + cote;
+  const o = session.etapeOuverte();
+  const ouverte = o?.facade === facade ? o.etape : null;
+  const tourne = session.validation.etapeEnCours(cle, cote);
+  const rejouer = () => { setEnCours(true); void session.validation.rejouerFacade(cle, cote).finally(() => setEnCours(false)); };
+  // Une correction ecrite dans la capture, puis la facade rejouee : le calcul reprend les points de la personne.
+  const corriger = (rang: number, c: CorrectionRedressement | null, autres: ReadonlyMap<number, P2[]> = new Map()) => {
+    const avant = saisie?.corrections?.[String(rang)];
+    // Un seul geste, que Ctrl+Z defait d'un coup avant V4 : la photo et le mur tire ramene sur les autres.
+    session.capture.geste(cle, cote, () => {
+      session.capture.corrigerRedressement(cle, cote, rang, c ? { ...avant, ...c } : null);
+      // Le mur tire sur l'assemblage vaut pour chaque photo assemblee : il s'y pose comme un mur ajuste a la main.
+      for (const [r, coins] of autres) session.capture.corrigerRedressement(cle, cote, r, { ...saisie?.corrections?.[String(r)], coins });
+    });
+    rejouer();
+  };
+  // Revenir a l'automatique : la correction de cette photo (sauf l'echelle tapee), et le mur tire sur l'assemblage qu'elle partage.
+  const retablir = (rang: number) => {
+    session.capture.geste(cle, cote, () => {
+      session.capture.corrigerRedressement(cle, cote, rang, correctionApresRetour(saisie?.corrections?.[String(rang)]));
+      for (const r of mesure?.assemblage?.retours ?? []) {
+        const avant = saisie?.corrections?.[String(r.rang)];
+        if (r.rang === rang || !avant?.coins) continue;
+        const reste = { ...avant };
+        delete reste.coins;
+        session.capture.corrigerRedressement(cle, cote, r.rang, reste);
+      }
+    });
+    rejouer();
+  };
+  const rangs = (saisie?.photos ?? []).map((_, i) => i);
+  // V3 : la relecture deja faite (tant que la detection est la meme) est le depart de la suivante ; sinon les ouvertures trouvees.
+  const reluesValides = saisie?.ouverturesRelues && mesure?.releve && sontRelues(saisie.ouverturesRelues, mesure.releve.ouvertures) ? saisie.ouverturesRelues.ouvertures : undefined;
+  const relirePossible = mesure?.releve && !tourne ? () => setRelecture(true) : undefined;
+  const lignes = lignesDiscretes(etapes).filter((l) => l.id !== ouverte);
+  const premiere = ouverte ? ligneOuverte(etapes, ouverte) : null;
+  const photo = rangReperes !== null ? saisie?.photos[rangReperes] : undefined;
+  const coinsPx = rangReperes !== null ? mesure?.redressement?.photos.find((p) => p.rang === rangReperes)?.coinsPx : undefined;
+  const correction = rangReperes !== null ? saisie?.corrections?.[String(rangReperes)] : undefined;
+  const run = session.analyse.runs()?.[facade] ?? null;
+  // Les actions de l'etape ouverte, les memes que la calibration montre, filtrees par son mode d'audit (la lecture de Claude en une ligne).
+  const actionsDisponibles = ouverte ? actionsDansLAudit(ouverte, mesure?.etapes?.find((e) => e.id === ouverte)?.actions) : [];
+  return (
+    <div className="facadeAudit" data-facade={facade} aria-label={'Enchaînement : ' + nom}>
+      <BarreProgressionFacade etapes={etapes} enCours={tourne} ouverte={ouverte} ouvrable={ouvrableDansLAudit} commandes={commandes} arreter={tourne ? () => session.validation.arreterMesure() : null} />
+      {!mesure && !tourne && <p className="detailPhoto">Pas encore calculée : la façade se calcule après la photo, ou avec « Rejouer la façade ».</p>}
+      {mesure && !etapes.length && <p className="detailPhoto">Mesure reprise d’un fichier d’audit : « Rejouer la façade » recalcule ses étapes.</p>}
+      {(premiere || lignes.length > 0) && <ul className="etapesAudit" aria-label={'Étapes à voir : ' + nom}>
+        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} ouverte />}
+        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} />)}
+      </ul>}
+      {ouverte && actionsDisponibles.length > 0 && <details className="actionsEtapeAudit" data-controle="auditParcelle.actionsEtape"><summary>{'Ce que l’' + etapeFacade(ouverte).numero + ' a fait'}</summary>
+        <ActionsEtape actions={actionsDisponibles} libelle={'Les actions de l’' + etapeFacade(ouverte).numero + ' : ' + nom} /></details>}
+      {gestes && relecture && mesure?.releve && <RelireOuvertures key={mesure.releve.releveLe} releve={mesure.releve} depart={reluesValides} aujourdhui={new Date().toISOString().slice(0, 10)}
+        garder={(o) => { setRelecture(false); setEnCours(true); void session.validation.relireOuvertures(cle, cote, o).finally(() => setEnCours(false)); }} annuler={() => setRelecture(false)} />}
+      {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
+        depart={correction?.reperes ?? correction?.coins ?? coinsPx} mur={correction?.coins ?? coinsPx} gabarit={mesure?.gabarit}
+        rapport={mesure?.facade && mesure.facade.dimensions.largeurM > 0 ? mesure.facade.dimensions.egoutM / mesure.facade.dimensions.largeurM : null}
+        assemblage={mesure?.assemblage} echelleDepart={correction?.echelleLargeurM}
+        appliquer={(c, autres) => corriger(rangReperes, c, autres)} retablir={() => retablir(rangReperes)} fermer={() => setRangReperes(null)} />}
+      {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom}
+        lignes={[...lignesFacadeEnrichie(run, { largeurM: mesure?.facade?.dimensions.largeurM ?? largeurPlanM, egoutM: mesure?.facade?.dimensions.egoutM ?? mesure?.releve?.hauteur ?? 3 }), ...lignesToitDeLaFacade(run, session.validation.entrees().objets, cle, cote)]} />}
+      {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}
+      {gestes && enAdmin() && rangs.length > 0 && <BoutonCommande commandes={commandes} id="facade.creerCas" className="secondary small">Créer un cas depuis cette façade</BoutonCommande>}
+      {gestes && <span className="actionsAudit" role="group" aria-label={'Gestes sur la façade : ' + nom}>
+        <BoutonDeLaFacade commandes={commandes} id={COMMANDE_ANNULER_GESTE} className="secondary small">Annuler le geste</BoutonDeLaFacade>
+        <BoutonDeLaFacade commandes={commandes} id={COMMANDE_RETABLIR_GESTE} className="secondary small">Rétablir</BoutonDeLaFacade>
+      </span>}
+      {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
+    </div>
+  );
+}

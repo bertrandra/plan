@@ -19,11 +19,40 @@ import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_E
 import { NAME_SEP } from './separateurs.js';
 import type { ObjetPlan, PtBrut, Mesure } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
+import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
+import { courbesExportees, reliefDe } from '../model/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { estCourbe, tronconsBezier } from '../geometry/courbe.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
+import { courbesDeNiveau, etiquetteNiveau, longueurPolyligne, milieuPolyligne } from '../render/relief.js';
 
 /** Ce que l'export SVG doit savoir en plus des objets : de quoi remplir les attributs data-*. */
 export interface MetaSvg {
   appVersion: string;
   schemaVersion: number;
+}
+
+/**
+ * Les courbes de niveau du relief, quand il existe et qu'elles sont affichees : un groupe sans
+ * `data-*` (l'import ne lit que polygon, path et circle : il l'ignore), trait fin, maitresses plus
+ * fortes et etiquetees en altitude NGF. Vide sans relief.
+ */
+function groupeRelief(objets: ObjetPlan[], exToSvg: (p: PtBrut) => PtBrut, fsTexte: number): string {
+  const relief = reliefDe(objets);
+  if(!relief || !courbesExportees(relief)) return '';
+  const parcelle = parcelleDuProjet(objets);
+  const { courbes } = courbesDeNiveau(relief, parcelle && parcelle.type==='polygon' ? parcelle.pts : undefined);
+  let g = '<g class="relief-courbes" fill="none" stroke="#8C6B3F" stroke-linejoin="round">\n';
+  courbes.forEach(c=>{
+    const s = c.pts.map(exToSvg);
+    g += '<polyline points="'+s.map(p=>p.x.toFixed(2)+','+p.y.toFixed(2)).join(' ')+'" stroke-width="'+(c.maitresse ? '0.06' : '0.035')+'"/>\n';
+    // L'etiquette d'une maitresse, a mi-longueur, si la courbe est assez longue pour la porter.
+    if(c.maitresse && longueurPolyligne(s) >= 3){
+      const m = milieuPolyligne(s);
+      g += '<text x="'+m.x.toFixed(2)+'" y="'+(m.y-0.1).toFixed(2)+'" font-size="'+fsTexte+'" text-anchor="middle" fill="#8C6B3F" stroke="none" font-family="Helvetica Neue, Arial, sans-serif">'+etiquetteNiveau(c.niveau)+'</text>\n';
+    }
+  });
+  return g + '</g>\n';
 }
 
 export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: MetaSvg){
@@ -49,27 +78,33 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
   const fsNameSmall = 10/exScale;
   function exToSvg(p: PtBrut){ return {x:(p.x-(minx-pad)), y:((maxy+pad)-p.y)}; }
 
+  // La courbe des chemins (geometry/courbe.ts), sur les points deja passes au repere du SVG.
   function exPathD(pts: PtBrut[], curve?: boolean){
     if(pts.length<2) return '';
     const s = pts.map(exToSvg);
-    if(!curve || s.length<3){
-      return 'M ' + s.map(p=>p.x.toFixed(2)+','+p.y.toFixed(2)).join(' L ');
-    }
-    let d = 'M ' + au(s, 0).x.toFixed(2) + ',' + au(s, 0).y.toFixed(2) + ' ';
-    for(let i=0;i<s.length-1;i++){
-      const p0 = au(s, Math.max(0,i-1)), p1 = au(s, i), p2 = au(s, i+1), p3 = au(s, Math.min(s.length-1,i+2));
-      const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
-      const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
-      d += 'C ' + c1.x.toFixed(2)+','+c1.y.toFixed(2)+' '+c2.x.toFixed(2)+','+c2.y.toFixed(2)+' '+p2.x.toFixed(2)+','+p2.y.toFixed(2)+' ';
-    }
+    const f = (p: PtBrut) => p.x.toFixed(2)+','+p.y.toFixed(2);
+    if(!estCourbe(s, curve)) return 'M ' + s.map(f).join(' L ');
+    let d = 'M ' + f(au(s, 0)) + ' ';
+    for(const b of tronconsBezier(s)) d += 'C ' + f(b.c1)+' '+f(b.c2)+' '+f(b.p2)+' ';
     return d;
   }
 
-  let body = '';
+  // Les courbes de niveau passent avant les objets : un plan sans relief ecrit exactement le fichier d'avant.
+  let body = groupeRelief(objets, exToSvg, fsVert);
   objets.forEach((obj: ObjetPlan)=>{
     if(obj.type==='polygon'){
       const pts = (obj.pts||[]).map((p: PtBrut)=>{const s=exToSvg(p); return s.x.toFixed(2)+','+s.y.toFixed(2);}).join(' ');
-      body += '<polygon points="'+pts+'" fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.15" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-points="'+escapeXml((obj.pts||[]).map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
+      // Une terrasse percee (bassin, tremie) se dessine avec son trou : un gabarit pair-impair la
+      // decoupe. Le <polygon> garde son contour entier, c'est lui que relit l'import.
+      const trous = trousDeTerrasse(obj, objets);
+      let decoupe = '';
+      if(trous.length){
+        const anneau = (r: PtBrut[]) => 'M'+r.map(p=>{const s=exToSvg(p); return s.x.toFixed(2)+' '+s.y.toFixed(2);}).join(' L')+' Z';
+        const id = 'trous-'+obj.key.replace(/[^\w-]/g, '_');
+        body += '<clipPath id="'+id+'"><path clip-rule="evenodd" d="M-1000000 -1000000 H1000000 V1000000 H-1000000 Z '+trous.map(anneau).join(' ')+'"/></clipPath>\n';
+        decoupe = ' clip-path="url(#'+id+')"';
+      }
+      body += '<polygon points="'+pts+'"'+decoupe+' fill="'+obj.fill+'" fill-opacity="'+obj.fillOpacity+'" stroke="'+obj.stroke+'" stroke-width="0.15" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-points="'+escapeXml((obj.pts||[]).map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
       const n = (obj.pts||[]).length;
       const ptsPoly = obj.pts || [];
       for(let i=0;i<n;i++){
@@ -89,7 +124,7 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
       }
     } else if(obj.type==='path'){
       const ptsPath = obj.pts || [];
-      body += '<path d="'+exPathD(ptsPath, !!obj.curve)+'" fill="none" stroke="'+obj.stroke+'" stroke-width="'+(obj.width||1)+'" stroke-linecap="butt" stroke-linejoin="round" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-width="'+(obj.width||1)+'" data-curve="'+(!!obj.curve)+'" data-points="'+escapeXml(ptsPath.map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
+      body += '<path d="'+exPathD(ptsPath, !!obj.curve)+'" fill="none" stroke="'+obj.stroke+'" stroke-width="'+largeurChemin(obj)+'" stroke-linecap="butt" stroke-linejoin="round" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-width="'+largeurChemin(obj)+'" data-curve="'+(!!obj.curve)+'" data-points="'+escapeXml(ptsPath.map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
       for(let i=0;i<ptsPath.length-1;i++){
         const a=au(ptsPath, i), b=au(ptsPath, i+1);
         const pa=exToSvg(a), pb=exToSvg(b);

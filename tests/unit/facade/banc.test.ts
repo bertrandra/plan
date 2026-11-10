@@ -1,0 +1,227 @@
+import { describe, it, expect } from 'vitest';
+import { chargerCorpus, rejouerCorpus, rejouerScene, tableau, capteursSimules } from '../../banc/facades/banc.js';
+import { coinsVrais, formePignon, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../../src/facade/banc/synthese.js';
+import { apparier, recouvrement, mesurerDetection, erreurCoinsCm } from '../../banc/facades/mesure.js';
+import { coinsDuReleve, biaisDepuisCap } from '../../../src/facade/calage/calage.js';
+
+// Le banc de facades (spec-facades-calage-detection §14, lot L5) : il doit tourner, sa verite doit
+// suivre son generateur, et les images de synthese d'origine doivent rester justes a 1 ou 2 cm.
+// Les chiffres des scenes difficiles ne sont pas figes ici : c'est le tableau du banc qui les suit,
+// avant et apres chaque lot qui touche la detection.
+
+const corpus = chargerCorpus();
+/** Une scene se peint, se photographie et s'analyse en une seconde environ : de la marge pour la CI. */
+const LONG = 30_000;
+const parNom = (debut: string): SceneFacade => {
+  const s = corpus.find((c) => c.nom.startsWith(debut));
+  if (!s) throw new Error('scene absente : ' + debut);
+  return s;
+};
+
+describe('corpus de facades', () => {
+  it('porte au moins dix scenes, aux noms uniques, chacune avec sa verite', () => {
+    expect(corpus.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(corpus.map((s) => s.nom)).size).toBe(corpus.length);
+    for (const s of corpus) {
+      expect(s.verite.ouvertures.length, s.nom).toBeGreaterThan(0);
+      expect(s.difficultes.length, s.nom).toBeGreaterThan(0);
+      for (const o of s.verite.ouvertures) {
+        expect(o.x, s.nom).toBeGreaterThanOrEqual(0);
+        expect(o.x + o.l, s.nom).toBeLessThanOrEqual(s.verite.largeur + 1e-9);
+        // Dans le mur, ou dans son pignon : sous les rampants aux deux coins du haut de la baie.
+        const pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5;
+        const haut = Math.min(...[o.x, o.x + o.l].map((x) => s.verite.hauteur + pg * formePignon(x / s.verite.largeur, sommet)));
+        expect(o.y + o.h, s.nom).toBeLessThanOrEqual(haut + 1e-9);
+      }
+    }
+  });
+
+  it('couvre les difficultes du terrain', () => {
+    const toutes = new Set(corpus.flatMap((s) => s.difficultes));
+    for (const d of ['existante', 'brique', 'soubassement', 'ombre-debord', 'ombre-balcon', 'volets-battants', 'coffres', 'voiture', 'haie', 'biais-fort', 'multi-vues']) expect(toutes.has(d), d).toBe(true);
+  });
+
+  it('garde des coins vrais conformes au generateur (sinon : banc.ts --ecrire-coins)', () => {
+    for (const s of corpus) {
+      const c = coinsVrais(s);
+      if (!c) {
+        expect(s.verite.coins, s.nom).toBeNull();
+        continue;
+      }
+      c.forEach((p, i) => {
+        expect(Math.abs(p.x - (s.verite.coins?.[i]?.x ?? NaN)), s.nom).toBeLessThan(0.01);
+        expect(Math.abs(p.y - (s.verite.coins?.[i]?.y ?? NaN)), s.nom).toBeLessThan(0.01);
+      });
+    }
+  });
+});
+
+describe('generateur', () => {
+  it('peint une ouverture a sa place, au centimetre', () => {
+    const s = parNom('02-');
+    const px = 100;
+    const e = murSeul(s, peindreElevation(s, px, true), px);
+    expect(e.largeur).toBe(1000);
+    expect(e.hauteur).toBe(580);
+    const o = s.verite.ouvertures[0]!;
+    const lum = (xm: number, ym: number) => {
+      const k = (Math.floor(e.hauteur - ym * px) * e.largeur + Math.floor(xm * px)) * 4;
+      return e.donnees[k]! + e.donnees[k + 1]! + e.donnees[k + 2]!;
+    };
+    // Dans la vitre (sous les petits bois, au quart de la baie), c'est sombre ; a 2 cm du dormant, dehors, c'est le mur.
+    expect(lum(o.x + o.l * 0.3, o.y + o.h * 0.2)).toBeLessThan(300);
+    expect(lum(o.x - 0.02, o.y + o.h / 2)).toBeGreaterThan(550);
+  });
+
+  it('projette le mur la ou la camera le voit', () => {
+    const s = parNom('02-');
+    const p = s.synthese.prise;
+    if (p?.type !== 'camera') throw new Error('prise camera attendue');
+    const st = stenope(p, s.verite.largeur);
+    // Face au mur, a hauteur d'oeil et au milieu : le centre de l'image si le telephone est d'aplomb.
+    const c = projeter({ ...st, avant: [0, 1, 0], droite: [1, 0, 0], bas: [0, 0, -1] }, [s.verite.largeur / 2, 0, p.oeil ?? 1.5]);
+    expect(c.x).toBeCloseTo(p.largeurPx / 2, 6);
+    expect(c.y).toBeCloseTo(p.hauteurPx / 2, 6);
+  });
+});
+
+describe('mesures', () => {
+  it('apparie au recouvrement de plus de 50 %', () => {
+    const v = { x: 0, y: 0, l: 1, h: 1 };
+    expect(recouvrement(v, v)).toBe(1);
+    expect(recouvrement(v, { x: 0.5, y: 0, l: 1, h: 1 })).toBeCloseTo(1 / 3, 9);
+    expect(apparier([v], [{ x: 0.5, y: 0, l: 1, h: 1 }])).toEqual([]);
+    expect(apparier([v], [{ x: 0.1, y: 0, l: 1, h: 1 }])).toEqual([[0, 0]]);
+  });
+
+  it('compte precision, rappel, cotes et gestes', () => {
+    const vraies = [
+      { type: 'fenetre' as const, x: 1, y: 1, l: 1, h: 1.2 },
+      { type: 'porte' as const, x: 4, y: 0, l: 0.9, h: 2.1 },
+    ];
+    const m = mesurerDetection(vraies, [
+      { type: 'fenetre', x: 1.02, y: 1, l: 1, h: 1.2 },
+      { type: 'fenetre', x: 7, y: 1, l: 1, h: 1 },
+    ]);
+    expect([m.vp, m.fp, m.fn]).toEqual([1, 1, 1]);
+    expect(m.precision).toBe(0.5);
+    expect(m.rappel).toBe(0.5);
+    expect(m.cotes).toEqual([2, 0, 0, 0]);
+    // Une fausse a retirer, une manquee a ajouter ; la bonne est a 2 cm, sans geste.
+    expect(m.corrections).toBe(2);
+  });
+
+  it('ramene l erreur des coins en centimetres sur le mur', () => {
+    const vrais = [
+      { x: 100, y: 100 },
+      { x: 900, y: 100 },
+      { x: 900, y: 500 },
+      { x: 100, y: 500 },
+    ];
+    // 800 px pour 8 m : 1 px = 1 cm.
+    const e = erreurCoinsCm([{ x: 110, y: 100 }, ...vrais.slice(1)], vrais, 8, 4);
+    expect(e).toEqual([10, 0, 0, 0]);
+  });
+});
+
+describe('banc', () => {
+  it('rejoue les images de synthese d origine, justes a 1 ou 2 cm', () => {
+    for (const s of corpus.filter((c) => c.difficultes.includes('existante'))) {
+      const r = rejouerScene(s);
+      for (const m of [r.elevation, r.photo]) {
+        expect(m, s.nom).not.toBeNull();
+        if (!m) continue;
+        expect(m.precision, s.nom).toBe(1);
+        expect(m.rappel, s.nom).toBe(1);
+        expect(m.typesJustes, s.nom).toBe(m.vraies);
+        expect(Math.max(...m.cotes), s.nom).toBeLessThanOrEqual(2);
+      }
+      expect(r.hauteurCm, s.nom).toBe(0);
+    }
+  }, LONG);
+
+  it('tourne sur une scene difficile et ecrit le tableau', () => {
+    const scenes = [parNom('00-'), parNom('03-')];
+    const b = rejouerCorpus(scenes);
+    expect(b.scenes).toHaveLength(2);
+    expect(b.elevation.vraies).toBe(scenes.reduce((n, s) => n + s.verite.ouvertures.length, 0));
+    // La brique a une prise camera : les coins proposes sont mesures.
+    expect(b.scenes[1]!.coinsCm).toHaveLength(4);
+    const t = tableau(b);
+    for (const s of scenes) expect(t).toContain(s.nom);
+    expect(t).toContain('Objectifs de la première version');
+    expect(t).toContain('Calage fin');
+  }, LONG);
+
+  it('mesure les coins proposes tels que le releve les propose', () => {
+    const s = parNom('02-');
+    const p = s.synthese.prise;
+    if (p?.type !== 'camera') throw new Error('prise camera attendue');
+    const r = rejouerScene(s);
+    const f = stenope(p, s.verite.largeur).f;
+    const lu = capteursSimules(s, p, true);
+    expect(r.detail.coinsProposes).toEqual(
+      coinsDuReleve(s.verite.largeur, s.verite.hauteur, { largeurPx: p.largeurPx, hauteurPx: p.hauteurPx, focalePx: f, distance: p.distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg }),
+    );
+  }, LONG);
+
+  it('une baie en retrait vue de biais : les points de fuite restent justes, et la baie va jusqu au nu du mur', () => {
+    // Scene 21 : des ebrasements de 40 cm, a 35 degres. Leurs aretes fuient vers la normale du mur : le calage n'en est pas
+    // trouble. La face d'ebrasement visible appartient a la baie de maconnerie (facade/detection/detectionEbrasements.ts) : sans elle,
+    // la detection rendait la vitre seule, 11,5 cm de cote mediane et 6 corrections.
+    const r = rejouerScene(parNom('21-'));
+    for (const f of [r.fin.releve, r.fin.audit]) for (const c of f?.coinsCm ?? [Infinity]) expect(c).toBeLessThanOrEqual(10);
+    expect(r.photo).toMatchObject({ vp: 6, fp: 0, fn: 0 });
+    const cotes = [...(r.photo?.cotes ?? [])].sort((a, b) => a - b);
+    expect(cotes[Math.floor(cotes.length / 2)]).toBeLessThanOrEqual(5);
+    expect(r.photo?.corrections).toBeLessThanOrEqual(4);
+  }, LONG);
+
+  it('le calage grossier, capteurs exacts, retrouve les coins vrais ; les zones contiennent les coins vrais', () => {
+    const s = parNom('08-');
+    const r = rejouerScene(s);
+    // Prise de biais forte, visee decentree, roulis : la projection depuis la prise exacte est juste.
+    expect(r.coinsExactsCm).toEqual([0, 0, 0, 0]);
+    expect(r.coinsDansZone).toBe(4);
+    // Le calage fin (lot L7) trouve les quatre coins sur la photo, sans geste, depuis le releve
+    // comme depuis l'audit, avec les erreurs typiques des capteurs.
+    for (const f of [r.fin.releve, r.fin.audit]) {
+      expect(f?.trouve).toBe(true);
+      expect(f?.sources).toEqual(['trouve', 'trouve', 'trouve', 'trouve']);
+      for (const c of f?.coinsCm ?? [Infinity]) expect(c).toBeLessThanOrEqual(10);
+    }
+  }, LONG);
+
+  it('corrige la distorsion d un grand-angle non corrige, et laisse une photo deja droite (lot L8)', () => {
+    const forte = rejouerScene(parNom('13-'));
+    const d = forte.distorsion;
+    expect(d?.corrigee).toBe(true);
+    // Le modele de la correction (division) n'est pas celui du generateur (polynome) : ils s'accordent
+    // sur le sens et l'ordre de grandeur, pas au millieme.
+    expect(d?.kEstime).toBeLessThan(-0.12);
+    expect(d?.kEstime).toBeGreaterThan(-0.25);
+    // Les aretes verticales redeviennent droites, sur l'image corrigee detectee a nouveau.
+    expect(d?.residuApresPx ?? Infinity).toBeLessThan((d?.residuAvantPx ?? 0) / 2);
+    // Sans la correction, le calage fin manque des coins ; avec, ils sont tous a 10 cm au plus.
+    expect(Math.max(...(d?.avant.coinsFinCm ?? [0]))).toBeGreaterThan(10);
+    for (const c of d?.apres.coinsFinCm ?? [Infinity]) expect(c).toBeLessThanOrEqual(10);
+    expect(Math.max(...(d?.apres.photo?.cotes ?? [Infinity]))).toBeLessThanOrEqual(5);
+    const droite = rejouerScene(parNom('15-'));
+    expect(droite.distorsion?.corrigee).toBe(false);
+    // Au-dela de 20 mm, rien n'est examine.
+    expect(rejouerScene(parNom('02-')).distorsion).toBeNull();
+  }, LONG);
+
+  it('simule des capteurs exacts conformes au generateur, et des erreurs bornees', () => {
+    const s = parNom('03-');
+    const p = s.synthese.prise;
+    if (p?.type !== 'camera') throw new Error('prise camera attendue');
+    const exact = capteursSimules(s, p, false);
+    // Biais de 12 degres a droite, visee sur le milieu du mur : le cap tourne de 12 degres vers l'ouest.
+    expect(exact.capDeg).toBeCloseTo(348, 6);
+    expect(exact.inclinaisonDeg).toBe(5);
+    const bruite = capteursSimules(s, p, true);
+    expect(Math.hypot(bruite.x - exact.x, bruite.y - exact.y)).toBeCloseTo(2, 6);
+    expect(Math.abs(bruite.capDeg - exact.capDeg)).toBeCloseTo(5, 6);
+  });
+});

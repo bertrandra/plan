@@ -5,7 +5,6 @@
 // (`panelBom`, `terrasseBomTable`…) : la feuille de style, la liste de fumee et
 // `tests/unit/zones/identifiants.test.ts` les retrouvent par eux.
 
-import { useStore } from 'zustand';
 import { ONGLETS } from '../../app/tiroir.js';
 import { Nomenclature } from './Nomenclature.js';
 import { Coupe } from './Coupe.js';
@@ -16,14 +15,41 @@ import { Cotes } from './Cotes.js';
 import { Plu } from './Plu.js';
 import { Resume } from './Resume.js';
 import { NoteCalcul } from './NoteCalcul.js';
+import { Profil } from './Profil.js';
+import { OngletAbri, OngletOptimisation, OngletPiscine } from './Ouvrages.js';
+import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
+import { mesure } from '../../interaction/outilMesure.js';
+import { useCle, cleEtat, cleDesCotes } from '../composants/abonnement.js';
+import { cleDesLus, cleDesObjets } from '../../core/controleurObjets.js';
+import { litUneTerrasse } from '../../core/lectures.js';
+import type { EtatMagasin } from '../../app/magasin.js';
 
-export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }
+/**
+ * Ce que l'onglet actif lit du plan : une terrasse (son calcul, core/lectures.ts), les objets que visent les cotes, ou tout le plan
+ * (le resume, le PLU, le profil, les ouvrages).
+ */
+function cleDesObjetsLus(s: EtatMagasin): string {
+  const onglet = ONGLETS.find(o => o.id === s.etat.panelTab);
+  if (onglet?.groupe === 'terrasse') return cleDesLus(s.etat.objects, litUneTerrasse);
+  if (onglet?.id === 'mesure') return cleDesCotes(s);
+  return cleDesObjets(s.etat.objects);
+}
 
-export function PanneauxResultats({ magasin, resultats, commandes }: PropsPanneaux) {
-  useStore(magasin.store, (s) => s.version);
+/** Le reglement du PLU lu pour la parcelle : sa lecture et l'etat de chaque fait (une validation redessine l'onglet). */
+const cleReglementPlu = (r: Resultats): string => { const p = r.parcelle()?.reglementPlu; return p ? p.lecture.demandeeLe + ':' + p.faits.map(f => f.statut[0]).join('') : ''; };
+
+/** `inspecteur` : le service qui ecrit les champs des onglets d'un ouvrage (prix d'une piscine, d'un abri). */
+export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes; inspecteur: ServiceInspecteur }
+
+export function PanneauxResultats({ magasin, resultats, commandes, inspecteur }: PropsPanneaux) {
+  // Le plan, l'etat d'interface que tient le service des resultats (PLU en cours, resume, optimisation, ligne du profil), et le
+  // brouillon de la cote. Les boutons de commande suivent chacun la leur.
+  useCle(magasin, 'panneaux des résultats', (s) => cleEtat(s) + cleDesObjetsLus(s) + JSON.stringify([resultats.pluEnCours(), resultats.lecturePluEnCours(), cleReglementPlu(resultats), resultats.resume().affichage,
+    resultats.optimisationVisible(), resultats.ligneProfil(), resultats.lieu(), mesure.pointage?.mode, mesure.ref, mesure.startEnd, mesure.cibles,
+    ['mesure.choisirReference', 'mesure.origine', 'mesure.selectionnerCoins', 'mesure.ajouter', 'mesure.afficher', 'mesure.supprimer'].map((id) => commandes.etat(id).utilisable)]));
   const actif = magasin.store.getState().etat.panelTab;
   const onglet = ONGLETS.find(o => o.id === actif);
   if (!onglet) return null;
@@ -35,14 +61,18 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
   let contenu: React.ReactNode;
   switch (onglet.id) {
     case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} />); break;
-    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} />); break;
+    case 'optimisation': contenu = pourTerrasse(t => <OngletOptimisation terrasse={t} resultats={resultats} commandes={commandes} />); break;
+    case 'piscine': contenu = <OngletPiscine magasin={magasin} inspecteur={inspecteur} />; break;
+    case 'abri': contenu = <OngletAbri magasin={magasin} inspecteur={inspecteur} />; break;
+    case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} objets={resultats.etat.objects} />); break;
     case 'implantation': contenu = pourTerrasse(t => <Implantation obj={t} resultats={resultats} />); break;
     case 'chantier': contenu = pourTerrasse(t => <Chantier obj={t} resultats={resultats} />); break;
     case 'methode': contenu = pourTerrasse(t => <Methode obj={t} resultats={resultats} />); break;
-    case 'mesure': contenu = <Cotes resultats={resultats} commandes={commandes} />; break;
+    case 'mesure': contenu = <Cotes magasin={magasin} resultats={resultats} commandes={commandes} />; break;
     case 'plu': contenu = <Plu resultats={resultats} commandes={commandes} />; break;
     case 'resume': contenu = <Resume resultats={resultats} commandes={commandes} />; break;
     case 'noteCalcul': contenu = <NoteCalcul resultats={resultats} commandes={commandes} />; break;
+    case 'profil': contenu = <Profil resultats={resultats} />; break;
   }
   return <div id={onglet.panneau} role="tabpanel" aria-label={onglet.libelle}>{contenu}</div>;
 }

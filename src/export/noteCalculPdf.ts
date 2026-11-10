@@ -1,16 +1,18 @@
 // La note de calcul d'un abri en PDF (export/).
 //
-// Le contenu est celui d'engine/noteCalcul.ts, mis en page sur A4 : l'ouvrage, les normes, les
+// Le contenu est celui d'engine/abri/noteCalcul.ts, mis en page sur A4 : l'ouvrage, les normes, les
 // hypotheses, les charges, les combinaisons, la verification piece par piece, les ancrages,
 // l'urbanisme et les limites. Texte seul : l'ecrivain PDF du projet n'a qu'une police Helvetica sans
 // encodage declare, donc le texte passe en ASCII (accents et symboles transcrits).
 
-import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleAbri, libelleSection } from '../engine/pergola.js';
-import { ALU, BOIS, noteDeCalcul, TERRAINS, VB0, type NoteCalcul } from '../engine/noteCalcul.js';
+import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleAbri, libelleSection, materiauPergolaInconnu, toitPergolaInconnu } from '../engine/abri/pergola.js';
+import { ALU, BOIS, noteDeCalcul, noteExportable, TERRAINS, VB0, type NoteCalcul } from '../engine/abri/noteCalcul.js';
 import { A4_H, A4_L, MARGE_PDF, assemblerPDF, pdfPolygone, pdfTexte, type PagePdf } from './pdf/writer.js';
 import type { ObjetPlan } from '../model/types.js';
+import { dateFr } from '../util/format.js';
 
-export interface MetaNote { appVersion: string; nomProjet?: string | null | undefined; date?: Date }
+/** `date` : l'heure de l'export (date ecrite, /CreationDate) ; `buildAt` : le build du programme (/Info). */
+export interface MetaNote { appVersion: string; nomProjet?: string | null | undefined; date?: Date; buildAt?: string }
 
 /** Ce que la police du PDF sait ecrire : les symboles deviennent leur equivalent ASCII. */
 export function enAscii(t: string): string {
@@ -78,7 +80,7 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
   const calc = calculerPergola(o);
   if (!n || !calc || !n.charges) return null;
   const r = calc.reglages, h = n.hypotheses, ch = n.charges;
-  const date = (meta.date ?? new Date()).toLocaleDateString('fr-FR');
+  const date = dateFr(meta.date ?? new Date());
   const f = new Flux('Note de calcul - ' + libelleAbri(o) + ' ' + o.name + ' - Plan interactif ' + meta.appVersion + ' - ' + date);
 
   f.texte('Note de calcul de pré-dimensionnement', 16);
@@ -87,7 +89,11 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
 
   f.titre('1. Ouvrage');
   f.puce('Emprise du toit ' + fr(n.emprise, 1) + ' m², contour de ' + (o.type === 'polygon' ? o.pts.length : 0) + ' côtés, débord ' + Math.round(r.debord * 100) + ' cm.');
-  f.puce('Matériau : ' + LIBELLE_MATERIAU[r.materiau] + ' ; toit : ' + LIBELLE_TOIT_PERGOLA[r.toit] + (r.toit === 'toile' ? '' : ', pente ' + r.pente + '°') + ' ; hauteur sous poutres ' + fr(r.hauteur) + ' m' + (r.adossee ? ' ; adossé à un mur' : '') + '.');
+  // Un mot hors catalogue s'ecrit tel quel, avec ce sur quoi la note est calculee : jamais le libelle du repli seul.
+  const materiauLu = materiauPergolaInconnu(o), toitLu = toitPergolaInconnu(o);
+  const materiau = materiauLu === null ? LIBELLE_MATERIAU[r.materiau] : materiauLu + ' (inconnu, calculé en ' + LIBELLE_MATERIAU[r.materiau].toLowerCase() + ')';
+  const toit = toitLu === null ? LIBELLE_TOIT_PERGOLA[r.toit] : toitLu + ' (inconnu, calculé en ' + LIBELLE_TOIT_PERGOLA[r.toit].toLowerCase() + ')';
+  f.puce('Matériau : ' + materiau + ' ; toit : ' + toit + (r.toit === 'toile' ? '' : ', pente ' + r.pente + '°') + ' ; hauteur sous poutres ' + fr(r.hauteur) + ' m' + (r.adossee ? ' ; adossé à un mur' : '') + '.');
   f.puce('Sections : poteaux ' + libelleSection(r.sectionPoteau) + ' (entraxe maximal ' + fr(r.entraxePoteaux, 1) + ' m), poutres ' + libelleSection(r.sectionPoutre) + ', chevrons ' + libelleSection(r.sectionChevron) + ' à ' + Math.round(r.entraxeChevrons * 100) + ' cm' + (r.avecContrefiches ? ', contrefiches ' + libelleSection(r.sectionContrefiche) + ' de ' + fr(r.longueurContrefiche) + ' m' : '') + '.');
 
   f.titre('2. Normes de référence');
@@ -138,9 +144,10 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
   f.titre('8. Limites de cette note');
   n.limites.forEach(t => f.puce(t));
   f.finirPage();
-  return { pdf: assemblerPDF(f.pages), pages: f.pages.length };
+  return { pdf: assemblerPDF(f.pages, { appVersion: meta.appVersion, ...(meta.buildAt ? { buildAt: meta.buildAt } : {}), ...(meta.date ? { maintenant: meta.date } : {}) }), pages: f.pages.length };
 }
 
 /** La note est-elle exportable ? Ses regions de neige et de vent sont choisies. */
-export const noteExportable = (o: ObjetPlan | undefined): boolean => !!o && (noteDeCalcul(o)?.charges ?? null) !== null;
+// Decide sans le PDF (engine/abri/noteCalcul.ts) : le menu le lit au demarrage, le PDF se charge au premier export (AD-10).
+export { noteExportable };
 export type { NoteCalcul };

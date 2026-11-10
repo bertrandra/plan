@@ -1,0 +1,288 @@
+{
+ "synthetique": true,
+ "pourquoi": "Reponse SYNTHETIQUE de la lecture du jardin (lot L3) : ecrite a la main pour les tests, la fumee et la verification de l'API, sur l'orthophoto de synthese jardin-test.jpg (dessiner.py). Ce n'est pas une reponse de Claude : aucune cle n'etait disponible quand le lot a ete ecrit.",
+ "image": {
+  "fichier": "jardin-test.jpg",
+  "cotePx": 512,
+  "coteM": 30
+ },
+ "sortie": {
+  "objets": [
+   {
+    "genre": "arbre",
+    "points": [
+     {
+      "x": 0.25,
+      "y": 0.55
+     }
+    ],
+    "etendue": 0.14,
+    "arbre": {
+     "genre": "chene",
+     "taille": "moyen",
+     "persistant": "non"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "grand houppier rond, ombre portée au sud-est"
+     }
+    ],
+    "certitude": "forte"
+   },
+   {
+    "genre": "arbre",
+    "points": [
+     {
+      "x": 0.82,
+      "y": 0.25
+     }
+    ],
+    "etendue": 0.1,
+    "arbre": {
+     "genre": "erable",
+     "taille": "petit",
+     "persistant": "non"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "houppier plus petit à l’est de la maison"
+     }
+    ],
+    "certitude": "moyenne"
+   },
+   {
+    "genre": "haie",
+    "points": [
+     {
+      "x": 0.083,
+      "y": 0.1
+     },
+     {
+      "x": 0.083,
+      "y": 0.9
+     }
+    ],
+    "etendue": 0.035,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "bande vert sombre continue le long de la limite ouest"
+     }
+    ],
+    "certitude": "forte"
+   },
+   {
+    "genre": "chemin",
+    "points": [
+     {
+      "x": 0.5,
+      "y": 0.94
+     },
+     {
+      "x": 0.5,
+      "y": 0.5
+     }
+    ],
+    "etendue": 0.03,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "gravier",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "allée claire du portail à la terrasse"
+     }
+    ],
+    "certitude": "forte"
+   },
+   {
+    "genre": "terrasse",
+    "points": [
+     {
+      "x": 0.36,
+      "y": 0.4
+     },
+     {
+      "x": 0.64,
+      "y": 0.4
+     },
+     {
+      "x": 0.64,
+      "y": 0.5
+     },
+     {
+      "x": 0.36,
+      "y": 0.5
+     }
+    ],
+    "etendue": 0,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "bois",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "plancher brun contre la façade sud"
+     }
+    ],
+    "certitude": "forte"
+   },
+   {
+    "genre": "piscine",
+    "points": [
+     {
+      "x": 0.62,
+      "y": 0.6
+     },
+     {
+      "x": 0.82,
+      "y": 0.6
+     },
+     {
+      "x": 0.82,
+      "y": 0.72
+     },
+     {
+      "x": 0.62,
+      "y": 0.72
+     }
+    ],
+    "etendue": 0,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "bassin bleu rectangulaire"
+     }
+    ],
+    "certitude": "forte"
+   },
+   {
+    "genre": "plate-bande",
+    "points": [
+     {
+      "x": 0.2,
+      "y": 0.78
+     },
+     {
+      "x": 0.4,
+      "y": 0.78
+     },
+     {
+      "x": 0.4,
+      "y": 0.84
+     },
+     {
+      "x": 0.2,
+      "y": 0.84
+     }
+    ],
+    "etendue": 0,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "fleurs",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "bande de terre semée de couleurs"
+     }
+    ],
+    "certitude": "moyenne"
+   },
+   {
+    "genre": "regard",
+    "points": [
+     {
+      "x": 0.45,
+      "y": 0.53
+     }
+    ],
+    "etendue": 0,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "petit carré gris au bord de la terrasse"
+     }
+    ],
+    "certitude": "moyenne"
+   },
+   {
+    "genre": "portail",
+    "points": [
+     {
+      "x": 0.5,
+      "y": 0.94
+     }
+    ],
+    "etendue": 0,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "l’allée rejoint la limite sud"
+     }
+    ],
+    "certitude": "moyenne"
+   },
+   {
+    "genre": "eclairage",
+    "points": [
+     {
+      "x": 0.52,
+      "y": 0.7
+     }
+    ],
+    "etendue": 0,
+    "arbre": {
+     "genre": "sans-objet",
+     "taille": "indetermine",
+     "persistant": "indetermine"
+    },
+    "nature": "sans-objet",
+    "indices": [
+     {
+      "image": 1,
+      "vu": "point clair au bord de l’allée"
+     }
+    ],
+    "certitude": "faible"
+   }
+  ],
+  "confiance": "moyenne"
+ }
+}

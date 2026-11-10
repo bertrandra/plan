@@ -11,8 +11,20 @@
 // ecran dans les deux cas. Le depot traduit les codes de la plateforme dans ce vocabulaire-la.
 
 import { au } from '../util/tableaux.js';
-import type { DepotProjets } from './depotPlateforme.js';
+import { retenirProjetNeuf } from './modeleGarde.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
+
+/** Ce que Plan demande au depot des projets (io/depotPlateforme.ts l'ecrit pour la plateforme). */
+export interface DepotProjets {
+  lister(): Promise<ProjetResume[]>;
+  ouvrir(id: string): Promise<ProjetServeur>;
+  /**
+   * `objetsJson` : les objets deja ecrits en JSON (app/projet.ts, par paquets) ; ils partent tels quels
+   * quand aucune photo de releve n'est a sortir, sans etre recrits d'un seul tenant.
+   */
+  enregistrer(charge: { id?: string; name?: string; objects: ObjetBrut[]; measures?: Mesure[]; meta?: unknown; objetsJson?: Blob }): Promise<{ id: string; updatedAt?: string }>;
+  supprimer(id: string): Promise<unknown>;
+}
 
 /**
  * Le depot, pose par la racine de composition une fois la porte franchie.
@@ -111,8 +123,16 @@ export async function apiLoad(id: string): Promise<ProjetServeur> {
   return leDepot().ouvrir(id);
 }
 
+/**
+ * Enregistre un projet ; sans `id`, le cree. Un projet cree ici l'est par cette version : la question
+ * « Mettre a jour le modele ? » n'a pas a lui etre posee (io/modeleGarde.ts), quel que soit le chemin
+ * qui le cree (premier pas, « Nouveau projet », import cadastre).
+ */
 export async function apiSave(payload: unknown): Promise<{ id: string; updatedAt?: string }> {
-  return leDepot().enregistrer(payload as Parameters<DepotProjets['enregistrer']>[0]);
+  const charge = payload as Parameters<DepotProjets['enregistrer']>[0];
+  const r = await leDepot().enregistrer(charge);
+  if (!charge.id) retenirProjetNeuf(r.id);
+  return r;
 }
 
 export async function apiDelete(id: string): Promise<unknown> {
@@ -129,6 +149,12 @@ export async function apiDelete(id: string): Promise<unknown> {
  * @param projetsEtrangers vrai quand l'organisation a des projets, mais qu'aucun n'est un plan :
  *                         la phrase a dire n'est pas la meme que sur une organisation neuve.
  */
+/**
+ * Le jeu de demonstration, lu a la demande (AD-10) : il pese plus que tout le releve de facade et ne sert qu'a la premiere visite.
+ * Un projet du serveur s'ouvre sans le telecharger.
+ */
+export interface JeuDemo { objets: unknown[]; mesures: unknown[] }
+
 export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 'adresse'>;
 
 /**
@@ -142,8 +168,7 @@ export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 
  * perdu ou remplace alors que l'API avait seulement hoquete.
  */
 export async function chargerProjetInitial(
-  demoObjets: unknown[],
-  demoMesures: unknown[],
+  demo: () => Promise<JeuDemo>,
   demanderPremierPas?: DemandePremierPas
 ) {
   const projetConnu = getProjectIdFromUrl() || localStorage.getItem(cleDernierProjet());
@@ -152,6 +177,7 @@ export async function chargerProjetInitial(
     liste = await apiList();
   } catch (e) {
     if (!projetConnu) {
+      const { objets: demoObjets, mesures: demoMesures } = await demo();
       return {
         apiAvailable: false,
         list: [] as ProjetResume[],
@@ -173,7 +199,8 @@ export async function chargerProjetInitial(
 
   /** Le jeu de demonstration, enregistre comme un vrai projet : c'est ce qu'il devient. */
   const creerLaDemo = async (): Promise<string> => {
-    const cree = await apiSave({ name: 'Parcelle AE 101', objects: demoObjets, measures: demoMesures });
+    const { objets, mesures } = await demo();
+    const cree = await apiSave({ name: 'Parcelle AE 101', objects: objets, measures: mesures });
     liste = await apiList();
     return cree.id;
   };

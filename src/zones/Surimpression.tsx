@@ -9,13 +9,16 @@
 // cours — Cote ou Aligner — qui dit quoi toucher et permet d'en sortir (Annuler, Terminer, ou
 // Echap), ce qu'aucun geste ne permettait avant.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { distanceAlignement, definirDistanceAlignement } from '../interaction/outilAlignement.js';
 import { useStore } from 'zustand';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Pointage } from '../interaction/outilMesure.js';
 import { Icone } from './icones.js';
+import { libelleIsoler, objetAIsoler } from '../app/isolement.js';
 import { niceStep } from '../util/format.js';
+import { useCle, cleEtat } from './composants/abonnement.js';
 
 /** Le pointage en cours de l'outil de cotation ou d'alignement, et le moyen d'en sortir. */
 export interface ServicePointage {
@@ -28,20 +31,41 @@ export interface PropsSurimpression { magasin: Magasin; commandes: RegistreComma
 
 const metres = (v: number) => (Math.round(v * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/**
+ * La distance au trait de l'outil « Aligner » : vide, l'objet tourne seulement ; un nombre, il se pose aussi a cette distance du
+ * cote designe (une terrasse a 50 cm de la facade). Elle reste d'un alignement au suivant.
+ */
+function DistanceAlignement() {
+  const [v, poser] = useState(distanceAlignement);
+  return (
+    <label className="distanceAlignement">à{' '}
+      <input type="number" inputMode="decimal" min={0} step={0.01} value={v} aria-label="Distance au trait, en mètres (vide : tourner seulement)"
+        data-controle="objet.aligner.distance" onChange={(e) => { poser(e.target.value); definirDistanceAlignement(e.target.value); }} />{' '}m du trait
+    </label>
+  );
+}
+
 function consigne(p: Pointage): string {
-  if (p.purpose === 'align') return 'Désignez le côté cible sur le plan : l\'objet pivotera pour lui devenir parallèle.';
+  if (p.purpose === 'align') return 'Désignez le côté cible sur le plan : l\'objet pivotera pour lui devenir parallèle, et se posera à la distance indiquée si vous en donnez une.';
   if (p.purpose === 'acces') return 'Désignez sur le plan le côté de la parcelle où poser l\'accès : il se centrera sur le point touché.';
   if (p.mode === 'ref') return 'Désignez le côté de référence de la cote sur le plan.';
   return 'Désignez les coins à coter, puis « Terminer ».';
 }
 
 export function Surimpression({ magasin, commandes, pointage }: PropsSurimpression) {
-  useStore(magasin.store, (s) => s.version);
+  // Le plan (grille, Nord, selection, isolement), l'echelle de la vue, le pointage en cours et la commande d'isolement.
+  useCle(magasin, 'surimpression', (s) => {
+    const echelle = s.etat.scene.scale, p = pointage.courant();
+    return cleEtat(s) + JSON.stringify([Math.round(echelle), Math.round(niceStep(48 / echelle) * echelle), niceStep(48 / echelle), p && [p.mode, p.purpose],
+      commandes.etat('terrasse.isoler').utilisable]);
+  });
   const classe = useStore(magasin.store, (s) => s.classe);
   const pointeur = useStore(magasin.store, (s) => s.pointeur);
   const etat = magasin.store.getState().etat;
   const grille = etat.grilleVisible;
   const cadrable = !!etat.selectedKey;
+  // Ce que le bouton d'isolement isole : l'objet isole, ou la selection (terrasse, piscine, abri).
+  const libIsoler = libelleIsoler(etat.isolement !== null ? etat.objects.find(o => o.key === etat.isolement) : objetAIsoler(etat));
   const p = pointage.courant();
 
   // Echap arrete un pointage en cours, sur toutes les classes (spec-ihm-mobile §2.3, D3).
@@ -62,6 +86,7 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
   const bandeau = p && (
     <div className="bandeauMode" role="status">
       <span className="consigneMode">{consigne(p)}</span>
+      {p.purpose === 'align' && <DistanceAlignement />}
       <button type="button" className={p.mode === 'target' ? '' : 'secondary'} onClick={() => pointage.arreter()}>
         {p.mode === 'target' ? 'Terminer' : 'Annuler'}
       </button>
@@ -80,9 +105,9 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
               onClick={() => { commandes.executer('vue.ajuster'); }}><Icone nom="ajuster" taille={16} /> Ajuster à la sélection</button>
             {commandes.etat('terrasse.isoler').utilisable && (
               <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
-                title="Ne montrer que la terrasse, en transparence, et cadrer sur elle — rebasculer ou désélectionner rend la vue d'avant"
+                title={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer ou désélectionner rend la vue d\'avant'}
                 data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}>
-                <Icone nom="isoler" taille={16} /> {etat.isolement !== null ? 'Tout afficher' : 'Isoler la terrasse'}
+                <Icone nom="isoler" taille={16} /> {etat.isolement !== null ? 'Tout afficher' : libIsoler}
               </button>
             )}
           </div>
@@ -104,10 +129,10 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
           onClick={() => { commandes.executer('affichage.grille'); }}><Icone nom="grille" taille={20} /></button>
         <button type="button" className={etat.showNorth ? 'actif' : ''} aria-pressed={etat.showNorth} aria-label="Flèche Nord"
           data-commande="affichage.nord" onClick={() => { commandes.executer('affichage.nord'); }}><Icone nom="nord" taille={20} /></button>
-        {/* N'apparait qu'avec une terrasse selectionnee (ou isolee) : c'est elle qu'il isole. */}
+        {/* N'apparait qu'avec une terrasse, une piscine, une pergola ou un carport selectionne (ou isole). */}
         {commandes.etat('terrasse.isoler').utilisable && (
           <button type="button" id="isolerBtn" className={etat.isolement !== null ? 'actif' : ''} aria-pressed={etat.isolement !== null}
-            aria-label="Isoler la terrasse" title="Isoler la terrasse : elle seule, en transparence, cadrée — rebasculer ou désélectionner rend la vue d'avant"
+            aria-label={libIsoler} title={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer ou désélectionner rend la vue d\'avant'}
             data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}><Icone nom="isoler" taille={20} /></button>
         )}
       </div>

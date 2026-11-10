@@ -1,0 +1,12 @@
+{
+  "format": "plan-reglages-plu",
+  "version": 1,
+  "pourquoi": "Les seuils de la lecture du reglement du PLU par Claude et des regles qui controlent le projet contre les faits du PLU valides par la personne (lot L4 de la lecture IA elargie, MD/spec-lecture-ia-elargie.md §L4). Lus par regles/plu/reglages.ts ; ils ne changent aucun nombre exporte : la conformite PLU n'est qu'un avertissement, jamais un blocage.",
+  "seuils": {
+    "plu.pagesMax": {"valeur": 25, "unite": "pages", "ou": "app/plu/lecturePlu.ts", "pourquoi": "Pages du reglement envoyees a Claude a partir de la page de la zone (le `#page=` du GPU) : le chapitre d'une zone tient en 15 a 25 pages (Chatou, zone UL : pages 38 a 58, 21 pages). Au-dela, la requete passe le seuil de 100 000 tokens ou le tarif quintuple (deploy/claude-tarifs.json, auDela) ; l'extrait s'arrete donc la, et Claude dit si le chapitre continue.", "cas": []},
+    "plu.toleranceHauteurM": {"valeur": 0.005, "unite": "m", "ou": "engine/regles/plu/conformite.ts", "pourquoi": "Une hauteur du projet egale au maximum du PLU a l'arrondi du centimetre pres est conforme : le plan saisit les hauteurs au centimetre, et un ecart d'arrondi ne doit pas lever d'avertissement.", "cas": []},
+    "plu.toleranceDistanceM": {"valeur": 0.005, "unite": "m", "ou": "engine/regles/plu/conformite.ts", "pourquoi": "Un recul egal au minimum du PLU a l'arrondi du centimetre pres est conforme (le meme arrondi que les cotes du plan).", "cas": []},
+    "plu.tolerancePart": {"valeur": 0.0005, "unite": "part", "ou": "engine/regles/plu/conformite.ts", "pourquoi": "Une emprise ou une part d'espaces verts egale au seuil du PLU au dixieme de pour cent pres est conforme : les surfaces du plan sont des polygones a sommets au centimetre.", "cas": []},
+    "plu.toleranceAngleDeg": {"valeur": 0.5, "unite": "degres", "ou": "engine/regles/plu/conformite.ts", "pourquoi": "Une pente de toit a un demi-degre de la borne du PLU est conforme : la pente se deduit de la hauteur du toit et de la largeur du batiment, au centimetre.", "cas": []}
+  }
+}

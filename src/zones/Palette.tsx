@@ -9,7 +9,9 @@
 // pose sur le plan ; sur telephone, la feuille Outils (spec-ihm-mobile §6.2).
 
 import { useStore } from 'zustand';
+import { sessionToit } from '../app/toits/modeToit.js';
 import type { Magasin } from '../app/magasin.js';
+import { useCle } from './composants/abonnement.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { Icone, type NomIcone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
@@ -21,17 +23,22 @@ interface Groupe { titre: string; outils: Outil[] }
 
 const GROUPES: Groupe[] = [
   { titre: 'Historique', outils: [{ id: 'objet.annuler', icone: 'annuler', libelle: 'Annuler' }] },
+  // Les ouvrages d'abord, dans l'ordre ou on les pense pour un jardin : c'est pour eux qu'on vient.
+  // Les formes purement geometriques (sans fonction, a qualifier ensuite) ferment la creation.
   { titre: 'Créer', outils: [
-    { id: 'objet.ajouter.polygone', icone: 'polygone', libelle: 'Polygone' },
-    { id: 'objet.ajouter.rectangle', icone: 'rectangle', libelle: 'Rectangle' },
-    { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
-    { id: 'objet.ajouter.cercle', icone: 'cercle', libelle: 'Cercle' },
-    { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
+    { id: 'objet.ajouter.terrasse', icone: 'terrasse', libelle: 'Terrasse' },
     { id: 'objet.ajouter.pergola', icone: 'pergola', libelle: 'Pergola' },
     { id: 'objet.ajouter.carport', icone: 'carport', libelle: 'Carport' },
     { id: 'objet.ajouter.piscine', icone: 'piscine', libelle: 'Piscine' },
     { id: 'objet.ajouter.piscineRonde', icone: 'piscineRonde', libelle: 'Piscine ronde' },
+    { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
     { id: 'objet.ajouter.pointDeVue', icone: 'pointDeVue', libelle: 'Point de vue' }
+  ] },
+  { titre: 'Formes', outils: [
+    { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
+    { id: 'objet.ajouter.polygone', icone: 'polygone', libelle: 'Polygone' },
+    { id: 'objet.ajouter.rectangle', icone: 'rectangle', libelle: 'Rectangle' },
+    { id: 'objet.ajouter.cercle', icone: 'cercle', libelle: 'Cercle' }
   ] },
   { titre: 'Éditer', outils: [
     { id: 'objet.dupliquer', icone: 'dupliquer', libelle: 'Dupliquer' },
@@ -46,9 +53,13 @@ const GROUPES: Groupe[] = [
 ];
 
 export function Palette({ magasin, commandes }: PropsPalette) {
-  // La version du plan et l'etat de la pile d'annulation : ce sont les deux choses qui changent ce
-  // qu'un outil peut faire. Les lire ici suffit a redessiner la palette quand elles bougent.
-  useStore(magasin.store, (s) => s.version);
+  // L'etat de chaque outil, et le nom de la selection (titre de la feuille) ; la pile d'annulation se lit dans le magasin. La
+  // palette ne se redessine que si l'un d'eux change, et pas cachee.
+  useCle(magasin, 'palette', (s) => {
+    const e = s.etat;
+    // Une session du mode Toit allume « Annuler » (elle annule la session) : sa presence fait partie de la cle.
+    return JSON.stringify([GROUPES.map((g) => g.outils.map((o) => commandes.etat(o.id))), e.objects.find((o) => o.key === e.selectedKey)?.name, !!sessionToit()]);
+  }, 'palette');
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';
@@ -69,7 +80,8 @@ export function Palette({ magasin, commandes }: PropsPalette) {
           // Une capacite non achetee efface l'outil : un outil de travail n'est pas une publicite.
           if (!etat.utilisable && etat.raison === 'capacite') return null;
           // L'annulation ne connait sa pile que par le magasin : l'historique la lui signale.
-          const actif = o.id === 'objet.annuler' ? peutAnnuler : etat.utilisable;
+          // Pendant une session du mode Toit, il annule la session (app/ecouteurs/objets.ts) : sa commande le dit.
+          const actif = o.id === 'objet.annuler' ? etat.utilisable && (peutAnnuler || !!sessionToit()) : etat.utilisable;
           const refus = !etat.utilisable && 'message' in etat ? etat.message : null;
           if (refus) refusDuGroupe.add(o.libelle + ' : ' + refus);
           const titre = (c ? c.libelle : o.libelle) + (c && c.raccourci ? ' (' + c.raccourci + ')' : '')

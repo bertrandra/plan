@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { APP_VERSION, SCHEMA_VERSION } from '../../src/model/version.js';
 import { schemaMinimal } from '../../src/model/migrations.js';
-import { DEMO_OBJECTS, DEMO_MEASURES } from '../../src/model/demo.js';
+import { DEMO_OBJETS_FICHIER as DEMO_OBJECTS, DEMO_MEASURES } from '../../src/model/demo.js';
 
 // Ce que Plan attend de la plateforme, ecrit par Plan (contrat/SOURCE-PRODUIT.md).
 //

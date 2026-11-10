@@ -26,7 +26,11 @@ function monter(plus: Partial<ContexteFichiers> = {}, ecrire = true) {
   return { cmd, ctx };
 }
 
-/** Choisit un fichier dans un champ, comme le ferait la personne, et attend la lecture. */
+/**
+ * Choisit un fichier dans un champ, comme le ferait la personne. La lecture (FileReader) puis, pour un
+ * projet, l'image laissee a la roue de chargement sont asynchrones : les assertions qui suivent
+ * attendent leur effet (`vi.waitFor`) plutot qu'un delai fixe, trop court sur une machine chargee.
+ */
 async function choisir(id: string, contenu: string, taille?: number): Promise<void> {
   const input = document.getElementById(id) as HTMLInputElement;
   const f = new File([contenu], 'f.txt');
@@ -53,30 +57,31 @@ describe('fichiers', () => {
   it('importent un SVG lu', async () => {
     const { ctx } = monter();
     await choisir('importSvgFile', '<svg/>');
-    expect(ctx.importerSVG).toHaveBeenCalledWith('<svg/>');
+    await vi.waitFor(() => expect(ctx.importerSVG).toHaveBeenCalledWith('<svg/>'));
   });
 
   it('appliquent un projet JSON valide avec l option remplacer du moment', async () => {
     const { ctx } = monter({ remplacerImportJson: () => false });
     await choisir('importJsonFile', '{"objects":[]}');
+    await vi.waitFor(() => expect(ctx.appliquerProjetImporte).toHaveBeenCalledWith({ brut: { objects: [] } }, false));
     expect(ctx.validerProjetJSON).toHaveBeenCalledWith({ objects: [] });
-    expect(ctx.appliquerProjetImporte).toHaveBeenCalledWith({ brut: { objects: [] } }, false);
   });
 
   it('refusent un fichier illisible ou trop recent sans toucher au plan, en le disant', async () => {
     const illisible = monter();
     await choisir('importJsonFile', 'pas du json');
+    await vi.waitFor(() => expect(journal.toasts[0]).toMatch(/^Import annule - fichier illisible/));
     expect(illisible.ctx.appliquerProjetImporte).not.toHaveBeenCalled();
-    expect(journal.toasts[0]).toMatch(/^Import annule - fichier illisible/);
     const recent = monter({ validerProjetJSON: () => { throw Object.assign(new Error('schéma 9'), { motif: 'schema' }); } });
     await choisir('importJsonFile', '{}');
+    await vi.waitFor(() => expect(journal.toasts[1]).toBe('Import refuse : schéma 9'));
     expect(recent.ctx.appliquerProjetImporte).not.toHaveBeenCalled();
-    expect(journal.toasts[1]).toBe('Import refuse : schéma 9');
   });
 
   it('refusent avant lecture un fichier de plus de 5 Mo', async () => {
     const { ctx } = monter();
     await choisir('importJsonFile', '{}', IMPORT_JSON_TAILLE_MAX + 1);
+    await vi.waitFor(() => expect(journal.toasts[0]).toMatch(/^Fichier trop volumineux \(5 Mo, maximum 5 Mo\)/));
     expect(ctx.validerProjetJSON).not.toHaveBeenCalled();
     expect(journal.toasts[0]).toMatch(/^Fichier trop volumineux \(5 Mo, maximum 5 Mo\)/);
   });

@@ -20,19 +20,23 @@ import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
+import { parcours, type ServiceChampsParcours } from '../parcours.js';
 import type { Resultats } from '../resultats.js';
+import type { PointRelecture } from '../../export/typesRelecture.js';
+import type { ServiceDossier } from '../declaration/serviceDossier.js';
 
 /** Ce que la livraison d'un fichier demande au reste du programme. */
 export interface ContexteExports {
   buildExportSVG: () => string;
   buildExportDXF: () => string;
-  buildExportPDF: (echelle: number) => string;
+  /** Les PDF se construisent dans un module charge au premier export (AD-10) : asynchrones. */
+  buildExportPDF: (echelle: number) => Promise<string>;
   /** L'echelle choisie dans le menu Exporter (magasin, `options.echellePdf`). */
   echellePdf: () => number;
   construireResume: () => string;
-  construireDossier: () => { pdf: string; pages: number; terrasses: unknown[]; equipements: Map<unknown, unknown[]> };
+  construireDossier: () => Promise<{ pdf: string; pages: number; terrasses: unknown[]; equipements: Map<unknown, unknown[]> }>;
   /** Le dossier de mairie de la piscine selectionnee (export/dossierPiscine.ts) ; lance `Error('aucune piscine')` sans bassin. */
-  construireDossierPiscine: () => { pdf: string; pages: number; piscine: { name: string }; regime: string };
+  construireDossierPiscine: () => Promise<{ pdf: string; pages: number; piscine: { name: string }; regime: string }>;
   genererGlb: (telecharger: boolean) => void;
   /** Les terrasses cochées pour le dossier. */
   clesDossier: () => string[];
@@ -40,13 +44,13 @@ export interface ContexteExports {
    * La note de calcul de l'abri selectionne, en PDF, et le nom de son fichier ; `null` quand la
    * selection n'est pas un abri ou que ses regions de neige et de vent ne sont pas choisies.
    */
-  construireNoteCalcul: () => { pdf: string; nom: string } | null;
+  construireNoteCalcul: () => Promise<{ pdf: string; nom: string } | null>;
   noteCalculPossible: () => boolean;
   /**
    * Le dossier de declaration prealable : le cerfa 13703 rempli et ses pieces, en PDF. Asynchrone :
    * il charge pdf-lib, le formulaire et la carte IGN.
    */
-  construireDeclaration: () => Promise<{ pdf: Uint8Array; nom: string; manques: string[]; regime: string; pieces: string[] }>;
+  construireDeclaration: () => Promise<{ pdf: Uint8Array; nom: string; relecture: PointRelecture[]; regime: string; pieces: string[] }>;
   /** Y a-t-il un ouvrage a declarer ? */
   declarationPossible: () => boolean;
   /** Le nom du projet, pour nommer le dossier PDF. */
@@ -59,6 +63,16 @@ export interface ContexteExports {
 }
 
 
+/**
+ * Ce que dit l'export de la declaration : les pieces, ce que le formulaire demande encore (les points du cerfa de la relecture, les
+ * phrases d'avant le lot L5), et combien d'autres points la relecture releve (le dialogue de la declaration les montre un a un).
+ */
+export function messageDeclaration(res: { nom: string; pieces: string[]; relecture: PointRelecture[] }): string {
+  const cerfa = res.relecture.filter((p) => p.cerfa), autres = res.relecture.length - cerfa.length;
+  return 'Dossier téléchargé : ' + res.nom + ' (pièces ' + res.pieces.join(', ') + '). Reste à compléter : ' + cerfa.map((p) => p.texte).join(' ; ') + '.'
+    + (autres ? ' La relecture relève ' + (autres > 1 ? autres + ' autres points' : 'un autre point') + ' : voyez « Vérifier avant l’export » dans la déclaration préalable.' : '');
+}
+
 /** Le nom du fichier qui vient de partir, dit en bas de l'ecran : le seul filet qui survive au clic. */
 function direTelechargement(nomFichier: string): void {
   showToast('Téléchargement lancé : ' + nomFichier + '.');
@@ -70,8 +84,8 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void, capacite?: string) =>
     cmd.declarer({ id, libelle, groupe: 'export', ...(capacite ? { capacite } : {}), executer: (source) => action(source as HTMLButtonElement) });
 
-  // La declaration prealable : le cerfa officiel rempli et ses pieces. Le menu Exporter et la
-  // section de la parcelle la declenchent.
+  // La declaration prealable : le cerfa officiel rempli et ses pieces. Le bouton du dialogue de la
+  // declaration (menu Exporter, `export.ouvrirDeclaration`) la declenche, une fois les champs remplis.
   cmd.declarer({
     id: 'export.declaration', libelle: 'Déclaration préalable (cerfa 13703)', groupe: 'export', actif: ctx.declarationPossible,
     executer: () => {
@@ -79,7 +93,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       ctx.construireDeclaration().then(res => {
         telechargerBlob(res.nom, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         const avis = res.regime === 'permis' ? ' Attention : l\'emprise créée relève d\'un permis de construire (cerfa 13406).' : '';
-        showToast('Dossier téléchargé : ' + res.nom + ' (pièces ' + res.pieces.join(', ') + '). Reste à compléter : ' + res.manques.join(' ; ') + '.' + avis);
+        showToast(messageDeclaration(res) + avis);
       }).catch((err: unknown) => showErrBanner('Déclaration préalable : ' + (err as Error).message));
     }
   });
@@ -88,12 +102,11 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   cmd.declarer({
     id: 'export.noteCalcul', libelle: 'Exporter la note de calcul', groupe: 'export', actif: ctx.noteCalculPossible,
     executer: () => {
-      let res;
-      try { res = ctx.construireNoteCalcul(); }
-      catch (err) { showErrBanner('Erreur note de calcul : ' + (err as Error).message); return; }
-      if (!res) { showToast('Choisissez d\'abord les régions de neige et de vent de la note.'); return; }
-      telechargerTexte(res.nom, res.pdf, 'application/pdf');
-      direTelechargement(res.nom);
+      ctx.construireNoteCalcul().then((res) => {
+        if (!res) { showToast('Choisissez d\'abord les régions de neige et de vent de la note.'); return; }
+        telechargerTexte(res.nom, res.pdf, 'application/pdf');
+        direTelechargement(res.nom);
+      }, (err: unknown) => { showErrBanner('Erreur note de calcul : ' + (err as Error).message); });
     }
   });
 
@@ -170,40 +183,49 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   // Pas d'affichage dans la zone : un PDF n'a pas de contenu lisible à copier.
   surClic('exportPdfBtn', 'export.pdf', 'Exporter en PDF', () => {
     const echelle = ctx.echellePdf() || 200;
-    let pdfStr: string;
-    try { pdfStr = ctx.buildExportPDF(echelle); }
-    catch (err) { showErrBanner('Erreur export PDF: ' + (err as Error).message); return; }
-    try {
-      telechargerBlob('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
-      direTelechargement('plan_interactif_export.pdf');
-    } catch (err) {
-      showErrBanner('Echec du telechargement PDF: ' + (err as Error).message);
-    }
+    ctx.buildExportPDF(echelle).then((pdfStr) => {
+      try {
+        telechargerBlob('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
+        direTelechargement('plan_interactif_export.pdf');
+      } catch (err) {
+        showErrBanner('Echec du telechargement PDF: ' + (err as Error).message);
+      }
+    }, (err: unknown) => { showErrBanner('Erreur export PDF: ' + (err as Error).message); });
   });
 
   surClic('dossierPdfBtn', 'export.dossier', 'Générer le dossier PDF', () => {
     if (!ctx.clesDossier().length) { showToast('Coche au moins une terrasse pour le dossier.'); return; }
-    let res;
-    try { res = ctx.construireDossier(); }
-    catch (err) { showErrBanner('Erreur dossier PDF : ' + (err as Error).message); return; }
-    telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-dossier-terrasses.pdf', res.pdf, 'application/pdf');
-    const nbEquip = [...res.equipements.values()].reduce((s, l) => s + l.length, 0);
-    showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
-      ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
+    ctx.construireDossier().then((res) => {
+      telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-dossier-terrasses.pdf', res.pdf, 'application/pdf');
+      const nbEquip = [...res.equipements.values()].reduce((s, l) => s + l.length, 0);
+      showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
+        ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
+    }, (err: unknown) => { showErrBanner('Erreur dossier PDF : ' + (err as Error).message); });
   }, CAPACITES.exportDossier.code);
 
   surClic('dossierPiscineBtn', 'export.dossierPiscine', 'Dossier mairie de la piscine (PDF)', () => {
-    let res;
-    try { res = ctx.construireDossierPiscine(); }
-    catch (err) {
+    ctx.construireDossierPiscine().then((res) => {
+      telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-' + slugFichier(res.piscine.name) + '-dossier-mairie.pdf', res.pdf, 'application/pdf');
+      showToast('Dossier mairie : ' + res.pages + ' page(s) — ' + (res.regime === 'permis' ? 'permis de construire' : res.regime === 'declaration' ? 'déclaration préalable' : 'aucune formalité') + ' pour « ' + res.piscine.name + ' ».');
+    }, (err: unknown) => {
       if ((err as Error).message === 'aucune piscine') { showToast('Ajoutez d\'abord une piscine au plan (outil « Piscine » de la palette).'); return; }
-      showErrBanner('Erreur dossier mairie : ' + (err as Error).message); return;
-    }
-    telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-' + slugFichier(res.piscine.name) + '-dossier-mairie.pdf', res.pdf, 'application/pdf');
-    showToast('Dossier mairie : ' + res.pages + ' page(s) — ' + (res.regime === 'permis' ? 'permis de construire' : res.regime === 'declaration' ? 'déclaration préalable' : 'aucune formalité') + ' pour « ' + res.piscine.name + ' ».');
+      showErrBanner('Erreur dossier mairie : ' + (err as Error).message);
+    });
   });
 
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.
   surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', () => ctx.genererGlb(true), CAPACITES.vue3d.code);
+}
+
+/**
+ * Le dialogue de la declaration prealable (zones/parcours/Declaration.tsx), entree du menu Exporter :
+ * qui declare et ou, puis le dossier. Il ecrit sur la parcelle du projet ; sans parcelle, rien a declarer.
+ * Ouvrir ne modifie rien : chaque champ porte ses droits (refuse en lecture seule) et le dossier, les siens.
+ */
+export function brancherDialogueDeclaration(cmd: RegistreCommandes, service: ServiceChampsParcours, dossier?: ServiceDossier): void {
+  cmd.declarer({
+    id: 'export.ouvrirDeclaration', libelle: 'Déclaration préalable…', groupe: 'export', actif: () => !!service.parcelle(),
+    executer: () => parcours.ouvrir({ type: 'declaration', service, ...(dossier ? { dossier } : {}) })
+  });
 }

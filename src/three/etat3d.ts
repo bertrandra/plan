@@ -9,9 +9,38 @@
 // Un objet mutable partage plutot que des accesseurs : c'est la meme forme que `etat` pour le plan,
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
+import type { Qualite3d } from './qualite.js';
 import type * as THREE_NS from 'three';
-import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
+import { mesurerImage, perfActive } from './perf.js';
+import { reglerVent } from './vent.js';
+import { demanderRendu, imageRendue, pendantLeRendu } from './renduDemande.js';
+
+/** Ce que l'occlusion ajoute a la scene : un enchainement de passes a rendre a la place du rendu simple. */
+export interface Occlusion {
+  render(): void;
+  setSize(w: number, h: number): void;
+  setPixelRatio(r: number): void;
+  dispose(): void;
+}
+
+/** Ce que le rendu pose sur une scene de la Vue 3D, et qu'il faut liberer avec elle. */
+export interface EtatRendu {
+  environnement: boolean;
+  cible: THREE_NS.WebGLRenderTarget | null;
+  minuterie: ReturnType<typeof setTimeout> | null;
+  occlusion: Occlusion | null;
+  /** La scene a ete demontee : une occlusion arrivee apres coup ne s'y branche pas. */
+  libere: boolean;
+}
+
+/** Hauteur des yeux au-dessus du platelage fini, en metres. */
+export const HAUTEUR_YEUX_M = 1.6;
+
+/** Un rectangle en pixels CSS : relatif au canevas pour les vues, a la fenetre pour l'ecran pose dessus. */
+export interface Rect { x: number; y: number; l: number; h: number }
+export interface DeuxVues { avant: Rect; apres: Rect; sens: 'cote' | 'pile' }
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
@@ -24,7 +53,7 @@ import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
  * (un centre et un rayon en coordonnees 3D). D'ou deux types, pas un seul avec quatre champs
  * facultatifs qui ne seraient jamais tous poses.
  *
- * Ces types sont ecrits depuis `@types/three@0.128.0`, une dependance de type sans dependance de
+ * Ces types sont ecrits depuis `@types/three`, une dependance de type sans dependance de
  * code : la bibliotheque elle-meme arrive du CDN au moment ou l'on ouvre la 3D (voir
  * `three/global.d.ts`).
  */
@@ -38,12 +67,61 @@ export interface SceneTroisBase {
   dirLight: THREE_NS.DirectionalLight;
   dirFill: THREE_NS.DirectionalLight;
   hemiLight: THREE_NS.HemisphereLight;
+  /**
+   * Le rendu d'une image, quand il ne se reduit pas a `renderer.render` : l'occlusion ambiante de la
+   * Vue 3D en Soignee (three/rendu.ts) passe par un enchainement de passes. Tout rendu passe par
+   * `rendre3d`, qui le prend s'il existe.
+   */
+  rendre?: () => void;
+  /** Ce qui suit la taille du canevas en plus du rendu et de la camera (les passes de l'occlusion). */
+  redimensionner?: (w: number, h: number) => void;
+  /** Ce qui suit le rapport de pixels du rendu (une capture haute definition, three/presentation.ts). */
+  rapportPixels?: (r: number) => void;
+  /**
+   * L'avant et l'apres d'un audit en deux vues (three/comparaison3d.ts) : tant qu'il est pose, il
+   * l'emporte sur tout autre rendu, pour que chaque image, d'ou qu'elle vienne, montre les deux.
+   */
+  enDeux?: () => void;
+  /**
+   * Une camera qui l'emporte sur `camera` le temps d'un regard particulier : la camera oblique de l'editeur de facade du mode Toit
+   * (three/vueFacadeToit.ts). Elle rend l'image sans les passes, l'orbite ne la touche pas ; tout ce qui projette ou vise la lit par `cameraDeVue`.
+   */
+  cameraRendu?: THREE_NS.Camera | undefined;
+}
+
+/** La camera qui fait l'image : celle de l'editeur de facade quand elle est posee, sinon celle de l'orbite. */
+export const cameraDeVue = (sc: SceneTroisBase): THREE_NS.Camera => sc.cameraRendu ?? sc.camera;
+
+/** Rend une image de la scene, par ses passes si elle en a. */
+export function rendre3d(sc: SceneTroisBase): void {
+  // Le vent des arbres (three/vent.ts) lit l'horloge de l'image qu'on va rendre.
+  reglerVent(vue3d.vent, performance.now());
+  const rendu = () => {
+    if (sc.cameraRendu) sc.renderer.render(sc.scene, sc.cameraRendu);
+    else if (sc.enDeux) sc.enDeux();
+    else if (sc.rendre) sc.rendre();
+    else sc.renderer.render(sc.scene, sc.camera);
+  };
+  // `?fps=on` : l'image est mesuree (three/perf.ts) ; sans lui, aucun compteur n'est touche.
+  // Ce que three.js marque en rendant n'est pas un changement de la scene (three/renduDemande.ts).
+  pendantLeRendu(() => { if (perfActive()) mesurerImage(sc.renderer, rendu); else rendu(); });
+  // L'image est a jour : la boucle d'animation n'en rendra pas une autre sans raison.
+  imageRendue(sc);
+  // Ce qui se pose sur l'image (les poignees du mode Toit) suit la camera de cette image meme, sans attendre.
+  apresImage.forEach((f) => { f(sc); });
 }
 
 /** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
 export interface SceneVue3d extends SceneTroisBase {
   extent: number;
   cen: { x: number; y: number };
+  /** Le ciel, l'environnement et l'occlusion (three/rendu.ts), a liberer avec la scene. */
+  rendu?: EtatRendu;
+  /**
+   * La hauteur du sol dessine en un point du plan, sur un sol en relief ; absente, le sol est plat
+   * (a zero). La promenade (three/presentation.ts) garde ainsi les yeux a hauteur d'homme.
+   */
+  hauteurSol?: (p: PtBrut) => number;
 }
 
 /** La scene de la visionneuse : elle cadre un .glb deja produit, donc en coordonnees 3D. */
@@ -77,10 +155,6 @@ export const glb: {
    */
   dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: Date; centre: { x: number; y: number } } | null;
 
-  /** Date et heure de la course du soleil dans la visionneuse, independantes de celles du plan. */
-  dateStr: string;
-  /** Minutes depuis minuit ; 720 = midi. */
-  minutes: number;
   /** Seconde lumiere, du cote a l'ombre du soleil : decochable. */
   lumiereAppoint: boolean;
   /** Multiplicateur du soleil ; 1 = l'eclairage physique de l'heure. */
@@ -94,30 +168,25 @@ export const glb: {
   ombres: false,
   fond: 'clair',
   dernierExporte: null,
-  dateStr: new Date().toISOString().slice(0, 10),
-  minutes: 720,
   lumiereAppoint: true,
   intensiteSoleil: 1,
   semaineAffichee: 0
 };
 
 /**
- * Le soleil de la Vue 3D, dans les memes champs que celui de la visionneuse — et volontairement
- * **separe** : les deux vues peuvent etre reglees a des moments differents sans se marcher dessus.
+ * La facon dont la Vue 3D montre le soleil : son intensite et la lumiere d'appoint, dans les memes
+ * champs que la visionneuse. La date et l'heure, elles, sont le soleil du projet (core/soleil.ts),
+ * le meme pour le plan, la Vue 3D et la visionneuse (MD/spec-ouvrages.md, etape 6.7).
  *
  * `semaineAffichee` n'est pas une donnee mais une memoire d'interface : la derniere position du
  * curseur, gardee pour calculer de combien de crans il vient de bouger (le decalage est relatif —
  * voir `util/semaine.ts`).
  */
 export const soleilVue3d: {
-  dateStr: string;
-  minutes: number;
   intensiteSoleil: number;
   lumiereAppoint: boolean;
   semaineAffichee: number;
 } = {
-  dateStr: new Date().toISOString().slice(0, 10),
-  minutes: 720,
   intensiteSoleil: 1,
   lumiereAppoint: true,
   semaineAffichee: 0
@@ -166,21 +235,64 @@ export const vue3d: {
    */
   apresSoleil: ((soleil: { elevRad: number; azRad: number }) => void) | null;
   tousLesObjets: boolean;
+  /** Sol en coupe sous la terrasse : l'assise et les fondations se voient (three/assise3d.ts). */
+  solEnCoupe: boolean;
+  /** Les lames translucides : on voit la structure bois, les plots et leur assise dessous. */
+  platelageTranslucide: boolean;
   objetsOpaques: boolean;
   textures: boolean;
+  /** Les ombres de la photo estompees sur les facades relevees (facade/vision/sansOmbres.ts) : une preference d'affichage, jamais exportee. */
+  facadesSansOmbres: boolean;
   ombres: boolean;
+  /** Le vent dans les arbres (three/vent.ts) : montre par defaut, une preference d'affichage. */
+  vent: boolean;
+  /** Le niveau de qualite de l'appareil (three/qualite.ts) : pose au demarrage, regle dans le panneau. */
+  qualite: Qualite3d;
+  /**
+   * La boucle d'animation ne rend plus d'images : le temps d'un export .glb (three/exportGlb.ts),
+   * dont l'exporteur travaille par petites taches sur le meme fil que le rendu.
+   */
+  pauseRendu: boolean;
+  /**
+   * Un ecran couvre la Vue 3D et ne s'en sert pas (la liste de l'audit de la parcelle) : la boucle ne rend plus d'images, la
+   * derniere reste sur le canevas. Sous un rendu logiciel, une image de la Vue 3D en grand prenait plus d'une seconde, et chaque
+   * toucher de l'ecran pose dessus l'attendait.
+   */
+  renduCouvert: boolean;
+  /** Une voiture et une silhouette, pour l'echelle (three/objetsEchelle.ts) ; decochees par defaut. */
+  objetsEchelle: boolean;
+  /**
+   * La focale est tenue par un autre (la prise de vue de l'audit, app/audit/parcelle/vuePrise.ts) :
+   * elle ne suit plus la hauteur de la camera (three/presentation.ts).
+   */
+  focaleBloquee: boolean;
+  /**
+   * Un corps de toit isole dans la Vue 3D (mode Toit, etape 2) : seul ce corps du batiment `cle` se dessine, avec ce qui est pose sur lui.
+   * Etat d'affichage, jamais enregistre dans le projet.
+   */
+  corpsIsole: { cle: string; rang: number } | null;
 } = {
   scene: null,
+  corpsIsole: null,
   dernierObjKey: null,
   centre: null,
   apresSoleil: null,
   // Montrer tout le plan par defaut : une terrasse seule au milieu du vide ne se situe pas.
   tousLesObjets: true,
+  solEnCoupe: false,
+  platelageTranslucide: false,
   objetsOpaques: true,
   textures: true,
+  facadesSansOmbres: true,
+  vent: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
-  ombres: true
+  ombres: true,
+  qualite: 'normale',
+  pauseRendu: false,
+  renduCouvert: false,
+  objetsEchelle: false,
+  focaleBloquee: false
 };
 
 /**
@@ -195,6 +307,8 @@ export interface PlanVuDeLa3d {
   terrasseSelectedKey: string | null;
   /** La terrasse isolee : seule dans la scene, cadree sur elle, ses lames en transparence. */
   isolement?: string | null;
+  /** Le voisinage montre : masque, il emporte le paysage du relief et le nom des rues. Absent : montre. */
+  voisinageVisible?: boolean;
 }
 
 /**
@@ -238,7 +352,9 @@ export const affichage3d = {
   indicationGlb: '',
   pleinePageGlb: false,
   /** Un .glb en cours de production : pour le telecharger (`export`) ou pour la visionneuse. */
-  generation: null as null | 'export' | 'generation'
+  generation: null as null | 'export' | 'generation',
+  /** Les deux vues avant / apres d'un audit, en pixels du canevas : ou poser leurs etiquettes. */
+  comparaison: null as null | DeuxVues
 };
 
 /**
@@ -247,9 +363,53 @@ export const affichage3d = {
  */
 export const hotes3d: { vue3d: HTMLElement | null; glb: HTMLElement | null } = { vue3d: null, glb: null };
 
+// ---- Les ecritures de l'etat 3D hors de three/ --------------------------------------------------
+//
+// L'etat de la Vue 3D a un seul proprietaire : ce module. `three/` y ecrit directement, c'est son etat ; ailleurs (app/,
+// zones/), chaque ecriture passe par une des fonctions ci-dessous, qui disent ce qui se regle de dehors et le font chercher par
+// nom. `tests/unit/architecture.test.ts` refuse une affectation directe hors de three/ (AD-14).
+
+/** Ce que l'interface regle de la Vue 3D : ses preferences d'affichage, et ce qu'un autre tient le temps d'un geste. */
+export type ReglagesVue3d = Pick<typeof vue3d, 'tousLesObjets' | 'solEnCoupe' | 'platelageTranslucide' | 'objetsOpaques' | 'textures'
+  | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil' | 'renduCouvert' | 'pauseRendu'>;
+export function reglerVue3d(r: Partial<ReglagesVue3d>): void {
+  Object.assign(vue3d, r);
+  // Un reglage de la Vue 3D change ce qu'elle montre, ou la fait repartir (`renduCouvert`) : l'image suivante est rendue.
+  demanderRendu(vue3d.scene);
+}
+
+/** Ce que l'interface regle de la visionneuse : ouverte ou non, ses preferences, sa facon de montrer le soleil. */
+export type ReglagesGlb = Pick<typeof glb, 'ouvert' | 'filaire' | 'ombres' | 'fond' | 'lumiereAppoint'
+  | 'intensiteSoleil' | 'semaineAffichee'>;
+export function reglerGlb(r: Partial<ReglagesGlb>): void { Object.assign(glb, r); }
+
+/** La facon dont la Vue 3D montre le soleil. */
+export function reglerSoleilVue3d(r: Partial<typeof soleilVue3d>): void { Object.assign(soleilVue3d, r); }
+
+/** Ce que les panneaux montrent (fermee, en chargement, prete…) ; a signaler ensuite (`signaler3d`). */
+export function poserAffichage3d(r: Partial<typeof affichage3d>): void { Object.assign(affichage3d, r); }
+
+/** L'element ou se dessine une vue : la zone l'enregistre en se montant, et le retire (null) en se demontant. */
+export function poserHote3d(vue: keyof typeof hotes3d, el: HTMLElement | null): void { hotes3d[vue] = el; }
+
 let version = 0;
 const abonnes = new Set<() => void>();
 /** Dit aux zones que `affichage3d` (ou un reglage de `vue3d`, `glb`, `soleilVue3d`) a change. */
 export function signaler3d(): void { version++; abonnes.forEach(f => f()); }
 export function abonner3d(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
 export const version3d = (): number => version;
+
+const apresConstruction = new Set<() => void>();
+/**
+ * Une Vue 3D vient d'etre batie (three/scene.ts, en fin de construction). Separe de `signaler3d` :
+ * les zones n'ont rien a redessiner, seul ce qui pilote la camera (le mode audit) la reprend.
+ */
+/**
+ * Ce qui suit chaque image rendue (une poignee posee sur la scene, l'indice du mode Toit) : appele juste apres le rendu, la camera de
+ * l'image a jour. Plus de minuteur qui sonde la camera, et toujours une image de retard.
+ */
+const apresImage = new Set<(sc: SceneTroisBase) => void>();
+export function abonnerImage(f: (sc: SceneTroisBase) => void): () => void { apresImage.add(f); return () => { apresImage.delete(f); }; }
+
+export function signalerSceneBatie(): void { apresConstruction.forEach(f => f()); }
+export function abonnerSceneBatie(f: () => void): () => void { apresConstruction.add(f); return () => { apresConstruction.delete(f); }; }

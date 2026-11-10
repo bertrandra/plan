@@ -11,6 +11,8 @@ import { pointInPolygon, shoelace } from '../geometry/basic.js';
 import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { estParasol, estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
+import { estOuvrage, PARASOL } from '../model/ouvrages/index.js';
+import { FENETRE_CARTE_OMBRE, SEUILS_SOLEIL_DEG } from '../model/soleilProjet.js';
 
 /**
  * Contexte solaire : ce que les fonctions d'ombre lisaient dans la fermeture de boot() - la date
@@ -24,7 +26,7 @@ export interface ContexteSoleil {
 }
 
 /** En dessous de cette hauteur de soleil, l'ombre s'etire a l'infini : on ne la dessine plus. */
-export const PARASOL_ELEV_MIN_DEG = 8;
+export const PARASOL_ELEV_MIN_DEG = SEUILS_SOLEIL_DEG.ombreParasol;
 
 /** Un echantillon de soleil, ramene a **un metre** de hauteur de mat : reutilisable tel quel. */
 export interface EchantillonSoleil {
@@ -139,9 +141,9 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
   // Positions candidates du PIED : le pourtour seul si le mat doit y rester, sinon toute la
   // surface. Un deporte ajoute une seconde dimension de recherche (l'orientation du bras), d'ou
   // des quadrillages plus larges pour que le produit des deux reste calculable en ~1 s.
-  const deporte = !!par.matDeporte;
+  const deporte = !!par.parasol?.matDeporte;
   const angles = deporte ? Array.from({length:12}, (_,i)=>i*30) : [matAngleDe(par)];
-  const candidats = par.matSurPerimetre
+  const candidats = par.parasol?.matSurPerimetre
     ? pointsPerimetre(poly, Math.max(0.25, Math.sqrt(aire)/6))
     : grillePolygone(poly, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
   if(!cibles.length || !candidats.length) return null;
@@ -174,7 +176,7 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
 }
 
 export function hauteurParasolDe(par: ObjetPlan): number {
-  return (par.hauteurParasol !== undefined && par.hauteurParasol !== null) ? par.hauteurParasol : 2.2;
+  return (par.parasol?.hauteur !== undefined && par.parasol?.hauteur !== null) ? par.parasol?.hauteur : 2.2;
 }
 
 export function geometrieOmbre(par: ObjetPlan, ech: EchantillonSoleil): GeometrieOmbre {
@@ -193,7 +195,7 @@ export function geometrieOmbre(par: ObjetPlan, ech: EchantillonSoleil): Geometri
 // centre de la toile - c'est lui qui porte l'ombre, la surface et le cercle dessine ; seul le pied
 // se deplace. Garder cette convention evite de recalculer l'ombre differemment selon le modele.
 export function matAngleDe(par: ObjetPlan): number {
-  return (par.matAngleDeg !== undefined && par.matAngleDeg !== null) ? par.matAngleDeg : 0;
+  return (par.parasol?.matAngleDeg !== undefined && par.parasol?.matAngleDeg !== null) ? par.parasol?.matAngleDeg : 0;
 }
 
 /**
@@ -202,7 +204,7 @@ export function matAngleDe(par: ObjetPlan): number {
  */
 export function positionMat(par: ObjetPlan): PtBrut {
   const toile = enCercle(par);
-  if(!par.matDeporte) return { x: toile.center.x, y: toile.center.y };
+  if(!par.parasol?.matDeporte) return { x: toile.center.x, y: toile.center.y };
   const a = matAngleDe(par) * Math.PI/180;
   return { x: toile.center.x + toile.r*Math.cos(a), y: toile.center.y + toile.r*Math.sin(a) };
 }
@@ -236,18 +238,23 @@ export function projeterSurPerimetre(pt: PtBrut, poly: PtBrut[]): PtBrut | null 
  * Appelee a chaque rendu, donc la contrainte tient aussi **pendant** un glisser : l'objet suit le
  * curseur en restant colle au bord, au lieu de sauter a la fin du geste.
  */
-export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: string | null): void {
+export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: string | null): ObjetPlan[] {
+  // Les parasols vraiment deplaces : qui les dessine doit le savoir (core/controleurObjets.ts).
+  const deplaces: ObjetPlan[] = [];
   objets.forEach(par=>{
-    if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
+    if(!estOuvrage(par, PARASOL) || !par.parasol?.matSurPerimetre) return;
     const terr = terrasseDuParasol(par, objets, terrasseSelectionnee);
     if(!terr || !aDesSommets(terr) || terr.pts.length<3) return;
     const mat = positionMat(par);
     const cible = projeterSurPerimetre(mat, terr.pts);
     if(!cible) return;
+    if(cible.x === mat.x && cible.y === mat.y) return;
     const toile = enCercle(par);
     toile.center.x += cible.x - mat.x;
     toile.center.y += cible.y - mat.y;
+    deplaces.push(par);
   });
+  return deplaces;
 }
 
 // Points regulierement repartis le long du pourtour d'un polygone (positions candidates du pied
@@ -276,8 +283,8 @@ export function pointDansOmbre(px: number, py: number, g: GeometrieOmbre): boole
 // la recherche de position cherche. Sans ce lien, un jardin a plusieurs terrasses verrait tous ses
 // parasols optimises sur la meme (la premiere trouvee), ce qui n'a aucun sens.
 export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseSelectionnee?: string | null): ObjetPlan | undefined {
-  if(par && par.terrasseLieeKey){
-    const t = objets.find(o=>o.key===par.terrasseLieeKey && estTerrasse(o));
+  if(par && par.parasol?.terrasseLieeKey){
+    const t = objets.find(o=>o.key===par.parasol?.terrasseLieeKey && estTerrasse(o));
     if(t) return t;
   }
   // Lien absent (projet enregistre avant cette option) ou terrasse supprimee / passee a une autre
@@ -289,18 +296,24 @@ export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseS
   return terrasseOuPremiere(objets, terrasseSelectionnee);
 }
 
+/** L'annee des echantillons de soleil du placement des parasols (equation du temps et declinaison : quasi identiques d'une annee a l'autre). */
+const ANNEE_ECHANTILLONS_PARASOL = FENETRE_CARTE_OMBRE.annee;
+
 // Geometrie de l'ombre d'une toile circulaire horizontale, pour une position de soleil donnee :
 // le disque se projette en ellipse, decalee de h/tan(hauteur) a l'oppose du soleil et etiree de
 // 1/sin(hauteur) dans cette direction (la perpendiculaire, elle, garde le rayon de la toile).
 // Renvoie la geometrie PAR METRE de hauteur de mat, pour pouvoir la reutiliser telle quelle sur
 // n'importe quel parasol ou position candidate sans refaire le calcul solaire.
 export function echantillonsSoleilParasol(ctx: ContexteSoleil): EchantillonSoleil[] {
-  const annee = parseInt(ctx.dateStr.slice(0,4),10) || new Date().getFullYear();
+  // Une annee de reference, pas celle du soleil du projet ni de l'horloge : le placement d'un parasol
+  // echantillonne toute la saison (PARASOL_MOIS), et doit etre le meme d'une annee a l'autre. La carte
+  // et le bouton le disent a l'ecran (FENETRE_CARTE_OMBRE.libelle).
+  const annee = ANNEE_ECHANTILLONS_PARASOL;
   const lieu = ctx.lieu;
   const out: EchantillonSoleil[] = [];
   PARASOL_MOIS.forEach(m=>{
     PARASOL_HEURES.forEach(hh=>{
-      const { elevRad, azRad } = positionSoleil(annee, m, 15, hh, lieu.latitude, lieu.longitude);
+      const { elevRad, azRad } = positionSoleil(annee, m, FENETRE_CARTE_OMBRE.jour, hh, lieu.latitude, lieu.longitude);
       if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return;
       const ux = -Math.sin(azRad), uy = -Math.cos(azRad); // du parasol vers son ombre
       out.push({ ux, uy, decalageParMetre: 1/Math.tan(elevRad), etirement: 1/Math.sin(elevRad) });
@@ -310,5 +323,6 @@ export function echantillonsSoleilParasol(ctx: ContexteSoleil): EchantillonSolei
 }
 
 
-export const PARASOL_MOIS = [5,6,7,8,9];
-export const PARASOL_HEURES = [12,13,14,15,16,17,18];
+// La fenetre de la carte et du placement : toute la saison, pas la date choisie (model/soleilProjet.ts, qui la dit a l'ecran).
+export const PARASOL_MOIS: readonly number[] = FENETRE_CARTE_OMBRE.mois;
+export const PARASOL_HEURES: readonly number[] = FENETRE_CARTE_OMBRE.heures;

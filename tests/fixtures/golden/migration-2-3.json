@@ -1,0 +1,21 @@
+[
+ {
+  "forme": "deux-pans",
+  "hauteur": 3,
+  "angleFaitage": 0,
+  "source": "bdtopo"
+ },
+ {
+  "forme": "croupes",
+  "hauteur": 1.4,
+  "angleFaitage": 0,
+  "source": "bdtopo",
+  "estime": true
+ },
+ {
+  "forme": "plat",
+  "hauteur": 0,
+  "angleFaitage": 0,
+  "source": "bdtopo"
+ }
+]

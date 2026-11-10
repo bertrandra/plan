@@ -1,8 +1,8 @@
-// Z4 en Vue 3D : l'horloge du soleil, en haut a gauche de la scene, quand les ombres sont allumees.
+// Z4 en Vue 3D : l'horloge du soleil, en haut a gauche de la scene.
 //
-// Elle ne regle rien : elle lit l'heure du soleil (`soleilVue3d.minutes`) et la montre, en aiguilles
-// et en chiffres. Glisser le curseur d'heure, ou laisser la vitrine faire courir la journee, fait
-// tourner les aiguilles avec les ombres - c'est le repere qui manquait pour lire une ombre portee.
+// Elle lit l'heure du soleil (`soleilVue3d.minutes`) et la montre, en aiguilles et en chiffres ; un
+// clic ouvre dessous l'heure et la date (zones/vue3d/Vue3d.tsx). Glisser le curseur d'heure, ou
+// laisser la vitrine faire courir la journee, fait tourner les aiguilles avec les ombres.
 //
 // Pas de transition sur les aiguilles : a minuit l'aiguille des minutes repartirait a reculons d'un
 // tour entier, et le curseur suit deja le glisser pas a pas.
@@ -13,12 +13,13 @@ export function anglesAiguilles(minutes: number): { heures: number; minutes: num
   return { heures: ((m / 60) % 12) * 30, minutes: (m % 60) * 6 };
 }
 
-export function Horloge({ minutes, formatHeure }: { minutes: number; formatHeure: (m: number) => string }) {
+export function Horloge({ minutes, formatHeure, ouvert, basculer }: { minutes: number; formatHeure: (m: number) => string; ouvert: boolean; basculer: () => void }) {
   const a = anglesAiguilles(minutes);
   const texte = formatHeure(minutes);
   return (
-    <div id="horloge3d" className="horloge3d" role="timer" aria-live="off" aria-label={'Heure du soleil : ' + texte}
-      title="Heure de la course du soleil - les ombres sont calculees pour cet instant">
+    <button type="button" id="horloge3d" className={'horloge3d' + (ouvert ? ' ouverte' : '')} data-controle="vue3d.horloge"
+      aria-expanded={ouvert} aria-controls="reglageHeure3d" aria-label={'Heure du soleil : ' + texte + ' — régler l’heure et la date'}
+      title="Heure et date du soleil : les ombres sont calculées pour cet instant. Cliquez pour les régler." onClick={basculer}>
       <svg className="cadranHorloge" viewBox="0 0 48 48" width="44" height="44" aria-hidden="true">
         <circle cx="24" cy="24" r="21" className="fondCadran" />
         {Array.from({ length: 12 }, (_, i) => (
@@ -30,6 +31,6 @@ export function Horloge({ minutes, formatHeure }: { minutes: number; formatHeure
         <circle cx="24" cy="24" r="1.8" className="axeCadran" />
       </svg>
       <span className="texteHorloge">{texte}</span>
-    </div>
+    </button>
   );
 }

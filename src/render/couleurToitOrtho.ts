@@ -14,7 +14,8 @@ import { latDeTuile } from '../geo/projection.js';
 import { au } from '../util/tableaux.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { couleurToitDepuisPixels } from '../model/couleurToit.js';
+import { couleurToitDepuisPixels, couvertureDesFichiersFonciers, COULEURS_TOIT_REPLI, type CouleurToitLue } from '../model/couleurToit.js';
+import { NIVEAU, ecrivainPeut, peutEcrire, type ContexteEcriture } from '../model/protections.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { PtBrut, Toit } from '../model/types.js';
 
@@ -38,12 +39,30 @@ export interface BilanCouleursToits {
 
 interface ObjetAvecToit {
   pts?: PtBrut[];
-  toit?: Toit | null;
+  batiment?: { toit?: Toit | null; verifieSurPlace?: { date: string } | null } | null;
+  /** Les attributs BD TOPO : `materiauxToiture` (fichiers fonciers) departage un repli. */
+  bdtopo?: unknown;
 }
 
-/** Un toit dont Plan choisit la couleur : sans couleur, ou avec une couleur qu'il avait posee. */
+/**
+ * Une photo pas concluante : le materiau de la toiture des fichiers fonciers (BD TOPO) departage le
+ * repli - une ardoise, du zinc ou du beton sont gris, une tuile que la photo voyait grise (vieillie,
+ * moussue) est brune. Une teinte lue sur la photo, ou un toit-terrasse, ne changent pas.
+ */
+export function repliSelonMateriau(lue: CouleurToitLue, bdtopo: unknown, plat = false): CouleurToitLue {
+  if (lue.origine === 'orthophoto' || plat) return lue;
+  const c = couvertureDesFichiersFonciers((bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture);
+  if (c === 'ardoise' || c === 'zinc' || c === 'beton') return { couleur: COULEURS_TOIT_REPLI.gris, origine: 'gris' };
+  if (c === 'tuile' && lue.origine === 'gris') return { couleur: COULEURS_TOIT_REPLI.brun, origine: 'brun' };
+  return lue;
+}
+
+/**
+ * Un toit dont Plan choisit la couleur : sans couleur, ou avec une couleur qu'il avait posee (model/protections.ts, groupe
+ * `couleurToit` : une couleur posee sans origine est celle de la personne). Le toit seul, sans les marques du batiment.
+ */
 export function couleurAResoudre(toit: Toit | null | undefined): toit is Toit {
-  return !!toit && (!toit.couleur || !!toit.origineCouleur);
+  return !!toit && peutEcrire({ batiment: { toit } }, 'couleurToit', NIVEAU.mesure);
 }
 
 const echelle = (z: number) => TAILLE_TUILE * Math.pow(2, z);
@@ -147,28 +166,42 @@ async function imageSous(pts: readonly PtBrut[], proj: ProjecteurLocal): Promise
 
 /**
  * Pose sur chaque toit dont Plan choisit la couleur celle que l'orthophoto montre, ou la couverture
- * de repli. Modifie les toits en place. Un toit dont l'orthophoto ne repond pas reste tel quel.
+ * de repli. Modifie les toits en place. Un toit dont l'orthophoto ne repond pas reste tel quel. Ce que
+ * la lecture peut ecrire, c'est model/protections.ts qui le dit (ecrivain `ortho`) : ni une couleur
+ * choisie, ni celle d'un batiment verifie sur place, sauf « Recalculer aussi » (`permis`).
  */
-export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS): Promise<BilanCouleursToits> {
+export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS, enParallele = 1, permis: ContexteEcriture = {}): Promise<BilanCouleursToits> {
   const bilan: BilanCouleursToits = { lus: 0, replis: 0 };
   const fin = Date.now() + delaiMs;
-  for (const o of objets) {
-    const toit = o.toit;
-    if (!couleurAResoudre(toit) || !Array.isArray(o.pts) || o.pts.length < 3) continue;
-    if (Date.now() > fin) break;
+  // Plusieurs toits a la fois pour la tache de fond (app/toits/toitsFond.ts) : les tuiles se partagent par le
+  // cache de render/ortho.ts. A l'import, un seul a la fois, dans l'ordre des objets.
+  let suivant = 0;
+  const ouvrier = async (): Promise<void> => {
+    while (suivant < objets.length && Date.now() <= fin) {
+      const o = objets[suivant++];
+      if (o) await lireUnToit(o);
+    }
+  };
+  const lireUnToit = async (o: ObjetAvecToit): Promise<void> => {
+    const toit = o.batiment?.toit;
+    if (!toit || !ecrivainPeut(o, 'ortho', 'couleurToit', permis) || !Array.isArray(o.pts) || o.pts.length < 3) return;
     let img: ImageMonde | null = null;
     try {
-      // Une tuile qui ne repond jamais ne doit pas tenir l'import : au-dela du delai, on s'arrete.
-      img = await Promise.race([imageSous(o.pts, proj), new Promise<null>((r) => setTimeout(() => r(null), Math.max(0, fin - Date.now())))]);
+      // Une tuile qui ne repond jamais ne doit pas tenir l'import : au-dela du delai, on s'arrete. Sans
+      // delai (la tache de fond), pas de minuterie : setTimeout(Infinity) partirait tout de suite.
+      img = Number.isFinite(fin)
+        ? await Promise.race([imageSous(o.pts, proj), new Promise<null>((r) => setTimeout(() => r(null), Math.max(0, fin - Date.now())))])
+        : await imageSous(o.pts, proj);
     } catch {
       img = null;
     }
-    if (!img) continue;
-    const lue = couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj));
+    if (!img) return;
+    const lue = repliSelonMateriau(couleurToitDepuisPixels(pixelsSousContour(img, o.pts, proj), toit.forme === 'plat'), o.bdtopo, toit.forme === 'plat');
     toit.couleur = lue.couleur;
     toit.origineCouleur = lue.origine;
     if (lue.origine === 'orthophoto') bilan.lus++;
     else bilan.replis++;
-  }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, enParallele) }, ouvrier));
   return bilan;
 }

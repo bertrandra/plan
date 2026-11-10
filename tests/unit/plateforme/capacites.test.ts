@@ -7,7 +7,8 @@ import { creerRegistre, type Droits } from '../../../src/app/commandes.js';
 // Etape 5 de MD/spec-connexion-plateforme.md §16 : ce qu'une capacite empeche vraiment.
 //
 // Le fait qui porte toute l'etape : **une capacite ne reduit pas le fichier livre**. Le build
-// produit un fichier unique et inline tout, y compris ce qui est derriere un `import()` dynamique.
+// produisait un fichier unique qui inlinait tout, y compris ce qui est derriere un `import()` dynamique ;
+// depuis le 26 octobre 2026 il est en morceaux (AD-10), mais aucune capacite ne retient encore un morceau.
 // Ce qu'elle empeche, c'est l'appel au reseau. Ces tests figent les deux moities : que la table
 // nomme les bonnes origines, et qu'une commande refusee n'appelle rien du tout.
 
@@ -21,7 +22,7 @@ describe('la table des capacites', () => {
   });
 
   it('nomme les CDN sous la vue 3D : c est la seule capacite qui evite un script distant', () => {
-    expect(CAPACITES.vue3d.origines).toContain('https://cdnjs.cloudflare.com');
+    expect(CAPACITES.vue3d.origines).not.toContain('https://cdnjs.cloudflare.com');
     expect(CAPACITES.vue3d.origines).toContain('https://cdn.jsdelivr.net');
   });
 
@@ -46,7 +47,7 @@ describe('la table des capacites', () => {
     // (`backprod/src/Demo/Domain/DemoWorld.php`, cle `capabilities` du produit `plan`). Avant cela
     // les attacher aurait retire la 3D a tous les locataires, puisque `/me/context` ne distingue
     // pas « pas achete » de « pas au catalogue ». Maintenant, chaque code doit avoir sa prise.
-    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts', 'ecouteurs/modes.ts']
+    const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/exports.ts', 'ecouteurs/modes.ts', 'ecouteurs/relief.ts']
       .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
     const sansPrise: string[] = [];
     for (const [nom, c] of Object.entries(CAPACITES)) {
@@ -96,7 +97,7 @@ describe('ce que les commandes nommees existent vraiment', () => {
     // Les commandes se declarent de deux facons — `declarer({ id })` et l'aide `surClic(dom, id)` —
     // donc on cherche l'identifiant tel quel plutot qu'une forme d'ecriture.
     const sources = ['projet.ts', 'ecouteurs/affichage.ts', 'ecouteurs/divers.ts', 'ecouteurs/vue3d.ts',
-      'ecouteurs/visionneuse.ts', 'ecouteurs/modes.ts', 'ecouteurs/exports.ts', 'ecouteurs/objets.ts']
+      'ecouteurs/visionneuse.ts', 'ecouteurs/modes.ts', 'ecouteurs/exports.ts', 'ecouteurs/objets.ts', 'ecouteurs/relief.ts', 'ecouteurs/voisinage.ts']
       .map((f) => readFileSync(resolve(__dirname, '../../../src/app', f), 'utf8')).join('\n');
     const manquantes: string[] = [];
     for (const c of Object.values(CAPACITES)) {

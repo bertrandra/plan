@@ -1,0 +1,209 @@
+{
+  "nom": "06-volets-roulants-ton-sur-ton",
+  "description": "Enduit blanc, menuiseries blanches, coffres de volets roulants au-dessus des baies, tabliers plus ou moins baissés (un presque fermé) : ton sur ton.",
+  "difficultes": [
+    "volets-roulants",
+    "coffres",
+    "ton-sur-ton",
+    "biais"
+  ],
+  "verite": {
+    "largeur": 9.5,
+    "hauteur": 5.7,
+    "coins": [
+      {
+        "x": 192.82,
+        "y": 204.48
+      },
+      {
+        "x": 1022.55,
+        "y": 263.07
+      },
+      {
+        "x": 1051.43,
+        "y": 743.15
+      },
+      {
+        "x": 152.86,
+        "y": 767.66
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.3,
+        "rendu": {
+          "menuiserie": [
+            246,
+            246,
+            244
+          ],
+          "volets": {
+            "type": "roulant",
+            "coffre": 0.22,
+            "couleur": [
+              240,
+              240,
+              236
+            ],
+            "fermeture": 0.4
+          }
+        }
+      },
+      {
+        "type": "porte-fenetre",
+        "x": 3.6,
+        "y": 0,
+        "l": 1.6,
+        "h": 2.15,
+        "rendu": {
+          "menuiserie": [
+            246,
+            246,
+            244
+          ],
+          "volets": {
+            "type": "roulant",
+            "coffre": 0.25,
+            "couleur": [
+              240,
+              240,
+              236
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.3,
+        "rendu": {
+          "menuiserie": [
+            246,
+            246,
+            244
+          ],
+          "volets": {
+            "type": "roulant",
+            "coffre": 0.22,
+            "couleur": [
+              240,
+              240,
+              236
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 3.75,
+        "l": 1.2,
+        "h": 1.25,
+        "rendu": {
+          "menuiserie": [
+            246,
+            246,
+            244
+          ],
+          "volets": {
+            "type": "roulant",
+            "coffre": 0.22,
+            "couleur": [
+              240,
+              240,
+              236
+            ],
+            "fermeture": 0.95
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4,
+        "y": 3.75,
+        "l": 1,
+        "h": 1.25,
+        "rendu": {
+          "menuiserie": [
+            246,
+            246,
+            244
+          ],
+          "volets": {
+            "type": "roulant",
+            "coffre": 0.22,
+            "couleur": [
+              240,
+              240,
+              236
+            ]
+          }
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7,
+        "y": 3.75,
+        "l": 1.2,
+        "h": 1.25,
+        "rendu": {
+          "menuiserie": [
+            246,
+            246,
+            244
+          ],
+          "volets": {
+            "type": "roulant",
+            "coffre": 0.22,
+            "couleur": [
+              240,
+              240,
+              236
+            ],
+            "fermeture": 0.3
+          }
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 6,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          238,
+          234,
+          226
+        ],
+        "taches": 4
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 10,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -10,
+      "tangage": 8,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

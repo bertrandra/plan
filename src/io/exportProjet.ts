@@ -8,6 +8,7 @@
 import { slugFichier, horodatageFichier } from '../util/format.js';
 import type { ObjetPlan, Mesure } from '../model/types.js';
 import type { ObjetSerialise } from '../model/creation.js';
+import { estTerrain } from '../model/fonctions.js';
 import type { MesureSerialisee } from './serialisation.js';
 import type { EtatApp } from '../core/state.js';
 
@@ -38,7 +39,7 @@ export interface ContexteExportProjet {
  * elle part avec la parcelle, et c'est voulu.
  */
 export function filtrerSansParcelle(objsSer: ObjetSerialise[], msSer: MesureSerialisee[]) {
-  const retirees = new Set(objsSer.filter(o => o.key === 'parcelle' || o.fonction === 'terrain').map(o => o.key));
+  const retirees = new Set(objsSer.filter(estTerrain).map(o => o.key));
   const objets = objsSer.filter(o => !retirees.has(o.key)).map(o =>
     (o.terrasseLieeKey && retirees.has(o.terrasseLieeKey)) ? { ...o, terrasseLieeKey: null } : o
   );

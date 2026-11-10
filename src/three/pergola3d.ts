@@ -1,12 +1,13 @@
 // La pergola ou le carport en 3D, piece par piece (three/).
 //
-// Le moteur (engine/pergola.ts) rend des axes et des sections ; chaque piece devient une boite
+// Le moteur (engine/abri/pergola.ts) rend des axes et des sections ; chaque piece devient une boite
 // orientee sur son axe. La hauteur de la section est tenue dans le plan vertical de la piece : une
 // poutre et un chevron sont poses sur chant, un aretier suit la pente. La couverture (toile ou pans)
 // est un maillage triangule sur sa projection au sol, qui n'est jamais degeneree : aucun pan n'est
 // vertical.
 
-import { calculerPergola, dimsPergola, type Pt3 } from '../engine/pergola.js';
+import { calculerPergola, dimsPergola, type Pt3 } from '../engine/abri/pergola.js';
+import type { Sol } from '../engine/sol.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
 import type { VersLocal } from './primitives.js';
@@ -39,8 +40,14 @@ function pan(sommets: Pt3[], versLocal: VersLocal, mat: THREE_NS.Material): THRE
   return new THREE.Mesh(geo, mat);
 }
 
-export function ajouterPergola3d(scene: THREE_NS.Scene, o: ObjetPlan, versLocal: VersLocal): void {
-  const calc = calculerPergola(o);
+/**
+ * `sol` : le relief du projet (engine/sol.ts). Present, le moteur compte les `z` des pieces depuis le
+ * zero du plan : les poutres de niveau sur le point haut du sol, chaque poteau jusqu'a SON sol — la
+ * scene les recoit telles quelles, sans groupe pose sur le sol. Absent, `scene` peut etre un groupe
+ * pose sur le sol en relief (three/scene.ts), et les pieces comptent depuis lui.
+ */
+export function ajouterPergola3d(scene: THREE_NS.Object3D, o: ObjetPlan, versLocal: VersLocal, sol?: Sol | null): void {
+  const calc = calculerPergola(o, sol);
   if (!calc) return;
   const r = calc.reglages;
   const bois = new THREE.MeshStandardMaterial({ color: r.couleurBois });

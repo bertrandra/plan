@@ -92,6 +92,13 @@ La modale est annulable à tout moment sans effet de bord sur le projet courant.
 
 ## A3. Étape 1 — Géocodage (BAN — `api-adresse.data.gouv.fr`)
 
+> **11 octobre 2026** : l'API Adresse est dépréciée depuis le 31 janvier 2026 (en-têtes
+> `Deprecation`/`Sunset`) au profit du géocodage de la Géoplateforme, même format de réponse.
+> Elle répondait par intermittence sans en-tête CORS, et « Utiliser ma position » n'obtenait plus
+> d'adresse. Le programme interroge désormais `https://data.geopf.fr/geocodage/search` et
+> `…/geocodage/reverse` (`geo/apiIgn.ts`, `BAN_URL`, `BAN_INVERSE_URL`) ; les exemples ci-dessous
+> gardent l'ancienne adresse, les paramètres sont les mêmes.
+
 Service retenu : **Base Adresse Nationale**, un seul point d'entrée pour la recherche et
 l'autocomplétion.
 
@@ -139,6 +146,28 @@ Règles :
   (regex `^\s*-?\d+[.,]\d+\s*[,; ]\s*-?\d+[.,]\d+\s*$`) : on saute le géocodage ;
 - **repli** si la BAN est indisponible : `https://data.geopf.fr/geocodage/search?q=…&index=address`
   (même forme GeoJSON, mêmes champs `label`/`citycode`/`score`).
+
+### A3.1 Par défaut, la position de l'appareil
+
+À l'ouverture du dialogue, `importe.utiliserMaPosition(true)` lit la position de l'appareil
+(`shell/geolocalisation.ts`, haute précision, 15 s au plus, une position d'une minute admise). Le
+navigateur demande la permission ; le serveur la permet au site (`Permissions-Policy:
+geolocation=(self)`, dans `deploy/htaccess.template`).
+
+- **Précise** (≤ `PRECISION_POSITION_MAX_M` = 50 m) : l'adresse la plus proche (BAN inverse,
+  `geocoderInverseBAN`) s'écrit dans le champ, et la parcelle se cherche **sous le point de
+  l'appareil** (`genre: 'position'`), filtrée par la commune de cette adresse. L'étape 2 dit
+  « Adresse la plus proche » et « Votre position (à N m près) : dans la parcelle ». Le point
+  d'adresse rangé sur la parcelle (`cadastre.adresseLat/Lon`) est celui de cette adresse, sur la
+  voirie (`pointAdresse`), pas celui de l'appareil : c'est lui qui dit le côté sur rue où se pose le
+  portail neuf (`MD/spec-cloture.md` §2.1).
+- **Approximative** : l'adresse est proposée dans le champ, rien n'est cherché.
+- **Refusée, indisponible, trop longue** : silencieux à l'ouverture.
+- **Devancée** : une frappe dans le champ ou une adresse choisie pendant la lecture l'emportent.
+
+Le bouton « Utiliser ma position » (`cadastre.maPosition`, affiché si le navigateur sait donner une
+position) relance la lecture d'un geste : alors une position approximative est prise telle quelle,
+et un refus se dit (« Position refusée par le navigateur… »).
 
 ## A4. Étape 2 — Recherche de la parcelle (API Carto Cadastre)
 

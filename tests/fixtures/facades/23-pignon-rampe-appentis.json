@@ -1,0 +1,91 @@
+{
+  "nom": "23-pignon-rampe-appentis",
+  "description": "Pignon d'un appentis adossé : le haut du mur monte en rampe de gauche à droite (1,8 m), enduit gris clair, une haie basse devant le pied : ni égout horizontal unique, ni sol entier.",
+  "difficultes": [
+    "pignon",
+    "rampe",
+    "haie"
+  ],
+  "verite": {
+    "largeur": 6,
+    "hauteur": 2.7,
+    "coins": [
+      {
+        "x": 319.19,
+        "y": 445.25
+      },
+      {
+        "x": 919.77,
+        "y": 462.13
+      },
+      {
+        "x": 928.15,
+        "y": 725.27
+      },
+      {
+        "x": 308.11,
+        "y": 747.75
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 0.9,
+        "y": 0.95,
+        "l": 1,
+        "h": 1.1
+      },
+      {
+        "type": "porte",
+        "x": 3.6,
+        "y": 0,
+        "l": 0.9,
+        "h": 2.1,
+        "rendu": {
+          "couleur": [
+            60,
+            70,
+            80
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 23,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          206,
+          204,
+          198
+        ],
+        "taches": 5
+      },
+      "pignon": 1.8,
+      "pignonSommet": 1
+    },
+    "devant": [
+      {
+        "type": "haie",
+        "x": 0.2,
+        "l": 2.2,
+        "h": 0.7,
+        "recul": 0.8
+      }
+    ],
+    "prise": {
+      "type": "camera",
+      "distance": 9,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": -12,
+      "tangage": 6,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

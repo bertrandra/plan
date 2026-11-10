@@ -5,18 +5,30 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { dist, shoelace } from '../geometry/basic.js';
-import { CONCASSE_PRICE, DALLE_STAB_PRICE, essenceDe, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, SOLIVE_PRICE, VISSERIE_PRICE, VIS_PRICE, estPlots } from './constantes.js';
+import { BETON_PRICE, COFFRAGE_PRICE, DECAISSEMENT_PRICE, DALLE_BETON_EP_M, MASSIF_COTE_M, MASSIF_PRICE, TREILLIS_PRICE, CONCASSE_PRICE, DALLE_STAB_PRICE, essenceDe, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, SOLIVE_PRICE, VISSERIE_PRICE, VIS_PRICE, estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
-import { achatPlots, achatVis, computeAssise, coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
+import { surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { aireCommune } from '../geometry/polygon.js';
+import { decaissementPoseMm } from './hauteurs.js';
+import { achatPlots, achatPlotsParHauteur, achatVis, computeAssise, coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
+import { appuisEnHauteur } from './hauteurs.js';
+import type { Sol } from './sol.js';
 import type { CouchesTerrasse } from './layers.js';
 import type { ObjetPlan, LigneBom } from '../model/types.js';
 
 
-export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] {
+/**
+ * La nomenclature d'une terrasse. `sol` : le relief du projet (MD/spec-relief.md §6) ; present, les
+ * plots se comptent par hauteur, modele par modele, et les tetes de vis disent jusqu'ou elles
+ * sortent. Absent, rien ne change : les nombres d'un projet sans relief sont ceux d'avant.
+ */
+export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse, sol?: Sol | null): LigneBom[] {
   const c = ensureConstruction(obj);
-  const surf = shoelace(enPoints(obj).pts);
+  // Un bassin ou un trou qui perce la terrasse n'a ni lames ni fixations : sa part est retiree.
+  const contour = enPoints(obj).pts;
+  const surf = shoelace(contour) - (layers.trous ?? []).reduce((s, t) => s + aireCommune(t, contour), 0);
   const lameRiveMl = layers.lameRive.reduce((s,l)=>s+dist(l.a,l.b),0);
   const essence = essenceDe(c.essenceBois);
   // Essence prices are per m2 (like the main lames); convert to a per-ml price for the
@@ -34,18 +46,43 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   const nAppuis = layers.vis.length;
   const vis = achatVis(c, nAppuis);
   const plots = achatPlots(c, nAppuis);
-  const assise = computeAssise(c, surf, nAppuis);
+  // Sur un sol en pente, chaque appui a sa hauteur : les plots s'achetent par gamme.
+  const enPente = appuisEnHauteur(obj, layers.vis, sol);
+  const plotsEnPente = enPente && estPlots(c) ? achatPlotsParHauteur(c, enPente.appuis.map(a => a.hauteurMm)) : null;
+  const cm = (mm: number) => Math.round(mm / 10);
+  // Le tour du cadre ne sert qu'au coffrage d'une dalle a couler : la rive, et le bord des ouvertures.
+  // La dalle a couler deborde du platelage (engine/structure.ts, empriseDalle).
+  const assise = computeAssise(c, surf, nAppuis, layers.cadre.reduce((s, l) => s + dist(l.a, l.b), 0), surfaceDalle(contour, layers.trous ?? []));
   const lines: LigneBom[] = [];
+  // Un niveau fini impose plus bas que la structure : la terrasse se pose dans un decaissement.
+  const decaissePose = volumeDecaissementPose({ pts: contour, construction: c }, layers.trous ?? []);
   if(estPlots(c)){
-    lines.push({ poste:'vis', label:'Plots — ' + plots.modele.label, qte:plots.unites, unite:'u',
-                 prixBas:plots.modele.prix*0.7, prixHaut:plots.modele.prix*1.4 });
+    if(plotsEnPente && enPente){
+      // Un lot par gamme, sur une seule ligne : la nomenclature garde sa forme, les quantites disent la pente.
+      const moyen = plotsEnPente.unites ? plotsEnPente.lots.reduce((s, l) => s + l.modele.prix * l.unites, 0) / plotsEnPente.unites : plots.modele.prix;
+      lines.push({ poste:'vis', label:'Plots — ' + plotsEnPente.label + ' (sol en pente : de ' + cm(enPente.minMm) + ' à ' + cm(enPente.maxMm) + ' cm)'
+                   + (plotsEnPente.horsGamme ? ' — ' + plotsEnPente.horsGamme + ' au-delà de la plus grande gamme' : ''),
+                   qte:plotsEnPente.unites, unite:'u', prixBas:moyen*0.7, prixHaut:moyen*1.4 });
+    } else {
+      lines.push({ poste:'vis', label:'Plots — ' + plots.modele.label, qte:plots.unites, unite:'u',
+                   prixBas:plots.modele.prix*0.7, prixHaut:plots.modele.prix*1.4 });
+    }
     // L'assise n'existe pas en mode vis : ces postes n'apparaissent que sur plots.
     if(assise.geotextileM2 > 0) lines.push({ poste:'geotextile', label:'Geotextile (assise)', qte:assise.geotextileM2, unite:'m²', prixBas:GEOTEXTILE_PRICE.bas, prixHaut:GEOTEXTILE_PRICE.haut });
     if(assise.concasseM3 > 0)   lines.push({ poste:'concasse',   label:'Concasse 10/20 compacte (' + (c.supportDecaissement||15) + ' cm)', qte:assise.concasseM3, unite:'m³', prixBas:CONCASSE_PRICE.bas, prixHaut:CONCASSE_PRICE.haut });
     if(assise.dallesU > 0)      lines.push({ poste:'dallesStab', label:'Dalles stabilisatrices sous plots', qte:assise.dallesU, unite:'u', prixBas:DALLE_STAB_PRICE.bas, prixHaut:DALLE_STAB_PRICE.haut });
+    if(assise.massifsU > 0)     lines.push({ poste:'massifs',    label:'Massifs béton ' + Math.round(MASSIF_COTE_M*100) + ' × ' + Math.round(MASSIF_COTE_M*100) + ' × ' + Math.round(MASSIF_COTE_M*100) + ' cm sous plots (' + assise.betonM3.toFixed(2) + ' m³)', qte:assise.massifsU, unite:'u', prixBas:MASSIF_PRICE.bas, prixHaut:MASSIF_PRICE.haut });
+    if(assise.treillisM2 > 0) {
+      lines.push({ poste:'betonDalle', label:'Dalle béton armé ' + Math.round(DALLE_BETON_EP_M*100) + ' cm (C25/30)', qte:assise.betonM3, unite:'m³', prixBas:BETON_PRICE.bas, prixHaut:BETON_PRICE.haut });
+      lines.push({ poste:'treillis',   label:'Treillis soudé ST25C (recouvrements compris)', qte:assise.treillisM2, unite:'m²', prixBas:TREILLIS_PRICE.bas, prixHaut:TREILLIS_PRICE.haut });
+      lines.push({ poste:'coffrage',   label:'Coffrage de rive de la dalle', qte:assise.coffrageMl, unite:'ml', prixBas:COFFRAGE_PRICE.bas, prixHaut:COFFRAGE_PRICE.haut });
+    }
   } else {
-    lines.push({ poste:'vis', label:'Vis de fondation' + (vis.parBoite>1 ? ' ('+vis.boites+' × '+vis.parBoite+')' : ''), qte:vis.unites, unite:'u',  prixBas:VIS_PRICE.bas, prixHaut:VIS_PRICE.haut });
+    lines.push({ poste:'vis', label:'Vis de fondation' + (vis.parBoite>1 ? ' ('+vis.boites+' × '+vis.parBoite+')' : '')
+                 + (enPente ? ' — têtes de ' + cm(enPente.minMm) + ' à ' + cm(enPente.maxMm) + ' cm hors sol (sol en pente)' : ''), qte:vis.unites, unite:'u',  prixBas:VIS_PRICE.bas, prixHaut:VIS_PRICE.haut });
   }
+  // Vis ou plots : la terrasse se pose dans son decaissement, avant tout le reste.
+  if(decaissePose > 0) lines.push({ poste:'decaissementPose', label:'Décaissement pour la pose (' + (decaissementPoseMm(obj)/10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm), terres évacuées', qte:decaissePose, unite:'m³', prixBas:DECAISSEMENT_PRICE.bas, prixHaut:DECAISSEMENT_PRICE.haut });
   // One BOM line per timber product: merged while the sections match, split as soon as the
   // lambourdes have a section of their own.
   groupesBois.forEach(g=>lines.push({
@@ -64,7 +101,9 @@ export function computeBOM(obj: ObjetPlan, layers: CouchesTerrasse): LigneBom[] 
   // disagree. `calcule` tells renderBOMTable to show it read-only.
   // Le dictionnaire s'etend avec un poste par groupe de debit ; son type le dit.
   const calcules: Record<string, { cout: number; note: string }> = { lames:{ cout:coutDebit(c, debit, 'lames'), note:'calcule — prix par longueur, debit des lames' },
-                     vis: estPlots(c)
+                     vis: plotsEnPente
+                       ? { cout:plotsEnPente.cout, note:'calcule — par hauteur de plot (sol en pente) : ' + plotsEnPente.label }
+                       : estPlots(c)
                        ? { cout:plots.cout, note:'calcule — ' + prixPlotUnite(c).toFixed(2) + ' € x ' + plots.unites }
                        : { cout:vis.cout,   note:'calcule — ' + prixVisUnite(c).toFixed(2) + ' € x ' + vis.unites } };
   groupesBois.forEach(g=>{

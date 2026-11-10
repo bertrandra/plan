@@ -6,6 +6,8 @@
 
 import { dist, shoelace } from '../geometry/basic.js';
 import { computeAssise } from './prix.js';
+import { surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { aireCommune } from '../geometry/polygon.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
@@ -21,6 +23,9 @@ export const CADENCES = {
   geotextile:  { h:0.03, unite:'m²', label:'Pose du geotextile',                         phase:'Preparation' },
   concasse:    { h:0.80, unite:'m³', label:'Apport et compactage du concasse',           phase:'Preparation' },
   dallesStab:  { h:0.08, unite:'u',  label:'Pose des dalles stabilisatrices',            phase:'Preparation' },
+  coffrage:    { h:0.30, unite:'ml', label:'Coffrage de rive de la dalle',               phase:'Preparation' },
+  coulage:     { h:1.50, unite:'m³', label:'Ferraillage et coulage du beton',            phase:'Preparation' },
+  massifs:     { h:0.50, unite:'u',  label:'Fouille et coulage des massifs',             phase:'Preparation' },
   vissage:     { h:0.25, unite:'u',  label:'Vissage des vis de fondation',               phase:'Appuis' },
   posePlots:   { h:0.08, unite:'u',  label:'Pose des plots',                             phase:'Appuis' },
   reglage:     { h:0.06, unite:'u',  label:'Reglage de niveau des appuis',               phase:'Appuis' },
@@ -39,7 +44,7 @@ export const CADENCES = {
 export const CHANTIER_PHASES = ['Preparation','Appuis','Structure','Platelage','Finitions'];
 
 /**
- * Les vingt postes du chantier. Derive de `CADENCES` : ajouter une cadence ajoute un poste, et le
+ * Les vingt-trois postes du chantier. Derive de `CADENCES` : ajouter une cadence ajoute un poste, et le
  * compilateur reclamera alors la quantite correspondante dans `computeChantier`.
  */
 export type PosteChantier = keyof typeof CADENCES;
@@ -60,26 +65,34 @@ export function cadenceDe(c: Construction, cle: PosteChantier): number {
 // ligne par ligne plutot qu'a prendre ou a laisser.
 export function computeChantier(obj: ObjetPlan, layers: CouchesTerrasse){
   const c = ensureConstruction(obj);
-  const surf = shoelace(enPoints(obj).pts) || 0;
+  // Un bassin ou un trou qui perce la terrasse n'est ni platele ni nettoye : sa part est retiree.
+  const contourT = enPoints(obj).pts;
+  const surf = (shoelace(contourT) - (layers.trous ?? []).reduce((s, t) => s + aireCommune(t, contourT), 0)) || 0;
   const ml = (a: { a: PtBrut; b: PtBrut }[]) => a.reduce((s,l)=>s+dist(l.a,l.b),0);
   const nbAppuis = layers.vis.length;
   const debitL = computeDebitLames(obj, layers);
   const groupes = computeDebitsBois(obj, layers);
   const nbBarresBois = groupes.reduce((s,g)=>s + Object.values(g.debit.achats).reduce((t,n)=>t+n,0), 0);
   const nbBarresLames = Object.values(debitL.achats).reduce((t,n)=>t+n, 0);
-  const assise = computeAssise(c, surf, nbAppuis);
   const perim = ml(layers.cadre);
+  const assise = computeAssise(c, surf, nbAppuis, perim, surfaceDalle(enPoints(obj).pts, layers.trous ?? []));
   const plots = estPlots(c);
+  // Un niveau fini impose : le decaissement de pose s'ajoute au terrassement.
+  const decaissePose = volumeDecaissementPose({ pts: enPoints(obj).pts, construction: c }, layers.trous ?? []);
 
   // `Record<PosteChantier, number>` : le compilateur verifie que chaque cadence a sa quantite.
   // Un poste ajoute a `CADENCES` sans quantite ici serait sinon compte a zero, en silence.
   const q: Record<PosteChantier, number> = {
     piquetage: surf,
-    decaissement: assise.concasseM3,
-    evacuation: assise.concasseM3,
+    // La dalle a couler se loge sous le sol fini comme le herisson : sa terre s'enleve aussi.
+    decaissement: assise.concasseM3 + (assise.treillisM2 > 0 ? assise.betonM3 : 0) + decaissePose,
+    evacuation: assise.concasseM3 + (assise.treillisM2 > 0 ? assise.betonM3 : 0) + decaissePose,
     geotextile: assise.geotextileM2,
     concasse: assise.concasseM3,
     dallesStab: assise.dallesU,
+    coffrage: assise.coffrageMl,
+    coulage: assise.treillisM2 > 0 ? assise.betonM3 : 0,
+    massifs: assise.massifsU,
     vissage: plots ? 0 : nbAppuis,
     posePlots: plots ? nbAppuis : 0,
     reglage: nbAppuis,

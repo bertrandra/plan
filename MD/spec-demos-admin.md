@@ -3,12 +3,13 @@
 Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait pas lequel lui répond :
 
 - **Apache + PHP, sans Node** : `npm run livraison` produit `livraison/` et `livraison.zip`
-  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `plan-demos/1.json`,
-  `LISEZMOI-DEPLOIEMENT.txt`). `plan-demos/1.json` est la démonstration intégrée, première démo de
-  l'admin, à copier avec le dossier à côté de la configuration.
-  `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des démos sont dans
+  (`index.html`, `.htaccess`, `admin.php`, `donnees.php`, `admin-config.exemple.php`, `data/demo/1.json`,
+  `data/demo/2.json`, `data/demo/3.json`, `LISEZMOI-DEPLOIEMENT.txt`). `data/demo/1.json` est la démonstration
+  intégrée, première démo de l'admin : le dossier `data/` se pose à côté de la configuration.
+  `data/demo/2.json` et `3.json` (Peyrusse-le-Roc, voisinage d'un et de cinq kilomètres) et les suivantes sont des exports
+  de Plan rangés dans `deploy/plan-demos/`, que la livraison copie tels quels.
+  `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des données sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
-- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DEMOS_DIR`.
 
 ## Ce que c'est
 
@@ -30,7 +31,7 @@ Dans l'atelier admin, les commandes de projet agissent sur les fichiers de démo
 - **Projets** liste les démos ; en choisir une ouvre `?demofile=<id>` ;
 - **Supprimer** renomme le fichier en `<id>.json.supprime-<date>` : rien ne s'efface pour de bon.
 - **Se déconnecter** (barre du haut, ou feuille Projet au doigt) ferme la session chez le serveur,
-  puis recharge la page sur la porte au mot de passe (`app/porteAdmin.ts`, `quitterAdmin`).
+  puis recharge la page sur la porte au mot de passe (`app/administration/porteAdmin.ts`, `quitterAdmin`).
 
 ## Format
 
@@ -56,14 +57,37 @@ entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 
 ## Où vivent les fichiers
 
-Apache : `dossierDemos` de la configuration, par défaut `plan-demos/` à côté d'elle, donc hors de la
-racine web ; `.htaccess` refuse de toute façon `plan-demos/` et `demos/`. Node : `DEMOS_DIR`, par
-défaut `demos/` dans le dossier de l'application. **Le placer hors de ce dossier**
-(par exemple `/home/<compte>/plan-demos`) : une mise en ligne qui remplace le dossier de
-l'application emporterait sinon les démos enregistrées depuis. Ce dossier n'est jamais servi
-directement : seules les routes `/admin/demos…`, derrière la session, le lisent.
+Toutes les données du serveur vivent dans un seul dossier `data/`, frère de `public_html/` (à côté
+de `plan-admin-config.php`), jamais servi (`deploy/donnees.php` ;
+`MD/spec-audit.md` 15.4) : `data/demo/` (les démos, `.bak`, `.supprime-…`), `data/admin/`
+(`palette.json`, `controleurs.json`, `arbres.json`, `echecs.json`), `data/claude/`, `data/audits/`,
+`data/conformite/`, `data/migration.json`. Apache : réglage `dossierDonnees` de la configuration,
+par défaut `data/` à côté de la racine web (même quand Plan est dans un sous-dossier) ; `.htaccess`
+refuse de toute façon `data/`, `plan-demos/` et `demos/`. Node : `DATA_DIR`, par défaut `data/` à
+côté du dossier de l'application, donc hors de lui : une mise en ligne qui le remplace n'emporte
+rien.
 
-## Routes (deploy/admin.php, buildsg/demosAdmin.mjs)
+Une configuration d'avant qui ne dit que `dossierDemos` (Node : `DEMOS_DIR` seul) garde l'ancienne
+disposition : tout dans ce dossier, la palette en `.palette.json`. Avec `dossierDonnees`, l'ancien
+dossier est déplacé dans `data/` au premier passage, sans rien écraser (`data/migration.json`,
+`DEPLACE-VERS-DATA.txt`) ; la marche à suivre sur l'hébergement est dans `LISEZMOI-DEPLOIEMENT.txt`
+(étape 2.e). Ce dossier n'est jamais servi directement : seules les routes `admin/…`, derrière la
+session (la vitrine et la palette exceptées, en lecture), le lisent.
+
+**Sauvegarde.** Admin › « Télécharger une sauvegarde des données » (commande `admin.sauvegarde`)
+télécharge `GET admin/sauvegarde` (`deploy/admin.php`) : une archive
+`plan-data-AAAA-MM-JJ-HHMM.zip` de tout le dossier des données, sous la session admin. Elle contient
+`data/…` (l'arborescence telle quelle, dossiers vides compris : déposée à la place de `data/`, elle
+le restaure) et `sauvegarde.json` (`format: plan-sauvegarde`, date, disposition, nombre de fichiers,
+octets, liens ignorés) ; l'en-tête `X-Plan-Sauvegarde` redit le compte. Rien hors du dossier : les
+liens symboliques ne sont pas suivis, la configuration (mot de passe, clé de Claude) n'en fait
+jamais partie, même posée dedans par erreur. L'archive se construit dans un fichier temporaire
+(`ZipArchive`, images stockées sans recompression), se sert par morceaux puis s'efface ; sans
+l'extension `zip`, la route répond 501 et dit où l'activer. La page vérifie la session avant de
+suivre le lien. Ce n'est pas une sauvegarde automatique : celle de l'hébergeur reste la première
+(`LISEZMOI-DEPLOIEMENT.txt`, « Sauvegarde »).
+
+## Routes (deploy/admin.php)
 
 Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un sous-dossier.
 
@@ -78,11 +102,14 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `GET`, `PUT /admin/controleurs` | lit, remplace le registre des contrôleurs (`.controleurs.json`, `.bak` gardé) |
 | `GET /admin/palette` | **sans session** : la palette de l'interface (`.palette.json`), que chaque page de Plan applique au démarrage ; 404 sans palette (couleurs d'origine) |
 | `PUT /admin/palette` | remplace la palette (session ; `{format: 'plan-palette', couleurs: {clair, sombre}}`, chaque couleur `#RRGGBB` ; `.bak` gardé) |
+| `GET /admin/arbres` | **sans session** : la bibliothèque d'essences d'arbres (`data/admin/arbres.json`, `MD/spec-arbres-3d.md`), que la 3D de chaque page lit ; 404 sans bibliothèque (arbres simplifiés) |
+| `PUT /admin/arbres` | remplace la bibliothèque (session ; `{format: 'plan-arbres', especes: [{id, nom, caduc, reglages…}]}`, identifiants `[a-z0-9-]` sans doublon, 256 Ko au plus ; `.bak` gardé) |
+| `GET /admin/sauvegarde` | archive zip de tout le dossier des données (session ; Apache seulement ; voir « Où vivent les fichiers ») |
 | `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page
 
-- `app/porteAdmin.ts`, `zones/PorteAdmin.tsx` : la porte au mot de passe, à la place de celle de
+- `app/administration/porteAdmin.ts`, `zones/PorteAdmin.tsx` : la porte au mot de passe, à la place de celle de
   la plateforme (pas de plateforme en mode admin).
 - `io/depotDemos.ts` : le dépôt des démos, même contrat que celui de la plateforme
   (`DepotProjets`). `io/api.ts` change seulement le paramètre d'adresse (`demofile`) et la clé du
@@ -94,7 +121,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 > `PLATFORM_ADMIN`) est spécifié dans [`spec-palette-plateforme.md`](spec-palette-plateforme.md).
 
 Un écran de l'admin, derrière la même porte, ouvert depuis le menu « Admin » de la barre de Plan
-(`zones/EcranPalette.tsx`, `app/ecranPalette.ts`). Trois onglets : **Palette** (planche d'ambiance,
+(`zones/EcranPalette.tsx`, `app/administration/ecranPalette.ts`). Trois onglets : **Palette** (planche d'ambiance,
 couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayons et ombres),
 **Typo** (polices et échelle). Un bouton « Retour au plan » ramène à l'atelier.
 
@@ -129,7 +156,7 @@ enregistre.
 - **À l'ouverture**, l'écran montre le registre enregistré, rien de plus : Plan ne démarre pas.
 - **Découverte, sur demande seulement** (bouton « Lancer la découverte ») : Plan démarre alors,
   caché, sur la démonstration intégrée, en mémoire et sans dépôt (rien ne peut s'y enregistrer) ;
-  les relances suivantes relisent ce qu'il a déjà monté. `app/controleurs.ts` lit ce qu'il a monté : le registre des
+  les relances suivantes relisent ce qu'il a déjà monté. `app/administration/controleurs.ts` lit ce qu'il a monté : le registre des
   commandes, la carte d'exposition (`app/exposition.ts`) et les sections de l'inspecteur, une par
   sorte d'objet du plan. Aucune commande n'est exécutée, aucun champ lu ni écrit.
 - **L'arbre** : Zones de l'écran (Z1 à Z8 et clavier) → emplacements → commandes ; Registre des
@@ -184,7 +211,7 @@ enregistre.
   ciblée dit sur quoi elle porte (« Porte sur »).
 - **Hors registre** (6ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
   découverte à l'autre.
-  - *Contrôles affichés sans commande ni champ* (`app/inventaireEcran.ts`) : les boutons, cases,
+  - *Contrôles affichés sans commande ni champ* (`app/administration/inventaireEcran.ts`) : les boutons, cases,
     curseurs, listes et saisies montés dans la page qui ne sont rattachés à rien, rangés par zone,
     avec le nombre de contrôles rattachés pour comparaison. Un contrôle est rattaché quand lui ou un
     parent porte `data-commande` (il déclenche une commande), `data-controle` (contrôle d'interface
@@ -192,7 +219,7 @@ enregistre.
     section de l'inspecteur). Les lignes répétées (`data-instance` : un objet de l'explorateur, une
     cote) comptent une fois ; `data-nom` donne un nom stable à un bouton dont le texte suit l'état ;
     `data-compte` marque un compteur à ne pas prendre pour un nom. **Trois dispositions**
-    (`app/decouverteClasses.ts`) : Plan ne rend pas les mêmes contrôles au bureau, sur tablette et
+    (`app/administration/decouverteClasses.ts`) : Plan ne rend pas les mêmes contrôles au bureau, sur tablette et
     sur téléphone (barre compacte, barre de sélection, navigation du bas, familles de sections de
     l'inspecteur). La découverte pose donc tour à tour chaque classe d'écran dans le magasin, avec un
     objet sélectionné (une terrasse de préférence) et, au téléphone, chaque feuille ouverte ; puis
@@ -208,7 +235,7 @@ enregistre.
     de toute zone (les champs fichier cachés d'`index.html`) n'est pas compté ;
   - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
     qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
-- **Écritures à surveiller** (7ᵉ branche, `app/ecritures.ts`) : classement seul, rien n'est changé
+- **Écritures à surveiller** (7ᵉ branche, `app/administration/ecritures.ts`) : classement seul, rien n'est changé
   dans Plan. Ce qui modifie le projet hors des deux garde-fous du registre :
   - *sans annulation* : Ctrl+Z ne le défait pas. Un champ de l'inspecteur qui écrit le projet
     s'annule (`champAnnulable`), sauf `historique: false` : l'inspecteur prend l'instantané avant
@@ -258,6 +285,36 @@ enregistre.
 `heureauto`, `pdv`…) s'y appliquent de même. Une démo absente, illisible, sans objet ou d'un schéma
 plus récent que le programme laisse la démonstration intégrée : la vitrine encadrée sur une page
 d'accueil n'est jamais vide.
+
+**Quand la démo n'est pas lue, la cause se dit** (8 octobre 2026). `admin/vitrine/<id>` répond
+`404 NOT_CONFIGURED` sans configuration admin, `404 NOT_FOUND` sans fichier, `500 UNREADABLE` pour un
+fichier présent mais illisible par PHP (droits), et tous ses refus portent
+`Access-Control-Allow-Origin: *` : l'`<iframe>` en bac à sable de la plateforme (origine `null`)
+voit la raison, pas seulement l'absence. La page écrit cette cause dans la console
+(`chargerDemoVitrine`), y compris une réponse HTML à la place du JSON (protection anti-robots de
+l'hébergeur), et lit la route en `same-origin` pour qu'une telle protection reçoive son cookie en
+navigation directe. `scripts/verifier-deploiement.mjs` contrôle la route sur l'hôte.
+
+### Dépannage : la vitrine montre la démonstration intégrée au lieu de `file=<id>`
+
+Premier geste : `npm run verifier-deploiement https://<hôte>` (depuis le dépôt), ou ouvrir
+`https://<hôte>/admin/vitrine/<id>` dans le navigateur, et la console de la page de la vitrine
+(F12). La réponse dit la cause.
+
+| Réponse de `admin/vitrine/<id>` | Cause | Remède |
+|---|---|---|
+| `404 NOT_CONFIGURED` | `plan-admin-config.php` absent (à côté de `public_html/`, pas dedans), ou mot de passe encore « A-CHANGER » | Suivre l'étape 2 du `LISEZMOI-DEPLOIEMENT.txt` : copier la configuration hors du dossier publié, poser le mot de passe |
+| `404 NOT_FOUND` | Pas de `<id>.json` dans `data/demo/` (ou dans `dossierDemos` pour une configuration d'avant). `data/` laissé dans `public_html/` est refusé par `.htaccess` et ignoré par l'admin | Poser `data/` à côté de `plan-admin-config.php` ; vérifier `dossierDonnees` dans la configuration, et `data/migration.json` |
+| `500 UNREADABLE` | Le fichier existe mais PHP ne peut pas le lire : droits du fichier (par ex. 600 d'un autre utilisateur) | Dossier 755, fichiers 644, même utilisateur que le site |
+| `500 SERVER_ERROR` « dossier impossible à créer » | `data/` (ou `dossierDemos`) n'existe pas et PHP n'a pas le droit de le créer ; le message dit le chemin | Créer le dossier à la main, droits 755 |
+| Une page **HTML** (souvent `202`) à la place du JSON | La protection anti-robots de l'hébergeur (SiteGround « Robot Challenge ») répond à la place d'`admin.php` : la requête n'avait pas son cookie — c'est le cas depuis l'`<iframe>` en bac à sable, qui n'en envoie aucun | Exclure `admin/vitrine/` de la protection anti-robots dans Site Tools (ou l'alléger pour ce chemin). Côté page, rien ne peut contourner : la console le dit (« réponse HTML au lieu de JSON ») |
+| `200` JSON, mais `Access-Control-Allow-Origin` absent | Un `admin.php` d'avant le 5 octobre 2026, ou un proxy qui retire l'en-tête | Mettre à jour la livraison ; l'`<iframe>` en bac à sable (origine `null`) ne voit rien sans cet en-tête |
+| `200` JSON correct, et la vitrine montre quand même la démo intégrée | Le fichier n'est pas un plan (`objects` vide) ou son schéma est plus récent que le programme | La console de la page le dit (« aucun objet », « schéma N plus récent ») : réenregistrer la démo depuis l'admin, ou mettre la livraison à jour |
+
+Ce qui ne pose pas problème, vérifié le 8 octobre 2026 sur le paquet construit servi par PHP avec
+la politique de sécurité du `.htaccess` : l'`<iframe>` de la plateforme, sans bac à sable, en bac à
+sable strict (`allow-scripts allow-forms allow-popups`, origine `null`), ou avec
+`allow-same-origin`, et la navigation directe — la démo demandée s'affiche dans les quatre cas.
 
 **Conséquence à connaître** : toute démo du dossier se lit publiquement par son numéro. Une démo
 est faite pour être montrée ; n'y ranger rien qui ne doive pas l'être. L'écriture, la liste et la

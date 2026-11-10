@@ -9,13 +9,13 @@ export function texteStatut(p: ProjetObservable): string {
   return p.statut === 'local'
     ? 'Mode local — jeu de donnees de demonstration (api.php introuvable : aucune sauvegarde serveur).'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
-    : p.statut === 'modifie' ? 'Modifications non enregistrees'
+    : p.statut === 'modifie' ? (p.echec || 'Modifications non enregistrees')
     : (p.enregistreA || 'A jour');
 }
 
 export function texteStatutCourt(p: ProjetObservable): string {
   return p.statut === 'local' ? 'Mode local'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
-    : p.statut === 'modifie' ? 'Non enregistré'
+    : p.statut === 'modifie' ? (p.echec ? p.echec.replace('Échec de l’enregistrement', 'Échec') : 'Non enregistré')
     : (p.enregistreA || 'À jour');
 }

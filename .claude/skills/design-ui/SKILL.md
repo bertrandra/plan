@@ -148,7 +148,9 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
   nombre (`.champNombre .unite`).
 - Tableaux : `table.attrTable`, en-têtes en capitales couleur accent, zébrure `--zebra`. Sur des
   tableaux de vingt à cent lignes, l'alternance n'est pas décorative.
-- Sections repliables : `<details>` avec chevron `›` qui pivote (voir `.inspecteurSection`).
+- Sections repliables : `<details>` avec chevron `›` qui pivote (voir `.inspecteurSection`). Dans
+  l'inspecteur, **une seule section ouverte à la fois** : ouvrir l'une replie les autres
+  (`zones/Inspecteur.tsx`, `replierLesAutres`).
 - Boutons : `button` plein (`--ink`) pour l'action principale, `.secondary` pour le reste,
   `.small` pour les actions de ligne, `.danger` pour l'irréversible — toujours derrière une
   confirmation Z8.

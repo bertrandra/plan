@@ -146,7 +146,7 @@ et déplacés à 650 km de l'origine) : aucun échec ; 300 d'entre eux sont rejo
 **Repli** : `null` → le « quatre pans » actuel (`plansDuToit`, faîtage sur `angleDuPlusLongCote`),
 même `H`. Le toit est toujours posé, jamais une exception.
 
-`facade/toit.ts` expose le squelette sous la même interface que les autres formes :
+`facade/toits/toit.ts` expose le squelette sous la même interface que les autres formes :
 `facettesToit(pts, toit)` rend `{ pans, pignons }` ; pour `forme: 'croupes'`, `pignons` est vide
 (tous les murs sont des égouts). `three/releve3d.ts` et `hauteurPignon` ne changent pas.
 
@@ -160,11 +160,18 @@ La première règle qui s'applique décide. `h` est la hauteur d'égout retenue 
 |---|---|---|
 | 1 | Le bâtiment porte un toit `source: 'photo'` ou `'saisie'` | **Inchangé** (§5.3) |
 | 2 | `construction_legere` vaut `True` | **plat** |
-| 3 | `altitude_maximale_toit` ou `altitude_minimale_toit` absente | **croupes**, pente **35°**, `estime: true` |
+| 3 | `altitude_maximale_toit` ou `altitude_minimale_toit` absente | la **forme du contour** (ci-dessous), pente **35°**, `estime: true` |
 | 4 | `H < 0,5 m` | **plat** (toit-terrasse, ou bâtiment trop bas pour qu'on distingue) |
 | 5 | pente calculée `< 10°` | **plat** |
-| 6 | pente calculée `> 55°` | **croupes** à 45°, écrêté à `H` (§3.3) |
-| 7 | sinon | **croupes**, `hauteur: H` |
+| 6 | pente calculée `> 55°` | la forme du contour à 45° : croupes écrêtées à `H` (§3.3) ; deux pans ramenés à la hauteur de 45°, `estime: true` |
+| 7 | sinon | la **forme du contour**, `hauteur: H` |
+
+**La forme du contour** (`geometry/faitage.ts::rectangleOriente`) : un contour qui remplit à 86 %
+(`REMPLISSAGE_RECTANGLE`) son rectangle orienté selon le plus long côté, et dont ce rectangle est
+allongé d'au moins 1,25 (`ELONGATION_MIN`), est une maison rectangulaire : **deux pans** à pignons,
+faîtage dans l'axe du long côté — c'est ce qu'on voit sur neuf maisons sur dix, et la BD TOPO ne sait
+pas le dire. Tout autre contour (un carré, un L, un T) reçoit des **croupes** (§3). Avant octobre
+2026, tout recevait des croupes : un pavillon à pignons apparaissait avec quatre pans.
 
 Dans les cas 2, 4 et 5, le toit enregistré est `{ forme: 'plat', source: 'bdtopo' }` : la 3D garde
 le dessus du prisme (`poserToit` ne pose rien pour un toit plat), mais l'actualisation sait qu'elle
@@ -179,7 +186,7 @@ Au cas 3, la hauteur enregistrée est celle qu'une pente de 35° donne au squele
 
 ### 5.1 Une seule fonction
 
-Import (`geo/cadastreObjets.ts`, `batiments`) et actualisation (`app/actualisationIgn.ts`) appellent
+Import (`geo/cadastreObjets.ts`, `batiments`) et actualisation (`app/cadastre/actualisationIgn.ts`) appellent
 la même fonction, pour qu'un bâtiment importé et un bâtiment actualisé soient identiques :
 
 ```ts
@@ -299,25 +306,229 @@ Le toit enregistre `couleur` et **`origineCouleur`** (`'orthophoto' | 'rouge' | 
 Une couleur **sans** `origineCouleur` a été choisie dans l'inspecteur : ni la lecture ni
 l'actualisation ne la touchent. Une couleur posée par Plan est relue à l'actualisation.
 
+**Un toit-terrasse ne se rabat jamais sur une tuile** : quand la photo n'est pas concluante, sa
+couverture est grise (`couleurToitDepuisPixels(pixels, plat)`). En 3D, il est couvert d'une surface
+de sa couleur, 2 cm au-dessus du prisme et en retrait de 20 cm des murs (le dessus des murs se lit
+comme un acrotère), avec un décalage de profondeur (`poserEnCouche`) pour qu'elle ne scintille pas contre
+le prisme vu de loin ; un toit plat qu'une lecture antérieure avait rabattu sur une tuile rouge ou
+brune s'y dessine gris (`couleurToitPlat`). Avant, le dessus d'un toit-terrasse prenait la couleur
+des murs.
+
 Un WMTS injoignable ne bloque rien : au bout de 20 s, les toits restants gardent la tuile rouge par
 défaut (`COULEUR_TOIT_DEFAUT`), sans `couleur` enregistrée. Le champ est facultatif : il ne change
 pas le schéma (un lecteur de schéma 3 garde le toit tel quel).
 
-### 6.2 Tuiles ou ardoises en 3D
+**Le matériau de la toiture départage un repli.** Quand la photo n'est pas concluante, le matériau de
+la toiture des fichiers fonciers (`bdtopo.materiauxToiture`, §6.5) décide du repli
+(`render/couleurToitOrtho.ts::repliSelonMateriau`) :
+- une ardoise, du zinc ou du béton donnent une couverture grise ;
+- une tuile que la photo voyait grise (vieillie, moussue) donne une tuile brune.
 
-La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur :
+Une teinte lue sur la photo ne change pas, et un toit-terrasse reste gris.
 
-| Couverture | Texture |
+### 6.2 Les couvertures en 3D : tuiles, ardoises, zinc, gravillons
+
+La couverture porte une **texture** dans la Vue 3D (et l'export GLB), teintée par sa couleur. Le
+modèle est choisi par `materiauCouverture(toit, { materiauxToiture, pente, latitude }, plat)`
+(`model/couleurToit.ts`), dans cet ordre :
+
+1. Un **toit-terrasse** (une facette plate) est en **gravillons**.
+2. Le **matériau de toiture des fichiers fonciers** (`bdtopo.materiauxToiture`, §6.5) décide quand il
+   est connu : **ardoise**, **zinc** à joints debout, ou **tuile**. Une tuile que la photo voyait grise
+   reste une tuile, et un béton en pente est une tuile de béton.
+3. À défaut, la **couleur** : le repli gris est une ardoise, le rouge et le brun des tuiles. Une couleur
+   lue ou choisie se classe comme son repli, et sans couleur c'est la tuile.
+4. Une tuile se choisit par la **pente** :
+   - **plate** (petit moule) à 40° et plus (`PENTE_TUILE_PLATE_DEG`), le toit raide du Nord et de
+     l'Île-de-France ;
+   - **canal** à 25° et moins (`PENTE_TUILE_CANAL_DEG`), seulement au sud du 46e parallèle
+     (`LATITUDE_TUILE_CANAL_MAX`, la latitude du calage cadastral) : la tuile du Midi ;
+   - **romane** (mécanique) entre les deux, au nord sur un toit peu pentu, ou quand la pente n'est pas
+     connue.
+
+La pente est celle du toit (`penteDuToit`). Pour un bâtiment en corps, c'est la pente du plus grand
+corps en pente (`three/toitCorps3d.ts::penteDominante`) : un appentis de garage ne décide pas pour la
+maison.
+
+| Couverture | Texture (une texture couvre 1 m) | Matière |
+|---|---|---|
+| tuile romane | 4 tuiles et 3 rangs par mètre, bombées, ombre du rang supérieur | mate |
+| tuile plate | 6 par mètre, pureau de 10 cm, joints croisés, nuance par tuile | mate |
+| tuile canal | 3 paires par mètre, couvert bombé et canal en creux ombré, 3 tuiles par mètre dans la pente, nuances fortes | mate |
+| ardoise | 4 par mètre, 8 rangs, joints croisés, nuance par ardoise | rugosité 0,7 |
+| zinc | joints debout tous les 50 cm dans la pente, léger moiré | rugosité 0,45, un peu métallique |
+| gravillons | semis serré de graviers | très mate |
+
+`three/couverture.ts` dessine les textures sur un canevas, sans réseau. `uvDuPan` (`facade/toits/toit.ts`)
+les pose sur chaque pan, en mètres : `u` le long de l'égout, `v` dans la pente en vraie grandeur. Les
+rangs suivent ainsi l'égout de chaque pan.
+- Le toit-terrasse d'un toit plat simple (`releve3d.ts::poserToitPlat`) et les facettes plates d'un
+  bâtiment en corps (une maille à part, `NOM_TOIT_CORPS_PLAT`, dans le gris d'un toit plat) sont en
+  gravillons.
+- Case « Texture » décochée : la couleur unie, comme avant.
+
+### 6.3 Les détails du bâtiment en 3D
+
+Un prisme coiffé de ses pans reste un cube avec un chapeau. `three/detailsBatiment.ts` ajoute, sans
+donnée nouvelle, ce qui fait « maison » — par-dessus le prisme de `scene.ts` et le relevé de
+`releve3d.ts`, pour tout polygone de fonction `batiment` :
+
+| Détail | Règle |
 |---|---|
-| repli `rouge` ou `brun` | **tuiles** romanes : 4 tuiles et 3 rangs par mètre, bombées, ombre du rang supérieur |
-| repli `gris` | **ardoises** : 4 par mètre, 8 rangs, joints croisés, nuance par ardoise |
-| lue sur l'orthophoto, ou choisie | celle de son repli (`couvertureRepli`) : ardoise si la teinte est grise, tuile sinon |
-| sans couleur | tuiles (rouge par défaut) |
+| **Débord de toit** | une bande de `DEBORD_TOIT_M` = 0,4 m au-delà de chaque mur, dans le prolongement des pans (elle descend le long d'un égout, suit le profil d'un pignon), épaisse de 0,15 m : dessus en couverture, sous-face claire, planche de rive. L'ombre portée sous l'égout vient du soleil de la scène. Coins en onglet (`contourDecale`). |
+| **Gouttière** | un profilé zinc le long des seuls égouts (profil nul et plat sur le mur) ; pas sur un pignon. |
+| **Angles** | des verticales seulement, aux vrais angles (changement de direction d'au moins 25° : un contour BD TOPO a beaucoup de sommets presque alignés), dans la teinte du mur assombrie (× 0,82), opaques. Ni trait à l'égout (il se voyait à travers le débord du toit) ni sur le toit (les pans se lisent par la lumière) : trop de traits faisaient bande dessinée. Sur un sol en relief, elles partent du point le plus bas du sol sous le bâtiment. |
+| **Soubassement** | une bande au pied des murs, en saillie de 3 cm, de la couleur du mur assombrie (× 0,72). Sur sol plat, de 0 à 0,45 m. Sur un sol en relief, du point le plus bas du sol sous le bâtiment jusqu'à 0,45 m au-dessus du sol à chaque sommet : elle suit la pente et ne laisse pas de vide sous le mur. La porte se pose sur le sol devant elle. |
+| **Fenêtres** | à chaque niveau, sur les murs sans relevé de façade et d'au moins 2 m : une fenêtre de 1 × 1,2 m par entraxe de 2,4 m, centrées (`abscissesFenetres`), appui à 0,9 m. Les niveaux : `nombreEtages` de la BD TOPO, sinon la hauteur du mur sur 2,7 m ; aucun niveau sous 2,2 m (`niveaux`). Une porte de 0,9 × 2,1 m remplace la fenêtre du milieu au rez-de-chaussée du plus long mur. Cadre gris chaud, vitre bleu-gris, vantail bois : une seule maille à trois groupes. |
+| **Cheminée** | *aucune devinée* (retirée le 29 octobre 2026, `MD/spec-flux-batiment.md` point 12) : une souche ne se dessine que depuis les données d'un corps (`corps.cheminees` : LiDAR, règles, audit, Mode Toit ; `three/cheminees3d.ts`). Elle se posait d'office sur tout toit en pente d'au moins 40 m², au tiers du faîtage, sans que personne l'ait vue. |
 
-`materiauCouverture` (`model/couleurToit.ts`) choisit ; `three/couverture.ts` dessine la texture sur
-un canevas, sans réseau ; `uvDuPan` (`facade/toit.ts`) la pose sur chaque pan, en mètres : `u` le
-long de l'égout, `v` dans la pente en vraie grandeur. Les rangs suivent ainsi l'égout de chaque pan.
-Case « Texture » décochée : la couleur unie, comme avant.
+**De loin** (plus de `DETAIL_FIN_M` = 120 m du centre de la scène), seuls le débord (sans
+gouttière) et les arêtes sont posés : un voisinage de deux mille bâtiments ne supporterait pas six
+mailles de plus chacun. Rien n'est enregistré : ce sont des règles de rendu, et la structure du
+GLB exporté change avec elles (témoin `glb-structure.json`, `EMPREINTES.md`).
+
+**Les fenêtres d'un bâtiment du projet se règlent** (section « Fenêtres (3D) » de l'inspecteur,
+`ui/champs/fenetres3d.ts`, rangées dans `fenetres3d` sur le bâtiment, `model/fenetres3d.ts`) :
+
+- **Toutes pareilles** (défaut) : largeur, hauteur, hauteur d'appui, entraxe et couleur des vitres,
+  communs à toutes ; la disposition automatique (`facade/ouvertures.ts::ouverturesAutomatiques`)
+  s'en sert. Les défauts sont ceux du tableau ci-dessus.
+- **Une par une** : la liste part de la disposition automatique ; chaque ouverture (fenêtre ou
+  porte) se déplace sur son mur, se taille, change de mur ; on en ajoute (à droite de celle en
+  cours), on en supprime, on revient à l'automatique. La position est bornée au mur.
+- Ces champs écrivent le projet (Ctrl+Z, « projet modifié ») : la 3D et l'export GLB en dépendent.
+  Un mur photographié garde les ouvertures de son relevé. Une maison du voisinage n'a pas cette
+  section : son apparence vient de §6.4.
+
+### 6.4 L'apparence du voisinage en 3D
+
+Section « Voisinage (3D) » de l'inspecteur, sur la parcelle du projet (`ui/champs/voisinage3d.ts`),
+rangée dans `voisinage3d` sur la parcelle (`model/voisinage3d.ts`) comme le fond orthophoto. Ce
+sont des **préférences d'affichage** (`sale: false`) : ni Ctrl+Z, ni « projet modifié », permises en
+lecture seule, enregistrées avec le projet au prochain enregistrement. Rien n'est écrit sur les
+parcelles voisines. Les défauts sont le rendu d'avant ce réglage.
+
+| Groupe | Réglages | Défaut |
+|---|---|---|
+| **Murs des maisons** | couleur du plan (celle de chaque bâtiment importé), une couleur, ou une nuance tirée au hasard le long de deux ou trois couleurs (`nuancer`, par morceaux) pour casser l'uniformité | couleur du plan |
+| **Vitres** | une couleur, ou une nuance tirée entre deux | `#6F8AA6`, unique |
+| **Fenêtres** | largeur, hauteur et entraxe (la densité), chacun entre un minimum et un maximum tirés par maison ; un minimum ne dépasse pas son maximum | 1 × 1,2 m, entraxe 2,4 m, sans variation |
+| **Clôtures du voisinage** | afficher ; type (palissade, grillage, haie, mur : la hauteur est celle du type) ; couleur, qui suit le type tant qu'elle n'a pas été choisie | affichées, grillage gris vert clair translucide |
+
+Ce qui est tiré au hasard l'est **par un tirage reproductible depuis la clé de l'objet**
+(`apparenceVoisin`) : la scène ne change pas d'une ouverture à l'autre, ni entre la Vue 3D et
+l'export GLB. La scène (`three/scene.ts`) applique la couleur tirée au prisme, au relevé et aux
+détails ; la clôture du voisinage (`three/clotureVoisinage.ts`) prend le type et la couleur. Avant,
+la case « Clôtures du voisinage » vivait dans les réglages de la Vue 3D : elle a rejoint ce groupe.
+
+
+### 6.5 La couleur des murs : photo de rue, sinon matériau
+
+Les murs ne prennent plus seulement la couleur du plan. Deux sources s'appliquent, selon les mêmes
+règles que la couverture (§6.1).
+
+**Le matériau des murs**, pour tous les bâtiments, à toute distance. La BD TOPO reprend des fichiers
+fonciers `materiaux_des_murs` et `materiaux_de_la_toiture`. Ce sont deux chiffres : le matériau
+principal, puis le secondaire, avec 0 pour « indéterminé » et 9 pour « autre ». Ils sont rangés dans
+`bdtopo.materiauxMurs` et `materiauxToiture`, seulement quand ils existent
+(`geo/bdtopo.ts::materiauxBdTopo`) : un import sans eux garde sa forme au caractère près. Le premier
+matériau connu donne la teinte (`model/couleurMur.ts::materiauMurs`) :
+
+| Code | Matériau | Teinte |
+|---|---|---|
+| 1 | pierre | `#C9B99A` |
+| 2 | meulière | `#B3895A` |
+| 3 | béton | `#BEBAB1` |
+| 4 | brique | `#A0523B` |
+| 5 | aggloméré enduit | `#E2DACB` |
+| 6 | bois | `#8B6B4A` |
+
+Relevé en octobre 2026 : 75 % des bâtiments renseignés au Vésinet (brique, meulière et brique,
+meulière), 63 % à Saint-Cloud, 40 % à Gordes (pierre), 32 % à Hucqueliers (brique).
+
+**La façade vue sur une photo de rue** (`render/couleurMurPhoto.ts`), à l'import et à chaque
+actualisation IGN. Les bâtiments les plus proches du projet passent d'abord, au plus 150, dans un
+délai de 20 s. Les autres peuvent être lus **en tâche de fond, après les toits** (`app/toits/mursFond.ts`),
+sans limite de distance — lecture **arrêtée** pour l'instant (`LECTURE_MURS_EN_FOND = false`, trop peu
+de lectures concluantes pour le volume de photos ; `MD/roadmap-toits-fond.md`, étape 5) : le voisinage est découpé en zones de 80 m (`COTE_ZONE_MURS_M`), lues de la plus
+proche à la plus loin, chacune avec sa recherche Panoramax autour d'elle et quatre photos
+téléchargées à la fois (`couleursMursDUneZone`). Un bâtiment lu porte la lecture, ou `photo: null`
+avec la version de la lecture (`couleurMurs.lecture`, `VERSION_LECTURE_MURS`) quand aucune photo ne
+montre ses murs ou n'est concluante ; une photo qui ne se télécharge pas le laisse à relire.
+- Une seule recherche Panoramax couvre la zone, et chaque photo n'est téléchargée qu'une fois, en
+  définition réduite (`sd`, 2 048 px au plus).
+- Une photo est retenue pour un mur de 3 m au moins si elle est devant lui : du côté de sa normale
+  sortante, à moins de 70° de l'aplomb, entre 3 et 40 m, avec le mur dans son champ. Aucun autre
+  contour ne doit couper la vue (`mursVisibles`, `vueCachee`, emprises filtrées d'abord). On garde
+  les deux meilleures photos par mur.
+- 16 × 8 points du mur, en retrait de 15 % des angles, entre 0,45 × l'égout (1,2 à 2,4 m) et l'égout
+  moins 30 cm, sont posés sur l'image par la géométrie de la prise de vue (`pointDansImage`). Un
+  panoramique est équirectangulaire, avec le cap de la photo au centre. Une photo plate suit un
+  objectif droit. L'objectif est supposé à 2,2 m du sol.
+- **Les clôtures** : un point n'est lu que si la ligne de vue franchit les limites de parcelle à plus
+  de 2,5 m (`hauteurAuxLimites`, `HAUTEUR_CLOTURE_M`). Sinon la photo ne voit que la palissade ou la
+  haie devant une façade en retrait.
+- **La cohérence** (`couleurMurDepuisPixels`) : on écarte le ciel, le feuillage (y compris une haie
+  olive à l'ombre) et l'ombre (sombre et sans couleur : un enduit beige à l'ombre devient gris). On
+  écarte aussi ce qui est sous une luminance de 70 ou au-dessus de 245. Il faut au moins 40 points
+  restants et la moitié des points du mur, dont 60 % à moins de 40 de la teinte dominante. Sinon la
+  photo est ambiguë.
+- Entre plusieurs murs lus, la teinte la plus cohérente l'emporte. Elle est rangée dans
+  `couleurMurs.photo` avec l'identifiant de la photo, sa date, son auteur et sa licence. Quand toutes
+  les photos d'un bâtiment ont été lues sans conclure, `photo` devient `null`.
+
+**Ce que la 3D montre** (`couleurMursRetenue`, `three/scene.ts`) : la photo, sinon le matériau, sinon
+la couleur du plan. Un réglage du voisinage (une couleur, une nuance, §6.4) l'emporte. L'inspecteur le
+règle (section « Apparence », `ui/champs/couleurMurs.ts`), pour un bâtiment qui a au moins une
+lecture :
+- **Murs en 3D** propose « Automatique », « Photo de rue » (si elle est lue), « Matériau » (s'il est
+  connu) et « Couleur du plan ». Le choix est rangé dans `couleurMurs.source`. C'est une modification
+  du projet (Ctrl+Z, « projet modifié »), puisque la 3D et l'export GLB en dépendent.
+- **Couleur lue** dit en mots d'où vient chaque couleur et laquelle est retenue, par exemple « Photo
+  de rue du 01/11/2025 (Penegal) : #917C72 · matériau : pierre, #C9B99A · retenue : photo de rue ».
+
+Comme pour la couverture, une actualisation relit la photo et le matériau, mais ne touche jamais la
+source choisie à la main.
+
+**Ce qu'on en attend.** La photo ne conclut que là où la façade donne sur la rue. À Gordes, sur des
+photos prises depuis un tableau de bord, elle a lu la tour du château, des murs enduits et une maison
+en pierre ; les teintes sont un peu assombries par l'ombre des rues étroites. Au Vésinet, les façades
+sont en retrait derrière des haies et des clôtures : la photo ne conclut pas, et c'est le matériau qui
+donne les villas en meulière, les maisons en brique et les enduits. Hucqueliers n'a pas de photo :
+la brique vient du matériau.
+
+Vérifié : `tests/unit/model/couleurMur.test.ts` (codes, retenue, cohérence, haie, ombre),
+`tests/unit/render/couleurMurPhoto.test.ts` (projection, murs vus et cachés, clôture, lecture sur
+photos simulées, repli des toits) et `tests/unit/ui/champsCouleurMurs.test.ts` (choix, description).
+
+
+### 6.6 Les textures des matériaux de murs
+
+Les murs dont le matériau est connu (§6.5) portent une **texture** dans la Vue 3D et dans l'export GLB.
+Elle est dessinée sur un canevas, sans réseau (`three/textureMur.ts`), en niveaux de clair autour de
+0,85 ; la couleur retenue des murs la teinte (celle de la photo de rue, ou celle du matériau). Chaque
+texture se raccorde à elle-même sur ses quatre bords et couvre une surface réelle :
+
+| Matériau | Dessin | Une texture couvre |
+|---|---|---|
+| brique | appareil en panneresse, 4 briques et 12 assises par mètre, assises décalées d'une demi-brique, nuance par brique, joints clairs | 1 m |
+| pierre | assises de 14 à 32 cm, pierres de 25 à 60 cm, léger bombé, joints clairs | 2 m |
+| meulière | pierres irrégulières (une cellule de Voronoï tous les 16 cm environ), poreuses, joints épais et inégaux | 1,5 m |
+| béton | gris lisse aux nuances larges, joints de banches tous les 50 cm et trous de tiges | 2 m |
+| enduit (aggloméré) | grain fin et serré | 1 m |
+| bois | bardage vertical, 6 planches par mètre, joints sombres, veinage et nœuds | 1 m |
+
+- **Où** : sur le prisme des murs (`three/scene.ts::texturesDe`). Les murs hauts des corps (pignons,
+  mur haut d'un appentis, murs d'un contour de biais) la reprennent : ils reçoivent des coordonnées
+  de texture en mètres (`three/toitCorps3d.ts::uvDuMur`) pour se raccorder au prisme.
+- **Quand** : une texture choisie dans l'inspecteur (« Texture verticale ») l'emporte. « Couleur du
+  plan » (§6.5) n'en pose aucune, et la case « Texture » de la Vue 3D l'éteint, comme pour les
+  couvertures.
+- Rien n'est enregistré : c'est une règle de rendu tirée de `bdtopo.materiauxMurs`.
+
+Vérifié : `tests/unit/three/textureMur.test.ts` (gris, clarté, raccords, joints, matériau retenu,
+coordonnées des murs hauts). Vu en 3D au Vésinet : maisons en brique, villas en meulière, pierre,
+enduit.
 
 ---
 
@@ -336,6 +547,14 @@ toucher :
 - **Couleur** : lue sur l'orthophoto (§6.1), rouge tuile à défaut ; la note dit « lue sur
   l'orthophoto » ou « tuile rouge / brune, couverture grise : orthophoto peu lisible ». La changer
   efface `origineCouleur`.
+
+- **Toit en 3D** (bâtiment de la parcelle du projet, §11 à §13) : « Corps et pignons (LiDAR) » quand
+  les corps ont été reconstruits, « Tel que mesuré (LiDAR) » quand une surface mesurée existe, « Un
+  toit par corps » quand le contour s'est découpé, « Un seul toit » toujours. Le défaut est le premier
+  proposé. Sous le choix, dès qu'une surface mesurée existe, la **carte des hauteurs** et du
+  découpage (§13.4). En corps et pignons, la ligne « Corps » décrit chaque corps ; en surface
+  mesurée, « Mesure » dit l'égout, le faîte et la grille ; en un toit par corps, « Toits » décrit
+  chaque volume ; les réglages du toit unique ne se montrent qu'en « Un seul toit ».
 
 La section s'affiche pour tout bâtiment qui porte un toit, même sans façade relevée.
 
@@ -393,8 +612,538 @@ simulée, rechargement : toit relu à l'identique.
 
 | Limite | Effet | Suite possible |
 |---|---|---|
-| Pas de pignon | une maison à deux pans apparaît à croupes | lire les pignons sur le MNS, ou sur une façade relevée (déjà possible) |
-| `H` à ± 1 m, maximum pris sur une cheminée | faîtage trop haut ; l'écrêtage n'attrape que les cas extrêmes | ajuster le squelette sur le MNS LiDAR HD de l'IGN (grille 50 cm) : quelques paramètres par moindres carrés, comme `classerProfil` |
-| Un seul volume par bâtiment | un corps haut et une annexe basse sous le même contour reçoivent un seul toit | découper par volumes (le relevé en L le fait déjà pour la partie basse) |
+| Pas de pignon dans la BD TOPO | une maison à deux pans apparaît à croupes | **fait (§10)** : le MNH LiDAR HD distingue deux pans, croupes et quatre pans, là où il existe ; sinon une façade relevée |
+| `H` à ± 1 m, maximum pris sur une cheminée | faîtage trop haut ; l'écrêtage n'attrape que les cas extrêmes | **fait (§10)** : hauteur et égout mesurés sur le LiDAR, cheminées et arbres écartés comme aberrants |
+| Un seul volume par bâtiment | un corps haut et une annexe basse sous le même contour reçoivent un seul toit | **fait (§11, §12)** : sur la parcelle du projet, le toit se garde tel que le LiDAR le mesure, et le contour se découpe en corps |
+| Pas de pignon sans LiDAR | une maison rectangulaire du voisinage apparaissait à croupes | **fait (§4)** : la forme du contour décide — deux pans sur un rectangle allongé |
 | Relevé de façade = une forme globale | une photo de pignon remplace le squelette par un deux-pans sur l'enveloppe | le relevé marque le mur photographié comme pignon (squelette pondéré, poids 0) au lieu de changer de forme |
 | Rien en 2D | faîtages et noues invisibles sur le plan | les tracer en trait fin, en option |
+
+---
+
+## 10. Le toit mesuré sur le LiDAR HD (MNH)
+
+### 10.1 Ce qu'on lit
+
+Le **MNH** LiDAR HD de l'IGN (modèle numérique de hauteur, MNS − MNT) donne tous les 50 cm la
+hauteur du sursol au-dessus du sol. Sur l'emprise d'un bâtiment, c'est la hauteur de sa couverture,
+mesurée, et non deux altitudes photogrammétriques à un mètre près. Couche WMS
+`IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93` (vérifiée au GetCapabilities ; sur une
+maison du Vésinet : 0 au sol, 5 m à l'égout, 7,5 m au faîtage), lue comme le relief (`geo/relief.ts`) :
+même service, même BIL 32 bits, même grille.
+
+`geo/mnh.ts` lit **une petite grille par bâtiment** (son emprise plus 1 m, au pas de 50 cm ; au-delà
+de 10 000 cellules, 1, 2 ou 5 m ; `lireGrilleSous` la rend entière, `lireHauteursSous` en tire les
+mesures) et garde les cellules sous le contour, à plus de 0,25 m des murs (`RETRAIT_MNH_M` : la rive
+n'est pas la couverture ; à 0,6 m, le retrait mangeait le bas des pans et ne distinguait plus un
+pignon d'une croupe) — entier si le retrait ne laisse rien. `dallesLidarSur` compte d'abord les dalles LiDAR sur l'emprise des bâtiments retenus : sans
+dalle, rien n'est lu.
+
+### 10.2 L'ajustement
+
+`facade/toits/toitLidar.ts::ajusterToit(contour, mesures)` : chaque forme que Plan dessine, à hauteur
+unité, donne un profil `f(q)` sur le contour ; les mesures `z = e + H · f(q)` rendent par moindres
+carrés l'égout `e` et la hauteur de faîtage `H` (`H ≥ 0`). Candidats : plat, appentis (quatre
+sens), croupes (squelette), deux pans et quatre pans sur chaque **axe** : le plus long mur, sa
+perpendiculaire, et l'axe que les mesures dessinent elles-mêmes (`axeDesMesures` : la direction
+de plus faible variance de la hauteur, retenue si elle s'écarte de 8° des deux autres — un faîtage
+qui ne suit pas le mur). Une mesure à plus de 1,5 m du toit ajusté (`RESIDU_ABERRANT_M` : arbre,
+cheminée, lucarne) est écartée, et l'ajustement refait. La forme au plus petit écart quadratique
+moyen l'emporte, sans prime : à mesures égales, c'est la première de la liste. Un appentis n'est
+retenu qu'à moins de 0,4 m d'écart (`ECART_MAX_APPENTIS_M`) : au-delà, il n'explique qu'une marche
+entre deux corps. Et si les hauteurs se séparent en deux paquets à plus d'un mètre l'un de l'autre,
+d'au moins un quart des mesures chacun (`deuxCorps`), on renonce d'emblée : deux corps sous un
+contour, pas un toit. `diagnostiquerToit` liste les candidats et leur écart, pour comprendre un cas.
+
+Garde-fous : au moins `ECHANTILLONS_MIN` = 20 mesures ; écart final sous `ECART_MAX_M` = 0,8 m,
+sinon **aucune forme simple n'explique les mesures** (deux corps de hauteurs différentes sous un
+contour, une tourelle) et le toit BD TOPO reste ; `H` sous `HAUTEUR_TOIT_MIN_M` ou pente sous
+`PENTE_MIN_DEG` → plat ; pente au-delà de `PENTE_MAX_DEG` → on renonce (§4, mêmes seuils).
+
+### 10.3 Quand, et ce qui est écrit
+
+`app/toits/toitsLidar.ts::toitsDepuisLidar`, après la couleur des toits (§6.1), à l'import depuis une
+adresse (« Forme des toits sur le LiDAR HD… ») et à l'actualisation (ligne du bilan). Les deux
+lectures se font dans le **repère du plan construit** (`importCadastre::projecteurDuPlan` : origine
+au calage cadastral, le sommet nord de la parcelle) — jusqu'en octobre 2026, l'import les faisait
+avec le projecteur du point de l'adresse, décalé de plusieurs dizaines de mètres : elles tombaient
+à côté. Seuls les
+bâtiments dont le toit vient de la BD TOPO ou d'une lecture LiDAR antérieure (`toitAAjuster`) ; un
+toit lu sur une photo ou saisi n'est pas touché, et `toitActualise` (§5.3) recalcule un toit LiDAR
+comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du projet d'abord, au plus
+`MAX_BATIMENTS_LIDAR` = 30, dans `DELAI_TOITS_LIDAR_MS` = 20 s, quatre lectures à la fois. Les autres
+sont lus ensuite **en tâche de fond** (`app/toits/toitsFond.ts`), en file continue, six lectures à la fois
+(chaque lecteur prend le bâtiment suivant dès qu'il a fini), du plus proche au plus loin, sans bloquer
+le plan ; chaque bâtiment lu porte `toitLidarLu` (la version de la lecture) et n'est pas relu. Le
+lecteur lit ensuite la couleur du toit s'il n'en a pas (§6.1). Un `429` de la Géoplateforme (quota
+par IP) attend son `retry-after` et se rejoue (`geo/relief.ts::requeteAvecReprise`). Ce qui est lu se
+dessine par paquets de 12 : seuls les bâtiments écrits se redessinent, sur le plan et dans la Vue 3D ; le projet
+s'enregistre seul quand tout ce qui attend vient de la lecture. `?mode=devroof` peint chaque
+bâtiment selon l'origine de son toit. Détail, mesures et suite : `MD/roadmap-toits-fond.md`.
+
+Écrit : `toit = { forme, hauteur, angleFaitage, source: 'lidar' }`, la couleur et son origine
+conservées. L'égout mesuré corrige `elevation` (la hauteur du prisme) quand il s'en écarte d'au moins
+0,3 m et reste entre 2 et 40 m. L'inspecteur dit « ajustée sur le LiDAR HD de l'IGN ». Un service
+muet ne bloque rien. Pour un bâtiment de la parcelle du projet (`bdtopo.surParcellePrincipale`), la
+grille entière est lue (`lireGrille`) : elle donne les mesures de l'ajustement, le toit mesuré (§12)
+et l'égout de chaque corps (§11) ; le bilan compte ces toits « gardés tels que mesurés ».
+
+### 10.4 Vérifié
+
+`tests/unit/facade/toitLidar.test.ts` (formes, bruit, arbre, renoncements), `tests/unit/geo/mnh.test.ts`
+(grille demandée, retrait, service muet), `tests/unit/app/toits/toitsLidar.test.ts` (éligibilité, ordre,
+délai, bilan, toits gardés).
+
+---
+
+## 11. Un toit par corps de bâtiment (parcelle du projet)
+
+Un bâtiment en L, en T ou en U n'a pas un toit mais plusieurs : un corps, une aile, chacun son
+faîtage, son égout, parfois sa hauteur. Sur la parcelle du projet, celle qu'on regarde de près, le
+contour est **découpé en corps** (`model/volumesToit.ts`) ; le voisinage garde un toit par bâtiment.
+
+### 11.1 Le découpage
+
+`decomposerEnRectangles(contour)` : le contour est tourné dans l'axe du plus long côté, **mis à
+l'équerre** (`equerrer` : chaque côté ramené à 0° ou 90° s'il en est à moins de 15°, les côtés de
+même sens fusionnés ; un contour biais rend `null`), ses **décrochés** de moins de 1,2 m lissés
+(`lisserDecroches` : un ressaut, un conduit, une avancée de perron ne font pas un corps). Puis la
+**couverture par rectangles maximaux** (`couvertureRectangles`) : sur la grille des abscisses et
+ordonnées du contour, tout rectangle de cellules entièrement dedans qu'aucun autre ne contient ;
+du plus grand au plus petit, ceux qu'il faut pour couvrir chaque cellule. Deux rectangles **se
+chevauchent** — c'est voulu : un corps et une aile qui le pénètre ont chacun leur toit entier, le
+plus haut l'emporte dans la 3D, et les noues naissent de leur rencontre. On renonce (`null`) si le
+contour n'est pas rectiligne, si l'équerre change l'aire de plus de 15 %, s'il n'y a qu'un
+rectangle, ou si l'un fait moins de 1,5 m de large (`LARGEUR_MIN_M`).
+
+### 11.2 Les blocs par les hauteurs mesurées
+
+Les murs d'une maison n'ont pas tous la même hauteur, et un rectangle du contour peut cacher deux
+blocs : un corps à deux niveaux et une annexe à un seul, un toit-terrasse accolé à un toit en pente.
+Quand la surface mesurée existe (§12), chaque rectangle — y compris le seul rectangle d'une maison
+rectangulaire (`rectanglesDuContour`) — est **recoupé là où la couverture fait une marche**
+(`model/toitMesure.ts::decouperParHauteur`) : sur la grille des cellules du rectangle, chaque
+colonne puis chaque ligne a sa hauteur basse (dixième centile) ; une coupe est une position où
+cette hauteur saute d'au moins 1,5 m (`SEUIL_MARCHE_M`) sur un mètre **et** où les deux côtés,
+pris en entier, diffèrent d'autant — un pan en pente monte doucement, une marche d'un coup. La
+coupe la plus franche l'emporte, jusqu'à deux fois par rectangle (`decouperParHauteurs`) ; un bloc
+fait au moins 1,5 m (`LARGEUR_BLOC_MIN_M`). Un morceau qui tient aux trois quarts dans un autre
+rectangle de départ (un corps recoupé à la marche de l'aile qui le pénètre) n'est pas un bloc de
+plus : il est oublié.
+
+Chaque bloc prend alors son égout (`egoutDansRect`) et **la hauteur de chacun de ses murs**
+(`hauteurMurMesuree` : le dixième centile des hauteurs de la surface le long du mur, à 50 cm en
+retrait — l'égout sous un pan, le dessus d'un mur qui monte jusqu'à un toit plat, le bas d'un
+pignon), tenue entre l'égout et le faîte : `VolumeToit.hauteursMurs[i]` pour le mur de `pts[i]` à
+`pts[i + 1]`. L'inspecteur le dit (« murs de 3,9 à 7,2 m ») quand ils diffèrent d'au moins 30 cm.
+
+### 11.3 Les toits des corps
+
+Chaque rectangle reçoit le toit de sa forme (`toitDuRectangle`) : **deux pans** dans son axe s'il
+est allongé d'au moins 1,25, **quatre pans** sinon, à la **pente du toit du bâtiment**
+(`penteDuToit` : celle de la BD TOPO, 35° à défaut), `estime: true`. À l'import (`cadastreObjets`)
+et à l'actualisation, ce sont ces volumes par défaut (`volumesParDefaut`). Après la lecture LiDAR
+(`app/toits/toitsLidar.ts::volumesDepuisLidar`), chaque corps est **ajusté sur les mesures qui tombent
+dedans** (§10.2) et prend son **égout** : lu dans la surface mesurée (§12, dixième centile des
+cellules du rectangle) quand on l'a, sinon celui de l'ajustement. Un corps que le LiDAR n'explique
+pas garde son toit par défaut.
+
+### 11.4 Données et 3D
+
+`ObjetPlan.volumesToit: VolumeToit[] | null` (`{ pts, toit, egout? }`) ; `modeToit` dit ce que la
+3D montre (§12.3). Sérialisé et copié tels quels. La couleur de couverture reste celle du `toit` du
+bâtiment, réglée une fois (`toitDuVolume`). En 3D (`three/scene.ts`), **un prisme par corps** à son
+égout, un toit par corps (`releve3d::poserToit`), un débord et une gouttière par corps (plus de cheminée
+devinée sur le premier) ; les fenêtres suivent la hauteur du mur de leur corps
+(`hauteurDuMur`). `volumesActifs(o)` rend les corps à dessiner : au moins deux, sauf « Un seul
+toit ». L'inspecteur décrit chaque corps (`decrireVolumes` : « Corps 12,0 × 8,0 m : deux pans ·
+égout 6,0 m »).
+
+### 11.5 Vérifié
+
+`tests/unit/model/toitMesure.test.ts` (murs, marches, blocs), `tests/unit/facade/ouvertures.test.ts`
+(hauteur d'un mur mesuré, fenêtres qui montent avec lui), `tests/unit/model/volumesToit.test.ts` (équerre, L, T, U, rotation, renoncements, toits et
+descriptions), `tests/unit/app/toits/toitsLidar.test.ts` (égouts par corps), `tests/unit/three/scene.test.ts`
+et `detailsBatiment.test.ts` (prismes, toits et débords par corps).
+
+---
+
+## 12. Le toit tel que le LiDAR le mesure (parcelle du projet)
+
+### 12.1 Pourquoi
+
+Les formes simples ne décrivent pas toutes les maisons. Le 2 allée des Limites au Vésinet : un
+corps dont le pan nord-ouest monte de 3,6 m à 7,8 m puis un dessus presque plat jusqu'au mur
+sud-est, une aile basse à un pan de 4,3 m à 2,5 m. Aucun des gabarits n'y colle (meilleur écart
+0,68 m), et le découpage en corps ne rend ni le dessus plat ni le faîtage décentré. Or le MNH
+donne, tous les 50 cm, la hauteur réelle de la couverture : pour les bâtiments de la parcelle du
+projet, **on garde cette grille et la 3D la dessine telle quelle**. Les formes simples restent pour
+le voisinage, et comme repli sans LiDAR.
+
+### 12.2 La grille nettoyée
+
+`model/toitMesure.ts::toitMesureDepuisGrille(grille, contour)` : la grille du MNH (§10.1) est
+**recadrée** sur les cellules du contour (les autres n'existent pas : au mur, la surface prolonge
+les cellules présentes), puis **nettoyée** (`nettoyer`). Deviennent des **trous** : une cellule
+sans donnée, sous 0,5 m (`SOL_M`, le sol vu entre deux toits), ou au-dessus du neuvième décile des
+hauteurs de plus de 1 m (`DEPASSEMENT_M` : un arbre sur le toit domine le gros du toit — au Vésinet,
+des houppiers de 10 à 13 m sur un coin d'un toit de 7,8 m), et, l'égout connu, une cellule plus
+basse que lui de 0,3 m (`SOUS_EGOUT_M` : le mur vu de biais). Les trous sont **bouchés de proche en
+proche** (`boucher`) : chaque cellule nulle prend la médiane de ses voisines présentes (au moins
+trois), passe après passe, jusqu'à ce qu'il n'en reste plus — un houppier de 4 × 4 cellules se
+comble depuis la couverture autour. Puis, en deux passes, une cellule plus haute de 2 m
+(`SAILLIE_M`) que la médiane de ses voisines (une cheminée, le bord d'un houppier) est ramenée à
+elles. Enfin **lissée** (`lisser`) : une médiane 3 × 3, de quoi effacer les marches de 50 cm sans
+arrondir les faîtages (une moyenne fondait les arêtes : le toit avait l'air coulé). L'**égout** est le dixième centile des cellules à
+plus de 0,5 m des murs (`RETRAIT_EGOUT_M` : au bord, le MNH mêle la couverture et le mur), le
+**faîte** le maximum. Il faut au moins 20 cellules valides (`CELLULES_MIN`) et la moitié des
+cellules du contour, sinon `null` : le LiDAR n'y voit pas de toit. `hauteurToitMesure(t, x, y)`
+interpole entre les quatre cellules autour d'un point, les manquantes prenant les présentes ;
+`egoutDansRect(t, rect, contour)` lit l'égout d'un corps, loin des murs.
+
+Données : `ObjetPlan.toitMesure: ToitMesure | null` — `{ pas, x0, y0, nx, ny, z: (number | null)[],
+egout, faite, source: 'lidar' }`, lignes du nord au sud, en mètres au-dessus du sol, dans le repère
+du plan. Quelques centaines de cellules par maison ; sérialisé et copié tel quel ; remis à `null` par
+l'actualisation quand le contour change (le LiDAR le relit ensuite). L'égout du toit entier devient
+`elevation` (la hauteur du prisme hors corps) quand il s'en écarte d'au moins 0,3 m.
+
+### 12.3 En 3D
+
+`three/toitMesure3d.ts::ajouterToitMesure3d` : le contour est triangulé (`trianguler`), chaque
+triangle **subdivisé** par les milieux de ses côtés jusqu'à 50 cm (`PAS_MAILLE_M`), et chaque
+sommet prend la hauteur mesurée là — **jamais sous l'égout du corps** qui le porte (§11), ni sous
+`elevation` hors corps, plus 5 cm (`LEVEE_M` : posée exactement sur le dessus du prisme, la surface
+se battrait avec lui) : la surface se pose sur les murs. Les sommets sont partagés au centimètre,
+la couleur et la matière sont celles du `toit` du bâtiment (§6.2, un carreau de tuiles par mètre).
+Le long de chaque mur, entre l'égout et la surface — 5 cm, ou un pignon, un mur qui monte jusqu'à
+un dessus plat — une **rehausse** verticale en couleur de mur comble l'écart (`NOM_REHAUSSE`), par
+bandes de 50 cm. Les prismes montent à l'égout de chaque corps ; les formes
+simples, le débord et la gouttière ne se posent pas (`sansToit`) ; les arêtes, le
+soubassement et les fenêtres restent — et les fenêtres suivent **la hauteur mesurée de leur mur**
+(§11.2, `facade/ouvertures.ts::hauteurDuMur` : le mur du bloc le plus proche du milieu de la
+façade) : deux rangs sur le mur qui monte jusqu'au dessus plat, un seul sous le pan. La surface
+est ombrée **par facettes** (`flatShading`) : chaque triangle de 50 cm est un plan, et un pignon
+qui avance depuis le faîtage se lit comme des pans, là où l'ombrage lissé en faisait une bosse.
+
+`modeToitActif(o)` choisit ce que la 3D montre : `modeToit` quand il est tenable, sinon la **surface
+mesurée** quand elle existe, sinon **un toit par corps** quand il y en a deux, sinon le **toit
+unique**. L'inspecteur le règle (§7, « Toit en 3D »).
+
+### 12.4 Vérifié
+
+`tests/unit/model/toitMesure.test.ts` (recadrage, arbre, trou, sol, deux corps et leurs égouts,
+renoncements, interpolation, mode), `tests/unit/three/toitMesure3d.test.ts` (maille, hauteurs,
+rehausses, égout par corps), `tests/unit/app/toits/toitsLidar.test.ts` (grille lue pour la parcelle du
+projet seule, toit mesuré écrit, bilan), `tests/unit/ui/champsToitMode.test.ts` (le choix et ce qu'il
+cache). Vu à l'œil sur le 2 allée des Limites (Le Vésinet) et à Saint-Cloud.
+
+---
+
+## 13. Corps et pignons, reconstruits sur la mesure (parcelle du projet)
+
+### 13.1 Pourquoi
+
+La surface mesurée (§12) est fidèle, mais elle ne dit pas ce qu'elle montre : ni où sont les murs,
+ni où passe le faîtage, ni ce qui est un pignon. Au 2 allée des Limites, la lecture d'un couvreur est
+nette (carte du §13.4) : un corps principal à deux pans, faîtage à 7,6 m dans la longueur ; deux
+pignons qui partent du faîtage pour venir dresser leur triangle sur la façade sud-est ; une annexe
+basse à 4,3 m ; une aile à 4,5 m. C'est ce que Plan reconstruit et dessine, **par défaut** dès que la
+surface mesurée existe (`modeToit: 'corps'`). « Tel que mesuré » reste proposé.
+
+### 13.2 La reconstruction (`facade/toits/toitCorps.ts::reconstruireCorps`)
+
+1. **Les corps.** Les rectangles du contour (`model/volumesToit.ts::rectanglesDuContour` — un seul
+   pour une maison rectangulaire), coupés aux **marches** de la couverture (§11.2,
+   `decouperParHauteurs`). Le seuil de marche passe de 1,5 m à **0,8 m** (`SEUIL_MARCHE_M`) : une
+   marche se reconnaît à sa brutalité, la hauteur changeant sur le mètre qui la franchit au moins
+   1,6 fois plus que sur le mètre d'avant ou d'après — un pan raide change autant partout, un faîtage
+   ne change pas. Puis, deux fois au plus, la **coupe par le modèle** (`meilleureCoupe`) : deux toits
+   simples plutôt qu'un quand l'écart tombe aux deux tiers (`GAIN_COUPE`), qu'il valait au moins
+   25 cm, et que les deux toits diffèrent de 60 cm (faîtage ou égout) ; les mesures des pignons du
+   rectangle entier n'y comptent pas — un pignon n'est pas un corps.
+2. **Le toit d'un corps** (`ajusterCorps`). Pour chaque sens de faîtage et chaque position du faîtage
+   dans la largeur (tous les 25 cm, murs compris : un appentis), la hauteur du faîtage et l'égout de
+   chaque pan par moindres carrés. L'ajustement est **robuste vers le haut** : ce qui dépasse le toit
+   ajusté de plus de 40 cm (`DEPASSEMENT_GARDE_M`) est écarté, passe après passe — un pignon, un
+   arbre, une lucarne ajoutent toujours de la hauteur au pan. Sans cela, au Vésinet, les deux pignons
+   qui couvrent près de la moitié du pan sud-est le relevaient d'un mètre et n'étaient plus vus.
+   Garde-fous : pente au plus 60°, égouts au moins 1,5 m ; un toit dont aucun pan ne monte de 30 cm
+   est **plat**. L'écart se compare d'une position à l'autre sur toutes les mesures, ce qui dépasse
+   le pan comptant peu, ce qui passe dessous pleinement.
+3. **Les pignons qui partent du faîtage** (`detecterPignons`). Le long du mur de chaque pan, à 50 cm
+   en retrait, les tronçons où la mesure dépasse le pan de 80 cm (`SURPLUS_PIGNON_M`), larges de 1,5
+   à 6 m (et pas plus des trois quarts du mur) ; chacun est retenu si son mur est une **façade**
+   (dehors juste devant : `geometry/facadeExterieure.ts`) et si, vers l'intérieur, la mesure reste à
+   sa hauteur, nettement au-dessus du pan, sur 1,5 m au moins, jusqu'à ce que le pan le rattrape. Sa
+   hauteur est le 80e centile du profil le long du mur ; sa profondeur, celle où il rencontre le pan
+   (jusqu'au faîtage quand il en part). Le corps est ensuite **réajusté sans ses pignons**, et les
+   pignons relus sur le toit réajusté (`corpsAvecPignons`).
+
+Données : `ObjetPlan.corpsToit: CorpsToit[] | null` — `{ pts (pts[0] → pts[1] le long du faîtage),
+posFaitage, faitage, egouts: [côté pts[0]-pts[1], côté opposé], pignons: { pan, debut, fin,
+faitage, profondeur }[], ecart }`. Écrit par `app/toits/toitsLidar.ts` avec le toit mesuré, sérialisé et
+copié tel quel, remis à `null` par l'actualisation quand le contour change. Champ facultatif : une
+version précédente l'ignore et montre la surface mesurée.
+
+Au Vésinet : corps principal 9,9 × 6,5 m, deux pans, faîtage 7,6 m, égouts 6,1 / 5,4 m, deux pignons
+de 2,5 et 2,9 m partant du faîtage sur la façade sud-est ; annexe 4,2 × 9,9 m, faîtage 4,3 m ; aile
+5,9 × 7,8 m, faîtage 4,5 m.
+
+**Les croupes** (`avecCroupesSiMieux`). Le modèle des corps n'a que des pignons de bout : un
+quatre-pans s'y lisait en appentis presque plat (AE 100 : 5,5 m au lieu de 7,7 m). Chaque corps sans
+pignon est donc comparé à la lecture des formes simples du même rectangle (`corpsDepuisFormes`,
+§13.7). Quand celle-ci donne des croupes et que son écart à la mesure tombe aux quatre cinquièmes,
+elle l'emporte. L'écart de comparaison est symétrique (borné à 1,2 m dans les deux sens). Celui de
+l'ajustement, qui compte peu ce qui dépasse le pan, préférait un toit écrasé. AE 101 garde ses corps
+au centimètre (test sur le relevé réel).
+
+**Le sens du faîtage** (`avecCroupesSiMieux`, `GAIN_SENS`). Avant les croupes, si les formes simples
+voient le faîtage dans l'autre sens que le modèle des corps, deux candidats concourent : le toit des
+formes, et le modèle refait dans ce sens (`corpsAvecPignons(…, seulSens)`). Le meilleur l'emporte si
+son écart symétrique, pignons compris (`hauteurAvecPignons`), tombe aux quatre cinquièmes de celui du
+modèle. Cas d'origine : AD 128 au Vésinet, deux pans sur la longueur (7,9 × 17,6 m), le toit relevé
+pour deux fenêtres d'étage, un arbre sur un angle. Le modèle écartait ce qui dépasse le pan, prenait
+le vrai toit pour deux pignons et posait un faîtage à 7,3 m en travers, à 12 m sur 17,6. Les formes
+lisent 8,9 m dans la longueur, au milieu (écart 0,59 contre 0,87). Même résultat en version allégée.
+Sur les bancs : au Vésinet, AD 128 seul ; à Hucqueliers, deux ailes (37248533, 37248618) dont le
+faîtage passait aussi en travers de la mesure ; à Saint-Rémy, une annexe (10123793, un pan devenu deux)
+et un corps signalé pour ses égouts 9,1 / 6,9 m (10123943), qui ne l'est plus ; rien à Gordes.
+
+**La refonte des blocs** (`refondre`). La coupe aux marches prenait parfois la pente forte d'un pan
+pour une marche. Elle coupait ainsi un toit en morceaux absurdes : AE 98, un deux-pans coupé en un
+deux-pans à 8,4 m d'égout et un appentis de 2,3 m à pignon ; sa voisine mitoyenne, un pavillon coupé
+en trois bandes de 1,5 à 2,6 m. Avant de garder la coupe d'un rectangle, le toit lu par les formes
+simples sur le rectangle entier l'emporte s'il explique la mesure presque aussi bien
+(`TOLERANCE_REFONTE`, écart symétrique au plus 1,15 fois celui des morceaux). Quand un morceau fait
+moins de 3 m de large (`LARGEUR_BANDE_M`), c'est une tranche de pente et non un corps : le seuil passe
+à 1,6 (`TOLERANCE_BANDE`). Puis deux blocs voisins qui partagent un côté entier se refondent à la même
+règle (1,15). Un bloc refondu garde le toit lu par les formes et n'est pas recoupé par le modèle.
+Deux niveaux vraiment différents ne se refondent pas : les formes n'y trouvent qu'un toit de
+compromis, loin des deux. AE 101 ne change pas.
+
+**La continuité** (`sautAuCote`). Sur un deux-pans coupé le long de son faîtage, chaque bande est un
+appentis presque parfait. Comparer les écarts favorise donc toujours les bandes. Le critère est
+structurel : une marche est une rupture de la couverture. Le saut est lu sur la grille, à une cellule
+de part et d'autre du côté commun (médiane des écarts). Sous 0,6 m (`CONTINUITE_M`), ce n'est que la
+pente d'un pan (40° : 0,42 m sur 50 cm). Il n'y a alors pas de marche : rectangle entier ou paire de
+blocs, c'est le même toit, refondu dès que les formes simples le lisent. Vérifié sur les 57 maisons du
+voisinage d'AE 101 : 117 corps avant, 105 après, plus aucun grand toit débité en bandes de moins de
+3 m (`28267713`, un deux-pans à 11 m, en est le cas de test).
+
+**Les ailes recouvertes.** Les rectangles maximaux se chevauchent par construction. Mais deux ailes
+presque confondues sur un même pavillon, chacune recoupée aux marches, laissaient des bandes de 2 m
+sous d'autres toits. En 3D, cela donnait des pignons en double (Hucqueliers, une longère à deux
+pavillons hauts). Deux règles s'appliquent désormais. Une aile qui a plus de la moitié de sa surface
+sous un rectangle plus grand (`PART_SOUS_PLUS_GRAND`) reste entière, au lieu d'être coupée aux marches.
+Il faut pour cela que son toit tienne la mesure à la tolérance des bandes et qu'aucun égout ne tombe
+sous 2 m : les marches qu'on y lit sont les pentes du toit qui la couvre. Ensuite, une bande de moins
+de 3 m qui a plus de 90 % de sa surface sous les autres corps est retirée (`PART_RECOUVERTE_MAX`,
+`sansBandesRecouvertes`) ; la plus recouverte part d'abord, la plus étroite à égalité. Un corps plus
+large reste, même recouvert : c'est souvent lui le bon toit. AE 101 ne change pas.
+
+**Les quatre formes, une seule règle.** Chaque corps est l'une de ces formes :
+- **deux pans** : faîtage intérieur, chaque pan avec son égout, pignons de bout et pignons depuis
+  le faîtage ;
+- **quatre pans** : faîtage intérieur et croupes ;
+- **un pan** (appentis) : le faîtage sur un mur, `posFaitage` à 0 ou à la largeur ;
+- **plat** : faîtage aux égouts.
+
+Ce qui est plat est le même des deux côtés, modèle des corps et formes simples : moins de 30 cm de
+montée (`HAUTEUR_PLAT_M`) ou moins de 3° (`PENTE_PLAT_DEG`, l'écoulement d'une toiture-terrasse).
+Dans le modèle des corps, un faîtage à moins d'un mètre d'un mur (`PAN_MIN_M`) laissait un faux petit
+pan : l'appentis l'emporte tant que son écart ne dépasse pas le sien de 10 % et 5 cm. Les formes
+simples rendent plat tout toit sous 10° (la règle de la BD TOPO, §4). Pour les corps, le meilleur
+appentis essayé l'emporte donc sur le plat s'il monte d'au moins 30 cm, à 3° au moins, et si son
+écart tombe aux neuf dixièmes de celui du plat (`unPanPlutotQuePlat`). Un appentis de garage à 6°
+reste ainsi un pan, et la terrasse d'AE 103 (4,6°, écart à peine meilleur) reste plate. Un appentis
+déborde aussi au-delà de son mur haut, en continuant de monter. Quand le modèle des corps ne lit rien,
+la lecture des formes, quelle qu'elle soit, est gardée.
+
+### 13.3 Le dessin (`three/toitCorps3d.ts`)
+
+- **Un prisme par corps** à son égout le plus bas ; au-dessus, en couleur de mur, le mur d'un pan plus
+  haut que l'autre, et les **murs de bout** jusqu'au faîtage (le pignon, ou le mur haut d'un
+  appentis).
+- **Les pans**, prolongés d'un débord à l'égout (35 cm) et d'une rive aux bouts (20 cm) — **sur les
+  façades seulement** : contre un autre corps, le toit s'arrête au mur, sans quoi le débord
+  traversait le mur voisin. La même règle vaut désormais pour le débord du mode « Un toit par
+  corps » (`detailsBatiment::poserDebord`).
+- **Chaque pignon** : ses deux pans perpendiculaires, du mur jusqu'à ses **noues** (de son pied sur
+  le mur au bout de son faîtage), et son triangle sur la façade. Le grand pan est **entaillé** le
+  long des mêmes noues, débord compris : il ne passe plus sous le pignon pour ressortir devant son
+  triangle. Un pignon qui touche le bout du corps s'arrête au nu du mur de bout. Le grand pan,
+  non convexe, se triangule par oreilles.
+- **Les fenêtres** se posent sur les murs des corps qui donnent dehors, à la hauteur de chacun
+  (niveaux comptés sur la hauteur du mur), avec une fenêtre dans chaque pignon qui part du faîtage
+  et dans chaque pignon de bout d'un deux-pans, centrées dans le triangle au-dessus de l'égout,
+  quand il fait au moins 1,8 m de haut (`facade/ouvertures.ts::fenetresDesPignons`) ; la porte
+  d'entrée sur le premier corps seul. Ni débord simple ni cheminée : la reconstruction les remplace.
+
+En mode « Tel que mesuré », les murs suivent désormais le **contour lui-même**, montés à l'égout le
+plus bas puis jusqu'à la surface par les rehausses : des prismes par rectangle laissaient la surface
+pendre dans le vide là où un rectangle ne couvrait pas le contour. Les fenêtres y suivent la hauteur
+mesurée de chaque mur.
+
+### 13.4 La carte des hauteurs (`ui/champs/carteToit.ts`, `zones/composants/CarteToit.tsx`)
+
+Sous « Toit en 3D », un champ `carte` sur toute la largeur : les cellules de la surface mesurée sous
+le contour, du bleu (le plus bas) au rouge (le plus haut), dans l'**axe du bâtiment** (son plus long
+côté à l'horizontale) avec une flèche du nord ; par-dessus, le contour, les corps en tirets, leurs
+faîtages (avec leur hauteur), les pignons et leur faîtage. Une légende nomme chaque trait et donne
+l'étendue des hauteurs : la couleur ne parle jamais seule. Chaque cellule dit sa hauteur au survol.
+Les traits passent par les jetons (`--ink`, `--ok`, `--accent`) ; seules les couleurs des cellules
+sont calculées.
+
+### 13.5 Vérifié
+
+`tests/unit/app/toits/toitsLidar.test.ts` (corps du voisin, option décochée), `tests/unit/facade/toitCorps.test.ts` (deux pans symétrique et décalé, appentis, plat, pignons d'un
+long pan, pas de pignon sur un mur intérieur, corps et annexe à la marche, coupe par le modèle,
+contour de biais), `tests/unit/three/toitCorps3d.test.ts` (pans, mur haut, entaille du pignon,
+débord sur façade seulement), `tests/unit/facade/fenetresPignons.test.ts`,
+`tests/unit/ui/champsToitMode.test.ts` (défaut, options, carte, descriptions),
+`tests/unit/zones/inspecteur-champs.test.ts` (le champ carte rendu dans les trois classes). Vu à l'œil
+sur le 2 allée des Limites.
+
+### 13.6 Le voisinage
+
+Une case de la section « Voisinage (3D) » de la parcelle, **« Toits en corps et pignons », cochée par
+défaut** (`ReglagesVoisinage3d.toits.corps`), étend la reconstruction aux maisons voisines. À l'import
+et à l'actualisation, `app/toits/toitsLidar.ts` lit alors la grille entière sous chaque maison voisine (la
+même requête que ses mesures), et pose ses `corpsToit`.
+
+- Sur une **parcelle mitoyenne** — une parcelle qui partage au moins 1 m de limite avec celle du
+  projet, à 50 cm près (`batimentsMitoyens`, `model/mitoyennete.ts`) —, le **calcul entier**, celui de la maison du projet :
+  coupe par le modèle comprise, et la grille gardée (`toitMesure`) : la carte des hauteurs et
+  « Tel que mesuré » s'y offrent aussi. Ce sont les maisons qu'on voit de près depuis le jardin.
+  Une maison mitoyenne dont aucun corps ne se lit (un toit sous les arbres) ne garde pas sa grille :
+  dessinée telle quelle, elle montrerait le feuillage ; elle revient à la forme simple.
+- Plus loin, la **version allégée** : sans la coupe par le modèle, de loin la part la plus lourde
+  (482 ms au Vésinet, 51 ms sans, pour le même résultat : `reconstruireCorps(…, { coupes: false })`),
+  et sans garder la grille, qui alourdirait le projet de quelques kilo-octets par maison. Les plus proches d'abord, dans le délai et le nombre de maisons de la lecture LiDAR
+(§10.3) ; le bilan les compte (« n toit(s) du voisinage en corps et pignons »).
+
+Les mêmes mitoyennes bornent le cadrage par défaut de la Vue 3D (`procheDuProjet`, dans
+`etendueDeLaScene`) : la parcelle du projet, ses objets, les mitoyennes et leurs maisons ; le reste du
+voisinage importé se voit en reculant.
+
+Décochée : rien n'est lu de plus, et la 3D montre les formes simples même pour une maison qui porte
+déjà ses corps — c'est un réglage d'affichage (`sale: false`, pas d'annulation, permis en lecture
+seule). Cochée sur un plan dont aucun voisin n'a encore de corps, la note dit qu'ils seront « lus à
+la prochaine actualisation IGN ». Une maison voisine en corps reçoit ses fenêtres sur les murs de ses
+corps, aux dimensions tirées par la section (§6.4). Le critère de voisinage est celui de la BD
+TOPO : un bâtiment importé hors de la parcelle du projet (`model/fonctions.ts::surParcelleDuProjet`).
+
+**La végétation** (`app/toits/toitsLidar.ts::corpsVraisemblables`). Le LiDAR voit la cime d'un arbre qui
+couvre un bâtiment : un corps dont l'égout dépasse de plus de 3 m la hauteur BD TOPO du bâtiment
+(`hauteurRetenueM`, à défaut `hauteurM`) est écarté. Exemple : un abri de 2,70 m à côté d'AE 101
+devenait une tour de 15 m. Sans corps restant, le bâtiment garde sa forme simple, et une maison
+mitoyenne ne garde pas sa grille. Quand l'égout de toute la surface dépasse ce seuil
+(`mesureVraisemblable`), ni la surface ni la forme ajustée ne sont gardées : pas de relief de
+feuillage, pas de hauteur d'égout tirée d'un houppier. Sans hauteur BD TOPO, rien n'est écarté.
+
+**Le toit montré par défaut** (`model/toitMesure.ts::modeToitActif`). Ce sont les corps quand il y
+en a. Sinon c'est un toit construit : des volumes, ou la forme simple. La surface brute ne se montre
+plus d'elle-même (le château de Gordes montrait un relief en vagues) ; « Tel que mesuré » reste
+proposé, à la demande.
+
+### 13.7 Les contours de biais, le recalage et les croupes
+
+Le modèle des corps (§13.2) part des rectangles du contour. Un contour BD TOPO qui a un côté de
+biais ne se découpe pas (`rectanglesDuContour` rend null), et la 3D montrait alors la surface brute.
+Exemple : 2 allée des Limites, parcelle AE 103.
+
+- **Recalage d'un bloc** (`facade/toits/toitCorps.ts::decalageSurMesure`, appelé par
+  `app/toits/toitsLidar.ts::recalerSurLidar`). Pour la maison du projet et les maisons mitoyennes, si
+  plus de 12 % des cellules sous le contour sont non bâties (moins de 2,5 m), la grille est relue
+  3 m plus large. Le décalage retenu, au pas de 25 cm et à 3 m au plus, maximise ce qui est bâti
+  sous le contour et non bâti dans une bande de 0,5 à 1,5 m autour. Le bâtiment entier se déplace
+  alors d'un bloc : `pts` est translaté, sa forme ne change pas, et le plan suit. AE 103 : 15 % de
+  non bâti, décalage (−1 ; −1,75) m. AE 101 : 5,5 %, aucun recalage. Le bilan compte les bâtiments
+  recalés.
+- **Mise à l'équerre** (`contourEquerre`). L'axe retenu est celui qui aligne la plus grande
+  longueur de côtés (le plus long côté peut être le biais). Chaque côté de biais devient une
+  marche, dont le ressaut tombe au droit d'un autre sommet du contour, à défaut au milieu.
+- **Tranches** (`model/volumesToit.ts::rectanglesEnTranches`). Le contour à l'équerre est coupé
+  perpendiculairement à l'un de ses axes ; les rectangles maximaux y tiraient une bande d'un bout à
+  l'autre de la maison.
+- **Formes simples** (`corpsDepuisFormes`). Chaque tranche est lue par `facade/toits/toitLidar.ts::
+  ajusterToit` sur la grille brute : deux pans, croupes ou quatre pans (faîtage dans la longueur,
+  croupes à la pente des pans : `CorpsToit.croupes`), appentis (plat en deçà de 10°), plat. À
+  défaut, le modèle des corps. Le modèle des corps, lui, n'a pas changé : les contours qui se
+  découpaient gardent leurs corps au centimètre (test sur le relevé réel d'AE 101,
+  `tests/unit/facade/toitCorpsReprise.test.ts`).
+- **Complétion** (`completerSurContour`, `corpsEtendu`). La marche rend d'un côté du biais ce qu'elle
+  prend de l'autre : le triangle pris n'était sous aucun corps, donc sans toit. Chaque corps, du plus
+  haut au plus bas, avance ses côtés libres (que les autres ne bordent pas pour moitié) tant que la
+  bande devant lui contient du contour qu'aucun autre ne couvre. Étendu le long du faîtage, il
+  l'allonge (croupes et hauteurs restent) ; en travers, ses pans descendent à leur pente. Trois
+  garde-fous (Hucqueliers) : la bande devant le corps doit être pour 10 % au moins du contour sans
+  toit (`PART_COMPLETION_MIN`), sinon une aile de biais suivait sur 5 m la lisière laissée le long de
+  sa voisine, avec un égout à −1,3 m ; en travers, aucun égout ne descend sous 2 m ; et la mesure doit
+  y être à moins d'un mètre sous son égout (`SOUS_EGOUT_ETENDU_M`) : une annexe basse garde son
+  propre toit.
+- **Dernier recours** (`corpsSurBoite`, `boiteOrientee`, `lectureDeSecours`). Un contour qui ne se
+  découpe pas du tout ne reste plus à la surface brute. C'est le cas de la maison de village en
+  trapèze ou en parallélogramme, aux angles non droits, fréquente en Provence. Un seul corps est lu
+  par les formes simples sur le rectangle qui l'englobe, dans l'axe qui aligne le plus de ses côtés,
+  avec les seules mesures du contour. Le dessin le découpe sur le contour. Quand l'ajustement ne rend
+  rien, la meilleure forme essayée sous 80 cm d'écart est retenue. L'appentis y est admis au-delà de
+  son propre seuil (40 cm) s'il bat d'un dixième la meilleure forme à faîtage : c'est le toit à un pan
+  du bâti provençal. Gordes (place du Château, 152 bâtiments) : 52 bâtiments sans toit construit
+  avant, 13 après, dont 9 sans assez de mesures.
+- **Pas de pignon sur un appentis** (`detecterPignons`) : son sommet est un mur, il n'a pas de faîtage
+  dont partirait un pignon.
+- **Dessin** (`three/toitCorps3d.ts::facettesSurContour`). Des corps lus en reprise ne suivent plus
+  le contour : le prisme est le contour lui-même, à l'égout le plus bas ; les toits des corps sont
+  découpés sur lui, sans débord ; les murs montent jusqu'au toit, pas à pas, le long du contour ; les
+  fenêtres suivent les murs du contour. Le bâtiment garde ainsi la forme du plan. Une croupe est un
+  triangle, son mur de bout s'arrête aux égouts, et un bout sous une croupe n'a pas de fenêtre de
+  pignon. La carte trace les arêtiers.
+  - **Murs entre corps** : à l'intérieur du contour, là où un corps est plus haut que ce qui le borde
+    (un autre corps, ou le dessus du prisme), son mur monte de l'un à l'autre. Sans eux, on voyait le
+    vide sous l'égout d'un corps haut posé contre une terrasse (AE 103 : quatre-pans à 4,9 m contre
+    une terrasse à 3,7 m).
+  - **Pans sans trou** : un sommet de facette posé sur le contour sort deux fois de la coupe ; il est
+    retiré avant la triangulation, et la triangulation, sur un polygone dégénéré, retire le sommet le
+    plus plat, jamais le premier venu. Les croupes du petit quatre-pans d'AE 103 perdaient 15 m².
+
+
+### 13.8 Un bâtiment à cheval sur deux parcelles : la question sur sa toiture
+
+La BD TOPO trace souvent d'un seul contour des maisons mitoyennes : une longère de village, deux
+pavillons jumeaux, une annexe partagée. Quand ce contour franchit une limite de parcelle et qu'un
+corps lu sur le LiDAR passe par-dessus, la mesure ne dit pas s'il s'agit d'un seul toit ou de deux
+toits voisins de même hauteur. Plan ne tranche pas seul : il pose la question.
+
+- **Les parts** (`model/aCheval.ts::partsACheval`). Pour chaque parcelle du plan que le bâtiment
+  touche (celle du projet et les parcelles de fonction terrain), on prend le contour privé des autres
+  parcelles (`geometry/difference.ts`), en son plus grand morceau. Le bâtiment est à cheval quand
+  deux parts au moins font 8 m² (`AIRE_A_CHEVAL_MIN_M2`) et 15 % de sa surface
+  (`PART_A_CHEVAL_MIN`). Un tracé qui déborde de quelques décimètres n'est pas à cheval.
+- **Le doute** (`douteACheval`, `corpsQuiFranchissent`). Un corps a au moins 4 m² de sa surface, dans
+  le contour, de chaque côté de la limite. Quand les toits s'arrêtent déjà à la limite, aucune
+  question n'est posée.
+- **Quand** (`app/toits/toitsLidar.ts::toitAChevalApresCalcul`). Le doute est cherché après le calcul des
+  corps d'un bâtiment vu de près : celui du projet, ou celui d'une parcelle mitoyenne (le calcul
+  entier, avec la grille gardée). Il est noté dans `toitACheval: { parcelles }`. Une réponse déjà
+  donnée s'applique au calcul suivant sans nouvelle question. Un bâtiment qui n'est plus à cheval
+  perd sa question.
+- **La question** (`app/toits/toitsACheval.ts`, dialogue de choix Z8). Elle est posée à l'ouverture du
+  projet, après un import et après une actualisation IGN, une par bâtiment, et seulement quand aucun
+  autre dialogue n'attend. Le bâtiment est sélectionné sur le plan : son nom BD TOPO
+  (« Indifférencié ») ne le désigne pas. Le titre est « Un toit ou deux ? ». Le texte donne la
+  surface au sol du bâtiment, les deux parcelles avec leur référence et la surface de chaque part,
+  et le faîtage du toit continu lu par le LiDAR. Deux réponses :
+  - **Un seul toit** : les corps lus restent tels quels ;
+  - **Un toit par parcelle** : les corps sont relus sur chaque part (`corpsParParcelle`), chacun
+    s'arrêtant à la limite.
+
+  La réponse est une modification du projet (Ctrl+Z la défait), rangée dans
+  `toitACheval.reponse` (`'un'` ou `'parParcelle'`). Échap ne répond pas : la question reviendra à
+  la prochaine ouverture. En lecture seule, rien n'est demandé.
+
+Vérifié : `tests/unit/model/aCheval.test.ts` (parts, débord, doute) et
+`tests/unit/app/toits/toitsACheval.test.ts` (doute noté, réponse réappliquée, question perdue, texte,
+réponse, enchaînement des dialogues, lecture seule). Dans le navigateur, à Hucqueliers, deux
+annexes à cheval sur la parcelle du projet donnent chacune leur question. Au 2 allée des Limites
+(AE 101), aucune question n'est posée.

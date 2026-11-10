@@ -1,16 +1,22 @@
 // Z8, l'import cadastral depuis une adresse : les trois etapes, et l'apercu des parcelles.
 //
-// L'etat et les gestes sont dans app/importCadastre.ts ; ce composant les dessine et s'abonne a leurs
+// L'etat et les gestes sont dans app/cadastre/importCadastre.ts ; ce composant les dessine et s'abonne a leurs
 // changements. Le champ d'adresse garde le focus pendant la frappe : seules les suggestions se
 // redessinent sous lui.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
-import { ECART_AUTO_M } from '../../geo/apiIgn.js';
+import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, RAYON_LEGER_M, rayonDeLecture } from '../../geo/apiIgn.js';
+import { avertissementRayon } from './avertissementRayon.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
-import type { CaseIgn, ImportCadastre as Controleur } from '../../app/importCadastre.js';
+import type { CaseIgn, EtatPosition, ImportCadastre as Controleur } from '../../app/cadastre/importCadastre.js';
+
+// La BAN dit le niveau d'une reponse en anglais (street, municipality, locality) : on le dit en
+// francais. Un niveau inconnu passe tel quel plutot que de disparaitre.
+const NIVEAUX_ADRESSE: Record<string, string> = { street: 'rue, sans numéro', municipality: 'commune', locality: 'lieu-dit' };
+function niveauAdresse(genre: string): string { return NIVEAUX_ADRESSE[genre] ?? genre; }
 import type { PtBrut } from '../../model/types.js';
 
 type Props = { importe: Controleur };
@@ -24,9 +30,14 @@ function Bouton({ controle, principal, onClick, children, disabled }: { controle
 function Apercu({ importe }: Props) {
   const e = importe.etat();
   if (!e.principale) return null;
-  const { lots, limitesInternes, couches } = importe.apercu();
+  const { lots, limitesInternes, couches, etendu } = importe.apercu();
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   lots.forEach(l => l.pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }));
+  // Le voisinage etendu affiche : l'apercu cadre tout le disque, sinon on n'en verrait qu'un coin.
+  if (etendu) {
+    minX = Math.min(minX, etendu.centre.x - etendu.rayonM); maxX = Math.max(maxX, etendu.centre.x + etendu.rayonM);
+    minY = Math.min(minY, etendu.centre.y - etendu.rayonM); maxY = Math.max(maxY, etendu.centre.y + etendu.rayonM);
+  }
   const marge = Math.max(2, (maxX - minX + maxY - minY) * 0.03);
   minX -= marge; maxX += marge; minY -= marge; maxY += marge;
   const w = maxX - minX, h = maxY - minY;
@@ -40,6 +51,13 @@ function Apercu({ importe }: Props) {
   const cliquable = (c: Candidate | undefined) => c ? () => cliquer(c) : undefined;
   return (
     <svg viewBox={'0 0 ' + w.toFixed(2) + ' ' + h.toFixed(2)} className="apercuCadastre" role="img" aria-label="Aperçu des parcelles">
+      {/* Le voisinage etendu, sous tout le reste et non cliquable : un decor, borde par son disque. */}
+      {etendu && <g pointerEvents="none">
+        {etendu.parcelles.map((pts, i) => <polygon key={'ep' + i} points={points(pts)} fill="none" stroke="#b8ad98" strokeWidth={(trait * 0.6).toFixed(3)} />)}
+        {etendu.batiments.map((pts, i) => <polygon key={'eb' + i} points={points(pts)} fill="#CFC3B4" fillOpacity={0.6} stroke="#8A7B63" strokeWidth={(trait * 0.5).toFixed(3)} />)}
+        <circle cx={(etendu.centre.x - minX).toFixed(2)} cy={(maxY - etendu.centre.y).toFixed(2)} r={etendu.rayonM.toFixed(2)} fill="none" stroke="#7A5C31"
+          strokeWidth={(trait * 1.2).toFixed(3)} strokeDasharray={(trait * 6).toFixed(2) + ' ' + (trait * 4).toFixed(2)} />
+      </g>}
       {lots.slice().reverse().map(l => {
         const survole = e.survol === l.idu;
         const style = l.role === 'principale' ? { fill: '#FBF3D9', stroke: '#3B2E1F' }
@@ -75,15 +93,43 @@ function Apercu({ importe }: Props) {
   );
 }
 
+/** Ce que la ligne d'etat dit de la position de l'appareil ; vide quand il n'y a rien a dire. */
+function texteDePosition(p: EtatPosition): string {
+  const aPres = p.precisionM !== null ? ' (à ' + p.precisionM + ' m près)' : '';
+  switch (p.etat) {
+    case 'demande': return 'Recherche de votre position…';
+    case 'trouvee': return 'Votre position' + aPres + ' : la parcelle sous vos pieds est cherchée.';
+    case 'approximative': return 'Position approximative' + aPres + ' : vérifiez l’adresse proposée, puis Rechercher.';
+    case 'refusee': return 'Position refusée par le navigateur : autorisez-la dans ses réglages, ou saisissez l’adresse.';
+    case 'indisponible': return 'Position indisponible sur cet appareil : saisissez l’adresse.';
+    default: return '';
+  }
+}
+
 function Etape1({ importe }: Props) {
   const e = importe.etat();
   const [texte, setTexte] = useState('');
   const champ = useRef<HTMLInputElement>(null);
   useEffect(() => { champ.current?.focus(); }, []);
+  // L'adresse la plus proche de la position, recopiee dans le champ tant qu'on n'y a rien tape.
+  const { etat: etatPosition, adresse: adressePosition } = e.position;
+  useEffect(() => {
+    if ((etatPosition === 'trouvee' || etatPosition === 'approximative') && adressePosition && !e.saisie) setTexte(adressePosition);
+  }, [etatPosition, adressePosition, e.saisie]);
+  const position = texteDePosition(e.position);
   return (
     <>
       <div className="corpsParcours">
-        <div className="libelleChamp">Adresse du terrain (ou coordonnees « latitude, longitude ») :</div>
+        <div className="libelleChamp ligneAdresse">
+          <span>Adresse du terrain (ou coordonnees « latitude, longitude ») :</span>
+          {importe.positionDisponible() && (
+            <button type="button" data-controle="cadastre.maPosition" className="secondary small" disabled={e.occupe || e.position.etat === 'demande'}
+              title="Cherche la parcelle sous la position de cet appareil (GPS du téléphone, ou réseau). Le navigateur demande d’abord la permission."
+              onClick={() => void importe.utiliserMaPosition(false)}>
+              Utiliser ma position
+            </button>
+          )}
+        </div>
         <input ref={champ} type="text" data-controle="cadastre.adresse" className="promptInput" placeholder="2 allee des Limites 78110 Le Vesinet" value={texte}
           onChange={(ev) => { setTexte(ev.target.value); importe.saisirAdresse(ev.target.value); }}
           onKeyDown={(ev) => {
@@ -93,18 +139,49 @@ function Etape1({ importe }: Props) {
             if (suggestion) void importe.choisirAdresse(suggestion);
             else void importe.rechercher(texte.trim());
           }} />
+        {position && <div className="detailIgn" role="status">{position}</div>}
         <div className="suggestionsAdresse">
           {e.suggestions.map((s, i) => (
             <button key={i} type="button" data-controle="cadastre.suggestion" className="secondary" onClick={() => void importe.choisirAdresse(s)}>
-              {s.label + (s.genre && s.genre !== 'housenumber' ? '  (niveau ' + s.genre + ')' : '')}
+              {s.label + (s.genre && s.genre !== 'housenumber' ? '  (' + niveauAdresse(s.genre) + ')' : '')}
             </button>
           ))}
         </div>
+        <label className="caseParcours" title="Crée le plan dès la parcelle trouvée, sans les étapes 2 (choix de la parcelle) et 3 (voisines, données IGN) : la parcelle sous l’adresse, les bâtiments et la végétation qui la touchent, et le voisinage étendu s’il est coché. Le résumé dit ce qui arrivera avant de créer.">
+          <input type="checkbox" data-controle="cadastre.importDirect" checked={e.importDirect} onChange={(ev) => importe.basculerImportDirect(ev.target.checked)} />
+          Import direct, sans les étapes 2 et 3
+        </label>
+        {e.importDirect && <ReglageVoisinage importe={importe} />}
+        {e.importDirect && e.resumePret && <ResumeDirect importe={importe} />}
       </div>
       <Pied importe={importe}>
         <Bouton controle="cadastre.annuler" onClick={importe.fermer}>Annuler</Bouton>
-        <Bouton controle="cadastre.rechercher" principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>
+        {e.importDirect && e.resumePret
+          ? <>
+              <Bouton controle="cadastre.ajuster" onClick={() => importe.allerA(2)}>Ajuster (étapes 2 et 3)</Bouton>
+              <Bouton controle="cadastre.creerDirect" principal onClick={() => void importe.creerProjet(importe.nomParDefaut())}>{importe.projetCible() ? 'Remplir le projet' : 'Créer le projet'}</Bouton>
+            </>
+          : <Bouton controle="cadastre.rechercher" principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>}
       </Pied>
+    </>
+  );
+}
+
+/** Le resume de l'import direct : la parcelle trouvee et ce qui arrivera dans le plan, avant de creer. */
+function ResumeDirect({ importe }: Props) {
+  const e = importe.etat();
+  const p = e.principale;
+  if (!p) return null;
+  const n = (liste: Parameters<typeof importe.elementsRetenus>[0], actif: boolean) => (actif ? importe.elementsRetenus(liste).length : 0);
+  return (
+    <>
+      <Apercu importe={importe} />
+      <div className="infoParcelle" role="status">
+        <b>{'Parcelle ' + libelleParcelle(p)}</b>{' — ' + (p.commune || '') + ' — ' + importe.ligneSurface(p)}<br />
+        {'Sur la parcelle : ' + n(e.batiments, e.importerBatiments) + ' bâtiment(s), ' + (n(e.haies, e.importerHaies) + n(e.vegetation, e.importerVegetation)) + ' haie(s) et zone(s) de végétation.'}
+        {e.plu?.zones?.[0] && <><br />{'PLU : zone ' + e.plu.zones[0].libelle}</>}
+        {importe.reliefPermis() && <><br />{e.importerRelief ? 'Relief : lu à la création, ' + (e.reliefToutesParcelles ? 'sur toutes les parcelles.' : 'sur la parcelle du projet.') : 'Relief : non lu.'}</>}
+      </div>
     </>
   );
 }
@@ -123,9 +200,12 @@ function Etape2({ importe }: Props) {
         <div className="infoParcelle">
           <b>{'Parcelle ' + libelleParcelle(p)}</b>{' — ' + (p.commune || '') + ' (INSEE ' + (p.codeInsee || '') + ')'}<br />
           {'Surface : ' + importe.ligneSurface(p)}<br />
-          {'Adresse : ' + geo.label}<br />
-          {'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
-          {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && <><br /><i>{'Adresse resolue au niveau ' + geo.genre + ' : la parcelle proposee est approximative.'}</i></>}
+          {(geo.genre === 'position' ? 'Adresse la plus proche : ' : 'Adresse : ') + geo.label}<br />
+          {/* Le point d'une position est celui de l'appareil, pas un point d'adresse pose sur la voirie. */}
+          {geo.genre === 'position'
+            ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + p.distance.toFixed(2) + ' m du bord')
+            : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
+          {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && geo.genre !== 'position' && <><br /><i>{'Adresse imprécise (' + niveauAdresse(geo.genre) + ') : la parcelle proposée est approximative.'}</i></>}
           {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont a distance comparable : verifie le choix ci-dessous.</i></>}
         </div>
         <div className="titreListe">Autre parcelle ? (clic sur l'apercu ou dans la liste)</div>
@@ -198,6 +278,7 @@ function DonneesIgn({ importe }: Props) {
       {ligne('importerVegetation', 'Zones de végétation', vegs.length, 'Bois, forets, vergers... hauteur deduite de la nature de la zone.')}
       {ligne('importerArbres', 'Arbres estimés dans ces zones (~' + importe.nombreArbresEstimes() + ')', vegs.length,
         'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille reguliere d\'un arbre pour 64 m2 est repartie dans les zones de vegetation - un ordre de grandeur du couvert, pas un releve.')}
+      <ReglageRelief importe={importe} />
       <div className="pluParcours">
         {plu?.zones?.[0] ? (() => {
           const z = plu.zones[0];
@@ -210,6 +291,61 @@ function DonneesIgn({ importe }: Props) {
           : 'PLU : aucun zonage renvoye par le Geoportail de l\'urbanisme pour ce point.'}
       </div>
       {e.ignErreur && <div className="erreurParcours">{e.ignErreur}</div>}
+    </div>
+  );
+}
+
+/**
+ * Le relief du terrain, lu a la creation du plan : sur la parcelle du projet, ou sur toutes les
+ * parcelles importees. Absent sans la capacite `plan.relief`.
+ */
+function ReglageRelief({ importe }: Props) {
+  const e = importe.etat();
+  if (!importe.reliefPermis()) return null;
+  return (
+    <>
+      <label className="caseParcours" title="Grille d’altitudes du sol nu (LiDAR HD à 50 cm, sinon RGE ALTI à 1 m), lue à la création du plan : courbes de niveau, sol en 3D, hauteur des plots. Elle change des quantités.">
+        <input type="checkbox" data-controle="cadastre.relief" checked={e.importerRelief} onChange={(ev) => importe.basculerCaseIgn('importerRelief', ev.target.checked)} />
+        Relief du terrain (IGN)
+      </label>
+      <label className={'caseParcours sousCase' + (e.importerRelief ? '' : ' vide')} title="La grille couvre aussi les parcelles voisines importées. Au-delà d’un pas de 5 m, elle revient à la parcelle du projet et ses abords.">
+        <input type="checkbox" data-controle="cadastre.reliefToutes" checked={e.reliefToutesParcelles} disabled={!e.importerRelief} onChange={(ev) => importe.basculerCaseIgn('reliefToutesParcelles', ev.target.checked)} />
+        Relief sur toutes les parcelles importées
+      </label>
+    </>
+  );
+}
+
+/**
+ * Le voisinage etendu : une case, un curseur de 10 a 1 500 m, et le compte de ce qui arrivera avant
+ * de creer. Le disque est lu une fois par palier (200, 500, 1 000, 1 500 m) ; sous le palier lu, le
+ * curseur le filtre sans appel au reseau.
+ */
+function ReglageVoisinage({ importe }: Props) {
+  const e = importe.etat();
+  const v = importe.voisinageEtenduRetenu();
+  const lecture = e.voisinageEtendu && !!e.principale && (!e.etenduMax || e.etenduMax.rayonM < rayonDeLecture(e.rayonEtendu));
+  return (
+    <div className="blocIgn" role="group" aria-label="Voisinage étendu">
+      <label className="caseParcours" title={'Toutes les parcelles et tout le bâti à moins de ce rayon du centre de la parcelle, lus en plusieurs requêtes à l’IGN ; au-delà de ' + MAX_OBJETS_RAYON + ' par famille, les plus proches seulement.'}>
+        <input type="checkbox" data-controle="cadastre.voisinageEtendu" checked={e.voisinageEtendu} onChange={(ev) => void importe.basculerVoisinageEtendu(ev.target.checked)} />
+        {'Ajouter tout le voisinage dans un rayon de ' + e.rayonEtendu + ' m'}
+      </label>
+      <label className={'caseParcours curseurRayon' + (e.voisinageEtendu ? '' : ' vide')}>
+        <input type="range" data-controle="cadastre.rayon" aria-label="Rayon du voisinage étendu" min={RAYON_ETENDU_MIN_M} max={RAYON_ETENDU_MAX_M} step={RAYON_ETENDU_PAS_M} value={e.rayonEtendu}
+          disabled={!e.voisinageEtendu} aria-valuetext={e.rayonEtendu + ' mètres'} onChange={(ev) => importe.reglerRayonEtendu(Number(ev.target.value))} />
+        <span className="valeurRayon">{e.rayonEtendu + ' m'}</span>
+      </label>
+      {e.voisinageEtendu && <div className="detailIgn" role="status">
+        {lecture ? 'Lecture du voisinage…'
+          : v ? v.parcelles.length + ' parcelle(s) et ' + (e.importerBatiments ? v.batiments.length + ' bâtiment(s)' : 'aucun bâtiment (couche décochée)') + ' seront ajoutés, verrouillés et marqués « voisinage »' + (v.tronque ? ' ; coupés aux ' + MAX_OBJETS_RAYON + ' plus proches' : '') + '.'
+          : e.principale ? 'Voisinage non chargé.' : 'Le compte s’affichera dès la parcelle trouvée.'}
+      </div>}
+      {e.voisinageEtendu && e.rayonEtendu > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{avertissementRayon(e.rayonEtendu)}</div>}
+      <label className={'caseParcours' + (e.voisinageEtendu ? '' : ' vide')} title="Montre le voisinage étendu dans l’aperçu, et le laisse visible à l’ouverture du plan. Décoché, il est importé mais masqué : l’œil « Voisinage » de l’explorateur le réaffiche.">
+        <input type="checkbox" data-controle="cadastre.afficherEtendu" checked={e.afficherEtendu} disabled={!e.voisinageEtendu} onChange={(ev) => importe.basculerAfficherEtendu(ev.target.checked)} />
+        Afficher le voisinage étendu
+      </label>
     </div>
   );
 }
@@ -240,6 +376,8 @@ function Etape3({ importe }: Props) {
           {groupe('Autres parcelles du secteur', e.autres)}
           {e.tropDense && <div className="erreurParcours">{'Perimetre tres dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposees.'}</div>}
         </div>
+        <div className="titreListe">Voisinage étendu</div>
+        <ReglageVoisinage importe={importe} />
         <div className="titreListe">Données IGN à importer sur les parcelles retenues</div>
         <DonneesIgn importe={importe} />
         <div className="libelleChamp">Nom du projet :</div>

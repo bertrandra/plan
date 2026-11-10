@@ -1,0 +1,27 @@
+{
+  "meta": { "id": "temoin-5", "name": "Témoin du schéma 5", "appVersion": "3.0.0", "schemaVersion": 5 },
+  "objects": [
+    {
+      "key": "parcelle", "type": "polygon", "name": "Parcelle", "fonction": "terrain",
+      "pts": [{ "x": 0, "y": 0 }, { "x": 30, "y": 0 }, { "x": 30, "y": 20 }, { "x": 0, "y": 20 }],
+      "soleil": { "dateStr": "2026-06-21", "minutes": 900 },
+      "retoucheMain": { "date": "2026-10-27" }
+    },
+    {
+      "key": "bati-1", "type": "polygon", "name": "Maison", "fonction": "batiment", "elevation": 5.2,
+      "pts": [{ "x": 5, "y": 5 }, { "x": 15, "y": 5 }, { "x": 15, "y": 12 }, { "x": 5, "y": 12 }],
+      "bdtopo": { "couche": "BDTOPO_V3:batiment", "id": "BATIMENT0000000000000001", "surParcellePrincipale": true },
+      "toit": { "forme": "deux-pans", "hauteur": 3, "angleFaitage": 0, "source": "lidar" },
+      "corpsToit": [],
+      "toitLidarLu": 7,
+      "egoutChoisi": "saisie",
+      "retoucheMain": { "date": "2026-10-27" }
+    },
+    {
+      "key": "abri", "type": "polygon", "name": "Abri", "fonction": "annexe", "elevation": 2.2,
+      "pts": [{ "x": 20, "y": 14 }, { "x": 23, "y": 14 }, { "x": 23, "y": 16 }, { "x": 20, "y": 16 }],
+      "egoutChoisi": "audit"
+    }
+  ],
+  "measures": []
+}

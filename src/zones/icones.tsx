@@ -9,12 +9,13 @@
 // Pas de bibliotheque : une trentaine de traces, c'est moins que le code pour en charger une.
 
 export type NomIcone =
-  | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
+  | 'annuler' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
-  | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
+  | 'grille' | 'ajuster' | 'recadrer' | 'tournerDroite' | 'tournerCorps' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
-  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler';
+  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee' | 'decroche'
+  | 'tourner' | 'vueDessus' | 'toitAvant';
 
 /** Les traces, chacun dans un repere de 24 × 24. */
 const TRACES: Record<NomIcone, React.ReactNode> = {
@@ -23,6 +24,8 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   rectangle: <rect x="3.5" y="6.5" width="17" height="11" rx="1" />,
   chemin: <path d="M4 20c3-7 7-2 9-8s4-7 7-8" />,
   cercle: <circle cx="12" cy="12" r="8.5" />,
+  // Un platelage : trois rangs de lames, les abouts decales d'un rang a l'autre.
+  terrasse: <><rect x="3" y="5" width="18" height="14" rx="1" /><path d="M3 9.7h18M3 14.3h18M9 5v4.7M15 9.7v4.6M8 14.3V19" /></>,
   parasol: <><path d="M3 12a9 9 0 0118 0z" /><path d="M12 12v7.5a2 2 0 01-4 0" /></>,
   // Deux poteaux, la poutre, les chevrons, et une contrefiche de chaque cote.
   pergola: <path d="M5 20V8M19 20V8M3 8h18M7 4.5V8M12 4.5V8M17 4.5V8M5 12.5L9 8M19 12.5L15 8" />,
@@ -34,13 +37,33 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   pointDeVue: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
   dupliquer: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5.5a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2h3" /></>,
   supprimer: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  // Un corps coupe en deux, et deux corps reunis en un.
+  scinder: <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M12 3v18" strokeDasharray="2 2" /></>,
+  fusionner: <><rect x="3" y="7" width="18" height="10" rx="1" /><path d="M8 12h8M14 10l2 2-2 2M10 10l-2 2 2 2" /></>,
+  // Un auvent qui tourne a l'angle (vu de dessus) ; un mur en travees (vu de face).
+  angle: <path d="M4 4h16v16M4 4v5h11v11h5M15 9l5-5" />,
+  decroche: <><path d="M3 20h18M3 6h18M3 6v14M21 6v14" /><path d="M12 6v14" /><path d="M12 13h6v7" strokeDasharray="2 2" /><path d="M15 10l3 3-3 3" /></>,
+  travee: <><path d="M3 20h18M3 6h18M3 6v14M21 6v14" /><path d="M12 6v14M12 13h9" strokeDasharray="2 2" /></>,
   reculer: <><rect x="4" y="4" width="11" height="11" rx="1" /><path d="M9 20h11V9" /></>,
   positionInitiale: <><path d="M4 12a8 8 0 108-8" /><path d="M4 4v5h5" /></>,
   cote: <><path d="M3 17L17 3l4 4L7 21z" /><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2" /></>,
   aligner: <><rect x="5" y="10" width="10" height="10" rx="1" /><path d="M9 4h10v10" /></>,
   grille: <><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17" /></>,
+  // Tourner un corps : un arc ferme presque, sa fleche au bout (l'annulation est un crochet, pas un tour).
+  tourner: <><path d="M19 12a7 7 0 11-2.05-4.95" /><path d="M19 4v4h-4" /></>,
+  // La meme fleche dans l'autre sens : tourner la vue a droite (le bouton voisin tourne a gauche).
+  tournerDroite: <><path d="M5 12a7 7 0 102.05-4.95" /><path d="M5 4v4h4" /></>,
+  // Un corps (le bloc) et la fleche qui le tourne : tourner le corps, pas la vue (mode Toit).
+  tournerCorps: <><path d="M8 10.5l7.5-2 1.8 6.8-7.5 2z" /><path d="M4.5 13A8 8 0 0110 4.6" /><path d="M10 4.6L7.4 3.4M10 4.6l-1.1 2.6" /></>,
+  // La vue de dessus : un toit a croupes vu d'en haut, son faitage et ses aretiers.
+  vueDessus: <><rect x="3.5" y="6" width="17" height="12" rx="1" /><path d="M3.5 6L9 12l-5.5 6M20.5 6L15 12l5.5 6M9 12h6" /></>,
+  // Le toit d'avant les changements : la maison, une fleche de retour dedans.
+  toitAvant: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M14.5 16h-5M9.5 16l2-2M9.5 16l2 2" /></>,
   ajuster: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
+  // La maison au milieu des coins du cadre : la camera revient sur le batiment (mode Toit).
+  recadrer: <><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5" /><path d="M7 12.5L12 8l5 4.5M8.5 11.5V16h7v-4.5" /></>,
   // Un objet plein au milieu de coins pointilles : ce qu'on garde, et ce qu'on met de cote.
+  toit: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>,
   isoler: <><rect x="8" y="8" width="8" height="8" rx="1" /><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3" strokeDasharray="2 2" /></>,
   nord: <><circle cx="12" cy="12" r="8.5" /><path d="M12 5.5l3 8h-6z" fill="currentColor" /></>,
   oeil: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
@@ -70,7 +93,9 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   engrenage: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" /></>,
   camera: <><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z" /><circle cx="12" cy="13" r="3.5" /></>,
   coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
-  etiquette: <><path d="M3.5 12.5V4.5a1 1 0 011-1h8l8 8-9 9z" /><circle cx="8" cy="8" r="1.4" /></>
+  etiquette: <><path d="M3.5 12.5V4.5a1 1 0 011-1h8l8 8-9 9z" /><circle cx="8" cy="8" r="1.4" /></>,
+  // Le point d'exclamation : une etape a confirmer (la barre de progression des facades), une forme et pas seulement une couleur.
+  alerte: <><path d="M12 4l9 16H3z" /><path d="M12 10v4.5M12 17.5h.01" /></>
 };
 
 export function Icone({ nom, taille = 22 }: { nom: NomIcone; taille?: number }) {

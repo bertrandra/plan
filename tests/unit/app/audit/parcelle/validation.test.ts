@@ -1,0 +1,416 @@
+import { describe, it, expect, vi } from 'vitest';
+import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/parcelle/validation.js';
+import type { DependancesMesures } from '../../../../../src/app/audit/parcelle/mesures.js';
+import { tauxAutomatique } from '../../../../../src/app/audit/parcelle/arbitrages.js';
+import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
+import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
+import { creerHistorique } from '../../../../../src/core/historique.js';
+import { serializeObjects, serializeMeasures } from '../../../../../src/io/serialisation.js';
+import { normalizeObjects } from '../../../../../src/model/normalisation.js';
+import { clotureDImport, clotureDe } from '../../../../../src/model/cloture.js';
+import type { EtatApp } from '../../../../../src/core/state.js';
+import type { PropositionAuditee } from '../../../../../src/model/fichierAuditParcelle.js';
+import { champsBatiment } from '../../../../../src/model/champsFonction.js';
+import type { CorpsToit, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+
+// La validation des propositions (MD/spec-audit.md §14) avec le vrai historique : l'apercu ne touche
+// pas le projet, « Valider » ecrit tout ce qui est coche en un seul pas, Ctrl+Z le defait au bit pres.
+
+const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
+const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
+
+function monter(mesures?: DependancesMesures) {
+  const objets = normalizeObjects([
+    obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 }, cloture: clotureDImport(rect(0, 0, 20, 30), 0) }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  }),
+  ] as ObjetBrut[]) as ObjetPlan[];
+  const etat = { objects: objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
+  const historique = creerHistorique(etat as never, {
+    serializeObjects: (o) => serializeObjects(o as ObjetPlan[]), serializeMeasures: (m) => serializeMeasures(m as never),
+    normalizeObjects: (b) => normalizeObjects(b) as never, detruireVue: () => {}, createObjectDOM: () => {}, rebuildHandles: () => {},
+    reapplyStackingOrder: () => {}, rebuildSelector: () => {}, render: () => {}, boutonAnnuler: () => null,
+  });
+  const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
+  // Ce que l'on a vu : brique, ardoise, deux cheminees, un mur de 1,60 m sur rue ; aucune photo.
+  capture.noterVu('maison', { forme: 'deux-pans', murs: 'brique', couverture: 'ardoise', cheminees: { nombre: 2, souches: [{ position: 'faitage' }, { position: 'pan' }] } });
+  capture.noterCloture({ type: 'mur', hauteurM: 1.6 });
+  const remplacer3d = vi.fn<ProjetAudit['remplacer3d']>(() => true);
+  const projet: ProjetAudit = { pushHistory: () => historique.empiler(), render: vi.fn(), refaire3d: vi.fn(), remplacer3d };
+  const messages: string[] = [];
+  const v = creerValidation({
+    etat, capture, liste: () => listeDeControle(etat.objects, capture.lire()), projet, signaler: (m) => messages.push(m),
+    maintenant: () => new Date('2026-10-13T09:00:00Z'),
+    mesures: mesures ?? { pixels: async () => null, chercherCoins: async () => ({ distorsion: null, coins: null }), jpeg: () => '', limites: () => [] },
+  });
+  const plan = () => JSON.stringify(serializeObjects(etat.objects));
+  return { etat, historique, capture, projet, remplacer3d, v, messages, plan };
+}
+
+describe('la validation des propositions', () => {
+  it('montre l apercu dans la Vue 3D sans toucher le projet', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const avant = t.plan();
+    expect(t.v.propositions().map((p) => p.id)).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:cheminees', 'parcelle:cloture']);
+    t.v.montrer('apres');
+    const [cles, objets] = t.remplacer3d.mock.calls.at(-1) ?? [];
+    expect(cles).toEqual(['maison']);
+    const copie = objets?.find((o) => o.key === 'maison');
+    expect(copie).not.toBe(t.etat.objects[1]);
+    expect(copie?.batiment?.toit?.couverture).toBe('ardoise');
+    expect(copie?.batiment?.corpsToit?.[0]?.cheminees).toHaveLength(2);
+    // Decocher une ligne : l'apercu suit.
+    t.v.basculer('maison:couverture');
+    expect(t.remplacer3d.mock.calls.at(-1)?.[1]?.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
+    t.v.montrer('avant');
+    expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+    expect(t.plan()).toBe(avant);
+    expect(t.etat.dirty).toBe(false);
+    expect(t.historique.pile.taille).toBe(0);
+  });
+
+  it('ecrit ce qui est coche en un seul pas d historique, que Ctrl+Z defait au bit pres', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const avant = t.plan();
+    t.v.basculer('maison:couverture');
+    const r = t.v.valider();
+    expect(r).toEqual({ ecrites: 3, verifies: 0 });
+    expect(t.historique.pile.taille).toBe(1);
+    expect(t.etat.dirty).toBe(true);
+    const maison = t.etat.objects.find((o) => o.key === 'maison');
+    expect(maison?.batiment?.couleurMurs?.materiau).toBe('brique');
+    expect(maison?.batiment?.toit?.couverture).toBeUndefined();
+    expect(maison?.batiment?.corpsToit?.[0]?.cheminees?.map((c) => c.position)).toEqual(['faitage', 'pan']);
+    expect(clotureDe(t.etat.objects[0] as ObjetPlan).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });
+    expect(t.projet.render).toHaveBeenCalledOnce();
+    expect(t.projet.refaire3d).toHaveBeenCalledOnce();
+    expect(t.messages.at(-1)).toBe('3 changements écrits dans le projet. Ctrl+Z les défait.');
+    // La decision est gardee avec la capture, pour le fichier de l'audit.
+    const decisions = t.capture.lire().decisions ?? [];
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]).toMatchObject({ t: '2026-10-13T09:00:00.000Z', acceptees: ['maison:materiauMurs', 'maison:cheminees', 'parcelle:cloture'], refusees: ['maison:couverture'], verifies: [] });
+    // Les propositions telles qu'elles etaient : une fois ecrites, elles ne se proposent plus.
+    expect(decisions[0]?.propositions?.map((p) => p.id)).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:cheminees', 'parcelle:cloture']);
+    // Ce qui est ecrit survit a un enregistrement.
+    expect(t.plan()).toContain('"materiau":"brique"');
+    t.historique.annuler();
+    expect(t.plan()).toBe(avant);
+    expect(t.historique.pile.taille).toBe(0);
+  });
+
+  it('marque verifie sur place un batiment dont toit et facades sont vus, et le garde a l enregistrement', async () => {
+    const t = monter();
+    for (const f of listeDeControle(t.etat.objects, t.capture.lire()).batiments[0]?.facades ?? []) t.capture.basculerInaccessible('maison', f.cote, false);
+    await t.v.lancer();
+    expect(t.v.verifications()).toEqual([{ cle: 'maison', nom: 'maison', verifie: false, raison: 'aucune façade photographiée' }]);
+    t.capture.ajouterPhotoFacade('maison', 0, { type: 'image/jpeg', base64: 'AAAA' });
+    await t.v.lancer();
+    expect(t.v.verifications()[0]?.verifie).toBe(true);
+    expect(t.v.valider()?.verifies).toBe(1);
+    const relu = normalizeObjects(serializeObjects(t.etat.objects) as ObjetBrut[]).find((o) => o.key === 'maison');
+    expect(relu?.batiment?.verifieSurPlace).toEqual({ date: '2026-10-13' });
+    t.historique.annuler();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.verifieSurPlace).toBeUndefined();
+  });
+
+  it('surligne la ligne choisie dans la 3D et la montre dans « Après » meme decochee ; fermer l oublie', async () => {
+    const t = monter();
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
+    const surligner3d = vi.fn<NonNullable<ProjetAudit['surligner3d']>>(() => true);
+    Object.assign(t.projet, { comparer3d, surligner3d });
+    await t.v.lancer();
+    t.v.synchroniser();
+    t.v.basculer('maison:couverture');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
+    t.v.selectionner('maison:couverture');
+    expect(t.v.selection()).toBe('maison:couverture');
+    expect(t.v.cochee('maison:couverture')).toBe(false);
+    // Decochee, elle se voit dans « Après » le temps d'etre choisie ; rien ne s'ecrit pour autant.
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBe('ardoise');
+    const s = surligner3d.mock.calls.at(-1)?.[0];
+    // Le toit seul : de l'egout (au-dessus du sol) au faitage.
+    expect(s?.formes[0]).toMatchObject({ haut: 9, ferme: true });
+    expect(s?.formes[0]?.bas).toBeGreaterThan(0);
+    expect(s?.formes[0]?.pts).toHaveLength(4);
+    t.v.selectionner(null);
+    expect(surligner3d.mock.calls.at(-1)?.[0]).toBeNull();
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
+    t.v.selectionner('maison:cheminees');
+    t.v.oublierApercu();
+    expect(t.v.selection()).toBeNull();
+    expect(surligner3d.mock.calls.at(-1)?.[0]).toBeNull();
+  });
+
+  it('montre par defaut l avant et l apres en deux vues, qui suivent les cases', async () => {
+    const t = monter();
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
+    const cadrer3d = vi.fn<NonNullable<ProjetAudit['cadrer3d']>>();
+    Object.assign(t.projet, { comparer3d, cadrer3d });
+    await t.v.lancer();
+    const avant = t.plan();
+    expect(t.v.apercu()).toBe('deux');
+    t.v.synchroniser();
+    const apres = comparer3d.mock.calls.at(-1)?.[0];
+    expect(apres?.cles).toEqual(['maison']);
+    // L'apres est fait de copies : la maison avec l'ardoise et ses cheminees, la parcelle avec le mur.
+    const maison = apres?.objets.find((o) => o.key === 'maison');
+    expect(maison).not.toBe(t.etat.objects[1]);
+    expect(maison?.batiment?.toit?.couverture).toBe('ardoise');
+    expect(apres?.parcelle).not.toBe(t.etat.objects[0]);
+    expect(clotureDe(apres?.parcelle as ObjetPlan).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });
+    expect(t.plan()).toBe(avant);
+    // Rien n'a change : rien ne se repose.
+    t.v.synchroniser();
+    expect(comparer3d).toHaveBeenCalledTimes(1);
+    // Decocher : l'apres suit, sans la couverture.
+    t.v.basculer('maison:couverture');
+    expect(comparer3d).toHaveBeenCalledTimes(2);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
+    // La cloture decochee : la parcelle ne se compare plus.
+    t.v.basculer('parcelle:cloture');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.parcelle).toBeNull();
+    // L'ecran dit ou il est ; les deux vues l'evitent.
+    t.v.cadrer({ left: 0, top: 400, right: 390, bottom: 840 });
+    expect(cadrer3d).toHaveBeenLastCalledWith({ left: 0, top: 400, right: 390, bottom: 840 });
+    // « Après » seul : les deux vues se ferment, les copies remplacent les batiments.
+    t.v.montrer('apres');
+    expect(comparer3d).toHaveBeenLastCalledWith(null);
+    expect(t.remplacer3d.mock.calls.at(-1)?.[0]).toEqual(['maison']);
+    // De nouveau les deux : le batiment repose revient au plan, puis les deux vues.
+    t.v.montrer('deux');
+    expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.cles).toEqual(['maison']);
+    // L'ecran se ferme : la Vue 3D revient au plan ; le choix reste pour la prochaine fois.
+    t.v.oublierApercu();
+    expect(comparer3d).toHaveBeenLastCalledWith(null);
+    expect(t.v.apercu()).toBe('deux');
+    expect(t.plan()).toBe(avant);
+    expect(t.historique.pile.taille).toBe(0);
+  });
+
+  it('repose les deux vues quand la Vue 3D arrive, et les ferme avant d ecrire', async () => {
+    const t = monter();
+    let scene = false;
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>((a) => scene || a === null);
+    Object.assign(t.projet, { comparer3d });
+    await t.v.lancer();
+    // Pas encore de scene : la Vue 3D s'ouvre.
+    t.v.synchroniser();
+    expect(comparer3d).toHaveBeenCalledTimes(1);
+    scene = true;
+    t.v.reposer();
+    expect(comparer3d).toHaveBeenCalledTimes(2);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.cles).toEqual(['maison']);
+    const ordre: string[] = [];
+    comparer3d.mockImplementation((a) => { ordre.push(a ? 'comparer' : 'fermer'); return true; });
+    const empiler = t.projet.pushHistory;
+    t.projet.pushHistory = () => { ordre.push('historique'); empiler(); };
+    expect(t.v.valider()?.ecrites).toBe(4);
+    expect(ordre).toEqual(['fermer', 'historique']);
+  });
+
+  it('n ecrit rien quand rien n est coche', async () => {
+    const t = monter();
+    await t.v.lancer();
+    for (const p of t.v.propositions()) t.v.basculer(p.id);
+    expect(t.v.valider()).toBeNull();
+    expect(t.historique.pile.taille).toBe(0);
+    expect(t.messages.at(-1)).toMatch(/^Aucune proposition cochée/);
+  });
+});
+
+describe('la main de la personne sur les arbitrages', () => {
+  // La forme du toit est vue sur place (deux-pans) : l'arbitrage existe, il n'y a rien a changer. La hauteur, elle, se force.
+  const attr = (t: ReturnType<typeof monter>, id: string) => t.v.arbitrages().flatMap((b) => b.arbitrages).find((a) => a.attribut === id);
+  const hauteur = (t: ReturnType<typeof monter>) => t.v.propositions().find((x) => x.id === 'maison:hauteur');
+
+  it('liste les sources d un attribut meme quand rien n est a changer', async () => {
+    const t = monter();
+    await t.v.lancer();
+    expect(attr(t, 'formeToit')?.decision).toBe('rien');
+    expect(attr(t, 'formeToit')?.options?.map((o) => o.libelle)).toContain('Plat (terrasse)');
+  });
+
+  it('forcer une valeur cree la proposition, la coche, et n ecrit rien avant Valider', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const avant = t.plan();
+    expect(hauteur(t)).toBeUndefined();
+    t.v.decider('batiment:maison', 'hauteurEgout', { type: 'force', valeur: 7.4 });
+    expect(attr(t, 'hauteurEgout')?.decision).toBe('forcee');
+    expect(hauteur(t)).toBeDefined();
+    expect(t.v.cochee('maison:hauteur')).toBe(true);
+    expect(t.plan()).toBe(avant);
+  });
+
+  it('reprendre le choix du moteur retire la proposition et sa case', async () => {
+    const t = monter();
+    await t.v.lancer();
+    t.v.decider('batiment:maison', 'hauteurEgout', { type: 'force', valeur: 7.4 });
+    t.v.decider('batiment:maison', 'hauteurEgout', null);
+    expect(hauteur(t)).toBeUndefined();
+    expect(t.v.cochee('maison:hauteur')).toBe(false);
+  });
+
+  it('valider ecrit la valeur forcee dans le projet, et Ctrl+Z la defait', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const avant = t.plan();
+    t.v.decider('batiment:maison', 'hauteurEgout', { type: 'force', valeur: 7.4 });
+    t.v.valider();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.elevation).toBe(7.4);
+    t.historique.annuler();
+    expect(t.plan()).toBe(avant);
+  });
+});
+
+describe('le taux de decisions automatiques', () => {
+  it('compte ce que le moteur tranche seul, ce qui attend, ce que la personne a pris ; « rien » n entre pas', () => {
+    const t = tauxAutomatique([{ decision: 'auto' }, { decision: 'auto' }, { decision: 'manuelle' }, { decision: 'forcee' }, { decision: 'rien' }]);
+    expect(t).toEqual({ decides: 4, auto: 2, manuelles: 1, main: 1, part: 0.5 });
+    expect(tauxAutomatique([{ decision: 'rien' }]).part).toBe(1);
+  });
+});
+
+describe('la consultation d un audit recu (Admin › Audits)', () => {
+  /** Les propositions d'une session ordinaire, avec ce qu'un audit recu en a decide. */
+  async function fichier(decisions: Record<string, 'validee' | 'refusee' | null>) {
+    const source = monter();
+    await source.v.lancer();
+    return source.v.propositions().map((p) => ({ ...p, decision: decisions[p.id] ?? null }));
+  }
+
+  it('prend les propositions et les decisions du fichier : validee cochee, refusee et en attente decochees', async () => {
+    const propositions = await fichier({ 'maison:materiauMurs': 'validee', 'maison:couverture': 'refusee', 'maison:cheminees': 'validee' });
+    const t = monter();
+    expect(t.v.lectureSeule()).toBe(false);
+    t.v.figer(propositions);
+    expect(t.v.lectureSeule()).toBe(true);
+    expect(t.v.propositions().map((p) => p.id)).toEqual(propositions.map((p) => p.id));
+    expect(t.v.propositions().every((p) => !('decision' in p))).toBe(true);
+    expect(propositions.map((p) => t.v.cochee(p.id))).toEqual([true, false, true, false]);
+    expect(propositions.map((p) => t.v.decision(p.id))).toEqual(['validee', 'refusee', 'validee', null]);
+    expect(t.v.mesures()).toEqual({ etat: 'pretes' });
+  });
+
+  it('sans aucune decision, garde les cases par defaut de l audit', async () => {
+    const propositions = await fichier({});
+    const t = monter();
+    t.v.figer(propositions);
+    expect(propositions.map((p) => t.v.cochee(p.id))).toEqual([true, true, true, true]);
+    expect(t.v.decision('maison:couverture')).toBeNull();
+  });
+
+  it('ne laisse rien cocher ni ecrire : le projet, l historique et les messages restent intacts', async () => {
+    const t = monter();
+    t.v.figer(await fichier({ 'maison:materiauMurs': 'validee' }));
+    const avant = t.plan();
+    t.v.basculer('maison:couverture');
+    expect(t.v.cochee('maison:couverture')).toBe(false);
+    expect(t.v.valider()).toBeNull();
+    expect(t.plan()).toBe(avant);
+    expect(t.historique.pile.taille).toBe(0);
+    expect(t.messages).toEqual([]);
+    expect(t.projet.render).not.toHaveBeenCalled();
+    expect(t.capture.lire().decisions ?? []).toEqual([]);
+  });
+
+  it('montre l apres avec ce que l audit a valide : le meme apercu que la validation', async () => {
+    const t = monter();
+    t.v.figer(await fichier({ 'maison:materiauMurs': 'validee', 'maison:couverture': 'refusee' }));
+    t.v.montrer('apres');
+    const [cles, objets] = t.remplacer3d.mock.calls.at(-1) ?? [];
+    expect(cles).toEqual(['maison']);
+    const copie = objets?.find((o) => o.key === 'maison');
+    expect(copie?.batiment?.couleurMurs?.materiau).toBe('brique');
+    expect(copie?.batiment?.toit?.couverture).toBeUndefined();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.couleurMurs?.materiau).toBeUndefined();
+    t.v.montrer('avant');
+    expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+  });
+});
+
+describe('l apercu ne touche pas le projet, consultation comprise (details des ouvertures)', () => {
+  const RELEVE = {
+    cote: 0, largeur: 10, hauteur: 6, texture: null, hauteurTexture: 6, distance: 8, sourceDistance: 'gps' as const, releveLe: '2026-10-13T09:00:00Z',
+    ouvertures: [{ type: 'fenetre' as const, x: 1, y: 1, l: 1.2, h: 1.5 }], partieBasse: null,
+  };
+  const details: PropositionAuditee = {
+    id: 'maison#0:details', cible: { type: 'facade', cle: 'maison', cote: 0 }, objet: 'Façade sud', avant: '', apres: 'volets roulants', source: 'claude', indices: [],
+    confiance: 1, remplaceChoix: null, reserve: null, effet: { type: 'detailsOuvertures', cote: 0, details: { volets: 'roulant' } }, decision: 'validee',
+  };
+
+  it('en consultation (Admin › Audits), ni l apres ni les deux vues ne changent le releve du plan', () => {
+    const t = monter();
+    champsBatiment(t.etat.objects[1] as ObjetPlan).facades = [JSON.parse(JSON.stringify(RELEVE))];
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
+    Object.assign(t.projet, { comparer3d });
+    t.v.figer([details]);
+    const avant = t.plan();
+    t.v.montrer('apres');
+    expect(t.remplacer3d.mock.calls.at(-1)?.[1]?.find((o) => o.key === 'maison')?.batiment?.facades?.[0]?.ouvertures[0]?.details).toMatchObject({ volets: 'roulant' });
+    t.v.montrer('deux');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.facades?.[0]?.ouvertures[0]?.details).toMatchObject({ volets: 'roulant' });
+    t.v.montrer('avant');
+    expect(t.plan()).toBe(avant);
+    expect(t.etat.objects[1]?.batiment?.facades?.[0]?.ouvertures[0]?.details).toBeUndefined();
+    expect(t.etat.dirty).toBe(false);
+    expect(t.historique.pile.taille).toBe(0);
+  });
+});
+
+describe('« Rejouer redressement + fusion »', () => {
+  it('refait les images derivees sans toucher aux photos ni aux corrections', async () => {
+    let lectures = 0;
+    const t = monter({ pixels: async () => { lectures++; return null; }, chercherCoins: async () => ({ distorsion: null, coins: null }), jpeg: () => '', limites: () => [] });
+    const f = listeDeControle(t.etat.objects, t.capture.lire()).batiments[0]!.facades.find((x) => x.statut !== 'mitoyenne')!;
+    const photo = { type: 'image/jpeg' as const, base64: 'AAAA', prise: { t: '2026-10-13T09:00:00Z', x: 10, y: 2, lat: null, lon: null, precisionM: 4, azimutDeg: 0, sourceAzimut: 'boussole' as const, inclinaisonDeg: 5, roulisDeg: 0, champDeg: 67 } };
+    t.capture.ajouterPhotoFacade('maison', f.cote, photo);
+    t.capture.ajouterPhotoFacade('maison', f.cote, { ...photo, base64: 'BBBBB' });
+    t.capture.corrigerRedressement('maison', f.cote, 1, { echelleLargeurM: 9 });
+    await t.v.lancer();
+    const premieres = lectures;
+    expect(premieres).toBeGreaterThan(0);
+    // Sans rejeu, une seconde analyse ne refait rien : les mesures sont gardees.
+    await t.v.lancer();
+    expect(lectures).toBe(premieres);
+    const photosAvant = JSON.stringify(t.capture.lire().batiments['maison']?.facades[String(f.cote)]);
+    expect(await t.v.rejouerFacade('maison', f.cote)).toBe(1);
+    expect(lectures).toBeGreaterThan(premieres);
+    // Les originaux et la correction manuelle sont intacts.
+    expect(JSON.stringify(t.capture.lire().batiments['maison']?.facades[String(f.cote)])).toBe(photosAvant);
+    expect(t.capture.lire().batiments['maison']?.facades[String(f.cote)]?.corrections?.['1']).toEqual({ echelleLargeurM: 9 });
+    // Une facade qui n'a pas de photo n'est pas rejouee ; tout l'audit rejoue les facades photographiees.
+    expect(await t.v.rejouerFacade('maison', 99)).toBe(0);
+    expect(await t.v.rejouerFacade()).toBe(1);
+  });
+
+  it('décocher une confirmation rend la valeur d’avant ; « Réinitialiser » rend toutes les confirmations, et rien d’autre', () => {
+    const t = monter();
+    const vu = () => t.capture.lire().batiments['maison']?.vu;
+    expect(t.v.aDesDecisions()).toBe(false);
+    expect(t.v.aDesConfirmations()).toBe(false);
+    t.v.confirmerObservation('maison', 'maison:obs:forme', { forme: 'croupes' } as never);
+    t.v.confirmerObservation('maison', 'maison:obs:silhouettes', { bouts: 'pignons' } as never);
+    expect(vu()).toMatchObject({ forme: 'croupes', bouts: 'pignons' });
+    expect(t.v.aDesConfirmations()).toBe(true);
+    // Une seule case decochee : sa valeur revient, l'autre confirmation reste.
+    t.v.annulerConfirmation('maison', 'maison:obs:forme', { forme: 'croupes' } as never);
+    expect(vu()?.forme).toBe('deux-pans');
+    expect(vu()?.bouts).toBe('pignons');
+    // Une note a la main, ailleurs, reste ; « Réinitialiser mes decisions » rend l'autre confirmation.
+    t.capture.noterVu('maison', { ...vu(), murs: 'pierre' });
+    t.v.reinitialiser();
+    expect(vu()?.bouts).toBeUndefined();
+    expect(vu()?.murs).toBe('pierre');
+    expect(t.v.aDesDecisions()).toBe(false);
+    // Le bouton du bas de « Vu par Claude » ne rend que les confirmations.
+    t.v.confirmerObservation('maison', 'maison:obs:forme', { forme: 'croupes' } as never);
+    t.v.basculer('maison:couverture');
+    t.v.reinitialiserConfirmations();
+    expect(vu()?.forme).toBe('deux-pans');
+    expect(t.v.cochee('maison:couverture')).toBe(false);
+  });
+});

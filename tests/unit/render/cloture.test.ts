@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { dessinerCloture } from '../../../src/render/cloture.js';
+import { dessinerCloture, margeAcces } from '../../../src/render/cloture.js';
 import { clotureDe, nouveauPortail, reglerCote } from '../../../src/model/cloture.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -82,5 +82,22 @@ describe('poignee d\'un acces', () => {
     expect(poignees.map(x => x.getAttribute('data-index'))).toEqual(['0', '1']);
     expect(poignees[0]?.getAttribute('pointer-events')).toBe('all');
     expect(poignees[1]?.querySelector('title')?.textContent).toMatch(/^Portillon : glisser/);
+  });
+});
+
+describe('la cloture en metres (etape 2.3)', () => {
+  it('dessinee en metres, seule la poignee d un acces lit l echelle de l ecran : 14 px de part et d autre, 40 cm au moins', () => {
+    expect(margeAcces(10)).toBeCloseTo(1.4, 9);
+    expect(margeAcces(100)).toBe(0.4);
+    const p = parcelle();
+    clotureDe(p, true).portails.push({ ...nouveauPortail('portail', 0, 20), x: 5, largeur: 3 });
+    const poignee = (echelleEcran: number) => {
+      const groupe = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      dessinerCloture(groupe, { scene: { scale: 1 } }, (q) => ({ x: q.x, y: -q.y }), p, echelleEcran);
+      return groupe.querySelector('[data-role="acces"]')?.getAttribute('points');
+    };
+    // Le cote sud : la poignee deborde de la marge vers l'exterieur (y du plan negatif, donc y du calque positif).
+    expect(poignee(10)?.split(' ')[0]?.split(',')[1]).toBe('1.4');
+    expect(poignee(100)?.split(' ')[0]?.split(',')[1]).toBe('0.4');
   });
 });

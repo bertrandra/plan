@@ -16,8 +16,8 @@ export const MAX_ARBRES_ESTIMES = 60;
 
 /** Hauteur par defaut d'une hauteur de batiment absente : un niveau et demi. */
 const HAUTEUR_BATIMENT_DEFAUT = 2.5;
-/** Hauteur d'etage retenue pour deduire une hauteur d'un nombre de niveaux. */
-const HAUTEUR_ETAGE_M = 2.7;
+/** La hauteur d'un niveau, en metres, quand seul le nombre d'etages est connu ; la vue 3D s'en sert pour poser les fenetres. */
+export const HAUTEUR_ETAGE_M = 2.7;
 
 /**
  * Hauteur a retenir pour un batiment, dans l'ordre : celle mesuree, sinon celle deduite du nombre
@@ -33,6 +33,17 @@ export function hauteurBatiment(props: Record<string, unknown>): number {
   const etages = nombreFr(props.nombre_d_etages);
   if (etages && etages > 0) return Math.round(etages * HAUTEUR_ETAGE_M * 10) / 10;
   return HAUTEUR_BATIMENT_DEFAUT;
+}
+
+/**
+ * Les materiaux des murs et de la toiture que la BD TOPO reprend des fichiers fonciers (codes a deux
+ * chiffres, model/couleurMur.ts), poses seulement quand ils existent : un import sans eux garde sa
+ * forme d'avant au caractere pres.
+ */
+export function materiauxBdTopo(props: Record<string, unknown>): { materiauxMurs?: string; materiauxToiture?: string } {
+  const murs = typeof props.materiaux_des_murs === 'string' ? props.materiaux_des_murs.trim() : '';
+  const toit = typeof props.materiaux_de_la_toiture === 'string' ? props.materiaux_de_la_toiture.trim() : '';
+  return { ...(murs ? { materiauxMurs: murs } : {}), ...(toit ? { materiauxToiture: toit } : {}) };
 }
 
 /** Hauteurs typiques par nature de vegetation, en metres. */

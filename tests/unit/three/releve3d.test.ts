@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ajouterReleve3d } from '../../../src/three/releve3d.js';
-import type { ObjetPolygone } from '../../../src/model/types.js';
+import { corpsDeSaillie, retraitsDuRdc } from '../../../src/facade/modeToit/saillies.js';
+import type { CorpsToit, ObjetPolygone, OuvertureFacade } from '../../../src/model/types.js';
 
 // Un THREE minimal : chaque classe retient ce qu'on lui donne, la scene compte ce qu'on lui ajoute.
 // Ce qu'on verifie ici n'est pas le rendu mais la structure : combien de mailles, lesquelles, et
@@ -17,10 +18,13 @@ class Geo {
   setIndex(i: number[]) {
     this.index = i;
   }
+  addGroup() {}
   computeVertexNormals() {}
 }
 class Mesh {
   name = '';
+  visible = true;
+  userData: Record<string, unknown> = {};
   position = { set() {} };
   rotation = { y: 0 };
   constructor(
@@ -45,6 +49,13 @@ beforeAll(() => {
       }
     },
     DoubleSide: 2,
+    // Un groupe retient ce qu'on y ajoute : une ouverture de la facade objet en est un (lot F5).
+    Group: class {
+      name = '';
+      userData: Record<string, unknown> = {};
+      enfants: unknown[] = [];
+      add(m: unknown) { this.enfants.push(m); }
+    },
   };
 });
 
@@ -67,6 +78,63 @@ function scene() {
 }
 
 describe('ajouterReleve3d', () => {
+  it('pose chaque ouverture de la facade objet dans un groupe nomme par son identifiant ; une ouverture d avant reste dans la scene (lot F5)', () => {
+    const ouvertures = [
+      { type: 'fenetre' as const, x: 1, y: 1, l: 1.2, h: 1.3, id: 'o1', verifieeLe: '2026-10-29' },
+      { type: 'porte' as const, x: 4, y: 0, l: 1, h: 2.1 },
+    ];
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, facades: [{ cote: 0, largeur: 10, hauteur: 3, texture: null, ouvertures, distance: null, sourceDistance: null, releveLe: '' }] } }, 3);
+    const groupes = ajoutes.filter((m) => m.name.startsWith('ouverture:')) as unknown as { name: string; userData: unknown; enfants: unknown[] }[];
+    expect(groupes.map((g) => [g.name, g.userData])).toEqual([['ouverture:o1', { ouverture: 'o1', verifiee: true }]]);
+    // L'encadrement (linteau, deux montants, appui) et la vitre de la fenetre sont dans son groupe ; ceux de la porte, dans la scene.
+    expect(groupes[0]!.enfants).toHaveLength(5);
+    expect(ajoutes.filter((m) => !m.name.startsWith('ouverture:'))).toHaveLength(4);
+  });
+
+  it('pose une baie lue sous le pignon d un corps voisin sur le mur de ce corps, ou V4 l a ecrite ; laissee sur le mur photographie, elle est omise', () => {
+    // Une maison en L vue du sud (facade/releve/murVoisin.ts) : le mur photographie (cote 0, 5 m) et le mur du corps voisin (cote 1, 3 m).
+    const enL = { ...maison(), pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }] };
+    const baie = { type: 'fenetre' as const, y: 0.9, l: 1.1, h: 1.3 };
+    const releve = (cote: number, largeur: number, x: number, id: string) => ({ cote, largeur, hauteur: 3, texture: null, ouvertures: [{ ...baie, x, id }], distance: null, sourceDistance: null, releveLe: '' });
+    const posee = scene();
+    ajouterReleve3d(posee.ctx, { ...enL, batiment: { facades: [releve(0, 5, 1, 'o1'), releve(1, 3, 0.8, 'o2')] } }, 3);
+    expect(posee.ajoutes.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name)).toEqual(['ouverture:o1', 'ouverture:o2']);
+    const laissee = scene();
+    ajouterReleve3d(laissee.ctx, { ...enL, batiment: { facades: [{ ...releve(0, 5, 1, 'o1'), ouvertures: [{ ...baie, x: 1, id: 'o1' }, { ...baie, x: 5.8, id: 'o2' }] }] } }, 3);
+    expect(laissee.ajoutes.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name)).toEqual(['ouverture:o1']);
+  });
+
+  it('pose les carreaux d une ouverture de la facade validee dans son groupe : a plat pour l export, en relief de pres (lot F8)', () => {
+    // La fenetre d'AE 101 sud (tests/fixtures/facades-ia/ae101-sud-synthetique.json) : deux vantaux d'un carreau sur trois, petits
+    // bois fins, une imposte du quart de la baie a quatre carreaux.
+    const carreaux = { vantaux: 2 as const, grille: { colonnes: 1, rangees: 3 }, petitsBois: 'fins' as const, imposte: { hauteurM: 0.35, grille: { colonnes: 4, rangees: 1 } }, vitrage: 'clair' as const, source: 'ia' as const };
+    const facade = (relief: boolean, avecCarreaux: boolean) => {
+      const { ajoutes, ctx } = scene();
+      const ov = { type: 'fenetre' as const, x: 1, y: 1, l: 1.2, h: 1.4, id: 'o1', verifieeLe: '2026-10-29', ...(avecCarreaux ? { details: { carreaux } } : {}) };
+      ajouterReleve3d({ ...ctx, relief }, { ...maison(), batiment: { facades: [{ cote: 0, largeur: 10, hauteur: 3, texture: null, ouvertures: [ov], distance: null, sourceDistance: null, releveLe: '' }] } }, 3);
+      return (ajoutes.find((m) => m.name === 'ouverture:o1') as unknown as { enfants: Mesh[] }).enfants;
+    };
+    const tri = (m: Mesh | undefined) => (m ? m.geometry.index.length / 3 : 0);
+    // Sans carreaux : l'encadrement et la vitre, rien de plus, en relief comme a plat.
+    expect(facade(true, false).map((m) => m.name)).toEqual(facade(false, false).map((m) => m.name));
+    expect(facade(true, false)).toHaveLength(5);
+    // A plat (Econome, ou de loin) : une maille de neuf barres, deux triangles chacune, montree et exportee.
+    const plat = facade(false, true);
+    expect(plat).toHaveLength(6);
+    const p0 = plat.find((m) => m.name === 'releve-carreaux');
+    expect(tri(p0)).toBe(18);
+    expect(p0!.visible).toBe(true);
+    expect(plat.some((m) => m.name === 'releve-carreaux-relief')).toBe(false);
+    // De pres : la meme a plat, cachee, pour l'export seulement ; a l'ecran, les barres en relief (cinq faces), hors export.
+    const pres = facade(true, true);
+    const p1 = pres.find((m) => m.name === 'releve-carreaux'), r1 = pres.find((m) => m.name === 'releve-carreaux-relief');
+    expect(tri(p1)).toBe(18);
+    expect([p1!.visible, p1!.userData.exportSeulement]).toEqual([false, true]);
+    expect(tri(r1)).toBe(90);
+    expect(r1!.userData.horsExport).toBe(true);
+  });
+
   it("n'ajoute rien a un batiment sans releve", () => {
     const { ajoutes, ctx } = scene();
     ajouterReleve3d(ctx, maison(), 3);
@@ -75,7 +143,7 @@ describe('ajouterReleve3d', () => {
 
   it('pose un toit a deux pans et ses deux pignons', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } }, 3);
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 3);
     expect(ajoutes.map((m) => m.name).sort()).toEqual(['releve-pignon', 'releve-pignon', 'releve-toit', 'releve-toit']);
     // Le faitage est a 3 m au-dessus de l'egout (3 m) : aucun sommet de toit au-dela de 6 m.
     const ys = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 1));
@@ -83,9 +151,30 @@ describe('ajouterReleve3d', () => {
     expect(Math.min(...ys)).toBeCloseTo(3, 9);
   });
 
+  it('pose la couverture d un toit-terrasse, de sa couleur, en retrait des murs', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#8a8580', origineCouleur: 'orthophoto' } } }, 3);
+    expect(ajoutes.map((m) => m.name)).toEqual(['releve-toit-plat']);
+    const plat = ajoutes[0]!;
+    expect((plat.material as { p: { color: string } }).p.color).toBe('#8a8580');
+    const pos = plat.geometry.attributes.position!.array;
+    const xs = pos.filter((_, i) => i % 3 === 0), ys = pos.filter((_, i) => i % 3 === 1);
+    // 20 cm en retrait des murs (0 a 10 m), 2 cm au-dessus du dessus du prisme (3 m).
+    expect(Math.min(...xs)).toBeCloseTo(0.2, 6);
+    expect(Math.max(...xs)).toBeCloseTo(9.8, 6);
+    expect(ys.every((y) => Math.abs(y - 3.02) < 1e-9)).toBe(true);
+    // Le decalage de profondeur : vu de loin, la couverture ne scintille pas contre le prisme.
+    expect(plat.material).toMatchObject({ polygonOffset: true });
+    expect((plat.material as { polygonOffsetFactor: number }).polygonOffsetFactor).toBeLessThan(0);
+    // Rabattu sur une tuile par une lecture d'avant : gris.
+    const r = scene();
+    ajouterReleve3d(r.ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#B0432F', origineCouleur: 'rouge' } } }, 3);
+    expect((r.ajoutes[0]!.material as { p: { color: string } }).p.color).toBe('#6F7275');
+  });
+
   it('pose un toit a croupes, sans pignon (spec-toit-ign)', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, 3);
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } } }, 3);
     const toits = ajoutes.filter((m) => m.name === 'releve-toit');
     expect(toits.length).toBeGreaterThanOrEqual(4);
     expect(ajoutes.some((m) => m.name === 'releve-pignon')).toBe(false);
@@ -100,8 +189,8 @@ describe('ajouterReleve3d', () => {
       ctx,
       {
         ...maison(),
-        toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 },
-        facades: [{ cote: 1, largeur: 6, hauteur: 3, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 6, ouvertures: [], distance: 3, sourceDistance: 'cadrage', releveLe: '' }],
+        batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, facades: [{ cote: 1, largeur: 6, hauteur: 3, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 6, ouvertures: [], distance: 3, sourceDistance: 'cadrage', releveLe: '' }] },
+        
       },
       3,
     );
@@ -122,7 +211,7 @@ describe('ajouterReleve3d', () => {
       ctx,
       {
         ...maison(),
-        facades: [
+        batiment: { ...(maison()).batiment, facades: [
           {
             cote: 0,
             largeur: 10,
@@ -137,12 +226,39 @@ describe('ajouterReleve3d', () => {
             sourceDistance: null,
             releveLe: '',
           },
-        ],
+        ] },
       },
       3,
     );
     // Fenetre : linteau, deux montants, appui, vitre = 5 ; porte : linteau, deux montants, vantail = 4.
     expect(ajoutes).toHaveLength(9);
+  });
+});
+
+describe('ajouterReleve3d, baie de pignon', () => {
+  // Un deux-pans de 10 m sur 6, faitage le long de x a 8 m, egouts a 5 m : le mur est (cote 1, 6 m) est un pignon.
+  const corps: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 8, egouts: [5, 5], pignons: [], ecart: 0 };
+  const avecPignon = (ouvertures: OuvertureFacade[]): ObjetPolygone => ({
+    ...maison(),
+    batiment: { facades: [{ cote: 1, largeur: 6, hauteur: 5, texture: null, ouvertures, distance: null, sourceDistance: null, releveLe: '' }] },
+  });
+  const auMur: OuvertureFacade = { type: 'fenetre', x: 1, y: 0.9, l: 1.1, h: 1.3 };
+  const auPignon: OuvertureFacade = { type: 'fenetre', x: 2.5, y: 5.6, l: 1, h: 1 };
+  const dansLeCiel: OuvertureFacade = { type: 'fenetre', x: 0.2, y: 5.6, l: 1, h: 1 };
+
+  it('pose une baie du pignon (au-dessus de l egout, sous les rampants) quand les corps du toit disent le pignon', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, avecPignon([auMur, auPignon]), 5, null, false, [corps]);
+    // Chaque fenetre : linteau, deux montants, appui, vitre = 5.
+    expect(ajoutes).toHaveLength(10);
+  });
+  it('omet une baie qui sort de la silhouette (dans le ciel, a cote du rampant), et celle d un pignon sans corps', () => {
+    const avec = scene();
+    ajouterReleve3d(avec.ctx, avecPignon([auMur, dansLeCiel]), 5, null, false, [corps]);
+    expect(avec.ajoutes).toHaveLength(5);
+    const sans = scene();
+    ajouterReleve3d(sans.ctx, avecPignon([auMur, auPignon]), 5);
+    expect(sans.ajoutes).toHaveLength(5);
   });
 });
 
@@ -170,18 +286,205 @@ describe('ajouterReleve3d, mur en L', () => {
 
   it('pose la photo en L, et omet ce qui depasse de la partie basse', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...L, facades: [releveL] }, 6);
+    ajouterReleve3d(ctx, { ...L, batiment: { facades: [releveL] } }, 6);
     const mur = ajoutes.find((m) => m.name === 'releve-facade')!;
     expect(mur.geometry.attributes.position!.array).toHaveLength(6 * 3);
     // Fenetre haute : 4 pieces d'encadrement ; garage : 3 ; la fenetre dans le vide : aucune.
     expect(ajoutes.filter((m) => m.name === '')).toHaveLength(7);
   });
 
+  it('avec les corps du toit, le L est le leur : la partie basse ecrite par la chaine ne change pas la photo, et ecarte la baie dans le vide au-dessus du garage', () => {
+    // Les deux corps de cette maison (facade/profil.ts::partieBasseDuGabarit lit la marche sur leur gabarit) : la maison a 6 m, le garage a 3 m.
+    const corpsL: CorpsToit[] = [
+      { pts: [p(0, 0), p(6, 0), p(6, 8), p(0, 8)], posFaitage: 4, faitage: 8, egouts: [6, 6], pignons: [], ecart: 0 },
+      { pts: [p(6, 0), p(10, 0), p(10, 5), p(6, 5)], posFaitage: 2.5, faitage: 4, egouts: [3, 3], pignons: [], ecart: 0 },
+    ];
+    const ids = (r: typeof releveL) => r.ouvertures.map((o, i) => ({ ...o, id: 'o' + (i + 1) }));
+    const sans = scene(), avec = scene();
+    ajouterReleve3d(sans.ctx, { ...L, batiment: { facades: [{ ...releveL, ouvertures: ids(releveL), partieBasse: undefined as never }] } }, 6, null, false, corpsL);
+    ajouterReleve3d(avec.ctx, { ...L, batiment: { facades: [{ ...releveL, ouvertures: ids(releveL) }] } }, 6, null, false, corpsL);
+    // La photo (le releve-facade, sur la silhouette des corps) est la meme ; la fenetre haute et le garage sont poses. Celle au-dessus
+    // du garage (dans le vide) : sans partie basse, l'egout du mur haut la laissait passer ; la partie basse l'ecarte.
+    const photo = (a: Mesh[]) => a.filter((m) => m.name === 'releve-facade').map((m) => m.geometry.attributes.position?.array);
+    expect(photo(avec.ajoutes)).toEqual(photo(sans.ajoutes));
+    const groupes = (a: Mesh[]) => a.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name);
+    expect(groupes(sans.ajoutes)).toEqual(['ouverture:o1', 'ouverture:o2', 'ouverture:o3']);
+    expect(groupes(avec.ajoutes)).toEqual(['ouverture:o1', 'ouverture:o2']);
+  });
+
   it('coiffe la partie haute seulement', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...L, facades: [releveL], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } }, 6);
+    ajouterReleve3d(ctx, { ...L, batiment: { facades: [releveL], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } },  }, 6);
     const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
     // Repere local de ce test : x du plan tel quel. Aucun pan au-dela de la maison (x > 6).
     expect(Math.max(...xs)).toBeLessThanOrEqual(6 + 1e-9);
+  });
+});
+
+describe('ajouterReleve3d, partie haute au milieu', () => {
+  // Une maison de 12 x 8 m : un appentis de 3 m a l'ouest (egout 2,6 m), un garage de 3,4 m a l'est (egout 2,9 m), la partie haute au
+  // milieu a 5,6 m ; facade sud (cote 0) relevee avec ses deux parties basses (schema 13, model/partiesBasses.ts).
+  const M = { key: 'maison', name: 'Maison', type: 'polygon' as const, fonction: 'batiment', pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)] };
+  const releve = {
+    cote: 0, largeur: 12, hauteur: 5.6, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 7, distance: 15, sourceDistance: 'lidar' as const, releveLe: '',
+    ouvertures: [
+      { type: 'porte' as const, x: 1, y: 0, l: 0.9, h: 2 },
+      { type: 'fenetre' as const, x: 1, y: 3.6, l: 1.2, h: 1.35 }, // au-dessus de l'appentis : dans le vide
+      { type: 'fenetre' as const, x: 4, y: 3.6, l: 1.2, h: 1.35 },
+      { type: 'garage' as const, x: 9.1, y: 0, l: 2.4, h: 2.1 },
+      { type: 'fenetre' as const, x: 10, y: 3.6, l: 1.2, h: 1.35 }, // au-dessus du garage : dans le vide
+    ],
+    partieBasse: null,
+    partiesBasses: [{ debut: 0, fin: 3, hauteur: 2.6 }, { debut: 8.6, fin: 12, hauteur: 2.9 }],
+  };
+
+  it('pose la photo sur le mur a deux marches, et omet les baies dans le vide au-dessus des deux parties basses', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...M, batiment: { facades: [releve] } }, 5.6);
+    const mur = ajoutes.find((m) => m.name === 'releve-facade')!;
+    // Le pied (2 sommets), puis le haut de droite a gauche : garage, partie haute, appentis (2 sommets chacun).
+    const a = mur.geometry.attributes.position!.array;
+    expect(a).toHaveLength(8 * 3);
+    const hauts = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => Math.round((a[i * 3 + 1] as number) * 100) / 100);
+    expect(hauts.slice(2)).toEqual([2.9, 2.9, 5.6, 5.6, 2.6, 2.6]);
+    // Porte : 3 pieces d'encadrement ; fenetre haute du milieu : 4 ; garage : 3 ; les deux fenetres dans le vide : aucune.
+    expect(ajoutes.filter((m) => m.name === '')).toHaveLength(10);
+  });
+
+  it('coiffe la partie haute seulement, entre les deux parties basses', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...M, batiment: { facades: [releve], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } } }, 5.6);
+    const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(3 - 1e-9);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(8.6 + 1e-9);
+  });
+});
+
+describe('ajouterReleve3d, partie basse au milieu', () => {
+  // Une maison de 12 x 8 m dont le milieu (4 a 8 m) est un corps bas a 3 m : deux parties hautes a 5,6 m, chacune avec son toit.
+  const M = { key: 'maison', name: 'Maison', type: 'polygon' as const, fonction: 'batiment', pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)] };
+  const releve = {
+    cote: 0, largeur: 12, hauteur: 5.6, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 7, distance: 15, sourceDistance: 'lidar' as const, releveLe: '',
+    ouvertures: [], partieBasse: { debut: 4, fin: 8, hauteur: 3 },
+  };
+
+  it('pose un toit sur chaque partie haute, aucun sur la tranche basse', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...M, batiment: { facades: [releve], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } } }, 5.6);
+    const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    expect(xs.some((x) => x < 4)).toBe(true);
+    expect(xs.some((x) => x > 8)).toBe(true);
+    expect(xs.every((x) => x <= 4 + 1e-9 || x >= 8 - 1e-9)).toBe(true);
+  });
+});
+
+describe('ajouterReleve3d, rez-de-chaussee en retrait sous l etage (schema 16)', () => {
+  // La maison de 10 x 6 m, egout a 5,5 m ; sa facade sur rue (cote 0, y = 0) photographiee ; un bow-window de 2,4 m au milieu, glisse
+  // sous l'etage (recul de 0,80 m, dessous de l'etage a 2,70 m).
+  const hote: CorpsToit = { pts: [p(0, 0), p(10, 0), p(10, 6), p(0, 6)], posFaitage: 3, faitage: 9, egouts: [5.5, 5.5], pignons: [], ecart: 0 };
+  const corps = [hote, corpsDeSaillie(hote, { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 })];
+  const ouvertures: OuvertureFacade[] = [
+    { type: 'fenetre', x: 1.2, y: 0.9, l: 1.2, h: 1.35, id: 'bas' }, { type: 'porte', x: 4.6, y: 0, l: 0.95, h: 2.15, id: 'porte' },
+    { type: 'fenetre', x: 1.2, y: 3.8, l: 1.2, h: 1.35, id: 'haut' },
+  ];
+  const objet = (): ObjetPolygone => ({ ...maison(), batiment: { facades: [{ cote: 0, largeur: 10, hauteur: 5.5, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 7, ouvertures, distance: 12, sourceDistance: 'cadrage', releveLe: '' }] } });
+  // La profondeur d'une maille derriere la facade (toLocal : z = -y), et ses hauteurs.
+  const ys = (m: Mesh) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 2).map((z) => -z);
+  const hs = (m: Mesh) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 1);
+
+  it('sans retrait, la photo est d un seul plan, comme avant', () => {
+    for (const r of [null, new Map()]) {
+      const { ajoutes, ctx } = scene();
+      ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], r);
+      const photo = ajoutes.filter((m) => m.name === 'releve-facade');
+      expect(photo).toHaveLength(1);
+      expect(ys(photo[0]!).every((y) => Math.abs(y + 0.01) < 1e-9)).toBe(true);
+      expect(ajoutes.filter((m) => m.name.startsWith('ouverture:')).map((m) => m.name)).toEqual(['ouverture:bas', 'ouverture:porte', 'ouverture:haut']);
+    }
+  });
+
+  it('coupe la photo au dessous de l etage : le bas sur le mur recule, aux memes coordonnees de texture, rien derriere le bow-window', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], retraitsDuRdc(corps));
+    const photo = ajoutes.filter((m) => m.name === 'releve-facade');
+    const bas = photo.filter((m) => ys(m).every((y) => Math.abs(y - 0.79) < 1e-6)), haut = photo.filter((m) => ys(m).every((y) => Math.abs(y + 0.01) < 1e-6));
+    expect(bas).toHaveLength(2);
+    expect(haut).toHaveLength(1);
+    expect(bas.every((m) => Math.max(...hs(m)) <= 2.7 + 1e-9)).toBe(true);
+    expect(Math.min(...hs(haut[0]!))).toBeCloseTo(2.7, 9);
+    // Chaque sommet montre le pixel qu'il montrait sur la photo entiere : u = x / 10, v = y / 7.
+    for (const m of photo) {
+      const pos = m.geometry.attributes.position!.array, uv = m.geometry.attributes.uv!.array;
+      for (let i = 0; i < pos.length / 3; i++) { expect(uv[2 * i]).toBeCloseTo(pos[3 * i]! / 10, 9); expect(uv[2 * i + 1]).toBeCloseTo(pos[3 * i + 1]! / 7, 9); }
+    }
+    // Les x du bas evitent le bow-window (3,8 a 6,2 m).
+    const xs = bas.flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
+    expect(xs.every((x) => x <= 3.8 + 1e-9 || x >= 6.2 - 1e-9)).toBe(true);
+    // La fenetre du bas suit le mur recule, la porte derriere le bow-window n'est pas posee, celle de l'etage reste au nu.
+    const groupes = ajoutes.filter((m) => m.name.startsWith('ouverture:')) as unknown as { name: string; enfants: Mesh[] }[];
+    expect(groupes.map((g) => g.name)).toEqual(['ouverture:bas', 'ouverture:haut']);
+  });
+  it('pose la photo sur la face avant du bow-window, aux memes coordonnees de texture ; sans retrait ni photo, rien', () => {
+    const { ajoutes, ctx } = scene();
+    const habilles = ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], retraitsDuRdc(corps));
+    expect([...habilles]).toEqual([corps[1]]);
+    const bow = ajoutes.filter((m) => m.name === 'releve-facade-bow-window');
+    expect(bow).toHaveLength(1);
+    // Le fond du bow-window, a fleur de l'etage (y = 0), la photo 1 cm devant ; du sol au dessous de l'etage, de 3,8 a 6,2 m.
+    expect(ys(bow[0]!).every((y) => Math.abs(y + 0.01) < 1e-6)).toBe(true);
+    expect(Math.min(...hs(bow[0]!))).toBe(0);
+    expect(Math.max(...hs(bow[0]!))).toBeCloseTo(2.7, 9);
+    const pos = bow[0]!.geometry.attributes.position!.array, uv = bow[0]!.geometry.attributes.uv!.array;
+    expect(Math.min(...pos.filter((_, i) => i % 3 === 0))).toBeCloseTo(3.8, 6);
+    expect(Math.max(...pos.filter((_, i) => i % 3 === 0))).toBeCloseTo(6.2, 6);
+    // Chaque sommet montre le pixel du mur qu'il cache, vu de face : u = x / 10, v = y / 7.
+    for (let i = 0; i < pos.length / 3; i++) { expect(uv[2 * i]).toBeCloseTo(pos[3 * i]! / 10, 9); expect(uv[2 * i + 1]).toBeCloseTo(pos[3 * i + 1]! / 7, 9); }
+    // Le meme mur droit, ou sans photo (case « Texture » decochee) : pas de photo sur le bow-window.
+    const droit = scene();
+    expect(ajouterReleve3d(droit.ctx, objet(), 5.5, null, true, [hote], null).size).toBe(0);
+    expect(droit.ajoutes.some((m) => m.name === 'releve-facade-bow-window')).toBe(false);
+    const sansPhoto = scene();
+    expect(ajouterReleve3d({ ...sansPhoto.ctx, textures: false }, objet(), 5.5, null, true, [hote], retraitsDuRdc(corps)).size).toBe(0);
+    expect(sansPhoto.ajoutes.some((m) => m.name === 'releve-facade-bow-window')).toBe(false);
+  });
+
+  it('sur un bow-window a pans coupes, la photo couvre le fond et les deux pans, que voit une photo de face', () => {
+    const pans = [hote, corpsDeSaillie(hote, { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'pans', niveau: 'rdc', toit: 'pan', rdcEnRetraitM: 0.8 })];
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, objet(), 5.5, null, true, [hote], retraitsDuRdc(pans));
+    const bow = ajoutes.filter((m) => m.name === 'releve-facade-bow-window');
+    expect(bow).toHaveLength(1);
+    const pos = bow[0]!.geometry.attributes.position!.array, uv = bow[0]!.geometry.attributes.uv!.array;
+    // Trois faces, quatre sommets chacune ; du mur recule (y = 0,8) au fond (y = 0), de 3,8 a 6,2 m.
+    expect(pos.length / 3).toBe(12);
+    expect(Math.max(...ys(bow[0]!))).toBeGreaterThan(0.75);
+    expect(Math.min(...pos.filter((_, i) => i % 3 === 0))).toBeCloseTo(3.8, 1);
+    // Le pixel du mur qu'il cache, vu de face (au centimetre du decollement pres).
+    for (let i = 0; i < pos.length / 3; i++) expect(uv[2 * i]).toBeCloseTo(pos[3 * i]! / 10, 2);
+  });
+
+  it('la modenature lue suit le mur recule sous l etage, rien derriere le bow-window ; un bandeau a cheval reste au nu', () => {
+    const modenature = { soubassement: { hauteurM: 0.5, parement: 'pierre' as const }, bandeauxM: [1.5, 2.7, 4.6], chaines: 'pierre' as const, source: 'ia' as const };
+    const avec = (r: Map<CorpsToit, never> | ReturnType<typeof retraitsDuRdc> | null) => {
+      const { ajoutes, ctx } = scene();
+      const o = objet();
+      o.batiment!.facades![0]!.modenature = modenature;
+      ajouterReleve3d(ctx, o, 5.5, null, true, [hote], r);
+      const m = ajoutes.find((k) => k.name === 'releve-modenature')!;
+      const a = m.geometry.attributes.position!.array;
+      return Array.from({ length: a.length / 3 }, (_, i) => ({ x: a[3 * i]!, h: a[3 * i + 1]!, y: -a[3 * i + 2]! }));
+    };
+    const droit = avec(null), recule = avec(retraitsDuRdc(corps));
+    // Sans retrait, tout au nu (la saillie devant le mur, y <= 0).
+    expect(droit.every((q) => q.y <= 1e-9)).toBe(true);
+    // Sous l'etage (sous le bandeau a cheval, 2,64 m), tout est sur le mur recule (0,80 m derriere, saillie comprise) et rien devant le
+    // bow-window (de 3,8 a 6,2 m).
+    const dessous = recule.filter((q) => q.h < 2.64 - 1e-6);
+    expect(dessous.length).toBeGreaterThan(0);
+    expect(dessous.every((q) => q.y >= 0.75 && q.y <= 0.8 + 1e-9)).toBe(true);
+    expect(dessous.some((q) => q.x > 3.8 + 1e-6 && q.x < 6.2 - 1e-6)).toBe(false);
+    // Le bandeau a 2,70 m, a cheval sur le dessous de l'etage : entier, au nu ; celui de l'etage aussi.
+    expect(recule.filter((q) => Math.abs(q.h - 2.64) < 1e-6).every((q) => q.y <= 1e-9)).toBe(true);
+    expect(recule.filter((q) => q.h > 2.76).every((q) => q.y <= 1e-9)).toBe(true);
   });
 });

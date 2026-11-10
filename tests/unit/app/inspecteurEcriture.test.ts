@@ -4,11 +4,11 @@ import { resolve } from 'node:path';
 import { creerInspecteur, type ContexteInspecteur } from '../../../src/app/inspecteur.js';
 import { creerMagasin } from '../../../src/app/magasin.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
-import { champActif, champAnnulable } from '../../../src/app/ecritures.js';
+import { champActif, champAnnulable } from '../../../src/app/administration/ecritures.js';
 import type { EtatApp } from '../../../src/core/state.js';
 import type { Champ, ChampBouton, ContexteChamps } from '../../../src/ui/champs/types.js';
 
-// L'inspecteur applique deux garde-fous a tout champ qui ecrit le projet (app/ecritures.ts) :
+// L'inspecteur applique deux garde-fous a tout champ qui ecrit le projet (app/administration/ecritures.ts) :
 // un instantane d'annulation — pris avant, empile si l'ecriture reussit, regroupe pour un geste
 // continu — et le refus en lecture seule. Un bouton dit sur quoi il agit (`agit`).
 
@@ -74,6 +74,19 @@ describe('ecritures de l inspecteur', () => {
     expect(champActif(affichage, m.c)).toBe(true);
   });
 
+  it('un reglage d affichage que le projet garde (enregistre) le marque a enregistrer, sans annulation, hors lecture seule', () => {
+    const garde: Champ = { ...affichage, cle: 'courbes', enregistre: true };
+    const m = monter();
+    m.inspecteur.appliquer(affichage, m.c, () => {});
+    expect(m.markDirty).not.toHaveBeenCalled();
+    expect(m.inspecteur.appliquer(garde, m.c, () => {})).toBe(true);
+    expect(m.markDirty).toHaveBeenCalledTimes(1);
+    expect(m.empiles).not.toHaveBeenCalled();
+    const ls = monter(true);
+    expect(ls.inspecteur.appliquer(garde, ls.c, () => {})).toBe(true);
+    expect(ls.markDirty).not.toHaveBeenCalled();
+  });
+
   it('grise et refuse en lecture seule un bouton qui ecrit le projet, pas un bouton d interface', () => {
     const m = monter(true);
     const projet = bouton('projet'), iface = bouton('interface');
@@ -86,8 +99,8 @@ describe('ecritures de l inspecteur', () => {
   });
 
   it('grise un bouton de commande quand le registre ne la permet pas', () => {
-    expect(champActif(bouton({ commande: 'facade.relever' }), monter(false, false).c)).toBe(false);
-    expect(champActif(bouton({ commande: 'facade.relever' }), monter(false, true).c)).toBe(true);
+    expect(champActif(bouton({ commande: 'facade.modifier' }), monter(false, false).c)).toBe(false);
+    expect(champActif(bouton({ commande: 'facade.modifier' }), monter(false, true).c)).toBe(true);
   });
 });
 

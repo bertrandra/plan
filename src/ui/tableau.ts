@@ -52,11 +52,12 @@ const ACCENTS: [RegExp, string][] = [
  * Ecrit les decimales a la francaise dans ce que les panneaux affichent (« 92.50 ml » → « 92,50 ml »),
  * et remet les accents des libelles du moteur (ACCENTS).
  * Les calculs et les exports ecrivent le point ; seul le texte a l'ecran change, apres coup. Le
- * resume, fait pour etre copie tel quel, n'est pas touche, ni les champs de saisie.
+ * resume, fait pour etre copie tel quel, n'est pas touche, ni les champs de saisie, ni un texte cite mot pour mot (`.texteVerbatim` :
+ * l'article et la citation d'une regle du PLU, que la personne compare au document).
  */
 export function franciserDecimales(racine: ParentNode): void {
   const parcours = document.createTreeWalker(racine as Node, NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) => n.parentElement?.closest('textarea, script, style, #panelResume') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+    acceptNode: (n) => n.parentElement?.closest('textarea, script, style, #panelResume, .texteVerbatim') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
   });
   for (let n = parcours.nextNode(); n; n = parcours.nextNode()) {
     const v = n.nodeValue ?? '';

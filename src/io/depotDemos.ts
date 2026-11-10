@@ -2,7 +2,7 @@
 //
 // Meme contrat que le depot de la plateforme (io/depotPlateforme.ts) : lister, ouvrir, enregistrer,
 // supprimer. Ce qui change est l'endroit — `/admin/demos` sur le serveur qui sert la page
-// (buildsg/demosAdmin.mjs) — et la forme du document : celle de l'export JSON, `{meta, objects,
+// (deploy/admin.php) — et la forme du document : celle de l'export JSON, `{meta, objects,
 // measures}`, pour qu'un fichier de demo et un fichier exporte soient interchangeables.
 //
 // La session admin est un cookie que le serveur a pose ; ce module ne voit jamais le mot de passe.
@@ -129,6 +129,24 @@ export async function sessionAdmin(f: Fetch): Promise<boolean | null> {
 }
 
 /**
+ * L'archive zip de tout le dossier des donnees du serveur (`GET admin/sauvegarde`, deploy/admin.php).
+ * Le navigateur la telecharge lui-meme, par un lien : le cookie de la session part avec, et des Mo de
+ * photos ne passent pas par la memoire de la page.
+ */
+export const ROUTE_SAUVEGARDE = RACINE_ADMIN + '/sauvegarde';
+
+/**
+ * Avant de lancer le telechargement : la session est-elle encore ouverte ? Un lien suivi sans elle
+ * enregistrerait la reponse d'erreur sous le nom de l'archive. Rend le motif du refus, ou `null`.
+ */
+export async function verifierSauvegarde(f: Fetch): Promise<string | null> {
+  const etat = await sessionAdmin(f);
+  if (etat === true) return null;
+  if (etat === false) return 'Sauvegarde impossible : la session admin a expiré. Rechargez la page pour retaper le mot de passe.';
+  return 'Sauvegarde impossible : le serveur ne répond pas, ou n’a pas d’admin.';
+}
+
+/**
  * Ferme la session admin (`DELETE admin/session`) : le serveur l'oublie et efface le cookie. Rend
  * vrai si c'est fait ; faux si le serveur n'a pas repondu — la session reste alors ouverte de son
  * cote, et il ne faut pas laisser croire le contraire.
@@ -161,7 +179,7 @@ export async function connecterAdmin(f: Fetch, motDePasse: string): Promise<stri
   }
 }
 
-/** Le registre des controleurs enregistre (app/controleurs.ts), ou `null` s'il n'y en a pas encore. */
+/** Le registre des controleurs enregistre (app/administration/controleurs.ts), ou `null` s'il n'y en a pas encore. */
 export async function lireControleurs(f: Fetch): Promise<unknown> {
   let r: Response;
   try {
@@ -199,6 +217,71 @@ export async function lirePalette(f: Fetch): Promise<unknown> {
   return r.json() as Promise<unknown>;
 }
 
+/**
+ * La bibliotheque d'essences d'arbres du serveur (`admin/arbres`, model/especesArbre.ts), ou `null`
+ * s'il n'y en a pas. Lue SANS session : la 3D de chaque page en a besoin.
+ */
+export async function lireArbres(f: Fetch): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await f(RACINE_ADMIN + '/arbres', { credentials: 'same-origin', cache: 'no-cache' });
+  } catch (e) {
+    throw echec('lecture de la bibliotheque d\'arbres : ' + ((e as Error).message || String(e)), 'network');
+  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await refus(r, 'lecture de la bibliotheque d\'arbres');
+  return r.json() as Promise<unknown>;
+}
+
+/** Remplace la bibliotheque d'arbres du serveur ; il garde la precedente en `.bak`. */
+export async function enregistrerArbres(f: Fetch, document: unknown): Promise<void> {
+  await appeler(f, '/arbres', 'enregistrement de la bibliotheque d\'arbres', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN },
+    body: JSON.stringify(document)
+  });
+}
+
+/** Les reglages calibres de la detection (`admin/calibration`), lus SANS session ; null quand rien n'est enregistre. */
+export async function lireCalibration(f: Fetch): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await f(RACINE_ADMIN + '/calibration', { credentials: 'same-origin', cache: 'no-cache' });
+  } catch (e) {
+    throw echec('lecture de la calibration : ' + ((e as Error).message || String(e)), 'network');
+  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await refus(r, 'lecture de la calibration');
+  return r.json() as Promise<unknown>;
+}
+
+/** Remplace la calibration du serveur ; il garde la precedente en `.bak`. */
+export async function enregistrerCalibration(f: Fetch, document: unknown): Promise<void> {
+  await appeler(f, '/calibration', 'enregistrement de la calibration', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(document) });
+}
+
+/** Le resume d'un cas de calibration (la liste ne porte pas les photos). */
+export interface ResumeCasCalibration { id: string; nom: string; statut: 'brouillon' | 'valide'; photos: number; ouvertures: number; updatedAt: string }
+
+export async function listerCasCalibration(f: Fetch): Promise<ResumeCasCalibration[]> {
+  const r = await appeler(f, '/calibration-cas', 'liste des cas de calibration');
+  const d = await r.json() as { cas?: ResumeCasCalibration[] };
+  return Array.isArray(d.cas) ? d.cas : [];
+}
+
+export async function lireCasCalibration(f: Fetch, id: string): Promise<unknown> {
+  const r = await appeler(f, '/calibration-cas/' + encodeURIComponent(id), 'ouverture du cas de calibration');
+  return r.json() as Promise<unknown>;
+}
+
+export async function enregistrerCasCalibration(f: Fetch, id: string, document: unknown): Promise<void> {
+  await appeler(f, '/calibration-cas/' + encodeURIComponent(id), 'enregistrement du cas de calibration', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(document) });
+}
+
+export async function supprimerCasCalibration(f: Fetch, id: string): Promise<void> {
+  await appeler(f, '/calibration-cas/' + encodeURIComponent(id), 'suppression du cas de calibration', { method: 'DELETE', headers: ENTETE_ADMIN });
+}
+
 /** Remplace la palette du serveur ; il garde la precedente en `.bak`. */
 export async function enregistrerPalette(f: Fetch, document: unknown): Promise<void> {
   await appeler(f, '/palette', 'enregistrement de la palette', {
@@ -206,4 +289,96 @@ export async function enregistrerPalette(f: Fetch, document: unknown): Promise<v
     headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN },
     body: JSON.stringify(document)
   });
+}
+
+// --- La consommation de Claude (MD/spec-audit.md 13.3, lot L16 bis) ------------------------------
+
+/** Les filtres de `GET admin/consommation` ; un filtre vide n'est pas envoye. */
+export interface FiltresConsommation {
+  du: string;
+  au: string;
+  organisation?: string;
+  modele?: string;
+  usage?: string;
+  parcelle?: string;
+}
+
+/** Le journal filtre (model/consommation.ts le lit), tel que le serveur le rend. */
+export async function lireConsommation(f: Fetch, filtres: FiltresConsommation): Promise<unknown> {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(filtres)) if (typeof v === 'string' && v !== '') p.set(k, v);
+  const r = await appeler(f, '/consommation?' + p.toString(), 'lecture de la consommation');
+  return r.json() as Promise<unknown>;
+}
+
+/** La table des tarifs datee (`admin/claude/tarifs`). */
+export async function lireTarifsClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/tarifs', 'lecture des tarifs')).json() as Promise<unknown>;
+}
+
+/** Remplace la table des tarifs ; le serveur refuse qu'un tarif passe soit reecrit (409). */
+export async function enregistrerTarifsClaude(f: Fetch, tarifs: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/tarifs', 'enregistrement des tarifs', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(tarifs)
+  })).json() as Promise<unknown>;
+}
+
+/** Les plafonds par organisation, par jour et par mois (`admin/claude/plafonds`). */
+export async function lirePlafondsClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/plafonds', 'lecture des plafonds')).json() as Promise<unknown>;
+}
+
+export async function enregistrerPlafondsClaude(f: Fetch, plafonds: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/plafonds', 'enregistrement des plafonds', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(plafonds)
+  })).json() as Promise<unknown>;
+}
+
+/** Le modele de chaque usage (`admin/claude/modeles`), les defauts et les modeles admis. */
+export async function lireModelesClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/modeles', 'lecture des modèles')).json() as Promise<unknown>;
+}
+
+/** Remplace le reglage ; le serveur refuse un modele hors de sa liste et garde le precedent en `.bak`. */
+export async function enregistrerModelesClaude(f: Fetch, reglage: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/modeles', 'enregistrement des modèles', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(reglage)
+  })).json() as Promise<unknown>;
+}
+
+// --- Les indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) ----------------------
+
+/** L'historique des mesures (`GET admin/conformite`) ; regles/conformite.ts le relit. */
+export async function lireMesuresConformiteServeur(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/conformite', 'lecture des mesures de conformité')).json() as Promise<unknown>;
+}
+
+/** Range une mesure de plus ; le serveur y ajoute l'heure de reception et garde les dernieres. */
+export async function enregistrerMesureConformite(f: Fetch, mesure: unknown): Promise<unknown> {
+  return (await appeler(f, '/conformite', 'enregistrement de la mesure', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(mesure)
+  })).json() as Promise<unknown>;
+}
+
+/**
+ * Un audit de parcelle recu (`GET admin/audits`) : sa fiche, sans le fichier. `marque` : pourquoi il
+ * a ete depose, `sauvegarde` de la capture ou partage pour le `corpus` (un ancien depot sans marque
+ * est du corpus).
+ */
+export interface AuditRecu { id: string; recuLe: string; organisation: string | null; idu: string; adresse: string | null; marque: 'corpus' | 'sauvegarde' }
+
+/** Les audits partages recus, les plus recents d'abord (lot L21). */
+export async function listerAuditsRecus(f: Fetch): Promise<AuditRecu[]> {
+  const d = await (await appeler(f, '/audits', 'liste des audits reçus')).json() as { audits?: unknown };
+  return (Array.isArray(d.audits) ? d.audits as Partial<AuditRecu>[] : [])
+    .filter((a): a is AuditRecu => typeof a.id === 'string' && typeof a.idu === 'string')
+    // Les promenades des toits deposees par l'administrateur (spec-audit 15.4) ne sont pas des audits
+    // de parcelle : la Conformite ne les rejoue pas ici.
+    .filter((a) => (a as { nature?: unknown }).nature !== 'promenade')
+    .map((a) => ({ id: a.id, recuLe: typeof a.recuLe === 'string' ? a.recuLe : '', organisation: typeof a.organisation === 'string' ? a.organisation : null, idu: a.idu, adresse: typeof a.adresse === 'string' ? a.adresse : null, marque: a.marque === 'sauvegarde' ? 'sauvegarde' : 'corpus' }));
+}
+
+/** Le fichier d'un audit recu, tel qu'il est arrive (model/fichierAuditParcelle.ts le relit). */
+export async function lireAuditRecu(f: Fetch, id: string): Promise<unknown> {
+  return (await appeler(f, '/audits/' + encodeURIComponent(id), 'lecture de l’audit « ' + id + ' »')).json() as Promise<unknown>;
 }

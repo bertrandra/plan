@@ -1,0 +1,47 @@
+{
+  "pourquoi": "Villages de banc nouveaux de la decision D16 (MD/plan-vague-3-generaliser.md) : choisis pour leurs formes, retenus seulement si le LiDAR HD les couvre (couverture.ts). Le repli (lat, lon) est approximatif : il ne sert qu'a verifier la couverture quand le geocodage ne repond pas, le geocodage l'emporte.",
+  "villages": [
+    {
+      "nom": "versailles",
+      "lieu": "Versailles, quartier Notre-Dame (Yvelines)",
+      "adresse": "Place du Marché Notre-Dame 78000 Versailles",
+      "rayon": 100,
+      "formes": "toits à la Mansart (brisis, terrassons), lucarnes dans le brisis, immeubles mitoyens",
+      "repli": { "lat": 48.8061, "lon": 2.1316 }
+    },
+    {
+      "nom": "eguisheim",
+      "lieu": "Eguisheim (Haut-Rhin)",
+      "adresse": "Place du Château Saint-Léon 68420 Eguisheim",
+      "rayon": 100,
+      "formes": "demi-croupes, pans très pentus, maisons à colombages en cercles",
+      "repli": { "lat": 48.0427, "lon": 7.3062 }
+    },
+    {
+      "nom": "beuvron",
+      "lieu": "Beuvron-en-Auge (Calvados)",
+      "adresse": "Place Michel Vermughen 14430 Beuvron-en-Auge",
+      "rayon": 100,
+      "formes": "lucarnes, demi-croupes, colombages, halle",
+      "repli": { "lat": 49.188, "lon": -0.045 }
+    },
+    {
+      "nom": "riquewihr",
+      "lieu": "Riquewihr (Haut-Rhin), en réserve d'Eguisheim",
+      "adresse": "Rue du Général de Gaulle 68340 Riquewihr",
+      "rayon": 100,
+      "formes": "demi-croupes, pignons sur rue",
+      "reserve": true,
+      "repli": { "lat": 48.1667, "lon": 7.298 }
+    },
+    {
+      "nom": "lyons",
+      "lieu": "Lyons-la-Forêt (Eure), en réserve de Beuvron-en-Auge",
+      "adresse": "Place Isaac Benserade 27480 Lyons-la-Forêt",
+      "rayon": 100,
+      "formes": "lucarnes, demi-croupes, colombages, halle",
+      "reserve": true,
+      "repli": { "lat": 49.399, "lon": 1.476 }
+    }
+  ]
+}

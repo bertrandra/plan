@@ -1,10 +1,12 @@
 // Ce que la Vue 3D et la visionneuse partagent dans leurs panneaux : l'entete des reglages, les
 // lignes du soleil, la barre de l'heure et la liste des points de vue.
 //
-// Les deux vues ont chacune leur soleil (spec §6.4) : les memes lignes, sur deux etats separes, avec
-// les identifiants de chaque vue (`IdsSoleil`), que la feuille de style et la liste de fumee retrouvent.
+// Les deux vues eclairent avec le soleil du projet (core/soleil.ts), le meme que le plan : les memes
+// lignes, la date et l'heure communes, l'intensite et l'appoint propres a chaque vue, avec les
+// identifiants de chaque vue (`IdsSoleil`), que la feuille de style et la liste de fumee retrouvent.
 
 import { useStore } from 'zustand';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { Icone } from '../icones.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -22,6 +24,8 @@ export interface ServiceVues3d {
   allerAuPointDeVue: (vp: ObjetPlan) => void;
   allerAuPointDeVueGlb: (vp: ObjetPlan) => void;
   libelleLieu: () => string;
+  /** « Heure légale de … » : le fuseau du lieu, dans lequel l'heure du soleil se lit (geo/fuseau.ts). */
+  heureLegale: () => string;
   formatHeure: (minutes: number) => string;
   /** La scene suit la taille de son hote (plein page, redimensionnement). */
   redimensionner3d: () => void;
@@ -87,21 +91,11 @@ export function LigneIntensite({ ids, soleil, children }: { ids: IdsSoleil; sole
   );
 }
 
-/** Les reglages du soleil de la Vue 3D : la date, puis l'intensite et l'appoint. */
-export function ReglagesSoleil({ ids, soleil }: { ids: IdsSoleil; soleil: ServiceSoleil }) {
-  return (
-    <>
-      <LigneDate ids={ids} soleil={soleil} avecEtiquette />
-      <LigneIntensite ids={ids} soleil={soleil}><CaseAppoint ids={ids} soleil={soleil} /></LigneIntensite>
-    </>
-  );
-}
-
 /** L'heure, toujours visible sous la scene : c'est le reglage qu'on fait glisser en regardant. */
-export function BarreHeure({ ids, id, soleil, formatHeure, info }: { ids: IdsSoleil; id: string; soleil: ServiceSoleil; formatHeure: (m: number) => string; info?: string }) {
+export function BarreHeure({ ids, id, soleil, formatHeure, heureLegale, info }: { ids: IdsSoleil; id: string; soleil: ServiceSoleil; formatHeure: (m: number) => string; heureLegale: string; info?: string }) {
   return (
     <div id={id} className="controls barreSoleil">
-      <span className="etiquetteReglage" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique">Heure</span>
+      <span className="etiquetteReglage" title={heureLegale + '. Position réelle du soleil (levé à l’est, couché à l’ouest) pour la date et l’heure choisies, au lieu indiqué'}>Heure</span>
       <input type="range" id={ids.heure} data-controle={ids.vue + '.heure'} min={0} max={1439} step={5} value={soleil.etat.minutes} aria-label="Heure" style={{ flex: 1, maxWidth: 260 }}
         onChange={(e) => soleil.heure(parseInt(e.target.value, 10))} />
       <span id={ids.heureTexte} className="valeurReglage">{formatHeure(soleil.etat.minutes)}</span>
@@ -116,7 +110,9 @@ export function BarreHeure({ ids, id, soleil, formatHeure, info }: { ids: IdsSol
  * point de vue selectionne ferait croire qu'on y est reste, alors que la camera a pu bouger.
  */
 export function ListePointsDeVue({ vue, id, magasin, aller }: { vue: 'vue3d' | 'visionneuse'; id: string; magasin: Magasin; aller: (vp: ObjetPlan) => void }) {
-  useStore(magasin.store, (s) => s.version);
+  // La liste ne suit le plan que sa vue a l'ecran ; elle se refait en y revenant.
+  const visible = useStore(magasin.store, (s) => s.vue) === vue;
+  useCle(magasin, 'points de vue', (s) => visible ? JSON.stringify(s.etat.objects.filter(estVueUtilisable).map((v) => [v.key, v.name])) : CLE_GELEE);
   const vues = magasin.store.getState().etat.objects.filter(estVueUtilisable);
   return (
     <select id={id} data-controle={vue + '.pointDeVue'} aria-label="Aller à un point de vue enregistré" value="" disabled={vues.length === 0}

@@ -1,13 +1,11 @@
-// Le releve de facade (zones/Releve.tsx), etape 5 : l'elevation redressee et ses ouvertures.
+// L'editeur d'une facade relevee (zones/Releve.tsx) : l'elevation redressee et ses ouvertures, que le doigt deplace et redimensionne.
 
 import { au } from '../../util/tableaux.js';
 import { useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import type { OuvertureFacade, PartieBasse } from '../../model/types.js';
+import { estIncertaine, retouchee } from '../../facade/detection/verification.js';
 import { LIBELLES_OUVERTURE, fr, pointSvg, useEchelle } from './commun.js';
-
-/* ------------------------------------------------------------------------------------------------
- * 5. Le resultat : ouvertures corrigeables, toit propose
- * --------------------------------------------------------------------------------------------- */
+import { libelleOuMot } from '../../shell/motsInconnus.js';
 
 export function Elevation({
   texture,
@@ -19,18 +17,24 @@ export function Elevation({
   setOuvertures,
   choisie,
   setChoisie,
+  devinees = [],
+  garder,
 }: {
-  texture: string;
+  /** L'elevation redressee ; null quand la photo est restee sur un autre appareil : le mur se dessine nu. */
+  texture: string | null;
   /** Hauteur couverte par la texture : le mur, et au-dessus la bande du pignon, hors du cadre. */
   Ht: number;
-  /** Mur en L : au-dessus de la partie basse, il n'y a pas de mur. */
-  partie?: PartieBasse | null;
+  /** Les parties basses (un mur en L, ou une a chaque bout) : au-dessus d'elles, il n'y a pas de mur. */
+  partie?: readonly PartieBasse[];
   L: number;
   H: number;
   ouvertures: OuvertureFacade[];
   setOuvertures: (o: OuvertureFacade[]) => void;
   choisie: number | null;
   setChoisie: (i: number | null) => void;
+  /** Les baies devinees decochees (spec facades §10.5), en pointille : une touche les garde. */
+  devinees?: OuvertureFacade[];
+  garder?: (i: number) => void;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const echelle = useEchelle(svg, L);
@@ -70,7 +74,8 @@ export function Elevation({
       }
       const cm = (v: number) => Math.round(v * 100) / 100;
       const n = [...ouvertures];
-      n[i] = { ...o, x: cm(o.x), y: cm(o.y), l: cm(o.l), h: cm(o.h) };
+      // Retouchee au doigt, l'ouverture est verifiee : elle quitte le pointille.
+      n[i] = retouchee({ ...o, x: cm(o.x), y: cm(o.y), l: cm(o.l), h: cm(o.h) });
       setOuvertures(n);
     };
     const lacher = () => {
@@ -85,17 +90,30 @@ export function Elevation({
 
   return (
     <svg ref={svg} className="releveElevation" viewBox={`${-0.2} ${-0.2} ${L + 0.4} ${H + 0.4}`} onPointerDown={() => setChoisie(null)} aria-label="Façade redressée et ses ouvertures">
-      <svg x={0} y={0} width={L} height={H} viewBox={`0 0 ${L} ${H}`} overflow="hidden">
+      {texture && <svg x={0} y={0} width={L} height={H} viewBox={`0 0 ${L} ${H}`} overflow="hidden">
         <image href={texture} x={0} y={H - Ht} width={L} height={Ht} preserveAspectRatio="none" />
-      </svg>
+      </svg>}
       <rect x={0} y={0} width={L} height={H} className="releveElevationCadre" vectorEffect="non-scaling-stroke" />
-      {partie && <rect x={partie.debut} y={0} width={partie.fin - partie.debut} height={H - partie.hauteur} className="releveVide" pointerEvents="none" />}
+      {(partie ?? []).map((p, i) => <rect key={'v' + i} x={p.debut} y={0} width={p.fin - p.debut} height={H - p.hauteur} className="releveVide" pointerEvents="none" />)}
+      {devinees.map((o, i) => (
+        <g key={'d' + i} className="releveOuverture incertaine decochee">
+          <rect x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" role="button" tabIndex={0}
+            data-controle="releve.garderDevinee" aria-label={`Baie devinée, à garder : ${libelleOuMot(LIBELLES_OUVERTURE, o.type)} ${fr(o.l)} × ${fr(o.h)} m`}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              garder?.(i);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') garder?.(i);
+            }} />
+        </g>
+      ))}
       {ouvertures.map((o, i) => {
         const y = H - o.y - o.h;
         const sel = i === choisie;
         return (
-          <g key={i} className={'releveOuverture' + (sel ? ' choisie' : '')}>
-            <rect x={o.x} y={y} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" onPointerDown={saisir(i, -1)} role="button" aria-label={`${LIBELLES_OUVERTURE[o.type]} ${fr(o.l)} × ${fr(o.h)} m`} tabIndex={0} />
+          <g key={i} className={'releveOuverture' + (sel ? ' choisie' : '') + (estIncertaine(o) ? ' incertaine' : '')}>
+            <rect x={o.x} y={y} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" onPointerDown={saisir(i, -1)} role="button" aria-label={`${libelleOuMot(LIBELLES_OUVERTURE, o.type)} ${fr(o.l)} × ${fr(o.h)} m`} tabIndex={0} />
             <text x={o.x + o.l / 2} y={y + o.h / 2} fontSize={12 / echelle} strokeWidth={3 / echelle} textAnchor="middle" dominantBaseline="middle" pointerEvents="none">
               {Math.round(o.l * 100)}×{Math.round(o.h * 100)}
             </text>

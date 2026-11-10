@@ -10,22 +10,27 @@
 // Il tient aussi trois etats d'interface qui ne s'enregistrent pas : le texte de la zone Resume,
 // l'interrogation du PLU en cours, et l'ouverture du bloc d'optimisation de l'inspecteur.
 
+import { LES_COTES, toucherForme } from '../core/controleurObjets.js';
 import { computeBOM } from '../engine/bom.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
+import { solDuProjet } from '../engine/sol.js';
 import { interrogerPlu } from '../geo/apiIgn.js';
+import type { ConformitePlu } from '../engine/regles/plu/conformite.js';
+import type { ContexteLecturePlu } from './plu/lecturePlu.js';
+import { creerServicePlu, type ServicePlu } from './plu/servicePlu.js';
 import { idMesure } from '../model/cles.js';
 import { mesure, type Pointage } from '../interaction/outilMesure.js';
 import { showToast } from '../shell/dialogs.js';
 import type { EtatApp } from '../core/state.js';
 import type { Lieu } from '../model/lieu.js';
-import type { Mesure, ObjetPlan } from '../model/types.js';
+import type { Mesure, ObjetPlan, PtBrut } from '../model/types.js';
 import type { Magasin } from './magasin.js';
 
 /** Ce que le service doit pouvoir declencher ailleurs. */
 export interface ContexteResultats {
-  pushHistory: () => void;
-  markDirty: () => void;
+  pushHistory: (...objets: object[]) => void;
+  markDirty: (...objets: object[]) => void;
   render: () => void;
   /** La terrasse dont le tiroir montre les resultats, ou aucune. */
   terrasseCourante: () => ObjetPlan | undefined;
@@ -39,7 +44,14 @@ export interface ContexteResultats {
   computeMeasureGeom: (m: Mesure) => { perp: number; along: number } | null;
   /** Montre l'onglet Resume (et, sur telephone, la feuille des resultats). */
   montrerResume: () => void;
+  /** Montre l'onglet Profil du relief (et, sur telephone, la feuille des resultats). */
+  montrerProfil: () => void;
+  /** Le client de Claude, l'identite et l'heure de la lecture du reglement du PLU (app/plu/navigateurPlu.ts) ; absent, pas de lecture. */
+  lecturePlu?: ContexteLecturePlu;
 }
+
+/** Une ligne de coupe sur le plan, en metres : les deux bouts du profil du sol. */
+export interface LigneProfil { a: PtBrut; b: PtBrut }
 
 export interface Resultats {
   etat: EtatApp;
@@ -68,6 +80,14 @@ export interface Resultats {
   // ---- PLU ---------------------------------------------------------------------------------
   pluEnCours(): boolean;
   interrogerPlu(): Promise<void>;
+  /** La lecture du reglement de la zone par Claude (lot L4) est-elle en cours ? */
+  lecturePluEnCours(): boolean;
+  /** Lit le reglement de la zone et range ses faits, PROPOSES, sur la parcelle (un pas d'annulation, projet modifie). */
+  lireReglementPlu(): Promise<void>;
+  /** Valide un fait du PLU apres l'avoir compare au texte, ou le rend a l'etat propose (un pas d'annulation, projet modifie). */
+  basculerFaitPlu(id: string): void;
+  /** Le projet controle contre les faits valides : des avertissements, jamais un blocage (engine/regles/plu/conformite.ts). */
+  conformitePlu(): ConformitePlu;
   parcelle(): ObjetPlan | null | undefined;
   lieu(): Lieu;
 
@@ -80,20 +100,34 @@ export interface Resultats {
   // ---- Optimisation (inspecteur) -----------------------------------------------------------
   optimisationVisible(): boolean;
   basculerOptimisation(): boolean;
+
+  // ---- Profil du relief --------------------------------------------------------------------
+  /** La ligne du profil du sol choisie par la personne ; `null` : celle que Plan propose (la plus grande pente). */
+  ligneProfil(): LigneProfil | null;
+  /** Prend cette ligne pour le profil (ou revient a la ligne proposee avec `null`) et montre l'onglet. Rien n'est ecrit dans le projet. */
+  profiler(ligne: LigneProfil | null): void;
 }
 
+/** Le service, avec la lecture du reglement du PLU et ses faits (lot L4), un service a part du domaine plu. */
 export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: Magasin): Resultats {
+  return { ...creerResultatsDuTiroir(etat, ctx, magasin), ...creerServicePlu(etat, ctx, magasin) };
+}
+
+function creerResultatsDuTiroir(etat: EtatApp, ctx: ContexteResultats, magasin: Magasin): Omit<Resultats, keyof ServicePlu> {
   let pluEnCours = false;
   let resume = { texte: '', affichage: 0 };
   // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement : on
   // peut ainsi voir monter ou descendre la configuration qu'on est en train d'editer.
   let optimisation = false;
+  // La ligne du profil du sol : un etat d'interface, comme le resume ; `null` = la ligne proposee.
+  let ligneProfil: LigneProfil | null = null;
 
   function actualiserTerrasse(terrasse?: ObjetPlan): void {
     const obj = terrasse ?? ctx.terrasseCourante();
     if (obj) {
       const c = ensureConstruction(obj);
-      c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects));
+      c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects), solDuProjet(etat.objects));
+      toucherForme(obj); // la nomenclature, ecrite dans l'objet, se calcule de sa forme : ses attributs ne changent pas
       ctx.renderTerrasseLayerView(obj);
     }
     magasin.notifier();
@@ -101,9 +135,9 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
 
   /** Une ecriture sur les cotes : annulable, projet modifie, plan redessine (il les dessine). */
   function ecrireCotes(ecrire: () => void): void {
-    ctx.pushHistory();
+    ctx.pushHistory(LES_COTES); // seules les cotes changent : aucun objet n'est touche (core/controleurObjets.ts)
     ecrire();
-    ctx.markDirty();
+    ctx.markDirty(LES_COTES);
     ctx.render();
   }
 
@@ -118,9 +152,10 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     saisir(ecrire) {
       // La lecture seule refuse les saisies du tiroir, comme l'inspecteur ses champs.
       if (etat.lectureSeule) { magasin.notifier(); return; }
-      ctx.pushHistory();
+      const terrasse = ctx.terrasseCourante(), nommes = terrasse ? [terrasse] : []; // le tiroir n'ecrit que la terrasse courante
+      ctx.pushHistory(...nommes);
       ecrire();
-      ctx.markDirty();
+      ctx.markDirty(...nommes);
       actualiserTerrasse();
       ctx.render();
     },
@@ -183,9 +218,9 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
       magasin.notifier();
       try {
         const plu = await interrogerPlu(lieu.longitude, lieu.latitude);
-        ctx.pushHistory();
+        ctx.pushHistory(parcelle);
         parcelle.plu = plu;
-        ctx.markDirty();
+        ctx.markDirty(parcelle);
         const n = plu.zones.length, zone = plu.zones[0];
         showToast(zone ? ('PLU : zone ' + zone.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
                     : 'PLU : aucun zonage renvoye pour ce point.');
@@ -222,6 +257,9 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     },
 
     optimisationVisible: () => optimisation,
-    basculerOptimisation() { optimisation = !optimisation; magasin.notifier(); return optimisation; }
+    basculerOptimisation() { optimisation = !optimisation; magasin.notifier(); return optimisation; },
+
+    ligneProfil: () => ligneProfil,
+    profiler(ligne) { ligneProfil = ligne; ctx.montrerProfil(); magasin.notifier(); }
   };
 }

@@ -12,7 +12,7 @@
 // Le repli est une classe du conteneur (#zoneExplorateur, index.html), posee par le service : c'est
 // lui qui a une largeur dans la rangee de l'atelier, pas le panneau que React y rend.
 
-import { useRef, useState } from 'react';
+import { memo, useRef, useState, type MutableRefObject } from 'react';
 import { useStore } from 'zustand';
 import { LIBELLE_FONCTION } from '../model/defaults.js';
 import { shoelace } from '../geometry/basic.js';
@@ -24,12 +24,16 @@ import { TERRASSE_LAYER_DEFS, terrasseLayerVisible } from '../render/terrasseCou
 import { clesDossier, dossierSelection } from '../app/dossier.js';
 import { estTerrasse, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import type { Magasin } from '../app/magasin.js';
+import { useCle, cleEtat } from './composants/abonnement.js';
+import { cleDesLus } from '../core/controleurObjets.js';
+import { lesTerrassesPercees } from '../core/lectures.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ChampVisibilite, Explorateur as ServiceExplorateur } from '../app/explorateur.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
+import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 
 export interface PropsExplorateur { magasin: Magasin; commandes: RegistreCommandes; explorateur: ServiceExplorateur }
 
@@ -54,6 +58,10 @@ function Objets({ etat, explorateur, commandes, apresSelection }: { etat: EtatAp
   // Masquer un objet ou changer ses etiquettes est une preference d'affichage, permise en lecture
   // seule (app/explorateur.ts) ; les commandes restent la seule voie (app/ecouteurs/cibles.ts).
   const ecrire = commandes.etat('objet.visibilite').utilisable;
+  // Les lignes ne se refont que si ce qu'elles montrent change (LigneObjet) : les services qu'elles appellent passent par une
+  // reference, que chaque rendu remet a jour sans que la ligne le voie.
+  const rappels = useRef<Rappels>({ explorateur, commandes, apresSelection });
+  rappels.current = { explorateur, commandes, apresSelection };
   // Le voisinage masque n'est pas liste : proposer un objet qu'on ne voit pas n'aurait pas de
   // sens, et les compteurs decriraient un plan qui n'est pas celui affiche. Un objet masque
   // individuellement reste, lui, dans la liste : c'est ici qu'on le demasque.
@@ -64,7 +72,9 @@ function Objets({ etat, explorateur, commandes, apresSelection }: { etat: EtatAp
   // Le filtre d'ouverture est le terrain : c'est la parcelle qu'on regarde en arrivant, et un plan
   // importe du cadastre compte facilement 60 objets. Le filtre suit ensuite la selection : un objet
   // choisi sur le canevas hors de la categorie affichee y amene la liste.
-  const [filtre, setFiltre] = useState('terrain');
+  // Une liste qui se remonte (la tablette la refait en quittant la Vue 3D) part de la famille de l'objet choisi, s'il y en a un : un objet
+  // touche dans la Vue 3D doit s'y retrouver (demande du proprietaire, 6 novembre 2026).
+  const [filtre, setFiltre] = useState(() => { const s = listables.find(o => o.key === etat.selectedKey); return s ? famille(s) : 'terrain'; });
   const derniereSelection = useRef(etat.selectedKey);
   const selection = listables.find(o => o.key === etat.selectedKey);
   let filtreEffectif = familles.includes(filtre) ? filtre : 'tout';
@@ -117,32 +127,48 @@ function Objets({ etat, explorateur, commandes, apresSelection }: { etat: EtatAp
         {visibles.map(o => {
           const actif = o.key === etat.selectedKey;
           return (
-            <li key={o.key} data-instance={o.name} className={(actif ? 'active' : '') + (o.hidden ? ' masque' : '')}>
-              <div className="explorateurLigne">
-                <button type="button" className="explorateurNom" data-controle="explorateur.selectionnerObjet" data-nom="Sélectionner l’objet" data-key={o.key} aria-current={actif ? 'true' : undefined} title={o.name + ' — ' + libelleFamille(famille(o))} onClick={() => { explorateur.selectionner(actif ? null : o.key); if (!actif) apresSelection(); }}>
-                  {o.name}
-                </button>
-                <button type="button" className="oeil" data-commande="objet.visibilite" data-nom="Masquer / afficher l’objet" disabled={!ecrire} aria-pressed={!o.hidden} aria-label={(o.hidden ? 'Afficher ' : 'Masquer ') + o.name} title={o.hidden ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => commandes.executer('objet.visibilite', undefined, { objet: o.key })}>
-                  <Icone nom={o.hidden ? 'oeilBarre' : 'oeil'} taille={18} />
-                </button>
-              </div>
-              {actif && (
-                <div className="explorateurEtiquettes">
-                  {ETIQUETTES.map(([champ, libelle, titre]) => (
-                    <label key={champ} title={titre}>
-                      <input type="checkbox" data-commande="objet.etiquette" disabled={!ecrire} checked={!!o[champ]} onChange={() => commandes.executer('objet.etiquette', undefined, { objet: o.key, valeur: champ })} />
-                      {libelle}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </li>
+            <LigneObjet key={o.key} cle={o.key} nom={o.name} titre={o.name + ' — ' + libelleFamille(famille(o))} actif={actif} masque={!!o.hidden} ecrire={ecrire}
+              etiquettes={actif ? ETIQUETTES.map(([champ]) => (o[champ] ? '1' : '0')).join('') : ''} rappels={rappels} />
           );
         })}
       </ul>
     </section>
   );
 }
+
+interface Rappels { explorateur: ServiceExplorateur; commandes: RegistreCommandes; apresSelection: () => void }
+
+/**
+ * Une ligne de la liste des objets. Le plan est modifie sur place, si bien que chaque rendu refaisait toutes les lignes, des
+ * centaines sur un plan importe (feuille de route, etape 2.2) : la ligne ne recoit que ce qu'elle montre, en valeurs simples, et
+ * React ne la refait que si l'une d'elles change. `etiquettes` : les cases de la ligne selectionnee, un chiffre par etiquette.
+ */
+const LigneObjet = memo(function LigneObjet({ cle, nom, titre, actif, masque, ecrire, etiquettes, rappels }: {
+  cle: string; nom: string; titre: string; actif: boolean; masque: boolean; ecrire: boolean; etiquettes: string; rappels: MutableRefObject<Rappels>;
+}) {
+  return (
+    <li data-instance={nom} className={(actif ? 'active' : '') + (masque ? ' masque' : '')}>
+      <div className="explorateurLigne">
+        <button type="button" className="explorateurNom" data-controle="explorateur.selectionnerObjet" data-nom="Sélectionner l’objet" data-key={cle} aria-current={actif ? 'true' : undefined} title={titre} onClick={() => { rappels.current.explorateur.selectionner(actif ? null : cle); if (!actif) rappels.current.apresSelection(); }}>
+          {nom}
+        </button>
+        <button type="button" className="oeil" data-commande="objet.visibilite" data-nom="Masquer / afficher l’objet" disabled={!ecrire} aria-pressed={!masque} aria-label={(masque ? 'Afficher ' : 'Masquer ') + nom} title={masque ? 'Afficher sur le plan et en 3D' : 'Masquer sur le plan et en 3D (reste modifiable ici)'} onClick={() => rappels.current.commandes.executer('objet.visibilite', undefined, { objet: cle })}>
+          <Icone nom={masque ? 'oeilBarre' : 'oeil'} taille={18} />
+        </button>
+      </div>
+      {actif && (
+        <div className="explorateurEtiquettes">
+          {ETIQUETTES.map(([champ, libelle, titreCase], i) => (
+            <label key={champ} title={titreCase}>
+              <input type="checkbox" data-commande="objet.etiquette" disabled={!ecrire} checked={etiquettes[i] === '1'} onChange={() => rappels.current.commandes.executer('objet.etiquette', undefined, { objet: cle, valeur: champ })} />
+              {libelle}
+            </label>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+});
 
 /** Les terrasses : laquelle est selectionnee, ses couches sur le plan, celles du dossier. */
 function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explorateur: ServiceExplorateur; apresSelection: () => void }) {
@@ -168,7 +194,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
               <div className="explorateurLigne">
                 <button type="button" className="explorateurNom" data-controle="explorateur.choisirTerrasse" data-nom="Choisir la terrasse" data-terrasse={t.key} aria-current={estCourante ? 'true' : undefined} title={estCourante ? 'Terrasse sélectionnée : l\'inspecteur et le tiroir la décrivent' : 'Sélectionner cette terrasse'} onClick={() => { explorateur.selectionner(t.key); apresSelection(); }}>
                   <span>{t.name}</span>
-                  <small>{shoelace(sommetsDe(t)).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
+                  <small>{(t.type === 'polygon' ? surfaceNetteTerrasse(t.pts, etat.objects) : shoelace(sommetsDe(t))).toFixed(2).replace('.', ',')} m² · h. finie {(hMm / 10).toFixed(1).replace(/\.0$/, '').replace('.', ',')} cm</small>
                 </button>
                 <label className="explorateurDossier" title="Retenir cette terrasse pour le dossier PDF (onglet Export)">
                   <input type="checkbox" data-controle="explorateur.dossierTerrasse" checked={dossierSelection.has(t.key)} onChange={() => explorateur.basculerDossier(t.key)} />
@@ -206,7 +232,9 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
 }
 
 export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateur) {
-  useStore(magasin.store, (s) => s.version);
+  // Le plan, les couches de la terrasse et les terrasses du dossier (tenues hors du plan), et le droit de masquer ; gele tant que
+  // l'explorateur est cache.
+  useCle(magasin, 'explorateur', (s) => cleEtat(s) + cleDesLus(s.etat.objects, lesTerrassesPercees) + JSON.stringify([terrasseLayerVisible, [...dossierSelection], commandes.etat('objet.visibilite').utilisable]), 'explorateur');
   const ouvertStore = useStore(magasin.store, (s) => s.explorateurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

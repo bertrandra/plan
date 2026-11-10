@@ -1,0 +1,110 @@
+{
+  "nom": "00-existante-enduit",
+  "description": "Image des tests d'origine (facade.test.ts) : enduit beige, deux fenêtres et une porte en aplats, photographiées de biais par une homographie.",
+  "difficultes": [
+    "existante"
+  ],
+  "verite": {
+    "largeur": 8,
+    "hauteur": 5,
+    "coins": [
+      {
+        "x": 120,
+        "y": 90
+      },
+      {
+        "x": 800,
+        "y": 140
+      },
+      {
+        "x": 780,
+        "y": 610
+      },
+      {
+        "x": 90,
+        "y": 640
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "uni": [
+            55,
+            62,
+            70
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 3.5,
+        "y": 0,
+        "l": 0.9,
+        "h": 2.15,
+        "rendu": {
+          "uni": [
+            120,
+            70,
+            40
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 5.6,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "uni": [
+            55,
+            62,
+            70
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 7,
+    "bruit": 6,
+    "mur": {
+      "parement": {
+        "type": "enduit",
+        "couleur": [
+          222,
+          205,
+          176
+        ]
+      }
+    },
+    "prise": {
+      "type": "coins",
+      "coins": [
+        {
+          "x": 120,
+          "y": 90
+        },
+        {
+          "x": 800,
+          "y": 140
+        },
+        {
+          "x": 780,
+          "y": 610
+        },
+        {
+          "x": 90,
+          "y": 640
+        }
+      ],
+      "largeurPx": 900,
+      "hauteurPx": 700
+    }
+  }
+}

@@ -1,19 +1,26 @@
 # Plan interactif — configuration Apache de la racine web.
 #
-# Ce fichier est un MODELE : `npm run build` le lit, remplace le jeton de la politique plus bas par
-# les empreintes SHA-256 du script en ligne de la page, et ecrit le resultat dans `dist/.htaccess`.
-# Le jeton doit rester unique dans le fichier, sinon c'est la premiere occurrence qui serait
-# substituee — le build le verifie et echoue sinon. Le resultat se depose a la racine web, a cote
-# d'`index.html`. Une modification faite ici se perd au prochain build ; c'est le modele qu'il faut
-# changer.
+# Ce fichier est un MODELE : `npm run build` le lit, remplace les jetons `@@…@@` plus bas (les
+# empreintes des scripts restes en ligne — aucun d'ordinaire —, l'origine de la plateforme, les
+# origines qui peuvent encadrer la vitrine) et ecrit le resultat dans `dist/.htaccess`. Chaque jeton
+# doit rester unique dans le fichier, sinon c'est la premiere occurrence qui serait substituee — le
+# build le verifie et echoue sinon. Le resultat se depose a la racine web, a cote d'`index.html`. Une
+# modification faite ici se perd au prochain build ; c'est le modele qu'il faut changer.
 #
-# Pourquoi des empreintes plutot que `'unsafe-inline'` : le build produit un fichier unique, donc
-# tout le programme est un `<script>` en ligne. Autoriser l'inline en bloc reviendrait a desactiver
-# la seule protection que la politique apporte vraiment. Les empreintes changent a chaque build,
-# d'ou la generation. Attention : des qu'une empreinte est presente, le navigateur IGNORE
-# `'unsafe-inline'` pour les scripts — les deux ne se cumulent pas.
+# Le programme n'est plus en ligne dans la page : il est servi a cote d'elle, `assets/plan-<empreinte>.js`
+# (deploy/scripts-page.mjs), et `script-src 'self'` le couvre. Jusqu'au 10 octobre 2026, il etait en
+# ligne et la politique le nommait par son empreinte, qui changeait a chaque build : une mise en ligne
+# qui remplacait `index.html` sans ce fichier (cache, saute au televersement) laissait une page
+# blanche. Ce n'est plus possible : la politique ne depend plus du build. `'unsafe-inline'` reste
+# interdit pour les scripts — il autoriserait aussi celui qu'un attaquant injecte.
 
 Options -Indexes
+
+# Un module JavaScript n'est execute que sous un type JavaScript (`nosniff`, §4) : on ne s'en remet
+# pas a la configuration de l'hote.
+<IfModule mod_mime.c>
+  AddType text/javascript .js .mjs
+</IfModule>
 
 # La page s'appelle `index.html` depuis le 24 septembre 2026, et l'adresse canonique de Plan est
 # donc la racine de son sous-domaine : `https://plan.raillard.org/`.
@@ -54,9 +61,31 @@ RedirectMatch 404 ^/data(/|$)
 # sous-dossier de l'hote.
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^(plan-demos|demos)(/|$) - [R=404,L]
+  # data/ (deploy/donnees.php) vit hors de la racine web ; pose ici par erreur, il ne se sert pas.
+  RewriteRule ^(plan-demos|demos|data)(/|$) - [R=404,L]
+  # Le jeton de la plateforme (`Authorization: Bearer`, lot L17) : PHP en CGI ou FPM ne recoit pas
+  # cet en-tete sans ce passage par une variable d'environnement (`HTTP_AUTHORIZATION`, ou
+  # `REDIRECT_HTTP_AUTHORIZATION` apres la reecriture ; analyse.php lit les deux).
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21) : analyse.php les
+  # range avec les autres donnees de l'admin ; la session admin, ou le jeton de la plateforme.
+  RewriteRule ^admin/audits(/(.*))?$ analyse.php?chemin=@audits/$2 [QSA,L]
+  # L'analyse par Claude (analyse.php, MD/spec-audit.md 13.2) : sous `admin/`, elle recoit le
+  # cookie de la session admin, ou le jeton de la plateforme. Avant la regle suivante, qui prendrait
+  # tout `admin/`.
+  RewriteRule ^admin/claude(/(.*))?$ analyse.php?chemin=$2 [QSA,L]
+  # Le tableau de bord de la consommation (13.3) relit le journal d'analyse.php : meme script.
+  RewriteRule ^admin/consommation/?$ analyse.php?chemin=@consommation [QSA,L]
+  # Les mesures de conformite (spec-regles-toits 13.5, lot G3) : analyse.php les range aussi.
+  RewriteRule ^admin/conformite/?$ analyse.php?chemin=@conformite [QSA,L]
   RewriteRule ^admin/(.*)$ admin.php?chemin=$1 [QSA,L]
 </IfModule>
+# Les prompts de Claude ne se servent pas : analyse.php les lit (analyse, run d'une facade et ses deux lectures, PLU, jardin, texte du
+# dossier, assistant). Les .json le sont deja, plus haut.
+<FilesMatch "^prompt-(analyse|facade|facade-enrichie|facade-toit|plu|jardin|texte|assistant)\.md$">
+  Require all denied
+</FilesMatch>
 <FilesMatch "^(plan-)?admin-config(\.exemple)?\.php$">
   Require all denied
 </FilesMatch>
@@ -88,9 +117,24 @@ RedirectMatch 404 ^/data(/|$)
     Header unset Expires
   </FilesMatch>
 
-  # Il n'y a pas d'autre fichier : le build inline tout. Si une image ou une police apparaissent un
-  # jour a cote, elles ne portent pas d'empreinte dans leur nom et ne peuvent donc pas etre gardees
-  # indefiniment — une semaine est le compromis raisonnable.
+  # Le programme, `assets/plan-<empreinte>.js` (en morceaux depuis le 26 octobre 2026, avec sa
+  # feuille de style `plan-<empreinte>.css`) : son nom change des que son contenu change, il se
+  # garde donc en cache sans limite — la page, revalidee a chaque visite, appelle toujours le bon.
+  <FilesMatch "^plan-[0-9a-f]{16}\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header unset Expires
+  </FilesMatch>
+
+  # Les bibliotheques de la livraison, `assets/vendor/<paquet>@<version>/…` (three.js, EZ-tree,
+  # pdf-lib ; etape 5.2 de la feuille de route) : la version est dans le chemin, un fichier n'y
+  # change donc jamais. FilesMatch ne voit que le nom du fichier, d'ou le test sur l'adresse.
+  <If "%{REQUEST_URI} =~ m#/assets/vendor/[^/]+@[^/]+/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header unset Expires
+  </If>
+
+  # Les images et polices qui apparaitraient un jour a cote ne portent pas d'empreinte dans leur nom
+  # et ne peuvent donc pas etre gardees indefiniment — une semaine est le compromis raisonnable.
   <FilesMatch "\.(png|jpg|jpeg|webp|avif|svg|woff2?|ico)$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
@@ -99,7 +143,7 @@ RedirectMatch 404 ^/data(/|$)
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set X-Frame-Options "DENY"
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
 
   # Un an sans redemander en clair, une fois vu en HTTPS. Pas de `includeSubDomains` : ce plan ne
   # possede pas les hotes freres de raillard.org. Pas de `preload` : c'est un registre dans lequel
@@ -110,18 +154,26 @@ RedirectMatch 404 ^/data(/|$)
   # depend ; une origine retiree casse cette fonction-la, en production seulement, puisque le
   # serveur de developpement n'envoie aucune politique.
   #
-  #   script-src   les empreintes : le programme lui-meme, en ligne.
-  #                cdnjs + jsdelivr : three.js r128, OrbitControls, GLTFLoader, GLTFExporter, que
-  #                `three/chargeurs.ts` et `three/glbViewer.ts` ajoutent en <script> a l'execution.
+  #   script-src   'self' : le programme, `assets/plan-<empreinte>.js` (plus les empreintes d'un
+  #                script qui resterait en ligne : aucun d'ordinaire).
+  #                three.js 0.186 et ses exemples, EZ-tree et pdf-lib, servis depuis `assets/vendor/`
+  #                (etape 5.2) : 'self' les couvre. La table d'import de la page (index.html) y entre
+  #                par son empreinte.
+  #                jsdelivr : le secours d'EZ-tree et de pdf-lib quand leur copie ne se charge pas, et
+  #                model-viewer (realite augmentee), qui n'est pas une dependance du paquet.
   #   style-src    'unsafe-inline' : la feuille est inlinee, et le programme pose des styles.
   #                Les scripts n'ont pas cette permission, donc l'injection qui compte reste refusee.
-  #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles
+  #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles ;
+  #                panoramax (OSM France, IGN, et le stockage S3 ou l'IGN redirige ses images)
+  #                pour les vignettes des photos de rue du releve
   #                de l'orthophoto ; polyhaven pour les textures.
-  #   connect-src  api-adresse pour l'adresse, apicarto pour le cadastre et le PLU, data.geopf.fr
-  #                pour le WFS et le WMTS, polyhaven pour le catalogue de textures.
+  #   connect-src  blob: pour le modele 3D que model-viewer lit en realite augmentee ;
+  #                api-adresse pour l'adresse, apicarto pour le cadastre et le PLU, data.geopf.fr
+  #                pour le WFS et le WMTS, polyhaven pour le catalogue de textures, panoramax pour
+  #                la recherche et le telechargement des photos de rue (geo/panoramax.ts).
   #                En 2.0.0, l'origine de la plateforme backprod s'ajoute ici (spec-connexion-plateforme §1).
   #   frame-ancestors 'none'  rien ici n'est fait pour etre encadre.
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-jqIo6ldaAwauIrA6b2zPYkymJu66TcIgYx8G/wPuiuc=' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org; font-src 'self'; connect-src 'self' https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org; worker-src 'self' blob:"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-siQlu5N5Sr17RjhfYN8/yjYFogdRD/ddKwU8o7rdsrs=' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; font-src 'self'; connect-src 'self' blob: https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org https://api.panoramax.xyz https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; worker-src 'self' blob:"
   # 6. La vitrine publique (?mode=demo, app/vitrine.ts) se laisse encadrer par la plateforme, et
   #    par elle seule : la page d'accueil de son catalogue montre Plan en marche dans un <iframe>.
   #    Le reste du site reste `frame-ancestors 'none'` et `X-Frame-Options: DENY`. La condition

@@ -130,10 +130,11 @@ modifie depuis l'inspecteur de la parcelle.
 |---|---|---|---|
 | Sélection | Sélectionner / déplacer (outil par défaut) | implicite dans `interaction/pointeur.ts` | `etat.selectedKey`, `appliquerGlisser` |
 | Sélection | Annuler | `undoBtn`, Ctrl+Z | `historique.annuler` |
-| Créer | Polygone · Rectangle · Chemin · Cercle · Parasol · Point de vue | `add*Btn` | `atelier.addNewObject/…` |
+| Créer | Terrasse · Pergola · Carport · Piscine · Piscine ronde · Parasol · Point de vue — les ouvrages d'abord | `add*Btn` | `atelier.addNewObject/…` |
+| Formes | Chemin · Polygone · Rectangle · Cercle — les formes purement géométriques, à qualifier ensuite, après les ouvrages | `add*Btn` | `atelier.addNewObject/…` |
 | Éditer | Dupliquer · Supprimer · Reculer d'un plan | `dupObjBtn`, `delObjBtn`, `backObjBtn` | `duplicateSelectedObject`, `deleteSelectedObject`, `sendObjectBackward` |
 | Mesurer | Cote (référence puis coins) | onglet Mesure, `startPick` | `interaction/outilMesure.ts` |
-| Aligner | Aligner par rotation sur un côté cible | onglet Objet, « Choisir un segment cible » | `interaction/outilAlignement.ts` |
+| Aligner | Aligner par rotation sur un côté cible : le côté désigné, l'objet pivote (27 octobre 2026 : plus de section dans l'inspecteur) | outil « Aligner » de la palette | `interaction/outilAlignement.ts` |
 | Navigation | Ajuster à la sélection · Grille | `fitBtn`, `gridBtn` (surimpression du canevas) | `fitToObject`, `grilleVisible` |
 
 Mesurer et Aligner sont des **outils modaux** : l'état `mesure.pointage` existe déjà et dit ce
@@ -173,7 +174,7 @@ la terrasse, choisis dans Z3.
 | Parasol | fonction parasol | hauteur, mât déporté, angle, terrasse liée, date et heure de l'ombre, « Placer au mieux » | `engine/parasol.ts` |
 | Parcelle | clé `parcelle` | lieu (lat, lon, nom), cadastre (fiche), orthophoto | `model/lieu.ts`, `ui/cloture.ts` |
 | Clôture, Portails et portillons | clé `parcelle`, parcelle du projet seule | réglage par défaut et par côté, hauteurs maximales du PLU ; accès (côté, position, dimensions, ouverture, forme, piliers, retrait) — `MD/spec-cloture.md` | `ui/champs/cloture.ts`, `model/cloture.ts` |
-| Terrasse — construction | fonction terrasse | le configurateur (53 réglages), l'optimisation | `renderTerrasseConfigurator`, `optimiserParametres` |
+| Terrasse — construction | fonction terrasse | le configurateur (53 réglages) ; l'optimisation est un onglet de Z6 depuis le 27 octobre 2026 | `renderTerrasseConfigurator`, `optimiserParametres` |
 | Terrasse — vue 3D | fonction terrasse, vue 3D active | filaire, tous les objets, opaques, textures, ombres | `vue3d.*` |
 
 L'inspecteur est **la** zone que le découpage du configurateur en descripteurs de champs
@@ -188,6 +189,9 @@ compilation.
 |---|---|---|---|
 | Nomenclature (BOM) | sous-onglet BOM, `terrasseBomTable`, totaux | `computeBOM` | prix réels par ligne |
 | Débit | `terrasseDebitBox`, `terrasseDebitBoisBox` | `optimiserDebitLames`, débit bois | longueurs disponibles, prix |
+| Optimisation (terrasse) | `terrasseOptimWrap` (27 octobre 2026, venu de l'inspecteur) | `optimiserParametres` | « Appliquer » une structure |
+| Piscine | `piscineResultatsWrap` (27 octobre 2026) : volume, distances aux limites, taxe, métrage et chiffrage | `calculerPiscine`, `chiffrerPiscine` | prix par poste |
+| Pergola / Carport | `abriResultatsWrap` (27 octobre 2026) : métrage et chiffrage | `calculerPergola`, `chiffrerPergola` | prix par section |
 | Coupe | `terrasseCoupeWrap` | `renderTerrasseCoupe` | non |
 | Implantation | `terrasseImplantWrap` (échelle 1/50 à 1/200) | `computeImplantation` | échelle |
 | Chantier | `terrasseChantierWrap` | `computeChantier` | équipe, heures/jour, cadences |
@@ -210,10 +214,12 @@ Enregistrer.
 Les trois parcours restent des dialogues : import cadastre (trois étapes), actualisation IGN,
 sélecteur de textures. Depuis le 27 septembre 2026, ce sont des composants React
 (`zones/Parcours.tsx`, `zones/parcours/`) ouverts un à la fois par `app/parcours.ts` ; leur logique
-vit sans DOM dans `app/importCadastre.ts`, `app/actualisationIgn.ts` et `io/polyhaven.ts`.
+vit sans DOM dans `app/cadastre/importCadastre.ts`, `app/cadastre/actualisationIgn.ts` et `io/polyhaven.ts`.
 Un quatrième s'y ajoute en `2.2.0`, plein écran : le **relevé de façade** (`zones/Releve.tsx`,
-[`spec-releve-facade.md`](spec-releve-facade.md) §4), ouvert par la commande `facade.relever`
-depuis la section « Façades et toit » de Z5 — seul endroit où elle vit, avec `facade.retirer`.
+[`spec-releve-facade.md`](spec-releve-facade.md) §4). Depuis le lot F6 (29 octobre 2026), c'est
+l'**éditeur** d'une façade déjà relevée, ouvert par la commande `facade.modifier` depuis la section
+« Façades et toit » de Z5 — seul endroit où elle vit, avec `facade.photographier` (qui ouvre l'audit
+de la parcelle sur la prise de ce mur : les photos ne se prennent que là) et `facade.retirer`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
 
@@ -313,7 +319,8 @@ Prises le 21 septembre 2026 pour les quatre premières ; la cinquième est ouver
    restent en DOM natif dans un composant hôte : ils sont testés, tactiles et rapides, et React n'a
    rien à y gagner.
 2. **Le fichier unique est conservé.** `vite-plugin-singlefile` embarque React ; le déploiement reste
-   « copier un fichier » jusqu'à la 2.0.0. **Le budget du fichier livré passe de 1,2 Mo à 5 Mo**
+   « copier un fichier » jusqu'à la 2.0.0. *(10 octobre 2026 : le programme sort de la page, dans
+   `assets/plan-<empreinte>.js` — voir `deploy/scripts-page.mjs` ; la feuille de style reste en ligne.)* **Le budget du fichier livré passe de 1,2 Mo à 5 Mo**
    (décision du 21 septembre 2026, après l'étape 1 : React DOM porte le fichier à 680 Ko, et les
    zones suivantes ajoutent du code à nous, pas de dépendance de cette taille).
 3. **Le tactile est un critère d'acceptation**, pas une option : cibles ≥ 44 px dans Z2 et Z5,

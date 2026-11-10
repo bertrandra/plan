@@ -7,37 +7,40 @@
 
 import { mesure } from '../interaction/outilMesure.js';
 import { cibleAlignement } from '../interaction/outilAlignement.js';
+import { toucher } from '../core/controleurObjets.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
-import { champAnnulable, ecritLeProjet } from './ecritures.js';
+import { brancherDialogueDeclaration } from './ecouteurs/exports.js';
+import type { ServiceDossier } from './declaration/serviceDossier.js';
+import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
-import { sectionsObjet, titreObjet } from '../ui/champs/objet.js';
-import { sectionsConstruction, type ContexteOptimisation } from '../ui/champs/construction.js';
-import { sectionReleve, estBatiment } from '../ui/champs/facade.js';
+import { titreObjet } from '../ui/champs/objet.js';
+import { retoucheADemander } from '../model/retouche.js';
+import { avecAccordDeRetouche } from '../interaction/retoucheTerrain.js';
+import { sectionsInspecteur } from '../ui/champs/sections.js';
 import type { Champ, ContexteChamps, Effet, Section } from '../ui/champs/types.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { Magasin } from './magasin.js';
 import type { RegistreCommandes } from './commandes.js';
-import type { Resultats } from './resultats.js';
-import { aParticularite } from '../model/fonctions.js';
 
 /** Ce que l'inspecteur doit pouvoir declencher ailleurs. */
 export interface ContexteInspecteur extends Pick<ContexteChamps,
   'libelleType' | 'elevationOf' | 'interiorAngleDeg' | 'refLabel' | 'measureSegCoords' | 'contexteSoleil' | 'dejaRectangle'
   | 'applyAngleEdit' | 'applyLengthEdit' | 'deleteVertex' | 'alignObjectByRotation' | 'allerAuPointDeVue' | 'startPick' | 'pushHistory' | 'render'> {
-  markDirty: () => void;
+  /** Le projet a change ; `objets` : ceux que l'ecriture a modifies sur place (core/controleurObjets.ts), sinon tout est neuf. */
+  markDirty: (...objets: object[]) => void;
+  /** Le dossier de declaration (lot L5) : ses textes, ses photographies et sa relecture, que le dialogue de la declaration montre. */
+  dossier?: ServiceDossier;
   /** L'instantane d'avant l'ecriture, empile seulement si elle reussit (core/historique.ts `preparer`). */
-  preparerHistorique: () => () => void;
+  preparerHistorique: (...objets: object[]) => () => void;
   refreshTerrasseView: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   reapplyStackingOrder: () => void;
   rebuildHandles: (obj: ObjetPlan) => void;
   trouverParcelle: () => ObjetPlan | undefined;
-  optimisation: ContexteOptimisation;
-  resultats: Resultats;
   /** Le plan reprend ou rend la largeur de l'inspecteur. */
   redimensionner: () => void;
 }
@@ -45,6 +48,11 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
 export interface Inspecteur {
   /** L'objet selectionne, ou rien. */
   objet(): ObjetPlan | undefined;
+  /**
+   * La parcelle du projet : la declaration prealable (dialogue du menu Exporter) et le voisinage 3D
+   * (reglages de la Vue 3D) ecrivent sur elle, selectionnee ou non.
+   */
+  parcelle(): ObjetPlan | undefined;
   contexte(obj: ObjetPlan): ContexteChamps;
   titre(c: ContexteChamps): string;
   sections(c: ContexteChamps): Section[];
@@ -53,8 +61,6 @@ export interface Inspecteur {
   executer(champ: Champ, c: ContexteChamps): void;
   /** Replie ou deplie la zone : le conteneur (index.html) porte la classe, le plan reprend la largeur. */
   basculerOuverture(): void;
-  /** Le service du tiroir, pour le tableau d'optimisation et ses « Appliquer ». */
-  resultats?: Resultats;
 }
 
 /** Le temps pendant lequel des ecritures d'un meme champ forment un seul geste a annuler. */
@@ -103,26 +109,34 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     }
   }
 
-  return {
+  const service: Inspecteur = {
     objet,
+    parcelle: ctx.trouverParcelle,
     contexte,
-    resultats: ctx.resultats,
     titre: titreObjet,
-    sections(c) {
-      const sections = sectionsObjet(c);
-      if (aParticularite(c.obj, 'construction')) sections.push(...sectionsConstruction(ctx.optimisation));
-      if (estBatiment(c.obj)) sections.push(sectionReleve(c));
-      return sections;
-    },
+    sections: sectionsInspecteur,
     appliquer(champ, c, ecrire) {
       // La lecture seule refuse ce qui ecrit le projet, comme le registre grise ses commandes.
       if (etat.lectureSeule && ecritLeProjet(champ)) { magasin.notifier(); return false; }
+      // Un champ qui deforme un objet venu du cadastre ou de l'IGN attend l'accord : le champ revient a ce qu'il lit, et
+      // l'ecriture se fait au « Confirmer » (interaction/retoucheTerrain.ts), sans pas d'annulation si la personne renonce.
+      if (champ.retouche && retoucheADemander(c.obj)) {
+        avecAccordDeRetouche(c.obj, { markDirty: ctx.markDirty }, () => { service.appliquer(champ, c, ecrire); });
+        magasin.notifier();
+        return false;
+      }
       // L'instantane est pris avant d'ecrire, et empile seulement si l'ecriture n'est pas refusee.
-      const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique() : null;
+      // L'ecriture nomme son objet (core/controleurObjets.ts) : un champ n'ecrit que l'objet inspecte, sauf « appliquer a tous »
+      // (les textures des chemins), qui en ecrit d'autres et laisse tout neuf.
+      const nommes = champ.type === 'texture' && champ.appliquerATous ? [] : [c.obj];
+      const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique(...nommes) : null;
       if (ecrire() === false) { magasin.notifier(); return false; }
+      // L'ecriture nomme son objet (core/controleurObjets.ts) : un reglage d'affichage (`sale: false`) ne passe pas par
+      // l'historique, et sans cela ni le plan ni l'inspecteur (zones/composants/abonnement.ts) ne le verraient changer.
+      toucher(c.obj);
       if (empiler) empiler();
       if (champAnnulable(champ)) dernier = { cle: cleDe(champ, c), t: Date.now() };
-      if (champ.sale !== false) ctx.markDirty();
+      if (champ.sale !== false || (champ.enregistre && !etat.lectureSeule)) ctx.markDirty(...nommes);
       (champ.effets || []).forEach(e => effet(e, c));
       // Une ecriture sans effet declare doit quand meme se voir : l'inspecteur relit l'etat.
       if (!champ.effets || !champ.effets.length) magasin.notifier();
@@ -132,6 +146,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       // Un bouton qui ecrit le projet est grise en lecture seule ; il est refuse ici aussi.
       if (champ.type !== 'bouton' || (etat.lectureSeule && ecritLeProjet(champ))) return;
       champ.executer(c);
+      toucher(c.obj);
       magasin.notifier();
     },
     basculerOuverture() {
@@ -141,4 +156,8 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       ctx.redimensionner();
     }
   };
+  // La declaration prealable : un dialogue du menu Exporter qui rend des champs de la parcelle. Le
+  // service qui les ecrit le declare, comme il les ecrit dans l'inspecteur.
+  brancherDialogueDeclaration(commandes, service, ctx.dossier);
+  return service;
 }

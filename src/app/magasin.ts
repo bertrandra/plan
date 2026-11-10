@@ -17,8 +17,10 @@ import type { EtatApp } from '../core/state.js';
 import type { PtBrut } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import type { Vue } from './modes.js';
-import type { HauteurTiroir } from './tiroir.js';
 import type { Classe } from './exposition.js';
+
+/** La hauteur du tiroir des resultats (app/tiroir.ts) : rangee ici, avec l'etat qui la tient. */
+export type HauteurTiroir = 'replie' | 'mi' | 'plein';
 
 /**
  * Les feuilles du telephone (spec-ihm-mobile §5.5) : une seule ouverte a la fois. Chacune porte une
@@ -37,8 +39,13 @@ export interface ProjetObservable {
   courant: ProjetResume | null;
   liste: ProjetResume[];
   statut: StatutProjet;
-  /** « Enregistré à 18:38 », ou vide tant que rien n'a ete enregistre dans cette session. */
+  /** « Enregistré à 18:38 (820 Ko) », ou vide tant que rien n'a ete enregistre dans cette session. */
   enregistreA: string;
+  /**
+   * Le dernier enregistrement a echoue : « Échec de l’enregistrement (2,4 Mo) », avec la taille de ce
+   * qui a ete refuse. Vide sinon ; un enregistrement reussi l'efface.
+   */
+  echec?: string;
   /** Le projet ouvert est d'un schema anterieur au programme : « Mettre a jour le modele » s'offre. */
   schemaEnRetard: boolean;
   /** Les projets de l'organisation et ce que l'abonnement en autorise ; `null` : hors plateforme. */

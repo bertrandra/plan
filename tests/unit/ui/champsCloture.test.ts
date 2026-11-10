@@ -3,6 +3,7 @@ import { sectionsCloture, reinitialiserChoixCloture } from '../../../src/ui/cham
 import { champsVisibles, type Champ, type ChampBouton, type ChampCase, type ChampChoix, type ChampNombre, type ChampAlerte, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import { clotureDe } from '../../../src/model/cloture.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
+import { importerAE101, ruesAE101, coteAllee } from '../../fixtures/cloture/ae101.js';
 
 // Les sections Cloture et Portails de l'inspecteur (ui/champs/cloture.ts, MD/spec-cloture.md §3) :
 // sur la parcelle du projet seule, les champs par type, les ecritures qui posent la structure.
@@ -136,5 +137,26 @@ describe('section Portails et portillons', () => {
     bouton(c, 'portails', 'acces0', 'supprimer').executer(c);
     expect(cl.portails.map(a => a.nature)).toEqual(['portillon']);
     expect(champ<ChampChoix>(c, 'portails', 'enCours').lire(c)).toBe('0');
+  });
+
+  it('AE 101 sans clôture (ancien projet) : « Ajouter un portail » le pose côté rue et dit pourquoi', () => {
+    // Un plan d'AE 101 sans point d'adresse ni voisine : le plus long cote, mitoyen d'AE 100, recevait le portail.
+    const objets = importerAE101({ recherche: null });
+    const obj = objets[0]!;
+    delete obj.cloture;
+    obj.clotureActive = true;
+    obj.ruesVoisinage = ruesAE101(obj);
+    const c = { ...contexte(), obj, objets, parcelle: obj, etat: { objects: objets, highlight: {} } } as unknown as ContexteChamps;
+    const ajouter = champ<ChampBouton>(c, 'portails', 'ajouterPortail');
+    const allee = coteAllee(obj);
+    expect(ajouter.explication).toBe(`Sur le côté ${allee + 1}, le long de la rue « Allee des Limites » ; corrigez la limite d’un côté si besoin.`);
+    ajouter.executer(c);
+    champ<ChampBouton>(c, 'portails', 'ajouterPortillon').executer(c);
+    expect(clotureDe(obj).portails.map(a => a.cote)).toEqual([allee, allee]);
+  });
+
+  it('sans rien qui dise où est la rue, l’explication invite à le dire', () => {
+    const c = contexte({ clotureActive: true });
+    expect(champ<ChampBouton>(c, 'portails', 'ajouterPortail').explication).toBe('Sur le côté 1, le plus long : rien ne dit encore où est la rue (point d’adresse, rues lues, parcelles voisines). Dites-le avec la limite d’un côté.');
   });
 });

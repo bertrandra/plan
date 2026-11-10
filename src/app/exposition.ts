@@ -22,9 +22,9 @@ export const CLASSES: Classe[] = ['compact', 'moyen', 'large'];
 export type Emplacement =
   | 'palette' | 'rail' | 'feuilleOutils'
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
-  | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide'
+  | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide' | 'menuAdmin'
   | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
-  | 'clavier' | 'premierPas' | 'sansObjet';
+  | 'clavier' | 'premierPas' | 'parcours' | 'barreFacade' | 'sansObjet';
 
 type Ligne = Record<Classe, Emplacement[]>;
 
@@ -58,16 +58,23 @@ export const EXPOSITION: Record<string, Ligne> = {
 
   // ---- Objets (Z2) ----------------------------------------------------------------------------
   'objet.annuler': { compact: ['barreHaute', 'clavier'], moyen: ['rail', 'clavier'], large: ['palette', 'clavier'] },
-  'objet.ajouter.polygone': outil(),
-  'objet.ajouter.rectangle': outil(),
-  'objet.ajouter.chemin': outil(),
-  'objet.ajouter.cercle': outil(),
-  'objet.ajouter.parasol': outil(),
+  // Dans l'ordre de la palette : les ouvrages, puis les formes geometriques.
+  'objet.ajouter.terrasse': outil(),
   'objet.ajouter.pergola': outil(),
   'objet.ajouter.carport': outil(),
   'objet.ajouter.piscine': outil(),
   'objet.ajouter.piscineRonde': outil(),
+  'objet.ajouter.parasol': outil(),
   'objet.ajouter.pointDeVue': outil(),
+  'objet.ajouter.chemin': outil(),
+  'objet.ajouter.polygone': outil(),
+  'objet.ajouter.rectangle': outil(),
+  'objet.ajouter.cercle': outil(),
+  // La plage d'une piscine (section Abords) et les trous d'une terrasse (étape 1 de la terrasse, Implantation et niveau).
+  'objet.terrassePiscine': partout('inspecteur'),
+  'terrasse.ajouterTrou': partout('inspecteur'),
+  'objet.rendreEgout': partout('inspecteur'),
+  'objet.centrerSurTerrasse': partout('inspecteur'),
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.reculer': outil(),
@@ -82,15 +89,30 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.mettreAJourModele': menu('menuFichier'),
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),
+  'projet.actualiser': menu('menuFichier'),
+  'projet.toitsFond': menu('menuFichier'),
+  'projet.supprimerVoisinage': menu('menuFichier'),
+  'projet.doublons': menu('menuFichier', 'menuAdmin'),
+  // L'audit de la parcelle (MD/spec-audit.md §11) : menu Projet (Fichier) sur bureau, feuille du projet au doigt.
+  'audit.parcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
+  // L'import d'un audit de parcelle (§15) : a cote, dans le meme menu.
+  'audit.importerParcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
+  // La sauvegarde de l'audit sur le serveur (§15) : la ligne de la liste de controle, dans le parcours (Z8).
+  'audit.envoyerParcelle': partout('parcours'),
 
   // ---- Affichage ------------------------------------------------------------------------------
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
   'affichage.voisinage': menu('menuAffichage', 'explorateur'),
   'affichage.grille': menu('menuAffichage', 'surimpression'),
+  'affichage.relief': menu('menuAffichage'),
+  'affichage.courbes': menu('menuAffichage'),
+  'affichage.rues': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
+  'affichage.positionGps': menu('menuAffichage'),
   'affichage.orthoOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleDefaut': menu('menuAffichage'),
+  'affichage.orthoRecharger': menu('menuAffichage'),
 
   // ---- Vues -----------------------------------------------------------------------------------
   // Avec une terrasse selectionnee : sur le plan, dans le groupe flottant ; en 3D, dans les commandes de la scene.
@@ -105,10 +127,71 @@ export const EXPOSITION: Record<string, Ligne> = {
   'mesure.effacer': partout('tiroir'),
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
   'plu.interroger': partout('tiroir'),
-  'terrasse.optimisation': partout('inspecteur'),
-  // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
-  'facade.relever': partout('inspecteur'),
+  // La lecture du reglement par Claude et la validation de ses regles : l'onglet PLU du tiroir, dans les trois classes (lot L4).
+  'plu.lireReglement': partout('tiroir'),
+  'plu.validerFait': partout('tiroir'),
+  // L'optimisation de la structure : un resultat, l'onglet Optimisation du tiroir d'une terrasse.
+  'terrasse.optimisation': partout('tiroir'),
+  // Une facade d'un batiment : la section « Facades et toit », une ligne par mur. La photo se prend dans l'audit (lot F6) ;
+  // l'editeur du releve corrige ses ouvertures.
+  'facade.photographier': partout('inspecteur'),
+  'facade.modifier': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
+  // Une etape de l'enchainement d'une facade : un segment de la barre de progression (MD/spec-facade-calage-audit.md §4 ter.5), que la
+  // calibration porte en haut de l'editeur d'un cas (et sa frise des etapes), dans les trois classes.
+  'facade.etape': partout('barreFacade'),
+  // L'escalade d'une facade, a la demande (decision du 29 octobre 2026) : sous sa barre, dans l'audit et dans la calibration.
+  'facade.escalader': partout('barreFacade'),
+  // La validation d'une facade (V4, lot F5) : sous sa barre, dans l'audit, dans les trois classes.
+  'facade.valider': partout('barreFacade'),
+  // « Confirmer le mur » (V1) : sur la ligne du mur, sous la barre, dans l'audit et dans l'etape ouverte de la calibration.
+  'facade.confirmerMur': partout('barreFacade'),
+  // Defaire et refaire un geste sur la facade avant V4 (Ctrl+Z, Ctrl+Y) : sous sa barre, dans l'audit et dans la calibration.
+  'facade.annulerGeste': partout('barreFacade'),
+  'facade.retablirGeste': partout('barreFacade'),
+  // Les choix de source et le forcage de Claude (lot C2) : sous l'etape ouverte de la calibration, la ou l'element se montre.
+  'facade.choisirSource': partout('barreFacade'),
+  'facade.forcerClaude': partout('barreFacade'),
+  // Un cas de calibration tire d'une facade de l'audit (lot F6) : dans la fiche de la facade de l'audit, pour l'administrateur, dans les trois classes.
+  'facade.creerCas': partout('parcours'),
+  // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.
+  'toit.modifier': partout('vue3d'),
+  'toit.valider': partout('vue3d'),
+  'toit.abandonner': partout('vue3d'),
+  'toit.annuler': partout('vue3d'),
+  'toit.retablir': partout('vue3d'),
+  'toit.depart': partout('vue3d'),
+  'toit.isoler': partout('vue3d'),
+  'toit.facade': partout('vue3d'),
+  'toit.vueLibre': partout('vue3d'),
+  'toit.vueFacade': partout('vue3d'),
+  'toit.vueDessus': partout('vue3d'),
+  'toit.recadrer': partout('vue3d'),
+  'toit.isolerCorps': partout('vue3d'),
+  'toit.voirValide': partout('vue3d'),
+  'toit.selection': partout('vue3d'),
+  'toit.regler': partout('vue3d'),
+  'toit.dupliquer': partout('vue3d'),
+  'toit.supprimer': partout('vue3d'),
+  'toit.tourner': partout('vue3d'),
+  'toit.scinder': partout('vue3d'),
+  'toit.fusionner': partout('vue3d'),
+  'toit.retour': partout('vue3d'),
+  'toit.plus': partout('vue3d'),
+  'toit.moins': partout('vue3d'),
+  'toit.regles': partout('vue3d'),
+  'toit.poser': partout('vue3d'),
+  'toit.decrocher': partout('vue3d'),
+  'toit.murSur3d': partout('vue3d'),
+  // L'indicateur d'etat du mode Toit, sur la scene : « Annuler » quitte l'insertion en cours.
+  'toit.quitterInsertion': partout('vue3d'),
+  'toit.modifierEn3d': partout('inspecteur'),
+  // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
+  'relief.lire': partout('inspecteur'),
+  // Le nom des rues : la case et le bouton du groupe « Voisinage » des reglages de la Vue 3D (ui/champs/voisinage3d.ts).
+  'projet.lireRues': partout('vue3d'),
+  'relief.actualiser': partout('inspecteur'),
+  'relief.supprimer': partout('inspecteur'),
 
   // ---- Fichier et exports ---------------------------------------------------------------------
   'fichier.importerSvg': menu('menuFichier'),
@@ -123,19 +206,48 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.dossier': menu('menuExporter'),
   'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),
-  'export.declaration': menu('menuExporter', 'inspecteur'),
+  // La declaration prealable : une entree du menu Exporter ouvre son dialogue, dont le bouton produit le dossier.
+  'export.ouvrirDeclaration': menu('menuExporter'),
+  'export.declaration': partout('parcours'),
+  // Le dossier de la declaration (lot L5) : les textes, les photographies DP7 et DP8, dans le dialogue de la declaration, partout.
+  'export.redigerTexte': partout('parcours'),
+  'export.validerTexte': partout('parcours'),
+  'export.retirerTexte': partout('parcours'),
+  'export.choisirPhoto': partout('parcours'),
+  'export.retirerPhoto': partout('parcours'),
   'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------
   '3d.zoomAvant': partout('vue3d'),
   '3d.zoomArriere': partout('vue3d'),
+  '3d.tournerGauche': partout('vue3d'),
+  '3d.tournerDroite': partout('vue3d'),
   '3d.modeOrbite': partout('vue3d'),
   '3d.modeDeplacement': partout('vue3d'),
   '3d.modeZoom': partout('vue3d'),
   '3d.hauteurDesYeux': partout('vue3d'),
   '3d.enregistrerPng': partout('vue3d'),
+  '3d.heureDoree': partout('vue3d'),
+  '3d.captureHd': partout('vue3d'),
+  '3d.promenade': partout('vue3d'),
   '3d.enregistrerPointDeVue': partout('vue3d'),
+  // Le mode audit (app/audit/branchement.ts) : sa barre, dans la Vue 3D.
+  'audit.suivre': partout('vue3d'),
+  'audit.cas': partout('vue3d'),
   '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['vue3d'] },
+
+  // ---- Admin (menu Admin de Z1, admin des demos seulement) ------------------------------------
+  'admin.consommation': menu('menuAdmin'),
+  'admin.conformite': menu('menuAdmin'),
+  'admin.regles': menu('menuAdmin'),
+  'admin.auditsParcelle': menu('menuAdmin'),
+  'admin.sauvegarde': menu('menuAdmin'),
+  'admin.faitsLocaux': menu('menuAdmin'),
+
+  // ---- Assistant (lot L6) : le menu Aide (feuille du projet au doigt) ouvre son dialogue, qui porte l'envoi et « Appliquer » ---
+  'assistant.demander': menu('menuAide'),
+  'assistant.envoyer': partout('parcours'),
+  'assistant.appliquer': partout('parcours'),
 
   // ---- Visionneuse ----------------------------------------------------------------------------
   'visionneuse.generer': partout('visionneuse'),
@@ -143,6 +255,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'visionneuse.zoomAvant': partout('visionneuse'),
   'visionneuse.zoomArriere': partout('visionneuse'),
   'visionneuse.hauteurDesYeux': partout('visionneuse'),
+  'visionneuse.ar': partout('visionneuse'),
   'visionneuse.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['visionneuse'] }
 };
 

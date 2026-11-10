@@ -29,6 +29,18 @@ export function lieuDeParcelle(parcelle: PorteurDeLieu | null | undefined): Lieu
 }
 
 /**
+ * Ou est la parcelle, sans rien y ecrire : ce qu'un affichage lit (le fuseau de l'heure du soleil, dans l'inspecteur), qui ne
+ * doit pas toucher au projet en se dessinant. Le lieu par defaut pour ce qui manque, comme `lieuDeParcelle`.
+ */
+export function coordonneesDuLieu(parcelle: PorteurDeLieu | null | undefined): { latitude: number; longitude: number } {
+  const lat = parcelle?.latitude, lon = parcelle?.longitude;
+  return {
+    latitude: lat === undefined || lat === null ? LIEU_DEFAUT.latitude : lat,
+    longitude: lon === undefined || lon === null ? LIEU_DEFAUT.longitude : lon
+  };
+}
+
+/**
  * Libelle du lieu, partage par l'entete du plan, la Vue 3D et la visionneuse GLB : une seule
  * formulation, donc pas de risque d'en voir deux differentes sur la meme page.
  */

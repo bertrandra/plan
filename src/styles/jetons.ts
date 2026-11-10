@@ -12,9 +12,11 @@
 
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
-  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
-  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d'
-  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte';
+  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
+  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
+  | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
+  | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
+  | 'claude-parement' | 'claude-zone' | 'claude-ouverture';
 
 export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
   clair: {
@@ -31,6 +33,8 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'border': '#E4D9C1',
     'rule': '#D9CDB2',
     'hairline': '#EFE6D3',
+    // Les courbes de niveau du relief : un brun discret, lisible sur le canevas sans peser sur les objets.
+    'relief': '#8C6B3F',
     'accent': '#7A5C31',
     'on-accent': '#FFFDF8',
     'accent-light': '#EFE3C8',
@@ -40,15 +44,43 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger': '#8E2A1C',
     'danger-bg': '#FBF1EE',
     'alerte': '#A8442F',
+    // L'insertion du mode Toit (une piece armee qui attend son toucher) : un bleu qui ne se confond pas avec le bois de l'accent, qui dit
+    // « modification » (retour du proprietaire, 8 novembre 2026). Toujours avec le mot « Insertion » : la couleur ne porte rien seule.
+    'insertion': '#1F5FA8',
+    'on-insertion': '#FFFDF8',
+    'insertion-bg': '#E4EEF9',
     'toast-bg': '#2B2117',
     'on-toast': '#FFFDF8',
     'fond-3d': '#DFE7EA',
+    // Le trait renforce de la facade devant vous, de pres (audit, three/traitDePres.ts) : sombre dans
+    // les deux themes, parce qu'il se pose sur la scene (des murs clairs au soleil), pas sur l'interface.
+    'trait-3d': '#1E1812',
     // La scene de prise de vue du releve de facade : une camera se regarde sur fond sombre, quel que
     // soit le theme - un cadre clair autour de l'image eblouit et fausse le jugement de l'exposition.
     'camera-bg': '#14100B',
     'on-camera': '#FFFDF8',
     'camera-ok': '#8FD49B',
-    'camera-alerte': '#F2B38F'
+    'camera-alerte': '#F2B38F',
+    // Les series des graphiques (tableau de bord de la consommation de Claude) : une couleur par
+    // modele, bleu, orange, vert d'eau. Ordre et valeurs passes au validateur du skill dataviz
+    // (ecart pour les daltoniens, luminosite, saturation) contre panel-bg, en clair comme en sombre.
+    // Le vert d'eau clair n'atteint pas 3:1 : chaque serie est toujours nommee a cote de sa couleur.
+    'serie-1': '#2A78D6',
+    'serie-2': '#EB6834',
+    'serie-3': '#1BAF7A',
+    // Les familles de ce que Claude lit d'une facade (model/etapeFacade.ts, FAMILLES_CLAUDE) : la meme couleur a l'E8 et dans l'etape
+    // qui montre l'element (calibration, audit). Toujours nommees a cote (la famille en mots) : la couleur ne porte rien seule. Chacune
+    // tient 3:1 sur les panneaux, pour un trait ou une pastille.
+    'claude-angles': '#2A6FC9',
+    'claude-pointe': '#C2410C',
+    'claude-forme': '#8A4FB8',
+    'claude-appentis': '#7A6A00',
+    'claude-corps': '#0E7C86',
+    'claude-element': '#B5326B',
+    'claude-cache': '#4F7A28',
+    'claude-parement': '#9C5B1F',
+    'claude-zone': '#5B5FC7',
+    'claude-ouverture': '#C62828'
   },
   sombre: {
     'ink': '#F1E7D0',
@@ -64,6 +96,7 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'border': '#3E3325',
     'rule': '#4A3F30',
     'hairline': '#332A1F',
+    'relief': '#C9A97A',
     'accent': '#E0B564',
     'on-accent': '#1C1610',
     'accent-light': '#4A3B22',
@@ -73,18 +106,35 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger': '#F2A493',
     'danger-bg': '#3A1E18',
     'alerte': '#E08A6E',
+    'insertion': '#7DB4F0',
+    'on-insertion': '#1C1610',
+    'insertion-bg': '#1D2B3B',
     'toast-bg': '#F1E7D0',
     'on-toast': '#1C1610',
     'fond-3d': '#1F2426',
+    'trait-3d': '#120E0A',
     'camera-bg': '#14100B',
     'on-camera': '#FFFDF8',
     'camera-ok': '#8FD49B',
-    'camera-alerte': '#F2B38F'
+    'camera-alerte': '#F2B38F',
+    'serie-1': '#3987E5',
+    'serie-2': '#D95926',
+    'serie-3': '#199E70',
+    'claude-angles': '#6AA6F0',
+    'claude-pointe': '#F08A55',
+    'claude-forme': '#C39BE8',
+    'claude-appentis': '#D4C24A',
+    'claude-corps': '#4CC3CC',
+    'claude-element': '#F07AAE',
+    'claude-cache': '#8FC76A',
+    'claude-parement': '#D9A066',
+    'claude-zone': '#9DA0F2',
+    'claude-ouverture': '#F07A7A'
   }
 };
 
 /** Les familles de la palette, dans l'ordre ou l'ecran de la palette les montre. */
-export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes';
+export type FamilleJeton = 'texte' | 'fonds' | 'traits' | 'accent' | 'etats' | 'notifications' | 'scenes' | 'graphiques' | 'lectures';
 
 export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[] = [
   { id: 'texte', titre: 'Encres', idee: 'Ce qui se lit : le texte, et le texte posé sur une couleur pleine.' },
@@ -93,7 +143,9 @@ export const FAMILLES_JETONS: { id: FamilleJeton; titre: string; idee: string }[
   { id: 'accent', titre: 'Bois', idee: 'L’accent : la sélection, l’état actif, le total. Une seule couleur forte.' },
   { id: 'etats', titre: 'États', idee: 'Enregistré, alerte, danger : toujours accompagnés d’un mot ou d’une icône.' },
   { id: 'notifications', titre: 'Notifications', idee: 'Le toast, en négatif de la page.' },
-  { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' }
+  { id: 'scenes', titre: 'Scènes', idee: 'Le ciel de la Vue 3D et la chambre noire du relevé de façade.' },
+  { id: 'graphiques', titre: 'Graphiques', idee: 'Une couleur par série, toujours nommée à côté : la couleur ne porte jamais seule l’information.' },
+  { id: 'lectures', titre: 'Lectures de Claude', idee: 'Une couleur par famille de ce que Claude lit d’une façade, la même à l’É8 et dans l’étape qui la montre ; toujours nommée à côté.' }
 ];
 
 /**
@@ -115,6 +167,7 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'border': { famille: 'traits', role: 'Bordure des panneaux' },
   'rule': { famille: 'traits', role: 'Contour des commandes, filets de titre' },
   'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
+  'relief': { famille: 'traits', role: 'Courbes de niveau' },
   'accent': { famille: 'accent', role: 'Sélection, état actif, bouton Créer, total' },
   'on-accent': { famille: 'accent', role: 'Texte sur l’accent' },
   'accent-light': { famille: 'accent', role: 'Actif doux, pastilles, survol' },
@@ -123,13 +176,30 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'alerte': { famille: 'etats', role: 'Bordure des alertes' },
   'danger': { famille: 'etats', role: 'Suppression, erreurs' },
   'danger-bg': { famille: 'etats', role: 'Fond d’une erreur' },
+  'insertion': { famille: 'etats', role: 'Insertion en cours (mode Toit) : indicateur, pièce armée, cadre de la scène' },
+  'on-insertion': { famille: 'etats', role: 'Texte sur la couleur d’insertion' },
+  'insertion-bg': { famille: 'etats', role: 'Fond doux de la pièce armée' },
   'toast-bg': { famille: 'notifications', role: 'Fond des notifications' },
   'on-toast': { famille: 'notifications', role: 'Texte des notifications' },
   'fond-3d': { famille: 'scenes', role: 'Ciel de la Vue 3D' },
+  'trait-3d': { famille: 'scenes', role: 'Trait de la façade vue de près (audit)' },
   'camera-bg': { famille: 'scenes', role: 'Chambre noire du relevé' },
   'on-camera': { famille: 'scenes', role: 'Texte sur la chambre noire' },
   'camera-ok': { famille: 'scenes', role: 'Cadrage juste' },
-  'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' }
+  'camera-alerte': { famille: 'scenes', role: 'Cadrage à reprendre' },
+  'serie-1': { famille: 'graphiques', role: 'Première série (Claude Haiku)' },
+  'serie-2': { famille: 'graphiques', role: 'Deuxième série (Claude Sonnet)' },
+  'serie-3': { famille: 'graphiques', role: 'Troisième série (Claude Opus)' },
+  'claude-angles': { famille: 'lectures', role: 'Les deux angles du mur (lecture de Claude)' },
+  'claude-pointe': { famille: 'lectures', role: 'Une pointe du haut (lecture de Claude)' },
+  'claude-forme': { famille: 'lectures', role: 'Le mot du haut et son bout (lecture de Claude)' },
+  'claude-appentis': { famille: 'lectures', role: 'Un appentis (lecture de Claude)' },
+  'claude-corps': { famille: 'lectures', role: 'Un autre volume (lecture de Claude)' },
+  'claude-element': { famille: 'lectures', role: 'Une cheminée, une lucarne (lecture de Claude)' },
+  'claude-cache': { famille: 'lectures', role: 'Ce qui cache le mur (lecture de Claude)' },
+  'claude-parement': { famille: 'lectures', role: 'Le parement (lecture de Claude)' },
+  'claude-zone': { famille: 'lectures', role: 'Une zone du parement (lecture de Claude)' },
+  'claude-ouverture': { famille: 'lectures', role: 'Une boîte d’ouverture (lecture de Claude)' }
 };
 
 /**
@@ -196,8 +266,13 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['danger', 'danger-bg', 4.5],
   ['danger', 'panel-bg', 4.5],
   ['on-toast', 'toast-bg', 4.5],
+  ['relief', 'stage-bg', 3],
   ['ok', 'panel-bg', 3],
   ['alerte', 'panel-bg', 3],
+  ['on-insertion', 'insertion', 4.5],
+  ['insertion', 'panel-bg', 4.5],
+  ['ink', 'insertion-bg', 4.5],
+  ['insertion', 'insertion-bg', 4.5],
   ['on-camera', 'camera-bg', 4.5],
   ['camera-ok', 'camera-bg', 4.5],
   ['camera-alerte', 'camera-bg', 4.5]

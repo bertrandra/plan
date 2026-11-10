@@ -5,9 +5,10 @@
 // modèle en gardant la caméra**. Refaire la scène sans conserver le point de vue renverrait
 // l'utilisateur au cadrage d'origine à chaque case cochée, ce qui rend une comparaison impossible.
 
-import { glb, affichage3d, signaler3d } from '../../three/etat3d.js';
-import { fondGlbViewer, type CameraConservee } from '../../three/glbViewer.js';
-import { estTexture } from '../../three/gardes.js';
+import { glb, affichage3d, signaler3d, reglerGlb } from '../../three/etat3d.js';
+import { ouvrirAR } from '../../three/ar.js';
+import { showErrBanner } from '../../shell/dialogs.js';
+import type { CameraConservee } from '../../three/glbViewer.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetMesurable } from '../../engine/hauteurs.js';
@@ -24,6 +25,8 @@ export interface ContexteVisionneuse {
   rafraichir: (cameraAConserver: CameraConservee) => void;
   /** Repose le soleil sur la scène de la visionneuse. */
   appliquerLumiere: () => void;
+  /** Remplace le fond de la scene de la visionneuse, a chaud (three/glbViewer.ts, `remplacerFondGlb`). */
+  remplacerFond: () => void;
   /** Hauteur finie d'une terrasse, en millimètres. */
   hauteurFinieMm: (obj: ObjetMesurable) => number;
   /** Hauteur des yeux au-dessus du platelage, en mètres. */
@@ -64,6 +67,17 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
   cmd.declarer({ id: 'visionneuse.generer', libelle: 'Générer le modèle 3D', groupe: 'visionneuse', actif: libre, executer: () => ctx.genererGlb(false) });
   cmd.declarer({ id: 'visionneuse.regenerer', libelle: 'Régénérer depuis le plan', groupe: 'visionneuse', actif: libre, executer: () => ctx.genererGlb(false) });
 
+  // Voir chez soi : le modele en memoire, confie a model-viewer (three/ar.ts). Grise sans modele.
+  cmd.declarer({
+    id: 'visionneuse.ar', libelle: 'Voir chez vous (réalité augmentée)', groupe: 'visionneuse',
+    description: 'Pose le modèle 3D grandeur nature dans l’image de la caméra d’un téléphone ou d’une tablette',
+    actif: () => !!glb.dernierExporte && libre(),
+    executer: () => {
+      const e = glb.dernierExporte;
+      if (!e) return;
+      void ouvrirAR(e.buffer, e.nomTerrasse).catch(() => showErrBanner('Impossible de charger la réalité augmentée (connexion internet requise pour cette fonctionnalité).'));
+    }
+  });
   vis('glbViewerZoomIn', 'visionneuse.zoomAvant', 'Zoom avant', () => zoom(0.8));
   vis('glbViewerZoomOut', 'visionneuse.zoomArriere', 'Zoom arrière', () => zoom(1.25));
 
@@ -87,27 +101,20 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
   return {
     // Filaire et ombres changent la géométrie ou l'état du renderer : il faut relire le modèle.
     basculerFilaire(actif) {
-      glb.filaire = actif;
+      reglerGlb({ filaire: actif });
       signaler3d();
       if (glb.ouvert) ctx.rafraichir(cameraCourante());
     },
     basculerOmbres(actif) {
-      glb.ombres = actif;
+      reglerGlb({ ombres: actif });
       signaler3d();
       if (glb.ouvert) ctx.rafraichir(cameraCourante());
     },
-    /**
-     * Le fond se remplace à chaud. L'ancien est **libéré s'il s'agit d'une texture** — le damier en
-     * est une : `traverse()` ne visite pas l'arrière-plan, il ne fait pas partie du graphe d'objets,
-     * donc rien d'autre ne le libérerait et il fuirait comme n'importe quelle texture.
-     */
+    /** Le fond se remplace à chaud (three/glbViewer.ts, `remplacerFondGlb`). */
     choisirFond(fond) {
-      glb.fond = fond;
+      reglerGlb({ fond: fond });
       signaler3d();
-      if (glb.scene) {
-        if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
-        glb.scene.scene.background = fondGlbViewer();
-      }
+      ctx.remplacerFond();
     }
   };
 }

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { analyserReleve, coinsProposes } from '../../../src/facade/analyse.js';
-import { homographie, appliquer } from '../../../src/facade/homographie.js';
-import { focale35mm, champDepuisFocale35 } from '../../../src/facade/exif.js';
-import { focalePx, distanceParCadrage } from '../../../src/facade/cadrage.js';
+import { analyserReleve, coinsProposes, silhouetteEnPartsDuMur } from '../../../src/facade/analyse.js';
+import { homographie, appliquer } from '../../../src/facade/vision/homographie.js';
+import { lireExif, champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
+import { focalePx } from '../../../src/facade/vision/cadrage.js';
 
 const p = (x: number, y: number) => ({ x, y });
 
@@ -115,8 +115,8 @@ describe('coinsProposes', () => {
   it('place le mur a la bonne taille quand la distance est connue', () => {
     const f = focalePx(3024, 4032);
     const c = coinsProposes(3024, 4032, f, 3, 4, 2.5);
-    // Largeur du mur sur l'image = 4 f / 3 ; et la distance qu'on en deduit redonne 3 m.
-    expect(distanceParCadrage(4, c[1]!.x - c[0]!.x, f)).toBeCloseTo(3, 9);
+    // Largeur du mur sur l'image = 4 f / 3 ; et la distance qu'on en deduit (stenope) redonne 3 m.
+    expect((4 * f) / (c[1]!.x - c[0]!.x)).toBeCloseTo(3, 9);
     // Le sol est sous l'horizon (milieu de l'image), l'egout au-dessus.
     expect(c[3]!.y).toBeGreaterThan(2016);
     expect(c[0]!.y).toBeLessThan(2016);
@@ -161,15 +161,63 @@ describe('exif', () => {
   }
 
   it('lit la focale 24x36 dans les deux boutismes', () => {
-    expect(focale35mm(jpeg(26, true))).toBe(26);
-    expect(focale35mm(jpeg(28, false))).toBe(28);
+    expect(lireExif(jpeg(26, true)).focale35).toBe(26);
+    expect(lireExif(jpeg(28, false)).focale35).toBe(28);
   });
 
   it('renvoie null sur autre chose qu un JPEG', () => {
-    expect(focale35mm(new Uint8Array([1, 2, 3, 4]).buffer)).toBeNull();
+    expect(lireExif(new Uint8Array([1, 2, 3, 4]).buffer).focale35).toBeNull();
   });
 
   it('convertit une focale en champ', () => {
     expect(champDepuisFocale35(18)).toBeCloseTo(90, 9);
+  });
+});
+
+describe('le toit dit par la silhouette du haut du mur', () => {
+  const coins = [p(150, 520), p(860, 560), p(850, 900), p(140, 930)];
+  const photo = photographier(coins);
+  // Elevation en metres (y depuis l'egout vers le bas, negatif au-dessus) -> photo.
+  const versPhoto = homographie([p(0, 0), p(8, 0), p(8, 4), p(0, 4)], coins)!;
+  const surPhoto = (l: { x: number; y: number }[]) => l.map((q) => appliquer(versPhoto, q));
+  const entree = { photo, coins, largeur: 8, hauteur: 4, contour: [p(0, 0), p(8, 0), p(8, 6), p(0, 6)], cote: 0, distance: 6 };
+
+  it('ramene la silhouette de la photo en parts du mur (1 a l egout)', () => {
+    const s = silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(3, -2), p(8, 0)]))!;
+    expect(s[1]!.u).toBeCloseTo(3 / 8, 3);
+    expect(s[1]!.v).toBeCloseTo(1.5, 3);
+    expect(s[0]!.v).toBeCloseTo(1, 3);
+  });
+
+  it('lit un pignon decentre : forme et hauteur de la silhouette, pas de la bande', () => {
+    const silhouette = silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(3, -2.6), p(8, 0)]));
+    const r = analyserReleve({ ...entree, silhouette })!;
+    expect(r.toitEstime!.forme).toBe('deux-pans');
+    expect(r.toitEstime!.faitage).toBe('perpendiculaire');
+    expect(r.toitEstime!.hauteur).toBeCloseTo(2.6, 1);
+  });
+
+  it('garde l avis de la photo a part : la bande, jamais le gabarit (l audit l arbitre contre le LiDAR)', () => {
+    const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(3, -2.6), p(8, 0)])) })!;
+    const seule = analyserReleve(entree)!;
+    expect(r.toitLu).toEqual(seule.toitLu);
+    expect(r.toitLu!.hauteur).toBeCloseTo(3, 0);
+    // Le haut du mur lu a sa matiere (lot F4, le diagnostic de forme) : la photo, jamais le gabarit, en parts du mur.
+    expect(r.hautLu).toEqual(seule.hautLu);
+    expect(seule.hautLu!.length).toBeGreaterThan(1);
+    expect(seule.hautLu!.every((q) => q.u >= 0 && q.u <= 1 && q.v > 0)).toBe(true);
+    expect(Math.max(...seule.hautLu!.map((q) => q.v))).toBeGreaterThan(1.3);
+  });
+
+  it('lit une rampe d appentis', () => {
+    const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(8, -2)])) })!;
+    expect(r.toitEstime!.forme).toBe('appentis');
+    expect(r.toitEstime!.hauteur).toBeCloseTo(2, 1);
+  });
+
+  it('plate, laisse la bande au-dessus de l egout dire le toit', () => {
+    const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(8, 0)])) })!;
+    expect(r.toitEstime!.faitage).toBe('perpendiculaire');
+    expect(r.toitEstime!.hauteur).toBeCloseTo(3, 0);
   });
 });

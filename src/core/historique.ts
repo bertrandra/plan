@@ -37,9 +37,19 @@
 // **6. La selection survit a l'annulation, ou retombe sur le premier objet.** Si l'objet
 // selectionne n'existe plus dans l'instantane restaure, la selection glisse sur le premier objet
 // disponible plutot que de rester pendante.
+//
+// **7. La restauration dit quels objets elle a changes** (`apresRestauration`). Tout est recree, donc
+// tout est neuf pour les cles de version (core/controleurObjets.ts) ; mais ce qui garde une pose par
+// objet ailleurs que dans le plan (la Vue 3D ouverte) ne doit refaire que ceux dont la donnee a bouge :
+// le plan d'avant et le plan repose se comparent objet par objet, par leur forme serialisee.
+// Sans ce signal, un Ctrl+Z fait la Vue 3D ouverte rendait la donnee et laissait la scene telle quelle
+// (signale le 9 novembre 2026). La comparaison ne se fait que si quelqu'un l'ecoute maintenant (`suitLaRestauration` : la Vue 3D est
+// ouverte), et pas quand l'appelant refait lui-meme la Vue 3D apres ses retouches (`sansSuite`) : elle serialise le plan deux fois.
 
 import { au } from '../util/tableaux.js';
+import { egalProfond } from '../util/egalite.js';
 import { PileAnnulation, type Instantane } from './history.js';
+import { toucher, toucherTout } from './controleurObjets.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 
 /**
@@ -68,6 +78,53 @@ export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = M
    * sans ce rappel, le BOM affiche encore les quantites de l'etat annule.
    */
   rafraichirResultats?: () => void;
+  /**
+   * Apres une restauration : les objets dont la donnee a change, avec leur forme serialisee d'avant et
+   * d'apres (`null` : absent de ce cote). Vide quand rien d'un objet n'a bouge (une cote seule).
+   */
+  apresRestauration?: (changes: ObjetChange[]) => void;
+  /**
+   * Dit si `apresRestauration` a quelqu'un a prevenir maintenant (la Vue 3D ouverte). Sans lui, la comparaison ne se fait pas : elle
+   * serialise le plan deux fois (plus d'une seconde sur un plan de quelques milliers d'objets, au telephone), pour un signal que
+   * personne n'ecoute quand la Vue 3D est fermee. Absent : toujours.
+   */
+  suitLaRestauration?: () => boolean;
+}
+
+/** Comment restaurer. */
+export interface OptionsRestauration {
+  /**
+   * L'appelant refait lui-meme ce qui suit le plan (la Vue 3D) une fois ses propres retouches faites : la restauration ne compare
+   * rien et ne previent personne. Sinon la Vue 3D se rebatirait deux fois, une par la restauration, une par l'appelant.
+   */
+  sansSuite?: boolean;
+}
+
+/** Un objet qu'une restauration a change : sa cle, et sa forme serialisee avant et apres (`null` : ajoute ou retire). */
+export interface ObjetChange {
+  cle: string;
+  avant: unknown;
+  apres: unknown;
+}
+
+/**
+ * Les objets qui different entre deux listes serialisees, par cle : ajoutes, retires, ou dont un champ a change. L'ordre des objets
+ * ne compte pas (reculer un objet ne change pas ce qu'il est). Pure.
+ */
+export function objetsChanges(avant: readonly unknown[], apres: readonly unknown[]): ObjetChange[] {
+  const cle = (o: unknown) => (o && typeof o === 'object' ? String((o as { key?: unknown }).key) : '');
+  const parCle = new Map<string, unknown>();
+  for (const o of avant) parCle.set(cle(o), o);
+  const out: ObjetChange[] = [];
+  const vus = new Set<string>();
+  for (const o of apres) {
+    const k = cle(o);
+    vus.add(k);
+    const a = parCle.has(k) ? parCle.get(k) : null;
+    if (a === null || !egalProfond(a, o)) out.push({ cle: k, avant: a, apres: o });
+  }
+  for (const [k, a] of parCle) if (!vus.has(k)) out.push({ cle: k, avant: a, apres: null });
+  return out;
 }
 
 /** Ce que l'historique lit et ecrit dans l'etat du plan — rien de plus. */
@@ -84,6 +141,12 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   // Remplace par la barre de projet une fois construite. Avant cela, marquer le plan modifie ne
   // doit pas echouer : d'ou la fonction vide plutot qu'un `null` a tester partout.
   let rafraichirStatut: () => void = () => {};
+  // Combien de modifications depuis l'ouverture : la tache de fond des toits (app/toits/toitsFond.ts)
+  // n'enregistre seule que si toutes celles en attente sont les siennes.
+  let modifications = 0;
+  // Une transaction en cours (`transaction`) : les ecritures marquent le projet, mais n'empilent rien ; la transaction empile
+  // son seul instantane a la fin. C'est ce qui fait d'une liste de gestes (l'assistant, lot L6) une seule etape d'annulation.
+  let enTransaction = false;
 
   function instantane(): Instantane {
     return {
@@ -98,16 +161,25 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    * « modifications non enregistrees » ne puisse pas rater un changement, comme le faisaient les
    * affectations `dirty = true` dispersees a chaque appelant.
    */
-  function marquerModifie(): void {
+  function marquerModifie(...objets: object[]): void {
+    modifications++;
+    // Une ecriture qui nomme ses objets ne refait que ce qui les lit ; sans objet nomme, l'historique ne sait pas lequel change :
+    // tous sont neufs (core/controleurObjets.ts). Ajouter ou retirer un objet ne se nomme pas.
+    if (objets.length) objets.forEach(toucher); else toucherTout();
     etat.dirty = true;
     rafraichirStatut();
   }
 
-  /** Prend un instantane de l'etat **avant** la modification qui va suivre. */
-  function empiler(): void {
-    pile.empiler(instantane());
-    majBoutonAnnuler();
-    marquerModifie();
+  /**
+   * Prend un instantane de l'etat **avant** la modification qui va suivre. `objets` : ceux qu'elle modifie sur place, s'ils sont
+   * connus (aucun objet ajoute ni retire) ; rien, et tout est neuf.
+   */
+  function empiler(...objets: object[]): void {
+    if (!enTransaction) {
+      pile.empiler(instantane());
+      majBoutonAnnuler();
+    }
+    marquerModifie(...objets);
   }
 
   /**
@@ -115,16 +187,48 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    * qui peut etre refusee (une longueur impossible, un rectangle qui sortirait de la parcelle)
    * n'empile alors rien : pas d'etape d'annulation vide, ou Ctrl+Z semblerait ne rien faire.
    */
-  function preparer(): () => void {
-    const snap = instantane();
+  function preparer(...objets: object[]): () => void {
+    const snap = enTransaction ? null : instantane();
     return () => {
-      pile.empiler(snap);
-      majBoutonAnnuler();
-      marquerModifie();
+      if (snap) {
+        pile.empiler(snap);
+        majBoutonAnnuler();
+      }
+      marquerModifie(...objets);
     };
   }
 
-  function restaurer(snap: Instantane): void {
+  /**
+   * Plusieurs gestes, une seule etape d'annulation (l'assistant, lot L6 de MD/spec-lecture-ia-elargie.md §5.5). L'instantane est pris
+   * avant ; les gestes de `f` ecrivent et marquent le projet sans rien empiler ; s'ils ont modifie quelque chose, l'instantane d'avant
+   * s'empile, une fois, et Ctrl+Z rend le projet d'avant la liste entiere. `f` rend `false` (ou leve) quand un geste est refuse en
+   * route : tout est defait (le plan, son « modifie ») et rien ne s'empile. Rend vrai si la transaction a abouti.
+   */
+  function transaction(f: () => boolean): boolean {
+    if (enTransaction) return f();
+    const snap = instantane(), avant = modifications, sale = etat.dirty;
+    let ok = false;
+    enTransaction = true;
+    try { ok = f(); } catch { ok = false; } finally { enTransaction = false; }
+    if (!ok) {
+      if (modifications !== avant) restaurer(snap);
+      etat.dirty = sale;
+      rafraichirStatut();
+      return false;
+    }
+    if (modifications !== avant) {
+      pile.empiler(snap);
+      majBoutonAnnuler();
+    }
+    return true;
+  }
+
+  function restaurer(snap: Instantane, options: OptionsRestauration = {}): void {
+    // Ce qu'etait le plan, pour dire ensuite ce que la restauration a change (point 7) ; seulement si quelqu'un l'ecoute, maintenant.
+    const suivre = !!ctx.apresRestauration && !options.sansSuite && (ctx.suitLaRestauration?.() ?? true);
+    const avant = suivre ? ctx.serializeObjects(etat.objects) : null;
+    modifications++;
+    toucherTout();
     etat.objects.forEach(ctx.detruireVue);
     const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
     etat.objects.length = 0;
@@ -144,6 +248,9 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     if (ctx.rafraichirResultats) ctx.rafraichirResultats();
     ctx.render();
     majBoutonAnnuler();
+    // Le plan repose, serialise de meme : un instantane qui ne serait pas passe par la liste blanche (« Réinitialiser tout » repose
+    // le plan du chargement) se compare ainsi a armes egales.
+    if (avant && ctx.apresRestauration) ctx.apresRestauration(objetsChanges(avant, ctx.serializeObjects(etat.objects)));
   }
 
   function annuler(): void {
@@ -161,8 +268,10 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   return {
     instantane,
     marquerModifie,
+    modifications: () => modifications,
     empiler,
     preparer,
+    transaction,
     restaurer,
     annuler,
     majBoutonAnnuler,

@@ -11,19 +11,21 @@
 // projet seulement consulte garde sa forme d'avant.
 
 import { enPoints } from '../../model/formes.js';
-import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import {
   clotureDe, synchroniserAnciensChamps, reglageDuCote, coteRegle, reglerCote, retirerCote, changerType,
-  longueurDuCote, coteValide, nouveauPortail, coteDAcces, accolerPortillon, alertesAcces, alertesHauteur,
+  longueurDuCote, coteValide, nouveauPortail, accolerPortillon, alertesAcces, alertesHauteur,
   resumeReglage, resumeAcces, hauteurTotale,
   LIBELLES_TYPE_CLOTURE, LIBELLES_PAREMENT, LIBELLES_ESSENCE, LIBELLES_FORME_PORTAIL,
   LIBELLES_OUVERTURE_PORTAIL, LIBELLES_REMPLISSAGE, LIBELLES_MATERIAU_PORTAIL, COULEUR_PAR_MATERIAU,
-  DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT,
+  DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT, typeDessine,
 } from '../../model/cloture.js';
+import { motConnu } from '../../shell/motsInconnus.js';
 import type {
   Cloture, ReglageCloture, CoteCloture, Portail, TypeCloture, ParementMur, EssenceHaie,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan,
 } from '../../model/types.js';
+import { coteRueDevine, coteDuNouvelAcces, devinerCoteRue } from '../../geo/coteRue.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
 /** La parcelle du projet, celle qui porte la cloture - pas une parcelle voisine (objet.ts). */
@@ -99,8 +101,9 @@ export function sectionCloture(c: ContexteChamps): Section {
   ];
 
   for (let i = 0; i < n; i++) {
+    // Cote par cote, la cloture se replie : le reglage general, au-dessous, reste ouvert.
     champs.push({
-      type: 'ligne', cle: 'cote' + i, libelle: `Côté ${i + 1}`, visible: actif,
+      type: 'ligne', cle: 'cote' + i, libelle: `Côté ${i + 1}`, visible: actif, repli: 'Clôture côté par côté',
       surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
       champs: [
         {
@@ -140,17 +143,24 @@ export function sectionCloture(c: ContexteChamps): Section {
       lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours) ? String(coteEnCours) : ''),
       ecrire: (_cc, v) => { coteEnCours = v === '' ? null : Number(v); },
     },
-    { type: 'choix', cle: 'type', libelle: 'Type', visible: actif, effets: ['inspecteur', ...effets], options: () => options(LIBELLES_TYPE_CLOTURE), lire: (cc) => r(cc).type, ecrire: (cc, v) => ecrireReglage(cc, (x) => changerType(x, v as TypeCloture)) },
-    { type: 'choix', cle: 'limite', libelle: 'Limite', visible: surCote, effets: ['inspecteur', 'rendu'], options: () => [{ valeur: '', libelle: 'Non précisée' }, { valeur: 'rue', libelle: 'Sur rue' }, { valeur: 'separative', libelle: 'Séparative (voisin)' }], lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) || '', ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v === 'rue' || v === 'separative') x.limite = v; else delete x.limite; }) },
+    // Un type hors catalogue (fichier d'une version plus recente) reste dans le fichier et se dessine en palissade : la liste
+    // le montre tel quel, et le reprendre n'ecrit rien.
+    { type: 'choix', cle: 'type', libelle: 'Type', visible: actif, effets: ['inspecteur', ...effets],
+      options: (cc) => { const lu = r(cc).type as string; return [...options(LIBELLES_TYPE_CLOTURE), ...(motConnu(LIBELLES_TYPE_CLOTURE, lu) ? [] : [{ valeur: lu, libelle: 'Clôture inconnue (« ' + lu + ' »), dessinée en palissade bois' }])]; },
+      lire: (cc) => r(cc).type, ecrire: (cc, v) => { if (!motConnu(LIBELLES_TYPE_CLOTURE, v)) return; ecrireReglage(cc, (x) => changerType(x, v as TypeCloture)); } },
+    { type: 'choix', cle: 'limite', libelle: 'Limite', visible: surCote, effets: ['inspecteur', 'rendu'], options: () => [{ valeur: '', libelle: 'Non précisée' }, { valeur: 'rue', libelle: 'Sur rue' }, { valeur: 'separative', libelle: 'Séparative (voisin)' }],
+      // Non precisee : ce que le plan en devine, pour que le choix se fasse en connaissance.
+      note: (cc) => { if (coteEnCours === null || coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) return ''; const d = coteRueDevine(cc.obj, cc.objets); return d === null ? '' : d === coteEnCours ? 'devinée : sur rue' : 'devinée : séparative'; },
+      lire: (cc) => (coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.limite) || '', ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v === 'rue' || v === 'separative') x.limite = v; else delete x.limite; }) },
     { type: 'case', cle: 'mitoyenne', libelle: 'Mitoyenne', visible: surCote, effets: ['inspecteur'], aide: 'Clôture partagée avec le voisin', lire: (cc) => !!(coteEnCours !== null && coteRegle(clotureDe(cc.obj), coteEnCours)?.mitoyenne), ecrire: (cc, v) => ecrireCote(cc, (x) => { if (v) x.mitoyenne = true; else delete x.mitoyenne; }) },
     { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur', unite: 'm', pas: 0.1, min: 0.1, max: 6, decimales: 2, visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), note: (cc) => (r(cc).soubassement ? `hors soubassement · ${fr(hauteurTotale(r(cc)))} m en tout` : ''), effets, lire: (cc) => r(cc).hauteur, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.hauteur = v; }); } },
-    { type: 'couleur', cle: 'couleur', libelle: 'Couleur', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets, lire: (cc) => r(cc).couleur || DEFAUTS_PAR_TYPE[r(cc).type].couleur || COULEUR_CLOTURE_DEFAUT, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couleur = v; }) },
+    { type: 'couleur', cle: 'couleur', libelle: 'Couleur', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets, lire: (cc) => r(cc).couleur || DEFAUTS_PAR_TYPE[typeDessine(r(cc))].couleur || COULEUR_CLOTURE_DEFAUT, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couleur = v; }) },
     { type: 'texture', cle: 'texture', libelle: 'Texture', visible: (cc) => type(cc, 'palissade', 'grillage', 'haie', 'mur'), effets: ['inspecteur', ...effets], lire: (cc) => r(cc).texture, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.texture = v; }) },
     { type: 'choix', cle: 'lames', libelle: 'Lames', visible: (cc) => type(cc, 'palissade'), effets, options: () => [{ valeur: 'verticales', libelle: 'Verticales' }, { valeur: 'horizontales', libelle: 'Horizontales' }], lire: (cc) => r(cc).lames || 'verticales', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.lames = v === 'horizontales' ? 'horizontales' : 'verticales'; }) },
     { type: 'choix', cle: 'grillage', libelle: 'Grillage', visible: (cc) => type(cc, 'grillage'), effets, options: () => [{ valeur: 'rigide', libelle: 'Rigide (panneaux)' }, { valeur: 'souple', libelle: 'Souple (rouleau)' }], lire: (cc) => r(cc).grillage || 'rigide', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.grillage = v === 'souple' ? 'souple' : 'rigide'; }) },
     { type: 'case', cle: 'occultante', libelle: 'Occultante', visible: (cc) => type(cc, 'palissade', 'grillage'), aide: 'Brise-vue : on ne voit pas au travers', effets, lire: (cc) => !!r(cc).occultante, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.occultante = v; }) },
     { type: 'choix', cle: 'essence', libelle: 'Essence', visible: (cc) => type(cc, 'haie'), effets: ['inspecteur', ...effets], options: () => options(LIBELLES_ESSENCE), lire: (cc) => r(cc).essence || 'laurier', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.essence = v as EssenceHaie; }) },
-    { type: 'nombre', cle: 'epaisseur', libelle: 'Épaisseur', unite: 'm', pas: 0.05, min: 0.05, max: 3, decimales: 2, visible: (cc) => type(cc, 'haie', 'mur'), effets, lire: (cc) => r(cc).epaisseur ?? DEFAUTS_PAR_TYPE[r(cc).type].epaisseur ?? 0.2, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.epaisseur = v; }); } },
+    { type: 'nombre', cle: 'epaisseur', libelle: 'Épaisseur', unite: 'm', pas: 0.05, min: 0.05, max: 3, decimales: 2, visible: (cc) => type(cc, 'haie', 'mur'), effets, lire: (cc) => r(cc).epaisseur ?? DEFAUTS_PAR_TYPE[typeDessine(r(cc))].epaisseur ?? 0.2, ecrire: (cc, v) => { if (!(v > 0)) return false; ecrireReglage(cc, (x) => { x.epaisseur = v; }); } },
     { type: 'case', cle: 'taillee', libelle: 'Taillée', visible: (cc) => type(cc, 'haie'), aide: 'Haie taillée au carré, plutôt que libre', effets, lire: (cc) => r(cc).taillee !== false, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.taillee = v; }) },
     { type: 'choix', cle: 'parement', libelle: 'Parement', visible: (cc) => type(cc, 'mur'), effets: ['inspecteur', ...effets], options: () => options(LIBELLES_PAREMENT), lire: (cc) => r(cc).parement || 'enduit', ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.parement = v as ParementMur; }) },
     { type: 'case', cle: 'couvertine', libelle: 'Couvertine', visible: (cc) => type(cc, 'mur'), aide: 'Chaperon ou couvertine qui déborde du mur', effets, lire: (cc) => !!r(cc).couvertine, ecrire: (cc, v) => ecrireReglage(cc, (x) => { x.couvertine = v; }) },
@@ -167,6 +177,19 @@ export function sectionCloture(c: ContexteChamps): Section {
 // ---------------------------------------------------------------------------------------------
 // Section Portails et portillons
 
+/** Ce que dit le bouton « Ajouter un portail » : le cote qu'il prendra, et pourquoi. */
+function explicationAcces(c: ContexteChamps): string {
+  const cl = clotureDe(c.obj);
+  const dit = cl.cotes.find(x => x.limite === 'rue' && coteValide(pts(c.obj), x.cote));
+  if (dit) return `Sur le côté ${dit.cote + 1}, que vous avez dit sur rue.`;
+  const d = devinerCoteRue(c.obj, c.objets);
+  const corriger = ' ; corrigez la limite d’un côté si besoin.';
+  if (d?.raison === 'adresse') return `Sur le côté ${d.cote + 1}, devant le point d’adresse${corriger}`;
+  if (d?.raison === 'rue') return `Sur le côté ${d.cote + 1}, le long de la rue « ${d.rue ?? ''} »${corriger}`;
+  if (d?.raison === 'sansVoisin') return `Sur le côté ${d.cote + 1}, le plus long des côtés sans parcelle voisine${corriger}`;
+  return `Sur le côté ${coteDuNouvelAcces(c.obj, c.objets) + 1}, le plus long : rien ne dit encore où est la rue (point d’adresse, rues lues, parcelles voisines). Dites-le avec la limite d’un côté.`;
+}
+
 export function sectionPortails(c: ContexteChamps): Section {
   const o = c.obj;
   const acces = (cc: ContexteChamps): Portail | undefined => {
@@ -181,7 +204,9 @@ export function sectionPortails(c: ContexteChamps): Section {
   const ecrireAcces = (cc: ContexteChamps, f: (a: Portail) => void) => ecrire(cc, (cl) => { const a = cl.portails[accesEnCours]; if (a) f(a); });
   const ajouter = (nature: Portail['nature']) => (cc: ContexteChamps) => {
     ecrire(cc, (cl) => {
-      const cote = coteDAcces(cl, pts(cc.obj));
+      // La regle de tous les chemins de creation (geo/coteRue.ts) : le cote dit sur rue, sinon celui
+      // que le plan devine (point d'adresse, rues lues, cote sans voisine), sinon le plus long.
+      const cote = coteDuNouvelAcces(cc.obj, cc.objets);
       cl.portails.push(nouveauPortail(nature, cote, longueurDuCote(pts(cc.obj), cote)));
       accesEnCours = cl.portails.length - 1;
     });
@@ -189,7 +214,9 @@ export function sectionPortails(c: ContexteChamps): Section {
   };
 
   const champs: Champ[] = [
-    { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail', visible: actif, explication: 'Sur le côté sur rue s’il y en a un, sinon sur le plus long.', agit: 'projet', executer: ajouter('portail') },
+    { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail', visible: actif,
+      explication: explicationAcces(c),
+      agit: 'projet', executer: ajouter('portail') },
     { type: 'bouton', cle: 'ajouterPortillon', libelle: '', nom: 'Ajouter un portillon', texte: () => 'Ajouter un portillon', visible: actif, agit: 'projet', executer: ajouter('portillon') },
   ];
 
@@ -260,7 +287,8 @@ export function sectionPortails(c: ContexteChamps): Section {
     },
     { type: 'alerte', cle: 'alertes', libelle: '', nom: 'Alertes de l’accès', visible: (cc) => { const a = acces(cc); return unAcces(cc) && !!a && alertesAcces(clotureDe(cc.obj), a, longueurDuCote(pts(cc.obj), a.cote)).length > 0; }, texte: (cc) => { const a = acces(cc); return a ? alertesAcces(clotureDe(cc.obj), a, longueurDuCote(pts(cc.obj), a.cote)).join(' ') : ''; } },
   );
-  return { id: 'portails', titre: 'Portails et portillons', repliee: !clotureDe(o).portails.length, champs };
+  // Ouverte, comme la cloture : poser un portail sert a concevoir la parcelle (MD/spec-ouvrages.md).
+  return { id: 'portails', titre: 'Portails et portillons', champs };
 }
 
 /** Les deux sections, sur la parcelle du projet seulement. */

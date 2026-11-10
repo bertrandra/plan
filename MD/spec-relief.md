@@ -1,6 +1,6 @@
 # Relief du terrain — spécification
 
-**Version :** 0.1 — proposée, non implémentée (schéma de projet 4)
+**Version :** 1.0 — implémentée (phases 1 et 2), non publiée (schéma de projet 4)
 **Statut :** spécification de référence : **le standard pour lire le relief à l'IGN, le ranger dans
 le projet et s'en servir**
 **Compagnons :** [`spec-toit-ign.md`](spec-toit-ign.md) (§9 : MNS LiDAR),
@@ -42,9 +42,9 @@ pas la cote d'exécution.
 |---|---|---|
 | D'où vient le relief ? | **WMS raster de la Géoplateforme**, en nombres bruts (`image/x-bil;bits=32`) : une requête, une grille | Vérifié : une requête de 100 × 70 m rend 28 ko en 0,7 s à 1 m, 112 ko à 50 cm ; CORS ouvert. Le service d'altimétrie point par point accepte 200 points par requête en GET et répond 500 en POST : une grille lui demanderait dix requêtes |
 | Quel calque ? | **LiDAR HD MNT** à 50 cm si l'index des dalles couvre la parcelle, sinon **RGE ALTI** à 1 m par `RGEALTI-MNT_PYR-ZIP_FXX_LAMB93_WMS` | Le calque évident `ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES` est servi depuis une pyramide en degrés dont le dernier niveau vaut 3 à 5 m : il n'est pas à 1 m (§2.1) |
-| Quand ? | **À la demande** (« Lire le relief »), jamais à l'import ni à l'actualisation IGN | Le relief change des nombres (§6) : il n'arrive pas dans un projet sans qu'on l'ait voulu. Un plan d'avant ne change pas |
+| Quand ? | **À la demande** : « Lire le relief », ou la case « Relief du terrain » de l'import depuis une adresse et d'« Actualiser depuis l'IGN » (cochée par défaut, décision du 7 octobre 2026) | Le relief change des nombres (§6) : il n'arrive pas dans un projet sans une case visible. Un plan d'avant ne change pas tant qu'on ne l'actualise pas |
 | Rechargé à l'ouverture ? | **Non.** La grille vit dans le projet. « Actualiser le relief » la remplace, et c'est une modification annulable | L'IGN met ses données à jour ; le cache du service ne vaut que trois semaines. Sans grille enregistrée, un nombre produit hier pourrait changer demain |
-| Où est-elle rangée ? | Dans la **parcelle du projet** (`parcelle.relief`), comme `cadastre` et `ortho` | Une parcelle, un relief ; la parcelle voisine n'en a pas |
+| Où est-elle rangée ? | Dans la **parcelle du projet** (`parcelle.relief`), comme `cadastre` et `ortho` | Une parcelle, un relief ; la parcelle voisine n'en a pas. Avec « Relief sur toutes les parcelles » (coché par défaut), la grille unique **couvre** les voisines du plan, mais reste rangée sur la parcelle du projet ; au-delà d'un pas de 5 m, elle revient à la parcelle et ses abords |
 | Quel zéro ? | **`zRef`**, altitude NGF du sol au point de référence de la terrasse (§3.3), fixée à la lecture | Tout Plan compte en mètres depuis le sol de la terrasse. `zRef` traduit ce zéro en altitude vraie une fois pour toutes |
 | La précision ? | Lue dans le **masque de source** du RGE ALTI (`source_fra`, WFS) : origine, résolution, « Emq < 30 cm »… ; pour le LiDAR HD, la date de la dalle | Vérifié : le masque est un calque vecteur interrogeable par point, ses textes sont prêts à afficher |
 | Les quantités ? | **Pas dans cette version.** V1 montre ; V2 (§6) compte, et c'est une version majeure | Règle du projet : une quantité qui bouge est un événement de version majeure, jamais une correction discrète |
@@ -145,10 +145,30 @@ la date d'acquisition de la dalle : c'est la **spécification** de l'IGN, pas un
 - **Emprise** : le rectangle englobant de la parcelle du projet (`parcelleDuProjet`,
   `model/fonctions.ts`), élargi de **10 m** de chaque côté. Les abords servent au profil, aux
   courbes et au sol 3D, qui dépassent la clôture.
-- **Pas** : la maille native de la source (0,5 m ou 1 m), **doublé tant que la grille dépasse
-  40 000 cellules** (0,5 → 1 → 2 → 5 m). Une parcelle de 30 × 20 m avec ses abords tient en
-  100 × 80 = 8 000 cellules à 50 cm ; un terrain de 2 ha passe à 1 m. Au-delà de 5 m, la lecture
-  est refusée : « parcelle trop grande pour le relief ».
+- **Pas** : la maille native de la source (0,5 m ou 1 m), **élargi tant que la grille dépasse
+  400 000 cellules** (0,5 → 1 → 2 → 5 → 10 → 20 → 30 m). Une parcelle de 30 × 20 m avec ses abords
+  tient en 100 × 80 = 8 000 cellules à 50 cm ; un voisinage de 500 m (1,5 km de parcelles entières)
+  tient à 5 m. Au-delà de 30 m, « relief sur toutes les parcelles » revient à la parcelle seule, et
+  une parcelle seule si grande est refusée : « parcelle trop grande pour le relief ».
+  *(11 octobre 2026 : le plafond était de 40 000 cellules et le pas s'arrêtait à 5 m ; un voisinage
+  de 500 m retombait sur la parcelle seule et la vallée autour d'un village restait plate en 3D.)*
+- **Deux grilles** *(11 octobre 2026)*. La grille du relief couvre toujours **la parcelle et ses
+  abords**, à son pas fin : la pente, le dénivelé, les courbes exportées et toutes les quantités ne
+  lisent qu'elle. Avec « relief sur toutes les parcelles », une seconde grille, le **maillage
+  secondaire** (`relief.paysage`), couvre l'emprise des parcelles du plan, de la même source, au pas
+  que permet le plafond : elle ne porte que le sol de la Vue 3D et les courbes du plan à l'écran hors
+  de la parcelle (équidistance de paysage, 1 à 10 m ; les exports n'en tracent pas). Une lecture du
+  maillage secondaire qui échoue laisse la parcelle avec son relief. En 3D, le sol suit la grille fine
+  sur la parcelle et le paysage au-delà, en fondu sur une bande au bord de la grille fine (le pas du
+  paysage, au plus 10 m) ; le maillage prend les lignes des deux grilles.
+- **« Points max »** (`relief.maxCellules`, de 10 000 à 1 000 000, 400 000 par défaut) : le plafond de
+  chaque grille, réglé dans la section Relief, appliqué à la prochaine lecture (« Actualiser le
+  relief », actualisation IGN) et gardé d'une lecture à l'autre, comme les préférences d'affichage.
+  C'est un réglage du projet : annulable, refusé en lecture seule. « Actualiser » relit le maillage
+  secondaire s'il y en avait un.
+- **Dans l'inspecteur**, la ligne « Grille » dit le pas, le nombre de points, l'étendue et la règle
+  du pas ; « Maillage secondaire » dit « Actif » avec son pas, son nombre de points et son étendue,
+  ou « Inactif », et prévient quand le sol 3D est plat au-delà de la parcelle.
 - **Alignement** : la grille est posée dans le repère du plan (mètres, même repère que `pts`),
   pas sur le Lambert : le centre de la cellule `(i, j)` est en
   `(x0 + i · pas, y0 − j · pas)`, `(x0, y0)` étant le coin nord-ouest. C'est le service qui
@@ -191,14 +211,17 @@ Plan compte les hauteurs depuis le sol de la terrasse. Le relief doit donc dire 
    parcelle : « Pas de relief IGN pour cette parcelle », rien n'est écrit.
 4. **Une lecture est une modification du projet** : annulable, « projet modifié », refusée en
    lecture seule. Elle écrit `parcelle.relief` entier, d'un bloc.
-5. **Rien ne relit le service tout seul** : ni l'ouverture, ni l'import, ni `projet.actualiserIgn`
-   (qui actualise les bâtiments, pas le sol). Seul « Actualiser le relief » le fait, et il remplace
-   la grille, `zRef` compris.
+5. **Rien ne relit le service tout seul** : ni l'ouverture, ni un import ou une actualisation IGN
+   dont la case « Relief du terrain » est décochée. « Actualiser le relief », ou cette case cochée,
+   remplace la grille, `zRef` compris ; les préférences d'affichage restent. À l'import, un échec ne
+   bloque pas la création : le plan arrive plat, « Lire le relief » reste à portée.
 6. **« Supprimer le relief »** retire `parcelle.relief` ; le plan redevient plat, ses nombres
    redeviennent ceux d'avant.
 7. **Les réglages d'affichage** (courbes, sol 3D, équidistance) sont des préférences d'affichage au
    sens de `CLAUDE.md` : `sale: false`, pas de Ctrl+Z, permises en lecture seule, rangées dans
-   `relief.affichage` pour être retrouvées à la réouverture.
+   `relief.affichage` pour être retrouvées à la réouverture. À la différence des autres, elles
+   marquent le projet à enregistrer (`enregistre: true`, hors lecture seule) : sans cela, un clic sur
+   « Relief » ou « Courbes de niveau » ne survivait pas à la réouverture.
 8. **La grille ne porte que le sol.** Un objet du plan n'enregistre jamais une altitude copiée de
    la grille ; il la lit par `z(x, y)` quand il en a besoin. Une seule vérité, un seul endroit.
 
@@ -248,7 +271,10 @@ deux extrémités (`z(b) − z(a)`, signé) et la pente du segment. Affichage se
 
 - Le plan vert de `monterScene` (`three/scene.ts`) devient une **`PlaneGeometry` subdivisée à la
   grille**, chaque sommet à `zLocal` ; hors de l'emprise, le sol continue plat à la hauteur du bord.
-  Les dalles de l'orthophoto épousent le même relief (mêmes sommets, mêmes `uv`).
+  L'orthophoto est **peinte sur le maillage du sol lui-même** (`peindreOrthoSurSol` : les tuiles
+  composées en une texture, les `uv` du sol sur son emprise) — une seconde surface posée dessus,
+  même à 4 mm, passait par taches sous le sol vert, deux maillages du même terrain ne l'interpolant
+  pas pareil (8 octobre 2026). Sur un sol plat, les dalles d'avant restent.
 - **Les objets suivent le sol** : un prisme (bâtiment, abri, arbre) part du **point le plus bas** du
   sol sous son contour et monte jusqu'à `z(centroïde) + elevation` ; il n'est ni enterré ni en
   l'air. La terrasse reste à sa hauteur finie au-dessus de `zRef` : en aval, on **voit le vide**
@@ -281,6 +307,20 @@ change pas entre V1 et V2 : c'est pour cela que V1 enregistre déjà tout.
 
 ## 7. Données et persistance
 
+> **7 octobre 2026** : enregistrée, la grille porte `zCode` à la place de `z` — chaque altitude en
+> centimètres au-dessus de la plus basse, sur 16 bits, en base 64 (`u16cm:<base>:<b64>`, 0xFFFF =
+> sans donnée). En clair, 40 000 altitudes faisaient refuser le projet par la plateforme (413). La
+> forme en mémoire (`z`) ne change pas ; une grille écrite en clair se relit telle quelle, et une
+> amplitude de plus de 655 m reste écrite en clair (`model/relief.ts`, `compacterRelief`).
+>
+> **10 octobre 2026** : la plateforme refuse toute chaîne de plus de 64 Kio dans un document
+> (`422 EMBEDDED_ASSET_REJECTED`, `DocumentPolicy::MAX_STRING_BYTES` de backprod). Une grille de
+> 40 000 cellules donne 107 Kio de base 64 : l'import d'une grande parcelle, ou d'un relief étendu
+> au voisinage, était refusé. Au-delà de 60 000 caractères (`ZCODE_MORCEAU`), `zCode` est une
+> **liste de morceaux**, recollés à la lecture (`deplierRelief`) ; en deçà, une seule chaîne, comme
+> avant. Le document ne change pas de schéma : un lecteur d'avant ce jour ne sait pas recoller les
+> morceaux, mais aucun document à morceaux n'avait pu être enregistré.
+
 ```ts
 export interface Relief {
   source: 'lidar-hd' | 'rge-alti';
@@ -290,12 +330,14 @@ export interface Relief {
   origine: string;           // texte du masque de source, ou « LiDAR HD »
   precision: string;         // « Emq < 30 cm », « de l'ordre de 10 cm (IGN) »
   systemeAltimetrique: string; // « NGF-IGN69 », « IGN78 »…
-  pas: number;               // en m : 0.5, 1, 2 ou 5
+  pas: number;               // en m : 0.5, 1, 2, 5, 10, 20 ou 30
   x0: number; y0: number;    // centre de la cellule nord-ouest, repère du plan (m)
   nx: number; ny: number;    // colonnes, lignes
   z: (number | null)[];      // nx × ny altitudes NGF au cm, du nord au sud, d'ouest en est
   zRef: number;              // altitude NGF du zéro du plan (§3.3)
   affichage?: { courbes?: boolean; equidistance?: number; sol3d?: boolean };
+  maxCellules?: number;      // « Points max » : le plafond de la prochaine lecture (400 000 par défaut)
+  paysage?: { source; pas; x0; y0; nx; ny; z } | null; // le maillage secondaire du voisinage, sol 3D seul
 }
 // ObjetCommun : + relief?: Relief | null   (porté par la parcelle du projet seulement)
 ```
@@ -303,7 +345,8 @@ export interface Relief {
 - **Sérialisation** (`io/serialisation.ts`) : `relief` s'ajoute à la liste blanche, **écrit
   seulement s'il existe**, comme `toit` ou `cloture` : l'empreinte d'un projet sans relief ne bouge
   pas. L'ordre des clés est celui du type ci-dessus.
-- **Poids** : 8 000 cellules × ~7 caractères ≈ 60 ko ; le plafond de 40 000 cellules ≈ 300 ko.
+- **Poids** : 8 000 cellules × ~7 caractères ≈ 60 ko ; le plafond de 400 000 cellules, en `zCode`
+  (2,7 octets par cellule), ≈ 1,1 Mo, en morceaux de 60 000 caractères.
   Acceptable pour un projet JSON ; la plateforme n'impose pas de limite plus basse. Si cela devait
   gêner, `z` passerait en entiers de centimètres relatifs à `zRef` en base64 ; pas avant.
 - **Schéma 4.** Un champ nouveau dans la forme persistée : suivant `RELEASE.md` §3,
@@ -326,6 +369,9 @@ Charger `design-ui` avant d'y toucher. Tout passe par le registre (`app/commande
 `commandes.etat(id)` ; chaque commande s'inscrit dans `app/exposition.ts` pour les trois classes
 d'écran.
 
+> **7 octobre 2026** : `plan.relief` est accordée en dur à tous les comptes (`CAPACITES_FORCEES`,
+> `app/acces.ts`) tant que backprod ne la déclare pas ; un administrateur en est averti à l'ouverture.
+
 **Commandes** (`capacite: 'plan.relief'`, `permission: PERMISSION_ECRITURE`, `ecrit: 'projet'`) :
 
 | Id | Libellé | Grisée quand |
@@ -333,6 +379,24 @@ d'écran.
 | `relief.lire` | Lire le relief (IGN) | pas de parcelle calée ; un relief existe déjà (alors « Actualiser ») |
 | `relief.actualiser` | Actualiser le relief | pas de relief |
 | `relief.supprimer` | Supprimer le relief | pas de relief |
+
+**Deux bascules distinctes** (décision du 10 octobre 2026, qui remplace la bascule unique du 7
+octobre) :
+- **`affichage.relief`** (menu « Affichage › Relief ») montre ou cache le **sol en relief** de la 3D
+  (`relief.affichage.sol3d`) ; il est **montré par défaut** ;
+- **`affichage.courbes`** (menu « Affichage › Courbes de niveau ») montre ou cache les **courbes de
+  niveau** du plan (`relief.affichage.courbes`) ; elles sont **cachées par défaut** : elles
+  chargent le dessin, et on les demande.
+
+Les deux sont `ecrit: 'affichage'`, sans capacité ni permission, cochées selon leur préférence et
+grisées sans relief. Ce sont des préférences d'affichage, rangées dans `relief.affichage` comme les
+cases de l'inspecteur.
+
+**Le plan exporté ne change pas** (`model/relief.ts::courbesExportees`) : `plan.svg` porte les
+courbes tant qu'elles n'ont pas été décochées explicitement. Un projet qui ne les a jamais réglées
+les exporte donc comme avant, même si l'écran les cache désormais par défaut. Un export d'hier reste
+identique (CLAUDE.md). Le plan de masse (DP2) porte toujours les courbes, quelle que soit la
+préférence.
 
 Pendant la lecture (une à trois secondes), le bouton montre l'attente ; une coupure réseau après
 la reprise dit : « L'IGN n'a pas répondu ; réessayez. » et n'écrit rien.
@@ -344,8 +408,9 @@ la reprise dit : « L'IGN n'a pas répondu ; réessayez. » et n'écrit rien.
 - avec relief, en lecture : « LiDAR HD, 50 cm · acquis en 2021 · de l'ordre de 10 cm (IGN) » ou
   « RGE ALTI, 1 m · corrélation d'images · Emq < 1 m », l'altitude NGF du zéro, la pente moyenne
   et son orientation, le dénivelé ;
-- préférences d'affichage (`sale: false`, `agit: 'interface'`) : « Courbes de niveau » (case),
-  « Équidistance » (choix : auto, 10 cm, 25 cm, 50 cm, 1 m), « Sol en relief (3D) » (case) ;
+- préférences d'affichage (`sale: false`, `agit: 'interface'`) : « Relief » (case, le sol en relief
+  de la 3D, cochée par défaut), « Courbes de niveau » (case, décochée par défaut), et
+  « Équidistance » (choix : auto, 10 cm, 25 cm, 50 cm, 1 m), qui ne se montre qu'avec les courbes ;
 - boutons « Actualiser » et « Supprimer » (`agit: { commande }`).
 
 **Panneau « Profil »** (zone des résultats) : la ligne de coupe se trace sur le plan avec l'outil de
@@ -372,6 +437,12 @@ Les cinq réponses BIL brutes et les deux réponses WFS vont dans `tests/fixture
 aussi les entrées des tests de §9.2. Si le critère échoue, le relief reste un affichage, et §6 ne
 s'écrit pas : à rediscuter avant d'implémenter V2.
 
+> **État au 6 octobre 2026** : ce critère n'a **pas** été joué, faute de relevés de terrain sous
+> la main. Les phases 1 et 2 ont été implémentées sur décision du produit ; la lecture a été jouée
+> contre le service réel (Lyon : LiDAR HD 50 cm ; centre Bretagne : repli RGE ALTI). Les tests
+> unitaires tournent sur des grilles fabriquées, pas sur des fixtures BIL. Le critère reste à jouer
+> sur cinq parcelles relevées avant de faire confiance aux hauteurs de V2 sur un chantier.
+
 ### 9.2 Tests unitaires
 
 `tests/unit/geo/relief.test.ts`, `tests/unit/model/relief.test.ts`,
@@ -383,7 +454,7 @@ s'écrit pas : à rediscuter avant d'implémenter V2.
   `null`, arrondi au centimètre ;
 - **choix de la source** : dalles > 0 et aucun `null` sur la parcelle ⇒ `lidar-hd` ; zéro dalle ⇒
   `rge-alti` ; `null` sur la parcelle avec les deux ⇒ refus, rien d'écrit ;
-- **emprise et pas** : parcelle + 10 m ; 0,5 m jusqu'à 40 000 cellules, puis 1, 2, 5 ; refus au-delà ;
+- **emprise et pas** : parcelle + 10 m ; 0,5 m jusqu'à 400 000 cellules, puis 1, 2, 5, 10, 20, 30 ; refus au-delà ;
 - **`z(x, y)`** : bilinéaire exacte sur une grille plane (`z = a·x + b·y + c`), `null` hors emprise
   et sur un trou ;
 - **pente** : sur une grille plane, pente et orientation retrouvées à 0,1 % et 1° près ; grille

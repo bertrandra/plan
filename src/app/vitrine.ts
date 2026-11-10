@@ -16,7 +16,8 @@
 // et changent a chaque heure (three/etat3d.ts).
 //
 // `x` et `y` sont la largeur et la hauteur de la scene, en pixels CSS, bornees ; sans elles, la
-// scene prend la fenetre (ce qui est le cas utile dans un <iframe> deja dimensionne).
+// scene prend toute la fenetre visible, ancree a ses quatre bords, et la page ne defile jamais
+// (ce qui est le cas utile dans un <iframe> deja dimensionne, ou en plein ecran sur un telephone).
 //
 // `zoom` rapproche (> 1) ou eloigne (< 1) la camera du cadrage par defaut : `zoom=2` la met a mi-
 // distance de ce qu'elle vise, `zoom=0.5` deux fois plus loin. Borne de 0,25 a 8 ; la virgule vaut
@@ -40,7 +41,7 @@
 //
 // `file` montre une demo de l'admin au lieu de la demonstration integree : `file=2` lit le fichier
 // de demo 2 (MD/spec-demos-admin.md) par `admin/vitrine/2`, la route publique, en lecture seule, de
-// admin.php ou de buildsg/demosAdmin.mjs. Un fichier absent, illisible ou sans objet laisse la
+// admin.php. Un fichier absent, illisible ou sans objet laisse la
 // demonstration integree : la vitrine encadree sur une page d'accueil ne doit jamais etre vide.
 //
 // `date=AAAA-MM-JJ` pose le jour du soleil (par defaut, aujourd'hui). La camera tourne autour de la
@@ -57,6 +58,7 @@
 import { migrer } from '../model/migrations.js';
 import { centroid } from '../geometry/basic.js';
 import { SCHEMA_VERSION } from '../model/version.js';
+import { aujourdhui } from '../model/soleilProjet.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
 /** Les bornes d'une dimension : assez pour voir quelque chose, pas plus qu'un ecran 4K. */
@@ -220,8 +222,11 @@ export function adresseVitrine(href: string, date: string | null, rotation: numb
  */
 export function poserVitrine(v: Vitrine, racine: HTMLElement = document.documentElement): void {
   racine.dataset.vitrine = '';
-  if (v.largeur !== null) racine.style.setProperty('--vitrine-largeur', v.largeur + 'px');
-  if (v.hauteur !== null) racine.style.setProperty('--vitrine-hauteur', v.hauteur + 'px');
+  // Sans dimension, la scene est ancree aux quatre bords de la fenetre (app.css) : elle prend toute
+  // la place visible, barre d'adresse d'un telephone deduite, et la page ne defile pas. Une
+  // dimension donnee ne fixe que son cote ; l'autre reste ancre.
+  if (v.largeur !== null) { racine.style.setProperty('--vitrine-largeur', v.largeur + 'px'); racine.dataset.vitrineX = ''; }
+  if (v.hauteur !== null) { racine.style.setProperty('--vitrine-hauteur', v.hauteur + 'px'); racine.dataset.vitrineY = ''; }
 }
 
 /** Ce que le zoom demande de la scene : une camera, et le point que les controles visent. */
@@ -275,9 +280,9 @@ export function heureALInstant(course: { debut: number; fin: number }, ecouleMs:
   return Math.round(course.debut + t * (course.fin - course.debut));
 }
 
-/** La date du jour, en local, au format des champs de date (AAAA-MM-JJ). */
+/** La date du jour, en local, au format des champs de date (AAAA-MM-JJ) : celle du soleil du projet (model/soleilProjet.ts). */
 export function dateDuJour(d: Date = new Date()): string {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return aujourdhui(d);
 }
 
 /**
@@ -307,17 +312,42 @@ export interface DemoVitrine { objects: ObjetBrut[]; measures: Mesure[] }
  */
 export async function chargerDemoVitrine(id: string, lire: typeof fetch = fetch): Promise<DemoVitrine | null> {
   if (!ID_DEMO.test(id)) return null;
+  // La vitrine retombe sur la demonstration integree, mais pas en silence : la cause est ecrite dans
+  // la console. Un fichier illisible (droits), un admin non configure ou une protection anti-robots
+  // de l'hebergeur qui repond sa page a la place du JSON se ressemblaient tous : une scene qui n'est
+  // pas celle qu'on a demandee, et rien pour dire pourquoi.
+  const renoncer = (cause: string): null => {
+    console.warn('Vitrine : la démo « ' + id + ' » n’a pas été lue (' + cause + ') ; la démonstration intégrée est affichée.');
+    return null;
+  };
+  let r: Response;
   try {
-    const r = await lire('admin/vitrine/' + encodeURIComponent(id), { credentials: 'omit', headers: { Accept: 'application/json' } });
-    if (!r.ok) return null;
-    const d = await r.json() as { meta?: { schemaVersion?: unknown } | null; objects?: unknown; measures?: unknown };
-    if (!d || !Array.isArray(d.objects) || !d.objects.length) return null;
-    const schema = typeof d.meta?.schemaVersion === 'number' ? d.meta.schemaVersion : 1;
-    if (schema > SCHEMA_VERSION) return null;
+    // `same-origin` et non `omit` : la route ne lit aucun cookie, mais une protection anti-robots de
+    // l'hebergeur (SiteGround) peut, elle, exiger le sien et repondre sa page de controle sans lui.
+    // Dans l'<iframe> en bac a sable (origine `null`), rien ne part de toute facon.
+    r = await lire('admin/vitrine/' + encodeURIComponent(id), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+  } catch (e) {
+    return renoncer('injoignable : ' + ((e as Error).message || String(e)));
+  }
+  type Corps = { meta?: { schemaVersion?: unknown } | null; objects?: unknown; measures?: unknown; error?: { code?: unknown; message?: unknown } | null };
+  let d: Corps | null = null;
+  try { d = await r.json() as Corps; } catch { d = null; }
+  if (!r.ok) {
+    const e = d?.error;
+    return renoncer('HTTP ' + r.status + (e ? ' ' + String(e.code ?? '') + ' : ' + String(e.message ?? '') : ''));
+  }
+  if (!d || typeof d !== 'object') {
+    const type = r.headers.get('content-type') || '';
+    return renoncer('réponse ' + (/html/i.test(type) ? 'HTML' : 'illisible') + ' au lieu de JSON : une page d’erreur, ou une protection anti-robots de l’hébergeur, a répondu à la place d’admin.php');
+  }
+  if (!Array.isArray(d.objects) || !d.objects.length) return renoncer('le fichier n’est pas un plan : aucun objet');
+  const schema = typeof d.meta?.schemaVersion === 'number' ? d.meta.schemaVersion : 1;
+  if (schema > SCHEMA_VERSION) return renoncer('schéma ' + schema + ' plus récent que le programme (' + SCHEMA_VERSION + ')');
+  try {
     const lu = migrer({ objects: d.objects as ObjetBrut[], measures: Array.isArray(d.measures) ? d.measures as Mesure[] : [] }, schema);
     return { objects: lu.objects, measures: (lu.measures ?? []) as Mesure[] };
-  } catch {
-    return null;
+  } catch (e) {
+    return renoncer('fichier invalide : ' + ((e as Error).message || String(e)));
   }
 }
 
