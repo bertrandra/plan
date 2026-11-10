@@ -1,4 +1,4 @@
-// Les baies (fenetres, portes) sur la facade redressee de facade.html : le vote.
+// Les baies (fenetres, portes) sur la facade redressee (outil facade, depot bertrandra/facade) : le vote.
 //
 // Aucun indice ne suffit seul a reconnaitre une baie sur une photo de facade : une vitre est sombre
 // ou reflete le ciel, un rideau a la clarte de l'enduit, un porche met tout a l'ombre, un panneau

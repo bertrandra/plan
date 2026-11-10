@@ -1,4 +1,4 @@
-// Les baies (fenetres, portes) sur la facade redressee de facade.html : un des trois detecteurs
+// Les baies (fenetres, portes) sur la facade redressee (outil facade, depot bertrandra/facade) : un des trois detecteurs
 // independants que ../baies.ts fait voter.
 //
 // Methode : l'alignement et la repetition. Le redressement garantit que les bords d'une baie sont
