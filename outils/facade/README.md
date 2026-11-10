@@ -31,11 +31,13 @@ En plus :
   baies sur la façade redressée, chacun à sa façon — des rectangles d'arêtes notés par une
   vingtaine d'indices (`baies/propositions.ts`), les mailles fermées de la menuiserie
   (`baies/mailles.ts`), les travées et les alignements (`baies/travees.ts`) — et un vote retient ce
-  sur quoi deux d'entre eux s'accordent. La boîte est le hors-tout de la menuiserie, cadre compris.
-  Type selon la règle de Plan (`classer`) une fois le sol situé par une porte. Cotes avec
-  l'échelle ; ajout, recadrage, retrait, changement de type au doigt ; export CSV. Mesuré sur un
-  banc de façades annotées (`banc/README.md`) : 0,86 sur 1, contre 0,34 pour le premier détecteur
-  (régions lisses), et 0,80 sur des images tenues à l'écart.
+  sur quoi deux d'entre eux s'accordent, réunit les parties d'une même baie, écarte ce qui est posé
+  au sol sans la hauteur d'une porte. La boîte est le hors-tout de la menuiserie, cadre compris.
+  Type selon la règle de Plan (`classer`) une fois le sol situé par une porte ; le sol suit les
+  corrections faites à la main. Cotes avec l'échelle ; ajout, recadrage, retrait, changement de
+  type au doigt ; export CSV. Mesuré sur un banc de façades annotées (`banc/README.md`) : 0,87 sur
+  1 sur 221 images, contre 0,34 pour le premier détecteur (régions lisses), et 0,83 à 0,85 sur des
+  images tenues à l'écart.
 - **Calcul en arrière-plan** (Web Worker lancé depuis le texte embarqué), avec repli sur la page.
 
 Fichiers : `auto.ts` (calcul pur), `baies.ts` et `baies/` (fenêtres et portes), `banc/` (leur banc d'essai), `operations.ts` (les opérations, appelables par message),

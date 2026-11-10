@@ -60,7 +60,50 @@ assombrie).
 (régions, mur) sont celles qui se sont le moins bien transportées d'une image à l'autre ; les trois
 retenues raisonnent sur les arêtes. Faire voter les six ne gagnait que 0,007 pour le double du temps.
 
-Sur la façade de référence (16 Mpx) : 9 ouvertures sur 9, une fausse détection (un vide entre deux
-barreaux de balustrade), 1,2 s sous Node. Restent imparfaits : le cadrage d'une baie vitrée à
-plusieurs pans, une porte ou une porte-fenêtre dont le bas est caché (buisson, balustrade), les
-fenêtres derrière un garde-corps ouvragé, les volets ouverts.
+## Second tour : relecture, corrections, nouveau vote
+
+Les quatre fichiers ont ensuite été relus un par un : un relecteur cherche les défauts réels, un
+vérificateur tente de reproduire chaque constat (32 confirmés sur 32), un responsable corrige. Les
+quatre rendus ont été combinés et mesurés ; n'est gardé que ce qui tient à la mesure.
+
+Une image seule bouge de 0,05 d'un cadrage à l'autre (rogner un pixel suffit) et la note d'un jeu
+est dominée par trois à cinq vues de la maison : la décision se prend donc sur une **mesure large**,
+huit familles d'images (l'entraînement, ses miroirs, demi-résolutions, images assombries, rognées,
+réduites à 70 %, 40 autres façades d'immeubles), 221 images, notes regroupées par groupe. Les boîtes
+de chaque détecteur y sont rangées une fois, et le vote rejoué dessus.
+
+| Version | Mesure large | Maison (39 vues) : note, justes / fausses / manquées | Immeubles (168) | Jeu tenu à l'écart | Jeu final | Images de la page |
+|---|---|---|---|---|---|---|
+| vote d'origine, détecteurs d'origine | 0,81 | 0,83 — 275 / 66 / 26 | 0,73 | 0,80 | 0,76 | 0,84 |
+| nouveau vote, détecteurs d'origine | 0,86 | 0,91 — 285 / 18 / 16 | 0,73 | 0,84 | 0,83 | 0,90 |
+| **nouveau vote, `mailles` et `travees` corrigés (livré)** | **0,87** | 0,92 — 289 / 18 / 12 | 0,74 | 0,83 | 0,85 | 0,93 |
+
+(Jeu final : 46 images qui n'ont servi à aucune décision. Images de la page : l'élévation que
+`facade.html` produit dans un navigateur à partir des trois photos de la maison, et douze variantes —
+rognées, en miroir, réduites, assombrie.)
+
+- **Le vote** (`baies.ts`) est réécrit : grappes par recouvrement décroissant (plus de « première
+  grappe venue »), boîte d'une grappe selon la nature de l'accord (plus de moyenne de deux boîtes),
+  réunion du tout et de ses parties, baies à une voix gardées seulement si la façade les confirme,
+  sol situé par la plus basse des portes, filtre de ce qui est posé au sol sans la hauteur d'une
+  porte (les vides de balustrade), prolongement par les morceaux voisins (imposte, bas de porte).
+  C'est lui qui porte le gain.
+- **`baies/mailles.ts`** : portes pleines cherchées par dichotomie (51 s sur une image de bruit avec
+  une échelle fausse, 1 s après), recalage des bords au sens du contraste (le cadre n'est plus
+  retiré : 3 à 5 cm d'erreur sur 13 configurations synthétiques sur 20, aucune après), échelle de
+  travail des images moyennes.
+- **`baies/travees.ts`** : la lenteur pathologique est corrigée (2,0 s pour 0,67 Mpx, 0,35 s après),
+  plus de budget qui écarte des candidats en silence, montants chaînés par-dessus une traverse (la
+  baie vitrée sort entière, impostes comprises).
+- **`baies/propositions.ts`** : inchangé. Ses corrections (rugosité des images peu réduites,
+  symétrie) n'apportaient rien de mesurable au vote.
+
+Sur la façade de référence (16 Mpx) : 9 ouvertures sur 9, aucune fausse, la porte d'entrée et la
+porte-fenêtre du porche entières, la baie vitrée avec ses impostes ; moins de 2 s sous Node. Sur
+l'élévation que la page tire des trois photos compressées : les mêmes ouvertures (les deux pans de
+la baie vitrée d'un seul tenant), mais la porte-fenêtre du porche s'arrête à la lisse de la
+balustrade, et sans échelle un vide entre deux barreaux reste pris pour une baie. Restent
+imparfaits : le résultat dépend du cadrage au pixel près (c'est la première cause d'erreur), les
+fenêtres d'étage prises avec leur encadrement de colombage, les fenêtres derrière un garde-corps
+ouvragé, les volets ouverts ; sur les immeubles, un tiers des fenêtres ne sont vues par aucun des
+trois détecteurs.

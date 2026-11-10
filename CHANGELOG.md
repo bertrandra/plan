@@ -24,8 +24,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   facultatif des fenêtres et portes, avec cotes (hors tout de la menuiserie), corrections au doigt
   (le sol, donc les hauteurs d'appui, suit une porte déclarée, recadrée ou retirée à la main) et
   export CSV : trois détecteurs indépendants et un vote, départagés sur un banc de façades annotées
-  (`outils/facade/banc/`) — 0,86 sur 1 contre 0,34 pour le premier détecteur, 9 ouvertures sur 9 sur
-  la façade de référence.
+  (`outils/facade/banc/`). Les quatre fichiers ont été relus, vérifiés et corrigés un par un, et le
+  vote réécrit (accord par recouvrement, réunion des parties d'une baie, filtre de ce qui est posé
+  au sol, sol situé par la porte) : 0,87 sur 1 sur 221 images contre 0,81 pour le premier vote et
+  0,34 pour le premier détecteur ; sur la façade de référence, 9 ouvertures sur 9, plus de fausse
+  baie dans la balustrade, porte et porte-fenêtre entières, baie vitrée avec ses impostes.
 
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m

@@ -554,7 +554,10 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   const s0 = connue ? pxParM! : W / 12;
   // Resolution de travail : 64 px/m (1,5 cm) si l'echelle est connue, sinon 1024 px au plus ; et
   // jamais plus de cases que le temps accorde n'en permet (il croit avec la taille de l'image).
-  const k = Math.min(1, connue ? 64 / s0 : 1024 / Math.max(W, H), Math.sqrt((5e5 + 0.1 * W * H) / (W * H)));
+  // Entre 1/2 et 1, une case recevrait tantot un pixel, tantot deux (des aretes en dents de scie), et
+  // la texture ne se mesurerait plus : une image assez grande est alors travaillee a 1/2 tout rond.
+  const k0 = Math.min(1, connue ? 64 / s0 : 1024 / Math.max(W, H), Math.sqrt((5e5 + 0.1 * W * H) / (W * H)));
+  const k = k0 > 0.5 && k0 < 1 && Math.max(W, H) >= 1200 ? 0.5 : k0;
   const tr = reduire(img, vu, k);
   const { l, h, L, V } = tr;
   /** Pixels de travail par metre (suppose, si l'echelle est inconnue : 12 m dans la largeur). */
@@ -905,14 +908,30 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   // travail doit couvrir plusieurs pixels.
   const portes: Candidat[] = [];
   if (texture) {
-    const longues = av.filter((e) => e.b - e.a >= (0.5 * u) / tol);
+    // Les montants : les aretes verticales d'un demi-metre au moins - et pas plus de 2 000 (les
+    // plus longues), pour qu'une echelle mal saisie ou une image de bruit ne fige pas la page.
+    const lmin = Math.max(8, (0.5 * u) / tol);
+    let longues = av.filter((e) => e.b - e.a >= lmin);
+    if (longues.length > 2000) longues = longues.sort((p, q) => q.b - q.a - (p.b - p.a) || p.p - q.p || p.a - q.a).slice(0, 2000);
+    // Les montants de droite ranges par position : chaque montant de gauche ne regarde que ceux
+    // qui sont a une largeur de porte de lui.
+    const droites = longues.filter((e) => e.s < 0).sort((p, q) => p.p - q.p || p.a - q.a);
+    const wmin = (0.6 * u) / tol,
+      wmaxP = 1.3 * u * tol;
     const marge = Math.max(3, Math.round(0.12 * u));
     for (const g of longues) {
       if (g.s < 0) continue;
-      for (const d of longues) {
-        if (d.s > 0) continue;
+      let lo = 0,
+        hi = droites.length;
+      while (lo < hi) {
+        const m = (lo + hi) >> 1;
+        if (droites[m]!.p - g.p < wmin) lo = m + 1;
+        else hi = m;
+      }
+      for (let i = lo; i < droites.length; i++) {
+        const d = droites[i]!;
         const w = d.p - g.p;
-        if (w < (0.6 * u) / tol || w > 1.3 * u * tol) continue;
+        if (w > wmaxP) break;
         const oa = Math.max(g.a, d.a),
           ob = Math.min(g.b, d.b);
         if (ob - oa < (1.0 * u) / tol) continue;
@@ -1048,31 +1067,42 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     const q = (Math.max(0, Math.min(H - 1, y)) * W + Math.max(0, Math.min(W - 1, x))) * 4;
     return 0.299 * d[q]! + 0.587 * d[q + 1]! + 0.114 * d[q + 2]!;
   };
-  const recaler = (v: number, a: number, b: number, vertical: boolean): number => {
+  // `sens` : le contraste attendu dans le sens croissant (+1 : sombre puis clair, -1 : clair puis
+  // sombre, 0 : l'un ou l'autre). Sans lui, le bord exterieur d'un cadre clair (cadre / mur, faible)
+  // perd contre son bord interieur (cadre / vitre, bien plus fort) et la boite revient au vitrage.
+  const recaler = (v: number, a: number, b: number, vertical: boolean, sens: number): number => {
     const marge = Math.ceil(1.5 / k);
     const a2 = Math.round(a + 0.2 * (b - a)),
       b2 = Math.round(b - 0.2 * (b - a));
     const pas = Math.max(1, Math.floor((b2 - a2) / 48));
     let meilleur = Math.round(v),
-      score = -1;
+      score = 0,
+      mAbs = Math.round(v),
+      sAbs = -1;
     for (let p = Math.round(v) - marge; p <= Math.round(v) + marge; p++) {
       let somme = 0;
       for (let t = a2; t <= b2; t += pas) somme += vertical ? lumi(p, t) + lumi(p + 1, t) - lumi(p - 1, t) - lumi(p - 2, t) : lumi(t, p) + lumi(t, p + 1) - lumi(t, p - 1) - lumi(t, p - 2);
       // a contraste egal, le plus pres de la position trouvee
-      const sc = Math.abs(somme) - 1e-6 * Math.abs(p - v);
-      if (sc > score) [score, meilleur] = [sc, p];
+      const pres = 1e-6 * Math.abs(p - v);
+      if (Math.abs(somme) - pres > sAbs) [sAbs, mAbs] = [Math.abs(somme) - pres, p];
+      if (sens * somme - pres > score) [score, meilleur] = [sens * somme - pres, p];
     }
-    return meilleur;
+    // aucun bord du sens attendu a portee : le plus fort, quel qu'il soit
+    return score > 0 ? meilleur : mAbs;
   };
   const boites = choisis.map((b) => {
     const X0 = b.x0 / k,
       X1 = b.x1 / k,
       Y0 = b.y0 / k,
       Y1 = b.y1 / k;
-    const x0 = Math.max(0, recaler(X0, Y0, Y1, true)),
-      x1 = Math.min(W, recaler(X1, Y0, Y1, true)),
-      y0 = Math.max(0, recaler(Y0, X0, X1, false)),
-      y1 = Math.min(H, recaler(Y1, X0, X1, false));
+    // Clair dedans si le cote a un cadre (ou pour une porte pleine), sombre dedans sinon ; l'un ou
+    // l'autre si le cote a ete deplace par un morceau voisin (on ne sait plus ce qui le borde).
+    const plein = portes.includes(b);
+    const dedans = (i: number, pos: number, org: number) => (Math.abs(pos - org) > 1e-9 ? 0 : plein || b.bords[i]! > 0 ? 1 : -1);
+    const x0 = Math.max(0, recaler(X0, Y0, Y1, true, dedans(0, b.x0, b.c.x0 - b.bords[0]!))),
+      x1 = Math.min(W, recaler(X1, Y0, Y1, true, -dedans(1, b.x1, b.c.x1 + b.bords[1]!))),
+      y0 = Math.max(0, recaler(Y0, X0, X1, false, dedans(2, b.y0, b.c.y0 - b.bords[2]!))),
+      y1 = Math.min(H, recaler(Y1, X0, X1, false, -dedans(3, b.y1, b.c.y1 + b.bords[3]!)));
     return { x0, y0, x1, y1, n: b.n, porte: portes.includes(b) };
   });
 

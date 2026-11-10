@@ -10,7 +10,9 @@
 //      aminci, garde seulement sur un alignement assez long - le crepi, le feuillage, la brique en
 //      quinconce disparaissent ; restent tableaux, linteaux, appuis, meneaux ;
 //   2. les travees : le profil des aretes verticales, colonne par colonne, donne les montants ;
-//      deux montants en regard bornent une travee ;
+//      deux montants en regard bornent une travee. Une traverse d'imposte coupe un tableau : deux
+//      troncons qui se suivent par-dessus une arete horizontale donnent aussi le montant qui les
+//      reunit (la travee avec et sans l'imposte, le choix tranche) ;
 //   3. les bandes : dans chaque travee, le profil des aretes horizontales donne les lignes hautes et
 //      basses ; une case = une travee entre deux de ces lignes, chaque cote porte par une arete
 //      (le pied des montants vaut ligne du bas pour une porte dont le seuil est cache) ;
@@ -24,7 +26,8 @@
 //      et son encadrement, deux baies et leur trumeau) ; les morceaux voisins et alignes d'une
 //      meme baie sont reunis ;
 //   6. l'alignement : une case mediocre est gardee si d'autres partagent sa ligne ou sa colonne,
-//      ecartee si elle est isolee (sauf une porte : haute, large, au linteau net) ;
+//      ecartee si elle est isolee (sauf une porte : haute, large, au linteau net) ; le choix est
+//      refait sans les cases ecartees, jusqu'a ce que l'alignement n'en ecarte plus ;
 //   7. la repetition : chaque baie sure sert de modele, par correlation, pour retrouver ses
 //      semblables le long de sa ligne et de sa colonne ;
 //   8. chaque cote recale au pixel sur l'image d'origine.
@@ -33,7 +36,19 @@
 // statistiques de cases justes et fausses, pas un modele appris. Limites connues : un vitrage
 // derriere un garde-corps ou un balcon ouvrage, des volets battants (pris avec la fenetre ou a sa
 // place), une porte-fenetre derriere un poteau (trouvee en partie), un rideau clair derriere la
-// vitre (pris pour du mur), une vitrine sans menuiserie.
+// vitre (pris pour du mur), une vitrine sans menuiserie. S'y ajoutent :
+//   - la taille : une baie n'est proposee qu'entre 2 % et un tiers du grand cote de l'image en
+//     largeur, 3 % et 45 % en hauteur, meme quand l'echelle est fournie (elle ne sert qu'a
+//     convertir en metres) - une baie vitree de plus d'un tiers de la photo n'est pas rendue ;
+//   - la phase : la reduction moyenne des blocs ancres en haut a gauche et laisse le reste de la
+//     division a droite et en bas. Le resultat change donc avec un decalage de quelques pixels
+//     (mesure sur une maison rognee de 0 a 4 colonnes : note de 0,82 a 0,94) et la facade
+//     retournee ne rend pas les memes boites retournees ;
+//   - les bornes de calcul, jamais atteintes sur les facades d'essai, qui ecartent des candidats
+//     sur une image tres rayee (damier, mur-rideau, bardage) : 3000 montants (les plus longs, puis
+//     les plus proches de l'axe), 24 lignes par travee (les mieux portees), 150 000 cases et six
+//     millions de lignes de profil lues (les travees les plus larges sont alors laissees), 12 000
+//     examens du mur (les cases les moins bien classees sont alors tenues pour du mur).
 //
 // La boite rendue est le hors-tout de la menuiserie. Le type suit la regle de Plan (`classer`), une
 // fois le sol situe : le bas de la plus basse des baies, si c'est une porte. C'est une proposition :
@@ -91,7 +106,18 @@ function reduire(img: Image, vu: Uint8Array | null, f: number): Plan {
   const demi = (f * f) / 2;
   // La ligne du dessus dans le bloc, pour les ecarts verticaux.
   const dessus = new Int32Array(f);
-  for (let y = 0; y < h; y++)
+  // Sans reduction, un bloc est un pixel : sa luminance, sans moyenne ni ecarts a cumuler (la
+  // rugosite est lue plus bas entre voisins). C'est le cas des facades d'un million de pixels,
+  // celles dont le temps est compte au plus juste.
+  if (f === 1) {
+    for (let i = 0; i < n; i++) {
+      if (vu && !vu[i]) continue;
+      const p = i * 4;
+      ok[i] = 1;
+      lum[i] = (77 * d[p]! + 150 * d[p + 1]! + 29 * d[p + 2]!) >> 8;
+    }
+  }
+  for (let y = 0; f > 1 && y < h; y++)
     for (let x = 0; x < l; x++) {
       let sl = 0,
         eh = 0,
@@ -292,32 +318,79 @@ interface Montant {
   y1: number;
 }
 
-/** Les montants : les troncons du profil des aretes verticales, colonne par colonne. */
-function montants(ar: Aretes, l: number, h: number, longMin: number): Montant[] {
+/** Borne du nombre de montants : plus de trois fois ce qu'en compte la facade la plus chargee du jeu d'essai. */
+const MONTANTS_MAX = 3000;
+
+/**
+ * Les montants : les troncons du profil des aretes verticales, colonne par colonne. Un troncon
+ * s'acheve apres trois lignes sans arete (deux sont tolerees : le croisement d'un petit bois).
+ * Une traverse d'imposte, elle, coupe le tableau sur une dizaine de centimetres : deux troncons qui
+ * se suivent dans la meme colonne, separes par `chaine` lignes au plus que croise une arete
+ * horizontale, donnent en plus le montant qui les reunit (et de meme avec le troncon d'apres) - la
+ * travee va alors du haut de l'imposte au bas du vantail, et le choix se fait entre les deux.
+ */
+function montants(ar: Aretes, l: number, h: number, longMin: number, chaine: number): Montant[] {
   const res: Montant[] = [];
-  const { sv, svf } = ar;
+  const { sv, svf, sh } = ar;
+  const debut = new Int32Array(l + 1);
   for (let x = 1; x < l - 1; x++) {
-    let debut = -1,
+    debut[x] = res.length;
+    let depart = -1,
       trou = 0;
     for (let y = 0; y <= h; y++) {
       const on = y < h && sv[(y + 1) * l + x]! > sv[y * l + x]!;
       if (on) {
-        if (debut < 0) debut = y;
+        if (depart < 0) depart = y;
         trou = 0;
-      } else if (debut >= 0 && (++trou > 2 || y === h)) {
-        // Un troncon s'acheve apres trois lignes sans arete (deux sont tolerees : un croisement).
+      } else if (depart >= 0 && (++trou > 2 || y === h)) {
         const fin = y - trou;
-        if (fin - debut + 1 >= longMin) {
+        if (fin - depart + 1 >= longMin) {
           // Le sommet du profil : la colonne qui porte le plus d'aretes fines sur ce troncon.
-          const c = svf[(fin + 1) * l + x]! - svf[debut * l + x]!,
-            g = svf[(fin + 1) * l + x - 1]! - svf[debut * l + x - 1]!,
-            d = svf[(fin + 1) * l + x + 1]! - svf[debut * l + x + 1]!;
-          if (c >= g && c > d) res.push({ x, y0: debut, y1: fin });
+          const c = svf[(fin + 1) * l + x]! - svf[depart * l + x]!,
+            g = svf[(fin + 1) * l + x - 1]! - svf[depart * l + x - 1]!,
+            d = svf[(fin + 1) * l + x + 1]! - svf[depart * l + x + 1]!;
+          if (c >= g && c > d) res.push({ x, y0: depart, y1: fin });
         }
-        debut = -1;
+        depart = -1;
         trou = 0;
       }
     }
+  }
+  debut[l - 1] = debut[l] = res.length;
+  // Les montants chaines par-dessus une traverse.
+  const L = l + 1;
+  const nb = res.length;
+  /** Une arete horizontale part-elle de la colonne x, d'un cote ou de l'autre, entre les lignes ya et yb ? */
+  const traverse = (x: number, ya: number, yb: number): boolean => {
+    for (let y = Math.max(0, ya); y <= Math.min(h - 1, yb); y++) {
+      const d = sh[y * L + Math.min(l, x + 1 + longMin)]! - sh[y * L + x + 1]!,
+        g = sh[y * L + x]! - sh[y * L + Math.max(0, x - longMin)]!;
+      if (d >= 0.7 * longMin || g >= 0.7 * longMin) return true;
+    }
+    return false;
+  };
+  /** Le troncon qui prolonge `m` vers le bas, par-dessus une traverse (a une colonne pres) : son rang, ou -1. */
+  const suite = (m: Montant): number => {
+    let mieux = -1;
+    for (let x = Math.max(1, m.x - 1); x <= Math.min(l - 2, m.x + 1); x++)
+      for (let q = debut[x]!; q < debut[x + 1]!; q++) {
+        const t = res[q]!;
+        const ecart = t.y0 - m.y1 - 1;
+        if (ecart < 1 || ecart > chaine || !traverse(m.x, m.y1, t.y0)) continue;
+        if (mieux < 0 || t.y1 - t.y0 > res[mieux]!.y1 - res[mieux]!.y0) mieux = q;
+      }
+    return mieux;
+  };
+  for (let i = 0; i < nb; i++) {
+    const a = res[i]!;
+    const ib = suite(a);
+    if (ib < 0) continue;
+    const b = res[ib]!;
+    // La colonne du plus long des deux.
+    const xab = b.y1 - b.y0 > a.y1 - a.y0 ? b.x : a.x;
+    res.push({ x: xab, y0: a.y0, y1: b.y1 });
+    const ic = suite(b);
+    if (ic >= 0) res.push({ x: xab, y0: a.y0, y1: res[ic]!.y1 });
   }
   return res;
 }
@@ -350,84 +423,191 @@ interface Tailles {
   lPorte: number;
 }
 
-/** Bornes du nombre de lignes par travee et du nombre de cases : le temps de calcul en depend. */
-const PICS_MAX = 24,
-  CASES_MAX = 90000;
+/**
+ * Les candidats, par dizaines de milliers : ranges en colonnes de nombres plutot qu'en objets (un
+ * objet par case couterait plus cher a creer et a ramasser que tout le reste du calcul).
+ */
+interface Cases {
+  n: number;
+  x0: Int16Array;
+  y0: Int16Array;
+  x1: Int16Array;
+  y1: Int16Array;
+  /** Part de chaque cote portee par une arete : gauche, droite, haut, bas. */
+  ag: Float64Array;
+  ad: Float64Array;
+  ah: Float64Array;
+  ab: Float64Array;
+  note: Float64Array;
+}
 
-function cases(ar: Aretes, ms: Montant[], l: number, h: number, t: Tailles): Case[] {
-  const { sv, sh, shf } = ar;
-  const res: Case[] = [];
-  const parX = [...ms].sort((a, b) => a.x - b.x);
-  const pics: number[] = [];
-  const force: number[] = [];
-  const vus = new Set<number>();
-  for (let i = 0; i < parX.length; i++) {
-    const a = parX[i]!;
-    for (let j = i + 1; j < parX.length; j++) {
-      const b = parX[j]!;
-      const w = b.x - a.x;
-      if (w > t.lMax) break;
-      if (w < t.lMin) continue;
-      const u0 = Math.max(a.y0, b.y0),
-        u1 = Math.min(a.y1, b.y1);
-      if (u1 - u0 + 1 < t.hMin || u1 - u0 + 1 < 0.5 * Math.min(a.y1 - a.y0 + 1, b.y1 - b.y0 + 1)) continue;
-      // Profil des aretes horizontales dans la travee, de part et d'autre du recouvrement.
-      const marge = Math.max(3, Math.round(0.15 * (u1 - u0)));
-      const ya = Math.max(1, Math.min(a.y0, b.y0) - marge),
-        yb = Math.min(h - 2, Math.max(a.y1, b.y1) + marge);
-      pics.length = 0;
-      force.length = 0;
-      for (let y = ya; y <= yb; y++) {
-        const r3 = sh[y * (l + 1) + b.x + 1]! - sh[y * (l + 1) + a.x]!;
-        // Le pied des deux montants vaut ligne du bas, meme sans arete : un seuil de porte cache
-        // par un buisson, un bas de porte-fenetre derriere un garde-corps.
-        const pied = y === u1 + 1;
-        if (r3 < 0.3 * (w + 1) && !pied) continue;
-        const c = shf[y * (l + 1) + b.x + 1]! - shf[y * (l + 1) + a.x]!,
-          av = shf[(y - 1) * (l + 1) + b.x + 1]! - shf[(y - 1) * (l + 1) + a.x]!,
-          ap = shf[(y + 1) * (l + 1) + b.x + 1]! - shf[(y + 1) * (l + 1) + a.x]!;
-        if (pied || (c >= av && c > ap)) {
-          pics.push(y);
-          force.push(r3 / (w + 1));
-        }
-      }
-      if (pics.length > PICS_MAX) {
-        // Une travee tres rayee (un damier, un bardage) : les lignes les mieux portees seulement,
-        // pour que le nombre de cases - et le temps de calcul - reste borne.
-        const garde = Array.from(pics.keys())
-          .sort((i1, i2) => force[i2]! - force[i1]! || i1 - i2)
-          .slice(0, PICS_MAX)
-          .sort((i1, i2) => i1 - i2);
-        const py = garde.map((q) => pics[q]!),
-          pf = garde.map((q) => force[q]!);
-        pics.length = force.length = 0;
-        pics.push(...py);
-        force.push(...pf);
-      }
-      for (let s = 0; s < pics.length; s++) {
-        if (res.length >= CASES_MAX) return res;
-        if (force[s]! < 0.45) continue;
-        for (let q = s + 1; q < pics.length; q++) {
-          const y0 = pics[s]!,
-            y1 = pics[q]!;
-          const hh = y1 - y0;
-          if (hh < t.hMin || hh * w < t.aireMin) continue;
-          if (hh > t.hMax) break;
-          if (hh > 4 * w || w > 4 * hh) continue;
-          const ag = (sv[y1 * l + a.x]! - sv[y0 * l + a.x]!) / hh,
-            ad = (sv[y1 * l + b.x]! - sv[y0 * l + b.x]!) / hh;
-          if (ag < 0.6 || ad < 0.6) continue;
-          // Sans arete en bas : seulement une case haute et large, aux trois autres cotes nets.
-          if (force[q]! < 0.3 && (ag < 0.8 || ad < 0.8 || force[s]! < 0.8 || hh < 1.5 * w || w < t.lPorte)) continue;
-          const cle = ((a.x * 2048 + b.x) * 2048 + y0) * 2048 + y1;
-          if (vus.has(cle)) continue;
-          vus.add(cle);
-          res.push({ x0: a.x, y0, x1: b.x, y1, ag, ad, ah: force[s]!, ab: force[q]!, note: 0 });
-        }
-      }
+function casesVides(place: number): Cases {
+  return { n: 0, x0: new Int16Array(place), y0: new Int16Array(place), x1: new Int16Array(place), y1: new Int16Array(place), ag: new Float64Array(place), ad: new Float64Array(place), ah: new Float64Array(place), ab: new Float64Array(place), note: new Float64Array(place) };
+}
+
+/** Double la place des colonnes. */
+function agrandir(cs: Cases): void {
+  const g = casesVides(2 * cs.x0.length);
+  g.x0.set(cs.x0);
+  g.y0.set(cs.y0);
+  g.x1.set(cs.x1);
+  g.y1.set(cs.y1);
+  g.ag.set(cs.ag);
+  g.ad.set(cs.ad);
+  g.ah.set(cs.ah);
+  g.ab.set(cs.ab);
+  Object.assign(cs, g, { n: cs.n });
+}
+
+/**
+ * Bornes du travail de cases() : lignes par travee, cases en tout, lignes de profil lues. Elles ne
+ * sont atteintes que sur une image tres rayee (un damier, un mur-rideau) ; les travees les plus
+ * larges sont alors laissees de cote, ou qu'elles soient dans l'image.
+ */
+const PICS_MAX = 24,
+  CASES_MAX = 150000,
+  LIGNES_MAX = 6e6;
+
+/**
+ * Les lignes hautes et basses possibles d'une travee [xa, xb] : les sommets du profil des aretes
+ * horizontales entre les lignes ya et yb, ranges dans `pics` avec leur portee dans `force`.
+ * Le pied des deux montants (ligne `pied`) vaut ligne du bas, meme sans arete : un seuil de porte
+ * cache par un buisson, un bas de porte-fenetre derriere un garde-corps. Rend leur nombre.
+ */
+function lignes(ar: Aretes, L: number, xa: number, xb: number, ya: number, yb: number, pied: number, pics: Int32Array, force: Float64Array, tri: Float64Array): number {
+  const { sh, shf } = ar;
+  const w = xb - xa;
+  let np = 0;
+  for (let y = ya; y <= yb; y++) {
+    const r3 = sh[y * L + xb + 1]! - sh[y * L + xa]!;
+    if (r3 < 0.3 * (w + 1) && y !== pied) continue;
+    const c = shf[y * L + xb + 1]! - shf[y * L + xa]!,
+      av = shf[(y - 1) * L + xb + 1]! - shf[(y - 1) * L + xa]!,
+      ap = shf[(y + 1) * L + xb + 1]! - shf[(y + 1) * L + xa]!;
+    if (y === pied || (c >= av && c > ap)) {
+      pics[np] = y;
+      force[np++] = r3 / (w + 1);
     }
   }
+  if (np <= PICS_MAX) return np;
+  // Une travee tres rayee (un damier, un bardage) : les lignes les mieux portees seulement (a
+  // portee egale, les plus hautes), pour que le nombre de cases reste borne.
+  const trie = tri.subarray(0, np);
+  trie.set(force.subarray(0, np));
+  trie.sort();
+  const seuil = trie[np - PICS_MAX]!;
+  let egales = PICS_MAX;
+  for (let q = 0; q < np; q++) if (force[q]! > seuil) egales--;
+  let n = 0;
+  for (let q = 0; q < np; q++) {
+    if (force[q]! < seuil || (force[q] === seuil && --egales < 0)) continue;
+    pics[n] = pics[q]!;
+    force[n++] = force[q]!;
+  }
+  return n;
+}
+
+function cases(ar: Aretes, ms: Montant[], l: number, h: number, t: Tailles): Cases {
+  const { sv } = ar;
+  const res = casesVides(8192);
+  // Les montants ranges par colonne : les travees sont parcourues de la plus etroite a la plus
+  // large. Une borne atteinte ecarte ainsi des travees par leur largeur, pas par leur place.
+  const debut = new Int32Array(l + 2);
+  for (const m of ms) debut[m.x + 1] = debut[m.x + 1]! + 1;
+  for (let x = 0; x <= l; x++) debut[x + 1] = debut[x + 1]! + debut[x]!;
+  const rang = debut.slice();
+  const col = new Array<Montant>(ms.length);
+  for (const m of ms) {
+    col[rang[m.x]!] = m;
+    rang[m.x] = rang[m.x]! + 1;
+  }
+  const pics = new Int32Array(h + 2),
+    force = new Float64Array(h + 2),
+    tri = new Float64Array(h + 2);
+  // Deux troncons d'une meme colonne peuvent donner la meme case : une fois suffit.
+  const vus = new Set<number>();
+  let lues = 0;
+  /** Les cases de la travee entre les montants a et b. */
+  const travee = (a: Montant, b: Montant, plusieurs: boolean) => {
+    const xa = a.x,
+      xb = b.x,
+      w = xb - xa;
+    const u0 = Math.max(a.y0, b.y0),
+      u1 = Math.min(a.y1, b.y1);
+    if (u1 - u0 + 1 < t.hMin || u1 - u0 + 1 < 0.5 * Math.min(a.y1 - a.y0 + 1, b.y1 - b.y0 + 1)) return;
+    // Profil des aretes horizontales dans la travee, de part et d'autre du recouvrement.
+    const marge = Math.max(3, Math.round(0.15 * (u1 - u0)));
+    const ya = Math.max(1, Math.min(a.y0, b.y0) - marge),
+      yb = Math.min(h - 2, Math.max(a.y1, b.y1) + marge);
+    lues += yb - ya + 1;
+    const np = lignes(ar, l + 1, xa, xb, ya, yb, u1 + 1, pics, force, tri);
+    for (let s = 0; s < np; s++) {
+      if (force[s]! < 0.45) continue;
+      for (let q = s + 1; q < np; q++) {
+        const y0 = pics[s]!,
+          y1 = pics[q]!;
+        const hh = y1 - y0;
+        if (hh < t.hMin || hh * w < t.aireMin) continue;
+        if (hh > t.hMax) break;
+        if (hh > 4 * w || w > 4 * hh) continue;
+        const ag = (sv[y1 * l + xa]! - sv[y0 * l + xa]!) / hh,
+          ad = (sv[y1 * l + xb]! - sv[y0 * l + xb]!) / hh;
+        if (ag < 0.6 || ad < 0.6) continue;
+        // Sans arete en bas : seulement une case haute et large, aux trois autres cotes nets.
+        if (force[q]! < 0.3 && (ag < 0.8 || ad < 0.8 || force[s]! < 0.8 || hh < 1.5 * w || w < t.lPorte)) continue;
+        if (plusieurs) {
+          const cle = y0 * 2048 + y1;
+          if (vus.has(cle)) continue;
+          vus.add(cle);
+        }
+        if (res.n === res.x0.length) agrandir(res);
+        const n = res.n++;
+        res.x0[n] = xa;
+        res.y0[n] = y0;
+        res.x1[n] = xb;
+        res.y1[n] = y1;
+        res.ag[n] = ag;
+        res.ad[n] = ad;
+        res.ah[n] = force[s]!;
+        res.ab[n] = force[q]!;
+      }
+    }
+  };
+  for (let w = t.lMin; w <= t.lMax && res.n < CASES_MAX && lues < LIGNES_MAX; w++)
+    for (let xa = 1; xa + w < l - 1; xa++) {
+      const a0 = debut[xa]!,
+        a1 = debut[xa + 1]!;
+      if (a0 === a1) continue;
+      const b0 = debut[xa + w]!,
+        b1 = debut[xa + w + 1]!;
+      if (b0 === b1) continue;
+      const plusieurs = (a1 - a0) * (b1 - b0) > 1;
+      if (plusieurs) vus.clear();
+      for (let ia = a0; ia < a1; ia++) for (let ib = b0; ib < b1; ib++) travee(col[ia]!, col[ib]!, plusieurs);
+    }
   return res;
+}
+
+/**
+ * Rangement de numeros de cases par cle entiere, sans table de hachage : un tableau trie de
+ * `cle * BASE + numero`. Les cases d'une cle se suivent a partir de `debutCle`.
+ */
+const BASE = 2 ** 20;
+function ranger(numeros: Int32Array, cle: (i: number) => number): Float64Array {
+  const t = new Float64Array(numeros.length);
+  for (let q = 0; q < numeros.length; q++) t[q] = cle(numeros[q]!) * BASE + numeros[q]!;
+  return t.sort();
+}
+function debutCle(t: Float64Array, cle: number): number {
+  const v = cle * BASE;
+  let a = 0,
+    b = t.length;
+  while (a < b) {
+    const m = (a + b) >> 1;
+    if (t[m]! < v) a = m + 1;
+    else b = m;
+  }
+  return a;
 }
 
 const aire = (c: Case) => (c.x1 - c.x0) * (c.y1 - c.y0);
@@ -451,12 +631,15 @@ function iou(a: Case, b: Case): number {
  * Le contenu d'une case
  * --------------------------------------------------------------------------------------------- */
 
-/** Image integrale : somme d'une grandeur sur [x0, x1[ x [y0, y1[ en quatre lectures. */
-class Integrale {
-  readonly t: Float64Array;
+/**
+ * Image integrale : somme d'une grandeur sur [x0, x1[ x [y0, y1[ en quatre lectures. Un comptage
+ * (aretes, pixels couverts) tient dans des entiers ; seule la clarte demande des reels.
+ */
+class Integrale<T extends Int32Array | Float64Array> {
   readonly L: number;
   /** `binaire` : compte les valeurs non nulles ; `masque` : ne somme que la ou il vaut 1. */
   constructor(
+    readonly t: T,
     readonly l: number,
     readonly h: number,
     v: ArrayLike<number>,
@@ -465,7 +648,6 @@ class Integrale {
   ) {
     const L = l + 1;
     this.L = L;
-    const t = new Float64Array(L * (h + 1));
     for (let y = 0; y < h; y++) {
       let s = 0;
       const o = (y + 1) * L + 1,
@@ -476,7 +658,6 @@ class Integrale {
         t[o + x] = t[od + x]! + s;
       }
     }
-    this.t = t;
   }
   somme(x0: number, y0: number, x1: number, y1: number): number {
     if (x0 < 0) x0 = 0;
@@ -489,19 +670,20 @@ class Integrale {
     return t[y1 * L + x1]! - t[y0 * L + x1]! - t[y1 * L + x0]! + t[y0 * L + x0]!;
   }
 }
+const comptage = (l: number, h: number, v: ArrayLike<number>, binaire = false) => new Integrale(new Int32Array((l + 1) * (h + 1)), l, h, v, null, binaire);
 
 /** Ce qu'il faut pour juger le contenu d'une case. */
 interface Contenu {
   l: number;
   h: number;
   /** Aretes verticales et horizontales fines. */
-  iv: Integrale;
-  ih: Integrale;
+  iv: Integrale<Int32Array>;
+  ih: Integrale<Int32Array>;
   /** Clarte ; pixels couverts. */
-  ic: Integrale;
-  io: Integrale;
+  ic: Integrale<Float64Array>;
+  io: Integrale<Int32Array>;
   /** Plages unies, loin de toute arete verticale : leur nombre ; par pixel, 0 ou leur classe + 1. */
-  ip: Integrale;
+  ip: Integrale<Int32Array>;
   uni: Uint8Array;
   /** Clarte par pixel. */
   c: Float32Array;
@@ -533,7 +715,7 @@ function contenu(p: Plan, ar: Aretes, rayon: number): Contenu {
       const r = Math.min(tmp[i - l]!, tmp[i]!, tmp[i + l]!);
       ro[i] = r > 0.002 ? Math.min(5, Math.log2(r / 0.002)) * 16 : 0;
     }
-  const iv = new Integrale(l, h, ar.v);
+  const iv = comptage(l, h, ar.v);
   // Plage unie : aucune arete verticale dans le carre de cote 2 x rayon + 1 autour du pixel (les
   // joints d'une brique, les lames d'un bardage sont horizontaux : un mur reste uni). Sa classe
   // (clarte, grain) est rangee avec elle : 0 = pas unie, sinon classe + 1.
@@ -558,7 +740,8 @@ function contenu(p: Plan, ar: Aretes, rayon: number): Contenu {
     }
   }
   if (nu) for (let j = 0; j < NB * NR; j++) global[j] = global[j]! / nu;
-  return { l, h, iv, ih: new Integrale(l, h, ar.hz), ic: new Integrale(l, h, ar.c, p.ok), io: new Integrale(l, h, p.ok), ip: new Integrale(l, h, uni, null, true), uni, c: ar.c, ok: p.ok, global };
+  const ic = new Integrale(new Float64Array((l + 1) * (h + 1)), l, h, ar.c, p.ok);
+  return { l, h, iv, ih: comptage(l, h, ar.hz), ic, io: comptage(l, h, p.ok), ip: comptage(l, h, uni, true), uni, c: ar.c, ok: p.ok, global };
 }
 
 /**
@@ -566,19 +749,25 @@ function contenu(p: Plan, ar: Aretes, rayon: number): Contenu {
  * corniche) file au-dela. Rend la part des prolongements des quatre cotes (un quart de la longueur,
  * de chaque bout) qui porte encore une arete : 0 = un rectangle ferme, 1 = quatre lignes qui filent.
  */
-function depassement(c: Case, ar: Aretes, l: number, h: number): number {
-  const w = c.x1 - c.x0,
-    hh = c.y1 - c.y0;
+function depassement(x0: number, y0: number, x1: number, y1: number, ar: Aretes, l: number, h: number): number {
+  const w = x1 - x0,
+    hh = y1 - y0;
   const dx = Math.max(4, Math.round(0.25 * w)),
     dy = Math.max(4, Math.round(0.25 * hh));
   const L = l + 1;
-  let s = 0;
-  const ya = Math.max(0, c.y0 - dy),
-    yb = Math.min(h, c.y1 + dy);
-  const xa = Math.max(0, c.x0 - dx),
-    xb = Math.min(l, c.x1 + dx);
-  for (const x of [c.x0, c.x1]) s += (ar.sv[(c.y0 - 2 > ya ? c.y0 - 2 : ya) * l + x]! - ar.sv[ya * l + x]! + ar.sv[yb * l + x]! - ar.sv[(c.y1 + 3 < yb ? c.y1 + 3 : yb) * l + x]!) / (2 * dy);
-  for (const y of [c.y0, c.y1]) s += (ar.sh[y * L + (c.x0 - 2 > xa ? c.x0 - 2 : xa)]! - ar.sh[y * L + xa]! + ar.sh[y * L + xb]! - ar.sh[y * L + (c.x1 + 3 < xb ? c.x1 + 3 : xb)]!) / (2 * dx);
+  const { sv, sh } = ar;
+  const ya = Math.max(0, y0 - dy),
+    yb = Math.min(h, y1 + dy);
+  const xa = Math.max(0, x0 - dx),
+    xb = Math.min(l, x1 + dx);
+  const yh = (y0 - 2 > ya ? y0 - 2 : ya) * l,
+    ybas = (y1 + 3 < yb ? y1 + 3 : yb) * l,
+    xg = x0 - 2 > xa ? x0 - 2 : xa,
+    xd = x1 + 3 < xb ? x1 + 3 : xb;
+  let s = (sv[yh + x0]! - sv[ya * l + x0]! + sv[yb * l + x0]! - sv[ybas + x0]!) / (2 * dy);
+  s += (sv[yh + x1]! - sv[ya * l + x1]! + sv[yb * l + x1]! - sv[ybas + x1]!) / (2 * dy);
+  s += (sh[y0 * L + xg]! - sh[y0 * L + xa]! + sh[y0 * L + xb]! - sh[y0 * L + xd]!) / (2 * dx);
+  s += (sh[y1 * L + xg]! - sh[y1 * L + xa]! + sh[y1 * L + xb]! - sh[y1 * L + xd]!) / (2 * dx);
   return Math.min(1, s / 4);
 }
 
@@ -587,26 +776,55 @@ function depassement(c: Case, ar: Aretes, l: number, h: number): number {
  * interieure (meneaux, traverses, vantaux) ou un panneau plus sombre que ses alentours -, et ce
  * qui l'en eloigne - des plages unies et claires, des cotes qui filent au-dela des coins.
  */
-function noter(cs: Case[], k: Contenu, ar: Aretes): void {
-  for (const c of cs) {
-    const w = c.x1 - c.x0,
-      hh = c.y1 - c.y0;
-    const x0 = c.x0 + 2,
-      y0 = c.y0 + 2,
-      x1 = c.x1 - 1,
-      y1 = c.y1 - 1;
-    const ni = k.io.somme(x0, y0, x1, y1);
+function noter(cs: Cases, k: Contenu, ar: Aretes): void {
+  const { l, h } = k;
+  const L = l + 1;
+  const tv = k.iv.t,
+    th = k.ih.t,
+    tc = k.ic.t,
+    to = k.io.t,
+    tp = k.ip.t;
+  for (let i = 0; i < cs.n; i++) {
+    const cx0 = cs.x0[i]!,
+      cy0 = cs.y0[i]!,
+      cx1 = cs.x1[i]!,
+      cy1 = cs.y1[i]!;
+    const w = cx1 - cx0,
+      hh = cy1 - cy0;
+    // L'interieur, en retrait des bords : il tient dans l'image (une case fait 8 px au moins).
+    const a = (cy0 + 2) * L + cx0 + 2,
+      b = (cy0 + 2) * L + cx1 - 1,
+      c = (cy1 - 1) * L + cx0 + 2,
+      d = (cy1 - 1) * L + cx1 - 1;
+    const ni = to[d]! - to[b]! - to[c]! + to[a]!;
     if (ni <= 0) continue;
+    // Les alentours : une couronne de largeur g, coupee au bord de l'image.
     const g = Math.max(8, Math.min(24, Math.round(0.5 * Math.min(w, hh))));
-    const na = k.io.somme(c.x0 - g, c.y0 - g, c.x1 + g + 1, c.y1 + g + 1) - k.io.somme(c.x0 - 1, c.y0 - 1, c.x1 + 2, c.y1 + 2);
-    const ma = na > 0 ? (k.ic.somme(c.x0 - g, c.y0 - g, c.x1 + g + 1, c.y1 + g + 1) - k.ic.somme(c.x0 - 1, c.y0 - 1, c.x1 + 2, c.y1 + 2)) / na : 0;
-    const mi = k.ic.somme(x0, y0, x1, y1) / ni;
-    const struct = Math.min(1, k.iv.somme(c.x0 + 2, c.y0, c.x1 - 1, c.y1) / hh + (0.5 * k.ih.somme(c.x0, c.y0 + 2, c.x1, c.y1 - 1)) / w);
+    const ex0 = cx0 - g < 0 ? 0 : cx0 - g,
+      ey0 = cy0 - g < 0 ? 0 : cy0 - g,
+      ex1 = cx1 + g + 1 > l ? l : cx1 + g + 1,
+      ey1 = cy1 + g + 1 > h ? h : cy1 + g + 1;
+    const e00 = ey0 * L + ex0,
+      e01 = ey0 * L + ex1,
+      e10 = ey1 * L + ex0,
+      e11 = ey1 * L + ex1;
+    const fx1 = cx1 + 2 > l ? l : cx1 + 2,
+      fy1 = cy1 + 2 > h ? h : cy1 + 2;
+    const f00 = (cy0 - 1) * L + cx0 - 1,
+      f01 = (cy0 - 1) * L + fx1,
+      f10 = fy1 * L + cx0 - 1,
+      f11 = fy1 * L + fx1;
+    const na = to[e11]! - to[e01]! - to[e10]! + to[e00]! - (to[f11]! - to[f01]! - to[f10]! + to[f00]!);
+    const ma = na > 0 ? (tc[e11]! - tc[e01]! - tc[e10]! + tc[e00]! - (tc[f11]! - tc[f01]! - tc[f10]! + tc[f00]!)) / na : 0;
+    const mi = (tc[d]! - tc[b]! - tc[c]! + tc[a]!) / ni;
+    const sv = tv[cy1 * L + cx1 - 1]! - tv[cy0 * L + cx1 - 1]! - tv[cy1 * L + cx0 + 2]! + tv[cy0 * L + cx0 + 2]!,
+      sh = th[(cy1 - 1) * L + cx1]! - th[(cy0 + 2) * L + cx1]! - th[(cy1 - 1) * L + cx0]! + th[(cy0 + 2) * L + cx0]!;
+    const struct = Math.min(1, sv / hh + (0.5 * sh) / w);
     const sombre = na > 0 ? Math.max(0, Math.min(1, (ma - mi - 5) / 25)) : 0;
-    const uni = k.ip.somme(x0, y0, x1, y1) / ni;
+    const uni = (tp[d]! - tp[b]! - tp[c]! + tp[a]!) / ni;
     // Les bords : la moyenne des quatre cotes ; sans bas, la moyenne des trois autres, minoree.
-    const bords = c.ab < 0.3 ? 0.85 * ((c.ag + c.ad + c.ah) / 3) : (c.ag + c.ad + c.ah + c.ab) / 4;
-    c.note = bords * (0.35 + 0.65 * Math.max(struct, sombre)) * (1 - 0.25 * uni * (1 - sombre)) * (1 - 0.4 * depassement(c, ar, k.l, k.h));
+    const bords = cs.ab[i]! < 0.3 ? 0.85 * ((cs.ag[i]! + cs.ad[i]! + cs.ah[i]!) / 3) : (cs.ag[i]! + cs.ad[i]! + cs.ah[i]! + cs.ab[i]!) / 4;
+    cs.note[i] = bords * (0.35 + 0.65 * Math.max(struct, sombre)) * (1 - 0.25 * uni * (1 - sombre)) * (1 - 0.4 * depassement(cx0, cy0, cx1, cy1, ar, l, h));
   }
 }
 
@@ -756,6 +974,9 @@ function place(a: Case, c: Case): 'cadre' | 'coin' | 'coeur' {
   return Math.max(g, d, ht, b) <= 8 ? 'cadre' : 'coeur';
 }
 
+/** Une porte : haute, large, au linteau net. */
+const porte = (c: Case, grand: number) => c.y1 - c.y0 >= 1.6 * (c.x1 - c.x0) && c.x1 - c.x0 >= 0.04 * grand && c.ah >= 0.9;
+
 /**
  * L'alignement : sur une facade les baies partagent linteaux et appuis (une ligne), tableaux (une
  * colonne). Une case mediocre mais alignee sur d'autres est gardee ; une case mediocre et isolee
@@ -772,8 +993,7 @@ function alignees(res: Case[], grand: number): Case[] {
       if (Math.abs(d.y0 - c.y0) <= tol(hh) && Math.abs(d.y1 - c.y1) <= tol(hh)) voisines++;
       if (Math.abs(d.x0 - c.x0) <= tol(w) && Math.abs(d.x1 - c.x1) <= tol(w)) voisines++;
     }
-    if (c.note + 0.03 * Math.min(3, voisines) >= 0.8) return true;
-    return hh >= 1.6 * w && w >= 0.04 * grand && c.ah >= 0.9;
+    return c.note + 0.03 * Math.min(3, voisines) >= 0.8 || porte(c, grand);
   });
 }
 
@@ -811,6 +1031,9 @@ function reunir(res: Case[]): Case[] {
   return t;
 }
 
+/** Borne du nombre d'examens du mur (un echantillonnage chacun) : trois fois ce qu'en demande la facade la plus chargee du jeu d'essai. */
+const EXAMENS_MAX = 12000;
+
 /**
  * Garde les meilleures cases sans recouvrement. A note comparable la plus grande l'emporte (une
  * fenetre plutot que ses vantaux) ; mais une case qui en contient une meilleure cede si elle en est
@@ -818,96 +1041,155 @@ function reunir(res: Case[]): Case[] {
  * Puis l'alignement ecarte les cases mediocres et isolees ; celles-la ne doivent pas avoir fait
  * de l'ombre a de bonnes cases : on recommence sans elles.
  */
-function retenir(cs: Case[], k: Contenu, grand: number): Case[] {
-  const bonnes = cs.filter((c) => c.note >= 0.55);
-  const cle = new Float64Array(bonnes.length);
-  bonnes.forEach((c, i) => (cle[i] = c.note * Math.pow(aire(c), 0.15)));
-  // Les 60 000 mieux classees au plus : une facade en compte moins ; un damier, davantage.
-  const tri = Array.from(bonnes.keys())
-    .sort((a, b) => cle[b]! - cle[a]!)
-    .slice(0, 60000)
-    .map((i) => bonnes[i]!);
-  // Rangement par position du centre, pour retrouver vite les cases contenues dans une autre.
+function retenir(cs: Cases, k: Contenu, grand: number): Case[] {
+  const { x0, y0, x1, y1, note } = cs;
+  let nb = 0;
+  for (let i = 0; i < cs.n; i++) if (note[i]! >= 0.55) nb++;
+  const bonnes = new Int32Array(nb);
+  nb = 0;
+  for (let i = 0; i < cs.n; i++) if (note[i]! >= 0.55) bonnes[nb++] = i;
+  // Trois rangements des bonnes cases : par position du centre (les cases contenues dans une
+  // autre), par bande (memes haut et bas) et par colonne (memes cotes) pour les jumelles.
   const pas = 32;
   const nx = Math.ceil(k.l / pas) + 1;
-  const grille = new Map<number, Case[]>();
-  for (const c of tri) {
-    const g = Math.floor((c.y0 + c.y1) / 2 / pas) * nx + Math.floor((c.x0 + c.x1) / 2 / pas);
-    const t = grille.get(g);
-    if (t) t.push(c);
-    else grille.set(g, [c]);
-  }
-  // L'examen du mur coute un echantillonnage : fait une fois par case, et compte.
-  const murs = new Map<Case, boolean>();
-  let essais = 0;
-  const murOk = (c: Case) => {
-    let v = murs.get(c);
-    if (v === undefined) {
-      essais++;
-      v = sansMur(partMur(c, k)) && !murTraversant(c, k);
-      murs.set(c, v);
+  const grille = ranger(bonnes, (i) => Math.floor((y0[i]! + y1[i]!) / 2 / pas) * nx + Math.floor((x0[i]! + x1[i]!) / 2 / pas)),
+    parBande = ranger(bonnes, (i) => y0[i]! * 2048 + y1[i]!),
+    parColonne = ranger(bonnes, (i) => x0[i]! * 2048 + x1[i]!);
+  // Une case n'existe comme objet que lorsqu'elle est examinee de pres : quelques milliers.
+  const objets = new Map<number, Case>();
+  const objet = (i: number): Case => {
+    let c = objets.get(i);
+    if (!c) {
+      c = { x0: x0[i]!, y0: y0[i]!, x1: x1[i]!, y1: y1[i]!, ag: cs.ag[i]!, ad: cs.ad[i]!, ah: cs.ah[i]!, ab: cs.ab[i]!, note: note[i]! };
+      objets.set(i, c);
     }
-    return v;
+    return c;
   };
-  const reunions = new Map<Case, boolean>();
-  const reunion = (c: Case) => {
-    let v = reunions.get(c);
-    if (v !== undefined) return v;
-    v = false;
-    const ac = aire(c);
-    const dedans: Case[] = [];
-    for (let gy = Math.floor(c.y0 / pas); gy <= Math.floor(c.y1 / pas); gy++)
-      for (let gx = Math.floor(c.x0 / pas); gx <= Math.floor(c.x1 / pas); gx++)
-        for (const a of grille.get(gy * nx + gx) ?? []) if (a !== c && a.x0 >= c.x0 - 1 && a.x1 <= c.x1 + 1 && a.y0 >= c.y0 - 1 && a.y1 <= c.y1 + 1) dedans.push(a);
-    for (const a of dedans) {
-      if (a.note < c.note + 0.02 || aire(a) > 0.9 * ac) continue;
-      const pl = place(a, c);
-      if (pl !== 'cadre' && (a.note < c.note + 0.08 || aire(a) > (pl === 'coin' ? 0.7 : 0.35) * ac)) continue;
-      if (!murOk(a)) continue;
-      if (pl !== 'cadre') {
-        // Deux vantaux, une imposte sur son vantail : des jumelles alignees que ne separe qu'un
-        // meneau ou une traverse font une seule fenetre.
-        const jumelle = dedans.some((b) => {
-          if (b === a) return false;
-          const gx = Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1),
-            gy = Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1);
-          const cote = Math.abs(a.y0 - b.y0) <= 3 && Math.abs(a.y1 - b.y1) <= 3 && gx >= -2 && gx <= 5,
-            dessus = Math.abs(a.x0 - b.x0) <= 3 && Math.abs(a.x1 - b.x1) <= 3 && gy >= -2 && gy <= 5;
-          return (cote || dessus) && murOk(b);
-        });
-        if (jumelle) continue;
+  // L'examen du mur coute un echantillonnage : fait une fois par case (1 = sans mur, 2 = du mur).
+  // Garde-fou : au-dela de EXAMENS_MAX examens, une case pas encore examinee est tenue pour du
+  // mur. Les cases sont examinees de la mieux classee a la moins bien : ce sont les moins bonnes
+  // qui sont alors abandonnees.
+  const murs = new Uint8Array(cs.n);
+  let examens = 0;
+  const murOk = (i: number): boolean => {
+    if (!murs[i]) {
+      if (++examens > EXAMENS_MAX) return false;
+      const c = objet(i);
+      murs[i] = sansMur(partMur(c, k)) && !murTraversant(c, k) ? 1 : 2;
+    }
+    return murs[i] === 1;
+  };
+  /** La case `a` est-elle dans `c`, a 1 px pres ? */
+  const dans = (a: number, c: Case) => x0[a]! >= c.x0 - 1 && x1[a]! <= c.x1 + 1 && y0[a]! >= c.y0 - 1 && y1[a]! <= c.y1 + 1;
+  /** `ia`, contenue dans `c` et mieux notee, fait-elle de `c` sa reunion avec autre chose ? */
+  const cede = (ic: number, c: Case, ia: number, ac: number): boolean => {
+    const a = objet(ia);
+    if (aire(a) > 0.9 * ac) return false;
+    const pl = place(a, c);
+    if (pl !== 'cadre' && (a.note < c.note + 0.08 || aire(a) > (pl === 'coin' ? 0.7 : 0.35) * ac)) return false;
+    if (!murOk(ia)) return false;
+    if (pl === 'cadre') return true;
+    // Deux vantaux, une imposte sur son vantail : des jumelles alignees que ne separe qu'un
+    // meneau ou une traverse font une seule fenetre.
+    for (let d0 = -3; d0 <= 3; d0++)
+      for (let d1 = -3; d1 <= 3; d1++) {
+        let cle = (a.y0 + d0) * 2048 + a.y1 + d1;
+        for (let q = debutCle(parBande, cle); q < parBande.length; q++) {
+          const ib = parBande[q]! - cle * BASE;
+          if (ib >= BASE) break;
+          if (ib === ia || ib === ic || !dans(ib, c)) continue;
+          const gx = Math.max(a.x0, x0[ib]!) - Math.min(a.x1, x1[ib]!);
+          if (gx >= -2 && gx <= 5 && murOk(ib)) return false;
+        }
+        cle = (a.x0 + d0) * 2048 + a.x1 + d1;
+        for (let q = debutCle(parColonne, cle); q < parColonne.length; q++) {
+          const ib = parColonne[q]! - cle * BASE;
+          if (ib >= BASE) break;
+          if (ib === ia || ib === ic || !dans(ib, c)) continue;
+          const gy = Math.max(a.y0, y0[ib]!) - Math.min(a.y1, y1[ib]!);
+          if (gy >= -2 && gy <= 5 && murOk(ib)) return false;
+        }
       }
-      v = true;
-      break;
+    return true;
+  };
+  // Une case qui a fait ceder une grande fait en general ceder ses voisines (la meme fenetre et
+  // un peu plus ou un peu moins de mur autour) : ces temoins sont essayes d'abord, avant de
+  // parcourir toutes les cases contenues.
+  const temoins: number[] = [];
+  /** 1 = la case tient, 2 = elle est la reunion d'une meilleure et d'autre chose. */
+  const reunions = new Uint8Array(cs.n);
+  const reunion = (ic: number): boolean => {
+    if (reunions[ic]) return reunions[ic] === 2;
+    const c = objet(ic);
+    const ac = aire(c);
+    const mini = c.note + 0.02;
+    let v = false;
+    for (let q = 0; q < temoins.length && !v; q++) {
+      const ia = temoins[q]!;
+      if (ia !== ic && note[ia]! >= mini && dans(ia, c) && cede(ic, c, ia, ac)) v = true;
     }
-    reunions.set(c, v);
+    for (let gy = Math.floor(c.y0 / pas); gy <= Math.floor(c.y1 / pas) && !v; gy++)
+      for (let gx = Math.floor(c.x0 / pas); gx <= Math.floor(c.x1 / pas) && !v; gx++) {
+        const cle = gy * nx + gx;
+        for (let q = debutCle(grille, cle); q < grille.length; q++) {
+          const ia = grille[q]! - cle * BASE;
+          if (ia >= BASE) break;
+          if (ia !== ic && note[ia]! >= mini && dans(ia, c) && cede(ic, c, ia, ac)) {
+            temoins.push(ia);
+            v = true;
+            break;
+          }
+        }
+      }
+    reunions[ic] = v ? 2 : 1;
     return v;
   };
+  // Seules les cases que l'alignement peut garder sont en lice : une porte, ou une note qui
+  // atteint le seuil avec l'appoint de ses voisines. Les autres ne servent qu'a juger celles-la
+  // (une meilleure case contenue, une jumelle). Les meilleures d'abord, la plus grande a note
+  // comparable.
+  const lice: { i: number; cle: number }[] = [];
+  for (const i of bonnes) {
+    const w = x1[i]! - x0[i]!,
+      hh = y1[i]! - y0[i]!;
+    if (note[i]! + 0.03 * 3 >= 0.8 || (hh >= 1.6 * w && w >= 0.04 * grand && cs.ah[i]! >= 0.9)) lice.push({ i, cle: note[i]! * Math.pow(w * hh, 0.15) });
+  }
+  const viables = lice.sort((a, b) => b.cle - a.cle).map((o) => o.i);
   const ecartees: Case[] = [];
   let res: Case[] = [];
-  for (let tour = 0; tour < 3; tour++) {
+  // L'alignement ecarte des cases choisies : le choix est refait sans elles, jusqu'a ce qu'il
+  // n'en ecarte plus (chaque tour en ecarte au moins une, definitivement : la boucle s'acheve).
+  for (let tour = 0; ; tour++) {
     const choix: Case[] = [];
-    for (const c of tri) {
-      // Ce qui est deja juge d'abord ; puis le budget de verifications : au-dela, seules les
-      // cases deja jugees restent en lice (le temps de calcul reste borne sur une image chargee).
-      const juge = murs.get(c);
-      if (juge === false || reunions.get(c) === true || (juge === undefined && essais > 3000)) continue;
-      const ac = aire(c);
+    for (const i of viables) {
+      if (murs[i] === 2 || reunions[i] === 2) continue;
+      const cx0 = x0[i]!,
+        cy0 = y0[i]!,
+        cx1 = x1[i]!,
+        cy1 = y1[i]!;
+      const ac = (cx1 - cx0) * (cy1 - cy0);
       let libre = true;
-      for (let i = 0; i < choix.length && libre; i++) {
-        const r = choix[i]!;
-        const ix = (c.x1 < r.x1 ? c.x1 : r.x1) - (c.x0 > r.x0 ? c.x0 : r.x0);
+      for (let q = 0; q < choix.length && libre; q++) {
+        const r = choix[q]!;
+        const ix = (cx1 < r.x1 ? cx1 : r.x1) - (cx0 > r.x0 ? cx0 : r.x0);
         if (ix <= 0) continue;
-        const iy = (c.y1 < r.y1 ? c.y1 : r.y1) - (c.y0 > r.y0 ? c.y0 : r.y0);
+        const iy = (cy1 < r.y1 ? cy1 : r.y1) - (cy0 > r.y0 ? cy0 : r.y0);
         if (iy > 0 && ix * iy > 0.3 * Math.min(ac, aire(r))) libre = false;
       }
-      for (let i = 0; i < ecartees.length && libre; i++) if (iou(c, ecartees[i]!) >= 0.7) libre = false;
-      if (!libre || !murOk(c) || reunion(c)) continue;
+      if (!libre) continue;
+      const c = objet(i);
+      for (let q = 0; q < ecartees.length && libre; q++) if (iou(c, ecartees[q]!) >= 0.7) libre = false;
+      if (!libre || !murOk(i) || reunion(i)) continue;
       choix.push(c);
     }
     res = alignees(choix, grand);
     const perdues = choix.filter((c) => !res.includes(c));
     if (!perdues.length) break;
+    // Garde-fou : au-dela de quarante tours, le dernier choix est rendu tel quel plutot que troue.
+    if (tour >= 40) {
+      res = choix;
+      break;
+    }
     ecartees.push(...perdues);
   }
   return reunir(res);
@@ -1127,9 +1409,13 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   // Les tailles sont rapportees au grand cote : l'echelle n'est pas toujours connue.
   const ar = aretes(p, 6, Math.max(8, Math.round(grand / 64)));
   const k = contenu(p, ar, Math.max(4, Math.round(grand / 128)));
-  // Sur une image tres chargee, les plus longs montants seulement : le temps de calcul reste borne.
-  let ms = montants(ar, l, h, Math.max(8, Math.round(grand / 70)));
-  if (ms.length > 1500) ms = ms.sort((a, b) => b.y1 - b.y0 - (a.y1 - a.y0) || a.x - b.x || a.y0 - b.y0).slice(0, 1500);
+  let ms = montants(ar, l, h, Math.max(8, Math.round(grand / 70)), Math.max(4, Math.round(0.01 * grand)));
+  if (ms.length > MONTANTS_MAX) {
+    // Garde-fou d'une image tres rayee : les plus longs montants seulement ; a longueur egale,
+    // les plus proches de l'axe de l'image (un critere que le miroir ne change pas).
+    const axe = (l - 1) / 2;
+    ms = ms.sort((a, b) => b.y1 - b.y0 - (a.y1 - a.y0) || Math.abs(a.x - axe) - Math.abs(b.x - axe) || a.y0 - b.y0 || a.x - b.x).slice(0, MONTANTS_MAX);
+  }
   const cs = cases(ar, ms, l, h, {
     lMin: Math.max(8, Math.round(0.02 * grand)),
     lMax: Math.round(grand / 3),
@@ -1139,7 +1425,8 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     lPorte: 0.04 * grand,
   });
   noter(cs, k, ar);
-  const choix = repeter(retenir(cs, k, grand), k, ar, 0.6);
+  const retenues = retenir(cs, k, grand);
+  const choix = repeter(retenues, k, ar, 0.6);
 
   // Retour a l'image d'origine : chaque cote recale au pixel sur le contraste le plus net.
   const brutes = choix.map((c) => {
