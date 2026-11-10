@@ -5,6 +5,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Fumée : le point 114 suit l'import de photos de la calibration.** Il exigeait un écran de calibration sans aucun champ photo (lot F6),
+  règle changée par le propriétaire le 9 novembre 2026 (« Ajouter des photos », « Nouveau cas depuis des photos », #647) : la fumée de la
+  nuit (run 42722898224) l'a vu rouge dans les trois classes et les deux thèmes, seul échec. Il vérifie maintenant ce qui reste vrai : la
+  calibration n'ouvre jamais la caméra et n'importe que des images, sur la liste des cas comme dans le cas ouvert. Le point 156 (Mode Toit,
+  redimensionnement) passe en Économe comme les 142 à 144 : au bureau, sans carte graphique, il approchait son délai (314 s sur 400) sans
+  rien vérifier du rendu.
+
 ## [5.22.1] — 2026-11-09
 
 Version **corrective** au sens de `MD/RELEASE.md` : en Mode Toit, un mur posé sur une ligne y reste et un corps voisin l'arrête (#652) ;

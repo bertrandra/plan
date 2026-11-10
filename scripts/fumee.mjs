@@ -3431,8 +3431,11 @@ const POINTS = {
     // elle lit les facades de l'audit. En admin des demos (`?demofile=1`, routes `admin/session`, `admin/demos` et
     // `admin/calibration-cas` simulees), l'audit, une photo de la facade de la maison (la scene 02 du banc), la facade depliee de la
     // liste porte « Créer un cas depuis cette façade » ; le toucher range un cas sur le serveur (ses photos, ses dimensions du plan, son
-    // nom) ; Admin › Calibrer la détection le liste, l'ouvre, et le rejoue par l'enchainement de la facade. L'ecran de calibration n'a
-    // plus de champ photo ni de « Nouveau cas ».
+    // nom) ; Admin › Calibrer la détection le liste, l'ouvre, et le rejoue par l'enchainement de la facade. L'ecran de calibration ne
+    // prend jamais de photo : depuis le 9 novembre 2026 (demande du proprietaire, MD/spec-facade-calage-audit.md §1, decision 6), il importe des
+    // fichiers (« Nouveau cas depuis des photos », « Ajouter des photos » a l'E2, points 157 et 158), sans camera ; le cas vide d'avant
+    // le lot F6 (« Nouveau cas ») ne revient pas. On mesure donc : aucun champ photo n'ouvre la camera (`capture`), chacun importe des
+    // images (`accept="image/*"`, les champs `calibration.*`), sur la liste des cas comme dans le cas ouvert.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const objets = await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects)));
@@ -3474,14 +3477,20 @@ const POINTS = {
     await page.locator('[data-controle="calibration.ouvrirCas"]').first().waitFor({ timeout: 20000 }).catch(() => {});
     // La liste des cas tient dans l'ecran : un nom de cas tire de l'audit (son IDU) ne l'elargit pas.
     const debordeCal = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const champs = () => page.evaluate(() => ({
+      camera: document.querySelectorAll('input[type="file"][capture], [data-controle="calibration.photo"], [data-controle="calibration.nouveauCas"]').length,
+      imports: [...document.querySelectorAll('input[type="file"][data-controle^="calibration."]')].map((i) => i.getAttribute('accept')),
+    }));
+    const champsListe = await champs();
     await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
-    const sansPhoto = (await page.locator('input[type="file"][accept^="image"], [data-controle="calibration.photo"], [data-controle="calibration.nouveauCas"]').count()) === 0;
+    const champsCas = await champs();
+    const sansCamera = [champsListe, champsCas].every((c) => c.camera === 0 && c.imports.length > 0 && c.imports.every((a) => a === 'image/*'));
     await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
     await etape('fin du rejeu', () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 90000 }));
     const frise = await page.locator('.calFrise > li').count();
     const ok = !!c && /^cas-/.test(id) && c.format === 'plan-facade-reelle' && c.images?.length === 1 && c.photos?.length === 1 && c.largeurM > 0 && /^Maison · façade /.test(c.nom)
-      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansPhoto && frise === 14 && !deborde && !debordeCal;
-    return { ok, mesure: `cas ${id ?? 'ABSENT'} : « ${c?.nom ?? ''} », ${c?.images?.length ?? 0} photo(s), ${c?.largeurM ?? '?'} × ${c?.hauteurM ?? '?'} m ; « ${toast.slice(0, 80)} » ; calibration : ${sansPhoto ? 'ni champ photo ni « Nouveau cas »' : 'CHAMP PHOTO'}, rejeu ${frise} étapes ; débordement ${deborde ? 'OUI' : 'non'}/${debordeCal ? 'OUI' : 'non'}` };
+      && /Ouvrez-le dans Admin › Calibrer la détection/.test(toast) && sansCamera && frise === 14 && !deborde && !debordeCal;
+    return { ok, mesure: `cas ${id ?? 'ABSENT'} : « ${c?.nom ?? ''} », ${c?.images?.length ?? 0} photo(s), ${c?.largeurM ?? '?'} × ${c?.hauteurM ?? '?'} m ; « ${toast.slice(0, 80)} » ; calibration : ${sansCamera ? 'sans caméra' : 'CAMÉRA'} (champs : liste ${champsListe.imports.length}, cas ${champsCas.imports.length} import(s), ${champsListe.camera + champsCas.camera} caméra), rejeu ${frise} étapes ; débordement ${deborde ? 'OUI' : 'non'}/${debordeCal ? 'OUI' : 'non'}` };
   },
   108: async (page, f) => {
     // Les carreaux d'une facade validee en 3D (lot F8, MD/spec-facade-calage-audit.md §3.3, §9 bis F8). La facade nord de la maison
@@ -5711,6 +5720,9 @@ const POINTS = {
     const photo = async (nom) => { if (capture) { await image3dStable(page, 1200); await page.screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {}); } };
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    // Chaque glisser attend une image : en Normale, au bureau, 238 a 314 s du point (nuit du 9 novembre 2026, delai 400 s ; vue3dEconome).
+    // Le point ne mesure que des positions projetees, des poignees et le toit ecrit, rien de la qualite du rendu.
+    await vue3dEconome(page);
     await image3dStable(page, 3000);
     const avant = await lire();
     await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
