@@ -110,7 +110,7 @@ import { detecterBaies as parPropositions } from './propositions.js';
 import { detecterBaies as parMailles } from './mailles.js';
 import { detecterBaies as parTravees } from './travees.js';
 
-export interface Baie {
+interface Baie {
   type: TypeOuverture;
   /** En metres : depuis le bord gauche de l'image, et au-dessus du sol (ou du bas de l'image). */
   x: number;
@@ -123,7 +123,7 @@ export interface Baie {
   px: { x: number; y: number; l: number; h: number };
 }
 
-export interface ResultatBaies {
+interface ResultatBaies {
   /** Rang par rang en partant du bas, de gauche a droite dans chaque rang. */
   baies: Baie[];
   /** Le sol a-t-il ete situe (une porte trouvee) ? Sinon, les hauteurs partent du bas de l'image. */
