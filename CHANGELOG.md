@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Retiré
+
+- **`facade.html` et `outils/facade/` quittent Plan** pour leur propre dépôt, [`bertrandra/facade`](https://github.com/bertrandra/facade) : la page
+  autonome, ses sources, son banc d'essai (`banc/`) et son protocole de test (`banc/PROTOCOLE.md`) s'y trouvent, avec les modules de Plan dont
+  elle a besoin copiés dans `src/plan/`. Plan garde le repérage des ouvertures qu'il a repris de cet outil
+  (`src/facade/detection/baies/`, PR 657) ; un changement du vote se fait dans `facade` (le banc y est), puis se reporte ici. L'historique de
+  l'outil reste dans ce journal (entrées de la PR 656).
+
 ### Modifié
 
 - **Les ouvertures d'une façade se lisent par un vote entre trois détecteurs** (modèle de `facade.html`, `outils/facade/`), dans

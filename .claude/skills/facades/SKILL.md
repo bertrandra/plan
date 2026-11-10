@@ -129,10 +129,10 @@ la détection et le calage, pas la disposition automatique.
 ## 1 quater. Le moteur des boîtes : un vote entre trois détecteurs (10 novembre 2026)
 
 `facade/detection/detection.ts` ne lit plus seul les taches : ses boîtes viennent du vote de `facade/detection/baies/` (propositions,
-mailles, travées, puis `vote.ts`), repris de `outils/facade/` (la page autonome `facade.html`, son banc `outils/facade/banc/`, son
-protocole `PROTOCOLE.md`). Les taches gardent les volets battants, les détails, la forme et les baies nettes que le vote rate
+mailles, travées, puis `vote.ts`), repris du dépôt **`bertrandra/facade`** (la page autonome `facade.html`, ses sources `src/`, son banc `banc/`, son
+protocole `banc/PROTOCOLE.md` ; ils ont quitté Plan le 10 novembre 2026). Les taches gardent les volets battants, les détails, la forme et les baies nettes que le vote rate
 (`ouverturesRetenues` : confiance de 0,92, ou 0,7 pour un arc ou un cercle). Le banc de synthèse ci-dessous est la **mesure
-d'origine** de cette détection ; les images réelles se jugent sur le banc de `outils/facade/banc/` (une façade annotée à la main, des
+d'origine** de cette détection ; les images réelles se jugent sur le banc du dépôt `facade` (`banc/`) (une façade annotée à la main, des
 immeubles du jeu CMP). Sur la maison de référence (façade fusionnée) la lecture des taches ne trouvait aucune des 9 ouvertures ; le vote 9 sur 9.
 
 - **Aucun `!`, aucune fonction de plus de 150 lignes** dans ces fichiers (lint). Ils sont issus d'un outil où ces règles ne valaient pas :
@@ -142,8 +142,8 @@ immeubles du jeu CMP). Sur la maison de référence (façade fusionnée) la lect
   occlusions (voiture, haie : `07`, `16`, `18`, `19`, `23`, `27`), moins bien sur `29` (le toit d'un cul de geai prend 4 fausses
   baies), `03`, `10` et `20`. Ne pas régler les seuils du vote sur ces scènes : ils viennent de 327 images réelles et variantes
   (`PROTOCOLE.md`, règles de décision).
-- **Pour modifier le vote ou un détecteur** : `outils/facade/banc/` (boîtes rangées une fois, vote rejoué en une seconde) ; le port
-  dans `src/` suit le fichier de `outils/facade/` (codemod des `!`, découpage), à refaire dans les deux sens si l'un change.
+- **Pour modifier le vote ou un détecteur** : le banc du dépôt `facade` (boîtes rangées une fois, vote rejoué en une seconde) ; le port
+  dans `src/` suit les fichiers de `facade/src/baies*` (codemod des `!`, découpage), à refaire dans les deux sens si l'un change.
 
 ## 2. Lire le tableau
 

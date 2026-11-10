@@ -1,4 +1,4 @@
-// Les baies (fenetres, portes) sur la facade redressee de facade.html : un des trois detecteurs
+// Les baies (fenetres, portes) sur la facade redressee (outil facade, depot bertrandra/facade) : un des trois detecteurs
 // independants que ../baies.ts fait voter. Celui-ci part de la menuiserie.
 //
 // Une fenetre se reconnait a sa menuiserie : des barres fines (montants, traverses, petits bois),
