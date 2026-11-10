@@ -144,7 +144,7 @@ describe('l ecran de calibration', () => {
     expect(mention.textContent).toMatch(/^Sans EXIF : (focale supposée|champ lu).*posez quatre repères\.$/);
     expect(deps.enregistrerCas).not.toHaveBeenCalled();
     expect([...stock.keys()]).toEqual(['cas-a']);
-  });
+  }, 30000); // le rejeu d'un etalon passe par les trois detecteurs et leur vote : plus de 5 s sur une machine chargee
 
   it('cree le projet de demonstration d un etalon qui en a un, et donne le lien vers la demo', async () => {
     const etalon = { id: 'etalon-25-l', nom: '25-l', description: 'Un mur en L.', difficultes: ['mur-en-l'], prise: 'camera' as const, photos: 1, biaisDeg: 14, focaleConnue: true, distorsion: false,

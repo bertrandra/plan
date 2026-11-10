@@ -39,8 +39,10 @@ import type { Prise } from './prise.js';
  * etage sous un pignon) ni la droite qui joint des hauts de cotes a des hauteurs differentes (une rampe) : les coins d'un pignon changent.
  * 14 (7 novembre 2026, lot D) : la chaine se fait etape par etape (E3 a E7, ci-dessous) et un mur tire a la main se pose a l'E7 sans
  * refaire les vues ni l'assemblage : memes coins, memes images, mais ce qu'un rejeu garde (le groupe Image) a change de forme.
+ * 15 (10 novembre 2026) : les boites des ouvertures viennent d'un vote entre trois detecteurs (detection/baies/) et non plus de la seule
+ * lecture des taches : memes coins et memes images, mais les ouvertures proposees changent.
  */
-export const VERSION_CHAINE_FACADES = 14;
+export const VERSION_CHAINE_FACADES = 15;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit (un reglage, lu a chaque appel). */
 const seuilVerticalesDeg = (): number => objectifsEnchainement()['facades.enchainement.verticalesMaxDeg'];

@@ -45,7 +45,7 @@ if (!vote || !T || !familles.length) {
 const bouchons = {
   name: 'bouchons',
   setup(b) {
-    b.onResolve({ filter: /baies\/(propositions|mailles|travees)\.js$/ }, (a) => ({ path: a.path.match(/(propositions|mailles|travees)/)[1], namespace: 'bouchon' }));
+    b.onResolve({ filter: /(^|\/)(propositions|mailles|travees)\.js$/ }, (a) => ({ path: a.path.match(/(propositions|mailles|travees)\.js$/)[1], namespace: 'bouchon' }));
     // Un detecteur sans boites rangees pour l'image s'abstient, comme un detecteur qui echoue.
     b.onLoad({ filter: /.*/, namespace: 'bouchon' }, (a) => ({ contents: `export function detecterBaies() { const r = globalThis.__DETS[${JSON.stringify(a.path)}]; if (!r) throw new Error('abstention'); return r; }`, loader: 'js' }));
   },
