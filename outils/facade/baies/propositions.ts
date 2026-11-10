@@ -25,13 +25,21 @@
 //      plusieurs bonnes propositions plus petites, aux montants pres, recoit un bonus) ; un bonus
 //      aux propositions alignees sur les baies deja retenues, ou de meme taille (une facade se
 //      repete).
-//   5. Recalage de chaque bord sur l'arete la plus nette de l'image pleine resolution.
+//   5. Recalage de chaque bord sur l'arete la plus nette de l'image pleine resolution, sans sortir
+//      de l'image (une baie coupee par le bord garde sa position de travail).
+//
+// Le masque `vu` : une case n'est valide que si ses voisines sont vues (pas d'arete au bord du
+// remplissage) ; le bord de l'image n'est pas du remplissage, et un masque ou tout est vu vaut une
+// absence de masque.
 //
 // Ce qui reste fragile : le niveau d'emboitement (une imposte laissee hors de la boite, un
 // colombage ou un encadrement de pierre pris dedans) ; une porte pleine dont le bas est cache et
 // qu'un poteau coupe en deux ; les volets et les garde-corps, qui ont tout d'une baie ; les
-// fenetres claires sur mur clair. Sans rugosite (image non reduite), un panneau d'enduit encadre de
-// colombages n'est ecarte que s'il est uni.
+// fenetres claires sur mur clair. La rugosite n'est mesuree qu'a partir d'un facteur de reduction
+// de 1,5 (1344 px de cote long) : en dessous, un panneau d'enduit encadre de colombages n'est
+// ecarte que s'il est uni. Le resultat depend du cadrage au pixel pres (rogner un pixel change une
+// partie des baies : la note d'une image bouge de 0,07 en moyenne) ; sans echelle, la taille d'une
+// baie est jugee en part du cote de l'image, et un cadrage serre perd les grandes baies.
 //
 // C'est une proposition : la page permet d'ajouter, recadrer, retirer une baie et d'en changer le type.
 
@@ -81,7 +89,7 @@ interface Travail {
   B: Float32Array;
   /** Luminance logarithmique : un ecart y est un contraste, a l'ombre comme au soleil. */
   Lw: Float32Array;
-  /** 1 = pixel vu (et tous ses voisins) ; null si tout est vu. */
+  /** 1 = case vue (et toutes ses voisines) ; null si tout est vu, avec ou sans masque. */
   V: Uint8Array | null;
   /** Rugosite relative a l'interieur de chaque case (null si l'image n'est pas assez reduite). */
   T: Float32Array | null;
@@ -172,15 +180,25 @@ function reduire(img: Image, vu: Uint8Array | null): Travail {
     B[j] = Math.min(255, B[j]! * gain);
     Lw[j] = table[Math.min(1020, Math.round(4 * L[j]! * gain))]!;
   }
-  // Un pixel n'est valide que si ses huit voisins le sont : pas d'arete au bord du remplissage.
+  // Une case n'est valide que si ses voisines le sont : pas d'arete au bord du remplissage. Le bord
+  // de l'image n'est pas du remplissage (ce qui est hors de l'image ne retire rien), et un masque
+  // ou tout est vu vaut une absence de masque.
   if (V) {
     const E = new Uint8Array(n);
-    for (let y = 1; y < h - 1; y++)
-      for (let x = 1; x < l - 1; x++) {
+    let tous = true;
+    for (let y = 0; y < h; y++) {
+      // Au bord de l'image, le decalage vers la voisine absente est nul : la case se relit elle-meme.
+      const haut = y > 0 ? -l : 0,
+        bas = y < h - 1 ? l : 0;
+      for (let x = 0; x < l; x++) {
         const i = y * l + x;
-        if (V[i] && V[i - 1] && V[i + 1] && V[i - l] && V[i + l] && V[i - l - 1] && V[i - l + 1] && V[i + l - 1] && V[i + l + 1]) E[i] = 1;
+        const g = x > 0 ? -1 : 0,
+          dr = x < l - 1 ? 1 : 0;
+        if (V[i] && V[i + g] && V[i + dr] && V[i + haut] && V[i + bas] && V[i + haut + g] && V[i + haut + dr] && V[i + bas + g] && V[i + bas + dr]) E[i] = 1;
+        else tous = false;
       }
-    V = E;
+    }
+    V = tous ? null : E;
   }
   return { l, h, fx: W / l, fy: H / h, u: Math.max(l, h) / 1024, R, G, B, Lw, V, T };
 }
@@ -961,13 +979,17 @@ function recaler(img: Image, t: Travail, b: Boite): Boite {
   };
   /** Le bord le plus net autour de la coordonnee de travail `v`, le long de [a, bb] (pixels image). */
   const bord = (v: number, f: number, a: number, bb: number, vertical: boolean): number => {
-    // L'arete de travail est a un pixel pres, avant le bord : on cherche d'un pixel et demi de part et d'autre.
+    // L'arete de travail est a un pixel pres, avant le bord : on cherche d'un pixel et demi de part
+    // et d'autre, sans sortir de l'image. Sans le moindre contraste (une baie coupee par le bord de
+    // l'image, un cadre sature), la position de travail reste : la recherche rendait sinon sa
+    // premiere position, a gauche ou au-dessus de l'image.
     const centre = (v - 0.75) * f,
       rayon = 1.5 * f + 1;
     const pas = Math.max(1, Math.floor((bb - a) / 80));
-    let mieux = Math.round(v * f),
-      note = -1;
-    for (let p = Math.round(centre - rayon); p <= Math.round(centre + rayon); p++) {
+    const max = vertical ? W : H;
+    let mieux = borne(Math.round(v * f), 0, max),
+      note = 0;
+    for (let p = Math.max(0, Math.round(centre - rayon)); p <= Math.min(max, Math.round(centre + rayon)); p++) {
       let s = 0;
       for (let w = Math.round(a); w <= bb; w += pas) s += vertical ? lum(p - 1, w) + lum(p - 2, w) - lum(p, w) - lum(p + 1, w) : lum(w, p - 1) + lum(w, p - 2) - lum(w, p) - lum(w, p + 1);
       if (Math.abs(s) > note) {

@@ -28,7 +28,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   vote réécrit (accord par recouvrement, réunion des parties d'une baie, filtre de ce qui est posé
   au sol, sol situé par la porte) : 0,87 sur 1 sur 221 images contre 0,81 pour le premier vote et
   0,34 pour le premier détecteur ; sur la façade de référence, 9 ouvertures sur 9, plus de fausse
-  baie dans la balustrade, porte et porte-fenêtre entières, baie vitrée avec ses impostes.
+  baie dans la balustrade, porte et porte-fenêtre entières, baie vitrée avec ses impostes. Le vote
+  a été relu et contrôlé à son tour : sol non annoncé quand le résultat le contredit, temps borné,
+  entrées mal formées tolérées ; sur l'élévation que la page tire de trois photos, 36 fausses baies
+  → 5 sur treize variantes. Le banc mesure maintenant sur 221 images (boîtes rangées, vote rejoué).
 
 - **Spécification : le relief du terrain** (`MD/spec-relief.md`). Une grille d'altitudes IGN
   lue en une requête WMS en nombres bruts — LiDAR HD à 50 cm là où il est publié, RGE ALTI à 1 m

@@ -7,39 +7,59 @@
 // et horizontales, et tout se joue sur elles, pas sur un seuil de luminosite ni sur une teinte -
 // un porche a l'ombre, un rideau, un reflet deplacent une luminosite, pas une arete.
 //
-//   1. Image de travail a 1,5 cm par case (64 px/m) si l'echelle est connue, sinon 1024 px au plus.
+//   1. Image de travail a 1,5 cm par case (64 px/m) si l'echelle est connue, sinon 1024 px au
+//      plus, et jamais plus de cases que le temps accorde n'en permet. Si la reduction tombe
+//      entre 1/2 et 1, une image de 1200 px et plus est travaillee a 1/2 tout rond (une case de
+//      2 x 2 px montre encore la texture) ; une plus petite garde sa reduction.
 //   2. Aretes : difference entre colonnes voisines apres lissage le long de l'arete (une texture,
 //      une oblique s'y effacent), contraste relatif (le meme a l'ombre et au soleil), maximum
-//      local, chainage de ligne en ligne tant que la colonne ne derive pas.
+//      local, chainage de ligne en ligne tant que la colonne ne derive pas. Une image saturee
+//      d'aretes (plus d'une pour vingt cases vues : du bruit) ne rend aucune baie.
 //   3. Barres : deux aretes voisines de signes opposes, a 16 cm au plus, sans rien entre elles.
 //   4. Mailles : les rectangles fermes par des aretes dont le cote sombre est dedans - un carreau
 //      entre ses petits bois, une vitre dans son cadre, une menuiserie sombre dans un mur clair.
 //      Chaque arete est essayee comme un cote entier ; les trois autres peuvent etre morceles (un
 //      meneau, un objet devant la vitre), pourvu qu'ils soient portes a 70 %, sans vide de 20 cm.
 //   5. Cadre : les barres claires qui longent une maille l'elargissent jusqu'au hors-tout.
-//   6. Reunions : deux mailles voisines de meme etendue sont deux vantaux, ou une imposte et ses
-//      vantaux, si l'ecart est une barre (ou pave de barres : un poteau entre deux montants).
+//   6. Reunions : deux mailles voisines de meme etendue, a 30 cm au plus, sont deux vantaux, ou
+//      une imposte et ses vantaux. L'alignement suffit tant que l'ecart fait moins d'une demi-
+//      maille ; au-dela, l'ecart doit etre pave de barres (un poteau entre deux montants).
 //   7. Choix : la taille d'une baie, des bords nets (au regard des meilleurs de l'image), un
 //      interieur distinct de ce qui l'entoure ; puis le mieux note d'abord (force des bords x
 //      racine de l'aire), sans recouvrement. Les morceaux voisins d'une baie retenue lui
-//      reviennent (une imposte, un vantail coupe par un poteau ou un garde-corps).
+//      reviennent (une imposte, un vantail coupe par un poteau ou un garde-corps) : chacun une
+//      seule fois, et seulement si la baie agrandie ne mord pas sur une autre baie retenue.
 //   8. Portes a vantail plein : un grand rectangle debout, clair et lisse, entre deux longues
 //      aretes qui se font face, ferme en haut, au niveau du sol ; seulement la ou rien d'autre
 //      n'a ete trouve, et si la resolution montre la texture (l'enduit est rugueux, pas la peinture).
-//   9. Chaque bord recale au pixel sur l'image pleine resolution ; type selon la regle de Plan
-//      (`classer`) quand une porte situe le sol.
+//   9. Chaque bord recale au pixel sur l'image pleine resolution, dans le sens de contraste
+//      attendu (clair dedans la ou un cadre borde le cote, sombre dedans sinon). `carreaux` compte
+//      les vitres que montants et traverses decoupent dans la baie rendue. Type selon la regle de
+//      Plan (`classer`) quand la baie la plus basse est une porte : elle situe le sol.
 //
-// Ce qui a ete essaye d'abord. Le treillis de barres de meme teinte cadre au
-// pixel les fenetres a petits bois mais prend tout croisement de branches pour une croisee, et ne
-// voit pas une baie sans barres. L'unite retenue est donc la maille fermee par des aretes ; les
-// barres servent a trouver le cadre (le hors-tout), a reconnaitre meneaux et traverses dans une
-// maille, et a juger l'ecart entre deux vantaux.
+// Pourquoi la maille et non la barre : un treillis de barres de meme teinte cadre au pixel les
+// fenetres a petits bois, mais prend tout croisement de branches pour une croisee et ne voit pas
+// une baie sans barres. Les barres servent a trouver le cadre (le hors-tout), a reconnaitre
+// meneaux et traverses dans une maille, et a juger l'ecart entre deux vantaux.
 //
 // Limites connues : une fenetre a cadre clair et vitres claires dans un mur plus sombre (seules
 // les mailles a bord sombre sont cherchees : une maille claire est trop souvent un pan de mur) ;
 // une fenetre derriere un garde-corps ouvrage (coupee a la lisse) ; des volets ouverts (pris avec
-// la fenetre, ou pour elle) ; une porte pleine sur une image peu definie. Le resultat depend un peu
-// de la resolution de travail et n'est pas exactement le meme sur l'image en miroir.
+// la fenetre, ou pour elle) ; une porte pleine sur une image peu definie ; deux fenetres jumelles
+// separees par moins de 30 cm de mur et moins d'une demi-fenetre (reunies, meme si chacune a son
+// cadre) ; un vide entre deux barreaux de balustrade, parfois pris pour un carreau.
+// Le resultat depend de la phase des cases de l'image de travail : la meme facade rognee de
+// quelques pixels, reduite, ou vue en miroir ne rend pas exactement les memes baies (les cases
+// sont ancrees a gauche, les egalites tranchees dans le sens du balayage : sur 25 images, 2
+// rendent exactement le miroir de leurs baies, et 163 boites sur 476).
+// Le choix et les morceaux voisins ne laissent aucun recouvrement, mais le recalage deplace chaque
+// bord a part : deux baies voisines peuvent finir par se chevaucher (10 paires a plus de 30 % de la
+// plus petite, sur 1 366 baies de 75 images).
+// Seul, ce detecteur ne declare le sol que si la baie la plus basse est une porte (la regle du
+// vote) : une detection plus basse que la porte (un abri, un pot) lui fait rendre 'fenetre' partout.
+// Les plafonds (20 000 mailles decrites, 1 500 candidats au choix, 2 000 montants de porte) ne
+// sont pas atteints sur une facade ; ils bornent le temps sur une image degeneree (un damier, une
+// echelle mal saisie), comme la sortie sur une image saturee d'aretes.
 //
 // C'est une proposition : la page permet d'ajouter, recadrer, retirer une baie et d'en changer le type.
 
@@ -53,7 +73,7 @@ export interface Baie {
   y: number;
   l: number;
   h: number;
-  /** Nombre de carreaux regroupes. */
+  /** Nombre de vitres : (montants + 1) x (traverses + 1), d'apres les barres qui traversent la baie ; 1 pour une porte pleine. */
   carreaux: number;
   /** En pixels de l'image, pour la dessiner. */
   px: { x: number; y: number; l: number; h: number };
@@ -572,6 +592,14 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   const Lt = transposer(L, l, h, new Float32Array(l * h)),
     Vt = transposer(V, l, h, new Uint8Array(l * h));
   const ah = aretes(Lt, Vt, h, l, rv, seuil, 5);
+  // Une image saturee d'aretes (du bruit, un grillage serre : plus d'une arete pour vingt cases,
+  // quand la facade la plus chargee de 223 images en a une pour trente-cinq) n'est pas une facade
+  // lisible. Plutot que de figer la page sur des centaines de milliers de mailles, on ne rend rien.
+  // Le compte se rapporte aux cases vues : un masque qui cache la moitie de l'image ne dilue pas
+  // le bruit de l'autre moitie.
+  let casesVues = 0;
+  for (let j = 0; j < l * h; j++) casesVues += V[j]!;
+  if (av.length + ah.length > 0.05 * casesVues) return { baies: [], solTrouve: false, solPx: null, echelleConnue: connue };
 
   // Barres : 16 cm de large au plus (un montant double entre deux vantaux).
   const wmax = Math.max(6, Math.min(16, 0.16 * u * tol));
@@ -713,6 +741,49 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     ti: number;
     detail: boolean;
   }
+  /**
+   * Les montants (ou les traverses) d'une boite : les barres qui la traversent sur la moitie au
+   * moins, a l'ecart de ses bords ; celles qui se touchent n'en font qu'un (un montant
+   * double : deux barres claires et le joint sombre entre elles).
+   */
+  const traversantes = (bs: Barre[], pos: number[][], p0: number, p1: number, a: number, b: number): number => {
+    let n = 0,
+      fin = -9;
+    for (let q = Math.max(0, Math.round(p0) + 2); q < p1 - 2 && q < pos.length; q++)
+      for (const id of pos[q]!) {
+        const br = bs[id]!;
+        if (br.p1 >= p1 - 1 || Math.min(br.b, b) - Math.max(br.a, a) < 0.5 * (b - a)) continue;
+        if (br.p0 > fin + 0.75) n++;
+        if (br.p1 > fin) fin = br.p1;
+      }
+    return n;
+  };
+  /**
+   * Les montants (ou les traverses) d'une baie rendue, pour compter ses vitres. Un petit bois est
+   * coupe par ceux qu'il croise (blanc sur blanc : pas d'arete au croisement) : les barres alignees
+   * comptent ensemble, et font un montant si elles couvrent a elles toutes la moitie de la baie.
+   */
+  const montants = (bs: Barre[], pos: number[][], p0: number, p1: number, a: number, b: number): number => {
+    const dans: Barre[] = [];
+    for (let q = Math.max(0, Math.round(p0) + 2); q < p1 - 2 && q < pos.length; q++)
+      for (const id of pos[q]!) {
+        const br = bs[id]!;
+        if (br.p1 < p1 - 1 && Math.min(br.b, b) > Math.max(br.a, a)) dans.push(br);
+      }
+    dans.sort((p, q) => p.p0 - q.p0 || p.a - q.a);
+    let n = 0,
+      fin = -9,
+      couvert = 0;
+    for (const br of dans) {
+      if (br.p0 > fin + 0.75) {
+        if (couvert >= 0.5 * (b - a)) n++;
+        couvert = 0;
+      }
+      couvert += Math.min(br.b, b) - Math.max(br.a, a);
+      if (br.p1 > fin) fin = br.p1;
+    }
+    return couvert >= 0.5 * (b - a) ? n + 1 : n;
+  };
   /** Les indices couteux d'un candidat (teintes dedans et autour, barres traversantes), calcules a la demande. */
   const detailler = (b: Candidat): void => {
     if (b.detail) return;
@@ -730,20 +801,8 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     const ds = autour.map((a) => (a.n ? ecart(dedans, a) : 9)).sort((p, q) => p - q);
     const la = autour.filter((a) => a.n).map((a) => a.lu);
     // La menuiserie a l'interieur : barres qui traversent la boite (meneaux, traverses).
-    let mv = 0,
-      mh = 0;
-    for (let q = Math.round(c.x0) + 2; q < c.x1 - 2; q++)
-      for (const id of vPos[q]!) {
-        const br = bv[id]!;
-        if (br.p1 < c.x1 - 1 && Math.min(br.b, c.y1) - Math.max(br.a, c.y0) >= 0.5 * (c.y1 - c.y0)) mv++;
-      }
-    for (let q = Math.round(c.y0) + 2; q < c.y1 - 2; q++)
-      for (const id of hPos[q]!) {
-        const br = bh[id]!;
-        if (br.p1 < c.y1 - 1 && Math.min(br.b, c.x1) - Math.max(br.a, c.x0) >= 0.5 * (c.x1 - c.x0)) mh++;
-      }
-    b.mv = mv;
-    b.mh = mh;
+    b.mv = traversantes(bv, vPos, c.x0, c.x1, c.y0, c.y1);
+    b.mh = traversantes(bh, hPos, c.y0, c.y1, c.x0, c.x1);
     b.d2 = ds[1]!;
     b.li = dedans.lu;
     b.la = la.length ? la.reduce((p, q) => p + q, 0) / la.length : 0;
@@ -811,9 +870,21 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     return couvert >= 0.75 * (p1 - p0);
   };
 
-  // Les candidats : chaque maille, decrite.
+  // Les candidats : chaque maille, decrite. Au-dela de 20 000 mailles (du bruit, un grillage, une
+  // echelle mal saisie) on ne decrit que celles dont les bords sont les plus forts : la suite
+  // (doublons, reunions, choix) coute plus que leur nombre, et la page ne doit pas se figer.
+  const MAX_MAILLES = 20000;
+  let aDecrire = cs;
+  if (cs.length > MAX_MAILLES) {
+    const fs = cs.map((c) => force(c, 0) + force(c, 1) + force(c, 2) + force(c, 3));
+    aDecrire = cs
+      .map((_, i) => i)
+      .sort((i, j) => fs[j]! - fs[i]! || i - j)
+      .slice(0, MAX_MAILLES)
+      .map((i) => cs[i]!);
+  }
   let cands: Candidat[] = [];
-  for (const c of cs) {
+  for (const c of aDecrire) {
     const b = decrire(c, 1);
     if (b) cands.push(b);
   }
@@ -822,38 +893,49 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   // sur le coin haut gauche evite de tout comparer a tout.
   const PAS = 16;
   const gl = Math.ceil((l + 1) / PAS) + 1;
+  /** Des boites deja gardees, rangees par leur coin : une nouvelle venue en double-t-elle une ? */
+  const rangement = () => {
+    const grille = new Map<number, Candidat[]>();
+    return {
+      double(b: Candidat): boolean {
+        const gx = Math.floor(Math.max(0, b.x0) / PAS),
+          gy = Math.floor(Math.max(0, b.y0) / PAS);
+        const rx = Math.ceil((0.18 * (b.x1 - b.x0)) / PAS),
+          ry = Math.ceil((0.18 * (b.y1 - b.y0)) / PAS);
+        for (let yy = gy - ry; yy <= gy + ry; yy++)
+          for (let xx = gx - rx; xx <= gx + rx; xx++) {
+            const cas = grille.get(yy * gl + xx);
+            if (!cas) continue;
+            for (const g of cas) {
+              const i = inter(b, g);
+              if (i > 0 && i >= 0.85 * (aire(b) + aire(g) - i)) return true;
+            }
+          }
+        return false;
+      },
+      ajouter(b: Candidat): void {
+        const cle = Math.floor(Math.max(0, b.y0) / PAS) * gl + Math.floor(Math.max(0, b.x0) / PAS);
+        const cas = grille.get(cle);
+        if (cas) cas.push(b);
+        else grille.set(cle, [b]);
+      },
+    };
+  };
   const sansDoublons = (bs: Candidat[]): Candidat[] => {
     const tri = [...bs].sort((a, b) => note(b) - note(a));
     const gardes: Candidat[] = [];
-    const grille = new Map<number, Candidat[]>();
+    const rang = rangement();
     for (const b of tri) {
-      const gx = Math.floor(Math.max(0, b.x0) / PAS),
-        gy = Math.floor(Math.max(0, b.y0) / PAS);
-      const rx = Math.ceil((0.18 * (b.x1 - b.x0)) / PAS),
-        ry = Math.ceil((0.18 * (b.y1 - b.y0)) / PAS);
-      let ok = true;
-      for (let yy = gy - ry; yy <= gy + ry && ok; yy++)
-        for (let xx = gx - rx; xx <= gx + rx && ok; xx++) {
-          const cas = grille.get(yy * gl + xx);
-          if (!cas) continue;
-          for (const g of cas) {
-            const i = inter(b, g);
-            if (i > 0 && i >= 0.85 * (aire(b) + aire(g) - i)) {
-              ok = false;
-              break;
-            }
-          }
-        }
-      if (!ok) continue;
+      if (rang.double(b)) continue;
       gardes.push(b);
-      const cle = gy * gl + gx;
-      const cas = grille.get(cle);
-      if (cas) cas.push(b);
-      else grille.set(cle, [b]);
+      rang.ajouter(b);
     }
     return gardes;
   };
   cands = sansDoublons(cands);
+  // Tous les candidats, pour ecarter une reunion qui en double un sans tout comparer a tout.
+  const connus = rangement();
+  for (const b of cands) connus.ajouter(b);
 
   // Les reunions : deux mailles voisines a une barre pres (ou a un poteau pres : 30 cm) et de meme
   // etendue sont deux vantaux, ou une imposte et ses vantaux ; la reunion est candidate a son tour,
@@ -896,8 +978,9 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
         if (b) nouveaux.push(b);
       }
     vague = sansDoublons(nouveaux)
-      .filter((b) => !cands.some((g) => inter(b, g) >= 0.85 * (aire(b) + aire(g) - inter(b, g))))
+      .filter((b) => !connus.double(b))
       .slice(0, 100);
+    for (const b of vague) connus.ajouter(b);
     cands = cands.concat(vague);
     bassin = bassin.concat(vague);
   }
@@ -1000,6 +1083,9 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   // Un interieur nettement plus clair que ce qui l'entoure, sans une barre dedans : un panneau de
   // mur dans son cadre sombre (un colombage), pas une vitre.
   valides = valides.filter((b) => !(b.li > 1.3 * b.la && b.mv + b.mh === 0));
+  // Pas plus de 1 500 candidats au choix (les mieux notes) : une facade n'a pas tant de baies, et
+  // la suite compare les candidats deux a deux (emboitements, choix, morceaux voisins).
+  if (valides.length > 1500) valides = [...valides].sort((p, q) => note(q) - note(p)).slice(0, 1500);
   // Un candidat encadre sur trois cotes, emboite dans un plus grand qu'il remplit a plus de 55 %,
   // le remplace : le plus grand est le cadre du mur (un colombage, un chambranle), pas la menuiserie.
   const morts = new Set<Candidat>();
@@ -1018,11 +1104,13 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   // vitree au-dessous), dans sa largeur, a une traverse pres ; un vantail a cote, dans sa hauteur,
   // s'il n'a pas de montant du cote de la baie (un poteau, un garde-corps le coupe : la menuiserie
   // continue derriere). Deux fenetres voisines, chacune dans son cadre, restent deux fenetres.
+  // Un morceau ne sert qu'une fois, a la baie la mieux notee (l'ordre de `choisis`).
+  const absorbes = new Set<Candidat>();
   for (let passe = 0; passe < 2; passe++)
     for (const b of [...choisis]) {
       if (!choisis.includes(b)) continue;
       for (const f of valides) {
-        if (f === b) continue;
+        if (f === b || absorbes.has(f)) continue;
         const bw = b.x1 - b.x0,
           bh = b.y1 - b.y0,
           fw = f.x1 - f.x0,
@@ -1033,10 +1121,26 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
         if (f.x0 >= b.x0 - 0.08 * bw - 1 && f.x1 <= b.x1 + 0.08 * bw + 1 && fw >= 0.4 * bw && fh <= bh && ey <= wgap && ey >= -0.2 * fh) pris = true;
         else if (f.y0 >= b.y0 - 0.08 * bh - 1 && f.y1 <= b.y1 + 0.08 * bh + 1 && fh >= 0.4 * bh && fw <= bw && ex <= wgap && ex >= -0.2 * fw && f.bords[f.x0 > b.x0 ? 0 : 1] === 0) pris = true;
         if (!pris) continue;
-        b.x0 = Math.min(b.x0, f.x0);
-        b.y0 = Math.min(b.y0, f.y0);
-        b.x1 = Math.max(b.x1, f.x1);
-        b.y1 = Math.max(b.y1, f.y1);
+        // La baie agrandie repasse la regle du choix : si elle mord sur une autre baie retenue
+        // (plus de 30 % de la plus petite) sans l'englober, l'agrandissement est abandonne.
+        const r: Boite = { x0: Math.min(b.x0, f.x0), y0: Math.min(b.y0, f.y0), x1: Math.max(b.x1, f.x1), y1: Math.max(b.y1, f.y1), n: 0 };
+        if (choisis.some((g) => g !== b && g !== f && inter(r, g) > 0.3 * Math.min(aire(r), aire(g)) && inter(r, g) <= 0.5 * aire(g))) continue;
+        absorbes.add(f);
+        // Un cote deplace prend la maille et le cadre du morceau : le recalage et la passe suivante
+        // les lisent.
+        const c = { ...b.c };
+        if (f.x0 < b.x0) [c.x0, b.bords[0]] = [f.c.x0, f.bords[0]!];
+        if (f.x1 > b.x1) [c.x1, b.bords[1]] = [f.c.x1, f.bords[1]!];
+        if (f.y0 < b.y0) [c.y0, b.bords[2]] = [f.c.y0, f.bords[2]!];
+        if (f.y1 > b.y1) [c.y1, b.bords[3]] = [f.c.y1, f.bords[3]!];
+        b.c = c;
+        b.x0 = r.x0;
+        b.y0 = r.y0;
+        b.x1 = r.x1;
+        b.y1 = r.y1;
+        b.lw = (b.x1 - b.x0) / u;
+        b.lh = (b.y1 - b.y0) / u;
+        b.cadre = b.bords.filter((e) => e > 0).length;
         b.n += f.n;
       }
       for (const g of [...choisis]) if (g !== b && inter(b, g) > 0.5 * aire(g)) choisis.splice(choisis.indexOf(g), 1);
@@ -1095,32 +1199,38 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
       X1 = b.x1 / k,
       Y0 = b.y0 / k,
       Y1 = b.y1 / k;
-    // Clair dedans si le cote a un cadre (ou pour une porte pleine), sombre dedans sinon ; l'un ou
-    // l'autre si le cote a ete deplace par un morceau voisin (on ne sait plus ce qui le borde).
+    // Clair dedans si le cote a un cadre (ou pour une porte pleine), sombre dedans sinon ; un cote
+    // venu d'un morceau voisin a pris le cadre de ce morceau.
     const plein = portes.includes(b);
-    const dedans = (i: number, pos: number, org: number) => (Math.abs(pos - org) > 1e-9 ? 0 : plein || b.bords[i]! > 0 ? 1 : -1);
-    const x0 = Math.max(0, recaler(X0, Y0, Y1, true, dedans(0, b.x0, b.c.x0 - b.bords[0]!))),
-      x1 = Math.min(W, recaler(X1, Y0, Y1, true, -dedans(1, b.x1, b.c.x1 + b.bords[1]!))),
-      y0 = Math.max(0, recaler(Y0, X0, X1, false, dedans(2, b.y0, b.c.y0 - b.bords[2]!))),
-      y1 = Math.min(H, recaler(Y1, X0, X1, false, -dedans(3, b.y1, b.c.y1 + b.bords[3]!)));
-    return { x0, y0, x1, y1, n: b.n, porte: portes.includes(b) };
+    const dedans = (i: number) => (plein || b.bords[i]! > 0 ? 1 : -1);
+    const x0 = Math.max(0, recaler(X0, Y0, Y1, true, dedans(0))),
+      x1 = Math.min(W, recaler(X1, Y0, Y1, true, -dedans(1))),
+      y0 = Math.max(0, recaler(Y0, X0, X1, false, dedans(2))),
+      y1 = Math.min(H, recaler(Y1, X0, X1, false, -dedans(3)));
+    // Les vitres : ce que montants et traverses decoupent dans la baie telle qu'elle est rendue
+    // (le nombre de mailles reunies ne le dit pas : une seule maille enjambe souvent les petits bois).
+    const vitres = plein ? 1 : (montants(bv, vPos, b.x0, b.x1, b.y0, b.y1) + 1) * (montants(bh, hPos, b.y0, b.y1, b.x0, b.x1) + 1);
+    return { x0, y0, x1, y1, vitres, porte: plein };
   });
 
   // L'echelle, si elle n'est pas donnee : une porte pleine fait 2,10 m de haut, cadre compris.
   const pleines = boites.filter((b) => b.porte);
   const s = connue || !pleines.length ? s0 : Math.max(...pleines.map((b) => b.y1 - b.y0)) / 2.1;
-  // Le sol : le bas de la plus basse des portes (1,80 m de haut au moins).
-  const hautes = boites.filter((b) => (b.y1 - b.y0) / s >= 1.8);
-  const solTrouve = hautes.length > 0;
-  const sol = solTrouve ? Math.max(...hautes.map((b) => b.y1)) : H;
+  // Le sol : le bas de la baie la plus basse, si c'est une porte (1,80 m de haut au moins, a 25 cm
+  // pres) - la regle du vote (../baies.ts). Une grande baie qui en a d'autres sous elle est a
+  // l'etage : elle ne situe pas le sol, et les types restent alors 'fenetre'.
+  const rendues = boites.filter((b) => b.x1 - b.x0 >= 2 && b.y1 - b.y0 >= 2);
+  let plusBas = -1;
+  for (const b of rendues) if (b.y1 > plusBas) plusBas = b.y1;
+  const solTrouve = rendues.some((b) => (b.y1 - b.y0) / s >= 1.8 && plusBas - b.y1 < 0.25 * s);
+  const sol = solTrouve ? plusBas : H;
   const r2 = (v: number) => Math.round(v * 100) / 100;
-  const baies: Baie[] = boites
-    .filter((b) => b.x1 - b.x0 >= 2 && b.y1 - b.y0 >= 2)
+  const baies: Baie[] = rendues
     .map((b): Baie => {
       const lw = (b.x1 - b.x0) / s,
         lh = (b.y1 - b.y0) / s,
         y = Math.max(0, (sol - b.y1) / s);
-      return { type: solTrouve ? classer(y, lw, lh) : 'fenetre', x: r2(b.x0 / s), y: r2(y), l: r2(lw), h: r2(lh), carreaux: b.n, px: { x: b.x0, y: b.y0, l: b.x1 - b.x0, h: b.y1 - b.y0 } };
+      return { type: solTrouve ? classer(y, lw, lh) : 'fenetre', x: r2(b.x0 / s), y: r2(y), l: r2(lw), h: r2(lh), carreaux: b.vitres, px: { x: b.x0, y: b.y0, l: b.x1 - b.x0, h: b.y1 - b.y0 } };
     })
     .sort((p, q) => p.y - q.y || p.x - q.x);
   return { baies, solTrouve, solPx: solTrouve ? sol : null, echelleConnue: connue };

@@ -36,8 +36,8 @@ En plus :
   Type selon la règle de Plan (`classer`) une fois le sol situé par une porte ; le sol suit les
   corrections faites à la main. Cotes avec l'échelle ; ajout, recadrage, retrait, changement de
   type au doigt ; export CSV. Mesuré sur un banc de façades annotées (`banc/README.md`) : 0,87 sur
-  1 sur 221 images, contre 0,34 pour le premier détecteur (régions lisses), et 0,83 à 0,85 sur des
-  images tenues à l'écart.
+  1 sur 221 images, contre 0,34 pour le premier détecteur (régions lisses), 0,83 à 0,85 sur des
+  images tenues à l'écart, et 0,94 sur l'élévation que la page produit elle-même.
 - **Calcul en arrière-plan** (Web Worker lancé depuis le texte embarqué), avec repli sur la page.
 
 Fichiers : `auto.ts` (calcul pur), `baies.ts` et `baies/` (fenêtres et portes), `banc/` (leur banc d'essai), `operations.ts` (les opérations, appelables par message),

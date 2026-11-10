@@ -14,8 +14,11 @@
 //     lignes, baies retrouvees par leurs semblables.
 //
 // Le vote ne regarde pas l'image : il ne juge que les boites des trois detecteurs, par leur
-// geometrie et par leur accord. Le resultat ne depend pas de l'ordre dans lequel elles arrivent
-// (elles sont triees par leur position, et chaque choix se fait du plus net au moins net).
+// geometrie et par leur accord. Le resultat (boites, types, cotes) ne depend pas de l'ordre dans
+// lequel elles arrivent : elles sont triees par leur position, chaque choix se fait du plus net au
+// moins net, et l'echelle de repli est une mediane. Les boites sont rognees a l'image, une boite
+// rendue deux fois par un detecteur ne compte qu'une fois, et au-dela de 400 boites par detecteur
+// seules les plus grandes sont lues (le vote compare les boites deux a deux : son temps est borne).
 //
 //   1. Les grappes. Deux boites de detecteurs differents s'accordent si elles se recouvrent assez
 //      (IoU >= 0,5 : accord fort) ou si l'une contient presque toute l'autre sans etre plus de
@@ -32,52 +35,72 @@
 //      la meme facade (jamais la petite sur cet indice : un vantail a souvent la taille d'une
 //      fenetre etroite voisine), a defaut la moyenne des bords.
 //   3. Le tout et ses parties. Une boite qu'un detecteur voit d'un seul tenant et que les autres
-//      couvrent de plusieurs morceaux, sans mur entre eux, reunit les baies retenues qu'elle
-//      contient (les pans d'une baie vitree) ; jamais deux baies separees par un trumeau.
+//      couvrent de plusieurs morceaux, sans mur entre eux, remplace la ou les baies retenues
+//      qu'elle contient (les pans d'une baie vitree, ou le seul pan qui ait ete vote) ; jamais deux
+//      baies separees par un trumeau. Puis une ouverture, une boite : une baie retenue dans une
+//      baie plus grande que plus de detecteurs voient en est une partie, elle est ecartee.
 //   4. Les baies vues par un seul detecteur ne sont gardees que si la facade les confirme : memes
 //      tableaux et meme taille qu'une baie votee de leur colonne ; pour le premier detecteur (celui
 //      qui se trompe le moins quand il est seul), les memes tableaux, ou la meme taille dans le meme
-//      rang. Une porte vue par un seul detecteur est gardee si elle en a la forme et la place :
-//      debout, son linteau au niveau de celui d'une baie votee, descendant sous l'appui de cette baie.
+//      rang. Une porte vue par un seul des deux autres detecteurs est gardee si elle en a la forme
+//      et la place : debout, son linteau au niveau de celui d'une baie votee, descendant sous
+//      l'appui de cette baie (jamais du premier : ses boites debout sans accord sont des morceaux).
 //   5. Le sol : le bas de la plus basse des portes. Avec une echelle, une porte fait 1,80 m de haut
-//      au moins ; sans echelle, c'est une baie qui descend sous l'appui d'une baie de son rang.
+//      au moins ; sans echelle, c'est une baie qui descend sous l'appui d'une baie de son rang. Une
+//      porte a une voix ne situe pas le sol au-dessus d'une baie votee. Et le sol n'est pas annonce
+//      si le resultat le contredit (une baie a deux voix tout entiere dessous) : les types restent
+//      alors « fenetre » et l'echelle vient des detecteurs.
 //   6. Au niveau du sol, une baie est une porte : ce qui est pose au sol sans en avoir la hauteur
-//      (un vide entre les barreaux d'une balustrade, une poubelle, un pot) est ecarte, sauf si les
-//      trois detecteurs le voient.
+//      (un vide entre les barreaux d'une balustrade, une poubelle, un pot) est ecarte. Sont
+//      epargnees une baie qui est elle-meme une porte (regle 5), et une baie que les trois
+//      detecteurs voient si elle n'est pas debout (une vitrine, un soupirail) : un vide entre deux
+//      barreaux, debout, a trois voix comme une baie.
 //   7. Les morceaux laisses au-dessus ou au-dessous d'une baie retenue, dans son etendue et a
 //      moins d'une traverse d'elle, la prolongent (une imposte, le bas d'une porte sous une lisse).
 //
-// Mesure sur le banc (outils/facade/banc/, note de 0 a 1). Une image seule bouge de 0,05 d'un
-// cadrage a l'autre : la mesure se fait donc sur huit familles d'images (le jeu d'entrainement, ses
-// miroirs, ses demi-resolutions, ses images assombries ou rognees, 40 autres facades d'immeubles),
-// 221 images. Le vote d'avant (premiere grappe venue, moyenne des bords, toutes les baies du premier
-// detecteur) : 0,81 ; celui-ci, avec les memes detecteurs : 0,86 ; avec les detecteurs corriges
-// (mailles : recalage, portes ; travees : temps, montants chaines) : 0,87. Le gain est celui de la
-// maison (0,83 -> 0,92 : 66 fausses baies -> 18, 26 ouvertures manquees -> 12, sur 39 vues) ; sur
-// les immeubles le vote fait jeu egal (0,73 -> 0,74) avec un tiers de fausses baies en moins et un
-// peu moins d'ouvertures trouvees - les baies que le premier detecteur y trouve seul sont plus
-// souvent justes, et la regle 4 en ecarte trois justes pour dix fausses. Sur deux jeux tenus a
-// l'ecart de la mise au point : 0,80 -> 0,83 et 0,76 -> 0,85.
+// Mesure (note de 0 a 1). Une image seule bouge de 0,05 d'un cadrage a l'autre : la mesure est
+// « large », huit familles de variantes (le jeu d'entrainement, ses miroirs, demi-resolutions,
+// images assombries, rognees, reduites, 40 autres facades), 221 images - 39 de la maison, 168
+// d'immeubles, 14 synthetiques -, 0,55 x maison + 0,35 x immeubles + 0,10 x synthetiques. Le vote
+// d'origine avec ses detecteurs : 0,815 ; celui-ci avec les detecteurs corriges : 0,867 - maison
+// 0,922 (289 ouvertures justes, 18 fausses, 12 manquees sur 301, contre 275 / 66 / 26), immeubles
+// 0,742 (2517 / 734 / 1163, contre 2568 / 1086 / 1112), synthetiques 1,00 (cotes a 2 cm). Sur
+// deux jeux tenus a l'ecart de la mise au point (47 et 46 images) : 0,80 -> 0,83 et 0,76 -> 0,85.
+// Sur l'elevation que la page produit a partir de trois photos (13 variantes) : 0,84 -> 0,94.
 //
-// Les seuils ne sont ajustes a aucune image. En les faisant varier d'un quart, la note moyenne
-// (entrainement et variantes) bouge de moins de 0,005, sauf pour les trois seuils de l'accord
-// (IoU 0,5, contenance, IoU minimal de l'accord faible : jusqu'a 0,016 de moins) ; en deplacant
-// au hasard chaque bord de chaque boite de 2 a 4 %, elle perd 0,01 a 0,03 et reste au-dessus du
-// vote d'avant.
+// Une regle de plus a ete essayee et retiree : a trois voix, donner raison a la seule boite qui a
+// la taille d'une baie sure du meme rang, contre la mediane. Elle gagnait 0,007 sur les familles de
+// mise au point (cinq rognages de la meme maison faisaient presque tout le gain) et perdait 0,015
+// sur un jeu tenu a l'ecart : une regle se juge sur des images qu'elle n'a pas vues.
 //
-// Ce qui reste fragile : la boite n'est jamais plus juste que celles qu'on lui donne (deux
-// detecteurs qui laissent la meme imposte dehors, ou prennent le meme encadrement, l'emportent
-// sur le troisieme) ; une baie qu'un seul detecteur trouve, sans semblable dans sa colonne ni dans
-// son rang, est perdue ; les regles 5 a 7 tiennent a la porte - sans porte trouvee (ni echelle
-// pour reconnaitre une baie de 1,80 m), le sol n'est pas situe, tout est « fenetre » et rien
-// n'ecarte ce qui est pose au sol ; une grande baie de 1,80 m a l'etage le plus bas d'une facade
-// sans porte passe pour une porte et situe le sol a tort.
+// Les seuils ne sont ajustes a aucune image. En les faisant varier d'un quart, la mesure large
+// bouge de moins de 0,005 (les seuils de l'accord sont les plus sensibles). En deplacant au hasard
+// chaque bord de chaque boite de 4 % et en retirant une boite sur dix, elle tombe a 0,83 : la
+// boite n'est jamais plus juste que celles qu'on lui donne.
+//
+// Ce qui reste fragile :
+//   - deux detecteurs qui laissent la meme imposte dehors, ou prennent le meme encadrement,
+//     l'emportent sur le troisieme (la mediane a trois voix) : c'est la premiere cause de mauvais
+//     cadrage ;
+//   - une baie qu'un seul detecteur trouve, sans semblable dans sa colonne ni dans son rang, est
+//     perdue (200 ouvertures justes sur les 3680 des immeubles) ;
+//   - la regle 3 sert la maison (la baie vitree) et coute aux immeubles plus de justes qu'elle
+//     n'y retire de fausses (une quinzaine sur 2500) ; a voix egales, deux baies retenues l'une
+//     dans l'autre restent toutes les deux (une soixantaine de paires sur 168 immeubles) ;
+//   - les regles 5 a 7 tiennent a la porte. Sur la maison le sol est juste (39 images sur 39).
+//     Sur les immeubles, sans echelle, il est incertain : situe sur 45 images sur 168 - juste 28
+//     fois, faux 13, sans porte annotee 4 -, et 72 facades a porte restent sans sol ; une
+//     fenetre y est rarement typee porte (11 sur 2440) mais deux portes sur trois y sortent
+//     « fenetre ». Sans porte trouvee, tout est « fenetre » et rien n'ecarte ce qui est pose au sol ;
+//   - au sol, la regle 6 ecarte aussi a deux voix un soupirail, une fenetre d'allege tres basse
+//     (moins de 12 % de la hauteur de la porte), une vitrine moins haute que 70 % de la porte ;
+//   - une baie a une voix rendue sous le sol annonce a sa hauteur ramenee a 0 (2 sur 168 immeubles).
 //
 // La boite rendue est le hors-tout de la menuiserie (cadre compris). Le type suit la regle de Plan
 // (`classer`) une fois le sol situe. Sans echelle fournie, les cotes en metres sont indicatives :
 // l'echelle vient de la porte qui situe le sol (2,10 m de haut), a defaut de ce que les detecteurs
-// ont estime. C'est une proposition : la page permet d'ajouter, recadrer, retirer une baie et d'en
-// changer le type.
+// ont estime (la mediane de leurs baies). C'est une proposition : la page permet d'ajouter,
+// recadrer, retirer une baie et d'en changer le type.
 
 import type { Image } from './auto.js';
 import { classer, type TypeOuverture } from '../../src/facade/detection.js';
@@ -112,12 +135,10 @@ export interface ResultatBaies {
 type Boite = Baie['px'];
 /** La boite d'un detecteur (k : son rang dans le vote). */
 type Vue = Boite & { k: number };
-/** Une baie retenue : sa boite, les detecteurs qui la voient. */
+/** Une baie retenue : sa boite, le nombre de detecteurs qui la voient. */
 interface Retenue {
   px: Boite;
   voix: number;
-  /** Deux detecteurs au moins s'accordent fortement sur elle. */
-  sure: boolean;
   /** Admise comme porte alors qu'un seul detecteur la voit. */
   porte: boolean;
 }
@@ -127,9 +148,9 @@ const ACCORD = 0.5;
 /** ... ou quand l'une contient cette part de l'autre (un vantail et sa fenetre), sans etre minuscule devant elle : accord faible. La note ne bouge pas entre 0,70 et 0,85 et tombe a 0,90 : le milieu du palier, pour que des boites qui bougent un peu ne changent pas le vote. */
 const CONTENANCE = 0.8,
   ACCORD_CONTENU = 0.25;
-/** Une boite est ecartee si elle mord a ce point sur une baie retenue. */
+/** Une boite a une voix (regles 4 et 7) ou un tout (regle 3) est ecarte s'il mord a ce point sur une baie retenue. Deux baies votees ne sont comparees que par la regle « une ouverture, une boite ». */
 const CHEVAUCHEMENT = 0.3;
-/** Deux boites voisines sont deux baies, et non deux morceaux d'une seule, quand le vide entre elles depasse cette part de la plus petite (un trumeau ; un meneau, un poteau sont plus fins : 7 % entre deux pans, 12 % au moins entre deux fenetres annotees du banc). */
+/** Deux boites voisines sont deux baies, et non deux morceaux d'une seule, quand le vide entre elles depasse cette part de la plus petite (un trumeau ; un meneau, un poteau sont plus fins : 7 % entre deux pans ; 99 % des paires de fenetres voisines annotees du banc sont a plus de 12 %). */
 const TRUMEAU = 0.1;
 /** Une boite « reunit » une autre baie quand elle en recouvre cette part. */
 const MORD = 0.7;
@@ -144,6 +165,8 @@ const LISSE = 0.08;
 /** Une porte a une voix : debout (1,5 fois plus haute que large au moins) sans etre une fente (3,5 fois au plus : une porte de service de 63 cm fait 3,4 ; la note ne bouge pas de 2,75 a 3,5). */
 const DEBOUT = 1.5,
   FENTE = 3.5;
+/** Le vote compare les boites deux a deux : au-dela de ce nombre par detecteur (sept fois ce qu'une facade du banc en donne), seules les plus grandes sont lues. */
+const MAX_BOITES = 400;
 /** Hauteur d'une porte, en metres : le seuil de `classer`, et la porte courante qui donne l'echelle. */
 const H_PORTE_MIN = 1.8,
   H_PORTE = 2.1;
@@ -207,19 +230,72 @@ function mur(bs: Boite[], axe: 'x' | 'y', part: number): boolean {
   return false;
 }
 
-/** Part de `g` que des boites couvrent (l'aire de leur union dans `g`). */
+/** Au-dela de ce nombre de cases par cote, la couverture se mesure sur une grille reguliere (le temps reste borne). */
+const GRILLE = 64;
+/** Dans un tableau trie : le nombre de valeurs avant `v` (`v` compris si `incluse`). */
+function rangDe(t: number[], v: number, incluse: boolean): number {
+  let a = 0,
+    b = t.length;
+  while (a < b) {
+    const m = (a + b) >> 1;
+    if (t[m]! < v || (incluse && t[m]! === v)) a = m + 1;
+    else b = m;
+  }
+  return a;
+}
+
+/**
+ * Part de `g` que des boites couvrent (l'aire de leur union dans `g`). Exacte tant que les bords
+ * des boites decoupent `g` en peu de cases ; au-dela, sur une grille de GRILLE x GRILLE cases
+ * (1 / 64 de `g` : bien plus fin que le seuil qu'on lui compare). Un passage par boite puis un par
+ * case : le temps ne depend plus du produit des deux.
+ */
 function couverture(g: Boite, bs: Boite[]): number {
   const borne = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-  const xs = [...new Set([g.x, droite(g), ...bs.flatMap((b) => [borne(b.x, g.x, droite(g)), borne(droite(b), g.x, droite(g))])])].sort((a, b) => a - b);
-  const ys = [...new Set([g.y, bas(g), ...bs.flatMap((b) => [borne(b.y, g.y, bas(g)), borne(bas(b), g.y, bas(g))])])].sort((a, b) => a - b);
+  const x1 = droite(g),
+    y1 = bas(g);
+  const coupes = (a: number, b: number, vs: number[]) => {
+    const u = [...new Set([a, b, ...vs.map((v) => borne(v, a, b))])].sort((p, q) => p - q);
+    return u.length - 1 <= GRILLE ? u : Array.from({ length: GRILLE + 1 }, (_, i) => a + ((b - a) * i) / GRILLE);
+  };
+  const xs = coupes(g.x, x1, bs.flatMap((b) => [b.x, droite(b)])),
+    ys = coupes(g.y, y1, bs.flatMap((b) => [b.y, bas(b)]));
+  const nx = xs.length - 1,
+    ny = ys.length - 1;
+  if (nx < 1 || ny < 1) return 0;
+  const cx = Array.from({ length: nx }, (_, i) => (xs[i]! + xs[i + 1]!) / 2),
+    cy = Array.from({ length: ny }, (_, j) => (ys[j]! + ys[j + 1]!) / 2);
+  // Une case est couverte si son centre est dans une boite : les differences, puis leur cumul.
+  const d = new Int32Array((nx + 1) * (ny + 1));
+  const plus = (i: number, j: number, v: number) => {
+    d[j * (nx + 1) + i] = d[j * (nx + 1) + i]! + v;
+  };
+  for (const b of bs) {
+    const i0 = rangDe(cx, b.x, false),
+      i1 = rangDe(cx, droite(b), true),
+      j0 = rangDe(cy, b.y, false),
+      j1 = rangDe(cy, bas(b), true);
+    if (i1 <= i0 || j1 <= j0) continue;
+    plus(i0, j0, 1);
+    plus(i1, j0, -1);
+    plus(i0, j1, -1);
+    plus(i1, j1, 1);
+  }
   let s = 0;
-  for (let i = 0; i + 1 < xs.length; i++)
-    for (let j = 0; j + 1 < ys.length; j++) {
-      const cx = (xs[i]! + xs[i + 1]!) / 2,
-        cy = (ys[j]! + ys[j + 1]!) / 2;
-      if (bs.some((b) => b.x <= cx && cx <= droite(b) && b.y <= cy && cy <= bas(b))) s += (xs[i + 1]! - xs[i]!) * (ys[j + 1]! - ys[j]!);
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const k = j * (nx + 1) + i;
+      d[k] = d[k]! + (i ? d[k - 1]! : 0) + (j ? d[k - nx - 1]! : 0) - (i && j ? d[k - nx - 2]! : 0);
+      if (d[k]! > 0) s += (xs[i + 1]! - xs[i]!) * (ys[j + 1]! - ys[j]!);
     }
   return s / (aire(g) || 1);
+}
+
+/** Les boites d'un detecteur que le vote peut lire : une liste mal formee, une boite sans cotes finies et positives ne levent pas. */
+const valide = (b: Boite) => [b.x, b.y, b.l, b.h].every(Number.isFinite) && b.l > 0 && b.h > 0;
+function lisibles(r: ResultatBaies | null): Baie[] {
+  const liste: unknown = r?.baies;
+  return Array.isArray(liste) ? (liste as (Baie | null | undefined)[]).filter((b): b is Baie => !!b && typeof b === 'object' && !!b.px && valide(b.px)) : [];
 }
 
 /** Un detecteur qui echoue s'abstient : le vote se fait entre les autres. */
@@ -274,10 +350,21 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   const echelle = pxParM !== null && Number.isFinite(pxParM) && pxParM > 0 ? pxParM : null;
   // L'ordre compte : le premier detecteur est celui dont les baies trouvees seul sont le mieux admises.
   const resultats = [essayer(() => parPropositions(img, vu, echelle)), essayer(() => parMailles(img, vu, echelle)), essayer(() => parTravees(img, vu, echelle))];
-  const valide = (b: Boite) => [b.x, b.y, b.l, b.h].every(Number.isFinite) && b.l > 0 && b.h > 0;
   const vues: Vue[] = [];
   resultats.forEach((r, k) => {
-    for (const b of r?.baies ?? []) if (valide(b.px)) vues.push({ x: b.px.x, y: b.px.y, l: b.px.l, h: b.px.h, k });
+    // Rognees a l'image (une boite n'en sort pas) ; une boite rendue deux fois ne compte qu'une fois.
+    let siennes: Vue[] = [];
+    for (const b of lisibles(r)) {
+      const p = b.px;
+      const dedans = !(W > 0 && H > 0) || (p.x >= 0 && p.y >= 0 && droite(p) <= W && bas(p) <= H);
+      const v = dedans ? { x: p.x, y: p.y, l: p.l, h: p.h, k } : { ...boite(Math.max(0, p.x), Math.max(0, p.y), Math.min(W, droite(p)), Math.min(H, bas(p))), k };
+      if (v.l > 0 && v.h > 0) siennes.push(v);
+    }
+    siennes.sort(parPosition);
+    siennes = siennes.filter((v, i) => i === 0 || parPosition(siennes[i - 1]!, v) !== 0);
+    // Le temps du vote croit comme le carre du nombre de boites : au-dela, les plus grandes seulement.
+    if (siennes.length > MAX_BOITES) siennes = siennes.sort((a, b) => aire(b) - aire(a) || parPosition(a, b)).slice(0, MAX_BOITES);
+    vues.push(...siennes);
   });
   vues.sort((a, b) => parPosition(a, b) || a.k - b.k);
 
@@ -290,8 +377,11 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
 
   // 2. La boite de chaque grappe de deux voix au moins.
   let retenues: Retenue[] = [];
-  for (const g of grappes) {
-    if (g.length < 2) continue;
+  // A trois voix, la mediane : deux detecteurs qui se trompent ensemble (le meme encadrement, la
+  // meme imposte laissee dehors) l'emportent. Faire arbitrer par les baies semblables du rang a ete
+  // essaye et retire (voir l'en-tete) : le gain ne tenait pas sur des images tenues a l'ecart.
+  grappes.forEach((g) => {
+    if (g.length < 2) return;
     let b = medianeDe(g);
     if (g.length === 2) {
       const [p, q] = [g[0]!, g[1]!];
@@ -315,8 +405,8 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
         }
       }
     }
-    if (b.l >= 2 && b.h >= 2) retenues.push({ px: boite(b.x, b.y, droite(b), bas(b)), voix: g.length, sure: forte(g), porte: false });
-  }
+    if (b.l >= 2 && b.h >= 2) retenues.push({ px: boite(b.x, b.y, droite(b), bas(b)), voix: g.length, porte: false });
+  });
 
   // 3. Le tout et ses parties, du plus grand au plus petit.
   for (const g of [...vues].sort((a, b) => aire(b) - aire(a) || parPosition(a, b) || a.k - b.k)) {
@@ -327,14 +417,19 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     const morceaux = vues.filter((c) => c.k !== g.k && dans(c, g) >= CONTENANCE);
     // Plusieurs parties vues par un meme detecteur (sinon ce n'est qu'un desaccord de cadrage, regle en 2).
     if (![0, 1, 2].some((k) => morceaux.filter((c) => c.k === k).length >= 2)) continue;
-    if (couverture(g, morceaux) < COUVERT) continue;
     // Du mur entre les morceaux, ou entre les baies a reunir : ce sont des baies voisines, pas un tout.
     if (mur(morceaux, 'x', TRUMEAU) || mur(morceaux, 'y', TRUMEAU)) continue;
     const px = reunies.map((r) => r.px);
     if (reunies.length >= 2 && (mur(px, 'x', ENTRE_PANS) || mur(px, 'y', ENTRE_PANS))) continue;
+    if (couverture(g, morceaux) < COUVERT) continue;
     retenues = retenues.filter((r) => !reunies.includes(r));
-    retenues.push({ px: boite(g.x, g.y, droite(g), bas(g)), voix: new Set([g.k, ...morceaux.map((c) => c.k)]).size, sure: false, porte: false });
+    retenues.push({ px: boite(g.x, g.y, droite(g), bas(g)), voix: new Set([g.k, ...morceaux.map((c) => c.k)]).size, porte: false });
   }
+  // Une ouverture, une boite : une baie retenue dans une baie retenue plus grande que plus de
+  // detecteurs voient en est une partie (un vantail, une imposte). A voix egales rien ne dit
+  // laquelle a raison (la plus grande reunit aussi souvent deux fenetres) : les deux restent.
+  const entieres = retenues;
+  retenues = entieres.filter((r) => !entieres.some((t) => t !== r && t.voix > r.voix && aire(t.px) > aire(r.px) && dans(r.px, t.px) >= CONTENANCE));
 
   // 4. Les baies a une voix que la facade confirme.
   const votees = retenues.map((r) => r.px);
@@ -344,7 +439,7 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
     if (!libre(s)) continue;
     const repete = votees.some((t) => memeColonne(s, t) && memeTaille(s, t));
     const premier = s.k === 0 && votees.some((t) => memeColonne(s, t) || (memeRang(s, t) && memeTaille(s, t)));
-    if (repete || premier) retenues.push({ px: boite(s.x, s.y, droite(s), bas(s)), voix: 1, sure: false, porte: false });
+    if (repete || premier) retenues.push({ px: boite(s.x, s.y, droite(s), bas(s)), voix: 1, porte: false });
   }
 
   // Les portes. Echelle connue : 1,80 m de haut au moins. Sinon, la structure : une baie qui
@@ -357,26 +452,35 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   // celui d'une baie votee de son rang, sous l'appui de cette baie ; a l'echelle, une taille de porte.
   const voteesAvant = retenues.filter((r) => r.voix >= 2);
   for (const s of seules) {
-    if (!libre(s) || s.h < DEBOUT * s.l || s.h > FENTE * s.l) continue;
+    // Jamais du premier detecteur : ses boites debout sans accord sont des morceaux sous une fenetre.
+    if (s.k === 0 || !libre(s) || s.h < DEBOUT * s.l || s.h > FENTE * s.l) continue;
     if (echelle && (s.h < H_PORTE_MIN * echelle || s.h > 2.8 * echelle || s.l < 0.6 * echelle)) continue;
     const linteau = voteesAvant.some((t) => recouvreY(t.px, s) >= 0.5 * t.px.h && Math.abs(s.y - t.px.y) <= ALIGNE * s.h && bas(s) - bas(t.px) >= 0.25 * s.h && s.h >= 1.25 * t.px.h);
-    if (linteau && sousAppui(s, voteesAvant)) retenues.push({ px: boite(s.x, s.y, droite(s), bas(s)), voix: 1, sure: false, porte: true });
+    if (linteau && sousAppui(s, voteesAvant)) retenues.push({ px: boite(s.x, s.y, droite(s), bas(s)), voix: 1, porte: true });
   }
 
   // 5. Le sol : le bas de la plus basse des portes (les baies confirmees par la seule structure n'en decident pas).
-  const laPlusBasse = (): Retenue | null => {
+  const lesPortes = (): Retenue[] => {
     const fiables = retenues.filter((r) => r.voix >= 2 || r.porte);
     const portes = fiables.filter((r) => (echelle ? r.px.h >= H_PORTE_MIN * echelle : sousAppui(r.px, fiables)));
-    return portes.reduce<Retenue | null>((a, p) => (a && bas(a.px) >= bas(p.px) ? a : p), null);
+    // Une porte a une voix ne situe pas le sol au-dessus d'une baie votee : rien ne s'ouvre sous le sol.
+    return portes.filter((p) => !(p.porte && retenues.some((t) => t.voix >= 2 && t.px.y >= bas(p.px))));
   };
-  let seuil = laPlusBasse();
+  const laPlusBasse = (portes: Retenue[]) => portes.reduce<Retenue | null>((a, p) => (a && bas(a.px) >= bas(p.px) ? a : p), null);
+  const portes = lesPortes();
+  let seuil = laPlusBasse(portes);
 
   // 6. Au niveau du sol, une baie est une porte.
   let fond = Infinity;
   if (seuil) {
     const sol = bas(seuil.px),
       hp = seuil.px.h;
-    retenues = retenues.filter((r) => r.voix >= 3 || r.px.h >= PAS_UNE_PORTE * hp || bas(r.px) < sol - SEUIL_HAUT * hp || bas(r.px) > sol + SEUIL_BAS * hp);
+    // Trois voix epargnent une baie basse (une vitrine, un soupirail, une fenetre d'allege basse :
+    // couchees ou carrees), pas une baie debout : au sol, ce qui est debout sans la hauteur d'une
+    // porte est un vide entre deux barreaux, que les trois detecteurs voient pareil. Une baie qui
+    // est elle-meme une porte (regle 5) n'est jamais ecartee, si haute que soit celle du sol.
+    const epargnee = (r: Retenue) => (r.voix >= 3 && r.px.h < DEBOUT * r.px.l) || portes.includes(r);
+    retenues = retenues.filter((r) => epargnee(r) || r.px.h >= PAS_UNE_PORTE * hp || bas(r.px) < sol - SEUIL_HAUT * hp || bas(r.px) > sol + SEUIL_BAS * hp);
     fond = sol + SEUIL_HAUT * hp;
   }
 
@@ -395,7 +499,13 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
       r.px = prolongee;
     }
   }
-  seuil = laPlusBasse(); // une porte a pu etre prolongee, une baie prolongee en devenir une
+  seuil = laPlusBasse(lesPortes()); // une porte a pu etre prolongee, une baie prolongee en devenir une
+  // Un sol que le resultat contredit n'est pas annonce : une baie a deux voix tout entiere dessous,
+  // et la « porte » n'en etait pas une (ni son bas le sol, ni sa hauteur 2,10 m).
+  if (seuil) {
+    const y = bas(seuil.px);
+    if (retenues.some((r) => r.voix >= 2 && r.px.y >= y)) seuil = null;
+  }
   const sol = seuil ? bas(seuil.px) : null;
 
   // L'echelle : celle de l'utilisateur ; sinon la porte qui situe le sol fait 2,10 m ; sinon la
@@ -403,10 +513,13 @@ export function detecterBaies(img: Image, vu: Uint8Array | null, pxParM: number 
   let s0 = echelle ?? 0;
   if (!s0 && seuil) s0 = seuil.px.h / H_PORTE;
   if (!s0) {
+    // La mediane sur toutes ses baies, pas la premiere venue : chaque cote est arrondie au centimetre.
     const estimees: number[] = [];
     for (const r of resultats) {
-      const b = (r?.baies ?? []).find((q) => q.l > 0 && valide(q.px));
-      if (b) estimees.push(b.px.l / b.l);
+      const e = lisibles(r)
+        .filter((q) => Number.isFinite(q.l) && q.l > 0)
+        .map((q) => q.px.l / q.l);
+      if (e.length) estimees.push(mediane(e));
     }
     if (estimees.length) s0 = mediane(estimees);
   }

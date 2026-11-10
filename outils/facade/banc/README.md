@@ -60,11 +60,13 @@ assombrie).
 (régions, mur) sont celles qui se sont le moins bien transportées d'une image à l'autre ; les trois
 retenues raisonnent sur les arêtes. Faire voter les six ne gagnait que 0,007 pour le double du temps.
 
-## Second tour : relecture, corrections, nouveau vote
+## Second et troisième tours : relecture, corrections, nouveau vote
 
 Les quatre fichiers ont ensuite été relus un par un : un relecteur cherche les défauts réels, un
-vérificateur tente de reproduire chaque constat (32 confirmés sur 32), un responsable corrige. Les
-quatre rendus ont été combinés et mesurés ; n'est gardé que ce qui tient à la mesure.
+vérificateur tente de reproduire chaque constat (32 confirmés sur 32), un responsable corrige. Le
+vote, réécrit au second tour, a été relu à son tour au troisième (8 constats confirmés), ses erreurs
+restantes classées, puis contrôlé par un agent qui n'avait pas écrit le code. Les rendus ont été
+combinés et mesurés ; n'est gardé que ce qui tient à la mesure.
 
 Une image seule bouge de 0,05 d'un cadrage à l'autre (rogner un pixel suffit) et la note d'un jeu
 est dominée par trois à cinq vues de la maison : la décision se prend donc sur une **mesure large**,
@@ -90,34 +92,51 @@ par la page dans un navigateur (bouton « PNG ») est entrée dans le banc, anno
 |---|---|---|---|---|---|---|
 | vote d'origine, détecteurs d'origine | 0,81 | 0,83 — 275 / 66 / 26 | 0,73 | 0,80 | 0,76 | 0,84 |
 | nouveau vote, détecteurs d'origine | 0,86 | 0,91 — 285 / 18 / 16 | 0,73 | 0,84 | 0,83 | 0,90 |
-| **nouveau vote, `mailles` et `travees` corrigés (livré)** | **0,87** | 0,92 — 289 / 18 / 12 | 0,74 | 0,83 | 0,85 | 0,93 |
+| second tour : nouveau vote, `mailles` et `travees` corrigés | 0,87 | 0,92 — 289 / 18 / 12 | 0,74 | 0,83 | 0,85 | 0,93 |
+| **troisième tour (livré)** | **0,87** | 0,92 — 289 / 18 / 12 | 0,74 | 0,83 | 0,85 | 0,94 |
 
-(Jeu final : 46 images qui n'ont servi à aucune décision. Images de la page : l'élévation que
+(Jeu final : 46 images qui n'ont servi à aucune mise au point. Images de la page : l'élévation que
 `facade.html` produit dans un navigateur à partir des trois photos de la maison, et douze variantes —
-rognées, en miroir, réduites, assombrie.)
+rognées, en miroir, réduites, assombrie : 113 ouvertures justes, 36 fausses, 4 manquées avec le
+premier vote ; 115, 5 et 2 aujourd'hui.)
 
 - **Le vote** (`baies.ts`) est réécrit : grappes par recouvrement décroissant (plus de « première
   grappe venue »), boîte d'une grappe selon la nature de l'accord (plus de moyenne de deux boîtes),
   réunion du tout et de ses parties, baies à une voix gardées seulement si la façade les confirme,
   sol situé par la plus basse des portes, filtre de ce qui est posé au sol sans la hauteur d'une
-  porte (les vides de balustrade), prolongement par les morceaux voisins (imposte, bas de porte).
-  C'est lui qui porte le gain.
+  porte (les vides de balustrade, même vus par les trois détecteurs), prolongement par les morceaux
+  voisins (imposte, bas de porte). C'est lui qui porte le gain. Au troisième tour : le sol n'est
+  plus annoncé quand le résultat le contredit (sur les immeubles, 39 sols faux ou inventés → 17),
+  une porte vue par un seul détecteur ne situe plus le sol au-dessus d'une baie votée, le temps est
+  borné (20 à 50 s pour des milliers de boîtes, 0,5 s après), une entrée mal formée ne fait plus
+  lever d'exception, les cotes ne dépendent plus de l'ordre des boîtes.
+- **Une règle essayée et retirée** : à trois voix, donner raison à la seule boîte qui a la taille
+  d'une baie sûre du même rang, contre la médiane. Elle gagnait 0,007 sur la mesure large (cinq
+  rognages de la même maison faisaient 97 % du gain) et perdait 0,015 sur le jeu final : une règle
+  se juge sur des images qu'elle n'a pas vues.
 - **`baies/mailles.ts`** : portes pleines cherchées par dichotomie (51 s sur une image de bruit avec
-  une échelle fausse, 1 s après), recalage des bords au sens du contraste (le cadre n'est plus
+  une échelle fausse, 0,4 s après), recalage des bords au sens du contraste (le cadre n'est plus
   retiré : 3 à 5 cm d'erreur sur 13 configurations synthétiques sur 20, aucune après), échelle de
-  travail des images moyennes.
+  travail des images moyennes, un morceau voisin ne sert qu'à une baie, plafonds et sortie anticipée
+  sur une image saturée d'arêtes (93 cas dégénérés sans défaut). Le miroir exact (sens de lecture
+  canonique) a été essayé et laissé de côté : il coûtait à la mesure.
 - **`baies/travees.ts`** : la lenteur pathologique est corrigée (2,0 s pour 0,67 Mpx, 0,35 s après),
   plus de budget qui écarte des candidats en silence, montants chaînés par-dessus une traverse (la
-  baie vitrée sort entière, impostes comprises).
-- **`baies/propositions.ts`** : inchangé. Ses corrections (rugosité des images peu réduites,
-  symétrie) n'apportaient rien de mesurable au vote.
+  baie vitrée sort entière, impostes comprises). Contrôlé à part : 1 127 cas dégénérés et 500 images
+  au hasard sans défaut ni dépassement.
+- **`baies/propositions.ts`** : le recalage ne sort plus de l'image, et le bord de l'image n'est
+  plus traité comme du remplissage ; mêmes boîtes sur les 327 images. Ses autres corrections
+  (rugosité des images peu réduites, symétrie) n'apportaient rien de mesurable au vote.
 
 Sur la façade de référence (16 Mpx) : 9 ouvertures sur 9, aucune fausse, la porte d'entrée et la
-porte-fenêtre du porche entières, la baie vitrée avec ses impostes ; moins de 2 s sous Node. Sur
-l'élévation que la page tire des trois photos compressées : les mêmes ouvertures (les deux pans de
-la baie vitrée d'un seul tenant), mais la porte-fenêtre du porche s'arrête à la lisse de la
-balustrade, et sans échelle un vide entre deux barreaux reste pris pour une baie. Restent
-imparfaits : le résultat dépend du cadrage au pixel près (c'est la première cause d'erreur), les
-fenêtres d'étage prises avec leur encadrement de colombage, les fenêtres derrière un garde-corps
-ouvragé, les volets ouverts ; sur les immeubles, un tiers des fenêtres ne sont vues par aucun des
-trois détecteurs.
+porte-fenêtre du porche entières, la baie vitrée avec ses impostes ; 1,1 s sous Node. Sur
+l'élévation que la page tire des trois photos compressées, sans échelle : les mêmes 9 ouvertures
+(les deux pans de la baie vitrée d'un seul tenant), aucune fausse. Restent imparfaits : le résultat
+dépend du cadrage au pixel près et de l'échelle donnée (c'est la première cause d'erreur : la
+porte-fenêtre du porche s'arrête encore à la lisse de la balustrade sur certaines variantes, et
+dans le navigateur une fois l'échelle posée) ; deux détecteurs qui se trompent ensemble l'emportent sur le
+troisième (fenêtres d'étage prises avec leur encadrement de colombage, ou sans leur imposte) ; une
+image sombre garde des fausses baies dans la balustrade ; les fenêtres derrière un garde-corps
+ouvragé, les volets ouverts ; sur les immeubles, un cinquième des fenêtres ne sont vues par aucun
+des trois détecteurs, et sans échelle le sol y reste incertain (deux portes sur trois sortent
+« fenêtre »).

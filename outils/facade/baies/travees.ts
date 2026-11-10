@@ -318,7 +318,7 @@ interface Montant {
   y1: number;
 }
 
-/** Borne du nombre de montants : plus de trois fois ce qu'en compte la facade la plus chargee du jeu d'essai. */
+/** Borne du nombre de montants : plus de deux fois ce qu'en compte la facade la plus chargee des 236 mesurees (1311). */
 const MONTANTS_MAX = 3000;
 
 /**
@@ -1031,7 +1031,7 @@ function reunir(res: Case[]): Case[] {
   return t;
 }
 
-/** Borne du nombre d'examens du mur (un echantillonnage chacun) : trois fois ce qu'en demande la facade la plus chargee du jeu d'essai. */
+/** Borne du nombre d'examens du mur (un echantillonnage chacun) : plus de deux fois ce qu'en demande la facade la plus chargee des 236 mesurees (4891). */
 const EXAMENS_MAX = 12000;
 
 /**
