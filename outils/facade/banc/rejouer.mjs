@@ -4,7 +4,10 @@
 // qui rendent les boites rangees : le vote ne regarde pas l'image, le rejeu rend donc exactement
 // les notes du banc reel (verifie sur l'entrainement et sur un jeu tenu a l'ecart).
 //
-//   node rejouer.mjs <vote.ts> <P> <M> <T> <famille> ... [--boites <dossier>] [--json <fichier>] [--detail]
+//   node rejouer.mjs <vote.ts> <P> <M> <T> <famille> ... [--boites <dossier>] [--json <fichier>] [--csv <fichier>] [--detail]
+//
+// --csv : une ligne par image (famille;image;groupe;note;justes;fausses;manquees;iou), a comparer
+// d'une version a l'autre (resultats/).
 //
 // <P> <M> <T> : les etiquettes des boites de propositions, mailles et travees. Une ligne par
 // famille (--detail), puis la MESURE LARGE : les notes regroupees par groupe d'images, toutes
@@ -31,10 +34,11 @@ const drapeau = (n) => {
 };
 const BOITES = resolve(opt('--boites') ?? RACINE + '/node_modules/.cache/facade-banc');
 const json = opt('--json');
+const csv = opt('--csv');
 const detail = drapeau('--detail');
 const [vote, P, M, T, ...familles] = args;
 if (!vote || !T || !familles.length) {
-  console.error('usage : node rejouer.mjs <vote.ts> <P> <M> <T> <famille> ... [--boites <dossier>] [--json <fichier>] [--detail]');
+  console.error('usage : node rejouer.mjs <vote.ts> <P> <M> <T> <famille> ... [--boites <dossier>] [--json <fichier>] [--csv <fichier>] [--detail]');
   process.exit(2);
 }
 
@@ -87,3 +91,8 @@ console.log(
     ` | LARGE ${large.globale.toFixed(4)}`,
 );
 if (json) writeFileSync(json, JSON.stringify(tout));
+if (csv) {
+  const lignes = ['famille;image;groupe;note;justes;fausses;manquees;iou'];
+  for (const f of familles) for (const x of tout[f].lignes) lignes.push([f, x.nom, x.groupe, x.note.toFixed(4), x.tp, x.fp, x.fn, x.iou.toFixed(3)].join(';'));
+  writeFileSync(csv, lignes.join('\n') + '\n');
+}

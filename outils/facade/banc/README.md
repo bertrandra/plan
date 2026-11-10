@@ -10,6 +10,9 @@ node outils/facade/banc/evaluer.mjs outils/facade/baies.ts <dossier-du-jeu> --im
 node outils/facade/banc/evaluer.mjs outils/facade/baies.ts <dossier-du-jeu> --seul maison      # un sous-ensemble
 ```
 
+**Le mode d'emploi complet du test** — jeux, commandes, règles de décision, résultats de référence,
+comment lancer un nouveau jeu — est dans [`PROTOCOLE.md`](PROTOCOLE.md).
+
 Sur les PNG : vert = ouverture trouvée, jaune = manquée, orange = difficile (ne compte pas), bleu
 pointillé = zone ignorée ; rouge = détection juste, magenta = fausse, gris = doublon ou ignorée.
 

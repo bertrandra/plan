@@ -32,6 +32,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   a été relu et contrôlé à son tour : sol non annoncé quand le résultat le contredit, temps borné,
   entrées mal formées tolérées ; sur l'élévation que la page tire de trois photos, 36 fausses baies
   → 5 sur treize variantes. Le banc mesure maintenant sur 221 images (boîtes rangées, vote rejoué).
+  Le test complet est gardé pour être rejoué ou étendu à un nouveau jeu d'images : méthode, règles de
+  décision et résultats de référence dans `outils/facade/banc/PROTOCOLE.md`, annotations des jeux et
+  scripts qui les remontent au bit près, résultats image par image (`banc/resultats/`).
 
 ### Corrigé
 
