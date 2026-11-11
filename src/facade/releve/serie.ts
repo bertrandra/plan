@@ -41,6 +41,11 @@ export interface Morceau {
   silhouette?: P2[] | null;
   /** Quatre reperes poses a la main (audit) : ils redressent la photo entiere avant l'assemblage. */
   reperes?: P2[] | null;
+  /**
+   * Le mur vient des pignons lus sur l'assemblage (calagePignons.ts) : son egout et son sol y sont a l'echelle que la photo montre, et le
+   * gabarit se tend entre eux au lieu de suivre l'echelle de la largeur (analyseMur.ts).
+   */
+  gabaritTendu?: boolean;
 }
 
 /** Le calage fin d'une photo, sans ce qui ne sert qu'aux images de controle. */

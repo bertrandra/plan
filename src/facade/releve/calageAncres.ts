@@ -29,6 +29,7 @@
 // Pur, sans DOM. Les seuils sont des reglages (regles/facades/enchainement.json).
 
 import type { PoseDuMurCherche } from '../../model/auditParcelle.js';
+import type { LectureDesPignons } from './calagePignons.js';
 import type { Image } from '../vision/homographie.js';
 import { affinerEgoutEtSol, matiereDuMur, type MurLu, type Rect } from '../vision/mosaiqueFuites.js';
 import { objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
@@ -77,6 +78,8 @@ interface CalageParAncres {
   aretes: (Rect & { score: number }) | null;
   /** Les seuils du test, tels qu'ils ont ete appliques. */
   seuils: SeuilsCalage;
+  /** Ce que le calage par les pignons a lu, quand il a pose le mur (calagePignons.ts). */
+  pignons?: LectureDesPignons;
 }
 
 /**

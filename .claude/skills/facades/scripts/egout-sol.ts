@@ -27,6 +27,8 @@ import { gabaritDuHaut, gabaritSurLaVue } from '../../../../src/facade/gabaritMu
 const args = process.argv.slice(2);
 const iImages = args.indexOf('--images');
 const dossier = iImages >= 0 ? args[iImages + 1] : null;
+// `--sans-pignons` : le mur cherche sans le gabarit, par les ancres seules (la mesure d'avant le calage par les pignons).
+const sansPignons = args.includes('--sans-pignons');
 const mots = args.filter((a, i) => !a.startsWith('--') && (iImages < 0 || i !== iImages + 1));
 if (dossier) mkdirSync(dossier, { recursive: true });
 
@@ -93,7 +95,7 @@ for (const s of chargerCorpus()) {
     // Le gabarit du mur, comme le donnerait le LiDAR : le haut vrai (l'egout, et le pignon au-dessus).
     const pg0 = s.synthese.mur.pignon ?? 0, sommet0 = s.synthese.mur.pignonSommet ?? 0.5;
     const gabarit = gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg0 * formePignon(u, sommet0) })));
-    const r = murSurLAssemblage(m, H / L);
+    const r = murSurLAssemblage(m, H / L, undefined, sansPignons ? null : gabarit);
     ecarts.poses++; if (r.calage.retenue !== 'plan-seul') ecarts.expliquees++;
     const e = { egout: Math.abs(r.y0 - verite.y0) / w, sol: Math.abs(r.y1 - verite.y1) / w, g: Math.abs(r.x0 - verite.x0) / w, d: Math.abs(r.x1 - verite.x1) / w };
     ecarts.egout.push(e.egout); ecarts.sol.push(e.sol); ecarts.bouts.push(e.g, e.d);

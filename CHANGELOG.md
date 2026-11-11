@@ -13,6 +13,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (`src/facade/detection/baies/`, PR 657) ; un changement du vote se fait dans `facade` (le banc y est), puis se reporte ici. L'historique de
   l'outil reste dans ce journal (entrées de la PR 656).
 
+### Ajouté
+
+- **Le mur d'une façade à pignons se pose sans geste, par ses pignons** (`facade/releve/calagePignons.ts`, `VERSION_CHAINE_FACADES` 16).
+  Sur la vraie maison de référence (deux pignons au fond, un appentis devant, un pan de bois), aucune pose ne passait le test des ancres
+  (la vraie y est notée de 0,13 à 0,38) et la chaîne rendait la pose du plan seul : il fallait poser le mur à la main. Quand le gabarit du
+  plan et du LiDAR a des pignons et que l'assemblage les montre tous, à leurs places et à leurs tailles, leurs sommets donnent les bouts du
+  mur ; l'égout du toit bas devant le mur et le sol (le pied des verticales) se lisent sous eux. Mesuré sur la mosaïque réelle : bouts à
+  0,5 % de la largeur, égout à 1,3 %, sol à 1 %. Le gabarit se tend alors entre l'égout et le sol lus, et l'É7 dit « Mur posé sans geste
+  par les pignons du plan ». Un contrôle qui échoue ne pose rien : la chaîne continue comme avant, repères et mur tiré restent le repli.
+  Les façades sans pignon, ou dont le gabarit ne montre aucun pied de rive, ne changent pas (banc de synthèse identique).
+
 ### Modifié
 
 - **Les ouvertures d'une façade se lisent par un vote entre trois détecteurs** (modèle de `facade.html`, `outils/facade/`), dans

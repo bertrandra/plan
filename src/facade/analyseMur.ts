@@ -27,6 +27,8 @@ export interface PhotoDuMur {
   silhouette?: P2[] | null;
   /** Quatre reperes poses a la main (un rectangle du mur) : ils redressent la photo entiere avant l'assemblage. */
   reperes?: P2[] | null;
+  /** Le mur vient des pignons lus sur l'assemblage : le gabarit se tend entre son egout et son sol (serie.ts::Morceau). */
+  gabaritTendu?: boolean;
 }
 
 /** Ce que le mur donne a toutes les photos : sa largeur (le plan), sa hauteur estimee, le batiment et la distance. */
@@ -56,7 +58,9 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
   // mur a ete trouve (une photo de biais ne dit pas ses proportions) ; sans assemblage, entre l'egout et le sol, comme avant.
   const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
   const enParts = avec ? silhouetteEnPartsDuMur(avec.coins, avec.silhouette) : null;
-  const k = asm ? echelleDuGabarit(murSeul.hauteur / murSeul.largeur, rectDesCoins(asm.coins)) : 1;
+  // Un mur pose par les pignons (calagePignons.ts) : l'egout et le sol y viennent de deux niveaux lus sur la photo, a son echelle des
+  // hauteurs ; le gabarit se tend entre eux, ses pointes tombent alors sur les pignons de la photo.
+  const k = asm && !photos.some((p) => p.gabaritTendu) ? echelleDuGabarit(murSeul.hauteur / murSeul.largeur, rectDesCoins(asm.coins)) : 1;
   const silhouette = enParts ? gabaritALEchelle(enParts, k) : null;
   const a = analyserLeMurSansMarche(murSeul, photos, assemblage, asm, silhouette ? [...silhouette] : null);
   if (!a || a.r.partiesBasses.length) return a;

@@ -339,6 +339,10 @@ un faux « ok » — l'égout de 24 pris 48 cm trop bas, score 0,89 —, le mur 
 **La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit ; le
 gabarit juge la pose (l'É7), il ne la cherche pas. Sur ce mur, la personne pose le mur à la main.
 
+**Exception, le calage par les pignons** (11 novembre 2026, `facade/releve/calagePignons.ts`, spec §4 É7) : quand le gabarit a des
+pignons dont il montre un pied de rive, et que l'assemblage les montre tous, ils posent le mur sans geste, avant les ancres.
+`egout-sol.ts` passe le gabarit à `murSurLAssemblage` comme la chaîne ; `--sans-pignons` rejoue les ancres seules.
+
 **Les baies sous le pignon d'un corps voisin** (décision du propriétaire, 2 novembre 2026, `facade/releve/murVoisin.ts`) : une baie lue
 hors des cotes du mur, sous le pignon d'un corps voisin qui prolonge la façade, va sur la façade du côté du contour qui porte ce mur, s'il
 en a une (`detectee`, sans toucher au reste de cette façade ; V4 écrit les deux en un pas) ; sinon elle reste sur la façade photographiée
