@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-// Les tests vivent dans tests/unit/<couche>/, miroir de src/ (CLAUDE.md, Conventions).
+// Les tests vivent dans tests/unit/<couche>/, miroir de src/ (CLAUDE.md, Conventions) ; ceux du banc d'apprentissage dans banc/tests/.
 export default defineConfig({
   // Les deux constantes que le build injecte : sans elles, importer src/plateforme/config.ts sous
   // vitest echouerait sur un identifiant inconnu. Vides, comme un build sans plateforme branchee.
@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'banc/tests/**/*.test.ts'],
     coverage: { provider: 'v8', include: ['src/**'] }
   }
 });

@@ -22,5 +22,5 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "banc/src", "banc/tests", "banc/vite.config.ts"]
 }

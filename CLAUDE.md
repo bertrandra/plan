@@ -132,6 +132,11 @@ d'y toucher.
 
 ## Décisions déjà prises
 
+- **Le banc d’apprentissage des façades (`banc/`, `?banc`) est une application à part** (demande du propriétaire, 11 novembre 2026) :
+  son code n’importe rien de `src/` (`banc/tests/independance.test.ts`) ; ce qu’il tient de Plan est copié, figé, dans `banc/src/plan/`.
+  Son serveur (`banc/public/api.php`), son mot de passe (`banc-config.php`) et ses données (`data/apprentissage/`) sont les siens. Plan
+  ne le touche que par la règle `?banc` de `deploy/htaccess.template` et sa construction dans la livraison. Voir `banc/LISEZMOI.md`.
+
 - **Un seul serveur, en PHP** (`deploy/*.php`, livré dans `livraison/`) : le second serveur Node (`buildsg/`) a été retiré le
   25 octobre 2026, ses deux copies d'un même contrat s'écartaient. Le calcul d'`analyse.php` vit dans
   `deploy/analyse-fonctions.php` (rien ne s'y exécute à l'inclusion) et se teste fonction par fonction

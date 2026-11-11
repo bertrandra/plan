@@ -5,7 +5,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'legacy/**'] },
+  { ignores: ['dist/**', 'dist-banc/**', 'node_modules/**', 'legacy/**'] },
   js.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -49,8 +49,13 @@ export default [
     rules: { 'max-lines-per-function': ['error', { max: 150 }] }
   },
   {
+    // Le banc d'apprentissage (banc/, son propre code) suit les memes deux regles que le code livre de Plan.
+    files: ['banc/src/**/*.ts', 'banc/src/**/*.tsx'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'error', 'max-lines-per-function': ['error', { max: 150 }] }
+  },
+  {
     // Les tests s'executent sous Node : ils utilisent __dirname, Buffer et process.
-    files: ['tests/**/*.ts'],
+    files: ['tests/**/*.ts', 'banc/tests/**/*.ts'],
     languageOptions: {
       globals: { __dirname: 'readonly', Buffer: 'readonly', process: 'readonly' }
     }

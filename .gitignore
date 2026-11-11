@@ -16,6 +16,7 @@ BKP */
 # Sans barre finale : le motif couvre aussi un lien symbolique (celui d'un worktree de livraison).
 node_modules
 dist/
+dist-banc/
 # Sauf les bibliotheques copiees dans la livraison (deploy/bibliotheques.mjs) : pdf-lib range son module sous dist/, et une
 # livraison tiree de git sans lui retomberait sur jsDelivr.
 !livraison/assets/vendor/**/dist/

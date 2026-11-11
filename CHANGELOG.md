@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Le banc d’apprentissage des façades** (`banc/`, adresse `?banc`) : une application à part, avec son propre code, son
+  propre serveur PHP (`banc/public/api.php`), son propre mot de passe (`banc-config.php`, hors de `public_html/`) et ses
+  données dans `data/apprentissage/`. Le cycle complet d’un YOLO qui évalue les façades : l’arbre des objets à marquer
+  (rectangles et polygones, couleurs, attributs), l’import des photos de l’iPhone (EXIF gardé) et de Panoramax par lot autour
+  d’une adresse (un 360 ramené à la vue tournée vers elle), le redressement (points de fuite, sinon quatre coins), la mosaïque
+  de validation, le brouillon en lot (les modèles YOLOv10n du dépôt `facade` et la recherche des baies), la correction
+  (créer, déplacer, reformer, supprimer, annuler), le catalogue, l’export au format Ultralytics (détection YOLOv10n et
+  contours YOLO11n-seg, `data.yaml`, script d’entraînement) et les blocs train / val / test avec un échantillon à vérifier.
+  Plan n’en est touché que par une règle du `.htaccess` (`?banc`) et la livraison, qui construit le banc dans `banc/`.
+
 ### Retiré
 
 - **`facade.html` et `outils/facade/` quittent Plan** pour leur propre dépôt, [`bertrandra/facade`](https://github.com/bertrandra/facade) : la page

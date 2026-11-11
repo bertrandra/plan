@@ -63,6 +63,10 @@ RedirectMatch 404 ^/data(/|$)
   RewriteEngine On
   # data/ (deploy/donnees.php) vit hors de la racine web ; pose ici par erreur, il ne se sert pas.
   RewriteRule ^(plan-demos|demos|data)(/|$) - [R=404,L]
+  # Le banc d'apprentissage des facades (banc/, une application a part, son propre code et son propre mot de passe) : l'adresse
+  # `?banc` ouvre sa page, rangee dans banc/ avec son .htaccess (sa politique de contenu) et son API.
+  RewriteCond %{QUERY_STRING} (^|&)banc(=[^&]*)?(&|$)
+  RewriteRule ^(index\.html)?$ banc/index.html [L]
   # Le jeton de la plateforme (`Authorization: Bearer`, lot L17) : PHP en CGI ou FPM ne recoit pas
   # cet en-tete sans ce passage par une variable d'environnement (`HTTP_AUTHORIZATION`, ou
   # `REDIRECT_HTTP_AUTHORIZATION` apres la reecriture ; analyse.php lit les deux).

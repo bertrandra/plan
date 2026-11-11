@@ -35,6 +35,7 @@
 //   data/demo/2.json…          les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
 //   data/admin/arbres.json     la bibliotheque d'essences d'arbres livree (quarante essences, dix par taille) : le code n'en a aucune
 //   cerfa/cerfa_13703-12.pdf   le formulaire officiel de la declaration prealable, rempli par la page
+//   banc/                      le banc d'apprentissage des facades (une application a part : npm run build:banc), adresse ?banc
 //   LISEZMOI-DEPLOIEMENT.txt   les etapes
 
 import { execSync } from 'node:child_process';
@@ -48,6 +49,8 @@ const origine = process.env.BACKPROD_API_URL || 'https://www.raillard.org';
 
 execSync('npx vite build', { cwd: racine, stdio: 'inherit', env: { ...process.env, BACKPROD_API_URL: origine } });
 execSync('node scripts/verifier-paquet.mjs dist/index.html', { cwd: racine, stdio: 'inherit' });
+// Le banc d'apprentissage des facades : son propre build, dans banc/ de la livraison.
+execSync('npx vite build --config banc/vite.config.ts', { cwd: racine, stdio: 'inherit' });
 
 
 rmSync(sortie, { recursive: true, force: true });
@@ -64,6 +67,7 @@ cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admi
 for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'prompt-plu.md', 'schema-plu.json', 'prompt-jardin.md', 'schema-jardin.json', 'prompt-facade-enrichie.md', 'schema-facade-enrichie.json', 'prompt-facade-toit.md', 'schema-facade-toit.json', 'prompt-texte.md', 'schema-texte.json', 'prompt-assistant.md', 'schema-assistant.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
+cpSync(resolve(racine, 'dist-banc'), resolve(sortie, 'banc'), { recursive: true });
 
 const version = JSON.parse(readFileSync(resolve(racine, 'package.json'), 'utf8')).version;
 
@@ -230,6 +234,14 @@ Sur l'hebergement, trois choses voisines :
       - Sans l'extension PHP zip, la route repond 501 : l'activer dans Site Tools > Devs >
         PHP Manager > PHP Extensions.
 
+2 bis. Banc d'apprentissage des facades (facultatif ; une application a part, adresse https://<hote>/?banc) :
+   a. Il est dans banc/ de cette livraison (sa page, son programme, api.php, son .htaccess). Rien a faire de plus pour le servir.
+   b. Copier banc/banc-config.exemple.php a cote de public_html/ (comme plan-admin-config.php), sous le nom banc-config.php,
+      et y remplacer « A-CHANGER » par le mot de passe du banc (ou poser motDePasseHash).
+   c. Ses donnees vivent dans data/apprentissage/, a cote de banc-config.php (hors de public_html/) : photos, marquage, classes,
+      modeles. Le dossier se cree au premier usage. Il faut les extensions PHP zip (export) et une limite d'envoi d'au moins
+      40 Mo (upload_max_filesize, post_max_size) ; un modele entraine pese ~10 Mo.
+
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
                                      du navigateur dit quel fichier manque
@@ -244,6 +256,7 @@ Sur l'hebergement, trois choses voisines :
    - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
                                        montre la demonstration integree, et la reponse dit pourquoi
    - https://<hote>/data/demo/1.json   doit repondre 404 (data/ n'est jamais servi)
+   - https://<hote>/?banc              le mot de passe du banc ; https://<hote>/banc/api.php?r=etat repond {"connecte":false}
    - npm run verifier-deploiement https://<hote>   (depuis le depot)
 
 Une demo est un fichier JSON au format de l'export de Plan ({meta, objects, measures}).
