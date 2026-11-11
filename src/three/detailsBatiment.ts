@@ -32,7 +32,7 @@ import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
 import { contourAvecReculs, cotesDuPiedSurLesCotes } from '../facade/modeToit/travees.js';
-import { corpsAuPied, murDuCorps, type RetraitRdc } from '../facade/modeToit/saillies.js';
+import { corpsAuPied, facesDevantLeMur, murDuCorps, type RetraitRdc } from '../facade/modeToit/saillies.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, carreauxDesDetails, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
@@ -450,7 +450,14 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
     // Les cotes du mur recule (pas les retours d'une travee) : ce que leurs ouvertures doivent savoir de l'etage qui avance.
     const sousEtage = new Map<number, CoteSousEtage>();
     if (retraits) pied.cotes.forEach((q, i) => { const r = retraits.find((x) => x.mur === q.mur); if (r && q.recul === 0) sousEtage.set(i, r); });
-    const sansAutomatiques = [...new Set([...interieurs, ...releves])];
+    // La face d'un corps qui passe devant un mur releve (un appentis, une veranda) montre le bas de sa photo (three/releve3d.ts) : la
+    // disposition automatique n'y dessine rien non plus.
+    const devant = options.cotesReleves?.length ? facadesDuContour(batiment, 0).filter((f) => options.cotesReleves?.includes(f.cote)).flatMap((f) => facesDevantLeMur(f, [c])) : [];
+    const photographies = devant.length ? pts.map((_: PtBrut, i: number) => i).filter((i: number) => {
+      const a = au(pts, i), b = sommetDe(pts, i + 1), l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      return devant.some((d) => { const m = { x: (d.a.x + d.b.x) / 2, y: (d.a.y + d.b.y) / 2 }; return Math.abs((m.x - a.x) * (b.y - a.y) - (m.y - a.y) * (b.x - a.x)) / l < 0.05; });
+    }) : [];
+    const sansAutomatiques = [...new Set([...interieurs, ...releves, ...photographies])];
     const bas = Math.min(...c.egouts);
     const largeur = options.fenetres?.largeur, hauteur = options.fenetres?.hauteur;
     const h = hauteursMursCorps(c);

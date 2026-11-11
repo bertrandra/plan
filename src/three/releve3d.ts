@@ -17,7 +17,7 @@ import { partiesBassesDu } from '../model/partiesBasses.js';
 import { hauteurDuMur } from '../facade/ouvertures.js';
 import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { contourDuMur, egoutEn, ouverturesDansLeMur, volumesEtHautesDuBatiment, type PartiesDuMur } from '../facade/profil.js';
-import { hautDuMurSousCorps, silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
+import { hautDuMurSousCorps, silhouetteDeFace, silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
 import { trianguler } from '../geometry/triangulation.js';
@@ -30,8 +30,9 @@ import { sansOmbres } from '../facade/vision/sansOmbres.js';
 import { poserCarreaux, vitreLue } from './carreaux3d.js';
 import { poserModenature } from './modenature3d.js';
 import { portionsOuvertesDuMur } from './toitCorps3d.js';
-import { facesAvantDuBowWindow, morceauxSousEtage, profondeurDOuverture, retraitsSurLaFacade, type RetraitRdc, type RetraitSurFacade } from '../facade/modeToit/saillies.js';
+import { avanceeDuMurPorteur, facesAvantDuBowWindow, facesDevantLeMur, morceauxSousEtage, profondeurDOuverture, retraitsSurLaFacade, type RetraitRdc, type RetraitSurFacade } from '../facade/modeToit/saillies.js';
 import type { ReleveFacade } from '../model/types.js';
+import type { DebordsTexture } from '../model/typesReleve.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
@@ -156,13 +157,15 @@ function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, 
   const { pt } = repereMur(ctx, hab.f);
   const L = hab.f.largeur;
   const entier = corps?.length ? silhouetteDuMur(hab.f, corps, hab.hauteurTexture, hauteur) : contourDuMur(L, hauteur, partie);
+  // La photo se pose sur le mur qui la porte : celui du corps, quand il passe devant la ligne du cote (saillies.ts::avanceeDuMurPorteur).
+  const avancee = corps?.length ? avanceeDuMurPorteur(hab.f, corps) : () => 0;
   // Un rez-de-chaussee en retrait sous l'etage (schema 16, decision du proprietaire du 9 novembre 2026) : la photo se coupe au dessous de
   // l'etage, le bas recule avec le mur du rez-de-chaussee, le haut reste au nu ; derriere un bow-window, rien. Memes coordonnees de texture
   // que la photo entiere : chaque point du mur montre le meme pixel, seul le plan ou il se pose change.
   if (sousEtage.length) {
     const fermees = ouvertes.length ? portionsFermees(L, ouvertes) : [[0, L] as [number, number]];
     for (const { contour, profondeurM } of morceauxSousEtage(entier, fermees, sousEtage)) {
-      const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT - profondeurM));
+      const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT + avancee(q.x) - profondeurM));
       const uv = contour.flatMap((q) => [q.x / L, Math.min(1, q.y / hab.hauteurTexture)]);
       const m = maillage(sommets, trianguler(contour).flat(), hab.mat, uv);
       m.name = 'releve-facade';
@@ -173,7 +176,7 @@ function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, 
   // Sous un appentis ouvert, il n'y a pas de mur : la photo se pose sur les seules portions fermees (la coordonnee de texture reste
   // celle du mur entier, la photo ne glisse pas).
   for (const contour of ouvertes.length ? portionsFermees(L, ouvertes).map(([a, b]) => entreAbscisses(entier, a, b)).filter((c) => c.length >= 3) : [entier]) {
-    const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT));
+    const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT + avancee(q.x)));
     const uv = contour.flatMap((q) => [q.x / L, Math.min(1, q.y / hab.hauteurTexture)]);
     const m = maillage(sommets, trianguler(contour).flat(), hab.mat, uv);
     m.name = 'releve-facade';
@@ -222,6 +225,66 @@ function plaquerSurLesBowWindows(ctx: ContexteReleve3d, hab: Habillage, sousEtag
     habilles.push(c);
   }
   return habilles;
+}
+
+/** Le nom de la photo posee sur la face d'un corps qui passe devant le mur (appentis, veranda). */
+export const NOM_PHOTO_CORPS_DEVANT = 'releve-facade-corps-devant';
+/** Le nom de la photo posee au-dela des bouts du cote, sur le mur d'un corps qui le depasse. */
+export const NOM_PHOTO_DEBORD = 'releve-facade-debord';
+
+/**
+ * La photo du releve sur les faces des corps qui passent devant le mur (facade/modeToit/saillies.ts::facesDevantLeMur) : le bas de la
+ * photo montre l'appentis ou la veranda, pas le mur qu'ils cachent. Memes coordonnees de texture que sur le mur : la photo ne glisse
+ * pas, seul le plan ou elle se pose change. `entre` et `u` : les abscisses couvertes et la coordonnee de texture d'une abscisse (le
+ * mur entier par defaut ; un debord de la photo a les siennes).
+ */
+function plaquerSurLesCorpsDevant(ctx: ContexteReleve3d, hab: Habillage, corps: readonly CorpsToit[], entre: readonly [number, number] = [0, hab.f.largeur], u: (x: number) => number = (x) => x / hab.f.largeur): void {
+  const f = hab.f;
+  for (const face of facesDevantLeMur(f, corps, entre)) {
+    const loin = (q: PtBrut) => ctx.toLocal({ x: q.x + f.normale.x * DECOLLEMENT, y: q.y + f.normale.y * DECOLLEMENT });
+    const a = loin(face.a), b = loin(face.b), top = Math.min(face.hauteurM, hab.hauteurTexture), v = top / hab.hauteurTexture;
+    const m = maillage([a.x, 0, a.z, b.x, 0, b.z, b.x, top, b.z, a.x, top, a.z], [0, 1, 2, 0, 2, 3], hab.mat, [u(face.xa), 0, u(face.xb), 0, u(face.xb), v, u(face.xa), v]);
+    m.name = NOM_PHOTO_CORPS_DEVANT;
+    ctx.scene.add(m);
+  }
+}
+
+/**
+ * Les debords de la photo (model/typesReleve.ts::DebordsTexture) : au-dela des bouts du cote du contour, le mur d'un corps continue
+ * (le trace du cadastre est plus court que la maison lue au LiDAR), et la photo le montre. Chaque bande se pose sur ce mur, sous sa
+ * silhouette (silhouetteDeFace, qui ne s'arrete pas au cote), et sur ce qui passe devant lui, a la suite de la photo du mur : meme
+ * echelle, meme hauteur. Rien ou aucun mur ne depasse.
+ */
+function plaquerLesDebords(ctx: ContexteReleve3d, hab: Habillage, debords: DebordsTexture, corps: readonly CorpsToit[]): void {
+  const f = hab.f, L = f.largeur, { pt } = repereMur(ctx, f);
+  const sil = silhouetteDeFace(f, corps), avancee = avanceeDuMurPorteur(f, corps);
+  const hautEn = (x: number): number | null => {
+    for (let i = 0; i + 1 < sil.haut.length; i++) {
+      const p = sil.haut[i] as { x: number; y: number | null }, q = sil.haut[i + 1] as { x: number; y: number | null };
+      if (x < p.x - 1e-9 || x > q.x + 1e-9 || p.y === null || q.y === null) continue;
+      return q.x > p.x ? p.y + ((q.y - p.y) * (x - p.x)) / (q.x - p.x) : Math.max(p.y, q.y);
+    }
+    return null;
+  };
+  for (const [d, xa, xb, x0] of [[debords.gauche, Math.max(-(debords.gauche?.largeurM ?? 0), sil.x0), 0, -(debords.gauche?.largeurM ?? 0)], [debords.droite, L, Math.min(L + (debords.droite?.largeurM ?? 0), sil.x1), L]] as const) {
+    if (!d || xb - xa < 0.05) continue;
+    const tex = new THREE.TextureLoader().load(d.texture);
+    garderLeJpeg(tex, d.texture);
+    tex.anisotropy = 4;
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide });
+    poserEnCouche(mat, COUCHES_SOL.surMur);
+    const u = (x: number) => Math.min(1, Math.max(0, (x - x0) / d.largeurM));
+    const plafond = (y: number) => Math.min(y, hab.hauteurTexture);
+    const ya = hautEn(xa + 1e-6), yb = hautEn(xb - 1e-6);
+    if (ya !== null && yb !== null) {
+      const dessus = sil.haut.filter((p) => p.x > xa + 1e-6 && p.x < xb - 1e-6 && p.y !== null).map((p) => ({ x: p.x, y: plafond(p.y as number) }));
+      const contour = [{ x: xa, y: 0 }, { x: xb, y: 0 }, { x: xb, y: plafond(yb) }, ...dessus.reverse(), { x: xa, y: plafond(ya) }];
+      const m = maillage(contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT + avancee(q.x))), trianguler(contour).flat(), mat, contour.flatMap((q) => [u(q.x), q.y / hab.hauteurTexture]));
+      m.name = NOM_PHOTO_DEBORD;
+      ctx.scene.add(m);
+    }
+    plaquerSurLesCorpsDevant(ctx, { ...hab, mat }, corps, [xa, xb], u);
+  }
 }
 
 /** Le complement des portions ouvertes dans [0, L] : les portions du mur ou il y a un mur. */
@@ -481,6 +544,10 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       plaquerTexture(ctx, hab, hMur, partie, corps, ouvertes, sousEtage);
       // Devant le mur recule, la face avant des bow-windows recoit la part de la photo qui est devant eux.
       if (sousEtage.length) for (const c of plaquerSurLesBowWindows(ctx, hab, sousEtage)) bowsHabilles.add(c);
+      // Devant le mur, un appentis ou une veranda : leur face recoit le bas de la photo, qui les montre.
+      if (corps?.length) plaquerSurLesCorpsDevant(ctx, hab, corps);
+      // Au-dela des bouts du cote, le mur d'un corps qui le depasse : les bandes de la photo qui le montrent.
+      if (corps?.length && r.debords) plaquerLesDebords(ctx, hab, r.debords, corps);
     }
     // Le haut de la facade sous les corps du toit (le pignon jusqu'au faitage) : la detection y cherche aussi (facade/analyse.ts), une
     // baie de pignon (lucarne, oculus) s'y pose. Sans corps, ou sur un mur en L, le haut est l'egout.
@@ -493,7 +560,9 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     // (profondeurDOuverture, comme la disposition automatique) ; sans retrait, toutes au nu.
     const profondeur = (ov: OuvertureFacade) => (sousEtage.length ? profondeurDOuverture(ov, sousEtage) : 0);
     const posees = dansLeL(r.ouvertures.filter((ov) => horsOuvert(ov) && profondeur(ov) !== null && ov.x >= -0.01 && ov.x + ov.l <= f.largeur + 0.01 && (sousEgout(ov) || ov.y + ov.h <= Math.min(hautEn(ov.x), hautEn(ov.x + ov.l)) + 0.01)));
-    const facadeDe = (ov: OuvertureFacade) => facadeReculee(f, profondeur(ov) ?? 0);
+    // Comme la photo, une baie se pose sur le mur qui la porte, la ou il passe devant la ligne du cote.
+    const avancee = corps?.length ? avanceeDuMurPorteur(f, corps) : () => 0;
+    const facadeDe = (ov: OuvertureFacade) => facadeReculee(f, (profondeur(ov) ?? 0) - avancee(ov.x + ov.l / 2));
     // Le haut du mur au-dessus d'une baie du bas d'un rez-de-chaussee en retrait : le dessous de l'etage.
     const dessousEtage = (ov: OuvertureFacade) => (profondeur(ov) ? sousEtage.find((k) => ov.x < k.a && ov.x + ov.l > k.de)?.hauteurM : undefined);
     posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), facadeDe(ov), ov, avecPhoto));

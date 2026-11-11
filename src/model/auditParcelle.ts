@@ -62,9 +62,9 @@ export interface BilanPhotoRedressement {
   /** Pourquoi `echec` ; absent sinon. */
   motif?: string;
   /**
-   * Le mur cherche sur l'assemblage des vues redressees par les reperes de la personne (facade/releve/coinsAuto.ts::coinsAutoDeSerie) :
-   * la pose que l'arbitre a retenue (celle des aretes, une autre qui explique mieux la photo, ou celle du plan seul, supposee) et si
-   * l'egout et le pied y ont ete lus. Absent hors de ce chemin. Les reperes ne font que redresser la photo : le mur qui en sort reste
+   * Le mur cherche sur l'assemblage des vues redressees (facade/releve/coinsAuto.ts::coinsAutoDeSerie), par les reperes de la personne
+   * ou, sans geste, par les pignons du plan : la pose retenue (celle des pignons, celle des aretes, une autre qui explique mieux la
+   * photo, ou celle du plan seul, supposee) et si l'egout et le pied y ont ete lus. Absent hors de ce chemin. Les reperes ne font que redresser la photo : le mur qui en sort reste
    * juge comme un mur trouve sans geste (decision du proprietaire, 3 novembre 2026), seul un mur tire a la main est « a la main ».
    */
   murCherche?: { pose: PoseDuMurCherche; lu: boolean };
@@ -77,7 +77,7 @@ export interface BilanPhotoRedressement {
 }
 
 /** D'ou vient la pose du mur cherche sur l'assemblage (facade/releve/calageAncres.ts::PoseRetenue, meme vocabulaire). */
-export type PoseDuMurCherche = 'aretes' | 'mieux-expliquee' | 'plan-seul';
+export type PoseDuMurCherche = 'aretes' | 'mieux-expliquee' | 'plan-seul' | 'pignons';
 
 /** Le redressement et la fusion des photos d'une facade, ce que le bouton « Rejouer » recalcule. Derive : jamais source de verite. */
 export interface BilanRedressement {

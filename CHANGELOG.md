@@ -13,6 +13,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (`src/facade/detection/baies/`, PR 657) ; un changement du vote se fait dans `facade` (le banc y est), puis se reporte ici. L'historique de
   l'outil reste dans ce journal (entrées de la PR 656).
 
+### Ajouté
+
+- **Le mur d'une façade à pignons se pose sans geste, par ses pignons** (`facade/releve/calagePignons.ts`, `VERSION_CHAINE_FACADES` 16).
+  Sur la vraie maison de référence (deux pignons au fond, un appentis devant, un pan de bois), aucune pose ne passait le test des ancres
+  (la vraie y est notée de 0,13 à 0,38) et la chaîne rendait la pose du plan seul : il fallait poser le mur à la main. Quand le gabarit du
+  plan et du LiDAR a des pignons et que l'assemblage les montre tous, à leurs places et à leurs tailles, leurs sommets donnent les bouts du
+  mur ; l'égout du toit bas devant le mur et le sol (le pied des verticales) se lisent sous eux. Mesuré sur la mosaïque réelle : bouts à
+  0,5 % de la largeur, égout à 1,3 %, sol à 1 %. Le gabarit se tend alors entre l'égout et le sol lus, et l'É7 dit « Mur posé sans geste
+  par les pignons du plan ». Un contrôle qui échoue ne pose rien : la chaîne continue comme avant, repères et mur tiré restent le repli.
+  Les façades sans pignon, ou dont le gabarit ne montre aucun pied de rive, ne changent pas (banc de synthèse identique).
+- **La photo d'un mur posé par les pignons s'étire sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : la
+  hauteur du mur n'y est plus mesurée sur la photo, c'est celle du plan ; le mur redressé, sa texture et ses ouvertures sont à cette
+  hauteur. Sur la maison de référence, l'égout « mesuré » à 6,27 m (25 % au-dessus du plan) faisait glisser la photo sous les pignons et
+  lisait 13 ouvertures ; à la hauteur du plan (5 m), 8 ouvertures, à leurs places.
+- **En Vue 3D, la photo d'un relevé se pose sur ce qu'elle montre** (`three/releve3d.ts`, `facade/modeToit/saillies.ts`) : sur la face
+  d'un corps fermé qui passe devant le mur (un appentis, une véranda : `facesDevantLeMur`), le bas de la photo, aux mêmes abscisses que
+  sur le mur, et sans les fenêtres de la disposition automatique sur cette face ; et sur le mur du corps qui porte la façade quand il
+  passe devant la ligne du côté du cadastre (`avanceeDuMurPorteur` : sur la maison de référence, le mur croisait la photo et en cachait la
+  moitié droite, pignon compris). Les ouvertures du relevé suivent le même mur.
+- **La photo d'un relevé n'est plus coupée aux bouts du côté du cadastre** : quand le mur d'un corps du toit dépasse ce côté (sur la
+  maison de référence, 85 cm à gauche : le tracé du cadastre fait 8,96 m, la maison lue au LiDAR 10 m), ce que la photo montre au-delà
+  est gardé avec le relevé (`ReleveFacade.debords`, une bande par bout, à l'échelle et sur la hauteur de la texture) et posé en Vue 3D
+  sur ce mur et sur ce qui passe devant lui, à la suite de la photo du mur. La texture du mur, ses cotes et ses ouvertures ne changent
+  pas ; un relevé d'avant, sans débords, se dessine comme avant.
+
 ### Modifié
 
 - **Les ouvertures d'une façade se lisent par un vote entre trois détecteurs** (modèle de `facade.html`, `outils/facade/`), dans

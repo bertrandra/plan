@@ -7,7 +7,9 @@ import type { Image, P2 } from '../vision/homographie.js';
 import { detecterSegments } from '../vision/segments.js';
 import { redresserParFuites, type RedressementFuites } from '../vision/redressementFuites.js';
 import { coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectanglesSurLesAretes, type MurLu, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
-import { calerParLesAncres, seuilsDuCalage, type MurCale, type SeuilsCalage } from './calageAncres.js';
+import { calerParLesAncres, expliquer, seuilsDuCalage, type MurCale, type SeuilsCalage } from './calageAncres.js';
+import { poserParLesPignons } from './calagePignons.js';
+import type { GabaritMur } from '../gabaritMur.js';
 import type { Similitude } from '../vision/ransac.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
@@ -51,11 +53,19 @@ const POSES_JUGEES = 7;
  * (LiDAR) : le mur est le rectangle a ces proportions (`rapport` = hauteur / largeur) que les aretes de l'assemblage dessinent le
  * mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue. Les bouts sont surs, l'egout et le sol beaucoup
  * moins : ils s'affinent par la teinte du mur. La pose ne vaut que si elle explique la photo sans le toit (calageAncres.ts) : sinon
- * une autre pose des aretes qui l'explique, ou celle du plan seul, supposee. Le gabarit ne la pose pas : il se pose ensuite, sur le
- * mur cale. `seuils` : ceux du test d'explication (regles/facades/enchainement.json).
+ * une autre pose des aretes qui l'explique, ou celle du plan seul, supposee. Le gabarit ne pose pas ce rectangle : il se pose ensuite,
+ * sur le mur cale. Une exception (demande du proprietaire, 11 novembre 2026) : quand le gabarit a des pignons et que l'assemblage les
+ * montre tous, a leurs places et a leurs tailles, ce sont eux qui posent le mur (calagePignons.ts), avant les ancres : une facade a
+ * plusieurs plans (AE 101) ne montre pas de rectangle de mur entre deux angles. `seuils` : ceux du test d'explication
+ * (regles/facades/enchainement.json).
  */
-export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, seuils: SeuilsCalage = seuilsDuCalage()): MurCale {
+export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, seuils: SeuilsCalage = seuilsDuCalage(), gabarit: GabaritMur | null = null): MurCale {
   const segs = detecterSegments(m.image);
+  const parPignons = poserParLesPignons(m, segs, gabarit, rapport);
+  if (parPignons) {
+    const { lecture, ...pose } = parPignons;
+    return { ...pose, calage: { retenue: 'pignons', explication: expliquer(m, segs, pose, rapport), aretes: null, seuils, pignons: lecture } };
+  }
   const aretes = rapport ? rectanglesSurLesAretes(m, segs, rapport, POSES_JUGEES) : [];
   const poses: MurLu[] = aretes.map((a) => ({ x0: a.x0, x1: a.x1, y0: a.y0, y1: a.y1, egout: true, pied: true, cotes: true }));
   // Le mur lu sur les lignes de la largeur vue : la pose quand les aretes n'en dessinent pas, sinon une de plus a juger.
@@ -68,13 +78,14 @@ export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: 
  * (facade/vision/redressementFuites.ts), les vues sont assemblees en mosaique (facade/vision/mosaiqueFuites.ts), le rectangle du mur y est lu,
  * puis reporte dans chaque photo. Les photos n'ont pas besoin de montrer le mur entier, ni ses coins. Null quand aucune photo
  * ne se redresse. `hauteurPlanM` : la hauteur du mur que donne le plan (LiDAR), qui en fixe les proportions avec la largeur.
- * `reperes` : par photo, quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui la redressent.
+ * `reperes` : par photo, quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui la redressent. `gabarit` : celui du
+ * plan et du LiDAR, dont les pignons posent le mur quand l'assemblage les montre (murSurLAssemblage).
  */
-export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = []): CoinsDeSerie | null {
+export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = [], gabarit: GabaritMur | null = null): CoinsDeSerie | null {
   // D'abord redresser (les reperes poses, sinon les points de fuite), puis assembler, et seulement ensuite chercher l'egout et le sol.
   const vues = vuesDeFace(images, reperes);
   const m = mosaiqueDeLaSerie(vues);
-  return m ? murDeLaSerie(vues, m, largeurM, hauteurPlanM) : null;
+  return m ? murDeLaSerie(vues, m, largeurM, hauteurPlanM, gabarit) : null;
 }
 
 /** Les vues redressees assemblees (le deuxieme temps de la serie) ; null quand aucune ne se redresse ou ne s'assemble. */
@@ -89,9 +100,9 @@ const rangsRedresses = (vues: readonly (RedressementFuites | null)[]): number[] 
  * Le mur cherche sur l'assemblage des vues (le troisieme temps), puis reporte dans chaque photo : ce que rend la serie. `vues` : une
  * par photo (null : elle ne s'est pas redressee), `m` leur assemblage (mosaiqueDeLaSerie).
  */
-function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null): CoinsDeSerie {
+function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, gabarit: GabaritMur | null = null): CoinsDeSerie {
   const rangs = rangsRedresses(vues);
-  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null);
+  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, seuilsDuCalage(), gabarit);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);
   const coins: (P2[] | null)[] = vues.map(() => null);
   rangs.forEach((i, k) => { coins[i] = parVue[k] ?? null; });

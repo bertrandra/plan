@@ -40,7 +40,7 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>
  */
 export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux', vuesFaites: VuesAssemblees | null = null): { r: ResultatAnalyse; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
   const mur = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
-  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage, vuesFaites);
+  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), silhouette: m.silhouette ?? null, reperes: m.reperes ?? null, ...(m.gabaritTendu ? { gabaritTendu: true } : {}) })), assemblage, vuesFaites);
   if (!a) return null;
   return { r: a.r, ...(a.assemblage ? { assemblage: a.assemblage } : {}), ...(a.fusion ? { fusion: a.fusion } : {}) };
 }
@@ -116,6 +116,7 @@ function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFacade[], h
     hauteur,
     texture: r.texture,
     hauteurTexture: cm(r.hauteurTexture),
+    ...(r.debords ? { debords: r.debords } : {}),
     ouvertures,
     distance: mesure ? cm(mesure.distance) : null,
     sourceDistance: mesure?.source ?? null,
@@ -168,7 +169,11 @@ function poseDeLaTexture(t: { largeur: number; hauteur: number }, largeurM: numb
  */
 export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>, morceaux: readonly Morceau[], f: Facade, jpeg: (img: ResultatAnalyse['texture']) => string, assemblage: Assemblage): ReleveDeLaSerie {
   const calage = calageDeSerie(morceaux, f.largeur, a.r.hauteur, f.azimut, assemblage);
-  const resultat: Resultat = { texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, partiesBasses: a.r.partiesBasses, calage };
+  // Les colonnes au-dela des bouts du mur, a l'echelle de la texture : la 3D les pose sur le mur d'un corps qui depasse le cote.
+  const debord = (img: ResultatAnalyse['texture'] | null | undefined) => (img && img.largeur >= 2 ? { texture: jpeg(img), largeurM: Math.round((img.largeur / a.r.pxParM) * 1000) / 1000 } : null);
+  const gauche = debord(a.r.debords?.gauche), droite = debord(a.r.debords?.droite);
+  const debords = gauche || droite ? { ...(gauche ? { gauche } : {}), ...(droite ? { droite } : {}) } : null;
+  const resultat: Resultat = { texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, partiesBasses: a.r.partiesBasses, calage, ...(debords ? { debords } : {}) };
   const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
   const coinsTrouves = morceaux.some((m) => !!m.sources?.includes('trouve'));
   return {

@@ -25,6 +25,7 @@ import { objectifsEnchainement } from '../regles/facades/enchainement.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
 import { gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
+import { pignonsDuGabarit } from './calagePignons.js';
 import { assemblerLesVues, vuesDeLAssemblageDites, type VuesAssemblees } from '../analyseMur.js';
 import type { RedressementFuites } from '../vision/redressementFuites.js';
 import type { Prise } from './prise.js';
@@ -41,8 +42,10 @@ import type { Prise } from './prise.js';
  * refaire les vues ni l'assemblage : memes coins, memes images, mais ce qu'un rejeu garde (le groupe Image) a change de forme.
  * 15 (10 novembre 2026) : les boites des ouvertures viennent d'un vote entre trois detecteurs (detection/baies/) et non plus de la seule
  * lecture des taches : memes coins et memes images, mais les ouvertures proposees changent.
+ * 16 (11 novembre 2026) : sans geste, un mur dont le gabarit a des pignons se pose par eux sur l'assemblage (calagePignons.ts) quand
+ * l'assemblage les montre tous ; les coins de ces murs changent, et leur gabarit se tend entre l'egout et le sol lus.
  */
-export const VERSION_CHAINE_FACADES = 15;
+export const VERSION_CHAINE_FACADES = 16;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit (un reglage, lu a chaque appel). */
 const seuilVerticalesDeg = (): number => objectifsEnchainement()['facades.enchainement.verticalesMaxDeg'];
@@ -125,7 +128,7 @@ interface CoinsSerie {
   lu: boolean;
   /** Le mur lu sur l'assemblage d'une photo redressee par ses reperes : il l'emporte sur les coins trouves sur ses aretes. */
   prime?: boolean;
-  /** La pose que l'arbitre a retenue sur l'assemblage des reperes (calageAncres.ts) ; absente pour un mur reporte d'une autre photo. */
+  /** La pose retenue sur l'assemblage (par les pignons, sinon par l'arbitre des ancres) ; absente pour un mur reporte d'une autre photo. */
   pose?: PoseDuMurCherche;
 }
 
@@ -152,7 +155,7 @@ async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, cor
   }
   // Les coins reportes d'une autre photo du mur, ou lus sur l'assemblage des vues redressees (facade/releve/coinsAuto.ts) :
   // comptes trouves quand le mur y a ete lu.
-  if (serie) return { rang, coins: serie.lu ? 'trouve' : 'predit', morceau: { ...depart, coins: serie.coins.map((c) => ({ x: c.x, y: c.y })), ...(serie.lu ? { sources: ['trouve', 'trouve', 'trouve', 'trouve'] as SourceCoin[] } : {}), recherche: false } };
+  if (serie) return { rang, coins: serie.lu ? 'trouve' : 'predit', morceau: { ...depart, coins: serie.coins.map((c) => ({ x: c.x, y: c.y })), ...(serie.lu ? { sources: ['trouve', 'trouve', 'trouve', 'trouve'] as SourceCoin[] } : {}), ...(serie.pose === 'pignons' ? { gabaritTendu: true } : {}), recherche: false } };
   if (predits) return { rang, coins: 'predit', morceau: { ...depart, recherche: false } };
   const entree = entreeRecherche(prise, f.largeur, f.hauteur, f.azimut);
   const r = await o.chercherCoins(entree).catch(() => null);
@@ -207,7 +210,8 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   }
   const ok = manuelle || essai.vert === null || essai.vert <= seuilVerticalesDeg();
   const bilan: BilanPhotoRedressement = {
-    rang, statut: manuelle ? 'manuelle' : ok ? 'auto' : 'echec', verticaliteDeg: essai.vert, coins: essai.p.coins,
+    // Le mur des pignons prime comme celui des reperes, mais personne n'a rien pose : il reste automatique.
+    rang, statut: manuelle && !(parSesReperes && serie?.pose === 'pignons') ? 'manuelle' : ok ? 'auto' : 'echec', verticaliteDeg: essai.vert, coins: essai.p.coins,
     coinsPx: essai.p.morceau.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })),
     ...(parSesReperes && serie?.pose ? { murCherche: { pose: serie.pose, lu: serie.lu } } : {}),
     ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(seuilVerticalesDeg()).replace('.', ',') + '°) : placez les quatre coins à la main' }),
@@ -237,7 +241,9 @@ export function verticaliteDesCoins(image: Image, coins: readonly P2[], largeurM
 async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: OutilsChaine, corrections: Readonly<Record<string, CorrectionRedressement>>, faits: PhotoRedressee[], champs: readonly (number | null)[]): Promise<void> {
   const aReporter = () => faits.filter((x) => x.bilan.coins === 'predit' && !corrections[String(x.bilan.rang)]?.coins);
   const avecReperes = Object.values(corrections).some((c) => c.reperes?.length === 4);
-  if (!aReporter().length && !avecReperes) return;
+  // Un gabarit a pignons : le mur se cherche par eux sur l'assemblage, sans geste (ci-dessous).
+  const aPignons = !!o.gabarit && pignonsDuGabarit(o.gabarit).length > 0;
+  if (!aReporter().length && !avecReperes && !aPignons) return;
   const images = entrees.map((e) => e.image);
   const k = (rang: number) => entrees.findIndex((e) => e.rang === rang);
   const remplacer = async (x: PhotoRedressee, coins: P2[] | null | undefined, lu: boolean, prime = false, pose?: PoseDuMurCherche) => {
@@ -266,13 +272,24 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
     // s'assemblent, et l'egout, le sol et les bouts du mur se cherchent ensuite sur l'assemblage, aux proportions du plan (largeur de
     // la parcelle, hauteur du LiDAR ou du dessin). Le mur lu l'emporte sur les photos aux reperes, et remplace les coins predits.
     if (reperes.some((r) => r?.length === 4)) {
-      const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, reperes);
+      const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, reperes, o.gabarit ?? null);
       if (!sr) return;
       for (const x of [...faits]) {
         const i = k(x.bilan.rang);
         if (aReperes(x)) await remplacer(x, sr.coins[i], sr.lu, true, sr.assemblage.mur.calage.retenue);
         else if (aReporter().includes(x)) await remplacer(x, sr.coins[i], sr.lu);
       }
+      return;
+    }
+    // Sans geste, un gabarit a pignons (demande du proprietaire, 11 novembre 2026) : les vues s'assemblent et le mur s'y pose par les
+    // pignons du plan, quand l'assemblage les montre tous (calagePignons.ts). Lui seul est pris ici : le mur que les ancres liraient sur
+    // l'assemblage ne l'est toujours pas (il s'arretait a un poteau du pan de bois). Il l'emporte sur les coins de chaque photo, trouves
+    // ou predits : une facade a plusieurs plans n'a pas de rectangle de mur que le calage fin puisse trouver. Un mur pose a la main
+    // reste (plus haut), et une photo corrigee a la main garde ses coins.
+    if (aPignons) {
+      const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, [], o.gabarit ?? null);
+      if (sr?.assemblage.mur.calage.retenue !== 'pignons') return;
+      for (const x of [...faits]) if (!corrections[String(x.bilan.rang)]?.coins) await remplacer(x, sr.coins[k(x.bilan.rang)], sr.lu, true, 'pignons');
     }
   } catch { /* l'assemblage n'a pas pu se faire : chaque photo garde ses coins */ }
 }

@@ -13,7 +13,7 @@
 
 import { NIVEAU, ouvertureGardee, peutEcrire, type BatimentProtege } from './protections.js';
 import type { BoutVu, SilhouetteFacade } from './silhouetteFacade.js';
-import type { AppendiceFacade, CarreauxOuverture, CorpsDeFacade, DimensionsFacade, EtatBati, FormeFacade, GardeCorpsOuverture, GrilleCarreaux, MenuiserieOuverture, ModenatureFacade, NatureEtatBati, OuvertureFacade, ParementFacade, PointeLue, ReleveFacade, SurfaceFacade, TextureCalee } from './typesReleve.js';
+import type { AppendiceFacade, DebordTexture, DebordsTexture, CarreauxOuverture, CorpsDeFacade, DimensionsFacade, EtatBati, FormeFacade, GardeCorpsOuverture, GrilleCarreaux, MenuiserieOuverture, ModenatureFacade, NatureEtatBati, OuvertureFacade, ParementFacade, PointeLue, ReleveFacade, SurfaceFacade, TextureCalee } from './typesReleve.js';
 import { partiesBassesLues } from './partiesBasses.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -163,6 +163,14 @@ export function textureCaleeValide(v: unknown): TextureCalee | null {
   return { pxParM: v.pxParM, cadre: { x0: c.x0, y0: c.y0, x1: c.x1, y1: c.y1 }, ...(v.sansOmbres === true ? { sansOmbres: true } : {}) };
 }
 
+/** Les debords de la texture bien formes (une image embarquee et sa largeur, par bout) ; null sinon. */
+export function debordsValides(v: unknown): DebordsTexture | null {
+  if (!objet(v)) return null;
+  const un = (d: unknown): DebordTexture | null => (objet(d) && typeof d.texture === 'string' && d.texture.startsWith('data:image/') && positif(d.largeurM) ? { texture: d.texture, largeurM: d.largeurM } : null);
+  const gauche = un(v.gauche), droite = un(v.droite);
+  return gauche || droite ? { ...(gauche ? { gauche } : {}), ...(droite ? { droite } : {}) } : null;
+}
+
 /** Les details d'une ouverture que ce module verifie (lot F5 : les carreaux ; lot L1 : la menuiserie, le garde-corps). */
 const DETAILS_VERIFIES = { carreaux: carreauxValides, menuiserie: menuiserieValide, gardeCorps: gardeCorpsValide } as const;
 
@@ -183,7 +191,7 @@ function ouvertureLue(ov: OuvertureFacade): OuvertureFacade {
   return o;
 }
 
-const VALIDATEURS = { partiesBasses: partiesBassesLues, dimensions: dimensionsValides, forme: formeValide, surface: surfaceValide, textureCalee: textureCaleeValide, modenature: modenatureValide, appendices: appendicesValides, etat: etatValide } as const;
+const VALIDATEURS = { partiesBasses: partiesBassesLues, dimensions: dimensionsValides, forme: formeValide, surface: surfaceValide, textureCalee: textureCaleeValide, debords: debordsValides, modenature: modenatureValide, appendices: appendicesValides, etat: etatValide } as const;
 
 /**
  * Un releve relu d'un fichier : les champs de la Facade et de la facade objet verifies, retires s'ils sont mal formes. Un releve qui

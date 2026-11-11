@@ -526,6 +526,73 @@ function facadesDuBowWindow(c: CorpsToit): { pts: PtBrut[]; avant: boolean }[] {
   });
 }
 
+/** Un corps est devant un mur quand sa face en est a plus que cela, et elle lui est parallele a ce cosinus pres. */
+const DEVANT_LE_MUR_M = 0.3;
+const FACE_PARALLELE = 0.94;
+/** Une face plus courte que cela, une fois coupee aux bouts du mur, ne recoit rien. */
+const FACE_MIN_M = 0.2;
+
+/**
+ * De combien le mur d'un corps qui porte une facade passe devant la ligne de ce cote du contour, le long d'elle (metres, jamais negatif) :
+ * le trace du cadastre et le rectangle d'un corps lu au LiDAR ne sont pas tout a fait paralleles, et le mur dessine (celui du corps)
+ * croise la ligne du cote. Une photo posee sur cette ligne passait derriere le mur sur une moitie de la facade (AE 101, 9 cm au bout
+ * droit) : elle se pose sur le mur qui la porte (three/releve3d.ts). Au-dela des bouts du cote (les debords de la photo), l'ecart tel
+ * quel, meme en retrait : il n'y a plus de prisme du contour devant le mur du corps.
+ */
+export function avanceeDuMurPorteur(f: { gauche: PtBrut; droite: PtBrut; largeur: number; normale: PtBrut }, corps: readonly CorpsToit[]): (x: number) => number {
+  const L = f.largeur;
+  if (!(L > 0)) return () => 0;
+  const ux = (f.droite.x - f.gauche.x) / L, uy = (f.droite.y - f.gauche.y) / L;
+  const le = (p: PtBrut) => (p.x - f.gauche.x) * ux + (p.y - f.gauche.y) * uy;
+  const devant = (p: PtBrut) => (p.x - f.gauche.x) * f.normale.x + (p.y - f.gauche.y) * f.normale.y;
+  const murs: { xa: number; xb: number; da: number; db: number }[] = [];
+  for (const c of corps) c.pts.forEach((p, i) => {
+    const q = c.pts[(i + 1) % c.pts.length] as PtBrut, l = Math.hypot(q.x - p.x, q.y - p.y);
+    if (l < FACE_MIN_M || Math.abs(devant(p)) >= DEVANT_LE_MUR_M || Math.abs(devant(q)) >= DEVANT_LE_MUR_M) return;
+    if (Math.abs(((q.x - p.x) * ux + (q.y - p.y) * uy) / l) < FACE_PARALLELE) return;
+    const [g, d] = le(p) <= le(q) ? [p, q] : [q, p];
+    murs.push({ xa: le(g), xb: le(d), da: devant(g), db: devant(d) });
+  });
+  // Entre les bouts du cote, le prisme du contour est la : jamais derriere lui. Au-dela, le mur du corps est seul : la ou il est.
+  const ecart = (x: number): number | null => { const l = murs.filter((m) => x >= m.xa - 1e-6 && x <= m.xb + 1e-6).map((m) => m.da + ((m.db - m.da) * (x - m.xa)) / Math.max(1e-9, m.xb - m.xa)); return l.length ? Math.max(...l) : null; };
+  return (x: number) => (x >= -1e-6 && x <= L + 1e-6 ? Math.max(0, ecart(x) ?? 0) : ecart(x) ?? 0);
+}
+
+/** La face d'un corps devant un mur : ses deux bouts (de gauche a droite, vus de dehors), leurs abscisses le long du mur, son haut. */
+export interface FaceDevantLeMur { a: PtBrut; b: PtBrut; xa: number; xb: number; hauteurM: number }
+
+/**
+ * Les faces des corps qui passent devant un mur (un appentis, une veranda, un auvent ferme) et lui font face : ce qu'une photo prise de
+ * face montre a la place du bas du mur. La photo d'un releve s'y pose (three/releve3d.ts, demande du proprietaire, 11 novembre 2026) :
+ * le mur derriere eux garde le haut, eux recoivent le bas, aux memes abscisses le long du mur (chaque point de la face montre le pixel
+ * du mur qu'il cache, vu de face). Coupees aux bouts du mur, ou a `entre` (des abscisses le long du mur, au-dela de ses bouts pour les
+ * debords de la photo) ; `hauteurM` : le bas de leur toit (leur egout le plus bas).
+ */
+export function facesDevantLeMur(f: { gauche: PtBrut; droite: PtBrut; largeur: number; normale: PtBrut }, corps: readonly CorpsToit[], entre: readonly [number, number] = [0, f.largeur]): FaceDevantLeMur[] {
+  const L = f.largeur;
+  if (!(L > 0)) return [];
+  const ux = (f.droite.x - f.gauche.x) / L, uy = (f.droite.y - f.gauche.y) / L;
+  const le = (p: PtBrut) => (p.x - f.gauche.x) * ux + (p.y - f.gauche.y) * uy;
+  const devant = (p: PtBrut) => (p.x - f.gauche.x) * f.normale.x + (p.y - f.gauche.y) * f.normale.y;
+  const faces: FaceDevantLeMur[] = [];
+  for (const c of corps) {
+    if (c.ouvert === true) continue;
+    c.pts.forEach((p, i) => {
+      const q = c.pts[(i + 1) % c.pts.length] as PtBrut, l = Math.hypot(q.x - p.x, q.y - p.y);
+      if (l < FACE_MIN_M || devant(p) < DEVANT_LE_MUR_M || devant(q) < DEVANT_LE_MUR_M) return;
+      if (Math.abs(((q.x - p.x) * ux + (q.y - p.y) * uy) / l) < FACE_PARALLELE) return;
+      // La face regarde dehors : le reste du corps est derriere elle.
+      if (c.pts.some((r) => devant(r) > Math.max(devant(p), devant(q)) + 0.05)) return;
+      const [g, d] = le(p) <= le(q) ? [p, q] : [q, p];
+      const xg = le(g), xd = le(d), xa = Math.max(entre[0], xg), xb = Math.min(entre[1], xd);
+      if (xb - xa < FACE_MIN_M) return;
+      const en = (x: number): PtBrut => { const t = (x - xg) / (xd - xg); return { x: g.x + t * (d.x - g.x), y: g.y + t * (d.y - g.y) }; };
+      faces.push({ a: en(xa), b: en(xb), xa, xb, hauteurM: Math.min(...c.egouts) });
+    });
+  }
+  return faces.sort((p, q) => p.xa - q.xa);
+}
+
 /**
  * Les faces avant d'un bow-window (`facadesDuBowWindow`, `avant`) : ce qu'une photo prise de face voit de lui, le fond et les pans coupes.
  * Sous un etage qui avance, la photo d'un releve du mur s'y pose (three/releve3d.ts, decision du proprietaire du 9 novembre 2026), a la

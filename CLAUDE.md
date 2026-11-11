@@ -217,8 +217,20 @@ d'y toucher.
   l'égout ; une baie de pignon garde sa place au-dessus de l'égout (`analyse.ts::detecterDansLaSilhouette`). Une baie lue sous le pignon
   d'un corps voisin qui prolonge la façade va, à la validation V4, sur la façade du côté du contour qui porte ce mur s'il en a une (dans le
   même pas d'historique, sans rien y changer d'autre) ; sinon elle reste là et l'É12 dit de relever ce mur. Aucune façade n'est créée pour
-  elle (`facade/releve/murVoisin.ts`, décision du propriétaire, 2 novembre 2026). La recherche du mur reste « sans le toit » : le gabarit
-  juge la pose (É7), il ne la cherche pas.
+  elle (`facade/releve/murVoisin.ts`, décision du propriétaire, 2 novembre 2026). La recherche du mur par les ancres reste « sans le
+  toit » : le gabarit juge la pose (É7), il ne la cherche pas. **Une exception, le calage par les pignons** (demande du propriétaire,
+  11 novembre 2026 : l'image sur la façade sans étape manuelle, `facade/releve/calagePignons.ts`, `VERSION_CHAINE_FACADES` 16) : quand le
+  gabarit a des pignons et que l'assemblage les montre tous, à leurs places et à leurs tailles, ils posent le mur sans geste (bouts par
+  leurs sommets ; égout d'un toit bas devant le mur et sol lus sous eux), avant les ancres et à la place des coins de chaque photo ; le
+  gabarit se tend alors entre l'égout et le sol lus (et non à l'échelle de la largeur), et l'É7 ne juge pas ce mur par le test des
+  ancres. Une façade à plusieurs plans (AE 101 : deux pignons, un appentis) n'a pas de rectangle de mur entre deux angles. Un contrôle
+  qui échoue ne pose rien : la chaîne continue comme avant, et le geste manuel (repères, mur tiré) reste le repli. **La photo s'étire
+  sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : pour ce mur, la hauteur n'est pas mesurée sur la photo,
+  c'est celle du plan (`analyseMur.ts`). En Vue 3D, la photo d'un relevé se pose sur ce qu'elle montre : la face d'un corps fermé devant
+  le mur (appentis, véranda) reçoit le bas, sans fenêtres automatiques, et la photo suit le mur du corps porteur quand il passe devant
+  la ligne du côté (`facade/modeToit/saillies.ts::facesDevantLeMur`, `avanceeDuMurPorteur`, `three/releve3d.ts`). Au-delà des bouts
+  du côté, là où le mur d'un corps continue, la photo aussi : `ReleveFacade.debords` (une bande par bout ; la texture du mur reste
+  celle du côté, ses cotes et ses ouvertures ne changent pas).
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

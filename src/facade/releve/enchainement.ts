@@ -453,7 +453,9 @@ function poserLeMur({ e, o, s }: Contexte): void {
     assemblage, retours,
   };
   const pose = retenue?.a.assemblage ?? null;
-  s.calage = { photos: coinsRetenus(c.redressement.photos, a, n), message: null, pose, echelleGabarit: pose ? echelleDuGabarit(e.hauteurM / e.largeurM, rectDesCoins(pose.coins)) : 1 };
+  // Un mur pose par les pignons : son egout et son sol sont a l'echelle des hauteurs que la photo montre, le gabarit se tend entre eux.
+  const tendu = c.redressement.photos.some((p) => p.murCherche?.pose === 'pignons');
+  s.calage = { photos: coinsRetenus(c.redressement.photos, a, n), message: null, pose, echelleGabarit: pose && !tendu ? echelleDuGabarit(e.hauteurM / e.largeurM, rectDesCoins(pose.coins)) : 1 };
   s.analyse = null;
   if (retenue) {
     const { r, fusion } = retenue.a;
@@ -652,6 +654,7 @@ const POSE_CHERCHEE: Readonly<Record<PoseDuMurCherche, string>> = {
   'aretes': '',
   'mieux-expliquee': ' : une autre pose que celle des arêtes l’explique mieux',
   'plan-seul': ' : aucune pose des arêtes ne l’explique, celle du plan seul est supposée',
+  'pignons': '',
 };
 
 /**
@@ -711,6 +714,7 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Resultat => {
   const chercheDoute = !!cherche && (cherche.pose === 'plan-seul' || !cherche.lu);
   const note = m.confiance !== null ? ` (note du calage fin ${dec(m.confiance)})` : '';
   const origine = main ? (o.poseChoisie ? POSE_CHOISIE[o.poseChoisie] : 'Mur posé à la main.')
+    : cherche?.pose === 'pignons' ? 'Mur posé sans geste par les pignons du plan, retrouvés sur l’assemblage' + (cherche.lu ? ' ; égout et sol lus sous eux.' : ' ; sol supposé, à vérifier : tirez-le s’il n’est pas au pied du mur.')
     : cherche ? 'Mur cherché sur l’assemblage de vos repères' + POSE_CHERCHEE[cherche.pose] + (cherche.lu ? '.' : ', égout ou sol supposé.')
     : m.coinsTrouves ? `Coins du mur trouvés sur la photo${note}.` : 'Coins du mur prédits par la prise de vue, à vérifier : posez quatre repères, ou tirez les angles, l’égout et le sol.';
   const hauteur = m.hauteurM !== null ? ` Hauteur à l’égout mesurée : ${dec(m.hauteurM)} m.` : '';
@@ -719,17 +723,20 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Resultat => {
   // L'image prise pour la suite se juge sur la silhouette que la pose y pose (calageAncres.ts) : un egout faux sous un pignon, ou un bout
   // que le pignon d'un corps voisin prolonge, ne se voient qu'ainsi.
   if (pose && r && s.calage) {
-    const ex = explicationDe(pose, e), passe = expliqueLaPhoto(ex, seuilsDuCalage(obj));
+    // Un mur pose par les pignons a passe ses propres controles (places, tailles, proportions : calagePignons.ts) : le test des ancres,
+    // qui cherche la matiere d'un mur entre deux angles, ne juge pas une facade a plusieurs plans ; son score reste dit.
+    const parPignons = cherche?.pose === 'pignons';
+    const ex = explicationDe(pose, e), passe = parPignons || expliqueLaPhoto(ex, seuilsDuCalage(obj));
     s.calage.explication = ex;
     // Le sol pose dans le mur (l'appui des fenetres, un bandeau) : la matiere du mur continue sous lui, le pied est plus bas. Le score
     // d'explication n'y suffit pas (le sol y pese peu) : etalon 00, une photo sans EXIF au teleobjectif, sol a 13 % de la largeur.
     const sous = murSousLeSol(pose, r);
     const solDansLeMur = sous !== null && sous > obj['facades.enchainement.murSousLeSolMax'];
     // Le controle de l'egout trouve par le gabarit pose sur le sol, a l'echelle de la largeur (decision du proprietaire, 4 novembre 2026).
-    const seuils = seuilsDuCalage(obj), controle = egoutControle(ex, seuils);
+    const seuils = seuilsDuCalage(obj), controle = parPignons || egoutControle(ex, seuils);
     const etat: EtatAffiche = !passe || !controle || solDansLeMur || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
     const sol = solDansLeMur ? ` Mais le mur continue sous le sol posé (${pc(sous)} de la bande sous lui) : le pied est plus bas, tirez le sol.` : '';
-    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + texteEgoutDuGabarit(ex, e.largeurM, seuils.ecartEgout ?? null) + sol, verite };
+    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + (parPignons ? '' : texteEgoutDuGabarit(ex, e.largeurM, seuils.ecartEgout ?? null)) + sol, verite };
   }
   return { etat: main || (m.coinsTrouves && !chercheDoute) ? 'ok' : 'a-confirmer', resume: origine + hauteur, verite };
 };

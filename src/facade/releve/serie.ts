@@ -8,6 +8,7 @@ import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../calage/ca
 import { corrigerDistorsion, corrigerPoint, focale35DePixels, type ModeleDistorsion } from '../vision/distorsion.js';
 import type { Image, P2 } from '../vision/homographie.js';
 import type { PartieBasse, CalageReleve } from '../../model/types.js';
+import type { DebordsTexture } from '../../model/typesReleve.js';
 import type { Prise } from './prise.js';
 
 /** Ce que l'analyse d'une serie donne au releve du mur : sa texture, sa partie basse, son calage. */
@@ -16,6 +17,8 @@ export interface Resultat {
   partiesBasses: PartieBasse[];
   texture: string;
   hauteurTexture: number;
+  /** La photo au-dela des bouts du mur (model/typesReleve.ts::DebordsTexture) ; absente quand rien ne depasse. */
+  debords?: DebordsTexture;
   /** Les coins de chaque photo et leur resolution au mur : la precision annoncee des cotes. */
   calage?: CalageReleve | null;
 }
@@ -41,6 +44,11 @@ export interface Morceau {
   silhouette?: P2[] | null;
   /** Quatre reperes poses a la main (audit) : ils redressent la photo entiere avant l'assemblage. */
   reperes?: P2[] | null;
+  /**
+   * Le mur vient des pignons lus sur l'assemblage (calagePignons.ts) : son egout et son sol y sont a l'echelle que la photo montre, et le
+   * gabarit se tend entre eux au lieu de suivre l'echelle de la largeur (analyseMur.ts).
+   */
+  gabaritTendu?: boolean;
 }
 
 /** Le calage fin d'une photo, sans ce qui ne sert qu'aux images de controle. */

@@ -372,6 +372,35 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
   - **La recherche reste « sans le toit »** (décision du propriétaire, 2 novembre 2026) : elle ne se sert pas de l'étendue du gabarit pour
     chercher les bouts du mur. Sur le mur de 5 m prolongé par un pignon voisin, elle prend le mur entier de 8 m pour un mur de 5 m ; l'É7
     le dit « à confirmer » (score 0,20) et la personne pose le mur (le chemin réel). Le gabarit juge la pose, il ne la cherche pas.
+  - **Une exception : le calage par les pignons** (demande du propriétaire, 11 novembre 2026 : « l'image sur la façade en 3D avec les
+    ouvertures aux bons endroits », sans étape manuelle sauf échec ; `facade/releve/calagePignons.ts`, `VERSION_CHAINE_FACADES` 16).
+    Sur la mosaïque réelle d'AE 101 (deux pignons au fond, un appentis devant, un pan de bois), le test des ancres note la **vraie**
+    pose de 0,13 à 0,38 : aucune pose ne pouvait passer, la chaîne rendait celle du plan seul. Une façade à plusieurs plans n'a pas de
+    rectangle de mur entre deux angles ; ses pignons, eux, sont ce que la photo montre de plus net. Quand le gabarit a des pignons :
+    1. **Les pignons vus** : deux longues obliques de pentes opposées dont les hauts se rejoignent (les rives), prolongées par les
+       obliques alignées ; un motif pris sous un pignon plus grand (pan de bois, fronton) est écarté.
+    2. **Les pignons du plan** : les pointes du gabarit qui montent d'au moins 0,3 hauteur de mur, et le pied des rives qu'il montre
+       entières.
+    3. **En largeur** : les sommets vus pris pour ceux du plan, dans l'ordre (moindres carrés) ; un seul pignon : ses demi-largeurs.
+       Contrôles : tous les pignons du plan retrouvés, demi-largeurs tenues (0,7 à 1,5, débord compris), résidu ≤ 5 %, mur dans l'image.
+    4. **En hauteur** : le niveau des pieds des pignons ; si un toit plus bas passe devant (pieds à plus de 1,15 hauteur de mur),
+       son égout est la limite de clarté la plus basse parmi les plus franches sous eux ; le sol, là où finissent les verticales du mur
+       (angles, jambages, poteaux) ; sans elles, le sol est supposé (`pied` faux, É7 à confirmer). L'étirement lu (hauteurs sur largeur)
+       reste entre 0,7 et 1,45.
+    5. **Dans la chaîne** : sans repères ni mur tiré, `reporterLeMur` assemble les vues et ne prend ce mur que si les pignons l'ont
+       posé ; il remplace alors les coins de chaque photo non corrigée à la main. Le gabarit se **tend** entre l'égout et le sol lus
+       (`Morceau.gabaritTendu`), et l'É7 dit « Mur posé sans geste par les pignons du plan » sans le test des ancres.
+    6. **La photo s'étire sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : pour un mur posé par les
+       pignons, la hauteur ne se mesure pas sur la photo (c'est celle du plan) ; le mur redressé, sa texture et ses ouvertures sont à
+       cette hauteur. En Vue 3D, la photo se pose sur ce qu'elle montre : le bas sur la face d'un corps fermé devant le mur (appentis,
+       véranda), sans fenêtres automatiques ; le reste sur le mur du corps porteur, suivi quand il passe devant la ligne du côté.
+       Rejoué dans l'application sur AE 101 (photo réelle, façade sud de 9,0 m) : É7 faite sans geste, mur de 8,96 × 5 m, 8 ouvertures,
+       la photo sur les deux pignons, l'étage et la face de l'appentis.
+    7. **La photo n'est pas coupée aux bouts du côté** (retour du propriétaire, 11 novembre 2026) : le cadre de l'analyse va déjà
+       jusqu'aux bouts de la silhouette ; ses colonnes hors du mur sont gardées avec le relevé (`ReleveFacade.debords`) et posées en
+       3D sur le mur du corps qui dépasse le côté, et sur ce qui passe devant lui. La texture du mur reste celle du côté.
+    Mesure sur la mosaïque réelle d'AE 101 (1000 px) : bouts à 0,5 % de la largeur, égout à 1,3 %, sol à 1 %. Banc de synthèse
+    (`egout-sol.ts`) : identique avec et sans (`--sans-pignons`), les pignons de synthèse couvrant tout le mur n'ont pas de pied lisible.
 - **La pose du gabarit sur le mur trouvé : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 : « le
   contour du mur (rectangle) est top. Le positionnement du gabarit ne fonctionne pas. Utilise sol égout pour poser le gabarit. Position
   bas sur bas et scale le gabarit sur la largeur du rectangle ») :

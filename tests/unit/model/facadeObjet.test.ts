@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { carreauxValides, dimensionsValides, facadeLue, formeValide, fusionnerOuvertures, numeroterOuvertures, releveReecrit, surfaceValide, textureCaleeValide } from '../../../src/model/facadeObjet.js';
+import { carreauxValides, debordsValides, dimensionsValides, facadeLue, formeValide, fusionnerOuvertures, numeroterOuvertures, releveReecrit, surfaceValide, textureCaleeValide } from '../../../src/model/facadeObjet.js';
 import { ouvertureGardee } from '../../../src/model/protections.js';
 import { normalizeObjects } from '../../../src/model/normalisation.js';
 import { serializeObjects } from '../../../src/io/serialisation.js';
@@ -50,6 +50,9 @@ describe('la Facade relue d un fichier', () => {
     expect(formeValide({ gabarit: [{ u: 0, v: 1 }], source: 'plan' })).toBeNull();
     expect(surfaceValide({ principale: 'mixte', source: 'doigt' })).toEqual({ principale: 'mixte', source: 'doigt' });
     expect(textureCaleeValide({ pxParM: 0, cadre: { x0: 0, y0: 0, x1: 1, y1: 1 } })).toBeNull();
+    // Les debords de la photo : une image embarquee et sa largeur par bout ; un bout mal forme est retire, sans aucun bout rien ne reste.
+    expect(debordsValides({ gauche: { texture: 'data:image/jpeg;base64,AA', largeurM: 0.85, autre: 1 }, droite: { texture: 'x', largeurM: 1 } })).toEqual({ gauche: { texture: 'data:image/jpeg;base64,AA', largeurM: 0.85 } });
+    expect(debordsValides({ droite: { texture: 'data:image/jpeg;base64,AA', largeurM: 0 } })).toBeNull();
     expect(carreauxValides({ source: 'ia' })).toBeNull();
     expect(carreauxValides({ vantaux: 2 })).toBeNull();
   });
