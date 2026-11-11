@@ -73,7 +73,11 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
   return parties.length ? { ...a, r: { ...a.r, partiesBasses: parties } } : a;
 }
 
-function analyserLeMurSansMarche(murSeul: MurAnalyse, photos: readonly PhotoDuMur[], assemblage: AssemblageMur, asm: AssemblageDuMur | null, silhouette: { u: number; v: number }[] | null): AnalyseMur | null {
+function analyserLeMurSansMarche(murSeul: MurAnalyse, toutes: readonly PhotoDuMur[], assemblage: AssemblageMur, asm: AssemblageDuMur | null, silhouette: { u: number; v: number }[] | null): AnalyseMur | null {
+  // Un mur pose par les pignons : la photo s'etire sur le modele, jamais l'inverse (decision du proprietaire, 11 novembre 2026). Son
+  // egout et son sol sont ceux du plan, lus sur la photo : la hauteur ne s'y mesure pas (sans focale, celle du plan), si bien que le mur
+  // redresse a la hauteur du plan, ses ouvertures et sa texture avec lui.
+  const photos = toutes.some((p) => p.gabaritTendu) ? toutes.map((p) => ({ ...p, focalePx: null })) : toutes;
   const p0 = photos[0];
   if (!p0) return null;
   const mur = { ...murSeul, silhouette };

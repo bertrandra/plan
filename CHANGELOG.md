@@ -23,6 +23,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   0,5 % de la largeur, égout à 1,3 %, sol à 1 %. Le gabarit se tend alors entre l'égout et le sol lus, et l'É7 dit « Mur posé sans geste
   par les pignons du plan ». Un contrôle qui échoue ne pose rien : la chaîne continue comme avant, repères et mur tiré restent le repli.
   Les façades sans pignon, ou dont le gabarit ne montre aucun pied de rive, ne changent pas (banc de synthèse identique).
+- **La photo d'un mur posé par les pignons s'étire sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : la
+  hauteur du mur n'y est plus mesurée sur la photo, c'est celle du plan ; le mur redressé, sa texture et ses ouvertures sont à cette
+  hauteur. Sur la maison de référence, l'égout « mesuré » à 6,27 m (25 % au-dessus du plan) faisait glisser la photo sous les pignons et
+  lisait 13 ouvertures ; à la hauteur du plan (5 m), 8 ouvertures, à leurs places.
+- **En Vue 3D, la photo d'un relevé se pose sur ce qu'elle montre** (`three/releve3d.ts`, `facade/modeToit/saillies.ts`) : sur la face
+  d'un corps fermé qui passe devant le mur (un appentis, une véranda : `facesDevantLeMur`), le bas de la photo, aux mêmes abscisses que
+  sur le mur, et sans les fenêtres de la disposition automatique sur cette face ; et sur le mur du corps qui porte la façade quand il
+  passe devant la ligne du côté du cadastre (`avanceeDuMurPorteur` : sur la maison de référence, le mur croisait la photo et en cachait la
+  moitié droite, pignon compris). Les ouvertures du relevé suivent le même mur.
 
 ### Modifié
 

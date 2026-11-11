@@ -390,6 +390,12 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
     5. **Dans la chaîne** : sans repères ni mur tiré, `reporterLeMur` assemble les vues et ne prend ce mur que si les pignons l'ont
        posé ; il remplace alors les coins de chaque photo non corrigée à la main. Le gabarit se **tend** entre l'égout et le sol lus
        (`Morceau.gabaritTendu`), et l'É7 dit « Mur posé sans geste par les pignons du plan » sans le test des ancres.
+    6. **La photo s'étire sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : pour un mur posé par les
+       pignons, la hauteur ne se mesure pas sur la photo (c'est celle du plan) ; le mur redressé, sa texture et ses ouvertures sont à
+       cette hauteur. En Vue 3D, la photo se pose sur ce qu'elle montre : le bas sur la face d'un corps fermé devant le mur (appentis,
+       véranda), sans fenêtres automatiques ; le reste sur le mur du corps porteur, suivi quand il passe devant la ligne du côté.
+       Rejoué dans l'application sur AE 101 (photo réelle, façade sud de 9,0 m) : É7 faite sans geste, mur de 8,96 × 5 m, 8 ouvertures,
+       la photo sur les deux pignons, l'étage et la face de l'appentis.
     Mesure sur la mosaïque réelle d'AE 101 (1000 px) : bouts à 0,5 % de la largeur, égout à 1,3 %, sol à 1 %. Banc de synthèse
     (`egout-sol.ts`) : identique avec et sans (`--sans-pignons`), les pignons de synthèse couvrant tout le mur n'ont pas de pied lisible.
 - **La pose du gabarit sur le mur trouvé : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 : « le

@@ -736,7 +736,7 @@ const calageJuge = ({ e, o, s, obj }: Contexte): Resultat => {
     const seuils = seuilsDuCalage(obj), controle = parPignons || egoutControle(ex, seuils);
     const etat: EtatAffiche = !passe || !controle || solDansLeMur || (!main && (!m.coinsTrouves || chercheDoute)) ? 'a-confirmer' : 'ok';
     const sol = solDansLeMur ? ` Mais le mur continue sous le sol posé (${pc(sous)} de la bande sous lui) : le pied est plus bas, tirez le sol.` : '';
-    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + texteEgoutDuGabarit(ex, e.largeurM, seuils.ecartEgout ?? null) + sol, verite };
+    return { etat, resume: origine + hauteur + ` Sur l’assemblage : ${px(r)}, ` + (passe ? `expliqué par sa silhouette (score ${sc(ex.score)}).` : `que sa silhouette n’explique pas (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}, égout ${sc(ex.egout)}) : à confirmer.`) + (parPignons ? '' : texteEgoutDuGabarit(ex, e.largeurM, seuils.ecartEgout ?? null)) + sol, verite };
   }
   return { etat: main || (m.coinsTrouves && !chercheDoute) ? 'ok' : 'a-confirmer', resume: origine + hauteur, verite };
 };

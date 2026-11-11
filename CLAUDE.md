@@ -224,7 +224,11 @@ d'y toucher.
   leurs sommets ; égout d'un toit bas devant le mur et sol lus sous eux), avant les ancres et à la place des coins de chaque photo ; le
   gabarit se tend alors entre l'égout et le sol lus (et non à l'échelle de la largeur), et l'É7 ne juge pas ce mur par le test des
   ancres. Une façade à plusieurs plans (AE 101 : deux pignons, un appentis) n'a pas de rectangle de mur entre deux angles. Un contrôle
-  qui échoue ne pose rien : la chaîne continue comme avant, et le geste manuel (repères, mur tiré) reste le repli.
+  qui échoue ne pose rien : la chaîne continue comme avant, et le geste manuel (repères, mur tiré) reste le repli. **La photo s'étire
+  sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : pour ce mur, la hauteur n'est pas mesurée sur la photo,
+  c'est celle du plan (`analyseMur.ts`). En Vue 3D, la photo d'un relevé se pose sur ce qu'elle montre : la face d'un corps fermé devant
+  le mur (appentis, véranda) reçoit le bas, sans fenêtres automatiques, et la photo suit le mur du corps porteur quand il passe devant
+  la ligne du côté (`facade/modeToit/saillies.ts::facesDevantLeMur`, `avanceeDuMurPorteur`, `three/releve3d.ts`).
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence
