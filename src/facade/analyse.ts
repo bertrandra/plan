@@ -67,6 +67,12 @@ export interface ResultatAnalyse {
    * plan, il y est donc a l'echelle, et la 3D le plaque sur le triangle du pignon.
    */
   texture: Image;
+  /**
+   * Ce que le cadre montre au-dela des bouts du mur, a gauche et a droite, sur la meme hauteur que la texture : le mur d'un corps qui
+   * depasse le cote du contour (un pignon plus large que le trace du cadastre). La 3D le pose sur ce mur (three/releve3d.ts) ; null
+   * sans colonne de ce cote.
+   */
+  debords?: { gauche: Image | null; droite: Image | null };
   /** Hauteur couverte par la texture depuis le sol, en metres. */
   hauteurTexture: number;
   pxParM: number;
@@ -388,6 +394,11 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
   const avecMarge = cadre.gauchePx > 0 || cadre.droitePx > 0;
   const r = avecMarge ? colonnes(cadreImage, cadreVu, cadre.gauchePx, cadreImage.largeur - cadre.droitePx) : { image: cadreImage, vu: cadreVu };
   const texture = r.image;
+  // Les colonnes hors du mur, telles que l'assemblage les montre : le mur d'un corps continue parfois au-dela du cote du contour.
+  const debords = avecMarge ? {
+    gauche: cadre.gauchePx > 0 ? colonnes(cadreImage, cadreVu, 0, cadre.gauchePx).image : null,
+    droite: cadre.droitePx > 0 ? colonnes(cadreImage, cadreVu, cadreImage.largeur - cadre.droitePx, cadreImage.largeur).image : null,
+  } : null;
   const mur = rogner(r.image, r.vu, egout, r.image.hauteur);
   const bande = rogner(r.image, r.vu, 0, egout);
   // La couverture ne compte que le mur : sur un mur en L, pas le vide au-dessus de la partie basse.
@@ -440,6 +451,7 @@ export function finaliserReleve(cadreImage: Image, cadreVu: Uint8Array, E: numbe
     elevation: mur.image,
     facade,
     texture: r.image,
+    ...(debords ? { debords } : {}),
     hauteurTexture: e.hauteur + egout / pxParM,
     pxParM,
     couverture: vusMur / Math.max(1, pixelsMur),

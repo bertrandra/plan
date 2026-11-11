@@ -33,6 +33,15 @@ describe('ce qui passe devant un mur photographie', () => {
     expect(avancee(8)).toBeGreaterThan(avancee(6));
   });
 
+  it('AE 101 : au-dela des bouts du cote, la face de l appentis et le mur du corps continuent (les debords de la photo)', () => {
+    const faces = facesDevantLeMur(sud, ae101.corpsAvecFaits, [-1.1, 0]);
+    expect(faces).toHaveLength(1);
+    expect(faces[0]?.xa).toBeLessThan(-0.8);
+    expect(faces[0]?.xb).toBeCloseTo(0, 6);
+    // Hors du cote, le mur du corps est en retrait de la ligne : l'ecart tel quel, la photo se pose sur lui.
+    expect(avanceeDuMurPorteur(sud, ae101.corpsAvecFaits)(-0.5)).toBeLessThan(-0.05);
+  });
+
   it('sans corps, rien n avance', () => {
     expect(avanceeDuMurPorteur(sud, [])(3)).toBe(0);
   });

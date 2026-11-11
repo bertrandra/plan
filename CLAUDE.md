@@ -228,7 +228,9 @@ d'y toucher.
   sur le modèle, jamais l'inverse** (décision du propriétaire, 11 novembre 2026) : pour ce mur, la hauteur n'est pas mesurée sur la photo,
   c'est celle du plan (`analyseMur.ts`). En Vue 3D, la photo d'un relevé se pose sur ce qu'elle montre : la face d'un corps fermé devant
   le mur (appentis, véranda) reçoit le bas, sans fenêtres automatiques, et la photo suit le mur du corps porteur quand il passe devant
-  la ligne du côté (`facade/modeToit/saillies.ts::facesDevantLeMur`, `avanceeDuMurPorteur`, `three/releve3d.ts`).
+  la ligne du côté (`facade/modeToit/saillies.ts::facesDevantLeMur`, `avanceeDuMurPorteur`, `three/releve3d.ts`). Au-delà des bouts
+  du côté, là où le mur d'un corps continue, la photo aussi : `ReleveFacade.debords` (une bande par bout ; la texture du mur reste
+  celle du côté, ses cotes et ses ouvertures ne changent pas).
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

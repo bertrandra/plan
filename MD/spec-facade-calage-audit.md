@@ -396,6 +396,9 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
        véranda), sans fenêtres automatiques ; le reste sur le mur du corps porteur, suivi quand il passe devant la ligne du côté.
        Rejoué dans l'application sur AE 101 (photo réelle, façade sud de 9,0 m) : É7 faite sans geste, mur de 8,96 × 5 m, 8 ouvertures,
        la photo sur les deux pignons, l'étage et la face de l'appentis.
+    7. **La photo n'est pas coupée aux bouts du côté** (retour du propriétaire, 11 novembre 2026) : le cadre de l'analyse va déjà
+       jusqu'aux bouts de la silhouette ; ses colonnes hors du mur sont gardées avec le relevé (`ReleveFacade.debords`) et posées en
+       3D sur le mur du corps qui dépasse le côté, et sur ce qui passe devant lui. La texture du mur reste celle du côté.
     Mesure sur la mosaïque réelle d'AE 101 (1000 px) : bouts à 0,5 % de la largeur, égout à 1,3 %, sol à 1 %. Banc de synthèse
     (`egout-sol.ts`) : identique avec et sans (`--sans-pignons`), les pignons de synthèse couvrant tout le mur n'ont pas de pied lisible.
 - **La pose du gabarit sur le mur trouvé : bas sur bas, à l'échelle de la largeur** (décision du propriétaire, 4 novembre 2026 : « le

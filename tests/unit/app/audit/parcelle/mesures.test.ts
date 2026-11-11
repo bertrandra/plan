@@ -152,7 +152,9 @@ describe('quatre reperes poses au doigt sur une photo', () => {
     const photo0 = (images[0] as NonNullable<(typeof images)[0]>);
     expect(m.redressees?.length).toBe(2);
     // Les deux photos redressees, puis l'image du run de Claude (lot F7 : le mur et la bande au-dessus de l'egout), encodee en dernier.
-    expect(Math.min(...tailles.slice(-3, -1))).toBeGreaterThan(0.6 * photo0.largeur * photo0.hauteur);
+    // Les bandes de la photo au-dela des bouts du mur (les debords du releve) s'encodent entre elles et la texture : etroites, on les ecarte.
+    const entieres = tailles.filter((t) => t > 0.1 * photo0.largeur * photo0.hauteur);
+    expect(Math.min(...entieres.slice(-3, -1))).toBeGreaterThan(0.6 * photo0.largeur * photo0.hauteur);
     expect(m.imageRun?.egoutPart).toBeGreaterThan(0);
     expect(m.imageRun?.egoutPart).toBeLessThan(1);
   }, 90000);

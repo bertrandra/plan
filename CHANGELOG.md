@@ -32,6 +32,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   sur le mur, et sans les fenêtres de la disposition automatique sur cette face ; et sur le mur du corps qui porte la façade quand il
   passe devant la ligne du côté du cadastre (`avanceeDuMurPorteur` : sur la maison de référence, le mur croisait la photo et en cachait la
   moitié droite, pignon compris). Les ouvertures du relevé suivent le même mur.
+- **La photo d'un relevé n'est plus coupée aux bouts du côté du cadastre** : quand le mur d'un corps du toit dépasse ce côté (sur la
+  maison de référence, 85 cm à gauche : le tracé du cadastre fait 8,96 m, la maison lue au LiDAR 10 m), ce que la photo montre au-delà
+  est gardé avec le relevé (`ReleveFacade.debords`, une bande par bout, à l'échelle et sur la hauteur de la texture) et posé en Vue 3D
+  sur ce mur et sur ce qui passe devant lui, à la suite de la photo du mur. La texture du mur, ses cotes et ses ouvertures ne changent
+  pas ; un relevé d'avant, sans débords, se dessine comme avant.
 
 ### Modifié
 

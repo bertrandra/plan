@@ -209,6 +209,11 @@ export interface CorrectionOuverture {
   source?: SourceOuverture;
 }
 
+/** La photo au-dela d'un bout du mur : son image et la largeur qu'elle couvre. */
+export interface DebordTexture { texture: string; largeurM: number }
+/** Les debords de la texture d'un releve, par bout. */
+export interface DebordsTexture { gauche?: DebordTexture; droite?: DebordTexture }
+
 /**
  * Ce qu'un releve photographique a retenu d'un mur. La texture est l'elevation redressee, a
  * l'echelle, en JPEG : elle couvre exactement `largeur` x `hauteur` metres, du sol a l'egout.
@@ -231,6 +236,12 @@ export interface ReleveFacade {
    * au-dessus de l'egout, que la 3D plaque sur le pignon. Absente, la texture s'arrete a l'egout.
    */
   hauteurTexture?: number;
+  /**
+   * La photo au-dela des bouts du mur, a gauche et a droite (`data:image/jpeg`), sur la hauteur de la texture et a son echelle :
+   * `largeurM` metres chacune. Le mur d'un corps du toit depasse parfois le cote du contour (le trace du cadastre) : la 3D y pose
+   * ces bandes, sur ce mur et sur ce qui passe devant lui. Absentes d'un releve d'avant, ou quand rien ne depasse.
+   */
+  debords?: DebordsTexture;
   ouvertures: OuvertureFacade[];
   /** Distance de prise de vue, en metres, et l'instrument qui l'a donnee. */
   distance: number | null;

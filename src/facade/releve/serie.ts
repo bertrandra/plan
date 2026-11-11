@@ -8,6 +8,7 @@ import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../calage/ca
 import { corrigerDistorsion, corrigerPoint, focale35DePixels, type ModeleDistorsion } from '../vision/distorsion.js';
 import type { Image, P2 } from '../vision/homographie.js';
 import type { PartieBasse, CalageReleve } from '../../model/types.js';
+import type { DebordsTexture } from '../../model/typesReleve.js';
 import type { Prise } from './prise.js';
 
 /** Ce que l'analyse d'une serie donne au releve du mur : sa texture, sa partie basse, son calage. */
@@ -16,6 +17,8 @@ export interface Resultat {
   partiesBasses: PartieBasse[];
   texture: string;
   hauteurTexture: number;
+  /** La photo au-dela des bouts du mur (model/typesReleve.ts::DebordsTexture) ; absente quand rien ne depasse. */
+  debords?: DebordsTexture;
   /** Les coins de chaque photo et leur resolution au mur : la precision annoncee des cotes. */
   calage?: CalageReleve | null;
 }
