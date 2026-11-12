@@ -2,8 +2,14 @@
 
 export interface P { x: number; y: number }
 
-/** Un rectangle, un polygone, ou une ligne (l'egout, le sol : une ligne brisee ouverte, jamais apprise par YOLO). */
-export type Forme = 'rectangle' | 'polygone' | 'ligne';
+/**
+ * Un rectangle, un polygone, une ligne (l'egout, le sol : une ligne brisee ouverte) ou un point (la pointe d'un pignon). Lignes et points
+ * ne s'apprennent pas par YOLO : ils restent dans le format du banc.
+ */
+export type Forme = 'rectangle' | 'polygone' | 'ligne' | 'point';
+
+/** Les formes que YOLO peut apprendre (une boite, un contour). */
+export const estApprenable = (f: Forme): boolean => f === 'rectangle' || f === 'polygone';
 
 /** Un attribut a renseigner sur un objet marque : un choix dans une liste, un nombre, oui/non, ou un texte. */
 export interface Attribut {
@@ -56,7 +62,7 @@ export interface MetaImage {
   appareil?: string | null;
   focale35?: number | null;
   adresse?: string | null;
-  panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null } | null;
+  panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' } | null;
   licence?: string | null;
   auteur?: string | null;
   largeur?: number;

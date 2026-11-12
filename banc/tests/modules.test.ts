@@ -319,3 +319,30 @@ describe('la structure de la facade (fichier data/apprentissage/classes.json)', 
     expect(rangerLesParents([facade, egout], CLASSES_DEFAUT)[1]?.parent).toBe('f');
   });
 });
+
+describe('Panoramax a 90 degres de la rue, et les pointes de pignon', () => {
+  it('un panoramique donne une vue de chaque cote de la rue, ou le seul cote de l’adresse ; une photo plate reste telle quelle', async () => {
+    const { vuesAExtraire } = await import('../src/panoramax.js');
+    // La voiture roule vers le nord-est (45) ; l'adresse est au sud-est (130).
+    const pano = { panoramique: true, azimut: 45, cap: 130 };
+    expect(vuesAExtraire(pano, 'cotes')).toEqual([{ vue: 'gauche', cap: 315 }, { vue: 'droite', cap: 135 }]);
+    expect(vuesAExtraire(pano, 'cote-adresse')).toEqual([{ vue: 'droite', cap: 135 }]);
+    expect(vuesAExtraire(pano, 'adresse')).toEqual([{ vue: 'adresse', cap: 130 }]);
+    expect(vuesAExtraire({ ...pano, azimut: null }, 'cotes')).toEqual([{ vue: 'adresse', cap: 130 }]);
+    expect(vuesAExtraire({ panoramique: false, azimut: 200, cap: 130 }, 'cotes')).toEqual([{ vue: 'photo', cap: 200 }]);
+  });
+  it('la pointe de pignon est un point de la facade, pose d’un clic, jamais appris', async () => {
+    const { creerPolygone, tirerPoignee, ajouterSommet: ajout } = await import('../src/edition.js');
+    const c = CLASSES_DEFAUT;
+    const k = c.find((x) => x.id === 'pointe-pignon');
+    expect([k?.forme, k?.parent]).toEqual(['point', 'lignes-facade']);
+    expect(nomsYolo(c)).toHaveLength(20);
+    expect(nomsYolo(c.map((x) => (x.id === 'pointe-pignon' ? { ...x, apprendre: true } : x)))).toHaveLength(20);
+    const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
+    const pointe = creerPolygone([facade], 'pointe-pignon', [{ x: 30, y: 8 }], 'point');
+    expect(tirerPoignee(pointe, 0, { x: 31, y: 7 }, 100, 100).points).toEqual([{ x: 31, y: 7 }]);
+    expect(ajout(pointe, 0).points).toHaveLength(1);
+    expect(retirerSommet(pointe, 0).points).toHaveLength(1);
+    expect(rangerLesParents([facade, pointe], c)[1]?.parent).toBe('f');
+  });
+});

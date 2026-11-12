@@ -8,7 +8,7 @@ import { CLASSES_DEFAUT, erreursDeLArbre, estDetail, idDuNom, indicesYolo, nomsD
 
 /** Les indices YOLO d'une classe, en abrege : « #3 », « #0–8 », « — » sans indice. */
 const indicesAffiches = (l: number[]): string => (!l.length ? '—' : l.length === 1 ? '#' + l[0] : `#${l[0]}–${l[l.length - 1]}`);
-import type { Attribut, Classe, TypeObjet } from '../types.js';
+import { estApprenable, type Attribut, type Classe, type TypeObjet } from '../types.js';
 
 export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: Classe[]) => void }) {
   const [classes, setClasses] = useState<Classe[]>(banc.classes);
@@ -66,7 +66,7 @@ export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: C
           {ordre.map((x) => (
             <li key={x.id} role="option" aria-selected={x.id === choisie} className={x.id === choisie ? 'choisie' : ''} style={{ paddingLeft: 8 + 18 * profondeur(classes, x.id) }} onClick={() => setChoisie(x.id)}>
               <span className="pastille" style={{ background: x.couleur }} />
-              {x.regroupement ? <b>{x.nom}</b> : x.nom} <small>{x.regroupement ? 'regroupement' : <>{x.forme === 'polygone' ? '⬠' : x.forme === 'ligne' ? '╱' : '▭'} {indicesAffiches(nomsDeLaClasse(x).map((n) => yolo.get(n) ?? -1))}</>}</small>
+              {x.regroupement ? <b>{x.nom}</b> : x.nom} <small>{x.regroupement ? 'regroupement' : <>{x.forme === 'polygone' ? '⬠' : x.forme === 'ligne' ? '╱' : x.forme === 'point' ? '⊕' : '▭'} {indicesAffiches(nomsDeLaClasse(x).map((n) => yolo.get(n) ?? -1))}</>}</small>
             </li>
           ))}
         </ul>
@@ -106,14 +106,15 @@ function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: 
             <option value="rectangle">Rectangle</option>
             <option value="polygone">Polygone</option>
             <option value="ligne">Ligne (égout, sol : jamais apprise par YOLO)</option>
+            <option value="point">Point (pointe de pignon : jamais appris par YOLO)</option>
           </select>
         </label>
         <label>Couleur du marquage<input type="color" value={c.couleur} onChange={(e) => onMaj({ couleur: e.target.value })} /></label>
         <label className="case"><input type="checkbox" checked={!!c.regroupement} onChange={(e) => onMaj(e.target.checked ? { regroupement: true, apprendre: false, types: [] } : { regroupement: false })} /> Regroupement (classe ses enfants, ne se dessine pas)</label>
-        {!c.regroupement && c.forme !== 'ligne' && <label className="case"><input type="checkbox" checked={c.apprendre} onChange={(e) => onMaj({ apprendre: e.target.checked })} /> Apprise (entre dans le jeu YOLO){estDetail(c, classes) ? ' — un détail : ses indices viennent après les objets principaux' : ''}</label>}
+        {!c.regroupement && estApprenable(c.forme) && <label className="case"><input type="checkbox" checked={c.apprendre} onChange={(e) => onMaj({ apprendre: e.target.checked })} /> Apprise (entre dans le jeu YOLO){estDetail(c, classes) ? ' — un détail : ses indices viennent après les objets principaux' : ''}</label>}
         <label className="large">Description<input value={c.description ?? ''} onChange={(e) => onMaj({ description: e.target.value })} /></label>
       </div>
-      {!c.regroupement && c.forme !== 'ligne' && <>
+      {!c.regroupement && estApprenable(c.forme) && <>
       <h4>Types (les noms que le modèle apprend)</h4>
       <p className="aide">Avec des types, le modèle voit l’objet et le qualifie : chaque type est un nom de <code>data.yaml</code>. Sans type, la classe elle-même est le nom appris.</p>
       <table className="tableau">

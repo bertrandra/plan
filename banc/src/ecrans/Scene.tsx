@@ -27,6 +27,16 @@ interface Props {
 }
 
 /** Les points d'un trace sans ceux poses deux fois au meme endroit (les deux clics d'un double clic). */
+/** Un point marque (la pointe d'un pignon) : un cercle et sa croix, a la couleur de sa classe. */
+function PointMarque({ p, couleur, r, trait, onPointerDown }: { p: P; couleur: string; r: number; trait: number; onPointerDown: (e: PE<SVGElement>) => void }) {
+  return (
+    <g onPointerDown={onPointerDown} className="point-marque">
+      <circle cx={p.x} cy={p.y} r={r} fill={couleur} fillOpacity={0.25} stroke={couleur} strokeWidth={trait} />
+      <path d={`M${p.x - r * 1.6} ${p.y}H${p.x + r * 1.6}M${p.x} ${p.y - r * 1.6}V${p.y + r * 1.6}`} stroke={couleur} strokeWidth={trait} />
+    </g>
+  );
+}
+
 function sansDoublons(l: readonly P[], tolerance: number): P[] {
   return l.filter((p, i) => { const q = l[i - 1]; return !q || Math.hypot(p.x - q.x, p.y - q.y) > tolerance; });
 }
@@ -81,6 +91,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
     }
     // Une ligne : un point par clic ; Entree ou un double clic la finit (deux points au moins).
     if (outil === 'ligne') setTrace([...trace, p]);
+    // Un point (la pointe d'un pignon) : un clic le pose.
+    if (outil === 'point') onCreer([p], 'point');
   };
   const surObjet = (e: PE<SVGElement>, o: Objet) => {
     if (outil !== 'choisir' || e.button !== 0 || espace.current) return;
@@ -146,7 +158,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
         const c = couleur(o), choisiIci = o.id === choisi;
         return (
           <g key={o.id} className={'objet origine-' + o.origine + (choisiIci ? ' choisi' : '')}>
-            {o.forme === 'ligne' ? <polyline points={pts} fill="none" stroke={c} strokeWidth={(choisiIci ? 3 : 2) * trait} onPointerDown={(e) => surObjet(e, o)} /> : <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />}
+            {o.forme === 'point' ? <PointMarque p={o.points[0] ?? { x: 0, y: 0 }} couleur={c} r={(choisiIci ? 9 : 7) * echelle} trait={trait} onPointerDown={(e) => surObjet(e, o)} />
+              : o.forme === 'ligne' ? <polyline points={pts} fill="none" stroke={c} strokeWidth={(choisiIci ? 3 : 2) * trait} onPointerDown={(e) => surObjet(e, o)} /> : <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />}
             <text x={contour(o)[0]?.x ?? 0} y={(contour(o)[0]?.y ?? 0) - 3 * echelle} fill={c} fontSize={12 * echelle} className="etiquette">{nom(o)}{o.score !== undefined && o.origine === 'auto' ? ' ' + Math.round(o.score * 100) + '%' : ''}</text>
           </g>
         );
@@ -157,7 +170,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
         const ps = poignees(o);
         return (
           <g className="poignees">
-            {o.forme !== 'rectangle' && ps.slice(0, o.forme === 'ligne' ? -1 : undefined).map((a, k) => { const b = ps[(k + 1) % ps.length] as P; return <circle key={'m' + k} cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r={rayon * 0.6} className="milieu" onPointerDown={(e) => { e.stopPropagation(); onDebutGeste(); onModifier(ajouterSommet(o, k), true); }} />; })}
+            {o.forme !== 'rectangle' && ps.slice(0, o.forme === 'ligne' || o.forme === 'point' ? -1 : undefined).map((a, k) => { const b = ps[(k + 1) % ps.length] as P; return <circle key={'m' + k} cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r={rayon * 0.6} className="milieu" onPointerDown={(e) => { e.stopPropagation(); onDebutGeste(); onModifier(ajouterSommet(o, k), true); }} />; })}
             {ps.map((q, k) => <circle key={k} cx={q.x} cy={q.y} r={rayon} className="poignee" onPointerDown={(e) => surPoignee(e, o, k)} />)}
           </g>
         );

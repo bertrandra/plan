@@ -123,3 +123,22 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
   }
   return out.sort((a, b) => a.distance - b.distance);
 }
+
+/**
+ * Ce qu'on tire d'un panoramique (demande du proprietaire, 12 novembre 2026) : les facades sont de part et d'autre de la rue, a 90 degres
+ * du sens de la prise de vue (`view:azimuth`, le cap de l'appareil, qui roule dans la rue). « cotes » : une vue de chaque cote, pour
+ * trouver les batiments ; « cote-adresse » : le seul cote ou est l'adresse ; « adresse » : la vue tournee droit vers l'adresse. Une photo
+ * plate se garde telle quelle.
+ */
+export type Visee = 'cotes' | 'cote-adresse' | 'adresse';
+export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo'; cap: number }
+
+export function vuesAExtraire(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'>, visee: Visee): VueAExtraire[] {
+  if (!p.panoramique) return [{ vue: 'photo', cap: p.azimut ?? p.cap }];
+  // Sans cap de prise de vue, le sens de la rue n'est pas connu : la vue vers l'adresse.
+  if (visee === 'adresse' || p.azimut === null) return [{ vue: 'adresse', cap: p.cap }];
+  const norm = (a: number) => ((a % 360) + 360) % 360;
+  const gauche: VueAExtraire = { vue: 'gauche', cap: norm(p.azimut - 90) }, droite: VueAExtraire = { vue: 'droite', cap: norm(p.azimut + 90) };
+  if (visee === 'cotes') return [gauche, droite];
+  return [Math.abs(ecartAngle(gauche.cap, p.cap)) <= Math.abs(ecartAngle(droite.cap, p.cap)) ? gauche : droite];
+}

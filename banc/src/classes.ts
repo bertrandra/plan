@@ -1,7 +1,7 @@
 // L'arbre des objets a marquer (etape 0) : celui que le banc propose la premiere fois, et ce qu'on en tire (l'ordre YOLO,
 // le parent permis d'un objet). La personne le change ensuite a l'ecran Classes ; il vit dans data/apprentissage/classes.json.
 
-import type { Classe } from './types.js';
+import { estApprenable, type Classe } from './types.js';
 import arbreLivre from '../data/apprentissage/classes.json';
 
 /**
@@ -44,7 +44,7 @@ export function profondeur(classes: readonly Classe[], id: string): number {
 }
 
 /** Les noms appris d'une classe : ses types, sinon elle-meme ; rien pour une classe non apprise, un regroupement ou une ligne (YOLO n'apprend pas de lignes). */
-export const nomsDeLaClasse = (c: Classe): string[] => (!c.apprendre || c.regroupement || c.forme === 'ligne' ? [] : c.types?.length ? c.types.map((x) => x.id) : [c.id]);
+export const nomsDeLaClasse = (c: Classe): string[] => (!c.apprendre || c.regroupement || !estApprenable(c.forme) ? [] : c.types?.length ? c.types.map((x) => x.id) : [c.id]);
 
 /** Un detail : une classe rangee dans un objet appris (le cadre d'une fenetre), et non une simple sous-categorie d'un regroupement. */
 export function estDetail(c: Classe, classes: readonly Classe[]): boolean {
@@ -80,7 +80,7 @@ export function indicesYolo(classes: readonly Classe[]): Map<string, number> {
 /** Le nom YOLO d'un objet : son type pour une classe a types (null s'il n'est pas qualifie), sa classe sinon ; null hors du jeu. */
 export function nomYoloDe(o: { classe: string; type?: string }, classes: readonly Classe[]): string | null {
   const c = classes.find((x) => x.id === o.classe);
-  if (!c?.apprendre || c.regroupement || c.forme === 'ligne') return null;
+  if (!c?.apprendre || c.regroupement || !estApprenable(c.forme)) return null;
   if (!c.types?.length) return c.id;
   return c.types.some((t) => t.id === o.type) ? (o.type ?? null) : null;
 }

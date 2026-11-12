@@ -26,14 +26,14 @@
   },
   {
     "id": "lignes-facade",
-    "nom": "Lignes de façade",
+    "nom": "Lignes et pointes de façade",
     "parent": "facade",
     "regroupement": true,
     "forme": "rectangle",
     "couleur": "#ffab91",
     "apprendre": false,
     "attributs": [],
-    "description": "Les lignes horizontales qui situent le mur : égout et sol."
+    "description": "Les repères du mur : l’égout et le sol (des lignes), les pointes de pignon (des points)."
   },
   {
     "id": "egout",
@@ -60,6 +60,27 @@
       }
     ],
     "description": "Le pied du mur, là où il rencontre le sol."
+  },
+  {
+    "id": "pointe-pignon",
+    "nom": "Pointe de pignon",
+    "parent": "lignes-facade",
+    "forme": "point",
+    "couleur": "#e040fb",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "cachee",
+        "nom": "Cachée (arbre, autre toit)",
+        "type": "booleen"
+      },
+      {
+        "cle": "epi",
+        "nom": "Épi de faîtage",
+        "type": "booleen"
+      }
+    ],
+    "description": "Le sommet d’un pignon, là où les deux rives se rejoignent (sous l’épi s’il y en a un)."
   },
   {
     "id": "ouverture",

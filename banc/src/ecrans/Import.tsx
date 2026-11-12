@@ -6,7 +6,7 @@ import type { Banc } from '../App.js';
 import { api, ErreurApi } from '../api.js';
 import { lireExif } from '../exif.js';
 import { bitmap, COTE_SOURCE, jpeg, pixels, reduire, versCanevas, vignette } from '../images.js';
-import { lirePhotos, trouverAdresse, urlRecherche, type Adresse, type PhotoRue } from '../panoramax.js';
+import { lirePhotos, trouverAdresse, urlRecherche, vuesAExtraire, type Adresse, type PhotoRue, type Visee } from '../panoramax.js';
 
 /** Lit un JSON, en erreur sur une reponse qui n'est pas 2xx (un 504 du geocodage passe au repli). */
 async function lireJson(url: string): Promise<unknown> {
@@ -71,6 +71,7 @@ function ImportPanoramax({ banc }: { banc: Banc }) {
   const [texte, setTexte] = useState('');
   const [rayon, setRayon] = useState(40);
   const [visees, setVisees] = useState(true);
+  const [visee, setVisee] = useState<Visee>('cotes');
   const [adresse, setAdresse] = useState<Adresse | null>(null);
   const [photos, setPhotos] = useState<PhotoRue[]>([]);
   const [choix, setChoix] = useState<Set<string>>(new Set());
@@ -101,21 +102,27 @@ function ImportPanoramax({ banc }: { banc: Banc }) {
       setEtat(`Import ${++n} sur ${choix.size}…`);
       try {
         const b = await bitmap(await (await fetch(p.hd)).blob());
-        // Un panoramique : la vue plate tournee vers l'adresse (75 degres de champ, un peu vers le haut, comme on vise une facade).
-        const c = p.panoramique
-          ? versCanevas(vueDuPanoramique(pixels(reduire(b, 6000)), { capCentre: p.azimut ?? 0, cap: p.cap, tangage: 8, champ: 75, largeur: 1600, hauteur: 1200 }))
-          : reduire(b, COTE_SOURCE);
+        // Un panoramique : les vues plates a 90 degres de la rue (les facades), ou tournee vers l'adresse ; 75 degres de champ, un peu
+        // vers le haut, comme on vise une facade. Le panoramique se lit une fois pour toutes ses vues.
+        const pano = p.panoramique ? pixels(reduire(b, 6000)) : null;
+        for (const v of vuesAExtraire(p, visee)) {
+          const c = pano ? versCanevas(vueDuPanoramique(pano, { capCentre: p.azimut ?? 0, cap: v.cap, tangage: 8, champ: 75, largeur: 1600, hauteur: 1200 })) : reduire(b, COTE_SOURCE);
+          try {
+            await api.importer(await jpeg(c, 0.92), await vignette(c), {
+              source: 'panoramax', nom: 'panoramax-' + p.id.slice(0, 8) + (v.vue === 'gauche' || v.vue === 'droite' ? '-' + v.vue : ''), date: p.date, lat: p.lat, lon: p.lon, azimut: v.cap,
+              panoramax: { id: p.id, collection: p.collection, panoramique: p.panoramique, cap: v.cap, vue: v.vue }, auteur: p.auteur, licence: p.licence, adresse: adresse.libelle, lot,
+            });
+            ok++;
+          } catch (e) {
+            if (!(e instanceof ErreurApi && e.statut === 409)) throw e;
+          }
+        }
         b.close();
-        await api.importer(await jpeg(c, 0.92), await vignette(c), {
-          source: 'panoramax', nom: 'panoramax-' + p.id.slice(0, 8), date: p.date, lat: p.lat, lon: p.lon, azimut: p.panoramique ? p.cap : p.azimut,
-          panoramax: { id: p.id, collection: p.collection, panoramique: p.panoramique, cap: p.cap }, auteur: p.auteur, licence: p.licence, adresse: adresse.libelle, lot,
-        });
-        ok++;
       } catch (e) {
-        if (!(e instanceof ErreurApi && e.statut === 409)) banc.dire(`Photo ${p.id.slice(0, 8)} : ${(e as Error).message}`, 'erreur');
+        banc.dire(`Photo ${p.id.slice(0, 8)} : ${(e as Error).message}`, 'erreur');
       }
     }
-    setEtat(`${ok} photo(s) importée(s), lot ${lot}.`);
+    setEtat(`${ok} vue(s) importée(s), lot ${lot}.`);
     setPhotos((l) => l.filter((p) => !choix.has(p.id)));
     setChoix(new Set());
     await banc.relire();
@@ -124,11 +131,18 @@ function ImportPanoramax({ banc }: { banc: Banc }) {
   return (
     <div className="panneau">
       <h2>1b · Panoramax autour d’une adresse</h2>
-      <p className="aide">Les photos de rue libres (licence de chaque photo gardée) prises à moins du rayon de l’adresse. Un panoramique 360 est ramené à la vue tournée vers l’adresse.</p>
+      <p className="aide">Les photos de rue libres (licence de chaque photo gardée) prises à moins du rayon de l’adresse. Un panoramique 360 donne, au choix, une vue de chaque côté de la rue (à 90° du sens de la prise de vue, là où sont les façades), le seul côté de l’adresse, ou la vue droit vers l’adresse.</p>
       <form className="rang" onSubmit={(e) => { e.preventDefault(); void chercher(); }}>
         <input className="large" placeholder="2 allée des Limites, Le Vésinet — ou 48.8957, 2.1456" value={texte} onChange={(e) => setTexte(e.target.value)} required />
         <label>Rayon <input type="number" min={5} max={300} value={rayon} onChange={(e) => setRayon(Number(e.target.value))} /> m</label>
         <label className="case"><input type="checkbox" checked={visees} onChange={(e) => setVisees(e.target.checked)} /> Tournées vers l’adresse</label>
+        <label>Panoramiques 360
+          <select value={visee} onChange={(e) => setVisee(e.target.value as Visee)}>
+            <option value="cotes">Les deux côtés de la rue (90°)</option>
+            <option value="cote-adresse">Le côté de l’adresse (90°)</option>
+            <option value="adresse">Droit vers l’adresse</option>
+          </select>
+        </label>
         <button type="submit" className="principal">Chercher</button>
       </form>
       {etat && <p className="etat">{etat}</p>}

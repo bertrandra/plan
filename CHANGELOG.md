@@ -24,7 +24,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
   dans le jeu exporté. Le typage est un fichier de données (`data/apprentissage/classes.json`, modifiable à l’écran) ; la façade porte
   ses lignes d’égout et de sol (une forme « ligne », hors du jeu YOLO), ses parties du mur (pignon, soubassement) à part des
-  ouvertures ; la cheminée est sur la toiture, hors de la façade.
+  ouvertures ; la cheminée est sur la toiture, hors de la façade. Les pointes de pignon se posent d’un clic (une forme « point »).
+  Un panoramique Panoramax donne une vue de chaque côté de la rue, à 90° du sens de la prise de vue, pour trouver les façades.
 
 ### Retiré
 

@@ -11,7 +11,7 @@ export function creerRectangle(objets: readonly Objet[], classe: string, a: P, b
   return { id: nouvelId(objets, 'm'), classe, forme: 'rectangle', points: [{ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) }, { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) }], parent: null, attributs: {}, origine: 'main' };
 }
 
-export function creerPolygone(objets: readonly Objet[], classe: string, points: readonly P[], forme: 'polygone' | 'ligne' = 'polygone'): Objet {
+export function creerPolygone(objets: readonly Objet[], classe: string, points: readonly P[], forme: 'polygone' | 'ligne' | 'point' = 'polygone'): Objet {
   return { id: nouvelId(objets, 'm'), classe, forme, points: points.map((p) => ({ ...p })), parent: null, attributs: {}, origine: 'main' };
 }
 
@@ -67,7 +67,7 @@ export function changerAttribut(o: Objet, cle: string, valeur: string | number |
 
 /** Ajoute un sommet a un polygone ou a une ligne, au milieu de son cote `k` (de k a k + 1 ; une ligne n'a pas de cote de fermeture). */
 export function ajouterSommet(o: Objet, k: number): Objet {
-  if (o.forme === 'rectangle' || (o.forme === 'ligne' && k >= o.points.length - 1)) return o;
+  if (o.forme === 'rectangle' || o.forme === 'point' || (o.forme === 'ligne' && k >= o.points.length - 1)) return o;
   const a = o.points[k] as P, b = o.points[(k + 1) % o.points.length] as P;
   const pts = [...o.points];
   pts.splice(k + 1, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });

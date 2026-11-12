@@ -71,6 +71,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       else if (k === 'r') setOutil('rectangle');
       else if (k === 'p') setOutil('polygone');
       else if (k === 't') setOutil('ligne');
+      else if (k === 'o') setOutil('point');
       else if (e.key === 'PageDown' || k === 'n') void aller(rang + 1);
       else if (e.key === 'PageUp' || k === 'b') void aller(rang - 1);
       else if (/^[1-9]$/.test(e.key)) { const c = choixDeCreation(banc.classes)[Number(e.key) - 1]; if (c) choisirClasse(c.valeur); }
@@ -131,7 +132,7 @@ function BarreEditeur({ banc, meta, rang, total, modifie, envoi, outil, setOutil
       <button type="button" disabled={rang >= total - 1} onClick={() => onAller(rang + 1)} aria-label="Photo suivante">▶</button>
       <strong className="nom">{meta.nom ?? meta.id}</strong>
       <span className="outils" role="group" aria-label="Outil">
-        {(['choisir', 'rectangle', 'polygone', 'ligne'] as const).map((o) => <button key={o} type="button" className={o === outil ? 'onglet actif' : 'onglet'} aria-pressed={o === outil} onClick={() => setOutil(o)}>{o === 'choisir' ? 'Choisir (V)' : o === 'rectangle' ? '▭ Rectangle (R)' : o === 'polygone' ? '⬠ Polygone (P)' : '╱ Ligne (T)'}</button>)}
+        {(['choisir', 'rectangle', 'polygone', 'ligne', 'point'] as const).map((o) => <button key={o} type="button" className={o === outil ? 'onglet actif' : 'onglet'} aria-pressed={o === outil} onClick={() => setOutil(o)}>{o === 'choisir' ? 'Choisir (V)' : o === 'rectangle' ? '▭ Rectangle (R)' : o === 'polygone' ? '⬠ Polygone (P)' : o === 'ligne' ? '╱ Ligne (T)' : '⊕ Point (O)'}</button>)}
       </span>
       <label>À poser <select value={classe} onChange={(e) => choisirClasse(e.target.value)}>{choix.map((c, i) => <option key={c.valeur} value={c.valeur}>{i < 9 ? i + 1 + ' · ' : ''}{c.nom}</option>)}</select></label>
       <label className="case"><input type="checkbox" checked={meta.verifiee} onChange={(e) => modifierMeta({ verifiee: e.target.checked })} /> Vérifiée</label>
