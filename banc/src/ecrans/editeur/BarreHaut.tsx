@@ -6,9 +6,9 @@ import { api } from '../../api.js';
 import type { Bloc, MetaImage } from '../../types.js';
 import { Icone } from '../../ui/Icones.js';
 
-export function BarreHaut({ banc, meta, rang, total, aRelire, modifie, envoi, onAller, onEnregistrer, onValider, onFermer }: {
-  banc: Banc; meta: MetaImage; rang: number; total: number; aRelire: number; modifie: boolean; envoi: boolean;
-  onAller: (k: number) => void; onEnregistrer: () => void; onValider: () => void; onFermer: () => void;
+export function BarreHaut({ banc, meta, rang, total, aRelire, modifie, envoi, relance, onAller, onEnregistrer, onValider, onFermer, onRelancer }: {
+  banc: Banc; meta: MetaImage; rang: number; total: number; aRelire: number; modifie: boolean; envoi: boolean; relance: boolean;
+  onAller: (k: number) => void; onEnregistrer: () => void; onValider: () => void; onFermer: () => void; onRelancer: () => void;
 }) {
   // La case et le bloc changent tout de suite a l'ecran ; le serveur confirme (ou l'erreur remet l'etat d'avant).
   const modifierMeta = (champs: Parameters<typeof api.modifier>[1]) => {
@@ -30,6 +30,8 @@ export function BarreHaut({ banc, meta, rang, total, aRelire, modifie, envoi, on
       <span className="etat-photo">
       <label className="case"><input type="checkbox" checked={meta.verifiee} onChange={(e) => modifierMeta({ verifiee: e.target.checked })} /> Vérifiée</label>
       <label className="bloc"><span className="libelle">Bloc</span> <select value={meta.bloc} onChange={(e) => modifierMeta({ bloc: e.target.value as Bloc })}><option value="">(tirage)</option><option value="train">train</option><option value="val">val</option><option value="test">test</option><option value="reserve">réserve</option></select></label>
+      <button type="button" className="discret" disabled={relance} onClick={onRelancer}
+        title="Relancer le brouillon sur cette photo (modèles actifs et recherche des baies) : ce qui a été fait à la main est gardé, le brouillon non relu est remplacé ; Ctrl+Z le défait"><Icone nom="brouillon" /><span className="libelle">{relance ? 'Brouillon…' : 'Relancer le brouillon'}</span></button>
       <button type="button" className="discret danger" title="Rejeter cette photo : elle sort du jeu" onClick={() => { if (confirm('Rejeter cette photo ? Elle sort du jeu.')) modifierMeta({ statut: 'rejetee' }); }}><Icone nom="rejeter" /><span className="libelle">Rejeter</span></button>
       <button type="button" disabled={envoi} onClick={onEnregistrer} title="Enregistrer (Ctrl+S)"><Icone nom="enregistrer" /><span className="libelle">{envoi ? 'Enregistrement…' : 'Enregistrer'}</span></button>
       </span>

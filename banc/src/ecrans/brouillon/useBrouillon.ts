@@ -4,9 +4,8 @@
 import { useMemo, useState } from 'react';
 import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
-import { bitmap, COTE_TRAVAIL, pixels, reduire } from '../../images.js';
-import { detecter } from '../../yolo.js';
-import { brouillonSurExistant, objetsDuBrouillon, parLaRecherche, selonLaCorrespondance, type Proposition } from '../../brouillon.js';
+import { brouillonSurExistant } from '../../brouillon.js';
+import { proposer } from './proposer.js';
 import type { MetaImage } from '../../types.js';
 
 export function useBrouillon(banc: Banc) {
@@ -24,16 +23,7 @@ export function useBrouillon(banc: Banc) {
     for (const [k, m] of l.entries()) {
       setAvance({ fait: k, total: l.length });
       try {
-        const b = await bitmap(api.fichier(m.id, 'redressee', m.redressement?.le ?? ''));
-        const props: Proposition[] = [];
-        for (const mod of actifs) props.push(...selonLaCorrespondance(mod, await detecter(mod, b, api.urlModele(mod.id)), banc.classes));
-        if (recherche) {
-          // La recherche travaille sur une image reduite : ses boites reviennent a l'echelle de la photo.
-          const c = reduire(b, COTE_TRAVAIL), r = b.width / c.width;
-          props.push(...parLaRecherche(pixels(c)).map((p) => ({ ...p, boite: { x0: p.boite.x0 * r, y0: p.boite.y0 * r, x1: p.boite.x1 * r, y1: p.boite.y1 * r } })));
-        }
-        b.close();
-        const nouveaux = objetsDuBrouillon(props, banc.classes);
+        const nouveaux = await proposer(m, actifs, banc.classes, recherche);
         const existants = m.statut === 'validee' ? [] : (await api.annotation(m.id)).objets;
         const tous = existants.length ? brouillonSurExistant(existants, nouveaux, banc.classes) : nouveaux;
         // Une photo deja corrigee le reste : le brouillon n'y ajoute que ce qu'elle n'avait pas, a relire.

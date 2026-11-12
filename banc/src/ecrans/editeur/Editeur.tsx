@@ -7,7 +7,8 @@ import { useCallback, useMemo, useState } from 'react';
 import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
 import { choixDeCreation, libelleDe } from '../../classes.js';
-import { lireCible } from '../../brouillon.js';
+import { brouillonSurExistant, lireCible } from '../../brouillon.js';
+import { proposer } from '../brouillon/proposer.js';
 import { rangerLesParents } from '../../geometrie.js';
 import { aligner, creerPolygone, creerRectangle, memeTaille, supprimer } from '../../edition.js';
 import { decaler, qualifier } from '../../relecture.js';
@@ -69,6 +70,23 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     const suivante = liste[rang + 1];
     if (suivante) { sel.choisir(null); onAller(suivante); } else onFermer();
   };
+  // Relancer le brouillon sur la photo ouverte : les objets poses ou corriges a la main restent, le brouillon non relu est remplace
+  // (brouillonSurExistant, comme le lot de l'etape 3). Un pas d'historique : Ctrl+Z le defait ; rien n'est enregistre sans Enregistrer.
+  const [relance, setRelance] = useState(false);
+  const relancer = async () => {
+    if (!meta || relance) return;
+    const actifs = banc.modeles.filter((m) => m.installe && m.actif !== false);
+    setRelance(true);
+    try {
+      const nouveaux = await proposer(meta, actifs, banc.classes, true);
+      // Le compte pour le message, sur l'etat present (la mise a jour, elle, se fait dans l'historique, plus tard).
+      const present = marquage.objets ?? [], gardes = present.filter((o) => o.origine !== 'auto').length;
+      const ajoutes = brouillonSurExistant(present, nouveaux, banc.classes).length - gardes;
+      marquage.changer((l) => brouillonSurExistant(l, nouveaux, banc.classes));
+      sel.choisir(null);
+      banc.dire(`Brouillon relancé (${actifs.length} modèle(s) et la recherche des baies) : ${ajoutes} objet(s) à relire ; ${gardes} objet(s) faits à la main gardés.`);
+    } catch (e) { banc.dire((e as Error).message, 'erreur'); } finally { setRelance(false); }
+  };
   const fermer = () => { if (!marquage.modifie || confirm('Quitter sans enregistrer ?')) onFermer(); };
   const retirerPris = () => { const ids = [...sel.cibles]; if (ids.length) { marquage.changer((l) => ids.reduce((acc, x) => supprimer(acc, x), l)); sel.choisir(null); } };
   /** Un choix de la palette (ou son chiffre) : il qualifie la selection s'il y en a une, sinon il dit ce qu'on trace. */
@@ -112,7 +130,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   };
   return (
     <section className="editeur">
-      <BarreHaut banc={banc} meta={meta} rang={rang} total={liste.length} aRelire={relecture.aRelire} modifie={marquage.modifie} envoi={marquage.envoi}
+      <BarreHaut banc={banc} meta={meta} rang={rang} total={liste.length} aRelire={relecture.aRelire} modifie={marquage.modifie} envoi={marquage.envoi} relance={relance} onRelancer={() => { void relancer(); }}
         onAller={(k) => { void aller(k); }} onEnregistrer={() => { void marquage.enregistrer(); }} onValider={() => { void validerEtSuivante(); }} onFermer={fermer} />
       <div className="editeur-corps">
         <ColonneOutils outil={vue.outil} mode={vue.mode} onOutil={vue.setOutil} onMode={vue.setMode} etiquettes={vue.etiquettes} onEtiquettes={() => vue.setEtiquettes((x) => !x)}

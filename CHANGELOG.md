@@ -5,6 +5,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc : « Relancer le brouillon » sur la photo ouverte dans l'éditeur** (demande du propriétaire, 12 novembre 2026). Les modèles
+  actifs et la recherche des baies repassent sur cette photo : ce qui a été posé ou corrigé à la main est gardé, le brouillon non relu
+  est remplacé (la même règle que le lot de l'étape 3, `brouillonSurExistant`), en un pas d'historique (Ctrl+Z le défait) ; rien n'est
+  enregistré sans « Enregistrer ». Le calcul d'une photo est partagé avec le lot (`ecrans/brouillon/proposer.ts`).
+
 ### Corrigé
 
 - **Banc : supprimer un objet au téléphone** (12 novembre 2026). Le bouton n'était que dans l'inspecteur, deux écrans sous la photo,
