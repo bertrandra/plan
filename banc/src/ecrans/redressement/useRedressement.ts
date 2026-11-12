@@ -88,12 +88,13 @@ export function useRedressement(banc: Banc) {
       await new Promise((r) => setTimeout(r, 30));
       const f = fusionnerImages(canevas.map(pixels));
       if (!f) throw new Error('Il faut au moins deux photos.');
-      const faibles = f.jointures.filter((j) => j.score < 0.5).length;
+      // Douteuse : une ressemblance faible, ou trop peu de correspondances pour la pose fine (la pose grossiere est restee).
+      const faibles = f.jointures.filter((j) => j.score < 0.5 || j.paires < 12).length;
       const c = versCanevas(f.image);
       const image = await jpeg(c, 0.92), vig = await vignette(c);
       const nom = `fusion-${(l[0]?.nom ?? l[0]?.id ?? '').replace(/\.[a-z]+$/i, '')}-${l.length}`;
       const nouvelle = await api.importer(image, vig, { source: 'fichier', nom, largeur: f.image.largeur, hauteur: f.image.hauteur, lot: nomDuLot('fusion') });
-      banc.remplacer(await api.redressee(nouvelle.id, image, vig, { methode: 'fusion', note: 'Fusion de ' + l.map((m) => m.nom ?? m.id).join(', ') }));
+      banc.remplacer(await api.redressee(nouvelle.id, image, vig, { methode: 'fusion', note: 'Fusion de ' + l.map((m) => m.nom ?? m.id).join(', ') + ' ; jointures : ' + f.jointures.map((j) => (j.paires ? `${j.paires} points, ${j.ecart.toFixed(1)} px` : 'pose grossière')).join(' / ') }));
       liberer(c);
       if (ecarter) for (const m of l) await api.modifier(m.id, { statut: 'rejetee' });
       setChoix([]);

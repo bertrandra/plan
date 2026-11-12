@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Banc : la fusion des photos d'un mur est précise au pixel** (le propriétaire y voyait des imprécisions, 12 novembre 2026). Elle ne
+  posait une photo sur sa voisine que par un décalage et une échelle ; deux photos redressées diffèrent aussi d'une petite rotation, de
+  proportions (la largeur sur la hauteur, que les points de fuite ne fixent pas) et d'un reste de fuite. Sur un banc de sept prises
+  synthétiques d'AE 101 à la pose connue, l'écart moyen allait de 2 à 15 px, jusqu'à 38 px aux bouts du recouvrement, et le fondu sur tout
+  le recouvrement dédoublait fenêtres et descentes. Désormais (`banc/src/fusionAlignement.ts`) : la pose grossière de la mosaïque de Plan
+  sert de départ, des vignettes texturées sont retrouvées d'une photo à l'autre au dixième de pixel (corrélation normalisée), et
+  l'homographie qui les accorde est tirée au sort (RANSAC) puis ajustée aux moindres carrés, en deux tours ; une couture étroite au milieu
+  du recouvrement et des gains d'exposition remplacent le fondu large. Sur le même banc : 0,04 à 0,1 px d'écart moyen, 0,4 px au plus.
+  Une jointure qui garde la pose grossière (trop peu de correspondances) est signalée.
+
 ## [5.26.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades devient un poste de relecture (éditeur en
