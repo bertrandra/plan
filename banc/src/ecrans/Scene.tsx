@@ -10,10 +10,11 @@ import { boite, contour } from '../geometrie.js';
 import { libelleDe } from '../classes.js';
 import { Loupe } from './Loupe.js';
 import { BoutonsZoom, useZoom } from './useZoom.js';
-import { cadrer } from '../zoom.js';
+import { cadrer, vueDuCadre } from '../zoom.js';
 import { ajouterSommet, deplacer, objetsDansLaZone, poignees, retirerSommet, tirerPoignee, zoneDeSelection } from '../edition.js';
 
-export type Outil = 'choisir' | 'selection' | Forme;
+/** Les outils : choisir et deplacer les objets, selectionner (boite, lasso), deplacer la vue (main), zoomer, et tracer une forme. */
+export type Outil = 'choisir' | 'selection' | 'vue' | 'zoom' | Forme;
 export type ModeSelection = 'boite' | 'lasso';
 
 interface Vue { x: number; y: number; w: number; h: number }
@@ -24,6 +25,8 @@ type Geste =
   | { type: 'deplacer'; groupe: Objet[]; ecran: P; parti: boolean }
   | { type: 'poignee'; objet: Objet; k: number; ecran: P; parti: boolean }
   | { type: 'rectangle'; depart: P; courant: P }
+  // L'outil Zoom : un clic rapproche (Alt ou Maj : eloigne), un cadre tire devient la vue.
+  | { type: 'cadre'; depart: P; courant: P; arriere: boolean }
   // La zone d'une selection en cours ; `sur` : l'objet touche au depart (un toucher sans glisse le choisit).
   | { type: 'zone'; points: P[]; sur: string | null; ajouter: boolean }
   | { type: 'vue'; depart: { x: number; y: number }; vue: Vue };
@@ -41,6 +44,9 @@ interface Props {
   /** `fin` : le geste est fini ; sinon les objets suivent le doigt. L'etat d'avant le geste est note par onDebutGeste. */
   onModifier: (objets: Objet[], fin: boolean) => void;
   onDebutGeste: () => void;
+  /** Les modes poses en bas de la photo (main, zoom, selection) changent l'outil de l'editeur. */
+  onOutil: (o: Outil) => void;
+  onModeSelection: (m: ModeSelection) => void;
   /** Ce qui se pose en haut de la photo (les actions de la selection). */
   enTete?: ReactNode;
 }
@@ -56,11 +62,25 @@ function PointMarque({ p, couleur, r, trait, onPointerDown }: { p: P; couleur: s
 }
 
 /** Les boutons poses sur la photo : finir le trace (au doigt, ni double clic ni Entree), retirer son dernier point, le zoom, la loupe. */
-function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster, loupe, basculerLoupe }: { finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string; loupe: boolean; basculerLoupe: () => void }) {
+function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster, loupe, basculerLoupe, outil, modeSelection, onOutil, onModeSelection }: {
+  finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string; loupe: boolean; basculerLoupe: () => void;
+  outil: Outil; modeSelection: ModeSelection; onOutil: (o: Outil) => void; onModeSelection: (m: ModeSelection) => void;
+}) {
+  const mode = (o: Outil, m?: ModeSelection) => o === outil && (!m || m === modeSelection);
+  const bouton = (o: Outil, picto: string, titre: string, m?: ModeSelection) => (
+    <button type="button" className={mode(o, m) ? 'onglet actif' : 'onglet'} aria-pressed={mode(o, m)} title={titre} aria-label={titre} onClick={() => { onOutil(o); if (m) onModeSelection(m); }}>{picto}</button>
+  );
   return (
     <div className="outils-scene">
       {finir && <button type="button" className="principal" onClick={finir}>Finir le tracé</button>}
       {retirer && <button type="button" onClick={retirer}>Retirer le dernier point</button>}
+      <span className="modes-scene" role="group" aria-label="Mode de la souris">
+        {bouton('choisir', '☝', 'Choisir, déplacer, redimensionner (V)')}
+        {bouton('vue', '✋', 'Déplacer la vue (H, ou Espace + glisser)')}
+        {bouton('zoom', '🔍', 'Zoom (Z) : clic pour rapprocher, Alt + clic pour éloigner, tirer un cadre pour le montrer')}
+        {bouton('selection', '⬚', 'Sélection en boîte (S)', 'boite')}
+        {bouton('selection', '➰', 'Sélection au lasso (S)', 'lasso')}
+      </span>
       <BoutonsZoom zoomer={zoomer} ajuster={ajuster} titreAjuster={titreAjuster} />
       <button type="button" className={loupe ? 'bascule-loupe active' : 'bascule-loupe'} aria-pressed={loupe} title="Loupe automatique (L)" onClick={basculerLoupe}>🔍 Loupe</button>
     </div>
@@ -102,6 +122,20 @@ export function parTaille(objets: readonly Objet[]): Objet[] {
   return objets.map((o, i) => ({ o, i, a: aire(o) })).sort((x, y) => y.a - x.a || x.i - y.i).map((x) => x.o);
 }
 
+/** Un point pose avec un outil de trace : le polygone grandit (ou se ferme sur son premier sommet), la ligne grandit, le point se cree. */
+function poserUnPoint(p: P, { outil, trace, setTrace, onCreer, tolerance }: { outil: Outil; trace: P[]; setTrace: (t: P[]) => void; onCreer: (points: P[], forme: Forme) => void; tolerance: number }): void {
+  if (outil === 'polygone') {
+    // Toucher le premier sommet ferme le polygone.
+    const premier = trace[0];
+    if (premier && trace.length >= 3 && Math.hypot(premier.x - p.x, premier.y - p.y) < tolerance) { onCreer(trace, 'polygone'); setTrace([]); }
+    else setTrace([...trace, p]);
+  }
+  // Une ligne : un point par clic ; Entree ou un double clic la finit (deux points au moins).
+  if (outil === 'ligne') setTrace([...trace, p]);
+  // Un point (la pointe d'un pignon) : un clic le pose.
+  if (outil === 'point') onCreer([p], 'point');
+}
+
 /** Les objets dessines : la reference (le choisi) plus marquee, la selection soulignee en pointilles blancs. */
 function Dessin({ objets, classes, choisi, selection, echelle, surObjet }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; surObjet: (e: PE<SVGElement>, o: Objet) => void }) {
   const couleur = (o: Objet) => classes.find((c) => c.id === o.classe)?.couleur ?? '#ff00ff';
@@ -136,7 +170,7 @@ function Poignees({ o, rayon, surPoignee, ajouter }: { o: Objet; rayon: number; 
   );
 }
 
-export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, enTete }: Props) {
+export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, onOutil, onModeSelection, enTete }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [geste, setGeste] = useState<Geste | null>(null);
   // Le second doigt pose : ce que le premier avait commence (un trait, un deplacement, une visee) s'annule, on zoome.
@@ -167,7 +201,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
 
   const fond = (e: PE<SVGSVGElement>) => {
     if (outil === 'selection' && e.button === 0 && !espace.current) { setGeste({ type: 'zone', points: [point(e)], sur: null, ajouter: e.shiftKey }); capter(e); return; }
-    if (e.button === 1 || espace.current || (outil === 'choisir' && e.button === 0)) {
+    if (outil === 'zoom' && e.button === 0) { const p = point(e); setGeste({ type: 'cadre', depart: p, courant: p, arriere: e.altKey || e.shiftKey }); capter(e); return; }
+    if (e.button === 1 || espace.current || (outil === 'vue' && e.button === 0) || (outil === 'choisir' && e.button === 0)) {
       if (outil === 'choisir' && e.button === 0 && !espace.current) onChoisir(null);
       setGeste({ type: 'vue', depart: { x: e.clientX, y: e.clientY }, vue }); capter(e); return;
     }
@@ -177,20 +212,10 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     if (e.pointerType === 'touch') { setSurvol(p); setGeste({ type: 'viser' }); capter(e); return; }
     poser(p);
   };
-  const poser = (p: P) => {
-    if (outil === 'polygone') {
-      // Toucher le premier sommet ferme le polygone.
-      const premier = trace[0];
-      if (premier && trace.length >= 3 && Math.hypot(premier.x - p.x, premier.y - p.y) < 10 * echelle) { onCreer(trace, 'polygone'); setTrace([]); }
-      else setTrace([...trace, p]);
-    }
-    // Une ligne : un point par clic ; Entree ou un double clic la finit (deux points au moins).
-    if (outil === 'ligne') setTrace([...trace, p]);
-    // Un point (la pointe d'un pignon) : un clic le pose.
-    if (outil === 'point') onCreer([p], 'point');
-  };
+  const poser = (p: P) => poserUnPoint(p, { outil, trace, setTrace, onCreer, tolerance: 10 * echelle });
   const surObjet = (e: PE<SVGElement>, o: Objet) => {
-    if (e.button !== 0 || espace.current) return;
+    // La main et le zoom ne prennent pas les objets : le geste va au fond.
+    if (e.button !== 0 || espace.current || outil === 'vue' || outil === 'zoom') return;
     // Outil Selection : un objet deja pris se tire (avec tout le groupe) ; un autre commence une zone (un toucher le choisit).
     if (outil === 'selection' && !(selection.has(o.id) && !e.shiftKey)) { e.stopPropagation(); seuilDe(e); setGeste({ type: 'zone', points: [point(e)], sur: o.id, ajouter: e.shiftKey }); capter(e); return; }
     if (outil !== 'choisir' && outil !== 'selection') return; e.stopPropagation();
@@ -217,7 +242,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
       const c = svg.current?.getBoundingClientRect();
       const k = c && c.width > 0 ? Math.max(geste.vue.w / c.width, geste.vue.h / c.height) : 1;
       setVue({ ...geste.vue, x: geste.vue.x - (e.clientX - geste.depart.x) * k, y: geste.vue.y - (e.clientY - geste.depart.y) * k });
-    } else if (geste.type === 'rectangle') setGeste({ ...geste, courant: p });
+    } else if (geste.type === 'rectangle' || geste.type === 'cadre') setGeste({ ...geste, courant: p });
     else if (geste.type === 'zone') {
       const der = geste.points[geste.points.length - 1] as P;
       if (modeSelection === 'boite') setGeste({ ...geste, points: [geste.points[0] as P, p] });
@@ -242,6 +267,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     else if (geste.type === 'rectangle') {
       if (Math.abs(p.x - geste.depart.x) > 3 * echelle && Math.abs(p.y - geste.depart.y) > 3 * echelle) onCreer([geste.depart, p], 'rectangle');
     } else if (geste.type === 'zone') finirZone(geste);
+    else if (geste.type === 'cadre') setVue((v) => vueDuCadre(geste.depart, p, v, 4 * echelle, geste.arriere, L));
     else if (geste.type === 'deplacer') {
       if (geste.parti) onModifier(geste.groupe.map((o) => deplacer(o, (e.clientX - geste.ecran.x) * echelle, (e.clientY - geste.ecran.y) * echelle, L, H)), true);
     } else if (geste.type === 'poignee') { if (geste.parti) onModifier([tirerPoignee(geste.objet, geste.k, p, L, H)], true); }
@@ -260,11 +286,11 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
   const finir = () => { const t = sansDoublons(trace, 4 * echelle); if ((outil === 'polygone' || outil === 'ligne') && t.length >= minPoints) { onCreer(t, outil); setTrace([]); } };
 
   const trait = 2 * echelle, rayon = 6 * echelle;
-  const enCours = geste?.type === 'rectangle' ? geste : null;
+  const enCours = geste?.type === 'rectangle' || geste?.type === 'cadre' ? geste : null;
   const zone = geste?.type === 'zone' && geste.points.length > 1 ? zoneDeSelection(geste.points, modeSelection) : null;
   // La loupe se montre quand on ajuste au point pres : un coin ou un sommet tire, un rectangle trace, un polygone en cours, ou l'outil de
   // trace en attente du premier point. Elle se pose du cote oppose au curseur.
-  const ajuste = (geste?.type === 'poignee' && geste.parti) || geste?.type === 'rectangle' || geste?.type === 'viser' || (outil !== 'choisir' && outil !== 'selection' && !geste);
+  const ajuste = (geste?.type === 'poignee' && geste.parti) || geste?.type === 'rectangle' || geste?.type === 'viser' || (!['choisir', 'selection', 'vue', 'zoom'].includes(outil) && !geste);
   const montrerLoupe = loupe && !!survol && ajuste;
   const coteLoupe = survol && survol.x - vue.x < vue.w / 2 ? 'droite' : 'gauche';
   return (
@@ -272,13 +298,14 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     {enTete && <div className="entete-scene">{enTete}</div>}
     {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
     <OutilsScene finir={trace.length >= minPoints && (outil === 'polygone' || outil === 'ligne') ? finir : null} retirer={trace.length ? () => setTrace(trace.slice(0, -1)) : null}
-      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)} />
+      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)}
+      outil={outil} modeSelection={modeSelection} onOutil={onOutil} onModeSelection={onModeSelection} />
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
       {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => setGeste(null)} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
       <image href={url} width={L} height={H} />
       <Dessin objets={objets} classes={classes} choisi={choisi} selection={selection} echelle={echelle} surObjet={surObjet} />
-      {objetChoisi && selection.size <= 1 && <Poignees o={objetChoisi} rayon={rayon} surPoignee={surPoignee} ajouter={(k) => { onDebutGeste(); onModifier([ajouterSommet(objetChoisi, k)], true); }} />}
-      {enCours && <rect x={Math.min(enCours.depart.x, enCours.courant.x)} y={Math.min(enCours.depart.y, enCours.courant.y)} width={Math.abs(enCours.courant.x - enCours.depart.x)} height={Math.abs(enCours.courant.y - enCours.depart.y)} fill="none" stroke={classe?.couleur ?? '#fff'} strokeWidth={trait} strokeDasharray={`${4 * echelle}`} />}
+      {objetChoisi && selection.size <= 1 && outil !== 'vue' && outil !== 'zoom' && <Poignees o={objetChoisi} rayon={rayon} surPoignee={surPoignee} ajouter={(k) => { onDebutGeste(); onModifier([ajouterSommet(objetChoisi, k)], true); }} />}
+      {enCours && <rect x={Math.min(enCours.depart.x, enCours.courant.x)} y={Math.min(enCours.depart.y, enCours.courant.y)} width={Math.abs(enCours.courant.x - enCours.depart.x)} height={Math.abs(enCours.courant.y - enCours.depart.y)} fill="none" stroke={geste?.type === 'cadre' ? '#fff' : classe?.couleur ?? '#fff'} strokeWidth={trait} strokeDasharray={`${4 * echelle}`} />}
       {zone && <polygon points={zone.map((q) => `${q.x},${q.y}`).join(' ')} className="zone-selection" strokeWidth={trait} strokeDasharray={`${5 * echelle} ${4 * echelle}`} />}
       {trace.length > 0 && <polyline points={[...trace, ...(survol ? [survol] : [])].map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={classe?.couleur ?? '#fff'} strokeWidth={trait} />}
       {trace.map((q, k) => <circle key={'t' + k} cx={q.x} cy={q.y} r={rayon * (k === 0 ? 1.4 : 0.8)} className="poignee" />)}

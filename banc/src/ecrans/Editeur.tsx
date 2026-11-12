@@ -13,7 +13,7 @@ import type { Bloc, MetaImage, Objet } from '../types.js';
 import { Scene, type ModeSelection, type Outil } from './Scene.js';
 import { BarreSelection, useSelection } from './Selection.js';
 import { libelleDe } from '../classes.js';
-import { PanneauObjet, ListeObjets } from './PanneauObjet.js';
+import { PanneauObjet, PanneauSelection, ListeObjets } from './PanneauObjet.js';
 
 /**
  * Le presse-papiers des objets (Ctrl+C, Ctrl+X, Ctrl+V) : hors du composant, il survit au changement de photo (copier une fenetre,
@@ -88,7 +88,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     pressePapiers = { objets: colles, photo: id };
   };
   const fermer = () => { if (!modifie || confirm('Quitter sans enregistrer ?')) onFermer(); };
-  const choisirClasse = (c: string) => { setClasse(c); const k = banc.classes.find((x) => x.id === c.split(':')[0]); if (k && outil !== 'choisir' && outil !== 'selection') setOutil(k.forme); };
+  const choisirClasse = (c: string) => { setClasse(c); const k = banc.classes.find((x) => x.id === c.split(':')[0]); if (k && !['choisir', 'selection', 'vue', 'zoom'].includes(outil)) setOutil(k.forme); };
   const retirerPris = () => { const ids = [...cibles]; changer((l) => ids.reduce((acc, x) => supprimer(acc, x), l)); setChoisi(null); };
 
   useEffect(() => {
@@ -105,6 +105,8 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       else if ((e.key === 'Delete' || e.key === 'Backspace') && cibles.size) { e.preventDefault(); retirerPris(); }
       else if (k === 'v') setOutil('choisir');
       else if (k === 's') setOutil('selection');
+      else if (k === 'h') setOutil('vue');
+      else if (k === 'z') setOutil('zoom');
       else if (k === 'r') setOutil('rectangle');
       else if (k === 'p') setOutil('polygone');
       else if (k === 't') setOutil('ligne');
@@ -130,7 +132,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
         {objets ? (
           <Scene url={api.fichier(id, 'redressee', meta.redressement?.le ?? '')} L={meta.redressee.largeur} H={meta.redressee.hauteur} objets={visibles} classes={banc.classes}
             outil={outil} classe={classeChoisie ?? null} choisi={choisi} onChoisir={setChoisi}
-            selection={selection} modeSelection={modeSelection} onSelectionner={selectionner} onBasculer={basculer}
+            selection={selection} modeSelection={modeSelection} onSelectionner={selectionner} onBasculer={basculer} onOutil={setOutil} onModeSelection={setModeSelection}
             enTete={<BarreSelection outilSelection={outil === 'selection'} mode={modeSelection} setMode={setModeSelection} nombre={selection.size}
               reference={objet ? libelleDe(objet, banc.classes) : null} onAligner={(c) => { if (choisi) changer((l) => aligner(l, selection, choisi, c)); }}
               onTaille={(t) => { if (choisi) changer((l) => memeTaille(l, selection, choisi, t)); }} />}
@@ -146,7 +148,9 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
         ) : <p className="etat">Chargement du marquage…</p>}
         <aside className="editeur-panneau">
           {aColler && <div className="rang"><button type="button" onClick={collerIci}>Coller (Ctrl+V)</button><span className="aide">{pressePapiers?.objets.length ?? 0} objet(s){pressePapiers && pressePapiers.photo !== id ? ', d’une autre photo' : ''}</span></div>}
-          {objet ? <PanneauObjet o={objet} objets={objets ?? []} classes={banc.classes} onChanger={(o) => changer((l) => l.map((x) => (x.id === o.id ? o : x)))} onSupprimer={retirerPris}
+          {selection.size > 1 ? <PanneauSelection objets={(objets ?? []).filter((o) => selection.has(o.id))} classes={banc.classes} onChanger={(os) => { const m = new Map(os.map((o) => [o.id, o])); changer((l) => l.map((x) => m.get(x.id) ?? x)); }}
+            onSupprimer={retirerPris} onCopier={() => copier(false)} onCouper={() => copier(true)} />
+          : objet ? <PanneauObjet o={objet} objets={objets ?? []} classes={banc.classes} onChanger={(o) => changer((l) => l.map((x) => (x.id === o.id ? o : x)))} onSupprimer={retirerPris}
             onCopier={() => copier(false)} onCouper={() => copier(true)} />
             : <p className="aide">Touchez un objet pour le corriger ; choisissez une classe et l’outil rectangle (R) ou polygone (P) pour en créer. Chiffres 1 à 9 : la classe ; N / B : photo suivante / précédente ; Ctrl+C, Ctrl+X, Ctrl+V : copier, couper, coller un objet (avec ses détails), d’une photo à l’autre aussi.</p>}
           <ListeObjets objets={objets ?? []} classes={banc.classes} choisi={choisi} caches={caches} onChoisir={setChoisi}
@@ -158,7 +162,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
 }
 
 /** Le pictogramme et le nom de chaque outil ; sur un telephone, le pictogramme seul (styles.css). */
-const OUTILS: Record<Outil, [string, string]> = { choisir: ['☝', 'Choisir (V)'], selection: ['⬚', 'Sélection (S)'], rectangle: ['▭', 'Rectangle (R)'], polygone: ['⬠', 'Polygone (P)'], ligne: ['╱', 'Ligne (T)'], point: ['⊕', 'Point (O)'] };
+const OUTILS: Record<Outil, [string, string]> = { choisir: ['☝', 'Choisir (V)'], selection: ['⬚', 'Sélection (S)'], vue: ['✋', 'Vue (H)'], zoom: ['🔍', 'Zoom (Z)'], rectangle: ['▭', 'Rectangle (R)'], polygone: ['⬠', 'Polygone (P)'], ligne: ['╱', 'Ligne (T)'], point: ['⊕', 'Point (O)'] };
 
 function BarreEditeur({ banc, meta, rang, total, modifie, envoi, outil, setOutil, classe, choisirClasse, onAller, onEnregistrer, onFermer }: {
   banc: Banc; meta: MetaImage; rang: number; total: number; modifie: boolean; envoi: boolean; outil: Outil; setOutil: (o: Outil) => void;

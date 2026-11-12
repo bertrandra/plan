@@ -590,3 +590,13 @@ describe('l’ordre du dessin des objets', () => {
     expect(parTaille([f1, f2, facade, p]).map((o) => o.id)).toEqual(['fa', 'p', 'f1', 'f2']);
   });
 });
+
+describe('l’outil Zoom', () => {
+  it('un clic rapproche (Alt : éloigne) autour du point ; un cadre tiré devient la vue', async () => {
+    const { vueDuCadre, vueEntiere } = await import('../src/zoom.js');
+    const v = vueEntiere(1000, 800);
+    expect(vueDuCadre({ x: 500, y: 400 }, { x: 501, y: 400 }, v, 4, false, 1000)).toEqual({ x: 250, y: 200, w: 500, h: 400 });
+    expect(vueDuCadre({ x: 500, y: 400 }, { x: 500, y: 400 }, { x: 250, y: 200, w: 500, h: 400 }, 4, true, 1000)).toEqual(v);
+    expect(vueDuCadre({ x: 300, y: 200 }, { x: 100, y: 100 }, v, 4, false, 1000)).toEqual({ x: 100, y: 100, w: 200, h: 100 });
+  });
+});

@@ -49,3 +49,14 @@ export function cadrer(b: { x0: number; y0: number; x1: number; y1: number }, L:
   const w = Math.max(L / 40, (b.x1 - b.x0) * 1.5), h = Math.max(L / 40, (b.y1 - b.y0) * 1.5);
   return { x: cx - w / 2, y: cy - h / 2, w, h };
 }
+
+/**
+ * L'outil Zoom : un cadre tire (de `a` a `b`, en pixels de la photo) devient la vue ; un clic (un cadre plus petit que `seuil`) rapproche
+ * deux fois autour du point, ou eloigne deux fois (`arriere`, Alt ou Maj).
+ */
+export function vueDuCadre(a: P, b: P, v: Vue, seuil: number, arriere: boolean, L: number): Vue {
+  const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+  if (w < seuil && h < seuil) return zoomerAutour(v, a, arriere ? 2 : 0.5, L);
+  if (arriere) return zoomerAutour(v, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, 2, L);
+  return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.max(L / 40, w), h: Math.max(L / 40, h) };
+}

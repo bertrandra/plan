@@ -173,3 +173,8 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 .barre-selection .aide { margin: 0; font-size: .85rem; }
 .scene.outil-selection { cursor: crosshair; }
 .zone-selection { fill: #ffffff22; stroke: #fff; pointer-events: none; }
+.modes-scene { display: inline-flex; gap: .15rem; padding: .1rem; border-radius: var(--rayon); background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--trait); }
+.modes-scene button { min-width: 40px; justify-content: center; font-size: 1rem; }
+.scene.outil-vue { cursor: grab; }
+.scene.outil-vue:active { cursor: grabbing; }
+.scene.outil-zoom { cursor: zoom-in; }
