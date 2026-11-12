@@ -582,3 +582,11 @@ describe('RF-DETR (Apache 2.0) : la lecture de ses sorties', () => {
     ]);
   });
 });
+
+describe('l’ordre du dessin des objets', () => {
+  it('du plus grand au plus petit : une façade tracée après ses fenêtres ne les recouvre pas', async () => {
+    const { parTaille } = await import('../src/ecrans/Scene.js');
+    const f1 = rect('f1', 'fenetre', 10, 10, 20, 20), f2 = rect('f2', 'fenetre', 30, 10, 40, 20), facade = rect('fa', 'facade', 0, 0, 100, 100), p = rect('p', 'porte', 50, 50, 60, 70);
+    expect(parTaille([f1, f2, facade, p]).map((o) => o.id)).toEqual(['fa', 'p', 'f1', 'f2']);
+  });
+});

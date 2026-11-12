@@ -93,6 +93,15 @@ function sansDoublons(l: readonly P[], tolerance: number): P[] {
   return l.filter((p, i) => { const q = l[i - 1]; return !q || Math.hypot(p.x - q.x, p.y - q.y) > tolerance; });
 }
 
+/**
+ * L'ordre du dessin : du plus grand au plus petit (aire de la boite), pour qu'un objet ne soit jamais recouvert par un plus grand cree apres
+ * lui (une facade tracee apres ses fenetres les rendait impossibles a attraper). A aire egale, l'ordre de la liste.
+ */
+export function parTaille(objets: readonly Objet[]): Objet[] {
+  const aire = (o: Objet) => { const b = boite(o.points); return (b.x1 - b.x0) * (b.y1 - b.y0); };
+  return objets.map((o, i) => ({ o, i, a: aire(o) })).sort((x, y) => y.a - x.a || x.i - y.i).map((x) => x.o);
+}
+
 /** Les objets dessines : la reference (le choisi) plus marquee, la selection soulignee en pointilles blancs. */
 function Dessin({ objets, classes, choisi, selection, echelle, surObjet }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; surObjet: (e: PE<SVGElement>, o: Objet) => void }) {
   const couleur = (o: Objet) => classes.find((c) => c.id === o.classe)?.couleur ?? '#ff00ff';
@@ -100,7 +109,7 @@ function Dessin({ objets, classes, choisi, selection, echelle, surObjet }: { obj
   const trait = 2 * echelle;
   return (
     <>
-      {objets.map((o) => {
+      {parTaille(objets).map((o) => {
         const pts = contour(o).map((q) => `${q.x},${q.y}`).join(' ');
         const c = couleur(o), choisiIci = o.id === choisi, pris = selection.size > 1 && selection.has(o.id);
         return (
@@ -182,9 +191,9 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
   };
   const surObjet = (e: PE<SVGElement>, o: Objet) => {
     if (e.button !== 0 || espace.current) return;
-    if (outil === 'selection') { e.stopPropagation(); seuilDe(e); setGeste({ type: 'zone', points: [point(e)], sur: o.id, ajouter: e.shiftKey }); capter(e); return; }
-    if (outil !== 'choisir') return;
-    e.stopPropagation();
+    // Outil Selection : un objet deja pris se tire (avec tout le groupe) ; un autre commence une zone (un toucher le choisit).
+    if (outil === 'selection' && !(selection.has(o.id) && !e.shiftKey)) { e.stopPropagation(); seuilDe(e); setGeste({ type: 'zone', points: [point(e)], sur: o.id, ajouter: e.shiftKey }); capter(e); return; }
+    if (outil !== 'choisir' && outil !== 'selection') return; e.stopPropagation();
     if (e.shiftKey) { onBasculer(o.id); return; }
     // Un objet de la selection : il en devient la reference, et le glisser deplace tout le groupe.
     const groupe = selection.has(o.id) && selection.size > 1 ? objets.filter((x) => selection.has(x.id)) : [o];

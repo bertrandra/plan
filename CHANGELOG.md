@@ -5,6 +5,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Banc : les objets se déplacent et se redimensionnent à la souris dans tous les cas.** Un grand objet tracé après des petits (une
+  façade après ses fenêtres) les recouvrait : le clic attrapait la façade. Les objets se dessinent maintenant du plus grand au plus petit,
+  les petits restent au-dessus. Avec l'outil Sélection, tirer un objet déjà pris traçait une nouvelle zone : il déplace maintenant tout
+  le groupe (sans repasser par l'outil Choisir).
+
 ## [5.25.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades propose **RF-DETR** (Roboflow, licence Apache 2.0,
