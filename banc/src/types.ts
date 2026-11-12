@@ -24,7 +24,15 @@ export interface Classe {
   /** Entre dans le jeu YOLO (sinon : marquee pour memoire, jamais exportee). */
   apprendre: boolean;
   description?: string;
+  /**
+   * Les types de la classe (la fenetre a un vantail, a deux, a petits carreaux…) : un objet de cette classe se qualifie par l'un d'eux, et
+   * c'est ce type que le modele apprend (son nom dans data.yaml). Sans types, la classe elle-meme est le nom appris.
+   */
+  types?: TypeObjet[];
 }
+
+/** Un type d'une classe : son nom YOLO (minuscules, chiffres, _ et -) et son libelle. */
+export interface TypeObjet { id: string; nom: string }
 
 export type Statut = 'importee' | 'redressee' | 'validee' | 'rejetee' | 'brouillon' | 'corrigee';
 export type Bloc = '' | 'train' | 'val' | 'test' | 'reserve';
@@ -56,6 +64,10 @@ export interface MetaImage {
   echantillon?: boolean;
   objets?: number;
   classes?: string[];
+  /** Les noms YOLO presents et leur nombre d'objets (le type d'un objet qualifie, sinon sa classe). */
+  etiquettes?: Record<string, number>;
+  /** Les objets d'une classe a types pas encore qualifies (ils n'entrent pas dans le jeu). */
+  aQualifier?: number;
   note?: string;
 }
 
@@ -69,6 +81,8 @@ export interface Objet {
   attributs: Record<string, string | number | boolean>;
   /** auto : pose par le brouillon et jamais touche ; main : pose a la main ; corrige : pose par le brouillon puis change. */
   origine: 'auto' | 'main' | 'corrige';
+  /** Son type, pour une classe qui en a (le nom que le modele apprend) ; absent : a qualifier. */
+  type?: string;
   score?: number;
   modele?: string;
 }

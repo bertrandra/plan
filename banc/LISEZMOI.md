@@ -14,7 +14,7 @@ pignons…), du marquage brouillon à l’export au format natif d’Ultralytics
 
 | Étape | Écran | Ce qu’on y fait |
 |---|---|---|
-| 0 | Classes | L’arbre des objets : nom, place dans l’arbre (un cadre se range dans sa fenêtre), forme (rectangle ou polygone), couleur du marquage, attributs à renseigner (type de fenêtre, vantaux, matériau…), « apprise » ou non. L’ordre de l’arbre donne les indices YOLO. |
+| 0 | Classes | L’arbre des objets : nom, place dans l’arbre (un cadre se range dans sa fenêtre), forme (rectangle ou polygone), couleur du marquage, attributs à renseigner, « apprise » ou non, et ses **types** : le modèle voit la famille (fenêtre, porte, volet) et la qualifie (`fenetre_2v`, `porte_garage`, `volet_roulant`…). L’arbre de départ donne les vingt noms de `fenetre_1v` (0) à `loggia` (19) ; les parties (cadres, quadrillage, appui) se marquent pour mémoire. |
 | 1a | Import | Les photos de l’iPhone (ou de tout appareil) : position, date, cap, appareil et focale de l’EXIF gardés ; grand côté ramené à 3 200 px. |
 | 1b | Import | Panoramax autour d’une adresse (ou de coordonnées tapées), dans un rayon donné, par lot ; un panoramique 360 est ramené à la vue plate tournée vers l’adresse. Une photo déjà importée ne revient pas. |
 | 2 | Redressement | Vue de face par les points de fuite, en lot ; sinon quatre coins d’un rectangle du mur posés à la main ; ou « déjà de face ». |
@@ -23,15 +23,16 @@ pignons…), du marquage brouillon à l’export au format natif d’Ultralytics
 | 4 | Marquage | Corriger : choisir (V), rectangle (R), polygone (P), déplacer, tirer un coin ou un sommet, ajouter ou retirer un sommet, supprimer (Suppr), annuler (Ctrl+Z), enregistrer (Ctrl+S). Classe, parent et attributs dans le panneau. |
 | 5 | Marquage | Le catalogue : filtres par état, source, bloc, classe, vérification ; l’éditeur passe d’une photo à l’autre (N / B). |
 | 6 | Export | Le jeu au format Ultralytics : `images/` et `labels/` par bloc, `data.yaml`, `entrainer.py`, `bilan.json`. En détection pour YOLOv10n (le modèle du dépôt `facade`), en contours pour YOLO11n-seg, ou au format du banc (`annotations.json` : arbre, attributs et polygones). |
-| 7 | Blocs | train / val / test par un tirage à graine fixe (le même dans la page et au serveur), figeable ; la réserve n’est jamais exportée ; un échantillon de chaque bloc à vérifier, et l’export peut ne prendre que les photos vérifiées. |
+| 7 | Blocs | train / val / test (70 / 20 / 10 par défaut) répartis **stratifiés par type** : chaque type, même rare, a sa part dans chaque bloc ; un tableau dit, type par type, ce qui manque (au moins 30 objets en train, un en val et en test). La réserve n’est jamais exportée ; un échantillon de chaque bloc à vérifier, et l’export peut ne prendre que les photos vérifiées. |
 
 Seules les photos **corrigées** (marquage relu et enregistré) entrent dans le jeu : un brouillon jamais relu n’apprend rien.
 
 ## Le cycle d’un modèle
 
-1. Exporter le jeu (étape 6), le dézipper, lancer `python3 entrainer.py` (Ultralytics 8.4 ; CPU par défaut, `0` pour un GPU).
-2. Le script produit `runs/banc/weights/best.onnx` ; le déposer à l’étape 3 avec la liste `names` de `data.yaml`.
-3. Le nouveau modèle propose le brouillon des photos suivantes ; on corrige, on réexporte, on réentraîne.
+1. Corriger et qualifier une première série, répartir les blocs (7), exporter en YOLOv10n · détection (6).
+2. Ouvrir `entrainer.ipynb` du zip dans Google Colab (GPU gratuit), ou `python3 entrainer.py 0` sur un PC avec GPU : il entraîne, mesure sur le test (mAP par type) et exporte `best.onnx`.
+3. Déposer `best.onnx` à l’étape 3 avec la liste `names` : ses noms vont d’eux-mêmes vers les types du banc.
+4. Le brouillon des photos non annotées pose et qualifie ; on corrige, la série grandit, on réentraîne.
 
 Les modèles du dépôt `facade` (YOLOv10n, AGPL-3.0) s’installent d’un geste : le serveur les télécharge une fois depuis
 GitHub, à un commit fixé, puis la page les lit sur le serveur. Le moteur ONNX (onnxruntime-web 1.24.1) vient d’un CDN.

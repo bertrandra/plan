@@ -263,6 +263,7 @@ function objet_valide($o): ?array {
     'origine' => in_array($o['origine'] ?? '', ['auto', 'main', 'corrige'], true) ? $o['origine'] : 'main'];
   if (is_numeric($o['score'] ?? null)) $out['score'] = round((float)$o['score'], 3);
   if (is_string($o['modele'] ?? null)) $out['modele'] = mb_substr($o['modele'], 0, 60);
+  if (is_string($o['type'] ?? null) && $o['type'] !== '') $out['type'] = mb_substr($o['type'], 0, 40);
   return $out;
 }
 
@@ -276,6 +277,11 @@ function annotation_ecrire(string $id): void {
   $m['statut'] = ($b['par'] ?? 'main') === 'auto' ? 'brouillon' : 'corrigee';
   $m['objets'] = count($objets);
   $m['classes'] = array_values(array_unique(array_map(fn($o) => $o['classe'], $objets)));
+  // Les noms YOLO presents (le type d'un objet qualifie, sinon sa classe) : ce que la repartition des blocs equilibre (etape 7).
+  [, $nomDe] = noms_yolo();
+  $noms = array_values(array_filter(array_map($nomDe, $objets), fn($n) => is_string($n) && $n !== '' && $n[0] !== '?'));
+  $m['etiquettes'] = array_count_values($noms);
+  $m['aQualifier'] = count(array_filter(array_map($nomDe, $objets), fn($n) => is_string($n) && $n[0] === '?'));
   ecrire_json("$d/meta.json", $m);
   repondre(200, $m);
 }
@@ -289,7 +295,12 @@ function classes_ecrire(): void {
   if (!is_array($l) || !$l) erreur(400, 'Liste de classes attendue.');
   $ids = [];
   foreach ($l as $c) {
-    if (!is_array($c) || !preg_match('/^[a-z][a-z0-9-]{0,39}$/', (string)($c['id'] ?? ''))) erreur(400, 'Classe sans identifiant valide.');
+    if (!is_array($c) || !preg_match('/^[a-z][a-z0-9_-]{0,39}$/', (string)($c['id'] ?? ''))) erreur(400, 'Classe sans identifiant valide.');
+    foreach ((array)($c['types'] ?? []) as $t) {
+      if (!is_array($t) || !preg_match('/^[a-z][a-z0-9_-]{0,39}$/', (string)($t['id'] ?? ''))) erreur(400, 'Type sans identifiant valide dans ' . $c['id'] . '.');
+      if (isset($ids[$t['id']])) erreur(400, 'Nom en double : ' . $t['id']);
+      $ids[$t['id']] = true;
+    }
     if (isset($ids[$c['id']])) erreur(400, 'Classe en double : ' . $c['id']);
     $ids[$c['id']] = true;
   }
@@ -382,19 +393,40 @@ function modele_supprimer(string $id): void {
 // ---------------------------------------------------------------------------------------------------------------------
 // Export (etape 6) : le jeu au format Ultralytics
 
-/** Les classes apprises, dans l'ordre de l'arbre (parent avant enfants) : l'indice YOLO de chacune. */
-function classes_apprises(): array {
+/**
+ * Les noms YOLO, dans l'ordre de l'arbre (parent avant enfants) : une classe apprise sans types donne son identifiant ; une classe a
+ * types (la fenetre et ses qualifications : fenetre_1v, fenetre_2v…) donne ses types, dans leur ordre. Et le nom d'un objet : son type
+ * pour une classe a types (« ?classe » quand il n'est pas encore qualifie), sa classe sinon ; null pour une classe non apprise.
+ * Le meme ordre que la page (banc/src/classes.ts::nomsYolo).
+ */
+function noms_yolo(): array {
   $l = lire_json(dossier() . '/classes.json', ['classes' => []])['classes'] ?? [];
+  $parId = [];
+  foreach ($l as $c) $parId[$c['id']] = $c;
   $enfants = [];
-  foreach ($l as $c) $enfants[$c['parent'] ?? ''][] = $c;
+  foreach ($l as $c) $enfants[isset($parId[$c['parent'] ?? '']) ? $c['parent'] : ''][] = $c;
   $ordre = [];
-  $visiter = function (string $p) use (&$visiter, &$ordre, $enfants) {
-    foreach ($enfants[$p] ?? [] as $c) { if (($c['apprendre'] ?? true) !== false) $ordre[] = $c['id']; $visiter($c['id']); }
+  $vus = [];
+  $visiter = function (string $p) use (&$visiter, &$ordre, &$vus, $enfants) {
+    foreach ($enfants[$p] ?? [] as $c) {
+      if (isset($vus[$c['id']])) continue;
+      $vus[$c['id']] = true;
+      if (($c['apprendre'] ?? true) !== false) {
+        $types = array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, (array)($c['types'] ?? [])), 'is_string'));
+        foreach ($types ?: [$c['id']] as $n) $ordre[] = $n;
+      }
+      $visiter($c['id']);
+    }
   };
   $visiter('');
-  // Une classe dont le parent n'existe pas est rangee a la fin, plutot que perdue.
-  foreach ($l as $c) if (!in_array($c['id'], $ordre, true) && ($c['apprendre'] ?? true) !== false) $ordre[] = $c['id'];
-  return $ordre;
+  $nomDe = function (array $o) use ($parId): ?string {
+    $c = $parId[$o['classe'] ?? ''] ?? null;
+    if (!$c || ($c['apprendre'] ?? true) === false) return null;
+    $types = array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, (array)($c['types'] ?? [])), 'is_string'));
+    if (!$types) return $c['id'];
+    return in_array($o['type'] ?? null, $types, true) ? $o['type'] : '?' . $c['id'];
+  };
+  return [array_values(array_unique($ordre)), $nomDe];
 }
 
 /** Une ligne YOLO : la boite (detect) ou le contour (seg), en parts de l'image, a six decimales. */
@@ -426,8 +458,9 @@ function bloc_de(array $m, array $reglages): string {
 function exporter(string $format, bool $verifiees): void {
   if (!in_array($format, ['detect', 'seg', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, natif).');
   if (!class_exists('ZipArchive')) erreur(501, 'L’extension zip de PHP manque sur cet hébergement.');
-  $classes = classes_apprises();
+  [$classes, $nomDe] = noms_yolo();
   $indice = array_flip($classes);
+  $aQualifier = 0;
   $reglages = lire_json(dossier() . '/reglages.json', []);
   $tmp = tempnam(sys_get_temp_dir(), 'banc');
   $zip = new ZipArchive();
@@ -451,9 +484,12 @@ function exporter(string $format, bool $verifiees): void {
     if (!$W || !$H) continue;
     $lignes = [];
     foreach ($a['objets'] ?? [] as $o) {
-      if (!isset($indice[$o['classe']])) continue;
-      $l = ligne_yolo($indice[$o['classe']], $o, (int)$W, (int)$H, $format);
-      if ($l !== null) { $lignes[] = $l; $parClasse[$o['classe']][$bloc] = ($parClasse[$o['classe']][$bloc] ?? 0) + 1; }
+      $nom = $nomDe($o);
+      // Un objet d'une classe a types pas encore qualifie n'apprend rien : il est compte, a qualifier.
+      if (is_string($nom) && $nom[0] === '?') { $aQualifier++; continue; }
+      if ($nom === null || !isset($indice[$nom])) continue;
+      $l = ligne_yolo($indice[$nom], $o, (int)$W, (int)$H, $format);
+      if ($l !== null) { $lignes[] = $l; $parClasse[$nom][$bloc] = ($parClasse[$nom][$bloc] ?? 0) + 1; }
     }
     $zip->addFile("$d/$id/redressee.jpg", "$racine/images/$bloc/$id.jpg");
     $zip->addFromString("$racine/labels/$bloc/$id.txt", implode("\n", $lignes) . ($lignes ? "\n" : ''));
@@ -466,8 +502,9 @@ function exporter(string $format, bool $verifiees): void {
     foreach ($classes as $k => $c) $noms .= "  $k: $c\n";
     $zip->addFromString("$racine/data.yaml", "# Jeu du banc d'apprentissage des facades, " . gmdate('c') . "\npath: .\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n$noms");
     $zip->addFromString("$racine/entrainer.py", script_entrainement($format));
+    $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine));
   }
-  $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+  $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
   $zip->close();
   header('Content-Type: application/zip');
   header('Content-Disposition: attachment; filename="' . $racine . '.zip"');
@@ -489,6 +526,27 @@ function script_entrainement(string $format): string {
     . "m.train(data='data.yaml', epochs=100, patience=25, imgsz=640, batch=8, device=device, workers=2, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
     . "m.val(data='data.yaml', split='test')\n"
     . "m.export(format='onnx', imgsz=640" . ($format === 'seg' ? '' : ', nms=False') . ")\n";
+}
+
+/**
+ * Le meme entrainement en carnet Google Colab (GPU gratuit) : envoyer le zip, entrainer, mesurer sur le test, recuperer best.onnx et la
+ * liste des noms a deposer dans le banc (etape 3).
+ */
+function carnet_colab(string $format, string $racine): string {
+  $poids = $format === 'seg' ? 'yolo11n-seg.pt' : 'yolov10n.pt';
+  $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
+  $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
+  $cellules = [
+    $texte("# Banc d'apprentissage des façades — entraînement ($format)\n\nExécution > Modifier le type d'exécution > **GPU**, puis lancer les cellules dans l'ordre. "
+      . "La validation (val) arrête l'entraînement quand il ne progresse plus ; le test n'est lu qu'à la fin."),
+    $code("!pip install -q 'ultralytics==8.4.*'"),
+    $texte("Envoyer le zip exporté par le banc (`$racine.zip`)."),
+    $code("from google.colab import files\nimport zipfile, os, glob\nenvoi = files.upload()\nzipfile.ZipFile(next(iter(envoi))).extractall('.')\nos.chdir(sorted(glob.glob('banc-*/'))[-1])\nprint(open('data.yaml').read())"),
+    $code("from ultralytics import YOLO\nm = YOLO('$poids')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
+    $code("best = YOLO('runs/banc/weights/best.pt')\nmesure = best.val(data='data.yaml', split='test')\nprint('mAP50-95 test :', mesure.box.map)\nfor i, n in best.names.items(): print(i, n, round(float(mesure.box.maps[i]), 3))"),
+    $code("chemin = best.export(format='onnx', imgsz=640" . ($format === 'seg' ? '' : ', nms=False') . ")\nfiles.download(chemin)\nprint('Noms à coller dans le banc (étape 3) :')\nfor i, n in best.names.items(): print(f'{i}: {n}')"),
+  ];
+  return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

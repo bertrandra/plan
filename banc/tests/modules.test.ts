@@ -1,17 +1,17 @@
 // Les modules purs du banc : l'arbre des classes, la geometrie, l'edition, l'EXIF, Panoramax, les blocs, le panoramique, YOLO, le brouillon.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { CLASSES_DEFAUT, erreursDeLArbre, idDuNom, indicesYolo, ordreDeLArbre, profondeur } from '../src/classes.js';
+import { choixDeCreation, cibleDuNom, CLASSES_DEFAUT, erreursDeLArbre, idDuNom, indicesYolo, nomsYolo, nomYoloDe, ordreDeLArbre, profondeur } from '../src/classes.js';
 import { parentDe, rangerLesParents, iou } from '../src/geometrie.js';
-import { ajouterSommet, changerClasse, creerRectangle, deplacer, enPolygone, Historique, retirerSommet, supprimer, tirerPoignee } from '../src/edition.js';
+import { ajouterSommet, changerClasse, changerType, creerRectangle, deplacer, enPolygone, Historique, retirerSommet, supprimer, tirerPoignee } from '../src/edition.js';
 import { lireExif } from '../src/exif.js';
 import { capVers, distanceM, ecartAngle, lireAdresse, lirePhotos } from '../src/panoramax.js';
 import { blocTire, dansLEchantillon, partsValables, tirage } from '../src/blocs.js';
 import { vueDuPanoramique } from '../src/equirect.js';
 import { decoderV10, decoderV8, letterbox, nms } from '../src/yolo.js';
-import { brouillonSurExistant, fusionner, objetsDuBrouillon, selonLaCorrespondance } from '../src/brouillon.js';
+import { brouillonSurExistant, correspondanceParDefaut, fusionner, lireCible, objetsDuBrouillon, selonLaCorrespondance } from '../src/brouillon.js';
 import { redresserParCoins } from '../src/redressement.js';
-import type { Classe, Modele, Objet } from '../src/types.js';
+import type { Bloc, Classe, Modele, Objet } from '../src/types.js';
 import { REGLAGES_DEFAUT } from '../src/types.js';
 
 const rect = (id: string, classe: string, x0: number, y0: number, x1: number, y1: number, o: Partial<Objet> = {}): Objet => ({ id, classe, forme: 'rectangle', points: [{ x: x0, y: y0 }, { x: x1, y: y1 }], parent: null, attributs: {}, origine: 'main', ...o });
@@ -21,10 +21,17 @@ describe('l’arbre des classes', () => {
     expect(erreursDeLArbre(CLASSES_DEFAUT)).toEqual([]);
     const ordre = ordreDeLArbre(CLASSES_DEFAUT).map((c) => c.id);
     for (const c of CLASSES_DEFAUT) if (c.parent) expect(ordre.indexOf(c.parent)).toBeLessThan(ordre.indexOf(c.id));
-    const y = indicesYolo(CLASSES_DEFAUT);
-    expect(y.has('facade')).toBe(false);
-    expect([y.get('fenetre'), y.get('cadre-haut'), y.get('cadre-bas'), y.get('quadrillage')]).toEqual([0, 1, 2, 3]);
+    // Les vingt noms du proprietaire, dans son ordre : les familles se qualifient par leurs types, les parties ne s'apprennent pas.
+    expect(nomsYolo(CLASSES_DEFAUT)).toEqual(['fenetre_1v', 'fenetre_2v', 'fenetre_petits_carreaux', 'fenetre_imposte_carreaux', 'fenetre_imposte_simple', 'porte_fenetre', 'baie_vitree', 'fenetre_cintree', 'oeil_de_boeuf', 'lucarne', 'porte_pleine', 'porte_vitree', 'porte_double', 'porte_garage', 'volet_battant', 'volet_roulant', 'volet_pliant', 'balcon', 'garde_corps', 'loggia']);
+    expect(indicesYolo(CLASSES_DEFAUT).get('loggia')).toBe(19);
     expect(profondeur(CLASSES_DEFAUT, 'quadrillage')).toBe(2);
+    expect(nomYoloDe({ classe: 'fenetre', type: 'fenetre_2v' }, CLASSES_DEFAUT)).toBe('fenetre_2v');
+    expect(nomYoloDe({ classe: 'fenetre' }, CLASSES_DEFAUT)).toBeNull();
+    expect(nomYoloDe({ classe: 'balcon' }, CLASSES_DEFAUT)).toBe('balcon');
+    expect(nomYoloDe({ classe: 'quadrillage' }, CLASSES_DEFAUT)).toBeNull();
+    expect(cibleDuNom('porte_garage', CLASSES_DEFAUT)).toEqual({ classe: 'porte', type: 'porte_garage' });
+    expect(cibleDuNom('balcon', CLASSES_DEFAUT)).toEqual({ classe: 'balcon' });
+    expect(choixDeCreation(CLASSES_DEFAUT).slice(0, 2).map((c) => c.valeur)).toEqual(['fenetre:fenetre_1v', 'fenetre:fenetre_2v']);
   });
   it('dit les erreurs : identifiant, doublon, parent inconnu, boucle, couleur', () => {
     const c = (id: string, parent: string | null, couleur = '#000000'): Classe => ({ id, nom: id, parent, forme: 'rectangle', couleur, attributs: [], apprendre: true });
@@ -35,7 +42,9 @@ describe('l’arbre des classes', () => {
     expect(e.join(' | ')).toMatch(/« d » est en double/);
     expect(e.join(' | ')).toMatch(/couleur/);
     expect(idDuNom('Porte de garage')).toBe('porte-de-garage');
-    expect(idDuNom('Œil-de-bœuf 2')).toMatch(/^[a-z][a-z0-9-]*$/);
+    expect(idDuNom('Œil-de-bœuf', '_')).toBe('oeil_de_boeuf');
+    const typee = { ...c('t', null), types: [{ id: 'a', nom: 'A' }, { id: 't', nom: 'T' }] };
+    expect(erreursDeLArbre([typee, c('a', null)]).join(' | ')).toMatch(/« t » est en double.*« a » est en double/);
   });
 });
 
@@ -60,8 +69,12 @@ describe('la geometrie et l’edition', () => {
     expect(ajouterSommet(p, 0).points[1]).toEqual({ x: 30, y: 10 });
     expect(retirerSommet(retirerSommet(p, 0), 0).points).toHaveLength(3);
     expect(creerRectangle([o], 'porte', { x: 5, y: 9 }, { x: 1, y: 2 })).toMatchObject({ id: 'm2', points: [{ x: 1, y: 2 }, { x: 5, y: 9 }], origine: 'main' });
-    const fen = classes.find((c) => c.id === 'porte') as Classe;
-    expect(changerClasse({ ...o, attributs: { type: 'battante', materiau: 'bois' } }, fen).attributs).toEqual({ type: 'battante', materiau: 'bois' });
+    const porte = classes.find((c) => c.id === 'porte') as Classe;
+    // Une fenetre a deux vantaux devenue porte : elle garde son materiau, perd son type (a qualifier de nouveau).
+    const devenue = changerClasse({ ...o, type: 'fenetre_2v', attributs: { vantaux: 2, materiau: 'bois' } }, porte);
+    expect([devenue.attributs, devenue.type]).toEqual([{ materiau: 'bois' }, undefined]);
+    expect(changerType(devenue, 'porte_double').type).toBe('porte_double');
+    expect(changerType(changerType(devenue, 'porte_double'), '')).not.toHaveProperty('type');
     expect(supprimer([o, rect('b', 'cadre-haut', 10, 10, 20, 20, { parent: 'a' })], 'a')).toEqual([rect('b', 'cadre-haut', 10, 10, 20, 20)]);
     const h = new Historique<number>();
     h.noter(1); h.noter(2);
@@ -191,9 +204,15 @@ describe('YOLO et le brouillon', () => {
     const b = (x0: number, y0: number, x1: number, y1: number) => ({ x0, y0, x1, y1 });
     const props = selonLaCorrespondance(m, [{ classe: 0, score: 0.9, boite: b(0, 0, 10, 10) }, { classe: 1, score: 0.8, boite: b(50, 0, 60, 30) }, { classe: 2, score: 0.99, boite: b(0, 0, 5, 5) }], CLASSES_DEFAUT);
     expect(props.map((p) => p.classe)).toEqual(['fenetre', 'porte']);
-    // La recherche voit la meme fenetre en porte-fenetre, un peu decalee : la mieux notee reste.
-    const f = fusionner([...props, { classe: 'porte-fenetre', boite: b(1, 0, 10, 11), score: 0.55, modele: 'recherche' }, { classe: 'fenetre', boite: b(100, 0, 110, 10), score: 0.55, modele: 'recherche' }]);
+    // La recherche voit la meme fenetre en porte-fenetre, un peu decalee : la mieux notee reste (meme baie).
+    const f = fusionner([...props, { classe: 'fenetre', type: 'porte_fenetre', boite: b(1, 0, 10, 11), score: 0.55, modele: 'recherche' }, { classe: 'fenetre', boite: b(100, 0, 110, 10), score: 0.55, modele: 'recherche' }]);
     expect(f.map((p) => [p.classe, p.modele])).toEqual([['fenetre', 'facade-fenetres'], ['porte', 'facade-fenetres'], ['fenetre', 'recherche']]);
+    // Votre modele, entraine sur les noms du banc : il pose et qualifie, et ses noms vont d'eux-memes vers les types.
+    const mien: Modele = { id: 'mon-1', nom: 'm', format: 'yolov10', classes: ['fenetre_2v', 'volet_battant', 'inconnu'], correspondance: correspondanceParDefaut(['fenetre_2v', 'volet_battant', 'inconnu'], CLASSES_DEFAUT), seuil: 0.3, installe: true };
+    expect(mien.correspondance).toEqual({ fenetre_2v: 'fenetre:fenetre_2v', volet_battant: 'volet:volet_battant', inconnu: '' });
+    const qualifies = objetsDuBrouillon(selonLaCorrespondance(mien, [{ classe: 0, score: 0.9, boite: b(0, 0, 10, 10) }, { classe: 1, score: 0.7, boite: b(20, 0, 25, 10) }, { classe: 2, score: 0.9, boite: b(40, 0, 45, 10) }], CLASSES_DEFAUT), CLASSES_DEFAUT);
+    expect(qualifies.map((o) => [o.classe, o.type])).toEqual([['fenetre', 'fenetre_2v'], ['volet', 'volet_battant']]);
+    expect(lireCible('fenetre:porte_garage', CLASSES_DEFAUT)).toEqual({ classe: 'fenetre' });
     expect(iou(b(0, 0, 10, 10), b(5, 0, 15, 10))).toBeCloseTo(1 / 3, 5);
     const nouveaux = objetsDuBrouillon(f, CLASSES_DEFAUT);
     expect(nouveaux.map((o) => [o.id, o.origine])).toEqual([['a1', 'auto'], ['a2', 'auto'], ['a3', 'auto']]);
@@ -217,5 +236,31 @@ describe('l’adresse de l’import Panoramax', () => {
     });
     expect(a?.libelle).toBe('2 Allée des Limites 78110 Le Vésinet');
     expect(vus).toEqual(['https://data.geopf.fr/geocodage/search', 'https://api-adresse.data.gouv.fr/search/']);
+  });
+});
+
+describe('la repartition stratifiee des blocs', () => {
+  it('donne a chaque type sa part de train, val et test, meme rare, et garde les blocs deja poses', async () => {
+    const { repartirStratifie, comptesParNom, manquesDuNom } = await import('../src/blocs.js');
+    // 100 photos : 90 avec des fenetres a deux vantaux, 10 avec un oeil-de-boeuf ; deux photos ont deja leur bloc.
+    const images = Array.from({ length: 100 }, (_, i) => ({ id: 'p' + i, bloc: (i === 0 ? 'test' : i === 1 ? 'reserve' : '') as Bloc, etiquettes: i % 10 === 0 ? { oeil_de_boeuf: 1, fenetre_2v: 2 } : { fenetre_2v: 3 } }));
+    const blocs = await repartirStratifie(REGLAGES_DEFAUT, images);
+    expect(blocs.has('p0')).toBe(false);
+    expect(blocs.has('p1')).toBe(false);
+    const avec = (b: string, nom: string) => images.filter((m) => (m.bloc || blocs.get(m.id)) === b && nom in m.etiquettes).length;
+    // Les 10 oeils-de-boeuf (dont p0 deja en test) : 7 / 2 / 1, comme les parts.
+    expect([avec('train', 'oeil_de_boeuf'), avec('val', 'oeil_de_boeuf'), avec('test', 'oeil_de_boeuf')]).toEqual([7, 2, 1]);
+    const tous = (b: string) => images.filter((m) => (m.bloc || blocs.get(m.id)) === b).length;
+    expect(Math.abs(tous('train') - 69)).toBeLessThanOrEqual(1);
+    expect(Math.abs(tous('val') - 20)).toBeLessThanOrEqual(1);
+    expect(Math.abs(tous('test') - 10)).toBeLessThanOrEqual(1);
+    // Le meme resultat a chaque fois.
+    expect([...(await repartirStratifie(REGLAGES_DEFAUT, images))]).toEqual([...blocs]);
+    const metas = images.map((m) => ({ ...m, bloc: (m.bloc || blocs.get(m.id)) as Bloc, statut: 'corrigee' as const, importeeLe: '', source: 'iphone' as const, verifiee: true }));
+    const c = await comptesParNom(REGLAGES_DEFAUT, metas);
+    expect(c.get('oeil_de_boeuf')?.train).toEqual({ photos: 7, objets: 7 });
+    expect(manquesDuNom(c.get('oeil_de_boeuf'))).toEqual(['7 en train (viser 30 au moins)']);
+    expect(manquesDuNom(c.get('fenetre_2v'))).toEqual([]);
+    expect(manquesDuNom(undefined)).toEqual(['aucun objet marqué']);
   });
 });

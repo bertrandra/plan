@@ -4,8 +4,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Banc } from '../App.js';
 import { api } from '../api.js';
-import { CLASSES_DEFAUT, erreursDeLArbre, idDuNom, indicesYolo, ordreDeLArbre, profondeur } from '../classes.js';
-import type { Attribut, Classe } from '../types.js';
+import { CLASSES_DEFAUT, erreursDeLArbre, idDuNom, indicesYolo, nomsDeLaClasse, ordreDeLArbre, profondeur } from '../classes.js';
+import type { Attribut, Classe, TypeObjet } from '../types.js';
 
 export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: Classe[]) => void }) {
   const [classes, setClasses] = useState<Classe[]>(banc.classes);
@@ -63,7 +63,7 @@ export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: C
           {ordre.map((x) => (
             <li key={x.id} role="option" aria-selected={x.id === choisie} className={x.id === choisie ? 'choisie' : ''} style={{ paddingLeft: 8 + 18 * profondeur(classes, x.id) }} onClick={() => setChoisie(x.id)}>
               <span className="pastille" style={{ background: x.couleur }} />
-              {x.nom} <small>{x.forme === 'polygone' ? '⬠' : '▭'} {yolo.has(x.id) ? '#' + yolo.get(x.id) : '—'}</small>
+              {x.nom} <small>{x.forme === 'polygone' ? '⬠' : '▭'} {nomsDeLaClasse(x).map((n) => '#' + yolo.get(n)).join(' ') || '—'}</small>
             </li>
           ))}
         </ul>
@@ -108,6 +108,24 @@ function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: 
         <label className="case"><input type="checkbox" checked={c.apprendre} onChange={(e) => onMaj({ apprendre: e.target.checked })} /> Apprise (entre dans le jeu YOLO)</label>
         <label className="large">Description<input value={c.description ?? ''} onChange={(e) => onMaj({ description: e.target.value })} /></label>
       </div>
+      <h4>Types (les noms que le modèle apprend)</h4>
+      <p className="aide">Avec des types, le modèle voit l’objet et le qualifie : chaque type est un nom de <code>data.yaml</code>. Sans type, la classe elle-même est le nom appris.</p>
+      <table className="tableau">
+        <thead><tr><th>Nom YOLO</th><th>Libellé</th><th /></tr></thead>
+        <tbody>
+          {(c.types ?? []).map((t, i) => (
+            <tr key={i}>
+              <td><input value={t.id} onChange={(e) => onMaj({ types: (c.types ?? []).map((x, k) => (k === i ? { ...x, id: e.target.value } : x)) })} /></td>
+              <td><input value={t.nom} onChange={(e) => onMaj({ types: (c.types ?? []).map((x, k) => (k === i ? { ...x, nom: e.target.value } : x)) })} onBlur={() => { if (!t.id || t.id.startsWith('type_')) onMaj({ types: (c.types ?? []).map((x, k) => (k === i ? { ...x, id: idDuNom(x.nom, '_') } : x)) }); }} /></td>
+              <td>
+                <button type="button" className="discret" aria-label="Monter" disabled={!i} onClick={() => { const l = [...(c.types ?? [])]; [l[i - 1], l[i]] = [l[i] as TypeObjet, l[i - 1] as TypeObjet]; onMaj({ types: l }); }}>↑</button>
+                <button type="button" className="discret" aria-label={'Retirer ' + t.nom} onClick={() => onMaj({ types: (c.types ?? []).filter((_, k) => k !== i) })}>✕</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="rang"><button type="button" onClick={() => onMaj({ types: [...(c.types ?? []), { id: 'type_' + ((c.types?.length ?? 0) + 1), nom: 'Nouveau type' }] })}>+ Type</button></div>
       <h4>Attributs à renseigner</h4>
       <table className="tableau">
         <thead><tr><th>Clé</th><th>Nom</th><th>Type</th><th>Valeurs (séparées par des virgules)</th><th /></tr></thead>

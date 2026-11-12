@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react';
 import type { Banc } from '../App.js';
 import { api } from '../api.js';
-import { bilanDesBlocs, blocTire, dansLEchantillon, partsValables, type BilanBloc } from '../blocs.js';
+import { bilanDesBlocs, comptesParNom, dansLEchantillon, manquesDuNom, partsValables, repartirStratifie, type BilanBloc, type CompteNom } from '../blocs.js';
+import { libelleDe, nomsYolo, cibleDuNom } from '../classes.js';
 import type { Reglages } from '../types.js';
 
 export function EcranBlocs({ banc, onReglages }: { banc: Banc; onReglages: (r: Reglages) => void }) {
@@ -21,10 +22,20 @@ export function EcranBlocs({ banc, onReglages }: { banc: Banc; onReglages: (r: R
     if (!partsValables(r.parts)) { banc.dire('Les parts doivent faire 1 en tout, val et test non nulles.', 'erreur'); return; }
     try { onReglages(await api.ecrireReglages(r)); banc.dire('Blocs enregistrés.'); } catch (e) { banc.dire((e as Error).message, 'erreur'); }
   };
-  const figer = async () => {
+  // La repartition stratifiee : les photos corrigees sans bloc (ou toutes, hors reserve, si on repart de zero) rangees pour que chaque
+  // nom YOLO ait sa part dans train, val et test.
+  const repartir = async (deZero: boolean) => {
+    if (deZero && !confirm('Répartir de nouveau toutes les photos corrigées (hors réserve) ? Les blocs posés à la main sont remplacés.')) return;
+    const l = corrigees.map((m) => (deZero && m.bloc !== 'reserve' ? { ...m, bloc: '' as const } : m));
+    const blocs = await repartirStratifie(banc.reglages, l);
     let n = 0;
-    for (const m of corrigees.filter((x) => !x.bloc)) { setEtat(`Bloc ${++n}…`); banc.remplacer(await api.modifier(m.id, { bloc: await blocTire(banc.reglages, m.id) })); }
-    setEtat(`${n} photo(s) rangée(s) dans leur bloc.`);
+    for (const [id, bloc] of blocs) {
+      const m = corrigees.find((x) => x.id === id);
+      if (!m || m.bloc === bloc) continue;
+      setEtat(`Bloc ${++n}…`);
+      banc.remplacer(await api.modifier(id, { bloc }));
+    }
+    setEtat(`${blocs.size} photo(s) réparties, ${n} changée(s).`);
   };
   const tirer = async () => {
     let n = 0, dedans = 0;
@@ -50,7 +61,8 @@ export function EcranBlocs({ banc, onReglages }: { banc: Banc; onReglages: (r: R
           <button type="button" className="principal" onClick={() => { void enregistrer(); }}>Enregistrer</button>
         </div>
         <div className="rang">
-          <button type="button" onClick={() => { void figer(); }}>Figer les blocs des photos corrigées</button>
+          <button type="button" className="principal" onClick={() => { void repartir(false); }}>Répartir les nouvelles photos (stratifié par type)</button>
+          <button type="button" onClick={() => { void repartir(true); }}>Tout répartir de nouveau</button>
           <button type="button" onClick={() => { void tirer(); }}>Tirer l’échantillon à vérifier</button>
           {etat && <span className="etat">{etat}</span>}
         </div>
@@ -70,11 +82,36 @@ export function EcranBlocs({ banc, onReglages }: { banc: Banc; onReglages: (r: R
           <p className="aide">« Photos par classe » : le nombre de photos où la classe apparaît. Une classe absente de val ou de test ne se mesure pas.</p>
         </div>
       )}
+      <ParNom banc={banc} />
       <div className="panneau">
         <h3>Échantillon à vérifier ({aVerifier.length})</h3>
         <p className="aide">Relisez chaque photo de l’échantillon dans l’éditeur et cochez « Vérifiée » : c’est le contrôle de la qualité du marquage de chaque bloc.</p>
         <div className="rang"><button type="button" className="principal" disabled={!aVerifier.length} onClick={() => banc.ouvrir(aVerifier[0]?.id ?? '', aVerifier.map((m) => m.id))}>Vérifier l’échantillon</button></div>
       </div>
     </section>
+  );
+}
+
+/** Par nom YOLO : ses objets dans train, val et test, et ce qui lui manque pour s'apprendre. */
+function ParNom({ banc }: { banc: Banc }) {
+  const [c, setC] = useState<Map<string, Record<'train' | 'val' | 'test', CompteNom>> | null>(null);
+  useEffect(() => { comptesParNom(banc.reglages, banc.images).then(setC).catch(() => setC(null)); }, [banc.reglages, banc.images]);
+  const noms = nomsYolo(banc.classes);
+  const prets = c ? noms.filter((n) => !manquesDuNom(c.get(n)).length).length : 0;
+  const aQualifier = banc.images.reduce((s, m) => s + (m.statut === 'corrigee' ? m.aQualifier ?? 0 : 0), 0);
+  return (
+    <div className="panneau">
+      <h3>Par type appris ({prets} prêt(s) sur {noms.length})</h3>
+      <p className="aide">Objets marqués par bloc. Un type s’apprend quand il a assez d’exemples en train, et se mesure seulement s’il en a en val et en test.{aQualifier ? ` ${aQualifier} objet(s) restent à qualifier (sans type) : ils n’entrent pas dans le jeu.` : ''}</p>
+      <table className="tableau">
+        <thead><tr><th>#</th><th>Nom</th><th>train</th><th>val</th><th>test</th><th>Pour l’apprentissage</th></tr></thead>
+        <tbody>{noms.map((n, i) => {
+          const k = c?.get(n), manque = manquesDuNom(k), cible = cibleDuNom(n, banc.classes);
+          return <tr key={n}><td>{i}</td><td><code>{n}</code> <small>{cible ? libelleDe(cible, banc.classes) : ''}</small></td>
+            <td>{k?.train.objets ?? 0}</td><td>{k?.val.objets ?? 0}</td><td>{k?.test.objets ?? 0}</td>
+            <td className={manque.length ? 'attention' : 'ok'}>{manque.length ? manque.join(' ; ') : 'prêt'}</td></tr>;
+        })}</tbody>
+      </table>
+    </div>
   );
 }

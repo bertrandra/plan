@@ -16,6 +16,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (créer, déplacer, reformer, supprimer, annuler), le catalogue, l’export au format Ultralytics (détection YOLOv10n et
   contours YOLO11n-seg, `data.yaml`, script d’entraînement) et les blocs train / val / test avec un échantillon à vérifier.
   Plan n’en est touché que par une règle du `.htaccess` (`?banc`) et la livraison, qui construit le banc dans `banc/`.
+  Le modèle voit l’objet et le qualifie : une famille (fenêtre, porte, volet) a des types, et ce sont eux que le modèle apprend
+  (vingt noms de départ, `fenetre_1v` … `loggia`). La répartition train / val / test est stratifiée par type, et l’export porte un
+  carnet Colab (`entrainer.ipynb`) pour entraîner le modèle qui fait ensuite le brouillon des photos non annotées.
 
 ### Retiré
 

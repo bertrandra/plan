@@ -47,7 +47,7 @@ function jpeg(L: number, H: number): Blob {
 function lireZip(octets: ArrayBuffer): Record<string, string> {
   const f = path.join(tmp, 'export.zip');
   fs.writeFileSync(f, Buffer.from(octets));
-  const r = spawnSync('php', ['-r', `$z=new ZipArchive;$z->open('${f}');$o=[];for($i=0;$i<$z->numFiles;$i++){$n=$z->getNameIndex($i);$o[$n]=preg_match('/\\.(txt|yaml|json|py)$/',$n)?$z->getFromIndex($i):'';}echo json_encode($o);`]);
+  const r = spawnSync('php', ['-r', `$z=new ZipArchive;$z->open('${f}');$o=[];for($i=0;$i<$z->numFiles;$i++){$n=$z->getNameIndex($i);$o[$n]=preg_match('/\\.(txt|yaml|json|py|ipynb)$/',$n)?$z->getFromIndex($i):'';}echo json_encode($o);`]);
   return JSON.parse(r.stdout.toString()) as Record<string, string>;
 }
 
@@ -158,6 +158,35 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect(l.map((m) => [m.id, m.installe, m.classes])).toEqual([['facade-fenetres', false, ['fenetre', 'porte']], ['facade-volets', false, ['volet']]]);
     expect(await json(await appel('PATCH', 'modele', { id: 'facade-volets' }, { correspondance: { volet: 'fenetre' }, seuil: 0.4 }))).toMatchObject({ correspondance: { volet: 'fenetre' }, seuil: 0.4 });
     expect((await appel('GET', 'modele', { id: 'facade-volets' })).status).toBe(404);
+  });
+
+  it('exporte le type d un objet qualifie, et compte a part ceux qui ne le sont pas', async () => {
+    const classes = [
+      { id: 'fenetre', nom: 'Fenêtre', parent: null, forme: 'rectangle', couleur: '#1e88e5', attributs: [], apprendre: true, types: [{ id: 'fenetre_1v', nom: '1 vantail' }, { id: 'fenetre_2v', nom: '2 vantaux' }] },
+      { id: 'balcon', nom: 'Balcon', parent: null, forme: 'polygone', couleur: '#fb8c00', attributs: [], apprendre: true },
+    ];
+    expect((await appel('PUT', 'classes', {}, { classes })).status).toBe(200);
+    expect((await appel('PUT', 'classes', {}, { classes: [{ ...classes[0], types: [{ id: 'balcon', nom: 'x' }] }, classes[1]] })).status).toBe(400);
+    const f = new FormData();
+    f.append('fichier', jpeg(100, 100), 'a.jpg');
+    const id = String((await json(await appel('POST', 'images', {}, f))).id);
+    const g = new FormData();
+    g.append('fichier', jpeg(100, 100), 'r.jpg');
+    await appel('POST', 'redressee', { id }, g);
+    const objets = [
+      { id: 'm1', classe: 'fenetre', type: 'fenetre_2v', forme: 'rectangle', points: [{ x: 0, y: 0 }, { x: 50, y: 50 }], parent: null, attributs: {}, origine: 'main' },
+      { id: 'm2', classe: 'fenetre', forme: 'rectangle', points: [{ x: 60, y: 0 }, { x: 80, y: 20 }], parent: null, attributs: {}, origine: 'main' },
+      { id: 'm3', classe: 'balcon', forme: 'polygone', points: [{ x: 0, y: 60 }, { x: 100, y: 60 }, { x: 100, y: 100 }], parent: null, attributs: {}, origine: 'main' },
+    ];
+    expect(await json(await appel('PUT', 'annotation', { id }, { objets, par: 'main' }))).toMatchObject({ etiquettes: { fenetre_2v: 1, balcon: 1 }, aQualifier: 1 });
+    await appel('PATCH', 'image', { id }, { bloc: 'train' });
+    const z = lireZip(await (await appel('GET', 'export', { format: 'detect' })).arrayBuffer());
+    const cle = (fin: string) => Object.keys(z).find((n) => n.endsWith(fin)) ?? '';
+    expect(z[cle('data.yaml')]).toContain('names:\n  0: fenetre_1v\n  1: fenetre_2v\n  2: balcon\n');
+    expect(z[cle(`labels/train/${id}.txt`)]).toBe('1 0.250000 0.250000 0.500000 0.500000\n2 0.500000 0.800000 1.000000 0.400000\n');
+    expect(JSON.parse(z[cle('bilan.json')] ?? '{}')).toMatchObject({ aQualifier: 1 });
+    const carnet = JSON.parse(z[cle('entrainer.ipynb')] ?? '{}') as { cells: { source: string }[] };
+    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('yolov10n.pt')");
   });
 
   it('se deconnecte', async () => {

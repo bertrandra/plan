@@ -6,7 +6,8 @@ import type { Banc } from '../App.js';
 import { api } from '../api.js';
 import { bitmap, COTE_TRAVAIL, pixels, reduire } from '../images.js';
 import { detecter } from '../yolo.js';
-import { brouillonSurExistant, objetsDuBrouillon, parLaRecherche, selonLaCorrespondance, type Proposition } from '../brouillon.js';
+import { brouillonSurExistant, correspondanceParDefaut, objetsDuBrouillon, parLaRecherche, selonLaCorrespondance, type Proposition } from '../brouillon.js';
+import { choixDeCreation } from '../classes.js';
 import type { MetaImage, Modele } from '../types.js';
 
 export function EcranBrouillon({ banc }: { banc: Banc }) {
@@ -73,7 +74,7 @@ function Modeles({ banc }: { banc: Banc }) {
   return (
     <div className="panneau">
       <h3>Modèles YOLO</h3>
-      <p className="aide">Ceux du dépôt facade (YOLOv10n, AGPL-3.0) s’installent d’un geste. Le modèle que vous entraînez avec le jeu exporté (6) se dépose ici : son <code>.onnx</code> et la liste de ses classes (celle de <code>data.yaml</code>, dans l’ordre).</p>
+      <p className="aide">Ceux du dépôt facade (YOLOv10n, AGPL-3.0) s’installent d’un geste et trouvent fenêtres, portes et volets sans les qualifier. Le vôtre, entraîné sur vos types, les qualifie : ses noms vont d’eux-mêmes vers les types du même nom. Le modèle que vous entraînez avec le jeu exporté (6) se dépose ici : son <code>.onnx</code> et la liste de ses classes (celle de <code>data.yaml</code>, dans l’ordre).</p>
       <table className="tableau">
         <thead><tr><th>Modèle</th><th>Format</th><th>Classes → classes du banc</th><th>Seuil</th><th>Actif</th><th /></tr></thead>
         <tbody>
@@ -85,7 +86,7 @@ function Modeles({ banc }: { banc: Banc }) {
                 <label key={c} className="correspondance">{c} →
                   <select value={m.correspondance[c] ?? ''} disabled={!m.installe} onChange={(e) => { void agir(m.id, () => api.modifierModele(m.id, { correspondance: { ...m.correspondance, [c]: e.target.value } })); }}>
                     <option value="">(ignorée)</option>
-                    {banc.classes.map((k) => <option key={k.id} value={k.id}>{k.nom}</option>)}
+                    {choixDeCreation(banc.classes).map((k) => <option key={k.valeur} value={k.valeur}>{k.nom}</option>)}
                   </select>
                 </label>
               ))}</td>
@@ -97,7 +98,7 @@ function Modeles({ banc }: { banc: Banc }) {
           ))}
         </tbody>
       </table>
-      <AjoutModele onAjout={(f, d) => agir('ajout', () => api.ajouterModele(f, d))} />
+      <AjoutModele onAjout={(f, d) => agir('ajout', () => api.ajouterModele(f, { ...d, correspondance: correspondanceParDefaut(d.classes, banc.classes) }))} />
     </div>
   );
 }

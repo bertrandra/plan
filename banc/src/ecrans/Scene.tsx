@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, type PointerEvent as PE, type WheelEvent as WE } from 'react';
 import type { Classe, Forme, Objet, P } from '../types.js';
 import { contour } from '../geometrie.js';
+import { libelleDe } from '../classes.js';
 import { ajouterSommet, deplacer, poignees, retirerSommet, tirerPoignee } from '../edition.js';
 
 export type Outil = 'choisir' | Forme;
@@ -112,7 +113,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
   };
 
   const couleur = (o: Objet) => classes.find((c) => c.id === o.classe)?.couleur ?? '#ff00ff';
-  const nom = (o: Objet) => classes.find((c) => c.id === o.classe)?.nom ?? o.classe;
+  const nom = (o: Objet) => libelleDe(o, classes) + (classes.find((c) => c.id === o.classe)?.types?.length && !o.type ? ' ?' : '');
   const trait = 2 * echelle, rayon = 6 * echelle;
   const enCours = geste?.type === 'rectangle' ? geste : null;
   return (

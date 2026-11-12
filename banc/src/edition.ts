@@ -45,7 +45,17 @@ export function supprimer(objets: readonly Objet[], id: string): Objet[] {
 /** Change la classe d'un objet ; ses attributs qui n'existent pas dans la nouvelle classe partent. */
 export function changerClasse(o: Objet, c: Classe): Objet {
   const cles = new Set(c.attributs.map((a) => a.cle));
-  return touche({ ...o, classe: c.id, attributs: Object.fromEntries(Object.entries(o.attributs).filter(([k]) => cles.has(k))) });
+  const { type, ...reste } = o;
+  // Un type qui n'est pas de la nouvelle classe part : l'objet est a qualifier de nouveau.
+  const garde = type && c.types?.some((t) => t.id === type) ? { type } : {};
+  return touche({ ...reste, ...garde, classe: c.id, attributs: Object.fromEntries(Object.entries(o.attributs).filter(([k]) => cles.has(k))) });
+}
+
+/** Qualifie un objet par un type de sa classe (vide : le retire). */
+export function changerType(o: Objet, type: string): Objet {
+  const { type: _avant, ...reste } = o;
+  void _avant;
+  return touche(type ? { ...reste, type } : reste);
 }
 
 export function changerAttribut(o: Objet, cle: string, valeur: string | number | boolean | null): Objet {

@@ -3,7 +3,8 @@
 import type { ReactElement } from 'react';
 import type { Classe, Objet } from '../types.js';
 import { ordreDeLArbre } from '../classes.js';
-import { changerAttribut, changerClasse, enPolygone } from '../edition.js';
+import { changerAttribut, changerClasse, changerType, enPolygone } from '../edition.js';
+import { libelleDe } from '../classes.js';
 
 const ORIGINES = { auto: 'brouillon, pas encore relu', main: 'posé à la main', corrige: 'brouillon corrigé' } as const;
 
@@ -20,6 +21,14 @@ export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o
           {ordreDeLArbre(classes).map((k) => <option key={k.id} value={k.id}>{k.nom}</option>)}
         </select>
       </label>
+      {!!c?.types?.length && (
+        <label className={o.type ? '' : 'attention'}>Type (ce que le modèle apprend)
+          <select value={o.type ?? ''} onChange={(e) => onChanger(changerType(o, e.target.value))} autoFocus={!o.type}>
+            <option value="">— à qualifier —</option>
+            {c.types.map((t) => <option key={t.id} value={t.id}>{t.nom} ({t.id})</option>)}
+          </select>
+        </label>
+      )}
       {c?.parent && (
         <label>Dans
           <select value={o.parent ?? ''} onChange={(e) => onChanger({ ...o, parent: e.target.value || null, origine: o.origine === 'auto' ? 'corrige' : o.origine })}>
@@ -62,7 +71,7 @@ export function ListeObjets({ objets, classes, choisi, caches, onChoisir, onCach
     return (
       <li key={o.id}>
         <button type="button" className={o.id === choisi ? 'objet-liste choisi' : 'objet-liste'} style={{ paddingLeft: 6 + 14 * n }} onClick={() => onChoisir(o.id)}>
-          <span className="pastille" style={{ background: c?.couleur ?? '#999' }} /> {c?.nom ?? o.classe} <small>{o.id}{o.origine === 'auto' ? ' · auto' : ''}</small>
+          <span className="pastille" style={{ background: c?.couleur ?? '#999' }} /> {libelleDe(o, classes)}{c?.types?.length && !o.type ? ' ?' : ''} <small>{o.id}{o.origine === 'auto' ? ' · auto' : ''}</small>
         </button>
         {enfants(o.id).length > 0 && <ul>{enfants(o.id).map((x) => ligne(x, n + 1))}</ul>}
       </li>
@@ -70,7 +79,7 @@ export function ListeObjets({ objets, classes, choisi, caches, onChoisir, onCach
   };
   return (
     <div className="pile">
-      <h4>Objets ({objets.length}, dont {objets.filter((o) => o.origine === 'auto').length} à relire)</h4>
+      <h4>Objets ({objets.length}, dont {objets.filter((o) => o.origine === 'auto').length} à relire, {objets.filter((o) => classes.find((c) => c.id === o.classe)?.types?.length && !o.type).length} à qualifier)</h4>
       <div className="puces">{presentes.map((c) => <button key={c.id} type="button" className={caches.has(c.id) ? 'puce eteinte' : 'puce'} style={{ borderColor: c.couleur }} onClick={() => onCacher(c.id)} title="Montrer ou cacher cette classe">{c.nom}</button>)}</div>
       <ul className="liste-objets">{enfants(null).map((o) => ligne(o, 0))}</ul>
     </div>

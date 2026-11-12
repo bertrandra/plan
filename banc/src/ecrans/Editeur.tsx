@@ -4,10 +4,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Banc } from '../App.js';
 import { api } from '../api.js';
-import { ordreDeLArbre } from '../classes.js';
+import { choixDeCreation } from '../classes.js';
+import { lireCible } from '../brouillon.js';
 import { rangerLesParents } from '../geometrie.js';
 import { creerPolygone, creerRectangle, Historique, supprimer } from '../edition.js';
-import type { Bloc, Classe, MetaImage, Objet } from '../types.js';
+import type { Bloc, MetaImage, Objet } from '../types.js';
 import { Scene, type Outil } from './Scene.js';
 import { PanneauObjet, ListeObjets } from './PanneauObjet.js';
 
@@ -16,7 +17,8 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   const [objets, setObjets] = useState<Objet[] | null>(null);
   const [choisi, setChoisi] = useState<string | null>(null);
   const [outil, setOutil] = useState<Outil>('choisir');
-  const [classe, setClasse] = useState<string>(() => banc.classes.find((c) => c.apprendre)?.id ?? banc.classes[0]?.id ?? '');
+  // Ce qu'on pose : « classe » ou « classe:type » (un objet deja qualifie, choixDeCreation).
+  const [classe, setClasse] = useState<string>(() => choixDeCreation(banc.classes)[0]?.valeur ?? '');
   const [caches, setCaches] = useState<Set<string>>(new Set());
   const [modifie, setModifie] = useState(false);
   const [envoi, setEnvoi] = useState(false);
@@ -54,7 +56,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     onAller(cible);
   }, [liste, modifie, enregistrer, onAller]);
   const fermer = () => { if (!modifie || confirm('Quitter sans enregistrer ?')) onFermer(); };
-  const choisirClasse = (c: string) => { setClasse(c); const k = banc.classes.find((x) => x.id === c); if (k && outil !== 'choisir') setOutil(k.forme); };
+  const choisirClasse = (c: string) => { setClasse(c); const k = banc.classes.find((x) => x.id === c.split(':')[0]); if (k && outil !== 'choisir') setOutil(k.forme); };
 
   useEffect(() => {
     const touche = (e: KeyboardEvent) => {
@@ -70,7 +72,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       else if (k === 'p') setOutil('polygone');
       else if (e.key === 'PageDown' || k === 'n') void aller(rang + 1);
       else if (e.key === 'PageUp' || k === 'b') void aller(rang - 1);
-      else if (/^[1-9]$/.test(e.key)) { const c = ordreDeLArbre(banc.classes)[Number(e.key) - 1]; if (c) choisirClasse(c.id); }
+      else if (/^[1-9]$/.test(e.key)) { const c = choixDeCreation(banc.classes)[Number(e.key) - 1]; if (c) choisirClasse(c.valeur); }
     };
     window.addEventListener('keydown', touche);
     return () => window.removeEventListener('keydown', touche);
@@ -79,7 +81,8 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   const visibles = useMemo(() => (objets ?? []).filter((o) => !caches.has(o.classe)), [objets, caches]);
   if (!meta?.redressee) return <section className="panneau"><p>Cette photo n’est pas redressée.</p><button type="button" onClick={onFermer}>Retour</button></section>;
   const objet = objets?.find((o) => o.id === choisi) ?? null;
-  const classeChoisie = banc.classes.find((c) => c.id === classe);
+  const cible = lireCible(classe, banc.classes);
+  const classeChoisie = banc.classes.find((c) => c.id === cible?.classe);
   return (
     <section className="editeur">
       <BarreEditeur banc={banc} meta={meta} rang={rang} total={liste.length} modifie={modifie} envoi={envoi} outil={outil} setOutil={setOutil}
@@ -90,7 +93,8 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
             outil={outil} classe={classeChoisie ?? null} choisi={choisi} onChoisir={setChoisi}
             onCreer={(pts, forme) => {
               if (!classeChoisie) return;
-              const n = forme === 'rectangle' ? creerRectangle(objets, classeChoisie.id, pts[0] ?? { x: 0, y: 0 }, pts[1] ?? { x: 0, y: 0 }) : creerPolygone(objets, classeChoisie.id, pts);
+              const cree = forme === 'rectangle' ? creerRectangle(objets, classeChoisie.id, pts[0] ?? { x: 0, y: 0 }, pts[1] ?? { x: 0, y: 0 }) : creerPolygone(objets, classeChoisie.id, pts);
+              const n = cible?.type ? { ...cree, type: cible.type } : cree;
               changer((l) => rangerLesParents([...l, n], banc.classes));
               setChoisi(n.id);
             }}
@@ -117,7 +121,7 @@ function BarreEditeur({ banc, meta, rang, total, modifie, envoi, outil, setOutil
     banc.remplacer({ ...meta, ...champs });
     api.modifier(meta.id, champs).then(banc.remplacer).catch((e: Error) => { banc.remplacer(meta); banc.dire(e.message, 'erreur'); });
   };
-  const ordre: Classe[] = ordreDeLArbre(banc.classes);
+  const choix = choixDeCreation(banc.classes);
   return (
     <div className="editeur-barre">
       <button type="button" onClick={onFermer}>← Catalogue</button>
@@ -128,7 +132,7 @@ function BarreEditeur({ banc, meta, rang, total, modifie, envoi, outil, setOutil
       <span className="outils" role="group" aria-label="Outil">
         {(['choisir', 'rectangle', 'polygone'] as const).map((o) => <button key={o} type="button" className={o === outil ? 'onglet actif' : 'onglet'} aria-pressed={o === outil} onClick={() => setOutil(o)}>{o === 'choisir' ? 'Choisir (V)' : o === 'rectangle' ? '▭ Rectangle (R)' : '⬠ Polygone (P)'}</button>)}
       </span>
-      <label>Classe <select value={classe} onChange={(e) => choisirClasse(e.target.value)}>{ordre.map((c, i) => <option key={c.id} value={c.id}>{i < 9 ? i + 1 + ' · ' : ''}{c.nom}</option>)}</select></label>
+      <label>À poser <select value={classe} onChange={(e) => choisirClasse(e.target.value)}>{choix.map((c, i) => <option key={c.valeur} value={c.valeur}>{i < 9 ? i + 1 + ' · ' : ''}{c.nom}</option>)}</select></label>
       <label className="case"><input type="checkbox" checked={meta.verifiee} onChange={(e) => modifierMeta({ verifiee: e.target.checked })} /> Vérifiée</label>
       <label>Bloc <select value={meta.bloc} onChange={(e) => modifierMeta({ bloc: e.target.value as Bloc })}><option value="">(tirage)</option><option value="train">train</option><option value="val">val</option><option value="test">test</option><option value="reserve">réserve</option></select></label>
       <button type="button" className="danger" onClick={() => { if (confirm('Rejeter cette photo ? Elle sort du jeu.')) modifierMeta({ statut: 'rejetee' }); }}>Rejeter</button>
