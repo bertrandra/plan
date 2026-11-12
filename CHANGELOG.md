@@ -15,7 +15,7 @@ de build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
 nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
 `Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées
-sans la mesure sur main (RUN_API ; prompts et schémas inchangés).
+sans la mesure sur main (run 43294181605 ; prompts et schémas inchangés).
 
 ### Ajouté
 
