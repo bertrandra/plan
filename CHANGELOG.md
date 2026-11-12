@@ -26,6 +26,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   ses lignes d’égout et de sol (une forme « ligne », hors du jeu YOLO), ses parties du mur (pignon, soubassement) à part des
   ouvertures ; la cheminée est sur la toiture, hors de la façade. Les pointes de pignon se posent d’un clic (une forme « point »).
   Un panoramique Panoramax donne une vue de chaque côté de la rue, à 90° du sens de la prise de vue, pour trouver les façades.
+  Le groupe Toit (hors façade) porte la toiture, la cheminée, la lucarne, le panneau solaire et la fenêtre de toit, qui sont appris
+  (#20 à #22, la lucarne garde #9) ; lucarne et fenêtre de toit sont aussi des ouvertures. Les indices YOLO sont figés dans le fichier.
 
 ### Retiré
 

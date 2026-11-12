@@ -120,3 +120,4 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 .loupe.gauche { left: 10px; } .loupe.droite { right: 10px; }
 .bascule-loupe { position: absolute; bottom: 10px; right: 10px; z-index: 2; min-height: 30px; padding: .1rem .6rem; font-size: .85rem; opacity: .85; }
 .bascule-loupe.active { border-color: var(--accent); color: var(--accent); }
+.arbre .aussi { color: var(--doux); font-size: .8rem; font-style: normal; }

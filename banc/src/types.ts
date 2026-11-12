@@ -41,10 +41,14 @@ export interface Classe {
    * dessine ni appris. Les autres liens de l'arbre sont des liens de contenance : un cadre est dans sa fenetre.
    */
   regroupement?: boolean;
+  /** Les autres regroupements dont elle fait aussi partie (une fenetre de toit est sur le toit, et c'est aussi une ouverture). */
+  aussi?: string[];
+  /** Son indice YOLO fige (une classe sans types) : il ne bouge plus quand l'arbre change. Absent : apres les indices figes. */
+  indice?: number;
 }
 
 /** Un type d'une classe : son nom YOLO (minuscules, chiffres, _ et -) et son libelle. */
-export interface TypeObjet { id: string; nom: string }
+export interface TypeObjet { id: string; nom: string; /** Son indice YOLO fige. */ indice?: number }
 
 export type Statut = 'importee' | 'redressee' | 'validee' | 'rejetee' | 'brouillon' | 'corrigee';
 export type Bloc = '' | 'train' | 'val' | 'test' | 'reserve';

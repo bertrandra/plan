@@ -22,7 +22,7 @@ describe('l’arbre des classes', () => {
     const ordre = ordreDeLArbre(CLASSES_DEFAUT).map((c) => c.id);
     for (const c of CLASSES_DEFAUT) if (c.parent) expect(ordre.indexOf(c.parent)).toBeLessThan(ordre.indexOf(c.id));
     // Les vingt noms du proprietaire, dans son ordre : les familles se qualifient par leurs types, les parties ne s'apprennent pas.
-    expect(nomsYolo(CLASSES_DEFAUT)).toEqual(['fenetre_1v', 'fenetre_2v', 'fenetre_petits_carreaux', 'fenetre_imposte_carreaux', 'fenetre_imposte_simple', 'porte_fenetre', 'baie_vitree', 'fenetre_cintree', 'oeil_de_boeuf', 'lucarne', 'porte_pleine', 'porte_vitree', 'porte_double', 'porte_garage', 'volet_battant', 'volet_roulant', 'volet_pliant', 'balcon', 'garde_corps', 'loggia']);
+    expect(nomsYolo(CLASSES_DEFAUT)).toEqual(['fenetre_1v', 'fenetre_2v', 'fenetre_petits_carreaux', 'fenetre_imposte_carreaux', 'fenetre_imposte_simple', 'porte_fenetre', 'baie_vitree', 'fenetre_cintree', 'oeil_de_boeuf', 'lucarne', 'porte_pleine', 'porte_vitree', 'porte_double', 'porte_garage', 'volet_battant', 'volet_roulant', 'volet_pliant', 'balcon', 'garde_corps', 'loggia', 'cheminee', 'panneau_solaire', 'fenetre_toit']);
     expect(indicesYolo(CLASSES_DEFAUT).get('loggia')).toBe(19);
     expect(profondeur(CLASSES_DEFAUT, 'quadrillage')).toBe(3);
     expect(nomYoloDe({ classe: 'fenetre', type: 'fenetre_2v' }, CLASSES_DEFAUT)).toBe('fenetre_2v');
@@ -279,8 +279,8 @@ describe('l’arbre vers le detail', () => {
     expect(estDetail(avecDetails.find((x) => x.id === 'quadrillage') as Classe, avecDetails)).toBe(true);
     expect(estDetail(avecDetails.find((x) => x.id === 'fenetre') as Classe, avecDetails)).toBe(false);
     const n = nomsYolo(avecDetails);
-    expect(n.slice(0, 20)).toEqual(nomsYolo(c));
-    expect(n.slice(20)).toEqual(['cadre-haut', 'quadrillage']);
+    expect(n.slice(0, 23)).toEqual(nomsYolo(c));
+    expect(n.slice(23)).toEqual(['cadre-haut', 'quadrillage']);
     expect(cheminDuNom('quadrillage', avecDetails)).toEqual(['facade', 'ouverture', 'fenetre', 'quadrillage']);
     // Une fenetre se range dans la facade (par-dessus le regroupement), un quadrillage dans sa fenetre.
     const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
@@ -299,13 +299,16 @@ describe('la structure de la facade (fichier data/apprentissage/classes.json)', 
     expect([c.find((x) => x.id === 'egout')?.forme, c.find((x) => x.id === 'sol')?.forme]).toEqual(['ligne', 'ligne']);
     expect(chemin('pignon')).toBe('facade/parties-mur/pignon');
     expect(chemin('soubassement')).toBe('facade/parties-mur/soubassement');
-    for (const id of ['fenetre', 'porte', 'lucarne']) expect(chemin(id).startsWith('facade/ouverture/')).toBe(true);
-    expect(chemin('cheminee')).toBe('toiture/cheminee');
+    for (const id of ['fenetre', 'porte']) expect(chemin(id).startsWith('facade/ouverture/')).toBe(true);
+    // Le toit, hors de la facade : cheminee, lucarne, panneau solaire, fenetre de toit ; lucarne et fenetre de toit sont aussi des ouvertures.
+    for (const id of ['cheminee', 'lucarne', 'panneau_solaire', 'fenetre_toit', 'toiture']) expect(chemin(id)).toBe('toit/' + id);
+    expect(c.find((x) => x.id === 'fenetre_toit')?.aussi).toEqual(['ouverture']);
+    expect(c.find((x) => x.id === 'lucarne')?.aussi).toEqual(['ouverture']);
     // Les lignes ne s'apprennent pas : les vingt noms ne bougent pas.
-    expect(nomsYolo(c)).toHaveLength(20);
+    expect(nomsYolo(c)).toHaveLength(23);
     expect(cheminDuNom('loggia', c)).toEqual(['facade', 'saillie', 'loggia']);
     const avecLigneApprise = c.map((x) => (x.id === 'egout' ? { ...x, apprendre: true } : x));
-    expect(nomsYolo(avecLigneApprise)).toHaveLength(20);
+    expect(nomsYolo(avecLigneApprise)).toHaveLength(23);
   });
   it('une ligne se trace, se reforme et se range dans la facade', async () => {
     const { creerPolygone, tirerPoignee, poignees } = await import('../src/edition.js');
@@ -336,13 +339,30 @@ describe('Panoramax a 90 degres de la rue, et les pointes de pignon', () => {
     const c = CLASSES_DEFAUT;
     const k = c.find((x) => x.id === 'pointe-pignon');
     expect([k?.forme, k?.parent]).toEqual(['point', 'lignes-facade']);
-    expect(nomsYolo(c)).toHaveLength(20);
-    expect(nomsYolo(c.map((x) => (x.id === 'pointe-pignon' ? { ...x, apprendre: true } : x)))).toHaveLength(20);
+    expect(nomsYolo(c)).toHaveLength(23);
+    expect(nomsYolo(c.map((x) => (x.id === 'pointe-pignon' ? { ...x, apprendre: true } : x)))).toHaveLength(23);
     const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
     const pointe = creerPolygone([facade], 'pointe-pignon', [{ x: 30, y: 8 }], 'point');
     expect(tirerPoignee(pointe, 0, { x: 31, y: 7 }, 100, 100).points).toEqual([{ x: 31, y: 7 }]);
     expect(ajout(pointe, 0).points).toHaveLength(1);
     expect(retirerSommet(pointe, 0).points).toHaveLength(1);
     expect(rangerLesParents([facade, pointe], c)[1]?.parent).toBe('f');
+  });
+});
+
+describe('les indices figes et les regroupements multiples', () => {
+  it('deplacer une classe dans l’arbre ne change pas les indices figes ; un nom ajoute vient a la suite ; deux indices egaux sont refuses', async () => {
+    const c = CLASSES_DEFAUT;
+    const avant = nomsYolo(c);
+    // La lucarne repasse sous Ouverture, le volet sous la facade : les indices restent.
+    const deplace = c.map((x) => (x.id === 'lucarne' ? { ...x, parent: 'ouverture', aussi: [] } : x.id === 'volet' ? { ...x, parent: 'facade' } : x));
+    expect(nomsYolo(deplace)).toEqual(avant);
+    // Une classe apprise sans indice : apres les indices figes.
+    const ajout = [...c, { id: 'marquise', nom: 'Marquise', parent: 'saillie', forme: 'polygone' as const, couleur: '#ff8a65', attributs: [], apprendre: true }];
+    expect(nomsYolo(ajout).slice(-1)).toEqual(['marquise']);
+    expect(nomsYolo(ajout).slice(0, 23)).toEqual(avant);
+    const doublon = c.map((x) => (x.id === 'cheminee' ? { ...x, indice: 9 } : x));
+    expect(erreursDeLArbre(doublon).join(' | ')).toMatch(/L’indice 9 est pris deux fois/);
+    expect(erreursDeLArbre(c.map((x) => (x.id === 'fenetre_toit' ? { ...x, aussi: ['fenetre'] } : x))).join(' | ')).toMatch(/« fenetre » n’est pas un regroupement/);
   });
 });

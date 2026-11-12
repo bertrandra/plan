@@ -59,7 +59,21 @@ export function estDetail(c: Classe, classes: readonly Classe[]): boolean {
  */
 export function nomsYolo(classes: readonly Classe[]): string[] {
   const ordre = ordreDeLArbre(classes);
-  return [...new Set([...ordre.filter((c) => !estDetail(c, classes)), ...ordre.filter((c) => estDetail(c, classes))].flatMap(nomsDeLaClasse))];
+  const enOrdre = [...new Set([...ordre.filter((c) => !estDetail(c, classes)), ...ordre.filter((c) => estDetail(c, classes))].flatMap(nomsDeLaClasse))];
+  // Les indices figes d'abord (ils ne bougent plus quand l'arbre change), puis les autres dans l'ordre de l'arbre.
+  const fige = indicesFiges(classes);
+  return [...enOrdre.filter((n) => fige.has(n)).sort((a, b) => (fige.get(a) ?? 0) - (fige.get(b) ?? 0)), ...enOrdre.filter((n) => !fige.has(n))];
+}
+
+/** L'indice fige de chaque nom appris qui en a un (une classe sans types, ou chacun de ses types). */
+export function indicesFiges(classes: readonly Classe[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const c of classes) {
+    if (!nomsDeLaClasse(c).length) continue;
+    if (c.types?.length) { for (const t of c.types) if (typeof t.indice === 'number') m.set(t.id, t.indice); }
+    else if (typeof c.indice === 'number') m.set(c.id, c.indice);
+  }
+  return m;
 }
 
 /** Le chemin d'un nom YOLO dans l'arbre, de la racine au type : « facade > ouverture > fenetre > fenetre_2v ». */
@@ -110,7 +124,11 @@ export function erreursDeLArbre(classes: readonly Classe[]): string[] {
   for (const c of classes) {
     if (c.parent && !classesIds.has(c.parent)) e.push(`« ${c.id} » : parent inconnu « ${c.parent} ».`);
     if (c.parent && profondeur(classes, c.id) >= 20) e.push(`« ${c.id} » : l’arbre boucle.`);
+    for (const a of c.aussi ?? []) if (!classes.find((x) => x.id === a)?.regroupement) e.push(`« ${c.id} » : « ${a} » n’est pas un regroupement.`);
   }
+  // Deux noms appris ne partagent pas un indice fige.
+  const vus = new Map<number, string>();
+  for (const [n, i] of indicesFiges(classes)) { const autre = vus.get(i); if (autre) e.push(`L’indice ${i} est pris deux fois (${autre}, ${n}).`); vus.set(i, n); }
   return e;
 }
 

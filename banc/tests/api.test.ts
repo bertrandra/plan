@@ -212,6 +212,21 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect((JSON.parse(z[cle('hierarchie.json')] ?? '{}') as { noms: { chemin: string }[] }).noms.map((n) => n.chemin)).toEqual(['ouverture/fenetre/fenetre_2v', 'ouverture/porte', 'ouverture/fenetre/quadrillage']);
   });
 
+  it('les indices figes l emportent sur l ordre de l arbre, et le chemin dit les autres regroupements', async () => {
+    const classes = [
+      { id: 'ouverture', nom: 'Ouverture', parent: null, regroupement: true, forme: 'rectangle', couleur: '#90caf9', attributs: [], apprendre: false },
+      { id: 'toit', nom: 'Toit', parent: null, regroupement: true, forme: 'polygone', couleur: '#90a4ae', attributs: [], apprendre: false },
+      { id: 'fenetre_toit', nom: 'Fenêtre de toit', parent: 'toit', aussi: ['ouverture'], forme: 'rectangle', couleur: '#0277bd', attributs: [], apprendre: true, indice: 2 },
+      { id: 'porte', nom: 'Porte', parent: 'ouverture', forme: 'rectangle', couleur: '#e53935', attributs: [], apprendre: true, types: [{ id: 'porte_pleine', nom: 'P', indice: 0 }, { id: 'porte_vitree', nom: 'V', indice: 1 }] },
+      { id: 'balcon', nom: 'Balcon', parent: null, forme: 'polygone', couleur: '#fb8c00', attributs: [], apprendre: true },
+    ];
+    expect((await appel('PUT', 'classes', {}, { classes })).status).toBe(200);
+    const z = lireZip(await (await appel('GET', 'export', { format: 'detect' })).arrayBuffer());
+    const cle = (fin: string) => Object.keys(z).find((n) => n.endsWith(fin)) ?? '';
+    expect(z[cle('data.yaml')]).toContain('names:\n  0: porte_pleine\n  1: porte_vitree\n  2: fenetre_toit\n  3: balcon\n');
+    expect((JSON.parse(z[cle('hierarchie.json')] ?? '{}') as { noms: { nom: string; chemin: string }[] }).noms.find((n) => n.nom === 'fenetre_toit')?.chemin).toBe('toit/fenetre_toit (aussi : ouverture)');
+  });
+
   it('se deconnecte', async () => {
     expect((await appel('POST', 'deconnexion')).status).toBe(200);
     expect((await appel('GET', 'images')).status).toBe(401);

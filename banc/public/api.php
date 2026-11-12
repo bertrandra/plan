@@ -435,10 +435,24 @@ function noms_yolo(): array {
   };
   $ordre = [];
   $chemins = [];
+  $fige = [];
   foreach ([false, true] as $details) foreach ($arbre as $c) {
     if (!$appris($c) || $estDetail($c) !== $details) continue;
-    foreach ($typesDe($c) ?: [$c['id']] as $n) { $ordre[] = $n; $chemins[$n] = $chemin($c) . ($typesDe($c) ? '/' . $n : ''); }
+    $aussi = array_values(array_filter((array)($c['aussi'] ?? []), 'is_string'));
+    foreach ((array)($c['types'] ?? []) ?: [$c] as $t) {
+      $n = $t['id'];
+      if (!is_string($n) || isset($chemins[$n])) continue;
+      $ordre[] = $n;
+      $chemins[$n] = $chemin($c) . (($c['types'] ?? []) ? '/' . $n : '') . ($aussi ? ' (aussi : ' . implode(', ', $aussi) . ')' : '');
+      if (is_numeric($t['indice'] ?? null)) $fige[$n] = (float)$t['indice'];
+    }
   }
+  // Les indices figes d'abord (ils ne bougent plus quand l'arbre change), dans leur ordre ; les autres a la suite, dans l'ordre de l'arbre.
+  $ordre = array_merge(array_values(array_filter($ordre, fn($n) => isset($fige[$n]))), array_values(array_filter($ordre, fn($n) => !isset($fige[$n]))));
+  usort($ordre, function ($a, $b) use ($fige, $ordre) {
+    $ia = $fige[$a] ?? INF; $ib = $fige[$b] ?? INF;
+    return $ia === $ib ? array_search($a, $ordre, true) <=> array_search($b, $ordre, true) : $ia <=> $ib;
+  });
   $nomDe = function (array $o) use ($parId, $appris, $typesDe): ?string {
     $c = $parId[$o['classe'] ?? ''] ?? null;
     if (!$c || !$appris($c)) return null;

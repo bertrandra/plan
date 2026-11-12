@@ -104,39 +104,48 @@
     "types": [
       {
         "id": "fenetre_1v",
-        "nom": "Fenêtre 1 vantail"
+        "nom": "Fenêtre 1 vantail",
+        "indice": 0
       },
       {
         "id": "fenetre_2v",
-        "nom": "Fenêtre 2 vantaux"
+        "nom": "Fenêtre 2 vantaux",
+        "indice": 1
       },
       {
         "id": "fenetre_petits_carreaux",
-        "nom": "Fenêtre à petits carreaux"
+        "nom": "Fenêtre à petits carreaux",
+        "indice": 2
       },
       {
         "id": "fenetre_imposte_carreaux",
-        "nom": "Fenêtre, imposte à carreaux"
+        "nom": "Fenêtre, imposte à carreaux",
+        "indice": 3
       },
       {
         "id": "fenetre_imposte_simple",
-        "nom": "Fenêtre, imposte simple"
+        "nom": "Fenêtre, imposte simple",
+        "indice": 4
       },
       {
         "id": "porte_fenetre",
-        "nom": "Porte-fenêtre"
+        "nom": "Porte-fenêtre",
+        "indice": 5
       },
       {
         "id": "baie_vitree",
-        "nom": "Baie vitrée"
+        "nom": "Baie vitrée",
+        "indice": 6
       },
       {
         "id": "fenetre_cintree",
-        "nom": "Fenêtre cintrée"
+        "nom": "Fenêtre cintrée",
+        "indice": 7
       },
       {
         "id": "oeil_de_boeuf",
-        "nom": "Œil-de-bœuf"
+        "nom": "Œil-de-bœuf",
+        "indice": 8
       }
     ],
     "attributs": [
@@ -257,28 +266,6 @@
     ]
   },
   {
-    "id": "lucarne",
-    "nom": "Lucarne",
-    "parent": "ouverture",
-    "forme": "polygone",
-    "couleur": "#d81b60",
-    "apprendre": true,
-    "attributs": [
-      {
-        "cle": "forme",
-        "nom": "Forme",
-        "type": "choix",
-        "valeurs": [
-          "jacobine",
-          "capucine",
-          "meunière",
-          "rampante",
-          "chien-assis"
-        ]
-      }
-    ]
-  },
-  {
     "id": "porte",
     "nom": "Porte",
     "parent": "ouverture",
@@ -289,19 +276,23 @@
     "types": [
       {
         "id": "porte_pleine",
-        "nom": "Porte pleine"
+        "nom": "Porte pleine",
+        "indice": 10
       },
       {
         "id": "porte_vitree",
-        "nom": "Porte vitrée"
+        "nom": "Porte vitrée",
+        "indice": 11
       },
       {
         "id": "porte_double",
-        "nom": "Porte double"
+        "nom": "Porte double",
+        "indice": 12
       },
       {
         "id": "porte_garage",
-        "nom": "Porte de garage"
+        "nom": "Porte de garage",
+        "indice": 13
       }
     ],
     "attributs": [
@@ -350,15 +341,18 @@
     "types": [
       {
         "id": "volet_battant",
-        "nom": "Volet battant"
+        "nom": "Volet battant",
+        "indice": 14
       },
       {
         "id": "volet_roulant",
-        "nom": "Volet roulant"
+        "nom": "Volet roulant",
+        "indice": 15
       },
       {
         "id": "volet_pliant",
-        "nom": "Volet pliant"
+        "nom": "Volet pliant",
+        "indice": 16
       }
     ],
     "attributs": [
@@ -404,7 +398,8 @@
     "forme": "polygone",
     "couleur": "#fb8c00",
     "apprendre": true,
-    "attributs": []
+    "attributs": [],
+    "indice": 17
   },
   {
     "id": "garde_corps",
@@ -426,7 +421,8 @@
           "ferronnerie"
         ]
       }
-    ]
+    ],
+    "indice": 18
   },
   {
     "id": "loggia",
@@ -435,7 +431,8 @@
     "forme": "polygone",
     "couleur": "#8e24aa",
     "apprendre": true,
-    "attributs": []
+    "attributs": [],
+    "indice": 19
   },
   {
     "id": "parties-mur",
@@ -515,9 +512,20 @@
     "attributs": []
   },
   {
+    "id": "toit",
+    "nom": "Toit",
+    "parent": null,
+    "regroupement": true,
+    "forme": "polygone",
+    "couleur": "#90a4ae",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Le toit, hors de la façade, et ce qui est dessus."
+  },
+  {
     "id": "toiture",
     "nom": "Toiture",
-    "parent": null,
+    "parent": "toit",
     "forme": "polygone",
     "couleur": "#546e7a",
     "apprendre": false,
@@ -536,16 +544,102 @@
         ]
       }
     ],
-    "description": "Le toit, hors de la façade : ce qui est dessus (cheminée) s’y range."
+    "description": "La surface du toit vue sur la photo."
   },
   {
     "id": "cheminee",
     "nom": "Cheminée",
-    "parent": "toiture",
+    "parent": "toit",
     "forme": "polygone",
     "couleur": "#bf360c",
-    "apprendre": false,
-    "attributs": [],
+    "apprendre": true,
+    "indice": 20,
+    "attributs": [
+      {
+        "cle": "materiau",
+        "nom": "Matériau",
+        "type": "choix",
+        "valeurs": [
+          "brique",
+          "enduit",
+          "pierre",
+          "métal"
+        ]
+      }
+    ],
     "description": "Sur le toit, hors de la façade."
+  },
+  {
+    "id": "lucarne",
+    "nom": "Lucarne",
+    "parent": "toit",
+    "forme": "polygone",
+    "couleur": "#d81b60",
+    "apprendre": true,
+    "attributs": [
+      {
+        "cle": "forme",
+        "nom": "Forme",
+        "type": "choix",
+        "valeurs": [
+          "jacobine",
+          "capucine",
+          "meunière",
+          "rampante",
+          "chien-assis"
+        ]
+      }
+    ],
+    "aussi": [
+      "ouverture"
+    ],
+    "indice": 9,
+    "description": "Sur le toit, et c’est aussi une ouverture."
+  },
+  {
+    "id": "panneau_solaire",
+    "nom": "Panneau solaire",
+    "parent": "toit",
+    "forme": "polygone",
+    "couleur": "#283593",
+    "apprendre": true,
+    "indice": 21,
+    "attributs": [
+      {
+        "cle": "type",
+        "nom": "Type",
+        "type": "choix",
+        "valeurs": [
+          "photovoltaïque",
+          "thermique"
+        ]
+      }
+    ],
+    "description": "Un champ de panneaux sur le toit."
+  },
+  {
+    "id": "fenetre_toit",
+    "nom": "Fenêtre de toit",
+    "parent": "toit",
+    "aussi": [
+      "ouverture"
+    ],
+    "forme": "rectangle",
+    "couleur": "#0277bd",
+    "apprendre": true,
+    "indice": 22,
+    "attributs": [
+      {
+        "cle": "type",
+        "nom": "Type",
+        "type": "choix",
+        "valeurs": [
+          "à rotation (type Velux)",
+          "tabatière",
+          "verrière"
+        ]
+      }
+    ],
+    "description": "Dans le pan du toit : sur le toit, et c’est aussi une ouverture (une fenêtre)."
   }
 ]
