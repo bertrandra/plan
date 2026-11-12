@@ -1,4 +1,4 @@
-Plan 5.22.1 (97c4f7e8) - deploiement Apache + PHP, sans Node.js
+Plan 5.23.0 (d2ebc11c) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 Schema des projets : 16. AVANT de deposer ce paquet, la plateforme doit l'accepter :
 appliquer en production bertrandra/backprod#255 (migration Version20261109090000), puis setup.php ;
@@ -124,6 +124,15 @@ Sur l'hebergement, trois choses voisines :
       - Sans l'extension PHP zip, la route repond 501 : l'activer dans Site Tools > Devs >
         PHP Manager > PHP Extensions.
 
+2 bis. Banc d'apprentissage des facades (facultatif ; une application a part, adresse https://<hote>/?banc) :
+   a. Il est dans banc/ de cette livraison (sa page, son programme, api.php, son .htaccess). Rien a faire de plus pour le servir.
+   b. Copier banc/banc-config.exemple.php a cote de public_html/ (comme plan-admin-config.php), sous le nom banc-config.php,
+      et y remplacer « A-CHANGER » par le mot de passe du banc (ou poser motDePasseHash).
+   c. Ses donnees vivent dans data/apprentissage/, a cote de banc-config.php (hors de public_html/) : photos, marquage, classes,
+      modeles. Le dossier se cree au premier usage ; cette livraison y porte classes.json, l'arbre de depart des objets (le typage) :
+      a la premiere installation, le garder avec le reste de data/ ; ensuite, ne pas ecraser celui du serveur (il se change a l'ecran 0). Il faut les extensions PHP zip (export) et une limite d'envoi d'au moins
+      40 Mo (upload_max_filesize, post_max_size) ; un modele entraine pese ~10 Mo.
+
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
                                      du navigateur dit quel fichier manque
@@ -138,6 +147,7 @@ Sur l'hebergement, trois choses voisines :
    - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
                                        montre la demonstration integree, et la reponse dit pourquoi
    - https://<hote>/data/demo/1.json   doit repondre 404 (data/ n'est jamais servi)
+   - https://<hote>/?banc              le mot de passe du banc ; https://<hote>/banc/api.php?r=etat repond {"connecte":false}
    - npm run verifier-deploiement https://<hote>   (depuis le depot)
 
 Une demo est un fichier JSON au format de l'export de Plan ({meta, objects, measures}).

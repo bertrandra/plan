@@ -1,0 +1,30 @@
+# Banc d'apprentissage des facades : public_html/banc/. Ses propres regles, posees par-dessus celles de Plan.
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # L'adresse du banc est ?banc a la racine (la page porte <base href="banc/">) : /banc/ tout court y renvoie.
+  RewriteCond %{ENV:REDIRECT_STATUS} ^$
+  RewriteRule ^(index\.html)?$ ../?banc [R=302,L]
+</IfModule>
+
+# La configuration et ce qui ne serait la que par erreur ne se servent jamais.
+<FilesMatch "^(banc-config(\.exemple)?\.php|\..*)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "^banc-[0-9a-zA-Z_-]{8,}\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # La politique du banc : son programme (self) ; onnxruntime-web depuis jsDelivr ou unpkg, qui compile du WebAssembly
+  # ('wasm-unsafe-eval') ; Panoramax et le geocodage de la Geoplateforme pour l'import par adresse (etape 1b).
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.panoramax.xyz https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; font-src 'self'; connect-src 'self' blob: data: https://cdn.jsdelivr.net https://unpkg.com https://data.geopf.fr https://api-adresse.data.gouv.fr https://api.panoramax.xyz https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; worker-src 'self' blob:"
+  Header always set X-Frame-Options "DENY"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "same-origin"
+</IfModule>
