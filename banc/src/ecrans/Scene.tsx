@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type PointerEvent as PE, type WheelEvent a
 import type { Classe, Forme, Objet, P } from '../types.js';
 import { contour } from '../geometrie.js';
 import { libelleDe } from '../classes.js';
+import { Loupe } from './Loupe.js';
 import { ajouterSommet, deplacer, poignees, retirerSommet, tirerPoignee } from '../edition.js';
 
 export type Outil = 'choisir' | Forme;
@@ -31,6 +32,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
   const [geste, setGeste] = useState<Geste | null>(null);
   const [trace, setTrace] = useState<P[]>([]);
   const [survol, setSurvol] = useState<P | null>(null);
+  // La loupe automatique : L la coupe ou la remet (gardee pour la session de l'editeur).
+  const [loupe, setLoupe] = useState(true);
   const espace = useRef(false);
   useEffect(() => { setVue({ x: 0, y: 0, w: L, h: H }); setTrace([]); }, [url, L, H]);
   useEffect(() => { setTrace([]); }, [outil]);
@@ -38,6 +41,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
     const bas = (e: KeyboardEvent) => {
       if (e.key === ' ' && !(e.target as HTMLElement).closest('input, select, textarea')) { espace.current = true; e.preventDefault(); }
       if (e.key === 'Escape') { setTrace([]); setGeste(null); onChoisir(null); }
+      if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey && !(e.target as HTMLElement).closest('input, select, textarea')) setLoupe((x) => !x);
       if (e.key === 'Enter' && trace.length >= 3) { onCreer(trace, 'polygone'); setTrace([]); }
     };
     const haut = (e: KeyboardEvent) => { if (e.key === ' ') espace.current = false; };
@@ -116,9 +120,17 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
   const nom = (o: Objet) => libelleDe(o, classes) + (classes.find((c) => c.id === o.classe)?.types?.length && !o.type ? ' ?' : '');
   const trait = 2 * echelle, rayon = 6 * echelle;
   const enCours = geste?.type === 'rectangle' ? geste : null;
+  // La loupe se montre quand on ajuste au point pres : un coin ou un sommet tire, un rectangle trace, un polygone en cours, ou l'outil de
+  // trace en attente du premier point. Elle se pose du cote oppose au curseur.
+  const ajuste = geste?.type === 'poignee' || geste?.type === 'rectangle' || (outil !== 'choisir' && !geste);
+  const montrerLoupe = loupe && !!survol && ajuste;
+  const coteLoupe = survol && survol.x - vue.x < vue.w / 2 ? 'droite' : 'gauche';
   return (
+    <div className="scene-cadre">
+    {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
+    <button type="button" className={loupe ? 'bascule-loupe active' : 'bascule-loupe'} aria-pressed={loupe} title="Loupe automatique (L)" onClick={() => setLoupe((x) => !x)}>🔍 Loupe</button>
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
-      onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onWheel={molette} onDoubleClick={() => { if (outil === 'polygone' && trace.length >= 3) { onCreer(trace, 'polygone'); setTrace([]); } }}>
+      onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerLeave={() => { if (!geste) setSurvol(null); }} onWheel={molette} onDoubleClick={() => { if (outil === 'polygone' && trace.length >= 3) { onCreer(trace, 'polygone'); setTrace([]); } }}>
       <image href={url} width={L} height={H} />
       {objets.map((o) => {
         const pts = contour(o).map((q) => `${q.x},${q.y}`).join(' ');
@@ -145,5 +157,6 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
       {trace.length > 0 && <polyline points={[...trace, ...(survol ? [survol] : [])].map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={classe?.couleur ?? '#fff'} strokeWidth={trait} />}
       {trace.map((q, k) => <circle key={'t' + k} cx={q.x} cy={q.y} r={rayon * (k === 0 ? 1.4 : 0.8)} className="poignee" />)}
     </svg>
+    </div>
   );
 }

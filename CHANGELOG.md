@@ -19,6 +19,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Le modèle voit l’objet et le qualifie : une famille (fenêtre, porte, volet) a des types, et ce sont eux que le modèle apprend
   (vingt noms de départ, `fenetre_1v` … `loggia`). La répartition train / val / test est stratifiée par type, et l’export porte un
   carnet Colab (`entrainer.ipynb`) pour entraîner le modèle qui fait ensuite le brouillon des photos non annotées.
+  Pour ajuster un marquage au pixel, une loupe (×4) s’ouvre d’elle-même pendant qu’on tire un coin ou qu’on trace.
 
 ### Retiré
 

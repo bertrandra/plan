@@ -113,3 +113,10 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 .objet-liste.choisi { border-color: var(--accent); }
 .objet-liste small { color: var(--doux); margin-left: auto; }
 .ajout-modele { margin-top: 1rem; max-width: 520px; }
+
+.scene-cadre { position: relative; width: 100%; height: 100%; min-height: 0; }
+@media (max-width: 900px) { .scene-cadre { height: 65vh; } }
+.loupe { position: absolute; top: 10px; z-index: 2; border: 2px solid #fff; border-radius: 10px; box-shadow: 0 4px 16px #000a; pointer-events: none; background: #111; }
+.loupe.gauche { left: 10px; } .loupe.droite { right: 10px; }
+.bascule-loupe { position: absolute; bottom: 10px; right: 10px; z-index: 2; min-height: 30px; padding: .1rem .6rem; font-size: .85rem; opacity: .85; }
+.bascule-loupe.active { border-color: var(--accent); color: var(--accent); }
