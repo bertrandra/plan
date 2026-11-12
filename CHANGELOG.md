@@ -15,7 +15,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   ou précédent (dans l'ordre de lecture de la façade), A accepter (et passer au suivant), Maj+A accepter tout au-dessus du seuil, X
   supprimer, 1 à 9 donner un type à la sélection (ou le choisir pour tracer), Entrée enregistrer, marquer vérifiée et ouvrir la photo
   suivante, flèches décaler d'un pixel (Maj : dix), E toutes les étiquettes, ? l'aide. Un curseur masque le brouillon sous un score. Les
-  étiquettes ne s'affichent qu'au survol et sur la sélection (elles se chevauchaient jusqu'à cacher la façade) ; un brouillon reste en
+  étiquettes ne s'affichent qu'au survol et sur l'objet choisi (la référence d'une sélection) : elles se chevauchaient jusqu'à cacher la façade ; un brouillon reste en
   pointillés, un objet relu en trait plein. Le code est structuré en contrôleurs React (`banc/src/ecrans/editeur/` : `useMarquage`,
   `useSelection`, `usePressePapiers`, `useRelecture`, `useRaccourcis`) et en vues ; la logique pure (`relecture.ts`, `raccourcis.ts`, la
   même table pour le clavier et l'aide) est testée seule.

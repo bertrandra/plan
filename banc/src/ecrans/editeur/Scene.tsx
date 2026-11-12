@@ -126,7 +126,7 @@ function poserUnPoint(p: P, { outil, trace, setTrace, onCreer, tolerance }: { ou
 
 /**
  * Les objets dessines : la reference (le choisi) plus marquee, la selection soulignee en pointilles blancs ; un brouillon pas encore relu
- * en pointilles, un objet relu en trait plein. Les etiquettes ne se montrent qu'au survol et sur la selection (toutes : touche E) : sur une
+ * en pointilles, un objet relu en trait plein. Les etiquettes ne se montrent qu'au survol et sur le choisi, la reference (toutes : touche E) : sur une
  * facade chargee, elles se chevauchaient jusqu'a cacher la photo.
  */
 function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surObjet }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; etiquettes: boolean; surObjet: (e: PE<SVGElement>, o: Objet) => void }) {
@@ -144,7 +144,7 @@ function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surOb
             {pris && o.forme !== 'point' && <polygon points={contour(o).map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke="#fff" strokeWidth={trait * (choisiIci ? 2.5 : 1.5)} strokeDasharray={`${5 * echelle} ${3 * echelle}`} pointerEvents="none" />}
             {o.forme === 'point' ? <PointMarque p={o.points[0] ?? { x: 0, y: 0 }} couleur={c} r={(choisiIci || pris ? 9 : 7) * echelle} trait={trait} onPointerDown={(e) => surObjet(e, o)} />
               : o.forme === 'ligne' ? <polyline points={pts} fill="none" stroke={c} strokeWidth={(choisiIci ? 3 : 2) * trait} onPointerDown={(e) => surObjet(e, o)} /> : <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : pris ? 0.2 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />}
-            {(etiquettes || choisiIci || pris || survole === o.id) && <text x={boite(o.points).x0} y={boite(o.points).y0 - 4 * echelle} fill={c} fontSize={13 * echelle} className="etiquette" strokeWidth={3 * echelle}>{nom(o)}{o.score !== undefined && o.origine === 'auto' && (choisiIci || survole === o.id) ? ' · ' + Math.round(o.score * 100) + ' %' : ''}</text>}
+            {(etiquettes || choisiIci || survole === o.id) && <text x={boite(o.points).x0} y={boite(o.points).y0 - 4 * echelle} fill={c} fontSize={13 * echelle} className="etiquette" strokeWidth={3 * echelle}>{nom(o)}{o.score !== undefined && o.origine === 'auto' && (choisiIci || survole === o.id) ? ' · ' + Math.round(o.score * 100) + ' %' : ''}</text>}
           </g>
         );
       })}
