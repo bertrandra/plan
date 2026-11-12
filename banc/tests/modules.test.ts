@@ -526,3 +526,29 @@ describe('copier, couper, coller des objets', () => {
     expect(coller(l, [], 100, 100, 5)).toEqual({ objets: l, premier: null });
   });
 });
+
+describe('la sélection multiple : boîte, lasso, alignement, même taille', () => {
+  it('prend les objets entièrement dans la zone, aligne sur la référence, et donne sa taille aux autres', async () => {
+    const { zoneDeSelection, objetsDansLaZone, aligner, memeTaille } = await import('../src/edition.js');
+    const facade = rect('f', 'facade', 0, 0, 100, 100);
+    const a = rect('a', 'fenetre', 10, 10, 20, 30), b = rect('b', 'fenetre', 40, 12, 56, 28), c = rect('c', 'fenetre', 70, 60, 90, 90);
+    const l = [facade, a, b, c];
+    expect(objetsDansLaZone(l, zoneDeSelection([{ x: 5, y: 5 }, { x: 60, y: 40 }], 'boite'))).toEqual(['a', 'b']);
+    // Une boite tiree dans l'autre sens prend les memes.
+    expect(objetsDansLaZone(l, zoneDeSelection([{ x: 60, y: 40 }, { x: 5, y: 5 }], 'boite'))).toEqual(['a', 'b']);
+    // Un lasso en triangle autour de c seulement.
+    expect(objetsDansLaZone(l, zoneDeSelection([{ x: 60, y: 50 }, { x: 99, y: 50 }, { x: 99, y: 99 }, { x: 60, y: 99 }], 'lasso'))).toEqual(['c']);
+    const ids = new Set(['a', 'b', 'c']);
+    const pts = (r: { id: string; points: { x: number; y: number }[] }[], id: string) => r.find((o) => o.id === id)?.points;
+    const haut = aligner(l, ids, 'a', 'haut');
+    expect([pts(haut, 'a'), pts(haut, 'b'), pts(haut, 'c'), pts(haut, 'f')]).toEqual([a.points, [{ x: 40, y: 10 }, { x: 56, y: 26 }], [{ x: 70, y: 10 }, { x: 90, y: 40 }], facade.points]);
+    expect(pts(aligner(l, ids, 'c', 'droite'), 'a')).toEqual([{ x: 80, y: 10 }, { x: 90, y: 30 }]);
+    expect(pts(aligner(l, ids, 'a', 'bas'), 'b')).toEqual([{ x: 40, y: 14 }, { x: 56, y: 30 }]);
+    expect(pts(aligner(l, ids, 'a', 'gauche'), 'c')).toEqual([{ x: 10, y: 60 }, { x: 30, y: 90 }]);
+    expect(haut.find((o) => o.id === 'b')?.origine).toBe('main');
+    // La taille de a (10 x 20) : b s'etire depuis son coin haut gauche.
+    expect(pts(memeTaille(l, ids, 'a', 'les-deux'), 'b')).toEqual([{ x: 40, y: 12 }, { x: 50, y: 32 }]);
+    expect(pts(memeTaille(l, ids, 'a', 'largeur'), 'c')).toEqual([{ x: 70, y: 60 }, { x: 80, y: 90 }]);
+    expect(pts(memeTaille(l, ids, 'a', 'hauteur'), 'c')).toEqual([{ x: 70, y: 60 }, { x: 90, y: 80 }]);
+  });
+});

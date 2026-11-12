@@ -24,6 +24,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Banc : copier, couper, coller des objets** (Ctrl+C, Ctrl+X, Ctrl+V, ou les boutons de l'inspecteur et « Coller »). Un objet part
   avec ses détails (une fenêtre et ses cadres) ; le presse-papiers survit au changement de photo (la même fenêtre sur la photo suivante,
   à la même place) ; sur la même photo, le collage se décale un peu, et chaque nouveau collage encore.
+- **Banc : sélectionner plusieurs objets, les aligner, leur donner la même taille.** L'outil Sélection (S) tire une boîte ou un lasso :
+  les objets entièrement dedans sont pris (une façade autour ne vient pas avec ses fenêtres) ; Maj ajoute ou retire. Toucher un objet de la
+  sélection en fait la référence ; une barre posée en haut de la photo aligne les hauts, les bas, les bords gauches ou droits sur elle, et
+  donne sa largeur, sa hauteur ou sa taille aux autres. Tirer un objet de la sélection déplace tout le groupe ; Suppr, Ctrl+C et Ctrl+X
+  agissent sur toute la sélection.
 - **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
   outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
 - **Banc : supprimer les photos rejetées** (Mosaïque, « Rejetées ») : « Supprimer les N rejetées » en haut, ou « Supprimer » sur une
