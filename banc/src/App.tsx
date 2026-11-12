@@ -1,0 +1,119 @@
+// Le banc d'apprentissage des facades : une page, un mot de passe, huit etapes. Les donnees vivent sur le serveur (api.php) ;
+// la page les relit a chaque changement d'etape.
+
+import { useCallback, useEffect, useState } from 'react';
+import { api, ErreurApi } from './api.js';
+import { CLASSES_DEFAUT } from './classes.js';
+import { REGLAGES_DEFAUT, type Classe, type MetaImage, type Modele, type Reglages } from './types.js';
+import { Connexion } from './ecrans/Connexion.js';
+import { EcranClasses } from './ecrans/Classes.js';
+import { EcranImport } from './ecrans/Import.js';
+import { EcranRedressement } from './ecrans/Redressement.js';
+import { EcranValidation } from './ecrans/Validation.js';
+import { EcranBrouillon } from './ecrans/Brouillon.js';
+import { EcranCatalogue } from './ecrans/Catalogue.js';
+import { EcranExport } from './ecrans/Export.js';
+import { EcranBlocs } from './ecrans/Blocs.js';
+import { Editeur } from './ecrans/Editeur.js';
+
+export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs';
+
+const ECRANS: { id: IdEcran; numero: string; nom: string }[] = [
+  { id: 'classes', numero: '0', nom: 'Classes' },
+  { id: 'import', numero: '1', nom: 'Import' },
+  { id: 'redressement', numero: '2', nom: 'Redressement' },
+  { id: 'validation', numero: '2a', nom: 'Mosaïque' },
+  { id: 'brouillon', numero: '3', nom: 'Brouillon' },
+  { id: 'catalogue', numero: '4-5', nom: 'Marquage' },
+  { id: 'export', numero: '6', nom: 'Export' },
+  { id: 'blocs', numero: '7', nom: 'Blocs' },
+];
+
+/** Ce que chaque ecran recoit : les donnees du banc, de quoi les relire, et de quoi dire un message. */
+export interface Banc {
+  classes: Classe[];
+  images: MetaImage[];
+  modeles: Modele[];
+  reglages: Reglages;
+  relire: () => Promise<void>;
+  remplacer: (m: MetaImage) => void;
+  dire: (texte: string, genre?: 'ok' | 'erreur') => void;
+  ouvrir: (id: string, liste?: string[]) => void;
+  aller: (e: IdEcran) => void;
+}
+
+export function App() {
+  const [connecte, setConnecte] = useState<boolean | null>(null);
+  const [panne, setPanne] = useState<string | null>(null);
+  const [ecran, setEcran] = useState<IdEcran>(() => (location.hash.slice(1) as IdEcran) || 'import');
+  const [classes, setClasses] = useState<Classe[]>([]);
+  const [images, setImages] = useState<MetaImage[]>([]);
+  const [modeles, setModeles] = useState<Modele[]>([]);
+  const [reglages, setReglages] = useState<Reglages>(REGLAGES_DEFAUT);
+  const [message, setMessage] = useState<{ texte: string; genre: 'ok' | 'erreur' } | null>(null);
+  const [edition, setEdition] = useState<{ id: string; liste: string[] } | null>(null);
+
+  const dire = useCallback((texte: string, genre: 'ok' | 'erreur' = 'ok') => setMessage({ texte, genre }), []);
+  const relire = useCallback(async () => {
+    try {
+      const [c, i, m, r] = await Promise.all([api.classes(), api.images(), api.modeles(), api.reglages()]);
+      // Un banc neuf : l'arbre de depart s'enregistre tout de suite (l'export le lit sur le serveur).
+      setClasses(c.classes?.length ? c.classes : (await api.ecrireClasses(CLASSES_DEFAUT)).classes);
+      setImages(i);
+      setModeles(m);
+      setReglages({ ...REGLAGES_DEFAUT, ...r, parts: { ...REGLAGES_DEFAUT.parts, ...(r.parts ?? {}) } });
+    } catch (e) {
+      if (e instanceof ErreurApi && e.statut === 401) setConnecte(false);
+      else dire((e as Error).message, 'erreur');
+    }
+  }, [dire]);
+
+  useEffect(() => {
+    api.etat().then((e) => setConnecte(e.connecte)).catch((e: Error) => setPanne(e.message));
+  }, []);
+  useEffect(() => { if (connecte) void relire(); }, [connecte, relire]);
+  useEffect(() => { history.replaceState(null, '', '#' + ecran); }, [ecran]);
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), message.genre === 'erreur' ? 9000 : 3500);
+    return () => clearTimeout(t);
+  }, [message]);
+
+  if (panne) return <main className="seul"><h1>Banc d’apprentissage</h1><p className="erreur">{panne}</p></main>;
+  if (connecte === null) return <main className="seul"><p>Chargement…</p></main>;
+  if (!connecte) return <Connexion onConnecte={() => setConnecte(true)} />;
+
+  const remplacer = (m: MetaImage) => setImages((l) => l.map((x) => (x.id === m.id ? m : x)));
+  const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran };
+  const deconnecter = () => { api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
+
+  return (
+    <div className="banc">
+      <header className="barre">
+        <strong className="titre">Banc d’apprentissage · façades</strong>
+        <nav aria-label="Étapes">
+          {ECRANS.map((e) => (
+            <button key={e.id} type="button" className={e.id === ecran && !edition ? 'onglet actif' : 'onglet'} aria-current={e.id === ecran && !edition ? 'page' : undefined}
+              onClick={() => { setEdition(null); setEcran(e.id); }}>
+              <span className="numero">{e.numero}</span> {e.nom}
+            </button>
+          ))}
+        </nav>
+        <span className="compte">{images.length} photo{images.length > 1 ? 's' : ''}</span>
+        <button type="button" className="discret" onClick={deconnecter}>Se déconnecter</button>
+      </header>
+      {message && <div role="status" className={'message ' + message.genre} onClick={() => setMessage(null)}>{message.texte}</div>}
+      <main className="contenu">
+        {edition ? <Editeur banc={banc} id={edition.id} liste={edition.liste} onFermer={() => { setEdition(null); void relire(); }} onAller={(id) => setEdition({ ...edition, id })} />
+          : ecran === 'classes' ? <EcranClasses banc={banc} onClasses={setClasses} />
+          : ecran === 'import' ? <EcranImport banc={banc} />
+          : ecran === 'redressement' ? <EcranRedressement banc={banc} />
+          : ecran === 'validation' ? <EcranValidation banc={banc} />
+          : ecran === 'brouillon' ? <EcranBrouillon banc={banc} />
+          : ecran === 'catalogue' ? <EcranCatalogue banc={banc} />
+          : ecran === 'export' ? <EcranExport banc={banc} />
+          : <EcranBlocs banc={banc} onReglages={setReglages} />}
+      </main>
+    </div>
+  );
+}

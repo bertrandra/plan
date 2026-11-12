@@ -17,10 +17,11 @@
     "jsx": "react-jsx",
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "banc/src", "banc/tests", "banc/vite.config.ts"]
 }

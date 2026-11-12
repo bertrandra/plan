@@ -5,6 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Le banc d’apprentissage des façades** (`banc/`, adresse `?banc`) : une application à part, avec son propre code, son
+  propre serveur PHP (`banc/public/api.php`), son propre mot de passe (`banc-config.php`, hors de `public_html/`) et ses
+  données dans `data/apprentissage/`. Le cycle complet d’un YOLO qui évalue les façades : l’arbre des objets à marquer
+  (rectangles et polygones, couleurs, attributs), l’import des photos de l’iPhone (EXIF gardé) et de Panoramax par lot autour
+  d’une adresse (un 360 ramené à la vue tournée vers elle), le redressement (points de fuite, sinon quatre coins), la mosaïque
+  de validation, le brouillon en lot (les modèles YOLOv10n du dépôt `facade` et la recherche des baies), la correction
+  (créer, déplacer, reformer, supprimer, annuler), le catalogue, l’export au format Ultralytics (détection YOLOv10n et
+  contours YOLO11n-seg, `data.yaml`, script d’entraînement) et les blocs train / val / test avec un échantillon à vérifier.
+  Plan n’en est touché que par une règle du `.htaccess` (`?banc`) et la livraison, qui construit le banc dans `banc/`.
+  Le modèle voit l’objet et le qualifie : une famille (fenêtre, porte, volet) a des types, et ce sont eux que le modèle apprend
+  (vingt noms de départ, `fenetre_1v` … `loggia`). La répartition train / val / test est stratifiée par type, et l’export porte un
+  carnet Colab (`entrainer.ipynb`) pour entraîner le modèle qui fait ensuite le brouillon des photos non annotées.
+  Pour ajuster un marquage au pixel, une loupe (×4) s’ouvre d’elle-même pendant qu’on tire un coin ou qu’on trace.
+  L’import Panoramax part d’une adresse (plusieurs propositions du géocodage), trouve sa parcelle au cadastre de l’IGN
+  (Parcellaire Express, par le WFS de la Géoplateforme ; une autre se choisit sur une petite carte) et cherche les photos autour
+  d’elle, rapportées à elle (distance à ses bords, cap vers son milieu) ; la parcelle est gardée avec chaque photo. La descente de
+  gouttière, sur la façade, s’apprend (#23).
+  L’arbre va jusqu’au détail : des regroupements qui classent sans se dessiner (Ouverture → Fenêtre, Porte → leurs types), des
+  détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
+  dans le jeu exporté. Le typage est un fichier de données (`data/apprentissage/classes.json`, modifiable à l’écran) ; la façade porte
+  ses lignes d’égout et de sol (une forme « ligne », hors du jeu YOLO), ses parties du mur (pignon, soubassement) à part des
+  ouvertures ; la cheminée est sur la toiture, hors de la façade. Les pointes de pignon se posent d’un clic (une forme « point »).
+  Un panoramique Panoramax donne une vue de chaque côté de la rue, à 90° du sens de la prise de vue, pour trouver les façades.
+  Le groupe Toit (hors façade) porte la toiture, la cheminée, la lucarne, le panneau solaire et la fenêtre de toit, qui sont appris
+  (#20 à #22, la lucarne garde #9) ; lucarne et fenêtre de toit sont aussi des ouvertures. Les indices YOLO sont figés dans le fichier.
+
 ### Retiré
 
 - **`facade.html` et `outils/facade/` quittent Plan** pour leur propre dépôt, [`bertrandra/facade`](https://github.com/bertrandra/facade) : la page

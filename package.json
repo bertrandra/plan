@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src tests",
+    "lint": "eslint src tests banc/src banc/tests",
     "cliquet": "node scripts/cliquet.mjs",
     "verifier-deploiement": "node scripts/verifier-deploiement.mjs",
     "gate:client": "node scripts/generer-client.mjs --verifier",
@@ -25,7 +25,9 @@
     "essayer-paquet": "node scripts/essayer-paquet.mjs",
     "verifier:api-claude": "node scripts/verifier-api-claude.mjs",
     "regles:generer": "npx tsx scripts/generer-prompt-analyse.ts",
-    "regles:verifier": "npx tsx scripts/generer-prompt-analyse.ts --verifier"
+    "regles:verifier": "npx tsx scripts/generer-prompt-analyse.ts --verifier",
+    "build:banc": "vite build --config banc/vite.config.ts",
+    "dev:banc": "vite --config banc/vite.config.ts"
   },
   "devDependencies": {
     "@dgreenheck/ez-tree": "1.1.0",
