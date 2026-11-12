@@ -95,3 +95,33 @@ export class Historique<T> {
   refaire(courant: T): T | null { const f = this.futur.pop(); if (f === undefined) return null; this.passe.push(courant); return f; }
   vider(): void { this.passe = []; this.futur = []; }
 }
+
+/** Un objet et tous ses descendants (une fenetre et ses cadres), dans l'ordre de la liste : ce que copient Ctrl+C et Ctrl+X. */
+export function avecDescendants(objets: readonly Objet[], id: string): Objet[] {
+  const ids = new Set([id]);
+  for (let ajout = true; ajout;) {
+    ajout = false;
+    for (const o of objets) if (o.parent && ids.has(o.parent) && !ids.has(o.id)) { ids.add(o.id); ajout = true; }
+  }
+  return objets.filter((o) => ids.has(o.id));
+}
+
+/**
+ * Colle des objets copies (Ctrl+V) : de nouveaux identifiants, les liens parent-enfant gardes entre eux, le premier sans parent (le
+ * rangement le replacera), poses « a la main ». Sur la photo d'ou ils viennent, ils se decalent de `decalage` pour ne pas tomber sur
+ * l'original ; ils restent dans l'image (un decalage qui sortirait est retourne). Rend la liste complete et l'identifiant du premier colle.
+ */
+export function coller(objets: readonly Objet[], copies: readonly Objet[], L: number, H: number, decalage: number): { objets: Objet[]; premier: string | null } {
+  if (!copies.length) return { objets: [...objets], premier: null };
+  const b = boite(copies.flatMap((o) => o.points));
+  const dx = b.x1 + decalage <= L ? decalage : -Math.min(decalage, b.x0), dy = b.y1 + decalage <= H ? decalage : -Math.min(decalage, b.y0);
+  const nouveaux = new Map<string, string>();
+  const liste = [...objets];
+  for (const c of copies) { const id = nouvelId(liste, 'm'); nouveaux.set(c.id, id); liste.push({ ...c, id }); }
+  const colles = copies.map((c) => {
+    const { score: _score, modele: _modele, ...reste } = c;
+    void _score; void _modele;
+    return borner(deplacerObjet({ ...reste, id: nouveaux.get(c.id) as string, parent: c.parent ? nouveaux.get(c.parent) ?? null : null, origine: 'main' }, dx, dy), L, H);
+  });
+  return { objets: [...objets, ...colles], premier: colles[0]?.id ?? null };
+}

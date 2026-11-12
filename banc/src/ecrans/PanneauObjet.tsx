@@ -8,7 +8,7 @@ import { classeContenante, libelleDe } from '../classes.js';
 
 const ORIGINES = { auto: 'brouillon, pas encore relu', main: 'posé à la main', corrige: 'brouillon corrigé' } as const;
 
-export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o: Objet; objets: Objet[]; classes: Classe[]; onChanger: (o: Objet) => void; onSupprimer: () => void }) {
+export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer, onCopier, onCouper }: { o: Objet; objets: Objet[]; classes: Classe[]; onChanger: (o: Objet) => void; onSupprimer: () => void; onCopier: () => void; onCouper: () => void }) {
   const c = classes.find((x) => x.id === o.classe);
   const contenante = c ? classeContenante(c, classes) : null;
   const parents = contenante ? objets.filter((x) => x.classe === contenante && x.id !== o.id) : [];
@@ -57,6 +57,8 @@ export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o
       <div className="rang">
         {o.forme === 'rectangle' && <button type="button" onClick={() => onChanger(enPolygone(o))}>En polygone</button>}
         {o.origine === 'auto' && <button type="button" className="ok" onClick={() => onChanger({ ...o, origine: 'corrige' })}>Juste tel quel</button>}
+        <button type="button" onClick={onCopier} title="Ctrl+C">Copier</button>
+        <button type="button" onClick={onCouper} title="Ctrl+X">Couper</button>
         <button type="button" className="danger" onClick={onSupprimer}>Supprimer (Suppr)</button>
       </div>
       {(o.forme === 'polygone' || o.forme === 'ligne') && <p className="aide">Tirez un sommet ; le petit rond au milieu d’un côté ajoute un sommet ; Alt + clic sur un sommet le retire.</p>}

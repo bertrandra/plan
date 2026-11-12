@@ -7,10 +7,16 @@ import { api } from '../api.js';
 import { choixDeCreation } from '../classes.js';
 import { lireCible } from '../brouillon.js';
 import { rangerLesParents } from '../geometrie.js';
-import { creerPolygone, creerRectangle, Historique, supprimer } from '../edition.js';
+import { avecDescendants, coller, creerPolygone, creerRectangle, Historique, supprimer } from '../edition.js';
 import type { Bloc, MetaImage, Objet } from '../types.js';
 import { Scene, type Outil } from './Scene.js';
 import { PanneauObjet, ListeObjets } from './PanneauObjet.js';
+
+/**
+ * Le presse-papiers des objets (Ctrl+C, Ctrl+X, Ctrl+V) : hors du composant, il survit au changement de photo (copier une fenetre,
+ * la coller sur la photo suivante). `photo` : d'ou viennent les objets, pour decaler un collage sur la meme photo.
+ */
+let pressePapiers: { objets: Objet[]; photo: string } | null = null;
 
 export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id: string; liste: string[]; onFermer: () => void; onAller: (id: string) => void }) {
   const meta = banc.images.find((m) => m.id === id);
@@ -22,6 +28,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   const [caches, setCaches] = useState<Set<string>>(new Set());
   const [modifie, setModifie] = useState(false);
   const [envoi, setEnvoi] = useState(false);
+  const [aColler, setAColler] = useState(() => !!pressePapiers);
   const hist = useRef(new Historique<Objet[]>());
   const rang = liste.indexOf(id);
 
@@ -55,6 +62,25 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     if (modifie && !(confirm('Enregistrer le marquage avant de changer de photo ?') ? await enregistrer() : confirm('Abandonner les changements ?'))) return;
     onAller(cible);
   }, [liste, modifie, enregistrer, onAller]);
+  const copier = (couper: boolean) => {
+    if (!objets || !choisi) return;
+    const groupe = avecDescendants(objets, choisi);
+    pressePapiers = { objets: groupe, photo: id };
+    setAColler(true);
+    if (couper) { const ids = new Set(groupe.map((o) => o.id)); changer((l) => l.filter((o) => !ids.has(o.id)).map((o) => (o.parent && ids.has(o.parent) ? { ...o, parent: null } : o))); setChoisi(null); }
+    banc.dire(`${groupe.length} objet(s) ${couper ? 'coupé(s)' : 'copié(s)'}.`);
+  };
+  const collerIci = () => {
+    if (!objets || !pressePapiers || !meta?.redressee) return;
+    const { largeur: Lp, hauteur: Hp } = meta.redressee;
+    // Sur la meme photo, un peu decale (sinon il cacherait l'original) ; sur une autre, a la meme place.
+    const r = coller(objets, pressePapiers.objets, Lp, Hp, pressePapiers.photo === id ? Math.max(10, Math.round(Lp * 0.02)) : 0);
+    const colles = r.objets.slice(objets.length);
+    changer(() => rangerLesParents(r.objets, banc.classes));
+    setChoisi(r.premier);
+    // Coller de nouveau decale encore : le presse-papiers devient ce qu'on vient de coller.
+    pressePapiers = { objets: colles, photo: id };
+  };
   const fermer = () => { if (!modifie || confirm('Quitter sans enregistrer ?')) onFermer(); };
   const choisirClasse = (c: string) => { setClasse(c); const k = banc.classes.find((x) => x.id === c.split(':')[0]); if (k && outil !== 'choisir') setOutil(k.forme); };
 
@@ -64,7 +90,10 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       // Ctrl+S enregistre d'ou que vienne la touche (une case, une liste) ; le reste du clavier laisse les champs tranquilles.
       if (mod && k === 's') { e.preventDefault(); void enregistrer(); return; }
       if ((e.target as HTMLElement).closest('input, select, textarea')) return;
-      if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); setObjets((l) => (l ? hist.current.refaire(l) ?? l : l)); setModifie(true); }
+      if (mod && k === 'c' && choisi) { e.preventDefault(); copier(false); }
+      else if (mod && k === 'x' && choisi) { e.preventDefault(); copier(true); }
+      else if (mod && k === 'v' && pressePapiers) { e.preventDefault(); collerIci(); }
+      else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); setObjets((l) => (l ? hist.current.refaire(l) ?? l : l)); setModifie(true); }
       else if (mod && k === 'z') { e.preventDefault(); setObjets((l) => (l ? hist.current.annuler(l) ?? l : l)); setModifie(true); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && choisi) { e.preventDefault(); changer((l) => supprimer(l, choisi)); setChoisi(null); }
       else if (k === 'v') setOutil('choisir');
@@ -104,8 +133,10 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
             onDebutGeste={() => { if (objets) hist.current.noter(objets); }} />
         ) : <p className="etat">Chargement du marquage…</p>}
         <aside className="editeur-panneau">
-          {objet ? <PanneauObjet o={objet} objets={objets ?? []} classes={banc.classes} onChanger={(o) => changer((l) => l.map((x) => (x.id === o.id ? o : x)))} onSupprimer={() => { changer((l) => supprimer(l, objet.id)); setChoisi(null); }} />
-            : <p className="aide">Touchez un objet pour le corriger ; choisissez une classe et l’outil rectangle (R) ou polygone (P) pour en créer. Chiffres 1 à 9 : la classe ; N / B : photo suivante / précédente.</p>}
+          {aColler && <div className="rang"><button type="button" onClick={collerIci}>Coller (Ctrl+V)</button><span className="aide">{pressePapiers?.objets.length ?? 0} objet(s){pressePapiers && pressePapiers.photo !== id ? ', d’une autre photo' : ''}</span></div>}
+          {objet ? <PanneauObjet o={objet} objets={objets ?? []} classes={banc.classes} onChanger={(o) => changer((l) => l.map((x) => (x.id === o.id ? o : x)))} onSupprimer={() => { changer((l) => supprimer(l, objet.id)); setChoisi(null); }}
+            onCopier={() => copier(false)} onCouper={() => copier(true)} />
+            : <p className="aide">Touchez un objet pour le corriger ; choisissez une classe et l’outil rectangle (R) ou polygone (P) pour en créer. Chiffres 1 à 9 : la classe ; N / B : photo suivante / précédente ; Ctrl+C, Ctrl+X, Ctrl+V : copier, couper, coller un objet (avec ses détails), d’une photo à l’autre aussi.</p>}
           <ListeObjets objets={objets ?? []} classes={banc.classes} choisi={choisi} caches={caches} onChoisir={setChoisi}
             onCacher={(c) => setCaches((s) => { const t = new Set(s); if (t.has(c)) t.delete(c); else t.add(c); return t; })} />
         </aside>

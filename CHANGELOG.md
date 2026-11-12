@@ -21,6 +21,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   pour poser ses quatre coins.
   Le zoom est plus vif (un cran de molette rapproche d'un tiers, ＋ et − doublent ou divisent) et « Ajuster » cadre l'objet choisi, ou
   toute la photo sans choix.
+- **Banc : copier, couper, coller des objets** (Ctrl+C, Ctrl+X, Ctrl+V, ou les boutons de l'inspecteur et « Coller »). Un objet part
+  avec ses détails (une fenêtre et ses cadres) ; le presse-papiers survit au changement de photo (la même fenêtre sur la photo suivante,
+  à la même place) ; sur la même photo, le collage se décale un peu, et chaque nouveau collage encore.
 - **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
   outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
 - **Banc : supprimer les photos rejetées** (Mosaïque, « Rejetées ») : « Supprimer les N rejetées » en haut, ou « Supprimer » sur une

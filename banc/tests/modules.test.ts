@@ -502,3 +502,27 @@ describe('Ajuster cadre l’objet choisi', () => {
     expect(cadrer({ x0: 500, y0: 400, x1: 500, y1: 400 }, 1000)).toEqual({ x: 487.5, y: 387.5, w: 25, h: 25 });
   });
 });
+
+describe('copier, couper, coller des objets', () => {
+  it('copie un objet avec ses descendants, et le colle avec de nouveaux identifiants, les liens gardés, décalé dans l’image', async () => {
+    const { avecDescendants, coller } = await import('../src/edition.js');
+    const facade = rect('f', 'facade', 0, 0, 100, 100);
+    const fen = rect('w', 'fenetre', 10, 10, 40, 40, { parent: 'f', type: 'fenetre_2v', origine: 'auto', score: 0.9, modele: 'm' });
+    const cadre = rect('c', 'cadre-haut', 12, 12, 38, 18, { parent: 'w' });
+    const autre = rect('a', 'balcon', 60, 60, 90, 90, { parent: 'f' });
+    const l = [facade, fen, cadre, autre];
+    expect(avecDescendants(l, 'w').map((o) => o.id)).toEqual(['w', 'c']);
+    expect(avecDescendants(l, 'f').map((o) => o.id)).toEqual(['f', 'w', 'c', 'a']);
+    const r = coller(l, avecDescendants(l, 'w'), 100, 100, 5);
+    const [n1, n2] = r.objets.slice(4);
+    expect(r.objets).toHaveLength(6);
+    expect([n1?.id, n2?.id, r.premier]).toEqual(['m5', 'm6', 'm5']);
+    // Le premier perd son parent (le rangement le replacera), l'enfant garde le sien, renomme ; le brouillon devient « main ».
+    expect([n1?.parent, n2?.parent, n1?.origine, n1?.type, 'score' in (n1 ?? {}), 'modele' in (n1 ?? {})]).toEqual([null, 'm5', 'main', 'fenetre_2v', false, false]);
+    expect(n1?.points).toEqual([{ x: 15, y: 15 }, { x: 45, y: 45 }]);
+    // Au bord de l'image, le decalage se retourne.
+    const bord = coller([], [rect('b', 'balcon', 80, 80, 100, 100)], 100, 100, 5);
+    expect(bord.objets[0]?.points).toEqual([{ x: 75, y: 75 }, { x: 95, y: 95 }]);
+    expect(coller(l, [], 100, 100, 5)).toEqual({ objets: l, premier: null });
+  });
+});
