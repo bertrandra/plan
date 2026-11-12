@@ -148,6 +148,22 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect(nbZ.cells.map((c) => c.source).join('\n')).not.toContain('files.upload()\nopen(\'depart.pt\'');
     expect(JSON.parse(zero[Object.keys(zero).find((n) => n.endsWith('bilan.json')) ?? ''] ?? '{}')).toMatchObject({ architecture: 'yolo26n', depart: 'zero' });
     expect((await appel('GET', 'export', { format: 'detect', depart: 'imagenet' })).status).toBe(400);
+    // RF-DETR (Apache 2.0) : le jeu COCO, train/, valid/, test/ et leurs annotations ; les categories dans l'ordre des indices du banc.
+    const rf = lireZip(await (await appel('GET', 'export', { format: 'rfdetr', verifiees: '1', base: 'rf-detr-nano' })).arrayBuffer());
+    const cleRf = (fin: string) => Object.keys(rf).find((n) => n.endsWith(fin)) ?? '';
+    expect(Object.keys(rf)[0]).toMatch(/^banc-rf-detr-nano-/);
+    expect(cleRf(`valid/${id}.jpg`)).not.toBe('');
+    const cocoVal = JSON.parse(rf[cleRf('valid/_annotations.coco.json')] ?? '{}') as { images: { file_name: string; width: number }[]; annotations: { category_id: number; bbox: number[] }[]; categories: { id: number; name: string }[] };
+    expect(cocoVal.categories.slice(0, 3)).toEqual([{ id: 0, name: 'fenetre', supercategory: 'none' }, { id: 1, name: 'pignon', supercategory: 'none' }, { id: 2, name: 'cadre-haut', supercategory: 'none' }]);
+    expect(cocoVal.images).toEqual([{ id: 1, file_name: `${id}.jpg`, width: 200, height: 100 }]);
+    expect(cocoVal.annotations.map((a) => [a.category_id, a.bbox])).toEqual([[0, [20, 10, 40, 40]], [2, [20, 10, 40, 10]], [1, [100, 0, 100, 50]]]);
+    expect(JSON.parse(rf[cleRf('train/_annotations.coco.json')] ?? '{}')).toMatchObject({ images: [], annotations: [] });
+    expect(rf[cleRf('noms.txt')]).toBe('0: fenetre\n1: pignon\n2: cadre-haut\n');
+    expect(rf[cleRf('entrainer.py')]).toContain("pip install 'rfdetr[train,loggers]==1.12.*'");
+    expect(rf[cleRf('entrainer.py')]).toContain('m = RFDETRNano()\n');
+    const rfZero = lireZip(await (await appel('GET', 'export', { format: 'rfdetr', base: 'rf-detr-small', depart: 'zero' })).arrayBuffer());
+    expect(rfZero[Object.keys(rfZero).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain('m = RFDETRSmall(pretrain_weights=None)');
+    expect((await appel('GET', 'export', { format: 'rfdetr', base: 'yolo26n' })).status).toBe(400);
 
     const seg = lireZip(await (await appel('GET', 'export', { format: 'seg' })).arrayBuffer());
     const cleSeg = Object.keys(seg).find((n) => n.endsWith(`labels/val/${id}.txt`)) ?? '';

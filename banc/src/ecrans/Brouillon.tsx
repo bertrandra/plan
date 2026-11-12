@@ -106,22 +106,27 @@ function Modeles({ banc }: { banc: Banc }) {
 function AjoutModele({ onAjout }: { onAjout: (f: File, d: Omit<Modele, 'id' | 'installe'>) => Promise<void> }) {
   const [fichier, setFichier] = useState<File | null>(null);
   const [nom, setNom] = useState('Mon modèle');
-  const [format, setFormat] = useState<Modele['format']>('yolo26');
+  const [format, setFormat] = useState<Modele['format']>('rf-detr');
+  const [resolution, setResolution] = useState(384);
   const [classes, setClasses] = useState('');
   const liste = classes.split(/[\n,]+/).map((c) => c.replace(/^\s*\d+\s*:\s*/, '').trim()).filter(Boolean);
   return (
-    <form className="pile ajout-modele" onSubmit={(e) => { e.preventDefault(); if (fichier) void onAjout(fichier, { nom, format, classes: liste, correspondance: Object.fromEntries(liste.map((c) => [c, c])), seuil: 0.3, actif: true }); }}>
+    <form className="pile ajout-modele" onSubmit={(e) => { e.preventDefault(); if (fichier) void onAjout(fichier, { nom, format, ...(format === 'rf-detr' ? { resolution } : {}), classes: liste, correspondance: Object.fromEntries(liste.map((c) => [c, c])), seuil: 0.3, actif: true }); }}>
       <h4>Déposer un modèle entraîné</h4>
       <label>Fichier .onnx <input type="file" accept=".onnx" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} required /></label>
       <label>Nom <input value={nom} onChange={(e) => setNom(e.target.value)} /></label>
       <label>Architecture <select value={format} onChange={(e) => setFormat(e.target.value as Modele['format'])}>
+        <option value="rf-detr">RF-DETR (détection, Apache 2.0)</option>
         <option value="yolo26">YOLO26 (détection)</option>
         <option value="yolo26-seg">YOLO26 seg (contours)</option>
         <option value="yolov10">YOLOv10 (détection)</option>
         <option value="yolov8">YOLOv8 / YOLO11 (détection)</option>
         <option value="yolov8-seg">YOLOv8 / YOLO11 seg (contours)</option>
       </select></label>
-      <p className="aide">Pour mémoire : le banc lit la sortie du modèle d’après sa forme (de bout en bout, 300 détections, ou brute, à trier).</p>
+      {format === 'rf-detr' && <label>Résolution <select value={resolution} onChange={(e) => setResolution(Number(e.target.value))}>
+        <option value={384}>384 (Nano)</option><option value={512}>512 (Small)</option><option value={576}>576 (Medium)</option>
+      </select></label>}
+      <p className="aide">{format === 'rf-detr' ? 'Le fichier modele-banc.onnx et la liste de noms.txt, sortis de l’entraînement RF-DETR.' : 'Pour mémoire : le banc lit la sortie d’un YOLO d’après sa forme (de bout en bout, 300 détections, ou brute, à trier).'}</p>
       <label>Classes, dans l’ordre (copiez la liste <code>names</code> de data.yaml)
         <textarea rows={4} value={classes} onChange={(e) => setClasses(e.target.value)} placeholder={'0: fenetre\n1: cadre-haut\n…'} required />
       </label>

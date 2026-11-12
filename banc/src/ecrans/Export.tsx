@@ -1,4 +1,5 @@
-// Etape 6 : l'indexation et le format. Le jeu sort au format natif d'Ultralytics (images/ et labels/ par bloc, data.yaml, un script
+// Etape 6 : l'indexation et le format. RF-DETR (Apache 2.0, par defaut, demande du proprietaire, 12 novembre 2026 : la licence AGPL des YOLO)
+// prend le jeu au format COCO. Pour comparer, le jeu sort aussi au format natif d'Ultralytics (images/ et labels/ par bloc, data.yaml, un script
 // d'entrainement) : en detection pour YOLO26n (par defaut) ou YOLOv10n (pour repartir des poids du depot facade), en segmentation pour
 // YOLO26n-seg ou YOLO11n-seg ; ou dans le format du banc (annotations.json), pour garder les arbres, les attributs et les polygones.
 
@@ -12,6 +13,7 @@ export function EcranExport({ banc }: { banc: Banc }) {
   const [verifiees, setVerifiees] = useState(true);
   const [baseDetect, setBaseDetect] = useState<'yolo26n' | 'yolov10n'>('yolo26n');
   const [baseSeg, setBaseSeg] = useState<'yolo26n-seg' | 'yolo11n-seg'>('yolo26n-seg');
+  const [baseRf, setBaseRf] = useState<'rf-detr-nano' | 'rf-detr-small' | 'rf-detr-medium'>('rf-detr-nano');
   // Le depart : les poids appris sur COCO (ou depart.pt), ou l'architecture seule, de zero.
   const [depart, setDepart] = useState<'coco' | 'zero'>('coco');
   const [bilan, setBilan] = useState<Record<string, BilanBloc> | null>(null);
@@ -41,14 +43,23 @@ export function EcranExport({ banc }: { banc: Banc }) {
           <span className="aide">{depart === 'coco' ? 'Le modèle part de ce qu’il sait déjà voir (COCO), ou de depart.pt posé à côté du script.' : 'L’architecture seule, rien d’appris : 300 époques, et il faut plus de photos pour rattraper le départ COCO.'}</span>
         </div>
         <div className="rang">
-          <label>Détection <select value={baseDetect} onChange={(e) => setBaseDetect(e.target.value as typeof baseDetect)}>
+          <label>RF-DETR · Apache 2.0 <select value={baseRf} onChange={(e) => setBaseRf(e.target.value as typeof baseRf)}>
+            <option value="rf-detr-nano">Nano (384 px)</option>
+            <option value="rf-detr-small">Small (512 px)</option>
+            <option value="rf-detr-medium">Medium (576 px)</option>
+          </select></label>
+          <a className="bouton principal" href={api.urlExport('rfdetr', verifiees, baseRf, depart)} download>RF-DETR {baseRf.replace('rf-detr-', '')} · détection{depart === 'zero' ? ' · de zéro' : ''} (.zip)</a>
+        </div>
+        <p className="aide">RF-DETR (Roboflow) : licence <b>Apache 2.0</b> pour le code et les poids, libre dans un produit commercial. Les YOLO d’Ultralytics (YOLO26, YOLOv10, YOLO11) sont sous <b>AGPL-3.0</b> : un modèle entraîné avec eux, servi dans une application, impose d’en publier le code ou d’acheter leur licence.</p>
+        <div className="rang">
+          <label>YOLO · détection (AGPL) <select value={baseDetect} onChange={(e) => setBaseDetect(e.target.value as typeof baseDetect)}>
             <option value="yolo26n">YOLO26n</option>
             <option value="yolov10n">YOLOv10n (peut repartir des poids du dépôt facade)</option>
           </select></label>
           <a className="bouton principal" href={api.urlExport('detect', verifiees, baseDetect, depart)} download>{baseDetect === 'yolo26n' ? 'YOLO26n' : 'YOLOv10n'} · détection{depart === 'zero' ? ' · de zéro' : ''} (.zip)</a>
         </div>
         <div className="rang">
-          <label>Contours <select value={baseSeg} onChange={(e) => setBaseSeg(e.target.value as typeof baseSeg)}>
+          <label>YOLO · contours (AGPL) <select value={baseSeg} onChange={(e) => setBaseSeg(e.target.value as typeof baseSeg)}>
             <option value="yolo26n-seg">YOLO26n-seg</option>
             <option value="yolo11n-seg">YOLO11n-seg</option>
           </select></label>
@@ -61,9 +72,9 @@ export function EcranExport({ banc }: { banc: Banc }) {
         <h3>Entraîner un modèle pour accélérer le marquage</h3>
         <ol className="etapes">
           <li>Corriger et qualifier une première série (une trentaine d’objets par type au moins), puis répartir les blocs (7) : 70 % train, 20 % val, 10 % test, stratifié par type.</li>
-          <li>Exporter en <b>YOLO26n · détection</b> (par défaut), ou en <b>YOLOv10n</b> pour repartir des poids du dépôt facade (<code>depart.pt</code>).</li>
+          <li>Exporter en <b>RF-DETR Nano</b> (Apache 2.0, libre pour Plan) ; YOLO26n ou YOLOv10n (AGPL) restent là pour comparer.</li>
           <li>Ouvrir <code>entrainer.ipynb</code> du zip dans Google Colab (GPU gratuit), ou lancer <code>python3 entrainer.py 0</code> sur un PC avec carte graphique ; sur processeur seul, compter quelques heures pour quelques centaines de photos.</li>
-          <li>Déposer <code>best.onnx</code> à l’étape 3 avec la liste <code>names</code> : ses noms vont d’eux-mêmes vers vos types.</li>
+          <li>Déposer le modèle à l’étape 3 (<code>modele-banc.onnx</code> et <code>noms.txt</code> pour RF-DETR, avec sa résolution ; <code>best.onnx</code> et <code>names</code> pour YOLO) : ses noms vont d’eux-mêmes vers vos types.</li>
           <li>Lancer le brouillon sur les photos non annotées : il pose et qualifie ; vous corrigez, la série grandit, on réentraîne.</li>
         </ol>
         <p className="aide">Le test (10 %) ne sert jamais à l’entraînement : <code>entrainer.py</code> le mesure à la fin (mAP par type). La validation (20 %) arrête l’entraînement quand il ne progresse plus.</p>
