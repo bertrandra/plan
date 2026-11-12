@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.23.0] — 2026-11-12
+
+Version **mineure** au sens de `MD/RELEASE.md` : le **banc d'apprentissage des façades** (`?banc`, #661), une application à part livrée
+dans `banc/` (son serveur, son mot de passe `banc-config.php`, ses données `data/apprentissage/`) ; la pose d'un mur à pignons sans geste,
+la photo d'un relevé posée sur ce qu'elle montre en Vue 3D, le vote des trois détecteurs pour lire les ouvertures (#657, #659, #660) ;
+la fumée de la nuit (#655, #658). Fonctions nouvelles : MINOR (§2.1). `facade.html`, entré après la 5.22.1 et reparti dans son propre dépôt,
+n'a jamais été livré : rien n'est retiré d'une version publiée. Aucune quantité ni aucun export de la démonstration ne change, les sept
+témoins ne bougent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve forte, sept sur sept,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont
+identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la 5.19.0 reste à accepter en
+production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison
+de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans la mesure sur main (run 43190191658, vert ; prompts et schémas inchangés).
+
 ### Ajouté
 
 - **Le banc d’apprentissage des façades** (`banc/`, adresse `?banc`) : une application à part, avec son propre code, son
