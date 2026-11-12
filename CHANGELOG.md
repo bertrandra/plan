@@ -20,6 +20,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (vingt noms de départ, `fenetre_1v` … `loggia`). La répartition train / val / test est stratifiée par type, et l’export porte un
   carnet Colab (`entrainer.ipynb`) pour entraîner le modèle qui fait ensuite le brouillon des photos non annotées.
   Pour ajuster un marquage au pixel, une loupe (×4) s’ouvre d’elle-même pendant qu’on tire un coin ou qu’on trace.
+  L’import Panoramax part d’une adresse (plusieurs propositions du géocodage), trouve sa parcelle au cadastre de l’IGN
+  (Parcellaire Express, par le WFS de la Géoplateforme ; une autre se choisit sur une petite carte) et cherche les photos autour
+  d’elle, rapportées à elle (distance à ses bords, cap vers son milieu) ; la parcelle est gardée avec chaque photo. La descente de
+  gouttière, sur la façade, s’apprend (#23).
   L’arbre va jusqu’au détail : des regroupements qui classent sans se dessiner (Ouverture → Fenêtre, Porte → leurs types), des
   détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
   dans le jeu exporté. Le typage est un fichier de données (`data/apprentissage/classes.json`, modifiable à l’écran) ; la façade porte

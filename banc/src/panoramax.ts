@@ -65,12 +65,14 @@ export function urlRecherche(lat: number, lon: number, rayonM: number, limite = 
   return RECHERCHE_URL + '?bbox=' + emprise(lat, lon, rayonM).map((v) => v.toFixed(6)).join(',') + '&limit=' + limite;
 }
 
-/** La premiere adresse que le geocodage de la Geoplateforme rend ; null sans resultat. */
-export function lireAdresse(json: unknown): Adresse | null {
-  const f = ((json as { features?: unknown[] })?.features ?? [])[0] as { geometry?: { coordinates?: number[] }; properties?: { label?: string } } | undefined;
-  const c = f?.geometry?.coordinates;
-  return c && typeof c[0] === 'number' && typeof c[1] === 'number' ? { libelle: f?.properties?.label ?? '', lon: c[0], lat: c[1] } : null;
+/** Les adresses que le geocodage de la Geoplateforme rend, dans son ordre (la plus probable d'abord). */
+export function lireAdresses(json: unknown): Adresse[] {
+  const feats = ((json as { features?: unknown[] })?.features ?? []) as { geometry?: { coordinates?: number[] }; properties?: { label?: string } }[];
+  return feats.flatMap((f) => { const c = f.geometry?.coordinates; return c && typeof c[0] === 'number' && typeof c[1] === 'number' ? [{ libelle: f.properties?.label ?? '', lon: c[0], lat: c[1] }] : []; });
 }
+
+/** La premiere adresse que le geocodage rend ; null sans resultat. */
+export const lireAdresse = (json: unknown): Adresse | null => lireAdresses(json)[0] ?? null;
 
 /** Des coordonnees tapees a la place d'une adresse : « 48.8957, 2.1456 » (latitude, longitude, en degres) ; null sinon. */
 export function coordonneesTapees(texte: string): Adresse | null {
@@ -80,13 +82,16 @@ export function coordonneesTapees(texte: string): Adresse | null {
   return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { libelle: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, lat, lon } : null;
 }
 
-/** L'adresse : des coordonnees tapees, sinon le geocodage de la Geoplateforme, sinon son repli. */
-export async function trouverAdresse(texte: string, lire: (url: string) => Promise<unknown>): Promise<Adresse | null> {
+/** Les adresses proposees : des coordonnees tapees, sinon le geocodage de la Geoplateforme (cinq au plus), sinon son repli. */
+export async function trouverAdresses(texte: string, lire: (url: string) => Promise<unknown>, limite = 5): Promise<Adresse[]> {
   const c = coordonneesTapees(texte);
-  if (c) return c;
-  const q = new URLSearchParams({ q: texte, limit: '1' }).toString();
-  try { return lireAdresse(await lire(GEOCODAGE_URL + '?' + q)); } catch { return lireAdresse(await lire(GEOCODAGE_REPLI_URL + '?' + q)); }
+  if (c) return [c];
+  const q = new URLSearchParams({ q: texte, limit: String(limite) }).toString();
+  try { return lireAdresses(await lire(GEOCODAGE_URL + '?' + q)); } catch { return lireAdresses(await lire(GEOCODAGE_REPLI_URL + '?' + q)); }
 }
+
+/** La premiere adresse proposee ; null sans resultat. */
+export const trouverAdresse = async (texte: string, lire: (url: string) => Promise<unknown>): Promise<Adresse | null> => (await trouverAdresses(texte, lire))[0] ?? null;
 
 const autorise = (url: unknown): url is string => typeof url === 'string' && HOTES.some((h) => url.startsWith(h + '/'));
 

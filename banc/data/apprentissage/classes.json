@@ -491,7 +491,7 @@
     "couleur": "#cfd8dc",
     "apprendre": false,
     "attributs": [],
-    "description": "Ce qui est posé sur le mur : gouttières, descentes."
+    "description": "Ce qui est posé sur le mur : gouttières, descentes de gouttière (apprise)."
   },
   {
     "id": "gouttiere",
@@ -504,11 +504,13 @@
   },
   {
     "id": "descente",
-    "nom": "Descente d’eau",
+    "nom": "Descente de gouttière",
     "parent": "equipements",
     "forme": "rectangle",
-    "couleur": "#bdbdbd",
-    "apprendre": false,
+    "couleur": "#78909c",
+    "apprendre": true,
+    "indice": 23,
+    "description": "Le tuyau vertical qui descend du chéneau ou de la gouttière jusqu’au sol, sur la façade.",
     "attributs": []
   },
   {

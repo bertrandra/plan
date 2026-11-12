@@ -13,6 +13,7 @@ import { brouillonSurExistant, correspondanceParDefaut, fusionner, lireCible, ob
 import { redresserParCoins } from '../src/redressement.js';
 import type { Bloc, Classe, Modele, Objet } from '../src/types.js';
 import { REGLAGES_DEFAUT } from '../src/types.js';
+import type { Parcelle } from '../src/parcelles.js';
 
 const rect = (id: string, classe: string, x0: number, y0: number, x1: number, y1: number, o: Partial<Objet> = {}): Objet => ({ id, classe, forme: 'rectangle', points: [{ x: x0, y: y0 }, { x: x1, y: y1 }], parent: null, attributs: {}, origine: 'main', ...o });
 
@@ -22,7 +23,7 @@ describe('l’arbre des classes', () => {
     const ordre = ordreDeLArbre(CLASSES_DEFAUT).map((c) => c.id);
     for (const c of CLASSES_DEFAUT) if (c.parent) expect(ordre.indexOf(c.parent)).toBeLessThan(ordre.indexOf(c.id));
     // Les vingt noms du proprietaire, dans son ordre : les familles se qualifient par leurs types, les parties ne s'apprennent pas.
-    expect(nomsYolo(CLASSES_DEFAUT)).toEqual(['fenetre_1v', 'fenetre_2v', 'fenetre_petits_carreaux', 'fenetre_imposte_carreaux', 'fenetre_imposte_simple', 'porte_fenetre', 'baie_vitree', 'fenetre_cintree', 'oeil_de_boeuf', 'lucarne', 'porte_pleine', 'porte_vitree', 'porte_double', 'porte_garage', 'volet_battant', 'volet_roulant', 'volet_pliant', 'balcon', 'garde_corps', 'loggia', 'cheminee', 'panneau_solaire', 'fenetre_toit']);
+    expect(nomsYolo(CLASSES_DEFAUT)).toEqual(['fenetre_1v', 'fenetre_2v', 'fenetre_petits_carreaux', 'fenetre_imposte_carreaux', 'fenetre_imposte_simple', 'porte_fenetre', 'baie_vitree', 'fenetre_cintree', 'oeil_de_boeuf', 'lucarne', 'porte_pleine', 'porte_vitree', 'porte_double', 'porte_garage', 'volet_battant', 'volet_roulant', 'volet_pliant', 'balcon', 'garde_corps', 'loggia', 'cheminee', 'panneau_solaire', 'fenetre_toit', 'descente']);
     expect(indicesYolo(CLASSES_DEFAUT).get('loggia')).toBe(19);
     expect(profondeur(CLASSES_DEFAUT, 'quadrillage')).toBe(3);
     expect(nomYoloDe({ classe: 'fenetre', type: 'fenetre_2v' }, CLASSES_DEFAUT)).toBe('fenetre_2v');
@@ -279,8 +280,8 @@ describe('l’arbre vers le detail', () => {
     expect(estDetail(avecDetails.find((x) => x.id === 'quadrillage') as Classe, avecDetails)).toBe(true);
     expect(estDetail(avecDetails.find((x) => x.id === 'fenetre') as Classe, avecDetails)).toBe(false);
     const n = nomsYolo(avecDetails);
-    expect(n.slice(0, 23)).toEqual(nomsYolo(c));
-    expect(n.slice(23)).toEqual(['cadre-haut', 'quadrillage']);
+    expect(n.slice(0, 24)).toEqual(nomsYolo(c));
+    expect(n.slice(24)).toEqual(['cadre-haut', 'quadrillage']);
     expect(cheminDuNom('quadrillage', avecDetails)).toEqual(['facade', 'ouverture', 'fenetre', 'quadrillage']);
     // Une fenetre se range dans la facade (par-dessus le regroupement), un quadrillage dans sa fenetre.
     const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
@@ -305,10 +306,10 @@ describe('la structure de la facade (fichier data/apprentissage/classes.json)', 
     expect(c.find((x) => x.id === 'fenetre_toit')?.aussi).toEqual(['ouverture']);
     expect(c.find((x) => x.id === 'lucarne')?.aussi).toEqual(['ouverture']);
     // Les lignes ne s'apprennent pas : les vingt noms ne bougent pas.
-    expect(nomsYolo(c)).toHaveLength(23);
+    expect(nomsYolo(c)).toHaveLength(24);
     expect(cheminDuNom('loggia', c)).toEqual(['facade', 'saillie', 'loggia']);
     const avecLigneApprise = c.map((x) => (x.id === 'egout' ? { ...x, apprendre: true } : x));
-    expect(nomsYolo(avecLigneApprise)).toHaveLength(23);
+    expect(nomsYolo(avecLigneApprise)).toHaveLength(24);
   });
   it('une ligne se trace, se reforme et se range dans la facade', async () => {
     const { creerPolygone, tirerPoignee, poignees } = await import('../src/edition.js');
@@ -339,8 +340,8 @@ describe('Panoramax a 90 degres de la rue, et les pointes de pignon', () => {
     const c = CLASSES_DEFAUT;
     const k = c.find((x) => x.id === 'pointe-pignon');
     expect([k?.forme, k?.parent]).toEqual(['point', 'lignes-facade']);
-    expect(nomsYolo(c)).toHaveLength(23);
-    expect(nomsYolo(c.map((x) => (x.id === 'pointe-pignon' ? { ...x, apprendre: true } : x)))).toHaveLength(23);
+    expect(nomsYolo(c)).toHaveLength(24);
+    expect(nomsYolo(c.map((x) => (x.id === 'pointe-pignon' ? { ...x, apprendre: true } : x)))).toHaveLength(24);
     const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
     const pointe = creerPolygone([facade], 'pointe-pignon', [{ x: 30, y: 8 }], 'point');
     expect(tirerPoignee(pointe, 0, { x: 31, y: 7 }, 100, 100).points).toEqual([{ x: 31, y: 7 }]);
@@ -360,9 +361,63 @@ describe('les indices figes et les regroupements multiples', () => {
     // Une classe apprise sans indice : apres les indices figes.
     const ajout = [...c, { id: 'marquise', nom: 'Marquise', parent: 'saillie', forme: 'polygone' as const, couleur: '#ff8a65', attributs: [], apprendre: true }];
     expect(nomsYolo(ajout).slice(-1)).toEqual(['marquise']);
-    expect(nomsYolo(ajout).slice(0, 23)).toEqual(avant);
+    expect(nomsYolo(ajout).slice(0, 24)).toEqual(avant);
     const doublon = c.map((x) => (x.id === 'cheminee' ? { ...x, indice: 9 } : x));
     expect(erreursDeLArbre(doublon).join(' | ')).toMatch(/L’indice 9 est pris deux fois/);
     expect(erreursDeLArbre(c.map((x) => (x.id === 'fenetre_toit' ? { ...x, aussi: ['fenetre'] } : x))).join(' | ')).toMatch(/« fenetre » n’est pas un regroupement/);
+  });
+});
+
+describe('l’adresse, la parcelle au cadastre de l’IGN, et la descente de gouttière', () => {
+  // Deux parcelles carrees de 20 m cote a cote (est-ouest), au Vesinet ; la rue au sud.
+  const o = { lat: 48.905, lon: 2.1325 };
+  const dLat = 20 / 111195, dLon = dLat / Math.cos((o.lat * Math.PI) / 180);
+  const carre = (x0: number) => [[o.lon + x0 * dLon, o.lat], [o.lon + (x0 + 1) * dLon, o.lat], [o.lon + (x0 + 1) * dLon, o.lat + dLat], [o.lon + x0 * dLon, o.lat + dLat], [o.lon + x0 * dLon, o.lat]];
+  const wfs = { type: 'FeatureCollection', features: [
+    { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: [[carre(0)]] }, properties: { idu: '78650000AE0101', section: 'AE', numero: '0101', nom_com: 'Le Vésinet', contenance: 400 } },
+    { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: [[carre(1)]] }, properties: { idu: '78650000AE0102', section: 'AE', numero: '0102', nom_com: 'Le Vésinet', contenance: 400 } },
+    { type: 'Feature', geometry: null, properties: { idu: 'sans-contour' } },
+  ] };
+
+  it('lit les adresses proposées et les parcelles du WFS ; l’URL interroge le Parcellaire Express en latitude d’abord', async () => {
+    const { lireAdresses, trouverAdresses } = await import('../src/panoramax.js');
+    const { lireParcelles, urlParcelles } = await import('../src/parcelles.js');
+    const geo = { features: [{ geometry: { coordinates: [2.132536, 48.905067] }, properties: { label: '2 Allée des Limites 78110 Le Vésinet' } }, { geometry: { coordinates: [2.1, 48.9] }, properties: { label: 'Allée des Limites' } }] };
+    expect(lireAdresses(geo).map((a) => a.libelle)).toEqual(['2 Allée des Limites 78110 Le Vésinet', 'Allée des Limites']);
+    // Le geocodage en panne : le repli ; des coordonnees tapees ne demandent rien.
+    const lues: string[] = [];
+    const l = await trouverAdresses('2 allée des Limites', async (u) => { lues.push(u); if (lues.length === 1) throw new Error('504'); return geo; });
+    expect([l.length, lues[1]?.startsWith('https://api-adresse.data.gouv.fr/')]).toEqual([2, true]);
+    expect(await trouverAdresses('48.90507, 2.13254', async () => { throw new Error('jamais'); })).toHaveLength(1);
+    const p = lireParcelles(wfs);
+    expect(p.map((x) => [x.idu, x.section, x.numero, x.commune, x.contenance, x.contour.length])).toEqual([['78650000AE0101', 'AE', '0101', 'Le Vésinet', 400, 5], ['78650000AE0102', 'AE', '0102', 'Le Vésinet', 400, 5]]);
+    const u = new URL(urlParcelles(48.905, 2.1325, 50));
+    expect([u.host, u.searchParams.get('TYPENAMES'), u.searchParams.get('BBOX')?.endsWith('urn:ogc:def:crs:EPSG::4326'), Number(u.searchParams.get('BBOX')?.split(',')[0]) < 48.905]).toEqual(['data.geopf.fr', 'CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle', true, true]);
+  });
+
+  it('la parcelle d’une adresse sur la voirie est la plus proche ; une photo de la rue est rapportée à elle', async () => {
+    const { lireParcelles, parcelleDuPoint, distanceAParcelle, rapporterALaParcelle, voitLaParcelle } = await import('../src/parcelles.js');
+    const [a, b] = lireParcelles(wfs) as [Parcelle, Parcelle];
+    // Dedans ; puis 5 m au sud de la premiere, sur la rue.
+    expect(parcelleDuPoint([a, b], { lat: o.lat + dLat / 2, lon: o.lon + dLon / 2 })?.idu).toBe(a.idu);
+    const rue = { lat: o.lat - dLat / 4, lon: o.lon + dLon * 0.4 };
+    expect(parcelleDuPoint([a, b], rue)?.idu).toBe(a.idu);
+    expect(distanceAParcelle(rue, a)).toBeCloseTo(5, 0);
+    // Une photo plate qui regarde au nord voit la parcelle ; vers le sud, non.
+    expect(voitLaParcelle(rue, 0, 60, a)).toBe(true);
+    expect(voitLaParcelle(rue, 180, 60, a)).toBe(false);
+    const photo = { lat: rue.lat, lon: rue.lon, azimut: 180, champ: 60, panoramique: false, distance: 99, cap: 0, vise: true };
+    const loin = { ...photo, lat: o.lat - dLat * 3 };
+    const r = rapporterALaParcelle([loin, photo], a, 20);
+    expect(r).toHaveLength(1);
+    expect([Math.round(r[0]?.distance ?? 0), r[0]?.vise, Math.abs((r[0]?.cap ?? 99) - 0) < 15]).toEqual([5, false, true]);
+  });
+
+  it('la descente de gouttière est sur la façade, apprise, à l’indice 23', async () => {
+    const c = CLASSES_DEFAUT;
+    const d = c.find((x) => x.id === 'descente');
+    expect([d?.nom, d?.apprendre, d?.indice]).toEqual(['Descente de gouttière', true, 23]);
+    expect(nomsYolo(c)[23]).toBe('descente');
+    expect(erreursDeLArbre(c)).toEqual([]);
   });
 });

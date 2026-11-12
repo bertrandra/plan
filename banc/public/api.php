@@ -154,7 +154,7 @@ function recevoir(string $champ, string $vers, bool $requis = true): bool {
 
 /** Ce que la page peut dire d'une photo a l'import : sa provenance, sa position, sa date, son appareil. */
 function meta_importee(array $m): array {
-  $garde = ['source', 'nom', 'date', 'lat', 'lon', 'azimut', 'appareil', 'focale35', 'adresse', 'panoramax', 'licence', 'auteur', 'largeur', 'hauteur', 'lot'];
+  $garde = ['source', 'nom', 'date', 'lat', 'lon', 'azimut', 'appareil', 'focale35', 'adresse', 'parcelle', 'panoramax', 'licence', 'auteur', 'largeur', 'hauteur', 'lot'];
   $out = [];
   foreach ($garde as $k) if (array_key_exists($k, $m)) $out[$k] = $m[$k];
   $out['source'] = in_array($out['source'] ?? '', ['iphone', 'panoramax', 'fichier'], true) ? $out['source'] : 'fichier';

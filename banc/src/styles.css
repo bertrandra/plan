@@ -121,3 +121,12 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 .bascule-loupe { position: absolute; bottom: 10px; right: 10px; z-index: 2; min-height: 30px; padding: .1rem .6rem; font-size: .85rem; opacity: .85; }
 .bascule-loupe.active { border-color: var(--accent); color: var(--accent); }
 .arbre .aussi { color: var(--doux); font-size: .8rem; font-style: normal; }
+.carte-et-liste { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; margin: .5rem 0; }
+.mini-carte { width: min(360px, 100%); aspect-ratio: 1; background: var(--fond); border: 1px solid var(--trait); border-radius: var(--rayon); }
+.mini-carte .parcelle { fill: var(--surface); stroke: var(--doux); stroke-width: .4; cursor: pointer; }
+.mini-carte .parcelle:hover { fill: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.mini-carte .parcelle.choisie { fill: color-mix(in srgb, var(--accent) 30%, var(--surface)); stroke: var(--accent); stroke-width: .8; }
+.mini-carte .photo-carte { fill: var(--doux); stroke: var(--doux); stroke-width: .6; }
+.mini-carte .photo-carte.choisie { fill: var(--attention); stroke: var(--attention); }
+.mini-carte .adresse-carte { fill: var(--danger); }
+.rang input[type=number] { width: 5.5rem; }
