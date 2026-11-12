@@ -1,6 +1,6 @@
 // Etape 6 : l'indexation et le format. Le jeu sort au format natif d'Ultralytics (images/ et labels/ par bloc, data.yaml, un script
-// d'entrainement) : en detection pour YOLOv10n (le meme modele que le depot facade), en segmentation pour YOLO11n-seg ; ou dans le
-// format du banc (annotations.json), pour garder les arbres, les attributs et les polygones tels quels.
+// d'entrainement) : en detection pour YOLO26n (par defaut) ou YOLOv10n (pour repartir des poids du depot facade), en segmentation pour
+// YOLO26n-seg ou YOLO11n-seg ; ou dans le format du banc (annotations.json), pour garder les arbres, les attributs et les polygones.
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Banc } from '../App.js';
@@ -10,6 +10,10 @@ import { bilanDesBlocs, type BilanBloc } from '../blocs.js';
 
 export function EcranExport({ banc }: { banc: Banc }) {
   const [verifiees, setVerifiees] = useState(true);
+  const [baseDetect, setBaseDetect] = useState<'yolo26n' | 'yolov10n'>('yolo26n');
+  const [baseSeg, setBaseSeg] = useState<'yolo26n-seg' | 'yolo11n-seg'>('yolo26n-seg');
+  // Le depart : les poids appris sur COCO (ou depart.pt), ou l'architecture seule, de zero.
+  const [depart, setDepart] = useState<'coco' | 'zero'>('coco');
   const [bilan, setBilan] = useState<Record<string, BilanBloc> | null>(null);
   const noms = useMemo(() => nomsYolo(banc.classes), [banc.classes]);
   const sansBloc = banc.images.filter((m) => m.statut === 'corrigee' && !m.bloc).length;
@@ -30,16 +34,34 @@ export function EcranExport({ banc }: { banc: Banc }) {
         )}
         {sansBloc > 0 && <p className="attention">{sansBloc} photo(s) corrigée(s) n’ont pas de bloc : répartissez-les d’abord (7), sinon elles suivent le simple tirage, sans équilibre des types.</p>}
         <div className="rang">
-          <a className="bouton principal" href={api.urlExport('detect', verifiees)} download>YOLOv10n · détection (.zip)</a>
-          <a className="bouton principal" href={api.urlExport('seg', verifiees)} download>YOLO11n-seg · contours (.zip)</a>
+          <label>Départ <select value={depart} onChange={(e) => setDepart(e.target.value as typeof depart)}>
+            <option value="coco">Avec COCO (poids pré-entraînés)</option>
+            <option value="zero">Sans COCO (de zéro)</option>
+          </select></label>
+          <span className="aide">{depart === 'coco' ? 'Le modèle part de ce qu’il sait déjà voir (COCO), ou de depart.pt posé à côté du script.' : 'L’architecture seule, rien d’appris : 300 époques, et il faut plus de photos pour rattraper le départ COCO.'}</span>
+        </div>
+        <div className="rang">
+          <label>Détection <select value={baseDetect} onChange={(e) => setBaseDetect(e.target.value as typeof baseDetect)}>
+            <option value="yolo26n">YOLO26n</option>
+            <option value="yolov10n">YOLOv10n (peut repartir des poids du dépôt facade)</option>
+          </select></label>
+          <a className="bouton principal" href={api.urlExport('detect', verifiees, baseDetect, depart)} download>{baseDetect === 'yolo26n' ? 'YOLO26n' : 'YOLOv10n'} · détection{depart === 'zero' ? ' · de zéro' : ''} (.zip)</a>
+        </div>
+        <div className="rang">
+          <label>Contours <select value={baseSeg} onChange={(e) => setBaseSeg(e.target.value as typeof baseSeg)}>
+            <option value="yolo26n-seg">YOLO26n-seg</option>
+            <option value="yolo11n-seg">YOLO11n-seg</option>
+          </select></label>
+          <a className="bouton principal" href={api.urlExport('seg', verifiees, baseSeg, depart)} download>{baseSeg === 'yolo26n-seg' ? 'YOLO26n-seg' : 'YOLO11n-seg'} · contours{depart === 'zero' ? ' · de zéro' : ''} (.zip)</a>
           <a className="bouton" href={api.urlExport('natif', verifiees)} download>Format du banc (.zip)</a>
         </div>
+        <p className="aide">Pour choisir, entraînez une fois les variantes (YOLO26n ou YOLOv10n, avec ou sans COCO) sur les mêmes blocs (vers 150 photos vérifiées) et comparez le mAP du bloc test (affiché à la fin de l’entraînement) : on garde le meilleur.</p>
       </div>
       <div className="panneau">
         <h3>Entraîner un modèle pour accélérer le marquage</h3>
         <ol className="etapes">
           <li>Corriger et qualifier une première série (une trentaine d’objets par type au moins), puis répartir les blocs (7) : 70 % train, 20 % val, 10 % test, stratifié par type.</li>
-          <li>Exporter en <b>YOLOv10n · détection</b> (le même modèle que le dépôt facade).</li>
+          <li>Exporter en <b>YOLO26n · détection</b> (par défaut), ou en <b>YOLOv10n</b> pour repartir des poids du dépôt facade (<code>depart.pt</code>).</li>
           <li>Ouvrir <code>entrainer.ipynb</code> du zip dans Google Colab (GPU gratuit), ou lancer <code>python3 entrainer.py 0</code> sur un PC avec carte graphique ; sur processeur seul, compter quelques heures pour quelques centaines de photos.</li>
           <li>Déposer <code>best.onnx</code> à l’étape 3 avec la liste <code>names</code> : ses noms vont d’eux-mêmes vers vos types.</li>
           <li>Lancer le brouillon sur les photos non annotées : il pose et qualifie ; vous corrigez, la série grandit, on réentraîne.</li>
@@ -48,9 +70,9 @@ export function EcranExport({ banc }: { banc: Banc }) {
       </div>
       <div className="panneau">
         <h3>Structure du jeu (Ultralytics)</h3>
-        <pre className="arborescence">{`banc-detect-AAAAMMJJ-HHMMSS/
+        <pre className="arborescence">{`banc-yolo26n-AAAAMMJJ-HHMMSS/
   data.yaml            les blocs et les noms des classes, dans l’ordre des indices
-  entrainer.py         Ultralytics 8.4, graine fixe, puis export .onnx
+  entrainer.py         Ultralytics 8.4, graine fixe, puis export .onnx (sans NMS)
   bilan.json           photos par bloc, objets par classe
   images/train/<id>.jpg   images/val/…   images/test/…
   labels/train/<id>.txt   une ligne par objet :

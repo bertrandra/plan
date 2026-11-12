@@ -5,6 +5,58 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc : choisir les vues d’un panoramique 360** (demande du propriétaire, 12 novembre 2026). La vignette de Panoramax ne montre
+  que l’axe de la rue : la liste montre maintenant le 360 entier, la rue au milieu, la parcelle sous un trait rouge et, en orange, les
+  vues qui seront importées. « Choisir les vues » ouvre le panoramique en grand : le toucher ajoute une vue à cet endroit (75° de
+  champ) ou retire celle qui y est, chaque vue s’ajuste de 5° et se montre telle qu’elle sera importée ; raccourcis « Gauche et
+  droite », « Vers la parcelle », « Comme la visée ». Le serveur reconnaît une vue déjà importée à son cap (5° près), et plus seulement
+  à son nom.
+- **Banc : zoom et loupe partout, au doigt comme à la souris** (retours du propriétaire, 12 novembre 2026). Le marquage ne zoomait
+  qu'à la molette (et la page défilait avec, l'écouteur de React étant passif) : la molette zoome maintenant seule, deux doigts zooment
+  et déplacent la vue, des boutons ＋, − et « Ajuster » sont posés sur la photo. Au doigt, un point, une ligne ou un polygone se
+  visent avant d'être posés : le doigt posé montre la loupe, il glisse, le point se pose quand il se lève ; « Finir le tracé » et
+  « Retirer le dernier point » remplacent le double clic et Entrée. Le redressement à la main gagne le même zoom et la même loupe
+  pour poser ses quatre coins.
+  Le zoom est plus vif (un cran de molette rapproche d'un tiers, ＋ et − doublent ou divisent) et « Ajuster » cadre l'objet choisi, ou
+  toute la photo sans choix.
+- **Banc : copier, couper, coller des objets** (Ctrl+C, Ctrl+X, Ctrl+V, ou les boutons de l'inspecteur et « Coller »). Un objet part
+  avec ses détails (une fenêtre et ses cadres) ; le presse-papiers survit au changement de photo (la même fenêtre sur la photo suivante,
+  à la même place) ; sur la même photo, le collage se décale un peu, et chaque nouveau collage encore.
+- **Banc : sélectionner plusieurs objets, les aligner, leur donner la même taille.** L'outil Sélection (S) tire une boîte ou un lasso :
+  les objets entièrement dedans sont pris (une façade autour ne vient pas avec ses fenêtres) ; Maj ajoute ou retire. Toucher un objet de la
+  sélection en fait la référence ; une barre posée en haut de la photo aligne les hauts, les bas, les bords gauches ou droits sur elle, et
+  donne sa largeur, sa hauteur ou sa taille aux autres. Tirer un objet de la sélection déplace tout le groupe ; Suppr, Ctrl+C et Ctrl+X
+  agissent sur toute la sélection.
+- **Banc : YOLO26, avec ou sans COCO.** L'export propose YOLO26n (par défaut) ou YOLOv10n (pour repartir des poids du dépôt
+  `facade`), YOLO26n-seg ou YOLO11n-seg, et le départ : avec COCO (poids pré-entraînés, ou `depart.pt`) ou sans (l'architecture seule,
+  de zéro, 300 époques). Vérifié avec Ultralytics 8.4.211 : un YOLO26 ne sort de bout en bout (`[1, 300, 6]`, `[1, 300, 38]` en contours)
+  qu'exporté avec `nms=False` ; le script et le carnet l'exportent ainsi. Le banc lit la sortie d'un modèle d'après sa forme (de bout en
+  bout ou brute, à trier), et non plus d'après le format déclaré : sur de vrais exports YOLO26n, YOLO26n-seg et YOLOv10n, il trouve les
+  mêmes objets qu'Ultralytics. Les scripts et les carnets produits (avec et sans COCO) ont tourné de bout en bout.
+- **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
+  outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
+- **Banc : supprimer les photos rejetées** (Mosaïque, « Rejetées ») : « Supprimer les N rejetées » en haut, ou « Supprimer » sur une
+  photo, après confirmation. La photo part avec tout son dossier sur le serveur (source, redressée, vignette, marquage et ses versions
+  anciennes, sous-dossiers compris).
+
+### Corrigé
+
+- **Banc : toucher une annotation ne la déplace plus.** Le moindre bougé du doigt, ou la page qui bougeait sous lui quand le panneau de
+  l'objet s'ouvrait, déplaçait l'objet choisi. Un clic ou un toucher choisit seulement ; l'objet (ou sa poignée) ne suit qu'au-delà de
+  4 px de glissé à la souris, 10 px au doigt, mesurés à l'écran.
+- **Banc : choisir un objet ne fait plus défiler la page.** La liste « Type » d'un objet à qualifier prenait le focus d'elle-même, et le
+  navigateur faisait défiler jusqu'à l'inspecteur (sur un téléphone, sous la photo) ; elle gardait aussi le clavier (Suppr ne
+  retirait plus l'objet).
+- **Banc : le carnet Colab relit les poids là où l'entraînement les a mis.** Ultralytics 8.4 range `project='runs'` sous
+  `runs/detect/` : le carnet cherchait `runs/banc/weights/best.pt`, qui n'existe pas, et ses deux dernières cellules (mesure du test,
+  export ONNX) échouaient. Il prend le chemin que l'entraînement rend (`m.trainer.best`).
+- **Banc : rafraîchir la page ne sort plus du banc.** L'étape s'écrivait dans l'adresse par un « #étape » relatif, que la base de la
+  page (`banc/`) changeait en `/banc/#étape` ; rafraîchie, cette adresse était renvoyée par le `.htaccess` du banc vers `../?banc`, qu'Apache
+  résolvait sans `RewriteBase` en chemin du disque du serveur (`/home/…/public_html/?banc`). L'étape s'écrit sur l'adresse entière, et
+  le renvoi vise le dossier du site lu dans l'adresse demandée.
+
 ## [5.23.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le **banc d'apprentissage des façades** (`?banc`, #661), une application à part livrée

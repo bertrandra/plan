@@ -71,10 +71,21 @@ export function letterbox(L: number, H: number): { k: number; px: number; py: nu
   return { k, px: Math.floor((TAILLE - nw) / 2), py: Math.floor((TAILLE - nh) / 2), nw, nh };
 }
 
-/** Les sorties d'un YOLOv10 : 300 lignes (x1, y1, x2, y2, score, classe) dans le carre de 640, deja sans doublons. */
-export function decoderV10(d: Float32Array, seuil: number): Detection[] {
+/**
+ * Comment lire une sortie, d'apres sa forme. « bout-en-bout » (YOLOv10, YOLO26 exporte sans NMS) : [1, 300, 6] lignes (x1, y1, x2, y2,
+ * score, classe), [1, 300, 38] en segmentation (les 32 coefficients des masques a la suite), deja sans doublons. « brut » (YOLOv8,
+ * YOLO11, ou un YOLO26 exporte autrement) : [1, 4 + nc (+ 32), 8400], une colonne par candidat, a passer par la NMS. Les lignes sont
+ * moins nombreuses que les candidats : la plus petite dimension dit la forme.
+ */
+export function modeDeSortie(dims: readonly number[]): { mode: 'bout-en-bout'; pas: number } | { mode: 'brut' } {
+  const a = dims[1] ?? 0, b = dims[2] ?? 0;
+  return dims.length === 3 && b >= 6 && b < a ? { mode: 'bout-en-bout', pas: b } : { mode: 'brut' };
+}
+
+/** Les sorties de bout en bout (YOLOv10, YOLO26) : une ligne par detection, x1, y1, x2, y2, score, classe en tete, dans le carre de 640. */
+export function decoderV10(d: Float32Array, seuil: number, pas = 6): Detection[] {
   const out: Detection[] = [];
-  for (let i = 0; i + 5 < d.length; i += 6) {
+  for (let i = 0; i + 5 < d.length; i += pas) {
     const score = d[i + 4] as number;
     if (score >= seuil) out.push({ classe: Math.round(d[i + 5] as number), score, boite: { x0: d[i] as number, y0: d[i + 1] as number, x1: d[i + 2] as number, y1: d[i + 3] as number } });
   }
@@ -122,7 +133,8 @@ export async function detecter(m: Modele, source: CanvasImageSource & { width: n
   const sortie = await s.run({ [s.inputNames[0] as string]: new ort.Tensor('float32', chw, [1, 3, TAILLE, TAILLE]) });
   const t = Object.values(sortie)[0];
   if (!t) return [];
-  const brutes = m.format === 'yolov10' ? decoderV10(t.data, m.seuil) : decoderV8(t.data, t.dims, m.classes.length, m.seuil);
+  const forme = modeDeSortie(t.dims);
+  const brutes = forme.mode === 'bout-en-bout' ? decoderV10(t.data, m.seuil, forme.pas) : decoderV8(t.data, t.dims, m.classes.length, m.seuil);
   return brutes.map((d) => ({ ...d, boite: { x0: Math.max(0, (d.boite.x0 - lb.px) / lb.k), y0: Math.max(0, (d.boite.y0 - lb.py) / lb.k), x1: Math.min(L, (d.boite.x1 - lb.px) / lb.k), y1: Math.min(H, (d.boite.y1 - lb.py) / lb.k) } }))
     .filter((d) => d.boite.x1 - d.boite.x0 >= 2 && d.boite.y1 - d.boite.y0 >= 2);
 }

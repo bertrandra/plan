@@ -129,13 +129,32 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     // Les indices suivent l'arbre (facade n'est pas apprise), les details apres : fenetre 0, pignon 1, cadre-haut 2 (dans la fenetre).
     expect(detect[cle('data.yaml')]).toContain('names:\n  0: fenetre\n  1: pignon\n  2: cadre-haut\n');
     expect(detect[cle(`labels/val/${id}.txt`)]).toBe('0 0.200000 0.300000 0.200000 0.400000\n2 0.200000 0.150000 0.200000 0.100000\n1 0.750000 0.250000 0.500000 0.500000\n');
-    expect(detect[cle('entrainer.py')]).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolov10n.pt')");
-    expect(JSON.parse(detect[cle('bilan.json')] ?? '{}')).toMatchObject({ images: { train: 0, val: 1, test: 0 }, objetsParClasse: { fenetre: { val: 1 }, pignon: { val: 1 } } });
+    // YOLO26n par defaut, exporte sans NMS (la sortie [1, 300, 6] que le banc lit) ; YOLOv10n au choix, pour les poids du depot facade.
+    expect(detect[cle('entrainer.py')]).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolo26n.pt')");
+    expect(detect[cle('entrainer.py')]).toContain("m.export(format='onnx', imgsz=640, nms=False)");
+    expect(Object.keys(detect)[0]).toMatch(/^banc-yolo26n-/);
+    expect(JSON.parse(detect[cle('bilan.json')] ?? '{}')).toMatchObject({ architecture: 'yolo26n', images: { train: 0, val: 1, test: 0 }, objetsParClasse: { fenetre: { val: 1 }, pignon: { val: 1 } } });
+    const v10 = lireZip(await (await appel('GET', 'export', { format: 'detect', base: 'yolov10n' })).arrayBuffer());
+    const py10 = v10[Object.keys(v10).find((n) => n.endsWith('entrainer.py')) ?? ''] ?? '';
+    expect([py10.includes("else 'yolov10n.pt')"), py10.includes('nms=False')]).toEqual([true, true]);
+    expect((await appel('GET', 'export', { format: 'detect', base: 'yolo11n-seg' })).status).toBe(400);
+    // Sans COCO : l'architecture seule (.yaml), pretrained=False, plus d'epoques ; depart.pt n'est pas lu.
+    const zero = lireZip(await (await appel('GET', 'export', { format: 'detect', base: 'yolo26n', depart: 'zero' })).arrayBuffer());
+    const pyZ = zero[Object.keys(zero).find((n) => n.endsWith('entrainer.py')) ?? ''] ?? '';
+    expect([pyZ.includes("m = YOLO('yolo26n.yaml')"), pyZ.includes('pretrained=False, epochs=300'), pyZ.includes('depart.pt'), pyZ.includes('nms=False')]).toEqual([true, true, false, true]);
+    expect(Object.keys(zero)[0]).toMatch(/^banc-yolo26n-zero-/);
+    const nbZ = JSON.parse(zero[Object.keys(zero).find((n) => n.endsWith('entrainer.ipynb')) ?? ''] ?? '{}') as { cells: { source: string }[] };
+    expect(nbZ.cells.map((c) => c.source).join('\n')).toContain("m = YOLO('yolo26n.yaml')");
+    expect(nbZ.cells.map((c) => c.source).join('\n')).not.toContain('files.upload()\nopen(\'depart.pt\'');
+    expect(JSON.parse(zero[Object.keys(zero).find((n) => n.endsWith('bilan.json')) ?? ''] ?? '{}')).toMatchObject({ architecture: 'yolo26n', depart: 'zero' });
+    expect((await appel('GET', 'export', { format: 'detect', depart: 'imagenet' })).status).toBe(400);
 
     const seg = lireZip(await (await appel('GET', 'export', { format: 'seg' })).arrayBuffer());
     const cleSeg = Object.keys(seg).find((n) => n.endsWith(`labels/val/${id}.txt`)) ?? '';
     expect(seg[cleSeg]).toBe('0 0.100000 0.100000 0.300000 0.100000 0.300000 0.500000 0.100000 0.500000\n2 0.100000 0.100000 0.300000 0.100000 0.300000 0.200000 0.100000 0.200000\n1 0.500000 0.500000 0.750000 0.000000 1.000000 0.500000\n');
-    expect(seg[Object.keys(seg).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain("else 'yolo11n-seg.pt')");
+    expect(seg[Object.keys(seg).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain("else 'yolo26n-seg.pt')");
+    const seg11 = lireZip(await (await appel('GET', 'export', { format: 'seg', base: 'yolo11n-seg' })).arrayBuffer());
+    expect(seg11[Object.keys(seg11).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain("else 'yolo11n-seg.pt')");
 
     const natif = lireZip(await (await appel('GET', 'export', { format: 'natif' })).arrayBuffer());
     const a = JSON.parse(natif[Object.keys(natif).find((n) => n.endsWith('annotations.json')) ?? ''] ?? '{}') as { images: { annotation: { objets: { id: string; parent: string | null; attributs: unknown }[] } }[] };
@@ -147,7 +166,13 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     // Range en reserve : plus rien a l'export ; supprimee : partie.
     await appel('PATCH', 'image', { id }, { bloc: 'reserve' });
     expect(Object.keys(lireZip(await (await appel('GET', 'export', { format: 'detect' })).arrayBuffer())).filter((n) => n.endsWith('.jpg'))).toHaveLength(0);
+    // Le dossier entier part, avec un sous-dossier eventuel et les marquages anciens.
+    const dossier = path.join(tmp, 'apprentissage', 'images', id);
+    fs.mkdirSync(path.join(dossier, 'sous', 'plus-bas'), { recursive: true });
+    fs.writeFileSync(path.join(dossier, 'sous', 'plus-bas', 'x.json'), '{}');
+    fs.writeFileSync(path.join(dossier, 'annotation-20260101000000.json'), '{}');
     expect((await appel('DELETE', 'image', { id })).status).toBe(200);
+    expect(fs.existsSync(dossier)).toBe(false);
     expect(await json(await appel('GET', 'images'))).toEqual([]);
   });
 
@@ -158,6 +183,11 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     const p = () => { const g = new FormData(); g.append('fichier', jpeg(64, 48), 'p.jpg'); g.append('meta', JSON.stringify({ source: 'panoramax', panoramax: { id: 'abc-123', panoramique: true } })); return g; };
     expect((await appel('POST', 'images', {}, p())).status).toBe(201);
     expect((await appel('POST', 'images', {}, p())).status).toBe(409);
+    // Des vues choisies dans un meme 360 : deux caps differents passent, le meme cap (a 5 degres pres, au passage du nord) revient en 409.
+    const v = (cap: number) => { const g = new FormData(); g.append('fichier', jpeg(64, 48), 'v.jpg'); g.append('meta', JSON.stringify({ source: 'panoramax', panoramax: { id: 'pano-360', panoramique: true, vue: 'choisie', cap } })); return g; };
+    expect((await appel('POST', 'images', {}, v(2))).status).toBe(201);
+    expect((await appel('POST', 'images', {}, v(100))).status).toBe(201);
+    expect((await appel('POST', 'images', {}, v(358))).status).toBe(409);
   });
 
   it('liste les modeles du depot facade a installer, et garde la correspondance changee', async () => {
@@ -195,7 +225,11 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     const h = JSON.parse(z[cle('hierarchie.json')] ?? '{}') as { noms: { indice: number; nom: string; chemin: string }[] };
     expect(h.noms).toEqual([{ indice: 0, nom: 'fenetre_1v', chemin: 'fenetre/fenetre_1v' }, { indice: 1, nom: 'fenetre_2v', chemin: 'fenetre/fenetre_2v' }, { indice: 2, nom: 'balcon', chemin: 'balcon' }]);
     const carnet = JSON.parse(z[cle('entrainer.ipynb')] ?? '{}') as { cells: { source: string }[] };
-    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolov10n.pt')");
+    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolo26n.pt')");
+    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("best.export(format='onnx', imgsz=640, nms=False)");
+    // Les poids se lisent la ou l'entrainement les a mis (Ultralytics 8.4 : runs/detect/runs/banc/…), jamais a un chemin devine.
+    expect(carnet.cells.map((c) => c.source).join('\n')).toContain('best = YOLO(str(m.trainer.best))');
+    expect(carnet.cells.map((c) => c.source).join('\n')).not.toContain('runs/banc/weights');
   });
 
   it('un regroupement ne s apprend pas, un detail appris vient apres les objets principaux', async () => {

@@ -7,6 +7,8 @@ import { api } from '../api.js';
 import { bitmap, COTE_SOURCE, COTE_TRAVAIL, jpeg, pixels, reduire, versCanevas, vignette } from '../images.js';
 import { redresserAuto, redresserParCoins, type Redressee } from '../redressement.js';
 import type { MetaImage, P } from '../types.js';
+import { Loupe } from './Loupe.js';
+import { BoutonsZoom, useZoom } from './useZoom.js';
 
 async function enregistrer(m: MetaImage, r: Redressee, extra: Record<string, unknown> = {}): Promise<MetaImage> {
   const c = versCanevas(r.image);
@@ -78,25 +80,48 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
 
 const NOMS_COINS = ['haut gauche', 'haut droit', 'bas droit', 'bas gauche'];
 
-/** Quatre coins d'un rectangle du mur, poses et tires au doigt ou a la souris sur la photo ; puis la photo redressee entiere. */
+/**
+ * Quatre coins d'un rectangle du mur, poses et tires au doigt ou a la souris sur la photo ; puis la photo redressee entiere. Zoom a la
+ * molette, aux boutons ou a deux doigts ; la loupe montre le point vise. Au doigt, un coin se vise (la loupe) et se pose au lever.
+ */
 function CoinsALaMain({ m, onFin, banc }: { m: MetaImage; onFin: (maj: MetaImage | null) => void; banc: Banc }) {
   const [coins, setCoins] = useState<P[]>([]);
   const [rapport, setRapport] = useState('');
   const [prise, setPrise] = useState<number | null>(null);
+  const [vise, setVise] = useState<P | null>(null);
+  const [doigt, setDoigt] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
   const L = m.largeur ?? 1000, H = m.hauteur ?? 750;
+  const { vue, zoomer, ajuster, capture } = useZoom(svg, L, H, () => { setPrise(null); setDoigt(false); });
+  const r = svg.current?.getBoundingClientRect();
+  const echelle = r && r.width > 0 ? Math.max(vue.w / r.width, vue.h / r.height) : vue.w / 1000;
   const point = (e: PE<SVGSVGElement>): P => {
-    const r = svg.current?.getBoundingClientRect();
-    return r ? { x: ((e.clientX - r.left) / r.width) * L, y: ((e.clientY - r.top) / r.height) * H } : { x: 0, y: 0 };
+    const ctm = svg.current?.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const q = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+    return { x: Math.min(L, Math.max(0, q.x)), y: Math.min(H, Math.max(0, q.y)) };
   };
   const bas = (e: PE<SVGSVGElement>) => {
     const p = point(e);
-    const proche = coins.findIndex((c) => Math.hypot(c.x - p.x, c.y - p.y) < 0.03 * Math.max(L, H));
+    setVise(p);
+    const proche = coins.findIndex((c) => Math.hypot(c.x - p.x, c.y - p.y) < 14 * echelle);
     if (proche >= 0) { setPrise(proche); svg.current?.setPointerCapture(e.pointerId); return; }
-    if (coins.length < 4) setCoins([...coins, p]);
+    if (coins.length >= 4) return;
+    if (e.pointerType === 'touch') { setDoigt(true); svg.current?.setPointerCapture(e.pointerId); return; }
+    setCoins([...coins, p]);
   };
-  const bouge = (e: PE<SVGSVGElement>) => { if (prise !== null) { const p = point(e); setCoins((l) => l.map((c, i) => (i === prise ? p : c))); } };
+  const bouge = (e: PE<SVGSVGElement>) => {
+    const p = point(e);
+    setVise(p);
+    if (prise !== null) setCoins((l) => l.map((c, i) => (i === prise ? p : c)));
+  };
+  const leve = (e: PE<SVGSVGElement>) => {
+    if (doigt && coins.length < 4) setCoins([...coins, point(e)]);
+    setDoigt(false); setPrise(null);
+    if (e.pointerType === 'touch') setVise(null);
+  };
+  const montrerLoupe = !!vise && (prise !== null || doigt || coins.length < 4);
   const valider = async () => {
     setEnvoi(true);
     try {
@@ -119,11 +144,20 @@ function CoinsALaMain({ m, onFin, banc }: { m: MetaImage; onFin: (maj: MetaImage
         <button type="button" className="principal" disabled={coins.length !== 4 || envoi} onClick={() => { void valider(); }}>{envoi ? 'Redressement…' : 'Redresser'}</button>
         <button type="button" className="discret" onClick={() => onFin(null)}>Annuler</button>
       </div>
-      <svg ref={svg} className="photo-coins" viewBox={`0 0 ${L} ${H}`} onPointerDown={bas} onPointerMove={bouge} onPointerUp={() => setPrise(null)}>
-        <image href={api.fichier(m.id, 'source')} width={L} height={H} />
-        {coins.length > 1 && <polygon points={coins.map((c) => `${c.x},${c.y}`).join(' ')} className="coins-trait" />}
-        {coins.map((c, i) => <g key={i}><circle cx={c.x} cy={c.y} r={0.012 * Math.max(L, H)} className="coin" /><text x={c.x + 0.015 * L} y={c.y - 0.01 * H} className="coin-num" fontSize={0.025 * H}>{i + 1}</text></g>)}
-      </svg>
+      <div className="photo-cadre">
+        {montrerLoupe && vise && <Loupe url={api.fichier(m.id, 'source')} L={L} H={H} objets={[]} classes={[]} centre={vise} echelle={echelle}
+          cote={vise.x - vue.x < vue.w / 2 ? 'droite' : 'gauche'} trace={prise === null ? coins : []} couleur="#ffeb3b" />}
+        <svg ref={svg} className="photo-coins" viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} {...capture}
+          onPointerDown={bas} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => { setDoigt(false); setPrise(null); }} onPointerLeave={(e) => { if (e.pointerType !== 'touch' && prise === null) setVise(null); }}>
+          <image href={api.fichier(m.id, 'source')} width={L} height={H} />
+          {coins.length > 1 && <polygon points={coins.map((c) => `${c.x},${c.y}`).join(' ')} className="coins-trait" strokeWidth={2 * echelle} />}
+          {coins.map((c, i) => <g key={i}><circle cx={c.x} cy={c.y} r={7 * echelle} className="coin" strokeWidth={2 * echelle} /><text x={c.x + 10 * echelle} y={c.y - 8 * echelle} className="coin-num" fontSize={16 * echelle}>{i + 1}</text></g>)}
+        </svg>
+        <div className="outils-scene">
+          {coins.length > 0 && <button type="button" onClick={() => setCoins(coins.slice(0, -1))}>Retirer le dernier coin</button>}
+          <BoutonsZoom zoomer={zoomer} ajuster={ajuster} />
+        </div>
+      </div>
     </section>
   );
 }

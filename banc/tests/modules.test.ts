@@ -435,3 +435,134 @@ describe('les canevas que Safari accepte', () => {
     expect(estVide(d)).toBe(false);
   });
 });
+
+describe('les vues choisies dans un panoramique 360', () => {
+  it('un cap se place dans le panoramique (la rue au milieu), se choisit au toucher, se retire, et garde son nom quand il en a un', async () => {
+    const { xDuCap, capDuX, basculerCap, vuesDesCaps, lirePhotos } = await import('../src/panoramax.js');
+    // La voiture roule vers l'est (90) : le milieu du panoramique regarde l'est, le nord est au quart, le sud aux trois quarts.
+    expect([xDuCap(90, 90), xDuCap(0, 90), xDuCap(180, 90)]).toEqual([0.5, 0.25, 0.75]);
+    expect([capDuX(0.25, 90), capDuX(0.75, 90), capDuX(0, 90)]).toEqual([0, 180, 270]);
+    let caps = basculerCap([], 0);
+    caps = basculerCap(caps, 180);
+    expect(caps).toEqual([0, 180]);
+    expect(basculerCap(caps, 20)).toEqual([180]);
+    expect(basculerCap(caps, 355)).toEqual([180]);
+    const p = { panoramique: true, azimut: 90, cap: 200 };
+    expect(vuesDesCaps(p, [0, 180, 200, 300], 'cotes')).toEqual([{ vue: 'gauche', cap: 0 }, { vue: 'droite', cap: 180 }, { vue: 'adresse', cap: 200 }, { vue: 'choisie', cap: 300 }]);
+    expect(vuesDesCaps(p, undefined, 'cotes')).toEqual([{ vue: 'gauche', cap: 0 }, { vue: 'droite', cap: 180 }]);
+    expect(vuesDesCaps({ ...p, panoramique: false }, [10, 20], 'cotes')).toEqual([{ vue: 'photo', cap: 90 }]);
+    // La version reduite d'une photo est lue, sur un hote permis seulement.
+    const f = (sd: string) => ({ features: [{ id: 'a', geometry: { coordinates: [2.1325, 48.905] }, properties: { 'pers:interior_orientation': { field_of_view: 360 } }, assets: { hd: { href: 'https://panoramax.ign.fr/api/pictures/a/hd.jpg' }, sd: { href: sd } } }] });
+    expect(lirePhotos(f('https://panoramax.ign.fr/api/pictures/a/sd.jpg'), { lat: 48.905, lon: 2.1325 }, 50)[0]?.sd).toBe('https://panoramax.ign.fr/api/pictures/a/sd.jpg');
+    expect(lirePhotos(f('https://ailleurs.example/sd.jpg'), { lat: 48.905, lon: 2.1325 }, 50)[0]?.sd).toBeNull();
+  });
+});
+
+describe('le zoom d’une photo (molette, boutons, deux doigts)', () => {
+  it('garde le point visé sous le curseur, se borne, et le pincement garde la photo sous les doigts', async () => {
+    const { zoomerAutour, versPhoto, pincer, vueEntiere } = await import('../src/zoom.js');
+    const v = vueEntiere(1000, 800);
+    const z = zoomerAutour(v, { x: 250, y: 200 }, 0.5, 1000);
+    expect(z).toEqual({ x: 125, y: 100, w: 500, h: 400 });
+    expect(zoomerAutour(v, { x: 0, y: 0 }, 1e-6, 1000).w).toBe(25);
+    expect(zoomerAutour(v, { x: 0, y: 0 }, 100, 1000).w).toBe(2000);
+    // Un cadre de 500 x 500 a l'ecran : la photo 1000 x 800 y tient a l'echelle 0,5, centree verticalement (50 px de marge).
+    const c = { left: 0, top: 0, width: 500, height: 500 };
+    expect(versPhoto({ x: 250, y: 250 }, c, v)).toEqual({ x: 500, y: 400 });
+    expect(versPhoto({ x: 0, y: 50 }, c, v)).toEqual({ x: 0, y: 0 });
+    // Les doigts s'ecartent deux fois plus autour du milieu de l'ecran : la vue est deux fois plus petite, le milieu de la photo reste.
+    const p = pincer(v, c, { x: 250, y: 250 }, 100, { x: 250, y: 250 }, 200, 1000);
+    expect(p).toEqual({ x: 250, y: 200, w: 500, h: 400 });
+    expect(versPhoto({ x: 250, y: 250 }, c, p)).toEqual({ x: 500, y: 400 });
+    // Les deux doigts glissent ensemble de 50 px vers la droite, sans s'ecarter : la photo suit (100 px de photo a l'echelle 0,5).
+    expect(pincer(v, c, { x: 250, y: 250 }, 100, { x: 300, y: 250 }, 100, 1000)).toEqual({ x: -100, y: 0, w: 1000, h: 800 });
+  });
+});
+
+describe('l’adresse du banc survit au rafraîchissement', () => {
+  it('le .htaccess du banc renvoie à une adresse entière, jamais relative ; la page écrit l’étape sur l’adresse entière', async () => {
+    const { readFileSync } = await import('node:fs');
+    const ht = readFileSync(new URL('../public/.htaccess', import.meta.url), 'utf8');
+    const regles = ht.split('\n').filter((l) => /^\s*RewriteRule/.test(l));
+    expect(regles).toEqual(['  RewriteRule ^(index\\.html)?$ %1?banc [R=302,L]']);
+    expect(ht).toMatch(/RewriteCond %\{REQUEST_URI\} \^\(\.\*\/\)banc\/\(index\\\.html\)\?\$/);
+    // L'expression de la condition, rejouee : le dossier du site, a la racine ou dans un sous-dossier.
+    const re = /^(.*\/)banc\/(index\.html)?$/;
+    expect(['/banc/', '/banc/index.html', '/plan/banc/'].map((u) => re.exec(u)?.[1])).toEqual(['/', '/', '/plan/']);
+    const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    expect(app).toContain("history.replaceState(null, '', location.pathname + location.search + '#' + ecran)");
+  });
+});
+
+describe('Ajuster cadre l’objet choisi', () => {
+  it('la vue cadre la boîte avec une marge d’un quart de chaque côté, sans passer la limite du zoom', async () => {
+    const { cadrer } = await import('../src/zoom.js');
+    expect(cadrer({ x0: 100, y0: 200, x1: 300, y1: 300 }, 1000)).toEqual({ x: 50, y: 175, w: 300, h: 150 });
+    // Une pointe (un point) : la vue la plus serree permise (L / 40), centree sur elle.
+    expect(cadrer({ x0: 500, y0: 400, x1: 500, y1: 400 }, 1000)).toEqual({ x: 487.5, y: 387.5, w: 25, h: 25 });
+  });
+});
+
+describe('copier, couper, coller des objets', () => {
+  it('copie un objet avec ses descendants, et le colle avec de nouveaux identifiants, les liens gardés, décalé dans l’image', async () => {
+    const { avecDescendants, coller } = await import('../src/edition.js');
+    const facade = rect('f', 'facade', 0, 0, 100, 100);
+    const fen = rect('w', 'fenetre', 10, 10, 40, 40, { parent: 'f', type: 'fenetre_2v', origine: 'auto', score: 0.9, modele: 'm' });
+    const cadre = rect('c', 'cadre-haut', 12, 12, 38, 18, { parent: 'w' });
+    const autre = rect('a', 'balcon', 60, 60, 90, 90, { parent: 'f' });
+    const l = [facade, fen, cadre, autre];
+    expect(avecDescendants(l, 'w').map((o) => o.id)).toEqual(['w', 'c']);
+    expect(avecDescendants(l, 'f').map((o) => o.id)).toEqual(['f', 'w', 'c', 'a']);
+    const r = coller(l, avecDescendants(l, 'w'), 100, 100, 5);
+    const [n1, n2] = r.objets.slice(4);
+    expect(r.objets).toHaveLength(6);
+    expect([n1?.id, n2?.id, r.premier]).toEqual(['m5', 'm6', 'm5']);
+    // Le premier perd son parent (le rangement le replacera), l'enfant garde le sien, renomme ; le brouillon devient « main ».
+    expect([n1?.parent, n2?.parent, n1?.origine, n1?.type, 'score' in (n1 ?? {}), 'modele' in (n1 ?? {})]).toEqual([null, 'm5', 'main', 'fenetre_2v', false, false]);
+    expect(n1?.points).toEqual([{ x: 15, y: 15 }, { x: 45, y: 45 }]);
+    // Au bord de l'image, le decalage se retourne.
+    const bord = coller([], [rect('b', 'balcon', 80, 80, 100, 100)], 100, 100, 5);
+    expect(bord.objets[0]?.points).toEqual([{ x: 75, y: 75 }, { x: 95, y: 95 }]);
+    expect(coller(l, [], 100, 100, 5)).toEqual({ objets: l, premier: null });
+  });
+});
+
+describe('la sélection multiple : boîte, lasso, alignement, même taille', () => {
+  it('prend les objets entièrement dans la zone, aligne sur la référence, et donne sa taille aux autres', async () => {
+    const { zoneDeSelection, objetsDansLaZone, aligner, memeTaille } = await import('../src/edition.js');
+    const facade = rect('f', 'facade', 0, 0, 100, 100);
+    const a = rect('a', 'fenetre', 10, 10, 20, 30), b = rect('b', 'fenetre', 40, 12, 56, 28), c = rect('c', 'fenetre', 70, 60, 90, 90);
+    const l = [facade, a, b, c];
+    expect(objetsDansLaZone(l, zoneDeSelection([{ x: 5, y: 5 }, { x: 60, y: 40 }], 'boite'))).toEqual(['a', 'b']);
+    // Une boite tiree dans l'autre sens prend les memes.
+    expect(objetsDansLaZone(l, zoneDeSelection([{ x: 60, y: 40 }, { x: 5, y: 5 }], 'boite'))).toEqual(['a', 'b']);
+    // Un lasso en triangle autour de c seulement.
+    expect(objetsDansLaZone(l, zoneDeSelection([{ x: 60, y: 50 }, { x: 99, y: 50 }, { x: 99, y: 99 }, { x: 60, y: 99 }], 'lasso'))).toEqual(['c']);
+    const ids = new Set(['a', 'b', 'c']);
+    const pts = (r: { id: string; points: { x: number; y: number }[] }[], id: string) => r.find((o) => o.id === id)?.points;
+    const haut = aligner(l, ids, 'a', 'haut');
+    expect([pts(haut, 'a'), pts(haut, 'b'), pts(haut, 'c'), pts(haut, 'f')]).toEqual([a.points, [{ x: 40, y: 10 }, { x: 56, y: 26 }], [{ x: 70, y: 10 }, { x: 90, y: 40 }], facade.points]);
+    expect(pts(aligner(l, ids, 'c', 'droite'), 'a')).toEqual([{ x: 80, y: 10 }, { x: 90, y: 30 }]);
+    expect(pts(aligner(l, ids, 'a', 'bas'), 'b')).toEqual([{ x: 40, y: 14 }, { x: 56, y: 30 }]);
+    expect(pts(aligner(l, ids, 'a', 'gauche'), 'c')).toEqual([{ x: 10, y: 60 }, { x: 30, y: 90 }]);
+    expect(haut.find((o) => o.id === 'b')?.origine).toBe('main');
+    // La taille de a (10 x 20) : b s'etire depuis son coin haut gauche.
+    expect(pts(memeTaille(l, ids, 'a', 'les-deux'), 'b')).toEqual([{ x: 40, y: 12 }, { x: 50, y: 32 }]);
+    expect(pts(memeTaille(l, ids, 'a', 'largeur'), 'c')).toEqual([{ x: 70, y: 60 }, { x: 80, y: 90 }]);
+    expect(pts(memeTaille(l, ids, 'a', 'hauteur'), 'c')).toEqual([{ x: 70, y: 60 }, { x: 90, y: 80 }]);
+  });
+});
+
+describe('la sortie d’un modèle se lit d’après sa forme', () => {
+  it('de bout en bout (YOLOv10, YOLO26 sans NMS, seg à 38 colonnes) ou brute (YOLOv8, YOLO11, YOLO26 exporté autrement)', async () => {
+    const { modeDeSortie } = await import('../src/yolo.js');
+    // Les formes relevees sur de vrais exports Ultralytics 8.4.211 (12 novembre 2026).
+    expect(modeDeSortie([1, 300, 6])).toEqual({ mode: 'bout-en-bout', pas: 6 });
+    expect(modeDeSortie([1, 300, 38])).toEqual({ mode: 'bout-en-bout', pas: 38 });
+    expect(modeDeSortie([1, 84, 8400])).toEqual({ mode: 'brut' });
+    expect(modeDeSortie([1, 116, 8400])).toEqual({ mode: 'brut' });
+    // Une ligne de 38 colonnes : la boite, le score et la classe en tete, les coefficients des masques ignores.
+    const d = new Float32Array(2 * 38); d.set([10, 20, 110, 220, 0.9, 3], 0); d.set([0, 0, 5, 5, 0.1, 1], 38);
+    expect(decoderV10(d, 0.3, 38)).toEqual([{ classe: 3, score: expect.closeTo(0.9, 5), boite: { x0: 10, y0: 20, x1: 110, y1: 220 } }]);
+  });
+});

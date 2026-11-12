@@ -68,7 +68,7 @@ export interface MetaImage {
   adresse?: string | null;
   /** L'identifiant de la parcelle cadastrale (IGN) vers laquelle la photo a ete cherchee. */
   parcelle?: string | null;
-  panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' } | null;
+  panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie' } | null;
   licence?: string | null;
   auteur?: string | null;
   largeur?: number;
@@ -115,7 +115,8 @@ export interface Annotation {
 export interface Modele {
   id: string;
   nom: string;
-  format: 'yolov10' | 'yolov8' | 'yolov8-seg';
+  /** L'architecture, pour memoire : le decodage suit la forme de la sortie (yolo.ts::modeDeSortie). */
+  format: 'yolo26' | 'yolo26-seg' | 'yolov10' | 'yolov8' | 'yolov8-seg';
   classes: string[];
   correspondance: Record<string, string>;
   seuil: number;

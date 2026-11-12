@@ -72,7 +72,9 @@ export function App() {
     api.etat().then((e) => setConnecte(e.connecte)).catch((e: Error) => setPanne(e.message));
   }, []);
   useEffect(() => { if (connecte) void relire(); }, [connecte, relire]);
-  useEffect(() => { history.replaceState(null, '', '#' + ecran); }, [ecran]);
+  // Une adresse entiere : la page porte <base href="banc/">, et un « #etape » seul s'y resoudrait en /banc/#etape (qui, rafraichi,
+  // sortait de ?banc).
+  useEffect(() => { history.replaceState(null, '', location.pathname + location.search + '#' + ecran); }, [ecran]);
   useEffect(() => {
     if (!message) return;
     const t = setTimeout(() => setMessage(null), message.genre === 'erreur' ? 9000 : 3500);
@@ -99,6 +101,11 @@ export function App() {
             </button>
           ))}
         </nav>
+        {/* Sur un telephone, les huit onglets prenaient tout l'ecran : une liste deroulante a leur place (styles.css). */}
+        <select className="etapes-liste" aria-label="Étape" value={edition ? '' : ecran} onChange={(e) => { setEdition(null); setEcran(e.target.value as typeof ecran); }}>
+          {edition && <option value="">Marquage d’une photo</option>}
+          {ECRANS.map((e) => <option key={e.id} value={e.id}>{e.numero} · {e.nom}</option>)}
+        </select>
         <span className="compte">{images.length} photo{images.length > 1 ? 's' : ''}</span>
         <button type="button" className="discret" onClick={deconnecter}>Se déconnecter</button>
       </header>
