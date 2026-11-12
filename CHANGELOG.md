@@ -20,6 +20,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (vingt noms de départ, `fenetre_1v` … `loggia`). La répartition train / val / test est stratifiée par type, et l’export porte un
   carnet Colab (`entrainer.ipynb`) pour entraîner le modèle qui fait ensuite le brouillon des photos non annotées.
   Pour ajuster un marquage au pixel, une loupe (×4) s’ouvre d’elle-même pendant qu’on tire un coin ou qu’on trace.
+  L’arbre va jusqu’au détail : des regroupements qui classent sans se dessiner (Ouverture → Fenêtre, Porte → leurs types), des
+  détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
+  dans le jeu exporté.
 
 ### Retiré
 

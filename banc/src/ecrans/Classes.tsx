@@ -4,7 +4,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Banc } from '../App.js';
 import { api } from '../api.js';
-import { CLASSES_DEFAUT, erreursDeLArbre, idDuNom, indicesYolo, nomsDeLaClasse, ordreDeLArbre, profondeur } from '../classes.js';
+import { CLASSES_DEFAUT, erreursDeLArbre, estDetail, idDuNom, indicesYolo, nomsDeLaClasse, ordreDeLArbre, profondeur } from '../classes.js';
+
+/** Les indices YOLO d'une classe, en abrege : « #3 », « #0–8 », « — » sans indice. */
+const indicesAffiches = (l: number[]): string => (!l.length ? '—' : l.length === 1 ? '#' + l[0] : `#${l[0]}–${l[l.length - 1]}`);
 import type { Attribut, Classe, TypeObjet } from '../types.js';
 
 export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: Classe[]) => void }) {
@@ -58,12 +61,12 @@ export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: C
     <section className="deux-colonnes">
       <div className="panneau">
         <h2>0 · Les objets à marquer</h2>
-        <p className="aide">Un objet se range dans un objet de sa classe parente (un cadre dans sa fenêtre). Les classes « apprises » entrent dans le jeu YOLO, avec l’indice affiché.</p>
+        <p className="aide">Trois niveaux : un <b>regroupement</b> classe sans se dessiner (Ouverture → Fenêtre, Porte) ; une <b>classe</b> se dessine et se range dans l’objet de sa classe parente (un cadre dans sa fenêtre) ; ses <b>types</b> la qualifient (fenetre_2v). Ce qui est « appris » entre dans le jeu YOLO avec l’indice affiché ; les détails appris prennent leurs indices après les objets principaux.</p>
         <ul className="arbre" role="listbox" aria-label="Classes">
           {ordre.map((x) => (
             <li key={x.id} role="option" aria-selected={x.id === choisie} className={x.id === choisie ? 'choisie' : ''} style={{ paddingLeft: 8 + 18 * profondeur(classes, x.id) }} onClick={() => setChoisie(x.id)}>
               <span className="pastille" style={{ background: x.couleur }} />
-              {x.nom} <small>{x.forme === 'polygone' ? '⬠' : '▭'} {nomsDeLaClasse(x).map((n) => '#' + yolo.get(n)).join(' ') || '—'}</small>
+              {x.regroupement ? <b>{x.nom}</b> : x.nom} <small>{x.regroupement ? 'regroupement' : <>{x.forme === 'polygone' ? '⬠' : '▭'} {indicesAffiches(nomsDeLaClasse(x).map((n) => yolo.get(n) ?? -1))}</>}</small>
             </li>
           ))}
         </ul>
@@ -105,9 +108,11 @@ function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: 
           </select>
         </label>
         <label>Couleur du marquage<input type="color" value={c.couleur} onChange={(e) => onMaj({ couleur: e.target.value })} /></label>
-        <label className="case"><input type="checkbox" checked={c.apprendre} onChange={(e) => onMaj({ apprendre: e.target.checked })} /> Apprise (entre dans le jeu YOLO)</label>
+        <label className="case"><input type="checkbox" checked={!!c.regroupement} onChange={(e) => onMaj(e.target.checked ? { regroupement: true, apprendre: false, types: [] } : { regroupement: false })} /> Regroupement (classe ses enfants, ne se dessine pas)</label>
+        {!c.regroupement && <label className="case"><input type="checkbox" checked={c.apprendre} onChange={(e) => onMaj({ apprendre: e.target.checked })} /> Apprise (entre dans le jeu YOLO){estDetail(c, classes) ? ' — un détail : ses indices viennent après les objets principaux' : ''}</label>}
         <label className="large">Description<input value={c.description ?? ''} onChange={(e) => onMaj({ description: e.target.value })} /></label>
       </div>
+      {!c.regroupement && <>
       <h4>Types (les noms que le modèle apprend)</h4>
       <p className="aide">Avec des types, le modèle voit l’objet et le qualifie : chaque type est un nom de <code>data.yaml</code>. Sans type, la classe elle-même est le nom appris.</p>
       <table className="tableau">
@@ -126,6 +131,7 @@ function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: 
         </tbody>
       </table>
       <div className="rang"><button type="button" onClick={() => onMaj({ types: [...(c.types ?? []), { id: 'type_' + ((c.types?.length ?? 0) + 1), nom: 'Nouveau type' }] })}>+ Type</button></div>
+      </>}
       <h4>Attributs à renseigner</h4>
       <table className="tableau">
         <thead><tr><th>Clé</th><th>Nom</th><th>Type</th><th>Valeurs (séparées par des virgules)</th><th /></tr></thead>

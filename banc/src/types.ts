@@ -29,6 +29,11 @@ export interface Classe {
    * c'est ce type que le modele apprend (son nom dans data.yaml). Sans types, la classe elle-meme est le nom appris.
    */
   types?: TypeObjet[];
+  /**
+   * Un regroupement (ouverture, fermeture, saillie) : un noeud de l'arbre qui classe ses enfants (« une fenetre est une ouverture »), jamais
+   * dessine ni appris. Les autres liens de l'arbre sont des liens de contenance : un cadre est dans sa fenetre.
+   */
+  regroupement?: boolean;
 }
 
 /** Un type d'une classe : son nom YOLO (minuscules, chiffres, _ et -) et son libelle. */

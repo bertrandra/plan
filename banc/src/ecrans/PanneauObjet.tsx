@@ -4,13 +4,14 @@ import type { ReactElement } from 'react';
 import type { Classe, Objet } from '../types.js';
 import { ordreDeLArbre } from '../classes.js';
 import { changerAttribut, changerClasse, changerType, enPolygone } from '../edition.js';
-import { libelleDe } from '../classes.js';
+import { classeContenante, libelleDe } from '../classes.js';
 
 const ORIGINES = { auto: 'brouillon, pas encore relu', main: 'posé à la main', corrige: 'brouillon corrigé' } as const;
 
 export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o: Objet; objets: Objet[]; classes: Classe[]; onChanger: (o: Objet) => void; onSupprimer: () => void }) {
   const c = classes.find((x) => x.id === o.classe);
-  const parents = c?.parent ? objets.filter((x) => x.classe === c.parent && x.id !== o.id) : [];
+  const contenante = c ? classeContenante(c, classes) : null;
+  const parents = contenante ? objets.filter((x) => x.classe === contenante && x.id !== o.id) : [];
   const nom = (x: Objet) => (classes.find((k) => k.id === x.classe)?.nom ?? x.classe) + ' ' + x.id;
   return (
     <div className="pile fiche-objet">
@@ -29,10 +30,10 @@ export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o
           </select>
         </label>
       )}
-      {c?.parent && (
+      {contenante && (
         <label>Dans
           <select value={o.parent ?? ''} onChange={(e) => onChanger({ ...o, parent: e.target.value || null, origine: o.origine === 'auto' ? 'corrige' : o.origine })}>
-            <option value="">— aucun ({classes.find((k) => k.id === c.parent)?.nom}) —</option>
+            <option value="">— aucun ({classes.find((k) => k.id === contenante)?.nom}) —</option>
             {parents.map((p) => <option key={p.id} value={p.id}>{nom(p)}</option>)}
           </select>
         </label>

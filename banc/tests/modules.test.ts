@@ -24,7 +24,7 @@ describe('l’arbre des classes', () => {
     // Les vingt noms du proprietaire, dans son ordre : les familles se qualifient par leurs types, les parties ne s'apprennent pas.
     expect(nomsYolo(CLASSES_DEFAUT)).toEqual(['fenetre_1v', 'fenetre_2v', 'fenetre_petits_carreaux', 'fenetre_imposte_carreaux', 'fenetre_imposte_simple', 'porte_fenetre', 'baie_vitree', 'fenetre_cintree', 'oeil_de_boeuf', 'lucarne', 'porte_pleine', 'porte_vitree', 'porte_double', 'porte_garage', 'volet_battant', 'volet_roulant', 'volet_pliant', 'balcon', 'garde_corps', 'loggia']);
     expect(indicesYolo(CLASSES_DEFAUT).get('loggia')).toBe(19);
-    expect(profondeur(CLASSES_DEFAUT, 'quadrillage')).toBe(2);
+    expect(profondeur(CLASSES_DEFAUT, 'quadrillage')).toBe(3);
     expect(nomYoloDe({ classe: 'fenetre', type: 'fenetre_2v' }, CLASSES_DEFAUT)).toBe('fenetre_2v');
     expect(nomYoloDe({ classe: 'fenetre' }, CLASSES_DEFAUT)).toBeNull();
     expect(nomYoloDe({ classe: 'balcon' }, CLASSES_DEFAUT)).toBe('balcon');
@@ -262,5 +262,29 @@ describe('la repartition stratifiee des blocs', () => {
     expect(manquesDuNom(c.get('oeil_de_boeuf'))).toEqual(['7 en train (viser 30 au moins)']);
     expect(manquesDuNom(c.get('fenetre_2v'))).toEqual([]);
     expect(manquesDuNom(undefined)).toEqual(['aucun objet marqué']);
+  });
+});
+
+describe('l’arbre vers le detail', () => {
+  it('les regroupements classent sans se dessiner ni s’apprendre ; un detail appris prend ses indices apres les vingt', async () => {
+    const { cheminDuNom, classeContenante, estDetail } = await import('../src/classes.js');
+    const c = CLASSES_DEFAUT;
+    expect(cheminDuNom('fenetre_2v', c)).toEqual(['facade', 'ouverture', 'fenetre', 'fenetre_2v']);
+    expect(cheminDuNom('volet_roulant', c)).toEqual(['facade', 'fermeture', 'volet', 'volet_roulant']);
+    expect(cheminDuNom('garde_corps', c)).toEqual(['facade', 'saillie', 'garde_corps']);
+    expect(choixDeCreation(c).some((x) => x.valeur === 'ouverture')).toBe(false);
+    expect(classeContenante(c.find((x) => x.id === 'fenetre') as Classe, c)).toBe('facade');
+    // Apprendre le quadrillage et le cadre haut : les vingt indices restent, les details viennent apres.
+    const avecDetails = c.map((x) => (x.id === 'quadrillage' || x.id === 'cadre-haut' ? { ...x, apprendre: true } : x));
+    expect(estDetail(avecDetails.find((x) => x.id === 'quadrillage') as Classe, avecDetails)).toBe(true);
+    expect(estDetail(avecDetails.find((x) => x.id === 'fenetre') as Classe, avecDetails)).toBe(false);
+    const n = nomsYolo(avecDetails);
+    expect(n.slice(0, 20)).toEqual(nomsYolo(c));
+    expect(n.slice(20)).toEqual(['cadre-haut', 'quadrillage']);
+    expect(cheminDuNom('quadrillage', avecDetails)).toEqual(['facade', 'ouverture', 'fenetre', 'quadrillage']);
+    // Une fenetre se range dans la facade (par-dessus le regroupement), un quadrillage dans sa fenetre.
+    const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
+    const fen = rect('w', 'fenetre', 10, 10, 40, 40, { type: 'fenetre_2v' }), q = rect('q', 'quadrillage', 12, 12, 38, 38);
+    expect(rangerLesParents([facade, fen, q], avecDetails).map((o) => o.parent)).toEqual([null, 'f', 'w']);
   });
 });

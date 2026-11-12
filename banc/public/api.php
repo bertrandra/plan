@@ -394,9 +394,11 @@ function modele_supprimer(string $id): void {
 // Export (etape 6) : le jeu au format Ultralytics
 
 /**
- * Les noms YOLO, dans l'ordre de l'arbre (parent avant enfants) : une classe apprise sans types donne son identifiant ; une classe a
- * types (la fenetre et ses qualifications : fenetre_1v, fenetre_2v…) donne ses types, dans leur ordre. Et le nom d'un objet : son type
- * pour une classe a types (« ?classe » quand il n'est pas encore qualifie), sa classe sinon ; null pour une classe non apprise.
+ * Les noms YOLO : d'abord les objets principaux dans l'ordre de l'arbre (parent avant enfants), puis les details appris (une classe
+ * rangee dans un objet appris : le cadre d'une fenetre) ; apprendre un detail ajoute des indices a la fin sans decaler les autres. Une
+ * classe apprise sans types donne son identifiant ; une classe a types (fenetre_1v, fenetre_2v…) donne ses types ; un regroupement
+ * (ouverture, fermeture…) ne donne rien. Et le nom d'un objet : son type pour une classe a types (« ?classe » s'il n'est pas qualifie),
+ * sa classe sinon ; null hors du jeu. Rend aussi le chemin de chaque nom dans l'arbre (« facade/ouverture/fenetre/fenetre_2v »).
  * Le meme ordre que la page (banc/src/classes.ts::nomsYolo).
  */
 function noms_yolo(): array {
@@ -405,28 +407,42 @@ function noms_yolo(): array {
   foreach ($l as $c) $parId[$c['id']] = $c;
   $enfants = [];
   foreach ($l as $c) $enfants[isset($parId[$c['parent'] ?? '']) ? $c['parent'] : ''][] = $c;
-  $ordre = [];
+  $appris = fn(array $c) => ($c['apprendre'] ?? true) !== false && empty($c['regroupement']);
+  $typesDe = fn(array $c) => array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, (array)($c['types'] ?? [])), 'is_string'));
+  $estDetail = function (array $c) use ($parId, $appris): bool {
+    for ($p = $parId[$c['parent'] ?? ''] ?? null, $n = 0; $p && $n < 20; $p = $parId[$p['parent'] ?? ''] ?? null, $n++) if ($appris($p)) return true;
+    return false;
+  };
+  $arbre = [];
   $vus = [];
-  $visiter = function (string $p) use (&$visiter, &$ordre, &$vus, $enfants) {
+  $visiter = function (string $p) use (&$visiter, &$arbre, &$vus, $enfants) {
     foreach ($enfants[$p] ?? [] as $c) {
       if (isset($vus[$c['id']])) continue;
       $vus[$c['id']] = true;
-      if (($c['apprendre'] ?? true) !== false) {
-        $types = array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, (array)($c['types'] ?? [])), 'is_string'));
-        foreach ($types ?: [$c['id']] as $n) $ordre[] = $n;
-      }
+      $arbre[] = $c;
       $visiter($c['id']);
     }
   };
   $visiter('');
-  $nomDe = function (array $o) use ($parId): ?string {
+  $chemin = function (array $c) use ($parId): string {
+    $l = [];
+    for ($k = $c, $n = 0; $k && $n < 20; $k = $parId[$k['parent'] ?? ''] ?? null, $n++) array_unshift($l, $k['id']);
+    return implode('/', $l);
+  };
+  $ordre = [];
+  $chemins = [];
+  foreach ([false, true] as $details) foreach ($arbre as $c) {
+    if (!$appris($c) || $estDetail($c) !== $details) continue;
+    foreach ($typesDe($c) ?: [$c['id']] as $n) { $ordre[] = $n; $chemins[$n] = $chemin($c) . ($typesDe($c) ? '/' . $n : ''); }
+  }
+  $nomDe = function (array $o) use ($parId, $appris, $typesDe): ?string {
     $c = $parId[$o['classe'] ?? ''] ?? null;
-    if (!$c || ($c['apprendre'] ?? true) === false) return null;
-    $types = array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, (array)($c['types'] ?? [])), 'is_string'));
+    if (!$c || !$appris($c)) return null;
+    $types = $typesDe($c);
     if (!$types) return $c['id'];
     return in_array($o['type'] ?? null, $types, true) ? $o['type'] : '?' . $c['id'];
   };
-  return [array_values(array_unique($ordre)), $nomDe];
+  return [array_values(array_unique($ordre)), $nomDe, $chemins];
 }
 
 /** Une ligne YOLO : la boite (detect) ou le contour (seg), en parts de l'image, a six decimales. */
@@ -458,7 +474,7 @@ function bloc_de(array $m, array $reglages): string {
 function exporter(string $format, bool $verifiees): void {
   if (!in_array($format, ['detect', 'seg', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, natif).');
   if (!class_exists('ZipArchive')) erreur(501, 'L’extension zip de PHP manque sur cet hébergement.');
-  [$classes, $nomDe] = noms_yolo();
+  [$classes, $nomDe, $chemins] = noms_yolo();
   $indice = array_flip($classes);
   $aQualifier = 0;
   $reglages = lire_json(dossier() . '/reglages.json', []);
@@ -500,6 +516,8 @@ function exporter(string $format, bool $verifiees): void {
   } else {
     $noms = '';
     foreach ($classes as $k => $c) $noms .= "  $k: $c\n";
+    // L'arbre voyage avec le jeu : YOLO apprend des noms a plat, hierarchie.json dit ou chacun se range (regroupement, objet, type, detail).
+    $zip->addFromString("$racine/hierarchie.json", json_encode(['noms' => array_map(fn($n, $k) => ['indice' => $k, 'nom' => $n, 'chemin' => $chemins[$n] ?? $n], $classes, array_keys($classes)), 'classes' => lire_json(dossier() . '/classes.json', ['classes' => []])['classes']], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     $zip->addFromString("$racine/data.yaml", "# Jeu du banc d'apprentissage des facades, " . gmdate('c') . "\npath: .\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n$noms");
     $zip->addFromString("$racine/entrainer.py", script_entrainement($format));
     $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine));

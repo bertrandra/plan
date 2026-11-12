@@ -122,15 +122,15 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     const detect = lireZip(await (await appel('GET', 'export', { format: 'detect', verifiees: '1' })).arrayBuffer());
     const cle = (fin: string) => Object.keys(detect).find((n) => n.endsWith(fin)) ?? '';
     expect(cle(`images/val/${id}.jpg`)).not.toBe('');
-    // Les indices suivent l'arbre (facade n'est pas apprise) : fenetre 0, cadre-haut 1, pignon 2.
-    expect(detect[cle('data.yaml')]).toContain('names:\n  0: fenetre\n  1: cadre-haut\n  2: pignon\n');
-    expect(detect[cle(`labels/val/${id}.txt`)]).toBe('0 0.200000 0.300000 0.200000 0.400000\n1 0.200000 0.150000 0.200000 0.100000\n2 0.750000 0.250000 0.500000 0.500000\n');
+    // Les indices suivent l'arbre (facade n'est pas apprise), les details apres : fenetre 0, pignon 1, cadre-haut 2 (dans la fenetre).
+    expect(detect[cle('data.yaml')]).toContain('names:\n  0: fenetre\n  1: pignon\n  2: cadre-haut\n');
+    expect(detect[cle(`labels/val/${id}.txt`)]).toBe('0 0.200000 0.300000 0.200000 0.400000\n2 0.200000 0.150000 0.200000 0.100000\n1 0.750000 0.250000 0.500000 0.500000\n');
     expect(detect[cle('entrainer.py')]).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolov10n.pt')");
     expect(JSON.parse(detect[cle('bilan.json')] ?? '{}')).toMatchObject({ images: { train: 0, val: 1, test: 0 }, objetsParClasse: { fenetre: { val: 1 }, pignon: { val: 1 } } });
 
     const seg = lireZip(await (await appel('GET', 'export', { format: 'seg' })).arrayBuffer());
     const cleSeg = Object.keys(seg).find((n) => n.endsWith(`labels/val/${id}.txt`)) ?? '';
-    expect(seg[cleSeg]).toBe('0 0.100000 0.100000 0.300000 0.100000 0.300000 0.500000 0.100000 0.500000\n1 0.100000 0.100000 0.300000 0.100000 0.300000 0.200000 0.100000 0.200000\n2 0.500000 0.500000 0.750000 0.000000 1.000000 0.500000\n');
+    expect(seg[cleSeg]).toBe('0 0.100000 0.100000 0.300000 0.100000 0.300000 0.500000 0.100000 0.500000\n2 0.100000 0.100000 0.300000 0.100000 0.300000 0.200000 0.100000 0.200000\n1 0.500000 0.500000 0.750000 0.000000 1.000000 0.500000\n');
     expect(seg[Object.keys(seg).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain("else 'yolo11n-seg.pt')");
 
     const natif = lireZip(await (await appel('GET', 'export', { format: 'natif' })).arrayBuffer());
@@ -185,8 +185,24 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect(z[cle('data.yaml')]).toContain('names:\n  0: fenetre_1v\n  1: fenetre_2v\n  2: balcon\n');
     expect(z[cle(`labels/train/${id}.txt`)]).toBe('1 0.250000 0.250000 0.500000 0.500000\n2 0.500000 0.800000 1.000000 0.400000\n');
     expect(JSON.parse(z[cle('bilan.json')] ?? '{}')).toMatchObject({ aQualifier: 1 });
+    const h = JSON.parse(z[cle('hierarchie.json')] ?? '{}') as { noms: { indice: number; nom: string; chemin: string }[] };
+    expect(h.noms).toEqual([{ indice: 0, nom: 'fenetre_1v', chemin: 'fenetre/fenetre_1v' }, { indice: 1, nom: 'fenetre_2v', chemin: 'fenetre/fenetre_2v' }, { indice: 2, nom: 'balcon', chemin: 'balcon' }]);
     const carnet = JSON.parse(z[cle('entrainer.ipynb')] ?? '{}') as { cells: { source: string }[] };
     expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolov10n.pt')");
+  });
+
+  it('un regroupement ne s apprend pas, un detail appris vient apres les objets principaux', async () => {
+    const classes = [
+      { id: 'ouverture', nom: 'Ouverture', parent: null, regroupement: true, forme: 'rectangle', couleur: '#90caf9', attributs: [], apprendre: true },
+      { id: 'fenetre', nom: 'Fenêtre', parent: 'ouverture', forme: 'rectangle', couleur: '#1e88e5', attributs: [], apprendre: true, types: [{ id: 'fenetre_2v', nom: '2 vantaux' }] },
+      { id: 'quadrillage', nom: 'Quadrillage', parent: 'fenetre', forme: 'rectangle', couleur: '#00acc1', attributs: [], apprendre: true },
+      { id: 'porte', nom: 'Porte', parent: 'ouverture', forme: 'rectangle', couleur: '#e53935', attributs: [], apprendre: true },
+    ];
+    expect((await appel('PUT', 'classes', {}, { classes })).status).toBe(200);
+    const z = lireZip(await (await appel('GET', 'export', { format: 'detect' })).arrayBuffer());
+    const cle = (fin: string) => Object.keys(z).find((n) => n.endsWith(fin)) ?? '';
+    expect(z[cle('data.yaml')]).toContain('names:\n  0: fenetre_2v\n  1: porte\n  2: quadrillage\n');
+    expect((JSON.parse(z[cle('hierarchie.json')] ?? '{}') as { noms: { chemin: string }[] }).noms.map((n) => n.chemin)).toEqual(['ouverture/fenetre/fenetre_2v', 'ouverture/porte', 'ouverture/fenetre/quadrillage']);
   });
 
   it('se deconnecte', async () => {

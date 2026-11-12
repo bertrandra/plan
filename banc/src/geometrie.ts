@@ -1,6 +1,7 @@
 // La geometrie des objets marques : boites, surfaces, recouvrement, et le parent d'un objet dans l'arbre des classes.
 
 import type { Classe, Objet, P } from './types.js';
+import { classeContenante } from './classes.js';
 
 export interface Boite { x0: number; y0: number; x1: number; y1: number }
 
@@ -54,7 +55,9 @@ export function partDans(a: Boite, b: Boite): number {
  * (au moins 80 % de sa boite dedans). Null quand sa classe est a la racine ou qu'aucun ne le contient.
  */
 export function parentDe(o: Objet, objets: readonly Objet[], classes: readonly Classe[]): string | null {
-  const cp = classes.find((c) => c.id === o.classe)?.parent;
+  // Le parent de contenance : la classe parente, en sautant les regroupements (une fenetre est une ouverture, elle est dans la facade).
+  const k = classes.find((c) => c.id === o.classe);
+  const cp = k ? classeContenante(k, classes) : null;
   if (!cp) return null;
   const b = boite(contour(o));
   let mieux: { id: string; s: number } | null = null;
