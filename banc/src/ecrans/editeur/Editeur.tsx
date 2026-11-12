@@ -144,7 +144,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
               onTaille={(t) => { if (sel.choisi) marquage.changer((l) => memeTaille(l, sel.selection, sel.choisi as string, t)); }} />}
             onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste}
             surChoix={sel.cibles.size > 0 && <>
-              <button type="button" className="danger" onClick={retirerPris} title="Supprimer (Suppr ou X)"><Icone nom="poubelle" /> Supprimer{sel.cibles.size > 1 ? ` (${sel.cibles.size})` : ''}</button>
+              <button type="button" className="danger icone-seule" onClick={retirerPris} title={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} (Suppr ou X)` : 'Supprimer (Suppr ou X)'} aria-label={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} objets` : 'Supprimer'}><Icone nom="poubelle" /></button>
               <button type="button" onClick={() => sel.choisir(null)} title="Ne plus rien choisir (Échap)" aria-label="Ne plus rien choisir"><Icone nom="fermer" /></button>
             </>} />
         ) : <p className="etat scene-attente">Chargement du marquage…</p>}

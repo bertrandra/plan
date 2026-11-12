@@ -15,7 +15,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ### Corrigé
 
 - **Banc : supprimer un objet au téléphone** (12 novembre 2026). Le bouton n'était que dans l'inspecteur, deux écrans sous la photo,
-  après la carte de relecture : un objet choisi montre maintenant « Supprimer » (et ✕ pour ne plus rien choisir) sur la photo, près
+  après la carte de relecture : un objet choisi montre maintenant une poubelle (et ✕ pour ne plus rien choisir) sur la photo, près
   du zoom, au doigt comme à la souris.
 - **Banc : les onglets restent en haut pendant le marquage d'une photo**, sur un ordinateur (PC ou Mac) ; l'onglet Marquage reste
   allumé. Au téléphone, la liste déroulante reste.
