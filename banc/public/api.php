@@ -521,8 +521,10 @@ function script_entrainement(string $format): string {
     . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
     . "# Poids de depart : $poids (YOLOv10n comme le depot facade pour la detection ; YOLO11n-seg pour les contours).\n"
     . "# Le modele .onnx produit se depose dans le banc (etape 3, Modeles), avec la liste de ses classes (data.yaml).\n"
-    . "import sys\nfrom ultralytics import YOLO\n\ndevice = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n"
-    . "m = YOLO('$poids')\n"
+    . "# Poids de depart : depart.pt pose a cote de ce script s'il y en a un (le modele fenetres/portes ou volets du depot facade, en .pt,\n"
+    . "# ou un modele du banc deja entraine) ; sinon $poids. Ultralytics garde ce qui sert (le tronc) et refait la tete aux noms du jeu.\n"
+    . "import os, sys\nfrom ultralytics import YOLO\n\ndevice = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n"
+    . "m = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\n"
     . "m.train(data='data.yaml', epochs=100, patience=25, imgsz=640, batch=8, device=device, workers=2, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
     . "m.val(data='data.yaml', split='test')\n"
     . "m.export(format='onnx', imgsz=640" . ($format === 'seg' ? '' : ', nms=False') . ")\n";
@@ -542,7 +544,9 @@ function carnet_colab(string $format, string $racine): string {
     $code("!pip install -q 'ultralytics==8.4.*'"),
     $texte("Envoyer le zip exporté par le banc (`$racine.zip`)."),
     $code("from google.colab import files\nimport zipfile, os, glob\nenvoi = files.upload()\nzipfile.ZipFile(next(iter(envoi))).extractall('.')\nos.chdir(sorted(glob.glob('banc-*/'))[-1])\nprint(open('data.yaml').read())"),
-    $code("from ultralytics import YOLO\nm = YOLO('$poids')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
+    $texte("Facultatif : envoyer des poids de départ `.pt` (le modèle fenêtres/portes ou volets du dépôt facade, ou un modèle du banc déjà entraîné). Sans eux, l'entraînement part de `$poids` (COCO). Passer la cellule pour partir de COCO."),
+    $code("depart = files.upload()\nopen('depart.pt', 'wb').write(next(iter(depart.values()))) if depart else None"),
+    $code("from ultralytics import YOLO\nm = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
     $code("best = YOLO('runs/banc/weights/best.pt')\nmesure = best.val(data='data.yaml', split='test')\nprint('mAP50-95 test :', mesure.box.map)\nfor i, n in best.names.items(): print(i, n, round(float(mesure.box.maps[i]), 3))"),
     $code("chemin = best.export(format='onnx', imgsz=640" . ($format === 'seg' ? '' : ', nms=False') . ")\nfiles.download(chemin)\nprint('Noms à coller dans le banc (étape 3) :')\nfor i, n in best.names.items(): print(f'{i}: {n}')"),
   ];

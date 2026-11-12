@@ -125,13 +125,13 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     // Les indices suivent l'arbre (facade n'est pas apprise) : fenetre 0, cadre-haut 1, pignon 2.
     expect(detect[cle('data.yaml')]).toContain('names:\n  0: fenetre\n  1: cadre-haut\n  2: pignon\n');
     expect(detect[cle(`labels/val/${id}.txt`)]).toBe('0 0.200000 0.300000 0.200000 0.400000\n1 0.200000 0.150000 0.200000 0.100000\n2 0.750000 0.250000 0.500000 0.500000\n');
-    expect(detect[cle('entrainer.py')]).toContain("YOLO('yolov10n.pt')");
+    expect(detect[cle('entrainer.py')]).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolov10n.pt')");
     expect(JSON.parse(detect[cle('bilan.json')] ?? '{}')).toMatchObject({ images: { train: 0, val: 1, test: 0 }, objetsParClasse: { fenetre: { val: 1 }, pignon: { val: 1 } } });
 
     const seg = lireZip(await (await appel('GET', 'export', { format: 'seg' })).arrayBuffer());
     const cleSeg = Object.keys(seg).find((n) => n.endsWith(`labels/val/${id}.txt`)) ?? '';
     expect(seg[cleSeg]).toBe('0 0.100000 0.100000 0.300000 0.100000 0.300000 0.500000 0.100000 0.500000\n1 0.100000 0.100000 0.300000 0.100000 0.300000 0.200000 0.100000 0.200000\n2 0.500000 0.500000 0.750000 0.000000 1.000000 0.500000\n');
-    expect(seg[Object.keys(seg).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain("YOLO('yolo11n-seg.pt')");
+    expect(seg[Object.keys(seg).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain("else 'yolo11n-seg.pt')");
 
     const natif = lireZip(await (await appel('GET', 'export', { format: 'natif' })).arrayBuffer());
     const a = JSON.parse(natif[Object.keys(natif).find((n) => n.endsWith('annotations.json')) ?? ''] ?? '{}') as { images: { annotation: { objets: { id: string; parent: string | null; attributs: unknown }[] } }[] };
@@ -186,7 +186,7 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect(z[cle(`labels/train/${id}.txt`)]).toBe('1 0.250000 0.250000 0.500000 0.500000\n2 0.500000 0.800000 1.000000 0.400000\n');
     expect(JSON.parse(z[cle('bilan.json')] ?? '{}')).toMatchObject({ aQualifier: 1 });
     const carnet = JSON.parse(z[cle('entrainer.ipynb')] ?? '{}') as { cells: { source: string }[] };
-    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('yolov10n.pt')");
+    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolov10n.pt')");
   });
 
   it('se deconnecte', async () => {

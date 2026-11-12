@@ -34,6 +34,11 @@ Seules les photos **corrigées** (marquage relu et enregistré) entrent dans le 
 3. Déposer `best.onnx` à l’étape 3 avec la liste `names` : ses noms vont d’eux-mêmes vers les types du banc.
 4. Le brouillon des photos non annotées pose et qualifie ; on corrige, la série grandit, on réentraîne.
 
+Pour repartir du début d’entraînement du dépôt `facade` plutôt que de COCO, poser ses poids `.pt` (le modèle fenêtres/portes ou
+volets, entraîné sur CMP Facade) sous le nom `depart.pt` à côté de `entrainer.py`, ou les envoyer dans la cellule prévue du carnet :
+Ultralytics garde le tronc et refait la tête aux noms du jeu. Le dépôt `facade` ne garde que les `.onnx`, qui servent au brouillon
+mais ne se réentraînent pas.
+
 Les modèles du dépôt `facade` (YOLOv10n, AGPL-3.0) s’installent d’un geste : le serveur les télécharge une fois depuis
 GitHub, à un commit fixé, puis la page les lit sur le serveur. Le moteur ONNX (onnxruntime-web 1.24.1) vient d’un CDN.
 
