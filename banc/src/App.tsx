@@ -14,7 +14,7 @@ import { EcranBrouillon } from './ecrans/Brouillon.js';
 import { EcranCatalogue } from './ecrans/Catalogue.js';
 import { EcranExport } from './ecrans/Export.js';
 import { EcranBlocs } from './ecrans/Blocs.js';
-import { Editeur } from './ecrans/Editeur.js';
+import { Editeur } from './ecrans/editeur/Editeur.js';
 
 export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs';
 
@@ -90,7 +90,7 @@ export function App() {
   const deconnecter = () => { api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
 
   return (
-    <div className="banc">
+    <div className={edition ? 'banc en-edition' : 'banc'}>
       <header className="barre">
         <strong className="titre">Banc d’apprentissage · façades</strong>
         <nav aria-label="Étapes">

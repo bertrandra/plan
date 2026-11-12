@@ -5,13 +5,13 @@
 // de la selection en fait la reference (pour aligner et donner la meme taille) ; tirer un objet de la selection deplace tout le groupe.
 
 import { useEffect, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
-import type { Classe, Forme, Objet, P } from '../types.js';
-import { boite, contour } from '../geometrie.js';
-import { libelleDe } from '../classes.js';
-import { Loupe } from './Loupe.js';
-import { BoutonsZoom, useZoom } from './useZoom.js';
-import { cadrer, vueDuCadre } from '../zoom.js';
-import { ajouterSommet, deplacer, objetsDansLaZone, poignees, retirerSommet, tirerPoignee, zoneDeSelection } from '../edition.js';
+import type { Classe, Forme, Objet, P } from '../../types.js';
+import { boite, contour } from '../../geometrie.js';
+import { libelleDe } from '../../classes.js';
+import { Loupe } from '../Loupe.js';
+import { BoutonsZoom, useZoom } from '../useZoom.js';
+import { cadrer, vueDuCadre } from '../../zoom.js';
+import { ajouterSommet, deplacer, objetsDansLaZone, poignees, retirerSommet, tirerPoignee, zoneDeSelection } from '../../edition.js';
 
 /** Les outils : choisir et deplacer les objets, selectionner (boite, lasso), deplacer la vue (main), zoomer, et tracer une forme. */
 export type Outil = 'choisir' | 'selection' | 'vue' | 'zoom' | Forme;
@@ -44,9 +44,10 @@ interface Props {
   /** `fin` : le geste est fini ; sinon les objets suivent le doigt. L'etat d'avant le geste est note par onDebutGeste. */
   onModifier: (objets: Objet[], fin: boolean) => void;
   onDebutGeste: () => void;
-  /** Les modes poses en bas de la photo (main, zoom, selection) changent l'outil de l'editeur. */
-  onOutil: (o: Outil) => void;
-  onModeSelection: (m: ModeSelection) => void;
+  /** Toutes les etiquettes (touche E) ; sinon, seulement celles de l'objet survole et de la selection. */
+  etiquettes: boolean;
+  /** La loupe automatique (touche L), tenue par l'editeur. */
+  loupe: boolean;
   /** Ce qui se pose en haut de la photo (les actions de la selection). */
   enTete?: ReactNode;
 }
@@ -61,48 +62,35 @@ function PointMarque({ p, couleur, r, trait, onPointerDown }: { p: P; couleur: s
   );
 }
 
-/** Les boutons poses sur la photo : finir le trace (au doigt, ni double clic ni Entree), retirer son dernier point, le zoom, la loupe. */
-function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster, loupe, basculerLoupe, outil, modeSelection, onOutil, onModeSelection }: {
-  finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string; loupe: boolean; basculerLoupe: () => void;
-  outil: Outil; modeSelection: ModeSelection; onOutil: (o: Outil) => void; onModeSelection: (m: ModeSelection) => void;
-}) {
-  const mode = (o: Outil, m?: ModeSelection) => o === outil && (!m || m === modeSelection);
-  const bouton = (o: Outil, picto: string, titre: string, m?: ModeSelection) => (
-    <button type="button" className={mode(o, m) ? 'onglet actif' : 'onglet'} aria-pressed={mode(o, m)} title={titre} aria-label={titre} onClick={() => { onOutil(o); if (m) onModeSelection(m); }}>{picto}</button>
-  );
+/** Les boutons poses sur la photo, en bas a droite : finir le trace (au doigt, ni double clic ni Entree), retirer son dernier point, le zoom. */
+function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster }: { finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string }) {
   return (
     <div className="outils-scene">
       {finir && <button type="button" className="principal" onClick={finir}>Finir le tracé</button>}
       {retirer && <button type="button" onClick={retirer}>Retirer le dernier point</button>}
-      <span className="modes-scene" role="group" aria-label="Mode de la souris">
-        {bouton('choisir', '☝', 'Choisir, déplacer, redimensionner (V)')}
-        {bouton('vue', '✋', 'Déplacer la vue (H, ou Espace + glisser)')}
-        {bouton('zoom', '🔍', 'Zoom (Z) : clic pour rapprocher, Alt + clic pour éloigner, tirer un cadre pour le montrer')}
-        {bouton('selection', '⬚', 'Sélection en boîte (S)', 'boite')}
-        {bouton('selection', '➰', 'Sélection au lasso (S)', 'lasso')}
-      </span>
       <BoutonsZoom zoomer={zoomer} ajuster={ajuster} titreAjuster={titreAjuster} />
-      <button type="button" className={loupe ? 'bascule-loupe active' : 'bascule-loupe'} aria-pressed={loupe} title="Loupe automatique (L)" onClick={basculerLoupe}>🔍 Loupe</button>
     </div>
   );
 }
 
-/** Le clavier de la scene : espace (deplacer la vue), Echap (annuler), L (la loupe), Entree (finir le trace). */
-function useClavier({ espace, trace, minPoints, outil, onCreer, onChoisir, annuler, basculerLoupe, viderTrace }: {
+/**
+ * Le clavier de la scene : espace (deplacer la vue), Echap (annuler), Entree (finir le trace). En phase de capture, avant les raccourcis
+ * de l'editeur : une touche que la scene prend est marquee (preventDefault), et l'editeur la laisse (Entree finit le trace, et seulement).
+ */
+function useClavier({ espace, trace, minPoints, outil, onCreer, onChoisir, annuler, viderTrace }: {
   espace: { current: boolean }; trace: P[]; minPoints: number; outil: Outil; onCreer: (points: P[], forme: Forme) => void;
-  onChoisir: (id: string | null) => void; annuler: () => void; basculerLoupe: () => void; viderTrace: () => void;
+  onChoisir: (id: string | null) => void; annuler: () => void; viderTrace: () => void;
 }) {
   useEffect(() => {
     const bas = (e: KeyboardEvent) => {
       if (e.key === ' ' && !(e.target as HTMLElement).closest('input, select, textarea')) { espace.current = true; e.preventDefault(); }
       if (e.key === 'Escape') { annuler(); onChoisir(null); }
-      if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey && !(e.target as HTMLElement).closest('input, select, textarea')) basculerLoupe();
-      if (e.key === 'Enter' && trace.length >= minPoints) { onCreer(trace, outil === 'ligne' ? 'ligne' : 'polygone'); viderTrace(); }
+      if (e.key === 'Enter' && trace.length >= minPoints) { e.preventDefault(); onCreer(trace, outil === 'ligne' ? 'ligne' : 'polygone'); viderTrace(); }
     };
     const haut = (e: KeyboardEvent) => { if (e.key === ' ') espace.current = false; };
-    window.addEventListener('keydown', bas);
+    window.addEventListener('keydown', bas, true);
     window.addEventListener('keyup', haut);
-    return () => { window.removeEventListener('keydown', bas); window.removeEventListener('keyup', haut); };
+    return () => { window.removeEventListener('keydown', bas, true); window.removeEventListener('keyup', haut); };
   }, [trace, onCreer, onChoisir, outil]);
 }
 
@@ -136,8 +124,13 @@ function poserUnPoint(p: P, { outil, trace, setTrace, onCreer, tolerance }: { ou
   if (outil === 'point') onCreer([p], 'point');
 }
 
-/** Les objets dessines : la reference (le choisi) plus marquee, la selection soulignee en pointilles blancs. */
-function Dessin({ objets, classes, choisi, selection, echelle, surObjet }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; surObjet: (e: PE<SVGElement>, o: Objet) => void }) {
+/**
+ * Les objets dessines : la reference (le choisi) plus marquee, la selection soulignee en pointilles blancs ; un brouillon pas encore relu
+ * en pointilles, un objet relu en trait plein. Les etiquettes ne se montrent qu'au survol et sur la selection (toutes : touche E) : sur une
+ * facade chargee, elles se chevauchaient jusqu'a cacher la photo.
+ */
+function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surObjet }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; etiquettes: boolean; surObjet: (e: PE<SVGElement>, o: Objet) => void }) {
+  const [survole, setSurvole] = useState<string | null>(null);
   const couleur = (o: Objet) => classes.find((c) => c.id === o.classe)?.couleur ?? '#ff00ff';
   const nom = (o: Objet) => libelleDe(o, classes) + (classes.find((c) => c.id === o.classe)?.types?.length && !o.type ? ' ?' : '');
   const trait = 2 * echelle;
@@ -147,11 +140,11 @@ function Dessin({ objets, classes, choisi, selection, echelle, surObjet }: { obj
         const pts = contour(o).map((q) => `${q.x},${q.y}`).join(' ');
         const c = couleur(o), choisiIci = o.id === choisi, pris = selection.size > 1 && selection.has(o.id);
         return (
-          <g key={o.id} className={'objet origine-' + o.origine + (choisiIci ? ' choisi' : '') + (pris ? ' selectionne' : '')}>
+          <g key={o.id} className={'objet origine-' + o.origine + (choisiIci ? ' choisi' : '') + (pris ? ' selectionne' : '')} onPointerEnter={() => setSurvole(o.id)} onPointerLeave={() => setSurvole((x) => (x === o.id ? null : x))}>
             {pris && o.forme !== 'point' && <polygon points={contour(o).map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke="#fff" strokeWidth={trait * (choisiIci ? 2.5 : 1.5)} strokeDasharray={`${5 * echelle} ${3 * echelle}`} pointerEvents="none" />}
             {o.forme === 'point' ? <PointMarque p={o.points[0] ?? { x: 0, y: 0 }} couleur={c} r={(choisiIci || pris ? 9 : 7) * echelle} trait={trait} onPointerDown={(e) => surObjet(e, o)} />
               : o.forme === 'ligne' ? <polyline points={pts} fill="none" stroke={c} strokeWidth={(choisiIci ? 3 : 2) * trait} onPointerDown={(e) => surObjet(e, o)} /> : <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : pris ? 0.2 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />}
-            <text x={contour(o)[0]?.x ?? 0} y={(contour(o)[0]?.y ?? 0) - 3 * echelle} fill={c} fontSize={12 * echelle} className="etiquette">{nom(o)}{o.score !== undefined && o.origine === 'auto' ? ' ' + Math.round(o.score * 100) + '%' : ''}</text>
+            {(etiquettes || choisiIci || pris || survole === o.id) && <text x={boite(o.points).x0} y={boite(o.points).y0 - 4 * echelle} fill={c} fontSize={13 * echelle} className="etiquette" strokeWidth={3 * echelle}>{nom(o)}{o.score !== undefined && o.origine === 'auto' && (choisiIci || survole === o.id) ? ' · ' + Math.round(o.score * 100) + ' %' : ''}</text>}
           </g>
         );
       })}
@@ -170,22 +163,20 @@ function Poignees({ o, rayon, surPoignee, ajouter }: { o: Objet; rayon: number; 
   );
 }
 
-export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, onOutil, onModeSelection, enTete }: Props) {
+export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [geste, setGeste] = useState<Geste | null>(null);
   // Le second doigt pose : ce que le premier avait commence (un trait, un deplacement, une visee) s'annule, on zoome.
   const { vue, setVue, zoomer, ajuster, capture } = useZoom(svg, L, H, () => setGeste(null));
   const [trace, setTrace] = useState<P[]>([]);
   const [survol, setSurvol] = useState<P | null>(null);
-  // La loupe automatique : L la coupe ou la remet (gardee pour la session de l'editeur).
-  const [loupe, setLoupe] = useState(true);
   // Une ligne (egout, sol) se finit a deux points ; un polygone a trois.
   const minPoints = outil === 'ligne' ? 2 : 3;
   const espace = useRef(false);
   const seuil = useRef(SEUIL_SOURIS);
   useEffect(() => { ajuster(); setTrace([]); }, [url, L, H]);
   useEffect(() => { setTrace([]); }, [outil]);
-  useClavier({ espace, trace, minPoints, outil, onCreer, onChoisir, annuler: () => { setTrace([]); setGeste(null); }, basculerLoupe: () => setLoupe((x) => !x), viderTrace: () => setTrace([]) });
+  useClavier({ espace, trace, minPoints, outil, onCreer, onChoisir, annuler: () => { setTrace([]); setGeste(null); }, viderTrace: () => setTrace([]) });
 
   // Pixels de la photo par pixel d'ecran (la vue tient entiere dans le cadre : la plus serree des deux directions).
   const r = svg.current?.getBoundingClientRect();
@@ -300,12 +291,11 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     {enTete && <div className="entete-scene">{enTete}</div>}
     {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
     <OutilsScene finir={trace.length >= minPoints && (outil === 'polygone' || outil === 'ligne') ? finir : null} retirer={trace.length ? () => setTrace(trace.slice(0, -1)) : null}
-      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={pris.length > 1 ? `Cadrer les ${pris.length} objets sélectionnés` : objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)}
-      outil={outil} modeSelection={modeSelection} onOutil={onOutil} onModeSelection={onModeSelection} />
+      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={pris.length > 1 ? `Cadrer les ${pris.length} objets sélectionnés` : objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} />
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
       {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => setGeste(null)} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
       <image href={url} width={L} height={H} />
-      <Dessin objets={objets} classes={classes} choisi={choisi} selection={selection} echelle={echelle} surObjet={surObjet} />
+      <Dessin objets={objets} classes={classes} choisi={choisi} selection={selection} echelle={echelle} etiquettes={etiquettes} surObjet={surObjet} />
       {objetChoisi && selection.size <= 1 && outil !== 'vue' && outil !== 'zoom' && <Poignees o={objetChoisi} rayon={rayon} surPoignee={surPoignee} ajouter={(k) => { onDebutGeste(); onModifier([ajouterSommet(objetChoisi, k)], true); }} />}
       {enCours && <rect x={Math.min(enCours.depart.x, enCours.courant.x)} y={Math.min(enCours.depart.y, enCours.courant.y)} width={Math.abs(enCours.courant.x - enCours.depart.x)} height={Math.abs(enCours.courant.y - enCours.depart.y)} fill="none" stroke={geste?.type === 'cadre' ? '#fff' : classe?.couleur ?? '#fff'} strokeWidth={trait} strokeDasharray={`${4 * echelle}`} />}
       {zone && <polygon points={zone.map((q) => `${q.x},${q.y}`).join(' ')} className="zone-selection" strokeWidth={trait} strokeDasharray={`${5 * echelle} ${4 * echelle}`} />}

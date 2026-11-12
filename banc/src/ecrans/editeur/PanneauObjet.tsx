@@ -1,10 +1,10 @@
 // Le panneau de l'objet choisi (sa classe, son parent, ses attributs) et la liste des objets de la photo, rangee en arbre.
 
 import type { ReactElement } from 'react';
-import type { Classe, Objet } from '../types.js';
-import { ordreDeLArbre } from '../classes.js';
-import { changerAttribut, changerClasse, changerType, enPolygone } from '../edition.js';
-import { classeContenante, libelleDe } from '../classes.js';
+import type { Classe, Objet } from '../../types.js';
+import { ordreDeLArbre } from '../../classes.js';
+import { changerAttribut, changerClasse, changerType, enPolygone } from '../../edition.js';
+import { classeContenante, libelleDe } from '../../classes.js';
 
 const ORIGINES = { auto: 'brouillon, pas encore relu', main: 'posé à la main', corrige: 'brouillon corrigé' } as const;
 

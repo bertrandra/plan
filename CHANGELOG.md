@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Banc : l'éditeur devient un poste de relecture** (demande du propriétaire, 12 novembre 2026 : « de la productivité, et que ce soit
+  beau »). Une barre du haut sur une ligne (la photo, ce qui reste à relire, Vérifiée, bloc, Enregistrer, **Valider et suivante**), une
+  colonne d'outils à gauche avec des icônes dessinées (choisir, main, zoom, boîte, lasso, formes ; étiquettes, loupe, aide), la photo sur un
+  fond sombre, l'inspecteur à droite en deux onglets (Objet : la relecture du brouillon, l'objet ou la sélection, la palette des types ;
+  Liste), et le bandeau des photos du lot en bas, avec leur état et l'avancement. Au clavier : Tab / Maj+Tab l'objet à relire suivant
+  ou précédent (dans l'ordre de lecture de la façade), A accepter (et passer au suivant), Maj+A accepter tout au-dessus du seuil, X
+  supprimer, 1 à 9 donner un type à la sélection (ou le choisir pour tracer), Entrée enregistrer, marquer vérifiée et ouvrir la photo
+  suivante, flèches décaler d'un pixel (Maj : dix), E toutes les étiquettes, ? l'aide. Un curseur masque le brouillon sous un score. Les
+  étiquettes ne s'affichent qu'au survol et sur la sélection (elles se chevauchaient jusqu'à cacher la façade) ; un brouillon reste en
+  pointillés, un objet relu en trait plein. Le code est structuré en contrôleurs React (`banc/src/ecrans/editeur/` : `useMarquage`,
+  `useSelection`, `usePressePapiers`, `useRelecture`, `useRaccourcis`) et en vues ; la logique pure (`relecture.ts`, `raccourcis.ts`, la
+  même table pour le clavier et l'aide) est testée seule.
+
 ### Ajouté
 
 - **Banc : l'inspecteur d'une sélection multiple.** Quand plusieurs objets sont pris, l'inspecteur change pour tous d'un coup la classe,

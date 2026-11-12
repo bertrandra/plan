@@ -585,7 +585,7 @@ describe('RF-DETR (Apache 2.0) : la lecture de ses sorties', () => {
 
 describe('l’ordre du dessin des objets', () => {
   it('du plus grand au plus petit : une façade tracée après ses fenêtres ne les recouvre pas', async () => {
-    const { parTaille } = await import('../src/ecrans/Scene.js');
+    const { parTaille } = await import('../src/ecrans/editeur/Scene.js');
     const f1 = rect('f1', 'fenetre', 10, 10, 20, 20), f2 = rect('f2', 'fenetre', 30, 10, 40, 20), facade = rect('fa', 'facade', 0, 0, 100, 100), p = rect('p', 'porte', 50, 50, 60, 70);
     expect(parTaille([f1, f2, facade, p]).map((o) => o.id)).toEqual(['fa', 'p', 'f1', 'f2']);
   });
@@ -598,5 +598,59 @@ describe('l’outil Zoom', () => {
     expect(vueDuCadre({ x: 500, y: 400 }, { x: 501, y: 400 }, v, 4, false, 1000)).toEqual({ x: 250, y: 200, w: 500, h: 400 });
     expect(vueDuCadre({ x: 500, y: 400 }, { x: 500, y: 400 }, { x: 250, y: 200, w: 500, h: 400 }, 4, true, 1000)).toEqual(v);
     expect(vueDuCadre({ x: 300, y: 200 }, { x: 100, y: 100 }, v, 4, false, 1000)).toEqual({ x: 100, y: 100, w: 200, h: 100 });
+  });
+});
+
+describe('la relecture au clavier et les raccourcis', () => {
+  const classes = [
+    { id: 'fenetre', nom: 'Fenêtre', parent: null, forme: 'rectangle' as const, couleur: '#1e88e5', attributs: [], apprendre: true, types: [{ id: 'fenetre_2v', nom: '2 vantaux' }] },
+    { id: 'balcon', nom: 'Balcon', parent: null, forme: 'rectangle' as const, couleur: '#fb8c00', attributs: [], apprendre: true },
+  ];
+  // Deux rangees : en haut b (droite) puis a (gauche, un peu plus bas mais dans la meme rangee) ; en bas c et d.
+  const a = rect('a', 'fenetre', 10, 12, 30, 40, { origine: 'auto', score: 0.9, type: 'fenetre_2v' });
+  const b = rect('b', 'fenetre', 60, 10, 80, 40, { origine: 'main' });
+  const c = rect('c', 'balcon', 10, 60, 30, 80, { origine: 'auto', score: 0.2 });
+  const d = rect('d', 'balcon', 60, 60, 80, 80, { origine: 'main' });
+  const l = [b, d, c, a];
+  it('l’ordre de lecture va par rangées ; Tab saute de l’un à relire au suivant, sans ceux sous le seuil, en recommençant', async () => {
+    const { ordreDeLecture, prochainARelire, estARelire, accepter, auDessusDuSeuil, decaler, avancement } = await import('../src/relecture.js');
+    expect(ordreDeLecture(l, 100).map((o) => o.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(['a', 'b', 'c', 'd'].map((id) => estARelire(l.find((o) => o.id === id) as Objet, classes))).toEqual([true, true, true, false]);
+    expect(prochainARelire(l, classes, null, 1, 0, 100)).toBe('a');
+    expect(prochainARelire(l, classes, 'a', 1, 0, 100)).toBe('b');
+    expect(prochainARelire(l, classes, 'b', 1, 0, 100)).toBe('c');
+    expect(prochainARelire(l, classes, 'c', 1, 0, 100)).toBe('a');
+    expect(prochainARelire(l, classes, 'b', 1, 0.5, 100)).toBe('a');
+    expect(prochainARelire(l, classes, 'a', -1, 0, 100)).toBe('c');
+    expect(prochainARelire([d], classes, null, 1, 0, 100)).toBeNull();
+    expect(accepter(l, new Set(['a', 'b'])).map((o) => o.origine)).toEqual(['main', 'main', 'auto', 'corrige']);
+    expect(auDessusDuSeuil(l, 0.5)).toEqual(['a']);
+    expect(decaler(l, new Set(['a']), 5, -20, 100, 100).find((o) => o.id === 'a')?.points).toEqual([{ x: 15, y: 0 }, { x: 35, y: 28 }]);
+    expect(avancement([{ statut: 'corrigee', verifiee: true }, { statut: 'brouillon' }, { statut: 'validee' }])).toEqual({ total: 3, relues: 1, verifiees: 1, brouillons: 1 });
+  });
+  it('une touche donne son action : les modificateurs, les flèches, Tab, les chiffres, ? ; une touche inconnue rien', async () => {
+    const { actionDe } = await import('../src/raccourcis.js');
+    expect(actionDe({ key: 's', ctrlKey: true })).toEqual({ action: 'enregistrer' });
+    expect(actionDe({ key: 'Z', metaKey: true, shiftKey: true })).toEqual({ action: 'refaire' });
+    expect(actionDe({ key: 'Tab', shiftKey: true })).toEqual({ action: 'precedentARelire' });
+    expect(actionDe({ key: 'A', shiftKey: true })).toEqual({ action: 'accepterAuDessus' });
+    expect(actionDe({ key: 'ArrowLeft', shiftKey: true })).toEqual({ action: 'gauche' });
+    expect(actionDe({ key: '7' })).toEqual({ action: 'type', chiffre: 7 });
+    expect(actionDe({ key: '?', shiftKey: true })).toEqual({ action: 'aide' });
+    expect(actionDe({ key: 'x' })).toEqual({ action: 'supprimer' });
+    expect(actionDe({ key: 'x', ctrlKey: true })).toEqual({ action: 'couper' });
+    expect(actionDe({ key: 'q' })).toBeNull();
+    expect(actionDe({ key: 'e', altKey: true })).toBeNull();
+  });
+});
+
+describe('qualifier une sélection depuis la palette', () => {
+  it('donne la classe et le type à chaque objet pris ; un brouillon devient relu ; les autres ne bougent pas', async () => {
+    const { qualifier } = await import('../src/relecture.js');
+    const c = CLASSES_DEFAUT;
+    const f = rect('f', 'fenetre', 0, 0, 10, 10, { origine: 'auto' }), p = rect('p', 'porte', 20, 0, 30, 20, { origine: 'main', type: 'porte_vitree' }), b = rect('b', 'balcon', 0, 30, 30, 40);
+    const r = qualifier([f, p, b], new Set(['f', 'p']), { classe: 'fenetre', type: 'fenetre_2v' }, c);
+    expect(r.map((o) => [o.id, o.classe, o.type, o.origine])).toEqual([['f', 'fenetre', 'fenetre_2v', 'corrige'], ['p', 'fenetre', 'fenetre_2v', 'main'], ['b', 'balcon', undefined, 'main']]);
+    expect(qualifier([b], new Set(['b']), { classe: 'garde_corps' }, c)[0]?.classe).toBe('garde_corps');
   });
 });
