@@ -24,7 +24,7 @@ export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o
       </label>
       {!!c?.types?.length && (
         <label className={o.type ? '' : 'attention'}>Type (ce que le modèle apprend)
-          <select value={o.type ?? ''} onChange={(e) => onChanger(changerType(o, e.target.value))} autoFocus={!o.type}>
+          <select value={o.type ?? ''} onChange={(e) => onChanger(changerType(o, e.target.value))}>
             <option value="">— à qualifier —</option>
             {c.types.map((t) => <option key={t.id} value={t.id}>{t.nom} ({t.id})</option>)}
           </select>

@@ -4,10 +4,11 @@
 
 import { useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import type { Classe, Forme, Objet, P } from '../types.js';
-import { contour } from '../geometrie.js';
+import { boite, contour } from '../geometrie.js';
 import { libelleDe } from '../classes.js';
 import { Loupe } from './Loupe.js';
 import { BoutonsZoom, useZoom } from './useZoom.js';
+import { cadrer } from '../zoom.js';
 import { ajouterSommet, deplacer, poignees, retirerSommet, tirerPoignee } from '../edition.js';
 
 export type Outil = 'choisir' | Forme;
@@ -42,12 +43,12 @@ function PointMarque({ p, couleur, r, trait, onPointerDown }: { p: P; couleur: s
 }
 
 /** Les boutons poses sur la photo : finir le trace (au doigt, ni double clic ni Entree), retirer son dernier point, le zoom, la loupe. */
-function OutilsScene({ finir, retirer, zoomer, ajuster, loupe, basculerLoupe }: { finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; loupe: boolean; basculerLoupe: () => void }) {
+function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster, loupe, basculerLoupe }: { finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string; loupe: boolean; basculerLoupe: () => void }) {
   return (
     <div className="outils-scene">
       {finir && <button type="button" className="principal" onClick={finir}>Finir le tracé</button>}
       {retirer && <button type="button" onClick={retirer}>Retirer le dernier point</button>}
-      <BoutonsZoom zoomer={zoomer} ajuster={ajuster} />
+      <BoutonsZoom zoomer={zoomer} ajuster={ajuster} titreAjuster={titreAjuster} />
       <button type="button" className={loupe ? 'bascule-loupe active' : 'bascule-loupe'} aria-pressed={loupe} title="Loupe automatique (L)" onClick={basculerLoupe}>🔍 Loupe</button>
     </div>
   );
@@ -178,6 +179,9 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
     } else if (geste.type === 'poignee') { if (geste.parti) onModifier(tirerPoignee(geste.objet, geste.k, p, L, H), true); }
     setGeste(null);
   };
+  // « Ajuster » cadre l'objet choisi, ou toute la photo sans choix.
+  const objetChoisi = objets.find((o) => o.id === choisi);
+  const ajusterSurLeChoix = () => { if (objetChoisi) setVue(cadrer(boite(objetChoisi.points), L)); else ajuster(); };
   const finir = () => { const t = sansDoublons(trace, 4 * echelle); if ((outil === 'polygone' || outil === 'ligne') && t.length >= minPoints) { onCreer(t, outil); setTrace([]); } };
 
   const couleur = (o: Objet) => classes.find((c) => c.id === o.classe)?.couleur ?? '#ff00ff';
@@ -193,7 +197,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
     <div className="scene-cadre">
     {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
     <OutilsScene finir={trace.length >= minPoints && (outil === 'polygone' || outil === 'ligne') ? finir : null} retirer={trace.length ? () => setTrace(trace.slice(0, -1)) : null}
-      zoomer={zoomer} ajuster={ajuster} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)} />
+      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)} />
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
       {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => setGeste(null)} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
       <image href={url} width={L} height={H} />

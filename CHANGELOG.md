@@ -19,6 +19,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   visent avant d'être posés : le doigt posé montre la loupe, il glisse, le point se pose quand il se lève ; « Finir le tracé » et
   « Retirer le dernier point » remplacent le double clic et Entrée. Le redressement à la main gagne le même zoom et la même loupe
   pour poser ses quatre coins.
+  Le zoom est plus vif (un cran de molette rapproche d'un tiers, ＋ et − doublent ou divisent) et « Ajuster » cadre l'objet choisi, ou
+  toute la photo sans choix.
 - **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
   outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
 - **Banc : supprimer les photos rejetées** (Mosaïque, « Rejetées ») : « Supprimer les N rejetées » en haut, ou « Supprimer » sur une
@@ -30,6 +32,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Banc : toucher une annotation ne la déplace plus.** Le moindre bougé du doigt, ou la page qui bougeait sous lui quand le panneau de
   l'objet s'ouvrait, déplaçait l'objet choisi. Un clic ou un toucher choisit seulement ; l'objet (ou sa poignée) ne suit qu'au-delà de
   4 px de glissé à la souris, 10 px au doigt, mesurés à l'écran.
+- **Banc : choisir un objet ne fait plus défiler la page.** La liste « Type » d'un objet à qualifier prenait le focus d'elle-même, et le
+  navigateur faisait défiler jusqu'à l'inspecteur (sur un téléphone, sous la photo) ; elle gardait aussi le clavier (Suppr ne
+  retirait plus l'objet).
 - **Banc : rafraîchir la page ne sort plus du banc.** L'étape s'écrivait dans l'adresse par un « #étape » relatif, que la base de la
   page (`banc/`) changeait en `/banc/#étape` ; rafraîchie, cette adresse était renvoyée par le `.htaccess` du banc vers `../?banc`, qu'Apache
   résolvait sans `RewriteBase` en chemin du disque du serveur (`/home/…/public_html/?banc`). L'étape s'écrit sur l'adresse entière, et

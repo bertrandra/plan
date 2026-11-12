@@ -35,7 +35,8 @@ export function useZoom(svg: RefObject<SVGSVGElement | null>, L: number, H: numb
       e.preventDefault();
       const c = cadre();
       if (!c) return;
-      const k = Math.exp((e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY) * 0.0015);
+      // Un cran de molette (100) rapproche d'un tiers environ.
+      const k = Math.exp((e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY) * 0.004);
       setVue((v) => zoomerAutour(v, versPhoto({ x: e.clientX, y: e.clientY }, c, v), k, L));
     };
     el.addEventListener('wheel', molette, { passive: false });
@@ -84,12 +85,12 @@ export function useZoom(svg: RefObject<SVGSVGElement | null>, L: number, H: numb
 }
 
 /** Les boutons du zoom, poses sur la photo. */
-export function BoutonsZoom({ zoomer, ajuster }: { zoomer: (k: number) => void; ajuster: () => void }) {
+export function BoutonsZoom({ zoomer, ajuster, titreAjuster }: { zoomer: (k: number) => void; ajuster: () => void; titreAjuster?: string }) {
   return (
     <div className="boutons-zoom" role="group" aria-label="Zoom">
-      <button type="button" aria-label="Zoomer" title="Zoomer (molette, ou deux doigts)" onClick={() => zoomer(1 / 1.5)}>＋</button>
-      <button type="button" aria-label="Dézoomer" title="Dézoomer" onClick={() => zoomer(1.5)}>－</button>
-      <button type="button" title="Toute la photo" onClick={ajuster}>Ajuster</button>
+      <button type="button" aria-label="Zoomer" title="Zoomer (molette, ou deux doigts)" onClick={() => zoomer(1 / 2)}>＋</button>
+      <button type="button" aria-label="Dézoomer" title="Dézoomer" onClick={() => zoomer(2)}>－</button>
+      <button type="button" title={titreAjuster ?? 'Toute la photo'} onClick={ajuster}>Ajuster</button>
     </div>
   );
 }

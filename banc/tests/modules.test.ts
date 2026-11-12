@@ -493,3 +493,12 @@ describe('l’adresse du banc survit au rafraîchissement', () => {
     expect(app).toContain("history.replaceState(null, '', location.pathname + location.search + '#' + ecran)");
   });
 });
+
+describe('Ajuster cadre l’objet choisi', () => {
+  it('la vue cadre la boîte avec une marge d’un quart de chaque côté, sans passer la limite du zoom', async () => {
+    const { cadrer } = await import('../src/zoom.js');
+    expect(cadrer({ x0: 100, y0: 200, x1: 300, y1: 300 }, 1000)).toEqual({ x: 50, y: 175, w: 300, h: 150 });
+    // Une pointe (un point) : la vue la plus serree permise (L / 40), centree sur elle.
+    expect(cadrer({ x0: 500, y0: 400, x1: 500, y1: 400 }, 1000)).toEqual({ x: 487.5, y: 387.5, w: 25, h: 25 });
+  });
+});

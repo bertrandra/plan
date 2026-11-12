@@ -39,3 +39,13 @@ export function pincer(v0: Vue, c: Cadre, milieu0: P, ecart0: number, milieu: P,
   const { s, ox, oy } = placement(c, { x: 0, y: 0, w, h });
   return { x: sous.x - (milieu.x - ox) / s, y: sous.y - (milieu.y - oy) / s, w, h };
 }
+
+/**
+ * La vue qui cadre une boite (l'objet choisi), avec une marge d'un quart de sa taille de chaque cote, au plus pres a la limite du zoom.
+ * La vue garde la forme de la boite : le SVG la fait tenir entiere dans le cadre.
+ */
+export function cadrer(b: { x0: number; y0: number; x1: number; y1: number }, L: number): Vue {
+  const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+  const w = Math.max(L / 40, (b.x1 - b.x0) * 1.5), h = Math.max(L / 40, (b.y1 - b.y0) * 1.5);
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
+}
