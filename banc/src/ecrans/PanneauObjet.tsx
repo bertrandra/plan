@@ -15,14 +15,17 @@ function commune<T>(l: readonly T[]): T | undefined {
 
 /**
  * L'inspecteur d'une selection de plusieurs objets (demande du proprietaire, 12 novembre 2026) : la classe, le type et les attributs
- * qu'ils partagent se changent pour tous d'un coup ; un champ dont les valeurs different le dit (« plusieurs »). Le type et les attributs
- * se proposent quand tous les objets sont de la meme classe.
+ * qu'ils partagent se changent pour tous d'un coup ; un champ dont les valeurs different le dit (« plusieurs »). Le type se choisit pour
+ * tout le groupe, quelles que soient ses classes (il porte la sienne) ; les attributs, quand tous les objets sont de la meme classe.
  */
 export function PanneauSelection({ objets, classes, onChanger, onSupprimer, onCopier, onCouper }: { objets: Objet[]; classes: Classe[]; onChanger: (os: Objet[]) => void; onSupprimer: () => void; onCopier: () => void; onCouper: () => void }) {
   const classe = commune(objets.map((o) => o.classe));
   const c = classes.find((x) => x.id === classe);
   const type = commune(objets.map((o) => o.type ?? ''));
   const auto = objets.filter((o) => o.origine === 'auto').length;
+  // Les classes qui ont des types (celles du groupe d'abord) ; le type commun s'ecrit « classe:type ».
+  const qualifiables = ordreDeLArbre(classes).filter((k) => k.types?.length).sort((a, b) => Number(objets.some((o) => o.classe === b.id)) - Number(objets.some((o) => o.classe === a.id)));
+  const typeCommun = classe && type ? `${classe}:${type}` : '';
   const tous = (f: (o: Objet) => Objet) => onChanger(objets.map(f));
   return (
     <div className="pile fiche-objet">
@@ -34,12 +37,13 @@ export function PanneauSelection({ objets, classes, onChanger, onSupprimer, onCo
           {ordreDeLArbre(classes).map((k) => <option key={k.id} value={k.id}>{k.nom}</option>)}
         </select>
       </label>
-      {!!c?.types?.length && (
-        <label className={type ? '' : 'attention'}>Type (ce que le modèle apprend)
-          <select value={type ?? '__plusieurs'} onChange={(e) => tous((o) => changerType(o, e.target.value))}>
-            {type === undefined && <option value="__plusieurs" disabled>— plusieurs —</option>}
-            <option value="">— à qualifier —</option>
-            {c.types.map((t) => <option key={t.id} value={t.id}>{t.nom} ({t.id})</option>)}
+      {/* Le type, pour tout le groupe : chaque type dit sa classe ; le choisir donne a tous cette classe et ce type (des fenetres et des
+          portes prises ensemble deviennent toutes « Fenetre, imposte simple »). */}
+      {qualifiables.length > 0 && (
+        <label className={typeCommun ? '' : 'attention'}>Type (ce que le modèle apprend)
+          <select value={typeCommun || '__plusieurs'} onChange={(e) => { const [k, t] = e.target.value.split(':'); const kc = classes.find((x) => x.id === k); if (kc && t) tous((o) => changerType(o.classe === kc.id ? o : changerClasse(o, kc), t)); }}>
+            {!typeCommun && <option value="__plusieurs" disabled>{classe && type === '' ? '— à qualifier —' : '— plusieurs —'}</option>}
+            {qualifiables.map((k) => <optgroup key={k.id} label={k.nom}>{(k.types ?? []).map((t) => <option key={t.id} value={`${k.id}:${t.id}`}>{t.nom} ({t.id})</option>)}</optgroup>)}
           </select>
         </label>
       )}

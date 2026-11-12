@@ -9,7 +9,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Banc : l'inspecteur d'une sélection multiple.** Quand plusieurs objets sont pris, l'inspecteur change pour tous d'un coup la classe,
   le type (quand ils sont de la même classe) et les attributs ; un champ dont les valeurs diffèrent le dit (« plusieurs »). « Justes tels
-  quels », copier, couper, supprimer valent pour toute la sélection ; Ctrl+Z annule d'un coup.
+  quels », copier, couper, supprimer valent pour toute la sélection ; Ctrl+Z annule d'un coup. Le type se choisit pour tout le groupe,
+  même mélangé (des fenêtres et des portes) : chaque type porte sa classe, que tout le groupe prend. « Ajuster » cadre la sélection
+  entière ; des objets collés restent sélectionnés, prêts à être tirés ensemble.
 - **Banc : les modes de la souris, en bas de la photo**, à côté de ＋ et − : choisir (V), déplacer la vue (H, une main : glisser bouge la
   photo, jamais un objet), zoom (Z : clic pour rapprocher, Alt + clic pour éloigner, un cadre tiré devient la vue), sélection en boîte ou au
   lasso (S).

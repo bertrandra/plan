@@ -83,7 +83,8 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     const r = coller(objets, pressePapiers.objets, Lp, Hp, pressePapiers.photo === id ? Math.max(10, Math.round(Lp * 0.02)) : 0);
     const colles = r.objets.slice(objets.length);
     changer(() => rangerLesParents(r.objets, banc.classes));
-    setChoisi(r.premier);
+    // Ce qui vient d'etre colle reste pris (tout le groupe, details compris) : on le tire aussitot a sa place.
+    if (colles.length > 1) selectionner(colles.map((o) => o.id), false); else setChoisi(r.premier);
     // Coller de nouveau decale encore : le presse-papiers devient ce qu'on vient de coller.
     pressePapiers = { objets: colles, photo: id };
   };

@@ -282,7 +282,9 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
   };
   // « Ajuster » cadre l'objet choisi, ou toute la photo sans choix.
   const objetChoisi = objets.find((o) => o.id === choisi);
-  const ajusterSurLeChoix = () => { if (objetChoisi) setVue(cadrer(boite(objetChoisi.points), L)); else ajuster(); };
+  // « Ajuster » cadre la selection (le groupe entier), ou l'objet choisi, ou toute la photo.
+  const pris = selection.size > 1 ? objets.filter((o) => selection.has(o.id)) : objetChoisi ? [objetChoisi] : [];
+  const ajusterSurLeChoix = () => { if (pris.length) setVue(cadrer(boite(pris.flatMap((o) => o.points)), L)); else ajuster(); };
   const finir = () => { const t = sansDoublons(trace, 4 * echelle); if ((outil === 'polygone' || outil === 'ligne') && t.length >= minPoints) { onCreer(t, outil); setTrace([]); } };
 
   const trait = 2 * echelle, rayon = 6 * echelle;
@@ -298,7 +300,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     {enTete && <div className="entete-scene">{enTete}</div>}
     {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
     <OutilsScene finir={trace.length >= minPoints && (outil === 'polygone' || outil === 'ligne') ? finir : null} retirer={trace.length ? () => setTrace(trace.slice(0, -1)) : null}
-      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)}
+      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={pris.length > 1 ? `Cadrer les ${pris.length} objets sélectionnés` : objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} loupe={loupe} basculerLoupe={() => setLoupe((x) => !x)}
       outil={outil} modeSelection={modeSelection} onOutil={onOutil} onModeSelection={onModeSelection} />
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
       {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => setGeste(null)} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
