@@ -21,6 +21,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   pour poser ses quatre coins.
 - **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
   outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
+- **Banc : supprimer les photos rejetées** (Mosaïque, « Rejetées ») : « Supprimer les N rejetées » en haut, ou « Supprimer » sur une
+  photo, après confirmation. La photo part avec tout son dossier sur le serveur (source, redressée, vignette, marquage et ses versions
+  anciennes, sous-dossiers compris).
 
 ### Corrigé
 

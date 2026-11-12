@@ -209,11 +209,20 @@ function image_modifier(string $id): void {
   repondre(200, $m);
 }
 
+/** Supprime la photo et tout son dossier : source, redressee, vignette, meta, marquage et ses versions anciennes. */
 function image_supprimer(string $id): void {
   $d = dossier_image($id);
-  foreach (scandir($d) ?: [] as $f) if ($f !== '.' && $f !== '..') @unlink("$d/$f");
-  @rmdir($d);
+  vider_dossier($d);
+  if (is_dir($d)) erreur(500, 'Le dossier de la photo n’a pas pu être supprimé.');
   repondre(200, ['supprimee' => $id]);
+}
+
+function vider_dossier(string $d): void {
+  foreach (scandir($d) ?: [] as $f) {
+    if ($f === '.' || $f === '..') continue;
+    if (is_dir("$d/$f") && !is_link("$d/$f")) vider_dossier("$d/$f"); else @unlink("$d/$f");
+  }
+  @rmdir($d);
 }
 
 function fichier_servir(string $id, string $v): void {

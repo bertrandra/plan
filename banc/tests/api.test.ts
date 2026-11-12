@@ -147,7 +147,13 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     // Range en reserve : plus rien a l'export ; supprimee : partie.
     await appel('PATCH', 'image', { id }, { bloc: 'reserve' });
     expect(Object.keys(lireZip(await (await appel('GET', 'export', { format: 'detect' })).arrayBuffer())).filter((n) => n.endsWith('.jpg'))).toHaveLength(0);
+    // Le dossier entier part, avec un sous-dossier eventuel et les marquages anciens.
+    const dossier = path.join(tmp, 'apprentissage', 'images', id);
+    fs.mkdirSync(path.join(dossier, 'sous', 'plus-bas'), { recursive: true });
+    fs.writeFileSync(path.join(dossier, 'sous', 'plus-bas', 'x.json'), '{}');
+    fs.writeFileSync(path.join(dossier, 'annotation-20260101000000.json'), '{}');
     expect((await appel('DELETE', 'image', { id })).status).toBe(200);
+    expect(fs.existsSync(dossier)).toBe(false);
     expect(await json(await appel('GET', 'images'))).toEqual([]);
   });
 
