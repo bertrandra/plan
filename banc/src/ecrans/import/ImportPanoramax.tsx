@@ -4,13 +4,13 @@
 // du sens de la prise de vue, la ou sont les facades), le seul cote de la parcelle, ou la vue droit vers elle.
 
 import { useEffect, useState } from 'react';
-import type { Banc } from '../App.js';
-import { api, ErreurApi } from '../api.js';
-import { bitmap, COTE_SOURCE, jpeg, liberer, pixels, reduire, versCanevas, vignette } from '../images.js';
-import { basculerCap, capDuX, CHAMP_VUE, lirePhotos, trouverAdresses, urlRecherche, vuesDesCaps, xDuCap, type Adresse, type PhotoRue, type VueAExtraire, type Visee } from '../panoramax.js';
-import { centre, enMetres, lireParcelles, parcelleDuPoint, rapporterALaParcelle, urlParcelles, type Parcelle } from '../parcelles.js';
-import { vueDuPanoramique } from '../equirect.js';
-import { nomDuLot } from './Import.js';
+import type { Banc } from '../../App.js';
+import { api, ErreurApi } from '../../api.js';
+import { bitmap, COTE_SOURCE, jpeg, liberer, pixels, reduire, versCanevas, vignette } from '../../images.js';
+import { basculerCap, capDuX, CHAMP_VUE, lirePhotos, trouverAdresses, urlRecherche, vuesDesCaps, xDuCap, type Adresse, type PhotoRue, type VueAExtraire, type Visee } from '../../panoramax.js';
+import { centre, enMetres, lireParcelles, parcelleDuPoint, rapporterALaParcelle, urlParcelles, type Parcelle } from '../../parcelles.js';
+import { vueDuPanoramique } from '../../equirect.js';
+import { nomDuLot } from './useImport.js';
 
 /** Lit un JSON, en erreur sur une reponse qui n'est pas 2xx (un 504 du geocodage passe au repli). */
 async function lireJson(url: string): Promise<unknown> {
@@ -120,8 +120,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
     await banc.relire();
   };
   return (
-    <div className="panneau">
-      <h2>1b · Panoramax autour d’une adresse</h2>
+    <div className="import-panoramax">
       <p className="aide">L’adresse, puis sa parcelle au cadastre de l’IGN (touchez une autre parcelle sur la carte pour la changer), puis les photos de rue libres prises autour et qui la regardent (licence de chaque photo gardée). Un panoramique 360 donne une vue de chaque côté de la rue (à 90° du sens de la prise de vue, là où sont les façades), le seul côté de la parcelle, ou la vue droit vers elle.</p>
       <form className="rang" onSubmit={(e) => { e.preventDefault(); void chercherAdresse(); }}>
         <input className="large" placeholder="2 allée des Limites, Le Vésinet — ou 48.90507, 2.13254" value={texte} onChange={(e) => setTexte(e.target.value)} required />

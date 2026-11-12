@@ -1,97 +1,20 @@
-// Etape 0 : l'arbre des objets a marquer. Chaque classe : son nom, sa place (son parent), sa forme (rectangle ou polygone), sa couleur
-// de marquage, ses attributs a renseigner, et si elle entre dans le jeu YOLO (son indice, dans l'ordre de l'arbre).
+// La fiche d'une classe de l'arbre (etape 0) : son nom, sa place, sa forme, sa couleur, ses types (les noms appris) et ses attributs.
 
-import { useEffect, useMemo, useState } from 'react';
-import type { Banc } from '../App.js';
-import { api } from '../api.js';
-import { CLASSES_DEFAUT, erreursDeLArbre, estDetail, idDuNom, indicesYolo, nomsDeLaClasse, ordreDeLArbre, profondeur } from '../classes.js';
+import { estDetail, idDuNom, ordreDeLArbre } from '../../classes.js';
+import { estApprenable, type Attribut, type Classe, type TypeObjet } from '../../types.js';
+import { Icone } from '../../ui/Icones.js';
 
-/** Les indices YOLO d'une classe, en abrege : « #3 », « #0–8 », « — » sans indice. */
-const indicesAffiches = (l: number[]): string => (!l.length ? '—' : l.length === 1 ? '#' + l[0] : `#${l[0]}–${l[l.length - 1]}`);
-import { estApprenable, type Attribut, type Classe, type TypeObjet } from '../types.js';
-
-export function EcranClasses({ banc, onClasses }: { banc: Banc; onClasses: (c: Classe[]) => void }) {
-  const [classes, setClasses] = useState<Classe[]>(banc.classes);
-  const [choisie, setChoisie] = useState<string | null>(banc.classes[0]?.id ?? null);
-  const [modifie, setModifie] = useState(false);
-  useEffect(() => { setClasses(banc.classes); setModifie(false); }, [banc.classes]);
-
-  const ordre = useMemo(() => ordreDeLArbre(classes), [classes]);
-  const yolo = useMemo(() => indicesYolo(classes), [classes]);
-  const erreurs = useMemo(() => erreursDeLArbre(classes), [classes]);
-  const c = classes.find((x) => x.id === choisie) ?? null;
-  const changer = (l: Classe[]) => { setClasses(l); setModifie(true); };
-  const majClasse = (champs: Partial<Classe>) => { if (c) changer(classes.map((x) => (x.id === c.id ? { ...x, ...champs } : x))); };
-  const renommerId = (nouveau: string) => {
-    if (!c) return;
-    changer(classes.map((x) => (x.id === c.id ? { ...x, id: nouveau } : x.parent === c.id ? { ...x, parent: nouveau } : x)));
-    setChoisie(nouveau);
-  };
-  const ajouter = (parent: string | null) => {
-    const ids = new Set(classes.map((x) => x.id));
-    let id = 'nouvelle', k = 1;
-    while (ids.has(id)) id = 'nouvelle-' + ++k;
-    const n: Classe = { id, nom: 'Nouvelle classe', parent, forme: 'rectangle', couleur: '#ff7043', attributs: [], apprendre: true };
-    changer([...classes, n]);
-    setChoisie(id);
-  };
-  const supprimer = () => {
-    if (!c) return;
-    if (classes.some((x) => x.parent === c.id)) { banc.dire('Retirez ou déplacez d’abord ses classes filles.', 'erreur'); return; }
-    if (banc.images.some((m) => m.classes?.includes(c.id)) && !confirm(`Des photos ont des objets « ${c.nom} ». Ils resteront dans leur marquage mais ne s’exporteront plus. Supprimer la classe ?`)) return;
-    changer(classes.filter((x) => x.id !== c.id));
-    setChoisie(null);
-  };
-  const deplacer = (sens: -1 | 1) => {
-    if (!c) return;
-    const freres = classes.filter((x) => x.parent === c.parent);
-    const i = freres.findIndex((x) => x.id === c.id), j = i + sens;
-    const autre = freres[j];
-    if (!autre) return;
-    const l = [...classes], a = l.indexOf(c), b = l.indexOf(autre);
-    [l[a], l[b]] = [autre, c];
-    changer(l);
-  };
-  const enregistrer = () => {
-    if (erreurs.length) { banc.dire(erreurs[0] ?? 'Arbre invalide.', 'erreur'); return; }
-    api.ecrireClasses(classes).then((r) => { onClasses(r.classes); setModifie(false); banc.dire('Classes enregistrées.'); }).catch((e: Error) => banc.dire(e.message, 'erreur'));
-  };
-
-  return (
-    <section className="deux-colonnes">
-      <div className="panneau">
-        <h2>0 · Les objets à marquer</h2>
-        <p className="aide">Trois niveaux : un <b>regroupement</b> classe sans se dessiner (Ouverture → Fenêtre, Porte) ; une <b>classe</b> se dessine et se range dans l’objet de sa classe parente (un cadre dans sa fenêtre) ; ses <b>types</b> la qualifient (fenetre_2v). Ce qui est « appris » entre dans le jeu YOLO avec l’indice affiché ; les détails appris prennent leurs indices après les objets principaux.</p>
-        <ul className="arbre" role="listbox" aria-label="Classes">
-          {ordre.map((x) => (
-            <li key={x.id} role="option" aria-selected={x.id === choisie} className={x.id === choisie ? 'choisie' : ''} style={{ paddingLeft: 8 + 18 * profondeur(classes, x.id) }} onClick={() => setChoisie(x.id)}>
-              <span className="pastille" style={{ background: x.couleur }} />
-              {x.regroupement ? <b>{x.nom}</b> : x.nom}{x.aussi?.length ? <em className="aussi"> (aussi {x.aussi.map((a) => classes.find((k) => k.id === a)?.nom ?? a).join(', ')})</em> : null} <small>{x.regroupement ? 'regroupement' : <>{x.forme === 'polygone' ? '⬠' : x.forme === 'ligne' ? '╱' : x.forme === 'point' ? '⊕' : '▭'} {indicesAffiches(nomsDeLaClasse(x).map((n) => yolo.get(n) ?? -1))}</>}</small>
-            </li>
-          ))}
-        </ul>
-        <div className="rang">
-          <button type="button" onClick={() => ajouter(null)}>+ À la racine</button>
-          <button type="button" onClick={() => ajouter(choisie)} disabled={!choisie}>+ Dans la classe choisie</button>
-        </div>
-        <div className="rang">
-          <button type="button" className="principal" onClick={enregistrer} disabled={!modifie}>Enregistrer</button>
-          <button type="button" className="discret" onClick={() => { if (confirm('Revenir à l’arbre de départ ?')) changer(CLASSES_DEFAUT); }}>Arbre de départ</button>
-        </div>
-        {erreurs.length > 0 && <ul className="erreur">{erreurs.map((e) => <li key={e}>{e}</li>)}</ul>}
-      </div>
-      {c ? <FicheClasse c={c} classes={classes} onMaj={majClasse} onId={renommerId} onSupprimer={supprimer} onDeplacer={deplacer} /> : <div className="panneau"><p className="aide">Choisissez une classe.</p></div>}
-    </section>
-  );
-}
-
-function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: Classe; classes: Classe[]; onMaj: (x: Partial<Classe>) => void; onId: (id: string) => void; onSupprimer: () => void; onDeplacer: (s: -1 | 1) => void }) {
+export function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: Classe; classes: Classe[]; onMaj: (x: Partial<Classe>) => void; onId: (id: string) => void; onSupprimer: () => void; onDeplacer: (s: -1 | 1) => void }) {
   const descendants = (id: string): string[] => classes.filter((x) => x.parent === id).flatMap((x) => [x.id, ...descendants(x.id)]);
   const interdits = new Set([c.id, ...descendants(c.id)]);
   const majAttribut = (i: number, a: Partial<Attribut>) => onMaj({ attributs: c.attributs.map((x, k) => (k === i ? { ...x, ...a } : x)) });
   return (
     <div className="panneau fiche">
-      <h3><span className="pastille" style={{ background: c.couleur }} /> {c.nom}</h3>
+      <header className="tete-fiche"><h3><span className="pastille" style={{ background: c.couleur }} /> {c.nom}</h3><span className="espace" />
+        <button type="button" className="discret" title="Monter" aria-label="Monter" onClick={() => onDeplacer(-1)}>↑</button>
+        <button type="button" className="discret" title="Descendre" aria-label="Descendre" onClick={() => onDeplacer(1)}>↓</button>
+        <button type="button" className="discret danger" title="Supprimer la classe" aria-label="Supprimer la classe" onClick={onSupprimer}><Icone nom="poubelle" /></button>
+      </header>
       <div className="grille-champs">
         <label>Nom<input value={c.nom} onChange={(e) => onMaj({ nom: e.target.value })} onBlur={() => { if (c.id.startsWith('nouvelle')) onId(idDuNom(c.nom)); }} /></label>
         <label>Identifiant (export)<input value={c.id} onChange={(e) => onId(e.target.value)} /></label>
@@ -166,9 +89,6 @@ function FicheClasse({ c, classes, onMaj, onId, onSupprimer, onDeplacer }: { c: 
       </table>
       <div className="rang">
         <button type="button" onClick={() => onMaj({ attributs: [...c.attributs, { cle: 'attribut' + (c.attributs.length + 1), nom: 'Attribut', type: 'choix', valeurs: [] }] })}>+ Attribut</button>
-        <button type="button" onClick={() => onDeplacer(-1)}>↑ Monter</button>
-        <button type="button" onClick={() => onDeplacer(1)}>↓ Descendre</button>
-        <button type="button" className="danger" onClick={onSupprimer}>Supprimer la classe</button>
       </div>
     </div>
   );

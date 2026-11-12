@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Banc : tous les écrans refaits sur le modèle de l'éditeur** (demande du propriétaire, 12 novembre 2026 : « regarde les autres onglets,
+  même travail »). Un socle commun (`banc/src/ui/Page.tsx` : en-tête d'étape avec l'aide repliée et le geste principal, sections
+  repliables, états vides qui mènent à l'étape d'avant, tuiles de chiffres, jauges, filtres en segments ; icônes partagées) et des onglets
+  qui portent le nombre de photos qui attendent (`etapes.ts::aFaire`). Mosaïque : filtres, gestes au survol, **revue en grand au
+  clavier** (Entrée, V / R / A, la suivante vient d'elle-même). Redressement : le lot avec son avancement, les échecs sous leur filtre,
+  les coins posés montrés pas à pas. Marquage : recherche (/), pastille d'état et classes sur chaque photo, « Relire les N brouillons ».
+  Brouillon : un geste, des interrupteurs, les modèles en cartes. Export : ce qui entre dans le jeu en tuiles, le format en segments, un
+  seul bouton. Blocs : bilan en tuiles, une jauge par type vers les 30 objets, réglages repliés. Classes : Ctrl+S, « non enregistré ».
+  Import : zone de dépôt (glisser des photos), journal. Le filtre du catalogue devient pur et testé (`catalogue.ts`) ; chaque écran est
+  un dossier avec son contrôleur React.
 - **Banc : l'éditeur devient un poste de relecture** (demande du propriétaire, 12 novembre 2026 : « de la productivité, et que ce soit
   beau »). Une barre du haut sur une ligne (la photo, ce qui reste à relire, Vérifiée, bloc, Enregistrer, **Valider et suivante**), une
   colonne d'outils à gauche avec des icônes dessinées (choisir, main, zoom, boîte, lasso, formes ; étiquettes, loupe, aide), la photo sur un

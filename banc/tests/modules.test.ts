@@ -11,9 +11,10 @@ import { vueDuPanoramique } from '../src/equirect.js';
 import { decoderV10, decoderV8, letterbox, nms } from '../src/yolo.js';
 import { brouillonSurExistant, correspondanceParDefaut, fusionner, lireCible, objetsDuBrouillon, selonLaCorrespondance } from '../src/brouillon.js';
 import { redresserParCoins } from '../src/redressement.js';
-import type { Bloc, Classe, Modele, Objet } from '../src/types.js';
+import type { Bloc, Classe, MetaImage, Modele, Objet } from '../src/types.js';
 import { REGLAGES_DEFAUT } from '../src/types.js';
 import type { Parcelle } from '../src/parcelles.js';
+import { etatDeLaPhoto, filtrer, FILTRE_DEFAUT, filtresActifs } from '../src/catalogue.js';
 
 const rect = (id: string, classe: string, x0: number, y0: number, x1: number, y1: number, o: Partial<Objet> = {}): Objet => ({ id, classe, forme: 'rectangle', points: [{ x: x0, y: y0 }, { x: x1, y: y1 }], parent: null, attributs: {}, origine: 'main', ...o });
 
@@ -652,5 +653,32 @@ describe('qualifier une sélection depuis la palette', () => {
     const r = qualifier([f, p, b], new Set(['f', 'p']), { classe: 'fenetre', type: 'fenetre_2v' }, c);
     expect(r.map((o) => [o.id, o.classe, o.type, o.origine])).toEqual([['f', 'fenetre', 'fenetre_2v', 'corrige'], ['p', 'fenetre', 'fenetre_2v', 'main'], ['b', 'balcon', undefined, 'main']]);
     expect(qualifier([b], new Set(['b']), { classe: 'garde_corps' }, c)[0]?.classe).toBe('garde_corps');
+  });
+});
+
+describe('ce qui reste à faire à chaque étape', () => {
+  it('compte les photos qui attendent chaque étape, sans les rejetées', async () => {
+    const { aFaire } = await import('../src/etapes.js');
+    const m = (statut: string, o: Record<string, unknown> = {}) => ({ id: statut + Math.random(), statut, verifiee: false, bloc: '', ...o }) as unknown as import('../src/types.js').MetaImage;
+    const l = [m('importee'), m('importee'), m('redressee'), m('validee'), m('brouillon'), m('corrigee', { aQualifier: 2, bloc: 'train' }), m('corrigee', { bloc: '' }), m('corrigee', { bloc: 'val', echantillon: true }), m('corrigee', { bloc: 'reserve' }), m('rejetee')];
+    expect(aFaire(l)).toEqual({ total: 9, redressement: 2, validation: 1, brouillon: 1, catalogue: 2, blocs: 2, export: 3 });
+  });
+});
+
+describe('le filtre du catalogue', () => {
+  const m = (id: string, statut: MetaImage['statut'], o: Partial<MetaImage> = {}): MetaImage => ({ id, statut, source: 'iphone', bloc: null, verifiee: false, ...o } as MetaImage);
+  const images = [m('a', 'validee'), m('b', 'brouillon', { classes: ['fenetre'], nom: 'Rue des Lilas' }), m('c', 'corrigee', { verifiee: true, bloc: 'train', source: 'panoramax' }), m('d', 'corrigee', { echantillon: true }), m('e', 'rejetee')];
+  it('par defaut, les photos a marquer ou marquees ; puis chaque filtre', () => {
+    expect(filtrer(images, FILTRE_DEFAUT).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(filtrer(images, { ...FILTRE_DEFAUT, statut: '' }).length).toBe(5);
+    expect(filtrer(images, { ...FILTRE_DEFAUT, classe: 'fenetre' }).map((x) => x.id)).toEqual(['b']);
+    expect(filtrer(images, { ...FILTRE_DEFAUT, bloc: '' }).map((x) => x.id)).toEqual(['a', 'b', 'd']);
+    expect(filtrer(images, { ...FILTRE_DEFAUT, verif: 'echantillon' }).map((x) => x.id)).toEqual(['d']);
+    expect(filtrer(images, { ...FILTRE_DEFAUT, source: 'panoramax' }).map((x) => x.id)).toEqual(['c']);
+    expect(filtrer(images, { ...FILTRE_DEFAUT, texte: ' lilas ' }).map((x) => x.id)).toEqual(['b']);
+    expect(filtresActifs({ ...FILTRE_DEFAUT, texte: 'x', bloc: 'val' })).toBe(2);
+  });
+  it('la pastille dit le plus urgent', () => {
+    expect(images.map((x) => etatDeLaPhoto(x).libelle)).toEqual(['À marquer', 'À relire', 'Vérifiée', 'Échantillon', 'rejetee']);
   });
 });

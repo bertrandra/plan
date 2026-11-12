@@ -4,7 +4,7 @@
 import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
 import type { Bloc, MetaImage } from '../../types.js';
-import { Icone } from './Icones.js';
+import { Icone } from '../../ui/Icones.js';
 
 export function BarreHaut({ banc, meta, rang, total, aRelire, modifie, envoi, onAller, onEnregistrer, onValider, onFermer }: {
   banc: Banc; meta: MetaImage; rang: number; total: number; aRelire: number; modifie: boolean; envoi: boolean;

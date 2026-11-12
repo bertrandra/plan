@@ -2,7 +2,7 @@
 // lasso), tracer (rectangle, polygone, ligne, point), puis l'affichage (etiquettes, loupe) et l'aide. Une touche par outil.
 
 import type { ModeSelection, Outil } from './Scene.js';
-import { Icone, type NomIcone } from './Icones.js';
+import { Icone, type NomIcone } from '../../ui/Icones.js';
 
 interface Bouton { outil: Outil; icone: NomIcone; titre: string; mode?: ModeSelection }
 
