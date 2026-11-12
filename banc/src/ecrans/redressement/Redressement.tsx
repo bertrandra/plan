@@ -21,15 +21,28 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
   const aValider = banc.images.filter((m) => m.statut === 'redressee').length;
   return (
     <Page icone="redresser" numero="2" titre="Redressement" large
-      aide={<p>Les verticales et horizontales du mur deviennent droites : par les points de fuite de la photo (automatique), sinon par quatre coins d’un rectangle du mur posés à la main. Une photo redressée de nouveau perd son marquage (il est gardé à part sur le serveur).</p>}
+      aide={<><p>Les verticales et horizontales du mur deviennent droites : par les points de fuite de la photo (automatique), sinon par quatre coins d’un rectangle du mur posés à la main. Une photo redressée de nouveau perd son marquage (il est gardé à part sur le serveur).</p><p>Touchez des photos pour les choisir : « Déjà de face » les passe telles quelles à la mosaïque ; « Fusionner » assemble les photos d’un même mur, choisies de gauche à droite, en une seule (l’assemblage de Plan : la place où leurs parties communes se ressemblent le plus, puis un fondu).</p></>}
       actions={c.nouvelles.length > 0 && <button type="button" className="principal" disabled={occupe} onClick={() => { void c.auto(c.nouvelles); }}><Icone nom="auto" /> Redresser les {c.nouvelles.length} (auto)</button>}>
       <div className="barre-outils">
         <Segments label="Filtre" valeur={c.filtre} options={filtres} onChange={c.setFiltre} />
-        {c.avance && <span className="avance"><Jauge valeur={c.avance.fait} cible={c.avance.total} /> Redressement {c.avance.fait + 1} sur {c.avance.total}…</span>}
+        {c.avance && <span className="avance"><Jauge valeur={c.avance.fait} cible={c.avance.total} /> {c.choix.length > 1 ? 'Fusion…' : `${c.avance.fait + 1} sur ${c.avance.total}…`}</span>}
       </div>
+      {c.choix.length > 0 && (
+        <div className="barre-choix" role="toolbar" aria-label="Photos choisies">
+          <strong>{c.choix.length} choisie(s)</strong>
+          <button type="button" disabled={occupe} onClick={() => { void c.garderLes(c.choisies); }} title="Elles sont déjà de face : à la mosaïque telles quelles"><Icone nom="face" /> Déjà de face</button>
+          <button type="button" disabled={occupe} onClick={() => { void c.auto(c.choisies); }}><Icone nom="auto" /> Auto</button>
+          <button type="button" className="principal" disabled={occupe || c.choix.length < 2} onClick={() => { void c.fusionner(); }}
+            title="Plusieurs photos d’un même mur, choisies de gauche à droite, en une seule image"><Icone nom="mosaique" /> Fusionner ({c.choix.length})</button>
+          {c.choix.length > 1 && <label className="case"><input type="checkbox" checked={c.ecarter} onChange={(e) => c.setEcarter(e.target.checked)} /> Rejeter les photos d’origine</label>}
+          <span className="espace" />
+          <button type="button" className="discret" onClick={c.viderChoix}><Icone nom="fermer" /> Vider</button>
+        </div>
+      )}
+      {c.choix.length === 1 && <p className="aide">Pour fusionner, choisissez les photos d’un même mur <b>de gauche à droite</b> : le numéro dit l’ordre.</p>}
       {c.liste.length ? (
         <ul className="grille-photos">
-          {c.liste.map((m) => <Carte key={m.id} m={m} echec={c.echecs.has(m.id)} occupe={occupe} onAuto={() => { void c.auto([m]); }} onMain={() => c.setMain(m)} onGarder={() => { void c.garder(m); }} />)}
+          {c.liste.map((m) => <Carte key={m.id} m={m} echec={c.echecs.has(m.id)} occupe={occupe} rang={c.choix.indexOf(m.id)} onBasculer={() => c.basculer(m.id)} onAuto={() => { void c.auto([m]); }} onMain={() => c.setMain(m)} onGarder={() => { void c.garder(m); }} />)}
         </ul>
       ) : (
         <Vide icone="redresser" titre={c.filtre === 'toutes' ? 'Aucune photo' : 'Tout est redressé'}
@@ -40,12 +53,15 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
   );
 }
 
-function Carte({ m, echec, occupe, onAuto, onMain, onGarder }: { m: MetaImage; echec: boolean; occupe: boolean; onAuto: () => void; onMain: () => void; onGarder: () => void }) {
+function Carte({ m, echec, occupe, rang, onBasculer, onAuto, onMain, onGarder }: { m: MetaImage; echec: boolean; occupe: boolean; rang: number; onBasculer: () => void; onAuto: () => void; onMain: () => void; onGarder: () => void }) {
   const fait = m.statut !== 'importee';
   return (
-    <li className={'tuile-photo' + (echec ? ' echec' : '')}>
-      <img src={api.fichier(m.id, 'vignette', m.redressement?.le ?? '')} alt={m.nom ?? m.id} loading="lazy" onClick={onMain} />
-      {echec ? <span className="etiquette-photo attention">Auto échoué</span> : fait && <span className="etiquette-photo ok">{m.redressement?.methode ?? 'redressée'}</span>}
+    <li className={'tuile-photo' + (echec ? ' echec' : '') + (rang >= 0 ? ' choisie' : '')}>
+      <button type="button" className="vignette-bouton" onClick={onBasculer} aria-pressed={rang >= 0} aria-label={`Choisir ${m.nom ?? m.id}`}>
+        <img src={api.fichier(m.id, 'vignette', m.redressement?.le ?? '')} alt="" loading="lazy" />
+      </button>
+      <span className={'coche-photo' + (rang >= 0 ? ' active' : '')} aria-hidden="true">{rang >= 0 ? rang + 1 : ''}</span>
+      {echec ? <span className="etiquette-photo attention droite">Auto échoué</span> : fait && <span className="etiquette-photo ok droite">{m.redressement?.methode ?? 'redressée'}</span>}
       <div className="legende-photo"><span className="nom">{m.nom ?? m.id}</span><small>{m.largeur && m.hauteur ? `${m.largeur}×${m.hauteur}` : ''}{m.focale35 ? ` · ${m.focale35} mm` : ''}</small></div>
       <div className="actions-carte">
         <button type="button" disabled={occupe} onClick={onAuto} title="Par les points de fuite"><Icone nom="auto" /> Auto</button>

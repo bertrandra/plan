@@ -20,6 +20,7 @@ const TRACES: Record<string, ReactElement> = {
   suivant: <path d="M9 5l7 7-7 7" />,
   retour: <path d="M10 5L3 12l7 7M3 12h18" />,
   valider: <path d="M4 12.5l5 5L20 6.5" />,
+  sortir: <><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M9 16l-4-4 4-4M5 12h11" /></>,
   enregistrer: <><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4M8 20v-6h8v6" /></>,
   rejeter: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
   classes: <><rect x="3" y="4" width="7" height="6" rx="1" /><path d="M6.5 10v4h7M6.5 14v4h7" /><rect x="14" y="11" width="7" height="5" rx="1" /><rect x="14" y="17" width="7" height="4" rx="1" /></>,

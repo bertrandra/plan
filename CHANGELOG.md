@@ -5,8 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc : fusionner plusieurs photos d'un même mur** (demande du propriétaire, 12 novembre 2026). Au redressement, on choisit des photos
+  en les touchant (le numéro dit l'ordre, de gauche à droite) ; « Fusionner » les assemble en une seule photo, déjà de face, qui part à la
+  mosaïque. L'algorithme est celui de la mosaïque des façades de Plan (copié figé dans `banc/src/plan/facade/vision/mosaique.ts` :
+  décalage par corrélation normalisée, grossier puis au pixel, et fondu pondéré par la distance au bord) ; `banc/src/fusion.ts` y ajoute
+  la recherche d'un décalage vertical et d'une échelle (une photo cadrée plus haut ou prise plus près), en deux passes. Une jointure
+  douteuse est signalée ; les photos d'origine sont rejetées au choix (le même mur deux fois fausserait les blocs).
+- **Banc : « Déjà de face » en lot** : les photos choisies passent telles quelles à la mosaïque.
+
 ### Modifié
 
+- **Banc : le choix des vues d'un 360 Panoramax s'ouvre dans une fenêtre** au-dessus de la liste (← → d'un 360 à l'autre, Échap), et la
+  barre d'import reste en haut : il fallait descendre en bas de la liste pour voir le résultat. « Se déconnecter » devient une icône.
 - **Banc : tous les écrans refaits sur le modèle de l'éditeur** (demande du propriétaire, 12 novembre 2026 : « regarde les autres onglets,
   même travail »). Un socle commun (`banc/src/ui/Page.tsx` : en-tête d'étape avec l'aide repliée et le geste principal, sections
   repliables, états vides qui mènent à l'étape d'avant, tuiles de chiffres, jauges, filtres en segments ; icônes partagées) et des onglets

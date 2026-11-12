@@ -114,7 +114,7 @@ export function App() {
           {ECRANS.map((e) => <option key={e.id} value={e.id}>{e.numero} · {e.nom}{e.attend && attente[e.attend] ? ` (${attente[e.attend]})` : ''}</option>)}
         </select>
         <span className="compte">{attente.total} photo{attente.total > 1 ? 's' : ''}</span>
-        <button type="button" className="discret" onClick={deconnecter}>Se déconnecter</button>
+        <button type="button" className="discret icone-seule" onClick={deconnecter} title="Se déconnecter" aria-label="Se déconnecter"><Icone nom="sortir" taille={20} /></button>
       </header>
       {message && <div role="status" className={'message ' + message.genre} onClick={() => setMessage(null)}>{message.texte}</div>}
       <main className="contenu">

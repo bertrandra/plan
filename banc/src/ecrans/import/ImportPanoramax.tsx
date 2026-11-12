@@ -10,6 +10,7 @@ import { bitmap, COTE_SOURCE, jpeg, liberer, pixels, reduire, versCanevas, vigne
 import { basculerCap, capDuX, CHAMP_VUE, lirePhotos, trouverAdresses, urlRecherche, vuesDesCaps, xDuCap, type Adresse, type PhotoRue, type VueAExtraire, type Visee } from '../../panoramax.js';
 import { centre, enMetres, lireParcelles, parcelleDuPoint, rapporterALaParcelle, urlParcelles, type Parcelle } from '../../parcelles.js';
 import { vueDuPanoramique } from '../../equirect.js';
+import { Icone } from '../../ui/Icones.js';
 import { nomDuLot } from './useImport.js';
 
 /** Lit un JSON, en erreur sur une reponse qui n'est pas 2xx (un 504 du geocodage passe au repli). */
@@ -119,6 +120,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
     setChoix(new Set());
     await banc.relire();
   };
+  const panoramiques = photos.filter((x) => x.panoramique);
   return (
     <div className="import-panoramax">
       <p className="aide">L’adresse, puis sa parcelle au cadastre de l’IGN (touchez une autre parcelle sur la carte pour la changer), puis les photos de rue libres prises autour et qui la regardent (licence de chaque photo gardée). Un panoramique 360 donne une vue de chaque côté de la rue (à 90° du sens de la prise de vue, là où sont les façades), le seul côté de la parcelle, ou la vue droit vers elle.</p>
@@ -152,7 +154,9 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
         onImporter={() => { void importer(); }} />}
       {(() => { const p = photos.find((x) => x.id === ouverte); return p ? (
         <ChoixDesVues p={p} vues={vuesDe(p)} onCaps={(l) => { setCaps((m) => new Map(m).set(p.id, l)); setChoix((c) => new Set(c).add(p.id)); }}
-          onVisee={() => setCaps((m) => { const t = new Map(m); t.delete(p.id); return t; })} onFermer={() => setOuverte(null)} />
+          onVisee={() => setCaps((m) => { const t = new Map(m); t.delete(p.id); return t; })} onFermer={() => setOuverte(null)}
+          rang={panoramiques.findIndex((x) => x.id === p.id)} total={panoramiques.length}
+          onAutre={(k) => { const q = panoramiques[k]; if (q) setOuverte(q.id); }} />
       ) : null; })()}
     </div>
   );
@@ -166,7 +170,7 @@ function ListePhotos({ photos, choix, setChoix, vuesDe, ouverte, setOuverte, onI
   const nVues = photos.filter((p) => choix.has(p.id)).reduce((n, p) => n + vuesDe(p).length, 0);
   return (
     <>
-      <div className="rang">
+      <div className="barre-choix">
         <button type="button" onClick={() => setChoix(new Set(photos.map((p) => p.id)))}>Tout cocher</button>
         <button type="button" onClick={() => setChoix(new Set())}>Tout décocher</button>
         <button type="button" className="principal" disabled={!nVues} onClick={onImporter}>Importer {nVues} vue(s) de {choix.size} photo(s)</button>
@@ -219,7 +223,7 @@ const NOM_VUE: Record<VueAExtraire['vue'], string> = { gauche: 'À gauche', droi
  * Le choix des vues d'un 360 (demande du proprietaire, 12 novembre 2026) : toucher le panoramique ajoute une vue a ce cap, ou retire
  * celle qui y est ; chaque vue s'ajuste de 5 degres et se montre telle qu'elle sera importee.
  */
-function ChoixDesVues({ p, vues, onCaps, onVisee, onFermer }: { p: PhotoRue; vues: VueAExtraire[]; onCaps: (caps: number[]) => void; onVisee: () => void; onFermer: () => void }) {
+function ChoixDesVues({ p, vues, onCaps, onVisee, onFermer, rang, total, onAutre }: { p: PhotoRue; vues: VueAExtraire[]; onCaps: (caps: number[]) => void; onVisee: () => void; onFermer: () => void; rang: number; total: number; onAutre: (k: number) => void }) {
   const [pano, setPano] = useState<ReturnType<typeof pixels> | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   useEffect(() => {
@@ -237,15 +241,35 @@ function ChoixDesVues({ p, vues, onCaps, onVisee, onFermer }: { p: PhotoRue; vue
   const caps = vues.map((v) => v.cap);
   const az = p.azimut ?? 0;
   const regler = (k: number, d: number) => onCaps(caps.map((c, i) => (i === k ? ((c + d) % 360 + 360) % 360 : c)));
+  // Une fenetre au-dessus de la liste (demande du proprietaire : il fallait descendre tout en bas pour voir le resultat) ; Echap ferme,
+  // les fleches passent d'un 360 a l'autre.
+  useEffect(() => {
+    const t = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onFermer();
+      else if (e.key === 'ArrowRight' && rang < total - 1) onAutre(rang + 1);
+      else if (e.key === 'ArrowLeft' && rang > 0) onAutre(rang - 1);
+      else return;
+      e.preventDefault();
+    };
+    document.addEventListener('keydown', t);
+    return () => document.removeEventListener('keydown', t);
+  }, [onFermer, onAutre, rang, total]);
   return (
-    <div className="panneau choix-vues">
+    <div className="voile-dialogue" onClick={onFermer}>
+    <div className="panneau choix-vues dialogue" role="dialog" aria-modal="true" aria-label="Vues du panoramique" onClick={(e) => e.stopPropagation()}>
+      <header className="tete-dialogue">
+        <button type="button" className="discret" disabled={rang <= 0} onClick={() => onAutre(rang - 1)} aria-label="360 précédent (←)" title="360 précédent (←)"><Icone nom="precedent" /></button>
+        <strong>360 {rang + 1} / {total}</strong>
+        <button type="button" className="discret" disabled={rang >= total - 1} onClick={() => onAutre(rang + 1)} aria-label="360 suivant (→)" title="360 suivant (→)"><Icone nom="suivant" /></button>
+        <small>{p.distance} m · {p.date?.slice(0, 10) ?? '—'} · {vues.length} vue(s)</small>
+        <span className="espace" />
+        <button type="button" className="principal" onClick={onFermer}><Icone nom="valider" /> Terminé</button>
+      </header>
       <div className="rang">
-        <strong>Vues du panoramique {p.id.slice(0, 8)}</strong>
         <button type="button" onClick={() => onCaps([((az - 90) % 360 + 360) % 360, (az + 90) % 360])}>Gauche et droite</button>
         <button type="button" onClick={() => onCaps([Math.round(p.cap)])}>Vers la parcelle</button>
         <button type="button" onClick={onVisee}>Comme la visée</button>
         <button type="button" onClick={() => onCaps([])}>Aucune</button>
-        <button type="button" onClick={onFermer}>Fermer</button>
       </div>
       <p className="aide">Touchez le panoramique pour ajouter une vue à cet endroit (75° de champ), touchez une vue pour la retirer. La rue est au milieu (trait blanc), la parcelle sous le trait rouge.</p>
       <Panorama p={p} vues={vues} onClic={(cap) => onCaps(basculerCap(caps, cap))} />
@@ -263,6 +287,7 @@ function ChoixDesVues({ p, vues, onCaps, onVisee, onFermer }: { p: PhotoRue; vue
           </li>
         ))}
       </ul>
+    </div>
     </div>
   );
 }
