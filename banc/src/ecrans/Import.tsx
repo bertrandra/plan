@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { Banc } from '../App.js';
 import { api } from '../api.js';
 import { lireExif } from '../exif.js';
-import { bitmap, COTE_SOURCE, jpeg, reduire, vignette } from '../images.js';
+import { bitmap, COTE_SOURCE, jpeg, liberer, reduire, vignette } from '../images.js';
 import { ImportPanoramax } from './ImportPanoramax.js';
 
 
@@ -36,8 +36,9 @@ function ImportFichiers({ banc }: { banc: Banc }) {
         const b = await bitmap(f);
         const c = reduire(b, COTE_SOURCE);
         const source = /apple|iphone/i.test(exif.appareil ?? '') ? 'iphone' : 'fichier';
-        await api.importer(await jpeg(c, 0.92), await vignette(c), { source, nom: f.name, date: exif.date, lat: exif.lat, lon: exif.lon, azimut: exif.azimut, appareil: exif.appareil, focale35: exif.focale35, lot });
-        b.close();
+        try {
+          await api.importer(await jpeg(c, 0.92), await vignette(c), { source, nom: f.name, date: exif.date, lat: exif.lat, lon: exif.lon, azimut: exif.azimut, appareil: exif.appareil, focale35: exif.focale35, lot });
+        } finally { liberer(c); b.close(); }
         ajouter(`✓ ${f.name}${exif.lat !== null ? ' (position)' : ''}`);
       } catch (e) {
         ajouter(`✕ ${f.name} : ${(e as Error).message}`);

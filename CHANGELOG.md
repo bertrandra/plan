@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.23.0] — 2026-11-12
+
+Version **mineure** au sens de `MD/RELEASE.md` : le **banc d'apprentissage des façades** (`?banc`, #661), une application à part livrée
+dans `banc/` (son serveur, son mot de passe `banc-config.php`, ses données `data/apprentissage/`) ; la pose d'un mur à pignons sans geste,
+la photo d'un relevé posée sur ce qu'elle montre en Vue 3D, le vote des trois détecteurs pour lire les ouvertures (#657, #659, #660) ;
+la fumée de la nuit (#655, #658). Fonctions nouvelles : MINOR (§2.1). `facade.html`, entré après la 5.22.1 et reparti dans son propre dépôt,
+n'a jamais été livré : rien n'est retiré d'une version publiée. Aucune quantité ni aucun export de la démonstration ne change, les sept
+témoins ne bougent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve forte, sept sur sept,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont
+identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la 5.19.0 reste à accepter en
+production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison
+de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans la mesure sur main (run 43190191658, vert ; prompts et schémas inchangés).
+
 ### Ajouté
 
 - **Le banc d’apprentissage des façades** (`banc/`, adresse `?banc`) : une application à part, avec son propre code, son
@@ -24,6 +37,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (Parcellaire Express, par le WFS de la Géoplateforme ; une autre se choisit sur une petite carte) et cherche les photos autour
   d’elle, rapportées à elle (distance à ses bords, cap vers son milieu) ; la parcelle est gardée avec chaque photo. La descente de
   gouttière, sur la façade, s’apprend (#23).
+  Sur iPhone et iPad, un panoramique 360 se ramène sous la limite des canevas de Safari (16,7 millions de pixels ; au-delà la vue
+  importée restait vide) et chaque canevas rend sa mémoire tout de suite ; une image que le navigateur n’a pas pu dessiner est refusée
+  avec un message plutôt qu’importée vide.
   L’arbre va jusqu’au détail : des regroupements qui classent sans se dessiner (Ouverture → Fenêtre, Porte → leurs types), des
   détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
   dans le jeu exporté. Le typage est un fichier de données (`data/apprentissage/classes.json`, modifiable à l’écran) ; la façade porte
