@@ -353,7 +353,9 @@ function modeles_lister(): void {
 function modele_description(array $j): array {
   $c = array_values(array_filter((array)($j['classes'] ?? []), 'is_string'));
   if (!$c) erreur(400, 'Le modèle doit dire ses classes, dans l’ordre de ses indices.');
-  return ['nom' => mb_substr((string)($j['nom'] ?? 'Modèle'), 0, 120), 'format' => in_array($j['format'] ?? '', ['yolo26', 'yolo26-seg', 'yolov10', 'yolov8', 'yolov8-seg'], true) ? $j['format'] : 'yolov10',
+  return ['nom' => mb_substr((string)($j['nom'] ?? 'Modèle'), 0, 120), 'format' => in_array($j['format'] ?? '', ['rf-detr', 'yolo26', 'yolo26-seg', 'yolov10', 'yolov8', 'yolov8-seg'], true) ? $j['format'] : 'yolov10',
+    // RF-DETR : le cote du carre d'entree (384 Nano, 512 Small, 576 Medium), un multiple de 32.
+    ...(($j['format'] ?? '') === 'rf-detr' ? ['resolution' => in_array((int)($j['resolution'] ?? 384), [384, 512, 576], true) ? (int)$j['resolution'] : 384] : []),
     'classes' => $c, 'correspondance' => is_array($j['correspondance'] ?? null) ? $j['correspondance'] : array_combine($c, $c), 'seuil' => is_numeric($j['seuil'] ?? null) ? (float)$j['seuil'] : 0.3,
     'actif' => ($j['actif'] ?? true) !== false, 'ajouteLe' => gmdate('c')];
 }
@@ -520,6 +522,14 @@ const BANC_ARCHITECTURES = [
     'yolo26n' => ['poids' => 'yolo26n.pt', 'nom' => 'YOLO26n', 'export' => "format='onnx', imgsz=640, nms=False"],
     'yolov10n' => ['poids' => 'yolov10n.pt', 'nom' => 'YOLOv10n', 'export' => "format='onnx', imgsz=640, nms=False"],
   ],
+  // RF-DETR (Roboflow, Apache 2.0, code et poids COCO : demande du proprietaire, 12 novembre 2026, pour sortir de l'AGPL d'Ultralytics).
+  // Le jeu au format COCO (train/, valid/, test/ et leurs _annotations.coco.json), entraine par le paquet rfdetr ; `resolution` : le carre
+  // d'entree du modele (verifie sur de vrais exports rfdetr 1.12.1, 12 novembre 2026 : input [1, 3, R, R], dets [1, 300, 4], labels [1, 300, C]).
+  'rfdetr' => [
+    'rf-detr-nano' => ['classe' => 'RFDETRNano', 'nom' => 'RF-DETR Nano', 'resolution' => 384],
+    'rf-detr-small' => ['classe' => 'RFDETRSmall', 'nom' => 'RF-DETR Small', 'resolution' => 512],
+    'rf-detr-medium' => ['classe' => 'RFDETRMedium', 'nom' => 'RF-DETR Medium', 'resolution' => 576],
+  ],
   'seg' => [
     'yolo26n-seg' => ['poids' => 'yolo26n-seg.pt', 'nom' => 'YOLO26n-seg', 'export' => "format='onnx', imgsz=640, nms=False"],
     'yolo11n-seg' => ['poids' => 'yolo11n-seg.pt', 'nom' => 'YOLO11n-seg', 'export' => "format='onnx', imgsz=640"],
@@ -533,14 +543,14 @@ const BANC_ARCHITECTURES = [
 const BANC_DEPARTS = ['coco', 'zero'];
 
 function exporter(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): void {
-  if (!in_array($format, ['detect', 'seg', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, natif).');
+  if (!in_array($format, ['detect', 'seg', 'rfdetr', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, rfdetr, natif).');
   $archi = null;
   if ($format !== 'natif') {
     $choix = BANC_ARCHITECTURES[$format];
     if ($base === '') $base = array_key_first($choix);
     if (!isset($choix[$base])) erreur(400, 'Architecture inconnue pour ' . $format . ' : ' . implode(', ', array_keys($choix)) . '.');
     if (!in_array($depart, BANC_DEPARTS, true)) erreur(400, 'Départ inconnu : coco ou zero.');
-    $archi = $choix[$base] + ['id' => $base, 'depart' => $depart, 'yaml' => preg_replace('/\.pt$/', '.yaml', $choix[$base]['poids'])];
+    $archi = $choix[$base] + ['id' => $base, 'depart' => $depart, 'yaml' => preg_replace('/\.pt$/', '.yaml', $choix[$base]['poids'] ?? '')];
   }
   if (!class_exists('ZipArchive')) erreur(501, 'L’extension zip de PHP manque sur cet hébergement.');
   [$classes, $nomDe, $chemins] = noms_yolo();
@@ -554,6 +564,9 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
   $compte = ['train' => 0, 'val' => 0, 'test' => 0];
   $parClasse = [];
   $natif = [];
+  // Le jeu COCO de RF-DETR : un fichier d'annotations par bloc (val s'y appelle « valid »).
+  $coco = ['train' => ['images' => [], 'annotations' => []], 'val' => ['images' => [], 'annotations' => []], 'test' => ['images' => [], 'annotations' => []]];
+  $dossierCoco = ['train' => 'train', 'val' => 'valid', 'test' => 'test'];
   $d = dossier('images');
   foreach (scandir($d) ?: [] as $id) {
     if (!preg_match(BANC_ID, $id)) continue;
@@ -568,13 +581,30 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
     [$W, $H] = getimagesize("$d/$id/redressee.jpg") ?: [0, 0];
     if (!$W || !$H) continue;
     $lignes = [];
+    $numImage = count($coco[$bloc]['images']) + 1;
     foreach ($a['objets'] ?? [] as $o) {
       $nom = $nomDe($o);
       // Un objet d'une classe a types pas encore qualifie n'apprend rien : il est compte, a qualifier.
       if (is_string($nom) && $nom[0] === '?') { $aQualifier++; continue; }
       if ($nom === null || !isset($indice[$nom])) continue;
+      if ($format === 'rfdetr') {
+        $xs = array_map(fn($p) => max(0.0, min((float)$W, (float)$p['x'])), $o['points']);
+        $ys = array_map(fn($p) => max(0.0, min((float)$H, (float)$p['y'])), $o['points']);
+        $w = max($xs) - min($xs); $h = max($ys) - min($ys);
+        if ($w <= 0 || $h <= 0) continue;
+        $coco[$bloc]['annotations'][] = ['id' => count($coco[$bloc]['annotations']) + 1, 'image_id' => $numImage, 'category_id' => $indice[$nom],
+          'bbox' => [round(min($xs), 2), round(min($ys), 2), round($w, 2), round($h, 2)], 'area' => round($w * $h, 2), 'iscrowd' => 0, 'segmentation' => []];
+        $parClasse[$nom][$bloc] = ($parClasse[$nom][$bloc] ?? 0) + 1;
+        continue;
+      }
       $l = ligne_yolo($indice[$nom], $o, (int)$W, (int)$H, $format);
       if ($l !== null) { $lignes[] = $l; $parClasse[$nom][$bloc] = ($parClasse[$nom][$bloc] ?? 0) + 1; }
+    }
+    if ($format === 'rfdetr') {
+      $zip->addFile("$d/$id/redressee.jpg", "$racine/{$dossierCoco[$bloc]}/$id.jpg");
+      $coco[$bloc]['images'][] = ['id' => $numImage, 'file_name' => "$id.jpg", 'width' => (int)$W, 'height' => (int)$H];
+      $compte[$bloc]++;
+      continue;
     }
     $zip->addFile("$d/$id/redressee.jpg", "$racine/images/$bloc/$id.jpg");
     $zip->addFromString("$racine/labels/$bloc/$id.txt", implode("\n", $lignes) . ($lignes ? "\n" : ''));
@@ -587,9 +617,18 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
     foreach ($classes as $k => $c) $noms .= "  $k: $c\n";
     // L'arbre voyage avec le jeu : YOLO apprend des noms a plat, hierarchie.json dit ou chacun se range (regroupement, objet, type, detail).
     $zip->addFromString("$racine/hierarchie.json", json_encode(['noms' => array_map(fn($n, $k) => ['indice' => $k, 'nom' => $n, 'chemin' => $chemins[$n] ?? $n], $classes, array_keys($classes)), 'classes' => lire_json(dossier() . '/classes.json', ['classes' => []])['classes']], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    if ($format === 'rfdetr') {
+      // Les categories dans l'ordre des indices du banc (0, 1, 2…) : RF-DETR les numerote dans l'ordre de leurs id.
+      $categories = array_map(fn($n, $k) => ['id' => $k, 'name' => $n, 'supercategory' => 'none'], $classes, array_keys($classes));
+      foreach ($coco as $b => $c) $zip->addFromString("$racine/{$dossierCoco[$b]}/_annotations.coco.json", json_encode(['info' => ['description' => "Banc d'apprentissage des facades", 'date_created' => gmdate('c')], 'images' => $c['images'], 'annotations' => $c['annotations'], 'categories' => $categories], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+      $zip->addFromString("$racine/noms.txt", implode("\n", array_map(fn($n, $k) => "$k: $n", $classes, array_keys($classes))) . "\n");
+      $zip->addFromString("$racine/entrainer.py", script_rfdetr($archi));
+      $zip->addFromString("$racine/entrainer.ipynb", carnet_rfdetr($archi, $racine));
+    } else {
     $zip->addFromString("$racine/data.yaml", "# Jeu du banc d'apprentissage des facades, " . gmdate('c') . "\npath: .\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n$noms");
     $zip->addFromString("$racine/entrainer.py", script_entrainement($format, $archi));
     $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine, $archi));
+    }
   }
   $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'architecture' => $archi['id'] ?? null, 'depart' => $archi['depart'] ?? null, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
   $zip->close();
@@ -651,6 +690,49 @@ function carnet_colab(string $format, string $racine, array $a): string {
     // Le chemin que l'entrainement rend : Ultralytics 8.4 range project='runs' sous runs/detect/ (ou segment/), et non runs/banc/.
     $code("best = YOLO(str(m.trainer.best))\nprint('Poids :', m.trainer.best)\nmesure = best.val(data='data.yaml', split='test')\nprint('mAP50-95 test :', mesure.box.map)\nfor i, n in best.names.items(): print(i, n, round(float(mesure.box.maps[i]), 3))"),
     $code("chemin = best.export({$a['export']})\nfiles.download(chemin)\nprint('Noms à coller dans le banc (étape 3) :')\nfor i, n in best.names.items(): print(f'{i}: {n}')"),
+  ];
+  return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+}
+
+/**
+ * L'entrainement RF-DETR (Apache 2.0) livre avec le jeu COCO : avec COCO (les poids publies par Roboflow, Apache 2.0) ou sans (de zero),
+ * arret quand la validation ne progresse plus, mesure sur le test, puis l'export ONNX (input [1, 3, R, R], dets, labels) a deposer dans
+ * le banc (etape 3) avec noms.txt.
+ */
+function script_rfdetr(array $a): string {
+  $creer = $a['depart'] === 'zero' ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
+  return "# Entrainement du banc d'apprentissage des facades : {$a['nom']} (Roboflow, licence Apache 2.0, code et poids), "
+    . ($a['depart'] === 'zero' ? 'sans COCO (de zero)' : 'parti de COCO') . ".\n"
+    . "#   pip install 'rfdetr[train,loggers]==1.12.*'\n#   python3 entrainer.py [cpu|cuda]\n"
+    . "# Le jeu est au format COCO (train/, valid/, test/ et leurs _annotations.coco.json) ; les noms, dans l'ordre des indices, sont dans noms.txt.\n"
+    . "# Le modele .onnx produit (sortie/inference_model.onnx) se depose dans le banc (etape 3), avec noms.txt et la resolution {$a['resolution']}.\n"
+    . "import glob, os, shutil, sys\nfrom rfdetr import {$a['classe']}\n\n"
+    . "options = {'device': sys.argv[1]} if len(sys.argv) > 1 else {}\n"
+    . "m = $creer\n"
+    . "m.train(dataset_dir='.', output_dir='sortie', epochs=" . ($a['depart'] === 'zero' ? 300 : 100) . ", batch_size=4, grad_accum_steps=4, early_stopping=True, early_stopping_patience=" . ($a['depart'] === 'zero' ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False, **options)\n"
+    . "best = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n"
+    . "# Deux fichiers : modele-banc.onnx, quantifie int8 (environ 37 Mo pour Nano, etalonne sur les photos de train/ ; a deposer d'abord),\n"
+    . "# et modele-banc-fp32.onnx, en pleine precision (environ 118 Mo).\n"
+    . "best.export(output_dir='sortie', quantization='int8', calibration_data='train')\n"
+    . "shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\n"
+    . "shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if not f.endswith('_int8.onnx')), 'modele-banc-fp32.onnx')\n"
+    . "print('Modele :', os.path.abspath('modele-banc.onnx'))\nprint(open('noms.txt').read())\n";
+}
+
+/** Le meme entrainement RF-DETR en carnet Google Colab (GPU gratuit). */
+function carnet_rfdetr(array $a, string $racine): string {
+  $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
+  $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
+  $creer = $a['depart'] === 'zero' ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
+  $cellules = [
+    $texte("# Banc d'apprentissage des façades — entraînement {$a['nom']} (" . ($a['depart'] === 'zero' ? 'sans COCO, de zéro' : 'parti de COCO') . ")\n\n"
+      . "RF-DETR (Roboflow), licence **Apache 2.0** pour le code et les poids. Exécution > Modifier le type d'exécution > **GPU**, puis lancer les cellules dans l'ordre. "
+      . "La validation arrête l'entraînement quand il ne progresse plus ; le test n'est lu qu'à la fin."),
+    $code("!pip install -q 'rfdetr[train,loggers]==1.12.*'"),
+    $texte("Envoyer le zip exporté par le banc (`$racine.zip`)."),
+    $code("from google.colab import files\nimport zipfile, os, glob\nenvoi = files.upload()\nzipfile.ZipFile(next(iter(envoi))).extractall('.')\nos.chdir(sorted(glob.glob('banc-*/'))[-1])\nprint(open('noms.txt').read())"),
+    $code("from rfdetr import {$a['classe']}\nm = $creer\nm.train(dataset_dir='.', output_dir='sortie', epochs=" . ($a['depart'] === 'zero' ? 300 : 100) . ", batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=" . ($a['depart'] === 'zero' ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False)"),
+    $code("import shutil\nbest = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n# int8 (environ 4 fois plus petit, a deposer d'abord) et la pleine precision.\nbest.export(output_dir='sortie', quantization='int8', calibration_data='train')\nshutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\nshutil.copy(next(f for f in glob.glob('sortie/*.onnx') if not f.endswith('_int8.onnx')), 'modele-banc-fp32.onnx')\nfiles.download('modele-banc.onnx')\nprint('Noms à coller dans le banc (étape 3), résolution {$a['resolution']} :')\nprint(open('noms.txt').read())"),
   ];
   return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 }
