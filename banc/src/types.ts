@@ -116,7 +116,9 @@ export interface Modele {
   id: string;
   nom: string;
   /** L'architecture, pour memoire : le decodage suit la forme de la sortie (yolo.ts::modeDeSortie). */
-  format: 'yolo26' | 'yolo26-seg' | 'yolov10' | 'yolov8' | 'yolov8-seg';
+  format: 'rf-detr' | 'yolo26' | 'yolo26-seg' | 'yolov10' | 'yolov8' | 'yolov8-seg';
+  /** RF-DETR : le cote du carre d'entree (384 Nano, 512 Small, 576 Medium) ; les YOLO du banc prennent 640. */
+  resolution?: number;
   classes: string[];
   correspondance: Record<string, string>;
   seuil: number;

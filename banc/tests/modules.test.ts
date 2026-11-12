@@ -566,3 +566,19 @@ describe('la sortie d’un modèle se lit d’après sa forme', () => {
     expect(decoderV10(d, 0.3, 38)).toEqual([{ classe: 3, score: expect.closeTo(0.9, 5), boite: { x0: 10, y0: 20, x1: 110, y1: 220 } }]);
   });
 });
+
+describe('RF-DETR (Apache 2.0) : la lecture de ses sorties', () => {
+  it('sigmoïde des logits, cadres en parts de l’image ramenés aux pixels, la case en trop ignorée, les meilleurs d’abord', async () => {
+    const { decoderRfDetr } = await import('../src/yolo.js');
+    // Deux requetes, trois cases (deux classes + la case qui n'en est pas une). Image 200 x 100.
+    const dets = new Float32Array([0.5, 0.5, 0.2, 0.4, 0.25, 0.25, 0.1, 0.1]);
+    const logit = (p: number) => Math.log(p / (1 - p));
+    const labels = new Float32Array([logit(0.1), logit(0.9), logit(0.99), logit(0.6), logit(0.2), logit(0.01)]);
+    const d = decoderRfDetr(dets, labels, 2, 3, 2, 0.5, 200, 100);
+    const r = (b: { x0: number; y0: number; x1: number; y1: number }) => ({ x0: Math.round(b.x0), y0: Math.round(b.y0), x1: Math.round(b.x1), y1: Math.round(b.y1) });
+    expect(d.map((x) => [x.classe, +x.score.toFixed(2), r(x.boite)])).toEqual([
+      [1, 0.9, { x0: 80, y0: 30, x1: 120, y1: 70 }],
+      [0, 0.6, { x0: 40, y0: 20, x1: 60, y1: 30 }],
+    ]);
+  });
+});

@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc : RF-DETR, un détecteur sous licence Apache 2.0** (demande du propriétaire, 12 novembre 2026 : la licence AGPL-3.0 des YOLO
+  d'Ultralytics impose de publier le code d'une application qui sert un modèle entraîné avec eux, ou d'acheter leur licence).
+  L'export propose RF-DETR Nano, Small ou Medium (Roboflow, code et poids COCO en Apache 2.0), avec ou sans COCO : le jeu au format COCO
+  (`train/`, `valid/`, `test/` et leurs `_annotations.coco.json`, catégories dans l'ordre des indices du banc), `noms.txt`, un script et un
+  carnet Colab (`rfdetr[train,loggers]==1.12.*`) qui entraînent, mesurent le test et exportent deux modèles : `modele-banc.onnx`, quantifié
+  int8 (37 Mo pour Nano, étalonné sur les photos de `train/`), et `modele-banc-fp32.onnx` (118 Mo). Le banc lit RF-DETR (image étirée au
+  carré de sa résolution, normalisée ImageNet ; sorties `dets` et `labels`). Vérifié avec rfdetr 1.12.1 : sur `bus.jpg`, le banc trouve les
+  mêmes objets que rfdetr (cadres à quelques pixels près) ; le modèle int8 aussi, environ 0,8 s par image dans Chromium contre 1,15 s ;
+  le script et le carnet produits ont tourné de bout en bout. Les YOLO restent proposés pour comparer, marqués AGPL à l'écran.
+
 ## [5.24.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades (`?banc`, #664) gagne le choix des vues d'un
