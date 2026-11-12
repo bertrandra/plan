@@ -50,6 +50,8 @@ interface Props {
   loupe: boolean;
   /** Ce qui se pose en haut de la photo (les actions de la selection). */
   enTete?: ReactNode;
+  /** Les gestes sur l'objet choisi, poses sur la photo pres du zoom (au doigt, l'inspecteur est loin sous la photo). */
+  surChoix?: ReactNode;
 }
 
 /** Un point marque (la pointe d'un pignon) : un cercle et sa croix, a la couleur de sa classe. */
@@ -63,9 +65,10 @@ function PointMarque({ p, couleur, r, trait, onPointerDown }: { p: P; couleur: s
 }
 
 /** Les boutons poses sur la photo, en bas a droite : finir le trace (au doigt, ni double clic ni Entree), retirer son dernier point, le zoom. */
-function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster }: { finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string }) {
+function OutilsScene({ finir, retirer, zoomer, ajuster, titreAjuster, surChoix }: { finir: (() => void) | null; retirer: (() => void) | null; zoomer: (k: number) => void; ajuster: () => void; titreAjuster: string; surChoix?: ReactNode }) {
   return (
     <div className="outils-scene">
+      {surChoix}
       {finir && <button type="button" className="principal" onClick={finir}>Finir le tracé</button>}
       {retirer && <button type="button" onClick={retirer}>Retirer le dernier point</button>}
       <BoutonsZoom zoomer={zoomer} ajuster={ajuster} titreAjuster={titreAjuster} />
@@ -163,7 +166,7 @@ function Poignees({ o, rayon, surPoignee, ajouter }: { o: Objet; rayon: number; 
   );
 }
 
-export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete }: Props) {
+export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete, surChoix }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [geste, setGeste] = useState<Geste | null>(null);
   // Le second doigt pose : ce que le premier avait commence (un trait, un deplacement, une visee) s'annule, on zoome.
@@ -291,7 +294,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     {enTete && <div className="entete-scene">{enTete}</div>}
     {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
     <OutilsScene finir={trace.length >= minPoints && (outil === 'polygone' || outil === 'ligne') ? finir : null} retirer={trace.length ? () => setTrace(trace.slice(0, -1)) : null}
-      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={pris.length > 1 ? `Cadrer les ${pris.length} objets sélectionnés` : objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} />
+      zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={pris.length > 1 ? `Cadrer les ${pris.length} objets sélectionnés` : objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} surChoix={surChoix} />
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
       {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => setGeste(null)} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
       <image href={url} width={L} height={H} />

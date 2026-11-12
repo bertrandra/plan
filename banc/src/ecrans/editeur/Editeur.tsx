@@ -19,6 +19,7 @@ import { ColonneOutils } from './ColonneOutils.js';
 import { Inspecteur } from './Inspecteur.js';
 import { BandeauPhotos } from './BandeauPhotos.js';
 import { AideRaccourcis } from './AideRaccourcis.js';
+import { Icone } from '../../ui/Icones.js';
 import { useMarquage } from './useMarquage.js';
 import { usePressePapiers } from './usePressePapiers.js';
 import { useRelecture } from './useRelecture.js';
@@ -123,7 +124,11 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
             enTete={<BarreSelection outilSelection={vue.outil === 'selection'} mode={vue.mode} nombre={sel.selection.size} reference={objet ? libelleDe(objet, banc.classes) : null}
               onAligner={(c) => { if (sel.choisi) marquage.changer((l) => aligner(l, sel.selection, sel.choisi as string, c)); }}
               onTaille={(t) => { if (sel.choisi) marquage.changer((l) => memeTaille(l, sel.selection, sel.choisi as string, t)); }} />}
-            onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste} />
+            onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste}
+            surChoix={sel.cibles.size > 0 && <>
+              <button type="button" className="danger" onClick={retirerPris} title="Supprimer (Suppr ou X)"><Icone nom="poubelle" /> Supprimer{sel.cibles.size > 1 ? ` (${sel.cibles.size})` : ''}</button>
+              <button type="button" onClick={() => sel.choisir(null)} title="Ne plus rien choisir (Échap)" aria-label="Ne plus rien choisir"><Icone nom="fermer" /></button>
+            </>} />
         ) : <p className="etat scene-attente">Chargement du marquage…</p>}
         <Inspecteur objets={objets} classes={banc.classes} choisi={sel.choisi} selection={sel.selection} relecture={relecture} aPoser={vue.aPoser} recents={vue.recents}
           caches={vue.caches} pressePapiers={presse.contenu} onChoisir={sel.choisir} onCacher={vue.basculerCache}
