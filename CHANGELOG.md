@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.26.0] — 2026-11-12
+
+Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades devient un poste de relecture (éditeur en
+contrôleurs React, relecture au clavier), tous ses écrans sont refaits, il fusionne les photos d'un même mur avec l'algorithme de la
+mosaïque des façades, et le choix des vues d'un 360 Panoramax s'ouvre en fenêtre (#670). Fonction nouvelle : MINOR (§2.1). Seul `banc/`
+change : aucune quantité ni aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date
+de build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées
+sans la mesure sur main (run 43294181605 ; prompts et schémas inchangés).
+
 ### Ajouté
 
 - **Banc : fusionner plusieurs photos d'un même mur** (demande du propriétaire, 12 novembre 2026). Au redressement, on choisit des photos
