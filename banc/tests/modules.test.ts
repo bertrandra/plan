@@ -457,3 +457,39 @@ describe('les vues choisies dans un panoramique 360', () => {
     expect(lirePhotos(f('https://ailleurs.example/sd.jpg'), { lat: 48.905, lon: 2.1325 }, 50)[0]?.sd).toBeNull();
   });
 });
+
+describe('le zoom d’une photo (molette, boutons, deux doigts)', () => {
+  it('garde le point visé sous le curseur, se borne, et le pincement garde la photo sous les doigts', async () => {
+    const { zoomerAutour, versPhoto, pincer, vueEntiere } = await import('../src/zoom.js');
+    const v = vueEntiere(1000, 800);
+    const z = zoomerAutour(v, { x: 250, y: 200 }, 0.5, 1000);
+    expect(z).toEqual({ x: 125, y: 100, w: 500, h: 400 });
+    expect(zoomerAutour(v, { x: 0, y: 0 }, 1e-6, 1000).w).toBe(25);
+    expect(zoomerAutour(v, { x: 0, y: 0 }, 100, 1000).w).toBe(2000);
+    // Un cadre de 500 x 500 a l'ecran : la photo 1000 x 800 y tient a l'echelle 0,5, centree verticalement (50 px de marge).
+    const c = { left: 0, top: 0, width: 500, height: 500 };
+    expect(versPhoto({ x: 250, y: 250 }, c, v)).toEqual({ x: 500, y: 400 });
+    expect(versPhoto({ x: 0, y: 50 }, c, v)).toEqual({ x: 0, y: 0 });
+    // Les doigts s'ecartent deux fois plus autour du milieu de l'ecran : la vue est deux fois plus petite, le milieu de la photo reste.
+    const p = pincer(v, c, { x: 250, y: 250 }, 100, { x: 250, y: 250 }, 200, 1000);
+    expect(p).toEqual({ x: 250, y: 200, w: 500, h: 400 });
+    expect(versPhoto({ x: 250, y: 250 }, c, p)).toEqual({ x: 500, y: 400 });
+    // Les deux doigts glissent ensemble de 50 px vers la droite, sans s'ecarter : la photo suit (100 px de photo a l'echelle 0,5).
+    expect(pincer(v, c, { x: 250, y: 250 }, 100, { x: 300, y: 250 }, 100, 1000)).toEqual({ x: -100, y: 0, w: 1000, h: 800 });
+  });
+});
+
+describe('l’adresse du banc survit au rafraîchissement', () => {
+  it('le .htaccess du banc renvoie à une adresse entière, jamais relative ; la page écrit l’étape sur l’adresse entière', async () => {
+    const { readFileSync } = await import('node:fs');
+    const ht = readFileSync(new URL('../public/.htaccess', import.meta.url), 'utf8');
+    const regles = ht.split('\n').filter((l) => /^\s*RewriteRule/.test(l));
+    expect(regles).toEqual(['  RewriteRule ^(index\\.html)?$ %1?banc [R=302,L]']);
+    expect(ht).toMatch(/RewriteCond %\{REQUEST_URI\} \^\(\.\*\/\)banc\/\(index\\\.html\)\?\$/);
+    // L'expression de la condition, rejouee : le dossier du site, a la racine ou dans un sous-dossier.
+    const re = /^(.*\/)banc\/(index\.html)?$/;
+    expect(['/banc/', '/banc/index.html', '/plan/banc/'].map((u) => re.exec(u)?.[1])).toEqual(['/', '/', '/plan/']);
+    const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    expect(app).toContain("history.replaceState(null, '', location.pathname + location.search + '#' + ecran)");
+  });
+});

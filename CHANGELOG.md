@@ -13,6 +13,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   champ) ou retire celle qui y est, chaque vue s’ajuste de 5° et se montre telle qu’elle sera importée ; raccourcis « Gauche et
   droite », « Vers la parcelle », « Comme la visée ». Le serveur reconnaît une vue déjà importée à son cap (5° près), et plus seulement
   à son nom.
+- **Banc : zoom et loupe partout, au doigt comme à la souris** (retours du propriétaire, 12 novembre 2026). Le marquage ne zoomait
+  qu'à la molette (et la page défilait avec, l'écouteur de React étant passif) : la molette zoome maintenant seule, deux doigts zooment
+  et déplacent la vue, des boutons ＋, − et « Ajuster » sont posés sur la photo. Au doigt, un point, une ligne ou un polygone se
+  visent avant d'être posés : le doigt posé montre la loupe, il glisse, le point se pose quand il se lève ; « Finir le tracé » et
+  « Retirer le dernier point » remplacent le double clic et Entrée. Le redressement à la main gagne le même zoom et la même loupe
+  pour poser ses quatre coins.
+- **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
+  outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
+
+### Corrigé
+
+- **Banc : toucher une annotation ne la déplace plus.** Le moindre bougé du doigt, ou la page qui bougeait sous lui quand le panneau de
+  l'objet s'ouvrait, déplaçait l'objet choisi. Un clic ou un toucher choisit seulement ; l'objet (ou sa poignée) ne suit qu'au-delà de
+  4 px de glissé à la souris, 10 px au doigt, mesurés à l'écran.
+- **Banc : rafraîchir la page ne sort plus du banc.** L'étape s'écrivait dans l'adresse par un « #étape » relatif, que la base de la
+  page (`banc/`) changeait en `/banc/#étape` ; rafraîchie, cette adresse était renvoyée par le `.htaccess` du banc vers `../?banc`, qu'Apache
+  résolvait sans `RewriteBase` en chemin du disque du serveur (`/home/…/public_html/?banc`). L'étape s'écrit sur l'adresse entière, et
+  le renvoi vise le dossier du site lu dans l'adresse demandée.
 
 ## [5.23.0] — 2026-11-12
 

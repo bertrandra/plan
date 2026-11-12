@@ -114,6 +114,9 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   );
 }
 
+/** Le pictogramme et le nom de chaque outil ; sur un telephone, le pictogramme seul (styles.css). */
+const OUTILS: Record<Outil, [string, string]> = { choisir: ['☝', 'Choisir (V)'], rectangle: ['▭', 'Rectangle (R)'], polygone: ['⬠', 'Polygone (P)'], ligne: ['╱', 'Ligne (T)'], point: ['⊕', 'Point (O)'] };
+
 function BarreEditeur({ banc, meta, rang, total, modifie, envoi, outil, setOutil, classe, choisirClasse, onAller, onEnregistrer, onFermer }: {
   banc: Banc; meta: MetaImage; rang: number; total: number; modifie: boolean; envoi: boolean; outil: Outil; setOutil: (o: Outil) => void;
   classe: string; choisirClasse: (c: string) => void; onAller: (k: number) => void; onEnregistrer: () => void; onFermer: () => void;
@@ -132,9 +135,9 @@ function BarreEditeur({ banc, meta, rang, total, modifie, envoi, outil, setOutil
       <button type="button" disabled={rang >= total - 1} onClick={() => onAller(rang + 1)} aria-label="Photo suivante">▶</button>
       <strong className="nom">{meta.nom ?? meta.id}</strong>
       <span className="outils" role="group" aria-label="Outil">
-        {(['choisir', 'rectangle', 'polygone', 'ligne', 'point'] as const).map((o) => <button key={o} type="button" className={o === outil ? 'onglet actif' : 'onglet'} aria-pressed={o === outil} onClick={() => setOutil(o)}>{o === 'choisir' ? 'Choisir (V)' : o === 'rectangle' ? '▭ Rectangle (R)' : o === 'polygone' ? '⬠ Polygone (P)' : o === 'ligne' ? '╱ Ligne (T)' : '⊕ Point (O)'}</button>)}
+        {(['choisir', 'rectangle', 'polygone', 'ligne', 'point'] as const).map((o) => <button key={o} type="button" className={o === outil ? 'onglet actif' : 'onglet'} aria-pressed={o === outil} aria-label={OUTILS[o][1]} title={OUTILS[o][1]} onClick={() => setOutil(o)}>{OUTILS[o][0]}<span className="libelle-outil"> {OUTILS[o][1]}</span></button>)}
       </span>
-      <label>À poser <select value={classe} onChange={(e) => choisirClasse(e.target.value)}>{choix.map((c, i) => <option key={c.valeur} value={c.valeur}>{i < 9 ? i + 1 + ' · ' : ''}{c.nom}</option>)}</select></label>
+      <label className="a-poser"><span className="libelle-outil">À poser </span><select value={classe} onChange={(e) => choisirClasse(e.target.value)}>{choix.map((c, i) => <option key={c.valeur} value={c.valeur}>{i < 9 ? i + 1 + ' · ' : ''}{c.nom}</option>)}</select></label>
       <label className="case"><input type="checkbox" checked={meta.verifiee} onChange={(e) => modifierMeta({ verifiee: e.target.checked })} /> Vérifiée</label>
       <label>Bloc <select value={meta.bloc} onChange={(e) => modifierMeta({ bloc: e.target.value as Bloc })}><option value="">(tirage)</option><option value="train">train</option><option value="val">val</option><option value="test">test</option><option value="reserve">réserve</option></select></label>
       <button type="button" className="danger" onClick={() => { if (confirm('Rejeter cette photo ? Elle sort du jeu.')) modifierMeta({ statut: 'rejetee' }); }}>Rejeter</button>
