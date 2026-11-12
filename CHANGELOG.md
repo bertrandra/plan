@@ -5,6 +5,61 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc : fusionner plusieurs photos d'un même mur** (demande du propriétaire, 12 novembre 2026). Au redressement, on choisit des photos
+  en les touchant (le numéro dit l'ordre, de gauche à droite) ; « Fusionner » les assemble en une seule photo, déjà de face, qui part à la
+  mosaïque. L'algorithme est celui de la mosaïque des façades de Plan (copié figé dans `banc/src/plan/facade/vision/mosaique.ts` :
+  décalage par corrélation normalisée, grossier puis au pixel, et fondu pondéré par la distance au bord) ; `banc/src/fusion.ts` y ajoute
+  la recherche d'un décalage vertical et d'une échelle (une photo cadrée plus haut ou prise plus près), en deux passes. Une jointure
+  douteuse est signalée ; les photos d'origine sont rejetées au choix (le même mur deux fois fausserait les blocs).
+- **Banc : « Déjà de face » en lot** : les photos choisies passent telles quelles à la mosaïque.
+
+### Modifié
+
+- **Banc : le choix des vues d'un 360 Panoramax s'ouvre dans une fenêtre** au-dessus de la liste (← → d'un 360 à l'autre, Échap), et la
+  barre d'import reste en haut : il fallait descendre en bas de la liste pour voir le résultat. « Se déconnecter » devient une icône.
+- **Banc : tous les écrans refaits sur le modèle de l'éditeur** (demande du propriétaire, 12 novembre 2026 : « regarde les autres onglets,
+  même travail »). Un socle commun (`banc/src/ui/Page.tsx` : en-tête d'étape avec l'aide repliée et le geste principal, sections
+  repliables, états vides qui mènent à l'étape d'avant, tuiles de chiffres, jauges, filtres en segments ; icônes partagées) et des onglets
+  qui portent le nombre de photos qui attendent (`etapes.ts::aFaire`). Mosaïque : filtres, gestes au survol, **revue en grand au
+  clavier** (Entrée, V / R / A, la suivante vient d'elle-même). Redressement : le lot avec son avancement, les échecs sous leur filtre,
+  les coins posés montrés pas à pas. Marquage : recherche (/), pastille d'état et classes sur chaque photo, « Relire les N brouillons ».
+  Brouillon : un geste, des interrupteurs, les modèles en cartes. Export : ce qui entre dans le jeu en tuiles, le format en segments, un
+  seul bouton. Blocs : bilan en tuiles, une jauge par type vers les 30 objets, réglages repliés. Classes : Ctrl+S, « non enregistré ».
+  Import : zone de dépôt (glisser des photos), journal. Le filtre du catalogue devient pur et testé (`catalogue.ts`) ; chaque écran est
+  un dossier avec son contrôleur React.
+- **Banc : l'éditeur devient un poste de relecture** (demande du propriétaire, 12 novembre 2026 : « de la productivité, et que ce soit
+  beau »). Une barre du haut sur une ligne (la photo, ce qui reste à relire, Vérifiée, bloc, Enregistrer, **Valider et suivante**), une
+  colonne d'outils à gauche avec des icônes dessinées (choisir, main, zoom, boîte, lasso, formes ; étiquettes, loupe, aide), la photo sur un
+  fond sombre, l'inspecteur à droite en deux onglets (Objet : la relecture du brouillon, l'objet ou la sélection, la palette des types ;
+  Liste), et le bandeau des photos du lot en bas, avec leur état et l'avancement. Au clavier : Tab / Maj+Tab l'objet à relire suivant
+  ou précédent (dans l'ordre de lecture de la façade), A accepter (et passer au suivant), Maj+A accepter tout au-dessus du seuil, X
+  supprimer, 1 à 9 donner un type à la sélection (ou le choisir pour tracer), Entrée enregistrer, marquer vérifiée et ouvrir la photo
+  suivante, flèches décaler d'un pixel (Maj : dix), E toutes les étiquettes, ? l'aide. Un curseur masque le brouillon sous un score. Les
+  étiquettes ne s'affichent qu'au survol et sur l'objet choisi (la référence d'une sélection) : elles se chevauchaient jusqu'à cacher la façade ; un brouillon reste en
+  pointillés, un objet relu en trait plein. Le code est structuré en contrôleurs React (`banc/src/ecrans/editeur/` : `useMarquage`,
+  `useSelection`, `usePressePapiers`, `useRelecture`, `useRaccourcis`) et en vues ; la logique pure (`relecture.ts`, `raccourcis.ts`, la
+  même table pour le clavier et l'aide) est testée seule.
+
+### Ajouté
+
+- **Banc : l'inspecteur d'une sélection multiple.** Quand plusieurs objets sont pris, l'inspecteur change pour tous d'un coup la classe,
+  le type (quand ils sont de la même classe) et les attributs ; un champ dont les valeurs diffèrent le dit (« plusieurs »). « Justes tels
+  quels », copier, couper, supprimer valent pour toute la sélection ; Ctrl+Z annule d'un coup. Le type se choisit pour tout le groupe,
+  même mélangé (des fenêtres et des portes) : chaque type porte sa classe, que tout le groupe prend. « Ajuster » cadre la sélection
+  entière ; des objets collés restent sélectionnés, prêts à être tirés ensemble.
+- **Banc : les modes de la souris, en bas de la photo**, à côté de ＋ et − : choisir (V), déplacer la vue (H, une main : glisser bouge la
+  photo, jamais un objet), zoom (Z : clic pour rapprocher, Alt + clic pour éloigner, un cadre tiré devient la vue), sélection en boîte ou au
+  lasso (S).
+
+### Corrigé
+
+- **Banc : les objets se déplacent et se redimensionnent à la souris dans tous les cas.** Un grand objet tracé après des petits (une
+  façade après ses fenêtres) les recouvrait : le clic attrapait la façade. Les objets se dessinent maintenant du plus grand au plus petit,
+  les petits restent au-dessus. Avec l'outil Sélection, tirer un objet déjà pris traçait une nouvelle zone : il déplace maintenant tout
+  le groupe (sans repasser par l'outil Choisir).
+
 ## [5.25.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades propose **RF-DETR** (Roboflow, licence Apache 2.0,

@@ -6,27 +6,30 @@ import { api, ErreurApi } from './api.js';
 import { CLASSES_DEFAUT } from './classes.js';
 import { REGLAGES_DEFAUT, type Classe, type MetaImage, type Modele, type Reglages } from './types.js';
 import { Connexion } from './ecrans/Connexion.js';
-import { EcranClasses } from './ecrans/Classes.js';
-import { EcranImport } from './ecrans/Import.js';
-import { EcranRedressement } from './ecrans/Redressement.js';
-import { EcranValidation } from './ecrans/Validation.js';
-import { EcranBrouillon } from './ecrans/Brouillon.js';
-import { EcranCatalogue } from './ecrans/Catalogue.js';
-import { EcranExport } from './ecrans/Export.js';
-import { EcranBlocs } from './ecrans/Blocs.js';
-import { Editeur } from './ecrans/Editeur.js';
+import { EcranClasses } from './ecrans/classes/Classes.js';
+import { EcranImport } from './ecrans/import/Import.js';
+import { EcranRedressement } from './ecrans/redressement/Redressement.js';
+import { EcranValidation } from './ecrans/mosaique/Mosaique.js';
+import { EcranBrouillon } from './ecrans/brouillon/Brouillon.js';
+import { EcranCatalogue } from './ecrans/catalogue/Catalogue.js';
+import { EcranExport } from './ecrans/export/Export.js';
+import { EcranBlocs } from './ecrans/blocs/Blocs.js';
+import { Editeur } from './ecrans/editeur/Editeur.js';
+import { Icone, type NomIcone } from './ui/Icones.js';
+import { aFaire, type AFaire } from './etapes.js';
 
 export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs';
 
-const ECRANS: { id: IdEcran; numero: string; nom: string }[] = [
-  { id: 'classes', numero: '0', nom: 'Classes' },
-  { id: 'import', numero: '1', nom: 'Import' },
-  { id: 'redressement', numero: '2', nom: 'Redressement' },
-  { id: 'validation', numero: '2a', nom: 'Mosaïque' },
-  { id: 'brouillon', numero: '3', nom: 'Brouillon' },
-  { id: 'catalogue', numero: '4-5', nom: 'Marquage' },
-  { id: 'export', numero: '6', nom: 'Export' },
-  { id: 'blocs', numero: '7', nom: 'Blocs' },
+/** Les etapes, leur icone, et ce qui attend chacune (etapes.ts::aFaire) : une pastille sur l'onglet dit ou le travail attend. */
+const ECRANS: { id: IdEcran; numero: string; nom: string; icone: NomIcone; attend?: keyof AFaire; libelleAttente?: string }[] = [
+  { id: 'classes', numero: '0', nom: 'Classes', icone: 'classes' },
+  { id: 'import', numero: '1', nom: 'Import', icone: 'importer' },
+  { id: 'redressement', numero: '2', nom: 'Redressement', icone: 'redresser', attend: 'redressement', libelleAttente: 'à redresser' },
+  { id: 'validation', numero: '2a', nom: 'Mosaïque', icone: 'mosaique', attend: 'validation', libelleAttente: 'à valider' },
+  { id: 'brouillon', numero: '3', nom: 'Brouillon', icone: 'brouillon', attend: 'brouillon', libelleAttente: 'à marquer' },
+  { id: 'catalogue', numero: '4-5', nom: 'Marquage', icone: 'marquage', attend: 'catalogue', libelleAttente: 'à relire' },
+  { id: 'export', numero: '6', nom: 'Export', icone: 'exporter' },
+  { id: 'blocs', numero: '7', nom: 'Blocs', icone: 'blocs', attend: 'blocs', libelleAttente: 'à ranger ou vérifier' },
 ];
 
 /** Ce que chaque ecran recoit : les donnees du banc, de quoi les relire, et de quoi dire un message. */
@@ -87,27 +90,31 @@ export function App() {
 
   const remplacer = (m: MetaImage) => setImages((l) => l.map((x) => (x.id === m.id ? m : x)));
   const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran };
+  const attente = aFaire(images);
   const deconnecter = () => { api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
 
   return (
-    <div className="banc">
+    <div className={edition ? 'banc en-edition' : 'banc'}>
       <header className="barre">
-        <strong className="titre">Banc d’apprentissage · façades</strong>
-        <nav aria-label="Étapes">
-          {ECRANS.map((e) => (
-            <button key={e.id} type="button" className={e.id === ecran && !edition ? 'onglet actif' : 'onglet'} aria-current={e.id === ecran && !edition ? 'page' : undefined}
-              onClick={() => { setEdition(null); setEcran(e.id); }}>
-              <span className="numero">{e.numero}</span> {e.nom}
-            </button>
-          ))}
+        <strong className="titre"><span className="logo">B</span>Banc <small>façades</small></strong>
+        <nav aria-label="Étapes" className="etapes">
+          {ECRANS.map((e) => {
+            const n = e.attend ? attente[e.attend] : 0;
+            return (
+              <button key={e.id} type="button" className={e.id === ecran && !edition ? 'etape actif' : 'etape'} aria-current={e.id === ecran && !edition ? 'page' : undefined}
+                title={`${e.numero} · ${e.nom}${n ? ` : ${n} ${e.libelleAttente}` : ''}`} onClick={() => { setEdition(null); setEcran(e.id); }}>
+                <Icone nom={e.icone} taille={18} /><span className="nom-etape">{e.nom}</span>{n > 0 && <span className="badge">{n}</span>}
+              </button>
+            );
+          })}
         </nav>
         {/* Sur un telephone, les huit onglets prenaient tout l'ecran : une liste deroulante a leur place (styles.css). */}
         <select className="etapes-liste" aria-label="Étape" value={edition ? '' : ecran} onChange={(e) => { setEdition(null); setEcran(e.target.value as typeof ecran); }}>
           {edition && <option value="">Marquage d’une photo</option>}
-          {ECRANS.map((e) => <option key={e.id} value={e.id}>{e.numero} · {e.nom}</option>)}
+          {ECRANS.map((e) => <option key={e.id} value={e.id}>{e.numero} · {e.nom}{e.attend && attente[e.attend] ? ` (${attente[e.attend]})` : ''}</option>)}
         </select>
-        <span className="compte">{images.length} photo{images.length > 1 ? 's' : ''}</span>
-        <button type="button" className="discret" onClick={deconnecter}>Se déconnecter</button>
+        <span className="compte">{attente.total} photo{attente.total > 1 ? 's' : ''}</span>
+        <button type="button" className="discret icone-seule" onClick={deconnecter} title="Se déconnecter" aria-label="Se déconnecter"><Icone nom="sortir" taille={20} /></button>
       </header>
       {message && <div role="status" className={'message ' + message.genre} onClick={() => setMessage(null)}>{message.texte}</div>}
       <main className="contenu">
