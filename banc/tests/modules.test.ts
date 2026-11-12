@@ -552,3 +552,17 @@ describe('la sélection multiple : boîte, lasso, alignement, même taille', () 
     expect(pts(memeTaille(l, ids, 'a', 'hauteur'), 'c')).toEqual([{ x: 70, y: 60 }, { x: 90, y: 80 }]);
   });
 });
+
+describe('la sortie d’un modèle se lit d’après sa forme', () => {
+  it('de bout en bout (YOLOv10, YOLO26 sans NMS, seg à 38 colonnes) ou brute (YOLOv8, YOLO11, YOLO26 exporté autrement)', async () => {
+    const { modeDeSortie } = await import('../src/yolo.js');
+    // Les formes relevees sur de vrais exports Ultralytics 8.4.211 (12 novembre 2026).
+    expect(modeDeSortie([1, 300, 6])).toEqual({ mode: 'bout-en-bout', pas: 6 });
+    expect(modeDeSortie([1, 300, 38])).toEqual({ mode: 'bout-en-bout', pas: 38 });
+    expect(modeDeSortie([1, 84, 8400])).toEqual({ mode: 'brut' });
+    expect(modeDeSortie([1, 116, 8400])).toEqual({ mode: 'brut' });
+    // Une ligne de 38 colonnes : la boite, le score et la classe en tete, les coefficients des masques ignores.
+    const d = new Float32Array(2 * 38); d.set([10, 20, 110, 220, 0.9, 3], 0); d.set([0, 0, 5, 5, 0.1, 1], 38);
+    expect(decoderV10(d, 0.3, 38)).toEqual([{ classe: 3, score: expect.closeTo(0.9, 5), boite: { x0: 10, y0: 20, x1: 110, y1: 220 } }]);
+  });
+});

@@ -22,14 +22,14 @@ pignons…), du marquage brouillon à l’export au format natif d’Ultralytics
 | 3 | Brouillon | En lot sur les photos validées : les modèles YOLO actifs (ceux du dépôt `facade`, puis les vôtres) et l’algorithme de recherche des baies proposent des objets « auto ». |
 | 4 | Marquage | Corriger : choisir (V), rectangle (R), polygone (P), ligne (T, finie par Entrée ou un double clic), point (O, un clic), déplacer, tirer un coin ou un sommet, ajouter ou retirer un sommet, supprimer (Suppr), annuler (Ctrl+Z), enregistrer (Ctrl+S). Classe, type, parent et attributs dans le panneau. Une **loupe automatique** (×4) s’ouvre pendant qu’on tire un coin ou un sommet, qu’on trace un rectangle ou qu’on pose un polygone, du côté opposé au curseur ; L la coupe ou la remet. |
 | 5 | Marquage | Le catalogue : filtres par état, source, bloc, classe, vérification ; l’éditeur passe d’une photo à l’autre (N / B). |
-| 6 | Export | Le jeu au format Ultralytics : `images/` et `labels/` par bloc, `data.yaml`, `entrainer.py`, `bilan.json`. En détection pour YOLOv10n (le modèle du dépôt `facade`), en contours pour YOLO11n-seg, ou au format du banc (`annotations.json` : arbre, attributs et polygones). |
+| 6 | Export | Le jeu au format Ultralytics : `images/` et `labels/` par bloc, `data.yaml`, `entrainer.py`, `bilan.json`. En détection pour **YOLO26n** (par défaut) ou YOLOv10n (le modèle du dépôt `facade`, pour repartir de ses poids), en contours pour YOLO26n-seg ou YOLO11n-seg, **avec ou sans COCO** (poids pré-entraînés, ou l’architecture seule, de zéro), ou au format du banc (`annotations.json` : arbre, attributs et polygones). L’export ONNX se fait sans NMS (`nms=False`) : de bout en bout, 300 détections ; le banc lit la sortie d’après sa forme (de bout en bout ou brute). |
 | 7 | Blocs | train / val / test (70 / 20 / 10 par défaut) répartis **stratifiés par type** : chaque type, même rare, a sa part dans chaque bloc ; un tableau dit, type par type, ce qui manque (au moins 30 objets en train, un en val et en test). La réserve n’est jamais exportée ; un échantillon de chaque bloc à vérifier, et l’export peut ne prendre que les photos vérifiées. |
 
 Seules les photos **corrigées** (marquage relu et enregistré) entrent dans le jeu : un brouillon jamais relu n’apprend rien.
 
 ## Le cycle d’un modèle
 
-1. Corriger et qualifier une première série, répartir les blocs (7), exporter en YOLOv10n · détection (6).
+1. Corriger et qualifier une première série, répartir les blocs (7), exporter en YOLO26n · détection (6), avec COCO ; pour choisir, entraîner une fois aussi YOLOv10n (poids `facade`) et la variante sans COCO, et comparer le mAP du bloc test.
 2. Ouvrir `entrainer.ipynb` du zip dans Google Colab (GPU gratuit), ou `python3 entrainer.py 0` sur un PC avec GPU : il entraîne, mesure sur le test (mAP par type) et exporte `best.onnx`.
 3. Déposer `best.onnx` à l’étape 3 avec la liste `names` : ses noms vont d’eux-mêmes vers les types du banc.
 4. Le brouillon des photos non annotées pose et qualifie ; on corrige, la série grandit, on réentraîne.

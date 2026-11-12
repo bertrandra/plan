@@ -353,7 +353,7 @@ function modeles_lister(): void {
 function modele_description(array $j): array {
   $c = array_values(array_filter((array)($j['classes'] ?? []), 'is_string'));
   if (!$c) erreur(400, 'Le modèle doit dire ses classes, dans l’ordre de ses indices.');
-  return ['nom' => mb_substr((string)($j['nom'] ?? 'Modèle'), 0, 120), 'format' => in_array($j['format'] ?? '', ['yolov10', 'yolov8', 'yolov8-seg'], true) ? $j['format'] : 'yolov10',
+  return ['nom' => mb_substr((string)($j['nom'] ?? 'Modèle'), 0, 120), 'format' => in_array($j['format'] ?? '', ['yolo26', 'yolo26-seg', 'yolov10', 'yolov8', 'yolov8-seg'], true) ? $j['format'] : 'yolov10',
     'classes' => $c, 'correspondance' => is_array($j['correspondance'] ?? null) ? $j['correspondance'] : array_combine($c, $c), 'seuil' => is_numeric($j['seuil'] ?? null) ? (float)$j['seuil'] : 0.3,
     'actif' => ($j['actif'] ?? true) !== false, 'ajouteLe' => gmdate('c')];
 }
@@ -508,8 +508,40 @@ function bloc_de(array $m, array $reglages): string {
   return 'train';
 }
 
-function exporter(string $format, bool $verifiees): void {
+/**
+ * Les architectures de depart proposees a l'export (demande du proprietaire, 12 novembre 2026) : YOLO26 par defaut, de bout en bout
+ * (sans NMS), parti de COCO ; YOLOv10n pour repartir des poids du depot facade (depart.pt) ; YOLO11n-seg, le contour d'avant.
+ * `export` : les arguments de l'export ONNX qui donnent la sortie que le banc lit (yolo.ts::modeDeSortie). Verifie avec Ultralytics
+ * 8.4.211 le 12 novembre 2026 : un YOLO26 ne sort de bout en bout ([1, 300, 6], [1, 300, 38] en contours) qu'avec nms=False ; sans,
+ * il sort brut ([1, 84, 8400]).
+ */
+const BANC_ARCHITECTURES = [
+  'detect' => [
+    'yolo26n' => ['poids' => 'yolo26n.pt', 'nom' => 'YOLO26n', 'export' => "format='onnx', imgsz=640, nms=False"],
+    'yolov10n' => ['poids' => 'yolov10n.pt', 'nom' => 'YOLOv10n', 'export' => "format='onnx', imgsz=640, nms=False"],
+  ],
+  'seg' => [
+    'yolo26n-seg' => ['poids' => 'yolo26n-seg.pt', 'nom' => 'YOLO26n-seg', 'export' => "format='onnx', imgsz=640, nms=False"],
+    'yolo11n-seg' => ['poids' => 'yolo11n-seg.pt', 'nom' => 'YOLO11n-seg', 'export' => "format='onnx', imgsz=640"],
+  ],
+];
+
+/**
+ * Le depart d'un entrainement (demande du proprietaire, 12 novembre 2026) : « coco », les poids appris sur COCO (ou depart.pt pose a cote) ;
+ * « zero », l'architecture seule (son .yaml), sans rien d'appris : plus d'epoques, et il faut plus de photos pour qu'il rattrape.
+ */
+const BANC_DEPARTS = ['coco', 'zero'];
+
+function exporter(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): void {
   if (!in_array($format, ['detect', 'seg', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, natif).');
+  $archi = null;
+  if ($format !== 'natif') {
+    $choix = BANC_ARCHITECTURES[$format];
+    if ($base === '') $base = array_key_first($choix);
+    if (!isset($choix[$base])) erreur(400, 'Architecture inconnue pour ' . $format . ' : ' . implode(', ', array_keys($choix)) . '.');
+    if (!in_array($depart, BANC_DEPARTS, true)) erreur(400, 'Départ inconnu : coco ou zero.');
+    $archi = $choix[$base] + ['id' => $base, 'depart' => $depart, 'yaml' => preg_replace('/\.pt$/', '.yaml', $choix[$base]['poids'])];
+  }
   if (!class_exists('ZipArchive')) erreur(501, 'L’extension zip de PHP manque sur cet hébergement.');
   [$classes, $nomDe, $chemins] = noms_yolo();
   $indice = array_flip($classes);
@@ -518,7 +550,7 @@ function exporter(string $format, bool $verifiees): void {
   $tmp = tempnam(sys_get_temp_dir(), 'banc');
   $zip = new ZipArchive();
   if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) erreur(500, 'Archive impossible à créer.');
-  $racine = 'banc-' . $format . '-' . gmdate('Ymd-His');
+  $racine = 'banc-' . ($archi ? $archi['id'] . ($archi['depart'] === 'zero' ? '-zero' : '') : $format) . '-' . gmdate('Ymd-His');
   $compte = ['train' => 0, 'val' => 0, 'test' => 0];
   $parClasse = [];
   $natif = [];
@@ -556,10 +588,10 @@ function exporter(string $format, bool $verifiees): void {
     // L'arbre voyage avec le jeu : YOLO apprend des noms a plat, hierarchie.json dit ou chacun se range (regroupement, objet, type, detail).
     $zip->addFromString("$racine/hierarchie.json", json_encode(['noms' => array_map(fn($n, $k) => ['indice' => $k, 'nom' => $n, 'chemin' => $chemins[$n] ?? $n], $classes, array_keys($classes)), 'classes' => lire_json(dossier() . '/classes.json', ['classes' => []])['classes']], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     $zip->addFromString("$racine/data.yaml", "# Jeu du banc d'apprentissage des facades, " . gmdate('c') . "\npath: .\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n$noms");
-    $zip->addFromString("$racine/entrainer.py", script_entrainement($format));
-    $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine));
+    $zip->addFromString("$racine/entrainer.py", script_entrainement($format, $archi));
+    $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine, $archi));
   }
-  $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+  $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'architecture' => $archi['id'] ?? null, 'depart' => $archi['depart'] ?? null, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
   $zip->close();
   header('Content-Type: application/zip');
   header('Content-Disposition: attachment; filename="' . $racine . '.zip"');
@@ -569,41 +601,56 @@ function exporter(string $format, bool $verifiees): void {
   exit;
 }
 
-/** Le script d'entrainement livre avec le jeu : le meme protocole que le depot facade (CPU, graine fixe), puis l'export ONNX. */
-function script_entrainement(string $format): string {
-  $poids = $format === 'seg' ? 'yolo11n-seg.pt' : 'yolov10n.pt';
-  return "# Entrainement du banc d'apprentissage des facades ($format), Ultralytics 8.4.\n"
+/** Le script d'entrainement livre avec le jeu : le meme protocole que le depot facade (graine fixe), puis l'export ONNX. */
+function script_entrainement(string $format, array $a): string {
+  $poids = $a['poids'];
+  if ($a['depart'] === 'zero') return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, sans COCO : de zero), Ultralytics 8.4.\n"
     . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
-    . "# Poids de depart : $poids (YOLOv10n comme le depot facade pour la detection ; YOLO11n-seg pour les contours).\n"
+    . "# L'architecture seule ({$a['yaml']}), sans aucun poids appris : rien de COCO, rien du depot facade. Il faut plus d'epoques et plus\n"
+    . "# de photos qu'avec COCO ; a comparer au meme jeu parti de COCO (mAP du bloc test, affiche a la fin).\n"
     . "# Le modele .onnx produit se depose dans le banc (etape 3, Modeles), avec la liste de ses classes (data.yaml).\n"
-    . "# Poids de depart : depart.pt pose a cote de ce script s'il y en a un (le modele fenetres/portes ou volets du depot facade, en .pt,\n"
-    . "# ou un modele du banc deja entraine) ; sinon $poids. Ultralytics garde ce qui sert (le tronc) et refait la tete aux noms du jeu.\n"
+    . "import sys\nfrom ultralytics import YOLO\n\ndevice = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n"
+    . "m = YOLO('{$a['yaml']}')\n"
+    . "m.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, batch=8, device=device, workers=2, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
+    . "m.val(data='data.yaml', split='test')\n"
+    . "m.export({$a['export']})\n";
+  return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, parti de COCO), Ultralytics 8.4.\n"
+    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
+    . "# Poids de depart : depart.pt pose a cote de ce script s'il y en a un, sinon $poids (COCO). depart.pt doit etre de la meme\n"
+    . "# architecture : un modele du depot facade (YOLOv10n) pour un export YOLOv10n, ou un modele du banc deja entraine. Ultralytics garde\n"
+    . "# ce qui sert (le tronc) et refait la tete aux noms du jeu.\n"
+    . "# Le modele .onnx produit se depose dans le banc (etape 3, Modeles), avec la liste de ses classes (data.yaml).\n"
     . "import os, sys\nfrom ultralytics import YOLO\n\ndevice = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n"
     . "m = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\n"
     . "m.train(data='data.yaml', epochs=100, patience=25, imgsz=640, batch=8, device=device, workers=2, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
     . "m.val(data='data.yaml', split='test')\n"
-    . "m.export(format='onnx', imgsz=640" . ($format === 'seg' ? '' : ', nms=False') . ")\n";
+    . "m.export({$a['export']})\n";
 }
 
 /**
  * Le meme entrainement en carnet Google Colab (GPU gratuit) : envoyer le zip, entrainer, mesurer sur le test, recuperer best.onnx et la
  * liste des noms a deposer dans le banc (etape 3).
  */
-function carnet_colab(string $format, string $racine): string {
-  $poids = $format === 'seg' ? 'yolo11n-seg.pt' : 'yolov10n.pt';
+function carnet_colab(string $format, string $racine, array $a): string {
+  $poids = $a['poids'];
   $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
   $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
   $cellules = [
-    $texte("# Banc d'apprentissage des façades — entraînement ($format)\n\nExécution > Modifier le type d'exécution > **GPU**, puis lancer les cellules dans l'ordre. "
+    $texte("# Banc d'apprentissage des façades — entraînement {$a['nom']} ($format, " . ($a['depart'] === 'zero' ? 'sans COCO, de zéro' : 'parti de COCO') . ")\n\nExécution > Modifier le type d'exécution > **GPU**, puis lancer les cellules dans l'ordre. "
       . "La validation (val) arrête l'entraînement quand il ne progresse plus ; le test n'est lu qu'à la fin."),
     $code("!pip install -q 'ultralytics==8.4.*'"),
     $texte("Envoyer le zip exporté par le banc (`$racine.zip`)."),
     $code("from google.colab import files\nimport zipfile, os, glob\nenvoi = files.upload()\nzipfile.ZipFile(next(iter(envoi))).extractall('.')\nos.chdir(sorted(glob.glob('banc-*/'))[-1])\nprint(open('data.yaml').read())"),
-    $texte("Facultatif : envoyer des poids de départ `.pt` (le modèle fenêtres/portes ou volets du dépôt facade, ou un modèle du banc déjà entraîné). Sans eux, l'entraînement part de `$poids` (COCO). Passer la cellule pour partir de COCO."),
+    ...($a['depart'] === 'zero' ? [
+      $code("from ultralytics import YOLO\n# Sans COCO : l'architecture seule ({$a['yaml']}), rien d'appris ; plus d'époques.\nm = YOLO('{$a['yaml']}')\nm.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
+    ] : [
+    $texte("Facultatif : envoyer des poids de départ `.pt` **de la même architecture** ({$a['nom']}) : un modèle du banc déjà entraîné" . ($a['id'] === 'yolov10n' ? ", ou le modèle fenêtres/portes ou volets du dépôt facade" : '') . ". Sans eux, l'entraînement part de `$poids` (COCO). Passer la cellule pour partir de COCO."),
     $code("depart = files.upload()\nopen('depart.pt', 'wb').write(next(iter(depart.values()))) if depart else None"),
     $code("from ultralytics import YOLO\nm = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
-    $code("best = YOLO('runs/banc/weights/best.pt')\nmesure = best.val(data='data.yaml', split='test')\nprint('mAP50-95 test :', mesure.box.map)\nfor i, n in best.names.items(): print(i, n, round(float(mesure.box.maps[i]), 3))"),
-    $code("chemin = best.export(format='onnx', imgsz=640" . ($format === 'seg' ? '' : ', nms=False') . ")\nfiles.download(chemin)\nprint('Noms à coller dans le banc (étape 3) :')\nfor i, n in best.names.items(): print(f'{i}: {n}')"),
+    ]),
+    // Le chemin que l'entrainement rend : Ultralytics 8.4 range project='runs' sous runs/detect/ (ou segment/), et non runs/banc/.
+    $code("best = YOLO(str(m.trainer.best))\nprint('Poids :', m.trainer.best)\nmesure = best.val(data='data.yaml', split='test')\nprint('mAP50-95 test :', mesure.box.map)\nfor i, n in best.names.items(): print(i, n, round(float(mesure.box.maps[i]), 3))"),
+    $code("chemin = best.export({$a['export']})\nfiles.download(chemin)\nprint('Noms à coller dans le banc (étape 3) :')\nfor i, n in best.names.items(): print(f'{i}: {n}')"),
   ];
   return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 }
@@ -643,7 +690,7 @@ if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
     case 'POST installer': modele_installer(id_valide($id));
     case 'GET modele': modele_servir(id_valide($id));
     case 'DELETE modele': modele_supprimer(id_valide($id));
-    case 'GET export': exporter((string)($_GET['format'] ?? 'detect'), ($_GET['verifiees'] ?? '0') === '1');
+    case 'GET export': exporter((string)($_GET['format'] ?? 'detect'), ($_GET['verifiees'] ?? '0') === '1', (string)($_GET['base'] ?? ''), (string)($_GET['depart'] ?? 'coco'));
   }
   erreur(404, 'Route inconnue : ' . $methode . ' ' . $r);
 }

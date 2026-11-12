@@ -29,6 +29,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   sélection en fait la référence ; une barre posée en haut de la photo aligne les hauts, les bas, les bords gauches ou droits sur elle, et
   donne sa largeur, sa hauteur ou sa taille aux autres. Tirer un objet de la sélection déplace tout le groupe ; Suppr, Ctrl+C et Ctrl+X
   agissent sur toute la sélection.
+- **Banc : YOLO26, avec ou sans COCO.** L'export propose YOLO26n (par défaut) ou YOLOv10n (pour repartir des poids du dépôt
+  `facade`), YOLO26n-seg ou YOLO11n-seg, et le départ : avec COCO (poids pré-entraînés, ou `depart.pt`) ou sans (l'architecture seule,
+  de zéro, 300 époques). Vérifié avec Ultralytics 8.4.211 : un YOLO26 ne sort de bout en bout (`[1, 300, 6]`, `[1, 300, 38]` en contours)
+  qu'exporté avec `nms=False` ; le script et le carnet l'exportent ainsi. Le banc lit la sortie d'un modèle d'après sa forme (de bout en
+  bout ou brute, à trier), et non plus d'après le format déclaré : sur de vrais exports YOLO26n, YOLO26n-seg et YOLOv10n, il trouve les
+  mêmes objets qu'Ultralytics. Les scripts et les carnets produits (avec et sans COCO) ont tourné de bout en bout.
 - **Banc : sur un téléphone, les étapes sont une liste déroulante** et la barre de l'éditeur ne garde que les pictogrammes de ses
   outils : les huit onglets et leurs libellés prenaient tout l'écran, et la page débordait en largeur.
 - **Banc : supprimer les photos rejetées** (Mosaïque, « Rejetées ») : « Supprimer les N rejetées » en haut, ou « Supprimer » sur une
@@ -43,6 +49,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Banc : choisir un objet ne fait plus défiler la page.** La liste « Type » d'un objet à qualifier prenait le focus d'elle-même, et le
   navigateur faisait défiler jusqu'à l'inspecteur (sur un téléphone, sous la photo) ; elle gardait aussi le clavier (Suppr ne
   retirait plus l'objet).
+- **Banc : le carnet Colab relit les poids là où l'entraînement les a mis.** Ultralytics 8.4 range `project='runs'` sous
+  `runs/detect/` : le carnet cherchait `runs/banc/weights/best.pt`, qui n'existe pas, et ses deux dernières cellules (mesure du test,
+  export ONNX) échouaient. Il prend le chemin que l'entraînement rend (`m.trainer.best`).
 - **Banc : rafraîchir la page ne sort plus du banc.** L'étape s'écrivait dans l'adresse par un « #étape » relatif, que la base de la
   page (`banc/`) changeait en `/banc/#étape` ; rafraîchie, cette adresse était renvoyée par le `.htaccess` du banc vers `../?banc`, qu'Apache
   résolvait sans `RewriteBase` en chemin du disque du serveur (`/home/…/public_html/?banc`). L'étape s'écrit sur l'adresse entière, et
