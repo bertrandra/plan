@@ -1,0 +1,530 @@
+[
+  {
+    "id": "facade",
+    "nom": "Façade",
+    "parent": null,
+    "forme": "polygone",
+    "couleur": "#8d99ae",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "parement",
+        "nom": "Parement",
+        "type": "choix",
+        "valeurs": [
+          "enduit",
+          "brique",
+          "pierre",
+          "meulière",
+          "bardage",
+          "colombage",
+          "béton"
+        ]
+      }
+    ],
+    "description": "Le contour du mur photographié : sert à ranger le reste, pas à apprendre."
+  },
+  {
+    "id": "lignes-facade",
+    "nom": "Lignes de façade",
+    "parent": "facade",
+    "regroupement": true,
+    "forme": "rectangle",
+    "couleur": "#ffab91",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Les lignes horizontales qui situent le mur : égout et sol."
+  },
+  {
+    "id": "egout",
+    "nom": "Égout",
+    "parent": "lignes-facade",
+    "forme": "ligne",
+    "couleur": "#ff5722",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Le bas du toit le long du mur (la gouttière, ou la rive basse)."
+  },
+  {
+    "id": "sol",
+    "nom": "Sol",
+    "parent": "lignes-facade",
+    "forme": "ligne",
+    "couleur": "#795548",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "cache",
+        "nom": "Caché (haie, voiture)",
+        "type": "booleen"
+      }
+    ],
+    "description": "Le pied du mur, là où il rencontre le sol."
+  },
+  {
+    "id": "ouverture",
+    "nom": "Ouverture",
+    "parent": "facade",
+    "regroupement": true,
+    "forme": "rectangle",
+    "couleur": "#90caf9",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Ce qui ouvre le mur : fenêtres, portes, lucarnes."
+  },
+  {
+    "id": "fenetre",
+    "nom": "Fenêtre",
+    "parent": "ouverture",
+    "forme": "rectangle",
+    "couleur": "#1e88e5",
+    "apprendre": true,
+    "description": "Le hors-tout de la menuiserie, qualifié par son type.",
+    "types": [
+      {
+        "id": "fenetre_1v",
+        "nom": "Fenêtre 1 vantail"
+      },
+      {
+        "id": "fenetre_2v",
+        "nom": "Fenêtre 2 vantaux"
+      },
+      {
+        "id": "fenetre_petits_carreaux",
+        "nom": "Fenêtre à petits carreaux"
+      },
+      {
+        "id": "fenetre_imposte_carreaux",
+        "nom": "Fenêtre, imposte à carreaux"
+      },
+      {
+        "id": "fenetre_imposte_simple",
+        "nom": "Fenêtre, imposte simple"
+      },
+      {
+        "id": "porte_fenetre",
+        "nom": "Porte-fenêtre"
+      },
+      {
+        "id": "baie_vitree",
+        "nom": "Baie vitrée"
+      },
+      {
+        "id": "fenetre_cintree",
+        "nom": "Fenêtre cintrée"
+      },
+      {
+        "id": "oeil_de_boeuf",
+        "nom": "Œil-de-bœuf"
+      }
+    ],
+    "attributs": [
+      {
+        "cle": "materiau",
+        "nom": "Matériau",
+        "type": "choix",
+        "valeurs": [
+          "bois",
+          "PVC",
+          "aluminium",
+          "acier",
+          "inconnu"
+        ]
+      },
+      {
+        "cle": "etat",
+        "nom": "État",
+        "type": "choix",
+        "valeurs": [
+          "bon",
+          "usé",
+          "dégradé"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cadre-haut",
+    "nom": "Cadre haut (imposte)",
+    "parent": "fenetre",
+    "forme": "rectangle",
+    "couleur": "#64b5f6",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "type",
+        "nom": "Type",
+        "type": "choix",
+        "valeurs": [
+          "fixe",
+          "ouvrant",
+          "à soufflet"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cadre-bas",
+    "nom": "Cadre bas",
+    "parent": "fenetre",
+    "forme": "rectangle",
+    "couleur": "#0d47a1",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "vantaux",
+        "nom": "Vantaux",
+        "type": "nombre"
+      }
+    ]
+  },
+  {
+    "id": "quadrillage",
+    "nom": "Quadrillage (petits bois)",
+    "parent": "fenetre",
+    "forme": "rectangle",
+    "couleur": "#00acc1",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "colonnes",
+        "nom": "Colonnes",
+        "type": "nombre"
+      },
+      {
+        "cle": "rangees",
+        "nom": "Rangées",
+        "type": "nombre"
+      }
+    ]
+  },
+  {
+    "id": "appui",
+    "nom": "Appui",
+    "parent": "fenetre",
+    "forme": "rectangle",
+    "couleur": "#a1887f",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "materiau",
+        "nom": "Matériau",
+        "type": "choix",
+        "valeurs": [
+          "bois",
+          "PVC",
+          "aluminium",
+          "acier",
+          "inconnu"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "coffre-volet",
+    "nom": "Coffre de volet roulant",
+    "parent": "fenetre",
+    "forme": "rectangle",
+    "couleur": "#78909c",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "exterieur",
+        "nom": "Extérieur",
+        "type": "booleen"
+      }
+    ]
+  },
+  {
+    "id": "lucarne",
+    "nom": "Lucarne",
+    "parent": "ouverture",
+    "forme": "polygone",
+    "couleur": "#d81b60",
+    "apprendre": true,
+    "attributs": [
+      {
+        "cle": "forme",
+        "nom": "Forme",
+        "type": "choix",
+        "valeurs": [
+          "jacobine",
+          "capucine",
+          "meunière",
+          "rampante",
+          "chien-assis"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "porte",
+    "nom": "Porte",
+    "parent": "ouverture",
+    "forme": "rectangle",
+    "couleur": "#e53935",
+    "apprendre": true,
+    "description": "Le hors-tout de la porte, qualifié par son type.",
+    "types": [
+      {
+        "id": "porte_pleine",
+        "nom": "Porte pleine"
+      },
+      {
+        "id": "porte_vitree",
+        "nom": "Porte vitrée"
+      },
+      {
+        "id": "porte_double",
+        "nom": "Porte double"
+      },
+      {
+        "id": "porte_garage",
+        "nom": "Porte de garage"
+      }
+    ],
+    "attributs": [
+      {
+        "cle": "materiau",
+        "nom": "Matériau",
+        "type": "choix",
+        "valeurs": [
+          "bois",
+          "PVC",
+          "aluminium",
+          "acier",
+          "inconnu"
+        ]
+      },
+      {
+        "cle": "etat",
+        "nom": "État",
+        "type": "choix",
+        "valeurs": [
+          "bon",
+          "usé",
+          "dégradé"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "fermeture",
+    "nom": "Fermeture",
+    "parent": "facade",
+    "regroupement": true,
+    "forme": "rectangle",
+    "couleur": "#a5d6a7",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Ce qui ferme une ouverture : les volets."
+  },
+  {
+    "id": "volet",
+    "nom": "Volet",
+    "parent": "fermeture",
+    "forme": "rectangle",
+    "couleur": "#43a047",
+    "apprendre": true,
+    "types": [
+      {
+        "id": "volet_battant",
+        "nom": "Volet battant"
+      },
+      {
+        "id": "volet_roulant",
+        "nom": "Volet roulant"
+      },
+      {
+        "id": "volet_pliant",
+        "nom": "Volet pliant"
+      }
+    ],
+    "attributs": [
+      {
+        "cle": "position",
+        "nom": "Position",
+        "type": "choix",
+        "valeurs": [
+          "ouvert",
+          "fermé",
+          "mi-clos"
+        ]
+      },
+      {
+        "cle": "materiau",
+        "nom": "Matériau",
+        "type": "choix",
+        "valeurs": [
+          "bois",
+          "PVC",
+          "aluminium",
+          "acier",
+          "inconnu"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "saillie",
+    "nom": "Saillie",
+    "parent": "facade",
+    "regroupement": true,
+    "forme": "polygone",
+    "couleur": "#ffcc80",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Ce qui avance sur le mur : balcons, garde-corps, loggias."
+  },
+  {
+    "id": "balcon",
+    "nom": "Balcon",
+    "parent": "saillie",
+    "forme": "polygone",
+    "couleur": "#fb8c00",
+    "apprendre": true,
+    "attributs": []
+  },
+  {
+    "id": "garde_corps",
+    "nom": "Garde-corps",
+    "parent": "saillie",
+    "forme": "rectangle",
+    "couleur": "#fdd835",
+    "apprendre": true,
+    "attributs": [
+      {
+        "cle": "type",
+        "nom": "Type",
+        "type": "choix",
+        "valeurs": [
+          "barreaux",
+          "vitré",
+          "plein",
+          "balustres",
+          "ferronnerie"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "loggia",
+    "nom": "Loggia",
+    "parent": "saillie",
+    "forme": "polygone",
+    "couleur": "#8e24aa",
+    "apprendre": true,
+    "attributs": []
+  },
+  {
+    "id": "parties-mur",
+    "nom": "Parties du mur",
+    "parent": "facade",
+    "regroupement": true,
+    "forme": "rectangle",
+    "couleur": "#bcaaa4",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Ce qui fait la forme du mur, sans l’ouvrir : pignon, soubassement."
+  },
+  {
+    "id": "pignon",
+    "nom": "Pignon",
+    "parent": "parties-mur",
+    "forme": "polygone",
+    "couleur": "#6d4c41",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "colombage",
+        "nom": "Colombage",
+        "type": "booleen"
+      }
+    ]
+  },
+  {
+    "id": "soubassement",
+    "nom": "Soubassement",
+    "parent": "parties-mur",
+    "forme": "polygone",
+    "couleur": "#5d4037",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "materiau",
+        "nom": "Matériau",
+        "type": "choix",
+        "valeurs": [
+          "bois",
+          "PVC",
+          "aluminium",
+          "acier",
+          "inconnu"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "equipements",
+    "nom": "Équipements",
+    "parent": "facade",
+    "regroupement": true,
+    "forme": "rectangle",
+    "couleur": "#cfd8dc",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Ce qui est posé sur le mur : gouttières, descentes."
+  },
+  {
+    "id": "gouttiere",
+    "nom": "Gouttière",
+    "parent": "equipements",
+    "forme": "rectangle",
+    "couleur": "#9e9e9e",
+    "apprendre": false,
+    "attributs": []
+  },
+  {
+    "id": "descente",
+    "nom": "Descente d’eau",
+    "parent": "equipements",
+    "forme": "rectangle",
+    "couleur": "#bdbdbd",
+    "apprendre": false,
+    "attributs": []
+  },
+  {
+    "id": "toiture",
+    "nom": "Toiture",
+    "parent": null,
+    "forme": "polygone",
+    "couleur": "#546e7a",
+    "apprendre": false,
+    "attributs": [
+      {
+        "cle": "couverture",
+        "nom": "Couverture",
+        "type": "choix",
+        "valeurs": [
+          "tuile plate",
+          "tuile mécanique",
+          "ardoise",
+          "zinc",
+          "bac acier",
+          "tuile canal"
+        ]
+      }
+    ],
+    "description": "Le toit, hors de la façade : ce qui est dessus (cheminée) s’y range."
+  },
+  {
+    "id": "cheminee",
+    "nom": "Cheminée",
+    "parent": "toiture",
+    "forme": "polygone",
+    "couleur": "#bf360c",
+    "apprendre": false,
+    "attributs": [],
+    "description": "Sur le toit, hors de la façade."
+  }
+]

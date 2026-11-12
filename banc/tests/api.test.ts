@@ -85,6 +85,7 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
       { id: 'fenetre', nom: 'Fenêtre', parent: 'facade', forme: 'rectangle', couleur: '#1e88e5', attributs: [], apprendre: true },
       { id: 'cadre-haut', nom: 'Cadre haut', parent: 'fenetre', forme: 'rectangle', couleur: '#64b5f6', attributs: [], apprendre: true },
       { id: 'pignon', nom: 'Pignon', parent: 'facade', forme: 'polygone', couleur: '#6d4c41', attributs: [], apprendre: true },
+      { id: 'egout', nom: 'Égout', parent: 'facade', forme: 'ligne', couleur: '#ff5722', attributs: [], apprendre: true },
     ];
     expect((await appel('PUT', 'classes', {}, { classes })).status).toBe(200);
     expect((await appel('PUT', 'classes', {}, { classes: [...classes, classes[1]] })).status).toBe(400);
@@ -113,10 +114,11 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
       { id: 'm2', classe: 'pignon', forme: 'polygone', points: [{ x: 100, y: 50 }, { x: 150, y: 0 }, { x: 200, y: 50 }], parent: null, attributs: {}, origine: 'main' },
       { id: 'm3', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 100 }], parent: null, attributs: {}, origine: 'main' },
       { id: 'casse', classe: 'fenetre', forme: 'polygone', points: [{ x: 1, y: 1 }], parent: null, attributs: {}, origine: 'main' },
+      { id: 'm4', classe: 'egout', forme: 'ligne', points: [{ x: 0, y: 30 }, { x: 200, y: 32 }], parent: null, attributs: {}, origine: 'main' },
     ];
-    expect(await json(await appel('PUT', 'annotation', { id }, { objets, par: 'auto' }))).toMatchObject({ statut: 'brouillon', objets: 4 });
+    expect(await json(await appel('PUT', 'annotation', { id }, { objets, par: 'auto' }))).toMatchObject({ statut: 'brouillon', objets: 5 });
     expect(Object.keys(lireZip(await (await appel('GET', 'export', { format: 'detect' })).arrayBuffer())).filter((n) => n.endsWith('.jpg'))).toHaveLength(0);
-    expect(await json(await appel('PUT', 'annotation', { id }, { objets, par: 'main' }))).toMatchObject({ statut: 'corrigee', objets: 4, classes: ['fenetre', 'cadre-haut', 'pignon', 'facade'] });
+    expect(await json(await appel('PUT', 'annotation', { id }, { objets, par: 'main' }))).toMatchObject({ statut: 'corrigee', objets: 5, classes: ['fenetre', 'cadre-haut', 'pignon', 'facade', 'egout'] });
     expect(await json(await appel('PATCH', 'image', { id }, { bloc: 'val', verifiee: true }))).toMatchObject({ bloc: 'val', verifiee: true });
 
     const detect = lireZip(await (await appel('GET', 'export', { format: 'detect', verifiees: '1' })).arrayBuffer());
@@ -135,7 +137,8 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
 
     const natif = lireZip(await (await appel('GET', 'export', { format: 'natif' })).arrayBuffer());
     const a = JSON.parse(natif[Object.keys(natif).find((n) => n.endsWith('annotations.json')) ?? ''] ?? '{}') as { images: { annotation: { objets: { id: string; parent: string | null; attributs: unknown }[] } }[] };
-    expect(a.images[0]?.annotation.objets.map((o) => [o.id, o.parent])).toEqual([['a1', null], ['m1', 'a1'], ['m2', null], ['m3', null]]);
+    // La ligne d'egout n'entre pas dans le jeu YOLO (plus haut), mais reste dans le format du banc.
+    expect(a.images[0]?.annotation.objets.map((o) => [o.id, o.parent])).toEqual([['a1', null], ['m1', 'a1'], ['m2', null], ['m3', null], ['m4', null]]);
 
     // Range en reserve : plus rien a l'export ; supprimee : partie.
     await appel('PATCH', 'image', { id }, { bloc: 'reserve' });

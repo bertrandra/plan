@@ -59,7 +59,7 @@ export function PanneauObjet({ o, objets, classes, onChanger, onSupprimer }: { o
         {o.origine === 'auto' && <button type="button" className="ok" onClick={() => onChanger({ ...o, origine: 'corrige' })}>Juste tel quel</button>}
         <button type="button" className="danger" onClick={onSupprimer}>Supprimer (Suppr)</button>
       </div>
-      {o.forme === 'polygone' && <p className="aide">Tirez un sommet ; le petit rond au milieu d’un côté ajoute un sommet ; Alt + clic sur un sommet le retire.</p>}
+      {o.forme !== 'rectangle' && <p className="aide">Tirez un sommet ; le petit rond au milieu d’un côté ajoute un sommet ; Alt + clic sur un sommet le retire.</p>}
     </div>
   );
 }

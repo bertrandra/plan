@@ -12,9 +12,9 @@ export function boite(points: readonly P[]): Boite {
   return { x0, y0, x1, y1 };
 }
 
-/** Le contour d'un objet : les quatre coins d'un rectangle, les sommets d'un polygone. */
+/** Le contour d'un objet : les quatre coins d'un rectangle, les sommets d'un polygone, les points d'une ligne (ouverte). */
 export function contour(o: Pick<Objet, 'forme' | 'points'>): P[] {
-  if (o.forme === 'polygone') return o.points;
+  if (o.forme !== 'rectangle') return o.points;
   const b = boite(o.points);
   return [{ x: b.x0, y: b.y0 }, { x: b.x1, y: b.y0 }, { x: b.x1, y: b.y1 }, { x: b.x0, y: b.y1 }];
 }
@@ -47,7 +47,10 @@ export function iou(a: Boite, b: Boite): number {
 export function partDans(a: Boite, b: Boite): number {
   const l = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)), h = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
   const s = (a.x1 - a.x0) * (a.y1 - a.y0);
-  return s > 0 ? (l * h) / s : 0;
+  if (s > 0) return (l * h) / s;
+  // Une boite plate (une ligne horizontale ou verticale) : dedans si son milieu l'est.
+  const mx = (a.x0 + a.x1) / 2, my = (a.y0 + a.y1) / 2;
+  return mx >= b.x0 && mx <= b.x1 && my >= b.y0 && my <= b.y1 ? 1 : 0;
 }
 
 /**

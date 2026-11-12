@@ -1,50 +1,17 @@
 // L'arbre des objets a marquer (etape 0) : celui que le banc propose la premiere fois, et ce qu'on en tire (l'ordre YOLO,
 // le parent permis d'un objet). La personne le change ensuite a l'ecran Classes ; il vit dans data/apprentissage/classes.json.
 
-import type { Attribut, Classe } from './types.js';
-
-const choix = (cle: string, nom: string, valeurs: string[]): Attribut => ({ cle, nom, type: 'choix', valeurs });
-const nombre = (cle: string, nom: string): Attribut => ({ cle, nom, type: 'nombre' });
-const oui = (cle: string, nom: string): Attribut => ({ cle, nom, type: 'booleen' });
-
-const MATERIAU = choix('materiau', 'Matériau', ['bois', 'PVC', 'aluminium', 'acier', 'inconnu']);
-const ETAT = choix('etat', 'État', ['bon', 'usé', 'dégradé']);
-
-const t = (id: string, nom: string) => ({ id, nom });
+import type { Classe } from './types.js';
+import arbreLivre from '../data/apprentissage/classes.json';
 
 /**
- * L'arbre de depart (demande du proprietaire, 11 novembre 2026) : des familles (fenetre, porte, volet…) que le modele voit et qualifie par
- * leur type, dans l'ordre de leurs noms YOLO (0 fenetre_1v … 19 loggia) ; sous la fenetre, ce qui la compose, a marquer pour memoire
- * (non appris tant qu'on ne coche pas « apprise »). La facade et le toit servent a ranger, pas a apprendre.
+ * L'arbre de depart (demande du proprietaire, 12 novembre 2026) : un fichier de donnees, banc/data/apprentissage/classes.json, livre dans
+ * data/apprentissage/ a cote de banc-config.php, et non du code. Le banc le prend tel quel la premiere fois ; ensuite l'arbre se change a
+ * l'ecran Classes (0) et vit dans data/apprentissage/classes.json du serveur. Ses vingt noms appris, dans l'ordre (fenetre_1v ... loggia),
+ * se rangent sous des regroupements (Ouverture, Fermeture, Saillie) ; la facade porte aussi ses lignes (egout, sol), les parties du mur
+ * (pignon, soubassement) et ses equipements ; la cheminee est sur la toiture, hors de la facade.
  */
-export const CLASSES_DEFAUT: Classe[] = [
-  { id: 'facade', nom: 'Façade', parent: null, forme: 'polygone', couleur: '#8d99ae', apprendre: false, attributs: [choix('parement', 'Parement', ['enduit', 'brique', 'pierre', 'meulière', 'bardage', 'colombage', 'béton'])], description: 'Le contour du mur photographié : sert à ranger le reste, pas à apprendre.' },
-  { id: 'ouverture', nom: 'Ouverture', parent: 'facade', regroupement: true, forme: 'rectangle', couleur: '#90caf9', apprendre: false, attributs: [], description: 'Ce qui ouvre le mur : fenêtres, portes, lucarnes.' },
-  { id: 'fenetre', nom: 'Fenêtre', parent: 'ouverture', forme: 'rectangle', couleur: '#1e88e5', apprendre: true, description: 'Le hors-tout de la menuiserie, qualifié par son type.',
-    types: [t('fenetre_1v', 'Fenêtre 1 vantail'), t('fenetre_2v', 'Fenêtre 2 vantaux'), t('fenetre_petits_carreaux', 'Fenêtre à petits carreaux'), t('fenetre_imposte_carreaux', 'Fenêtre, imposte à carreaux'), t('fenetre_imposte_simple', 'Fenêtre, imposte simple'), t('porte_fenetre', 'Porte-fenêtre'), t('baie_vitree', 'Baie vitrée'), t('fenetre_cintree', 'Fenêtre cintrée'), t('oeil_de_boeuf', 'Œil-de-bœuf')],
-    attributs: [MATERIAU, ETAT] },
-  { id: 'cadre-haut', nom: 'Cadre haut (imposte)', parent: 'fenetre', forme: 'rectangle', couleur: '#64b5f6', apprendre: false, attributs: [choix('type', 'Type', ['fixe', 'ouvrant', 'à soufflet'])] },
-  { id: 'cadre-bas', nom: 'Cadre bas', parent: 'fenetre', forme: 'rectangle', couleur: '#0d47a1', apprendre: false, attributs: [nombre('vantaux', 'Vantaux')] },
-  { id: 'quadrillage', nom: 'Quadrillage (petits bois)', parent: 'fenetre', forme: 'rectangle', couleur: '#00acc1', apprendre: false, attributs: [nombre('colonnes', 'Colonnes'), nombre('rangees', 'Rangées')] },
-  { id: 'appui', nom: 'Appui', parent: 'fenetre', forme: 'rectangle', couleur: '#a1887f', apprendre: false, attributs: [MATERIAU] },
-  { id: 'coffre-volet', nom: 'Coffre de volet roulant', parent: 'fenetre', forme: 'rectangle', couleur: '#78909c', apprendre: false, attributs: [oui('exterieur', 'Extérieur')] },
-  { id: 'lucarne', nom: 'Lucarne', parent: 'ouverture', forme: 'polygone', couleur: '#d81b60', apprendre: true, attributs: [choix('forme', 'Forme', ['jacobine', 'capucine', 'meunière', 'rampante', 'chien-assis'])] },
-  { id: 'porte', nom: 'Porte', parent: 'ouverture', forme: 'rectangle', couleur: '#e53935', apprendre: true, description: 'Le hors-tout de la porte, qualifié par son type.',
-    types: [t('porte_pleine', 'Porte pleine'), t('porte_vitree', 'Porte vitrée'), t('porte_double', 'Porte double'), t('porte_garage', 'Porte de garage')], attributs: [MATERIAU, ETAT] },
-  { id: 'fermeture', nom: 'Fermeture', parent: 'facade', regroupement: true, forme: 'rectangle', couleur: '#a5d6a7', apprendre: false, attributs: [], description: 'Ce qui ferme une ouverture : les volets.' },
-  { id: 'volet', nom: 'Volet', parent: 'fermeture', forme: 'rectangle', couleur: '#43a047', apprendre: true,
-    types: [t('volet_battant', 'Volet battant'), t('volet_roulant', 'Volet roulant'), t('volet_pliant', 'Volet pliant')], attributs: [choix('position', 'Position', ['ouvert', 'fermé', 'mi-clos']), MATERIAU] },
-  { id: 'saillie', nom: 'Saillie', parent: 'facade', regroupement: true, forme: 'polygone', couleur: '#ffcc80', apprendre: false, attributs: [], description: 'Ce qui avance sur le mur : balcons, garde-corps, loggias.' },
-  { id: 'balcon', nom: 'Balcon', parent: 'saillie', forme: 'polygone', couleur: '#fb8c00', apprendre: true, attributs: [] },
-  { id: 'garde_corps', nom: 'Garde-corps', parent: 'saillie', forme: 'rectangle', couleur: '#fdd835', apprendre: true, attributs: [choix('type', 'Type', ['barreaux', 'vitré', 'plein', 'balustres', 'ferronnerie'])] },
-  { id: 'loggia', nom: 'Loggia', parent: 'saillie', forme: 'polygone', couleur: '#8e24aa', apprendre: true, attributs: [] },
-  { id: 'pignon', nom: 'Pignon', parent: 'facade', forme: 'polygone', couleur: '#6d4c41', apprendre: false, attributs: [oui('colombage', 'Colombage')] },
-  { id: 'soubassement', nom: 'Soubassement', parent: 'facade', forme: 'polygone', couleur: '#5d4037', apprendre: false, attributs: [MATERIAU] },
-  { id: 'gouttiere', nom: 'Gouttière', parent: 'facade', forme: 'rectangle', couleur: '#9e9e9e', apprendre: false, attributs: [] },
-  { id: 'descente', nom: 'Descente d’eau', parent: 'facade', forme: 'rectangle', couleur: '#bdbdbd', apprendre: false, attributs: [] },
-  { id: 'toiture', nom: 'Toiture', parent: null, forme: 'polygone', couleur: '#546e7a', apprendre: false, attributs: [choix('couverture', 'Couverture', ['tuile plate', 'tuile mécanique', 'ardoise', 'zinc', 'bac acier', 'tuile canal'])] },
-  { id: 'cheminee', nom: 'Cheminée', parent: 'toiture', forme: 'polygone', couleur: '#bf360c', apprendre: false, attributs: [] },
-];
+export const CLASSES_DEFAUT: Classe[] = arbreLivre as Classe[];
 
 /** Les classes dans l'ordre de l'arbre : chaque parent avant ses enfants, les orphelins a la fin. */
 export function ordreDeLArbre(classes: readonly Classe[]): Classe[] {
@@ -76,8 +43,8 @@ export function profondeur(classes: readonly Classe[], id: string): number {
   return n;
 }
 
-/** Les noms appris d'une classe : ses types, sinon elle-meme ; rien pour une classe non apprise ou un regroupement. */
-export const nomsDeLaClasse = (c: Classe): string[] => (!c.apprendre || c.regroupement ? [] : c.types?.length ? c.types.map((x) => x.id) : [c.id]);
+/** Les noms appris d'une classe : ses types, sinon elle-meme ; rien pour une classe non apprise, un regroupement ou une ligne (YOLO n'apprend pas de lignes). */
+export const nomsDeLaClasse = (c: Classe): string[] => (!c.apprendre || c.regroupement || c.forme === 'ligne' ? [] : c.types?.length ? c.types.map((x) => x.id) : [c.id]);
 
 /** Un detail : une classe rangee dans un objet appris (le cadre d'une fenetre), et non une simple sous-categorie d'un regroupement. */
 export function estDetail(c: Classe, classes: readonly Classe[]): boolean {
@@ -113,7 +80,7 @@ export function indicesYolo(classes: readonly Classe[]): Map<string, number> {
 /** Le nom YOLO d'un objet : son type pour une classe a types (null s'il n'est pas qualifie), sa classe sinon ; null hors du jeu. */
 export function nomYoloDe(o: { classe: string; type?: string }, classes: readonly Classe[]): string | null {
   const c = classes.find((x) => x.id === o.classe);
-  if (!c?.apprendre || c.regroupement) return null;
+  if (!c?.apprendre || c.regroupement || c.forme === 'ligne') return null;
   if (!c.types?.length) return c.id;
   return c.types.some((t) => t.id === o.type) ? (o.type ?? null) : null;
 }

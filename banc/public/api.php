@@ -253,10 +253,10 @@ function annotation_lire(string $id): void {
 /** Un objet marque : sa classe, sa forme et ses points (pixels de redressee.jpg), son parent, ses attributs, d'ou il vient. */
 function objet_valide($o): ?array {
   if (!is_array($o) || !is_string($o['id'] ?? null) || !is_string($o['classe'] ?? null)) return null;
-  $forme = ($o['forme'] ?? '') === 'polygone' ? 'polygone' : 'rectangle';
+  $forme = in_array($o['forme'] ?? '', ['polygone', 'ligne'], true) ? $o['forme'] : 'rectangle';
   $pts = [];
   foreach ((array)($o['points'] ?? []) as $p) if (is_array($p) && is_numeric($p['x'] ?? null) && is_numeric($p['y'] ?? null)) $pts[] = ['x' => round((float)$p['x'], 2), 'y' => round((float)$p['y'], 2)];
-  if (count($pts) < ($forme === 'polygone' ? 3 : 2)) return null;
+  if (count($pts) < ($forme === 'polygone' ? 3 : 2)) return null;  // une ligne (egout, sol) : deux points au moins
   $out = ['id' => mb_substr($o['id'], 0, 40), 'classe' => mb_substr($o['classe'], 0, 40), 'forme' => $forme, 'points' => $pts,
     'parent' => is_string($o['parent'] ?? null) ? mb_substr($o['parent'], 0, 40) : null,
     'attributs' => is_array($o['attributs'] ?? null) ? $o['attributs'] : [],
@@ -407,7 +407,8 @@ function noms_yolo(): array {
   foreach ($l as $c) $parId[$c['id']] = $c;
   $enfants = [];
   foreach ($l as $c) $enfants[isset($parId[$c['parent'] ?? '']) ? $c['parent'] : ''][] = $c;
-  $appris = fn(array $c) => ($c['apprendre'] ?? true) !== false && empty($c['regroupement']);
+  // Une ligne (egout, sol) ne s'apprend pas : YOLO apprend des boites et des contours ; elle reste dans le format du banc.
+  $appris = fn(array $c) => ($c['apprendre'] ?? true) !== false && empty($c['regroupement']) && ($c['forme'] ?? '') !== 'ligne';
   $typesDe = fn(array $c) => array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, (array)($c['types'] ?? [])), 'is_string'));
   $estDetail = function (array $c) use ($parId, $appris): bool {
     for ($p = $parId[$c['parent'] ?? ''] ?? null, $n = 0; $p && $n < 20; $p = $parId[$p['parent'] ?? ''] ?? null, $n++) if ($appris($p)) return true;

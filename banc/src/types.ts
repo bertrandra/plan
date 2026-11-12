@@ -2,7 +2,8 @@
 
 export interface P { x: number; y: number }
 
-export type Forme = 'rectangle' | 'polygone';
+/** Un rectangle, un polygone, ou une ligne (l'egout, le sol : une ligne brisee ouverte, jamais apprise par YOLO). */
+export type Forme = 'rectangle' | 'polygone' | 'ligne';
 
 /** Un attribut a renseigner sur un objet marque : un choix dans une liste, un nombre, oui/non, ou un texte. */
 export interface Attribut {

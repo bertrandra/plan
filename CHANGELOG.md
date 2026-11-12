@@ -22,7 +22,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Pour ajuster un marquage au pixel, une loupe (×4) s’ouvre d’elle-même pendant qu’on tire un coin ou qu’on trace.
   L’arbre va jusqu’au détail : des regroupements qui classent sans se dessiner (Ouverture → Fenêtre, Porte → leurs types), des
   détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
-  dans le jeu exporté.
+  dans le jeu exporté. Le typage est un fichier de données (`data/apprentissage/classes.json`, modifiable à l’écran) ; la façade porte
+  ses lignes d’égout et de sol (une forme « ligne », hors du jeu YOLO), ses parties du mur (pignon, soubassement) à part des
+  ouvertures ; la cheminée est sur la toiture, hors de la façade.
 
 ### Retiré
 

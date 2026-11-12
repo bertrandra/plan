@@ -288,3 +288,34 @@ describe('l’arbre vers le detail', () => {
     expect(rangerLesParents([facade, fen, q], avecDetails).map((o) => o.parent)).toEqual([null, 'f', 'w']);
   });
 });
+
+describe('la structure de la facade (fichier data/apprentissage/classes.json)', () => {
+  it('egout et sol sont des lignes de la facade ; pignon et soubassement ne sont pas des ouvertures ; la cheminee est sur le toit', async () => {
+    const { cheminDuNom } = await import('../src/classes.js');
+    const c = CLASSES_DEFAUT;
+    const chemin = (id: string) => { const l: string[] = []; for (let k = c.find((x) => x.id === id); k; k = c.find((x) => x.id === k?.parent)) l.unshift(k.id); return l.join('/'); };
+    expect(chemin('egout')).toBe('facade/lignes-facade/egout');
+    expect(chemin('sol')).toBe('facade/lignes-facade/sol');
+    expect([c.find((x) => x.id === 'egout')?.forme, c.find((x) => x.id === 'sol')?.forme]).toEqual(['ligne', 'ligne']);
+    expect(chemin('pignon')).toBe('facade/parties-mur/pignon');
+    expect(chemin('soubassement')).toBe('facade/parties-mur/soubassement');
+    for (const id of ['fenetre', 'porte', 'lucarne']) expect(chemin(id).startsWith('facade/ouverture/')).toBe(true);
+    expect(chemin('cheminee')).toBe('toiture/cheminee');
+    // Les lignes ne s'apprennent pas : les vingt noms ne bougent pas.
+    expect(nomsYolo(c)).toHaveLength(20);
+    expect(cheminDuNom('loggia', c)).toEqual(['facade', 'saillie', 'loggia']);
+    const avecLigneApprise = c.map((x) => (x.id === 'egout' ? { ...x, apprendre: true } : x));
+    expect(nomsYolo(avecLigneApprise)).toHaveLength(20);
+  });
+  it('une ligne se trace, se reforme et se range dans la facade', async () => {
+    const { creerPolygone, tirerPoignee, poignees } = await import('../src/edition.js');
+    const facade: Objet = { id: 'f', classe: 'facade', forme: 'polygone', points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], parent: null, attributs: {}, origine: 'main' };
+    const egout = creerPolygone([facade], 'egout', [{ x: 5, y: 40 }, { x: 95, y: 40 }], 'ligne');
+    expect([egout.forme, poignees(egout)]).toEqual(['ligne', [{ x: 5, y: 40 }, { x: 95, y: 40 }]]);
+    expect(tirerPoignee(egout, 1, { x: 96, y: 42 }, 100, 100).points[1]).toEqual({ x: 96, y: 42 });
+    expect(ajouterSommet(egout, 0).points).toHaveLength(3);
+    expect(ajouterSommet(egout, 1).points).toHaveLength(2);
+    expect(retirerSommet(egout, 0).points).toHaveLength(2);
+    expect(rangerLesParents([facade, egout], CLASSES_DEFAUT)[1]?.parent).toBe('f');
+  });
+});

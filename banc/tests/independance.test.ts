@@ -13,7 +13,8 @@ describe('l’independance du banc', () => {
     for (const f of fichiers(src)) {
       for (const m of fs.readFileSync(f, 'utf8').matchAll(/^\s*import\s[^'"]*['"]([^'"]+)['"]/gm)) {
         const cible = m[1] ?? '';
-        if (cible.startsWith('.')) { if (!path.resolve(path.dirname(f), cible).startsWith(src + path.sep)) fautes.push(path.relative(src, f) + ' -> ' + cible); }
+        // banc/data/ : ses donnees livrees (l'arbre de depart), a lui aussi.
+        if (cible.startsWith('.')) { const r = path.resolve(path.dirname(f), cible); if (!r.startsWith(src + path.sep) && !r.startsWith(path.resolve(src, '../data') + path.sep)) fautes.push(path.relative(src, f) + ' -> ' + cible); }
         else if (!/^(react|react-dom)(\/|$)/.test(cible)) fautes.push(path.relative(src, f) + ' -> ' + cible);
       }
     }

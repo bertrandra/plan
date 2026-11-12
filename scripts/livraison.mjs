@@ -68,6 +68,9 @@ for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 's
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 cpSync(resolve(racine, 'dist-banc'), resolve(sortie, 'banc'), { recursive: true });
+// L'arbre de depart du banc (le typage des objets, un fichier de donnees) : data/apprentissage/classes.json, pose a cote des autres donnees.
+mkdirSync(resolve(sortie, 'data/apprentissage'), { recursive: true });
+cpSync(resolve(racine, 'banc/data/apprentissage/classes.json'), resolve(sortie, 'data/apprentissage/classes.json'));
 
 const version = JSON.parse(readFileSync(resolve(racine, 'package.json'), 'utf8')).version;
 
@@ -239,7 +242,8 @@ Sur l'hebergement, trois choses voisines :
    b. Copier banc/banc-config.exemple.php a cote de public_html/ (comme plan-admin-config.php), sous le nom banc-config.php,
       et y remplacer « A-CHANGER » par le mot de passe du banc (ou poser motDePasseHash).
    c. Ses donnees vivent dans data/apprentissage/, a cote de banc-config.php (hors de public_html/) : photos, marquage, classes,
-      modeles. Le dossier se cree au premier usage. Il faut les extensions PHP zip (export) et une limite d'envoi d'au moins
+      modeles. Le dossier se cree au premier usage ; cette livraison y porte classes.json, l'arbre de depart des objets (le typage) :
+      a la premiere installation, le garder avec le reste de data/ ; ensuite, ne pas ecraser celui du serveur (il se change a l'ecran 0). Il faut les extensions PHP zip (export) et une limite d'envoi d'au moins
       40 Mo (upload_max_filesize, post_max_size) ; un modele entraine pese ~10 Mo.
 
 3. Verifier :

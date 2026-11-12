@@ -36,7 +36,7 @@ export function Loupe({ url, L, H, objets, classes, centre, echelle, cote, trace
         <line x1={centre.x - w / 2} y1={centre.y} x2={centre.x + w / 2} y2={centre.y} />
         <line x1={centre.x} y1={centre.y - w / 2} x2={centre.x} y2={centre.y + w / 2} />
       </g>
-      {objets.map((o) => <polygon key={o.id} points={contour(o).map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={couleurDe(o)} strokeWidth={trait} />)}
+      {objets.map((o) => { const pts = contour(o).map((q) => `${q.x},${q.y}`).join(' '); return o.forme === 'ligne' ? <polyline key={o.id} points={pts} fill="none" stroke={couleurDe(o)} strokeWidth={trait * 1.5} /> : <polygon key={o.id} points={pts} fill="none" stroke={couleurDe(o)} strokeWidth={trait} />; })}
       {rectangle && <rect x={Math.min(rectangle.a.x, rectangle.b.x)} y={Math.min(rectangle.a.y, rectangle.b.y)} width={Math.abs(rectangle.b.x - rectangle.a.x)} height={Math.abs(rectangle.b.y - rectangle.a.y)} fill="none" stroke={couleur} strokeWidth={trait} />}
       {trace.length > 0 && <polyline points={[...trace, centre].map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke={couleur} strokeWidth={trait} />}
       <circle cx={centre.x} cy={centre.y} r={trait * 3} fill="none" stroke="#000" strokeWidth={trait * 1.4} />

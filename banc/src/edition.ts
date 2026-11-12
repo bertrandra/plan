@@ -11,20 +11,20 @@ export function creerRectangle(objets: readonly Objet[], classe: string, a: P, b
   return { id: nouvelId(objets, 'm'), classe, forme: 'rectangle', points: [{ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) }, { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) }], parent: null, attributs: {}, origine: 'main' };
 }
 
-export function creerPolygone(objets: readonly Objet[], classe: string, points: readonly P[]): Objet {
-  return { id: nouvelId(objets, 'm'), classe, forme: 'polygone', points: points.map((p) => ({ ...p })), parent: null, attributs: {}, origine: 'main' };
+export function creerPolygone(objets: readonly Objet[], classe: string, points: readonly P[], forme: 'polygone' | 'ligne' = 'polygone'): Objet {
+  return { id: nouvelId(objets, 'm'), classe, forme, points: points.map((p) => ({ ...p })), parent: null, attributs: {}, origine: 'main' };
 }
 
-/** Les poignees d'un objet : les quatre coins d'un rectangle (hg, hd, bd, bg), les sommets d'un polygone. */
+/** Les poignees d'un objet : les quatre coins d'un rectangle (hg, hd, bd, bg), les sommets d'un polygone ou d'une ligne. */
 export function poignees(o: Objet): P[] {
-  if (o.forme === 'polygone') return o.points;
+  if (o.forme !== 'rectangle') return o.points;
   const b = boite(o.points);
   return [{ x: b.x0, y: b.y0 }, { x: b.x1, y: b.y0 }, { x: b.x1, y: b.y1 }, { x: b.x0, y: b.y1 }];
 }
 
 /** Tire la poignee `k` d'un objet en `p` : le coin oppose d'un rectangle reste ou il est. */
 export function tirerPoignee(o: Objet, k: number, p: P, L: number, H: number): Objet {
-  if (o.forme === 'polygone') return borner(touche({ ...o, points: o.points.map((q, i) => (i === k ? p : q)) }), L, H);
+  if (o.forme !== 'rectangle') return borner(touche({ ...o, points: o.points.map((q, i) => (i === k ? p : q)) }), L, H);
   const c = poignees(o);
   const oppose = c[(k + 2) % 4] as P;
   return borner(touche({ ...o, points: [{ x: Math.min(oppose.x, p.x), y: Math.min(oppose.y, p.y) }, { x: Math.max(oppose.x, p.x), y: Math.max(oppose.y, p.y) }] }), L, H);
@@ -65,23 +65,24 @@ export function changerAttribut(o: Objet, cle: string, valeur: string | number |
   return touche({ ...o, attributs: a });
 }
 
-/** Ajoute un sommet a un polygone, au milieu de son cote `k` (de k a k + 1). */
+/** Ajoute un sommet a un polygone ou a une ligne, au milieu de son cote `k` (de k a k + 1 ; une ligne n'a pas de cote de fermeture). */
 export function ajouterSommet(o: Objet, k: number): Objet {
-  if (o.forme !== 'polygone') return o;
+  if (o.forme === 'rectangle' || (o.forme === 'ligne' && k >= o.points.length - 1)) return o;
   const a = o.points[k] as P, b = o.points[(k + 1) % o.points.length] as P;
   const pts = [...o.points];
   pts.splice(k + 1, 0, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   return touche({ ...o, points: pts });
 }
 
-/** Retire un sommet d'un polygone qui en garde au moins trois. */
+/** Retire un sommet d'un polygone qui en garde au moins trois, d'une ligne qui en garde au moins deux. */
 export function retirerSommet(o: Objet, k: number): Objet {
-  return o.forme === 'polygone' && o.points.length > 3 ? touche({ ...o, points: o.points.filter((_, i) => i !== k) }) : o;
+  const min = o.forme === 'polygone' ? 3 : o.forme === 'ligne' ? 2 : Infinity;
+  return o.points.length > min ? touche({ ...o, points: o.points.filter((_, i) => i !== k) }) : o;
 }
 
 /** Un rectangle devient le polygone de ses quatre coins (pour suivre un cintre, un pignon). */
 export function enPolygone(o: Objet): Objet {
-  return o.forme === 'polygone' ? o : touche({ ...o, forme: 'polygone', points: poignees(o) });
+  return o.forme !== 'rectangle' ? o : touche({ ...o, forme: 'polygone', points: poignees(o) });
 }
 
 /** Un historique borne : annuler et refaire. */

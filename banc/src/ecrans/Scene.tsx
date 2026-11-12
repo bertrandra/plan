@@ -26,6 +26,11 @@ interface Props {
   onDebutGeste: () => void;
 }
 
+/** Les points d'un trace sans ceux poses deux fois au meme endroit (les deux clics d'un double clic). */
+function sansDoublons(l: readonly P[], tolerance: number): P[] {
+  return l.filter((p, i) => { const q = l[i - 1]; return !q || Math.hypot(p.x - q.x, p.y - q.y) > tolerance; });
+}
+
 export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onChoisir, onCreer, onModifier, onDebutGeste }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [vue, setVue] = useState<Vue>({ x: 0, y: 0, w: L, h: H });
@@ -34,6 +39,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
   const [survol, setSurvol] = useState<P | null>(null);
   // La loupe automatique : L la coupe ou la remet (gardee pour la session de l'editeur).
   const [loupe, setLoupe] = useState(true);
+  // Une ligne (egout, sol) se finit a deux points ; un polygone a trois.
+  const minPoints = outil === 'ligne' ? 2 : 3;
   const espace = useRef(false);
   useEffect(() => { setVue({ x: 0, y: 0, w: L, h: H }); setTrace([]); }, [url, L, H]);
   useEffect(() => { setTrace([]); }, [outil]);
@@ -42,13 +49,13 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
       if (e.key === ' ' && !(e.target as HTMLElement).closest('input, select, textarea')) { espace.current = true; e.preventDefault(); }
       if (e.key === 'Escape') { setTrace([]); setGeste(null); onChoisir(null); }
       if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey && !(e.target as HTMLElement).closest('input, select, textarea')) setLoupe((x) => !x);
-      if (e.key === 'Enter' && trace.length >= 3) { onCreer(trace, 'polygone'); setTrace([]); }
+      if (e.key === 'Enter' && trace.length >= minPoints) { onCreer(trace, outil === 'ligne' ? 'ligne' : 'polygone'); setTrace([]); }
     };
     const haut = (e: KeyboardEvent) => { if (e.key === ' ') espace.current = false; };
     window.addEventListener('keydown', bas);
     window.addEventListener('keyup', haut);
     return () => { window.removeEventListener('keydown', bas); window.removeEventListener('keyup', haut); };
-  }, [trace, onCreer, onChoisir]);
+  }, [trace, onCreer, onChoisir, outil]);
 
   const echelle = vue.w / (svg.current?.clientWidth || 1000);
   const point = (e: { clientX: number; clientY: number }): P => {
@@ -72,6 +79,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
       if (premier && trace.length >= 3 && Math.hypot(premier.x - p.x, premier.y - p.y) < 10 * echelle) { onCreer(trace, 'polygone'); setTrace([]); }
       else setTrace([...trace, p]);
     }
+    // Une ligne : un point par clic ; Entree ou un double clic la finit (deux points au moins).
+    if (outil === 'ligne') setTrace([...trace, p]);
   };
   const surObjet = (e: PE<SVGElement>, o: Objet) => {
     if (outil !== 'choisir' || e.button !== 0 || espace.current) return;
@@ -130,14 +139,14 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
     {montrerLoupe && survol && <Loupe url={url} L={L} H={H} objets={objets} classes={classes} centre={survol} echelle={echelle} cote={coteLoupe} trace={trace} rectangle={enCours ? { a: enCours.depart, b: enCours.courant } : null} couleur={classe?.couleur ?? '#ffeb3b'} />}
     <button type="button" className={loupe ? 'bascule-loupe active' : 'bascule-loupe'} aria-pressed={loupe} title="Loupe automatique (L)" onClick={() => setLoupe((x) => !x)}>🔍 Loupe</button>
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
-      onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerLeave={() => { if (!geste) setSurvol(null); }} onWheel={molette} onDoubleClick={() => { if (outil === 'polygone' && trace.length >= 3) { onCreer(trace, 'polygone'); setTrace([]); } }}>
+      onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerLeave={() => { if (!geste) setSurvol(null); }} onWheel={molette} onDoubleClick={() => { const t = sansDoublons(trace, 4 * echelle); if ((outil === 'polygone' || outil === 'ligne') && t.length >= minPoints) { onCreer(t, outil); setTrace([]); } }}>
       <image href={url} width={L} height={H} />
       {objets.map((o) => {
         const pts = contour(o).map((q) => `${q.x},${q.y}`).join(' ');
         const c = couleur(o), choisiIci = o.id === choisi;
         return (
           <g key={o.id} className={'objet origine-' + o.origine + (choisiIci ? ' choisi' : '')}>
-            <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />
+            {o.forme === 'ligne' ? <polyline points={pts} fill="none" stroke={c} strokeWidth={(choisiIci ? 3 : 2) * trait} onPointerDown={(e) => surObjet(e, o)} /> : <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />}
             <text x={contour(o)[0]?.x ?? 0} y={(contour(o)[0]?.y ?? 0) - 3 * echelle} fill={c} fontSize={12 * echelle} className="etiquette">{nom(o)}{o.score !== undefined && o.origine === 'auto' ? ' ' + Math.round(o.score * 100) + '%' : ''}</text>
           </g>
         );
@@ -148,7 +157,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, onCho
         const ps = poignees(o);
         return (
           <g className="poignees">
-            {o.forme === 'polygone' && ps.map((a, k) => { const b = ps[(k + 1) % ps.length] as P; return <circle key={'m' + k} cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r={rayon * 0.6} className="milieu" onPointerDown={(e) => { e.stopPropagation(); onDebutGeste(); onModifier(ajouterSommet(o, k), true); }} />; })}
+            {o.forme !== 'rectangle' && ps.slice(0, o.forme === 'ligne' ? -1 : undefined).map((a, k) => { const b = ps[(k + 1) % ps.length] as P; return <circle key={'m' + k} cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r={rayon * 0.6} className="milieu" onPointerDown={(e) => { e.stopPropagation(); onDebutGeste(); onModifier(ajouterSommet(o, k), true); }} />; })}
             {ps.map((q, k) => <circle key={k} cx={q.x} cy={q.y} r={rayon} className="poignee" onPointerDown={(e) => surPoignee(e, o, k)} />)}
           </g>
         );
