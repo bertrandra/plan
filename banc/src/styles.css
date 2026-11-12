@@ -466,3 +466,10 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .tete-dialogue small { color: var(--doux); }
 @media (max-width: 700px) { .voile-dialogue { padding: 0; } .dialogue { max-height: 100dvh; border-radius: 0; } }
 .barre .icone-seule { width: 38px; height: 38px; min-height: 0; padding: 0; justify-content: center; border-radius: 10px; }
+/* Dans la fenetre des vues : le panoramique et ses vues tiennent sur un ecran, les apercus en vignettes. */
+.dialogue .apercus { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 200px)); gap: .6rem; padding: 0; margin: .6rem 0 0; list-style: none; }
+.dialogue .apercus img, .dialogue .apercus .sans-image { width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; border-radius: 8px; display: block; }
+.dialogue .apercus .rang { gap: .25rem; font-size: .8rem; margin-top: .3rem; flex-wrap: nowrap; }
+.dialogue .apercus .rang button { min-height: 30px; padding: 0 .45rem; }
+.dialogue .pano { max-width: min(100%, 84dvh); margin-inline: auto; }
+@media (max-width: 700px) { .dialogue .apercus { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tete-dialogue .principal { margin-left: auto; } }
