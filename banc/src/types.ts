@@ -68,7 +68,7 @@ export interface MetaImage {
   adresse?: string | null;
   /** L'identifiant de la parcelle cadastrale (IGN) vers laquelle la photo a ete cherchee. */
   parcelle?: string | null;
-  panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' } | null;
+  panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie' } | null;
   licence?: string | null;
   auteur?: string | null;
   largeur?: number;

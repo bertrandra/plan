@@ -130,3 +130,13 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 .mini-carte .photo-carte.choisie { fill: var(--attention); stroke: var(--attention); }
 .mini-carte .adresse-carte { fill: var(--danger); }
 .rang input[type=number] { width: 5.5rem; }
+.pano { position: relative; width: 100%; aspect-ratio: 2 / 1; overflow: hidden; border-radius: 4px; background: #0002; user-select: none; }
+.pano img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; aspect-ratio: auto; background: none; }
+.pano.actif { cursor: crosshair; }
+.pano-vue { position: absolute; top: 12%; bottom: 12%; border: 2px solid var(--attention); background: color-mix(in srgb, var(--attention) 18%, transparent); pointer-events: none; }
+.pano-rue, .pano-cible { position: absolute; top: 0; bottom: 0; width: 0; pointer-events: none; }
+.pano-rue { left: 50%; border-left: 1px dashed #fff; }
+.pano-cible { border-left: 2px solid var(--danger); }
+.choix-vues { margin-top: .75rem; }
+.apercus { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .75rem; }
+.apercus img, .apercus .sans-image { width: 100%; aspect-ratio: 4 / 3; border-radius: 4px; background: #0002; display: block; }

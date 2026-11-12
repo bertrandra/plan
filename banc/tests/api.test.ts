@@ -158,6 +158,11 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     const p = () => { const g = new FormData(); g.append('fichier', jpeg(64, 48), 'p.jpg'); g.append('meta', JSON.stringify({ source: 'panoramax', panoramax: { id: 'abc-123', panoramique: true } })); return g; };
     expect((await appel('POST', 'images', {}, p())).status).toBe(201);
     expect((await appel('POST', 'images', {}, p())).status).toBe(409);
+    // Des vues choisies dans un meme 360 : deux caps differents passent, le meme cap (a 5 degres pres, au passage du nord) revient en 409.
+    const v = (cap: number) => { const g = new FormData(); g.append('fichier', jpeg(64, 48), 'v.jpg'); g.append('meta', JSON.stringify({ source: 'panoramax', panoramax: { id: 'pano-360', panoramique: true, vue: 'choisie', cap } })); return g; };
+    expect((await appel('POST', 'images', {}, v(2))).status).toBe(201);
+    expect((await appel('POST', 'images', {}, v(100))).status).toBe(201);
+    expect((await appel('POST', 'images', {}, v(358))).status).toBe(409);
   });
 
   it('liste les modeles du depot facade a installer, et garde la correspondance changee', async () => {

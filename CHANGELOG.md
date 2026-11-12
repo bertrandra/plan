@@ -5,6 +5,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc : choisir les vues d’un panoramique 360** (demande du propriétaire, 12 novembre 2026). La vignette de Panoramax ne montre
+  que l’axe de la rue : la liste montre maintenant le 360 entier, la rue au milieu, la parcelle sous un trait rouge et, en orange, les
+  vues qui seront importées. « Choisir les vues » ouvre le panoramique en grand : le toucher ajoute une vue à cet endroit (75° de
+  champ) ou retire celle qui y est, chaque vue s’ajuste de 5° et se montre telle qu’elle sera importée ; raccourcis « Gauche et
+  droite », « Vers la parcelle », « Comme la visée ». Le serveur reconnaît une vue déjà importée à son cap (5° près), et plus seulement
+  à son nom.
+
 ## [5.23.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le **banc d'apprentissage des façades** (`?banc`, #661), une application à part livrée

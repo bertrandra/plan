@@ -435,3 +435,25 @@ describe('les canevas que Safari accepte', () => {
     expect(estVide(d)).toBe(false);
   });
 });
+
+describe('les vues choisies dans un panoramique 360', () => {
+  it('un cap se place dans le panoramique (la rue au milieu), se choisit au toucher, se retire, et garde son nom quand il en a un', async () => {
+    const { xDuCap, capDuX, basculerCap, vuesDesCaps, lirePhotos } = await import('../src/panoramax.js');
+    // La voiture roule vers l'est (90) : le milieu du panoramique regarde l'est, le nord est au quart, le sud aux trois quarts.
+    expect([xDuCap(90, 90), xDuCap(0, 90), xDuCap(180, 90)]).toEqual([0.5, 0.25, 0.75]);
+    expect([capDuX(0.25, 90), capDuX(0.75, 90), capDuX(0, 90)]).toEqual([0, 180, 270]);
+    let caps = basculerCap([], 0);
+    caps = basculerCap(caps, 180);
+    expect(caps).toEqual([0, 180]);
+    expect(basculerCap(caps, 20)).toEqual([180]);
+    expect(basculerCap(caps, 355)).toEqual([180]);
+    const p = { panoramique: true, azimut: 90, cap: 200 };
+    expect(vuesDesCaps(p, [0, 180, 200, 300], 'cotes')).toEqual([{ vue: 'gauche', cap: 0 }, { vue: 'droite', cap: 180 }, { vue: 'adresse', cap: 200 }, { vue: 'choisie', cap: 300 }]);
+    expect(vuesDesCaps(p, undefined, 'cotes')).toEqual([{ vue: 'gauche', cap: 0 }, { vue: 'droite', cap: 180 }]);
+    expect(vuesDesCaps({ ...p, panoramique: false }, [10, 20], 'cotes')).toEqual([{ vue: 'photo', cap: 90 }]);
+    // La version reduite d'une photo est lue, sur un hote permis seulement.
+    const f = (sd: string) => ({ features: [{ id: 'a', geometry: { coordinates: [2.1325, 48.905] }, properties: { 'pers:interior_orientation': { field_of_view: 360 } }, assets: { hd: { href: 'https://panoramax.ign.fr/api/pictures/a/hd.jpg' }, sd: { href: sd } } }] });
+    expect(lirePhotos(f('https://panoramax.ign.fr/api/pictures/a/sd.jpg'), { lat: 48.905, lon: 2.1325 }, 50)[0]?.sd).toBe('https://panoramax.ign.fr/api/pictures/a/sd.jpg');
+    expect(lirePhotos(f('https://ailleurs.example/sd.jpg'), { lat: 48.905, lon: 2.1325 }, 50)[0]?.sd).toBeNull();
+  });
+});

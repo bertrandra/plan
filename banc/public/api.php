@@ -178,8 +178,9 @@ function image_creer(): void {
   // Une photo Panoramax deja importee ne revient pas une seconde fois.
   if (!empty($meta['panoramax']['id'])) foreach (scandir(dossier('images')) ?: [] as $autre) {
     $m = preg_match(BANC_ID, $autre) ? lire_json(dossier('images') . "/$autre/meta.json", []) : [];
-    // Une meme photo donne plusieurs vues (les deux cotes de la rue) : c'est la paire photo et vue qui ne revient pas.
-    if (($m['panoramax']['id'] ?? null) === $meta['panoramax']['id'] && ($m['panoramax']['vue'] ?? '') === ($meta['panoramax']['vue'] ?? '')) erreur(409, 'Vue Panoramax déjà importée (' . $autre . ').');
+    // Une meme photo donne plusieurs vues (les deux cotes de la rue, ou des caps choisis dans le 360) : c'est la paire photo et cap
+    // qui ne revient pas (a moins de 5 degres) ; une vue sans cap se compare par son nom.
+    if (($m['panoramax']['id'] ?? null) === $meta['panoramax']['id'] && meme_vue($m['panoramax'], $meta['panoramax'])) erreur(409, 'Vue Panoramax déjà importée (' . $autre . ').');
   }
   $id = nouvel_id();
   $d = dossier_image($id, false);
@@ -225,6 +226,15 @@ function fichier_servir(string $id, string $v): void {
   header('Content-Length: ' . filesize($f));
   readfile($f);
   exit;
+}
+
+/** Deux vues d'une meme photo Panoramax sont-elles la meme : meme cap a 5 degres pres, sinon meme nom de vue. */
+function meme_vue(array $a, array $b): bool {
+  if (is_numeric($a['cap'] ?? null) && is_numeric($b['cap'] ?? null)) {
+    $d = fmod(abs((float)$a['cap'] - (float)$b['cap']), 360.0);
+    return min($d, 360.0 - $d) < 5.0;
+  }
+  return ($a['vue'] ?? '') === ($b['vue'] ?? '');
 }
 
 /** L'etape 2 : la photo redressee, sa vignette, et comment elle l'a ete. */

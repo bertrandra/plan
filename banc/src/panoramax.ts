@@ -20,6 +20,8 @@ export interface PhotoRue {
   champ: number;
   panoramique: boolean;
   hd: string;
+  /** La version reduite (2048 px pour un 360) : de quoi montrer le panoramique entier et choisir ses vues. */
+  sd: string | null;
   vignette: string | null;
   date: string | null;
   auteur: string | null;
@@ -117,8 +119,10 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
     const panoramique = champ >= 300;
     const vise = panoramique || (az !== null && Math.abs(ecartAngle(az, cap)) <= champ / 2 + 10);
     const vignette = f.assets?.thumb?.href ?? null;
+    const sd = f.assets?.sd?.href ?? null;
     out.push({
       id: f.id, collection: f.collection ?? null, lat: pos.lat, lon: pos.lon, azimut: az, champ, panoramique, hd,
+      sd: autorise(sd) ? sd : null,
       vignette: autorise(vignette) ? vignette : null,
       date: typeof p['datetime'] === 'string' ? p['datetime'] : null,
       auteur: typeof p['geovisio:producer'] === 'string' ? p['geovisio:producer'] : null,
@@ -136,7 +140,7 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
  * plate se garde telle quelle.
  */
 export type Visee = 'cotes' | 'cote-adresse' | 'adresse';
-export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo'; cap: number }
+export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number }
 
 export function vuesAExtraire(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'>, visee: Visee): VueAExtraire[] {
   if (!p.panoramique) return [{ vue: 'photo', cap: p.azimut ?? p.cap }];
@@ -146,4 +150,35 @@ export function vuesAExtraire(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'
   const gauche: VueAExtraire = { vue: 'gauche', cap: norm(p.azimut - 90) }, droite: VueAExtraire = { vue: 'droite', cap: norm(p.azimut + 90) };
   if (visee === 'cotes') return [gauche, droite];
   return [Math.abs(ecartAngle(gauche.cap, p.cap)) <= Math.abs(ecartAngle(droite.cap, p.cap)) ? gauche : droite];
+}
+
+/** Le champ d'une vue tiree d'un panoramique, en degres (celui de l'import). */
+export const CHAMP_VUE = 75;
+
+const norm = (a: number) => ((a % 360) + 360) % 360;
+
+/**
+ * Ou tombe un cap dans le panoramique equirectangulaire, de 0 (bord gauche) a 1 (bord droit) : le milieu de l'image est le cap de la
+ * prise de vue (`azimut`, l'axe de la rue), 360 degres sur toute la largeur.
+ */
+export const xDuCap = (cap: number, azimut: number): number => 0.5 + ecartAngle(azimut, cap) / 360;
+
+/** Le cap vise a la position `x` (0 a 1) du panoramique. */
+export const capDuX = (x: number, azimut: number): number => Math.round(norm(azimut + (x - 0.5) * 360));
+
+/** Ajoute une vue au cap donne, ou retire celle qui le couvre deja (a moins d'un demi-champ de vue). */
+export function basculerCap(caps: readonly number[], cap: number): number[] {
+  const k = caps.findIndex((c) => Math.abs(ecartAngle(c, cap)) < CHAMP_VUE / 2);
+  return k >= 0 ? caps.filter((_, i) => i !== k) : [...caps, norm(cap)].sort((a, b) => a - b);
+}
+
+/**
+ * Les vues a tirer d'une photo pour les caps choisis a la main (demande du proprietaire, 12 novembre 2026 : regarder a gauche, a
+ * droite, ou ailleurs dans le 360). Un cap qui tombe sur une vue de la visee garde son nom (gauche, droite, adresse) ; les autres sont
+ * « choisies ». Sans choix, la visee. Une photo plate n'a qu'une vue.
+ */
+export function vuesDesCaps(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'>, caps: readonly number[] | undefined, visee: Visee): VueAExtraire[] {
+  if (!p.panoramique || !caps) return vuesAExtraire(p, visee);
+  const connues = [...vuesAExtraire(p, 'cotes'), ...vuesAExtraire(p, 'adresse')];
+  return caps.map((cap) => ({ vue: connues.find((v) => Math.abs(ecartAngle(v.cap, cap)) < 1)?.vue ?? 'choisie', cap: norm(cap) }));
 }
