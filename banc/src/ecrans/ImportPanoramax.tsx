@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import type { Banc } from '../App.js';
 import { api, ErreurApi } from '../api.js';
-import { bitmap, COTE_SOURCE, jpeg, pixels, reduire, versCanevas, vignette } from '../images.js';
+import { bitmap, COTE_SOURCE, jpeg, liberer, pixels, reduire, versCanevas, vignette } from '../images.js';
 import { lirePhotos, trouverAdresses, urlRecherche, vuesAExtraire, type Adresse, type PhotoRue, type Visee } from '../panoramax.js';
 import { centre, enMetres, lireParcelles, parcelleDuPoint, rapporterALaParcelle, urlParcelles, type Parcelle } from '../parcelles.js';
 import { vueDuPanoramique } from '../equirect.js';
@@ -33,7 +33,9 @@ async function importerVues(banc: Banc, photos: readonly PhotoRue[], visee: Vise
     try {
       const b = await bitmap(await (await fetch(p.hd)).blob());
       // Le panoramique se lit une fois pour toutes ses vues ; 75 degres de champ, un peu vers le haut, comme on vise une facade.
-      const pano = p.panoramique ? pixels(reduire(b, 6000)) : null;
+      // 6000 px de large au plus, et PIXELS_MAX au plus (Safari laisse vide un canevas plus grand : 5650 x 2825).
+      let pano: ReturnType<typeof pixels> | null = null;
+      if (p.panoramique) { const cp = reduire(b, 6000); try { pano = pixels(cp); } finally { liberer(cp); } }
       for (const v of vuesAExtraire(p, visee)) {
         const c = pano ? versCanevas(vueDuPanoramique(pano, { capCentre: p.azimut ?? 0, cap: v.cap, tangage: 8, champ: 75, largeur: 1600, hauteur: 1200 })) : reduire(b, COTE_SOURCE);
         try {
@@ -45,7 +47,7 @@ async function importerVues(banc: Banc, photos: readonly PhotoRue[], visee: Vise
           ok++;
         } catch (e) {
           if (!(e instanceof ErreurApi && e.statut === 409)) throw e;
-        }
+        } finally { liberer(c); }
       }
       b.close();
     } catch (e) {

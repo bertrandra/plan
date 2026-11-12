@@ -37,6 +37,9 @@ de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans la mesure sur m
   (Parcellaire Express, par le WFS de la Géoplateforme ; une autre se choisit sur une petite carte) et cherche les photos autour
   d’elle, rapportées à elle (distance à ses bords, cap vers son milieu) ; la parcelle est gardée avec chaque photo. La descente de
   gouttière, sur la façade, s’apprend (#23).
+  Sur iPhone et iPad, un panoramique 360 se ramène sous la limite des canevas de Safari (16,7 millions de pixels ; au-delà la vue
+  importée restait vide) et chaque canevas rend sa mémoire tout de suite ; une image que le navigateur n’a pas pu dessiner est refusée
+  avec un message plutôt qu’importée vide.
   L’arbre va jusqu’au détail : des regroupements qui classent sans se dessiner (Ouverture → Fenêtre, Porte → leurs types), des
   détails appris si on le coche (cadres, quadrillage), qui prennent leurs indices après les objets principaux, et `hierarchie.json`
   dans le jeu exporté. Le typage est un fichier de données (`data/apprentissage/classes.json`, modifiable à l’écran) ; la façade porte

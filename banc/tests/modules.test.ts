@@ -421,3 +421,17 @@ describe('l’adresse, la parcelle au cadastre de l’IGN, et la descente de gou
     expect(erreursDeLArbre(c)).toEqual([]);
   });
 });
+
+describe('les canevas que Safari accepte', () => {
+  it('un panoramique 360 se réduit sous 16 777 216 pixels ; une photo d’iPhone reste à 3200 px ; une image transparente est vide', async () => {
+    const { facteurDeReduction, estVide, PIXELS_MAX } = await import('../src/images.js');
+    const k = facteurDeReduction(8000, 4000, 6000);
+    expect(Math.round(8000 * k) * Math.round(4000 * k)).toBeLessThanOrEqual(16_777_216);
+    expect(Math.round(8000 * k) * Math.round(4000 * k)).toBeLessThanOrEqual(PIXELS_MAX + 8000);
+    expect(facteurDeReduction(4032, 3024, 3200)).toBeCloseTo(3200 / 4032, 6);
+    expect(facteurDeReduction(100, 50, 6000)).toBe(1);
+    expect(estVide(new Uint8ClampedArray(4 * 5000))).toBe(true);
+    const d = new Uint8ClampedArray(4 * 5000); d[4 * 2000 + 3] = 255;
+    expect(estVide(d)).toBe(false);
+  });
+});
