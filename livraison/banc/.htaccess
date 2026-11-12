@@ -5,8 +5,11 @@ DirectoryIndex index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
   # L'adresse du banc est ?banc a la racine (la page porte <base href="banc/">) : /banc/ tout court y renvoie.
+  # Vers le dossier du site, ecrit en entier depuis l'adresse demandee : une cible relative (« ../?banc ») se resolvait, sans
+  # RewriteBase, en chemin du disque du serveur (/home/…/public_html/?banc).
   RewriteCond %{ENV:REDIRECT_STATUS} ^$
-  RewriteRule ^(index\.html)?$ ../?banc [R=302,L]
+  RewriteCond %{REQUEST_URI} ^(.*/)banc/(index\.html)?$
+  RewriteRule ^(index\.html)?$ %1?banc [R=302,L]
 </IfModule>
 
 # La configuration et ce qui ne serait la que par erreur ne se servent jamais.
