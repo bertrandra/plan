@@ -1,5 +1,5 @@
 // La colonne d'outils, a gauche de la photo (comme dans les logiciels de dessin) : naviguer (choisir, main, zoom), selectionner (boite,
-// lasso), tracer (rectangle, polygone, ligne, point), puis l'affichage (etiquettes, loupe) et l'aide. Une touche par outil.
+// lasso), tracer (rectangle, polygone, ligne, point), puis l'affichage (etiquettes, loupe), l'aimant aux bords et l'aide. Une touche par outil.
 
 import type { ModeSelection, Outil } from './Scene.js';
 import { Icone, type NomIcone } from '../../ui/Icones.js';
@@ -24,9 +24,9 @@ const GROUPES: Bouton[][] = [
   ],
 ];
 
-export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiquettes, loupe, onLoupe, onAide }: {
+export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiquettes, loupe, onLoupe, aimant, onAimant, onAide }: {
   outil: Outil; mode: ModeSelection; onOutil: (o: Outil) => void; onMode: (m: ModeSelection) => void;
-  etiquettes: boolean; onEtiquettes: () => void; loupe: boolean; onLoupe: () => void; onAide: () => void;
+  etiquettes: boolean; onEtiquettes: () => void; loupe: boolean; onLoupe: () => void; aimant: boolean; onAimant: () => void; onAide: () => void;
 }) {
   const actif = (b: Bouton) => b.outil === outil && (!b.mode || b.mode === mode);
   return (
@@ -42,6 +42,7 @@ export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiq
       <div className="groupe-outils" role="group">
         <button type="button" className={etiquettes ? 'outil actif' : 'outil'} aria-pressed={etiquettes} title="Toutes les étiquettes (E)" aria-label="Toutes les étiquettes (E)" onClick={onEtiquettes}><Icone nom="etiquettes" /></button>
         <button type="button" className={loupe ? 'outil actif' : 'outil'} aria-pressed={loupe} title="Loupe automatique (L)" aria-label="Loupe automatique (L)" onClick={onLoupe}><Icone nom="loupe" /></button>
+        <button type="button" className={aimant ? 'outil actif' : 'outil'} aria-pressed={aimant} title="Aimant : un rectangle tracé se cale sur le bord de la menuiserie (M)" aria-label="Aimant (M)" onClick={onAimant}><Icone nom="aimant" /></button>
         <button type="button" className="outil" title="Raccourcis du clavier (?)" aria-label="Raccourcis du clavier (?)" onClick={onAide}><Icone nom="aide" /></button>
       </div>
     </nav>

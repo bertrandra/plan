@@ -25,6 +25,7 @@ import { useMarquage } from './useMarquage.js';
 import { usePressePapiers } from './usePressePapiers.js';
 import { useRelecture } from './useRelecture.js';
 import { useRaccourcis, type Gestes } from './useRaccourcis.js';
+import { useAides } from './useAides.js';
 
 const OUTILS_SANS_TRACE: readonly Outil[] = ['choisir', 'selection', 'vue', 'zoom'];
 
@@ -53,6 +54,21 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   const relecture = useRelecture({ marquage, classes: banc.classes, choisi: sel.choisi, cibles: sel.cibles, choisir: sel.choisir, H });
   const presse = usePressePapiers({ id, marquage, cibles: sel.cibles, classes: banc.classes, L, H, choisir: sel.choisir, selectionner: sel.selectionner, dire: (t) => banc.dire(t) });
   const objets = useMemo(() => marquage.objets ?? [], [marquage.objets]);
+  const aides = useAides({ url: api.fichier(id, 'redressee', meta?.redressement?.le ?? ''), L, classes: banc.classes, dire: (t, g) => banc.dire(t, g) });
+  /** F : les semblables de l'objet choisi, ajoutes au brouillon et choisis (Tab et A pour les relire, X pour ceux qui n'en sont pas). */
+  const trouverSemblables = () => {
+    const modele = objets.find((o) => o.id === sel.choisi);
+    if (!modele) { banc.dire('Choisissez d’abord une fenêtre (ou un autre rectangle) : F cherche celles qui lui ressemblent.'); return; }
+    const r = aides.trouver(objets, modele);
+    if (!r) return;
+    const avant = new Set(objets.map((o) => o.id)), nouveaux = r.filter((o) => !avant.has(o.id)).map((o) => o.id);
+    if (!nouveaux.length) { banc.dire('Aucun semblable trouvé sur cette photo.'); return; }
+    marquage.changer(() => r);
+    sel.selectionner(nouveaux, false);
+    banc.dire(`${nouveaux.length} semblable(s) proposé(s), choisis : relisez-les (Tab, A), X retire ceux qui n’en sont pas.`);
+  };
+  /** C : les rectangles choisis cales sur le bord de la menuiserie. */
+  const calerPris = () => { if (sel.cibles.size) marquage.changer((l) => aides.calerObjets(l, sel.cibles)); };
   const photos = useMemo(() => liste.map((x) => banc.images.find((m) => m.id === x)).filter((m): m is NonNullable<typeof m> => !!m), [liste, banc.images]);
   const rang = liste.indexOf(id);
 
@@ -111,6 +127,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     // S choisit la selection ; S de nouveau passe de la boite au lasso.
     outilSelection: () => { if (vue.outil === 'selection') vue.setMode(vue.mode === 'boite' ? 'lasso' : 'boite'); else vue.setOutil('selection'); },
     etiquettes: () => vue.setEtiquettes((x) => !x), loupe: () => vue.setLoupe((x) => !x), aide: () => vue.setAide((x) => !x),
+    semblables: trouverSemblables, caler: calerPris, aimant: aides.basculerAimant,
     photoSuivante: () => { void aller(rang + 1); }, photoPrecedente: () => { void aller(rang - 1); },
     type: ({ chiffre }) => { const c = choixDeCreation(banc.classes)[(chiffre ?? 0) - 1]; if (c) palette(c.valeur); },
   };
@@ -123,7 +140,9 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   const objet = objets.find((o) => o.id === sel.choisi) ?? null;
   const creer = (pts: Parameters<typeof creerPolygone>[2], forme: Parameters<typeof creerPolygone>[3] | 'rectangle') => {
     if (!classeChoisie) return;
-    const cree = forme === 'rectangle' ? creerRectangle(objets, classeChoisie.id, pts[0] ?? { x: 0, y: 0 }, pts[1] ?? { x: 0, y: 0 }) : creerPolygone(objets, classeChoisie.id, pts, forme);
+    // L'aimant : un rectangle trace se cale sur le bord de la menuiserie.
+    const cadre = forme === 'rectangle' && aides.aimant ? aides.calerPoints([pts[0] ?? { x: 0, y: 0 }, pts[1] ?? { x: 0, y: 0 }]) : pts;
+    const cree = forme === 'rectangle' ? creerRectangle(objets, classeChoisie.id, cadre[0] ?? { x: 0, y: 0 }, cadre[1] ?? { x: 0, y: 0 }) : creerPolygone(objets, classeChoisie.id, pts, forme);
     const n: Objet = cible?.type ? { ...cree, type: cible.type } : cree;
     marquage.changer((l) => rangerLesParents([...l, n], banc.classes));
     sel.choisir(n.id);
@@ -134,7 +153,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
         onAller={(k) => { void aller(k); }} onEnregistrer={() => { void marquage.enregistrer(); }} onValider={() => { void validerEtSuivante(); }} onFermer={fermer} />
       <div className="editeur-corps">
         <ColonneOutils outil={vue.outil} mode={vue.mode} onOutil={vue.setOutil} onMode={vue.setMode} etiquettes={vue.etiquettes} onEtiquettes={() => vue.setEtiquettes((x) => !x)}
-          loupe={vue.loupe} onLoupe={() => vue.setLoupe((x) => !x)} onAide={() => vue.setAide(true)} />
+          loupe={vue.loupe} onLoupe={() => vue.setLoupe((x) => !x)} aimant={aides.aimant} onAimant={aides.basculerAimant} onAide={() => vue.setAide(true)} />
         {marquage.objets ? (
           <Scene url={api.fichier(id, 'redressee', meta.redressement?.le ?? '')} L={L} H={H} objets={visibles} classes={banc.classes}
             outil={vue.outil} classe={classeChoisie ?? null} choisi={sel.choisi} onChoisir={sel.choisir}
@@ -144,6 +163,8 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
               onTaille={(t) => { if (sel.choisi) marquage.changer((l) => memeTaille(l, sel.selection, sel.choisi as string, t)); }} />}
             onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste}
             surChoix={sel.cibles.size > 0 && <>
+              {objet?.forme === 'rectangle' && sel.cibles.size === 1 && <button type="button" className="icone-seule" onClick={trouverSemblables} disabled={!aides.pret} title="Trouver les semblables : celles qui lui ressemblent sur la photo (F)" aria-label="Trouver les semblables (F)"><Icone nom="semblables" /></button>}
+              {objets.some((o) => sel.cibles.has(o.id) && o.forme === 'rectangle') && <button type="button" className="icone-seule" onClick={calerPris} disabled={!aides.pret} title="Coller au bord de la menuiserie (C)" aria-label="Coller au bord (C)"><Icone nom="caler" /></button>}
               <button type="button" className="danger icone-seule" onClick={retirerPris} title={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} (Suppr ou X)` : 'Supprimer (Suppr ou X)'} aria-label={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} objets` : 'Supprimer'}><Icone nom="poubelle" /></button>
               <button type="button" onClick={() => sel.choisir(null)} title="Ne plus rien choisir (Échap)" aria-label="Ne plus rien choisir"><Icone nom="fermer" /></button>
             </>} />

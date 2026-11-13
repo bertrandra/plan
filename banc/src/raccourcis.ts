@@ -4,7 +4,7 @@ export type IdAction =
   | 'enregistrer' | 'validerSuivante' | 'suivantARelire' | 'precedentARelire' | 'accepter' | 'accepterAuDessus' | 'supprimer'
   | 'annuler' | 'refaire' | 'copier' | 'couper' | 'coller' | 'gauche' | 'droite' | 'haut' | 'bas'
   | 'outilChoisir' | 'outilSelection' | 'outilVue' | 'outilZoom' | 'outilRectangle' | 'outilPolygone' | 'outilLigne' | 'outilPoint'
-  | 'etiquettes' | 'loupe' | 'photoSuivante' | 'photoPrecedente' | 'aide' | 'type';
+  | 'etiquettes' | 'loupe' | 'photoSuivante' | 'photoPrecedente' | 'aide' | 'type' | 'semblables' | 'caler' | 'aimant';
 
 export interface Raccourci { touches: string; libelle: string; groupe: 'Relecture' | 'Édition' | 'Outils' | 'Affichage' | 'Photos' }
 
@@ -16,6 +16,8 @@ export const AIDE: Raccourci[] = [
   { touches: 'X / Suppr', libelle: 'Supprimer (la sélection)', groupe: 'Relecture' },
   { touches: '1 … 9', libelle: 'Donner ce type à la sélection, ou le choisir pour tracer', groupe: 'Relecture' },
   { touches: 'Entrée', libelle: 'Enregistrer, marquer vérifiée, photo suivante', groupe: 'Relecture' },
+  { touches: 'F', libelle: 'Trouver les semblables de l’objet choisi (les fenêtres qui se répètent)', groupe: 'Édition' },
+  { touches: 'C', libelle: 'Coller au bord : caler les rectangles choisis sur la menuiserie', groupe: 'Édition' },
   { touches: '← ↑ → ↓', libelle: 'Décaler d’un pixel (Maj : de dix)', groupe: 'Édition' },
   { touches: 'Ctrl+Z / Ctrl+Y', libelle: 'Annuler / refaire', groupe: 'Édition' },
   { touches: 'Ctrl+C / X / V', libelle: 'Copier / couper / coller (avec les détails)', groupe: 'Édition' },
@@ -28,6 +30,7 @@ export const AIDE: Raccourci[] = [
   { touches: 'R / P / T / O', libelle: 'Rectangle / polygone / ligne / point', groupe: 'Outils' },
   { touches: 'E', libelle: 'Toutes les étiquettes', groupe: 'Affichage' },
   { touches: 'L', libelle: 'Loupe automatique', groupe: 'Affichage' },
+  { touches: 'M', libelle: 'Aimant : un rectangle tracé se cale sur le bord', groupe: 'Outils' },
   { touches: '?', libelle: 'Cette aide', groupe: 'Affichage' },
   { touches: 'N / B', libelle: 'Photo suivante / précédente', groupe: 'Photos' },
 ];
@@ -57,7 +60,7 @@ export function actionDe(e: Touche): { action: IdAction; chiffre?: number } | nu
   if (/^[1-9]$/.test(e.key)) return { action: 'type', chiffre: Number(e.key) };
   const lettres: Record<string, IdAction> = {
     v: 'outilChoisir', s: 'outilSelection', h: 'outilVue', z: 'outilZoom', r: 'outilRectangle', p: 'outilPolygone', t: 'outilLigne', o: 'outilPoint',
-    e: 'etiquettes', l: 'loupe', n: 'photoSuivante', b: 'photoPrecedente', pagedown: 'photoSuivante', pageup: 'photoPrecedente',
+    e: 'etiquettes', l: 'loupe', f: 'semblables', c: 'caler', m: 'aimant', n: 'photoSuivante', b: 'photoPrecedente', pagedown: 'photoSuivante', pageup: 'photoPrecedente',
   };
   return lettres[k] ? { action: lettres[k] as IdAction } : null;
 }

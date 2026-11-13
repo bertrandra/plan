@@ -39,6 +39,9 @@ const TRACES: Record<string, ReactElement> = {
   plein: <><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></>,
   fermer: <path d="M6 6l12 12M18 6L6 18" />,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6" /><circle cx="12" cy="7.5" r=".6" /></>,
+  semblables: <><rect x="3" y="5" width="7" height="10" rx="1" /><rect x="14" y="5" width="7" height="10" rx="1" strokeDasharray="2 1.6" /><path d="M10.5 10h3M12.5 8.5l1.5 1.5-1.5 1.5" /><path d="M5 19h14" strokeDasharray="2 2" /></>,
+  aimant: <><path d="M6 4v8a6 6 0 0012 0V4" /><path d="M6 4h3v8a3 3 0 006 0V4h3" /><path d="M6 8h3M15 8h3" /></>,
+  caler: <><rect x="6" y="6" width="12" height="12" /><path d="M2 9V2h7M22 9V2h-7M2 15v7h7M22 15v7h-7" /></>,
   ouvrir: <><path d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v6H4V6h6" /></>,
 };
 

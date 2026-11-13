@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : « Trouver les semblables » (F) et « Coller au bord » (C, et l'aimant M)** (demande du propriétaire, 13 novembre 2026 : la
+  productivité de l'annotation). D'une fenêtre choisie, F cherche sur la photo celles qui lui ressemblent (corrélation normalisée à trois
+  tailles sur une image réduite, puis reprise au pixel ; l'écart de couleur moyenne retranché du score, sans quoi une bande d'enduit entre
+  deux colombages passait pour une fenêtre) et les pose en brouillon, de la même classe et du même type, calées sur leurs bords, à relire
+  par Tab et A ; les places déjà prises ne sont pas proposées (`banc/src/semblables.ts`). C cale les rectangles choisis sur le bord de la
+  menuiserie : chaque côté va au plus extérieur des bords francs tout proches (le hors-tout, cadre compris), et rien ne bouge sur un
+  enduit sans bord (`banc/src/bords.ts`). L'aimant, actif par défaut, cale ainsi tout rectangle dès qu'il est tracé. Sur AE 101 : la
+  fenêtre jumelle de la porte retrouvée (84 %), aucune fausse sur les colombages ; une fenêtre tracée à 7 px près calée au pixel sur son
+  cadre en largeur.
 - **Banc : l'entraînement sur un Mac à puce Apple** (demande du propriétaire, 13 novembre 2026, pour un MacBook Pro M5 Pro). L'export
   (étape 6) propose la machine : « Colab ou carte NVIDIA » (les réglages d'avant) ou « Mac à puce Apple ». Pour le Mac, le script prend
   la puce graphique (Metal, `mps`) sans argument, passe sur le processeur une opération que Metal n'a pas (`PYTORCH_ENABLE_MPS_FALLBACK`),
