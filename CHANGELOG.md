@@ -7,6 +7,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : le statut d'une photo se choisit sur sa pastille, dans Marquage** (demande du propriétaire, 13 novembre 2026). Un clic (ou
+  un toucher) sur la pastille en haut à gauche de chaque image ouvre la liste : à marquer, à relire, corrigée, vérifiée, rejetée, à
+  redresser, l'actuel coché. « À relire », « Corrigée » et « Vérifiée » sont fermés à une photo sans marquage (elle entrerait vide dans
+  le jeu) ; « À redresser » la renvoie à l'étape 2 (`catalogue.ts::statutsPossibles`, testé).
 - **Banc : « Prendre une photo » à l'import, au téléphone** (demande du propriétaire, 13 novembre 2026). Au doigt (iPhone, iPad), un
   bouton à l'icône d'appareil photo ouvre directement l'appareil (arrière) ; la photo prise s'importe aussitôt, et on en reprend une autre
   d'un geste. Sur un ordinateur, il ne se montre pas (la zone de dépôt suffit).

@@ -38,3 +38,34 @@ export function etatDeLaPhoto(m: MetaImage): { libelle: string; ton: 'attention'
   if (m.statut === 'corrigee') return m.verifiee ? { libelle: 'Vérifiée', ton: 'ok' } : m.echantillon ? { libelle: 'Échantillon', ton: 'attention' } : { libelle: 'Corrigée', ton: 'ok' };
   return { libelle: m.statut, ton: '' };
 }
+
+/** Un statut que la pastille d'une photo propose (demande du proprietaire, 13 novembre 2026), et ce qu'il ecrit sur la photo. */
+export interface ChoixStatut { id: string; libelle: string; champs: { statut: MetaImage['statut']; verifiee?: boolean }; possible: boolean; raison?: string }
+
+/**
+ * Les statuts qu'on peut donner a une photo depuis le catalogue, dans l'ordre du travail. « À relire », « Corrigée » et « Vérifiée »
+ * demandent un marquage (sinon la photo entrerait vide dans le jeu) ; « À redresser » la renvoie a l'etape 2 (son marquage reste garde a
+ * part sur le serveur).
+ */
+export function statutsPossibles(m: MetaImage): ChoixStatut[] {
+  const marquee = m.statut === 'brouillon' || m.statut === 'corrigee' || (m.classes?.length ?? 0) > 0;
+  const sans = marquee ? {} : { raison: 'Pas encore de marquage' };
+  return [
+    { id: 'a-marquer', libelle: 'À marquer', champs: { statut: 'validee', verifiee: false }, possible: true },
+    { id: 'a-relire', libelle: 'À relire', champs: { statut: 'brouillon', verifiee: false }, possible: marquee, ...sans },
+    { id: 'corrigee', libelle: 'Corrigée', champs: { statut: 'corrigee', verifiee: false }, possible: marquee, ...sans },
+    { id: 'verifiee', libelle: 'Vérifiée', champs: { statut: 'corrigee', verifiee: true }, possible: marquee, ...sans },
+    { id: 'rejetee', libelle: 'Rejetée', champs: { statut: 'rejetee', verifiee: false }, possible: true },
+    { id: 'a-redresser', libelle: 'À redresser', champs: { statut: 'importee', verifiee: false }, possible: true },
+  ];
+}
+
+/** Le statut de la liste qui est celui de la photo. */
+export function statutActuel(m: MetaImage): string {
+  if (m.statut === 'validee') return 'a-marquer';
+  if (m.statut === 'brouillon') return 'a-relire';
+  if (m.statut === 'corrigee') return m.verifiee ? 'verifiee' : 'corrigee';
+  if (m.statut === 'rejetee') return 'rejetee';
+  if (m.statut === 'importee') return 'a-redresser';
+  return '';
+}

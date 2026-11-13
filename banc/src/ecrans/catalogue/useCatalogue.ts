@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import type { Banc } from '../../App.js';
-import { filtrer, FILTRE_DEFAUT, filtresActifs, type FiltreCatalogue } from '../../catalogue.js';
+import { filtrer, FILTRE_DEFAUT, filtresActifs, type ChoixStatut, type FiltreCatalogue } from '../../catalogue.js';
+import { api } from '../../api.js';
+import type { MetaImage } from '../../types.js';
 
 export const PAR_PAGE = 60;
 
@@ -18,5 +20,9 @@ export function useCatalogue(banc: Banc) {
   const aMarquer = useMemo(() => banc.images.filter((m) => m.statut === 'validee').map((m) => m.id), [banc.images]);
   /** Ouvre l'editeur sur la premiere d'une liste, et passe d'une photo a l'autre dans cet ordre. */
   const enchainer = (ids: readonly string[]) => { if (ids[0]) banc.ouvrir(ids[0], [...ids]); };
-  return { filtre, poser, effacer, actifs: filtresActifs(filtre), liste, vue, page, pages, setPage, aRelire, aMarquer, enchainer };
+  /** Le statut choisi sur la pastille d'une photo ; elle sort de la liste si le filtre ne la garde plus. */
+  const poserStatut = async (m: MetaImage, c: ChoixStatut) => {
+    try { banc.remplacer(await api.modifier(m.id, c.champs)); banc.dire(`${m.nom ?? m.id} : ${c.libelle.toLowerCase()}.`); } catch (e) { banc.dire((e as Error).message, 'erreur'); }
+  };
+  return { poserStatut, filtre, poser, effacer, actifs: filtresActifs(filtre), liste, vue, page, pages, setPage, aRelire, aMarquer, enchainer };
 }

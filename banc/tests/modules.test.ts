@@ -14,7 +14,7 @@ import { redresserParCoins } from '../src/redressement.js';
 import type { Bloc, Classe, MetaImage, Modele, Objet } from '../src/types.js';
 import { REGLAGES_DEFAUT } from '../src/types.js';
 import type { Parcelle } from '../src/parcelles.js';
-import { etatDeLaPhoto, filtrer, FILTRE_DEFAUT, filtresActifs } from '../src/catalogue.js';
+import { etatDeLaPhoto, filtrer, FILTRE_DEFAUT, filtresActifs, statutActuel, statutsPossibles } from '../src/catalogue.js';
 
 const rect = (id: string, classe: string, x0: number, y0: number, x1: number, y1: number, o: Partial<Objet> = {}): Objet => ({ id, classe, forme: 'rectangle', points: [{ x: x0, y: y0 }, { x: x1, y: y1 }], parent: null, attributs: {}, origine: 'main', ...o });
 
@@ -677,6 +677,15 @@ describe('le filtre du catalogue', () => {
     expect(filtrer(images, { ...FILTRE_DEFAUT, source: 'panoramax' }).map((x) => x.id)).toEqual(['c']);
     expect(filtrer(images, { ...FILTRE_DEFAUT, texte: ' lilas ' }).map((x) => x.id)).toEqual(['b']);
     expect(filtresActifs({ ...FILTRE_DEFAUT, texte: 'x', bloc: 'val' })).toBe(2);
+  });
+  it('la pastille propose les statuts : ceux qui demandent un marquage sont fermés à une photo qui n’en a pas', () => {
+    const sans = statutsPossibles(m('x', 'validee'));
+    expect(sans.filter((c) => c.possible).map((c) => c.id)).toEqual(['a-marquer', 'rejetee', 'a-redresser']);
+    expect(sans.find((c) => c.id === 'verifiee')?.raison).toBe('Pas encore de marquage');
+    const avec = statutsPossibles(m('y', 'brouillon', { classes: ['fenetre'] }));
+    expect(avec.every((c) => c.possible)).toBe(true);
+    expect(avec.find((c) => c.id === 'verifiee')?.champs).toEqual({ statut: 'corrigee', verifiee: true });
+    expect(images.map(statutActuel)).toEqual(['a-marquer', 'a-relire', 'verifiee', 'corrigee', 'rejetee']);
   });
   it('la pastille dit le plus urgent', () => {
     expect(images.map((x) => etatDeLaPhoto(x).libelle)).toEqual(['À marquer', 'À relire', 'Vérifiée', 'Échantillon', 'rejetee']);

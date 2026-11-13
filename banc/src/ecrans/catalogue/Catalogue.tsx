@@ -5,7 +5,8 @@
 import { useEffect, useRef } from 'react';
 import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
-import { etatDeLaPhoto } from '../../catalogue.js';
+import { etatDeLaPhoto, type ChoixStatut } from '../../catalogue.js';
+import { PastilleStatut } from './MenuStatut.js';
 import type { MetaImage } from '../../types.js';
 import { Icone } from '../../ui/Icones.js';
 import { Page, Segments, Vide } from '../../ui/Page.js';
@@ -47,7 +48,7 @@ export function EcranCatalogue({ banc }: { banc: Banc }) {
       </div>
       {c.vue.length ? (
         <ul className="grille-photos">
-          {c.vue.map((m) => <Carte key={m.id} m={m} couleur={couleur} nomClasse={nomClasse} onOuvrir={() => banc.ouvrir(m.id, c.liste.map((x) => x.id))} />)}
+          {c.vue.map((m) => <Carte key={m.id} m={m} couleur={couleur} nomClasse={nomClasse} onOuvrir={() => banc.ouvrir(m.id, c.liste.map((x) => x.id))} onStatut={(ch) => { void c.poserStatut(m, ch); }} />)}
         </ul>
       ) : c.actifs ? (
         <Vide icone="marquage" titre="Aucune photo ne répond à ces filtres" action={<button type="button" onClick={c.effacer}>Effacer les filtres</button>} />
@@ -60,7 +61,7 @@ export function EcranCatalogue({ banc }: { banc: Banc }) {
   );
 }
 
-function Carte({ m, couleur, nomClasse, onOuvrir }: { m: MetaImage; couleur: (id: string) => string; nomClasse: (id: string) => string; onOuvrir: () => void }) {
+function Carte({ m, couleur, nomClasse, onOuvrir, onStatut }: { m: MetaImage; couleur: (id: string) => string; nomClasse: (id: string) => string; onOuvrir: () => void; onStatut: (c: ChoixStatut) => void }) {
   const e = etatDeLaPhoto(m);
   const classes = m.classes ?? [];
   return (
@@ -68,7 +69,7 @@ function Carte({ m, couleur, nomClasse, onOuvrir }: { m: MetaImage; couleur: (id
       <button type="button" className="vignette-bouton" onClick={onOuvrir} disabled={!m.redressee} aria-label={`Ouvrir ${m.nom ?? m.id}`}>
         <img src={api.fichier(m.id, 'vignette', m.redressement?.le ?? '')} alt="" loading="lazy" />
       </button>
-      <span className={'etiquette-photo ' + e.ton}>{e.libelle}</span>
+      <PastilleStatut m={m} libelle={e.libelle} ton={e.ton} onChoisir={onStatut} />
       {m.bloc && <span className="bloc-photo">{m.bloc === 'reserve' ? 'réserve' : m.bloc}</span>}
       <div className="legende-photo">
         <span className="nom">{m.nom ?? m.id}</span>
