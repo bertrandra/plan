@@ -65,8 +65,8 @@ function Carte({ m, echec, occupe, rang, onBasculer, onAuto, onMain, onGarder, o
       {echec ? <span className="etiquette-photo attention droite">Auto échoué</span> : fait && <span className="etiquette-photo ok droite">{m.redressement?.methode ?? 'redressée'}</span>}
       <div className="legende-photo"><span className="nom">{m.nom ?? m.id}</span><small>{m.largeur && m.hauteur ? `${m.largeur}×${m.hauteur}` : ''}{m.focale35 ? ` · ${m.focale35} mm` : ''}</small></div>
       <div className="actions-carte">
-        <button type="button" disabled={occupe} onClick={onAuto} title="Par les points de fuite"><Icone nom="auto" /> Auto</button>
-        <button type="button" className={echec ? 'principal' : ''} onClick={onMain} title="Quatre coins d’un rectangle du mur"><Icone nom="main" /> À la main</button>
+        <button type="button" className="icone-seule" disabled={occupe} onClick={onAuto} title="Auto : par les points de fuite" aria-label="Redresser automatiquement"><Icone nom="auto" /></button>
+        <button type="button" className={(echec ? 'principal ' : '') + 'icone-seule'} onClick={onMain} title="À la main : quatre coins d’un rectangle du mur" aria-label="Redresser à la main"><Icone nom="main" /></button>
         <button type="button" className="discret" onClick={onGarder} title="La photo est déjà de face : la garder telle quelle"><Icone nom="face" /> De face</button>
         <button type="button" className="discret danger icone-seule" onClick={onRejeter} title="Rejeter : elle sort du jeu (au tri, sous « Rejetées »)" aria-label="Rejeter"><Icone nom="rejeter" /></button>
       </div>
