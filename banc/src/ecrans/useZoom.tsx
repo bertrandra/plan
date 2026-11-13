@@ -89,8 +89,8 @@ export function useZoom(svg: RefObject<SVGSVGElement | null>, L: number, H: numb
 export function BoutonsZoom({ zoomer, ajuster, titreAjuster }: { zoomer: (k: number) => void; ajuster: () => void; titreAjuster?: string }) {
   return (
     <div className="boutons-zoom" role="group" aria-label="Zoom">
-      <button type="button" aria-label="Zoomer" title="Zoomer (molette, ou deux doigts)" onClick={() => zoomer(1 / 2)}>＋</button>
-      <button type="button" aria-label="Dézoomer" title="Dézoomer" onClick={() => zoomer(2)}>－</button>
+      <button type="button" className="plus-moins" aria-label="Zoomer" title="Zoomer (molette, ou deux doigts)" onClick={() => zoomer(1 / 2)}>＋</button>
+      <button type="button" className="plus-moins" aria-label="Dézoomer" title="Dézoomer" onClick={() => zoomer(2)}>－</button>
       <button type="button" className="icone-seule" title={titreAjuster ?? 'Toute la photo'} aria-label={titreAjuster ?? 'Toute la photo'} onClick={ajuster}><Icone nom="ajuster" /></button>
     </div>
   );
