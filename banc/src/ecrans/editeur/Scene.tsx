@@ -197,8 +197,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
     return { x: Math.min(L, Math.max(0, p.x)), y: Math.min(H, Math.max(0, p.y)) };
   };
-  // Capturer le pointeur : il suit le geste meme hors de la photo (un pointeur deja leve ne se capture plus : sans consequence).
-  const capter = (e: PE<Element>) => { try { svg.current?.setPointerCapture(e.pointerId); } catch { /* pointeur deja leve */ } };
+  const capter = (e: PE<Element>) => { try { svg.current?.setPointerCapture(e.pointerId); } catch { /* un pointeur deja leve ne se capture plus */ } };
   const seuilDe = (e: PE<Element>) => { seuil.current = e.pointerType === 'touch' ? SEUIL_DOIGT : e.pointerType === 'pen' ? SEUIL_STYLET : SEUIL_SOURIS; };
   /** En mode stylet, un doigt ne touche pas aux objets : il deplace la vue (le pincement, lui, est pris avant par useZoom). */
   const doigtQuiNavigue = (e: PE<Element>) => stylet && e.pointerType === 'touch';
