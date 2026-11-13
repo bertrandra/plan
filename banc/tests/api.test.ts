@@ -164,6 +164,22 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     const rfZero = lireZip(await (await appel('GET', 'export', { format: 'rfdetr', base: 'rf-detr-small', depart: 'zero' })).arrayBuffer());
     expect(rfZero[Object.keys(rfZero).find((n) => n.endsWith('entrainer.py')) ?? '']).toContain('m = RFDETRSmall(pretrain_weights=None)');
     expect((await appel('GET', 'export', { format: 'rfdetr', base: 'yolo26n' })).status).toBe(400);
+    // Un Mac a puce Apple : la puce graphique (mps) sans argument, des lots plus grands (16 pour Nano, 8 x 2 au-dela), huit processus de
+    // chargement, et l'entrainement sous __main__ (sur macOS, ces processus relisent le script).
+    const py = async (q: Record<string, string>) => { const z = lireZip(await (await appel('GET', 'export', q)).arrayBuffer()); return { nom: Object.keys(z)[0] ?? '', script: z[Object.keys(z).find((n) => n.endsWith('entrainer.py')) ?? ''] ?? '' }; };
+    const mac = await py({ format: 'rfdetr', base: 'rf-detr-nano', machine: 'mac' });
+    expect(mac.nom).toMatch(/^banc-rf-detr-nano-mac-/);
+    expect(mac.script).toContain("os.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')\nfrom rfdetr import RFDETRNano");
+    expect(mac.script).toContain("('mps' if torch.backends.mps.is_available() else 'cpu')");
+    expect(mac.script).toContain("\nif __name__ == '__main__':\n    m = RFDETRNano()\n    m.train(dataset_dir='.', output_dir='sortie', epochs=100, batch_size=16, grad_accum_steps=1, num_workers=8,");
+    expect((await py({ format: 'rfdetr', base: 'rf-detr-small', machine: 'mac' })).script).toContain('batch_size=8, grad_accum_steps=2, num_workers=8');
+    expect(rf[cleRf('entrainer.py')]).toContain('batch_size=4, grad_accum_steps=4, early_stopping');
+    expect(rf[cleRf('entrainer.py')]).not.toContain('mps');
+    const yoloMac = await py({ format: 'detect', machine: 'mac' });
+    expect(yoloMac.nom).toMatch(/^banc-yolo26n-mac-/);
+    expect(yoloMac.script).toContain('batch=16, device=device, workers=8');
+    expect(yoloMac.script).toContain("\nif __name__ == '__main__':\n    m = YOLO(");
+    expect((await appel('GET', 'export', { format: 'detect', machine: 'pc' })).status).toBe(400);
 
     const seg = lireZip(await (await appel('GET', 'export', { format: 'seg' })).arrayBuffer());
     const cleSeg = Object.keys(seg).find((n) => n.endsWith(`labels/val/${id}.txt`)) ?? '';

@@ -48,8 +48,10 @@ export function EcranExport({ banc }: { banc: Banc }) {
               <Segments label="Variante" valeur={c.variante} options={VARIANTES[c.format]} onChange={c.setVariante} />
               <Segments label="Départ" valeur={c.depart} options={[{ valeur: 'coco', libelle: 'Avec COCO' }, { valeur: 'zero', libelle: 'De zéro' }]} onChange={c.setDepart} />
             </div>}
+            {c.format !== 'natif' && <Segments label="Machine" valeur={c.machine} options={[{ valeur: 'gpu', libelle: 'Colab ou carte NVIDIA' }, { valeur: 'mac', libelle: 'Mac à puce Apple' }]} onChange={c.setMachine} />}
+            {c.format !== 'natif' && c.machine === 'mac' && <p className="aide">Le script prend la puce graphique du Mac (Metal) sans argument, par lots de {c.format === 'rfdetr' && c.variante !== 'rf-detr-nano' ? 8 : 16} photos et huit processus de chargement. Une fois : <code>python3 -m venv ~/banc-ia</code>, <code>source ~/banc-ia/bin/activate</code>, <code>pip install {c.format === 'rfdetr' ? "'rfdetr[train,loggers]==1.12.*'" : 'ultralytics==8.4.*'}</code> ; puis dans le dossier décompressé : <code>python3 entrainer.py</code>.</p>}
             {c.format !== 'natif' && <p className="aide">{c.depart === 'coco' ? 'Le modèle part de ce qu’il sait déjà voir (COCO), ou de depart.pt posé à côté du script.' : 'L’architecture seule, rien d’appris : 300 époques, et il faut plus de photos pour rattraper le départ COCO.'}</p>}
-            <a className="bouton principal grand" href={c.url} download><Icone nom="exporter" /> Télécharger le jeu · {nomFormat}{c.format !== 'natif' && c.depart === 'zero' ? ' · de zéro' : ''} <small>({c.dansLeJeu} photo(s), .zip)</small></a>
+            <a className="bouton principal grand" href={c.url} download><Icone nom="exporter" /> Télécharger le jeu · {nomFormat}{c.format !== 'natif' && c.depart === 'zero' ? ' · de zéro' : ''}{c.format !== 'natif' && c.machine === 'mac' ? ' · Mac' : ''} <small>({c.dansLeJeu} photo(s), .zip)</small></a>
           </div>
         </Section>
       </>}
@@ -57,7 +59,7 @@ export function EcranExport({ banc }: { banc: Banc }) {
         <ol className="etapes-guide">
           <li>Corriger et qualifier une première série (une trentaine d’objets par type au moins), puis répartir les blocs (7) : 70 % train, 20 % val, 10 % test, stratifié par type.</li>
           <li>Exporter en <b>RF-DETR Nano</b> (Apache 2.0, libre pour Plan) ; YOLO26n ou YOLOv10n (AGPL) restent là pour comparer.</li>
-          <li>Ouvrir <code>entrainer.ipynb</code> du zip dans Google Colab (GPU gratuit), ou lancer <code>python3 entrainer.py 0</code> sur un PC avec carte graphique ; sur processeur seul, compter quelques heures pour quelques centaines de photos.</li>
+          <li>Ouvrir <code>entrainer.ipynb</code> du zip dans Google Colab (GPU gratuit), ou lancer <code>python3 entrainer.py 0</code> sur un PC avec carte graphique, ou <code>python3 entrainer.py</code> sur un Mac à puce Apple (export « Mac à puce Apple ») ; sur processeur seul, compter quelques heures pour quelques centaines de photos.</li>
           <li>Déposer le modèle à l’étape 3 (<code>modele-banc.onnx</code> et <code>noms.txt</code> pour RF-DETR, avec sa résolution ; <code>best.onnx</code> et <code>names</code> pour YOLO) : ses noms vont d’eux-mêmes vers vos types.</li>
           <li>Lancer le brouillon sur les photos non annotées : il pose et qualifie ; vous corrigez, la série grandit, on réentraîne.</li>
         </ol>

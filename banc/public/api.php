@@ -542,7 +542,14 @@ const BANC_ARCHITECTURES = [
  */
 const BANC_DEPARTS = ['coco', 'zero'];
 
-function exporter(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): void {
+/**
+ * La machine qui entraine (demande du proprietaire, 13 novembre 2026) : « gpu », une carte NVIDIA ou Colab (les reglages d'avant, faits
+ * pour une petite carte) ; « mac », un Mac a puce Apple (Metal, « mps » pour PyTorch), sa memoire partagee permettant des lots plus grands
+ * et plus de processus de chargement. Le meme apprentissage (un lot effectif de 16 photos), plus vite.
+ */
+const BANC_MACHINES = ['gpu', 'mac'];
+
+function exporter(string $format, bool $verifiees, string $base = '', string $depart = 'coco', string $machine = 'gpu'): void {
   if (!in_array($format, ['detect', 'seg', 'rfdetr', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, rfdetr, natif).');
   $archi = null;
   if ($format !== 'natif') {
@@ -550,7 +557,8 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
     if ($base === '') $base = array_key_first($choix);
     if (!isset($choix[$base])) erreur(400, 'Architecture inconnue pour ' . $format . ' : ' . implode(', ', array_keys($choix)) . '.');
     if (!in_array($depart, BANC_DEPARTS, true)) erreur(400, 'Départ inconnu : coco ou zero.');
-    $archi = $choix[$base] + ['id' => $base, 'depart' => $depart, 'yaml' => preg_replace('/\.pt$/', '.yaml', $choix[$base]['poids'] ?? '')];
+    if (!in_array($machine, BANC_MACHINES, true)) erreur(400, 'Machine inconnue : gpu ou mac.');
+    $archi = $choix[$base] + ['id' => $base, 'depart' => $depart, 'machine' => $machine, 'yaml' => preg_replace('/\.pt$/', '.yaml', $choix[$base]['poids'] ?? '')];
   }
   if (!class_exists('ZipArchive')) erreur(501, 'L’extension zip de PHP manque sur cet hébergement.');
   [$classes, $nomDe, $chemins] = noms_yolo();
@@ -560,7 +568,7 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
   $tmp = tempnam(sys_get_temp_dir(), 'banc');
   $zip = new ZipArchive();
   if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) erreur(500, 'Archive impossible à créer.');
-  $racine = 'banc-' . ($archi ? $archi['id'] . ($archi['depart'] === 'zero' ? '-zero' : '') : $format) . '-' . gmdate('Ymd-His');
+  $racine = 'banc-' . ($archi ? $archi['id'] . ($archi['depart'] === 'zero' ? '-zero' : '') . ($archi['machine'] === 'mac' ? '-mac' : '') : $format) . '-' . gmdate('Ymd-His');
   $compte = ['train' => 0, 'val' => 0, 'test' => 0];
   $parClasse = [];
   $natif = [];
@@ -630,7 +638,7 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
     $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine, $archi));
     }
   }
-  $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'architecture' => $archi['id'] ?? null, 'depart' => $archi['depart'] ?? null, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+  $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'architecture' => $archi['id'] ?? null, 'depart' => $archi['depart'] ?? null, 'machine' => $archi['machine'] ?? null, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
   $zip->close();
   header('Content-Type: application/zip');
   header('Content-Disposition: attachment; filename="' . $racine . '.zip"');
@@ -640,30 +648,47 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
   exit;
 }
 
+/**
+ * Le corps d'un script d'entrainement sous `if __name__ == '__main__':`. Sur macOS (et Windows), les processus de chargement des photos
+ * relisent le script depuis le debut : sans cette garde, chacun relancerait l'entrainement et PyTorch s'arreterait en erreur.
+ */
+function sous_garde(string $corps): string {
+  $lignes = array_map(fn($l) => $l === '' ? '' : '    ' . $l, explode("\n", rtrim($corps, "\n")));
+  return "\nif __name__ == '__main__':\n" . implode("\n", $lignes) . "\n";
+}
+
 /** Le script d'entrainement livre avec le jeu : le meme protocole que le depot facade (graine fixe), puis l'export ONNX. */
 function script_entrainement(string $format, array $a): string {
   $poids = $a['poids'];
-  if ($a['depart'] === 'zero') return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, sans COCO : de zero), Ultralytics 8.4.\n"
-    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
+  $mac = ($a['machine'] ?? 'gpu') === 'mac';
+  // Sur un Mac a puce Apple : la puce graphique (mps) sans argument, des lots de 16 et huit processus de chargement.
+  $usage = $mac ? "#   Mac a puce Apple : python3 -m venv ~/banc-ia && source ~/banc-ia/bin/activate && pip install ultralytics==8.4.*\n#   python3 entrainer.py        (la puce graphique, mps ; « cpu » pour le processeur seul)\n"
+    : "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n";
+  $entete = "import os, sys\n" . ($mac ? "# Une operation que Metal n'a pas encore passe sur le processeur au lieu d'arreter l'entrainement.\nos.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')\n" : '')
+    . "from ultralytics import YOLO\n\n"
+    . ($mac ? "import torch\ndevice = sys.argv[1] if len(sys.argv) > 1 else ('mps' if torch.backends.mps.is_available() else 'cpu')\n" : "device = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n");
+  $lot = $mac ? 'batch=16, device=device, workers=8' : 'batch=8, device=device, workers=2';
+  if ($a['depart'] === 'zero') return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, sans COCO : de zero), Ultralytics 8.4" . ($mac ? ', sur un Mac a puce Apple' : '') . ".\n"
+    . $usage
     . "# L'architecture seule ({$a['yaml']}), sans aucun poids appris : rien de COCO, rien du depot facade. Il faut plus d'epoques et plus\n"
     . "# de photos qu'avec COCO ; a comparer au meme jeu parti de COCO (mAP du bloc test, affiche a la fin).\n"
     . "# Le modele .onnx produit se depose dans le banc (etape 3, Modeles), avec la liste de ses classes (data.yaml).\n"
-    . "import sys\nfrom ultralytics import YOLO\n\ndevice = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n"
-    . "m = YOLO('{$a['yaml']}')\n"
-    . "m.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, batch=8, device=device, workers=2, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
+    . $entete
+    . sous_garde("m = YOLO('{$a['yaml']}')\n"
+    . "m.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, $lot, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
     . "m.val(data='data.yaml', split='test')\n"
-    . "m.export({$a['export']})\n";
-  return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, parti de COCO), Ultralytics 8.4.\n"
-    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
+    . "m.export({$a['export']})\n");
+  return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, parti de COCO), Ultralytics 8.4" . ($mac ? ', sur un Mac a puce Apple' : '') . ".\n"
+    . $usage
     . "# Poids de depart : depart.pt pose a cote de ce script s'il y en a un, sinon $poids (COCO). depart.pt doit etre de la meme\n"
     . "# architecture : un modele du depot facade (YOLOv10n) pour un export YOLOv10n, ou un modele du banc deja entraine. Ultralytics garde\n"
     . "# ce qui sert (le tronc) et refait la tete aux noms du jeu.\n"
     . "# Le modele .onnx produit se depose dans le banc (etape 3, Modeles), avec la liste de ses classes (data.yaml).\n"
-    . "import os, sys\nfrom ultralytics import YOLO\n\ndevice = sys.argv[1] if len(sys.argv) > 1 else 'cpu'\n"
-    . "m = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\n"
-    . "m.train(data='data.yaml', epochs=100, patience=25, imgsz=640, batch=8, device=device, workers=2, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
+    . $entete
+    . sous_garde("m = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\n"
+    . "m.train(data='data.yaml', epochs=100, patience=25, imgsz=640, $lot, project='runs', name='banc', exist_ok=True, plots=False, amp=False, seed=20261110, deterministic=True)\n"
     . "m.val(data='data.yaml', split='test')\n"
-    . "m.export({$a['export']})\n";
+    . "m.export({$a['export']})\n");
 }
 
 /**
@@ -700,23 +725,31 @@ function carnet_colab(string $format, string $racine, array $a): string {
  * le banc (etape 3) avec noms.txt.
  */
 function script_rfdetr(array $a): string {
+  // Le lot effectif reste de 16 photos (lot x accumulation) : sur un Mac a puce Apple, de vrais lots de 16 (8 au-dela de Nano, dont
+  // l'image est plus grande) et huit processus de chargement ; sur une petite carte NVIDIA, des lots de 4 accumules 4 fois.
+  $mac = ($a['machine'] ?? 'gpu') === 'mac';
+  $lot = !$mac ? 'batch_size=4, grad_accum_steps=4' : ($a['resolution'] <= 384 ? 'batch_size=16, grad_accum_steps=1, num_workers=8' : 'batch_size=8, grad_accum_steps=2, num_workers=8');
   $creer = $a['depart'] === 'zero' ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
   return "# Entrainement du banc d'apprentissage des facades : {$a['nom']} (Roboflow, licence Apache 2.0, code et poids), "
-    . ($a['depart'] === 'zero' ? 'sans COCO (de zero)' : 'parti de COCO') . ".\n"
-    . "#   pip install 'rfdetr[train,loggers]==1.12.*'\n#   python3 entrainer.py [cpu|cuda]\n"
+    . ($a['depart'] === 'zero' ? 'sans COCO (de zero)' : 'parti de COCO') . ($mac ? ', sur un Mac a puce Apple' : '') . ".\n"
+    . ($mac ? "#   Mac a puce Apple : python3 -m venv ~/banc-ia && source ~/banc-ia/bin/activate && pip install 'rfdetr[train,loggers]==1.12.*'\n#   python3 entrainer.py        (la puce graphique, mps ; « cpu » pour le processeur seul)\n"
+      : "#   pip install 'rfdetr[train,loggers]==1.12.*'\n#   python3 entrainer.py [cpu|cuda]\n")
     . "# Le jeu est au format COCO (train/, valid/, test/ et leurs _annotations.coco.json) ; les noms, dans l'ordre des indices, sont dans noms.txt.\n"
     . "# Le modele .onnx produit (sortie/inference_model.onnx) se depose dans le banc (etape 3), avec noms.txt et la resolution {$a['resolution']}.\n"
-    . "import glob, os, shutil, sys\nfrom rfdetr import {$a['classe']}\n\n"
-    . "options = {'device': sys.argv[1]} if len(sys.argv) > 1 else {}\n"
-    . "m = $creer\n"
-    . "m.train(dataset_dir='.', output_dir='sortie', epochs=" . ($a['depart'] === 'zero' ? 300 : 100) . ", batch_size=4, grad_accum_steps=4, early_stopping=True, early_stopping_patience=" . ($a['depart'] === 'zero' ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False, **options)\n"
+    . "import glob, os, shutil, sys\n"
+    . ($mac ? "# Une operation que Metal n'a pas encore passe sur le processeur au lieu d'arreter l'entrainement.\nos.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')\n" : '')
+    . "from rfdetr import {$a['classe']}\n\n"
+    . ($mac ? "import torch\noptions = {'device': sys.argv[1] if len(sys.argv) > 1 else ('mps' if torch.backends.mps.is_available() else 'cpu')}\n"
+      : "options = {'device': sys.argv[1]} if len(sys.argv) > 1 else {}\n")
+    . sous_garde("m = $creer\n"
+    . "m.train(dataset_dir='.', output_dir='sortie', epochs=" . ($a['depart'] === 'zero' ? 300 : 100) . ", $lot, early_stopping=True, early_stopping_patience=" . ($a['depart'] === 'zero' ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False, **options)\n"
     . "best = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n"
     . "# Deux fichiers : modele-banc.onnx, quantifie int8 (environ 37 Mo pour Nano, etalonne sur les photos de train/ ; a deposer d'abord),\n"
     . "# et modele-banc-fp32.onnx, en pleine precision (environ 118 Mo).\n"
     . "best.export(output_dir='sortie', quantization='int8', calibration_data='train')\n"
     . "shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\n"
     . "shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if not f.endswith('_int8.onnx')), 'modele-banc-fp32.onnx')\n"
-    . "print('Modele :', os.path.abspath('modele-banc.onnx'))\nprint(open('noms.txt').read())\n";
+    . "print('Modele :', os.path.abspath('modele-banc.onnx'))\nprint(open('noms.txt').read())\n");
 }
 
 /** Le meme entrainement RF-DETR en carnet Google Colab (GPU gratuit). */
@@ -772,7 +805,7 @@ if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
     case 'POST installer': modele_installer(id_valide($id));
     case 'GET modele': modele_servir(id_valide($id));
     case 'DELETE modele': modele_supprimer(id_valide($id));
-    case 'GET export': exporter((string)($_GET['format'] ?? 'detect'), ($_GET['verifiees'] ?? '0') === '1', (string)($_GET['base'] ?? ''), (string)($_GET['depart'] ?? 'coco'));
+    case 'GET export': exporter((string)($_GET['format'] ?? 'detect'), ($_GET['verifiees'] ?? '0') === '1', (string)($_GET['base'] ?? ''), (string)($_GET['depart'] ?? 'coco'), (string)($_GET['machine'] ?? 'gpu'));
   }
   erreur(404, 'Route inconnue : ' . $methode . ' ' . $r);
 }

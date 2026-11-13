@@ -62,5 +62,5 @@ export const api = {
   },
   supprimerModele: (id: string) => appel<{ supprime: string }>('DELETE', 'modele', { id }),
   urlModele: (id: string) => route('modele', { id }),
-  urlExport: (format: 'detect' | 'seg' | 'rfdetr' | 'natif', verifiees: boolean, base = '', depart: 'coco' | 'zero' = 'coco') => route('export', { format, verifiees: verifiees ? '1' : '0', ...(base ? { base, depart } : {}) }),
+  urlExport: (format: 'detect' | 'seg' | 'rfdetr' | 'natif', verifiees: boolean, base = '', depart: 'coco' | 'zero' = 'coco', machine: 'gpu' | 'mac' = 'gpu') => route('export', { format, verifiees: verifiees ? '1' : '0', ...(base ? { base, depart, machine } : {}) }),
 };

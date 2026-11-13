@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : l'entraînement sur un Mac à puce Apple** (demande du propriétaire, 13 novembre 2026, pour un MacBook Pro M5 Pro). L'export
+  (étape 6) propose la machine : « Colab ou carte NVIDIA » (les réglages d'avant) ou « Mac à puce Apple ». Pour le Mac, le script prend
+  la puce graphique (Metal, `mps`) sans argument, passe sur le processeur une opération que Metal n'a pas (`PYTORCH_ENABLE_MPS_FALLBACK`),
+  fait de vrais lots de 16 photos (RF-DETR Nano, YOLO ; 8 accumulés 2 fois pour RF-DETR Small et Medium) et charge les photos avec huit
+  processus : le même apprentissage (un lot effectif de 16), plus vite. Le choix est retenu sur le navigateur ; le zip porte `-mac`.
+  Tous les scripts d'entraînement mettent désormais l'entraînement sous `if __name__ == '__main__':` : sur macOS (et Windows), les
+  processus de chargement relisent le script, et sans cette garde chacun relançait l'entraînement.
 - **Banc : « Relancer le brouillon » sur la photo ouverte dans l'éditeur** (demande du propriétaire, 12 novembre 2026). Les modèles
   actifs et la recherche des baies repassent sur cette photo : ce qui a été posé ou corrigé à la main est gardé, le brouillon non relu
   est remplacé (la même règle que le lot de l'étape 3, `brouillonSurExistant`), en un pas d'historique (Ctrl+Z le défait) ; rien n'est
