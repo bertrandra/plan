@@ -6,7 +6,7 @@ import { ordreDeLArbre } from '../../classes.js';
 import { changerAttribut, changerClasse, changerType, enPolygone } from '../../edition.js';
 import { classeContenante, libelleDe } from '../../classes.js';
 
-const ORIGINES = { auto: 'brouillon, pas encore relu', main: 'posé à la main', corrige: 'brouillon corrigé' } as const;
+const ORIGINES = { auto: 'pré-marquage, pas encore relu', main: 'posé à la main', corrige: 'pré-marquage corrigé' } as const;
 
 /** La valeur commune d'une liste (undefined si elles different) : ce que montre un champ de la selection multiple. */
 function commune<T>(l: readonly T[]): T | undefined {

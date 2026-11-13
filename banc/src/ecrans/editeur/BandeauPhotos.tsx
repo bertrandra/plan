@@ -18,7 +18,7 @@ export function BandeauPhotos({ photos, courante, onAller }: { photos: MetaImage
   }, [courante]);
   return (
     <footer className="bandeau-photos">
-      <div className="avancement" title={`${a.relues} corrigée(s), ${a.verifiees} vérifiée(s), ${a.brouillons} brouillon(s) sur ${a.total}`}>
+      <div className="avancement" title={`${a.relues} corrigée(s), ${a.verifiees} vérifiée(s), ${a.brouillons} pré-marquée(s) sur ${a.total}`}>
         <span className="barre-avancement"><span style={{ width: `${a.total ? (100 * a.relues) / a.total : 0}%` }} /><span className="verifiees" style={{ width: `${a.total ? (100 * a.verifiees) / a.total : 0}%` }} /></span>
         <small>{a.relues} / {a.total} corrigées · {a.verifiees} vérifiées</small>
       </div>

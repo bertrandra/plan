@@ -31,10 +31,10 @@ export function EcranCatalogue({ banc }: { banc: Banc }) {
   const nomClasse = (id: string) => banc.classes.find((k) => k.id === id)?.nom ?? id;
   return (
     <Page icone="marquage" numero="4-5" titre="Marquage" large
-      aide={<p>Toutes les photos à marquer ou déjà marquées. Un clic ouvre l’éditeur, qui passe d’une photo à l’autre dans l’ordre de la liste. « Relire les brouillons » enchaîne les photos marquées par l’étape 3, à relire et valider (<kbd>Entrée</kbd> dans l’éditeur). <kbd>/</kbd> cherche.</p>}
+      aide={<p>Toutes les photos à marquer ou déjà marquées. Un clic ouvre l’éditeur, qui passe d’une photo à l’autre dans l’ordre de la liste. « Relire les pré-marquées » enchaîne les photos pré-marquées à l’étape 3, à relire et valider (<kbd>Entrée</kbd> dans l’éditeur). <kbd>/</kbd> cherche.</p>}
       actions={<>
         {c.aMarquer.length > 0 && <button type="button" onClick={() => c.enchainer(c.aMarquer)}><Icone nom="marquage" /> Marquer les {c.aMarquer.length} sans marquage</button>}
-        {c.aRelire.length > 0 && <button type="button" className="principal" onClick={() => c.enchainer(c.aRelire)}><Icone nom="suivant" /> Relire les {c.aRelire.length} brouillon(s)</button>}
+        {c.aRelire.length > 0 && <button type="button" className="principal" onClick={() => c.enchainer(c.aRelire)}><Icone nom="suivant" /> Relire les {c.aRelire.length} pré-marquée(s)</button>}
       </>}>
       <div className="barre-outils filtres-catalogue">
         <label className="recherche"><Icone nom="zoom" taille={16} /><input ref={recherche} type="search" placeholder="Nom, adresse, lot…   /" value={c.filtre.texte} onChange={(e) => c.poser('texte', e.target.value)} aria-label="Chercher" /></label>
@@ -53,7 +53,7 @@ export function EcranCatalogue({ banc }: { banc: Banc }) {
       ) : c.actifs ? (
         <Vide icone="marquage" titre="Aucune photo ne répond à ces filtres" action={<button type="button" onClick={c.effacer}>Effacer les filtres</button>} />
       ) : (
-        <Vide icone="marquage" titre="Rien à marquer pour l’instant" texte="Les photos validées dans la mosaïque arrivent ici ; le brouillon (étape 3) peut les pré-marquer."
+        <Vide icone="marquage" titre="Rien à marquer pour l’instant" texte="Les photos validées dans la mosaïque arrivent ici ; le pré-marquage (étape 3) pose les objets pour vous."
           action={<button type="button" className="principal" onClick={() => banc.aller('validation')}>Aller à la mosaïque</button>} />
       )}
       {c.pages > 1 && <nav className="pagination" aria-label="Pages"><button type="button" disabled={!c.page} onClick={() => c.setPage(c.page - 1)}><Icone nom="precedent" /> Précédentes</button><span>{c.page + 1} / {c.pages}</span><button type="button" disabled={c.page >= c.pages - 1} onClick={() => c.setPage(c.page + 1)}>Suivantes <Icone nom="suivant" /></button></nav>}

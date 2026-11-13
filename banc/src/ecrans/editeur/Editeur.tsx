@@ -92,7 +92,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       const ajoutes = brouillonSurExistant(present, nouveaux, banc.classes).length - gardes;
       marquage.changer((l) => brouillonSurExistant(l, nouveaux, banc.classes));
       sel.choisir(null);
-      banc.dire(`Brouillon relancé (${actifs.length} modèle(s) et la recherche des baies) : ${ajoutes} objet(s) à relire ; ${gardes} objet(s) faits à la main gardés.`);
+      banc.dire(`Pré-marquage relancé (${actifs.length} modèle(s) et la recherche des baies) : ${ajoutes} objet(s) à relire ; ${gardes} objet(s) faits à la main gardés.`);
     } catch (e) { banc.dire((e as Error).message, 'erreur'); } finally { setRelance(false); }
   };
   const fermer = () => { if (!marquage.modifie || confirm('Quitter sans enregistrer ?')) onFermer(); };

@@ -26,7 +26,7 @@ const ECRANS: { id: IdEcran; numero: string; nom: string; icone: NomIcone; atten
   { id: 'import', numero: '1', nom: 'Import', icone: 'importer' },
   { id: 'redressement', numero: '2', nom: 'Redressement', icone: 'redresser', attend: 'redressement', libelleAttente: 'à redresser' },
   { id: 'validation', numero: '2a', nom: 'Mosaïque', icone: 'mosaique', attend: 'validation', libelleAttente: 'à valider' },
-  { id: 'brouillon', numero: '3', nom: 'Brouillon', icone: 'brouillon', attend: 'brouillon', libelleAttente: 'à marquer' },
+  { id: 'brouillon', numero: '3', nom: 'Pré-marquage', icone: 'brouillon', attend: 'brouillon', libelleAttente: 'à pré-marquer' },
   { id: 'catalogue', numero: '4-5', nom: 'Marquage', icone: 'marquage', attend: 'catalogue', libelleAttente: 'à relire' },
   { id: 'export', numero: '6', nom: 'Export', icone: 'exporter' },
   { id: 'blocs', numero: '7', nom: 'Blocs', icone: 'blocs', attend: 'blocs', libelleAttente: 'à ranger ou vérifier' },

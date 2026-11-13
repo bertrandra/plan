@@ -25,7 +25,7 @@ export function Modeles({ banc }: { banc: Banc }) {
           {banc.modeles.map((m) => (
             <li key={m.id} className={'carte-modele' + (m.installe && m.actif !== false ? ' actif' : '') + (m.installe ? '' : ' absent')}>
               <header>
-                {m.installe ? <label className="interrupteur" title={m.actif !== false ? 'Actif : le brouillon l’utilise' : 'Inactif'}><input type="checkbox" checked={m.actif !== false} onChange={(e) => { void agir(m.id, () => api.modifierModele(m.id, { actif: e.target.checked })); }} /><span /></label> : null}
+                {m.installe ? <label className="interrupteur" title={m.actif !== false ? 'Actif : le pré-marquage l’utilise' : 'Inactif'}><input type="checkbox" checked={m.actif !== false} onChange={(e) => { void agir(m.id, () => api.modifierModele(m.id, { actif: e.target.checked })); }} /><span /></label> : null}
                 <div className="titres-modele"><strong>{m.nom}</strong><small>{m.format} · {m.classes.length} classe(s)</small></div>
                 <span className="espace" />
                 {!m.installe && m.catalogue ? <button type="button" className="principal" disabled={attente === m.id} onClick={() => { void agir(m.id, () => api.installer(m.id)); }}>{attente === m.id ? 'Téléchargement…' : 'Installer'}</button>

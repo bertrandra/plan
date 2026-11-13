@@ -29,14 +29,14 @@ export function EcranExport({ banc }: { banc: Banc }) {
     <Page icone="exporter" numero="6" titre="Export"
       aide={<p>Seules les photos <b>corrigées</b> (marquage relu et enregistré) entrent dans le jeu. Les fichiers portent l’identifiant de la photo ; le bloc vient de l’étape 7 (la réserve n’est jamais exportée).</p>}>
       {!c.corrigees ? (
-        <Vide icone="exporter" titre="Aucune photo corrigée" texte={c.aRelire ? `${c.aRelire} brouillon(s) attendent d’être relus : chaque photo relue et enregistrée entre dans le jeu.` : 'Marquez et enregistrez des photos : elles entrent dans le jeu.'}
+        <Vide icone="exporter" titre="Aucune photo corrigée" texte={c.aRelire ? `${c.aRelire} photo(s) pré-marquée(s) attendent d’être relues : chaque photo relue et enregistrée entre dans le jeu.` : 'Marquez et enregistrez des photos : elles entrent dans le jeu.'}
           action={<button type="button" className="principal" onClick={() => banc.aller('catalogue')}>Aller au marquage</button>} />
       ) : <>
         <Section titre="Ce qui entre dans le jeu" actions={<label className="case"><input type="checkbox" checked={c.verifiees} onChange={(e) => c.setVerifiees(e.target.checked)} /> Seulement les vérifiées ({c.verifieesN} sur {c.corrigees})</label>}>
           <Tuiles>
             {(['train', 'val', 'test'] as const).map((b) => <Tuile key={b} valeur={c.bilan?.[b]?.images ?? '…'} libelle={b} ton="accent" detail={`${c.bilan?.[b]?.verifiees ?? 0} vérifiée(s)`} />)}
             <Tuile valeur={c.bilan?.reserve?.images ?? '…'} libelle="réserve" detail="jamais exportée" />
-            {c.aRelire > 0 && <Tuile valeur={c.aRelire} libelle="brouillons" ton="attention" detail="pas encore dans le jeu" />}
+            {c.aRelire > 0 && <Tuile valeur={c.aRelire} libelle="pré-marquées" ton="attention" detail="pas encore dans le jeu" />}
           </Tuiles>
           {c.sansBloc > 0 && <p className="note attention">{c.sansBloc} photo(s) corrigée(s) n’ont pas de bloc : répartissez-les d’abord (<button type="button" className="lien" onClick={() => banc.aller('blocs')}>étape 7</button>), sinon elles suivent le simple tirage, sans équilibre des types.</p>}
         </Section>
@@ -61,7 +61,7 @@ export function EcranExport({ banc }: { banc: Banc }) {
           <li>Exporter en <b>RF-DETR Nano</b> (Apache 2.0, libre pour Plan) ; YOLO26n ou YOLOv10n (AGPL) restent là pour comparer.</li>
           <li>Ouvrir <code>entrainer.ipynb</code> du zip dans Google Colab (GPU gratuit), ou lancer <code>python3 entrainer.py 0</code> sur un PC avec carte graphique, ou <code>python3 entrainer.py</code> sur un Mac à puce Apple (export « Mac à puce Apple ») ; sur processeur seul, compter quelques heures pour quelques centaines de photos.</li>
           <li>Déposer le modèle à l’étape 3 (<code>modele-banc.onnx</code> et <code>noms.txt</code> pour RF-DETR, avec sa résolution ; <code>best.onnx</code> et <code>names</code> pour YOLO) : ses noms vont d’eux-mêmes vers vos types.</li>
-          <li>Lancer le brouillon sur les photos non annotées : il pose et qualifie ; vous corrigez, la série grandit, on réentraîne.</li>
+          <li>Lancer le pré-marquage sur les photos non annotées : il pose et qualifie ; vous corrigez, la série grandit, on réentraîne.</li>
         </ol>
         <p className="aide">Le test (10 %) ne sert jamais à l’entraînement : <code>entrainer.py</code> le mesure à la fin (mAP par type). La validation (20 %) arrête l’entraînement quand il ne progresse plus. Pour choisir, entraînez les variantes sur les mêmes blocs (vers 150 photos vérifiées) et gardez le meilleur mAP du test.</p>
       </Section>

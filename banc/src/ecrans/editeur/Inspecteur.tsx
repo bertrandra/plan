@@ -51,10 +51,10 @@ function CarteRelecture({ relecture: r }: { relecture: Relecture }) {
         <button type="button" onClick={() => r.aller(-1)} disabled={!r.aRelire} title="Précédent à relire (Maj+Tab)">◀</button>
         <button type="button" className="principal" onClick={() => r.aller(1)} disabled={!r.aRelire} title="Suivant à relire (Tab)">Suivant <kbd>Tab</kbd></button>
       </div>
-      <label className="seuil">Masquer le brouillon sous <input type="range" min={0} max={0.95} step={0.05} value={r.seuil} onChange={(e) => r.setSeuil(Number(e.target.value))} /> <b>{Math.round(r.seuil * 100)} %</b>
+      <label className="seuil">Masquer le pré-marquage sous <input type="range" min={0} max={0.95} step={0.05} value={r.seuil} onChange={(e) => r.setSeuil(Number(e.target.value))} /> <b>{Math.round(r.seuil * 100)} %</b>
         {r.masques > 0 && <small> ({r.masques} masqué{r.masques > 1 ? 's' : ''})</small>}</label>
       <div className="rang">
-        <button type="button" className="ok" disabled={!r.aAccepter} onClick={() => r.accepterAuDessus()} title="Accepter tel quel tout le brouillon au-dessus du seuil (Maj+A)">Accepter les {r.aAccepter} au-dessus <kbd>⇧A</kbd></button>
+        <button type="button" className="ok" disabled={!r.aAccepter} onClick={() => r.accepterAuDessus()} title="Accepter tel quel tout le pré-marquage au-dessus du seuil (Maj+A)">Accepter les {r.aAccepter} au-dessus <kbd>⇧A</kbd></button>
       </div>
     </section>
   );
