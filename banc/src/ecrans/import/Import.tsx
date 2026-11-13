@@ -35,6 +35,12 @@ function ImportFichiers({ banc }: { banc: Banc }) {
   const ok = c.journal.filter((l) => l.ok).length;
   return (
     <Section titre="Photos de l’appareil">
+      {/* Au telephone : l'appareil photo s'ouvre directement (capture), la photo prise s'importe aussitot ; on en reprend une autre d'un
+          geste. Sur un ordinateur, la zone de depot suffit. */}
+      <label className={'bouton principal prendre-photo' + (c.avance ? ' occupe' : '')}>
+        <Icone nom="appareil" taille={22} /> Prendre une photo
+        <input type="file" accept="image/*" capture="environment" hidden disabled={!!c.avance} onChange={(e) => { void c.importer(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+      </label>
       <label className={'zone-depot' + (survol ? ' survol' : '') + (c.avance ? ' occupe' : '')}
         onDragOver={(e) => { e.preventDefault(); setSurvol(true); }} onDragLeave={() => setSurvol(false)} onDrop={deposer}>
         <span className="icone-depot"><Icone nom="importer" taille={30} /></span>

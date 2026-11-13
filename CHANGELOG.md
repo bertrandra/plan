@@ -7,6 +7,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : « Prendre une photo » à l'import, au téléphone** (demande du propriétaire, 13 novembre 2026). Au doigt (iPhone, iPad), un
+  bouton à l'icône d'appareil photo ouvre directement l'appareil (arrière) ; la photo prise s'importe aussitôt, et on en reprend une autre
+  d'un geste. Sur un ordinateur, il ne se montre pas (la zone de dépôt suffit).
 - **Banc : le menu d'un objet, au clic droit ou à l'appui long** (demande du propriétaire, 13 novembre 2026). Sur une fenêtre placée, le
   clic droit (PC, Mac) ou un appui long d'une demi-seconde au doigt ou au stylet ouvre la liste des types de sa classe (1 vantail,
   2 vantaux, petits carreaux…), le type actuel coché ; une classe sans type propose ses voisines de même forme. Puis copier et supprimer.
