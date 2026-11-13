@@ -7,6 +7,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Banc : rejeter une photo dès le redressement** (demande du propriétaire, 13 novembre 2026) : un bouton sur chaque carte, et
+  « Rejeter (N) » pour les photos choisies. Elles sortent du jeu et se retrouvent au tri, sous « Rejetées » (d'où elles se suppriment
+  ou se reprennent).
 - **Banc : « Mosaïque » devient « Tri »** (demande du propriétaire, 13 novembre 2026) : l'étape 2a, où l'on garde, rejette ou
   renvoie au redressement chaque photo redressée ; les renvois des autres étapes suivent. Seuls les textes changent.
 - **Banc : « Brouillon » devient « Pré-marquage »** (demande du propriétaire, 13 novembre 2026) : l'étape 3, ses boutons (« Pré-marquer

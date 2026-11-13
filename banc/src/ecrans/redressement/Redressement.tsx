@@ -21,7 +21,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
   const aValider = banc.images.filter((m) => m.statut === 'redressee').length;
   return (
     <Page icone="redresser" numero="2" titre="Redressement" large
-      aide={<><p>Les verticales et horizontales du mur deviennent droites : par les points de fuite de la photo (automatique), sinon par quatre coins d’un rectangle du mur posés à la main. Une photo redressée de nouveau perd son marquage (il est gardé à part sur le serveur).</p><p>Touchez des photos pour les choisir : « Déjà de face » les passe telles quelles au tri ; « Fusionner » assemble les photos d’un même mur, choisies de gauche à droite, en une seule (l’assemblage de Plan : la place où leurs parties communes se ressemblent le plus, puis un fondu).</p></>}
+      aide={<><p>Les verticales et horizontales du mur deviennent droites : par les points de fuite de la photo (automatique), sinon par quatre coins d’un rectangle du mur posés à la main. Une photo redressée de nouveau perd son marquage (il est gardé à part sur le serveur).</p><p>Touchez des photos pour les choisir : « Déjà de face » les passe telles quelles au tri ; « Rejeter » les sort du jeu ; « Fusionner » assemble les photos d’un même mur, choisies de gauche à droite, en une seule (l’assemblage de Plan : la place où leurs parties communes se ressemblent le plus, puis un fondu).</p></>}
       actions={c.nouvelles.length > 0 && <button type="button" className="principal" disabled={occupe} onClick={() => { void c.auto(c.nouvelles); }}><Icone nom="auto" /> Redresser les {c.nouvelles.length} (auto)</button>}>
       <div className="barre-outils">
         <Segments label="Filtre" valeur={c.filtre} options={filtres} onChange={c.setFiltre} />
@@ -34,6 +34,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
           <button type="button" disabled={occupe} onClick={() => { void c.auto(c.choisies); }}><Icone nom="auto" /> Auto</button>
           <button type="button" className="principal" disabled={occupe || c.choix.length < 2} onClick={() => { void c.fusionner(); }}
             title="Plusieurs photos d’un même mur, choisies de gauche à droite, en une seule image"><Icone nom="mosaique" /> Fusionner ({c.choix.length})</button>
+          <button type="button" className="danger" disabled={occupe} onClick={() => { void c.rejeter(c.choisies); }} title="Elles sortent du jeu (au tri, sous « Rejetées »)"><Icone nom="rejeter" /> Rejeter ({c.choix.length})</button>
           {c.choix.length > 1 && <label className="case"><input type="checkbox" checked={c.ecarter} onChange={(e) => c.setEcarter(e.target.checked)} /> Rejeter les photos d’origine</label>}
           <span className="espace" />
           <button type="button" className="discret" onClick={c.viderChoix}><Icone nom="fermer" /> Vider</button>
@@ -42,7 +43,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
       {c.choix.length === 1 && <p className="aide">Pour fusionner, choisissez les photos d’un même mur <b>de gauche à droite</b> : le numéro dit l’ordre.</p>}
       {c.liste.length ? (
         <ul className="grille-photos">
-          {c.liste.map((m) => <Carte key={m.id} m={m} echec={c.echecs.has(m.id)} occupe={occupe} rang={c.choix.indexOf(m.id)} onBasculer={() => c.basculer(m.id)} onAuto={() => { void c.auto([m]); }} onMain={() => c.setMain(m)} onGarder={() => { void c.garder(m); }} />)}
+          {c.liste.map((m) => <Carte key={m.id} m={m} echec={c.echecs.has(m.id)} occupe={occupe} rang={c.choix.indexOf(m.id)} onBasculer={() => c.basculer(m.id)} onAuto={() => { void c.auto([m]); }} onMain={() => c.setMain(m)} onGarder={() => { void c.garder(m); }} onRejeter={() => { void c.rejeter([m]); }} />)}
         </ul>
       ) : (
         <Vide icone="redresser" titre={c.filtre === 'toutes' ? 'Aucune photo' : 'Tout est redressé'}
@@ -53,7 +54,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
   );
 }
 
-function Carte({ m, echec, occupe, rang, onBasculer, onAuto, onMain, onGarder }: { m: MetaImage; echec: boolean; occupe: boolean; rang: number; onBasculer: () => void; onAuto: () => void; onMain: () => void; onGarder: () => void }) {
+function Carte({ m, echec, occupe, rang, onBasculer, onAuto, onMain, onGarder, onRejeter }: { m: MetaImage; echec: boolean; occupe: boolean; rang: number; onBasculer: () => void; onAuto: () => void; onMain: () => void; onGarder: () => void; onRejeter: () => void }) {
   const fait = m.statut !== 'importee';
   return (
     <li className={'tuile-photo' + (echec ? ' echec' : '') + (rang >= 0 ? ' choisie' : '')}>
@@ -67,6 +68,7 @@ function Carte({ m, echec, occupe, rang, onBasculer, onAuto, onMain, onGarder }:
         <button type="button" disabled={occupe} onClick={onAuto} title="Par les points de fuite"><Icone nom="auto" /> Auto</button>
         <button type="button" className={echec ? 'principal' : ''} onClick={onMain} title="Quatre coins d’un rectangle du mur"><Icone nom="main" /> À la main</button>
         <button type="button" className="discret" onClick={onGarder} title="La photo est déjà de face : la garder telle quelle"><Icone nom="face" /> De face</button>
+        <button type="button" className="discret danger icone-seule" onClick={onRejeter} title="Rejeter : elle sort du jeu (au tri, sous « Rejetées »)" aria-label="Rejeter"><Icone nom="rejeter" /></button>
       </div>
     </li>
   );

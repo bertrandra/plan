@@ -508,3 +508,4 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 @media (pointer: coarse) { .pastille-statut .etiquette-photo { padding: .3rem .6rem; font-size: .8rem; } }
 /* La carte coupe ce qui depasse (les coins arrondis de la photo) : pas pendant que le menu du statut est ouvert. */
 .tuile-photo:has(.menu-statut) { overflow: visible; z-index: 6; transform: none; }
+.actions-carte button.icone-seule { flex: 0 0 34px; padding: 0; }

@@ -104,7 +104,14 @@ export function useRedressement(banc: Banc) {
       banc.dire((e as Error).message, 'erreur');
     } finally { liberer(...canevas); setAvance(null); }
   };
+  /** Rejeter : la photo sort du jeu (elle se retrouve au tri, filtre « Rejetées », d'ou elle se supprime ou se reprend). */
+  const rejeter = async (l: readonly MetaImage[]) => {
+    let n = 0;
+    for (const m of l) { try { banc.remplacer(await api.modifier(m.id, { statut: 'rejetee' })); n++; } catch (e) { banc.dire((e as Error).message, 'erreur'); } }
+    setChoix((c) => c.filter((id) => !l.some((m) => m.id === id)));
+    if (n) banc.dire(`${n} photo(s) rejetée(s) : elles sont au tri, sous « Rejetées ».`);
+  };
   const oublierEchec = (id: string) => setEchecs((s) => { const t = new Set(s); t.delete(id); return t; });
   const finMain = (maj: MetaImage | null) => { if (maj) { banc.remplacer(maj); oublierEchec(maj.id); } setMain(null); };
-  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter };
+  return { rejeter, filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter };
 }
