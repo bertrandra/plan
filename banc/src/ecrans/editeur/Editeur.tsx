@@ -118,6 +118,9 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     if (k && !OUTILS_SANS_TRACE.includes(vue.outil)) vue.setOutil(k.forme);
   };
   const outil = (o: Outil) => () => vue.setOutil(o);
+  // Un outil de trace : seulement celui de la forme de la classe qu'on trace (une fenetre, le rectangle) ; R, P, T ou O y menent.
+  const formeTracee = () => banc.classes.find((c) => c.id === lireCible(vue.aPoser, banc.classes)?.classe)?.forme;
+  const tracer = (o: Outil) => () => vue.setOutil(formeTracee() ?? o);
   const decalage = (dx: number, dy: number) => ({ maj }: { maj: boolean }) => { if (sel.cibles.size) marquage.changer((l) => decaler(l, sel.cibles, dx * (maj ? 10 : 1), dy * (maj ? 10 : 1), L, H)); };
   const gestes: Gestes = {
     enregistrer: () => { void marquage.enregistrer(); }, validerSuivante: () => { void validerEtSuivante(); },
@@ -126,7 +129,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
     supprimer: retirerPris, annuler: marquage.annuler, refaire: marquage.refaire,
     copier: () => presse.copier(false), couper: () => presse.copier(true), coller: presse.coller,
     gauche: decalage(-1, 0), droite: decalage(1, 0), haut: decalage(0, -1), bas: decalage(0, 1),
-    outilChoisir: outil('choisir'), outilVue: outil('vue'), outilZoom: outil('zoom'), outilRectangle: outil('rectangle'), outilPolygone: outil('polygone'), outilLigne: outil('ligne'), outilPoint: outil('point'),
+    outilChoisir: outil('choisir'), outilVue: outil('vue'), outilZoom: outil('zoom'), outilRectangle: tracer('rectangle'), outilPolygone: tracer('polygone'), outilLigne: tracer('ligne'), outilPoint: tracer('point'),
     // S choisit la selection ; S de nouveau passe de la boite au lasso.
     outilSelection: () => { if (vue.outil === 'selection') vue.setMode(vue.mode === 'boite' ? 'lasso' : 'boite'); else vue.setOutil('selection'); },
     etiquettes: () => vue.setEtiquettes((x) => !x), loupe: () => vue.setLoupe((x) => !x), aide: () => vue.setAide((x) => !x),
@@ -155,7 +158,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       <BarreHaut banc={banc} meta={meta} rang={rang} total={liste.length} aRelire={relecture.aRelire} modifie={marquage.modifie} envoi={marquage.envoi} relance={relance} onRelancer={() => { void relancer(); }}
         onAller={(k) => { void aller(k); }} onEnregistrer={() => { void marquage.enregistrer(); }} onValider={() => { void validerEtSuivante(); }} onFermer={fermer} />
       <div className="editeur-corps">
-        <ColonneOutils outil={vue.outil} mode={vue.mode} onOutil={vue.setOutil} onMode={vue.setMode} etiquettes={vue.etiquettes} onEtiquettes={() => vue.setEtiquettes((x) => !x)}
+        <ColonneOutils outil={vue.outil} mode={vue.mode} onOutil={vue.setOutil} forme={classeChoisie?.forme ?? null} nomClasse={classeChoisie ? libelleDe({ classe: classeChoisie.id, ...(cible?.type ? { type: cible.type } : {}) }, banc.classes) : null} onMode={vue.setMode} etiquettes={vue.etiquettes} onEtiquettes={() => vue.setEtiquettes((x) => !x)}
           loupe={vue.loupe} onLoupe={() => vue.setLoupe((x) => !x)} aimant={aides.aimant} onAimant={aides.basculerAimant} stylet={vue.stylet} onStylet={() => vue.setStylet(!vue.stylet)} onAide={() => vue.setAide(true)} />
         {marquage.objets ? (
           <Scene url={api.fichier(id, 'redressee', meta.redressement?.le ?? '')} L={L} H={H} objets={visibles} classes={banc.classes}

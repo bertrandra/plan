@@ -7,6 +7,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : seul l'outil de la classe qu'on trace** (demande du propriétaire, 13 novembre 2026). La colonne d'outils ne montre plus que
+  l'outil de tracé de la forme de cette classe : une fenêtre, le rectangle ; l'égout, la ligne ; une pointe de pignon, le point ; la
+  façade, le polygone. Son infobulle dit la classe ; R, P, T ou O mènent à lui.
 - **Banc : la barre de la photo complétée** (demande du propriétaire, 13 novembre 2026). En bas à droite du canevas d'annotation :
   annuler et rejouer (éteints au bout de l'historique), puis, à côté de la poubelle, copier (avec ce qui est choisi) et coller (dès
   que le presse-papiers tient un objet) ; « Ajuster » devient une icône. Tout se fait ainsi au doigt et au stylet, sans clavier. Au

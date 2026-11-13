@@ -6,6 +6,8 @@ import { Icone, type NomIcone } from '../../ui/Icones.js';
 
 interface Bouton { outil: Outil; icone: NomIcone; titre: string; mode?: ModeSelection }
 
+const TRACES: readonly Outil[] = ['rectangle', 'polygone', 'ligne', 'point'];
+
 const GROUPES: Bouton[][] = [
   [
     { outil: 'choisir', icone: 'choisir', titre: 'Choisir, déplacer, redimensionner (V)' },
@@ -24,8 +26,10 @@ const GROUPES: Bouton[][] = [
   ],
 ];
 
-export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiquettes, loupe, onLoupe, aimant, onAimant, stylet, onStylet, onAide }: {
+export function ColonneOutils({ outil, mode, onOutil, forme, nomClasse, onMode, etiquettes, onEtiquettes, loupe, onLoupe, aimant, onAimant, stylet, onStylet, onAide }: {
   outil: Outil; mode: ModeSelection; onOutil: (o: Outil) => void; onMode: (m: ModeSelection) => void;
+  /** La forme de la classe qu'on trace : seul son outil de trace se montre (une fenetre : le rectangle). null : tous. */
+  forme: Outil | null; nomClasse: string | null;
   etiquettes: boolean; onEtiquettes: () => void; loupe: boolean; onLoupe: () => void; aimant: boolean; onAimant: () => void; stylet: boolean; onStylet: () => void; onAide: () => void;
 }) {
   const actif = (b: Bouton) => b.outil === outil && (!b.mode || b.mode === mode);
@@ -33,8 +37,8 @@ export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiq
     <nav className="colonne-outils" aria-label="Outils">
       {GROUPES.map((g, i) => (
         <div key={i} className="groupe-outils" role="group">
-          {g.map((b) => (
-            <button key={b.titre} type="button" className={actif(b) ? 'outil actif' : 'outil'} aria-pressed={actif(b)} title={b.titre} aria-label={b.titre}
+          {g.filter((b) => !forme || !TRACES.includes(b.outil) || b.outil === forme).map((b) => (
+            <button key={b.titre} type="button" className={actif(b) ? 'outil actif' : 'outil'} aria-pressed={actif(b)} title={TRACES.includes(b.outil) && nomClasse ? `${b.titre} : ${nomClasse}` : b.titre} aria-label={b.titre}
               onClick={() => { onOutil(b.outil); if (b.mode) onMode(b.mode); }}><Icone nom={b.icone} /></button>
           ))}
         </div>
