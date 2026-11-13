@@ -67,7 +67,7 @@ export function useRedressement(banc: Banc) {
     for (const [k, m] of l.entries()) { setAvance({ fait: k, total: l.length }); await garder(m); }
     setAvance(null);
     setChoix([]);
-    banc.dire(`${l.length} photo(s) passée(s) à la mosaïque telles quelles.`);
+    banc.dire(`${l.length} photo(s) passée(s) au tri telles quelles.`);
   };
   /**
    * Fusionne les photos choisies (dans l'ordre des clics, de gauche a droite) en une seule, deja de face : une nouvelle photo, prete pour
@@ -98,7 +98,7 @@ export function useRedressement(banc: Banc) {
       liberer(c);
       if (ecarter) for (const m of l) await api.modifier(m.id, { statut: 'rejetee' });
       setChoix([]);
-      banc.dire(`${l.length} photos fusionnées en « ${nom} »${faibles ? ` : ${faibles} jointure(s) douteuse(s), vérifiez-la dans la mosaïque` : ''}.`, faibles ? 'erreur' : 'ok');
+      banc.dire(`${l.length} photos fusionnées en « ${nom} »${faibles ? ` : ${faibles} jointure(s) douteuse(s), vérifiez-la au tri` : ''}.`, faibles ? 'erreur' : 'ok');
       await banc.relire();
     } catch (e) {
       banc.dire((e as Error).message, 'erreur');

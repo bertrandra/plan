@@ -34,7 +34,7 @@ export function EcranValidation({ banc }: { banc: Banc }) {
   ];
   const aRedresser = banc.images.filter((m) => m.statut === 'importee').length;
   return (
-    <Page icone="mosaique" numero="2a" titre="Mosaïque" large
+    <Page icone="mosaique" numero="2a" titre="Tri" large
       aide={<><p>Validez chaque photo bien redressée : le mur droit, assez net, assez de façade. Une photo rejetée sort du jeu ; « Refaire » la renvoie au redressement.</p><p>Au clavier : ← → pour aller, <kbd>V</kbd> valider, <kbd>R</kbd> rejeter, <kbd>A</kbd> refaire, <kbd>Entrée</kbd> la revue en grand.</p></>}
       actions={<>
         {c.filtre === 'a-valider' && c.liste.length > 0 && <button type="button" onClick={() => { c.aller(0); c.setRevue(true); }}><Icone nom="plein" /> Revue en grand <kbd>⏎</kbd></button>}

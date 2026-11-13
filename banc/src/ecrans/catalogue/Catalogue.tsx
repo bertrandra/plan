@@ -53,8 +53,8 @@ export function EcranCatalogue({ banc }: { banc: Banc }) {
       ) : c.actifs ? (
         <Vide icone="marquage" titre="Aucune photo ne répond à ces filtres" action={<button type="button" onClick={c.effacer}>Effacer les filtres</button>} />
       ) : (
-        <Vide icone="marquage" titre="Rien à marquer pour l’instant" texte="Les photos validées dans la mosaïque arrivent ici ; le pré-marquage (étape 3) pose les objets pour vous."
-          action={<button type="button" className="principal" onClick={() => banc.aller('validation')}>Aller à la mosaïque</button>} />
+        <Vide icone="marquage" titre="Rien à marquer pour l’instant" texte="Les photos validées (étape 2a) arrivent ici ; le pré-marquage (étape 3) pose les objets pour vous."
+          action={<button type="button" className="principal" onClick={() => banc.aller('validation')}>Aller au tri</button>} />
       )}
       {c.pages > 1 && <nav className="pagination" aria-label="Pages"><button type="button" disabled={!c.page} onClick={() => c.setPage(c.page - 1)}><Icone nom="precedent" /> Précédentes</button><span>{c.page + 1} / {c.pages}</span><button type="button" disabled={c.page >= c.pages - 1} onClick={() => c.setPage(c.page + 1)}>Suivantes <Icone nom="suivant" /></button></nav>}
     </Page>

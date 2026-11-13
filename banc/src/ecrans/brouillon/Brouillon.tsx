@@ -29,7 +29,7 @@ export function EcranBrouillon({ banc }: { banc: Banc }) {
             {c.avance && <span className="avance"><Jauge valeur={c.avance.fait} cible={c.avance.total} /> Pré-marquage {c.avance.fait + 1} sur {c.avance.total}…</span>}
           </div>
         ) : (
-          <Vide icone="brouillon" titre="Aucune photo à pré-marquer" texte={c.bilan ? `${c.bilan.photos} photo(s) pré-marquée(s), ${c.bilan.objets} objet(s) proposé(s) : à relire.` : 'Les photos validées dans la mosaïque arrivent ici. Cochez « Aussi les photos déjà marquées » pour repasser sur les autres.'}
+          <Vide icone="brouillon" titre="Aucune photo à pré-marquer" texte={c.bilan ? `${c.bilan.photos} photo(s) pré-marquée(s), ${c.bilan.objets} objet(s) proposé(s) : à relire.` : 'Les photos validées (étape 2a) arrivent ici. Cochez « Aussi les photos déjà marquées » pour repasser sur les autres.'}
             action={<label className="interrupteur-ligne"><span className="interrupteur"><input type="checkbox" checked={c.refaire} onChange={(e) => c.setRefaire(e.target.checked)} /><span /></span> Aussi les photos déjà marquées</label>} />
         )}
       </Section>

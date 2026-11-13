@@ -21,7 +21,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
   const aValider = banc.images.filter((m) => m.statut === 'redressee').length;
   return (
     <Page icone="redresser" numero="2" titre="Redressement" large
-      aide={<><p>Les verticales et horizontales du mur deviennent droites : par les points de fuite de la photo (automatique), sinon par quatre coins d’un rectangle du mur posés à la main. Une photo redressée de nouveau perd son marquage (il est gardé à part sur le serveur).</p><p>Touchez des photos pour les choisir : « Déjà de face » les passe telles quelles à la mosaïque ; « Fusionner » assemble les photos d’un même mur, choisies de gauche à droite, en une seule (l’assemblage de Plan : la place où leurs parties communes se ressemblent le plus, puis un fondu).</p></>}
+      aide={<><p>Les verticales et horizontales du mur deviennent droites : par les points de fuite de la photo (automatique), sinon par quatre coins d’un rectangle du mur posés à la main. Une photo redressée de nouveau perd son marquage (il est gardé à part sur le serveur).</p><p>Touchez des photos pour les choisir : « Déjà de face » les passe telles quelles au tri ; « Fusionner » assemble les photos d’un même mur, choisies de gauche à droite, en une seule (l’assemblage de Plan : la place où leurs parties communes se ressemblent le plus, puis un fondu).</p></>}
       actions={c.nouvelles.length > 0 && <button type="button" className="principal" disabled={occupe} onClick={() => { void c.auto(c.nouvelles); }}><Icone nom="auto" /> Redresser les {c.nouvelles.length} (auto)</button>}>
       <div className="barre-outils">
         <Segments label="Filtre" valeur={c.filtre} options={filtres} onChange={c.setFiltre} />
@@ -30,7 +30,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
       {c.choix.length > 0 && (
         <div className="barre-choix" role="toolbar" aria-label="Photos choisies">
           <strong>{c.choix.length} choisie(s)</strong>
-          <button type="button" disabled={occupe} onClick={() => { void c.garderLes(c.choisies); }} title="Elles sont déjà de face : à la mosaïque telles quelles"><Icone nom="face" /> Déjà de face</button>
+          <button type="button" disabled={occupe} onClick={() => { void c.garderLes(c.choisies); }} title="Elles sont déjà de face : au tri telles quelles"><Icone nom="face" /> Déjà de face</button>
           <button type="button" disabled={occupe} onClick={() => { void c.auto(c.choisies); }}><Icone nom="auto" /> Auto</button>
           <button type="button" className="principal" disabled={occupe || c.choix.length < 2} onClick={() => { void c.fusionner(); }}
             title="Plusieurs photos d’un même mur, choisies de gauche à droite, en une seule image"><Icone nom="mosaique" /> Fusionner ({c.choix.length})</button>
@@ -46,8 +46,8 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
         </ul>
       ) : (
         <Vide icone="redresser" titre={c.filtre === 'toutes' ? 'Aucune photo' : 'Tout est redressé'}
-          texte={aValider ? `${aValider} photo(s) redressée(s) attendent un coup d’œil dans la mosaïque.` : 'Importez des photos : elles arrivent ici pour être mises de face.'}
-          action={<button type="button" className="principal" onClick={() => banc.aller(aValider ? 'validation' : 'import')}>{aValider ? 'Aller à la mosaïque' : 'Importer des photos'}</button>} />
+          texte={aValider ? `${aValider} photo(s) redressée(s) attendent le tri.` : 'Importez des photos : elles arrivent ici pour être mises de face.'}
+          action={<button type="button" className="principal" onClick={() => banc.aller(aValider ? 'validation' : 'import')}>{aValider ? 'Aller au tri' : 'Importer des photos'}</button>} />
       )}
     </Page>
   );

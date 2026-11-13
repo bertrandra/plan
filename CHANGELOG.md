@@ -7,6 +7,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Banc : « Mosaïque » devient « Tri »** (demande du propriétaire, 13 novembre 2026) : l'étape 2a, où l'on garde, rejette ou
+  renvoie au redressement chaque photo redressée ; les renvois des autres étapes suivent. Seuls les textes changent.
 - **Banc : « Brouillon » devient « Pré-marquage »** (demande du propriétaire, 13 novembre 2026) : l'étape 3, ses boutons (« Pré-marquer
   N photo(s) », « Relancer le pré-marquage », « Relire les N pré-marquées »), l'inspecteur et l'aide. Seuls les textes changent : le
   statut garde son nom interne (`brouillon`), photos, exports et modèles ne bougent pas.
