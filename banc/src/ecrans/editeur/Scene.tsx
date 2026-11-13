@@ -4,7 +4,7 @@
 // Outil Selection : une boite ou un lasso prend les objets entierement dedans ; Maj + clic en ajoute ou en retire un ; toucher un objet
 // de la selection en fait la reference (pour aligner et donner la meme taille) ; tirer un objet de la selection deplace tout le groupe.
 
-import { useEffect, useRef, useState, type PointerEvent as PE, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as PE, type ReactNode } from 'react';
 import type { Classe, Forme, Objet, P } from '../../types.js';
 import { boite, contour } from '../../geometrie.js';
 import { libelleDe } from '../../classes.js';
@@ -58,6 +58,8 @@ interface Props {
    */
   stylet?: boolean;
   onStylet?: () => void;
+  /** Le menu d'un objet (ses types) : clic droit, ou appui long au doigt ou au stylet ; x, y a l'ecran. */
+  onMenu?: (id: string, x: number, y: number) => void;
 }
 
 /** Un point marque (la pointe d'un pignon) : un cercle et sa croix, a la couleur de sa classe. */
@@ -139,7 +141,7 @@ function poserUnPoint(p: P, { outil, trace, setTrace, onCreer, tolerance }: { ou
  * en pointilles, un objet relu en trait plein. Les etiquettes ne se montrent qu'au survol et sur le choisi, la reference (toutes : touche E) : sur une
  * facade chargee, elles se chevauchaient jusqu'a cacher la photo.
  */
-function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surObjet }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; etiquettes: boolean; surObjet: (e: PE<SVGElement>, o: Objet) => void }) {
+function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surObjet, surMenu }: { objets: Objet[]; classes: Classe[]; choisi: string | null; selection: ReadonlySet<string>; echelle: number; etiquettes: boolean; surObjet: (e: PE<SVGElement>, o: Objet) => void; surMenu: (e: ReactMouseEvent, o: Objet) => void }) {
   const [survole, setSurvole] = useState<string | null>(null);
   const couleur = (o: Objet) => classes.find((c) => c.id === o.classe)?.couleur ?? '#ff00ff';
   const nom = (o: Objet) => libelleDe(o, classes) + (classes.find((c) => c.id === o.classe)?.types?.length && !o.type ? ' ?' : '');
@@ -150,7 +152,7 @@ function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surOb
         const pts = contour(o).map((q) => `${q.x},${q.y}`).join(' ');
         const c = couleur(o), choisiIci = o.id === choisi, pris = selection.size > 1 && selection.has(o.id);
         return (
-          <g key={o.id} className={'objet origine-' + o.origine + (choisiIci ? ' choisi' : '') + (pris ? ' selectionne' : '')} onPointerEnter={() => setSurvole(o.id)} onPointerLeave={() => setSurvole((x) => (x === o.id ? null : x))}>
+          <g key={o.id} className={'objet origine-' + o.origine + (choisiIci ? ' choisi' : '') + (pris ? ' selectionne' : '')} onPointerEnter={() => setSurvole(o.id)} onPointerLeave={() => setSurvole((x) => (x === o.id ? null : x))} onContextMenu={(e) => surMenu(e, o)}>
             {pris && o.forme !== 'point' && <polygon points={contour(o).map((q) => `${q.x},${q.y}`).join(' ')} fill="none" stroke="#fff" strokeWidth={trait * (choisiIci ? 2.5 : 1.5)} strokeDasharray={`${5 * echelle} ${3 * echelle}`} pointerEvents="none" />}
             {o.forme === 'point' ? <PointMarque p={o.points[0] ?? { x: 0, y: 0 }} couleur={c} r={(choisiIci || pris ? 9 : 7) * echelle} trait={trait} onPointerDown={(e) => surObjet(e, o)} />
               : o.forme === 'ligne' ? <polyline points={pts} fill="none" stroke={c} strokeWidth={(choisiIci ? 3 : 2) * trait} onPointerDown={(e) => surObjet(e, o)} /> : <polygon points={pts} fill={c} fillOpacity={choisiIci ? 0.25 : pris ? 0.2 : 0.12} stroke={c} strokeWidth={choisiIci ? 2 * trait : trait} strokeDasharray={o.origine === 'auto' ? `${6 * echelle} ${4 * echelle}` : undefined} onPointerDown={(e) => surObjet(e, o)} />}
@@ -160,6 +162,31 @@ function Dessin({ objets, classes, choisi, selection, echelle, etiquettes, surOb
       })}
     </>
   );
+}
+
+/** Une zone tiree prend les objets entierement dedans ; un toucher sans glisse choisit l'objet touche (ou vide la selection). */
+function finirUneZone(g: Extract<Geste, { type: 'zone' }>, c: { echelle: number; objets: Objet[]; modeSelection: ModeSelection; onSelectionner: (ids: string[], ajouter: boolean) => void; onBasculer: (id: string) => void; onChoisir: (id: string | null) => void }) {
+  const b = boite(g.points);
+  if (b.x1 - b.x0 > 4 * c.echelle || b.y1 - b.y0 > 4 * c.echelle) c.onSelectionner(objetsDansLaZone(c.objets, zoneDeSelection(g.points, c.modeSelection)), g.ajouter);
+  else if (g.sur && g.ajouter) c.onBasculer(g.sur);
+  else c.onChoisir(g.sur);
+}
+
+/**
+ * Le menu d'un objet : le clic droit l'ouvre, et l'appui long d'un doigt ou d'un stylet (un demi-seconde sans glisser) ; un glisse ou un
+ * lever annule l'appui. `annuler` abandonne le geste commence (le deplacement qu'un appui avait prepare).
+ */
+function useMenuObjet(onMenu: ((id: string, x: number, y: number) => void) | undefined, annuler: () => void) {
+  const appui = useRef<number | null>(null);
+  const finAppui = () => { if (appui.current !== null) { clearTimeout(appui.current); appui.current = null; } };
+  const surMenu = (e: ReactMouseEvent, o: Objet) => { if (!onMenu) return; e.preventDefault(); finAppui(); annuler(); onMenu(o.id, e.clientX, e.clientY); };
+  const demarrerAppui = (e: PE<Element>, o: Objet) => {
+    if (!onMenu || e.pointerType === 'mouse') return;
+    finAppui();
+    const x = e.clientX, y = e.clientY;
+    appui.current = window.setTimeout(() => { appui.current = null; annuler(); onMenu(o.id, x, y); }, 550);
+  };
+  return { surMenu, demarrerAppui, finAppui };
 }
 
 /** Les poignees de l'objet choisi (seul) : ses coins ou sommets, et le petit rond au milieu d'un cote qui ajoute un sommet. */
@@ -173,7 +200,7 @@ function Poignees({ o, rayon, surPoignee, ajouter }: { o: Objet; rayon: number; 
   );
 }
 
-export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete, surChoix, stylet = false, onStylet }: Props) {
+export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete, surChoix, stylet = false, onStylet, onMenu }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [geste, setGeste] = useState<Geste | null>(null);
   // Le second doigt pose : ce que le premier avait commence (un trait, un deplacement, une visee) s'annule, on zoome.
@@ -183,6 +210,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
   // Une ligne (egout, sol) se finit a deux points ; un polygone a trois.
   const minPoints = outil === 'ligne' ? 2 : 3;
   const espace = useRef(false);
+  const { surMenu, demarrerAppui, finAppui } = useMenuObjet(onMenu, () => setGeste(null));
   const seuil = useRef(SEUIL_SOURIS);
   useEffect(() => { ajuster(); setTrace([]); }, [url, L, H]);
   useEffect(() => { setTrace([]); }, [outil]);
@@ -233,6 +261,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     seuilDe(e);
     setGeste({ type: 'deplacer', groupe, ecran: { x: e.clientX, y: e.clientY }, parti: false });
     capter(e);
+    demarrerAppui(e, o);
   };
   const surPoignee = (e: PE<SVGElement>, o: Objet, k: number) => {
     if (e.pointerType === 'pen' && !stylet) onStylet?.();
@@ -262,6 +291,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
       const dx = e.clientX - geste.ecran.x, dy = e.clientY - geste.ecran.y;
       if (!geste.parti) {
         if (Math.hypot(dx, dy) < seuil.current) return;
+        finAppui();
         onDebutGeste();
         setGeste({ ...geste, parti: true });
       }
@@ -270,6 +300,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     }
   };
   const leve = (e: PE<SVGSVGElement>) => {
+    finAppui();
     if (!geste) return;
     const p = point(e);
     if (geste.type === 'viser') poser(p);
@@ -283,13 +314,7 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     setGeste(null);
   };
   // Une zone tiree prend les objets entierement dedans ; un toucher sans glisse choisit l'objet touche (ou vide la selection).
-  const finirZone = (g: Extract<Geste, { type: 'zone' }>) => {
-    const b = boite(g.points);
-    if (b.x1 - b.x0 > 4 * echelle || b.y1 - b.y0 > 4 * echelle) onSelectionner(objetsDansLaZone(objets, zoneDeSelection(g.points, modeSelection)), g.ajouter);
-    else if (g.sur && g.ajouter) onBasculer(g.sur);
-    else onChoisir(g.sur);
-  };
-  // « Ajuster » cadre l'objet choisi, ou toute la photo sans choix.
+  const finirZone = (g: Extract<Geste, { type: 'zone' }>) => finirUneZone(g, { echelle, objets, modeSelection, onSelectionner, onBasculer, onChoisir });
   const objetChoisi = objets.find((o) => o.id === choisi);
   // « Ajuster » cadre la selection (le groupe entier), ou l'objet choisi, ou toute la photo.
   const pris = selection.size > 1 ? objets.filter((o) => selection.has(o.id)) : objetChoisi ? [objetChoisi] : [];
@@ -311,9 +336,9 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     <OutilsScene finir={trace.length >= minPoints && (outil === 'polygone' || outil === 'ligne') ? finir : null} retirer={trace.length ? () => setTrace(trace.slice(0, -1)) : null}
       zoomer={zoomer} ajuster={ajusterSurLeChoix} titreAjuster={pris.length > 1 ? `Cadrer les ${pris.length} objets sélectionnés` : objetChoisi ? 'Cadrer l’objet choisi' : 'Toute la photo'} surChoix={surChoix} />
     <svg ref={svg} className={'scene outil-' + outil} viewBox={`${vue.x} ${vue.y} ${vue.w} ${vue.h}`} preserveAspectRatio="xMidYMid meet"
-      {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => setGeste(null)} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
+      {...capture} onPointerDown={fond} onPointerMove={bouge} onPointerUp={leve} onPointerCancel={() => { finAppui(); setGeste(null); }} onPointerLeave={() => { if (!geste) setSurvol(null); }} onDoubleClick={finir}>
       <image href={url} width={L} height={H} />
-      <Dessin objets={objets} classes={classes} choisi={choisi} selection={selection} echelle={echelle} etiquettes={etiquettes} surObjet={surObjet} />
+      <Dessin objets={objets} classes={classes} choisi={choisi} selection={selection} echelle={echelle} etiquettes={etiquettes} surObjet={surObjet} surMenu={surMenu} />
       {objetChoisi && selection.size <= 1 && outil !== 'vue' && outil !== 'zoom' && <Poignees o={objetChoisi} rayon={rayon} surPoignee={surPoignee} ajouter={(k) => { onDebutGeste(); onModifier([ajouterSommet(objetChoisi, k)], true); }} />}
       {enCours && <rect x={Math.min(enCours.depart.x, enCours.courant.x)} y={Math.min(enCours.depart.y, enCours.courant.y)} width={Math.abs(enCours.courant.x - enCours.depart.x)} height={Math.abs(enCours.courant.y - enCours.depart.y)} fill="none" stroke={geste?.type === 'cadre' ? '#fff' : classe?.couleur ?? '#fff'} strokeWidth={trait} strokeDasharray={`${4 * echelle}`} />}
       {zone && <polygon points={zone.map((q) => `${q.x},${q.y}`).join(' ')} className="zone-selection" strokeWidth={trait} strokeDasharray={`${5 * echelle} ${4 * echelle}`} />}

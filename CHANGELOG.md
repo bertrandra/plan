@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : le menu d'un objet, au clic droit ou à l'appui long** (demande du propriétaire, 13 novembre 2026). Sur une fenêtre placée, le
+  clic droit (PC, Mac) ou un appui long d'une demi-seconde au doigt ou au stylet ouvre la liste des types de sa classe (1 vantail,
+  2 vantaux, petits carreaux…), le type actuel coché ; une classe sans type propose ses voisines de même forme. Puis copier et supprimer.
+  Sur une sélection multiple, le menu vaut pour toute la sélection : les types de chaque classe présente, et le choisi donne à tous cette
+  classe et ce type, comme l'inspecteur (Ctrl+Z l'annule d'un coup).
 - **Banc : seul l'outil de la classe qu'on trace** (demande du propriétaire, 13 novembre 2026). La colonne d'outils ne montre plus que
   l'outil de tracé de la forme de cette classe : une fenêtre, le rectangle ; l'égout, la ligne ; une pointe de pignon, le point ; la
   façade, le polygone. Son infobulle dit la classe ; R, P, T ou O mènent à lui.

@@ -26,6 +26,8 @@ import { usePressePapiers } from './usePressePapiers.js';
 import { useRelecture } from './useRelecture.js';
 import { useRaccourcis, type Gestes } from './useRaccourcis.js';
 import { useAides } from './useAides.js';
+import { MenuObjet } from './MenuObjet.js';
+import { useGestesObjet } from './useGestesObjet.js';
 
 const OUTILS_SANS_TRACE: readonly Outil[] = ['choisir', 'selection', 'vue', 'zoom'];
 
@@ -58,20 +60,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
   const presse = usePressePapiers({ id, marquage, cibles: sel.cibles, classes: banc.classes, L, H, choisir: sel.choisir, selectionner: sel.selectionner, dire: (t) => banc.dire(t) });
   const objets = useMemo(() => marquage.objets ?? [], [marquage.objets]);
   const aides = useAides({ url: api.fichier(id, 'redressee', meta?.redressement?.le ?? ''), L, classes: banc.classes, dire: (t, g) => banc.dire(t, g) });
-  /** F : les semblables de l'objet choisi, ajoutes au brouillon et choisis (Tab et A pour les relire, X pour ceux qui n'en sont pas). */
-  const trouverSemblables = () => {
-    const modele = objets.find((o) => o.id === sel.choisi);
-    if (!modele) { banc.dire('Choisissez d’abord une fenêtre (ou un autre rectangle) : F cherche celles qui lui ressemblent.'); return; }
-    const r = aides.trouver(objets, modele);
-    if (!r) return;
-    const avant = new Set(objets.map((o) => o.id)), nouveaux = r.filter((o) => !avant.has(o.id)).map((o) => o.id);
-    if (!nouveaux.length) { banc.dire('Aucun semblable trouvé sur cette photo.'); return; }
-    marquage.changer(() => r);
-    sel.selectionner(nouveaux, false);
-    banc.dire(`${nouveaux.length} semblable(s) proposé(s), choisis : relisez-les (Tab, A), X retire ceux qui n’en sont pas.`);
-  };
-  /** C : les rectangles choisis cales sur le bord de la menuiserie. */
-  const calerPris = () => { if (sel.cibles.size) marquage.changer((l) => aides.calerObjets(l, sel.cibles)); };
+  const { trouverSemblables, calerPris, menu, setMenu, ouvrirMenu } = useGestesObjet({ objets, sel, marquage, aides, dire: (t) => banc.dire(t) });
   const photos = useMemo(() => liste.map((x) => banc.images.find((m) => m.id === x)).filter((m): m is NonNullable<typeof m> => !!m), [liste, banc.images]);
   const rang = liste.indexOf(id);
 
@@ -168,6 +157,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
               onAligner={(c) => { if (sel.choisi) marquage.changer((l) => aligner(l, sel.selection, sel.choisi as string, c)); }}
               onTaille={(t) => { if (sel.choisi) marquage.changer((l) => memeTaille(l, sel.selection, sel.choisi as string, t)); }} />}
             onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste}
+            onMenu={ouvrirMenu}
             stylet={vue.stylet} onStylet={() => { vue.setStylet(true); banc.dire('Stylet détecté : le crayon dessine, les doigts déplacent et zooment (bouton du stylet dans les outils pour revenir).'); }}
             surChoix={<>
               <span className="groupe-scene" role="group" aria-label="Historique">
@@ -191,6 +181,9 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
       </div>
       <BandeauPhotos photos={photos} courante={id} onAller={(k) => { void aller(k); }} />
       {vue.aide && <AideRaccourcis onFermer={() => vue.setAide(false)} />}
+      {menu && sel.cibles.size > 0 && <MenuObjet x={menu.x} y={menu.y} objets={objets.filter((o) => sel.cibles.has(o.id))} classes={banc.classes} onFermer={() => setMenu(null)}
+        onChoisir={(c) => { vue.retenir(c.type ? `${c.classe}:${c.type}` : c.classe); marquage.changer((l) => qualifier(l, sel.cibles, c, banc.classes)); }}
+        onCopier={() => presse.copier(false)} onSupprimer={retirerPris} />}
     </section>
   );
 }
