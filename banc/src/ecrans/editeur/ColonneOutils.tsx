@@ -24,9 +24,9 @@ const GROUPES: Bouton[][] = [
   ],
 ];
 
-export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiquettes, loupe, onLoupe, aimant, onAimant, onAide }: {
+export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiquettes, loupe, onLoupe, aimant, onAimant, stylet, onStylet, onAide }: {
   outil: Outil; mode: ModeSelection; onOutil: (o: Outil) => void; onMode: (m: ModeSelection) => void;
-  etiquettes: boolean; onEtiquettes: () => void; loupe: boolean; onLoupe: () => void; aimant: boolean; onAimant: () => void; onAide: () => void;
+  etiquettes: boolean; onEtiquettes: () => void; loupe: boolean; onLoupe: () => void; aimant: boolean; onAimant: () => void; stylet: boolean; onStylet: () => void; onAide: () => void;
 }) {
   const actif = (b: Bouton) => b.outil === outil && (!b.mode || b.mode === mode);
   return (
@@ -43,6 +43,7 @@ export function ColonneOutils({ outil, mode, onOutil, onMode, etiquettes, onEtiq
         <button type="button" className={etiquettes ? 'outil actif' : 'outil'} aria-pressed={etiquettes} title="Toutes les étiquettes (E)" aria-label="Toutes les étiquettes (E)" onClick={onEtiquettes}><Icone nom="etiquettes" /></button>
         <button type="button" className={loupe ? 'outil actif' : 'outil'} aria-pressed={loupe} title="Loupe automatique (L)" aria-label="Loupe automatique (L)" onClick={onLoupe}><Icone nom="loupe" /></button>
         <button type="button" className={aimant ? 'outil actif' : 'outil'} aria-pressed={aimant} title="Aimant : un rectangle tracé se cale sur le bord de la menuiserie (M)" aria-label="Aimant (M)" onClick={onAimant}><Icone nom="aimant" /></button>
+        <button type="button" className={stylet ? 'outil actif' : 'outil'} aria-pressed={stylet} title={stylet ? 'Mode stylet : le crayon dessine, les doigts déplacent et zooment (toucher pour revenir au doigt)' : 'Mode stylet : le crayon dessine, les doigts ne font que déplacer et zoomer (il s’allume au premier trait de crayon)'} aria-label="Mode stylet" onClick={onStylet}><Icone nom="stylet" /></button>
         <button type="button" className="outil" title="Raccourcis du clavier (?)" aria-label="Raccourcis du clavier (?)" onClick={onAide}><Icone nom="aide" /></button>
       </div>
     </nav>

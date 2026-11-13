@@ -52,6 +52,12 @@ interface Props {
   enTete?: ReactNode;
   /** Les gestes sur l'objet choisi, poses sur la photo pres du zoom (au doigt, l'inspecteur est loin sous la photo). */
   surChoix?: ReactNode;
+  /**
+   * Le mode stylet (un iPad et son crayon, demande du proprietaire, 13 novembre 2026) : le stylet dessine, choisit et tire ; les doigts ne
+   * font que deplacer la vue (un doigt) et zoomer (deux doigts), et la paume posee ne trace rien. `onStylet` : un stylet vient d'etre vu.
+   */
+  stylet?: boolean;
+  onStylet?: () => void;
 }
 
 /** Un point marque (la pointe d'un pignon) : un cercle et sa croix, a la couleur de sa classe. */
@@ -98,7 +104,8 @@ function useClavier({ espace, trace, minPoints, outil, onCreer, onChoisir, annul
 }
 
 /** Le glisse (pixels d'ecran) au-dela duquel un objet ou une poignee touches se deplacent : un clic ou un toucher ne fait que choisir. */
-const SEUIL_SOURIS = 4, SEUIL_DOIGT = 10;
+// Le stylet tremble un peu en se posant : entre la souris et le doigt.
+const SEUIL_SOURIS = 4, SEUIL_STYLET = 6, SEUIL_DOIGT = 10;
 
 function sansDoublons(l: readonly P[], tolerance: number): P[] {
   return l.filter((p, i) => { const q = l[i - 1]; return !q || Math.hypot(p.x - q.x, p.y - q.y) > tolerance; });
@@ -166,7 +173,7 @@ function Poignees({ o, rayon, surPoignee, ajouter }: { o: Objet; rayon: number; 
   );
 }
 
-export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete, surChoix }: Props) {
+export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selection, modeSelection, onChoisir, onSelectionner, onBasculer, onCreer, onModifier, onDebutGeste, etiquettes, loupe, enTete, surChoix, stylet = false, onStylet }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const [geste, setGeste] = useState<Geste | null>(null);
   // Le second doigt pose : ce que le premier avait commence (un trait, un deplacement, une visee) s'annule, on zoome.
@@ -190,10 +197,15 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
     return { x: Math.min(L, Math.max(0, p.x)), y: Math.min(H, Math.max(0, p.y)) };
   };
-  const capter = (e: PE<Element>) => svg.current?.setPointerCapture(e.pointerId);
-  const seuilDe = (e: PE<Element>) => { seuil.current = e.pointerType === 'touch' ? SEUIL_DOIGT : SEUIL_SOURIS; };
+  // Capturer le pointeur : il suit le geste meme hors de la photo (un pointeur deja leve ne se capture plus : sans consequence).
+  const capter = (e: PE<Element>) => { try { svg.current?.setPointerCapture(e.pointerId); } catch { /* pointeur deja leve */ } };
+  const seuilDe = (e: PE<Element>) => { seuil.current = e.pointerType === 'touch' ? SEUIL_DOIGT : e.pointerType === 'pen' ? SEUIL_STYLET : SEUIL_SOURIS; };
+  /** En mode stylet, un doigt ne touche pas aux objets : il deplace la vue (le pincement, lui, est pris avant par useZoom). */
+  const doigtQuiNavigue = (e: PE<Element>) => stylet && e.pointerType === 'touch';
 
   const fond = (e: PE<SVGSVGElement>) => {
+    if (e.pointerType === 'pen' && !stylet) onStylet?.();
+    if (doigtQuiNavigue(e)) { setGeste({ type: 'vue', depart: { x: e.clientX, y: e.clientY }, vue }); capter(e); return; }
     if (outil === 'selection' && e.button === 0 && !espace.current) { setGeste({ type: 'zone', points: [point(e)], sur: null, ajouter: e.shiftKey }); capter(e); return; }
     if (outil === 'zoom' && e.button === 0) { const p = point(e); setGeste({ type: 'cadre', depart: p, courant: p, arriere: e.altKey || e.shiftKey }); capter(e); return; }
     if (e.button === 1 || espace.current || (outil === 'vue' && e.button === 0) || (outil === 'choisir' && e.button === 0)) {
@@ -208,6 +220,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
   };
   const poser = (p: P) => poserUnPoint(p, { outil, trace, setTrace, onCreer, tolerance: 10 * echelle });
   const surObjet = (e: PE<SVGElement>, o: Objet) => {
+    if (e.pointerType === 'pen' && !stylet) onStylet?.();
+    if (doigtQuiNavigue(e)) return;
     // La main et le zoom ne prennent pas les objets : le geste va au fond.
     if (e.button !== 0 || espace.current || outil === 'vue' || outil === 'zoom') return;
     // Outil Selection : un objet deja pris se tire (avec tout le groupe) ; un autre commence une zone (un toucher le choisit).
@@ -222,6 +236,8 @@ export function Scene({ url, L, H, objets, classes, outil, classe, choisi, selec
     capter(e);
   };
   const surPoignee = (e: PE<SVGElement>, o: Objet, k: number) => {
+    if (e.pointerType === 'pen' && !stylet) onStylet?.();
+    if (doigtQuiNavigue(e)) return;
     e.stopPropagation();
     if (e.altKey) { onDebutGeste(); onModifier([retirerSommet(o, k)], true); return; }
     seuilDe(e);

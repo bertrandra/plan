@@ -40,9 +40,12 @@ function useAffichage(banc: Banc) {
   const [etiquettes, setEtiquettes] = useState(false);
   const [loupe, setLoupe] = useState(true);
   const [aide, setAide] = useState(false);
+  // Le mode stylet : il s'allume de lui-meme au premier trait de crayon et reste retenu sur cet appareil.
+  const [stylet, setStyletBrut] = useState(() => { try { return localStorage.getItem('banc-stylet') === '1'; } catch { return false; } });
+  const setStylet = (v: boolean) => { setStyletBrut(v); try { localStorage.setItem('banc-stylet', v ? '1' : '0'); } catch { /* le choix vaut pour la page */ } };
   const retenir = (v: string) => setRecents((l) => [v, ...l.filter((x) => x !== v)].slice(0, 5));
   const basculerCache = (c: string) => setCaches((s) => { const t = new Set(s); if (t.has(c)) t.delete(c); else t.add(c); return t; });
-  return { outil, setOutil, mode, setMode, aPoser, setAPoser, recents, retenir, caches, basculerCache, etiquettes, setEtiquettes, loupe, setLoupe, aide, setAide };
+  return { outil, setOutil, mode, setMode, aPoser, setAPoser, recents, retenir, caches, basculerCache, etiquettes, setEtiquettes, loupe, setLoupe, aide, setAide, stylet, setStylet };
 }
 
 export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id: string; liste: string[]; onFermer: () => void; onAller: (id: string) => void }) {
@@ -153,7 +156,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
         onAller={(k) => { void aller(k); }} onEnregistrer={() => { void marquage.enregistrer(); }} onValider={() => { void validerEtSuivante(); }} onFermer={fermer} />
       <div className="editeur-corps">
         <ColonneOutils outil={vue.outil} mode={vue.mode} onOutil={vue.setOutil} onMode={vue.setMode} etiquettes={vue.etiquettes} onEtiquettes={() => vue.setEtiquettes((x) => !x)}
-          loupe={vue.loupe} onLoupe={() => vue.setLoupe((x) => !x)} aimant={aides.aimant} onAimant={aides.basculerAimant} onAide={() => vue.setAide(true)} />
+          loupe={vue.loupe} onLoupe={() => vue.setLoupe((x) => !x)} aimant={aides.aimant} onAimant={aides.basculerAimant} stylet={vue.stylet} onStylet={() => vue.setStylet(!vue.stylet)} onAide={() => vue.setAide(true)} />
         {marquage.objets ? (
           <Scene url={api.fichier(id, 'redressee', meta.redressement?.le ?? '')} L={L} H={H} objets={visibles} classes={banc.classes}
             outil={vue.outil} classe={classeChoisie ?? null} choisi={sel.choisi} onChoisir={sel.choisir}
@@ -162,6 +165,7 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
               onAligner={(c) => { if (sel.choisi) marquage.changer((l) => aligner(l, sel.selection, sel.choisi as string, c)); }}
               onTaille={(t) => { if (sel.choisi) marquage.changer((l) => memeTaille(l, sel.selection, sel.choisi as string, t)); }} />}
             onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste}
+            stylet={vue.stylet} onStylet={() => { vue.setStylet(true); banc.dire('Stylet détecté : le crayon dessine, les doigts déplacent et zooment (bouton du stylet dans les outils pour revenir).'); }}
             surChoix={sel.cibles.size > 0 && <>
               {objet?.forme === 'rectangle' && sel.cibles.size === 1 && <button type="button" className="icone-seule" onClick={trouverSemblables} disabled={!aides.pret} title="Trouver les semblables : celles qui lui ressemblent sur la photo (F)" aria-label="Trouver les semblables (F)"><Icone nom="semblables" /></button>}
               {objets.some((o) => sel.cibles.has(o.id) && o.forme === 'rectangle') && <button type="button" className="icone-seule" onClick={calerPris} disabled={!aides.pret} title="Coller au bord de la menuiserie (C)" aria-label="Coller au bord (C)"><Icone nom="caler" /></button>}
