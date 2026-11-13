@@ -94,6 +94,8 @@ export class Historique<T> {
   annuler(courant: T): T | null { const p = this.passe.pop(); if (p === undefined) return null; this.futur.push(courant); return p; }
   refaire(courant: T): T | null { const f = this.futur.pop(); if (f === undefined) return null; this.passe.push(courant); return f; }
   vider(): void { this.passe = []; this.futur = []; }
+  get peutAnnuler(): boolean { return this.passe.length > 0; }
+  get peutRefaire(): boolean { return this.futur.length > 0; }
 }
 
 /** Un objet et tous ses descendants (une fenetre et ses cadres), dans l'ordre de la liste : ce que copient Ctrl+C et Ctrl+X. */

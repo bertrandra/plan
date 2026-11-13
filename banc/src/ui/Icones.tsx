@@ -43,6 +43,11 @@ const TRACES: Record<string, ReactElement> = {
   aimant: <><path d="M6 4v8a6 6 0 0012 0V4" /><path d="M6 4h3v8a3 3 0 006 0V4h3" /><path d="M6 8h3M15 8h3" /></>,
   caler: <><rect x="6" y="6" width="12" height="12" /><path d="M2 9V2h7M22 9V2h-7M2 15v7h7M22 15v7h-7" /></>,
   stylet: <><path d="M15.5 4.5l4 4L9 19l-5 1 1-5z" /><path d="M13.5 6.5l4 4" /><path d="M18 2.5l3.5 3.5" /></>,
+  annuler: <><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 010 12h-3" /></>,
+  rejouer: <><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 000 12h3" /></>,
+  copier: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3" /></>,
+  coller: <><rect x="5" y="4" width="14" height="17" rx="2" /><rect x="9" y="2.5" width="6" height="3.5" rx="1" /><path d="M9 11h6M9 15h4" /></>,
+  ajuster: <><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /><rect x="8.5" y="8.5" width="7" height="7" rx="1" /></>,
   ouvrir: <><path d="M14 4h6v6M20 4l-9 9" /><path d="M18 14v6H4V6h6" /></>,
 };
 

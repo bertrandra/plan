@@ -166,11 +166,19 @@ export function Editeur({ banc, id, liste, onFermer, onAller }: { banc: Banc; id
               onTaille={(t) => { if (sel.choisi) marquage.changer((l) => memeTaille(l, sel.selection, sel.choisi as string, t)); }} />}
             onCreer={creer} onModifier={(os) => marquage.suivre(os)} onDebutGeste={marquage.debutGeste}
             stylet={vue.stylet} onStylet={() => { vue.setStylet(true); banc.dire('Stylet détecté : le crayon dessine, les doigts déplacent et zooment (bouton du stylet dans les outils pour revenir).'); }}
-            surChoix={sel.cibles.size > 0 && <>
-              {objet?.forme === 'rectangle' && sel.cibles.size === 1 && <button type="button" className="icone-seule" onClick={trouverSemblables} disabled={!aides.pret} title="Trouver les semblables : celles qui lui ressemblent sur la photo (F)" aria-label="Trouver les semblables (F)"><Icone nom="semblables" /></button>}
-              {objets.some((o) => sel.cibles.has(o.id) && o.forme === 'rectangle') && <button type="button" className="icone-seule" onClick={calerPris} disabled={!aides.pret} title="Coller au bord de la menuiserie (C)" aria-label="Coller au bord (C)"><Icone nom="caler" /></button>}
-              <button type="button" className="danger icone-seule" onClick={retirerPris} title={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} (Suppr ou X)` : 'Supprimer (Suppr ou X)'} aria-label={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} objets` : 'Supprimer'}><Icone nom="poubelle" /></button>
-              <button type="button" onClick={() => sel.choisir(null)} title="Ne plus rien choisir (Échap)" aria-label="Ne plus rien choisir"><Icone nom="fermer" /></button>
+            surChoix={<>
+              <span className="groupe-scene" role="group" aria-label="Historique">
+                <button type="button" className="icone-seule" onClick={marquage.annuler} disabled={!marquage.peutAnnuler} title="Annuler (Ctrl+Z)" aria-label="Annuler"><Icone nom="annuler" /></button>
+                <button type="button" className="icone-seule" onClick={marquage.refaire} disabled={!marquage.peutRefaire} title="Rejouer (Ctrl+Y)" aria-label="Rejouer"><Icone nom="rejouer" /></button>
+              </span>
+              {(sel.cibles.size > 0 || presse.contenu) && <span className="groupe-scene" role="group" aria-label="L’objet choisi">
+                {objet?.forme === 'rectangle' && sel.cibles.size === 1 && <button type="button" className="icone-seule" onClick={trouverSemblables} disabled={!aides.pret} title="Trouver les semblables : celles qui lui ressemblent sur la photo (F)" aria-label="Trouver les semblables (F)"><Icone nom="semblables" /></button>}
+                {objets.some((o) => sel.cibles.has(o.id) && o.forme === 'rectangle') && <button type="button" className="icone-seule" onClick={calerPris} disabled={!aides.pret} title="Coller au bord de la menuiserie (C)" aria-label="Coller au bord (C)"><Icone nom="caler" /></button>}
+                {sel.cibles.size > 0 && <button type="button" className="icone-seule" onClick={() => presse.copier(false)} title={sel.cibles.size > 1 ? `Copier les ${sel.cibles.size} (Ctrl+C)` : 'Copier (Ctrl+C)'} aria-label="Copier"><Icone nom="copier" /></button>}
+                {presse.contenu && <button type="button" className="icone-seule" onClick={presse.coller} title={`Coller ${presse.contenu.nombre > 1 ? `les ${presse.contenu.nombre} objets` : 'l’objet'} copié${presse.contenu.nombre > 1 ? 's' : ''}${presse.contenu.autrePhoto ? ' (d’une autre photo)' : ''} (Ctrl+V)`} aria-label="Coller"><Icone nom="coller" /></button>}
+                {sel.cibles.size > 0 && <button type="button" className="danger icone-seule" onClick={retirerPris} title={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} (Suppr ou X)` : 'Supprimer (Suppr ou X)'} aria-label={sel.cibles.size > 1 ? `Supprimer les ${sel.cibles.size} objets` : 'Supprimer'}><Icone nom="poubelle" /></button>}
+                {sel.cibles.size > 0 && <button type="button" className="icone-seule" onClick={() => sel.choisir(null)} title="Ne plus rien choisir (Échap)" aria-label="Ne plus rien choisir"><Icone nom="fermer" /></button>}
+              </span>}
             </>} />
         ) : <p className="etat scene-attente">Chargement du marquage…</p>}
         <Inspecteur objets={objets} classes={banc.classes} choisi={sel.choisi} selection={sel.selection} relecture={relecture} aPoser={vue.aPoser} recents={vue.recents}

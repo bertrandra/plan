@@ -7,6 +7,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc : la barre de la photo complétée** (demande du propriétaire, 13 novembre 2026). En bas à droite du canevas d'annotation :
+  annuler et rejouer (éteints au bout de l'historique), puis, à côté de la poubelle, copier (avec ce qui est choisi) et coller (dès
+  que le presse-papiers tient un objet) ; « Ajuster » devient une icône. Tout se fait ainsi au doigt et au stylet, sans clavier.
 - **Banc : le mode stylet (iPad et Apple Pencil)** (demande du propriétaire, 13 novembre 2026). Il s'allume de lui-même au premier trait
   de crayon (un bouton de la colonne d'outils le coupe ou le remet ; retenu sur l'appareil) : le crayon dessine, choisit et tire les
   poignées, comme une souris (le survol du crayon montre la loupe) ; les doigts ne touchent plus aux objets : un doigt déplace la vue, deux

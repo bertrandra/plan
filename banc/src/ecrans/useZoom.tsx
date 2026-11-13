@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent as PE, type RefObject } from 'react';
 import { pincer, versPhoto, vueEntiere, zoomerAutour, type Cadre, type P, type Vue } from '../zoom.js';
+import { Icone } from '../ui/Icones.js';
 
 interface Pince { v0: Vue; cadre: Cadre; milieu0: P; ecart0: number }
 
@@ -90,7 +91,7 @@ export function BoutonsZoom({ zoomer, ajuster, titreAjuster }: { zoomer: (k: num
     <div className="boutons-zoom" role="group" aria-label="Zoom">
       <button type="button" aria-label="Zoomer" title="Zoomer (molette, ou deux doigts)" onClick={() => zoomer(1 / 2)}>＋</button>
       <button type="button" aria-label="Dézoomer" title="Dézoomer" onClick={() => zoomer(2)}>－</button>
-      <button type="button" title={titreAjuster ?? 'Toute la photo'} onClick={ajuster}>Ajuster</button>
+      <button type="button" className="icone-seule" title={titreAjuster ?? 'Toute la photo'} aria-label={titreAjuster ?? 'Toute la photo'} onClick={ajuster}><Icone nom="ajuster" /></button>
     </div>
   );
 }

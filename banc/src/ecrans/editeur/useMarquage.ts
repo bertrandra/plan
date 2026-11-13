@@ -50,7 +50,8 @@ export function useMarquage(banc: Banc, id: string) {
       return true;
     } catch (e) { banc.dire((e as Error).message, 'erreur'); return false; } finally { setEnvoi(false); }
   };
-  return { objets, modifie, envoi, changer, suivre, debutGeste, annuler, refaire, enregistrer };
+  // Lus a chaque rendu (l'historique change avec les objets, qui rendent la page) : les boutons annuler et refaire s'eteignent au bout.
+  return { objets, modifie, envoi, changer, suivre, debutGeste, annuler, refaire, enregistrer, peutAnnuler: hist.current.peutAnnuler, peutRefaire: hist.current.peutRefaire };
 }
 
 export type Marquage = ReturnType<typeof useMarquage>;
