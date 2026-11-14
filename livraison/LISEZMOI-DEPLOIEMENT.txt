@@ -1,4 +1,4 @@
-Plan 5.26.0 (91f30e4f) - deploiement Apache + PHP, sans Node.js
+Plan 5.27.0 (f73116a2) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 Schema des projets : 16. AVANT de deposer ce paquet, la plateforme doit l'accepter :
 appliquer en production bertrandra/backprod#255 (migration Version20261109090000), puis setup.php ;
