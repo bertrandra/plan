@@ -480,7 +480,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions, se
 }
 
 /** Ce que la prise d'une photo a fait de sa facade (`poserLaPrise`). */
-export type PoseDeLaPrise = 'posee' | 'sans-coins' | 'rien';
+type PoseDeLaPrise = 'posee' | 'sans-coins' | 'rien';
 
 /**
  * La photo prise a l'ecran de prise (decision du proprietaire, 14 novembre 2026) : l'enchainement de sa facade se rejoue, puis son releve

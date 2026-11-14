@@ -1,5 +1,5 @@
-// « Photographier une façade » depuis la Vue 3D (decision du proprietaire, 14 novembre 2026 : « Dans 3D maison, je sélectionne une
-// façade, je prends une photo […] et j'ai la photo qui se pose sur la façade ») : la commande de l'inspecteur (`facade.photographier`),
+// « Photographier une facade » depuis la Vue 3D (decision du proprietaire, 14 novembre 2026 : dans la 3D de la maison, choisir une
+// facade, prendre une ou plusieurs photos, et la photo se pose sur la facade) : la commande de l'inspecteur (`facade.photographier`),
 // la meme, sur la scene ; l'inspecteur n'y est pas. Sans mur designe, elle ouvre l'ecran de prise de l'audit sur la Vue 3D, ou la
 // facade se choisit en la touchant ; la photo s'y pose d'elle-meme a la fin du calcul (validation.ts::poserLaPrise).
 
