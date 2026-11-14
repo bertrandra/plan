@@ -22,6 +22,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   ne revient pas avec elle) ; jamais sur une façade relevée à la main ni validée (V4). La validation de l'audit (V4) reste à faire
   pour vérifier les ouvertures. Point de fumée 159 ; le point 112 compte un Ctrl+Z de plus (la pose d'office).
 
+### Corrigé
+
+- CI : la fumée (job `fumee` et fumée de nuit) tourne sur Ubuntu 24.04 épinglée. `ubuntu-latest` est passée à Ubuntu 26.04, où Playwright 1.56.1 refuse d'installer Chromium : le job échouait avant de jouer le moindre point.
+
 ## [5.26.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades devient un poste de relecture (éditeur en
