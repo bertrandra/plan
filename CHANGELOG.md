@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.27.1] — 2026-11-14
+
+Version **corrective** au sens de `MD/RELEASE.md` : dans la Vue 3D, « Modifier la toiture » et « Photographier une façade » passent en
+tête de la colonne de la caméra, qui défile au doigt ; ils étaient inatteignables sous la barre de Safari sur iPhone et iPad (#677).
+Une correction, sans fonction nouvelle : PATCH (§2.1, « Bug fix with no change to computed values or exported bytes »). Aucune quantité ni
+aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
+la mesure sur main (run à venir ; prompts et schémas inchangés).
+
 ### Corrigé
 
 - **« Photographier une façade » et « Modifier la toiture » atteignables sur iPhone et iPad** (décision du propriétaire, 14 novembre
