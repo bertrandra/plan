@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **« Photographier une façade » et « Modifier la toiture » atteignables sur iPhone et iPad** (décision du propriétaire, 14 novembre
+  2026 : « Bouton visible en haut », « avec icône maison 3D modif regroupe les 2 »). Derniers d'une colonne d'une douzaine de boutons à
+  droite de la Vue 3D, ils tombaient sous la barre de Safari (au téléphone, l'appareil photo à y = 672 pour une fenêtre visible
+  d'environ 664 px). Ils passent ensemble en tête de la colonne, juste sous le bouton des réglages, la maison puis l'appareil photo,
+  séparés du reste ; leur état ne change pas (grisés avec leur raison, l'appareil photo effacé sans maison choisie et en mode Toit).
+  Plus haute que la scène, la colonne défile au doigt (verticalement seulement, sans barre visible), bornée par la hauteur réellement
+  visible (`100dvh`, la zone sûre du bas, la barre d'état de la tablette) : aucun bouton n'est coupé, dans les trois classes ; la
+  vitrine garde ses deux colonnes. Fumée : le point 159 vérifie les deux boutons en tête et entiers dans la fenêtre sans défilement ;
+  nouveau point 160, aux hauteurs d'iOS (iPhone 390 × 664, iPad 820 × 1100 et 1180 × 740, au doigt et au bureau). Aucune quantité ni
+  aucun export ne bouge.
+
 ## [5.27.0] — 2026-11-14
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans la Vue 3D, « Photographier une façade » ouvre l'écran de prise de l'audit, et la

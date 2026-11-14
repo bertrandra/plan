@@ -144,12 +144,20 @@ function useCleVue3d(magasin: Magasin, commandes: RegistreCommandes, vues: Servi
   useCle(magasin, 'vue 3D', (s) => cleVue3d(s, commandes, vues));
 }
 
-/** Les boutons de la camera, en colonne sur la scene (Z4, la navigation seule). */
+/**
+ * Les boutons de la camera, en colonne sur la scene (Z4, la navigation seule). En tete, la maison choisie : « Modifier la toiture »
+ * puis « Photographier une façade » (decision du proprietaire, 14 novembre 2026) ; derniers d'une colonne de treize, ils tombaient
+ * sous la barre de Safari sur iPhone et iPad. Sans maison, les deux s'effacent et leur separateur, alors premier, aussi (app.css).
+ * Trop haute pour l'ecran, la colonne defile au doigt.
+ */
 function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: RegistreCommandes; magasin: Magasin; pleinePage: boolean }) {
   const etatPlan = magasin.store.getState().etat;
   const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
   return (
     <div id="terrasse3dZoomControls" className="commandes3d">
+      <BoutonModifierToit commandes={commandes} />
+      <BoutonPhotographierFacade commandes={commandes} />
+      <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" icone="pleinEcran" libelle={pleinePage ? 'Format normal' : 'Plein écran'}
         titre={pleinePage ? 'Format normal (Échap)' : 'Plein écran'} actif={pleinePage} />
       <div className="separateur3d"></div>
@@ -165,8 +173,6 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
       <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
-      <BoutonModifierToit commandes={commandes} />
-      <BoutonPhotographierFacade commandes={commandes} />
       {commandes.etat('terrasse.isoler').utilisable && (
         <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
           titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
