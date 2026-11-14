@@ -101,9 +101,10 @@ export function fichierDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, l
  * L'enchainement d'une facade, rejoue a la prise de vue des la premiere photo : la barre de progression de l'ecran de prise montre ou il
  * en est, et une etape qui echoue (une photo qui ne se redresse pas, des photos qui ne s'assemblent pas) s'y dit sur place, pendant
  * qu'on peut encore reprendre la facade. Une photo prise pendant le calcul le relance a sa fin (le mesureur reprend ce qui a change).
+ * Le calcul fini, la photo se pose sur la facade, sans autre geste (validation.ts::poserLaPrise, decision du 14 novembre 2026).
  */
 export function mesureAPriseDe(validation: () => Validation): { rejouer(cle: string, cote: number): void } {
-  return { rejouer(cle, cote) { void validation().rejouerFacade(cle, cote).catch(() => 0); } };
+  return { rejouer(cle, cote) { void validation().poserLaPrise(cle, cote).catch(() => 'rien'); } };
 }
 
 /**

@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **La photo se pose sur la façade, sans autre geste** (décision du propriétaire, 14 novembre 2026 : « Dans 3D maison, je sélectionne
+  une façade, je prends une photo ou plusieurs, redresser et assembler, et j'ai la photo qui se pose sur la façade »). Dans la Vue 3D,
+  un bâtiment de la parcelle choisi, « Photographier une façade » (bouton à appareil photo des commandes de la scène, la commande
+  `facade.photographier` de l'inspecteur) ouvre l'écran de prise de l'audit ; on touche la façade dans la 3D, on prend une ou plusieurs
+  photos. À la fin du calcul de chaque photo (le même enchaînement, É1 à É14, `derouler` inchangé : redressement, assemblage, texture),
+  le relevé de la façade se pose d'office dans le projet par le chemin qui le pose déjà à l'ouverture des propositions
+  (`validation.ts::alimenterLesFacades`, sa règle inchangée : coins trouvés, même quand l'É7 est « à confirmer ») : la photo et les
+  ouvertures lues, non vérifiées, marquées `depuisAudit`, en un pas d'historique, le projet marqué modifié ; la Vue 3D montre la photo sur
+  le mur, et un message le dit (« Photo posée sur la façade (ouvertures à vérifier dans l'audit ; Ctrl+Z pour annuler). »). Une nouvelle
+  photo refait le calcul avec toutes les photos de la façade et remplace la pose d'avant (un pas de plus) ; une photo prise pendant un
+  calcul est reprise à sa fin, la façade ne se pose qu'une fois. Sans coins trouvés, rien ne se pose et une ligne dit le chemin à la
+  main (« Placer 4 repères » sur la façade dépliée dans la liste). Seule la façade photographiée se pose (une autre, défaite par Ctrl+Z,
+  ne revient pas avec elle) ; jamais sur une façade relevée à la main ni validée (V4). La validation de l'audit (V4) reste à faire
+  pour vérifier les ouvertures. Point de fumée 159 ; le point 112 compte un Ctrl+Z de plus (la pose d'office).
+
 ## [5.26.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades devient un poste de relecture (éditeur en

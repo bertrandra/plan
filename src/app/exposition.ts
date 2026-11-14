@@ -134,7 +134,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'terrasse.optimisation': partout('tiroir'),
   // Une facade d'un batiment : la section « Facades et toit », une ligne par mur. La photo se prend dans l'audit (lot F6) ;
   // l'editeur du releve corrige ses ouvertures.
-  'facade.photographier': partout('inspecteur'),
+  'facade.photographier': partout('inspecteur', 'vue3d'),
   'facade.modifier': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
   // Une etape de l'enchainement d'une facade : un segment de la barre de progression (MD/spec-facade-calage-audit.md §4 ter.5), que la
