@@ -3981,9 +3981,12 @@ const POINTS = {
     // ses baies) : des la photo, la barre de progression de la calibration se pose en tete de l'ecran de prise et avance. Puis la
     // liste : la facade depliee porte la meme barre, et dessous, en mode discret, seulement ce qui doute (avec son geste) et la ligne
     // du mur ; seuls les points de validation et ce qui doute s'ouvrent ; toucher le segment « Mur » dit son resultat sous la barre ;
-    // « Rejouer la façade » rejoue l'orchestrateur. Rien n'entre dans le projet ; rien ne deborde.
+    // « Rejouer la façade » rejoue l'orchestrateur. Rien n'entre dans le projet que la photo posee d'office sur la facade (decision du
+    // 14 novembre 2026, point 159) ; rien ne deborde.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
-    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    // Le projet hors des releves de la maison, et ces releves : seuls ceux poses d'office par l'audit (`depuisAudit`) ont pu venir.
+    const lireProjet = () => page.evaluate(() => { const o = JSON.parse(JSON.stringify(window.__plan.etat().objects)); const m = o.find((x) => x.key === 'maison'); const r = m?.batiment?.facades ?? []; if (m?.batiment) delete m.batiment.facades; return { reste: JSON.stringify(o), poses: r.every((x) => x.depuisAudit) }; });
+    const avant = (await lireProjet()).reste;
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F3) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F3 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
@@ -4015,7 +4018,7 @@ const POINTS = {
     const apresRejeu = await page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade ol > li').count();
     debords.push(await deborde());
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
-    const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const lu = await lireProjet(), projet = lu.poses ? lu.reste : 'releve a la main';
     const etats = (l) => l.map((e) => e || '?').join(' ');
     const ok = enTete && prise.length === 8 && prise[0] === 'ok' && segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte))
       && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^É7 Calage du mur \(Mur\), /.test(sousLaBarre) && apresRejeu === 8
