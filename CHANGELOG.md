@@ -15,7 +15,7 @@ aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à 
 `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
 nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
 `Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
-la mesure sur main (run à venir ; prompts et schémas inchangés).
+la mesure sur main (run 43626515636 ; prompts et schémas inchangés).
 
 ### Corrigé
 
