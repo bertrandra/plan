@@ -223,6 +223,21 @@ async function glisser(page, de, dx, dy, pas = 8) {
  * de demonstration s'ouvre sur tout son voisinage (100 m, a 2 px par metre) : la terrasse n'y fait que
  * quelques pixels, ses poignees se recouvrent, et le point 1 attrapait le sommet voisin.
  */
+/**
+ * Cote page : « Modifier la toiture » puis « Photographier une façade », les deux premiers boutons de la colonne de la camera en Vue 3D,
+ * entiers dans la fenetre sans que la page ni la colonne aient defile (decision du proprietaire, 14 novembre 2026).
+ */
+function boutonsEnTete3d() {
+  const col = document.querySelector('#terrasse3dZoomControls');
+  const boutons = col ? [...col.querySelectorAll('button')].filter((b) => b.offsetParent !== null) : [];
+  const boite = (id) => { const b = document.getElementById(id); if (!b) return null; const r = b.getBoundingClientRect(); return { haut: Math.round(r.top), bas: Math.round(r.bottom), r }; };
+  const toit = boite('terrasse3dModifierToit'), photo = boite('terrasse3dPhotographier');
+  const entier = (x) => !!x && x.r.top >= 0 && x.r.bottom <= innerHeight && x.r.left >= 0 && x.r.right <= innerWidth;
+  const ordre = boutons[0]?.id === 'terrasse3dModifierToit' && boutons[1]?.id === 'terrasse3dPhotographier';
+  const ok = ordre && entier(toit) && entier(photo) && scrollY === 0 && (col?.scrollTop ?? 0) === 0;
+  const dit = (x) => (x ? `y ${x.haut}–${x.bas}` : 'ABSENT');
+  return { ok, mesure: `toiture ${dit(toit)}, appareil photo ${dit(photo)} / fenêtre ${innerHeight} px${ordre ? '' : ', PAS EN TÊTE'}${entier(toit) && entier(photo) ? '' : ', HORS FENÊTRE'}` };
+}
 async function selectionner(page, pred) {
   await page.evaluate((src) => {
     const f = new Function('o', 'return ' + src);
@@ -2829,6 +2844,10 @@ const POINTS = {
     const avantTout = await facades();
     await etape('vue 3d', async () => { await page.evaluate(() => window.__plan.executer('vue.3d')); await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }); });
     await selectionner(page, "o.key === 'maison'");
+    // En tete de la colonne de la camera (decision du proprietaire, 14 novembre 2026) : « Modifier la toiture » puis l'appareil photo,
+    // entiers dans la fenetre sans rien faire defiler (le clic de Playwright, lui, defilerait jusqu'a eux).
+    await page.locator('#terrasse3dPhotographier').waitFor({ timeout: 10000 });
+    const enTete = await page.evaluate(boutonsEnTete3d);
     await etape('photographier', () => page.locator('#terrasse3dPhotographier:not([aria-disabled])').click({ timeout: 10000 }));
     await etape('ecran de prise', () => page.locator('.auditPrise').waitFor({ timeout: 30000 }));
     await page.waitForTimeout(2000);
@@ -2880,8 +2899,50 @@ const POINTS = {
     await capture('annulee');
     debords.push(await deborde());
     const ok = /\(choisie\)/.test(titre) && avant3d === 0 && r1.depuisAudit === true && !!r1.texture && (r1.ouvertures ?? []).length > 0 && (r1.ouvertures ?? []).every((o) => !o.verifieeLe)
-      && apres3d >= 1 && !saleAvant && sale && /^Photo posée sur la façade/.test(toast) && remplacee && unPas && deuxPas && annule3d === 0 && !debords.some(Boolean);
-    return { ok, mesure: `« ${titre.slice(0, 60)} » ; 3D avant : ${avant3d} photo(s) ; pose d'office : ${r1.depuisAudit ? 'oui' : 'NON'}, texture ${r1.texture ? 'oui' : 'ABSENTE'}, ${(r1.ouvertures ?? []).length} ouverture(s) ${(r1.ouvertures ?? []).every((o) => !o.verifieeLe) ? 'non vérifiées' : 'VÉRIFIÉES'} ; 3D après : ${apres3d} maille(s) de photo ; projet ${saleAvant ? 'DÉJÀ MODIFIÉ AVANT, ' : ''}${sale ? 'modifié' : 'PAS MODIFIÉ'} ; toast « ${toast.slice(0, 80) || 'ABSENT'} » ; seconde photo : ${remplacee ? 'remplace la pose' : 'NE REMPLACE PAS'} ; Ctrl+Z ${unPas ? 'rend la première pose' : 'NE REND PAS la première pose'}, puis ${deuxPas ? 'le mur d’avant' : 'PAS le mur d’avant'} (3D : ${annule3d} photo) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+      && apres3d >= 1 && !saleAvant && sale && /^Photo posée sur la façade/.test(toast) && remplacee && unPas && deuxPas && annule3d === 0 && !debords.some(Boolean)
+      && enTete.ok;
+    return { ok, mesure: `en tête : ${enTete.mesure} ; « ${titre.slice(0, 60)} » ; 3D avant : ${avant3d} photo(s) ; pose d'office : ${r1.depuisAudit ? 'oui' : 'NON'}, texture ${r1.texture ? 'oui' : 'ABSENTE'}, ${(r1.ouvertures ?? []).length} ouverture(s) ${(r1.ouvertures ?? []).every((o) => !o.verifieeLe) ? 'non vérifiées' : 'VÉRIFIÉES'} ; 3D après : ${apres3d} maille(s) de photo ; projet ${saleAvant ? 'DÉJÀ MODIFIÉ AVANT, ' : ''}${sale ? 'modifié' : 'PAS MODIFIÉ'} ; toast « ${toast.slice(0, 80) || 'ABSENT'} » ; seconde photo : ${remplacee ? 'remplace la pose' : 'NE REMPLACE PAS'} ; Ctrl+Z ${unPas ? 'rend la première pose' : 'NE REND PAS la première pose'}, puis ${deuxPas ? 'le mur d’avant' : 'PAS le mur d’avant'} (3D : ${annule3d} photo) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  160: async (page, f) => {
+    // La colonne de la camera a des hauteurs d'iOS (decision du proprietaire, 14 novembre 2026 : « Bouton visible en haut ») : la
+    // fenetre reduite de la barre de Safari, iPhone 390 x 664 (compact), iPad en portrait 820 x 1100 et en paysage 1180 x 740 (moyen,
+    // au doigt), iPad en paysage 1180 x 740 (large). Sans maison choisie, la toiture grisee en tete (sa raison), pas d'appareil photo ; la
+    // maison choisie, « Modifier la toiture » puis « Photographier une façade » en tete, entiers dans la fenetre sans defilement ; au
+    // bout du defilement de la colonne, chaque bouton entier dans la colonne et dans la fenetre ; rien ne deborde en largeur.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const tailles = { compact: [[390, 664]], moyen: [[820, 1100], [1180, 740]], large: [[1180, 740]] }[f.nom];
+    await etape('vue 3d', async () => { await page.evaluate(() => window.__plan.executer('vue.3d')); await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }); });
+    const mesures = [], echecs = [];
+    for (const [l, h] of tailles) {
+      await page.setViewportSize({ width: l, height: h });
+      await page.evaluate(() => window.__plan.selectionnerCle(null));
+      await page.waitForTimeout(600);
+      const sans = await page.evaluate(() => {
+        const col = document.querySelector('#terrasse3dZoomControls'), premier = col?.firstElementChild;
+        return { toit: premier?.id === 'terrasse3dModifierToit' && premier.getAttribute('aria-disabled') === 'true', photo: !!document.querySelector('#terrasse3dPhotographier') };
+      });
+      if (!sans.toit || sans.photo) echecs.push(`${l}×${h} sans maison : ${sans.toit ? '' : 'toiture PAS GRISÉE EN TÊTE '}${sans.photo ? 'appareil photo PRÉSENT' : ''}`);
+      await page.evaluate(() => window.__plan.selectionnerCle('maison'));
+      await page.locator('#terrasse3dPhotographier').waitFor({ timeout: 10000 });
+      await page.waitForTimeout(600);
+      const tete = await page.evaluate(boutonsEnTete3d);
+      const fin = await page.evaluate(async () => {
+        const col = document.querySelector('#terrasse3dZoomControls');
+        col.scrollTop = col.scrollHeight; await new Promise((ok) => setTimeout(ok, 150));
+        const c = col.getBoundingClientRect(), defile = col.scrollTop;
+        const perdus = [...col.querySelectorAll('button')].filter((b) => b.offsetParent !== null).filter((b) => {
+          const r = b.getBoundingClientRect(); return r.bottom > Math.min(c.bottom, innerHeight) + 0.5 || r.right > innerWidth + 0.5;
+        }).map((b) => b.getAttribute('aria-label'));
+        col.scrollTop = 0;
+        return { defile, perdus, largeur: col.scrollWidth > col.clientWidth + 1 || document.documentElement.scrollWidth > innerWidth + 1, classe: document.documentElement.dataset.classe };
+      });
+      mesures.push(`${l}×${h} (${fin.classe}) : ${tete.mesure}, défilement ${fin.defile} px`);
+      if (!tete.ok) echecs.push(`${l}×${h} : en tête ${tete.mesure}`);
+      if (fin.perdus.length) echecs.push(`${l}×${h} : hors d'atteinte ${fin.perdus.join(', ')}`);
+      if (fin.largeur) echecs.push(`${l}×${h} : débordement en largeur`);
+    }
+    await page.setViewportSize({ width: f.width, height: f.height });
+    return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
   },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
@@ -8403,7 +8464,9 @@ function pointsPour(nomClasse) {
   // 158 : un cas neuf depuis des photos importees (sans plan, dimensions a la main), et la verite de l'E7 reportee quand la sequence change.
   // 159 : « Photographier » un mur depuis la Vue 3D : la photo se pose sur la facade a la fin du calcul, sans autre geste ; une seconde la
   //       remplace ; Ctrl+Z defait chaque pose.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159];
+  // 160 : la colonne de la camera en Vue 3D a des hauteurs d'iOS (barre de Safari) : toiture et appareil photo en tete, entiers sans
+  //       defilement ; la colonne defile au doigt, aucun bouton perdu.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
