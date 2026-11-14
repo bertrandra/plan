@@ -5,6 +5,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- CI : la fumée (job `fumee` et fumée de nuit) tourne sur Ubuntu 24.04 épinglée. `ubuntu-latest` est passée à Ubuntu 26.04, où Playwright 1.56.1 refuse d'installer Chromium : le job échouait avant de jouer le moindre point.
+
 ## [5.26.0] — 2026-11-12
 
 Version **mineure** au sens de `MD/RELEASE.md` : le banc d'apprentissage des façades devient un poste de relecture (éditeur en

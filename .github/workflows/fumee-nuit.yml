@@ -16,7 +16,9 @@ permissions:
 
 jobs:
   fumee:
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04 epinglee : Playwright 1.56.1 n'installe pas Chromium sur ubuntu-latest
+    # passee en 26.04 (novembre 2026). A relever avec la version de Playwright.
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     strategy:
       fail-fast: false
