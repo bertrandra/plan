@@ -100,6 +100,12 @@ export interface Validation {
    */
   rejouerFacade(cle?: string, cote?: number): Promise<number>;
   /**
+   * Apres une photo prise a l'ecran de prise : la facade se rejoue, puis son releve (photo et ouvertures non verifiees, `depuisAudit`)
+   * se pose d'office sur le projet en un pas d'historique, par le chemin des releves poses a l'ouverture des propositions. Rien sur un
+   * audit relu en lecture seule.
+   */
+  poserLaPrise(cle: string, cote: number): Promise<PoseDeLaPrise>;
+  /**
    * « Confirmer le mur » (V1, decision du proprietaire du 3 novembre 2026) : le mur que la chaine a retenu pour cette facade est ecrit
    * comme confirme dans la capture (il survit au rejeu), puis la facade se rejoue ; deja confirme, la confirmation se retire (le meme
    * geste la defait). Rend faux quand rien n'est a confirmer (pas de mesure, pas de coins, audit en lecture seule).
@@ -446,7 +452,7 @@ function ecrireDansLeProjet(ctx: ContexteValidation, propositions: readonly Prop
  * porte `depuisAudit` : une nouvelle photo, mesuree plus tard, le remplace, et la ligne n'est plus proposee.
  * Rend le nombre de facades relevees.
  */
-function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): number {
+function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions, seule: { cle: string; cote: number } | null = null): number {
   // Cochee d'office, et sur un mur dont l'audit a le droit d'ecrire la texture (model/protections.ts, groupe `facadeTexture`) : jamais
   // un releve fait a la main, ni une Facade validee par la personne (V4).
   const permis = (p: Proposition): boolean => {
@@ -454,7 +460,9 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
     const o = ctx.etat.objects.find((x) => x.key === (p.cible as { cle: string }).cle);
     return !o || ecrivainPeut(o, 'audit', 'facadeTexture', { cote: p.cible.cote });
   };
-  const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p) && permis(p));
+  // `seule` : la facade que l'on vient de photographier (ecran de prise) ; une autre, defaite par Ctrl+Z, ne revient pas avec elle.
+  const visee = (p: Proposition): boolean => !seule || (p.cible.type === 'facade' && p.cible.cle === seule.cle && p.cible.cote === seule.cote);
+  const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p) && permis(p) && visee(p));
   if (!prets.length) return 0;
   ctx.projet.pushHistory();
   ecrireDansLeProjet(ctx, prets, [], jourIso(ctx.maintenant()));
@@ -466,8 +474,35 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
   }
   ctx.projet.render();
   ctx.projet.refaire3d();
-  ctx.signaler(prets.length + ' façade' + (prets.length > 1 ? 's relevées' : ' relevée') + ' automatiquement d’après vos photos (Ctrl+Z pour annuler).');
+  ctx.signaler(seule ? 'Photo posée sur la façade (ouvertures à vérifier dans l’audit ; Ctrl+Z pour annuler).'
+    : prets.length + ' façade' + (prets.length > 1 ? 's relevées' : ' relevée') + ' automatiquement d’après vos photos (Ctrl+Z pour annuler).');
   return prets.length;
+}
+
+/** Ce que la prise d'une photo a fait de sa facade (`poserLaPrise`). */
+type PoseDeLaPrise = 'posee' | 'sans-coins' | 'rien';
+
+/**
+ * La photo prise a l'ecran de prise (decision du proprietaire, 14 novembre 2026) : l'enchainement de sa facade se rejoue, puis son releve
+ * se pose d'office, exactement comme a l'ouverture des propositions (alimenterLesFacades, la meme regle : coins trouves, cochee par
+ * defaut), sur cette facade seule. Un calcul deja en cours a lu les photos d'avant celle-ci : il se refait a sa fin, tant qu'il avance.
+ * Sans coins trouves, rien ne se pose et le chemin a la main se dit en une ligne.
+ */
+async function poserApresLaPrise(ctx: ContexteValidation, mesureur: ReturnType<typeof mesureurDe>, entrees: () => EntreesPropositions, cle: string, cote: number): Promise<PoseDeLaPrise> {
+  const k = cleMesure(cle, cote);
+  await mesureur.rejouer(cle, cote);
+  for (let i = 0; i < 4 && !mesureur.lues().has(k); i++) {
+    const v = mesureur.version();
+    await mesureur.lancer(true);
+    // Rien de neuf (une mesure arretee, une facade sans photo) : on n'insiste pas.
+    if (mesureur.version() === v) break;
+  }
+  const m = mesureur.lues().get(k);
+  if (!m) return 'rien';
+  if (alimenterLesFacades(ctx, entrees(), { cle, cote })) return 'posee';
+  if (m.coinsTrouves) return 'rien';
+  ctx.signaler('Les coins du mur n’ont pas été trouvés : la photo n’est pas posée. Dans la liste, dépliez la façade et placez 4 repères sur la photo.');
+  return 'sans-coins';
 }
 
 /**
@@ -638,7 +673,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       if (figees) return;
       await mesureur.lancer(); if (alimenterLesFacades(ctx, entrees())) { memo = null; publier(); }
     },
-    rejouerFacade: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)), etapeEnCours: (cle, cote) => mesureur.etapeEnCours(cleMesure(cle, cote)), arreterMesure: () => mesureur.arreter(),
+    rejouerFacade: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)),
+    poserLaPrise: async (cle, cote) => { const r = figees ? 'rien' : await poserApresLaPrise(ctx, mesureur, entrees, cle, cote); if (r === 'posee') { memo = null; publier(); } return r; }, etapeEnCours: (cle, cote) => mesureur.etapeEnCours(cleMesure(cle, cote)), arreterMesure: () => mesureur.arreter(),
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,

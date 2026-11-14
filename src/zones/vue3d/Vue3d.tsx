@@ -18,6 +18,7 @@ import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
 import { BoutonModifierToit } from './BoutonModifierToit.js';
+import { BoutonPhotographierFacade } from './BoutonPhotographierFacade.js';
 
 // Le panneau du mode Toit et le catalogue des toits (three/gestesToits.ts) se chargent a l'ouverture de la Vue 3D (AD-10).
 const ModeToit = lazy(() => import('./ModeToit.js').then((m) => ({ default: m.ModeToit })));
@@ -124,7 +125,7 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
 }
 
 // Les commandes dont la vue montre l'etat elle-meme (les boutons de camera suivent chacun la leur, s'ils le font).
-const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier'];
+const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier', 'facade.photographier'];
 
 /**
  * La cle de la Vue 3D (zones/composants/abonnement.ts). Montree, elle suit ce qu'elle lit du plan : les attributs des objets (la
@@ -165,6 +166,7 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
       <BoutonModifierToit commandes={commandes} />
+      <BoutonPhotographierFacade commandes={commandes} />
       {commandes.etat('terrasse.isoler').utilisable && (
         <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
           titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}

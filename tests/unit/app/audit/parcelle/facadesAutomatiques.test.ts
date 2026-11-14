@@ -35,7 +35,7 @@ async function coinsTrouves(e: Parameters<typeof rechercher>[0]): Promise<Return
 }
 const dependances = { pixels: async () => E.pixels(), chercherCoins: coinsTrouves, jpeg: () => 'data:image/jpeg;base64,TEXTURE', limites: () => [] };
 
-function monter(avant: Partial<ObjetPlan> = {}) {
+function monter(avant: Partial<ObjetPlan> = {}, deps: typeof dependances = dependances) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: E.parcelle, cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
     obj('maison', { fonction: 'batiment', pts: PTS, elevation: E.hauteur, batiment: { toit: E.toit, corpsToit: E.corps },  ...avant }),
@@ -52,10 +52,10 @@ function monter(avant: Partial<ObjetPlan> = {}) {
   const messages: string[] = [];
   const v = creerValidation({
     etat, capture, liste: () => listeDeControle(etat.objects, capture.lire()), projet, signaler: (m) => messages.push(m),
-    maintenant: () => new Date('2026-10-13T09:00:00Z'), mesures: dependances,
+    maintenant: () => new Date('2026-10-13T09:00:00Z'), mesures: deps,
   });
   const maison = () => etat.objects.find((o) => o.key === 'maison') as ObjetPlan;
-  return { etat, historique, projet, v, messages, maison };
+  return { etat, historique, projet, v, messages, maison, capture };
 }
 
 /** Ce que la mesure de la photo de synthese donne : ses coins sont-ils trouves, et avec quelle confiance ? */
@@ -137,6 +137,96 @@ describe('les photos de l audit alimentent les facades', () => {
     t.v.figer([]);
     await t.v.lancer();
     expect(t.maison().batiment?.facades ?? []).toHaveLength(0);
+    expect(t.projet.pushHistory).not.toHaveBeenCalled();
+  });
+});
+
+// La photo prise a l'ecran de prise (« Photographier » sur un mur, decision du proprietaire du 14 novembre 2026) : le calcul fini, le
+// releve se pose sur la facade sans autre geste, par le meme chemin que celui que l'audit pose d'office a l'ouverture des propositions.
+describe('la photo prise se pose sur sa facade des la fin du calcul', () => {
+  const PHOTO_SUD = { cle: 'maison', cote: 0 };
+  const facades = (t: ReturnType<typeof monter>) => t.maison().batiment?.facades ?? [];
+
+  it('pose la photo et les ouvertures non verifiees (depuisAudit), en un pas d historique, et le dit', async () => {
+    const t = monter();
+    const r = await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote);
+    expect(r).toBe('posee');
+    expect(facades(t)).toHaveLength(1);
+    expect(facades(t)[0]).toMatchObject({ cote: 0, depuisAudit: true, texture: 'data:image/jpeg;base64,TEXTURE' });
+    expect((facades(t)[0]?.ouvertures ?? []).length).toBeGreaterThan(0);
+    expect((facades(t)[0]?.ouvertures ?? []).every((o) => !o.verifieeLe)).toBe(true);
+    expect(t.projet.pushHistory).toHaveBeenCalledTimes(1);
+    expect(t.projet.refaire3d).toHaveBeenCalled();
+    expect(t.messages.at(-1)).toBe('Photo posée sur la façade (ouvertures à vérifier dans l’audit ; Ctrl+Z pour annuler).');
+    // La meme ligne n'est plus proposee : l'ouverture des propositions ne la repose pas.
+    await t.v.lancer();
+    expect(t.projet.pushHistory).toHaveBeenCalledTimes(1);
+  }, 60000);
+
+  it('Ctrl+Z defait la pose au bit pres', async () => {
+    const t = monter();
+    const avant = JSON.stringify(serializeObjects(t.etat.objects));
+    await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote);
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).not.toBe(avant);
+    t.historique.annuler();
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(avant);
+  }, 60000);
+
+  it('sans coins trouves, ne pose rien et dit le chemin a la main', async () => {
+    // La recherche des coins forcee a « non trouves » : ceux que la prise de vue predit, seuls.
+    const sansCoins = async (e: Parameters<typeof rechercher>[0]): Promise<ReturnType<typeof rechercher>> => {
+      const r = rechercher(e);
+      return r.coins?.coins ? { ...r, coins: { ...r.coins, trouve: false, note: 0, sources: ['predit', 'predit', 'predit', 'predit'] } } : r;
+    };
+    const t = monter({}, { ...dependances, chercherCoins: sansCoins });
+    const r = await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote);
+    expect(r).toBe('sans-coins');
+    expect(facades(t)).toHaveLength(0);
+    expect(t.projet.pushHistory).not.toHaveBeenCalled();
+    expect(t.messages.at(-1)).toBe('Les coins du mur n’ont pas été trouvés : la photo n’est pas posée. Dans la liste, dépliez la façade et placez 4 repères sur la photo.');
+  }, 60000);
+
+  it('une deuxieme photo remplace la pose d apres la premiere : un pas de plus, que Ctrl+Z defait seul', async () => {
+    const t = monter();
+    await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote);
+    const premiere = JSON.stringify(serializeObjects(t.etat.objects));
+    const le = facades(t)[0]?.releveLe;
+    t.capture.ajouterPhotoFacade('maison', 0, { ...PHOTO, base64: 'AAAABBBB' });
+    expect(await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote)).toBe('posee');
+    expect(facades(t)).toHaveLength(1);
+    expect(facades(t)[0]?.depuisAudit).toBe(true);
+    expect(facades(t)[0]?.releveLe).not.toBe(le);
+    expect(t.projet.pushHistory).toHaveBeenCalledTimes(2);
+    t.historique.annuler();
+    expect(JSON.stringify(serializeObjects(t.etat.objects))).toBe(premiere);
+  }, 90000);
+
+  it('une photo prise pendant le calcul : la facade se recalcule avec elle, et ne se pose qu une fois', async () => {
+    const t = monter();
+    const un = t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote);
+    t.capture.ajouterPhotoFacade('maison', 0, { ...PHOTO, base64: 'AAAABBBB' });
+    const deux = t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote);
+    const r = await Promise.all([un, deux]);
+    expect(r.filter((x) => x === 'posee')).toHaveLength(1);
+    expect(t.projet.pushHistory).toHaveBeenCalledTimes(1);
+    // La mesure posee est celle des deux photos : elle est a jour, rien ne reste a poser.
+    expect(t.v.mesuresFaites().has('maison#0')).toBe(true);
+    expect(t.v.propositions().some((p) => p.id === 'maison#0:releve')).toBe(false);
+  }, 120000);
+
+  it('ne touche jamais une facade relevee a la main', async () => {
+    const m = await mesureDeReference();
+    const main: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', ouvertures: [0, 1].map((k) => ({ type: 'fenetre' as const, x: 1 + k, y: 1, l: 0.8, h: 1.4 })) };
+    const t = monter({ batiment: { facades: [main] } });
+    expect(await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote)).toBe('rien');
+    expect(facades(t)).toEqual([main]);
+    expect(t.projet.pushHistory).not.toHaveBeenCalled();
+  }, 60000);
+
+  it('ne pose rien dans la consultation d un audit recu', async () => {
+    const t = monter();
+    t.v.figer([]);
+    expect(await t.v.poserLaPrise(PHOTO_SUD.cle, PHOTO_SUD.cote)).toBe('rien');
     expect(t.projet.pushHistory).not.toHaveBeenCalled();
   });
 });

@@ -2810,6 +2810,79 @@ const POINTS = {
     const nom = (s) => (s === p0 ? 'P1' : s === a ? 'A' : s === b ? 'B' : '?');
     return { ok, mesure: `champ sans caméra ${sansCamera ? 'oui' : 'NON'} ; importées : ${apresImport.map(nom).join(' ')} ; avancée : ${apresAvancer.map(nom).join(' ')}${apresGlisser ? ' ; glissée : ' + apresGlisser.map(nom).join(' ') : ''} ; question « ${question.slice(0, 40)}… » ; retirée : ${apresRetrait.map(nom).join(' ')} ; enregistré : ${envoye ? envoye.images.map(nom).join(' ') + ', ' + importees.length + ' importée(s), optique ' + (optiques ? 'gardée' : 'MANQUANTE') + ' (' + importees.map((p) => p.optique?.sourceFocale + ' ' + p.optique?.source?.largeurPx + ' px').join(', ') + ')' : 'RIEN'} ; échecs ${echecsImport}/${echecsFin} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  159: async (page, f) => {
+    // La photo posee sur la facade, sans autre geste (decision du proprietaire, 14 novembre 2026 : « Dans 3D maison, je sélectionne une
+    // façade, je prends une photo ou plusieurs […] et j'ai la photo qui se pose sur la façade ») : Vue 3D, la maison selectionnee,
+    // « Photographier une façade » (commandes de la scene), un mur touche dans la 3D ; la photo de l'etalon 02 ; a la fin du calcul, sans rien toucher, le releve est
+    // pose (`depuisAudit`, ouvertures non verifiees) et la Vue 3D montre la photo sur le mur ; une seconde photo le remplace (un pas de
+    // plus) ; Ctrl+Z rend la premiere pose, un second Ctrl+Z le mur d'avant, sans photo en 3D. FUMEE_CAPTURE_PHOTO3D=<prefixe> enregistre
+    // l'ecran de prise avant la photo, apres la pose, et apres les Ctrl+Z.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? []));
+    const enTroisD = () => page.evaluate(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (/^releve-facade/.test(o.name || '') && o.material?.map?.image && o.visible !== false) n++; }); return n; });
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPrise')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_PHOTO3D) await page.screenshot({ path: process.env.FUMEE_CAPTURE_PHOTO3D + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    const pose = (avant) => page.waitForFunction((a) => { const r = window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? []; return JSON.stringify(r) !== a && r.some((x) => x.depuisAudit); }, avant, { timeout: 180000 });
+    // Le releve d'un essai precedent sur la maison de demonstration n'est pas la : on part d'un mur sans photo.
+    await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); if (o?.batiment) delete o.batiment.facades; window.__plan.toucher('maison'); });
+    const avantTout = await facades();
+    await etape('vue 3d', async () => { await page.evaluate(() => window.__plan.executer('vue.3d')); await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }); });
+    await selectionner(page, "o.key === 'maison'");
+    await etape('photographier', () => page.locator('#terrasse3dPhotographier:not([aria-disabled])').click({ timeout: 10000 }));
+    await etape('ecran de prise', () => page.locator('.auditPrise').waitFor({ timeout: 30000 }));
+    await page.waitForTimeout(2000);
+    // Toucher un mur de la maison dans la vue d'ensemble de la prise (le meme geste que le point 61) : il devient la facade photographiee.
+    const cible = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const m = window.__plan.etat().objects.find((o) => o.key === 'maison');
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      let mieux = null;
+      for (let i = 0; i < m.pts.length; i++) {
+        const a = m.pts[i], b = m.pts[(i + 1) % m.pts.length], l = Math.hypot(b.x - a.x, b.y - a.y);
+        if (l < 3) continue;
+        const v = new THREE.Vector3((a.x + b.x) / 2 - sc.cen.x, sc.controls.target.y - 1, sc.cen.y - (a.y + b.y) / 2).project(sc.camera);
+        const x = r.left + ((v.x + 1) / 2) * r.width, y = r.top + ((1 - v.y) / 2) * r.height;
+        if (document.elementFromPoint(x, y)?.tagName === 'CANVAS' && (!mieux || l > mieux.l)) mieux = { x, y, l };
+      }
+      return mieux;
+    });
+    if (cible) await page.mouse.click(cible.x, cible.y);
+    await page.locator('.auditPrise .titreParcours', { hasText: '(choisie)' }).waitFor({ timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const titre = ((await page.locator('.auditPrise .titreParcours').first().textContent()) || '').trim();
+    const avant3d = await enTroisD();
+    const saleAvant = await page.evaluate(() => !!window.__plan.etat().dirty);
+    const debords = [await deborde()];
+    await capture('avant');
+    await etape('photo 1', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    // Aucun geste : la photo se pose d'elle-meme a la fin du calcul.
+    await etape('pose 1', () => pose(avantTout));
+    const toast = ((await page.locator('.notificationsToasts .toast').allTextContents()).find((t) => /^Photo posée sur la façade/.test(t)) || '').trim();
+    await page.waitForTimeout(2500);
+    const premiere = await facades();
+    const r1 = JSON.parse(premiere)[0] ?? {};
+    const apres3d = await enTroisD();
+    const sale = await page.evaluate(() => !!window.__plan.etat().dirty);
+    debords.push(await deborde());
+    await capture('pose');
+    await etape('photo 2', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade-2.png', mimeType: 'image/png', buffer: photo }));
+    await etape('pose 2', () => pose(premiere));
+    await page.waitForTimeout(1500);
+    const seconde = JSON.parse(await facades());
+    const remplacee = seconde.length === 1 && seconde[0].depuisAudit && seconde[0].releveLe !== r1.releveLe;
+    await capture('remplacee');
+    await page.keyboard.press('Control+z'); await page.waitForTimeout(1500);
+    const unPas = (await facades()) === premiere;
+    await page.keyboard.press('Control+z'); await page.waitForTimeout(2500);
+    const deuxPas = (await facades()) === avantTout;
+    const annule3d = await enTroisD();
+    await capture('annulee');
+    debords.push(await deborde());
+    const ok = /\(choisie\)/.test(titre) && avant3d === 0 && r1.depuisAudit === true && !!r1.texture && (r1.ouvertures ?? []).length > 0 && (r1.ouvertures ?? []).every((o) => !o.verifieeLe)
+      && apres3d >= 1 && !saleAvant && sale && /^Photo posée sur la façade/.test(toast) && remplacee && unPas && deuxPas && annule3d === 0 && !debords.some(Boolean);
+    return { ok, mesure: `« ${titre.slice(0, 60)} » ; 3D avant : ${avant3d} photo(s) ; pose d'office : ${r1.depuisAudit ? 'oui' : 'NON'}, texture ${r1.texture ? 'oui' : 'ABSENTE'}, ${(r1.ouvertures ?? []).length} ouverture(s) ${(r1.ouvertures ?? []).every((o) => !o.verifieeLe) ? 'non vérifiées' : 'VÉRIFIÉES'} ; 3D après : ${apres3d} maille(s) de photo ; projet ${saleAvant ? 'DÉJÀ MODIFIÉ AVANT, ' : ''}${sale ? 'modifié' : 'PAS MODIFIÉ'} ; toast « ${toast.slice(0, 80) || 'ABSENT'} » ; seconde photo : ${remplacee ? 'remplace la pose' : 'NE REMPLACE PAS'} ; Ctrl+Z ${unPas ? 'rend la première pose' : 'NE REND PAS la première pose'}, puis ${deuxPas ? 'le mur d’avant' : 'PAS le mur d’avant'} (3D : ${annule3d} photo) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
     // 18-deux-vues-voiture-haie importees par le champ fichier de l'ecran (sans camera) deviennent un cas neuf, sans contexte du plan ;
@@ -3343,6 +3416,9 @@ const POINTS = {
     const titrePrise = ((await page.locator('.auditPrise .titreParcours').first().textContent()) || '').trim();
     await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
     await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 120000 }));
+    // Depuis le 14 novembre 2026, la photo se pose d'office sur la facade a la fin du calcul (point 159) : un pas d'historique de plus.
+    await page.waitForFunction(() => (window.__plan.etat().objects.find((x) => x.key === 'maison')?.batiment?.facades ?? []).some((r) => r.depuisAudit), null, { timeout: 15000 }).catch(() => {});
+    const posee = await releves();
     const debords = [await deborde()];
     await capture('prise');
     await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
@@ -3385,11 +3461,13 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('objet.annuler')); await page.waitForTimeout(800);
     const unPas = (await releves()) === valide;
     await page.evaluate(() => window.__plan.executer('objet.annuler')); await page.waitForTimeout(800);
-    const deuxPas = (await releves()) === avantTout;
-    const ok = nonReleve && /\(choisie\)/.test(titrePrise) && valide !== avantTout && /^Façade \S+ · /.test(titre || '') && sansCapture && /^Cotes précises/.test(precision) && n > 0
+    const deuxPas = (await releves()) === posee;
+    await page.evaluate(() => window.__plan.executer('objet.annuler')); await page.waitForTimeout(800);
+    const troisPas = (await releves()) === avantTout;
+    const ok = posee !== avantTout && troisPas && nonReleve && /\(choisie\)/.test(titrePrise) && valide !== avantTout && /^Façade \S+ · /.test(titre || '') && sansCapture && /^Cotes précises/.test(precision) && n > 0
       && ferme && ouv.length === n && !!ajoutee && /^o\d+$/.test(ajoutee.id ?? '') && ouv.filter((o) => !o.verifieeLe).length >= 2 && gestes.includes('retrait') && gestes.includes('ajout')
       && unPas && deuxPas && !debords.some(Boolean);
-    return { ok, mesure: `inspecteur : ${nonReleve ? 'pas de « Modifier » avant la photo' : '« Modifier » DÉJÀ LÀ'}, « Photographier » (façade ${mur}) → « ${titrePrise.slice(0, 60)} » ; V4 ${valide !== avantTout ? 'écrite' : 'RIEN'} ; éditeur « ${titre} », ${sansCapture ? 'sans capture' : 'AVEC CAPTURE'}, « ${precision.slice(0, 40)}… », ${n} ouverture(s) ; fiche « ${fiche.slice(0, 70)} » ; écrit : ${ouv.length} ouverture(s), ajoutée ${ajoutee ? ajoutee.id : 'ABSENTE'}, gestes ${gestes.join('/') || 'AUCUN'} ; Ctrl+Z ${unPas ? 'défait l’édition' : 'NE DÉFAIT PAS l’édition'}, puis ${deuxPas ? 'la validation' : 'PAS la validation'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `inspecteur : ${nonReleve ? 'pas de « Modifier » avant la photo' : '« Modifier » DÉJÀ LÀ'}, « Photographier » (façade ${mur}) → « ${titrePrise.slice(0, 60)} » ; V4 ${valide !== avantTout ? 'écrite' : 'RIEN'} ; éditeur « ${titre} », ${sansCapture ? 'sans capture' : 'AVEC CAPTURE'}, « ${precision.slice(0, 40)}… », ${n} ouverture(s) ; fiche « ${fiche.slice(0, 70)} » ; écrit : ${ouv.length} ouverture(s), ajoutée ${ajoutee ? ajoutee.id : 'ABSENTE'}, gestes ${gestes.join('/') || 'AUCUN'} ; photo ${posee !== avantTout ? 'posée d’office' : 'PAS POSÉE'} ; Ctrl+Z ${unPas ? 'défait l’édition' : 'NE DÉFAIT PAS l’édition'}, puis ${deuxPas ? 'la validation' : 'PAS la validation'}, puis ${troisPas ? 'la photo posée' : 'PAS la photo posée'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   113: async (page, f) => {
     // Deux vues du meme mur, dans l'audit (lot F6, ce que faisait le releve en « vues du mur entier » : lots L13 et G20) : la scene 19
@@ -3903,9 +3981,12 @@ const POINTS = {
     // ses baies) : des la photo, la barre de progression de la calibration se pose en tete de l'ecran de prise et avance. Puis la
     // liste : la facade depliee porte la meme barre, et dessous, en mode discret, seulement ce qui doute (avec son geste) et la ligne
     // du mur ; seuls les points de validation et ce qui doute s'ouvrent ; toucher le segment « Mur » dit son resultat sous la barre ;
-    // « Rejouer la façade » rejoue l'orchestrateur. Rien n'entre dans le projet ; rien ne deborde.
+    // « Rejouer la façade » rejoue l'orchestrateur. Rien n'entre dans le projet que la photo posee d'office sur la facade (decision du
+    // 14 novembre 2026, point 159) ; rien ne deborde.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
-    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    // Le projet hors des releves de la maison, et ces releves : seuls ceux poses d'office par l'audit (`depuisAudit`) ont pu venir.
+    const lireProjet = () => page.evaluate(() => { const o = JSON.parse(JSON.stringify(window.__plan.etat().objects)); const m = o.find((x) => x.key === 'maison'); const r = m?.batiment?.facades ?? []; if (m?.batiment) delete m.batiment.facades; return { reste: JSON.stringify(o), poses: r.every((x) => x.depuisAudit) }; });
+    const avant = (await lireProjet()).reste;
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F3) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F3 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
@@ -3937,7 +4018,7 @@ const POINTS = {
     const apresRejeu = await page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade ol > li').count();
     debords.push(await deborde());
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
-    const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const lu = await lireProjet(), projet = lu.poses ? lu.reste : 'releve a la main';
     const etats = (l) => l.map((e) => e || '?').join(' ');
     const ok = enTete && prise.length === 8 && prise[0] === 'ok' && segments.length === 8 && segments.every((x) => /^É\d+(–É\d+)? \S+, /.test(x.texte))
       && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^É7 Calage du mur \(Mur\), /.test(sousLaBarre) && apresRejeu === 8
@@ -8320,7 +8401,9 @@ function pointsPour(nomClasse) {
   //       arrete un mur (et le dit), les deux bords d'un bow-window.
   // 157 : la sequence des photos d'un cas de calibration : deux photos importees, une avancee (et glissee au bureau), une retiree, rejeu, PUT.
   // 158 : un cas neuf depuis des photos importees (sans plan, dimensions a la main), et la verite de l'E7 reportee quand la sequence change.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158];
+  // 159 : « Photographier » un mur depuis la Vue 3D : la photo se pose sur la facade a la fin du calcul, sans autre geste ; une seconde la
+  //       remplace ; Ctrl+Z defait chaque pose.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
