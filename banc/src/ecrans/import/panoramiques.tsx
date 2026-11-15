@@ -2,6 +2,7 @@
 // un moment, et la vue plate qu'on en tire, telle qu'elle sera importee.
 
 import { useEffect, useState } from 'react';
+import { lireImage } from '../../api.js';
 import { Recents } from '../../cache.js';
 import { bitmap, liberer, pixels, reduire, versCanevas } from '../../images.js';
 import { CHAMP_VUE, type PhotoRue, type VueAExtraire } from '../../panoramax.js';
@@ -25,9 +26,7 @@ export const panoGarde = (id: string): Pano | undefined => PANOS.lire(id);
 
 async function lirePano(url: string, signal: AbortSignal): Promise<Pano> {
   // En CORS, sans le cache : une copie gardee sans en-tete CORS (celle d'une balise img) ferait echouer la lecture des pixels.
-  const r = await fetch(url, { mode: 'cors', cache: 'no-cache', signal });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const b = await bitmap(await r.blob());
+  const b = await bitmap(await lireImage(url, { mode: 'cors', cache: 'no-cache', signal }));
   const c = reduire(b, 2048);
   try { return pixels(c); } finally { liberer(c); b.close(); }
 }
