@@ -344,6 +344,9 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       const cadres = await page.locator('aside.apercu-photo .apercu-vues .cadre-vue').allInnerTexts();
       verifier(cadres.length === apercu.vues && cadres.every((t) => { const m = CADRE.exec(t); return m && Number(m[1]) >= 40 && Number(m[1]) <= 100 && Number(m[2]) >= 0 && Number(m[2]) <= 35; }), 'l’aperçu ne dit pas le cadre de ses vues (champ de 40° à 100°, tangage de 0° à 35°) : ' + cadres.join(' | '));
       verifier(await page.getByLabel('Cadrer sur la façade').isChecked() && !(await page.getByLabel('Redresser sur le mur').isChecked()) && await page.getByLabel('Préférer l’hiver').isChecked(), 'les réglages du cadrage n’ont pas leurs valeurs de départ (cadrer et hiver cochés, redresser décoché)');
+      // « Proposer un marquage » : le banc de la fumee n'a aucun modele, la case est grisee et dit pourquoi ; cocher « Redresser sur le mur » n'y change rien.
+      const marquage = page.getByLabel('Proposer un marquage');
+      verifier(await marquage.isDisabled() && !(await marquage.isChecked()) && /étape 3/.test(await page.locator('label:has-text("Proposer un marquage")').getAttribute('title') ?? ''), '« Proposer un marquage » n’est pas grisée sans modèle, ou ne dit pas d’en installer un à l’étape 3');
       // « Cadrer sur la facade » decochee : toutes les vues reviennent a 75 degres et 8 vers le haut.
       await page.getByLabel('Cadrer sur la façade').uncheck();
       await attendre(() => { const l = [...document.querySelectorAll('aside.apercu-photo .apercu-vues .cadre-vue')]; return l.length > 0 && l.every((x) => x.textContent === '75° · ↑8°'); }, null, 'case « Cadrer sur la façade » décochée : les vues ne reviennent pas à 75° et 8°');

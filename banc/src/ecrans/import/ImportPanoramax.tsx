@@ -14,7 +14,9 @@ import { centre, lireLesParcelles, parcelleDuPoint, rapporterALaParcelle, type P
 import { cadragePourMeta, tirerLaVue } from '../../cadrage.js';
 import type { Batiment } from '../../facadesVues.js';
 import { murDeVue } from '../../murVise.js';
-import type { MurDeVue } from '../../types.js';
+import { texteDeLImportFait, vueAMarquer, type BilanDuMarquage } from '../../importMarquage.js';
+import type { MetaImage, Modele, MurDeVue } from '../../types.js';
+import { proposerLesObjets } from '../brouillon/proposer.js';
 import { ApercuPhoto } from './ApercuPhoto.js';
 import { CarteImport } from './CarteImport.js';
 import { FenetreDesVues, ListePhotos } from './ListePhotos.js';
@@ -47,7 +49,7 @@ const PROCHE_DE_L_ADRESSE_M = 300;
 const AVIS_TRONQUE = 'Cadastre tronqué : toutes les parcelles de cette vue n’ont pas pu être lues. Rapprochez-vous pour voir les autres.';
 const AVIS_PANNE = 'Cadastre de l’IGN indisponible : la carte ne montre pas toutes les parcelles.';
 
-interface Contexte { adresse: Adresse | null; parcelle: Parcelle | null; /** Le batiment lu d'une vue (BD TOPO), pour ecrire son mur dans les metadonnees. */ batiment: (id: string) => Batiment | null }
+interface Contexte { adresse: Adresse | null; parcelle: Parcelle | null; /** Le batiment lu d'une vue (BD TOPO), pour ecrire son mur dans les metadonnees. */ batiment: (id: string) => Batiment | null; /** Le pre-marquage a l'import (importMarquage.ts) : les modeles actifs, ou null quand il n'est pas demande. */ marquage: Modele[] | null }
 
 /** Le mur d'une vue, pour ses metadonnees : rien quand le tri n'a pas dit son batiment (case decochee, BD TOPO en panne). */
 function murDeLaVue(ctx: Contexte, p: PhotoRue, v: VueAExtraire): { mur?: MurDeVue } {
@@ -55,10 +57,28 @@ function murDeLaVue(ctx: Contexte, p: PhotoRue, v: VueAExtraire): { mur?: MurDeV
   return b && typeof v.cote === 'number' ? { mur: murDeVue(b, p, { cap: v.cap, cote: v.cote, note: v.note, distanceFacade: v.distanceFacade }, p.panoramique ? CHAMP_VUE : Math.min(120, p.champ)) } : {};
 }
 
+/**
+ * Le pre-marquage d'une vue rendue face au mur (demande du proprietaire, 15 novembre 2026) : elle est deja de face, on l'enregistre
+ * telle quelle comme redressee (methode « import »), puis les modeles actifs y proposent des objets « auto » : elle passe au brouillon,
+ * comme apres l'etape 3. Un echec laisse la vue importee, a redresser comme les autres.
+ */
+async function marquerLaVue(banc: Banc, m: MetaImage, c: HTMLCanvasElement, image: Blob, vig: Blob, actifs: readonly Modele[], bilan: BilanDuMarquage): Promise<void> {
+  try {
+    await api.redressee(m.id, image, vig, { methode: 'import', note: 'Rendue face au mur à l’import, passée telle quelle' });
+    const objets = await proposerLesObjets(c, actifs, banc.classes, false);
+    await api.ecrireAnnotation(m.id, { objets, par: 'auto' });
+    bilan.marquees++; bilan.objets += objets.length;
+  } catch (e) {
+    bilan.echecs++;
+    banc.dire(`Brouillon de ${m.nom ?? m.id} : ${(e as Error).message}`, 'erreur');
+  }
+}
+
 /** Importe les vues des photos choisies (une ou deux par panoramique) ; rend le nombre de vues importees. */
 async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p: PhotoRue) => VueAExtraire[], ctx: Contexte, dire: (t: string) => void): Promise<number> {
   const lot = nomDuLot('panoramax');
   let ok = 0, n = 0;
+  const bilan: BilanDuMarquage | null = ctx.marquage ? { marquees: 0, objets: 0, echecs: 0 } : null;
   for (const p of photos) {
     dire(`Import ${++n} sur ${photos.length}…`);
     // L'adresse et la parcelle d'aujourd'hui quand on les connait ; sans parcelle visee, l'adresse ne vaut que pour les photos prises pres d'elle.
@@ -74,7 +94,8 @@ async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p:
         // Le cadre de la vue est celui que l'apercu et la carte ont montre (cadrage.ts) : sur sa facade, ou face au mur.
         const c = pano ? versCanevas(tirerLaVue(pano, p.azimut ?? 0, v.cap, v.cadre, 1600, 1200)) : reduire(b, COTE_SOURCE);
         try {
-          await api.importer(await jpeg(c, 0.92), await vignette(c), {
+          const image = await jpeg(c, 0.92), vig = await vignette(c);
+          const m = await api.importer(image, vig, {
             source: 'panoramax', nom: 'panoramax-' + p.id.slice(0, 8) + (v.vue === 'gauche' || v.vue === 'droite' ? '-' + v.vue : v.vue === 'choisie' ? '-' + Math.round(v.cap) : ''), date: p.date, lat: p.lat, lon: p.lon, azimut: v.cap,
             panoramax: { id: p.id, collection: p.collection, panoramique: p.panoramique, cap: v.cap, vue: v.vue }, auteur: p.auteur, licence: p.licence,
             adresse, parcelle: ctx.parcelle?.idu ?? null, lot,
@@ -82,6 +103,7 @@ async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p:
             ...murDeLaVue(ctx, p, v), ...(pano ? cadragePourMeta(v.cadre) : {}),
           });
           ok++;
+          if (bilan && ctx.marquage && vueAMarquer(true, v.cadre)) await marquerLaVue(banc, m, c, image, vig, ctx.marquage, bilan);
         } catch (e) {
           if (!(e instanceof ErreurApi && e.statut === 409)) throw e;
         } finally { liberer(c); }
@@ -91,7 +113,7 @@ async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p:
       banc.dire(`Photo ${p.id.slice(0, 8)} : ${(e as Error).message}`, 'erreur');
     }
   }
-  dire(`${ok} vue(s) importée(s), lot ${lot}.`);
+  dire(texteDeLImportFait(ok, lot, bilan));
   return ok;
 }
 
@@ -233,7 +255,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   // Les caps choisis a la main dans un 360 (par photo) ; une photo absente suit la visee.
   const [caps, setCaps] = useState<Map<string, number[]>>(new Map());
   // La liste : ses reglages (ordre, vues par batiment, murs deja dans le banc, cadrage des vues), et le 360 dont on choisit les vues.
-  const liste = useReglagesListe(banc.images);
+  const liste = useReglagesListe(banc.images, banc.modeles);
   const [ouverte, setOuverte] = useState<string | null>(null), [etat, setEtat] = useState<string | null>(null);
   // La carte : le rayon de la derniere recherche (celui qu'elle dessine, pas celui qu'on est en train de taper), la photo survolee et
   // la photo epinglee (touchee), et ce qu'elle dit quand on est trop loin pour chercher des photos.
@@ -336,7 +358,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   };
   const importer = async () => {
     const lot = proposees.filter((x) => cochees.has(x.id)), faites = new Set(lot.map((x) => x.id));
-    await importerVues(banc, lot, aImporterDe, { adresse, parcelle, batiment: tri.batiment }, setEtat);
+    await importerVues(banc, lot, aImporterDe, { adresse, parcelle, batiment: tri.batiment, marquage: liste.marquage ? liste.actifs : null }, setEtat);
     setPhotos((l) => l.filter((x) => !faites.has(x.id)));
     poserChoix([]);
     await banc.relire();
