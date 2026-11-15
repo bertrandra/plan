@@ -152,12 +152,33 @@ function recevoir(string $champ, string $vers, bool $requis = true): bool {
   return true;
 }
 
+/**
+ * Le mur qu'une vue montre (banc/src/types.ts::MurDeVue) : une liste fermee de champs, chacun borne. Null sans identifiant de batiment
+ * ou sans cote valables : un mur a moitie dit ne se range pas.
+ */
+function mur_valide($m): ?array {
+  if (!is_array($m) || !is_string($m['batiment'] ?? null) || !preg_match('/^[A-Za-z0-9_.:-]{1,64}$/', $m['batiment'])) return null;
+  if (!is_numeric($m['cote'] ?? null) || (int)$m['cote'] < 0 || (int)$m['cote'] > 3) return null;
+  $out = ['batiment' => $m['batiment'], 'cote' => (int)$m['cote']];
+  $bornes = ['segment' => [0, 99999, 0], 'azimut' => [0, 360, 1], 'distance' => [0, 1000, 1], 'incidence' => [0, 90, 0], 'note' => [0, 100, 0], 'hauteur' => [0, 1000, 1], 'etages' => [0, 500, 0], 'logements' => [0, 100000, 0]];
+  foreach ($bornes as $k => [$min, $max, $decimales]) {
+    if (!is_numeric($m[$k] ?? null) || (float)$m[$k] < $min || (float)$m[$k] > $max) continue;
+    $out[$k] = $decimales ? round((float)$m[$k], $decimales) : (int)round((float)$m[$k]);
+  }
+  foreach (['nature', 'usage', 'usage2'] as $k) if (is_string($m[$k] ?? null) && $m[$k] !== '') $out[$k] = mb_substr($m[$k], 0, 80);
+  if (is_string($m['rattrapeLe'] ?? null)) $out['rattrapeLe'] = mb_substr($m['rattrapeLe'], 0, 40);
+  return $out;
+}
+
 /** Ce que la page peut dire d'une photo a l'import : sa provenance, sa position, sa date, son appareil. */
 function meta_importee(array $m): array {
   $garde = ['source', 'nom', 'date', 'lat', 'lon', 'azimut', 'appareil', 'focale35', 'adresse', 'parcelle', 'panoramax', 'licence', 'auteur', 'largeur', 'hauteur', 'lot'];
   $out = [];
   foreach ($garde as $k) if (array_key_exists($k, $m)) $out[$k] = $m[$k];
   $out['source'] = in_array($out['source'] ?? '', ['iphone', 'panoramax', 'fichier'], true) ? $out['source'] : 'fichier';
+  // Le mur vise (demande du proprietaire, 15 novembre 2026) : garde s'il est valable, laisse sinon (l'image s'importe quand meme).
+  $mur = mur_valide($m['mur'] ?? null);
+  if ($mur) $out['mur'] = $mur;
   return $out;
 }
 
@@ -194,7 +215,7 @@ function image_creer(): void {
   repondre(201, $meta);
 }
 
-/** Ce que l'on change d'une photo apres coup : son etat, son bloc, son drapeau, une note, l'adresse. */
+/** Ce que l'on change d'une photo apres coup : son etat, son bloc, son drapeau, une note, l'adresse, le mur qu'elle montre. */
 function image_modifier(string $id): void {
   $d = dossier_image($id);
   $m = meta($id);
@@ -204,6 +225,12 @@ function image_modifier(string $id): void {
   if (array_key_exists('verifiee', $b)) { $m['verifiee'] = (bool)$b['verifiee']; $m['verifieeLe'] = $m['verifiee'] ? gmdate('c') : null; }
   if (array_key_exists('echantillon', $b)) $m['echantillon'] = (bool)$b['echantillon'];
   foreach (['note', 'adresse'] as $k) if (array_key_exists($k, $b)) $m[$k] = mb_substr((string)$b[$k], 0, 500);
+  // Le mur retrouve apres coup (le rattrapage des images importees avant) ; null l'efface. « murCherche » : cherche, rien trouve.
+  if (array_key_exists('mur', $b)) {
+    if ($b['mur'] === null) unset($m['mur']);
+    else { $mur = mur_valide($b['mur']); if (!$mur) erreur(400, 'Mur invalide.'); $m['mur'] = $mur; unset($m['murCherche']); }
+  }
+  if (array_key_exists('murCherche', $b)) { if (is_string($b['murCherche']) && $b['murCherche'] !== '') $m['murCherche'] = mb_substr($b['murCherche'], 0, 40); else unset($m['murCherche']); }
   $m['modifieeLe'] = gmdate('c');
   ecrire_json("$d/meta.json", $m);
   repondre(200, $m);
@@ -738,6 +765,199 @@ function carnet_rfdetr(array $a, string $racine): string {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+// Le relais des images Panoramax (demande du proprietaire, 15 novembre 2026 : toute instance federee marche d'office, sans ajouter
+// son hote a la politique de contenu par une version). La page lit en direct les hotes qu'elle connait ; pour les autres, elle
+// demande ici « la photo <identifiant>, en <taille> ». Jamais une adresse : le serveur demande lui-meme la photo au meta-catalogue
+// et suit l'adresse de l'image qu'il rend. Ce que le relais ouvre : la lecture, par une session connectee, d'une image publique du
+// catalogue Panoramax. Ce qu'il n'ouvre pas : une adresse au choix de l'appelant, un hote prive ou local, autre chose qu'une image.
+
+const BANC_RELAIS_CATALOGUE = 'https://api.panoramax.xyz/api/search';
+const BANC_UUID = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
+/**
+ * Par taille demandee : l'image du catalogue, sa taille maximale et le delai de lecture. Mesure sur 603 photos du vrai reseau (Le
+ * Vesinet, rue de Rivoli, Loiret, 15 novembre 2026) : un 360 en « hd » pese de 0,8 a 6,9 Mo ; la borne est a 25 Mo.
+ */
+const BANC_RELAIS_TAILLES = [
+  'hd' => ['asset' => 'hd', 'max' => 25 * 1024 * 1024, 'delai' => 30],
+  'sd' => ['asset' => 'sd', 'max' => 4 * 1024 * 1024, 'delai' => 12],
+  'vignette' => ['asset' => 'thumb', 'max' => 1024 * 1024, 'delai' => 8],
+];
+const BANC_RELAIS_REDIRECTIONS = 3;
+/** Les images relayees par session et par minute : de quoi faire defiler une liste, pas de quoi aspirer une instance. */
+const BANC_RELAIS_PAR_MINUTE = 180;
+
+/** Un refus du relais : le code HTTP rendu a la page et la raison, dite en clair. */
+class RelaisRefus extends RuntimeException {}
+
+/** Une adresse IPv4 publique : ni privee, ni locale, ni lien-local, ni reservee (dont 100.64/10 et 0/8, que PHP ne classe pas). */
+function relais_ip_publique(string $ip): bool {
+  if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) return false;
+  $n = ip2long($ip);
+  foreach ([['0.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['192.0.0.0', 24], ['198.18.0.0', 15], ['224.0.0.0', 3]] as [$base, $bits]) {
+    if ((($n ^ ip2long($base)) >> (32 - $bits)) === 0) return false;
+  }
+  return true;
+}
+
+/** Les adresses IPv4 d'un hote (le relais ne sort qu'en IPv4 : une seule famille d'adresses a verifier). */
+function relais_resoudre(string $hote): array {
+  $l = @gethostbynamel($hote);
+  return is_array($l) ? $l : [];
+}
+
+/**
+ * Ou une adresse mene : son hote et l'adresse IP ou l'on se connectera. Refuse tout ce qui n'est pas « https://nom-d-hote/… » sur le
+ * port 443, sans identifiants, et tout hote dont une seule des adresses est privee, locale ou lien-local. L'adresse rendue est celle
+ * qui sera utilisee (CURLOPT_RESOLVE) : l'hote ne peut pas en changer entre la verification et la connexion.
+ */
+function relais_destination(string $url, callable $resoudre): array {
+  $u = parse_url($url);
+  if (!is_array($u) || strtolower((string)($u['scheme'] ?? '')) !== 'https') throw new RelaisRefus('adresse refusée (https seulement)', 502);
+  if (isset($u['user']) || isset($u['pass'])) throw new RelaisRefus('adresse refusée (identifiants)', 502);
+  if (isset($u['port']) && (int)$u['port'] !== 443) throw new RelaisRefus('adresse refusée (port)', 502);
+  $hote = strtolower((string)($u['host'] ?? ''));
+  // Un nom d'hote, pas une adresse ecrite en chiffres (ni IPv6 entre crochets, ni entier, ni hexadecimal).
+  if (!preg_match('/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $hote)) throw new RelaisRefus('adresse refusée (hôte)', 502);
+  $ips = $resoudre($hote);
+  if (!$ips) throw new RelaisRefus('hôte introuvable : ' . $hote, 502);
+  foreach ($ips as $ip) if (!relais_ip_publique((string)$ip)) throw new RelaisRefus('hôte refusé (adresse privée ou locale) : ' . $hote, 502);
+  return ['hote' => $hote, 'ip' => (string)$ips[0]];
+}
+
+/**
+ * Une requete, sans suivre aucune redirection, vers l'adresse IP verifiee. Rend le code, les en-tetes (en minuscules) et le corps ;
+ * `trop` quand le corps depasse `$max` (la lecture s'arrete la). `$httpsSeul` ne se desactive que dans les tests de cette fonction.
+ */
+function relais_demander(string $url, string $hote, string $ip, int $max, int $delai, bool $httpsSeul = true): array {
+  if (!function_exists('curl_init')) throw new RelaisRefus('le serveur n’a pas cURL', 501);
+  $corps = ''; $trop = false; $entetes = [];
+  $port = parse_url($url, PHP_URL_PORT) ?: ($httpsSeul || parse_url($url, PHP_URL_SCHEME) === 'https' ? 443 : 80);
+  $c = curl_init($url);
+  curl_setopt_array($c, [
+    CURLOPT_PROTOCOLS => $httpsSeul ? CURLPROTO_HTTPS : CURLPROTO_HTTPS | CURLPROTO_HTTP,
+    CURLOPT_FOLLOWLOCATION => false,
+    CURLOPT_RESOLVE => ["$hote:$port:$ip"],
+    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+    CURLOPT_CONNECTTIMEOUT => 5,
+    CURLOPT_TIMEOUT => $delai,
+    CURLOPT_USERAGENT => 'banc-apprentissage (relais)',
+    CURLOPT_HTTPHEADER => ['Accept: image/jpeg, image/png, image/webp, application/json;q=0.9, application/geo+json;q=0.9'],
+    CURLOPT_HEADERFUNCTION => function ($c, string $ligne) use (&$entetes, &$trop, $max): int {
+      $p = strpos($ligne, ':');
+      if ($p !== false) $entetes[strtolower(trim(substr($ligne, 0, $p)))] = trim(substr($ligne, $p + 1));
+      // Une taille annoncee au-dessus de la borne : on n'en lit pas un octet.
+      if ((int)($entetes['content-length'] ?? 0) > $max) { $trop = true; return -1; }
+      return strlen($ligne);
+    },
+    CURLOPT_WRITEFUNCTION => function ($c, string $morceau) use (&$corps, &$trop, $max): int {
+      if (strlen($corps) + strlen($morceau) > $max) { $trop = true; return -1; }
+      $corps .= $morceau;
+      return strlen($morceau);
+    },
+  ]);
+  curl_exec($c);
+  $code = (int)curl_getinfo($c, CURLINFO_RESPONSE_CODE);
+  $erreur = curl_errno($c);
+  curl_close($c);
+  if ($erreur !== 0 && !$trop) throw new RelaisRefus($erreur === CURLE_OPERATION_TIMEDOUT ? 'l’hôte ' . $hote . ' ne répond pas à temps' : 'l’hôte ' . $hote . ' est injoignable', 504);
+  return ['code' => $code, 'entetes' => $entetes, 'corps' => $corps, 'trop' => $trop];
+}
+
+/** Resout une redirection relative par rapport a l'adresse qui l'a rendue. */
+function relais_absolue(string $base, string $vers): string {
+  if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $vers)) return $vers;
+  $u = parse_url($base);
+  $racine = ($u['scheme'] ?? 'https') . '://' . ($u['host'] ?? '') . (isset($u['port']) ? ':' . $u['port'] : '');
+  if (str_starts_with($vers, '//')) return ($u['scheme'] ?? 'https') . ':' . $vers;
+  if (str_starts_with($vers, '/')) return $racine . $vers;
+  return $racine . preg_replace('#[^/]*$#', '', (string)($u['path'] ?? '/')) . $vers;
+}
+
+/**
+ * Lit une adresse en suivant ses redirections a la main : BANC_RELAIS_REDIRECTIONS au plus, chacune reverifiee comme la premiere
+ * adresse (https, hote public). Une redirection vers 127.0.0.1 ou un hote prive s'arrete ici, avant toute connexion.
+ */
+function relais_lire(string $url, int $max, int $delai, callable $resoudre, callable $demander): array {
+  for ($saut = 0; $saut <= BANC_RELAIS_REDIRECTIONS; $saut++) {
+    $d = relais_destination($url, $resoudre);
+    $r = $demander($url, $d['hote'], $d['ip'], $max, $delai);
+    if ($r['trop']) throw new RelaisRefus('réponse trop grosse (plus de ' . round($max / 1048576, 1) . ' Mo)', 502);
+    if (in_array($r['code'], [301, 302, 303, 307, 308], true)) {
+      $vers = (string)($r['entetes']['location'] ?? '');
+      if ($vers === '') throw new RelaisRefus('redirection sans adresse', 502);
+      $url = relais_absolue($url, $vers);
+      continue;
+    }
+    if ($r['code'] === 404) throw new RelaisRefus('photo introuvable', 404);
+    if ($r['code'] !== 200) throw new RelaisRefus('l’hôte ' . $d['hote'] . ' a répondu ' . $r['code'], 502);
+    return $r;
+  }
+  throw new RelaisRefus('trop de redirections', 502);
+}
+
+/** Le type d'une image d'apres ses premiers octets (JPEG, PNG, WebP) ; null pour tout le reste. */
+function relais_type(string $octets): ?string {
+  if (strncmp($octets, "\xFF\xD8\xFF", 3) === 0) return 'image/jpeg';
+  if (strncmp($octets, "\x89PNG\r\n\x1a\n", 8) === 0) return 'image/png';
+  if (strlen($octets) >= 12 && substr($octets, 0, 4) === 'RIFF' && substr($octets, 8, 4) === 'WEBP') return 'image/webp';
+  return null;
+}
+
+/**
+ * L'image d'une photo du catalogue : la photo est demandee au meta-catalogue par son identifiant, puis l'adresse de l'image qu'il
+ * rend est suivie. Il faut une image deux fois : l'en-tete Content-Type le dit, et ses premiers octets le confirment (le type rendu a
+ * la page est celui des octets, pas celui de l'en-tete).
+ */
+function relais_image(string $id, string $taille, callable $resoudre, callable $demander): array {
+  if (!preg_match(BANC_UUID, $id)) throw new RelaisRefus('identifiant de photo invalide', 400);
+  $t = BANC_RELAIS_TAILLES[$taille] ?? null;
+  if (!$t) throw new RelaisRefus('taille inconnue (hd, sd ou vignette)', 400);
+  $catalogue = relais_lire(BANC_RELAIS_CATALOGUE . '?ids=' . $id, 2 * 1024 * 1024, 8, $resoudre, $demander);
+  $json = json_decode($catalogue['corps'], true);
+  $photo = null;
+  foreach ((is_array($json) ? ($json['features'] ?? []) : []) as $f) if (is_array($f) && ($f['id'] ?? null) === $id) $photo = $f;
+  if (!$photo) throw new RelaisRefus('photo inconnue du catalogue Panoramax', 404);
+  $href = $photo['assets'][$t['asset']]['href'] ?? null;
+  if (!is_string($href) || $href === '') throw new RelaisRefus('le catalogue ne donne pas cette taille pour cette photo', 404);
+  $r = relais_lire($href, $t['max'], $t['delai'], $resoudre, $demander);
+  $annonce = strtolower(trim(explode(';', (string)($r['entetes']['content-type'] ?? ''))[0]));
+  $type = relais_type($r['corps']);
+  if (!in_array($annonce, ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'], true) || $type === null) throw new RelaisRefus('ce que l’hôte a rendu n’est pas une image', 502);
+  return ['type' => $type, 'octets' => $r['corps']];
+}
+
+/** Compte les images relayees par cette session dans la minute ; au-dela de BANC_RELAIS_PAR_MINUTE, 429. La session doit etre ouverte. */
+function relais_compter(): void {
+  $now = time();
+  $l = array_values(array_filter((array)($_SESSION['relais'] ?? []), fn($s) => is_int($s) && $now - $s < 60));
+  if (count($l) >= BANC_RELAIS_PAR_MINUTE) erreur(429, 'Trop d’images demandées au relais en une minute : attendez un instant.');
+  $l[] = $now;
+  $_SESSION['relais'] = $l;
+}
+
+/** La route : l'image, avec des en-tetes qui n'en font rien d'autre qu'une image pour la page du banc. */
+function relais_servir(string $id, string $taille): void {
+  try {
+    $img = relais_image($id, $taille, 'relais_resoudre', 'relais_demander');
+  } catch (RelaisRefus $e) {
+    erreur($e->getCode() ?: 502, 'Relais Panoramax : ' . $e->getMessage() . '.');
+  }
+  header('Content-Type: ' . $img['type']);
+  header('Content-Length: ' . strlen($img['octets']));
+  header('X-Content-Type-Options: nosniff');
+  header("Content-Security-Policy: default-src 'none'; sandbox");
+  header('Content-Disposition: inline; filename="panoramax-' . $id . '-' . $taille . '.' . substr($img['type'], 6) . '"');
+  header('Cross-Origin-Resource-Policy: same-origin');
+  // Garde par le navigateur seul (une heure) : le serveur n'ecrit aucune image relayee sur son disque. La session de PHP pose
+  // « Pragma: no-cache » et une date d'expiration passee, qui l'empecheraient.
+  header_remove('Pragma');
+  header_remove('Expires');
+  header('Cache-Control: private, max-age=3600');
+  echo $img['octets'];
+  exit;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // Routage
 
 if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
@@ -751,6 +971,8 @@ if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
   if ($methode !== 'GET' && ($_SERVER['HTTP_X_BANC'] ?? '') !== '1') erreur(403, 'En-tête X-Banc manquant.');
   if ($r === 'connexion' && $methode === 'POST') connexion();
   if (!connecte()) erreur(401, 'Connexion requise.');
+  // Le debit du relais se compte dans la session, avant de la rendre aux autres requetes.
+  if ("$methode $r" === 'GET relais') relais_compter();
   session_write_close();
   switch ("$methode $r") {
     case 'POST deconnexion': demarrer_session(); $_SESSION = []; session_destroy(); repondre(200, ['connecte' => false]);
@@ -772,6 +994,7 @@ if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
     case 'POST installer': modele_installer(id_valide($id));
     case 'GET modele': modele_servir(id_valide($id));
     case 'DELETE modele': modele_supprimer(id_valide($id));
+    case 'GET relais': relais_servir((string)$id, (string)($_GET['taille'] ?? ''));
     case 'GET export': exporter((string)($_GET['format'] ?? 'detect'), ($_GET['verifiees'] ?? '0') === '1', (string)($_GET['base'] ?? ''), (string)($_GET['depart'] ?? 'coco'));
   }
   erreur(404, 'Route inconnue : ' . $methode . ' ' . $r);
