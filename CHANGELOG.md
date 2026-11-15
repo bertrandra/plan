@@ -39,7 +39,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Vésinet environ une vue proposée sur trois montre encore une haie ou une clôture (la note ne voit pas les haies), rue de Rivoli
   deux des dix-huit premières (un store de brasserie, une station de vélos) ; un 360 sans boussole et à l'arrêt garde ses vues ;
   une « vue par bâtiment » de plus loin que 40 m compte à part. Écart avec la consigne : sans parcelle visée rien n'est coché
-  d'office, comme avant (on se promène et les photos cochées restent) ; « Cocher les meilleures » fait le geste. Serveur du banc,
+  d'office, comme avant (on se promène et les photos cochées restent) ; « Cocher les meilleures » fait le geste. La fumée du banc
+  (`scripts/fumee-banc.mjs`) suit : son témoin est refait (bâtiments lus par cases), elle vérifie la note de chaque carte, le tri par
+  note et qu'aucun doublon n'est coché d'office. Serveur du banc,
   politique de contenu et Plan inchangés (les bâtiments viennent du même WFS, déjà admis).
 - **Banc d'apprentissage : une fumée de l'écran d'import Panoramax, jouée à chaque PR** (« Go all to the end » du propriétaire,
   15 novembre 2026). L'écran (carte de France, zoom, couverture orange, « Seulement les façades », aperçu des façades, import)
