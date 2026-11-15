@@ -7,7 +7,8 @@
 // Ce qu'il joue, a « 2 allee des Limites, Le Vesinet » : l'ouverture sur la France (la couverture de Panoramax et ce que la carte en
 // dit), l'adresse (la carte y va, la parcelle visee, les photos), « Seulement les facades » (son compte, puis la case decochee),
 // l'apercu des facades d'un point (survole a la souris, touche au doigt), la fenetre « Choisir les vues », l'import d'une photo (201,
-// le compteur du banc monte). A chaque passage : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin ;
+// le compteur du banc monte), puis l'ecran d'equilibre du jeu (les vues importees comptees dans leur departement, et sur sa carte).
+// A chaque passage : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin ;
 // les contrastes des textes (4,5:1), et au doigt les cibles de 44 px, rien qui deborde, l'apercu sous la carte.
 //
 //   FUMEE_RESEAU=temoin (defaut) | direct | enregistrer   le reseau : jamais le vrai en temoin (une requete sans temoin echoue)
@@ -183,6 +184,9 @@ const TEXTES = ['.aide', '.etat', '.carte-indice', '.carte-avis p', '.carte-fond
   '.mosaique.grande .carte span', '.mosaique.grande .carte button', '.tete-dialogue strong', '.tete-dialogue small', '.tete-dialogue button', '.dialogue .rang button', '.dialogue .rang span', 'form.rang label', 'form.rang button', 'form.rang select', '.segments button']
   .map((s) => (s.startsWith('.tete-dialogue') || s.startsWith('.dialogue') ? '.voile-dialogue ' + s : '.page ' + s)).join(', ');
 const PASTILLES = '.carte-legende .pastille-carte, .carte-legende .pastille-couverture, .carte-couches .pastille-couverture';
+// Le grand chiffre d'une tuile (25 px, gras) est un grand texte : la regle des 4,5:1 ne le concerne pas (3:1), il n'est pas mesure ici.
+const TEXTES_EQUILIBRE = ['.libelle-tuile', '.tuile small', '.tete-section h3', '.compte-section', '.tableau-equilibre th', '.tableau-equilibre td', '.liste-manques li', '.carte-legende span', '.segments button', '.carte-zoom button', '.carte-echelle', '.carte-credit', '.titres-page small', '.titres-page h2']
+  .map((s) => '.page ' + s).join(', ');
 const CIBLES = ['button', 'select', 'input:not([type=checkbox])', 'input[type=checkbox]'].flatMap((s) => ['.import-panoramax ' + s, '.voile-dialogue ' + s]).join(', ');
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -238,8 +242,12 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     // Le compteur du banc (cache au telephone, mais tenu).
     await page.waitForSelector('header.barre .compte', { state: 'attached' });
     const compteAvant = parseInt(await page.locator('header.barre .compte').textContent(), 10);
-    if (await page.locator('nav.etapes').isVisible()) await page.locator('nav.etapes button', { hasText: 'Import' }).first().click();
-    else await page.selectOption('select.etapes-liste', { label: (await page.locator('select.etapes-liste option', { hasText: 'Import' }).first().innerText()) });
+    // Les onglets au bureau, la liste deroulante au telephone.
+    const allerA = async (etape) => {
+      if (await page.locator('nav.etapes').isVisible()) await page.locator('nav.etapes button', { hasText: etape }).first().click();
+      else await page.selectOption('select.etapes-liste', { label: (await page.locator('select.etapes-liste option', { hasText: etape }).first().innerText()) });
+    };
+    await allerA('Import');
     await toucher(page.getByRole('radio', { name: /Panoramax/ }));
 
     // 2. La France entiere : la couverture de Panoramax, et ce que la carte en dit.
@@ -363,6 +371,36 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       etat.importees = 1;
       dire(`import : ${nVues} vue(s), ${statuts.join(' ')} ; le banc passe de ${compteAvant} à ${compteAvant + nVues} photo(s)`);
     }
+
+    // 7 bis. L'equilibre du jeu (etape 8) : les vues importees se comptent la ou elles ont ete prises, et la carte les montre.
+    await allerA('Équilibre');
+    await page.waitForSelector('.carte-equilibre .amas');
+    const total = parseInt(await page.locator('header.barre .compte').textContent(), 10);
+    const eq = await page.evaluate(() => {
+      const ligne = (t) => { const tr = [...document.querySelectorAll('.tableau-equilibre tr')].find((x) => x.querySelector('th')?.textContent === t); return tr ? Number(tr.querySelector('td.nombre').textContent) : null; };
+      const somme = (titre) => { const s = [...document.querySelectorAll('.grille-equilibre .section')].find((x) => x.querySelector('h3')?.firstChild?.textContent === titre); return s ? [...s.querySelectorAll('tr td.nombre:not(.part)')].reduce((n, td) => n + Number(td.textContent), 0) : null; };
+      const cadre = document.querySelector('.carte-equilibre .carte-cadre').getBoundingClientRect();
+      const amas = [...document.querySelectorAll('.carte-equilibre .amas')].map((g) => { const r = g.querySelector('circle').getBoundingClientRect(); return { n: Number(g.querySelector('text')?.textContent ?? 1), dedans: r.left >= cadre.left && r.right <= cadre.right && r.top >= cadre.top && r.bottom <= cadre.bottom }; });
+      return { titre: document.querySelector('.page h2')?.textContent, photos: Number(document.querySelector('.tuile .valeur-tuile')?.textContent), yvelines: ligne('78 · Yvelines'), idf: ligne('Île-de-France'), panoramax: ligne('Panoramax'),
+        saisons: somme('Par saison'), vues: somme('Par type de vue'), etats: somme('Par état d’avancement'), regions: document.querySelectorAll('.grille-equilibre .section:first-child tr').length, amas, manques: document.querySelector('.liste-manques')?.innerText ?? '' };
+    });
+    verifier(eq.titre === 'Équilibre du jeu', 'l’écran d’équilibre ne s’ouvre pas');
+    verifier(total > 0 && eq.photos === total, `l’équilibre compte ${eq.photos} photo(s), le banc en a ${total}`);
+    verifier(eq.yvelines === total && eq.idf === total, `les ${total} vue(s) du Vésinet ne sont pas toutes comptées dans les Yvelines (${eq.yvelines}) et en Île-de-France (${eq.idf})`);
+    verifier(eq.regions === 13, `la répartition par région montre ${eq.regions} région(s), 13 attendues (les vides à zéro)`);
+    verifier(eq.panoramax === total && eq.saisons === total && eq.vues === total && eq.etats === total, `les comptes ne font pas ${total} : Panoramax ${eq.panoramax}, saisons ${eq.saisons}, types de vue ${eq.vues}, états ${eq.etats}`);
+    verifier(eq.amas.reduce((n, a) => n + a.n, 0) === total && eq.amas.every((a) => a.dedans), `la carte de l’équilibre ne montre pas les ${total} vue(s) dans son cadre : ${JSON.stringify(eq.amas)}`);
+    verifier(eq.manques.includes('type de bâtiment'), 'l’écran ne dit pas ce que les métadonnées ne portent pas');
+    const cEq = await page.evaluate(mesurerContrastes, { textes: TEXTES_EQUILIBRE, pastilles: '.carte-equilibre .pastille-amas' });
+    const mEq = await page.evaluate(mesurerMiseEnPage, { cibles: '.carte-equilibre button, .actions-page button', doigt });
+    verifier(cEq.n > 30, `équilibre : ${cEq.n} textes mesurés seulement, les sélecteurs ne trouvent plus l’écran`);
+    if (AUDIT) { for (const x of [...cEq.echecs, ...mEq]) dire(`[audit] équilibre : ${x.replace(/\s+/g, ' ')}`); }
+    else {
+      verifier(!cEq.echecs.length, `équilibre : contrastes insuffisants — ${cEq.echecs.join(' ; ')}`);
+      verifier(!mEq.length, `équilibre : mise en page — ${mEq.join(' ; ')}`);
+    }
+    await capture('equilibre');
+    dire(`équilibre : ${total} vue(s), toutes dans les Yvelines (Île-de-France), ${eq.amas.length} rond(s) sur la carte ; ${cEq.n} textes mesurés`);
 
     // 8. Rien de travers : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin.
     const refus = await page.evaluate(() => window.__refusCsp);

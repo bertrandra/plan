@@ -587,3 +587,24 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 @media (prefers-color-scheme: dark) { .carte-legende .pastille-carte.rayon { border-color: var(--accent); } }
 /* Au telephone, le message se range a gauche : au milieu, il passerait sous les boutons du zoom. */
 @media (max-width: 900px) { .carte-indice { left: 10px; transform: none; bottom: 40px; font-size: .8rem; } }
+
+/* L'ecran d'equilibre du jeu (etape 8) : la carte des photos, puis les repartitions cote a cote. */
+.carte-equilibre { display: flex; flex-direction: column; gap: .35rem; }
+.carte-equilibre .carte-cadre { height: clamp(300px, 45dvh, 520px); cursor: grab; }
+.carte-equilibre .amas { cursor: pointer; }
+.carte-equilibre .amas circle { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.carte-equilibre .amas text { fill: var(--accent-texte); font-size: 12px; font-weight: 700; text-anchor: middle; pointer-events: none; font-variant-numeric: tabular-nums; }
+.carte-equilibre .amas:focus-visible circle, .carte-equilibre .amas:hover circle { stroke: var(--texte); }
+.pastille-amas { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--trait); flex: none; }
+.grille-equilibre { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 1rem; align-items: start; }
+.tableau-equilibre th { font-weight: 400; }
+.tableau-equilibre .nombre { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 1%; }
+.tableau-equilibre .part { color: var(--doux); }
+.tableau-equilibre .col-barre { width: 38%; vertical-align: middle; }
+.tableau-equilibre tr.zero th, .tableau-equilibre tr.zero .nombre { color: var(--doux); }
+/* Une ligne a zero se signale par une pastille, pas par la couleur du texte (l'orange sur blanc ne fait pas 4,5:1). */
+.tableau-equilibre tr.zero th::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: .4rem; border-radius: 50%; background: var(--attention); }
+@media (pointer: coarse) { .actions-page .segments button { min-height: 44px; } }
+.barre-equilibre { display: block; height: 8px; border-radius: 4px; background: var(--fond); overflow: hidden; }
+.barre-equilibre > span { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.liste-manques { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .4rem; font-size: .9rem; }
