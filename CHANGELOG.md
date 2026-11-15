@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.32.0] — 2026-11-15
+
+Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'étape Redressement montre les gestes
+de chaque photo en icônes seules et gagne une action nouvelle, supprimer une photo depuis sa carte (poubelle sans confirmation,
+mais en différé : « Annuler » pendant six secondes, l'appel au serveur seulement ensuite, rien d'envoyé si la page se ferme
+avant ; #703). Une action nouvelle : MINOR (§2.1). Seul `banc/` change, avec sa fumée (`scripts/fumee-banc.mjs`,
+`tests/CHECKLIST-FUMEE.md`) : aucune quantité ni aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à leur
+numéro de version (la date de build reste le 30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma
+inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer
+bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce
+n'est pas déjà fait. Le serveur du banc (`banc/public/api.php`) **ne change pas** depuis la 5.31.0 : la suppression se sert de la
+route `DELETE image` qui existait (elle efface tout le dossier de la photo) ; rien de plus n'est demandé à l'hébergement.
+Requêtes vérifiées sans la mesure sur main (run 43762002332 ; prompts et schémas inchangés).
+
 ### Modifié
 
 - **Banc d'apprentissage : sur chaque photo du Redressement, des icônes seules et une poubelle** (demande du propriétaire,
