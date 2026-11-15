@@ -72,6 +72,8 @@ export interface PropsCarte {
   avisCadastre: string | null;
   /** Ce que le tri des facades a a dire (batiments indisponibles : rien n'est filtre) ; null quand il se fait. */
   avisFacades: string | null;
+  /** Ce que le relais des images a a dire (il a echoue : des photos ne sont pas proposees, et pourquoi) ; null quand il marche. */
+  avisRelais: string | null;
   /** Les contours des batiments que regardent les vues de la photo montree : soulignes, les autres restent au fond de plan. */
   batimentsVus: readonly (readonly Ll[])[];
   /** La vue est trop large pour chercher ses photos : la carte dit ou zoomer d'apres la couverture de Panoramax (ou qu'il n'y a rien). */
@@ -309,7 +311,7 @@ function Cadastre({ contours, parcelle, placement, halo, taille, aGlisse, onParc
 }
 
 export function CarteImport(props: PropsCarte) {
-  const { adresse, parcelles, parcelle, photos, rayon, cadrage, avisCadastre, avisFacades, batimentsVus, tropLoin, indice, onParcelle, onEmprise } = props;
+  const { adresse, parcelles, parcelle, photos, rayon, cadrage, avisCadastre, avisFacades, avisRelais, batimentsVus, tropLoin, indice, onParcelle, onEmprise } = props;
   const [poser, taille, cadre] = useTaille();
   const v = useVue(taille);
   const { vue, voler } = v;
@@ -363,7 +365,7 @@ export function CarteImport(props: PropsCarte) {
   const posAdresse = adresse ? versEcran(adresse, vue, taille) : null;
   const fondEnPanne = fond !== 'aucun' && recues.fond === fond && recues.ko > 0 && recues.ok === 0;
   const pres = vue.zoom >= ZOOM_PARCELLES;
-  const avis = [fondEnPanne ? 'Le fond de carte de l’IGN ne se charge pas : la carte reste utilisable avec les parcelles seules.' : null, pres ? avisCadastre : null, avisFacades].filter((a): a is string => !!a);
+  const avis = [fondEnPanne ? 'Le fond de carte de l’IGN ne se charge pas : la carte reste utilisable avec les parcelles seules.' : null, pres ? avisCadastre : null, avisFacades, avisRelais].filter((a): a is string => !!a);
   // Sous les tuiles du niveau montre, celles de trois niveaux plus haut (une ou deux, souvent deja lues) : zoomer ne passe pas par un
   // ecran vide le temps que les nouvelles arrivent.
   const attente = v.niveauFige === null && Math.round(vue.zoom) - 3 >= 3 ? Math.round(vue.zoom) - 3 : null;

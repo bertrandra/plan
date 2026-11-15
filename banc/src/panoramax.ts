@@ -7,7 +7,9 @@ export const GEOCODAGE_URL = 'https://data.geopf.fr/geocodage/search';
 export const GEOCODAGE_REPLI_URL = 'https://api-adresse.data.gouv.fr/search/';
 export const RECHERCHE_URL = 'https://api.panoramax.xyz/api/search';
 /**
- * Les serveurs d'images que la page peut lire (banc/public/.htaccess) : une photo servie ailleurs n'est pas proposee.
+ * Les serveurs d'images que la page lit en direct (banc/public/.htaccess). Une photo servie ailleurs (une autre instance federee du
+ * meta-catalogue) passe par le relais du serveur du banc (`Relais`, api.php) : toute instance marche d'office, sans nouvelle version.
+ * Cette liste n'a donc plus a grandir pour qu'une photo se propose ; un hote y gagne seulement d'etre lu sans passer par le serveur.
  * Le dernier est le stockage de l'instance de l'IGN : la recherche du meta-catalogue y renvoie une grande part de ses photos (lien
  * `via` vers panoramax.ign.fr), servies avec `Access-Control-Allow-Origin: *`. Sans lui, des rues entieres de la couverture ne
  * proposaient aucune photo. Les instances tierces du catalogue se decident une par une : panoramax.mapcomplete.org est admise
@@ -35,6 +37,8 @@ export interface PhotoRue {
   date: string | null;
   auteur: string | null;
   licence: string | null;
+  /** Ses images viennent d'un hote que la page ne lit pas en direct : elles passent par le relais du serveur du banc. */
+  parRelais: boolean;
   /**
    * Le cap dit-il vraiment ou regarde la photo ? Faux quand il n'y a pas de boussole et que l'appareil avancait a peine (`capDouteux`) :
    * le tri des facades ne peut alors rien affirmer d'une photo plate.
@@ -143,17 +147,39 @@ export function capsDouteux(feats: readonly PhotoStac[]): Set<string> {
 
 const autorise = (url: unknown): url is string => typeof url === 'string' && HOTES.some((h) => url.startsWith(h + '/'));
 
+export type TailleRelais = 'hd' | 'sd' | 'vignette';
+/**
+ * L'adresse du relais pour une photo et une taille (api.ts::relais). Le relais ne recoit jamais une adresse d'image : seulement
+ * l'identifiant de la photo, que le serveur redemande lui-meme au meta-catalogue.
+ */
+export type Relais = (id: string, taille: TailleRelais) => string;
+/** Ce que la carte dit quand le relais ne marche pas : ces photos ne se proposent pas, et pourquoi. */
+export function avisDuRelais(n: number, raison: string): string {
+  const s = n > 1 ? 's' : '';
+  return `${n} photo${s} servie${s} par un hôte que le banc ne lit pas en direct ${n > 1 ? 'ne sont' : 'n’est'} pas proposée${s} : le relais du serveur a échoué${raison ? ` (${raison.replace(/\.$/, '')})` : ''}.`;
+}
+
+/** Les identifiants de Panoramax sont des UUID : le relais n'en accepte pas d'autre. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /**
  * Les photos d'une reponse de recherche, rapportees a l'adresse : dans le rayon, les plus proches d'abord. `vise` : l'adresse est dans
  * le champ de la photo (un panoramique la voit toujours ; une photo plate, a moins de la moitie de son champ, plus 10 degres).
+ * `relais` : avec lui, une photo d'un hote non liste se propose aussi, ses images lues par le serveur du banc ; sans lui, elle est
+ * laissee (comme avant le relais).
  */
-export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, rayonM: number): PhotoRue[] {
+export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, rayonM: number, relais?: Relais): PhotoRue[] {
   const feats = ((json as { features?: unknown[] })?.features ?? []) as PhotoStac[];
   const out: PhotoRue[] = [], douteux = capsDouteux(feats);
   for (const f of feats) {
     const c = f.geometry?.coordinates;
-    const hd = f.assets?.hd?.href ?? f.assets?.sd?.href;
-    if (!f.id || !c || typeof c[0] !== 'number' || typeof c[1] !== 'number' || !autorise(hd)) continue;
+    const brute = f.assets?.hd?.href ?? f.assets?.sd?.href, id = f.id;
+    if (!id || !c || typeof c[0] !== 'number' || typeof c[1] !== 'number' || typeof brute !== 'string') continue;
+    // Chaque image en direct si son hote est liste, sinon par le relais (qui ne prend que des identifiants de Panoramax).
+    const parRelais = !autorise(brute), relayer = relais && UUID.test(id) ? relais : null;
+    if (parRelais && !relayer) continue;
+    const lien = (url: unknown, taille: TailleRelais): string | null => (autorise(url) ? url : relayer && typeof url === 'string' ? relayer(id, taille) : null);
+    const hd = lien(brute, f.assets?.hd?.href ? 'hd' : 'sd') as string;
     const p = f.properties ?? {};
     const orient = (p['pers:interior_orientation'] ?? {}) as { field_of_view?: unknown; sensor_array_dimensions?: unknown };
     const capteur = Array.isArray(orient.sensor_array_dimensions) ? (orient.sensor_array_dimensions as unknown[]) : [];
@@ -166,16 +192,14 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
     const cap = capVers(pos, cible);
     const panoramique = champ >= 300;
     const vise = panoramique || (az !== null && Math.abs(ecartAngle(az, cap)) <= champ / 2 + 10);
-    const vignette = f.assets?.thumb?.href ?? null;
-    const sd = f.assets?.sd?.href ?? null;
     out.push({
-      id: f.id, collection: f.collection ?? null, lat: pos.lat, lon: pos.lon, azimut: az, champ, panoramique, hd,
-      sd: autorise(sd) ? sd : null,
-      vignette: autorise(vignette) ? vignette : null,
+      id, collection: f.collection ?? null, lat: pos.lat, lon: pos.lon, azimut: az, champ, panoramique, hd,
+      sd: lien(f.assets?.sd?.href, 'sd'),
+      vignette: lien(f.assets?.thumb?.href, 'vignette'),
       date: typeof p['datetime'] === 'string' ? p['datetime'] : null,
       auteur: typeof p['geovisio:producer'] === 'string' ? p['geovisio:producer'] : null,
       licence: typeof p['license'] === 'string' ? p['license'] : null,
-      capSur: !douteux.has(f.id), forme,
+      parRelais, capSur: !douteux.has(id), forme,
       distance: Math.round(distance * 10) / 10, cap: Math.round(cap * 10) / 10, vise,
     });
   }

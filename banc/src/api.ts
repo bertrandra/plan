@@ -23,6 +23,17 @@ async function appel<T>(methode: string, r: string, params: Record<string, strin
   return json as T;
 }
 
+/**
+ * Lit une image (un panoramique, une photo a importer). En erreur, la raison que donne le serveur du banc quand c'est lui qui a
+ * repondu (le relais Panoramax dit pourquoi il refuse), sinon le code HTTP.
+ */
+export async function lireImage(url: string, init?: RequestInit): Promise<Blob> {
+  const r = await fetch(url, init);
+  if (r.ok) return r.blob();
+  const raison = r.headers.get('content-type')?.startsWith('application/json') ? ((await r.json().catch(() => null)) as { erreur?: string } | null)?.erreur : null;
+  throw new ErreurApi(raison ?? 'HTTP ' + r.status, r.status);
+}
+
 export const api = {
   etat: () => appel<{ connecte: boolean }>('GET', 'etat'),
   connexion: (motDePasse: string) => appel<{ connecte: boolean }>('POST', 'connexion', {}, { motDePasse }),
@@ -62,5 +73,7 @@ export const api = {
   },
   supprimerModele: (id: string) => appel<{ supprime: string }>('DELETE', 'modele', { id }),
   urlModele: (id: string) => route('modele', { id }),
+  /** L'image d'une photo Panoramax lue par le serveur du banc, pour les hotes que la page ne lit pas en direct : un identifiant et une taille, jamais une adresse. */
+  relais: (id: string, taille: 'hd' | 'sd' | 'vignette') => route('relais', { id, taille }),
   urlExport: (format: 'detect' | 'seg' | 'rfdetr' | 'natif', verifiees: boolean, base = '', depart: 'coco' | 'zero' = 'coco') => route('export', { format, verifiees: verifiees ? '1' : '0', ...(base ? { base, depart } : {}) }),
 };

@@ -6,7 +6,7 @@ import { choixDeCreation, cibleDuNom, CLASSES_DEFAUT, erreursDeLArbre, idDuNom, 
 import { parentDe, rangerLesParents, iou } from '../src/geometrie.js';
 import { ajouterSommet, changerClasse, changerType, creerRectangle, deplacer, enPolygone, Historique, retirerSommet, supprimer, tirerPoignee } from '../src/edition.js';
 import { lireExif } from '../src/exif.js';
-import { capVers, distanceM, ecartAngle, HOTES, lireAdresse, lirePhotos } from '../src/panoramax.js';
+import { avisDuRelais, capVers, distanceM, ecartAngle, HOTES, lireAdresse, lirePhotos, type Relais } from '../src/panoramax.js';
 import { blocTire, dansLEchantillon, partsValables, tirage } from '../src/blocs.js';
 import { vueDuPanoramique } from '../src/equirect.js';
 import { decoderV10, decoderV8, letterbox, nms } from '../src/yolo.js';
@@ -169,6 +169,40 @@ describe('Panoramax autour d’une adresse', () => {
       const sources = (csp.split(';').map((x) => x.trim()).find((x) => x.startsWith(d + ' ')) ?? '').split(' ');
       expect(sources.filter((x) => x.includes('mapcomplete')), d).toEqual([hote]);
     }
+  });
+
+  it('toute instance fédérée, sans nouvelle version : un hôte non listé passe par le relais, qui ne reçoit qu’un identifiant et une taille', () => {
+    const relais: Relais = (id, taille) => `api.php?r=relais&id=${id}&taille=${taille}`;
+    const id = '0b7c1e2a-3d4f-4a5b-8c6d-7e8f9a0b1c2d', hote = 'https://photos.instance-federee.example';
+    const json = { features: [{ id, geometry: { coordinates: [cible.lon, cible.lat] }, properties: { 'view:azimuth': 10, license: 'CC-BY-SA-4.0', 'geovisio:producer': 'quelqu’un' },
+      assets: { hd: { href: hote + '/p/hd.jpg' }, sd: { href: hote + '/p/sd.jpg' }, thumb: { href: hote + '/p/thumb.jpg' } } }] };
+    // Sans relais (comme avant) : la photo n'est pas proposee.
+    expect(lirePhotos(json, cible, 50)).toEqual([]);
+    const [p] = lirePhotos(json, cible, 50, relais);
+    expect([p?.hd, p?.sd, p?.vignette, p?.parRelais]).toEqual([relais(id, 'hd'), relais(id, 'sd'), relais(id, 'vignette'), true]);
+    // Aucune adresse de l'hote inconnu ne reste dans ce que la page lira, et les metadonnees de l'import ne changent pas.
+    expect(JSON.stringify(p)).not.toContain('instance-federee');
+    expect([p?.auteur, p?.licence, p?.id]).toEqual(['quelqu’un', 'CC-BY-SA-4.0', id]);
+    // Un hote liste se lit en direct, relais ou pas.
+    const [direct] = lirePhotos({ features: [feat(id, cible.lon, cible.lat, 0, 70)] }, cible, 50, relais);
+    expect([direct?.hd, direct?.parRelais]).toEqual(['https://panoramax.ign.fr/api/pictures/' + id + '/hd.jpg', false]);
+    // Le relais ne prend que des identifiants de Panoramax (UUID) : une photo a l'identifiant douteux n'y est pas envoyee.
+    for (const mauvais of ['abc', '../x', id + '&taille=hd', id.toUpperCase()]) expect(lirePhotos({ features: [{ ...json.features[0], id: mauvais }] }, cible, 50, relais)).toEqual([]);
+    // Sans image « hd », la version reduite sert d'image a importer, a sa taille.
+    const [sansHd] = lirePhotos({ features: [{ ...json.features[0], assets: { sd: { href: hote + '/p/sd.jpg' } } }] }, cible, 50, relais);
+    expect([sansHd?.hd, sansHd?.vignette]).toEqual([relais(id, 'sd'), null]);
+  });
+  it('la politique de contenu ne s’ouvre pas pour autant : ni joker, ni « https: », seulement les hôtes listés', () => {
+    const csp = /Content-Security-Policy "([^"]+)"/.exec(readFileSync(new URL('../public/.htaccess', import.meta.url), 'utf8'))?.[1] ?? '';
+    for (const d of ['img-src', 'connect-src', 'default-src', 'script-src']) {
+      const sources = (csp.split(';').map((x) => x.trim()).find((x) => x.startsWith(d + ' ')) ?? '').split(' ').slice(1);
+      expect(sources.length, d).toBeGreaterThan(0);
+      for (const x of sources) { expect(x, d).not.toContain('*'); expect(['https:', 'http:'], d).not.toContain(x); }
+    }
+  });
+  it('quand le relais échoue, la carte dit combien de photos manquent et pourquoi', () => {
+    expect(avisDuRelais(1, 'Relais Panoramax : le serveur n’a pas cURL.')).toBe('1 photo servie par un hôte que le banc ne lit pas en direct n’est pas proposée : le relais du serveur a échoué (Relais Panoramax : le serveur n’a pas cURL).');
+    expect(avisDuRelais(12, '')).toBe('12 photos servies par un hôte que le banc ne lit pas en direct ne sont pas proposées : le relais du serveur a échoué.');
   });
 
   it('garde les photos du rayon, les plus proches d’abord, dit lesquelles visent l’adresse, et ecarte un hote inconnu', () => {

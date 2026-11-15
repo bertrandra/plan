@@ -7,6 +7,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage, import Panoramax : toute instance fédérée se lit, sans nouvelle version** (mandat du propriétaire,
+  15 novembre 2026). Jusqu'ici chaque hôte d'images devait être ajouté à `HOTES` et à la politique de contenu par une version
+  (#684, puis #687). La politique de contenu ne s'ouvre pas : les photos d'un hôte non listé passent par un **relais** du serveur
+  du banc, `GET api.php?r=relais&id=<identifiant>&taille=hd|sd|vignette`, derrière la même connexion que le reste de l'API. La page
+  donne **l'identifiant de la photo et une taille, jamais une adresse** : le serveur demande lui-même la photo au méta-catalogue
+  (`api.panoramax.xyz`) et suit l'adresse de l'image qu'il rend. Un hôte listé se lit en direct, comme avant.
+  **Ce que le relais ouvre** : à une session connectée, la lecture d'une image publique du catalogue Panoramax. **Ce qu'il n'ouvre
+  pas**, chaque point essayé (`banc/tests/relais.test.ts`) : un identifiant qui n'est pas un UUID ou une taille inconnue (400,
+  avant toute requête) ; autre chose que `https` sur le port 443, sans identifiants, vers un nom d'hôte (pas une adresse en
+  chiffres) ; un hôte dont une seule adresse est privée, locale, lien-local ou réservée (la connexion se fait à l'adresse vérifiée,
+  `CURLOPT_RESOLVE`) ; plus de trois redirections, suivies à la main et chacune revérifiée (une redirection vers 127.0.0.1, un
+  hôte privé ou `http` s'arrête avant toute connexion, que ce soit l'image ou le catalogue lui-même) ; ce qui n'est pas une image
+  (en-tête `Content-Type` et premiers octets : JPEG, PNG, WebP ; ni SVG ni HTML) ; plus de 25 Mo en `hd` (un 360 pèse de 0,8 à
+  6,9 Mo sur 603 photos mesurées), 4 Mo en `sd`, 1 Mo pour une vignette, la lecture s'arrêtant à la borne ; un hôte lent (5 s
+  pour se connecter, 8 à 30 s pour lire) ; plus de 180 images par session et par minute (429). La réponse porte le type lu sur les
+  octets, `nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin` ; le
+  navigateur seul la garde (une heure), le serveur n'écrit rien sur son disque. Il faut cURL en PHP (501 sinon).
+  Côté écran : le message « servies par un hôte que le banc ne lit pas » ne reste que si le relais échoue, et la carte dit alors
+  combien de photos manquent et pourquoi (la raison du serveur) ; un aperçu ou un import qui échoue par le relais dit aussi sa
+  raison. Auteur, licence, identifiant et instance des photos importées sont inchangés. Vérifié sur le vrai réseau, le banc
+  construit sans l'hôte de l'IGN ni dans `HOTES` ni dans la politique de contenu : au 2 allée des Limites, les six photos se
+  proposent, leurs versions réduites, l'aperçu et l'import (1 600 × 1 200, « geovelo », etalab-2.0) passent par le relais, sans
+  refus de la politique de contenu ; serveur sans sortie, la carte dit « 5 photos servies par un hôte que le banc ne lit pas en
+  direct ne sont pas proposées : le relais du serveur a échoué (… l'hôte api.panoramax.xyz est injoignable) ». La liste des hôtes
+  lus en direct et la politique de contenu ne changent pas.
+
 - **Banc d'apprentissage, import Panoramax : « la maison se voit-elle ? »** (mandat du propriétaire, 15 novembre 2026). Le tri par
   la géométrie ne voit ni les haies ni les arbres : au Vésinet, une bonne part des vues proposées montrent la maison derrière une
   haie, des arbres ou une clôture. L'aperçu de chaque vue proposée d'un panoramique est maintenant **lu**, sans modèle, sans réseau
