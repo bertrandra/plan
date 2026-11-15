@@ -38,6 +38,9 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
           })}
         </div>
       )}
+      {c.faceAuMur.length > 0 && (
+        <p className="aide face-au-mur" role="status"><b>{c.faceAuMur.length} vue(s) ont été rendues face au mur à l’import</b> (l’axe perpendiculaire au mur, d’après la BD TOPO) : elles sont en principe déjà de face. Vérifiez-en quelques-unes, puis <button type="button" disabled={occupe} onClick={() => { void c.garderLes(c.faceAuMur); }}><Icone nom="face" taille={16} /> passez-les telles quelles à la mosaïque</button> ; « Auto » ne leur convient pas (leur centre optique est hors de l’image).</p>
+      )}
       {c.choix.length > 0 && (
         <div className="barre-choix" role="toolbar" aria-label="Photos choisies">
           <strong>{c.choix.length} choisie(s)</strong>
@@ -74,6 +77,7 @@ function Carte({ m, echec, occupe, rang, mur, onBasculer, onAuto, onMain, onGard
       <span className={'coche-photo' + (rang >= 0 ? ' active' : '')} aria-hidden="true">{rang >= 0 ? rang + 1 : ''}</span>
       {echec ? <span className="etiquette-photo attention droite">Auto échoué</span> : fait && <span className="etiquette-photo ok droite">{m.redressement?.methode ?? 'redressée'}</span>}
       {mur > 0 && <span className="etiquette-photo mur">Mur {mur}</span>}
+      {m.cadrage?.plan && !fait && <span className="etiquette-photo accent droite" title="Rendue face au mur à l’import">face au mur</span>}
       <div className="legende-photo"><span className="nom">{m.nom ?? m.id}</span><small>{m.largeur && m.hauteur ? `${m.largeur}×${m.hauteur}` : ''}{m.focale35 ? ` · ${m.focale35} mm` : ''}</small></div>
       <div className="actions-carte">
         <button type="button" disabled={occupe} onClick={onAuto} title="Par les points de fuite"><Icone nom="auto" /> Auto</button>

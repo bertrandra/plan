@@ -2,6 +2,8 @@
 // Panoramax est le commun des photos de rue libres (OpenStreetMap France, IGN) : son API STAC rend, dans une emprise, chaque photo
 // avec sa position, son cap (`view:azimuth`) et le champ de son objectif (360 pour un panoramique).
 
+import type { CadreDeVue } from './cadrage.js';
+
 export const GEOCODAGE_URL = 'https://data.geopf.fr/geocodage/search';
 /** Le repli quand la Geoplateforme ne repond pas : l'ancienne API Adresse (meme format de reponse). */
 export const GEOCODAGE_REPLI_URL = 'https://api-adresse.data.gouv.fr/search/';
@@ -46,6 +48,8 @@ export interface PhotoRue {
   capSur: boolean;
   /** La forme de l'image (largeur sur hauteur) : 4/3 quand le capteur n'est pas dit ; moins de 1 pour une photo en hauteur. */
   forme: number;
+  /** La largeur de l'image d'origine en pixels, quand le capteur est dit : de quoi ne pas agrandir un 360 au-dela de ce qu'il contient (cadrage.ts). */
+  largeurPx?: number | null;
   /** Calcules pour l'adresse cherchee : la distance, le cap de la photo vers l'adresse, et si l'adresse est dans le champ. */
   distance: number;
   cap: number;
@@ -184,6 +188,7 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
     const orient = (p['pers:interior_orientation'] ?? {}) as { field_of_view?: unknown; sensor_array_dimensions?: unknown };
     const capteur = Array.isArray(orient.sensor_array_dimensions) ? (orient.sensor_array_dimensions as unknown[]) : [];
     const forme = typeof capteur[0] === 'number' && typeof capteur[1] === 'number' && capteur[0] > 0 && capteur[1] > 0 ? capteur[0] / capteur[1] : 4 / 3;
+    const largeurPx = typeof capteur[0] === 'number' && capteur[0] > 0 ? capteur[0] : null;
     const champ = typeof orient.field_of_view === 'number' && orient.field_of_view > 0 ? orient.field_of_view : 70;
     const az = typeof p['view:azimuth'] === 'number' ? ((p['view:azimuth'] % 360) + 360) % 360 : null;
     const pos = { lat: c[1], lon: c[0] };
@@ -199,7 +204,7 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
       date: typeof p['datetime'] === 'string' ? p['datetime'] : null,
       auteur: typeof p['geovisio:producer'] === 'string' ? p['geovisio:producer'] : null,
       licence: typeof p['license'] === 'string' ? p['license'] : null,
-      parRelais, capSur: !douteux.has(id), forme,
+      parRelais, capSur: !douteux.has(id), forme, largeurPx,
       distance: Math.round(distance * 10) / 10, cap: Math.round(cap * 10) / 10, vise,
     });
   }
@@ -221,6 +226,8 @@ export interface VueAExtraire {
   vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string; cote?: number; note?: number; distanceFacade?: number; doublon?: boolean;
   /** Le banc a deja une image de cette facade (ce batiment par ce cote, murs.ts) : la vue reste visible, marquee, pas proposee cochee. */
   dejaLa?: boolean;
+  /** Le cadre de la vue tiree d'un 360 (cadrage.ts) : son champ, son tangage, ou la vue face au mur ; absent : 75 degres, 8 vers le haut. */
+  cadre?: CadreDeVue;
   /** Ou le batiment se trouve dans l'image de la vue, d'apres la geometrie (parts de la largeur et de la hauteur). */
   zone?: { gauche: number; droite: number; haut: number; bas: number };
   /** La facade est cachee par une haie, des arbres ou une cloture (vueDegagee.ts) : la note en tient compte. */

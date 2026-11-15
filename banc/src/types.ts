@@ -69,6 +69,11 @@ export interface MetaImage {
   /** L'identifiant de la parcelle cadastrale (IGN) vers laquelle la photo a ete cherchee. */
   parcelle?: string | null;
   panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie' } | null;
+  /**
+   * Le cadre de la vue tiree d'un 360 a l'import (cadrage.ts) : son champ et son tangage, d'ou ils viennent, si la facade y tient en
+   * entier, et `plan` quand la vue a ete rendue face au mur (l'axe perpendiculaire au mur : elle est deja de face, le redressement le sait).
+   */
+  cadrage?: { champ: number; tangage: number; source: 'defaut' | 'facade' | 'main'; entier?: boolean; plan?: { axe: number; x0: number; x1: number; y0: number; y1: number } } | null;
   /** Le mur que la vue montre (murs.ts) ; absent : pas encore cherche, ou aucun batiment dans le cadre. */
   mur?: MurDeVue | null;
   /** Le mur a ete cherche apres coup (rattrapage) et rien n'a ete trouve : on ne le redemande pas. */

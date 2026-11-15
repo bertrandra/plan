@@ -237,6 +237,19 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect(liste.find((x) => x.id === m1.id)?.mur?.batiment).toBe('BATIMENT0000000240851971');
   });
 
+  it('garde le cadre d une vue a l import (champ, tangage, vue face au mur), borne, et laisse un cadre a moitie dit', async () => {
+    const envoi = async (id: string, cadrage: unknown) => { const g = new FormData(); g.append('fichier', jpeg(64, 48), 'c.jpg'); g.append('meta', JSON.stringify({ source: 'panoramax', panoramax: { id, panoramique: true, cap: 45 }, focale35: 23.5, cadrage })); return json(await appel('POST', 'images', {}, g)); };
+    expect((await envoi('cadre-1', { champ: 52, tangage: 14, source: 'facade', entier: true, invente: 1 })).cadrage).toEqual({ champ: 52, tangage: 14, source: 'facade', entier: true });
+    const plan = await envoi('cadre-2', { champ: 75, tangage: 8, source: 'facade', plan: { axe: 90, x0: -0.7754, x1: 0.775, y0: -0.4, y1: 0.7628 } });
+    expect(plan.cadrage).toEqual({ champ: 75, tangage: 8, source: 'facade', plan: { axe: 90, x0: -0.775, x1: 0.775, y0: -0.4, y1: 0.763 } });
+    expect(plan.focale35).toBe(23.5);
+    // Une source inconnue redevient « defaut » ; un plan a l'envers ou hors bornes est laisse, le reste garde.
+    expect((await envoi('cadre-3', { champ: 75, tangage: 8, source: 'ailleurs', plan: { axe: 90, x0: 1, x1: -1, y0: 0, y1: 1 } })).cadrage).toEqual({ champ: 75, tangage: 8, source: 'defaut' });
+    // Sans champ, ou hors bornes : pas de cadre du tout, l'image s'importe.
+    expect('cadrage' in (await envoi('cadre-4', { tangage: 8 }))).toBe(false);
+    expect('cadrage' in (await envoi('cadre-5', { champ: 400, tangage: 8 }))).toBe(false);
+  });
+
   it('liste les modeles du depot facade a installer, et garde la correspondance changee', async () => {
     const l = (await (await appel('GET', 'modeles')).json()) as { id: string; installe: boolean; classes: string[] }[];
     expect(l.map((m) => [m.id, m.installe, m.classes])).toEqual([['facade-fenetres', false, ['fenetre', 'porte']], ['facade-volets', false, ['volet']]]);

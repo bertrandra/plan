@@ -68,7 +68,9 @@ Par défaut deux passages (`bureau-clair`, `telephone-court-sombre`), une dizain
 huit de la CI (bureau 1440 × 900, tablette 820 × 1100, téléphone 390 × 844 et 390 × 664, en clair et en sombre), une demi-minute.
 Chaque passage : l'ouverture sur la France (la couverture, « Zoomez sur une zone orange pour voir ses photos de rue »), l'adresse
 (la carte y va, la parcelle AE 101 visée, les photos à 40 m), le compte de « Seulement les façades » puis la case décochée, l'aperçu
-des façades d'un point (survolé à la souris, touché au doigt ; sous la carte au téléphone), « Choisir les vues » ouverte et refermée,
+des façades d'un point (survolé à la souris, touché au doigt ; sous la carte au téléphone), le cadre dit sous chaque vue d'un 360
+(champ de 40° à 100°, tangage de 0° à 35° ; 75° et 8° la case « Cadrer sur la façade » décochée), sa retouche dans « Choisir les vues »
+(cinq degrés de champ de plus, puis de moins), le cadre et la focale équivalente gardés par les vues importées, « Choisir les vues » ouverte et refermée,
 l'import d'une photo au premier passage (201, le compteur du banc monte, chaque vue garde son mur de la BD TOPO ; les suivants la
 voient « déjà dans le banc », et les autres vues du même mur aussi : marquées, comptées « dont N déjà dans le banc », jamais
 cochées), l'écran

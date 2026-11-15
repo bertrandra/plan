@@ -3,7 +3,7 @@
 
 import type { PhotoRue, VueAExtraire } from '../../panoramax.js';
 import { Icone } from '../../ui/Icones.js';
-import { Apercu, NOM_VUE, usePano } from './panoramiques.js';
+import { Apercu, NOM_VUE, texteDuCadre, titreDuCadre, usePano } from './panoramiques.js';
 
 /** La note d'une vue et sa marque de doublon, dites discretement sous l'image. */
 function Marques({ v }: { v: VueAExtraire | undefined }) {
@@ -53,8 +53,8 @@ export function ApercuPhoto({ p, vues, choisie, epinglee, visant, onBasculer, on
         <ul className={vues.length > 2 ? 'apercu-vues serre' : 'apercu-vues'}>
           {vues.map((v, k) => (
             <li key={k}>
-              <Apercu pano={pano} azimut={p.azimut ?? 0} cap={v.cap} largeur={480} />
-              <span>{NOM_VUE[v.vue]} · {Math.round(v.cap)}°<Marques v={v} /></span>
+              <Apercu pano={pano} azimut={p.azimut ?? 0} cap={v.cap} cadre={v.cadre} largeur={480} />
+              <span>{NOM_VUE[v.vue]} · {Math.round(v.cap)}°{v.cadre && <i className="cadre-vue" title={titreDuCadre(v.cadre)}>{texteDuCadre(v.cadre)}</i>}<Marques v={v} /></span>
             </li>
           ))}
           {!vues.length && <li className="aide">Aucune vue de ce panoramique ne sera importée.</li>}

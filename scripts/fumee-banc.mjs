@@ -180,7 +180,7 @@ function mesurerMiseEnPage({ cibles, doigt }) {
 }
 
 const TEXTES = ['.aide', '.etat', '.carte-indice', '.carte-avis p', '.carte-fonds button', '.carte-couches button', '.carte-zoom button', '.carte-echelle', '.carte-credit', '.carte-legende span',
-  '.apercu-photo strong', '.apercu-photo small', '.apercu-vues li span', '.gestes-apercu label', '.gestes-apercu button', '.parcelle-visee', '.parcelle-visee button', '.parcelle-visee code', '.barre-choix button',
+  '.apercu-photo strong', '.apercu-photo small', '.apercu-vues li span', '.apercu-vues .cadre-vue', '.barre-choix label', '.gestes-apercu label', '.gestes-apercu button', '.parcelle-visee', '.parcelle-visee button', '.parcelle-visee code', '.barre-choix button',
   '.mosaique.grande .carte span', '.mosaique.grande .carte button', '.tete-dialogue strong', '.tete-dialogue small', '.tete-dialogue button', '.dialogue .rang button', '.dialogue .rang span', 'form.rang label', 'form.rang button', 'form.rang select', '.segments button']
   .map((s) => (s.startsWith('.tete-dialogue') || s.startsWith('.dialogue') ? '.voile-dialogue ' + s : '.page ' + s)).join(', ');
 const PASTILLES = '.carte-legende .pastille-carte, .carte-legende .pastille-couverture, .carte-couches .pastille-couverture';
@@ -338,6 +338,19 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(await page.locator('li.carte.montree').count() === 1, 'la photo montrée n’est pas mise en valeur dans la liste');
     if (ecran.viewport.width <= 900) verifier(apercu.dessous, 'au téléphone, l’aperçu des façades n’est pas sous la carte'); else verifier(apercu.aCote, 'au bureau, l’aperçu des façades n’est pas à côté de la carte');
     if (apercu.sd) etat.gardees.add(apercu.sd);
+    // Le cadre de chaque vue d'un 360 se dit sous son image : calcule pour la facade (« 52° · ↑6° »), dans les bornes, ou celui d'avant.
+    const CADRE = /^(\d+)° · ↑(\d+)°( · coupée)?$/;
+    if (apercu.titre.startsWith('Panoramique')) {
+      const cadres = await page.locator('aside.apercu-photo .apercu-vues .cadre-vue').allInnerTexts();
+      verifier(cadres.length === apercu.vues && cadres.every((t) => { const m = CADRE.exec(t); return m && Number(m[1]) >= 40 && Number(m[1]) <= 100 && Number(m[2]) >= 0 && Number(m[2]) <= 35; }), 'l’aperçu ne dit pas le cadre de ses vues (champ de 40° à 100°, tangage de 0° à 35°) : ' + cadres.join(' | '));
+      verifier(await page.getByLabel('Cadrer sur la façade').isChecked() && !(await page.getByLabel('Redresser sur le mur').isChecked()) && await page.getByLabel('Préférer l’hiver').isChecked(), 'les réglages du cadrage n’ont pas leurs valeurs de départ (cadrer et hiver cochés, redresser décoché)');
+      // « Cadrer sur la facade » decochee : toutes les vues reviennent a 75 degres et 8 vers le haut.
+      await page.getByLabel('Cadrer sur la façade').uncheck();
+      await attendre(() => { const l = [...document.querySelectorAll('aside.apercu-photo .apercu-vues .cadre-vue')]; return l.length > 0 && l.every((x) => x.textContent === '75° · ↑8°'); }, null, 'case « Cadrer sur la façade » décochée : les vues ne reviennent pas à 75° et 8°');
+      await page.getByLabel('Cadrer sur la façade').check();
+      await attendre((avant) => [...document.querySelectorAll('aside.apercu-photo .apercu-vues .cadre-vue')].map((x) => x.textContent).join('|') === avant, cadres.join('|'), 'case « Cadrer sur la façade » recochée : le cadre calculé ne revient pas');
+      dire(`cadre des vues : ${cadres.join(', ')} ; 75° · ↑8° la case décochée`);
+    }
     const nApercu = await controler('apercu');
     dire(`aperçu : ${apercu.titre}, ${apercu.vues} vue(s) telles qu’importées, ${apercu.dessous ? 'sous' : 'à côté de'} la carte`);
 
@@ -353,6 +366,13 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       verifier(/^360 \d+ \/ \d+$/.test(await texte('.tete-dialogue strong')), 'la fenêtre ne dit pas quel 360 elle montre');
       const tient = await page.evaluate(() => { const d = document.querySelector('.dialogue').getBoundingClientRect(), b = [...document.querySelectorAll('.tete-dialogue button')].at(-1).getBoundingClientRect(); return d.left >= -1 && d.right <= innerWidth + 1 && d.bottom <= innerHeight + 1 && b.top >= 0 && b.bottom <= innerHeight; });
       verifier(tient, 'la fenêtre « Choisir les vues » dépasse de l’écran, ou son bouton « Terminé » n’est pas atteignable');
+      // Le cadre d'une vue se retouche : cinq degres de champ de plus, puis de moins.
+      const cadreVue = page.locator('.dialogue .apercus .cadre-de-vue span').first(), lu = async () => Number(/^(\d+)°/.exec(await cadreVue.innerText())?.[1]);
+      const champ0 = await lu(), sens = champ0 >= 100 ? -5 : 5;
+      await toucher(page.locator('.dialogue .apercus .cadre-de-vue').first().getByRole('button', { name: sens > 0 ? 'Élargir le champ de 5°' : 'Resserrer le champ de 5°' }));
+      await attendre((n) => Number(/^(\d+)°/.exec(document.querySelector('.dialogue .apercus .cadre-de-vue span')?.textContent ?? '')?.[1]) === n, champ0 + sens, `« Choisir les vues » : le champ retouché ne passe pas de ${champ0}° à ${champ0 + sens}°`);
+      await toucher(page.locator('.dialogue .apercus .cadre-de-vue').first().getByRole('button', { name: sens > 0 ? 'Resserrer le champ de 5°' : 'Élargir le champ de 5°' }));
+      await attendre((n) => Number(/^(\d+)°/.exec(document.querySelector('.dialogue .apercus .cadre-de-vue span')?.textContent ?? '')?.[1]) === n, champ0, 'le champ retouché ne revient pas');
       nFenetre = await controler('vues');
       if (doigt) await page.getByRole('button', { name: 'Terminé' }).tap(); else await page.keyboard.press('Escape');
       await fenetre.waitFor({ state: 'detached' });
@@ -382,6 +402,9 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       const murs = await page.evaluate(async () => (await (await fetch('api.php?r=images', { headers: { 'X-Banc': '1' } })).json()).map((m) => m.mur ?? null));
       verifier(murs.length === compteAvant + nVues && murs.every((m) => m && /^BATIMENT/.test(m.batiment) && m.cote >= 0 && m.cote <= 3 && typeof m.azimut === 'number' && typeof m.segment === 'number'), 'les vues importées ne gardent pas leur mur : ' + JSON.stringify(murs).slice(0, 300));
       etat.murs = murs.length;
+      // Et son cadre : le champ et le tangage de la vue tiree du 360, sa focale equivalente pour le redressement.
+      const cadrages = await page.evaluate(async () => (await (await fetch('api.php?r=images', { headers: { 'X-Banc': '1' } })).json()).map((m) => ({ c: m.cadrage ?? null, f: m.focale35 ?? null })));
+      verifier(cadrages.every((x) => x.c && x.c.champ >= 40 && x.c.champ <= 100 && x.c.tangage >= 0 && x.c.tangage <= 35 && ['defaut', 'facade', 'main'].includes(x.c.source) && x.f > 10 && x.f < 60), 'les vues importées ne gardent pas leur cadre : ' + JSON.stringify(cadrages).slice(0, 300));
       etat.importees = 1;
       dire(`import : ${nVues} vue(s), ${statuts.join(' ')} ; le banc passe de ${compteAvant} à ${compteAvant + nVues} photo(s)`);
     }
