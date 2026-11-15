@@ -7,6 +7,41 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage, import Panoramax : le tri par la géométrie** (mandat du propriétaire, 15 novembre 2026, après les constats
+  de la #683 sur le vrai réseau). Cinq choses, toutes dans `banc/`, sans lire l'image :
+  - **Pas des maisons** (`facadesVues.ts::pasUneMaison`) : la BD TOPO dit pour chaque bâtiment sa nature, un ou deux usages, sa
+    hauteur, ses logements et ses étages (rien de plus fin : ni « transformateur », ni « garage »). Sont écartés : serres, silos,
+    tribunes ; les usages agricole, industriel et sportif sans logement ; les annexes de moins de 60 m² ou de moins de 5 m ; les
+    petits bâtiments bas sans logement (moins de 80 m² et de 5 m : le local technique de 51 m² et 3,7 m du Loiret). Tout ce qui loge
+    quelqu'un se garde (« Résidentiel » en premier ou second usage, ou un logement : maison, immeuble, commerce en rez-de-chaussée),
+    et un usage « Indifférencié » n'écarte rien à lui seul. Un bâtiment écarté cache encore ce qui est derrière lui.
+  - **Photos plates** : la moitié de leur champ (le leur, plus les 75° d'une vue de 360), une façade à moins de 30 m qui remplit
+    30 % de l'image (la hauteur du bâtiment et sa distance disent ce qu'il occupe du cadre), et un **cap sûr**. Rue de Rivoli, 35
+    des 49 photos plates gardées venaient d'une caméra d'action portée par un piéton arrêté à un passage : sans boussole, leur cap
+    est tiré du déplacement entre deux photos, donc du bruit du GPS (`panoramax.ts::capsDouteux` : pas de boussole dans l'EXIF et
+    moins de 2 m jusqu'aux photos voisines de la séquence).
+  - **Une note par vue**, de 0 à 100 (`noteDeVue` : distance 30, façade vue de front 25, part du cadre 35, date 10), dite dans
+    l'aperçu et sur chaque carte de la liste ; la liste se trie « meilleures d'abord » par défaut, ou « plus proches », « plus
+    récentes ».
+  - **Un bâtiment, ses meilleures vues** (`meilleuresVues.ts`) : les vues se regroupent par bâtiment visé ; par défaut les deux
+    meilleures prises d'un même endroit se proposent (réglage « Vues par bâtiment » : 1, 2, 3, toutes), les autres restent visibles,
+    décochées, marquées « doublon ». Les vues choisies à la main et celles des bâtiments de la parcelle visée ne sont jamais des
+    doublons. « Cocher les meilleures » coche tout sauf les doublons ; l'état dit photos, façades, bâtiments, doublons, écartées.
+  - **La couverture dit où sont les façades** : à l'échelle de la rue (800 m de large au plus), les tronçons sans mur de maison à
+    40 m se dessinent en gris, légende « rues photographiées sans façade à portée ». Les bâtiments se lisent par cases de 800 m
+    gardées en mémoire (24 cases, deux lectures à la fois, partagées avec le tri des photos : `casesBatiments.ts`). De plus loin
+    rien ne change ; sur une panne ou des bâtiments tronqués tout reste orange et la légende le dit.
+
+  Mesuré sur le vrai réseau (mêmes photos, 150 m autour du point, avant → après) : **campagne** (48.12612, 2.88168) 5 vues du
+  local technique → 0 ; **immeubles** (150 rue de Rivoli) 315 photos et 508 vues → 272 photos et 465 vues, photos plates 49 → 6,
+  puis 42 vues proposées de 19 bâtiments et 423 doublons ; **pavillons** (2 allée des Limites) 47 photos et 92 vues → 47 et 91,
+  puis 59 proposées de 35 bâtiments et 32 doublons, aucune vraie façade perdue. Ce qui reste faux, vu sur les planches : au
+  Vésinet environ une vue proposée sur trois montre encore une haie ou une clôture (la note ne voit pas les haies), rue de Rivoli
+  deux des dix-huit premières (un store de brasserie, une station de vélos) ; un 360 sans boussole et à l'arrêt garde ses vues ;
+  une « vue par bâtiment » de plus loin que 40 m compte à part. Écart avec la consigne : sans parcelle visée rien n'est coché
+  d'office, comme avant (on se promène et les photos cochées restent) ; « Cocher les meilleures » fait le geste. Serveur du banc,
+  politique de contenu et Plan inchangés (les bâtiments viennent du même WFS, déjà admis).
+
 - **Banc d'apprentissage, import Panoramax : les photos de l'instance `panoramax.mapcomplete.org` se proposent** (demande du
   propriétaire, 15 novembre 2026 : « Ajoute cette instance on top »). C'est une instance tierce du méta-catalogue (lien `via` vers
   `https://panoramax.mapcomplete.org`, `instance_name` « mapcomplete »), rencontrée au centre de Paris : 13 photos sur 200 autour de

@@ -1,8 +1,8 @@
 // Le tri des vues qui montrent une facade (banc/src/facadesVues.ts ; demande du proprietaire, 15 novembre 2026 : des facades de maison
 // ou d'immeuble, pas la route ou la campagne) : par la geometrie des batiments de la BD TOPO, sans lire l'image.
 import { describe, it, expect } from 'vitest';
-import { PART_DU_CHAMP_MIN_PLATE, DISTANCE_MAX_M, ECART_VISEE_MAX_DEG, lireBatiments, lireLesBatiments, PART_DU_CHAMP_MIN, ranger, regarder, SURFACE_MIN_M2, surfaceM2, urlBatiments, viserLaFacade, vuesDeFacade, type Batiment } from '../src/facadesVues.js';
-import { ecartAngle, vuesAExtraire } from '../src/panoramax.js';
+import { CADRE_MIN_PLATE, cadrePlat, DISTANCE_MAX_PLATE_M, facadeAPortee, HAUTEUR_LOCAL_MAX_M, noteDeVue, pasUneMaison, plateMontreUneFacade, PART_DU_CHAMP_MIN_PLATE, DISTANCE_MAX_M, ECART_VISEE_MAX_DEG, lireBatiments, lireLesBatiments, PART_DU_CHAMP_MIN, ranger, regarder, SURFACE_ANNEXE_MAX_M2, SURFACE_LOCAL_MAX_M2, SURFACE_MIN_M2, surfaceM2, urlBatiments, viserLaFacade, vuesDeFacade, type Batiment } from '../src/facadesVues.js';
+import { capsDouteux, ecartAngle, lirePhotos, PAS_MIN_CAP_M, vuesAExtraire } from '../src/panoramax.js';
 
 // 2 allee des Limites, Le Vesinet : la photo est la, dans une rue qui file vers le nord (l'est a droite, l'ouest a gauche).
 const ici = { lat: 48.905067, lon: 2.132536 };
@@ -96,7 +96,7 @@ describe('mieux viser : la vue d’un 360 se tourne vers sa façade', () => {
   });
   it('les vues de la visée « droit vers la parcelle » gardent leur cap : seul le tri s’ajoute', () => {
     const s = ranger([maison('est', 13, 8)]);
-    expect(vuesDeFacade(s, pano, [{ vue: 'adresse', cap: 70 }])).toEqual([{ vue: 'adresse', cap: 70, batiment: 'est' }]);
+    expect(vuesDeFacade(s, pano, [{ vue: 'adresse', cap: 70 }])).toMatchObject([{ vue: 'adresse', cap: 70, batiment: 'est' }]);
     expect(vuesDeFacade(s, pano, [{ vue: 'adresse', cap: 250 }])).toEqual([]);
   });
 });
@@ -123,5 +123,140 @@ describe('les bâtiments de la BD TOPO (WFS de la Géoplateforme)', () => {
     expect([tout.batiments.length, tout.tronque, demandes.length]).toEqual([5, false, 3]);
     const partiel = await lireLesBatiments({ sud: 0, ouest: 0, nord: 1, est: 1 }, lire(50), 2, 2);
     expect([partiel.batiments.length, partiel.tronque]).toEqual([4, true]);
+  });
+});
+
+describe('pas des maisons : ce que la BD TOPO dit du bâtiment', () => {
+  const bat = (l: number, h: number, a: Partial<Batiment>): Batiment => ({ ...maison('b', 13, 0, l, h), ...a });
+  it('le local technique du Loiret (48.12612, 2.88168) : 51 m², 3,7 m, « Commercial et services », aucun logement — écarté', () => {
+    const local = bat(8.5, 6, { nature: 'Indifférenciée', usage1: 'Commercial et services', usage2: null, hauteur: 3.7, logements: 0, etages: 1 });
+    expect(surfaceM2(local.contour)).toBeLessThan(SURFACE_LOCAL_MAX_M2);
+    expect(pasUneMaison(local)).toBe('local');
+    expect(vuesDeFacade(ranger([local]), pano, cotes)).toEqual([]);
+  });
+  it('garde les maisons, les immeubles et le commerce en rez-de-chaussée d’immeuble', () => {
+    expect(pasUneMaison(bat(10, 10, { usage1: 'Résidentiel', hauteur: 3, logements: 1 }))).toBeNull();
+    expect(pasUneMaison(bat(6, 5, { usage1: 'Résidentiel', hauteur: 3.2 }))).toBeNull();
+    expect(pasUneMaison(bat(20, 15, { usage1: 'Résidentiel', usage2: 'Commercial et services', hauteur: 21, logements: 12 }))).toBeNull();
+    expect(pasUneMaison(bat(20, 15, { usage1: 'Commercial et services', usage2: 'Résidentiel', hauteur: 18 }))).toBeNull();
+    // Un grand magasin de la rue de Rivoli : commercial, sans logement, mais haut et grand.
+    expect(pasUneMaison(bat(40, 30, { usage1: 'Commercial et services', hauteur: 27.8, logements: 0 }))).toBeNull();
+  });
+  it('dans le doute, garde : un usage « Indifférencié » ou absent n’écarte rien à lui seul', () => {
+    expect(pasUneMaison(bat(12, 10, { usage1: 'Indifférencié', hauteur: 7.9 }))).toBeNull();
+    expect(pasUneMaison(bat(6, 6, { usage1: 'Indifférencié', hauteur: null }))).toBeNull();
+    expect(pasUneMaison(bat(6, 6, {}))).toBeNull();
+    // Petit et bas, en revanche : un local, quel que soit l'usage dit.
+    expect(pasUneMaison(bat(6, 6, { usage1: 'Indifférencié', hauteur: HAUTEUR_LOCAL_MAX_M - 1 }))).toBe('local');
+  });
+  it('hangars agricoles, ateliers, gymnases, serres et silos : écartés', () => {
+    expect(pasUneMaison(bat(30, 15, { usage1: 'Agricole', hauteur: 8 }))).toBe('usage');
+    expect(pasUneMaison(bat(30, 15, { usage1: 'Industriel', hauteur: 8 }))).toBe('usage');
+    expect(pasUneMaison(bat(30, 15, { usage1: 'Sportif', hauteur: 9 }))).toBe('usage');
+    expect(pasUneMaison(bat(30, 15, { nature: 'Serre', usage1: 'Agricole' }))).toBe('nature');
+    expect(pasUneMaison(bat(8, 8, { nature: 'Silo', usage1: 'Résidentiel' }))).toBe('nature');
+    // La ferme habitee reste : un logement l'emporte sur l'usage agricole.
+    expect(pasUneMaison(bat(30, 15, { usage1: 'Agricole', usage2: 'Résidentiel', hauteur: 8 }))).toBeNull();
+  });
+  it('annexes : le garage part, la grande dépendance haute reste', () => {
+    const garage = bat(6, 5, { usage1: 'Annexe', hauteur: null, logements: 0, etages: 1 });
+    expect(surfaceM2(garage.contour)).toBeLessThan(SURFACE_ANNEXE_MAX_M2);
+    expect(pasUneMaison(garage)).toBe('annexe');
+    expect(pasUneMaison(bat(12, 10, { usage1: 'Annexe', hauteur: 3.5 }))).toBe('annexe');
+    expect(pasUneMaison(bat(12, 10, { usage1: 'Annexe', hauteur: 7 }))).toBeNull();
+    expect(pasUneMaison(bat(6, 5, { usage1: 'Résidentiel', usage2: 'Annexe' }))).toBeNull();
+  });
+  it('un bâtiment écarté ne montre rien mais cache la maison derrière lui', () => {
+    const garage = { ...maison('garage', 10, 0, 6, 8), usage1: 'Annexe', hauteur: 2.8 };
+    const s = ranger([garage, maison('derriere', 25, 0, 10, 8)]);
+    expect(s.facade).toEqual([false, true]);
+    // Le garage occupe le milieu du champ : la maison derriere n'est vue que par ses bords.
+    expect(regarder(s, ici, 90).part).toBeLessThan(PART_DU_CHAMP_MIN);
+    expect(regarder(ranger([maison('derriere', 25, 0, 10, 8)]), ici, 90).facade).toBe(true);
+    expect(facadeAPortee(ranger([garage]), ici)).toBe(false);
+    expect(facadeAPortee(s, ici)).toBe(true);
+  });
+  it('demande au WFS les attributs dont la règle a besoin, et les lit', () => {
+    const noms = new URL(urlBatiments({ sud: 0, ouest: 0, nord: 1, est: 1 })).searchParams.get('PROPERTYNAME')?.split(',') ?? [];
+    expect(noms).toEqual(expect.arrayContaining(['cleabs', 'nature', 'usage_1', 'usage_2', 'hauteur', 'nombre_de_logements', 'nombre_d_etages', 'construction_legere', 'geometrie']));
+    const [b] = lireBatiments({ features: [{ properties: { cleabs: 'X', nature: 'Indifférenciée', usage_1: 'Commercial et services', usage_2: null, hauteur: 3.7, nombre_de_logements: 0, nombre_d_etages: 1 }, geometry: { type: 'Polygon', coordinates: [maison('x', 0, 0).contour.map((p) => [p.lon, p.lat])] } }] });
+    expect(b).toMatchObject({ id: 'X', nature: 'Indifférenciée', usage1: 'Commercial et services', usage2: null, hauteur: 3.7, logements: 0, etages: 1 });
+  });
+});
+
+describe('photos plates : la façade doit remplir le cadre, et le cap être sûr', () => {
+  const immeuble = (x: number, h: number): Batiment => ({ ...maison('i', x, 0, 12, 60), usage1: 'Résidentiel', hauteur: h });
+  it('l’immeuble d’en face à dix mètres : gardé ; le même au bout de la chaussée : écarté', () => {
+    const pres = regarder(ranger([immeuble(16, 20)]), ici, 90, cadrePlat(70));
+    expect(plateMontreUneFacade(pres)).toBe(true);
+    const loin = regarder(ranger([immeuble(DISTANCE_MAX_PLATE_M + 9, 20)]), ici, 90, cadrePlat(70));
+    expect(loin.part).toBeGreaterThanOrEqual(PART_DU_CHAMP_MIN_PLATE);
+    expect(loin.distance).toBeGreaterThan(DISTANCE_MAX_PLATE_M);
+    expect(plateMontreUneFacade(loin)).toBe(false);
+    expect(vuesDeFacade(ranger([immeuble(DISTANCE_MAX_PLATE_M + 9, 20)]), { ...plate(90), champ: 70 }, [{ vue: 'photo', cap: 90 }])).toEqual([]);
+    // La meme facade lointaine reste une vue de 360 : on peut la recadrer.
+    expect(vuesDeFacade(ranger([immeuble(DISTANCE_MAX_PLATE_M + 9, 20)]), pano, cotes).map((v) => v.vue)).toEqual(['droite']);
+  });
+  it('grand angle depuis la chaussée : la moitié du champ est bâtie, mais le cadre est surtout de la chaussée et du ciel', () => {
+    // Un mur bas (4 m) a 25 m, vu par un objectif de 97 degres : il ne tient qu'une bande mince de l'image.
+    const r = regarder(ranger([immeuble(31, 4)]), ici, 90, cadrePlat(97));
+    expect(r.part).toBeGreaterThanOrEqual(PART_DU_CHAMP_MIN_PLATE);
+    expect(r.cadre).toBeLessThan(CADRE_MIN_PLATE);
+    expect(plateMontreUneFacade(r)).toBe(false);
+  });
+  it('la part du cadre grandit quand on s’approche et avec la hauteur du bâtiment', () => {
+    const cadre = (x: number, h: number) => regarder(ranger([immeuble(x, h)]), ici, 90, cadrePlat(70)).cadre;
+    expect(cadre(16, 20)).toBeGreaterThan(cadre(30, 20));
+    expect(cadre(30, 20)).toBeGreaterThan(cadre(30, 5));
+    expect(cadre(16, 20)).toBeLessThanOrEqual(1);
+  });
+  it('une photo plate au cap douteux n’est pas affirmée façade ; un 360 au même endroit l’est', () => {
+    const s = ranger([immeuble(16, 20)]);
+    expect(vuesDeFacade(s, { ...plate(90), champ: 70, capSur: true }, [{ vue: 'photo', cap: 90 }])).toHaveLength(1);
+    expect(vuesDeFacade(s, { ...plate(90), champ: 70, capSur: false }, [{ vue: 'photo', cap: 90 }])).toEqual([]);
+    expect(vuesDeFacade(s, { ...pano, capSur: false }, cotes)).toHaveLength(1);
+  });
+  it('cap douteux : sans boussole et presque à l’arrêt dans sa séquence (rue de Rivoli, un piéton à un passage)', () => {
+    const photo = (id: string, rang: number, y: number, exif: Record<string, unknown> = {}, collection = 'c') => ({ id, collection, geometry: { coordinates: [pt(0, y).lon, pt(0, y).lat] }, properties: { 'geovisio:rank_in_collection': rang, exif, 'view:azimuth': 120 }, assets: { hd: { href: 'https://panoramax.openstreetmap.fr/a.jpg' } } });
+    const pas = PAS_MIN_CAP_M / 4;
+    const arret = [photo('a', 1, 0), photo('b', 2, pas), photo('c', 3, 2 * pas)];
+    expect([...capsDouteux(arret)].sort()).toEqual(['a', 'b', 'c']);
+    // La meme sequence avec une boussole, ou en marche (un pas franc entre deux photos) : le cap vaut.
+    expect(capsDouteux(arret.map((f) => photo(f.id as string, f.properties['geovisio:rank_in_collection'], 0, { 'Exif.GPSInfo.GPSImgDirection': '120/1' }))).size).toBe(0);
+    expect(capsDouteux([photo('a', 1, 0), photo('b', 2, 5), photo('c', 3, 10)]).size).toBe(0);
+    // Seule de sa sequence dans la reponse : on ne sait pas, elle n'est pas jugee.
+    expect(capsDouteux([photo('a', 1, 0), photo('z', 1, 0.2, {}, 'autre')]).size).toBe(0);
+    const lues = lirePhotos({ features: arret }, ici, Infinity);
+    expect(lues.map((p) => p.capSur)).toEqual([false, false, false]);
+    expect(lirePhotos({ features: [photo('a', 1, 0), photo('b', 2, 5)] }, ici, Infinity).map((p) => p.capSur)).toEqual([true, true]);
+  });
+});
+
+describe('la note d’une vue, de 0 à 100', () => {
+  const jour = new Date('2026-11-15T00:00:00Z');
+  const vue = (distance: number, incidence: number, cadre: number) => ({ distance, incidence, cadre });
+  it('de face, à bonne distance, le cadre plein, une photo récente : 100 ; rien de tout cela : presque rien', () => {
+    expect(noteDeVue(vue(12, 90, 0.6), '2026-06-01T10:00:00Z', jour)).toBe(100);
+    expect(noteDeVue(vue(40, 35, 0), '2010-01-01T00:00:00Z', jour)).toBeLessThan(10);
+  });
+  it('chaque part compte : plus près de l’idéal, plus de face, plus de cadre, plus récent', () => {
+    const ref = noteDeVue(vue(12, 70, 0.3), '2024-01-01T00:00:00Z', jour);
+    expect(noteDeVue(vue(35, 70, 0.3), '2024-01-01T00:00:00Z', jour)).toBeLessThan(ref);
+    expect(noteDeVue(vue(4, 70, 0.3), '2024-01-01T00:00:00Z', jour)).toBeLessThan(ref);
+    expect(noteDeVue(vue(12, 40, 0.3), '2024-01-01T00:00:00Z', jour)).toBeLessThan(ref);
+    expect(noteDeVue(vue(12, 70, 0.1), '2024-01-01T00:00:00Z', jour)).toBeLessThan(ref);
+    expect(noteDeVue(vue(12, 70, 0.3), '2017-01-01T00:00:00Z', jour)).toBeLessThan(ref);
+  });
+  it('sans date, la moitié de la part de la date ; toujours un entier de 0 à 100', () => {
+    const avec = noteDeVue(vue(12, 90, 0.6), '2026-06-01T10:00:00Z', jour), sans = noteDeVue(vue(12, 90, 0.6), null, jour);
+    expect(avec - sans).toBe(5);
+    for (const n of [noteDeVue(vue(0, 0, 0), null, jour), noteDeVue(vue(500, 200, 3), 'pas une date', jour)]) { expect(Number.isInteger(n)).toBe(true); expect(n).toBeGreaterThanOrEqual(0); expect(n).toBeLessThanOrEqual(100); }
+  });
+  it('chaque vue gardée porte sa note, son bâtiment et la distance à sa façade', () => {
+    const [v] = vuesDeFacade(ranger([maison('est', 13, 0)]), { ...pano, date: '2026-06-01T10:00:00Z' }, [{ vue: 'droite', cap: 90 }], jour);
+    expect(v).toMatchObject({ vue: 'droite', batiment: 'est' });
+    expect(v?.note).toBeGreaterThan(50);
+    expect(v?.distanceFacade).toBeGreaterThan(7.9);
+    expect(v?.distanceFacade).toBeLessThan(10);
   });
 });
