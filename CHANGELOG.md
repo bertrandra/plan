@@ -7,6 +7,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage, import Panoramax : « Proposer un marquage »** (« Do it all all to the end » du propriétaire,
+  15 novembre 2026, « niveau suivant » n° 3). Constat d'abord : le brouillon du banc tourne **dans le navigateur**
+  (onnxruntime-web 1.24.1, chargé d'un CDN), avec les modèles que le serveur a installés — ceux du dépôt `facade` (YOLOv10n,
+  **AGPL-3.0**) ou les vôtres (RF-DETR, Apache 2.0) ; le banc n'en embarque aucun. Un modèle peut donc proposer à l'import sans
+  dépendance nouvelle ni service de plus. Mais le banc marque sur des photos **redressées** : un brouillon posé sur une vue qui
+  passe ensuite par l'étape 2 serait jeté avec elle. La case (décochée ; grisée, avec sa raison, sans modèle actif ou sans
+  « Redresser sur le mur ») ne s'applique donc qu'aux vues que l'import a rendues **face au mur** : chacune est enregistrée telle
+  quelle comme redressée (méthode « import ») et les modèles actifs y proposent des objets « auto », le statut du brouillon de
+  l'étape 3 — jamais dans le jeu avant d'être relus. Ces vues arrivent à l'étape 4 sans passer par le redressement ni par la
+  mosaïque (2a), et c'est dit ; les autres suivent le chemin ordinaire ; l'import annonce « 12 vue(s) importée(s) ; 9 passée(s)
+  au brouillon (143 objet(s) proposé(s)), 3 à redresser ». La même fonction sert l'étape 3 et l'import
+  (`ecrans/brouillon/proposer.ts`) ; la recherche des baies (sans modèle) n'est pas jouée à l'import. **Qualité mesurée**, à
+  l'œil, sur 20 des 26 vues face au mur de Rivoli et du Vésinet marquées par les deux modèles du dépôt `facade` (795 boîtes,
+  une seconde par vue) : en ville, **fenêtres** justes à 95 % environ et trouvées à 80–85 % (manquent des lucarnes, des baies de
+  rez-de-chaussée, quelques travées) ; **volets** justes une fois sur deux seulement (des boîtes sur des vitres ou du mur nu) ;
+  **portes** presque jamais trouvées (7 boîtes sur 26 vues, 2 justes) ; les vitrines ne sont pas une classe. Sur les pavillons,
+  flous et masqués par les arbres : fenêtres justes à 65 %, trouvées à 40–50 %. C'est un brouillon qui épargne le tracé des
+  fenêtres d'immeuble, pas un marquage. Tests : `banc/tests/importMarquage.test.ts` ; la fumée vérifie la case grisée sans modèle.
 - **Banc d'apprentissage, import Panoramax : chaque vue cadrée sur sa façade, redressée sur le mur à la demande, et l'hiver
   préféré** (« Do it all all to the end » du propriétaire, 15 novembre 2026, « niveau suivant » n° 1, 2 et 5). (1) **Cadrage** :
   au lieu de 75° de champ et 8° vers le haut pour toutes, le champ et le tangage de chaque vue d'un 360 se calculent pour que le
