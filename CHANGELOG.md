@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.28.0] — 2026-11-15
+
+Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax part de la carte de France
+(zoom progressif ou adresse), sur un fond Plan IGN ou photo aérienne avec les rues ; les photos de la vue se lisent selon le zoom, une
+parcelle se vise au toucher et les façades s'aperçoivent depuis la carte (#680). Fonction nouvelle : MINOR (§2.1). Seul `banc/` change
+(sa politique de contenu admet les images de `data.geopf.fr`) : aucune quantité ni aucun export de la démonstration ne bouge, les sept
+témoins ne changent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve forte, sept sur sept,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et `glb-structure.json` sont
+identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la 5.19.0 reste à accepter en
+production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison
+de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans la mesure sur main (run 43700402793 ; prompts et schémas inchangés).
+
 ### Ajouté
 
 - **Banc d'apprentissage, import Panoramax : on part de la carte de France, avec les rues et l'aperçu des façades** (demandes du
