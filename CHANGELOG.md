@@ -5,23 +5,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-## [5.30.0] — 2026-11-15
-
-Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'écran d'import Panoramax a sa fumée,
-jouée à chaque PR, et se lit en thème sombre et au doigt (#690) ; les vues se trient par la géométrie (pas-des-maisons et photos
-plates écartés, une note par vue, une façade proposée une fois, couverture grise, #691) ; un écran « Équilibre » montre le jeu de
-données, carte et comptes (#692) ; une façade cachée par la végétation se lit dans l'aperçu (#693) ; les images des instances Panoramax
-non listées passent par un relais du serveur du banc (#694) ; chaque vue importée garde le mur qu'elle montre, et un mur déjà
-dans le banc ne se propose plus (#695). Fonctions nouvelles : MINOR (§2.1). Seul `banc/` change, avec sa fumée en
-CI (`scripts/fumee-banc.mjs`, `scripts/fumee-reseau.mjs`, `.github/workflows/ci.yml`) : aucune quantité ni aucun export de la
-démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve
-forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
-`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la
-5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php`
-**avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Le serveur du banc (`api.php`) change : le relais d'images
-demande que l'hébergement laisse sortir cURL en https, sinon l'écran le dit. Requêtes vérifiées sans la mesure sur main
-(run 43743041067 ; prompts et schémas inchangés).
-
 ### Ajouté
 
 - **Banc d'apprentissage, import Panoramax : chaque vue cadrée sur sa façade, redressée sur le mur à la demande, et l'hiver
@@ -47,6 +30,26 @@ demande que l'hébergement laisse sortir cURL en https, sinon l'écran le dit. R
   ville (façades droites, 26 vues sur 29), neutre sur les pavillons, étiré et flou en haut d'un immeuble vu de près, et tributaire
   de l'orientation du contour de la BD TOPO : elle reste décochée. Tests : `banc/tests/cadrage.test.ts`, `api.test.ts` ; la fumée
   vérifie le cadre dit sous chaque vue, la case décochée, la retouche et le cadre des vues importées.
+
+## [5.30.0] — 2026-11-15
+
+Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'écran d'import Panoramax a sa fumée,
+jouée à chaque PR, et se lit en thème sombre et au doigt (#690) ; les vues se trient par la géométrie (pas-des-maisons et photos
+plates écartés, une note par vue, une façade proposée une fois, couverture grise, #691) ; un écran « Équilibre » montre le jeu de
+données, carte et comptes (#692) ; une façade cachée par la végétation se lit dans l'aperçu (#693) ; les images des instances Panoramax
+non listées passent par un relais du serveur du banc (#694) ; chaque vue importée garde le mur qu'elle montre, et un mur déjà
+dans le banc ne se propose plus (#695). Fonctions nouvelles : MINOR (§2.1). Seul `banc/` change, avec sa fumée en
+CI (`scripts/fumee-banc.mjs`, `scripts/fumee-reseau.mjs`, `.github/workflows/ci.yml`) : aucune quantité ni aucun export de la
+démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la
+5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php`
+**avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Le serveur du banc (`api.php`) change : le relais d'images
+demande que l'hébergement laisse sortir cURL en https, sinon l'écran le dit. Requêtes vérifiées sans la mesure sur main
+(run 43743041067 ; prompts et schémas inchangés).
+
+### Ajouté
+
 - **Banc d'apprentissage : quel mur chaque vue montre, et jamais deux fois le même** (« Do it all all to the end » et « Avoid
   having 2 times the same building » du propriétaire, 15 novembre 2026, « niveau suivant » n° 4). À l'import Panoramax, chaque vue
   gardée par le tri écrit dans ses métadonnées le mur qu'elle regarde (`mur` : l'identifiant du bâtiment dans la BD TOPO, le côté
