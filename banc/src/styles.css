@@ -6,7 +6,8 @@
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --fond: #14171c; --surface: #1d2128; --texte: #e6e9ef; --doux: #9aa3b2; --trait: #343a45; --accent: #4c8dff; --ok: #3fb950; --danger: #ff6b6b; --attention: #e3a008; }
+  /* Le texte sur l'accent est sombre ici : du blanc sur ce bleu clair ne donnait que 3,2:1 (boutons principaux, fond de carte choisi). */
+  :root { --fond: #14171c; --surface: #1d2128; --texte: #e6e9ef; --doux: #9aa3b2; --trait: #343a45; --accent: #4c8dff; --accent-texte: #0b1220; --ok: #3fb950; --danger: #ff6b6b; --attention: #e3a008; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--fond); color: var(--texte); }
@@ -573,5 +574,15 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .parcelle-visee { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .5rem; }
 .parcelle-visee button { min-height: 30px; padding: .1rem .6rem; font-size: .85rem; }
 @media (pointer: coarse) { .parcelle-visee button { min-height: 44px; } }
+/* Au doigt, tout ce qui se touche sur l'ecran d'import et dans la fenetre des vues fait 44 px (controle par scripts/fumee-banc.mjs). */
+@media (pointer: coarse) {
+  .import-panoramax button, .import-panoramax select, .import-panoramax input:not([type="checkbox"]), .import-panoramax form label.case { min-height: 44px; }
+  .import-panoramax .dialogue .apercus .rang { flex-wrap: wrap; }
+  .import-panoramax .dialogue .apercus .rang button, .import-panoramax .tete-dialogue button { min-height: 44px; min-width: 44px; justify-content: center; }
+  /* Sous les fonds de carte, plus hauts au doigt : les deux se recouvraient. */
+  .carte-couches { top: 68px; }
+}
+/* En sombre, le lisere du rayon (bleu fonce, fait pour le fond clair de la carte) ne se lisait plus dans la legende : 2,3:1. */
+@media (prefers-color-scheme: dark) { .carte-legende .pastille-carte.rayon { border-color: var(--accent); } }
 /* Au telephone, le message se range a gauche : au milieu, il passerait sous les boutons du zoom. */
 @media (max-width: 900px) { .carte-indice { left: 10px; transform: none; bottom: 40px; font-size: .8rem; } }

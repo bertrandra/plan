@@ -118,6 +118,16 @@ jobs:
         run: |
           set -o pipefail
           NODE_PATH="$(npm root -g)" node scripts/fumee.mjs http://localhost:5199 ci 2>&1 | tee "$FUMEE_CAPTURES/journal.txt"
+      # Le banc d'apprentissage (banc/, l'application a part) : son ecran d'import Panoramax, sur le paquet construit, servi par PHP
+      # avec la politique de contenu de son .htaccess, reseau temoin (banc/tests/fumee/reseau/ : rien ne part sur le vrai reseau).
+      # Bureau, tablette et telephone (390 x 844 et 390 x 664), en clair et en sombre : moins d'une minute.
+      - name: Fumee du banc (import Panoramax)
+        shell: bash
+        run: |
+          set -o pipefail
+          php -v | head -1
+          npm run build:banc
+          FUMEE_BANC_PASSAGES=tous NODE_PATH="$(npm root -g)" node scripts/fumee-banc.mjs 2>&1 | tee "$FUMEE_CAPTURES/journal-banc.txt"
       - name: Captures et journaux de la fumee
         if: failure()
         uses: actions/upload-artifact@v4
