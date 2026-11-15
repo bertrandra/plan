@@ -1,9 +1,9 @@
 // La carte de l'import Panoramax (banc/src/carte.ts) : la projection des tuiles de l'IGN, la vue et ses gestes, les secteurs de vue ;
 // la lecture du cadastre par pages (parcelles.ts) et la memoire des panoramiques (cache.ts).
 import { describe, it, expect } from 'vitest';
-import { barreEchelle, contient, duEcran, duMonde, elargir, empriseAutour, empriseVue, glisser, largeurM, metresEnLocal, metresParPixel, pincer, placementLocal, secteur, texteEchelle, tuiles, urlTuile, versEcran, versLocal, versMonde, zoomerAutour, zoomPourRayon, ZOOM_MAX, ZOOM_MIN, type VueCarte } from '../src/carte.js';
+import { adoucir, barreEchelle, contient, departDuVol, entreVues, FRANCE, milieuEmprise, vuePourEmprise, duEcran, duMonde, elargir, empriseAutour, empriseVue, glisser, largeurM, metresEnLocal, metresParPixel, pincer, placementLocal, secteur, texteEchelle, tuiles, urlTuile, versEcran, versLocal, versMonde, zoomerAutour, zoomPourRayon, ZOOM_MAX, ZOOM_MIN, type VueCarte } from '../src/carte.js';
 import { Recents } from '../src/cache.js';
-import { distanceM } from '../src/panoramax.js';
+import { distanceM, urlRechercheEmprise } from '../src/panoramax.js';
 import { lireLesParcelles, urlParcellesDansEmprise } from '../src/parcelles.js';
 
 // 2 allee des Limites, Le Vesinet.
@@ -56,9 +56,10 @@ describe('la vue de la carte : voir plus loin, zoomer, glisser, pincer', () => {
       expect(px).toBeLessThanOrEqual(300);
       expect(px).toBeGreaterThan(300 / 1.2);
     }
-    // Bornee : ni plus pres que la facade, ni plus loin que le quartier.
+    // Bornee : ni plus pres que la facade (un pixel pour dix centimetres), ni plus loin que le pays.
+    expect(metresParPixel(46.6, ZOOM_MAX)).toBeCloseTo(0.1, 1);
     expect(zoomPourRayon(ici.lat, 1, taille)).toBe(ZOOM_MAX);
-    expect(zoomPourRayon(ici.lat, 50000, taille)).toBe(ZOOM_MIN);
+    expect(zoomPourRayon(ici.lat, 5_000_000, taille)).toBe(ZOOM_MIN);
   });
   it('la molette garde sous le curseur le meme point du terrain, et s’arrete aux bornes', () => {
     const v: VueCarte = { ...ici, zoom: 17 }, ancre = { x: 820, y: 130 };
@@ -93,9 +94,60 @@ describe('la vue de la carte : voir plus loin, zoomer, glisser, pincer', () => {
   });
 });
 
+describe('partir de la carte de France : l’ouverture, et le vol vers une adresse', () => {
+  it('a l’ouverture, la France metropolitaine tient entiere dans la carte, au bureau comme au telephone', () => {
+    for (const t of [taille, { l: 358, h: 422 }]) {
+      const v = vuePourEmprise(FRANCE, t);
+      for (const coin of [{ lat: FRANCE.nord, lon: FRANCE.ouest }, { lat: FRANCE.sud, lon: FRANCE.est }, { lat: 48.39, lon: -4.49 }, { lat: 41.39, lon: 9.16 }, { lat: 51.03, lon: 2.38 }]) {
+        const e = versEcran(coin, v, t);
+        expect(e.x >= 0 && e.x <= t.l && e.y >= 0 && e.y <= t.h).toBe(true);
+      }
+      // Et pas plus petite qu'il ne faut : elle touche presque deux bords opposes.
+      const e = empriseVue(v, t);
+      expect(Math.min((e.nord - e.sud) / (FRANCE.nord - FRANCE.sud), (e.est - e.ouest) / (FRANCE.est - FRANCE.ouest))).toBeLessThan(1.2);
+      const m = milieuEmprise(e);
+      expect([m.lat, m.lon].map((x) => x.toFixed(4))).toEqual([v.lat, v.lon].map((x) => x.toFixed(4)));
+    }
+  });
+  it('le vol part de la vue, arrive au but, et le but se rapproche du milieu de l’ecran sans jamais s’en eloigner', () => {
+    const de = vuePourEmprise(FRANCE, taille), but: VueCarte = { ...ici, zoom: 18 };
+    const debut = entreVues(de, but, 0);
+    expect([debut.lat.toFixed(9), debut.lon.toFixed(9), debut.zoom]).toEqual([de.lat.toFixed(9), de.lon.toFixed(9), de.zoom]);
+    const fin = entreVues(de, but, 1);
+    expect([fin.lat.toFixed(7), fin.lon.toFixed(7), fin.zoom]).toEqual([ici.lat.toFixed(7), ici.lon.toFixed(7), 18]);
+    let avant = Infinity;
+    for (let k = 0; k <= 10; k++) {
+      const v = entreVues(de, but, adoucir(k / 10)), e = versEcran(ici, v, taille), d = Math.hypot(e.x - 500, e.y - 300);
+      expect(d).toBeLessThanOrEqual(avant + 1e-6);
+      expect(v.zoom).toBeGreaterThanOrEqual(de.zoom);
+      avant = d;
+    }
+    expect(avant).toBeCloseTo(0, 6);
+    expect([adoucir(0), adoucir(0.5), adoucir(1)]).toEqual([0, 0.5, 1]);
+  });
+  it('d’une rue a une autre ville, le vol recule d’abord jusqu’a voir le but ; tout pres, il part d’ou l’on est', () => {
+    const paris: VueCarte = { lat: 48.8566, lon: 2.3522, zoom: 18 }, lyon: VueCarte = { lat: 45.764, lon: 4.8357, zoom: 18 };
+    const d = departDuVol(paris, lyon, taille);
+    expect([d.lat, d.lon]).toEqual([paris.lat, paris.lon]);
+    expect(d.zoom).toBeLessThan(8);
+    const e = versEcran(lyon, d, taille);
+    expect(e.x >= 0 && e.x <= taille.l && e.y >= 0 && e.y <= taille.h).toBe(true);
+    const voisin: VueCarte = { lat: paris.lat + 0.0005, lon: paris.lon + 0.0005, zoom: 19 };
+    expect(departDuVol(paris, voisin, taille)).toBe(paris);
+    // Pendant le vol, le fond reste au niveau le plus grossier du trajet : jamais plus de tuiles qu'a l'arret.
+    const enVol = tuiles(entreVues(d, lyon, 0.5), taille, Math.round(d.zoom));
+    expect(new Set(enVol.map((t) => t.z))).toEqual(new Set([Math.round(d.zoom)]));
+    expect(enVol.length).toBeLessThanOrEqual(tuiles(d, taille).length);
+  });
+  it('les photos d’une vue se cherchent dans son emprise, en longitude d’abord', () => {
+    const u = new URL(urlRechercheEmprise({ sud: 48.9, ouest: 2.13, nord: 48.91, est: 2.14 }, 500));
+    expect([u.origin + u.pathname, u.searchParams.get('bbox'), u.searchParams.get('limit')]).toEqual(['https://api.panoramax.xyz/api/search', '2.130000,48.900000,2.140000,48.910000', '500']);
+  });
+});
+
 describe('les tuiles du fond de plan', () => {
   it('couvrent toute la carte, sans trou ni doublon, au niveau entier le plus proche (19 au plus)', () => {
-    for (const zoom of [15.4, 17, 17.6, 20.8]) {
+    for (const zoom of [5.2, 9, 15.4, 17, 17.6, 19.9]) {
       const v: VueCarte = { ...ici, zoom }, l = tuiles(v, taille);
       const z = Math.min(19, Math.round(zoom));
       expect(new Set(l.map((t) => t.z))).toEqual(new Set([z]));

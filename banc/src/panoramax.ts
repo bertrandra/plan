@@ -67,6 +67,11 @@ export function urlRecherche(lat: number, lon: number, rayonM: number, limite = 
   return RECHERCHE_URL + '?bbox=' + emprise(lat, lon, rayonM).map((v) => v.toFixed(6)).join(',') + '&limit=' + limite;
 }
 
+/** La recherche des photos d'une emprise (ce que la carte montre), en degres. */
+export function urlRechercheEmprise(e: { sud: number; ouest: number; nord: number; est: number }, limite = 500): string {
+  return RECHERCHE_URL + '?bbox=' + [e.ouest, e.sud, e.est, e.nord].map((v) => v.toFixed(6)).join(',') + '&limit=' + limite;
+}
+
 /** Les adresses que le geocodage de la Geoplateforme rend, dans son ordre (la plus probable d'abord). */
 export function lireAdresses(json: unknown): Adresse[] {
   const feats = ((json as { features?: unknown[] })?.features ?? []) as { geometry?: { coordinates?: number[] }; properties?: { label?: string } }[];

@@ -7,20 +7,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
-- **Banc d'apprentissage, import Panoramax : une grande carte avec les rues et l'aperçu des façades** (demande du propriétaire,
-  15 novembre 2026). La petite carte fixe de 70 m, parcelles seules, devient une carte de toute la largeur (60 % de la hauteur de la
-  fenêtre au bureau, la moitié au téléphone) dont l'emprise suit le rayon de recherche, jusqu'à 300 m : fond **Plan IGN v2** avec les
-  noms de rues, **photo aérienne** ou sans fond (WMTS de la Géoplateforme, sans clé, mention « © IGN »), parcelles du cadastre en
-  transparence lues sur ce que la carte montre (par pages ; elle dit quand le cadastre est tronqué, quand il faut se rapprocher, et
-  quand le fond ne se charge pas : les parcelles restent), rayon de recherche dessiné autour de la parcelle, barre d'échelle. Zoom et
-  déplacement à la molette, au pincement, en glissant, aux boutons + / − / recentrer et au clavier. Chaque photo est un point avec un
-  secteur par vue à importer (75° pour un 360, le champ de l'objectif pour une photo plate). Survoler ou toucher un point montre à
-  côté de la carte (dessous au téléphone) les vues telles qu'elles seront importées, la distance, la date, la case « Choisie » et
-  « Choisir les vues » ; toucher un point épingle son aperçu, le toucher encore coche ou décoche la photo (Tab, Entrée, Espace au
-  clavier) ; le point montré est mis en valeur sur la carte et dans la liste, et survoler une carte de la liste met son point en
-  valeur. Les panoramiques réduits déjà lus sont gardés (quatre au plus), le survol attend un court instant avant de lire et annule
-  si l'on passe. Rien ne change dans ce qui est importé ni dans le serveur du banc ; sa politique de contenu admet les images de
-  `data.geopf.fr`. Plan n'est pas touché (aucune quantité, aucun export, AE 101 identique).
+- **Banc d'apprentissage, import Panoramax : on part de la carte de France, avec les rues et l'aperçu des façades** (demandes du
+  propriétaire, 15 novembre 2026 : « voir plus loin graphiquement avec les rues et preview des façade », « je pars de la carte de
+  France avec un zoom progressif ou une adresse »). La petite carte fixe de 70 m, parcelles seules, devient l'entrée de l'écran : une
+  carte de toute la largeur (60 % de la hauteur de la fenêtre au bureau, la moitié au téléphone), ouverte sur la France entière, que
+  l'on zoome jusqu'à la rue (molette, pincement, double clic ou double toucher, boutons + / − / recentrer, glisser, clavier) ou qui
+  vole vers l'adresse tapée (un mouvement court ; d'un coup pour qui a demandé moins d'animations). Fond **Plan IGN v2** avec les noms
+  de rues, **photo aérienne** ou sans fond, à tous les niveaux (WMTS de la Géoplateforme, pyramide PM, sans clé, « © IGN », tuiles de
+  la vue seulement). Ce qui se lit suit le zoom : les photos Panoramax de la vue à partir d'un quartier (600 m de large au plus, 500
+  photos au plus, après une pause du mouvement, la recherche précédente abandonnée ; en deçà : « Zoomez pour voir les photos de
+  rue »), les parcelles du cadastre à partir de la rue (1 600 m), par pages (la carte dit quand le cadastre est tronqué ou en panne,
+  et quand le fond ne se charge pas : les parcelles restent). Toucher une parcelle la vise : les photos se cherchent autour d'elle,
+  dans le rayon dessiné (jusqu'à 300 m), « qui la regardent », avec la visée des 360 ; la toucher encore la lâche. Sans parcelle
+  visée, les photos de la vue se cochent une à une, en vues des deux côtés de la rue. Chaque photo est un point avec un secteur par
+  vue à importer (75° pour un 360, le champ de l'objectif pour une photo plate). Survoler ou toucher un point montre à côté de la
+  carte (dessous au téléphone) les vues telles qu'elles seront importées, la date, la case « Choisie » et « Choisir les vues » ;
+  toucher un point épingle son aperçu, le toucher encore coche ou décoche la photo (Tab, Entrée, Espace au clavier) ; le point montré
+  est mis en valeur sur la carte et dans la liste, et survoler une carte de la liste met son point en valeur. Les panoramiques
+  réduits déjà lus sont gardés (quatre au plus), le survol attend un court instant avant de lire et annule si l'on passe. Ce qui est
+  importé garde son format et le serveur du banc ne change pas : avec une parcelle visée, les mêmes vues, métadonnées et lot
+  qu'avant ; sans elle, `parcelle` est nul et `adresse` n'est gardée que pour une photo prise à moins de 300 m de l'adresse cherchée.
+  La politique de contenu du banc admet les images de `data.geopf.fr`. Plan n'est pas touché (aucune quantité, aucun export, AE 101
+  identique).
 
 ## [5.27.1] — 2026-11-14
 

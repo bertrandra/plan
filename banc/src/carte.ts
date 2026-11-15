@@ -14,8 +14,13 @@ export interface Tuile { z: number; x: number; y: number; gauche: number; haut: 
 export type Fond = 'plan' | 'photo' | 'aucun';
 
 export const COTE_TUILE = 256;
-/** Du quartier (13) a la facade (21) ; au-dela de 19 les tuiles de l'IGN n'existent plus, on etire celles de 19. */
-export const ZOOM_MIN = 13, ZOOM_MAX = 21, ZOOM_TUILES_MAX = 19;
+/**
+ * De la France entiere (4) a la facade (20 : un pixel y vaut dix centimetres) ; au-dela de 19 les tuiles de l'IGN n'existent plus, on
+ * etire celles de 19.
+ */
+export const ZOOM_MIN = 4, ZOOM_MAX = 20, ZOOM_TUILES_MAX = 19;
+/** La France metropolitaine, Corse comprise : ce que la carte montre a l'ouverture, avant toute adresse. */
+export const FRANCE: Emprise = { sud: 41.3, ouest: -5.3, nord: 51.2, est: 9.7 };
 /** Le niveau ou se rangent les coordonnees « locales » (des pixels autour d'une origine : de petits nombres, que le SVG garde exacts). */
 export const ZOOM_LOCAL = 20;
 export const WMTS_URL = 'https://data.geopf.fr/wmts';
@@ -75,6 +80,39 @@ export function zoomPourRayon(lat: number, rayonM: number, t: Taille, marge = 1.
   return bornerZoom(Math.log2((EQUATEUR_M * Math.cos(rad(lat)) * demi) / (COTE_TUILE * Math.max(1, rayonM) * marge)));
 }
 
+/** La vue qui montre une emprise entiere, avec une marge (5 % par defaut) : la France a l'ouverture. */
+export function vuePourEmprise(e: Emprise, t: Taille, marge = 1.05): VueCarte {
+  const a = versMonde({ lat: e.nord, lon: e.ouest }), b = versMonde({ lat: e.sud, lon: e.est });
+  const zoom = Math.log2(Math.min(Math.max(1, t.l) / ((b.x - a.x) * COTE_TUILE), Math.max(1, t.h) / ((b.y - a.y) * COTE_TUILE)) / marge);
+  return { ...duMonde({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }), zoom: bornerZoom(zoom) };
+}
+
+/** Le milieu d'une emprise (celui de la carte qui la montre). */
+export const milieuEmprise = (e: Emprise): Ll => duMonde({ x: (versMonde({ lat: e.nord, lon: e.ouest }).x + versMonde({ lat: e.sud, lon: e.est }).x) / 2, y: (versMonde({ lat: e.nord, lon: e.ouest }).y + versMonde({ lat: e.sud, lon: e.est }).y) / 2 });
+
+/** Le depart et l'arrivee en douceur d'un mouvement (0 a 1). */
+export const adoucir = (t: number): number => (t < 0.5 ? 2 * t * t : 1 - (2 - 2 * t) ** 2 / 2);
+
+/**
+ * La vue a l'avancement `a` (0 a 1) d'un vol de `v0` a `v1` : le zoom avance regulierement, et le but se rapproche du milieu de
+ * l'ecran en ligne droite (son ecart en pixels diminue regulierement), si bien qu'on le voit venir au lieu de le voir surgir.
+ */
+export function entreVues(v0: VueCarte, v1: VueCarte, a: number): VueCarte {
+  const zoom = v0.zoom + (v1.zoom - v0.zoom) * a, c0 = versMonde(v0), c1 = versMonde(v1), k = (1 - a) * 2 ** (v0.zoom - zoom);
+  return { ...duMonde({ x: c1.x + (c0.x - c1.x) * k, y: c1.y + (c0.y - c1.y) * k }), zoom };
+}
+
+/**
+ * D'ou part un vol vers `but` : de la vue du moment si le but est a portee d'ecran, sinon de la meme, reculee jusqu'a voir le but. Voler
+ * a plein zoom d'une ville a une autre ferait defiler (et telecharger) des centaines de tuiles pour rien.
+ */
+export function departDuVol(v: VueCarte, but: VueCarte, t: Taille): VueCarte {
+  const c = versMonde(v), b = versMonde(but), d = Math.hypot(b.x - c.x, b.y - c.y);
+  const portee = Math.max(1, Math.min(t.l, t.h)) * 0.45;
+  if (d * pixelsDuMonde(v.zoom) <= portee) return v;
+  return { ...v, zoom: Math.min(v.zoom, bornerZoom(Math.log2(portee / (d * COTE_TUILE)))) };
+}
+
 /** Zoome de `dz` niveaux en gardant sous `ancre` (pixels de l'ecran) le meme point du terrain : la molette, les boutons. */
 export function zoomerAutour(v: VueCarte, ancre: P, t: Taille, dz: number): VueCarte {
   const zoom = bornerZoom(v.zoom + dz);
@@ -125,9 +163,10 @@ export const largeurM = (e: Emprise): number => ((e.est - e.ouest) / 360) * EQUA
 /**
  * Les tuiles qui couvrent la carte : celles du niveau entier le plus proche du zoom (19 au plus), etirees a la taille que le zoom leur
  * donne, placees en pixels de l'ecran. Au niveau le plus proche plutot qu'au-dessus : les noms de rues gardent une taille lisible.
+ * `niveau` impose un autre niveau (plus grossier : pendant un vol, ou en fond d'attente sous les tuiles qui arrivent).
  */
-export function tuiles(v: VueCarte, t: Taille): Tuile[] {
-  const z = borne(Math.round(v.zoom), 0, ZOOM_TUILES_MAX), n = 2 ** z, cote = COTE_TUILE * 2 ** (v.zoom - z);
+export function tuiles(v: VueCarte, t: Taille, niveau?: number): Tuile[] {
+  const z = borne(Math.round(niveau ?? v.zoom), 0, ZOOM_TUILES_MAX), n = 2 ** z, cote = COTE_TUILE * 2 ** (v.zoom - z);
   const c = versMonde(v), cx = c.x * n * cote, cy = c.y * n * cote;
   const x0 = Math.floor((cx - t.l / 2) / cote), x1 = Math.floor((cx + t.l / 2) / cote);
   const y0 = Math.max(0, Math.floor((cy - t.h / 2) / cote)), y1 = Math.min(n - 1, Math.floor((cy + t.h / 2) / cote));

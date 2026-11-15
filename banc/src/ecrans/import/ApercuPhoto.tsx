@@ -8,8 +8,10 @@ import { Apercu, NOM_VUE, usePano } from './panoramiques.js';
 /** L'attente avant de lire un panoramique survole : passer sur un point en allant vers un autre ne telecharge rien. */
 const DELAI_SURVOL_MS = 180;
 
-export function ApercuPhoto({ p, vues, choisie, epinglee, onBasculer, onChoisirVues, onFermer }: {
+export function ApercuPhoto({ p, vues, choisie, epinglee, visant, onBasculer, onChoisirVues, onFermer }: {
   p: PhotoRue | null; vues: VueAExtraire[]; choisie: boolean; epinglee: boolean;
+  /** Une parcelle est visee : la distance et le sens de la photo se disent par rapport a elle. */
+  visant: boolean;
   onBasculer: () => void; onChoisirVues: () => void; onFermer: () => void;
 }) {
   // Une photo epinglee (touchee) se lit tout de suite ; une photo survolee, apres un court delai.
@@ -25,7 +27,7 @@ export function ApercuPhoto({ p, vues, choisie, epinglee, onBasculer, onChoisirV
     <aside className="apercu-photo" aria-label="Aperçu des façades" aria-live="polite">
       <header>
         <strong>{p.panoramique ? 'Panoramique 360°' : 'Photo'}</strong>
-        <small>{p.distance} m · {p.date?.slice(0, 10) ?? 'sans date'}</small>
+        <small>{visant ? `${p.distance} m · ` : ''}{p.date?.slice(0, 10) ?? 'sans date'}</small>
         {epinglee && <button type="button" className="discret fermer-apercu" onClick={onFermer} aria-label="Fermer l’aperçu" title="Fermer l’aperçu"><Icone nom="fermer" taille={18} /></button>}
       </header>
       {/* Les gestes avant les images : ils restent sous la main quand les vues depassent la hauteur de la carte. */}
@@ -47,7 +49,7 @@ export function ApercuPhoto({ p, vues, choisie, epinglee, onBasculer, onChoisirV
         <ul className="apercu-vues">
           <li>
             {p.vignette ? <img src={p.vignette} alt="La photo" /> : <div className="sans-image" />}
-            <span>{p.vise ? 'Vers la parcelle' : 'De côté'}{p.azimut !== null ? ` · ${Math.round(p.azimut)}°` : ''}</span>
+            <span>{!visant ? 'Photo' : p.vise ? 'Vers la parcelle' : 'De côté'}{p.azimut !== null ? ` · ${Math.round(p.azimut)}°` : ''}</span>
           </li>
         </ul>
       )}

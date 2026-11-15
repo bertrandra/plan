@@ -552,3 +552,9 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
   .apercu-photo.vide { padding: .4rem .7rem; }
   .apercu-vues { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.carte-indice { position: absolute; z-index: 1; left: 50%; bottom: 34px; transform: translateX(-50%); margin: 0; padding: .25rem .7rem; border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--trait); box-shadow: 0 2px 10px #0003; font-size: .85rem; color: var(--texte); white-space: nowrap; pointer-events: none; }
+.parcelle-visee { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .5rem; }
+.parcelle-visee button { min-height: 30px; padding: .1rem .6rem; font-size: .85rem; }
+@media (pointer: coarse) { .parcelle-visee button { min-height: 44px; } }
+/* Au telephone, le message se range a gauche : au milieu, il passerait sous les boutons du zoom. */
+@media (max-width: 900px) { .carte-indice { left: 10px; transform: none; bottom: 40px; font-size: .8rem; } }
