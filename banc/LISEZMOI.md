@@ -62,3 +62,22 @@ npx vitest run banc/tests              # ses tests (l’API par php -S)
 BANC_CONFIG=/chemin/banc-config.php php -S 127.0.0.1:5197 -t banc/public &   # l’API au développement
 npm run dev:banc                       # la page sur http://localhost:5198/
 ```
+
+## La fumée (navigateur piloté)
+
+`scripts/fumee-banc.mjs` joue l’écran d’import Panoramax dans un vrai navigateur, sur le paquet construit, servi par `php -S` comme en
+ligne (`?banc`, la politique de contenu du `.htaccess`, l’API) ; la CI le joue à chaque PR (job `fumee`), sur un réseau témoin
+(`banc/tests/fumee/` : le routeur, les réponses rejouées, auteur et licence des photos gardées).
+
+```bash
+npm run build:banc
+NODE_PATH=$(npm root -g) node scripts/fumee-banc.mjs                              # bureau clair et téléphone sombre, ~10 s
+FUMEE_BANC_PASSAGES=tous NODE_PATH=$(npm root -g) node scripts/fumee-banc.mjs     # les huit passages de la CI, ~30 s
+FUMEE_RESEAU=enregistrer NODE_PATH=$(npm root -g) node scripts/fumee-banc.mjs     # refaire le témoin sur le vrai réseau
+```
+
+Playwright vient de l’installation globale (`npm root -g`), comme pour la fumée de Plan ; sur la machine du cloud, ajouter
+`PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK=1`. `FUMEE_BANC_CAPTURES=dossier` garde une capture par moment,
+`FUMEE_BANC_AUDIT=1` relève tous les défauts de contraste et de mise en page. Ce qu’il vérifie : `tests/CHECKLIST-FUMEE.md`.
+Changer la mise en page de l’écran d’import ne demande pas de refaire le témoin (une emprise voisine retrouve le sien) ; changer
+ses requêtes (une autre adresse, un autre service), si.
