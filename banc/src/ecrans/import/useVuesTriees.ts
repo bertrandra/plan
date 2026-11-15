@@ -4,7 +4,8 @@
 // fois. Avec ou sans parcelle visee, une facade (un batiment vu par un cote) ne se propose qu'une fois.
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { aImporter, compter, doublons, estDoublon, marquer, marquerDejaLa, ordonner, texteDesComptes, type Ordre, type VuesParBatiment } from '../../meilleuresVues.js';
+import { cadreDeLaVue, type Retouche } from '../../cadrage.js';
+import { aImporter, compter, doublons, estDoublon, marquer, marquerDejaLa, noteAvecSaison, ordonner, texteDesComptes, type Ordre, type VuesParBatiment } from '../../meilleuresVues.js';
 import { vuesDesCaps, type PhotoRue, type VueAExtraire, type Visee } from '../../panoramax.js';
 import type { Parcelle } from '../../parcelles.js';
 import { noteAvecLecture } from '../../vueDegagee.js';
@@ -13,7 +14,9 @@ import { useFacades, type Facades } from './useFacades.js';
 
 export interface Reglages { visee: Visee; seulementFacades: boolean; parBatiment: VuesParBatiment; ordre: Ordre; ecarterCachees: boolean;
   /** Les facades que le banc a deja (murs.ts::mursDuBanc) : leurs vues ne se proposent plus cochees ; vide : le reglage est decoche. */
-  dejaDansLeBanc: ReadonlySet<string> }
+  dejaDansLeBanc: ReadonlySet<string>;
+  /** Le cadre de chaque vue d'un 360 (cadrage.ts) : sur sa facade, face au mur, les retouches de la main ; et la preference pour l'hiver. */
+  cadrer: boolean; surLeMur: boolean; hiver: boolean; retouches: ReadonlyMap<string, Retouche> }
 
 export interface VuesTriees {
   /** Toutes les vues d'une photo, les doublons marques : ce que la liste et l'apercu montrent. */
@@ -34,10 +37,12 @@ const RIEN: VueAExtraire[] = [];
  * Les vues d'une photo apres « la maison se voit-elle ? » (vueDegagee.ts) : une vue lue cachee le dit et perd la moitie de sa note,
  * ou part si l'on ecarte les facades cachees. Une vue pas encore lue (ou illisible) garde sa note. `cachees` : combien l'ont ete.
  */
-function appliquerLesLectures(photo: PhotoRue, vues: readonly VueAExtraire[], ecarter: boolean): { vues: VueAExtraire[]; cachees: number } {
+function appliquerLesLectures(photo: PhotoRue, vuesGeometrie: readonly VueAExtraire[], ecarter: boolean, hiver: boolean): { vues: VueAExtraire[]; cachees: number } {
   let cachees = 0;
+  // La preference pour l'hiver d'abord (une note de la geometrie), la lecture de l'image ensuite, sur les memes vues.
+  const vues = vuesGeometrie.map((v) => (typeof v.note === 'number' ? { ...v, note: noteAvecSaison(v.note, photo.date, hiver) } : v));
   const out = vues.flatMap((v): VueAExtraire[] => {
-    const l = v.zone ? lectureDe({ photo, vues }, v.cap) : undefined;
+    const l = v.zone ? lectureDe({ photo, vues: vuesGeometrie }, v.cap) : undefined;
     if (!l) return [v];
     if (l.cachee) cachees++;
     return l.cachee && ecarter ? [] : [{ ...v, cachee: l.cachee, note: noteAvecLecture(v.note ?? 0, l.cachee) }];
@@ -75,10 +80,10 @@ export function useVuesTriees(photos: readonly PhotoRue[], caps: ReadonlyMap<str
   const { brutes, cachees } = useMemo(() => {
     const brutes = new Map<string, VueAExtraire[]>();
     let cachees = 0;
-    for (const p of photos) { const a = appliquerLesLectures(p, geometrie.get(p.id) ?? RIEN, ecarter); brutes.set(p.id, a.vues); cachees += a.cachees; }
+    for (const p of photos) { const a = appliquerLesLectures(p, geometrie.get(p.id) ?? RIEN, ecarter, r.hiver); brutes.set(p.id, a.vues); cachees += a.cachees; }
     return { brutes, cachees };
     // `lectures` : la version de la file, qui change a chaque apercu lu.
-  }, [photos, geometrie, ecarter, lectures]);
+  }, [photos, geometrie, ecarter, lectures, r.hiver]);
   const tries = useMemo(() => {
     let attente = 0, triees = 0;
     const gardees = photos.filter((p) => {
@@ -89,13 +94,20 @@ export function useVuesTriees(photos: readonly PhotoRue[], caps: ReadonlyMap<str
     });
     return { gardees, attente, triees };
   }, [photos, caps, etat, brutes]);
+  const batiment = tri.batiment, { cadrer, surLeMur, retouches } = r;
+  const cadrage = useMemo(() => ({ cadrer, surLeMur, retouches }), [cadrer, surLeMur, retouches]);
   const marquees = useMemo(() => {
     const enTrop = doublons(tries.gardees.map((p) => ({ photo: p, vues: brutes.get(p.id) ?? RIEN, libre: caps.has(p.id) })), parBatiment);
     const toutes = new Map<string, VueAExtraire[]>(), utiles = new Map<string, VueAExtraire[]>();
     // Une facade deja dans le banc ne se propose plus (les vues choisies a la main ne sont jamais decochees : elles restent).
-    for (const p of tries.gardees) { const m = marquer(p.id, brutes.get(p.id) ?? RIEN, enTrop), l = caps.has(p.id) ? m : marquerDejaLa(m, r.dejaDansLeBanc); toutes.set(p.id, l); utiles.set(p.id, aImporter(l)); }
+    for (const p of tries.gardees) {
+      const m = marquer(p.id, brutes.get(p.id) ?? RIEN, enTrop), deja = caps.has(p.id) ? m : marquerDejaLa(m, r.dejaDansLeBanc);
+      // Le cadre de chaque vue d'un 360 : le meme pour l'apercu, le secteur de la carte et l'import.
+      const l = p.panoramique ? deja.map((v) => ({ ...v, cadre: cadreDeLaVue(v.batiment ? batiment(v.batiment) : null, p, v, cadrage) })) : deja;
+      toutes.set(p.id, l); utiles.set(p.id, aImporter(l));
+    }
     return { toutes, utiles };
-  }, [tries, brutes, caps, parBatiment, r.dejaDansLeBanc]);
+  }, [tries, brutes, caps, parBatiment, r.dejaDansLeBanc, batiment, cadrage]);
   const vuesDe = useCallback((p: PhotoRue) => marquees.toutes.get(p.id) ?? brutes.get(p.id) ?? RIEN, [marquees, brutes]);
   const aImporterDe = useCallback((p: PhotoRue) => marquees.utiles.get(p.id) ?? brutes.get(p.id) ?? RIEN, [marquees, brutes]);
   const visant = !!parcelle;

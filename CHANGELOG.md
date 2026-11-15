@@ -5,6 +5,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc d'apprentissage, import Panoramax : chaque vue cadrée sur sa façade, redressée sur le mur à la demande, et l'hiver
+  préféré** (« Do it all all to the end » du propriétaire, 15 novembre 2026, « niveau suivant » n° 1, 2 et 5). (1) **Cadrage** :
+  au lieu de 75° de champ et 8° vers le haut pour toutes, le champ et le tangage de chaque vue d'un 360 se calculent pour que le
+  bâtiment visé entre dans le cadre, du pied au faîte (`banc/src/cadrage.ts`) : sa hauteur de la BD TOPO, relevée de la part du
+  toit (elle s'arrête à la gouttière), sa distance, et tout son contour vu (une maison vue de coin n'est plus coupée). Bornes :
+  champ de 40° à 100°, tangage de 0° à 35°, même forme (4/3) et même taille de sortie (1 600 × 1 200) ; le champ ne descend pas
+  sous ce que le panoramique contient (jamais agrandi plus de deux fois : 51° pour un 360 de 5 660 px) ; sans hauteur connue, les
+  valeurs d'avant. Quand un immeuble vu de son trottoir ne tient pas dans les bornes, le haut est gardé et l'aperçu le dit
+  (« coupée »). L'aperçu, les secteurs de la carte, les bandes de la liste et l'import lisent le même cadre ; « Choisir les
+  vues » le retouche (champ − +, visée ▼ ▲) ; la case « Cadrer sur la façade » (cochée) revient au cadre d'avant. (2)
+  **« Redresser sur le mur »** (décochée) rend la vue face au mur visé : l'axe optique horizontal et perpendiculaire au côté du
+  contour, le cadre décentré sur le plan image (`equirect.ts::vueSurLePlan`), verticales droites ; possible quand la hauteur est
+  connue et le mur vu à plus de 50°, sinon la vue garde son cadrage ordinaire. Les métadonnées gardent ce qui a été fait
+  (`cadrage` : champ, tangage, source, entière ou non, et le plan d'une vue face au mur ; `focale35`, la focale équivalente du
+  champ, que le redressement par les points de fuite prend désormais pour « donnée ») ; l'étape Redressement signale les vues
+  « face au mur » et propose de les passer telles quelles, sans le faire d'elle-même. (5) **« Préférer l'hiver »** (cochée) :
+  de novembre à mars la note d'une vue gagne 8 points, si bien qu'entre deux photos d'un même mur à qualité voisine celle sans
+  feuilles passe devant ; aucune n'est écartée. Jugé sur le vrai réseau (planches avant / après dans le corps de la PR) : rue de
+  Rivoli, les immeubles vus de 15 m tiennent entiers avec leurs toits (avant : le rez-de-chaussée et deux étages), ceux vus de 4 à
+  8 m sont coupés ; au Vésinet les pavillons remplissent le cadre avec leur toit. Verdict sur « Redresser sur le mur » : net en
+  ville (façades droites, 26 vues sur 29), neutre sur les pavillons, étiré et flou en haut d'un immeuble vu de près, et tributaire
+  de l'orientation du contour de la BD TOPO : elle reste décochée. Tests : `banc/tests/cadrage.test.ts`, `api.test.ts` ; la fumée
+  vérifie le cadre dit sous chaque vue, la case décochée, la retouche et le cadre des vues importées.
+
 ## [5.30.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'écran d'import Panoramax a sa fumée,

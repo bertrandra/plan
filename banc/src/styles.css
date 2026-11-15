@@ -628,3 +628,9 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .memes-murs .aide { margin: 0; }
 .memes-murs button.actif { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .etiquette-photo.mur { top: 2.6rem; }
+
+/* Le cadre d'une vue tiree d'un 360 (import) : dit sous l'image, retouche dans « Choisir les vues ». */
+.cadre-vue { font-style: normal; margin-left: .4rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid var(--trait); color: var(--doux); font-size: .72rem; white-space: nowrap; }
+.dialogue .apercus .cadre-de-vue { justify-content: space-between; }
+.dialogue .apercus .cadre-de-vue span { flex: 1; text-align: center; color: var(--doux); white-space: nowrap; }
+.face-au-mur button { margin: 0 .25rem; }

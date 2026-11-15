@@ -170,6 +170,25 @@ function mur_valide($m): ?array {
   return $out;
 }
 
+/**
+ * Le cadre d'une vue tiree d'un 360 (banc/src/cadrage.ts) : champ, tangage, d'ou ils viennent, et le plan d'une vue rendue face au mur.
+ * Une liste fermee de champs bornes ; null si le champ ou le tangage manquent.
+ */
+function cadrage_valide($c): ?array {
+  if (!is_array($c) || !is_numeric($c['champ'] ?? null) || !is_numeric($c['tangage'] ?? null)) return null;
+  $champ = (float)$c['champ']; $tangage = (float)$c['tangage'];
+  if ($champ < 10 || $champ > 170 || $tangage < -60 || $tangage > 60) return null;
+  $out = ['champ' => round($champ, 1), 'tangage' => round($tangage, 1), 'source' => in_array($c['source'] ?? '', ['facade', 'main'], true) ? $c['source'] : 'defaut'];
+  if (is_bool($c['entier'] ?? null)) $out['entier'] = $c['entier'];
+  $p = $c['plan'] ?? null;
+  if (is_array($p) && is_numeric($p['axe'] ?? null) && (float)$p['axe'] >= 0 && (float)$p['axe'] <= 360) {
+    $plan = ['axe' => round((float)$p['axe'], 1)];
+    foreach (['x0', 'x1', 'y0', 'y1'] as $k) { if (!is_numeric($p[$k] ?? null) || abs((float)$p[$k]) > 20) { $plan = null; break; } $plan[$k] = round((float)$p[$k], 3); }
+    if ($plan && $plan['x1'] > $plan['x0'] && $plan['y1'] > $plan['y0']) $out['plan'] = $plan;
+  }
+  return $out;
+}
+
 /** Ce que la page peut dire d'une photo a l'import : sa provenance, sa position, sa date, son appareil. */
 function meta_importee(array $m): array {
   $garde = ['source', 'nom', 'date', 'lat', 'lon', 'azimut', 'appareil', 'focale35', 'adresse', 'parcelle', 'panoramax', 'licence', 'auteur', 'largeur', 'hauteur', 'lot'];
@@ -179,6 +198,9 @@ function meta_importee(array $m): array {
   // Le mur vise (demande du proprietaire, 15 novembre 2026) : garde s'il est valable, laisse sinon (l'image s'importe quand meme).
   $mur = mur_valide($m['mur'] ?? null);
   if ($mur) $out['mur'] = $mur;
+  // Le cadre de la vue (15 novembre 2026) : ce que l'import a fait, pour que le redressement le sache.
+  $cadrage = cadrage_valide($m['cadrage'] ?? null);
+  if ($cadrage) $out['cadrage'] = $cadrage;
   return $out;
 }
 

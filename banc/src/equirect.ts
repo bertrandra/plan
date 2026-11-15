@@ -49,3 +49,30 @@ export function vueDuPanoramique(src: ImageRgba, v: Visee): ImageRgba {
   }
   return { largeur: L, hauteur: H, donnees: sortie };
 }
+
+/**
+ * Un cadre pose sur un plan vertical, a une unite devant la prise de vue, perpendiculaire a `axe` : `x0` a `x1` vers la droite, `y0`
+ * (le bas) a `y1` (le haut), en tangentes des angles vus depuis l'axe. Un mur perpendiculaire a l'axe y est de face : ses verticales et
+ * ses horizontales restent droites, quel que soit l'endroit du plan ou le cadre se pose (un objectif a decentrement).
+ */
+export interface CadreSurPlan { capCentre: number; axe: number; x0: number; x1: number; y0: number; y1: number; largeur: number; hauteur: number }
+
+/**
+ * La vue face a un mur (demande du proprietaire, 15 novembre 2026 : « redresser sur le mur ») : l'axe optique reste horizontal et
+ * perpendiculaire au mur, et c'est le cadre qui se deplace sur le plan image pour prendre la facade, du pied au faite. Pas de tangage :
+ * rien ne converge. Loin de l'axe (le haut d'un immeuble vu de son pied), le panoramique a peu de pixels pour beaucoup d'image : c'est flou.
+ */
+export function vueSurLePlan(src: ImageRgba, c: CadreSurPlan): ImageRgba {
+  const L = c.largeur, H = c.hauteur, sortie = new Uint8ClampedArray(L * H * 4);
+  const axe = rad(c.axe);
+  for (let j = 0; j < H; j++) {
+    const y = c.y1 - ((j + 0.5) / H) * (c.y1 - c.y0);
+    for (let i = 0; i < L; i++) {
+      const x = c.x0 + ((i + 0.5) / L) * (c.x1 - c.x0);
+      const lon = axe + Math.atan(x), lat = Math.atan2(y, Math.hypot(x, 1));
+      const dLon = ((((lon * 180) / Math.PI - c.capCentre) % 360) + 540) % 360 - 180;
+      echantillon(src, (0.5 + dLon / 360) * src.largeur - 0.5, (0.5 - lat / Math.PI) * src.hauteur - 0.5, sortie, (j * L + i) * 4);
+    }
+  }
+  return { largeur: L, hauteur: H, donnees: sortie };
+}

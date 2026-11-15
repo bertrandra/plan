@@ -69,6 +69,9 @@ export function useRedressement(banc: Banc) {
       oublierEchec(m.id);
     } catch (e) { banc.dire((e as Error).message, 'erreur'); }
   };
+  // Les vues que l'import a deja rendues face au mur (demande du proprietaire, 15 novembre 2026) : le redressement le sait par leurs
+  // metadonnees (`cadrage.plan`) et propose de les passer telles quelles ; il ne le fait pas de lui-meme.
+  const faceAuMur = useMemo(() => nouvelles.filter((m) => !!m.cadrage?.plan), [nouvelles]);
   const basculer = (id: string) => setChoix((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   const choisies = choix.map((id) => banc.images.find((m) => m.id === id)).filter((m): m is MetaImage => !!m);
   /** « Deja de face » en lot : les photos passent telles quelles a la mosaique. */
@@ -114,5 +117,5 @@ export function useRedressement(banc: Banc) {
   };
   const oublierEchec = (id: string) => setEchecs((s) => { const t = new Set(s); t.delete(id); return t; });
   const finMain = (maj: MetaImage | null) => { if (maj) { banc.remplacer(maj); oublierEchec(maj.id); } setMain(null); };
-  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter, parMur, setParMur, groupes, groupeDe, choisirLeMur };
+  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter, parMur, setParMur, groupes, groupeDe, choisirLeMur, faceAuMur };
 }

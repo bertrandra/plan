@@ -15,14 +15,14 @@ const norm = (a: number) => ((a % 360) + 360) % 360;
 /** L'ecart signe de `b` a `a`, entre -180 et 180. */
 const ecart = (a: number, b: number) => ((((b - a) % 360) + 540) % 360) - 180;
 
-interface Segment { rang: number; ax: number; ay: number; bx: number; by: number; azimut: number; cote: number }
+export interface Segment { rang: number; ax: number; ay: number; bx: number; by: number; azimut: number; cote: number }
 
 /**
  * Les segments du contour vus de la prise de vue (a l'origine), chacun avec la direction vers laquelle il regarde (sa normale tournee
  * vers la prise de vue) et son cote. Le cote se compte comme dans le tri : par quarts de tour depuis l'axe du batiment, la direction de
  * son plus long mur ramenee entre 0 et 90 degres (facadesVues.ts::axeDuContour et coteDuMur ; un test tient les deux d'accord).
  */
-function segments(contour: readonly Ll[], pos: Ll): Segment[] {
+export function segments(contour: readonly Ll[], pos: Ll): Segment[] {
   const c = enMetres(contour, pos);
   let long = 0, axe = 0;
   const bruts: Omit<Segment, 'cote'>[] = [];
@@ -38,7 +38,7 @@ function segments(contour: readonly Ll[], pos: Ll): Segment[] {
 }
 
 /** La part du champ (en degres) qu'un segment occupe, vu de l'origine vers `cap` ; 0 s'il est hors du champ. */
-function etendueDansLeChamp(s: Segment, cap: number, champ: number): number {
+export function etendueDansLeChamp(s: Segment, cap: number, champ: number): number {
   const a = ecart(cap, deg(Math.atan2(s.ax, s.ay))), b = ecart(cap, deg(Math.atan2(s.bx, s.by)));
   // Un segment qui passe derriere la prise de vue (ses bouts de part et d'autre, a plus de 180 degres) n'est pas devant elle.
   if (Math.abs(a - b) > 180) return 0;
@@ -46,7 +46,7 @@ function etendueDansLeChamp(s: Segment, cap: number, champ: number): number {
 }
 
 /** La distance de l'origine a un segment. */
-function distanceAuSegment(s: Segment): number {
+export function distanceAuSegment(s: Segment): number {
   const ex = s.bx - s.ax, ey = s.by - s.ay, t = Math.max(0, Math.min(1, -(s.ax * ex + s.ay * ey) / (ex * ex + ey * ey)));
   return Math.hypot(s.ax + t * ex, s.ay + t * ey);
 }

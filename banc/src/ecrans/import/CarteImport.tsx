@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ToucheReact, type MouseEvent as SourisReact, type PointerEvent as PointeurReact, type RefObject } from 'react';
 import { adoucir, barreEchelle, departDuVol, empriseVue, entreVues, FRANCE, glisser, metresEnLocal, metresParPixel, pincer, placementLocal, secteur, texteEchelle, tuiles, urlTuile, versEcran, versLocal, vuePourEmprise, zoomerAutour, zoomPourRayon, type Emprise, type Fond, type P, type Taille, type VueCarte } from '../../carte.js';
-import { CHAMP_VUE, distanceM, type PhotoRue, type VueAExtraire } from '../../panoramax.js';
+import { secteurDuCadre } from '../../cadrage.js';
+import { distanceM, type PhotoRue, type VueAExtraire } from '../../panoramax.js';
 import { centre, type Ll, type Parcelle } from '../../parcelles.js';
 import { indiceDeZoom } from '../../couverture.js';
 import { legendeDesFacades } from '../../couvertureFacades.js';
@@ -235,7 +236,8 @@ function FondDeCarte({ fond, vue, taille, niveau, onTuile }: { fond: Exclude<Fon
   );
 }
 
-const champDe = (p: PhotoRue) => (p.panoramique ? CHAMP_VUE : Math.min(120, p.champ));
+/** Le secteur d'une vue : celui de son cadre pour une vue tiree d'un 360 (cadrage.ts), le champ de l'objectif pour une photo plate. */
+const secteurDe = (p: PhotoRue, v: VueAExtraire) => (p.panoramique ? secteurDuCadre(v.cap, v.cadre) : { cap: v.cap, champ: Math.min(120, p.champ) });
 
 /** Les photos : un point chacune, et un secteur par vue a importer (75 degres pour un 360, le champ de l'objectif pour une photo plate). */
 function PointsPhotos({ photos, choix, vuesDe, vue, taille, visant, montree, epinglee, aGlisse, onSurvol, onPhoto, onBasculer }: Pick<PropsCarte, 'photos' | 'choix' | 'vuesDe' | 'montree' | 'epinglee' | 'onSurvol' | 'onPhoto' | 'onBasculer'> & { vue: VueCarte; taille: Taille; visant: boolean; aGlisse: RefObject<boolean> }) {
@@ -258,7 +260,7 @@ function PointsPhotos({ photos, choix, vuesDe, vue, taille, visant, montree, epi
             onFocus={() => onSurvol(p.id)} onBlur={() => onSurvol(null)}
             onClick={() => { if (!aGlisse.current) onPhoto(p.id); }}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onPhoto(p.id); } else if (e.key === ' ') { e.preventDefault(); onBasculer(p.id); } }}>
-            {vues.map((v, k) => <path key={k} className="secteur" d={secteur({ x: 0, y: 0 }, v.cap, champDe(p), longueur)} />)}
+            {vues.map((v, k) => { const s = secteurDe(p, v); return <path key={k} className="secteur" d={secteur({ x: 0, y: 0 }, s.cap, s.champ, longueur)} />; })}
             {/* La cible du geste : 44 px au doigt, plus large que le point qu'on voit. */}
             <circle className="cible" r={doigt ? 22 : 13} />
             <circle className="point" r={(p.panoramique ? 6.5 : 5) - (petit ? 1.5 : 0)} />
@@ -269,7 +271,7 @@ function PointsPhotos({ photos, choix, vuesDe, vue, taille, visant, montree, epi
           perdrait son survol. */}
       {enValeur && posValeur && !dehors(posValeur) && (
         <g className={'point-photo valeur' + (choix.has(enValeur.id) ? ' choisie' : '')} transform={`translate(${posValeur.x.toFixed(1)} ${posValeur.y.toFixed(1)})`} aria-hidden="true">
-          {vuesDe(enValeur).map((v, k) => <path key={k} className="secteur" d={secteur({ x: 0, y: 0 }, v.cap, champDe(enValeur), Math.max(30, longueur * 1.6))} />)}
+          {vuesDe(enValeur).map((v, k) => { const s = secteurDe(enValeur, v); return <path key={k} className="secteur" d={secteur({ x: 0, y: 0 }, s.cap, s.champ, Math.max(30, longueur * 1.6))} />; })}
           <circle className="anneau" r={12} />
           <circle className="point" r={enValeur.panoramique ? 7.5 : 6} />
         </g>

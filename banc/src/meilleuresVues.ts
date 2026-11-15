@@ -7,6 +7,7 @@
 // la main ne sont jamais decochees : l'ecran dit seulement, avant l'import, combien de facades sont cochees deux fois. Sans DOM,
 // testable seul (banc/tests/meilleuresVues.test.ts).
 
+import { anneeEtMois, sansFeuilles } from './equilibre.js';
 import { distanceM, type PhotoRue, type VueAExtraire } from './panoramax.js';
 
 /** Combien de vues garder par facade (un batiment vu par un cote). */
@@ -90,6 +91,17 @@ export function marquer(photo: string, vues: readonly VueAExtraire[], enTrop: Re
 export function marquerDejaLa(vues: readonly VueAExtraire[], murs: ReadonlySet<string>): VueAExtraire[] {
   if (!murs.size) return [...vues];
   return vues.map((v) => { const f = facadeDe(v); return f && murs.has(f) ? { ...v, doublon: true, dejaLa: true } : v; });
+}
+
+/**
+ * « Preferer l'hiver » (demande du proprietaire, 15 novembre 2026) : de novembre a mars (hemisphere nord) les arbres sont nus et la
+ * facade se voit mieux. Quand un meme mur a des photos de plusieurs dates, celle d'hiver passe devant a qualite voisine : sa note gagne
+ * quelques points, sans qu'aucune autre soit ecartee. Une photo sans date ne gagne ni ne perd rien.
+ */
+export const BONUS_HIVER = 8;
+export function noteAvecSaison(note: number, date: string | null | undefined, preferer: boolean): number {
+  const d = preferer ? anneeEtMois(date) : null;
+  return d && sansFeuilles(d.mois) ? Math.min(100, note + BONUS_HIVER) : note;
 }
 
 /** Une photo dont toutes les vues sont des doublons : visible, mais pas proposee cochee. */
