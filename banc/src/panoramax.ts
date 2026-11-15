@@ -145,7 +145,8 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
  * plate se garde telle quelle.
  */
 export type Visee = 'cotes' | 'cote-adresse' | 'adresse';
-export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number }
+/** `batiment` : le batiment que la vue regarde, quand le tri des facades l'a trouve (facadesVues.ts). */
+export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string }
 
 export function vuesAExtraire(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'>, visee: Visee): VueAExtraire[] {
   if (!p.panoramique) return [{ vue: 'photo', cap: p.azimut ?? p.cap }];

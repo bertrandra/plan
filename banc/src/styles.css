@@ -476,6 +476,9 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .fond-aucun .carte-cadre, .fond-absent .carte-cadre { background: var(--fond); }
 .carte-tuiles { position: absolute; inset: 0; pointer-events: none; }
 .carte-tuiles img { position: absolute; max-width: none; }
+.carte-couverture { position: absolute; inset: 0; display: block; pointer-events: none; opacity: .8; }
+/* A l'echelle de la rue, les points des photos prennent le relais : les traces s'effacent a demi pour laisser lire le plan. */
+.carte-couverture.pres { opacity: .4; }
 .carte-dessin { position: absolute; inset: 0; display: block; }
 .carte-dessin .parcelle { fill: #ffffff1f; stroke: #3d4656; stroke-width: 1; vector-effect: non-scaling-stroke; cursor: pointer; }
 .carte-dessin .parcelle:hover { fill: #1f6feb2e; }
@@ -492,6 +495,9 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .fond-photo:not(.fond-absent) .rayon-anneau { fill: #cfe1ff; opacity: .9; }
 .adresse-carte circle { fill: #c62828; stroke: #fff; stroke-width: 2; }
 .adresse-carte { pointer-events: none; }
+/* Le batiment que regarde la vue montree : souligne sans couvrir le fond de plan, qui dessine deja les autres. */
+.batiment-vu { fill: #1f6feb1f; stroke: #1553b7; stroke-width: 1.5; stroke-dasharray: 5 3; stroke-linejoin: round; pointer-events: none; }
+.fond-photo:not(.fond-absent) .batiment-vu { fill: #ffffff1f; stroke: #fff; }
 .point-photo { cursor: pointer; outline: none; }
 .point-photo .cible { fill: transparent; stroke: none; }
 .point-photo .point { fill: #5b6475; stroke: #fff; stroke-width: 2; }
@@ -509,6 +515,11 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .carte-fonds { top: 10px; right: 10px; display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--trait); box-shadow: 0 2px 10px #0003; max-width: calc(100% - 20px); }
 .carte-fonds button { min-height: 30px; padding: .1rem .6rem; border: none; border-radius: 8px; background: transparent; color: var(--doux); font-size: .82rem; white-space: nowrap; }
 .carte-fonds button.actif { background: var(--accent); color: var(--accent-texte); font-weight: 600; }
+.carte-couches { position: absolute; z-index: 1; top: 52px; right: 10px; }
+.carte-couches button { min-height: 30px; padding: .1rem .6rem; gap: .4rem; border-radius: 10px; border: 1px solid var(--trait); background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--doux); font-size: .82rem; white-space: nowrap; box-shadow: 0 2px 10px #0003; }
+.carte-couches button.actif { color: var(--texte); font-weight: 600; }
+.pastille-couverture { display: inline-block; width: 16px; height: 4px; border-radius: 2px; background: #e8590c; opacity: .35; }
+.carte-couches button.actif .pastille-couverture, .carte-legende .pastille-couverture { opacity: 1; }
 .carte-zoom { right: 10px; bottom: 34px; display: flex; flex-direction: column; gap: .3rem; }
 .carte-zoom button { width: 40px; height: 40px; min-height: 0; padding: 0; justify-content: center; font-size: 1.25rem; line-height: 1; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 10px #0003; }
 .carte-avis { top: 10px; left: 10px; max-width: min(360px, calc(100% - 20px)); padding: .4rem .6rem; border-radius: 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--attention); font-size: .82rem; box-shadow: 0 2px 10px #0003; pointer-events: none; }
@@ -552,7 +563,7 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
   .apercu-photo.vide { padding: .4rem .7rem; }
   .apercu-vues { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.carte-indice { position: absolute; z-index: 1; left: 50%; bottom: 34px; transform: translateX(-50%); margin: 0; padding: .25rem .7rem; border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--trait); box-shadow: 0 2px 10px #0003; font-size: .85rem; color: var(--texte); white-space: nowrap; pointer-events: none; }
+.carte-indice { position: absolute; z-index: 1; left: 50%; bottom: 34px; transform: translateX(-50%); margin: 0; padding: .25rem .7rem; border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--trait); box-shadow: 0 2px 10px #0003; font-size: .85rem; color: var(--texte); max-width: calc(100% - 130px); width: max-content; text-align: center; pointer-events: none; }
 .parcelle-visee { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .5rem; }
 .parcelle-visee button { min-height: 30px; padding: .1rem .6rem; font-size: .85rem; }
 @media (pointer: coarse) { .parcelle-visee button { min-height: 44px; } }
