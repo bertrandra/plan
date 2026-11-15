@@ -135,6 +135,7 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 .carte.doublon:not(.choisie) { opacity: .72; }
 .note-vue, .marque-doublon { font-style: normal; font-size: .72rem; margin-left: .4rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid var(--trait); color: var(--doux); white-space: nowrap; }
 .marque-doublon { border-style: dashed; }
+.en-double { font-size: .85rem; padding: .15rem .55rem; border-radius: 999px; border: 1px solid var(--attention); color: var(--texte); }
 .pano-rue, .pano-cible { position: absolute; top: 0; bottom: 0; width: 0; pointer-events: none; }
 .pano-rue { left: 50%; border-left: 1px dashed #fff; }
 .pano-cible { border-left: 2px solid var(--danger); }

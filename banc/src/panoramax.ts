@@ -190,10 +190,10 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
  */
 export type Visee = 'cotes' | 'cote-adresse' | 'adresse';
 /**
- * `batiment` : le batiment que la vue regarde, quand le tri des facades l'a trouve (facadesVues.ts), avec sa note de 0 a 100 et la
- * distance a sa facade. `doublon` : d'autres vues montrent mieux ce batiment (meilleuresVues.ts) ; elle reste visible, pas importee.
+ * `batiment` : le batiment que la vue regarde, quand le tri des facades l'a trouve (facadesVues.ts), le cote par lequel elle le voit
+ * (`cote`, 0 a 3), sa note de 0 a 100 et la distance a sa facade. `doublon` : d'autres vues montrent mieux ce batiment (meilleuresVues.ts) ; elle reste visible, pas importee.
  */
-export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string; note?: number; distanceFacade?: number; doublon?: boolean }
+export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string; cote?: number; note?: number; distanceFacade?: number; doublon?: boolean }
 
 export function vuesAExtraire(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'>, visee: Visee): VueAExtraire[] {
   if (!p.panoramique) return [{ vue: 'photo', cap: p.azimut ?? p.cap }];

@@ -3,7 +3,7 @@
 // distance ou par date.
 
 import { useEffect } from 'react';
-import { aImporter, noteDePhoto, ORDRES, VUES_PAR_BATIMENT, type Ordre, type VuesParBatiment } from '../../meilleuresVues.js';
+import { aImporter, facadesEnDouble, noteDePhoto, ORDRES, texteDeLImport, VUES_PAR_BATIMENT, type Ordre, type VuesParBatiment } from '../../meilleuresVues.js';
 import { basculerCap, capDuX, CHAMP_VUE, xDuCap, type PhotoRue, type VueAExtraire } from '../../panoramax.js';
 import { Icone } from '../../ui/Icones.js';
 import { Apercu, NOM_VUE, usePano } from './panoramiques.js';
@@ -14,7 +14,7 @@ export interface PropsListe {
   ordre: Ordre; setOrdre: (o: Ordre) => void; parBatiment: VuesParBatiment; setParBatiment: (n: VuesParBatiment) => void;
   /** Le regroupement par batiment a lieu (le tri des facades se fait) : ses reglages se montrent. */
   groupees: boolean;
-  onBasculer: (id: string) => void; onCocher: (qui: 'meilleures' | 'toutes' | 'aucune') => void; onImporter: () => void;
+  onBasculer: (id: string) => void; onCocher: (qui: 'facades' | 'doublons' | 'aucune') => void; onImporter: () => void;
 }
 
 /** Les reglages de la liste : l'ordre, et combien de vues garder par batiment. */
@@ -25,7 +25,7 @@ function ReglagesDeLaListe({ ordre, setOrdre, parBatiment, setParBatiment, group
         <select value={ordre} onChange={(e) => setOrdre(e.target.value as Ordre)}>{ORDRES.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}</select>
       </label>
       {groupees && (
-        <label title="Un même bâtiment revient dans plusieurs photos : seules ses meilleures vues sont proposées, les autres sont marquées « doublon ».">Vues par bâtiment
+        <label title="Un même bâtiment revient dans plusieurs photos : sa façade n’est proposée qu’une fois, par sa meilleure vue ; les autres sont marquées « doublon ». Les différents côtés d’une maison sont des façades différentes.">Vues par bâtiment
           <select value={String(parBatiment)} onChange={(e) => setParBatiment(e.target.value === 'toutes' ? 'toutes' : (Number(e.target.value) as VuesParBatiment))}>{VUES_PAR_BATIMENT.map((n) => <option key={n} value={String(n)}>{n}</option>)}</select>
         </label>
       )}
@@ -46,15 +46,16 @@ function Legende({ p, vues, visant, doublon }: { p: PhotoRue; vues: VueAExtraire
 
 export function ListePhotos(props: PropsListe) {
   const { photos, cochees, enDoublon, vuesDe, ouverte, setOuverte, montree, onSurvol, visant, onBasculer, onCocher, onImporter } = props;
-  const choisies = photos.filter((p) => cochees.has(p.id)), nVues = choisies.reduce((n, p) => n + aImporter(vuesDe(p)).length, 0);
+  const choisies = photos.filter((p) => cochees.has(p.id)), aLImport = choisies.flatMap((p) => aImporter(vuesDe(p))), enDouble = facadesEnDouble(aLImport);
   return (
     <>
       <div className="barre-choix">
-        {enDoublon.size > 0 && <button type="button" onClick={() => onCocher('meilleures')} title="Cocher les photos qui ne sont pas des doublons">Cocher les meilleures ({photos.length - enDoublon.size})</button>}
-        <button type="button" onClick={() => onCocher('toutes')}>Tout cocher</button>
+        <button type="button" onClick={() => onCocher('facades')} title="Chaque façade une fois : les doublons restent décochés">Tout cocher</button>
+        {enDoublon.size > 0 && <button type="button" onClick={() => onCocher('doublons')} title="Cocher aussi les photos qui ne montrent que des façades déjà proposées ailleurs">Avec les doublons ({enDoublon.size})</button>}
         <button type="button" onClick={() => onCocher('aucune')}>Tout décocher</button>
         <ReglagesDeLaListe {...props} />
-        <button type="button" className="principal" disabled={!nVues} onClick={onImporter}>Importer {nVues} vue(s) de {choisies.length} photo(s)</button>
+        <button type="button" className="principal" disabled={!aLImport.length} onClick={onImporter}>{texteDeLImport(aLImport, choisies.length)}</button>
+        {enDouble > 0 && <span className="en-double" role="status" title="Deux vues cochées montrent la même façade (un doublon coché, ou des vues choisies à la main). L’import reste possible.">{enDouble} bâtiment{enDouble > 1 ? 's' : ''} en double</span>}
       </div>
       <p className="aide">Un panoramique 360 se montre en entier, la rue au milieu : les cadres orange sont les vues qui seront importées{enDoublon.size > 0 ? ', les cadres gris en pointillé les doublons (un bâtiment déjà mieux vu ailleurs)' : ''}. « Choisir les vues » pour regarder ailleurs (à gauche, à droite, vers une maison).</p>
       <ul className="mosaique grande">

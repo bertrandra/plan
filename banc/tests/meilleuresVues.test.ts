@@ -1,69 +1,112 @@
-// Un batiment, ses meilleures vues (banc/src/meilleuresVues.ts ; demande du proprietaire, 15 novembre 2026) : la meme maison revient
-// dans cinq a dix 360 consecutifs. Les vues se regroupent par batiment vise ; seules les mieux notees se proposent.
+// Un batiment, une fois (banc/src/meilleuresVues.ts ; demande du proprietaire, 15 novembre 2026 : « Avoid having 2 times the same
+// building »). Les vues se regroupent par facade visee (batiment et cote) ; seule la mieux notee se propose.
 import { describe, it, expect } from 'vitest';
-import { aImporter, cleDeVue, compter, doublons, ECART_ENTRE_VUES_M, MEME_ENDROIT_M, estDoublon, marquer, noteDePhoto, ordonner, texteDesComptes, type VuesDUnePhoto } from '../src/meilleuresVues.js';
+import { ranger, regarder, vuesDeFacade, annoter, type Batiment } from '../src/facadesVues.js';
+import { aImporter, cleDeVue, compter, doublons, ECART_ENTRE_VUES_M, estDoublon, facadeDe, facadesEnDouble, marquer, noteDePhoto, ordonner, texteDeLImport, texteDesComptes, VUES_PAR_BATIMENT_DEFAUT, type VuesDUnePhoto } from '../src/meilleuresVues.js';
 import type { VueAExtraire } from '../src/panoramax.js';
 
 const R = 6371008.8;
 /** Une photo a `y` metres au nord de la premiere, dans une rue qui file vers le nord. */
 const photo = (id: string, y: number, vues: VueAExtraire[], libre = false): VuesDUnePhoto => ({ photo: { id, lat: 48.9 + (y / R) * (180 / Math.PI), lon: 2.13 }, vues, libre });
-const vue = (batiment: string, note: number, cote: 'gauche' | 'droite' = 'droite'): VueAExtraire => ({ vue: cote, cap: cote === 'droite' ? 90 : 270, batiment, note });
+const vue = (batiment: string, note: number, cote: 'gauche' | 'droite' = 'droite', face = 0): VueAExtraire => ({ vue: cote, cap: cote === 'droite' ? 90 : 270, batiment, cote: face, note });
 
-describe('les doublons d’un bâtiment', () => {
+describe('un bâtiment, une fois', () => {
   // Six 360 consecutifs, tous les 4 m, devant la meme maison ; le troisieme la voit le mieux.
   const rue = [60, 70, 90, 85, 65, 40].map((note, k) => photo('p' + k, 4 * k, [vue('maison', note)]));
-  it('deux vues par bâtiment : la meilleure, puis la meilleure prise d’ailleurs', () => {
-    const d = doublons(rue, 2);
-    // p2 (90) d'abord ; p3 (85) est a 4 m d'elle : la suivante vient de plus loin, p1 (70) est a 4 m aussi, p4 (65) a 8 m.
-    expect(ECART_ENTRE_VUES_M).toBeGreaterThan(4);
-    expect(rue.map((p) => !d.has(cleDeVue(p.photo.id, 0)))).toEqual([false, false, true, false, true, false]);
+  it('par défaut, une seule vue par façade : la mieux notée ; les autres sont des doublons', () => {
+    expect(VUES_PAR_BATIMENT_DEFAUT).toBe(1);
+    const d = doublons(rue, VUES_PAR_BATIMENT_DEFAUT);
+    expect(rue.map((p) => !d.has(cleDeVue(p.photo.id, 0)))).toEqual([false, false, true, false, false, false]);
   });
-  it('une, trois, toutes', () => {
-    expect(rue.length - doublons(rue, 1).size).toBe(1);
-    expect(doublons(rue, 1).has(cleDeVue('p2', 0))).toBe(false);
+  it('dans une même photo aussi : un 360 dont les deux vues tombent sur le même bâtiment n’en propose qu’une', () => {
+    const l = [photo('a', 0, [vue('angle', 60, 'gauche'), vue('angle', 80, 'droite')])];
+    const d = doublons(l, 1);
+    expect([...d]).toEqual([cleDeVue('a', 0)]);
+    const vues = marquer('a', l[0]?.vues ?? [], d);
+    expect(aImporter(vues).map((v) => v.note)).toEqual([80]);
+    expect(estDoublon(vues)).toBe(false);
+  });
+  it('les différents côtés d’une maison sont des façades différentes, pas des doublons', () => {
+    // La meme maison vue de deux rues : par son cote 0 et par son cote 1.
+    const l = [photo('rue1-a', 0, [vue('maison', 80, 'droite', 0)]), photo('rue1-b', 5, [vue('maison', 70, 'droite', 0)]), photo('rue2-a', 30, [vue('maison', 60, 'gauche', 1)]), photo('rue2-b', 35, [vue('maison', 50, 'gauche', 1)])];
+    expect([...doublons(l, 1)].sort()).toEqual([cleDeVue('rue1-b', 0), cleDeVue('rue2-b', 0)]);
+    expect([facadeDe(vue('m', 1, 'droite', 0)), facadeDe(vue('m', 1, 'droite', 1)), facadeDe({ batiment: 'm' }), facadeDe({})]).toEqual(['m/0', 'm/1', 'm/0', null]);
+  });
+  it('deux, trois, toutes : la deuxième se prend d’ailleurs que la première quand c’est possible', () => {
+    // p2 (90) d'abord ; p3 (85) et p1 (70) sont a 4 m d'elle, p4 (65) a 8 m.
+    expect(ECART_ENTRE_VUES_M).toBeGreaterThan(4);
+    const d = doublons(rue, 2);
+    expect(rue.map((p) => !d.has(cleDeVue(p.photo.id, 0)))).toEqual([false, false, true, false, true, false]);
     expect(rue.length - doublons(rue, 3).size).toBe(3);
     expect(doublons(rue, 'toutes').size).toBe(0);
-  });
-  it('un long immeuble (rue de Rivoli) : deux vues par tronçon de façade, pas deux pour tout l’îlot', () => {
-    // Trente 360 tous les 5 m devant le meme immeuble de 150 m.
-    const long = Array.from({ length: 30 }, (_, k) => photo('q' + String(k).padStart(2, '0'), 5 * k, [vue('ilot', 90)]));
-    const gardees = long.filter((p) => !doublons(long, 2).has(cleDeVue(p.photo.id, 0)));
-    expect(gardees.length).toBeGreaterThanOrEqual(Math.floor(150 / MEME_ENDROIT_M));
-    expect(gardees.length).toBeLessThanOrEqual(15);
-    // Jamais plus de deux vues retenues du meme endroit.
-    for (const g of gardees) expect(gardees.filter((h) => Math.abs(h.photo.lat - g.photo.lat) * 111320 < MEME_ENDROIT_M - 1).length).toBeLessThanOrEqual(3);
-  });
-  it('sans vue assez éloignée, la mieux notée qui reste', () => {
     const serrees = [photo('a', 0, [vue('m', 50)]), photo('b', 1, [vue('m', 80)]), photo('c', 2, [vue('m', 70)])];
     expect([...doublons(serrees, 2)]).toEqual([cleDeVue('a', 0)]);
   });
-  it('chaque bâtiment a ses vues : les deux côtés d’un 360 se jugent séparément', () => {
+  it('un long immeuble (rue de Rivoli) n’est proposé qu’une fois par côté, pas une fois par photo', () => {
+    const long = Array.from({ length: 30 }, (_, k) => photo('q' + String(k).padStart(2, '0'), 5 * k, [vue('ilot', 90 - k)]));
+    expect(long.length - doublons(long, 1).size).toBe(1);
+  });
+  it('chaque bâtiment a sa vue : les deux côtés de la rue se jugent séparément', () => {
     const l = [photo('a', 0, [vue('ouest', 50, 'gauche'), vue('est', 90)]), photo('b', 10, [vue('ouest', 80, 'gauche'), vue('est', 60)]), photo('c', 20, [vue('ouest', 70, 'gauche'), vue('est', 40)])];
     const d = doublons(l, 1);
     expect([...d].sort()).toEqual([cleDeVue('a', 0), cleDeVue('b', 1), cleDeVue('c', 0), cleDeVue('c', 1)].sort());
     // La photo c n'a plus que des doublons : visible, pas proposee ; a et b gardent une vue chacune.
     expect(estDoublon(marquer('c', l[2]?.vues ?? [], d))).toBe(true);
     expect(aImporter(marquer('a', l[0]?.vues ?? [], d)).map((v) => v.batiment)).toEqual(['est']);
-    expect(estDoublon(marquer('a', l[0]?.vues ?? [], d))).toBe(false);
   });
   it('les vues choisies à la main ne sont jamais des doublons, et ne prennent la place de personne', () => {
-    const l = [photo('main', 0, [vue('m', 10)], true), ...rue.map((p) => ({ ...p, vues: [vue('m', p.vues[0]?.note ?? 0)] }))];
-    const d = doublons(l, 2);
+    const l = [photo('main', 0, [vue('maison', 10)], true), ...rue];
+    const d = doublons(l, 1);
     expect(d.has(cleDeVue('main', 0))).toBe(false);
-    expect(l.length - 1 - d.size).toBe(2);
-  });
-  it('avec une parcelle visée : toutes les vues de ses bâtiments restent, le regroupement ne touche que les autres', () => {
-    const l = rue.map((p, k) => ({ ...p, vues: [vue('visee', 50 + k, 'gauche'), vue('en-face', p.vues[0]?.note ?? 0)] }));
-    const d = doublons(l, 2, new Set(['visee']));
-    expect([...d].every((c) => c.endsWith('|1'))).toBe(true);
-    expect(d.size).toBe(4);
+    expect(l.length - 1 - d.size).toBe(1);
   });
   it('à note égale, le choix ne dépend pas de l’ordre d’arrivée', () => {
     const l = [photo('a', 0, [vue('m', 70)]), photo('b', 20, [vue('m', 70)]), photo('c', 40, [vue('m', 70)])];
     expect([...doublons(l, 1)].sort()).toEqual([...doublons([...l].reverse(), 1)].sort());
   });
-  it('une vue sans bâtiment (pas de tri) n’est jamais un doublon', () => {
+  it('une vue sans bâtiment (tri décoché, rien de vu) n’est jamais un doublon', () => {
     expect(doublons([photo('a', 0, [{ vue: 'gauche', cap: 270 }]), photo('b', 1, [{ vue: 'gauche', cap: 270 }])], 1).size).toBe(0);
+    expect(facadesEnDouble([{ vue: 'gauche', cap: 270 }, { vue: 'gauche', cap: 270 }] as VueAExtraire[])).toBe(0);
+  });
+});
+
+describe('le côté d’un bâtiment, lu sur la géométrie', () => {
+  const ici = { lat: 48.905067, lon: 2.132536 };
+  const pt = (x: number, y: number) => ({ lat: ici.lat + (y / R) * (180 / Math.PI), lon: ici.lon + (x / (R * Math.cos((ici.lat * Math.PI) / 180))) * (180 / Math.PI) });
+  const maison: Batiment = { id: 'm', contour: [pt(-6, -4), pt(6, -4), pt(6, 4), pt(-6, 4), pt(-6, -4)] };
+  const s = ranger([maison]);
+  it('quatre faces, quatre côtés ; deux prises de vue devant la même face, le même côté', () => {
+    const sud = regarder(s, pt(0, -15), 0).cote, sudPlusLoin = regarder(s, pt(3, -18), 350).cote, est = regarder(s, pt(18, 0), 270).cote, nord = regarder(s, pt(0, 15), 180).cote, ouest = regarder(s, pt(-18, 0), 90).cote;
+    expect(sudPlusLoin).toBe(sud);
+    expect(new Set([sud, est, nord, ouest]).size).toBe(4);
+  });
+  it('une maison de biais garde ses quatre côtés (ils se comptent depuis son plus long mur, pas depuis le nord)', () => {
+    const tourner = (x: number, y: number, a = Math.PI / 5) => pt(x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a));
+    const biais = ranger([{ id: 'b', contour: [tourner(-6, -4), tourner(6, -4), tourner(6, 4), tourner(-6, 4), tourner(-6, -4)] }]);
+    const cotes = [[0, -15, 0], [18, 0, 270], [0, 15, 180], [-18, 0, 90]].map(([x, y, cap]) => { const p = tourner(x as number, y as number); return regarder(biais, p, (cap as number) - 36).cote; });
+    expect(new Set(cotes).size).toBe(4);
+  });
+  it('le tri donne son côté à chaque vue gardée ; une vue choisie à la main dit son bâtiment sans bouger ni partir', () => {
+    const [v] = vuesDeFacade(s, { ...pt(0, -15), azimut: 90 }, [{ vue: 'gauche', cap: 0 }]);
+    expect(v).toMatchObject({ batiment: 'm' });
+    expect(typeof v?.cote).toBe('number');
+    const main = annoter(s, pt(0, -15), [{ vue: 'choisie', cap: 5 }, { vue: 'choisie', cap: 180 }]);
+    expect(main.map((x) => [x.cap, x.batiment ?? null])).toEqual([[5, 'm'], [180, null]]);
+    expect(main[0]?.cote).toBe(v?.cote);
+  });
+});
+
+describe('ce que l’écran dit avant l’import', () => {
+  it('« N façades de N bâtiments » ; sans bâtiment connu, les vues et les photos', () => {
+    expect(texteDeLImport([vue('a', 1), vue('b', 1, 'gauche'), vue('b', 1, 'droite', 1)], 2)).toBe('Importer 3 façades de 2 bâtiments');
+    expect(texteDeLImport([vue('a', 1)], 1)).toBe('Importer 1 façade de 1 bâtiment');
+    expect(texteDeLImport([{}, {}], 1)).toBe('Importer 2 vue(s) de 1 photo(s)');
+    expect(texteDeLImport([], 0)).toBe('Importer 0 vue(s) de 0 photo(s)');
+  });
+  it('les façades cochées deux fois se comptent (un doublon coché à la main, des vues choisies à la main) ; deux côtés n’en sont pas', () => {
+    expect(facadesEnDouble([vue('a', 1), vue('a', 2), vue('a', 3), vue('b', 1), vue('b', 1), vue('c', 1)])).toBe(2);
+    expect(facadesEnDouble([vue('a', 1, 'droite', 0), vue('a', 1, 'gauche', 1)])).toBe(0);
+    expect(facadesEnDouble([])).toBe(0);
   });
 });
 

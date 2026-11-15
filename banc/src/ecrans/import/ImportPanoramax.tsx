@@ -128,7 +128,7 @@ function useApercu() {
 
 /**
  * Les photos cochees. `choix` : toutes, d'office (celles qui regardent la parcelle visee) ou par un geste ; `forcees` : celles cochees
- * par un geste (touchee, « Tout cocher »). Une photo toute en doublons n'est cochee que si on l'a demandee : la cocher d'office
+ * par un geste (touchee, « Avec les doublons »). Une photo toute en doublons n'est cochee que si on l'a demandee : la cocher d'office
  * importerait ce que le regroupement par batiment vient d'ecarter.
  */
 function useChoix() {
@@ -150,7 +150,7 @@ function Recherche({ texte, setTexte, rayon, setRayon, visees, setVisees, facade
 }) {
   return (
     <>
-      <p className="aide">Partez de la carte de France et zoomez jusqu’à la rue, ou tapez une adresse : la carte y va. À l’échelle d’un quartier, les photos de rue libres de la vue s’affichent ; touchez une parcelle du cadastre pour la viser (les photos prises autour d’elle et qui la regardent), touchez-la encore pour la lâcher. « Seulement les façades » ne propose que les vues où une maison ou un immeuble est dans le cadre (ni garage, ni hangar, ni local technique), tourne chaque vue d’un 360 vers sa façade et lui donne une note ; d’un même bâtiment, seules les meilleures vues sont proposées.</p>
+      <p className="aide">Partez de la carte de France et zoomez jusqu’à la rue, ou tapez une adresse : la carte y va. À l’échelle d’un quartier, les photos de rue libres de la vue s’affichent ; touchez une parcelle du cadastre pour la viser (les photos prises autour d’elle et qui la regardent), touchez-la encore pour la lâcher. « Seulement les façades » ne propose que les vues où une maison ou un immeuble est dans le cadre (ni garage, ni hangar, ni local technique), tourne chaque vue d’un 360 vers sa façade et lui donne une note ; un même bâtiment n’est proposé qu’une fois, par sa meilleure vue.</p>
       <form className="rang" onSubmit={(e) => { e.preventDefault(); onChercher(); }}>
         <input className="large" aria-label="Adresse ou coordonnées" placeholder="2 allée des Limites, Le Vésinet — ou 48.90507, 2.13254" value={texte} onChange={(e) => setTexte(e.target.value)} />
         <label>Rayon <input type="number" min={5} max={300} value={rayon} onChange={(e) => setRayon(Number(e.target.value))} /> m</label>
@@ -315,7 +315,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
     await banc.relire();
   };
   const basculer = (id: string) => mettreChoix(id, !cochees.has(id));
-  const cocher = (qui: 'meilleures' | 'toutes' | 'aucune') => poserChoix(qui === 'aucune' ? [] : proposees.filter((p) => qui === 'toutes' || !enDoublon.has(p.id)).map((p) => p.id), qui === 'toutes');
+  const cocher = (qui: 'facades' | 'doublons' | 'aucune') => poserChoix(qui === 'aucune' ? [] : proposees.filter((p) => qui === 'doublons' || !enDoublon.has(p.id)).map((p) => p.id), qui === 'doublons');
   // Toucher un point l'epingle ; le toucher encore coche ou decoche sa photo.
   const toucher = (id: string) => { if (epingle === id) basculer(id); else { setEpingle(id); setSurvol(null); } };
   const montree = proposees.find((x) => x.id === (survol ?? epingle)) ?? null;

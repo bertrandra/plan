@@ -145,13 +145,33 @@ const norm = (a: number) => ((a % 360) + 360) % 360;
 /** Le cote des cases du rangement des murs, en metres : une photo ne lit que les murs des cases a sa portee. */
 const CASE_M = 50;
 
-interface Arete { ax: number; ay: number; bx: number; by: number; b: number }
+interface Arete { ax: number; ay: number; bx: number; by: number; b: number; n: number }
 
 /**
  * Les murs des batiments, en metres autour d'une origine, ranges par cases. `facade[b]` : le batiment est une maison ou un immeuble ;
  * les autres (garage, local technique, hangar) restent dans la scene parce qu'ils cachent ce qui est derriere eux, sans rien montrer.
  */
-export interface Scene { origine: Ll; batiments: Batiment[]; facade: boolean[]; aretes: Arete[]; cases: Map<string, number[]> }
+export interface Scene { origine: Ll; batiments: Batiment[]; facade: boolean[]; aretes: Arete[]; cases: Map<string, number[]>; axes: number[] }
+
+/**
+ * L'axe d'un batiment : la direction de son plus long mur, ramenee entre 0 et 90 degres. Ses cotes se comptent a partir de lui
+ * (`coteDuMur`) : les quatre faces d'une maison rectangulaire sont quatre cotes, quel que soit son biais par rapport au nord.
+ */
+function axeDuContour(c: readonly { x: number; y: number }[]): number {
+  let long = 0, axe = 0;
+  for (let i = 0, j = c.length - 1; i < c.length; j = i++) {
+    const p = c[j] as { x: number; y: number }, q = c[i] as { x: number; y: number }, l = Math.hypot(q.x - p.x, q.y - p.y);
+    if (l > long) { long = l; axe = ((deg(Math.atan2(q.x - p.x, q.y - p.y)) % 90) + 90) % 90; }
+  }
+  return axe;
+}
+
+/** Le cote (0 a 3) du batiment auquel appartient un mur, vu depuis (x, y) : sa normale tournee vers le regard, par quarts de tour depuis l'axe. */
+function coteDuMur(m: Arete, axe: number, x: number, y: number): number {
+  let nx = m.by - m.ay, ny = -(m.bx - m.ax);
+  if (nx * (x - m.ax) + ny * (y - m.ay) < 0) { nx = -nx; ny = -ny; }
+  return ((Math.round((deg(Math.atan2(nx, ny)) - axe) / 90) % 4) + 4) % 4;
+}
 
 const enM = (p: Ll, o: Ll) => ({ x: rad(p.lon - o.lon) * R * Math.cos(rad(o.lat)), y: rad(p.lat - o.lat) * R });
 
@@ -176,7 +196,8 @@ export function ranger(batiments: readonly Batiment[]): Scene {
     for (let i = 0, j = c.length - 1; i < c.length; j = i++) {
       const p = c[j] as { x: number; y: number }, q = c[i] as { x: number; y: number };
       if (p.x === q.x && p.y === q.y) continue;
-      const n = aretes.push({ ax: p.x, ay: p.y, bx: q.x, by: q.y, b }) - 1;
+      const n = aretes.length;
+      aretes.push({ ax: p.x, ay: p.y, bx: q.x, by: q.y, b, n });
       for (let x = Math.floor(Math.min(p.x, q.x) / CASE_M); x <= Math.floor(Math.max(p.x, q.x) / CASE_M); x++) {
         for (let y = Math.floor(Math.min(p.y, q.y) / CASE_M); y <= Math.floor(Math.max(p.y, q.y) / CASE_M); y++) {
           const cle = x + ':' + y, l = cases.get(cle);
@@ -185,7 +206,7 @@ export function ranger(batiments: readonly Batiment[]): Scene {
       }
     }
   });
-  return { origine, batiments: gardes, facade, aretes, cases };
+  return { origine, batiments: gardes, facade, aretes, cases, axes: gardes.map((bat) => axeDuContour(bat.contour.map((p) => enM(p, origine)))) };
 }
 
 /** Les murs a portee d'un point (ceux des cases que touche le carre de `portee` autour de lui). */
@@ -214,7 +235,7 @@ export function facadeAPortee(s: Scene, pos: Ll, portee = DISTANCE_MAX_M): boole
 }
 
 /** Un regard : le batiment qu'il rencontre d'abord (-1 : aucune facade), a quelle distance et sous quel angle avec le mur. */
-interface Rayons { b: Int32Array; d: Float32Array; inc: Float32Array }
+interface Rayons { b: Int32Array; d: Float32Array; inc: Float32Array; mur: Int32Array; x: number; y: number }
 
 /**
  * Ce qu'un regard rencontre d'abord. Le batiment ne compte (son rang, sinon -1) que si c'est une facade a portee, ni trop pres, ni vue
@@ -234,13 +255,13 @@ function lancer(s: Scene, murs: readonly Arete[], x: number, y: number, cap: num
   const ex = mur.bx - mur.ax, ey = mur.by - mur.ay;
   const incidence = deg(Math.asin(Math.min(1, Math.abs(ex * dy - ey * dx) / Math.hypot(ex, ey))));
   if (incidence < INCIDENCE_MIN_DEG) return;
-  r.b[i] = mur.b; r.d[i] = d; r.inc[i] = incidence;
+  r.b[i] = mur.b; r.d[i] = d; r.inc[i] = incidence; r.mur[i] = mur.n;
 }
 
 /** Les regards d'un balayage, un par degre de `de` a `de + n - 1`. */
 function balayer(s: Scene, pos: Ll, de: number, n: number): Rayons {
   const p = enM(pos, s.origine), murs = mursProches(s, p.x, p.y);
-  const r: Rayons = { b: new Int32Array(n).fill(-1), d: new Float32Array(n), inc: new Float32Array(n) };
+  const r: Rayons = { b: new Int32Array(n).fill(-1), d: new Float32Array(n), inc: new Float32Array(n), mur: new Int32Array(n), x: p.x, y: p.y };
   if (murs.length) for (let i = 0; i < n; i++) lancer(s, murs, p.x, p.y, de + i, r, i);
   return r;
 }
@@ -279,6 +300,11 @@ export interface Regard {
   incidence: number;
   /** La part du cadre (largeur et hauteur, 0 a 1) que les facades remplissent : le reste est de la chaussee, du ciel ou du vide. */
   cadre: number;
+  /**
+   * Le cote du batiment le plus present que la vue regarde (0 a 3, par quarts de tour depuis son plus long mur) : celui du mur qu'elle
+   * voit le plus. Deux vues du meme batiment par le meme cote montrent la meme facade ; par deux cotes, deux facades.
+   */
+  cote: number;
 }
 
 /** Le cadre d'une vue : son champ horizontal, de combien elle regarde vers le haut, et sa forme (largeur sur hauteur). */
@@ -298,14 +324,17 @@ function partEnHauteur(d: number, h: number, c: Cadre): number {
 function resumer(s: Scene, r: Rayons, a: number, b: number, c: Cadre): Regard {
   const m = plusPresent(r.b, a, b), n = b - a + 1;
   let cadre = 0, distance = 0, incidence = 0, k = 0;
+  const cotes = [0, 0, 0, 0];
   for (let i = Math.max(0, a); i <= Math.min(r.b.length - 1, b); i++) {
     const v = r.b[i] as number;
     if (v < 0) continue;
     cadre += partEnHauteur(r.d[i] as number, (s.batiments[v] as Batiment).hauteur ?? HAUTEUR_PAR_DEFAUT_M, c);
-    if (v === m?.b) { distance += r.d[i] as number; incidence += r.inc[i] as number; k++; }
+    if (v !== m?.b) continue;
+    distance += r.d[i] as number; incidence += r.inc[i] as number; k++;
+    (cotes[coteDuMur(s.aretes[r.mur[i] as number] as Arete, s.axes[v] as number, r.x, r.y)] as number)++;
   }
   const part = (m?.n ?? 0) / n;
-  return { part, batiment: m ? (s.batiments[m.b] as Batiment).id : null, facade: part >= PART_DU_CHAMP_MIN, distance: k ? distance / k : 0, incidence: k ? incidence / k : 0, cadre: cadre / n };
+  return { part, batiment: m ? (s.batiments[m.b] as Batiment).id : null, facade: part >= PART_DU_CHAMP_MIN, distance: k ? distance / k : 0, incidence: k ? incidence / k : 0, cadre: cadre / n, cote: cotes.indexOf(Math.max(...cotes)) };
 }
 
 /** Ce qu'une vue tournee vers `cap` voit des batiments, depuis `pos` (par defaut, une vue de 75 degres tiree d'un 360). */
@@ -371,7 +400,7 @@ export function noteDeVue(r: Pick<Regard, 'distance' | 'incidence' | 'cadre'>, d
  */
 export function vuesDeFacade(s: Scene, p: Pick<PhotoRue, 'lat' | 'lon' | 'azimut'> & Partial<Pick<PhotoRue, 'champ' | 'date' | 'capSur' | 'forme'>>, vues: readonly VueAExtraire[], aujourdhui = new Date()): VueAExtraire[] {
   const pos = { lat: p.lat, lon: p.lon };
-  const notee = (v: VueAExtraire, r: Regard & { batiment: string }, cap = v.cap): VueAExtraire => ({ vue: v.vue, cap, batiment: r.batiment, note: noteDeVue(r, p.date ?? null, aujourdhui), distanceFacade: Math.round(r.distance * 10) / 10 });
+  const notee = (v: VueAExtraire, r: Regard & { batiment: string }, cap = v.cap): VueAExtraire => ({ vue: v.vue, cap, batiment: r.batiment, cote: r.cote, note: noteDeVue(r, p.date ?? null, aujourdhui), distanceFacade: Math.round(r.distance * 10) / 10 });
   return vues.flatMap((v): VueAExtraire[] => {
     if ((v.vue === 'gauche' || v.vue === 'droite') && p.azimut !== null) {
       const f = viserLaFacade(s, pos, norm(p.azimut + (v.vue === 'gauche' ? -90 : 90)));
@@ -382,5 +411,16 @@ export function vuesDeFacade(s: Scene, p: Pick<PhotoRue, 'lat' | 'lon' | 'azimut
     if (plate && p.capSur === false) return [];
     const r = regarder(s, pos, v.cap, plate ? cadrePlat(p.champ ?? CHAMP_VUE, p.forme) : CADRE_VUE);
     return r.batiment && (plate ? plateMontreUneFacade(r) : r.facade) ? [notee(v, { ...r, batiment: r.batiment })] : [];
+  });
+}
+
+/**
+ * Ce que regardent des vues choisies a la main : leur batiment, son cote et leur note quand elles en voient un, sans rien deplacer ni
+ * ecarter (elles ne passent pas par le tri). De quoi dire, avant l'import, que deux vues cochees montrent la meme facade.
+ */
+export function annoter(s: Scene, p: Pick<PhotoRue, 'lat' | 'lon'> & Partial<Pick<PhotoRue, 'champ' | 'date' | 'forme'>>, vues: readonly VueAExtraire[], aujourdhui = new Date()): VueAExtraire[] {
+  return vues.map((v) => {
+    const r = regarder(s, { lat: p.lat, lon: p.lon }, v.cap, v.vue === 'photo' ? cadrePlat(p.champ ?? CHAMP_VUE, p.forme) : CADRE_VUE);
+    return r.batiment ? { ...v, batiment: r.batiment, cote: r.cote, note: noteDeVue(r, p.date ?? null, aujourdhui), distanceFacade: Math.round(r.distance * 10) / 10 } : v;
   });
 }

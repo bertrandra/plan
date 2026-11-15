@@ -1,26 +1,23 @@
-// Un batiment, ses meilleures vues (demande du proprietaire, 15 novembre 2026). Vu sur le vrai reseau : la meme maison revient dans cinq
-// a dix 360 consecutifs, et les importer toutes n'apprend rien de plus au modele. Les vues gardees par le tri (facadesVues.ts) se
-// regroupent par batiment vise (son identifiant de la BD TOPO) ; seules les mieux notees de chaque batiment se proposent, les autres
-// restent visibles, marquees « doublon ». Les vues choisies a la main et celles qui regardent la parcelle visee ne sont jamais des
-// doublons. Sans DOM, testable seul (banc/tests/meilleuresVues.test.ts).
+// Un batiment, une fois (demande du proprietaire, 15 novembre 2026 : « Avoid having 2 times the same building »). Vu sur le vrai
+// reseau : la meme maison revient dans cinq a dix 360 consecutifs, et les importer toutes n'apprend rien de plus au modele. Les vues
+// gardees par le tri (facadesVues.ts) se regroupent par facade visee : le batiment (son identifiant de la BD TOPO) et le cote par
+// lequel on le voit (les quatre faces d'une maison sont quatre facades, pas des doublons). Par defaut une seule vue par facade se
+// propose, la mieux notee ; les autres restent visibles, decochees, marquees « doublon », dans une meme photo comme d'une photo a
+// l'autre, avec ou sans parcelle visee. Une vue sans batiment (tri decoche, rien de vu) n'est jamais un doublon. Les vues choisies a
+// la main ne sont jamais decochees : l'ecran dit seulement, avant l'import, combien de facades sont cochees deux fois. Sans DOM,
+// testable seul (banc/tests/meilleuresVues.test.ts).
 
 import { distanceM, type PhotoRue, type VueAExtraire } from './panoramax.js';
 
-/** Combien de vues garder par batiment. */
+/** Combien de vues garder par facade (un batiment vu par un cote). */
 export type VuesParBatiment = 1 | 2 | 3 | 'toutes';
 export const VUES_PAR_BATIMENT: readonly VuesParBatiment[] = [1, 2, 3, 'toutes'];
-export const VUES_PAR_BATIMENT_DEFAUT: VuesParBatiment = 2;
+export const VUES_PAR_BATIMENT_DEFAUT: VuesParBatiment = 1;
 /**
- * La deuxieme vue d'un batiment se prend d'ailleurs que la premiere quand c'est possible : deux 360 pris a deux metres l'un de l'autre
- * montrent la meme image. En deca de cet ecart entre deux prises de vue, la suivante attend qu'il n'y ait pas mieux place.
+ * Quand on garde plusieurs vues d'une facade, la suivante se prend d'ailleurs que les precedentes si c'est possible : deux 360 pris a
+ * deux metres l'un de l'autre montrent la meme image.
  */
 export const ECART_ENTRE_VUES_M = 6;
-/**
- * Un doublon est une vue du meme batiment prise du meme endroit. Vu rue de Rivoli (15 novembre 2026) : un immeuble de la BD TOPO y
- * tient tout un ilot, et deux vues pour 150 m de facade jetaient presque tout. Les `n` meilleures se comptent donc parmi les vues prises
- * a moins de cette distance les unes des autres : une maison garde ses deux vues (on ne la voit pas de plus loin), un long immeuble deux vues par troncon de facade.
- */
-export const MEME_ENDROIT_M = 40;
 
 export interface VuesDUnePhoto {
   photo: Pick<PhotoRue, 'id' | 'lat' | 'lon'>;
@@ -31,35 +28,54 @@ export interface VuesDUnePhoto {
 
 export const cleDeVue = (photo: string, rang: number): string => photo + '|' + rang;
 
+/** La facade qu'une vue regarde : son batiment et le cote par lequel elle le voit ; null sans batiment (jamais un doublon). */
+export const facadeDe = (v: Pick<VueAExtraire, 'batiment' | 'cote'>): string | null => (v.batiment ? v.batiment + '/' + (v.cote ?? 0) : null);
+
 /**
- * Les vues en trop : pour chaque batiment, celles au-dela des `n` meilleures prises du meme endroit (MEME_ENDROIT_M). La meilleure
- * d'abord, puis la mieux notee parmi celles prises a ECART_ENTRE_VUES_M au moins des vues deja retenues ; s'il reste de la place, les autres. `exemptes` : les batiments
- * de la parcelle visee, dont toutes les vues restent (le comportement de la parcelle visee ne change pas). Rend les cles des doublons.
+ * Les vues en trop : pour chaque facade, celles au-dela des `n` meilleures. La mieux notee d'abord, puis (pour n > 1) la mieux notee
+ * parmi celles prises a ECART_ENTRE_VUES_M au moins des vues deja retenues, puis les autres s'il reste de la place. Rend les cles des
+ * doublons.
  */
-export function doublons(photos: readonly VuesDUnePhoto[], n: VuesParBatiment, exemptes: ReadonlySet<string> = new Set()): Set<string> {
+export function doublons(photos: readonly VuesDUnePhoto[], n: VuesParBatiment): Set<string> {
   const out = new Set<string>();
   if (n === 'toutes') return out;
   const par = new Map<string, { cle: string; note: number; pos: { lat: number; lon: number } }[]>();
   for (const p of photos) {
     if (p.libre) continue;
     p.vues.forEach((v, k) => {
-      if (!v.batiment || exemptes.has(v.batiment)) return;
-      const l = par.get(v.batiment) ?? [];
+      const f = facadeDe(v);
+      if (!f) return;
+      const l = par.get(f) ?? [];
       l.push({ cle: cleDeVue(p.photo.id, k), note: v.note ?? 0, pos: p.photo });
-      par.set(v.batiment, l);
+      par.set(f, l);
     });
   }
   for (const l of par.values()) {
     // A note egale, l'ordre des cles : le choix ne depend pas de l'ordre d'arrivee des photos.
     const ordre = [...l].sort((a, b) => b.note - a.note || (a.cle < b.cle ? -1 : 1)), retenues: typeof l = [];
-    const autour = (c: (typeof l)[number], rayon: number) => retenues.filter((r) => distanceM(r.pos, c.pos) < rayon).length;
-    // D'abord les vues prises a l'ecart de celles deja retenues, puis, s'il reste de la place, les autres.
-    for (const passe of [ECART_ENTRE_VUES_M, 0]) {
-      for (const c of ordre) if (!retenues.includes(c) && autour(c, MEME_ENDROIT_M) < n && autour(c, passe) === 0) retenues.push(c);
+    for (const ecart of [ECART_ENTRE_VUES_M, 0]) {
+      for (const c of ordre) if (retenues.length < n && !retenues.includes(c) && retenues.every((r) => distanceM(r.pos, c.pos) >= ecart)) retenues.push(c);
     }
     for (const c of ordre) if (!retenues.includes(c)) out.add(c.cle);
   }
   return out;
+}
+
+/**
+ * Les facades cochees plus d'une fois, parmi les vues qui seront importees : un doublon coche a la main, deux vues choisies a la main
+ * vers la meme maison. L'ecran le dit avant l'import, sans rien empecher.
+ */
+export function facadesEnDouble(vues: readonly Pick<VueAExtraire, 'batiment' | 'cote'>[]): number {
+  const n = new Map<string, number>();
+  for (const v of vues) { const f = facadeDe(v); if (f) n.set(f, (n.get(f) ?? 0) + 1); }
+  return [...n.values()].filter((k) => k > 1).length;
+}
+
+/** Ce que le bouton d'import annonce : « Importer 12 façades de 9 bâtiments » ; sans batiment connu (tri decoche), les vues et les photos. */
+export function texteDeLImport(vues: readonly Pick<VueAExtraire, 'batiment'>[], nPhotos: number): string {
+  const batiments = new Set(vues.flatMap((v) => (v.batiment ? [v.batiment] : []))).size, s = (k: number) => (k > 1 ? 's' : '');
+  if (!batiments) return `Importer ${vues.length} vue(s) de ${nPhotos} photo(s)`;
+  return `Importer ${vues.length} façade${s(vues.length)} de ${batiments} bâtiment${s(batiments)}`;
 }
 
 /** Les vues d'une photo, celles en trop marquees « doublon ». */

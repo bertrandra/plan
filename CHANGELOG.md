@@ -23,10 +23,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **Une note par vue**, de 0 à 100 (`noteDeVue` : distance 30, façade vue de front 25, part du cadre 35, date 10), dite dans
     l'aperçu et sur chaque carte de la liste ; la liste se trie « meilleures d'abord » par défaut, ou « plus proches », « plus
     récentes ».
-  - **Un bâtiment, ses meilleures vues** (`meilleuresVues.ts`) : les vues se regroupent par bâtiment visé ; par défaut les deux
-    meilleures prises d'un même endroit se proposent (réglage « Vues par bâtiment » : 1, 2, 3, toutes), les autres restent visibles,
-    décochées, marquées « doublon ». Les vues choisies à la main et celles des bâtiments de la parcelle visée ne sont jamais des
-    doublons. « Cocher les meilleures » coche tout sauf les doublons ; l'état dit photos, façades, bâtiments, doublons, écartées.
+  - **Un bâtiment, une fois** (`meilleuresVues.ts` ; précision du propriétaire : « Avoid having 2 times the same building »). Les
+    vues se regroupent par **façade** : le bâtiment (identifiant BD TOPO) et le côté par lequel la vue le voit (0 à 3, par quarts de
+    tour depuis son plus long mur ; les côtés d'une même maison ne sont pas des doublons). Par défaut **une seule vue par façade**
+    se propose, la mieux notée (réglage « Vues par bâtiment » : 1, 2, 3, toutes) ; les autres restent visibles, décochées,
+    marquées « doublon », dans une même photo (un 360 dont les deux vues tombent sur le même bâtiment) comme entre photos, avec ou
+    sans parcelle visée. Une vue sans bâtiment (tri décoché) n'est jamais un doublon. « Tout cocher » ne coche pas les doublons
+    (« Avec les doublons » le fait, exprès) ; le bouton d'import annonce « N façades de N bâtiments » ; les vues choisies à la
+    main ne sont jamais décochées, et l'écran dit avant l'import « N bâtiments en double », sans bloquer. L'état dit photos,
+    façades, bâtiments, doublons, écartées.
   - **La couverture dit où sont les façades** : à l'échelle de la rue (800 m de large au plus), les tronçons sans mur de maison à
     40 m se dessinent en gris, légende « rues photographiées sans façade à portée ». Les bâtiments se lisent par cases de 800 m
     gardées en mémoire (24 cases, deux lectures à la fois, partagées avec le tri des photos : `casesBatiments.ts`). De plus loin
@@ -34,14 +39,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
   Mesuré sur le vrai réseau (mêmes photos, 150 m autour du point, avant → après) : **campagne** (48.12612, 2.88168) 5 vues du
   local technique → 0 ; **immeubles** (150 rue de Rivoli) 315 photos et 508 vues → 272 photos et 465 vues, photos plates 49 → 6,
-  puis 42 vues proposées de 19 bâtiments et 423 doublons ; **pavillons** (2 allée des Limites) 47 photos et 92 vues → 47 et 91,
-  puis 59 proposées de 35 bâtiments et 32 doublons, aucune vraie façade perdue. Ce qui reste faux, vu sur les planches : au
+  puis 32 façades proposées de 19 bâtiments et 433 doublons ; **pavillons** (2 allée des Limites) 47 photos et 92 vues → 47 et 91,
+  puis 43 façades proposées de 35 bâtiments et 48 doublons, aucune vraie façade perdue. Ce qui reste faux, vu sur les planches : au
   Vésinet environ une vue proposée sur trois montre encore une haie ou une clôture (la note ne voit pas les haies), rue de Rivoli
   deux des dix-huit premières (un store de brasserie, une station de vélos) ; un 360 sans boussole et à l'arrêt garde ses vues ;
-  une « vue par bâtiment » de plus loin que 40 m compte à part. Écart avec la consigne : sans parcelle visée rien n'est coché
-  d'office, comme avant (on se promène et les photos cochées restent) ; « Cocher les meilleures » fait le geste. La fumée du banc
+  le côté d'un bâtiment au contour compliqué peut changer d'une prise de vue à l'autre (il compte alors deux fois). Écart avec la
+  consigne : sans parcelle visée rien n'est coché d'office, comme avant (on se promène et les photos cochées restent) ; « Tout
+  cocher » fait le geste. La fumée du banc
   (`scripts/fumee-banc.mjs`) suit : son témoin est refait (bâtiments lus par cases), elle vérifie la note de chaque carte, le tri par
-  note et qu'aucun doublon n'est coché d'office. Serveur du banc,
+  note, qu'aucun doublon n'est coché d'office, « N façades de N bâtiments » et « N bâtiments en double ». Serveur du banc,
   politique de contenu et Plan inchangés (les bâtiments viennent du même WFS, déjà admis).
 - **Banc d'apprentissage : une fumée de l'écran d'import Panoramax, jouée à chaque PR** (« Go all to the end » du propriétaire,
   15 novembre 2026). L'écran (carte de France, zoom, couverture orange, « Seulement les façades », aperçu des façades, import)

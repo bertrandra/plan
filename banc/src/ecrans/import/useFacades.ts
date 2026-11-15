@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { empriseAutour } from '../../carte.js';
 import { casesDeLEmprise, cleDeCase, type Case } from '../../couvertureFacades.js';
-import { DISTANCE_MAX_M, vuesDeFacade } from '../../facadesVues.js';
+import { annoter as annoterLesVues, DISTANCE_MAX_M, vuesDeFacade } from '../../facadesVues.js';
 import type { PhotoRue, VueAExtraire } from '../../panoramax.js';
 import type { Ll } from '../../parcelles.js';
 import { BATIMENTS, useVersionDesBatiments } from './batimentsLus.js';
@@ -23,6 +23,8 @@ export interface Facades {
   /** Ce que la carte doit dire quand le tri n'a pas pu se faire ; null quand il se fait. */
   avis: string | null;
   contour: (id: string) => Ll[] | null;
+  /** Les vues choisies a la main, telles quelles, avec le batiment qu'elles regardent quand il est connu (jamais triees ni deplacees). */
+  annoter: (p: PhotoRue, vues: VueAExtraire[]) => VueAExtraire[];
   /** Change quand les batiments lus changent : de quoi refaire ce qui depend du tri. */
   version: number;
 }
@@ -60,11 +62,12 @@ export function useFacades(photos: readonly PhotoRue[], actif: boolean): Facades
     memoire.set(k, l);
     return l;
   }, [etat, memoire, scene]);
+  const annoter = useCallback((p: PhotoRue, l: VueAExtraire[]): VueAExtraire[] => (etat(p) === 'triee' ? annoterLesVues(scene, p, l) : l), [etat, scene]);
   const contour = useCallback((id: string) => parId.get(id) ?? null, [parId]);
   const avis = useMemo(() => {
     const etats = cles.map((c) => BATIMENTS.etat(c));
     return etats.includes('panne') ? AVIS_BATIMENTS : etats.includes('tronquee') ? AVIS_BATIMENTS_TRONQUES : null;
   // L'etat des cases change avec la version du lecteur.
   }, [cles, version]);
-  return { vues, etat, avis, contour, version };
+  return { vues, etat, avis, contour, annoter, version };
 }
