@@ -149,6 +149,28 @@ describe('Panoramax autour d’une adresse', () => {
     }
   });
 
+  it('lit les photos de l instance tierce panoramax.mapcomplete.org, hd, sd et vignette, et la politique de contenu l admet', () => {
+    // Centre de Paris (Hotel de Ville) : 13 photos sur 200 y sont servies par cette instance (lien `via` vers elle).
+    const hote = 'https://panoramax.mapcomplete.org';
+    const cible = { lat: 48.857213, lon: 2.352353 };
+    const chemin = '57/d4/62/e6/7569-4527-8257-e85f08448055';
+    const json = { features: [{ id: 'mc', geometry: { coordinates: [cible.lon, cible.lat] }, properties: { 'view:azimuth': 293, license: 'CC-BY-SA-4.0' },
+      assets: { hd: { href: hote + '/permanent/' + chemin + '.jpg' }, sd: { href: hote + '/derivatives/' + chemin + '/sd.jpg' }, thumb: { href: hote + '/derivatives/' + chemin + '/thumb.jpg' } } }] };
+    const [p] = lirePhotos(json, cible, 50);
+    expect([p?.hd, p?.sd, p?.vignette]).toEqual([hote + '/permanent/' + chemin + '.jpg', hote + '/derivatives/' + chemin + '/sd.jpg', hote + '/derivatives/' + chemin + '/thumb.jpg']);
+    expect(HOTES).toContain(hote);
+    // Un hote qui commence pareil, ou un autre sous-domaine, n'est pas cet hote.
+    for (const faux of [hote + '.exemple.org', 'https://autre.mapcomplete.org']) {
+      expect(lirePhotos({ features: [{ ...json.features[0], assets: { hd: { href: faux + '/a.jpg' } } }] }, cible, 50)).toEqual([]);
+    }
+    // Admis par la politique du banc une fois par directive, et seulement cet hote (pas tout mapcomplete.org).
+    const csp = /Content-Security-Policy "([^"]+)"/.exec(readFileSync(new URL('../public/.htaccess', import.meta.url), 'utf8'))?.[1] ?? '';
+    for (const d of ['img-src', 'connect-src']) {
+      const sources = (csp.split(';').map((x) => x.trim()).find((x) => x.startsWith(d + ' ')) ?? '').split(' ');
+      expect(sources.filter((x) => x.includes('mapcomplete')), d).toEqual([hote]);
+    }
+  });
+
   it('garde les photos du rayon, les plus proches d’abord, dit lesquelles visent l’adresse, et ecarte un hote inconnu', () => {
     // Au sud de l'adresse, a ~22 m : tournee vers le nord, elle vise ; tournee vers le sud, non. Un 360 vise toujours.
     const sud = cible.lat - 0.0002;
