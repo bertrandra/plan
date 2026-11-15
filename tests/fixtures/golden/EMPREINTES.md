@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, à la 5.20.0 le même jour, à la 5.21.0 le même jour encore, à la 5.22.0, toujours le 9 novembre, à la 5.22.1 le même jour, à la 5.23.0 le 12 novembre 2026, à la 5.24.0 le même jour, à la 5.25.0 le même jour encore, à la 5.26.0, toujours le 12 novembre, à la 5.27.0 le 14 novembre 2026, à la 5.27.1 le même jour, à la 5.28.0 le 15 novembre 2026, puis à la 5.29.0 le même jour.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, à la 5.20.0 le même jour, à la 5.21.0 le même jour encore, à la 5.22.0, toujours le 9 novembre, à la 5.22.1 le même jour, à la 5.23.0 le 12 novembre 2026, à la 5.24.0 le même jour, à la 5.25.0 le même jour encore, à la 5.26.0, toujours le 12 novembre, à la 5.27.0 le 14 novembre 2026, à la 5.27.1 le même jour, à la 5.28.0 le 15 novembre 2026, à la 5.29.0 le même jour, puis à la 5.29.1 le même jour encore.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `40f726c9886d3855e52b22a053281e09f6014a46f9544c0b382fb3544c5235e9` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `36cdb747215d329975549d9d2132614504835cc863c5401ba181d1f5fcc37090` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `0401734809fd62f87aa56c56e6d9364dbda638a7407d0659363ea3b20265cb4e` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `6327c8a88dc353a7c09537972a91c38bfaa1eef6febb61ca68a536dd92b9cbe1` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `be9850ab5f1eb36eba8ad7a09ef16ada297d7e580dbaad87820ff87844336942` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `bbdcf1a0005d729000b2cac8f74d7713f4c9df5892b8aa6118b86fc57a357c97` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `5ed7058e92c4835ed7581dc4fc53fb50f004d7083cfbb9f70d0b927aec6e7413` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `16ee39db34a50b82297763b6183433cb5449c7922905785666556f70b2ce3157` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `ff8ed2efc4315a1fe64388fca63051455f8b4cad4c4eb47148f160e425731aed` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `b17e80674277573602214266a3d257dfc64720db8787a77ace8aa8eb60a83ff0` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `70a1d2ac442056429e0f583a63152d02071780ddf7c521e92ea4e6908c91cfab` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `a82a938b551cd8e51aa50e64798670ab7cff1ee28d88fd9c13160e1dba879e8f` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `0dc73a220717059586052d4f7fb5fa012f495eb3da768ba398794817c8c099ff` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `618062624f5f606bf162b0fd18774b0473a253fbf42d78abfd3ef28369e393fa` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -1673,3 +1673,23 @@ dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `doss
 | `dossier.pdf` (normalisée) | `bf2d0739…` | `16ee39db…` |
 | `dossier-piscine.pdf` (brute) | `1f087135…` | `70a1d2ac…` |
 | `note-calcul.pdf` (brute) | `00e635ac…` | `a82a938b…` |
+
+## Version 5.29.1 (15 novembre 2026) — le banc lit une instance Panoramax de plus, seul le numéro bouge
+
+Ce qui est entré depuis la 5.29.0 (banc d'apprentissage, import Panoramax : les photos de l'instance tierce
+`panoramax.mapcomplete.org` se proposent, #687) ne touche que `banc/`, application à part : ni le moteur, ni les quantités, ni les
+exports. `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `glb-structure.json` ne bougent pas. Aucun champ de
+fichier nouveau, schéma inchangé (16). Avant le changement de numéro, le code régénère les témoins de la 5.29.0 au bit près. Les sept
+témoins passent à `5.29.1` ; la date de build reste `2026-10-30`. **La preuve forte, sept sur sept** : `5.29.1` → `5.29.0` remis dans
+les octets frais rend les fichiers de la 5.29.0 **au bit près**, tailles identiques à l'octet (une occurrence par fichier texte, deux
+dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`).
+
+| Fixture | Empreinte 5.29.0 | Empreinte 5.29.1 |
+|---|---|---|
+| `resume.txt` (normalisée) | `40f726c9…` | `6327c8a8…` |
+| `plan.svg` (normalisée) | `36cdb747…` | `be9850ab…` |
+| `plan.dxf` (normalisée) | `04017348…` | `bbdcf1a0…` |
+| `plan.pdf` (normalisée) | `5ed7058e…` | `ff8ed2ef…` |
+| `dossier.pdf` (normalisée) | `16ee39db…` | `b17e8067…` |
+| `dossier-piscine.pdf` (brute) | `70a1d2ac…` | `0dc73a22…` |
+| `note-calcul.pdf` (brute) | `a82a938b…` | `61806262…` |
