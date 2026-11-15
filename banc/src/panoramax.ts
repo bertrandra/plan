@@ -6,8 +6,16 @@ export const GEOCODAGE_URL = 'https://data.geopf.fr/geocodage/search';
 /** Le repli quand la Geoplateforme ne repond pas : l'ancienne API Adresse (meme format de reponse). */
 export const GEOCODAGE_REPLI_URL = 'https://api-adresse.data.gouv.fr/search/';
 export const RECHERCHE_URL = 'https://api.panoramax.xyz/api/search';
-/** Les serveurs d'images que la page peut lire (banc/public/.htaccess) : une photo servie ailleurs n'est pas proposee. */
-export const HOTES = ['https://api.panoramax.xyz', 'https://panoramax.openstreetmap.fr', 'https://panoramax.ign.fr'];
+/**
+ * Les serveurs d'images que la page peut lire (banc/public/.htaccess) : une photo servie ailleurs n'est pas proposee.
+ * Le dernier est le stockage de l'instance de l'IGN : la recherche du meta-catalogue y renvoie une grande part de ses photos (lien
+ * `via` vers panoramax.ign.fr), servies avec `Access-Control-Allow-Origin: *`. Sans lui, des rues entieres de la couverture ne
+ * proposaient aucune photo. Les instances tierces du catalogue (panoramax.mapcomplete.org...) n'y sont pas : a decider une par une.
+ */
+export const HOTES = [
+  'https://api.panoramax.xyz', 'https://panoramax.openstreetmap.fr', 'https://panoramax.ign.fr',
+  'https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net',
+];
 
 export interface Adresse { libelle: string; lat: number; lon: number }
 
