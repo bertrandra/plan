@@ -274,9 +274,13 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(await page.locator('.adresse-carte').count() === 1, 'le repère de l’adresse n’est pas sur la carte');
 
     // 4. « Seulement les facades » : son compte, les points et la liste ; la case decochee, toutes les photos.
-    const COMPTE = /^(\d+) photos?, (\d+) façades? de (\d+) bâtiments?, (\d+) doublons?(?:, \d+ façades? cachées?)? ; (\d+) écartées? : route, campagne ou pas une maison\.$/;
+    const COMPTE = /^(\d+) photos?, (\d+) façades? de (\d+) bâtiments?, (\d+) doublons?(?: dont \d+ déjà dans le banc)?(?:, \d+ façades? cachées?)? ; (\d+) écartées? : route, campagne ou pas une maison\.$/;
     await attendre((re) => new RegExp(re).test(document.querySelector('.compte-facades')?.textContent ?? ''), COMPTE.source, 'le filtre des façades ne dit pas son compte');
     const [, proposees, facades, batiments, doublons, ecartees] = COMPTE.exec(await texte('.compte-facades')).map(Number);
+    // Un mur deja dans le banc (la vue importee au premier passage) ne se propose plus : dit dans le compte, marque dans la liste, jamais coche.
+    const dejaLa = Number(/dont (\d+) déjà dans le banc/.exec(await texte('.compte-facades'))?.[1] ?? 0), marquesDeja = await page.locator('ul.mosaique.grande > li .marque-doublon.deja-la').count();
+    verifier(etat.importees ? dejaLa > 0 : dejaLa === 0, `${dejaLa} vue(s) dite(s) « déjà dans le banc » ${etat.importees ? 'après' : 'avant'} l’import`);
+    verifier(dejaLa <= doublons && marquesDeja <= dejaLa && await page.locator('ul.mosaique.grande > li:has(.deja-la) input:checked').count() === 0, `« déjà dans le banc » : ${dejaLa} vue(s) au compte, ${marquesDeja} photo(s) marquée(s), ou l’une est cochée`);
     // Chaque photo proposee a une vue au moins (a importer ou en doublon), et chaque batiment regarde une vue au moins.
     verifier(proposees > 0 && facades + doublons >= proposees && batiments > 0 && batiments <= facades + doublons, `le filtre ne propose rien de cohérent : ${await texte('.compte-facades')}`);
     // Chaque carte dit sa note ; une photo toute en doublons le dit et n'est pas cochee d'office.
@@ -374,6 +378,10 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       await attendre((n) => parseInt(document.querySelector('header.barre .compte')?.textContent ?? '', 10) === n, compteAvant + nVues, `le compteur du banc ne monte pas à ${compteAvant + nVues}`);
       verifier(await cartes.count() === proposees - 1, 'la photo importée est encore proposée');
       for (const u of images) { etat.gardees.add(u); etat.grandes.add(u); }
+      // Chaque vue importee par le tri garde le mur qu'elle montre (son batiment de la BD TOPO, son cote, son azimut).
+      const murs = await page.evaluate(async () => (await (await fetch('api.php?r=images', { headers: { 'X-Banc': '1' } })).json()).map((m) => m.mur ?? null));
+      verifier(murs.length === compteAvant + nVues && murs.every((m) => m && /^BATIMENT/.test(m.batiment) && m.cote >= 0 && m.cote <= 3 && typeof m.azimut === 'number' && typeof m.segment === 'number'), 'les vues importées ne gardent pas leur mur : ' + JSON.stringify(murs).slice(0, 300));
+      etat.murs = murs.length;
       etat.importees = 1;
       dire(`import : ${nVues} vue(s), ${statuts.join(' ')} ; le banc passe de ${compteAvant} à ${compteAvant + nVues} photo(s)`);
     }
@@ -388,7 +396,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       const cadre = document.querySelector('.carte-equilibre .carte-cadre').getBoundingClientRect();
       const amas = [...document.querySelectorAll('.carte-equilibre .amas')].map((g) => { const r = g.querySelector('circle').getBoundingClientRect(); return { n: Number(g.querySelector('text')?.textContent ?? 1), dedans: r.left >= cadre.left && r.right <= cadre.right && r.top >= cadre.top && r.bottom <= cadre.bottom }; });
       return { titre: document.querySelector('.page h2')?.textContent, photos: Number(document.querySelector('.tuile .valeur-tuile')?.textContent), yvelines: ligne('78 · Yvelines'), idf: ligne('Île-de-France'), panoramax: ligne('Panoramax'),
-        saisons: somme('Par saison'), vues: somme('Par type de vue'), etats: somme('Par état d’avancement'), regions: document.querySelectorAll('.grille-equilibre .section:first-child tr').length, amas, manques: document.querySelector('.liste-manques')?.innerText ?? '' };
+        batiments: somme('Par type de bâtiment'), doublons: [...document.querySelectorAll('.page details.section')].find((x) => x.querySelector('h3')?.firstChild?.textContent?.startsWith('Doublons'))?.querySelector('.compte-section')?.textContent ?? null, saisons: somme('Par saison'), vues: somme('Par type de vue'), etats: somme('Par état d’avancement'), regions: document.querySelectorAll('.grille-equilibre .section:first-child tr').length, amas, manques: document.querySelector('.liste-manques')?.innerText ?? '' };
     });
     verifier(eq.titre === 'Équilibre du jeu', 'l’écran d’équilibre ne s’ouvre pas');
     verifier(total > 0 && eq.photos === total, `l’équilibre compte ${eq.photos} photo(s), le banc en a ${total}`);
@@ -397,6 +405,9 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(eq.panoramax === total && eq.saisons === total && eq.vues === total && eq.etats === total, `les comptes ne font pas ${total} : Panoramax ${eq.panoramax}, saisons ${eq.saisons}, types de vue ${eq.vues}, états ${eq.etats}`);
     verifier(eq.amas.reduce((n, a) => n + a.n, 0) === total && eq.amas.every((a) => a.dedans), `la carte de l’équilibre ne montre pas les ${total} vue(s) dans son cadre : ${JSON.stringify(eq.amas)}`);
     verifier(eq.manques.includes('type de bâtiment'), 'l’écran ne dit pas ce que les métadonnées ne portent pas');
+    // Les vues importees par le tri disent leur mur : toutes comptees par type de batiment ; et les doublons du banc se disent.
+    verifier(eq.batiments === total, `l’équilibre compte ${eq.batiments} vue(s) par type de bâtiment, ${total} attendue(s)`);
+    verifier(/^(aucun|\d+ mur\(s\), \d+ image\(s\) en trop)$/.test(eq.doublons ?? ''), 'l’écran d’équilibre ne dit pas les doublons du banc : ' + eq.doublons);
     const cEq = await page.evaluate(mesurerContrastes, { textes: TEXTES_EQUILIBRE, pastilles: '.carte-equilibre .pastille-amas' });
     const mEq = await page.evaluate(mesurerMiseEnPage, { cibles: '.carte-equilibre button, .actions-page button', doigt });
     verifier(cEq.n > 30, `équilibre : ${cEq.n} textes mesurés seulement, les sélecteurs ne trouvent plus l’écran`);

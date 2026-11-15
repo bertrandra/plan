@@ -83,6 +83,15 @@ export function marquer(photo: string, vues: readonly VueAExtraire[], enTrop: Re
   return vues.map((v, k) => (enTrop.has(cleDeVue(photo, k)) ? { ...v, doublon: true } : v));
 }
 
+/**
+ * Les vues d'une facade que le banc a deja (demande du proprietaire, 15 novembre 2026 : « Avoid having 2 times the same building ») :
+ * marquees « deja dans le banc » et, comme un doublon, visibles mais pas proposees cochees. `murs` : les facades du banc (murs.ts).
+ */
+export function marquerDejaLa(vues: readonly VueAExtraire[], murs: ReadonlySet<string>): VueAExtraire[] {
+  if (!murs.size) return [...vues];
+  return vues.map((v) => { const f = facadeDe(v); return f && murs.has(f) ? { ...v, doublon: true, dejaLa: true } : v; });
+}
+
 /** Une photo dont toutes les vues sont des doublons : visible, mais pas proposee cochee. */
 export const estDoublon = (vues: readonly VueAExtraire[]): boolean => vues.length > 0 && vues.every((v) => v.doublon);
 
@@ -122,14 +131,14 @@ export function ordonner<T extends Pick<PhotoRue, 'id' | 'distance' | 'date'>>(p
     .sort((a, b) => Number(a.doublon) - Number(b.doublon) || a.cle - b.cle || a.rang - b.rang).map((x) => x.p);
 }
 
-export interface Comptes { photos: number; facades: number; batiments: number; doublons: number; ecartees: number; cachees?: number; cacheesEcartees?: boolean }
+export interface Comptes { photos: number; facades: number; batiments: number; doublons: number; /** Parmi les doublons, les vues d'une facade deja dans le banc. */ dejaLa?: number; ecartees: number; cachees?: number; cacheesEcartees?: boolean }
 
 /** Les comptes de ce qui est propose : photos, vues a importer (facades), batiments regardes, vues en doublon. */
 export function compter(vuesParPhoto: readonly (readonly VueAExtraire[])[], ecartees: number): Comptes {
   const batiments = new Set<string>();
-  let facades = 0, enTrop = 0;
-  for (const vues of vuesParPhoto) for (const v of vues) { if (v.batiment) batiments.add(v.batiment); if (v.doublon) enTrop++; else facades++; }
-  return { photos: vuesParPhoto.length, facades, batiments: batiments.size, doublons: enTrop, ecartees };
+  let facades = 0, enTrop = 0, dejaLa = 0;
+  for (const vues of vuesParPhoto) for (const v of vues) { if (v.batiment) batiments.add(v.batiment); if (v.dejaLa) dejaLa++; if (v.doublon) enTrop++; else facades++; }
+  return { photos: vuesParPhoto.length, facades, batiments: batiments.size, doublons: enTrop, ...(dejaLa ? { dejaLa } : {}), ecartees };
 }
 
 /** Ce que l'etat dit du tri : « 42 photos, 61 façades de 23 bâtiments, 30 doublons ; 118 écartées : route, campagne ou pas une maison ». */
@@ -139,5 +148,5 @@ export function texteDesComptes(c: Comptes): string {
   // dites parmi les raisons d'ecarter (les photos qui n'avaient qu'elles sont alors dans les ecartees).
   const cachees = c.cachees && !c.cacheesEcartees ? `, ${c.cachees} façade${s(c.cachees)} cachée${s(c.cachees)}` : '';
   const raisons = c.cachees && c.cacheesEcartees ? 'route, campagne, pas une maison ou façade cachée' : 'route, campagne ou pas une maison';
-  return `${c.photos} photo${s(c.photos)}, ${c.facades} façade${s(c.facades)} de ${c.batiments} bâtiment${s(c.batiments)}, ${c.doublons} doublon${s(c.doublons)}${cachees} ; ${c.ecartees} écartée${s(c.ecartees)} : ${raisons}`;
+  return `${c.photos} photo${s(c.photos)}, ${c.facades} façade${s(c.facades)} de ${c.batiments} bâtiment${s(c.batiments)}, ${c.doublons} doublon${s(c.doublons)}${c.dejaLa ? ` dont ${c.dejaLa} déjà dans le banc` : ''}${cachees} ; ${c.ecartees} écartée${s(c.ecartees)} : ${raisons}`;
 }

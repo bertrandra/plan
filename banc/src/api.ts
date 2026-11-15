@@ -50,7 +50,7 @@ export const api = {
     f.append('meta', JSON.stringify(meta));
     return appel<MetaImage>('POST', 'images', {}, f);
   },
-  modifier: (id: string, champs: Partial<Pick<MetaImage, 'statut' | 'bloc' | 'verifiee' | 'echantillon' | 'note' | 'adresse'>>) => appel<MetaImage>('PATCH', 'image', { id }, champs),
+  modifier: (id: string, champs: Partial<Pick<MetaImage, 'statut' | 'bloc' | 'verifiee' | 'echantillon' | 'note' | 'adresse' | 'mur' | 'murCherche'>>) => appel<MetaImage>('PATCH', 'image', { id }, champs),
   supprimer: (id: string) => appel<{ supprimee: string }>('DELETE', 'image', { id }),
   fichier: (id: string, v: 'source' | 'redressee' | 'vignette', cle = '') => route('fichier', { id, v, ...(cle ? { c: cle } : {}) }),
   redressee: (id: string, fichier: Blob, vignette: Blob, redressement: Record<string, unknown>) => {

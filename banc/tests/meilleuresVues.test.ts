@@ -2,7 +2,7 @@
 // building »). Les vues se regroupent par facade visee (batiment et cote) ; seule la mieux notee se propose.
 import { describe, it, expect } from 'vitest';
 import { ranger, regarder, vuesDeFacade, annoter, type Batiment } from '../src/facadesVues.js';
-import { aImporter, cleDeVue, compter, doublons, ECART_ENTRE_VUES_M, estDoublon, facadeDe, facadesEnDouble, marquer, noteDePhoto, ordonner, texteDeLImport, texteDesComptes, VUES_PAR_BATIMENT_DEFAUT, type VuesDUnePhoto } from '../src/meilleuresVues.js';
+import { aImporter, cleDeVue, compter, doublons, ECART_ENTRE_VUES_M, estDoublon, facadeDe, facadesEnDouble, marquer, marquerDejaLa, noteDePhoto, ordonner, texteDeLImport, texteDesComptes, VUES_PAR_BATIMENT_DEFAUT, type VuesDUnePhoto } from '../src/meilleuresVues.js';
 import type { VueAExtraire } from '../src/panoramax.js';
 
 const R = 6371008.8;
@@ -140,6 +140,28 @@ describe('l’ordre de la liste', () => {
   });
   it('sans note (pas de tri), l’ordre d’arrivée', () => {
     expect(ordonner(photos, () => [{ vue: 'gauche', cap: 0 }], 'note', false).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('un mur déjà dans le banc ne se propose plus', () => {
+  const vues: VueAExtraire[] = [{ vue: 'gauche', cap: 270, batiment: 'A', cote: 1, note: 80 }, { vue: 'droite', cap: 90, batiment: 'B', cote: 3, note: 60 }, { vue: 'choisie', cap: 10 }];
+
+  it('la vue d’une façade du banc est marquée, comme un doublon ; un autre côté du même bâtiment et une vue sans bâtiment ne le sont pas', () => {
+    const l = marquerDejaLa(vues, new Set(['A/1', 'B/0']));
+    expect(l.map((v) => [v.batiment ?? null, !!v.doublon, !!v.dejaLa])).toEqual([['A', true, true], ['B', false, false], [null, false, false]]);
+    // Elle n'est plus de celles qui s'importent ; une photo qui n'a qu'elle n'est plus proposee cochee.
+    expect(aImporter(l).map((v) => v.batiment ?? null)).toEqual(['B', null]);
+    expect(estDoublon(marquerDejaLa([vues[0] as VueAExtraire], new Set(['A/1'])))).toBe(true);
+  });
+
+  it('le réglage décoché (aucun mur donné) ne marque rien', () => {
+    expect(marquerDejaLa(vues, new Set())).toEqual(vues);
+  });
+
+  it('le compte le dit, parmi les doublons', () => {
+    const c = compter([marquerDejaLa(vues, new Set(['A/1']))], 0);
+    expect(c).toMatchObject({ facades: 2, doublons: 1, dejaLa: 1 });
+    expect(texteDesComptes(c)).toBe('1 photo, 2 façades de 2 bâtiments, 1 doublon dont 1 déjà dans le banc ; 0 écartée : route, campagne ou pas une maison');
   });
 });
 

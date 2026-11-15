@@ -7,6 +7,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage : quel mur chaque vue montre, et jamais deux fois le même** (« Do it all all to the end » et « Avoid
+  having 2 times the same building » du propriétaire, 15 novembre 2026, « niveau suivant » n° 4). À l'import Panoramax, chaque vue
+  gardée par le tri écrit dans ses métadonnées le mur qu'elle regarde (`mur` : l'identifiant du bâtiment dans la BD TOPO, le côté
+  par lequel on le voit, le segment du contour le plus vu et la direction vers laquelle il regarde, la distance, l'incidence, la
+  note, et ce que la BD TOPO dit du bâtiment : nature, usages, hauteur, étages, logements ; `banc/src/murVise.ts`). Le serveur le
+  range par une liste fermée de champs bornés (`api.php::mur_valide`) : un mur à moitié dit est laissé, l'image s'importe quand
+  même, et les images déjà rangées ne changent pas. Quatre usages : (a) **un mur déjà dans le banc ne se propose plus coché** —
+  c'est la règle par défaut ; ses vues restent visibles, marquées « déjà dans le banc », le compte le dit (« 5 doublons dont
+  1 déjà dans le banc »), et la case « Sans les murs déjà dans le banc » de la liste la lève ; (b) l'écran **Équilibre** compte et
+  **montre les doublons déjà présents** (le même bâtiment par le même côté en plusieurs images), mur par mur, la plus avancée
+  dans le travail puis la mieux notée en tête ; « Écarter » ou « Ne garder que la première » les passe « rejetées » (elles se
+  retrouvent dans la mosaïque) : rien ne part d'office ; (c) le **Redressement**, où se fait la fusion, range les photos d'un même
+  mur à la suite et les choisit d'un geste (« Mur 1 · 3 photos »), de gauche à droite pour qui fait face au mur, l'ordre de la
+  fusion — son algorithme ne change pas ; (d) l'Équilibre gagne le **compte par type de bâtiment** (maison, immeuble, commerce ou
+  services, autre usage, non renseigné : une heuristique sur l'usage, les logements, les étages et la hauteur de la BD TOPO,
+  `banc/src/murs.ts::typeDeBatiment`). Pour les images importées avant, un **rattrapage** lancé à la main (Équilibre, « Images sans
+  mur connu ») retrouve le mur par la position et le cap, avec les règles du tri : quarante images par lancement, une lecture de
+  la BD TOPO par quartier, une pause entre deux lectures, arrêt possible ; une image qui ne regarde aucun bâtiment est notée
+  « cherchée » et ne se redemande pas. Le mur visé est celui que la géométrie met dans le cadre, pas la preuve qu'il se voit.
+  Tests : `banc/tests/murs.test.ts`, `meilleuresVues.test.ts`, `equilibre.test.ts`, `api.test.ts` ; la fumée vérifie le mur des
+  vues importées et, aux passages suivants, « déjà dans le banc ».
 - **Banc d'apprentissage, import Panoramax : toute instance fédérée se lit, sans nouvelle version** (mandat du propriétaire,
   15 novembre 2026). Jusqu'ici chaque hôte d'images devait être ajouté à `HOTES` et à la politique de contenu par une version
   (#684, puis #687). La politique de contenu ne s'ouvre pas : les photos d'un hôte non listé passent par un **relais** du serveur

@@ -219,6 +219,8 @@ export type Visee = 'cotes' | 'cote-adresse' | 'adresse';
  */
 export interface VueAExtraire {
   vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string; cote?: number; note?: number; distanceFacade?: number; doublon?: boolean;
+  /** Le banc a deja une image de cette facade (ce batiment par ce cote, murs.ts) : la vue reste visible, marquee, pas proposee cochee. */
+  dejaLa?: boolean;
   /** Ou le batiment se trouve dans l'image de la vue, d'apres la geometrie (parts de la largeur et de la hauteur). */
   zone?: { gauche: number; droite: number; haut: number; bas: number };
   /** La facade est cachee par une haie, des arbres ou une cloture (vueDegagee.ts) : la note en tient compte. */
