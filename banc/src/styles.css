@@ -578,7 +578,7 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 @media (pointer: coarse) { .parcelle-visee button { min-height: 44px; } }
 /* Au doigt, tout ce qui se touche sur l'ecran d'import et dans la fenetre des vues fait 44 px (controle par scripts/fumee-banc.mjs). */
 @media (pointer: coarse) {
-  .import-panoramax button, .import-panoramax select, .import-panoramax input:not([type="checkbox"]), .import-panoramax form label.case { min-height: 44px; }
+  .import-panoramax button, .import-panoramax select, .import-panoramax input:not([type="checkbox"]), .import-panoramax form label.case, .import-panoramax .barre-choix label.case { min-height: 44px; }
   .import-panoramax .dialogue .apercus .rang { flex-wrap: wrap; }
   .import-panoramax .dialogue .apercus .rang button, .import-panoramax .tete-dialogue button { min-height: 44px; min-width: 44px; justify-content: center; }
   /* Sous les fonds de carte, plus hauts au doigt : les deux se recouvraient. */
@@ -609,3 +609,22 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .barre-equilibre { display: block; height: 8px; border-radius: 4px; background: var(--fond); overflow: hidden; }
 .barre-equilibre > span { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
 .liste-manques { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .4rem; font-size: .9rem; }
+
+/* Les doublons du banc (ecran d'equilibre) : un mur par ligne, ses images cote a cote. */
+.doublons, .images-doublons { list-style: none; margin: 0; padding: 0; }
+.doublons { display: flex; flex-direction: column; gap: .75rem; }
+.groupe-doublons { border: 1px solid var(--trait); border-radius: 12px; padding: .6rem .7rem; display: flex; flex-direction: column; gap: .5rem; }
+.groupe-doublons header { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.groupe-doublons header .espace { flex: 1; }
+.images-doublons { display: flex; flex-wrap: wrap; gap: .6rem; }
+.images-doublons li { width: 150px; display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; }
+.images-doublons .vignette-bouton { padding: 0; border: 1px solid var(--trait); border-radius: 8px; overflow: hidden; min-height: 0; display: block; width: 100%; }
+.images-doublons li.gardee .vignette-bouton { border-color: var(--ok); border-width: 2px; }
+.images-doublons img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--fond); }
+.images-doublons small { color: var(--doux); font-size: .75rem; }
+@media (pointer: coarse) { .groupe-doublons button, .images-doublons button.discret { min-height: 44px; } }
+/* Le redressement : les photos d'un meme mur (lu a l'import), a choisir d'un geste pour la fusion. */
+.memes-murs { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; margin: .25rem 0 .5rem; }
+.memes-murs .aide { margin: 0; }
+.memes-murs button.actif { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.etiquette-photo.mur { top: 2.6rem; }

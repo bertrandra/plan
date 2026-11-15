@@ -152,12 +152,33 @@ function recevoir(string $champ, string $vers, bool $requis = true): bool {
   return true;
 }
 
+/**
+ * Le mur qu'une vue montre (banc/src/types.ts::MurDeVue) : une liste fermee de champs, chacun borne. Null sans identifiant de batiment
+ * ou sans cote valables : un mur a moitie dit ne se range pas.
+ */
+function mur_valide($m): ?array {
+  if (!is_array($m) || !is_string($m['batiment'] ?? null) || !preg_match('/^[A-Za-z0-9_.:-]{1,64}$/', $m['batiment'])) return null;
+  if (!is_numeric($m['cote'] ?? null) || (int)$m['cote'] < 0 || (int)$m['cote'] > 3) return null;
+  $out = ['batiment' => $m['batiment'], 'cote' => (int)$m['cote']];
+  $bornes = ['segment' => [0, 99999, 0], 'azimut' => [0, 360, 1], 'distance' => [0, 1000, 1], 'incidence' => [0, 90, 0], 'note' => [0, 100, 0], 'hauteur' => [0, 1000, 1], 'etages' => [0, 500, 0], 'logements' => [0, 100000, 0]];
+  foreach ($bornes as $k => [$min, $max, $decimales]) {
+    if (!is_numeric($m[$k] ?? null) || (float)$m[$k] < $min || (float)$m[$k] > $max) continue;
+    $out[$k] = $decimales ? round((float)$m[$k], $decimales) : (int)round((float)$m[$k]);
+  }
+  foreach (['nature', 'usage', 'usage2'] as $k) if (is_string($m[$k] ?? null) && $m[$k] !== '') $out[$k] = mb_substr($m[$k], 0, 80);
+  if (is_string($m['rattrapeLe'] ?? null)) $out['rattrapeLe'] = mb_substr($m['rattrapeLe'], 0, 40);
+  return $out;
+}
+
 /** Ce que la page peut dire d'une photo a l'import : sa provenance, sa position, sa date, son appareil. */
 function meta_importee(array $m): array {
   $garde = ['source', 'nom', 'date', 'lat', 'lon', 'azimut', 'appareil', 'focale35', 'adresse', 'parcelle', 'panoramax', 'licence', 'auteur', 'largeur', 'hauteur', 'lot'];
   $out = [];
   foreach ($garde as $k) if (array_key_exists($k, $m)) $out[$k] = $m[$k];
   $out['source'] = in_array($out['source'] ?? '', ['iphone', 'panoramax', 'fichier'], true) ? $out['source'] : 'fichier';
+  // Le mur vise (demande du proprietaire, 15 novembre 2026) : garde s'il est valable, laisse sinon (l'image s'importe quand meme).
+  $mur = mur_valide($m['mur'] ?? null);
+  if ($mur) $out['mur'] = $mur;
   return $out;
 }
 
@@ -194,7 +215,7 @@ function image_creer(): void {
   repondre(201, $meta);
 }
 
-/** Ce que l'on change d'une photo apres coup : son etat, son bloc, son drapeau, une note, l'adresse. */
+/** Ce que l'on change d'une photo apres coup : son etat, son bloc, son drapeau, une note, l'adresse, le mur qu'elle montre. */
 function image_modifier(string $id): void {
   $d = dossier_image($id);
   $m = meta($id);
@@ -204,6 +225,12 @@ function image_modifier(string $id): void {
   if (array_key_exists('verifiee', $b)) { $m['verifiee'] = (bool)$b['verifiee']; $m['verifieeLe'] = $m['verifiee'] ? gmdate('c') : null; }
   if (array_key_exists('echantillon', $b)) $m['echantillon'] = (bool)$b['echantillon'];
   foreach (['note', 'adresse'] as $k) if (array_key_exists($k, $b)) $m[$k] = mb_substr((string)$b[$k], 0, 500);
+  // Le mur retrouve apres coup (le rattrapage des images importees avant) ; null l'efface. « murCherche » : cherche, rien trouve.
+  if (array_key_exists('mur', $b)) {
+    if ($b['mur'] === null) unset($m['mur']);
+    else { $mur = mur_valide($b['mur']); if (!$mur) erreur(400, 'Mur invalide.'); $m['mur'] = $mur; unset($m['murCherche']); }
+  }
+  if (array_key_exists('murCherche', $b)) { if (is_string($b['murCherche']) && $b['murCherche'] !== '') $m['murCherche'] = mb_substr($b['murCherche'], 0, 40); else unset($m['murCherche']); }
   $m['modifieeLe'] = gmdate('c');
   ecrire_json("$d/meta.json", $m);
   repondre(200, $m);

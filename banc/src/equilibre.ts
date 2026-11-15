@@ -6,6 +6,7 @@
 
 import { versEcran, type P, type Taille, type VueCarte } from './carte.js';
 import { DEPARTEMENTS } from './departements.js';
+import { TYPES_DE_BATIMENT, typeDeBatiment } from './murs.js';
 import type { MetaImage, Statut } from './types.js';
 
 export interface Lieu { departement: string; nom: string; region: string }
@@ -129,6 +130,10 @@ export interface Equilibre {
   sansPosition: number; sansDate: number; horsFrance: number;
   /** Les photos prises de novembre a mars (arbres sans feuilles), parmi celles qui ont une date. */
   sansFeuilles: number;
+  /** Les photos dont le mur vise n'est pas connu (importees avant que l'import ne le garde, ou sans batiment dans le cadre). */
+  sansMur: number;
+  /** Par type de batiment (murs.ts::typeDeBatiment), parmi les photos dont le mur est connu. */
+  batiment: Compte[];
   source: Compte[]; region: Compte[]; departement: Compte[]; saison: Compte[]; annee: Compte[]; vue: Compte[]; etat: Compte[];
   points: PointImage[];
 }
@@ -147,11 +152,12 @@ const aPosition = (m: MetaImage): m is MetaImage & { lat: number; lon: number } 
 export function equilibre(images: readonly MetaImage[]): Equilibre {
   const compter = () => new Map<string, number>();
   const plus = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
-  const source = compter(), region = compter(), dep = compter(), saison = compter(), annee = compter(), vue = compter(), etat = compter();
+  const batiment = compter(), source = compter(), region = compter(), dep = compter(), saison = compter(), annee = compter(), vue = compter(), etat = compter();
   const nomsDep = new Map<string, string>();
   const points: PointImage[] = [];
-  let sansPosition = 0, sansDate = 0, horsFrance = 0, nus = 0;
+  let sansPosition = 0, sansDate = 0, horsFrance = 0, nus = 0, sansMur = 0;
   for (const m of images) {
+    if (m.mur) plus(batiment, typeDeBatiment(m.mur)); else sansMur++;
     plus(source, m.source); plus(vue, typeDeVue(m)); plus(etat, m.statut);
     if (aPosition(m)) {
       points.push({ id: m.id, lat: m.lat, lon: m.lon });
@@ -165,7 +171,8 @@ export function equilibre(images: readonly MetaImage[]): Equilibre {
   const parNombre = (a: Compte, b: Compte) => b.n - a.n || a.libelle.localeCompare(b.libelle, 'fr');
   const regions = [...NOMS_REGIONS, ...(region.has('Outre-mer') ? ['Outre-mer'] : [])];
   return {
-    total: images.length, sansPosition, sansDate, horsFrance, sansFeuilles: nus, points,
+    total: images.length, sansPosition, sansDate, horsFrance, sansFeuilles: nus, points, sansMur,
+    batiment: fermee(batiment, TYPES_DE_BATIMENT),
     source: fermee(source, (['panoramax', 'iphone', 'fichier'] as const).map((cle) => ({ cle, libelle: LIBELLES_SOURCE[cle] }))),
     region: regions.map((r) => ({ cle: r, libelle: r, n: region.get(r) ?? 0 })).sort(parNombre),
     departement: [...dep].map(([cle, n]) => ({ cle, libelle: `${cle} · ${nomsDep.get(cle) ?? ''}`, n })).sort(parNombre),
