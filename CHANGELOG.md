@@ -5,6 +5,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc d'apprentissage : une fumée de l'écran d'import Panoramax, jouée à chaque PR** (« Go all to the end » du propriétaire,
+  15 novembre 2026). L'écran (carte de France, zoom, couverture orange, « Seulement les façades », aperçu des façades, import)
+  n'avait été vérifié qu'à la main. `scripts/fumee-banc.mjs`, une étape de plus du job `fumee` de la CI, le joue dans un vrai
+  navigateur sur le paquet construit (`npm run build:banc`), servi par `php -S` comme en ligne : la page à `?banc`, la politique de
+  contenu de son `.htaccess` (`banc/tests/fumee/routeur.php`), son API, un mot de passe d'essai fabriqué sur place. Le réseau est un
+  témoin (`banc/tests/fumee/reseau/`, 1,2 Mo, à « 2 allée des Limites, Le Vésinet ») : géocodage, cadastre et bâtiments de l'IGN,
+  tuiles de couverture et recherche de Panoramax, trois panoramiques réduits (Geovelo, Licence Ouverte 2.0, notés dans
+  `banc/tests/fumee/LISEZMOI.md`) ; le fond de carte est une tuile unie. En témoin rien ne part sur le vrai réseau : une requête
+  sans témoin fait échouer le passage (une image reçoit une image de synthèse, une tuile de couverture est vide) ;
+  `FUMEE_RESEAU=enregistrer` le refait. Huit passages en CI (bureau, tablette, téléphone 390 × 844 et 390 × 664, en clair et en
+  sombre), une demi-minute : l'ouverture sur la France et son message exact, l'adresse (la carte y va, AE 101 visée, 6 photos à
+  40 m), le compte du filtre des façades et la case décochée, l'aperçu d'un point survolé ou touché (sous la carte au téléphone),
+  « Choisir les vues » ouverte et refermée, l'import d'une photo (201, le compteur du banc monte, les passages suivants la voient
+  « déjà dans le banc »), les contrastes (textes 4,5:1, pastilles 3:1), au doigt les cibles de 44 px, rien qui déborde ni ne se
+  recouvre ; ni erreur de console, ni refus de la politique de contenu. `scripts/fumee-reseau.mjs` prend pour cela des options
+  (hôtes, tolérance, redirections, réponse d'une requête sans témoin) ; sans elles, la fumée de Plan rejoue son réseau comme avant.
+  Mode d'emploi : `tests/CHECKLIST-FUMEE.md`, `banc/LISEZMOI.md`.
+
+### Corrigé
+
+- **Banc d'apprentissage, écran d'import : thème sombre et téléphone** (jamais contrôlés depuis la carte, la couverture et le
+  filtre). Relevés par la fumée, corrigés dans `banc/src/styles.css`. En sombre, le texte blanc sur l'accent ne donnait que 3,2:1
+  (« Chercher », « Importer… », « Terminé », le fond de carte choisi) : le texte sur l'accent y est sombre (`--accent-texte`,
+  5,8:1, dans tout le banc) ; le liseré du rayon dans la légende (2,3:1) prend l'accent. Au doigt, « Couverture Panoramax » passait
+  sous les boutons du fond de carte, plus hauts qu'à la souris : il descend ; et les cibles de l'écran d'import et de la fenêtre
+  « Choisir les vues » restées à 24 à 36 px (champs, cases, « Chercher », « Tout cocher », « Choisir les vues », ◀ ▶ ✕ de 27 px)
+  font 44 px. Rien d'autre ne change à la souris ni en clair.
+
 ## [5.29.1] — 2026-11-15
 
 Version **corrective** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax lit une instance de

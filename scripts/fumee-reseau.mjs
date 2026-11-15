@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
 const DOSSIER_FUMEE = new URL('../tests/fixtures/fumee-reseau/', import.meta.url).pathname;
-const HOTES = /^https:\/\/(data\.geopf\.fr|apicarto\.ign\.fr|api-adresse\.data\.gouv\.fr|wxs\.ign\.fr)\//;
+const HOTES_IGN = /^https:\/\/(data\.geopf\.fr|apicarto\.ign\.fr|api-adresse\.data\.gouv\.fr|wxs\.ign\.fr)\//;
 const SONDE = 'https://data.geopf.fr/geocodage/search?q=Rennes&limit=1';
 
 // Les en-tetes rejoues tels qu'enregistres : l'autorisation CORS surtout. L'IGN ne la donne pas a
@@ -38,7 +38,7 @@ const arrondir = (texte) => texte.replace(/-?\d+\.\d{6,}/g, (n) => Number(n).toF
 const refuseeParCors = (req, entetes) => (req.resourceType() === 'fetch' || req.resourceType() === 'xhr')
   && !(entetes && entetes['access-control-allow-origin']);
 
-const LATENCE = process.env.FUMEE_LATENCE !== '0';
+const LATENCE_DEMANDEE = process.env.FUMEE_LATENCE !== '0';
 const LATENCE_MAX_MS = 30000;
 /** La duree d'une requete, de son depart a la fin de sa reponse, en millisecondes entieres. */
 const duree = (req) => { const t = req.timing(); return t && t.responseEnd > 0 ? Math.round(t.responseEnd) : 0; };
@@ -55,9 +55,9 @@ const nomFichier = (k) => createHash('sha1').update(k).digest('hex').slice(0, 16
 // les nombres sont les plus proches, a deux millioniemes pres.
 const NOMBRE = /-?\d+(?:\.\d+)?/g;
 const forme = (k) => k.replace(NOMBRE, '#');
-function plusProche(index, k) {
+function plusProche(index, k, tolerance = 2e-6) {
   const f = forme(k), n = (k.match(NOMBRE) || []).map(Number);
-  let meilleure = null, ecart = 2e-6 + 1e-12;
+  let meilleure = null, ecart = tolerance + 1e-12;
   for (const autre of Object.keys(index)) {
     if (forme(autre) !== f) continue;
     const m = (autre.match(NOMBRE) || []).map(Number);
@@ -82,7 +82,18 @@ export async function choisirModeReseau(navigateur, demande = process.env.FUMEE_
  * Le reseau d'un passage : brancher chaque contexte, puis faire le bilan (et ecrire le temoin).
  * `dossier` : ou ranger le temoin (celui de la fumee par defaut ; le banc visuel a le sien).
  */
-export function reseau(mode, dossier = DOSSIER_FUMEE) {
+export function reseau(mode, dossier = DOSSIER_FUMEE, options = {}) {
+  // Les options du banc d'apprentissage (scripts/fumee-banc.mjs), qui a ses hotes et ne touche jamais le vrai reseau en temoin :
+  //   hotes        les adresses rejouees et enregistrees (celles de l'IGN par defaut) ;
+  //   tolerance    l'ecart admis entre les nombres d'une requete et ceux du temoin de meme forme (une emprise qui suit la taille
+  //                de la carte retrouve le temoin de l'emprise voisine) ;
+  //   redirections true : une redirection (302 vers le stockage d'une photo) est gardee et rejouee, avec sa destination ;
+  //   latence      false : tout se rejoue sans attendre ;
+  //   sansTemoin   ce qu'on sert a une requete sans temoin, au lieu de la laisser au reseau : rend { status, contentType, body },
+  //                ou rien pour la refuser.
+  const HOTES = options.hotes ?? HOTES_IGN;
+  const TOLERANCE = options.tolerance ?? 2e-6;
+  const LATENCE = options.latence ?? LATENCE_DEMANDEE;
   const DOSSIER = dossier.endsWith('/') ? dossier : dossier + '/';
   const INDEX = DOSSIER + 'index.json';
   const index = lireIndex(DOSSIER);
@@ -103,10 +114,13 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
         try {
           const r = await req.response();
           if (!r) return;
-          const corps = await r.body();
+          // Une redirection n'a pas de corps : le banc la garde (options.redirections) avec sa destination, pour la rejouer telle quelle.
+          const redirige = r.status() >= 300 && r.status() < 400;
+          if (redirige && !options.redirections) return;
+          const corps = redirige ? Buffer.alloc(0) : await r.body();
           const h = await r.allHeaders();
           const type = h['content-type'] || 'application/octet-stream';
-          const entetes = Object.fromEntries(ENTETES_GARDES.filter((n) => h[n] !== undefined).map((n) => [n, h[n]]));
+          const entetes = Object.fromEntries([...ENTETES_GARDES, ...(redirige ? ['location'] : [])].filter((n) => h[n] !== undefined).map((n) => [n, h[n]]));
           const k = cle(req);
           neufs[k] = { statut: r.status(), type, entetes, duree: duree(req), fichier: nomFichier(k), corps };
         } catch { /* partie fermee */ }
@@ -121,7 +135,7 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
     await contexte.route(HOTES, async (route) => {
       const req = route.request();
       const k = cle(req);
-      const e = index[k] || plusProche(index, k);
+      const e = index[k] || plusProche(index, k, TOLERANCE);
       // La reponse arrive apres le meme delai qu'au passage enregistre : la Vue 3D de la
       // demonstration se construit avant les tuiles de l'orthophoto, et le .glb du point 24 (golden)
       // en depend. `FUMEE_LATENCE=0` rejoue tout sans attendre, au prix de cette fidelite.
@@ -142,6 +156,11 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
       // Sans temoin, la requete part sur le vrai reseau : hors ligne, elle echoue comme elle l'aurait
       // fait ; en ligne (temoin impose), elle y trouve sa reponse. Elle n'est jamais inventee.
       manquants.add(k);
+      if (options.sansTemoin) {
+        const r = options.sansTemoin(req);
+        if (!r) return route.abort('failed').catch(() => {});
+        return route.fulfill({ ...r, headers: { 'access-control-allow-origin': '*', ...(r.headers || {}) } }).catch(() => {});
+      }
       return route.continue().catch(() => {});
     });
   }
@@ -168,7 +187,7 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
     return 'réseau direct';
   }
 
-  return { mode, brancher, bilan };
+  return { mode, brancher, bilan, manquants, index, dossier: DOSSIER };
 }
 
 /**

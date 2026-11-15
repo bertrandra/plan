@@ -1,0 +1,280 @@
+{
+ "GET https://api.panoramax.xyz/api/map/14/8288/5633.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=3600"
+  },
+  "duree": 0,
+  "fichier": "bd849adfde8b1d0b.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/14/8289/5633.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=3600"
+  },
+  "duree": 0,
+  "fichier": "9771efd134376e45.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/4/7/5.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "768a6c95c3c7e54c.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/4/7/6.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "8214ea5d6dbc09f7.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/4/8/5.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "e2ef23fd5e967cf3.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/4/8/6.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "521f5641073014a7.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/5/15/10.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "22b96a2181cde74d.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/5/15/11.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "96664b33b68ac9b0.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/5/16/10.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "521911cd9b068ce3.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/5/16/11.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "0b82dd47ac5586cf.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/5/17/10.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "ce3739bd1f978f93.gz"
+ },
+ "GET https://api.panoramax.xyz/api/map/5/17/11.mvt": {
+  "statut": 200,
+  "type": "application/vnd.mapbox-vector-tile",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "max-age=3600, public, max-age=86400"
+  },
+  "duree": 0,
+  "fichier": "aae7f0e75846e1ea.gz"
+ },
+ "GET https://api.panoramax.xyz/api/search?bbox=2.131716,48.904469,2.133906,48.905908&limit=200": {
+  "statut": 200,
+  "type": "application/json",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799"
+  },
+  "duree": 0,
+  "fichier": "4e0ff9232b9cf1c1.gz"
+ },
+ "GET https://data.geopf.fr/geocodage/search?q=2+all%C3%A9e+des+Limites%2C+Le+V%C3%A9sinet&limit=5": {
+  "statut": 200,
+  "type": "application/json; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "4954cc4dff78c6b4.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Abatiment&OUTPUTFORMAT=application%2Fjson&PROPERTYNAME=cleabs%2Cconstruction_legere%2Cgeometrie&COUNT=1000&STARTINDEX=0&BBOX=48.904266%2C2.131483%2C48.905326%2C2.133457%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 0,
+  "fichier": "822c60097433225d.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS%3Aparcelle&OUTPUTFORMAT=application%2Fjson&COUNT=1000&STARTINDEX=0&BBOX=48.903368%2C2.130661%2C48.907009%2C2.134961%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 0,
+  "fichier": "b58b7e373346978f.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS%3Aparcelle&OUTPUTFORMAT=application%2Fjson&COUNT=1000&STARTINDEX=0&BBOX=48.903720%2C2.130486%2C48.906414%2C2.134586%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 0,
+  "fichier": "90f3911340929679.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS%3Aparcelle&OUTPUTFORMAT=application%2Fjson&COUNT=1000&STARTINDEX=0&BBOX=48.903758%2C2.130661%2C48.906619%2C2.134961%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 0,
+  "fichier": "22f5a4da99aa6eca.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS%3Aparcelle&OUTPUTFORMAT=application%2Fjson&COUNT=1000&STARTINDEX=0&BBOX=48.903776%2C2.128691%2C48.906602%2C2.136931%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 0,
+  "fichier": "a5808c6e7a9c3ca3.gz"
+ },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS%3Aparcelle&OUTPUTFORMAT=application%2Fjson&COUNT=1000&STARTINDEX=0&BBOX=48.903776%2C2.129845%2C48.906602%2C2.135777%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 0,
+  "fichier": "607daca7e51893f0.gz"
+ },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/1c/1a/0a/04/cd8d-4f8d-a24d-3e23745b1ee2/sd.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "a31d5af8e1560c6e.gz"
+ },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/5e/1f/6b/8d/9d21-4fbd-96f9-0390a79d9b58/sd.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "a2631212465b3184.gz"
+ },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/94/cb/83/59/d4ad-4a41-8f76-f72734a1f5ca/sd.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "8b6783536eeed4f2.gz"
+ },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/main-pictures/5e/1f/6b/8d/9d21-4fbd-96f9-0390a79d9b58.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "2a4f58b7da4ff7f4.gz"
+ },
+ "GET https://panoramax.ign.fr/api/pictures/1c1a0a04-cd8d-4f8d-a24d-3e23745b1ee2/sd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/1c/1a/0a/04/cd8d-4f8d-a24d-3e23745b1ee2/sd.jpg"
+  },
+  "duree": 0,
+  "fichier": "c0367fb9922749e1.gz"
+ },
+ "GET https://panoramax.ign.fr/api/pictures/5e1f6b8d-9d21-4fbd-96f9-0390a79d9b58/hd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/main-pictures/5e/1f/6b/8d/9d21-4fbd-96f9-0390a79d9b58.jpg"
+  },
+  "duree": 0,
+  "fichier": "b400d744f7b57d73.gz"
+ },
+ "GET https://panoramax.ign.fr/api/pictures/5e1f6b8d-9d21-4fbd-96f9-0390a79d9b58/sd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/5e/1f/6b/8d/9d21-4fbd-96f9-0390a79d9b58/sd.jpg"
+  },
+  "duree": 0,
+  "fichier": "64a39329f5be1315.gz"
+ },
+ "GET https://panoramax.ign.fr/api/pictures/94cb8359-d4ad-4a41-8f76-f72734a1f5ca/sd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:43799",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/94/cb/83/59/d4ad-4a41-8f76-f72734a1f5ca/sd.jpg"
+  },
+  "duree": 0,
+  "fichier": "111582c6e29107a6.gz"
+ }
+}
