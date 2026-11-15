@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc d'apprentissage, import Panoramax : les photos de l'instance `panoramax.mapcomplete.org` se proposent** (demande du
+  propriétaire, 15 novembre 2026 : « Ajoute cette instance on top »). C'est une instance tierce du méta-catalogue (lien `via` vers
+  `https://panoramax.mapcomplete.org`, `instance_name` « mapcomplete »), rencontrée au centre de Paris : 13 photos sur 200 autour de
+  l'Hôtel de Ville (48.8566, 2.3522), écartées jusqu'ici à la lecture. Elle s'ajoute aux hôtes lus (`HOTES`, `banc/src/panoramax.ts`)
+  et à la politique de contenu du banc (`banc/public/.htaccess` : `img-src` et `connect-src`, cet hôte seul, pas tout
+  `mapcomplete.org`). Vérifié sur le vrai réseau : les trois versions (hd sous `/permanent/`, sd et vignette sous `/derivatives/`)
+  sont servies en `image/jpeg` avec `Access-Control-Allow-Origin: *`. Au navigateur, sous la politique de contenu du banc, à
+  48.857213, 2.352353 : ses photos sont proposées avec celles des autres hôtes (3 parmi les 23 gardées autour de la parcelle visée,
+  4 parmi les 246 de la vue ; les autres sont écartées par « Seulement les façades », comme partout), l'aperçu s'affiche et
+  l'import d'une photo réussit (auteur « mapcomplete », licence CC-BY-SA-4.0 gardés), sans refus de la politique de contenu. Un test
+  vérifie que l'hôte est lu et admis une fois par directive. Les autres instances tierces restent à décider une par une. Serveur
+  du banc et politique de contenu de Plan inchangés.
+
 ## [5.29.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax ne propose plus que des
