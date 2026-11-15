@@ -215,6 +215,8 @@ async function jouer(navigateur, serveur, net, nom, etat) {
   page.on('pageerror', (e) => journal.push('erreur de page : ' + String(e).slice(0, 300)));
   const images = [];
   page.on('request', (r) => { if (HOTES.test(r.url()) && r.resourceType() !== 'image' && /\.(jpe?g|webp)(\?|$)/.test(r.url())) images.push(r.url()); });
+  // Les versions reduites lues en tache de fond (« la maison se voit-elle ? ») : le temoin les garde, la lecture en depend.
+  page.on('request', (r) => { if (HOTES.test(r.url()) && r.resourceType() === 'fetch' && /\/sd\.jpe?g(\?|$)/.test(r.url())) etat.gardees.add(r.url()); });
   const capture = async (moment) => { if (CAPTURES) { mkdirSync(CAPTURES, { recursive: true }); await page.screenshot({ path: join(CAPTURES, `banc-${nom}-${moment}.png`) }); } };
   const texte = (s) => page.locator(s).first().innerText();
   const attendre = (f, arg, quoi) => page.waitForFunction(f, arg, { timeout: DELAI }).catch(async () => { throw new Echec(`${quoi} (attendu ${DELAI / 1000} s) ; l’écran dit : ${(await page.locator('.import-panoramax').innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 500)}`); });
@@ -272,7 +274,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(await page.locator('.adresse-carte').count() === 1, 'le repère de l’adresse n’est pas sur la carte');
 
     // 4. « Seulement les facades » : son compte, les points et la liste ; la case decochee, toutes les photos.
-    const COMPTE = /^(\d+) photos?, (\d+) façades? de (\d+) bâtiments?, (\d+) doublons? ; (\d+) écartées? : route, campagne ou pas une maison\.$/;
+    const COMPTE = /^(\d+) photos?, (\d+) façades? de (\d+) bâtiments?, (\d+) doublons?(?:, \d+ façades? cachées?)? ; (\d+) écartées? : route, campagne ou pas une maison\.$/;
     await attendre((re) => new RegExp(re).test(document.querySelector('.compte-facades')?.textContent ?? ''), COMPTE.source, 'le filtre des façades ne dit pas son compte');
     const [, proposees, facades, batiments, doublons, ecartees] = COMPTE.exec(await texte('.compte-facades')).map(Number);
     // Chaque photo proposee a une vue au moins (a importer ou en doublon), et chaque batiment regarde une vue au moins.
@@ -283,6 +285,10 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(await page.locator('label', { hasText: 'Vues par bâtiment' }).locator('select').inputValue() === '1', 'le réglage « Vues par bâtiment » ne vaut pas 1 par défaut');
     verifier(notes.every((n, k) => n >= 0 && n <= 100 && (k === 0 || n <= notes[k - 1])), `la liste n’est pas triée par note décroissante : ${notes.join(' ')}`);
     verifier(await page.locator('ul.mosaique.grande > li.doublon input:checked').count() === 0, 'une photo en doublon est cochée d’office');
+    // « La maison se voit-elle ? » : la case existe, decochee par defaut ; les apercus se lisent en tache de fond, et l'etat le dit.
+    const cachees = page.getByLabel('Écarter les façades cachées');
+    verifier(await cachees.count() === 1 && !(await cachees.isChecked()), 'la case « Écarter les façades cachées » manque, ou est cochée d’office');
+    await attendre(() => /façades? cachées?/.test(document.querySelector('.compte-facades')?.textContent ?? '') && document.querySelectorAll('.marque-cachee').length > 0, null, 'aucune façade n’est lue cachée autour de AE 101 (haies et clôtures du boulevard)');
     verifier(proposees + ecartees === trouvees - deja, `le compte du filtre (${proposees} + ${ecartees}) n’est pas celui des photos (${trouvees} − ${deja})`);
     const points = page.locator('g.point-photo:not(.valeur)'), cartes = page.locator('ul.mosaique.grande > li');
     verifier(await points.count() === proposees && await cartes.count() === proposees, `${await points.count()} point(s) et ${await cartes.count()} carte(s) pour ${proposees} photo(s) proposée(s)`);

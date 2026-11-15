@@ -20,6 +20,9 @@ export const NOM_VUE: Record<VueAExtraire['vue'], string> = { gauche: 'À gauche
  */
 const PANOS = new Recents<Pano>(4);
 
+/** Le panoramique reduit d'une photo, s'il est encore en memoire (l'apercu vient de le lire). */
+export const panoGarde = (id: string): Pano | undefined => PANOS.lire(id);
+
 async function lirePano(url: string, signal: AbortSignal): Promise<Pano> {
   // En CORS, sans le cache : une copie gardee sans en-tete CORS (celle d'une balise img) ferait echouer la lecture des pixels.
   const r = await fetch(url, { mode: 'cors', cache: 'no-cache', signal });

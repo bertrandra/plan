@@ -142,6 +142,7 @@ const R = 6371008.8;
 const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
 const norm = (a: number) => ((a % 360) + 360) % 360;
+const entre = (v: number) => Math.max(0, Math.min(1, v));
 /** Le cote des cases du rangement des murs, en metres : une photo ne lit que les murs des cases a sa portee. */
 const CASE_M = 50;
 
@@ -305,7 +306,12 @@ export interface Regard {
    * voit le plus. Deux vues du meme batiment par le meme cote montrent la meme facade ; par deux cotes, deux facades.
    */
   cote: number;
+  /** Ou le batiment le plus present se trouve dans l'image, d'apres la geometrie (vueDegagee.ts y lit s'il se voit) ; null sans batiment. */
+  zone: Zone | null;
 }
+
+/** Un rectangle de l'image, en parts de sa largeur et de sa hauteur (0 a 1, l'origine en haut a gauche). */
+export interface Zone { gauche: number; droite: number; haut: number; bas: number }
 
 /** Le cadre d'une vue : son champ horizontal, de combien elle regarde vers le haut, et sa forme (largeur sur hauteur). */
 export interface Cadre { champ: number; tangage: number; forme: number }
@@ -316,14 +322,27 @@ export const cadrePlat = (champ: number, forme = 4 / 3): Cadre => ({ champ: Math
 /** La part de la hauteur du cadre qu'occupe un mur de hauteur `h` a `d` metres : du pied (sous l'horizon) au faite. */
 function partEnHauteur(d: number, h: number, c: Cadre): number {
   const demi = deg(Math.atan(Math.tan(rad(c.champ / 2)) / c.forme));
-  const bas = Math.max(c.tangage - demi, -deg(Math.atan(HAUTEUR_APPAREIL_M / d))), haut = Math.min(c.tangage + demi, deg(Math.atan((h - HAUTEUR_APPAREIL_M) / d)));
+  const bas = Math.max(c.tangage - demi, pied(d)), haut = Math.min(c.tangage + demi, faite(d, h));
   return Math.max(0, haut - bas) / (2 * demi);
+}
+
+/** Les angles (en degres, vers le haut) du pied et du faite d'un mur de hauteur `h` a `d` metres. */
+const pied = (d: number) => -deg(Math.atan(HAUTEUR_APPAREIL_M / d)), faite = (d: number, h: number) => deg(Math.atan((h - HAUTEUR_APPAREIL_M) / d));
+
+/**
+ * Ou tombe dans l'image ce qu'on voit d'un batiment : des regards `i0` a `i1` (en degres depuis le bord gauche du champ), du pied au
+ * faite a la distance `d`. La projection est celle d'une vue plate (une tangente), exacte au milieu du cadre.
+ */
+function zoneDansLeCadre(i0: number, i1: number, n: number, d: number, h: number, c: Cadre): Zone {
+  const demiL = Math.tan(rad(c.champ / 2)), demiH = demiL / c.forme, milieu = (n - 1) / 2;
+  const x = (i: number) => entre(0.5 + Math.tan(rad(i - milieu)) / (2 * demiL)), y = (angle: number) => entre(0.5 - Math.tan(rad(angle - c.tangage)) / (2 * demiH));
+  return { gauche: x(i0 - 0.5), droite: x(i1 + 0.5), haut: y(faite(d, h)), bas: y(pied(d)) };
 }
 
 /** Ce que des regards (du rang `a` au rang `b`) voient des batiments. */
 function resumer(s: Scene, r: Rayons, a: number, b: number, c: Cadre): Regard {
   const m = plusPresent(r.b, a, b), n = b - a + 1;
-  let cadre = 0, distance = 0, incidence = 0, k = 0;
+  let cadre = 0, distance = 0, incidence = 0, k = 0, premier = -1, dernier = -1;
   const cotes = [0, 0, 0, 0];
   for (let i = Math.max(0, a); i <= Math.min(r.b.length - 1, b); i++) {
     const v = r.b[i] as number;
@@ -331,10 +350,13 @@ function resumer(s: Scene, r: Rayons, a: number, b: number, c: Cadre): Regard {
     cadre += partEnHauteur(r.d[i] as number, (s.batiments[v] as Batiment).hauteur ?? HAUTEUR_PAR_DEFAUT_M, c);
     if (v !== m?.b) continue;
     distance += r.d[i] as number; incidence += r.inc[i] as number; k++;
+    if (premier < 0) premier = i;
+    dernier = i;
     (cotes[coteDuMur(s.aretes[r.mur[i] as number] as Arete, s.axes[v] as number, r.x, r.y)] as number)++;
   }
-  const part = (m?.n ?? 0) / n;
-  return { part, batiment: m ? (s.batiments[m.b] as Batiment).id : null, facade: part >= PART_DU_CHAMP_MIN, distance: k ? distance / k : 0, incidence: k ? incidence / k : 0, cadre: cadre / n, cote: cotes.indexOf(Math.max(...cotes)) };
+  const part = (m?.n ?? 0) / n, principal = m ? (s.batiments[m.b] as Batiment) : null;
+  const zone = principal && k ? zoneDansLeCadre(premier - a, dernier - a, n, distance / k, principal.hauteur ?? HAUTEUR_PAR_DEFAUT_M, c) : null;
+  return { part, batiment: principal?.id ?? null, facade: part >= PART_DU_CHAMP_MIN, distance: k ? distance / k : 0, incidence: k ? incidence / k : 0, cadre: cadre / n, cote: cotes.indexOf(Math.max(...cotes)), zone };
 }
 
 /** Ce qu'une vue tournee vers `cap` voit des batiments, depuis `pos` (par defaut, une vue de 75 degres tiree d'un 360). */
@@ -378,7 +400,6 @@ export const DISTANCE_IDEALE_M: readonly [number, number] = [8, 20];
 export const CADRE_PLEIN = 0.5;
 export const AGE_PLEIN_ANS = 2, AGE_NUL_ANS = 10;
 
-const entre = (v: number) => Math.max(0, Math.min(1, v));
 
 export function noteDeVue(r: Pick<Regard, 'distance' | 'incidence' | 'cadre'>, date: string | null, aujourdhui: Date): number {
   const [pres, loin] = DISTANCE_IDEALE_M;
@@ -400,7 +421,7 @@ export function noteDeVue(r: Pick<Regard, 'distance' | 'incidence' | 'cadre'>, d
  */
 export function vuesDeFacade(s: Scene, p: Pick<PhotoRue, 'lat' | 'lon' | 'azimut'> & Partial<Pick<PhotoRue, 'champ' | 'date' | 'capSur' | 'forme'>>, vues: readonly VueAExtraire[], aujourdhui = new Date()): VueAExtraire[] {
   const pos = { lat: p.lat, lon: p.lon };
-  const notee = (v: VueAExtraire, r: Regard & { batiment: string }, cap = v.cap): VueAExtraire => ({ vue: v.vue, cap, batiment: r.batiment, cote: r.cote, note: noteDeVue(r, p.date ?? null, aujourdhui), distanceFacade: Math.round(r.distance * 10) / 10 });
+  const notee = (v: VueAExtraire, r: Regard & { batiment: string }, cap = v.cap): VueAExtraire => ({ vue: v.vue, cap, batiment: r.batiment, cote: r.cote, note: noteDeVue(r, p.date ?? null, aujourdhui), distanceFacade: Math.round(r.distance * 10) / 10, ...(r.zone ? { zone: r.zone } : {}) });
   return vues.flatMap((v): VueAExtraire[] => {
     if ((v.vue === 'gauche' || v.vue === 'droite') && p.azimut !== null) {
       const f = viserLaFacade(s, pos, norm(p.azimut + (v.vue === 'gauche' ? -90 : 90)));

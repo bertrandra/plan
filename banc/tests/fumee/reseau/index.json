@@ -3,7 +3,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=3600"
   },
   "duree": 0,
@@ -13,7 +13,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=3600"
   },
   "duree": 0,
@@ -23,7 +23,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -33,7 +33,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -43,7 +43,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -53,7 +53,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -63,7 +63,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -73,7 +73,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -83,7 +83,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -93,7 +93,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -103,7 +103,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -113,7 +113,7 @@
   "statut": 200,
   "type": "application/vnd.mapbox-vector-tile",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "max-age=3600, public, max-age=86400"
   },
   "duree": 0,
@@ -123,7 +123,7 @@
   "statut": 200,
   "type": "application/json",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905"
+   "access-control-allow-origin": "http://127.0.0.1:39969"
   },
   "duree": 0,
   "fichier": "4e0ff9232b9cf1c1.gz"
@@ -236,6 +236,24 @@
   "duree": 0,
   "fichier": "a31d5af8e1560c6e.gz"
  },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/5e/1f/6b/8d/9d21-4fbd-96f9-0390a79d9b58/sd.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "a2631212465b3184.gz"
+ },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/90/45/94/43/7644-4381-8352-a9e191efab93/sd.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "265f8aff14d473b1.gz"
+ },
  "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/94/cb/83/59/d4ad-4a41-8f76-f72734a1f5ca/sd.jpg": {
   "statut": 200,
   "type": "image/jpeg",
@@ -254,6 +272,15 @@
   "duree": 0,
   "fichier": "f9ccd81fa66c4114.gz"
  },
+ "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/ca/80/b7/36/c03c-4dc0-b552-12bd92356e5e/sd.jpg": {
+  "statut": 200,
+  "type": "image/jpeg",
+  "entetes": {
+   "access-control-allow-origin": "*"
+  },
+  "duree": 0,
+  "fichier": "46da7cb9a0109a42.gz"
+ },
  "GET https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/main-pictures/1c/1a/0a/04/cd8d-4f8d-a24d-3e23745b1ee2.jpg": {
   "statut": 200,
   "type": "image/jpeg",
@@ -267,7 +294,7 @@
   "statut": 302,
   "type": "text/html; charset=utf-8",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "public",
    "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/main-pictures/1c/1a/0a/04/cd8d-4f8d-a24d-3e23745b1ee2.jpg"
   },
@@ -278,18 +305,40 @@
   "statut": 302,
   "type": "text/html; charset=utf-8",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "public",
    "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/1c/1a/0a/04/cd8d-4f8d-a24d-3e23745b1ee2/sd.jpg"
   },
   "duree": 0,
   "fichier": "c0367fb9922749e1.gz"
  },
+ "GET https://panoramax.ign.fr/api/pictures/5e1f6b8d-9d21-4fbd-96f9-0390a79d9b58/sd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:39969",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/5e/1f/6b/8d/9d21-4fbd-96f9-0390a79d9b58/sd.jpg"
+  },
+  "duree": 0,
+  "fichier": "64a39329f5be1315.gz"
+ },
+ "GET https://panoramax.ign.fr/api/pictures/90459443-7644-4381-8352-a9e191efab93/sd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:39969",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/90/45/94/43/7644-4381-8352-a9e191efab93/sd.jpg"
+  },
+  "duree": 0,
+  "fichier": "a90fcb88619c7b6b.gz"
+ },
  "GET https://panoramax.ign.fr/api/pictures/94cb8359-d4ad-4a41-8f76-f72734a1f5ca/sd.jpg": {
   "statut": 302,
   "type": "text/html; charset=utf-8",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "public",
    "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/94/cb/83/59/d4ad-4a41-8f76-f72734a1f5ca/sd.jpg"
   },
@@ -300,11 +349,22 @@
   "statut": 302,
   "type": "text/html; charset=utf-8",
   "entetes": {
-   "access-control-allow-origin": "http://127.0.0.1:33905",
+   "access-control-allow-origin": "http://127.0.0.1:39969",
    "cache-control": "public",
    "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/a5/d9/1c/c3/7d03-43eb-b584-6056510827cc/sd.jpg"
   },
   "duree": 0,
   "fichier": "ee87148fef51c254.gz"
+ },
+ "GET https://panoramax.ign.fr/api/pictures/ca80b736-c03c-4dc0-b552-12bd92356e5e/sd.jpg": {
+  "statut": 302,
+  "type": "text/html; charset=utf-8",
+  "entetes": {
+   "access-control-allow-origin": "http://127.0.0.1:39969",
+   "cache-control": "public",
+   "location": "https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net/derivates/ca/80/b7/36/c03c-4dc0-b552-12bd92356e5e/sd.jpg"
+  },
+  "duree": 0,
+  "fichier": "d17d8513313bbde1.gz"
  }
 }

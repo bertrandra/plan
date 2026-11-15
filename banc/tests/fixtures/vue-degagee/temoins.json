@@ -1,0 +1,990 @@
+[
+ {
+  "fichier": "00-cachee.jpg",
+  "etat": "cachee",
+  "photo": "0d4c6052-74b4-48f0-a5e3-844154bb5eb9",
+  "vue": "droite",
+  "cap": 191,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6564,
+   "haut": 0.4928,
+   "bas": 0.6963
+  }
+ },
+ {
+  "fichier": "02-cachee.jpg",
+  "etat": "cachee",
+  "photo": "0fce1dde-de07-45d5-bb6b-b5b2176c3adf",
+  "vue": "droite",
+  "cap": 233,
+  "zone": {
+   "gauche": 0.5057,
+   "droite": 0.8538,
+   "haut": 0.2325,
+   "bas": 0.774
+  }
+ },
+ {
+  "fichier": "03-degagee.jpg",
+  "etat": "degagee",
+  "photo": "0fce1dde-de07-45d5-bb6b-b5b2176c3adf",
+  "vue": "gauche",
+  "cap": 53,
+  "zone": {
+   "gauche": 0.3792,
+   "droite": 0.797,
+   "haut": 0.3104,
+   "bas": 0.7437
+  }
+ },
+ {
+  "fichier": "04-cachee.jpg",
+  "etat": "cachee",
+  "photo": "130a997b-85b5-4790-bb75-e232ffe93ed4",
+  "vue": "droite",
+  "cap": 154,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.5742,
+   "haut": 0.2782,
+   "bas": 0.7262
+  }
+ },
+ {
+  "fichier": "06-cachee.jpg",
+  "etat": "cachee",
+  "photo": "1be7a4aa-ee89-4db7-b03b-6456172e4fd5",
+  "vue": "droite",
+  "cap": 159,
+  "zone": {
+   "gauche": 0.391,
+   "droite": 0.609,
+   "haut": 0.5154,
+   "bas": 0.683
+  }
+ },
+ {
+  "fichier": "07-degagee.jpg",
+  "etat": "degagee",
+  "photo": "1be7a4aa-ee89-4db7-b03b-6456172e4fd5",
+  "vue": "gauche",
+  "cap": 352,
+  "zone": {
+   "gauche": 0.282,
+   "droite": 0.7055,
+   "haut": 0.3728,
+   "bas": 0.7423
+  }
+ },
+ {
+  "fichier": "08-degagee.jpg",
+  "etat": "degagee",
+  "photo": "1c1a0a04-cd8d-4f8d-a24d-3e23745b1ee2",
+  "vue": "gauche",
+  "cap": 36,
+  "zone": {
+   "gauche": 0.1162,
+   "droite": 0.8838,
+   "haut": 0.2872,
+   "bas": 0.7422
+  }
+ },
+ {
+  "fichier": "09-cachee.jpg",
+  "etat": "cachee",
+  "photo": "232bb6b6-81f0-48e0-9017-717b89a2fb1d",
+  "vue": "droite",
+  "cap": 135,
+  "zone": {
+   "gauche": 0.1162,
+   "droite": 0.8838,
+   "haut": 0.1511,
+   "bas": 0.9271
+  }
+ },
+ {
+  "fichier": "10-degagee.jpg",
+  "etat": "degagee",
+  "photo": "232bb6b6-81f0-48e0-9017-717b89a2fb1d",
+  "vue": "gauche",
+  "cap": 328,
+  "zone": {
+   "gauche": 0.282,
+   "droite": 0.7055,
+   "haut": 0.4053,
+   "bas": 0.7096
+  }
+ },
+ {
+  "fichier": "11-cachee.jpg",
+  "etat": "cachee",
+  "photo": "25c8fc55-ba4c-4fd6-96e0-59bb610d62a2",
+  "vue": "droite",
+  "cap": 73,
+  "zone": {
+   "gauche": 0.1892,
+   "droite": 0.8108,
+   "haut": 0.3036,
+   "bas": 0.734
+  }
+ },
+ {
+  "fichier": "13-degagee.jpg",
+  "etat": "degagee",
+  "photo": "29e1b719-6dab-4638-8f60-d161a28b426f",
+  "vue": "droite",
+  "cap": 197,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6685,
+   "haut": 0.2585,
+   "bas": 0.736
+  }
+ },
+ {
+  "fichier": "14-degagee.jpg",
+  "etat": "degagee",
+  "photo": "29e1b719-6dab-4638-8f60-d161a28b426f",
+  "vue": "gauche",
+  "cap": 38,
+  "zone": {
+   "gauche": 0.2693,
+   "droite": 0.7307,
+   "haut": 0.2778,
+   "bas": 0.7574
+  }
+ },
+ {
+  "fichier": "15-degagee.jpg",
+  "etat": "degagee",
+  "photo": "37ab63d0-628f-4b03-b769-ed2172c731de",
+  "vue": "droite",
+  "cap": 202,
+  "zone": {
+   "gauche": 0.3193,
+   "droite": 0.6807,
+   "haut": 0.2428,
+   "bas": 0.7413
+  }
+ },
+ {
+  "fichier": "16-degagee.jpg",
+  "etat": "degagee",
+  "photo": "37ab63d0-628f-4b03-b769-ed2172c731de",
+  "vue": "gauche",
+  "cap": 45,
+  "zone": {
+   "gauche": 0.391,
+   "droite": 1,
+   "haut": 0.3689,
+   "bas": 0.7113
+  }
+ },
+ {
+  "fichier": "17-cachee.jpg",
+  "etat": "cachee",
+  "photo": "410448a1-eced-4d36-a0bd-16d3d62e05cc",
+  "vue": "droite",
+  "cap": 170,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.6445,
+   "haut": 0.2839,
+   "bas": 0.7274
+  }
+ },
+ {
+  "fichier": "18-degagee.jpg",
+  "etat": "degagee",
+  "photo": "410448a1-eced-4d36-a0bd-16d3d62e05cc",
+  "vue": "gauche",
+  "cap": 14,
+  "zone": {
+   "gauche": 0.2433,
+   "droite": 0.7436,
+   "haut": 0.2051,
+   "bas": 0.7987
+  }
+ },
+ {
+  "fichier": "19-cachee.jpg",
+  "etat": "cachee",
+  "photo": "41576d97-173b-421f-a0cb-d7c4ee4a418c",
+  "vue": "droite",
+  "cap": 177,
+  "zone": {
+   "gauche": 0.2564,
+   "droite": 0.7436,
+   "haut": 0.4869,
+   "bas": 0.6841
+  }
+ },
+ {
+  "fichier": "20-cachee.jpg",
+  "etat": "cachee",
+  "photo": "41576d97-173b-421f-a0cb-d7c4ee4a418c",
+  "vue": "gauche",
+  "cap": 29,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.6564,
+   "haut": 0.5215,
+   "bas": 0.6736
+  }
+ },
+ {
+  "fichier": "21-cachee.jpg",
+  "etat": "cachee",
+  "photo": "42dfbb6b-cbb3-407a-b0fb-76d386e75c8a",
+  "vue": "droite",
+  "cap": 204,
+  "zone": {
+   "gauche": 0.1608,
+   "droite": 0.8249,
+   "haut": 0.4977,
+   "bas": 0.6733
+  }
+ },
+ {
+  "fichier": "22-cachee.jpg",
+  "etat": "cachee",
+  "photo": "42dfbb6b-cbb3-407a-b0fb-76d386e75c8a",
+  "vue": "gauche",
+  "cap": 348,
+  "zone": {
+   "gauche": 0.3792,
+   "droite": 0.6208,
+   "haut": 0.4476,
+   "bas": 0.7441
+  }
+ },
+ {
+  "fichier": "23-degagee.jpg",
+  "etat": "degagee",
+  "photo": "50e5c81c-cd68-486f-bc8d-dcf410b08cf6",
+  "vue": "droite",
+  "cap": 78,
+  "zone": {
+   "gauche": 0,
+   "droite": 0.4026,
+   "haut": 0.3987,
+   "bas": 0.7573
+  }
+ },
+ {
+  "fichier": "25-cachee.jpg",
+  "etat": "cachee",
+  "photo": "5531b397-0385-460b-81d7-54ac42ddbd00",
+  "vue": "droite",
+  "cap": 102,
+  "zone": {
+   "gauche": 0.1462,
+   "droite": 0.8538,
+   "haut": 0.2906,
+   "bas": 0.739
+  }
+ },
+ {
+  "fichier": "26-degagee.jpg",
+  "etat": "degagee",
+  "photo": "5531b397-0385-460b-81d7-54ac42ddbd00",
+  "vue": "gauche",
+  "cap": 310,
+  "zone": {
+   "gauche": 0.3555,
+   "droite": 0.6326,
+   "haut": 0.3948,
+   "bas": 0.709
+  }
+ },
+ {
+  "fichier": "27-degagee.jpg",
+  "etat": "degagee",
+  "photo": "5e1f6b8d-9d21-4fbd-96f9-0390a79d9b58",
+  "vue": "droite",
+  "cap": 200,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6564,
+   "haut": 0.4127,
+   "bas": 0.7323
+  }
+ },
+ {
+  "fichier": "28-degagee.jpg",
+  "etat": "degagee",
+  "photo": "5e1f6b8d-9d21-4fbd-96f9-0390a79d9b58",
+  "vue": "gauche",
+  "cap": 350,
+  "zone": {
+   "gauche": 0.3555,
+   "droite": 0.6445,
+   "haut": 0.2888,
+   "bas": 0.7416
+  }
+ },
+ {
+  "fichier": "29-degagee.jpg",
+  "etat": "degagee",
+  "photo": "663c9afa-cd0d-41b2-a8ed-cd738c7ad334",
+  "vue": "droite",
+  "cap": 187,
+  "zone": {
+   "gauche": 0.3674,
+   "droite": 0.6208,
+   "haut": 0.3389,
+   "bas": 0.7033
+  }
+ },
+ {
+  "fichier": "30-degagee.jpg",
+  "etat": "degagee",
+  "photo": "663c9afa-cd0d-41b2-a8ed-cd738c7ad334",
+  "vue": "gauche",
+  "cap": 357,
+  "zone": {
+   "gauche": 0.2564,
+   "droite": 0.7436,
+   "haut": 0.2682,
+   "bas": 0.7615
+  }
+ },
+ {
+  "fichier": "32-degagee.jpg",
+  "etat": "degagee",
+  "photo": "6ea601c8-3e0f-4e72-8b5c-1162e74108a8",
+  "vue": "gauche",
+  "cap": 304,
+  "zone": {
+   "gauche": 0.203,
+   "droite": 0.797,
+   "haut": 0.3449,
+   "bas": 0.7356
+  }
+ },
+ {
+  "fichier": "33-cachee.jpg",
+  "etat": "cachee",
+  "photo": "74569e49-e5b1-4451-9e71-509a5c21e6d3",
+  "vue": "droite",
+  "cap": 189,
+  "zone": {
+   "gauche": 0.2301,
+   "droite": 0.7567,
+   "haut": 0.4691,
+   "bas": 0.6926
+  }
+ },
+ {
+  "fichier": "34-cachee.jpg",
+  "etat": "cachee",
+  "photo": "74569e49-e5b1-4451-9e71-509a5c21e6d3",
+  "vue": "gauche",
+  "cap": 17,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6564,
+   "haut": 0.5229,
+   "bas": 0.6729
+  }
+ },
+ {
+  "fichier": "35-cachee.jpg",
+  "etat": "cachee",
+  "photo": "774ca7c7-b2c3-4f1b-8d06-175b419f1373",
+  "vue": "droite",
+  "cap": 232,
+  "zone": {
+   "gauche": 0.5171,
+   "droite": 0.7436,
+   "haut": 0.4832,
+   "bas": 0.6977
+  }
+ },
+ {
+  "fichier": "36-cachee.jpg",
+  "etat": "cachee",
+  "photo": "784f7c3c-a658-4fe1-a25a-bd4bfba7d3f8",
+  "vue": "droite",
+  "cap": 212,
+  "zone": {
+   "gauche": 0.3674,
+   "droite": 0.6208,
+   "haut": 0.4979,
+   "bas": 0.6933
+  }
+ },
+ {
+  "fichier": "38-cachee.jpg",
+  "etat": "cachee",
+  "photo": "81380cdf-51f4-42d8-9c9c-23c08425bff3",
+  "vue": "droite",
+  "cap": 172,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.6445,
+   "haut": 0.5019,
+   "bas": 0.6909
+  }
+ },
+ {
+  "fichier": "39-degagee.jpg",
+  "etat": "degagee",
+  "photo": "81380cdf-51f4-42d8-9c9c-23c08425bff3",
+  "vue": "gauche",
+  "cap": 332,
+  "zone": {
+   "gauche": 0.282,
+   "droite": 0.6326,
+   "haut": 0.4288,
+   "bas": 0.7141
+  }
+ },
+ {
+  "fichier": "41-degagee.jpg",
+  "etat": "degagee",
+  "photo": "8537c963-c979-4fab-a850-45362c6e332a",
+  "vue": "gauche",
+  "cap": 25,
+  "zone": {
+   "gauche": 0.1892,
+   "droite": 0.8108,
+   "haut": 0.258,
+   "bas": 0.7658
+  }
+ },
+ {
+  "fichier": "42-cachee.jpg",
+  "etat": "cachee",
+  "photo": "889e6300-00c9-46e5-afc3-b49f0fbb3213",
+  "vue": "droite",
+  "cap": 186,
+  "zone": {
+   "gauche": 0.3674,
+   "droite": 0.6208,
+   "haut": 0.4991,
+   "bas": 0.6727
+  }
+ },
+ {
+  "fichier": "43-cachee.jpg",
+  "etat": "cachee",
+  "photo": "889e6300-00c9-46e5-afc3-b49f0fbb3213",
+  "vue": "gauche",
+  "cap": 55,
+  "zone": {
+   "gauche": 0.2693,
+   "droite": 0.797,
+   "haut": 0.4306,
+   "bas": 0.7566
+  }
+ },
+ {
+  "fichier": "44-cachee.jpg",
+  "etat": "cachee",
+  "photo": "8babfebe-fddb-4300-ac58-a66ac9d229fb",
+  "vue": "droite",
+  "cap": 178,
+  "zone": {
+   "gauche": 0.2564,
+   "droite": 0.7307,
+   "haut": 0.1701,
+   "bas": 0.7623
+  }
+ },
+ {
+  "fichier": "45-degagee.jpg",
+  "etat": "degagee",
+  "photo": "8babfebe-fddb-4300-ac58-a66ac9d229fb",
+  "vue": "gauche",
+  "cap": 4,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6685,
+   "haut": 0.2201,
+   "bas": 0.7403
+  }
+ },
+ {
+  "fichier": "46-cachee.jpg",
+  "etat": "cachee",
+  "photo": "9001e2f8-5c65-4d78-92ee-29caf3be58c0",
+  "vue": "droite",
+  "cap": 173,
+  "zone": {
+   "gauche": 0.203,
+   "droite": 0.797,
+   "haut": 0.3177,
+   "bas": 0.7612
+  }
+ },
+ {
+  "fichier": "49-cachee.jpg",
+  "etat": "cachee",
+  "photo": "901368a7-1ac1-4c0c-ad53-a2b3aae5dc1d",
+  "vue": "gauche",
+  "cap": 347,
+  "zone": {
+   "gauche": 0.2433,
+   "droite": 0.4026,
+   "haut": 0.4964,
+   "bas": 0.6942
+  }
+ },
+ {
+  "fichier": "50-cachee.jpg",
+  "etat": "cachee",
+  "photo": "90459443-7644-4381-8352-a9e191efab93",
+  "vue": "droite",
+  "cap": 229,
+  "zone": {
+   "gauche": 0.5171,
+   "droite": 0.797,
+   "haut": 0.3852,
+   "bas": 0.6943
+  }
+ },
+ {
+  "fichier": "51-degagee.jpg",
+  "etat": "degagee",
+  "photo": "90459443-7644-4381-8352-a9e191efab93",
+  "vue": "gauche",
+  "cap": 10,
+  "zone": {
+   "gauche": 0.3193,
+   "droite": 0.6685,
+   "haut": 0.2092,
+   "bas": 0.7729
+  }
+ },
+ {
+  "fichier": "52-cachee.jpg",
+  "etat": "cachee",
+  "photo": "90d75a5d-f63a-470a-bd3c-ba75f0a84d4e",
+  "vue": "droite",
+  "cap": 236,
+  "zone": {
+   "gauche": 0.4026,
+   "droite": 0.797,
+   "haut": 0.4873,
+   "bas": 0.6839
+  }
+ },
+ {
+  "fichier": "53-cachee.jpg",
+  "etat": "cachee",
+  "photo": "90d75a5d-f63a-470a-bd3c-ba75f0a84d4e",
+  "vue": "gauche",
+  "cap": 56,
+  "zone": {
+   "gauche": 0.6208,
+   "droite": 0.8993,
+   "haut": 0.4766,
+   "bas": 0.723
+  }
+ },
+ {
+  "fichier": "54-degagee.jpg",
+  "etat": "degagee",
+  "photo": "94cb8359-d4ad-4a41-8f76-f72734a1f5ca",
+  "vue": "droite",
+  "cap": 189,
+  "zone": {
+   "gauche": 0.2433,
+   "droite": 0.7567,
+   "haut": 0.4359,
+   "bas": 0.7248
+  }
+ },
+ {
+  "fichier": "55-cachee.jpg",
+  "etat": "cachee",
+  "photo": "94cb8359-d4ad-4a41-8f76-f72734a1f5ca",
+  "vue": "gauche",
+  "cap": 30,
+  "zone": {
+   "gauche": 0.3555,
+   "droite": 0.6326,
+   "haut": 0.5421,
+   "bas": 0.6732
+  }
+ },
+ {
+  "fichier": "56-cachee.jpg",
+  "etat": "cachee",
+  "photo": "9b23483e-ca07-4ba3-b75f-7ce7d3d7ccc4",
+  "vue": "droite",
+  "cap": 216,
+  "zone": {
+   "gauche": 0.1313,
+   "droite": 0.8538,
+   "haut": 0.5028,
+   "bas": 0.6711
+  }
+ },
+ {
+  "fichier": "58-cachee.jpg",
+  "etat": "cachee",
+  "photo": "9fbad2a4-aa82-489c-a744-4a4662feabcb",
+  "vue": "droite",
+  "cap": 207,
+  "zone": {
+   "gauche": 0.203,
+   "droite": 0.7833,
+   "haut": 0.4563,
+   "bas": 0.6987
+  }
+ },
+ {
+  "fichier": "59-cachee.jpg",
+  "etat": "cachee",
+  "photo": "9fbad2a4-aa82-489c-a744-4a4662feabcb",
+  "vue": "gauche",
+  "cap": 5,
+  "zone": {
+   "gauche": 0.3792,
+   "droite": 0.609,
+   "haut": 0.5293,
+   "bas": 0.6696
+  }
+ },
+ {
+  "fichier": "60-cachee.jpg",
+  "etat": "cachee",
+  "photo": "a0746cef-b721-425f-8e16-1f3471049b84",
+  "vue": "droite",
+  "cap": 198,
+  "zone": {
+   "gauche": 0.1892,
+   "droite": 0.797,
+   "haut": 0.1199,
+   "bas": 0.8232
+  }
+ },
+ {
+  "fichier": "61-degagee.jpg",
+  "etat": "degagee",
+  "photo": "a0746cef-b721-425f-8e16-1f3471049b84",
+  "vue": "gauche",
+  "cap": 1,
+  "zone": {
+   "gauche": 0.2945,
+   "droite": 0.693,
+   "haut": 0.3008,
+   "bas": 0.7696
+  }
+ },
+ {
+  "fichier": "62-cachee.jpg",
+  "etat": "cachee",
+  "photo": "a5d91cc3-7d03-43eb-b584-6056510827cc",
+  "vue": "droite",
+  "cap": 216,
+  "zone": {
+   "gauche": 0.2433,
+   "droite": 0.7567,
+   "haut": 0.4252,
+   "bas": 0.731
+  }
+ },
+ {
+  "fichier": "63-cachee.jpg",
+  "etat": "cachee",
+  "photo": "a5d91cc3-7d03-43eb-b584-6056510827cc",
+  "vue": "gauche",
+  "cap": 16,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6685,
+   "haut": 0.5451,
+   "bas": 0.6712
+  }
+ },
+ {
+  "fichier": "64-degagee.jpg",
+  "etat": "degagee",
+  "photo": "b133e221-f342-4aa8-844c-54641d021d66",
+  "vue": "droite",
+  "cap": 212,
+  "zone": {
+   "gauche": 0.0849,
+   "droite": 0.9151,
+   "haut": 0.254,
+   "bas": 0.8292
+  }
+ },
+ {
+  "fichier": "65-degagee.jpg",
+  "etat": "degagee",
+  "photo": "b133e221-f342-4aa8-844c-54641d021d66",
+  "vue": "gauche",
+  "cap": 329,
+  "zone": {
+   "gauche": 0.2693,
+   "droite": 0.5171,
+   "haut": 0.2619,
+   "bas": 0.7216
+  }
+ },
+ {
+  "fichier": "66-degagee.jpg",
+  "etat": "degagee",
+  "photo": "b2380684-021c-4743-b801-79df960462b7",
+  "vue": "droite",
+  "cap": 78,
+  "zone": {
+   "gauche": 0.2301,
+   "droite": 0.7699,
+   "haut": 0.0733,
+   "bas": 0.9854
+  }
+ },
+ {
+  "fichier": "68-cachee.jpg",
+  "etat": "cachee",
+  "photo": "bdf28678-1911-4fcb-bc1a-be331956a8c6",
+  "vue": "droite",
+  "cap": 223,
+  "zone": {
+   "gauche": 0.2433,
+   "droite": 0.7567,
+   "haut": 0.5037,
+   "bas": 0.6707
+  }
+ },
+ {
+  "fichier": "69-cachee.jpg",
+  "etat": "cachee",
+  "photo": "bdf28678-1911-4fcb-bc1a-be331956a8c6",
+  "vue": "gauche",
+  "cap": 2,
+  "zone": {
+   "gauche": 0.203,
+   "droite": 0.797,
+   "haut": 0.3459,
+   "bas": 0.7868
+  }
+ },
+ {
+  "fichier": "71-cachee.jpg",
+  "etat": "cachee",
+  "photo": "c15ea4f3-843a-4ed8-9472-043afdc1d38e",
+  "vue": "gauche",
+  "cap": 56,
+  "zone": {
+   "gauche": 0.609,
+   "droite": 1,
+   "haut": 0.442,
+   "bas": 0.6835
+  }
+ },
+ {
+  "fichier": "72-degagee.jpg",
+  "etat": "degagee",
+  "photo": "c4f26f64-5d1b-4f9d-aacf-4c5de9f461ea",
+  "vue": "droite",
+  "cap": 229,
+  "zone": {
+   "gauche": 0.2693,
+   "droite": 0.7307,
+   "haut": 0.4553,
+   "bas": 0.7622
+  }
+ },
+ {
+  "fichier": "73-degagee.jpg",
+  "etat": "degagee",
+  "photo": "c4f26f64-5d1b-4f9d-aacf-4c5de9f461ea",
+  "vue": "gauche",
+  "cap": 356,
+  "zone": {
+   "gauche": 0.2693,
+   "droite": 0.718,
+   "haut": 0.3057,
+   "bas": 0.7456
+  }
+ },
+ {
+  "fichier": "74-cachee.jpg",
+  "etat": "cachee",
+  "photo": "c76f37fe-a485-483e-ad54-4ab3a7f7dcb1",
+  "vue": "droite",
+  "cap": 237,
+  "zone": {
+   "gauche": 0.391,
+   "droite": 0.6807,
+   "haut": 0.4528,
+   "bas": 0.715
+  }
+ },
+ {
+  "fichier": "75-cachee.jpg",
+  "etat": "cachee",
+  "photo": "c76f37fe-a485-483e-ad54-4ab3a7f7dcb1",
+  "vue": "gauche",
+  "cap": 4,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6564,
+   "haut": 0.5491,
+   "bas": 0.6686
+  }
+ },
+ {
+  "fichier": "76-degagee.jpg",
+  "etat": "degagee",
+  "photo": "ca80b736-c03c-4dc0-b552-12bd92356e5e",
+  "vue": "droite",
+  "cap": 164,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6685,
+   "haut": 0.4659,
+   "bas": 0.7075
+  }
+ },
+ {
+  "fichier": "77-degagee.jpg",
+  "etat": "degagee",
+  "photo": "ca80b736-c03c-4dc0-b552-12bd92356e5e",
+  "vue": "gauche",
+  "cap": 337,
+  "zone": {
+   "gauche": 0.2945,
+   "droite": 0.5285,
+   "haut": 0.3873,
+   "bas": 0.7045
+  }
+ },
+ {
+  "fichier": "78-cachee.jpg",
+  "etat": "cachee",
+  "photo": "ce4dcb7f-8528-48a0-909a-839ebc8be620",
+  "vue": "droite",
+  "cap": 200,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.6564,
+   "haut": 0.49,
+   "bas": 0.6765
+  }
+ },
+ {
+  "fichier": "80-cachee.jpg",
+  "etat": "cachee",
+  "photo": "def593f9-e2ba-427e-bd68-91eeb05fe0f9",
+  "vue": "droite",
+  "cap": 172,
+  "zone": {
+   "gauche": 0.3674,
+   "droite": 0.6326,
+   "haut": 0.4464,
+   "bas": 0.7035
+  }
+ },
+ {
+  "fichier": "81-cachee.jpg",
+  "etat": "cachee",
+  "photo": "def593f9-e2ba-427e-bd68-91eeb05fe0f9",
+  "vue": "gauche",
+  "cap": 347,
+  "zone": {
+   "gauche": 0.391,
+   "droite": 0.609,
+   "haut": 0.4312,
+   "bas": 0.7334
+  }
+ },
+ {
+  "fichier": "82-cachee.jpg",
+  "etat": "cachee",
+  "photo": "e5eb68af-016a-46c4-8f54-3fafae14a8e7",
+  "vue": "droite",
+  "cap": 170,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.6445,
+   "haut": 0.4911,
+   "bas": 0.6821
+  }
+ },
+ {
+  "fichier": "83-cachee.jpg",
+  "etat": "cachee",
+  "photo": "e7ee1ba9-0411-4549-9467-0013d0bcdbf4",
+  "vue": "droite",
+  "cap": 129,
+  "zone": {
+   "gauche": 0.282,
+   "droite": 0.718,
+   "haut": 0.3308,
+   "bas": 0.7238
+  }
+ },
+ {
+  "fichier": "84-degagee.jpg",
+  "etat": "degagee",
+  "photo": "e7ee1ba9-0411-4549-9467-0013d0bcdbf4",
+  "vue": "gauche",
+  "cap": 284,
+  "zone": {
+   "gauche": 0.3315,
+   "droite": 0.6685,
+   "haut": 0.3493,
+   "bas": 0.7275
+  }
+ },
+ {
+  "fichier": "85-degagee.jpg",
+  "etat": "degagee",
+  "photo": "eada16e9-d6fe-41da-b064-c5ffde1952c4",
+  "vue": "droite",
+  "cap": 214,
+  "zone": {
+   "gauche": 0.3436,
+   "droite": 0.6445,
+   "haut": 0.3344,
+   "bas": 0.738
+  }
+ },
+ {
+  "fichier": "87-cachee.jpg",
+  "etat": "cachee",
+  "photo": "eee4e6e4-c41f-414c-baeb-6ab7e3f0ea9b",
+  "vue": "droite",
+  "cap": 214,
+  "zone": {
+   "gauche": 0.2301,
+   "droite": 0.7699,
+   "haut": 0.1829,
+   "bas": 0.7579
+  }
+ },
+ {
+  "fichier": "88-degagee.jpg",
+  "etat": "degagee",
+  "photo": "eee4e6e4-c41f-414c-baeb-6ab7e3f0ea9b",
+  "vue": "gauche",
+  "cap": 44,
+  "zone": {
+   "gauche": 0.5742,
+   "droite": 0.8249,
+   "haut": 0.3667,
+   "bas": 0.7204
+  }
+ },
+ {
+  "fichier": "89-cachee.jpg",
+  "etat": "cachee",
+  "photo": "f98dd0e2-41de-4fad-b82e-2303de04d666",
+  "vue": "droite",
+  "cap": 206,
+  "zone": {
+   "gauche": 0.3674,
+   "droite": 0.6326,
+   "haut": 0.3234,
+   "bas": 0.7341
+  }
+ }
+]

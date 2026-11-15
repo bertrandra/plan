@@ -35,10 +35,11 @@ function ReglagesDeLaListe({ ordre, setOrdre, parBatiment, setParBatiment, group
 
 /** Ce que la carte d'une photo dit sous son image : sa distance, ses vues, sa date, sa note, et « doublon ». */
 function Legende({ p, vues, visant, doublon }: { p: PhotoRue; vues: VueAExtraire[]; visant: boolean; doublon: boolean }) {
-  const note = noteDePhoto(vues), n = aImporter(vues).length;
+  const note = noteDePhoto(vues), utiles = aImporter(vues), n = utiles.length, cachee = n > 0 && utiles.every((v) => v.cachee);
   return (
     <span>{visant ? `${p.distance} m · ` : ''}{p.panoramique ? `360° · ${n} vue(s)` : !visant ? 'photo' : (p.vise ? 'vers la parcelle' : 'de côté')} · {p.date?.slice(0, 10) ?? '—'}
       {note !== null && <i className="note-vue" title="Note de la vue, de 0 à 100 : distance à la façade, façade vue de face, part du cadre qu’elle remplit, date de la photo.">note {note}</i>}
+      {cachee && <i className="marque-cachee" title="Lu dans l’aperçu : une haie, des arbres ou une clôture cachent la façade de chaque vue à importer.">façade cachée</i>}
       {doublon && <i className="marque-doublon" title="D’autres photos montrent mieux ce bâtiment : elle n’est pas proposée cochée.">doublon</i>}
     </span>
   );
