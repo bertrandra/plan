@@ -16,6 +16,7 @@ import { Icone } from '../../ui/Icones.js';
 import { ApercuPhoto } from './ApercuPhoto.js';
 import { CarteImport } from './CarteImport.js';
 import { Apercu, NOM_VUE, TANGAGE, usePano } from './panoramiques.js';
+import { compteDesFacades, useFacades, type Facades } from './useFacades.js';
 import { nomDuLot } from './useImport.js';
 
 /** Lit un JSON, en erreur sur une reponse qui n'est pas 2xx (un 504 du geocodage passe au repli). `signal` : pour l'abandonner. */
@@ -41,7 +42,6 @@ const PARCELLES_MAX = 5000;
 const PROCHE_DE_L_ADRESSE_M = 300;
 const AVIS_TRONQUE = 'Cadastre tronqué : toutes les parcelles de cette vue n’ont pas pu être lues. Rapprochez-vous pour voir les autres.';
 const AVIS_PANNE = 'Cadastre de l’IGN indisponible : la carte ne montre pas toutes les parcelles.';
-const INDICE_ZOOM = 'Zoomez pour voir les photos de rue';
 
 interface Contexte { adresse: Adresse | null; parcelle: Parcelle | null }
 
@@ -126,17 +126,18 @@ function useApercu() {
 }
 
 /** L'aide, le champ d'adresse et ses reglages, et les adresses que le geocodage propose. */
-function Recherche({ texte, setTexte, rayon, setRayon, visees, setVisees, visee, setVisee, propositions, adresse, onChercher, onAdresse }: {
-  texte: string; setTexte: (t: string) => void; rayon: number; setRayon: (r: number) => void; visees: boolean; setVisees: (v: boolean) => void;
+function Recherche({ texte, setTexte, rayon, setRayon, visees, setVisees, facades, setFacades, visee, setVisee, propositions, adresse, onChercher, onAdresse }: {
+  texte: string; setTexte: (t: string) => void; rayon: number; setRayon: (r: number) => void; visees: boolean; setVisees: (v: boolean) => void; facades: boolean; setFacades: (v: boolean) => void;
   visee: Visee; setVisee: (v: Visee) => void; propositions: Adresse[]; adresse: Adresse | null; onChercher: () => void; onAdresse: (a: Adresse) => void;
 }) {
   return (
     <>
-      <p className="aide">Partez de la carte de France et zoomez jusqu’à la rue, ou tapez une adresse : la carte y va. À l’échelle d’un quartier, les photos de rue libres de la vue s’affichent ; touchez une parcelle du cadastre pour la viser (les photos prises autour d’elle et qui la regardent), touchez-la encore pour la lâcher.</p>
+      <p className="aide">Partez de la carte de France et zoomez jusqu’à la rue, ou tapez une adresse : la carte y va. À l’échelle d’un quartier, les photos de rue libres de la vue s’affichent ; touchez une parcelle du cadastre pour la viser (les photos prises autour d’elle et qui la regardent), touchez-la encore pour la lâcher. « Seulement les façades » ne propose que les vues où une maison ou un immeuble est dans le cadre, et tourne chaque vue d’un 360 vers sa façade.</p>
       <form className="rang" onSubmit={(e) => { e.preventDefault(); onChercher(); }}>
         <input className="large" aria-label="Adresse ou coordonnées" placeholder="2 allée des Limites, Le Vésinet — ou 48.90507, 2.13254" value={texte} onChange={(e) => setTexte(e.target.value)} />
         <label>Rayon <input type="number" min={5} max={300} value={rayon} onChange={(e) => setRayon(Number(e.target.value))} /> m</label>
         <label className="case"><input type="checkbox" checked={visees} onChange={(e) => setVisees(e.target.checked)} /> Qui regardent la parcelle</label>
+        <label className="case" title="Ne proposer que les vues où un bâtiment (BD TOPO de l’IGN) est dans le cadre, à portée : ni la route, ni la campagne."><input type="checkbox" checked={facades} onChange={(e) => setFacades(e.target.checked)} /> Seulement les façades</label>
         <label>Panoramiques 360
           <select value={visee} onChange={(e) => setVisee(e.target.value as Visee)}>
             <option value="cotes">Les deux côtés de la rue (90°)</option>
@@ -163,11 +164,48 @@ function ParcelleVisee({ parcelle, onLacher }: { parcelle: Parcelle; onLacher: (
   );
 }
 
+/**
+ * Ce que la carte dit a l'echelle du quartier quand elle n'a rien a proposer, pour ne pas chercher pour rien (demande du proprietaire,
+ * 15 novembre 2026) : aucune photo ici, des photos que le banc ne peut pas lire, ou des photos sans facade (le tri).
+ */
+function indiceDeLaVue(trouvees: { recues: number; lisibles: number } | null, nPhotos: number, nProposees: number, compte: string | null): string | null {
+  if (!trouvees || nProposees > 0 || compte?.startsWith('Lecture')) return null;
+  if (!trouvees.recues) return 'Aucune photo de rue Panoramax ici';
+  if (!trouvees.lisibles) return 'Des photos de rue ici, mais servies par un hôte que le banc ne lit pas';
+  return nPhotos > 0 ? 'Des photos de rue ici, mais aucune façade (route ou campagne) : décochez « Seulement les façades » pour les voir' : null;
+}
+
+/**
+ * Les photos proposees : toutes sans le tri ; avec lui, celles dont une vue au moins montre une facade (et celles dont on a choisi les
+ * vues a la main). Une photo dont les batiments sont en cours de lecture attend. `compte` : ce que l'etat en dit.
+ */
+function useVuesTriees(photos: readonly PhotoRue[], caps: ReadonlyMap<string, number[]>, visee: Visee, seulementFacades: boolean) {
+  const tri = useFacades(photos, seulementFacades);
+  // Les vues choisies a la main ne sont jamais deplacees ni triees ; les autres ne gardent que celles qui montrent une facade.
+  const vuesDe = (p: PhotoRue) => { const m = caps.get(p.id), l = vuesDesCaps(p, m, visee); return m ? l : tri.vues(p, l, visee); };
+  return { vuesDe, tri, ...trier(photos, caps, vuesDe, tri) };
+}
+
+function trier(photos: readonly PhotoRue[], caps: ReadonlyMap<string, number[]>, vuesDe: (p: PhotoRue) => VueAExtraire[], tri: Facades): { proposees: PhotoRue[]; compte: string | null } {
+  let attente = 0, triees = 0;
+  const proposees = photos.filter((p) => {
+    const e = caps.has(p.id) ? 'libre' : tri.etat(p);
+    if (e === 'attente') { attente++; return false; }
+    if (e === 'triee') triees++;
+    return e === 'libre' || vuesDe(p).length > 0;
+  });
+  if (attente) return { proposees, compte: 'Lecture des bâtiments (BD TOPO de l’IGN)…' };
+  if (!triees) return { proposees, compte: null };
+  return { proposees, compte: compteDesFacades(proposees.length, proposees.reduce((n, p) => n + vuesDe(p).length, 0), photos.length - proposees.length) + '.' };
+}
+
 export function ImportPanoramax({ banc }: { banc: Banc }) {
   const [texte, setTexte] = useState('');
   const [rayon, setRayon] = useState(40);
   const [visees, setVisees] = useState(true);
   const [visee, setVisee] = useState<Visee>('cotes');
+  // Cochee par defaut (demande du proprietaire, 15 novembre 2026) : des facades de maison ou d'immeuble, pas la route ou la campagne.
+  const [seulementFacades, setSeulementFacades] = useState(true);
   const [propositions, setPropositions] = useState<Adresse[]>([]);
   const [adresse, setAdresse] = useState<Adresse | null>(null);
   const cadastre = useCadastre();
@@ -183,7 +221,8 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const [rayonCherche, setRayonCherche] = useState(rayon);
   const [cadrage, setCadrage] = useState(0);
   const { survol, epingle, setSurvol, setEpingle, survoler } = useApercu();
-  const [indice, setIndice] = useState<string | null>(INDICE_ZOOM);
+  // Trop loin pour chercher les photos (la carte dit alors ou zoomer), et ce que la derniere recherche de la vue a rendu.
+  const [loin, setLoin] = useState(true), [trouvees, setTrouvees] = useState<{ recues: number; lisibles: number } | null>(null);
   // Ce que la carte montre, et ce que ses recherches (lancees apres coup, au repos de la vue) doivent lire a jour.
   const emprise = useRef<Emprise | null>(null);
   const visee$ = useRef(parcelle); visee$.current = parcelle;
@@ -191,13 +230,13 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const images$ = useRef(banc.images); images$.current = banc.images;
   const rechercheVue = useRef<AbortController | null>(null);
   // Sans parcelle visee, rien ne dit de quel cote est l'adresse : les deux cotes de la rue.
-  const vuesDe = (p: PhotoRue) => vuesDesCaps(p, caps.get(p.id), parcelle ? visee : 'cotes');
+  const { vuesDe, proposees, compte, tri } = useVuesTriees(photos, caps, parcelle ? visee : 'cotes', seulementFacades);
   const dejaLa = () => new Set(images$.current.map((m) => m.panoramax?.id).filter(Boolean));
 
   /** Les photos autour de la parcelle visee, dans le rayon autour de ses bords. */
   const chercherAutour = async (p: Parcelle) => {
     rechercheVue.current?.abort();
-    setEtat('Recherche des photos…'); setIndice(null);
+    setEtat('Recherche des photos…'); setLoin(false);
     setRayonCherche(rayon);
     try {
       const o = centre(p);
@@ -216,14 +255,15 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const chercherDansLaVue = useCallback((e: Emprise) => {
     rechercheVue.current?.abort();
     const cochees = (l: PhotoRue[]) => l.filter((x) => choix$.current.has(x.id));
-    if (largeurM(e) > LARGEUR_PHOTOS_MAX_M) { setIndice(INDICE_ZOOM); setPhotos(cochees); return; }
-    setIndice(null);
+    if (largeurM(e) > LARGEUR_PHOTOS_MAX_M) { setLoin(true); setTrouvees(null); setEtat(null); setPhotos(cochees); return; }
+    setLoin(false);
     const arret = new AbortController();
     rechercheVue.current = arret;
     lireJson(urlRechercheEmprise(e, LIMITE_PHOTOS_VUE), arret.signal).then((json) => {
       if (arret.signal.aborted || visee$.current) return;
       const recues = ((json as { features?: unknown[] })?.features ?? []).length;
       const l = lirePhotos(json, milieuEmprise(e), Infinity), deja = dejaLa(), neuves = l.filter((x) => !deja.has(x.id));
+      setTrouvees({ recues, lisibles: l.length });
       setPhotos((avant) => { const g = cochees(avant), ids = new Set(g.map((x) => x.id)); return [...g, ...neuves.filter((x) => !ids.has(x.id))]; });
       setEtat(`${l.length} photo(s) dans la vue${recues >= LIMITE_PHOTOS_VUE ? ` (les ${LIMITE_PHOTOS_VUE} premières : rapprochez-vous pour voir les autres)` : ''} ; ${l.length - neuves.length} déjà dans le banc. Touchez une parcelle pour la viser.`);
     }).catch((err: Error) => { if (!arret.signal.aborted) setEtat('Recherche des photos impossible : ' + err.message); });
@@ -276,40 +316,51 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
     if (emprise.current) chercherDansLaVue(emprise.current);
   };
   const importer = async () => {
-    await importerVues(banc, photos.filter((x) => choix.has(x.id)), vuesDe, { adresse, parcelle }, setEtat);
-    setPhotos((l) => l.filter((x) => !choix.has(x.id)));
+    const lot = proposees.filter((x) => choix.has(x.id)), faites = new Set(lot.map((x) => x.id));
+    await importerVues(banc, lot, vuesDe, { adresse, parcelle }, setEtat);
+    setPhotos((l) => l.filter((x) => !faites.has(x.id)));
     setChoix(new Set());
     await banc.relire();
   };
   const basculer = (id: string) => setChoix((c) => { const t = new Set(c); if (t.has(id)) t.delete(id); else t.add(id); return t; });
   // Toucher un point l'epingle ; le toucher encore coche ou decoche sa photo.
   const toucher = (id: string) => { if (epingle === id) basculer(id); else { setEpingle(id); setSurvol(null); } };
-  const panoramiques = photos.filter((x) => x.panoramique);
-  const montree = photos.find((x) => x.id === (survol ?? epingle)) ?? null;
+  const montree = proposees.find((x) => x.id === (survol ?? epingle)) ?? null;
   const visant = !!parcelle;
   return (
     <div className="import-panoramax">
-      <Recherche texte={texte} setTexte={setTexte} rayon={rayon} setRayon={setRayon} visees={visees} setVisees={setVisees} visee={visee} setVisee={setVisee}
+      <Recherche texte={texte} setTexte={setTexte} rayon={rayon} setRayon={setRayon} visees={visees} setVisees={setVisees} facades={seulementFacades} setFacades={setSeulementFacades} visee={visee} setVisee={setVisee}
         propositions={propositions} adresse={adresse} onChercher={() => { void chercherAdresse(); }} onAdresse={(a) => { void choisirAdresse(a); }} />
       {etat && <p className="etat">{etat}</p>}
+      {compte && <p className="etat compte-facades" role="status">{compte}</p>}
       <div className="carte-et-apercu">
-        <CarteImport adresse={adresse} parcelles={cadastre.parcelles} parcelle={parcelle} photos={photos} choix={choix} vuesDe={vuesDe} rayon={rayonCherche}
-          montree={montree?.id ?? null} epinglee={epingle} cadrage={cadrage} avisCadastre={cadastre.avis} indice={visant ? null : indice}
+        <CarteImport adresse={adresse} parcelles={cadastre.parcelles} parcelle={parcelle} photos={proposees} choix={choix} vuesDe={vuesDe} rayon={rayonCherche}
+          montree={montree?.id ?? null} epinglee={epingle} cadrage={cadrage} avisCadastre={cadastre.avis} avisFacades={tri.avis} batimentsVus={montree ? vuesDe(montree).flatMap((v) => { const c = v.batiment ? tri.contour(v.batiment) : null; return c ? [c] : []; }) : []} tropLoin={!visant && loin} indice={visant || loin ? null : indiceDeLaVue(trouvees, photos.length, proposees.length, compte)}
           onParcelle={toucherParcelle} onSurvol={survoler} onPhoto={toucher} onBasculer={basculer} onEmprise={voirEmprise} />
         <ApercuPhoto p={montree} vues={montree ? vuesDe(montree) : []} choisie={!!montree && choix.has(montree.id)} epinglee={!!montree && montree.id === epingle} visant={visant}
           onBasculer={() => { if (montree) basculer(montree.id); }} onChoisirVues={() => { if (montree) { setEpingle(montree.id); setOuverte(montree.id); } }}
           onFermer={() => { setEpingle(null); setSurvol(null); }} />
       </div>
       {parcelle && <ParcelleVisee parcelle={parcelle} onLacher={() => toucherParcelle(parcelle)} />}
-      {photos.length > 0 && <ListePhotos photos={photos} choix={choix} setChoix={setChoix} vuesDe={vuesDe} ouverte={ouverte} setOuverte={setOuverte} montree={montree?.id ?? null} onSurvol={survoler} visant={visant}
+      {proposees.length > 0 && <ListePhotos photos={proposees} choix={choix} setChoix={setChoix} vuesDe={vuesDe} ouverte={ouverte} setOuverte={setOuverte} montree={montree?.id ?? null} onSurvol={survoler} visant={visant}
         onImporter={() => { void importer(); }} />}
-      {(() => { const p = photos.find((x) => x.id === ouverte); return p ? (
-        <ChoixDesVues p={p} vues={vuesDe(p)} visant={visant} onCaps={(l) => { setCaps((m) => new Map(m).set(p.id, l)); setChoix((c) => new Set(c).add(p.id)); }}
-          onVisee={() => setCaps((m) => { const t = new Map(m); t.delete(p.id); return t; })} onFermer={() => setOuverte(null)}
-          rang={panoramiques.findIndex((x) => x.id === p.id)} total={panoramiques.length}
-          onAutre={(k) => { const q = panoramiques[k]; if (q) setOuverte(q.id); }} />
-      ) : null; })()}
+      <FenetreDesVues p={proposees.find((x) => x.id === ouverte) ?? null} panoramiques={proposees.filter((x) => x.panoramique)} vuesDe={vuesDe} visant={visant} setCaps={setCaps}
+        onCocher={(id) => setChoix((c) => new Set(c).add(id))} setOuverte={setOuverte} />
     </div>
+  );
+}
+
+/** La fenetre « Choisir les vues » du 360 ouvert, d'un panoramique propose a l'autre. */
+function FenetreDesVues({ p, panoramiques, vuesDe, visant, setCaps, onCocher, setOuverte }: {
+  p: PhotoRue | null; panoramiques: PhotoRue[]; vuesDe: (p: PhotoRue) => VueAExtraire[]; visant: boolean;
+  setCaps: (f: (m: Map<string, number[]>) => Map<string, number[]>) => void; onCocher: (id: string) => void; setOuverte: (id: string | null) => void;
+}) {
+  if (!p) return null;
+  return (
+    <ChoixDesVues p={p} vues={vuesDe(p)} visant={visant} onCaps={(l) => { setCaps((m) => new Map(m).set(p.id, l)); onCocher(p.id); }}
+      onVisee={() => setCaps((m) => { const t = new Map(m); t.delete(p.id); return t; })} onFermer={() => setOuverte(null)}
+      rang={panoramiques.findIndex((x) => x.id === p.id)} total={panoramiques.length}
+      onAutre={(k) => { const q = panoramiques[k]; if (q) setOuverte(q.id); }} />
   );
 }
 
@@ -324,7 +375,7 @@ function ListePhotos({ photos, choix, setChoix, vuesDe, ouverte, setOuverte, mon
       <div className="barre-choix">
         <button type="button" onClick={() => setChoix(new Set(photos.map((p) => p.id)))}>Tout cocher</button>
         <button type="button" onClick={() => setChoix(new Set())}>Tout décocher</button>
-        <button type="button" className="principal" disabled={!nVues} onClick={onImporter}>Importer {nVues} vue(s) de {choix.size} photo(s)</button>
+        <button type="button" className="principal" disabled={!nVues} onClick={onImporter}>Importer {nVues} vue(s) de {photos.filter((p) => choix.has(p.id)).length} photo(s)</button>
       </div>
       <p className="aide">Un panoramique 360 se montre en entier, la rue au milieu : les cadres orange sont les vues qui seront importées. « Choisir les vues » pour regarder ailleurs (à gauche, à droite, vers une maison).</p>
       <ul className="mosaique grande">

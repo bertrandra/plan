@@ -5,6 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc d'apprentissage, import Panoramax : « Seulement les façades »** (demande du propriétaire, 15 novembre 2026 : « sur la zone
+  sélectionnée les photos proposées sont des façades de maison ou d'immeuble, pas la route ou la campagne »). Une case, cochée par
+  défaut, près de « Qui regardent la parcelle ». Le tri se fait par la géométrie, pas par l'image : les emprises des bâtiments de la
+  BD TOPO de l'IGN (`BDTOPO_V3:batiment`, WFS de la Géoplateforme, le même hôte que le cadastre, sans clé, par pages) lues là où des
+  photos sont montrées. Une vue est gardée quand des bâtiments d'au moins 20 m², à 3 à 40 m, vus à plus de 35° de leur mur, couvrent
+  au moins un quart de ses 75° de champ (la moitié pour une photo plate, qu'on ne peut pas tourner) : `banc/src/facadesVues.ts`, des
+  constantes nommées. Les photos sans aucune vue de façade ne sont plus proposées (ni sur la carte, ni dans la liste), les vues sans
+  bâtiment sont retirées des 360, et l'état dit le compte (« 5 photos, 5 façades ; 57 écartées : route ou campagne »). Chaque vue de
+  côté d'un 360 se tourne vers le milieu de ce qu'on voit du bâtiment le plus présent de son côté (de 35° au plus autour des 90° de
+  la rue), et les secteurs de la carte suivent ; le bâtiment que regarde la vue survolée ou épinglée est souligné. Les vues choisies
+  à la main (« Choisir les vues ») ne sont ni déplacées ni triées ; avec une parcelle visée, ses règles restent et le tri s'ajoute.
+  Si la BD TOPO ne répond pas ou est tronquée, rien n'est trié et la carte le dit (« Bâtiments indisponibles : toutes les photos sont
+  proposées »). Limites : ni haies ni arbres ne sont modélisés (une maison derrière sa haie compte comme vue), et un petit bâtiment
+  technique de plus de 20 m² passe pour une façade. Métadonnées d'import, serveur du banc et politique de contenu inchangés.
+- **Banc d'apprentissage, import Panoramax : la couverture de Panoramax sur la carte, à tous les zooms** (demande du propriétaire,
+  15 novembre 2026 : « je veux savoir s'il y a des Panoramax dispo dans la zone sélectionnée, sinon je zoome pour arriver à rien »).
+  Entre le fond et les parcelles, en orange : de loin la grille de densité (plus de photos, plus opaque), à partir du niveau 7 les
+  tracés des rues photographiées, puis les points des photos comme avant. Source : les tuiles vectorielles du méta-catalogue
+  (`api.panoramax.xyz/api/map/{z}/{x}/{y}.mvt`, déjà admis par `connect-src`), lues par un petit lecteur de tuiles écrit pour le banc
+  (`banc/src/mvt.ts`, sans dépendance) : celles de la vue seulement, gardées un moment, abandonnées quand on bouge. La carte dit en
+  bas ce que la vue contient : « Zoomez sur une rue orange pour voir ses photos », ou « Aucune photo de rue Panoramax dans cette
+  zone » dès qu'on le sait ; à l'échelle du quartier, « Aucune photo de rue Panoramax ici », ou « Des photos de rue ici, mais aucune
+  façade » quand c'est le tri qui les écarte. Un bouton « Couverture Panoramax » l'éteint ; la légende dit « rues photographiées
+  (Panoramax) ». Si les tuiles ne répondent pas, la carte marche comme avant et le dit dans sa légende, jamais « aucune photo » sur
+  une panne. Limite : la couverture montre où il y a des photos, pas où il y a des façades (le tri ne se fait qu'au zoom de quartier).
+
 ## [5.28.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax part de la carte de France

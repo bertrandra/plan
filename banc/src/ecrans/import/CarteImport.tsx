@@ -9,7 +9,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { adoucir, barreEchelle, departDuVol, empriseVue, entreVues, FRANCE, glisser, metresEnLocal, metresParPixel, pincer, placementLocal, secteur, texteEchelle, tuiles, urlTuile, versEcran, versLocal, vuePourEmprise, zoomerAutour, zoomPourRayon, type Emprise, type Fond, type P, type Taille, type VueCarte } from '../../carte.js';
 import { CHAMP_VUE, distanceM, type PhotoRue, type VueAExtraire } from '../../panoramax.js';
 import { centre, type Ll, type Parcelle } from '../../parcelles.js';
+import { indiceDeZoom } from '../../couverture.js';
 import { Icone } from '../../ui/Icones.js';
+import { useCouverture } from './CoucheCouverture.js';
 
 /** Ce qu'on voit au moins autour de la parcelle, meme avec un petit rayon : la rue et les voisines (70 m avant, de bord a bord). */
 const PORTEE_MIN_M = 110;
@@ -19,7 +21,12 @@ const PORTEE_MIN_M = 110;
  */
 const longueurSecteur = (zoom: number) => Math.max(14, Math.min(30, 14 + (zoom - 16) * 8));
 const FONDS: { valeur: Fond; libelle: string }[] = [{ valeur: 'plan', libelle: 'Plan' }, { valeur: 'photo', libelle: 'Photo aérienne' }, { valeur: 'aucun', libelle: 'Sans fond' }];
-const CLE_FOND = 'banc.import.fond';
+const CLE_FOND = 'banc.import.fond', CLE_COUVERTURE = 'banc.import.couverture';
+
+/** La couverture Panoramax se montre par defaut ; on se souvient de qui l'a eteinte. */
+function couvertureGardee(): boolean {
+  try { return localStorage.getItem(CLE_COUVERTURE) !== 'non'; } catch { return true; }
+}
 
 function fondGarde(): Fond {
   try { const f = localStorage.getItem(CLE_FOND); return f === 'photo' || f === 'aucun' ? f : 'plan'; } catch { return 'plan'; }
@@ -62,7 +69,13 @@ export interface PropsCarte {
   cadrage: number;
   /** Ce que le cadastre a a dire de la vue (tronque, trop loin, en panne) ; null quand tout est lu. */
   avisCadastre: string | null;
-  /** Ce que la carte souffle en bas (« Zoomez pour voir les photos de rue ») ; null quand il n'y a rien a dire. */
+  /** Ce que le tri des facades a a dire (batiments indisponibles : rien n'est filtre) ; null quand il se fait. */
+  avisFacades: string | null;
+  /** Les contours des batiments que regardent les vues de la photo montree : soulignes, les autres restent au fond de plan. */
+  batimentsVus: readonly (readonly Ll[])[];
+  /** La vue est trop large pour chercher ses photos : la carte dit ou zoomer d'apres la couverture de Panoramax (ou qu'il n'y a rien). */
+  tropLoin: boolean;
+  /** Ce que la carte souffle en bas a l'echelle du quartier (« Aucune photo de rue ici ») ; null quand il n'y a rien a dire. */
   indice: string | null;
   onParcelle: (p: Parcelle) => void;
   onSurvol: (id: string | null) => void;
@@ -295,11 +308,14 @@ function Cadastre({ contours, parcelle, placement, halo, taille, aGlisse, onParc
 }
 
 export function CarteImport(props: PropsCarte) {
-  const { adresse, parcelles, parcelle, photos, rayon, cadrage, avisCadastre, indice, onParcelle, onEmprise } = props;
+  const { adresse, parcelles, parcelle, photos, rayon, cadrage, avisCadastre, avisFacades, batimentsVus, tropLoin, indice, onParcelle, onEmprise } = props;
   const [poser, taille, cadre] = useTaille();
   const v = useVue(taille);
   const { vue, voler } = v;
   const [fond, setFond] = useState<Fond>(fondGarde);
+  const [couverture, setCouverture] = useState(couvertureGardee);
+  const couvert = useCouverture(vue, taille, couverture, v.niveauFige !== null);
+  const basculerCouverture = () => { setCouverture((c) => { try { localStorage.setItem(CLE_COUVERTURE, c ? 'non' : 'oui'); } catch { /* preference non gardee, sans gravite */ } return !c; }); };
   // Les tuiles du fond recues et refusees : sans aucune recue, on dit que la carte n'a que ses parcelles.
   const [recues, setRecues] = useState({ fond, ok: 0, ko: 0 });
 
@@ -346,7 +362,7 @@ export function CarteImport(props: PropsCarte) {
   const posAdresse = adresse ? versEcran(adresse, vue, taille) : null;
   const fondEnPanne = fond !== 'aucun' && recues.fond === fond && recues.ko > 0 && recues.ok === 0;
   const pres = vue.zoom >= ZOOM_PARCELLES;
-  const avis = [fondEnPanne ? 'Le fond de carte de l’IGN ne se charge pas : la carte reste utilisable avec les parcelles seules.' : null, pres ? avisCadastre : null].filter((a): a is string => !!a);
+  const avis = [fondEnPanne ? 'Le fond de carte de l’IGN ne se charge pas : la carte reste utilisable avec les parcelles seules.' : null, pres ? avisCadastre : null, avisFacades].filter((a): a is string => !!a);
   // Sous les tuiles du niveau montre, celles de trois niveaux plus haut (une ou deux, souvent deja lues) : zoomer ne passe pas par un
   // ecran vide le temps que les nouvelles arrivent.
   const attente = v.niveauFige === null && Math.round(vue.zoom) - 3 >= 3 ? Math.round(vue.zoom) - 3 : null;
@@ -356,6 +372,7 @@ export function CarteImport(props: PropsCarte) {
       <div className="carte-cadre" ref={poser} tabIndex={0} role="application" aria-label="Carte de France, jusqu’à la rue : les photos de rue et les parcelles. Flèches pour la déplacer, plus et moins pour zoomer, zéro pour recentrer." {...gestes.cadre}>
         {fond !== 'aucun' && taille.l > 0 && attente !== null && <FondDeCarte fond={fond} vue={vue} taille={taille} niveau={attente} onTuile={compter} />}
         {fond !== 'aucun' && taille.l > 0 && <FondDeCarte fond={fond} vue={vue} taille={taille} niveau={v.niveauFige ?? undefined} onTuile={compter} />}
+        {couverture && taille.l > 0 && <canvas className={pres ? 'carte-couverture pres' : 'carte-couverture'} ref={couvert.toile} style={{ width: taille.l, height: taille.h }} aria-hidden="true" />}
         {taille.l > 0 && (
           <svg className="carte-dessin" width={taille.l} height={taille.h} viewBox={`0 0 ${taille.l} ${taille.h}`}>
             {pres && <Cadastre contours={contours} parcelle={parcelle} placement={placementLocal(origine, vue, taille)} halo={metresEnLocal(rayon, origine.lat)} taille={taille} aGlisse={gestes.aGlisse} onParcelle={toucherParcelle} />}
@@ -364,6 +381,7 @@ export function CarteImport(props: PropsCarte) {
                 <circle r={5} /><title>L’adresse cherchée</title>
               </g>
             )}
+            {batimentsVus.map((c, k) => <polygon key={k} className="batiment-vu" points={c.map((q) => { const e = versEcran(q, vue, taille); return `${e.x.toFixed(1)},${e.y.toFixed(1)}`; }).join(' ')} />)}
             <PointsPhotos {...props} vue={vue} taille={taille} visant={!!parcelle} aGlisse={gestes.aGlisse} />
           </svg>
         )}
@@ -371,19 +389,23 @@ export function CarteImport(props: PropsCarte) {
         <div className="carte-fonds" role="radiogroup" aria-label="Fond de carte" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
           {FONDS.map((f) => <button key={f.valeur} type="button" role="radio" aria-checked={f.valeur === fond} className={f.valeur === fond ? 'actif' : ''} onClick={() => choisirFond(f.valeur)}>{f.libelle}</button>)}
         </div>
+        <div className="carte-couches" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+          <button type="button" aria-pressed={couverture} className={couverture ? 'actif' : ''} title="Montrer où Panoramax a des photos de rue" onClick={basculerCouverture}><i className="pastille-couverture" /> Couverture Panoramax</button>
+        </div>
         <div className="carte-zoom" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
           <button type="button" aria-label="Zoomer" title="Zoomer (+)" onClick={() => gestes.zoomer(1)}>+</button>
           <button type="button" aria-label="Dézoomer" title="Dézoomer (−)" onClick={() => gestes.zoomer(-1)}>−</button>
           <button type="button" aria-label={parcelle || adresse ? 'Recentrer sur la parcelle et son rayon' : 'Revoir la France entière'} title={parcelle || adresse ? 'Recentrer sur la parcelle et son rayon (0)' : 'Revoir la France entière (0)'} onClick={() => voler(cadrer())}><Icone nom="point" taille={18} /></button>
         </div>
         {avis.length > 0 && <div className="carte-avis" role="status">{avis.map((a) => <p key={a}>{a}</p>)}</div>}
-        {indice && <p className="carte-indice" role="status">{indice}</p>}
+        {(tropLoin || indice) && <p className="carte-indice" role="status">{tropLoin ? indiceDeZoom(couvert.etat, couvert.couche) : indice}</p>}
         <div className="carte-pied" aria-hidden="true">
           <span className="carte-echelle" style={{ width: barre.px }}>{texteEchelle(barre.metres)}</span>
           <span className="carte-credit">© IGN{photos.length ? ' · photos Panoramax' : ''}</span>
         </div>
       </div>
       <p className="carte-legende">
+        {couverture && <span><i className="pastille-couverture" /> rues photographiées (Panoramax){couvert.etat === 'panne' ? ' — couverture indisponible pour le moment' : ''}</span>}
         {parcelle && <span><i className="pastille-carte rayon" /> {rayon} m autour de la parcelle visée</span>}
         <span><i className="pastille-carte choisie" /> photo choisie et ses vues</span>
         <span><i className="pastille-carte" /> photo non choisie</span>
