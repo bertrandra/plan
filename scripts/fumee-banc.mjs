@@ -187,6 +187,8 @@ const PASTILLES = '.carte-legende .pastille-carte, .carte-legende .pastille-couv
 // Le grand chiffre d'une tuile (25 px, gras) est un grand texte : la regle des 4,5:1 ne le concerne pas (3:1), il n'est pas mesure ici.
 const TEXTES_EQUILIBRE = ['.libelle-tuile', '.tuile small', '.tete-section h3', '.compte-section', '.tableau-equilibre th', '.tableau-equilibre td', '.liste-manques li', '.carte-legende span', '.segments button', '.carte-zoom button', '.carte-echelle', '.carte-credit', '.titres-page small', '.titres-page h2']
   .map((s) => '.page ' + s).join(', ');
+const TEXTES_LOT = ['.aide', '.etat', 'form.rang label', 'form.rang button', '.segments button', '.carte-legende span', '.carte-zoom button', '.carte-echelle', '.carte-credit', '.recap-du-lot h4', '.recap-du-lot .libelle-tuile', '.recap-du-lot small', '.recap-du-lot label', '.recap-du-lot button']
+  .map((s) => '.import-lot ' + s).join(', ');
 const CIBLES = ['button', 'select', 'input:not([type=checkbox])', 'input[type=checkbox]'].flatMap((s) => ['.import-panoramax ' + s, '.voile-dialogue ' + s]).join(', ');
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -250,7 +252,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       else await page.selectOption('select.etapes-liste', { label: (await page.locator('select.etapes-liste option', { hasText: etape }).first().innerText()) });
     };
     await allerA('Import');
-    await toucher(page.getByRole('radio', { name: /Panoramax/ }));
+    await toucher(page.getByRole('radio', { name: /Panoramax, sur la carte/ }));
 
     // 2. La France entiere : la couverture de Panoramax, et ce que la carte en dit.
     await attendre(() => document.querySelector('.carte-indice')?.textContent === 'Zoomez sur une zone orange pour voir ses photos de rue', null, 'la carte de France ne dit pas « Zoomez sur une zone orange pour voir ses photos de rue »');
@@ -263,7 +265,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
 
     // 3. L'adresse : la carte y va, sa parcelle est visee, les photos autour d'elle.
     await page.fill('input[aria-label="Adresse ou coordonnées"]', ADRESSE);
-    await page.locator('form.rang input[type=number]').fill(String(RAYON));
+    await page.locator('.import-panoramax form.rang input[type=number]').fill(String(RAYON));
     await toucher(page.getByRole('button', { name: 'Chercher' }));
     await attendre(() => /\d+ photo\(s\) à \d+ m de la parcelle AE 0*101 ; \d+ déjà dans le banc\./.test(document.querySelector('.import-panoramax > .etat')?.textContent ?? ''), null, 'la recherche ne dit pas les photos à 40 m de la parcelle AE 101');
     const [, trouvees, deja] = /(\d+) photo\(s\) à \d+ m.* ; (\d+) déjà/.exec(await texte('.import-panoramax > .etat')).map(Number);
@@ -324,7 +326,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
 
     // 5. L'apercu des facades d'un point : survole a la souris, touche au doigt. Un panoramique de preference, et un point que rien ne couvre.
     // Au telephone, la carte est sous le formulaire : on l'amene a l'ecran, comme le doigt le ferait.
-    await page.locator('.carte-cadre').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    await page.locator('.import-panoramax .carte-cadre').evaluate((e) => e.scrollIntoView({ block: 'center' }));
     const choisi = await page.evaluate(() => {
       const l = [...document.querySelectorAll('g.point-photo:not(.valeur)')].map((g, i) => { const r = g.querySelector('.point').getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; return { i, x, y, libre: g.contains(document.elementFromPoint(x, y)), pano: (g.getAttribute('aria-label') ?? '').includes('panoramique') }; }).filter((p) => p.libre);
       return l.find((p) => p.pano) ?? l[0] ?? null;
@@ -412,6 +414,58 @@ async function jouer(navigateur, serveur, net, nom, etat) {
       dire(`import : ${nVues} vue(s), ${statuts.join(' ')} ; le banc passe de ${compteAvant} à ${compteAvant + nVues} photo(s)`);
     }
 
+    // 7 ter. L'import d'une zone en lot : un pave autour de l'adresse, une cible de deux facades ; le parcours (une requete de photos,
+    // une de batiments), le recapitulatif, puis l'import une fois par execution. Aux passages suivants, ces batiments sont deja dans le banc.
+    await allerA('Import');
+    await toucher(page.getByRole('radio', { name: /une zone en lot/ }));
+    const lot = page.locator('.import-lot');
+    await lot.getByLabel('Commune ou coordonnées').fill('48.90507, 2.13254');
+    await toucher(lot.getByRole('button', { name: 'Viser' }));
+    await attendre(() => /^Zone dessinée : \d+ ha\.$/.test(document.querySelector('.zone-du-lot')?.textContent ?? ''), null, 'le lot ne dit pas sa zone (un pavé autour du point)');
+    await lot.getByLabel('Cible, en façades').fill('2');
+    await toucher(lot.getByRole('button', { name: 'Parcourir la zone' }));
+    const AVANCE = /Pavé (\d+) sur (\d+) · (\d+) photo\(s\) lue\(s\) · (\d+) façade\(s\) retenue\(s\) \((\d+) bâtiment\(s\) vus(?:, (\d+) déjà dans le banc)?\).*(cible atteinte|zone parcourue en entier)\./;
+    await attendre((re) => new RegExp(re).test((document.querySelector('.avance-du-lot')?.textContent ?? '').replace(/\s+/g, ' ')), AVANCE.source, 'le parcours du lot ne se termine pas');
+    const [, , nPaves, photosLues, retenuesLot, , dejaLot] = AVANCE.exec((await texte('.avance-du-lot')).replace(/\s+/g, ' ')).map((x) => Number(x ?? 0));
+    verifier(nPaves >= 1 && photosLues > 0 && retenuesLot <= 2, `le lot a lu ${photosLues} photo(s) sur ${nPaves} pavé(s) et retenu ${retenuesLot} façade(s) pour une cible de 2`);
+    verifier(etat.lot ? dejaLot >= etat.lot : true, `le lot ne dit pas les ${etat.lot} bâtiment(s) déjà dans le banc (${dejaLot})`);
+    verifier(await page.locator('.carte-lot .zone-lot').count() === 1 && await page.locator('.carte-lot .pave.lu').count() === nPaves, 'la carte du lot ne montre pas la zone et ses pavés lus');
+    const cLot = await page.evaluate(mesurerContrastes, { textes: TEXTES_LOT, pastilles: '.carte-lot .pastille-lot.lu, .carte-lot .pastille-lot.zone' });
+    const mLot = await page.evaluate(mesurerMiseEnPage, { cibles: '.import-lot button, .import-lot input:not([type=checkbox]), .import-lot input[type=checkbox]', doigt });
+    if (AUDIT) { for (const x of [...cLot.echecs, ...mLot]) dire(`[audit] lot : ${x.replace(/\s+/g, ' ')}`); }
+    else {
+      verifier(!cLot.echecs.length, `lot : contrastes insuffisants — ${cLot.echecs.join(' ; ')}`);
+      verifier(!mLot.length, `lot : mise en page — ${mLot.join(' ; ')}`);
+    }
+    if (retenuesLot > 0) {
+      const recap = lot.locator('.recap-du-lot');
+      verifier(parseInt(await recap.locator('.valeur-tuile').first().innerText(), 10) === retenuesLot && (await recap.locator('.tuile').first().innerText()).includes('une par bâtiment'), 'le récapitulatif du lot ne dit pas ses façades, une par bâtiment');
+      verifier(/Mo$/.test(await recap.locator('.valeur-tuile').nth(2).innerText()), 'le récapitulatif ne dit pas le poids estimé');
+      verifier(await recap.getByLabel(/Écarter les façades cachées/).isChecked(), '« Écarter les façades cachées » n’est pas cochée d’office pour un lot');
+      await capture('lot');
+      if (!etat.lot) {
+        // Les images du temoin sont de synthese : la lecture « facade cachee » n'y a pas de sens, on la leve pour l'import.
+        await recap.getByLabel(/Écarter les façades cachées/).uncheck();
+        const avantLot = parseInt(await page.locator('header.barre .compte').textContent(), 10);
+        images.length = 0;
+        await toucher(recap.getByRole('button', { name: /^Importer les \d+ façade/ }));
+        await attendre(() => /\d+ façade\(s\) importée\(s\)/.test(document.querySelector('.import-lot > .etat')?.textContent ?? ''), null, 'l’import du lot ne se termine pas');
+        const importees = parseInt(await texte('.import-lot > .etat'), 10);
+        verifier(importees === retenuesLot, `le lot a importé ${importees} façade(s) sur ${retenuesLot} : ${await texte('.import-lot > .etat')}`);
+        await attendre((n) => parseInt(document.querySelector('header.barre .compte')?.textContent ?? '', 10) === n, avantLot + importees, 'le compteur du banc ne monte pas après l’import du lot');
+        await attendre(() => /Tout le lot est dans le banc/.test(document.querySelector('.recap-du-lot')?.textContent ?? ''), null, 'le lot ne dit pas qu’il est tout entier dans le banc');
+        // Jamais deux fois le meme batiment dans le banc.
+        const bats = await page.evaluate(async () => (await (await fetch('api.php?r=images', { headers: { 'X-Banc': '1' } })).json()).map((m) => m.mur?.batiment ?? null));
+        verifier(bats.every(Boolean) && new Set(bats).size === bats.length, 'un bâtiment est deux fois dans le banc après le lot : ' + bats.join(', '));
+        for (const u of images) { etat.gardees.add(u); etat.grandes.add(u); }
+        etat.lot = importees;
+        dire(`lot : ${photosLues} photo(s) lue(s) sur ${nPaves} pavé(s), ${retenuesLot} façade(s) retenue(s), ${importees} importée(s) ; aucun bâtiment en double`);
+      } else dire(`lot : ${retenuesLot} façade(s) nouvelle(s) proposée(s), ${dejaLot} bâtiment(s) déjà dans le banc écarté(s)`);
+    } else {
+      verifier((await lot.innerText()).includes('Aucune façade nouvelle'), 'un lot sans façade ne le dit pas');
+      dire(`lot : aucune façade nouvelle (${dejaLot} bâtiment(s) déjà dans le banc)`);
+    }
+
     // 7 bis. L'equilibre du jeu (etape 8) : les vues importees se comptent la ou elles ont ete prises, et la carte les montre.
     await allerA('Équilibre');
     await page.waitForSelector('.carte-equilibre .amas');
@@ -431,6 +485,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(eq.panoramax === total && eq.saisons === total && eq.vues === total && eq.etats === total, `les comptes ne font pas ${total} : Panoramax ${eq.panoramax}, saisons ${eq.saisons}, types de vue ${eq.vues}, états ${eq.etats}`);
     verifier(eq.amas.reduce((n, a) => n + a.n, 0) === total && eq.amas.every((a) => a.dedans), `la carte de l’équilibre ne montre pas les ${total} vue(s) dans son cadre : ${JSON.stringify(eq.amas)}`);
     verifier(eq.manques.includes('type de bâtiment'), 'l’écran ne dit pas ce que les métadonnées ne portent pas');
+    verifier(await page.getByRole('button', { name: 'Chercher où importer' }).count() === 1, 'l’écran d’équilibre ne propose pas « Où importer ensuite »');
     // Les vues importees par le tri disent leur mur : toutes comptees par type de batiment ; et les doublons du banc se disent.
     verifier(eq.batiments === total, `l’équilibre compte ${eq.batiments} vue(s) par type de bâtiment, ${total} attendue(s)`);
     verifier(/^(aucun|\d+ mur\(s\), \d+ image\(s\) en trop)$/.test(eq.doublons ?? ''), 'l’écran d’équilibre ne dit pas les doublons du banc : ' + eq.doublons);
@@ -514,7 +569,7 @@ const net = reseau(MODE, TEMOIN, {
   },
 });
 console.log(`fumée du banc → ${serveur.url}/?banc · réseau ${MODE === 'temoin' ? 'témoin' : MODE} · ${PASSAGES.join(', ')}`);
-const etat = { importees: 0, gardees: new Set(), grandes: new Set() };
+const etat = { importees: 0, lot: 0, gardees: new Set(), grandes: new Set() };
 const echecs = [];
 for (const nom of PASSAGES) {
   const t = Date.now();

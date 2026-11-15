@@ -9,6 +9,7 @@ import type { Compte, Equilibre, Perimetre } from '../../equilibre.js';
 import { Page, Section, Segments, Tuile, Tuiles, Vide } from '../../ui/Page.js';
 import { CarteEquilibre } from './CarteEquilibre.js';
 import { MursDuBanc } from './Murs.js';
+import { OuImporter } from './OuImporter.js';
 import { useEquilibre } from './useEquilibre.js';
 
 const PERIMETRES: { valeur: Perimetre; libelle: string }[] = [{ valeur: 'toutes', libelle: 'Toutes les photos' }, { valeur: 'jeu', libelle: 'Le jeu (corrigées)' }];
@@ -46,6 +47,7 @@ export function EcranEquilibre({ banc }: { banc: Banc }) {
           <Repartition titre="Par source" comptes={e.source} total={e.total} />
           <Repartition titre="Par état d’avancement" comptes={e.etat} total={e.total} />
         </div>
+        <OuImporter banc={banc} e={e} />
         <MursDuBanc banc={banc} />
         <CeQuiManque e={e} />
       </>}

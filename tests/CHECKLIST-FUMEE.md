@@ -73,7 +73,10 @@ des façades d'un point (survolé à la souris, touché au doigt ; sous la carte
 (cinq degrés de champ de plus, puis de moins), le cadre et la focale équivalente gardés par les vues importées, « Proposer un marquage » grisée faute de modèle (et qui le dit), « Choisir les vues » ouverte et refermée,
 l'import d'une photo au premier passage (201, le compteur du banc monte, chaque vue garde son mur de la BD TOPO ; les suivants la
 voient « déjà dans le banc », et les autres vues du même mur aussi : marquées, comptées « dont N déjà dans le banc », jamais
-cochées), l'écran
+cochées), l'import
+d'une zone en lot (un pavé autour de l'adresse, cible de deux façades : le parcours, sa carte, le récapitulatif — une façade par
+bâtiment, le poids estimé, « Écarter les façades cachées » cochée —, l'import au premier passage sans bâtiment en double, et aux
+suivants ces bâtiments écartés comme « déjà dans le banc »), l'écran
 « Équilibre » (étape 8 : les vues importées toutes comptées dans les Yvelines et en Île-de-France, les treize régions listées, les
 comptes par saison, type de vue, type de bâtiment et état qui font le total, les doublons du banc dits, la carte qui les montre dans son cadre, ce que l'écran ne peut pas dire), les
 contrastes des textes (4,5:1) et des pastilles (3:1), au doigt les cibles de 44 px, rien qui déborde ni ne se recouvre sur la carte ;
