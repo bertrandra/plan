@@ -206,6 +206,37 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect((await appel('POST', 'images', {}, v(358))).status).toBe(409);
   });
 
+  it('garde le mur vise d une vue a l import (liste fermee de champs bornes), le retrouve apres coup, et laisse les images d avant intactes', async () => {
+    const envoi = (meta: Record<string, unknown>) => { const g = new FormData(); g.append('fichier', jpeg(64, 48), 'm.jpg'); g.append('meta', JSON.stringify(meta)); return appel('POST', 'images', {}, g); };
+    // Le mur complet : ses champs connus sont gardes et bornes, le reste (un champ invente, du HTML) ne passe pas.
+    const r1 = await envoi({ source: 'panoramax', panoramax: { id: 'mur-1', panoramique: true, cap: 90 }, mur: { batiment: 'BATIMENT0000000240851971', cote: 3, segment: 3, azimut: 270.04, distance: 8.26, incidence: 88.6, note: 71, nature: 'Indifférenciée', usage: 'Résidentiel', usage2: null, hauteur: 6.44, etages: 2, logements: 1, invente: '<b>x</b>' } });
+    expect(r1.status).toBe(201);
+    const m1 = await json(r1);
+    expect(m1.mur).toEqual({ batiment: 'BATIMENT0000000240851971', cote: 3, segment: 3, azimut: 270, distance: 8.3, incidence: 89, note: 71, hauteur: 6.4, etages: 2, logements: 1, nature: 'Indifférenciée', usage: 'Résidentiel' });
+    // Un mur a moitie dit (pas d'identifiant, un cote hors de 0 a 3) : l'image s'importe, sans mur.
+    for (const [k, mur] of [{ cote: 1 }, { batiment: 'B1', cote: 7 }, { batiment: '../../etc', cote: 0 }, 'texte'].entries()) {
+      const r = await envoi({ source: 'panoramax', panoramax: { id: 'mur-faux-' + k, panoramique: true, cap: 10 }, mur });
+      expect(r.status).toBe(201);
+      expect('mur' in (await json(r))).toBe(false);
+    }
+    // Les nombres hors bornes sont laisses, pas l'image.
+    const m2 = await json(await envoi({ source: 'panoramax', panoramax: { id: 'mur-2', panoramique: true, cap: 20 }, mur: { batiment: 'B2', cote: 0, azimut: 999, note: -3, hauteur: 'haut' } }));
+    expect(m2.mur).toEqual({ batiment: 'B2', cote: 0 });
+    // Une image d'avant, sans mur : le rattrapage l'ecrit ; « cherche, rien trouve » se note, et un mur trouve ensuite l'efface.
+    const avant = await json(await envoi({ source: 'iphone', lat: 48.9, lon: 2.13, azimut: 90 }));
+    expect('mur' in avant).toBe(false);
+    expect((await json(await appel('PATCH', 'image', { id: String(avant.id) }, { murCherche: '2026-11-15T12:00:00.000Z' }))).murCherche).toBe('2026-11-15T12:00:00.000Z');
+    expect((await appel('PATCH', 'image', { id: String(avant.id) }, { mur: { cote: 2 } })).status).toBe(400);
+    const apres = await json(await appel('PATCH', 'image', { id: String(avant.id) }, { mur: { batiment: 'B3', cote: 2, rattrapeLe: '2026-11-15T12:00:00.000Z' } }));
+    expect(apres.mur).toEqual({ batiment: 'B3', cote: 2, rattrapeLe: '2026-11-15T12:00:00.000Z' });
+    expect('murCherche' in apres).toBe(false);
+    expect(apres.statut).toBe('importee');
+    // null l'efface ; la liste rend le mur avec le reste des metadonnees.
+    expect('mur' in (await json(await appel('PATCH', 'image', { id: String(avant.id) }, { mur: null })))).toBe(false);
+    const liste = (await (await appel('GET', 'images')).json()) as { id: string; mur?: { batiment: string } }[];
+    expect(liste.find((x) => x.id === m1.id)?.mur?.batiment).toBe('BATIMENT0000000240851971');
+  });
+
   it('liste les modeles du depot facade a installer, et garde la correspondance changee', async () => {
     const l = (await (await appel('GET', 'modeles')).json()) as { id: string; installe: boolean; classes: string[] }[];
     expect(l.map((m) => [m.id, m.installe, m.classes])).toEqual([['facade-fenetres', false, ['fenetre', 'porte']], ['facade-volets', false, ['volet']]]);

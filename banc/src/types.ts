@@ -69,6 +69,10 @@ export interface MetaImage {
   /** L'identifiant de la parcelle cadastrale (IGN) vers laquelle la photo a ete cherchee. */
   parcelle?: string | null;
   panoramax?: { id: string; collection?: string | null; panoramique: boolean; cap?: number | null; vue?: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie' } | null;
+  /** Le mur que la vue montre (murs.ts) ; absent : pas encore cherche, ou aucun batiment dans le cadre. */
+  mur?: MurDeVue | null;
+  /** Le mur a ete cherche apres coup (rattrapage) et rien n'a ete trouve : on ne le redemande pas. */
+  murCherche?: string | null;
   licence?: string | null;
   auteur?: string | null;
   largeur?: number;
@@ -87,6 +91,33 @@ export interface MetaImage {
   /** Les objets d'une classe a types pas encore qualifies (ils n'entrent pas dans le jeu). */
   aQualifier?: number;
   note?: string;
+}
+
+/**
+ * Le mur qu'une vue montre, tel que l'import le lit sur la BD TOPO de l'IGN (demande du proprietaire, 15 novembre 2026) : de quoi ne pas
+ * importer deux fois le meme mur, regrouper les images d'un mur, et compter le jeu par type de batiment.
+ */
+export interface MurDeVue {
+  /** L'identifiant du batiment dans la BD TOPO (`cleabs`). */
+  batiment: string;
+  /** Le cote par lequel on le voit (0 a 3, par quarts de tour depuis son plus long mur : facadesVues.ts). */
+  cote: number;
+  /** Le segment du contour le plus vu (son rang dans le contour) et la direction vers laquelle ce mur regarde (degres depuis le nord). */
+  segment?: number;
+  azimut?: number;
+  /** La distance au mur (m), l'angle du regard avec lui (90 : de face) et la note de la vue (0 a 100) au moment de l'import. */
+  distance?: number;
+  incidence?: number;
+  note?: number;
+  /** Ce que la BD TOPO dit du batiment. */
+  nature?: string | null;
+  usage?: string | null;
+  usage2?: string | null;
+  hauteur?: number | null;
+  etages?: number | null;
+  logements?: number | null;
+  /** Trouve apres coup (rattrapage), a partir de la position et du cap de l'image : la date du calcul. */
+  rattrapeLe?: string;
 }
 
 /** Un objet marque, en pixels de la photo redressee. Un rectangle a deux points (coins opposes), un polygone trois ou plus. */

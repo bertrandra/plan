@@ -7,6 +7,7 @@ import { api } from '../../api.js';
 import { bitmap, COTE_SOURCE, COTE_TRAVAIL, jpeg, liberer, pixels, reduire, versCanevas, vignette } from '../../images.js';
 import { fusionner as fusionnerImages } from '../../fusion.js';
 import { nomDuLot } from '../import/useImport.js';
+import { memesMurs, rangerParMur, type GroupeDeMur } from '../../murs.js';
 import { redresserAuto, type Redressee } from '../../redressement.js';
 import type { MetaImage } from '../../types.js';
 
@@ -26,7 +27,15 @@ export function useRedressement(banc: Banc) {
   const [choix, setChoix] = useState<string[]>([]);
   const [ecarter, setEcarter] = useState(true);
   const nouvelles = useMemo(() => banc.images.filter((m) => m.statut === 'importee'), [banc.images]);
-  const liste = useMemo(() => (filtre === 'toutes' ? banc.images.filter((m) => m.statut !== 'rejetee') : filtre === 'echecs' ? nouvelles.filter((m) => echecs.has(m.id)) : nouvelles), [banc.images, nouvelles, filtre, echecs]);
+  // Les photos d'un meme mur a la suite, de gauche a droite (demande du proprietaire, 15 novembre 2026 : regrouper les images du meme
+  // mur la ou se fait la fusion) : le mur vient des metadonnees de l'import (murs.ts), l'algorithme de fusion ne change pas.
+  const [parMur, setParMur] = useState(true);
+  const filtrees = useMemo(() => (filtre === 'toutes' ? banc.images.filter((m) => m.statut !== 'rejetee') : filtre === 'echecs' ? nouvelles.filter((m) => echecs.has(m.id)) : nouvelles), [banc.images, nouvelles, filtre, echecs]);
+  const groupes = useMemo(() => memesMurs(filtrees), [filtrees]);
+  const liste = useMemo(() => (parMur && groupes.length ? rangerParMur(filtrees) : filtrees), [filtrees, parMur, groupes]);
+  const groupeDe = useMemo(() => new Map(groupes.flatMap((g, k) => g.images.map((m) => [m.id, k + 1] as const))), [groupes]);
+  /** Choisit les photos d'un mur dans l'ordre de la fusion (de gauche a droite) ; le choisir encore les lache. */
+  const choisirLeMur = (g: GroupeDeMur) => setChoix((l) => { const ids = g.images.map((m) => m.id); return l.length === ids.length && ids.every((id, k) => l[k] === id) ? [] : ids; });
 
   const auto = async (l: readonly MetaImage[]) => {
     const rates = new Set(echecs);
@@ -105,5 +114,5 @@ export function useRedressement(banc: Banc) {
   };
   const oublierEchec = (id: string) => setEchecs((s) => { const t = new Set(s); t.delete(id); return t; });
   const finMain = (maj: MetaImage | null) => { if (maj) { banc.remplacer(maj); oublierEchec(maj.id); } setMain(null); };
-  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter };
+  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter, parMur, setParMur, groupes, groupeDe, choisirLeMur };
 }

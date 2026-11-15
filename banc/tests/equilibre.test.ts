@@ -100,6 +100,21 @@ describe('equilibre : les comptes', () => {
     expect(e.vue.map((x) => [x.cle, x.n])).toEqual([['360', 2], ['plate', 4]]);
     expect(e.etat.map((x) => [x.cle, x.n])).toEqual([['importee', 2], ['redressee', 1], ['validee', 0], ['brouillon', 1], ['corrigee', 2]]);
     expect(e.points).toHaveLength(5);
+    // Aucune de ces photos ne dit son mur : rien a compter par type de batiment, et c'est dit.
+    expect(e.sansMur).toBe(6);
+    expect(e.batiment.map((x) => x.n)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('compte par type de bâtiment les photos dont le mur est connu', () => {
+    const e = equilibre([
+      image({ mur: { batiment: 'A', cote: 0, usage: 'Résidentiel', logements: 1, hauteur: 6 } }),
+      image({ mur: { batiment: 'B', cote: 1, usage: 'Résidentiel', logements: 30, hauteur: 22 } }),
+      image({ mur: { batiment: 'C', cote: 0, usage: 'Commercial et services', hauteur: 4 } }),
+      image({ mur: { batiment: 'D', cote: 2 } }),
+      image({}),
+    ]);
+    expect(e.sansMur).toBe(1);
+    expect(e.batiment.map((x) => [x.cle, x.n])).toEqual([['maison', 1], ['immeuble', 1], ['commerce', 1], ['autre', 0], ['inconnu', 1]]);
   });
 
   it('dit le type de vue : tiree d’un 360, sinon plate', () => {

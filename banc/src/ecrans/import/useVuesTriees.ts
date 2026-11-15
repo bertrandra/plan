@@ -4,14 +4,16 @@
 // fois. Avec ou sans parcelle visee, une facade (un batiment vu par un cote) ne se propose qu'une fois.
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { aImporter, compter, doublons, estDoublon, marquer, ordonner, texteDesComptes, type Ordre, type VuesParBatiment } from '../../meilleuresVues.js';
+import { aImporter, compter, doublons, estDoublon, marquer, marquerDejaLa, ordonner, texteDesComptes, type Ordre, type VuesParBatiment } from '../../meilleuresVues.js';
 import { vuesDesCaps, type PhotoRue, type VueAExtraire, type Visee } from '../../panoramax.js';
 import type { Parcelle } from '../../parcelles.js';
 import { noteAvecLecture } from '../../vueDegagee.js';
 import { demanderLesLectures, lectureAttendue, lectureDe, useVersionDesLectures, type PhotoALire } from './lecturesVues.js';
 import { useFacades, type Facades } from './useFacades.js';
 
-export interface Reglages { visee: Visee; seulementFacades: boolean; parBatiment: VuesParBatiment; ordre: Ordre; ecarterCachees: boolean }
+export interface Reglages { visee: Visee; seulementFacades: boolean; parBatiment: VuesParBatiment; ordre: Ordre; ecarterCachees: boolean;
+  /** Les facades que le banc a deja (murs.ts::mursDuBanc) : leurs vues ne se proposent plus cochees ; vide : le reglage est decoche. */
+  dejaDansLeBanc: ReadonlySet<string> }
 
 export interface VuesTriees {
   /** Toutes les vues d'une photo, les doublons marques : ce que la liste et l'apercu montrent. */
@@ -90,9 +92,10 @@ export function useVuesTriees(photos: readonly PhotoRue[], caps: ReadonlyMap<str
   const marquees = useMemo(() => {
     const enTrop = doublons(tries.gardees.map((p) => ({ photo: p, vues: brutes.get(p.id) ?? RIEN, libre: caps.has(p.id) })), parBatiment);
     const toutes = new Map<string, VueAExtraire[]>(), utiles = new Map<string, VueAExtraire[]>();
-    for (const p of tries.gardees) { const l = marquer(p.id, brutes.get(p.id) ?? RIEN, enTrop); toutes.set(p.id, l); utiles.set(p.id, aImporter(l)); }
+    // Une facade deja dans le banc ne se propose plus (les vues choisies a la main ne sont jamais decochees : elles restent).
+    for (const p of tries.gardees) { const m = marquer(p.id, brutes.get(p.id) ?? RIEN, enTrop), l = caps.has(p.id) ? m : marquerDejaLa(m, r.dejaDansLeBanc); toutes.set(p.id, l); utiles.set(p.id, aImporter(l)); }
     return { toutes, utiles };
-  }, [tries, brutes, caps, parBatiment]);
+  }, [tries, brutes, caps, parBatiment, r.dejaDansLeBanc]);
   const vuesDe = useCallback((p: PhotoRue) => marquees.toutes.get(p.id) ?? brutes.get(p.id) ?? RIEN, [marquees, brutes]);
   const aImporterDe = useCallback((p: PhotoRue) => marquees.utiles.get(p.id) ?? brutes.get(p.id) ?? RIEN, [marquees, brutes]);
   const visant = !!parcelle;

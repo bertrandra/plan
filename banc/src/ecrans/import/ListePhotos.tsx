@@ -12,13 +12,15 @@ export interface PropsListe {
   photos: PhotoRue[]; cochees: ReadonlySet<string>; enDoublon: ReadonlySet<string>; vuesDe: (p: PhotoRue) => VueAExtraire[];
   ouverte: string | null; setOuverte: (id: string | null) => void; montree: string | null; onSurvol: (id: string | null) => void; visant: boolean;
   ordre: Ordre; setOrdre: (o: Ordre) => void; parBatiment: VuesParBatiment; setParBatiment: (n: VuesParBatiment) => void;
+  /** Les murs deja dans le banc ne se proposent plus coches (la regle par defaut) ; `mursDuBanc` : combien le banc en connait. */
+  ecarterDejaLa: boolean; setEcarterDejaLa: (v: boolean) => void; mursDuBanc: number;
   /** Le regroupement par batiment a lieu (le tri des facades se fait) : ses reglages se montrent. */
   groupees: boolean;
   onBasculer: (id: string) => void; onCocher: (qui: 'facades' | 'doublons' | 'aucune') => void; onImporter: () => void;
 }
 
 /** Les reglages de la liste : l'ordre, et combien de vues garder par batiment. */
-function ReglagesDeLaListe({ ordre, setOrdre, parBatiment, setParBatiment, groupees }: Pick<PropsListe, 'ordre' | 'setOrdre' | 'parBatiment' | 'setParBatiment' | 'groupees'>) {
+function ReglagesDeLaListe({ ordre, setOrdre, parBatiment, setParBatiment, groupees, ecarterDejaLa, setEcarterDejaLa, mursDuBanc }: Pick<PropsListe, 'ordre' | 'setOrdre' | 'parBatiment' | 'setParBatiment' | 'groupees' | 'ecarterDejaLa' | 'setEcarterDejaLa' | 'mursDuBanc'>) {
   return (
     <>
       <label>Tri
@@ -28,6 +30,9 @@ function ReglagesDeLaListe({ ordre, setOrdre, parBatiment, setParBatiment, group
         <label title="Un même bâtiment revient dans plusieurs photos : sa façade n’est proposée qu’une fois, par sa meilleure vue ; les autres sont marquées « doublon ». Les différents côtés d’une maison sont des façades différentes.">Vues par bâtiment
           <select value={String(parBatiment)} onChange={(e) => setParBatiment(e.target.value === 'toutes' ? 'toutes' : (Number(e.target.value) as VuesParBatiment))}>{VUES_PAR_BATIMENT.map((n) => <option key={n} value={String(n)}>{n}</option>)}</select>
         </label>
+      )}
+      {groupees && mursDuBanc > 0 && (
+        <label className="case" title="Le banc a déjà une image de ces murs (le même bâtiment vu par le même côté) : leurs vues restent visibles, marquées « déjà dans le banc », sans être proposées cochées. Décochée, elles se proposent comme les autres."><input type="checkbox" checked={ecarterDejaLa} onChange={(e) => setEcarterDejaLa(e.target.checked)} /> Sans les murs déjà dans le banc</label>
       )}
     </>
   );
@@ -40,7 +45,9 @@ function Legende({ p, vues, visant, doublon }: { p: PhotoRue; vues: VueAExtraire
     <span>{visant ? `${p.distance} m · ` : ''}{p.panoramique ? `360° · ${n} vue(s)` : !visant ? 'photo' : (p.vise ? 'vers la parcelle' : 'de côté')} · {p.date?.slice(0, 10) ?? '—'}
       {note !== null && <i className="note-vue" title="Note de la vue, de 0 à 100 : distance à la façade, façade vue de face, part du cadre qu’elle remplit, date de la photo.">note {note}</i>}
       {cachee && <i className="marque-cachee" title="Lu dans l’aperçu : une haie, des arbres ou une clôture cachent la façade de chaque vue à importer.">façade cachée</i>}
-      {doublon && <i className="marque-doublon" title="D’autres photos montrent mieux ce bâtiment : elle n’est pas proposée cochée.">doublon</i>}
+      {doublon && (vues.every((v) => v.dejaLa)
+        ? <i className="marque-doublon deja-la" title="Le banc a déjà une image de ce mur (ce bâtiment vu par ce côté) : elle n’est pas proposée cochée.">déjà dans le banc</i>
+        : <i className="marque-doublon" title="D’autres photos montrent mieux ce bâtiment : elle n’est pas proposée cochée.">doublon</i>)}
     </span>
   );
 }

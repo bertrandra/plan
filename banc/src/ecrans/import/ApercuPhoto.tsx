@@ -12,7 +12,9 @@ function Marques({ v }: { v: VueAExtraire | undefined }) {
     <>
       {typeof v.note === 'number' && <i className="note-vue" title="Note de la vue, de 0 à 100 : distance à la façade, façade vue de face, part du cadre qu’elle remplit, date de la photo.">note {v.note}</i>}
       {v.cachee && <i className="marque-cachee" title="Lu dans l’aperçu : une haie, des arbres ou une clôture cachent la façade. Sa note est réduite de moitié.">façade cachée</i>}
-      {v.doublon && <i className="marque-doublon" title="D’autres photos montrent mieux ce bâtiment : cette vue ne sera pas importée.">doublon</i>}
+      {v.doublon && (v.dejaLa
+        ? <i className="marque-doublon deja-la" title="Le banc a déjà une image de ce mur : cette vue ne sera pas importée.">déjà dans le banc</i>
+        : <i className="marque-doublon" title="D’autres photos montrent mieux ce bâtiment : cette vue ne sera pas importée.">doublon</i>)}
     </>
   );
 }

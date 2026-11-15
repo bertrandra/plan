@@ -13,6 +13,10 @@ import { VUES_PAR_BATIMENT_DEFAUT, type Ordre, type VuesParBatiment } from '../.
 import { CHAMP_VUE, distanceM, lirePhotos, trouverAdresses, urlRecherche, urlRechercheEmprise, type Adresse, type PhotoRue, type VueAExtraire, type Visee } from '../../panoramax.js';
 import { centre, lireLesParcelles, parcelleDuPoint, rapporterALaParcelle, type Parcelle } from '../../parcelles.js';
 import { vueDuPanoramique } from '../../equirect.js';
+import type { Batiment } from '../../facadesVues.js';
+import { murDeVue } from '../../murVise.js';
+import { mursDuBanc } from '../../murs.js';
+import type { MetaImage, MurDeVue } from '../../types.js';
 import { ApercuPhoto } from './ApercuPhoto.js';
 import { CarteImport } from './CarteImport.js';
 import { FenetreDesVues, ListePhotos } from './ListePhotos.js';
@@ -45,7 +49,15 @@ const PROCHE_DE_L_ADRESSE_M = 300;
 const AVIS_TRONQUE = 'Cadastre tronqué : toutes les parcelles de cette vue n’ont pas pu être lues. Rapprochez-vous pour voir les autres.';
 const AVIS_PANNE = 'Cadastre de l’IGN indisponible : la carte ne montre pas toutes les parcelles.';
 
-interface Contexte { adresse: Adresse | null; parcelle: Parcelle | null }
+const RIEN_DEJA: ReadonlySet<string> = new Set();
+
+interface Contexte { adresse: Adresse | null; parcelle: Parcelle | null; /** Le batiment lu d'une vue (BD TOPO), pour ecrire son mur dans les metadonnees. */ batiment: (id: string) => Batiment | null }
+
+/** Le mur d'une vue, pour ses metadonnees : rien quand le tri n'a pas dit son batiment (case decochee, BD TOPO en panne). */
+function murDeLaVue(ctx: Contexte, p: PhotoRue, v: VueAExtraire): { mur?: MurDeVue } {
+  const b = v.batiment ? ctx.batiment(v.batiment) : null;
+  return b && typeof v.cote === 'number' ? { mur: murDeVue(b, p, { cap: v.cap, cote: v.cote, note: v.note, distanceFacade: v.distanceFacade }, p.panoramique ? CHAMP_VUE : Math.min(120, p.champ)) } : {};
+}
 
 /** Importe les vues des photos choisies (une ou deux par panoramique) ; rend le nombre de vues importees. */
 async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p: PhotoRue) => VueAExtraire[], ctx: Contexte, dire: (t: string) => void): Promise<number> {
@@ -69,6 +81,8 @@ async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p:
             source: 'panoramax', nom: 'panoramax-' + p.id.slice(0, 8) + (v.vue === 'gauche' || v.vue === 'droite' ? '-' + v.vue : v.vue === 'choisie' ? '-' + Math.round(v.cap) : ''), date: p.date, lat: p.lat, lon: p.lon, azimut: v.cap,
             panoramax: { id: p.id, collection: p.collection, panoramique: p.panoramique, cap: v.cap, vue: v.vue }, auteur: p.auteur, licence: p.licence,
             adresse, parcelle: ctx.parcelle?.idu ?? null, lot,
+            // Le mur que la vue montre (demande du proprietaire, 15 novembre 2026) : de quoi ne pas le reimporter et le regrouper ensuite.
+            ...murDeLaVue(ctx, p, v),
           });
           ok++;
         } catch (e) {
@@ -157,6 +171,17 @@ function useEcarterCachees(): [boolean, (v: boolean) => void] {
   return [v, (n) => { setV(n); try { localStorage.setItem(CLE_CACHEES, n ? 'oui' : 'non'); } catch { /* preference non gardee, sans gravite */ } }];
 }
 
+/**
+ * Un mur deja dans le banc ne se propose plus coche (demande du proprietaire, 15 novembre 2026 : « Avoid having 2 times the same
+ * building ») : c'est la regle par defaut, que la case de la liste leve. `dejaDansLeBanc` : les murs a ecarter (aucun, case decochee).
+ */
+function useMursDejaLa(images: readonly MetaImage[]) {
+  const [ecarterDejaLa, setEcarterDejaLa] = useState(true);
+  const mursDeja = useMemo(() => new Set(mursDuBanc(images).keys()), [images]);
+  const dejaDansLeBanc = useMemo(() => (ecarterDejaLa ? mursDeja : RIEN_DEJA), [ecarterDejaLa, mursDeja]);
+  return { ecarterDejaLa, setEcarterDejaLa, mursDeja, dejaDansLeBanc };
+}
+
 /** L'aide, le champ d'adresse et ses reglages, et les adresses que le geocodage propose. */
 function Recherche({ texte, setTexte, rayon, setRayon, visees, setVisees, facades, setFacades, cachees, setCachees, visee, setVisee, propositions, adresse, onChercher, onAdresse }: {
   texte: string; setTexte: (t: string) => void; rayon: number; setRayon: (r: number) => void; visees: boolean; setVisees: (v: boolean) => void; facades: boolean; setFacades: (v: boolean) => void; cachees: boolean; setCachees: (v: boolean) => void;
@@ -221,8 +246,8 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const { choix, forcees, choix$, poser: poserChoix, mettre: mettreChoix } = useChoix();
   // Les caps choisis a la main dans un 360 (par photo) ; une photo absente suit la visee.
   const [caps, setCaps] = useState<Map<string, number[]>>(new Map());
-  // La liste : combien de vues garder par batiment, son ordre, et le 360 dont on choisit les vues.
-  const [parBatiment, setParBatiment] = useState<VuesParBatiment>(VUES_PAR_BATIMENT_DEFAUT), [ordre, setOrdre] = useState<Ordre>('note');
+  // La liste : combien de vues garder par batiment, son ordre, les murs deja dans le banc, et le 360 dont on choisit les vues.
+  const [parBatiment, setParBatiment] = useState<VuesParBatiment>(VUES_PAR_BATIMENT_DEFAUT), [ordre, setOrdre] = useState<Ordre>('note'), { ecarterDejaLa, setEcarterDejaLa, mursDeja, dejaDansLeBanc } = useMursDejaLa(banc.images);
   const [ouverte, setOuverte] = useState<string | null>(null), [etat, setEtat] = useState<string | null>(null);
   // La carte : le rayon de la derniere recherche (celui qu'elle dessine, pas celui qu'on est en train de taper), la photo survolee et
   // la photo epinglee (touchee), et ce qu'elle dit quand on est trop loin pour chercher des photos.
@@ -237,7 +262,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const images$ = useRef(banc.images); images$.current = banc.images;
   const rechercheVue = useRef<AbortController | null>(null);
   // Sans parcelle visee, rien ne dit de quel cote est l'adresse : les deux cotes de la rue.
-  const relais = useRelais(photos), { vuesDe, aImporterDe, proposees, enDoublon, compte, tri } = useVuesTriees(relais.lisibles, caps, parcelle, { visee: parcelle ? visee : 'cotes', seulementFacades, parBatiment, ordre, ecarterCachees });
+  const relais = useRelais(photos), { vuesDe, aImporterDe, proposees, enDoublon, compte, tri } = useVuesTriees(relais.lisibles, caps, parcelle, { visee: parcelle ? visee : 'cotes', seulementFacades, parBatiment, ordre, ecarterCachees, dejaDansLeBanc });
   const cochees = useMemo(() => new Set(proposees.filter((p) => choix.has(p.id) && (!enDoublon.has(p.id) || forcees.has(p.id))).map((p) => p.id)), [proposees, choix, enDoublon, forcees]);
   const dejaLa = () => new Set(images$.current.map((m) => m.panoramax?.id).filter(Boolean));
 
@@ -325,7 +350,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   };
   const importer = async () => {
     const lot = proposees.filter((x) => cochees.has(x.id)), faites = new Set(lot.map((x) => x.id));
-    await importerVues(banc, lot, aImporterDe, { adresse, parcelle }, setEtat);
+    await importerVues(banc, lot, aImporterDe, { adresse, parcelle, batiment: tri.batiment }, setEtat);
     setPhotos((l) => l.filter((x) => !faites.has(x.id)));
     poserChoix([]);
     await banc.relire();
@@ -352,7 +377,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
       </div>
       {parcelle && <ParcelleVisee parcelle={parcelle} onLacher={() => toucherParcelle(parcelle)} />}
       {proposees.length > 0 && <ListePhotos photos={proposees} cochees={cochees} enDoublon={enDoublon} vuesDe={vuesDe} ouverte={ouverte} setOuverte={setOuverte} montree={montree?.id ?? null} onSurvol={survoler} visant={visant}
-        ordre={ordre} setOrdre={setOrdre} parBatiment={parBatiment} setParBatiment={setParBatiment} groupees={!!compte && !compte.startsWith('Lecture')}
+        ordre={ordre} setOrdre={setOrdre} parBatiment={parBatiment} setParBatiment={setParBatiment} ecarterDejaLa={ecarterDejaLa} setEcarterDejaLa={setEcarterDejaLa} mursDuBanc={mursDeja.size} groupees={!!compte && !compte.startsWith('Lecture')}
         onBasculer={basculer} onCocher={cocher} onImporter={() => { void importer(); }} />}
       <FenetreDesVues p={proposees.find((x) => x.id === ouverte) ?? null} panoramiques={proposees.filter((x) => x.panoramique)} vuesDe={vuesDe} visant={visant} setCaps={setCaps}
         onCocher={(id) => mettreChoix(id, true)} setOuverte={setOuverte} />

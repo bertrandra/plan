@@ -69,9 +69,11 @@ huit de la CI (bureau 1440 × 900, tablette 820 × 1100, téléphone 390 × 844 
 Chaque passage : l'ouverture sur la France (la couverture, « Zoomez sur une zone orange pour voir ses photos de rue »), l'adresse
 (la carte y va, la parcelle AE 101 visée, les photos à 40 m), le compte de « Seulement les façades » puis la case décochée, l'aperçu
 des façades d'un point (survolé à la souris, touché au doigt ; sous la carte au téléphone), « Choisir les vues » ouverte et refermée,
-l'import d'une photo au premier passage (201, le compteur du banc monte ; les suivants la voient « déjà dans le banc »), l'écran
+l'import d'une photo au premier passage (201, le compteur du banc monte, chaque vue garde son mur de la BD TOPO ; les suivants la
+voient « déjà dans le banc », et les autres vues du même mur aussi : marquées, comptées « dont N déjà dans le banc », jamais
+cochées), l'écran
 « Équilibre » (étape 8 : les vues importées toutes comptées dans les Yvelines et en Île-de-France, les treize régions listées, les
-comptes par saison, type de vue et état qui font le total, la carte qui les montre dans son cadre, ce que l'écran ne peut pas dire), les
+comptes par saison, type de vue, type de bâtiment et état qui font le total, les doublons du banc dits, la carte qui les montre dans son cadre, ce que l'écran ne peut pas dire), les
 contrastes des textes (4,5:1) et des pastilles (3:1), au doigt les cibles de 44 px, rien qui déborde ni ne se recouvre sur la carte ;
 ni erreur de console, ni refus de la politique de contenu. `FUMEE_BANC_CAPTURES=dossier` garde une capture par moment,
 `FUMEE_BANC_AUDIT=1` relève tous les défauts de contraste et de mise en page sans s'arrêter au premier, `FUMEE_RESEAU=enregistrer`
