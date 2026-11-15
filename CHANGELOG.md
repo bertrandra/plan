@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.30.0] — 2026-11-15
+
+Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'écran d'import Panoramax a sa fumée,
+jouée à chaque PR, et se lit en thème sombre et au doigt (#690) ; les vues se trient par la géométrie (pas-des-maisons et photos
+plates écartés, une note par vue, une façade proposée une fois, couverture grise, #691) ; un écran « Équilibre » montre le jeu de
+données, carte et comptes (#692) ; une façade cachée par la végétation se lit dans l'aperçu (#693) ; les images des instances Panoramax
+non listées passent par un relais du serveur du banc (#694) ; chaque vue importée garde le mur qu'elle montre, et un mur déjà
+dans le banc ne se propose plus (#695). Fonctions nouvelles : MINOR (§2.1). Seul `banc/` change, avec sa fumée en
+CI (`scripts/fumee-banc.mjs`, `scripts/fumee-reseau.mjs`, `.github/workflows/ci.yml`) : aucune quantité ni aucun export de la
+démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le 30 octobre 2026 ; preuve
+forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Le schéma 16 de la
+5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php`
+**avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Le serveur du banc (`api.php`) change : le relais d'images
+demande que l'hébergement laisse sortir cURL en https, sinon l'écran le dit. Requêtes vérifiées sans la mesure sur main
+(run 43743041067 ; prompts et schémas inchangés).
+
 ### Ajouté
 
 - **Banc d'apprentissage : quel mur chaque vue montre, et jamais deux fois le même** (« Do it all all to the end » et « Avoid
@@ -28,6 +45,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   « cherchée » et ne se redemande pas. Le mur visé est celui que la géométrie met dans le cadre, pas la preuve qu'il se voit.
   Tests : `banc/tests/murs.test.ts`, `meilleuresVues.test.ts`, `equilibre.test.ts`, `api.test.ts` ; la fumée vérifie le mur des
   vues importées et, aux passages suivants, « déjà dans le banc ».
+
 - **Banc d'apprentissage, import Panoramax : toute instance fédérée se lit, sans nouvelle version** (mandat du propriétaire,
   15 novembre 2026). Jusqu'ici chaque hôte d'images devait être ajouté à `HOTES` et à la politique de contenu par une version
   (#684, puis #687). La politique de contenu ne s'ouvre pas : les photos d'un hôte non listé passent par un **relais** du serveur
