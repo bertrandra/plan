@@ -5,6 +5,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.31.0] — 2026-11-15
+
+Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax cadre chaque vue
+d'un 360 sur sa façade, du pied au faîte, la rend face au mur à la demande (« Redresser sur le mur », décochée) et préfère
+l'hiver (#698) ; « Proposer un marquage » pose à l'import le brouillon des modèles actifs sur les vues rendues face au mur
+(#699) ; une zone s'importe en lot (une commune, des coordonnées ou un dessin sur la carte, la meilleure vue de chaque bâtiment,
+aucun bâtiment déjà dans le banc), et l'écran « Équilibre » dit « où importer ensuite » (#700). Fonctions nouvelles : MINOR
+(§2.1). Seul `banc/` change, avec sa fumée (`scripts/fumee-banc.mjs`, `tests/CHECKLIST-FUMEE.md`) : aucune quantité ni aucun
+export de la démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de
+fichier nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Le serveur du
+banc (`api.php`) change : il garde le cadre de chaque vue importée (`cadrage` : champ, tangage, source, plan d'une vue face au
+mur), validé champ par champ. Cela ne demande rien de plus à l'hébergement (ni droit, ni réglage, ni sortie réseau nouvelle) :
+déposer `api.php` avec la page du banc, comme à chaque livraison — un ancien `api.php` sous la page nouvelle importerait les vues
+sans leur cadre, et l'étape Redressement ne reconnaîtrait plus celles rendues face au mur. Requêtes vérifiées sans la mesure sur
+main (run 43754323547 ; prompts et schémas inchangés).
+
 ### Ajouté
 
 - **Banc d'apprentissage : l'import d'une zone en lot, et « où importer ensuite »** (« Do it all all to the end » et « Avoid
