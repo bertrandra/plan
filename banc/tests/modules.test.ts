@@ -1,11 +1,12 @@
 // Les modules purs du banc : l'arbre des classes, la geometrie, l'edition, l'EXIF, Panoramax, les blocs, le panoramique, YOLO, le brouillon.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { choixDeCreation, cibleDuNom, CLASSES_DEFAUT, erreursDeLArbre, idDuNom, indicesYolo, nomsYolo, nomYoloDe, ordreDeLArbre, profondeur } from '../src/classes.js';
 import { parentDe, rangerLesParents, iou } from '../src/geometrie.js';
 import { ajouterSommet, changerClasse, changerType, creerRectangle, deplacer, enPolygone, Historique, retirerSommet, supprimer, tirerPoignee } from '../src/edition.js';
 import { lireExif } from '../src/exif.js';
-import { capVers, distanceM, ecartAngle, lireAdresse, lirePhotos } from '../src/panoramax.js';
+import { capVers, distanceM, ecartAngle, HOTES, lireAdresse, lirePhotos } from '../src/panoramax.js';
 import { blocTire, dansLEchantillon, partsValables, tirage } from '../src/blocs.js';
 import { vueDuPanoramique } from '../src/equirect.js';
 import { decoderV10, decoderV8, letterbox, nms } from '../src/yolo.js';
@@ -131,6 +132,23 @@ describe('Panoramax autour d’une adresse', () => {
     id, collection: 'c', geometry: { coordinates: [lon, lat] }, properties: { 'view:azimuth': az, 'pers:interior_orientation': { field_of_view: champ }, datetime: '2024-05-01T10:00:00Z', license: 'etalab-2.0' },
     assets: { hd: { href: hote + '/api/pictures/' + id + '/hd.jpg' }, thumb: { href: hote + '/api/pictures/' + id + '/thumb.jpg' } },
   });
+  it('lit les photos du stockage de l instance de l IGN (OVH), hd, sd et vignette, et la politique de contenu les admet', () => {
+    const hote = 'https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net';
+    const cible = { lat: 49.05205, lon: 2.00062 };
+    const json = { features: [{ id: 'ovh', geometry: { coordinates: [cible.lon, cible.lat] }, properties: { 'view:azimuth': 227, 'pers:interior_orientation': { field_of_view: 360 } },
+      assets: { hd: { href: hote + '/main-pictures/1d/de/ovh.jpg' }, sd: { href: hote + '/derivates/1d/de/ovh/sd.jpg' }, thumb: { href: hote + '/derivates/1d/de/ovh/thumb.jpg' } } }] };
+    const [p] = lirePhotos(json, cible, 50);
+    expect([p?.hd, p?.sd, p?.vignette]).toEqual([hote + '/main-pictures/1d/de/ovh.jpg', hote + '/derivates/1d/de/ovh/sd.jpg', hote + '/derivates/1d/de/ovh/thumb.jpg']);
+    // Un hote qui commence pareil n'est pas cet hote.
+    expect(lirePhotos({ features: [{ ...json.features[0], assets: { hd: { href: hote + '.exemple.org/a.jpg' } } }] }, cible, 50)).toEqual([]);
+    // Chaque hote lu est admis par la politique du banc, pour les images et pour fetch : sinon la photo se propose et ne se charge pas.
+    const csp = /Content-Security-Policy "([^"]+)"/.exec(readFileSync(new URL('../public/.htaccess', import.meta.url), 'utf8'))?.[1] ?? '';
+    for (const d of ['img-src', 'connect-src']) {
+      const sources = (csp.split(';').map((x) => x.trim()).find((x) => x.startsWith(d + ' ')) ?? '').split(' ');
+      for (const h of HOTES) expect(sources, d + ' ' + h).toContain(h);
+    }
+  });
+
   it('garde les photos du rayon, les plus proches d’abord, dit lesquelles visent l’adresse, et ecarte un hote inconnu', () => {
     // Au sud de l'adresse, a ~22 m : tournee vers le nord, elle vise ; tournee vers le sud, non. Un 360 vise toujours.
     const sud = cible.lat - 0.0002;

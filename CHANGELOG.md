@@ -33,6 +33,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (Panoramax) ». Si les tuiles ne répondent pas, la carte marche comme avant et le dit dans sa légende, jamais « aucune photo » sur
   une panne. Limite : la couverture montre où il y a des photos, pas où il y a des façades (le tri ne se fait qu'au zoom de quartier).
 
+### Corrigé
+
+- **Banc d'apprentissage, import Panoramax : les photos du stockage de l'instance de l'IGN se proposent** (constat de la couverture,
+  et demande du propriétaire, 15 novembre 2026 : « je veux savoir s'il y a des Panoramax dispo dans la zone sélectionnée, sinon je
+  zoome pour arriver à rien »). La carte montrait en orange des rues dont aucune photo n'était proposée : la recherche du
+  méta-catalogue renvoie une grande part des photos de l'instance de l'IGN (lien `via` vers `panoramax.ign.fr`) à l'adresse de son
+  stockage, `panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net`, que la politique de contenu du banc admettait déjà
+  (`img-src`, `connect-src`) mais qui manquait à la liste des hôtes lus (`HOTES`, `banc/src/panoramax.ts`). Vérifié sur le vrai
+  réseau : les trois versions (hd, sd, vignette) sont servies avec `Access-Control-Allow-Origin: *`, ce qu'il faut à la lecture par
+  `fetch` et au dessin relu des panoramiques. Exemple : à 49.05205, 2.00062 (Cergy), 40 photos dans la vue, aucune proposable
+  avant, toutes maintenant (aperçu et import compris ; ce sont des photos de route, que « Seulement les façades » écarte et dit
+  écarter). Un test vérifie que chaque hôte lu est admis par la politique de contenu. Le message « servies par un hôte que le banc
+  ne lit pas » reste pour les autres hôtes du catalogue (instances tierces, comme `panoramax.mapcomplete.org`). Politique de contenu
+  et serveur du banc inchangés.
+
 ## [5.28.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax part de la carte de France
