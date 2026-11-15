@@ -5,6 +5,17 @@ import type { PhotoRue, VueAExtraire } from '../../panoramax.js';
 import { Icone } from '../../ui/Icones.js';
 import { Apercu, NOM_VUE, usePano } from './panoramiques.js';
 
+/** La note d'une vue et sa marque de doublon, dites discretement sous l'image. */
+function Marques({ v }: { v: VueAExtraire | undefined }) {
+  if (!v) return null;
+  return (
+    <>
+      {typeof v.note === 'number' && <i className="note-vue" title="Note de la vue, de 0 à 100 : distance à la façade, façade vue de face, part du cadre qu’elle remplit, date de la photo.">note {v.note}</i>}
+      {v.doublon && <i className="marque-doublon" title="D’autres photos montrent mieux ce bâtiment : cette vue ne sera pas importée.">doublon</i>}
+    </>
+  );
+}
+
 /** L'attente avant de lire un panoramique survole : passer sur un point en allant vers un autre ne telecharge rien. */
 const DELAI_SURVOL_MS = 180;
 
@@ -40,7 +51,7 @@ export function ApercuPhoto({ p, vues, choisie, epinglee, visant, onBasculer, on
           {vues.map((v, k) => (
             <li key={k}>
               <Apercu pano={pano} azimut={p.azimut ?? 0} cap={v.cap} largeur={480} />
-              <span>{NOM_VUE[v.vue]} · {Math.round(v.cap)}°</span>
+              <span>{NOM_VUE[v.vue]} · {Math.round(v.cap)}°<Marques v={v} /></span>
             </li>
           ))}
           {!vues.length && <li className="aide">Aucune vue de ce panoramique ne sera importée.</li>}
@@ -49,7 +60,7 @@ export function ApercuPhoto({ p, vues, choisie, epinglee, visant, onBasculer, on
         <ul className="apercu-vues">
           <li>
             {p.vignette ? <img src={p.vignette} alt="La photo" /> : <div className="sans-image" />}
-            <span>{!visant ? 'Photo' : p.vise ? 'Vers la parcelle' : 'De côté'}{p.azimut !== null ? ` · ${Math.round(p.azimut)}°` : ''}</span>
+            <span>{!visant ? 'Photo' : p.vise ? 'Vers la parcelle' : 'De côté'}{p.azimut !== null ? ` · ${Math.round(p.azimut)}°` : ''}<Marques v={vues[0]} /></span>
           </li>
         </ul>
       )}

@@ -10,6 +10,7 @@ import { adoucir, barreEchelle, departDuVol, empriseVue, entreVues, FRANCE, glis
 import { CHAMP_VUE, distanceM, type PhotoRue, type VueAExtraire } from '../../panoramax.js';
 import { centre, type Ll, type Parcelle } from '../../parcelles.js';
 import { indiceDeZoom } from '../../couverture.js';
+import { legendeDesFacades } from '../../couvertureFacades.js';
 import { Icone } from '../../ui/Icones.js';
 import { useCouverture } from './CoucheCouverture.js';
 
@@ -366,6 +367,7 @@ export function CarteImport(props: PropsCarte) {
   // Sous les tuiles du niveau montre, celles de trois niveaux plus haut (une ou deux, souvent deja lues) : zoomer ne passe pas par un
   // ecran vide le temps que les nouvelles arrivent.
   const attente = v.niveauFige === null && Math.round(vue.zoom) - 3 >= 3 ? Math.round(vue.zoom) - 3 : null;
+  const sansFacade = couverture ? legendeDesFacades(couvert.facades) : null;
 
   return (
     <div className={`carte-import fond-${fond}${fondEnPanne ? ' fond-absent' : ''}${vue.zoom < 17.2 ? ' loin' : ''}`}>
@@ -406,6 +408,7 @@ export function CarteImport(props: PropsCarte) {
       </div>
       <p className="carte-legende">
         {couverture && <span><i className="pastille-couverture" /> rues photographiées (Panoramax){couvert.etat === 'panne' ? ' — couverture indisponible pour le moment' : ''}</span>}
+        {sansFacade && <span>{couvert.facades === 'oui' && <i className="pastille-couverture grise" />} {sansFacade}</span>}
         {parcelle && <span><i className="pastille-carte rayon" /> {rayon} m autour de la parcelle visée</span>}
         <span><i className="pastille-carte choisie" /> photo choisie et ses vues</span>
         <span><i className="pastille-carte" /> photo non choisie</span>

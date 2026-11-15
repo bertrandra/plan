@@ -35,6 +35,13 @@ export interface PhotoRue {
   date: string | null;
   auteur: string | null;
   licence: string | null;
+  /**
+   * Le cap dit-il vraiment ou regarde la photo ? Faux quand il n'y a pas de boussole et que l'appareil avancait a peine (`capDouteux`) :
+   * le tri des facades ne peut alors rien affirmer d'une photo plate.
+   */
+  capSur: boolean;
+  /** La forme de l'image (largeur sur hauteur) : 4/3 quand le capteur n'est pas dit ; moins de 1 pour une photo en hauteur. */
+  forme: number;
   /** Calcules pour l'adresse cherchee : la distance, le cap de la photo vers l'adresse, et si l'adresse est dans le champ. */
   distance: number;
   cap: number;
@@ -109,6 +116,31 @@ export async function trouverAdresses(texte: string, lire: (url: string) => Prom
 /** La premiere adresse proposee ; null sans resultat. */
 export const trouverAdresse = async (texte: string, lire: (url: string) => Promise<unknown>): Promise<Adresse | null> => (await trouverAdresses(texte, lire))[0] ?? null;
 
+/** En deca de ce pas entre deux photos d'une sequence, le sens de la marche (donc le cap) n'est que le bruit du GPS. */
+export const PAS_MIN_CAP_M = 2;
+
+interface PhotoStac { id?: string; collection?: string; geometry?: { coordinates?: number[] }; properties?: Record<string, unknown>; assets?: Record<string, { href?: string }> }
+
+/**
+ * Les photos dont le cap est douteux (15 novembre 2026, vu rue de Rivoli : 35 photos d'une camera d'action portee par un pieton arrete a
+ * un passage, proposees comme des facades). Sans boussole dans l'EXIF, le serveur tire le cap du deplacement entre deux photos ; quand
+ * l'appareil n'a presque pas bouge, ce deplacement est le bruit du GPS et le cap ne dit rien. Une photo seule de sa sequence dans la
+ * reponse n'est pas jugee : on ne sait pas.
+ */
+export function capsDouteux(feats: readonly PhotoStac[]): Set<string> {
+  const rangs = new Map<string, { lat: number; lon: number }>();
+  const cle = (f: PhotoStac, d = 0) => f.collection + '|' + (Number(f.properties?.['geovisio:rank_in_collection']) + d);
+  for (const f of feats) { const c = f.geometry?.coordinates; if (f.collection && c && typeof c[0] === 'number' && typeof c[1] === 'number') rangs.set(cle(f), { lat: c[1], lon: c[0] }); }
+  const out = new Set<string>();
+  for (const f of feats) {
+    const exif = (f.properties?.['exif'] ?? {}) as Record<string, unknown>, moi = rangs.get(cle(f));
+    if (!f.id || !moi || exif['Exif.GPSInfo.GPSImgDirection'] != null) continue;
+    const voisines = [rangs.get(cle(f, -1)), rangs.get(cle(f, 1))].filter((v): v is { lat: number; lon: number } => !!v);
+    if (voisines.length && voisines.every((v) => distanceM(moi, v) < PAS_MIN_CAP_M)) out.add(f.id);
+  }
+  return out;
+}
+
 const autorise = (url: unknown): url is string => typeof url === 'string' && HOTES.some((h) => url.startsWith(h + '/'));
 
 /**
@@ -116,14 +148,16 @@ const autorise = (url: unknown): url is string => typeof url === 'string' && HOT
  * le champ de la photo (un panoramique la voit toujours ; une photo plate, a moins de la moitie de son champ, plus 10 degres).
  */
 export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, rayonM: number): PhotoRue[] {
-  const feats = ((json as { features?: unknown[] })?.features ?? []) as { id?: string; collection?: string; geometry?: { coordinates?: number[] }; properties?: Record<string, unknown>; assets?: Record<string, { href?: string }> }[];
-  const out: PhotoRue[] = [];
+  const feats = ((json as { features?: unknown[] })?.features ?? []) as PhotoStac[];
+  const out: PhotoRue[] = [], douteux = capsDouteux(feats);
   for (const f of feats) {
     const c = f.geometry?.coordinates;
     const hd = f.assets?.hd?.href ?? f.assets?.sd?.href;
     if (!f.id || !c || typeof c[0] !== 'number' || typeof c[1] !== 'number' || !autorise(hd)) continue;
     const p = f.properties ?? {};
-    const orient = (p['pers:interior_orientation'] ?? {}) as { field_of_view?: unknown };
+    const orient = (p['pers:interior_orientation'] ?? {}) as { field_of_view?: unknown; sensor_array_dimensions?: unknown };
+    const capteur = Array.isArray(orient.sensor_array_dimensions) ? (orient.sensor_array_dimensions as unknown[]) : [];
+    const forme = typeof capteur[0] === 'number' && typeof capteur[1] === 'number' && capteur[0] > 0 && capteur[1] > 0 ? capteur[0] / capteur[1] : 4 / 3;
     const champ = typeof orient.field_of_view === 'number' && orient.field_of_view > 0 ? orient.field_of_view : 70;
     const az = typeof p['view:azimuth'] === 'number' ? ((p['view:azimuth'] % 360) + 360) % 360 : null;
     const pos = { lat: c[1], lon: c[0] };
@@ -141,6 +175,7 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
       date: typeof p['datetime'] === 'string' ? p['datetime'] : null,
       auteur: typeof p['geovisio:producer'] === 'string' ? p['geovisio:producer'] : null,
       licence: typeof p['license'] === 'string' ? p['license'] : null,
+      capSur: !douteux.has(f.id), forme,
       distance: Math.round(distance * 10) / 10, cap: Math.round(cap * 10) / 10, vise,
     });
   }
@@ -154,8 +189,11 @@ export function lirePhotos(json: unknown, cible: { lat: number; lon: number }, r
  * plate se garde telle quelle.
  */
 export type Visee = 'cotes' | 'cote-adresse' | 'adresse';
-/** `batiment` : le batiment que la vue regarde, quand le tri des facades l'a trouve (facadesVues.ts). */
-export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string }
+/**
+ * `batiment` : le batiment que la vue regarde, quand le tri des facades l'a trouve (facadesVues.ts), le cote par lequel elle le voit
+ * (`cote`, 0 a 3), sa note de 0 a 100 et la distance a sa facade. `doublon` : d'autres vues montrent mieux ce batiment (meilleuresVues.ts) ; elle reste visible, pas importee.
+ */
+export interface VueAExtraire { vue: 'gauche' | 'droite' | 'adresse' | 'photo' | 'choisie'; cap: number; batiment?: string; cote?: number; note?: number; distanceFacade?: number; doublon?: boolean }
 
 export function vuesAExtraire(p: Pick<PhotoRue, 'panoramique' | 'azimut' | 'cap'>, visee: Visee): VueAExtraire[] {
   if (!p.panoramique) return [{ vue: 'photo', cap: p.azimut ?? p.cap }];

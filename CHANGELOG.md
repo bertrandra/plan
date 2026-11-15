@@ -20,6 +20,48 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   montre que ce que les métadonnées portent et dit le reste en bas : photos sans position ou sans date, et ni type de bâtiment, ni
   mur visé, ni matériau, ni ville ou campagne, que rien ne garde encore à l'import. `banc/src/equilibre.ts` (sans DOM) et ses tests
   (`banc/tests/equilibre.test.ts`) ; la fumée du banc joue l'écran après l'import, dans ses huit passages.
+- **Banc d'apprentissage, import Panoramax : le tri par la géométrie** (mandat du propriétaire, 15 novembre 2026, après les constats
+  de la #683 sur le vrai réseau). Cinq choses, toutes dans `banc/`, sans lire l'image :
+  - **Pas des maisons** (`facadesVues.ts::pasUneMaison`) : la BD TOPO dit pour chaque bâtiment sa nature, un ou deux usages, sa
+    hauteur, ses logements et ses étages (rien de plus fin : ni « transformateur », ni « garage »). Sont écartés : serres, silos,
+    tribunes ; les usages agricole, industriel et sportif sans logement ; les annexes de moins de 60 m² ou de moins de 5 m ; les
+    petits bâtiments bas sans logement (moins de 80 m² et de 5 m : le local technique de 51 m² et 3,7 m du Loiret). Tout ce qui loge
+    quelqu'un se garde (« Résidentiel » en premier ou second usage, ou un logement : maison, immeuble, commerce en rez-de-chaussée),
+    et un usage « Indifférencié » n'écarte rien à lui seul. Un bâtiment écarté cache encore ce qui est derrière lui.
+  - **Photos plates** : la moitié de leur champ (le leur, plus les 75° d'une vue de 360), une façade à moins de 30 m qui remplit
+    30 % de l'image (la hauteur du bâtiment et sa distance disent ce qu'il occupe du cadre), et un **cap sûr**. Rue de Rivoli, 35
+    des 49 photos plates gardées venaient d'une caméra d'action portée par un piéton arrêté à un passage : sans boussole, leur cap
+    est tiré du déplacement entre deux photos, donc du bruit du GPS (`panoramax.ts::capsDouteux` : pas de boussole dans l'EXIF et
+    moins de 2 m jusqu'aux photos voisines de la séquence).
+  - **Une note par vue**, de 0 à 100 (`noteDeVue` : distance 30, façade vue de front 25, part du cadre 35, date 10), dite dans
+    l'aperçu et sur chaque carte de la liste ; la liste se trie « meilleures d'abord » par défaut, ou « plus proches », « plus
+    récentes ».
+  - **Un bâtiment, une fois** (`meilleuresVues.ts` ; précision du propriétaire : « Avoid having 2 times the same building »). Les
+    vues se regroupent par **façade** : le bâtiment (identifiant BD TOPO) et le côté par lequel la vue le voit (0 à 3, par quarts de
+    tour depuis son plus long mur ; les côtés d'une même maison ne sont pas des doublons). Par défaut **une seule vue par façade**
+    se propose, la mieux notée (réglage « Vues par bâtiment » : 1, 2, 3, toutes) ; les autres restent visibles, décochées,
+    marquées « doublon », dans une même photo (un 360 dont les deux vues tombent sur le même bâtiment) comme entre photos, avec ou
+    sans parcelle visée. Une vue sans bâtiment (tri décoché) n'est jamais un doublon. « Tout cocher » ne coche pas les doublons
+    (« Avec les doublons » le fait, exprès) ; le bouton d'import annonce « N façades de N bâtiments » ; les vues choisies à la
+    main ne sont jamais décochées, et l'écran dit avant l'import « N bâtiments en double », sans bloquer. L'état dit photos,
+    façades, bâtiments, doublons, écartées.
+  - **La couverture dit où sont les façades** : à l'échelle de la rue (800 m de large au plus), les tronçons sans mur de maison à
+    40 m se dessinent en gris, légende « rues photographiées sans façade à portée ». Les bâtiments se lisent par cases de 800 m
+    gardées en mémoire (24 cases, deux lectures à la fois, partagées avec le tri des photos : `casesBatiments.ts`). De plus loin
+    rien ne change ; sur une panne ou des bâtiments tronqués tout reste orange et la légende le dit.
+
+  Mesuré sur le vrai réseau (mêmes photos, 150 m autour du point, avant → après) : **campagne** (48.12612, 2.88168) 5 vues du
+  local technique → 0 ; **immeubles** (150 rue de Rivoli) 315 photos et 508 vues → 272 photos et 465 vues, photos plates 49 → 6,
+  puis 32 façades proposées de 19 bâtiments et 433 doublons ; **pavillons** (2 allée des Limites) 47 photos et 92 vues → 47 et 91,
+  puis 43 façades proposées de 35 bâtiments et 48 doublons, aucune vraie façade perdue. Ce qui reste faux, vu sur les planches : au
+  Vésinet environ une vue proposée sur trois montre encore une haie ou une clôture (la note ne voit pas les haies), rue de Rivoli
+  deux des dix-huit premières (un store de brasserie, une station de vélos) ; un 360 sans boussole et à l'arrêt garde ses vues ;
+  le côté d'un bâtiment au contour compliqué peut changer d'une prise de vue à l'autre (il compte alors deux fois). Écart avec la
+  consigne : sans parcelle visée rien n'est coché d'office, comme avant (on se promène et les photos cochées restent) ; « Tout
+  cocher » fait le geste. La fumée du banc
+  (`scripts/fumee-banc.mjs`) suit : son témoin est refait (bâtiments lus par cases), elle vérifie la note de chaque carte, le tri par
+  note, qu'aucun doublon n'est coché d'office, « N façades de N bâtiments » et « N bâtiments en double ». Serveur du banc,
+  politique de contenu et Plan inchangés (les bâtiments viennent du même WFS, déjà admis).
 - **Banc d'apprentissage : une fumée de l'écran d'import Panoramax, jouée à chaque PR** (« Go all to the end » du propriétaire,
   15 novembre 2026). L'écran (carte de France, zoom, couverture orange, « Seulement les façades », aperçu des façades, import)
   n'avait été vérifié qu'à la main. `scripts/fumee-banc.mjs`, une étape de plus du job `fumee` de la CI, le joue dans un vrai
