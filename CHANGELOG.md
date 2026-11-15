@@ -5,18 +5,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-## [5.29.1] — 2026-11-15
-
-Version **corrective** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax lit une instance de
-plus, `panoramax.mapcomplete.org`, dont les photos étaient écartées à la lecture (#687). Un hôte de plus dans la liste des hôtes admis
-et dans la politique de contenu du banc, sans fonction, panneau ni export nouveaux : PATCH (§2.1). Seul `banc/` change : aucune quantité
-ni aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le
-30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
-`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
-nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
-`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
-la mesure sur main (run 43724109155 ; prompts et schémas inchangés).
-
 ### Ajouté
 
 - **Banc d'apprentissage : une fumée de l'écran d'import Panoramax, jouée à chaque PR** (« Go all to the end » du propriétaire,
@@ -37,6 +25,30 @@ la mesure sur main (run 43724109155 ; prompts et schémas inchangés).
   (hôtes, tolérance, redirections, réponse d'une requête sans témoin) ; sans elles, la fumée de Plan rejoue son réseau comme avant.
   Mode d'emploi : `tests/CHECKLIST-FUMEE.md`, `banc/LISEZMOI.md`.
 
+### Corrigé
+
+- **Banc d'apprentissage, écran d'import : thème sombre et téléphone** (jamais contrôlés depuis la carte, la couverture et le
+  filtre). Relevés par la fumée, corrigés dans `banc/src/styles.css`. En sombre, le texte blanc sur l'accent ne donnait que 3,2:1
+  (« Chercher », « Importer… », « Terminé », le fond de carte choisi) : le texte sur l'accent y est sombre (`--accent-texte`,
+  5,8:1, dans tout le banc) ; le liseré du rayon dans la légende (2,3:1) prend l'accent. Au doigt, « Couverture Panoramax » passait
+  sous les boutons du fond de carte, plus hauts qu'à la souris : il descend ; et les cibles de l'écran d'import et de la fenêtre
+  « Choisir les vues » restées à 24 à 36 px (champs, cases, « Chercher », « Tout cocher », « Choisir les vues », ◀ ▶ ✕ de 27 px)
+  font 44 px. Rien d'autre ne change à la souris ni en clair.
+
+## [5.29.1] — 2026-11-15
+
+Version **corrective** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax lit une instance de
+plus, `panoramax.mapcomplete.org`, dont les photos étaient écartées à la lecture (#687). Un hôte de plus dans la liste des hôtes admis
+et dans la politique de contenu du banc, sans fonction, panneau ni export nouveaux : PATCH (§2.1). Seul `banc/` change : aucune quantité
+ni aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
+la mesure sur main (run 43724109155 ; prompts et schémas inchangés).
+
+### Ajouté
+
 - **Banc d'apprentissage, import Panoramax : les photos de l'instance `panoramax.mapcomplete.org` se proposent** (demande du
   propriétaire, 15 novembre 2026 : « Ajoute cette instance on top »). C'est une instance tierce du méta-catalogue (lien `via` vers
   `https://panoramax.mapcomplete.org`, `instance_name` « mapcomplete »), rencontrée au centre de Paris : 13 photos sur 200 autour de
@@ -49,16 +61,6 @@ la mesure sur main (run 43724109155 ; prompts et schémas inchangés).
   l'import d'une photo réussit (auteur « mapcomplete », licence CC-BY-SA-4.0 gardés), sans refus de la politique de contenu. Un test
   vérifie que l'hôte est lu et admis une fois par directive. Les autres instances tierces restent à décider une par une. Serveur
   du banc et politique de contenu de Plan inchangés.
-
-### Corrigé
-
-- **Banc d'apprentissage, écran d'import : thème sombre et téléphone** (jamais contrôlés depuis la carte, la couverture et le
-  filtre). Relevés par la fumée, corrigés dans `banc/src/styles.css`. En sombre, le texte blanc sur l'accent ne donnait que 3,2:1
-  (« Chercher », « Importer… », « Terminé », le fond de carte choisi) : le texte sur l'accent y est sombre (`--accent-texte`,
-  5,8:1, dans tout le banc) ; le liseré du rayon dans la légende (2,3:1) prend l'accent. Au doigt, « Couverture Panoramax » passait
-  sous les boutons du fond de carte, plus hauts qu'à la souris : il descend ; et les cibles de l'écran d'import et de la fenêtre
-  « Choisir les vues » restées à 24 à 36 px (champs, cases, « Chercher », « Tout cocher », « Choisir les vues », ◀ ▶ ✕ de 27 px)
-  font 44 px. Rien d'autre ne change à la souris ni en clair.
 
 ## [5.29.0] — 2026-11-15
 
