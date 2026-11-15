@@ -7,6 +7,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage : l'import d'une zone en lot, et « où importer ensuite »** (« Do it all all to the end » et « Avoid
+  having 2 times the same building » du propriétaire, 15 novembre 2026, « niveau suivant » n° 6 et 8). (6) L'import gagne
+  « Panoramax, une zone en lot » : on vise une **commune** (géocodage, puis son contour par le WFS de la Géoplateforme), on tape des
+  **coordonnées** (un pavé de 300 m autour), ou l'on **dessine** la zone sur la carte (un rectangle en glissant, un polygone sommet
+  après sommet), et l'on fixe une **cible** (100 façades si rien n'est dit, 500 au plus). Le banc parcourt la zone par pavés de
+  300 m (`banc/src/lot.ts` : 300 au plus, dans un ordre éparpillé pour que les premiers couvrent déjà toute la zone), lit dans
+  chacun les photos de Panoramax (400 au plus) puis les bâtiments de la BD TOPO, **une requête à la fois, 0,7 s de pause avant
+  chacune** ; quand un service répond qu'il limite (429, 503) il attend 30 s, réessaie deux fois, puis s'arrête en le disant, et
+  reprend au même pavé ; un pavé en panne est repris une fois à la fin, puis compté. Il garde **la meilleure vue de chaque
+  bâtiment** (la note du tri, l'hiver préféré, chaque vue cadrée sur sa façade) : jamais deux fois le même bâtiment dans un lot,
+  même par deux côtés ; **aucun bâtiment que le banc a déjà** ; cinq façades au plus par tronçon (une séquence de photos dans un
+  pavé) et un plafond par pavé, pour ne pas prendre dix fois la même rue. L'écran montre l'avancement (pavés lus sur la carte,
+  photos lues, façades retenues, bâtiments déjà dans le banc, pavés en panne ou saturés), puis un **récapitulatif avant l'import** :
+  le compte, les types de bâtiment, le poids estimé (600 ko par vue), une planche de douze aperçus lus un à un. L'import se fait
+  en tâche de fond avec sa jauge, s'arrête à la demande, et **ne perd rien** : une photo en erreur est dite, les autres
+  continuent, et « Reprendre » n'importe que ce que le banc n'a pas. Parce que personne ne regarde un lot vue par vue, la façade
+  de chaque vue est lue dans l'image à l'import (la lecture « façade cachée » de l'écran) et les vues cachées sont écartées
+  (case cochée, à lever) : le lot peut rendre moins que sa cible, et le dit. `importerVues` sort de `ImportPanoramax.tsx`
+  (`ecrans/import/importerVues.ts`), la carte simple de l'équilibre devient commune (`ui/carteSimple.tsx`). (8) L'écran
+  **Équilibre** gagne **« Où importer ensuite »** (`banc/src/ouImporter.ts`) : une heuristique simple, sans modèle, dite comme
+  telle — vingt-six communes (une grande ville et une petite par région), rangées par ce qui manque au jeu (la région d'abord,
+  puis le type de bâtiment qu'on y trouve surtout), gardées seulement si Panoramax y a des photos (une requête par commune, dix au
+  plus, lancées à la demande) ; trois à cinq zones, une par région, chacune avec le bouton qui ouvre l'import en lot sur un carré
+  de 1,2 km autour du centre. La saison ne se choisit pas par le lieu : l'écran dit seulement quand le jeu manque de photos sans
+  feuilles. Jugé sur le vrai réseau : Le Vésinet (5 km², 80 pavés), cible 40 atteinte en 9 pavés et 17 s, 16 requêtes espacées
+  de 0,7 s au moins, 40 bâtiments distincts importés en 76 s ; Beaune et Corte depuis « Où importer ensuite ». Limites dites dans
+  la PR. Tests : `banc/tests/lot.test.ts`, `ouImporter.test.ts` ; la fumée joue un lot de deux façades autour de l'adresse
+  (témoin réenregistré, 2,0 Mo : deux grandes versions de plus, notées dans `banc/tests/fumee/LISEZMOI.md`).
 - **Banc d'apprentissage, import Panoramax : « Proposer un marquage »** (« Do it all all to the end » du propriétaire,
   15 novembre 2026, « niveau suivant » n° 3). Constat d'abord : le brouillon du banc tourne **dans le navigateur**
   (onnxruntime-web 1.24.1, chargé d'un CDN), avec les modèles que le serveur a installés — ceux du dépôt `facade` (YOLOv10n,

@@ -1,29 +1,33 @@
 // Etape 1 : capturer des images. 1a, les photos de l'iPhone (ou de tout appareil), leur EXIF garde, choisies ou glissees sur la zone de
 // depot ; 1b, les photos de rue Panoramax cherchees sur la carte ou autour d'une adresse, par lot, un panoramique 360 ramene a la vue tournee vers l'adresse.
 
-import { useState, type DragEvent } from 'react';
+import { useEffect, useState, type DragEvent } from 'react';
 import type { Banc } from '../../App.js';
 import { COTE_SOURCE } from '../../images.js';
 import { Icone } from '../../ui/Icones.js';
 import { Jauge, Page, Section, Segments } from '../../ui/Page.js';
+import { ImportEnLot } from './ImportEnLot.js';
 import { ImportPanoramax } from './ImportPanoramax.js';
 import { useImport } from './useImport.js';
 
 export { nomDuLot } from './useImport.js';
 
 export function EcranImport({ banc }: { banc: Banc }) {
-  const [source, setSource] = useState<'fichiers' | 'panoramax'>('fichiers');
+  const [source, setSource] = useState<'fichiers' | 'panoramax' | 'lot'>('fichiers');
+  // Une zone demandee de l'ecran d'equilibre (« Ou importer ensuite ») ouvre l'import en lot, qui la prend.
+  useEffect(() => { if (banc.zoneDemandee) setSource('lot'); }, [banc.zoneDemandee]);
   const aRedresser = banc.images.filter((m) => m.statut === 'importee').length;
   return (
     <Page icone="importer" numero="1" titre="Import" large
-      aide={<p>Les photos de l’iPhone (ou de tout appareil) gardent leur EXIF : position, date, cap et focale ; le grand côté est ramené à {COTE_SOURCE} px. Panoramax donne les photos de rue libres, cherchées sur la carte (de la France à la rue) ou autour d’une adresse, chacune avec sa licence.</p>}
+      aide={<p>Les photos de l’iPhone (ou de tout appareil) gardent leur EXIF : position, date, cap et focale ; le grand côté est ramené à {COTE_SOURCE} px. Panoramax donne les photos de rue libres, cherchées sur la carte (de la France à la rue) ou autour d’une adresse, chacune avec sa licence ; « une zone en lot » parcourt une commune ou une zone dessinée et garde la meilleure vue de chaque bâtiment.</p>}
       actions={aRedresser > 0 && <button type="button" className="principal" onClick={() => banc.aller('redressement')}>Redresser les {aRedresser} photo(s) <Icone nom="suivant" /></button>}>
       <div className="barre-outils">
-        <Segments label="Source" valeur={source} onChange={setSource} options={[{ valeur: 'fichiers', libelle: 'Photos de l’appareil' }, { valeur: 'panoramax', libelle: 'Panoramax, sur la carte' }]} />
+        <Segments label="Source" valeur={source} onChange={setSource} options={[{ valeur: 'fichiers', libelle: 'Photos de l’appareil' }, { valeur: 'panoramax', libelle: 'Panoramax, sur la carte' }, { valeur: 'lot', libelle: 'Panoramax, une zone en lot' }]} />
       </div>
-      {/* Les deux restent montes : passer de l'un a l'autre ne perd ni la recherche Panoramax ni le journal. */}
+      {/* Les trois restent montes : passer de l'un a l'autre ne perd ni la recherche Panoramax ni le journal. */}
       <div hidden={source !== 'fichiers'}><ImportFichiers banc={banc} /></div>
       <div hidden={source !== 'panoramax'}><Section titre="Panoramax, sur la carte ou par adresse"><ImportPanoramax banc={banc} /></Section></div>
+      <div hidden={source !== 'lot'}><Section titre="Panoramax, une zone en lot"><ImportEnLot banc={banc} /></Section></div>
     </Page>
   );
 }

@@ -6,24 +6,17 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { Banc } from '../../App.js';
-import { api, ErreurApi, lireImage } from '../../api.js';
-import { bitmap, COTE_SOURCE, jpeg, liberer, pixels, reduire, versCanevas, vignette } from '../../images.js';
+import { api } from '../../api.js';
 import { contient, elargir, empriseAutour, largeurM, milieuEmprise, type Emprise } from '../../carte.js';
-import { CHAMP_VUE, distanceM, lirePhotos, trouverAdresses, urlRecherche, urlRechercheEmprise, type Adresse, type PhotoRue, type VueAExtraire, type Visee } from '../../panoramax.js';
+import { lirePhotos, trouverAdresses, urlRecherche, urlRechercheEmprise, type Adresse, type PhotoRue, type Visee } from '../../panoramax.js';
 import { centre, lireLesParcelles, parcelleDuPoint, rapporterALaParcelle, type Parcelle } from '../../parcelles.js';
-import { cadragePourMeta, tirerLaVue } from '../../cadrage.js';
-import type { Batiment } from '../../facadesVues.js';
-import { murDeVue } from '../../murVise.js';
-import { texteDeLImportFait, vueAMarquer, type BilanDuMarquage } from '../../importMarquage.js';
-import type { MetaImage, Modele, MurDeVue } from '../../types.js';
-import { proposerLesObjets } from '../brouillon/proposer.js';
 import { ApercuPhoto } from './ApercuPhoto.js';
 import { CarteImport } from './CarteImport.js';
 import { FenetreDesVues, ListePhotos } from './ListePhotos.js';
 import { useReglagesListe } from './reglagesListe.js';
 import { useRelais } from './useRelais.js';
 import { useVuesTriees } from './useVuesTriees.js';
-import { nomDuLot } from './useImport.js';
+import { importerVues } from './importerVues.js';
 
 /** Lit un JSON, en erreur sur une reponse qui n'est pas 2xx (un 504 du geocodage passe au repli). `signal` : pour l'abandonner. */
 async function lireJson(url: string, signal?: AbortSignal): Promise<unknown> {
@@ -44,78 +37,8 @@ const LARGEUR_PHOTOS_MAX_M = 600;
 const LIMITE_PHOTOS_VUE = 500;
 /** Les parcelles gardees en memoire en se promenant : au-dela, on ne garde que celles de la vue. */
 const PARCELLES_MAX = 5000;
-/** Sans parcelle visee, une photo garde le libelle de l'adresse cherchee si elle en est proche ; plus loin, il ne dirait rien d'elle. */
-const PROCHE_DE_L_ADRESSE_M = 300;
 const AVIS_TRONQUE = 'Cadastre tronqué : toutes les parcelles de cette vue n’ont pas pu être lues. Rapprochez-vous pour voir les autres.';
 const AVIS_PANNE = 'Cadastre de l’IGN indisponible : la carte ne montre pas toutes les parcelles.';
-
-interface Contexte { adresse: Adresse | null; parcelle: Parcelle | null; /** Le batiment lu d'une vue (BD TOPO), pour ecrire son mur dans les metadonnees. */ batiment: (id: string) => Batiment | null; /** Le pre-marquage a l'import (importMarquage.ts) : les modeles actifs, ou null quand il n'est pas demande. */ marquage: Modele[] | null }
-
-/** Le mur d'une vue, pour ses metadonnees : rien quand le tri n'a pas dit son batiment (case decochee, BD TOPO en panne). */
-function murDeLaVue(ctx: Contexte, p: PhotoRue, v: VueAExtraire): { mur?: MurDeVue } {
-  const b = v.batiment ? ctx.batiment(v.batiment) : null;
-  return b && typeof v.cote === 'number' ? { mur: murDeVue(b, p, { cap: v.cap, cote: v.cote, note: v.note, distanceFacade: v.distanceFacade }, p.panoramique ? CHAMP_VUE : Math.min(120, p.champ)) } : {};
-}
-
-/**
- * Le pre-marquage d'une vue rendue face au mur (demande du proprietaire, 15 novembre 2026) : elle est deja de face, on l'enregistre
- * telle quelle comme redressee (methode « import »), puis les modeles actifs y proposent des objets « auto » : elle passe au brouillon,
- * comme apres l'etape 3. Un echec laisse la vue importee, a redresser comme les autres.
- */
-async function marquerLaVue(banc: Banc, m: MetaImage, c: HTMLCanvasElement, image: Blob, vig: Blob, actifs: readonly Modele[], bilan: BilanDuMarquage): Promise<void> {
-  try {
-    await api.redressee(m.id, image, vig, { methode: 'import', note: 'Rendue face au mur à l’import, passée telle quelle' });
-    const objets = await proposerLesObjets(c, actifs, banc.classes, false);
-    await api.ecrireAnnotation(m.id, { objets, par: 'auto' });
-    bilan.marquees++; bilan.objets += objets.length;
-  } catch (e) {
-    bilan.echecs++;
-    banc.dire(`Brouillon de ${m.nom ?? m.id} : ${(e as Error).message}`, 'erreur');
-  }
-}
-
-/** Importe les vues des photos choisies (une ou deux par panoramique) ; rend le nombre de vues importees. */
-async function importerVues(banc: Banc, photos: readonly PhotoRue[], vuesDe: (p: PhotoRue) => VueAExtraire[], ctx: Contexte, dire: (t: string) => void): Promise<number> {
-  const lot = nomDuLot('panoramax');
-  let ok = 0, n = 0;
-  const bilan: BilanDuMarquage | null = ctx.marquage ? { marquees: 0, objets: 0, echecs: 0 } : null;
-  for (const p of photos) {
-    dire(`Import ${++n} sur ${photos.length}…`);
-    // L'adresse et la parcelle d'aujourd'hui quand on les connait ; sans parcelle visee, l'adresse ne vaut que pour les photos prises pres d'elle.
-    const adresse = ctx.adresse && (ctx.parcelle || distanceM(p, ctx.adresse) <= PROCHE_DE_L_ADRESSE_M) ? ctx.adresse.libelle : null;
-    try {
-      // En direct pour un hote liste, par le relais du serveur sinon : en erreur, la raison que le serveur donne.
-      const b = await bitmap(await lireImage(p.hd));
-      // Le panoramique se lit une fois pour toutes ses vues ; 75 degres de champ, un peu vers le haut, comme on vise une facade.
-      // 6000 px de large au plus, et PIXELS_MAX au plus (Safari laisse vide un canevas plus grand : 5650 x 2825).
-      let pano: ReturnType<typeof pixels> | null = null;
-      if (p.panoramique) { const cp = reduire(b, 6000); try { pano = pixels(cp); } finally { liberer(cp); } }
-      for (const v of vuesDe(p)) {
-        // Le cadre de la vue est celui que l'apercu et la carte ont montre (cadrage.ts) : sur sa facade, ou face au mur.
-        const c = pano ? versCanevas(tirerLaVue(pano, p.azimut ?? 0, v.cap, v.cadre, 1600, 1200)) : reduire(b, COTE_SOURCE);
-        try {
-          const image = await jpeg(c, 0.92), vig = await vignette(c);
-          const m = await api.importer(image, vig, {
-            source: 'panoramax', nom: 'panoramax-' + p.id.slice(0, 8) + (v.vue === 'gauche' || v.vue === 'droite' ? '-' + v.vue : v.vue === 'choisie' ? '-' + Math.round(v.cap) : ''), date: p.date, lat: p.lat, lon: p.lon, azimut: v.cap,
-            panoramax: { id: p.id, collection: p.collection, panoramique: p.panoramique, cap: v.cap, vue: v.vue }, auteur: p.auteur, licence: p.licence,
-            adresse, parcelle: ctx.parcelle?.idu ?? null, lot,
-            // Le mur que la vue montre (demande du proprietaire, 15 novembre 2026) : de quoi ne pas le reimporter et le regrouper ensuite.
-            ...murDeLaVue(ctx, p, v), ...(pano ? cadragePourMeta(v.cadre) : {}),
-          });
-          ok++;
-          if (bilan && ctx.marquage && vueAMarquer(true, v.cadre)) await marquerLaVue(banc, m, c, image, vig, ctx.marquage, bilan);
-        } catch (e) {
-          if (!(e instanceof ErreurApi && e.statut === 409)) throw e;
-        } finally { liberer(c); }
-      }
-      b.close();
-    } catch (e) {
-      banc.dire(`Photo ${p.id.slice(0, 8)} : ${(e as Error).message}`, 'erreur');
-    }
-  }
-  dire(texteDeLImportFait(ok, lot, bilan));
-  return ok;
-}
 
 /**
  * Le cadastre de ce que la carte montre : les parcelles lues, ce qu'on en a deja lu (pour ne pas relire), et ce qu'il faut en dire.

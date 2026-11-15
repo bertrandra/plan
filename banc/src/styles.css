@@ -634,3 +634,35 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .dialogue .apercus .cadre-de-vue { justify-content: space-between; }
 .dialogue .apercus .cadre-de-vue span { flex: 1; text-align: center; color: var(--doux); white-space: nowrap; }
 .face-au-mur button { margin: 0 .25rem; }
+
+/* L'import d'une zone en lot : la carte ou l'on dessine la zone, ses paves, le recapitulatif. */
+.carte-lot { display: flex; flex-direction: column; gap: .35rem; margin: .5rem 0; }
+.carte-lot .carte-cadre { height: clamp(320px, 52dvh, 620px); cursor: grab; }
+.carte-lot .carte-cadre.dessin { cursor: crosshair; }
+.carte-lot .zone-lot { fill: color-mix(in srgb, #1f6feb 10%, transparent); stroke: #1553b7; stroke-width: 2.5; }
+.carte-lot .zone-lot.trace { stroke-dasharray: 6 4; fill: color-mix(in srgb, #1f6feb 16%, transparent); }
+.carte-lot .pave { fill: none; stroke: #3d465655; stroke-width: 1; }
+.carte-lot .pave.lu { fill: #1a7f3726; stroke: #1a7f37; }
+.carte-lot .pave.panne { fill: #b26a0033; stroke: #b26a00; }
+.carte-lot .sommet-lot { fill: #fff; stroke: #1553b7; stroke-width: 2; }
+.carte-lot .facade-lot { fill: #d1242f; stroke: #fff; stroke-width: 1.5; }
+.carte-lot .outils-polygone { display: flex; gap: .4rem; border-color: var(--trait); pointer-events: auto; z-index: 2; }
+.pastille-lot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; border: 2px solid var(--doux); }
+.pastille-lot.zone { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.pastille-lot.lu { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 25%, transparent); }
+.pastille-lot.panne { border-color: var(--attention); background: color-mix(in srgb, var(--attention) 25%, transparent); }
+.pastille-lot.facade { border-radius: 50%; border-color: #fff; background: #d1242f; box-shadow: 0 0 0 1px var(--trait); }
+.avance-du-lot .avance { display: inline-flex; align-items: center; gap: .5rem; }
+.avance-du-lot .jauge { width: 140px; }
+.recap-du-lot { display: flex; flex-direction: column; gap: .6rem; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--trait); }
+.recap-du-lot h4 { margin: 0; font-size: 1rem; }
+.planche-du-lot { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; }
+.planche-du-lot img, .planche-du-lot .sans-image { width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; display: block; background: var(--fond); object-fit: cover; }
+.planche-du-lot small { color: var(--doux); font-size: .75rem; }
+@media (pointer: coarse) { .import-lot button, .import-lot input:not([type="checkbox"]), .import-lot label.case { min-height: 44px; } .import-lot .carte-zoom button { width: 44px; height: 44px; } }
+
+/* « Ou importer ensuite » (ecran d'equilibre) : une zone par ligne, son geste a droite. */
+.ou-importer { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.ou-importer li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding: .55rem .7rem; border: 1px solid var(--trait); border-radius: 10px; }
+.ou-importer small, .ou-importer .raisons { color: var(--doux); font-size: .85rem; }
+@media (pointer: coarse) { .ou-importer button, .page .tete-section button { min-height: 44px; } }

@@ -18,6 +18,7 @@ import { EcranEquilibre } from './ecrans/equilibre/Equilibre.js';
 import { Editeur } from './ecrans/editeur/Editeur.js';
 import { Icone, type NomIcone } from './ui/Icones.js';
 import { aFaire, type AFaire } from './etapes.js';
+import type { Zone } from './lot.js';
 
 export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs' | 'equilibre';
 
@@ -45,6 +46,9 @@ export interface Banc {
   dire: (texte: string, genre?: 'ok' | 'erreur') => void;
   ouvrir: (id: string, liste?: string[]) => void;
   aller: (e: IdEcran) => void;
+  /** Une zone a importer en lot, demandee d'un autre ecran (« Ou importer ensuite », equilibre) : l'import la prend et l'oublie. */
+  zoneDemandee: Zone | null;
+  demanderZone: (z: Zone | null) => void;
 }
 
 export function App() {
@@ -56,6 +60,7 @@ export function App() {
   const [modeles, setModeles] = useState<Modele[]>([]);
   const [reglages, setReglages] = useState<Reglages>(REGLAGES_DEFAUT);
   const [message, setMessage] = useState<{ texte: string; genre: 'ok' | 'erreur' } | null>(null);
+  const [zoneDemandee, demanderZone] = useState<Zone | null>(null);
   const [edition, setEdition] = useState<{ id: string; liste: string[] } | null>(null);
 
   const dire = useCallback((texte: string, genre: 'ok' | 'erreur' = 'ok') => setMessage({ texte, genre }), []);
@@ -91,7 +96,7 @@ export function App() {
   if (!connecte) return <Connexion onConnecte={() => setConnecte(true)} />;
 
   const remplacer = (m: MetaImage) => setImages((l) => l.map((x) => (x.id === m.id ? m : x)));
-  const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran };
+  const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran, zoneDemandee, demanderZone };
   const attente = aFaire(images);
   const deconnecter = () => { api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
 
