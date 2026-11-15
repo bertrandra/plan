@@ -264,16 +264,37 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(await page.locator('.adresse-carte').count() === 1, 'le repère de l’adresse n’est pas sur la carte');
 
     // 4. « Seulement les facades » : son compte, les points et la liste ; la case decochee, toutes les photos.
-    const COMPTE = /^(\d+) photos?, (\d+) façades? ; (\d+) écartées? : route ou campagne\.$/;
+    const COMPTE = /^(\d+) photos?, (\d+) façades? de (\d+) bâtiments?, (\d+) doublons? ; (\d+) écartées? : route, campagne ou pas une maison\.$/;
     await attendre((re) => new RegExp(re).test(document.querySelector('.compte-facades')?.textContent ?? ''), COMPTE.source, 'le filtre des façades ne dit pas son compte');
-    const [, proposees, facades, ecartees] = COMPTE.exec(await texte('.compte-facades')).map(Number);
-    verifier(proposees > 0 && facades >= proposees, `le filtre ne propose rien de cohérent : ${await texte('.compte-facades')}`);
+    const [, proposees, facades, batiments, doublons, ecartees] = COMPTE.exec(await texte('.compte-facades')).map(Number);
+    // Chaque photo proposee a une vue au moins (a importer ou en doublon), et chaque batiment regarde une vue au moins.
+    verifier(proposees > 0 && facades + doublons >= proposees && batiments > 0 && batiments <= facades + doublons, `le filtre ne propose rien de cohérent : ${await texte('.compte-facades')}`);
+    // Chaque carte dit sa note ; une photo toute en doublons le dit et n'est pas cochee d'office.
+    verifier(await page.locator('ul.mosaique.grande > li .note-vue').count() === proposees, 'chaque photo proposée ne dit pas sa note');
+    const notes = (await page.locator('ul.mosaique.grande > li:not(.doublon) .note-vue').allInnerTexts()).map((t) => parseInt(t.replace('note ', ''), 10));
+    verifier(await page.locator('label', { hasText: 'Vues par bâtiment' }).locator('select').inputValue() === '1', 'le réglage « Vues par bâtiment » ne vaut pas 1 par défaut');
+    verifier(notes.every((n, k) => n >= 0 && n <= 100 && (k === 0 || n <= notes[k - 1])), `la liste n’est pas triée par note décroissante : ${notes.join(' ')}`);
+    verifier(await page.locator('ul.mosaique.grande > li.doublon input:checked').count() === 0, 'une photo en doublon est cochée d’office');
     verifier(proposees + ecartees === trouvees - deja, `le compte du filtre (${proposees} + ${ecartees}) n’est pas celui des photos (${trouvees} − ${deja})`);
     const points = page.locator('g.point-photo:not(.valeur)'), cartes = page.locator('ul.mosaique.grande > li');
     verifier(await points.count() === proposees && await cartes.count() === proposees, `${await points.count()} point(s) et ${await cartes.count()} carte(s) pour ${proposees} photo(s) proposée(s)`);
     // Toutes cochees : le bouton d'import dit les vues gardees par le filtre, puis toutes celles de la visee.
-    const vuesAImporter = async () => { await toucher(page.getByRole('button', { name: 'Tout cocher' })); return parseInt((await page.getByRole('button', { name: /^Importer \d+ vue/ }).innerText()).replace('Importer ', ''), 10); };
+    // « Tout cocher » ne coche pas les doublons : le bouton d'import annonce les facades du compte (« N façades de N bâtiments »).
+    const vuesAImporter = async () => { await toucher(page.getByRole('button', { name: 'Tout cocher' })); return parseInt((await page.getByRole('button', { name: /^Importer \d+ (vue|façade)/ }).innerText()).replace('Importer ', ''), 10); };
     verifier(await vuesAImporter() === facades, `le bouton d’import ne dit pas les ${facades} façade(s) du filtre`);
+    // Un batiment, une fois : l'import annonce ses facades et ses batiments, et rien n'est coche en double.
+    const annonce = /^Importer (\d+) façades? de (\d+) bâtiments?$/.exec(await page.getByRole('button', { name: /^Importer \d+ façade/ }).innerText());
+    verifier(annonce && Number(annonce[2]) === batiments, `le bouton d’import n’annonce pas les ${batiments} bâtiment(s) du filtre : ${annonce?.[0]}`);
+    verifier(await page.locator('.en-double').count() === 0, '« Tout cocher » a coché une façade deux fois');
+    const avecDoublons = page.getByRole('button', { name: /^Avec les doublons/ });
+    verifier((await avecDoublons.count() > 0) === (await page.locator('ul.mosaique.grande > li.doublon').count() > 0), 'le bouton « Avec les doublons » ne suit pas les photos en doublon');
+    if (await avecDoublons.count()) {
+      // Les doublons coches expres : l'ecran le dit, sans empecher l'import.
+      await toucher(avecDoublons);
+      verifier(/^\d+ bâtiments? en double$/.test(await texte('.en-double')), 'des doublons cochés ne sont pas signalés : ' + await texte('.barre-choix'));
+      verifier(await page.getByRole('button', { name: /^Importer \d+ façade/ }).isEnabled(), 'des doublons cochés empêchent l’import');
+      await toucher(page.getByRole('button', { name: 'Tout cocher' }));
+    }
     await page.getByLabel('Seulement les façades').uncheck();
     await attendre((n) => !document.querySelector('.compte-facades') && document.querySelectorAll('g.point-photo:not(.valeur)').length === n, proposees + ecartees, `case décochée : la carte ne montre pas les ${proposees + ecartees} photos`);
     verifier(await cartes.count() === proposees + ecartees, 'case décochée : la liste ne montre pas toutes les photos');
@@ -324,7 +345,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     if (!etat.importees) {
       await toucher(page.getByRole('button', { name: 'Tout décocher' }));
       await page.getByLabel('Photo choisie pour l’import').check();
-      const bouton = page.getByRole('button', { name: /^Importer \d+ vue\(s\) de 1 photo\(s\)$/ });
+      const bouton = page.getByRole('button', { name: /^Importer \d+ (vue\(s\) de 1 photo\(s\)|façades? de \d+ bâtiments?)$/ });
       const nVues = parseInt((await bouton.innerText()).replace('Importer ', ''), 10);
       verifier(nVues >= 1, 'la photo choisie n’a aucune vue à importer');
       images.length = 0;

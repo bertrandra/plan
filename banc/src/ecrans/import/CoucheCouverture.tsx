@@ -2,13 +2,20 @@
 // dispo dans la zone selectionnee, sinon je zoome pour arriver a rien ») : de loin la grille de densite, puis les traces des rues
 // photographiees, en orange, entre le fond et les parcelles. Les tuiles de la vue seulement, gardees un moment, abandonnees quand on
 // bouge. La geometrie et les regles sont dans couverture.ts ; ici, la lecture et le dessin.
+// A l'echelle de la rue (une vue de LARGEUR_FACADES_MAX_M au plus), les troncons sans facade a portee se dessinent en gris : les
+// batiments de la BD TOPO lus par cases (batimentsLus.ts), le partage dans couvertureFacades.ts. Jamais de gris sur une panne.
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Recents } from '../../cache.js';
-import { tuiles, type Taille, type VueCarte } from '../../carte.js';
+import { empriseVue, largeurM, tuiles, type Taille, type Tuile, type VueCarte } from '../../carte.js';
+import { caseDuPoint, casesDeLEmprise, cleDeCase, jugeParMailles, LARGEUR_FACADES_MAX_M, metresParUnite, partagerLeTrace, PAS_TRONCON_M, versLlDeLaTuile, type EtatFacadesCouverture, type Partage } from '../../couvertureFacades.js';
+import { facadeAPortee } from '../../facadesVues.js';
+import { BATIMENTS, useVersionDesBatiments } from './batimentsLus.js';
 import { couvertureVisible, lireCouverture, niveauCouverture, opaciteDeCase, TUILE_VIDE, urlCouverture, type EtatCouverture, type TuileCouverture } from '../../couverture.js';
 
 const ORANGE = '#e8590c';
+/** Les rues photographiees sans facade a portee : un gris que la transparence de la couche eclaircit. */
+const GRIS = '#4a5160';
 /** Le cote du dessin d'une tuile, en pixels : elle se montre entre 256 et 512 pixels de l'ecran (la grille jusqu'a 1000, sans dommage). */
 const COTE_DESSIN = 512;
 /** Au niveau le plus fin, la tuile s'etire jusqu'a la facade : ses traces se redessinent en traits a chaque image, ils sont peu nombreux. */
@@ -38,21 +45,57 @@ function dessiner(t: TuileCouverture, couche: 'grille' | 'traces'): HTMLCanvasEl
     for (const q of t.cellules) { x.globalAlpha = opaciteDeCase(q.n); x.fillRect(q.x, q.y, t.pas.x + 0.5, Math.min(2 * t.pas.y, haut.get(q.y) ?? t.pas.y)); }
     return c;
   }
-  tracer(x, t, 1.6 / k);
+  tracer(x, t.lignes, 1.6 / k, ORANGE);
   return c;
 }
 
 /** Tous les traces d'une tuile d'un seul trait : la ou deux sequences se superposent, la teinte ne s'epaissit pas. */
-function tracer(x: CanvasRenderingContext2D, t: TuileCouverture, epaisseur: number): void {
-  x.strokeStyle = ORANGE; x.lineWidth = epaisseur; x.lineJoin = 'round'; x.lineCap = 'round';
+function tracer(x: CanvasRenderingContext2D, lignes: readonly Float32Array[], epaisseur: number, couleur: string): void {
+  x.strokeStyle = couleur; x.lineWidth = epaisseur; x.lineJoin = 'round'; x.lineCap = 'round';
   x.beginPath();
-  for (const l of t.lignes) {
+  for (const l of lignes) {
     x.moveTo(l[0] as number, l[1] as number);
     // Une sequence d'une seule photo : un point.
     if (l.length === 2) x.lineTo(l[0] as number, l[1] as number);
     for (let i = 2; i < l.length; i += 2) x.lineTo(l[i] as number, l[i + 1] as number);
   }
   x.stroke();
+}
+
+/** Les traces d'une tuile partages en orange et gris, gardes tant que les memes cases de batiments sont lues. */
+const PARTAGES = new Recents<Partage>(12);
+
+function partager(p: Tuile & { cle: string }, t: TuileCouverture, cases: readonly string[]): Partage {
+  const cle = p.cle + '|' + cases.join(' '), garde = PARTAGES.lire(cle);
+  if (garde) return garde;
+  const versLl = versLlDeLaTuile(p.z, p.x, p.y, t.etendue), pas = PAS_TRONCON_M / metresParUnite(p.z, p.y, t.etendue);
+  const scene = BATIMENTS.scene(cases), lues = new Set(cases);
+  // Hors des cases lues on ne sait rien : le troncon reste orange.
+  const juger = jugeParMailles((ux, uy) => { const ll = versLl(ux, uy); return lues.has(cleDeCase(caseDuPoint(ll))) ? facadeAPortee(scene, ll) : null; }, pas);
+  const out: Partage = { orange: [], gris: [] };
+  for (const l of t.lignes) { const r = partagerLeTrace(l, juger, pas); out.orange.push(...r.orange); out.gris.push(...r.gris); }
+  PARTAGES.garder(cle, out);
+  return out;
+}
+
+/**
+ * Les batiments que la couverture demande : ceux de la vue, a l'echelle de la rue seulement. `etat` : « oui » des qu'une case est lue
+ * (le gris vient case par case), « panne » si une seule manque ou est tronquee (alors rien n'est gris), « loin » au-dela du seuil.
+ */
+function useFacadesDeLaVue(vue: VueCarte, taille: Taille, actif: boolean): { etat: EtatFacadesCouverture; lues: string[] } {
+  useVersionDesBatiments();
+  const emprise = actif && taille.l > 0 ? empriseVue(vue, taille) : null;
+  const cases = emprise && largeurM(emprise) <= LARGEUR_FACADES_MAX_M ? casesDeLEmprise(emprise) : [];
+  const cles = cases.map(cleDeCase), signature = cles.join(' ');
+  useEffect(() => {
+    // Un repos : glisser la carte ne demande pas les batiments de chaque image.
+    const t = setTimeout(() => BATIMENTS.vouloir('couverture', signature ? signature.split(' ').map((c) => { const [x, y] = c.split('/'); return { x: Number(x), y: Number(y) }; }) : []), 300);
+    return () => clearTimeout(t);
+  }, [signature]);
+  useEffect(() => () => BATIMENTS.vouloir('couverture', []), []);
+  const etats = cles.map((c) => BATIMENTS.etat(c)), lues = cles.filter((_, i) => etats[i] === 'lue').sort();
+  const etat: EtatFacadesCouverture = !actif ? 'eteinte' : !cles.length ? 'loin' : etats.some((e) => e === 'panne' || e === 'tronquee') ? 'panne' : lues.length ? 'oui' : 'lecture';
+  return { etat, lues };
 }
 
 async function lire(cle: string, couche: 'grille' | 'traces', url: string, signal: AbortSignal): Promise<void> {
@@ -69,7 +112,7 @@ async function lire(cle: string, couche: 'grille' | 'traces', url: string, signa
  * La couverture de la vue : `toile` est le canevas ou elle se dessine, `etat` ce qu'on en sait (de quoi dire ou zoomer, ou qu'il n'y a
  * rien). `enVol` : pendant un vol la carte traverse des niveaux, on ne lit rien.
  */
-export function useCouverture(vue: VueCarte, taille: Taille, actif: boolean, enVol: boolean): { toile: RefObject<HTMLCanvasElement | null>; etat: EtatCouverture; couche: 'grille' | 'traces' } {
+export function useCouverture(vue: VueCarte, taille: Taille, actif: boolean, enVol: boolean): { toile: RefObject<HTMLCanvasElement | null>; etat: EtatCouverture; couche: 'grille' | 'traces'; facades: EtatFacadesCouverture } {
   const toile = useRef<HTMLCanvasElement | null>(null);
   const [, setVersion] = useState(0);
   const enCours = useRef(new Map<string, AbortController>());
@@ -77,6 +120,7 @@ export function useCouverture(vue: VueCarte, taille: Taille, actif: boolean, enV
   const { couche, niveau } = niveauCouverture(vue.zoom);
   const placees = actif && taille.l > 0 ? tuiles(vue, taille, niveau).map((t) => ({ ...t, cle: `${couche}/${t.z}/${t.x}/${t.y}` })) : [];
   const cles = placees.map((t) => t.cle).join(' ');
+  const facades = useFacadesDeLaVue(vue, taille, actif && !enVol && couche === 'traces');
 
   useEffect(() => {
     const voulues = new Set(cles ? cles.split(' ') : []);
@@ -115,7 +159,9 @@ export function useCouverture(vue: VueCarte, taille: Taille, actif: boolean, enV
       x.save();
       x.beginPath(); x.rect(p.gauche, p.haut, p.cote, p.cote); x.clip();
       x.translate(p.gauche, p.haut); x.scale(k, k);
-      tracer(x, prete.t, 2.5 / k);
+      // Le gris seulement quand tous les batiments demandes ont repondu ou sont en route : jamais sur une panne.
+      if (facades.etat === 'oui') { const r = partager(p, prete.t, facades.lues); tracer(x, r.gris, 2.5 / k, GRIS); tracer(x, r.orange, 2.5 / k, ORANGE); }
+      else tracer(x, prete.t.lignes, 2.5 / k, ORANGE);
       x.restore();
     }
   });
@@ -129,5 +175,5 @@ export function useCouverture(vue: VueCarte, taille: Taille, actif: boolean, enV
     else manque = true;
   }
   const etat: EtatCouverture = !actif ? 'eteinte' : vue_ ? 'oui' : panne ? 'panne' : manque ? 'attente' : 'non';
-  return { toile, etat, couche };
+  return { toile, etat, couche, facades: facades.etat };
 }
