@@ -24,13 +24,14 @@ pignons…), du marquage brouillon à l’export au format natif d’Ultralytics
 | 5 | Marquage | Le catalogue : recherche (**/**), filtres par état, source, bloc, classe, vérification ; une pastille dit l’état de chaque photo (à marquer, à relire, corrigée, vérifiée, échantillon) et ses classes ; « Relire les N brouillons » les enchaîne dans l’éditeur, qui passe d’une photo à l’autre (N / B). |
 | 6 | Export | **RF-DETR** (Roboflow, **Apache 2.0**, libre pour Plan) : le jeu au format COCO (`train/`, `valid/`, `test/`), `noms.txt`, un script et un carnet Colab qui exportent `modele-banc.onnx` (int8, 37 Mo pour Nano) à déposer à l’étape 3 avec sa résolution (384 Nano, 512 Small, 576 Medium). Pour comparer, les YOLO d’Ultralytics (**AGPL-3.0** : un modèle entraîné avec eux, servi dans une application, impose d’en publier le code ou d’acheter leur licence) — le jeu au format Ultralytics : `images/` et `labels/` par bloc, `data.yaml`, `entrainer.py`, `bilan.json`. En détection pour **YOLO26n** (par défaut) ou YOLOv10n (le modèle du dépôt `facade`, pour repartir de ses poids), en contours pour YOLO26n-seg ou YOLO11n-seg, **avec ou sans COCO** (poids pré-entraînés, ou l’architecture seule, de zéro), ou au format du banc (`annotations.json` : arbre, attributs et polygones). L’export ONNX se fait sans NMS (`nms=False`) : de bout en bout, 300 détections ; le banc lit la sortie d’après sa forme (de bout en bout ou brute). |
 | 7 | Blocs | train / val / test (70 / 20 / 10 par défaut) répartis **stratifiés par type** : chaque type, même rare, a sa part dans chaque bloc ; un tableau dit, type par type, ce qui manque (au moins 30 objets en train, un en val et en test). La réserve n’est jamais exportée ; un échantillon de chaque bloc à vérifier, et l’export peut ne prendre que les photos vérifiées. |
+| 8 | Équilibre | Ce que le banc contient déjà, pour voir où importer ensuite : une **carte** des photos à leur place (fond Plan IGN ; les photos voisines regroupées en ronds qui disent leur nombre, toucher un rond s’en approche), et des **comptes** par région et département (déduits de la position par des contours simplifiés à un kilomètre, `departements.ts`, sans service), saison et année (de la date), type de vue (tirée d’un 360 ou plate), source et état d’avancement ; pour toutes les photos ou pour le seul jeu (corrigées, hors réserve). Une ligne à zéro reste montrée : c’est elle qu’on cherche. En bas, ce que l’écran ne peut pas dire : les photos sans position ou sans date, et ce que l’import ne garde pas encore (type de bâtiment, mur visé, matériau). |
 
 Seules les photos **corrigées** (marquage relu et enregistré) entrent dans le jeu : un brouillon jamais relu n’apprend rien.
 
 Tous les écrans se ressemblent (`src/ui/Page.tsx`) : l’étape et son titre, l’aide repliée, le geste principal en haut à droite, un état
 vide qui dit quoi faire ensuite. Les onglets portent le nombre de photos qui attendent chaque étape (`src/etapes.ts`). Chaque écran est
 un dossier de `src/ecrans/` : un contrôleur (`useMosaique`, `useRedressement`, `useCatalogue`, `useBrouillon`, `useExport`, `useBlocs`,
-`useClasses`, `useImport`) qui tient l’état et les gestes, et des vues qui ne font que montrer.
+`useClasses`, `useImport`, `useEquilibre`) qui tient l’état et les gestes, et des vues qui ne font que montrer.
 
 ## Le cycle d’un modèle
 
@@ -50,7 +51,7 @@ GitHub, à un commit fixé, puis la page les lit sur le serveur. Le moteur ONNX 
 ## Le code
 
 - `banc/src/` : la page (React). Les modules sans DOM (`classes.ts`, `geometrie.ts`, `edition.ts`, `exif.ts`,
-  `panoramax.ts`, `parcelles.ts`, `facadesVues.ts` (les vues qui montrent une façade), `mvt.ts` et `couverture.ts` (les tuiles de couverture de Panoramax), `carte.ts` (la projection des tuiles, la vue et ses gestes, les secteurs), `cache.ts`, `equirect.ts`, `blocs.ts`, `brouillon.ts`, `redressement.ts`, les décodeurs de `yolo.ts`) sont testés
+  `panoramax.ts`, `parcelles.ts`, `facadesVues.ts` (les vues qui montrent une façade), `mvt.ts` et `couverture.ts` (les tuiles de couverture de Panoramax), `carte.ts` (la projection des tuiles, la vue et ses gestes, les secteurs), `cache.ts`, `equirect.ts`, `blocs.ts`, `brouillon.ts`, `redressement.ts`, `equilibre.ts` (les comptes de l’écran d’équilibre, le département d’une position), les décodeurs de `yolo.ts`) sont testés
   dans `banc/tests/`.
 - `banc/src/plan/` : la copie figée du redressement par points de fuite et de la recherche des baies de Plan (voir son
   `LISEZMOI.md`). Le banc n’importe rien d’autre : `banc/tests/independance.test.ts` le vérifie.
@@ -65,7 +66,7 @@ npm run dev:banc                       # la page sur http://localhost:5198/
 
 ## La fumée (navigateur piloté)
 
-`scripts/fumee-banc.mjs` joue l’écran d’import Panoramax dans un vrai navigateur, sur le paquet construit, servi par `php -S` comme en
+`scripts/fumee-banc.mjs` joue l’écran d’import Panoramax, puis l’écran d’équilibre, dans un vrai navigateur, sur le paquet construit, servi par `php -S` comme en
 ligne (`?banc`, la politique de contenu du `.htaccess`, l’API) ; la CI le joue à chaque PR (job `fumee`), sur un réseau témoin
 (`banc/tests/fumee/` : le routeur, les réponses rejouées, auteur et licence des photos gardées).
 

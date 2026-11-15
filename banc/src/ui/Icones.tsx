@@ -31,6 +31,7 @@ const TRACES: Record<string, ReactElement> = {
   marquage: <><rect x="3" y="5" width="18" height="14" rx="2" /><rect x="7" y="9" width="5" height="6" strokeDasharray="2 1.5" /><path d="M15 9h3M15 12h3" /></>,
   exporter: <><path d="M12 15V3M7 8l5-5 5 5" /><path d="M4 14v6h16v-6" /></>,
   blocs: <><rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="12" height="4" rx="1" /><rect x="3" y="16" width="6" height="4" rx="1" /></>,
+  equilibre: <><path d="M12 4v16M8 20h8M5 7h14" /><path d="M5 7l-3 7h6zM19 7l-3 7h6z" /></>,
   auto: <><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.5L12 15l-1.8-4.5L5.5 9l4.7-1.4z" /><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></>,
   main: <><path d="M8 13V5.5a1.5 1.5 0 013 0V12" /><path d="M11 11.5V4.5a1.5 1.5 0 013 0V12" /><path d="M14 11.5V6.5a1.5 1.5 0 013 0V15a6 6 0 01-6 6h-1a6 6 0 01-5-2.7L3.6 15a1.5 1.5 0 012.5-1.7L8 15" /></>,
   face: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 9h6v6H9z" /></>,

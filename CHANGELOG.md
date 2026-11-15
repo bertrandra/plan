@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage : l'équilibre du jeu de données** (« Do it all all to the end » du propriétaire, 15 novembre 2026, « niveau
+  suivant » n° 7). Un écran de plus, « Équilibre » (étape 8), montre ce que le banc contient déjà, pour voir où importer ensuite :
+  une carte des photos à leur place (fond Plan IGN, les photos voisines regroupées en ronds qui disent leur nombre ; molette,
+  pincement, glisser, clavier, toucher un rond s'en approche) et des comptes par région et département, saison, année, type de vue
+  (tirée d'un 360 ou photo plate), source et état d'avancement, pour toutes les photos ou pour le seul jeu (corrigées, hors
+  réserve). Les listes fermées gardent leurs lignes à zéro : les treize régions sont toujours là, les vides en couleur d'attention.
+  Le département se déduit de la position sans interroger de service : les contours des 96 départements de la métropole, simplifiés
+  à un kilomètre (`banc/src/departements.ts`, 100 Ko, généré par `scripts/generer-departements-banc.mjs` depuis les contours
+  administratifs de l'IGN, Licence Ouverte 2.0), une boîte par département d'outre-mer ; une photo du front de mer se range dans le
+  département le plus proche à moins de 5 km, et à un kilomètre d'une limite la réponse peut être celle du voisin. L'écran ne
+  montre que ce que les métadonnées portent et dit le reste en bas : photos sans position ou sans date, et ni type de bâtiment, ni
+  mur visé, ni matériau, ni ville ou campagne, que rien ne garde encore à l'import. `banc/src/equilibre.ts` (sans DOM) et ses tests
+  (`banc/tests/equilibre.test.ts`) ; la fumée du banc joue l'écran après l'import, dans ses huit passages.
 - **Banc d'apprentissage : une fumée de l'écran d'import Panoramax, jouée à chaque PR** (« Go all to the end » du propriétaire,
   15 novembre 2026). L'écran (carte de France, zoom, couverture orange, « Seulement les façades », aperçu des façades, import)
   n'avait été vérifié qu'à la main. `scripts/fumee-banc.mjs`, une étape de plus du job `fumee` de la CI, le joue dans un vrai
