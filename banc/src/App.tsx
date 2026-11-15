@@ -1,4 +1,4 @@
-// Le banc d'apprentissage des facades : une page, un mot de passe, huit etapes. Les donnees vivent sur le serveur (api.php) ;
+// Le banc d'apprentissage des facades : une page, un mot de passe, huit etapes et l'ecran d'equilibre du jeu. Les donnees vivent sur le serveur (api.php) ;
 // la page les relit a chaque changement d'etape.
 
 import { useCallback, useEffect, useState } from 'react';
@@ -14,11 +14,12 @@ import { EcranBrouillon } from './ecrans/brouillon/Brouillon.js';
 import { EcranCatalogue } from './ecrans/catalogue/Catalogue.js';
 import { EcranExport } from './ecrans/export/Export.js';
 import { EcranBlocs } from './ecrans/blocs/Blocs.js';
+import { EcranEquilibre } from './ecrans/equilibre/Equilibre.js';
 import { Editeur } from './ecrans/editeur/Editeur.js';
 import { Icone, type NomIcone } from './ui/Icones.js';
 import { aFaire, type AFaire } from './etapes.js';
 
-export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs';
+export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs' | 'equilibre';
 
 /** Les etapes, leur icone, et ce qui attend chacune (etapes.ts::aFaire) : une pastille sur l'onglet dit ou le travail attend. */
 const ECRANS: { id: IdEcran; numero: string; nom: string; icone: NomIcone; attend?: keyof AFaire; libelleAttente?: string }[] = [
@@ -30,6 +31,7 @@ const ECRANS: { id: IdEcran; numero: string; nom: string; icone: NomIcone; atten
   { id: 'catalogue', numero: '4-5', nom: 'Marquage', icone: 'marquage', attend: 'catalogue', libelleAttente: 'à relire' },
   { id: 'export', numero: '6', nom: 'Export', icone: 'exporter' },
   { id: 'blocs', numero: '7', nom: 'Blocs', icone: 'blocs', attend: 'blocs', libelleAttente: 'à ranger ou vérifier' },
+  { id: 'equilibre', numero: '8', nom: 'Équilibre', icone: 'equilibre' },
 ];
 
 /** Ce que chaque ecran recoit : les donnees du banc, de quoi les relire, et de quoi dire un message. */
@@ -126,6 +128,7 @@ export function App() {
           : ecran === 'brouillon' ? <EcranBrouillon banc={banc} />
           : ecran === 'catalogue' ? <EcranCatalogue banc={banc} />
           : ecran === 'export' ? <EcranExport banc={banc} />
+          : ecran === 'equilibre' ? <EcranEquilibre banc={banc} />
           : <EcranBlocs banc={banc} onReglages={setReglages} />}
       </main>
     </div>
