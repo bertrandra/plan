@@ -30,6 +30,29 @@ export function urlParcelles(lat: number, lon: number, rayonM: number, limite = 
   return WFS_URL + '?' + new URLSearchParams({ SERVICE: 'WFS', VERSION: '2.0.0', REQUEST: 'GetFeature', TYPENAMES: COUCHE, OUTPUTFORMAT: 'application/json', COUNT: String(limite), BBOX: bbox }).toString();
 }
 
+/** Les parcelles d'une emprise (degres), par pages : `debut` est le rang de la premiere parcelle rendue. */
+export function urlParcellesDansEmprise(e: { sud: number; ouest: number; nord: number; est: number }, limite = 1000, debut = 0): string {
+  const bbox = [e.sud, e.ouest, e.nord, e.est].map((v) => v.toFixed(6)).join(',') + ',urn:ogc:def:crs:EPSG::4326';
+  return WFS_URL + '?' + new URLSearchParams({ SERVICE: 'WFS', VERSION: '2.0.0', REQUEST: 'GetFeature', TYPENAMES: COUCHE, OUTPUTFORMAT: 'application/json', COUNT: String(limite), STARTINDEX: String(debut), BBOX: bbox }).toString();
+}
+
+/**
+ * Toutes les parcelles d'une emprise : le WFS n'en rend qu'un nombre borne par requete, on lit donc page apres page (`pages` au plus,
+ * pour ne pas charger un quartier entier). `tronque` : il en reste que l'on n'a pas lues (a dire a l'ecran : la carte est incomplete).
+ */
+export async function lireLesParcelles(e: { sud: number; ouest: number; nord: number; est: number }, lire: (url: string) => Promise<unknown>, pages = 3, parPage = 1000): Promise<{ parcelles: Parcelle[]; tronque: boolean }> {
+  const vues = new Map<string, Parcelle>();
+  for (let k = 0; k < pages; k++) {
+    const json = await lire(urlParcellesDansEmprise(e, parPage, k * parPage));
+    const recues = ((json as { features?: unknown[] })?.features ?? []).length;
+    for (const p of lireParcelles(json)) vues.set(p.idu, p);
+    const total = (json as { numberMatched?: unknown })?.numberMatched;
+    const reste = typeof total === 'number' ? total > (k + 1) * parPage : recues >= parPage;
+    if (!reste || !recues) return { parcelles: [...vues.values()], tronque: false };
+  }
+  return { parcelles: [...vues.values()], tronque: true };
+}
+
 /** Les parcelles d'une reponse du WFS (GeoJSON, coordonnees lon, lat) ; celles sans contour sont laissees. */
 export function lireParcelles(json: unknown): Parcelle[] {
   const feats = ((json as { features?: unknown[] })?.features ?? []) as { properties?: Record<string, unknown>; geometry?: { type?: string; coordinates?: unknown } }[];

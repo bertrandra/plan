@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc d'apprentissage, import Panoramax : une grande carte avec les rues et l'aperçu des façades** (demande du propriétaire,
+  15 novembre 2026). La petite carte fixe de 70 m, parcelles seules, devient une carte de toute la largeur (60 % de la hauteur de la
+  fenêtre au bureau, la moitié au téléphone) dont l'emprise suit le rayon de recherche, jusqu'à 300 m : fond **Plan IGN v2** avec les
+  noms de rues, **photo aérienne** ou sans fond (WMTS de la Géoplateforme, sans clé, mention « © IGN »), parcelles du cadastre en
+  transparence lues sur ce que la carte montre (par pages ; elle dit quand le cadastre est tronqué, quand il faut se rapprocher, et
+  quand le fond ne se charge pas : les parcelles restent), rayon de recherche dessiné autour de la parcelle, barre d'échelle. Zoom et
+  déplacement à la molette, au pincement, en glissant, aux boutons + / − / recentrer et au clavier. Chaque photo est un point avec un
+  secteur par vue à importer (75° pour un 360, le champ de l'objectif pour une photo plate). Survoler ou toucher un point montre à
+  côté de la carte (dessous au téléphone) les vues telles qu'elles seront importées, la distance, la date, la case « Choisie » et
+  « Choisir les vues » ; toucher un point épingle son aperçu, le toucher encore coche ou décoche la photo (Tab, Entrée, Espace au
+  clavier) ; le point montré est mis en valeur sur la carte et dans la liste, et survoler une carte de la liste met son point en
+  valeur. Les panoramiques réduits déjà lus sont gardés (quatre au plus), le survol attend un court instant avant de lire et annule
+  si l'on passe. Rien ne change dans ce qui est importé ni dans le serveur du banc ; sa politique de contenu admet les images de
+  `data.geopf.fr`. Plan n'est pas touché (aucune quantité, aucun export, AE 101 identique).
+
 ## [5.27.1] — 2026-11-14
 
 Version **corrective** au sens de `MD/RELEASE.md` : dans la Vue 3D, « Modifier la toiture » et « Photographier une façade » passent en
