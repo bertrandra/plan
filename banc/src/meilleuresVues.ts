@@ -122,7 +122,7 @@ export function ordonner<T extends Pick<PhotoRue, 'id' | 'distance' | 'date'>>(p
     .sort((a, b) => Number(a.doublon) - Number(b.doublon) || a.cle - b.cle || a.rang - b.rang).map((x) => x.p);
 }
 
-export interface Comptes { photos: number; facades: number; batiments: number; doublons: number; ecartees: number }
+export interface Comptes { photos: number; facades: number; batiments: number; doublons: number; ecartees: number; cachees?: number; cacheesEcartees?: boolean }
 
 /** Les comptes de ce qui est propose : photos, vues a importer (facades), batiments regardes, vues en doublon. */
 export function compter(vuesParPhoto: readonly (readonly VueAExtraire[])[], ecartees: number): Comptes {
@@ -135,5 +135,9 @@ export function compter(vuesParPhoto: readonly (readonly VueAExtraire[])[], ecar
 /** Ce que l'etat dit du tri : « 42 photos, 61 façades de 23 bâtiments, 30 doublons ; 118 écartées : route, campagne ou pas une maison ». */
 export function texteDesComptes(c: Comptes): string {
   const s = (n: number) => (n > 1 ? 's' : '');
-  return `${c.photos} photo${s(c.photos)}, ${c.facades} façade${s(c.facades)} de ${c.batiments} bâtiment${s(c.batiments)}, ${c.doublons} doublon${s(c.doublons)} ; ${c.ecartees} écartée${s(c.ecartees)} : route, campagne ou pas une maison`;
+  // Les facades cachees (vueDegagee.ts) ne se disent que lorsqu'il y en a : comptees parmi les vues proposees, ou, leur case cochee,
+  // dites parmi les raisons d'ecarter (les photos qui n'avaient qu'elles sont alors dans les ecartees).
+  const cachees = c.cachees && !c.cacheesEcartees ? `, ${c.cachees} façade${s(c.cachees)} cachée${s(c.cachees)}` : '';
+  const raisons = c.cachees && c.cacheesEcartees ? 'route, campagne, pas une maison ou façade cachée' : 'route, campagne ou pas une maison';
+  return `${c.photos} photo${s(c.photos)}, ${c.facades} façade${s(c.facades)} de ${c.batiments} bâtiment${s(c.batiments)}, ${c.doublons} doublon${s(c.doublons)}${cachees} ; ${c.ecartees} écartée${s(c.ecartees)} : ${raisons}`;
 }

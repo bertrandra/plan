@@ -143,19 +143,32 @@ function useChoix() {
   return { choix, forcees, choix$, poser, mettre };
 }
 
+const CLE_CACHEES = 'banc.import.ecarterCachees';
+
+/**
+ * « Écarter les façades cachées » : decochee par defaut. La lecture de l'image (vueDegagee.ts) dit juste 65 fois sur 76 sur ses
+ * temoins : assez pour declasser une vue et le dire, pas assez pour en ecarter une sur huit a tort sans qu'on l'ait demande. Qui la
+ * coche la retrouve cochee.
+ */
+function useEcarterCachees(): [boolean, (v: boolean) => void] {
+  const [v, setV] = useState(() => { try { return localStorage.getItem(CLE_CACHEES) === 'oui'; } catch { return false; } });
+  return [v, (n) => { setV(n); try { localStorage.setItem(CLE_CACHEES, n ? 'oui' : 'non'); } catch { /* preference non gardee, sans gravite */ } }];
+}
+
 /** L'aide, le champ d'adresse et ses reglages, et les adresses que le geocodage propose. */
-function Recherche({ texte, setTexte, rayon, setRayon, visees, setVisees, facades, setFacades, visee, setVisee, propositions, adresse, onChercher, onAdresse }: {
-  texte: string; setTexte: (t: string) => void; rayon: number; setRayon: (r: number) => void; visees: boolean; setVisees: (v: boolean) => void; facades: boolean; setFacades: (v: boolean) => void;
+function Recherche({ texte, setTexte, rayon, setRayon, visees, setVisees, facades, setFacades, cachees, setCachees, visee, setVisee, propositions, adresse, onChercher, onAdresse }: {
+  texte: string; setTexte: (t: string) => void; rayon: number; setRayon: (r: number) => void; visees: boolean; setVisees: (v: boolean) => void; facades: boolean; setFacades: (v: boolean) => void; cachees: boolean; setCachees: (v: boolean) => void;
   visee: Visee; setVisee: (v: Visee) => void; propositions: Adresse[]; adresse: Adresse | null; onChercher: () => void; onAdresse: (a: Adresse) => void;
 }) {
   return (
     <>
-      <p className="aide">Partez de la carte de France et zoomez jusqu’à la rue, ou tapez une adresse : la carte y va. À l’échelle d’un quartier, les photos de rue libres de la vue s’affichent ; touchez une parcelle du cadastre pour la viser (les photos prises autour d’elle et qui la regardent), touchez-la encore pour la lâcher. « Seulement les façades » ne propose que les vues où une maison ou un immeuble est dans le cadre (ni garage, ni hangar, ni local technique), tourne chaque vue d’un 360 vers sa façade et lui donne une note ; un même bâtiment n’est proposé qu’une fois, par sa meilleure vue.</p>
+      <p className="aide">Partez de la carte de France et zoomez jusqu’à la rue, ou tapez une adresse : la carte y va. À l’échelle d’un quartier, les photos de rue libres de la vue s’affichent ; touchez une parcelle du cadastre pour la viser (les photos prises autour d’elle et qui la regardent), touchez-la encore pour la lâcher. « Seulement les façades » ne propose que les vues où une maison ou un immeuble est dans le cadre (ni garage, ni hangar, ni local technique), tourne chaque vue d’un 360 vers sa façade et lui donne une note ; un même bâtiment n’est proposé qu’une fois, par sa meilleure vue. L’aperçu de chaque vue proposée est ensuite lu : une façade derrière une haie, des arbres ou une clôture est dite « façade cachée » et passe après les autres.</p>
       <form className="rang" onSubmit={(e) => { e.preventDefault(); onChercher(); }}>
         <input className="large" aria-label="Adresse ou coordonnées" placeholder="2 allée des Limites, Le Vésinet — ou 48.90507, 2.13254" value={texte} onChange={(e) => setTexte(e.target.value)} />
         <label>Rayon <input type="number" min={5} max={300} value={rayon} onChange={(e) => setRayon(Number(e.target.value))} /> m</label>
         <label className="case"><input type="checkbox" checked={visees} onChange={(e) => setVisees(e.target.checked)} /> Qui regardent la parcelle</label>
         <label className="case" title="Ne proposer que les vues où une maison ou un immeuble (BD TOPO de l’IGN) est dans le cadre, à portée : ni la route, ni la campagne, ni un garage ou un local technique."><input type="checkbox" checked={facades} onChange={(e) => setFacades(e.target.checked)} /> Seulement les façades</label>
+        <label className="case" title="La façade est lue dans l’aperçu de chaque vue proposée : une haie, des arbres ou une clôture devant elle la disent « façade cachée », et sa note baisse de moitié. Cochée, ces vues ne sont plus proposées. La lecture se trompe environ une fois sur sept."><input type="checkbox" checked={cachees} disabled={!facades} onChange={(e) => setCachees(e.target.checked)} /> Écarter les façades cachées</label>
         <label>Panoramiques 360
           <select value={visee} onChange={(e) => setVisee(e.target.value as Visee)}>
             <option value="cotes">Les deux côtés de la rue (90°)</option>
@@ -197,7 +210,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const [texte, setTexte] = useState(''), [rayon, setRayon] = useState(40);
   const [visees, setVisees] = useState(true), [visee, setVisee] = useState<Visee>('cotes');
   // Cochee par defaut (demande du proprietaire, 15 novembre 2026) : des facades de maison ou d'immeuble, pas la route ou la campagne.
-  const [seulementFacades, setSeulementFacades] = useState(true);
+  const [seulementFacades, setSeulementFacades] = useState(true), [ecarterCachees, setEcarterCachees] = useEcarterCachees();
   const [propositions, setPropositions] = useState<Adresse[]>([]), [adresse, setAdresse] = useState<Adresse | null>(null);
   const cadastre = useCadastre();
   const [parcelle, setParcelle] = useState<Parcelle | null>(null);
@@ -221,7 +234,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const images$ = useRef(banc.images); images$.current = banc.images;
   const rechercheVue = useRef<AbortController | null>(null);
   // Sans parcelle visee, rien ne dit de quel cote est l'adresse : les deux cotes de la rue.
-  const { vuesDe, aImporterDe, proposees, enDoublon, compte, tri } = useVuesTriees(photos, caps, parcelle, { visee: parcelle ? visee : 'cotes', seulementFacades, parBatiment, ordre });
+  const { vuesDe, aImporterDe, proposees, enDoublon, compte, tri } = useVuesTriees(photos, caps, parcelle, { visee: parcelle ? visee : 'cotes', seulementFacades, parBatiment, ordre, ecarterCachees });
   const cochees = useMemo(() => new Set(proposees.filter((p) => choix.has(p.id) && (!enDoublon.has(p.id) || forcees.has(p.id))).map((p) => p.id)), [proposees, choix, enDoublon, forcees]);
   const dejaLa = () => new Set(images$.current.map((m) => m.panoramax?.id).filter(Boolean));
 
@@ -322,7 +335,7 @@ export function ImportPanoramax({ banc }: { banc: Banc }) {
   const visant = !!parcelle;
   return (
     <div className="import-panoramax">
-      <Recherche texte={texte} setTexte={setTexte} rayon={rayon} setRayon={setRayon} visees={visees} setVisees={setVisees} facades={seulementFacades} setFacades={setSeulementFacades} visee={visee} setVisee={setVisee}
+      <Recherche texte={texte} setTexte={setTexte} rayon={rayon} setRayon={setRayon} visees={visees} setVisees={setVisees} facades={seulementFacades} setFacades={setSeulementFacades} cachees={ecarterCachees} setCachees={setEcarterCachees} visee={visee} setVisee={setVisee}
         propositions={propositions} adresse={adresse} onChercher={() => { void chercherAdresse(); }} onAdresse={(a) => { void choisirAdresse(a); }} />
       {etat && <p className="etat">{etat}</p>}
       {compte && <p className="etat compte-facades" role="status">{compte}</p>}

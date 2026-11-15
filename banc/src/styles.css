@@ -133,8 +133,9 @@ kbd { border: 1px solid var(--trait); border-radius: 4px; padding: 0 .3em; }
 /* Un doublon : un batiment deja mieux vu ailleurs. La vue reste visible, en gris pointille, et ne s'importe pas. */
 .pano-vue.doublon { border: 2px dashed var(--doux); background: none; }
 .carte.doublon:not(.choisie) { opacity: .72; }
-.note-vue, .marque-doublon { font-style: normal; font-size: .72rem; margin-left: .4rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid var(--trait); color: var(--doux); white-space: nowrap; }
+.note-vue, .marque-doublon, .marque-cachee { display: inline-block; font-style: normal; font-size: .72rem; margin-left: .4rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid var(--trait); color: var(--doux); white-space: nowrap; }
 .marque-doublon { border-style: dashed; }
+.marque-cachee { border-color: var(--attention); color: var(--texte); }
 .en-double { font-size: .85rem; padding: .15rem .55rem; border-radius: 999px; border: 1px solid var(--attention); color: var(--texte); }
 .pano-rue, .pano-cible { position: absolute; top: 0; bottom: 0; width: 0; pointer-events: none; }
 .pano-rue { left: 50%; border-left: 1px dashed #fff; }

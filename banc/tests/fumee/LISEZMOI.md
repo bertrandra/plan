@@ -12,13 +12,17 @@ temporaire, à chaque exécution.
 
 ## Les photos
 
-Trois panoramiques 360 de Panoramax (instance de l’IGN, `panoramax.ign.fr`), pris le 21 mars 2018 boulevard de Belgique, au Vésinet :
+Six panoramiques 360 de Panoramax (instance de l’IGN, `panoramax.ign.fr`), pris le 21 mars 2018 boulevard de Belgique, au Vésinet :
+les six photos autour de la parcelle AE 101, dont la version réduite est lue en tâche de fond (« la maison se voit-elle ? »).
 
 | Photo | Ce qui est gardé |
 |---|---|
 | `1c1a0a04-cd8d-4f8d-a24d-3e23745b1ee2` | version réduite (ramenée à 1 024 px) et grande version (ramenée à 2 048 px) |
+| `5e1f6b8d-9d21-4fbd-96f9-0390a79d9b58` | version réduite (ramenée à 1 024 px) |
+| `90459443-7644-4381-8352-a9e191efab93` | version réduite (ramenée à 1 024 px) |
 | `94cb8359-d4ad-4a41-8f76-f72734a1f5ca` | version réduite (ramenée à 1 024 px) |
 | `a5d91cc3-7d03-43eb-b584-6056510827cc` | version réduite (ramenée à 1 024 px) |
+| `ca80b736-c03c-4dc0-b552-12bd92356e5e` | version réduite (ramenée à 1 024 px) |
 
 - **Auteur** : Geovelo (compte `simon_geovelo`), tel que Panoramax le donne (`providers`, `geovisio:producer`).
 - **Licence** : Licence Ouverte 2.0 d’Etalab (`etalab-2.0`), telle que Panoramax la donne pour ces photos ; elle permet de les

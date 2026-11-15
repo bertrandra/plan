@@ -7,6 +7,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Banc d'apprentissage, import Panoramax : « la maison se voit-elle ? »** (mandat du propriétaire, 15 novembre 2026). Le tri par
+  la géométrie ne voit ni les haies ni les arbres : au Vésinet, une bonne part des vues proposées montrent la maison derrière une
+  haie, des arbres ou une clôture. L'aperçu de chaque vue proposée d'un panoramique est maintenant **lu**, sans modèle, sans réseau
+  et sans dépendance (`banc/src/vueDegagee.ts`) : dans la zone du cadre où la géométrie place le bâtiment (son emprise et sa hauteur
+  projetées, `Regard.zone`), au-dessus de l'horizon, la part qui a la couleur du bâti (teintes claires peu saturées, teintes chaudes)
+  moins celle qui a la couleur de la végétation (verts, sombres à dominante verte), fois la hauteur de la zone. Une façade lue
+  cachée porte l'étiquette « façade cachée », **perd la moitié de sa note** et passe après les vues dégagées du même bâtiment ; la
+  case « Écarter les façades cachées » ne les propose plus, et l'état les compte.
+  **Fiabilité, mesurée** sur 76 vues du Vésinet étiquetées à l'œil et enregistrées (`banc/tests/fixtures/vue-degagee/` : photos
+  geovelo, Panoramax, Licence Ouverte etalab-2.0, auteur et licence notés à côté ; 32 dégagées, 44 cachées) : **65 justes sur 76
+  (86 %)**, autant quand le seuil est choisi sans le témoin jugé ; 4 façades dégagées sur 32 dites cachées (12,5 %), 7 cachées sur
+  44 dites dégagées (16 % : murs de pierre, portails pleins, vues lointaines). Répondre toujours « cachée » ferait 58 %. Parmi les
+  dix-huit vues les mieux notées de ces témoins, 13 étaient dégagées avant, 16 après ; parmi les trente, 19 puis 27. C'est nettement
+  mieux que le hasard, pas assez pour écarter d'office une bonne façade sur huit : **la case est décochée par défaut** (le
+  navigateur retient qui la coche), le déclassement et l'étiquette valent toujours. Les arêtes droites, essayées, ne séparent pas
+  les deux cas (60 %) : elles ne sont pas lues.
+  La lecture se fait en tâche de fond (`fileLectures.ts`) : une photo à la fois, sur la version réduite que la liste montre déjà
+  (le cache du navigateur la rend), une file de 40, les 60 premières photos de la liste seulement, arrêtée quand la liste change ;
+  une lecture qui échoue laisse sa note à la vue. Limites dites : les témoins sont d'un seul lieu et d'un seul jour (21 mars 2018,
+  arbres nus : l'été, un arbre en feuilles cache plus et se lit mieux, non mesuré) ; une façade verte ou à l'ombre profonde se lit
+  comme une haie ; les photos plates et les vues choisies à la main ne sont pas lues. Rue de Rivoli, sur 40 vues proposées, 9 sont
+  dites cachées : sept le méritent (porches sombres en gros plan, store, échafaudage), aucune belle façade n'est touchée. La fumée
+  du banc vérifie la case et qu'une façade cachée se dit ; son témoin garde les six versions réduites lues. Les marques (note,
+  doublon, façade cachée) passent à la ligne au téléphone au lieu de déborder.
+
 - **Banc d'apprentissage, import Panoramax : le tri par la géométrie** (mandat du propriétaire, 15 novembre 2026, après les constats
   de la #683 sur le vrai réseau). Cinq choses, toutes dans `banc/`, sans lire l'image :
   - **Pas des maisons** (`facadesVues.ts::pasUneMaison`) : la BD TOPO dit pour chaque bâtiment sa nature, un ou deux usages, sa
