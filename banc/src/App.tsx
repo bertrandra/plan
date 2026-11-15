@@ -1,7 +1,7 @@
 // Le banc d'apprentissage des facades : une page, un mot de passe, huit etapes et l'ecran d'equilibre du jeu. Les donnees vivent sur le serveur (api.php) ;
 // la page les relit a chaque changement d'etape.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ErreurApi } from './api.js';
 import { CLASSES_DEFAUT } from './classes.js';
 import { REGLAGES_DEFAUT, type Classe, type MetaImage, type Modele, type Reglages } from './types.js';
@@ -19,6 +19,7 @@ import { Editeur } from './ecrans/editeur/Editeur.js';
 import { Icone, type NomIcone } from './ui/Icones.js';
 import { aFaire, type AFaire } from './etapes.js';
 import type { Zone } from './lot.js';
+import { FileDeSuppressions } from './suppressions.js';
 
 export type IdEcran = 'classes' | 'import' | 'redressement' | 'validation' | 'brouillon' | 'catalogue' | 'export' | 'blocs' | 'equilibre';
 
@@ -35,6 +36,9 @@ const ECRANS: { id: IdEcran; numero: string; nom: string; icone: NomIcone; atten
   { id: 'equilibre', numero: '8', nom: 'Équilibre', icone: 'equilibre' },
 ];
 
+/** Un geste propose dans le message (« Annuler » une suppression). */
+export interface ActionMessage { libelle: string; faire: () => void }
+
 /** Ce que chaque ecran recoit : les donnees du banc, de quoi les relire, et de quoi dire un message. */
 export interface Banc {
   classes: Classe[];
@@ -43,7 +47,9 @@ export interface Banc {
   reglages: Reglages;
   relire: () => Promise<void>;
   remplacer: (m: MetaImage) => void;
-  dire: (texte: string, genre?: 'ok' | 'erreur') => void;
+  dire: (texte: string, genre?: 'ok' | 'erreur', action?: ActionMessage) => void;
+  /** Supprime une photo sans confirmation, mais en differe : annulable quelques secondes (suppressions.ts). */
+  supprimer: (m: MetaImage) => void;
   ouvrir: (id: string, liste?: string[]) => void;
   aller: (e: IdEcran) => void;
   /** Une zone a importer en lot, demandee d'un autre ecran (« Ou importer ensuite », equilibre) : l'import la prend et l'oublie. */
@@ -56,14 +62,42 @@ export function App() {
   const [panne, setPanne] = useState<string | null>(null);
   const [ecran, setEcran] = useState<IdEcran>(() => (location.hash.slice(1) as IdEcran) || 'import');
   const [classes, setClasses] = useState<Classe[]>([]);
-  const [images, setImages] = useState<MetaImage[]>([]);
+  // Les photos du serveur ; l'ecran montre celles dont la suppression n'est pas demandee (`images`, plus bas).
+  const [brutes, setImages] = useState<MetaImage[]>([]);
+  const [cachees, setCachees] = useState<ReadonlySet<string>>(new Set());
   const [modeles, setModeles] = useState<Modele[]>([]);
   const [reglages, setReglages] = useState<Reglages>(REGLAGES_DEFAUT);
-  const [message, setMessage] = useState<{ texte: string; genre: 'ok' | 'erreur' } | null>(null);
+  const [message, setMessage] = useState<{ texte: string; genre: 'ok' | 'erreur'; action?: ActionMessage; duree?: number; cle?: 'suppression' } | null>(null);
   const [zoneDemandee, demanderZone] = useState<Zone | null>(null);
   const [edition, setEdition] = useState<{ id: string; liste: string[] } | null>(null);
 
-  const dire = useCallback((texte: string, genre: 'ok' | 'erreur' = 'ok') => setMessage({ texte, genre }), []);
+  const dire = useCallback((texte: string, genre: 'ok' | 'erreur' = 'ok', action?: ActionMessage) => setMessage(action ? { texte, genre, action } : { texte, genre }), []);
+  // La file des suppressions vit ici, pas dans l'ecran : quitter le Redressement ne coupe ni le delai ni « Annuler » (le message
+  // reste), et la photo reste cachee partout (compteurs, mosaique) tant que sa suppression attend.
+  const file = useRef<FileDeSuppressions<MetaImage> | null>(null);
+  file.current ??= new FileDeSuppressions<MetaImage>((id) => api.supprimer(id));
+  const images = useMemo(() => (cachees.size ? brutes.filter((m) => !cachees.has(m.id)) : brutes), [brutes, cachees]);
+  useEffect(() => {
+    const f = file.current;
+    if (!f) return;
+    const annulerLaDerniere = () => {
+      const s = f.annulables().at(-1);
+      if (s && f.annuler(s.element.id) && !f.annulables().length) setMessage({ texte: 'Suppression annulée : la photo est rendue.', genre: 'ok' });
+    };
+    const desabonner = f.abonner((issue) => {
+      setCachees(f.cachees());
+      if (issue?.genre === 'supprimee') setImages((l) => l.filter((x) => x.id !== issue.element.id));
+      if (issue?.genre === 'echec') { setMessage({ texte: `${issue.element.nom ?? issue.element.id} n’a pas pu être supprimée : ${issue.erreur.message}`, genre: 'erreur' }); return; }
+      // Le message dit la derniere suppression annulable ; « Annuler » la rend, puis montre la precedente s'il en reste.
+      const l = f.annulables(), s = l.at(-1);
+      if (s) setMessage({ texte: l.length > 1 ? `Photo supprimée (${l.length - 1} autre${l.length > 2 ? 's' : ''} encore annulable${l.length > 2 ? 's' : ''}).` : 'Photo supprimée.', genre: 'ok', cle: 'suppression', duree: Math.max(500, s.fin - Date.now()), action: { libelle: 'Annuler', faire: annulerLaDerniere } });
+      else if (!issue) setMessage((m) => (m?.cle === 'suppression' ? null : m));
+    });
+    // La page se ferme : rien ne part (une suppression jamais faite vaut mieux qu'une perte, suppressions.ts).
+    const fermer = () => f.abandonner();
+    addEventListener('pagehide', fermer);
+    return () => { desabonner(); removeEventListener('pagehide', fermer); };
+  }, []);
   const relire = useCallback(async () => {
     try {
       const [c, i, m, r] = await Promise.all([api.classes(), api.images(), api.modeles(), api.reglages()]);
@@ -87,7 +121,7 @@ export function App() {
   useEffect(() => { history.replaceState(null, '', location.pathname + location.search + '#' + ecran); }, [ecran]);
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(() => setMessage(null), message.genre === 'erreur' ? 9000 : 3500);
+    const t = setTimeout(() => setMessage(null), message.duree ?? (message.genre === 'erreur' ? 9000 : 3500));
     return () => clearTimeout(t);
   }, [message]);
 
@@ -96,9 +130,10 @@ export function App() {
   if (!connecte) return <Connexion onConnecte={() => setConnecte(true)} />;
 
   const remplacer = (m: MetaImage) => setImages((l) => l.map((x) => (x.id === m.id ? m : x)));
-  const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran, zoneDemandee, demanderZone };
+  const supprimer = (m: MetaImage) => file.current?.demander(m);
+  const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, supprimer, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran, zoneDemandee, demanderZone };
   const attente = aFaire(images);
-  const deconnecter = () => { api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
+  const deconnecter = () => { file.current?.abandonner(); api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
 
   return (
     <div className={edition ? 'banc en-edition' : 'banc'}>
@@ -123,7 +158,12 @@ export function App() {
         <span className="compte">{attente.total} photo{attente.total > 1 ? 's' : ''}</span>
         <button type="button" className="discret icone-seule" onClick={deconnecter} title="Se déconnecter" aria-label="Se déconnecter"><Icone nom="sortir" taille={20} /></button>
       </header>
-      {message && <div role="status" className={'message ' + message.genre} onClick={() => setMessage(null)}>{message.texte}</div>}
+      {message && (
+        <div role="status" className={'message ' + message.genre} onClick={() => setMessage(null)}>
+          <span>{message.texte}</span>
+          {message.action && <button type="button" className="action" onClick={(e) => { e.stopPropagation(); setMessage(null); message.action?.faire(); }}>{message.action.libelle}</button>}
+        </div>
+      )}
       <main className="contenu">
         {edition ? <Editeur banc={banc} id={edition.id} liste={edition.liste} onFermer={() => { setEdition(null); void relire(); }} onAller={(id) => setEdition({ ...edition, id })} />
           : ecran === 'classes' ? <EcranClasses banc={banc} onClasses={setClasses} />

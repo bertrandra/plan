@@ -7,7 +7,8 @@
 // Ce qu'il joue, a « 2 allee des Limites, Le Vesinet » : l'ouverture sur la France (la couverture de Panoramax et ce que la carte en
 // dit), l'adresse (la carte y va, la parcelle visee, les photos), « Seulement les facades » (son compte, puis la case decochee),
 // l'apercu des facades d'un point (survole a la souris, touche au doigt), la fenetre « Choisir les vues », l'import d'une photo (201,
-// le compteur du banc monte), puis l'ecran d'equilibre du jeu (les vues importees comptees dans leur departement, et sur sa carte).
+// le compteur du banc monte), puis l'ecran d'equilibre du jeu (les vues importees comptees dans leur departement, et sur sa carte),
+// puis le redressement (les gestes de chaque carte en icones, une photo jetable supprimee, rendue par « Annuler », supprimee pour de bon).
 // A chaque passage : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin ;
 // les contrastes des textes (4,5:1), et au doigt les cibles de 44 px, rien qui deborde, l'apercu sous la carte.
 //
@@ -499,6 +500,65 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     }
     await capture('equilibre');
     dire(`équilibre : ${total} vue(s), toutes dans les Yvelines (Île-de-France), ${eq.amas.length} rond(s) sur la carte ; ${cEq.n} textes mesurés`);
+
+    // 7 ter. Le Redressement (etape 2) : les gestes de chaque carte en icones seules, et la poubelle sans confirmation mais en differe
+    // (demande du proprietaire, 15 novembre 2026). Une photo jetable, de synthese et sans mur (ni le lot ni l'equilibre ne la comptent) :
+    // supprimee puis rendue par « Annuler », puis supprimee pour de bon, le DELETE recu par l'API d'essai.
+    const nomJetable = `fumee-a-supprimer-${nom}`;
+    const deletes = [];
+    page.on('request', (r) => { if (r.method() === 'DELETE' && /[?&]r=image(&|$)/.test(r.url())) deletes.push(r.url()); });
+    const idJetable = await page.evaluate(async ({ b64, nomPhoto }) => {
+      const f = new FormData();
+      f.append('fichier', new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: 'image/png' }), 'photo.png');
+      f.append('meta', JSON.stringify({ source: 'fichier', nom: nomPhoto }));
+      return (await (await fetch('api.php?r=images', { method: 'POST', body: f, headers: { 'X-Banc': '1' } })).json()).id;
+    }, { b64: PHOTO_DE_SYNTHESE.toString('base64'), nomPhoto: nomJetable });
+    verifier(typeof idJetable === 'string', 'la photo jetable du redressement ne s’importe pas');
+    // La page relit les photos du serveur au chargement (la session reste ouverte).
+    await page.reload();
+    await page.waitForSelector('header.barre .compte', { state: 'attached' });
+    await allerA('Redressement');
+    const carte = page.locator('.grille-photos .tuile-photo', { has: page.locator('.legende-photo .nom', { hasText: nomJetable }) });
+    await carte.waitFor();
+    const gestes = await page.evaluate(() => [...document.querySelectorAll('.grille-photos .tuile-photo')].map((t) => {
+      const c = t.getBoundingClientRect();
+      const b = [...t.querySelectorAll('.actions-carte button')];
+      return { labels: b.map((x) => x.getAttribute('aria-label')).join(' | '), textes: b.map((x) => x.innerText.trim()).join(''), titres: b.every((x) => (x.getAttribute('title') ?? '').length > 0),
+        dehors: b.filter((x) => { const r = x.getBoundingClientRect(); return r.left < c.left - 0.5 || r.right > c.right + 0.5 || r.bottom > c.bottom + 0.5; }).length };
+    }));
+    verifier(gestes.length > 0 && gestes.every((g) => g.labels === 'Redresser automatiquement | Redresser à la main | Déjà de face : garder telle quelle | Supprimer cette photo'), 'les quatre gestes d’une carte ne disent pas leur nom : ' + JSON.stringify(gestes[0]));
+    verifier(gestes.every((g) => !g.textes && g.titres), 'un geste d’une carte montre encore son texte, ou n’a pas d’infobulle');
+    verifier(gestes.every((g) => !g.dehors), 'les quatre icônes ne tiennent pas dans leur carte');
+    const compteRedr = parseInt(await page.locator('header.barre .compte').textContent(), 10);
+    const poubelle = () => carte.getByRole('button', { name: 'Supprimer cette photo' });
+    await toucher(poubelle());
+    await carte.waitFor({ state: 'detached' });
+    await attendre(() => /^Photo supprimée\./.test(document.querySelector('.message')?.textContent ?? ''), null, 'la suppression ne dit pas « Photo supprimée »');
+    const annuler = page.locator('.message').getByRole('button', { name: 'Annuler' });
+    verifier(parseInt(await page.locator('header.barre .compte').textContent(), 10) === compteRedr - 1, 'le compteur du banc ne descend pas quand la photo est supprimée');
+    const cRedr = await page.evaluate(mesurerContrastes, { textes: '.page .legende-photo .nom, .page .legende-photo small, .page .segments button, .message span, .message button', pastilles: ':not(*)' });
+    const mRedr = await page.evaluate(mesurerMiseEnPage, { cibles: '.grille-photos .actions-carte button, .message button', doigt });
+    if (AUDIT) { for (const x of [...cRedr.echecs, ...mRedr]) dire(`[audit] redressement : ${x.replace(/\s+/g, ' ')}`); }
+    else {
+      verifier(!cRedr.echecs.length, `redressement : contrastes insuffisants — ${cRedr.echecs.join(' ; ')}`);
+      verifier(!mRedr.length, `redressement : mise en page — ${mRedr.join(' ; ')}`);
+    }
+    await capture('redressement-annuler');
+    await toucher(annuler);
+    await carte.waitFor();
+    verifier(!deletes.length, 'l’API a reçu le DELETE avant la fin du délai, ou malgré « Annuler »');
+    // Pour de bon : le DELETE part au bout du delai (6 s), et seulement celui-la ; la suppression annulee n'en envoie jamais.
+    const reponseDelete = page.waitForResponse((r) => r.request().method() === 'DELETE' && r.url().includes(idJetable), { timeout: 12000 });
+    await toucher(poubelle());
+    await carte.waitFor({ state: 'detached' });
+    verifier((await reponseDelete).status() === 200, 'l’API d’essai refuse le DELETE de la photo');
+    await page.waitForTimeout(300);
+    verifier(deletes.length === 1, `${deletes.length} DELETE envoyé(s), un seul attendu`);
+    const restantes = await page.evaluate(async () => (await (await fetch('api.php?r=images', { headers: { 'X-Banc': '1' } })).json()).map((m) => m.id));
+    verifier(!restantes.includes(idJetable), 'la photo supprimée est encore sur le serveur');
+    verifier(await carte.count() === 0 && parseInt(await page.locator('header.barre .compte').textContent(), 10) === compteRedr - 1, 'la photo supprimée revient à l’écran');
+    await capture('redressement');
+    dire(`redressement : ${gestes.length} carte(s), quatre icônes chacune ; supprimée, rendue par « Annuler », puis supprimée pour de bon (un DELETE) ; ${cRedr.n} textes mesurés`);
 
     // 8. Rien de travers : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin.
     const refus = await page.evaluate(() => window.__refusCsp);

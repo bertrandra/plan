@@ -56,7 +56,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
       {c.choix.length === 1 && <p className="aide">Pour fusionner, choisissez les photos d’un même mur <b>de gauche à droite</b> : le numéro dit l’ordre.</p>}
       {c.liste.length ? (
         <ul className="grille-photos">
-          {c.liste.map((m) => <Carte key={m.id} m={m} echec={c.echecs.has(m.id)} occupe={occupe} rang={c.choix.indexOf(m.id)} mur={c.groupeDe.get(m.id) ?? 0} onBasculer={() => c.basculer(m.id)} onAuto={() => { void c.auto([m]); }} onMain={() => c.setMain(m)} onGarder={() => { void c.garder(m); }} />)}
+          {c.liste.map((m) => <Carte key={m.id} m={m} echec={c.echecs.has(m.id)} occupe={occupe} rang={c.choix.indexOf(m.id)} mur={c.groupeDe.get(m.id) ?? 0} onBasculer={() => c.basculer(m.id)} onAuto={() => { void c.auto([m]); }} onMain={() => c.setMain(m)} onGarder={() => { void c.garder(m); }} onSupprimer={() => c.supprimer(m)} />)}
         </ul>
       ) : (
         <Vide icone="redresser" titre={c.filtre === 'toutes' ? 'Aucune photo' : 'Tout est redressé'}
@@ -67,7 +67,7 @@ export function EcranRedressement({ banc }: { banc: Banc }) {
   );
 }
 
-function Carte({ m, echec, occupe, rang, mur, onBasculer, onAuto, onMain, onGarder }: { m: MetaImage; echec: boolean; occupe: boolean; rang: number; mur: number; onBasculer: () => void; onAuto: () => void; onMain: () => void; onGarder: () => void }) {
+function Carte({ m, echec, occupe, rang, mur, onBasculer, onAuto, onMain, onGarder, onSupprimer }: { m: MetaImage; echec: boolean; occupe: boolean; rang: number; mur: number; onBasculer: () => void; onAuto: () => void; onMain: () => void; onGarder: () => void; onSupprimer: () => void }) {
   const fait = m.statut !== 'importee';
   return (
     <li className={'tuile-photo' + (echec ? ' echec' : '') + (rang >= 0 ? ' choisie' : '')}>
@@ -79,10 +79,14 @@ function Carte({ m, echec, occupe, rang, mur, onBasculer, onAuto, onMain, onGard
       {mur > 0 && <span className="etiquette-photo mur">Mur {mur}</span>}
       {m.cadrage?.plan && !fait && <span className="etiquette-photo accent droite" title="Rendue face au mur à l’import">face au mur</span>}
       <div className="legende-photo"><span className="nom">{m.nom ?? m.id}</span><small>{m.largeur && m.hauteur ? `${m.largeur}×${m.hauteur}` : ''}{m.focale35 ? ` · ${m.focale35} mm` : ''}</small></div>
-      <div className="actions-carte">
-        <button type="button" disabled={occupe} onClick={onAuto} title="Par les points de fuite"><Icone nom="auto" /> Auto</button>
-        <button type="button" className={echec ? 'principal' : ''} onClick={onMain} title="Quatre coins d’un rectangle du mur"><Icone nom="main" /> À la main</button>
-        <button type="button" className="discret" onClick={onGarder} title="La photo est déjà de face : la garder telle quelle"><Icone nom="face" /> De face</button>
+      {/* Des icones seules sur chaque carte (demande du proprietaire, 15 novembre 2026 : « garder icone et supprimer les textes ») :
+          le nom de l'action reste dans aria-label et dans l'infobulle. La poubelle supprime sans confirmation, mais en differe
+          (annulable quelques secondes, suppressions.ts). */}
+      <div className="actions-carte icones">
+        <button type="button" disabled={occupe} onClick={onAuto} aria-label="Redresser automatiquement" title="Redresser automatiquement : par les points de fuite"><Icone nom="auto" /></button>
+        <button type="button" className={echec ? 'principal' : ''} onClick={onMain} aria-label="Redresser à la main" title="Redresser à la main : quatre coins d’un rectangle du mur"><Icone nom="main" /></button>
+        <button type="button" className="discret" onClick={onGarder} aria-label="Déjà de face : garder telle quelle" title="Déjà de face : la photo est déjà de face, la garder telle quelle"><Icone nom="face" /></button>
+        <button type="button" className="discret supprimer" disabled={occupe} onClick={onSupprimer} aria-label="Supprimer cette photo" title="Supprimer cette photo"><Icone nom="poubelle" /></button>
       </div>
     </li>
   );

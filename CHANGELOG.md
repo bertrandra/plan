@@ -5,6 +5,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Banc d'apprentissage : sur chaque photo du Redressement, des icônes seules et une poubelle** (demande du propriétaire,
+  15 novembre 2026 : « Dans redressement sur chaque photo garder icône et supprimer les textes. Ajouter icône supprimer (icône
+  poubelle) sans double validation »). Les trois gestes d'une carte (« Auto », « À la main », « De face ») ne montrent plus que
+  leur icône, dans des boutons carrés (44 px au doigt) ; leur nom reste dans `aria-label` et l'infobulle (« Redresser
+  automatiquement : par les points de fuite »…), et « À la main » reste en bleu après un échec de l'auto. La barre du choix et la
+  bannière « face au mur » gardent leur texte. Un quatrième bouton, la poubelle (« Supprimer cette photo », rouge, à l'écart à
+  droite), supprime **sans fenêtre de confirmation, mais en différé** (`banc/src/suppressions.ts`) : la photo quitte l'écran, le
+  choix (numéros de fusion recalculés) et les compteurs tout de suite ; un message « Photo supprimée » propose « Annuler » pendant
+  six secondes, et l'appel au serveur (`DELETE image`, qui efface tout le dossier de la photo : source, redressée, vignette,
+  métadonnées, marquage et ses versions anciennes) ne part qu'à la fin du délai. Plusieurs suppressions font une file, chacune
+  avec son délai, « Annuler » rendant la plus récente puis la précédente. Changer d'étape ne coupe rien (la file vit dans la page,
+  le message reste) ; fermer ou recharger la page abandonne ce qui attend, sans rien envoyer : la photo revient à la visite
+  suivante, plutôt qu'une perte qu'on n'a pas eu le temps d'annuler. Si le serveur refuse, la photo revient et l'erreur se dit.
+  Une photo fusionnée qui citait la photo supprimée garde son image (le nom d'origine ne reste que dans sa note) ; une vue
+  Panoramax supprimée peut être importée de nouveau, et son mur ne compte plus dans « Équilibre » ni dans « déjà dans le banc ».
+  Tests : `banc/tests/suppressions.test.ts` ; fumée du banc : un passage par le Redressement (quatre icônes par carte, dans la
+  carte, 44 px au doigt ; une photo jetable supprimée, rendue par « Annuler », puis supprimée pour de bon, un seul DELETE).
+
 ## [5.31.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax cadre chaque vue

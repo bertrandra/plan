@@ -115,7 +115,12 @@ export function useRedressement(banc: Banc) {
       banc.dire((e as Error).message, 'erreur');
     } finally { liberer(...canevas); setAvance(null); }
   };
+  /**
+   * La poubelle d'une carte (demande du proprietaire, 15 novembre 2026) : sans confirmation, la photo quitte l'ecran et le choix tout
+   * de suite (les numeros de la fusion se recalculent) ; le serveur ne l'efface qu'au bout du delai d'annulation (App, suppressions.ts).
+   */
+  const supprimer = (m: MetaImage) => { setChoix((l) => l.filter((id) => id !== m.id)); banc.supprimer(m); };
   const oublierEchec = (id: string) => setEchecs((s) => { const t = new Set(s); t.delete(id); return t; });
   const finMain = (maj: MetaImage | null) => { if (maj) { banc.remplacer(maj); oublierEchec(maj.id); } setMain(null); };
-  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter, parMur, setParMur, groupes, groupeDe, choisirLeMur, faceAuMur };
+  return { filtre, setFiltre, liste, nouvelles, echecs, avance, auto, garder, main, setMain, finMain, choix, choisies, basculer, viderChoix: () => setChoix([]), garderLes, fusionner, ecarter, setEcarter, parMur, setParMur, groupes, groupeDe, choisirLeMur, faceAuMur, supprimer };
 }
