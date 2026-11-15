@@ -42,6 +42,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   d'office, comme avant (on se promène et les photos cochées restent) ; « Cocher les meilleures » fait le geste. Serveur du banc,
   politique de contenu et Plan inchangés (les bâtiments viennent du même WFS, déjà admis).
 
+## [5.29.1] — 2026-11-15
+
+Version **corrective** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'import Panoramax lit une instance de
+plus, `panoramax.mapcomplete.org`, dont les photos étaient écartées à la lecture (#687). Un hôte de plus dans la liste des hôtes admis
+et dans la politique de contenu du banc, sans fonction, panneau ni export nouveaux : PATCH (§2.1). Seul `banc/` change : aucune quantité
+ni aucun export de la démonstration ne bouge, les sept témoins ne changent qu'à leur numéro de version (la date de build reste le
+30 octobre 2026 ; preuve forte, sept sur sept, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier
+nouveau. Le schéma 16 de la 5.19.0 reste à accepter en production : appliquer bertrandra/backprod#255 (migration
+`Version20261109090000`) puis `setup.php` **avant** de déposer cette livraison de Plan, si ce n'est pas déjà fait. Requêtes vérifiées sans
+la mesure sur main (run 43724109155 ; prompts et schémas inchangés).
+
+### Ajouté
+
 - **Banc d'apprentissage, import Panoramax : les photos de l'instance `panoramax.mapcomplete.org` se proposent** (demande du
   propriétaire, 15 novembre 2026 : « Ajoute cette instance on top »). C'est une instance tierce du méta-catalogue (lien `via` vers
   `https://panoramax.mapcomplete.org`, `instance_name` « mapcomplete »), rencontrée au centre de Paris : 13 photos sur 200 autour de
