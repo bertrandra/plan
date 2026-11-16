@@ -38,3 +38,13 @@ export function adresse(chemin: string, params: Record<string, string> = {}): st
   });
   return BACKPROD_API_URL.replace(/\/+$/, '') + rempli;
 }
+
+/**
+ * La vitrine de la plateforme (backprod, `frontend/src/features/storefront/Storefront.tsx`) : sa racine montre a un inconnu les offres
+ * du produit nomme par `?product=`, et la porte d'inscription. C'est la seule adresse que la plateforme donne pour l'un et l'autre (elle
+ * n'a pas de chemin d'inscription a part) : « Créer un compte », « Voir les offres » et « Découvrir Plan » y menent. Rien n'est invente :
+ * l'origine est `BACKPROD_API_URL`, le produit `BACKPROD_PRODUCT_CODE`.
+ */
+export function vitrinePlateforme(origine: string = BACKPROD_API_URL, produit: string = BACKPROD_PRODUCT_CODE): string {
+  return origine.replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '') + '/?product=' + encodeURIComponent(produit);
+}

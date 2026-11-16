@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import type { Fermeture } from '../plateforme/contexte.js';
 import { sonderPlateforme } from '../io/sondePlateforme.js';
+import { vitrinePlateforme } from '../plateforme/config.js';
 
 export interface PropsPorte {
   fermeture: Fermeture;
@@ -21,7 +22,10 @@ export interface PropsPorte {
   plateforme: string;
   /** Refait la reprise de session, depuis l'ecran de panne, sans recharger la page. */
   reessayer?: () => void;
+  /** Ouvre la demonstration sans compte (app/acces.ts, `entrerEnEssai`) : rien ne s'enregistre ni n'appelle la plateforme. */
+  essayer?: () => void;
 }
+
 
 /**
  * La pastille : la plateforme repond-elle, ici et maintenant (io/sondePlateforme.ts) ?
@@ -52,13 +56,13 @@ function Pastille({ plateforme }: { plateforme: string }) {
   );
 }
 
-export function Porte({ fermeture, ouvrir, plateforme, reessayer }: PropsPorte) {
+export function Porte({ fermeture, ouvrir, plateforme, reessayer, essayer }: PropsPorte) {
   if (fermeture.raison === 'sansPlan') return <SansPlan fermeture={fermeture} plateforme={plateforme} />;
   if (fermeture.raison === 'panne') return <Panne fermeture={fermeture} reessayer={reessayer} />;
-  return <Formulaire ouvrir={ouvrir} plateforme={plateforme} />;
+  return <Formulaire ouvrir={ouvrir} plateforme={plateforme} essayer={essayer} />;
 }
 
-function Formulaire({ ouvrir, plateforme }: { ouvrir: PropsPorte['ouvrir']; plateforme: string }) {
+function Formulaire({ ouvrir, plateforme, essayer }: { ouvrir: PropsPorte['ouvrir']; plateforme: string; essayer: (() => void) | undefined }) {
   const [email, setEmail] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
   const [refus, setRefus] = useState<string | null>(null);
@@ -81,6 +85,8 @@ function Formulaire({ ouvrir, plateforme }: { ouvrir: PropsPorte['ouvrir']; plat
     <div className="porteVoile">
       <form className="porteBoite" onSubmit={(e) => { void soumettre(e); }}>
         <h2 className="porteTitre">Plan interactif</h2>
+        {/* Ce que fait Plan, avant de demander un compte (lot 6) : la porte etait un formulaire nu. */}
+        <p className="porteIntro">Dessinez votre terrasse sur votre vrai terrain, voyez-la en 3D et obtenez la liste d’achat et un devis.</p>
         <p className="porteSous">Votre compte est celui de la plateforme.</p>
         <Pastille plateforme={plateforme} />
         {refus && <p className="porteRefus" role="alert">{refus}</p>}
@@ -103,8 +109,19 @@ function Formulaire({ ouvrir, plateforme }: { ouvrir: PropsPorte['ouvrir']; plat
           * sans session tombe précisément dessus. Refaire le formulaire ici ferait de Plan une
           * seconde autorité sur les mots de passe, ce que le §10 de la spécification interdit.
           */}
+        {/* Sans compte : la demonstration, ou se modifie tout et ne s'enregistre rien (app/acces.ts, `entrerEnEssai`). */}
+        {essayer && (
+          <button type="button" className="porteBouton porteBoutonSecondaire" data-controle="porte.essayer" onClick={essayer}>
+            Essayer la démonstration
+          </button>
+        )}
         <p className="porteLiens">
           <a href={plateforme}>Mot de passe oublié, sur la plateforme</a>
+        </p>
+        {/* Creer un compte et voir les offres : la vitrine de la plateforme, qui porte les deux (plateforme/config.ts, `vitrinePlateforme`). */}
+        <p className="porteLiens porteLiensCompte">
+          <a data-controle="porte.creerCompte" href={vitrinePlateforme(plateforme)}>Créer un compte</a>
+          <a data-controle="porte.offres" href={vitrinePlateforme(plateforme)}>Voir les offres</a>
         </p>
       </form>
     </div>

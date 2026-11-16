@@ -12,10 +12,10 @@
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
 import { partirSansQuestion } from '../shell/depart.js';
-import { contexteCourant, sessionCourante, enAdmin, estAdministrateur, partageCourant } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin, estAdministrateur, partageCourant, enEssai } from '../app/acces.js';
 import { dateLongue } from '../app/partage.js';
 import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
-import { BACKPROD_API_URL, BACKPROD_PRODUCT_CODE } from '../plateforme/config.js';
+import { BACKPROD_API_URL, vitrinePlateforme } from '../plateforme/config.js';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
@@ -400,6 +400,7 @@ function useFermetureDesMenus(): void {
 function Compte({ magasin }: { magasin: Magasin }) {
   if (enAdmin()) return <SortieAdmin magasin={magasin} />;
   if (partageCourant()) return <BandeauPartage />;
+  if (enEssai()) return <BandeauEssai />;
   const c = contexteCourant()?.courant();
   if (!c) return null;
 
@@ -449,7 +450,7 @@ function Compte({ magasin }: { magasin: Magasin }) {
 function BandeauPartage() {
   const p = partageCourant();
   if (!p) return null;
-  const vitrine = BACKPROD_API_URL ? BACKPROD_API_URL.replace(/\/+$/, '') + '/?product=' + BACKPROD_PRODUCT_CODE : null;
+  const vitrine = BACKPROD_API_URL ? vitrinePlateforme() : null;
   return (
     <div id="compteBar" className="bandeauPartage" role="note" aria-label="Projet partagé">
       <span className="bandeauPartageTexte">
@@ -457,6 +458,21 @@ function BandeauPartage() {
         <span className="bandeauPartageVersion" title={'Version enregistrée le ' + dateLongue(p.enregistreLe)}> · version du {dateLongue(p.enregistreLe)}</span>
       </span>
       {vitrine && <a className="compteLien" data-controle="partage.decouvrir" href={vitrine} target="_blank" rel="noopener noreferrer">Découvrir Plan<span aria-hidden="true"> ↗</span></a>}
+    </div>
+  );
+}
+
+/**
+ * La demonstration sans compte (lot 6, app/acces.ts `entrerEnEssai`) : rien ne s'enregistre, et le dire avant qu'on ait travaille pour
+ * rien. « Créer un compte » mene a la vitrine de la plateforme (offres et inscription) ; « Quitter » ramene a la porte, en rechargeant
+ * la page : l'essai ne laisse rien derriere lui.
+ */
+function BandeauEssai() {
+  return (
+    <div id="compteBar" className="bandeauPartage bandeauEssai" role="note" aria-label="Démonstration">
+      <span className="bandeauPartageTexte">Démonstration · rien n’est enregistré · Créez un compte pour enregistrer</span>
+      {BACKPROD_API_URL && <a className="compteLien" data-controle="essai.creerCompte" href={vitrinePlateforme()}>Créer un compte</a>}
+      <button type="button" className="compteLien compteSortie" data-controle="essai.quitter" onClick={() => { partirSansQuestion(); location.reload(); }}>Quitter la démonstration</button>
     </div>
   );
 }

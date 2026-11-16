@@ -3108,6 +3108,64 @@ const POINTS = {
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
   },
+  169: async (page, f) => {
+    // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
+    // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
+    // ouvre la demonstration sans session ; une terrasse s'y modifie (une de plus, puis un sommet tire), le chiffrage suit ; aucun
+    // appel a la plateforme ne part apres le clic (ni authentifie, ni autre) ; le bandeau le dit ; ni « Enregistrer », ni l'import par
+    // adresse, ni l'audit, ni l'assistant ; « Quitter la démonstration » ramene a la porte.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const echecs = [];
+    const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+    const p = await ctx.newPage();
+    try {
+      const sim = await simulerPlateforme(p, { connecte: false });
+      await p.addInitScript(() => { window.__sansToitsFond = true; });
+      await p.goto(BASE + '/');
+      const porte = await etape('porte', async () => {
+        await p.locator('.porteBoite').waitFor({ timeout: 20000 });
+        const intro = (await p.locator('.porteIntro').textContent()) ?? '';
+        const liens = await p.evaluate(() => ['porte.creerCompte', 'porte.offres'].map((c) => document.querySelector('[data-controle="' + c + '"]')?.getAttribute('href') ?? null));
+        if (intro !== 'Dessinez votre terrasse sur votre vrai terrain, voyez-la en 3D et obtenez la liste d’achat et un devis.') echecs.push('présentation « ' + intro + ' »');
+        if (liens.some((l) => l !== 'http://plateforme.test/?product=plan')) echecs.push('liens ' + liens.join(', '));
+        if (await p.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width)) echecs.push('porte : débordement');
+        return liens[0];
+      });
+      const avant = sim.journal.length;
+      await p.locator('[data-controle="porte.essayer"]').click();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(800);
+      const mesure = await etape('essai', async () => {
+        const n0 = await p.evaluate(() => window.__plan.etat().objects.length);
+        const ajoutee = await p.evaluate(() => window.__plan.executer('objet.ajouter.terrasse'));
+        await p.waitForTimeout(300);
+        const n1 = await p.evaluate(() => window.__plan.etat().objects.length);
+        if (!ajoutee || n1 !== n0 + 1) echecs.push('terrasse ajoutée : ' + ajoutee + ' (' + n0 + ' → ' + n1 + ')');
+        const estime = await p.evaluate(() => window.__plan.etat().dirty);
+        if ((await classe(p)) !== 'large') await feuille(p, 'projet');
+        await p.evaluate(() => { for (const m of document.querySelectorAll('details.menu')) m.setAttribute('open', ''); });
+        await p.waitForTimeout(300);
+        const bandeau = (await p.locator('.bandeauEssai .bandeauPartageTexte').textContent().catch(() => '')) ?? '';
+        if (bandeau !== 'Démonstration · rien n’est enregistré · Créez un compte pour enregistrer') echecs.push('bandeau « ' + bandeau + ' »');
+        const absentes = ['projet.enregistrer', 'projet.nouveau', 'projet.depuisAdresse', 'audit.parcelle', 'assistant.demander', 'projet.partager'];
+        const visibles = await p.evaluate((ids) => ids.filter((id) => document.querySelector('[data-commande="' + id + '"]')), absentes);
+        if (visibles.length) echecs.push('visibles : ' + visibles.join(', '));
+        const apres = sim.journal.slice(avant);
+        if (apres.length) echecs.push('appels à la plateforme après le clic : ' + apres.map((j) => j.requete).join(', '));
+        if (sim.journal.some((j) => j.jeton)) echecs.push('un appel authentifié');
+        const deborde = await p.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+        if (deborde) echecs.push('débordement');
+        // Quitter : la porte revient. Les menus refermes, le bandeau est a sa place dans la feuille Projet.
+        await p.evaluate(() => { for (const m of document.querySelectorAll('details.menu')) m.removeAttribute('open'); });
+        await p.waitForTimeout(200);
+        await p.locator('[data-controle="essai.quitter"]').click();
+        await p.locator('.porteBoite').waitFor({ timeout: 20000 }).catch(() => echecs.push('« Quitter » ne ramène pas à la porte'));
+        return `${n0} → ${n1} objets ; projet ${estime ? 'modifié' : 'non modifié'} ; bandeau « ${bandeau} » ; ${absentes.length - visibles.length}/${absentes.length} commandes absentes ; ${apres.length} appel(s) après le clic, ${avant} avant (porte)`;
+      });
+      return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + 'liens → ' + porte + ' ; ' + mesure };
+    } finally { await ctx.close(); }
+  },
   168: async (page, f) => {
     // Lire un projet partage par un lien, sans compte (lot 6 du parcours client, 16 novembre 2026 ; ADR-073). Dans un contexte vierge,
     // sans session : `/?product=plan#share=<jeton>`, la plateforme simulee rend le plan de demonstration (`contrat/plan-produit.json`).
@@ -8940,7 +8998,9 @@ function pointsPour(nomClasse) {
   // 163 : l'enregistrement automatique (un PATCH, survit au rechargement, echec puis reprise, preference) et la question du navigateur.
   // 168 : lire un projet partage sans compte : le jeton quitte l'adresse, une seule requete publique, le bandeau, aucune commande
   //       d'edition visible ni executable, la nomenclature et la 3D ; un lien invalide (404) et trop de tentatives (429), dits en clair.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 168];
+  // 169 : essayer sans compte : la porte presente Plan et propose la demonstration, qui s'ouvre sans session ; une terrasse s'y ajoute,
+  //       aucun appel a la plateforme ne part, le bandeau le dit ; « Quitter la démonstration » ramene a la porte.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 168, 169];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

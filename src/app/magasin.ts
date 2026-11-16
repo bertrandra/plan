@@ -32,8 +32,8 @@ export type Feuille = 'projet' | 'outils' | 'objets' | 'proprietes' | 'resultats
 export type HauteurFeuille = 'apercu' | 'mi' | 'plein';
 
 /** Ou en est le projet vis-a-vis du serveur. `local` : pas de serveur, jeu de demonstration. */
-/** `partage` : un projet lu par un lien de partage (app/projetPartage.ts), sans depot, en lecture seule. */
-export type StatutProjet = 'local' | 'partage' | 'a-jour' | 'modifie' | 'enregistrement';
+/** `partage` : un projet lu par un lien de partage (app/projetPartage.ts), sans depot, en lecture seule ; `essai` : la demonstration sans compte. */
+export type StatutProjet = 'local' | 'partage' | 'essai' | 'a-jour' | 'modifie' | 'enregistrement';
 
 export interface ProjetObservable {
   apiDisponible: boolean;

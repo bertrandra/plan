@@ -205,6 +205,12 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'premierPas.vierge': etape(Z8, 'démarrage sans projet', 'Dessiner sans adresse'),
   // La lecture d'un projet partage (lot 6, zones/LienPartage.tsx, zones/BarreApplication.tsx) : un lien qui ne s'ouvre pas, et le bandeau.
   'lienPartage.reessayer': etape(Z8, 'ouverture d’un lien de partage (#share=…)', 'Réessayer de lire le projet partagé'),
+  // La demonstration sans compte (lot 6) : la porte la propose, avec la vitrine de la plateforme ; un bandeau la dit, et la quitte.
+  'porte.essayer': etape(Z8, 'démarrage sans session (la porte)', 'Essayer la démonstration'),
+  'porte.creerCompte': etape(Z8, 'démarrage sans session (la porte)', 'Créer un compte (la vitrine de la plateforme)'),
+  'porte.offres': etape(Z8, 'démarrage sans session (la porte)', 'Voir les offres (la vitrine de la plateforme)'),
+  'essai.creerCompte': { libelle: 'Créer un compte, depuis la démonstration', zone: Z1, nature: 'navigation' },
+  'essai.quitter': { libelle: 'Quitter la démonstration (retour à la porte)', zone: Z1, nature: 'navigation' },
   'partage.decouvrir': { libelle: 'Découvrir Plan (la vitrine de la plateforme), depuis un projet partagé', zone: Z1, nature: 'navigation' },
   // Import cadastral (zones/parcours/ImportCadastre.tsx).
   'cadastre.adresse': etape(Z8, IMPORT, 'Adresse à chercher'),
