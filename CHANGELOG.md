@@ -35,7 +35,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   votre terrain à la main. » Un refus déjà dit en phrase (quota, schéma, taille, « aucune adresse trouvée ») n'est pas touché.
   Appliquée à l'import cadastre (adresse, parcelle, voisines, voisinage étendu, BD TOPO, création du projet), à l'enregistrement,
   la création et la suppression du projet, au PLU (zonage et règlement), à l'actualisation IGN, aux rues, au relief, à la photo
-  aérienne, au chargement de la Vue 3D et du mode Toit, à la déclaration préalable, à la rédaction des textes du dossier et à
+  aérienne, au chargement de la Vue 3D et du mode Toit, à la déclaration préalable, au devis, à la rédaction des textes du dossier et à
   l'assistant. Le bandeau d'erreur d'une erreur dite en phrase (`shell/dialogs.ts::showErreur`) n'écrit plus « Erreur JS » : il
   dit la phrase, puis le message d'origine en petit, « Détail technique : … », sélectionnable pour qui aide la personne. Point de
   fumée 164 ; aucune quantité ni aucun export ne change.

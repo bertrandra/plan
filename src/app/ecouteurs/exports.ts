@@ -93,7 +93,11 @@ function brancherDevis(ctx: ContexteExports, cmd: RegistreCommandes): void {
         if (!res) { showToast('Dessinez d’abord une terrasse : le devis chiffre ses postes.'); return; }
         telechargerBlob(res.nomFichier, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         showToast('Devis téléchargé : ' + res.nomFichier + (res.pages > 1 ? ' (' + res.pages + ' pages).' : '.'));
-      }, (err: unknown) => { showErrBanner('Erreur devis : ' + (err as Error).message); });
+      }, (err: unknown) => {
+        // La bibliotheque PDF se charge a la demande : une coupure se dit en clair, le message du navigateur en detail.
+        const clair = phraseReseau(err, 'Le serveur de Plan', 'Le devis n’a pas pu se préparer : vérifiez votre connexion, puis réessayez.');
+        showErreur(clair ?? 'Erreur devis : ' + detailTechnique(err), clair ? detailTechnique(err) : '');
+      });
     }
   });
 }
