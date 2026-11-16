@@ -84,7 +84,7 @@ export function cleEtat(s: EtatMagasin): string {
     e.showNorth, e.positionGps, e.audit ? JSON.stringify(e.audit) : '', e.grilleVisible, e.voisinageVisible, e.schemaProjet, e.dirty,
     p?.ombreAffichee, p?.carteAffichee, soleil.dateStr, soleil.minutes,
     JSON.stringify([mesure.pointage, mesure.ref, mesure.startEnd, mesure.cibles, cibleAlignement(), saillieArmee()]), lectureRelief.enCours(),
-    identite(especesChargees())
+    identite(especesChargees()), s.options?.modeExpert
   ].join('|');
   communeVersion = s.version; communeEtat = e;
   return commune;

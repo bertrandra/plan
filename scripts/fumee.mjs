@@ -272,6 +272,43 @@ async function cadrerParcelle(page) {
 }
 async function classe(page) { return page.evaluate(() => window.__plan.magasin().classe); }
 async function feuille(page, f) { await page.evaluate((f) => window.__plan.ouvrirFeuille(f), f); await page.waitForTimeout(280); }
+/**
+ * Allume ou eteint le mode expert (app/modeExpert.ts) par sa case du menu Affichage (dans la feuille Projet au doigt). La case doit y
+ * etre, menu ouvert ; elle se coche menu referme : ouvert, ses entrees suivent l'etat de leur commande, et celle de la photo aerienne
+ * change avec les tuiles qui arrivent, hors des rendus du plan (le garde-fou des cles le prendrait pour un oubli). Rend ce que la
+ * case dit ensuite.
+ */
+async function modeExpert(page, voulu) {
+  const tactile = (await classe(page)) !== 'large';
+  if (tactile) await feuille(page, 'projet');
+  await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+  await page.waitForTimeout(150);
+  const visible = await page.locator('#chkModeExpert').isVisible();
+  await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+  if (!visible) throw new Error('case « Mode expert » absente du menu Affichage');
+  const coche = await page.evaluate((voulu) => { const c = document.getElementById('chkModeExpert'); if (c && c.checked !== voulu) c.click(); return null; }, voulu);
+  void coche;
+  await page.waitForTimeout(250);
+  const apres = await page.evaluate(() => !!document.getElementById('chkModeExpert')?.checked);
+  if (tactile) await feuille(page, null);
+  return apres;
+}
+/** Les entrees d'un menu de la barre, lues menu ouvert (un menu ferme ne relit pas l'etat de ses commandes). */
+async function entreesDuMenu(page, id) {
+  const tactile = (await classe(page)) !== 'large';
+  if (tactile) await feuille(page, 'projet');
+  await page.evaluate((id) => document.getElementById(id)?.setAttribute('open', ''), id);
+  await page.waitForTimeout(200);
+  const r = await page.evaluate((id) => {
+    const m = document.getElementById(id);
+    return m ? { commandes: [...m.querySelectorAll('[data-commande]')].map((e) => e.getAttribute('data-commande')),
+      controles: [...m.querySelectorAll('[data-controle]')].map((e) => e.getAttribute('data-controle')),
+      entrees: [...m.querySelectorAll(':scope > ul > li')].filter((li) => getComputedStyle(li).display !== 'none' && !li.classList.contains('separateur') && !li.classList.contains('menuAide') && !li.classList.contains('refusMenu')).length } : null;
+  }, id);
+  await page.evaluate((id) => document.getElementById(id)?.removeAttribute('open'), id);
+  if (tactile) await feuille(page, null);
+  return r;
+}
 const proches = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const aire = (pts) => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p.x * q.y - q.x * p.y; }, 0) / 2);
 const angle = (pts, i) => {
@@ -3490,6 +3527,160 @@ const POINTS = {
       return `premier pas « ${r.titre} », offres → ${r.offres}`;
     });
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + dans + ' ; ' + plein };
+  },
+  177: async (page, f) => {
+    // Le mode expert (lot 3 de la simplification, 16 novembre 2026) : eteint, les formats techniques (SVG, DXF, GLB, les JSON et
+    // leurs options, la visionneuse GLB), les parametres de calcul de la terrasse et les reglages fins de la Vue 3D (opaques, soleil)
+    // ne se montrent pas, et le registre refuse leurs commandes ; allume par sa case du menu Affichage, tout revient a sa place. Une
+    // preference de l'appareil : ni Ctrl+Z ni « projet modifie », retenue au rechargement.
+    const echecs = [];
+    const lireEcran = async () => {
+      const fichier = await entreesDuMenu(page, 'menuFichier');
+      const exporter = await entreesDuMenu(page, 'menuExporter');
+      await page.evaluate(() => window.__plan.selectionnerPremiere('terrasse'));
+      await page.waitForTimeout(200);
+      // L'inspecteur se lit montre : cache (une feuille fermee), il garde ce qu'il montrait.
+      await inspecteur(page);
+      const parametres = await page.evaluate(() => !!document.querySelector('details.inspecteurSection[data-section="parametres"]'));
+      await feuille(page, null);
+      // Les reglages de la Vue 3D se lisent vue ouverte : cachee, la zone garde ce qu'elle montrait (sa cle est gelee).
+      await page.evaluate(() => window.__plan.executer('vue.3d'));
+      await page.waitForTimeout(1200);
+      const v3d = await page.evaluate(() => ({ opaques: !!document.querySelector('#terrasse3dObjectsOpaque'), soleil: !!document.querySelector('[data-controle="vue3d.intensite"]') }));
+      await page.evaluate(() => window.__plan.executer('vue.plan'));
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => ({
+        visionneuse: !!document.querySelector('#glbViewerBtn'),
+        // En mode simple seulement : allume, la commande telechargerait le fichier.
+        dxf: window.__plan.magasin().options.modeExpert ? null : window.__plan.executer('export.dxf') === false ? 'refusé' : 'exécuté'
+      }));
+      return { fichier, exporter, parametres, ...v3d, ...r };
+    };
+    const techniques = ['fichier.importerSvg', 'fichier.importerJson', 'fichier.exporterJson'];
+    const options = ['fichier.option.remplacerImportSvg', 'fichier.option.remplacerImportJson', 'fichier.option.exportSansParcelle'];
+    const exports = ['export.svg', 'export.dxf', 'export.glb'];
+    const avant = await page.evaluate(() => ({ dirty: window.__plan.etat().dirty, annuler: window.__plan.magasin().peutAnnuler }));
+    if (await modeExpert(page, false)) echecs.push('la case ne s’éteint pas');
+    const simple = await lireEcran();
+    const stocke = await page.evaluate(() => localStorage.getItem('plan.modeExpert'));
+    if (stocke !== 'non') echecs.push('préférence « ' + stocke + ' » après extinction');
+    for (const id of techniques) if (simple.fichier?.commandes.includes(id)) echecs.push(id + ' visible en mode simple');
+    for (const id of options) if (simple.fichier?.controles.includes(id)) echecs.push(id + ' visible en mode simple');
+    for (const id of exports) if (simple.exporter?.commandes.includes(id)) echecs.push(id + ' visible en mode simple');
+    if (!simple.exporter?.commandes.includes('export.png') || !simple.exporter?.commandes.includes('export.pdf')) echecs.push('PNG ou PDF du plan retirés');
+    if (simple.visionneuse) echecs.push('visionneuse GLB visible');
+    if (simple.parametres) echecs.push('« Paramètres de calcul » visibles');
+    if (simple.opaques || simple.soleil) echecs.push('réglages fins de la 3D visibles');
+    if (simple.dxf !== 'refusé') echecs.push('export.dxf exécuté en mode simple');
+    const apres = await page.evaluate(() => ({ dirty: window.__plan.etat().dirty, annuler: window.__plan.magasin().peutAnnuler }));
+    if (apres.dirty !== avant.dirty || apres.annuler !== avant.annuler) echecs.push('la bascule touche le projet (modifié ou Ctrl+Z)');
+    // Retenu au rechargement.
+    await page.reload();
+    const demo = page.getByRole('button', { name: /d[ée]monstration/i });
+    await Promise.race([page.waitForSelector('#stage svg', { timeout: 30000 }), demo.waitFor({ timeout: 30000 })]).catch(() => {});
+    if (await demo.count()) await demo.click();
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) await garder.click();
+    if (await page.evaluate(() => window.__plan.magasin().options.modeExpert)) echecs.push('mode simple oublié au rechargement');
+    // Allume : tout revient.
+    if (!(await modeExpert(page, true))) echecs.push('la case ne s’allume pas');
+    const expert = await lireEcran();
+    for (const id of techniques) if (!expert.fichier?.commandes.includes(id)) echecs.push(id + ' absent en mode expert');
+    for (const id of options) if (!expert.fichier?.controles.includes(id)) echecs.push(id + ' absent en mode expert');
+    for (const id of exports) if (!expert.exporter?.commandes.includes(id)) echecs.push(id + ' absent en mode expert');
+    if (!expert.visionneuse) echecs.push('visionneuse GLB absente en mode expert');
+    if (!expert.parametres) echecs.push('« Paramètres de calcul » absents en mode expert');
+    if (!expert.opaques || !expert.soleil) echecs.push('réglages fins de la 3D absents en mode expert');
+    if (await page.evaluate(() => localStorage.getItem('plan.modeExpert')) !== 'oui') echecs.push('préférence non écrite à l’allumage');
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `mode simple : Fichier ${simple.fichier?.entrees} entrées, Exporter ${simple.exporter?.entrees}, export.dxf ${simple.dxf} ; mode expert : Fichier ${expert.fichier?.entrees}, Exporter ${expert.exporter?.entrees} ; ni « modifié » ni Ctrl+Z ; retenu au rechargement` };
+  },
+  178: async (page) => {
+    // L'inspecteur de la terrasse en trois groupes (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
+    // choisie, mode expert eteint, ses reglages de construction tiennent en « Forme et niveau », « Lames et finitions », « Structure
+    // et appuis », sans « Paramètres de calcul » ni les reglages du calcul (charges cibles, entraxes automatiques, zone renforcee) ;
+    // le mode expert allume, ils reviennent dans les memes groupes ; la nomenclature est la meme dans les deux modes.
+    const echecs = [];
+    const lire = async () => {
+      await selectionner(page, TERRASSE);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      await inspecteur(page);
+      const r = await page.evaluate(() => {
+        const sections = [...document.querySelectorAll('#zoneInspecteur details.inspecteurSection')];
+        const construction = sections.filter((d) => d.dataset.famille === 'construction');
+        const cles = (id) => [...(document.querySelector('#zoneInspecteur details[data-section="' + id + '"]')?.querySelectorAll('[data-cle]') ?? [])].map((e) => e.getAttribute('data-cle'));
+        return { ids: construction.map((d) => d.dataset.section), titres: construction.map((d) => d.querySelector('summary')?.textContent ?? ''),
+          structure: cles('structure'), lames: cles('lames'), total: document.getElementById('terrasseBomTotals')?.textContent ?? '',
+          deborde: document.documentElement.scrollWidth > innerWidth + 1 };
+      });
+      await feuille(page, null);
+      return r;
+    };
+    await modeExpert(page, false);
+    const simple = await lire();
+    if (simple.ids.join() !== 'implantation,lames,structure') echecs.push('groupes : ' + simple.ids.join());
+    if (simple.titres.join(' | ') !== 'Terrasse · Forme et niveau | Lames et finitions | Structure et appuis') echecs.push('titres : ' + simple.titres.join(' | '));
+    // La terrasse de la demonstration est sur vis ou sur plots : les champs attendus suivent.
+    const plots = await page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse')?.construction?.typePose === 'plots');
+    const fins = ['chargeNormale', 'chargeSpa', 'visMargeZoneSpa', ...(plots ? ['plotEntraxeAuto', 'plotSurfaceAssise'] : ['visModeAuto', 'visEntraxeZoneSpa'])];
+    for (const k of fins) if (simple.structure.includes(k)) echecs.push(k + ' visible en mode simple');
+    if (simple.lames.includes('coefRaideurLame')) echecs.push('raideur visible en mode simple');
+    for (const k of ['typePose', 'soliveSection', ...(plots ? ['hauteurPlot', 'plotEntraxe'] : ['hauteurVis', 'visEntraxe'])]) if (!simple.structure.includes(k)) echecs.push(k + ' absent de « Structure et appuis »');
+    for (const k of ['lameCommerce', 'sensPose', 'avecLameRive']) if (!simple.lames.includes(k)) echecs.push(k + ' absent de « Lames et finitions »');
+    await modeExpert(page, true);
+    const expert = await lire();
+    if (expert.ids.join() !== 'implantation,lames,structure,parametres') echecs.push('groupes en mode expert : ' + expert.ids.join());
+    for (const k of fins) if (!expert.structure.includes(k)) echecs.push(k + ' absent en mode expert');
+    if (expert.total !== simple.total) echecs.push('la nomenclature change d’un mode à l’autre');
+    if (simple.deborde || expert.deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `« ${simple.titres.join(' » · « ')} » ; Structure et appuis : ${simple.structure.length} champs (expert : ${expert.structure.length}) ; « ${simple.total.trim().slice(0, 30)} » dans les deux modes` };
+  },
+  179: async (page) => {
+    // Le menu Fichier ramene a l'essentiel (lot 3 de la simplification, 16 novembre 2026) : mode expert eteint, il tient en neuf
+    // entrees au plus — mes projets, partir d'une adresse, le projet (nouveau, enregistrer, automatique, partager, supprimer),
+    // l'actualiser, l'auditer — sans un filet de trop ; ce qui repare ou affine un plan venu de l'IGN, l'import d'un audit et les
+    // formats techniques reviennent avec le mode expert.
+    const echecs = [];
+    // « Partager par un lien… » suit la capacite du partage (effacee sans elle) : il n'est pas exige ici.
+    const essentiel = ['projet.mesProjets', 'projet.depuisAdresse', 'projet.nouveau', 'projet.enregistrer', 'projet.supprimer', 'projet.actualiser', 'audit.parcelle'];
+    const experts = ['projet.actualiserIgn', 'projet.toitsFond', 'projet.supprimerVoisinage', 'projet.doublons', 'audit.importerParcelle', 'fichier.importerJson', 'fichier.exporterJson'];
+    const filets = async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      await page.evaluate(() => document.getElementById('menuFichier')?.setAttribute('open', ''));
+      await page.waitForTimeout(200);
+      const r = await page.evaluate(() => {
+        const lis = [...document.querySelectorAll('#menuFichier > ul > li')].filter((li) => getComputedStyle(li).display !== 'none');
+        let deSuite = 0;
+        lis.forEach((li, k) => { if (li.classList.contains('separateur') && (k === 0 || k === lis.length - 1 || lis[k - 1].classList.contains('separateur'))) deSuite++; });
+        const m = document.getElementById('menuFichier').getBoundingClientRect();
+        return { deSuite, bas: m.bottom, hauteur: innerHeight };
+      });
+      await page.evaluate(() => document.getElementById('menuFichier')?.removeAttribute('open'));
+      if ((await classe(page)) !== 'large') await feuille(page, null);
+      return r;
+    };
+    await modeExpert(page, false);
+    const simple = await entreesDuMenu(page, 'menuFichier');
+    const fs = await filets();
+    if (!simple) return { ok: false, mesure: 'menu Fichier absent' };
+    // « Mettre à jour le modèle… » ne se montre que pour un projet d'un schema ancien : il n'est pas compte.
+    const compte = simple.entrees - (simple.commandes.includes('projet.mettreAJourModele') ? 1 : 0);
+    if (compte > 9) echecs.push(compte + ' entrées en mode simple');
+    for (const id of essentiel) if (!simple.commandes.includes(id)) echecs.push(id + ' absent');
+    for (const id of experts) if (simple.commandes.includes(id)) echecs.push(id + ' visible en mode simple');
+    if (fs.deSuite) echecs.push(fs.deSuite + ' filet(s) de trop');
+    await modeExpert(page, true);
+    const expert = await entreesDuMenu(page, 'menuFichier');
+    for (const id of [...essentiel, ...experts]) if (!expert?.commandes.includes(id)) echecs.push(id + ' absent en mode expert');
+    const fe = await filets();
+    if (fe.deSuite) echecs.push(fe.deSuite + ' filet(s) de trop en mode expert');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `mode simple : ${simple.entrees} entrées (${simple.commandes.join(', ')}) ; mode expert : ${expert?.entrees} entrées` };
   },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
@@ -9408,7 +9599,10 @@ function pointsPour(nomClasse) {
   // 174 : l'aide de premiere utilisation : trois bulles une fois par appareil, retenues, « Passer ».
   // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176];
+  // 177 : le mode expert, eteint : ni formats techniques, ni parametres de calcul, ni reglages fins de la 3D ; allume, tout revient.
+  // 178 : l'inspecteur de la terrasse en trois groupes, les reglages du calcul au mode expert ; la nomenclature ne change pas.
+  // 179 : le menu Fichier en neuf entrees au plus en mode simple, sans filet de trop ; le reste revient avec le mode expert.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
@@ -9493,6 +9687,16 @@ async function principal() {
   const aJouer = parties();
   const parallele = Math.max(1, Number(process.env.FUMEE_PARALLELE) || Math.min(4, Math.max(1, Math.floor(cpus().length / 4))));
   const navigateur = await chromium.launch();
+  // Le mode expert (app/modeExpert.ts) est eteint sur un appareil neuf. Les points d'avant le lot 3 de la simplification jouent ce
+  // qu'il cache (exports techniques, parametres de calcul, reglages fins de la 3D) : chaque contexte, le premier comme ceux qu'un
+  // point ouvre, l'allume tant que la page ne l'a pas regle elle-meme. Les points du lot 3 (177 et suivants) l'eteignent par sa
+  // case, comme la personne, pour jouer l'ecran de tous les jours.
+  const nouveauContexte = navigateur.newContext.bind(navigateur);
+  navigateur.newContext = async (options) => {
+    const c = await nouveauContexte(options);
+    await c.addInitScript(() => { try { if (localStorage.getItem('plan.modeExpert') === null) localStorage.setItem('plan.modeExpert', 'oui'); } catch { /* stockage absent */ } });
+    return c;
+  };
   const net = reseau(await choisirModeReseau(navigateur));
   console.log(`${aJouer.length} partie(s), ${parallele} à la fois, ${net.mode === 'direct' ? 'réseau direct' : net.mode === 'temoin' ? 'réseau rejoué (données témoin)' : 'réseau enregistré'}\n`);
   const resultats = new Array(aJouer.length);

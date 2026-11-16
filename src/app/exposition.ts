@@ -70,7 +70,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.ajouter.polygone': outil(),
   'objet.ajouter.rectangle': outil(),
   'objet.ajouter.cercle': outil(),
-  // La plage d'une piscine (section Abords) et les trous d'une terrasse (étape 1 de la terrasse, Implantation et niveau).
+  // La plage d'une piscine (section Abords) et les trous d'une terrasse (groupe Forme et niveau de la terrasse).
   'objet.terrassePiscine': partout('inspecteur'),
   'terrasse.ajouterTrou': partout('inspecteur'),
   'objet.rendreEgout': partout('inspecteur'),
@@ -279,4 +279,28 @@ export const EXPOSITION: Record<string, Ligne> = {
 export const SANS_OBJET_ADMIS: Record<string, string> = {
   '3d.pleinePage': 'Sur telephone et tablette, la vue 3D occupe deja tout l\'ecran.',
   'visionneuse.pleinePage': 'Sur telephone et tablette, la visionneuse occupe deja tout l\'ecran.'
+};
+
+/**
+ * Les commandes du mode expert (lot 3 de la simplification de l'interface, 16 novembre 2026), et pourquoi la personne ordinaire
+ * n'en a pas besoin. Le mode expert est une preference de l'appareil, eteinte par defaut (app/modeExpert.ts) : eteint, le registre
+ * efface ces commandes comme une capacite que l'organisation n'a pas (app/commandes.ts), dans les trois classes, sans qu'aucune zone
+ * ne les nomme ; allume, elles reviennent toutes, la ou cette carte les expose. Ce sont les formats techniques : ceux qu'un autre
+ * logiciel relit (DAO, scene 3D, fichier du projet), pas ceux qu'on imprime ou qu'on envoie a un client (devis, PDF, PNG).
+ */
+export const MODE_EXPERT: Record<string, string> = {
+  'export.svg': 'Format technique : un dessin vectoriel a reprendre dans un autre logiciel.',
+  'export.dxf': 'Format technique : un fichier de DAO.',
+  'export.glb': 'Format technique : la scene 3D, pour un autre logiciel.',
+  'vue.visionneuse': 'Relit le dernier GLB exporte, un format technique.',
+  'fichier.importerSvg': 'Format technique : un dessin vectoriel venu d\'un autre logiciel.',
+  'fichier.importerJson': 'Format technique : le fichier brut d\'un projet.',
+  'fichier.exporterJson': 'Format technique : le fichier brut d\'un projet ; le projet s\'enregistre et se partage sans lui.',
+  // Le menu Fichier ramene a l'essentiel (sujet 3 du lot) : ce qui suit repare ou affine un plan venu de l'IGN, et « Actualiser le
+  // projet » le fait pour tout le monde en un geste.
+  'projet.actualiserIgn': 'Actualiser le projet relit l\'IGN et recalcule tout ; celle-ci ne remplace que ce qui en vient, au choix.',
+  'projet.toitsFond': 'La lecture des toits du voisinage en tache de fond se suspend ou reprend d\'elle-meme.',
+  'projet.supprimerVoisinage': 'Une reparation : le voisinage se masque (menu Affichage) sans etre supprime.',
+  'projet.doublons': 'Une reparation d\'un plan importe deux fois.',
+  'audit.importerParcelle': 'Le fichier d\'un audit fait sur un autre appareil (l\'administrateur pour un client) : un fichier technique, comme le JSON.'
 };

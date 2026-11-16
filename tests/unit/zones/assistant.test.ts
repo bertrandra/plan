@@ -44,7 +44,7 @@ describe('le dialogue de l assistant', () => {
     expect(bouton('assistant.envoyer')?.disabled).toBe(false);
     await act(async () => { bouton('assistant.envoyer')?.click(); await new Promise((r) => setTimeout(r, 0)); });
     const lignes = [...hote.querySelectorAll('.etapesAssistant > li')];
-    expect(lignes.map((l) => l.querySelector('.libelleEtape')?.textContent)).toEqual(['3. Lames et sens de pose › Essence de bois : Douglas', 'Terrasse autour de la piscine']);
+    expect(lignes.map((l) => l.querySelector('.libelleEtape')?.textContent)).toEqual(['Lames et finitions › Essence de bois : Douglas', 'Terrasse autour de la piscine']);
     expect(lignes.map((l) => l.classList.contains('refusee'))).toEqual([false, true]);
     expect(lignes[1]?.getAttribute('aria-disabled')).toBe('true');
     expect(lignes[1]?.querySelector('.raisonEtape')?.textContent).toBe('Indisponible dans l’état actuel du plan.');

@@ -134,6 +134,16 @@ function Case({ magasin, option, idDom, controle, libelle, titre }: { magasin: M
   );
 }
 
+/**
+ * La case d'une option qui suit la commande qu'elle regle : effacee avec elle (une capacite manquante, le mode expert eteint), parce
+ * qu'une option sans sa commande ne regle rien.
+ */
+function CaseDeCommande({ commandes, id, ...p }: Parameters<typeof Case>[0] & { commandes: RegistreCommandes; id: string }) {
+  const etat = useEtatCommande(commandes, id);
+  if (!etat.utilisable && etat.raison === 'capacite') return null;
+  return <Case {...p} />;
+}
+
 /** L'echelle du PDF : un brouillon libre pendant la frappe, l'option ne retient qu'un entier positif. */
 function EchellePdf({ magasin }: { magasin: Magasin }) {
   const echelle = useStore(magasin.store, (s) => s.options.echellePdf);
@@ -151,7 +161,11 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
   return (
     <Deroulant id="menuFichier" titre="Fichier">
       <ul role="menu">
+        {/* Ramene a l'essentiel pour la personne ordinaire (lot 3 de la simplification) : le projet, la creation depuis une adresse,
+            l'actualisation et l'audit. Ce qui repare ou affine un plan venu de l'IGN, et les formats techniques, viennent apres :
+            le registre les efface tant que le mode expert est eteint (MODE_EXPERT, app/exposition.ts), avec leurs filets. */}
         {p.apiDisponible && commandes.obtenir('projet.mesProjets') && <Entree commandes={commandes} id="projet.mesProjets" libelle="Mes projets…" />}
+        <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
         {/* Une preference de l'appareil (app/enregistrementAuto.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
@@ -160,27 +174,26 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         {p.apiDisponible && <RefusAuDoigt commandes={commandes} id="projet.partager" tactile={tactile} />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.supprimer" libelle="Supprimer le projet…" />}
         {p.apiDisponible && p.schemaEnRetard && <Entree commandes={commandes} id="projet.mettreAJourModele" libelle="Mettre à jour le modèle…" />}
-        {p.apiDisponible && <li className="separateur" role="separator" />}
-        <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
-        <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
-        <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
-        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
-        <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
-        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons…" />
         <li className="separateur" role="separator" />
+        <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
         {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
         <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
         <RefusAuDoigt commandes={commandes} id="audit.parcelle" tactile={tactile} />
-        {/* Un audit fait ailleurs (l'administrateur pour un client, §15) : repris a ses propositions. */}
+        <li className="separateur" role="separator" />
+        {/* Mode expert : reparer ou affiner un plan venu de l'IGN, reprendre un audit fait ailleurs (l'administrateur pour un client, §15). */}
+        <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
+        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
+        <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
+        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons…" />
         <Entree commandes={commandes} id="audit.importerParcelle" libelle="Importer un audit de parcelle…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
-        <Case magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" />
+        <CaseDeCommande magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" commandes={commandes} id="fichier.importerSvg" />
         <Entree commandes={commandes} id="fichier.importerJson" libelle="Importer un projet (JSON)…" idDom="importJsonBtn" />
-        <Case magasin={magasin} option="remplacerImportJson" idDom="chkJsonRemplace" controle="fichier.option.remplacerImportJson" libelle="Remplacer le plan actuel" titre="Décoché : les objets du fichier s'ajoutent au plan" />
+        <CaseDeCommande magasin={magasin} option="remplacerImportJson" idDom="chkJsonRemplace" controle="fichier.option.remplacerImportJson" libelle="Remplacer le plan actuel" titre="Décoché : les objets du fichier s'ajoutent au plan" commandes={commandes} id="fichier.importerJson" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.exporterJson" libelle="Exporter le projet (JSON)" idDom="exportJsonBtn" />
-        <Case magasin={magasin} option="exportSansParcelle" idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
+        <CaseDeCommande magasin={magasin} option="exportSansParcelle" idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" commandes={commandes} id="fichier.exporterJson" />
       </ul>
     </Deroulant>
   );
@@ -267,6 +280,10 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="affichage.orthoParcelleDefaut" libelle="Remplissage conseillé (15 %)" idDom="orthoParcelleDefaut" />
         <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger la photo aérienne" />
         <li className="menuAide">Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
+        <li className="separateur" role="separator" />
+        {/* Une preference de l'appareil (app/modeExpert.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
+        <Case magasin={magasin} option="modeExpert" idDom="chkModeExpert" controle="affichage.option.modeExpert" libelle="Mode expert"
+          titre="Montre les formats techniques (DXF, GLB, JSON…), les constantes de calcul et les réglages fins de la 3D. Une préférence de cet appareil." />
       </ul>
     </Deroulant>
   );

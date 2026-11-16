@@ -26,7 +26,7 @@ describe('la lame du commerce', () => {
     const cx = contexte(terrasse({}));
     const lames = sectionsConstruction(cx).find((s) => s.id === 'lames')!;
     expect(lames.champs[0]!.cle).toBe('lameCommerce');
-    expect(lames.champs.filter((c) => c.repli).map((c) => c.cle)).toEqual(['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame']);
+    expect(lames.champs.filter((c) => c.repli === 'Détail de la lame (essence, cotes, raideur)').map((c) => c.cle)).toEqual(['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame']);
   });
 
   it('chaque lame du catalogue a une essence connue, et des cotes distinctes', () => {

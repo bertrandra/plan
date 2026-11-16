@@ -95,7 +95,9 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       choisirTexture: ouvrirSelecteurTexture,
       executerCommande: (id) => { commandes.executer(id); },
       commandeUtilisable: (id) => commandes.etat(id).utilisable,
-      pushHistory: ctx.pushHistory, render: ctx.render, toast: showToast
+      pushHistory: ctx.pushHistory, render: ctx.render, toast: showToast,
+      // Le mode expert (app/modeExpert.ts) : eteint, les reglages fins ne se montrent pas.
+      modeSimple: !magasin.store.getState().options.modeExpert
     };
   }
 
