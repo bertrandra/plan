@@ -31,7 +31,8 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
     construireNoteCalcul: async () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
     construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', relecture: [{ cle: 'cerfa.signature', gravite: 'a-completer', cerfa: true, texte: 'la signature' }], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
     declarationPossible: () => true,
-    construireDevis: async () => ({ pdf: new Uint8Array([37]), nomFichier: 'devis-ma-maison-20261116.pdf', pages: 1 }), ...plus
+    construireDevis: async () => ({ pdf: new Uint8Array([37]), nomFichier: 'devis-ma-maison-20261116.pdf', pages: 1 }),
+    construireListeAchat: async (format) => ({ contenu: format === 'csv' ? '\uFEFFRayon' : new Uint8Array([37]), nomFichier: 'liste-achat-ma-maison-20261116.' + format }), ...plus
   };
   const droits: Droits = { branchee: () => true, aCapacite: () => capacites, aPermission: () => true, reste: () => null };
   const cmd = creerRegistre(droits);
@@ -42,6 +43,19 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
 beforeEach(() => { for (const l of Object.values(journal)) l.length = 0; });
 
 describe('exports', () => {
+  it('liste d achat : un PDF et un CSV, chacun dit son nom ; rien a acheter, rien ne part', async () => {
+    const { cmd } = monter();
+    cmd.executer('export.listeAchatPdf'); cmd.executer('export.listeAchatCsv');
+    await attendre();
+    expect(journal.blobs).toEqual(['liste-achat-ma-maison-20261116.pdf', 'liste-achat-ma-maison-20261116.csv']);
+    expect(journal.toasts).toEqual(['Liste d’achat téléchargée : liste-achat-ma-maison-20261116.pdf.', 'Liste d’achat téléchargée : liste-achat-ma-maison-20261116.csv.']);
+    const vide = monter({ construireListeAchat: async () => null });
+    vide.cmd.executer('export.listeAchatCsv');
+    await attendre();
+    expect(journal.blobs.length).toBe(2);
+    expect(journal.toasts[2]).toMatch(/^Rien à acheter/);
+  });
+
   it('devis : telecharge le PDF et dit le nom du fichier ; sans terrasse, le dit sans rien telecharger', async () => {
     const { cmd } = monter();
     cmd.executer('export.devis');

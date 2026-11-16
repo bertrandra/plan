@@ -1,0 +1,13 @@
+﻿Rayon;Terrasse;Désignation;Section;Barres achetées;Quantité;Unité;Prix bas (€/unité);Prix haut (€/unité);Prix réel (total ligne, €);Prix réel
+Plots et appuis;Terrasse;Vis de fondation;;;37;u;25,00;45,00;1295,00;saisi
+Plots et appuis;Table;Vis de fondation;;;13;u;25,00;45,00;455,00;saisi
+Structure;Terrasse;Cadre, solives (63x175) — barres achetees;63x175;"7 × 5 m ; 11 × 4 m ; 3 × 3 m ; 1 × 2,5 m ; 1 × 2 m";92,50;ml;4,00;7,00;508,75;estimé (prix par défaut)
+Structure;Terrasse;Lambourdes (45x70) — barres achetees;45x70;"9 × 5 m ; 6 × 4 m ; 2 × 3 m ; 6 × 2,5 m ; 2 × 2 m";94,00;ml;4,00;7,00;517,00;estimé (prix par défaut)
+Structure;Table;Cadre, solives (63x175) — barres achetees;63x175;"7 × 4 m ; 2 × 3 m";34,00;ml;4,00;7,00;187,00;estimé (prix par défaut)
+Structure;Table;Lambourdes (45x70) — barres achetees;45x70;"6 × 2,5 m ; 6 × 2 m";27,00;ml;4,00;7,00;148,50;estimé (prix par défaut)
+Bois et lames;Terrasse;Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees;25x140;"17 × 3 m ; 25 × 2,5 m ; 32 × 2 m ; 17 × 1,7 m ; 42 × 1,5 m";269,40;ml;3,50;5,60;1226,19;estimé (prix par défaut)
+Bois et lames;Table;Lames (Pin classe 4 (autoclave)) + bordure a plat — barres achetees;25x140;"27 × 3 m ; 2 × 2,5 m ; 2 × 1,7 m";89,40;ml;3,50;5,60;406,79;estimé (prix par défaut)
+Visserie et fixations;Terrasse;Visserie / fixations;;;35,01;m²;4,00;6,00;;non saisi
+Visserie et fixations;Table;Visserie / fixations;;;12,10;m²;4,00;6,00;;non saisi
+Finitions;Terrasse;Lame de rive (finition);;;28,61;ml;10,00;20,00;;non saisi
+Finitions;Table;Lame de rive (finition);;;14,14;ml;10,00;20,00;;non saisi

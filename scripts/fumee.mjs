@@ -3037,6 +3037,53 @@ const POINTS = {
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
   },
+  166: async (page, f) => {
+    // La liste d'achat (lot 5 du parcours client, 16 novembre 2026) : le menu Exporter (feuille Projet au doigt), ses deux entrees sous
+    // le devis ; le PDF (une page au moins, que pdf-lib ouvre, des cases a cocher) et le CSV (BOM UTF-8, point-virgule, une ligne par
+    // ligne de la Nomenclature) ; le toast qui dit chaque nom ; en tete de l'onglet Nomenclature, les deux boutons ; rien ne deborde.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await noterToasts(page);
+    const menu = async (id) => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      return page.evaluate((c) => {
+        const m = document.getElementById('menuExporter');
+        m?.setAttribute('open', '');
+        const ids = [...(m?.querySelectorAll('[role="menu"] [data-commande]') ?? [])].map((b) => b.getAttribute('data-commande'));
+        m?.querySelector('[data-commande="' + c + '"]')?.click();
+        return ids;
+      }, id);
+    };
+    const { PDFDocument } = await import('pdf-lib');
+    const [dlPdf, ids] = await etape('PDF', async () => { const [d, i] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), menu('export.listeAchatPdf')]); return [d, i]; });
+    const pdf = readFileSync(await dlPdf.path());
+    const doc = await etape('ouvrir le PDF', () => PDFDocument.load(pdf));
+    const cases = (pdf.toString('latin1').match(/ re S\n/g) ?? []).length;
+    const [dlCsv] = await etape('CSV', () => Promise.all([page.waitForEvent('download', { timeout: 20000 }), menu('export.listeAchatCsv')]));
+    const csv = readFileSync(await dlCsv.path());
+    const texte = csv.toString('utf8');
+    const lignes = texte.replace(/^﻿/, '').split('\r\n').filter(Boolean);
+    const bom = csv[0] === 0xef && csv[1] === 0xbb && csv[2] === 0xbf;
+    const toastPdf = (await attendreToast(page, '^Liste d’achat téléchargée : liste-achat-.*\\.pdf')).trim();
+    const toastCsv = (await attendreToast(page, '^Liste d’achat téléchargée : liste-achat-.*\\.csv')).trim();
+    // L'onglet Nomenclature d'une terrasse : les deux boutons en tete, actifs.
+    await selectionner(page, TERRASSE);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    if ((await classe(page)) === 'compact') await feuille(page, 'resultats');
+    await page.waitForTimeout(300);
+    const tete = await page.evaluate(() => {
+      const g = document.querySelector('#panelBom .listeAchat');
+      const b = [...(g?.querySelectorAll('button[data-commande]') ?? [])];
+      return { n: b.length, actifs: b.every((x) => !x.disabled), premier: g === document.querySelector('#panelBom')?.firstElementChild,
+        hauteur: Math.min(...b.map((x) => x.getBoundingClientRect().height)) };
+    });
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const auDoigt = (await classe(page)) !== 'large';
+    const ok = ids.indexOf('export.listeAchatPdf') === 1 && ids.indexOf('export.listeAchatCsv') === 2 && /^liste-achat-[a-z0-9-]+\.pdf$/.test(dlPdf.suggestedFilename())
+      && pdf.length > 1000 && doc.getPageCount() >= 1 && cases > 10 && /\.csv$/.test(dlCsv.suggestedFilename()) && bom && lignes.length > 2 && lignes[0].split(';').length === 11
+      && toastPdf === 'Liste d’achat téléchargée : ' + dlPdf.suggestedFilename() + '.' && toastCsv === 'Liste d’achat téléchargée : ' + dlCsv.suggestedFilename() + '.'
+      && tete.n === 2 && tete.actifs && tete.premier && (!auDoigt || tete.hauteur >= 44) && !deborde;
+    return { ok, mesure: `menu : ${ids.slice(0, 3).join(', ')} ; « ${dlPdf.suggestedFilename()} » ${pdf.length} octets, ${doc.getPageCount()} page(s), ${cases} cases ; « ${dlCsv.suggestedFilename()} » ${csv.length} octets, BOM ${bom ? 'oui' : 'NON'}, ${lignes.length - 1} lignes ; toasts ${toastPdf && toastCsv ? 'dits' : 'MANQUANTS'} ; Nomenclature : ${tete.n} bouton(s) ${tete.actifs ? 'actifs' : 'GRISÉS'}${tete.premier ? ' en tête' : ' PAS EN TÊTE'}, ${Math.round(tete.hauteur)} px ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   165: async (page, f) => {
     // Le devis PDF (lot 5 du parcours client, 16 novembre 2026) : le menu Exporter (feuille Projet au doigt) ouvre le dialogue, en tete
     // du menu ; l'emetteur saisi, le client du projet ; « Telecharger le devis (PDF) » : un fichier `devis-….pdf` non vide, une page qui
@@ -8611,10 +8658,11 @@ function pointsPour(nomClasse) {
   // 160 : la colonne de la camera en Vue 3D a des hauteurs d'iOS (barre de Safari) : toiture et appareil photo en tete, entiers sans
   //       defilement ; la colonne defile au doigt, aucun bouton perdu.
   // 161 : les ecrans d'entree (porte, premier pas) sans debordement de 320 a 430 px ; sans la capacite du cadastre, « Dessiner sans adresse ».
+  // 166 : la liste d'achat : ses deux entrees du menu Exporter, le PDF a cocher, le CSV pour un tableur, les deux boutons en tete de la Nomenclature.
   // 165 : le devis PDF : en tete du menu Exporter, le dialogue, le fichier (une page, que pdf-lib ouvre), le toast ; au telephone, le
   //       bouton du pied de la feuille Chiffrage.
   // 162 : le prix total au bureau sans defiler (barre d'estimation) et la ligne « Total HT » de la Nomenclature, la meme fourchette partout.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
