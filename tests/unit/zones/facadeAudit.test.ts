@@ -4,6 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { FacadeAudit, correctionAAppliquer } from '../../../src/zones/parcours/FacadeAudit.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
+import { brancherModeExpert } from '../../../src/app/modeExpert.js';
 import type { SessionAuditParcelle } from '../../../src/app/audit/parcelle/controleur.js';
 import type { MesureFacade } from '../../../src/app/audit/parcelle/mesures.js';
 import type { IdEtape, EtatAffiche } from '../../../src/model/etapeFacade.js';
@@ -18,6 +19,17 @@ import type { ReleveFacade } from '../../../src/model/types.js';
 
 let racine: Root, hote: HTMLElement;
 beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); racine = createRoot(hote); });
+
+/**
+ * Le mode expert, branche comme au demarrage : allume, l'audit garde les numeros des etapes (E1 a E14, V1 a V4) que ces tests lisent ;
+ * eteint (la personne ordinaire, lot 3 de la simplification), il dit le nom des etapes, sans eux.
+ */
+function modeExpert(oui: boolean): void {
+  const s = { getItem: () => (oui ? 'oui' : 'non'), setItem: () => {} };
+  brancherModeExpert({ store: { subscribe: () => () => {} }, definirOption: () => {}, notifier: () => {} }, s);
+}
+beforeEach(() => { modeExpert(true); });
+afterEach(() => { modeExpert(false); });
 afterEach(() => { act(() => racine.unmount()); hote.remove(); });
 
 type Etape = { id: IdEtape; etat: EtatAffiche; resume: string; herite?: 'calage' };
@@ -206,3 +218,15 @@ describe('V3 : « Relire les ouvertures » avant V4 (decision du proprietaire, 3
   });
 });
 
+describe('l audit de la personne ordinaire, sans le jargon des etapes (lot 3 de la simplification)', () => {
+  it('dit le nom des etapes, sans « É » ni « V », et le mode expert les rend', () => {
+    modeExpert(false);
+    monter(session(OK));
+    const texte = hote.textContent ?? '';
+    expect(lignes()).toEqual(['faite Mur posé : Coins du mur trouvés sur la photo.', 'faite Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
+    expect(texte).not.toMatch(/É\d|(?<![\p{L}\d])V[1-4](?![\p{L}\d])/u);
+    const aria = [...hote.querySelectorAll('[aria-label]')].map((e) => e.getAttribute('aria-label')).join(' | ');
+    expect(aria).not.toMatch(/É\d|point de validation V/);
+    expect([...hote.querySelectorAll('.barreFacadeEtiquette')].map((e) => e.textContent)).toEqual(['Prise', 'Image', 'Mur', 'Forme', 'Texture', 'Ouvertures', 'Toit', 'Façade']);
+  });
+});
