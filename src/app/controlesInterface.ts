@@ -186,6 +186,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'notification.fermer': { libelle: 'Fermer une erreur', zone: Z9, nature: 'navigation', repete: true },
   // Le bouton d'un toast qui laisse se raviser (« Annuler » le retrait d'un lien de partage, lot 6).
   'notification.action': { libelle: 'Annuler le geste qu’un message annonce', zone: Z9, nature: 'navigation', repete: true },
+  // L'aide de premiere utilisation (lot 2, zones/AidePremiere.tsx) : trois bulles, une fois par appareil ; rien n'est ecrit dans le projet.
+  'aide.suivante': { libelle: 'Bulle suivante de l’aide de première utilisation (« C’est parti » à la dernière)', zone: Z9, nature: 'navigation' },
+  'aide.passer': { libelle: 'Passer l’aide de première utilisation', zone: Z9, nature: 'navigation' },
 
   // ---- Z8 : les ecrans qui ne s'ouvrent qu'a la demande ----------------------------------------
   // Dialogues (zones/Dialogues.tsx) : la reponse a une question posee par une commande.

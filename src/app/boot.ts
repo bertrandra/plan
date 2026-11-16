@@ -14,7 +14,8 @@ import { aDesSommets } from '../model/formes.js';
 import { restaurerOrthoDuProjet } from '../render/ortho.js';
 import { lectureRelief } from '../core/lectureRelief.js';
 import { brancherFiletsDErreur } from './ecouteurs/divers.js';
-import { prevenirAdminDesCapacitesForcees } from './acces.js';
+import { prevenirAdminDesCapacitesForcees, enAdmin } from './acces.js';
+import { demarrerAidePremiere } from './aidePremiere.js';
 import { actualisation } from './cadastre/actualisationIgn.js';
 import { creerVues3d } from './assemblage/vues3d.js';
 import type { SourceControleurs } from './administration/controleurs.js';
@@ -86,10 +87,15 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet partage se montre tel qu'il est enregistre : ni mise a jour du modele, ni question, ni lecture de fond (app/projetPartage.ts).
   // La demonstration (lot 6) non plus : elle ne lit rien en fond (les toits du LiDAR, les murs de Panoramax).
-  else if (options.partage || options.essai) { /* rien */ }
+  // L'essai sans compte montre l'aide de premiere utilisation (lot 2) : c'est la qu'on decouvre Plan.
+  else if (options.partage || options.essai) { if (options.essai) demarrerAidePremiere(); }
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
-  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); void ch.profilsFacades.relancer(); }
+  else {
+    projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); void ch.profilsFacades.relancer();
+    // Trois bulles a la premiere utilisation de l'appareil (app/aidePremiere.ts) ; ni l'admin des demos, ni la lecture seule.
+    if (!enAdmin() && !etat.lectureSeule) demarrerAidePremiere();
+  }
   if (POIGNEES) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {

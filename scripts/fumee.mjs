@@ -3142,6 +3142,62 @@ const POINTS = {
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
   },
+  174: async (page, f) => {
+    // L'aide de premiere utilisation (lot 2 de la simplification, 16 novembre 2026) : dans un contexte vierge, ou l'aide n'a jamais ete
+    // vue, la demonstration ouverte par le premier pas ; trois bulles en bas de l'ecran (1/3, 2/3, 3/3), le texte de la main de l'appareil
+    // (« Touchez » au doigt, « Cliquez » a la souris), entieres dans la fenetre ; « Suivant », puis « C'est parti » les ferment. Retenue
+    // par l'appareil : rechargee, la page ne les remontre pas. La cle effacee, « Passer » les ferme d'un coup.
+    const echecs = [];
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+    const p = await ctx.newPage();
+    const titres = [];
+    let texte1 = '';
+    try {
+      await simulerPlateforme(p, { aide: true });
+      await p.addInitScript(() => { window.__sansToitsFond = true; });
+      await p.goto(BASE + '/');
+      await p.getByRole('button', { name: /d[ée]monstration/i }).click();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      const bulle = p.locator('.aidePremiere');
+      await bulle.waitFor({ timeout: 10000 });
+      const doigt = f.nom !== 'large';
+      for (let i = 1; i <= 3; i++) {
+        await p.waitForFunction((n) => document.querySelector('.aidePremiere')?.getAttribute('data-etape') === String(n), i, { timeout: 5000 }).catch(() => {});
+        const m = await p.evaluate(() => {
+          const b = document.querySelector('.aidePremiere');
+          if (!b) return null;
+          const r = b.getBoundingClientRect();
+          return { rang: b.querySelector('.aidePremiereRang')?.textContent ?? '', titre: b.querySelector('.aidePremiereTitre')?.textContent ?? '', texte: b.querySelector('.aidePremiereTexte')?.textContent ?? '',
+            entiere: r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5, deborde: document.documentElement.scrollWidth > innerWidth + 1 };
+        });
+        if (!m) { echecs.push('bulle ' + i + ' absente'); break; }
+        titres.push(m.titre);
+        if (i === 1) texte1 = m.texte;
+        if (m.rang !== i + '/3') echecs.push('rang « ' + m.rang + ' »');
+        if (!m.entiere) echecs.push('bulle ' + i + ' hors de la fenêtre');
+        if (m.deborde) echecs.push('débordement');
+        if (i === 1 && !(doigt ? /^Touchez/ : /^Cliquez/).test(m.texte)) echecs.push('texte « ' + m.texte.slice(0, 30) + ' »');
+        await p.locator('.aidePremiere [data-controle="aide.suivante"]').click();
+      }
+      await p.waitForTimeout(300);
+      if (await bulle.count()) echecs.push('les bulles restent après « C’est parti »');
+      const cle = await p.evaluate(() => localStorage.getItem('plan.aide.premiersPas'));
+      if (cle !== 'vue') echecs.push('non retenue (' + cle + ')');
+      await p.reload();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(3000);
+      if (await bulle.count()) echecs.push('remontrée après rechargement');
+      await p.evaluate(() => localStorage.removeItem('plan.aide.premiersPas'));
+      await p.reload();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await bulle.waitFor({ timeout: 10000 }).catch(() => echecs.push('pas de bulle, la clé effacée'));
+      await p.locator('.aidePremiere [data-controle="aide.passer"]').click().catch(() => echecs.push('« Passer » introuvable'));
+      await p.waitForTimeout(300);
+      if (await bulle.count()) echecs.push('« Passer » ne ferme pas');
+    } finally { await ctx.close(); }
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + `bulles « ${titres.join(' » › « ')} » ; « ${texte1.slice(0, 40)}… » ; retenue, pas remontrée après rechargement ; « Passer » ferme` };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9034,8 +9090,9 @@ function pointsPour(nomClasse) {
   //       d'edition visible ni executable, la nomenclature et la 3D ; un lien invalide (404) et trop de tentatives (429), dits en clair.
   // 169 : essayer sans compte : la porte presente Plan et propose la demonstration, qui s'ouvre sans session ; une terrasse s'y ajoute,
   //       aucun appel a la plateforme ne part, le bandeau le dit ; « Quitter la démonstration » ramene a la porte.
+  // 174 : l'aide de premiere utilisation : trois bulles une fois par appareil, retenues, « Passer ».
   // 164 : les erreurs du reseau en clair : l'IGN coupe dans l'import cadastre, la plateforme coupee a l'enregistrement.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 174];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
