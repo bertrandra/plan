@@ -19,6 +19,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   plus elle-même. Elle ne s'affiche qu'à l'écran : le résumé texte, les PDF et les autres exports ne la lisent pas et ne changent
   pas (empreintes golden identiques). Point de fumée 162.
 
+### Corrigé
+
+- **La porte et le premier pas tiennent dans l'écran du téléphone** (audit de l'IHM du 16 novembre 2026, lot 1). À 390 px, la page
+  de connexion et « Par quoi commencer ? » étaient mises en page sur 530 px (495 à 320 px, 550 à 430 px) et débordaient à droite :
+  la classe d'écran (`<html data-classe>`) n'était posée qu'avec l'atelier, qu'elles précèdent, et la page prenait derrière elles la
+  mise en page du bureau (l'atelier en colonnes). Elle est désormais posée dès la première ligne du programme et suivie au
+  redimensionnement (`app/classe.ts::suivreClasseDeLaPage`). Les dialogues Z8 mesurés à 320, 390 et 430 px (import cadastre à ses
+  trois étapes, audit de la parcelle, déclaration préalable) ne débordaient pas et ne changent pas. Le premier pas reprend ses
+  accents (« bâtiments », « démonstration », « créer »…). Point de fumée 161.
+- **« Partir d'une adresse » suit la capacité du cadastre au premier pas.** Sans elle, le premier pas l'offrait puis ouvrait un plan
+  vide sans un mot (sa commande, `projet.depuisAdresse`, est effacée par la capacité). Il disparaît désormais comme la commande, et
+  la première option devient « Dessiner sans adresse » : un plan vide, à l'échelle, que l'on dessine soi-même et enregistre par
+  Fichier › Nouveau projet ; la démonstration reste proposée. Aucune quantité ni aucun export ne change.
+
 ## [5.32.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'étape Redressement montre les gestes

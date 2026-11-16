@@ -248,6 +248,18 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe(null);
   });
 
+  it('rend un plan vierge SANS l import cadastre quand on repond « vierge » (offre sans cadastre)', async () => {
+    // Sans la capacite du cadastre, la commande de l'import disparait : le premier pas propose de
+    // dessiner a la main. Le plan s'ouvre vide, et rien ne cherche a ouvrir l'import.
+    lister.mockResolvedValue([]);
+    const r = await chargerProjetInitial(demo, vi.fn().mockResolvedValue('vierge'));
+    expect(r.ouvrirAdresse).toBe(false);
+    expect(r.objects).toEqual([]);
+    expect(r.meta).toBe(null);
+    expect(r.apiAvailable).toBe(true);
+    expect(enregistrer).not.toHaveBeenCalled();
+  });
+
   it('pose la meme question quand l organisation n a que des projets d un autre produit', async () => {
     // Vu de la personne, c'est la meme situation : rien a ouvrir. La phrase a dire differe, d'ou
     // le drapeau passe a la question.

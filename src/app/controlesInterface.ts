@@ -198,6 +198,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // Premier pas (zones/PremierPas.tsx) : par quoi commencer, quand il n'y a aucun plan.
   'premierPas.adresse': etape(Z8, 'démarrage sans projet', 'Partir d’une adresse'),
   'premierPas.demo': etape(Z8, 'démarrage sans projet', 'Ouvrir le plan de démonstration'),
+  'premierPas.vierge': etape(Z8, 'démarrage sans projet', 'Dessiner sans adresse'),
   // Import cadastral (zones/parcours/ImportCadastre.tsx).
   'cadastre.adresse': etape(Z8, IMPORT, 'Adresse à chercher'),
   'cadastre.rechercher': etape(Z8, IMPORT, 'Rechercher l’adresse'),
