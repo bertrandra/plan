@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Partir d'une adresse en une étape, avec une terrasse de départ** (lot 2 de la simplification de l'IHM, le parcours d'entrée,
+  16 novembre 2026). L'import par adresse est désormais **direct par défaut** : l'adresse, la parcelle trouvée, un résumé, puis
+  « Créer le projet » ; le titre ne compte plus d'étapes (« Nouveau projet depuis une adresse »). Les étapes 2 (choix de la parcelle)
+  et 3 (voisines, données IGN) restent à qui les demande : « Ajuster (étapes 2 et 3) » depuis le résumé, ou la case « Import direct »
+  décochée, que le navigateur retient (seul un « non » donné ramène les étapes). Le plan créé porte une **terrasse de départ** de
+  4 × 3 m sur plots, « Terrasse 1 », posée contre la façade de la maison la mieux exposée (la même règle que le bouton Terrasse,
+  `model/placement.ts`), le long du mur même de biais, à un joint de 10 cm, dans la parcelle et **jamais sur un bâtiment** : sans
+  place libre, ou sans bâtiment importé, le plan s'ouvre sans terrasse (`model/creation.ts::terrasseDeDepart`). Une case « Poser une
+  terrasse de départ contre la maison (4 × 3 m) », cochée, au résumé et à l'étape 3, permet de s'en passer. La terrasse est posée
+  par l'import, hors de `objetsDepuisCadastre` : l'empreinte `cadastre-objets.json` et les six autres ne bougent pas, aucun projet
+  existant ni la démonstration ne changent. Points de fumée 170 et 171 ; le point 12 décoche « Import direct » pour éprouver les
+  étapes 2 et 3. Un témoin du réseau de plus (la fiche de la dalle LiDAR sous la terrasse, que la lecture du relief demande).
+
 - **Choisir une lame du commerce** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026). La section
   « 3. Lames et sens de pose » d'une terrasse commence par « Lame » : une lame telle qu'elle se vend (pin autoclave classe 4
   145 × 27 et 120 × 21, douglas 145 × 27 et 120 × 27, ipé 145 × 21, cumaru 140 × 21, composite alvéolaire 145 × 21 et plein

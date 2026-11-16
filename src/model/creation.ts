@@ -21,7 +21,7 @@ import { cleObjet } from './cles.js';
 import type { PtBrut, ObjetPlan, ObjetAPlat, Construction, Mesure } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
-import { centreSouhaite, type NatureOuvrage } from './placement.js';
+import { centreSouhaite, facadeAuSoleil, maisonDe, type NatureOuvrage } from './placement.js';
 import { estOuvrage, oublierLObjet, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE, type NatureAbri } from './ouvrages/index.js';
 
 /**
@@ -319,19 +319,26 @@ function seRecouvrent(p: PtBrut[], q: PtBrut[]): boolean {
  * naît la ou on le voit, pas sous la maison. On cherche sur une grille de 50 cm ; sans place libre,
  * le rectangle reste centre sur `centre`.
  */
-export function rectangleLibre(objets: ObjetPlan[], centre: PtBrut, largeur: number, profondeur: number): PtBrut[] {
-  const rect = (c: PtBrut) => [{ x: c.x - largeur / 2, y: c.y - profondeur / 2 }, { x: c.x + largeur / 2, y: c.y - profondeur / 2 },
-    { x: c.x + largeur / 2, y: c.y + profondeur / 2 }, { x: c.x - largeur / 2, y: c.y + profondeur / 2 }];
+/**
+ * Ce qui dit si un contour neuf tient dans la parcelle (quand il y en a une) sans recouvrir un objet
+ * pose. Les obstacles : tout ce qui occupe le sol, sauf le terrain lui-meme, les traces (chemins,
+ * limites, points de vue) et le voisinage. Un cercle compte pour son carre.
+ */
+function placeLibre(objets: ObjetPlan[]): { contour: PtBrut[] | null; libre: (r: PtBrut[]) => boolean } {
   const parcelle = objets.find(o => o.key === 'parcelle');
   const contour = parcelle ? enPoints(parcelle).pts : null;
-  // Les obstacles : tout ce qui occupe le sol, sauf le terrain lui-meme, les traces (chemins,
-  // limites, points de vue) et le voisinage. Un cercle compte pour son carre.
   const obstacles = objets.filter(o => !o.voisinage && o.key !== 'parcelle' && !estOuvrage(o, TERRAIN) && o.type !== 'path')
     .map(o => o.type === 'circle'
       ? [{ x: o.center.x - o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y + o.r }, { x: o.center.x - o.r, y: o.center.y + o.r }]
       : o.pts)
     .filter(pts => pts.length >= 3);
-  const libre = (r: PtBrut[]) => (!contour || r.every(s => pointInPolygon(s, contour))) && !obstacles.some(ob => seRecouvrent(r, ob));
+  return { contour, libre: (r: PtBrut[]) => (!contour || r.every(s => pointInPolygon(s, contour))) && !obstacles.some(ob => seRecouvrent(r, ob)) };
+}
+
+export function rectangleLibre(objets: ObjetPlan[], centre: PtBrut, largeur: number, profondeur: number): PtBrut[] {
+  const rect = (c: PtBrut) => [{ x: c.x - largeur / 2, y: c.y - profondeur / 2 }, { x: c.x + largeur / 2, y: c.y - profondeur / 2 },
+    { x: c.x + largeur / 2, y: c.y + profondeur / 2 }, { x: c.x - largeur / 2, y: c.y + profondeur / 2 }];
+  const { contour, libre } = placeLibre(objets);
   if (libre(rect(centre)) || !contour) return rect(centre);
   const xs = contour.map(p => p.x), ys = contour.map(p => p.y);
   const candidats: PtBrut[] = [];
@@ -351,6 +358,41 @@ export function rectangleLibre(objets: ObjetPlan[], centre: PtBrut, largeur: num
 export function terrasseNeuve(objets: ObjetPlan[], centre: PtBrut, key: string, construction: Construction): ObjetNeuf {
   const n = objets.filter(o => estTerrasse(o)).length + 1;
   return nouvelleTerrasse(rectangleLibre(objets, centre, 4, 3), key, 'Terrasse ' + n, construction);
+}
+
+/** Les dimensions de la terrasse de depart : celles du bouton Terrasse de la palette. */
+export const TERRASSE_DEPART_M = { largeur: 4, profondeur: 3 } as const;
+/** Le joint entre la terrasse de depart et le mur (model/placement.ts dit le meme pour le bouton Terrasse). */
+const JOINT_MUR_M = 0.1;
+/** Les reculs essayes le long de la facade, de part et d'autre de son milieu, avant de renoncer a la longer. */
+const GLISSEMENTS_M = [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 3, -3];
+
+/**
+ * La terrasse de depart d'un plan neuf (l'import par adresse) : 4 x 3 m **contre la maison**, le long
+ * de sa facade au soleil (model/placement.ts, `facadeAuSoleil`), a un joint du mur, dans la parcelle
+ * et sans recouvrir un objet pose. Le rectangle suit le mur, qu'il soit de biais ou non ; s'il ne
+ * tient pas le long de cette facade, la place libre la plus proche (`terrasseNeuve`, comme le
+ * bouton Terrasse). **Jamais sur un batiment** : sans place libre, ou sans maison dans la parcelle,
+ * elle rend `null` et le plan s'ouvre sans terrasse, plutot qu'avec une terrasse dans un salon.
+ */
+export function terrasseDeDepart(objets: ObjetPlan[], key: string, construction: Construction): ObjetPlan | null {
+  const f = facadeAuSoleil(objets);
+  if (!maisonDe(objets) || !f) return null;
+  const { libre } = placeLibre(objets);
+  const { largeur, profondeur } = TERRASSE_DEPART_M;
+  const t = { x: -f.n.y, y: f.n.x };   // le long du mur
+  const long = Math.min(largeur, f.L);
+  for (const g of GLISSEMENTS_M) {
+    if (Math.abs(g) + long / 2 > f.L / 2 + 0.01 && g !== 0) continue;
+    const a = { x: f.milieu.x + t.x * (g - long / 2) + f.n.x * JOINT_MUR_M, y: f.milieu.y + t.y * (g - long / 2) + f.n.y * JOINT_MUR_M };
+    const b = { x: a.x + t.x * long, y: a.y + t.y * long };
+    const pts = [a, b, { x: b.x + f.n.x * profondeur, y: b.y + f.n.y * profondeur }, { x: a.x + f.n.x * profondeur, y: a.y + f.n.y * profondeur }];
+    if (libre(pts)) return nouvelleTerrasse(pts, key, 'Terrasse 1', construction).obj;
+  }
+  const centre = centreSouhaite('terrasse', { objets }, largeur, profondeur);
+  if (!centre) return null;
+  const repli = terrasseNeuve(objets, centre, key, construction).obj;
+  return libre(enPoints(repli).pts) ? repli : null;
 }
 
 /** La place d'un ouvrage neuf (model/placement.ts), ou `null` quand aucune regle ne s'applique. */

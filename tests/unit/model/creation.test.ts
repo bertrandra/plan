@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  nouvelObjet, nouveauChemin, nouveauCercle, nouveauParasol, nouveauPointDeVue, creerCreation, rectangleLibre
+  nouvelObjet, nouveauChemin, nouveauCercle, nouveauParasol, nouveauPointDeVue, creerCreation, rectangleLibre, terrasseDeDepart
 } from '../../../src/model/creation.js';
 import type { EtatCreation, ContexteCreation } from '../../../src/model/creation.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
@@ -385,5 +385,45 @@ describe('la place d un ouvrage neuf', () => {
   it('reste centre faute de place', () => {
     const pleine = { ...maison, pts: carre(-1, -1, 21, 21) } as ObjetPlan;
     expect(rectangleLibre([parcelle, pleine], { x: 10, y: 10 }, 4, 3)).toEqual(carre(8, 8.5, 12, 11.5));
+  });
+});
+
+describe('la terrasse de depart d un plan neuf (import par adresse)', () => {
+  const carre = (x0: number, y0: number, x1: number, y1: number) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  const parcelle = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain', type: 'polygon', pts: carre(0, 0, 20, 20) } as ObjetPlan;
+  const maison = { key: 'm', name: 'Maison', fonction: 'batiment', type: 'polygon', pts: carre(6, 8, 14, 14) } as ObjetPlan;
+  const dedans = (p: { x: number; y: number }, q: { x: number; y: number }[]) => {
+    const xs = q.map(s => s.x), ys = q.map(s => s.y);
+    return p.x > Math.min(...xs) + 1e-9 && p.x < Math.max(...xs) - 1e-9 && p.y > Math.min(...ys) + 1e-9 && p.y < Math.max(...ys) - 1e-9;
+  };
+
+  it('se pose contre la facade au soleil, a un joint du mur, 4 x 3 m, hors de la maison', () => {
+    const t = terrasseDeDepart([parcelle, maison], 'obj1', {})!;
+    expect(t.fonction).toBe('terrasse');
+    expect(t.name).toBe('Terrasse 1');
+    const pts = (t as ObjetPlan & { pts: { x: number; y: number }[] }).pts;
+    // La facade sud (y = 8) : la terrasse est dessous, de y = 4,9 a 7,9, centree sur x = 10.
+    const ys = pts.map(p => p.y), xs = pts.map(p => p.x);
+    expect(Math.max(...ys)).toBeCloseTo(7.9, 6);
+    expect(Math.min(...ys)).toBeCloseTo(4.9, 6);
+    expect(Math.min(...xs)).toBeCloseTo(8, 6);
+    expect(Math.max(...xs)).toBeCloseTo(12, 6);
+    expect(pts.some(p => dedans(p, (maison as ObjetPlan & { pts: { x: number; y: number }[] }).pts))).toBe(false);
+  });
+
+  it('longe un mur de biais', () => {
+    const r = Math.SQRT1_2;
+    const biais = { ...maison, pts: [{ x: 10, y: 4 }, { x: 10 + 6 * r, y: 4 + 6 * r }, { x: 10, y: 4 + 12 * r }, { x: 10 - 6 * r, y: 4 + 6 * r }] } as ObjetPlan;
+    const t = terrasseDeDepart([parcelle, biais], 'obj1', {})!;
+    const pts = (t as ObjetPlan & { pts: { x: number; y: number }[] }).pts;
+    const [a, b] = [pts[0]!, pts[1]!];
+    // Le premier cote suit le mur : a 45 degres, et non parallele aux axes.
+    expect(Math.abs(Math.abs(b.x - a.x) - Math.abs(b.y - a.y))).toBeLessThan(1e-9);
+  });
+
+  it('ne se pose pas sans maison, ni faute de place hors des batiments', () => {
+    expect(terrasseDeDepart([parcelle], 'obj1', {})).toBeNull();
+    const pleine = { ...maison, pts: carre(0.5, 0.5, 19.5, 19.5) } as ObjetPlan;
+    expect(terrasseDeDepart([parcelle, pleine], 'obj1', {})).toBeNull();
   });
 });
