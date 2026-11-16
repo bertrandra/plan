@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 const toasts: string[] = [];
-vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: (m: string) => { toasts.push(m); }, showErrBanner: () => {}, showConfirm: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: (m: string) => { toasts.push(m); }, showErrBanner: () => {}, showErreur: () => {}, showConfirm: () => {} }));
 
 import {
   poserAcces, droitsCourants, capacitesForceesSansDroit, avertissementCapacitesForcees, prevenirAdminDesCapacitesForcees,

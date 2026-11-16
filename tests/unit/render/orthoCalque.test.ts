@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: () => {}, showErreur: () => {} }));
 
 import { ortho, placerOrthophoto, type ContexteOrtho } from '../../../src/render/ortho.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';

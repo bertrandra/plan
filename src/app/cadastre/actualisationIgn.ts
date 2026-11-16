@@ -11,7 +11,7 @@ import { nombreFr } from '../../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../../geo/bdtopo.js';
 import { distancePointContour } from '../../geometry/proximite.js';
 import { toitBdTopo, attributsToitBdTopo } from '../../model/toitBdTopo.js';
-import { showToast } from '../../shell/dialogs.js';
+import { showToast, phraseReseau, detailTechnique } from '../../shell/dialogs.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
 import { projecteurLocal } from '../../geo/projection.js';
 import { SIMPLIF_M } from '../../geo/constantesCadastre.js';
@@ -347,7 +347,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
     ctx.apresActualisation?.();
   } catch(e){
-    showToast('Actualisation impossible : ' + ((e as Error).message || e));
+    showToast(phraseReseau(e, 'Les services de l’IGN', 'Rien n’a changé dans le projet : réessayez l’actualisation dans un instant.') ?? 'Actualisation impossible : ' + detailTechnique(e));
   } finally {
     finir();
   }

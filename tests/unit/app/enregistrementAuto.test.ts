@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: vi.fn(), showConfirm: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: vi.fn(), showErreur: vi.fn(), showConfirm: () => {} }));
 
 import {
   creerEnregistrementAuto, DELAI_ENREGISTREMENT_AUTO_MS, ATTENTE_OCCUPE_MS, REPRISES_APRES_ECHEC_MS,
@@ -14,7 +14,7 @@ import { creerEtat } from '../../../src/core/state.js';
 import { serializeObjects, serializeMeasures } from '../../../src/io/serialisation.js';
 import { texteStatut } from '../../../src/zones/statut.js';
 import { pageRetenue, partirSansQuestion } from '../../../src/shell/depart.js';
-import { showErrBanner } from '../../../src/shell/dialogs.js';
+import { showErreur } from '../../../src/shell/dialogs.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // L'enregistrement automatique (audit de l'IHM du 16 novembre 2026, lot 1) : un ajout fait puis la page rechargee etait perdu.
@@ -202,7 +202,7 @@ function monterProjet(apiSave: ContexteProjet['apiSave'], { meta = { id: 'p1', n
 }
 
 describe('l enregistrement automatique du projet ouvert', () => {
-  beforeEach(() => { vi.useFakeTimers(); vi.mocked(showErrBanner).mockClear(); localStorage.clear(); });
+  beforeEach(() => { vi.useFakeTimers(); vi.mocked(showErreur).mockClear(); localStorage.clear(); });
   afterEach(() => { vi.useRealTimers(); });
 
   it('enregistre le projet modifie, et la page ne retient plus rien ensuite', async () => {
@@ -224,10 +224,12 @@ describe('l enregistrement automatique du projet ouvert', () => {
     modifier();
     await vi.advanceTimersByTimeAsync(DELAI_ENREGISTREMENT_AUTO_MS + 10);
     expect(texteStatut(magasin.store.getState().projet)).toMatch(/^Échec de l’enregistrement \(\d+ Ko\) — nouvelle tentative à \d\d:\d\d:\d\d$/);
-    expect(showErrBanner).toHaveBeenCalledOnce();
+    expect(showErreur).toHaveBeenCalledOnce();
+    // Le reseau en clair (util/erreurReseau.ts) : la phrase, puis le message d'origine en detail.
+    expect(vi.mocked(showErreur).mock.calls[0]).toEqual([expect.stringMatching(/^L’enregistrement automatique a échoué \(\d+ Ko\) : la plateforme ne répond pas\. Rien n’est perdu/), 'Le serveur ne répond pas']);
     await vi.advanceTimersByTimeAsync(REPRISES_APRES_ECHEC_MS[0] + 10);
     expect(apiSave).toHaveBeenCalledTimes(2);
-    expect(showErrBanner).toHaveBeenCalledOnce();
+    expect(showErreur).toHaveBeenCalledOnce();
     refuser = false;
     await vi.advanceTimersByTimeAsync(REPRISES_APRES_ECHEC_MS[1] + 10);
     expect(apiSave).toHaveBeenCalledTimes(3);

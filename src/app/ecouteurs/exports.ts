@@ -16,7 +16,8 @@
 // afficher, le DXF n'a pas de lien de secours — un fichier CAO ne s'ouvre pas dans un onglet.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { showToast, showErrBanner } from '../../shell/dialogs.js';
+import { showToast, showErrBanner, showErreur } from '../../shell/dialogs.js';
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -97,7 +98,11 @@ function brancherDevis(ctx: ContexteExports, cmd: RegistreCommandes): void {
         if (!res) { showToast('Dessinez d’abord une terrasse : le devis chiffre ses postes.'); return; }
         telechargerBlob(res.nomFichier, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         showToast('Devis téléchargé : ' + res.nomFichier + (res.pages > 1 ? ' (' + res.pages + ' pages).' : '.'));
-      }, (err: unknown) => { showErrBanner('Erreur devis : ' + (err as Error).message); });
+      }, (err: unknown) => {
+        // La bibliotheque PDF se charge a la demande : une coupure se dit en clair, le message du navigateur en detail.
+        const clair = phraseReseau(err, 'Le serveur de Plan', 'Le devis n’a pas pu se préparer : vérifiez votre connexion, puis réessayez.');
+        showErreur(clair ?? 'Erreur devis : ' + detailTechnique(err), clair ? detailTechnique(err) : '');
+      });
     }
   });
 }
@@ -133,7 +138,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         telechargerBlob(res.nom, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         const avis = res.regime === 'permis' ? ' Attention : l\'emprise créée relève d\'un permis de construire (cerfa 13406).' : '';
         showToast(messageDeclaration(res) + avis);
-      }).catch((err: unknown) => showErrBanner('Déclaration préalable : ' + (err as Error).message));
+      }).catch((err: unknown) => showErreur(phraseReseau(err, 'Le serveur de Plan', 'Le formulaire n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Déclaration préalable : ' + detailTechnique(err), phraseReseau(err, '') ? detailTechnique(err) : ''));
     }
   });
 
