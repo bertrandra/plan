@@ -31,6 +31,8 @@ export const DESCRIPTIONS: Record<string, string> = {
   'export.retirerPhoto': 'Retire la photographie d’une pièce du dossier ; la pièce reste à joindre',
   'export.declaration': 'Remplit le cerfa 13703 de déclaration préalable avec le terrain et les ouvrages, et y joint les pièces DP1, DP2, DP4 et DP6',
   'export.noteCalcul': 'Produit la note de calcul PDF de la pergola ou du carport sélectionné : charges, combinaisons, vérifications, appuis, limites',
+  'export.ouvrirDevis': 'Ouvre le devis : vos coordonnées, le client et le numéro, puis le devis PDF des terrasses cochées dans l’explorateur',
+  'export.devis': 'Télécharge le devis PDF d’une page : les postes de la Nomenclature, prix saisis ou fourchettes estimées, le total HT et la TVA si vous en donnez le taux',
   'export.dossier': 'Produit un dossier PDF des terrasses cochées dans l’explorateur : plans, coupes et quantités',
   'export.glb': 'Télécharge la scène 3D au format GLB, pour une visionneuse ou un logiciel 3D',
   'export.resume': 'Écrit le résumé texte du projet dans l’onglet Résumé du tiroir',

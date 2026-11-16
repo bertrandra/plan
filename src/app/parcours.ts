@@ -20,6 +20,7 @@ import type { ObjetPlan } from '../model/types.js';
 import type { ServiceDossier } from './declaration/serviceDossier.js';
 import type { ServiceAssistant } from './assistant/service.js';
 import type { RegistreCommandes } from './commandes.js';
+import type { PreferencesDevis } from '../ui/champs/devis.js';
 
 export type Parcours =
   | { type: 'cadastre'; importe: ImportCadastre }
@@ -46,6 +47,8 @@ export type Parcours =
    * photographies et sa relecture (lot L5, app/declaration/serviceDossier.ts).
    */
   | { type: 'declaration'; service: ServiceChampsParcours; dossier?: ServiceDossier }
+  /** Le devis (menu Exporter) : l'emetteur, le client et le numero, puis le PDF (ui/champs/devis.ts, app/devis.ts). */
+  | { type: 'devis'; service: ServiceChampsParcours; preferences: PreferencesDevis }
   /** L'assistant en langue naturelle (menu Aide, lot L6) : la demande, la liste d'etapes, « Appliquer » (app/assistant/). */
   | { type: 'assistant'; service: ServiceAssistant; commandes: RegistreCommandes };
 
