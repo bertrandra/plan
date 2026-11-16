@@ -59,6 +59,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   contrôle de la Vue 3D par le catalogue (`app/controlesInterface.ts`). Point de fumée 177 ; le harnais de la fumée allume le
   mode expert pour les points d'avant, qui jouent ce qu'il cache.
 
+### Modifié
+
+- **La démonstration du premier pas s'ouvre aussi sur sa terrasse** (lot 2 de la simplification de l'IHM, demande du propriétaire,
+  16 novembre 2026). La démonstration que « Par quoi commencer ? » crée après connexion s'ouvrait sur le terrain entier, quand
+  l'essai sans compte se cadre sur la terrasse et la maison qu'elle touche ; elle se cadre désormais de même, par le même
+  `Cadrage.cadrerTerrasse`, quand le premier pas vient de la créer (`io/api.ts`, `ouvrirSurLaTerrasse`). Rouverte ensuite, comme
+  tout projet, elle garde le cadrage du terrain. Seul le cadrage de la vue change : aucune quantité, aucun export (empreintes
+  identiques ; AE 101 identique). Le point de fumée 173 mesure aussi la démonstration du premier pas ; le point 111 cadre sur le
+  regard qu'il pose (« Ajuster ») avant de le mesurer au plan, et doit le trouver à l'écran ; le point 35 glisse depuis le fond
+  du plan là où il est à l'écran (la parcelle couvre désormais le bord gauche, d'où il partait).
+
 ### Corrigé
 
 - **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé
