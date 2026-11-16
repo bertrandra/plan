@@ -17,6 +17,8 @@
 // Ce que cette zone ne fait pas : creer quoi que ce soit. Elle rend un choix, et c'est
 // `app/premierPas.ts` puis `io/api.ts` qui agissent — la meme separation que la porte.
 
+import { vitrinePlateforme } from '../plateforme/config.js';
+
 /** Ce que la personne peut repondre. */
 export type Choix = 'adresse' | 'demo' | 'vierge';
 
@@ -43,13 +45,15 @@ export function PremierPas({ empechement, choisir, plateforme, aDesProjetsEtrang
     // pire : la personne s'y reprendrait a trois fois avant de soupconner que ce n'est pas elle.
     const texte = empechement.raison === 'lecture'
       ? "Votre place est une place de lecture : vous pouvez consulter des plans, pas en créer. Demandez à un administrateur de votre organisation de vous en partager un, ou de changer votre place."
-      : empechement.message || "Votre organisation a atteint le nombre de plans que son abonnement prévoit. Un administrateur peut en supprimer un, ou changer d'offre.";
+      : empechement.message || "Votre organisation a atteint le nombre de plans que son abonnement prévoit. Un administrateur peut en supprimer un, ou passer à une offre qui en compte davantage : « Voir les offres ».";
     return (
       <div className="premierVoile">
         <div className="premierBoite">
           <h2 className="premierTitre">Aucun plan à ouvrir</h2>
           <p className="premierSous">{texte}</p>
-          <p className="porteLiens">
+          <p className="porteLiens porteLiensCompte">
+            {/* La limite atteinte se leve en changeant d'offre : la vitrine de la plateforme les montre (lot 2). */}
+            {empechement.raison === 'quota' && <a data-controle="premierPas.offres" href={vitrinePlateforme(plateforme)} target="_blank" rel="noopener">Voir les offres ↗</a>}
             <a href={plateforme} target="_blank" rel="noopener">Ouvrir la plateforme ↗</a>
           </p>
         </div>

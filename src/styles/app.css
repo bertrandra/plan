@@ -3207,3 +3207,16 @@
   .chaineSeuils li{ padding:1px 8px; border-radius:var(--r-champ); background:var(--panel-2); border:1px solid var(--hairline); font-variant-numeric:tabular-nums; }
   .chaineSeuils code{ font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft); }
   ul.chaineErreur{ list-style:none; margin:8px 0; }
+  /* Mes projets (lot 2, zones/parcours/MesProjets.tsx) : une ligne par projet, son nom en serif, sa date en note ; celui qui est ouvert se
+     dit par le mot « ouvert » et le fond doux, pas par la couleur seule. */
+  .dialogueMesProjets{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
+  .listeMesProjets{ list-style:none; margin:8px 0 12px; padding:0; display:flex; flex-direction:column; gap:4px; max-height:52vh; overflow:auto; }
+  .ligneProjet{ display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:12px; text-align:left;
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--hairline); border-radius:var(--r-bouton); padding:8px 12px; min-height:40px; cursor:pointer; }
+  .ligneProjet:hover:not(:disabled){ background:var(--accent-light); color:var(--on-accent-light); }
+  .ligneProjet.ouvert{ background:var(--accent-light); color:var(--on-accent-light); cursor:default; opacity:1; }
+  .nomLigneProjet{ font-family:var(--serif); font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .noteLigneProjet{ font-family:var(--sans); font-size:0.7rem; color:inherit; opacity:0.8; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .limiteProjets .lienOffres{ font-weight:600; }
+  html:not([data-classe="large"]) .ligneProjet{ min-height:44px; }
+  html[data-classe="compact"] .dialogueMesProjets{ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }

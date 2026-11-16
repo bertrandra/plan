@@ -51,6 +51,10 @@ export function phraseLimite(l: { limite: number; utilise: number } | null): str
   const combien = l
     ? ' : ' + projets(l.utilise) + ' pour ' + l.limite + ' autorisé' + (l.limite > 1 ? 's' : '') + ' par son abonnement'
     : '';
-  return 'Votre organisation a atteint sa limite de projets' + combien + '. Pour en créer un nouveau — copie ou '
-    + 'depuis une adresse —, supprimez un projet ou changez d’offre sur la plateforme.';
+  return 'Votre organisation a atteint sa limite de projets' + combien + '. ' + phraseLimiteAtteinte();
+}
+
+/** Ce que l'on fait d'une limite atteinte, dit apres son compte : un projet a supprimer, ou une offre a changer (« Voir les offres »). */
+export function phraseLimiteAtteinte(): string {
+  return 'Pour en créer un nouveau — copie ou depuis une adresse —, supprimez un projet ou passez à une offre qui en compte davantage : « Voir les offres ».';
 }

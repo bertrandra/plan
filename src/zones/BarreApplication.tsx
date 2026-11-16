@@ -151,6 +151,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
   return (
     <Deroulant id="menuFichier" titre="Fichier">
       <ul role="menu">
+        {p.apiDisponible && commandes.obtenir('projet.mesProjets') && <Entree commandes={commandes} id="projet.mesProjets" libelle="Mes projets…" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
         {/* Une preference de l'appareil (app/enregistrementAuto.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
@@ -397,7 +398,7 @@ function useFermetureDesMenus(): void {
  * Rien ne s'affiche hors plateforme : sous vitest, ou avant que la porte soit franchie, il n'y a
  * personne a nommer.
  */
-function Compte({ magasin }: { magasin: Magasin }) {
+function Compte({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
   if (enAdmin()) return <SortieAdmin magasin={magasin} />;
   if (partageCourant()) return <BandeauPartage />;
   if (enEssai()) return <BandeauEssai />;
@@ -427,13 +428,16 @@ function Compte({ magasin }: { magasin: Magasin }) {
   };
   const qui = c.user.display_name || c.user.email || 'Compte';
   const ou = c.tenant.name || c.tenant.slug || '';
-  const projets = BACKPROD_API_URL.replace(/\/+$/, '') + (c.tenant.slug ? '/' + c.tenant.slug : '') + '/projects';
+  // « Mes projets » ouvre la liste dans Plan (app/mesProjets.ts, lot 2) ; la plateforme est a un lien depuis elle.
   return (
     <div id="compteBar">
-      <a className="compteLien" href={projets} target="_blank" rel="noopener"
-        title={'Les projets de ' + (ou || 'votre organisation') + ' sur la plateforme, comme ' + qui}>
-        Mes projets<span aria-hidden="true"> ↗</span>
-      </a>
+      {commandes.obtenir('projet.mesProjets') && (
+        <button type="button" className="compteLien" data-commande="projet.mesProjets" disabled={!commandes.etat('projet.mesProjets').utilisable}
+          title={'Les projets de ' + (ou || 'votre organisation') + ', comme ' + qui + ' : ouvrir l’un d’eux, ou partir d’une adresse'}
+          onClick={(e) => { commandes.executer('projet.mesProjets', e.currentTarget); }}>
+          Mes projets
+        </button>
+      )}
       <button type="button" className="compteLien compteSortie" onClick={sortir}
         title={'Fermer la session de ' + qui + '. La deconnexion vaut pour la plateforme entiere, pas seulement pour Plan.'}>
         Se déconnecter
@@ -639,7 +643,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
           <EnteteFeuille magasin={magasin} titre={nom} sousTitre={lieu || undefined} />
           <div className="corpsFeuille">
             {menus}
-            <Compte magasin={magasin} />
+            <Compte magasin={magasin} commandes={commandes} />
             {lectureSeule && !partageCourant() && <p className="hint">Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.</p>}
             <p className="versionFeuille" title={versionLongue()}>Plan interactif v{APP_VERSION}</p>
           </div>
@@ -653,7 +657,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <div id="projectBar" className={p.apiDisponible ? '' : 'localMode'}>
         {menus}
       </div>
-      <Compte magasin={magasin} />
+      <Compte magasin={magasin} commandes={commandes} />
       {vues}
       <h1>
         {/* Sans projet ouvert, le titre ne doit pas en nommer un. Le repli etait « Parcelle AE 101 »,

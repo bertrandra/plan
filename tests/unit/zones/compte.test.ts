@@ -9,7 +9,10 @@ import { resolve } from 'node:path';
 // la plateforme se joue : chaque organisation vit a `hostname/<slug>/`. On fige ici la forme,
 // parce qu'une adresse fausse ne se voit qu'au clic, et seulement en production.
 
-const source = readFileSync(resolve(__dirname, '../../../src/zones/BarreApplication.tsx'), 'utf8');
+// Depuis le lot 2 (16 novembre 2026), « Mes projets » ouvre la liste dans Plan (zones/parcours/MesProjets.tsx) ; le lien vers la
+// plateforme est dans ce dialogue, son adresse dans app/mesProjets.ts.
+const lire = (f: string) => readFileSync(resolve(__dirname, '../../../src/' + f), 'utf8');
+const source = ['zones/BarreApplication.tsx', 'zones/parcours/MesProjets.tsx', 'app/mesProjets.ts'].map(lire).join('\n');
 
 /** La meme construction que le composant, pour eprouver la forme sans monter React. */
 function adresseProjets(plateforme: string, slug: string | null): string {
@@ -46,7 +49,7 @@ describe('ce que le composant fait, et ne fait pas', () => {
   });
 
   it('lit le locataire du contexte, jamais une valeur ecrite en dur', () => {
-    expect(source).toContain('c.tenant.slug');
+    expect(source).toContain('.tenant.slug');
     expect(source).not.toMatch(/https:\/\/www\.raillard\.org/);
   });
 });

@@ -31,6 +31,7 @@ import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
 import { retenirLaPage, partirSansQuestion } from '../shell/depart.js';
 import { creerEnregistrementAuto, lirePreferenceEnregistrementAuto, ecrirePreferenceEnregistrementAuto, suivreLesPointeurs, type EnregistrementAuto } from './enregistrementAuto.js';
 import { brancherPartage } from './partage.js';
+import { brancherMesProjets } from './mesProjets.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -376,6 +377,15 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     executer: () => { void enregistrer('Projet enregistre.'); }
   });
 
+  /** Change de projet ; demande avant de perdre des modifications. */
+  function ouvrir(id: string): void {
+    if (ctx.etat.dirty) {
+      showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', () => aller(id));
+      return;
+    }
+    aller(id);
+  }
+  brancherMesProjets(cmd, { apiDisponible: seed.apiAvailable, ouvrir });
   brancherPartage(cmd, { courant: seed.apiAvailable ? courant : null, ecrit: () => !projetARemplir(seed, ctx.etat), modifie: () => ctx.etat.dirty }); // lot 6 : un projet a remplir n'a rien chez la plateforme
   declarerSuppression(cmd, seed, ctx, courant);
 
@@ -412,12 +422,6 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     proposerMiseAJour,
     auto,
     enregistrerSansBruit: () => enregistrer(null),
-    ouvrir(id) {
-      if (ctx.etat.dirty) {
-        showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', () => aller(id));
-        return;
-      }
-      aller(id);
-    }
+    ouvrir
   };
 }
