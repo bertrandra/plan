@@ -33,16 +33,21 @@ export interface Onglet {
   groupe: 'terrasse' | 'piscine' | 'abri' | 'plan';
   /** Un onglet du plan qui n'a de sens qu'avec une donnee du projet : `relief`, quand la parcelle en porte un. */
   requiert?: 'relief';
+  /**
+   * Un resultat pour qui veut aller plus loin : le mode expert seul le montre (app/modeExpert.ts ; lot 3 de la simplification, cinq
+   * onglets au plus pour une terrasse en mode simple). Cache, il se calcule comme avant : les exports et le dossier ne changent pas.
+   */
+  expert?: true;
 }
 
 export const ONGLETS: Onglet[] = [
   { id: 'bom', libelle: 'Nomenclature', panneau: 'panelBom', groupe: 'terrasse' },
   // L'optimisation de la structure compare des reglages par leur cout : un resultat, a cote du debit.
-  { id: 'optimisation', libelle: 'Optimisation', panneau: 'panelOptimisation', groupe: 'terrasse' },
+  { id: 'optimisation', libelle: 'Optimisation', panneau: 'panelOptimisation', groupe: 'terrasse', expert: true },
   { id: 'coupe', libelle: 'Coupe', panneau: 'panelCoupe', groupe: 'terrasse' },
   { id: 'implantation', libelle: 'Implantation', panneau: 'panelImplantation', groupe: 'terrasse' },
-  { id: 'chantier', libelle: 'Chantier', panneau: 'panelChantier', groupe: 'terrasse' },
-  { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse' },
+  { id: 'chantier', libelle: 'Chantier', panneau: 'panelChantier', groupe: 'terrasse', expert: true },
+  { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse', expert: true },
   // Le metrage, le chiffrage et les prix d'un ouvrage : ce que l'inspecteur ne montre pas (il regle).
   { id: 'piscine', libelle: 'Piscine', panneau: 'panelPiscine', groupe: 'piscine' },
   { id: 'noteCalcul', libelle: 'Note de calcul', panneau: 'panelNoteCalcul', groupe: 'piscine' },
@@ -50,18 +55,18 @@ export const ONGLETS: Onglet[] = [
   { id: 'abri', libelle: 'Abri', panneau: 'panelAbri', groupe: 'abri' },
   { id: 'mesure', libelle: 'Cotes', panneau: 'panelMesure', groupe: 'plan' },
   // Le profil du sol suit les cotes : c'est d'une cote qu'on prend sa ligne (MD/spec-relief.md §5.4).
-  { id: 'profil', libelle: 'Profil', panneau: 'panelProfil', groupe: 'plan', requiert: 'relief' },
+  { id: 'profil', libelle: 'Profil', panneau: 'panelProfil', groupe: 'plan', requiert: 'relief', expert: true },
   { id: 'plu', libelle: 'PLU', panneau: 'panelPlu', groupe: 'plan' },
-  { id: 'resume', libelle: 'Résumé', panneau: 'panelResume', groupe: 'plan' }
+  { id: 'resume', libelle: 'Résumé', panneau: 'panelResume', groupe: 'plan', expert: true }
 ];
 
 /**
  * Les onglets qui se montrent : ceux d'une terrasse, d'une piscine ou d'un abri seulement quand l'un
  * est selectionne ; ceux qui demandent un relief seulement quand la parcelle en porte un.
  */
-export function ongletsVisibles(terrasseSelectionnee: boolean, piscineSelectionnee = false, relief = false, abriSelectionne = false): Onglet[] {
+export function ongletsVisibles(terrasseSelectionnee: boolean, piscineSelectionnee = false, relief = false, abriSelectionne = false, modeExpert = true): Onglet[] {
   const selectionne: Record<Onglet['groupe'], boolean> = { plan: true, terrasse: terrasseSelectionnee, piscine: piscineSelectionnee, abri: abriSelectionne };
-  return ONGLETS.filter(o => (o.requiert !== 'relief' || relief) && selectionne[o.groupe]);
+  return ONGLETS.filter(o => (o.requiert !== 'relief' || relief) && selectionne[o.groupe] && (modeExpert || !o.expert));
 }
 
 export const HAUTEURS: HauteurTiroir[] = ['replie', 'mi', 'plein'];
@@ -113,6 +118,9 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   const estOngletAbri = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'abri');
   const estOngletRelief = (id: string) => ONGLETS.some(o => o.id === id && o.requiert === 'relief');
   const reliefPresent = () => !!reliefDe(etat.objects);
+  // Le mode expert eteint (app/modeExpert.ts) : ses onglets ne se montrent pas, et ne s'ouvrent pas.
+  const modeExpert = () => magasin.store.getState().options.modeExpert;
+  const estOngletExpert = (id: string) => ONGLETS.some(o => o.id === id && o.expert);
 
 
   function definirHauteur(h: HauteurTiroir): void {
@@ -126,6 +134,8 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
     // Un onglet de terrasse sans terrasse selectionnee : les cotes, l'onglet du plan le plus proche.
     if ((estOngletTerrasse(id) && !terrasseSelectionnee()) || (estOngletPiscine(id) && !piscineSelectionnee()) || (estOngletAbri(id) && !abriSelectionne())
       || (estOngletRelief(id) && !reliefPresent())) id = 'mesure';
+    // Un onglet du mode expert, eteint : la nomenclature d'une terrasse, sinon les cotes.
+    if (estOngletExpert(id) && !modeExpert()) id = terrasseSelectionnee() ? 'bom' : 'mesure';
     etat.panelTab = id;
     // Le chiffrage part dans le projet enregistre : il se refait a l'ouverture, pas au rendu.
     if (estOngletTerrasse(id)) ctx.refreshTerrasseView();
@@ -134,11 +144,15 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   }
 
   definirHauteur(hauteurMemorisee());
+  // Le mode expert s'eteint sur un de ses onglets : le tiroir passe a un onglet qui reste.
+  magasin.store.subscribe((s, avant) => {
+    if (s.options.modeExpert !== avant.options.modeExpert && !s.options.modeExpert && estOngletExpert(etat.panelTab)) activer(etat.panelTab, false);
+  });
 
   return {
     onglets: () => {
       const abri = ctx.abriSelectionne();
-      return ongletsVisibles(terrasseSelectionnee(), piscineSelectionnee(), reliefPresent(), !!abri)
+      return ongletsVisibles(terrasseSelectionnee(), piscineSelectionnee(), reliefPresent(), !!abri, modeExpert())
         .map(o => o.groupe === 'abri' && abri ? { ...o, libelle: libelleAbri(abri) } : o);
     },
     activer,

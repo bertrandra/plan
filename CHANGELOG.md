@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Cinq onglets de résultats en mode simple** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Une terrasse choisie, le
+  tiroir (feuille Résultats au doigt) montre Nomenclature, Coupe, Implantation, Cotes et PLU. Optimisation, Chantier, Méthode,
+  Profil (le relief) et Résumé passent au **mode expert** ; « Méthode de calcul » (menu Aide) et « Résumé à copier » (menu Exporter)
+  les suivent. Un onglet du mode expert ouvert quand on l'éteint cède la place à la nomenclature (aux cotes sans terrasse). Rien
+  ne se calcule autrement : les cadences du chantier gardent leurs valeurs, les exports et le dossier PDF ne changent pas
+  (empreintes inchangées). Point de fumée 181.
+
 - **Un geste, un endroit ; un seul nom pour créer un projet** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Créer un
   projet se dit partout « Nouveau projet depuis une adresse » : au menu Fichier (« Nouveau plan depuis une adresse… » jusque-là),
   dans « Mes projets » (« Nouveau depuis une adresse »), au premier pas (« Partir d'une adresse ») et dans les phrases qui y
