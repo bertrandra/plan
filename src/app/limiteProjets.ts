@@ -1,5 +1,5 @@
-// Dire la limite de projets, au geste qui la rencontre : « Nouveau projet » (une copie) ou
-// « depuis une adresse ». Un dialogue plutot qu'une info-bulle : sur un ecran tactile, un bouton
+// Dire la limite de projets, au geste qui la rencontre : « Enregistrer sous… » (une copie) ou
+// « Nouveau projet depuis une adresse ». Un dialogue plutot qu'une info-bulle : sur un ecran tactile, un bouton
 // grise ne dit rien, et la personne ne sait pas si c'est elle ou le programme.
 
 import { dialogues } from '../shell/dialogues.js';

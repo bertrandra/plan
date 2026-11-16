@@ -78,7 +78,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.reculer': outil(),
-  'objet.positionInitiale': outil('inspecteur'),
+  'objet.positionInitiale': outil(),
   'objet.aligner': outil(),
 
   // ---- Projet (Z1, Z5) ------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.actualiser': menu('menuFichier'),
   'projet.toitsFond': menu('menuFichier'),
   'projet.supprimerVoisinage': menu('menuFichier'),
-  'projet.doublons': menu('menuFichier', 'menuAdmin'),
+  'projet.doublons': menu('menuFichier'),
   // L'audit de la parcelle (MD/spec-audit.md §11) : menu Projet (Fichier) sur bureau, feuille du projet au doigt.
   'audit.parcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
   // L'import d'un audit de parcelle (§15) : a cote, dans le meme menu.

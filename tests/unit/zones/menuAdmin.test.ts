@@ -47,7 +47,7 @@ describe('le menu Admin', () => {
     const hote = await monter(true);
     expect(hote.querySelector('#menuAdmin summary')?.textContent).toBe('Admin');
     expect([...hote.querySelectorAll('[data-controle], [data-commande]')].map(e => e.getAttribute('data-controle') ?? e.getAttribute('data-commande')))
-      .toEqual(['admin.audit', 'admin.controleurs', 'admin.palette', 'admin.arbres', 'admin.calibration', 'admin.chaine', 'admin.principes', 'admin.consommation', 'admin.conformite', 'admin.regles', 'admin.auditsParcelle', 'admin.sauvegarde', 'projet.doublons']);
+      .toEqual(['admin.audit', 'admin.controleurs', 'admin.palette', 'admin.arbres', 'admin.calibration', 'admin.chaine', 'admin.principes', 'admin.consommation', 'admin.conformite', 'admin.regles', 'admin.auditsParcelle', 'admin.sauvegarde']);
     expect(hote.querySelector('[data-commande="admin.consommation"]')?.textContent).toBe('Consommation de Claude');
     expect(hote.querySelector('[data-commande="admin.conformite"]')?.textContent).toBe('Conformité');
     expect(hote.querySelector('[data-commande="admin.regles"]')?.textContent).toBe('Règles');

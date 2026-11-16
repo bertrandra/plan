@@ -37,7 +37,7 @@ export function Declaration({ inspecteur, magasin, fermer, commandes, dossier }:
             </Tactile.Provider>
             {dossier && <TextesDossier dossier={dossier} commandes={commandes} magasin={magasin} fermer={fermer} />}
           </>
-        : <div className="sousTitreParcours">Le plan n’a pas de parcelle : créez-le depuis une adresse (Fichier › Nouveau plan depuis une adresse) pour remplir la déclaration.</div>}
+        : <div className="sousTitreParcours">Le plan n’a pas de parcelle : créez-le depuis une adresse (Fichier › Nouveau projet depuis une adresse) pour remplir la déclaration.</div>}
       <div className="piedDialogue">
         <button type="button" data-controle="declaration.fermer" className="secondary" onClick={fermer}>Fermer</button>
       </div>

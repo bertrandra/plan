@@ -353,7 +353,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   const proposerMiseAJour = declarerMiseAJour(cmd, ctx.etat, courant, { enRetard, enregistrer, publier });
 
   cmd.declarer({
-    id: 'projet.nouveau', libelle: 'Nouveau projet', groupe: 'projet',
+    id: 'projet.nouveau', libelle: 'Enregistrer sous…', groupe: 'projet',
     permission: PERMISSION_ECRITURE, quota: QUOTA_PROJETS,
     description: 'Cree un projet sur le serveur, copie du plan actuel',
     actif: () => seed.apiAvailable,
@@ -363,7 +363,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
           const created = await ctx.apiSave({ name, ...charge() });
           aller(created.id);
         } catch (e) {
-          const clair = phraseReseau(e, 'La plateforme', 'Le plan reste ouvert ici : réessayez « Nouveau projet » dans un instant.');
+          const clair = phraseReseau(e, 'La plateforme', 'Le plan reste ouvert ici : réessayez « Enregistrer sous… » dans un instant.');
           showErreur(clair ?? 'Impossible de créer le projet : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
         }
       });
@@ -392,7 +392,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   // Disponible avec ou sans serveur : sans, l'import cadastre charge quand meme le plan en memoire
   // (et le dit) — c'est plus utile qu'un bouton absent sans explication.
   cmd.declarer({
-    id: 'projet.depuisAdresse', libelle: 'Depuis une adresse', groupe: 'projet',
+    id: 'projet.depuisAdresse', libelle: 'Nouveau projet depuis une adresse', groupe: 'projet',
     capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE,
     quota: () => (projetARemplir(seed, ctx.etat) ? null : QUOTA_PROJETS),
     description: 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines',

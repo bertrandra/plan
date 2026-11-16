@@ -61,7 +61,7 @@ export function MesProjets({ service, commandes, magasin, fermer }: { service: S
           <button type="button" data-commande="projet.depuisAdresse" className="secondary" disabled={!adresse.utilisable}
             title={!adresse.utilisable && 'message' in adresse ? adresse.message : undefined}
             onClick={(e) => { fermer(); commandes.executer('projet.depuisAdresse', e.currentTarget); }}>
-            Nouveau depuis une adresse
+            Nouveau projet depuis une adresse…
           </button>
         )}
         <a className="compteLien" data-controle="mesProjets.plateforme" href={service.plateforme()} target="_blank" rel="noopener">Gérer sur la plateforme<span aria-hidden="true"> ↗</span></a>
