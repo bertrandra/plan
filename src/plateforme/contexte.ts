@@ -35,6 +35,12 @@ export type Fermeture =
 export interface ServiceContexte {
   /** Le contexte courant, ou rien. Jamais persiste. */
   courant(): Contexte | null;
+  /**
+   * Qui est la personne et pour quelle organisation, tel que la derniere lecture l'a dit, meme hors du
+   * cache (`token_expires_at` nul ou passe). Une identite ne decide d'aucun droit : elle propose un nom
+   * (l'emetteur d'un devis), la ou `courant()` rendrait rien et laisserait un champ vide.
+   */
+  identite(): { user: Contexte['user']; tenant: Contexte['tenant'] } | null;
   /** Lit `/me/context` si le cache est vide ou perime. */
   charger(): Promise<Contexte>;
   oublier(): void;
@@ -58,6 +64,7 @@ export function creerContexte(session: Session, maintenant: () => number = () =>
 
   return {
     courant: () => (cache && valideJusqua > maintenant() ? cache : null),
+    identite: () => (cache ? { user: cache.user, tenant: cache.tenant } : null),
     async charger() {
       if (cache && valideJusqua > maintenant()) return cache;
       const c = await session.appeler<Contexte>('showMyContext');
