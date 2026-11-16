@@ -62,14 +62,15 @@ export const CONTEXTE = {
  * Le depot tient en memoire ce que Plan y enregistre : le plan de demonstration est cree par un
  * `POST /projects`, puis relu par son identifiant, exactement comme sur la vraie plateforme.
  */
-export async function simulerPlateforme(page, { connecte = true, capacites = null, refusPartage = null, liensPublics = {}, aide = false } = {}) {
+export async function simulerPlateforme(page, { connecte = true, capacites = null, refusPartage = null, liensPublics = {}, aide = false, usage = null } = {}) {
   // L'aide de premiere utilisation (app/aidePremiere.ts) passe pour vue : ses bulles, en bas de l'ecran, couvriraient ce que les
   // captures et la fumee mesurent. `aide: true` la laisse venir (le point 174 de la fumee l'eprouve).
   if (!aide) await page.addInitScript(() => { try { localStorage.setItem('plan.aide.premiersPas', 'vue'); } catch { /* sans stockage, rien a taire */ } });
   // `connecte: false` : aucune session, la porte s'affiche ; `capacites` : l'offre de la personne, a la place de celle du contexte ;
   // `refusPartage` : l'erreur que la creation d'un lien de partage rend ({ statut, code, details }), au lieu d'un lien ;
   // `liensPublics` : ce que `public/shares/open` rend pour un jeton ({ <jeton>: <reponse> | <statut> }) ; un jeton inconnu, 404.
-  const contexte = capacites ? { ...CONTEXTE, capabilities: capacites } : CONTEXTE;
+  // `usage` : les quotas de l'offre (`/me/context`, `usage`), a la place d'aucun : la limite de projets du point 176.
+  const contexte = { ...CONTEXTE, ...(capacites ? { capabilities: capacites } : {}), ...(usage ? { usage } : {}) };
   const projets = new Map();
   // Les liens de partage (ADR-073), par projet : la plateforme n'en rend l'adresse qu'a la creation.
   const liens = new Map();

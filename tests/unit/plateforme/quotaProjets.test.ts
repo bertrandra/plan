@@ -34,7 +34,7 @@ describe('la limite de projets', () => {
     const p = phraseLimite({ limite: 5, utilise: 5 });
     expect(p).toContain('5 projets pour 5 autorisés');
     expect(p).toMatch(/copie ou depuis une adresse/);
-    expect(p).toMatch(/supprimez un projet ou changez d’offre/);
+    expect(p).toMatch(/supprimez un projet ou passez à une offre qui en compte davantage : « Voir les offres »/);
     expect(phraseLimite({ limite: 1, utilise: 1 })).toContain('1 projet pour 1 autorisé par');
   });
 });

@@ -54,7 +54,18 @@ export type Parcours =
   /** L'assistant en langue naturelle (menu Aide, lot L6) : la demande, la liste d'etapes, « Appliquer » (app/assistant/). */
   | { type: 'assistant'; service: ServiceAssistant; commandes: RegistreCommandes }
   /** Partager le projet par un lien en lecture seule (menu Fichier, lot 6) : creer un lien, voir et retirer ceux du projet (app/partage.ts). */
-  | { type: 'partage'; service: ServicePartage };
+  | { type: 'partage'; service: ServicePartage }
+  /** Mes projets (barre et menu Fichier, lot 2 de la simplification) : la liste, ouvrir, partir d'une adresse (app/mesProjets.ts). */
+  | { type: 'mesProjets'; service: ServiceMesProjets };
+
+/** Ce que le dialogue « Mes projets » demande : ouvrir un projet (avec la question des modifications), et deux adresses. */
+export interface ServiceMesProjets {
+  ouvrir(id: string): void;
+  /** La vitrine de la plateforme, qui porte les offres du produit. */
+  offres(): string;
+  /** Les projets de l'organisation sur la plateforme. */
+  plateforme(): string;
+}
 
 /**
  * Ce qu'un parcours qui rend des champs demande au service de l'inspecteur (app/inspecteur.ts) : la

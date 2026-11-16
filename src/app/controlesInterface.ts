@@ -206,6 +206,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'premierPas.adresse': etape(Z8, 'démarrage sans projet', 'Partir d’une adresse'),
   'premierPas.demo': etape(Z8, 'démarrage sans projet', 'Ouvrir le plan de démonstration'),
   'premierPas.vierge': etape(Z8, 'démarrage sans projet', 'Dessiner sans adresse'),
+  'premierPas.offres': etape(Z8, 'démarrage sans projet', 'Voir les offres, limite de projets atteinte'),
   // La lecture d'un projet partage (lot 6, zones/LienPartage.tsx, zones/BarreApplication.tsx) : un lien qui ne s'ouvre pas, et le bandeau.
   'lienPartage.reessayer': etape(Z8, 'ouverture d’un lien de partage (#share=…)', 'Réessayer de lire le projet partagé'),
   // La demonstration sans compte (lot 6) : la porte la propose, avec la vitrine de la plateforme ; un bandeau la dit, et la quitte.
@@ -461,6 +462,11 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'partage.autre': etape(Z8, PARTAGER, 'Créer un autre lien'),
   'partage.retirer': etape(Z8, PARTAGER, 'Retirer un lien (Annuler dans le message, quelques secondes)', { repete: true }),
   'partage.fermer': etape(Z8, PARTAGER, 'Fermer le partage'),
+  // Mes projets (lot 2, zones/parcours/MesProjets.tsx) : ouvrir passe par `projet.ouvrir`, partir d'une adresse par sa commande.
+  'mesProjets.ouvrir': etape(Z8, 'projet.mesProjets', 'Ouvrir un de mes projets', { repete: true }),
+  'mesProjets.offres': etape(Z8, 'projet.mesProjets', 'Voir les offres (la vitrine de la plateforme), limite de projets atteinte'),
+  'mesProjets.plateforme': etape(Z8, 'projet.mesProjets', 'Gérer mes projets sur la plateforme'),
+  'mesProjets.fermer': etape(Z8, 'projet.mesProjets', 'Fermer Mes projets'),
   'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser', { ecrit: { annulable: true, droits: 'commande' } }),
   // Choix d'une texture (zones/parcours/ChoixTexture.tsx).
   'texture.fermer': etape(Z8, TEXTURE, 'Fermer le choix de texture'),

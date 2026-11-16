@@ -3383,6 +3383,96 @@ const POINTS = {
     } finally { await ctx.close(); }
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + `bulles « ${titres.join(' » › « ')} » ; « ${texte1.slice(0, 40)}… » ; retenue, pas remontrée après rechargement ; « Passer » ferme` };
   },
+  175: async (page) => {
+    // « Mes projets » (lot 2 de la simplification, 16 novembre 2026) : menu Fichier (feuille Projet au doigt), « Mes projets… » ; le
+    // dialogue liste les projets, dit celui qui est ouvert, offre « Nouveau depuis une adresse » et « Gérer sur la plateforme » ;
+    // « Fermer » le referme ; rien ne deborde. Il remplace le lien « Mes projets ↗ » vers la plateforme.
+    const echecs = [];
+    if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+    const entree = await page.evaluate(() => { const e = document.querySelector('#menuFichier [data-commande="projet.mesProjets"]'); if (e) e.click(); return !!e; });
+    if (!entree) echecs.push('entrée « Mes projets… » absente du menu Fichier');
+    const boite = page.locator('.dialogueMesProjets');
+    await boite.waitFor({ timeout: 10000 }).catch(() => echecs.push('dialogue absent'));
+    const r = await page.evaluate(() => {
+      const b = document.querySelector('.dialogueMesProjets');
+      if (!b) return null;
+      const lignes = [...b.querySelectorAll('[data-controle="mesProjets.ouvrir"]')];
+      const rect = b.getBoundingClientRect();
+      return { lignes: lignes.length, ouvert: lignes.filter((l) => l.disabled && /ouvert/.test(l.textContent)).length,
+        nom: lignes[0]?.querySelector('.nomLigneProjet')?.textContent ?? '', adresse: !!b.querySelector('[data-commande="projet.depuisAdresse"]:not([disabled])'),
+        plateforme: b.querySelector('[data-controle="mesProjets.plateforme"]')?.getAttribute('href') ?? null,
+        entier: rect.left >= -0.5 && rect.right <= innerWidth + 0.5, deborde: document.documentElement.scrollWidth > innerWidth + 1, lien: !!document.querySelector('#compteBar a[href$="/projects"]') };
+    });
+    if (r) {
+      if (r.lignes < 1) echecs.push('aucun projet listé');
+      if (r.ouvert !== 1) echecs.push(r.ouvert + ' projet(s) dit(s) ouvert(s)');
+      if (!r.adresse) echecs.push('« Nouveau depuis une adresse » absent ou grisé');
+      if (!/\/projects$/.test(r.plateforme ?? '')) echecs.push('lien plateforme ' + r.plateforme);
+      if (!r.entier || r.deborde) echecs.push('débordement');
+      if (r.lien) echecs.push('le lien « Mes projets ↗ » vers la plateforme reste dans la barre');
+    }
+    await page.locator('[data-controle="mesProjets.fermer"]').click().catch(() => echecs.push('« Fermer » introuvable'));
+    await page.waitForTimeout(250);
+    if (await boite.count()) echecs.push('« Fermer » ne ferme pas');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + (r ? `${r.lignes} projet(s), « ${r.nom} » ouvert ; « Nouveau depuis une adresse » offert ; plateforme → ${r.plateforme}` : '') };
+  },
+  176: async (page, f) => {
+    // La limite de projets dite en clair, avec « Voir les offres » (lot 2) : une offre qui compte un projet, la demonstration cree ;
+    // « Mes projets » le dit (« limite atteinte », la phrase, « Voir les offres » vers la vitrine `<plateforme>/?product=plan`),
+    // « Nouveau projet » refuse ouvre « Limite de projets atteinte » dont le bouton ouvre la vitrine ; puis, l'offre deja pleine, le
+    // premier pas « Aucun plan à ouvrir » offre « Voir les offres ».
+    const echecs = [];
+    const VITRINE = 'http://plateforme.test/?product=plan';
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const quota = (utilise) => [{ feature: 'max_projects', limit: 1, unlimited: false, used: utilise, remaining: 1 - utilise }];
+    const vierge = async (usage, faire) => {
+      const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+      const p = await ctx.newPage();
+      try {
+        await simulerPlateforme(p, { usage });
+        await p.addInitScript(() => { window.__sansToitsFond = true; });
+        await p.goto(BASE + '/');
+        return await faire(p, ctx);
+      } finally { await ctx.close(); }
+    };
+    const dans = await vierge(quota(0), async (p, ctx) => {
+      await p.getByRole('button', { name: /d[ée]monstration/i }).click();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(500);
+      if ((await classe(p)) !== 'large') await feuille(p, 'projet');
+      await p.evaluate(() => document.querySelector('#menuFichier [data-commande="projet.mesProjets"]')?.click());
+      const boite = p.locator('.dialogueMesProjets');
+      await boite.waitFor({ timeout: 10000 }).catch(() => echecs.push('Mes projets absent'));
+      const m = await p.evaluate(() => ({ texte: document.querySelector('.dialogueMesProjets')?.textContent ?? '',
+        offres: document.querySelector('[data-controle="mesProjets.offres"]')?.getAttribute('href') ?? null }));
+      if (!/limite atteinte/.test(m.texte) || !/passez à une offre qui en compte davantage/.test(m.texte)) echecs.push('Mes projets ne dit pas la limite');
+      if (m.offres !== VITRINE) echecs.push('Mes projets : offres → ' + m.offres);
+      await p.locator('[data-controle="mesProjets.fermer"]').click().catch(() => {});
+      if ((await classe(p)) !== 'large') await feuille(p, null);
+      await p.evaluate(() => window.__plan.executer('projet.nouveau'));
+      const titre = await p.getByText('Limite de projets atteinte', { exact: true }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+      if (!titre) echecs.push('pas de dialogue « Limite de projets atteinte »');
+      // La vitrine n'est pas simulee : la page qu'ouvre le bouton recoit un corps, et c'est son adresse qu'on lit.
+      await ctx.route(VITRINE, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<p>Vitrine</p>' }));
+      const bouton = p.getByRole('button', { name: 'Voir les offres' });
+      const [popup] = await Promise.all([ctx.waitForEvent('page', { timeout: 8000 }).catch(() => null), bouton.click().catch(() => echecs.push('« Voir les offres » absent'))]);
+      if (popup) await popup.waitForLoadState().catch(() => {});
+      const ouverte = popup ? popup.url() : null;
+      if (ouverte !== VITRINE) echecs.push('« Voir les offres » ouvre ' + ouverte);
+      return `Mes projets : « limite atteinte », offres → ${m.offres} ; « Nouveau projet » : « Limite de projets atteinte », « Voir les offres » ouvre ${ouverte}`;
+    });
+    const plein = await vierge(quota(1), async (p) => {
+      await p.locator('.premierBoite').waitFor({ timeout: 20000 });
+      const r = await p.evaluate(() => ({ titre: document.querySelector('.premierTitre')?.textContent ?? '', offres: document.querySelector('[data-controle="premierPas.offres"]')?.getAttribute('href') ?? null,
+        deborde: document.documentElement.scrollWidth > innerWidth + 1 }));
+      if (r.titre !== 'Aucun plan à ouvrir') echecs.push('premier pas « ' + r.titre + ' »');
+      if (r.offres !== VITRINE) echecs.push('premier pas : offres → ' + r.offres);
+      if (r.deborde) echecs.push('premier pas : débordement');
+      return `premier pas « ${r.titre} », offres → ${r.offres}`;
+    });
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + dans + ' ; ' + plein };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9288,7 +9378,9 @@ function pointsPour(nomClasse) {
   // 172 : le catalogue des lames du commerce : « Lame » en tete de la section, le detail replie, un choix qui pose les quatre reglages.
   // 173 : la demonstration (essai sans compte) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
   // 174 : l'aide de premiere utilisation : trois bulles une fois par appareil, retenues, « Passer ».
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174];
+  // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
+  // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

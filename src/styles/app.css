@@ -3224,3 +3224,17 @@
   /* Au doigt, le bas de l'ecran porte la tuile du chiffrage et la barre de navigation : la bulle se pose sous la barre haute. */
   html:not([data-classe="large"]) .aidePremiere{ bottom:auto; top:calc(var(--reserve-haut, 0px) + 112px); }
   @media (prefers-reduced-motion: reduce){ .aidePremiere{ animation:none; } }
+  /* Mes projets (lot 2, zones/parcours/MesProjets.tsx) : une ligne par projet, son nom en serif, sa date en note ; celui qui est ouvert se
+     dit par le mot « ouvert » et le fond doux, pas par la couleur seule. */
+  .dialogueMesProjets{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
+  .listeMesProjets{ list-style:none; margin:8px 0 12px; padding:0; display:flex; flex-direction:column; gap:4px; max-height:52vh; overflow:auto; }
+  .ligneProjet{ display:flex; width:100%; justify-content:space-between; align-items:baseline; gap:12px; text-align:left;
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--hairline); border-radius:var(--r-bouton); padding:8px 12px; min-height:40px; cursor:pointer; }
+  .ligneProjet:hover:not(:disabled){ background:var(--accent-light); color:var(--on-accent-light); }
+  .ligneProjet.ouvert{ background:var(--accent-light); color:var(--on-accent-light); cursor:default; opacity:1; }
+  .nomLigneProjet{ font-family:var(--serif); font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .noteLigneProjet{ font-family:var(--sans); font-size:0.7rem; color:inherit; opacity:0.8; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .limiteProjets .lienOffres{ color:var(--ink); font-weight:600; text-underline-offset:2px; white-space:nowrap; }
+  html:not([data-classe="large"]) .limiteProjets .lienOffres{ display:inline-flex; align-items:center; min-height:44px; }
+  html:not([data-classe="large"]) .ligneProjet{ min-height:44px; }
+  html[data-classe="compact"] .dialogueMesProjets{ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }

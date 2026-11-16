@@ -3,14 +3,19 @@
 // grise ne dit rien, et la personne ne sait pas si c'est elle ou le programme.
 
 import { dialogues } from '../shell/dialogues.js';
-import { BACKPROD_API_URL } from '../plateforme/config.js';
+//
+// Le geste propose est « Voir les offres » (lot 2 de la simplification, 16 novembre 2026) : la vitrine de la plateforme, qui montre les
+// offres du produit (`<BACKPROD_API_URL>/?product=plan`, comme la demonstration sans compte), et non sa racine, ou la personne devait
+// chercher seule ou changer d'offre.
+
+import { vitrinePlateforme } from '../plateforme/config.js';
 
 export function signalerLimiteProjets(message: string): void {
   dialogues.ouvrir({
     type: 'choix',
     titre: 'Limite de projets atteinte',
     texte: message,
-    principal: { libelle: 'Ouvrir la plateforme', executer: () => { window.open(BACKPROD_API_URL, '_blank', 'noopener'); } },
+    principal: { libelle: 'Voir les offres', executer: () => { window.open(vitrinePlateforme(), '_blank', 'noopener'); } },
     secondaire: { libelle: 'Fermer', executer: () => {} }
   });
 }

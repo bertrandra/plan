@@ -83,6 +83,8 @@ export const EXPOSITION: Record<string, Ligne> = {
 
   // ---- Projet (Z1, Z5) ------------------------------------------------------------------------
   'projet.reinitialiser': partout('inspecteur'),
+  // Mes projets (lot 2) : la barre du compte (dans la feuille Projet au telephone), et le menu Fichier.
+  'projet.mesProjets': { compact: ['feuilleProjet'], moyen: ['menuFichier', 'barreHaute'], large: ['menuFichier', 'barreHaute'] },
   'projet.nouveau': menu('menuFichier'),
   'projet.enregistrer': { compact: ['feuilleProjet', 'clavier'], moyen: ['menuFichier', 'clavier'], large: ['menuFichier', 'barreHaute', 'clavier'] },
   'projet.supprimer': menu('menuFichier'),
