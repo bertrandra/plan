@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Choisir une lame du commerce** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026). La section
+  « 3. Lames et sens de pose » d'une terrasse commence par « Lame » : une lame telle qu'elle se vend (pin autoclave classe 4
+  145 × 27 et 120 × 21, douglas 145 × 27 et 120 × 27, ipé 145 × 21, cumaru 140 × 21, composite alvéolaire 145 × 21 et plein
+  140 × 25, rangées par essence, avec la fourchette de prix au m² de l'essence), qui pose d'un coup l'essence, la largeur,
+  l'épaisseur et le coefficient de raideur de l'essence, exactement comme ces quatre champs le feraient un par un (même écriture,
+  même nomenclature : testé lame par lame contre `computeBOM`). Ces quatre champs se replient sous « Détail de la lame (essence,
+  cotes, raideur) », toujours là pour une lame particulière ; des cotes hors catalogue se lisent « Autre lame », et la choisir ne
+  change rien. Aucun réglage par défaut ne change : une terrasse existante, la démonstration et les sept empreintes restent
+  identiques (`engine/bois/lamesCommerce.ts`). L'assistant voit le champ (`lames.lameCommerce`) ; la requête témoin de la
+  vérification de l'API (`tests/fixtures/assistant/requete-verification.json`) est régénérée. Point de fumée 172.
+
 - **Essayer Plan sans compte** (lot 6 du parcours client, 16 novembre 2026). La porte de connexion dit d'abord ce que fait Plan
   (« Dessinez votre terrasse sur votre vrai terrain, voyez-la en 3D et obtenez la liste d'achat et un devis. ») et propose, sous
   « Se connecter », **« Essayer la démonstration »** : le plan de démonstration livré (celui du premier pas) s'ouvre sans session.
