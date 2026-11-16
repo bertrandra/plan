@@ -117,6 +117,15 @@ function casEtalon(nom, verite = false) {
   return JSON.parse(JSON.stringify(casRendus.get(cle)));
 }
 
+/**
+ * Decoche « Enregistrement automatique » (Fichier) pour un point qui lit l'indicateur « modifie » : un geste qui doit le poser (ou
+ * ne pas le poser) se mesure sur un projet que l'enregistrement automatique ne remet pas a jour entre deux lectures (point 163 pour
+ * l'enregistrement lui-meme).
+ */
+async function sansEnregistrementAuto(page) {
+  await page.evaluate(() => { if (window.__plan.magasin().options.enregistrementAuto) document.getElementById('chkEnregistrementAuto')?.click(); });
+}
+
 /** L'etat du plan, en JSON : ce qu'on compare avant et apres un geste. */
 const lireEtat = (page) => page.evaluate(() => {
   const e = window.__plan.etat();
@@ -2871,6 +2880,7 @@ const POINTS = {
     await page.waitForTimeout(1500);
     const titre = ((await page.locator('.auditPrise .titreParcours').first().textContent()) || '').trim();
     const avant3d = await enTroisD();
+    await sansEnregistrementAuto(page);
     const saleAvant = await page.evaluate(() => !!window.__plan.etat().dirty);
     const debords = [await deborde()];
     await capture('avant');
@@ -5116,6 +5126,7 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
     await image3dStable(page, 3000);
+    await sansEnregistrementAuto(page);
     const projet = () => page.evaluate(() => { const m = window.__plan.magasin(); return { annuler: m.peutAnnuler, statut: m.projet?.statut }; });
     const projetAvant = await projet();
     await etape('ouvrir le mode', async () => {
@@ -7650,6 +7661,7 @@ const POINTS = {
     const cle = 'BATIMENT0000000322509179';
     const lu = () => page.evaluate((k) => window.__plan.etat().objects.find((o) => o.bdtopo?.cleabs === k)?.batiment?.toitLidarLu ?? null, cle);
     const sale = () => page.evaluate(() => !!window.__plan.etat().dirty);
+    await sansEnregistrementAuto(page);
     const [luAvant, saleAvant] = [await lu(), await sale()];
     const charger = async (nom, contenu) => {
       const [choix] = await Promise.all([page.waitForEvent('filechooser', { timeout: 5000 }), page.evaluate(() => window.__plan.executer('admin.faitsLocaux'))]);
