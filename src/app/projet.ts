@@ -28,7 +28,7 @@ import type { Magasin } from './magasin.js';
 import { objetsHorsSession } from './toits/modeToit.js';
 import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
 import { retenirLaPage, partirSansQuestion } from '../shell/depart.js';
-import { creerEnregistrementAuto, lirePreferenceEnregistrementAuto, ecrirePreferenceEnregistrementAuto, type EnregistrementAuto } from './enregistrementAuto.js';
+import { creerEnregistrementAuto, lirePreferenceEnregistrementAuto, ecrirePreferenceEnregistrementAuto, suivreLesPointeurs, type EnregistrementAuto } from './enregistrementAuto.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -70,7 +70,7 @@ export interface ContexteProjet {
   ouvrirActualisationProjet: () => void;
   /** Une actualisation tourne : la commande se grise, une seule a la fois. */
   actualisationEnCours: () => boolean;
-  /** Un geste est en cours (un pointeur appuye) : l'enregistrement automatique attend qu'il soit lache. */
+  /** Un geste est en cours : l'enregistrement automatique attend qu'il soit lache. Par defaut, un pointeur appuye dans la page. */
   gesteEnCours?: () => boolean;
 }
 
@@ -251,7 +251,7 @@ function brancherEnregistrementAuto(p: {
     possible: () => seed.apiAvailable && !!courant && !ctx.etat.lectureSeule && cmd.etat('projet.enregistrer').utilisable,
     sale: () => !!ctx.etat.dirty,
     modifications: () => ctx.modifications?.() ?? 0,
-    occupe: () => ctx.gesteEnCours?.() ?? false,
+    occupe: ctx.gesteEnCours ?? (typeof window === 'undefined' ? () => false : suivreLesPointeurs()),
     enregistrementEnCours: p.enCours,
     enregistrer: p.enregistrer,
     apresEchec: (_n, reprise) => p.noterReprise(new Date(Date.now() + reprise).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
