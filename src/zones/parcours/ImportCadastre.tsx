@@ -149,7 +149,7 @@ function Etape1({ importe }: Props) {
         </div>
         <label className="caseParcours" title="Crée le plan dès la parcelle trouvée, sans les étapes 2 (choix de la parcelle) et 3 (voisines, données IGN) : la parcelle sous l’adresse, les bâtiments et la végétation qui la touchent, et le voisinage étendu s’il est coché. Le résumé dit ce qui arrivera avant de créer.">
           <input type="checkbox" data-controle="cadastre.importDirect" checked={e.importDirect} onChange={(ev) => importe.basculerImportDirect(ev.target.checked)} />
-          Import direct, sans les étapes 2 et 3
+          Import direct : le plan dès la parcelle trouvée
         </label>
         {e.importDirect && <ReglageVoisinage importe={importe} />}
         {e.importDirect && e.resumePret && <ResumeDirect importe={importe} />}
@@ -164,6 +164,22 @@ function Etape1({ importe }: Props) {
           : <Bouton controle="cadastre.rechercher" principal onClick={() => void importe.rechercher(texte.trim())}>Rechercher</Bouton>}
       </Pied>
     </>
+  );
+}
+
+/**
+ * La terrasse de depart : 4 x 3 m posee contre la maison a la creation, pour que le plan s'ouvre
+ * pret a chiffrer. Elle n'a de sens qu'avec le bati importe : sans lui, pas de maison a longer, et
+ * la case disparait (rien ne serait pose).
+ */
+function CaseTerrasseDepart({ importe }: Props) {
+  const e = importe.etat();
+  if (!e.importerBatiments || !e.batiments.length) return null;
+  return (
+    <label className="caseParcours" title="Une terrasse de 4 × 3 m sur plots, contre la façade de la maison la mieux exposée, jamais sur un bâtiment. Vous la déplacez, la redimensionnez ou la supprimez ensuite comme toute terrasse.">
+      <input type="checkbox" data-controle="cadastre.terrasseDepart" checked={e.terrasseDepart} onChange={(ev) => importe.basculerCaseIgn('terrasseDepart', ev.target.checked)} />
+      Poser une terrasse de départ contre la maison (4 × 3 m)
+    </label>
   );
 }
 
@@ -182,6 +198,7 @@ function ResumeDirect({ importe }: Props) {
         {e.plu?.zones?.[0] && <><br />{'PLU : zone ' + e.plu.zones[0].libelle}</>}
         {importe.reliefPermis() && <><br />{e.importerRelief ? 'Relief : lu à la création, ' + (e.reliefToutesParcelles ? 'sur toutes les parcelles.' : 'sur la parcelle du projet.') : 'Relief : non lu.'}</>}
       </div>
+      <CaseTerrasseDepart importe={importe} />
     </>
   );
 }
@@ -380,6 +397,7 @@ function Etape3({ importe }: Props) {
         <ReglageVoisinage importe={importe} />
         <div className="titreListe">Données IGN à importer sur les parcelles retenues</div>
         <DonneesIgn importe={importe} />
+        <CaseTerrasseDepart importe={importe} />
         <div className="libelleChamp">Nom du projet :</div>
         <input type="text" data-controle="cadastre.nomProjet" className="promptInput" value={nom} onChange={(ev) => setNom(ev.target.value)} />
       </div>
@@ -403,14 +421,17 @@ function Pied({ importe, children }: Props & { children: React.ReactNode }) {
   );
 }
 
+const TITRE_DIRECT = 'Nouveau projet depuis une adresse';
 const TITRES = { 1: 'Nouveau projet depuis une adresse (1/3)', 2: 'Parcelle trouvee (2/3)', 3: 'Parcelles voisines et creation (3/3)' };
 
 export function ImportCadastre({ importe }: Props) {
   useSyncExternalStore(importe.abonner, importe.version);
   const etape = importe.etat().etape;
+  // En import direct, l'etape 1 est tout le parcours : « 1/3 » annoncerait deux etapes qui ne viendront pas.
+  const titre = etape === 1 && importe.etat().importDirect ? TITRE_DIRECT : TITRES[etape];
   return (
-    <div className="dialogueImperatif dialogueCadastre" role="dialog" aria-modal="true" aria-label={TITRES[etape]}>
-      <div className="titreParcours">{TITRES[etape]}</div>
+    <div className="dialogueImperatif dialogueCadastre" role="dialog" aria-modal="true" aria-label={titre}>
+      <div className="titreParcours">{titre}</div>
       {etape === 1 && <Etape1 importe={importe} />}
       {etape === 2 && <Etape2 importe={importe} />}
       {/* Une autre principale refait l etape entiere, nom par defaut compris. */}

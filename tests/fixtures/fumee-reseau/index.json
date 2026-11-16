@@ -178,6 +178,16 @@
   "duree": 294,
   "fichier": "c1c692b595768507.gz"
  },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=IGNF_LIDAR-HD_METADONNEE%3Ametadata&OUTPUTFORMAT=application%2Fjson&COUNT=1&SRSNAME=CRS%3A84&BBOX=-1.679519%2C48.110759%2C-1.679479%2C48.110799%2CCRS%3A84": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 293,
+  "fichier": "87bded52e3cfa05b.gz"
+ },
  "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=IGNF_LIDAR-HD_METADONNEE%3Ametadata&RESULTTYPE=hits&SRSNAME=CRS%3A84&BBOX=-1.679667%2C48.110586%2C-1.679178%2C48.111007%2CCRS%3A84": {
   "statut": 200,
   "type": "text/xml; charset=UTF-8",
