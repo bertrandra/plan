@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **L'inspecteur d'une terrasse en trois groupes** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Les six étapes
+  numérotées deviennent trois sections : « Terrasse · Forme et niveau » (niveau fini, décaissement, trous), « Lames et finitions »
+  (la lame du commerce, le sens de pose, le détail replié, puis la lame de rive et la planche plate) et « Structure et appuis »
+  (vis ou plots et leur assise, solives et lambourdes, entraxes des appuis, alertes du DTU). Les réglages du calcul plutôt que de
+  l'ouvrage passent au **mode expert** : charges cibles (zone courante, zone équipement), entraxes automatiques, entraxe et marge de
+  la zone renforcée, surface d'assise du plot, coefficient de raideur de la lame, et toujours « Paramètres de calcul ». Aucun
+  réglage, aucune valeur par défaut ni aucune quantité ne change : un champ caché garde sa valeur et le calcul la lit (point 178 :
+  la même nomenclature dans les deux modes) ; empreintes inchangées. Les identifiants des champs que l'assistant écrit suivent
+  leur section (`structure.hauteurVis` pour `fondation.hauteurVis`, `lames.avecLameRive` pour `finitions.avecLameRive`…) : la
+  requête de vérification de l'API (`tests/fixtures/assistant/requete-verification.json`) est régénérée.
+
 - **Mode expert** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Une case « Mode expert », au bas du menu Affichage
   (feuille Projet au doigt), **éteinte par défaut** : une préférence de l'appareil, gardée dans le navigateur, sans Ctrl+Z ni
   « projet modifié », permise en lecture seule. Éteinte, l'écran ne montre plus les **formats techniques** (Exporter : SVG, DXF,

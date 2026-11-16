@@ -85,9 +85,9 @@ describe('le catalogue de l assistant', () => {
     expect(t).toMatch(/- `affichage\.grille` : Grille — .*\. Bascule d’affichage : actuellement MASQUÉ, absent de l’écran ; l’exécuter l’affiche\. État : utilisable\./);
     expect(t).toMatch(/- `objet\.terrassePiscine` : .*État : refusée : Indisponible dans l’état actuel du plan\.\n/);
     expect(t).toMatch(/- `terrasse` : « Terrasse » \(terrasse\) — sélectionné/);
-    expect(t).toMatch(/### 3\. Lames et sens de pose \(`lames`\)\n\n/);
+    expect(t).toMatch(/### Lames et finitions \(`lames`\)\n\n/);
     expect(t).toMatch(/- `lames\.essenceBois` \(choix\) : Essence de bois = `pin-classe4` ; options : `pin-classe4` \(Pin classe 4 \(autoclave\)\), `douglas` \(Douglas\)/);
-    expect(t).toMatch(/- `fondation\.hauteurVis` \(nombre, en cm, au moins 10 cm, pas 5\) : Longueur vis dans le sol = `40`/);
+    expect(t).toMatch(/- `structure\.hauteurVis` \(nombre, en cm, au moins 10 cm, pas 5\) : Longueur vis dans le sol = `40`/);
     // Quelques milliers de tokens : le cout estime d'une demande (spec §6) tient.
     expect(t.length).toBeLessThan(12000);
   });
