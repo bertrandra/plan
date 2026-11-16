@@ -13,6 +13,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { BarreProgressionFacade, COMMANDE_CONFIRMER_MUR, COMMANDE_ESCALADE, COMMANDE_VALIDER } from '../composants/BarreProgressionFacade.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { enAdmin } from '../../app/acces.js';
+import { modeExpertActif } from '../../app/modeExpert.js';
+import { NumerosEtapes } from '../composants/numerosEtapes.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
 import { RelireOuvertures } from '../releve/RelireOuvertures.js';
 import { sontRelues } from '../../model/auditParcelle.js';
@@ -20,7 +22,7 @@ import { type MurAjuste } from '../releve/AjusterMur.js';
 import { auDixiemeDePixel, coinsParDefaut } from '../releve/commun.js';
 import { actionsDansLAudit, lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
 import { ActionsEtape } from '../composants/ActionsEtape.js';
-import { etapeFacade } from '../../model/etapeFacade.js';
+import { etapeFacade, sansNumeros } from '../../model/etapeFacade.js';
 import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { etapesApresValidation } from '../../app/audit/parcelle/facadeValidee.js';
 import { lignesFacadeEnrichie } from '../../app/audit/parcelle/facadeEnrichie.js';
@@ -147,7 +149,7 @@ interface Props {
  * Une ligne du mode discret : l'etape, ce qu'elle a donne, et son geste de repli ; sur une photo, un bouton par photo. L'etape ouverte
  * depuis la barre (`ouverte`) : la barre dit deja son resultat, la ligne n'en garde que le geste.
  */
-function Ligne({ l, rangs, nom, placer, gestes, commandes, relire, ouverte = false }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; commandes: RegistreCommandes; relire?: (() => void) | undefined; ouverte?: boolean }) {
+function Ligne({ l, rangs, nom, placer, gestes, commandes, relire, ouverte = false, dire }: { l: LigneDiscrete; rangs: readonly number[]; nom: string; placer: (rang: number) => void; gestes: boolean; commandes: RegistreCommandes; relire?: (() => void) | undefined; ouverte?: boolean; dire: (t: string) => string }) {
   // V1 : le mur que la chaine a pose se confirme ici (« Confirmer le mur »), et le meme geste retire la confirmation.
   const confirmer = gestes && l.id === 'calage' && (l.etat === 'a-confirmer' || l.etat === 'confirme');
   // V3 : les ouvertures trouvees se relisent toujours avant V4 (decision du proprietaire, 3 novembre 2026).
@@ -155,8 +157,8 @@ function Ligne({ l, rangs, nom, placer, gestes, commandes, relire, ouverte = fal
   if (ouverte && !l.option && !confirmer && !relireIci) return null;
   return (
     <li className={'ligneEtapeAudit ' + l.etat + (ouverte ? ' ouverte' : '')}>
-      {!ouverte && <><span className="etatEtapeAudit">{LIBELLES_ETAT[l.etat]}</span> {l.texte}</>}
-      {l.option && <span className="optionEtapeAudit">{(ouverte ? '' : ' ') + 'À la main : ' + l.option + '.'}</span>}
+      {!ouverte && <><span className="etatEtapeAudit">{LIBELLES_ETAT[l.etat]}</span> {dire(l.texte)}</>}
+      {l.option && <span className="optionEtapeAudit">{(ouverte ? '' : ' ') + 'À la main : ' + dire(l.option) + '.'}</span>}
       {gestes && l.surLaPhoto && rangs.length > 0 && <span className="actionsAudit">
         {rangs.map((r) => <button key={r} type="button" className={l.etat === 'echec' ? 'small' : 'secondary small'} data-controle="auditParcelle.placerCoins" aria-label={'Placer quatre repères sur la photo ' + (r + 1) + ' : ' + nom} onClick={() => placer(r)}>{rangs.length > 1 ? 'Repères, photo ' + (r + 1) : 'Placer 4 repères'}</button>)}
       </span>}
@@ -256,17 +258,24 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   const run = session.analyse.runs()?.[facade] ?? null;
   // Les actions de l'etape ouverte, les memes que la calibration montre, filtrees par son mode d'audit (la lecture de Claude en une ligne).
   const actionsDisponibles = ouverte ? actionsDansLAudit(ouverte, mesure?.etapes?.find((e) => e.id === ouverte)?.actions) : [];
+  // Les numeros d'etape (E1 a E14) et les points de validation (V1 a V4) : l'admin des demos (le proprietaire, qui designe les etapes par
+  // eux) et le mode expert les lisent ; la personne ordinaire, l'administrateur d'une organisation compris, lit le nom de l'etape
+  // (composants/numerosEtapes.ts). Rien n'est calcule autrement : les textes de la chaine sont lus sans eux.
+  const numeros = enAdmin() || modeExpertActif();
+  const dire = numeros ? (t: string) => t : sansNumeros;
+  const etapeDite = (id: NonNullable<typeof ouverte>) => (numeros ? 'l’' + etapeFacade(id).numero : 'l’étape « ' + etapeFacade(id).nom + ' »');
   return (
+    <NumerosEtapes.Provider value={numeros}>
     <div className="facadeAudit" data-facade={facade} aria-label={'Enchaînement : ' + nom}>
       <BarreProgressionFacade etapes={etapes} enCours={tourne} ouverte={ouverte} ouvrable={ouvrableDansLAudit} commandes={commandes} arreter={tourne ? () => session.validation.arreterMesure() : null} />
       {!mesure && !tourne && <p className="detailPhoto">Pas encore calculée : la façade se calcule après la photo, ou avec « Rejouer la façade ».</p>}
       {mesure && !etapes.length && <p className="detailPhoto">Mesure reprise d’un fichier d’audit : « Rejouer la façade » recalcule ses étapes.</p>}
       {(premiere || lignes.length > 0) && <ul className="etapesAudit" aria-label={'Étapes à voir : ' + nom}>
-        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} ouverte />}
-        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} />)}
+        {premiere && <Ligne l={premiere} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} ouverte dire={dire} />}
+        {lignes.map((l) => <Ligne key={l.id} l={l} rangs={rangs} nom={nom} placer={setRangReperes} gestes={gestes} commandes={commandes} relire={relirePossible} dire={dire} />)}
       </ul>}
-      {ouverte && actionsDisponibles.length > 0 && <details className="actionsEtapeAudit" data-controle="auditParcelle.actionsEtape"><summary>{'Ce que l’' + etapeFacade(ouverte).numero + ' a fait'}</summary>
-        <ActionsEtape actions={actionsDisponibles} libelle={'Les actions de l’' + etapeFacade(ouverte).numero + ' : ' + nom} /></details>}
+      {ouverte && actionsDisponibles.length > 0 && <details className="actionsEtapeAudit" data-controle="auditParcelle.actionsEtape"><summary>{'Ce que ' + etapeDite(ouverte) + ' a fait'}</summary>
+        <ActionsEtape actions={actionsDisponibles} libelle={'Les actions de ' + etapeDite(ouverte) + ' : ' + nom} /></details>}
       {gestes && relecture && mesure?.releve && <RelireOuvertures key={mesure.releve.releveLe} releve={mesure.releve} depart={reluesValides} aujourdhui={new Date().toISOString().slice(0, 10)}
         garder={(o) => { setRelecture(false); setEnCours(true); void session.validation.relireOuvertures(cle, cote, o).finally(() => setEnCours(false)); }} annuler={() => setRelecture(false)} />}
       {gestes && photo && rangReperes !== null && <ReperesAudit photo={photo} rang={rangReperes} largeurPlanM={largeurPlanM}
@@ -284,5 +293,6 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
       </span>}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
     </div>
+    </NumerosEtapes.Provider>
   );
 }

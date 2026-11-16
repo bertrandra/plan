@@ -250,6 +250,31 @@ export function libelleEtape(id: IdEtape): string {
   return e.numero + ' ' + e.nom;
 }
 
+/**
+ * Un texte de la chaine sans ses numeros d'etape ni ses points de validation, pour la personne ordinaire (lot 3 de la simplification,
+ * 16 novembre 2026) : l'audit les cache, l'admin et la calibration les gardent (le proprietaire designe les etapes par eux). Rien
+ * n'est recalcule : le texte est celui que la chaine a ecrit, lu sans « É7 », « É3–É6 » ni « V1 » a « V4 ». « É7 Calage du mur : … »
+ * devient « Calage du mur : … » ; « (É7, V1) » et « (V4) » disparaissent ; « point de validation V2 » aussi.
+ */
+export function sansNumeros(texte: string): string {
+  const num = String.raw`(?:É\d{1,2}(?:\s?[–-]\s?É\d{1,2})?|V[1-4])`;
+  const seul = String.raw`(?<![\p{L}\d])` + num + String.raw`(?![\p{L}\d])`;
+  return texte
+    .replace(new RegExp(String.raw`\s*\(\s*` + num + String.raw`(?:\s*,\s*` + num + String.raw`)*\s*\)`, 'gu'), '')
+    .replace(new RegExp(String.raw`,?\s*point de validation\s+` + num, 'gu'), '')
+    .replace(new RegExp(seul + String.raw`(?:\s*[·:]\s*|\s+)(?=[\p{L}«(])`, 'gu'), '')
+    .replace(new RegExp(seul, 'gu'), '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/[ \u00a0]{2,}/g, ' ')
+    .replace(/ +([,.;)])/g, '$1')
+    .trim();
+}
+
+/** Le nom d'une etape tel que la personne le lit : « É7 Calage du mur » avec les numeros, « Calage du mur » sans. */
+export function nomEtape(id: IdEtape, numeros: boolean): string {
+  return numeros ? libelleEtape(id) : etapeFacade(id).nom;
+}
+
 /** Les numeros des etapes d'un segment de la barre : E2, ou E3-E6 quand il en regroupe plusieurs. */
 export function numerosDuSegment(s: Pick<SegmentFacade, 'etapes'>): string {
   const n = s.etapes.map((id) => etapeFacade(id).numero);
