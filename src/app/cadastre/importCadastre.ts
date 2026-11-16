@@ -11,8 +11,7 @@
 // L'etat s'appelle `etatImport` et surtout PAS `etat`, le nom de l'etat de l'application : la
 // confusion entre les deux est exactement le genre de bug qu'aucun test ne rattrape.
 
-import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
-import { showToast } from '../../shell/dialogs.js';
+import { showToast, phraseReseau, detailTechnique } from '../../shell/dialogs.js';
 import { attente } from '../../shell/attente.js';
 import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../../shell/geolocalisation.js';
 import { centroid, shoelace, pointInPolygon } from '../../geometry/basic.js';
