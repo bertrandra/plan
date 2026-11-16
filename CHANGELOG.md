@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Un geste, un endroit ; un seul nom pour créer un projet** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Créer un
+  projet se dit partout « Nouveau projet depuis une adresse » : au menu Fichier (« Nouveau plan depuis une adresse… » jusque-là),
+  dans « Mes projets » (« Nouveau depuis une adresse »), au premier pas (« Partir d'une adresse ») et dans les phrases qui y
+  renvoient ; c'était déjà le titre de l'import. L'ancienne entrée « Nouveau projet », qui enregistrait une copie du plan ouvert
+  (ou un plan dessiné sans adresse), s'appelle « Enregistrer sous… » et suit « Enregistrer ». Gestes en double retirés : la liste
+  déroulante des projets de la barre (« Mes projets » les ouvre depuis le lot 2), « Réinitialiser la position » au pied de
+  l'inspecteur (l'outil de la palette reste), « Fusionner les doublons du projet… » au menu Admin (l'entrée du menu Fichier, au
+  mode expert, reste). Les commandes ne changent pas. Point de fumée 180.
+
 - **L'inspecteur d'une terrasse en trois groupes** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Les six étapes
   numérotées deviennent trois sections : « Terrasse · Forme et niveau » (niveau fini, décaissement, trous), « Lames et finitions »
   (la lame du commerce, le sens de pose, le détail replié, puis la lame de rive et la planche plate) et « Structure et appuis »

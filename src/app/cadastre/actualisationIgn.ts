@@ -53,7 +53,7 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
   if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
-    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l\'actualiser.');
+    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau projet depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
   if(!origineValide(cad)){

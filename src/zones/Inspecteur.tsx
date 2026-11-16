@@ -226,9 +226,9 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const sections = inspecteur.sections(c);
   const pied = (
     <div className="inspecteurPied">
-      <BoutonPied commandes={commandes} id="objet.positionInitiale" libelle="Réinitialiser la position" />
+      {/* « Réinitialiser la position » est un outil de la palette (rail, feuille Outils) : un geste n'existe qu'a un endroit. */}
       <BoutonPied commandes={commandes} id="projet.reinitialiser" libelle="Réinitialiser tout" />
-      <RefusPied commandes={commandes} ids={['objet.positionInitiale', 'projet.reinitialiser']} tactile={tactile} />
+      <RefusPied commandes={commandes} ids={['projet.reinitialiser']} tactile={tactile} />
       <p className="hint">{tactile
         ? 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom. Trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
         : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>

@@ -15,7 +15,7 @@ export function texteStatut(p: ProjetObservable): string {
     : p.statut === 'partage' ? 'Projet partagé, en lecture seule : rien ne s’enregistre.'
     : p.statut === 'essai' ? 'Démonstration : tout se modifie ici, rien ne s’enregistre.'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
-    : p.statut === 'modifie' ? (p.echec || (pasEncoreUnProjet(p) ? 'Pas encore enregistré : Fichier › Nouveau projet pour le garder' : 'Modifications non enregistrées'))
+    : p.statut === 'modifie' ? (p.echec || (pasEncoreUnProjet(p) ? 'Pas encore enregistré : Fichier › Enregistrer sous… pour le garder' : 'Modifications non enregistrées'))
     : (p.enregistreA || (pasEncoreUnProjet(p) ? 'Pas encore enregistré' : 'À jour'));
 }
 

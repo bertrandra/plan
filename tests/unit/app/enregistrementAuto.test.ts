@@ -250,7 +250,7 @@ describe('l enregistrement automatique du projet ouvert', () => {
     modifier();
     await vi.advanceTimersByTimeAsync(10 * DELAI_ENREGISTREMENT_AUTO_MS);
     expect(apiSave).not.toHaveBeenCalled();
-    expect(texteStatut(magasin.store.getState().projet)).toBe('Pas encore enregistré : Fichier › Nouveau projet pour le garder');
+    expect(texteStatut(magasin.store.getState().projet)).toBe('Pas encore enregistré : Fichier › Enregistrer sous… pour le garder');
     expect(pageRetenue()).toBe(true);
   });
 

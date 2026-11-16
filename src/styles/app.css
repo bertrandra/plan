@@ -1237,7 +1237,6 @@
 
   /* La feuille Projet : les menus de Z1 en groupes depliables (zones/BarreApplication.tsx). */
   html[data-classe="compact"] #projectBar .corpsFeuille{ display:flex; flex-direction:column; gap:8px; }
-  html[data-classe="compact"] #projectBar #projectSelect{ max-width:none; width:100%; min-height:44px; font-size:15px; border-radius:var(--r-champ); }
   html[data-classe="compact"] #projectBar #saveProjectBtn{ min-height:44px; font-size:15px; font-family:var(--sans); border-radius:var(--r-bouton); }
   html[data-classe="compact"] #projectBar details.menu{ font-size:15px; }
   html[data-classe="compact"] #projectBar details.menu > summary{
@@ -1334,7 +1333,6 @@
   html[data-classe="moyen"] #projectBar details.menu > summary{ min-height:44px; display:flex; align-items:center; padding:0 12px; font-weight:600; background:var(--panel-2); border-color:var(--border); }
   html[data-classe="moyen"] #projectBar details.menu > ul{ position:static; min-width:0; box-shadow:none; border:none; background:transparent; }
   html[data-classe="moyen"] #projectBar details.menu li button{ min-height:44px; font-family:var(--sans); }
-  html[data-classe="moyen"] #projectBar #projectSelect{ max-width:none; min-height:40px; }
   .voileTransparent{ background:transparent; }
   /* Le rail d'outils. */
   /* Le rail et les panneaux passent au-dessus du tiroir ouvert : on les a ouverts pour s'en servir. */
