@@ -16,6 +16,7 @@ import { Dialogues } from './Dialogues.js';
 import { Parcours } from './Parcours.js';
 import { Notifications } from './Notifications.js';
 import { Attente } from './Attente.js';
+import { AidePremiere } from './AidePremiere.js';
 import { Surimpression, type ServicePointage } from './Surimpression.js';
 import { BarreNavigation } from './BarreNavigation.js';
 import { FeuilleSelection } from './FeuilleSelection.js';
@@ -89,7 +90,7 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneVues3d')).render(<><Vue3d magasin={magasin} commandes={commandes} vues={vues3d} inspecteur={inspecteur} /><Visionneuse magasin={magasin} commandes={commandes} vues={vues3d} /></>);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
   createRoot(conteneur('zoneDialogues')).render(<><Dialogues /><Parcours commandes={commandes} magasin={magasin} /></>);
-  createRoot(conteneur('zoneNotifications')).render(<><Notifications /><Attente /></>);
+  createRoot(conteneur('zoneNotifications')).render(<><Notifications /><Attente /><AidePremiere magasin={magasin} /></>);
   // Le telephone et la tablette (spec-ihm-mobile §6) : la barre de navigation, la feuille de
   // selection, et le voile des feuilles. Rien a l'ecran sur bureau.
   createRoot(conteneur('zoneNavigation')).render(<BarreNavigation magasin={magasin} commandes={commandes} />);
