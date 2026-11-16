@@ -258,7 +258,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       const poids = taille === null ? '' : ' (' + tailleFichier(taille) + ')';
       echec = 'Échec de l’enregistrement' + poids;
       // Le reseau en clair (util/erreurReseau.ts) : ce qui se passe et quoi faire, le message d'origine en detail a copier.
-      const clair = phraseReseau(e, 'La plateforme', 'Rien n’est perdu : vos modifications restent à l’écran. Réessayez d’enregistrer (Ctrl+S) dans un instant.');
+      const clair = phraseReseau(e, 'La plateforme', 'Rien n’est perdu : vos modifications restent à l’écran. Réessayez « Enregistrer » dans un instant.');
       showErreur(clair ? 'Échec de l’enregistrement' + poids + ' : ' + clair.charAt(0).toLowerCase() + clair.slice(1) : 'Échec de l’enregistrement' + poids + ' : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
       return false;
     } finally {
