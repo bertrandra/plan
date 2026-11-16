@@ -15,6 +15,7 @@ import { projetARemplir } from '../projet.js';
 import { showToast } from '../../shell/dialogs.js';
 import { ouvrirDialogueActualisation, type ContexteActualisation } from '../cadastre/actualisationIgn.js';
 import { ouvrirActualisationProjet } from '../cadastre/actualiserProjet.js';
+import { terrasseDeDepartDuPlan } from '../cadastre/terrasseDepart.js';
 import { creerImportCadastre } from '../cadastre/importCadastre.js';
 import { parcours } from '../parcours.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -117,7 +118,7 @@ export function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
         apiDisponible: seed.apiAvailable, cleDernierProjet: cleDernierProjet(),
         // Un projet neuf (document `{}`) se remplit, tant que rien n'y a ete dessine.
-        projetCible: () => projetARemplir(seed, etat) }, () => parcours.fermer());
+        projetCible: () => projetARemplir(seed, etat), terrasseDeDepart: terrasseDeDepartDuPlan }, () => parcours.fermer());
       parcours.ouvrir({ type: 'cadastre', importe });
       // Par defaut, la parcelle sous la position de l'appareil : sur le terrain, c'est la bonne.
       void importe.utiliserMaPosition(true);
