@@ -41,6 +41,10 @@ export interface Atelier {
   pushHistory: (...objets: object[]) => void;
   markDirty: (...objets: object[]) => void;
   undo: () => void;
+  /** Refait le dernier pas defait (core/historique.ts, point 5). */
+  redo: () => void;
+  /** Reste-t-il un pas a retablir ? */
+  peutRetablir: () => boolean;
   /**
    * Remplace le plan par un instantane, **avant normalisation** : `core/history.ts` fait passer
    * `objects` par `normalizeObjects` en le restaurant, exactement comme au chargement d'un fichier.

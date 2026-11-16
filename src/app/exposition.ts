@@ -58,6 +58,7 @@ export const EXPOSITION: Record<string, Ligne> = {
 
   // ---- Objets (Z2) ----------------------------------------------------------------------------
   'objet.annuler': { compact: ['barreHaute', 'clavier'], moyen: ['rail', 'clavier'], large: ['palette', 'clavier'] },
+  'objet.retablir': { compact: ['barreHaute', 'clavier'], moyen: ['rail', 'clavier'], large: ['palette', 'clavier'] },
   // Dans l'ordre de la palette : les ouvrages, puis les formes geometriques.
   'objet.ajouter.terrasse': outil(),
   'objet.ajouter.pergola': outil(),
@@ -76,7 +77,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.rendreEgout': partout('inspecteur'),
   'objet.centrerSurTerrasse': partout('inspecteur'),
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
-  'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
+  'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection', 'clavier'], large: ['palette', 'clavier'] },
   'objet.reculer': outil(),
   'objet.positionInitiale': outil(),
   'objet.aligner': outil(),

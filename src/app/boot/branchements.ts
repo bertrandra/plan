@@ -51,7 +51,7 @@ export function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof 
     signaler: showToast
   });
   brancherObjets(atelier, commandes);
-  // Ctrl+Z et Ctrl+S passent par le registre. Pas de Ctrl+Y : il n'y a pas de retablissement.
+  // Les raccourcis (Ctrl+Z, Ctrl+Y et Ctrl+Maj+Z, Suppr, Ctrl+S) passent par le registre (app/clavier.ts).
   brancherClavier(commandes);
   brancherAffichage(atelier, {
     enregistrerAffichage: affichage.enregistrerAffichage,
