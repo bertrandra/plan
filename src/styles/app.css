@@ -1012,6 +1012,17 @@
   }
   .compteLien:hover{ background:var(--accent-light); color:var(--ink); }
   .compteSortie{ background:transparent; cursor:pointer; font-family:inherit; }
+  /* Un projet partage se lit : la palette des outils, dont toutes les commandes sont retirees, garde sa place sans se montrer. */
+  html[data-partage] #zonePalette{ visibility:hidden; }
+  html[data-partage] .barreNavigation .boutonCreer{ visibility:hidden; }
+  /* Un projet lu par un lien de partage (lot 6) : le bandeau a la place du compte, sur la bordure d'accent, dit en mots. */
+  .bandeauPartage{ gap:8px; padding:3px 4px 3px 10px; border:1px solid var(--accent); border-radius:8px; background:var(--accent-light);
+    color:var(--on-accent-light); font-family:var(--sans); font-size:0.78rem; min-width:0; }
+  .bandeauPartageTexte{ min-width:0; }
+  .bandeauPartage .compteLien{ background:var(--panel-bg); color:var(--ink); }
+  html[data-classe="large"] .bandeauPartageVersion{ display:none; }
+  html:not([data-classe="large"]) .bandeauPartage{ padding:10px 12px; font-size:14px; line-height:1.4; }
+  html:not([data-classe="large"]) .bandeauPartage .compteLien{ min-height:44px; display:inline-flex; align-items:center; font-size:14px; }
   /* L'admin des demos : un etat, pas un lien — dit en mots, et sur la bordure d'accent. */
   .compteAdmin{ border-color:var(--accent); color:var(--ink); font-weight:600; margin-right:4px; }
 

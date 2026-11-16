@@ -11,9 +11,10 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
-import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin, estAdministrateur, partageCourant } from '../app/acces.js';
+import { dateLongue } from '../app/partage.js';
 import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
-import { BACKPROD_API_URL } from '../plateforme/config.js';
+import { BACKPROD_API_URL, BACKPROD_PRODUCT_CODE } from '../plateforme/config.js';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
@@ -79,9 +80,12 @@ function Deroulant({ id, titre, children }: { id: string; titre: string; childre
 function useEtatCommande(commandes: RegistreCommandes, id: string): ReturnType<RegistreCommandes['etat']> {
   const ouvert = useContext(MenuOuvert);
   const lu = useRef<ReturnType<RegistreCommandes['etat']> | null>(null);
-  // L'entree ne se redessine que si l'etat de sa commande change ; menu ferme, elle ne le relit pas.
-  useCle(useMagasinZone(), 'commande ' + id, () => (ouvert || !lu.current ? JSON.stringify(commandes.etat(id)) : 'ferme'));
-  if (ouvert || !lu.current) lu.current = commandes.etat(id);
+  // L'entree ne se redessine que si l'etat de sa commande change ; menu ferme, elle ne le relit pas. Sauf une commande encore
+  // inconnue : declaree apres le premier rendu des zones (l'assistant), elle se relit jusqu'a ce qu'elle existe, sinon l'entree
+  // garderait, menu ferme, un etat qui n'est pas le sien (une entree grisee la ou la commande disparait).
+  const relire = ouvert || !lu.current || (!lu.current.utilisable && lu.current.raison === 'inconnue');
+  useCle(useMagasinZone(), 'commande ' + id, () => (relire ? JSON.stringify(commandes.etat(id)) : 'ferme'));
+  if (relire || !lu.current) lu.current = commandes.etat(id);
   return lu.current;
 }
 
@@ -392,6 +396,7 @@ function useFermetureDesMenus(): void {
  */
 function Compte({ magasin }: { magasin: Magasin }) {
   if (enAdmin()) return <SortieAdmin magasin={magasin} />;
+  if (partageCourant()) return <BandeauPartage />;
   const c = contexteCourant()?.courant();
   if (!c) return null;
 
@@ -428,6 +433,26 @@ function Compte({ magasin }: { magasin: Magasin }) {
         title={'Fermer la session de ' + qui + '. La deconnexion vaut pour la plateforme entiere, pas seulement pour Plan.'}>
         Se déconnecter
       </button>
+    </div>
+  );
+}
+
+/**
+ * Un projet lu par un lien de partage (lot 6, app/projetPartage.ts) : qui l'a partage, qu'il ne se modifie pas, jusqu'a quand, et la
+ * version montree. A la place du compte, qu'il n'y a pas. « Découvrir Plan » mene a la vitrine de la plateforme (sa racine, ou un
+ * inconnu trouve les offres et l'inscription), la seule page d'accueil du produit que Plan connaisse.
+ */
+function BandeauPartage() {
+  const p = partageCourant();
+  if (!p) return null;
+  const vitrine = BACKPROD_API_URL ? BACKPROD_API_URL.replace(/\/+$/, '') + '/?product=' + BACKPROD_PRODUCT_CODE : null;
+  return (
+    <div id="compteBar" className="bandeauPartage" role="note" aria-label="Projet partagé">
+      <span className="bandeauPartageTexte">
+        {p.partagePar ? 'Projet partagé par ' + p.partagePar : 'Projet partagé'} · en lecture seule · jusqu’au {dateLongue(p.jusquau)}
+        <span className="bandeauPartageVersion" title={'Version enregistrée le ' + dateLongue(p.enregistreLe)}> · version du {dateLongue(p.enregistreLe)}</span>
+      </span>
+      {vitrine && <a className="compteLien" data-controle="partage.decouvrir" href={vitrine} target="_blank" rel="noopener noreferrer">Découvrir Plan<span aria-hidden="true"> ↗</span></a>}
     </div>
   );
 }
@@ -595,7 +620,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
           <div className="corpsFeuille">
             {menus}
             <Compte magasin={magasin} />
-            {lectureSeule && <p className="hint">Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.</p>}
+            {lectureSeule && !partageCourant() && <p className="hint">Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.</p>}
             <p className="versionFeuille" title={versionLongue()}>Plan interactif v{APP_VERSION}</p>
           </div>
         </div>

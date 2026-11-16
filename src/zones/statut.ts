@@ -8,6 +8,7 @@ import type { ProjetObservable } from '../app/magasin.js';
 export function texteStatut(p: ProjetObservable): string {
   return p.statut === 'local'
     ? 'Mode local — jeu de donnees de demonstration (api.php introuvable : aucune sauvegarde serveur).'
+    : p.statut === 'partage' ? 'Projet partagé, en lecture seule : rien ne s’enregistre.'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
     : p.statut === 'modifie' ? (p.echec || 'Modifications non enregistrees')
     : (p.enregistreA || 'A jour');
@@ -15,6 +16,7 @@ export function texteStatut(p: ProjetObservable): string {
 
 export function texteStatutCourt(p: ProjetObservable): string {
   return p.statut === 'local' ? 'Mode local'
+    : p.statut === 'partage' ? 'Projet partagé'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
     : p.statut === 'modifie' ? (p.echec ? p.echec.replace('Échec de l’enregistrement', 'Échec') : 'Non enregistré')
     : (p.enregistreA || 'À jour');

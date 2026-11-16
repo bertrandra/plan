@@ -35,6 +35,12 @@ export interface Droits {
   reste(feature: string): number | null;
   /** La phrase a dire quand ce quota est atteint ; absente : la phrase generale. */
   phraseQuota?(feature: string): string;
+  /**
+   * Le mode ne porte pas cette commande : elle disparait, comme une capacite manquante. Seule la lecture d'un projet partage
+   * (app/projetPartage.ts) s'en sert : rien de ce qui modifie, enregistre, importe ou appelle la plateforme n'y a sa place, et une
+   * commande grisee y promettrait un droit que personne ne peut donner.
+   */
+  retire?(commande: Commande): boolean;
 }
 
 /** Tout est permis : la forme que prend l'absence de plateforme. */
@@ -64,6 +70,7 @@ export type EtatCommande =
 export const PHRASE_PERMISSION = "Un administrateur de votre organisation peut vous donner ce droit.";
 export const PHRASE_CAPACITE = "Cette fonction n'est pas comprise dans l'abonnement de votre organisation.";
 export const PHRASE_QUOTA = "Votre organisation a atteint ce que son abonnement prevoit.";
+export const PHRASE_LECTURE_PARTAGEE = "Ce projet partagé se lit sans rien modifier.";
 
 /**
  * Ce sur quoi porte une commande parametree : l'objet du plan, la cote, et une valeur quand le geste
@@ -179,6 +186,7 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
       const c = commandes.get(id);
       if (!c) return { utilisable: false, raison: 'inconnue' };
       if (droits.branchee()) {
+        if (droits.retire?.(c)) return { utilisable: false, raison: 'capacite', message: PHRASE_LECTURE_PARTAGEE };
         if (c.capacite && !droits.aCapacite(c.capacite)) return { utilisable: false, raison: 'capacite', message: PHRASE_CAPACITE };
         if (c.permission && !droits.aPermission(c.permission)) return { utilisable: false, raison: 'permission', message: PHRASE_PERMISSION };
         const quota = typeof c.quota === 'function' ? c.quota() : c.quota;

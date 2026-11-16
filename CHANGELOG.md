@@ -7,6 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Lire un projet partagé, sans compte** (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme). Une adresse
+  `…/?product=plan#share=<jeton>` ouvre le projet sans porte de connexion : le jeton est lu dans le fragment et **effacé de la barre
+  d'adresse avant toute autre requête** (`history.replaceState`), jamais écrit dans un stockage, un journal ou un message ; la page
+  pose `<meta name="referrer" content="no-referrer">` et `noindex`, puis demande le projet à `POST /api/v1/public/shares/open`
+  (le jeton dans le corps, sans jeton d'accès, sans `X-Product`, sans cookie). Le document s'ouvre par les migrations de schéma ;
+  un schéma plus récent que le programme se dit. Lecture seule stricte : le plan, la Vue 3D, l'inspecteur (en lecture), le tiroir
+  et la barre d'estimation, le devis, le résumé et les exports locaux ; aucune commande d'édition, d'enregistrement, d'import,
+  d'audit, d'assistant, de PLU, de relief ni de cotes (elles disparaissent du registre : `Droits.retire`), ni « Mes projets » ni
+  déconnexion. Un bandeau « Projet partagé par … · en lecture seule · jusqu'au … » (et la date de la version au doigt) prend la
+  place du compte, avec « Découvrir Plan » vers la vitrine de la plateforme (`<BACKPROD_API_URL>/?product=plan`). Un lien refusé
+  (`404`) : « Ce lien n'est plus valide (expiré, retiré ou mal copié). Demandez un nouveau lien à la personne qui vous l'a
+  envoyé. » ; `429` : « Trop de tentatives, réessayez dans une minute », et le réseau ou une panne, avec « Réessayer ».
+  `deploy/htaccess.template` : une adresse avec `?product=` reçoit `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`.
+  Point de fumée 168.
+
 - **Partager un projet par un lien en lecture seule** (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme,
   backprod #256). Menu Fichier, sous « Enregistrer » : « Partager par un lien… » (feuille Projet au doigt), et « Partager » parmi les
   gestes qui suivent un chiffrage (barre d'estimation au bureau, pied de la feuille Chiffrage au téléphone). Le dialogue « Partager ce
@@ -67,6 +82,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   pas (empreintes golden identiques). Point de fumée 162.
 
 ### Corrigé
+
+- **Une entrée de menu dont la commande se déclare après le premier rendu des zones** (l'assistant, menu Aide) gardait, menu fermé,
+  l'état « commande inconnue » : grisée là où la commande disparaît (projet partagé) ou devrait être offerte. Elle se relit
+  jusqu'à ce que la commande existe (`zones/BarreApplication.tsx`).
 
 - **La porte et le premier pas tiennent dans l'écran du téléphone** (audit de l'IHM du 16 novembre 2026, lot 1). À 390 px, la page
   de connexion et « Par quoi commencer ? » étaient mises en page sur 530 px (495 à 320 px, 550 à 430 px) et débordaient à droite :

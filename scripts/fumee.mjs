@@ -3037,6 +3037,92 @@ const POINTS = {
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
   },
+  168: async (page, f) => {
+    // Lire un projet partage par un lien, sans compte (lot 6 du parcours client, 16 novembre 2026 ; ADR-073). Dans un contexte vierge,
+    // sans session : `/?product=plan#share=<jeton>`, la plateforme simulee rend le plan de demonstration (`contrat/plan-produit.json`).
+    // Le jeton quitte l'adresse ; aucune porte ; une seule requete a la plateforme, `POST /public/shares/open`, sans jeton d'acces, sans
+    // produit, sans referent ; les metas `no-referrer` et `noindex` ; le bandeau « Projet partagé par Ada · en lecture seule · jusqu'au … » ;
+    // aucune commande d'edition visible (palette, enregistrer, partager, audit, assistant, import, annuler) ni executable (une terrasse
+    // ajoutee par le registre n'apparait pas) ; la Vue 3D et le devis restent ; la nomenclature se lit ; rien dans le stockage. Puis un
+    // jeton inconnu : la page « Ce lien n'est plus valide… » ; un 429 : « Trop de tentatives », avec « Réessayer ».
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const echecs = [];
+    const JETON = 'Jx4fumeeLienDePartage0123456789abcdefghijkl';
+    const demo = JSON.parse(readFileSync('contrat/plan-produit.json', 'utf8')).demo_project;
+    const reponse = { project: { name: 'Terrasse de Ada', schema_version: demo.schema_version, document: demo.document, updated_at: '2026-11-15T09:30:00Z' },
+      shared_by: 'Ada', expires_at: new Date(Date.now() + 30 * 86400000).toISOString() };
+    const vierge = async (jeton, faire) => {
+      const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+      const p = await ctx.newPage();
+      try {
+        const sim = await simulerPlateforme(p, { connecte: false, liensPublics: { [JETON]: reponse, ['Trop' + JETON.slice(4)]: 429 } });
+        await p.addInitScript(() => { window.__sansToitsFond = true; });
+        await p.goto(BASE + '/?product=plan#share=' + jeton);
+        return await faire(p, sim);
+      } finally { await ctx.close(); }
+    };
+    const mesure = await etape('lecture', () => vierge(JETON, async (p, sim) => {
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(600);
+      const lieu = await p.evaluate(() => ({ hash: location.hash, href: location.href, titre: document.title,
+        referent: document.querySelector('meta[name="referrer"]')?.content ?? null, robots: document.querySelector('meta[name="robots"]')?.content ?? null,
+        stockage: JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }), porte: !!document.querySelector('.porteBoite') }));
+      if (lieu.hash !== '' || lieu.href.includes(JETON)) echecs.push('le jeton reste dans l’adresse');
+      if (lieu.referent !== 'no-referrer' || !/noindex/.test(lieu.robots ?? '')) echecs.push('metas ' + lieu.referent + ' / ' + lieu.robots);
+      if (lieu.stockage.includes(JETON)) echecs.push('le jeton est dans le stockage');
+      if (lieu.porte) echecs.push('la porte s’affiche');
+      const plateforme = sim.journal.map((j) => j.requete);
+      if (plateforme.join() !== 'POST /public/shares/open') echecs.push('requêtes à la plateforme : ' + plateforme.join(', '));
+      if (sim.journal.some((j) => j.jeton || j.produit || j.referent)) echecs.push('en-têtes : ' + JSON.stringify(sim.journal));
+      if ((await classe(p)) !== 'large') await feuille(p, 'projet');
+      await p.waitForTimeout(250);
+      const bandeau = (await p.locator('.bandeauPartage').first().textContent().catch(() => '')) ?? '';
+      if (!/^Projet partagé par Ada · en lecture seule · jusqu’au \d/.test(bandeau)) echecs.push('bandeau « ' + bandeau + ' »');
+      const decouvrir = await p.locator('.bandeauPartage a[data-controle="partage.decouvrir"]').getAttribute('href').catch(() => null);
+      if ((await classe(p)) !== 'large') await feuille(p, null);
+      const INTERDITES = ['objet.ajouter.terrasse', 'objet.supprimer', 'objet.dupliquer', 'objet.annuler', 'projet.enregistrer', 'projet.partager', 'projet.nouveau',
+        'projet.depuisAdresse', 'audit.parcelle', 'assistant.demander', 'fichier.importerJson', 'fichier.importerSvg', 'mesure.nouvelle'];
+      // Les menus ouverts : une entree de menu ferme garde l'etat qu'elle a lu, et se relit a l'ouverture (zones/BarreApplication.tsx).
+      await p.evaluate(() => { for (const m of document.querySelectorAll('details.menu')) m.setAttribute('open', ''); });
+      await p.waitForTimeout(300);
+      const visibles = await p.evaluate((ids) => {
+        return ids.filter((id) => document.querySelector('[data-commande="' + id + '"]:not(input[type=file])'));
+      }, INTERDITES);
+      if (visibles.length) echecs.push('commandes d’édition visibles : ' + visibles.join(', '));
+      const avant = await p.evaluate(() => window.__plan.etat().objects.length);
+      const executees = await p.evaluate((ids) => ids.filter((id) => window.__plan.executer(id)), ['objet.ajouter.terrasse', 'projet.enregistrer', 'objet.supprimer']);
+      const apres = await p.evaluate(() => window.__plan.etat().objects.length);
+      if (executees.length || apres !== avant) echecs.push('exécutées : ' + executees.join(', ') + ' (' + avant + ' → ' + apres + ' objets)');
+      const offertes = await p.evaluate(() => ['vue.3d', 'export.ouvrirDevis', 'export.copierResume'].filter((id) => document.querySelector('[data-commande="' + id + '"]')));
+      if (!offertes.includes('vue.3d') || !offertes.includes('export.ouvrirDevis')) echecs.push('vue et devis : ' + offertes.join(', '));
+      await selectionner(p, TERRASSE);
+      await p.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      if ((await classe(p)) === 'compact') await feuille(p, 'resultats');
+      await p.waitForTimeout(300);
+      const lignes = await p.locator('#terrasseBomTable tr').count();
+      if (lignes < 3) echecs.push('nomenclature : ' + lignes + ' lignes');
+      const lectureSeule = await p.evaluate(() => window.__plan.etat().lectureSeule);
+      if (!lectureSeule) echecs.push('pas en lecture seule');
+      const deborde = await p.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+      if (deborde) echecs.push('débordement');
+      return `adresse sans jeton ; titre « ${lieu.titre} » ; plateforme : ${plateforme.join(', ')} ; bandeau « ${bandeau.trim()} » ; Découvrir Plan → ${decouvrir} ; ${INTERDITES.length - visibles.length}/${INTERDITES.length} commandes d’édition absentes, aucune exécutée ; nomenclature ${lignes} lignes`;
+    }));
+    const refus = await etape('404', () => vierge('JetonInconnu' + JETON.slice(12), async (p) => {
+      const t = (await p.locator('.porteBoite[data-refus="introuvable"] .porteSous').textContent({ timeout: 20000 })) ?? '';
+      if (t !== 'Ce lien n’est plus valide (expiré, retiré ou mal copié). Demandez un nouveau lien à la personne qui vous l’a envoyé.') echecs.push('404 : « ' + t + ' »');
+      if (await p.evaluate(() => location.hash !== '')) echecs.push('404 : le jeton reste dans l’adresse');
+      if (await p.locator('#stage svg').count()) echecs.push('404 : l’atelier démarre');
+      return t;
+    }));
+    const trop = await etape('429', () => vierge('Trop' + JETON.slice(4), async (p) => {
+      const t = (await p.locator('.porteBoite[data-refus="tropDeTentatives"] .porteSous').textContent({ timeout: 20000 })) ?? '';
+      const reessai = await p.locator('[data-controle="lienPartage.reessayer"]').count();
+      if (!/Trop de tentatives, réessayez dans une minute/.test(t) || !reessai) echecs.push('429 : « ' + t + ' », réessayer ' + reessai);
+      return t;
+    }));
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesure + ' ; 404 : « ' + refus + ' » ; 429 : « ' + trop + ' »' };
+  },
   167: async (page, f) => {
     // Partager un projet par un lien en lecture seule (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme). Dans un
     // contexte vierge dont l'offre porte `project_sharing` : la demonstration ouverte et modifiee, le menu Fichier (feuille Projet au
@@ -8778,7 +8864,9 @@ function pointsPour(nomClasse) {
   // 162 : le prix total au bureau sans defiler (barre d'estimation) et la ligne « Total HT » de la Nomenclature, la meme fourchette partout.
   // 167 : partager un projet par un lien : le dialogue, l'avertissement et son « Enregistrer », le lien montre une fois et copie, la
   //       liste, « Retirer » et son « Annuler » ; sans la fonction, la commande disparait ; quota de liens atteint, dit en clair.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166, 167];
+  // 168 : lire un projet partage sans compte : le jeton quitte l'adresse, une seule requete publique, le bandeau, aucune commande
+  //       d'edition visible ni executable, la nomenclature et la 3D ; un lien invalide (404) et trop de tentatives (429), dits en clair.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166, 167, 168];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
