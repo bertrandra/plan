@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: () => {}, showConfirm: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: () => {}, showErreur: () => {}, showConfirm: () => {} }));
 
 import { creerProjet, type ContexteProjet } from '../../../src/app/projet.js';
 import { creerMagasin } from '../../../src/app/magasin.js';

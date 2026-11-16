@@ -3,7 +3,8 @@
 // Tant qu'il n'est pas charge, aucune scene n'existe : ce qui agit sur la scene ouverte (la rebatir, l'epurer, viser un objet) n'a
 // rien a faire, et le lit par `moteur3d()`, null. Ce qui doit la faire exister passe par `avecMoteur3d`, qui charge d'abord.
 
-import { showErrBanner } from '../shell/dialogs.js';
+import { showErreur } from '../shell/dialogs.js';
+import { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 
 export type Moteur3d = typeof import('./moteur3d.js');
 
@@ -24,5 +25,8 @@ export function moteur3d(): Moteur3d | null {
 /** Fait `f` avec le moteur : tout de suite s'il est la, sinon une fois charge. Un echec de chargement s'affiche. */
 export function avecMoteur3d(f: (m: Moteur3d) => void): void {
   if (charge) { f(charge); return; }
-  chargerMoteur3d().then(f, (e: unknown) => { showErrBanner('la 3D n’a pas pu se charger (' + (e instanceof Error ? e.message : String(e)) + ').'); });
+  chargerMoteur3d().then(f, (e: unknown) => {
+    // Le moteur se charge a la demande, depuis le serveur de Plan : une coupure se dit en clair, le message du navigateur en detail.
+    showErreur(phraseReseau(e, 'Le serveur de Plan', 'La Vue 3D n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'La Vue 3D n’a pas pu se charger.', detailTechnique(e));
+  });
 }

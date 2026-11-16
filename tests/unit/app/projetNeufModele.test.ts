@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // « Nouveau projet » demande un nom : la fausse invite repond tout de suite, avec la proposition.
 vi.mock('../../../src/shell/dialogs.js', () => ({
-  showToast: () => {}, showErrBanner: () => {}, showConfirm: () => {},
+  showToast: () => {}, showErrBanner: () => {}, showErreur: () => {}, showConfirm: () => {},
   showPrompt: (_q: string, defaut: string, ok: (nom: string) => void) => ok(defaut)
 }));
 

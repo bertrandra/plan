@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: () => {}, showToast: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: () => {}, showErreur: () => {}, showToast: () => {} }));
 
 import { buildThreeScene, type ContexteScene3d } from '../../../src/three/scene.js';
 import { vue3d, hotes3d } from '../../../src/three/etat3d.js';

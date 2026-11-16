@@ -12,6 +12,12 @@ export interface Notification {
   id: number;
   type: TypeNotification;
   texte: string;
+  /**
+   * Une erreur dite en phrase (shell/dialogs.ts::showErreur) : le detail technique, a copier pour qui
+   * aide la personne (le message du navigateur, la reference de la requete). Absent : le bandeau de
+   * developpeur (`showErrBanner`), dont le texte est deja le detail.
+   */
+  detail?: string;
   /** Un toast qui laisse revenir sur un geste avant qu'il ne parte (« Annuler ») : son libelle. */
   action?: string;
 }
@@ -47,8 +53,8 @@ export const notifications = {
     a(liste.slice());
     return () => { abonnes.delete(a); };
   },
-  emettre(type: TypeNotification, texte: string): number {
-    const n: Notification = { id: suivant++, type, texte };
+  emettre(type: TypeNotification, texte: string, detail?: string): number {
+    const n: Notification = { id: suivant++, type, texte, ...(detail !== undefined ? { detail } : {}) };
     liste = [...liste, n];
     if (type === 'toast') minuteries.set(n.id, setTimeout(() => notifications.fermer(n.id), dureeToast(texte)));
     publier();

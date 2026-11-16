@@ -16,6 +16,8 @@
 import { chargement } from './chargement.js';
 import { notifications } from './notifications.js';
 import { dialogues } from './dialogues.js';
+// Les phrases des erreurs du reseau (util/erreurReseau.ts) vont avec `showErreur` : qui dit une erreur les trouve ici.
+export { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 // La question du navigateur avant de quitter (shell/depart.ts) est un dialogue aussi : qui ouvre des dialogues la trouve ici.
 export { partirSansQuestion } from './depart.js';
 
@@ -31,6 +33,17 @@ export function showErrBanner(msg: string): void {
   box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#a02020;color:#fff;padding:10px 14px;font-family:monospace;font-size:12px;z-index:9999;white-space:pre-wrap;max-height:40vh;overflow:auto;';
   box.textContent = texte;
   document.body.appendChild(box);
+}
+
+/**
+ * Une erreur que la personne doit lire, dite en phrase (util/erreurReseau.ts) : ce qui se passe et quoi
+ * faire, puis le detail technique en petit, a copier. A l'oppose de `showErrBanner`, le bandeau de
+ * developpeur, qui ecrit « Erreur JS » et le message brut.
+ */
+export function showErreur(texte: string, detail = ''): void {
+  chargement(false);
+  if (notifications.aUnAbonne()) { notifications.emettre('erreur', texte, detail); return; }
+  showErrBanner(texte + (detail ? ' (' + detail + ')' : ''));
 }
 
 export function showToast(msg: string): void {

@@ -9,6 +9,7 @@
 // Rien ne s'enregistre dans le projet (§4.7) : la demande et la reponse vont au journal et a la trace du serveur, la liste appliquee
 // devient une etape d'historique. Ce module ne touche ni au DOM ni au projet : ce qu'il lit et ce qu'il fait lui sont donnes.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { construireCatalogue, texteCatalogue, texteDemande, type Catalogue, type SourceCatalogue } from './catalogue.js';
 import { lireReponse, resoudre, type EtapeProposee, type ReponseAssistant } from './etapes.js';
 import { appliquerEtapes, type ContexteApplication, type ResultatApplication } from './appliquer.js';
@@ -97,7 +98,7 @@ export function creerServiceAssistant(ctx: ContexteAssistant): ServiceAssistant 
         bascules = new Map(resoudre(reponse, cat).flatMap((e, i) => (e.afficher === undefined ? [] : [[i, e.afficher] as [number, boolean]])));
         poser({ statut: 'liste', reponse, cout: typeof x.cout === 'number' ? x.cout : null, synthetique: x.synthetique === true });
       } catch (e) {
-        poser({ statut: 'erreur', erreur: (e as Error)?.message || 'La demande n’a pas abouti.' });
+        poser({ statut: 'erreur', erreur: phraseReseau(e, 'Le service de l’assistant', 'Le plan n’a pas changé : réessayez dans un instant.') ?? (detailTechnique(e) || 'La demande n’a pas abouti.') });
       }
     },
     etapes() {

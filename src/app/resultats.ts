@@ -10,6 +10,7 @@
 // Il tient aussi trois etats d'interface qui ne s'enregistrent pas : le texte de la zone Resume,
 // l'interrogation du PLU en cours, et l'ouverture du bloc d'optimisation de l'inspecteur.
 
+import { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 import { LES_COTES, toucherForme } from '../core/controleurObjets.js';
 import { computeBOM } from '../engine/bom.js';
 import { ensureConstruction } from '../engine/construction.js';
@@ -225,7 +226,7 @@ function creerResultatsDuTiroir(etat: EtatApp, ctx: ContexteResultats, magasin: 
         showToast(zone ? ('PLU : zone ' + zone.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
                     : 'PLU : aucun zonage renvoye pour ce point.');
       } catch (e) {
-        showToast('Interrogation du PLU impossible : ' + ((e as Error).message || e));
+        showToast(phraseReseau(e, 'Le Géoportail de l’urbanisme', 'Réessayez dans un instant : le zonage du PLU n’est pas lu.') ?? 'Interrogation du PLU impossible : ' + detailTechnique(e));
       } finally {
         pluEnCours = false;
         magasin.notifier();

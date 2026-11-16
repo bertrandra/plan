@@ -92,7 +92,8 @@ describe('projet.lireRues', () => {
     await vi.waitFor(() => expect(ui.toasts).toHaveLength(1));
     expect(a.pushHistory).not.toHaveBeenCalled();
     expect(a.etat.objects[0]!.ruesVoisinage).toBeUndefined();
-    expect(ui.toasts[0]).toContain('ne repond pas');
+    // Le reseau dit en clair (util/erreurReseau.ts) : le service nomme, et quoi faire.
+    expect(ui.toasts[0]).toBe('Le service des rues de l’IGN ne répond pas. Réessayez dans un instant.');
   });
   it('n est pas utilisable sans calage cadastral, ni en lecture seule', () => {
     expect(monterRues(obj('parcelle')).cmd.etat('projet.lireRues').utilisable).toBe(false);

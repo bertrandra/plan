@@ -5,6 +5,7 @@
 // marque le projet modifie, sur la parcelle du projet, comme la declaration elle-meme. Ce que la personne tape et n'a pas encore
 // valide (l'edition) reste dans ce service : il n'entre dans le projet qu'a la validation, qui seule fait foi pour l'export.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { descriptionCalculee, ouvragesDeclares } from '../../export/cerfa13703.js';
 import { empreinteFaits, faitsDuDossier, texteDesFaits } from '../../export/faitsDossier.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
@@ -123,7 +124,7 @@ export function creerServiceDossier(ctx: ContexteDossier): ServiceDossier {
           ctx.toast('Brouillon « ' + LIBELLES_PIECES_TEXTE[piece].toLowerCase() + ' » rédigé par Claude : relisez-le, corrigez-le, puis validez-le pour qu’il entre dans le dossier.');
         }
       } catch (e) {
-        ctx.toast('Rédaction impossible : ' + ((e as Error).message || String(e)));
+        ctx.toast(phraseReseau(e, 'Le service de rédaction', 'Votre texte n’a pas changé : réessayez dans un instant.') ?? 'Rédaction impossible : ' + detailTechnique(e));
       } finally {
         enCours = null;
         ctx.notifier();
