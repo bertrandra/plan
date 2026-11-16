@@ -3207,6 +3207,23 @@
   .chaineSeuils li{ padding:1px 8px; border-radius:var(--r-champ); background:var(--panel-2); border:1px solid var(--hairline); font-variant-numeric:tabular-nums; }
   .chaineSeuils code{ font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft); }
   ul.chaineErreur{ list-style:none; margin:8px 0; }
+  /* L'aide de premiere utilisation (lot 2, zones/AidePremiere.tsx) : une carte en bas de l'ecran, au-dessus de la barre d'estimation
+     au bureau et de la barre de navigation au doigt, sous les toasts ; ni voile ni ombre franche : elle informe, le plan reste a portee. */
+  .aidePremiere{
+    position:fixed; left:0; right:0; margin:0 auto; bottom:calc(var(--reserve-bas, 0px) + 96px); z-index:9990;
+    width:min(420px, calc(100vw - 32px)); box-sizing:border-box; padding:12px 14px 10px;
+    background:var(--panel-bg); color:var(--ink); border:1px solid var(--border); border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante);
+    animation:toastEntre 0.2s ease-out;
+  }
+  .aidePremiereTete{ display:flex; align-items:baseline; gap:8px; margin:0 0 4px; }
+  .aidePremiereRang{ font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .aidePremiereTitre{ margin:0; font-family:var(--serif); font-size:1.05rem; font-weight:normal; }
+  .aidePremiereTexte{ margin:0 0 10px; font-size:0.8rem; line-height:1.45; }
+  .aidePremierePied{ display:flex; justify-content:flex-end; gap:8px; }
+  html:not([data-classe="large"]) .aidePremierePied button{ min-height:44px; padding:0 16px; }
+  /* Au doigt, le bas de l'ecran porte la tuile du chiffrage et la barre de navigation : la bulle se pose sous la barre haute. */
+  html:not([data-classe="large"]) .aidePremiere{ bottom:auto; top:calc(var(--reserve-haut, 0px) + 112px); }
+  @media (prefers-reduced-motion: reduce){ .aidePremiere{ animation:none; } }
   /* Mes projets (lot 2, zones/parcours/MesProjets.tsx) : une ligne par projet, son nom en serif, sa date en note ; celui qui est ouvert se
      dit par le mot « ouvert » et le fond doux, pas par la couleur seule. */
   .dialogueMesProjets{ width:min(520px,96vw); max-height:92vh; overflow:auto; }

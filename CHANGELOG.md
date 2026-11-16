@@ -40,6 +40,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   et ses mitoyennes ; le reste se voit en reculant. Seul le recul de la caméra change : le sol, les ombres et la brume gardent
   l'étendue de la scène, et rien de ce qui s'exporte ne bouge (empreintes identiques, `.glb` compris). Point de fumée 173.
 
+- **Une aide de première utilisation, en trois bulles** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026).
+  À la première ouverture de Plan sur un appareil, une fois le plan à l'écran et rien d'ouvert par-dessus (l'import par adresse,
+  « Mettre à jour le modèle ? »), trois bulles se suivent en bas de l'écran (sous la barre haute au doigt) : « Votre terrasse »
+  (la choisir, tirer ses coins, en ajouter une), « Ses réglages » (l'inspecteur ou Propriétés : la lame, la fondation, la structure,
+  le chiffrage qui suit) et « Le prix et la 3D ». Le texte suit la main (« Cliquez » à la souris, « Touchez » au doigt). « Suivant »,
+  « C'est parti » à la dernière, « Passer » les ferme d'un coup. Elles ne reviennent pas : l'appareil le retient dès la première
+  bulle (`plan.aide.premiersPas`, une préférence du navigateur ; rien n'est écrit dans le projet). Pas dans la vitrine, l'audit, un
+  projet partagé, l'admin des démos ni en lecture seule ; l'essai sans compte les montre. Une carte en Z9 (de l'information, pas
+  une question : ni voile, ni piège à focus), `app/aidePremiere.ts` et `zones/AidePremiere.tsx`. La fumée et les captures les
+  tiennent pour vues (`simulerPlateforme`, option `aide`), sauf le point 174 qui les éprouve.
+
 - **« Mes projets » dans Plan** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026). Le lien « Mes projets ↗ »
   de la barre menait à la plateforme, dans un autre onglet. « Mes projets » (la barre du compte, et la première entrée du menu
   Fichier ; la feuille Projet au doigt) ouvre désormais la liste dans Plan : les projets, le plus récent d'abord, avec leur date de
