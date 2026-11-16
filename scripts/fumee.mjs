@@ -3108,6 +3108,76 @@ const POINTS = {
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
   },
+  173: async (page, f) => {
+    // La demonstration et la Vue 3D cadrees sur la terrasse a l'ouverture (lot 2 de la simplification, 16 novembre 2026).
+    // 1. Dans un contexte vierge, « Essayer la démonstration » : le plan s'ouvre sur la terrasse et sa maison, et la terrasse y parait
+    //    au moins une fois et demie plus grande que dans le cadrage du terrain (« Ajuster la vue », rien de choisi), centre a l'ecran.
+    // 2. Sur le projet de la fumee, la Vue 3D : la camera recule de ce que demandent la terrasse et la maison qu'elle touche
+    //    (three/scene.ts, `rayonDOuverture`), moins que ce que demanderait la parcelle.
+    const echecs = [];
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+    const p = await ctx.newPage();
+    let plan = '';
+    try {
+      await simulerPlateforme(p, { connecte: false });
+      await p.addInitScript(() => { window.__sansToitsFond = true; });
+      await p.goto(BASE + '/');
+      await p.locator('[data-controle="porte.essayer"]').click({ timeout: 20000 });
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(800);
+      const mesurer = () => p.evaluate(() => {
+        const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
+        const el = t && document.querySelector('#stage svg [data-role="obj"][data-key="' + t.key + '"]');
+        const cadre = document.getElementById('zoneCadre') ?? document.getElementById('stage');
+        if (!el || !cadre) return null;
+        const r = el.getBoundingClientRect(), c = cadre.getBoundingClientRect();
+        return { l: Math.max(r.width, r.height), cx: r.x + r.width / 2, cy: r.y + r.height / 2, c: { x: c.x, y: c.y, w: c.width, h: c.height } };
+      });
+      const ouverture = await mesurer();
+      await p.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
+      await p.waitForTimeout(400);
+      const terrain = await mesurer();
+      if (!ouverture || !terrain) echecs.push('terrasse introuvable au plan');
+      else {
+        const dedans = ouverture.cx > ouverture.c.x && ouverture.cx < ouverture.c.x + ouverture.c.w && ouverture.cy > ouverture.c.y && ouverture.cy < ouverture.c.y + ouverture.c.h;
+        if (!dedans) echecs.push('la terrasse n’est pas à l’écran');
+        if (!(ouverture.l >= 1.5 * terrain.l)) echecs.push('terrasse de ' + ouverture.l.toFixed(0) + ' px à l’ouverture, ' + terrain.l.toFixed(0) + ' px sur le terrain');
+        plan = `démonstration : terrasse de ${ouverture.l.toFixed(0)} px à l’ouverture contre ${terrain.l.toFixed(0)} px sur le terrain (×${(ouverture.l / terrain.l).toFixed(1)})`;
+      }
+    } finally { await ctx.close(); }
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d(), null, { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(800);
+    const r3 = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      if (!sc) return null;
+      const objets = window.__plan.etat().objects;
+      const t = objets.find((o) => o.key === window.__plan.etat().terrasseSelectedKey) ?? objets.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
+      const parcelle = objets.find((o) => o.key === 'parcelle');
+      const bati = objets.filter((o) => o.fonction === 'batiment' && !o.voisinage && o.pts?.length >= 3);
+      const aire = (q) => Math.abs(q.reduce((s, a, i) => { const b = q[(i + 1) % q.length]; return s + a.x * b.y - b.x * a.y; }, 0)) / 2;
+      const maison = bati.sort((a, b) => aire(b.pts) - aire(a.pts))[0];
+      const cen = { x: t.pts.reduce((s, q) => s + q.x, 0) / t.pts.length, y: t.pts.reduce((s, q) => s + q.y, 0) / t.pts.length };
+      const bx = (q) => ({ x0: Math.min(...q.map((v) => v.x)), x1: Math.max(...q.map((v) => v.x)), y0: Math.min(...q.map((v) => v.y)), y1: Math.max(...q.map((v) => v.y)) });
+      const bt = bx(t.pts), bm = maison ? bx(maison.pts) : null;
+      const touche = bm && bm.x0 <= bt.x1 + 2 && bm.x1 >= bt.x0 - 2 && bm.y0 <= bt.y1 + 2 && bm.y1 >= bt.y0 - 2;
+      const rayon = (q) => q.reduce((m, v) => Math.max(m, Math.hypot(v.x - cen.x, v.y - cen.y)), 0);
+      const rOuv = Math.max(4, rayon([...t.pts, ...(touche ? maison.pts : [])]));
+      const aspect = sc.camera.aspect;
+      const D = (r) => { const pl = Math.atan(1 / Math.SQRT2), tv = Math.tan(22.5 * Math.PI / 180), th = tv * aspect; return Math.min(Math.max(r * Math.sin(pl) / tv, r / th) * 1.25, 0.9 * Math.sqrt(3) * 2 * r); };
+      const d = sc.camera.position.distanceTo(sc.controls.target);
+      return { d, attendu: D(rOuv), parcelle: parcelle ? D(rayon(parcelle.pts)) : null, touche: !!touche };
+    });
+    if (!r3) echecs.push('pas de scène 3D');
+    else {
+      if (Math.abs(r3.d - r3.attendu) > 0.05 * r3.attendu) echecs.push('recul 3D ' + r3.d.toFixed(1) + ' m, attendu ' + r3.attendu.toFixed(1) + ' m');
+      if (r3.parcelle !== null && !(r3.d < r3.parcelle)) echecs.push('recul 3D ' + r3.d.toFixed(1) + ' m, pas moins que la parcelle (' + r3.parcelle.toFixed(1) + ' m)');
+    }
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + plan
+      + (r3 ? ` ; Vue 3D : recul ${r3.d.toFixed(1)} m (terrasse${r3.touche ? ' et maison' : ''} : ${r3.attendu.toFixed(1)} m ; parcelle : ${r3.parcelle?.toFixed(1)} m)` : '') };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9000,7 +9070,8 @@ function pointsPour(nomClasse) {
   //       d'edition visible ni executable, la nomenclature et la 3D ; un lien invalide (404) et trop de tentatives (429), dits en clair.
   // 169 : essayer sans compte : la porte presente Plan et propose la demonstration, qui s'ouvre sans session ; une terrasse s'y ajoute,
   //       aucun appel a la plateforme ne part, le bandeau le dit ; « Quitter la démonstration » ramene a la porte.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 168, 169];
+  // 173 : la demonstration (essai sans compte) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 168, 169, 173];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

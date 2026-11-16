@@ -188,13 +188,17 @@ export async function chargerProjetInitial(
         schemaVersion: null as number | null,
         // Pas de plateforme, donc pas d'import cadastre a ouvrir : le champ existe sur toutes les
         // branches pour que l'appelant n'ait jamais a se demander s'il est la.
-        ouvrirAdresse: false
+        ouvrirAdresse: false,
+        // La demonstration, ouverte pour la premiere fois : le plan se cadre sur sa terrasse (app/boot.ts).
+        demoNeuve: true
       };
     }
     throw e;
   }
 
   let voulu = projetConnu;
+  /** Vrai quand la demonstration vient d'etre creee pour cette ouverture : le plan se cadre alors sur sa terrasse (app/boot.ts). */
+  let demoNeuve = false;
   if (voulu && !liste.some((p) => p.id === voulu)) voulu = null;
   if (!voulu && liste.length) voulu = au(liste, 0).id;
 
@@ -202,6 +206,7 @@ export async function chargerProjetInitial(
   const creerLaDemo = async (): Promise<string> => {
     const { objets, mesures } = await demo();
     const cree = await apiSave({ name: 'Parcelle AE 101', objects: objets, measures: mesures });
+    demoNeuve = true;
     liste = await apiList();
     return cree.id;
   };
@@ -262,6 +267,7 @@ export async function chargerProjetInitial(
     measures: complet.measures || [],
     meta: complet.meta ?? null,
     schemaVersion: complet.schemaVersion ?? null,
-    ouvrirAdresse: false
+    ouvrirAdresse: false,
+    demoNeuve
   };
 }

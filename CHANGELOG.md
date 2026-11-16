@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La démonstration et la Vue 3D s'ouvrent sur la terrasse** (lot 2 de la simplification de l'IHM, le parcours d'entrée,
+  16 novembre 2026). La démonstration (l'essai sans compte, et celle que « Par quoi commencer ? » vient de créer) s'ouvrait sur le
+  terrain entier et son voisinage, la terrasse grande comme un timbre ; elle se cadre désormais sur la terrasse et la maison
+  qu'elle touche (à 2 m près ; `Cadrage.cadrerTerrasse`). Un projet rouvert garde le cadrage du terrain. La Vue 3D, elle,
+  s'ouvre sur la terrasse et sa maison (`three/scene.ts::rayonDOuverture`, au moins 4 m), au lieu de reculer jusqu'à la parcelle
+  et ses mitoyennes ; le reste se voit en reculant. Seul le recul de la caméra change : le sol, les ombres et la brume gardent
+  l'étendue de la scène, et rien de ce qui s'exporte ne bouge (empreintes identiques, `.glb` compris). Point de fumée 173.
+
 - **Essayer Plan sans compte** (lot 6 du parcours client, 16 novembre 2026). La porte de connexion dit d'abord ce que fait Plan
   (« Dessinez votre terrasse sur votre vrai terrain, voyez-la en 3D et obtenez la liste d'achat et un devis. ») et propose, sous
   « Se connecter », **« Essayer la démonstration »** : le plan de démonstration livré (celui du premier pas) s'ouvre sans session.

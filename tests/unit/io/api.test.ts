@@ -233,6 +233,8 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     expect(enregistrer).toHaveBeenCalledOnce();
     expect(enregistrer.mock.calls[0]![0]).toMatchObject({ name: 'Parcelle AE 101', objects: DEMO });
     expect(r.ouvrirAdresse).toBe(false);
+    // Ouverte pour la premiere fois : le plan se cadre sur sa terrasse (lot 2).
+    expect('demoNeuve' in r && r.demoNeuve).toBe(true);
   });
 
   it('rend un plan vierge et demande l import cadastre quand on repond « adresse »', async () => {
@@ -285,6 +287,8 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     const r = await chargerProjetInitial(demo, demande);
     expect(demande).not.toHaveBeenCalled();
     expect(r.ouvrirAdresse).toBe(false);
+    // Un projet rouvert garde le cadrage du terrain.
+    expect('demoNeuve' in r && r.demoNeuve).toBe(false);
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p1');
   });
 
