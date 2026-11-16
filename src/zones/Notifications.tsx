@@ -24,8 +24,12 @@ export function Notifications() {
         </div>
       )}
       {erreurs.map((n: Notification) => (
-        <div key={n.id} className="bandeauErreur" role="alert">
-          <span className="texte">{n.texte}</span>
+        <div key={n.id} className={'bandeauErreur' + (n.detail !== undefined ? ' bandeauErreurClair' : '')} role="alert">
+          <span className="texte">
+            {n.texte}
+            {/* Le detail technique d'une erreur dite en phrase : en petit, selectionnable, pour qui aide la personne. */}
+            {n.detail ? <span className="detailErreur">Détail technique : {n.detail}</span> : null}
+          </span>
           <button type="button" data-controle="notification.fermer" className="fermer" title="Fermer" aria-label="Fermer cette erreur" onClick={() => notifications.fermer(n.id)}>✕</button>
         </div>
       ))}

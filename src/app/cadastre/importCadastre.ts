@@ -11,6 +11,7 @@
 // L'etat s'appelle `etatImport` et surtout PAS `etat`, le nom de l'etat de l'application : la
 // confusion entre les deux est exactement le genre de bug qu'aucun test ne rattrape.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { showToast } from '../../shell/dialogs.js';
 import { attente } from '../../shell/attente.js';
 import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../../shell/geolocalisation.js';
@@ -42,6 +43,11 @@ import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { AdresseRecherchee, ImportCadastral } from '../../geo/cadastreObjets.js';
 import type { ObjetPlan, PtBrut, ZonagePlu } from '../../model/types.js';
 import type { ProjetValide } from '../../io/validation.js';
+
+// Les erreurs du reseau en clair (util/erreurReseau.ts) : le sujet de la phrase, puis ce que la personne peut faire.
+const ADRESSES_IGN = 'Le service d’adresses de l’IGN';
+const ADRESSES_ENSUITE = 'Réessayez dans un instant, ou dessinez votre terrain à la main.';
+const VOISINES_ENSUITE = 'La parcelle est trouvée, mais pas ses voisines : réessayez dans un instant, ou continuez sans elles.';
 
 /** Ce que l'import demande au reste du programme : enregistrer, ou charger le plan en local. */
 export interface ContexteImportCadastre {
@@ -408,7 +414,7 @@ function chargements(n: Noyau): Chargements {
       e.ignErreur = '';
     } catch (err) {
       e.batiments = []; e.haies = []; e.vegetation = [];
-      e.ignErreur = 'Donnees BD TOPO indisponibles : ' + ((err as Error).message || err);
+      e.ignErreur = phraseReseau(err, 'La BD TOPO de l’IGN', 'Les bâtiments et la végétation ne sont pas chargés : réessayez dans un instant, ou continuez sans eux.') ?? 'Données BD TOPO indisponibles : ' + detailTechnique(err);
     }
     occuper(false);
     if (e.ignErreur) e.erreur = e.ignErreur;
@@ -432,7 +438,7 @@ function chargements(n: Noyau): Chargements {
           // La principale a pu changer pendant la lecture : ce disque n'est plus le sien, on relit.
           if (e.principale && e.principale.idu === pour) e.etenduMax = lu;
         } catch (err) {
-          e.erreur = 'Voisinage étendu non chargé : ' + ((err as Error).message || err);
+          e.erreur = phraseReseau(err, 'Le cadastre de l’IGN', 'Le voisinage étendu n’est pas chargé ; réessayez dans un instant, ou créez le projet sans lui.') ?? 'Voisinage étendu non chargé : ' + detailTechnique(err);
           return;
         } finally {
           occuper(false);
@@ -491,7 +497,7 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
         await chargerVoisinage(premiere);
       } catch (err) {
         // Le voisinage est un complement : son echec ne doit pas emporter la parcelle trouvee.
-        e.erreur = 'Parcelles voisines non chargees : ' + ((err as Error).message || err);
+        e.erreur = phraseReseau(err, 'Le cadastre de l’IGN', VOISINES_ENSUITE) ?? 'Parcelles voisines non chargées : ' + detailTechnique(err);
       }
       occuper(false);
       appliquerPrincipale(premiere);
@@ -504,7 +510,7 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
       signaler();
     } catch (err) {
       occuper(false);
-      e.erreur = (err as Error).message || String(err);
+      e.erreur = phraseReseau(err, 'Le cadastre de l’IGN', 'Réessayez dans un instant, ou dessinez votre terrain à la main.') ?? detailTechnique(err);
       signaler();
     }
   }
@@ -522,12 +528,12 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
       const res = await geocoderBAN(texte, false);
       occuper(false);
       const meilleure = res[0];
-      if (!meilleure) { e.erreur = 'Aucune adresse trouvee. Essaie sans le numero, ou avec le code postal.'; signaler(); return; }
+      if (!meilleure) { e.erreur = 'Aucune adresse trouvée. Essayez sans le numéro, ou avec le code postal.'; signaler(); return; }
       e.suggestions = res;
       void choisirAdresse(meilleure);
     } catch (err) {
       occuper(false);
-      e.erreur = 'Geocodage impossible : ' + ((err as Error).message || err);
+      e.erreur = phraseReseau(err, ADRESSES_IGN, ADRESSES_ENSUITE) ?? 'Géocodage impossible : ' + detailTechnique(err);
       signaler();
     }
   }
@@ -586,7 +592,7 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
           e.suggestions = res; e.erreur = '';
         } catch (err) {
           if (monTour !== requeteEnCours) return;
-          e.suggestions = []; e.erreur = 'Geocodage impossible : ' + ((err as Error).message || err);
+          e.suggestions = []; e.erreur = phraseReseau(err, ADRESSES_IGN, ADRESSES_ENSUITE) ?? 'Géocodage impossible : ' + detailTechnique(err);
         }
         signaler();
       }, 250);
@@ -610,7 +616,7 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
     try {
       await chargerVoisinage(c);
     } catch (err) {
-      e.erreur = 'Parcelles voisines non chargees : ' + ((err as Error).message || err);
+      e.erreur = phraseReseau(err, 'Le cadastre de l’IGN', VOISINES_ENSUITE) ?? 'Parcelles voisines non chargées : ' + detailTechnique(err);
     }
     occuper(false);
     appliquerPrincipale(c);
@@ -725,7 +731,7 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         };
         objets = objetsDepuisCadastre(importe);
       } catch (err) {
-        e.erreur = 'Construction du plan impossible : ' + ((err as Error).message || err);
+        e.erreur = phraseReseau(err, 'Les services de l’IGN', 'Réessayez « Créer » dans un instant.') ?? 'Construction du plan impossible : ' + detailTechnique(err);
         signaler(); return;
       }
       // Les objets sont dans le repere du plan construit, dont l'origine est le calage cadastral
@@ -767,7 +773,7 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         location.href = ctx.withProjectParam(cree.id);
       } catch (err) {
         occuper(false);
-        e.erreur = (cible ? 'Impossible d enregistrer le projet : ' : 'Impossible de creer le projet : ') + ((err as Error).message || err);
+        e.erreur = phraseReseau(err, 'La plateforme', 'Rien n’est perdu : réessayez « Créer » dans un instant.') ?? (cible ? 'Impossible d’enregistrer le projet : ' : 'Impossible de créer le projet : ') + detailTechnique(err);
         signaler();
       }
     }

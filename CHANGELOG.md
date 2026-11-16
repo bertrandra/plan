@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Les erreurs du réseau dites en clair** (audit de l'IHM du 16 novembre 2026, lot 1). La personne lisait « Geocodage
+  impossible : Failed to fetch », le message du navigateur, qui ne dit ni ce qui se passe ni quoi faire. Une erreur de réseau a
+  quelques formes — le service ne répond pas (coupure, délai dépassé), il est momentanément indisponible (5xx), il reçoit trop de
+  demandes (429), il refuse la demande (4xx) — et chacune a désormais sa phrase, suivie de ce que la personne peut faire
+  (`util/erreurReseau.ts::phraseReseau`) : « Le service d’adresses de l’IGN ne répond pas. Réessayez dans un instant, ou dessinez
+  votre terrain à la main. » Un refus déjà dit en phrase (quota, schéma, taille, « aucune adresse trouvée ») n'est pas touché.
+  Appliquée à l'import cadastre (adresse, parcelle, voisines, voisinage étendu, BD TOPO, création du projet), à l'enregistrement,
+  la création et la suppression du projet, au PLU (zonage et règlement), à l'actualisation IGN, aux rues, au relief, à la photo
+  aérienne, au chargement de la Vue 3D et du mode Toit, à la déclaration préalable, à la rédaction des textes du dossier et à
+  l'assistant. Le bandeau d'erreur d'une erreur dite en phrase (`shell/dialogs.ts::showErreur`) n'écrit plus « Erreur JS » : il
+  dit la phrase, puis le message d'origine en petit, « Détail technique : … », sélectionnable pour qui aide la personne. Point de
+  fumée 164 ; aucune quantité ni aucun export ne change.
+
 ## [5.32.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'étape Redressement montre les gestes

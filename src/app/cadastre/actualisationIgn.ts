@@ -7,6 +7,7 @@
 //
 // Une seule actualisation a la fois : la commande se grise pendant qu'elle tourne (`enCours`).
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { nombreFr } from '../../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../../geo/bdtopo.js';
 import { distancePointContour } from '../../geometry/proximite.js';
@@ -347,7 +348,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
     ctx.apresActualisation?.();
   } catch(e){
-    showToast('Actualisation impossible : ' + ((e as Error).message || e));
+    showToast(phraseReseau(e, 'Les services de l’IGN', 'Rien n’a changé dans le projet : réessayez l’actualisation dans un instant.') ?? 'Actualisation impossible : ' + detailTechnique(e));
   } finally {
     finir();
   }

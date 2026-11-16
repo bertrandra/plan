@@ -5,6 +5,7 @@
 // intéressantes : masquer le voisinage peut retirer de l'écran l'objet en cours d'édition, et la 3D
 // se construit à partir des objets visibles, donc elle se **reconstruit** au lieu de se redessiner.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, rechargerOrthophoto } from '../../render/ortho.js';
 import { showToast } from '../../shell/dialogs.js';
@@ -125,6 +126,6 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
         const n = ortho.tuiles.length + ortho.tuilesLarges.length;
         showToast('Photo aérienne rechargée : ' + n + ' tuile' + (n > 1 ? 's' : '') + (r && !r.exact ? ' (calage approximatif)' : ''));
         if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
-      }).catch((e: unknown) => { showToast('Photo aérienne indisponible : ' + ((e as Error)?.message || 'réessayez plus tard.')); });
+      }).catch((e: unknown) => { showToast(phraseReseau(e, 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant.') ?? 'Photo aérienne indisponible : ' + (detailTechnique(e) || 'réessayez plus tard.')); });
     } });
 }

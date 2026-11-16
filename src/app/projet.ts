@@ -14,7 +14,8 @@ import { jsonParPaquets, octetsUtf8 } from '../util/jsonParPaquets.js';
 import { PERMISSION_ECRITURE, compteProjetsCourant } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
-import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
+import { showConfirm, showPrompt, showToast, showErreur } from '../shell/dialogs.js';
+import { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 import { dialogues } from '../shell/dialogues.js';
 import { schemaAEcrire, migrationsDepuis } from '../model/migrations.js';
 import { cleDesAttributs } from '../core/controleurObjets.js';
@@ -255,7 +256,9 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       // La taille de ce qui a ete refuse reste sous les yeux, a la place de l'heure du dernier succes.
       const poids = taille === null ? '' : ' (' + tailleFichier(taille) + ')';
       echec = 'Échec de l’enregistrement' + poids;
-      showErrBanner('Echec de l\'enregistrement' + poids + ' : ' + ((e as Error).message || e));
+      // Le reseau en clair (util/erreurReseau.ts) : ce qui se passe et quoi faire, le message d'origine en detail a copier.
+      const clair = phraseReseau(e, 'La plateforme', 'Rien n’est perdu : vos modifications restent à l’écran. Réessayez d’enregistrer (Ctrl+S) dans un instant.');
+      showErreur(clair ? 'Échec de l’enregistrement' + poids + ' : ' + clair.charAt(0).toLowerCase() + clair.slice(1) : 'Échec de l’enregistrement' + poids + ' : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
       return false;
     } finally {
       publier();
@@ -275,7 +278,8 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
           const created = await ctx.apiSave({ name, ...charge() });
           aller(created.id);
         } catch (e) {
-          showErrBanner('Impossible de creer le projet : ' + ((e as Error).message || e));
+          const clair = phraseReseau(e, 'La plateforme', 'Le plan reste ouvert ici : réessayez « Nouveau projet » dans un instant.');
+          showErreur(clair ?? 'Impossible de créer le projet : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
         }
       });
     }
@@ -302,7 +306,8 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
           const url = new URL(location.href); url.searchParams.delete('projet');
           location.href = url.toString();
         } catch (e) {
-          showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
+          const clair = phraseReseau(e, 'La plateforme', 'Le projet n’est pas supprimé : réessayez dans un instant.');
+          showErreur(clair ?? 'Échec de la suppression : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
         }
       });
     }

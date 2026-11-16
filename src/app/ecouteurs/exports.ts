@@ -16,7 +16,8 @@
 // afficher, le DXF n'a pas de lien de secours — un fichier CAO ne s'ouvre pas dans un onglet.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { showToast, showErrBanner } from '../../shell/dialogs.js';
+import { showToast, showErrBanner, showErreur } from '../../shell/dialogs.js';
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -94,7 +95,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         telechargerBlob(res.nom, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         const avis = res.regime === 'permis' ? ' Attention : l\'emprise créée relève d\'un permis de construire (cerfa 13406).' : '';
         showToast(messageDeclaration(res) + avis);
-      }).catch((err: unknown) => showErrBanner('Déclaration préalable : ' + (err as Error).message));
+      }).catch((err: unknown) => showErreur(phraseReseau(err, 'Le serveur de Plan', 'Le formulaire n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Déclaration préalable : ' + detailTechnique(err), phraseReseau(err, '') ? detailTechnique(err) : ''));
     }
   });
 
