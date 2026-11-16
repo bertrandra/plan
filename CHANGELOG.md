@@ -31,6 +31,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   identiques (`engine/bois/lamesCommerce.ts`). L'assistant voit le champ (`lames.lameCommerce`) ; la requête témoin de la
   vérification de l'API (`tests/fixtures/assistant/requete-verification.json`) est régénérée. Point de fumée 172.
 
+- **La démonstration et la Vue 3D s'ouvrent sur la terrasse** (lot 2 de la simplification de l'IHM, le parcours d'entrée,
+  16 novembre 2026). La démonstration sans compte (« Essayer la démonstration ») s'ouvrait sur le terrain entier et son voisinage,
+  la terrasse grande comme un timbre ; elle se cadre désormais sur la terrasse et la maison qu'elle touche (à 2 m près ;
+  `Cadrage.cadrerTerrasse`). Un projet, la démonstration de « Par quoi commencer ? » comprise (c'est un projet enregistré), garde
+  le cadrage du terrain. La Vue 3D, elle,
+  s'ouvre sur la terrasse et sa maison (`three/scene.ts::rayonDOuverture`, au moins 4 m), au lieu de reculer jusqu'à la parcelle
+  et ses mitoyennes ; le reste se voit en reculant. Seul le recul de la caméra change : le sol, les ombres et la brume gardent
+  l'étendue de la scène, et rien de ce qui s'exporte ne bouge (empreintes identiques, `.glb` compris). Point de fumée 173.
+
 - **« Mes projets » dans Plan** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026). Le lien « Mes projets ↗ »
   de la barre menait à la plateforme, dans un autre onglet. « Mes projets » (la barre du compte, et la première entrée du menu
   Fichier ; la feuille Projet au doigt) ouvre désormais la liste dans Plan : les projets, le plus récent d'abord, avec leur date de

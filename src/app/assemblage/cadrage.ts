@@ -7,6 +7,8 @@ import { appliquerClasse } from '../classe.js';
 import { cadrerSur, empriseDe, plancherPourEmprise, ZOOM_MIN, ZOOM_MAX } from '../../interaction/navigation.js';
 import { empriseDuCalque } from '../../model/calque.js';
 import { aDesSommets, enPoints } from '../../model/formes.js';
+import { terrasseOuPremiere } from '../../model/fonctions.js';
+import { maisonDe } from '../../model/placement.js';
 import type { Surface } from './surface.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../../model/types.js';
@@ -26,6 +28,11 @@ export interface Cadrage {
    * et son voisinage visible), avec la meme respiration qu'une parcelle seule.
    */
   cadrerTerrains(): void;
+  /**
+   * Le cadrage d'ouverture de la demonstration (lot 2 de la simplification) : la terrasse, et la
+   * maison qu'elle touche, plutot que tout le terrain. Rend `false` sans terrasse (rien ne bouge).
+   */
+  cadrerTerrasse(): boolean;
   /** Recalcule le plancher du zoom d'apres les parcelles affichees : appele a chaque rendu. */
   ajusterPlancher(): void;
 }
@@ -154,6 +161,18 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
     cadrerTerrains() {
       const emprise = empriseTerrains();
       if (emprise) cadrerEmprise(emprise);
+    },
+    cadrerTerrasse() {
+      const t = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
+      const et = t && !d.objetMasque(t) ? empriseDe([t]) : null;
+      if (!t || !et) return false;
+      // La maison compte si elle touche la terrasse (a 2 m pres) : c'est elle qui situe la terrasse ;
+      // une maison au fond du jardin ferait de ce cadrage celui du terrain entier.
+      const m = maisonDe(etat.objects);
+      const em = m && !d.objetMasque(m) ? empriseDe([m]) : null;
+      const touche = !!em && em.minX <= et.maxX + 2 && em.maxX >= et.minX - 2 && em.minY <= et.maxY + 2 && em.maxY >= et.minY - 2;
+      cadrerEmprise((touche && m ? empriseDe([t, m]) : et) ?? et);
+      return true;
     },
     redimensionner() {
       // Le clavier virtuel qui s'ouvre sous un champ redimensionne la fenetre en hauteur seulement :
