@@ -11,7 +11,8 @@
 // `onerror` existe autant que `onload` : un échec de lecture ne déclenche jamais `onload`.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { showToast, showErrBanner } from '../../shell/dialogs.js';
+import { showToast, showErreur } from '../../shell/dialogs.js';
+import { erreurExport, erreurImport } from '../../util/erreurFichier.js';
 import { attente } from '../../shell/attente.js';
 import type { ProjetValide } from '../../io/validation.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -33,9 +34,9 @@ export interface ContexteFichiers {
 /**
  * Lit un fichier texte, en vidant l'input dans tous les cas.
  *
- * `surSucces` reçoit le contenu ; les erreurs de lecture passent par `messageErreur`.
+ * `surSucces` reçoit le contenu ; une erreur de lecture se dit en clair, pour ce `format` (util/erreurFichier.ts).
  */
-function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSucces: (contenu: string) => void, surEchec?: () => void): void {
+function lireFichierTexte(input: HTMLInputElement, format: string, surSucces: (contenu: string) => void, surEchec?: () => void): void {
   const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
@@ -44,7 +45,8 @@ function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSuc
     input.value = '';
   };
   reader.onerror = () => {
-    showToast(messageErreur);
+    const { texte, detail } = erreurImport(reader.error ?? new Error('lecture du fichier'), format, '', 'lecture');
+    showErreur(texte, detail);
     input.value = '';
     surEchec?.();
   };
@@ -52,6 +54,8 @@ function lireFichierTexte(input: HTMLInputElement, messageErreur: string, surSuc
 }
 
 const ATTENTE_OUVERTURE = 'ouverture-projet';
+/** Ce qu'il faut choisir pour ouvrir un projet. */
+const JSON_ATTENDU = 'Choisissez un fichier .json enregistré par « Exporter le projet (JSON) ».';
 
 /** Rend la main au navigateur le temps d'une image (la roue s'y dessine), puis lance `f`. */
 function apresUneImage(f: () => void): void {
@@ -71,11 +75,17 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
       // Et un fichier trop récent n'est pas illisible — il est refusé volontairement. Le dire
       // autrement enverrait l'utilisateur chercher une corruption qui n'existe pas.
       const e = err as Error & { motif?: string };
-      showToast((e.motif === 'schema' ? 'Import refuse : ' : 'Import annule - fichier illisible : ') + (e.message || e));
+      if (e.motif === 'schema') {
+        showErreur('Ce projet vient d’une version plus récente de Plan. Rechargez la page pour obtenir la dernière version, puis ouvrez-le de nouveau.', String(e.message || e));
+        return;
+      }
+      // Illisible (pas du JSON) ou refuse par la validation (pas un projet) : dans les deux cas, ce n'est pas le bon fichier.
+      const { texte, detail } = erreurImport(err, 'projet Plan (JSON)', JSON_ATTENDU, 'format');
+      showErreur(texte, detail);
       return;
     }
     try { ctx.appliquerProjetImporte(valide, remplacer); }
-    catch (err) { showErrBanner('Echec de l\'import JSON : ' + ((err as Error).message || err)); }
+    catch (err) { const { texte, detail } = erreurImport(err, 'projet Plan (JSON)', JSON_ATTENDU); showErreur(texte, detail); }
   }
 
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
@@ -85,15 +95,15 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
   cmd.declarer({ id: 'fichier.importerSvg', libelle: 'Importer un SVG', groupe: 'fichier', permission: PERMISSION_ECRITURE, executer: () => el('importSvgFile').click() });
 
   el('importSvgFile').addEventListener('change', function () {
-    lireFichierTexte(this, 'Erreur de lecture du fichier SVG.', contenu => {
+    lireFichierTexte(this, 'SVG', contenu => {
       try { ctx.importerSVG(contenu); }
-      catch (err) { showErrBanner('Erreur import SVG: ' + (err as Error).message); }
+      catch (err) { const { texte, detail } = erreurImport(err, 'SVG', 'Choisissez un fichier .svg enregistré par un logiciel de dessin.'); showErreur(texte, detail); }
     });
   });
 
   cmd.declarer({ id: 'fichier.exporterJson', libelle: 'Exporter le projet (JSON)', groupe: 'fichier', executer: () => {
     try { ctx.exportProjetJSON(); }
-    catch (e) { showErrBanner('Echec de l\'export JSON : ' + ((e as Error).message || e)); }
+    catch (e) { const { texte, detail } = erreurExport(e, 'Le projet en JSON'); showErreur(texte, detail); }
   } });
 
   cmd.declarer({ id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', permission: PERMISSION_ECRITURE, executer: () => el('importJsonFile').click() });
@@ -104,7 +114,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
     // Refusé avant lecture : charger cinq mégaoctets pour découvrir ensuite qu'on les refuse
     // ferait attendre pour rien, et un fichier de projet de cette taille n'en est pas un.
     if (file.size > IMPORT_JSON_TAILLE_MAX) {
-      showToast('Fichier trop volumineux (' + Math.round(file.size / 1048576) + ' Mo, maximum 5 Mo).');
+      showToast('Ce fichier est trop volumineux pour un projet Plan (' + Math.round(file.size / 1048576) + ' Mo, 5 Mo au plus). ' + JSON_ATTENDU);
       this.value = '';
       return;
     }
@@ -113,7 +123,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
     // La roue, sans message, le temps de lire, verifier et poser le projet : quatre mille objets
     // prennent plusieurs secondes, pendant lesquelles la page paraissait figee.
     attente.poser(ATTENTE_OUVERTURE, '');
-    lireFichierTexte(this, 'Erreur de lecture du fichier JSON.', contenu => {
+    lireFichierTexte(this, 'projet Plan (JSON)', contenu => {
       // Une image d'abord : le travail qui suit est d'un seul tenant, la roue doit etre dessinee avant.
       apresUneImage(() => {
         try { ouvrirLeProjetLu(contenu, remplacer); }

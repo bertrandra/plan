@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const journal = { toasts: [] as string[], bannieres: [] as string[] };
 vi.mock('../../../../src/shell/dialogs.js', () => ({
   showToast: (m: string) => { journal.toasts.push(m); },
-  showErrBanner: (m: string) => { journal.bannieres.push(m); }
+  showErrBanner: (m: string) => { journal.bannieres.push(m); },
+  // Une erreur dite en clair (util/erreurFichier.ts) : la phrase, et le detail technique apres « | ».
+  showErreur: (t: string, d = '') => { journal.bannieres.push(t + (d ? ' | ' + d : '')); }
 }));
 
 import { creerRegistre } from '../../../../src/app/commandes.js';
@@ -70,19 +72,24 @@ describe('fichiers', () => {
   it('refusent un fichier illisible ou trop recent sans toucher au plan, en le disant', async () => {
     const illisible = monter();
     await choisir('importJsonFile', 'pas du json');
-    await vi.waitFor(() => expect(journal.toasts[0]).toMatch(/^Import annule - fichier illisible/));
+    // En clair : ce n'est pas le bon fichier, et lequel choisir ; le message du moteur en detail a copier.
+    await vi.waitFor(() => expect(journal.bannieres[0]).toMatch(/^Ce fichier n’est pas un projet Plan \(JSON\) lisible\. Choisissez un fichier \.json enregistré par « Exporter le projet \(JSON\) »\. \| .*JSON/));
     expect(illisible.ctx.appliquerProjetImporte).not.toHaveBeenCalled();
+    // Refuse par la validation (pas un projet) : la meme phrase, son motif en detail.
+    const pasUnProjet = monter({ validerProjetJSON: () => { throw new Error('Aucun objet dans le fichier.'); } });
+    await choisir('importJsonFile', '{}');
+    await vi.waitFor(() => expect(journal.bannieres[1]).toMatch(/^Ce fichier n’est pas un projet Plan \(JSON\) lisible\..* \| Aucun objet dans le fichier\.$/));
+    expect(pasUnProjet.ctx.appliquerProjetImporte).not.toHaveBeenCalled();
     const recent = monter({ validerProjetJSON: () => { throw Object.assign(new Error('schéma 9'), { motif: 'schema' }); } });
     await choisir('importJsonFile', '{}');
-    await vi.waitFor(() => expect(journal.toasts[1]).toBe('Import refuse : schéma 9'));
+    await vi.waitFor(() => expect(journal.bannieres[2]).toBe('Ce projet vient d’une version plus récente de Plan. Rechargez la page pour obtenir la dernière version, puis ouvrez-le de nouveau. | schéma 9'));
     expect(recent.ctx.appliquerProjetImporte).not.toHaveBeenCalled();
   });
 
   it('refusent avant lecture un fichier de plus de 5 Mo', async () => {
     const { ctx } = monter();
     await choisir('importJsonFile', '{}', IMPORT_JSON_TAILLE_MAX + 1);
-    await vi.waitFor(() => expect(journal.toasts[0]).toMatch(/^Fichier trop volumineux \(5 Mo, maximum 5 Mo\)/));
+    await vi.waitFor(() => expect(journal.toasts[0]).toMatch(/^Ce fichier est trop volumineux pour un projet Plan \(5 Mo, 5 Mo au plus\)/));
     expect(ctx.validerProjetJSON).not.toHaveBeenCalled();
-    expect(journal.toasts[0]).toMatch(/^Fichier trop volumineux \(5 Mo, maximum 5 Mo\)/);
   });
 });

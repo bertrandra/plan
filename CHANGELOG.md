@@ -61,6 +61,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les erreurs d'un fichier fait ou lu sur l'appareil sont dites en clair** (lot 4), comme celles du réseau (#714) : exporter
+  en SVG, PNG, DXF, PDF, GLB (le plan, le dossier, la note de calcul, la liste d'achat, le devis, la vue 3D) ou ouvrir un
+  projet JSON, un SVG ou un modèle GLB qui échoue dit ce qui se passe et quoi faire — la bibliothèque qui ne s'est pas chargée,
+  la mémoire de l'appareil, le téléchargement bloqué, l'accélération graphique refusée, le fichier qui n'est pas du bon format
+  et lequel choisir — le message du moteur en « Détail technique », à copier (`util/erreurFichier.ts`). Avant : « Import annule -
+  fichier illisible : Unexpected token… », « Erreur export PNG: conversion en image impossible. ». Point de fumée 187.
 - **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé
   (#729), il restait affiché et ne faisait rien. Il reste à tous ; seuls l'onglet Résumé et l'entrée « Résumé à copier » du menu
   Exporter sont du mode expert.

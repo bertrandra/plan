@@ -7,7 +7,9 @@ const attendre = () => new Promise((r) => { setTimeout(r, 0); });
 const journal = { toasts: [] as string[], bannieres: [] as string[], blobs: [] as string[], textes: [] as string[] };
 vi.mock('../../../../src/shell/dialogs.js', () => ({
   showToast: (m: string) => { journal.toasts.push(m); },
-  showErrBanner: (m: string) => { journal.bannieres.push(m); }
+  showErrBanner: (m: string) => { journal.bannieres.push(m); },
+  // Une erreur dite en clair (util/erreurFichier.ts) : la phrase, et le detail technique apres « | ».
+  showErreur: (t: string, d = '') => { journal.bannieres.push(t + (d ? ' | ' + d : '')); }
 }));
 vi.mock('../../../../src/shell/download.js', () => ({
   telechargerBlob: (nom: string) => { journal.blobs.push(nom); },
@@ -81,7 +83,7 @@ describe('exports', () => {
   it('une erreur de production se dit, et rien ne part', () => {
     const { cmd } = monter({ buildExportSVG: () => { throw new Error('casse'); } });
     cmd.executer('export.svg');
-    expect(journal.bannieres).toEqual(['Erreur export SVG: casse']);
+    expect(journal.bannieres).toEqual(['Le plan en SVG n’a pas pu être produit. Réessayez ; si l’erreur revient, copiez le détail technique et transmettez-le au support. | casse']);
     expect(journal.blobs).toEqual([]);
   });
 
@@ -100,7 +102,7 @@ describe('exports', () => {
     const vide = monter({ clesDossier: () => [] });
     vide.cmd.executer('export.dossier');
     expect(journal.textes).toEqual([]);
-    expect(journal.toasts).toEqual(['Coche au moins une terrasse pour le dossier.']);
+    expect(journal.toasts).toEqual(['Cochez au moins une terrasse pour le dossier (dans l’explorateur).']);
     journal.toasts.length = 0;
     monter().cmd.executer('export.dossier');
     await attendre();
