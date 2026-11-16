@@ -4,6 +4,10 @@
 // classees par distance. Etape 3 : les voisines a importer, ce qu'on prend de la BD TOPO, et la
 // creation du projet.
 //
+// Par defaut, l'import est direct (une etape) : l'adresse, la parcelle trouvee, un resume, et le plan
+// d'un clic, avec une terrasse de depart contre la maison. Les etapes 2 et 3 restent a qui les demande
+// (« Ajuster », ou la case decochee, que le navigateur retient).
+//
 // Ce module tient l'etat du parcours et ses gestes ; zones/parcours/ImportCadastre.tsx le dessine et
 // s'abonne a ses changements. Il ne parle pas au reseau lui-meme (geo/apiIgn.ts) et ne connait pas
 // l'etat de l'application : ce dont il a besoin lui arrive par `ctx`.
@@ -70,9 +74,14 @@ export interface ContexteImportCadastre {
   lirePosition?: () => Promise<PositionGps>;
   /** L'adresse la plus proche d'un point (BAN) ; remplacable de meme. */
   geocoderInverse?: typeof geocoderInverseBAN;
+  /**
+   * La terrasse de depart a poser dans le plan cree (app/cadastre/terrasseDepart.ts), ou `null` faute de place. Absente : aucune
+   * terrasse n'est posee. Recue plutot qu'importee : ce module est au plafond de ses imports (tests/unit/architecture.test.ts).
+   */
+  terrasseDeDepart?: (objets: ObjetPlan[]) => ObjetPlan | null;
 }
 
-export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres' | 'importerRelief' | 'reliefToutesParcelles';
+export type CaseIgn = 'importerBatiments' | 'importerHaies' | 'importerVegetation' | 'importerArbres' | 'importerRelief' | 'reliefToutesParcelles' | 'terrasseDepart';
 
 /** L'etat du parcours. `principale` et `proj` restent nuls tant que l'etape 1 n'a pas abouti. */
 export interface EtatImportCadastre {
@@ -107,6 +116,11 @@ export interface EtatImportCadastre {
   importerRelief: boolean;
   /** La grille du relief couvre toutes les parcelles importees, pas seulement celle du projet. */
   reliefToutesParcelles: boolean;
+  /**
+   * Poser une terrasse de depart (4 x 3 m) contre la maison a la creation (model/creation.ts,
+   * `terrasseDeDepart`) : le plan s'ouvre pret a chiffrer. Cochee par defaut ; jamais sur un batiment.
+   */
+  terrasseDepart: boolean;
   /** Parcelles cochees « propriete » : elles seront FUSIONNEES avec la principale en un seul terrain. */
   propriete: Set<string>;
   /** Le voisinage etendu demande : tout ce qui est dans `rayonEtendu` autour de la parcelle principale. */
@@ -226,8 +240,13 @@ export interface ImportCadastre {
 
 /** La cle du navigateur qui garde le choix de l'import direct : il suit l'utilisateur d'un import a l'autre. */
 const CLE_IMPORT_DIRECT = 'plan.import.direct';
+/**
+ * L'import direct est le parcours par defaut (lot 2 de la simplification, 16 novembre 2026) :
+ * l'adresse, la parcelle, le plan. Seul un « non » donne (la case decochee, `'0'`) ramene les
+ * etapes 2 et 3 ; un navigateur qui n'a rien dit, ou dont le stockage manque, a l'import direct.
+ */
 function importDirectMemorise(): boolean {
-  try { return localStorage.getItem(CLE_IMPORT_DIRECT) === '1'; } catch { return false; }
+  try { return localStorage.getItem(CLE_IMPORT_DIRECT) !== '0'; } catch { return true; }
 }
 
 // Un mot devant est admis (« Position 48.904964, 2.132627 », « Point … ») : c'est ce que le champ
@@ -729,6 +748,12 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
           voisinageEtendu: etendu ? { parcelles: etendu.parcelles, batiments: etendu.batiments, visible: e.afficherEtendu } : null
         };
         objets = objetsDepuisCadastre(importe);
+        // La terrasse de depart, contre la maison : posee ici et non dans `objetsDepuisCadastre`, qui
+        // rend ce que dit le cadastre (et que son empreinte garde) ; jamais sur un batiment.
+        if (e.terrasseDepart && ctx.terrasseDeDepart) {
+          const t = ctx.terrasseDeDepart(objets);
+          if (t) objets.push(t);
+        }
       } catch (err) {
         e.erreur = phraseReseau(err, 'Les services de l’IGN', 'Réessayez « Créer » dans un instant.') ?? 'Construction du plan impossible : ' + detailTechnique(err);
         signaler(); return;
@@ -791,7 +816,7 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     batiments: [], haies: [], vegetation: [], plu: null, ignCharge: new Set(), ignErreur: '',
     // Haies, vegetation et arbres estimes chargent le plan d'objets approximatifs : ils se demandent.
     importerBatiments: true, importerHaies: false, importerVegetation: false, importerArbres: false,
-    importerRelief: true, reliefToutesParcelles: true,
+    importerRelief: true, reliefToutesParcelles: true, terrasseDepart: true,
     propriete: new Set(),
     voisinageEtendu: false, rayonEtendu: RAYON_ETENDU_DEFAUT_M, etenduMax: null, afficherEtendu: true,
     importDirect: importDirectMemorise(), resumePret: false,

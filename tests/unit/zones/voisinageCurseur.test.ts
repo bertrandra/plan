@@ -51,7 +51,9 @@ describe('l import depuis une adresse, en import direct', () => {
     }));
     const i = creerImportCadastre({ apiSave: vi.fn(), appliquerProjetImporte: vi.fn(), withProjectParam: (id) => id, apiDisponible: true, cleDernierProjet: 'k' }, vi.fn());
     const hote = monter(createElement(ImportCadastre, { importe: i }));
-    cocher(hote.querySelector('[data-controle="cadastre.importDirect"]')!);
+    // L'import direct est le parcours par defaut : la case est deja cochee, et le titre ne compte pas d'etapes.
+    expect(hote.querySelector<HTMLInputElement>('[data-controle="cadastre.importDirect"]')!.checked).toBe(true);
+    expect(hote.querySelector('.titreParcours')!.textContent).toBe('Nouveau projet depuis une adresse');
     const curseur = hote.querySelector<HTMLInputElement>('[data-controle="cadastre.rayon"]')!;
     expect(curseur.min).toBe('10');
     expect(curseur.max).toBe('1500');
