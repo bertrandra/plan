@@ -41,7 +41,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   et ses mitoyennes ; le reste se voit en reculant. Seul le recul de la caméra change : le sol, les ombres et la brume gardent
   l'étendue de la scène, et rien de ce qui s'exporte ne bouge (empreintes identiques, `.glb` compris). Point de fumée 173, qui
   mesure aussi la démonstration du premier pas ; le point 111 cadre sur le regard qu'il pose (« Ajuster »), hors du cadre de la
-  terrasse, avant de le mesurer au plan.
+  terrasse, avant de le mesurer au plan ; le point 35 glisse depuis le fond du plan là où il est à l'écran (la parcelle couvre
+  désormais le bord gauche, d'où il partait).
 
 - **Une aide de première utilisation, en trois bulles** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026).
   À la première ouverture de Plan sur un appareil, une fois le plan à l'écran et rien d'ouvert par-dessus (l'import par adresse,

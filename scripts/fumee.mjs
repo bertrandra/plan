@@ -1512,10 +1512,22 @@ const POINTS = {
     await page.locator('.bandeauMode button').click(); await page.waitForTimeout(150);
     const fini = await page.evaluate(() => !document.querySelector('.bandeauMode'));
     const a = (await lireEtat(page)).scene.origine;
-    const r = await page.locator('#stage').boundingBox();
-    await glisser(page, { x: r.x + 30, y: r.y + r.height / 2 }, 40, 0);
+    // Un glisser sur le FOND du plan deplace la vue (interaction/pointeur.ts : un element sans `data-role`) ; sur un objet, il le vise.
+    // Le depart se cherche sur le fond, la ou il est a l'ecran : la demonstration s'ouvre cadree sur sa terrasse (16 novembre 2026), et
+    // la parcelle couvre le bord gauche du plan, ou ce point partait quand elle s'ouvrait sur tout le terrain.
+    const de = await page.evaluate(() => {
+      const r = document.getElementById('stage').getBoundingClientRect();
+      for (let j = 1; j < 20; j++) for (let i = 1; i < 20; i++) {
+        const x = r.x + (r.width * i) / 24, y = r.y + (r.height * j) / 20;
+        const e = document.elementFromPoint(x, y);
+        if (e && e.closest('#stage svg') && !e.dataset.role) return { x, y };
+      }
+      return null;
+    });
+    if (!de) return { ok: false, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'} ; aucun fond libre du plan à l’écran pour glisser` };
+    await glisser(page, de, 40, 0);
     const b = (await lireEtat(page)).scene.origine;
-    return { ok: actif && fini && Math.abs(b.x - a.x - 40) < 2, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'}, Annuler le retire ; la vue se déplace ensuite de ${(b.x - a.x).toFixed(1)} px pour 40` };
+    return { ok: actif && fini && Math.abs(b.x - a.x - 40) < 2, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'}, Annuler le retire ; la vue se déplace ensuite de ${(b.x - a.x).toFixed(1)} px pour 40 (glisser depuis le fond, en ${Math.round(de.x)}, ${Math.round(de.y)})` };
   },
   36: async (page) => {
     await selectionner(page, DALLE);
