@@ -77,3 +77,34 @@ describe('les dialogues', () => {
     expect(abandons).toEqual(['echap', 'remplace']);
   });
 });
+
+describe('un toast qui laisse se raviser', () => {
+  beforeEach(() => { vi.useFakeTimers(); notifications.vider(); });
+
+  it('fait le geste a sa fin, une fois, et non a son action', () => {
+    const fait: string[] = [];
+    notifications.emettreAvecAction('Le lien sera retiré.', 'Annuler', () => fait.push('annule'), () => fait.push('retire'), 6000);
+    expect(notifications.liste()[0]).toMatchObject({ type: 'toast', action: 'Annuler' });
+    vi.advanceTimersByTime(5999);
+    expect(fait).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(fait).toEqual(['retire']);
+    expect(notifications.liste()).toHaveLength(0);
+  });
+
+  it('abandonne le geste quand on choisit son action', () => {
+    const fait: string[] = [];
+    const id = notifications.emettreAvecAction('Le lien sera retiré.', 'Annuler', () => fait.push('annule'), () => fait.push('retire'), 6000);
+    notifications.agir(id);
+    vi.advanceTimersByTime(10000);
+    expect(fait).toEqual(['annule']);
+  });
+
+  it('fait le geste tout de suite quand on ferme le toast d un toucher', () => {
+    const fait: string[] = [];
+    const id = notifications.emettreAvecAction('Le lien sera retiré.', 'Annuler', () => fait.push('annule'), () => fait.push('retire'));
+    notifications.fermer(id);
+    notifications.fermer(id);
+    expect(fait).toEqual(['retire']);
+  });
+});

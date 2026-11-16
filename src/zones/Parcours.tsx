@@ -1,6 +1,6 @@
 // Z8, les parcours en plusieurs etapes (spec-ihm-zones §4.8) : import cadastral, actualisation IGN,
 // choix d'une texture, fiches du mode audit, audit de la parcelle, catalogue des audits recus (admin),
-// declaration prealable, devis et assistant (lot L6).
+// declaration prealable, devis, assistant (lot L6) et partage par un lien (lot 6 du parcours client).
 // Un seul a la fois, modal, fermable par Echap ou par un clic sur le voile.
 //
 // Le parcours ouvert vient d'app/parcours.ts ; chacun porte sa logique a part, cette zone ne fait que
@@ -14,6 +14,7 @@ import { ChoixTexture } from './parcours/ChoixTexture.js';
 import { Declaration } from './parcours/Declaration.js';
 import { Devis } from './parcours/Devis.js';
 import { Assistant } from './parcours/Assistant.js';
+import { Partage } from './parcours/Partage.js';
 
 // Les ecrans de l'audit ne se chargent qu'a leur ouverture (26 octobre 2026, AD-10) : seul l'audit les montre, et ils tirent avec
 // eux l'analyse des facades. Le temps de les recevoir, le voile est deja pose ; rien d'autre ne s'affiche.
@@ -46,6 +47,7 @@ export function Parcours({ commandes, magasin }: { commandes: RegistreCommandes;
       {p.type === 'declaration' && <Declaration inspecteur={p.service} magasin={magasin} fermer={fermer} commandes={commandes} dossier={p.dossier} />}
       {p.type === 'devis' && <Devis inspecteur={p.service} preferences={p.preferences} magasin={magasin} fermer={fermer} />}
       {p.type === 'assistant' && <Assistant service={p.service} commandes={p.commandes} fermer={fermer} />}
+      {p.type === 'partage' && <Partage service={p.service} commandes={commandes} magasin={magasin} fermer={fermer} />}
       <Suspense fallback={null}>
       {p.type === 'auditCas' && <AuditCas promenade={p.promenade} cle={p.cle} retirer={p.retirer} prise={p.prise} {...(p.couleurs ? { couleurs: p.couleurs } : {})} fermer={p.retour ?? fermer} />}
       {p.type === 'auditFin' && <AuditFin promenade={p.promenade} modifier={p.modifier} retirer={p.retirer} partager={p.partager} fermer={fermer} />}

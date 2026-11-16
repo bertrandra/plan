@@ -27,6 +27,7 @@ import type { RegistreCommandes } from './commandes.js';
 import type { Magasin } from './magasin.js';
 import { objetsHorsSession } from './toits/modeToit.js';
 import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
+import { brancherPartage } from './partage.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -288,6 +289,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     executer: () => { void enregistrer('Projet enregistre.'); }
   });
 
+  brancherPartage(cmd, { courant: seed.apiAvailable ? courant : null, ecrit: () => !projetARemplir(seed, ctx.etat), modifie: () => ctx.etat.dirty }); // lot 6 : un projet a remplir n'a rien chez la plateforme
   cmd.declarer({
     id: 'projet.supprimer', libelle: 'Supprimer le projet', groupe: 'projet',
     permission: PERMISSION_ECRITURE,

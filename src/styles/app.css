@@ -405,8 +405,9 @@
   button.danger{ background:var(--danger); border-color:var(--danger); color:var(--danger-bg); }
   /* Z9, les notifications (zones/Notifications.tsx) : les toasts empiles au-dessus de la barre
      d'etat, les erreurs en bandeau plein pied jusqu'a ce qu'on les ferme. */
+  /* Au-dessus du voile des dialogues (9998) : un toast annonce parfois un geste du dialogue ouvert, et son « Annuler » doit se toucher. */
   .notificationsToasts{
-    position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:9997;
+    position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:9999;
     display:flex; flex-direction:column-reverse; gap:6px; align-items:center; max-width:80vw; pointer-events:none;
   }
   .toast{
@@ -415,6 +416,11 @@
     animation:toastEntre 0.2s ease-out;
   }
   @keyframes toastEntre{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  /* Un toast qui laisse se raviser (« Annuler », le retrait d'un lien de partage) : le texte et son bouton sur une ligne. */
+  .toast.toastAction{ display:flex; align-items:center; gap:14px; text-align:left; width:min(520px, 86vw); box-sizing:border-box; }
+  .toast.toastAction > span{ flex:1 1 auto; }
+  .toastBouton{ flex:none; background:transparent; color:inherit; border:1px solid currentColor; border-radius:var(--r-bouton);
+    padding:4px 12px; min-height:32px; font-family:var(--sans); font-size:0.82rem; font-weight:600; cursor:pointer; }
   /* L'attente (zones/Attente.tsx) : une carte au centre, une roue et l'etape en cours. Le pointeur
      la traverse ; elle passe au-dessus des dialogues, sous le bandeau d'erreur. Sans mouvement
      demande (prefers-reduced-motion), la roue ne tourne pas : elle pulse a peine. */
@@ -444,6 +450,36 @@
   .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
   .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
   .dialogueDeclaration, .dialogueDevis{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
+  /* Le partage par un lien (lot 6, zones/parcours/Partage.tsx) : le formulaire ou le lien cree, puis la liste des liens du projet. */
+  .dialoguePartage{ width:min(560px,96vw); max-height:92vh; overflow:auto; }
+  .avertissementPartage{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:0 0 12px; padding:8px 10px;
+    border-left:3px solid var(--alerte); background:var(--panel-2); border-radius:var(--r-champ); }
+  .avertissementPartage p{ flex:1 1 220px; margin:0; font-size:0.8rem; line-height:1.4; }
+  .formulairePartage{ display:flex; flex-direction:column; gap:12px; }
+  .champPartage{ display:flex; flex-direction:column; gap:4px; font-size:0.8rem; }
+  .champPartage > span:first-child{ font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .champPartage em{ font-style:normal; text-transform:none; letter-spacing:0; }
+  .champPartage input[type=text], .champLien{ font:inherit; font-size:0.88rem; padding:6px 8px; min-height:34px; box-sizing:border-box; width:100%;
+    border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); }
+  .champPartage .note{ font-size:0.72rem; color:var(--ink-soft); }
+  .champPartage .segmente{ align-self:flex-start; }
+  .champLien{ font-family:var(--mono); font-size:0.78rem; }
+  .lienCree{ display:flex; flex-direction:column; gap:8px; }
+  .phraseLien{ margin:0; font-family:var(--serif); font-size:0.95rem; line-height:1.45; }
+  .actionsPartage{ display:flex; flex-wrap:wrap; gap:8px; }
+  .erreurPartage{ margin:0; color:var(--danger); font-size:0.8rem; line-height:1.4; }
+  .liensPartage{ margin-top:16px; border-top:1px solid var(--rule); padding-top:10px; }
+  .titreSectionPartage{ font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
+  .listeLiens{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .lienPartage{ display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 10px; padding:8px 10px;
+    background:var(--panel-2); border:1px solid var(--hairline); border-radius:var(--r-tuile); }
+  .lienTete{ display:flex; gap:8px; align-items:baseline; min-width:0; }
+  .lienPour{ font-family:var(--serif); font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lienEtat{ font-size:0.66rem; letter-spacing:.06em; text-transform:uppercase; padding:1px 8px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); flex:none; }
+  .lienPartage:not(.etat-active) .lienEtat{ background:var(--paper-deep); color:var(--ink-soft); }
+  .lienPartage:not(.etat-active) .lienPour{ color:var(--ink-soft); }
+  .lienDetails{ grid-column:1; font-size:0.72rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .lienPartage > button{ grid-column:2; grid-row:1 / span 2; }
   /* Le dossier de la declaration (lot L5, zones/parcours/TextesDossier.tsx) : les textes, les photographies, la relecture. Une piece
      par carte ; l'etat se dit en mots, la bordure d'alerte ne fait que le souligner. */
   .dossierDeclaration{ margin-top:14px; border-top:1px solid var(--rule); padding-top:10px; }
@@ -1469,6 +1505,9 @@
     font-family:var(--sans); font-size:14px; font-weight:600; border-radius:var(--r-bouton);
   }
   .boutonAccent{ background:var(--accent); color:var(--on-accent); border:none; }
+  /* Quatre gestes (le partage, lot 6) ne tiennent pas sur une ligne de 390 px : deux par ligne. */
+  .piedChiffrageActions:has(> button:nth-of-type(4)){ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .refusActions{ grid-column:1 / -1; margin:0; font-size:13px; color:var(--ink-soft); line-height:1.35; }
   /* La nomenclature en liste (maquette) : le poste et son prix sur la premiere ligne, la quantite et
      la fourchette dessous, en petit. Les cellules restent celles du tableau : ce que lit le code
      (quantites, champ de prix reel) ne bouge pas. */
@@ -1550,10 +1589,11 @@
     border-radius:0 !important; padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) !important;
     font-size:15px !important; box-shadow:none !important;
   }
-  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration, .dialogueDevis, .dialogueAssistant){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
+  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration, .dialogueDevis, .dialogueAssistant, .dialoguePartage){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
   html[data-classe="compact"] .dialogueImperatif button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
   html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }
+  html:not([data-classe="large"]) .dialoguePartage :is(input[type=text], .segmente button, button){ min-height:44px; font-size:16px; }
   html[data-classe="compact"] .dialogueImperatif input[type=checkbox], html[data-classe="compact"] .dialogueImperatif input[type=radio]{ width:20px; height:20px; }
   html[data-classe="compact"] .dialogueCadastre .piedDialogue, html[data-classe="compact"] .dialogueAudit .piedDialogue{
     position:sticky; bottom:calc(-16px - env(safe-area-inset-bottom)); margin:14px -16px 0 !important; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
@@ -1566,6 +1606,7 @@
   /* Les toasts au-dessus de la barre de navigation ; le bandeau d'erreur en haut, le bas etant pris. */
   html[data-classe="compact"] .notificationsToasts{ bottom:calc(var(--reserve-bas) + 12px); max-width:calc(100vw - 32px); }
   html[data-classe="compact"] .toast{ font-size:14px; border-radius:var(--r-bouton); padding:12px 16px; }
+  html:not([data-classe="large"]) .toastBouton{ min-height:44px; padding:6px 16px; }
   html[data-classe="compact"] .bandeauErreur{ bottom:auto; top:0; padding-top:calc(10px + env(safe-area-inset-top)); }
   html[data-classe="compact"] .bandeauErreur .fermer{ min-width:44px; min-height:44px; }
   /* La porte et le premier pas : la boite prend la largeur, champs et boutons au doigt. */

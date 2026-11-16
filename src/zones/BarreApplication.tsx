@@ -148,6 +148,8 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
       <ul role="menu">
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
+        {p.apiDisponible && commandes.obtenir('projet.partager') && <Entree commandes={commandes} id="projet.partager" libelle="Partager par un lien…" />}
+        {p.apiDisponible && <RefusAuDoigt commandes={commandes} id="projet.partager" tactile={tactile} />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.supprimer" libelle="Supprimer le projet…" />}
         {p.apiDisponible && p.schemaEnRetard && <Entree commandes={commandes} id="projet.mettreAJourModele" libelle="Mettre à jour le modèle…" />}
         {p.apiDisponible && <li className="separateur" role="separator" />}
