@@ -26,3 +26,13 @@ describe('le rayon d ouverture de la Vue 3D', () => {
     expect(rayonDOuverture(null, [parcelle], cen)).toBeNull();
   });
 });
+
+describe('le cadrage du plan a l ouverture', () => {
+  it('se pose sur la terrasse pour la demonstration sans compte seulement', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const boot = readFileSync(resolve(__dirname, '../../../src/app/boot.ts'), 'utf8');
+    expect(boot).toContain('if (options.essai) cadrage.cadrerTerrasse();');
+    expect(boot.match(/cadrerTerrasse\(\)/g)).toHaveLength(1);
+  });
+});
