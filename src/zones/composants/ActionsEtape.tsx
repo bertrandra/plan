@@ -6,8 +6,9 @@
 // Les elements lus par Claude portent la couleur de leur famille (FAMILLES_CLAUDE, jetons `--claude-*`), la meme a l'E8 et dans
 // l'etape qui les montre, toujours nommee a cote : la couleur ne porte rien seule.
 
-import { etapeFacade, LIBELLES_ETAT, FAMILLES_CLAUDE, type ActionEtape, type CleImageEtape, type ElementAction, type FamilleClaude, type TypeAction, type ValeurElement } from '../../model/etapeFacade.js';
-import type { ReactNode } from 'react';
+import { etapeFacade, sansNumeros, LIBELLES_ETAT, FAMILLES_CLAUDE, type ActionEtape, type CleImageEtape, type ElementAction, type FamilleClaude, type TypeAction, type ValeurElement } from '../../model/etapeFacade.js';
+import { useContext, type ReactNode } from 'react';
+import { NumerosEtapes } from './numerosEtapes.js';
 
 /** Le type d'une action en un mot, sur son badge. */
 export const LIBELLES_TYPE_ACTION: Readonly<Record<TypeAction, string>> = { code: 'Code', claude: 'Claude', manuel: 'Manuel', mesure: 'Mesure' };
@@ -51,7 +52,7 @@ export function valeursEnClair(v: ValeurElement | null | undefined): string {
 }
 
 /** Les numeros des etapes, « É10, É14 ». */
-const numeros = (ids: readonly string[]) => ids.map((id) => etapeFacade(id as Parameters<typeof etapeFacade>[0]).numero).join(', ');
+const numeros = (ids: readonly string[], avec = true) => ids.map((id) => { const e = etapeFacade(id as Parameters<typeof etapeFacade>[0]); return avec ? e.numero : e.nom; }).join(', ');
 
 /** Une image d'une etape (une reference de `ImagesEtapes`) changee en adresse par l'ecran ; null : l'ecran ne la montre pas (l'audit). */
 export type ImageDeLAction = (cle: CleImageEtape) => { url: string; libelle: string } | null;
@@ -63,6 +64,7 @@ export function PastilleFamille({ famille }: { famille: FamilleClaude }) {
 
 /** Ce qu'un element dit, en une ligne : son type, son statut, ce qu'il confirme, qui le consomme, la source qui vaut. */
 function LigneElement({ x, rang, extra }: { x: ElementAction; rang: number; extra?: ((x: ElementAction, rang: number) => ReactNode) | undefined }) {
+  const avecNumeros = useContext(NumerosEtapes);
   const vers = x.vers !== null && x.vers !== undefined ? (x.genre === 'element' ? ' → proposition ' + (x.vers + 1) : ' → ouverture ' + (x.vers + 1)) : '';
   const lue = x.sourceLue ? LIBELLES_SOURCE[x.sourceLue] : null;
   return (
@@ -74,7 +76,7 @@ function LigneElement({ x, rang, extra }: { x: ElementAction; rang: number; extr
       {x.rect && <span className="calNote">x {valeurEnClair(x.rect.x)} m, y {valeurEnClair(x.rect.y)} m, {valeurEnClair(x.rect.l)} × {valeurEnClair(x.rect.h)} m</span>}
       {x.details && Object.keys(x.details).length > 0 && <span className="calNote">{valeursEnClair(x.details)}</span>}
       {x.famille && <span className="calNote">
-        {x.consommePar?.length ? 'Consommé par ' + numeros(x.consommePar) : 'Aucune étape ne le consomme encore (une lecture)'}
+        {x.consommePar?.length ? 'Consommé par ' + numeros(x.consommePar, avecNumeros) : 'Aucune étape ne le consomme encore (une lecture)'}
         {x.valeurs ? ' · calcul : ' + valeursEnClair(x.valeurs.calcul) + ' · Claude : ' + valeursEnClair(x.valeurs.claude) : ''}
         {lue ? ' · source retenue : ' + lue + (x.choisie ? ' (votre choix)' : x.forcee ? ' (Claude forcé)' : ' (le moteur)') : ''}
         {x.sansClaude ? ' · Claude ne l’a pas lu : le calcul est gardé' : ''}
@@ -118,6 +120,8 @@ interface Props {
 
 /** Les actions d'une etape, chacune avec son badge, son etat, son avant et son apres, et ses elements. */
 export function ActionsEtape({ actions, image, extra, geste, libelle }: Props) {
+  // Sans les numeros (l'audit de la personne ordinaire) : les textes de la chaine se lisent sans « É7 » ni « V1 ».
+  const dire = useContext(NumerosEtapes) ? (t: string) => t : sansNumeros;
   if (!actions.length) return null;
   return (
     <ol className="actionsEtape" aria-label={libelle}>
@@ -125,12 +129,12 @@ export function ActionsEtape({ actions, image, extra, geste, libelle }: Props) {
         <li key={a.id + ':' + a.type + ':' + k} className={'actionEtape ' + a.type + ' ' + a.etat} data-action={a.id} data-type={a.type}>
           <div className="actionTete">
             <span className={'badgeAction ' + a.type}>{LIBELLES_TYPE_ACTION[a.type]}</span>
-            <span className="actionLibelle">{a.libelle}</span>
+            <span className="actionLibelle">{dire(a.libelle)}</span>
             <span className={'calFriseEtat ' + a.etat}>{LIBELLES_ETAT[a.etat]}</span>
           </div>
-          {a.texte && <p className="calNote">{a.texte}</p>}
+          {a.texte && <p className="calNote">{dire(a.texte)}</p>}
           {a.claude && <p className="calNote">{a.claude.rejouee ? 'Réponse enregistrée, rejouée sans réseau ni coût' : 'Aucune réponse de Claude rejouée (mode déterministe)'}{a.claude.image ? (a.claude.image === 'assemblage' ? ' ; image lue : l’assemblage' : ' ; image lue : celle du run de l’audit') : ''}.</p>}
-          {a.manuel && <p className="calNote">Votre geste : {a.manuel.geste}{a.manuel.fait === true ? ' — fait.' : a.manuel.fait === false ? ' — à faire.' : '.'}</p>}
+          {a.manuel && <p className="calNote">Votre geste : {dire(a.manuel.geste)}{a.manuel.fait === true ? ' — fait.' : a.manuel.fait === false ? ' — à faire.' : '.'}</p>}
           {(a.avant || a.apres) && <div className="avantApres">
             <Trace titre="Avant" t={a.avant} image={image} />
             <Trace titre="Après" t={a.apres} image={image} />

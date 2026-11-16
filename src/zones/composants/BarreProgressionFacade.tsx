@@ -8,7 +8,9 @@
 // cours (ou ouverte), et le resultat de la derniere etape finie. Au telephone, un fin ruban et « E7-E8 · Mur ». Les
 // etapes et les segments se disent par les numeros des etapes (E1 a E14), la poignee que le proprietaire emploie.
 
-import { SEGMENTS_FACADE, etapeFacade, etatDuSegment, libelleEtape, numerosDuSegment, LIBELLES_ETAT, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../model/etapeFacade.js';
+import { useContext } from 'react';
+import { NumerosEtapes } from './numerosEtapes.js';
+import { SEGMENTS_FACADE, etapeFacade, etatDuSegment, nomEtape, numerosDuSegment, sansNumeros, LIBELLES_ETAT, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../model/etapeFacade.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { EtapeCalculee } from '../../facade/releve/enchainement.js';
 import { Icone, type NomIcone } from '../icones.js';
@@ -52,18 +54,21 @@ function etatDe(etapes: readonly EtapeAffichee[], id: IdEtape): EtatAffiche {
 const segmentDe = (id: IdEtape): SegmentFacade | undefined => SEGMENTS_FACADE.find((s) => s.etapes.includes(id));
 
 /** Les deux lignes sous la barre : ce qui tourne (ou ce qui est ouvert), puis le resultat de la derniere etape finie. */
-function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouverte: IdEtape | null): [string, string] {
+function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouverte: IdEtape | null, numeros: boolean): [string, string] {
+  // Sans les numeros (l'audit de la personne ordinaire, composants/numerosEtapes.ts) : le nom de l'etape, et ses textes lus sans eux.
+  const libelleEtape = (id: IdEtape) => nomEtape(id, numeros);
+  const dire = numeros ? (t: string) => t : sansNumeros;
   const finies = etapes.filter((e) => e.etat !== 'a-venir' && e.etat !== 'en-cours' && e.etat !== 'saute');
   const derniere = finies[finies.length - 1];
   // Chaque etape se dit par son numero (E7 Calage du mur) : la poignee que le proprietaire emploie.
-  if (enCours) return [`${libelleEtape(enCours)} (${segmentDe(enCours)?.nom ?? etapeFacade(enCours).nom}), en cours…`, derniere ? libelleEtape(derniere.id) + ' : ' + derniere.resume : ''];
+  if (enCours) return [`${libelleEtape(enCours)} (${segmentDe(enCours)?.nom ?? etapeFacade(enCours).nom}), en cours…`, derniere ? libelleEtape(derniere.id) + ' : ' + dire(derniere.resume) : ''];
   if (ouverte) {
     const e = etapes.find((x) => x.id === ouverte), def = etapeFacade(ouverte);
-    const repli = e && (e.etat === 'echec' || e.etat === 'a-confirmer') && def.optionManuelle ? ' À la main : ' + def.optionManuelle + '.' : '';
-    return [`${libelleEtape(ouverte)} (${segmentDe(ouverte)?.nom ?? def.nom}), ${LIBELLES_ETAT[e?.etat ?? 'a-venir']}`, (e?.resume ?? '') + repli];
+    const repli = e && (e.etat === 'echec' || e.etat === 'a-confirmer') && def.optionManuelle ? ' À la main : ' + dire(def.optionManuelle) + '.' : '';
+    return [`${libelleEtape(ouverte)} (${segmentDe(ouverte)?.nom ?? def.nom}), ${LIBELLES_ETAT[e?.etat ?? 'a-venir']}`, dire(e?.resume ?? '') + repli];
   }
   if (!derniere) return ['Rien n’est encore calculé.', ''];
-  return [etapes.some((e) => e.etat === 'a-venir') ? 'Enchaînement arrêté.' : 'Enchaînement terminé.', libelleEtape(derniere.id) + ' : ' + derniere.resume];
+  return [etapes.some((e) => e.etat === 'a-venir') ? 'Enchaînement arrêté.' : 'Enchaînement terminé.', libelleEtape(derniere.id) + ' : ' + dire(derniere.resume)];
 }
 
 /**
@@ -86,7 +91,10 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
     const doute = etats.findIndex((e) => e === 'echec' || e === 'a-confirmer');
     return doute >= 0 ? doute : etats.map((e, i) => (e === 'ok' || e === 'confirme' ? i : -1)).reduce((a, b) => Math.max(a, b), 0);
   })());
-  const [haut, bas] = lignes(etapes, enCours, ouverte);
+  const numeros = useContext(NumerosEtapes);
+  const [haut, bas] = lignes(etapes, enCours, ouverte, numeros);
+  // Les numeros du segment (E3-E6) et son point de validation, seulement quand l'ecran les montre.
+  const prefixe = (s: SegmentFacade) => (numeros ? numerosDuSegment(s) + ' ' : '');
   const etatCommande = commandes?.etat(COMMANDE_ETAPE);
   const efface = commandes?.effacee(COMMANDE_ETAPE) ?? true;
   const seg = SEGMENTS_FACADE[courant] as SegmentFacade;
@@ -97,10 +105,10 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
           {SEGMENTS_FACADE.map((s, k) => {
             const etat = etats[k] as EtatAffiche, icone = ICONES[etat];
             // Le segment se dit par les numeros de ses etapes (E3-E6 Image) : dans l'audit, une etape cachee garde le sien.
-            const texte = `${numerosDuSegment(s)} ${s.nom}, ${LIBELLES_ETAT[etat]}` + (s.validation ? ', point de validation ' + s.validation : '');
+            const texte = `${prefixe(s)}${s.nom}, ${LIBELLES_ETAT[etat]}` + (s.validation ? (numeros ? ', point de validation ' + s.validation : ', à valider par vous') : '');
             const contenu = <>
               <span className="barreFacadeTrait" aria-hidden="true" />
-              <span className="barreFacadeEtiquette" aria-hidden="true">{icone ? <Icone nom={icone} taille={14} /> : <span className="barreFacadePastille" />}{numerosDuSegment(s)} · {s.nom}{s.validation && <span className="barreFacadeRepere">{s.validation}</span>}</span>
+              <span className="barreFacadeEtiquette" aria-hidden="true">{icone ? <Icone nom={icone} taille={14} /> : <span className="barreFacadePastille" />}{numeros && <>{numerosDuSegment(s)} · </>}{s.nom}{numeros && s.validation && <span className="barreFacadeRepere">{s.validation}</span>}</span>
             </>;
             const bouton = !efface && ouvrable(s, etat);
             return (
@@ -115,7 +123,7 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
         </ol>
         {enCours && arreter && <button type="button" className="secondary small barreFacadeArreter" data-controle="barreFacade.arreter" onClick={arreter}>Arrêter</button>}
       </div>
-      <p className="barreFacadeRuban" aria-hidden="true">{numerosDuSegment(seg)} · {seg.nom} · {LIBELLES_ETAT[etats[courant] as EtatAffiche]}</p>
+      <p className="barreFacadeRuban" aria-hidden="true">{numeros && <>{numerosDuSegment(seg)} · </>}{seg.nom} · {LIBELLES_ETAT[etats[courant] as EtatAffiche]}</p>
       <p className="barreFacadeLigne" role="status">{haut}</p>
       {bas && <p className="barreFacadeLigne resultat">{bas}</p>}
     </div>

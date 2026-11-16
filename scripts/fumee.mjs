@@ -3747,6 +3747,64 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `mode simple : ${simple.join(', ')} ; mode expert : ${expert.length} onglets ; Optimisation ouverte, le mode éteint → ${apresExtinction}` };
   },
+  182: async (page, f) => {
+    // L'audit d'une facade sans le jargon des etapes (lot 3 de la simplification, 16 novembre 2026) : mode expert eteint, la personne
+    // ordinaire photographie la facade de la maison (la scene 02 du banc, le parcours du point 105) ; la barre, les lignes des etapes,
+    // le segment « Mur » ouvert et ses actions disent le nom des etapes, sans « É7 » ni « V1 » a « V4 ». Le mode expert allume, les
+    // numeros reviennent (l'admin des demos et la calibration les gardent toujours) ; rien n'est recalcule.
+    const echecs = [];
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const JARGON = /É\d|(?<![\p{L}\d])V[1-4](?![\p{L}\d])/u;
+    await modeExpert(page, false);
+    // Au doigt, la feuille Projet vient de se fermer : on la laisse finir avant de la rouvrir sur le menu Fichier. L'entree se touche
+    // par le DOM : une notification d'avertissement (la capacite du relief forcee) peut passer par-dessus au telephone.
+    await page.waitForTimeout(500);
+    await etape('ouvrir', async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      await page.evaluate(() => { document.getElementById('menuFichier')?.setAttribute('open', ''); });
+      await page.waitForTimeout(200);
+      await page.evaluate(() => document.querySelector('#menuFichier [data-commande="audit.parcelle"]')?.click());
+      await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 10000 });
+    });
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 120000 }));
+    const prise = (await page.locator('.auditPrise .barreFacade').first().textContent()) || '';
+    if (JARGON.test(prise)) echecs.push('prise : « ' + prise.match(JARGON)?.[0] + ' » dans « ' + prise.slice(0, 80) + ' »');
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const barre = '.dialogueAuditParcelle .facadeAudit';
+    await etape('barre', () => page.locator(barre + ' .barreFacade').first().waitFor({ timeout: 30000 }));
+    const textes = async () => page.evaluate((b) => {
+      const el = document.querySelector(b);
+      const aria = [...(el?.querySelectorAll('[aria-label]') ?? [])].map((x) => x.getAttribute('aria-label')).join(' | ');
+      return { texte: el?.textContent ?? '', aria, segments: [...(el?.querySelectorAll('.barreFacadeEtiquette') ?? [])].map((x) => x.textContent) };
+    }, barre);
+    const liste = await textes();
+    if (JARGON.test(liste.texte)) echecs.push('façade : « ' + liste.texte.match(JARGON)?.[0] + ' » dans « …' + liste.texte.slice(Math.max(0, liste.texte.search(JARGON) - 40), liste.texte.search(JARGON) + 30) + '… »');
+    if (JARGON.test(liste.aria)) echecs.push('libellés : « ' + liste.aria.match(JARGON)?.[0] + ' »');
+    if (!liste.segments.some((t) => /^Mur$/.test(t?.trim() ?? ''))) echecs.push('segments : ' + liste.segments.join(', '));
+    // Le segment « Mur » ouvert : sa ligne et ce que l'etape a fait.
+    await etape('segment Mur', () => page.locator(barre + ' button[data-etape="calage"], ' + barre + ' button[data-etape="lectureIa"]').first().click({ timeout: 10000 }));
+    await page.waitForTimeout(400);
+    await page.evaluate((b) => document.querySelectorAll(b + ' details').forEach((d) => { d.open = true; }), barre);
+    await page.waitForTimeout(200);
+    const ouvert = await textes();
+    if (JARGON.test(ouvert.texte)) echecs.push('Mur ouvert : « ' + ouvert.texte.match(JARGON)?.[0] + ' » dans « …' + ouvert.texte.slice(Math.max(0, ouvert.texte.search(JARGON) - 40), ouvert.texte.search(JARGON) + 30) + '… »');
+    if (!/Calage du mur/.test(ouvert.texte)) echecs.push('le nom « Calage du mur » n’est pas dit');
+    const debord = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    if (debord) echecs.push('débordement');
+    // Le mode expert allume (l'interrupteur est sous le dialogue : on passe par la preference), les numeros reviennent au rendu suivant.
+    await page.evaluate(() => { const c = document.getElementById('chkModeExpert'); if (c && !c.checked) c.click(); });
+    await etape('segment Mur', () => page.locator(barre + ' button[data-etape="calage"], ' + barre + ' button[data-etape="lectureIa"]').first().click({ timeout: 10000 }));
+    await page.waitForTimeout(400);
+    const expert = await textes();
+    if (!/É7/.test(expert.texte)) echecs.push('les numéros ne reviennent pas en mode expert');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `segments « ${liste.segments.map((t) => t?.trim()).join(' · ')} » ; aucun « É » ni « V » à l’écran ; mode expert : ${/É7/.test(expert.texte) ? 'numéros revenus' : 'SANS numéros'}` };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9659,7 +9717,8 @@ function pointsPour(nomClasse) {
   // 179 : le menu Fichier en neuf entrees au plus en mode simple, sans filet de trop ; le reste revient avec le mode expert.
   // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
   // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181];
+  // 182 : l'audit d'une facade sans « É7 » ni « V1 » pour la personne ordinaire ; le mode expert les rend.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
