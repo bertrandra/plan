@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: () => {}, showConfirm: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: () => {}, showErrBanner: () => {}, showErreur: () => {}, showConfirm: () => {} }));
 vi.mock('../../../src/render/ortho.js', () => ({ ortho: { tuiles: [], tuilesLarges: [], couverture: null }, restaurerOrthoDuProjet: () => {} }));
 
 import { appliquerProjetImporte, type ContexteImportProjet } from '../../../src/io/projet.js';

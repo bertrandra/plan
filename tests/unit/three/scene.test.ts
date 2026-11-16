@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 import * as THREE_NS from 'three';
 
 const bannieres: string[] = [];
-vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showErreur: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
 
 import { buildThreeScene, remplacerObjets3d, comparerObjets3d, epurerVue3d, epurerLeTemps, visibilite3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from '../../../src/three/primitives.js';

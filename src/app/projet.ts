@@ -14,7 +14,8 @@ import { jsonParPaquets, octetsUtf8 } from '../util/jsonParPaquets.js';
 import { PERMISSION_ECRITURE, compteProjetsCourant, partageCourant, enEssai } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
-import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
+import { showConfirm, showPrompt, showToast, showErreur } from '../shell/dialogs.js';
+import { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 import { dialogues } from '../shell/dialogues.js';
 import { schemaAEcrire, migrationsDepuis } from '../model/migrations.js';
 import { cleDesAttributs } from '../core/controleurObjets.js';
@@ -207,10 +208,17 @@ function retardMemorise(): (etat: EtatApp) => boolean {
   };
 }
 
-/** Le bandeau d'un enregistrement refuse ; celui de l'enregistrement automatique dit qu'il reessaie. */
+/**
+ * Le bandeau d'un enregistrement refuse, le reseau dit en clair (util/erreurReseau.ts) : ce qui se passe et quoi faire, le
+ * message d'origine en detail a copier ; celui de l'enregistrement automatique dit qu'il reessaie.
+ */
 function annoncerEchec(e: unknown, poids: string, automatique: boolean): void {
-  showErrBanner((automatique ? 'L’enregistrement automatique a échoué' : 'Echec de l\'enregistrement') + poids + ' : ' + ((e as Error).message || e)
-    + (automatique ? ' — Plan réessaie de lui-même ; vos modifications restent à l’écran.' : ''));
+  const ensuite = automatique ? 'Rien n’est perdu : vos modifications restent à l’écran, et Plan réessaie de lui-même.'
+    : 'Rien n’est perdu : vos modifications restent à l’écran. Réessayez « Enregistrer » dans un instant.';
+  const clair = phraseReseau(e, 'La plateforme', ensuite);
+  const tete = (automatique ? 'L’enregistrement automatique a échoué' : 'Échec de l’enregistrement') + poids + ' : ';
+  showErreur(tete + (clair ? clair.charAt(0).toLowerCase() + clair.slice(1) : detailTechnique(e) + (automatique ? ' — Plan réessaie de lui-même ; vos modifications restent à l’écran.' : '')),
+    clair ? detailTechnique(e) : '');
 }
 
 /** « Supprimer le projet » : confirme, supprime sur la plateforme, puis repart sans projet (sans la question du navigateur). */
@@ -230,7 +238,8 @@ function declarerSuppression(cmd: RegistreCommandes, seed: SeedProjet, ctx: Cont
           partirSansQuestion();
           location.href = url.toString();
         } catch (e) {
-          showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
+          const clair = phraseReseau(e, 'La plateforme', 'Le projet n’est pas supprimé : réessayez dans un instant.');
+          showErreur(clair ?? 'Échec de la suppression : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
         }
       });
     }
@@ -353,7 +362,8 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
           const created = await ctx.apiSave({ name, ...charge() });
           aller(created.id);
         } catch (e) {
-          showErrBanner('Impossible de creer le projet : ' + ((e as Error).message || e));
+          const clair = phraseReseau(e, 'La plateforme', 'Le plan reste ouvert ici : réessayez « Nouveau projet » dans un instant.');
+          showErreur(clair ?? 'Impossible de créer le projet : ' + detailTechnique(e), clair ? detailTechnique(e) : '');
         }
       });
     }

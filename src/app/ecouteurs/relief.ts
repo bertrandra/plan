@@ -9,6 +9,7 @@
 // Rien ne relit le service tout seul (regle 5) : l'ouverture jamais ; l'import et l'actualisation IGN
 // seulement si leur case « Relief du terrain » est cochee (app/cadastre/importCadastre.ts, actualisationIgn.ts).
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { showToast } from '../../shell/dialogs.js';
@@ -76,7 +77,7 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
       reconstruire3d();
       showToast('Relief ' + verbe + ' : ' + resumeRelief(r));
     } catch (e) {
-      showToast((e as Error).message || 'L’IGN n’a pas répondu ; réessayez.');
+      showToast(phraseReseau(e, 'Le service d’altitude de l’IGN', 'Le relief n’a pas changé : réessayez dans un instant.') ?? (detailTechnique(e) || 'L’IGN n’a pas répondu ; réessayez.'));
     } finally {
       lectureRelief.definir(false);
       ctx.rafraichir();

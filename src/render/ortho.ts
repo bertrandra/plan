@@ -10,6 +10,7 @@
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
 
+import { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 import { cleDesLus } from '../core/controleurObjets.js';
 import { lesTerrains } from '../core/lectures.js';
 import { showToast } from '../shell/dialogs.js';
@@ -434,7 +435,7 @@ export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho, dis
     ortho.actif = false;
     // Le rendu redit au menu que le fond est eteint.
     ctx.render();
-    if(!discret) showToast('Orthophoto indisponible : ' + ((e as Error).message || e));
+    if(!discret) showToast(phraseReseau(e, 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant (Affichage › Photo aérienne).') ?? 'Orthophoto indisponible : ' + detailTechnique(e));
   } finally {
     ortho.chargement = false;
   }
