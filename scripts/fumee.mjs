@@ -3517,6 +3517,10 @@ const POINTS = {
       const exporter = await entreesDuMenu(page, 'menuExporter');
       await page.evaluate(() => window.__plan.selectionnerPremiere('terrasse'));
       await page.waitForTimeout(200);
+      // L'inspecteur se lit montre : cache (une feuille fermee), il garde ce qu'il montrait.
+      await inspecteur(page);
+      const parametres = await page.evaluate(() => !!document.querySelector('details.inspecteurSection[data-section="parametres"]'));
+      await feuille(page, null);
       // Les reglages de la Vue 3D se lisent vue ouverte : cachee, la zone garde ce qu'elle montrait (sa cle est gelee).
       await page.evaluate(() => window.__plan.executer('vue.3d'));
       await page.waitForTimeout(1200);
@@ -3524,11 +3528,11 @@ const POINTS = {
       await page.evaluate(() => window.__plan.executer('vue.plan'));
       await page.waitForTimeout(300);
       const r = await page.evaluate(() => ({
-        visionneuse: !!document.querySelector('#glbViewerBtn'), parametres: !!document.querySelector('details.inspecteurSection[data-section="parametres"]'),
+        visionneuse: !!document.querySelector('#glbViewerBtn'),
         // En mode simple seulement : allume, la commande telechargerait le fichier.
         dxf: window.__plan.magasin().options.modeExpert ? null : window.__plan.executer('export.dxf') === false ? 'refusé' : 'exécuté'
       }));
-      return { fichier, exporter, ...v3d, ...r };
+      return { fichier, exporter, parametres, ...v3d, ...r };
     };
     const techniques = ['fichier.importerSvg', 'fichier.importerJson', 'fichier.exporterJson'];
     const options = ['fichier.option.remplacerImportSvg', 'fichier.option.remplacerImportJson', 'fichier.option.exportSansParcelle'];
