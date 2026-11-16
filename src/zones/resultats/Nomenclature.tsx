@@ -16,7 +16,10 @@ import { porteeVisM } from '../../engine/bois/portees.js';
 import { valeurEnregistree } from '../../model/dictionnaire.js';
 import { SaisieNombre, SaisieTexte } from '../composants/Saisie.js';
 import type { Resultats } from '../../app/resultats.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
+import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { Construction, LigneBom, ObjetPlan } from '../../model/types.js';
+import { totauxBom, euros, eurosCentimes } from '../../ui/chiffrage.js';
 
 type ChampLongueurs = 'longueursLames' | 'longueursBois' | 'longueursLambourde';
 
@@ -95,12 +98,8 @@ function TableBom({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesT
   const c = ensureConstruction(obj);
   // Le BOM est ecrit par le service au rafraichissement ; avant le premier, on le lit sans l'ecrire.
   const lignes: LigneBom[] = c.bom ?? computeBOM(obj, layers, solDuProjet(resultats.etat.objects));
-  let totalBas = 0, totalHaut = 0, reel = 0, unReel = false;
-  lignes.forEach(l => {
-    totalBas += (l.prixBas || 0) * l.qte;
-    totalHaut += (l.prixHaut || 0) * l.qte;
-    if (l.prixReel !== null && l.prixReel !== undefined) { reel += l.prixReel; unReel = true; }
-  });
+  // Le total vient de la meme somme que le resume du chiffrage (ui/chiffrage.ts) : la zone n'additionne rien.
+  const total = totauxBom(lignes);
   const saisirReel = (poste: string, t: string) => {
     const v = parseFloat(t);
     resultats.saisir(() => {
@@ -127,13 +126,17 @@ function TableBom({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesT
                     libelle={'Prix réel : ' + l.label} largeur={110} onValider={(t) => saisirReel(l.poste, t)} /></td>}
             </tr>
           ))}
+          {/* Le total general, en pied de table : la fourchette estimee (prix bas et haut fois les quantites) et le reel saisi.
+              A l'ecran seulement : ni le resume ni les PDF ne le lisent. */}
+          <tr id="terrasseBomTotals" className="ligneTotalBom">
+            <td>Total HT</td>
+            <td></td>
+            <td className="nombre">{euros(total.bas)}</td>
+            <td className="nombre">{euros(total.haut)}</td>
+            <td className="nombre">{total.reel !== null ? 'Réel saisi : ' + eurosCentimes(total.reel) : 'Réel : non saisi'}</td>
+          </tr>
         </tbody>
       </table>
-      <div className="controls">
-        <span id="terrasseBomTotals" className="totauxBom">
-          {'Estimé : ' + totalBas.toFixed(0) + ' € – ' + totalHaut.toFixed(0) + ' €' + (unReel ? '   |   Réel saisi : ' + reel.toFixed(2).replace('.', ',') + ' €' : '')}
-        </span>
-      </div>
     </>
   );
 }
@@ -274,10 +277,18 @@ function DebitBois({ obj, layers, resultats }: PropsTerrasse & { layers: Couches
   );
 }
 
-export function Nomenclature({ obj, resultats }: PropsTerrasse) {
+export function Nomenclature({ obj, resultats, commandes }: PropsTerrasse & { commandes?: RegistreCommandes }) {
   const layers = computeTerrasseLayers(obj, resultats.etat.objects);
   return (
     <>
+      {/* La liste d'achat d'abord : ce qu'on emporte au magasin, tire de la table qui suit (terrasses cochees pour le dossier). */}
+      {commandes && (
+        <div className="controls listeAchat" role="group" aria-label="Liste d’achat">
+          <span className="libelleListeAchat">Liste d’achat</span>
+          <BoutonCommande commandes={commandes} id="export.listeAchatPdf" className="secondary small">PDF à imprimer</BoutonCommande>
+          <BoutonCommande commandes={commandes} id="export.listeAchatCsv" className="secondary small">CSV (tableur)</BoutonCommande>
+        </div>
+      )}
       <div className="sectionTitle">Nomenclature</div>
       <TableBom obj={obj} layers={layers} resultats={resultats} />
       <div className="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>

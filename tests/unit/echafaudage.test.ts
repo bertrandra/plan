@@ -59,7 +59,10 @@ describe('phase 1 - echafaudage', () => {
       'plan.pdf': 'bc1f4a063a0b6fb39658cc62fdb9bff8b8a1141287a84517411bad053f9442e1',
       'dossier.pdf': 'c14bcf90acf44bcf76554524fc36d10274f6064189d6ed407d45ffd781617e8e',
       // Le devis (16 novembre 2026), regenere par tests/unit/export/regeneration.test.ts.
-      'devis.pdf': 'dab3e46e6c7c10ff58b736d6ef7ae8a36b2cb75d9db915cb37ca9632cda86a1e'
+      'devis.pdf': 'dab3e46e6c7c10ff58b736d6ef7ae8a36b2cb75d9db915cb37ca9632cda86a1e',
+      // La liste d'achat (16 novembre 2026), CSV et PDF, regeneres par le meme test.
+      'liste-achat.csv': '7e00c7ea42b84535f73026cc5038ba37396a39e69c3d8e4a521f8aaec06b69db',
+      'liste-achat.pdf': '759916121d2758ec427b8e387befb0d870d46a45df05f728f150494444f83dfc'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

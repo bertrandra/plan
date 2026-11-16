@@ -73,6 +73,7 @@ const etape = (zone: string, ouvertPar: string, libelle: string, plus: Partial<C
   ({ libelle, zone, nature: 'parcours', ouvertPar, ...plus });
 const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXTURE = 'champ Texture de l’inspecteur', RELEVER = 'facade.modifier';
 const DIALOGUE = 'toute commande qui pose une question';
+const PARTAGER = 'projet.partager';
 const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
 const AUDIT_PARCELLE = 'audit.parcelle';
 const CATALOGUE_AUDITS = 'admin.auditsParcelle';
@@ -156,6 +157,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'tiroir.onglet': { libelle: 'Onglet du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.hauteur': { libelle: 'Hauteur du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.terrasseSuivante': { libelle: 'Passer à la terrasse suivante', zone: Z6, nature: 'navigation' },
+  'tiroir.voirNomenclature': { libelle: 'Voir la nomenclature de la terrasse', zone: Z6, nature: 'navigation' },
   'nomenclature.longueurs': { libelle: 'Longueurs disponibles', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'nomenclature.prix': { libelle: 'Prix (barre, m², unité, réel)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'nomenclature.conditionnement': { libelle: 'Conditionnement des vis', zone: Z6, nature: 'donnee', ecrit: SAISIE },
@@ -181,6 +183,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'navigation.proprietes': { libelle: 'Propriétés', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille de l’inspecteur' },
   'navigation.resultats': { libelle: 'Résultats', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille du tiroir' },
   'notification.fermer': { libelle: 'Fermer une erreur', zone: Z9, nature: 'navigation', repete: true },
+  // Le bouton d'un toast qui laisse se raviser (« Annuler » le retrait d'un lien de partage, lot 6).
+  'notification.action': { libelle: 'Annuler le geste qu’un message annonce', zone: Z9, nature: 'navigation', repete: true },
 
   // ---- Z8 : les ecrans qui ne s'ouvrent qu'a la demande ----------------------------------------
   // Dialogues (zones/Dialogues.tsx) : la reponse a une question posee par une commande.
@@ -431,6 +435,18 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // `assistant.appliquer`) ; la saisie ne touche pas au projet, la liste ne s'applique que par sa commande.
   'assistant.demande': etape(Z8, 'assistant.demander', 'Demander (la demande à l’assistant)'),
   'assistant.fermer': etape(Z8, 'assistant.demander', 'Fermer l’assistant'),
+  // Le partage par un lien (lot 6, zones/parcours/Partage.tsx) : rien de ce dialogue n'ecrit dans le projet ; ses saisies vont a la
+  // plateforme avec le lien, et le jeton ne vit que dans le dialogue.
+  'partage.destinataire': etape(Z8, PARTAGER, 'Pour qui (privé, facultatif)'),
+  'partage.nomAffiche': etape(Z8, PARTAGER, 'Nom affiché à l’ouverture du lien'),
+  'partage.duree': etape(Z8, PARTAGER, 'Durée du lien (7 jours, 30 jours, 90 jours, 1 an)', { repete: true }),
+  'partage.creer': etape(Z8, PARTAGER, 'Créer le lien'),
+  'partage.lien': etape(Z8, PARTAGER, 'Le lien créé, à copier (montré une fois)'),
+  'partage.copier': etape(Z8, PARTAGER, 'Copier le lien'),
+  'partage.natif': etape(Z8, PARTAGER, 'Envoyer le lien par le partage du système (au doigt)'),
+  'partage.autre': etape(Z8, PARTAGER, 'Créer un autre lien'),
+  'partage.retirer': etape(Z8, PARTAGER, 'Retirer un lien (Annuler dans le message, quelques secondes)', { repete: true }),
+  'partage.fermer': etape(Z8, PARTAGER, 'Fermer le partage'),
   'actualisation.lancer': etape(Z8, ACTUALISER, 'Actualiser', { ecrit: { annulable: true, droits: 'commande' } }),
   // Choix d'une texture (zones/parcours/ChoixTexture.tsx).
   'texture.fermer': etape(Z8, TEXTURE, 'Fermer le choix de texture'),

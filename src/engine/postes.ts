@@ -17,7 +17,7 @@ import { computeTerrasseLayers, type CouchesTerrasse } from './layers.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
 import { ensureConstruction } from './construction.js';
 import { estPlots, plotModele } from './constantes.js';
-import { prixPersonnalise, type ProduitBarre } from './prix.js';
+import { prixBarre, prixPersonnalise, type ProduitBarre } from './prix.js';
 import { appuisEnHauteur } from './hauteurs.js';
 import { solDuProjet } from './sol.js';
 import { surfaceNetteTerrasse } from './ouvrages/terrasse.js';
@@ -62,6 +62,9 @@ export type PrixPoste =
   | { saisi: false; unitaire: Fourchette; total: Fourchette };
 
 /** Une ligne du BOM, rangee dans son rayon, avec ce que vaut son prix. */
+/** Les barres d'une longueur du commerce, achetees pour une ligne debitee (le debit de la Nomenclature). */
+export interface BarresAchetees { longueur: number; nombre: number; prixBarre: number; saisi: boolean }
+
 export interface Poste {
   poste: string;
   rayon: string;
@@ -69,6 +72,12 @@ export interface Poste {
   qte: number;
   unite: string;
   prix: PrixPoste;
+  /** La ligne du BOM telle que la Nomenclature l'affiche : prix bas et haut par unite, prix reel du total (saisi ou calcule). */
+  bom: { prixBas: number; prixHaut: number; prixReel: number | null };
+  /** La section achetee, quand la ligne en a une (bois : `63x175` ; lames : epaisseur x largeur, en mm). */
+  section?: string;
+  /** Les barres par longueur du commerce, de la plus longue a la plus courte, pour une ligne debitee (lames, bois porteur). */
+  barres?: BarresAchetees[];
 }
 
 export interface ChiffrageTerrasse {
@@ -126,7 +135,23 @@ export function posteDeLigne(ligne: LigneBom, saisi: boolean): Poste | null {
     : { saisi: false, unitaire: { bas, haut }, total: { bas: bas * ligne.qte, haut: haut * ligne.qte } };
   // Une lame de rive decochee garde sa longueur et un prix nul : rien ne s'achete.
   if (!prix.saisi && bas === 0 && haut === 0) return null;
-  return { poste: ligne.poste, rayon: rayonDuPoste(ligne.poste), libelle: ligne.label, qte: ligne.qte, unite: ligne.unite, prix };
+  const bom = { prixBas: ligne.prixBas, prixHaut: ligne.prixHaut, prixReel: reel ?? null };
+  return { poste: ligne.poste, rayon: rayonDuPoste(ligne.poste), libelle: ligne.label, qte: ligne.qte, unite: ligne.unite, prix, bom };
+}
+
+/** Les barres d'un debit, longueur par longueur, a leur prix (saisi ou par defaut, comme la table de debit de la Nomenclature). */
+function barresDuDebit(c: Construction, d: Debit, cle: ProduitBarre): BarresAchetees[] {
+  return Object.entries(d.achats).filter(([, n]) => n > 0).map(([L, n]) => ({ longueur: parseFloat(L), nombre: n }))
+    .sort((a, b) => b.longueur - a.longueur)
+    .map(({ longueur, nombre }) => ({ longueur, nombre, prixBarre: prixBarre(c, cle, longueur), saisi: prixPersonnalise(c, cle, longueur) }));
+}
+
+/** Ce qu'une ligne debitee achete : sa section et ses barres ; rien pour une autre ligne. */
+function achatsDebites(obj: ObjetPlan, couches: CouchesTerrasse, poste: string): Pick<Poste, 'section' | 'barres'> {
+  const c = ensureConstruction(obj);
+  if (poste === 'lames') return { section: (c.epaisseurLame || 25) + 'x' + (c.largeurLame || 140), barres: barresDuDebit(c, computeDebitLames(obj, couches), 'lames') };
+  const groupe = computeDebitsBois(obj, couches).find((g) => g.cle === poste);
+  return groupe ? { section: groupe.section, barres: barresDuDebit(c, groupe.debit, groupe.cle) } : {};
 }
 
 /** La somme de postes : un prix saisi compte aux deux bornes. */
@@ -149,7 +174,7 @@ export function chiffrerTerrasse(obj: ObjetPolygone, objets: ObjetPlan[]): Chiff
     .map((l, i) => ({ i, p: posteDeLigne(l, l.calcule ? calculSaisi(obj, objets, couches, l) : l.prixReel !== null && l.prixReel !== undefined) }))
     .filter((x): x is { i: number; p: Poste } => x.p !== null)
     .sort((a, b) => ordreRayon(a.p.rayon) - ordreRayon(b.p.rayon) || a.i - b.i)
-    .map((x) => x.p);
+    .map((x) => ({ ...x.p, ...achatsDebites(obj, couches, x.p.poste) }));
   return { cle: obj.key, nom: obj.name, surface: surfaceNetteTerrasse(obj.pts, objets), postes, total: totalDesPostes(postes) };
 }
 

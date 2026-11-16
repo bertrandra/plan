@@ -86,6 +86,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.nouveau': menu('menuFichier'),
   'projet.enregistrer': { compact: ['feuilleProjet', 'clavier'], moyen: ['menuFichier', 'clavier'], large: ['menuFichier', 'barreHaute', 'clavier'] },
   'projet.supprimer': menu('menuFichier'),
+  // Le partage par un lien (lot 6) : le menu Fichier (feuille Projet au doigt), et les gestes qui suivent un chiffrage, a cote du
+  // devis : le pied de la feuille Chiffrage au telephone, la barre d'estimation au bureau (zones/Resultats.tsx).
+  'projet.partager': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuFichier'], large: ['menuFichier', 'tiroir'] },
   'projet.mettreAJourModele': menu('menuFichier'),
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),
@@ -205,9 +208,13 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.pdf': menu('menuExporter'),
   // Le devis : en tete du menu Exporter, et au pied du chiffrage au telephone (la feuille Chiffrage du tiroir) ; son bouton
   // « Telecharger », dans le dialogue.
-  'export.ouvrirDevis': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter'] },
+  'export.ouvrirDevis': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter', 'tiroir'] },
   'export.devis': partout('parcours'),
-  'export.dossier': menu('menuExporter'),
+  // La liste d'achat : le menu Exporter, et la tete de l'onglet Nomenclature du tiroir.
+  'export.listeAchatPdf': menu('menuExporter', 'tiroir'),
+  'export.listeAchatCsv': menu('menuExporter', 'tiroir'),
+  // Au bureau, la barre d'estimation du tiroir le porte aussi, comme le pied du chiffrage au telephone (zones/Resultats.tsx).
+  'export.dossier': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter', 'tiroir'] },
   'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),
   // La declaration prealable : une entree du menu Exporter ouvre son dialogue, dont le bouton produit le dossier.

@@ -7,6 +7,35 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Partager un projet par un lien en lecture seule** (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme,
+  backprod #256). Menu Fichier, sous « Enregistrer » : « Partager par un lien… » (feuille Projet au doigt), et « Partager » parmi les
+  gestes qui suivent un chiffrage (barre d'estimation au bureau, pied de la feuille Chiffrage au téléphone). Le dialogue « Partager ce
+  projet » : pour qui (privé, facultatif), le nom affiché à l'ouverture (celui du compte proposé), la durée (7 jours, 30 jours,
+  90 jours, 1 an) ; « Créer le lien » montre le lien **une fois** (la plateforme n'en garde que l'empreinte ; Plan ne le range nulle
+  part), avec « Copier le lien » (presse-papiers, sinon le champ sélectionné), « Envoyer… » au doigt (partage du système) et la phrase
+  « Toute personne qui a ce lien voit ce projet tel qu'il est enregistré, sans pouvoir le modifier, jusqu'au … ». Dessous, les liens du
+  projet (destinataire, état, échéance, ouvertures, dernière ouverture) et « Retirer », sans seconde confirmation : le retrait part à la
+  fin d'un toast qui offre « Annuler » pendant six secondes. Des modifications non enregistrées se disent, avec « Enregistrer ». La
+  commande disparaît sans la fonction `project_sharing` de l'offre, se grise sans le droit d'écrire (rôle ou place de lecture) et sur
+  un projet que la plateforme n'a pas encore (« Enregistrez d'abord le projet ») ; chaque refus de la plateforme se dit en clair (liens
+  actifs au maximum, offre, impayé, abonnement, droit, adresse de Plan inconnue, trop de demandes, réseau). Le contrat épinglé passe au
+  commit `4c88d19d` de la plateforme, avec ses quatre opérations de partage (`createProjectShare`, `listProjectShares`,
+  `revokeProjectShare`, `openSharedProject`) ; le client engendré suit. Les toasts passent au-dessus du voile des dialogues, pour que
+  leur « Annuler » se touche. Point de fumée 167.
+
+- **Liste d'achat, en PDF à imprimer et en CSV** (lot 5 du parcours client, 16 novembre 2026). Menu Exporter, sous le devis :
+  « Liste d'achat (PDF) » et « Liste d'achat (CSV) » ; les mêmes en tête de l'onglet Nomenclature du tiroir. Les fournitures des
+  terrasses cochées pour le dossier, regroupées par rayon (terrassement et assise, plots et appuis, structure, bois et lames,
+  visserie et fixations, finitions), avec désignation, section, barres achetées par longueur du commerce (le débit de la
+  Nomenclature), quantité, unité, prix bas et haut par unité et prix réel du total de ligne, et d'où vient ce prix (saisi, ou pris
+  par défaut). Mêmes nombres que la Nomenclature, ligne à ligne et aux mêmes arrondis (testé contre `computeBOM` sur la
+  démonstration). Le CSV s'ouvre dans un tableur français (UTF-8 avec BOM, point-virgule, virgule décimale) : pas de XLSX, qui
+  demanderait une archive ZIP écrite à la main ou une bibliothèque de plus pour un tableau qu'Excel et LibreOffice lisent en CSV.
+  Le PDF porte une case à cocher par ligne et par longueur de barre. Un toast dit « Liste d'achat téléchargée : … ». Nouveaux
+  témoins `liste-achat.csv` (1 680 octets) et `liste-achat.pdf` (16 340 octets, 2 pages) ; point de fumée 162. L'onglet
+  « Optimisation » reste : son bouton ne lance pas le débit (déjà dans la Nomenclature) mais montre la comparaison des réglages de
+  structure par leur coût, avec « Appliquer ».
+
 - **Devis PDF d'une page** (lot 5 du parcours client, 16 novembre 2026 : « il n'existe ni devis, ni bon de commande » ; le client a
   besoin d'un document à envoyer pour décider). Menu Exporter, en tête : « Devis (PDF)… » ouvre un dialogue (vos coordonnées, le
   taux de TVA, le numéro, le client), puis « Télécharger le devis (PDF) » ; au téléphone, un bouton « Devis » au pied de la feuille
@@ -24,6 +53,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   rangé sur la parcelle : **aucun champ de fichier nouveau**, schéma inchangé. Le texte est en WinAnsi (accents, signe €), une
   option nouvelle de l'écrivain PDF (`assemblerPDF(…, { winAnsi: true })`) qui laisse les exports existants identiques octet pour
   octet. Nouveau témoin `tests/fixtures/golden/devis.pdf` (12 528 octets), régénéré à chaque `npm test` ; point de fumée 165.
+- **Le prix total toujours visible au bureau** (audit de l'IHM du 16 novembre 2026, lot 1). Au bureau, le tiroir des résultats
+  commence sous le pli (à y = 951 pour une fenêtre de 900 px : l'atelier prend la hauteur de la palette) et aucune « Estimation
+  HT » n'était à l'écran, quand le téléphone a sa tuile et son pied de feuille, et la tablette son résumé sous le plan. Le bureau
+  reçoit la même barre, fixe au bas de la fenêtre, sur la barre d'état : la terrasse choisie (ou la première du plan), ses appuis,
+  ses lames, son bois porteur, sa surface et l'estimation HT, avec « Voir la nomenclature », qui choisit la terrasse et ouvre son
+  onglet, puis les trois gestes du pied du chiffrage au téléphone, par les mêmes commandes du registre : « Copier le résumé »,
+  « Devis » et « Dossier PDF » (`zones/Resultats.tsx::ActionsChiffrage`, partagé par les deux). Le même résumé que la tablette et le téléphone (`ui/chiffrage.ts::resumerChiffrage`) : la zone n'additionne rien.
+- **Une ligne « Total HT » en pied de la Nomenclature** : la fourchette estimée (prix bas et haut fois les quantités) et le réel
+  saisi, à la place de la ligne « Estimé : … » sous la table. La somme est faite une fois, dans la couche qui chiffre déjà le
+  résumé (`ui/chiffrage.ts::totauxBom`, lue par la table, les tuiles, la barre et le pied du téléphone) : la table ne l'additionne
+  plus elle-même. Elle ne s'affiche qu'à l'écran : le résumé texte, les PDF et les autres exports ne la lisent pas et ne changent
+  pas (empreintes golden identiques). Point de fumée 162.
 
 ### Modifié
 

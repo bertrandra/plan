@@ -187,7 +187,7 @@ compilation.
 
 | Onglet | Aujourd'hui | Contrat | Saisie ? |
 |---|---|---|---|
-| Nomenclature (BOM) | sous-onglet BOM, `terrasseBomTable`, totaux | `computeBOM` | prix réels par ligne |
+| Nomenclature (BOM) | sous-onglet BOM, `terrasseBomTable`, ligne « Total HT » en pied (16 novembre 2026, `ui/chiffrage.ts::totauxBom`) | `computeBOM` | prix réels par ligne |
 | Débit | `terrasseDebitBox`, `terrasseDebitBoisBox` | `optimiserDebitLames`, débit bois | longueurs disponibles, prix |
 | Optimisation (terrasse) | `terrasseOptimWrap` (27 octobre 2026, venu de l'inspecteur) | `optimiserParametres` | « Appliquer » une structure |
 | Piscine | `piscineResultatsWrap` (27 octobre 2026) : volume, distances aux limites, taxe, métrage et chiffrage | `calculerPiscine`, `chiffrerPiscine` | prix par poste |
@@ -201,6 +201,12 @@ compilation.
 
 Z6 est **repliable** : en mode Plan on l'ouvre pour les cotes et le PLU, en mode Terrasse pour le
 reste. Sa hauteur est un réglage de l'utilisateur, mémorisé localement.
+
+Au bureau (16 novembre 2026, audit de l'IHM, lot 1), Z6 commence sous le pli : l'atelier prend la hauteur de la palette.
+Z6 y porte donc aussi une **barre d'estimation**, fixe au bas de la fenêtre, sur Z7 : la terrasse choisie (ou la première),
+ses chiffres clés et l'estimation HT, et « Voir la nomenclature » (choisit la terrasse, ouvre l'onglet). C'est le résumé que la
+tablette montre sous les onglets du tiroir replié et le téléphone en pied de la feuille Chiffrage (`ui/chiffrage.ts`) ; rien n'y
+est calculé par la zone.
 
 ### 4.7 Z7 — Barre d'état
 

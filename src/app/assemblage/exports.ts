@@ -82,6 +82,13 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
       });
       return res ? { pdf: (await moteurPdf()).octetsPdf(res.pdf), nomFichier: res.nomFichier, pages: res.pages } : null;
     },
+    construireListeAchat: async (format) => {
+      const m = await moteurPdf(), jour = new Date(), cles = clesDossier(etat.objects);
+      const nomFichier = m.nomFichierListeAchat(nomProjet(), jour, format);
+      if (format === 'csv') { const t = m.construireListeAchatCSV(etat.objects, cles); return t.split('\r\n').length > 2 ? { contenu: t, nomFichier } : null; }
+      const res = m.construireListeAchatPDF(etat.objects, cles, { appVersion: APP_VERSION, nomProjet: nomProjet(), maintenant: jour });
+      return res ? { contenu: m.octetsPdf(res.pdf), nomFichier } : null;
+    },
     construireNoteCalcul: async () => {
       const o = abriSelectionne();
       const res = o ? (await moteurPdf()).construireNoteCalculPDF(o, { appVersion: APP_VERSION, nomProjet: nomProjet() }) : null;

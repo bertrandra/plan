@@ -1,12 +1,18 @@
 // ENGENDRE PAR scripts/generer-client.mjs — NE PAS MODIFIER A LA MAIN.
 //
 // Source : contrat/backprod.openapi.json, extrait de la plateforme au commit
-// ce0642c4537743f7129a5ad7d5c1a87f4b907502.
+// 4c88d19d504f9eec03e1a4a3950533a752e90c67.
 // Regenerer : node scripts/generer-client.mjs — verifier : npm run gate:client
 //
-// 13 operations, 7 schemas. Ce fichier ne contient aucun appel : il dit ce que la
+// 17 operations, 11 schemas. Ce fichier ne contient aucun appel : il dit ce que la
 // plateforme promet. Qui appelle, et comment, est le travail de l'etape 1
 // (MD/spec-connexion-plateforme.md §16).
+
+/** A link just made, with the one copy of its URL there will ever be. */
+export type CreatedProjectShare = ProjectShare & {
+  /** `{app_url}?product={code}#share={token}` — the product's page, the token in the fragment. Shown once. */
+  url: string;
+};
 
 export type Entitlement = {
   feature: string;
@@ -42,6 +48,25 @@ export type Project = ProjectSummary & {
 /** The JSONB document. Key order is preserved and insignificant whitespace is gone — what is stored is what comes back, which is the guarantee snapshot and restore rest on. Large assets are refused here and belong in storag */
 export type ProjectDocument = Record<string, unknown>;
 
+/** A share link as its sender sees it (ADR-073): everything except the token, which is never read back. */
+export type ProjectShare = {
+  id: string;
+  project_id: string;
+  /** What the reader is shown as the sender. Null when none was given, or once the sender was erased (§30). */
+  display_name: string | null;
+  /** The sender's note of whom it is for; never shown to the reader. Null when none was given, or once the sender w */
+  recipient_label: string | null;
+  /** Derived by the server when the link is read, against its own clock. */
+  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+  created_by: string | null;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  /** How many times the link was opened. Nothing about who. */
+  open_count: number;
+  last_opened_at: string | null;
+};
+
 export type ProjectSummary = {
   id: string;
   name: string;
@@ -49,6 +74,10 @@ export type ProjectSummary = {
   /** Which document shape this is. Enforced on write (non-negotiable #10): an unknown version is refused rather tha */
   schema_version: number;
   created_by: string | null;
+  /** Whose subscription pays for this project, and therefore who reaches it: that person, whoever is on their subsc */
+  holder_user_id: string | null;
+  /** How large the document is, in bytes, measured exactly as the storage limit measures it (`PAYLOAD_TOO_LARGE`; 4 */
+  document_bytes: number | null;
   created_at: string;
   updated_at: string;
   /** When somebody deleted it, or null while it is live. A deleted project keeps its versions, its assets and every */
@@ -66,6 +95,21 @@ export type ProjectVersionSummary = {
   created_at: string;
 };
 
+/** What has been counted against one quota. Declared once and read by both operations that answer it: `showTenantUsage`, and the bootstrap a product reads. Typed in two places it would drift, and the figure a customer is re */
+export type QuotaUsage = {
+  feature: string;
+  name: string;
+  unit: string | null;
+  /** Null means two different things, so `unlimited` says which - the same pair as on `Entitlement`. */
+  limit: number | null;
+  unlimited: boolean;
+  /** Whether anything actually counts this. False means the limit beside it is recorded and not enforced, which is  */
+  metered: boolean;
+  used: number | null;
+  /** Null when unlimited or unmetered - in both cases there is no number to give, and zero would be a lie. Never ne */
+  remaining: number | null;
+};
+
 /** The refresh token is deliberately absent: it leaves in an `HttpOnly` cookie that no script can read, and putting it here as well would throw away the reason the cookie exists. */
 export type Session = {
   /** Present it as `Authorization: Bearer <token>`. Hold it in memory; it is short-lived by design. */
@@ -73,6 +117,22 @@ export type Session = {
   token_type: string;
   /** Seconds from now. A duration rather than an instant, so a browser with a skewed clock still schedules its rene */
   expires_in: number;
+};
+
+/** What a share link shows a stranger (ADR-073), and nothing else. */
+export type SharedProject = {
+  project: {
+    name: string;
+    /** The schema the document speaks, as the product declared it. */
+    schema_version: number;
+    document: ProjectDocument;
+    /** When this version was saved: the link follows the project, so this is the date of what the reader sees. */
+    updated_at: string;
+  };
+  /** The display name the sender chose, or null. */
+  shared_by: string | null;
+  /** When the link stops answering. */
+  expires_at: string;
 };
 
 /** Create a project */
@@ -83,6 +143,18 @@ export type CorpsCreateProject = {
     description?: string | null;
     schema_version: number;
     document: ProjectDocument;
+  };
+
+/** Make a read-only link to a project */
+export type ReponseCreateProjectShare = CreatedProjectShare;
+
+export type CorpsCreateProjectShare = {
+    /** How long the link answers. 30 when absent; outside 1–365 is refused with `400 VALIDATION_FAILED`, never clampe */
+    expires_in_days?: number;
+    /** What the reader is shown as the sender ("shared by …"). Optional; blank reads as none. */
+    display_name?: string | null;
+    /** The sender's own note of whom the link is for, so one recipient's link can be revoked without the others'. **N */
+    recipient_label?: string | null;
   };
 
 /** Delete a project */
@@ -99,9 +171,22 @@ export type ReponseListProjects = {
     offset: number;
   };
 
+/** List a project's share links */
+export type ReponseListProjectShares = {
+    shares: ProjectShare[];
+  };
+
 /** A project's saved versions */
 export type ReponseListProjectVersions = {
     versions: ProjectVersionSummary[];
+  };
+
+/** Open a share link */
+export type ReponseOpenSharedProject = SharedProject;
+
+export type CorpsOpenSharedProject = {
+    /** The token from the link's fragment (`#share=…`), exactly as it appears there. */
+    token: string;
   };
 
 /** Exchange the refresh cookie for a new session */
@@ -113,6 +198,9 @@ export type ReponseRestoreProject = Project;
 export type CorpsRestoreProject = {
     version_id: string;
   };
+
+/** Revoke a share link */
+export type ReponseRevokeProjectShare = void;
 
 /** Who is asking and what they hold, in one answer */
 export type ReponseShowMyContext = {
@@ -139,17 +227,8 @@ export type ReponseShowMyContext = {
     capabilities: string[];
     /** What the tenant holds on this product, with limits — the same rows `listEntitlements` shows. */
     entitlements: Entitlement[];
-    /** One row per quota, with what has been counted against it — the same rows `showTenantUsage` shows. */
-    usage: {
-      feature: string;
-      name: string;
-      unit: string | null;
-      limit: number | null;
-      unlimited: boolean;
-      metered: boolean;
-      used: number | null;
-      remaining: number | null;
-    }[];
+    /** One row per quota, with what has been counted against it. */
+    usage: QuotaUsage[];
     /** When the bearer this was answered for stops being accepted — cache no longer than this. Null when the token ca */
     token_expires_at: string | null;
   };
@@ -198,6 +277,14 @@ export const OPERATIONS = {
     entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
     requete: []
   },
+  createProjectShare: {
+    methode: 'POST',
+    chemin: '/api/v1/projects/{projectId}/shares',
+    succes: 201,
+    cheminParams: ['projectId'],
+    entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
+    requete: []
+  },
   deleteProject: {
     methode: 'DELETE',
     chemin: '/api/v1/projects/{projectId}',
@@ -222,12 +309,28 @@ export const OPERATIONS = {
     entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
     requete: ['limit', 'offset', 'deleted']
   },
+  listProjectShares: {
+    methode: 'GET',
+    chemin: '/api/v1/projects/{projectId}/shares',
+    succes: 200,
+    cheminParams: ['projectId'],
+    entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
+    requete: []
+  },
   listProjectVersions: {
     methode: 'GET',
     chemin: '/api/v1/projects/{projectId}/versions',
     succes: 200,
     cheminParams: ['projectId'],
     entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
+    requete: []
+  },
+  openSharedProject: {
+    methode: 'POST',
+    chemin: '/api/v1/public/shares/open',
+    succes: 200,
+    cheminParams: [],
+    entetes: [],
     requete: []
   },
   refreshSession: {
@@ -243,6 +346,14 @@ export const OPERATIONS = {
     chemin: '/api/v1/projects/{projectId}/restore',
     succes: 200,
     cheminParams: ['projectId'],
+    entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
+    requete: []
+  },
+  revokeProjectShare: {
+    methode: 'DELETE',
+    chemin: '/api/v1/projects/{projectId}/shares/{shareId}',
+    succes: 204,
+    cheminParams: ['projectId', 'shareId'],
     entetes: [{ nom: 'X-Product', requis: true }, { nom: 'X-Tenant', requis: false }],
     requete: []
   },

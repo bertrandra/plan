@@ -148,6 +148,8 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
       <ul role="menu">
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
+        {p.apiDisponible && commandes.obtenir('projet.partager') && <Entree commandes={commandes} id="projet.partager" libelle="Partager par un lien…" />}
+        {p.apiDisponible && <RefusAuDoigt commandes={commandes} id="projet.partager" tactile={tactile} />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.supprimer" libelle="Supprimer le projet…" />}
         {p.apiDisponible && p.schemaEnRetard && <Entree commandes={commandes} id="projet.mettreAJourModele" libelle="Mettre à jour le modèle…" />}
         {p.apiDisponible && <li className="separateur" role="separator" />}
@@ -182,6 +184,8 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
       <ul role="menu">
         {/* Le devis d'abord : le document que le client recoit pour decider (dialogue : l'emetteur, le client, le numero). */}
         <Entree commandes={commandes} id="export.ouvrirDevis" libelle="Devis (PDF)…" idDom="devisBtn" />
+        <Entree commandes={commandes} id="export.listeAchatPdf" libelle="Liste d’achat (PDF)" />
+        <Entree commandes={commandes} id="export.listeAchatCsv" libelle="Liste d’achat (CSV)" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.resume" libelle="Résumé à copier" apres={() => tiroir.activer('resume')} />
         <li className="separateur" role="separator" />
