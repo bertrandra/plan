@@ -3217,6 +3217,46 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + (r.n ? `« ${r.nom} », côtés ${r.cotes.map((x) => x.toFixed(2)).join(' × ')} m, à ${r.auMur.toFixed(2)} m du mur, hors bâti, dans la parcelle ; nomenclature ${lignes} lignes` : 'aucune terrasse') };
   },
+  172: async (page) => {
+    // Le catalogue des lames du commerce (lot 2 de la simplification, 16 novembre 2026) : la terrasse de la demonstration choisie, la
+    // section Lames ; « Lame » y est le premier champ, les reglages fins (essence, cotes, raideur) replies dessous ; choisir
+    // « Douglas — 145 × 27 mm » pose les quatre d'un coup et la nomenclature suit ; Ctrl+Z rend la lame d'avant.
+    const echecs = [];
+    await selectionner(page, TERRASSE);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    await inspecteur(page);
+    // Le pli se lit avant d'ouvrir la section (ouvrirSection ouvre aussi les plis) : il est monte, ferme ou non.
+    const avant = await page.evaluate(() => {
+      const d = document.querySelector('#zoneInspecteur details[data-section="lames"]');
+      const premier = d?.querySelector('[data-cle]')?.getAttribute('data-cle');
+      const pli = d?.querySelector('details.plichamps[data-pli^="Détail de la lame"]');
+      const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction;
+      return { premier, pliFerme: !!pli && !pli.open, dansPli: pli ? [...pli.querySelectorAll('[data-cle]')].map((e) => e.getAttribute('data-cle')) : [],
+        valeur: document.querySelector('#zoneInspecteur [data-cle="lameCommerce"] select')?.value ?? null,
+        c: { e: c.essenceBois, l: c.largeurLame, ep: c.epaisseurLame }, total: document.getElementById('terrasseBomTotals')?.textContent ?? '' };
+    });
+    if (avant.premier !== 'lameCommerce') echecs.push('premier champ : ' + avant.premier);
+    if (!avant.pliFerme) echecs.push('le détail de la lame n’est pas replié');
+    if (avant.dansPli.join() !== 'essenceBois,coefRaideurLame,largeurLame,epaisseurLame') echecs.push('pli : ' + avant.dansPli.join());
+    await ouvrirSection(page, 'lames');
+    const choix = page.locator('#zoneInspecteur [data-cle="lameCommerce"] select').first();
+    await choix.scrollIntoViewIfNeeded();
+    await choix.selectOption('douglas-145x27');
+    await page.waitForTimeout(400);
+    const apres = await page.evaluate(() => {
+      const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction;
+      return { c: { e: c.essenceBois, l: c.largeurLame, ep: c.epaisseurLame, k: c.coefRaideurLame }, total: document.getElementById('terrasseBomTotals')?.textContent ?? '', dirty: window.__plan.etat().dirty };
+    });
+    if (apres.c.e !== 'douglas' || apres.c.l !== 145 || apres.c.ep !== 27 || apres.c.k !== 1) echecs.push('lame posée : ' + JSON.stringify(apres.c));
+    if (!apres.dirty) echecs.push('projet non marqué modifié');
+    if (apres.total === avant.total) echecs.push('la nomenclature ne suit pas');
+    await feuille(page, null);
+    await annuler(page);
+    const retour = await page.evaluate(() => { const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction; return { e: c.essenceBois, l: c.largeurLame, ep: c.epaisseurLame }; });
+    if (JSON.stringify(retour) !== JSON.stringify(avant.c)) echecs.push('Ctrl+Z : ' + JSON.stringify(retour));
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `« Lame » en tête (« ${avant.valeur || 'autre lame'} »), détail replié ; ${avant.c.e} ${avant.c.l}×${avant.c.ep} → douglas 145×27 ; « ${avant.total.trim().slice(0, 40)} » → « ${apres.total.trim().slice(0, 40)} » ; Ctrl+Z ${JSON.stringify(retour) === JSON.stringify(avant.c) ? 'rend la lame d’avant' : 'NE REND PAS'}` };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9112,7 +9152,8 @@ function pointsPour(nomClasse) {
   // 164 : les erreurs du reseau en clair : l'IGN coupe dans l'import cadastre, la plateforme coupee a l'enregistrement.
   // 170 : l'import par adresse en une etape, par defaut : le resume et « Créer le projet », sans « 2/3 » ni « 3/3 ».
   // 171 : la terrasse de depart posee par cet import, contre la maison, jamais sur un batiment, avec sa nomenclature.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171];
+  // 172 : le catalogue des lames du commerce : « Lame » en tete de la section, le detail replie, un choix qui pose les quatre reglages.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
