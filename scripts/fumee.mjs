@@ -2951,6 +2951,7 @@ const POINTS = {
     }));
     mesures.push(`${largeurs.join(', ')} px : porte et premier pas sans débordement ; sans cadastre : « ${sans} »`);
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
   162: async (page, f) => {
     // Le prix total toujours visible au bureau (audit de l'IHM du 16 novembre 2026, lot 1) : le tiroir des resultats commence sous le
     // pli (y = 951 pour une fenetre de 900), et aucune « Estimation HT » n'etait a l'ecran. Au bureau : la barre d'estimation au bas
