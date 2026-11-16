@@ -117,6 +117,15 @@ function casEtalon(nom, verite = false) {
   return JSON.parse(JSON.stringify(casRendus.get(cle)));
 }
 
+/**
+ * Decoche « Enregistrement automatique » (Fichier) pour un point qui lit l'indicateur « modifie » : un geste qui doit le poser (ou
+ * ne pas le poser) se mesure sur un projet que l'enregistrement automatique ne remet pas a jour entre deux lectures (point 163 pour
+ * l'enregistrement lui-meme).
+ */
+async function sansEnregistrementAuto(page) {
+  await page.evaluate(() => { if (window.__plan.magasin().options.enregistrementAuto) document.getElementById('chkEnregistrementAuto')?.click(); });
+}
+
 /** L'etat du plan, en JSON : ce qu'on compare avant et apres un geste. */
 const lireEtat = (page) => page.evaluate(() => {
   const e = window.__plan.etat();
@@ -2871,6 +2880,7 @@ const POINTS = {
     await page.waitForTimeout(1500);
     const titre = ((await page.locator('.auditPrise .titreParcours').first().textContent()) || '').trim();
     const avant3d = await enTroisD();
+    await sansEnregistrementAuto(page);
     const saleAvant = await page.evaluate(() => !!window.__plan.etat().dirty);
     const debords = [await deborde()];
     await capture('avant');
@@ -2995,6 +3005,67 @@ const POINTS = {
     const reel = (t) => parseFloat((t[4] || '').replace(/[^0-9,]/g, '').replace(',', '.'));
     if (!(Math.abs(reel(t1) - reel(t0) - 100) < 0.01)) echecs.push(`réel saisi « ${t0[4]} » → « ${t1[4]} » (attendu + 100 €)`);
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `barre « ${barre} », ligne « ${t1.join(' | ')} »` };
+  },
+  163: async (page, f) => {
+    // Ne plus perdre de travail (audit de l'IHM du 16 novembre 2026, lot 1) : un ajout fait puis la page rechargee etait perdu,
+    // sans un mot. La preference « Enregistrement automatique » cochee par defaut ; une terrasse ajoutee s'enregistre seule en
+    // quelques secondes (un PATCH, « Enregistré à ») et survit au rechargement ; un envoi refuse se dit dans la barre d'etat
+    // (« nouvelle tentative à ») puis repart seul ; modifie puis recharge aussitot, le navigateur demande (beforeunload) ;
+    // la preference decochee, rien ne part.
+    const echecs = [];
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const patchs = [];
+    let refuser = false;
+    await page.route('http://plateforme.test/api/v1/projects/*', async (route) => {
+      if (route.request().method() !== 'PATCH') return route.fallback();
+      patchs.push(Date.now());
+      if (refuser) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAVAILABLE', message: 'Service indisponible' } }) });
+      return route.fallback();
+    });
+    const dialogues = [];
+    page.on('dialog', (d) => dialogues.push(d.type()));
+    const lire = () => page.evaluate(() => ({ sale: !!window.__plan.etat().dirty, n: window.__plan.etat().objects.length, auto: window.__plan.magasin().options.enregistrementAuto, statut: window.__plan.magasin().projet.echec || window.__plan.magasin().projet.enregistreA }));
+    const ajouter = () => page.evaluate(() => window.__plan.executer('objet.ajouter.terrasse'));
+    const enregistre = (ms) => page.waitForFunction(() => !window.__plan.etat().dirty, null, { timeout: ms });
+    const a = await lire();
+    if (!a.auto) echecs.push('préférence décochée par défaut');
+    await ajouter();
+    const t0 = Date.now();
+    await etape('enregistrement automatique', () => enregistre(15000));
+    const delai = Math.round((Date.now() - t0) / 100) / 10;
+    const b = await lire();
+    if (patchs.length !== 1) echecs.push(patchs.length + ' PATCH (attendu 1)');
+    if (!/^Enregistré à/.test(b.statut)) echecs.push('statut « ' + b.statut + ' »');
+    await etape('recharger', async () => { await page.reload(); await page.waitForSelector('#stage svg', { timeout: 30000 }); await page.waitForTimeout(500); });
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) await garder.click();
+    const c = await lire();
+    if (c.n !== b.n) echecs.push(`rechargé : ${c.n} objets (attendu ${b.n})`);
+    // Un envoi refuse : la barre d'etat le dit, une reprise suit et aboutit.
+    refuser = true;
+    await ajouter();
+    await etape('échec annoncé', () => page.waitForFunction(() => /nouvelle tentative à/.test(window.__plan.magasin().projet.echec || ''), null, { timeout: 15000 }));
+    const echec = (await lire()).statut;
+    refuser = false;
+    await etape('reprise', () => enregistre(20000));
+    // Modifie, puis recharge aussitot : le navigateur pose sa question (acceptee ici par la fumee).
+    await ajouter();
+    await page.mouse.click(5, 5);
+    await etape('recharger aussitôt', () => page.reload());
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    if (!dialogues.includes('beforeunload')) echecs.push('aucune question du navigateur au rechargement (' + JSON.stringify(dialogues) + ')');
+    if (await garder.count()) await garder.click();
+    // La preference decochee : rien ne part.
+    // La case du menu Fichier (feuille Projet au doigt) : decochee, la preference suit.
+    const basculer = () => page.evaluate(() => { document.getElementById('chkEnregistrementAuto')?.click(); return window.__plan.magasin().options.enregistrementAuto; });
+    if (await basculer() !== false) echecs.push('la case du menu Fichier ne décoche pas la préférence');
+    const avant = patchs.length;
+    await ajouter();
+    await page.waitForTimeout(6000);
+    const d = await lire();
+    if (!d.sale || patchs.length !== avant) echecs.push('préférence décochée : ' + (patchs.length - avant) + ' PATCH, modifié ' + d.sale);
+    await basculer();
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `enregistré seul en ${delai} s (« ${b.statut} »), ${c.n} objets après rechargement ; refusé : « ${echec} », puis repris ; question du navigateur : ${dialogues.includes('beforeunload') ? 'oui' : 'non'} ; décochée : rien ne part` };
   },
   160: async (page, f) => {
     // La colonne de la camera a des hauteurs d'iOS (decision du proprietaire, 14 novembre 2026 : « Bouton visible en haut ») : la
@@ -5446,6 +5517,7 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
     await image3dStable(page, 3000);
+    await sansEnregistrementAuto(page);
     const projet = () => page.evaluate(() => { const m = window.__plan.magasin(); return { annuler: m.peutAnnuler, statut: m.projet?.statut }; });
     const projetAvant = await projet();
     await etape('ouvrir le mode', async () => {
@@ -7980,6 +8052,7 @@ const POINTS = {
     const cle = 'BATIMENT0000000322509179';
     const lu = () => page.evaluate((k) => window.__plan.etat().objects.find((o) => o.bdtopo?.cleabs === k)?.batiment?.toitLidarLu ?? null, cle);
     const sale = () => page.evaluate(() => !!window.__plan.etat().dirty);
+    await sansEnregistrementAuto(page);
     const [luAvant, saleAvant] = [await lu(), await sale()];
     const charger = async (nom, contenu) => {
       const [choix] = await Promise.all([page.waitForEvent('filechooser', { timeout: 5000 }), page.evaluate(() => window.__plan.executer('admin.faitsLocaux'))]);
@@ -8864,9 +8937,10 @@ function pointsPour(nomClasse) {
   // 162 : le prix total au bureau sans defiler (barre d'estimation) et la ligne « Total HT » de la Nomenclature, la meme fourchette partout.
   // 167 : partager un projet par un lien : le dialogue, l'avertissement et son « Enregistrer », le lien montre une fois et copie, la
   //       liste, « Retirer » et son « Annuler » ; sans la fonction, la commande disparait ; quota de liens atteint, dit en clair.
+  // 163 : l'enregistrement automatique (un PATCH, survit au rechargement, echec puis reprise, preference) et la question du navigateur.
   // 168 : lire un projet partage sans compte : le jeton quitte l'adresse, une seule requete publique, le bandeau, aucune commande
   //       d'edition visible ni executable, la nomenclature et la 3D ; un lien invalide (404) et trop de tentatives (429), dits en clair.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166, 167, 168];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 168];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

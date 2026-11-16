@@ -5,19 +5,23 @@
 
 import type { ProjetObservable } from '../app/magasin.js';
 
+// Un plan qui n'est pas encore un projet (le premier pas « Dessiner sans adresse ») ne s'enregistre pas de lui-meme : creer le
+// projet compte dans le quota de l'organisation (app/enregistrementAuto.ts). La barre le dit, et dit quoi faire.
+const pasEncoreUnProjet = (p: ProjetObservable) => p.apiDisponible && !p.courant;
+
 export function texteStatut(p: ProjetObservable): string {
   return p.statut === 'local'
     ? 'Mode local — jeu de donnees de demonstration (api.php introuvable : aucune sauvegarde serveur).'
     : p.statut === 'partage' ? 'Projet partagé, en lecture seule : rien ne s’enregistre.'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
-    : p.statut === 'modifie' ? (p.echec || 'Modifications non enregistrees')
-    : (p.enregistreA || 'A jour');
+    : p.statut === 'modifie' ? (p.echec || (pasEncoreUnProjet(p) ? 'Pas encore enregistré : Fichier › Nouveau projet pour le garder' : 'Modifications non enregistrées'))
+    : (p.enregistreA || (pasEncoreUnProjet(p) ? 'Pas encore enregistré' : 'À jour'));
 }
 
 export function texteStatutCourt(p: ProjetObservable): string {
   return p.statut === 'local' ? 'Mode local'
     : p.statut === 'partage' ? 'Projet partagé'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
-    : p.statut === 'modifie' ? (p.echec ? p.echec.replace('Échec de l’enregistrement', 'Échec') : 'Non enregistré')
-    : (p.enregistreA || 'À jour');
+    : p.statut === 'modifie' ? (p.echec ? p.echec.replace('Échec de l’enregistrement', 'Échec').replace(/ — nouvelle tentative à .*$/, '') : pasEncoreUnProjet(p) ? 'Pas encore enregistré' : 'Non enregistré')
+    : (p.enregistreA || (pasEncoreUnProjet(p) ? 'Pas encore enregistré' : 'À jour'));
 }
