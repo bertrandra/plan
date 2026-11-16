@@ -273,21 +273,25 @@ async function cadrerParcelle(page) {
 async function classe(page) { return page.evaluate(() => window.__plan.magasin().classe); }
 async function feuille(page, f) { await page.evaluate((f) => window.__plan.ouvrirFeuille(f), f); await page.waitForTimeout(280); }
 /**
- * Allume ou eteint le mode expert (app/modeExpert.ts) comme la personne : la case du menu Affichage (dans la feuille Projet au doigt).
- * Rend ce que la case dit ensuite.
+ * Allume ou eteint le mode expert (app/modeExpert.ts) par sa case du menu Affichage (dans la feuille Projet au doigt). La case doit y
+ * etre, menu ouvert ; elle se coche menu referme : ouvert, ses entrees suivent l'etat de leur commande, et celle de la photo aerienne
+ * change avec les tuiles qui arrivent, hors des rendus du plan (le garde-fou des cles le prendrait pour un oubli). Rend ce que la
+ * case dit ensuite.
  */
 async function modeExpert(page, voulu) {
   const tactile = (await classe(page)) !== 'large';
   if (tactile) await feuille(page, 'projet');
   await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
   await page.waitForTimeout(150);
-  const caseExpert = page.locator('#chkModeExpert');
-  if ((await caseExpert.isChecked()) !== voulu) await caseExpert.click();
-  await page.waitForTimeout(250);
-  const coche = await caseExpert.isChecked();
+  const visible = await page.locator('#chkModeExpert').isVisible();
   await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+  if (!visible) throw new Error('case « Mode expert » absente du menu Affichage');
+  const coche = await page.evaluate((voulu) => { const c = document.getElementById('chkModeExpert'); if (c && c.checked !== voulu) c.click(); return null; }, voulu);
+  void coche;
+  await page.waitForTimeout(250);
+  const apres = await page.evaluate(() => !!document.getElementById('chkModeExpert')?.checked);
   if (tactile) await feuille(page, null);
-  return coche;
+  return apres;
 }
 /** Les entrees d'un menu de la barre, lues menu ouvert (un menu ferme ne relit pas l'etat de ses commandes). */
 async function entreesDuMenu(page, id) {

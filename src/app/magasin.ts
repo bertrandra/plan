@@ -18,6 +18,8 @@ import type { PtBrut } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import type { Vue } from './modes.js';
 import type { Classe } from './exposition.js';
+// Le mode expert, une preference de l'appareil que le magasin tient : son branchement se demande avec le magasin.
+export { brancherModeExpert } from './modeExpert.js';
 
 /** La hauteur du tiroir des resultats (app/tiroir.ts) : rangee ici, avec l'etat qui la tient. */
 export type HauteurTiroir = 'replie' | 'mi' | 'plein';

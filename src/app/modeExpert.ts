@@ -16,7 +16,14 @@
 // modifie », permise en lecture seule.
 
 import { CONTROLES } from './controlesInterface.js';
-import type { EtatMagasin, Magasin } from './magasin.js';
+
+/** Ce que le mode expert lit du magasin (app/magasin.ts), sans l'importer : le magasin le branche. */
+interface AvecOptions { options: { modeExpert: boolean } }
+interface MagasinDuMode {
+  store: { subscribe(f: (s: AvecOptions, avant: AvecOptions) => void): () => void };
+  definirOption(cle: 'modeExpert', valeur: boolean): void;
+  notifier(): void;
+}
 
 export const CLE_MODE_EXPERT = 'plan.modeExpert';
 
@@ -31,7 +38,7 @@ export function ecrireModeExpert(actif: boolean, stockage: Pick<Storage, 'setIte
 }
 
 /** Le controle d'interface se montre-t-il ? Oui, sauf un reglage fin du catalogue tant que le mode expert est eteint. */
-export function controleMontre(s: Pick<EtatMagasin, 'options'>, cle: string): boolean {
+export function controleMontre(s: AvecOptions, cle: string): boolean {
   return s.options.modeExpert || !CONTROLES[cle]?.expert;
 }
 
@@ -39,7 +46,7 @@ export function controleMontre(s: Pick<EtatMagasin, 'options'>, cle: string): bo
  * Pose la preference lue dans le magasin, puis la suit : chaque bascule s'ecrit dans le navigateur et redessine les zones, qui
  * relisent l'etat des commandes et les champs visibles. Rend de quoi cesser de suivre.
  */
-export function brancherModeExpert(magasin: Magasin, stockage: Pick<Storage, 'getItem' | 'setItem'> | null = globalThis.localStorage ?? null): () => void {
+export function brancherModeExpert(magasin: MagasinDuMode, stockage: Pick<Storage, 'getItem' | 'setItem'> | null = globalThis.localStorage ?? null): () => void {
   magasin.definirOption('modeExpert', lireModeExpert(stockage));
   return magasin.store.subscribe((s, avant) => {
     if (s.options.modeExpert === avant.options.modeExpert) return;
