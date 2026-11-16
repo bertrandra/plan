@@ -7520,7 +7520,14 @@ const POINTS = {
       return { x, y, dessous, distance: Math.hypot(sc.camera.position.x - (cx - sc.cen.x), sc.camera.position.z - (sc.cen.y - cy)) };
     }, rang);
     const avantMode = await camera();
-    const loin = await page.evaluate(() => { const sc = window.__plan.scene3d(); return sc.camera.position.length(); });
+    // Le recul d'une vue de toute la parcelle (le cadrage serre de three/scene.ts sur son rayon) : l'entree du mode s'en rapproche. Avant le
+    // lot 2, c'etait le recul d'ouverture de la Vue 3D ; elle s'ouvre desormais sur la terrasse et sa maison (point 173), plus pres.
+    const loin = await page.evaluate(() => {
+      const sc = window.__plan.scene3d(), parcelle = window.__plan.etat().objects.find((o) => o.key === 'parcelle');
+      const r = Math.max(...parcelle.pts.map((p) => Math.hypot(p.x - sc.cen.x, p.y - sc.cen.y)));
+      const pl = Math.atan(1 / Math.SQRT2), tv = Math.tan(22.5 * Math.PI / 180), th = tv * sc.camera.aspect;
+      return Math.max(sc.camera.position.length(), Math.min(Math.max(r * Math.sin(pl) / tv, r / th) * 1.25, 0.9 * Math.sqrt(3) * 2 * r));
+    });
     await etape('ouvrir le mode', async () => {
       await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
       await page.locator('.panneauToit').waitFor({ timeout: 60000 });
