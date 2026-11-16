@@ -27,6 +27,13 @@ interface MagasinDuMode {
 
 export const CLE_MODE_EXPERT = 'plan.modeExpert';
 
+/**
+ * L'etat branche, pour un ecran qui n'a pas le magasin sous la main (l'audit d'une facade, ses numeros d'etape) : faux tant que rien
+ * n'est branche (un test), comme sur un appareil neuf.
+ */
+let actif = false;
+export const modeExpertActif = (): boolean => actif;
+
 /** Lit la preference : eteinte par defaut, et quand le stockage est refuse. */
 export function lireModeExpert(stockage: Pick<Storage, 'getItem'> | null = globalThis.localStorage ?? null): boolean {
   try { return stockage?.getItem(CLE_MODE_EXPERT) === 'oui'; } catch { return false; }
@@ -47,9 +54,11 @@ export function controleMontre(s: AvecOptions, cle: string): boolean {
  * relisent l'etat des commandes et les champs visibles. Rend de quoi cesser de suivre.
  */
 export function brancherModeExpert(magasin: MagasinDuMode, stockage: Pick<Storage, 'getItem' | 'setItem'> | null = globalThis.localStorage ?? null): () => void {
-  magasin.definirOption('modeExpert', lireModeExpert(stockage));
+  actif = lireModeExpert(stockage);
+  magasin.definirOption('modeExpert', actif);
   return magasin.store.subscribe((s, avant) => {
     if (s.options.modeExpert === avant.options.modeExpert) return;
+    actif = s.options.modeExpert;
     ecrireModeExpert(s.options.modeExpert, stockage);
     magasin.notifier();
   });
