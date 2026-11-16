@@ -161,7 +161,11 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
   return (
     <Deroulant id="menuFichier" titre="Fichier">
       <ul role="menu">
+        {/* Ramene a l'essentiel pour la personne ordinaire (lot 3 de la simplification) : le projet, la creation depuis une adresse,
+            l'actualisation et l'audit. Ce qui repare ou affine un plan venu de l'IGN, et les formats techniques, viennent apres :
+            le registre les efface tant que le mode expert est eteint (MODE_EXPERT, app/exposition.ts), avec leurs filets. */}
         {p.apiDisponible && commandes.obtenir('projet.mesProjets') && <Entree commandes={commandes} id="projet.mesProjets" libelle="Mes projets…" />}
+        <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
         {/* Une preference de l'appareil (app/enregistrementAuto.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
@@ -170,18 +174,17 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         {p.apiDisponible && <RefusAuDoigt commandes={commandes} id="projet.partager" tactile={tactile} />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.supprimer" libelle="Supprimer le projet…" />}
         {p.apiDisponible && p.schemaEnRetard && <Entree commandes={commandes} id="projet.mettreAJourModele" libelle="Mettre à jour le modèle…" />}
-        {p.apiDisponible && <li className="separateur" role="separator" />}
-        <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
-        <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
-        <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
-        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
-        <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
-        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons…" />
         <li className="separateur" role="separator" />
+        <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
         {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
         <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
         <RefusAuDoigt commandes={commandes} id="audit.parcelle" tactile={tactile} />
-        {/* Un audit fait ailleurs (l'administrateur pour un client, §15) : repris a ses propositions. */}
+        <li className="separateur" role="separator" />
+        {/* Mode expert : reparer ou affiner un plan venu de l'IGN, reprendre un audit fait ailleurs (l'administrateur pour un client, §15). */}
+        <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
+        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
+        <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
+        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons…" />
         <Entree commandes={commandes} id="audit.importerParcelle" libelle="Importer un audit de parcelle…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />

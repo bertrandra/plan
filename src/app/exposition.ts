@@ -295,5 +295,12 @@ export const MODE_EXPERT: Record<string, string> = {
   'vue.visionneuse': 'Relit le dernier GLB exporte, un format technique.',
   'fichier.importerSvg': 'Format technique : un dessin vectoriel venu d\'un autre logiciel.',
   'fichier.importerJson': 'Format technique : le fichier brut d\'un projet.',
-  'fichier.exporterJson': 'Format technique : le fichier brut d\'un projet ; le projet s\'enregistre et se partage sans lui.'
+  'fichier.exporterJson': 'Format technique : le fichier brut d\'un projet ; le projet s\'enregistre et se partage sans lui.',
+  // Le menu Fichier ramene a l'essentiel (sujet 3 du lot) : ce qui suit repare ou affine un plan venu de l'IGN, et « Actualiser le
+  // projet » le fait pour tout le monde en un geste.
+  'projet.actualiserIgn': 'Actualiser le projet relit l\'IGN et recalcule tout ; celle-ci ne remplace que ce qui en vient, au choix.',
+  'projet.toitsFond': 'La lecture des toits du voisinage en tache de fond se suspend ou reprend d\'elle-meme.',
+  'projet.supprimerVoisinage': 'Une reparation : le voisinage se masque (menu Affichage) sans etre supprime.',
+  'projet.doublons': 'Une reparation d\'un plan importe deux fois.',
+  'audit.importerParcelle': 'Le fichier d\'un audit fait sur un autre appareil (l\'administrateur pour un client) : un fichier technique, comme le JSON.'
 };
