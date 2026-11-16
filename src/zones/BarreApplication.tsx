@@ -37,6 +37,7 @@ import { texteStatutCourt } from './statut.js';
 import { useCle, useMagasinZone } from './composants/abonnement.js';
 import { APP_VERSION, versionLongue } from '../model/version.js';
 import { sessionToit } from '../app/toits/modeToit.js';
+import { controleMontre } from '../app/modeExpert.js';
 
 export interface PropsBarreApplication {
   magasin: Magasin;
@@ -294,16 +295,18 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
 }
 
 function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes: RegistreCommandes; tiroir: Tiroir }) {
-  useCle(magasin, 'menu Aide', () => String(tiroir.onglets().some(o => o.id === 'methode')));
+  useCle(magasin, 'menu Aide', (s) => String([tiroir.onglets().some(o => o.id === 'methode'), controleMontre(s, 'aide.methode')]));
   const methode = tiroir.onglets().some(o => o.id === 'methode');
+  // La methode de calcul est un onglet du mode expert (app/tiroir.ts) : son entree le suit (app/controlesInterface.ts).
+  const montrerMethode = controleMontre(magasin.store.getState(), 'aide.methode');
   return (
     <Deroulant id="menuAide" titre="Aide">
       <ul role="menu">
-        <li role="menuitem">
+        {montrerMethode && <li role="menuitem">
           <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
             <span className="coche" aria-hidden="true" />Méthode de calcul
           </button>
-        </li>
+        </li>}
         <li role="menuitem">
           <button type="button" data-controle="aide.version" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
         </li>

@@ -3708,6 +3708,45 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `sans liste des projets ; « ${menu.adresse} » au menu et dans Mes projets ; « ${menu.copie} » ; doublons : ${menu.doublons} entrée ; position initiale : ${pied.total} hors inspecteur` };
   },
+  181: async (page) => {
+    // Les onglets des resultats ramenes a cinq (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
+    // choisie, mode expert eteint, le tiroir (feuille Resultats au doigt) montre Nomenclature, Coupe, Implantation, Cotes et PLU ;
+    // Optimisation, Chantier, Méthode, Profil et Résumé reviennent avec le mode expert. Un onglet du mode expert ouvert quand on
+    // l'eteint cede la place a la nomenclature ; « Méthode de calcul » (menu Aide) et « Résumé à copier » (Exporter) le suivent.
+    const echecs = [];
+    const lire = async () => {
+      await selectionner(page, TERRASSE);
+      const compact = (await classe(page)) === 'compact';
+      await page.evaluate((c) => { window.__plan.ouvrirResultats('bom'); if (c) window.__plan.ouvrirFeuille('resultats'); }, compact);
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => [...document.querySelectorAll('[data-controle="tiroir.onglet"]')].map((b) => b.getAttribute('data-onglet')));
+      if (compact) await feuille(page, null);
+      return r;
+    };
+    await modeExpert(page, true);
+    await selectionner(page, TERRASSE);
+    await page.evaluate(() => window.__plan.ouvrirResultats('optimisation'));
+    await page.waitForTimeout(200);
+    await modeExpert(page, false);
+    const apresExtinction = await page.evaluate(() => window.__plan.etat().panelTab);
+    if (apresExtinction !== 'bom') echecs.push('onglet ouvert après extinction : ' + apresExtinction);
+    const simple = await lire();
+    const attendus = ['bom', 'coupe', 'implantation', 'mesure', 'plu'];
+    if (simple.join() !== attendus.join()) echecs.push('onglets en mode simple : ' + simple.join());
+    await page.evaluate(() => window.__plan.ouvrirResultats('methode'));
+    if (await page.evaluate(() => window.__plan.etat().panelTab) === 'methode') echecs.push('Méthode s’ouvre en mode simple');
+    const aide = await entreesDuMenu(page, 'menuAide');
+    if (aide?.controles.includes('aide.methode')) echecs.push('« Méthode de calcul » au menu Aide en mode simple');
+    const exporter = await entreesDuMenu(page, 'menuExporter');
+    if (exporter?.commandes.includes('export.resume')) echecs.push('« Résumé à copier » en mode simple');
+    await modeExpert(page, true);
+    const expert = await lire();
+    for (const id of ['optimisation', 'chantier', 'methode', 'resume']) if (!expert.includes(id)) echecs.push(id + ' absent en mode expert');
+    const aide2 = await entreesDuMenu(page, 'menuAide');
+    if (!aide2?.controles.includes('aide.methode')) echecs.push('« Méthode de calcul » absente en mode expert');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `mode simple : ${simple.join(', ')} ; mode expert : ${expert.length} onglets ; Optimisation ouverte, le mode éteint → ${apresExtinction}` };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9619,7 +9658,8 @@ function pointsPour(nomClasse) {
   // 178 : l'inspecteur de la terrasse en trois groupes, les reglages du calcul au mode expert ; la nomenclature ne change pas.
   // 179 : le menu Fichier en neuf entrees au plus en mode simple, sans filet de trop ; le reste revient avec le mode expert.
   // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180];
+  // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

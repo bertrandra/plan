@@ -111,7 +111,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'fichier.option.enregistrementAuto': { libelle: 'Enregistrement automatique', zone: Z1, nature: 'option', description: 'Enregistre le projet quelques secondes après chaque modification ; une préférence de l’appareil, cochée par défaut' },
   'export.option.echellePdf': { libelle: 'Échelle du PDF', zone: Z1, nature: 'option' },
   'export.option.dossierEquipements': { libelle: 'Inclure l’emprise des équipements (dossier PDF)', zone: Z1, nature: 'option' },
-  'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir' },
+  'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir, du mode expert', expert: true },
   'aide.version': { libelle: 'Version', zone: Z1, nature: 'sortie' },
   'admin.audit': { libelle: 'Mode audit (promenade)', zone: Z1, nature: 'navigation', description: 'Ouvre le mode audit : promenade GPS en Vue 3D, bâtiments à noter, fichier partagé (administrateur seulement)' },
   'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
