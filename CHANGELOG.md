@@ -5,6 +5,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.33.0] — 2026-11-16
+
+Version **mineure** au sens de `MD/RELEASE.md` : le parcours client gagne des exports et des fonctions nouvelles, sans rien retirer
+ni changer à ce qui existait (§2.1 : « new feature, new export, new entitlement key ») — le devis PDF d'une page (#707), la liste
+d'achat en PDF et en CSV (#709), l'estimation toujours visible au bureau et la ligne « Total HT » de la Nomenclature (#708), le
+partage d'un projet par un lien en lecture seule (#710), derrière une fonction nouvelle de l'offre, `project_sharing`, et sa lecture
+sans compte (#712), la démonstration sans compte (#713), l'enregistrement automatique (#711), les erreurs du réseau dites en clair
+(#714), et la porte et le premier pas tenus dans l'écran du téléphone (#706). Aucune quantité ni aucun export d'avant ne bouge : les
+sept témoins de la 5.32.0 et les deux nouveaux PDF (`devis.pdf`, `liste-achat.pdf`) ne changent qu'à leur numéro de version (la date
+de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les
+quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma
+inchangé (16), aucun champ de fichier nouveau. Le serveur du banc ne change pas (`banc/` intact depuis la 5.32.0).
+Requêtes vérifiées sans la mesure sur main (run 43883735202 ; prompts et schémas inchangés).
+
+**À faire en production, dans cet ordre, avant de déposer cette livraison** :
+
+- si ce n'est pas déjà fait, appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` : le schéma 16
+  de la 5.19.0 doit être accepté par la plateforme ;
+- appliquer la migration de la plateforme `Version20261116090000` (liens de partage, backprod #256, ADR-073) : sans elle, « Partager
+  par un lien… » et l'ouverture d'un lien partagé échouent ;
+- publier une version d'offre qui accorde la fonction `project_sharing` avant que quiconque puisse partager (sans elle, la commande
+  reste effacée : c'est voulu) ;
+- déposer le `.htaccess` de la livraison (`deploy/htaccess.template` : `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`
+  sur une adresse avec `?product=`) ;
+- rappel : le `api.php` du banc demande à l'hébergement le cURL sortant en HTTPS (depuis la 5.30.0).
+
 ### Ajouté
 
 - **Partir d'une adresse en une étape, avec une terrasse de départ** (lot 2 de la simplification de l'IHM, le parcours d'entrée,
