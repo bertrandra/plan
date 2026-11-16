@@ -206,6 +206,69 @@ function retardMemorise(): (etat: EtatApp) => boolean {
   };
 }
 
+/** Le bandeau d'un enregistrement refuse ; celui de l'enregistrement automatique dit qu'il reessaie. */
+function annoncerEchec(e: unknown, poids: string, automatique: boolean): void {
+  showErrBanner((automatique ? 'L’enregistrement automatique a échoué' : 'Echec de l\'enregistrement') + poids + ' : ' + ((e as Error).message || e)
+    + (automatique ? ' — Plan réessaie de lui-même ; vos modifications restent à l’écran.' : ''));
+}
+
+/** « Supprimer le projet » : confirme, supprime sur la plateforme, puis repart sans projet (sans la question du navigateur). */
+function declarerSuppression(cmd: RegistreCommandes, seed: SeedProjet, ctx: ContexteProjet, courant: ProjetResume | null): void {
+  cmd.declarer({
+    id: 'projet.supprimer', libelle: 'Supprimer le projet', groupe: 'projet',
+    permission: PERMISSION_ECRITURE,
+    description: 'Supprimer ce projet du serveur',
+    actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
+    executer: () => {
+      if (!courant) return;
+      showConfirm('Supprimer definitivement le projet "' + courant.name + '" ? Cette action est irreversible.', async () => {
+        try {
+          await ctx.apiDelete(courant.id);
+          localStorage.removeItem(ctx.cleDernierProjet);
+          const url = new URL(location.href); url.searchParams.delete('projet');
+          partirSansQuestion();
+          location.href = url.toString();
+        } catch (e) {
+          showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
+        }
+      });
+    }
+  });
+}
+
+/**
+ * L'enregistrement automatique du projet ouvert (app/enregistrementAuto.ts) : la preference de l'appareil (cochee par defaut),
+ * le statut qui le relance, et la question du navigateur avant de quitter (shell/depart.ts).
+ */
+function brancherEnregistrementAuto(p: {
+  seed: SeedProjet; ctx: ContexteProjet; magasin: Magasin; cmd: RegistreCommandes; courant: ProjetResume | null;
+  publier: () => void; enCours: () => boolean; enregistrer: () => Promise<boolean>; noterReprise: (heure: string) => void;
+}): EnregistrementAuto {
+  const { seed, ctx, magasin, cmd, courant } = p;
+  magasin.definirOption('enregistrementAuto', lirePreferenceEnregistrementAuto());
+  const auto = creerEnregistrementAuto({
+    actif: () => magasin.store.getState().options.enregistrementAuto,
+    possible: () => seed.apiAvailable && !!courant && !ctx.etat.lectureSeule && cmd.etat('projet.enregistrer').utilisable,
+    sale: () => !!ctx.etat.dirty,
+    modifications: () => ctx.modifications?.() ?? 0,
+    occupe: () => ctx.gesteEnCours?.() ?? false,
+    enregistrementEnCours: p.enCours,
+    enregistrer: p.enregistrer,
+    apresEchec: (_n, reprise) => p.noterReprise(new Date(Date.now() + reprise).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+  });
+  magasin.store.subscribe((s, avant) => {
+    if (s.options.enregistrementAuto === avant.options.enregistrementAuto) return;
+    ecrirePreferenceEnregistrementAuto(s.options.enregistrementAuto);
+    if (s.options.enregistrementAuto) auto.signaler(); else auto.arreter();
+  });
+  ctx.definirRafraichisseurStatut(() => { p.publier(); auto.signaler(); });
+  p.publier();
+  // Des modifications non enregistrees, ou un envoi qui n'est pas fini : le navigateur demande avant de quitter. Sur la plateforme
+  // seulement : la vitrine et le mode audit (sans depot) n'ont rien a enregistrer ici, l'audit garde ses brouillons.
+  if (seed.apiAvailable) retenirLaPage(() => (!!ctx.etat.dirty && !ctx.etat.lectureSeule) || p.enCours());
+  return auto;
+}
+
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
   const schemaEnRetard = retardMemorise();
@@ -222,31 +285,9 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty || echec ? 'modifie' : 'a-jour')
     });
   }
-  // L'enregistrement automatique : la preference de l'appareil (cochee par defaut), puis le statut qui le relance.
-  magasin.definirOption('enregistrementAuto', lirePreferenceEnregistrementAuto());
-  const auto = creerEnregistrementAuto({
-    actif: () => magasin.store.getState().options.enregistrementAuto,
-    possible: () => seed.apiAvailable && !!courant && !ctx.etat.lectureSeule && cmd.etat('projet.enregistrer').utilisable,
-    sale: () => !!ctx.etat.dirty,
-    modifications: () => ctx.modifications?.() ?? 0,
-    occupe: () => ctx.gesteEnCours?.() ?? false,
-    enregistrementEnCours: () => enregistrementEnCours,
+  const auto = brancherEnregistrementAuto({ seed, ctx, magasin, cmd, courant, publier, enCours: () => enregistrementEnCours,
     enregistrer: () => enregistrer(null, true),
-    apresEchec: (_n, reprise) => {
-      echec += ' — nouvelle tentative à ' + new Date(Date.now() + reprise).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      publier();
-    }
-  });
-  magasin.store.subscribe((s, avant) => {
-    if (s.options.enregistrementAuto === avant.options.enregistrementAuto) return;
-    ecrirePreferenceEnregistrementAuto(s.options.enregistrementAuto);
-    if (s.options.enregistrementAuto) auto.signaler(); else auto.arreter();
-  });
-  ctx.definirRafraichisseurStatut(() => { publier(); auto.signaler(); });
-  publier();
-  // Des modifications non enregistrees, ou un envoi qui n'est pas fini : le navigateur demande avant de quitter (shell/depart.ts).
-  // Sur la plateforme seulement : la vitrine et le mode audit (sans depot) n'ont rien a enregistrer ici, l'audit garde ses brouillons.
-  if (seed.apiAvailable) retenirLaPage(() => (!!ctx.etat.dirty && !ctx.etat.lectureSeule) || enregistrementEnCours);
+    noterReprise: (heureReprise) => { echec += ' — nouvelle tentative à ' + heureReprise; publier(); } });
 
   function aller(id: string): void {
     localStorage.setItem(ctx.cleDernierProjet, id);
@@ -290,10 +331,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       const poids = taille === null ? '' : ' (' + tailleFichier(taille) + ')';
       echec = 'Échec de l’enregistrement' + poids;
       // L'enregistrement automatique ne dit son echec en bandeau qu'une fois par serie : ses reprises s'ecrivent dans la barre d'etat.
-      if (!automatique || auto.echecs() === 0) {
-        showErrBanner((automatique ? 'L’enregistrement automatique a échoué' : 'Echec de l\'enregistrement') + poids + ' : ' + ((e as Error).message || e)
-          + (automatique ? ' — Plan réessaie de lui-même ; vos modifications restent à l’écran.' : ''));
-      }
+      if (!automatique || auto.echecs() === 0) annoncerEchec(e, poids, automatique);
       return false;
     } finally {
       enregistrementEnCours = false;
@@ -327,26 +365,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     executer: () => { void enregistrer('Projet enregistre.'); }
   });
 
-  cmd.declarer({
-    id: 'projet.supprimer', libelle: 'Supprimer le projet', groupe: 'projet',
-    permission: PERMISSION_ECRITURE,
-    description: 'Supprimer ce projet du serveur',
-    actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
-    executer: () => {
-      if (!courant) return;
-      showConfirm('Supprimer definitivement le projet "' + courant.name + '" ? Cette action est irreversible.', async () => {
-        try {
-          await ctx.apiDelete(courant.id);
-          localStorage.removeItem(ctx.cleDernierProjet);
-          const url = new URL(location.href); url.searchParams.delete('projet');
-          partirSansQuestion();
-          location.href = url.toString();
-        } catch (e) {
-          showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
-        }
-      });
-    }
-  });
+  declarerSuppression(cmd, seed, ctx, courant);
 
   // Disponible avec ou sans serveur : sans, l'import cadastre charge quand meme le plan en memoire
   // (et le dit) — c'est plus utile qu'un bouton absent sans explication.

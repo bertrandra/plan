@@ -24,6 +24,7 @@ export const DELAI_ENREGISTREMENT_AUTO_MS = 4000;
 export const ATTENTE_OCCUPE_MS = 1000;
 /** Les nouvelles tentatives apres un echec : la derniere se repete. */
 export const REPRISES_APRES_ECHEC_MS = [10_000, 30_000, 60_000] as const;
+const DELAI_REPRISE_MAX_MS = 60_000;
 
 /** La preference, gardee dans le navigateur : elle suit l'appareil, pas le projet. */
 export const CLE_PREFERENCE_ENREGISTREMENT_AUTO = 'plan.enregistrementAuto';
@@ -105,7 +106,7 @@ export function creerEnregistrementAuto(ctx: ContexteEnregistrementAuto): Enregi
       return;
     }
     echecs++;
-    const reprise = REPRISES_APRES_ECHEC_MS[Math.min(echecs, REPRISES_APRES_ECHEC_MS.length) - 1]!;
+    const reprise = REPRISES_APRES_ECHEC_MS[Math.min(echecs, REPRISES_APRES_ECHEC_MS.length) - 1] ?? DELAI_REPRISE_MAX_MS;
     ctx.apresEchec?.(echecs, reprise);
     if (permis()) armer(reprise);
   }
