@@ -78,7 +78,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.dupliquer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.supprimer': { compact: ['feuilleOutils', 'selection'], moyen: ['rail', 'selection'], large: ['palette'] },
   'objet.reculer': outil(),
-  'objet.positionInitiale': outil('inspecteur'),
+  'objet.positionInitiale': outil(),
   'objet.aligner': outil(),
 
   // ---- Projet (Z1, Z5) ------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.actualiser': menu('menuFichier'),
   'projet.toitsFond': menu('menuFichier'),
   'projet.supprimerVoisinage': menu('menuFichier'),
-  'projet.doublons': menu('menuFichier', 'menuAdmin'),
+  'projet.doublons': menu('menuFichier'),
   // L'audit de la parcelle (MD/spec-audit.md §11) : menu Projet (Fichier) sur bureau, feuille du projet au doigt.
   'audit.parcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
   // L'import d'un audit de parcelle (§15) : a cote, dans le meme menu.
@@ -302,5 +302,8 @@ export const MODE_EXPERT: Record<string, string> = {
   'projet.toitsFond': 'La lecture des toits du voisinage en tache de fond se suspend ou reprend d\'elle-meme.',
   'projet.supprimerVoisinage': 'Une reparation : le voisinage se masque (menu Affichage) sans etre supprime.',
   'projet.doublons': 'Une reparation d\'un plan importe deux fois.',
+  // Les onglets des resultats ramenes a cinq (sujet 5 du lot) : le resume a copier est un texte technique, son onglet est du mode expert.
+  'export.resume': 'Le resume a copier, un texte technique ; son onglet Résumé est du mode expert.',
+  'export.copierResume': 'Le bouton de l\'onglet Résumé, du mode expert.',
   'audit.importerParcelle': 'Le fichier d\'un audit fait sur un autre appareil (l\'administrateur pour un client) : un fichier technique, comme le JSON.'
 };

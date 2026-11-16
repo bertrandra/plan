@@ -73,7 +73,7 @@ export function PremierPas({ empechement, choisir, plateforme, aDesProjetsEtrang
 
         {adresse ? (
           <button type="button" data-controle="premierPas.adresse" className="premierChoix premierChoix--premier" onClick={() => { choisir('adresse'); }}>
-            <span className="premierChoixTitre">Partir d'une adresse</span>
+            <span className="premierChoixTitre">Nouveau projet depuis une adresse</span>
             <span className="premierChoixTexte">
               La parcelle et les bâtiments viennent du cadastre. C'est la façon de commencer un vrai
               chantier : vous tapez une adresse, vous choisissez la parcelle, le plan est dessiné.
@@ -84,7 +84,7 @@ export function PremierPas({ empechement, choisir, plateforme, aDesProjetsEtrang
             <span className="premierChoixTitre">Dessiner sans adresse</span>
             <span className="premierChoixTexte">
               Un plan vide, à l'échelle : vous tracez vous-même la parcelle, la maison et la terrasse
-              avec les outils du plan. Vous l'enregistrez ensuite par Fichier › Nouveau projet.
+              avec les outils du plan. Vous l'enregistrez ensuite par Fichier › Enregistrer sous….
             </span>
           </button>
         )}

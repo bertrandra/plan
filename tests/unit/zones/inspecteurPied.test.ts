@@ -43,7 +43,9 @@ describe('le pied de l inspecteur', () => {
 
   it('grise les reinitialisations en lecture seule et dit pourquoi', () => {
     monte = monter(droits(false));
-    for (const id of ['objet.positionInitiale', 'projet.reinitialiser']) {
+    // « Réinitialiser la position » n'est plus qu'a la palette (lot 3 : un geste, un endroit).
+    expect(monte.hote.querySelector('[data-commande="objet.positionInitiale"]')).toBeNull();
+    for (const id of ['projet.reinitialiser']) {
       expect(bouton(id).disabled).toBe(true);
       expect(bouton(id).title).not.toBe('');
     }
@@ -51,7 +53,6 @@ describe('le pied de l inspecteur', () => {
 
   it('les laisse utilisables avec le droit d ecrire', () => {
     monte = monter(droits(true));
-    expect(bouton('objet.positionInitiale').disabled).toBe(false);
     expect(bouton('projet.reinitialiser').disabled).toBe(false);
   });
 

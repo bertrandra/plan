@@ -102,7 +102,7 @@ export function sectionRelief(c: ContexteChamps): Section | null {
       type: 'bouton', cle: 'lire', libelle: 'Lire le relief', visible: sans,
       texte: () => lectureRelief.enCours() ? 'Lecture…' : 'Lire le relief',
       aide: 'Lit à l’IGN la grille d’altitudes du sol sur la parcelle et ses abords (LiDAR HD à 50 cm, sinon RGE ALTI à 1 m)',
-      ...(calee ? {} : { explication: 'Le plan doit être calé par le cadastre : créez-le depuis une adresse (Fichier › Nouveau plan depuis une adresse).' }),
+      ...(calee ? {} : { explication: 'Le plan doit être calé par le cadastre : créez-le depuis une adresse (Fichier › Nouveau projet depuis une adresse).' }),
       agit: { commande: 'relief.lire' }, executer: (cc) => cc.executerCommande('relief.lire')
     },
 

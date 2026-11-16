@@ -113,7 +113,7 @@ describe('les commandes du projet portent bien leurs droits', () => {
     const { resolve } = await import('node:path');
     const source = readFileSync(resolve(__dirname, '../../../src/app/projet.ts'), 'utf8');
     for (const id of ['projet.nouveau', 'projet.enregistrer', 'projet.supprimer', 'projet.depuisAdresse']) {
-      const bloc = source.slice(source.indexOf("id: '" + id + "'"), source.indexOf("id: '" + id + "'") + 220);
+      const bloc = source.slice(source.indexOf("id: '" + id + "'"), source.indexOf("id: '" + id + "'") + 260);
       // Le code de permission est nomme une seule fois, dans app/acces.ts : on cherche la
       // constante, pas la chaine, sinon deux ecritures du meme droit pourraient diverger.
       expect(bloc, id).toContain('permission: PERMISSION_ECRITURE');
@@ -125,7 +125,7 @@ describe('les commandes du projet portent bien leurs droits', () => {
     const { resolve } = await import('node:path');
     const source = readFileSync(resolve(__dirname, '../../../src/app/projet.ts'), 'utf8');
     for (const id of ['projet.nouveau', 'projet.depuisAdresse']) {
-      const bloc = source.slice(source.indexOf("id: '" + id + "'"), source.indexOf("id: '" + id + "'") + 220);
+      const bloc = source.slice(source.indexOf("id: '" + id + "'"), source.indexOf("id: '" + id + "'") + 260);
       // `max_projects`, le quota que backprod verifie a la creation et a la copie — pas `plan.documents`.
       expect(bloc, id).toContain('QUOTA_PROJETS');
     }

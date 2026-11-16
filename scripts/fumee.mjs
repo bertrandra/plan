@@ -3440,7 +3440,7 @@ const POINTS = {
   },
   175: async (page) => {
     // « Mes projets » (lot 2 de la simplification, 16 novembre 2026) : menu Fichier (feuille Projet au doigt), « Mes projets… » ; le
-    // dialogue liste les projets, dit celui qui est ouvert, offre « Nouveau depuis une adresse » et « Gérer sur la plateforme » ;
+    // dialogue liste les projets, dit celui qui est ouvert, offre « Nouveau projet depuis une adresse » et « Gérer sur la plateforme » ;
     // « Fermer » le referme ; rien ne deborde. Il remplace le lien « Mes projets ↗ » vers la plateforme.
     const echecs = [];
     if ((await classe(page)) !== 'large') await feuille(page, 'projet');
@@ -3461,7 +3461,7 @@ const POINTS = {
     if (r) {
       if (r.lignes < 1) echecs.push('aucun projet listé');
       if (r.ouvert !== 1) echecs.push(r.ouvert + ' projet(s) dit(s) ouvert(s)');
-      if (!r.adresse) echecs.push('« Nouveau depuis une adresse » absent ou grisé');
+      if (!r.adresse) echecs.push('« Nouveau projet depuis une adresse » absent ou grisé');
       if (!/\/projects$/.test(r.plateforme ?? '')) echecs.push('lien plateforme ' + r.plateforme);
       if (!r.entier || r.deborde) echecs.push('débordement');
       if (r.lien) echecs.push('le lien « Mes projets ↗ » vers la plateforme reste dans la barre');
@@ -3470,12 +3470,12 @@ const POINTS = {
     await page.waitForTimeout(250);
     if (await boite.count()) echecs.push('« Fermer » ne ferme pas');
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
-      + (r ? `${r.lignes} projet(s), « ${r.nom} » ouvert ; « Nouveau depuis une adresse » offert ; plateforme → ${r.plateforme}` : '') };
+      + (r ? `${r.lignes} projet(s), « ${r.nom} » ouvert ; « Nouveau projet depuis une adresse » offert ; plateforme → ${r.plateforme}` : '') };
   },
   176: async (page, f) => {
     // La limite de projets dite en clair, avec « Voir les offres » (lot 2) : une offre qui compte un projet, la demonstration cree ;
     // « Mes projets » le dit (« limite atteinte », la phrase, « Voir les offres » vers la vitrine `<plateforme>/?product=plan`),
-    // « Nouveau projet » refuse ouvre « Limite de projets atteinte » dont le bouton ouvre la vitrine ; puis, l'offre deja pleine, le
+    // « Enregistrer sous… » (projet.nouveau) refuse ouvre « Limite de projets atteinte » dont le bouton ouvre la vitrine ; puis, l'offre deja pleine, le
     // premier pas « Aucun plan à ouvrir » offre « Voir les offres ».
     const echecs = [];
     const VITRINE = 'http://plateforme.test/?product=plan';
@@ -3515,7 +3515,7 @@ const POINTS = {
       if (popup) await popup.waitForLoadState().catch(() => {});
       const ouverte = popup ? popup.url() : null;
       if (ouverte !== VITRINE) echecs.push('« Voir les offres » ouvre ' + ouverte);
-      return `Mes projets : « limite atteinte », offres → ${m.offres} ; « Nouveau projet » : « Limite de projets atteinte », « Voir les offres » ouvre ${ouverte}`;
+      return `Mes projets : « limite atteinte », offres → ${m.offres} ; « Enregistrer sous… » : « Limite de projets atteinte », « Voir les offres » ouvre ${ouverte}`;
     });
     const plein = await vierge(quota(1), async (p) => {
       await p.locator('.premierBoite').waitFor({ timeout: 20000 });
@@ -3681,6 +3681,89 @@ const POINTS = {
     if (fe.deSuite) echecs.push(fe.deSuite + ' filet(s) de trop en mode expert');
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `mode simple : ${simple.entrees} entrées (${simple.commandes.join(', ')}) ; mode expert : ${expert?.entrees} entrées` };
+  },
+  180: async (page) => {
+    // Les gestes en double retires et un seul libelle pour creer un projet (lot 3 de la simplification, 16 novembre 2026) : plus de
+    // liste deroulante des projets dans la barre (« Mes projets » les ouvre) ; « Réinitialiser la position » a la palette seulement,
+    // plus au pied de l'inspecteur ; « Fusionner les doublons » au menu Fichier seulement ; creer un projet se dit « Nouveau projet
+    // depuis une adresse » au menu Fichier, dans « Mes projets » et a l'import, et la copie du plan « Enregistrer sous… ».
+    const echecs = [];
+    if (await page.locator('#projectSelect').count()) echecs.push('liste déroulante des projets présente');
+    await modeExpert(page, true);
+    if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+    await page.evaluate(() => document.getElementById('menuFichier')?.setAttribute('open', ''));
+    await page.waitForTimeout(200);
+    const menu = await page.evaluate(() => {
+      const texte = (id) => document.querySelector('#menuFichier [data-commande="' + id + '"]')?.textContent?.trim() ?? null;
+      return { adresse: texte('projet.depuisAdresse'), copie: texte('projet.nouveau'), doublons: document.querySelectorAll('[data-commande="projet.doublons"]').length,
+        autresNouveau: [...document.querySelectorAll('#menuFichier [data-commande]')].map((e) => e.textContent.trim()).filter((t) => /^Nouveau/.test(t) && t !== 'Nouveau projet depuis une adresse…') };
+    });
+    await page.evaluate(() => document.getElementById('menuFichier')?.removeAttribute('open'));
+    if ((await classe(page)) !== 'large') await feuille(page, null);
+    if (menu.adresse !== 'Nouveau projet depuis une adresse…') echecs.push('menu Fichier : « ' + menu.adresse + ' »');
+    if (menu.copie !== 'Enregistrer sous…') echecs.push('copie : « ' + menu.copie + ' »');
+    if (menu.autresNouveau.length) echecs.push('autre création : ' + menu.autresNouveau.join(', '));
+    if (menu.doublons !== 1) echecs.push(menu.doublons + ' entrée(s) « Fusionner les doublons »');
+    // « Mes projets » : le meme libelle.
+    await page.evaluate(() => window.__plan.executer('projet.mesProjets'));
+    const boite = page.locator('.dialogueMesProjets');
+    await boite.waitFor({ timeout: 10000 }).catch(() => echecs.push('« Mes projets » ne s’ouvre pas'));
+    const mesProjets = (await page.locator('.dialogueMesProjets [data-commande="projet.depuisAdresse"]').textContent().catch(() => ''))?.trim();
+    if (mesProjets !== 'Nouveau projet depuis une adresse…') echecs.push('Mes projets : « ' + mesProjets + ' »');
+    await page.locator('[data-controle="mesProjets.fermer"]').click().catch(() => {});
+    await page.waitForTimeout(200);
+    // L'inspecteur d'une terrasse : plus de « Réinitialiser la position » a son pied ; la palette la garde.
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    const pied = await page.evaluate(() => ({ inspecteur: document.querySelectorAll('#zoneInspecteur [data-commande="objet.positionInitiale"]').length,
+      total: document.querySelectorAll('[data-commande="objet.positionInitiale"]').length, reinit: !!document.querySelector('#zoneInspecteur [data-commande="projet.reinitialiser"]') }));
+    await feuille(page, null);
+    if (pied.inspecteur) echecs.push('« Réinitialiser la position » encore à l’inspecteur');
+    if (pied.total < 1) echecs.push('« Réinitialiser la position » introuvable (palette)');
+    if (!pied.reinit) echecs.push('« Réinitialiser tout » absent');
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `sans liste des projets ; « ${menu.adresse} » au menu et dans Mes projets ; « ${menu.copie} » ; doublons : ${menu.doublons} entrée ; position initiale : ${pied.total} hors inspecteur` };
+  },
+  181: async (page) => {
+    // Les onglets des resultats ramenes a cinq (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
+    // choisie, mode expert eteint, le tiroir (feuille Resultats au doigt) montre Nomenclature, Coupe, Implantation, Cotes et PLU ;
+    // Optimisation, Chantier, Méthode, Profil et Résumé reviennent avec le mode expert. Un onglet du mode expert ouvert quand on
+    // l'eteint cede la place a la nomenclature ; « Méthode de calcul » (menu Aide) et « Résumé à copier » (Exporter) le suivent.
+    const echecs = [];
+    const lire = async () => {
+      await selectionner(page, TERRASSE);
+      const compact = (await classe(page)) === 'compact';
+      await page.evaluate((c) => { window.__plan.ouvrirResultats('bom'); if (c) window.__plan.ouvrirFeuille('resultats'); }, compact);
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => [...document.querySelectorAll('[data-controle="tiroir.onglet"]')].map((b) => b.getAttribute('data-onglet')));
+      if (compact) await feuille(page, null);
+      return r;
+    };
+    await modeExpert(page, true);
+    await selectionner(page, TERRASSE);
+    await page.evaluate(() => window.__plan.ouvrirResultats('optimisation'));
+    await page.waitForTimeout(200);
+    await modeExpert(page, false);
+    const apresExtinction = await page.evaluate(() => window.__plan.etat().panelTab);
+    if (apresExtinction !== 'bom') echecs.push('onglet ouvert après extinction : ' + apresExtinction);
+    const simple = await lire();
+    const attendus = ['bom', 'coupe', 'implantation', 'mesure', 'plu'];
+    if (simple.join() !== attendus.join()) echecs.push('onglets en mode simple : ' + simple.join());
+    await page.evaluate(() => window.__plan.ouvrirResultats('methode'));
+    if (await page.evaluate(() => window.__plan.etat().panelTab) === 'methode') echecs.push('Méthode s’ouvre en mode simple');
+    const aide = await entreesDuMenu(page, 'menuAide');
+    if (aide?.controles.includes('aide.methode')) echecs.push('« Méthode de calcul » au menu Aide en mode simple');
+    const exporter = await entreesDuMenu(page, 'menuExporter');
+    if (exporter?.commandes.includes('export.resume')) echecs.push('« Résumé à copier » en mode simple');
+    await modeExpert(page, true);
+    const expert = await lire();
+    for (const id of ['optimisation', 'chantier', 'methode', 'resume']) if (!expert.includes(id)) echecs.push(id + ' absent en mode expert');
+    const aide2 = await entreesDuMenu(page, 'menuAide');
+    if (!aide2?.controles.includes('aide.methode')) echecs.push('« Méthode de calcul » absente en mode expert');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `mode simple : ${simple.join(', ')} ; mode expert : ${expert.length} onglets ; Optimisation ouverte, le mode éteint → ${apresExtinction}` };
   },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
@@ -7377,7 +7460,7 @@ const POINTS = {
     await etape('recharger la démonstration', () => page.reload());
     const d = await ouvert();
     if (d.question) echecs.push('démonstration rechargée : question posée');
-    // « Nouveau projet » : l'invite du nom, validee telle quelle.
+    // « Enregistrer sous… » (projet.nouveau) : l'invite du nom, validee telle quelle.
     await page.evaluate(() => window.__plan.executer('projet.nouveau'));
     await etape('nom du projet', async () => { await page.locator('.dialogueBoite input').first().waitFor({ timeout: 10000 }); await page.keyboard.press('Enter'); });
     await etape('ouvrir la copie', () => page.waitForURL((u) => /[?&]projet=/.test(String(u)) && !String(u).includes('projet=' + demo), { timeout: 15000 }));
@@ -9602,7 +9685,9 @@ function pointsPour(nomClasse) {
   // 177 : le mode expert, eteint : ni formats techniques, ni parametres de calcul, ni reglages fins de la 3D ; allume, tout revient.
   // 178 : l'inspecteur de la terrasse en trois groupes, les reglages du calcul au mode expert ; la nomenclature ne change pas.
   // 179 : le menu Fichier en neuf entrees au plus en mode simple, sans filet de trop ; le reste revient avec le mode expert.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179];
+  // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
+  // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

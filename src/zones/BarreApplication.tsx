@@ -37,10 +37,12 @@ import { texteStatutCourt } from './statut.js';
 import { useCle, useMagasinZone } from './composants/abonnement.js';
 import { APP_VERSION, versionLongue } from '../model/version.js';
 import { sessionToit } from '../app/toits/modeToit.js';
+import { controleMontre } from '../app/modeExpert.js';
 
 export interface PropsBarreApplication {
   magasin: Magasin;
   commandes: RegistreCommandes;
+  /** Le projet ; la barre ne l'ouvre plus elle-meme (« Mes projets » le fait, lot 3), mais le garde pour ses menus a venir. */
   projet: Projet;
   tiroir: Tiroir;
 }
@@ -165,9 +167,12 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
             l'actualisation et l'audit. Ce qui repare ou affine un plan venu de l'IGN, et les formats techniques, viennent apres :
             le registre les efface tant que le mode expert est eteint (MODE_EXPERT, app/exposition.ts), avec leurs filets. */}
         {p.apiDisponible && commandes.obtenir('projet.mesProjets') && <Entree commandes={commandes} id="projet.mesProjets" libelle="Mes projets…" />}
-        <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
-        {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
+        <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau projet depuis une adresse…" />
+        
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
+        {/* Une copie du plan sous un autre nom, ou le premier enregistrement d'un plan dessine sans adresse : un seul geste cree un
+            projet, « Nouveau projet depuis une adresse… » (lot 3 de la simplification). */}
+        {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Enregistrer sous…" />}
         {/* Une preference de l'appareil (app/enregistrementAuto.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
         {p.apiDisponible && <Case magasin={magasin} option="enregistrementAuto" idDom="chkEnregistrementAuto" controle="fichier.option.enregistrementAuto" libelle="Enregistrement automatique" titre="Enregistre le projet quelques secondes après chaque modification" />}
         {p.apiDisponible && commandes.obtenir('projet.partager') && <Entree commandes={commandes} id="projet.partager" libelle="Partager par un lien…" />}
@@ -290,16 +295,18 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
 }
 
 function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes: RegistreCommandes; tiroir: Tiroir }) {
-  useCle(magasin, 'menu Aide', () => String(tiroir.onglets().some(o => o.id === 'methode')));
+  useCle(magasin, 'menu Aide', (s) => String([tiroir.onglets().some(o => o.id === 'methode'), controleMontre(s, 'aide.methode')]));
   const methode = tiroir.onglets().some(o => o.id === 'methode');
+  // La methode de calcul est un onglet du mode expert (app/tiroir.ts) : son entree le suit (app/controlesInterface.ts).
+  const montrerMethode = controleMontre(magasin.store.getState(), 'aide.methode');
   return (
     <Deroulant id="menuAide" titre="Aide">
       <ul role="menu">
-        <li role="menuitem">
+        {montrerMethode && <li role="menuitem">
           <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
             <span className="coche" aria-hidden="true" />Méthode de calcul
           </button>
-        </li>
+        </li>}
         <li role="menuitem">
           <button type="button" data-controle="aide.version" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
         </li>
@@ -369,7 +376,6 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         <Entree commandes={commandes} id="admin.regles" libelle="Règles" />
         <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits" />
         <Entree commandes={commandes} id="admin.sauvegarde" libelle="Télécharger une sauvegarde des données" />
-        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons du projet…" />
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>
@@ -549,7 +555,7 @@ function SortieAdmin({ magasin }: { magasin: Magasin }) {
   );
 }
 
-export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBarreApplication) {
+export function BarreApplication({ magasin, commandes, tiroir }: PropsBarreApplication) {
   useFermetureDesMenus();
   const p = useStore(magasin.store, (s) => s.projet);
   const vue = useStore(magasin.store, (s) => s.vue);
@@ -607,11 +613,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
 
   const menus = (
     <>
-      {p.apiDisponible && (
-        <select id="projectSelect" data-controle="projet.choisir" title="Choisir un projet" aria-label="Choisir un projet" value={p.courant ? p.courant.id : ''} onChange={(e) => projet.ouvrir(e.target.value)}>
-          {p.liste.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-      )}
+      {/* Plus de liste deroulante des projets : « Mes projets » les ouvre (lot 2), un geste n'existe qu'a un endroit. */}
       {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
         <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement || !etatEnregistrer.utilisable}

@@ -81,7 +81,7 @@ export function ouvrirActualisationProjet(ctx: ContexteActualisation): void {
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle?.cadastre;
   if (!parcelle || !cad?.section || !cad.numero || !cad.codeInsee || cad.origineLat === undefined || cad.origineLat === null || cad.origineLon === undefined || cad.origineLon === null) {
-    showToast('Ce plan n’a pas d’origine cadastrale : créez-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l’actualiser.');
+    showToast('Ce plan n’a pas d’origine cadastrale : créez-le avec « Fichier › Nouveau projet depuis une adresse » pour pouvoir l’actualiser.');
     return;
   }
   // Les batiments verifies sur place restent, sauf si la case est cochee : decochee a chaque ouverture.
