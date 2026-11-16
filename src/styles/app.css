@@ -957,6 +957,12 @@
   }
   .porteBouton:disabled{ opacity:0.6; cursor:default; }
   .porteLiens{ margin:0; font-size:0.8rem; }
+  /* Ce que fait Plan, en tete de la porte (lot 6) : le document parle, en serif. */
+  .porteIntro{ margin:0; font-family:var(--serif); font-size:0.98rem; line-height:1.45; color:var(--ink); }
+  .porteBoutonSecondaire{ margin-top:0; background:transparent; color:var(--ink); border:1px solid var(--rule); font-weight:600; }
+  .porteLiensCompte{ display:flex; flex-wrap:wrap; gap:6px 16px; }
+  html:not([data-classe="large"]) .porteLiens a{ display:inline-flex; align-items:center; min-height:44px; }
+  html:not([data-classe="large"]) .porteBouton{ min-height:48px; }
   .porteLiens a{ color:var(--ink-soft); }
   /* La reference de requete : discrete, mais selectionnable — c'est fait pour etre recopie. */
   .porteRef{ margin:0; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); user-select:all; }

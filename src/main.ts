@@ -116,6 +116,23 @@ async function ouvrirSiPartage(): Promise<boolean> {
   return true;
 }
 
+/**
+ * « Essayer la démonstration », depuis la porte (lot 6, app/acces.ts, `entrerEnEssai`) : le plan de demonstration livre, sans session ni depot. Tout se
+ * modifie et se recalcule ici ; rien ne s'enregistre, et la plateforme n'est plus appelee.
+ */
+async function ouvrirEssai(): Promise<void> {
+  const { entrerEnEssai } = await import('./app/acces.js');
+  entrerEnEssai();
+  document.documentElement.dataset.essai = '';
+  document.title = 'Démonstration — Plan';
+  const { boot, graineVitrine } = await import('./app/boot.js');
+  chargement(true);
+  // Un nom, pour la barre : le plan de demonstration n'est le projet de personne (sans depot, rien ne s'enregistre sous ce nom).
+  const graine = { ...(await graineVitrine()), meta: { id: 'essai', name: 'Parcelle AE 101 (démonstration)' } };
+  boot(graine, { essai: true });
+  finChargementApresRendu();
+}
+
 // L'import est dynamique pour une raison de comportement, pas de style : dans le fichier
 // mono-page, le bloc 2 etait enveloppe dans un try/catch qui affichait le bandeau si une
 // instruction de premier niveau levait pendant la definition. Un import statique leverait avant
@@ -218,6 +235,8 @@ async function demarrer(): Promise<void> {
     // chargement doit se voir dans le bandeau, pas en page blanche.
     const { franchirLaPorte } = await import('./app/porte.js');
     const acces = await franchirLaPorte();
+    // « Essayer la démonstration » (lot 6, app/acces.ts, `entrerEnEssai`) : le plan de demonstration, sans session ni depot.
+    if ('essai' in acces) { await ouvrirEssai(); return; }
     // Le point de rendez-vous : boot.ts lira les droits la (app/acces.ts). Pose avant l'import de
     // boot, parce que le registre des commandes se construit pendant cet import.
     const { poserAcces } = await import('./app/acces.js');

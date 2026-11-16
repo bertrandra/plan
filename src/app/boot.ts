@@ -40,14 +40,14 @@ brancherFiletsDErreur();
  */
 const POIGNEES = import.meta.env.DEV || import.meta.env.MODE === 'banc';
 
-function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: DemandeAudit; partage?: boolean; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: DemandeAudit; partage?: boolean; essai?: boolean; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
   // « Actualiser IGN » et « Lecture… » (relief) se voient dans toutes les zones ; les toits lus en fond
   // ne redessinent que la barre d'etat et le menu, abonnes directement (core/lectureToits.ts).
   for (const lecture of [actualisation, lectureRelief]) lecture.abonner(() => magasin.notifier());
-  permettreToitsFond(lectureDeFondPermise(!!options.vitrine || !!options.audit || !!options.partage)); // l'audit lit ses toits lui-meme ; un projet partage se lit tel quel
+  permettreToitsFond(lectureDeFondPermise(!!options.vitrine || !!options.audit || !!options.partage || !!options.essai)); // l'audit lit ses toits lui-meme ; un projet partage se lit tel quel
   const atelier = atelierDu(p);
   const ch = chargements(p, seed, tardifs);
   brancherLePlan(p, atelier, ch, seed, tardifs);
@@ -85,7 +85,8 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   else if (options.audit) void demarrerAudit(p, vues, options.audit);
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet partage se montre tel qu'il est enregistre : ni mise a jour du modele, ni question, ni lecture de fond (app/projetPartage.ts).
-  else if (options.partage) { /* rien */ }
+  // La demonstration (lot 6) non plus : elle ne lit rien en fond (les toits du LiDAR, les murs de Panoramax).
+  else if (options.partage || options.essai) { /* rien */ }
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
   else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); void ch.profilsFacades.relancer(); }

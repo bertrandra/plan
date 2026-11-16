@@ -151,6 +151,27 @@ export function retireEnPartage(c: Commande): boolean {
   return !!c.permission || c.ecrit === 'projet' || GROUPES_HORS_PARTAGE.has(c.groupe) || COMMANDES_HORS_PARTAGE.has(c.id);
 }
 
+/**
+ * La demonstration sans compte (« Essayer la démonstration », sur la porte ; lot 6) : le plan de demonstration livre, sans session ni
+ * depot. Tout s'y modifie et s'y recalcule ici ; rien ne s'enregistre (pas de depot : ni enregistrement, ni enregistrement
+ * automatique, ni question avant de quitter) et la plateforme n'est plus appelee. Ce qui est vendu ne s'y offre pas : ni l'import
+ * par adresse (le cadastre de l'IGN), ni le PLU, ni le relief, ni le partage ; ni ce qui demande un compte (l'audit, Claude, l'admin).
+ */
+let essai = false;
+export function entrerEnEssai(): void { essai = true; }
+export function enEssai(): boolean { return essai; }
+
+/** Les capacites que la demonstration ne donne pas : elles se vendent, ou parlent a l'IGN pour un terrain qu'on n'a pas. */
+const CAPACITES_HORS_ESSAI = new Set<string>([CAPACITES.cadastre.code, CAPACITES.plu.code, CAPACITES.relief.code, 'project_sharing']);
+/** Les familles qui demandent un compte (l'audit, Claude, l'admin, les facades) ; et ce qui enregistre ou lit l'IGN en fond. */
+const GROUPES_HORS_ESSAI = new Set(['audit', 'admin', 'assistant', 'facade', 'relief', 'plu']);
+const COMMANDES_HORS_ESSAI = new Set(['projet.enregistrer', 'projet.nouveau', 'projet.supprimer', 'projet.mettreAJourModele', 'projet.toitsFond', 'projet.partager']);
+
+/** Une commande que la demonstration ne porte pas : elle disparait, comme une capacite qu'on n'a pas achetee. */
+export function retireEnEssai(c: Commande): boolean {
+  return GROUPES_HORS_ESSAI.has(c.groupe) || COMMANDES_HORS_ESSAI.has(c.id) || (!!c.capacite && CAPACITES_HORS_ESSAI.has(c.capacite));
+}
+
 /** L'admin des demos (app/administration/porteAdmin.ts) : la barre propose alors d'en sortir, pas la plateforme. */
 let admin = false;
 export function entrerEnAdmin(): void { admin = true; }
@@ -179,6 +200,8 @@ export function droitsCourants(): Droits {
   // Un projet partage : pas de contexte, mais un registre qui retire ce qui modifie (`retireEnPartage`) ; les capacites restent
   // celles du produit, sans compte a qui les demander (la 3D, les exports locaux).
   if (partage) return { branchee: () => true, aCapacite: () => true, aPermission: () => false, reste: () => null, retire: retireEnPartage };
+  // La demonstration : tout permis ici, sans quota ; ce qui se vend ou demande un compte disparait (`retireEnEssai`).
+  if (essai) return { branchee: () => true, aCapacite: (code) => !CAPACITES_HORS_ESSAI.has(code), aPermission: () => true, reste: () => null, retire: retireEnEssai };
   return {
     branchee: () => contexte !== null,
     // Une capacite forcee en dur passe toujours (CAPACITES_FORCEES ci-dessus).
