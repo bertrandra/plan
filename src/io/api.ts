@@ -198,10 +198,13 @@ export async function chargerProjetInitial(
   if (voulu && !liste.some((p) => p.id === voulu)) voulu = null;
   if (!voulu && liste.length) voulu = au(liste, 0).id;
 
+  /** Vrai quand ce demarrage vient de creer la demonstration (le premier pas) : elle s'ouvre sur sa terrasse (app/boot.ts). */
+  let demoCreee = false;
   /** Le jeu de demonstration, enregistre comme un vrai projet : c'est ce qu'il devient. */
   const creerLaDemo = async (): Promise<string> => {
     const { objets, mesures } = await demo();
     const cree = await apiSave({ name: 'Parcelle AE 101', objects: objets, measures: mesures });
+    demoCreee = true;
     liste = await apiList();
     return cree.id;
   };
@@ -262,6 +265,9 @@ export async function chargerProjetInitial(
     measures: complet.measures || [],
     meta: complet.meta ?? null,
     schemaVersion: complet.schemaVersion ?? null,
-    ouvrirAdresse: false
+    ouvrirAdresse: false,
+    // La demonstration du premier pas s'ouvre cadree sur sa terrasse et la maison qu'elle touche, comme l'essai sans compte ;
+    // rouverte ensuite, c'est un projet comme un autre, cadre sur son terrain.
+    ouvrirSurLaTerrasse: demoCreee
   };
 }

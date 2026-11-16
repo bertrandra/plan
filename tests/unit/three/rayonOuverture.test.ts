@@ -28,11 +28,13 @@ describe('le rayon d ouverture de la Vue 3D', () => {
 });
 
 describe('le cadrage du plan a l ouverture', () => {
-  it('se pose sur la terrasse pour la demonstration sans compte seulement', async () => {
+  // La demonstration sans compte, et celle que le premier pas vient de creer (demande du proprietaire, 16 novembre 2026) ;
+  // un projet rouvert garde le cadrage du terrain (io/api.ts, `ouvrirSurLaTerrasse`, teste dans tests/unit/io/api.test.ts).
+  it('se pose sur la terrasse pour la demonstration seulement (essai sans compte, premier pas)', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
     const boot = readFileSync(resolve(__dirname, '../../../src/app/boot.ts'), 'utf8');
-    expect(boot).toContain('if (options.essai) cadrage.cadrerTerrasse();');
+    expect(boot).toContain('if (options.essai || seed.ouvrirSurLaTerrasse) cadrage.cadrerTerrasse();');
     expect(boot.match(/cadrerTerrasse\(\)/g)).toHaveLength(1);
   });
 });
