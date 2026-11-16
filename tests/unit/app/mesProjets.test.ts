@@ -29,7 +29,7 @@ const droits = (reste: number | null = null): Droits => ({ branchee: () => true,
 beforeEach(() => { poserAcces(session, contexte); parcours.fermer(); });
 
 function magasinDe(projet: Record<string, unknown>): Magasin {
-  const store = createStore(() => ({ projet: { apiDisponible: true, courant: null, liste: [], statut: 'propre', enregistreA: '', schemaEnRetard: false, quota: null, ...projet } }));
+  const store = createStore(() => ({ classe: 'compact', projet: { apiDisponible: true, courant: null, liste: [], statut: 'propre', enregistreA: '', schemaEnRetard: false, quota: null, ...projet } }));
   return { store } as unknown as Magasin;
 }
 function monter(service: ServiceMesProjets, magasin: Magasin, reste: number | null = null) {
@@ -95,7 +95,8 @@ describe('le dialogue Mes projets', () => {
     expect(offres.target).toBe('_blank');
     const adresse = hote.querySelector<HTMLButtonElement>('[data-commande="projet.depuisAdresse"]')!;
     expect(adresse.disabled).toBe(true);
-    expect(hote.querySelector('.refusAuDoigt')!.textContent).toBe('Limite atteinte.');
+    // La limite est dite en tete : pas une seconde fois sous le bouton.
+    expect(hote.querySelector('.refusAuDoigt')).toBeNull();
   });
 });
 

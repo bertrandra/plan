@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **« Mes projets » dans Plan** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026). Le lien « Mes projets ↗ »
+  de la barre menait à la plateforme, dans un autre onglet. « Mes projets » (la barre du compte, et la première entrée du menu
+  Fichier ; la feuille Projet au doigt) ouvre désormais la liste dans Plan : les projets, le plus récent d'abord, avec leur date de
+  modification ; celui qui est ouvert le dit ; un toucher ouvre un autre (en demandant avant de perdre des modifications, comme le
+  choix du projet) ; « Nouveau depuis une adresse » (la commande du registre, grisée avec sa raison à la limite) ; « Gérer sur la
+  plateforme ↗ » pour le reste. Le compte et la limite de l'abonnement s'y lisent (`app/mesProjets.ts`,
+  `zones/parcours/MesProjets.tsx`). Point de fumée 175.
+
+### Modifié
+
+- **La limite de projets atteinte mène aux offres** (lot 2). Le dialogue « Limite de projets atteinte » proposait « Ouvrir la
+  plateforme » (sa racine) ; il propose « Voir les offres », la vitrine de la plateforme qui porte les offres du produit
+  (`<BACKPROD_API_URL>/?product=plan`, comme la démonstration sans compte). La phrase dit quoi faire : « supprimez un projet ou passez
+  à une offre qui en compte davantage : « Voir les offres » ». « Mes projets » le redit, avec le même lien, et le premier pas
+  « Aucun plan à ouvrir » d'une offre déjà pleine offre « Voir les offres » à côté de « Ouvrir la plateforme ». Point de fumée 176.
+
 ## [5.33.0] — 2026-11-16
 
 Version **mineure** au sens de `MD/RELEASE.md` : le parcours client gagne des exports et des fonctions nouvelles, sans rien retirer

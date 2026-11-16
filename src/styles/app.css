@@ -3217,6 +3217,7 @@
   .ligneProjet.ouvert{ background:var(--accent-light); color:var(--on-accent-light); cursor:default; opacity:1; }
   .nomLigneProjet{ font-family:var(--serif); font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .noteLigneProjet{ font-family:var(--sans); font-size:0.7rem; color:inherit; opacity:0.8; white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .limiteProjets .lienOffres{ font-weight:600; }
+  .limiteProjets .lienOffres{ color:var(--ink); font-weight:600; text-underline-offset:2px; white-space:nowrap; }
+  html:not([data-classe="large"]) .limiteProjets .lienOffres{ display:inline-flex; align-items:center; min-height:44px; }
   html:not([data-classe="large"]) .ligneProjet{ min-height:44px; }
   html[data-classe="compact"] .dialogueMesProjets{ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }

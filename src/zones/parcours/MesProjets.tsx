@@ -23,6 +23,7 @@ function dateCourte(iso: string | undefined): string {
 
 export function MesProjets({ service, commandes, magasin, fermer }: { service: ServiceMesProjets; commandes: RegistreCommandes; magasin: Magasin; fermer: () => void }) {
   const p = useStore(magasin.store, (s) => s.projet);
+  const doigt = useStore(magasin.store, (s) => s.classe) !== 'large';
   const q = p.quota;
   const plein = !!q && q.limite !== null && q.utilise >= q.limite;
   const compte = q ? q.utilise + ' projet' + (q.utilise > 1 ? 's' : '') + (q.limite !== null ? ' sur ' + q.limite + ' autorisé' + (q.limite > 1 ? 's' : '') + ' par l’abonnement' : '') : '';
@@ -66,7 +67,8 @@ export function MesProjets({ service, commandes, magasin, fermer }: { service: S
         <a className="compteLien" data-controle="mesProjets.plateforme" href={service.plateforme()} target="_blank" rel="noopener">Gérer sur la plateforme<span aria-hidden="true"> ↗</span></a>
         <button type="button" data-controle="mesProjets.fermer" onClick={fermer}>Fermer</button>
       </div>
-      {!commandes.effacee('projet.depuisAdresse') && !adresse.utilisable && 'message' in adresse && adresse.message && <p className="refusAuDoigt">{adresse.message}</p>}
+      {/* Au doigt, la raison d'un refus s'ecrit sous le groupe ; celle de la limite est deja dite en tete du dialogue. */}
+      {doigt && !commandes.effacee('projet.depuisAdresse') && !adresse.utilisable && 'message' in adresse && adresse.raison !== 'quota' && adresse.message && <p className="refusAuDoigt">{adresse.message}</p>}
     </div>
   );
 }
