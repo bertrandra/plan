@@ -62,7 +62,9 @@ const CONTEXTE = {
  * Le depot tient en memoire ce que Plan y enregistre : le plan de demonstration est cree par un
  * `POST /projects`, puis relu par son identifiant, exactement comme sur la vraie plateforme.
  */
-export async function simulerPlateforme(page) {
+export async function simulerPlateforme(page, { connecte = true, capacites = null } = {}) {
+  // `connecte: false` : aucune session, la porte s'affiche ; `capacites` : l'offre de la personne, a la place de celle du contexte.
+  const contexte = capacites ? { ...CONTEXTE, capabilities: capacites } : CONTEXTE;
   const projets = new Map();
   let suivant = 1;
   const resume = (p) => ({ id: p.id, name: p.name, updated_at: p.updated_at, deleted_at: null, schema_version: p.schema_version ?? 1 });
@@ -72,8 +74,8 @@ export async function simulerPlateforme(page) {
     const chemin = url.pathname.replace(/^\/api\/v1/, '');
     const corps = (json, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
     const lu = () => { try { return JSON.parse(req.postData() || '{}'); } catch { return {}; } };
-    if (chemin === '/auth/refresh') return corps({ access_token: 'jeton', expires_in: 3600 });
-    if (chemin === '/me/context') return corps(CONTEXTE);
+    if (chemin === '/auth/refresh') return connecte ? corps({ access_token: 'jeton', expires_in: 3600 }) : corps({ error: { code: 'UNAUTHENTICATED', message: 'Session absente' } }, 401);
+    if (chemin === '/me/context') return connecte ? corps(contexte) : corps({ error: { code: 'UNAUTHENTICATED', message: 'Session absente' } }, 401);
     if (chemin === '/auth/jwks') return corps({ keys: [] });
     if (chemin === '/projects' && req.method() === 'GET') return corps({ projects: [...projets.values()].map(resume) });
     if (chemin === '/projects' && req.method() === 'POST') {
