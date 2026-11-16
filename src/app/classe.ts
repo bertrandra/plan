@@ -40,6 +40,19 @@ export function toucherSeul(): boolean {
 }
 
 /**
+ * Pose la classe de la largeur courante sur `<html>` seulement, et la tient a jour au
+ * redimensionnement : ce qui s'affiche avant l'atelier (la porte, le premier pas) en a besoin, et le
+ * magasin n'existe pas encore. Le demarrage du plan (`appliquerClasse`) pose ensuite la meme valeur,
+ * et le magasin avec ; les deux ecouteurs calculent la meme chose.
+ */
+export function suivreClasseDeLaPage(): void {
+  if (typeof window === 'undefined') return;
+  const poser = () => { document.documentElement.dataset.classe = classePour(window.innerWidth, toucherSeul()); };
+  poser();
+  window.addEventListener('resize', poser);
+}
+
+/**
  * Pose la classe de la largeur courante, et rend `true` quand elle a change. Une feuille ouverte se
  * ferme en quittant le telephone.
  */

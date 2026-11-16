@@ -81,6 +81,15 @@ describe('ce que l ecran doit continuer de dire', () => {
     expect(zone).toContain("choisir('demo')");
   });
 
+  it('ne propose « Partir d une adresse » qu avec la capacite du cadastre, et sinon de dessiner sans adresse', () => {
+    // La commande de l'import (projet.depuisAdresse) disparait sans la capacite : le premier pas
+    // l'offrait quand meme, puis ouvrait un plan vide sans un mot (audit du 16 novembre 2026).
+    expect(module).toContain('adresse: droitsCourants().aCapacite(CAPACITES.cadastre.code)');
+    expect(zone).toMatch(/\{adresse \? \(\s*<button type="button" data-controle="premierPas\.adresse"/);
+    expect(zone).toContain("choisir('vierge')");
+    expect(zone).toContain('Dessiner sans adresse');
+  });
+
   it('met l adresse en premier : c est ce qu on veut faire pour de bon', () => {
     expect(zone.indexOf("choisir('adresse')")).toBeLessThan(zone.indexOf("choisir('demo')"));
     expect(zone).toContain('premierChoix--premier');

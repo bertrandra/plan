@@ -155,7 +155,8 @@ export async function apiDelete(id: string): Promise<unknown> {
  */
 export interface JeuDemo { objets: unknown[]; mesures: unknown[] }
 
-export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 'adresse'>;
+/** « Partir d'une adresse », la demonstration, ou un plan vide a dessiner (sans la capacite du cadastre). */
+export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 'adresse' | 'vierge'>;
 
 /**
  * Decide avec quoi demarrer : un projet du serveur, le jeu de demonstration, ou rien du tout.
@@ -205,19 +206,25 @@ export async function chargerProjetInitial(
     return cree.id;
   };
 
-  /** Un plan vide, sans projet : l'etat depuis lequel l'import cadastre va en creer un. */
-  const planVierge = () => ({
+  /**
+   * Un plan vide, sans projet : l'etat depuis lequel l'import cadastre va en creer un (`adresse`), ou
+   * que la personne dessine elle-meme puis enregistre par « Nouveau projet » (`vierge`).
+   */
+  const planVierge = (ouvrirAdresse = true) => ({
     apiAvailable: true,
     list: liste,
     objects: [] as ObjetBrut[],
     measures: [] as Mesure[],
     meta: null as ProjetResume | null,
     schemaVersion: null as number | null,
-    ouvrirAdresse: true
+    ouvrirAdresse
   });
+  /** Ce que la reponse du premier pas ouvre : un plan vierge, ou `null` pour la demonstration. */
+  const selonLeChoix = (c: 'demo' | 'adresse' | 'vierge') => c === 'demo' ? null : planVierge(c === 'adresse');
 
   if (!voulu) {
-    if (demanderPremierPas && (await demanderPremierPas(liste.length > 0)) === 'adresse') return planVierge();
+    const vierge = demanderPremierPas ? selonLeChoix(await demanderPremierPas(liste.length > 0)) : null;
+    if (vierge) return vierge;
     voulu = await creerLaDemo();
   }
 
@@ -236,7 +243,8 @@ export async function chargerProjetInitial(
   } catch (e) {
     const choisiParPlan = voulu !== projetConnu;
     if (!choisiParPlan || (e as { reason?: string }).reason !== 'badjson') throw e;
-    if (demanderPremierPas && (await demanderPremierPas(true)) === 'adresse') return planVierge();
+    const vierge = demanderPremierPas ? selonLeChoix(await demanderPremierPas(true)) : null;
+    if (vierge) return vierge;
     voulu = await creerLaDemo();
     complet = await apiLoad(voulu);
   }
