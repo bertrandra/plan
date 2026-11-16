@@ -46,7 +46,9 @@ export function creerPreferencesDevis(nomProjet: () => string | null | undefined
       catch { /* stockage indisponible : le reglage vaut pour ce devis seulement */ }
     },
     defautsEmetteur() {
-      const c = contexteCourant()?.courant();
+      // L'identite et non `courant()` : un contexte que la plateforme ne laisse pas garder (`token_expires_at`
+      // nul) n'est pas en cache, et le devis partait sans nom alors que la porte l'avait lu.
+      const c = contexteCourant()?.identite();
       if (!c) return {};
       const nom = c.tenant.name || c.user.display_name || '';
       return { ...(nom ? { nom } : {}), ...(c.user.email ? { email: c.user.email } : {}) };

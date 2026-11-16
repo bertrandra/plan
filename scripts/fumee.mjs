@@ -4179,6 +4179,35 @@ const POINTS = {
       && salAvant === salApres && !debordeDialogue && (pied === 'sans objet' || pied === 'ouvre le dialogue');
     return { ok, mesure: `en tête du menu : ${enTete} ; « ${nom} », ${octets.length} octets, ${pages} page(s), émetteur ${emetteur ? 'imprimé' : 'ABSENT'} ; toast « ${toast} » ; projet ${salAvant === salApres ? 'inchangé par l’émetteur' : 'MARQUÉ MODIFIÉ'} ; pied du chiffrage ${pied} ; débordement ${debordeDialogue ? 'OUI' : 'non'}` };
   },
+  183: async (page, f) => {
+    // Le nom de l'emetteur du devis vient du compte meme quand la plateforme ne laisse pas garder son contexte (`token_expires_at`
+    // nul, ce que la plateforme simulee rend) : le dialogue le propose dans le champ « Émetteur » (et le courriel), et le devis
+    // telecharge sans rien saisir l'imprime. Avant la correction, le champ proposait « Votre nom ou votre entreprise » et le PDF
+    // partait sans nom. Le PDF d'un emetteur donne ne change pas : seul le chemin du nom propose est repare.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await etape('menu', async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      await page.evaluate(() => {
+        const menu = document.getElementById('menuExporter');
+        menu?.setAttribute('open', '');
+        menu?.querySelector('[role="menu"] [data-commande="export.ouvrirDevis"]')?.click();
+      });
+    });
+    const boite = page.locator('.dialogueDevis');
+    await etape('dialogue', () => boite.waitFor({ timeout: 10000 }));
+    const propose = await boite.locator('[data-cle="devis-nom"] input').first().getAttribute('placeholder');
+    const courriel = await boite.locator('[data-cle="devis-email"] input').first().getAttribute('placeholder');
+    const saisi = await boite.locator('[data-cle="devis-nom"] input').first().inputValue();
+    const { PDFDocument } = await import('pdf-lib');
+    const [dl] = await etape('telecharger', () => Promise.all([page.waitForEvent('download', { timeout: 20000 }), boite.getByRole('button', { name: /Télécharger le devis/ }).click()]));
+    const octets = readFileSync(await dl.path());
+    const pages = (await etape('ouvrir le PDF', () => PDFDocument.load(octets))).getPageCount();
+    const texte = octets.toString('latin1');
+    const nom = CONTEXTE.tenant.name;
+    const imprime = texte.includes('(' + nom + ')');
+    const ok = propose === nom && courriel === CONTEXTE.user.email && saisi === '' && pages === 1 && imprime;
+    return { ok, mesure: `contexte sans cache (token_expires_at ${CONTEXTE.token_expires_at === null ? 'nul' : 'NON NUL'}) ; « Émetteur » propose « ${propose} », courriel « ${courriel} », rien de saisi ${saisi === '' ? '' : '(SAISI « ' + saisi + ' »)'} ; devis de ${pages} page(s), nom ${imprime ? 'imprimé' : 'ABSENT'}` };
+  },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
     // 18-deux-vues-voiture-haie importees par le champ fichier de l'ecran (sans camera) deviennent un cas neuf, sans contexte du plan ;
@@ -9746,7 +9775,8 @@ function pointsPour(nomClasse) {
   // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
   // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
   // 182 : l'audit d'une facade sans « É7 » ni « V1 » pour la personne ordinaire ; le mode expert les rend.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182];
+  // 183 : le nom de l'emetteur du devis vient du compte meme hors du cache du contexte (`token_expires_at` nul), propose et imprime.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
