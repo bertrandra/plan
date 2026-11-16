@@ -842,7 +842,7 @@
      de quoi defiler jusqu'au bout sous elle. */
   html[data-classe="large"] .bandeEstimation{
     position:fixed; z-index:49; left:50%; transform:translateX(-50%); bottom:var(--hauteur-etat-large);
-    width:98vw; max-width:1600px; display:flex; align-items:center; gap:22px; padding:6px 16px;
+    width:98vw; max-width:1600px; display:flex; flex-wrap:wrap; align-items:center; gap:6px 22px; padding:6px 16px;
     background:var(--panel-bg); border:1px solid var(--border); border-bottom:none; border-radius:var(--r-tuile) var(--r-tuile) 0 0;
     box-shadow:var(--ombre-flottante); font-family:var(--sans);
   }
@@ -851,7 +851,8 @@
   html[data-classe="large"] .bandeEstimation .bandeEstimationNom .tuileValeur{ overflow:hidden; text-overflow:ellipsis; max-width:18ch; }
   html[data-classe="large"] .bandeEstimation .resumeTiroirTotal{ margin-left:auto; text-align:right; }
   html[data-classe="large"] .bandeEstimation .resumeTiroirTotal .tuileValeur{ color:var(--accent); font-size:19px; }
-  html[data-classe="large"] .bandeEstimation button{ flex:none; }
+  html[data-classe="large"] .bandeEstimation .bandeEstimationActions{ display:flex; gap:6px; flex:none; align-items:center; }
+  html[data-classe="large"] .bandeEstimation button{ flex:none; display:inline-flex; align-items:center; gap:6px; }
   html[data-classe="large"] body:has(.bandeEstimation){ padding-bottom:calc(52px + 60px); }
   .tailleImpression{ margin-left:14px; font-size:0.84rem; color:var(--ink-soft); }
   /* Le plan d'implantation s'imprime : il garde le fond du papier, quel que soit le theme. */

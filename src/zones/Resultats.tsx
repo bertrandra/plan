@@ -56,9 +56,9 @@ function Tuiles({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[]
 /**
  * Les chiffres cles et l'estimation, sur une ligne : sous les onglets du tiroir replie (tablette), et
  * en barre fixe au bas de la fenetre au bureau (`bande`), ou le tiroir commence sous le pli. Au bureau,
- * elle nomme la terrasse et mene a sa Nomenclature.
+ * elle nomme la terrasse, mene a sa Nomenclature et porte les gestes du pied du telephone (resume, devis, dossier).
  */
-function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets: ObjetPlan[]; bande?: { voir: () => void } }) {
+function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets: ObjetPlan[]; bande?: { voir: () => void; commandes: RegistreCommandes | undefined } }) {
   const r = resumerChiffrage(terrasse, objets);
   if (!r) return null;
   const tuiles: [string, string][] = [
@@ -72,39 +72,56 @@ function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets
       {bande && <div className="tuileChiffrage bandeEstimationNom"><span className="tuileLibelle">Terrasse</span><span className="tuileValeur">{terrasse.name}</span></div>}
       {tuiles.map(([l, v]) => <div key={l} className="tuileChiffrage"><span className="tuileLibelle">{l}</span><span className="tuileValeur">{v}</span></div>)}
       <div className="tuileChiffrage resumeTiroirTotal"><span className="tuileLibelle">Estimation HT</span><span className="tuileValeur">{euros(r.bas)} – {euros(r.haut)}</span></div>
-      {bande && <button type="button" data-controle="tiroir.voirNomenclature" className="secondary" onClick={bande.voir}>Voir la nomenclature</button>}
+      {bande && (
+        <div className="bandeEstimationActions" role="group" aria-label="Après le chiffrage">
+          <button type="button" data-controle="tiroir.voirNomenclature" className="secondary" onClick={bande.voir}>Voir la nomenclature</button>
+          <ActionsChiffrage commandes={bande.commandes} taille={16} />
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * Le pied de la feuille Chiffrage : l'estimation et les gestes qui suivent un chiffrage —
- * copier le resume, ouvrir le devis, sortir le dossier. L'estimation reste une fourchette : la somme des prix reels
- * ne couvre que les lignes ou un prix existe, et la montrer seule ferait croire a un total.
+ * Les gestes qui suivent un chiffrage : copier le resume, ouvrir le devis, sortir le dossier. Les memes commandes du
+ * registre au pied de la feuille Chiffrage (telephone) et dans la barre d'estimation du bureau : aucun ecouteur a part.
+ */
+function ActionsChiffrage({ commandes, taille = 18 }: { commandes: RegistreCommandes | undefined; taille?: number }) {
+  if (!commandes) return null;
+  const dossier = commandes.etat('export.dossier');
+  const dossierEfface = commandes.effacee('export.dossier');
+  const devis = commandes.etat('export.ouvrirDevis');
+  return (
+    <>
+      <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>
+      {!commandes.effacee('export.ouvrirDevis') && (
+        <button data-commande="export.ouvrirDevis" type="button" className="secondary" disabled={!devis.utilisable} title={'message' in devis ? devis.message : undefined}
+          onClick={(e) => { commandes.executer('export.ouvrirDevis', e.currentTarget); }}>Devis</button>
+      )}
+      {!dossierEfface && (
+        <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier.utilisable} title={'message' in dossier ? dossier.message : undefined}
+          onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
+          <Icone nom="exporter" taille={taille} />Dossier PDF
+        </button>
+      )}
+    </>
+  );
+}
+
+/**
+ * Le pied de la feuille Chiffrage : l'estimation et les gestes qui suivent un chiffrage. L'estimation reste une fourchette :
+ * la somme des prix reels ne couvre que les lignes ou un prix existe, et la montrer seule ferait croire a un total.
  */
 function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; objets: ObjetPlan[]; commandes: RegistreCommandes | undefined }) {
   const r = resumerChiffrage(terrasse, objets);
   if (!r) return null;
-  const dossier = commandes?.etat('export.dossier');
-  const dossierEfface = !commandes || commandes.effacee('export.dossier');
-  const devis = commandes?.etat('export.ouvrirDevis');
   return (
     <div className="piedChiffrage">
       <div className="piedChiffrageTotal">
         <span className="piedChiffrageLibelle">Estimation HT</span>
         <span className="piedChiffrageValeur">{euros(r.bas)} – {euros(r.haut)}</span>
       </div>
-      <div className="piedChiffrageActions">
-        {commandes && <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>}
-        {commandes && <button data-commande="export.ouvrirDevis" type="button" className="secondary" disabled={!devis?.utilisable} title={devis && 'message' in devis ? devis.message : undefined}
-          onClick={(e) => { commandes.executer('export.ouvrirDevis', e.currentTarget); }}>Devis</button>}
-        {!dossierEfface && commandes && (
-          <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier?.utilisable} title={dossier && 'message' in dossier ? dossier.message : undefined}
-            onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
-            <Icone nom="exporter" taille={18} />Dossier PDF
-          </button>
-        )}
-      </div>
+      <div className="piedChiffrageActions"><ActionsChiffrage commandes={commandes} /></div>
     </div>
   );
 }
@@ -170,7 +187,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
       tiroir.activer('bom');
       document.getElementById('zoneResultats')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     };
-    return t ? <>{barre}<ResumeTiroir terrasse={t} objets={etat.objects} bande={{ voir }} /></> : barre;
+    return t ? <>{barre}<ResumeTiroir terrasse={t} objets={etat.objects} bande={{ voir, commandes }} /></> : barre;
   }
   if (classe !== 'compact') {
     // Sur tablette, le tiroir replie garde les chiffres cles de la terrasse (maquette Tablette).

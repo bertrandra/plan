@@ -2955,8 +2955,8 @@ const POINTS = {
   162: async (page, f) => {
     // Le prix total toujours visible au bureau (audit de l'IHM du 16 novembre 2026, lot 1) : le tiroir des resultats commence sous le
     // pli (y = 951 pour une fenetre de 900), et aucune « Estimation HT » n'etait a l'ecran. Au bureau : la barre d'estimation au bas
-    // de la fenetre des l'ouverture (terrasse premiere, rien choisi), sans defiler ; « Voir la nomenclature » choisit la terrasse et
-    // ouvre son onglet. Partout : la ligne « Total HT » en pied de la Nomenclature dit la meme fourchette que la barre (bureau), le
+    // de la fenetre des l'ouverture (terrasse premiere, rien choisi), sans defiler, avec les gestes du pied du telephone (resume,
+    // devis, dossier) ; « Voir la nomenclature » choisit la terrasse et ouvre son onglet. Partout : la ligne « Total HT » en pied de la Nomenclature dit la meme fourchette que la barre (bureau), le
     // resume du tiroir replie (tablette) ou le pied de la feuille (telephone) ; un prix reel saisi s'y ajoute.
     const echecs = [];
     const visible = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight; }, sel);
@@ -2964,6 +2964,9 @@ const POINTS = {
     if (f.nom === 'large') {
       if (!(await visible('.bandeEstimation'))) echecs.push('barre d\'estimation absente ou hors de l\'écran à l\'ouverture');
       barre = await page.evaluate(() => document.querySelector('.bandeEstimation .resumeTiroirTotal .tuileValeur')?.textContent ?? null);
+      // Les gestes du pied du chiffrage au telephone, par les memes commandes du registre : resume, devis, dossier.
+      const gestes = await page.$$eval('.bandeEstimation [data-commande]', (b) => b.map((x) => x.dataset.commande).sort());
+      if (gestes.join() !== 'export.copierResume,export.dossier,export.ouvrirDevis') echecs.push('gestes de la barre : ' + JSON.stringify(gestes));
       await page.locator('[data-controle="tiroir.voirNomenclature"]').click();
       await page.waitForTimeout(900);
       const r = await page.evaluate(() => ({ choisie: window.__plan.etat().objects.find((o) => o.key === window.__plan.etat().selectedKey)?.fonction, onglet: window.__plan.etat().panelTab }));

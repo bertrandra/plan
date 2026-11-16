@@ -29,7 +29,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   HT » n'était à l'écran, quand le téléphone a sa tuile et son pied de feuille, et la tablette son résumé sous le plan. Le bureau
   reçoit la même barre, fixe au bas de la fenêtre, sur la barre d'état : la terrasse choisie (ou la première du plan), ses appuis,
   ses lames, son bois porteur, sa surface et l'estimation HT, avec « Voir la nomenclature », qui choisit la terrasse et ouvre son
-  onglet. Le même résumé que la tablette et le téléphone (`ui/chiffrage.ts::resumerChiffrage`) : la zone n'additionne rien.
+  onglet, puis les trois gestes du pied du chiffrage au téléphone, par les mêmes commandes du registre : « Copier le résumé »,
+  « Devis » et « Dossier PDF » (`zones/Resultats.tsx::ActionsChiffrage`, partagé par les deux). Le même résumé que la tablette et le téléphone (`ui/chiffrage.ts::resumerChiffrage`) : la zone n'additionne rien.
 - **Une ligne « Total HT » en pied de la Nomenclature** : la fourchette estimée (prix bas et haut fois les quantités) et le réel
   saisi, à la place de la ligne « Estimé : … » sous la table. La somme est faite une fois, dans la couche qui chiffre déjà le
   résumé (`ui/chiffrage.ts::totauxBom`, lue par la table, les tuiles, la barre et le pied du téléphone) : la table ne l'additionne
