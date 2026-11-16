@@ -55,8 +55,8 @@ export function natureErreurReseau(e: unknown): NatureErreurReseau | null {
 
 /**
  * La phrase d'une erreur de reseau : ce qui se passe, puis quoi faire. `service` est le sujet de la
- * phrase (« Le service d'adresses de l'IGN »), `ensuite` ce que la personne peut faire (« Réessayez dans
- * un instant, ou dessinez votre terrain à la main. »). `null` quand l'erreur n'est pas de reseau.
+ * phrase (« Le service d'adresses de l'IGN »), `ensuite` ce que la personne peut faire (« Reessayez dans
+ * un instant, ou dessinez votre terrain a la main. »). `null` quand l'erreur n'est pas de reseau.
  */
 export function phraseReseau(e: unknown, service: string, ensuite = 'Réessayez dans un instant.'): string | null {
   const nature = natureErreurReseau(e);
