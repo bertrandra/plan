@@ -64,7 +64,11 @@ const DECIDE: Record<string, { sections: string[]; plis?: Record<string, Record<
   },
   'Terrasse': {
     sections: ['objet', 'apparence', 'implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'parametres*', 'cotes*', 'coins*'],
-    plis: { finitions: { 'Rive côté par côté': ['rive0', 'rive1', 'rive2', 'rive3', 'rive4', 'rive5'] } }
+    plis: {
+      // La lame du commerce se choisit d'un geste ; ses reglages fins, que le choix pose, se replient (lot 2, 16 novembre 2026).
+      lames: { 'Détail de la lame (essence, cotes, raideur)': ['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame'] },
+      finitions: { 'Rive côté par côté': ['rive0', 'rive1', 'rive2', 'rive3', 'rive4', 'rive5'] }
+    }
   },
   'Piscine 1': { sections: ['objet', 'apparence', 'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'cotes*', 'coins*'] },
   'Pergola 1': {

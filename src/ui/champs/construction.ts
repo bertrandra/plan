@@ -22,7 +22,8 @@ import { solDuProjet } from '../../engine/sol.js';
 import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
-import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
+import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, essenceDe, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
+import { LAMES_COMMERCE, lameDuCommerce } from '../../engine/bois/lamesCommerce.js';
 import { objetsQuiPercent } from '../../engine/ouvrages/liens.js';
 import { buildVisGrid, findSpaZones, ouverturesDe, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
 import { surfaceNetteTerrasse } from '../../engine/ouvrages/terrasse.js';
@@ -347,6 +348,35 @@ const champ = (cle: keyof Construction): Champ => {
   return ch;
 };
 
+/** Le pli des reglages fins de la lame, que le choix d'une lame du commerce pose d'un coup. */
+const PLI_LAME = 'Détail de la lame (essence, cotes, raideur)';
+
+/**
+ * La lame du commerce (lot 2 de la simplification, 16 novembre 2026) : choisir une lame vendue pose
+ * son essence, sa largeur, son epaisseur et le coefficient de raideur de l'essence, comme les champs
+ * du pli le feraient un par un (meme ecriture, memes effets). Des cotes hors catalogue se lisent
+ * « Autre lame » et se reglent dans le pli ; choisir « Autre lame » ne change rien.
+ */
+const lameCommerce: Champ = reglage({
+  type: 'choix', cle: 'lameCommerce', libelle: 'Lame',
+  aide: 'Une lame telle qu’elle se vend : elle règle l’essence, la largeur et l’épaisseur d’un coup. Des cotes particulières se saisissent dans « Détail de la lame ».',
+  options: () => [...LAMES_COMMERCE.map((l) => ({ valeur: l.id, libelle: l.libelle, groupe: essenceDe(l.essence).label })),
+    { valeur: '', libelle: 'Autre lame (cotes dans le détail)' }],
+  note: (cx) => { const c = cx.construction(); const e = essenceDe(c.essenceBois);
+    return lameDuCommerceLue(c) ? (e.haut ? 'prix indicatif ' + e.bas + ' à ' + e.haut + ' €/m²' : '') : (c.largeurLame ?? 140) + ' × ' + (c.epaisseurLame ?? 25) + ' mm, ' + e.label.toLowerCase(); },
+  lire: (cx) => lameDuCommerceLue(cx.construction())?.id ?? '',
+  ecrire: (cx, v) => {
+    const l = LAMES_COMMERCE.find((x) => x.id === v);
+    if (!l) return;
+    const c = cx.construction();
+    c.essenceBois = l.essence; c.coefRaideurLame = LAME_RAIDEUR[l.essence] ?? 1; c.largeurLame = l.largeur; c.epaisseurLame = l.epaisseur;
+  }
+});
+/** La lame du catalogue, lue sur les reglages tels que le moteur les prend (140 x 25 par defaut). */
+function lameDuCommerceLue(c: Construction) {
+  return lameDuCommerce({ essenceBois: c.essenceBois, largeurLame: c.largeurLame ?? 140, epaisseurLame: c.epaisseurLame ?? 25 });
+}
+
 const chargeParPlot: Champ = {
   type: 'lecture', cle: 'chargeParPlot', libelle: 'Charge par plot', visible: (cx) => lire(cx).plots,
   valeur: (cx) => { const l = lire(cx); const ch = chargePlot(l.c, l.visCount, l.surfM2);
@@ -465,7 +495,8 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
   // Les lames avant la structure : leur epaisseur borne l'entraxe de ce qui les porte.
   const lames: Section = {
     id: 'lames', titre: '3. Lames et sens de pose',
-    champs: [champ('segmentReference'), champ('sensPose'), champ('essenceBois'), champ('coefRaideurLame'), champ('largeurLame'), champ('epaisseurLame')]
+    champs: [lameCommerce, champ('segmentReference'), champ('sensPose'),
+      ...(['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame'] as const).map((k) => ({ ...champ(k), repli: PLI_LAME }))]
   };
   // Sur plots, la structure simple (lambourdes sur plots) ou double (solives dessous) d'abord : les
   // solives n'existent que dans la seconde.
