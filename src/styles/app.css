@@ -793,6 +793,10 @@
 
 
   .controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  /* La liste d'achat en tete de la Nomenclature : son libelle en petites capitales, ses deux formats a cote. */
+  .controls.listeAchat{ align-items:center; margin:0 0 10px; }
+  html[data-classe="moyen"] .controls.listeAchat button{ min-height:44px; }
+  .libelleListeAchat{ font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
   button{
     font-family:var(--serif); font-size:0.8rem; padding:7px 14px;
     border:1px solid var(--ink); background:var(--ink); color:var(--on-ink); cursor:pointer; border-radius:6px;

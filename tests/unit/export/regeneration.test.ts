@@ -10,6 +10,7 @@ import { construireDXF } from '../../../src/export/dxfPlan.js';
 import { construirePDF } from '../../../src/export/pdfPlan.js';
 import { construireDossierPDF } from '../../../src/export/dossierPdf.js';
 import { construireDevisPDF } from '../../../src/export/devisPdf.js';
+import { construireListeAchatCSV, construireListeAchatPDF } from '../../../src/export/listeAchat.js';
 import { construireResume } from '../../../src/export/resume.js';
 import { creerMesures } from '../../../src/app/assemblage/mesures.js';
 import { clesDossier } from '../../../src/app/dossier.js';
@@ -103,5 +104,21 @@ describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', 
     const chemin = resolve(dorees, 'devis.pdf');
     if (process.env.REECRIRE_EMPREINTES) writeFileSync(chemin, r.pdf, 'latin1');
     expect(empreinte(r.pdf)).toBe(empreinte(lire('devis.pdf')));
+  });
+  it('liste-achat.csv', () => {
+    // La liste d'achat (16 novembre 2026), en CSV : le texte que l'application telecharge, encode en UTF-8 (avec son BOM) comme les
+    // autres temoins texte. `REECRIRE_EMPREINTES=1` le recapture.
+    const e = etatTemoin();
+    const octets = enOctets(construireListeAchatCSV(e.objects, clesDossier(e.objects)));
+    if (process.env.REECRIRE_EMPREINTES) writeFileSync(resolve(dorees, 'liste-achat.csv'), octets, 'latin1');
+    expect(empreinte(octets)).toBe(empreinte(lire('liste-achat.csv')));
+  });
+  it('liste-achat.pdf', () => {
+    // La meme, a imprimer : WinAnsi, un caractere par octet, comme le devis.
+    const e = etatTemoin();
+    const r = construireListeAchatPDF(e.objects, clesDossier(e.objects), { appVersion: VERSION, buildAt: BUILD, nomProjet: 'Parcelle AE 101', maintenant: new Date('2026-09-28T23:22:00') })!;
+    expect(r.pages).toBe(2);
+    if (process.env.REECRIRE_EMPREINTES) writeFileSync(resolve(dorees, 'liste-achat.pdf'), r.pdf, 'latin1');
+    expect(empreinte(r.pdf)).toBe(empreinte(lire('liste-achat.pdf')));
   });
 });
