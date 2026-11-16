@@ -712,6 +712,8 @@ visionneuse ; **Rail** rail d'outils ; **Pal** palette ; **M:x** menu x ; **Suri
 | `fichier.importerSvg` | Importer un SVG | FP › Fichier | M:Fichier | M:Fichier |
 | `fichier.exporterJson` | Exporter le projet (JSON) | FP › Fichier | M:Fichier | M:Fichier |
 | `fichier.importerJson` | Importer un projet (JSON) | FP › Fichier | M:Fichier | M:Fichier |
+| `export.ouvrirDevis` | Devis (PDF)… (en tête du menu, depuis le 16 novembre 2026) | FP › Exporter ; R:BOM (pied) | M:Exporter | M:Exporter |
+| `export.devis` | Télécharger le devis (PDF) | dialogue du devis | dialogue | dialogue |
 | `export.svg` | SVG | FP › Exporter ; H (⭳) | M:Exporter | M:Exporter |
 | `export.png` | PNG | FP › Exporter | M:Exporter | M:Exporter |
 | `export.resume` | Résumé à copier | FP › Exporter ; R:Résumé | M:Exporter ; R:Résumé | M:Exporter ; R:Résumé |

@@ -180,6 +180,9 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
   return (
     <Deroulant id="menuExporter" titre="Exporter">
       <ul role="menu">
+        {/* Le devis d'abord : le document que le client recoit pour decider (dialogue : l'emetteur, le client, le numero). */}
+        <Entree commandes={commandes} id="export.ouvrirDevis" libelle="Devis (PDF)…" idDom="devisBtn" />
+        <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.resume" libelle="Résumé à copier" apres={() => tiroir.activer('resume')} />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.svg" libelle="SVG" idDom="exportSvgBtn" />
