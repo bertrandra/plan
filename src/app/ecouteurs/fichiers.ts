@@ -75,7 +75,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
       return;
     }
     try { ctx.appliquerProjetImporte(valide, remplacer); }
-    catch (err) { showErrBanner('Echec de l\'import JSON : ' + ((err as Error).message || err)); }
+    catch (err) { showErrBanner('Échec de l\'import JSON : ' + ((err as Error).message || err)); }
   }
 
   const el = (id: string) => document.getElementById(id) as HTMLInputElement;
@@ -93,7 +93,7 @@ export function brancherFichiers(ctx: ContexteFichiers, cmd: RegistreCommandes):
 
   cmd.declarer({ id: 'fichier.exporterJson', libelle: 'Exporter le projet (JSON)', groupe: 'fichier', executer: () => {
     try { ctx.exportProjetJSON(); }
-    catch (e) { showErrBanner('Echec de l\'export JSON : ' + ((e as Error).message || e)); }
+    catch (e) { showErrBanner('Échec de l\'export JSON : ' + ((e as Error).message || e)); }
   } });
 
   cmd.declarer({ id: 'fichier.importerJson', libelle: 'Importer un projet (JSON)', groupe: 'fichier', permission: PERMISSION_ECRITURE, executer: () => el('importJsonFile').click() });

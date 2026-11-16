@@ -52,7 +52,7 @@ export function ChoixTexture({ titre, caseLibelle, choisir, fermer }: Props) {
         <div className="titreParcours">{titre + ' — textures Poly Haven (CC0)'}</div>
         <button type="button" data-controle="texture.fermer" className="secondary small" aria-label="Fermer" onClick={fermer}>✕</button>
       </div>
-      <input ref={champ} type="text" data-controle="texture.recherche" className="rechercheTextures" placeholder="Rechercher (bois, brique, tuile, beton, gazon...)" value={recherche}
+      <input ref={champ} type="text" data-controle="texture.recherche" className="rechercheTextures" placeholder="Rechercher (bois, brique, tuile, béton, gazon...)" value={recherche}
         onChange={(e) => setRecherche(e.target.value)} />
       <div className="statutTextures">{statut}</div>
       <div className="corpsTextures">

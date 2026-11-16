@@ -50,7 +50,7 @@ export interface PropsBarreApplication {
 const VUES: [Vue, string, string, string][] = [
   ['plan', 'modePlanBtn', 'Plan', ''],
   ['vue3d', 'mode3dBtn', 'Vue 3D', 'Vue 3D du plan et de la terrasse courante'],
-  ['visionneuse', 'glbViewerBtn', 'Visionneuse GLB', 'Relit le dernier fichier GLB exporte (menu Exporter), pour verifier le fichier reel avant de le partager']
+  ['visionneuse', 'glbViewerBtn', 'Visionneuse GLB', 'Relit le dernier fichier GLB exporte (menu Exporter), pour vérifier le fichier réel avant de le partager']
 ];
 const COMMANDE_DE_VUE: Record<Vue, string> = { plan: 'vue.plan', vue3d: 'vue.3d', visionneuse: 'vue.visionneuse' };
 
@@ -444,7 +444,7 @@ function Compte({ magasin, commandes }: { magasin: Magasin; commandes: RegistreC
       void s.fermer().finally(() => { partirSansQuestion(); location.reload(); });
     };
     if (magasin.store.getState().etat.dirty) {
-      showConfirm('Ce plan porte des modifications non enregistrees. Se deconnecter maintenant les perd. Continuer ?', partir);
+      showConfirm('Ce plan porte des modifications non enregistrées. Se déconnecter maintenant les perd. Continuer ?', partir);
       return;
     }
     partir();
@@ -462,7 +462,7 @@ function Compte({ magasin, commandes }: { magasin: Magasin; commandes: RegistreC
         </button>
       )}
       <button type="button" className="compteLien compteSortie" onClick={sortir}
-        title={'Fermer la session de ' + qui + '. La deconnexion vaut pour la plateforme entiere, pas seulement pour Plan.'}>
+        title={'Fermer la session de ' + qui + '. La déconnexion vaut pour la plateforme entière, pas seulement pour Plan.'}>
         Se déconnecter
       </button>
     </div>

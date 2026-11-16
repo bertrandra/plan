@@ -189,7 +189,7 @@ export function useCle(magasin: Magasin | null, nom: string, lire: (s: EtatMagas
           let i = 0;
           while (i < html.length && html[i] === apres[i]) i++;
           const extrait = (t: string) => t.slice(Math.max(0, i - 60), i + 60);
-          console.error(`[cle de version] zone « ${nom} » : son affichage a change sans que sa cle change ; elle serait restee telle quelle dans le paquet livre (avant « ${extrait(html)} », apres « ${extrait(apres)} »)`);
+          console.error(`[clé de version] zone « ${nom} » : son affichage a change sans que sa clé change ; elle serait restée telle quelle dans le paquet livre (avant « ${extrait(html)} », après « ${extrait(apres)} »)`);
         }
       });
     });

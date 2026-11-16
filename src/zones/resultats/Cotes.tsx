@@ -38,7 +38,7 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
         </select>
       </label>
       <button type="button" data-commande="mesure.selectionnerCoins" className="secondary small" disabled={!utilisable('mesure.selectionnerCoins')}
-        title={!mesure.ref ? 'Choisis d\'abord le segment de reference' : ''} onClick={() => commandes.executer('mesure.selectionnerCoins')}>
+        title={!mesure.ref ? 'Choisis d\'abord le segment de référence' : ''} onClick={() => commandes.executer('mesure.selectionnerCoins')}>
         {choixCibles ? 'Clique des coins sur le plan… (reclique pour finir)' : 'Sélectionner des coins'}
       </button>
       <div className="infoCote">{'Points sélectionnés : ' + (mesure.cibles.length ? mesure.cibles.map(resultats.targetLabel).join(', ') : '(aucun)')}</div>
@@ -93,12 +93,12 @@ const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { res
           <tr key={m.id} data-instance={m.id}>
             <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
             <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
-            <td><button type="button" data-commande="mesure.inverserOrigine" disabled={!ecrire} className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
+            <td><button type="button" data-commande="mesure.inverserOrigine" disabled={!ecrire} className="secondary small" data-nom="Inverser l’origine" title="Changer l'extrémité d'origine de cette mesure (A <-> B)"
               onClick={() => commandes.executer('mesure.inverserOrigine', undefined, { cote: m.id })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
             <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
             <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
             {relief && <td>{d === null ? '—' : texteDenivele(d)}</td>}
-            <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
+            <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichée sur le plan pour cette mesure"
               onClick={() => commandes.executer('mesure.valeurAffichee', undefined, { cote: m.id })}>
               {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
             <td><input type="checkbox" data-commande="mesure.afficher" disabled={!ecrire} checked={!!m.show} aria-label="Afficher sur le plan"

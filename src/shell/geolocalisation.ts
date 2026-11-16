@@ -19,7 +19,7 @@ export type RaisonSansPosition = 'refusee' | 'indisponible' | 'delai';
 /** L'erreur d'une lecture sans position, avec sa raison. */
 export class SansPosition extends Error {
   constructor(public raison: RaisonSansPosition) {
-    super(raison === 'refusee' ? 'position refusee' : raison === 'delai' ? 'position trop longue a obtenir' : 'position indisponible');
+    super(raison === 'refusee' ? 'position refusée' : raison === 'delai' ? 'position trop longue a obtenir' : 'position indisponible');
   }
 }
 

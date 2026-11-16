@@ -17,7 +17,7 @@
 /** L'element attendu, ou une exception nommant l'identifiant manquant. */
 export function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const noeud = document.getElementById(id);
-  if (!noeud) throw new Error("Element introuvable dans la page : #" + id);
+  if (!noeud) throw new Error("Élément introuvable dans la page : #" + id);
   return noeud as T;
 }
 

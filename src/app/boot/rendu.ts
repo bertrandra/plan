@@ -126,7 +126,7 @@ export function creerRendu(d: DependancesRendu) {
         const parcelle = affichage.trouverParcelleCloture();
         const cloture = parcelle && !affichage.objetMasque(parcelle) ? parcelle : null;
         const marge = cloture && clotureDe(cloture).portails.length ? margeAcces(enDessin.scene.scale) : null;
-        redessinerSiChange(surface.releves, 'releves et cloture', cleDesCalquesEnMetres(enDessin, litLesReleves, marge), () => {
+        redessinerSiChange(surface.releves, 'releves et clôture', cleDesCalquesEnMetres(enDessin, litLesReleves, marge), () => {
           const enMetres = { ...enDessin, scene: { ...enDessin.scene, scale: 1 } };
           dessinerReleves(surface.releves, enMetres, versMetres, affichage.objetMasque);
           if (cloture) dessinerCloture(surface.releves, enMetres, versMetres, cloture, enDessin.scene.scale);

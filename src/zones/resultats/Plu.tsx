@@ -32,14 +32,14 @@ function Contenu({ resultats }: { resultats: Resultats }) {
   const point = <div className="hint">{'Point interroge : ' + lieu.latitude.toFixed(6).replace('.', ',') + '° N, ' +
     lieu.longitude.toFixed(6).replace('.', ',') + '° E (centre de « ' + parcelle.name + ' »).'}</div>;
   const plu = parcelle.plu;
-  if (!plu) return <>{point}<div className="hint">Aucun zonage enregistre pour cette parcelle. Clique sur « Interroger le Geoportail de l'urbanisme ».</div></>;
+  if (!plu) return <>{point}<div className="hint">Aucun zonage enregistre pour cette parcelle. Clique sur « Interroger le Géoportail de l'urbanisme ».</div></>;
 
   const lignes: Ligne[] = [];
   if (plu.commune) lignes.push(['Commune', plu.commune.nom + ' (INSEE ' + plu.commune.insee + ')' + (plu.commune.rnu ? ' — au RNU' : '')]);
   if (!plu.zones.length) {
     lignes.push(['Zonage', plu.commune && plu.commune.rnu
-      ? 'Commune au RNU : pas de document d\'urbanisme local, ce sont les regles nationales qui s\'appliquent.'
-      : 'Aucune zone renvoyee pour ce point (document non verse au Geoportail, ou parcelle hors zonage).']);
+      ? 'Commune au RNU : pas de document d\'urbanisme local, ce sont les règles nationales qui s\'appliquent.'
+      : 'Aucune zone renvoyée pour ce point (document non verse au Géoportail, ou parcelle hors zonage).']);
   }
   plu.zones.forEach((z, i) => {
     lignes.push([plu.zones.length > 1 ? 'Zone ' + (i + 1) : 'Zone', <><b>{z.libelle}</b>{z.typezone ? ' — type ' + z.typezone : ''}</>]);

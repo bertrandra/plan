@@ -134,7 +134,7 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
    */
   cmd.declarer({ id: 'mesure.effacer', libelle: 'Effacer les mesures', groupe: 'mesure', permission: PERMISSION_ECRITURE, executer: () => {
     const vider = () => ctx.resultats.effacerCotes();
-    if (a.etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrees ?', vider);
+    if (a.etat.measures.length) showConfirm('Supprimer toutes les mesures enregistrées ?', vider);
     else vider();
   } });
 

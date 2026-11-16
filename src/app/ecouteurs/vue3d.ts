@@ -113,7 +113,7 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   });
   cam('terrasse3dCaptureHd', '3d.captureHd', 'Capture HD', () => {
     const sc = vue3d.scene;
-    if (!sc) { showErrBanner('Vue 3D pas encore chargee.'); return; }
+    if (!sc) { showErrBanner('Vue 3D pas encore chargée.'); return; }
     void capturerHd(sc, () => rendre3d(sc)).then((blob) => {
       if (!blob) { showErrBanner('Capture HD : l’image n’a pas pu être produite (définition trop grande pour cet appareil ?).'); return; }
       const obj = terrasseCourante();
@@ -199,7 +199,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
    * l'export PNG du plan 2D.
    */
   cam('terrasse3dSavePng', '3d.enregistrerPng', 'Enregistrer en PNG', () => {
-    if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargee.'); return; }
+    if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargée.'); return; }
     rendre3d(vue3d.scene); // capture le tout dernier etat
     // `renderer.domElement` vient d'une scene Three non typee (SceneTrois = Record<string, any>) :
     // le type du callback ne peut pas s'en deduire. `Blob | null` est celui de la vraie API canvas.

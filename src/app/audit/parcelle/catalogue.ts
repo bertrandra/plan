@@ -305,7 +305,7 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
       try { poser({ chargement: false, audits: await client.lister() }); } catch (e) { poser({ chargement: false, erreur: message(e) }); }
     },
     raisonOuvrir(a) {
-      if (a.nature === 'promenade') return 'Une promenade des toits ne s’ouvre pas dans un projet : téléchargez-la pour la rejouer avec le skill regles-toits.';
+      if (a.nature === 'promenade') return 'Une promenade des toits ne s’ouvre pas dans un projet : téléchargez-la pour la rejouer avec le skill règles-toits.';
       const refus = d.refusEcriture();
       if (refus) return refus;
       const idu = d.iduProjet();

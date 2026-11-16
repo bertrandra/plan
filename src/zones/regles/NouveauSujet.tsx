@@ -40,7 +40,7 @@ export function NouveauSujet({ existants, surAjout, surAnnuler }: Props) {
         <input type="text" name="libelle" value={libelle} placeholder="Chiens-assis" onChange={(e) => setLibelle(e.target.value)} />
       </label>
       <label className="consChamp reglLarge">Ce que Claude doit dire
-        <input type="text" name="question" value={question} placeholder="le nombre de chiens-assis vus sur le versant, ou « indetermine »" onChange={(e) => setQuestion(e.target.value)} />
+        <input type="text" name="question" value={question} placeholder="le nombre de chiens-assis vus sur le versant, ou « indéterminé »" onChange={(e) => setQuestion(e.target.value)} />
       </label>
       <label className="consChamp reglLarge">Valeurs admises, une par ligne (vide : un nombre)
         <textarea className="reglTexte" name="termes" rows={4} value={termes} placeholder={'abri : petite construction fermée\nbassin : pièce d’eau'} onChange={(e) => setTermes(e.target.value)} />

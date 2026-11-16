@@ -120,7 +120,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     drawGrid: () => dessinerGrille(s.grille, etat),
     // Les calques du dessus ne se refont que si ce qu'ils lisent a change (render/calquesGardes.ts).
     // La fleche et l'echelle suivent l'ecran, pas le plan : dessinees dans la vue, a un coin, leur groupe compense le decalage.
-    drawNorthArrow: () => redessinerSiChange(s.nord, 'fleche du nord', cleDesCalques(etatDessin(), rien), () => dessinerFlecheNord(s.nord, etat)),
+    drawNorthArrow: () => redessinerSiChange(s.nord, 'flèche du nord', cleDesCalques(etatDessin(), rien), () => dessinerFlecheNord(s.nord, etat)),
     drawScaleBar: () => redessinerSiChange(s.echelle, 'echelle', cleDesCalques(etatDessin(), rien), () => dessinerEchelle(s.echelle, etat)),
     // Les cotes posees, et le brouillon de l'outil de cotation en cours de saisie : les objets qu'elles visent, et les terrains (le
     // relief du denivele, la parcelle).
