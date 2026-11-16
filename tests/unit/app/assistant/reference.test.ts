@@ -67,7 +67,7 @@ describe('les dix demandes de reference de l assistant, sur la demonstration', (
     // Regenerer : npx tsx scripts/assistant-reference.ts --verification
     expect(verification.contenu).toEqual(contenuDe(d));
     const [catalogue, demande] = contenuDe(d) as { type: 'text'; text: string }[];
-    expect(catalogue?.text).toMatch(/^# Catalogue de Plan \(version 1\)/);
+    expect(catalogue?.text).toMatch(/^# Catalogue de Plan \(version 2\)/);
     expect(demande?.text).toBe('Demande :\n' + d.demande + '\nFin de la demande.');
   });
 });

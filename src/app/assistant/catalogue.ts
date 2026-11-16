@@ -17,7 +17,8 @@ import type { Commande, EtatCommande } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 /** La version de la forme du catalogue : elle suit chaque demande au journal (dans le texte envoye). */
-export const VERSION_CATALOGUE = 1;
+// 2 depuis le 16 novembre 2026 : une ligne de champ peut finir par la consigne du champ pour l'assistant (`consigneAssistant`).
+export const VERSION_CATALOGUE = 2;
 
 /** Ce qu'une etape ecrit : le projet (une etape d'historique), ou une preference d'affichage (ni Ctrl+Z, ni lecture seule). */
 export type Ecrit = 'projet' | 'affichage';
@@ -52,6 +53,8 @@ export interface ChampCatalogue {
   pas?: number;
   unite?: string;
   options?: { valeur: string; libelle: string }[];
+  /** Ce que l'assistant doit savoir du champ (descripteur `consigneAssistant`), a la fin de sa ligne. */
+  consigne?: string;
   /** Grise a l'ecran (son contexte ne s'y prete pas, ou la lecture seule) : une etape qui l'ecrit est refusee. */
   actif: boolean;
   /** Le descripteur lui-meme, pour l'ecrire (jamais envoye). */
@@ -107,7 +110,8 @@ function champCatalogue(ch: Champ, s: Section, c: ContexteChamps): ChampCatalogu
   // Un champ qui deforme un objet du cadastre attend l'accord de la personne (interaction/retoucheTerrain.ts) : pas d'assistant.
   if (ch.retouche) return null;
   const base = { cle: s.id + '.' + ch.cle, section: s.id, titreSection: s.titre, libelle: ch.libelle || ch.nom || ch.cle,
-    ecrit: (ecritLeProjet(ch) ? 'projet' : 'affichage') as Ecrit, actif: champActif(ch, c), descripteur: ch };
+    ecrit: (ecritLeProjet(ch) ? 'projet' : 'affichage') as Ecrit, actif: champActif(ch, c), descripteur: ch,
+    ...(ch.consigneAssistant ? { consigne: ch.consigneAssistant } : {}) };
   try {
     switch (ch.type) {
       case 'texte': return { ...base, type: 'texte', valeur: ch.lire(c) ?? '' };
@@ -192,8 +196,9 @@ const bornes = (ch: ChampCatalogue): string => {
 function ligneChamp(ch: ChampCatalogue): string {
   const etat = [ch.ecrit === 'affichage' ? 'affichage' : null, ch.actif ? null : 'grisé'].filter(Boolean).join(', ');
   const tete = '- `' + ch.cle + '` (' + ch.type + bornes(ch) + (etat ? ' ; ' + etat : '') + ') : ' + ch.libelle + ' = ' + (ch.valeur === '' ? '(vide)' : '`' + ch.valeur + '`');
-  if (ch.type !== 'choix' || !ch.options?.length) return tete;
-  return tete + ' ; options : ' + ch.options.map((o) => '`' + o.valeur + '`' + (o.libelle && o.libelle !== o.valeur ? ' (' + o.libelle + ')' : '')).join(', ');
+  const consigne = ch.consigne ? ' — ' + ch.consigne : '';
+  if (ch.type !== 'choix' || !ch.options?.length) return tete + consigne;
+  return tete + ' ; options : ' + ch.options.map((o) => '`' + o.valeur + '`' + (o.libelle && o.libelle !== o.valeur ? ' (' + o.libelle + ')' : '')).join(', ') + consigne;
 }
 
 /** Le catalogue en texte, tel qu'il part a Claude (premier bloc de la requete, mis en cache par le serveur). */

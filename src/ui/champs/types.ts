@@ -83,6 +83,11 @@ interface ChampBase {
   nom?: string;
   /** L'infobulle. */
   aide?: string;
+  /**
+   * Ce que l'assistant doit savoir du champ pour ne pas l'ecrire a tort : ajoute a sa ligne du catalogue
+   * (app/assistant/catalogue.ts), jamais montre a l'ecran.
+   */
+  consigneAssistant?: string;
   /** Un mot sur la valeur : ce que le configurateur ecrivait dans sa colonne du milieu. */
   note?: (c: ContexteChamps) => string;
   visible?: (c: ContexteChamps) => boolean;

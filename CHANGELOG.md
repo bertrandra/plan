@@ -72,6 +72,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **L'assistant ne change plus la lame quand on ne lui demande que l'essence.** « Passez les lames en douglas » écrivait aussi
+  la lame du commerce (douglas 145 × 27), donc la largeur et l'épaisseur, des quantités que la personne n'avait pas demandées
+  (demande de référence `01-lames-douglas`, rouge aux runs 43978457531 et 43978821312 de « Vérifier l'API Claude »). Le champ
+  « Lame » porte désormais une consigne propre à l'assistant, ajoutée à sa ligne du catalogue et jamais montrée à l'écran
+  (`consigneAssistant`, `ui/champs/types.ts`) : ne l'écrire que si la demande nomme une lame du commerce ou des cotes ; pour
+  l'essence seule, « Essence de bois » seule. Le catalogue passe à la version 2 ; le prompt et le schéma ne changent pas ; la
+  requête témoin (`tests/fixtures/assistant/requete-verification.json`) est régénérée. Aucune quantité ni aucun export ne change.
 - **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé
   (#729), il restait affiché et ne faisait rien. Il reste à tous ; seuls l'onglet Résumé et l'entrée « Résumé à copier » du menu
   Exporter sont du mode expert.
