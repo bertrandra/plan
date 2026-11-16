@@ -37,6 +37,7 @@ import type { ObjetPlan, ObjetCercle, PtBrut, Relief } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
 import { visibleEnIsolement } from '../model/fonctions.js';
+import { maisonDe } from '../model/placement.js';
 import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
 import { solDeLaScene, geometrieSol, bornesCarre, type SolRelief } from './relief3d.js';
 import { empriseGrille, type Emprise } from '../model/relief.js';
@@ -87,6 +88,24 @@ function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut
   return Math.max(3, maxRadius * 2);
 }
 
+/**
+ * Le rayon a cadrer a l'ouverture quand la scene a une terrasse (lot 2 de la simplification, 16 novembre 2026) : la terrasse, et la
+ * maison si elle la touche (a 2 m pres), autour du centre de la scene ; au moins 4 m. La camera s'ouvre sur ce qu'on vient voir et
+ * chiffrer, et le reste du plan (parcelle, mitoyennes) se voit en reculant. `null` sans terrasse : le cadrage du plan entier.
+ * Le sol, les ombres et la brume gardent l'etendue de la scene : seul le recul de la camera change.
+ */
+export function rayonDOuverture(obj: ObjetPlan | null, objets: ObjetPlan[], cen: PtBrut): number | null {
+  if (!obj || !aDesSommets(obj) || !obj.pts.length) return null;
+  const pts = obj.pts.slice();
+  const m = maisonDe(objets);
+  if (m) {
+    const bx = (q: PtBrut[]) => ({ x0: Math.min(...q.map(p => p.x)), x1: Math.max(...q.map(p => p.x)), y0: Math.min(...q.map(p => p.y)), y1: Math.max(...q.map(p => p.y)) });
+    const t = bx(obj.pts), b = bx(m.pts);
+    if (b.x0 <= t.x1 + 2 && b.x1 >= t.x0 - 2 && b.y0 <= t.y1 + 2 && b.y1 >= t.y0 - 2) pts.push(...m.pts);
+  }
+  return Math.max(4, pts.reduce((r, p) => Math.max(r, dist(p, cen)), 0));
+}
+
 /** Le relief sans son paysage : le sol d'un plan dont le voisinage est masque. */
 function sansPaysage(r: Relief): Relief {
   const reste = { ...r };
@@ -134,7 +153,7 @@ export function distanceDeCadrage(rayon: number, aspect: number): number {
  * mais rend un contexte deja perdu — sans ce test, la compilation du premier shader plantait sur
  * « Argument 1 ('shader') ... must be an instance of WebGLShader » au lieu d'un message clair.
  */
-function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean; rayonParcelle: number | null }) {
+function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean; rayonParcelle: number | null; rayonOuverture: number | null }) {
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdfe7ea);
@@ -151,7 +170,8 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   const hCible = terrain.sol ? terrain.sol.hauteur(terrain.cen) : 0;
   // Le plan entier (la parcelle et ses mitoyennes) est cadre au plus juste ; une terrasse ou un objet
   // isole gardent leur recul, qui laisse voir la maison autour.
-  const recul = terrain.serre ? distanceDeCadrage(extent / 2, w / h) / Math.sqrt(3) : extent * 0.9;
+  // Avec une terrasse, la camera s'ouvre sur elle et sa maison (`rayonDOuverture`), au meme cadrage serre.
+  const recul = terrain.serre ? distanceDeCadrage(terrain.rayonOuverture ?? extent / 2, w / h) / Math.sqrt(3) : extent * 0.9;
   camera.position.set(recul, recul + hCible, recul);
   const niveau = parametresQualite(vue3d.qualite);
   // La veille du rendu a la demande, posee avant tout objet de la scene (three/renduDemande.ts).
@@ -284,7 +304,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // de la brume s'y accordent (three/rendu.ts).
   const pcl = ctx.trouverParcelleCloture();
   const rayonParcelle = pcl && aDesSommets(pcl) && pcl.pts.length >= 3 ? Math.max(...pcl.pts.map((p: PtBrut) => Math.hypot(p.x - cen.x, p.y - cen.y))) : null;
-  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj), rayonParcelle });
+  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj), rayonParcelle,
+    rayonOuverture: etat.isolement ? null : rayonDOuverture(obj, etat.objects, cen) });
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
   vue3d.centre = cen;

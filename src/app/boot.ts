@@ -79,6 +79,10 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   // que les parcelles affichees. Le fond orthophoto vient apres, sur la vue cadree.
   ch.restaurerAffichage();
   if (parcelle && parcelle.cadastre && aDesSommets(parcelle) && parcelle.pts.length >= 3) cadrage.cadrerTerrains();
+  // La demonstration sans compte s'ouvre sur sa terrasse (lot 2 de la simplification, 16 novembre 2026) : c'est elle qu'on vient
+  // voir et chiffrer, pas le terrain entier et son voisinage. Un projet, demonstration comprise une fois enregistree, garde le cadrage
+  // du terrain : la fumee et les captures s'ouvrent dessus, et leurs points visent des objets de toute la parcelle.
+  if (options.essai) cadrage.cadrerTerrasse();
   restaurerOrthoDuProjet(ch.ctxOrtho());
   // « Partir d'une adresse » au premier pas passe par la COMMANDE : elle porte la capacite, la
   // permission et le quota, et un premier pas ne doit pas etre le seul chemin qui les contourne.
