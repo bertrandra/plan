@@ -48,7 +48,15 @@ export function horodatagePdfInfo(d: Date = new Date()): string {
 /** Ce que porte le dictionnaire /Info : la version et le build du programme, l'heure de creation ; par defaut, ceux du programme en cours. */
 export interface InfoPdf { appVersion?: string; buildAt?: string; maintenant?: Date }
 
-export function assemblerPDF(pages: PagePdf[], info: InfoPdf = {}): string {
+/**
+ * `winAnsi` : les textes des pages sont deja encodes en WinAnsi (export/pdf/winAnsi.ts), avec leurs
+ * accents et le signe euro, et la page dispose d'un gras (`/F2`, Helvetica-Bold). Reserve aux exports
+ * nes avec lui (le devis, la liste d'achat) : sans l'option, le fichier ecrit est celui d'avant, octet
+ * pour octet (les empreintes de tests/fixtures/golden/ le verifient).
+ */
+export interface OptionsAssemblage { winAnsi?: boolean }
+
+export function assemblerPDF(pages: PagePdf[], info: InfoPdf = {}, options: OptionsAssemblage = {}): string {
   // Numerotation : 1 Catalog, 2 Pages, 3 Font, puis (Page, Contenu) par page, puis les etats
   // graphiques d'opacite. Tout est calcule, rien n'est fige : le nombre de pages varie.
   const opacites = [1, 0.5, 0.35, 0.9, 0.75];
@@ -56,17 +64,20 @@ export function assemblerPDF(pages: PagePdf[], info: InfoPdf = {}): string {
   const kids = pages.map((_,i)=>(numPremierePage + i*2) + ' 0 R').join(' ');
   const numPremierGs = numPremierePage + pages.length*2;
   const dictGs = '<< ' + opacites.map((_v,i)=>'/GS' + i + ' ' + (numPremierGs+i) + ' 0 R').join(' ') + ' >>';
-  const ressources = '<< /Font << /F1 3 0 R >> /ExtGState ' + dictGs + ' >>';
+  // Le gras, quand il existe, suit les etats graphiques : aucun numero d'avant ne bouge.
+  const numGras = numPremierGs + opacites.length;
+  const ressources = '<< /Font << /F1 3 0 R' + (options.winAnsi ? ' /F2 ' + numGras + ' 0 R' : '') + ' >> /ExtGState ' + dictGs + ' >>';
   const objs = [];
   objs.push('<< /Type /Catalog /Pages 2 0 R >>');
   objs.push('<< /Type /Pages /Kids [' + kids + '] /Count ' + pages.length + ' >>');
-  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica' + (options.winAnsi ? ' /Encoding /WinAnsiEncoding' : '') + ' >>');
   pages.forEach((p, i)=>{
     const numContenu = numPremierePage + i*2 + 1;
     objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + p.l.toFixed(2) + ' ' + p.h.toFixed(2) + '] /Resources ' + ressources + ' /Contents ' + numContenu + ' 0 R >>');
     objs.push('<< /Length ' + p.contenu.length + ' >>\nstream\n' + p.contenu + '\nendstream');
   });
   opacites.forEach(v=>{ objs.push('<< /Type /ExtGState /ca ' + v.toFixed(3) + ' /CA ' + v.toFixed(3) + ' >>'); });
+  if (options.winAnsi) objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
   // Dictionnaire /Info : un PDF finit imprime chez un artisan, sans la page qui l'a produit. La
   // version doit voyager avec le fichier (RELEASE.md 5.2). Ajoute en dernier pour ne decaler
   // aucune des numerotations calculees plus haut. Chaines en ASCII pur : un PDF sans encodage

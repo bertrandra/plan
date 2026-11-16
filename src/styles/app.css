@@ -440,7 +440,7 @@
   }
   .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
   .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
-  .dialogueDeclaration{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
+  .dialogueDeclaration, .dialogueDevis{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
   /* Le dossier de la declaration (lot L5, zones/parcours/TextesDossier.tsx) : les textes, les photographies, la relecture. Une piece
      par carte ; l'etat se dit en mots, la bordure d'alerte ne fait que le souligner. */
   .dossierDeclaration{ margin-top:14px; border-top:1px solid var(--rule); padding-top:10px; }
@@ -1521,7 +1521,7 @@
     border-radius:0 !important; padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) !important;
     font-size:15px !important; box-shadow:none !important;
   }
-  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration, .dialogueAssistant){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
+  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration, .dialogueDevis, .dialogueAssistant){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
   html[data-classe="compact"] .dialogueImperatif button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
   html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }

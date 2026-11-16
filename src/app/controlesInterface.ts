@@ -424,6 +424,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
   // La declaration prealable (zones/parcours/Declaration.tsx) : ses champs sont ceux de ui/champs/declaration.ts.
   'declaration.fermer': etape(Z8, 'export.ouvrirDeclaration', 'Fermer la déclaration préalable'),
+  // Le devis (zones/parcours/Devis.tsx) : ses champs sont ceux de ui/champs/devis.ts, son bouton la commande `export.devis`.
+  'devis.fermer': etape(Z8, 'export.ouvrirDevis', 'Fermer le devis'),
   // L'assistant (lot L6, zones/parcours/Assistant.tsx) : la demande se saisit, ses boutons sont des commandes (`assistant.envoyer`,
   // `assistant.appliquer`) ; la saisie ne touche pas au projet, la liste ne s'applique que par sa commande.
   'assistant.demande': etape(Z8, 'assistant.demander', 'Demander (la demande à l’assistant)'),

@@ -568,6 +568,7 @@ ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2
 | [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `c1850c8ca118dda46ef70c4cb8fe909aa8b721713743730e300d5ce95cfa5c31` (brut) |
 | [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `7ba522aafba0694002ed580b089be3cbf57464289dfe4183dd35f1bdaef8d99f` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
+| [`devis.pdf`](devis.pdf) | `construireDevisPDF` (démonstration, 1 page ; émetteur, client et TVA 20 % donnés par le test), ajouté le 16 novembre 2026 | 12 528 | `dab3e46e6c7c10ff58b736d6ef7ae8a36b2cb75d9db915cb37ca9632cda86a1e` |
 
 ## La rupture du 29 août 2026
 
@@ -784,6 +785,26 @@ neutraliser. `REECRIRE_EMPREINTES=1` les recapture, ce qui se dit ici.
 Capturés après le changement du même jour : les chiffres du dossier piscine ne passent plus par `toLocaleString('fr-FR')`, qui
 séparait les milliers par U+202F, un caractère que la police du PDF (WinAnsi) n'a pas (`util/format.ts::chiffreFrGroupe`, une
 espace simple). Le témoin porte une taxe d'aménagement de « 8 000 EUR » pour vérifier ce cas. Aucune empreinte existante ne bouge.
+
+## Le devis (16 novembre 2026) — un export nouveau
+
+`devis.pdf` est le premier témoin d'un export **nouveau** depuis la piscine et la note de calcul : aucun export d'avant ne bouge
+(les six empreintes de la table, `dossier-piscine.pdf`, `note-calcul.pdf` et `moteur-piscine-pergola.json` restent celles de la
+5.32.0, octet pour octet). Il est régénéré à chaque `npm test` par `tests/unit/export/regeneration.test.ts`, sur `DEMO_TEMOIN_OBJECTS`,
+à la version et au build des autres témoins, à la date de leur capture (28 septembre 2026, d'où le numéro
+`PARCELLE-AE-101-20260928`), avec trois données que la démonstration n'a pas et que le test lui donne pour que la mise en page
+entière soit figée : un émetteur (« Atelier de démonstration »), un client (le déclarant de la parcelle) et un taux de TVA de 20 %.
+
+- **Normalisation** : la même que les autres (dates affichées, `/CreationDate`), sur les octets du fichier. Le devis s'écrit en
+  WinAnsi, un caractère par octet (accents, `€` en 0x80) : le témoin se lit et s'écrit en latin1, sans passer par UTF-8, et
+  l'application le télécharge tel quel (`octetsPdf`), comme le test l'écrit.
+- **Ce qu'il fige** : les lignes de la Nomenclature des deux terrasses (la vis à 35 € saisie ; les lames, le bois porteur, la
+  visserie et la lame de rive en fourchette), les sous-totaux, le total HT estimé, la TVA et le TTC, la vignette du plan.
+- **L'option de l'écrivain** : `assemblerPDF(pages, info, { winAnsi: true })` déclare `/Encoding /WinAnsiEncoding` sur Helvetica et
+  ajoute Helvetica-Bold (`/F2`) **après** les états graphiques ; sans l'option, rien ne change (vérifié par les six empreintes
+  régénérées et par `tests/unit/export/devisPdf.test.ts`).
+- Le recapturer après un changement voulu : `REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/regeneration.test.ts -t devis`,
+  et le dire ici. Un passage de version le recapture avec les autres (seuls le numéro, dans le pied de page et `/Producer`, bouge).
 
 ## Ce que devient un ancien fichier (25 octobre 2026)
 

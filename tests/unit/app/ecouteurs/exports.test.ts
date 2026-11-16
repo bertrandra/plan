@@ -30,7 +30,8 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
     genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats,
     construireNoteCalcul: async () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
     construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', relecture: [{ cle: 'cerfa.signature', gravite: 'a-completer', cerfa: true, texte: 'la signature' }], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
-    declarationPossible: () => true, ...plus
+    declarationPossible: () => true,
+    construireDevis: async () => ({ pdf: new Uint8Array([37]), nomFichier: 'devis-ma-maison-20261116.pdf', pages: 1 }), ...plus
   };
   const droits: Droits = { branchee: () => true, aCapacite: () => capacites, aPermission: () => true, reste: () => null };
   const cmd = creerRegistre(droits);
@@ -41,6 +42,19 @@ function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
 beforeEach(() => { for (const l of Object.values(journal)) l.length = 0; });
 
 describe('exports', () => {
+  it('devis : telecharge le PDF et dit le nom du fichier ; sans terrasse, le dit sans rien telecharger', async () => {
+    const { cmd } = monter();
+    cmd.executer('export.devis');
+    await attendre();
+    expect(journal.blobs).toEqual(['devis-ma-maison-20261116.pdf']);
+    expect(journal.toasts).toEqual(['Devis téléchargé : devis-ma-maison-20261116.pdf.']);
+    const vide = monter({ construireDevis: async () => null });
+    vide.cmd.executer('export.devis');
+    await attendre();
+    expect(journal.blobs).toEqual(['devis-ma-maison-20261116.pdf']);
+    expect(journal.toasts[1]).toMatch(/Dessinez d’abord une terrasse/);
+  });
+
   it('SVG et DXF : montrent le texte copiable, telechargent, le disent', () => {
     const { cmd, resultats } = monter();
     cmd.executer('export.svg'); cmd.executer('export.dxf');

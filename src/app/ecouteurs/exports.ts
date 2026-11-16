@@ -53,6 +53,11 @@ export interface ContexteExports {
   construireDeclaration: () => Promise<{ pdf: Uint8Array; nom: string; relecture: PointRelecture[]; regime: string; pieces: string[] }>;
   /** Y a-t-il un ouvrage a declarer ? */
   declarationPossible: () => boolean;
+  /**
+   * Le devis des terrasses cochees pour le dossier (export/devisPdf.ts) : le PDF, deja en octets (WinAnsi), et le nom de son
+   * fichier ; `null` sans terrasse.
+   */
+  construireDevis: () => Promise<{ pdf: Uint8Array; nomFichier: string; pages: number } | null>;
   /** Le nom du projet, pour nommer le dossier PDF. */
   nomProjet: () => string | null | undefined;
   /**
@@ -76,6 +81,20 @@ export function messageDeclaration(res: { nom: string; pieces: string[]; relectu
 /** Le nom du fichier qui vient de partir, dit en bas de l'ecran : le seul filet qui survive au clic. */
 function direTelechargement(nomFichier: string): void {
   showToast('Téléchargement lancé : ' + nomFichier + '.');
+}
+
+/** Le devis : son bouton est dans le dialogue du devis (menu Exporter, `export.ouvrirDevis`, app/devis.ts). */
+function brancherDevis(ctx: ContexteExports, cmd: RegistreCommandes): void {
+  cmd.declarer({
+    id: 'export.devis', libelle: 'Télécharger le devis', groupe: 'export', actif: () => ctx.clesDossier().length > 0,
+    executer: () => {
+      ctx.construireDevis().then((res) => {
+        if (!res) { showToast('Dessinez d’abord une terrasse : le devis chiffre ses postes.'); return; }
+        telechargerBlob(res.nomFichier, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
+        showToast('Devis téléchargé : ' + res.nomFichier + (res.pages > 1 ? ' (' + res.pages + ' pages).' : '.'));
+      }, (err: unknown) => { showErrBanner('Erreur devis : ' + (err as Error).message); });
+    }
+  });
 }
 
 export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
@@ -109,6 +128,8 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       }, (err: unknown) => { showErrBanner('Erreur note de calcul : ' + (err as Error).message); });
     }
   });
+
+  brancherDevis(ctx, cmd);
 
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;

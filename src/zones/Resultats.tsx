@@ -72,8 +72,8 @@ function ResumeTiroir({ terrasse, objets }: { terrasse: ObjetPlan; objets: Objet
 }
 
 /**
- * Le pied de la feuille Chiffrage : l'estimation et les deux gestes qui suivent un chiffrage —
- * copier le resume, sortir le dossier. L'estimation reste une fourchette : la somme des prix reels
+ * Le pied de la feuille Chiffrage : l'estimation et les gestes qui suivent un chiffrage —
+ * copier le resume, ouvrir le devis, sortir le dossier. L'estimation reste une fourchette : la somme des prix reels
  * ne couvre que les lignes ou un prix existe, et la montrer seule ferait croire a un total.
  */
 function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; objets: ObjetPlan[]; commandes: RegistreCommandes | undefined }) {
@@ -81,6 +81,7 @@ function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; o
   if (!r) return null;
   const dossier = commandes?.etat('export.dossier');
   const dossierEfface = !commandes || commandes.effacee('export.dossier');
+  const devis = commandes?.etat('export.ouvrirDevis');
   return (
     <div className="piedChiffrage">
       <div className="piedChiffrageTotal">
@@ -89,6 +90,8 @@ function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; o
       </div>
       <div className="piedChiffrageActions">
         {commandes && <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>}
+        {commandes && <button data-commande="export.ouvrirDevis" type="button" className="secondary" disabled={!devis?.utilisable} title={devis && 'message' in devis ? devis.message : undefined}
+          onClick={(e) => { commandes.executer('export.ouvrirDevis', e.currentTarget); }}>Devis</button>}
         {!dossierEfface && commandes && (
           <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier?.utilisable} title={dossier && 'message' in dossier ? dossier.message : undefined}
             onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
@@ -111,7 +114,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
   // compte : le resume du tiroir replie (tablette), les tuiles et le pied (telephone) chiffrent la terrasse, et un sommet tire
   // change sa surface et ses quantites sans toucher a ses attributs.
   useCle(magasin, 'barre des résultats', (s) => cleEtatEtObjets(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
-    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier')] : null]));
+    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier'), commandes.etat('export.ouvrirDevis')] : null]));
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
   const etat = magasin.store.getState().etat;

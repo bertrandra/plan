@@ -203,6 +203,10 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.copierResume': partout('tiroir'),
   'export.dxf': menu('menuExporter'),
   'export.pdf': menu('menuExporter'),
+  // Le devis : en tete du menu Exporter, et au pied du chiffrage au telephone (la feuille Chiffrage du tiroir) ; son bouton
+  // « Telecharger », dans le dialogue.
+  'export.ouvrirDevis': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter'] },
+  'export.devis': partout('parcours'),
   'export.dossier': menu('menuExporter'),
   'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),

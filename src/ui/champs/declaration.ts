@@ -18,10 +18,11 @@ function poser<K extends keyof DeclarationPrealable>(c: ContexteChamps, cle: K, 
   c.obj.declaration = d;
 }
 
-type CleTexte = 'nom' | 'prenom' | 'communeNaissance' | 'departementNaissance' | 'paysNaissance' | 'numero' | 'voie' | 'lieuDit' | 'localite' | 'codePostal' | 'telephone' | 'email'
+export type CleTexte = 'nom' | 'prenom' | 'communeNaissance' | 'departementNaissance' | 'paysNaissance' | 'numero' | 'voie' | 'lieuDit' | 'localite' | 'codePostal' | 'telephone' | 'email'
   | 'terrainNumero' | 'terrainVoie' | 'terrainLocalite' | 'terrainCodePostal';
 
-function texte(cle: CleTexte, libelle: string, placeholder = '', aide?: string): Champ {
+/** Un champ texte du declarant ou du terrain, range dans `declaration` : le devis en reprend le client (ui/champs/devis.ts). */
+export function texte(cle: CleTexte, libelle: string, placeholder = '', aide?: string): Champ {
   return {
     type: 'texte', cle: 'dp-' + cle, libelle, placeholder, effets: EFFETS, ...(aide ? { aide } : {}),
     lire: (c) => decl(c)[cle] ?? '', ecrire: (c, v) => poser(c, cle, v.trim())
