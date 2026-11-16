@@ -65,6 +65,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   résumé (`ui/chiffrage.ts::totauxBom`, lue par la table, les tuiles, la barre et le pied du téléphone) : la table ne l'additionne
   plus elle-même. Elle ne s'affiche qu'à l'écran : le résumé texte, les PDF et les autres exports ne la lisent pas et ne changent
   pas (empreintes golden identiques). Point de fumée 162.
+- **Enregistrement automatique du projet, et la question du navigateur avant de quitter** (audit de l'IHM du 16 novembre 2026,
+  lot 1). Un ajout fait puis la page rechargée était perdu sans un mot : rien ne s'enregistrait de soi-même et rien ne retenait la
+  page. Désormais, quatre secondes après la dernière modification qui marque le projet « modifié », le projet s'enregistre par le
+  même chemin que Ctrl+S (même document, même taille annoncée, « Enregistré à hh:mm (… Ko) ») ; jamais pendant un geste (un doigt
+  ou un bouton de souris appuyé), jamais en lecture seule, jamais par-dessus un enregistrement en cours (Ctrl+S, la lecture des toits
+  en fond). Un échec se lit dans la barre d'état (« Échec de l’enregistrement (… Ko) — nouvelle tentative à hh:mm:ss », le bandeau
+  une seule fois par série) et une nouvelle tentative suit seule (10 s, 30 s, puis chaque minute). Un plan qui n'est pas encore un
+  projet (« Dessiner sans adresse », sans projet ouvert) ne se crée pas d'office, parce que créer un projet compte dans le quota de
+  l'organisation : la barre d'état dit « Pas encore enregistré : Fichier › Nouveau projet pour le garder ». Le navigateur demande
+  avant de quitter (`beforeunload`) tant qu'il reste des modifications non enregistrées ou qu'un envoi part ; un départ que Plan
+  provoque après confirmation (changer de projet, ouvrir le projet créé par l'import cadastre, se déconnecter) ne repose pas la
+  question (`shell/depart.ts`). Le réglage « Enregistrement automatique » (menu Fichier, feuille Projet au doigt) est une
+  préférence de l'appareil, cochée par défaut, gardée dans le navigateur : ni Ctrl+Z, ni « projet modifié ». Les textes du statut
+  reprennent leurs accents (« Modifications non enregistrées », « À jour »). Point de fumée 163 ; aucune quantité ni aucun export
+  ne change.
 
 ### Modifié
 
@@ -74,7 +89,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   demandes (429), il refuse la demande (4xx) — et chacune a désormais sa phrase, suivie de ce que la personne peut faire
   (`util/erreurReseau.ts::phraseReseau`) : « Le service d’adresses de l’IGN ne répond pas. Réessayez dans un instant, ou dessinez
   votre terrain à la main. » Un refus déjà dit en phrase (quota, schéma, taille, « aucune adresse trouvée ») n'est pas touché.
-  Appliquée à l'import cadastre (adresse, parcelle, voisines, voisinage étendu, BD TOPO, création du projet), à l'enregistrement,
+  Appliquée à l'import cadastre (adresse, parcelle, voisines, voisinage étendu, BD TOPO, création du projet), à l'enregistrement (à la main et automatique),
   la création et la suppression du projet, au PLU (zonage et règlement), à l'actualisation IGN, aux rues, au relief, à la photo
   aérienne, au chargement de la Vue 3D et du mode Toit, à la déclaration préalable, au devis, à la rédaction des textes du dossier et à
   l'assistant. Le bandeau d'erreur d'une erreur dite en phrase (`shell/dialogs.ts::showErreur`) n'écrit plus « Erreur JS » : il

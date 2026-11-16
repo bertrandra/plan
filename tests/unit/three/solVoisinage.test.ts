@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: () => {}, showToast: () => {} }));
+vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: () => {}, showErreur: () => {}, showToast: () => {} }));
 
 import { bornesDuSol, MARGE_SOL_M, type ContexteScene3d } from '../../../src/three/scene.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';

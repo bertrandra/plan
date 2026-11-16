@@ -18,6 +18,8 @@ import { notifications } from './notifications.js';
 import { dialogues } from './dialogues.js';
 // Les phrases des erreurs du reseau (util/erreurReseau.ts) vont avec `showErreur` : qui dit une erreur les trouve ici.
 export { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
+// La question du navigateur avant de quitter (shell/depart.ts) est un dialogue aussi : qui ouvre des dialogues la trouve ici.
+export { partirSansQuestion } from './depart.js';
 
 const VOILE = 'position:fixed; inset:0; background:rgba(30,22,14,0.45); z-index:9998; display:flex; align-items:center; justify-content:center;';
 const BOITE = 'background:var(--panel-bg,#fff); color:var(--ink,#222); padding:20px 22px; border-radius:8px; max-width:360px; font-family:"Helvetica Neue",Arial,sans-serif; box-shadow:0 4px 24px rgba(0,0,0,0.3);';
