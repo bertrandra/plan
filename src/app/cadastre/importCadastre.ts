@@ -11,7 +11,7 @@
 // L'etat s'appelle `etatImport` et surtout PAS `etat`, le nom de l'etat de l'application : la
 // confusion entre les deux est exactement le genre de bug qu'aucun test ne rattrape.
 
-import { showToast } from '../../shell/dialogs.js';
+import { showToast, partirSansQuestion } from '../../shell/dialogs.js';
 import { attente } from '../../shell/attente.js';
 import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../../shell/geolocalisation.js';
 import { centroid, shoelace, pointInPolygon } from '../../geometry/basic.js';
@@ -764,6 +764,8 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         // pas de « Mettre a jour le modele ? » a sa premiere ouverture (io/modeleGarde.ts).
         retenirProjetNeuf(cree.id);
         localStorage.setItem(ctx.cleDernierProjet, cree.id);
+        // Le projet est enregistre : ouvrir le projet cree ne perd rien, le navigateur ne demande rien (shell/depart.ts).
+        partirSansQuestion();
         location.href = ctx.withProjectParam(cree.id);
       } catch (err) {
         occuper(false);

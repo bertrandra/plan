@@ -102,6 +102,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'fichier.option.remplacerImportSvg': { libelle: 'Supprimer les objets existants avant d’importer (SVG)', zone: Z1, nature: 'option' },
   'fichier.option.remplacerImportJson': { libelle: 'Remplacer le plan actuel (import JSON)', zone: Z1, nature: 'option' },
   'fichier.option.exportSansParcelle': { libelle: 'Exporter sans la parcelle', zone: Z1, nature: 'option' },
+  'fichier.option.enregistrementAuto': { libelle: 'Enregistrement automatique', zone: Z1, nature: 'option', description: 'Enregistre le projet quelques secondes après chaque modification ; une préférence de l’appareil, cochée par défaut' },
   'export.option.echellePdf': { libelle: 'Échelle du PDF', zone: Z1, nature: 'option' },
   'export.option.dossierEquipements': { libelle: 'Inclure l’emprise des équipements (dossier PDF)', zone: Z1, nature: 'option' },
   'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir' },

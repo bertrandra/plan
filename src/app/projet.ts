@@ -27,6 +27,8 @@ import type { RegistreCommandes } from './commandes.js';
 import type { Magasin } from './magasin.js';
 import { objetsHorsSession } from './toits/modeToit.js';
 import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
+import { retenirLaPage, partirSansQuestion } from '../shell/depart.js';
+import { creerEnregistrementAuto, lirePreferenceEnregistrementAuto, ecrirePreferenceEnregistrementAuto, suivreLesPointeurs, type EnregistrementAuto } from './enregistrementAuto.js';
 import { brancherPartage } from './partage.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
@@ -69,6 +71,8 @@ export interface ContexteProjet {
   ouvrirActualisationProjet: () => void;
   /** Une actualisation tourne : la commande se grise, une seule a la fois. */
   actualisationEnCours: () => boolean;
+  /** Un geste est en cours : l'enregistrement automatique attend qu'il soit lache. Par defaut, un pointeur appuye dans la page. */
+  gesteEnCours?: () => boolean;
 }
 
 export interface Projet {
@@ -85,6 +89,8 @@ export interface Projet {
    * qu'elle a lu. Un echec s'affiche comme d'habitude (bandeau). Rend vrai si la plateforme l'a accepte.
    */
   enregistrerSansBruit(): Promise<boolean>;
+  /** L'enregistrement automatique (app/enregistrementAuto.ts) : quelques secondes apres la derniere modification. */
+  auto: EnregistrementAuto;
 }
 
 // Le schema ecrit est celui qui decrit le document, jamais sous celui ou le projet a ete monte
@@ -201,11 +207,76 @@ function retardMemorise(): (etat: EtatApp) => boolean {
   };
 }
 
+/** Le bandeau d'un enregistrement refuse ; celui de l'enregistrement automatique dit qu'il reessaie. */
+function annoncerEchec(e: unknown, poids: string, automatique: boolean): void {
+  showErrBanner((automatique ? 'L’enregistrement automatique a échoué' : 'Echec de l\'enregistrement') + poids + ' : ' + ((e as Error).message || e)
+    + (automatique ? ' — Plan réessaie de lui-même ; vos modifications restent à l’écran.' : ''));
+}
+
+/** « Supprimer le projet » : confirme, supprime sur la plateforme, puis repart sans projet (sans la question du navigateur). */
+function declarerSuppression(cmd: RegistreCommandes, seed: SeedProjet, ctx: ContexteProjet, courant: ProjetResume | null): void {
+  cmd.declarer({
+    id: 'projet.supprimer', libelle: 'Supprimer le projet', groupe: 'projet',
+    permission: PERMISSION_ECRITURE,
+    description: 'Supprimer ce projet du serveur',
+    actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
+    executer: () => {
+      if (!courant) return;
+      showConfirm('Supprimer definitivement le projet "' + courant.name + '" ? Cette action est irreversible.', async () => {
+        try {
+          await ctx.apiDelete(courant.id);
+          localStorage.removeItem(ctx.cleDernierProjet);
+          const url = new URL(location.href); url.searchParams.delete('projet');
+          partirSansQuestion();
+          location.href = url.toString();
+        } catch (e) {
+          showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
+        }
+      });
+    }
+  });
+}
+
+/**
+ * L'enregistrement automatique du projet ouvert (app/enregistrementAuto.ts) : la preference de l'appareil (cochee par defaut),
+ * le statut qui le relance, et la question du navigateur avant de quitter (shell/depart.ts).
+ */
+function brancherEnregistrementAuto(p: {
+  seed: SeedProjet; ctx: ContexteProjet; magasin: Magasin; cmd: RegistreCommandes; courant: ProjetResume | null;
+  publier: () => void; enCours: () => boolean; enregistrer: () => Promise<boolean>; noterReprise: (heure: string) => void;
+}): EnregistrementAuto {
+  const { seed, ctx, magasin, cmd, courant } = p;
+  magasin.definirOption('enregistrementAuto', lirePreferenceEnregistrementAuto());
+  const auto = creerEnregistrementAuto({
+    actif: () => magasin.store.getState().options.enregistrementAuto,
+    possible: () => seed.apiAvailable && !!courant && !ctx.etat.lectureSeule && cmd.etat('projet.enregistrer').utilisable,
+    sale: () => !!ctx.etat.dirty,
+    modifications: () => ctx.modifications?.() ?? 0,
+    occupe: ctx.gesteEnCours ?? (typeof window === 'undefined' ? () => false : suivreLesPointeurs()),
+    enregistrementEnCours: p.enCours,
+    enregistrer: p.enregistrer,
+    apresEchec: (_n, reprise) => p.noterReprise(new Date(Date.now() + reprise).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+  });
+  magasin.store.subscribe((s, avant) => {
+    if (s.options.enregistrementAuto === avant.options.enregistrementAuto) return;
+    ecrirePreferenceEnregistrementAuto(s.options.enregistrementAuto);
+    if (s.options.enregistrementAuto) auto.signaler(); else auto.arreter();
+  });
+  ctx.definirRafraichisseurStatut(() => { p.publier(); auto.signaler(); });
+  p.publier();
+  // Des modifications non enregistrees, ou un envoi qui n'est pas fini : le navigateur demande avant de quitter. Sur la plateforme
+  // seulement : la vitrine et le mode audit (sans depot) n'ont rien a enregistrer ici, l'audit garde ses brouillons.
+  if (seed.apiAvailable) retenirLaPage(() => (!!ctx.etat.dirty && !ctx.etat.lectureSeule) || p.enCours());
+  return auto;
+}
+
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
   const schemaEnRetard = retardMemorise();
   let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
   let echec = '';
+  // Un enregistrement part (Ctrl+S, automatique, la tache de fond) : la page ne se quitte pas sans le dire.
+  let enregistrementEnCours = false;
 
   function publier(statut?: 'enregistrement'): void {
     magasin.definirProjet({
@@ -215,11 +286,14 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty || echec ? 'modifie' : 'a-jour')
     });
   }
-  ctx.definirRafraichisseurStatut(() => publier());
-  publier();
+  const auto = brancherEnregistrementAuto({ seed, ctx, magasin, cmd, courant, publier, enCours: () => enregistrementEnCours,
+    enregistrer: () => enregistrer(null, true),
+    noterReprise: (heureReprise) => { echec += ' — nouvelle tentative à ' + heureReprise; publier(); } });
 
   function aller(id: string): void {
     localStorage.setItem(ctx.cleDernierProjet, id);
+    // Un depart voulu, deja confirme s'il perdait quelque chose : le navigateur ne repose pas la question.
+    partirSansQuestion();
     location.href = ctx.withProjectParam(id);
   }
 
@@ -234,8 +308,9 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   /** Enregistre le projet ouvert ; rend vrai si la plateforme l'a accepte. Un enregistrement a la fois. */
   const enregistrer = uneALaFois(enregistrerUneFois);
 
-  async function enregistrerUneFois(annonce: string | null): Promise<boolean> {
+  async function enregistrerUneFois(annonce: string | null, automatique = false): Promise<boolean> {
     if (!courant) return false;
+    enregistrementEnCours = true;
     publier('enregistrement');
     let taille: number | null = null;
     const avant = ctx.modifications?.() ?? null;
@@ -256,9 +331,11 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       // La taille de ce qui a ete refuse reste sous les yeux, a la place de l'heure du dernier succes.
       const poids = taille === null ? '' : ' (' + tailleFichier(taille) + ')';
       echec = 'Échec de l’enregistrement' + poids;
-      showErrBanner('Echec de l\'enregistrement' + poids + ' : ' + ((e as Error).message || e));
+      // L'enregistrement automatique ne dit son echec en bandeau qu'une fois par serie : ses reprises s'ecrivent dans la barre d'etat.
+      if (!automatique || auto.echecs() === 0) annoncerEchec(e, poids, automatique);
       return false;
     } finally {
+      enregistrementEnCours = false;
       publier();
     }
   }
@@ -290,25 +367,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   });
 
   brancherPartage(cmd, { courant: seed.apiAvailable ? courant : null, ecrit: () => !projetARemplir(seed, ctx.etat), modifie: () => ctx.etat.dirty }); // lot 6 : un projet a remplir n'a rien chez la plateforme
-  cmd.declarer({
-    id: 'projet.supprimer', libelle: 'Supprimer le projet', groupe: 'projet',
-    permission: PERMISSION_ECRITURE,
-    description: 'Supprimer ce projet du serveur',
-    actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
-    executer: () => {
-      if (!courant) return;
-      showConfirm('Supprimer definitivement le projet "' + courant.name + '" ? Cette action est irreversible.', async () => {
-        try {
-          await ctx.apiDelete(courant.id);
-          localStorage.removeItem(ctx.cleDernierProjet);
-          const url = new URL(location.href); url.searchParams.delete('projet');
-          location.href = url.toString();
-        } catch (e) {
-          showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
-        }
-      });
-    }
-  });
+  declarerSuppression(cmd, seed, ctx, courant);
 
   // Disponible avec ou sans serveur : sans, l'import cadastre charge quand meme le plan en memoire
   // (et le dit) — c'est plus utile qu'un bouton absent sans explication.
@@ -341,6 +400,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   return {
     proposerMiseAJour,
+    auto,
     enregistrerSansBruit: () => enregistrer(null),
     ouvrir(id) {
       if (ctx.etat.dirty) {
