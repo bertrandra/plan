@@ -70,6 +70,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé
   (#729), il restait affiché et ne faisait rien. Il reste à tous ; seuls l'onglet Résumé et l'entrée « Résumé à copier » du menu
   Exporter sont du mode expert.
+- **Le nom de l'émetteur du devis** vient du compte même quand la plateforme ne laisse pas garder son contexte
+  (`token_expires_at` nul) : le champ « Émetteur » le propose et le devis l'imprime, au lieu de partir sans nom. Le contexte
+  garde l'identité lue (`identite()`), qui ne décide d'aucun droit ; le PDF d'un émetteur donné ne change pas (point de fumée 183).
 
 ## [5.34.0] — 2026-11-16
 
