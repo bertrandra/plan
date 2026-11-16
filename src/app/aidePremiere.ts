@@ -1,6 +1,6 @@
 // L'aide de premiere utilisation (lot 2 de la simplification de l'IHM, 16 novembre 2026) : trois bulles, une fois par appareil.
 //
-// Qui ouvre Plan pour la premiere fois ne sait pas que la terrasse se touche, que ses reglages sont dans Propriétés, ni ou se lit le
+// Qui ouvre Plan pour la premiere fois ne sait pas que la terrasse se touche, que ses reglages sont dans Proprietes, ni ou se lit le
 // prix. Trois bulles le disent, l'une apres l'autre, en bas de l'ecran (zones/AidePremiere.tsx, Z9 : de l'information, pas une
 // question). « Passer » les ferme toutes. Elles ne reviennent pas sur cet appareil : l'avoir vue est retenu dans le navigateur des la
 // premiere bulle (une preference de l'appareil, comme l'enregistrement automatique), et rien n'est ecrit dans le projet.
