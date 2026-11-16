@@ -5,6 +5,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Enregistrement automatique du projet, et la question du navigateur avant de quitter** (audit de l'IHM du 16 novembre 2026,
+  lot 1). Un ajout fait puis la page rechargée était perdu sans un mot : rien ne s'enregistrait de soi-même et rien ne retenait la
+  page. Désormais, quatre secondes après la dernière modification qui marque le projet « modifié », le projet s'enregistre par le
+  même chemin que Ctrl+S (même document, même taille annoncée, « Enregistré à hh:mm (… Ko) ») ; jamais pendant un geste (un doigt
+  ou un bouton de souris appuyé), jamais en lecture seule, jamais par-dessus un enregistrement en cours (Ctrl+S, la lecture des toits
+  en fond). Un échec se lit dans la barre d'état (« Échec de l’enregistrement (… Ko) — nouvelle tentative à hh:mm:ss », le bandeau
+  une seule fois par série) et une nouvelle tentative suit seule (10 s, 30 s, puis chaque minute). Un plan qui n'est pas encore un
+  projet (« Dessiner sans adresse », sans projet ouvert) ne se crée pas d'office, parce que créer un projet compte dans le quota de
+  l'organisation : la barre d'état dit « Pas encore enregistré : Fichier › Nouveau projet pour le garder ». Le navigateur demande
+  avant de quitter (`beforeunload`) tant qu'il reste des modifications non enregistrées ou qu'un envoi part ; un départ que Plan
+  provoque après confirmation (changer de projet, ouvrir le projet créé par l'import cadastre, se déconnecter) ne repose pas la
+  question (`shell/depart.ts`). Le réglage « Enregistrement automatique » (menu Fichier, feuille Projet au doigt) est une
+  préférence de l'appareil, cochée par défaut, gardée dans le navigateur : ni Ctrl+Z, ni « projet modifié ». Les textes du statut
+  reprennent leurs accents (« Modifications non enregistrées », « À jour »). Point de fumée 163 ; aucune quantité ni aucun export
+  ne change.
+
 ## [5.32.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'étape Redressement montre les gestes

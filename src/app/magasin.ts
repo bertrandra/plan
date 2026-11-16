@@ -96,10 +96,15 @@ export interface OptionsCommandes {
   dossierEquipements: boolean;
   /** PDF du plan : le denominateur de l'echelle (1/200). */
   echellePdf: number;
+  /**
+   * Fichier : enregistrer le projet de lui-meme apres chaque modification (app/enregistrementAuto.ts). Une preference de
+   * l'appareil, gardee dans le navigateur : ni Ctrl+Z, ni « projet modifie ».
+   */
+  enregistrementAuto: boolean;
 }
 
 export const OPTIONS_PAR_DEFAUT: OptionsCommandes = {
-  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200
+  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200, enregistrementAuto: true
 };
 
 export interface Magasin {

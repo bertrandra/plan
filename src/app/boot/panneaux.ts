@@ -11,6 +11,7 @@ import { brancherDossier } from '../declaration/commandesDossier.js';
 import { creerExplorateur } from '../explorateur.js';
 import { brancherCommandesCiblees } from '../ecouteurs/cibles.js';
 import { creerProjet } from '../projet.js';
+import { suivreLesPointeurs } from '../enregistrementAuto.js';
 import { actualisation } from '../cadastre/actualisationIgn.js';
 import { aPoints } from '../assemblage/formes.js';
 import { libelleTypeObjet, dejaRectangle } from '../assemblage/gestes.js';
@@ -41,7 +42,8 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
     ouvrirImportCadastre: ch.ouvrirImportCadastre,
     ouvrirDialogueActualisation: ch.ouvrirActualisation,
     ouvrirActualisationProjet: ch.ouvrirActualisationProjet,
-    actualisationEnCours: () => actualisation.enCours()
+    actualisationEnCours: () => actualisation.enCours(),
+    gesteEnCours: suivreLesPointeurs()
   }, magasin, commandes);
   const explorateur = creerExplorateur(etat, { render: p.render, redimensionner: p.cadrage.redimensionner }, magasin);
   // Les commandes qui portent sur un objet ou une cote : l'explorateur et le tiroir les declenchent.

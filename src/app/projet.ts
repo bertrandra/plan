@@ -27,6 +27,8 @@ import type { RegistreCommandes } from './commandes.js';
 import type { Magasin } from './magasin.js';
 import { objetsHorsSession } from './toits/modeToit.js';
 import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
+import { retenirLaPage, partirSansQuestion } from '../shell/depart.js';
+import { creerEnregistrementAuto, lirePreferenceEnregistrementAuto, ecrirePreferenceEnregistrementAuto, type EnregistrementAuto } from './enregistrementAuto.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -68,6 +70,8 @@ export interface ContexteProjet {
   ouvrirActualisationProjet: () => void;
   /** Une actualisation tourne : la commande se grise, une seule a la fois. */
   actualisationEnCours: () => boolean;
+  /** Un geste est en cours (un pointeur appuye) : l'enregistrement automatique attend qu'il soit lache. */
+  gesteEnCours?: () => boolean;
 }
 
 export interface Projet {
@@ -84,6 +88,8 @@ export interface Projet {
    * qu'elle a lu. Un echec s'affiche comme d'habitude (bandeau). Rend vrai si la plateforme l'a accepte.
    */
   enregistrerSansBruit(): Promise<boolean>;
+  /** L'enregistrement automatique (app/enregistrementAuto.ts) : quelques secondes apres la derniere modification. */
+  auto: EnregistrementAuto;
 }
 
 // Le schema ecrit est celui qui decrit le document, jamais sous celui ou le projet a ete monte
@@ -205,6 +211,8 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   const schemaEnRetard = retardMemorise();
   let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
   let echec = '';
+  // Un enregistrement part (Ctrl+S, automatique, la tache de fond) : la page ne se quitte pas sans le dire.
+  let enregistrementEnCours = false;
 
   function publier(statut?: 'enregistrement'): void {
     magasin.definirProjet({
@@ -214,11 +222,36 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty || echec ? 'modifie' : 'a-jour')
     });
   }
-  ctx.definirRafraichisseurStatut(() => publier());
+  // L'enregistrement automatique : la preference de l'appareil (cochee par defaut), puis le statut qui le relance.
+  magasin.definirOption('enregistrementAuto', lirePreferenceEnregistrementAuto());
+  const auto = creerEnregistrementAuto({
+    actif: () => magasin.store.getState().options.enregistrementAuto,
+    possible: () => seed.apiAvailable && !!courant && !ctx.etat.lectureSeule && cmd.etat('projet.enregistrer').utilisable,
+    sale: () => !!ctx.etat.dirty,
+    modifications: () => ctx.modifications?.() ?? 0,
+    occupe: () => ctx.gesteEnCours?.() ?? false,
+    enregistrementEnCours: () => enregistrementEnCours,
+    enregistrer: () => enregistrer(null, true),
+    apresEchec: (_n, reprise) => {
+      echec += ' — nouvelle tentative à ' + new Date(Date.now() + reprise).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      publier();
+    }
+  });
+  magasin.store.subscribe((s, avant) => {
+    if (s.options.enregistrementAuto === avant.options.enregistrementAuto) return;
+    ecrirePreferenceEnregistrementAuto(s.options.enregistrementAuto);
+    if (s.options.enregistrementAuto) auto.signaler(); else auto.arreter();
+  });
+  ctx.definirRafraichisseurStatut(() => { publier(); auto.signaler(); });
   publier();
+  // Des modifications non enregistrees, ou un envoi qui n'est pas fini : le navigateur demande avant de quitter (shell/depart.ts).
+  // Sur la plateforme seulement : la vitrine et le mode audit (sans depot) n'ont rien a enregistrer ici, l'audit garde ses brouillons.
+  if (seed.apiAvailable) retenirLaPage(() => (!!ctx.etat.dirty && !ctx.etat.lectureSeule) || enregistrementEnCours);
 
   function aller(id: string): void {
     localStorage.setItem(ctx.cleDernierProjet, id);
+    // Un depart voulu, deja confirme s'il perdait quelque chose : le navigateur ne repose pas la question.
+    partirSansQuestion();
     location.href = ctx.withProjectParam(id);
   }
 
@@ -233,8 +266,9 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   /** Enregistre le projet ouvert ; rend vrai si la plateforme l'a accepte. Un enregistrement a la fois. */
   const enregistrer = uneALaFois(enregistrerUneFois);
 
-  async function enregistrerUneFois(annonce: string | null): Promise<boolean> {
+  async function enregistrerUneFois(annonce: string | null, automatique = false): Promise<boolean> {
     if (!courant) return false;
+    enregistrementEnCours = true;
     publier('enregistrement');
     let taille: number | null = null;
     const avant = ctx.modifications?.() ?? null;
@@ -255,9 +289,14 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       // La taille de ce qui a ete refuse reste sous les yeux, a la place de l'heure du dernier succes.
       const poids = taille === null ? '' : ' (' + tailleFichier(taille) + ')';
       echec = 'Échec de l’enregistrement' + poids;
-      showErrBanner('Echec de l\'enregistrement' + poids + ' : ' + ((e as Error).message || e));
+      // L'enregistrement automatique ne dit son echec en bandeau qu'une fois par serie : ses reprises s'ecrivent dans la barre d'etat.
+      if (!automatique || auto.echecs() === 0) {
+        showErrBanner((automatique ? 'L’enregistrement automatique a échoué' : 'Echec de l\'enregistrement') + poids + ' : ' + ((e as Error).message || e)
+          + (automatique ? ' — Plan réessaie de lui-même ; vos modifications restent à l’écran.' : ''));
+      }
       return false;
     } finally {
+      enregistrementEnCours = false;
       publier();
     }
   }
@@ -300,6 +339,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
           await ctx.apiDelete(courant.id);
           localStorage.removeItem(ctx.cleDernierProjet);
           const url = new URL(location.href); url.searchParams.delete('projet');
+          partirSansQuestion();
           location.href = url.toString();
         } catch (e) {
           showErrBanner('Echec de la suppression : ' + ((e as Error).message || e));
@@ -339,6 +379,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   return {
     proposerMiseAJour,
+    auto,
     enregistrerSansBruit: () => enregistrer(null),
     ouvrir(id) {
       if (ctx.etat.dirty) {

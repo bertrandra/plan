@@ -11,6 +11,7 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
+import { partirSansQuestion } from '../shell/depart.js';
 import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
 import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
@@ -148,6 +149,8 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
       <ul role="menu">
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
+        {/* Une preference de l'appareil (app/enregistrementAuto.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
+        {p.apiDisponible && <Case magasin={magasin} option="enregistrementAuto" idDom="chkEnregistrementAuto" controle="fichier.option.enregistrementAuto" libelle="Enregistrement automatique" titre="Enregistre le projet quelques secondes après chaque modification" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.supprimer" libelle="Supprimer le projet…" />}
         {p.apiDisponible && p.schemaEnRetard && <Entree commandes={commandes} id="projet.mettreAJourModele" libelle="Mettre à jour le modèle…" />}
         {p.apiDisponible && <li className="separateur" role="separator" />}
@@ -400,7 +403,8 @@ function Compte({ magasin }: { magasin: Magasin }) {
     const s = sessionCourante();
     if (!s) return;
     const partir = () => {
-      void s.fermer().finally(() => { location.reload(); });
+      // Deja confirme s'il perdait des modifications : le navigateur ne repose pas la question (shell/depart.ts).
+      void s.fermer().finally(() => { partirSansQuestion(); location.reload(); });
     };
     if (magasin.store.getState().etat.dirty) {
       showConfirm('Ce plan porte des modifications non enregistrees. Se deconnecter maintenant les perd. Continuer ?', partir);
