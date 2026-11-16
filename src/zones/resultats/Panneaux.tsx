@@ -60,7 +60,7 @@ export function PanneauxResultats({ magasin, resultats, commandes, inspecteur }:
   const pourTerrasse = (rendre: (t: NonNullable<typeof terrasse>) => React.ReactNode) => terrasse ? rendre(terrasse) : null;
   let contenu: React.ReactNode;
   switch (onglet.id) {
-    case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} />); break;
+    case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} commandes={commandes} />); break;
     case 'optimisation': contenu = pourTerrasse(t => <OngletOptimisation terrasse={t} resultats={resultats} commandes={commandes} />); break;
     case 'piscine': contenu = <OngletPiscine magasin={magasin} inspecteur={inspecteur} />; break;
     case 'abri': contenu = <OngletAbri magasin={magasin} inspecteur={inspecteur} />; break;

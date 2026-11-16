@@ -33,6 +33,8 @@ export const DESCRIPTIONS: Record<string, string> = {
   'export.noteCalcul': 'Produit la note de calcul PDF de la pergola ou du carport sélectionné : charges, combinaisons, vérifications, appuis, limites',
   'export.ouvrirDevis': 'Ouvre le devis : vos coordonnées, le client et le numéro, puis le devis PDF des terrasses cochées dans l’explorateur',
   'export.devis': 'Télécharge le devis PDF d’une page : les postes de la Nomenclature, prix saisis ou fourchettes estimées, le total HT et la TVA si vous en donnez le taux',
+  'export.listeAchatPdf': 'Télécharge la liste d’achat des terrasses cochées, rayon par rayon, à imprimer : une case par ligne et par longueur de barre',
+  'export.listeAchatCsv': 'Télécharge la liste d’achat en CSV pour un tableur : les lignes de la Nomenclature, sections et barres du commerce comprises',
   'export.dossier': 'Produit un dossier PDF des terrasses cochées dans l’explorateur : plans, coupes et quantités',
   'export.glb': 'Télécharge la scène 3D au format GLB, pour une visionneuse ou un logiciel 3D',
   'export.resume': 'Écrit le résumé texte du projet dans l’onglet Résumé du tiroir',

@@ -207,6 +207,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   // « Telecharger », dans le dialogue.
   'export.ouvrirDevis': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter'] },
   'export.devis': partout('parcours'),
+  // La liste d'achat : le menu Exporter, et la tete de l'onglet Nomenclature du tiroir.
+  'export.listeAchatPdf': menu('menuExporter', 'tiroir'),
+  'export.listeAchatCsv': menu('menuExporter', 'tiroir'),
   'export.dossier': menu('menuExporter'),
   'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),

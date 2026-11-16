@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Liste d'achat, en PDF à imprimer et en CSV** (lot 5 du parcours client, 16 novembre 2026). Menu Exporter, sous le devis :
+  « Liste d'achat (PDF) » et « Liste d'achat (CSV) » ; les mêmes en tête de l'onglet Nomenclature du tiroir. Les fournitures des
+  terrasses cochées pour le dossier, regroupées par rayon (terrassement et assise, plots et appuis, structure, bois et lames,
+  visserie et fixations, finitions), avec désignation, section, barres achetées par longueur du commerce (le débit de la
+  Nomenclature), quantité, unité, prix bas et haut par unité et prix réel du total de ligne, et d'où vient ce prix (saisi, ou pris
+  par défaut). Mêmes nombres que la Nomenclature, ligne à ligne et aux mêmes arrondis (testé contre `computeBOM` sur la
+  démonstration). Le CSV s'ouvre dans un tableur français (UTF-8 avec BOM, point-virgule, virgule décimale) : pas de XLSX, qui
+  demanderait une archive ZIP écrite à la main ou une bibliothèque de plus pour un tableau qu'Excel et LibreOffice lisent en CSV.
+  Le PDF porte une case à cocher par ligne et par longueur de barre. Un toast dit « Liste d'achat téléchargée : … ». Nouveaux
+  témoins `liste-achat.csv` (1 680 octets) et `liste-achat.pdf` (16 340 octets, 2 pages) ; point de fumée 162. L'onglet
+  « Optimisation » reste : son bouton ne lance pas le débit (déjà dans la Nomenclature) mais montre la comparaison des réglages de
+  structure par leur coût, avec « Appliquer ».
+
 - **Devis PDF d'une page** (lot 5 du parcours client, 16 novembre 2026 : « il n'existe ni devis, ni bon de commande » ; le client a
   besoin d'un document à envoyer pour décider). Menu Exporter, en tête : « Devis (PDF)… » ouvre un dialogue (vos coordonnées, le
   taux de TVA, le numéro, le client), puis « Télécharger le devis (PDF) » ; au téléphone, un bouton « Devis » au pied de la feuille

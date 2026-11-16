@@ -568,6 +568,8 @@ ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2
 | [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `c1850c8ca118dda46ef70c4cb8fe909aa8b721713743730e300d5ce95cfa5c31` (brut) |
 | [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `7ba522aafba0694002ed580b089be3cbf57464289dfe4183dd35f1bdaef8d99f` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
+| [`liste-achat.csv`](liste-achat.csv) | `construireListeAchatCSV` (démonstration, deux terrasses), ajouté le 16 novembre 2026 | 1 680 | `7e00c7ea42b84535f73026cc5038ba37396a39e69c3d8e4a521f8aaec06b69db` |
+| [`liste-achat.pdf`](liste-achat.pdf) | `construireListeAchatPDF` (démonstration, 2 pages), ajouté le 16 novembre 2026 | 16 340 | `759916121d2758ec427b8e387befb0d870d46a45df05f728f150494444f83dfc` |
 | [`devis.pdf`](devis.pdf) | `construireDevisPDF` (démonstration, 1 page ; émetteur, client et TVA 20 % donnés par le test), ajouté le 16 novembre 2026 | 12 528 | `dab3e46e6c7c10ff58b736d6ef7ae8a36b2cb75d9db915cb37ca9632cda86a1e` |
 
 ## La rupture du 29 août 2026
@@ -805,6 +807,20 @@ entière soit figée : un émetteur (« Atelier de démonstration »), un client
   régénérées et par `tests/unit/export/devisPdf.test.ts`).
 - Le recapturer après un changement voulu : `REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/regeneration.test.ts -t devis`,
   et le dire ici. Un passage de version le recapture avec les autres (seuls le numéro, dans le pied de page et `/Producer`, bouge).
+
+## La liste d'achat (16 novembre 2026) — deux exports nouveaux
+
+`liste-achat.csv` et `liste-achat.pdf` figent la liste d'achat de la démonstration (ses deux terrasses, sans rien ajouter),
+régénérées à chaque `npm test` par `tests/unit/export/regeneration.test.ts`, à la version, au build et à la date des autres témoins.
+Aucun export d'avant ne bouge, le devis compris (`devis.pdf` inchangé : `engine/postes.ts` gagne la section et les barres d'un
+poste, que le devis ne lit pas).
+
+- **Le CSV** : UTF-8 avec BOM, point-virgule, virgule décimale, CRLF ; le témoin porte les octets UTF-8, comme `resume.txt`. Ses
+  nombres sont ceux de la Nomenclature, ligne à ligne et aux mêmes arrondis (`tests/unit/export/listeAchat.test.ts` le prouve
+  contre `computeBOM`), plus la section et les barres par longueur du commerce des tables de débit.
+- **Le PDF** : WinAnsi, un caractère par octet, lu et écrit en latin1 comme le devis ; deux pages, une case par ligne et par
+  longueur de barre.
+- Les recapturer : `REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/regeneration.test.ts -t liste`, et le dire ici.
 
 ## Ce que devient un ancien fichier (25 octobre 2026)
 

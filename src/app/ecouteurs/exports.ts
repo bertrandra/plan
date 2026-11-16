@@ -58,6 +58,11 @@ export interface ContexteExports {
    * fichier ; `null` sans terrasse.
    */
   construireDevis: () => Promise<{ pdf: Uint8Array; nomFichier: string; pages: number } | null>;
+  /**
+   * La liste d'achat des terrasses cochees pour le dossier (export/listeAchat.ts), en PDF (octets WinAnsi) ou en CSV (texte, UTF-8
+   * avec BOM a l'ecriture) ; `null` quand rien n'est a acheter.
+   */
+  construireListeAchat: (format: 'pdf' | 'csv') => Promise<{ contenu: Uint8Array | string; nomFichier: string } | null>;
   /** Le nom du projet, pour nommer le dossier PDF. */
   nomProjet: () => string | null | undefined;
   /**
@@ -97,6 +102,21 @@ function brancherDevis(ctx: ContexteExports, cmd: RegistreCommandes): void {
   });
 }
 
+/** La liste d'achat : dans le menu Exporter et en tete de l'onglet Nomenclature, un PDF a cocher et un CSV pour le tableur. */
+function brancherListeAchat(ctx: ContexteExports, cmd: RegistreCommandes): void {
+  const telecharger = (format: 'pdf' | 'csv', type: string) => () => {
+    ctx.construireListeAchat(format).then((res) => {
+      if (!res) { showToast('Rien à acheter : dessinez d’abord une terrasse.'); return; }
+      const corps = typeof res.contenu === 'string' ? res.contenu : res.contenu.slice().buffer;
+      telechargerBlob(res.nomFichier, new Blob([corps], { type }));
+      showToast('Liste d’achat téléchargée : ' + res.nomFichier + '.');
+    }, (err: unknown) => { showErrBanner('Erreur liste d’achat : ' + (err as Error).message); });
+  };
+  const actif = () => ctx.clesDossier().length > 0;
+  cmd.declarer({ id: 'export.listeAchatPdf', libelle: 'Liste d’achat (PDF)', groupe: 'export', actif, executer: telecharger('pdf', 'application/pdf') });
+  cmd.declarer({ id: 'export.listeAchatCsv', libelle: 'Liste d’achat (CSV)', groupe: 'export', actif, executer: telecharger('csv', 'text/csv;charset=utf-8') });
+}
+
 export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): void {
   // Les exports sont des entrees du menu Exporter (zones/BarreApplication.tsx) : des commandes sans
   // bouton dans le balisage. « Générer le résumé » a aussi le sien, dans l'onglet Résumé du tiroir.
@@ -130,6 +150,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   });
 
   brancherDevis(ctx, cmd);
+  brancherListeAchat(ctx, cmd);
 
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;

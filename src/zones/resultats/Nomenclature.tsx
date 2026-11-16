@@ -16,6 +16,8 @@ import { porteeVisM } from '../../engine/bois/portees.js';
 import { valeurEnregistree } from '../../model/dictionnaire.js';
 import { SaisieNombre, SaisieTexte } from '../composants/Saisie.js';
 import type { Resultats } from '../../app/resultats.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
+import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { Construction, LigneBom, ObjetPlan } from '../../model/types.js';
 
 type ChampLongueurs = 'longueursLames' | 'longueursBois' | 'longueursLambourde';
@@ -274,10 +276,18 @@ function DebitBois({ obj, layers, resultats }: PropsTerrasse & { layers: Couches
   );
 }
 
-export function Nomenclature({ obj, resultats }: PropsTerrasse) {
+export function Nomenclature({ obj, resultats, commandes }: PropsTerrasse & { commandes?: RegistreCommandes }) {
   const layers = computeTerrasseLayers(obj, resultats.etat.objects);
   return (
     <>
+      {/* La liste d'achat d'abord : ce qu'on emporte au magasin, tire de la table qui suit (terrasses cochees pour le dossier). */}
+      {commandes && (
+        <div className="controls listeAchat" role="group" aria-label="Liste d’achat">
+          <span className="libelleListeAchat">Liste d’achat</span>
+          <BoutonCommande commandes={commandes} id="export.listeAchatPdf" className="secondary small">PDF à imprimer</BoutonCommande>
+          <BoutonCommande commandes={commandes} id="export.listeAchatCsv" className="secondary small">CSV (tableur)</BoutonCommande>
+        </div>
+      )}
       <div className="sectionTitle">Nomenclature</div>
       <TableBom obj={obj} layers={layers} resultats={resultats} />
       <div className="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>
