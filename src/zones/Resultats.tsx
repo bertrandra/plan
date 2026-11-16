@@ -86,11 +86,14 @@ function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets
  * Les gestes qui suivent un chiffrage : copier le resume, ouvrir le devis, sortir le dossier. Les memes commandes du
  * registre au pied de la feuille Chiffrage (telephone) et dans la barre d'estimation du bureau : aucun ecouteur a part.
  */
-function ActionsChiffrage({ commandes, taille = 18 }: { commandes: RegistreCommandes | undefined; taille?: number }) {
+function ActionsChiffrage({ commandes, taille = 18, auDoigt = false }: { commandes: RegistreCommandes | undefined; taille?: number; auDoigt?: boolean }) {
   if (!commandes) return null;
   const dossier = commandes.etat('export.dossier');
   const dossierEfface = commandes.effacee('export.dossier');
   const devis = commandes.etat('export.ouvrirDevis');
+  // Le partage par un lien (lot 6) : seulement branche a la plateforme, et efface sans la fonction `project_sharing`.
+  const partage = commandes.etat('projet.partager');
+  const partageOffert = !!commandes.obtenir('projet.partager') && !commandes.effacee('projet.partager');
   return (
     <>
       <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>
@@ -98,12 +101,18 @@ function ActionsChiffrage({ commandes, taille = 18 }: { commandes: RegistreComma
         <button data-commande="export.ouvrirDevis" type="button" className="secondary" disabled={!devis.utilisable} title={'message' in devis ? devis.message : undefined}
           onClick={(e) => { commandes.executer('export.ouvrirDevis', e.currentTarget); }}>Devis</button>
       )}
+      {partageOffert && (
+        <button data-commande="projet.partager" type="button" className="secondary" disabled={!partage.utilisable} title={'message' in partage ? partage.message : undefined}
+          onClick={(e) => { commandes.executer('projet.partager', e.currentTarget); }}>Partager</button>
+      )}
       {!dossierEfface && (
         <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier.utilisable} title={'message' in dossier ? dossier.message : undefined}
           onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
           <Icone nom="exporter" taille={taille} />Dossier PDF
         </button>
       )}
+      {/* Au doigt, l'infobulle n'existe pas : la raison d'un partage grise s'ecrit sous les gestes. */}
+      {auDoigt && partageOffert && !partage.utilisable && 'message' in partage && <p className="refusActions" role="note">{partage.message}</p>}
     </>
   );
 }
@@ -121,7 +130,7 @@ function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; o
         <span className="piedChiffrageLibelle">Estimation HT</span>
         <span className="piedChiffrageValeur">{euros(r.bas)} – {euros(r.haut)}</span>
       </div>
-      <div className="piedChiffrageActions"><ActionsChiffrage commandes={commandes} /></div>
+      <div className="piedChiffrageActions"><ActionsChiffrage commandes={commandes} auDoigt /></div>
     </div>
   );
 }
@@ -137,7 +146,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
   // compte : le resume du tiroir replie (tablette), les tuiles et le pied (telephone) chiffrent la terrasse, et un sommet tire
   // change sa surface et ses quantites sans toucher a ses attributs.
   useCle(magasin, 'barre des résultats', (s) => cleEtatEtObjets(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
-    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier'), commandes.etat('export.ouvrirDevis')] : null]));
+    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier'), commandes.etat('export.ouvrirDevis'), commandes.etat('projet.partager')] : null]));
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
   const etat = magasin.store.getState().etat;

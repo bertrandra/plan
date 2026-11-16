@@ -21,6 +21,8 @@ import type { ServiceDossier } from './declaration/serviceDossier.js';
 import type { ServiceAssistant } from './assistant/service.js';
 import type { RegistreCommandes } from './commandes.js';
 import type { PreferencesDevis } from '../ui/champs/devis.js';
+import type { LienPartage } from '../plateforme/partage.js';
+import type { CreatedProjectShare } from '../plateforme/contrat.js';
 
 export type Parcours =
   | { type: 'cadastre'; importe: ImportCadastre }
@@ -50,7 +52,9 @@ export type Parcours =
   /** Le devis (menu Exporter) : l'emetteur, le client et le numero, puis le PDF (ui/champs/devis.ts, app/devis.ts). */
   | { type: 'devis'; service: ServiceChampsParcours; preferences: PreferencesDevis }
   /** L'assistant en langue naturelle (menu Aide, lot L6) : la demande, la liste d'etapes, « Appliquer » (app/assistant/). */
-  | { type: 'assistant'; service: ServiceAssistant; commandes: RegistreCommandes };
+  | { type: 'assistant'; service: ServiceAssistant; commandes: RegistreCommandes }
+  /** Partager le projet par un lien en lecture seule (menu Fichier, lot 6) : creer un lien, voir et retirer ceux du projet (app/partage.ts). */
+  | { type: 'partage'; service: ServicePartage };
 
 /**
  * Ce qu'un parcours qui rend des champs demande au service de l'inspecteur (app/inspecteur.ts) : la
@@ -62,6 +66,22 @@ export interface ServiceChampsParcours {
   contexte(obj: ObjetPlan): ContexteChamps;
   appliquer(champ: Champ, c: ContexteChamps, ecrire: () => void | boolean): boolean;
   executer(champ: Champ, c: ContexteChamps): void;
+}
+
+/**
+ * Ce que le dialogue du partage demande (app/partage.ts le fournit) : le projet, son etat, et les trois gestes sur ses liens. Decrit
+ * ici, comme `ServiceChampsParcours`, pour que la commande qui ouvre le dialogue et ce module ne s'importent pas l'un l'autre.
+ */
+export interface ServicePartage {
+  /** Le nom du projet partage. */
+  nom(): string;
+  /** Le plan porte des modifications que la plateforme n'a pas encore : le lien ne les montrera pas. */
+  modifie(): boolean;
+  /** Le nom propose pour « Projet partagé par … » : celui du compte, s'il est connu. */
+  nomPropose(): Promise<string>;
+  lister(): Promise<LienPartage[]>;
+  creer(o: { jours: number; nomAffiche: string; destinataire: string }): Promise<CreatedProjectShare>;
+  retirer(id: string): Promise<void>;
 }
 
 let courant: Parcours | null = null;

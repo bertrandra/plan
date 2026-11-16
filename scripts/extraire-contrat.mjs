@@ -35,7 +35,10 @@ const OPERATIONS = [
   'listProjects', 'createProject',
   'showProject', 'updateProject', 'deleteProject',
   'duplicateProject', 'listProjectVersions',
-  'restoreProject', 'undeleteProject'
+  'restoreProject', 'undeleteProject',
+  // Le partage d'un projet par un lien en lecture seule (ADR-073 de la plateforme, lot 6 du parcours
+  // client) : creer, lister et retirer un lien, et l'ouvrir sans compte.
+  'createProjectShare', 'listProjectShares', 'revokeProjectShare', 'openSharedProject'
 ];
 
 const depotPlateforme = process.argv[2];

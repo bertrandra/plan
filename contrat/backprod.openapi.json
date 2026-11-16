@@ -5,7 +5,7 @@
     "version": "1.0.0"
   },
   "x-extrait-par": "scripts/extraire-contrat.mjs — la part que Plan utilise, pas le contrat entier",
-  "x-source-commit": "ce0642c4537743f7129a5ad7d5c1a87f4b907502",
+  "x-source-commit": "4c88d19d504f9eec03e1a4a3950533a752e90c67",
   "paths": {
     "/api/v1/auth/refresh": {
       "post": {
@@ -14,7 +14,7 @@
         ],
         "operationId": "refreshSession",
         "summary": "Exchange the refresh cookie for a new session",
-        "description": "Takes no body: the credential is the `HttpOnly` cookie, which the browser attaches by itself. A body field would mean a script had read the token, which is what the cookie exists to prevent. The refresh token is rotated on every call, so presenting a spent one is evidence of a copy and revokes every session for the account. Sent with `X-Product` naming a live product, the new access token names that product in `aud` too (ADR-051 milestone E) — which is how single sign-on from the cookie yields a token the product’s server can verify as its own.",
+        "description": "Takes no body: the credential is the `HttpOnly` cookie, which the browser attaches by itself. A body field would mean a script had read the token, which is what the cookie exists to prevent. The refresh token is rotated on every call, into a replacement derived from it (ADR-062): the same token presented again is handed the same replacement for as long as that replacement has not been used, so two tabs, answers arriving out of order and an answer that never arrived all end with one token. A token presented after its replacement was used is evidence of a copy, and revokes that sign-in (not the account's others). Refused once the sign-in is older than `AUTH_SESSION_MAX_AGE`, 90 days by default, however active. Sent with `X-Product` naming a live product, the new access token names that product in `aud` too (ADR-051 milestone E) — which is how single sign-on from the cookie yields a token the product’s server can verify as its own.",
         "responses": {
           "200": {
             "description": "A session.",
@@ -67,7 +67,7 @@
         ],
         "operationId": "signOut",
         "summary": "End this session",
-        "description": "Always 204. An unknown token, an expired one, or no cookie at all all end with the caller signed out, because that is what they asked for. The refresh token is revoked server-side as well as cleared from the browser: clearing the cookie alone would leave the credential valid for anybody holding a copy.",
+        "description": "Always 204. An unknown token, an expired one, or no cookie at all all end with the caller signed out, because that is what they asked for. The whole sign-in the refresh token belongs to is revoked server-side as well as cleared from the browser (ADR-062) — including a replacement the browser never received: clearing the cookie alone would leave the credential valid for anybody holding a copy.",
         "responses": {
           "204": {
             "description": "Signed out. The cookie is cleared.",
@@ -316,49 +316,9 @@
                     },
                     "usage": {
                       "type": "array",
-                      "description": "One row per quota, with what has been counted against it — the same rows `showTenantUsage` shows.",
+                      "description": "One row per quota, with what has been counted against it.",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "feature",
-                          "name",
-                          "unit",
-                          "limit",
-                          "unlimited",
-                          "metered",
-                          "used",
-                          "remaining"
-                        ],
-                        "properties": {
-                          "feature": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "unit": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "limit": {
-                            "type": "integer",
-                            "nullable": true
-                          },
-                          "unlimited": {
-                            "type": "boolean"
-                          },
-                          "metered": {
-                            "type": "boolean"
-                          },
-                          "used": {
-                            "type": "integer",
-                            "nullable": true
-                          },
-                          "remaining": {
-                            "type": "integer",
-                            "nullable": true
-                          }
-                        }
+                        "$ref": "#/components/schemas/QuotaUsage"
                       }
                     },
                     "token_expires_at": {
@@ -908,6 +868,234 @@
         }
       }
     },
+    "/api/v1/projects/{projectId}/shares": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "listProjectShares",
+        "summary": "List a project's share links",
+        "description": "Every link on the project, newest first — live, expired and revoked — **without their tokens**, which are never read back (ADR-073). `status` is derived by the server against its own clock.\n\n`projects.read` on a project the caller reaches (ADR-064), and **no feature**: somebody whose offer stopped selling `project_sharing` still sees what they handed out, which is what lets them take it back. An unreachable project answers 404.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductHeader"
+          },
+          {
+            "$ref": "#/components/parameters/TenantHeader"
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The links.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "shares"
+                  ],
+                  "properties": {
+                    "shares": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ProjectShare"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/PermissionDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "createProjectShare",
+        "summary": "Make a read-only link to a project",
+        "description": "A link that shows the project, read-only and as it was last saved, to somebody with no account (ADR-073). The answer carries the full `url` **once**: only the token's hash is stored, so nothing can read it back — a lost link is revoked and made again.\n\nThe URL is the product's own page (`app_url`) with the token in the **fragment** — `{app_url}?product={code}#share={token}` — so it reaches no access log of the product's host and no `Referer`. The page reads it in the browser and asks `openSharedProject`.\n\nFour questions, in this order: a subscription covers the caller (`SUBSCRIPTION_REQUIRED`, `SUBSCRIPTION_PAST_DUE`), their role may change the work (`projects.write`, `PERMISSION_DENIED`), their offer sells sharing (the `project_sharing` feature, `ENTITLEMENT_REQUIRED`), and the project is theirs to reach (404 otherwise).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductHeader"
+          },
+          {
+            "$ref": "#/components/parameters/TenantHeader"
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expires_in_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365,
+                    "default": 30,
+                    "description": "How long the link answers. 30 when absent; outside 1–365 is refused with `400 VALIDATION_FAILED`, never clamped."
+                  },
+                  "display_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80,
+                    "description": "What the reader is shown as the sender (\"shared by …\"). Optional; blank reads as none."
+                  },
+                  "recipient_label": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 120,
+                    "description": "The sender's own note of whom the link is for, so one recipient's link can be revoked without the others'. **Never shown to the reader.**"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The link, and its URL — the only time the URL is ever returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedProjectShare"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_FAILED` — `details.field` names the field and `details.requirement` what was expected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/PermissionDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`SHARE_HAS_NO_VIEWER` — the product has no page of its own (`app_url`) to show a project on, so a link would lead nowhere. `SHARE_LIMIT_REACHED` — the project already has 50 live links (`details.limit`); revoke one first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/shares/{shareId}": {
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "revokeProjectShare",
+        "summary": "Revoke a share link",
+        "description": "The link stops answering at once (ADR-073). Revoking is a date, not a deletion, so the list keeps the history of what was handed out; revoking a link already revoked answers 204 and keeps the first date. `projects.write` on a project the caller reaches, and **no feature** — a link must always be withdrawable. A link of another project, or an unreachable project, answers 404.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProductHeader"
+          },
+          {
+            "$ref": "#/components/parameters/TenantHeader"
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "shareId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/PermissionDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/projects/{projectId}/undelete": {
       "post": {
         "tags": [
@@ -1026,6 +1214,75 @@
           }
         }
       }
+    },
+    "/api/v1/public/shares/open": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "openSharedProject",
+        "summary": "Open a share link",
+        "description": "What a share link shows, to anybody holding its token (ADR-073). **No session, no product, no tenant**: the token is the whole request, and everything read is scoped by what the link says. The token travels in the body rather than the path so that no access log of this host keeps it; it is a `POST` because opening counts (`open_count`, `last_opened_at` — nothing about the reader is recorded).\n\nThe answer is the project as last saved — its name, its `schema_version`, its document untouched (§16) and the date of that version — the display name the sender chose, and when the link ends. Never the tenant, the holder, the creator, the description, a version or an asset.\n\n**One refusal**: `404 SHARE_NOT_FOUND` for a token that is malformed, unknown, expired or revoked, for a deleted project, and for a project whose holder no subscription covers any more (ADR-060) — the link answers again once they are. Held to the public rate limit. Sent with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex, nofollow`.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "description": "The token from the link's fragment (`#share=…`), exactly as it appears there."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the link shows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedProject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`INVALID_BODY` or `VALIDATION_FAILED` — the body is not a JSON object, or `token` is not a string.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`SHARE_NOT_FOUND` — the link opens nothing, whatever the reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1104,7 +1361,7 @@
         }
       },
       "PermissionDenied": {
-        "description": "Authenticated, but not allowed to do this here.",
+        "description": "Authenticated, but not allowed to do this here. The envelope's `code` says which of the refusals it is, and they are answered by different people:\n\n- `PERMISSION_DENIED` — the caller's role in this organisation does not allow it. Answered by its administrator.\n- `ENTITLEMENT_REQUIRED` — the organisation never bought the feature. Answered by buying it.\n- `QUOTA_EXCEEDED` — it did, and there is none left. Answered by upgrading or deleting something.\n- `SUBSCRIPTION_REQUIRED` — the organisation bought it and **the caller is not one of the people the subscription covers** (ADR-053, 2026-09-25). Answered by whoever owns that subscription adding them to it, within the number of people their offer sells. Raised where a product's own work lives, before the permission is even considered, and never in place of `ENTITLEMENT_REQUIRED`: telling somebody to buy what their colleague already pays for sends them to the wrong place.\n- `SUBSCRIPTION_PAST_DUE` — the caller **is** on a subscription and an invoice against it is unpaid (spec §5.1, 2026-09-27). Answered by paying it, and distinct from `SUBSCRIPTION_REQUIRED` for exactly that reason: raised as that code, the holder of a seat goes and asks a colleague for a place they already hold while the invoice stays unpaid. `GET /subscription` carries `past_due_since` and the invoice to settle; coverage does not gate it, nor `/invoices` and `/payments`, because shutting the screen the customer pays from would make the suspension unrecoverable.\n- `EMAIL_UNCONFIRMED` — the caller signed up by themselves and has not proved their address by the deadline they were given (ADR-061). Answered by following the link mailed to them, or asking for a new one (`resendEmailVerification`, which stays reachable); nothing is cancelled meanwhile. `listProducts` carries the deadline as `address.confirm_by`.\n- `NO_TENANT_ACCESS` — the caller has no membership resolving here at all.",
         "content": {
           "application/json": {
             "schema": {
@@ -1144,6 +1401,27 @@
       }
     },
     "schemas": {
+      "CreatedProjectShare": {
+        "description": "A link just made, with the one copy of its URL there will ever be.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProjectShare"
+          },
+          {
+            "type": "object",
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "`{app_url}?product={code}#share={token}` — the product's page, the token in the fragment. Shown once."
+              }
+            }
+          }
+        ]
+      },
       "Entitlement": {
         "type": "object",
         "required": [
@@ -1267,6 +1545,90 @@
         "additionalProperties": true,
         "description": "The JSONB document. Key order is preserved and insignificant whitespace is gone — what is stored is what comes back, which is the guarantee snapshot and restore rest on. Large assets are refused here and belong in storage (non-negotiable #9)."
       },
+      "ProjectShare": {
+        "type": "object",
+        "description": "A share link as its sender sees it (ADR-073): everything except the token, which is never read back.",
+        "required": [
+          "id",
+          "project_id",
+          "display_name",
+          "recipient_label",
+          "status",
+          "created_by",
+          "created_at",
+          "expires_at",
+          "revoked_at",
+          "open_count",
+          "last_opened_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the reader is shown as the sender. Null when none was given, or once the sender was erased (§30)."
+          },
+          "recipient_label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The sender's note of whom it is for; never shown to the reader. Null when none was given, or once the sender was erased."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "EXPIRED",
+              "REVOKED"
+            ],
+            "description": "Derived by the server when the link is read, against its own clock."
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "open_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many times the link was opened. Nothing about who."
+          },
+          "last_opened_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "ProjectSummary": {
         "type": "object",
         "required": [
@@ -1275,6 +1637,8 @@
           "description",
           "schema_version",
           "created_by",
+          "holder_user_id",
+          "document_bytes",
           "created_at",
           "updated_at",
           "deleted_at"
@@ -1303,6 +1667,22 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "holder_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Whose subscription pays for this project, and therefore who reaches it: that person, whoever is on their subscription today, and the organisation's administrator. Not the same person as `created_by` when a colleague works on somebody's seat — the work stays with the seat when the colleague is removed. Null where the holder's account was erased (§30), which leaves the project reachable by the administrator alone."
+          },
+          "document_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "How large the document is, in bytes, measured exactly as the storage limit measures it (`PAYLOAD_TOO_LARGE`; 4 MiB unless the platform administrator set another, `setProjectSettings`) — so it says how close the next save is to being refused. Listings carry this rather than the document. Null only where the stored document could not be measured, which a stored document always can."
           },
           "created_at": {
             "type": "string",
@@ -1374,6 +1754,61 @@
           }
         }
       },
+      "QuotaUsage": {
+        "type": "object",
+        "description": "What has been counted against one quota. Declared once and read by both operations that answer it: `showTenantUsage`, and the bootstrap a product reads. Typed in two places it would drift, and the figure a customer is refused on is not one to have two shapes of.",
+        "required": [
+          "feature",
+          "name",
+          "unit",
+          "limit",
+          "unlimited",
+          "metered",
+          "used",
+          "remaining"
+        ],
+        "properties": {
+          "feature": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Null means two different things, so `unlimited` says which - the same pair as on `Entitlement`."
+          },
+          "unlimited": {
+            "type": "boolean"
+          },
+          "metered": {
+            "type": "boolean",
+            "description": "Whether anything actually counts this. False means the limit beside it is recorded and not enforced, which is why `used` may be null while a limit is set: reporting 0 used would tell a customer their limit is being enforced when nothing is enforcing it."
+          },
+          "used": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Null when unlimited or unmetered - in both cases there is no number to give, and zero would be a lie. Never negative: an overrun reads as nothing left, and the refusal stays the server's to make."
+          }
+        }
+      },
       "Session": {
         "type": "object",
         "required": [
@@ -1401,6 +1836,57 @@
           }
         },
         "description": "The refresh token is deliberately absent: it leaves in an `HttpOnly` cookie that no script can read, and putting it here as well would throw away the reason the cookie exists."
+      },
+      "SharedProject": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "What a share link shows a stranger (ADR-073), and nothing else.",
+        "required": [
+          "project",
+          "shared_by",
+          "expires_at"
+        ],
+        "properties": {
+          "project": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "schema_version",
+              "document",
+              "updated_at"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "schema_version": {
+                "type": "integer",
+                "description": "The schema the document speaks, as the product declared it."
+              },
+              "document": {
+                "$ref": "#/components/schemas/ProjectDocument"
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When this version was saved: the link follows the project, so this is the date of what the reader sees."
+              }
+            }
+          },
+          "shared_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The display name the sender chose, or null."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the link stops answering."
+          }
+        }
       }
     },
     "securitySchemes": {

@@ -44,7 +44,7 @@ export const FORMATS = [
 ];
 const THEMES = ['light', 'dark'];
 
-const CONTEXTE = {
+export const CONTEXTE = {
   user: { id: 'u1', email: 'demo@plan.test', display_name: 'Demo', locale: 'fr' },
   tenant: { id: 't1', slug: 'demo', name: 'Demo' },
   product: { id: 'p1', code: 'plan', name: 'Plan', app_url: null },
@@ -62,10 +62,15 @@ const CONTEXTE = {
  * Le depot tient en memoire ce que Plan y enregistre : le plan de demonstration est cree par un
  * `POST /projects`, puis relu par son identifiant, exactement comme sur la vraie plateforme.
  */
-export async function simulerPlateforme(page, { connecte = true, capacites = null } = {}) {
-  // `connecte: false` : aucune session, la porte s'affiche ; `capacites` : l'offre de la personne, a la place de celle du contexte.
+export async function simulerPlateforme(page, { connecte = true, capacites = null, refusPartage = null } = {}) {
+  // `connecte: false` : aucune session, la porte s'affiche ; `capacites` : l'offre de la personne, a la place de celle du contexte ;
+  // `refusPartage` : l'erreur que la creation d'un lien de partage rend ({ statut, code, details }), au lieu d'un lien.
   const contexte = capacites ? { ...CONTEXTE, capabilities: capacites } : CONTEXTE;
   const projets = new Map();
+  // Les liens de partage (ADR-073), par projet : la plateforme n'en rend l'adresse qu'a la creation.
+  const liens = new Map();
+  // Ce que la page a demande a la plateforme, dans l'ordre : `METHODE /chemin`, et si un jeton l'accompagnait.
+  const journal = [];
   let suivant = 1;
   const resume = (p) => ({ id: p.id, name: p.name, updated_at: p.updated_at, deleted_at: null, schema_version: p.schema_version ?? 1 });
   await page.route(PLATEFORME + '/**', async (route) => {
@@ -74,6 +79,26 @@ export async function simulerPlateforme(page, { connecte = true, capacites = nul
     const chemin = url.pathname.replace(/^\/api\/v1/, '');
     const corps = (json, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
     const lu = () => { try { return JSON.parse(req.postData() || '{}'); } catch { return {}; } };
+    journal.push({ requete: req.method() + ' ' + chemin, jeton: !!req.headers()['authorization'] });
+    const mp = chemin.match(/^\/projects\/([^/]+)\/shares(?:\/([^/]+))?$/);
+    if (mp) {
+      const liste = liens.get(mp[1]) ?? [];
+      liens.set(mp[1], liste);
+      if (!mp[2] && req.method() === 'GET') return corps({ shares: [...liste].reverse() });
+      if (!mp[2] && req.method() === 'POST') {
+        if (refusPartage) return corps({ error: { code: refusPartage.code, message: refusPartage.code, details: refusPartage.details ?? {}, request_id: 'req-fumee' } }, refusPartage.statut);
+        const b = lu();
+        const maintenant = Date.now();
+        const lien = { id: 'lien' + suivant++, project_id: mp[1], display_name: b.display_name ?? null, recipient_label: b.recipient_label ?? null, status: 'ACTIVE',
+          created_by: 'u1', created_at: new Date(maintenant).toISOString(), expires_at: new Date(maintenant + (b.expires_in_days ?? 30) * 86400000).toISOString(),
+          revoked_at: null, open_count: 0, last_opened_at: null };
+        liste.push(lien);
+        return corps({ ...lien, url: BASE + '/?product=plan#share=jeton-fumee-' + lien.id }, 201);
+      }
+      const lien = liste.find((l) => l.id === mp[2]);
+      if (lien && req.method() === 'DELETE') { lien.status = 'REVOKED'; lien.revoked_at = new Date().toISOString(); return route.fulfill({ status: 204 }); }
+      return corps({ error: { code: 'NOT_FOUND', message: 'Lien absent' } }, 404);
+    }
     if (chemin === '/auth/refresh') return connecte ? corps({ access_token: 'jeton', expires_in: 3600 }) : corps({ error: { code: 'UNAUTHENTICATED', message: 'Session absente' } }, 401);
     if (chemin === '/me/context') return connecte ? corps(contexte) : corps({ error: { code: 'UNAUTHENTICATED', message: 'Session absente' } }, 401);
     if (chemin === '/auth/jwks') return corps({ keys: [] });
@@ -97,6 +122,7 @@ export async function simulerPlateforme(page, { connecte = true, capacites = nul
     }
     return corps({ error: { code: 'NON_SIMULE', message: req.method() + ' ' + chemin } }, 404);
   });
+  return { journal, liens };
 }
 
 /**

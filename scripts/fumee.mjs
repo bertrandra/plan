@@ -25,7 +25,7 @@ import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, readdi
 import { execFileSync } from 'node:child_process';
 import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ouvrirDemo, simulerPlateforme, FORMATS, BASE } from './captures.mjs';
+import { ouvrirDemo, simulerPlateforme, FORMATS, BASE, CONTEXTE } from './captures.mjs';
 import { choisirModeReseau, reseau, servirThreeLocal } from './fumee-reseau.mjs';
 
 const require = createRequire(import.meta.url);
@@ -3036,6 +3036,120 @@ const POINTS = {
     }
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
+  },
+  167: async (page, f) => {
+    // Partager un projet par un lien en lecture seule (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme). Dans un
+    // contexte vierge dont l'offre porte `project_sharing` : la demonstration ouverte et modifiee, le menu Fichier (feuille Projet au
+    // doigt) ouvre « Partager ce projet » ; l'avertissement des modifications et son « Enregistrer » ; le nom du compte propose ; un lien
+    // de 90 jours pour « Le menuisier » : montre une fois, la phrase qui dit jusqu'a quand, « Copier le lien » (presse-papiers) ; la
+    // liste ; « Retirer », puis « Annuler » dans le toast : rien ne part ; « Retirer » a nouveau : le retrait part a la fin du toast. Le
+    // geste est aussi au pied du chiffrage (telephone) et dans la barre d'estimation (bureau). Le jeton n'est range dans aucun stockage.
+    // Puis deux refus : sans la fonction, la commande disparait (menu et chiffrage) ; quota de liens atteint, la phrase en clair.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const echecs = [];
+    const vierge = async (options, faire) => {
+      const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+      await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+      const p = await ctx.newPage();
+      try {
+        const sim = await simulerPlateforme(p, options);
+        await p.addInitScript(() => { window.__sansToitsFond = true; });
+        await p.goto(BASE + '/');
+        await p.getByRole('button', { name: /d[ée]monstration/i }).click();
+        await p.waitForSelector('#stage svg', { timeout: 30000 });
+        await p.waitForTimeout(300);
+        const garder = p.getByRole('button', { name: 'Garder tel quel' });
+        if (await garder.count()) { await garder.click(); await p.waitForTimeout(150); }
+        return await faire(p, sim);
+      } finally { await ctx.close(); }
+    };
+    const avecPartage = [...CONTEXTE.capabilities, 'project_sharing'];
+    const menuFichier = async (p) => {
+      if ((await classe(p)) !== 'large') await feuille(p, 'projet');
+      return p.evaluate(() => { const m = document.getElementById('menuFichier'); m?.setAttribute('open', ''); return [...(m?.querySelectorAll('[data-commande]') ?? [])].map((b) => b.getAttribute('data-commande')); });
+    };
+    const chiffrage = async (p) => {
+      // Le pied de la feuille Chiffrage au telephone, la barre d'estimation au bureau ; la tablette n'a ni l'un ni l'autre (menu Fichier).
+      const c = await classe(p);
+      if (c === 'compact') { await selectionner(p, TERRASSE); await p.evaluate(() => window.__plan.ouvrirResultats('bom')); await feuille(p, 'resultats'); }
+      await p.waitForTimeout(250);
+      return c === 'moyen' ? 'sans objet' : (await p.locator((c === 'compact' ? '.piedChiffrage' : '.bandeEstimation') + ' [data-commande="projet.partager"]').count()) ? 'présent' : 'absent';
+    };
+    const mesure = await etape('partage', () => vierge({ capacites: avecPartage }, async (p, sim) => {
+      await noterToasts(p);
+      const auChiffrage = await chiffrage(p);
+      if (auChiffrage === 'absent') echecs.push('« Partager » absent des gestes du chiffrage');
+      if ((await classe(p)) === 'compact') await feuille(p, null);
+      await p.evaluate(() => { window.__plan.etat().dirty = true; window.__plan.executer('vue.ajuster'); });
+      const ids = await menuFichier(p);
+      if (ids.indexOf('projet.partager') !== ids.indexOf('projet.enregistrer') + 1) echecs.push('menu Fichier : ' + ids.slice(0, 4).join(', '));
+      await p.evaluate(() => document.querySelector('#menuFichier [data-commande="projet.partager"]')?.click());
+      const boite = p.locator('.dialoguePartage');
+      await boite.waitFor({ timeout: 10000 });
+      const avertissement = await boite.locator('.avertissementPartage').count();
+      await boite.locator('.avertissementPartage [data-commande="projet.enregistrer"]').click();
+      await p.waitForFunction(() => !document.querySelector('.dialoguePartage .avertissementPartage'), null, { timeout: 15000 }).catch(() => echecs.push('l’avertissement reste après « Enregistrer »'));
+      const enregistre = sim.journal.some((j) => j.requete.startsWith('PATCH /projects/'));
+      await p.waitForFunction(() => !!(document.querySelector('[data-controle="partage.nomAffiche"]'))?.value, null, { timeout: 5000 }).catch(() => {});
+      const nomPropose = await boite.locator('[data-controle="partage.nomAffiche"]').inputValue();
+      await boite.locator('[data-controle="partage.destinataire"]').fill('Le menuisier');
+      await boite.getByRole('button', { name: '90 jours' }).click();
+      await boite.locator('[data-controle="partage.creer"]').click();
+      await boite.locator('.champLien').waitFor({ timeout: 10000 });
+      const lien = await boite.locator('.champLien').inputValue();
+      const phrase = (await boite.locator('.phraseLien').textContent()) ?? '';
+      const corps = sim.journal.find((j) => j.requete.startsWith('POST /projects/') && j.requete.endsWith('/shares'));
+      await boite.locator('[data-controle="partage.copier"]').click();
+      const copie = await attendreToast(p, '^Lien copié');
+      const presse = await p.evaluate(() => navigator.clipboard.readText().catch(() => ''));
+      await p.waitForSelector('.dialoguePartage .lienPartage', { timeout: 10000 });
+      const ligne = (await boite.locator('.lienPartage').first().textContent()) ?? '';
+      const deborde = await p.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialoguePartage')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+      const petit = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.dialoguePartage button')].map((b) => b.getBoundingClientRect().height)));
+      // Retirer, puis Annuler : rien ne part.
+      await boite.locator('[data-controle="partage.retirer"]').click();
+      await p.locator('.toastAction [data-controle="notification.action"]').click({ timeout: 5000 });
+      await p.waitForTimeout(7000);
+      const apresAnnuler = sim.journal.filter((j) => j.requete.startsWith('DELETE ')).length;
+      const etatApresAnnuler = (await boite.locator('.lienEtat').first().textContent()) ?? '';
+      // Retirer : le retrait part a la fin du toast.
+      await boite.locator('[data-controle="partage.retirer"]').click();
+      await p.waitForFunction(() => /Retiré/.test(document.querySelector('.dialoguePartage .lienEtat')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
+      const retraits = sim.journal.filter((j) => j.requete.startsWith('DELETE ')).length;
+      const etatFinal = (await boite.locator('.lienEtat').first().textContent()) ?? '';
+      const stockage = await p.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
+      if (!avertissement) echecs.push('pas d’avertissement des modifications');
+      if (!enregistre) echecs.push('« Enregistrer » du dialogue n’a rien enregistré');
+      if (nomPropose !== CONTEXTE.user.display_name) echecs.push('nom proposé « ' + nomPropose + ' »');
+      if (!/#share=jeton-fumee-/.test(lien)) echecs.push('lien « ' + lien + ' »');
+      if (!/^Toute personne qui a ce lien voit ce projet tel qu’il est enregistré, sans pouvoir le modifier, jusqu’au \d/.test(phrase)) echecs.push('phrase « ' + phrase + ' »');
+      if (!corps) echecs.push('aucune création demandée');
+      if (!copie || presse !== lien) echecs.push('copie : toast « ' + copie + ' », presse-papiers « ' + presse + ' »');
+      if (!/Le menuisier/.test(ligne) || !/Actif/.test(ligne) || !/jamais ouvert/.test(ligne)) echecs.push('ligne « ' + ligne + ' »');
+      if (apresAnnuler !== 0 || !/Actif/.test(etatApresAnnuler)) echecs.push('Annuler : ' + apresAnnuler + ' retrait(s), état « ' + etatApresAnnuler + ' »');
+      if (retraits !== 1 || !/Retiré/.test(etatFinal)) echecs.push('retrait : ' + retraits + ' appel(s), état « ' + etatFinal + ' »');
+      if (stockage.includes('jeton-fumee')) echecs.push('le jeton est dans le stockage du navigateur');
+      if (deborde) echecs.push('débordement');
+      if (f.nom !== 'large' && petit < 44) echecs.push('bouton de ' + Math.round(petit) + ' px');
+      return `menu Fichier : partager après enregistrer ; chiffrage : ${auChiffrage} ; avertissement ${avertissement ? 'dit' : 'ABSENT'}, enregistré ${enregistre ? 'oui' : 'NON'} ; nom proposé « ${nomPropose} » ; lien ${lien.replace(/^.*#/, '#')} ; « ${phrase} » ; copié ${presse === lien ? 'oui' : 'NON'} ; Annuler : ${apresAnnuler} retrait ; Retirer : ${retraits} retrait, « ${etatFinal} »`;
+    }));
+    const sans = await etape('sans la fonction', () => vierge({}, async (p) => {
+      const ids = await menuFichier(p);
+      if ((await classe(p)) === 'compact') await feuille(p, null);
+      const auChiffrage = await chiffrage(p);
+      if (ids.includes('projet.partager') || auChiffrage === 'présent') echecs.push('sans project_sharing : la commande reste (' + auChiffrage + ')');
+      return ids.includes('projet.partager') ? 'MENU' : 'disparue';
+    }));
+    const quota = await etape('quota de liens', () => vierge({ capacites: avecPartage, refusPartage: { statut: 409, code: 'SHARE_LIMIT_REACHED', details: { limit: 50 } } }, async (p) => {
+      await menuFichier(p);
+      await p.evaluate(() => document.querySelector('#menuFichier [data-commande="projet.partager"]')?.click());
+      await p.locator('[data-controle="partage.creer"]').click({ timeout: 10000 });
+      const texte = (await p.locator('.erreurPartage').first().textContent({ timeout: 10000 })) ?? '';
+      if (!/déjà 50 liens actifs/.test(texte)) echecs.push('quota : « ' + texte + ' »');
+      return texte;
+    }));
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesure + ' ; sans la fonction : ' + sans + ' ; quota : « ' + quota + ' »' };
   },
   166: async (page, f) => {
     // La liste d'achat (lot 5 du parcours client, 16 novembre 2026) : le menu Exporter (feuille Projet au doigt), ses deux entrees sous
@@ -8662,7 +8776,9 @@ function pointsPour(nomClasse) {
   // 165 : le devis PDF : en tete du menu Exporter, le dialogue, le fichier (une page, que pdf-lib ouvre), le toast ; au telephone, le
   //       bouton du pied de la feuille Chiffrage.
   // 162 : le prix total au bureau sans defiler (barre d'estimation) et la ligne « Total HT » de la Nomenclature, la meme fourchette partout.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166];
+  // 167 : partager un projet par un lien : le dialogue, l'avertissement et son « Enregistrer », le lien montre une fois et copie, la
+  //       liste, « Retirer » et son « Annuler » ; sans la fonction, la commande disparait ; quota de liens atteint, dit en clair.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166, 167];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -20,7 +20,16 @@ export function Notifications() {
     <>
       {toasts.length > 0 && (
         <div className="notificationsToasts" role="status" aria-live="polite">
-          {toasts.map(n => <div key={n.id} className="toast" onClick={() => notifications.fermer(n.id)}>{n.texte}</div>)}
+          {toasts.map(n => (
+            <div key={n.id} className={'toast' + (n.action ? ' toastAction' : '')} onClick={() => notifications.fermer(n.id)}>
+              <span>{n.texte}</span>
+              {/* L'action d'un toast (« Annuler ») retient le geste qu'il annonce ; le reste du toast le laisse partir. */}
+              {n.action && (
+                <button type="button" data-controle="notification.action" className="toastBouton"
+                  onClick={(e) => { e.stopPropagation(); notifications.agir(n.id); }}>{n.action}</button>
+              )}
+            </div>
+          ))}
         </div>
       )}
       {erreurs.map((n: Notification) => (
