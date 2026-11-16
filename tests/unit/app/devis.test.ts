@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { creerPreferencesDevis, reglagesImprimes } from '../../../src/app/devis.js';
+import { poserAcces } from '../../../src/app/acces.js';
+import { creerContexte, type Contexte } from '../../../src/plateforme/contexte.js';
+import type { Session } from '../../../src/plateforme/session.js';
 import { tauxSaisi } from '../../../src/ui/champs/devis.js';
 
 // Les reglages du devis (app/devis.ts) : l'emetteur et le taux restent dans ce navigateur, le numero vaut pour la page ; rien
@@ -34,5 +37,35 @@ describe('les reglages du devis', () => {
     expect(tauxSaisi('')).toBeNull();
     expect(tauxSaisi('abc')).toBeNull();
     expect(tauxSaisi('150')).toBeNull();
+  });
+});
+
+describe('le nom propose de l emetteur', () => {
+  const lu = (token_expires_at: string | null) => ({
+    user: { id: 'u1', email: 'ada@atelier.fr', display_name: 'Ada', locale: 'fr' },
+    tenant: { id: 't1', slug: 'atelier', name: 'Atelier Bois' },
+    product: { id: 'p1', code: 'plan', name: 'Plan', app_url: '' },
+    roles: [], permissions: [], capabilities: [], entitlements: [], usage: [], token_expires_at
+  }) as unknown as Contexte;
+
+  async function brancher(c: Contexte) {
+    const session = { appeler: async () => c } as unknown as Session;
+    const contexte = creerContexte(session, () => Date.parse('2026-11-16T10:00:00Z'));
+    poserAcces(session, contexte);
+    await contexte.charger();
+  }
+
+  it('vient du compte meme quand la plateforme ne laisse pas garder le contexte (token_expires_at nul)', async () => {
+    await brancher(lu(null));
+    const p = creerPreferencesDevis(() => null);
+    expect(p.defautsEmetteur()).toEqual({ nom: 'Atelier Bois', email: 'ada@atelier.fr' });
+    expect(reglagesImprimes(p).emetteur).toEqual({ nom: 'Atelier Bois', email: 'ada@atelier.fr' });
+  });
+
+  it('est le meme, cache valide ou non : le devis d un emetteur donne ne change pas', async () => {
+    await brancher(lu('2026-11-16T11:00:00Z'));
+    const avec = reglagesImprimes(creerPreferencesDevis(() => null));
+    await brancher(lu(null));
+    expect(reglagesImprimes(creerPreferencesDevis(() => null))).toEqual(avec);
   });
 });

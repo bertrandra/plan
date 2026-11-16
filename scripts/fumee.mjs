@@ -1549,10 +1549,22 @@ const POINTS = {
     await page.locator('.bandeauMode button').click(); await page.waitForTimeout(150);
     const fini = await page.evaluate(() => !document.querySelector('.bandeauMode'));
     const a = (await lireEtat(page)).scene.origine;
-    const r = await page.locator('#stage').boundingBox();
-    await glisser(page, { x: r.x + 30, y: r.y + r.height / 2 }, 40, 0);
+    // Un glisser sur le FOND du plan deplace la vue (interaction/pointeur.ts : un element sans `data-role`) ; sur un objet, il le vise.
+    // Le depart se cherche sur le fond, la ou il est a l'ecran : la demonstration s'ouvre cadree sur sa terrasse (16 novembre 2026), et
+    // la parcelle couvre le bord gauche du plan, ou ce point partait quand elle s'ouvrait sur tout le terrain.
+    const de = await page.evaluate(() => {
+      const r = document.getElementById('stage').getBoundingClientRect();
+      for (let j = 1; j < 20; j++) for (let i = 1; i < 20; i++) {
+        const x = r.x + (r.width * i) / 24, y = r.y + (r.height * j) / 20;
+        const e = document.elementFromPoint(x, y);
+        if (e && e.closest('#stage svg') && !e.dataset.role) return { x, y };
+      }
+      return null;
+    });
+    if (!de) return { ok: false, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'} ; aucun fond libre du plan à l’écran pour glisser` };
+    await glisser(page, de, 40, 0);
     const b = (await lireEtat(page)).scene.origine;
-    return { ok: actif && fini && Math.abs(b.x - a.x - 40) < 2, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'}, Annuler le retire ; la vue se déplace ensuite de ${(b.x - a.x).toFixed(1)} px pour 40` };
+    return { ok: actif && fini && Math.abs(b.x - a.x - 40) < 2, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'}, Annuler le retire ; la vue se déplace ensuite de ${(b.x - a.x).toFixed(1)} px pour 40 (glisser depuis le fond, en ${Math.round(de.x)}, ${Math.round(de.y)})` };
   },
   36: async (page) => {
     await selectionner(page, DALLE);
@@ -3300,7 +3312,28 @@ const POINTS = {
     //    au moins une fois et demie plus grande que dans le cadrage du terrain (« Ajuster la vue », rien de choisi), centre a l'ecran.
     // 2. Sur le projet de la fumee, la Vue 3D : la camera recule de ce que demandent la terrasse et la maison qu'elle touche
     //    (three/scene.ts, `rayonDOuverture`), moins que ce que demanderait la parcelle.
+    // 3. La demonstration du premier pas (« Ouvrir le plan de démonstration », le projet de la fumee, que le premier pas vient de creer)
+    //    s'ouvre de meme cadree sur la terrasse (demande du proprietaire, 16 novembre 2026) : meme mesure, sur la page de la partie.
     const echecs = [];
+    const mesurerTerrasse = (q) => q.evaluate(() => {
+      const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
+      const el = t && document.querySelector('#stage svg [data-role="obj"][data-key="' + t.key + '"]');
+      const cadre = document.getElementById('stage');
+      if (!el || !cadre) return null;
+      const r = el.getBoundingClientRect(), c = cadre.getBoundingClientRect();
+      return { l: Math.max(r.width, r.height), cx: r.x + r.width / 2, cy: r.y + r.height / 2, c: { x: c.x, y: c.y, w: c.width, h: c.height } };
+    });
+    const juger = (quoi, ouverture, terrain) => {
+      if (!ouverture || !terrain) { echecs.push(quoi + ' : terrasse introuvable au plan'); return ''; }
+      const dedans = ouverture.cx > ouverture.c.x && ouverture.cx < ouverture.c.x + ouverture.c.w && ouverture.cy > ouverture.c.y && ouverture.cy < ouverture.c.y + ouverture.c.h;
+      if (!dedans) echecs.push(quoi + ' : la terrasse n’est pas à l’écran (' + JSON.stringify({ cx: Math.round(ouverture.cx), cy: Math.round(ouverture.cy), c: ouverture.c }) + ')');
+      if (!(ouverture.l >= 1.5 * terrain.l)) echecs.push(quoi + ' : terrasse de ' + ouverture.l.toFixed(0) + ' px à l’ouverture, ' + terrain.l.toFixed(0) + ' px sur le terrain');
+      return `${quoi} : terrasse de ${ouverture.l.toFixed(0)} px à l’ouverture contre ${terrain.l.toFixed(0)} px sur le terrain (×${(ouverture.l / terrain.l).toFixed(1)})`;
+    };
+    const ouverturePremierPas = await mesurerTerrasse(page);
+    await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
+    await page.waitForTimeout(400);
+    const premierPas = juger('premier pas', ouverturePremierPas, await mesurerTerrasse(page));
     const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
     const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
     const p = await ctx.newPage();
@@ -3312,25 +3345,10 @@ const POINTS = {
       await p.locator('[data-controle="porte.essayer"]').click({ timeout: 20000 });
       await p.waitForSelector('#stage svg', { timeout: 30000 });
       await p.waitForTimeout(800);
-      const mesurer = () => p.evaluate(() => {
-        const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
-        const el = t && document.querySelector('#stage svg [data-role="obj"][data-key="' + t.key + '"]');
-        const cadre = document.getElementById('stage');
-        if (!el || !cadre) return null;
-        const r = el.getBoundingClientRect(), c = cadre.getBoundingClientRect();
-        return { l: Math.max(r.width, r.height), cx: r.x + r.width / 2, cy: r.y + r.height / 2, c: { x: c.x, y: c.y, w: c.width, h: c.height } };
-      });
-      const ouverture = await mesurer();
+      const ouverture = await mesurerTerrasse(p);
       await p.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
       await p.waitForTimeout(400);
-      const terrain = await mesurer();
-      if (!ouverture || !terrain) echecs.push('terrasse introuvable au plan');
-      else {
-        const dedans = ouverture.cx > ouverture.c.x && ouverture.cx < ouverture.c.x + ouverture.c.w && ouverture.cy > ouverture.c.y && ouverture.cy < ouverture.c.y + ouverture.c.h;
-        if (!dedans) echecs.push('la terrasse n’est pas à l’écran (' + JSON.stringify({ cx: Math.round(ouverture.cx), cy: Math.round(ouverture.cy), c: ouverture.c }) + ')');
-        if (!(ouverture.l >= 1.5 * terrain.l)) echecs.push('terrasse de ' + ouverture.l.toFixed(0) + ' px à l’ouverture, ' + terrain.l.toFixed(0) + ' px sur le terrain');
-        plan = `démonstration : terrasse de ${ouverture.l.toFixed(0)} px à l’ouverture contre ${terrain.l.toFixed(0)} px sur le terrain (×${(ouverture.l / terrain.l).toFixed(1)})`;
-      }
+      plan = juger('essai', ouverture, await mesurerTerrasse(p));
     } finally { await ctx.close(); }
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
@@ -3361,7 +3379,7 @@ const POINTS = {
       if (Math.abs(r3.d - r3.attendu) > 0.05 * r3.attendu) echecs.push('recul 3D ' + r3.d.toFixed(1) + ' m, attendu ' + r3.attendu.toFixed(1) + ' m');
       if (r3.parcelle !== null && !(r3.d < r3.parcelle)) echecs.push('recul 3D ' + r3.d.toFixed(1) + ' m, pas moins que la parcelle (' + r3.parcelle.toFixed(1) + ' m)');
     }
-    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + plan
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + plan + ' ; ' + premierPas
       + (r3 ? ` ; Vue 3D : recul ${r3.d.toFixed(1)} m (terrasse${r3.touche ? ' et maison' : ''} : ${r3.attendu.toFixed(1)} m ; parcelle : ${r3.parcelle?.toFixed(1)} m)` : '') };
   },
   174: async (page, f) => {
@@ -4199,6 +4217,35 @@ const POINTS = {
     if (deborde) echecs.push('débordement');
     return { ok: !echecs.length, mesure: lus.join(' ; ') + (echecs.length ? ' — ' + echecs.join(' ; ') : '') };
   },
+  183: async (page, f) => {
+    // Le nom de l'emetteur du devis vient du compte meme quand la plateforme ne laisse pas garder son contexte (`token_expires_at`
+    // nul, ce que la plateforme simulee rend) : le dialogue le propose dans le champ « Émetteur » (et le courriel), et le devis
+    // telecharge sans rien saisir l'imprime. Avant la correction, le champ proposait « Votre nom ou votre entreprise » et le PDF
+    // partait sans nom. Le PDF d'un emetteur donne ne change pas : seul le chemin du nom propose est repare.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await etape('menu', async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      await page.evaluate(() => {
+        const menu = document.getElementById('menuExporter');
+        menu?.setAttribute('open', '');
+        menu?.querySelector('[role="menu"] [data-commande="export.ouvrirDevis"]')?.click();
+      });
+    });
+    const boite = page.locator('.dialogueDevis');
+    await etape('dialogue', () => boite.waitFor({ timeout: 10000 }));
+    const propose = await boite.locator('[data-cle="devis-nom"] input').first().getAttribute('placeholder');
+    const courriel = await boite.locator('[data-cle="devis-email"] input').first().getAttribute('placeholder');
+    const saisi = await boite.locator('[data-cle="devis-nom"] input').first().inputValue();
+    const { PDFDocument } = await import('pdf-lib');
+    const [dl] = await etape('telecharger', () => Promise.all([page.waitForEvent('download', { timeout: 20000 }), boite.getByRole('button', { name: /Télécharger le devis/ }).click()]));
+    const octets = readFileSync(await dl.path());
+    const pages = (await etape('ouvrir le PDF', () => PDFDocument.load(octets))).getPageCount();
+    const texte = octets.toString('latin1');
+    const nom = CONTEXTE.tenant.name;
+    const imprime = texte.includes('(' + nom + ')');
+    const ok = propose === nom && courriel === CONTEXTE.user.email && saisi === '' && pages === 1 && imprime;
+    return { ok, mesure: `contexte sans cache (token_expires_at ${CONTEXTE.token_expires_at === null ? 'nul' : 'NON NUL'}) ; « Émetteur » propose « ${propose} », courriel « ${courriel} », rien de saisi ${saisi === '' ? '' : '(SAISI « ' + saisi + ' »)'} ; devis de ${pages} page(s), nom ${imprime ? 'imprimé' : 'ABSENT'}` };
+  },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
     // 18-deux-vues-voiture-haie importees par le champ fichier de l'ecran (sans camera) deviennent un cas neuf, sans contexte du plan ;
@@ -5030,8 +5077,18 @@ const POINTS = {
       window.__plan.toucher('regard-fumee');
       window.__plan.rendre();
     }, libre.centre);
-    const surLePlan = await page.evaluate(() => { const e = document.querySelector('[data-role="obj"][data-key="regard-fumee"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.width, h: r.height }; });
-    await page.evaluate(() => window.__plan.selectionnerCle('regard-fumee'));
+    // Le regard est dans un coin libre de la parcelle, que l'ouverture sur la terrasse ne montre pas forcement (la demonstration
+    // s'ouvre cadree sur sa terrasse, 16 novembre 2026) : on le selectionne et on cadre sur lui, le geste « Ajuster » d'une personne,
+    // puis on le mesure, a l'ecran, dans le cadre du plan.
+    await page.evaluate(() => { window.__plan.selectionnerCle('regard-fumee'); window.__plan.executer('vue.ajuster'); });
+    await page.waitForTimeout(300);
+    const surLePlan = await page.evaluate(() => {
+      const e = document.querySelector('#stage svg [data-role="obj"][data-key="regard-fumee"]'), c = document.getElementById('stage');
+      if (!e || !c) return null;
+      const r = e.getBoundingClientRect(), k = c.getBoundingClientRect();
+      const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      return { l: r.width, h: r.height, aLEcran: cx > k.x && cx < k.x + k.width && cy > k.y && cy < k.y + k.height };
+    });
     await inspecteur(page);
     await ouvrirSection(page, 'equipement');
     // Une liste au bureau, une commande segmentee au doigt : la nature se lit sur la liste, ou sur le choix actif.
@@ -5059,8 +5116,8 @@ const POINTS = {
     });
     await image3dStable(page, 3000);
     if (process.env.FUMEE_CAPTURE_L3) await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: `${process.env.FUMEE_CAPTURE_L3}-regard-${f.nom}.png`, timeout: 120000 }).catch((e) => console.error('capture L3 : ' + e.message.split('\n')[0]));
-    const ok = !!surLePlan && surLePlan.l > 0 && Math.abs(surLePlan.l - surLePlan.h) < 2 && nature === 'regard' && !!lu && lu.epaisseur <= 0.04 && lu.cote === 0.6;
-    return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + Math.round(lu.epaisseur * 1000) / 10 + ' cm d’épaisseur' : 'ABSENTE'}` };
+    const ok = !!surLePlan && surLePlan.aLEcran && surLePlan.l > 0 && Math.abs(surLePlan.l - surLePlan.h) < 2 && nature === 'regard' && !!lu && lu.epaisseur <= 0.04 && lu.cote === 0.6;
+    return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' + (surLePlan.aLEcran ? '' : ' HORS DU CADRE') : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + Math.round(lu.epaisseur * 1000) / 10 + ' cm d’épaisseur' : 'ABSENTE'}` };
   },
   115: async (page, f) => {
     // La lecture du jardin dans l'audit (lot L3), contre une API simulee : une tuile d'orthophoto posee sous la parcelle (l'image de
@@ -9746,7 +9803,7 @@ function pointsPour(nomClasse) {
   // 170 : l'import par adresse en une etape, par defaut : le resume et « Créer le projet », sans « 2/3 » ni « 3/3 ».
   // 171 : la terrasse de depart posee par cet import, contre la maison, jamais sur un batiment, avec sa nomenclature.
   // 172 : le catalogue des lames du commerce : « Lame » en tete de la section, le detail replie, un choix qui pose les quatre reglages.
-  // 173 : la demonstration (essai sans compte) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
+  // 173 : la demonstration (essai sans compte, et celle du premier pas) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
   // 174 : l'aide de premiere utilisation : trois bulles une fois par appareil, retenues, « Passer ».
   // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
@@ -9757,7 +9814,8 @@ function pointsPour(nomClasse) {
   // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
   // 182 : l'audit d'une facade sans « É7 » ni « V1 » pour la personne ordinaire ; le mode expert les rend.
   // 187 : les erreurs d'un fichier dites en clair : un JSON et un SVG illisibles, le PNG qui ne se rend pas, le DXF bloque.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 187];
+  // 183 : le nom de l'emetteur du devis vient du compte meme hors du cache du contexte (`token_expires_at` nul), propose et imprime.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 187];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
