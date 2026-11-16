@@ -2903,6 +2903,55 @@ const POINTS = {
       && enTete.ok;
     return { ok, mesure: `en tête : ${enTete.mesure} ; « ${titre.slice(0, 60)} » ; 3D avant : ${avant3d} photo(s) ; pose d'office : ${r1.depuisAudit ? 'oui' : 'NON'}, texture ${r1.texture ? 'oui' : 'ABSENTE'}, ${(r1.ouvertures ?? []).length} ouverture(s) ${(r1.ouvertures ?? []).every((o) => !o.verifieeLe) ? 'non vérifiées' : 'VÉRIFIÉES'} ; 3D après : ${apres3d} maille(s) de photo ; projet ${saleAvant ? 'DÉJÀ MODIFIÉ AVANT, ' : ''}${sale ? 'modifié' : 'PAS MODIFIÉ'} ; toast « ${toast.slice(0, 80) || 'ABSENT'} » ; seconde photo : ${remplacee ? 'remplace la pose' : 'NE REMPLACE PAS'} ; Ctrl+Z ${unPas ? 'rend la première pose' : 'NE REND PAS la première pose'}, puis ${deuxPas ? 'le mur d’avant' : 'PAS le mur d’avant'} (3D : ${annule3d} photo) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  161: async (page, f) => {
+    // Les ecrans d'entree (audit de l'IHM du 16 novembre 2026, lot 1) : la porte et le premier pas tenaient sur 530 px au telephone de
+    // 390 (la classe d'ecran n'etait posee qu'avec l'atelier, qu'ils precedent : la page prenait la mise en page du bureau derriere eux).
+    // Dans un contexte vierge, a 320, 390 et 430 px au telephone (a la taille de la classe sinon) : la porte (sans session), le premier
+    // pas, puis le premier pas d'une offre sans le cadastre : « Partir d'une adresse » disparait comme sa commande, « Dessiner sans
+    // adresse » ouvre un plan vide, sans import cadastre ; rien ne deborde, la classe est posee des la porte.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const largeurs = f.nom === 'compact' ? [320, 390, 430] : [f.width];
+    const echecs = [], mesures = [];
+    const deborde = (p, l) => p.evaluate((l) => document.documentElement.scrollWidth > l + 1 || innerWidth > l + 1, l);
+    const vierge = async (l, options, faire) => {
+      const ctx = await page.context().browser().newContext({ viewport: { width: l, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+      const p = await ctx.newPage();
+      try {
+        await simulerPlateforme(p, options);
+        await p.addInitScript(() => { window.__sansToitsFond = true; });
+        await p.goto(BASE + '/');
+        return await faire(p);
+      } finally { await ctx.close(); }
+    };
+    for (const l of largeurs) {
+      await etape('porte ' + l, () => vierge(l, { connecte: false }, async (p) => {
+        await p.locator('.porteBoite').waitFor({ timeout: 20000 });
+        const classe = await p.evaluate(() => document.documentElement.dataset.classe);
+        if (classe !== f.nom) echecs.push(`porte ${l} : classe ${classe}`);
+        if (await deborde(p, l)) echecs.push(`porte ${l} : débordement`);
+      }));
+      await etape('premier pas ' + l, () => vierge(l, {}, async (p) => {
+        await p.locator('.premierBoite').waitFor({ timeout: 20000 });
+        if (await deborde(p, l)) echecs.push(`premier pas ${l} : débordement`);
+        if (!(await p.locator('[data-controle="premierPas.adresse"]').count())) echecs.push(`premier pas ${l} : « Partir d'une adresse » absent`);
+      }));
+    }
+    const sans = await etape('offre sans cadastre', () => vierge(largeurs[0], { capacites: ['plan.documents', 'plan.ortho', 'plan.plu', 'plan.terrasse', 'plan.export.dxf', 'plan.export.dossier', 'plan.3d'] }, async (p) => {
+      await p.locator('.premierBoite').waitFor({ timeout: 20000 });
+      const titres = await p.$$eval('.premierChoixTitre', (t) => t.map((x) => x.textContent));
+      if (titres.some((t) => /adresse/.test(t) && !/sans adresse/.test(t))) echecs.push('sans cadastre : « Partir d\'une adresse » proposé');
+      await p.locator('[data-controle="premierPas.vierge"]').click();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(800);
+      const r = await p.evaluate(() => ({ objets: window.__plan.etat().objects.length, cadastre: !!document.querySelector('.dialogueCadastre') }));
+      if (r.objets !== 0 || r.cadastre) echecs.push('sans cadastre : « Dessiner sans adresse » ouvre ' + JSON.stringify(r));
+      if (await deborde(p, largeurs[0])) echecs.push('sans cadastre : débordement');
+      return titres.join(' / ');
+    }));
+    mesures.push(`${largeurs.join(', ')} px : porte et premier pas sans débordement ; sans cadastre : « ${sans} »`);
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
   164: async (page, f) => {
     // Les erreurs du reseau en clair (audit de l'IHM du 16 novembre 2026, lot 1) : « Geocodage impossible : Failed to fetch ». Le
     // service d'adresses de l'IGN coupe (requetes avortees), « Partir d'une adresse », une adresse tapee puis Rechercher : le dialogue
@@ -2977,6 +3026,57 @@ const POINTS = {
     }
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
+  },
+  165: async (page, f) => {
+    // Le devis PDF (lot 5 du parcours client, 16 novembre 2026) : le menu Exporter (feuille Projet au doigt) ouvre le dialogue, en tete
+    // du menu ; l'emetteur saisi, le client du projet ; « Telecharger le devis (PDF) » : un fichier `devis-….pdf` non vide, une page qui
+    // s'ouvre (pdf-lib), le toast qui dit son nom ; au telephone, le bouton « Devis » au pied de la feuille Chiffrage ; rien ne deborde.
+    // Les reglages de l'emetteur restent dans le navigateur, pas dans le projet : le projet n'est pas marque modifie par eux.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await noterToasts(page);
+    const enTete = await etape('menu', async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      return page.evaluate(() => {
+        const menu = document.getElementById('menuExporter');
+        menu?.setAttribute('open', '');
+        const premiere = menu?.querySelector('[role="menu"] [data-commande]');
+        const id = premiere?.getAttribute('data-commande');
+        premiere?.click();
+        return id;
+      });
+    });
+    const boite = page.locator('.dialogueDevis');
+    await etape('dialogue', () => boite.waitFor({ timeout: 10000 }));
+    const salAvant = await page.evaluate(() => window.__plan.etat().dirty);
+    await etape('emetteur', async () => {
+      const champ = boite.locator('[data-cle="devis-nom"] input').first();
+      await champ.fill('Atelier de la fumée'); await champ.press('Tab'); await page.waitForTimeout(150);
+    });
+    const salApres = await page.evaluate(() => window.__plan.etat().dirty);
+    const debordeDialogue = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueDevis')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const { PDFDocument } = await import('pdf-lib');
+    const [dl] = await etape('telecharger', () => Promise.all([page.waitForEvent('download', { timeout: 20000 }), boite.getByRole('button', { name: /Télécharger le devis/ }).click()]));
+    const nom = dl.suggestedFilename();
+    const octets = readFileSync(await dl.path());
+    const doc = await etape('ouvrir le PDF', () => PDFDocument.load(octets));
+    const pages = doc.getPageCount();
+    const texte = octets.toString('latin1');
+    const emetteur = texte.includes('(Atelier de la fum\xe9e)');
+    const toast = (await attendreToast(page, '^Devis téléchargé')).trim();
+    await page.locator('[data-controle="devis.fermer"]').click();
+    // Au telephone : le pied de la feuille Chiffrage d'une terrasse porte le bouton.
+    let pied = 'sans objet';
+    if ((await classe(page)) === 'compact') {
+      await selectionner(page, TERRASSE);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      await feuille(page, 'resultats');
+      const b = page.locator('.piedChiffrage [data-commande="export.ouvrirDevis"]');
+      pied = (await b.count()) && (await b.isVisible()) && (await b.isEnabled()) ? 'présent' : 'ABSENT';
+      if (pied === 'présent') { await b.click(); await boite.waitFor({ timeout: 10000 }).catch(() => {}); pied = (await boite.isVisible()) ? 'ouvre le dialogue' : 'N’OUVRE PAS le dialogue'; }
+    }
+    const ok = enTete === 'export.ouvrirDevis' && /^devis-[a-z0-9-]+\.pdf$/.test(nom) && octets.length > 1000 && pages === 1 && emetteur && toast === 'Devis téléchargé : ' + nom + '.'
+      && salAvant === salApres && !debordeDialogue && (pied === 'sans objet' || pied === 'ouvre le dialogue');
+    return { ok, mesure: `en tête du menu : ${enTete} ; « ${nom} », ${octets.length} octets, ${pages} page(s), émetteur ${emetteur ? 'imprimé' : 'ABSENT'} ; toast « ${toast} » ; projet ${salAvant === salApres ? 'inchangé par l’émetteur' : 'MARQUÉ MODIFIÉ'} ; pied du chiffrage ${pied} ; débordement ${debordeDialogue ? 'OUI' : 'non'}` };
   },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
@@ -8500,8 +8600,11 @@ function pointsPour(nomClasse) {
   //       remplace ; Ctrl+Z defait chaque pose.
   // 160 : la colonne de la camera en Vue 3D a des hauteurs d'iOS (barre de Safari) : toiture et appareil photo en tete, entiers sans
   //       defilement ; la colonne defile au doigt, aucun bouton perdu.
+  // 161 : les ecrans d'entree (porte, premier pas) sans debordement de 320 a 430 px ; sans la capacite du cadastre, « Dessiner sans adresse ».
+  // 165 : le devis PDF : en tete du menu Exporter, le dialogue, le fichier (une page, que pdf-lib ouvre), le toast ; au telephone, le
+  //       bouton du pied de la feuille Chiffrage.
   // 164 : les erreurs du reseau en clair : l'IGN coupe dans l'import cadastre, la plateforme coupee a l'enregistrement.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 164];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 164, 165];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -5,6 +5,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Devis PDF d'une page** (lot 5 du parcours client, 16 novembre 2026 : « il n'existe ni devis, ni bon de commande » ; le client a
+  besoin d'un document à envoyer pour décider). Menu Exporter, en tête : « Devis (PDF)… » ouvre un dialogue (vos coordonnées, le
+  taux de TVA, le numéro, le client), puis « Télécharger le devis (PDF) » ; au téléphone, un bouton « Devis » au pied de la feuille
+  Chiffrage. Un toast dit « Devis téléchargé : devis-….pdf ». Le document, A4 : l'émetteur et le numéro en tête, le client et le
+  chantier (adresse du terrain, parcelle cadastrale), une vignette vectorielle du plan (parcelle, bâti, terrasses repérées T1, T2…),
+  puis les postes de la Nomenclature de chaque terrasse cochée pour le dossier, rangés par rayon, avec quantité, unité, prix
+  unitaire et total HT, le sous-total de chaque terrasse, le total HT, la TVA et le TTC seulement si un taux est donné (sinon
+  « TVA non comprise »), et la mention « Estimation établie le … ; prix indicatifs à confirmer ». Un prix saisi s'imprime tel
+  quel ; une ligne dont le prix n'est pas saisi (y compris une ligne débitée dont une longueur de barre garde son prix par défaut)
+  s'imprime en fourchette, en gris, et le total devient « Total HT estimé ». Deux pages au plus quand les postes ne tiennent pas.
+  Rien n'est recompté : les lignes sont celles du BOM (`engine/postes.ts` les range et fait les totaux, testé contre
+  `computeBOM`). Le numéro est celui que vous choisissez, sinon le nom du projet et la date (`PARCELLE-AE-101-20261116`), jamais un
+  compteur. L'émetteur, le taux et vos mentions restent dans ce navigateur (`localStorage`), proposés d'après votre compte
+  (organisation, adresse électronique) tant que rien n'est saisi ; le client est le déclarant de la déclaration préalable, déjà
+  rangé sur la parcelle : **aucun champ de fichier nouveau**, schéma inchangé. Le texte est en WinAnsi (accents, signe €), une
+  option nouvelle de l'écrivain PDF (`assemblerPDF(…, { winAnsi: true })`) qui laisse les exports existants identiques octet pour
+  octet. Nouveau témoin `tests/fixtures/golden/devis.pdf` (12 528 octets), régénéré à chaque `npm test` ; point de fumée 165.
+
 ### Modifié
 
 - **Les erreurs du réseau dites en clair** (audit de l'IHM du 16 novembre 2026, lot 1). La personne lisait « Geocodage
@@ -19,6 +39,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'assistant. Le bandeau d'erreur d'une erreur dite en phrase (`shell/dialogs.ts::showErreur`) n'écrit plus « Erreur JS » : il
   dit la phrase, puis le message d'origine en petit, « Détail technique : … », sélectionnable pour qui aide la personne. Point de
   fumée 164 ; aucune quantité ni aucun export ne change.
+
+### Corrigé
+
+- **La porte et le premier pas tiennent dans l'écran du téléphone** (audit de l'IHM du 16 novembre 2026, lot 1). À 390 px, la page
+  de connexion et « Par quoi commencer ? » étaient mises en page sur 530 px (495 à 320 px, 550 à 430 px) et débordaient à droite :
+  la classe d'écran (`<html data-classe>`) n'était posée qu'avec l'atelier, qu'elles précèdent, et la page prenait derrière elles la
+  mise en page du bureau (l'atelier en colonnes). Elle est désormais posée dès la première ligne du programme et suivie au
+  redimensionnement (`app/classe.ts::suivreClasseDeLaPage`). Les dialogues Z8 mesurés à 320, 390 et 430 px (import cadastre à ses
+  trois étapes, audit de la parcelle, déclaration préalable) ne débordaient pas et ne changent pas. Le premier pas reprend ses
+  accents (« bâtiments », « démonstration », « créer »…). Point de fumée 161.
+- **« Partir d'une adresse » suit la capacité du cadastre au premier pas.** Sans elle, le premier pas l'offrait puis ouvrait un plan
+  vide sans un mot (sa commande, `projet.depuisAdresse`, est effacée par la capacité). Il disparaît désormais comme la commande, et
+  la première option devient « Dessiner sans adresse » : un plan vide, à l'échelle, que l'on dessine soi-même et enregistre par
+  Fichier › Nouveau projet ; la démonstration reste proposée. Aucune quantité ni aucun export ne change.
 
 ## [5.32.0] — 2026-11-15
 

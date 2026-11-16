@@ -13,6 +13,7 @@ import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
 import { brancherDialogueDeclaration } from './ecouteurs/exports.js';
+import { brancherDialogueDevis, preferencesDevis } from './devis.js';
 import type { ServiceDossier } from './declaration/serviceDossier.js';
 import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
@@ -159,5 +160,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
   // La declaration prealable : un dialogue du menu Exporter qui rend des champs de la parcelle. Le
   // service qui les ecrit le declare, comme il les ecrit dans l'inspecteur.
   brancherDialogueDeclaration(commandes, service, ctx.dossier);
+  // Le devis : le meme service ecrit son client sur la parcelle du projet.
+  brancherDialogueDevis(commandes, service, () => etat.objects, preferencesDevis);
   return service;
 }

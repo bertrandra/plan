@@ -16,6 +16,7 @@ import { BACKPROD_API_URL } from '../plateforme/config.js';
 import { peutEcrire, droitsCourants } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { hoteDeZone } from '../shell/dom.js';
+import { CAPACITES } from '../plateforme/capacites.js';
 
 
 /**
@@ -60,6 +61,8 @@ export function demanderPremierPas(projetsEtrangers: boolean): Promise<Choix> {
       empechement: empechementCourant(),
       plateforme: BACKPROD_API_URL,
       aDesProjetsEtrangers: projetsEtrangers,
+      // La meme capacite que la commande `projet.depuisAdresse`, qui disparait sans elle (app/projet.ts).
+      adresse: droitsCourants().aCapacite(CAPACITES.cadastre.code),
       choisir: (c: Choix) => { fermer(); resoudre(c); }
     }));
   });

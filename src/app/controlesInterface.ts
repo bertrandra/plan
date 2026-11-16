@@ -197,6 +197,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // Premier pas (zones/PremierPas.tsx) : par quoi commencer, quand il n'y a aucun plan.
   'premierPas.adresse': etape(Z8, 'démarrage sans projet', 'Partir d’une adresse'),
   'premierPas.demo': etape(Z8, 'démarrage sans projet', 'Ouvrir le plan de démonstration'),
+  'premierPas.vierge': etape(Z8, 'démarrage sans projet', 'Dessiner sans adresse'),
   // Import cadastral (zones/parcours/ImportCadastre.tsx).
   'cadastre.adresse': etape(Z8, IMPORT, 'Adresse à chercher'),
   'cadastre.rechercher': etape(Z8, IMPORT, 'Rechercher l’adresse'),
@@ -424,6 +425,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
   // La declaration prealable (zones/parcours/Declaration.tsx) : ses champs sont ceux de ui/champs/declaration.ts.
   'declaration.fermer': etape(Z8, 'export.ouvrirDeclaration', 'Fermer la déclaration préalable'),
+  // Le devis (zones/parcours/Devis.tsx) : ses champs sont ceux de ui/champs/devis.ts, son bouton la commande `export.devis`.
+  'devis.fermer': etape(Z8, 'export.ouvrirDevis', 'Fermer le devis'),
   // L'assistant (lot L6, zones/parcours/Assistant.tsx) : la demande se saisit, ses boutons sont des commandes (`assistant.envoyer`,
   // `assistant.appliquer`) ; la saisie ne touche pas au projet, la liste ne s'applique que par sa commande.
   'assistant.demande': etape(Z8, 'assistant.demander', 'Demander (la demande à l’assistant)'),
