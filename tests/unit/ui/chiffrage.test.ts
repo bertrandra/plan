@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { resumerChiffrage } from '../../../src/ui/chiffrage.js';
+import { resumerChiffrage, totauxBom } from '../../../src/ui/chiffrage.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
 import { toucher } from '../../../src/core/controleurObjets.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
@@ -57,5 +57,23 @@ describe('le resume du chiffrage et son cache', () => {
     resumerChiffrage(t, objets);
     expect(erreur.mock.calls.some((c) => String(c[0]).startsWith('[cle de version]'))).toBe(true);
     erreur.mockRestore();
+  });
+});
+
+describe('les totaux de la nomenclature (audit de l IHM du 16 novembre 2026)', () => {
+  // Une seule somme pour la ligne « Total HT » de la Nomenclature, la barre d'estimation du bureau, les tuiles et le pied du
+  // telephone : ils ne peuvent pas dire deux nombres pour une terrasse.
+  it('additionne prix bas et haut fois les quantites, et les prix reels saisis', () => {
+    const l = (qte: number, prixBas: number, prixHaut: number, prixReel: number | null) => ({ poste: 'p' + qte, label: '', qte, unite: 'u', prixBas, prixHaut, prixReel }) as never;
+    expect(totauxBom([l(2, 10, 20, null), l(3, 1, 2, 12.5)])).toEqual({ bas: 23, haut: 46, reel: 12.5 });
+    expect(totauxBom([l(2, 10, 20, null)]).reel).toBe(null);
+    expect(totauxBom([])).toEqual({ bas: 0, haut: 0, reel: null });
+  });
+
+  it('est la fourchette du resume du chiffrage', () => {
+    const objets = plan();
+    const r = resumerChiffrage(terrasse(objets), objets)!;
+    expect(r.bas).toBeGreaterThan(0);
+    expect(r.haut).toBeGreaterThan(r.bas);
   });
 });

@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Le prix total toujours visible au bureau** (audit de l'IHM du 16 novembre 2026, lot 1). Au bureau, le tiroir des résultats
+  commence sous le pli (à y = 951 pour une fenêtre de 900 px : l'atelier prend la hauteur de la palette) et aucune « Estimation
+  HT » n'était à l'écran, quand le téléphone a sa tuile et son pied de feuille, et la tablette son résumé sous le plan. Le bureau
+  reçoit la même barre, fixe au bas de la fenêtre, sur la barre d'état : la terrasse choisie (ou la première du plan), ses appuis,
+  ses lames, son bois porteur, sa surface et l'estimation HT, avec « Voir la nomenclature », qui choisit la terrasse et ouvre son
+  onglet. Le même résumé que la tablette et le téléphone (`ui/chiffrage.ts::resumerChiffrage`) : la zone n'additionne rien.
+- **Une ligne « Total HT » en pied de la Nomenclature** : la fourchette estimée (prix bas et haut fois les quantités) et le réel
+  saisi, à la place de la ligne « Estimé : … » sous la table. La somme est faite une fois, dans la couche qui chiffre déjà le
+  résumé (`ui/chiffrage.ts::totauxBom`, lue par la table, les tuiles, la barre et le pied du téléphone) : la table ne l'additionne
+  plus elle-même. Elle ne s'affiche qu'à l'écran : le résumé texte, les PDF et les autres exports ne la lisent pas et ne changent
+  pas (empreintes golden identiques). Point de fumée 162.
+
 ## [5.32.0] — 2026-11-15
 
 Version **mineure** au sens de `MD/RELEASE.md` : dans le banc d'apprentissage des façades, l'étape Redressement montre les gestes

@@ -26,7 +26,7 @@ import type { Explorateur } from '../app/explorateur.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ObjetPlan } from '../model/types.js';
 import { resumerChiffrage, euros, nombre } from '../ui/chiffrage.js';
-import { estTerrasse } from '../model/fonctions.js';
+import { estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
 
 export interface PropsResultats { magasin: Magasin; tiroir: ServiceTiroir; explorateur?: Explorateur; commandes?: RegistreCommandes }
 
@@ -53,8 +53,12 @@ function Tuiles({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[]
   );
 }
 
-/** Les chiffres cles et l'estimation, sur une ligne, sous les onglets du tiroir replie. */
-function ResumeTiroir({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[] }) {
+/**
+ * Les chiffres cles et l'estimation, sur une ligne : sous les onglets du tiroir replie (tablette), et
+ * en barre fixe au bas de la fenetre au bureau (`bande`), ou le tiroir commence sous le pli. Au bureau,
+ * elle nomme la terrasse et mene a sa Nomenclature.
+ */
+function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets: ObjetPlan[]; bande?: { voir: () => void } }) {
   const r = resumerChiffrage(terrasse, objets);
   if (!r) return null;
   const tuiles: [string, string][] = [
@@ -64,9 +68,11 @@ function ResumeTiroir({ terrasse, objets }: { terrasse: ObjetPlan; objets: Objet
     ['Surface', nombre(r.surface, 1) + ' m²']
   ];
   return (
-    <div className="resumeTiroir">
+    <div className={'resumeTiroir' + (bande ? ' bandeEstimation' : '')} role={bande ? 'region' : undefined} aria-label={bande ? 'Estimation de ' + terrasse.name : undefined}>
+      {bande && <div className="tuileChiffrage bandeEstimationNom"><span className="tuileLibelle">Terrasse</span><span className="tuileValeur">{terrasse.name}</span></div>}
       {tuiles.map(([l, v]) => <div key={l} className="tuileChiffrage"><span className="tuileLibelle">{l}</span><span className="tuileValeur">{v}</span></div>)}
       <div className="tuileChiffrage resumeTiroirTotal"><span className="tuileLibelle">Estimation HT</span><span className="tuileValeur">{euros(r.bas)} – {euros(r.haut)}</span></div>
+      {bande && <button type="button" data-controle="tiroir.voirNomenclature" className="secondary" onClick={bande.voir}>Voir la nomenclature</button>}
     </div>
   );
 }
@@ -150,6 +156,19 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
       )}
     </div>
   );
+  if (classe === 'large') {
+    // Au bureau, le tiroir commence sous le pli (l'atelier fait la hauteur de la palette) : l'estimation de la terrasse
+    // choisie, ou de la premiere, tient dans une barre fixe au bas de la fenetre. Le meme resume que la tablette et le
+    // telephone, rien de recalcule ici ; « Voir la nomenclature » choisit la terrasse et ouvre son onglet.
+    const t = terrasseOuPremiere(etat.objects, etat.selectedKey);
+    const voir = () => {
+      if (!t) return;
+      if (etat.selectedKey !== t.key) explorateur?.selectionner(t.key);
+      tiroir.activer('bom');
+      document.getElementById('zoneResultats')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    };
+    return t ? <>{barre}<ResumeTiroir terrasse={t} objets={etat.objects} bande={{ voir }} /></> : barre;
+  }
   if (classe !== 'compact') {
     // Sur tablette, le tiroir replie garde les chiffres cles de la terrasse (maquette Tablette).
     const t = classe === 'moyen' && hauteur === 'replie' ? terrasseSelectionnee(etat) : undefined;
