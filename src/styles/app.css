@@ -289,6 +289,9 @@
   details.menu li.menuReglage .valeur{ min-width:40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-soft); }
   details.menu li.menuAide{ padding:4px 12px 6px; font-family:var(--serif); font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
   /* Z7 : la barre d'etat, fixee en bas de la fenetre, jamais cliquable. */
+  /* La hauteur de la barre d'etat au bureau : la barre d'estimation se pose dessus (zones/Resultats.tsx). */
+  html[data-classe="large"]{ --hauteur-etat-large:31px; }
+  html[data-classe="large"] #zoneEtat{ min-height:var(--hauteur-etat-large); }
   #zoneEtat{
     position:fixed; left:0; right:0; bottom:0; z-index:50;
     display:flex; align-items:center; gap:16px; padding:5px 14px;
@@ -832,7 +835,25 @@
   html[data-classe="compact"] .pluCase, html[data-classe="moyen"] .pluCase{ min-height:44px; }
   html[data-classe="compact"] .pluFaits td:first-child{ width:6rem; }
   input.saisieEstimee{ opacity:0.7; }
-  .totauxBom{ font-weight:600; font-family:var(--sans); }
+  /* Le total general de la Nomenclature, en pied de table : un filet au-dessus, en gras, les montants alignes. */
+  table.attrTable tr.ligneTotalBom td{ font-weight:700; color:var(--ink); border-top:1.5px solid var(--rule); font-variant-numeric:tabular-nums; }
+  /* Au bureau, l'estimation de la terrasse en barre fixe au bas de la fenetre, sur la barre d'etat : le tiroir commence sous le
+     pli (l'atelier prend la hauteur de la palette), et le prix restait hors de vue. Meme largeur que le tiroir ; la page garde
+     de quoi defiler jusqu'au bout sous elle. */
+  html[data-classe="large"] .bandeEstimation{
+    position:fixed; z-index:49; left:50%; transform:translateX(-50%); bottom:var(--hauteur-etat-large);
+    width:98vw; max-width:1600px; display:flex; flex-wrap:wrap; align-items:center; gap:6px 22px; padding:6px 16px;
+    background:var(--panel-bg); border:1px solid var(--border); border-bottom:none; border-radius:var(--r-tuile) var(--r-tuile) 0 0;
+    box-shadow:var(--ombre-flottante); font-family:var(--sans);
+  }
+  html[data-classe="large"] .bandeEstimation .tuileChiffrage{ padding:0; background:transparent; min-width:0; }
+  html[data-classe="large"] .bandeEstimation .tuileValeur{ font-size:17px; white-space:nowrap; }
+  html[data-classe="large"] .bandeEstimation .bandeEstimationNom .tuileValeur{ overflow:hidden; text-overflow:ellipsis; max-width:18ch; }
+  html[data-classe="large"] .bandeEstimation .resumeTiroirTotal{ margin-left:auto; text-align:right; }
+  html[data-classe="large"] .bandeEstimation .resumeTiroirTotal .tuileValeur{ color:var(--accent); font-size:19px; }
+  html[data-classe="large"] .bandeEstimation .bandeEstimationActions{ display:flex; gap:6px; flex:none; align-items:center; }
+  html[data-classe="large"] .bandeEstimation button{ flex:none; display:inline-flex; align-items:center; gap:6px; }
+  html[data-classe="large"] body:has(.bandeEstimation){ padding-bottom:calc(52px + 60px); }
   .tailleImpression{ margin-left:14px; font-size:0.84rem; color:var(--ink-soft); }
   /* Le plan d'implantation s'imprime : il garde le fond du papier, quel que soit le theme. */
   .planImplantation{ background:white; border:1px solid var(--rule); max-width:100%; }
@@ -1463,6 +1484,10 @@
   html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(4){ order:3; flex:none; height:auto; }
   html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(2)::after{ content:' ·'; }
   html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes td:nth-child(3)::after{ content:' –'; }
+  /* La ligne « Total HT » en carte : pas de quantite (cellule vide, ni son point), le reel saisi sur toute la largeur restante. */
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes tr.ligneTotalBom td:nth-child(2){ display:none; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes tr.ligneTotalBom td:nth-child(5){ max-width:none; }
+  html[data-classe="compact"] #tiroirPanneaux #terrasseBomTable.tableauCartes tr.ligneTotalBom td{ font-weight:700; color:var(--ink); }
   .selecteurTerrasse{ min-height:40px; display:inline-flex; align-items:center; gap:4px; padding:0 10px; font-family:var(--sans); font-size:13px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] #tiroirPanneaux .controls button, html[data-classe="compact"] #tiroirPanneaux button.secondary,
   html[data-classe="compact"] #tiroirPanneaux #exportBtn, html[data-classe="compact"] #tiroirPanneaux #measureControls button{
