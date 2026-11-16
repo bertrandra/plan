@@ -203,7 +203,12 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.copierResume': partout('tiroir'),
   'export.dxf': menu('menuExporter'),
   'export.pdf': menu('menuExporter'),
-  'export.dossier': menu('menuExporter'),
+  // Le devis : en tete du menu Exporter, et au pied du chiffrage au telephone (la feuille Chiffrage du tiroir) ; son bouton
+  // « Telecharger », dans le dialogue.
+  'export.ouvrirDevis': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter', 'tiroir'] },
+  'export.devis': partout('parcours'),
+  // Au bureau, la barre d'estimation du tiroir le porte aussi, comme le pied du chiffrage au telephone (zones/Resultats.tsx).
+  'export.dossier': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuExporter'], large: ['menuExporter', 'tiroir'] },
   'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),
   // La declaration prealable : une entree du menu Exporter ouvre son dialogue, dont le bouton produit le dossier.

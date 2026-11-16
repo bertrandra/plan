@@ -157,6 +157,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'tiroir.onglet': { libelle: 'Onglet du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.hauteur': { libelle: 'Hauteur du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.terrasseSuivante': { libelle: 'Passer à la terrasse suivante', zone: Z6, nature: 'navigation' },
+  'tiroir.voirNomenclature': { libelle: 'Voir la nomenclature de la terrasse', zone: Z6, nature: 'navigation' },
   'nomenclature.longueurs': { libelle: 'Longueurs disponibles', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'nomenclature.prix': { libelle: 'Prix (barre, m², unité, réel)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'nomenclature.conditionnement': { libelle: 'Conditionnement des vis', zone: Z6, nature: 'donnee', ecrit: SAISIE },
@@ -426,6 +427,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
   // La declaration prealable (zones/parcours/Declaration.tsx) : ses champs sont ceux de ui/champs/declaration.ts.
   'declaration.fermer': etape(Z8, 'export.ouvrirDeclaration', 'Fermer la déclaration préalable'),
+  // Le devis (zones/parcours/Devis.tsx) : ses champs sont ceux de ui/champs/devis.ts, son bouton la commande `export.devis`.
+  'devis.fermer': etape(Z8, 'export.ouvrirDevis', 'Fermer le devis'),
   // L'assistant (lot L6, zones/parcours/Assistant.tsx) : la demande se saisit, ses boutons sont des commandes (`assistant.envoyer`,
   // `assistant.appliquer`) ; la saisie ne touche pas au projet, la liste ne s'applique que par sa commande.
   'assistant.demande': etape(Z8, 'assistant.demander', 'Demander (la demande à l’assistant)'),

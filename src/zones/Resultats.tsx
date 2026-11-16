@@ -26,7 +26,7 @@ import type { Explorateur } from '../app/explorateur.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ObjetPlan } from '../model/types.js';
 import { resumerChiffrage, euros, nombre } from '../ui/chiffrage.js';
-import { estTerrasse } from '../model/fonctions.js';
+import { estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
 
 export interface PropsResultats { magasin: Magasin; tiroir: ServiceTiroir; explorateur?: Explorateur; commandes?: RegistreCommandes }
 
@@ -53,8 +53,12 @@ function Tuiles({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[]
   );
 }
 
-/** Les chiffres cles et l'estimation, sur une ligne, sous les onglets du tiroir replie. */
-function ResumeTiroir({ terrasse, objets }: { terrasse: ObjetPlan; objets: ObjetPlan[] }) {
+/**
+ * Les chiffres cles et l'estimation, sur une ligne : sous les onglets du tiroir replie (tablette), et
+ * en barre fixe au bas de la fenetre au bureau (`bande`), ou le tiroir commence sous le pli. Au bureau,
+ * elle nomme la terrasse, mene a sa Nomenclature et porte les gestes du pied du telephone (resume, devis, dossier).
+ */
+function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets: ObjetPlan[]; bande?: { voir: () => void; commandes: RegistreCommandes | undefined } }) {
   const r = resumerChiffrage(terrasse, objets);
   if (!r) return null;
   const tuiles: [string, string][] = [
@@ -64,38 +68,60 @@ function ResumeTiroir({ terrasse, objets }: { terrasse: ObjetPlan; objets: Objet
     ['Surface', nombre(r.surface, 1) + ' m²']
   ];
   return (
-    <div className="resumeTiroir">
+    <div className={'resumeTiroir' + (bande ? ' bandeEstimation' : '')} role={bande ? 'region' : undefined} aria-label={bande ? 'Estimation de ' + terrasse.name : undefined}>
+      {bande && <div className="tuileChiffrage bandeEstimationNom"><span className="tuileLibelle">Terrasse</span><span className="tuileValeur">{terrasse.name}</span></div>}
       {tuiles.map(([l, v]) => <div key={l} className="tuileChiffrage"><span className="tuileLibelle">{l}</span><span className="tuileValeur">{v}</span></div>)}
       <div className="tuileChiffrage resumeTiroirTotal"><span className="tuileLibelle">Estimation HT</span><span className="tuileValeur">{euros(r.bas)} – {euros(r.haut)}</span></div>
+      {bande && (
+        <div className="bandeEstimationActions" role="group" aria-label="Après le chiffrage">
+          <button type="button" data-controle="tiroir.voirNomenclature" className="secondary" onClick={bande.voir}>Voir la nomenclature</button>
+          <ActionsChiffrage commandes={bande.commandes} taille={16} />
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * Le pied de la feuille Chiffrage : l'estimation et les deux gestes qui suivent un chiffrage —
- * copier le resume, sortir le dossier. L'estimation reste une fourchette : la somme des prix reels
- * ne couvre que les lignes ou un prix existe, et la montrer seule ferait croire a un total.
+ * Les gestes qui suivent un chiffrage : copier le resume, ouvrir le devis, sortir le dossier. Les memes commandes du
+ * registre au pied de la feuille Chiffrage (telephone) et dans la barre d'estimation du bureau : aucun ecouteur a part.
+ */
+function ActionsChiffrage({ commandes, taille = 18 }: { commandes: RegistreCommandes | undefined; taille?: number }) {
+  if (!commandes) return null;
+  const dossier = commandes.etat('export.dossier');
+  const dossierEfface = commandes.effacee('export.dossier');
+  const devis = commandes.etat('export.ouvrirDevis');
+  return (
+    <>
+      <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>
+      {!commandes.effacee('export.ouvrirDevis') && (
+        <button data-commande="export.ouvrirDevis" type="button" className="secondary" disabled={!devis.utilisable} title={'message' in devis ? devis.message : undefined}
+          onClick={(e) => { commandes.executer('export.ouvrirDevis', e.currentTarget); }}>Devis</button>
+      )}
+      {!dossierEfface && (
+        <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier.utilisable} title={'message' in dossier ? dossier.message : undefined}
+          onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
+          <Icone nom="exporter" taille={taille} />Dossier PDF
+        </button>
+      )}
+    </>
+  );
+}
+
+/**
+ * Le pied de la feuille Chiffrage : l'estimation et les gestes qui suivent un chiffrage. L'estimation reste une fourchette :
+ * la somme des prix reels ne couvre que les lignes ou un prix existe, et la montrer seule ferait croire a un total.
  */
 function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; objets: ObjetPlan[]; commandes: RegistreCommandes | undefined }) {
   const r = resumerChiffrage(terrasse, objets);
   if (!r) return null;
-  const dossier = commandes?.etat('export.dossier');
-  const dossierEfface = !commandes || commandes.effacee('export.dossier');
   return (
     <div className="piedChiffrage">
       <div className="piedChiffrageTotal">
         <span className="piedChiffrageLibelle">Estimation HT</span>
         <span className="piedChiffrageValeur">{euros(r.bas)} – {euros(r.haut)}</span>
       </div>
-      <div className="piedChiffrageActions">
-        {commandes && <button data-commande="export.copierResume" type="button" className="secondary" onClick={(e) => { commandes.executer('export.copierResume', e.currentTarget); }}>Copier le résumé</button>}
-        {!dossierEfface && commandes && (
-          <button data-commande="export.dossier" type="button" className="boutonAccent" disabled={!dossier?.utilisable} title={dossier && 'message' in dossier ? dossier.message : undefined}
-            onClick={(e) => { commandes.executer('export.dossier', e.currentTarget); }}>
-            <Icone nom="exporter" taille={18} />Dossier PDF
-          </button>
-        )}
-      </div>
+      <div className="piedChiffrageActions"><ActionsChiffrage commandes={commandes} /></div>
     </div>
   );
 }
@@ -111,7 +137,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
   // compte : le resume du tiroir replie (tablette), les tuiles et le pied (telephone) chiffrent la terrasse, et un sommet tire
   // change sa surface et ses quantites sans toucher a ses attributs.
   useCle(magasin, 'barre des résultats', (s) => cleEtatEtObjets(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
-    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier')] : null]));
+    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier'), commandes.etat('export.ouvrirDevis')] : null]));
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
   const etat = magasin.store.getState().etat;
@@ -150,6 +176,19 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
       )}
     </div>
   );
+  if (classe === 'large') {
+    // Au bureau, le tiroir commence sous le pli (l'atelier fait la hauteur de la palette) : l'estimation de la terrasse
+    // choisie, ou de la premiere, tient dans une barre fixe au bas de la fenetre. Le meme resume que la tablette et le
+    // telephone, rien de recalcule ici ; « Voir la nomenclature » choisit la terrasse et ouvre son onglet.
+    const t = terrasseOuPremiere(etat.objects, etat.selectedKey);
+    const voir = () => {
+      if (!t) return;
+      if (etat.selectedKey !== t.key) explorateur?.selectionner(t.key);
+      tiroir.activer('bom');
+      document.getElementById('zoneResultats')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    };
+    return t ? <>{barre}<ResumeTiroir terrasse={t} objets={etat.objects} bande={{ voir, commandes }} /></> : barre;
+  }
   if (classe !== 'compact') {
     // Sur tablette, le tiroir replie garde les chiffres cles de la terrasse (maquette Tablette).
     const t = classe === 'moyen' && hauteur === 'replie' ? terrasseSelectionnee(etat) : undefined;

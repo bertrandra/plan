@@ -9,6 +9,7 @@ import { construireSVG } from '../../../src/export/svgPlan.js';
 import { construireDXF } from '../../../src/export/dxfPlan.js';
 import { construirePDF } from '../../../src/export/pdfPlan.js';
 import { construireDossierPDF } from '../../../src/export/dossierPdf.js';
+import { construireDevisPDF } from '../../../src/export/devisPdf.js';
 import { construireResume } from '../../../src/export/resume.js';
 import { creerMesures } from '../../../src/app/assemblage/mesures.js';
 import { clesDossier } from '../../../src/app/dossier.js';
@@ -85,5 +86,22 @@ describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', 
     // La version, le build et l'heure se passent en parametre (MetaDossier) : plus d'octets a reecrire.
     const { pdf } = construireDossierPDF(e.objects, clesDossier(e.objects), true, { appVersion: VERSION, buildAt: BUILD, nomProjet: 'Parcelle AE 101', maintenant: new Date('2026-09-28T23:22:00') });
     expect(empreinte(ecrire('dossier.pdf', pdf))).toBe(empreinte(lire('dossier.pdf')));
+  });
+  it('devis.pdf', () => {
+    // Le devis (export ne le 16 novembre 2026) : la demonstration, ses deux terrasses, un emetteur, un client et un taux de TVA donnes
+    // ici, pour que l'en-tete, les blocs et les totaux TVA et TTC soient figes. Le PDF est en WinAnsi, un caractere par octet :
+    // l'application le telecharge tel quel (octetsPdf), le temoin se lit et s'ecrit en latin1, sans passer par UTF-8.
+    // `REECRIRE_EMPREINTES=1` le recapture, ce qui se dit dans EMPREINTES.md.
+    const e = etatTemoin();
+    const parcelle = e.objects.find((o) => o.key === 'parcelle')!;
+    parcelle.declaration = { prenom: 'Claire', nom: 'Martin', numero: '2', voie: 'Allée des Limites', codePostal: '78110', localite: 'Le Vésinet' };
+    const r = construireDevisPDF(e.objects, clesDossier(e.objects), {
+      appVersion: VERSION, buildAt: BUILD, nomProjet: 'Parcelle AE 101', maintenant: new Date('2026-09-28T23:22:00'), tauxTva: 20,
+      emetteur: { nom: 'Atelier de démonstration', adresse: '1 rue de l’Exemple, 78110 Le Vésinet', telephone: '01 00 00 00 00', email: 'atelier@exemple.fr' }
+    })!;
+    expect(r.pages).toBe(1);
+    const chemin = resolve(dorees, 'devis.pdf');
+    if (process.env.REECRIRE_EMPREINTES) writeFileSync(chemin, r.pdf, 'latin1');
+    expect(empreinte(r.pdf)).toBe(empreinte(lire('devis.pdf')));
   });
 });

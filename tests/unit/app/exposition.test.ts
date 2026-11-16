@@ -58,8 +58,8 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
   clavier: ['src/app/clavier.ts'],
   premierPas: ['src/app/boot.ts'],
-  // Le dialogue de la declaration prealable rend les champs de ui/champs/declaration.ts, son bouton compris.
-  parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours'), 'src/ui/champs/declaration.ts'],
+  // Les dialogues de la declaration prealable et du devis rendent les champs de ui/champs/declaration.ts et devis.ts, leur bouton compris.
+  parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours'), 'src/ui/champs/declaration.ts', 'src/ui/champs/devis.ts'],
   // La barre de progression de la facade (calibration ; l'audit a venir, lot F3).
   barreFacade: ['src/zones/composants/BarreProgressionFacade.tsx', 'src/zones/ChoixSourceCalibration.tsx']
 };

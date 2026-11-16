@@ -7,6 +7,35 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Devis PDF d'une page** (lot 5 du parcours client, 16 novembre 2026 : « il n'existe ni devis, ni bon de commande » ; le client a
+  besoin d'un document à envoyer pour décider). Menu Exporter, en tête : « Devis (PDF)… » ouvre un dialogue (vos coordonnées, le
+  taux de TVA, le numéro, le client), puis « Télécharger le devis (PDF) » ; au téléphone, un bouton « Devis » au pied de la feuille
+  Chiffrage. Un toast dit « Devis téléchargé : devis-….pdf ». Le document, A4 : l'émetteur et le numéro en tête, le client et le
+  chantier (adresse du terrain, parcelle cadastrale), une vignette vectorielle du plan (parcelle, bâti, terrasses repérées T1, T2…),
+  puis les postes de la Nomenclature de chaque terrasse cochée pour le dossier, rangés par rayon, avec quantité, unité, prix
+  unitaire et total HT, le sous-total de chaque terrasse, le total HT, la TVA et le TTC seulement si un taux est donné (sinon
+  « TVA non comprise »), et la mention « Estimation établie le … ; prix indicatifs à confirmer ». Un prix saisi s'imprime tel
+  quel ; une ligne dont le prix n'est pas saisi (y compris une ligne débitée dont une longueur de barre garde son prix par défaut)
+  s'imprime en fourchette, en gris, et le total devient « Total HT estimé ». Deux pages au plus quand les postes ne tiennent pas.
+  Rien n'est recompté : les lignes sont celles du BOM (`engine/postes.ts` les range et fait les totaux, testé contre
+  `computeBOM`). Le numéro est celui que vous choisissez, sinon le nom du projet et la date (`PARCELLE-AE-101-20261116`), jamais un
+  compteur. L'émetteur, le taux et vos mentions restent dans ce navigateur (`localStorage`), proposés d'après votre compte
+  (organisation, adresse électronique) tant que rien n'est saisi ; le client est le déclarant de la déclaration préalable, déjà
+  rangé sur la parcelle : **aucun champ de fichier nouveau**, schéma inchangé. Le texte est en WinAnsi (accents, signe €), une
+  option nouvelle de l'écrivain PDF (`assemblerPDF(…, { winAnsi: true })`) qui laisse les exports existants identiques octet pour
+  octet. Nouveau témoin `tests/fixtures/golden/devis.pdf` (12 528 octets), régénéré à chaque `npm test` ; point de fumée 165.
+- **Le prix total toujours visible au bureau** (audit de l'IHM du 16 novembre 2026, lot 1). Au bureau, le tiroir des résultats
+  commence sous le pli (à y = 951 pour une fenêtre de 900 px : l'atelier prend la hauteur de la palette) et aucune « Estimation
+  HT » n'était à l'écran, quand le téléphone a sa tuile et son pied de feuille, et la tablette son résumé sous le plan. Le bureau
+  reçoit la même barre, fixe au bas de la fenêtre, sur la barre d'état : la terrasse choisie (ou la première du plan), ses appuis,
+  ses lames, son bois porteur, sa surface et l'estimation HT, avec « Voir la nomenclature », qui choisit la terrasse et ouvre son
+  onglet, puis les trois gestes du pied du chiffrage au téléphone, par les mêmes commandes du registre : « Copier le résumé »,
+  « Devis » et « Dossier PDF » (`zones/Resultats.tsx::ActionsChiffrage`, partagé par les deux). Le même résumé que la tablette et le téléphone (`ui/chiffrage.ts::resumerChiffrage`) : la zone n'additionne rien.
+- **Une ligne « Total HT » en pied de la Nomenclature** : la fourchette estimée (prix bas et haut fois les quantités) et le réel
+  saisi, à la place de la ligne « Estimé : … » sous la table. La somme est faite une fois, dans la couche qui chiffre déjà le
+  résumé (`ui/chiffrage.ts::totauxBom`, lue par la table, les tuiles, la barre et le pied du téléphone) : la table ne l'additionne
+  plus elle-même. Elle ne s'affiche qu'à l'écran : le résumé texte, les PDF et les autres exports ne la lisent pas et ne changent
+  pas (empreintes golden identiques). Point de fumée 162.
 - **Enregistrement automatique du projet, et la question du navigateur avant de quitter** (audit de l'IHM du 16 novembre 2026,
   lot 1). Un ajout fait puis la page rechargée était perdu sans un mot : rien ne s'enregistrait de soi-même et rien ne retenait la
   page. Désormais, quatre secondes après la dernière modification qui marque le projet « modifié », le projet s'enregistre par le

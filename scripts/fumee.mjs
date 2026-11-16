@@ -2962,6 +2962,50 @@ const POINTS = {
     mesures.push(`${largeurs.join(', ')} px : porte et premier pas sans débordement ; sans cadastre : « ${sans} »`);
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
   },
+  162: async (page, f) => {
+    // Le prix total toujours visible au bureau (audit de l'IHM du 16 novembre 2026, lot 1) : le tiroir des resultats commence sous le
+    // pli (y = 951 pour une fenetre de 900), et aucune « Estimation HT » n'etait a l'ecran. Au bureau : la barre d'estimation au bas
+    // de la fenetre des l'ouverture (terrasse premiere, rien choisi), sans defiler, avec les gestes du pied du telephone (resume,
+    // devis, dossier) ; « Voir la nomenclature » choisit la terrasse et ouvre son onglet. Partout : la ligne « Total HT » en pied de la Nomenclature dit la meme fourchette que la barre (bureau), le
+    // resume du tiroir replie (tablette) ou le pied de la feuille (telephone) ; un prix reel saisi s'y ajoute.
+    const echecs = [];
+    const visible = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight; }, sel);
+    let barre = null;
+    if (f.nom === 'large') {
+      if (!(await visible('.bandeEstimation'))) echecs.push('barre d\'estimation absente ou hors de l\'écran à l\'ouverture');
+      barre = await page.evaluate(() => document.querySelector('.bandeEstimation .resumeTiroirTotal .tuileValeur')?.textContent ?? null);
+      // Les gestes du pied du chiffrage au telephone, par les memes commandes du registre : resume, devis, dossier.
+      const gestes = await page.$$eval('.bandeEstimation [data-commande]', (b) => b.map((x) => x.dataset.commande).sort());
+      if (gestes.join() !== 'export.copierResume,export.dossier,export.ouvrirDevis') echecs.push('gestes de la barre : ' + JSON.stringify(gestes));
+      await page.locator('[data-controle="tiroir.voirNomenclature"]').click();
+      await page.waitForTimeout(900);
+      const r = await page.evaluate(() => ({ choisie: window.__plan.etat().objects.find((o) => o.key === window.__plan.etat().selectedKey)?.fonction, onglet: window.__plan.etat().panelTab }));
+      if (r.choisie !== 'terrasse' || r.onglet !== 'bom') echecs.push('« Voir la nomenclature » : ' + JSON.stringify(r));
+      if (!(await visible('.bandeEstimation'))) echecs.push('barre d\'estimation perdue après le défilement');
+    } else {
+      await selectionner(page, TERRASSE);
+      // A la tablette, le resume du tiroir replie, lu avant que l'onglet ne deplie le tiroir ; au telephone, le pied de la feuille.
+      if (f.nom === 'moyen') barre = await page.evaluate(() => document.querySelector('.resumeTiroirTotal .tuileValeur')?.textContent ?? null);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      if (f.nom === 'compact') await feuille(page, 'resultats');
+      await page.waitForTimeout(500);
+      if (f.nom === 'compact') barre = await page.evaluate(() => document.querySelector('.piedChiffrageValeur')?.textContent ?? null);
+      if (barre === null) echecs.push('estimation absente (' + (f.nom === 'moyen' ? 'tiroir replié' : 'pied de la feuille') + ')');
+    }
+    const cellules = () => page.evaluate(() => [...(document.getElementById('terrasseBomTotals')?.children ?? [])].map((c) => c.textContent.replace(/\s+/g, ' ').trim()));
+    const t0 = await cellules();
+    if (t0[0] !== 'Total HT') echecs.push('ligne « Total HT » absente : ' + JSON.stringify(t0));
+    const fourchette = t0.length ? t0[2] + ' – ' + t0[3] : '';
+    if (barre !== null && barre.replace(/\s+/g, ' ') !== fourchette) echecs.push(`fourchette de la barre « ${barre} » ≠ total de la table « ${fourchette} »`);
+    // Un prix reel saisi sur une ligne non calculee s'ajoute au total reel.
+    const champ = page.locator('#terrasseBomTable input[type="number"]').first();
+    await champ.scrollIntoViewIfNeeded();
+    await champ.fill('100'); await champ.press('Enter'); await champ.dispatchEvent('change'); await page.waitForTimeout(300);
+    const t1 = await cellules();
+    const reel = (t) => parseFloat((t[4] || '').replace(/[^0-9,]/g, '').replace(',', '.'));
+    if (!(Math.abs(reel(t1) - reel(t0) - 100) < 0.01)) echecs.push(`réel saisi « ${t0[4]} » → « ${t1[4]} » (attendu + 100 €)`);
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `barre « ${barre} », ligne « ${t1.join(' | ')} »` };
+  },
   163: async (page, f) => {
     // Ne plus perdre de travail (audit de l'IHM du 16 novembre 2026, lot 1) : un ajout fait puis la page rechargee etait perdu,
     // sans un mot. La preference « Enregistrement automatique » cochee par defaut ; une terrasse ajoutee s'enregistre seule en
@@ -3063,6 +3107,57 @@ const POINTS = {
     }
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
+  },
+  165: async (page, f) => {
+    // Le devis PDF (lot 5 du parcours client, 16 novembre 2026) : le menu Exporter (feuille Projet au doigt) ouvre le dialogue, en tete
+    // du menu ; l'emetteur saisi, le client du projet ; « Telecharger le devis (PDF) » : un fichier `devis-….pdf` non vide, une page qui
+    // s'ouvre (pdf-lib), le toast qui dit son nom ; au telephone, le bouton « Devis » au pied de la feuille Chiffrage ; rien ne deborde.
+    // Les reglages de l'emetteur restent dans le navigateur, pas dans le projet : le projet n'est pas marque modifie par eux.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await noterToasts(page);
+    const enTete = await etape('menu', async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      return page.evaluate(() => {
+        const menu = document.getElementById('menuExporter');
+        menu?.setAttribute('open', '');
+        const premiere = menu?.querySelector('[role="menu"] [data-commande]');
+        const id = premiere?.getAttribute('data-commande');
+        premiere?.click();
+        return id;
+      });
+    });
+    const boite = page.locator('.dialogueDevis');
+    await etape('dialogue', () => boite.waitFor({ timeout: 10000 }));
+    const salAvant = await page.evaluate(() => window.__plan.etat().dirty);
+    await etape('emetteur', async () => {
+      const champ = boite.locator('[data-cle="devis-nom"] input').first();
+      await champ.fill('Atelier de la fumée'); await champ.press('Tab'); await page.waitForTimeout(150);
+    });
+    const salApres = await page.evaluate(() => window.__plan.etat().dirty);
+    const debordeDialogue = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueDevis')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const { PDFDocument } = await import('pdf-lib');
+    const [dl] = await etape('telecharger', () => Promise.all([page.waitForEvent('download', { timeout: 20000 }), boite.getByRole('button', { name: /Télécharger le devis/ }).click()]));
+    const nom = dl.suggestedFilename();
+    const octets = readFileSync(await dl.path());
+    const doc = await etape('ouvrir le PDF', () => PDFDocument.load(octets));
+    const pages = doc.getPageCount();
+    const texte = octets.toString('latin1');
+    const emetteur = texte.includes('(Atelier de la fum\xe9e)');
+    const toast = (await attendreToast(page, '^Devis téléchargé')).trim();
+    await page.locator('[data-controle="devis.fermer"]').click();
+    // Au telephone : le pied de la feuille Chiffrage d'une terrasse porte le bouton.
+    let pied = 'sans objet';
+    if ((await classe(page)) === 'compact') {
+      await selectionner(page, TERRASSE);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      await feuille(page, 'resultats');
+      const b = page.locator('.piedChiffrage [data-commande="export.ouvrirDevis"]');
+      pied = (await b.count()) && (await b.isVisible()) && (await b.isEnabled()) ? 'présent' : 'ABSENT';
+      if (pied === 'présent') { await b.click(); await boite.waitFor({ timeout: 10000 }).catch(() => {}); pied = (await boite.isVisible()) ? 'ouvre le dialogue' : 'N’OUVRE PAS le dialogue'; }
+    }
+    const ok = enTete === 'export.ouvrirDevis' && /^devis-[a-z0-9-]+\.pdf$/.test(nom) && octets.length > 1000 && pages === 1 && emetteur && toast === 'Devis téléchargé : ' + nom + '.'
+      && salAvant === salApres && !debordeDialogue && (pied === 'sans objet' || pied === 'ouvre le dialogue');
+    return { ok, mesure: `en tête du menu : ${enTete} ; « ${nom} », ${octets.length} octets, ${pages} page(s), émetteur ${emetteur ? 'imprimé' : 'ABSENT'} ; toast « ${toast} » ; projet ${salAvant === salApres ? 'inchangé par l’émetteur' : 'MARQUÉ MODIFIÉ'} ; pied du chiffrage ${pied} ; débordement ${debordeDialogue ? 'OUI' : 'non'}` };
   },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
@@ -8589,8 +8684,11 @@ function pointsPour(nomClasse) {
   // 160 : la colonne de la camera en Vue 3D a des hauteurs d'iOS (barre de Safari) : toiture et appareil photo en tete, entiers sans
   //       defilement ; la colonne defile au doigt, aucun bouton perdu.
   // 161 : les ecrans d'entree (porte, premier pas) sans debordement de 320 a 430 px ; sans la capacite du cadastre, « Dessiner sans adresse ».
+  // 165 : le devis PDF : en tete du menu Exporter, le dialogue, le fichier (une page, que pdf-lib ouvre), le toast ; au telephone, le
+  //       bouton du pied de la feuille Chiffrage.
+  // 162 : le prix total au bureau sans defiler (barre d'estimation) et la ligne « Total HT » de la Nomenclature, la meme fourchette partout.
   // 163 : l'enregistrement automatique (un PATCH, survit au rechargement, echec puis reprise, preference) et la question du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 163];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

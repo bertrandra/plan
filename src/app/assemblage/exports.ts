@@ -21,6 +21,7 @@ import { APP_VERSION, BUILD_AT, signatureExport } from '../../model/version.js';
 import { schemaAEcrire } from '../../model/migrations.js';
 import { brancherExports } from '../ecouteurs/exports.js';
 import { clesDossier } from '../dossier.js';
+import { poserNomProjetDevis, preferencesDevis, reglagesImprimes } from '../devis.js';
 import type { ProjetResume } from '../../io/api.js';
 import type { Mesures } from './mesures.js';
 import type { EtatApp } from '../../core/state.js';
@@ -57,6 +58,7 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
   mesures: Mesures; resultats: Resultats; genererGlb: (telecharger: boolean) => void; options: () => OptionsCommandes;
 }): void {
   const nomProjet = () => seed.meta?.name;
+  poserNomProjetDevis(nomProjet);
   const abriSelectionne = () => etat.objects.find(o => o.key === etat.selectedKey && estAbri(o));
   brancherExports({
     buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet) }),
@@ -74,6 +76,12 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     // La piscine selectionnee, sinon la premiere du plan : le dossier de mairie porte sur un bassin.
     construireDossierPiscine: async () => (await moteurPdf()).construireDossierPiscine(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
+    construireDevis: async () => {
+      const res = (await moteurPdf()).construireDevisPDF(etat.objects, clesDossier(etat.objects), {
+        appVersion: APP_VERSION, nomProjet: nomProjet(), ...reglagesImprimes(preferencesDevis)
+      });
+      return res ? { pdf: (await moteurPdf()).octetsPdf(res.pdf), nomFichier: res.nomFichier, pages: res.pages } : null;
+    },
     construireNoteCalcul: async () => {
       const o = abriSelectionne();
       const res = o ? (await moteurPdf()).construireNoteCalculPDF(o, { appVersion: APP_VERSION, nomProjet: nomProjet() }) : null;
