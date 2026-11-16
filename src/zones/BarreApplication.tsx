@@ -151,6 +151,8 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
         {/* Une preference de l'appareil (app/enregistrementAuto.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
         {p.apiDisponible && <Case magasin={magasin} option="enregistrementAuto" idDom="chkEnregistrementAuto" controle="fichier.option.enregistrementAuto" libelle="Enregistrement automatique" titre="Enregistre le projet quelques secondes après chaque modification" />}
+        {p.apiDisponible && commandes.obtenir('projet.partager') && <Entree commandes={commandes} id="projet.partager" libelle="Partager par un lien…" />}
+        {p.apiDisponible && <RefusAuDoigt commandes={commandes} id="projet.partager" tactile={tactile} />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.supprimer" libelle="Supprimer le projet…" />}
         {p.apiDisponible && p.schemaEnRetard && <Entree commandes={commandes} id="projet.mettreAJourModele" libelle="Mettre à jour le modèle…" />}
         {p.apiDisponible && <li className="separateur" role="separator" />}

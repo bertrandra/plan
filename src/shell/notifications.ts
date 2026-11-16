@@ -12,6 +12,8 @@ export interface Notification {
   id: number;
   type: TypeNotification;
   texte: string;
+  /** Un toast qui laisse revenir sur un geste avant qu'il ne parte (« Annuler ») : son libelle. */
+  action?: string;
 }
 
 type Abonne = (liste: readonly Notification[]) => void;
@@ -20,6 +22,11 @@ let liste: Notification[] = [];
 let suivant = 1;
 const abonnes = new Set<Abonne>();
 const minuteries = new Map<number, ReturnType<typeof setTimeout>>();
+/**
+ * Un toast a action : ce qui se fait quand il se ferme sans qu'on ait choisi l'action (le geste part),
+ * et ce que fait l'action (le geste est abandonne). L'un ou l'autre, une seule fois.
+ */
+const suites = new Map<number, { apres: () => void; action: () => void }>();
 
 function publier(): void {
   const instantane = liste.slice();
@@ -47,16 +54,42 @@ export const notifications = {
     publier();
     return n.id;
   },
+  /**
+   * Un toast qui annonce un geste qui ne part qu'a sa fermeture : `action` le retient (« Annuler »),
+   * `apres` le fait — quand le toast s'efface de lui-meme, ou qu'on le ferme d'un toucher. Pour un geste
+   * definitif (retirer un lien de partage) sans double confirmation : le temps de lire est le temps de
+   * se raviser.
+   */
+  emettreAvecAction(texte: string, libelle: string, action: () => void, apres: () => void, dureeMs = 6000): number {
+    const n: Notification = { id: suivant++, type: 'toast', texte, action: libelle };
+    liste = [...liste, n];
+    suites.set(n.id, { apres, action });
+    minuteries.set(n.id, setTimeout(() => notifications.fermer(n.id), dureeMs));
+    publier();
+    return n.id;
+  },
+  /** L'action d'un toast : le geste annonce n'aura pas lieu. */
+  agir(id: number): void {
+    const s = suites.get(id);
+    suites.delete(id);
+    notifications.fermer(id);
+    s?.action();
+  },
   fermer(id: number): void {
     const m = minuteries.get(id);
     if (m) { clearTimeout(m); minuteries.delete(id); }
-    if (!liste.some(n => n.id === id)) return;
+    // Ferme sans son action : le geste annonce part maintenant.
+    const s = suites.get(id);
+    suites.delete(id);
+    if (!liste.some(n => n.id === id)) { s?.apres(); return; }
     liste = liste.filter(n => n.id !== id);
     publier();
+    s?.apres();
   },
   /** Pour les tests : repart de zero. */
   vider(): void {
     minuteries.forEach(clearTimeout); minuteries.clear();
+    suites.clear();
     liste = [];
     publier();
   }

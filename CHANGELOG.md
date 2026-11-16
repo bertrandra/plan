@@ -7,6 +7,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Partager un projet par un lien en lecture seule** (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme,
+  backprod #256). Menu Fichier, sous « Enregistrer » : « Partager par un lien… » (feuille Projet au doigt), et « Partager » parmi les
+  gestes qui suivent un chiffrage (barre d'estimation au bureau, pied de la feuille Chiffrage au téléphone). Le dialogue « Partager ce
+  projet » : pour qui (privé, facultatif), le nom affiché à l'ouverture (celui du compte proposé), la durée (7 jours, 30 jours,
+  90 jours, 1 an) ; « Créer le lien » montre le lien **une fois** (la plateforme n'en garde que l'empreinte ; Plan ne le range nulle
+  part), avec « Copier le lien » (presse-papiers, sinon le champ sélectionné), « Envoyer… » au doigt (partage du système) et la phrase
+  « Toute personne qui a ce lien voit ce projet tel qu'il est enregistré, sans pouvoir le modifier, jusqu'au … ». Dessous, les liens du
+  projet (destinataire, état, échéance, ouvertures, dernière ouverture) et « Retirer », sans seconde confirmation : le retrait part à la
+  fin d'un toast qui offre « Annuler » pendant six secondes. Des modifications non enregistrées se disent, avec « Enregistrer ». La
+  commande disparaît sans la fonction `project_sharing` de l'offre, se grise sans le droit d'écrire (rôle ou place de lecture) et sur
+  un projet que la plateforme n'a pas encore (« Enregistrez d'abord le projet ») ; chaque refus de la plateforme se dit en clair (liens
+  actifs au maximum, offre, impayé, abonnement, droit, adresse de Plan inconnue, trop de demandes, réseau). Le contrat épinglé passe au
+  commit `4c88d19d` de la plateforme, avec ses quatre opérations de partage (`createProjectShare`, `listProjectShares`,
+  `revokeProjectShare`, `openSharedProject`) ; le client engendré suit. Les toasts passent au-dessus du voile des dialogues, pour que
+  leur « Annuler » se touche. Point de fumée 167.
+
 - **Liste d'achat, en PDF à imprimer et en CSV** (lot 5 du parcours client, 16 novembre 2026). Menu Exporter, sous le devis :
   « Liste d'achat (PDF) » et « Liste d'achat (CSV) » ; les mêmes en tête de l'onglet Nomenclature du tiroir. Les fournitures des
   terrasses cochées pour le dossier, regroupées par rayon (terrassement et assise, plots et appuis, structure, bois et lames,

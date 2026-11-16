@@ -12,14 +12,22 @@ import { BACKPROD_API_URL, BACKPROD_PRODUCT_CODE, adresse } from '../../../src/p
 const racine = resolve(__dirname, '../../..');
 
 describe('la table des operations', () => {
-  it('porte les treize operations de la specification, et pas une de plus', () => {
+  it('porte les treize operations de la specification et les quatre du partage, et pas une de plus', () => {
     // Elargir le contrat epingle doit se voir : la liste vit dans extraire-contrat.mjs, ce test
-    // dit ce qu'elle contenait quand l'etape 0 a ete livree.
+    // dit ce qu'elle contenait quand l'etape 0 a ete livree, puis le partage d'un projet par un lien
+    // (ADR-073 de la plateforme, lot 6 du parcours client, 16 novembre 2026).
     expect(Object.keys(OPERATIONS).sort()).toEqual([
-      'createProject', 'deleteProject', 'duplicateProject', 'listProjectVersions', 'listProjects',
-      'refreshSession', 'restoreProject', 'showMyContext', 'showProject', 'signIn', 'signOut',
-      'undeleteProject', 'updateProject'
+      'createProject', 'createProjectShare', 'deleteProject', 'duplicateProject', 'listProjectShares',
+      'listProjectVersions', 'listProjects', 'openSharedProject', 'refreshSession', 'restoreProject',
+      'revokeProjectShare', 'showMyContext', 'showProject', 'signIn', 'signOut', 'undeleteProject', 'updateProject'
     ]);
+  });
+
+  it('ouvre un lien de partage sans en-tete de produit ni de locataire, le jeton dans le corps', () => {
+    // La lecture publique ne prend ni X-Product ni X-Tenant (ADR-073 §5) : tout ce qu'elle lit vient du lien.
+    expect(OPERATIONS.openSharedProject).toMatchObject({ methode: 'POST', chemin: '/api/v1/public/shares/open', succes: 200, entetes: [], cheminParams: [] });
+    expect(OPERATIONS.revokeProjectShare.cheminParams).toEqual(['projectId', 'shareId']);
+    expect(OPERATIONS.createProjectShare.succes).toBe(201);
   });
 
   it('enregistre un projet par PATCH, pas par PUT', () => {

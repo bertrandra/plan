@@ -86,6 +86,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.nouveau': menu('menuFichier'),
   'projet.enregistrer': { compact: ['feuilleProjet', 'clavier'], moyen: ['menuFichier', 'clavier'], large: ['menuFichier', 'barreHaute', 'clavier'] },
   'projet.supprimer': menu('menuFichier'),
+  // Le partage par un lien (lot 6) : le menu Fichier (feuille Projet au doigt), et les gestes qui suivent un chiffrage, a cote du
+  // devis : le pied de la feuille Chiffrage au telephone, la barre d'estimation au bureau (zones/Resultats.tsx).
+  'projet.partager': { compact: ['feuilleProjet', 'tiroir'], moyen: ['menuFichier'], large: ['menuFichier', 'tiroir'] },
   'projet.mettreAJourModele': menu('menuFichier'),
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),

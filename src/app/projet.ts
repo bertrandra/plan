@@ -29,6 +29,7 @@ import { objetsHorsSession } from './toits/modeToit.js';
 import { retenirModeleGarde, modeleGarde } from '../io/modeleGarde.js';
 import { retenirLaPage, partirSansQuestion } from '../shell/depart.js';
 import { creerEnregistrementAuto, lirePreferenceEnregistrementAuto, ecrirePreferenceEnregistrementAuto, suivreLesPointeurs, type EnregistrementAuto } from './enregistrementAuto.js';
+import { brancherPartage } from './partage.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -365,6 +366,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     executer: () => { void enregistrer('Projet enregistre.'); }
   });
 
+  brancherPartage(cmd, { courant: seed.apiAvailable ? courant : null, ecrit: () => !projetARemplir(seed, ctx.etat), modifie: () => ctx.etat.dirty }); // lot 6 : un projet a remplir n'a rien chez la plateforme
   declarerSuppression(cmd, seed, ctx, courant);
 
   // Disponible avec ou sans serveur : sans, l'import cadastre charge quand meme le plan en memoire
