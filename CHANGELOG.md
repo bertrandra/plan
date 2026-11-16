@@ -17,6 +17,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   la même nomenclature dans les deux modes) ; empreintes inchangées. Les identifiants des champs que l'assistant écrit suivent
   leur section (`structure.hauteurVis` pour `fondation.hauteurVis`, `lames.avecLameRive` pour `finitions.avecLameRive`…) : la
   requête de vérification de l'API (`tests/fixtures/assistant/requete-verification.json`) est régénérée.
+- **Le menu Fichier ramené à l'essentiel** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Mode expert éteint, il tient
+  en neuf entrées au plus : « Mes projets… », « Nouveau plan depuis une adresse… », le projet (nouveau, enregistrer, enregistrement
+  automatique, partager, supprimer), « Actualiser le projet… » et « Auditer la parcelle… ». Ce qui répare ou affine un plan venu de
+  l'IGN (« Actualiser depuis l'IGN… », la lecture des toits en tâche de fond, « Supprimer le voisinage… », « Fusionner les
+  doublons… ») et « Importer un audit de parcelle… » passent au mode expert, à la suite, avec les formats techniques ; rien n'est
+  retiré pour qui l'allume. Un filet suivi seulement d'autres filets ne se montre plus. Point de fumée 179.
 
 - **Mode expert** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Une case « Mode expert », au bas du menu Affichage
   (feuille Projet au doigt), **éteinte par défaut** : une préférence de l'appareil, gardée dans le navigateur, sans Ctrl+Z ni

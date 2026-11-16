@@ -3622,6 +3622,48 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `« ${simple.titres.join(' » · « ')} » ; Structure et appuis : ${simple.structure.length} champs (expert : ${expert.structure.length}) ; « ${simple.total.trim().slice(0, 30)} » dans les deux modes` };
   },
+  179: async (page) => {
+    // Le menu Fichier ramene a l'essentiel (lot 3 de la simplification, 16 novembre 2026) : mode expert eteint, il tient en neuf
+    // entrees au plus — mes projets, partir d'une adresse, le projet (nouveau, enregistrer, automatique, partager, supprimer),
+    // l'actualiser, l'auditer — sans un filet de trop ; ce qui repare ou affine un plan venu de l'IGN, l'import d'un audit et les
+    // formats techniques reviennent avec le mode expert.
+    const echecs = [];
+    // « Partager par un lien… » suit la capacite du partage (effacee sans elle) : il n'est pas exige ici.
+    const essentiel = ['projet.mesProjets', 'projet.depuisAdresse', 'projet.nouveau', 'projet.enregistrer', 'projet.supprimer', 'projet.actualiser', 'audit.parcelle'];
+    const experts = ['projet.actualiserIgn', 'projet.toitsFond', 'projet.supprimerVoisinage', 'projet.doublons', 'audit.importerParcelle', 'fichier.importerJson', 'fichier.exporterJson'];
+    const filets = async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      await page.evaluate(() => document.getElementById('menuFichier')?.setAttribute('open', ''));
+      await page.waitForTimeout(200);
+      const r = await page.evaluate(() => {
+        const lis = [...document.querySelectorAll('#menuFichier > ul > li')].filter((li) => getComputedStyle(li).display !== 'none');
+        let deSuite = 0;
+        lis.forEach((li, k) => { if (li.classList.contains('separateur') && (k === 0 || k === lis.length - 1 || lis[k - 1].classList.contains('separateur'))) deSuite++; });
+        const m = document.getElementById('menuFichier').getBoundingClientRect();
+        return { deSuite, bas: m.bottom, hauteur: innerHeight };
+      });
+      await page.evaluate(() => document.getElementById('menuFichier')?.removeAttribute('open'));
+      if ((await classe(page)) !== 'large') await feuille(page, null);
+      return r;
+    };
+    await modeExpert(page, false);
+    const simple = await entreesDuMenu(page, 'menuFichier');
+    const fs = await filets();
+    if (!simple) return { ok: false, mesure: 'menu Fichier absent' };
+    // « Mettre à jour le modèle… » ne se montre que pour un projet d'un schema ancien : il n'est pas compte.
+    const compte = simple.entrees - (simple.commandes.includes('projet.mettreAJourModele') ? 1 : 0);
+    if (compte > 9) echecs.push(compte + ' entrées en mode simple');
+    for (const id of essentiel) if (!simple.commandes.includes(id)) echecs.push(id + ' absent');
+    for (const id of experts) if (simple.commandes.includes(id)) echecs.push(id + ' visible en mode simple');
+    if (fs.deSuite) echecs.push(fs.deSuite + ' filet(s) de trop');
+    await modeExpert(page, true);
+    const expert = await entreesDuMenu(page, 'menuFichier');
+    for (const id of [...essentiel, ...experts]) if (!expert?.commandes.includes(id)) echecs.push(id + ' absent en mode expert');
+    const fe = await filets();
+    if (fe.deSuite) echecs.push(fe.deSuite + ' filet(s) de trop en mode expert');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `mode simple : ${simple.entrees} entrées (${simple.commandes.join(', ')}) ; mode expert : ${expert?.entrees} entrées` };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9531,7 +9573,8 @@ function pointsPour(nomClasse) {
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
   // 177 : le mode expert, eteint : ni formats techniques, ni parametres de calcul, ni reglages fins de la 3D ; allume, tout revient.
   // 178 : l'inspecteur de la terrasse en trois groupes, les reglages du calcul au mode expert ; la nomenclature ne change pas.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178];
+  // 179 : le menu Fichier en neuf entrees au plus en mode simple, sans filet de trop ; le reste revient avec le mode expert.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
