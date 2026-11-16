@@ -5,6 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.34.0] — 2026-11-16
+
+Version **mineure** au sens de `MD/RELEASE.md` : le parcours d'entrée gagne des fonctions nouvelles, sans rien retirer ni changer
+à ce qui existait (§2.1 : « new feature, new panel » ; « adding a construction parameter with a default ») — l'import par adresse
+en une étape avec une terrasse de départ (#716), le choix d'une lame du commerce (#718), la démonstration et la Vue 3D cadrées sur
+la terrasse (#719), l'aide de première utilisation (#720), « Mes projets » dans Plan et « Voir les offres » à la limite de projets
+(#721). Aucune quantité ni aucun export ne bouge : la terrasse de départ n'est posée que sur un projet neuf créé par l'import, la
+lame du commerce écrit les quatre champs d'avant sans changer aucun défaut, le cadrage ne change que le recul de la caméra. Les
+neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau (l'aide ne retient
+qu'une préférence du navigateur). Ni `deploy/`, ni `regles/`, ni `banc/` ne changent depuis la 5.33.0. Requêtes vérifiées sur main
+après #721 avec les dix demandes de l'assistant, dont la requête témoin régénérée par #718 (champ « Lame » au catalogue) (run
+43924087203 : 9 sur 9, dix listes justes sur dix, 0,034 $ ; prompts et schémas inchangés).
+
+**À faire en production, dans cet ordre, avant de déposer cette livraison** (le lot 2 ne demande rien de plus ; ce qui suit reste
+de la 5.33.0, s'il n'est pas déjà appliqué) :
+
+- appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` : le schéma 16 de la 5.19.0 doit être
+  accepté par la plateforme ;
+- appliquer la migration de la plateforme `Version20261116090000` (liens de partage, backprod #256, ADR-073) : sans elle, « Partager
+  par un lien… » et l'ouverture d'un lien partagé échouent ;
+- publier une version d'offre qui accorde la fonction `project_sharing` avant que quiconque puisse partager (sans elle, la commande
+  reste effacée : c'est voulu) ;
+- déposer le `.htaccess` de la livraison (`deploy/htaccess.template` : `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`
+  sur une adresse avec `?product=`) ;
+- rappel : le `api.php` du banc demande à l'hébergement le cURL sortant en HTTPS (depuis la 5.30.0).
+
 ### Ajouté
 
 - **Mode expert** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Une case « Mode expert », au bas du menu Affichage
