@@ -9,6 +9,7 @@ import { useStore } from 'zustand';
 import { APP_VERSION, SCHEMA_VERSION, API_VERSION, versionLongue } from '../model/version.js';
 import type { Magasin } from '../app/magasin.js';
 import { texteStatut } from './statut.js';
+import { partageCourant } from '../app/acces.js';
 import { useCle, cleEtat } from './composants/abonnement.js';
 import { lectureToits } from '../core/lectureToits.js';
 import { modeDiagnostic, compterDiagnostic, LEGENDES, COULEURS_DIAGNOSTIC } from '../app/diagnostic.js';
@@ -37,7 +38,7 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
       <span id="projectStatus" className={p.statut === 'local' ? 'local' : ''}>{statut}</span>
       {/* Un plan qu'on ne peut pas enregistrer doit le dire avant qu'on l'ait modifie pour rien. */}
       {etat.lectureSeule && (
-        <span className="etatLectureSeule" title="Votre compte n'a pas le droit d'écrire sur cette organisation : un administrateur peut vous le donner.">
+        <span className="etatLectureSeule" title={partageCourant() ? 'Un projet partagé par un lien se lit sans rien modifier.' : 'Votre compte n\'a pas le droit d\'écrire sur cette organisation : un administrateur peut vous le donner.'}>
           Lecture seule
         </span>
       )}

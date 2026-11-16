@@ -187,6 +187,16 @@ RedirectMatch 404 ^/data(/|$)
     Header always unset X-Frame-Options
     Header always edit Content-Security-Policy "frame-ancestors 'none'" "frame-ancestors @@ORIGINES_CADRE@@"
   </If>
+  # 7. Un lien de partage (ADR-073 de la plateforme, lot 6 ; app/projetPartage.ts) : `{app_url}?product=plan#share=<jeton>`. Le
+  #    jeton est dans le fragment, que le navigateur n'envoie jamais ici ; mais la page qui le lit ne doit le laisser filer par
+  #    aucun `Referer`, ni se ranger dans un moteur. La plateforme ajoute `?product=` a toute adresse de Plan qu'elle distribue (la
+  #    porte d'un produit aussi) : l'atelier ouvert ainsi perd le `Referer` de ses requetes vers l'IGN et les textures, ce qui ne
+  #    gene aucun de ces services. La page pose en plus `<meta name="referrer" content="no-referrer">` et `noindex` des qu'elle
+  #    trouve le jeton, avant toute autre requete : un hote qui ignorerait ce fichier n'y change rien.
+  <If "%{QUERY_STRING} =~ /(^|&)product=/">
+    Header always set Referrer-Policy "no-referrer"
+    Header always set X-Robots-Tag "noindex, nofollow"
+  </If>
 </IfModule>
 
 # Compression si l'hote la propose. SiteGround, oui ; un hote qui ne l'a pas sert les octets tels quels.
