@@ -2952,6 +2952,50 @@ const POINTS = {
     mesures.push(`${largeurs.join(', ')} px : porte et premier pas sans débordement ; sans cadastre : « ${sans} »`);
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
   },
+  162: async (page, f) => {
+    // Le prix total toujours visible au bureau (audit de l'IHM du 16 novembre 2026, lot 1) : le tiroir des resultats commence sous le
+    // pli (y = 951 pour une fenetre de 900), et aucune « Estimation HT » n'etait a l'ecran. Au bureau : la barre d'estimation au bas
+    // de la fenetre des l'ouverture (terrasse premiere, rien choisi), sans defiler, avec les gestes du pied du telephone (resume,
+    // devis, dossier) ; « Voir la nomenclature » choisit la terrasse et ouvre son onglet. Partout : la ligne « Total HT » en pied de la Nomenclature dit la meme fourchette que la barre (bureau), le
+    // resume du tiroir replie (tablette) ou le pied de la feuille (telephone) ; un prix reel saisi s'y ajoute.
+    const echecs = [];
+    const visible = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight; }, sel);
+    let barre = null;
+    if (f.nom === 'large') {
+      if (!(await visible('.bandeEstimation'))) echecs.push('barre d\'estimation absente ou hors de l\'écran à l\'ouverture');
+      barre = await page.evaluate(() => document.querySelector('.bandeEstimation .resumeTiroirTotal .tuileValeur')?.textContent ?? null);
+      // Les gestes du pied du chiffrage au telephone, par les memes commandes du registre : resume, devis, dossier.
+      const gestes = await page.$$eval('.bandeEstimation [data-commande]', (b) => b.map((x) => x.dataset.commande).sort());
+      if (gestes.join() !== 'export.copierResume,export.dossier,export.ouvrirDevis') echecs.push('gestes de la barre : ' + JSON.stringify(gestes));
+      await page.locator('[data-controle="tiroir.voirNomenclature"]').click();
+      await page.waitForTimeout(900);
+      const r = await page.evaluate(() => ({ choisie: window.__plan.etat().objects.find((o) => o.key === window.__plan.etat().selectedKey)?.fonction, onglet: window.__plan.etat().panelTab }));
+      if (r.choisie !== 'terrasse' || r.onglet !== 'bom') echecs.push('« Voir la nomenclature » : ' + JSON.stringify(r));
+      if (!(await visible('.bandeEstimation'))) echecs.push('barre d\'estimation perdue après le défilement');
+    } else {
+      await selectionner(page, TERRASSE);
+      // A la tablette, le resume du tiroir replie, lu avant que l'onglet ne deplie le tiroir ; au telephone, le pied de la feuille.
+      if (f.nom === 'moyen') barre = await page.evaluate(() => document.querySelector('.resumeTiroirTotal .tuileValeur')?.textContent ?? null);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      if (f.nom === 'compact') await feuille(page, 'resultats');
+      await page.waitForTimeout(500);
+      if (f.nom === 'compact') barre = await page.evaluate(() => document.querySelector('.piedChiffrageValeur')?.textContent ?? null);
+      if (barre === null) echecs.push('estimation absente (' + (f.nom === 'moyen' ? 'tiroir replié' : 'pied de la feuille') + ')');
+    }
+    const cellules = () => page.evaluate(() => [...(document.getElementById('terrasseBomTotals')?.children ?? [])].map((c) => c.textContent.replace(/\s+/g, ' ').trim()));
+    const t0 = await cellules();
+    if (t0[0] !== 'Total HT') echecs.push('ligne « Total HT » absente : ' + JSON.stringify(t0));
+    const fourchette = t0.length ? t0[2] + ' – ' + t0[3] : '';
+    if (barre !== null && barre.replace(/\s+/g, ' ') !== fourchette) echecs.push(`fourchette de la barre « ${barre} » ≠ total de la table « ${fourchette} »`);
+    // Un prix reel saisi sur une ligne non calculee s'ajoute au total reel.
+    const champ = page.locator('#terrasseBomTable input[type="number"]').first();
+    await champ.scrollIntoViewIfNeeded();
+    await champ.fill('100'); await champ.press('Enter'); await champ.dispatchEvent('change'); await page.waitForTimeout(300);
+    const t1 = await cellules();
+    const reel = (t) => parseFloat((t[4] || '').replace(/[^0-9,]/g, '').replace(',', '.'));
+    if (!(Math.abs(reel(t1) - reel(t0) - 100) < 0.01)) echecs.push(`réel saisi « ${t0[4]} » → « ${t1[4]} » (attendu + 100 €)`);
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `barre « ${barre} », ligne « ${t1.join(' | ')} »` };
+  },
   160: async (page, f) => {
     // La colonne de la camera a des hauteurs d'iOS (decision du proprietaire, 14 novembre 2026 : « Bouton visible en haut ») : la
     // fenetre reduite de la barre de Safari, iPhone 390 x 664 (compact), iPad en portrait 820 x 1100 et en paysage 1180 x 740 (moyen,
@@ -8617,7 +8661,8 @@ function pointsPour(nomClasse) {
   // 166 : la liste d'achat : ses deux entrees du menu Exporter, le PDF a cocher, le CSV pour un tableur, les deux boutons en tete de la Nomenclature.
   // 165 : le devis PDF : en tete du menu Exporter, le dialogue, le fichier (une page, que pdf-lib ouvre), le toast ; au telephone, le
   //       bouton du pied de la feuille Chiffrage.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 165, 166];
+  // 162 : le prix total au bureau sans defiler (barre d'estimation) et la ligne « Total HT » de la Nomenclature, la meme fourchette partout.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 165, 166];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
