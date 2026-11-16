@@ -11,7 +11,7 @@
 
 import { createContext, useContext, useReducer, useRef, useState } from 'react';
 import { champActif } from '../../app/administration/ecritures.js';
-import { champsVisibles, groupesDeChamps } from '../../ui/champs/types.js';
+import { champsVisibles, champVisible, groupesDeChamps } from '../../ui/champs/types.js';
 import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps } from '../../ui/champs/types.js';
 import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import { CarteToit } from './CarteToit.js';
@@ -251,7 +251,7 @@ function optionsParGroupe<T extends { groupe?: string }>(options: readonly T[]):
  * reste d'un rendu a l'autre.
  */
 export function ListeChamps({ champs, c, inspecteur }: { champs: readonly Champ[]; c: ContexteChamps; inspecteur: ServiceChamps }) {
-  const visibles = champs.filter(ch => !ch.visible || ch.visible(c));
+  const visibles = champs.filter(ch => champVisible(ch, c));
   return <>{groupesDeChamps(visibles).map((g, k) => g.repli === null
     ? g.champs.map(ch => <LigneChamp key={ch.cle} champ={ch} c={c} inspecteur={inspecteur} />)
     : (

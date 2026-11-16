@@ -65,6 +65,11 @@ export interface ContexteChamps {
   pushHistory: (...objets: object[]) => void;
   render: () => void;
   toast: (message: string) => void;
+  /**
+   * Le mode expert est eteint (app/modeExpert.ts) : les champs et les sections `expert` ne se montrent pas. Absent (un test, un
+   * ecran d'admin qui liste tout) : tout se montre.
+   */
+  modeSimple?: boolean;
 }
 
 interface ChampBase {
@@ -106,6 +111,11 @@ interface ChampBase {
    * du meme `repli` vont dans le meme pli ; le champ reste monte et se lit d'un clic.
    */
   repli?: string;
+  /**
+   * Un reglage fin (une constante de calcul, un reglage avance) : le mode expert seul le montre (`champsVisibles`). Cache, il garde
+   * sa valeur, et le calcul la lit comme avant.
+   */
+  expert?: boolean;
 }
 
 export interface ChampTexte extends ChampBase {
@@ -221,11 +231,19 @@ export interface Section {
   repliee?: boolean;
   explication?: string;
   champs: Champ[];
+  /** La section entiere est un reglage fin : le mode expert seul la montre (voir `ChampBase.expert`). */
+  expert?: boolean;
 }
 
-/** Les champs de la section, ceux qui se montrent. */
+/** Le champ se montre-t-il ? Sa condition, et le mode expert pour un reglage fin. */
+export function champVisible(ch: Champ, c: ContexteChamps): boolean {
+  return !(ch.expert && c.modeSimple === true) && (!ch.visible || ch.visible(c));
+}
+
+/** Les champs de la section, ceux qui se montrent : aucun pour une section du mode expert tant qu'il est eteint. */
 export function champsVisibles(section: Section, c: ContexteChamps): Champ[] {
-  return section.champs.filter(ch => !ch.visible || ch.visible(c));
+  if (section.expert && c.modeSimple === true) return [];
+  return section.champs.filter(ch => champVisible(ch, c));
 }
 
 /** Une suite de champs a montrer : ouverte (`repli` absent), ou rangee dans un pli ferme. */

@@ -140,8 +140,12 @@ export function sectionVoisinage3d(c: ContexteChamps): Section | null {
       executer: (cc) => cc.executerCommande(LIRE_RUES),
     },
   ];
+  // Les teintes et les dimensions sont des reglages fins : le mode expert seul les montre (ui/champs/types.ts). Les bascules (toits,
+  // clotures, rues) restent a tous.
+  const fins = new Set(['maisonsMode', 'maisonsNombre', 'maisonsCouleur', 'maisonsCouleur2', 'maisonsCouleur3', 'fenetresMode', 'fenetresCouleur',
+    'fenetresCouleur2', 'largeurFenetres', 'hauteurFenetres', 'entraxeFenetres', 'clotureType', 'clotureCouleur']);
   return {
-    id: 'voisinage3d', titre: 'Voisinage (3D)', repliee: true, champs,
+    id: 'voisinage3d', titre: 'Voisinage (3D)', repliee: true, champs: champs.map((ch) => (fins.has(ch.cle) ? { ...ch, expert: true } : ch)),
     explication: 'L’apparence des maisons voisines dans la Vue 3D, et le nom des rues sur le plan et dans la 3D. Ce qui est tiré au hasard l’est une fois pour toutes par maison : la scène ne change pas d’une ouverture à l’autre.',
   };
 }

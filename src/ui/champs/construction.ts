@@ -518,7 +518,7 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
     champs: [champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]
   };
   const parametres: Section = {
-    id: 'parametres', titre: 'Paramètres de calcul', repliee: true,
+    id: 'parametres', titre: 'Paramètres de calcul', repliee: true, expert: true,
     explication: 'Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l\'usage du métier (voir l\'onglet Méthode).',
     champs: [
       champ('kPortee'), champ('kEntraxeLame'),

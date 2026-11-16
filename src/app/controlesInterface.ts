@@ -58,6 +58,11 @@ export interface ControleInterface {
    * `lectureSeule` : le service qui ecrit le refuse en lecture seule ; `aucun` : rien ne le refuse.
    */
   ecrit?: Ecriture;
+  /**
+   * Un reglage fin, que le mode expert seul montre (app/modeExpert.ts, `controleMontre`) : eteint, ce qui est le reglage par defaut
+   * de l'appareil, le controle n'est pas rendu ; allume, il revient a sa place.
+   */
+  expert?: true;
 }
 
 export interface Ecriture { annulable: boolean; droits: 'commande' | 'lectureSeule' | 'aucun' }
@@ -91,8 +96,8 @@ function reglagesVue(vue: 'vue3d' | 'visionneuse', nom: string): Record<string, 
     [vue + '.date']: v('Date du soleil'),
     [vue + '.semaine']: v('Semaine de l’année', 'Avance ou recule la date de sept jours par cran'),
     [vue + '.heure']: v('Heure du soleil'),
-    [vue + '.intensite']: v('Intensité du soleil'),
-    [vue + '.appoint']: v('Lumière d’appoint'),
+    [vue + '.intensite']: { ...v('Intensité du soleil'), expert: true },
+    [vue + '.appoint']: { ...v('Lumière d’appoint'), expert: true },
     [vue + '.pointDeVue']: v('Aller à un point de vue enregistré')
   };
 }
@@ -102,6 +107,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'fichier.option.remplacerImportSvg': { libelle: 'Supprimer les objets existants avant d’importer (SVG)', zone: Z1, nature: 'option' },
   'fichier.option.remplacerImportJson': { libelle: 'Remplacer le plan actuel (import JSON)', zone: Z1, nature: 'option' },
   'fichier.option.exportSansParcelle': { libelle: 'Exporter sans la parcelle', zone: Z1, nature: 'option' },
+  'affichage.option.modeExpert': { libelle: 'Mode expert', zone: Z1, nature: 'affichage', description: 'Montre les formats techniques, les constantes de calcul et les réglages fins de la 3D ; une préférence de l’appareil, éteinte par défaut' },
   'fichier.option.enregistrementAuto': { libelle: 'Enregistrement automatique', zone: Z1, nature: 'option', description: 'Enregistre le projet quelques secondes après chaque modification ; une préférence de l’appareil, cochée par défaut' },
   'export.option.echellePdf': { libelle: 'Échelle du PDF', zone: Z1, nature: 'option' },
   'export.option.dossierEquipements': { libelle: 'Inclure l’emprise des équipements (dossier PDF)', zone: Z1, nature: 'option' },
@@ -133,9 +139,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vue3d.tousLesObjets': { libelle: 'Afficher tous les objets du plan (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.solEnCoupe': { libelle: 'Sol en coupe : assise et fondations (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.platelageTranslucide': { libelle: 'Platelage translucide : voir les plots (Vue 3D)', zone: Z4, nature: 'vue' },
-  'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue', expert: true },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
-  'vue3d.facadesSansOmbres': { libelle: 'Façades sans ombres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Estompe les ombres de la photo sur les façades relevées ; jamais exporté' },
+  'vue3d.facadesSansOmbres': { libelle: 'Façades sans ombres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Estompe les ombres de la photo sur les façades relevées ; jamais exporté', expert: true },
   'vue3d.vent': { libelle: 'Vent dans les arbres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Les arbres bougent au vent ; jamais exporté' },
   'vue3d.objetsEchelle': { libelle: 'Objets d’échelle (Vue 3D)', zone: Z4, nature: 'vue', description: 'Une voiture et une silhouette, pour l’échelle ; jamais exportées' },
   'vue3d.qualite': { libelle: 'Qualité (Vue 3D)', zone: Z4, nature: 'vue', description: 'Économe, Normale ou Soignée : ce que la scène se permet en ombres, lissage et effets, propre à cet appareil' },
