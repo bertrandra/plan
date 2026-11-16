@@ -189,7 +189,7 @@ BT /F1 8.5 Tf 0.420 0.380 0.330 rg 513.83 116.39 Td (48 – 73 €) Tj ET
 BT /F1 7 Tf 0.420 0.380 0.330 rg 64.00 106.89 Td (Table) Tj ET
 0.780 0.740 0.680 RG 0.30 w [] 0 d 64.00 100.89 m 553.28 100.89 l S
 0.780 0.740 0.680 RG 0.40 w [] 0 d 42.00 40.00 m 553.28 40.00 l S
-BT /F1 7 Tf 0.420 0.380 0.330 rg 42.00 29.00 Td (Liste d’achat — établie avec Plan interactif 5.32.0) Tj ET
+BT /F1 7 Tf 0.420 0.380 0.330 rg 42.00 29.00 Td (Liste d’achat — établie avec Plan interactif 5.33.0) Tj ET
 BT /F1 7 Tf 0.420 0.380 0.330 rg 521.37 29.00 Td (Page 1 / 2) Tj ET
 
 endstream
@@ -224,7 +224,7 @@ BT /F1 7 Tf 0.420 0.380 0.330 rg 64.00 700.89 Td (Table) Tj ET
 BT /F1 7.5 Tf 0.420 0.380 0.330 rg 42.00 673.89 Td (Prix en gris : fourchette estimée ou prix par défaut, à remplacer par le prix du magasin dans la Nomenclature. La main-d’œuvre de pose n’est pas) Tj ET
 BT /F1 7.5 Tf 0.420 0.380 0.330 rg 42.00 664.39 Td (comptée.) Tj ET
 0.780 0.740 0.680 RG 0.40 w [] 0 d 42.00 40.00 m 553.28 40.00 l S
-BT /F1 7 Tf 0.420 0.380 0.330 rg 42.00 29.00 Td (Liste d’achat — établie avec Plan interactif 5.32.0) Tj ET
+BT /F1 7 Tf 0.420 0.380 0.330 rg 42.00 29.00 Td (Liste d’achat — établie avec Plan interactif 5.33.0) Tj ET
 BT /F1 7 Tf 0.420 0.380 0.330 rg 521.37 29.00 Td (Page 2 / 2) Tj ET
 
 endstream
@@ -248,7 +248,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
 endobj
 14 0 obj
-<< /Producer (Plan interactif 5.32.0) /Creator (plan.html build 2026-10-30) /CreationDate (D:20260928232200) >>
+<< /Producer (Plan interactif 5.33.0) /Creator (plan.html build 2026-10-30) /CreationDate (D:20260928232200) >>
 endobj
 xref
 0 15

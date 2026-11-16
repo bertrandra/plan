@@ -2,6 +2,7 @@
 // regle, la conformite du projet. Le service des resultats (app/resultats.ts) le porte ; chaque ecriture est un pas d'annulation et
 // marque le projet modifie, comme l'interrogation du zonage.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { conformitePlu, type ConformitePlu } from '../../engine/regles/plu/conformite.js';
 import { showToast } from '../../shell/dialogs.js';
 import { lireReglementPlu, type ContexteLecturePlu } from './lecturePlu.js';
@@ -47,7 +48,7 @@ export function creerServicePlu(etat: EtatApp, ctx: ContexteServicePlu, magasin:
         showToast(n ? 'Règlement de la zone ' + r.reglement.zone + ' lu : ' + n + ' règle(s) proposée(s), à vérifier dans le texte avant de s’en servir.'
                     : 'Règlement de la zone ' + r.reglement.zone + ' lu : aucune règle relevée.');
       } catch (e) {
-        showToast('Lecture du règlement impossible : ' + ((e as Error).message || String(e)));
+        showToast(phraseReseau(e, 'Le Géoportail de l’urbanisme', 'Réessayez « Lire le règlement » dans un instant.') ?? 'Lecture du règlement impossible : ' + detailTechnique(e));
       } finally {
         enCours = false;
         magasin.notifier();

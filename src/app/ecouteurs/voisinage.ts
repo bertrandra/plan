@@ -7,6 +7,7 @@
 // appuyaient. C'est une modification du projet : annulable d'un Ctrl+Z, refusee en lecture seule,
 // et confirmee d'abord.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { oublierLObjet } from '../../model/ouvrages/index.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
@@ -81,7 +82,7 @@ export function brancherVoisinage(a: Atelier, ctx: ContexteVoisinage, cmd: Regis
       const n = r.rues.length;
       showToast(n ? n + (n > 1 ? ' rues lues' : ' rue lue') + ' à moins de ' + r.rayonM + ' m.' : 'Aucune rue nommée à moins de ' + r.rayonM + ' m.');
     } catch (e) {
-      showToast((e as Error).message || 'L’IGN n’a pas répondu ; réessayez.');
+      showToast(phraseReseau(e, 'Le service des rues de l’IGN') ?? (detailTechnique(e) || 'L’IGN n’a pas répondu ; réessayez.'));
     } finally {
       lectureRues = false;
     }

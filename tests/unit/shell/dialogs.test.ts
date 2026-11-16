@@ -125,3 +125,17 @@ describe('showProjectLoadError', () => {
     expect(document.body.textContent).toMatch(/demonstration n'a pas ete charge/i);
   });
 });
+
+describe('une erreur dite en phrase (showErreur)', () => {
+  it('va au bandeau de la zone avec son detail technique, sans « Erreur JS »', async () => {
+    const { notifications } = await import('../../../src/shell/notifications.js');
+    const { showErreur } = await import('../../../src/shell/dialogs.js');
+    notifications.vider();
+    const fin = notifications.abonner(() => {});
+    showErreur('Le service d’adresses de l’IGN ne répond pas. Réessayez dans un instant.', 'Failed to fetch');
+    const n = notifications.liste().at(-1)!;
+    expect(n).toMatchObject({ type: 'erreur', texte: 'Le service d’adresses de l’IGN ne répond pas. Réessayez dans un instant.', detail: 'Failed to fetch' });
+    fin();
+    notifications.vider();
+  });
+});

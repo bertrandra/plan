@@ -3067,6 +3067,40 @@ const POINTS = {
     await basculer();
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `enregistré seul en ${delai} s (« ${b.statut} »), ${c.n} objets après rechargement ; refusé : « ${echec} », puis repris ; question du navigateur : ${dialogues.includes('beforeunload') ? 'oui' : 'non'} ; décochée : rien ne part` };
   },
+  164: async (page, f) => {
+    // Les erreurs du reseau en clair (audit de l'IHM du 16 novembre 2026, lot 1) : « Geocodage impossible : Failed to fetch ». Le
+    // service d'adresses de l'IGN coupe (requetes avortees), « Partir d'une adresse », une adresse tapee puis Rechercher : le dialogue
+    // dit « Le service d'adresses de l'IGN ne répond pas. Réessayez dans un instant, ou dessinez votre terrain à la main. », sans
+    // message du navigateur. Puis la plateforme coupee, Ctrl+S : le bandeau dit que la plateforme ne repond pas et que rien n'est
+    // perdu, le message du navigateur en « Détail technique », a copier.
+    const echecs = [];
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.route('https://data.geopf.fr/geocodage/**', (route) => route.abort('internetdisconnected'));
+    await page.evaluate(() => window.__plan.executer('projet.depuisAdresse'));
+    const boite = page.locator('.dialogueCadastre');
+    await etape('dialogue', () => boite.waitFor({ timeout: 10000 }));
+    const champ = boite.locator('input.promptInput').first();
+    await champ.fill('Place de la Mairie 35000 Rennes');
+    await champ.press('Enter');
+    await etape('message', () => page.waitForFunction(() => /ne répond pas/.test(document.querySelector('.dialogueCadastre .etatParcours')?.textContent || ''), null, { timeout: 15000 }));
+    const dit = ((await boite.locator('.etatParcours').textContent()) || '').trim();
+    if (/Failed to fetch|HTTP|ERR_/i.test(dit)) echecs.push('message brut : « ' + dit + ' »');
+    if (!/dessinez votre terrain à la main/.test(dit)) echecs.push('ne dit pas quoi faire : « ' + dit + ' »');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    // La plateforme coupee : l'enregistrement echoue, dit en phrase.
+    await page.route('http://plateforme.test/api/v1/projects/*', (route) => route.request().method() === 'PATCH' ? route.abort('internetdisconnected') : route.fallback());
+    await page.evaluate(() => window.__plan.executer('projet.enregistrer'));
+    const bandeau = page.locator('.bandeauErreur').last();
+    await etape('bandeau', () => bandeau.waitFor({ timeout: 15000 }));
+    const texte = ((await bandeau.locator('.texte').textContent()) || '').trim();
+    const detail = ((await bandeau.locator('.detailErreur').textContent().catch(() => '')) || '').trim();
+    if (!/la plateforme ne répond pas/.test(texte) || !/Rien n’est perdu/.test(texte)) echecs.push('bandeau : « ' + texte + ' »');
+    if (/Erreur JS/.test(texte)) echecs.push('bandeau de développeur');
+    if (!/^Détail technique : .+/.test(detail)) echecs.push('détail technique absent');
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    if (deborde) echecs.push('débordement');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `adresse : « ${dit} » ; enregistrement : « ${texte.slice(0, 120)}… »` };
+  },
   160: async (page, f) => {
     // La colonne de la camera a des hauteurs d'iOS (decision du proprietaire, 14 novembre 2026 : « Bouton visible en haut ») : la
     // fenetre reduite de la barre de Safari, iPhone 390 x 664 (compact), iPad en portrait 820 x 1100 et en paysage 1180 x 740 (moyen,
@@ -9070,8 +9104,9 @@ function pointsPour(nomClasse) {
   //       d'edition visible ni executable, la nomenclature et la 3D ; un lien invalide (404) et trop de tentatives (429), dits en clair.
   // 169 : essayer sans compte : la porte presente Plan et propose la demonstration, qui s'ouvre sans session ; une terrasse s'y ajoute,
   //       aucun appel a la plateforme ne part, le bandeau le dit ; « Quitter la démonstration » ramene a la porte.
+  // 164 : les erreurs du reseau en clair : l'IGN coupe dans l'import cadastre, la plateforme coupee a l'enregistrement.
   // 173 : la demonstration (essai sans compte) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 165, 166, 167, 168, 169, 173];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 173];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -8,6 +8,7 @@
 // rien ne le reecrit. Rallumer reprend la lecture et perd ce que la personne avait regle : la session l'annule.
 // `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
+import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, raisonDOuvrir, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
@@ -222,7 +223,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       // Le catalogue d'abord : la session s'ouvre avec lui (deja charge, tout de suite).
       if (gestes) { mode.ouvrir(); return; }
       chargerGestesToits().then(() => { if (!enSession()) mode.ouvrir(); }, (e: unknown) => {
-        showToast('Le mode Toit n’a pas pu se charger (' + (e instanceof Error ? e.message : String(e)) + ').');
+        showToast(phraseReseau(e, 'Le serveur de Plan', 'Le mode Toit n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Le mode Toit n’a pas pu se charger (' + detailTechnique(e) + ').');
       });
     }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
   declarerEntreeEn3d(commande, cmd, ctx, () => !enSession() && estRetouchable(selection()), () => (enSession() ? null : raisonDOuvrir(selection())));
