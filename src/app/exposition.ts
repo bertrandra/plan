@@ -70,7 +70,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.ajouter.polygone': outil(),
   'objet.ajouter.rectangle': outil(),
   'objet.ajouter.cercle': outil(),
-  // La plage d'une piscine (section Abords) et les trous d'une terrasse (étape 1 de la terrasse, Implantation et niveau).
+  // La plage d'une piscine (section Abords) et les trous d'une terrasse (groupe Forme et niveau de la terrasse).
   'objet.terrassePiscine': partout('inspecteur'),
   'terrasse.ajouterTrou': partout('inspecteur'),
   'objet.rendreEgout': partout('inspecteur'),

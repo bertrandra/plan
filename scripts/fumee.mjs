@@ -3581,6 +3581,47 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `mode simple : Fichier ${simple.fichier?.entrees} entrées, Exporter ${simple.exporter?.entrees}, export.dxf ${simple.dxf} ; mode expert : Fichier ${expert.fichier?.entrees}, Exporter ${expert.exporter?.entrees} ; ni « modifié » ni Ctrl+Z ; retenu au rechargement` };
   },
+  178: async (page) => {
+    // L'inspecteur de la terrasse en trois groupes (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
+    // choisie, mode expert eteint, ses reglages de construction tiennent en « Forme et niveau », « Lames et finitions », « Structure
+    // et appuis », sans « Paramètres de calcul » ni les reglages du calcul (charges cibles, entraxes automatiques, zone renforcee) ;
+    // le mode expert allume, ils reviennent dans les memes groupes ; la nomenclature est la meme dans les deux modes.
+    const echecs = [];
+    const lire = async () => {
+      await selectionner(page, TERRASSE);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      await inspecteur(page);
+      const r = await page.evaluate(() => {
+        const sections = [...document.querySelectorAll('#zoneInspecteur details.inspecteurSection')];
+        const construction = sections.filter((d) => d.dataset.famille === 'construction');
+        const cles = (id) => [...(document.querySelector('#zoneInspecteur details[data-section="' + id + '"]')?.querySelectorAll('[data-cle]') ?? [])].map((e) => e.getAttribute('data-cle'));
+        return { ids: construction.map((d) => d.dataset.section), titres: construction.map((d) => d.querySelector('summary')?.textContent ?? ''),
+          structure: cles('structure'), lames: cles('lames'), total: document.getElementById('terrasseBomTotals')?.textContent ?? '',
+          deborde: document.documentElement.scrollWidth > innerWidth + 1 };
+      });
+      await feuille(page, null);
+      return r;
+    };
+    await modeExpert(page, false);
+    const simple = await lire();
+    if (simple.ids.join() !== 'implantation,lames,structure') echecs.push('groupes : ' + simple.ids.join());
+    if (simple.titres.join(' | ') !== 'Terrasse · Forme et niveau | Lames et finitions | Structure et appuis') echecs.push('titres : ' + simple.titres.join(' | '));
+    // La terrasse de la demonstration est sur vis ou sur plots : les champs attendus suivent.
+    const plots = await page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse')?.construction?.typePose === 'plots');
+    const fins = ['chargeNormale', 'chargeSpa', 'visMargeZoneSpa', ...(plots ? ['plotEntraxeAuto', 'plotSurfaceAssise'] : ['visModeAuto', 'visEntraxeZoneSpa'])];
+    for (const k of fins) if (simple.structure.includes(k)) echecs.push(k + ' visible en mode simple');
+    if (simple.lames.includes('coefRaideurLame')) echecs.push('raideur visible en mode simple');
+    for (const k of ['typePose', 'soliveSection', ...(plots ? ['hauteurPlot', 'plotEntraxe'] : ['hauteurVis', 'visEntraxe'])]) if (!simple.structure.includes(k)) echecs.push(k + ' absent de « Structure et appuis »');
+    for (const k of ['lameCommerce', 'sensPose', 'avecLameRive']) if (!simple.lames.includes(k)) echecs.push(k + ' absent de « Lames et finitions »');
+    await modeExpert(page, true);
+    const expert = await lire();
+    if (expert.ids.join() !== 'implantation,lames,structure,parametres') echecs.push('groupes en mode expert : ' + expert.ids.join());
+    for (const k of fins) if (!expert.structure.includes(k)) echecs.push(k + ' absent en mode expert');
+    if (expert.total !== simple.total) echecs.push('la nomenclature change d’un mode à l’autre');
+    if (simple.deborde || expert.deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `« ${simple.titres.join(' » · « ')} » ; Structure et appuis : ${simple.structure.length} champs (expert : ${expert.structure.length}) ; « ${simple.total.trim().slice(0, 30)} » dans les deux modes` };
+  },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
     // Plan, propose « Essayer la démonstration », « Créer un compte » et « Voir les offres » (la vitrine de la plateforme) ; le bouton
@@ -9489,7 +9530,8 @@ function pointsPour(nomClasse) {
   // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
   // 177 : le mode expert, eteint : ni formats techniques, ni parametres de calcul, ni reglages fins de la 3D ; allume, tout revient.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177];
+  // 178 : l'inspecteur de la terrasse en trois groupes, les reglages du calcul au mode expert ; la nomenclature ne change pas.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

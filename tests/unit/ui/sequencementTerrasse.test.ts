@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { champsVisibles } from '../../../src/ui/champs/types.js';
 import { sectionsConstruction } from '../../../src/ui/champs/construction.js';
 import { creerInspecteur, type ContexteInspecteur } from '../../../src/app/inspecteur.js';
 import { creerMagasin } from '../../../src/app/magasin.js';
@@ -24,33 +25,41 @@ const visibles = (c: ContexteChamps, id: string) => sectionsConstruction(c).find
   .filter(ch => !ch.visible || ch.visible(c)).map(ch => ch.cle);
 
 describe('les etapes d\'une terrasse', () => {
-  it('se suivent numerotees, les parametres de calcul replies a la fin', () => {
+  it('se rangent en trois groupes, les parametres de calcul replies a la fin', () => {
     const sections = sectionsConstruction();
-    expect(sections.map(s => s.id)).toEqual(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'parametres']);
-    expect(sections.map(s => s.titre)).toEqual([
-      'Terrasse · 1. Implantation et niveau', '2. Fondation et assise', '3. Lames et sens de pose', '4. Structure porteuse',
-      '5. Appuis et charges', '6. Finitions du tour', 'Paramètres de calcul'
-    ]);
+    expect(sections.map(s => s.id)).toEqual(['implantation', 'lames', 'structure', 'parametres']);
+    expect(sections.map(s => s.titre)).toEqual(['Terrasse · Forme et niveau', 'Lames et finitions', 'Structure et appuis', 'Paramètres de calcul']);
     expect(sections.filter(s => s.repliee).map(s => s.id)).toEqual(['parametres']);
-    expect(sections.map(s => familleDe(s.id))).toEqual(Array(7).fill('construction'));
+    expect(sections.filter(s => s.expert).map(s => s.id)).toEqual(['parametres']);
+    expect(sections.map(s => familleDe(s.id))).toEqual(Array(4).fill('construction'));
   });
 
-  it('chaque etape ne montre que ce qui decoule des choix precedents', () => {
+  it('chaque groupe ne montre que ce qui decoule des choix precedents', () => {
     const plots = contexte(terrasse(constructionTerrasseNeuve()));
     const vis = contexte(terrasse({ ...defaultConstruction(), typePose: 'vis-fondation' }));
-    // 1. Le niveau, puis ce qui perce la terrasse.
+    // Le niveau, puis ce qui perce la terrasse.
     expect(visibles(plots, 'implantation')).toEqual(['poseDecaissee', 'listeOuvertures', 'ajouterTrou']);
-    // 2. Une vis est fondee : ni modele de plot, ni assise.
-    expect(visibles(vis, 'fondation')).toEqual(['typePose', 'hauteurVis', 'depassementVis']);
-    expect(visibles(plots, 'fondation')).toEqual(['typePose', 'hauteurPlot', 'plotModele', 'supportType', 'supportDecaissement', 'plotSurfaceAssise']);
-    // 4. Sur plots, la structure simple ou double se choisit avant les solives.
-    expect(visibles(plots, 'structure')[0]).toBe('plotAvecSolives');
+    // Une vis est fondee : ni modele de plot, ni assise.
+    expect(visibles(vis, 'structure').slice(0, 3)).toEqual(['typePose', 'hauteurVis', 'depassementVis']);
+    expect(visibles(vis, 'structure')).not.toContain('plotModele');
+    expect(visibles(plots, 'structure').slice(0, 7)).toEqual(['typePose', 'hauteurPlot', 'plotModele', 'supportType', 'supportDecaissement', 'plotSurfaceAssise', 'plotAvecSolives']);
+    // Sur plots, la structure simple ou double se choisit avant les solives.
     expect(visibles(vis, 'structure')).not.toContain('plotAvecSolives');
-    // 5. Les entraxes des appuis : ceux de la vis ou ceux du plot, jamais les deux.
-    expect(visibles(vis, 'appuis')).toContain('visEntraxe');
-    expect(visibles(vis, 'appuis')).not.toContain('plotEntraxe');
-    expect(visibles(plots, 'appuis')).toContain('plotEntraxe');
-    expect(visibles(plots, 'appuis')).not.toContain('visEntraxe');
+    // Les entraxes des appuis : ceux de la vis ou ceux du plot, jamais les deux.
+    expect(visibles(vis, 'structure')).toContain('visEntraxe');
+    expect(visibles(vis, 'structure')).not.toContain('plotEntraxe');
+    expect(visibles(plots, 'structure')).toContain('plotEntraxe');
+    expect(visibles(plots, 'structure')).not.toContain('visEntraxe');
+  });
+
+  it('cache au mode simple les reglages du calcul, et eux seulement', () => {
+    const plots = contexte(terrasse(constructionTerrasseNeuve()));
+    const simple = { ...plots, modeSimple: true } as ContexteChamps;
+    const cache = (id: string) => { const s = sectionsConstruction(simple).find(x => x.id === id)!; const tous = champsVisibles({ ...s, expert: false }, plots).map(c => c.cle); const vus = champsVisibles(s, simple).map(c => c.cle); return tous.filter(k => !vus.includes(k)); };
+    expect(cache('implantation')).toEqual([]);
+    expect(cache('lames')).toEqual(['coefRaideurLame']);
+    expect(cache('structure')).toEqual(['plotSurfaceAssise', 'chargeNormale', 'chargeSpa', 'plotEntraxeAuto', 'visEntraxeZoneSpa', 'visMargeZoneSpa']);
+    expect(champsVisibles(sectionsConstruction(simple).find(x => x.id === 'parametres')!, simple)).toEqual([]);
   });
 
   it('viennent avant la geometrie dans l\'inspecteur, comme celles d\'une piscine', () => {

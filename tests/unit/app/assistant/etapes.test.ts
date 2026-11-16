@@ -52,15 +52,15 @@ describe('une etape confrontee au catalogue', () => {
   });
 
   it('dit un champ, son option et son unite ; refuse une valeur hors des bornes, hors des options, ou mal formee', () => {
-    expect(resoudre1(champ('terrasse', 'lames.essenceBois', 'douglas'))).toMatchObject({ libelle: '3. Lames et sens de pose › Essence de bois : Douglas', refus: null, champ: { valeur: 'douglas' } });
-    expect(resoudre1(champ('terrasse', 'structure.soliveEntraxe', '50'))).toMatchObject({ libelle: '4. Structure porteuse › Entraxe solives : 50 cm', refus: null, champ: { valeur: 50 } });
+    expect(resoudre1(champ('terrasse', 'lames.essenceBois', 'douglas'))).toMatchObject({ libelle: 'Lames et finitions › Essence de bois : Douglas', refus: null, champ: { valeur: 'douglas' } });
+    expect(resoudre1(champ('terrasse', 'structure.soliveEntraxe', '50'))).toMatchObject({ libelle: 'Structure et appuis › Entraxe solives : 50 cm', refus: null, champ: { valeur: 50 } });
     expect(resoudre1(champ('terrasse', 'structure.soliveEntraxe', '5')).refus).toMatch(/sort des bornes du champ \(de 20 cm\)/);
     expect(resoudre1(champ('terrasse', 'lames.essenceBois', 'ipe')).refus).toMatch(/n’est pas une option/);
     expect(resoudre1(champ('terrasse', 'structure.avecLambourde', 'peut-être')).refus).toMatch(/ni oui ni non/);
     expect(resoudre1(champ('terrasse', 'structure.avecLambourde', 'non'))).toMatchObject({ refus: null, champ: { valeur: false } });
     expect(resoudre1(champ('terrasse', 'apparence.fill', 'bleu')).refus).toMatch(/n’est pas une couleur/);
     // Un champ grise a l'ecran (la portee des vis, calculee tant que le mode automatique est coche) ne s'ecrit pas.
-    expect(resoudre1(champ('terrasse', 'appuis.visEntraxe', '150')).refus).toMatch(/grisé/);
+    expect(resoudre1(champ('terrasse', 'structure.visEntraxe', '150')).refus).toMatch(/grisé/);
   });
 
   it('refuse un champ d un objet qui n est pas selectionne, en disant lequel selectionner', () => {
