@@ -233,6 +233,17 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     expect(enregistrer).toHaveBeenCalledOnce();
     expect(enregistrer.mock.calls[0]![0]).toMatchObject({ name: 'Parcelle AE 101', objects: DEMO });
     expect(r.ouvrirAdresse).toBe(false);
+    // Elle s'ouvre cadree sur sa terrasse, comme l'essai sans compte (app/boot.ts, demande du proprietaire, 16 novembre 2026).
+    expect(r.ouvrirSurLaTerrasse).toBe(true);
+  });
+
+  it('rouverte ensuite, la demonstration est un projet comme un autre, cadre sur son terrain', async () => {
+    localStorage.setItem(LS_LAST_PROJECT, 'p1');
+    lister.mockResolvedValue([{ id: 'p1', name: 'Parcelle AE 101' }]);
+    ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
+    const r = await chargerProjetInitial(demo, vi.fn().mockResolvedValue('demo'));
+    expect(enregistrer).not.toHaveBeenCalled();
+    expect(r.ouvrirSurLaTerrasse).toBeFalsy();
   });
 
   it('rend un plan vierge et demande l import cadastre quand on repond « adresse »', async () => {

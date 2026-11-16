@@ -3263,7 +3263,28 @@ const POINTS = {
     //    au moins une fois et demie plus grande que dans le cadrage du terrain (« Ajuster la vue », rien de choisi), centre a l'ecran.
     // 2. Sur le projet de la fumee, la Vue 3D : la camera recule de ce que demandent la terrasse et la maison qu'elle touche
     //    (three/scene.ts, `rayonDOuverture`), moins que ce que demanderait la parcelle.
+    // 3. La demonstration du premier pas (« Ouvrir le plan de démonstration », le projet de la fumee, que le premier pas vient de creer)
+    //    s'ouvre de meme cadree sur la terrasse (demande du proprietaire, 16 novembre 2026) : meme mesure, sur la page de la partie.
     const echecs = [];
+    const mesurerTerrasse = (q) => q.evaluate(() => {
+      const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
+      const el = t && document.querySelector('#stage svg [data-role="obj"][data-key="' + t.key + '"]');
+      const cadre = document.getElementById('stage');
+      if (!el || !cadre) return null;
+      const r = el.getBoundingClientRect(), c = cadre.getBoundingClientRect();
+      return { l: Math.max(r.width, r.height), cx: r.x + r.width / 2, cy: r.y + r.height / 2, c: { x: c.x, y: c.y, w: c.width, h: c.height } };
+    });
+    const juger = (quoi, ouverture, terrain) => {
+      if (!ouverture || !terrain) { echecs.push(quoi + ' : terrasse introuvable au plan'); return ''; }
+      const dedans = ouverture.cx > ouverture.c.x && ouverture.cx < ouverture.c.x + ouverture.c.w && ouverture.cy > ouverture.c.y && ouverture.cy < ouverture.c.y + ouverture.c.h;
+      if (!dedans) echecs.push(quoi + ' : la terrasse n’est pas à l’écran (' + JSON.stringify({ cx: Math.round(ouverture.cx), cy: Math.round(ouverture.cy), c: ouverture.c }) + ')');
+      if (!(ouverture.l >= 1.5 * terrain.l)) echecs.push(quoi + ' : terrasse de ' + ouverture.l.toFixed(0) + ' px à l’ouverture, ' + terrain.l.toFixed(0) + ' px sur le terrain');
+      return `${quoi} : terrasse de ${ouverture.l.toFixed(0)} px à l’ouverture contre ${terrain.l.toFixed(0)} px sur le terrain (×${(ouverture.l / terrain.l).toFixed(1)})`;
+    };
+    const ouverturePremierPas = await mesurerTerrasse(page);
+    await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
+    await page.waitForTimeout(400);
+    const premierPas = juger('premier pas', ouverturePremierPas, await mesurerTerrasse(page));
     const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
     const ctx = await page.context().browser().newContext({ viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
     const p = await ctx.newPage();
@@ -3275,25 +3296,10 @@ const POINTS = {
       await p.locator('[data-controle="porte.essayer"]').click({ timeout: 20000 });
       await p.waitForSelector('#stage svg', { timeout: 30000 });
       await p.waitForTimeout(800);
-      const mesurer = () => p.evaluate(() => {
-        const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
-        const el = t && document.querySelector('#stage svg [data-role="obj"][data-key="' + t.key + '"]');
-        const cadre = document.getElementById('stage');
-        if (!el || !cadre) return null;
-        const r = el.getBoundingClientRect(), c = cadre.getBoundingClientRect();
-        return { l: Math.max(r.width, r.height), cx: r.x + r.width / 2, cy: r.y + r.height / 2, c: { x: c.x, y: c.y, w: c.width, h: c.height } };
-      });
-      const ouverture = await mesurer();
+      const ouverture = await mesurerTerrasse(p);
       await p.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
       await p.waitForTimeout(400);
-      const terrain = await mesurer();
-      if (!ouverture || !terrain) echecs.push('terrasse introuvable au plan');
-      else {
-        const dedans = ouverture.cx > ouverture.c.x && ouverture.cx < ouverture.c.x + ouverture.c.w && ouverture.cy > ouverture.c.y && ouverture.cy < ouverture.c.y + ouverture.c.h;
-        if (!dedans) echecs.push('la terrasse n’est pas à l’écran (' + JSON.stringify({ cx: Math.round(ouverture.cx), cy: Math.round(ouverture.cy), c: ouverture.c }) + ')');
-        if (!(ouverture.l >= 1.5 * terrain.l)) echecs.push('terrasse de ' + ouverture.l.toFixed(0) + ' px à l’ouverture, ' + terrain.l.toFixed(0) + ' px sur le terrain');
-        plan = `démonstration : terrasse de ${ouverture.l.toFixed(0)} px à l’ouverture contre ${terrain.l.toFixed(0)} px sur le terrain (×${(ouverture.l / terrain.l).toFixed(1)})`;
-      }
+      plan = juger('essai', ouverture, await mesurerTerrasse(p));
     } finally { await ctx.close(); }
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
@@ -3324,7 +3330,7 @@ const POINTS = {
       if (Math.abs(r3.d - r3.attendu) > 0.05 * r3.attendu) echecs.push('recul 3D ' + r3.d.toFixed(1) + ' m, attendu ' + r3.attendu.toFixed(1) + ' m');
       if (r3.parcelle !== null && !(r3.d < r3.parcelle)) echecs.push('recul 3D ' + r3.d.toFixed(1) + ' m, pas moins que la parcelle (' + r3.parcelle.toFixed(1) + ' m)');
     }
-    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + plan
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + plan + ' ; ' + premierPas
       + (r3 ? ` ; Vue 3D : recul ${r3.d.toFixed(1)} m (terrasse${r3.touche ? ' et maison' : ''} : ${r3.attendu.toFixed(1)} m ; parcelle : ${r3.parcelle?.toFixed(1)} m)` : '') };
   },
   174: async (page, f) => {
@@ -4660,8 +4666,18 @@ const POINTS = {
       window.__plan.toucher('regard-fumee');
       window.__plan.rendre();
     }, libre.centre);
-    const surLePlan = await page.evaluate(() => { const e = document.querySelector('[data-role="obj"][data-key="regard-fumee"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.width, h: r.height }; });
-    await page.evaluate(() => window.__plan.selectionnerCle('regard-fumee'));
+    // Le regard est dans un coin libre de la parcelle, que l'ouverture sur la terrasse ne montre pas forcement (la demonstration
+    // s'ouvre cadree sur sa terrasse, 16 novembre 2026) : on le selectionne et on cadre sur lui, le geste « Ajuster » d'une personne,
+    // puis on le mesure, a l'ecran, dans le cadre du plan.
+    await page.evaluate(() => { window.__plan.selectionnerCle('regard-fumee'); window.__plan.executer('vue.ajuster'); });
+    await page.waitForTimeout(300);
+    const surLePlan = await page.evaluate(() => {
+      const e = document.querySelector('#stage svg [data-role="obj"][data-key="regard-fumee"]'), c = document.getElementById('stage');
+      if (!e || !c) return null;
+      const r = e.getBoundingClientRect(), k = c.getBoundingClientRect();
+      const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      return { l: r.width, h: r.height, aLEcran: cx > k.x && cx < k.x + k.width && cy > k.y && cy < k.y + k.height };
+    });
     await inspecteur(page);
     await ouvrirSection(page, 'equipement');
     // Une liste au bureau, une commande segmentee au doigt : la nature se lit sur la liste, ou sur le choix actif.
@@ -4689,8 +4705,8 @@ const POINTS = {
     });
     await image3dStable(page, 3000);
     if (process.env.FUMEE_CAPTURE_L3) await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: `${process.env.FUMEE_CAPTURE_L3}-regard-${f.nom}.png`, timeout: 120000 }).catch((e) => console.error('capture L3 : ' + e.message.split('\n')[0]));
-    const ok = !!surLePlan && surLePlan.l > 0 && Math.abs(surLePlan.l - surLePlan.h) < 2 && nature === 'regard' && !!lu && lu.epaisseur <= 0.04 && lu.cote === 0.6;
-    return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + Math.round(lu.epaisseur * 1000) / 10 + ' cm d’épaisseur' : 'ABSENTE'}` };
+    const ok = !!surLePlan && surLePlan.aLEcran && surLePlan.l > 0 && Math.abs(surLePlan.l - surLePlan.h) < 2 && nature === 'regard' && !!lu && lu.epaisseur <= 0.04 && lu.cote === 0.6;
+    return { ok, mesure: `plan ${surLePlan ? Math.round(surLePlan.l) + '×' + Math.round(surLePlan.h) + ' px' + (surLePlan.aLEcran ? '' : ' HORS DU CADRE') : 'ABSENT'} ; nature « ${nature ?? 'ABSENTE'} » ; 3D ${lu ? 'plaque de ' + lu.cote + ' m, ' + Math.round(lu.epaisseur * 1000) / 10 + ' cm d’épaisseur' : 'ABSENTE'}` };
   },
   115: async (page, f) => {
     // La lecture du jardin dans l'audit (lot L3), contre une API simulee : une tuile d'orthophoto posee sous la parcelle (l'image de
@@ -9376,7 +9392,7 @@ function pointsPour(nomClasse) {
   // 170 : l'import par adresse en une etape, par defaut : le resume et « Créer le projet », sans « 2/3 » ni « 3/3 ».
   // 171 : la terrasse de depart posee par cet import, contre la maison, jamais sur un batiment, avec sa nomenclature.
   // 172 : le catalogue des lames du commerce : « Lame » en tete de la section, le detail replie, un choix qui pose les quatre reglages.
-  // 173 : la demonstration (essai sans compte) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
+  // 173 : la demonstration (essai sans compte, et celle du premier pas) s'ouvre cadree sur sa terrasse ; la Vue 3D s'ouvre sur la terrasse et sa maison.
   // 174 : l'aide de premiere utilisation : trois bulles une fois par appareil, retenues, « Passer ».
   // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
