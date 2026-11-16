@@ -3757,9 +3757,16 @@ const POINTS = {
     const { vues: [photo] } = photosScene('02-enduit-uni-face');
     const JARGON = /É\d|(?<![\p{L}\d])V[1-4](?![\p{L}\d])/u;
     await modeExpert(page, false);
-    // Au doigt, la feuille Projet vient de se fermer : on la laisse finir avant de la rouvrir sur le menu Fichier.
+    // Au doigt, la feuille Projet vient de se fermer : on la laisse finir avant de la rouvrir sur le menu Fichier. L'entree se touche
+    // par le DOM : une notification d'avertissement (la capacite du relief forcee) peut passer par-dessus au telephone.
     await page.waitForTimeout(500);
-    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('ouvrir', async () => {
+      if ((await classe(page)) !== 'large') await feuille(page, 'projet');
+      await page.evaluate(() => { document.getElementById('menuFichier')?.setAttribute('open', ''); });
+      await page.waitForTimeout(200);
+      await page.evaluate(() => document.querySelector('#menuFichier [data-commande="audit.parcelle"]')?.click());
+      await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 10000 });
+    });
     await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
     await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
