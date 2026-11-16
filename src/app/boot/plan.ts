@@ -8,6 +8,7 @@ import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { creerRegistre } from '../commandes.js';
 import { droitsCourants, enLectureSeule } from '../acces.js';
 import { creerMagasin } from '../magasin.js';
+import { brancherModeExpert } from '../modeExpert.js';
 import type { Inspecteur } from '../inspecteur.js';
 import type { Explorateur } from '../explorateur.js';
 import type { Projet } from '../projet.js';
@@ -60,7 +61,9 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   // Les droits viennent de la plateforme quand il y en a une, et laissent tout passer sinon.
   // Le nombre de projets vus : la limite se compte aussi sur eux (plateforme/quotaProjets.ts).
   retenirProjetsConnus(seed.list.length);
-  const commandes = creerRegistre(droitsCourants(), (_id, message) => signalerLimiteProjets(message));
+  // Le mode expert, une preference de l'appareil (app/modeExpert.ts) : eteint, le registre efface les commandes qui lui sont reservees.
+  brancherModeExpert(magasin);
+  const commandes = creerRegistre(droitsCourants(), (_id, message) => signalerLimiteProjets(message), () => !magasin.store.getState().options.modeExpert);
   // Le selecteur d'objets est l'explorateur (zones/) : il se redessine sur le magasin.
   const rebuildSelector = () => magasin.notifier();
   const refreshTerrasseView = () => tardifs.vues?.refreshTerrasseView();

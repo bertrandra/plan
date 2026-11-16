@@ -272,6 +272,39 @@ async function cadrerParcelle(page) {
 }
 async function classe(page) { return page.evaluate(() => window.__plan.magasin().classe); }
 async function feuille(page, f) { await page.evaluate((f) => window.__plan.ouvrirFeuille(f), f); await page.waitForTimeout(280); }
+/**
+ * Allume ou eteint le mode expert (app/modeExpert.ts) comme la personne : la case du menu Affichage (dans la feuille Projet au doigt).
+ * Rend ce que la case dit ensuite.
+ */
+async function modeExpert(page, voulu) {
+  const tactile = (await classe(page)) !== 'large';
+  if (tactile) await feuille(page, 'projet');
+  await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+  await page.waitForTimeout(150);
+  const caseExpert = page.locator('#chkModeExpert');
+  if ((await caseExpert.isChecked()) !== voulu) await caseExpert.click();
+  await page.waitForTimeout(250);
+  const coche = await caseExpert.isChecked();
+  await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+  if (tactile) await feuille(page, null);
+  return coche;
+}
+/** Les entrees d'un menu de la barre, lues menu ouvert (un menu ferme ne relit pas l'etat de ses commandes). */
+async function entreesDuMenu(page, id) {
+  const tactile = (await classe(page)) !== 'large';
+  if (tactile) await feuille(page, 'projet');
+  await page.evaluate((id) => document.getElementById(id)?.setAttribute('open', ''), id);
+  await page.waitForTimeout(200);
+  const r = await page.evaluate((id) => {
+    const m = document.getElementById(id);
+    return m ? { commandes: [...m.querySelectorAll('[data-commande]')].map((e) => e.getAttribute('data-commande')),
+      controles: [...m.querySelectorAll('[data-controle]')].map((e) => e.getAttribute('data-controle')),
+      entrees: [...m.querySelectorAll(':scope > ul > li')].filter((li) => getComputedStyle(li).display !== 'none' && !li.classList.contains('separateur') && !li.classList.contains('menuAide') && !li.classList.contains('refusMenu')).length } : null;
+  }, id);
+  await page.evaluate((id) => document.getElementById(id)?.removeAttribute('open'), id);
+  if (tactile) await feuille(page, null);
+  return r;
+}
 const proches = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const aire = (pts) => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p.x * q.y - q.x * p.y; }, 0) / 2);
 const angle = (pts, i) => {
@@ -3472,6 +3505,73 @@ const POINTS = {
       return `premier pas « ${r.titre} », offres → ${r.offres}`;
     });
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '') + dans + ' ; ' + plein };
+  },
+  177: async (page, f) => {
+    // Le mode expert (lot 3 de la simplification, 16 novembre 2026) : eteint, les formats techniques (SVG, DXF, GLB, les JSON et
+    // leurs options, la visionneuse GLB), les parametres de calcul de la terrasse et les reglages fins de la Vue 3D (opaques, soleil)
+    // ne se montrent pas, et le registre refuse leurs commandes ; allume par sa case du menu Affichage, tout revient a sa place. Une
+    // preference de l'appareil : ni Ctrl+Z ni « projet modifie », retenue au rechargement.
+    const echecs = [];
+    const lireEcran = async () => {
+      const fichier = await entreesDuMenu(page, 'menuFichier');
+      const exporter = await entreesDuMenu(page, 'menuExporter');
+      await page.evaluate(() => window.__plan.selectionnerPremiere('terrasse'));
+      await page.waitForTimeout(200);
+      // Les reglages de la Vue 3D se lisent vue ouverte : cachee, la zone garde ce qu'elle montrait (sa cle est gelee).
+      await page.evaluate(() => window.__plan.executer('vue.3d'));
+      await page.waitForTimeout(1200);
+      const v3d = await page.evaluate(() => ({ opaques: !!document.querySelector('#terrasse3dObjectsOpaque'), soleil: !!document.querySelector('[data-controle="vue3d.intensite"]') }));
+      await page.evaluate(() => window.__plan.executer('vue.plan'));
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => ({
+        visionneuse: !!document.querySelector('#glbViewerBtn'), parametres: !!document.querySelector('details.inspecteurSection[data-section="parametres"]'),
+        // En mode simple seulement : allume, la commande telechargerait le fichier.
+        dxf: window.__plan.magasin().options.modeExpert ? null : window.__plan.executer('export.dxf') === false ? 'refusé' : 'exécuté'
+      }));
+      return { fichier, exporter, ...v3d, ...r };
+    };
+    const techniques = ['fichier.importerSvg', 'fichier.importerJson', 'fichier.exporterJson'];
+    const options = ['fichier.option.remplacerImportSvg', 'fichier.option.remplacerImportJson', 'fichier.option.exportSansParcelle'];
+    const exports = ['export.svg', 'export.dxf', 'export.glb'];
+    const avant = await page.evaluate(() => ({ dirty: window.__plan.etat().dirty, annuler: window.__plan.magasin().peutAnnuler }));
+    if (await modeExpert(page, false)) echecs.push('la case ne s’éteint pas');
+    const simple = await lireEcran();
+    const stocke = await page.evaluate(() => localStorage.getItem('plan.modeExpert'));
+    if (stocke !== 'non') echecs.push('préférence « ' + stocke + ' » après extinction');
+    for (const id of techniques) if (simple.fichier?.commandes.includes(id)) echecs.push(id + ' visible en mode simple');
+    for (const id of options) if (simple.fichier?.controles.includes(id)) echecs.push(id + ' visible en mode simple');
+    for (const id of exports) if (simple.exporter?.commandes.includes(id)) echecs.push(id + ' visible en mode simple');
+    if (!simple.exporter?.commandes.includes('export.png') || !simple.exporter?.commandes.includes('export.pdf')) echecs.push('PNG ou PDF du plan retirés');
+    if (simple.visionneuse) echecs.push('visionneuse GLB visible');
+    if (simple.parametres) echecs.push('« Paramètres de calcul » visibles');
+    if (simple.opaques || simple.soleil) echecs.push('réglages fins de la 3D visibles');
+    if (simple.dxf !== 'refusé') echecs.push('export.dxf exécuté en mode simple');
+    const apres = await page.evaluate(() => ({ dirty: window.__plan.etat().dirty, annuler: window.__plan.magasin().peutAnnuler }));
+    if (apres.dirty !== avant.dirty || apres.annuler !== avant.annuler) echecs.push('la bascule touche le projet (modifié ou Ctrl+Z)');
+    // Retenu au rechargement.
+    await page.reload();
+    const demo = page.getByRole('button', { name: /d[ée]monstration/i });
+    await Promise.race([page.waitForSelector('#stage svg', { timeout: 30000 }), demo.waitFor({ timeout: 30000 })]).catch(() => {});
+    if (await demo.count()) await demo.click();
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) await garder.click();
+    if (await page.evaluate(() => window.__plan.magasin().options.modeExpert)) echecs.push('mode simple oublié au rechargement');
+    // Allume : tout revient.
+    if (!(await modeExpert(page, true))) echecs.push('la case ne s’allume pas');
+    const expert = await lireEcran();
+    for (const id of techniques) if (!expert.fichier?.commandes.includes(id)) echecs.push(id + ' absent en mode expert');
+    for (const id of options) if (!expert.fichier?.controles.includes(id)) echecs.push(id + ' absent en mode expert');
+    for (const id of exports) if (!expert.exporter?.commandes.includes(id)) echecs.push(id + ' absent en mode expert');
+    if (!expert.visionneuse) echecs.push('visionneuse GLB absente en mode expert');
+    if (!expert.parametres) echecs.push('« Paramètres de calcul » absents en mode expert');
+    if (!expert.opaques || !expert.soleil) echecs.push('réglages fins de la 3D absents en mode expert');
+    if (await page.evaluate(() => localStorage.getItem('plan.modeExpert')) !== 'oui') echecs.push('préférence non écrite à l’allumage');
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `mode simple : Fichier ${simple.fichier?.entrees} entrées, Exporter ${simple.exporter?.entrees}, export.dxf ${simple.dxf} ; mode expert : Fichier ${expert.fichier?.entrees}, Exporter ${expert.exporter?.entrees} ; ni « modifié » ni Ctrl+Z ; retenu au rechargement` };
   },
   169: async (page, f) => {
     // Essayer sans compte (lot 6 du parcours client, 16 novembre 2026) : dans un contexte vierge, sans session, la porte dit ce que fait
@@ -9380,7 +9480,8 @@ function pointsPour(nomClasse) {
   // 174 : l'aide de premiere utilisation : trois bulles une fois par appareil, retenues, « Passer ».
   // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176];
+  // 177 : le mode expert, eteint : ni formats techniques, ni parametres de calcul, ni reglages fins de la 3D ; allume, tout revient.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
@@ -9465,6 +9566,16 @@ async function principal() {
   const aJouer = parties();
   const parallele = Math.max(1, Number(process.env.FUMEE_PARALLELE) || Math.min(4, Math.max(1, Math.floor(cpus().length / 4))));
   const navigateur = await chromium.launch();
+  // Le mode expert (app/modeExpert.ts) est eteint sur un appareil neuf. Les points d'avant le lot 3 de la simplification jouent ce
+  // qu'il cache (exports techniques, parametres de calcul, reglages fins de la 3D) : chaque contexte, le premier comme ceux qu'un
+  // point ouvre, l'allume tant que la page ne l'a pas regle elle-meme. Les points du lot 3 (177 et suivants) l'eteignent par sa
+  // case, comme la personne, pour jouer l'ecran de tous les jours.
+  const nouveauContexte = navigateur.newContext.bind(navigateur);
+  navigateur.newContext = async (options) => {
+    const c = await nouveauContexte(options);
+    await c.addInitScript(() => { try { if (localStorage.getItem('plan.modeExpert') === null) localStorage.setItem('plan.modeExpert', 'oui'); } catch { /* stockage absent */ } });
+    return c;
+  };
   const net = reseau(await choisirModeReseau(navigateur));
   console.log(`${aJouer.length} partie(s), ${parallele} à la fois, ${net.mode === 'direct' ? 'réseau direct' : net.mode === 'temoin' ? 'réseau rejoué (données témoin)' : 'réseau enregistré'}\n`);
   const resultats = new Array(aJouer.length);

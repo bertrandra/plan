@@ -14,6 +14,7 @@ import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, version3d, vue3d, poserHote3d } from '../../three/etat3d.js';
 import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
+import { controleMontre } from '../../app/modeExpert.js';
 import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
@@ -199,6 +200,8 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   // l'horloge du canevas, qu'un clic ouvre et referme.
   const [tiroir, setTiroir] = useState(false);
   const [heure, setHeure] = useState(false);
+  // Les reglages fins de la scene (app/controlesInterface.ts, `expert`) : le mode expert seul les montre (app/modeExpert.ts).
+  const montre = (cle: string) => controleMontre(magasin.store.getState(), cle);
   // Le plein page change la taille de l'hote : la scene suit, une fois la mise en page faite. Le
   // tiroir, lui, glisse par-dessus la scene sans la redimensionner.
   useLayoutEffect(() => { vues.redimensionner3d(); }, [pleinePage, vues]);
@@ -235,11 +238,11 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
               <legend>Scène</legend>
               <Case id="terrasse3dAllObjects" controle="vue3d.tousLesObjets" libelle="Tous les objets" coche={vue3d.tousLesObjets} onChange={r.basculerTousLesObjets}
                 titre="Afficher tous les objets du plan, pas seulement la terrasse et ce qui lui est lié" />
-              <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Opaques" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques}
-                titre="Objets opaques (sinon l'opacité qu'ils ont sur le plan)" />
+              {montre('vue3d.objetsOpaques') && <Case id="terrasse3dObjectsOpaque" controle="vue3d.objetsOpaques" libelle="Opaques" coche={vue3d.objetsOpaques} onChange={r.basculerOpaques}
+                titre="Objets opaques (sinon l'opacité qu'ils ont sur le plan)" />}
               <Case id="terrasse3dTextures" controle="vue3d.textures" libelle="Textures" coche={vue3d.textures} onChange={r.basculerTextures}
                 titre="Décochez pour ignorer les textures et revenir à la couleur unie du plan, sans avoir à les retirer de chaque objet" />
-              {vue3d.textures && <Case id="terrasse3dSansOmbres" controle="vue3d.facadesSansOmbres" libelle="Façades sans ombres" coche={vue3d.facadesSansOmbres} onChange={r.basculerFacadesSansOmbres}
+              {vue3d.textures && montre('vue3d.facadesSansOmbres') && <Case id="terrasse3dSansOmbres" controle="vue3d.facadesSansOmbres" libelle="Façades sans ombres" coche={vue3d.facadesSansOmbres} onChange={r.basculerFacadesSansOmbres}
                 titre="Estompe les ombres de la photo sur les façades relevées (débord du toit, balcon, arbre) : la Vue 3D pose les siennes. Sans effet sur la photo enregistrée ni sur l'export" />}
               <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombres" coche={vue3d.ombres} onChange={r.basculerOmbres}
                 titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
@@ -253,10 +256,10 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
                 </select>
               </label>
             </fieldset>
-            <fieldset className="groupe3d groupeSoleil3d">
+            {montre('vue3d.intensite') && <fieldset className="groupe3d groupeSoleil3d">
               <legend>Soleil</legend>
               <LigneIntensite ids={IDS_SOLEIL} soleil={vues.soleil3d}><CaseAppoint ids={IDS_SOLEIL} soleil={vues.soleil3d} /></LigneIntensite>
-            </fieldset>
+            </fieldset>}
             <GroupeVoisinage inspecteur={inspecteur} magasin={magasin} /><GroupePresentation commandes={commandes} />
             <fieldset className="groupe3d">
               <legend>Points de vue</legend>

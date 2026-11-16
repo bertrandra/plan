@@ -12,6 +12,7 @@
 // lies a l'etat ; ils rejoindront le magasin zone par zone.
 
 import { DESCRIPTIONS } from './descriptions.js';
+import { MODE_EXPERT } from './exposition.js';
 
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
@@ -71,6 +72,7 @@ export const PHRASE_PERMISSION = "Un administrateur de votre organisation peut v
 export const PHRASE_CAPACITE = "Cette fonction n'est pas comprise dans l'abonnement de votre organisation.";
 export const PHRASE_QUOTA = "Votre organisation a atteint ce que son abonnement prevoit.";
 export const PHRASE_LECTURE_PARTAGEE = "Ce projet partagé se lit sans rien modifier.";
+export const PHRASE_MODE_EXPERT = "Allumez le mode expert (menu Affichage) pour retrouver cette commande.";
 
 /**
  * Ce sur quoi porte une commande parametree : l'objet du plan, la cote, et une valeur quand le geste
@@ -151,7 +153,12 @@ export interface RegistreCommandes {
  * Les boutons sont des zones React (zones/) qui appellent `executer` avec leur element en source : le
  * registre ne cherche plus rien dans la page.
  */
-export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (id: string, message: string) => void): RegistreCommandes {
+/**
+ * `modeSimple` : vrai tant que le mode expert est eteint (app/modeExpert.ts). Les commandes de `MODE_EXPERT` (app/exposition.ts)
+ * disparaissent alors comme une capacite manquante, avec ou sans plateforme : c'est la preference de la personne, pas un droit, et
+ * elles reviennent toutes quand elle l'allume. Absent (les tests, l'ecran de calibration) : rien n'est cache.
+ */
+export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (id: string, message: string) => void, modeSimple?: () => boolean): RegistreCommandes {
   const commandes = new Map<string, Commande>();
   const gardes = new Set<(id: string, source?: HTMLElement, cible?: Cible) => boolean>();
   const registre: RegistreCommandes = {
@@ -185,6 +192,7 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
     etat(id) {
       const c = commandes.get(id);
       if (!c) return { utilisable: false, raison: 'inconnue' };
+      if (MODE_EXPERT[id] !== undefined && modeSimple?.()) return { utilisable: false, raison: 'capacite', message: PHRASE_MODE_EXPERT };
       if (droits.branchee()) {
         if (droits.retire?.(c)) return { utilisable: false, raison: 'capacite', message: PHRASE_LECTURE_PARTAGEE };
         if (c.capacite && !droits.aCapacite(c.capacite)) return { utilisable: false, raison: 'capacite', message: PHRASE_CAPACITE };

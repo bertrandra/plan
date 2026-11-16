@@ -102,10 +102,16 @@ export interface OptionsCommandes {
    * l'appareil, gardee dans le navigateur : ni Ctrl+Z, ni « projet modifie ».
    */
   enregistrementAuto: boolean;
+  /**
+   * Affichage : le mode expert (app/modeExpert.ts). Eteint, l'ecran cache les formats techniques, les constantes de calcul et les
+   * reglages fins de la 3D ; une preference de l'appareil, eteinte par defaut : ni Ctrl+Z, ni « projet modifie », permise en
+   * lecture seule.
+   */
+  modeExpert: boolean;
 }
 
 export const OPTIONS_PAR_DEFAUT: OptionsCommandes = {
-  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200, enregistrementAuto: true
+  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200, enregistrementAuto: true, modeExpert: false
 };
 
 export interface Magasin {

@@ -280,3 +280,20 @@ export const SANS_OBJET_ADMIS: Record<string, string> = {
   '3d.pleinePage': 'Sur telephone et tablette, la vue 3D occupe deja tout l\'ecran.',
   'visionneuse.pleinePage': 'Sur telephone et tablette, la visionneuse occupe deja tout l\'ecran.'
 };
+
+/**
+ * Les commandes du mode expert (lot 3 de la simplification de l'interface, 16 novembre 2026), et pourquoi la personne ordinaire
+ * n'en a pas besoin. Le mode expert est une preference de l'appareil, eteinte par defaut (app/modeExpert.ts) : eteint, le registre
+ * efface ces commandes comme une capacite que l'organisation n'a pas (app/commandes.ts), dans les trois classes, sans qu'aucune zone
+ * ne les nomme ; allume, elles reviennent toutes, la ou cette carte les expose. Ce sont les formats techniques : ceux qu'un autre
+ * logiciel relit (DAO, scene 3D, fichier du projet), pas ceux qu'on imprime ou qu'on envoie a un client (devis, PDF, PNG).
+ */
+export const MODE_EXPERT: Record<string, string> = {
+  'export.svg': 'Format technique : un dessin vectoriel a reprendre dans un autre logiciel.',
+  'export.dxf': 'Format technique : un fichier de DAO.',
+  'export.glb': 'Format technique : la scene 3D, pour un autre logiciel.',
+  'vue.visionneuse': 'Relit le dernier GLB exporte, un format technique.',
+  'fichier.importerSvg': 'Format technique : un dessin vectoriel venu d\'un autre logiciel.',
+  'fichier.importerJson': 'Format technique : le fichier brut d\'un projet.',
+  'fichier.exporterJson': 'Format technique : le fichier brut d\'un projet ; le projet s\'enregistre et se partage sans lui.'
+};

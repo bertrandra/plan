@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Mode expert** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Une case « Mode expert », au bas du menu Affichage
+  (feuille Projet au doigt), **éteinte par défaut** : une préférence de l'appareil, gardée dans le navigateur, sans Ctrl+Z ni
+  « projet modifié », permise en lecture seule. Éteinte, l'écran ne montre plus les **formats techniques** (Exporter : SVG, DXF,
+  GLB ; Fichier : importer un SVG, importer et exporter le projet en JSON, avec leurs options ; la Visionneuse GLB), les
+  **constantes de calcul** (la section « Paramètres de calcul » d'une terrasse) ni les **réglages fins de la 3D** (objets
+  opaques, façades sans ombres, intensité du soleil et lumière d'appoint ; les teintes et dimensions des maisons, vitres et clôtures
+  du voisinage). Allumée, tout revient à sa place. Rien n'est retiré du programme, et rien ne change dans un projet : un réglage
+  caché garde sa valeur, le calcul la lit comme avant. Une commande cachée l'est par le registre (`MODE_EXPERT` dans
+  `app/exposition.ts`, effacée comme une capacité manquante), un champ par son descripteur (`expert`, `ui/champs/types.ts`), un
+  contrôle de la Vue 3D par le catalogue (`app/controlesInterface.ts`). Point de fumée 177 ; le harnais de la fumée allume le
+  mode expert pour les points d'avant, qui jouent ce qu'il cache.
+
 - **Partir d'une adresse en une étape, avec une terrasse de départ** (lot 2 de la simplification de l'IHM, le parcours d'entrée,
   16 novembre 2026). L'import par adresse est désormais **direct par défaut** : l'adresse, la parcelle trouvée, un résumé, puis
   « Créer le projet » ; le titre ne compte plus d'étapes (« Nouveau projet depuis une adresse »). Les étapes 2 (choix de la parcelle)

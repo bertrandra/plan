@@ -280,6 +280,8 @@
   details.menu li button kbd{ margin-left:auto; font-family:var(--sans); font-size:0.68rem; color:var(--ink-soft); }
   details.menu li button:disabled{ opacity:0.4; cursor:not-allowed; }
   details.menu li.separateur{ height:1px; background:var(--rule); margin:4px 6px; }
+  /* Un groupe d'entrees effacees (une capacite manquante, le mode expert eteint) ne laisse pas deux filets de suite, ni un filet en bas. */
+  details.menu li.separateur + li.separateur, details.menu li.separateur:last-child{ display:none; }
   details.menu li.menuCase label, details.menu li.menuReglage label{
     display:flex; align-items:center; gap:8px; padding:6px 10px 6px 12px; min-height:32px; cursor:pointer; font-size:0.76rem; color:var(--ink);
   }
