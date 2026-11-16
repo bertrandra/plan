@@ -36,6 +36,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   contrôle de la Vue 3D par le catalogue (`app/controlesInterface.ts`). Point de fumée 177 ; le harnais de la fumée allume le
   mode expert pour les points d'avant, qui jouent ce qu'il cache.
 
+### Modifié
+
+- **La démonstration du premier pas s'ouvre aussi sur sa terrasse** (lot 2 de la simplification de l'IHM, demande du propriétaire,
+  16 novembre 2026). La démonstration que « Par quoi commencer ? » crée après connexion s'ouvrait sur le terrain entier, quand
+  l'essai sans compte se cadre sur la terrasse et la maison qu'elle touche ; elle se cadre désormais de même, par le même
+  `Cadrage.cadrerTerrasse`, quand le premier pas vient de la créer (`io/api.ts`, `ouvrirSurLaTerrasse`). Rouverte ensuite, comme
+  tout projet, elle garde le cadrage du terrain. Seul le cadrage de la vue change : aucune quantité, aucun export (empreintes
+  identiques ; AE 101 identique). Le point de fumée 173 mesure aussi la démonstration du premier pas ; le point 111 cadre sur le
+  regard qu'il pose (« Ajuster ») avant de le mesurer au plan, et doit le trouver à l'écran ; le point 35 glisse depuis le fond
+  du plan là où il est à l'écran (la parcelle couvre désormais le bord gauche, d'où il partait).
+
 ## [5.34.0] — 2026-11-16
 
 Version **mineure** au sens de `MD/RELEASE.md` : le parcours d'entrée gagne des fonctions nouvelles, sans rien retirer ni changer
@@ -93,15 +104,11 @@ de la 5.33.0, s'il n'est pas déjà appliqué) :
 - **La démonstration et la Vue 3D s'ouvrent sur la terrasse** (lot 2 de la simplification de l'IHM, le parcours d'entrée,
   16 novembre 2026). La démonstration sans compte (« Essayer la démonstration ») s'ouvrait sur le terrain entier et son voisinage,
   la terrasse grande comme un timbre ; elle se cadre désormais sur la terrasse et la maison qu'elle touche (à 2 m près ;
-  `Cadrage.cadrerTerrasse`). La démonstration de « Par quoi commencer ? » (le premier pas après connexion) s'ouvre de même sur sa
-  terrasse quand le premier pas vient de la créer (`io/api.ts`, `ouvrirSurLaTerrasse`) ; rouverte ensuite, comme tout projet, elle
-  garde le cadrage du terrain. La Vue 3D, elle,
+  `Cadrage.cadrerTerrasse`). Un projet, la démonstration de « Par quoi commencer ? » comprise (c'est un projet enregistré), garde
+  le cadrage du terrain. La Vue 3D, elle,
   s'ouvre sur la terrasse et sa maison (`three/scene.ts::rayonDOuverture`, au moins 4 m), au lieu de reculer jusqu'à la parcelle
   et ses mitoyennes ; le reste se voit en reculant. Seul le recul de la caméra change : le sol, les ombres et la brume gardent
-  l'étendue de la scène, et rien de ce qui s'exporte ne bouge (empreintes identiques, `.glb` compris). Point de fumée 173, qui
-  mesure aussi la démonstration du premier pas ; le point 111 cadre sur le regard qu'il pose (« Ajuster »), hors du cadre de la
-  terrasse, avant de le mesurer au plan ; le point 35 glisse depuis le fond du plan là où il est à l'écran (la parcelle couvre
-  désormais le bord gauche, d'où il partait).
+  l'étendue de la scène, et rien de ce qui s'exporte ne bouge (empreintes identiques, `.glb` compris). Point de fumée 173.
 
 - **Une aide de première utilisation, en trois bulles** (lot 2 de la simplification de l'IHM, le parcours d'entrée, 16 novembre 2026).
   À la première ouverture de Plan sur un appareil, une fois le plan à l'écran et rien d'ouvert par-dessus (l'import par adresse,
