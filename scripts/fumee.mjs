@@ -1060,6 +1060,9 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('projet.depuisAdresse'));
     const boite = page.locator('.dialogueCadastre');
     await boite.waitFor({ timeout: 15000 });
+    // Les etapes 2 et 3, demandees : l'import direct est le parcours par defaut depuis le lot 2 (point 170) ;
+    // ce point eprouve le parcours complet, et ses temoins du reseau sont ceux de ce parcours.
+    await boite.locator('[data-controle="cadastre.importDirect"]').uncheck();
     await boite.locator('input.promptInput').first().fill(ADRESSE);
     // La saisie declenche le geocodage au bout de 250 ms ; Entree prend la premiere suggestion, qu'on
     // attend plutot que deux secondes fixes.
@@ -3141,6 +3144,118 @@ const POINTS = {
     }
     await page.setViewportSize({ width: f.width, height: f.height });
     return { ok: echecs.length === 0, mesure: mesures.join(' ; ') + (echecs.length ? ' ; ÉCHECS : ' + echecs.join(' ; ') : '') };
+  },
+  170: async (page) => {
+    // Import par adresse en une etape (lot 2 de la simplification, 16 novembre 2026) : sans rien cocher, l'adresse, la parcelle trouvee,
+    // un resume et « Créer le projet » ; ni « 2/3 » ni « 3/3 ». La case « Import direct » est cochee par defaut, « Ajuster (étapes 2 et 3) »
+    // reste offert. Le plan s'ouvre sur la parcelle de l'adresse, avec son bati.
+    const echecs = [];
+    const avant = (await lireEtat(page)).objects.length;
+    await page.evaluate(() => window.__plan.executer('projet.depuisAdresse'));
+    const boite = page.locator('.dialogueCadastre');
+    await boite.waitFor({ timeout: 15000 });
+    const titre = ((await boite.locator('.titreParcours').textContent()) ?? '').trim();
+    if (titre !== 'Nouveau projet depuis une adresse') echecs.push('titre « ' + titre + ' »');
+    const coche = await boite.locator('[data-controle="cadastre.importDirect"]').isChecked();
+    if (!coche) echecs.push('import direct non coché par défaut');
+    await boite.locator('input.promptInput').first().fill(ADRESSE);
+    await boite.locator('[data-controle="cadastre.suggestion"]').first().waitFor({ timeout: 15000 }).catch(() => {});
+    await boite.locator('input.promptInput').first().press('Enter');
+    await boite.locator('[data-controle="cadastre.creerDirect"]').waitFor({ timeout: 60000 });
+    const etapes = await page.evaluate(() => /\((2|3)\/3\)/.test(document.querySelector('.dialogueCadastre')?.textContent ?? ''));
+    if (etapes) echecs.push('une étape 2/3 ou 3/3 affichée');
+    const ajuster = await boite.locator('[data-controle="cadastre.ajuster"]').count();
+    if (!ajuster) echecs.push('« Ajuster (étapes 2 et 3) » absent');
+    const resume = ((await boite.locator('.infoParcelle').first().textContent()) ?? '').replace(/\s+/g, ' ').trim();
+    const deborde = await page.evaluate(() => { const b = document.querySelector('.dialogueCadastre'); return !!b && (b.getBoundingClientRect().right > innerWidth + 1 || document.documentElement.scrollWidth > innerWidth + 1); });
+    if (deborde) echecs.push('le dialogue déborde');
+    await boite.locator('[data-controle="cadastre.creerDirect"]').click();
+    await page.waitForFunction((n) => !document.querySelector('.dialogueCadastre') && !!window.__plan?.etat && window.__plan.etat().objects.length !== n, avant, { timeout: 90000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    const etat = await lireEtat(page);
+    const c = objet(etat, (o) => o.key === 'parcelle')?.cadastre;
+    const batiments = etat.objects.filter((o) => o.fonction === 'batiment' && !o.voisinage).length;
+    if (!c) echecs.push('aucune parcelle cadastrée au plan');
+    if (!batiments) echecs.push('aucun bâtiment');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `titre « ${titre} », import direct coché ; résumé « ${resume.slice(0, 90)}… » ; → ${c ? c.section + ' ' + c.numero : '—'}, ${etat.objects.length} objets dont ${batiments} bâtiment(s)` };
+  },
+  171: async (page, contexte) => {
+    // La terrasse de depart (lot 2) : l'import en une etape (point 170) pose une terrasse de 4 x 3 m contre la maison, jamais sur un
+    // batiment, dans la parcelle, avec sa nomenclature ; decochee, aucune.
+    const imp = await POINTS[170](page, contexte);
+    if (!imp.ok) return { ok: false, mesure: 'import préalable : ' + imp.mesure };
+    const r = await page.evaluate(() => {
+      const objets = window.__plan.etat().objects;
+      const dans = (p, q) => { let d = false; for (let i = 0, j = q.length - 1; i < q.length; j = i++) { const a = q[i], b = q[j]; if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) d = !d; } return d; };
+      const terr = objets.filter((o) => o.fonction === 'terrasse');
+      const bati = objets.filter((o) => o.fonction === 'batiment' && !o.voisinage && o.pts?.length >= 3);
+      const parcelle = objets.find((o) => o.key === 'parcelle');
+      const t = terr[0];
+      if (!t) return { n: 0 };
+      const milieu = { x: t.pts.reduce((s, p) => s + p.x, 0) / t.pts.length, y: t.pts.reduce((s, p) => s + p.y, 0) / t.pts.length };
+      const echant = [...t.pts.map((p) => ({ x: p.x * 0.98 + milieu.x * 0.02, y: p.y * 0.98 + milieu.y * 0.02 })), milieu];
+      const surBati = bati.some((b) => echant.some((p) => dans(p, b.pts)) || b.pts.some((p) => dans(p, t.pts)));
+      const dist = (p, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy || 1; const u = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)); return Math.hypot(p.x - a.x - u * dx, p.y - a.y - u * dy); };
+      const auMur = Math.min(...bati.flatMap((b) => t.pts.map((p) => Math.min(...b.pts.map((a, i) => dist(p, a, b.pts[(i + 1) % b.pts.length]))))));
+      const cotes = t.pts.map((p, i) => Math.hypot(t.pts[(i + 1) % t.pts.length].x - p.x, t.pts[(i + 1) % t.pts.length].y - p.y));
+      return { n: terr.length, nom: t.name, surBati, auMur, cotes, dansParcelle: !!parcelle && t.pts.every((p) => dans(p, parcelle.pts)), cle: t.key };
+    });
+    const echecs = [];
+    if (r.n !== 1) echecs.push(r.n + ' terrasse(s)');
+    else {
+      if (r.surBati) echecs.push('sur un bâtiment');
+      if (!r.dansParcelle) echecs.push('hors de la parcelle');
+      if (!(r.auMur <= 1)) echecs.push('à ' + r.auMur.toFixed(2) + ' m du mur');
+      await selectionner(page, "o.key === '" + r.cle + "'");
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+      if ((await classe(page)) === 'compact') await feuille(page, 'resultats');
+      await page.waitForTimeout(400);
+    }
+    const lignes = r.n ? await page.locator('#terrasseBomTable tr').count() : 0;
+    if (r.n && lignes < 3) echecs.push('nomenclature : ' + lignes + ' lignes');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + (r.n ? `« ${r.nom} », côtés ${r.cotes.map((x) => x.toFixed(2)).join(' × ')} m, à ${r.auMur.toFixed(2)} m du mur, hors bâti, dans la parcelle ; nomenclature ${lignes} lignes` : 'aucune terrasse') };
+  },
+  172: async (page) => {
+    // Le catalogue des lames du commerce (lot 2 de la simplification, 16 novembre 2026) : la terrasse de la demonstration choisie, la
+    // section Lames ; « Lame » y est le premier champ, les reglages fins (essence, cotes, raideur) replies dessous ; choisir
+    // « Douglas — 145 × 27 mm » pose les quatre d'un coup et la nomenclature suit ; Ctrl+Z rend la lame d'avant.
+    const echecs = [];
+    await selectionner(page, TERRASSE);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    await inspecteur(page);
+    // Le pli se lit avant d'ouvrir la section (ouvrirSection ouvre aussi les plis) : il est monte, ferme ou non.
+    const avant = await page.evaluate(() => {
+      const d = document.querySelector('#zoneInspecteur details[data-section="lames"]');
+      const premier = d?.querySelector('[data-cle]')?.getAttribute('data-cle');
+      const pli = d?.querySelector('details.plichamps[data-pli^="Détail de la lame"]');
+      const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction;
+      return { premier, pliFerme: !!pli && !pli.open, dansPli: pli ? [...pli.querySelectorAll('[data-cle]')].map((e) => e.getAttribute('data-cle')) : [],
+        valeur: document.querySelector('#zoneInspecteur [data-cle="lameCommerce"] select')?.value ?? null,
+        c: { e: c.essenceBois, l: c.largeurLame, ep: c.epaisseurLame }, total: document.getElementById('terrasseBomTotals')?.textContent ?? '' };
+    });
+    if (avant.premier !== 'lameCommerce') echecs.push('premier champ : ' + avant.premier);
+    if (!avant.pliFerme) echecs.push('le détail de la lame n’est pas replié');
+    if (avant.dansPli.join() !== 'essenceBois,coefRaideurLame,largeurLame,epaisseurLame') echecs.push('pli : ' + avant.dansPli.join());
+    await ouvrirSection(page, 'lames');
+    const choix = page.locator('#zoneInspecteur [data-cle="lameCommerce"] select').first();
+    await choix.scrollIntoViewIfNeeded();
+    await choix.selectOption('douglas-145x27');
+    await page.waitForTimeout(400);
+    const apres = await page.evaluate(() => {
+      const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction;
+      return { c: { e: c.essenceBois, l: c.largeurLame, ep: c.epaisseurLame, k: c.coefRaideurLame }, total: document.getElementById('terrasseBomTotals')?.textContent ?? '', dirty: window.__plan.etat().dirty };
+    });
+    if (apres.c.e !== 'douglas' || apres.c.l !== 145 || apres.c.ep !== 27 || apres.c.k !== 1) echecs.push('lame posée : ' + JSON.stringify(apres.c));
+    if (!apres.dirty) echecs.push('projet non marqué modifié');
+    if (apres.total === avant.total) echecs.push('la nomenclature ne suit pas');
+    await feuille(page, null);
+    await annuler(page);
+    const retour = await page.evaluate(() => { const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction; return { e: c.essenceBois, l: c.largeurLame, ep: c.epaisseurLame }; });
+    if (JSON.stringify(retour) !== JSON.stringify(avant.c)) echecs.push('Ctrl+Z : ' + JSON.stringify(retour));
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `« Lame » en tête (« ${avant.valeur || 'autre lame'} »), détail replié ; ${avant.c.e} ${avant.c.l}×${avant.c.ep} → douglas 145×27 ; « ${avant.total.trim().slice(0, 40)} » → « ${apres.total.trim().slice(0, 40)} » ; Ctrl+Z ${JSON.stringify(retour) === JSON.stringify(avant.c) ? 'rend la lame d’avant' : 'NE REND PAS'}` };
   },
   175: async (page) => {
     // « Mes projets » (lot 2 de la simplification, 16 novembre 2026) : menu Fichier (feuille Projet au doigt), « Mes projets… » ; le
@@ -9127,7 +9242,10 @@ function pointsPour(nomClasse) {
   // 175 : « Mes projets » dans Plan : la liste, celui qui est ouvert, partir d'une adresse, la plateforme a un lien.
   // 176 : la limite de projets dite en clair, « Voir les offres » vers la vitrine (Mes projets, « Nouveau projet », le premier pas).
   // 164 : les erreurs du reseau en clair : l'IGN coupe dans l'import cadastre, la plateforme coupee a l'enregistrement.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 175, 176];
+  // 170 : l'import par adresse en une etape, par defaut : le resume et « Créer le projet », sans « 2/3 » ni « 3/3 ».
+  // 171 : la terrasse de depart posee par cet import, contre la maison, jamais sur un batiment, avec sa nomenclature.
+  // 172 : le catalogue des lames du commerce : « Lame » en tete de la section, le detail replie, un choix qui pose les quatre reglages.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 175, 176];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -1,3 +1,4 @@
+import { terrasseDeDepartDuPlan } from '../../../src/app/cadastre/terrasseDepart.js';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { creerImportCadastre, type ContexteImportCadastre } from '../../../src/app/cadastre/importCadastre.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
@@ -20,7 +21,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function contexte(): ContexteImportCadastre & { sauve: unknown[] } {
   const sauve: unknown[] = [];
-  return { sauve, apiSave: vi.fn(async (p: unknown) => { sauve.push(p); return { id: 'x' }; }), appliquerProjetImporte: vi.fn(), withProjectParam: (id) => '/?projet=' + id, apiDisponible: true, cleDernierProjet: 'k' };
+  return { sauve, apiSave: vi.fn(async (p: unknown) => { sauve.push(p); return { id: 'x' }; }), appliquerProjetImporte: vi.fn(), withProjectParam: (id) => '/?projet=' + id, apiDisponible: true, cleDernierProjet: 'k', terrasseDeDepart: terrasseDeDepartDuPlan };
 }
 
 /** Un service factice : la grille de parcelles et de batiments, le cadastre pagine, le reste vide. */
@@ -51,6 +52,8 @@ describe('le voisinage etendu au curseur, a l etape 3', () => {
     const appels = servir();
     const ctx = contexte();
     const i = creerImportCadastre(ctx, vi.fn());
+    // Les etapes 2 et 3, demandees : l'import direct est le parcours par defaut.
+    i.basculerImportDirect(false);
     await i.choisirAdresse(adresse);
     expect(i.etat().etape).toBe(2);
     i.allerA(3);
@@ -105,12 +108,22 @@ describe('le voisinage etendu au curseur, a l etape 3', () => {
 });
 
 describe('l import direct, sans les etapes 2 et 3', () => {
+  it('ne pose pas de terrasse de depart quand la case est decochee', async () => {
+    servir();
+    const ctx = contexte();
+    const i = creerImportCadastre(ctx, vi.fn());
+    i.basculerCaseIgn('terrasseDepart', false);
+    await i.choisirAdresse(adresse);
+    await i.creerProjet(i.nomParDefaut());
+    expect((ctx.sauve[0] as Sauve).objects.some(o => (o as { fonction?: string }).fonction === 'terrasse')).toBe(false);
+  });
+
   it('reste a l etape 1 avec un resume, compte le voisinage avant de creer, et se memorise', async () => {
     servir();
     const ctx = contexte();
     const i = creerImportCadastre(ctx, vi.fn());
-    expect(i.etat().importDirect).toBe(false);
-    i.basculerImportDirect(true);
+    // Le parcours par defaut, sans rien avoir coche.
+    expect(i.etat().importDirect).toBe(true);
     await i.basculerVoisinageEtendu(true);   // avant la parcelle : rien a lire encore
     expect(i.etat().etenduMax).toBeNull();
     i.reglerRayonEtendu(80);
@@ -128,7 +141,20 @@ describe('l import direct, sans les etapes 2 et 3', () => {
     await i.creerProjet(i.nomParDefaut());
     const objets = (ctx.sauve[0] as Sauve).objects;
     expect(objets.filter(o => o.voisinage).length).toBe(compte.parcelles.length + compte.batiments.length);
-    // Le choix suit l'utilisateur : un nouvel import le retrouve.
+    // La terrasse de depart, contre la maison de la parcelle : une seule, et hors de tout batiment.
+    const terrasses = objets.filter(o => (o as { fonction?: string }).fonction === 'terrasse') as unknown as { pts: { x: number; y: number }[] }[];
+    expect(terrasses).toHaveLength(1);
+    const bati = objets.filter(o => (o as { fonction?: string }).fonction === 'batiment' && !o.voisinage) as unknown as { pts: { x: number; y: number }[] }[];
+    const dans = (p: { x: number; y: number }, q: { x: number; y: number }[]) => {
+      const xs = q.map(s => s.x), ys = q.map(s => s.y);
+      return p.x > Math.min(...xs) + 1e-6 && p.x < Math.max(...xs) - 1e-6 && p.y > Math.min(...ys) + 1e-6 && p.y < Math.max(...ys) - 1e-6;
+    };
+    expect(bati.length).toBeGreaterThan(0);
+    expect(terrasses[0]!.pts.some(p => bati.some(b => dans(p, b.pts)))).toBe(false);
+    // Le choix suit l'utilisateur : decoche, un nouvel import le retrouve decoche ; recoche, coche.
+    i.basculerImportDirect(false);
+    expect(creerImportCadastre(contexte(), vi.fn()).etat().importDirect).toBe(false);
+    i.basculerImportDirect(true);
     expect(creerImportCadastre(contexte(), vi.fn()).etat().importDirect).toBe(true);
   });
 });
