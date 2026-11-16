@@ -9,7 +9,7 @@
 
 import { CAPACITE_LECTURE_SEULE, CAPACITES } from '../plateforme/capacites.js';
 import { showToast } from '../shell/dialogs.js';
-import { PHRASE_QUOTA, type Droits } from './commandes.js';
+import { PHRASE_QUOTA, type Commande, type Droits } from './commandes.js';
 import type { ServiceContexte } from '../plateforme/contexte.js';
 import type { Session } from '../plateforme/session.js';
 import { QUOTA_PROJETS, limiteProjets, compteProjets, phraseLimite, type LimiteProjets, type CompteProjets } from '../plateforme/quotaProjets.js';
@@ -98,14 +98,14 @@ export const PERMISSION_ECRITURE = 'projects.write';
  * demander, et Plan se comporte comme il le faisait seul.
  */
 export function peutEcrire(): boolean {
-  if (vitrine) return false;
+  if (vitrine || partage) return false;
   if (contexte === null) return true;
   return contexte.aPermission(PERMISSION_ECRITURE) && !contexte.aCapacite(CAPACITE_LECTURE_SEULE);
 }
 
 /** Le plan ne peut pas etre modifie. L'envers de `peutEcrire`, une fois la plateforme la. */
 export function enLectureSeule(): boolean {
-  return vitrine || (contexte !== null && !peutEcrire());
+  return vitrine || partage !== null || (contexte !== null && !peutEcrire());
 }
 
 /**
@@ -114,6 +114,42 @@ export function enLectureSeule(): boolean {
  */
 let vitrine = false;
 export function entrerEnVitrine(): void { vitrine = true; }
+
+/** Ce que la lecture d'un projet partage montre de son lien (app/projetPartage.ts) : le bandeau le dit. */
+export interface InfoPartage {
+  /** Le nom du projet, tel que la personne qui partage l'a appele. */
+  nom: string;
+  /** Le nom choisi par la personne qui partage, ou rien. */
+  partagePar: string | null;
+  /** Quand le lien cesse de repondre (ISO). */
+  jusquau: string;
+  /** Quand la version montree a ete enregistree (ISO). */
+  enregistreLe: string;
+}
+
+/**
+ * La lecture d'un projet partage par un lien (lot 6, ADR-073) : ni session ni plateforme authentifiee, et une lecture seule plus
+ * stricte que celle d'une place de lecture. Rien de ce qui modifie, enregistre, importe, audite, demande a Claude ou appelle la
+ * plateforme n'y est propose : ces commandes disparaissent (`retireEnPartage`).
+ */
+let partage: InfoPartage | null = null;
+export function entrerEnPartage(info: InfoPartage): void { partage = info; }
+export function partageCourant(): InfoPartage | null { return partage; }
+
+/** Les familles de commandes absentes d'un projet partage : le projet, l'audit, l'admin, l'assistant, le PLU, les facades, les toits, le relief, les cotes. */
+const GROUPES_HORS_PARTAGE = new Set(['projet', 'audit', 'admin', 'assistant', 'plu', 'facade', 'toit', 'relief', 'mesure']);
+/** Et une a une, celles qui ecrivent sans porter le droit d'ecrire, ou qui menent a un dossier a remplir. */
+const COMMANDES_HORS_PARTAGE = new Set(['objet.annuler', 'fichier.importerSvg', 'fichier.importerJson', '3d.enregistrerPointDeVue',
+  'export.ouvrirDeclaration', 'export.declaration', 'export.redigerTexte', 'export.validerTexte', 'export.retirerTexte', 'export.choisirPhoto', 'export.retirerPhoto']);
+
+/**
+ * Une commande que la lecture d'un projet partage ne porte pas. Une preference d'affichage (`ecrit: 'affichage'` : masquer un objet,
+ * la grille, le nord) reste : elle ne change que l'ecran, et rien ne s'enregistre.
+ */
+export function retireEnPartage(c: Commande): boolean {
+  if (c.ecrit === 'affichage') return false;
+  return !!c.permission || c.ecrit === 'projet' || GROUPES_HORS_PARTAGE.has(c.groupe) || COMMANDES_HORS_PARTAGE.has(c.id);
+}
 
 /** L'admin des demos (app/administration/porteAdmin.ts) : la barre propose alors d'en sortir, pas la plateforme. */
 let admin = false;
@@ -140,6 +176,9 @@ export function compteProjetsCourant(): CompteProjets | null {
  * une adhesion retiree entre-temps doit se voir sans redemarrer la page.
  */
 export function droitsCourants(): Droits {
+  // Un projet partage : pas de contexte, mais un registre qui retire ce qui modifie (`retireEnPartage`) ; les capacites restent
+  // celles du produit, sans compte a qui les demander (la 3D, les exports locaux).
+  if (partage) return { branchee: () => true, aCapacite: () => true, aPermission: () => false, reste: () => null, retire: retireEnPartage };
   return {
     branchee: () => contexte !== null,
     // Une capacite forcee en dur passe toujours (CAPACITES_FORCEES ci-dessus).

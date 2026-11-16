@@ -62,9 +62,10 @@ export const CONTEXTE = {
  * Le depot tient en memoire ce que Plan y enregistre : le plan de demonstration est cree par un
  * `POST /projects`, puis relu par son identifiant, exactement comme sur la vraie plateforme.
  */
-export async function simulerPlateforme(page, { connecte = true, capacites = null, refusPartage = null } = {}) {
+export async function simulerPlateforme(page, { connecte = true, capacites = null, refusPartage = null, liensPublics = {} } = {}) {
   // `connecte: false` : aucune session, la porte s'affiche ; `capacites` : l'offre de la personne, a la place de celle du contexte ;
-  // `refusPartage` : l'erreur que la creation d'un lien de partage rend ({ statut, code, details }), au lieu d'un lien.
+  // `refusPartage` : l'erreur que la creation d'un lien de partage rend ({ statut, code, details }), au lieu d'un lien ;
+  // `liensPublics` : ce que `public/shares/open` rend pour un jeton ({ <jeton>: <reponse> | <statut> }) ; un jeton inconnu, 404.
   const contexte = capacites ? { ...CONTEXTE, capabilities: capacites } : CONTEXTE;
   const projets = new Map();
   // Les liens de partage (ADR-073), par projet : la plateforme n'en rend l'adresse qu'a la creation.
@@ -79,7 +80,12 @@ export async function simulerPlateforme(page, { connecte = true, capacites = nul
     const chemin = url.pathname.replace(/^\/api\/v1/, '');
     const corps = (json, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
     const lu = () => { try { return JSON.parse(req.postData() || '{}'); } catch { return {}; } };
-    journal.push({ requete: req.method() + ' ' + chemin, jeton: !!req.headers()['authorization'] });
+    journal.push({ requete: req.method() + ' ' + chemin, jeton: !!req.headers()['authorization'], produit: !!req.headers()['x-product'], referent: req.headers()['referer'] ?? null });
+    if (chemin === '/public/shares/open' && req.method() === 'POST') {
+      const lien = liensPublics[lu().token];
+      if (typeof lien === 'number') return corps({ error: { code: lien === 429 ? 'RATE_LIMITED' : 'ERREUR', message: 'm', details: {}, request_id: 'req-fumee' } }, lien);
+      return lien ? corps(lien) : corps({ error: { code: 'SHARE_NOT_FOUND', message: 'Not found', details: {}, request_id: 'req-fumee' } }, 404);
+    }
     const mp = chemin.match(/^\/projects\/([^/]+)\/shares(?:\/([^/]+))?$/);
     if (mp) {
       const liste = liens.get(mp[1]) ?? [];

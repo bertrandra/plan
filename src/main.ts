@@ -92,12 +92,39 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
   return false;
 }
 
+/**
+ * Un lien de partage (`#share=<jeton>`, lot 6, app/projetPartage.ts) : le jeton quitte la barre d'adresse avant toute autre ligne,
+ * donc avant toute requete (la palette, les arbres, three.js, l'IGN) ; puis le projet se lit sans porte ni session. Rend vrai si
+ * l'adresse en portait un (le projet est alors ouvert, ou la raison d'un refus a l'ecran).
+ */
+async function ouvrirSiPartage(): Promise<boolean> {
+  const { jetonDuFragment, effacerLeJeton, poserLesMetasDuPartage, ouvrirLeProjetPartage } = await import('./app/projetPartage.js');
+  const jeton = jetonDuFragment(location.hash);
+  if (jeton === null) return false;
+  effacerLeJeton();
+  poserLesMetasDuPartage();
+  const { graine, info } = await ouvrirLeProjetPartage(jeton);
+  const { entrerEnPartage } = await import('./app/acces.js');
+  entrerEnPartage(info);
+  // La feuille de style le lit : la palette des outils, vide en lecture, ne se montre pas (app.css).
+  document.documentElement.dataset.partage = '';
+  document.title = info.nom + ' — projet partagé — Plan';
+  const { boot } = await import('./app/boot.js');
+  chargement(true);
+  boot(graine, { partage: true });
+  finChargementApresRendu();
+  return true;
+}
+
 // L'import est dynamique pour une raison de comportement, pas de style : dans le fichier
 // mono-page, le bloc 2 etait enveloppe dans un try/catch qui affichait le bandeau si une
 // instruction de premier niveau levait pendant la definition. Un import statique leverait avant
 // que ce fichier ne s'execute, et la page resterait blanche.
 async function demarrer(): Promise<void> {
   try {
+    // Un lien de partage : avant toute autre ligne, donc avant toute requete.
+    if (await ouvrirSiPartage()) return;
+
     // `?version` : ce que Plan dit de lui-meme a la plateforme (model/produit.ts), montre tel quel.
     // Rien d'autre ne demarre — ni porte, ni session.
     if (new URLSearchParams(location.search).has('version')) {

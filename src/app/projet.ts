@@ -11,7 +11,7 @@
 
 import { tailleFichier } from '../util/format.js';
 import { jsonParPaquets, octetsUtf8 } from '../util/jsonParPaquets.js';
-import { PERMISSION_ECRITURE, compteProjetsCourant } from './acces.js';
+import { PERMISSION_ECRITURE, compteProjetsCourant, partageCourant } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
@@ -283,7 +283,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
       apiDisponible: seed.apiAvailable, courant, liste: seed.list, enregistreA, echec,
       schemaEnRetard: enRetard(),
       quota: seed.apiAvailable ? compteProjetsCourant() : null,
-      statut: statut ?? (!seed.apiAvailable ? 'local' : ctx.etat.dirty || echec ? 'modifie' : 'a-jour')
+      statut: statut ?? (!seed.apiAvailable ? (partageCourant() ? 'partage' : 'local') : ctx.etat.dirty || echec ? 'modifie' : 'a-jour')
     });
   }
   const auto = brancherEnregistrementAuto({ seed, ctx, magasin, cmd, courant, publier, enCours: () => enregistrementEnCours,
