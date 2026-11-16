@@ -3163,7 +3163,7 @@ const POINTS = {
       const mesurer = () => p.evaluate(() => {
         const t = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.type === 'polygon');
         const el = t && document.querySelector('#stage svg [data-role="obj"][data-key="' + t.key + '"]');
-        const cadre = document.getElementById('zoneCadre') ?? document.getElementById('stage');
+        const cadre = document.getElementById('stage');
         if (!el || !cadre) return null;
         const r = el.getBoundingClientRect(), c = cadre.getBoundingClientRect();
         return { l: Math.max(r.width, r.height), cx: r.x + r.width / 2, cy: r.y + r.height / 2, c: { x: c.x, y: c.y, w: c.width, h: c.height } };
@@ -3175,7 +3175,7 @@ const POINTS = {
       if (!ouverture || !terrain) echecs.push('terrasse introuvable au plan');
       else {
         const dedans = ouverture.cx > ouverture.c.x && ouverture.cx < ouverture.c.x + ouverture.c.w && ouverture.cy > ouverture.c.y && ouverture.cy < ouverture.c.y + ouverture.c.h;
-        if (!dedans) echecs.push('la terrasse n’est pas à l’écran');
+        if (!dedans) echecs.push('la terrasse n’est pas à l’écran (' + JSON.stringify({ cx: Math.round(ouverture.cx), cy: Math.round(ouverture.cy), c: ouverture.c }) + ')');
         if (!(ouverture.l >= 1.5 * terrain.l)) echecs.push('terrasse de ' + ouverture.l.toFixed(0) + ' px à l’ouverture, ' + terrain.l.toFixed(0) + ' px sur le terrain');
         plan = `démonstration : terrasse de ${ouverture.l.toFixed(0)} px à l’ouverture contre ${terrain.l.toFixed(0)} px sur le terrain (×${(ouverture.l / terrain.l).toFixed(1)})`;
       }
