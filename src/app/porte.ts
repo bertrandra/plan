@@ -29,16 +29,19 @@ export interface Acces {
   ouvert: Contexte;
 }
 
+/** La porte franchie sans compte : la demonstration (app/acces.ts, `entrerEnEssai`). Aucune session n'a ete ouverte. */
+export interface Essai { essai: true }
+
 /** L'element qui porte la porte. Cree a la demande : une page sans plateforme n'en a pas besoin. */
 function conteneur(): HTMLElement {
   const e = hoteDeZone('zonePorte');
   return e;
 }
 
-/** Ouvre la porte, et ne rend la main que lorsqu'elle est franchie. */
-export async function franchirLaPorte(): Promise<Acces> {
+/** Ouvre la porte, et ne rend la main que lorsqu'elle est franchie : par une session, ou par « Essayer la démonstration ». */
+export async function franchirLaPorte(): Promise<Acces | Essai> {
   let racine: Root | null = null;
-  let resoudre: ((a: Acces) => void) | null = null;
+  let resoudre: ((a: Acces | Essai) => void) | null = null;
 
   const session = creerSession({
     fetch: (...a) => fetch(...a),
@@ -54,7 +57,11 @@ export async function franchirLaPorte(): Promise<Acces> {
     // La porte attend la personne : la roue du chargement (index.html) ne doit pas tourner devant elle.
     chargement(false);
     racine ||= createRoot(conteneur());
-    racine.render(createElement(Porte, { fermeture, ouvrir, reessayer: () => { void demarrer(); }, plateforme: BACKPROD_API_URL }));
+    racine.render(createElement(Porte, {
+      fermeture, ouvrir, reessayer: () => { void demarrer(); }, plateforme: BACKPROD_API_URL,
+      // La demonstration sans compte : la porte se retire, aucune session ne s'ouvre ; le cookie reste a qui le tient.
+      essayer: () => { refermer(); resoudre?.({ essai: true }); }
+    }));
   }
 
   function refermer(): void {
@@ -89,7 +96,7 @@ export async function franchirLaPorte(): Promise<Acces> {
     return (await entrer()) ? null : ' ';
   }
 
-  const attendu = new Promise<Acces>((r) => { resoudre = r; });
+  const attendu = new Promise<Acces | Essai>((r) => { resoudre = r; });
 
   /**
    * Reprend la session par le cookie, puis entre ; sinon, dit pourquoi.

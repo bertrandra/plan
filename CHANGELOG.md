@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Essayer Plan sans compte** (lot 6 du parcours client, 16 novembre 2026). La porte de connexion dit d'abord ce que fait Plan
+  (« Dessinez votre terrasse sur votre vrai terrain, voyez-la en 3D et obtenez la liste d'achat et un devis. ») et propose, sous
+  « Se connecter », **« Essayer la démonstration »** : le plan de démonstration livré (celui du premier pas) s'ouvre sans session.
+  Tout s'y modifie et s'y recalcule ici ; rien ne s'enregistre (pas de dépôt : ni « Enregistrer », ni enregistrement automatique,
+  ni question avant de quitter) et la plateforme n'est plus appelée. Ce qui se vend ou demande un compte disparaît : l'import par
+  adresse (cadastre IGN), le PLU, le relief, le partage, la lecture des toits en fond, l'audit, l'assistant, les façades. Un bandeau
+  « Démonstration · rien n'est enregistré · Créez un compte pour enregistrer », avec « Créer un compte » et « Quitter la
+  démonstration » (retour à la porte). « Créer un compte » et « Voir les offres » (sur la porte) mènent à la vitrine de la
+  plateforme, `<BACKPROD_API_URL>/?product=plan`, qui porte les offres du produit et l'inscription (backprod n'a pas d'adresse
+  d'inscription à part). Point de fumée 169.
+
 - **Lire un projet partagé, sans compte** (lot 6 du parcours client, 16 novembre 2026 ; ADR-073 de la plateforme). Une adresse
   `…/?product=plan#share=<jeton>` ouvre le projet sans porte de connexion : le jeton est lu dans le fragment et **effacé de la barre
   d'adresse avant toute autre requête** (`history.replaceState`), jamais écrit dans un stockage, un journal ou un message ; la page
