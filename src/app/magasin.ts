@@ -68,6 +68,8 @@ export interface EtatMagasin {
   pointeur: PtBrut | null;
   /** La pile d'annulation a quelque chose a rendre. */
   peutAnnuler: boolean;
+  /** Un pas defait peut etre refait (« Retablir »). */
+  peutRetablir: boolean;
   /** L'explorateur (Z3) est deplie ; replie, il rend sa largeur au plan. */
   explorateurOuvert: boolean;
   /** La hauteur du tiroir des resultats (Z6). */
@@ -126,6 +128,7 @@ export interface Magasin {
   definirProjet(projet: Partial<ProjetObservable>): void;
   definirPointeur(p: PtBrut | null): void;
   definirPeutAnnuler(peut: boolean): void;
+  definirPeutRetablir(peut: boolean): void;
   definirExplorateurOuvert(ouvert: boolean): void;
   definirTiroir(hauteur: HauteurTiroir): void;
   definirInspecteurOuvert(ouvert: boolean): void;
@@ -150,6 +153,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     projet: { apiDisponible: false, courant: null, liste: [], statut: 'local', enregistreA: '', schemaEnRetard: false, quota: null },
     pointeur: null,
     peutAnnuler: false,
+    peutRetablir: false,
     explorateurOuvert: true,
     tiroir: 'mi',
     inspecteurOuvert: true,
@@ -174,6 +178,7 @@ export function creerMagasin(etat: EtatApp): Magasin {
     definirProjet: (projet) => store.setState((s) => ({ projet: { ...s.projet, ...projet } })),
     definirPointeur: (pointeur) => store.setState({ pointeur }),
     definirPeutAnnuler: (peutAnnuler) => store.setState({ peutAnnuler }),
+    definirPeutRetablir: (peutRetablir) => store.setState({ peutRetablir }),
     definirExplorateurOuvert: (explorateurOuvert) => store.setState({ explorateurOuvert }),
     definirTiroir: (tiroir) => store.setState({ tiroir }),
     definirInspecteurOuvert: (inspecteurOuvert) => store.setState({ inspecteurOuvert }),

@@ -290,6 +290,14 @@
   details.menu li.menuReglage input[type=range]{ flex:1; min-width:90px; }
   details.menu li.menuReglage .valeur{ min-width:40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-soft); }
   details.menu li.menuAide{ padding:4px 12px 6px; font-family:var(--serif); font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
+  /* Les raccourcis du menu Aide : une liste a lire, pas des entrees a choisir (app/clavier.ts). */
+  details.menu li.menuRaccourcis{ padding:4px 12px 8px; font-size:0.72rem; color:var(--ink); }
+  details.menu li.menuRaccourcis .titreRaccourcis{ display:block; margin-bottom:4px; font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  details.menu li.menuRaccourcis dl{ margin:0; display:grid; gap:3px; }
+  details.menu li.menuRaccourcis dl > div{ display:flex; justify-content:space-between; gap:16px; }
+  details.menu li.menuRaccourcis dt, details.menu li.menuRaccourcis dd{ margin:0; }
+  details.menu li.menuRaccourcis dd{ color:var(--ink-soft); white-space:nowrap; }
+  details.menu li.menuRaccourcis kbd{ font-family:var(--sans); font-size:0.68rem; padding:0 4px; border:1px solid var(--rule); border-radius:4px; background:var(--panel-2); color:var(--ink); }
   /* Z7 : la barre d'etat, fixee en bas de la fenetre, jamais cliquable. */
   /* La hauteur de la barre d'etat au bureau : la barre d'estimation se pose dessus (zones/Resultats.tsx). */
   html[data-classe="large"]{ --hauteur-etat-large:31px; }

@@ -4179,6 +4179,76 @@ const POINTS = {
       && salAvant === salApres && !debordeDialogue && (pied === 'sans objet' || pied === 'ouvre le dialogue');
     return { ok, mesure: `en tête du menu : ${enTete} ; « ${nom} », ${octets.length} octets, ${pages} page(s), émetteur ${emetteur ? 'imprimé' : 'ABSENT'} ; toast « ${toast} » ; projet ${salAvant === salApres ? 'inchangé par l’émetteur' : 'MARQUÉ MODIFIÉ'} ; pied du chiffrage ${pied} ; débordement ${debordeDialogue ? 'OUI' : 'non'}` };
   },
+  186: async (page, f) => {
+    // Les raccourcis (lot 4) : une seule table (app/clavier.ts) que le clavier ecoute et que le menu Aide montre. Au clavier, sur la
+    // terrasse de la demonstration : « Dupliquer » ajoute un objet, Ctrl+Z le retire, Ctrl+Y le rend, Ctrl+Z puis Ctrl+Maj+Z de meme ;
+    // le bouton « Rétablir » (palette, rail, ou barre haute au doigt) est grise sans pas a refaire et le refait sinon ; Suppr sur la
+    // copie selectionnee demande confirmation et la supprime, Ctrl+Z la rend ; Suppr dans un champ de saisie ne supprime rien. Le
+    // menu Aide liste Annuler, Rétablir, Supprimer l'objet et Enregistrer avec leurs touches (pas au telephone : pas de clavier).
+    const echecs = [];
+    const n = () => page.evaluate(() => window.__plan.etat().objects.length);
+    const appuyer = async (t) => { await page.keyboard.press(t); await page.waitForTimeout(250); };
+    await selectionner(page, TERRASSE);
+    const depart = await n();
+    const cles = await page.evaluate(() => window.__plan.etat().objects.map((o) => o.key));
+    await page.evaluate(() => { document.activeElement?.blur?.(); window.__plan.executer('objet.dupliquer'); });
+    await page.waitForTimeout(300);
+    if ((await n()) !== depart + 1) echecs.push('dupliquer : ' + (await n()));
+    const bouton = page.locator('[data-commande="objet.retablir"]:visible').first();
+    const griseAvant = (await bouton.count()) ? await bouton.isDisabled() : null;
+    await appuyer('Control+z');
+    const apresZ = await n();
+    const griseApresZ = (await bouton.count()) ? await bouton.isDisabled() : null;
+    await appuyer('Control+y');
+    const apresY = await n();
+    await appuyer('Control+z');
+    await appuyer('Control+Shift+Z');
+    const apresMajZ = await n();
+    await appuyer('Control+z');
+    if (await bouton.count()) { await bouton.click(); await page.waitForTimeout(300); }
+    const apresBouton = await n();
+    if (apresZ !== depart) echecs.push('Ctrl+Z : ' + apresZ);
+    if (apresY !== depart + 1) echecs.push('Ctrl+Y : ' + apresY);
+    if (apresMajZ !== depart + 1) echecs.push('Ctrl+Maj+Z : ' + apresMajZ);
+    if (griseAvant !== true || griseApresZ !== false) echecs.push(`bouton Rétablir ${griseAvant === null ? 'ABSENT' : (griseAvant ? 'grisé' : 'ACTIF') + ' puis ' + (griseApresZ ? 'GRISÉ' : 'actif')}`);
+    if (apresBouton !== depart + 1) echecs.push('bouton Rétablir : ' + apresBouton);
+    // Suppr : la copie selectionnee (annuler a pu reporter la selection) ; la confirmation, puis la suppression ; Ctrl+Z la rend.
+    const cle = await page.evaluate((avant) => window.__plan.etat().objects.find((o) => !avant.includes(o.key))?.key ?? null, cles);
+    await page.evaluate((k) => { window.__plan.selectionnerCle(k); document.activeElement?.blur?.(); }, cle);
+    await page.waitForTimeout(200);
+    await appuyer('Delete');
+    const question = await page.locator('.dialogueBoite [data-controle="dialogue.confirmer"]').isVisible().catch(() => false);
+    if (question) { await page.locator('[data-controle="dialogue.confirmer"]').click(); await page.waitForTimeout(300); }
+    const apresSuppr = await n();
+    const encore = await page.evaluate((k) => window.__plan.etat().objects.some((o) => o.key === k), cle);
+    await appuyer('Control+z');
+    const rendu = await page.evaluate((k) => window.__plan.etat().objects.some((o) => o.key === k), cle);
+    if (!question) echecs.push('Suppr sans confirmation');
+    if (apresSuppr !== depart || encore) echecs.push('Suppr : ' + apresSuppr + ' objets' + (encore ? ', la copie RESTE' : ''));
+    if (!rendu) echecs.push('Ctrl+Z après Suppr : la copie N’EST PAS rendue');
+    // Dans un champ de saisie, Suppr efface du texte et ne touche pas au plan.
+    await selectionner(page, TERRASSE);
+    const avantChamp = await n();
+    await page.evaluate(() => { const i = document.createElement('input'); i.id = 'fumeeChamp186'; i.value = 'abc'; document.body.append(i); i.focus(); i.setSelectionRange(0, 0); });
+    await appuyer('Delete');
+    const champ = await page.evaluate(() => { const i = document.getElementById('fumeeChamp186'); const v = i.value; i.remove(); return v; });
+    const dialogueChamp = await page.locator('.dialogueBoite').count();
+    if (champ !== 'bc' || dialogueChamp || (await n()) !== avantChamp) echecs.push(`Suppr dans un champ : « ${champ} », ${dialogueChamp ? 'DIALOGUE OUVERT' : 'pas de dialogue'}`);
+    // Le menu Aide : la liste tiree de la table, au clavier seulement.
+    const compact = (await classe(page)) === 'compact';
+    if (compact) await feuille(page, 'projet');
+    const liste = await page.evaluate(() => {
+      const m = document.getElementById('menuAide');
+      m?.setAttribute('open', '');
+      return [...(m?.querySelectorAll('.menuRaccourcis dl > div') ?? [])].map((d) => d.textContent.replace(/\s+/g, ' ').trim());
+    });
+    const attendue = ['AnnulerCtrl+Z', 'RétablirCtrl+Y ou Ctrl+Maj+Z', 'Supprimer l’objetSuppr', 'EnregistrerCtrl+S'];
+    const listeOk = compact ? liste.length === 0 : JSON.stringify(liste) === JSON.stringify(attendue);
+    if (!listeOk) echecs.push('menu Aide : ' + JSON.stringify(liste));
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    if (deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: `${depart} objets ; dupliquer +1, Ctrl+Z ${apresZ}, Ctrl+Y ${apresY}, Ctrl+Maj+Z ${apresMajZ}, bouton Rétablir ${apresBouton} ; Suppr ${question ? 'confirmé' : 'SANS question'} → ${apresSuppr}, Ctrl+Z ${rendu ? 'rend la copie' : 'NE REND PAS'} ; champ « ${champ} » ; menu Aide ${compact ? 'sans liste (téléphone)' : liste.length + ' raccourcis'}${echecs.length ? ' — ' + echecs.join(' ; ') : ''}` };
+  },
   183: async (page, f) => {
     // Le nom de l'emetteur du devis vient du compte meme quand la plateforme ne laisse pas garder son contexte (`token_expires_at`
     // nul, ce que la plateforme simulee rend) : le dialogue le propose dans le champ « Émetteur » (et le courriel), et le devis
@@ -9775,8 +9845,9 @@ function pointsPour(nomClasse) {
   // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
   // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
   // 182 : l'audit d'une facade sans « É7 » ni « V1 » pour la personne ordinaire ; le mode expert les rend.
+  // 186 : les raccourcis : Ctrl+Z, Ctrl+Y et Ctrl+Maj+Z, le bouton « Rétablir », Suppr (confirme, pas dans un champ) ; la liste du menu Aide.
   // 183 : le nom de l'emetteur du devis vient du compte meme hors du cache du contexte (`token_expires_at` nul), propose et imprime.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 186];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

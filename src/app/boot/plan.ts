@@ -84,6 +84,7 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     // Le bouton Annuler est rendu par la palette d'apres `peutAnnuler` : l'historique signale.
     boutonAnnuler: () => null,
     signalerPile: (vide) => magasin.definirPeutAnnuler(!vide),
+    signalerRetablir: (peut) => magasin.definirPeutRetablir(peut),
     rafraichirResultats: refreshTerrasseView,
     // La Vue 3D ouverte suit la restauration, objet par objet (app/vue3dRestauree.ts).
     apresRestauration: (changes) => tardifs.vues?.apresRestauration(changes),
@@ -130,6 +131,8 @@ export function atelierDu(p: Plan): Atelier {
     // Le soleil du projet n'est pas un pas d'annulation : l'instantane restaure porte celui d'avant, et il est range de nouveau
     // sur la parcelle tel qu'il est a l'ecran (core/soleil.ts). L'ouverture d'un projet, elle, le relit (io/projet.ts).
     undo: () => { historique.annuler(); soleilDuProjet.ranger(etat.objects); },
+    redo: () => { historique.retablir(); soleilDuProjet.ranger(etat.objects); },
+    peutRetablir: historique.peutRetablir,
     restoreState: (i, options) => { historique.restaurer(i, options); soleilDuProjet.ranger(etat.objects); },
     render: p.render, rebuildSelector: p.rebuildSelector,
     rebuildHandles: dessin.rebuildHandles, reapplyStackingOrder: dessin.reapplyStackingOrder,

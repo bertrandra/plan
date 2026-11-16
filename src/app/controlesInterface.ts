@@ -113,6 +113,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'export.option.dossierEquipements': { libelle: 'Inclure l’emprise des équipements (dossier PDF)', zone: Z1, nature: 'option' },
   'aide.methode': { libelle: 'Méthode de calcul', zone: Z1, nature: 'navigation', description: 'Ouvre l’onglet Méthode du tiroir, du mode expert', expert: true },
   'aide.version': { libelle: 'Version', zone: Z1, nature: 'sortie' },
+  'aide.raccourcis': { libelle: 'Raccourcis clavier', zone: Z1, nature: 'sortie', description: 'Les raccourcis du clavier, tirés de la table qui les écoute (app/clavier.ts) ; pas au téléphone' },
   'admin.audit': { libelle: 'Mode audit (promenade)', zone: Z1, nature: 'navigation', description: 'Ouvre le mode audit : promenade GPS en Vue 3D, bâtiments à noter, fichier partagé (administrateur seulement)' },
   'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
   'admin.chaine': { libelle: 'De l’IGN à ma maison', zone: Z1, nature: 'navigation', description: 'Ouvre le schéma de bout en bout : sources, polygone, corps de toit, objets 3D, textures, réconciliation et audit (admin des démos seulement)' },

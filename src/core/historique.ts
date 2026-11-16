@@ -30,9 +30,11 @@
 // objets en place : elle detruit les vues, recree les objets, refait les poignees et l'ordre
 // d'empilement. C'est ce qui lui permet de faire revenir un objet supprime.
 //
-// **5. Il n'y a pas de retablissement (redo).** Depiler perd l'avenir. C'est le manque le plus
-// visible, et probablement la premiere chose qu'une reecriture apportera : il faudra alors une
-// seconde pile, et decider ce qu'une nouvelle action fait de la branche abandonnee.
+// **5. Le retablissement (redo) tient une seconde pile** (lot 4 de la simplification de l'IHM,
+// 16 novembre 2026). Annuler pose l'etat quitte sur la pile des futurs ; retablir le reprend et pose
+// l'etat quitte sur la pile d'annulation. Une modification nouvelle efface les futurs : la branche
+// abandonnee ne revient pas. Une restauration venue d'ailleurs (ouvrir un projet, « Reinitialiser
+// tout ») les efface aussi : ce qu'on retablirait n'appartient plus au plan a l'ecran.
 //
 // **6. La selection survit a l'annulation, ou retombe sur le premier objet.** Si l'objet
 // selectionne n'existe plus dans l'instantane restaure, la selection glisse sur le premier objet
@@ -72,6 +74,8 @@ export interface ContexteHistorique<O extends { key: string } = ObjetPlan, M = M
   boutonAnnuler: () => HTMLButtonElement | null;
   /** Dit si la pile est vide, a chaque changement : c'est ce que la palette (zones/) lit. */
   signalerPile?: (vide: boolean) => void;
+  /** Dit s'il reste un pas a retablir, a chaque changement (le bouton « Retablir »). */
+  signalerRetablir?: (peut: boolean) => void;
   /**
    * Refait les panneaux de resultats (le tiroir, Z6) apres une restauration. Une annulation qui
    * rend sa valeur d'avant a un champ de construction ne change ni la selection ni le contexte :
@@ -135,8 +139,33 @@ interface EtatAnnulable<O extends { key: string }, M> {
   dirty: boolean;
 }
 
+/** Repose un instantane sur le plan (point 4) : tout est demonte et recree, la selection survit ou retombe sur le premier objet (point 6). */
+function reconstruire<O extends { key: string }, M>(etat: EtatAnnulable<O, M>, ctx: ContexteHistorique<O, M>, snap: Instantane): void {
+  toucherTout();
+  etat.objects.forEach(ctx.detruireVue);
+  const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
+  etat.objects.length = 0;
+  restaures.forEach((o) => {
+    etat.objects.push(o);
+    ctx.createObjectDOM(o);
+    ctx.rebuildHandles(o);
+  });
+  ctx.reapplyStackingOrder();
+  if (snap.measures) {
+    etat.measures = (snap.measures as M[]).map((m) => ({ ...m }));
+  }
+  if (!etat.objects.some((o: { key: string }) => o.key === etat.selectedKey)) {
+    etat.selectedKey = etat.objects.length ? au(etat.objects, 0).key : null;
+  }
+  ctx.rebuildSelector();
+  if (ctx.rafraichirResultats) ctx.rafraichirResultats();
+  ctx.render();
+}
+
 export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulable<O, M>, ctx: ContexteHistorique<O, M>) {
   const pile = new PileAnnulation();
+  // Les etats defaits, du plus ancien au plus recent : ce que « Retablir » reprend (point 5).
+  const futurs = new PileAnnulation();
 
   // Remplace par la barre de projet une fois construite. Avant cela, marquer le plan modifie ne
   // doit pas echouer : d'ou la fonction vide plutot qu'un `null` a tester partout.
@@ -175,10 +204,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    * connus (aucun objet ajoute ni retire) ; rien, et tout est neuf.
    */
   function empiler(...objets: object[]): void {
-    if (!enTransaction) {
-      pile.empiler(instantane());
-      majBoutonAnnuler();
-    }
+    if (!enTransaction) empilerPas(instantane());
     marquerModifie(...objets);
   }
 
@@ -190,10 +216,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   function preparer(...objets: object[]): () => void {
     const snap = enTransaction ? null : instantane();
     return () => {
-      if (snap) {
-        pile.empiler(snap);
-        majBoutonAnnuler();
-      }
+      if (snap) empilerPas(snap);
       marquerModifie(...objets);
     };
   }
@@ -211,58 +234,57 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     enTransaction = true;
     try { ok = f(); } catch { ok = false; } finally { enTransaction = false; }
     if (!ok) {
-      if (modifications !== avant) restaurer(snap);
+      if (modifications !== avant) reposer(snap);
       etat.dirty = sale;
       rafraichirStatut();
       return false;
     }
-    if (modifications !== avant) {
-      pile.empiler(snap);
-      majBoutonAnnuler();
-    }
+    if (modifications !== avant) empilerPas(snap);
     return true;
   }
 
+  /** Une restauration venue d'ailleurs (ouvrir un projet, « Reinitialiser tout ») : plus rien a retablir (point 5). */
   function restaurer(snap: Instantane, options: OptionsRestauration = {}): void {
+    futurs.vider();
+    reposer(snap, options);
+  }
+
+  /** `quitte` : l'instantane du plan a l'ecran, quand l'appelant l'a deja pris (annuler, retablir) ; il sert alors de point 7. */
+  function reposer(snap: Instantane, options: OptionsRestauration = {}, quitte?: Instantane): void {
     // Ce qu'etait le plan, pour dire ensuite ce que la restauration a change (point 7) ; seulement si quelqu'un l'ecoute, maintenant.
     const suivre = !!ctx.apresRestauration && !options.sansSuite && (ctx.suitLaRestauration?.() ?? true);
-    const avant = suivre ? ctx.serializeObjects(etat.objects) : null;
+    const avant = suivre ? (quitte?.objects ?? ctx.serializeObjects(etat.objects)) : null;
     modifications++;
-    toucherTout();
-    etat.objects.forEach(ctx.detruireVue);
-    const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
-    etat.objects.length = 0;
-    restaures.forEach((o) => {
-      etat.objects.push(o);
-      ctx.createObjectDOM(o);
-      ctx.rebuildHandles(o);
-    });
-    ctx.reapplyStackingOrder();
-    if (snap.measures) {
-      etat.measures = (snap.measures as M[]).map((m) => ({ ...m }));
-    }
-    if (!etat.objects.some((o: { key: string }) => o.key === etat.selectedKey)) {
-      etat.selectedKey = etat.objects.length ? au(etat.objects, 0).key : null;
-    }
-    ctx.rebuildSelector();
-    if (ctx.rafraichirResultats) ctx.rafraichirResultats();
-    ctx.render();
+    reconstruire(etat, ctx, snap);
     majBoutonAnnuler();
     // Le plan repose, serialise de meme : un instantane qui ne serait pas passe par la liste blanche (« Réinitialiser tout » repose
     // le plan du chargement) se compare ainsi a armes egales.
     if (avant && ctx.apresRestauration) ctx.apresRestauration(objetsChanges(avant, ctx.serializeObjects(etat.objects)));
   }
 
-  function annuler(): void {
-    if (pile.vide) return;
-    const snap = pile.depiler();
-    if (snap) restaurer(snap);
+  /** Annuler (de la pile vers les futurs) ou retablir (l'inverse) : l'etat quitte va sur l'autre pile ; rien a prendre, rien ne bouge. */
+  function changerDePas(depuis: PileAnnulation, vers: PileAnnulation): void {
+    const snap = depuis.depiler();
+    if (!snap) return;
+    const quitte = instantane();
+    vers.empiler(quitte);
+    reposer(snap, {}, quitte);
+  }
+  const annuler = (): void => changerDePas(pile, futurs);
+  const retablir = (): void => changerDePas(futurs, pile);
+
+  /** Un pas nouveau : il s'empile, et ce qui restait a retablir est perdu (point 5). */
+  function empilerPas(snap: Instantane): void {
+    pile.empiler(snap);
+    futurs.vider();
+    majBoutonAnnuler();
   }
 
   function majBoutonAnnuler(): void {
     const b = ctx.boutonAnnuler();
     if (b) b.disabled = pile.vide;
     if (ctx.signalerPile) ctx.signalerPile(pile.vide);
+    if (ctx.signalerRetablir) ctx.signalerRetablir(!futurs.vide);
   }
 
   return {
@@ -274,6 +296,8 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
     transaction,
     restaurer,
     annuler,
+    retablir,
+    peutRetablir: () => !futurs.vide,
     majBoutonAnnuler,
     definirRafraichisseurStatut(f: () => void) { rafraichirStatut = f; },
     /** Redemande l'affichage du statut, sans rien marquer comme modifie. */
