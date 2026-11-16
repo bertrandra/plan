@@ -14,6 +14,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   aussi. Les données gardent leurs identifiants, et rien n'est calculé autrement : les textes de la chaîne sont lus sans les
   numéros (`model/etapeFacade.ts::sansNumeros`, `zones/composants/numerosEtapes.ts`). Point de fumée 182.
 
+### Corrigé
+
+- **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé
+  (#729), il restait affiché et ne faisait rien. Il reste à tous ; seuls l'onglet Résumé et l'entrée « Résumé à copier » du menu
+  Exporter sont du mode expert.
+
 - **Cinq onglets de résultats en mode simple** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Une terrasse choisie, le
   tiroir (feuille Résultats au doigt) montre Nomenclature, Coupe, Implantation, Cotes et PLU. Optimisation, Chantier, Méthode,
   Profil (le relief) et Résumé passent au **mode expert** ; « Méthode de calcul » (menu Aide) et « Résumé à copier » (menu Exporter)
