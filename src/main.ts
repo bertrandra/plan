@@ -10,6 +10,11 @@ import './styles/app.css';
 // portait une copie du bandeau ; la phase 5 l'a rendue inutile.
 import { showErrBanner, showProjectLoadError } from './shell/dialogs.js';
 import { chargement, finChargementApresRendu } from './shell/chargement.js';
+// La classe d'ecran, posee des la premiere ligne : la porte et le premier pas s'affichent avant que
+// l'atelier ne soit monte, et sans `data-classe` la page prenait la mise en page du bureau derriere
+// eux (l'atelier en colonnes, 530 px de large sur un telephone de 390).
+import { suivreClasseDeLaPage } from './app/classe.js';
+suivreClasseDeLaPage();
 
 function texteErreur(err: unknown): string {
   const e = err as { message?: string; stack?: string } | null;

@@ -2913,6 +2913,55 @@ const POINTS = {
       && enTete.ok;
     return { ok, mesure: `en tête : ${enTete.mesure} ; « ${titre.slice(0, 60)} » ; 3D avant : ${avant3d} photo(s) ; pose d'office : ${r1.depuisAudit ? 'oui' : 'NON'}, texture ${r1.texture ? 'oui' : 'ABSENTE'}, ${(r1.ouvertures ?? []).length} ouverture(s) ${(r1.ouvertures ?? []).every((o) => !o.verifieeLe) ? 'non vérifiées' : 'VÉRIFIÉES'} ; 3D après : ${apres3d} maille(s) de photo ; projet ${saleAvant ? 'DÉJÀ MODIFIÉ AVANT, ' : ''}${sale ? 'modifié' : 'PAS MODIFIÉ'} ; toast « ${toast.slice(0, 80) || 'ABSENT'} » ; seconde photo : ${remplacee ? 'remplace la pose' : 'NE REMPLACE PAS'} ; Ctrl+Z ${unPas ? 'rend la première pose' : 'NE REND PAS la première pose'}, puis ${deuxPas ? 'le mur d’avant' : 'PAS le mur d’avant'} (3D : ${annule3d} photo) ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  161: async (page, f) => {
+    // Les ecrans d'entree (audit de l'IHM du 16 novembre 2026, lot 1) : la porte et le premier pas tenaient sur 530 px au telephone de
+    // 390 (la classe d'ecran n'etait posee qu'avec l'atelier, qu'ils precedent : la page prenait la mise en page du bureau derriere eux).
+    // Dans un contexte vierge, a 320, 390 et 430 px au telephone (a la taille de la classe sinon) : la porte (sans session), le premier
+    // pas, puis le premier pas d'une offre sans le cadastre : « Partir d'une adresse » disparait comme sa commande, « Dessiner sans
+    // adresse » ouvre un plan vide, sans import cadastre ; rien ne deborde, la classe est posee des la porte.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const sombre = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+    const largeurs = f.nom === 'compact' ? [320, 390, 430] : [f.width];
+    const echecs = [], mesures = [];
+    const deborde = (p, l) => p.evaluate((l) => document.documentElement.scrollWidth > l + 1 || innerWidth > l + 1, l);
+    const vierge = async (l, options, faire) => {
+      const ctx = await page.context().browser().newContext({ viewport: { width: l, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile, colorScheme: sombre ? 'dark' : 'light' });
+      const p = await ctx.newPage();
+      try {
+        await simulerPlateforme(p, options);
+        await p.addInitScript(() => { window.__sansToitsFond = true; });
+        await p.goto(BASE + '/');
+        return await faire(p);
+      } finally { await ctx.close(); }
+    };
+    for (const l of largeurs) {
+      await etape('porte ' + l, () => vierge(l, { connecte: false }, async (p) => {
+        await p.locator('.porteBoite').waitFor({ timeout: 20000 });
+        const classe = await p.evaluate(() => document.documentElement.dataset.classe);
+        if (classe !== f.nom) echecs.push(`porte ${l} : classe ${classe}`);
+        if (await deborde(p, l)) echecs.push(`porte ${l} : débordement`);
+      }));
+      await etape('premier pas ' + l, () => vierge(l, {}, async (p) => {
+        await p.locator('.premierBoite').waitFor({ timeout: 20000 });
+        if (await deborde(p, l)) echecs.push(`premier pas ${l} : débordement`);
+        if (!(await p.locator('[data-controle="premierPas.adresse"]').count())) echecs.push(`premier pas ${l} : « Partir d'une adresse » absent`);
+      }));
+    }
+    const sans = await etape('offre sans cadastre', () => vierge(largeurs[0], { capacites: ['plan.documents', 'plan.ortho', 'plan.plu', 'plan.terrasse', 'plan.export.dxf', 'plan.export.dossier', 'plan.3d'] }, async (p) => {
+      await p.locator('.premierBoite').waitFor({ timeout: 20000 });
+      const titres = await p.$$eval('.premierChoixTitre', (t) => t.map((x) => x.textContent));
+      if (titres.some((t) => /adresse/.test(t) && !/sans adresse/.test(t))) echecs.push('sans cadastre : « Partir d\'une adresse » proposé');
+      await p.locator('[data-controle="premierPas.vierge"]').click();
+      await p.waitForSelector('#stage svg', { timeout: 30000 });
+      await p.waitForTimeout(800);
+      const r = await p.evaluate(() => ({ objets: window.__plan.etat().objects.length, cadastre: !!document.querySelector('.dialogueCadastre') }));
+      if (r.objets !== 0 || r.cadastre) echecs.push('sans cadastre : « Dessiner sans adresse » ouvre ' + JSON.stringify(r));
+      if (await deborde(p, largeurs[0])) echecs.push('sans cadastre : débordement');
+      return titres.join(' / ');
+    }));
+    mesures.push(`${largeurs.join(', ')} px : porte et premier pas sans débordement ; sans cadastre : « ${sans} »`);
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
   163: async (page, f) => {
     // Ne plus perdre de travail (audit de l'IHM du 16 novembre 2026, lot 1) : un ajout fait puis la page rechargee etait perdu,
     // sans un mot. La preference « Enregistrement automatique » cochee par defaut ; une terrasse ajoutee s'enregistre seule en
@@ -8539,8 +8588,9 @@ function pointsPour(nomClasse) {
   //       remplace ; Ctrl+Z defait chaque pose.
   // 160 : la colonne de la camera en Vue 3D a des hauteurs d'iOS (barre de Safari) : toiture et appareil photo en tete, entiers sans
   //       defilement ; la colonne defile au doigt, aucun bouton perdu.
+  // 161 : les ecrans d'entree (porte, premier pas) sans debordement de 320 a 430 px ; sans la capacite du cadastre, « Dessiner sans adresse ».
   // 163 : l'enregistrement automatique (un PATCH, survit au rechargement, echec puis reprise, preference) et la question du navigateur.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 163];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 163];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
