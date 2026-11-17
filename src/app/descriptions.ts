@@ -58,6 +58,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'objet.rendreEgout': 'Rend à la lecture du LiDAR la hauteur à l’égout saisie ou validée par l’audit : le toit se relit et la reprend',
   'terrasse.ajouterTrou': 'Ajoute un trou au centre de la terrasse : un arbre conservé, une trappe ; la terrasse s’arrête à son bord sur un chevêtre',
   'objet.annuler': 'Défait la dernière modification du plan',
+  'objet.retablir': 'Refait la dernière modification défaite ; une modification nouvelle l’efface',
   'objet.dupliquer': 'Crée une copie de l’objet sélectionné, décalée à côté',
   'objet.supprimer': 'Supprime l’objet sélectionné ; Ctrl+Z le rend',
   'objet.reculer': 'Fait passer l’objet sélectionné sous ceux qui le recouvrent',

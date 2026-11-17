@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Rétablir** (Ctrl+Y, ou Ctrl+Maj+Z) refait le dernier pas défait du plan, par la commande `objet.retablir` : un bouton à côté
+  d'« Annuler » (palette, rail, barre haute au doigt), une seconde pile dans l'historique, qu'une modification nouvelle, l'ouverture
+  d'un projet ou « Réinitialiser tout » effacent ; pendant une session du mode Toit, c'est le pas de la session qui revient.
+  **Suppr** supprime l'objet sélectionné (avec la même confirmation que le bouton), jamais dans un champ de saisie ni sous un
+  dialogue. Une seule table des raccourcis (`app/clavier.ts`) : le clavier l'écoute, les infobulles la citent et le menu Aide
+  la montre, libellés tirés du registre (pas au téléphone). Point de fumée 186.
 - **L'audit d'une façade sans le jargon des étapes** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Pour la personne
   ordinaire, l'administrateur d'une organisation compris, la barre d'avancement, les lignes des étapes, l'étape ouverte et ce
   qu'elle a fait disent le nom des étapes (« Mur », « Calage du mur », « Façade ») sans « É1 » à « É14 » ni « V1 » à « V4 » ; un
