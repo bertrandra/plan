@@ -14,6 +14,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   dialogue. Une seule table des raccourcis (`app/clavier.ts`) : le clavier l'écoute, les infobulles la citent et le menu Aide
   la montre, libellés tirés du registre (pas au téléphone). Point de fumée 186.
 
+### Modifié
+
+- **Les textes de l'écran** (lot 4 de la simplification de l'IHM) : accents rétablis dans les menus, l'inspecteur, les
+  résultats, les dialogues et les notifications (« Créer le projet », « Parcelle trouvée », « bâtiments », « mètres »…), le
+  vouvoiement partout (« Saisissez une adresse », « Cliquez sur un côté du plan… », « chez votre fournisseur »), la virgule
+  décimale dans les valeurs lues de l'inspecteur dans les trois classes d'écran ; « Nomenclature » au lieu de « BOM » ; les côtés
+  d'une forme s'appellent « Côté n » à l'écran (le nom par défaut « Cote n » reste la donnée du projet, `ui/nomCote.ts`) ; les
+  postes et activités du moteur prennent leurs accents à l'écran seulement (`ui/tableau.ts`). Aucun export ne change : le résumé
+  garde « Cote n », les libellés du moteur restent sans accents dans les PDF, le DXF, le SVG et le CSV. La requête de vérification
+  de l'assistant suit (« Rive · Côté n »). Points de fumée 184 et 185.
+
 ## [5.35.0] — 2026-11-17
 
 Version **mineure** au sens de `MD/RELEASE.md` : le lot 3 de la simplification de l'IHM range l'écran sans rien retirer du
@@ -106,14 +117,6 @@ de la 5.33.0, s'il n'est pas déjà appliqué) :
 
 ### Modifié
 
-- **Les textes de l'écran** (lot 4 de la simplification de l'IHM) : accents rétablis dans les menus, l'inspecteur, les
-  résultats, les dialogues et les notifications (« Créer le projet », « Parcelle trouvée », « bâtiments », « mètres »…), le
-  vouvoiement partout (« Saisissez une adresse », « Cliquez sur un côté du plan… », « chez votre fournisseur »), la virgule
-  décimale dans les valeurs lues de l'inspecteur dans les trois classes d'écran ; « Nomenclature » au lieu de « BOM » ; les côtés
-  d'une forme s'appellent « Côté n » à l'écran (le nom par défaut « Cote n » reste la donnée du projet, `ui/nomCote.ts`) ; les
-  postes et activités du moteur prennent leurs accents à l'écran seulement (`ui/tableau.ts`). Aucun export ne change : le résumé
-  garde « Cote n », les libellés du moteur restent sans accents dans les PDF, le DXF, le SVG et le CSV. La requête de vérification
-  de l'assistant suit (« Rive · Côté n »). Points de fumée 184 et 185.
 - **La démonstration du premier pas s'ouvre aussi sur sa terrasse** (lot 2 de la simplification de l'IHM, demande du propriétaire,
   16 novembre 2026). La démonstration que « Par quoi commencer ? » crée après connexion s'ouvrait sur le terrain entier, quand
   l'essai sans compte se cadre sur la terrasse et la maison qu'elle touche ; elle se cadre désormais de même, par le même
