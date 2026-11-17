@@ -144,6 +144,13 @@ d'y toucher.
 - **« Filaire » (Vue 3D)** est une préférence d'affichage : pas de Ctrl+Z, pas de « projet
   modifié », permise en lecture seule. Elle reste rangée dans `construction.lames3dFilaire` pour
   être retrouvée à la réouverture.
+- **Mode expert** (lot 3 de la simplification de l'IHM ; décision du propriétaire, 17 novembre 2026) : une préférence de l'appareil,
+  éteinte par défaut. Éteint, le registre efface les commandes de `MODE_EXPERT` (`app/exposition.ts`) comme une capacité absente, et
+  le tiroir cache les onglets marqués `expert` (`app/tiroir.ts`). Sont confirmés : **« Importer un audit de parcelle »** est du mode
+  expert ; la copie du plan s'appelle **« Enregistrer sous… »** (`projet.nouveau`), juste après « Enregistrer » ; l'onglet
+  **Chantier** est du mode expert (avec Optimisation, Méthode, Profil et Résumé) ; les **numéros d'étape** (É1 à É14, V1 à V4) ne se
+  lisent qu'en admin des démos ou en mode expert, jamais pour l'administrateur d'une organisation cliente
+  (`zones/parcours/FacadeAudit.tsx`, `etapeFacade.ts::sansNumeros`). Rien ne se calcule autrement selon le mode.
 - **Parcelle voisine** (import cadastre, `fonction: terrain`) : elle ne montre que sa référence
   cadastrale ; clôture et lieu appartiennent à la parcelle du projet.
 - **Menu « Fonction »** : ne propose que les fonctions admises par la forme de l'objet ; la
