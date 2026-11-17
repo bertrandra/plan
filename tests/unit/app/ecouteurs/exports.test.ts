@@ -107,7 +107,7 @@ describe('exports', () => {
     monter().cmd.executer('export.dossier');
     await attendre();
     expect(journal.textes).toEqual(['ma-maison-dossier-terrasses.pdf']);
-    expect(journal.toasts[0]).toMatch(/^Dossier PDF : 3 page\(s\) — plan de masse \+ 1 terrasse\(s\), 2 equipement/);
+    expect(journal.toasts[0]).toMatch(/^Dossier PDF : 3 page\(s\) — plan de masse \+ 1 terrasse\(s\), 2 équipement\(s\) coté\(s\)\.$/);
   });
 
   it('dossier mairie : nomme le fichier d apres le projet et la piscine, dit le regime ; sans piscine, dit quoi faire', async () => {
