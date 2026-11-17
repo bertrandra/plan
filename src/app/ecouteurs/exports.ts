@@ -16,8 +16,9 @@
 // afficher, le DXF n'a pas de lien de secours — un fichier CAO ne s'ouvre pas dans un onglet.
 
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { showToast, showErrBanner, showErreur } from '../../shell/dialogs.js';
+import { showToast, showErreur } from '../../shell/dialogs.js';
 import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
+import { erreurExport } from '../../util/erreurFichier.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
@@ -84,6 +85,12 @@ export function messageDeclaration(res: { nom: string; pieces: string[]; relectu
     + (autres ? ' La relecture relève ' + (autres > 1 ? autres + ' autres points' : 'un autre point') + ' : voyez « Vérifier avant l’export » dans la déclaration préalable.' : '');
 }
 
+/** Un export qui echoue, dit en clair : ce qui se passe et quoi faire, le message d'origine en detail a copier (util/erreurFichier.ts). */
+function direEchec(err: unknown, quoi: string, genre: 'm' | 'f' = 'm'): void {
+  const { texte, detail } = erreurExport(err, quoi, genre);
+  showErreur(texte, detail);
+}
+
 /** Le nom du fichier qui vient de partir, dit en bas de l'ecran : le seul filet qui survive au clic. */
 function direTelechargement(nomFichier: string): void {
   showToast('Téléchargement lancé : ' + nomFichier + '.');
@@ -101,7 +108,7 @@ function brancherDevis(ctx: ContexteExports, cmd: RegistreCommandes): void {
       }, (err: unknown) => {
         // La bibliotheque PDF se charge a la demande : une coupure se dit en clair, le message du navigateur en detail.
         const clair = phraseReseau(err, 'Le serveur de Plan', 'Le devis n’a pas pu se préparer : vérifiez votre connexion, puis réessayez.');
-        showErreur(clair ?? 'Erreur devis : ' + detailTechnique(err), clair ? detailTechnique(err) : '');
+        if (clair) showErreur(clair, detailTechnique(err)); else direEchec(err, 'Le devis');
       });
     }
   });
@@ -115,7 +122,7 @@ function brancherListeAchat(ctx: ContexteExports, cmd: RegistreCommandes): void 
       const corps = typeof res.contenu === 'string' ? res.contenu : res.contenu.slice().buffer;
       telechargerBlob(res.nomFichier, new Blob([corps], { type }));
       showToast('Liste d’achat téléchargée : ' + res.nomFichier + '.');
-    }, (err: unknown) => { showErrBanner('Erreur liste d’achat : ' + (err as Error).message); });
+    }, (err: unknown) => { direEchec(err, 'La liste d’achat', 'f'); });
   };
   const actif = () => ctx.clesDossier().length > 0;
   cmd.declarer({ id: 'export.listeAchatPdf', libelle: 'Liste d’achat (PDF)', groupe: 'export', actif, executer: telecharger('pdf', 'application/pdf') });
@@ -138,7 +145,10 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         telechargerBlob(res.nom, new Blob([res.pdf.slice().buffer], { type: 'application/pdf' }));
         const avis = res.regime === 'permis' ? ' Attention : l\'emprise créée relève d\'un permis de construire (cerfa 13406).' : '';
         showToast(messageDeclaration(res) + avis);
-      }).catch((err: unknown) => showErreur(phraseReseau(err, 'Le serveur de Plan', 'Le formulaire n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Déclaration préalable : ' + detailTechnique(err), phraseReseau(err, '') ? detailTechnique(err) : ''));
+      }).catch((err: unknown) => {
+        const clair = phraseReseau(err, 'Le serveur de Plan', 'Le formulaire n’a pas pu se charger : vérifiez votre connexion, puis réessayez.');
+        if (clair) showErreur(clair, detailTechnique(err)); else direEchec(err, 'Le dossier de déclaration préalable');
+      });
     }
   });
 
@@ -150,7 +160,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         if (!res) { showToast('Choisissez d\'abord les régions de neige et de vent de la note.'); return; }
         telechargerTexte(res.nom, res.pdf, 'application/pdf');
         direTelechargement(res.nom);
-      }, (err: unknown) => { showErrBanner('Erreur note de calcul : ' + (err as Error).message); });
+      }, (err: unknown) => { direEchec(err, 'La note de calcul', 'f'); });
     }
   });
 
@@ -160,13 +170,13 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   surClic('exportSvgBtn', 'export.svg', 'Exporter en SVG', () => {
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
-    catch (err) { showErrBanner('Erreur export SVG: ' + (err as Error).message); return; }
+    catch (err) { direEchec(err, 'Le plan en SVG'); return; }
     ctx.resultats.afficherResume(svgStr);
     try {
       telechargerBlob('plan_interactif_export.svg', new Blob([svgStr], { type: 'image/svg+xml' }));
       direTelechargement('plan_interactif_export.svg');
     } catch (err) {
-      showErrBanner('Le contenu SVG est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
+      showErreur('Le téléchargement du SVG n’est pas parti : le navigateur l’a peut-être bloqué. Autorisez les téléchargements pour ce site, puis réessayez.', detailTechnique(err));
     }
   });
 
@@ -178,7 +188,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   surClic('exportPngBtn', 'export.png', 'Exporter en PNG', () => {
     let svgStr: string;
     try { svgStr = ctx.buildExportSVG(); }
-    catch (err) { showErrBanner('Erreur export PNG: ' + (err as Error).message); return; }
+    catch (err) { direEchec(err, 'Le plan en PNG'); return; }
     const FACTEUR = 3;
     const svgUrl = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
     const img = new Image();
@@ -189,20 +199,20 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         canvas.width = img.naturalWidth * FACTEUR;
         canvas.height = img.naturalHeight * FACTEUR;
         const contexte = canvas.getContext('2d');
-        if (!contexte) { showErrBanner('Erreur export PNG: dessin sur canvas indisponible.'); return; }
+        if (!contexte) { direEchec(new Error('dessin sur canvas indisponible'), 'Le plan en PNG'); return; }
         contexte.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
-          if (!blob) { showErrBanner('Erreur export PNG: conversion en image impossible.'); return; }
+          if (!blob) { direEchec(new RangeError('canvas.toBlob a rendu null : image trop grande pour cet appareil'), 'Le plan en PNG'); return; }
           telechargerBlob('plan_interactif_export.png', blob);
           direTelechargement('plan_interactif_export.png');
         }, 'image/png');
       } catch (err) {
-        showErrBanner('Erreur export PNG: ' + (err as Error).message);
+        direEchec(err, 'Le plan en PNG');
       }
     };
     img.onerror = () => {
       URL.revokeObjectURL(svgUrl);
-      showErrBanner('Erreur export PNG: impossible de charger le plan genere pour le convertir en image.');
+      direEchec(new Error('image : le SVG genere ne se charge pas'), 'Le plan en PNG');
     };
     img.src = svgUrl;
   });
@@ -217,13 +227,13 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   surClic('exportDxfBtn', 'export.dxf', 'Exporter en DXF', () => {
     let dxfStr: string;
     try { dxfStr = ctx.buildExportDXF(); }
-    catch (err) { showErrBanner('Erreur export DXF: ' + (err as Error).message); return; }
+    catch (err) { direEchec(err, 'Le plan en DXF'); return; }
     ctx.resultats.afficherResume(dxfStr);
     try {
       telechargerBlob('plan_interactif_export.dxf', new Blob([dxfStr], { type: 'application/dxf' }));
       direTelechargement('plan_interactif_export.dxf');
     } catch (err) {
-      showErrBanner('Le contenu DXF est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
+      showErreur('Le téléchargement du DXF n’est pas parti : le navigateur l’a peut-être bloqué. Autorisez les téléchargements pour ce site, puis réessayez.', detailTechnique(err));
     }
   }, CAPACITES.exportDxf.code);
 
@@ -235,19 +245,19 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         telechargerBlob('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
         direTelechargement('plan_interactif_export.pdf');
       } catch (err) {
-        showErrBanner('Echec du telechargement PDF: ' + (err as Error).message);
+        direEchec(err, 'Le plan en PDF');
       }
-    }, (err: unknown) => { showErrBanner('Erreur export PDF: ' + (err as Error).message); });
+    }, (err: unknown) => { direEchec(err, 'Le plan en PDF'); });
   });
 
   surClic('dossierPdfBtn', 'export.dossier', 'Générer le dossier PDF', () => {
-    if (!ctx.clesDossier().length) { showToast('Coche au moins une terrasse pour le dossier.'); return; }
+    if (!ctx.clesDossier().length) { showToast('Cochez au moins une terrasse pour le dossier (dans l’explorateur).'); return; }
     ctx.construireDossier().then((res) => {
       telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-dossier-terrasses.pdf', res.pdf, 'application/pdf');
       const nbEquip = [...res.equipements.values()].reduce((s, l) => s + l.length, 0);
       showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
-        ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
-    }, (err: unknown) => { showErrBanner('Erreur dossier PDF : ' + (err as Error).message); });
+        ' terrasse(s), ' + nbEquip + ' équipement(s) coté(s).');
+    }, (err: unknown) => { direEchec(err, 'Le dossier PDF'); });
   }, CAPACITES.exportDossier.code);
 
   surClic('dossierPiscineBtn', 'export.dossierPiscine', 'Dossier mairie de la piscine (PDF)', () => {
@@ -256,7 +266,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       showToast('Dossier mairie : ' + res.pages + ' page(s) — ' + (res.regime === 'permis' ? 'permis de construire' : res.regime === 'declaration' ? 'déclaration préalable' : 'aucune formalité') + ' pour « ' + res.piscine.name + ' ».');
     }, (err: unknown) => {
       if ((err as Error).message === 'aucune piscine') { showToast('Ajoutez d\'abord une piscine au plan (outil « Piscine » de la palette).'); return; }
-      showErrBanner('Erreur dossier mairie : ' + (err as Error).message);
+      direEchec(err, 'Le dossier mairie de la piscine');
     });
   });
 

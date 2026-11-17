@@ -4,7 +4,7 @@
 // Vue 3D : tout le reste marche sans connexion.
 
 import { chargement } from './etat3d.js';
-import { showErrBanner } from '../shell/dialogs.js';
+import { showErreur } from '../shell/dialogs.js';
 import { chargerExemple } from './bibliotheque.js';
 import type * as THREE_NS from 'three';
 
@@ -159,6 +159,6 @@ export function ensureGLTFLoaderLoaded(cb: () => void): void {
   if (chargement.lecteurGltf && window.THREE && window.THREE.GLTFLoader) { cb(); return; }
   chargerExemple('loaders/GLTFLoader.js', ['GLTFLoader']).then(
     () => { chargement.lecteurGltf = true; cb(); },
-    () => showErrBanner('Impossible de charger le lecteur GLB (connexion internet requise pour cette fonctionnalite).')
+    (err: unknown) => showErreur('Le lecteur GLB ne s’est pas chargé : vérifiez votre connexion, puis réessayez.', String((err as Error | undefined)?.message ?? err ?? ''))
   );
 }

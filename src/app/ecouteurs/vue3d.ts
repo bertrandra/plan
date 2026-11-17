@@ -12,7 +12,16 @@
 
 import { vue3d, glb, signaler3d, rendre3d, reglerVue3d } from '../../three/etat3d.js';
 import { soleilDuProjet } from '../../core/soleil.js';
-import { showErrBanner, showToast } from '../../shell/dialogs.js';
+import { showErreur, showToast } from '../../shell/dialogs.js';
+import { erreurExport } from '../../util/erreurFichier.js';
+
+/** La Vue 3D n'a pas encore de scene : l'image se prend de ce qu'elle montre. */
+const VUE_PAS_PRETE = 'La Vue 3D se prépare encore : attendez qu’elle s’affiche, puis réessayez.';
+/** Une image de la vue 3D qui ne se produit pas, dite en clair (util/erreurFichier.ts). */
+function echecImage(err: unknown, quoi: string): void {
+  const { texte, detail } = erreurExport(err, quoi, 'f');
+  showErreur(texte, detail);
+}
 import { telechargerBlob } from '../../shell/download.js';
 import { nomFichierTerrasse } from '../../three/nomFichier.js';
 import { ensureConstruction } from '../../engine/construction.js';
@@ -113,9 +122,9 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   });
   cam('terrasse3dCaptureHd', '3d.captureHd', 'Capture HD', () => {
     const sc = vue3d.scene;
-    if (!sc) { showErrBanner('Vue 3D pas encore chargee.'); return; }
+    if (!sc) { showToast(VUE_PAS_PRETE); return; }
     void capturerHd(sc, () => rendre3d(sc)).then((blob) => {
-      if (!blob) { showErrBanner('Capture HD : l’image n’a pas pu être produite (définition trop grande pour cet appareil ?).'); return; }
+      if (!blob) { echecImage(new RangeError('capture HD : canvas.toBlob a rendu null, definition trop grande pour cet appareil'), 'La capture HD de la vue 3D'); return; }
       const obj = terrasseCourante();
       telechargerBlob('vue3d_hd_' + nomFichierTerrasse(obj && obj.name) + '.png', blob);
     });
@@ -199,12 +208,12 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
    * l'export PNG du plan 2D.
    */
   cam('terrasse3dSavePng', '3d.enregistrerPng', 'Enregistrer en PNG', () => {
-    if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargee.'); return; }
+    if (!vue3d.scene) { showToast(VUE_PAS_PRETE); return; }
     rendre3d(vue3d.scene); // capture le tout dernier etat
     // `renderer.domElement` vient d'une scene Three non typee (SceneTrois = Record<string, any>) :
     // le type du callback ne peut pas s'en deduire. `Blob | null` est celui de la vraie API canvas.
     vue3d.scene.renderer.domElement.toBlob((blob: Blob | null) => {
-      if (!blob) { showErrBanner('Erreur export PNG : conversion en image impossible.'); return; }
+      if (!blob) { echecImage(new RangeError('canvas.toBlob a rendu null : image trop grande pour cet appareil'), 'L’image PNG de la vue 3D'); return; }
       const obj = terrasseCourante();
       telechargerBlob('vue3d_' + nomFichierTerrasse(obj && obj.name) + '.png', blob);
     }, 'image/png');

@@ -10,7 +10,8 @@
 import { retirerReliefsEcran } from './materiauxVivants.js';
 import { retirerOmbresEcran } from './releve3d.js';
 import { vue3d, glb, affichage3d, signaler3d, reglerVue3d, type PlanVuDeLa3d } from './etat3d.js';
-import { showToast, showErrBanner } from '../shell/dialogs.js';
+import { showToast, showErreur } from '../shell/dialogs.js';
+import { erreurExport } from '../util/erreurFichier.js';
 import { garderLesJpegDeLaScene } from './chargeurs.js';
 import { allegerArbresPourExport } from './arbre3d.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
@@ -84,6 +85,12 @@ export function detacherCartesSansImage(scene: THREE_NS.Object3D): { nombre: num
 // Le nom du fichier vit a part (three/nomFichier.ts) : les captures PNG le lisent sans charger le moteur.
 export { nomFichierTerrasse };
 
+/** Un export GLB qui echoue, dit en clair ; le message d'origine en detail a copier (util/erreurFichier.ts). */
+function echecGlb(err: unknown): void {
+  const { texte, detail } = erreurExport(err, 'La scène 3D (GLB)', 'f');
+  showErreur(texte, detail);
+}
+
 /**
  * Genere le .glb de la terrasse courante.
  *
@@ -102,7 +109,7 @@ export { nomFichierTerrasse };
  */
 export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: ContexteExportGlb): void {
   const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
-  if (!terr) { showToast('Cree d\'abord une terrasse pour pouvoir generer une scene 3D.'); return; }
+  if (!terr) { showToast('Créez d’abord une terrasse pour générer la scène 3D.'); return; }
 
   if (affichage3d.generation) return;
   affichage3d.generation = telecharger ? 'export' : 'generation';
@@ -120,7 +127,7 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
         // dit, plutot que de laisser tomber un « Cannot read properties of null » (D-2).
         const sc = vue3d.scene;
         if (!sc) {
-          showErrBanner('Export GLB : la scene 3D n\'a pas pu etre creee - le navigateur a refuse WebGL (acceleration materielle desactivee, ou trop de vues 3D ouvertes). Fermez d\'autres onglets 3D ou reactivez l\'acceleration, puis reessayez.');
+          echecGlb(new Error('WebGL : contexte refuse, la scene 3D n\'a pas pu etre creee'));
           restaurer();
           return;
         }
@@ -148,14 +155,14 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
             const filet = setTimeout(() => {
               if (fini) return; fini = true;
               remettreSiBesoin();
-              showErrBanner('Export GLB : pas de reponse - reessaie.');
+              showErreur('L’export de la scène 3D (GLB) n’a pas répondu à temps. Réessayez ; sur un appareil lent, fermez d’abord d’autres onglets.', 'GLTFExporter : delai de ' + ATTENTE_EXPORTEUR_MS + ' ms depasse');
               if (!dejaActive) disposeThreeScene();
               restaurer();
             }, ATTENTE_EXPORTEUR_MS);
             exporteur.parse(sc.scene, (result) => {
               if (fini) return; fini = true; clearTimeout(filet);
               remettreSiBesoin();
-              if (sansImage.nombre) showToast(sansImage.nombre + ' texture(s) indisponible(s) : exportee(s) en couleur unie.');
+              if (sansImage.nombre) showToast(sansImage.nombre + ' texture(s) indisponible(s) : exportée(s) en couleur unie.');
               // `parse` rend `object` : sa signature ne distingue pas les deux sorties possibles,
               // alors que c'est l'option qui en decide - `{ binary: true }` (plus bas) donne un
               // ArrayBuffer, son absence donnerait le JSON glTF. C'est donc bien un ArrayBuffer
@@ -175,19 +182,19 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
             }, (e) => {
               if (fini) return; fini = true; clearTimeout(filet);
               remettreSiBesoin();
-              showErrBanner('Export GLB : ' + (e && e.message ? e.message : 'echec de l\'exporteur'));
+              echecGlb(e && e.message ? e : new Error('echec de l\'exporteur'));
               if (!dejaActive) disposeThreeScene();
               restaurer();
             }, { binary: true });
           } catch (err) {
             remettreSiBesoin();
-            showErrBanner('Export GLB : ' + (err as Error).message);
+            echecGlb(err);
             if (!dejaActive) disposeThreeScene();
             restaurer();
           }
         });
       } catch (err) {
-        showErrBanner('Export GLB : ' + (err as Error).message);
+        echecGlb(err);
         restaurer();
       }
     });
