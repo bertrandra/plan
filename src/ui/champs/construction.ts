@@ -363,6 +363,9 @@ const PLI_LAME = 'Détail de la lame (essence, cotes, raideur)';
 const lameCommerce: Champ = reglage({
   type: 'choix', cle: 'lameCommerce', libelle: 'Lame',
   aide: 'Une lame telle qu’elle se vend : elle règle l’essence, la largeur et l’épaisseur d’un coup. Des cotes particulières se saisissent dans « Détail de la lame ».',
+  // Pour l'assistant seul : « en douglas » ne nomme qu'une essence ; ecrire une lame du commerce changerait aussi la largeur et
+  // l'epaisseur, donc des quantites que la personne n'a pas demandees (demande de reference 01-lames-douglas).
+  consigneAssistant: 'À n’écrire que si la demande nomme une lame du commerce ou des cotes de lame ; pour changer seulement l’essence, écrivez « Essence de bois » seule.',
   options: () => [...LAMES_COMMERCE.map((l) => ({ valeur: l.id, libelle: l.libelle, groupe: essenceDe(l.essence).label })),
     { valeur: '', libelle: 'Autre lame (cotes dans le détail)' }],
   note: (cx) => { const c = cx.construction(); const e = essenceDe(c.essenceBois);
