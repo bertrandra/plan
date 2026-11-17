@@ -1855,7 +1855,7 @@ régénère les témoins de la 5.33.0 au bit près (cinq par `regeneration.test.
 Ce qui est entré depuis la 5.34.0 (le mode expert, #724 ; l'inspecteur de la terrasse en trois groupes, #725 ; le menu Fichier
 ramené à l'essentiel, #726 ; un geste, un endroit, #727 ; cinq onglets de résultats en mode simple, #729 ; l'audit sans le jargon
 des étapes, #730 ; la démonstration du premier pas cadrée sur sa terrasse, #728 ; le nom de l'émetteur du devis venu du compte,
-#731) ne change aucun export : ni le moteur, ni les quantités. Le mode expert cache des commandes et des champs sans les retirer ni
+#731 ; la consigne de l'assistant sur le champ « Lame », #733, qui ne touche que le texte envoyé à Claude) ne change aucun export : ni le moteur, ni les quantités. Le mode expert cache des commandes et des champs sans les retirer ni
 changer leur valeur (un champ caché garde sa valeur, le calcul la lit) ; l'inspecteur ne change que le rangement des champs ; le
 cadrage ne touche que la vue ; le devis d'un émetteur donné ne change pas. `projet.json`, `moteur-piscine-pergola.json`,
 `quantites-demo.txt`, `glb-structure.json` et `liste-achat.csv` ne bougent pas. Aucun champ de fichier nouveau (le mode expert est une

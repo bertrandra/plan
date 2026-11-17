@@ -5,7 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-## [5.35.0] — 2026-11-16
+### Ajouté
+
+- **Rétablir** (Ctrl+Y, ou Ctrl+Maj+Z) refait le dernier pas défait du plan, par la commande `objet.retablir` : un bouton à côté
+  d'« Annuler » (palette, rail, barre haute au doigt), une seconde pile dans l'historique, qu'une modification nouvelle, l'ouverture
+  d'un projet ou « Réinitialiser tout » effacent ; pendant une session du mode Toit, c'est le pas de la session qui revient.
+  **Suppr** supprime l'objet sélectionné (avec la même confirmation que le bouton), jamais dans un champ de saisie ni sous un
+  dialogue. Une seule table des raccourcis (`app/clavier.ts`) : le clavier l'écoute, les infobulles la citent et le menu Aide
+  la montre, libellés tirés du registre (pas au téléphone). Point de fumée 186.
+
+## [5.35.0] — 2026-11-17
 
 Version **mineure** au sens de `MD/RELEASE.md` : le lot 3 de la simplification de l'IHM range l'écran sans rien retirer du
 programme ni changer un nombre (§2.1 : « new feature, new panel » ; ni retrait, ni fonction mise derrière un droit qu'elle n'avait
@@ -15,13 +24,18 @@ des étapes de l'audit #730) revient à sa place quand on l'allume, et un champ 
 L'inspecteur d'une terrasse passe en trois groupes (#725) sans changer un réglage ni un défaut ; les gestes en double retirés
 (#727) restent chacun à un autre endroit, les commandes ne changent pas. La démonstration du premier pas se cadre sur sa terrasse
 (#728, la vue seule) ; le nom de l'émetteur du devis vient du compte même hors du cache du contexte (#731, correctif ; le devis d'un
-émetteur donné ne change pas). Aucune quantité ni aucun export ne bouge : les neuf témoins qui portent le numéro ne changent qu'à
+émetteur donné ne change pas) ; l'assistant ne choisit plus une lame du commerce quand on ne lui demande que l'essence (#733,
+correctif : consigne propre à l'assistant sur le champ « Lame », catalogue en version 2). Aucune quantité ni aucun export ne bouge : les neuf témoins qui portent le numéro ne changent qu'à
 lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ;
 `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101
 identique. Schéma inchangé (16), aucun champ de fichier nouveau (le mode expert reste dans le navigateur). Ni `deploy/`, ni
-`regles/`, ni `banc/` ne changent depuis la 5.34.0. Requêtes vérifiées sur main après #728 (qui contient #725 et #731) avec les dix
-demandes de l'assistant, la requête témoin ayant été régénérée par #725 (identifiants des champs de la terrasse suivant leur
-section) (run @@RUN@@ ; prompts et schémas inchangés).
+`regles/`, ni `banc/` ne changent depuis la 5.34.0. Requêtes vérifiées avec les dix demandes de l'assistant, la requête
+témoin ayant été régénérée par #725 (identifiants des champs de la terrasse suivant leur section) puis par #733 (catalogue
+version 2). Sur main après #728, deux runs rouges sur la demande `01-lames-douglas` : l'assistant écrivait aussi la lame du
+commerce, donc des cotes non demandées (runs 43978457531 et 43978821312, 8 puis 9 listes justes sur 10). Après la correction
+#733, run 43981990207 sur son commit, dont l'arbre est celui de main à la fusion de #733, hors #732 qui ne change pas la requête :
+9 requêtes sur 9 acceptées, dix listes justes sur dix, 0,034 $ ; prompts et schémas inchangés. Les raccourcis Rétablir et Suppr
+(#732), fusionnés après le gel de cette version, restent sous « Non publié ».
 
 **À faire en production, dans cet ordre, avant de déposer cette livraison** (le lot 3 ne demande rien de plus ; ce qui suit reste
 de la 5.33.0, s'il n'est pas déjà appliqué) :
@@ -38,12 +52,6 @@ de la 5.33.0, s'il n'est pas déjà appliqué) :
 
 ### Ajouté
 
-- **Rétablir** (Ctrl+Y, ou Ctrl+Maj+Z) refait le dernier pas défait du plan, par la commande `objet.retablir` : un bouton à côté
-  d'« Annuler » (palette, rail, barre haute au doigt), une seconde pile dans l'historique, qu'une modification nouvelle, l'ouverture
-  d'un projet ou « Réinitialiser tout » effacent ; pendant une session du mode Toit, c'est le pas de la session qui revient.
-  **Suppr** supprime l'objet sélectionné (avec la même confirmation que le bouton), jamais dans un champ de saisie ni sous un
-  dialogue. Une seule table des raccourcis (`app/clavier.ts`) : le clavier l'écoute, les infobulles la citent et le menu Aide
-  la montre, libellés tirés du registre (pas au téléphone). Point de fumée 186.
 - **L'audit d'une façade sans le jargon des étapes** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Pour la personne
   ordinaire, l'administrateur d'une organisation compris, la barre d'avancement, les lignes des étapes, l'étape ouverte et ce
   qu'elle a fait disent le nom des étapes (« Mur », « Calage du mur », « Façade ») sans « É1 » à « É14 » ni « V1 » à « V4 » ; un
