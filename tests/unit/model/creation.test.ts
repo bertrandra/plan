@@ -305,7 +305,7 @@ describe('supprimer', () => {
     etat.selectedKey = 'a';
     c.supprimer();
     expect(etat.objects).toHaveLength(1);
-    expect(ctx.showToast).toHaveBeenCalledWith(expect.stringContaining('verrouille'));
+    expect(ctx.showToast).toHaveBeenCalledWith(expect.stringContaining('verrouillé'));
   });
 
   it('supprime apres confirmation, et demonte la vue', () => {

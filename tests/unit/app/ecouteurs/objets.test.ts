@@ -94,7 +94,7 @@ describe('commandes d objet', () => {
     const { a, cmd } = monter('a', true, []);
     cmd.executer('objet.positionInitiale');
     expect(a.pushHistory).not.toHaveBeenCalled();
-    expect(toasts.at(-1)).toMatch(/cree apres le chargement/);
+    expect(toasts.at(-1)).toMatch(/créé après le chargement/);
   });
 
   it('reinitialisent tout le plan, apres confirmation et en un pas annulable', () => {

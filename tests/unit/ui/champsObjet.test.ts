@@ -105,18 +105,18 @@ describe('la surface d une terrasse trouee, en tete de l inspecteur', () => {
   const surfaceLue = (c: ContexteChamps) => (sectionsObjet(c)[0]!.champs.find(ch => ch.cle === 'surface') as { valeur: (c: ContexteChamps) => string }).valeur(c);
 
   it('dit la surface nette, comme le champ Surface, trou dedans ou a cheval sur le bord', () => {
-    expect(titreObjet(contexte('terrasse', 'polygon', terrasse))).toMatch(/\(140\.00 m²\)$/);
+    expect(titreObjet(contexte('terrasse', 'polygon', terrasse))).toMatch(/\(140,00 m²\)$/);
     const dedans = contexte('terrasse', 'polygon', terrasse, [trou(6)]);
-    expect(titreObjet(dedans)).toMatch(/\(136\.00 m²\)$/);
+    expect(titreObjet(dedans)).toMatch(/\(136,00 m²\)$/);
     expect(surfaceLue(dedans)).toMatch(/^136\.00 m² \(ouvertures déduites : 4\.00 m²\)/);
     // A cheval sur le bord est : seule la moitie dans la terrasse est deduite.
     const aCheval = contexte('terrasse', 'polygon', terrasse, [trou(13)]);
-    expect(titreObjet(aCheval)).toMatch(/\(138\.00 m²\)$/);
+    expect(titreObjet(aCheval)).toMatch(/\(138,00 m²\)$/);
     expect(surfaceLue(aCheval)).toMatch(/^138\.00 m²/);
   });
 
   it('ne deduit rien d un objet qui n est pas une terrasse', () => {
-    expect(titreObjet(contexte('batiment', 'polygon', terrasse, [trou(6)]))).toMatch(/\(140\.00 m²\)$/);
+    expect(titreObjet(contexte('batiment', 'polygon', terrasse, [trou(6)]))).toMatch(/\(140,00 m²\)$/);
   });
 });
 

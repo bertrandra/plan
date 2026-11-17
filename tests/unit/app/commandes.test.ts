@@ -50,7 +50,7 @@ describe('registre des commandes', () => {
   it('refuse un identifiant deja pris : un geste, une commande', () => {
     const r = creerRegistre();
     r.declarer(commande('objet.dupliquer'));
-    expect(() => r.declarer(commande('objet.dupliquer'))).toThrow(/deja declaree/);
+    expect(() => r.declarer(commande('objet.dupliquer'))).toThrow(/déjà déclarée/);
   });
 
   it('execute une commande active, et rend false pour une inconnue ou une inactive', () => {
